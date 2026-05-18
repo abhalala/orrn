@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "scheme": "orrn",
+    "userInterfaceStyle": "automatic",
+    "orientation": "default",
+    "web": {
+      "bundler": "metro"
+    },
+    "name": "orrn",
+    "slug": "orrn",
+    "plugins": ["expo-font"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

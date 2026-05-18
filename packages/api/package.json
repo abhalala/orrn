@@ -1,0 +1,27 @@
+{
+  "name": "@orrn/api",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@orrn/auth": "workspace:*",
+    "@orrn/db": "workspace:*",
+    "@orrn/env": "workspace:*",
+    "@trpc/client": "catalog:",
+    "@trpc/server": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@orrn/config": "workspace:*",
+    "hono": "catalog:",
+    "typescript": "^6"
+  }
+}
