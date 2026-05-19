@@ -1,0 +1,16 @@
+{
+  "name": "@orrn/crypto",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@orrn/config": "workspace:*",
+    "typescript": "^6"
+  }
+}

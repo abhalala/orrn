@@ -1,4 +1,5 @@
 import "@/global.css";
+import { OrrnUiProvider } from "@orrn/ui";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { HeroUINativeProvider } from "heroui-native";
@@ -27,9 +28,11 @@ export default function Layout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardProvider>
           <AppThemeProvider>
-            <HeroUINativeProvider>
-              <StackLayout />
-            </HeroUINativeProvider>
+            <OrrnUiProvider defaultTheme="dark">
+              <HeroUINativeProvider>
+                <StackLayout />
+              </HeroUINativeProvider>
+            </OrrnUiProvider>
           </AppThemeProvider>
         </KeyboardProvider>
       </GestureHandlerRootView>

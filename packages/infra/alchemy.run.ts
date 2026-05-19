@@ -1,7 +1,5 @@
 import alchemy from "alchemy";
-import { Vite } from "alchemy/cloudflare";
-import { Worker } from "alchemy/cloudflare";
-import { D1Database } from "alchemy/cloudflare";
+import { D1Database, Vite, Worker } from "alchemy/cloudflare";
 import { config } from "dotenv";
 
 config({ path: "./.env" });
@@ -28,9 +26,13 @@ export const server = await Worker("server", {
   compatibility: "node",
   bindings: {
     DB: db,
+    NODE_ENV: alchemy.env.NODE_ENV ?? "development",
     CORS_ORIGIN: alchemy.env.CORS_ORIGIN!,
     BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
     BETTER_AUTH_URL: alchemy.env.BETTER_AUTH_URL!,
+    ORRN_MASTER_KEY: alchemy.secret.env.ORRN_MASTER_KEY!,
+    RESEND_API_KEY: alchemy.secret.env.RESEND_API_KEY!,
+    WEBHOOK_BASE_URL: alchemy.env.WEBHOOK_BASE_URL!,
   },
   dev: {
     port: 3000,

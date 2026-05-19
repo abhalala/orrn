@@ -8,7 +8,7 @@ export const router = t.router;
 
 export const publicProcedure = t.procedure;
 
-export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
+export const authedProcedure = t.procedure.use(({ ctx, next }) => {
   if (!ctx.session) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
@@ -23,3 +23,54 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
     },
   });
 });
+
+export const protectedProcedure = authedProcedure;
+
+export const companyProcedure = authedProcedure.use(({ ctx, next }) => {
+  if (!ctx.companyId || !ctx.membership || !ctx.role) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Company access required",
+    });
+  }
+
+  return next({
+    ctx: {
+      ...ctx,
+      companyId: ctx.companyId,
+      membership: ctx.membership,
+      role: ctx.role,
+    },
+  });
+});
+
+export const platformProcedure = authedProcedure.use(({ ctx, next }) => {
+  if (!ctx.isPlatformAdmin) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Platform admin access required",
+    });
+  }
+
+  return next({
+    ctx: {
+      ...ctx,
+      isPlatformAdmin: true,
+    },
+  });
+});
+
+type Role = NonNullable<Context["role"]>;
+
+export function roleGuard(...allowedRoles: Role[]) {
+  return companyProcedure.use(({ ctx, next }) => {
+    if (!allowedRoles.includes(ctx.role)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Insufficient permissions",
+      });
+    }
+
+    return next({ ctx });
+  });
+}

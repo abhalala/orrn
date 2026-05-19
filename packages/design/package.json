@@ -1,0 +1,22 @@
+{
+  "name": "@orrn/design",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tamagui.config": "./src/tamagui.config.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tamagui/config": "catalog:",
+    "@tamagui/core": "catalog:",
+    "tamagui": "catalog:"
+  },
+  "devDependencies": {
+    "@orrn/config": "workspace:*",
+    "typescript": "^6"
+  }
+}

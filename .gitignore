@@ -37,6 +37,10 @@ lerna-debug.log*
 .turbo
 .nx
 
+# Tamagui compiler output
+.tamagui
+apps/*/.tamagui
+
 # Better-T-Stack
 .alchemy
 
