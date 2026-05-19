@@ -13,9 +13,11 @@ import { Route as WaitlistRouteImport } from './routes/waitlist'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CustomersIndexRouteImport } from './routes/customers.index'
 import { Route as SettingsMembersRouteImport } from './routes/settings.members'
 import { Route as PlatformWaitlistRouteImport } from './routes/platform.waitlist'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as CustomersIdRouteImport } from './routes/customers.$id'
 
 const WaitlistRoute = WaitlistRouteImport.update({
   id: '/waitlist',
@@ -37,6 +39,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomersIndexRoute = CustomersIndexRouteImport.update({
+  id: '/customers/',
+  path: '/customers/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsMembersRoute = SettingsMembersRouteImport.update({
   id: '/settings/members',
   path: '/settings/members',
@@ -52,24 +59,33 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomersIdRoute = CustomersIdRouteImport.update({
+  id: '/customers/$id',
+  path: '/customers/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/waitlist': typeof WaitlistRoute
+  '/customers/$id': typeof CustomersIdRoute
   '/invite/$token': typeof InviteTokenRoute
   '/platform/waitlist': typeof PlatformWaitlistRoute
   '/settings/members': typeof SettingsMembersRoute
+  '/customers/': typeof CustomersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/waitlist': typeof WaitlistRoute
+  '/customers/$id': typeof CustomersIdRoute
   '/invite/$token': typeof InviteTokenRoute
   '/platform/waitlist': typeof PlatformWaitlistRoute
   '/settings/members': typeof SettingsMembersRoute
+  '/customers': typeof CustomersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,9 +93,11 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/waitlist': typeof WaitlistRoute
+  '/customers/$id': typeof CustomersIdRoute
   '/invite/$token': typeof InviteTokenRoute
   '/platform/waitlist': typeof PlatformWaitlistRoute
   '/settings/members': typeof SettingsMembersRoute
+  '/customers/': typeof CustomersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -88,27 +106,33 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/waitlist'
+    | '/customers/$id'
     | '/invite/$token'
     | '/platform/waitlist'
     | '/settings/members'
+    | '/customers/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/dashboard'
     | '/login'
     | '/waitlist'
+    | '/customers/$id'
     | '/invite/$token'
     | '/platform/waitlist'
     | '/settings/members'
+    | '/customers'
   id:
     | '__root__'
     | '/'
     | '/dashboard'
     | '/login'
     | '/waitlist'
+    | '/customers/$id'
     | '/invite/$token'
     | '/platform/waitlist'
     | '/settings/members'
+    | '/customers/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -116,9 +140,11 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   WaitlistRoute: typeof WaitlistRoute
+  CustomersIdRoute: typeof CustomersIdRoute
   InviteTokenRoute: typeof InviteTokenRoute
   PlatformWaitlistRoute: typeof PlatformWaitlistRoute
   SettingsMembersRoute: typeof SettingsMembersRoute
+  CustomersIndexRoute: typeof CustomersIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -151,6 +177,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customers/': {
+      id: '/customers/'
+      path: '/customers'
+      fullPath: '/customers/'
+      preLoaderRoute: typeof CustomersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/members': {
       id: '/settings/members'
       path: '/settings/members'
@@ -172,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customers/$id': {
+      id: '/customers/$id'
+      path: '/customers/$id'
+      fullPath: '/customers/$id'
+      preLoaderRoute: typeof CustomersIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -180,9 +220,11 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   WaitlistRoute: WaitlistRoute,
+  CustomersIdRoute: CustomersIdRoute,
   InviteTokenRoute: InviteTokenRoute,
   PlatformWaitlistRoute: PlatformWaitlistRoute,
   SettingsMembersRoute: SettingsMembersRoute,
+  CustomersIndexRoute: CustomersIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
