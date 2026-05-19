@@ -62,8 +62,6 @@ This file is the source of truth for current implementation orchestration.
 
 ## Future milestones
 
-- M1: Waitlist, company approval, invites, members, email adapter.
-- M2: Customers.
 - M3: Dies and server-side bulk import.
 - M4: Bundles and stock.
 - M5: Dispatch state machine.
@@ -73,9 +71,21 @@ This file is the source of truth for current implementation orchestration.
 - M9: Platform admin area.
 - M10: Native offline-first sync.
 
-## Active milestone: M1 Implementation ✅
+## Completed milestones
 
-### M1 Scope
+### M2 Customers ✅
+
+#### M2 Scope
+Full CRUD capabilities and bulk import for Customers across Web and Native platforms, fully respecting tenant isolation rules.
+
+#### M2 Deliverables
+- [x] 1. Auditing & Sequences
+- [x] 2. Customer API (tRPC)
+- [x] 3. Customer Web Views & Form
+- [x] 4. CSV Bulk Import UI
+- [x] 5. Customer Native Views & Form
+
+### M1 Implementation ✅
 Self-serve company onboarding flow: public waitlist form → platform-admin approval → owner invite email → member management UI.
 
 ### M1 Deliverables
