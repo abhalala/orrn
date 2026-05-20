@@ -62,7 +62,6 @@ This file is the source of truth for current implementation orchestration.
 
 ## Future milestones
 
-- M3: Dies and server-side bulk import.
 - M4: Bundles and stock.
 - M5: Dispatch state machine.
 - M6: Packing list snapshots and client-side exports.
@@ -72,6 +71,18 @@ This file is the source of truth for current implementation orchestration.
 - M10: Native offline-first sync.
 
 ## Completed milestones
+
+### M3 Dies ✅
+
+#### M3 Scope
+Full CRUD capabilities and bulk import for Dies across Web and Native platforms, fully respecting tenant isolation rules.
+
+#### M3 Deliverables
+- [x] 1. Structured dimensions schema
+- [x] 2. Die API (tRPC) with duplicate validation
+- [x] 3. Die Web Views & Form
+- [x] 4. CSV/JSON Bulk Import & Resolution UI
+- [x] 5. Die Native Views & Form
 
 ### M2 Customers ✅
 
