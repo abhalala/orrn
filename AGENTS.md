@@ -4,7 +4,7 @@ Instructions for AI agents working in this repository.
 
 ## Project overview
 
-ORRN is being rebuilt as a sellable multi-company ERP SaaS for manufactured inventory operations: dies, bundles, stock, label printing, dispatches, packing lists, customers, permissions, auditability, web app, and native iOS/iPadOS/Android apps.
+ORRN (domain: orrn.in) is built as a sellable multi-company ERP SaaS for manufactured inventory operations: dies, bundles, stock, label printing, dispatches, packing lists, customers, permissions, auditability, web app, and native iOS/iPadOS/Android apps. This is like a collection of ERP modules that can be setup with different tenants based on their needs.
 
 ## Stack
 
@@ -12,7 +12,7 @@ ORRN is being rebuilt as a sellable multi-company ERP SaaS for manufactured inve
 - Monorepo: Turborepo.
 - Web: Vite + React + TanStack Router + TanStack Query + tRPC client.
 - Native: Expo + React Native + expo-router.
-- Shared UI: Tamagui for both web and native.
+- Shared UI: Tamagui for both web and native (consistent branding and ui styling).
 - Server: Cloudflare Worker + Hono + tRPC v11.
 - Auth: Better Auth with email/password and Expo support.
 - Database: Cloudflare D1 / SQLite via Drizzle ORM.
