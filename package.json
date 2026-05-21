@@ -32,11 +32,12 @@
   "type": "module",
   "scripts": {
     "dev": "turbo dev",
+    "dev:local": "turbo -F @orrn/infra -F web dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
-    "dev:server": "turbo -F server dev",
+    "dev:server": "turbo -F @orrn/infra dev",
     "db:push": "turbo -F @orrn/db db:push",
     "db:generate": "turbo -F @orrn/db db:generate",
     "deploy": "turbo -F @orrn/infra deploy",

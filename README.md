@@ -26,6 +26,54 @@ First, install the dependencies:
 bun install
 ```
 
+## Local UI Review
+
+The current local review setup runs the Cloudflare Worker through Alchemy on
+`http://localhost:3000` and the Vite web app on `http://localhost:3001`.
+Alchemy must be configured locally first with `alchemy configure` or
+`alchemy login`, or by exporting Cloudflare credentials.
+
+Start both in one terminal:
+
+```bash
+bun run dev:local
+```
+
+Or start them separately:
+
+```bash
+bun run dev:server
+bun run dev:web
+```
+
+Then open [http://localhost:3001](http://localhost:3001).
+
+The checked-in local env files are already aligned for this setup:
+
+- `apps/web/.env`: `VITE_SERVER_URL=http://localhost:3000`
+- `apps/server/.env`: `BETTER_AUTH_URL=http://localhost:3000`, `CORS_ORIGIN=http://localhost:3001`
+- `apps/native/.env`: `EXPO_PUBLIC_SERVER_URL=http://localhost:3000`
+
+### Seed Demo Data
+
+For a useful M0-M5 UI walkthrough, create a local account first from the web UI
+using:
+
+- Email: `owner@orrn.local`
+- Password: any valid local password
+
+Then seed the demo tenant and inventory data:
+
+```bash
+curl -X POST http://localhost:3000/dev/seed \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"owner@orrn.local"}'
+```
+
+The dev seed route is only mounted when `NODE_ENV=development`. It attaches the
+local user to an active demo company and creates customers, dies, receipt
+bundles, stock, and draft/reserved/completed dispatches for UI review.
+
 ## Database Setup
 
 This project uses SQLite with Drizzle ORM.
@@ -47,7 +95,7 @@ Then, run the development server:
 bun run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser to see the web application.
+Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
 Use the Expo Go app to run the mobile application.
 The API is running at [http://localhost:3000](http://localhost:3000).
 
@@ -104,6 +152,7 @@ orrn/
 ## Available Scripts
 
 - `bun run dev`: Start all applications in development mode
+- `bun run dev:local`: Start the local Worker and web UI for browser review
 - `bun run build`: Build all applications
 - `bun run dev:web`: Start only the web application
 - `bun run dev:server`: Start only the server
