@@ -2,7 +2,69 @@
 
 This file is the source of truth for current implementation orchestration.
 
-## Active milestone: M0 Foundation ✅
+## Active milestone: M5 Dispatch State Machine ✅
+
+### M5 Scope
+Atomic dispatch lifecycle (`draft -> reserved -> completed/cancelled`) with synchronized bundle status transitions (`available <-> reserved -> dispatched`), customer linkage, dispatch code auto-gen, Web/Native parity, and an audit-derived activity timeline. The bundle state machine in M4 stays intact: `reserved`/`dispatched` transitions are owned exclusively by the dispatch flow.
+
+### M5 Deliverables
+- [x] 1. Schema: `bundle_company_dispatch_idx` index + migration `0002_nebulous_zarda.sql`
+- [x] 2. Dispatch tRPC router (`create`, `listDispatches`, `getDispatch`, `update`, `addBundle`, `addBundlesBySerial`, `removeBundle`, `reserve`, `unreserve`, `complete`, `cancel`, `softDelete`) with atomic bundle transitions, audit, and sequence on every mutation
+- [x] 3. Bundle router: `getBundle` returns `activeDispatch` when status is `reserved` or `dispatched`
+- [x] 4. Web: `/dispatches`, `/dispatches/new`, `/dispatches/$id` with status-aware action bar, serial search + paste composers, items table, activity timeline. Bundle detail page links to active dispatch.
+- [x] 5. Native: `dispatches/index`, `dispatches/new`, `dispatches/[id]` with scan-serial workflow + status-aware actions and confirmations
+- [x] 6. Nav: web header now has `Dispatches`; native drawer has `Dispatches` (MaterialIcons local-shipping)
+- [x] 7. Auto-generated dispatch codes: `DSP-{6-digit serverSeq}` via existing `nextCompanySeq`
+
+### M5 API Additions
+- `dispatch.create({ customerId, shipDate?, notes? })` — draft + auto code
+- `dispatch.listDispatches({ search?, status?, customerId?, limit, offset })` — paginated with per-row item/quantity/weight aggregates
+- `dispatch.getDispatch({ id })` — header + items (joined to bundle/die) + recent audit events
+- `dispatch.update({ id, ... })` — only when status is `draft`
+- `dispatch.addBundle({ id, bundleId })` — only `draft`/`reserved`; reserves the new bundle atomically if dispatch is already reserved
+- `dispatch.addBundlesBySerial({ id, serials[] })` — bulk add via scan/paste workflow
+- `dispatch.removeBundle({ id, bundleId })` — only `draft`/`reserved`; releases the bundle atomically if dispatch is reserved
+- `dispatch.reserve({ id })` — `draft -> reserved` with bulk bundle `available -> reserved`
+- `dispatch.unreserve({ id })` — inverse of reserve
+- `dispatch.complete({ id })` — `reserved -> completed` with bulk bundle `reserved -> dispatched`, sets `completedBy/completedAt`
+- `dispatch.cancel({ id, reason? })` — `draft/reserved -> cancelled`; releases reserved bundles back to `available`
+- `dispatch.softDelete({ id })` — only `draft`/`cancelled`, sets `deletedAt`
+
+### M5 State Machines
+
+Dispatch:
+- `draft -> reserved | cancelled`
+- `reserved -> draft | completed | cancelled`
+- `completed` and `cancelled` are terminal
+
+Bundle (driven exclusively by dispatch actions in M5):
+- On `reserve` / `addBundle(reserved)` : `available -> reserved`, `currentDispatchId = dispatch.id`
+- On `unreserve` / `removeBundle(reserved)` / `cancel(from reserved)` : `reserved -> available`, `currentDispatchId = null`
+- On `complete` : `reserved -> dispatched`
+- M4's `bundle.transitionStatus` still only permits `available <-> void` — manual reserved/dispatched transitions are rejected
+
+### M5 Testing
+- Create dispatch + 3 bundles -> Reserve -> verify all bundles `reserved` + `currentDispatchId` set + 3 `bundle_status_event` rows with `dispatchId`
+- Unreserve -> bundles back to `available`, `currentDispatchId` cleared
+- Reserve -> Complete -> bundles `dispatched`, `dispatch.completedBy/At` populated
+- Adding a `reserved` bundle to a different dispatch -> 409 `Bundle not available`
+- `bundle.transitionStatus({ to: "reserved" })` -> 400 (M4 invariant preserved)
+- All routes derive `companyId` from server context; no cross-tenant disclosure
+
+## Completed milestone: M4 Bundles and Stock ✅
+
+### M4 Scope
+Production-Receipt-based bundle creation with auto-generated codes/serials, an M4-scope status state machine (`available` ↔ `void`), filterable bundle list/detail with status timeline, aggregated Stock view, and CSV/JSON bulk import via the receipt form. Web/Native parity throughout.
+
+### M4 Deliverables
+- [x] 1. Schema additions: `bundle_group.code` + 3 indexes + migration `0001_normal_gauntlet.sql`
+- [x] 2. Bundle tRPC router (`createReceipt`, `listGroups`, `getGroup`, `listBundles`, `getBundle`, `transitionStatus`, `stockSummary`)
+- [x] 3. Web: `/bundles`, `/bundles/$id`, `/receipts`, `/receipts/new`, `/receipts/$id`, `/stock`
+- [x] 4. Native: `bundles/index`, `bundles/[id]`, `receipts/index`, `receipts/new`, `receipts/[id]`, `stock/index`
+- [x] 5. Auto-generated codes: `bundleGroup.code = BG-{6-digit serverSeq}`; `bundle.serial = {groupCode}-B{3-digit row idx}`
+- [x] 6. State machine: M4 supports `available` ↔ `void`. Reserved/dispatched transitions reserved for M5.
+
+## Completed milestone: M0 Foundation ✅
 
 - [x] Resolve product and architecture ambiguities.
 - [x] Confirm stack: Bun/Turborepo, Vite React web, Expo native, Hono/tRPC Worker, Drizzle + D1, Better Auth, Tamagui, Alchemy.
@@ -62,8 +124,6 @@ This file is the source of truth for current implementation orchestration.
 
 ## Future milestones
 
-- M4: Bundles and stock.
-- M5: Dispatch state machine.
 - M6: Packing list snapshots and client-side exports.
 - M7: Printing via orrn-spool.
 - M8: Audit log viewer and retention settings.

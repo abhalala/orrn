@@ -11,6 +11,7 @@ export default function Header() {
     { to: "/dies", label: "Dies" },
     { to: "/receipts", label: "Receipts" },
     { to: "/bundles", label: "Bundles" },
+    { to: "/dispatches", label: "Dispatches" },
     { to: "/stock", label: "Stock" },
   ] as const;
 

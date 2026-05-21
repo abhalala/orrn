@@ -15,6 +15,13 @@
       "when": 1779298610804,
       "tag": "0001_normal_gauntlet",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779302600408,
+      "tag": "0002_nebulous_zarda",
+      "breakpoints": true
     }
   ]
 }

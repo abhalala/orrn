@@ -67,6 +67,7 @@ export const bundle = sqliteTable(
     index("bundle_company_server_seq_idx").on(table.companyId, table.serverSeq),
     index("bundle_company_group_idx").on(table.companyId, table.groupId),
     index("bundle_company_status_die_idx").on(table.companyId, table.status, table.dieId),
+    index("bundle_company_dispatch_idx").on(table.companyId, table.currentDispatchId),
   ],
 );
 

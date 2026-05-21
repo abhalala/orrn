@@ -15,6 +15,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StockIndexRouteImport } from './routes/stock.index'
 import { Route as ReceiptsIndexRouteImport } from './routes/receipts.index'
+import { Route as DispatchesIndexRouteImport } from './routes/dispatches.index'
 import { Route as DiesIndexRouteImport } from './routes/dies.index'
 import { Route as CustomersIndexRouteImport } from './routes/customers.index'
 import { Route as BundlesIndexRouteImport } from './routes/bundles.index'
@@ -23,6 +24,8 @@ import { Route as ReceiptsNewRouteImport } from './routes/receipts.new'
 import { Route as ReceiptsIdRouteImport } from './routes/receipts.$id'
 import { Route as PlatformWaitlistRouteImport } from './routes/platform.waitlist'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as DispatchesNewRouteImport } from './routes/dispatches.new'
+import { Route as DispatchesIdRouteImport } from './routes/dispatches.$id'
 import { Route as DiesIdRouteImport } from './routes/dies.$id'
 import { Route as CustomersIdRouteImport } from './routes/customers.$id'
 import { Route as BundlesIdRouteImport } from './routes/bundles.$id'
@@ -55,6 +58,11 @@ const StockIndexRoute = StockIndexRouteImport.update({
 const ReceiptsIndexRoute = ReceiptsIndexRouteImport.update({
   id: '/receipts/',
   path: '/receipts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DispatchesIndexRoute = DispatchesIndexRouteImport.update({
+  id: '/dispatches/',
+  path: '/dispatches/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DiesIndexRoute = DiesIndexRouteImport.update({
@@ -97,6 +105,16 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DispatchesNewRoute = DispatchesNewRouteImport.update({
+  id: '/dispatches/new',
+  path: '/dispatches/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DispatchesIdRoute = DispatchesIdRouteImport.update({
+  id: '/dispatches/$id',
+  path: '/dispatches/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DiesIdRoute = DiesIdRouteImport.update({
   id: '/dies/$id',
   path: '/dies/$id',
@@ -121,6 +139,8 @@ export interface FileRoutesByFullPath {
   '/bundles/$id': typeof BundlesIdRoute
   '/customers/$id': typeof CustomersIdRoute
   '/dies/$id': typeof DiesIdRoute
+  '/dispatches/$id': typeof DispatchesIdRoute
+  '/dispatches/new': typeof DispatchesNewRoute
   '/invite/$token': typeof InviteTokenRoute
   '/platform/waitlist': typeof PlatformWaitlistRoute
   '/receipts/$id': typeof ReceiptsIdRoute
@@ -129,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/bundles/': typeof BundlesIndexRoute
   '/customers/': typeof CustomersIndexRoute
   '/dies/': typeof DiesIndexRoute
+  '/dispatches/': typeof DispatchesIndexRoute
   '/receipts/': typeof ReceiptsIndexRoute
   '/stock/': typeof StockIndexRoute
 }
@@ -140,6 +161,8 @@ export interface FileRoutesByTo {
   '/bundles/$id': typeof BundlesIdRoute
   '/customers/$id': typeof CustomersIdRoute
   '/dies/$id': typeof DiesIdRoute
+  '/dispatches/$id': typeof DispatchesIdRoute
+  '/dispatches/new': typeof DispatchesNewRoute
   '/invite/$token': typeof InviteTokenRoute
   '/platform/waitlist': typeof PlatformWaitlistRoute
   '/receipts/$id': typeof ReceiptsIdRoute
@@ -148,6 +171,7 @@ export interface FileRoutesByTo {
   '/bundles': typeof BundlesIndexRoute
   '/customers': typeof CustomersIndexRoute
   '/dies': typeof DiesIndexRoute
+  '/dispatches': typeof DispatchesIndexRoute
   '/receipts': typeof ReceiptsIndexRoute
   '/stock': typeof StockIndexRoute
 }
@@ -160,6 +184,8 @@ export interface FileRoutesById {
   '/bundles/$id': typeof BundlesIdRoute
   '/customers/$id': typeof CustomersIdRoute
   '/dies/$id': typeof DiesIdRoute
+  '/dispatches/$id': typeof DispatchesIdRoute
+  '/dispatches/new': typeof DispatchesNewRoute
   '/invite/$token': typeof InviteTokenRoute
   '/platform/waitlist': typeof PlatformWaitlistRoute
   '/receipts/$id': typeof ReceiptsIdRoute
@@ -168,6 +194,7 @@ export interface FileRoutesById {
   '/bundles/': typeof BundlesIndexRoute
   '/customers/': typeof CustomersIndexRoute
   '/dies/': typeof DiesIndexRoute
+  '/dispatches/': typeof DispatchesIndexRoute
   '/receipts/': typeof ReceiptsIndexRoute
   '/stock/': typeof StockIndexRoute
 }
@@ -181,6 +208,8 @@ export interface FileRouteTypes {
     | '/bundles/$id'
     | '/customers/$id'
     | '/dies/$id'
+    | '/dispatches/$id'
+    | '/dispatches/new'
     | '/invite/$token'
     | '/platform/waitlist'
     | '/receipts/$id'
@@ -189,6 +218,7 @@ export interface FileRouteTypes {
     | '/bundles/'
     | '/customers/'
     | '/dies/'
+    | '/dispatches/'
     | '/receipts/'
     | '/stock/'
   fileRoutesByTo: FileRoutesByTo
@@ -200,6 +230,8 @@ export interface FileRouteTypes {
     | '/bundles/$id'
     | '/customers/$id'
     | '/dies/$id'
+    | '/dispatches/$id'
+    | '/dispatches/new'
     | '/invite/$token'
     | '/platform/waitlist'
     | '/receipts/$id'
@@ -208,6 +240,7 @@ export interface FileRouteTypes {
     | '/bundles'
     | '/customers'
     | '/dies'
+    | '/dispatches'
     | '/receipts'
     | '/stock'
   id:
@@ -219,6 +252,8 @@ export interface FileRouteTypes {
     | '/bundles/$id'
     | '/customers/$id'
     | '/dies/$id'
+    | '/dispatches/$id'
+    | '/dispatches/new'
     | '/invite/$token'
     | '/platform/waitlist'
     | '/receipts/$id'
@@ -227,6 +262,7 @@ export interface FileRouteTypes {
     | '/bundles/'
     | '/customers/'
     | '/dies/'
+    | '/dispatches/'
     | '/receipts/'
     | '/stock/'
   fileRoutesById: FileRoutesById
@@ -239,6 +275,8 @@ export interface RootRouteChildren {
   BundlesIdRoute: typeof BundlesIdRoute
   CustomersIdRoute: typeof CustomersIdRoute
   DiesIdRoute: typeof DiesIdRoute
+  DispatchesIdRoute: typeof DispatchesIdRoute
+  DispatchesNewRoute: typeof DispatchesNewRoute
   InviteTokenRoute: typeof InviteTokenRoute
   PlatformWaitlistRoute: typeof PlatformWaitlistRoute
   ReceiptsIdRoute: typeof ReceiptsIdRoute
@@ -247,6 +285,7 @@ export interface RootRouteChildren {
   BundlesIndexRoute: typeof BundlesIndexRoute
   CustomersIndexRoute: typeof CustomersIndexRoute
   DiesIndexRoute: typeof DiesIndexRoute
+  DispatchesIndexRoute: typeof DispatchesIndexRoute
   ReceiptsIndexRoute: typeof ReceiptsIndexRoute
   StockIndexRoute: typeof StockIndexRoute
 }
@@ -295,6 +334,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReceiptsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dispatches/': {
+      id: '/dispatches/'
+      path: '/dispatches'
+      fullPath: '/dispatches/'
+      preLoaderRoute: typeof DispatchesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dies/': {
@@ -353,8 +397,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dispatches/new': {
+      id: '/dispatches/new'
+      path: '/dispatches/new'
+      fullPath: '/dispatches/new'
+      preLoaderRoute: typeof DispatchesNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dispatches/$id': {
+      id: '/dispatches/$id'
+      path: '/dispatches/$id'
+      fullPath: '/dispatches/$id'
+      preLoaderRoute: typeof DispatchesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dies/$id': {
@@ -389,6 +443,8 @@ const rootRouteChildren: RootRouteChildren = {
   BundlesIdRoute: BundlesIdRoute,
   CustomersIdRoute: CustomersIdRoute,
   DiesIdRoute: DiesIdRoute,
+  DispatchesIdRoute: DispatchesIdRoute,
+  DispatchesNewRoute: DispatchesNewRoute,
   InviteTokenRoute: InviteTokenRoute,
   PlatformWaitlistRoute: PlatformWaitlistRoute,
   ReceiptsIdRoute: ReceiptsIdRoute,
@@ -397,6 +453,7 @@ const rootRouteChildren: RootRouteChildren = {
   BundlesIndexRoute: BundlesIndexRoute,
   CustomersIndexRoute: CustomersIndexRoute,
   DiesIndexRoute: DiesIndexRoute,
+  DispatchesIndexRoute: DispatchesIndexRoute,
   ReceiptsIndexRoute: ReceiptsIndexRoute,
   StockIndexRoute: StockIndexRoute,
 }

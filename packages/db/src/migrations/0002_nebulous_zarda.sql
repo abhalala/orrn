@@ -1,0 +1,1 @@
+CREATE INDEX `bundle_company_dispatch_idx` ON `bundle` (`company_id`,`current_dispatch_id`);

@@ -98,6 +98,22 @@ function DrawerLayout() {
         }}
       />
       <Drawer.Screen
+        name="dispatches"
+        options={{
+          headerShown: false,
+          drawerLabel: ({ color, focused }) => (
+            <Text style={{ color: focused ? color : themeColorForeground }}>Dispatches</Text>
+          ),
+          drawerIcon: ({ size, color, focused }) => (
+            <MaterialIcons
+              name="local-shipping"
+              size={size}
+              color={focused ? color : themeColorForeground}
+            />
+          ),
+        }}
+      />
+      <Drawer.Screen
         name="stock"
         options={{
           headerShown: false,
