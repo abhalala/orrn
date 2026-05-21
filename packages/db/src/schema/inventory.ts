@@ -17,6 +17,7 @@ export const bundleGroup = sqliteTable(
       .notNull()
       .references(() => company.id, { onDelete: "cascade" }),
     serverSeq: integer("server_seq").notNull().default(0),
+    code: text("code").notNull(),
     dieId: text("die_id")
       .notNull()
       .references(() => die.id, { onDelete: "restrict" }),
@@ -28,8 +29,10 @@ export const bundleGroup = sqliteTable(
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
   },
   (table) => [
+    uniqueIndex("bundle_group_company_code_unique").on(table.companyId, table.code),
     index("bundle_group_company_die_idx").on(table.companyId, table.dieId),
     index("bundle_group_company_server_seq_idx").on(table.companyId, table.serverSeq),
+    index("bundle_group_company_created_idx").on(table.companyId, table.createdAt),
   ],
 );
 
@@ -62,6 +65,8 @@ export const bundle = sqliteTable(
     index("bundle_company_status_idx").on(table.companyId, table.status),
     index("bundle_company_die_idx").on(table.companyId, table.dieId),
     index("bundle_company_server_seq_idx").on(table.companyId, table.serverSeq),
+    index("bundle_company_group_idx").on(table.companyId, table.groupId),
+    index("bundle_company_status_die_idx").on(table.companyId, table.status, table.dieId),
   ],
 );
 

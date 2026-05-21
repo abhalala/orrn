@@ -65,6 +65,54 @@ function DrawerLayout() {
           ),
         }}
       />
+      <Drawer.Screen
+        name="receipts"
+        options={{
+          headerShown: false,
+          drawerLabel: ({ color, focused }) => (
+            <Text style={{ color: focused ? color : themeColorForeground }}>Receipts</Text>
+          ),
+          drawerIcon: ({ size, color, focused }) => (
+            <MaterialIcons
+              name="receipt-long"
+              size={size}
+              color={focused ? color : themeColorForeground}
+            />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="bundles"
+        options={{
+          headerShown: false,
+          drawerLabel: ({ color, focused }) => (
+            <Text style={{ color: focused ? color : themeColorForeground }}>Bundles</Text>
+          ),
+          drawerIcon: ({ size, color, focused }) => (
+            <MaterialIcons
+              name="inventory-2"
+              size={size}
+              color={focused ? color : themeColorForeground}
+            />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="stock"
+        options={{
+          headerShown: false,
+          drawerLabel: ({ color, focused }) => (
+            <Text style={{ color: focused ? color : themeColorForeground }}>Stock</Text>
+          ),
+          drawerIcon: ({ size, color, focused }) => (
+            <MaterialIcons
+              name="warehouse"
+              size={size}
+              color={focused ? color : themeColorForeground}
+            />
+          ),
+        }}
+      />
     </Drawer>
   );
 }

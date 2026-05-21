@@ -4,6 +4,8 @@ import { platformRouter } from "./platform";
 import { companyRouter } from "./company";
 import { inviteRouter } from "./invite";
 import { customerRouter } from "./customer";
+import { dieRouter } from "./die";
+import { bundleRouter } from "./bundle";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -20,5 +22,7 @@ export const appRouter = router({
   company: companyRouter,
   invite: inviteRouter,
   customer: customerRouter,
+  die: dieRouter,
+  bundle: bundleRouter,
 });
 export type AppRouter = typeof appRouter;
