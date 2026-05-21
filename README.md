@@ -74,6 +74,26 @@ The dev seed route is only mounted when `NODE_ENV=development`. It attaches the
 local user to an active demo company and creates customers, dies, receipt
 bundles, stock, and draft/reserved/completed dispatches for UI review.
 
+## Dev Deployment
+
+Pushes to `main` deploy the dev environment through GitHub Actions:
+
+- Web: `https://dev.orrn.app`
+- API/Auth: `https://api.dev.orrn.app`
+
+Configure the GitHub `dev` environment with these secrets:
+
+- `CLOUDFLARE_API_TOKEN`
+- `ALCHEMY_PASSWORD`
+- `ALCHEMY_STATE_TOKEN`
+- `BETTER_AUTH_SECRET`
+- `ORRN_MASTER_KEY`
+
+Optional secrets/vars:
+
+- `RESEND_API_KEY`
+- `WEBHOOK_BASE_URL`
+
 ## Database Setup
 
 This project uses SQLite with Drizzle ORM.

@@ -1,0 +1,48 @@
+name: Deploy Dev
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy dev.orrn.app
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
+      ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
+      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      ORRN_MASTER_KEY: ${{ secrets.ORRN_MASTER_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      WEBHOOK_BASE_URL: ${{ vars.WEBHOOK_BASE_URL }}
+      WEB_DOMAIN: dev.orrn.app
+      API_DOMAIN: api.dev.orrn.app
+      VITE_SERVER_URL: https://api.dev.orrn.app
+      BETTER_AUTH_URL: https://api.dev.orrn.app
+      CORS_ORIGIN: https://dev.orrn.app
+      NODE_ENV: development
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check types
+        run: bun run check-types
+
+      - name: Deploy dev
+        run: bun run deploy:dev

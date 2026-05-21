@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "alchemy dev",
     "deploy": "alchemy deploy",
+    "deploy:dev": "alchemy deploy --stage dev --adopt",
     "destroy": "alchemy destroy"
   },
   "dependencies": {

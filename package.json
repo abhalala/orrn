@@ -32,7 +32,7 @@
   "type": "module",
   "scripts": {
     "dev": "turbo dev",
-    "dev:local": "turbo -F @orrn/infra -F web dev",
+    "dev:local": "turbo -F @orrn/infra dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
     "dev:native": "turbo -F native dev",
@@ -41,6 +41,7 @@
     "db:push": "turbo -F @orrn/db db:push",
     "db:generate": "turbo -F @orrn/db db:generate",
     "deploy": "turbo -F @orrn/infra deploy",
+    "deploy:dev": "turbo -F @orrn/infra deploy:dev",
     "destroy": "turbo -F @orrn/infra destroy"
   },
   "dependencies": {
