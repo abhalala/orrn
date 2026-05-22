@@ -35,9 +35,11 @@ export default function Home() {
           <Text className="text-muted text-sm mb-4">{session.user.email}</Text>
           <Pressable
             className="bg-danger py-3 px-4 rounded-lg self-start active:opacity-70"
-            onPress={() => {
-              authClient.signOut();
-              queryClient.invalidateQueries();
+            onPress={async () => {
+              await authClient.signOut();
+              // Drop ALL cached data so a different user on this device
+              // doesn't see the previous tenant's lists.
+              queryClient.clear();
             }}
           >
             <Text className="text-foreground font-medium">Sign Out</Text>
