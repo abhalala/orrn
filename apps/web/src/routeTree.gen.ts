@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WaitlistRouteImport } from './routes/waitlist'
+import { Route as NoAccessRouteImport } from './routes/no-access'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
@@ -33,6 +34,11 @@ import { Route as BundlesIdRouteImport } from './routes/bundles.$id'
 const WaitlistRoute = WaitlistRouteImport.update({
   id: '/waitlist',
   path: '/waitlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NoAccessRoute = NoAccessRouteImport.update({
+  id: '/no-access',
+  path: '/no-access',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/no-access': typeof NoAccessRoute
   '/waitlist': typeof WaitlistRoute
   '/bundles/$id': typeof BundlesIdRoute
   '/customers/$id': typeof CustomersIdRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/no-access': typeof NoAccessRoute
   '/waitlist': typeof WaitlistRoute
   '/bundles/$id': typeof BundlesIdRoute
   '/customers/$id': typeof CustomersIdRoute
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/no-access': typeof NoAccessRoute
   '/waitlist': typeof WaitlistRoute
   '/bundles/$id': typeof BundlesIdRoute
   '/customers/$id': typeof CustomersIdRoute
@@ -204,6 +213,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/login'
+    | '/no-access'
     | '/waitlist'
     | '/bundles/$id'
     | '/customers/$id'
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/login'
+    | '/no-access'
     | '/waitlist'
     | '/bundles/$id'
     | '/customers/$id'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/login'
+    | '/no-access'
     | '/waitlist'
     | '/bundles/$id'
     | '/customers/$id'
@@ -271,6 +283,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
+  NoAccessRoute: typeof NoAccessRoute
   WaitlistRoute: typeof WaitlistRoute
   BundlesIdRoute: typeof BundlesIdRoute
   CustomersIdRoute: typeof CustomersIdRoute
@@ -297,6 +310,13 @@ declare module '@tanstack/react-router' {
       path: '/waitlist'
       fullPath: '/waitlist'
       preLoaderRoute: typeof WaitlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/no-access': {
+      id: '/no-access'
+      path: '/no-access'
+      fullPath: '/no-access'
+      preLoaderRoute: typeof NoAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -439,6 +459,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
+  NoAccessRoute: NoAccessRoute,
   WaitlistRoute: WaitlistRoute,
   BundlesIdRoute: BundlesIdRoute,
   CustomersIdRoute: CustomersIdRoute,

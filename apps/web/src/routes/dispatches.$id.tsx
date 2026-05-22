@@ -8,12 +8,15 @@ import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
+import { Can } from "@/components/can";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 const dispatchStatuses = ["draft", "reserved", "completed", "cancelled"] as const;
 type DispatchStatus = (typeof dispatchStatuses)[number];
 
 export const Route = createFileRoute("/dispatches/$id")({
   component: DispatchDetailComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 function statusBadgeClass(status: DispatchStatus | string): string {
@@ -203,57 +206,66 @@ function DispatchDetailComponent() {
       <div className="bg-card border rounded-lg p-6 space-y-3">
         <h2 className="text-lg font-semibold">Actions</h2>
         <div className="flex flex-wrap gap-2">
-          <Button
-            disabled={!canReserve || reserveMutation.isPending}
-            onClick={() => reserveMutation.mutate({ id })}
-          >
-            Reserve
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!canUnreserve || unreserveMutation.isPending}
-            onClick={() => unreserveMutation.mutate({ id })}
-          >
-            Unreserve
-          </Button>
-          <Button
-            disabled={!canComplete || completeMutation.isPending}
-            onClick={() => {
-              if (window.confirm("Complete this dispatch? Bundles will be marked as dispatched.")) {
-                completeMutation.mutate({ id });
-              }
-            }}
-          >
-            Complete
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={!canCancel || cancelMutation.isPending}
-            onClick={() => {
-              if (window.confirm("Cancel this dispatch?")) {
-                cancelMutation.mutate({ id, reason: null });
-              }
-            }}
-          >
-            Cancel
-          </Button>
-          {canDelete && (
+          <Can do="dispatch.reserve">
             <Button
-              variant="ghost"
-              disabled={deleteMutation.isPending}
+              disabled={!canReserve || reserveMutation.isPending}
+              onClick={() => reserveMutation.mutate({ id })}
+            >
+              Reserve
+            </Button>
+            <Button
+              variant="outline"
+              disabled={!canUnreserve || unreserveMutation.isPending}
+              onClick={() => unreserveMutation.mutate({ id })}
+            >
+              Unreserve
+            </Button>
+          </Can>
+          <Can do="dispatch.complete">
+            <Button
+              disabled={!canComplete || completeMutation.isPending}
               onClick={() => {
-                if (window.confirm("Delete this dispatch permanently from active views?")) {
-                  deleteMutation.mutate({ id });
+                if (window.confirm("Complete this dispatch? Bundles will be marked as dispatched.")) {
+                  completeMutation.mutate({ id });
                 }
               }}
             >
-              Delete
+              Complete
             </Button>
+          </Can>
+          <Can do="dispatch.cancel">
+            <Button
+              variant="destructive"
+              disabled={!canCancel || cancelMutation.isPending}
+              onClick={() => {
+                if (window.confirm("Cancel this dispatch?")) {
+                  cancelMutation.mutate({ id, reason: null });
+                }
+              }}
+            >
+              Cancel
+            </Button>
+          </Can>
+          {canDelete && (
+            <Can do="dispatch.delete">
+              <Button
+                variant="ghost"
+                disabled={deleteMutation.isPending}
+                onClick={() => {
+                  if (window.confirm("Delete this dispatch permanently from active views?")) {
+                    deleteMutation.mutate({ id });
+                  }
+                }}
+              >
+                Delete
+              </Button>
+            </Can>
           )}
         </div>
       </div>
 
       {canAddOrRemove && (
+        <Can do="dispatch.addBundle">
         <div className="bg-card border rounded-lg p-6 space-y-4">
           <h2 className="text-lg font-semibold">Add bundles</h2>
           <div className="space-y-2">
@@ -323,6 +335,7 @@ function DispatchDetailComponent() {
             </Button>
           </div>
         </div>
+        </Can>
       )}
 
       <div className="bg-card border rounded-lg overflow-hidden">

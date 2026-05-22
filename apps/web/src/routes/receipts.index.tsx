@@ -6,9 +6,12 @@ import { format } from "date-fns";
 import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
+import { Can } from "@/components/can";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/receipts/")({
   component: ReceiptsListComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 function ReceiptsListComponent() {
@@ -27,9 +30,11 @@ function ReceiptsListComponent() {
             Production receipts (bundle groups) — {data?.total ?? 0} total
           </p>
         </div>
-        <Link to="/receipts/new">
-          <Button>New Production Receipt</Button>
-        </Link>
+        <Can do="receipt.create">
+          <Link to="/receipts/new">
+            <Button>New Production Receipt</Button>
+          </Link>
+        </Can>
       </div>
 
       <div className="flex items-center space-x-2">

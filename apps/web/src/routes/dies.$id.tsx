@@ -8,11 +8,14 @@ import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
+import { Can } from "@/components/can";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 const dieStatuses = ["active", "archived"] as const;
 
 export const Route = createFileRoute("/dies/$id")({
   component: DieFormComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 function DieFormComponent() {
@@ -111,9 +114,11 @@ function DieFormComponent() {
           <h1 className="text-3xl font-bold">{isNew ? "New Die" : "Edit Die"}</h1>
         </div>
         {!isNew && (
-          <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
-            Delete
-          </Button>
+          <Can do="die.delete">
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
+              Delete
+            </Button>
+          </Can>
         )}
       </div>
 
@@ -300,15 +305,17 @@ function DieFormComponent() {
           <Button variant="outline" type="button" onClick={() => navigate({ to: "/dies" })}>
             Cancel
           </Button>
-          <form.Subscribe
-            selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
-          >
-            {({ canSubmit }) => (
-              <Button type="submit" disabled={!canSubmit || createMutation.isPending || updateMutation.isPending}>
-                {createMutation.isPending || updateMutation.isPending ? "Saving..." : "Save Die"}
-              </Button>
-            )}
-          </form.Subscribe>
+          <Can do={isNew ? "die.create" : "die.update"}>
+            <form.Subscribe
+              selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
+            >
+              {({ canSubmit }) => (
+                <Button type="submit" disabled={!canSubmit || createMutation.isPending || updateMutation.isPending}>
+                  {createMutation.isPending || updateMutation.isPending ? "Saving..." : "Save Die"}
+                </Button>
+              )}
+            </form.Subscribe>
+          </Can>
         </div>
       </form>
     </div>

@@ -7,13 +7,21 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { format } from "date-fns";
 
+import { Can } from "@/components/can";
+import { useMe } from "@/lib/me";
+import { can } from "@/lib/me";
+import { requireCompanyMe } from "@/lib/route-guards";
+
 const companyRoles = ["owner", "admin", "manager", "operator", "viewer"] as const;
 
 export const Route = createFileRoute("/settings/members")({
   component: MembersComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 function MembersComponent() {
+  const { data: me } = useMe();
+  const canManageMembers = can(me, "member.updateRole");
   const { data: members, isLoading, refetch } = useQuery(trpc.company.membersList.queryOptions());
   const { data: invites, refetch: refetchInvites } = useQuery(trpc.invite.list.queryOptions());
   
@@ -74,33 +82,35 @@ function MembersComponent() {
         <p className="text-muted-foreground">Manage your team members and roles.</p>
       </div>
 
-      <div className="p-6 border rounded-md bg-card space-y-4">
-        <h2 className="text-xl font-semibold">Invite Member</h2>
-        <div className="flex items-center gap-4">
-          <Input 
-            placeholder="Email address" 
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="max-w-sm"
-          />
-          <select 
-            value={role} 
-            onChange={(e) => setRole(e.target.value as any)}
-            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-[150px]"
-          >
-            {companyRoles.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-          <Button 
-            onClick={() => inviteMutation.mutate({ email, role })}
-            disabled={!email || inviteMutation.isPending}
-          >
-            Send Invite
-          </Button>
+      <Can do="member.invite">
+        <div className="p-6 border rounded-md bg-card space-y-4">
+          <h2 className="text-xl font-semibold">Invite Member</h2>
+          <div className="flex items-center gap-4">
+            <Input
+              placeholder="Email address"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="max-w-sm"
+            />
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as any)}
+              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-[150px]"
+            >
+              {companyRoles.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+            <Button
+              onClick={() => inviteMutation.mutate({ email, role })}
+              disabled={!email || inviteMutation.isPending}
+            >
+              Send Invite
+            </Button>
+          </div>
         </div>
-      </div>
+      </Can>
 
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Pending Invites</h2>
@@ -130,15 +140,17 @@ function MembersComponent() {
                       {format(new Date(invite.expiresAt), "MMM d, yyyy")}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => revokeMutation.mutate({ inviteId: invite.id })}
-                        disabled={revokeMutation.isPending}
-                      >
-                        Revoke
-                      </Button>
+                      <Can do="member.invite">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => revokeMutation.mutate({ inviteId: invite.id })}
+                          disabled={revokeMutation.isPending}
+                        >
+                          Revoke
+                        </Button>
+                      </Can>
                     </td>
                   </tr>
                 ))
@@ -167,30 +179,36 @@ function MembersComponent() {
                   <td className="px-4 py-3 font-medium">{member.user.name}</td>
                   <td className="px-4 py-3">{member.user.email}</td>
                   <td className="px-4 py-3">
-                    <select 
-                      value={member.role} 
-                      onChange={(e) => updateRoleMutation.mutate({ membershipId: member.id, role: e.target.value as any })}
-                      className="bg-transparent border-none p-0 focus:ring-0 cursor-pointer capitalize"
-                      disabled={updateRoleMutation.isPending}
-                    >
-                      {companyRoles.map((r) => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
+                    {canManageMembers ? (
+                      <select
+                        value={member.role}
+                        onChange={(e) => updateRoleMutation.mutate({ membershipId: member.id, role: e.target.value as any })}
+                        className="bg-transparent border-none p-0 focus:ring-0 cursor-pointer capitalize"
+                        disabled={updateRoleMutation.isPending}
+                      >
+                        {companyRoles.map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="capitalize">{member.role}</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {format(new Date(member.createdAt), "MMM d, yyyy")}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => removeMutation.mutate({ membershipId: member.id })}
-                      disabled={removeMutation.isPending}
-                    >
-                      Remove
-                    </Button>
+                    <Can do="member.remove">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => removeMutation.mutate({ membershipId: member.id })}
+                        disabled={removeMutation.isPending}
+                      >
+                        Remove
+                      </Button>
+                    </Can>
                   </td>
                 </tr>
               ))}

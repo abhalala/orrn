@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/stock/")({
   validateSearch: (search: Record<string, unknown>) => ({
     status: (search.status as BundleStatus | undefined) ?? "available",
   }),
+  beforeLoad: requireCompanyMe,
 });
 
 function StockComponent() {

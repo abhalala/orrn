@@ -7,9 +7,12 @@ import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
 import { ImportDiesModal } from "@/components/import-dies-modal";
+import { Can } from "@/components/can";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/dies/")({
   component: DiesListComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 function DiesListComponent() {
@@ -28,12 +31,16 @@ function DiesListComponent() {
           <p className="text-muted-foreground">Manage your die inventory.</p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={() => setIsImportModalOpen(true)}>
-            Import CSV / JSON
-          </Button>
-          <Link to="/dies/$id" params={{ id: "new" }}>
-            <Button>Add Die</Button>
-          </Link>
+          <Can do="die.import">
+            <Button variant="outline" onClick={() => setIsImportModalOpen(true)}>
+              Import CSV / JSON
+            </Button>
+          </Can>
+          <Can do="die.create">
+            <Link to="/dies/$id" params={{ id: "new" }}>
+              <Button>Add Die</Button>
+            </Link>
+          </Can>
         </div>
       </div>
 
@@ -78,9 +85,15 @@ function DiesListComponent() {
                     {format(new Date(die.createdAt), "MMM d, yyyy")}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link to="/dies/$id" params={{ id: die.id }}>
-                      <Button variant="ghost" size="sm">Edit</Button>
-                    </Link>
+                    <Can do="die.update" fallback={
+                      <Link to="/dies/$id" params={{ id: die.id }}>
+                        <Button variant="ghost" size="sm">View</Button>
+                      </Link>
+                    }>
+                      <Link to="/dies/$id" params={{ id: die.id }}>
+                        <Button variant="ghost" size="sm">Edit</Button>
+                      </Link>
+                    </Can>
                   </td>
                 </tr>
               ))

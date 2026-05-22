@@ -8,10 +8,12 @@ import Papa from "papaparse";
 import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
-import { Label } from "@orrn/ui/components/label";
+import { Can } from "@/components/can";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/customers/")({
   component: CustomersListComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 function CustomersListComponent() {
@@ -78,12 +80,16 @@ function CustomersListComponent() {
             ref={fileInputRef} 
             onChange={handleFileUpload} 
           />
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importMutation.isPending}>
-            {importMutation.isPending ? "Importing..." : "Import CSV"}
-          </Button>
-          <Link to="/customers/$id" params={{ id: "new" }}>
-            <Button>Add Customer</Button>
-          </Link>
+          <Can do="customer.import">
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importMutation.isPending}>
+              {importMutation.isPending ? "Importing..." : "Import CSV"}
+            </Button>
+          </Can>
+          <Can do="customer.create">
+            <Link to="/customers/$id" params={{ id: "new" }}>
+              <Button>Add Customer</Button>
+            </Link>
+          </Can>
         </div>
       </div>
 
@@ -126,9 +132,15 @@ function CustomersListComponent() {
                     {format(new Date(customer.createdAt), "MMM d, yyyy")}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link to="/customers/$id" params={{ id: customer.id }}>
-                      <Button variant="ghost" size="sm">Edit</Button>
-                    </Link>
+                    <Can do="customer.update" fallback={
+                      <Link to="/customers/$id" params={{ id: customer.id }}>
+                        <Button variant="ghost" size="sm">View</Button>
+                      </Link>
+                    }>
+                      <Link to="/customers/$id" params={{ id: customer.id }}>
+                        <Button variant="ghost" size="sm">Edit</Button>
+                      </Link>
+                    </Can>
                   </td>
                 </tr>
               ))

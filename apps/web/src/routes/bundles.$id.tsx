@@ -8,12 +8,15 @@ import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
+import { Can } from "@/components/can";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
 
 export const Route = createFileRoute("/bundles/$id")({
   component: BundleDetailComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 function statusBadgeClass(status: BundleStatus | string): string {
@@ -149,38 +152,40 @@ function BundleDetailComponent() {
       )}
 
       {canTransition && targetStatus && (
-        <div className="bg-card border rounded-lg p-6 space-y-4">
-          <h2 className="text-lg font-semibold">
-            {isAvailable ? "Void this bundle" : "Restore this bundle"}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {isAvailable
-              ? "Voiding marks the bundle as no longer part of available stock. It can be restored later."
-              : "Restoring returns the bundle to available stock."}
-          </p>
-          <div className="space-y-2">
-            <Label htmlFor="reason">Reason (optional)</Label>
-            <Input
-              id="reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. damaged in handling"
-            />
+        <Can do="bundle.transition">
+          <div className="bg-card border rounded-lg p-6 space-y-4">
+            <h2 className="text-lg font-semibold">
+              {isAvailable ? "Void this bundle" : "Restore this bundle"}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {isAvailable
+                ? "Voiding marks the bundle as no longer part of available stock. It can be restored later."
+                : "Restoring returns the bundle to available stock."}
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="reason">Reason (optional)</Label>
+              <Input
+                id="reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="e.g. damaged in handling"
+              />
+            </div>
+            <Button
+              variant={isAvailable ? "destructive" : "default"}
+              onClick={() =>
+                transitionMutation.mutate({ id, toStatus: targetStatus, reason: reason || null })
+              }
+              disabled={transitionMutation.isPending}
+            >
+              {transitionMutation.isPending
+                ? "Saving..."
+                : isAvailable
+                  ? "Void bundle"
+                  : "Restore bundle"}
+            </Button>
           </div>
-          <Button
-            variant={isAvailable ? "destructive" : "default"}
-            onClick={() =>
-              transitionMutation.mutate({ id, toStatus: targetStatus, reason: reason || null })
-            }
-            disabled={transitionMutation.isPending}
-          >
-            {transitionMutation.isPending
-              ? "Saving..."
-              : isAvailable
-                ? "Void bundle"
-                : "Restore bundle"}
-          </Button>
-        </div>
+        </Can>
       )}
 
       {!canTransition && (

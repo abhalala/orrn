@@ -5,8 +5,11 @@ import { Button } from "@orrn/ui/components/button";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+import { requirePlatformAdmin } from "@/lib/route-guards";
+
 export const Route = createFileRoute("/platform/waitlist")({
   component: PlatformWaitlistComponent,
+  beforeLoad: requirePlatformAdmin,
 });
 
 function PlatformWaitlistComponent() {

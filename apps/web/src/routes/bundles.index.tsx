@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/bundles/")({
     dieId: (search.dieId as string | undefined) ?? undefined,
     groupId: (search.groupId as string | undefined) ?? undefined,
   }),
+  beforeLoad: requireCompanyMe,
 });
 
 function statusBadgeClass(status: BundleStatus): string {

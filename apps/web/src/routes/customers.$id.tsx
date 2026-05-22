@@ -8,9 +8,12 @@ import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
+import { Can } from "@/components/can";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/customers/$id")({
   component: CustomerFormComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 function CustomerFormComponent() {
@@ -99,9 +102,11 @@ function CustomerFormComponent() {
           <h1 className="text-3xl font-bold">{isNew ? "New Customer" : "Edit Customer"}</h1>
         </div>
         {!isNew && (
-          <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
-            Delete
-          </Button>
+          <Can do="customer.delete">
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
+              Delete
+            </Button>
+          </Can>
         )}
       </div>
 
@@ -200,15 +205,17 @@ function CustomerFormComponent() {
           <Button variant="outline" type="button" onClick={() => navigate({ to: "/customers" })}>
             Cancel
           </Button>
-          <form.Subscribe
-            selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
-          >
-            {({ canSubmit }) => (
-              <Button type="submit" disabled={!canSubmit || createMutation.isPending || updateMutation.isPending}>
-                {createMutation.isPending || updateMutation.isPending ? "Saving..." : "Save Customer"}
-              </Button>
-            )}
-          </form.Subscribe>
+          <Can do={isNew ? "customer.create" : "customer.update"}>
+            <form.Subscribe
+              selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
+            >
+              {({ canSubmit }) => (
+                <Button type="submit" disabled={!canSubmit || createMutation.isPending || updateMutation.isPending}>
+                  {createMutation.isPending || updateMutation.isPending ? "Saving..." : "Save Customer"}
+                </Button>
+              )}
+            </form.Subscribe>
+          </Can>
         </div>
       </form>
     </div>

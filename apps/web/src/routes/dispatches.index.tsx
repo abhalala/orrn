@@ -6,6 +6,8 @@ import { format } from "date-fns";
 import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
+import { Can } from "@/components/can";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 const dispatchStatuses = ["draft", "reserved", "completed", "cancelled"] as const;
 type DispatchStatus = (typeof dispatchStatuses)[number];
@@ -16,6 +18,7 @@ export const Route = createFileRoute("/dispatches/")({
   validateSearch: (search: Record<string, unknown>) => ({
     status: (search.status as StatusFilter | undefined) ?? "all",
   }),
+  beforeLoad: requireCompanyMe,
 });
 
 function statusBadgeClass(status: DispatchStatus | string): string {
@@ -59,9 +62,11 @@ function DispatchesListComponent() {
             Outbound shipments and reservations ({data?.total ?? 0} total)
           </p>
         </div>
-        <Link to="/dispatches/new">
-          <Button>New Dispatch</Button>
-        </Link>
+        <Can do="dispatch.create">
+          <Link to="/dispatches/new">
+            <Button>New Dispatch</Button>
+          </Link>
+        </Can>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">

@@ -1,33 +1,25 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
-import { authClient } from "@/lib/auth-client";
+import { requireCompanyMe } from "@/lib/route-guards";
 import { trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/dashboard")({
   component: RouteComponent,
-  beforeLoad: async () => {
-    const session = await authClient.getSession();
-    if (!session.data) {
-      redirect({
-        to: "/login",
-        throw: true,
-      });
-    }
-    return { session };
-  },
+  beforeLoad: requireCompanyMe,
 });
 
 function RouteComponent() {
-  const { session } = Route.useRouteContext();
-
+  const { me } = Route.useRouteContext();
   const privateData = useQuery(trpc.privateData.queryOptions());
 
   return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>Welcome {session.data?.user.name}</p>
-      <p>API: {privateData.data?.message}</p>
+    <div className="p-6">
+      <h1 className="text-3xl font-bold">Dashboard</h1>
+      <p className="mt-2 text-muted-foreground">
+        Welcome {me.user.name} {me.company ? `· ${me.company.name}` : null}
+      </p>
+      <p className="mt-1 text-sm">API: {privateData.data?.message}</p>
     </div>
   );
 }
