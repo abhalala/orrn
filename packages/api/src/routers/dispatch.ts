@@ -83,7 +83,7 @@ export const dispatchRouter = router({
         });
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.create",
             subjectType: "dispatch",
@@ -279,7 +279,7 @@ export const dispatchRouter = router({
           .where(eq(dispatch.id, existing.id));
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.update",
             subjectType: "dispatch",
@@ -370,7 +370,7 @@ export const dispatchRouter = router({
         }
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.addBundle",
             subjectType: "dispatch",
@@ -494,7 +494,7 @@ export const dispatchRouter = router({
         }
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.addBundle",
             subjectType: "dispatch",
@@ -584,7 +584,7 @@ export const dispatchRouter = router({
         }
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.removeBundle",
             subjectType: "dispatch",
@@ -674,7 +674,7 @@ export const dispatchRouter = router({
           .where(eq(dispatch.id, d.id));
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.reserve",
             subjectType: "dispatch",
@@ -764,7 +764,7 @@ export const dispatchRouter = router({
           .where(eq(dispatch.id, d.id));
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.unreserve",
             subjectType: "dispatch",
@@ -863,7 +863,7 @@ export const dispatchRouter = router({
           .where(eq(dispatch.id, d.id));
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.complete",
             subjectType: "dispatch",
@@ -956,7 +956,7 @@ export const dispatchRouter = router({
           .where(eq(dispatch.id, d.id));
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.cancel",
             subjectType: "dispatch",
@@ -994,7 +994,7 @@ export const dispatchRouter = router({
           .where(eq(dispatch.id, d.id));
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.delete",
             subjectType: "dispatch",

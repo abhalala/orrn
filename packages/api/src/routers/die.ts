@@ -120,7 +120,7 @@ export const dieRouter = router({
         });
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "die.create",
             subjectType: "die",
@@ -186,7 +186,7 @@ export const dieRouter = router({
           .where(eq(die.id, input.id));
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "die.update",
             subjectType: "die",
@@ -226,7 +226,7 @@ export const dieRouter = router({
           .where(eq(die.id, input.id));
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "die.delete",
             subjectType: "die",
@@ -319,7 +319,7 @@ export const dieRouter = router({
         }
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "die.import",
             subjectType: "die",

@@ -1,4 +1,5 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
+import { authRouter } from "./auth";
 import { waitlistRouter } from "./waitlist";
 import { platformRouter } from "./platform";
 import { companyRouter } from "./company";
@@ -18,6 +19,7 @@ export const appRouter = router({
       user: ctx.session.user,
     };
   }),
+  auth: authRouter,
   waitlist: waitlistRouter,
   platform: platformRouter,
   company: companyRouter,
