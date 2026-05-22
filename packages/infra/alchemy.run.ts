@@ -1,5 +1,5 @@
 import alchemy from "alchemy";
-import { D1Database, Vite, Worker, Zone } from "alchemy/cloudflare";
+import { D1Database, Vite, Worker } from "alchemy/cloudflare";
 import { CloudflareStateStore } from "alchemy/state";
 import type { Scope } from "alchemy";
 import { config } from "dotenv";
@@ -13,24 +13,15 @@ const app = await alchemy("orrn", {
 });
 const devMasterKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 const zoneName = "orrn.app";
+const zoneId = process.env.CLOUDFLARE_ZONE_ID;
 const webDomain = process.env.WEB_DOMAIN ?? `dev.${zoneName}`;
 const apiDomain = process.env.API_DOMAIN ?? `api.dev.${zoneName}`;
 const webUrl = `https://${webDomain}`;
 const apiUrl = `https://${apiDomain}`;
 
-const zone = await Zone(zoneName, {
-  name: zoneName,
-  delete: false,
-  settings: {
-    developmentMode: "on",
-    alwaysUseHttps: "on",
-    automaticHttpsRewrites: "on",
-    brotli: "on",
-    http2: "on",
-    http3: "on",
-    websockets: "on",
-  },
-});
+if (!zoneId) {
+  throw new Error("CLOUDFLARE_ZONE_ID is required to deploy custom domains.");
+}
 
 const db = await D1Database("database", {
   migrationsDir: "../../packages/db/src/migrations",
@@ -46,7 +37,7 @@ export const web = await Vite("web", {
   domains: [
     {
       domainName: webDomain,
-      zoneId: zone.id,
+      zoneId,
       adopt: true,
     },
   ],
@@ -73,7 +64,7 @@ export const server = await Worker("server", {
   domains: [
     {
       domainName: apiDomain,
-      zoneId: zone.id,
+      zoneId,
       adopt: true,
     },
   ],

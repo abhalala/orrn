@@ -84,6 +84,7 @@ Pushes to `main` deploy the dev environment through GitHub Actions:
 Configure the GitHub `dev` environment with these secrets:
 
 - `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ZONE_ID`
 - `ALCHEMY_PASSWORD`
 - `ALCHEMY_STATE_TOKEN`
 - `BETTER_AUTH_SECRET`
