@@ -1,4 +1,5 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
+import { authRouter } from "./auth";
 import { waitlistRouter } from "./waitlist";
 import { platformRouter } from "./platform";
 import { companyRouter } from "./company";
@@ -7,6 +8,7 @@ import { customerRouter } from "./customer";
 import { dieRouter } from "./die";
 import { bundleRouter } from "./bundle";
 import { dispatchRouter } from "./dispatch";
+import { packingListRouter } from "./packingList";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -18,6 +20,7 @@ export const appRouter = router({
       user: ctx.session.user,
     };
   }),
+  auth: authRouter,
   waitlist: waitlistRouter,
   platform: platformRouter,
   company: companyRouter,
@@ -26,5 +29,6 @@ export const appRouter = router({
   die: dieRouter,
   bundle: bundleRouter,
   dispatch: dispatchRouter,
+  packingList: packingListRouter,
 });
 export type AppRouter = typeof appRouter;

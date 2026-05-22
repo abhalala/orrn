@@ -7,10 +7,17 @@ import { toast } from "sonner";
 import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
+import { queryClient } from "@/utils/trpc";
 
 import Loader from "./loader";
 
-export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
+export default function SignInForm({
+  onSwitchToSignUp,
+  next,
+}: {
+  onSwitchToSignUp: () => void;
+  next?: string;
+}) {
   const navigate = useNavigate({
     from: "/",
   });
@@ -29,9 +36,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         },
         {
           onSuccess: () => {
-            navigate({
-              to: "/dashboard",
-            });
+            // Invalidate the cached auth.me so the new session is picked up.
+            queryClient.removeQueries();
+            navigate({ to: (next ?? "/dashboard") as any });
             toast.success("Sign in successful");
           },
           onError: (error) => {

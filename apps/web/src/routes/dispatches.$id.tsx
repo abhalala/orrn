@@ -8,12 +8,16 @@ import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
+import { Can } from "@/components/can";
+import { requireCompanyMe } from "@/lib/route-guards";
+import type { PLSnapshot } from "@/lib/packingListPdf";
 
 const dispatchStatuses = ["draft", "reserved", "completed", "cancelled"] as const;
 type DispatchStatus = (typeof dispatchStatuses)[number];
 
 export const Route = createFileRoute("/dispatches/$id")({
   component: DispatchDetailComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 function statusBadgeClass(status: DispatchStatus | string): string {
@@ -203,57 +207,66 @@ function DispatchDetailComponent() {
       <div className="bg-card border rounded-lg p-6 space-y-3">
         <h2 className="text-lg font-semibold">Actions</h2>
         <div className="flex flex-wrap gap-2">
-          <Button
-            disabled={!canReserve || reserveMutation.isPending}
-            onClick={() => reserveMutation.mutate({ id })}
-          >
-            Reserve
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!canUnreserve || unreserveMutation.isPending}
-            onClick={() => unreserveMutation.mutate({ id })}
-          >
-            Unreserve
-          </Button>
-          <Button
-            disabled={!canComplete || completeMutation.isPending}
-            onClick={() => {
-              if (window.confirm("Complete this dispatch? Bundles will be marked as dispatched.")) {
-                completeMutation.mutate({ id });
-              }
-            }}
-          >
-            Complete
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={!canCancel || cancelMutation.isPending}
-            onClick={() => {
-              if (window.confirm("Cancel this dispatch?")) {
-                cancelMutation.mutate({ id, reason: null });
-              }
-            }}
-          >
-            Cancel
-          </Button>
-          {canDelete && (
+          <Can do="dispatch.reserve">
             <Button
-              variant="ghost"
-              disabled={deleteMutation.isPending}
+              disabled={!canReserve || reserveMutation.isPending}
+              onClick={() => reserveMutation.mutate({ id })}
+            >
+              Reserve
+            </Button>
+            <Button
+              variant="outline"
+              disabled={!canUnreserve || unreserveMutation.isPending}
+              onClick={() => unreserveMutation.mutate({ id })}
+            >
+              Unreserve
+            </Button>
+          </Can>
+          <Can do="dispatch.complete">
+            <Button
+              disabled={!canComplete || completeMutation.isPending}
               onClick={() => {
-                if (window.confirm("Delete this dispatch permanently from active views?")) {
-                  deleteMutation.mutate({ id });
+                if (window.confirm("Complete this dispatch? Bundles will be marked as dispatched.")) {
+                  completeMutation.mutate({ id });
                 }
               }}
             >
-              Delete
+              Complete
             </Button>
+          </Can>
+          <Can do="dispatch.cancel">
+            <Button
+              variant="destructive"
+              disabled={!canCancel || cancelMutation.isPending}
+              onClick={() => {
+                if (window.confirm("Cancel this dispatch?")) {
+                  cancelMutation.mutate({ id, reason: null });
+                }
+              }}
+            >
+              Cancel
+            </Button>
+          </Can>
+          {canDelete && (
+            <Can do="dispatch.delete">
+              <Button
+                variant="ghost"
+                disabled={deleteMutation.isPending}
+                onClick={() => {
+                  if (window.confirm("Delete this dispatch permanently from active views?")) {
+                    deleteMutation.mutate({ id });
+                  }
+                }}
+              >
+                Delete
+              </Button>
+            </Can>
           )}
         </div>
       </div>
 
       {canAddOrRemove && (
+        <Can do="dispatch.addBundle">
         <div className="bg-card border rounded-lg p-6 space-y-4">
           <h2 className="text-lg font-semibold">Add bundles</h2>
           <div className="space-y-2">
@@ -323,6 +336,7 @@ function DispatchDetailComponent() {
             </Button>
           </div>
         </div>
+        </Can>
       )}
 
       <div className="bg-card border rounded-lg overflow-hidden">
@@ -382,6 +396,9 @@ function DispatchDetailComponent() {
         </table>
       </div>
 
+      {/* Packing list — shown for completed dispatches */}
+      {d.status === "completed" && <PackingListSection dispatchId={d.id} />}
+
       <div className="bg-card border rounded-lg p-6 space-y-3">
         <h2 className="text-lg font-semibold">Activity</h2>
         {events.length === 0 ? (
@@ -404,6 +421,105 @@ function DispatchDetailComponent() {
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Packing list section — embedded in dispatch detail for completed dispatches
+// ---------------------------------------------------------------------------
+function PackingListSection({ dispatchId }: { dispatchId: string }) {
+  const queryClient = useQueryClient();
+  const [pdfPending, setPdfPending] = useState(false);
+  const [xlsxPending, setXlsxPending] = useState(false);
+
+  const { data: pl, isLoading } = useQuery({
+    ...trpc.packingList.byDispatch.queryOptions({ dispatchId }),
+  });
+
+  const regenMutation = useMutation({
+    ...trpc.packingList.regenerate.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Packing list regenerated");
+      queryClient.invalidateQueries({ queryKey: trpc.packingList.byDispatch.queryKey({ dispatchId }) });
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to regenerate"),
+  });
+
+  async function handlePdf() {
+    if (!pl) return;
+    setPdfPending(true);
+    try {
+      const { downloadPackingListPdf } = await import("@/lib/packingListPdf");
+      await downloadPackingListPdf(pl.snapshot as unknown as PLSnapshot, pl.code);
+    } catch {
+      toast.error("PDF generation failed");
+    } finally {
+      setPdfPending(false);
+    }
+  }
+
+  async function handleXlsx() {
+    if (!pl) return;
+    setXlsxPending(true);
+    try {
+      const { downloadPackingListXlsx } = await import("@/lib/packingListXlsx");
+      await downloadPackingListXlsx(pl.snapshot as unknown as PLSnapshot, pl.code);
+    } catch {
+      toast.error("Excel export failed");
+    } finally {
+      setXlsxPending(false);
+    }
+  }
+
+  return (
+    <div className="bg-card border rounded-lg p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Packing List</h2>
+        {pl && (
+          <Link
+            to="/packing-lists/$id"
+            params={{ id: pl.id }}
+            className="text-sm text-primary hover:underline font-mono"
+          >
+            {pl.code}
+          </Link>
+        )}
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : !pl ? (
+        <p className="text-sm text-muted-foreground">No packing list generated yet.</p>
+      ) : (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Generated {format(new Date((pl.snapshot as any).generatedAt as string), "PP p")}
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <Button size="sm" onClick={handlePdf} disabled={pdfPending} variant="outline">
+              {pdfPending ? "Generating…" : "PDF"}
+            </Button>
+            <Button size="sm" onClick={handleXlsx} disabled={xlsxPending} variant="outline">
+              {xlsxPending ? "Exporting…" : "Excel"}
+            </Button>
+            <Can do="packingList.regenerate">
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={regenMutation.isPending}
+                onClick={() => {
+                  if (window.confirm("Regenerate? Snapshot will be rebuilt from live dispatch data.")) {
+                    regenMutation.mutate({ id: pl.id });
+                  }
+                }}
+              >
+                {regenMutation.isPending ? "Regenerating…" : "Regenerate"}
+              </Button>
+            </Can>
+          </div>
+        </>
+      )}
     </div>
   );
 }

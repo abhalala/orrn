@@ -1,11 +1,19 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { format } from "date-fns";
-
-import { trpc } from "@/utils/trpc";
+import { StatusBadge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
+import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
+import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Input } from "@orrn/ui/components/input";
+import { PageHeader } from "@orrn/ui/components/page-header";
+import { Tabs } from "@orrn/ui/components/tabs";
+import { Toolbar } from "@orrn/ui/components/toolbar";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { format } from "date-fns";
+import { useState } from "react";
+
+import { Can } from "@/components/can";
+import { requireCompanyMe } from "@/lib/route-guards";
+import { trpc } from "@/utils/trpc";
 
 const dispatchStatuses = ["draft", "reserved", "completed", "cancelled"] as const;
 type DispatchStatus = (typeof dispatchStatuses)[number];
@@ -16,22 +24,19 @@ export const Route = createFileRoute("/dispatches/")({
   validateSearch: (search: Record<string, unknown>) => ({
     status: (search.status as StatusFilter | undefined) ?? "all",
   }),
+  beforeLoad: requireCompanyMe,
 });
 
-function statusBadgeClass(status: DispatchStatus | string): string {
-  switch (status) {
-    case "draft":
-      return "bg-zinc-200 text-zinc-700";
-    case "reserved":
-      return "bg-amber-100 text-amber-800";
-    case "completed":
-      return "bg-emerald-100 text-emerald-800";
-    case "cancelled":
-      return "bg-rose-100 text-rose-800";
-    default:
-      return "bg-zinc-100 text-zinc-700";
-  }
-}
+type DispatchRow = {
+  id: string;
+  code: string;
+  customerName: string;
+  status: string;
+  itemCount: number | string;
+  totalWeightG: number | string;
+  shipDate: string | number | Date | null;
+  createdAt: string | number | Date;
+};
 
 function DispatchesListComponent() {
   const search = Route.useSearch();
@@ -48,97 +53,93 @@ function DispatchesListComponent() {
     }),
   });
 
-  const items = data?.items ?? [];
+  const items = (data?.items ?? []) as DispatchRow[];
+
+  const columns: DataTableColumn<DispatchRow>[] = [
+    {
+      id: "code",
+      header: "Code",
+      cell: (r) => (
+        <Link
+          to="/dispatches/$id"
+          params={{ id: r.id }}
+          className="font-mono text-xs hover:underline"
+        >
+          {r.code}
+        </Link>
+      ),
+    },
+    { id: "customer", header: "Customer", cell: (r) => r.customerName, flex: 2 },
+    { id: "status", header: "Status", cell: (r) => <StatusBadge kind="dispatch" value={r.status} /> },
+    { id: "items", header: "Items", align: "right", cell: (r) => Number(r.itemCount) },
+    {
+      id: "weight",
+      header: "Weight (g)",
+      align: "right",
+      cell: (r) => Number(r.totalWeightG).toLocaleString(),
+    },
+    {
+      id: "ship",
+      header: "Ship Date",
+      cell: (r) => (r.shipDate ? format(new Date(r.shipDate), "MMM d, yyyy") : "—"),
+    },
+    {
+      id: "created",
+      header: "Created",
+      cell: (r) => format(new Date(r.createdAt), "MMM d, yyyy"),
+    },
+  ];
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Dispatches</h1>
-          <p className="text-muted-foreground">
-            Outbound shipments and reservations ({data?.total ?? 0} total)
-          </p>
-        </div>
-        <Link to="/dispatches/new">
-          <Button>New Dispatch</Button>
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Dispatches"
+        description={`Outbound shipments and reservations (${data?.total ?? 0} total)`}
+        actions={
+          <Can do="dispatch.create">
+            <Link to="/dispatches/new">
+              <Button>New Dispatch</Button>
+            </Link>
+          </Can>
+        }
+      />
 
-      <div className="flex items-center gap-2 flex-wrap">
+      <Toolbar>
         <Input
-          placeholder="Search by code or notes..."
+          placeholder="Search by code or notes…"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="max-w-sm"
+          onChangeText={setQuery}
+          maxWidth={320}
         />
-        <div className="flex items-center gap-1">
-          {(["all", ...dispatchStatuses] as const).map((s) => (
-            <Button
-              key={s}
-              variant={status === s ? "default" : "outline"}
-              size="sm"
-              onClick={() => navigate({ search: { status: s } })}
-            >
-              {s.charAt(0).toUpperCase() + s.slice(1)}
-            </Button>
-          ))}
-        </div>
-      </div>
+        <Tabs
+          value={status}
+          onValueChange={(v) => navigate({ search: { status: v as StatusFilter } })}
+          items={(["all", ...dispatchStatuses] as const).map((s) => ({
+            id: s,
+            label: s.charAt(0).toUpperCase() + s.slice(1),
+          }))}
+        />
+      </Toolbar>
 
-      <div className="border rounded-md bg-card overflow-hidden">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-muted text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Code</th>
-              <th className="px-4 py-3 font-medium">Customer</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium text-right">Items</th>
-              <th className="px-4 py-3 font-medium text-right">Weight (g)</th>
-              <th className="px-4 py-3 font-medium">Ship Date</th>
-              <th className="px-4 py-3 font-medium">Created</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                  Loading...
-                </td>
-              </tr>
-            ) : items.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                  No dispatches yet.
-                </td>
-              </tr>
-            ) : (
-              items.map((d) => (
-                <tr key={d.id} className="hover:bg-muted/50">
-                  <td className="px-4 py-3 font-mono text-xs">
-                    <Link to="/dispatches/$id" params={{ id: d.id }} className="hover:underline">
-                      {d.code}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">{d.customerName}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-medium px-2 py-1 rounded ${statusBadgeClass(d.status)}`}>
-                      {d.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">{Number(d.itemCount)}</td>
-                  <td className="px-4 py-3 text-right">{Number(d.totalWeightG)}</td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">
-                    {d.shipDate ? format(new Date(d.shipDate), "MMM d, yyyy") : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">
-                    {format(new Date(d.createdAt), "MMM d, yyyy")}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={items}
+        rowKey={(r) => r.id}
+        columns={columns}
+        isLoading={isLoading}
+        emptyState={
+          <EmptyState
+            title="No dispatches yet"
+            description="Create a draft dispatch to start reserving bundles for a customer."
+            actions={
+              <Can do="dispatch.create">
+                <Link to="/dispatches/new">
+                  <Button>New dispatch</Button>
+                </Link>
+              </Can>
+            }
+          />
+        }
+      />
     </div>
   );
 }

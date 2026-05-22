@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./tamagui.config": "./src/tamagui.config.ts"
+    "./tamagui.config": "./src/tamagui.config.ts",
+    "./tokens": "./src/tokens.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit"

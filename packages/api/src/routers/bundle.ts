@@ -126,7 +126,7 @@ export const bundleRouter = router({
         }
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "bundle.receipt.create",
             subjectType: "bundle_group",
@@ -380,7 +380,7 @@ export const bundleRouter = router({
         });
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "bundle.transition",
             subjectType: "bundle",

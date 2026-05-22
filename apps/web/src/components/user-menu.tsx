@@ -12,6 +12,7 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
+import { queryClient } from "@/utils/trpc";
 
 export default function UserMenu() {
   const navigate = useNavigate();
@@ -45,6 +46,9 @@ export default function UserMenu() {
               authClient.signOut({
                 fetchOptions: {
                   onSuccess: () => {
+                    // Drop ALL cached data so a different user on the same
+                    // browser doesn't see the previous tenant's lists.
+                    queryClient.clear();
                     navigate({
                       to: "/",
                     });

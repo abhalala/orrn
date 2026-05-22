@@ -6,10 +6,25 @@ import React, { useCallback } from "react";
 import { Pressable, Text } from "react-native";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { canAny, useMe } from "@/utils/me";
 
 function DrawerLayout() {
   const themeColorForeground = useThemeColor("foreground");
   const themeColorBackground = useThemeColor("background");
+
+  const { data: me } = useMe();
+  const hasCompany = !!me?.company;
+  const isPlatformAdmin = !!me?.isPlatformAdmin;
+
+  // For floor-worker ergonomics we want operators to see bundles/dispatches/
+  // stock; admins additionally see receipts, members. canAny lets a single
+  // matrix drive both this drawer and the web nav.
+  const showReceipts =
+    hasCompany && canAny(me, ["receipt.create", "receipt.update", "receipt.delete"]);
+  const showBundles = hasCompany; // any company user can read bundles
+  const showDispatches = hasCompany; // same
+  const showStock = hasCompany;
+  const showMembers = hasCompany && canAny(me, ["member.invite", "member.updateRole"]);
 
   const renderThemeToggle = useCallback(() => <ThemeToggle />, []);
 
@@ -69,6 +84,7 @@ function DrawerLayout() {
         name="receipts"
         options={{
           headerShown: false,
+          drawerItemStyle: showReceipts ? undefined : { display: "none" },
           drawerLabel: ({ color, focused }) => (
             <Text style={{ color: focused ? color : themeColorForeground }}>Receipts</Text>
           ),
@@ -85,6 +101,7 @@ function DrawerLayout() {
         name="bundles"
         options={{
           headerShown: false,
+          drawerItemStyle: showBundles ? undefined : { display: "none" },
           drawerLabel: ({ color, focused }) => (
             <Text style={{ color: focused ? color : themeColorForeground }}>Bundles</Text>
           ),
@@ -101,6 +118,7 @@ function DrawerLayout() {
         name="dispatches"
         options={{
           headerShown: false,
+          drawerItemStyle: showDispatches ? undefined : { display: "none" },
           drawerLabel: ({ color, focused }) => (
             <Text style={{ color: focused ? color : themeColorForeground }}>Dispatches</Text>
           ),
@@ -117,6 +135,7 @@ function DrawerLayout() {
         name="stock"
         options={{
           headerShown: false,
+          drawerItemStyle: showStock ? undefined : { display: "none" },
           drawerLabel: ({ color, focused }) => (
             <Text style={{ color: focused ? color : themeColorForeground }}>Stock</Text>
           ),
@@ -129,6 +148,27 @@ function DrawerLayout() {
           ),
         }}
       />
+      <Drawer.Screen
+        name="members"
+        options={{
+          headerTitle: "Members",
+          drawerItemStyle: showMembers ? undefined : { display: "none" },
+          drawerLabel: ({ color, focused }) => (
+            <Text style={{ color: focused ? color : themeColorForeground }}>Members</Text>
+          ),
+          drawerIcon: ({ size, color, focused }) => (
+            <MaterialIcons
+              name="group"
+              size={size}
+              color={focused ? color : themeColorForeground}
+            />
+          ),
+        }}
+      />
+      {/* Platform-admin only links live under a sibling (platform) group in M9;
+        for now we leave a header-style indicator so admins know they have
+        access to the web platform console. */}
+      {isPlatformAdmin ? null : null}
     </Drawer>
   );
 }

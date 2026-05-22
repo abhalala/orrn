@@ -1,24 +1,52 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
+import { StatusBadge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
+import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Input } from "@orrn/ui/components/input";
-import { toast } from "sonner";
-import { useState } from "react";
+import { Label } from "@orrn/ui/components/label";
+import { PageHeader } from "@orrn/ui/components/page-header";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
 import { format } from "date-fns";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { Can } from "@/components/can";
+import { can, useMe } from "@/lib/me";
+import { requireCompanyMe } from "@/lib/route-guards";
+import { trpc } from "@/utils/trpc";
 
 const companyRoles = ["owner", "admin", "manager", "operator", "viewer"] as const;
+type CompanyRole = (typeof companyRoles)[number];
+
+type MemberRow = {
+  id: string;
+  role: CompanyRole;
+  createdAt: string | number | Date;
+  user: { name: string; email: string };
+};
+
+type InviteRow = {
+  id: string;
+  email: string;
+  role: string;
+  expiresAt: string | number | Date;
+};
 
 export const Route = createFileRoute("/settings/members")({
   component: MembersComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 function MembersComponent() {
+  const { data: me } = useMe();
+  const canManageMembers = can(me, "member.updateRole");
   const { data: members, isLoading, refetch } = useQuery(trpc.company.membersList.queryOptions());
   const { data: invites, refetch: refetchInvites } = useQuery(trpc.invite.list.queryOptions());
-  
+
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<typeof companyRoles[number]>("viewer");
+  const [role, setRole] = useState<CompanyRole>("viewer");
 
   const inviteMutation = useMutation({
     ...trpc.invite.create.mutationOptions(),
@@ -29,7 +57,7 @@ function MembersComponent() {
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to send invitation");
-    }
+    },
   });
 
   const revokeMutation = useMutation({
@@ -40,7 +68,7 @@ function MembersComponent() {
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to revoke invitation");
-    }
+    },
   });
 
   const removeMutation = useMutation({
@@ -51,7 +79,7 @@ function MembersComponent() {
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to remove member");
-    }
+    },
   });
 
   const updateRoleMutation = useMutation({
@@ -62,142 +90,180 @@ function MembersComponent() {
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to update role");
-    }
+    },
   });
 
-  if (isLoading) return <div className="p-8">Loading...</div>;
+  const inviteColumns: DataTableColumn<InviteRow>[] = [
+    { id: "email", header: "Email", cell: (r) => r.email, flex: 2 },
+    {
+      id: "role",
+      header: "Role",
+      cell: (r) => <StatusBadge kind="role" value={r.role} />,
+    },
+    {
+      id: "expires",
+      header: "Expires",
+      cell: (r) => format(new Date(r.expiresAt), "MMM d, yyyy"),
+    },
+    {
+      id: "actions",
+      header: "",
+      align: "right",
+      cell: (r) => (
+        <Can do="member.invite">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => revokeMutation.mutate({ inviteId: r.id })}
+            disabled={revokeMutation.isPending}
+          >
+            Revoke
+          </Button>
+        </Can>
+      ),
+    },
+  ];
 
-  return (
-    <div className="p-8 max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Members</h1>
-        <p className="text-muted-foreground">Manage your team members and roles.</p>
-      </div>
-
-      <div className="p-6 border rounded-md bg-card space-y-4">
-        <h2 className="text-xl font-semibold">Invite Member</h2>
-        <div className="flex items-center gap-4">
-          <Input 
-            placeholder="Email address" 
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="max-w-sm"
-          />
-          <select 
-            value={role} 
-            onChange={(e) => setRole(e.target.value as any)}
-            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 max-w-[150px]"
+  const memberColumns: DataTableColumn<MemberRow>[] = [
+    {
+      id: "name",
+      header: "Name",
+      cell: (m) => <span className="font-medium">{m.user.name}</span>,
+      flex: 2,
+    },
+    { id: "email", header: "Email", cell: (m) => m.user.email, flex: 2 },
+    {
+      id: "role",
+      header: "Role",
+      cell: (m) =>
+        canManageMembers ? (
+          <select
+            value={m.role}
+            onChange={(e) =>
+              updateRoleMutation.mutate({
+                membershipId: m.id,
+                role: e.target.value as CompanyRole,
+              })
+            }
+            className="bg-transparent text-sm capitalize border border-border rounded px-2 py-1"
+            disabled={updateRoleMutation.isPending}
           >
             {companyRoles.map((r) => (
-              <option key={r} value={r}>{r}</option>
+              <option key={r} value={r}>
+                {r}
+              </option>
             ))}
           </select>
-          <Button 
-            onClick={() => inviteMutation.mutate({ email, role })}
-            disabled={!email || inviteMutation.isPending}
+        ) : (
+          <StatusBadge kind="role" value={m.role} />
+        ),
+    },
+    {
+      id: "joined",
+      header: "Joined",
+      cell: (m) => format(new Date(m.createdAt), "MMM d, yyyy"),
+    },
+    {
+      id: "actions",
+      header: "",
+      align: "right",
+      cell: (m) => (
+        <Can do="member.remove">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => removeMutation.mutate({ membershipId: m.id })}
+            disabled={removeMutation.isPending}
           >
-            Send Invite
+            Remove
           </Button>
-        </div>
-      </div>
+        </Can>
+      ),
+    },
+  ];
 
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Pending Invites</h2>
-        <div className="border rounded-md">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-muted text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">Email</th>
-                <th className="px-4 py-3 font-medium">Role</th>
-                <th className="px-4 py-3 font-medium">Expires</th>
-                <th className="px-4 py-3 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {invites?.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                    No pending invitations.
-                  </td>
-                </tr>
-              ) : (
-                invites?.map((invite) => (
-                  <tr key={invite.id} className="hover:bg-muted/50">
-                    <td className="px-4 py-3">{invite.email}</td>
-                    <td className="px-4 py-3 capitalize">{invite.role}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {format(new Date(invite.expiresAt), "MMM d, yyyy")}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => revokeMutation.mutate({ inviteId: invite.id })}
-                        disabled={revokeMutation.isPending}
-                      >
-                        Revoke
-                      </Button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Settings"
+        title="Members"
+        description="Manage your team members, roles, and pending invitations."
+      />
 
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Active Members</h2>
-        <div className="border rounded-md">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-muted text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Email</th>
-                <th className="px-4 py-3 font-medium">Role</th>
-                <th className="px-4 py-3 font-medium">Joined</th>
-                <th className="px-4 py-3 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {members?.map((member) => (
-                <tr key={member.id} className="hover:bg-muted/50">
-                  <td className="px-4 py-3 font-medium">{member.user.name}</td>
-                  <td className="px-4 py-3">{member.user.email}</td>
-                  <td className="px-4 py-3">
-                    <select 
-                      value={member.role} 
-                      onChange={(e) => updateRoleMutation.mutate({ membershipId: member.id, role: e.target.value as any })}
-                      className="bg-transparent border-none p-0 focus:ring-0 cursor-pointer capitalize"
-                      disabled={updateRoleMutation.isPending}
-                    >
-                      {companyRoles.map((r) => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {format(new Date(member.createdAt), "MMM d, yyyy")}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => removeMutation.mutate({ membershipId: member.id })}
-                      disabled={removeMutation.isPending}
-                    >
-                      Remove
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Can do="member.invite">
+        <Card>
+          <CardHeader>
+            <CardTitle>Invite member</CardTitle>
+            <CardDescription>Send a one-time invitation link to a teammate's email.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-[200px] space-y-1">
+                <Label htmlFor="invite-email">Email</Label>
+                <Input
+                  id="invite-email"
+                  placeholder="teammate@company.com"
+                  type="email"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="invite-role">Role</Label>
+                <select
+                  id="invite-role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as CompanyRole)}
+                  className="flex h-9 items-center justify-between rounded-md border border-border bg-background px-3 text-sm capitalize"
+                >
+                  {companyRoles.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button
+                onClick={() => inviteMutation.mutate({ email, role })}
+                disabled={!email || inviteMutation.isPending}
+              >
+                {inviteMutation.isPending ? "Sending…" : "Send invite"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </Can>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Pending invites</CardTitle>
+          <CardDescription>Unused invitation links.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            rows={(invites ?? []) as InviteRow[]}
+            rowKey={(r) => r.id}
+            columns={inviteColumns}
+            emptyState={<EmptyState title="No pending invites" />}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Active members</CardTitle>
+          <CardDescription>{members?.length ?? 0} member(s) in this tenant.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            rows={(members ?? []) as unknown as MemberRow[]}
+            rowKey={(r) => r.id}
+            columns={memberColumns}
+            isLoading={isLoading}
+            emptyState={<EmptyState title="No members yet" />}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

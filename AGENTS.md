@@ -43,6 +43,41 @@ bun run deploy
 - Prefer composite tenant indexes such as `(companyId, id)`, `(companyId, status)`, and `(companyId, serverSeq)`.
 - Return generic `Not found` errors instead of revealing that a row exists in another tenant.
 - Do not sync or cache cross-tenant data in web or native clients.
+- Every authenticated route (web + native) must enforce a session check and an
+  active company membership check. Use the shared `requireCompanyMe` /
+  `requirePlatformAdmin` guards on web and the `useMe()` gate on native; do
+  not roll your own per-route session checks.
+- Clear the React Query cache (`queryClient.clear()`) on sign-out, and drop
+  all non-`auth.me` queries when the active `companyId` changes. The
+  `TenantCacheGuard` on web and its native equivalent handle this — do not
+  delete them.
+
+## Roles & client-side capability gating
+
+- The canonical role-capability matrix lives in
+  `packages/api/src/lib/permissions.ts` (`ACTIONS`, `ROLE_ACTIONS`, `can`,
+  `canAny`). It is the single source of truth for both server `roleGuard`
+  middleware and client `<Can>` / `useMe` hooks.
+- Add new actions to that file (do not invent ad-hoc client-side booleans),
+  then reuse them via `<Can do="…">` on web (`apps/web/src/components/can.tsx`)
+  and native (`apps/native/components/can.tsx`).
+- Action buttons that mutate state must be wrapped in `<Can>` — never
+  conditionally removed by hand. The server is still authoritative.
+- Platform-admin-only links must be gated by `me.isPlatformAdmin`. Tenant
+  users must never see `/platform/*` in their navigation.
+
+## Impersonation
+
+- The only way to impersonate a tenant is via the `x-orrn-impersonate-company`
+  request header. The server honours it only when the caller is a platform
+  admin and overrides the tenant context (`companyId`, `role`, `membership`)
+  accordingly. Never accept impersonation targets from the request body.
+- `writeAudit` must always receive `ctx.impersonation` when impersonation is
+  active so every audit row records `impersonatorId`. Do not call `writeAudit`
+  with a synthetic context that drops it.
+- Render the impersonation banner on every authenticated screen on both web
+  and native. "Stop impersonating" clears the cached `auth.me`; the full
+  grant-table workflow lands in M9.
 
 ## User and role model
 

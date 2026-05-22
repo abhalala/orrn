@@ -1,17 +1,33 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
-import { toast } from "sonner";
+import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
+import { EmptyState } from "@orrn/ui/components/empty-state";
+import { PageHeader } from "@orrn/ui/components/page-header";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
 import { format } from "date-fns";
+import { toast } from "sonner";
+
+import { Can } from "@/components/can";
+import { requirePlatformAdmin } from "@/lib/route-guards";
+import { trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/platform/waitlist")({
   component: PlatformWaitlistComponent,
+  beforeLoad: requirePlatformAdmin,
 });
+
+type WaitlistRow = {
+  id: string;
+  companyName: string;
+  requesterName: string;
+  requesterEmail: string;
+  notes: string | null;
+  createdAt: string | number | Date;
+};
 
 function PlatformWaitlistComponent() {
   const { data: requests, isLoading, refetch } = useQuery(trpc.platform.waitlistList.queryOptions());
-  
+
   const approveMutation = useMutation({
     ...trpc.platform.waitlistApprove.mutationOptions(),
     onSuccess: () => {
@@ -20,7 +36,7 @@ function PlatformWaitlistComponent() {
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to approve request");
-    }
+    },
   });
 
   const rejectMutation = useMutation({
@@ -31,72 +47,76 @@ function PlatformWaitlistComponent() {
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to reject request");
-    }
+    },
   });
 
-  if (isLoading) {
-    return <div className="p-8">Loading...</div>;
-  }
+  const columns: DataTableColumn<WaitlistRow>[] = [
+    {
+      id: "date",
+      header: "Date",
+      cell: (r) => format(new Date(r.createdAt), "MMM d, yyyy"),
+    },
+    {
+      id: "company",
+      header: "Company",
+      cell: (r) => <span className="font-medium">{r.companyName}</span>,
+      flex: 2,
+    },
+    { id: "requester", header: "Requester", cell: (r) => r.requesterName },
+    { id: "email", header: "Email", cell: (r) => r.requesterEmail, flex: 2 },
+    {
+      id: "notes",
+      header: "Notes",
+      cell: (r) => (
+        <span className="text-xs text-muted-foreground line-clamp-1 max-w-[280px]">
+          {r.notes || "—"}
+        </span>
+      ),
+      flex: 2,
+    },
+    {
+      id: "actions",
+      header: "",
+      align: "right",
+      cell: (r) => (
+        <div className="flex gap-2">
+          <Can do="platform.waitlist.review">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => rejectMutation.mutate({ id: r.id })}
+              disabled={rejectMutation.isPending || approveMutation.isPending}
+            >
+              Reject
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => approveMutation.mutate({ id: r.id })}
+              disabled={rejectMutation.isPending || approveMutation.isPending}
+            >
+              Approve
+            </Button>
+          </Can>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Waitlist Management</h1>
-        <p className="text-muted-foreground">Review and approve incoming company requests.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Platform"
+        title="Waitlist"
+        description="Review and approve incoming company requests."
+      />
 
-      <div className="border rounded-md">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-muted text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Date</th>
-              <th className="px-4 py-3 font-medium">Company</th>
-              <th className="px-4 py-3 font-medium">Requester</th>
-              <th className="px-4 py-3 font-medium">Email</th>
-              <th className="px-4 py-3 font-medium">Notes</th>
-              <th className="px-4 py-3 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {requests?.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                  No pending waitlist requests.
-                </td>
-              </tr>
-            ) : (
-              requests?.map((req) => (
-                <tr key={req.id} className="hover:bg-muted/50">
-                  <td className="px-4 py-3">{format(new Date(req.createdAt), "MMM d, yyyy")}</td>
-                  <td className="px-4 py-3 font-medium">{req.companyName}</td>
-                  <td className="px-4 py-3">{req.requesterName}</td>
-                  <td className="px-4 py-3">{req.requesterEmail}</td>
-                  <td className="px-4 py-3 text-muted-foreground max-w-[200px] truncate" title={req.notes || ""}>
-                    {req.notes || "-"}
-                  </td>
-                  <td className="px-4 py-3 text-right space-x-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => rejectMutation.mutate({ id: req.id })}
-                      disabled={rejectMutation.isPending || approveMutation.isPending}
-                    >
-                      Reject
-                    </Button>
-                    <Button 
-                      size="sm"
-                      onClick={() => approveMutation.mutate({ id: req.id })}
-                      disabled={rejectMutation.isPending || approveMutation.isPending}
-                    >
-                      Approve
-                    </Button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={(requests ?? []) as WaitlistRow[]}
+        rowKey={(r) => r.id}
+        columns={columns}
+        isLoading={isLoading}
+        emptyState={<EmptyState title="No pending requests" description="The waitlist is empty right now." />}
+      />
     </div>
   );
 }

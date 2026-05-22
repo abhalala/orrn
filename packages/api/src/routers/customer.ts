@@ -93,7 +93,7 @@ export const customerRouter = router({
         });
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "customer.create",
             subjectType: "customer",
@@ -139,7 +139,7 @@ export const customerRouter = router({
           .where(eq(customer.id, input.id));
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "customer.update",
             subjectType: "customer",
@@ -179,7 +179,7 @@ export const customerRouter = router({
           .where(eq(customer.id, input.id));
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "customer.delete",
             subjectType: "customer",
@@ -225,7 +225,7 @@ export const customerRouter = router({
         }
 
         await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session },
+          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "customer.import",
             subjectType: "customer",

@@ -5,12 +5,14 @@ import { format } from "date-fns";
 import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Label } from "@orrn/ui/components/label";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
 
 export const Route = createFileRoute("/receipts/$id")({
   component: ReceiptDetailComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 function statusBadgeClass(status: BundleStatus | string): string {

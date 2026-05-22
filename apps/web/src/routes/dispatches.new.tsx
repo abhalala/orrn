@@ -7,9 +7,11 @@ import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/dispatches/new")({
   component: NewDispatchComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 function NewDispatchComponent() {

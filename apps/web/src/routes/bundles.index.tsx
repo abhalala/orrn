@@ -1,15 +1,21 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { format } from "date-fns";
-
-import { trpc } from "@/utils/trpc";
+import { StatusBadge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
+import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
+import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Input } from "@orrn/ui/components/input";
+import { PageHeader } from "@orrn/ui/components/page-header";
+import { Tabs } from "@orrn/ui/components/tabs";
+import { Toolbar } from "@orrn/ui/components/toolbar";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { format } from "date-fns";
+import { useState } from "react";
+
+import { requireCompanyMe } from "@/lib/route-guards";
+import { trpc } from "@/utils/trpc";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
-
 type StatusFilter = BundleStatus | "all";
 
 export const Route = createFileRoute("/bundles/")({
@@ -19,20 +25,22 @@ export const Route = createFileRoute("/bundles/")({
     dieId: (search.dieId as string | undefined) ?? undefined,
     groupId: (search.groupId as string | undefined) ?? undefined,
   }),
+  beforeLoad: requireCompanyMe,
 });
 
-function statusBadgeClass(status: BundleStatus): string {
-  switch (status) {
-    case "available":
-      return "bg-emerald-100 text-emerald-800";
-    case "reserved":
-      return "bg-amber-100 text-amber-800";
-    case "dispatched":
-      return "bg-sky-100 text-sky-800";
-    case "void":
-      return "bg-zinc-200 text-zinc-700";
-  }
-}
+type BundleRow = {
+  id: string;
+  serial: string;
+  dieSeries: string;
+  dieSectionCode: string;
+  groupId: string;
+  groupCode: string;
+  quantity: number | string;
+  weightG: number | string;
+  lengthMm: number | string;
+  status: BundleStatus | string;
+  createdAt: string | number | Date;
+};
 
 function BundlesListComponent() {
   const search = Route.useSearch();
@@ -52,129 +60,108 @@ function BundlesListComponent() {
     }),
   });
 
-  const items = data?.items ?? [];
+  const columns: DataTableColumn<BundleRow>[] = [
+    {
+      id: "serial",
+      header: "Serial",
+      cell: (r) => (
+        <Link to="/bundles/$id" params={{ id: r.id }} className="font-mono text-xs hover:underline">
+          {r.serial}
+        </Link>
+      ),
+      flex: 1.5,
+    },
+    {
+      id: "die",
+      header: "Die",
+      cell: (r) => `${r.dieSeries} / ${r.dieSectionCode}`,
+    },
+    {
+      id: "receipt",
+      header: "Receipt",
+      cell: (r) => (
+        <Link to="/receipts/$id" params={{ id: r.groupId }} className="font-mono text-xs hover:underline">
+          {r.groupCode}
+        </Link>
+      ),
+    },
+    { id: "qty", header: "Qty", align: "right", cell: (r) => Number(r.quantity) },
+    { id: "weight", header: "Weight (g)", align: "right", cell: (r) => Number(r.weightG) },
+    { id: "length", header: "Length (mm)", align: "right", cell: (r) => Number(r.lengthMm) },
+    {
+      id: "status",
+      header: "Status",
+      cell: (r) => <StatusBadge kind="bundle" value={r.status} />,
+    },
+    {
+      id: "created",
+      header: "Created",
+      cell: (r) => format(new Date(r.createdAt), "MMM d, yyyy"),
+    },
+  ];
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Bundles</h1>
-          <p className="text-muted-foreground">
-            All bundles across receipts ({data?.total ?? 0} total)
-          </p>
-        </div>
-        <div className="flex space-x-2">
-          <Link to="/receipts">
-            <Button variant="outline">View Receipts</Button>
-          </Link>
-          <Link to="/receipts/new">
-            <Button>New Production Receipt</Button>
-          </Link>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Bundles"
+        description={`All bundles across receipts (${data?.total ?? 0} total)`}
+        actions={
+          <>
+            <Link to="/receipts">
+              <Button variant="outline">View Receipts</Button>
+            </Link>
+            <Link to="/receipts/new">
+              <Button>New Production Receipt</Button>
+            </Link>
+          </>
+        }
+      />
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <Input
-          placeholder="Search by serial..."
-          value={serialSearch}
-          onChange={(e) => setSerialSearch(e.target.value)}
-          className="max-w-sm"
-        />
-        <div className="flex items-center gap-1">
-          {(["all", ...bundleStatuses] as const).map((s) => (
+      <Toolbar
+        actions={
+          (search.dieId || search.groupId) && (
             <Button
-              key={s}
-              variant={status === s ? "default" : "outline"}
+              variant="ghost"
               size="sm"
-              onClick={() => navigate({ search: (prev) => ({ ...prev, status: s }) })}
+              onClick={() => navigate({ search: { status, dieId: undefined, groupId: undefined } })}
             >
-              {s.charAt(0).toUpperCase() + s.slice(1)}
+              Clear filters
             </Button>
-          ))}
-        </div>
-        {(search.dieId || search.groupId) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              navigate({ search: { status, dieId: undefined, groupId: undefined } })
-            }
-          >
-            Clear filters
-          </Button>
-        )}
-      </div>
+          )
+        }
+      >
+        <Input
+          placeholder="Search by serial…"
+          value={serialSearch}
+          onChangeText={setSerialSearch}
+          maxWidth={320}
+        />
+        <Tabs
+          value={status}
+          onValueChange={(v) => navigate({ search: (prev) => ({ ...prev, status: v as StatusFilter }) })}
+          items={(["all", ...bundleStatuses] as const).map((s) => ({
+            id: s,
+            label: s.charAt(0).toUpperCase() + s.slice(1),
+          }))}
+        />
+      </Toolbar>
 
-      <div className="border rounded-md bg-card overflow-hidden">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-muted text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Serial</th>
-              <th className="px-4 py-3 font-medium">Die</th>
-              <th className="px-4 py-3 font-medium">Receipt</th>
-              <th className="px-4 py-3 font-medium text-right">Qty</th>
-              <th className="px-4 py-3 font-medium text-right">Weight (g)</th>
-              <th className="px-4 py-3 font-medium text-right">Length (mm)</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Created</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
-                  Loading...
-                </td>
-              </tr>
-            ) : items.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
-                  No bundles found.
-                </td>
-              </tr>
-            ) : (
-              items.map((b) => (
-                <tr key={b.id} className="hover:bg-muted/50">
-                  <td className="px-4 py-3 font-mono text-xs">
-                    <Link
-                      to="/bundles/$id"
-                      params={{ id: b.id }}
-                      className="hover:underline"
-                    >
-                      {b.serial}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    {b.dieSeries} / {b.dieSectionCode}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs">
-                    <Link
-                      to="/receipts/$id"
-                      params={{ id: b.groupId }}
-                      className="hover:underline"
-                    >
-                      {b.groupCode}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-right">{b.quantity}</td>
-                  <td className="px-4 py-3 text-right">{b.weightG}</td>
-                  <td className="px-4 py-3 text-right">{b.lengthMm}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs font-medium px-2 py-1 rounded ${statusBadgeClass(b.status)}`}
-                    >
-                      {b.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">
-                    {format(new Date(b.createdAt), "MMM d, yyyy")}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={(data?.items ?? []) as BundleRow[]}
+        rowKey={(r) => r.id}
+        columns={columns}
+        isLoading={isLoading}
+        emptyState={
+          <EmptyState
+            title="No bundles found"
+            description={
+              search.dieId || search.groupId
+                ? "Nothing matches the active filter."
+                : "Bundles appear here once a receipt is created."
+            }
+          />
+        }
+      />
     </div>
   );
 }

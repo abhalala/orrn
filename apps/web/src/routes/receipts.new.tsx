@@ -8,9 +8,11 @@ import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
+import { requireCompanyMe } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/receipts/new")({
   component: NewReceiptComponent,
+  beforeLoad: requireCompanyMe,
 });
 
 type Row = { quantity: string; weightG: string; lengthMm: string };
