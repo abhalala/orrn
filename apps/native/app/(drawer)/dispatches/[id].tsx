@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -266,6 +267,8 @@ export default function DispatchDetailScreen() {
             </View>
           )}
 
+          {d.status === "completed" && <PackingListCard dispatchId={d.id} />}
+
           <Text style={styles.itemsTitle}>Items ({items.length})</Text>
         </View>
       }
@@ -296,6 +299,65 @@ export default function DispatchDetailScreen() {
         <Text style={styles.empty}>No bundles in this dispatch yet.</Text>
       }
     />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Packing list card for completed dispatches
+// ---------------------------------------------------------------------------
+function PackingListCard({ dispatchId }: { dispatchId: string }) {
+  const { data: pl, isLoading } = useQuery({
+    ...trpc.packingList.byDispatch.queryOptions({ dispatchId }),
+  });
+
+  async function handleShare() {
+    if (!pl) return;
+    const snap = pl.snapshot as any;
+    const cust = snap.dispatch?.customer?.name ?? "—";
+    const totals = snap.totals ?? {};
+    const lines: string[] = [
+      `Packing List: ${pl.code}`,
+      `Dispatch: ${snap.dispatch?.code ?? ""}`,
+      `Customer: ${cust}`,
+      `Bundles: ${totals.totalBundles ?? 0}`,
+      `Total Qty: ${totals.totalQuantity ?? 0}`,
+      `Total Weight: ${totals.totalWeightKg ?? 0} kg`,
+      `Total Length: ${totals.totalLengthM ?? 0} m`,
+      "",
+      "Items:",
+      ...(snap.items ?? []).map((item: any, i: number) =>
+        `${i + 1}. ${item.bundleSerial} | ${item.die?.series}/${item.die?.sectionCode} | qty ${item.quantity} | ${(item.weightG / 1000).toFixed(3)} kg`,
+      ),
+    ];
+    try {
+      await Share.share({ message: lines.join("\n"), title: `${pl.code} Packing List` });
+    } catch {
+      Alert.alert("Error", "Failed to share packing list");
+    }
+  }
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.sectionTitle}>Packing List</Text>
+      {isLoading ? (
+        <ActivityIndicator size="small" />
+      ) : !pl ? (
+        <Text style={{ fontSize: 13, color: "#6b7280" }}>No packing list available.</Text>
+      ) : (
+        <View style={{ gap: 8 }}>
+          <Text style={{ fontFamily: "Menlo", fontSize: 13, fontWeight: "600" }}>{pl.code}</Text>
+          <Text style={{ fontSize: 12, color: "#6b7280" }}>
+            Generated {format(new Date((pl.snapshot as any).generatedAt as string), "PP p")}
+          </Text>
+          <TouchableOpacity
+            onPress={handleShare}
+            style={[styles.actionBtn, { backgroundColor: "white", borderColor: "#d4d4d8", borderWidth: 1 }]}
+          >
+            <Text style={[styles.actionBtnText, { color: "#111827" }]}>Share / Export</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
   );
 }
 

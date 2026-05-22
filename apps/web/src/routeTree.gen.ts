@@ -24,6 +24,7 @@ import { Route as SettingsMembersRouteImport } from './routes/settings.members'
 import { Route as ReceiptsNewRouteImport } from './routes/receipts.new'
 import { Route as ReceiptsIdRouteImport } from './routes/receipts.$id'
 import { Route as PlatformWaitlistRouteImport } from './routes/platform.waitlist'
+import { Route as PackingListsIdRouteImport } from './routes/packing-lists.$id'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as DispatchesNewRouteImport } from './routes/dispatches.new'
 import { Route as DispatchesIdRouteImport } from './routes/dispatches.$id'
@@ -106,6 +107,11 @@ const PlatformWaitlistRoute = PlatformWaitlistRouteImport.update({
   path: '/platform/waitlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PackingListsIdRoute = PackingListsIdRouteImport.update({
+  id: '/packing-lists/$id',
+  path: '/packing-lists/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/dispatches/$id': typeof DispatchesIdRoute
   '/dispatches/new': typeof DispatchesNewRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/packing-lists/$id': typeof PackingListsIdRoute
   '/platform/waitlist': typeof PlatformWaitlistRoute
   '/receipts/$id': typeof ReceiptsIdRoute
   '/receipts/new': typeof ReceiptsNewRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByTo {
   '/dispatches/$id': typeof DispatchesIdRoute
   '/dispatches/new': typeof DispatchesNewRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/packing-lists/$id': typeof PackingListsIdRoute
   '/platform/waitlist': typeof PlatformWaitlistRoute
   '/receipts/$id': typeof ReceiptsIdRoute
   '/receipts/new': typeof ReceiptsNewRoute
@@ -196,6 +204,7 @@ export interface FileRoutesById {
   '/dispatches/$id': typeof DispatchesIdRoute
   '/dispatches/new': typeof DispatchesNewRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/packing-lists/$id': typeof PackingListsIdRoute
   '/platform/waitlist': typeof PlatformWaitlistRoute
   '/receipts/$id': typeof ReceiptsIdRoute
   '/receipts/new': typeof ReceiptsNewRoute
@@ -221,6 +230,7 @@ export interface FileRouteTypes {
     | '/dispatches/$id'
     | '/dispatches/new'
     | '/invite/$token'
+    | '/packing-lists/$id'
     | '/platform/waitlist'
     | '/receipts/$id'
     | '/receipts/new'
@@ -244,6 +254,7 @@ export interface FileRouteTypes {
     | '/dispatches/$id'
     | '/dispatches/new'
     | '/invite/$token'
+    | '/packing-lists/$id'
     | '/platform/waitlist'
     | '/receipts/$id'
     | '/receipts/new'
@@ -267,6 +278,7 @@ export interface FileRouteTypes {
     | '/dispatches/$id'
     | '/dispatches/new'
     | '/invite/$token'
+    | '/packing-lists/$id'
     | '/platform/waitlist'
     | '/receipts/$id'
     | '/receipts/new'
@@ -291,6 +303,7 @@ export interface RootRouteChildren {
   DispatchesIdRoute: typeof DispatchesIdRoute
   DispatchesNewRoute: typeof DispatchesNewRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  PackingListsIdRoute: typeof PackingListsIdRoute
   PlatformWaitlistRoute: typeof PlatformWaitlistRoute
   ReceiptsIdRoute: typeof ReceiptsIdRoute
   ReceiptsNewRoute: typeof ReceiptsNewRoute
@@ -410,6 +423,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlatformWaitlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/packing-lists/$id': {
+      id: '/packing-lists/$id'
+      path: '/packing-lists/$id'
+      fullPath: '/packing-lists/$id'
+      preLoaderRoute: typeof PackingListsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/invite/$token': {
       id: '/invite/$token'
       path: '/invite/$token'
@@ -467,6 +487,7 @@ const rootRouteChildren: RootRouteChildren = {
   DispatchesIdRoute: DispatchesIdRoute,
   DispatchesNewRoute: DispatchesNewRoute,
   InviteTokenRoute: InviteTokenRoute,
+  PackingListsIdRoute: PackingListsIdRoute,
   PlatformWaitlistRoute: PlatformWaitlistRoute,
   ReceiptsIdRoute: ReceiptsIdRoute,
   ReceiptsNewRoute: ReceiptsNewRoute,

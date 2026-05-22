@@ -44,6 +44,9 @@ export const ACTIONS = [
   "dispatch.cancel",
   "dispatch.addBundle",
 
+  // Packing lists (generated from completed dispatches)
+  "packingList.regenerate",
+
   // Member / role management
   "member.invite",
   "member.updateRole",
@@ -96,6 +99,7 @@ const ROLE_ACTIONS: Record<CompanyRole, ReadonlySet<Action>> = {
     "dispatch.complete",
     "dispatch.cancel",
     "dispatch.addBundle",
+    "packingList.regenerate",
   ]),
   operator: new Set<Action>([
     "bundle.create",

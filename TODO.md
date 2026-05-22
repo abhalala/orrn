@@ -2,7 +2,73 @@
 
 This file is the source of truth for current implementation orchestration.
 
-## Active milestone: M6 Multi-tenant Security & Role Awareness ✅
+## Active milestone: M8 Packing List Snapshots & Client-side Exports ✅
+
+### M8 Scope
+Auto-generate an immutable packing list snapshot on every `dispatch.complete`,
+expose a manual Regenerate action, and provide client-side PDF + Excel downloads
+on web and a Share export on native. No new permission set — reuses `dispatch.*`.
+
+### M8 Deliverables
+- [x] 1. `packingList.ts` tRPC router (`create`, `get`, `byDispatch`, `list`,
+         `regenerate`). Snapshot written as Drizzle `mode:"json"` column —
+         Drizzle handles serialisation, no manual `JSON.stringify`.
+- [x] 2. `createPackingListInTx` helper exported from `packingList.ts` and
+         called inside the `dispatch.complete` transaction so the packing list
+         is always atomically present when a dispatch becomes `completed`.
+- [x] 3. `buildSnapshot` captures company, customer (full address/contact),
+         all dispatch items (joined bundle + die), and computed totals at
+         completion time. Snapshot is immutable; Regenerate deletes + recreates.
+- [x] 4. Packing list code format: `PL-{6-digit serverSeq}` (same rhythm as
+         `DSP-######`). Unique per-company via DB constraint.
+- [x] 5. `packingList.regenerate` permission added to `permissions.ts`; all
+         manager-and-above roles receive it; operators and viewers do not.
+- [x] 6. Web: `packing-lists.$id.tsx` — standalone packing list detail page
+         with totals, items table, Download PDF, Download Excel, Regenerate.
+- [x] 7. Web: `dispatches.$id.tsx` — `<PackingListSection>` card auto-shown for
+         completed dispatches; links to detail; inline PDF + Excel + Regenerate.
+- [x] 8. `apps/web/src/lib/packingListPdf.tsx` — PDF template built with
+         `@react-pdf/renderer` (A4, company header, items table, totals,
+         footer). Lazy-imported to keep the initial bundle lean.
+- [x] 9. `apps/web/src/lib/packingListXlsx.ts` — Excel workbook (Summary +
+         Items sheets) via SheetJS `xlsx`. Lazy-imported.
+- [x] 10. Native: `PackingListCard` component in dispatch detail, visible for
+          completed dispatches. "Share / Export" uses `Share.share()` from
+          `react-native` with a human-readable text summary.
+
+### M8 API additions
+- `packingList.create({ dispatchId })` — manual trigger; errors if already exists
+- `packingList.get({ id })` — returns snapshot as parsed object
+- `packingList.byDispatch({ dispatchId })` — returns null if none yet
+- `packingList.list({ limit, offset })` — paginated list for company
+- `packingList.regenerate({ id })` — delete + recreate with fresh snapshot
+
+### M8 Schema used
+- `packing_list` + `packing_list_line` tables existed from schema bootstrap.
+  No new migration needed.
+
+### M8 Dependencies added
+- `apps/web`: `@react-pdf/renderer@4.5.1`, `xlsx@0.18.5`
+
+### M8 Testing
+- `dispatch.complete` → `packingList.byDispatch` returns new PL with correct code
+- Snapshot contains customer contact, all items (serial, die, dimensions),
+  totals that match item-level sum, `generatedAt` timestamp
+- `regenerate` produces new `PL-XXXXXX` code; old row is gone
+- PDF download: opens in browser PDF viewer with correct company/customer/items
+- Excel download: two sheets, totals match
+- Native Share: shares human-readable text summary with all bundle serials
+
+---
+
+## Completed milestone: M7 SaaS Visual Rewrite ✅
+
+(Delivered before M8 — commits ff07099, 84d42e4, 6cb903c, b24f1d3, 3ddd9e4
+on branch m7-design-system. See git log for details.)
+
+---
+
+## Completed milestone: M6 Multi-tenant Security & Role Awareness ✅
 
 ### M6 Scope
 Make the client side as multi-tenant aware as the server already is: gate every
@@ -212,9 +278,6 @@ Production-Receipt-based bundle creation with auto-generated codes/serials, an M
 
 ## Future milestones
 
-- M7: SaaS visual rewrite (Tamagui-driven web + native parity, dashboard
-  redesign, app shell polish). Builds directly on the M6 security shell.
-- M8: Packing list snapshots and client-side PDF/xlsx exports.
 - M9: Platform admin console + full time-boxed impersonation grant table.
 - M10: Printing via orrn-spool (per-tenant LAN deployment + webhooks).
 - M11: Audit log viewer + retention settings.

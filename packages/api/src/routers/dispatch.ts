@@ -17,6 +17,7 @@ import { companyProcedure, router } from "../index";
 import { writeAudit } from "../lib/audit";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { nextCompanySeq } from "../lib/sequence";
+import { createPackingListInTx } from "./packingList";
 
 const ALLOWED_DISPATCH_TRANSITIONS: Record<DispatchStatus, DispatchStatus[]> = {
   draft: ["reserved", "cancelled"],
@@ -861,6 +862,23 @@ export const dispatchRouter = router({
             serverSeq: seq,
           })
           .where(eq(dispatch.id, d.id));
+
+        // Auto-create the packing list inside the same transaction so it is
+        // always present when the dispatch status becomes "completed".
+        await createPackingListInTx(tx, {
+          companyId: ctx.companyId,
+          dispatchRow: {
+            id: d.id,
+            code: d.code,
+            customerId: d.customerId,
+            shipDate: d.shipDate ?? null,
+            notes: d.notes ?? null,
+            status: "completed",
+            completedAt: new Date(),
+          },
+          session: ctx.session,
+          impersonation: ctx.impersonation,
+        });
 
         await writeAudit(
           { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
