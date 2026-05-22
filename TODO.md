@@ -2,7 +2,95 @@
 
 This file is the source of truth for current implementation orchestration.
 
-## Active milestone: M5 Dispatch State Machine ✅
+## Active milestone: M6 Multi-tenant Security & Role Awareness ✅
+
+### M6 Scope
+Make the client side as multi-tenant aware as the server already is: gate every
+authenticated route behind a session + company check, redirect platform admins
+into their own console, surface the active company + role in the header,
+silently hide actions the current role can't perform, clear the React Query
+cache on sign-out and company switch, and stub the impersonation banner that
+M9 will fully wire up. No visual rewrite — that's M7.
+
+### M6 Deliverables
+- [x] 1. New `auth.me` tRPC query in `packages/api/src/routers/auth.ts`,
+       registered in `packages/api/src/routers/index.ts`, returning
+       `{ user, company: { id, name, slug, status, plan, role } | null,
+       isPlatformAdmin, impersonation }`.
+- [x] 2. Role-capability matrix in `packages/api/src/lib/permissions.ts`
+       (actions for customer/die/receipt/bundle/dispatch/member/settings/
+       platform.*) plus pure `can(me, action)` / `canAny(me, actions)` helpers
+       reused by web and native.
+- [x] 3. Route guards on web via shared `apps/web/src/lib/route-guards.ts`
+       (`requireSession`, `requireCompanyMe`, `requirePlatformAdmin`,
+       `loadMe`). Decision: kept the flat route layout (Option A) instead of
+       layout-group restructure to minimise router churn. Every authenticated
+       route now sets `beforeLoad: requireCompanyMe`; `/platform/*` uses
+       `requirePlatformAdmin`; `/login` accepts a `next` search param.
+- [x] 4. New `/no-access` page for signed-in users without an active company
+       membership, with a sign-out action that clears the QueryClient.
+- [x] 5. `<Can do="…">` component + `useMe()` hook on web
+       (`apps/web/src/lib/me.ts`, `apps/web/src/components/can.tsx`) and on
+       native (`apps/native/utils/me.ts`, `apps/native/components/can.tsx`).
+- [x] 6. Web header (`apps/web/src/components/header.tsx`) filters nav links
+       by capability, shows company name + role badge, exposes the platform
+       link only for platform admins, and renders the impersonation banner.
+- [x] 7. Action gating across web screens: customers, dies, receipts,
+       bundles, dispatches, settings/members, platform/waitlist. Buttons are
+       wrapped in `<Can>` — never removed — so the server stays authoritative.
+- [x] 8. Native session + role gating: `apps/native/app/_layout.tsx` mounts
+       the impersonation banner and tenant cache guard;
+       `apps/native/app/(drawer)/_layout.tsx` hides Receipts/Members drawer
+       entries by capability. Mobile-only floors still see
+       Bundles/Dispatches/Stock.
+- [x] 9. Cache hygiene: `queryClient.clear()` on sign-out everywhere, plus a
+       `TenantCacheGuard` on web (and native parity) that drops non-`auth.me`
+       queries whenever the active `companyId` changes.
+- [x] 10. Impersonation stub: `x-orrn-impersonate-company` header is honoured
+        in `createContext` only for platform admins; impersonation info is
+        threaded into the tRPC context and into `writeAudit` so every audit
+        row records `impersonatorId`. Client banner (`ImpersonationBanner`)
+        renders on web + native and "Stop impersonating" drops the cached
+        `auth.me` so the next request runs without the header.
+
+### M6 API additions
+- `auth.me` query (authenticated; returns null `company` when the caller has no
+  active membership instead of throwing).
+
+### M6 Schema additions
+- None. `auditLog.impersonatorId` already existed in `packages/db/src/schema/
+  auth.ts`, so no Drizzle migration was generated.
+
+### M6 Skipped / simplified vs the plan
+- Route layout-groups (`_public/`, `_app/`, `_platform/`) — kept the flat
+  routes and applied per-file `beforeLoad: requireCompanyMe`. Same security
+  outcome; smaller diff; safer for the TanStack Router code-gen.
+- Native impersonation "Stop" button currently just clears the cached
+  `auth.me`. The actual `x-orrn-impersonate-company` header is only set by the
+  M9 admin console anyway; on native we never set it, so the banner is
+  effectively dormant on mobile.
+- No new audit migration — the `impersonatorId` column already exists from M0
+  and is now populated.
+
+### M6 Testing
+- `bun run check-types` passes (web/server/native + every shared package).
+- `auth.me` returns `UNAUTHORIZED` without cookies and the full
+  `{ user, company, isPlatformAdmin, impersonation }` shape with a valid
+  session. Tenant data is never returned for other companies.
+- Hitting any authenticated web route without a session redirects to
+  `/login?next=…`; after login the user is sent back to `next`.
+- Platform admins without a company membership land on `/platform/waitlist`
+  (or any `/platform/*` route) without being redirected to `/no-access`.
+- For a forced `viewer` role, action buttons across customers/dies/dispatches
+  disappear while read views still render.
+
+### M6 Follow-ups for M7
+- The header redesign is functional but still uses the existing shadcn shell.
+  The Tamagui-driven visual rewrite is M7's job.
+- Native still uses NativeWind classes for the impersonation banner; replace
+  with the shared `@orrn/ui` Tamagui primitives in M7.
+
+## Completed milestone: M5 Dispatch State Machine ✅
 
 ### M5 Scope
 Atomic dispatch lifecycle (`draft -> reserved -> completed/cancelled`) with synchronized bundle status transitions (`available <-> reserved -> dispatched`), customer linkage, dispatch code auto-gen, Web/Native parity, and an audit-derived activity timeline. The bundle state machine in M4 stays intact: `reserved`/`dispatched` transitions are owned exclusively by the dispatch flow.
@@ -124,11 +212,13 @@ Production-Receipt-based bundle creation with auto-generated codes/serials, an M
 
 ## Future milestones
 
-- M6: Packing list snapshots and client-side exports.
-- M7: Printing via orrn-spool.
-- M8: Audit log viewer and retention settings.
-- M9: Platform admin area.
-- M10: Native offline-first sync.
+- M7: SaaS visual rewrite (Tamagui-driven web + native parity, dashboard
+  redesign, app shell polish). Builds directly on the M6 security shell.
+- M8: Packing list snapshots and client-side PDF/xlsx exports.
+- M9: Platform admin console + full time-boxed impersonation grant table.
+- M10: Printing via orrn-spool (per-tenant LAN deployment + webhooks).
+- M11: Audit log viewer + retention settings.
+- M12: Native offline-first sync (floor-worker subset).
 
 ## Completed milestones
 
