@@ -9,9 +9,7 @@ config({ path: "../../apps/web/.env" });
 config({ path: "../../apps/server/.env" });
 
 const app = await alchemy("orrn", {
-  stateStore: process.env.ALCHEMY_STATE_TOKEN
-    ? (scope: Scope) => new CloudflareStateStore(scope)
-    : undefined,
+  stateStore: (scope: Scope) => new CloudflareStateStore(scope),
 });
 const devMasterKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 const zoneName = "orrn.app";
