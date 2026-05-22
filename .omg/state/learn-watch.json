@@ -1,6 +1,6 @@
 {
   "last_session_id": "b710bf6b-36dc-490b-b7ac-e4aabd85a432",
-  "last_event_key": "b710bf6b-36dc-490b-b7ac-e4aabd85a432:transcript:50c43c4b655a16ae523ad97b768cce989adac361b23155575498e8518fce6967",
+  "last_event_key": "b710bf6b-36dc-490b-b7ac-e4aabd85a432:transcript:334d552826e3f64d01a6fd3923e80e48a5be259cfe169ccf218a2f3e89c9017d",
   "last_prompted_session_id": "",
   "last_reason": "short-session",
   "last_prompted_at": "",
@@ -8,5 +8,5 @@
   "last_actionable_message_count": 0,
   "deep_interview_lock_active": false,
   "deep_interview_lock_source": "/Users/abhalala/Documents/Git/orrn/.omg/state/deep-interview.json",
-  "updated_at": "2026-05-19T17:24:26.701Z"
+  "updated_at": "2026-05-20T16:57:59.269Z"
 }
