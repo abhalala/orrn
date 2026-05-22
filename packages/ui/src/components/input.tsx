@@ -1,19 +1,75 @@
-import { Input as InputPrimitive } from "@base-ui/react/input";
-import { cn } from "@orrn/ui/lib/utils";
-import * as React from "react";
+import { forwardRef, type ChangeEvent, type ReactNode } from "react";
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+import { Input as TgInput, TextArea as TgTextArea } from "@orrn/ui/lib/tg";
+
+/**
+ * Cross-platform Tamagui input with backwards-compatible `onChange` handling
+ * for the existing web screens (which pass `onChange={(e) => setX(e.target.value)}`).
+ * New code should prefer `onChangeText`.
+ */
+export type InputProps = Record<string, any> & {
+  onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
+  onChangeText?: (text: string) => void;
+  type?: string;
+  className?: string;
+  children?: ReactNode;
+};
+
+export const Input = forwardRef<unknown, InputProps>(function Input(
+  { onChange, onChangeText, type, secureTextEntry, ...rest },
+  ref,
+) {
   return (
-    <InputPrimitive
+    <TgInput
+      ref={ref as any}
+      borderRadius={8}
+      borderWidth={1}
+      borderColor="$borderColor"
+      backgroundColor="$backgroundStrong"
+      paddingHorizontal={12}
+      height={36}
+      fontSize={13}
+      focusStyle={{ borderColor: "$primary", outlineWidth: 0 }}
+      secureTextEntry={secureTextEntry ?? type === "password"}
       type={type}
-      data-slot="input"
-      className={cn(
-        "h-8 w-full min-w-0 rounded-none border border-input bg-transparent px-2.5 py-1 text-xs transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-xs file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20 md:text-xs dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
-        className,
-      )}
-      {...props}
+      onChangeText={(text: string) => {
+        onChangeText?.(text);
+        if (onChange) {
+          onChange({ target: { value: text } } as unknown as ChangeEvent<HTMLInputElement>);
+        }
+      }}
+      {...rest}
     />
   );
-}
+});
 
-export { Input };
+export type TextAreaProps = Record<string, any> & {
+  onChange?: (e: ChangeEvent<HTMLTextAreaElement>) => void;
+  onChangeText?: (text: string) => void;
+};
+
+export const TextArea = forwardRef<unknown, TextAreaProps>(function TextArea(
+  { onChange, onChangeText, ...rest },
+  ref,
+) {
+  return (
+    <TgTextArea
+      ref={ref as any}
+      borderRadius={8}
+      borderWidth={1}
+      borderColor="$borderColor"
+      backgroundColor="$backgroundStrong"
+      paddingHorizontal={12}
+      paddingVertical={10}
+      fontSize={13}
+      focusStyle={{ borderColor: "$primary", outlineWidth: 0 }}
+      onChangeText={(text: string) => {
+        onChangeText?.(text);
+        if (onChange) {
+          onChange({ target: { value: text } } as unknown as ChangeEvent<HTMLTextAreaElement>);
+        }
+      }}
+      {...rest}
+    />
+  );
+});

@@ -1,0 +1,47 @@
+import type { ReactNode } from "react";
+
+import { H1, Paragraph, XStack, YStack } from "@orrn/ui/lib/tg";
+
+export type PageHeaderProps = {
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+  eyebrow?: ReactNode;
+};
+
+/**
+ * Standard ORRN page header: eyebrow + title + description on the left,
+ * actions slot on the right.
+ */
+export function PageHeader({ title, description, actions, eyebrow }: PageHeaderProps) {
+  return (
+    <XStack alignItems="flex-start" justifyContent="space-between" gap={16} flexWrap="wrap">
+      <YStack gap={4} flex={1} minWidth={240}>
+        {eyebrow ? (
+          <Paragraph
+            fontSize={11}
+            color="$mutedFg"
+            textTransform="uppercase"
+            letterSpacing={0.6}
+            margin={0}
+          >
+            {eyebrow}
+          </Paragraph>
+        ) : null}
+        <H1 fontSize={24} fontWeight="700" color="$color" margin={0} lineHeight={28}>
+          {title}
+        </H1>
+        {description ? (
+          <Paragraph fontSize={13} color="$mutedFg" margin={0} maxWidth={640}>
+            {description}
+          </Paragraph>
+        ) : null}
+      </YStack>
+      {actions ? (
+        <XStack alignItems="center" gap={8} flexWrap="wrap">
+          {actions}
+        </XStack>
+      ) : null}
+    </XStack>
+  );
+}
