@@ -1,6 +1,21 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
+  "globalPassThroughEnv": [
+    "ALCHEMY_PASSWORD",
+    "ALCHEMY_STATE_TOKEN",
+    "BETTER_AUTH_SECRET",
+    "CLOUDFLARE_API_TOKEN",
+    "ORRN_MASTER_KEY",
+    "RESEND_API_KEY",
+    "WEBHOOK_BASE_URL",
+    "WEB_DOMAIN",
+    "API_DOMAIN",
+    "VITE_SERVER_URL",
+    "BETTER_AUTH_URL",
+    "CORS_ORIGIN",
+    "NODE_ENV"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
