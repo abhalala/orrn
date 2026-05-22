@@ -1,20 +1,32 @@
+import { Button } from "@orrn/ui/components/button";
+import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
+import { EmptyState } from "@orrn/ui/components/empty-state";
+import { Input } from "@orrn/ui/components/input";
+import { PageHeader } from "@orrn/ui/components/page-header";
+import { Toolbar } from "@orrn/ui/components/toolbar";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState, useRef } from "react";
-import { toast } from "sonner";
 import { format } from "date-fns";
 import Papa from "papaparse";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 
-import { trpc } from "@/utils/trpc";
-import { Button } from "@orrn/ui/components/button";
-import { Input } from "@orrn/ui/components/input";
 import { Can } from "@/components/can";
 import { requireCompanyMe } from "@/lib/route-guards";
+import { trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/customers/")({
   component: CustomersListComponent,
   beforeLoad: requireCompanyMe,
 });
+
+type CustomerRow = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  createdAt: string | number | Date;
+};
 
 function CustomersListComponent() {
   const [search, setSearch] = useState("");
@@ -32,7 +44,7 @@ function CustomersListComponent() {
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to import customers");
-    }
+    },
   });
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,13 +55,15 @@ function CustomersListComponent() {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const parsedData = results.data.map((row: any) => ({
-          name: row.name || row.Name,
-          email: row.email || row.Email || "",
-          phone: row.phone || row.Phone || "",
-          taxId: row.taxId || row["Tax ID"] || "",
-          notes: row.notes || row.Notes || "",
-        })).filter(r => !!r.name);
+        const parsedData = results.data
+          .map((row: any) => ({
+            name: row.name || row.Name,
+            email: row.email || row.Email || "",
+            phone: row.phone || row.Phone || "",
+            taxId: row.taxId || row["Tax ID"] || "",
+            notes: row.notes || row.Notes || "",
+          }))
+          .filter((r) => !!r.name);
 
         if (parsedData.length === 0) {
           toast.error("No valid rows found. Ensure you have a 'name' column.");
@@ -61,93 +75,111 @@ function CustomersListComponent() {
       },
       error: (error) => {
         toast.error(`CSV Parsing error: ${error.message}`);
-      }
+      },
     });
   };
 
-  return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Customers</h1>
-          <p className="text-muted-foreground">Manage your customer relationships.</p>
-        </div>
-        <div className="flex space-x-2">
-          <input 
-            type="file" 
-            accept=".csv" 
-            className="hidden" 
-            ref={fileInputRef} 
-            onChange={handleFileUpload} 
-          />
-          <Can do="customer.import">
-            <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importMutation.isPending}>
-              {importMutation.isPending ? "Importing..." : "Import CSV"}
-            </Button>
-          </Can>
-          <Can do="customer.create">
-            <Link to="/customers/$id" params={{ id: "new" }}>
-              <Button>Add Customer</Button>
+  const columns: DataTableColumn<CustomerRow>[] = [
+    {
+      id: "name",
+      header: "Name",
+      sortable: true,
+      sortValue: (r) => r.name,
+      cell: (r) => <span className="font-medium">{r.name}</span>,
+      flex: 2,
+    },
+    { id: "email", header: "Email", cell: (r) => r.email || "—", flex: 2 },
+    { id: "phone", header: "Phone", cell: (r) => r.phone || "—" },
+    {
+      id: "created",
+      header: "Created",
+      cell: (r) => format(new Date(r.createdAt), "MMM d, yyyy"),
+    },
+    {
+      id: "actions",
+      header: "",
+      align: "right",
+      cell: (r) => (
+        <Can
+          do="customer.update"
+          fallback={
+            <Link to="/customers/$id" params={{ id: r.id }}>
+              <Button variant="ghost" size="sm">
+                View
+              </Button>
             </Link>
-          </Can>
-        </div>
-      </div>
+          }
+        >
+          <Link to="/customers/$id" params={{ id: r.id }}>
+            <Button variant="ghost" size="sm">
+              Edit
+            </Button>
+          </Link>
+        </Can>
+      ),
+    },
+  ];
 
-      <div className="flex items-center space-x-2">
-        <Input 
-          placeholder="Search customers..." 
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Customers"
+        description="Manage your customer relationships."
+        actions={
+          <>
+            <input
+              type="file"
+              accept=".csv"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+            />
+            <Can do="customer.import">
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importMutation.isPending}
+              >
+                {importMutation.isPending ? "Importing…" : "Import CSV"}
+              </Button>
+            </Can>
+            <Can do="customer.create">
+              <Link to="/customers/$id" params={{ id: "new" }}>
+                <Button>Add Customer</Button>
+              </Link>
+            </Can>
+          </>
+        }
+      />
+
+      <Toolbar>
+        <Input
+          placeholder="Search customers…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
+          onChangeText={setSearch}
+          maxWidth={320}
         />
-      </div>
+      </Toolbar>
 
-      <div className="border rounded-md bg-card">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-muted text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Email</th>
-              <th className="px-4 py-3 font-medium">Phone</th>
-              <th className="px-4 py-3 font-medium">Created</th>
-              <th className="px-4 py-3 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Loading...</td></tr>
-            ) : data?.items.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                  No customers found.
-                </td>
-              </tr>
-            ) : (
-              data?.items.map((customer) => (
-                <tr key={customer.id} className="hover:bg-muted/50">
-                  <td className="px-4 py-3 font-medium">{customer.name}</td>
-                  <td className="px-4 py-3">{customer.email || "-"}</td>
-                  <td className="px-4 py-3">{customer.phone || "-"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {format(new Date(customer.createdAt), "MMM d, yyyy")}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Can do="customer.update" fallback={
-                      <Link to="/customers/$id" params={{ id: customer.id }}>
-                        <Button variant="ghost" size="sm">View</Button>
-                      </Link>
-                    }>
-                      <Link to="/customers/$id" params={{ id: customer.id }}>
-                        <Button variant="ghost" size="sm">Edit</Button>
-                      </Link>
-                    </Can>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={(data?.items ?? []) as CustomerRow[]}
+        rowKey={(r) => r.id}
+        columns={columns}
+        isLoading={isLoading}
+        emptyState={
+          <EmptyState
+            title="No customers yet"
+            description="Add your first customer or import a CSV to get started."
+            actions={
+              <Can do="customer.create">
+                <Link to="/customers/$id" params={{ id: "new" }}>
+                  <Button>Add customer</Button>
+                </Link>
+              </Can>
+            }
+          />
+        }
+      />
     </div>
   );
 }
