@@ -1,7 +1,7 @@
 import { createAuth } from "@orrn/auth";
 import { createDb } from "@orrn/db";
-import { company, membership, platformAdmin } from "@orrn/db/schema";
-import { and, eq } from "drizzle-orm";
+import { company, impersonationGrant, membership, platformAdmin } from "@orrn/db/schema";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import type { Context as HonoContext } from "hono";
 
 export type CreateContextOptions = {
@@ -13,16 +13,15 @@ export type ImpersonationInfo = {
   actorUserId: string;
   /** The companyId being impersonated (also reflected in ctx.companyId). */
   companyId: string;
+  /** Active grant backing this session. */
+  grantId: string;
+  expiresAt: Date;
 };
 
 /**
  * Header read on every request. When present AND the requesting user is a
- * platform admin, we override `ctx.companyId` / `ctx.role` / `ctx.membership`
- * to that company so the request runs *as if* the admin were a member.
- *
- * For M6 we only land the context plumbing + audit metadata + client banner.
- * The proper time-boxed grant table ships in M9; for now any platform admin
- * may impersonate any active company.
+ * platform admin with a valid, non-revoked grant, we override `ctx.companyId`
+ * / `ctx.role` / `ctx.membership` to that company.
  */
 const IMPERSONATE_HEADER = "x-orrn-impersonate-company";
 
@@ -57,37 +56,61 @@ export async function createContext({ context }: CreateContextOptions) {
 
   const isPlatformAdmin = Boolean(platform);
 
-  // --- Impersonation (platform-admin only, M9 grant table is TODO) ---
   let impersonation: ImpersonationInfo | null = null;
   let effectiveMember = ownMember ?? null;
   let effectiveCompanyId = ownMember?.companyId ?? null;
   let effectiveRole = ownMember?.role ?? null;
 
   const impersonateCompanyId = context.req.header(IMPERSONATE_HEADER);
-  if (impersonateCompanyId && isPlatformAdmin && userId) {
-    const [impCompany] = await db
-      .select({ id: company.id, status: company.status })
-      .from(company)
-      .where(eq(company.id, impersonateCompanyId))
-      .limit(1);
+  let impersonationHeaderRejected = false;
 
-    if (impCompany && impCompany.status === "active") {
-      // Synthesize a membership-shaped object so companyProcedure / roleGuard
-      // continue to work without special-casing impersonation everywhere.
-      // Platform admins act as `owner` while impersonating so they can exercise
-      // any tenant-scoped functionality during support sessions.
-      effectiveMember = {
-        id: `impersonation:${impCompany.id}`,
-        companyId: impCompany.id,
-        role: "owner" as const,
-        companyStatus: impCompany.status,
-      };
-      effectiveCompanyId = impCompany.id;
-      effectiveRole = "owner" as const;
-      impersonation = {
-        actorUserId: userId,
-        companyId: impCompany.id,
-      };
+  if (impersonateCompanyId) {
+    if (!isPlatformAdmin || !userId) {
+      impersonationHeaderRejected = true;
+    } else {
+      const now = new Date();
+      const [grant] = await db
+        .select()
+        .from(impersonationGrant)
+        .where(
+          and(
+            eq(impersonationGrant.platformAdminId, userId),
+            eq(impersonationGrant.companyId, impersonateCompanyId),
+            isNull(impersonationGrant.revokedAt),
+            gt(impersonationGrant.expiresAt, now),
+          ),
+        )
+        .orderBy(desc(impersonationGrant.createdAt))
+        .limit(1);
+
+      if (!grant) {
+        impersonationHeaderRejected = true;
+      } else {
+        const [impCompany] = await db
+          .select({ id: company.id, status: company.status })
+          .from(company)
+          .where(eq(company.id, impersonateCompanyId))
+          .limit(1);
+
+        if (!impCompany || impCompany.status !== "active") {
+          impersonationHeaderRejected = true;
+        } else {
+          effectiveMember = {
+            id: `impersonation:${impCompany.id}`,
+            companyId: impCompany.id,
+            role: "owner" as const,
+            companyStatus: impCompany.status,
+          };
+          effectiveCompanyId = impCompany.id;
+          effectiveRole = "owner" as const;
+          impersonation = {
+            actorUserId: userId,
+            companyId: impCompany.id,
+            grantId: grant.id,
+            expiresAt: grant.expiresAt,
+          };
+        }
+      }
     }
   }
 
@@ -101,6 +124,7 @@ export async function createContext({ context }: CreateContextOptions) {
     role: effectiveRole,
     isPlatformAdmin,
     impersonation,
+    impersonationHeaderRejected,
   };
 }
 

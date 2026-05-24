@@ -58,6 +58,8 @@ const ADMIN_NAV: readonly NavItem[] = [
 ];
 
 const PLATFORM_NAV: readonly NavItem[] = [
+  { to: "/platform", label: "Console", icon: <Shield size={16} /> },
+  { to: "/platform/companies", label: "Companies", icon: <Building2 size={16} /> },
   { to: "/platform/waitlist", label: "Waitlist", icon: <ClipboardList size={16} /> },
 ];
 

@@ -2,7 +2,53 @@
 
 This file is the source of truth for current implementation orchestration.
 
-## Active milestone: M8 Packing List Snapshots & Client-side Exports ✅
+## Active milestone: M9 Platform Admin Console + Impersonation Grants
+
+### M9 Scope
+Platform-admin console for tenant management, time-boxed impersonation backed by
+`impersonation_grant`, and waitlist invite URLs that respect deployed web origin.
+Impersonation is web-only; native gets a read-only waitlist drawer entry.
+
+### M9 Deliverables
+- [x] 1. `impersonation_grant` table + Drizzle migration `0003_yielding_leper_queen.sql`
+- [x] 2. `platform.companiesList` / `companiesGet` / `companiesSuspend` /
+         `companiesReactivate` (paginated, member counts)
+- [x] 3. `platform.impersonationCreateGrant` / `impersonationRevokeGrant` /
+         `impersonationListActive`
+- [x] 4. `createContext` validates grant before honouring
+         `x-orrn-impersonate-company`; rejects invalid header with 403 on authed
+         tRPC calls
+- [x] 5. Web: `/platform` index, `/platform/companies`, `/platform/companies/$id`
+         with suspend/reactivate + impersonate flow (`sessionStorage` header)
+- [x] 6. Web impersonation banner stop revokes grant + clears storage
+- [x] 7. Waitlist approve invite URL uses `env.CORS_ORIGIN` (not localhost)
+- [x] 8. Native: platform-admin-only read-only waitlist drawer screen
+- [x] 9. `AGENTS.md` grant-table impersonation rules
+
+### M9 API additions
+- `platform.companiesList({ limit, offset, search?, status? })`
+- `platform.companiesGet({ id })` — includes recent grants for company
+- `platform.companiesSuspend({ id })` / `companiesReactivate({ id })`
+- `platform.impersonationCreateGrant({ companyId, ttlMinutes?, reason? })`
+- `platform.impersonationRevokeGrant({ id })`
+- `platform.impersonationListActive()` — caller's non-revoked, unexpired grants
+- `auth.me.impersonation` now includes `grantId` + `expiresAt`
+
+### M9 Schema additions
+- `impersonation_grant`: `id`, `platformAdminId`, `companyId`, `expiresAt`,
+  `revokedAt`, `reason`, `createdAt`; indexes on `(platformAdminId, expiresAt)`
+  and `companyId`
+
+### M9 Testing
+- Platform admin creates 30-minute grant → tenant UI loads with banner
+- Expired/revoked grant + header → 403 on tenant mutations
+- Non-platform-admin cannot call grant endpoints
+- Waitlist approval email links to `https://dev.orrn.app/invite/...` on dev
+- Audit rows during impersonation include `impersonatorId`
+
+---
+
+## Completed milestone: M8 Packing List Snapshots & Client-side Exports ✅
 
 ### M8 Scope
 Auto-generate an immutable packing list snapshot on every `dispatch.complete`,
@@ -58,6 +104,7 @@ on web and a Share export on native. No new permission set — reuses `dispatch.
 - PDF download: opens in browser PDF viewer with correct company/customer/items
 - Excel download: two sheets, totals match
 - Native Share: shares human-readable text summary with all bundle serials
+- Dev deploy verified at `dev.orrn.app` (Deploy Dev GHA success for `f19886c`)
 
 ---
 
@@ -278,7 +325,6 @@ Production-Receipt-based bundle creation with auto-generated codes/serials, an M
 
 ## Future milestones
 
-- M9: Platform admin console + full time-boxed impersonation grant table.
 - M10: Printing via orrn-spool (per-tenant LAN deployment + webhooks).
 - M11: Audit log viewer + retention settings.
 - M12: Native offline-first sync (floor-worker subset).

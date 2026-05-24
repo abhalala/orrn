@@ -70,14 +70,24 @@ bun run deploy
 
 - The only way to impersonate a tenant is via the `x-orrn-impersonate-company`
   request header. The server honours it only when the caller is a platform
-  admin and overrides the tenant context (`companyId`, `role`, `membership`)
-  accordingly. Never accept impersonation targets from the request body.
+  admin **and** holds a valid row in `impersonation_grant` (not expired, not
+  revoked). Never accept impersonation targets from the request body.
+- Platform admins create grants via `platform.impersonationCreateGrant` (web
+  console). The web client stores the target `companyId` in `sessionStorage`
+  and sends it as the header on every tRPC request. Revoke via
+  `platform.impersonationRevokeGrant` when stopping impersonation.
+- If the header is present but the grant is missing, expired, or revoked,
+  authenticated tRPC calls return `403 Forbidden`. Clear sessionStorage and
+  reload after revoke.
+- Impersonation is **web-only** — native must not set the header. Native may
+  show the banner if a session somehow includes impersonation metadata, but
+  grant creation and tenant switching stay on web.
 - `writeAudit` must always receive `ctx.impersonation` when impersonation is
   active so every audit row records `impersonatorId`. Do not call `writeAudit`
   with a synthetic context that drops it.
 - Render the impersonation banner on every authenticated screen on both web
-  and native. "Stop impersonating" clears the cached `auth.me`; the full
-  grant-table workflow lands in M9.
+  and native. "Stop impersonating" revokes the grant, clears sessionStorage
+  (web), and clears the React Query cache.
 
 ## User and role model
 

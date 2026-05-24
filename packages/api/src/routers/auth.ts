@@ -51,7 +51,14 @@ export const authRouter = router({
             }
           : null,
       isPlatformAdmin: ctx.isPlatformAdmin,
-      impersonation: ctx.impersonation ?? null,
+      impersonation: ctx.impersonation
+        ? {
+            actorUserId: ctx.impersonation.actorUserId,
+            companyId: ctx.impersonation.companyId,
+            grantId: ctx.impersonation.grantId,
+            expiresAt: ctx.impersonation.expiresAt.toISOString(),
+          }
+        : null,
     };
   }),
 });

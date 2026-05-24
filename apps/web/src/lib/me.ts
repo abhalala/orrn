@@ -15,7 +15,7 @@ export type Me = {
     role: "owner" | "admin" | "manager" | "operator" | "viewer";
   } | null;
   isPlatformAdmin: boolean;
-  impersonation: { actorUserId: string; companyId: string } | null;
+  impersonation: { actorUserId: string; companyId: string; grantId: string; expiresAt: string } | null;
 };
 
 /**

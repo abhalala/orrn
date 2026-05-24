@@ -5,6 +5,8 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 
+import { getImpersonateCompanyId } from "@/lib/impersonation";
+
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
@@ -23,8 +25,14 @@ export const trpcClient = createTRPCClient<AppRouter>({
     httpBatchLink({
       url: `${env.VITE_SERVER_URL}/trpc`,
       fetch(url, options) {
+        const headers = new Headers(options?.headers);
+        const impersonateCompanyId = getImpersonateCompanyId();
+        if (impersonateCompanyId) {
+          headers.set("x-orrn-impersonate-company", impersonateCompanyId);
+        }
         return fetch(url, {
           ...options,
+          headers,
           credentials: "include",
         });
       },

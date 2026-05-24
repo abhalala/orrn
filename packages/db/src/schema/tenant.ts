@@ -94,6 +94,28 @@ export const waitlistRequest = sqliteTable(
   (table) => [index("waitlist_status_idx").on(table.status, table.createdAt)],
 );
 
+/** Time-boxed platform-admin impersonation grants (M9). */
+export const impersonationGrant = sqliteTable(
+  "impersonation_grant",
+  {
+    id: text("id").primaryKey(),
+    platformAdminId: text("platform_admin_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+    reason: text("reason"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+  },
+  (table) => [
+    index("impersonation_grant_admin_expires_idx").on(table.platformAdminId, table.expiresAt),
+    index("impersonation_grant_company_idx").on(table.companyId),
+  ],
+);
+
 export const companyRelations = relations(company, ({ many }) => ({
   memberships: many(membership),
   invites: many(invite),

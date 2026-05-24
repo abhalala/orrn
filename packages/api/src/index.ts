@@ -16,6 +16,12 @@ export const authedProcedure = t.procedure.use(({ ctx, next }) => {
       cause: "No session",
     });
   }
+  if (ctx.impersonationHeaderRejected) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Invalid, expired, or revoked impersonation grant",
+    });
+  }
   return next({
     ctx: {
       ...ctx,

@@ -9,8 +9,6 @@ import z from "zod";
 import { authClient } from "@/lib/auth-client";
 import { queryClient } from "@/utils/trpc";
 
-import Loader from "./loader";
-
 export default function SignUpForm({
   onSwitchToSignIn,
   next,
@@ -21,7 +19,6 @@ export default function SignUpForm({
   const navigate = useNavigate({
     from: "/",
   });
-  const { isPending } = authClient.useSession();
 
   const form = useForm({
     defaultValues: {
@@ -56,10 +53,6 @@ export default function SignUpForm({
       }),
     },
   });
-
-  if (isPending) {
-    return <Loader />;
-  }
 
   return (
     <div className="mx-auto w-full mt-10 max-w-md p-6">

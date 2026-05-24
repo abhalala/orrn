@@ -23,6 +23,7 @@ function DrawerLayout() {
   const showDispatches = hasCompany;
   const showStock = hasCompany;
   const showMembers = hasCompany && canAny(me, ["member.invite", "member.updateRole"]);
+  const showPlatformWaitlist = me?.isPlatformAdmin === true;
 
   const renderThemeToggle = useCallback(() => <ThemeToggle />, []);
 
@@ -155,6 +156,19 @@ function DrawerLayout() {
           ),
           drawerIcon: ({ size, color, focused }) => (
             <MaterialIcons name="group" size={size} color={focused ? color : themeColorForeground} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="platform-waitlist"
+        options={{
+          headerTitle: "Waitlist",
+          drawerItemStyle: showPlatformWaitlist ? undefined : { display: "none" },
+          drawerLabel: ({ color, focused }) => (
+            <Text style={{ color: focused ? color : themeColorForeground, fontSize: 15 }}>Waitlist</Text>
+          ),
+          drawerIcon: ({ size, color, focused }) => (
+            <MaterialIcons name="admin-panel-settings" size={size} color={focused ? color : themeColorForeground} />
           ),
         }}
       />

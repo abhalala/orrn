@@ -16,6 +16,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StockIndexRouteImport } from './routes/stock.index'
 import { Route as ReceiptsIndexRouteImport } from './routes/receipts.index'
+import { Route as PlatformIndexRouteImport } from './routes/platform.index'
 import { Route as DispatchesIndexRouteImport } from './routes/dispatches.index'
 import { Route as DiesIndexRouteImport } from './routes/dies.index'
 import { Route as CustomersIndexRouteImport } from './routes/customers.index'
@@ -31,6 +32,8 @@ import { Route as DispatchesIdRouteImport } from './routes/dispatches.$id'
 import { Route as DiesIdRouteImport } from './routes/dies.$id'
 import { Route as CustomersIdRouteImport } from './routes/customers.$id'
 import { Route as BundlesIdRouteImport } from './routes/bundles.$id'
+import { Route as PlatformCompaniesIndexRouteImport } from './routes/platform.companies.index'
+import { Route as PlatformCompaniesIdRouteImport } from './routes/platform.companies.$id'
 
 const WaitlistRoute = WaitlistRouteImport.update({
   id: '/waitlist',
@@ -65,6 +68,11 @@ const StockIndexRoute = StockIndexRouteImport.update({
 const ReceiptsIndexRoute = ReceiptsIndexRouteImport.update({
   id: '/receipts/',
   path: '/receipts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformIndexRoute = PlatformIndexRouteImport.update({
+  id: '/platform/',
+  path: '/platform/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DispatchesIndexRoute = DispatchesIndexRouteImport.update({
@@ -142,6 +150,16 @@ const BundlesIdRoute = BundlesIdRouteImport.update({
   path: '/bundles/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlatformCompaniesIndexRoute = PlatformCompaniesIndexRouteImport.update({
+  id: '/platform/companies/',
+  path: '/platform/companies/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformCompaniesIdRoute = PlatformCompaniesIdRouteImport.update({
+  id: '/platform/companies/$id',
+  path: '/platform/companies/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -164,8 +182,11 @@ export interface FileRoutesByFullPath {
   '/customers/': typeof CustomersIndexRoute
   '/dies/': typeof DiesIndexRoute
   '/dispatches/': typeof DispatchesIndexRoute
+  '/platform/': typeof PlatformIndexRoute
   '/receipts/': typeof ReceiptsIndexRoute
   '/stock/': typeof StockIndexRoute
+  '/platform/companies/$id': typeof PlatformCompaniesIdRoute
+  '/platform/companies/': typeof PlatformCompaniesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -188,8 +209,11 @@ export interface FileRoutesByTo {
   '/customers': typeof CustomersIndexRoute
   '/dies': typeof DiesIndexRoute
   '/dispatches': typeof DispatchesIndexRoute
+  '/platform': typeof PlatformIndexRoute
   '/receipts': typeof ReceiptsIndexRoute
   '/stock': typeof StockIndexRoute
+  '/platform/companies/$id': typeof PlatformCompaniesIdRoute
+  '/platform/companies': typeof PlatformCompaniesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -213,8 +237,11 @@ export interface FileRoutesById {
   '/customers/': typeof CustomersIndexRoute
   '/dies/': typeof DiesIndexRoute
   '/dispatches/': typeof DispatchesIndexRoute
+  '/platform/': typeof PlatformIndexRoute
   '/receipts/': typeof ReceiptsIndexRoute
   '/stock/': typeof StockIndexRoute
+  '/platform/companies/$id': typeof PlatformCompaniesIdRoute
+  '/platform/companies/': typeof PlatformCompaniesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -239,8 +266,11 @@ export interface FileRouteTypes {
     | '/customers/'
     | '/dies/'
     | '/dispatches/'
+    | '/platform/'
     | '/receipts/'
     | '/stock/'
+    | '/platform/companies/$id'
+    | '/platform/companies/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -263,8 +293,11 @@ export interface FileRouteTypes {
     | '/customers'
     | '/dies'
     | '/dispatches'
+    | '/platform'
     | '/receipts'
     | '/stock'
+    | '/platform/companies/$id'
+    | '/platform/companies'
   id:
     | '__root__'
     | '/'
@@ -287,8 +320,11 @@ export interface FileRouteTypes {
     | '/customers/'
     | '/dies/'
     | '/dispatches/'
+    | '/platform/'
     | '/receipts/'
     | '/stock/'
+    | '/platform/companies/$id'
+    | '/platform/companies/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -312,8 +348,11 @@ export interface RootRouteChildren {
   CustomersIndexRoute: typeof CustomersIndexRoute
   DiesIndexRoute: typeof DiesIndexRoute
   DispatchesIndexRoute: typeof DispatchesIndexRoute
+  PlatformIndexRoute: typeof PlatformIndexRoute
   ReceiptsIndexRoute: typeof ReceiptsIndexRoute
   StockIndexRoute: typeof StockIndexRoute
+  PlatformCompaniesIdRoute: typeof PlatformCompaniesIdRoute
+  PlatformCompaniesIndexRoute: typeof PlatformCompaniesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -365,6 +404,13 @@ declare module '@tanstack/react-router' {
       path: '/receipts'
       fullPath: '/receipts/'
       preLoaderRoute: typeof ReceiptsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/platform/': {
+      id: '/platform/'
+      path: '/platform'
+      fullPath: '/platform/'
+      preLoaderRoute: typeof PlatformIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dispatches/': {
@@ -472,6 +518,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BundlesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/platform/companies/': {
+      id: '/platform/companies/'
+      path: '/platform/companies'
+      fullPath: '/platform/companies/'
+      preLoaderRoute: typeof PlatformCompaniesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/platform/companies/$id': {
+      id: '/platform/companies/$id'
+      path: '/platform/companies/$id'
+      fullPath: '/platform/companies/$id'
+      preLoaderRoute: typeof PlatformCompaniesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -496,8 +556,11 @@ const rootRouteChildren: RootRouteChildren = {
   CustomersIndexRoute: CustomersIndexRoute,
   DiesIndexRoute: DiesIndexRoute,
   DispatchesIndexRoute: DispatchesIndexRoute,
+  PlatformIndexRoute: PlatformIndexRoute,
   ReceiptsIndexRoute: ReceiptsIndexRoute,
   StockIndexRoute: StockIndexRoute,
+  PlatformCompaniesIdRoute: PlatformCompaniesIdRoute,
+  PlatformCompaniesIndexRoute: PlatformCompaniesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
