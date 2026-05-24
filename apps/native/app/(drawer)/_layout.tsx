@@ -1,9 +1,8 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { Link } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import { useThemeColor } from "heroui-native";
 import React, { useCallback } from "react";
-import { Pressable, Text } from "react-native";
+import { Text } from "react-native";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { canAny, useMe } from "@/utils/me";
@@ -11,18 +10,17 @@ import { canAny, useMe } from "@/utils/me";
 function DrawerLayout() {
   const themeColorForeground = useThemeColor("foreground");
   const themeColorBackground = useThemeColor("background");
+  const themeColorMuted = useThemeColor("muted");
 
   const { data: me } = useMe();
   const hasCompany = !!me?.company;
-  const isPlatformAdmin = !!me?.isPlatformAdmin;
 
-  // For floor-worker ergonomics we want operators to see bundles/dispatches/
-  // stock; admins additionally see receipts, members. canAny lets a single
-  // matrix drive both this drawer and the web nav.
+  const showCustomers = hasCompany;
+  const showDies = hasCompany;
   const showReceipts =
     hasCompany && canAny(me, ["receipt.create", "receipt.update", "receipt.delete"]);
-  const showBundles = hasCompany; // any company user can read bundles
-  const showDispatches = hasCompany; // same
+  const showBundles = hasCompany;
+  const showDispatches = hasCompany;
   const showStock = hasCompany;
   const showMembers = hasCompany && canAny(me, ["member.invite", "member.updateRole"]);
 
@@ -39,6 +37,8 @@ function DrawerLayout() {
         },
         headerRight: renderThemeToggle,
         drawerStyle: { backgroundColor: themeColorBackground },
+        drawerActiveTintColor: themeColorForeground,
+        drawerInactiveTintColor: themeColorMuted,
       }}
     >
       <Drawer.Screen
@@ -46,37 +46,50 @@ function DrawerLayout() {
         options={{
           headerTitle: "Home",
           drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Home</Text>
+            <Text style={{ color: focused ? color : themeColorForeground, fontSize: 15 }}>Home</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <Ionicons
-              name="home-outline"
-              size={size}
-              color={focused ? color : themeColorForeground}
-            />
+            <Ionicons name="home-outline" size={size} color={focused ? color : themeColorForeground} />
+          ),
+        }}
+      />
+      {/* Legacy tabs demo — hidden from production nav */}
+      <Drawer.Screen
+        name="(tabs)"
+        options={{
+          drawerItemStyle: { display: "none" },
+          headerShown: false,
+        }}
+      />
+      <Drawer.Screen
+        name="customers"
+        options={{
+          headerShown: false,
+          drawerItemStyle: showCustomers ? undefined : { display: "none" },
+          drawerLabel: ({ color, focused }) => (
+            <>
+              {!showCustomers ? null : (
+                <Text style={{ color: focused ? color : themeColorForeground, fontSize: 15 }}>
+                  Customers
+                </Text>
+              )}
+            </>
+          ),
+          drawerIcon: ({ size, color, focused }) => (
+            <MaterialIcons name="people" size={size} color={focused ? color : themeColorForeground} />
           ),
         }}
       />
       <Drawer.Screen
-        name="(tabs)"
+        name="dies"
         options={{
-          headerTitle: "Tabs",
+          headerShown: false,
+          drawerItemStyle: showDies ? undefined : { display: "none" },
           drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Tabs</Text>
+            <Text style={{ color: focused ? color : themeColorForeground, fontSize: 15 }}>Dies</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <MaterialIcons
-              name="border-bottom"
-              size={size}
-              color={focused ? color : themeColorForeground}
-            />
-          ),
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable className="mr-4">
-                <Ionicons name="add-outline" size={24} color={themeColorForeground} />
-              </Pressable>
-            </Link>
+            <MaterialIcons name="category" size={size} color={focused ? color : themeColorForeground} />
           ),
         }}
       />
@@ -86,14 +99,10 @@ function DrawerLayout() {
           headerShown: false,
           drawerItemStyle: showReceipts ? undefined : { display: "none" },
           drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Receipts</Text>
+            <Text style={{ color: focused ? color : themeColorForeground, fontSize: 15 }}>Receipts</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <MaterialIcons
-              name="receipt-long"
-              size={size}
-              color={focused ? color : themeColorForeground}
-            />
+            <MaterialIcons name="receipt-long" size={size} color={focused ? color : themeColorForeground} />
           ),
         }}
       />
@@ -103,14 +112,10 @@ function DrawerLayout() {
           headerShown: false,
           drawerItemStyle: showBundles ? undefined : { display: "none" },
           drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Bundles</Text>
+            <Text style={{ color: focused ? color : themeColorForeground, fontSize: 15 }}>Bundles</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <MaterialIcons
-              name="inventory-2"
-              size={size}
-              color={focused ? color : themeColorForeground}
-            />
+            <MaterialIcons name="inventory-2" size={size} color={focused ? color : themeColorForeground} />
           ),
         }}
       />
@@ -120,14 +125,10 @@ function DrawerLayout() {
           headerShown: false,
           drawerItemStyle: showDispatches ? undefined : { display: "none" },
           drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Dispatches</Text>
+            <Text style={{ color: focused ? color : themeColorForeground, fontSize: 15 }}>Dispatches</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <MaterialIcons
-              name="local-shipping"
-              size={size}
-              color={focused ? color : themeColorForeground}
-            />
+            <MaterialIcons name="local-shipping" size={size} color={focused ? color : themeColorForeground} />
           ),
         }}
       />
@@ -137,14 +138,10 @@ function DrawerLayout() {
           headerShown: false,
           drawerItemStyle: showStock ? undefined : { display: "none" },
           drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Stock</Text>
+            <Text style={{ color: focused ? color : themeColorForeground, fontSize: 15 }}>Stock</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <MaterialIcons
-              name="warehouse"
-              size={size}
-              color={focused ? color : themeColorForeground}
-            />
+            <MaterialIcons name="warehouse" size={size} color={focused ? color : themeColorForeground} />
           ),
         }}
       />
@@ -154,21 +151,13 @@ function DrawerLayout() {
           headerTitle: "Members",
           drawerItemStyle: showMembers ? undefined : { display: "none" },
           drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Members</Text>
+            <Text style={{ color: focused ? color : themeColorForeground, fontSize: 15 }}>Members</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <MaterialIcons
-              name="group"
-              size={size}
-              color={focused ? color : themeColorForeground}
-            />
+            <MaterialIcons name="group" size={size} color={focused ? color : themeColorForeground} />
           ),
         }}
       />
-      {/* Platform-admin only links live under a sibling (platform) group in M9;
-        for now we leave a header-style indicator so admins know they have
-        access to the web platform console. */}
-      {isPlatformAdmin ? null : null}
     </Drawer>
   );
 }

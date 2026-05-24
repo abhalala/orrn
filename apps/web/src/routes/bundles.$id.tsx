@@ -1,15 +1,19 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { format } from "date-fns";
-import { toast } from "sonner";
-
-import { trpc } from "@/utils/trpc";
+import { StatusBadge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
+import { PageHeader } from "@orrn/ui/components/page-header";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { format } from "date-fns";
+import { useState } from "react";
+import { toast } from "sonner";
+
 import { Can } from "@/components/can";
 import { requireCompanyMe } from "@/lib/route-guards";
+import { trpc } from "@/utils/trpc";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -18,21 +22,6 @@ export const Route = createFileRoute("/bundles/$id")({
   component: BundleDetailComponent,
   beforeLoad: requireCompanyMe,
 });
-
-function statusBadgeClass(status: BundleStatus | string): string {
-  switch (status) {
-    case "available":
-      return "bg-emerald-100 text-emerald-800";
-    case "reserved":
-      return "bg-amber-100 text-amber-800";
-    case "dispatched":
-      return "bg-sky-100 text-sky-800";
-    case "void":
-      return "bg-zinc-200 text-zinc-700";
-    default:
-      return "bg-zinc-100 text-zinc-700";
-  }
-}
 
 function BundleDetailComponent() {
   const { id } = Route.useParams();
@@ -58,171 +47,173 @@ function BundleDetailComponent() {
     },
   });
 
-  if (isLoading) return <div className="p-8">Loading...</div>;
-  if (!data) return <div className="p-8">Bundle not found.</div>;
+  if (isLoading) return <div>Loading…</div>;
+  if (!data) return <EmptyState title="Bundle not found" description="This bundle may have been removed." />;
 
   const { bundle, die, group, activeDispatch, events } = data;
   const isAvailable = bundle.status === "available";
   const isVoid = bundle.status === "void";
   const canTransition = isAvailable || isVoid;
-  const targetStatus: BundleStatus | null = isAvailable
-    ? "void"
-    : isVoid
-      ? "available"
-      : null;
+  const targetStatus: BundleStatus | null = isAvailable ? "void" : isVoid ? "available" : null;
 
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold font-mono">{bundle.serial}</h1>
-          <p className="text-muted-foreground">Bundle detail</p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={() =>
-            navigate({ to: "/bundles", search: { status: "all", dieId: undefined, groupId: undefined } })
-          }
-        >
-          Back to Bundles
-        </Button>
-      </div>
+    <div className="space-y-6 max-w-3xl mx-auto">
+      <PageHeader
+        eyebrow="Bundles"
+        title={bundle.serial}
+        description="Bundle detail and status history."
+        actions={
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate({ to: "/bundles", search: { status: "all", dieId: undefined, groupId: undefined } })
+            }
+          >
+            Back to list
+          </Button>
+        }
+      />
 
-      <div className="bg-card border rounded-lg p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <Label className="text-xs text-muted-foreground">Status</Label>
-            <div className="mt-1">
-              <span className={`text-sm font-medium px-3 py-1 rounded ${statusBadgeClass(bundle.status)}`}>
-                {bundle.status}
-              </span>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4">
+            <CardTitle>Overview</CardTitle>
+            <StatusBadge kind="bundle" value={bundle.status} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div>
+              <Label className="text-xs text-muted-foreground">Die</Label>
+              <p className="font-medium">
+                {die ? `${die.series} / ${die.sectionCode}${die.name ? ` — ${die.name}` : ""}` : "—"}
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Receipt</Label>
+              <p className="font-mono text-sm">
+                {group ? (
+                  <Link to="/receipts/$id" params={{ id: group.id }} className="hover:underline">
+                    {group.code}
+                  </Link>
+                ) : (
+                  "—"
+                )}
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Quantity</Label>
+              <p>{bundle.quantity}</p>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Weight</Label>
+              <p>{bundle.weightG} g</p>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Length</Label>
+              <p>{bundle.lengthMm} mm</p>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Created</Label>
+              <p>{format(new Date(bundle.createdAt), "PP p")}</p>
             </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <Label className="text-xs text-muted-foreground">Die</Label>
-            <p className="font-medium">
-              {die ? `${die.series} / ${die.sectionCode}${die.name ? ` — ${die.name}` : ""}` : "—"}
-            </p>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Receipt</Label>
-            <p className="font-mono text-sm">
-              {group ? (
-                <Link to="/receipts/$id" params={{ id: group.id }} className="hover:underline">
-                  {group.code}
-                </Link>
-              ) : (
-                "—"
-              )}
-            </p>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Quantity</Label>
-            <p>{bundle.quantity}</p>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Weight</Label>
-            <p>{bundle.weightG} g</p>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Length</Label>
-            <p>{bundle.lengthMm} mm</p>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Created</Label>
-            <p>{format(new Date(bundle.createdAt), "PP p")}</p>
-          </div>
-        </div>
-      </div>
+      {activeDispatch ? (
+        <Card>
+          <CardContent className="flex items-center justify-between gap-4">
+            <div>
+              <Label className="text-xs text-muted-foreground">Active dispatch</Label>
+              <p className="font-mono text-sm">{activeDispatch.code}</p>
+              <StatusBadge kind="dispatch" value={activeDispatch.status} size="sm" />
+            </div>
+            <Link to="/dispatches/$id" params={{ id: activeDispatch.id }}>
+              <Button variant="outline" size="sm">
+                View dispatch
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      ) : null}
 
-      {activeDispatch && (
-        <div className="bg-card border rounded-lg p-4 flex items-center justify-between">
-          <div>
-            <Label className="text-xs text-muted-foreground">Active dispatch</Label>
-            <p className="font-mono text-sm">{activeDispatch.code}</p>
-            <p className="text-xs text-muted-foreground capitalize">Status: {activeDispatch.status}</p>
-          </div>
-          <Link to="/dispatches/$id" params={{ id: activeDispatch.id }}>
-            <Button variant="outline" size="sm">View dispatch</Button>
-          </Link>
-        </div>
-      )}
-
-      {canTransition && targetStatus && (
+      {canTransition && targetStatus ? (
         <Can do="bundle.transition">
-          <div className="bg-card border rounded-lg p-6 space-y-4">
-            <h2 className="text-lg font-semibold">
-              {isAvailable ? "Void this bundle" : "Restore this bundle"}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {isAvailable
-                ? "Voiding marks the bundle as no longer part of available stock. It can be restored later."
-                : "Restoring returns the bundle to available stock."}
-            </p>
-            <div className="space-y-2">
-              <Label htmlFor="reason">Reason (optional)</Label>
-              <Input
-                id="reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g. damaged in handling"
-              />
-            </div>
-            <Button
-              variant={isAvailable ? "destructive" : "default"}
-              onClick={() =>
-                transitionMutation.mutate({ id, toStatus: targetStatus, reason: reason || null })
-              }
-              disabled={transitionMutation.isPending}
-            >
-              {transitionMutation.isPending
-                ? "Saving..."
-                : isAvailable
-                  ? "Void bundle"
-                  : "Restore bundle"}
-            </Button>
-          </div>
-        </Can>
-      )}
-
-      {!canTransition && (
-        <div className="bg-muted/50 border rounded-lg p-4 text-sm text-muted-foreground">
-          This bundle is currently {bundle.status}. Status changes are managed by the dispatch flow.
-        </div>
-      )}
-
-      <div className="bg-card border rounded-lg p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Status history</h2>
-        {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No history yet.</p>
-        ) : (
-          <ul className="space-y-2">
-            {events.map((ev) => (
-              <li
-                key={ev.id}
-                className="flex items-center justify-between text-sm border-b last:border-b-0 pb-2"
+          <Card>
+            <CardHeader>
+              <CardTitle>{isAvailable ? "Void this bundle" : "Restore this bundle"}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {isAvailable
+                  ? "Voiding marks the bundle as no longer part of available stock. It can be restored later."
+                  : "Restoring returns the bundle to available stock."}
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="reason">Reason (optional)</Label>
+                <Input
+                  id="reason"
+                  value={reason}
+                  onChangeText={setReason}
+                  placeholder="e.g. damaged in handling"
+                />
+              </div>
+              <Button
+                variant={isAvailable ? "destructive" : "default"}
+                onClick={() =>
+                  transitionMutation.mutate({ id, toStatus: targetStatus, reason: reason || null })
+                }
+                disabled={transitionMutation.isPending}
               >
-                <div className="space-x-2">
-                  <span className={`text-xs font-medium px-2 py-1 rounded ${statusBadgeClass(ev.fromStatus ?? "")}`}>
-                    {ev.fromStatus ?? "new"}
+                {transitionMutation.isPending
+                  ? "Saving…"
+                  : isAvailable
+                    ? "Void bundle"
+                    : "Restore bundle"}
+              </Button>
+            </CardContent>
+          </Card>
+        </Can>
+      ) : (
+        <Card>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              This bundle is currently {bundle.status}. Status changes are managed by the dispatch flow.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Status history</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {events.length === 0 ? (
+            <EmptyState title="No history yet" description="Status transitions will appear here." />
+          ) : (
+            <ul className="space-y-3">
+              {events.map((ev) => (
+                <li
+                  key={ev.id}
+                  className="flex flex-wrap items-center justify-between gap-2 text-sm border-b border-border last:border-b-0 pb-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge kind="bundle" value={ev.fromStatus ?? "available"} size="sm" />
+                    <span className="text-muted-foreground">→</span>
+                    <StatusBadge kind="bundle" value={ev.toStatus} size="sm" />
+                    {ev.reason ? <span className="text-muted-foreground">— {ev.reason}</span> : null}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(ev.at), "PP p")}
                   </span>
-                  <span className="text-muted-foreground">→</span>
-                  <span className={`text-xs font-medium px-2 py-1 rounded ${statusBadgeClass(ev.toStatus)}`}>
-                    {ev.toStatus}
-                  </span>
-                  {ev.reason && <span className="text-muted-foreground">— {ev.reason}</span>}
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {format(new Date(ev.at), "PP p")}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

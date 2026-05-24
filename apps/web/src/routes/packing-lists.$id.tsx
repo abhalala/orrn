@@ -1,12 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
 import { trpc } from "@/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
+import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Label } from "@orrn/ui/components/label";
+import { PageHeader } from "@orrn/ui/components/page-header";
 import { Can } from "@/components/can";
 import { requireCompanyMe } from "@/lib/route-guards";
 import type { PLSnapshot } from "@/lib/packingListPdf";
@@ -15,6 +19,8 @@ export const Route = createFileRoute("/packing-lists/$id")({
   component: PackingListDetailComponent,
   beforeLoad: requireCompanyMe,
 });
+
+type SnapshotItem = PLSnapshot["items"][number];
 
 function PackingListDetailComponent() {
   const { id } = Route.useParams();
@@ -29,10 +35,9 @@ function PackingListDetailComponent() {
 
   const regenMutation = useMutation({
     ...trpc.packingList.regenerate.mutationOptions(),
-    onSuccess: (newPl) => {
+    onSuccess: (newPl: any) => {
       toast.success("Packing list regenerated");
       queryClient.invalidateQueries({ queryKey: trpc.packingList.get.queryKey({ id }) });
-      // Navigate to new id if it changed
       if (newPl.id !== id) {
         navigate({ to: "/packing-lists/$id", params: { id: newPl.id } });
       }
@@ -40,11 +45,53 @@ function PackingListDetailComponent() {
     onError: (e: any) => toast.error(e.message || "Failed to regenerate"),
   });
 
-  if (isLoading) return <div className="p-8">Loading...</div>;
-  if (!pl) return <div className="p-8">Packing list not found.</div>;
+  const columns = useMemo((): DataTableColumn<SnapshotItem & { index: number }>[] => {
+    return [
+      { id: "index", header: "#", flex: 0.3, cell: (row) => row.index },
+      { id: "serial", header: "Serial", flex: 1.2, cell: (row) => row.bundleSerial },
+      {
+        id: "die",
+        header: "Die",
+        flex: 1,
+        cell: (row) => `${row.die.series} / ${row.die.sectionCode}`,
+      },
+      { id: "group", header: "Group", flex: 0.8, cell: (row) => row.groupId || "—" },
+      { id: "qty", header: "Qty", flex: 0.5, align: "right", cell: (row) => row.quantity },
+      {
+        id: "weight",
+        header: "Weight (kg)",
+        flex: 0.7,
+        align: "right",
+        cell: (row) => (row.weightG / 1000).toFixed(3),
+      },
+      {
+        id: "length",
+        header: "Length (m)",
+        flex: 0.7,
+        align: "right",
+        cell: (row) => (row.lengthMm / 1000).toFixed(3),
+      },
+    ];
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <EmptyState title="Loading packing list…" />
+      </div>
+    );
+  }
+  if (!pl) {
+    return (
+      <div className="p-8">
+        <EmptyState title="Packing list not found" />
+      </div>
+    );
+  }
 
   const snap = pl.snapshot as unknown as PLSnapshot;
   const cust = snap.dispatch.customer;
+  const tableRows = snap.items.map((item, index) => ({ ...item, index: index + 1 }));
 
   async function handlePdf() {
     setPdfPending(true);
@@ -71,73 +118,79 @@ function PackingListDetailComponent() {
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold font-mono">{pl.code}</h1>
-          <p className="text-muted-foreground">
-            Packing List ·{" "}
+    <div className="space-y-6 max-w-5xl mx-auto">
+      <PageHeader
+        eyebrow="Packing lists"
+        title={pl.code}
+        description={
+          <>
+            Dispatch{" "}
             <Link
               to="/dispatches/$id"
               params={{ id: pl.dispatchId }}
-              className="hover:underline text-primary"
+              className="text-primary hover:underline font-mono"
             >
               {snap.dispatch.code}
             </Link>
-          </p>
-        </div>
-        <Button variant="outline" onClick={() => navigate({ to: "/dispatches/$id", params: { id: pl.dispatchId } })}>
-          Back to Dispatch
-        </Button>
-      </div>
+          </>
+        }
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => navigate({ to: "/dispatches/$id", params: { id: pl.dispatchId } })}
+          >
+            Back to dispatch
+          </Button>
+        }
+      />
 
-      {/* Summary */}
-      <div className="bg-card border rounded-lg p-6 grid grid-cols-2 gap-4 text-sm">
-        <div>
-          <Label className="text-xs text-muted-foreground">Customer</Label>
-          <p className="font-medium">{cust.name}</p>
-          {cust.phone && <p className="text-muted-foreground">{cust.phone}</p>}
-          {cust.email && <p className="text-muted-foreground">{cust.email}</p>}
-          {cust.taxId && <p className="text-muted-foreground">Tax ID: {cust.taxId}</p>}
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">Ship Date</Label>
-          <p>{snap.dispatch.shipDate ? format(new Date(snap.dispatch.shipDate), "PP") : "—"}</p>
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">Dispatch</Label>
-          <p className="font-mono">{snap.dispatch.code}</p>
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">Generated</Label>
-          <p>{format(new Date(snap.generatedAt), "PP p")}</p>
-        </div>
-        {snap.dispatch.notes && (
-          <div className="col-span-2">
-            <Label className="text-xs text-muted-foreground">Notes</Label>
-            <p>{snap.dispatch.notes}</p>
+      <Card>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 text-sm">
+          <div>
+            <Label className="text-xs text-muted-foreground">Customer</Label>
+            <p className="font-medium">{cust.name}</p>
+            {cust.phone ? <p className="text-muted-foreground">{cust.phone}</p> : null}
+            {cust.email ? <p className="text-muted-foreground">{cust.email}</p> : null}
+            {cust.taxId ? <p className="text-muted-foreground">Tax ID: {cust.taxId}</p> : null}
           </div>
-        )}
-      </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Ship date</Label>
+            <p>{snap.dispatch.shipDate ? format(new Date(snap.dispatch.shipDate), "PP") : "—"}</p>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Dispatch</Label>
+            <p className="font-mono">{snap.dispatch.code}</p>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Generated</Label>
+            <p>{format(new Date(snap.generatedAt), "PP p")}</p>
+          </div>
+          {snap.dispatch.notes ? (
+            <div className="md:col-span-2">
+              <Label className="text-xs text-muted-foreground">Notes</Label>
+              <p>{snap.dispatch.notes}</p>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
-      {/* Totals */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "Bundles", value: snap.totals.totalBundles },
-          { label: "Total Qty", value: snap.totals.totalQuantity },
-          { label: "Total Weight", value: `${snap.totals.totalWeightKg} kg` },
-          { label: "Total Length", value: `${snap.totals.totalLengthM} m` },
+          { label: "Total qty", value: snap.totals.totalQuantity },
+          { label: "Total weight", value: `${snap.totals.totalWeightKg} kg` },
+          { label: "Total length", value: `${snap.totals.totalLengthM} m` },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-card border rounded-lg p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1">{label}</p>
-            <p className="text-2xl font-bold font-mono">{value}</p>
-          </div>
+          <Card key={label}>
+            <CardContent className="pt-6 text-center">
+              <p className="text-xs text-muted-foreground mb-1">{label}</p>
+              <p className="text-2xl font-bold font-mono">{value}</p>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button onClick={handlePdf} disabled={pdfPending} variant="outline">
           {pdfPending ? "Generating…" : "Download PDF"}
         </Button>
@@ -149,8 +202,12 @@ function PackingListDetailComponent() {
             variant="ghost"
             disabled={regenMutation.isPending}
             onClick={() => {
-              if (window.confirm("Regenerate packing list? Current PDF data will be overwritten with live dispatch data.")) {
-                regenMutation.mutate({ id: pl!.id });
+              if (
+                window.confirm(
+                  "Regenerate packing list? Current PDF data will be overwritten with live dispatch data.",
+                )
+              ) {
+                regenMutation.mutate({ id: pl.id });
               }
             }}
           >
@@ -159,54 +216,19 @@ function PackingListDetailComponent() {
         </Can>
       </div>
 
-      {/* Items table */}
-      <div className="bg-card border rounded-lg overflow-hidden">
-        <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold">Items ({snap.items.length})</h2>
-        </div>
-        <table className="w-full text-sm text-left">
-          <thead className="bg-muted text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2 font-medium">#</th>
-              <th className="px-4 py-2 font-medium">Serial</th>
-              <th className="px-4 py-2 font-medium">Die</th>
-              <th className="px-4 py-2 font-medium">Group</th>
-              <th className="px-4 py-2 font-medium text-right">Qty</th>
-              <th className="px-4 py-2 font-medium text-right">Weight (kg)</th>
-              <th className="px-4 py-2 font-medium text-right">Length (m)</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {snap.items.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                  No items in snapshot.
-                </td>
-              </tr>
-            ) : (
-              snap.items.map((item, i) => (
-                <tr key={i} className={i % 2 === 0 ? "" : "bg-muted/30"}>
-                  <td className="px-4 py-2 text-muted-foreground">{i + 1}</td>
-                  <td className="px-4 py-2 font-mono text-xs">{item.bundleSerial}</td>
-                  <td className="px-4 py-2">{item.die.series} / {item.die.sectionCode}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{item.groupId || "—"}</td>
-                  <td className="px-4 py-2 text-right">{item.quantity}</td>
-                  <td className="px-4 py-2 text-right">{(item.weightG / 1000).toFixed(3)}</td>
-                  <td className="px-4 py-2 text-right">{(item.lengthMm / 1000).toFixed(3)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-          <tfoot className="bg-muted/50 font-medium text-sm">
-            <tr>
-              <td colSpan={4} className="px-4 py-2">Total</td>
-              <td className="px-4 py-2 text-right">{snap.totals.totalQuantity}</td>
-              <td className="px-4 py-2 text-right">{snap.totals.totalWeightKg}</td>
-              <td className="px-4 py-2 text-right">{snap.totals.totalLengthM}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Items ({snap.items.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={columns}
+            rows={tableRows}
+            rowKey={(row) => `${row.bundleSerial}-${row.index}`}
+            emptyState={<EmptyState title="No items in snapshot" />}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -8,8 +8,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **TanStack Router** - File-based routing with full type safety
 - **React Native** - Build mobile apps using React
 - **Expo** - Tools for React Native development
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
+- **Shared UI** — Tamagui-based `@orrn/ui` + `@orrn/design` tokens (web + native)
 - **Hono** - Lightweight, performant server framework
 - **tRPC** - End-to-end type-safe APIs
 - **workers** - Runtime environment
@@ -122,29 +121,22 @@ The API is running at [http://localhost:3000](http://localhost:3000).
 
 ## UI Customization
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
+ORRN uses a shared Tamagui design system across web and native:
 
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
-```
+- **Brand tokens** — edit colors, spacing, typography, and status palettes in [`packages/design/src/tokens.ts`](packages/design/src/tokens.ts). Tamagui themes are wired in [`packages/design/src/tamagui.config.ts`](packages/design/src/tamagui.config.ts).
+- **Shared components** — cross-platform primitives live in [`packages/ui/src/components/`](packages/ui/src/components/) (`Button`, `Card`, `DataTable`, `PageHeader`, `StatusBadge`, `Sidebar`, etc.).
+- **Web app shell** — authenticated routes render inside [`apps/web/src/components/app-shell.tsx`](apps/web/src/components/app-shell.tsx) (sidebar, top bar, breadcrumbs). Public routes (`/`, `/login`, `/waitlist`, `/invite/*`, `/no-access`) render without the shell.
+- **Tailwind bridge** — web utility classes mirror design tokens via [`packages/ui/src/styles/globals.css`](packages/ui/src/styles/globals.css).
 
 Import shared components like this:
 
 ```tsx
 import { Button } from "@orrn/ui/components/button";
+import { PageHeader } from "@orrn/ui/components/page-header";
+import { StatusBadge } from "@orrn/ui/components/badge";
 ```
 
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
+Role-aware UI uses the shared permissions matrix in `packages/api/src/lib/permissions.ts` with `<Can do="…">` on web and native.
 
 ## Deployment (Cloudflare via Alchemy)
 
@@ -164,7 +156,8 @@ orrn/
 │   ├── native/      # Mobile application (React Native, Expo)
 │   └── server/      # Backend API (Hono, TRPC)
 ├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
+│   ├── ui/          # Shared Tamagui components (@orrn/ui)
+│   ├── design/      # Brand tokens + Tamagui config (@orrn/design)
 │   ├── api/         # API layer / business logic
 │   ├── auth/        # Authentication configuration & logic
 │   └── db/          # Database schema & queries

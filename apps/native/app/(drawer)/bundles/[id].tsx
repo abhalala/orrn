@@ -1,5 +1,8 @@
+import { StatusBadge } from "@orrn/ui/components/badge";
+import { Button } from "@orrn/ui/components/button";
+import { Input } from "@orrn/ui/components/input";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -7,8 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { format } from "date-fns";
@@ -18,24 +19,8 @@ import { queryClient, trpc } from "../../../utils/trpc";
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
 
-function statusStyle(status: BundleStatus | string) {
-  switch (status) {
-    case "available":
-      return { backgroundColor: "#dcfce7", color: "#166534" };
-    case "reserved":
-      return { backgroundColor: "#fef3c7", color: "#92400e" };
-    case "dispatched":
-      return { backgroundColor: "#dbeafe", color: "#1e40af" };
-    case "void":
-      return { backgroundColor: "#f3f4f6", color: "#4b5563" };
-    default:
-      return { backgroundColor: "#f3f4f6", color: "#4b5563" };
-  }
-}
-
 export default function BundleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
   const [reason, setReason] = useState("");
 
   const { data, isLoading } = useQuery({
@@ -77,11 +62,7 @@ export default function BundleDetailScreen() {
   const isAvailable = bundle.status === "available";
   const isVoid = bundle.status === "void";
   const canTransition = isAvailable || isVoid;
-  const targetStatus: BundleStatus | null = isAvailable
-    ? "void"
-    : isVoid
-      ? "available"
-      : null;
+  const targetStatus: BundleStatus | null = isAvailable ? "void" : isVoid ? "available" : null;
 
   const confirmTransition = () => {
     if (!targetStatus) return;
@@ -106,18 +87,14 @@ export default function BundleDetailScreen() {
     );
   };
 
-  const s = statusStyle(bundle.status);
-
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic">
       <Stack.Screen options={{ title: bundle.serial }} />
 
       <View style={styles.card}>
         <View style={styles.row}>
           <Text style={styles.serialBig}>{bundle.serial}</Text>
-          <Text style={[styles.statusPill, { backgroundColor: s.backgroundColor, color: s.color }]}>
-            {bundle.status}
-          </Text>
+          <StatusBadge kind="bundle" value={bundle.status} />
         </View>
 
         <View style={styles.kvRow}>
@@ -153,29 +130,26 @@ export default function BundleDetailScreen() {
           <Text style={styles.sectionTitle}>
             {isAvailable ? "Void this bundle" : "Restore this bundle"}
           </Text>
-          <TextInput
-            style={styles.input}
+          <Input
             placeholder="Reason (optional)"
             value={reason}
             onChangeText={setReason}
+            height={48}
           />
-          <TouchableOpacity
-            style={[
-              styles.button,
-              isAvailable ? styles.danger : styles.primary,
-              transitionMutation.isPending && styles.buttonDisabled,
-            ]}
-            onPress={confirmTransition}
-            disabled={transitionMutation.isPending}
-          >
-            <Text style={styles.buttonText}>
+          <View style={styles.buttonWrap}>
+            <Button
+              variant={isAvailable ? "destructive" : "default"}
+              size="lg"
+              disabled={transitionMutation.isPending}
+              onPress={confirmTransition}
+            >
               {transitionMutation.isPending
-                ? "Saving..."
+                ? "Saving…"
                 : isAvailable
                   ? "Void bundle"
                   : "Restore bundle"}
-            </Text>
-          </TouchableOpacity>
+            </Button>
+          </View>
         </View>
       ) : (
         <View style={[styles.card, styles.muted]}>
@@ -190,35 +164,27 @@ export default function BundleDetailScreen() {
         {events.length === 0 ? (
           <Text style={styles.mutedText}>No history yet.</Text>
         ) : (
-          events.map((ev) => {
-            const fromS = statusStyle(ev.fromStatus ?? "");
-            const toS = statusStyle(ev.toStatus);
-            return (
-              <View key={ev.id} style={styles.eventRow}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Text style={[styles.pill, { backgroundColor: fromS.backgroundColor, color: fromS.color }]}>
-                    {ev.fromStatus ?? "new"}
-                  </Text>
-                  <Text style={styles.arrow}>→</Text>
-                  <Text style={[styles.pill, { backgroundColor: toS.backgroundColor, color: toS.color }]}>
-                    {ev.toStatus}
-                  </Text>
-                </View>
-                <Text style={styles.eventDate}>{format(new Date(ev.at), "PP p")}</Text>
-                {ev.reason ? <Text style={styles.eventReason}>{ev.reason}</Text> : null}
+          events.map((ev) => (
+            <View key={ev.id} style={styles.eventRow}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <StatusBadge kind="bundle" value={ev.fromStatus ?? "available"} size="sm" />
+                <Text style={styles.arrow}>→</Text>
+                <StatusBadge kind="bundle" value={ev.toStatus} size="sm" />
               </View>
-            );
-          })
+              <Text style={styles.eventDate}>{format(new Date(ev.at), "PP p")}</Text>
+              {ev.reason ? <Text style={styles.eventReason}>{ev.reason}</Text> : null}
+            </View>
+          ))
         )}
       </View>
 
-      <View style={{ height: 24 }} />
+      <View style={{ height: 32 }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  container: { flex: 1, backgroundColor: "#f8fafc" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   card: {
     backgroundColor: "white",
@@ -227,56 +193,27 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e5e5e5",
-    gap: 10,
+    borderColor: "#e2e8f0",
+    gap: 12,
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 4,
+    gap: 12,
   },
-  serialBig: { fontSize: 18, fontWeight: "700", fontFamily: "Menlo" },
-  statusPill: {
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "capitalize",
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  kvRow: { flexDirection: "row", justifyContent: "space-between" },
-  kvLabel: { color: "#6b7280", fontSize: 13 },
-  kvValue: { color: "#111827", fontSize: 14, fontWeight: "500" },
-  kvValueMono: { color: "#111827", fontSize: 14, fontWeight: "500", fontFamily: "Menlo" },
-  sectionTitle: { fontSize: 16, fontWeight: "600" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#d4d4d8",
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-  },
-  button: { paddingVertical: 12, borderRadius: 6, alignItems: "center" },
-  primary: { backgroundColor: "#111827" },
-  danger: { backgroundColor: "#dc2626" },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: "white", fontSize: 16, fontWeight: "600" },
-  muted: { backgroundColor: "#f9fafb" },
-  mutedText: { color: "#6b7280", fontSize: 13 },
-  eventRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#f3f4f6", gap: 4 },
-  pill: {
-    fontSize: 11,
-    fontWeight: "600",
-    textTransform: "capitalize",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    overflow: "hidden",
-  },
-  arrow: { color: "#9ca3af" },
-  eventDate: { fontSize: 12, color: "#6b7280" },
-  eventReason: { fontSize: 13, color: "#374151" },
+  serialBig: { fontSize: 20, fontWeight: "700", fontFamily: "Menlo", flex: 1 },
+  kvRow: { flexDirection: "row", justifyContent: "space-between", minHeight: 28 },
+  kvLabel: { color: "#64748b", fontSize: 14 },
+  kvValue: { color: "#0f172a", fontSize: 15, fontWeight: "500" },
+  kvValueMono: { color: "#0f172a", fontSize: 14, fontWeight: "500", fontFamily: "Menlo" },
+  sectionTitle: { fontSize: 17, fontWeight: "600" },
+  buttonWrap: { marginTop: 8, minHeight: 48 },
+  muted: { backgroundColor: "#f1f5f9" },
+  mutedText: { color: "#64748b", fontSize: 14, lineHeight: 20 },
+  eventRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#f1f5f9", gap: 6 },
+  arrow: { color: "#94a3b8", fontSize: 16 },
+  eventDate: { fontSize: 12, color: "#64748b" },
+  eventReason: { fontSize: 14, color: "#334155" },
 });

@@ -4,36 +4,35 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
-import { trpc } from "@/utils/trpc";
+import { StatusBadge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
+import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
+import { PageHeader } from "@orrn/ui/components/page-header";
 import { Can } from "@/components/can";
 import { requireCompanyMe } from "@/lib/route-guards";
 import type { PLSnapshot } from "@/lib/packingListPdf";
-
-const dispatchStatuses = ["draft", "reserved", "completed", "cancelled"] as const;
-type DispatchStatus = (typeof dispatchStatuses)[number];
+import { trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/dispatches/$id")({
   component: DispatchDetailComponent,
   beforeLoad: requireCompanyMe,
 });
 
-function statusBadgeClass(status: DispatchStatus | string): string {
-  switch (status) {
-    case "draft":
-      return "bg-zinc-200 text-zinc-700";
-    case "reserved":
-      return "bg-amber-100 text-amber-800";
-    case "completed":
-      return "bg-emerald-100 text-emerald-800";
-    case "cancelled":
-      return "bg-rose-100 text-rose-800";
-    default:
-      return "bg-zinc-100 text-zinc-700";
-  }
-}
+type DispatchItemRow = {
+  itemId: string;
+  bundleId: string;
+  serial: string;
+  dieSeries: string;
+  dieSectionCode: string;
+  quantity: number;
+  weightG: number;
+  lengthMm: number;
+  status: string;
+};
 
 function DispatchDetailComponent() {
   const { id } = Route.useParams();
@@ -138,8 +137,10 @@ function DispatchDetailComponent() {
     onError: (e: any) => toast.error(e.message || "Failed to delete"),
   });
 
-  if (isLoading) return <div className="p-8">Loading...</div>;
-  if (!data) return <div className="p-8">Dispatch not found.</div>;
+  if (isLoading) return <div>Loading…</div>;
+  if (!data) {
+    return <EmptyState title="Dispatch not found" description="This dispatch may have been removed." />;
+  }
 
   const { dispatch: d, customer: c, items, events } = data;
   const canEdit = d.status === "draft";
@@ -153,25 +154,71 @@ function DispatchDetailComponent() {
   const totalQty = items.reduce((s, it) => s + it.quantity, 0);
   const totalWeight = items.reduce((s, it) => s + it.weightG, 0);
 
-  return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold font-mono">{d.code}</h1>
-          <p className="text-muted-foreground">Dispatch</p>
-        </div>
-        <Button variant="outline" onClick={() => navigate({ to: "/dispatches", search: { status: "all" } })}>
-          Back
-        </Button>
-      </div>
+  const itemColumns: DataTableColumn<DispatchItemRow>[] = [
+    {
+      id: "serial",
+      header: "Serial",
+      flex: 2,
+      cell: (it) => (
+        <Link to="/bundles/$id" params={{ id: it.bundleId }} className="font-mono text-xs hover:underline">
+          {it.serial}
+        </Link>
+      ),
+    },
+    {
+      id: "die",
+      header: "Die",
+      cell: (it) => `${it.dieSeries} / ${it.dieSectionCode}`,
+    },
+    { id: "qty", header: "Qty", align: "right", cell: (it) => it.quantity },
+    { id: "weight", header: "Weight (g)", align: "right", cell: (it) => it.weightG },
+    { id: "length", header: "Length (mm)", align: "right", cell: (it) => it.lengthMm },
+    {
+      id: "status",
+      header: "Status",
+      cell: (it) => <StatusBadge kind="bundle" value={it.status} size="sm" />,
+    },
+    ...(canAddOrRemove
+      ? [
+          {
+            id: "actions",
+            header: "",
+            align: "right" as const,
+            cell: (it: DispatchItemRow) => (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={removeMutation.isPending}
+                onClick={() => removeMutation.mutate({ id, bundleId: it.bundleId })}
+              >
+                Remove
+              </Button>
+            ),
+          },
+        ]
+      : []),
+  ];
 
-      <div className="bg-card border rounded-lg p-6 grid grid-cols-2 gap-4 text-sm">
+  return (
+    <div className="space-y-6 max-w-5xl mx-auto">
+      <PageHeader
+        eyebrow="Dispatches"
+        title={d.code}
+        description="Dispatch detail, bundle items, and lifecycle actions."
+        actions={
+          <Button variant="outline" onClick={() => navigate({ to: "/dispatches", search: { status: "all" } })}>
+            Back to list
+          </Button>
+        }
+      />
+
+      <Card>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div>
           <Label className="text-xs text-muted-foreground">Status</Label>
           <p className="mt-1">
-            <span className={`text-sm font-medium px-3 py-1 rounded ${statusBadgeClass(d.status)}`}>
-              {d.status}
-            </span>
+            <StatusBadge kind="dispatch" value={d.status} />
           </p>
         </div>
         <div>
@@ -196,16 +243,21 @@ function DispatchDetailComponent() {
           <Label className="text-xs text-muted-foreground">Notes</Label>
           <p>{d.notes || "—"}</p>
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <Label className="text-xs text-muted-foreground">Totals</Label>
           <p>
             {items.length} bundle(s) · {totalQty} qty · {totalWeight} g
           </p>
         </div>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="bg-card border rounded-lg p-6 space-y-3">
-        <h2 className="text-lg font-semibold">Actions</h2>
+      <Card>
+        <CardHeader>
+          <CardTitle>Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
         <div className="flex flex-wrap gap-2">
           <Can do="dispatch.reserve">
             <Button
@@ -263,12 +315,16 @@ function DispatchDetailComponent() {
             </Can>
           )}
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {canAddOrRemove && (
         <Can do="dispatch.addBundle">
-        <div className="bg-card border rounded-lg p-6 space-y-4">
-          <h2 className="text-lg font-semibold">Add bundles</h2>
+        <Card>
+          <CardHeader>
+            <CardTitle>Add bundles</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="serial-search">Search available bundles by serial</Label>
             <Input
@@ -335,72 +391,38 @@ function DispatchDetailComponent() {
               {bulkMutation.isPending ? "Adding..." : "Add by serial"}
             </Button>
           </div>
-        </div>
+          </CardContent>
+        </Card>
         </Can>
       )}
 
-      <div className="bg-card border rounded-lg overflow-hidden">
-        <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Items ({items.length})</h2>
-        </div>
-        <table className="w-full text-sm text-left">
-          <thead className="bg-muted text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2 font-medium">Serial</th>
-              <th className="px-4 py-2 font-medium">Die</th>
-              <th className="px-4 py-2 font-medium text-right">Qty</th>
-              <th className="px-4 py-2 font-medium text-right">Weight (g)</th>
-              <th className="px-4 py-2 font-medium text-right">Length (mm)</th>
-              <th className="px-4 py-2 font-medium">Status</th>
-              {canAddOrRemove && <th className="px-4 py-2"></th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={canAddOrRemove ? 7 : 6} className="px-4 py-8 text-center text-muted-foreground">
-                  No bundles in this dispatch yet.
-                </td>
-              </tr>
-            ) : (
-              items.map((it) => (
-                <tr key={it.itemId}>
-                  <td className="px-4 py-2 font-mono text-xs">
-                    <Link to="/bundles/$id" params={{ id: it.bundleId }} className="hover:underline">
-                      {it.serial}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2">
-                    {it.dieSeries} / {it.dieSectionCode}
-                  </td>
-                  <td className="px-4 py-2 text-right">{it.quantity}</td>
-                  <td className="px-4 py-2 text-right">{it.weightG}</td>
-                  <td className="px-4 py-2 text-right">{it.lengthMm}</td>
-                  <td className="px-4 py-2 capitalize">{it.status}</td>
-                  {canAddOrRemove && (
-                    <td className="px-4 py-2 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={removeMutation.isPending}
-                        onClick={() => removeMutation.mutate({ id, bundleId: it.bundleId })}
-                      >
-                        Remove
-                      </Button>
-                    </td>
-                  )}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Items ({items.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            rows={items as DispatchItemRow[]}
+            rowKey={(it) => it.itemId}
+            columns={itemColumns}
+            emptyState={
+              <EmptyState
+                title="No bundles yet"
+                description="Add bundles by serial search or paste below."
+              />
+            }
+          />
+        </CardContent>
+      </Card>
 
       {/* Packing list — shown for completed dispatches */}
       {d.status === "completed" && <PackingListSection dispatchId={d.id} />}
 
-      <div className="bg-card border rounded-lg p-6 space-y-3">
-        <h2 className="text-lg font-semibold">Activity</h2>
+      <Card>
+        <CardHeader>
+          <CardTitle>Activity</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
         {events.length === 0 ? (
           <p className="text-sm text-muted-foreground">No activity yet.</p>
         ) : (
@@ -420,7 +442,8 @@ function DispatchDetailComponent() {
             ))}
           </ul>
         )}
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -473,9 +496,9 @@ function PackingListSection({ dispatchId }: { dispatchId: string }) {
   }
 
   return (
-    <div className="bg-card border rounded-lg p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Packing List</h2>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Packing list</CardTitle>
         {pl && (
           <Link
             to="/packing-lists/$id"
@@ -485,8 +508,9 @@ function PackingListSection({ dispatchId }: { dispatchId: string }) {
             {pl.code}
           </Link>
         )}
-      </div>
+      </CardHeader>
 
+      <CardContent className="space-y-4">
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : !pl ? (
@@ -520,6 +544,7 @@ function PackingListSection({ dispatchId }: { dispatchId: string }) {
           </div>
         </>
       )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }

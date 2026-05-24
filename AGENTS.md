@@ -12,7 +12,7 @@ ORRN (domain: orrn.in) is built as a sellable multi-company ERP SaaS for manufac
 - Monorepo: Turborepo.
 - Web: Vite + React + TanStack Router + TanStack Query + tRPC client.
 - Native: Expo + React Native + expo-router.
-- Shared UI: Tamagui for both web and native (consistent branding and ui styling).
+- Shared UI: `@orrn/design` tokens + `@orrn/ui` Tamagui components for web and native (consistent branding and ui styling).
 - Server: Cloudflare Worker + Hono + tRPC v11.
 - Auth: Better Auth with email/password and Expo support.
 - Database: Cloudflare D1 / SQLite via Drizzle ORM.
