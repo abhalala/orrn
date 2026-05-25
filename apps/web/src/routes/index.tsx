@@ -7,15 +7,17 @@ import {
   Box,
   Truck,
   Printer,
-  Users,
-  ShieldCheck,
-  ArrowRight,
+  Factory,
   CheckCircle2,
   Activity,
   Globe,
   Database,
-  Terminal,
-  Code
+  Shield,
+  Zap,
+  ArrowRight,
+  ChevronRight,
+  Monitor,
+  Cpu
 } from "lucide-react";
 
 import { getDomainConfig } from "@/lib/domain";
@@ -48,77 +50,165 @@ function HomeComponent() {
 
   const tabsConfig = {
     dies: {
-      title: "Extrusion Die Inventory",
-      badge: "M3 Complete",
+      title: "Extrusion Die Tooling Catalog",
+      badge: "ORRN-AL Module",
       icon: Layers,
-      description: "Establish structural specifications for your extruded die sections. Define master dimension profiles with automatic yield calculations.",
+      description: "Establish a single source of truth for your extrusion die library. Record alloy criteria, theoretical weights, and perimeter profiles to avoid tooling mismatches.",
       bullets: [
-        "Structured multi-field dimension schemas (wall thickness, alloy, weight/meter).",
-        "Strict duplicate validation checks based on section shape profiles.",
-        "High-fidelity drag-and-drop CSV/JSON bulk import UI with conflict resolution."
+        "Track shape codes, aperture configurations, and tooling tolerances.",
+        "Store metallurgy specifications (alloy types, heat treatment, temper).",
+        "Automated billing/cost computations based on theoretical weights per meter."
       ],
-      preview: `// Drizzle Schema validation
-export const dies = sqliteTable("die", {
-  id: text("id").primaryKey(),
-  companyId: text("company_id").notNull(),
-  code: text("code").notNull(),
-  weightPerMeter: real("weight_per_meter"),
-  perimeter: real("perimeter"),
-  status: text("status", { enum: ["active", "archived"] })
-});`
+      preview: (
+        <div className="space-y-4 font-sans">
+          <div className="flex items-center justify-between border-b pb-2 border-border/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <span>Die Reference</span>
+            <span>Profile Spec</span>
+            <span>Alloy / Temp</span>
+            <span>Weight (kg/m)</span>
+          </div>
+          <div className="divide-y divide-border/20">
+            <div className="flex justify-between py-2.5 text-sm">
+              <span className="font-mono font-medium text-primary">D-9812-H</span>
+              <span className="text-foreground">H-Channel Extrusion</span>
+              <span className="text-muted-foreground">6063-T6 Aluminum</span>
+              <span className="font-mono text-foreground">1.842</span>
+            </div>
+            <div className="flex justify-between py-2.5 text-sm">
+              <span className="font-mono font-medium text-primary">D-0441-A</span>
+              <span className="text-foreground">Angle Profile 40x40</span>
+              <span className="text-muted-foreground">6082-T6 Aluminum</span>
+              <span className="font-mono text-foreground">0.825</span>
+            </div>
+            <div className="flex justify-between py-2.5 text-sm">
+              <span className="font-mono font-medium text-primary">D-1192-T</span>
+              <span className="text-foreground">T-Slot Industrial Rail</span>
+              <span className="text-muted-foreground">6005A-T61 Aluminum</span>
+              <span className="font-mono text-foreground">2.410</span>
+            </div>
+          </div>
+        </div>
+      )
     },
     bundles: {
-      title: "Production Receipts & Serials",
-      badge: "M4 Complete",
+      title: "Production Receipts & Inventory",
+      badge: "ORRN-AL Module",
       icon: Box,
-      description: "Generate tracking bundles directly from plant production receipts. Serials are constructed automatically to match exact shift outputs.",
+      description: "Generate tracking receipts directly at the extrusion press. Log structural output and auto-generate barcoded bundles for stockyard allocation.",
       bullets: [
-        "Monotonic prefix auto-codes: BG-{serverSeq} paired with barcode-friendly serials.",
-        "State machine lockouts: bundles strictly follow available ↔ void transitions.",
-        "Live stock aggregations: instant counts and total weights segmented by die profile."
+        "Construct unique, trackable bundle groups containing exact piece counts and lengths.",
+        "Enforce strict available ➔ reserved status flows for clear inventory visibility.",
+        "Aggregated stock metrics: instantly monitor available tonnage by die code."
       ],
-      preview: `// Atomic Serial Generator
-const groupCode = \`BG-\${nextSeq.padStart(6, "0")}\`;
-const serials = Array.from({ length: quantity }).map((_, idx) => {
-  return \`\${groupCode}-B\${String(idx + 1).padStart(3, "0")}\`;
-});`
+      preview: (
+        <div className="space-y-3 font-sans">
+          <div className="rounded-lg border border-border/40 bg-muted/20 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-mono text-muted-foreground uppercase">Production Batch</span>
+                <h4 className="text-base font-bold text-foreground font-mono">BG-002149</h4>
+              </div>
+              <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-500">
+                In Stock
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-xs border-t border-border/20 pt-3">
+              <div>
+                <span className="text-muted-foreground block">Die Profile</span>
+                <span className="font-semibold text-foreground font-mono">D-9812-H</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block">Total Bundles</span>
+                <span className="font-semibold text-foreground">8 Bundles</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block">Tonnage</span>
+                <span className="font-semibold text-foreground font-mono">3.41 Tons</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between px-3 text-xs text-muted-foreground font-mono">
+            <span>BG-002149-B001</span>
+            <span>12 Pcs @ 6.0m</span>
+            <span className="text-primary font-bold">132.6 kg</span>
+          </div>
+        </div>
+      )
     },
     dispatches: {
-      title: "Atomic Dispatch Lifecycles",
-      badge: "M5 Complete",
+      title: "Outbound Logistics & Dispatches",
+      badge: "ORRN-AL Module",
       icon: Truck,
-      description: "Orchestrate outbound customer dispatches with verified lifecycle guarantees. Avoid double reservations and void leaks dynamically.",
+      description: "Stage customer shipments with confidence. Automate packing lists and enforce transactional safeguards to prevent logistics errors.",
       bullets: [
-        "Valid state transitions: Draft ➔ Reserved ➔ Completed or Cancelled.",
-        "Atomic transaction locks: reserving a dispatch locks all internal bundles.",
-        "Audit-logged timelines: every state transition appends an immutable trail."
+        "Prevent shipment overlaps: double booking is dynamically locked out.",
+        "Client-side exports: generate A4-ready PDF and Excel packing lists directly from snapshots.",
+        "Activity audit timeline: see exactly who approved, reserved, or cancelled dispatches."
       ],
-      preview: `// Dispatch Reservation Lock
-await tx.update(bundles)
-  .set({ status: "reserved", currentDispatchId: dispatchId })
-  .where(and(
-    eq(bundles.companyId, ctx.companyId),
-    eq(bundles.status, "available"),
-    inArray(bundles.id, bundleIds)
-  ));`
+      preview: (
+        <div className="space-y-3 font-sans">
+          <div className="flex items-center justify-between border border-border/40 bg-muted/10 p-3 rounded-lg">
+            <div>
+              <span className="text-xs text-muted-foreground font-mono">DSP-000492</span>
+              <h5 className="text-sm font-bold text-foreground">Alu-Tech Fabrication Ltd</h5>
+            </div>
+            <div className="text-right">
+              <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-500">
+                Reserved
+              </span>
+              <span className="block text-[10px] text-muted-foreground mt-1">Ship Date: May 28</span>
+            </div>
+          </div>
+          <div className="text-xs border-t border-border/20 pt-2 space-y-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Staged Tooling:</span>
+              <span className="text-foreground">D-9812-H (4 Bundles)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Staged Weight:</span>
+              <span className="text-foreground font-mono">1,120.4 kg</span>
+            </div>
+          </div>
+        </div>
+      )
     },
     printing: {
-      title: "LAN orrn-spool Integration",
-      badge: "M10 Scheduled",
+      title: "orrn-spool LAN Printing",
+      badge: "Suite Feature",
       icon: Printer,
-      description: "Delegate label printing requests from Cloudflare Workers to on-premise local networks using cryptographic webhooks.",
+      description: "Send instant barcode label requests from your Cloud Workers directly to thermal zebra printers on your plant floor without VPN setups.",
       bullets: [
-        "Cryptographically signed webhooks to authenticate local printer endpoints.",
-        "Decoupled queues: Hono server creates queue rows without waiting for printer IO.",
-        "Print telemetry logs: track and audit queue success/fail metrics instantly."
+        "Cryptographically signed payload handshakes secure printer endpoints.",
+        "Asynchronous printer spooling prevents latency delays for floor operators.",
+        "Historical logs: view telemetry status and print attempt metrics."
       ],
-      preview: `// Webhook Signature Verification
-const signature = c.req.header("x-orrn-spool-signature");
-const isValid = await verifySpoolWebhook(
-  JSON.stringify(payload),
-  signature,
-  ctx.company.secretKey
-);`
+      preview: (
+        <div className="space-y-3 font-sans">
+          <div className="rounded-lg border border-border/40 bg-[#05070c] p-4 text-xs font-mono">
+            <div className="flex items-center justify-between text-muted-foreground border-b border-border/20 pb-2">
+              <span>Spool Queue Log</span>
+              <span className="text-emerald-500 animate-pulse flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Spool Active
+              </span>
+            </div>
+            <div className="space-y-1.5 pt-2">
+              <div className="flex justify-between text-indigo-300">
+                <span>[10:41:02] Pushed Spool Print Job</span>
+                <span>JOB #841</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>└─ Printer: Press-01-Zebra</span>
+                <span>OK</span>
+              </div>
+              <div className="flex justify-between text-indigo-300">
+                <span>[10:41:05] Webhook Verified</span>
+                <span>SIGN_OK</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
     }
   };
 
@@ -143,11 +233,11 @@ const isValid = await verifySpoolWebhook(
           </div>
           <div className="flex items-center gap-4">
             <Link to="/login">
-              <Button variant="ghost" className="hover:bg-muted/80">Sign In</Button>
+              <Button variant="ghost" className="hover:bg-muted/80 text-sm font-medium">Sign In</Button>
             </Link>
             <Link to="/waitlist">
-              <Button className="bg-gradient-to-r from-primary to-primaryStrong text-primary-foreground shadow-lg hover:shadow-primary/20">
-                Join Waitlist
+              <Button className="bg-gradient-to-r from-primary to-primaryStrong text-primary-foreground shadow-lg hover:shadow-primary/20 text-sm">
+                Request Demo
               </Button>
             </Link>
           </div>
@@ -156,46 +246,54 @@ const isValid = await verifySpoolWebhook(
         {/* Hero Section */}
         <section className="relative flex flex-col items-center text-center space-y-6 pt-8">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-semibold text-primary backdrop-blur-md">
-            <ShieldCheck className="h-3.5 w-3.5 text-accent" />
-            <span>Multi-Company ERP SaaS Foundation</span>
+            <Factory className="h-3.5 w-3.5 text-accent animate-pulse" />
+            <span>Industrial Manufacturing Cloud Suite</span>
           </div>
           
-          <h1 className="max-w-4xl text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-            Manufacturing Operations,{" "}
+          <h1 className="max-w-4xl text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl md:text-6xl leading-[1.1]">
+            Operating Systems for{" "}
             <span className="bg-gradient-to-r from-primary via-indigo-400 to-accent bg-clip-text text-transparent">
-              Simplified.
+              Modern Manufacturing.
             </span>
           </h1>
           
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground md:text-xl">
-            The high-performance, multi-tenant inventory console built to orchestrate extruded dies,
-            bundles, barcodes, dispatches, and local spool printers.
+            ORRN delivers purpose-built SaaS ERPs to specialized manufacturing facilities, combining 
+            multi-tenant isolation, real-time inventory control, and floor-level connectivity.
           </p>
 
           <div className="flex flex-wrap justify-center gap-4 pt-4">
             <Link to="/waitlist">
               <Button size="lg" className="h-12 px-8 bg-gradient-to-r from-primary to-primaryStrong font-medium shadow-xl hover:shadow-primary/30 hover:scale-[1.02] transition-all">
-                Get Started
+                Request Enterprise Demo
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
             <Link to="/login">
               <Button size="lg" variant="outline" className="h-12 px-8 border-border hover:bg-muted/50 hover:scale-[1.02] transition-all">
-                Tenant Portal
+                Access Tenant Portal
               </Button>
             </Link>
           </div>
         </section>
 
-        {/* Interactive Feature & Code Showcase */}
-        <section className="space-y-6">
-          <div className="flex flex-col items-center text-center space-y-2">
-            <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Engineered for Technical Control</h2>
-            <p className="text-muted-foreground">Select a module below to inspect the design specification and API capabilities.</p>
+        {/* Dynamic Showcase of ORRN-AL */}
+        <section className="space-y-8 rounded-2xl border border-border/40 bg-card/40 p-6 backdrop-blur-md md:p-10 shadow-xl">
+          <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-border/30 pb-6 gap-4">
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-accent uppercase tracking-wider">Now Available</span>
+              <h2 className="text-3xl font-extrabold tracking-tight">ORRN-AL — Aluminum Extrusion</h2>
+              <p className="text-sm text-muted-foreground">The modular ERP tailored specifically for extrusion plants and anodizing facilities.</p>
+            </div>
+            <div className="flex gap-2">
+              <span className="rounded-full bg-primary/10 border border-primary/20 text-primary px-3 py-1 text-xs font-semibold">Tooling Master</span>
+              <span className="rounded-full bg-primary/10 border border-primary/20 text-primary px-3 py-1 text-xs font-semibold">Floor Receipts</span>
+              <span className="rounded-full bg-primary/10 border border-primary/20 text-primary px-3 py-1 text-xs font-semibold">Tonnage Tracking</span>
+            </div>
           </div>
 
-          <div className="grid gap-8 lg:grid-cols-12">
-            {/* Left Column: Tab Selectors */}
+          <div className="grid gap-8 lg:grid-cols-12 pt-4">
+            {/* Left Column: Module Switchers */}
             <div className="flex flex-row overflow-x-auto gap-2 pb-2 lg:flex-col lg:col-span-5 lg:pb-0">
               {(Object.keys(tabsConfig) as Array<keyof typeof tabsConfig>).map((key) => {
                 const config = tabsConfig[key];
@@ -219,9 +317,9 @@ const isValid = await verifySpoolWebhook(
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-foreground text-sm">{config.title}</span>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          isSelected ? "bg-accent/15 text-accent-foreground dark:text-accent" : "bg-muted/80 text-muted-foreground"
-                        }`}>{config.badge}</span>
+                        <span className="rounded-full bg-accent/15 text-accent-foreground dark:text-accent px-2 py-0.5 text-[10px] font-medium">
+                          {config.badge}
+                        </span>
                       </div>
                       <p className="line-clamp-1 text-xs text-muted-foreground mt-0.5">
                         {config.description}
@@ -232,14 +330,14 @@ const isValid = await verifySpoolWebhook(
               })}
             </div>
 
-            {/* Right Column: Dynamic Preview Container */}
+            {/* Right Column: Interactive Mockup Panel */}
             <div className="lg:col-span-7">
-              <Card className="h-full border-border/60 bg-card/60 backdrop-blur-md shadow-2xl overflow-hidden flex flex-col">
+              <Card className="h-full border-border/60 bg-[#090e1a]/80 backdrop-blur-md shadow-2xl overflow-hidden flex flex-col min-h-[320px]">
                 <CardHeader className="border-b border-border/40 pb-4 bg-muted/20">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Terminal className="h-4 w-4 text-primary" />
-                      <span className="font-mono text-xs text-muted-foreground">system_specification.ts</span>
+                      <Monitor className="h-4 w-4 text-primary animate-pulse" />
+                      <span className="font-mono text-xs text-muted-foreground">ORRN-AL Console // Live Preview</span>
                     </div>
                     <div className="flex gap-1.5">
                       <div className="h-2.5 w-2.5 rounded-full bg-red-500/80" />
@@ -266,8 +364,8 @@ const isValid = await verifySpoolWebhook(
                     </ul>
                   </div>
 
-                  <div className="mt-6 rounded-lg bg-[#05070c] border border-border/20 p-4 overflow-x-auto font-mono text-xs text-indigo-300">
-                    <pre><code>{tabsConfig[activeTab].preview}</code></pre>
+                  <div className="mt-6 rounded-lg bg-card border border-border/40 p-4 shadow-inner">
+                    {tabsConfig[activeTab].preview}
                   </div>
                 </CardContent>
               </Card>
@@ -275,47 +373,102 @@ const isValid = await verifySpoolWebhook(
           </div>
         </section>
 
-        {/* Global Security / Multi-Tenant Isolation Info */}
-        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="bg-card/50 border-border/40 hover:border-primary/20 transition-colors">
-            <CardHeader className="pb-2">
-              <Globe className="h-6 w-6 text-primary mb-2" />
-              <CardTitle className="text-base">Tenant Isolation</CardTitle>
-            </CardHeader>
-            <CardContent className="text-xs text-muted-foreground leading-relaxed">
-              Every data node is strictly isolated. Identifiers are resolved exclusively on the Cloudflare server context, never accepted directly from API inputs.
-            </CardContent>
-          </Card>
+        {/* Future Product Expansion Map */}
+        <section className="space-y-6">
+          <div className="text-center space-y-2">
+            <span className="text-xs font-bold text-primary uppercase tracking-wider">Product Roadmap</span>
+            <h3 className="text-2xl font-extrabold tracking-tight">ERPs for the Whole Manufacturing Landscape</h3>
+            <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+              Our cloud foundation scales horizontally across manufacturing verticals, launching target-specific modules.
+            </p>
+          </div>
 
-          <Card className="bg-card/50 border-border/40 hover:border-primary/20 transition-colors">
-            <CardHeader className="pb-2">
-              <Database className="h-6 w-6 text-accent mb-2" />
-              <CardTitle className="text-base">Offline Sync Engine</CardTitle>
-            </CardHeader>
-            <CardContent className="text-xs text-muted-foreground leading-relaxed">
-              Mobile operations support local SQLite databases for continuous work in poor connectivity. Mutations are queue-batched and synced dynamically.
-            </CardContent>
-          </Card>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <Card className="bg-card/40 border-primary/20 hover:scale-[1.01] transition-all relative overflow-hidden">
+              <div className="absolute top-0 right-0 bg-primary px-3 py-1 rounded-bl-lg text-[10px] font-bold text-primary-foreground tracking-wider uppercase">
+                Active
+              </div>
+              <CardHeader className="pb-2">
+                <Factory className="h-6 w-6 text-primary mb-2" />
+                <CardTitle className="text-lg">ORRN-AL</CardTitle>
+                <CardDescription>Aluminum Extrusion Suite</CardDescription>
+              </CardHeader>
+              <CardContent className="text-xs text-muted-foreground leading-relaxed">
+                Extrusion die specifications, plant floor bundle allocations, theoretical weight cost matrices, and thermal LAN spooling.
+              </CardContent>
+            </Card>
 
-          <Card className="bg-card/50 border-border/40 hover:border-primary/20 transition-colors">
-            <CardHeader className="pb-2">
-              <Code className="h-6 w-6 text-primary mb-2" />
-              <CardTitle className="text-base">Type-Safe Bridges</CardTitle>
-            </CardHeader>
-            <CardContent className="text-xs text-muted-foreground leading-relaxed">
-              Vite, Expo Router, and Cloudflare Worker communicate via tRPC. Any schema modification yields instant compiler warnings across platforms.
-            </CardContent>
-          </Card>
+            <Card className="bg-card/10 border-border/20 opacity-70 hover:opacity-100 transition-opacity">
+              <CardHeader className="pb-2">
+                <Cpu className="h-6 w-6 text-muted-foreground mb-2" />
+                <CardTitle className="text-lg">ORRN-STEEL</CardTitle>
+                <CardDescription>Steel Rolling & Fabrication</CardDescription>
+              </CardHeader>
+              <CardContent className="text-xs text-muted-foreground leading-relaxed">
+                Heat-number traceability, structural yield analytics, fabrication batch allocations, and rolling mill thickness calibrations.
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card/10 border-border/20 opacity-70 hover:opacity-100 transition-opacity">
+              <CardHeader className="pb-2">
+                <Database className="h-6 w-6 text-muted-foreground mb-2" />
+                <CardTitle className="text-lg">ORRN-PLAST</CardTitle>
+                <CardDescription>Injection Molding & Extrusion</CardDescription>
+              </CardHeader>
+              <CardContent className="text-xs text-muted-foreground leading-relaxed">
+                Cavity yield logs, compound material batch blending controls, mold cycle counters, and automated packing carton labels.
+              </CardContent>
+            </Card>
+          </div>
         </section>
 
-        {/* System Monitor Status */}
-        <footer className="flex flex-col items-center justify-between border-t border-border/30 pt-8 pb-12 gap-4 sm:flex-row text-xs text-muted-foreground">
+        {/* Enterprise Security Core */}
+        <section className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 border-t border-border/30 pt-12">
+          <div className="flex gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Shield className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="font-semibold text-sm">ISO-Grade Isolation</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Strict context security verifies tenant permissions on every database call. Synthetic identifiers are rejected automatically.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Database className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="font-semibold text-sm">Offline-First Floor Sync</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Floor workers sync press output and logistics receipts offline. State transitions sync automatically upon reconnection.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Zap className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="font-semibold text-sm">Microsecond Hono API</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Built on Cloudflare Workers edge nodes. Minimal CPU run time guarantees responsive floor interactions even on low-spec devices.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* System Monitor & Footer Status */}
+        <footer className="flex flex-col items-center justify-between border-t border-border/20 pt-8 pb-12 gap-4 sm:flex-row text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className={`h-2 w-2 rounded-full ${healthCheck.data ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
-            <span>API Worker Server: {healthCheck.isLoading ? "Monitoring connection..." : healthCheck.data ? "Operational" : "Unavailable"}</span>
+            <span>Operational Console Service: {healthCheck.isLoading ? "Acquiring telemetry..." : healthCheck.data ? "Connected" : "Disruptions"}</span>
           </div>
           <div className="flex items-center gap-6">
-            <span>&copy; {new Date().getFullYear()} ORRN Operations. All rights reserved.</span>
+            <span>&copy; {new Date().getFullYear()} ORRN Suite Inc. All rights reserved.</span>
           </div>
         </footer>
       </div>
