@@ -213,12 +213,7 @@ function HomeComponent() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background px-4 py-8 md:px-8">
-      {/* Background Gradient Mesh */}
-      <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-[15%] top-[-10%] h-[600px] w-[600px] rounded-full bg-gradient-to-tr from-[#5b6cff]/10 to-[#22d3ee]/5 blur-[120px]" />
-        <div className="absolute right-[5%] top-[20%] h-[500px] w-[500px] rounded-full bg-gradient-to-br from-[#22d3ee]/8 to-[#3b4edd]/10 blur-[100px]" />
-      </div>
+    <div className="relative min-h-screen px-4 py-8 md:px-8">
 
       <div className="mx-auto max-w-6xl space-y-16">
         {/* Navigation Header */}
@@ -235,7 +230,7 @@ function HomeComponent() {
             <Link to="/login">
               <Button variant="ghost" className="hover:bg-muted/80 text-sm font-medium">Sign In</Button>
             </Link>
-            <Link to="/waitlist">
+            <Link to="/waitlist" search={{ mode: "demo" }}>
               <Button className="bg-gradient-to-r from-primary to-primaryStrong text-primary-foreground shadow-lg hover:shadow-primary/20 text-sm">
                 Request Demo
               </Button>
@@ -263,15 +258,15 @@ function HomeComponent() {
           </p>
 
           <div className="flex flex-wrap justify-center gap-4 pt-4">
-            <Link to="/waitlist">
+            <Link to="/waitlist" search={{ mode: "demo" }}>
               <Button size="lg" className="h-12 px-8 bg-gradient-to-r from-primary to-primaryStrong font-medium shadow-xl hover:shadow-primary/30 hover:scale-[1.02] transition-all">
                 Request Enterprise Demo
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
-            <Link to="/login">
+            <Link to="/waitlist" search={{ mode: "waitlist" }}>
               <Button size="lg" variant="outline" className="h-12 px-8 border-border hover:bg-muted/50 hover:scale-[1.02] transition-all">
-                Access Tenant Portal
+                Join Waitlist
               </Button>
             </Link>
           </div>

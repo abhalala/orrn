@@ -51,6 +51,7 @@ function isPublicPath(pathname: string): boolean {
 function RootComponent() {
   const location = useLocation();
   const isPublic = isPublicPath(location.pathname);
+  const isHome = location.pathname === "/";
 
   return (
     <>
@@ -64,8 +65,21 @@ function RootComponent() {
         <OrrnUiProvider defaultTheme="dark">
           <TenantCacheGuard />
           {isPublic ? (
-            <div className="h-svh w-full">
-              <Outlet />
+            <div className="relative min-h-screen w-full bg-background flex flex-col justify-between overflow-x-hidden">
+              {/* Global Background Gradient Mesh for all public routes */}
+              <div className="absolute inset-0 -z-10 overflow-hidden">
+                <div className="absolute left-[15%] top-[-10%] h-[600px] w-[600px] rounded-full bg-gradient-to-tr from-[#5b6cff]/10 to-[#22d3ee]/5 blur-[120px]" />
+                <div className="absolute right-[5%] top-[20%] h-[500px] w-[500px] rounded-full bg-gradient-to-br from-[#22d3ee]/8 to-[#3b4edd]/10 blur-[100px]" />
+              </div>
+              {isHome ? (
+                <div className="w-full">
+                  <Outlet />
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center p-4">
+                  <Outlet />
+                </div>
+              )}
             </div>
           ) : (
             <AppShell>
