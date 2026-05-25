@@ -14,7 +14,7 @@ import { AppShell } from "@/components/app-shell";
 import { TenantCacheGuard } from "@/components/tenant-cache-guard";
 import { ThemeProvider } from "@/components/theme-provider";
 import type { trpc } from "@/utils/trpc";
-
+import { getDomainConfig } from "@/lib/domain";
 import "../index.css";
 
 export interface RouterAppContext {
@@ -43,14 +43,16 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
  * that DO NOT use `requireCompanyMe` / `requirePlatformAdmin` in beforeLoad.
  */
 const PUBLIC_PATH_PREFIXES = ["/login", "/waitlist", "/invite", "/no-access"] as const;
-function isPublicPath(pathname: string): boolean {
+function isPublicPath(pathname: string, isOrrnAppDomain: boolean): boolean {
   if (pathname === "/") return true;
+  if (isOrrnAppDomain) return false;
   return PUBLIC_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
 function RootComponent() {
   const location = useLocation();
-  const isPublic = isPublicPath(location.pathname);
+  const { isOrrnAppDomain } = getDomainConfig();
+  const isPublic = isPublicPath(location.pathname, isOrrnAppDomain);
   const isHome = location.pathname === "/";
 
   return (

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { waitlistRequest } from "@orrn/db/schema/tenant";
+import { company, waitlistRequest } from "@orrn/db/schema/tenant";
 import { publicProcedure, router } from "../index";
 
 const submitWaitlistSchema = z.object({
@@ -13,12 +13,33 @@ const submitWaitlistSchema = z.object({
 export const waitlistRouter = router({
   submit: publicProcedure.input(submitWaitlistSchema).mutation(async ({ ctx, input }) => {
     const id = crypto.randomUUID();
-    await ctx.db.insert(waitlistRequest).values({
-      id,
-      companyName: input.companyName,
-      requesterName: input.requesterName,
-      requesterEmail: input.requesterEmail,
-      notes: input.notes,
+    const companyId = crypto.randomUUID();
+    
+    const slug =
+      input.companyName
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "") +
+      "-" +
+      crypto.randomUUID().split("-")[0];
+
+    await ctx.db.transaction(async (tx) => {
+      await tx.insert(company).values({
+        id: companyId,
+        name: input.companyName,
+        slug,
+        status: "pending",
+      });
+
+      await tx.insert(waitlistRequest).values({
+        id,
+        companyId,
+        companyName: input.companyName,
+        requesterName: input.requesterName,
+        requesterEmail: input.requesterEmail,
+        notes: input.notes,
+      });
     });
 
     return { success: true, id };

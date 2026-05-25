@@ -16,8 +16,8 @@ import { clearImpersonateCompanyId, setImpersonateCompanyId } from "@/lib/impers
 import { requirePlatformAdmin } from "@/lib/route-guards";
 import { queryClient, trpc } from "@/utils/trpc";
 
-export const Route = createFileRoute("/platform/companies/")({
-  component: PlatformCompaniesComponent,
+export const Route = createFileRoute("/admin/companies/")({
+  component: AdminCompaniesComponent,
   beforeLoad: requirePlatformAdmin,
 });
 
@@ -31,7 +31,7 @@ type CompanyRow = {
   memberCount: number;
 };
 
-function PlatformCompaniesComponent() {
+function AdminCompaniesComponent() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -76,7 +76,7 @@ function PlatformCompaniesComponent() {
         header: "Company",
         flex: 1.2,
         cell: (row) => (
-          <Link to="/platform/companies/$id" params={{ id: row.id }} className="font-medium hover:underline">
+          <Link to="/admin/companies/$id" params={{ id: row.id }} className="font-medium hover:underline">
             {row.name}
           </Link>
         ),
@@ -151,7 +151,7 @@ function PlatformCompaniesComponent() {
         title="Companies"
         description="Tenant directory for support and onboarding."
         actions={
-          <Button variant="outline" onClick={() => navigate({ to: "/platform" })}>
+          <Button variant="outline" onClick={() => navigate({ to: "/admin" as any })}>
             Back to console
           </Button>
         }

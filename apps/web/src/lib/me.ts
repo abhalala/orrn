@@ -5,13 +5,21 @@ import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 
 export type Me = {
-  user: { id: string; name: string; email: string; image: string | null };
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+    onboardingCompleted: boolean;
+    twoFactorEnabled: boolean;
+  };
   company: {
     id: string;
     name: string;
     slug: string;
     status: string;
     plan: string | null;
+    modules: string[];
     role: "owner" | "admin" | "manager" | "operator" | "viewer";
   } | null;
   isPlatformAdmin: boolean;

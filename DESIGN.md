@@ -21,7 +21,7 @@ colors:
     bg: "#0b0f1a"
     bgElevated: "#121826"
     bgMuted: "#1c2333"
-    border: "#27304a"
+    border: "#1e293b"
     borderStrong: "#3a445e"
     fg: "#f5f7ff"
     fgMuted: "#a3acc4"
@@ -93,7 +93,7 @@ ORRN uses an **architectural dark/light premium** design style. It features slee
    - Use high-contrast type scales utilizing the Inter font family.
    
 2. **Color Roles**:
-   - **Primary Purple/Indigo (`#5b6cff`)**: Used exclusively for primary buttons, focus outlines, and brand accents.
+   - **Primary Purple/Indigo (`#5b6cff`)**: Used exclusively for primary CTAs, active states, and brand-defining moments.
    - **Accent Cyan (`#22d3ee`)**: Used for secondary brand highlights, platform admin highlights, and active status indicators.
    - **Success/Warning/Danger/Info**: Always use the respective soft background / foreground combination to ensure readable AAA contrast.
 
@@ -111,3 +111,20 @@ ORRN uses an **architectural dark/light premium** design style. It features slee
 - **Don't** use standard Tailwind utility colors (e.g. `bg-blue-500`, `text-red-600`). Use brand tokens like `brand.primary`, `semantic.danger`.
 - **Don't** delete the cache cleaning hooks (`TenantCacheGuard` and `queryClient.clear()`) during login/logout states.
 - **Don't** accept `companyId` in API client parameters; resolve it strictly on the Hono server from auth context.
+
+---
+
+## Onboarding Screen Designs (Stitch MCP Specifications)
+
+### 1. Credentials Setup Screen (`/setup-credentials`)
+- **Visual Structure:** A centered, glassmorphic card container on a dark `#0B0F1A` mesh gradient background.
+- **Glassmorphic Styling:** `background: rgba(18, 24, 38, 0.7)` with `backdrop-filter: blur(20px)` and a crisp `1px solid rgba(91, 108, 255, 0.15)` border.
+- **Step 1 (Password Setup):** Inputs for password entry with dynamic glowing focus states (`#5B6CFF` border) and a micro-animated strength meter.
+- **Step 2 (2FA Setup):** A stylized QR code section with a neon blue scanner indicator, one-click copyable secret code, and 6 individual 2FA digits input segments.
+
+### 2. Tenant Onboarding Wizard (`/onboarding`)
+- **Visual Structure:** Step-by-step progress checklist (horizontal/vertical) that guides waitlisted managers.
+- **Step 1 (Terms):** Framed scrollable T&C area with custom-styled toggle/checkbox consent.
+- **Step 2 (Facility Profile):** Compact input grid for location, contact numbers, and timezone dropdowns.
+- **Step 3 (Extrusion Setup):** Specialized input for Extrusion Press Count with subtle neon accent borders.
+- **CTA:** Sticky premium glowing button (`#5B6CFF` background, low-opacity glow) at the bottom labeled "Complete Onboarding".

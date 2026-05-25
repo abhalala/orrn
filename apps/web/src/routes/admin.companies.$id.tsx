@@ -7,7 +7,7 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/components/can";
@@ -15,8 +15,8 @@ import { clearImpersonateCompanyId, setImpersonateCompanyId } from "@/lib/impers
 import { requirePlatformAdmin } from "@/lib/route-guards";
 import { queryClient, trpc } from "@/utils/trpc";
 
-export const Route = createFileRoute("/platform/companies/$id")({
-  component: PlatformCompanyDetailComponent,
+export const Route = createFileRoute("/admin/companies/$id")({
+  component: AdminCompanyDetailComponent,
   beforeLoad: requirePlatformAdmin,
 });
 
@@ -29,7 +29,7 @@ type GrantRow = {
   createdAt: Date | string | number;
 };
 
-function PlatformCompanyDetailComponent() {
+function AdminCompanyDetailComponent() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -109,7 +109,7 @@ function PlatformCompanyDetailComponent() {
         description={c.slug}
         actions={
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" onClick={() => navigate({ to: "/platform/companies" })}>
+            <Button variant="outline" onClick={() => navigate({ to: "/admin/companies" as any })}>
               Back to list
             </Button>
             <Can do="platform.impersonate">
@@ -153,7 +153,7 @@ function PlatformCompanyDetailComponent() {
           </div>
           <div>
             <p className="text-muted-foreground text-xs">Plan</p>
-            <p>{c.plan ?? "—"}</p>
+            <p className="capitalize">{c.plan ?? "—"}</p>
           </div>
           <div>
             <p className="text-muted-foreground text-xs">Members</p>
@@ -165,6 +165,12 @@ function PlatformCompanyDetailComponent() {
           </div>
         </CardContent>
       </Card>
+
+      <PlanAndModulesForm
+        companyId={c.id}
+        initialPlan={c.plan}
+        initialModules={(c as any).modules || []}
+      />
 
       <Card>
         <CardHeader>
@@ -180,5 +186,119 @@ function PlatformCompanyDetailComponent() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function PlanAndModulesForm({
+  companyId,
+  initialPlan,
+  initialModules,
+}: {
+  companyId: string;
+  initialPlan: string | null;
+  initialModules: string[];
+}) {
+  const qc = useQueryClient();
+  const [plan, setPlan] = useState(initialPlan || "starter");
+  const [activeModules, setActiveModules] = useState<string[]>(initialModules || []);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const updateMutation = useMutation({
+    ...trpc.platform.updatePlanAndModules.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Company plan and modules updated");
+      qc.invalidateQueries({ queryKey: trpc.platform.companiesGet.queryKey({ id: companyId }) });
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to update"),
+  });
+
+  const modulesList = [
+    { id: "customers", label: "Customer Management" },
+    { id: "dies", label: "Die Management" },
+    { id: "bundles", label: "Bundle & Production Tracking" },
+    { id: "dispatches", label: "Dispatch & Logistics" },
+  ];
+
+  const handleModuleToggle = (modId: string) => {
+    if (activeModules.includes(modId)) {
+      setActiveModules(activeModules.filter((m) => m !== modId));
+    } else {
+      setActiveModules([...activeModules, modId]);
+    }
+  };
+
+  const handleSave = async () => {
+    setIsUpdating(true);
+    try {
+      await updateMutation.mutateAsync({
+        companyId,
+        plan,
+        modules: activeModules,
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Plan & Active Modules</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-muted-foreground block" htmlFor="companyPlan">
+            Billing Plan
+          </label>
+          <select
+            id="companyPlan"
+            value={plan}
+            onChange={(e) => setPlan(e.target.value)}
+            className="flex h-10 w-full max-w-xs rounded-md border border-input border-border/40 bg-[#0b0f1a]/50 px-3 py-2 text-sm text-[#f5f7ff] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#5B6CFF] focus-visible:border-[#5B6CFF]"
+          >
+            <option value="starter">Starter</option>
+            <option value="growth">Growth</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-muted-foreground block">
+            Active Modules
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            {modulesList.map((m) => {
+              const isChecked = activeModules.includes(m.id);
+              return (
+                <label
+                  key={m.id}
+                  className={`flex items-center space-x-3 rounded-lg border p-3 cursor-pointer transition ${
+                    isChecked
+                      ? "border-[#5B6CFF] bg-[#5B6CFF]/10 text-[#f5f7ff]"
+                      : "border-border/40 bg-card/40 hover:bg-card/70 text-muted-foreground"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => handleModuleToggle(m.id)}
+                    className="h-4 w-4 rounded border-gray-300 text-[#5B6CFF] focus:ring-[#5B6CFF]"
+                  />
+                  <span className="text-sm font-medium">{m.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        <Button
+          onClick={handleSave}
+          disabled={isUpdating}
+          className="bg-[#5B6CFF] hover:bg-[#3b4edd] text-white"
+        >
+          {isUpdating ? "Saving..." : "Save Changes"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

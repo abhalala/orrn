@@ -21,6 +21,7 @@ export const company = sqliteTable(
     spoolBaseUrl: text("spool_base_url"),
     spoolApiKeyWrapped: text("spool_api_key_wrapped"),
     plan: text("plan"),
+    modules: text("modules", { mode: "json" }).$type<string[]>().notNull().default([]),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .default(nowMs)
@@ -82,6 +83,7 @@ export const waitlistRequest = sqliteTable(
   "waitlist_request",
   {
     id: text("id").primaryKey(),
+    companyId: text("company_id").references(() => company.id, { onDelete: "set null" }),
     companyName: text("company_name").notNull(),
     requesterName: text("requester_name").notNull(),
     requesterEmail: text("requester_email").notNull(),

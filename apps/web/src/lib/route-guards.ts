@@ -38,32 +38,45 @@ export async function requireCompanyMe({
   context: GuardContext;
   location: { pathname: string };
 }) {
-  const { isErpDomain, erpUrl, marketingUrl } = getDomainConfig();
+  const { isErpDomain, isOrrnAppDomain, erpUrl, marketingUrl } = getDomainConfig();
 
-  // 1. Force ERP routes to run on erp.orrn.in
-  if (!isErpDomain) {
+  // 1. Force ERP routes to run on erp.orrn.in unless we are on the staff/app domain
+  if (!isErpDomain && !isOrrnAppDomain) {
     window.location.href = `${erpUrl}${location.pathname}${window.location.search}`;
     throw redirect({ to: "/dashboard" as any });
   }
 
   const me = await loadMe(context.queryClient);
   if (!me) {
+    if (isOrrnAppDomain) {
+      throw redirect({ to: "/" as any });
+    }
     const currentUrl = window.location.href;
     window.location.href = `${marketingUrl}/login?next=${encodeURIComponent(currentUrl)}`;
     throw redirect({ to: "/login" });
   }
+
+  // If on the staff domain, the user must be a platform admin/staff
+  if (isOrrnAppDomain && !me.isPlatformAdmin) {
+    window.location.href = "https://erp.orrn.in/no-access";
+    throw redirect({ to: "/no-access" });
+  }
+
   if (!me.company) {
     throw redirect({ to: "/no-access" });
+  }
+  if (!me.user.onboardingCompleted) {
+    throw redirect({ to: "/onboarding" });
   }
   return { me };
 }
 
 /**
- * Guard for `_platform` group: requires session + platform admin.
+ * Guard for `_platform` (now `/admin`) group: requires session + platform admin on orrn.app.
  *
- * - On marketing domain -> redirect https://erp.orrn.in/path
- * - No session          -> redirect https://orrn.in/login
- * - Authed but not admin -> redirect /
+ * - On other domains -> redirect to https://orrn.app/admin
+ * - No session          -> redirect to / (login screen on orrn.app)
+ * - Authed but not admin -> redirect to https://erp.orrn.in/no-access
  */
 export async function requirePlatformAdmin({
   context,
@@ -72,22 +85,24 @@ export async function requirePlatformAdmin({
   context: GuardContext;
   location: { pathname: string };
 }) {
-  const { isErpDomain, erpUrl, marketingUrl } = getDomainConfig();
+  const { isOrrnAppDomain, staffUrl } = getDomainConfig();
 
-  // 1. Force platform routes to run on erp.orrn.in
-  if (!isErpDomain) {
-    window.location.href = `${erpUrl}${location.pathname}${window.location.search}`;
-    throw redirect({ to: "/platform" as any });
+  // 1. Force platform/admin routes to run exclusively on the staff domain (orrn.app)
+  if (!isOrrnAppDomain) {
+    const targetPath = location.pathname.startsWith("/platform")
+      ? location.pathname.replace(/^\/platform/, "/admin")
+      : location.pathname;
+    window.location.href = `${staffUrl}${targetPath}${window.location.search}`;
+    throw redirect({ to: "/admin" as any });
   }
 
   const me = await loadMe(context.queryClient);
   if (!me) {
-    const currentUrl = window.location.href;
-    window.location.href = `${marketingUrl}/login?next=${encodeURIComponent(currentUrl)}`;
-    throw redirect({ to: "/login" });
+    throw redirect({ to: "/" as any });
   }
   if (!me.isPlatformAdmin) {
-    throw redirect({ to: "/" });
+    window.location.href = "https://erp.orrn.in/no-access";
+    throw redirect({ to: "/no-access" });
   }
   return { me };
 }
@@ -104,12 +119,23 @@ export async function requireSession({
   context: GuardContext;
   location: { pathname: string };
 }) {
+  const { isOrrnAppDomain, marketingUrl } = getDomainConfig();
   const me = await loadMe(context.queryClient);
+  
   if (!me) {
-    const { marketingUrl } = getDomainConfig();
+    if (isOrrnAppDomain) {
+      throw redirect({ to: "/" as any });
+    }
     const currentUrl = window.location.href;
     window.location.href = `${marketingUrl}/login?next=${encodeURIComponent(currentUrl)}`;
     throw redirect({ to: "/login" });
   }
+
+  // If on the staff domain, the user must be a platform admin/staff
+  if (isOrrnAppDomain && !me.isPlatformAdmin) {
+    window.location.href = "https://erp.orrn.in/no-access";
+    throw redirect({ to: "/no-access" });
+  }
+
   return { me };
 }

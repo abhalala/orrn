@@ -42,7 +42,7 @@ export const neutrals = {
     bg: "#0b0f1a",
     bgElevated: "#121826",
     bgMuted: "#1c2333",
-    border: "#27304a",
+    border: "#1e293b",
     borderStrong: "#3a445e",
     fg: "#f5f7ff",
     fgMuted: "#a3acc4",

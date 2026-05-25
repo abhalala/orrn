@@ -24,6 +24,7 @@ import { getDomainConfig } from "@/lib/domain";
 import { trpc } from "@/utils/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Button } from "@orrn/ui/components/button";
+import SignInForm from "@/components/sign-in-form";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,
@@ -31,22 +32,54 @@ export const Route = createFileRoute("/")({
 
 function HomeComponent() {
   const navigate = useNavigate();
-  const { isErpDomain, erpUrl, marketingUrl } = getDomainConfig();
+  const { isErpDomain, isOrrnAppDomain, erpUrl, marketingUrl } = getDomainConfig();
   const healthCheck = useQuery(trpc.healthCheck.queryOptions());
   const meQuery = useQuery(trpc.auth.me.queryOptions());
   const [activeTab, setActiveTab] = useState<"dies" | "bundles" | "dispatches" | "printing">("dies");
 
   useEffect(() => {
     if (meQuery.data?.user) {
-      if (!isErpDomain) {
+      if (isOrrnAppDomain) {
+        navigate({ to: "/admin" as any });
+      } else if (!isErpDomain) {
         window.location.href = `${erpUrl}/dashboard`;
       } else {
         navigate({ to: "/dashboard" as any });
       }
-    } else if (isErpDomain && !meQuery.isLoading) {
-      window.location.href = `${marketingUrl}/login`;
+    } else {
+      if (isErpDomain && !meQuery.isLoading) {
+        window.location.href = `${marketingUrl}/login`;
+      }
     }
-  }, [meQuery.data, meQuery.isLoading, isErpDomain, erpUrl, marketingUrl, navigate]);
+  }, [meQuery.data, meQuery.isLoading, isErpDomain, isOrrnAppDomain, erpUrl, marketingUrl, navigate]);
+
+  if (isOrrnAppDomain) {
+    if (meQuery.isLoading) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-[#090e1a]">
+          <div className="text-sm text-muted-foreground animate-pulse">
+            Authenticating staff console...
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-[#090e1a]">
+        <div className="w-full max-w-md space-y-6">
+          <div className="flex flex-col items-center gap-2 mb-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#5B6CFF] to-[#22D3EE] shadow-lg shadow-[#5B6CFF]/20">
+              <span className="text-2xl font-black text-white">O</span>
+            </div>
+            <span className="text-xl font-bold tracking-wider text-muted-foreground font-mono">
+              ORRN STAFF PORTAL
+            </span>
+          </div>
+          <SignInForm />
+        </div>
+      </div>
+    );
+  }
 
   const tabsConfig = {
     dies: {

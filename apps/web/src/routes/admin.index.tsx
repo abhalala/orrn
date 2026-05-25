@@ -6,12 +6,12 @@ import { Building2, ClipboardList } from "lucide-react";
 
 import { requirePlatformAdmin } from "@/lib/route-guards";
 
-export const Route = createFileRoute("/platform/")({
-  component: PlatformIndexComponent,
+export const Route = createFileRoute("/admin/")({
+  component: AdminIndexComponent,
   beforeLoad: requirePlatformAdmin,
 });
 
-function PlatformIndexComponent() {
+function AdminIndexComponent() {
   return (
     <div className="space-y-6">
       <PageHeader
@@ -30,7 +30,7 @@ function PlatformIndexComponent() {
             <p className="text-sm text-muted-foreground">
               Browse tenants, suspend access, and impersonate with audited grants.
             </p>
-            <Link to="/platform/companies">
+            <Link to="/admin/companies">
               <Button>Open companies</Button>
             </Link>
           </CardContent>
@@ -45,7 +45,7 @@ function PlatformIndexComponent() {
             <p className="text-sm text-muted-foreground">
               Approve or reject inbound SaaS waitlist requests.
             </p>
-            <Link to="/platform/waitlist">
+            <Link to="/admin/waitlist">
               <Button variant="outline">Review waitlist</Button>
             </Link>
           </CardContent>

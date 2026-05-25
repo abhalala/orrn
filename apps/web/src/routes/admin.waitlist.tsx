@@ -11,8 +11,8 @@ import { Can } from "@/components/can";
 import { requirePlatformAdmin } from "@/lib/route-guards";
 import { trpc } from "@/utils/trpc";
 
-export const Route = createFileRoute("/platform/waitlist")({
-  component: PlatformWaitlistComponent,
+export const Route = createFileRoute("/admin/waitlist")({
+  component: AdminWaitlistComponent,
   beforeLoad: requirePlatformAdmin,
 });
 
@@ -25,7 +25,7 @@ type WaitlistRow = {
   createdAt: string | number | Date;
 };
 
-function PlatformWaitlistComponent() {
+function AdminWaitlistComponent() {
   const { data: requests, isLoading, refetch } = useQuery(trpc.platform.waitlistList.queryOptions());
 
   const approveMutation = useMutation({

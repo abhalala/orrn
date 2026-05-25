@@ -6,13 +6,13 @@ import {
   company,
   companyStatus,
   impersonationGrant,
-  invite,
   membership,
   waitlistRequest,
 } from "@orrn/db/schema/tenant";
+import { user } from "@orrn/db/schema/auth";
 import { env } from "@orrn/env/server";
+import { createAuth } from "@orrn/auth";
 
-import { sendEmail } from "../lib/email";
 import { platformProcedure, router } from "../index";
 
 const DEFAULT_IMPERSONATION_TTL_MINUTES = 30;
@@ -38,24 +38,8 @@ export const platformRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Request is already processed" });
       }
 
-      const companyId = crypto.randomUUID();
-      const inviteId = crypto.randomUUID();
-      const token = crypto.randomUUID();
-      const tokenHash = await crypto.subtle
-        .digest("SHA-256", new TextEncoder().encode(token))
-        .then((b) =>
-          Array.from(new Uint8Array(b))
-            .map((x) => x.toString(16).padStart(2, "0"))
-            .join(""),
-        );
-      const slug =
-        request.companyName
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "-")
-          .replace(/-+/g, "-")
-          .replace(/^-|-$/g, "") +
-        "-" +
-        crypto.randomUUID().split("-")[0];
+      const companyId = request.companyId ?? crypto.randomUUID();
+      const webBase = env.CORS_ORIGIN.replace(/\/$/, "");
 
       await ctx.db.transaction(async (tx) => {
         await tx
@@ -63,34 +47,110 @@ export const platformRouter = router({
           .set({ status: "approved", reviewedBy: ctx.session.user.id, reviewedAt: new Date() })
           .where(eq(waitlistRequest.id, input.id));
 
-        await tx.insert(company).values({
-          id: companyId,
-          name: request.companyName,
-          slug,
-          status: "active",
-        });
+        const companyExists = await tx
+          .select()
+          .from(company)
+          .where(eq(company.id, companyId))
+          .get();
 
-        await tx.insert(invite).values({
-          id: inviteId,
-          companyId,
+        if (companyExists) {
+          await tx
+            .update(company)
+            .set({ status: "active" })
+            .where(eq(company.id, companyId));
+        } else {
+          const slug =
+            request.companyName
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, "-")
+              .replace(/-+/g, "-")
+              .replace(/^-|-$/g, "") +
+            "-" +
+            crypto.randomUUID().split("-")[0];
+
+          await tx.insert(company).values({
+            id: companyId,
+            name: request.companyName,
+            slug,
+            status: "active",
+          });
+        }
+
+        let userId: string;
+        const existingUser = await tx
+          .select()
+          .from(user)
+          .where(eq(user.email, request.requesterEmail))
+          .get();
+
+        if (existingUser) {
+          userId = existingUser.id;
+        } else {
+          userId = crypto.randomUUID();
+          await tx.insert(user).values({
+            id: userId,
+            name: request.requesterName,
+            email: request.requesterEmail,
+            emailVerified: true,
+            onboardingCompleted: false,
+          });
+        }
+
+        const existingMembership = await tx
+          .select()
+          .from(membership)
+          .where(and(eq(membership.userId, userId), eq(membership.companyId, companyId)))
+          .get();
+
+        if (!existingMembership) {
+          const membershipId = crypto.randomUUID();
+          await tx.insert(membership).values({
+            id: membershipId,
+            userId,
+            companyId,
+            role: "owner",
+          });
+        }
+      });
+
+      const auth = createAuth();
+      await auth.api.signInMagicLink({
+        body: {
           email: request.requesterEmail,
-          role: "owner",
-          tokenHash,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          invitedBy: ctx.session.user.id,
-        });
+          callbackURL: `${webBase}/setup-credentials`,
+        },
+        headers: ctx.request.headers,
       });
 
-      const webBase = env.CORS_ORIGIN.replace(/\/$/, "");
-      const inviteUrl = `${webBase}/invite/${token}`;
+      return { success: true };
+    }),
 
-      await sendEmail({
-        to: request.requesterEmail,
-        subject: "Your ORRN waitlist request has been approved!",
-        html: `<p>Hi ${request.requesterName},</p>
-               <p>Good news! Your company ${request.companyName} has been approved for ORRN.</p>
-               <p>Click <a href="${inviteUrl}">here</a> to set up your account.</p>`,
-      });
+  updatePlanAndModules: platformProcedure
+    .input(
+      z.object({
+        companyId: z.string(),
+        plan: z.string(),
+        modules: z.array(z.string()),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.db
+        .select()
+        .from(company)
+        .where(eq(company.id, input.companyId))
+        .get();
+
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+      }
+
+      await ctx.db
+        .update(company)
+        .set({
+          plan: input.plan,
+          modules: input.modules,
+        })
+        .where(eq(company.id, input.companyId));
 
       return { success: true };
     }),
@@ -168,6 +228,7 @@ export const platformRouter = router({
           slug: company.slug,
           status: company.status,
           plan: company.plan,
+          modules: company.modules,
           createdAt: company.createdAt,
           updatedAt: company.updatedAt,
           memberCount: sql<number>`(
