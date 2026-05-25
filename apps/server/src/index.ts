@@ -16,7 +16,20 @@ app.use(logger());
 app.use(
   "/*",
   cors({
-    origin: env.CORS_ORIGIN,
+    origin: (origin) => {
+      if (!origin) return env.CORS_ORIGIN;
+      const baseHost = env.CORS_ORIGIN.replace(/^https?:\/\//, "");
+      const originHost = origin.replace(/^https?:\/\//, "");
+      if (
+        origin === env.CORS_ORIGIN ||
+        originHost === baseHost ||
+        originHost.endsWith(`.${baseHost}`) ||
+        origin === "http://localhost:3001"
+      ) {
+        return origin;
+      }
+      return env.CORS_ORIGIN;
+    },
     allowMethods: ["GET", "POST", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "x-orrn-impersonate-company"],
     credentials: true,

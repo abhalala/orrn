@@ -6,6 +6,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
 
+import { getDomainConfig } from "@/lib/domain";
 import { authClient } from "@/lib/auth-client";
 import { queryClient } from "@/utils/trpc";
 
@@ -36,7 +37,18 @@ export default function SignUpForm({
         {
           onSuccess: () => {
             queryClient.removeQueries();
-            navigate({ to: (next ?? "/dashboard") as any });
+            const { erpUrl } = getDomainConfig();
+            
+            let redirectUrl = `${erpUrl}/dashboard`;
+            if (next) {
+              if (next.startsWith("http://") || next.startsWith("https://")) {
+                redirectUrl = next;
+              } else {
+                redirectUrl = `${erpUrl}${next.startsWith("/") ? next : `/${next}`}`;
+              }
+            }
+
+            window.location.href = redirectUrl;
             toast.success("Sign up successful");
           },
           onError: (error) => {

@@ -1,7 +1,9 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
 
+import { getDomainConfig } from "@/lib/domain";
 import { trpc } from "@/utils/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Button } from "@orrn/ui/components/button";
@@ -11,7 +13,22 @@ export const Route = createFileRoute("/")({
 });
 
 function HomeComponent() {
+  const navigate = useNavigate();
+  const { isErpDomain, erpUrl, marketingUrl } = getDomainConfig();
   const healthCheck = useQuery(trpc.healthCheck.queryOptions());
+  const meQuery = useQuery(trpc.auth.me.queryOptions());
+
+  useEffect(() => {
+    if (meQuery.data?.user) {
+      if (!isErpDomain) {
+        window.location.href = `${erpUrl}/dashboard`;
+      } else {
+        navigate({ to: "/dashboard" as any });
+      }
+    } else if (isErpDomain && !meQuery.isLoading) {
+      window.location.href = `${marketingUrl}/login`;
+    }
+  }, [meQuery.data, meQuery.isLoading, isErpDomain, erpUrl, marketingUrl, navigate]);
 
   return (
     <div className="space-y-8">

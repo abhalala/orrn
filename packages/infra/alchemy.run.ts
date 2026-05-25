@@ -18,6 +18,8 @@ const webDomain = process.env.WEB_DOMAIN ?? `dev.${zoneName}`;
 const apiDomain = process.env.API_DOMAIN ?? `api.dev.${zoneName}`;
 const webUrl = `https://${webDomain}`;
 const apiUrl = `https://${apiDomain}`;
+const isLocalDev = !process.env.WEB_DOMAIN && process.env.NODE_ENV !== "production";
+const cookieDomain = isLocalDev ? "" : `.${webDomain}`;
 
 if (!zoneId) {
   throw new Error("CLOUDFLARE_ZONE_ID is required to deploy custom domains.");
@@ -37,6 +39,11 @@ export const web = await Vite("web", {
   domains: [
     {
       domainName: webDomain,
+      zoneId,
+      adopt: true,
+    },
+    {
+      domainName: `erp.${webDomain}`,
       zoneId,
       adopt: true,
     },
@@ -60,6 +67,7 @@ export const server = await Worker("server", {
     ORRN_MASTER_KEY: process.env.ORRN_MASTER_KEY ?? devMasterKey,
     RESEND_API_KEY: process.env.RESEND_API_KEY ?? "",
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL ?? "",
+    COOKIE_DOMAIN: cookieDomain,
   },
   domains: [
     {
