@@ -101,12 +101,15 @@ export default function SignInForm({
   });
 
   return (
-    <div className="w-full max-w-md p-8 rounded-2xl border border-border/40 bg-card/60 backdrop-blur-md shadow-2xl space-y-6">
+    <div className="w-full max-w-md p-8 rounded-2xl border border-[#5B6CFF]/15 bg-[#121826]/70 backdrop-blur-xl shadow-2xl space-y-6 relative overflow-hidden">
+      {/* Subtle top glow ring inside the card */}
+      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#5B6CFF]/30 to-transparent" />
+      
       <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-extrabold tracking-tight">
+        <h1 className="text-3xl font-extrabold tracking-tight text-[#f5f7ff] font-mono">
           {showTwoFactor ? "Verification" : "Welcome Back"}
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground font-mono">
           {showTwoFactor 
             ? "Enter the 6-digit code from your authenticator app."
             : "Sign in to your ORRN-AL workspace."}
@@ -127,11 +130,13 @@ export default function SignInForm({
       >
         {!showTwoFactor ? (
           <>
-            <div>
+            <div className="space-y-4">
               <form.Field name="email">
                 {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>Email</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor={field.name} className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">
+                      Email Address
+                    </Label>
                     <Input
                       id={field.name}
                       name={field.name}
@@ -140,9 +145,10 @@ export default function SignInForm({
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
+                      className="bg-[#0b0f1a]/60 border-border/40 focus:border-[#5B6CFF] focus:ring-1 focus:ring-[#5B6CFF] text-[#f5f7ff] text-sm h-10 transition-all rounded-lg"
                     />
                     {field.state.meta.errors.map((error) => (
-                      <p key={error?.message} className="text-sm text-destructive">
+                      <p key={error?.message} className="text-[11px] font-semibold text-red-400 font-mono">
                         {error?.message}
                       </p>
                     ))}
@@ -151,21 +157,27 @@ export default function SignInForm({
               </form.Field>
             </div>
 
-            <div>
+            <div className="space-y-4">
               <form.Field name="password">
                 {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>Password</Label>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor={field.name} className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">
+                        Password
+                      </Label>
+                    </div>
                     <Input
                       id={field.name}
                       name={field.name}
                       type="password"
+                      placeholder="••••••••"
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
+                      className="bg-[#0b0f1a]/60 border-border/40 focus:border-[#5B6CFF] focus:ring-1 focus:ring-[#5B6CFF] text-[#f5f7ff] text-sm h-10 transition-all rounded-lg"
                     />
                     {field.state.meta.errors.map((error) => (
-                      <p key={error?.message} className="text-sm text-destructive">
+                      <p key={error?.message} className="text-[11px] font-semibold text-red-400 font-mono">
                         {error?.message}
                       </p>
                     ))}
@@ -178,7 +190,11 @@ export default function SignInForm({
               selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
             >
               {({ canSubmit, isSubmitting }) => (
-                <Button type="submit" className="w-full mt-2" disabled={!canSubmit || isSubmitting}>
+                <Button 
+                  type="submit" 
+                  className="w-full mt-4 bg-[#5B6CFF] hover:bg-[#3b4edd] text-white font-bold h-10 rounded-lg shadow-lg shadow-[#5B6CFF]/20 transition-all border border-white/5 hover:scale-[1.01]"
+                  disabled={!canSubmit || isSubmitting}
+                >
                   {isSubmitting ? "Signing in..." : "Sign In"}
                 </Button>
               )}
@@ -187,7 +203,9 @@ export default function SignInForm({
         ) : (
           <>
             <div className="space-y-2">
-              <Label htmlFor="totpCode">Authenticator Code</Label>
+              <Label htmlFor="totpCode" className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">
+                Authenticator 2FA Code
+              </Label>
               <Input
                 id="totpCode"
                 type="text"
@@ -195,19 +213,23 @@ export default function SignInForm({
                 maxLength={6}
                 value={totpCode}
                 onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                className="text-center font-mono text-xl tracking-[0.4em]"
+                className="text-center font-mono text-2xl tracking-[0.4em] bg-[#0b0f1a]/60 border-border/40 focus:border-[#5B6CFF] text-[#f5f7ff] h-12 rounded-lg"
                 required
               />
             </div>
 
-            <Button type="submit" className="w-full mt-2" disabled={isVerifyingTotp || totpCode.length !== 6}>
+            <Button 
+              type="submit" 
+              className="w-full mt-4 bg-[#5B6CFF] hover:bg-[#3b4edd] text-white font-bold h-10 rounded-lg shadow-lg shadow-[#5B6CFF]/20 transition-all border border-white/5"
+              disabled={isVerifyingTotp || totpCode.length !== 6}
+            >
               {isVerifyingTotp ? "Verifying..." : "Verify & Sign In"}
             </Button>
 
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              className="w-full border-border/40 hover:bg-muted/30 text-xs font-semibold text-muted-foreground hover:text-[#f5f7ff]"
               onClick={() => {
                 setShowTwoFactor(false);
                 setTotpCode("");
@@ -220,9 +242,9 @@ export default function SignInForm({
       </form>
 
       {!showTwoFactor && (
-        <div className="mt-6 text-center text-xs text-muted-foreground border-t border-border/20 pt-4">
+        <div className="mt-6 text-center text-xs text-muted-foreground border-t border-border/10 pt-4 font-mono">
           Need access?{" "}
-          <Link to="/waitlist" className="text-primary hover:underline font-semibold">
+          <Link to="/waitlist" className="text-[#5B6CFF] hover:underline font-bold">
             Request a Demo or Join Waitlist
           </Link>
         </div>

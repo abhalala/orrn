@@ -100,13 +100,22 @@ function WaitlistComponent() {
 
   if (isSuccess) {
     return (
-      <div className="w-full max-w-md p-8 rounded-2xl border border-border/40 bg-card/60 backdrop-blur-md shadow-2xl space-y-6 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
+      <div className="w-full max-w-md p-8 rounded-2xl border border-[#5B6CFF]/20 bg-[#121826]/70 backdrop-blur-xl shadow-2xl space-y-6 text-center relative overflow-hidden">
+        {/* Top border highlight */}
+        <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#5B6CFF]/30 to-transparent" />
+        
+        {/* Ambient glow inside */}
+        <div className="absolute -top-12 -left-12 w-24 h-24 bg-[#5B6CFF]/10 rounded-full blur-xl pointer-events-none" />
+        
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
           <CheckCircle2 className="h-6 w-6" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-extrabold tracking-tight">Request Received</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
+          <span className="text-[9px] font-mono font-bold uppercase tracking-[0.2em] text-[#22D3EE]">
+            TRANSMISSION SECURED
+          </span>
+          <h2 className="text-2xl font-extrabold tracking-tight text-[#f5f7ff] font-mono">Request Received</h2>
+          <p className="text-xs text-muted-foreground leading-relaxed font-mono">
             {requestType === "demo"
               ? "We have scheduled your request for an enterprise walkthrough. A representative will contact you shortly to confirm your slot."
               : "You have successfully registered on the general access waitlist. We will review your profile and send an invitation code soon."}
@@ -114,7 +123,9 @@ function WaitlistComponent() {
         </div>
         <div className="pt-4 border-t border-border/20">
           <Link to="/">
-            <Button variant="outline" className="w-full border-border">Back to Home</Button>
+            <Button className="w-full bg-transparent hover:bg-muted/10 text-muted-foreground border border-border/40 h-10 rounded-lg font-semibold">
+              Back to Home
+            </Button>
           </Link>
         </div>
       </div>
@@ -122,21 +133,31 @@ function WaitlistComponent() {
   }
 
   return (
-    <div className="w-full max-w-lg p-8 rounded-2xl border border-border/40 bg-card/60 backdrop-blur-md shadow-2xl space-y-6">
+    <div className="w-full max-w-lg p-8 rounded-2xl border border-[#5B6CFF]/20 bg-[#121826]/70 backdrop-blur-xl shadow-2xl space-y-6 relative overflow-hidden">
+      {/* Top border highlight */}
+      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#5B6CFF]/30 to-transparent" />
+      
+      {/* Ambient background glows for card */}
+      <div className="absolute top-[-5%] left-[-5%] w-32 h-32 bg-[#5B6CFF]/5 rounded-full blur-2xl pointer-events-none" />
+      <div className="absolute bottom-[-5%] right-[-5%] w-32 h-32 bg-[#22D3EE]/5 rounded-full blur-2xl pointer-events-none" />
+
       <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-extrabold tracking-tight">Access Portal</h1>
-        <p className="text-sm text-muted-foreground">Request access to ORRN-AL for Aluminum Extrusion.</p>
+        <span className="text-[10px] font-mono font-bold uppercase tracking-[0.25em] text-[#22D3EE]">
+          ORRN SYSTEM ACCESS
+        </span>
+        <h1 className="text-3xl font-extrabold tracking-tight text-[#f5f7ff] font-mono">Access Portal</h1>
+        <p className="text-xs text-muted-foreground font-mono">Request access to ORRN-AL for Aluminum Extrusion.</p>
       </div>
 
       {/* Segment Switcher */}
-      <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-[#090e1a]/60 rounded-xl border border-border/20">
+      <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#0b0f1a]/85 rounded-xl border border-[#5B6CFF]/15">
         <button
           type="button"
           onClick={() => setRequestType("demo")}
-          className={`py-2 text-xs font-semibold rounded-lg transition-all ${
+          className={`py-2 text-xs font-mono font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${
             requestType === "demo"
-              ? "bg-card text-foreground shadow-sm border border-border/10"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-[#5B6CFF] text-white shadow-[0_0_12px_rgba(91,108,255,0.3)] border border-[#5B6CFF]/40"
+              : "text-muted-foreground hover:text-foreground hover:bg-white/5"
           }`}
         >
           Schedule Live Demo
@@ -144,10 +165,10 @@ function WaitlistComponent() {
         <button
           type="button"
           onClick={() => setRequestType("waitlist")}
-          className={`py-2 text-xs font-semibold rounded-lg transition-all ${
+          className={`py-2 text-xs font-mono font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${
             requestType === "waitlist"
-              ? "bg-card text-foreground shadow-sm border border-border/10"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-[#5B6CFF] text-white shadow-[0_0_12px_rgba(91,108,255,0.3)] border border-[#5B6CFF]/40"
+              : "text-muted-foreground hover:text-foreground hover:bg-white/5"
           }`}
         >
           Join Waitlist Only
@@ -155,8 +176,8 @@ function WaitlistComponent() {
       </div>
 
       {networkError && (
-        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium">
-          {networkError}
+        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs font-mono font-medium">
+          ERROR // {networkError}
         </div>
       )}
 
@@ -166,13 +187,13 @@ function WaitlistComponent() {
           e.stopPropagation();
           form.handleSubmit();
         }}
-        className="space-y-4"
+        className="space-y-5"
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <form.Field name="companyName">
             {(field) => (
               <div className="space-y-1.5">
-                <Label htmlFor={field.name} className="text-xs font-medium">Company Name *</Label>
+                <Label htmlFor={field.name} className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">Company Name *</Label>
                 <Input
                   id={field.name}
                   name={field.name}
@@ -180,9 +201,10 @@ function WaitlistComponent() {
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
+                  className="bg-[#0b0f1a]/60 border-border/40 focus:border-[#5B6CFF] focus:ring-1 focus:ring-[#5B6CFF] text-[#f5f7ff] text-sm h-10 rounded-lg transition-all focus:shadow-[0_0_10px_rgba(91,108,255,0.15)] font-mono"
                 />
                 {field.state.meta.errors.map((error: any) => (
-                  <p key={error?.toString()} className="text-xs text-destructive">
+                  <p key={error?.toString()} className="text-xs text-destructive font-mono">
                     {error?.toString()}
                   </p>
                 ))}
@@ -193,7 +215,7 @@ function WaitlistComponent() {
           <form.Field name="requesterName">
             {(field) => (
               <div className="space-y-1.5">
-                <Label htmlFor={field.name} className="text-xs font-medium">Requester Name *</Label>
+                <Label htmlFor={field.name} className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">Requester Name *</Label>
                 <Input
                   id={field.name}
                   name={field.name}
@@ -201,9 +223,10 @@ function WaitlistComponent() {
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
+                  className="bg-[#0b0f1a]/60 border-border/40 focus:border-[#5B6CFF] focus:ring-1 focus:ring-[#5B6CFF] text-[#f5f7ff] text-sm h-10 rounded-lg transition-all focus:shadow-[0_0_10px_rgba(91,108,255,0.15)] font-mono"
                 />
                 {field.state.meta.errors.map((error: any) => (
-                  <p key={error?.toString()} className="text-xs text-destructive">
+                  <p key={error?.toString()} className="text-xs text-destructive font-mono">
                     {error?.toString()}
                   </p>
                 ))}
@@ -215,7 +238,7 @@ function WaitlistComponent() {
         <form.Field name="requesterEmail">
           {(field) => (
             <div className="space-y-1.5">
-              <Label htmlFor={field.name} className="text-xs font-medium">Work Email *</Label>
+              <Label htmlFor={field.name} className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">Work Email *</Label>
               <Input
                 id={field.name}
                 name={field.name}
@@ -224,9 +247,10 @@ function WaitlistComponent() {
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
+                className="bg-[#0b0f1a]/60 border-border/40 focus:border-[#5B6CFF] focus:ring-1 focus:ring-[#5B6CFF] text-[#f5f7ff] text-sm h-10 rounded-lg transition-all focus:shadow-[0_0_10px_rgba(91,108,255,0.15)] font-mono"
               />
               {field.state.meta.errors.map((error: any) => (
-                <p key={error?.toString()} className="text-xs text-destructive">
+                <p key={error?.toString()} className="text-xs text-destructive font-mono">
                   {error?.toString()}
                 </p>
               ))}
@@ -237,12 +261,20 @@ function WaitlistComponent() {
         {/* Demo Specific Fields */}
         {requestType === "demo" && (
           <div className="space-y-4 border-t border-border/20 pt-4 animate-in fade-in duration-200">
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-4 text-xs text-[#22D3EE] leading-relaxed font-mono relative overflow-hidden mb-2">
+              <div className="absolute top-0 right-0 bg-[#22D3EE]/10 text-[#22D3EE] text-[8px] font-bold px-2 py-0.5 rounded-bl">
+                SCHEDULING ENGINE
+              </div>
+              <strong className="block mb-1 text-cyan-300">Live Walkthrough:</strong>
+              Select a target slot. Our solutions engineers will configure a staging environment reflecting your capacity parameters to demonstrate the active spool scheduler.
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <form.Field name="demoDate">
                 {(field) => (
                   <div className="space-y-1.5">
-                    <Label htmlFor={field.name} className="text-xs font-medium flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5 text-primary" />
+                    <Label htmlFor={field.name} className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 text-[#5B6CFF]" />
                       Preferred Date
                     </Label>
                     <Input
@@ -252,6 +284,7 @@ function WaitlistComponent() {
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
+                      className="bg-[#0b0f1a]/60 border-border/40 focus:border-[#5B6CFF] focus:ring-1 focus:ring-[#5B6CFF] text-[#f5f7ff] text-sm h-10 rounded-lg transition-all focus:shadow-[0_0_10px_rgba(91,108,255,0.15)] font-mono"
                     />
                   </div>
                 )}
@@ -260,8 +293,8 @@ function WaitlistComponent() {
               <form.Field name="demoTime">
                 {(field) => (
                   <div className="space-y-1.5">
-                    <Label htmlFor={field.name} className="text-xs font-medium flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5 text-primary" />
+                    <Label htmlFor={field.name} className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-[#5B6CFF]" />
                       Preferred Time
                     </Label>
                     <Input
@@ -271,6 +304,7 @@ function WaitlistComponent() {
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
+                      className="bg-[#0b0f1a]/60 border-border/40 focus:border-[#5B6CFF] focus:ring-1 focus:ring-[#5B6CFF] text-[#f5f7ff] text-sm h-10 rounded-lg transition-all focus:shadow-[0_0_10px_rgba(91,108,255,0.15)] font-mono"
                     />
                   </div>
                 )}
@@ -280,8 +314,8 @@ function WaitlistComponent() {
             <form.Field name="pressCount">
               {(field) => (
                 <div className="space-y-1.5">
-                  <Label htmlFor={field.name} className="text-xs font-medium flex items-center gap-1">
-                    <Factory className="h-3.5 w-3.5 text-accent" />
+                  <Label htmlFor={field.name} className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono flex items-center gap-1.5">
+                    <Factory className="h-3.5 w-3.5 text-[#22D3EE]" />
                     Number of Extrusion Lines
                   </Label>
                   <Input
@@ -292,6 +326,7 @@ function WaitlistComponent() {
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
+                    className="bg-[#0b0f1a]/60 border-border/40 focus:border-[#5B6CFF] focus:ring-1 focus:ring-[#5B6CFF] text-[#f5f7ff] text-sm h-10 rounded-lg transition-all focus:shadow-[0_0_10px_rgba(91,108,255,0.15)] font-mono"
                   />
                 </div>
               )}
@@ -302,12 +337,12 @@ function WaitlistComponent() {
         <form.Field name="notes">
           {(field) => (
             <div className="space-y-1.5 border-t border-border/20 pt-4">
-              <Label htmlFor={field.name} className="text-xs font-medium">Additional Facility Notes (Optional)</Label>
+              <Label htmlFor={field.name} className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">Additional Facility Notes (Optional)</Label>
               <textarea
                 id={field.name}
                 name={field.name}
                 rows={3}
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex min-h-[80px] w-full rounded-lg border border-border/40 bg-[#0b0f1a]/60 px-3 py-2 text-sm text-[#f5f7ff] ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#5B6CFF] focus-visible:border-[#5B6CFF] disabled:cursor-not-allowed disabled:opacity-50 transition-all focus:shadow-[0_0_10px_rgba(91,108,255,0.15)] font-mono"
                 placeholder="List any special profiles, alloys, or spooling requirements..."
                 value={field.state.value}
                 onBlur={field.handleBlur}
@@ -323,21 +358,26 @@ function WaitlistComponent() {
           {({ canSubmit }) => (
             <Button
               type="submit"
-              className="w-full mt-2"
+              className="w-full mt-2 bg-[#5B6CFF] hover:bg-[#3b4edd] text-white font-bold h-10 rounded-lg shadow-lg shadow-[#5B6CFF]/20 border border-white/5 transition-all duration-300 hover:scale-[1.01] hover:shadow-[#5B6CFF]/30 font-mono text-xs uppercase tracking-wider"
               disabled={!canSubmit || waitlistMutation.isPending}
             >
-              {waitlistMutation.isPending ? "Submitting Request..." : requestType === "demo" ? "Request Demo Access" : "Join Waitlist"}
+              {waitlistMutation.isPending 
+                ? "Submitting..." 
+                : requestType === "demo" 
+                  ? "Request Demo Access" 
+                  : "Join Waitlist"}
             </Button>
           )}
         </form.Subscribe>
       </form>
       
       <div className="text-center pt-2">
-        <Link to="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors hover:underline">
-          Back to Homepage
+        <Link to="/" className="text-xs text-muted-foreground hover:text-[#5B6CFF] transition-colors font-mono hover:underline">
+          &lt; Back to Homepage
         </Link>
       </div>
     </div>
   );
 }
+
 
