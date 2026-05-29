@@ -30,6 +30,10 @@ export default function StaffSignInForm() {
         toast.error("This account does not have staff console access.");
         return;
       }
+      if (me.user.mustChangePassword) {
+        window.location.href = `${appUrls.staff}/change-password`;
+        return;
+      }
       window.location.href = `${appUrls.staff}/admin`;
       toast.success("Signed in");
     } catch {

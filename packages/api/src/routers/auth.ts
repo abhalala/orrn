@@ -1,12 +1,15 @@
-import { eq } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
+import { hashPassword } from "@orrn/auth/password";
+import { account, user } from "@orrn/db/schema/auth";
 import { company } from "@orrn/db/schema/tenant";
-import { user } from "@orrn/db/schema/auth";
 import { createAuth } from "@orrn/auth";
 import type { LengthUnit } from "../lib/length";
 
 import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
+import { auditInsert } from "../lib/audit";
 import { authedProcedure, router } from "../index";
 
 /**
@@ -24,6 +27,7 @@ export const authRouter = router({
       .select({
         onboardingCompleted: user.onboardingCompleted,
         twoFactorEnabled: user.twoFactorEnabled,
+        mustChangePassword: user.mustChangePassword,
       })
       .from(user)
       .where(eq(user.id, userId))
@@ -56,6 +60,7 @@ export const authRouter = router({
         image: ctx.session.user.image ?? null,
         onboardingCompleted: userRow?.onboardingCompleted ?? false,
         twoFactorEnabled: userRow?.twoFactorEnabled ?? false,
+        mustChangePassword: userRow?.mustChangePassword ?? false,
       },
       company:
         companyRow && ctx.role
@@ -93,6 +98,66 @@ export const authRouter = router({
         },
         headers: ctx.request.headers,
       });
+
+      await atomicBatch(ctx.db, [
+        ctx.db
+          .update(user)
+          .set({ mustChangePassword: false })
+          .where(eq(user.id, ctx.session.user.id)),
+        auditInsert(ctx, {
+          action: "auth.password_set",
+          subjectType: "user",
+          subjectId: ctx.session.user.id,
+        }),
+      ]);
+
+      return { success: true };
+    }),
+
+  /**
+   * Force-change flow for users provisioned with a temporary password.
+   * The user has a live session (signed in with the temp password) and is
+   * required to rotate it before reaching any protected screen.
+   *
+   * Bypasses Better Auth's `changePassword` (which would need the current
+   * password) by writing directly to the credential row, then atomically
+   * clearing `must_change_password` and emitting an audit row.
+   */
+  changeInitialPassword: authedProcedure
+    .input(z.object({ newPassword: z.string().min(8) }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const credential = await ctx.db
+        .select({ id: account.id })
+        .from(account)
+        .where(and(eq(account.userId, userId), eq(account.providerId, "credential")))
+        .get();
+
+      if (!credential) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No credential account found for this user",
+        });
+      }
+
+      const hashed = await hashPassword(input.newPassword);
+
+      await atomicBatch(ctx.db, [
+        ctx.db
+          .update(account)
+          .set({ password: hashed, updatedAt: new Date() })
+          .where(eq(account.id, credential.id)),
+        ctx.db
+          .update(user)
+          .set({ mustChangePassword: false })
+          .where(eq(user.id, userId)),
+        auditInsert(ctx, {
+          action: "auth.password_force_change",
+          subjectType: "user",
+          subjectId: userId,
+        }),
+      ]);
 
       return { success: true };
     }),

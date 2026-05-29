@@ -27,8 +27,6 @@ const isDevStage = stage === "dev";
 const zoneIdApp = process.env.CLOUDFLARE_ZONE_ID_APP ?? process.env.CLOUDFLARE_ZONE_ID;
 const zoneIdIn = process.env.CLOUDFLARE_ZONE_ID_IN;
 
-const isLocalDev = !process.env.WEB_DOMAIN && process.env.NODE_ENV !== "production";
-
 type DomainBinding = { domainName: string; zoneId: string; adopt: true };
 
 function requireZone(id: string | undefined, label: string): string {
@@ -70,7 +68,7 @@ if (isDevStage) {
   corsAllowedOrigins =
     process.env.CORS_ALLOWED_ORIGINS ?? `${marketingUrl},${erpUrl},${staffUrl}`;
   webErpUrl = erpUrl;
-  cookieDomain = isLocalDev ? "" : `.${zoneName}`;
+  cookieDomain = `.${zoneName}`;
 } else {
   const inZone = requireZone(zoneIdIn, "CLOUDFLARE_ZONE_ID_IN");
   const appZone = requireZone(zoneIdApp, "CLOUDFLARE_ZONE_ID_APP or CLOUDFLARE_ZONE_ID");
@@ -81,19 +79,18 @@ if (isDevStage) {
   erpDomain = { domainName: "erp.orrn.in", zoneId: inZone, adopt: true };
   adminDomain = { domainName: "orrn.app", zoneId: appZone, adopt: true };
 
-  marketingUrl = process.env.VITE_MARKETING_URL ?? "https://orrn.in";
-  erpUrl = process.env.VITE_ERP_URL ?? process.env.WEB_ERP_URL ?? "https://erp.orrn.in";
-  staffUrl = process.env.VITE_STAFF_URL ?? "https://orrn.app";
-  corsOrigin = process.env.CORS_ORIGIN ?? marketingUrl;
-  corsAllowedOrigins =
-    process.env.CORS_ALLOWED_ORIGINS ?? `${marketingUrl},${erpUrl},${staffUrl}`;
+  marketingUrl = "https://orrn.in";
+  erpUrl = "https://erp.orrn.in";
+  staffUrl = "https://orrn.app";
+  corsOrigin = marketingUrl;
+  corsAllowedOrigins = `${marketingUrl},${erpUrl},${staffUrl}`;
   webErpUrl = erpUrl;
-  cookieDomain = isLocalDev ? "" : ".orrn.in";
+  cookieDomain = ".orrn.in";
 }
 
 const apiUrl = `https://${apiDomain}`;
-const viteServerUrl = process.env.VITE_SERVER_URL ?? apiUrl;
-const betterAuthUrl = process.env.BETTER_AUTH_URL ?? apiUrl;
+const viteServerUrl = isDevStage ? (process.env.VITE_SERVER_URL ?? apiUrl) : apiUrl;
+const betterAuthUrl = isDevStage ? (process.env.BETTER_AUTH_URL ?? apiUrl) : apiUrl;
 
 const webBindings = {
   VITE_SERVER_URL: viteServerUrl,
@@ -143,7 +140,7 @@ export const server = await Worker("server", {
   adopt: true,
   bindings: {
     DB: db,
-    NODE_ENV: process.env.NODE_ENV ?? (isDevStage ? "development" : "production"),
+    NODE_ENV: isDevStage ? (process.env.NODE_ENV ?? "development") : "production",
     CORS_ORIGIN: corsOrigin,
     CORS_ALLOWED_ORIGINS: corsAllowedOrigins,
     WEB_ERP_URL: webErpUrl,

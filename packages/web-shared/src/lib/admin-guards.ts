@@ -3,7 +3,6 @@ import { redirect } from "@tanstack/react-router";
 
 import type { Me } from "./me";
 import { trpc } from "../utils/trpc";
-import { appUrls } from "./urls";
 
 type GuardContext = {
   queryClient: QueryClient;
@@ -26,6 +25,9 @@ export async function requirePlatformAdmin({ context }: { context: GuardContext 
   }
   if (!me.isPlatformAdmin || !me.platformRole) {
     throw redirect({ to: "/" });
+  }
+  if (me.user.mustChangePassword) {
+    throw redirect({ to: "/change-password" });
   }
   return { me };
 }

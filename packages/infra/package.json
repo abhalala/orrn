@@ -8,7 +8,7 @@
     "deploy:dev": "bun --env-file=.env run alchemy-deploy-dev",
     "deploy:prod": "bun --env-file=.env run alchemy-deploy-prod",
     "alchemy-deploy-dev": "ALCHEMY_STAGE=dev alchemy deploy --stage dev --adopt",
-    "alchemy-deploy-prod": "ALCHEMY_STAGE=production alchemy deploy --stage production --adopt",
+    "alchemy-deploy-prod": "NODE_ENV=production ALCHEMY_STAGE=production alchemy deploy --stage production --adopt",
     "destroy": "alchemy destroy",
     "bootstrap-super-admin": "bun --env-file=.env scripts/bootstrap-super-admin.ts",
     "set-staff-password": "bun --env-file=.env scripts/set-staff-password.ts"

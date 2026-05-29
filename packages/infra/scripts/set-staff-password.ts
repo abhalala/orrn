@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import { config } from "dotenv";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { hashPassword } from "@better-auth/utils/password";
+import { hashPassword } from "@orrn/auth/password";
 
 const infraDir = dirname(fileURLToPath(import.meta.url));
 config({ path: join(infraDir, "../.env") });
@@ -22,7 +22,10 @@ const args = process.argv.slice(2);
 const stageFlag =
   args.find((a) => a.startsWith("--stage="))?.split("=")[1] ??
   (args.includes("--stage") ? args[args.indexOf("--stage") + 1] : "production");
-const emailArg = args.find((a) => !a.startsWith("--") && a !== stageFlag);
+const forceChange = !args.includes("--no-force-change");
+const emailArg = args.find(
+  (a) => !a.startsWith("--") && a !== stageFlag && a !== "--no-force-change",
+);
 const password = process.env.STAFF_PASSWORD;
 
 if (!emailArg || !password || password.length < 8) {
@@ -85,9 +88,9 @@ if (!userId) {
   userId = nanoidLike(24);
   const name = email.split("@")[0] ?? "Staff";
   await query(
-    `INSERT INTO user (id, name, email, email_verified, image, created_at, updated_at, two_factor_enabled, onboarding_completed)
-     VALUES (?, ?, ?, 1, NULL, ?, ?, 0, 1)`,
-    [userId, name, email, now, now],
+    `INSERT INTO user (id, name, email, email_verified, image, created_at, updated_at, two_factor_enabled, onboarding_completed, must_change_password)
+     VALUES (?, ?, ?, 1, NULL, ?, ?, 0, 1, ?)`,
+    [userId, name, email, now, now, forceChange ? 1 : 0],
   );
   console.log(`Created user ${email} (${userId}) on ${stageFlag}`);
 }
@@ -115,8 +118,8 @@ if (credential) {
 }
 
 await query(
-  "UPDATE user SET email_verified = 1, onboarding_completed = 1, updated_at = ? WHERE id = ?",
-  [now, userId],
+  "UPDATE user SET email_verified = 1, onboarding_completed = 1, must_change_password = ?, updated_at = ? WHERE id = ?",
+  [forceChange ? 1 : 0, now, userId],
 );
 
 await query(
@@ -126,4 +129,8 @@ await query(
   [userId, now],
 );
 
-console.log(`OK: password updated for ${email} on ${stageFlag} (staff super_admin).`);
+console.log(
+  `OK: password updated for ${email} on ${stageFlag} (staff super_admin)` +
+    (forceChange ? " — user must change password on next login." : "") +
+    ".",
+);

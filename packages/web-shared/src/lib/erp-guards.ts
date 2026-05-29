@@ -51,6 +51,9 @@ export async function requireCompanyMe({
     window.location.href = marketingLoginUrl(returnTo);
     throw redirect({ to: "/" });
   }
+  if (me.user.mustChangePassword) {
+    throw redirect({ to: "/change-password" });
+  }
 
   if (!me.company) {
     throw redirect({ to: "/no-access" });
@@ -74,6 +77,9 @@ export async function requireSession({
     const returnTo = locationReturnTo(location, appUrls.erp);
     window.location.href = marketingLoginUrl(returnTo);
     throw redirect({ to: "/" });
+  }
+  if (me.user.mustChangePassword) {
+    throw redirect({ to: "/change-password" });
   }
   return { me };
 }

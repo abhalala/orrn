@@ -23,7 +23,7 @@ export interface RouterAppContext {
 }
 
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/";
+  return pathname === "/" || pathname === "/change-password";
 }
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({

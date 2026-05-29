@@ -22,7 +22,13 @@ export interface RouterAppContext {
   queryClient: QueryClient;
 }
 
-const PUBLIC_PATH_PREFIXES = ["/no-access", "/onboarding", "/invite", "/setup-credentials"] as const;
+const PUBLIC_PATH_PREFIXES = [
+  "/no-access",
+  "/onboarding",
+  "/invite",
+  "/setup-credentials",
+  "/change-password",
+] as const;
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));

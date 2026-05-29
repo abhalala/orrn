@@ -12,6 +12,7 @@ import { logger } from "hono/logger";
 import { seedDevData } from "./dev-seed";
 
 const app = new Hono();
+const auth = createAuth();
 
 app.use(logger());
 app.use(
@@ -36,7 +37,7 @@ app.use(
   }),
 );
 
-app.on(["POST", "GET"], "/api/auth/*", (c) => createAuth().handler(c.req.raw));
+app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 if (env.NODE_ENV === "development") {
   app.post("/dev/seed", async (c) => {

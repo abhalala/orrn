@@ -7,6 +7,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { magicLink } from "better-auth/plugins";
+import { hashPassword, verifyPassword } from "./password";
 
 async function sendAuthEmail(options: { to: string; subject: string; html: string }) {
   if (env.NODE_ENV === "development" || !env.RESEND_API_KEY) {
@@ -42,7 +43,9 @@ async function sendAuthEmail(options: { to: string; subject: string; html: strin
   return { success: true, messageId: (data as any).id as string };
 }
 
-export function createAuth() {
+let authSingleton: ReturnType<typeof buildAuth> | undefined;
+
+function buildAuth() {
   const db = createDb();
 
   return betterAuth({
@@ -63,6 +66,10 @@ export function createAuth() {
     ],
     emailAndPassword: {
       enabled: true,
+      password: {
+        hash: hashPassword,
+        verify: verifyPassword,
+      },
     },
     // uncomment cookieCache setting when ready to deploy to Cloudflare using *.workers.dev domains
     // session: {
@@ -99,4 +106,11 @@ export function createAuth() {
       }),
     ],
   });
+}
+
+export function createAuth() {
+  if (!authSingleton) {
+    authSingleton = buildAuth();
+  }
+  return authSingleton;
 }

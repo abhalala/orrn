@@ -13,6 +13,7 @@ export type Me = {
     image: string | null;
     onboardingCompleted: boolean;
     twoFactorEnabled: boolean;
+    mustChangePassword: boolean;
   };
   company: {
     id: string;

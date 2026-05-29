@@ -16,6 +16,9 @@ export const user = sqliteTable("user", {
     .notNull(),
   twoFactorEnabled: integer("two_factor_enabled", { mode: "boolean" }).default(false),
   onboardingCompleted: integer("onboarding_completed", { mode: "boolean" }).default(false).notNull(),
+  mustChangePassword: integer("must_change_password", { mode: "boolean" })
+    .default(false)
+    .notNull(),
 });
 
 export const session = sqliteTable(

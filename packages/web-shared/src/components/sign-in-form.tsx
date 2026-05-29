@@ -9,7 +9,7 @@ import z from "zod";
 
 import { authClient } from "../lib/auth-client";
 import { appUrls } from "../lib/urls";
-import { queryClient } from "../utils/trpc";
+import { queryClient, trpc } from "../utils/trpc";
 
 export type SignInTarget = "erp" | "staff";
 
@@ -27,18 +27,31 @@ export default function SignInForm({
   const [totpCode, setTotpCode] = useState("");
   const [isVerifyingTotp, setIsVerifyingTotp] = useState(false);
 
-  const handleSuccessRedirect = () => {
+  const handleSuccessRedirect = async () => {
     queryClient.removeQueries();
+
+    let mustChangePassword = false;
+    try {
+      const me = await queryClient.fetchQuery(trpc.auth.me.queryOptions());
+      mustChangePassword = Boolean(me?.user.mustChangePassword);
+    } catch {
+      // fall through to default redirect
+    }
+
+    const baseUrl = target === "staff" ? appUrls.staff : appUrls.erp;
+
+    if (mustChangePassword) {
+      window.location.href = `${baseUrl}/change-password`;
+      return;
+    }
 
     let redirectUrl =
       target === "staff" ? `${appUrls.staff}/admin` : `${appUrls.erp}/dashboard`;
     if (next) {
       if (next.startsWith("http://") || next.startsWith("https://")) {
         redirectUrl = next;
-      } else if (target === "staff") {
-        redirectUrl = `${appUrls.staff}${next.startsWith("/") ? next : `/${next}`}`;
       } else {
-        redirectUrl = `${appUrls.erp}${next.startsWith("/") ? next : `/${next}`}`;
+        redirectUrl = `${baseUrl}${next.startsWith("/") ? next : `/${next}`}`;
       }
     }
 

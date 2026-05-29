@@ -12,6 +12,8 @@
   "scripts": {},
   "dependencies": {
     "@better-auth/expo": "catalog:",
+    "@better-auth/utils": "0.4.0",
+    "@noble/hashes": "^2.0.1",
     "@orrn/db": "workspace:*",
     "@orrn/env": "workspace:*",
     "better-auth": "catalog:",

@@ -52,6 +52,7 @@ export async function createPlatformStaffAccount(
     .set({
       emailVerified: true,
       onboardingCompleted: true,
+      mustChangePassword: true,
     })
     .where(eq(user.id, userId));
 
