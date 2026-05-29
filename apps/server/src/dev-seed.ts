@@ -5,7 +5,7 @@ import { bundle, bundleGroup, bundleStatusEvent } from "@orrn/db/schema/inventor
 import { companySequence } from "@orrn/db/schema/sync";
 import { company, membership } from "@orrn/db/schema/tenant";
 
-import type { createDb } from "@orrn/db";
+import { atomicBatch, type createDb } from "@orrn/db";
 
 type Db = ReturnType<typeof createDb>;
 
@@ -77,8 +77,8 @@ export async function seedDevData(db: Db, email: string) {
   const now = new Date();
   const futureShipDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-  await db.transaction(async (tx) => {
-    await tx
+  await atomicBatch(db, [
+    db
       .insert(company)
       .values({
         id: ids.company,
@@ -86,10 +86,11 @@ export async function seedDevData(db: Db, email: string) {
         slug: "orrn-demo",
         status: "active",
         plan: "dev",
+        settings: {},
+        modules: [],
       })
-      .onConflictDoNothing();
-
-    await tx
+      .onConflictDoNothing(),
+    db
       .insert(membership)
       .values({
         id: `dev-membership-${existingUser.id}`,
@@ -97,17 +98,15 @@ export async function seedDevData(db: Db, email: string) {
         companyId: ids.company,
         role: "owner",
       })
-      .onConflictDoNothing();
-
-    await tx
+      .onConflictDoNothing(),
+    db
       .insert(companySequence)
       .values({
         companyId: ids.company,
         value: 20,
       })
-      .onConflictDoNothing();
-
-    await tx
+      .onConflictDoNothing(),
+    db
       .insert(customer)
       .values({
         id: ids.customer,
@@ -118,9 +117,8 @@ export async function seedDevData(db: Db, email: string) {
         email: "procurement@apex.example",
         notes: "Demo customer for local UI review.",
       })
-      .onConflictDoNothing();
-
-    await tx
+      .onConflictDoNothing(),
+    db
       .insert(die)
       .values([
         {
@@ -150,9 +148,8 @@ export async function seedDevData(db: Db, email: string) {
           notes: "Seeded active die.",
         },
       ])
-      .onConflictDoNothing();
-
-    await tx
+      .onConflictDoNothing(),
+    db
       .insert(bundleGroup)
       .values({
         id: ids.group,
@@ -165,9 +162,8 @@ export async function seedDevData(db: Db, email: string) {
         notes: "Seeded receipt group.",
         createdBy: existingUser.id,
       })
-      .onConflictDoNothing();
-
-    await tx
+      .onConflictDoNothing(),
+    db
       .insert(bundle)
       .values(
         bundleRows.map((row, index) => ({
@@ -185,9 +181,8 @@ export async function seedDevData(db: Db, email: string) {
           createdBy: existingUser.id,
         })),
       )
-      .onConflictDoNothing();
-
-    await tx
+      .onConflictDoNothing(),
+    db
       .insert(dispatch)
       .values([
         {
@@ -226,9 +221,8 @@ export async function seedDevData(db: Db, email: string) {
           completedAt: now,
         },
       ])
-      .onConflictDoNothing();
-
-    await tx
+      .onConflictDoNothing(),
+    db
       .insert(dispatchItem)
       .values([
         {
@@ -244,9 +238,8 @@ export async function seedDevData(db: Db, email: string) {
           bundleId: "dev-bundle-dispatched-001",
         },
       ])
-      .onConflictDoNothing();
-
-    await tx
+      .onConflictDoNothing(),
+    db
       .insert(bundleStatusEvent)
       .values(
         bundleRows.map((row) => ({
@@ -260,8 +253,8 @@ export async function seedDevData(db: Db, email: string) {
           dispatchId: row.currentDispatchId,
         })),
       )
-      .onConflictDoNothing();
-  });
+      .onConflictDoNothing(),
+  ]);
 
   return {
     ok: true,

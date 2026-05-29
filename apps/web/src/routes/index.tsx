@@ -31,7 +31,10 @@ export const Route = createFileRoute("/")({
 
 function HomeComponent() {
   const healthCheck = useQuery(trpc.healthCheck.queryOptions());
-  const meQuery = useQuery(trpc.auth.me.queryOptions());
+  const meQuery = useQuery({
+    ...trpc.auth.me.queryOptions(),
+    retry: false,
+  });
   const [activeTab, setActiveTab] = useState<"dies" | "bundles" | "dispatches" | "printing">("dies");
 
   useEffect(() => {

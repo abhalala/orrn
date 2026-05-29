@@ -16,13 +16,120 @@ import { user } from "@orrn/db/schema/auth";
 import { env } from "@orrn/env/server";
 import { createAuth } from "@orrn/auth";
 
+import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
 import { createPlatformStaffAccount } from "../lib/create-platform-staff";
-import { assignablePlatformRoles, canAssignPlatformRole } from "../lib/permissions";
+import { assignablePlatformRoles, can, canAssignPlatformRole } from "../lib/permissions";
 import { platformGuard, platformProcedure, router } from "../index";
 
 const DEFAULT_IMPERSONATION_TTL_MINUTES = 30;
 
 export const platformRouter = router({
+  /**
+   * Aggregated counts + recent rows for the staff console home page. Every
+   * field is gated by the caller's platform role so a support agent doesn't
+   * leak counts they aren't allowed to act on. One round-trip per scope using
+   * Promise.all to keep Worker wall time bounded.
+   */
+  overview: platformProcedure.query(async ({ ctx }) => {
+    const me = {
+      company: null,
+      isPlatformAdmin: true,
+      platformRole: ctx.platformRole,
+    };
+
+    const canCompanies = can(me, "platform.company.manage");
+    const canWaitlist = can(me, "platform.waitlist.review");
+    const canStaff = can(me, "platform.staff.list");
+
+    const [companyCounts, waitlistPendingRow, staffCountRow, recentCompanies, recentWaitlist] =
+      await Promise.all([
+        canCompanies
+          ? ctx.db
+              .select({ status: company.status, count: count() })
+              .from(company)
+              .groupBy(company.status)
+          : Promise.resolve([] as { status: string; count: number }[]),
+        canWaitlist
+          ? ctx.db
+              .select({ count: count() })
+              .from(waitlistRequest)
+              .where(eq(waitlistRequest.status, "pending"))
+              .get()
+          : Promise.resolve(undefined),
+        canStaff
+          ? ctx.db.select({ count: count() }).from(platformAdmin).get()
+          : Promise.resolve(undefined),
+        canCompanies
+          ? ctx.db
+              .select({
+                id: company.id,
+                name: company.name,
+                slug: company.slug,
+                status: company.status,
+                plan: company.plan,
+                createdAt: company.createdAt,
+              })
+              .from(company)
+              .orderBy(desc(company.createdAt))
+              .limit(5)
+          : Promise.resolve([] as Array<{
+              id: string;
+              name: string;
+              slug: string;
+              status: string;
+              plan: string | null;
+              createdAt: Date;
+            }>),
+        canWaitlist
+          ? ctx.db
+              .select({
+                id: waitlistRequest.id,
+                companyName: waitlistRequest.companyName,
+                requesterEmail: waitlistRequest.requesterEmail,
+                requesterName: waitlistRequest.requesterName,
+                createdAt: waitlistRequest.createdAt,
+              })
+              .from(waitlistRequest)
+              .where(eq(waitlistRequest.status, "pending"))
+              .orderBy(desc(waitlistRequest.createdAt))
+              .limit(5)
+          : Promise.resolve([] as Array<{
+              id: string;
+              companyName: string;
+              requesterEmail: string;
+              requesterName: string;
+              createdAt: Date;
+            }>),
+      ]);
+
+    const byStatus = new Map(companyCounts.map((r) => [r.status, r.count]));
+    const companiesActive = byStatus.get("active") ?? 0;
+    const companiesSuspended = byStatus.get("suspended") ?? 0;
+    const companiesTotal = Array.from(byStatus.values()).reduce((sum, n) => sum + n, 0);
+
+    return {
+      companies: canCompanies
+        ? {
+            total: companiesTotal,
+            active: companiesActive,
+            suspended: companiesSuspended,
+            recent: recentCompanies,
+          }
+        : null,
+      waitlist: canWaitlist
+        ? {
+            pending: waitlistPendingRow?.count ?? 0,
+            recent: recentWaitlist,
+          }
+        : null,
+      staff: canStaff
+        ? {
+            total: staffCountRow?.count ?? 0,
+          }
+        : null,
+    };
+  }),
+
   waitlistList: platformGuard("platform.waitlist.review").query(async ({ ctx }) => {
     return ctx.db.select().from(waitlistRequest).where(eq(waitlistRequest.status, "pending")).all();
   }),
@@ -46,77 +153,83 @@ export const platformRouter = router({
       const companyId = request.companyId ?? crypto.randomUUID();
       const webBase = (env.WEB_ERP_URL ?? env.CORS_ORIGIN).replace(/\/$/, "");
 
-      await ctx.db.transaction(async (tx) => {
-        await tx
+      const companyExists = await ctx.db
+        .select()
+        .from(company)
+        .where(eq(company.id, companyId))
+        .get();
+
+      const existingUser = await ctx.db
+        .select()
+        .from(user)
+        .where(eq(user.email, request.requesterEmail))
+        .get();
+
+      const userId = existingUser?.id ?? crypto.randomUUID();
+
+      const existingMembership = existingUser
+        ? await ctx.db
+            .select()
+            .from(membership)
+            .where(and(eq(membership.userId, userId), eq(membership.companyId, companyId)))
+            .get()
+        : null;
+
+      const batchStatements: SqliteBatchItem[] = [
+        ctx.db
           .update(waitlistRequest)
           .set({ status: "approved", reviewedBy: ctx.session.user.id, reviewedAt: new Date() })
-          .where(eq(waitlistRequest.id, input.id));
+          .where(eq(waitlistRequest.id, input.id)),
+      ];
 
-        const companyExists = await tx
-          .select()
-          .from(company)
-          .where(eq(company.id, companyId))
-          .get();
-
-        if (companyExists) {
-          await tx
-            .update(company)
-            .set({ status: "active" })
-            .where(eq(company.id, companyId));
-        } else {
-          const slug =
-            request.companyName
-              .toLowerCase()
-              .replace(/[^a-z0-9]/g, "-")
-              .replace(/-+/g, "-")
-              .replace(/^-|-$/g, "") +
-            "-" +
-            crypto.randomUUID().split("-")[0];
-
-          await tx.insert(company).values({
+      if (companyExists) {
+        batchStatements.push(
+          ctx.db.update(company).set({ status: "active" }).where(eq(company.id, companyId)),
+        );
+      } else {
+        const slugBase = request.companyName
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "");
+        const slug = `${slugBase || "company"}-${crypto.randomUUID().split("-")[0]}`;
+        batchStatements.push(
+          ctx.db.insert(company).values({
             id: companyId,
-            name: request.companyName,
+            name: request.companyName.trim(),
             slug,
             status: "active",
-          });
-        }
+            settings: {},
+            modules: [],
+          }),
+        );
+      }
 
-        let userId: string;
-        const existingUser = await tx
-          .select()
-          .from(user)
-          .where(eq(user.email, request.requesterEmail))
-          .get();
-
-        if (existingUser) {
-          userId = existingUser.id;
-        } else {
-          userId = crypto.randomUUID();
-          await tx.insert(user).values({
+      if (!existingUser) {
+        batchStatements.push(
+          ctx.db.insert(user).values({
             id: userId,
             name: request.requesterName,
             email: request.requesterEmail,
             emailVerified: true,
             onboardingCompleted: false,
-          });
-        }
+          }),
+        );
+      }
 
-        const existingMembership = await tx
-          .select()
-          .from(membership)
-          .where(and(eq(membership.userId, userId), eq(membership.companyId, companyId)))
-          .get();
-
-        if (!existingMembership) {
-          const membershipId = crypto.randomUUID();
-          await tx.insert(membership).values({
-            id: membershipId,
+      if (!existingMembership) {
+        batchStatements.push(
+          ctx.db.insert(membership).values({
+            id: crypto.randomUUID(),
             userId,
             companyId,
             role: "owner",
-          });
-        }
-      });
+          }),
+        );
+      }
+
+      await atomicBatch(ctx.db, batchStatements);
 
       const auth = createAuth();
       await auth.api.signInMagicLink({

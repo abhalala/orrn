@@ -1,9 +1,10 @@
-import { Badge, StatusBadge } from "@orrn/ui/components/badge";
+import { Badge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Input } from "@orrn/ui/components/input";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { Tabs } from "@orrn/ui/components/tabs";
 import { Toolbar } from "@orrn/ui/components/toolbar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -12,14 +13,21 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@orrn/web-shared/components/can";
-import { clearImpersonateCompanyId, setImpersonateCompanyId } from "@orrn/web-shared/lib/impersonation";
+import { setImpersonateCompanyId } from "@orrn/web-shared/lib/impersonation";
 import { appUrls } from "@orrn/web-shared/lib/urls";
 import { requirePlatformAdmin } from "@orrn/web-shared/lib/admin-guards";
 import { queryClient, trpc } from "@orrn/web-shared/utils/trpc";
 
+const COMPANY_STATUSES = ["pending", "active", "suspended"] as const;
+type CompanyStatus = (typeof COMPANY_STATUSES)[number];
+type StatusFilter = CompanyStatus | "all";
+
 export const Route = createFileRoute("/admin/companies/")({
   component: AdminCompaniesComponent,
   beforeLoad: requirePlatformAdmin,
+  validateSearch: (search: Record<string, unknown>) => ({
+    status: (search.status as StatusFilter | undefined) ?? "all",
+  }),
 });
 
 type CompanyRow = {
@@ -33,11 +41,19 @@ type CompanyRow = {
 };
 
 function AdminCompaniesComponent() {
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const status = search.status ?? "all";
   const qc = useQueryClient();
-  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
 
   const { data, isLoading } = useQuery({
-    ...trpc.platform.companiesList.queryOptions({ limit: 100, offset: 0, search: search || undefined }),
+    ...trpc.platform.companiesList.queryOptions({
+      limit: 100,
+      offset: 0,
+      search: query || undefined,
+      status: status === "all" ? undefined : status,
+    }),
   });
 
   const suspendMutation = useMutation({
@@ -75,8 +91,14 @@ function AdminCompaniesComponent() {
         id: "name",
         header: "Company",
         flex: 1.2,
+        sortable: true,
+        sortValue: (row) => row.name.toLowerCase(),
         cell: (row) => (
-          <Link to="/admin/companies/$id" params={{ id: row.id }} className="font-medium hover:underline">
+          <Link
+            to="/admin/companies/$id"
+            params={{ id: row.id }}
+            className="font-medium hover:underline"
+          >
             {row.name}
           </Link>
         ),
@@ -86,17 +108,37 @@ function AdminCompaniesComponent() {
         id: "status",
         header: "Status",
         flex: 0.7,
+        sortable: true,
+        sortValue: (row) => row.status,
         cell: (row) => (
-          <Badge tone={row.status === "active" ? "success" : row.status === "suspended" ? "danger" : "neutral"}>
+          <Badge
+            tone={
+              row.status === "active"
+                ? "success"
+                : row.status === "suspended"
+                  ? "danger"
+                  : "neutral"
+            }
+          >
             {row.status}
           </Badge>
         ),
       },
-      { id: "members", header: "Members", flex: 0.5, align: "right", cell: (row) => row.memberCount },
+      {
+        id: "members",
+        header: "Members",
+        flex: 0.5,
+        align: "right",
+        sortable: true,
+        sortValue: (row) => row.memberCount,
+        cell: (row) => row.memberCount,
+      },
       {
         id: "created",
         header: "Created",
         flex: 0.8,
+        sortable: true,
+        sortValue: (row) => new Date(row.createdAt).getTime(),
         cell: (row) => format(new Date(row.createdAt), "PP"),
       },
       {
@@ -121,7 +163,7 @@ function AdminCompaniesComponent() {
               {row.status === "active" ? (
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="destructive"
                   disabled={suspendMutation.isPending}
                   onClick={() => suspendMutation.mutate({ id: row.id })}
                 >
@@ -142,26 +184,39 @@ function AdminCompaniesComponent() {
         ),
       },
     ];
-  }, [impersonateMutation, reactivateMutation, suspendMutation.isPending, reactivateMutation.isPending]);
+  }, [
+    impersonateMutation,
+    reactivateMutation,
+    suspendMutation.isPending,
+    reactivateMutation.isPending,
+  ]);
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Platform"
         title="Companies"
-        description="Tenant directory for support and onboarding."
+        description={`Tenant directory for support and onboarding (${data?.total ?? 0} total).`}
         actions={
-          <Button variant="outline" asChild>
-            <Link to="/admin">Back to console</Link>
-          </Button>
+          <Link to="/admin" className="no-underline">
+            <Button variant="outline">Back to console</Button>
+          </Link>
         }
       />
       <Toolbar>
         <Input
           placeholder="Search name or slug…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
           className="max-w-sm"
+        />
+        <Tabs
+          value={status}
+          onValueChange={(v) => navigate({ search: { status: v as StatusFilter } })}
+          items={(["all", ...COMPANY_STATUSES] as const).map((s) => ({
+            id: s,
+            label: s.charAt(0).toUpperCase() + s.slice(1),
+          }))}
         />
       </Toolbar>
       <DataTable
@@ -169,7 +224,16 @@ function AdminCompaniesComponent() {
         rows={(data?.items as CompanyRow[]) ?? []}
         rowKey={(row) => row.id}
         isLoading={isLoading}
-        emptyState={<EmptyState title="No companies found" />}
+        emptyState={
+          <EmptyState
+            title="No companies found"
+            description={
+              query
+                ? "Try a different search query or status filter."
+                : "Approved waitlist requests appear here as new tenants."
+            }
+          />
+        }
       />
     </div>
   );

@@ -14,10 +14,11 @@ import {
 import { bundle, bundleStatusEvent } from "@orrn/db/schema/inventory";
 
 import { companyProcedure, router } from "../index";
-import { writeAudit } from "../lib/audit";
+import { auditInsert } from "../lib/audit";
+import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { nextCompanySeq } from "../lib/sequence";
-import { createPackingListInTx } from "./packingList";
+import { appendPackingListWrites } from "./packingList";
 
 const ALLOWED_DISPATCH_TRANSITIONS: Record<DispatchStatus, DispatchStatus[]> = {
   draft: ["reserved", "cancelled"],
@@ -67,11 +68,11 @@ export const dispatchRouter = router({
       const id = crypto.randomUUID();
       const userId = ctx.session.user.id;
 
-      const created = await ctx.db.transaction(async (tx) => {
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-        const code = formatDispatchCode(seq);
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const code = formatDispatchCode(seq);
 
-        await tx.insert(dispatch).values({
+      await atomicBatch(ctx.db, [
+        ctx.db.insert(dispatch).values({
           id,
           companyId: ctx.companyId,
           serverSeq: seq,
@@ -81,22 +82,19 @@ export const dispatchRouter = router({
           shipDate: input.shipDate ? new Date(input.shipDate) : null,
           notes: input.notes ?? null,
           createdBy: userId,
-        });
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+        }),
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.create",
             subjectType: "dispatch",
             subjectId: id,
             meta: { code, customerId: input.customerId },
           },
-        );
+        ),
+      ]);
 
-        return { id, code };
-      });
-
-      return { success: true, ...created };
+      return { success: true, id, code };
     }),
 
   listDispatches: companyProcedure
@@ -231,40 +229,40 @@ export const dispatchRouter = router({
   update: companyProcedure
     .input(updateInput)
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const existing = await tx.query.dispatch.findFirst({
+      const existing = await ctx.db.query.dispatch.findFirst({
+        where: and(
+          eq(dispatch.id, input.id),
+          eq(dispatch.companyId, ctx.companyId),
+          isNull(dispatch.deletedAt),
+        ),
+      });
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+      }
+      if (existing.status !== "draft") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only draft dispatches can be edited",
+        });
+      }
+
+      if (input.customerId && input.customerId !== existing.customerId) {
+        const newCustomer = await ctx.db.query.customer.findFirst({
           where: and(
-            eq(dispatch.id, input.id),
-            eq(dispatch.companyId, ctx.companyId),
-            isNull(dispatch.deletedAt),
+            eq(customer.id, input.customerId),
+            eq(customer.companyId, ctx.companyId),
+            isNull(customer.deletedAt),
           ),
         });
-        if (!existing) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+        if (!newCustomer) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found" });
         }
-        if (existing.status !== "draft") {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Only draft dispatches can be edited",
-          });
-        }
+      }
 
-        if (input.customerId && input.customerId !== existing.customerId) {
-          const newCustomer = await tx.query.customer.findFirst({
-            where: and(
-              eq(customer.id, input.customerId),
-              eq(customer.companyId, ctx.companyId),
-              isNull(customer.deletedAt),
-            ),
-          });
-          if (!newCustomer) {
-            throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found" });
-          }
-        }
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
 
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-
-        await tx
+      await atomicBatch(ctx.db, [
+        ctx.db
           .update(dispatch)
           .set({
             customerId: input.customerId ?? existing.customerId,
@@ -277,10 +275,9 @@ export const dispatchRouter = router({
             notes: input.notes ?? existing.notes,
             serverSeq: seq,
           })
-          .where(eq(dispatch.id, existing.id));
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          .where(eq(dispatch.id, existing.id)),
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.update",
             subjectType: "dispatch",
@@ -290,75 +287,75 @@ export const dispatchRouter = router({
               shipDate: input.shipDate ?? null,
             },
           },
-        );
-      });
+        ),
+      ]);
       return { success: true };
     }),
 
   addBundle: companyProcedure
     .input(z.object({ id: z.string(), bundleId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const d = await tx.query.dispatch.findFirst({
-          where: and(
-            eq(dispatch.id, input.id),
-            eq(dispatch.companyId, ctx.companyId),
-            isNull(dispatch.deletedAt),
-          ),
+      const d = await ctx.db.query.dispatch.findFirst({
+        where: and(
+          eq(dispatch.id, input.id),
+          eq(dispatch.companyId, ctx.companyId),
+          isNull(dispatch.deletedAt),
+        ),
+      });
+      if (!d) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+      }
+      if (d.status !== "draft" && d.status !== "reserved") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Bundles can only be added in draft or reserved status",
         });
-        if (!d) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
-        }
-        if (d.status !== "draft" && d.status !== "reserved") {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Bundles can only be added in draft or reserved status",
-          });
-        }
+      }
 
-        const b = await tx.query.bundle.findFirst({
-          where: and(eq(bundle.id, input.bundleId), eq(bundle.companyId, ctx.companyId)),
+      const b = await ctx.db.query.bundle.findFirst({
+        where: and(eq(bundle.id, input.bundleId), eq(bundle.companyId, ctx.companyId)),
+      });
+      if (!b) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
+      }
+      if (b.status !== "available") {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `Bundle ${b.serial} is not available (currently ${b.status})`,
         });
-        if (!b) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
-        }
-        if (b.status !== "available") {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: `Bundle ${b.serial} is not available (currently ${b.status})`,
-          });
-        }
+      }
 
-        const existingItem = await tx.query.dispatchItem.findFirst({
-          where: and(
-            eq(dispatchItem.companyId, ctx.companyId),
-            eq(dispatchItem.dispatchId, d.id),
-            eq(dispatchItem.bundleId, b.id),
-          ),
+      const existingItem = await ctx.db.query.dispatchItem.findFirst({
+        where: and(
+          eq(dispatchItem.companyId, ctx.companyId),
+          eq(dispatchItem.dispatchId, d.id),
+          eq(dispatchItem.bundleId, b.id),
+        ),
+      });
+      if (existingItem) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Bundle is already in this dispatch",
         });
-        if (existingItem) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Bundle is already in this dispatch",
-          });
-        }
+      }
 
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-
-        await tx.insert(dispatchItem).values({
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const statements: SqliteBatchItem[] = [
+        ctx.db.insert(dispatchItem).values({
           id: crypto.randomUUID(),
           companyId: ctx.companyId,
           dispatchId: d.id,
           bundleId: b.id,
-        });
+        }),
+      ];
 
-        if (d.status === "reserved") {
-          await tx
+      if (d.status === "reserved") {
+        statements.push(
+          ctx.db
             .update(bundle)
             .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
-            .where(eq(bundle.id, b.id));
-
-          await tx.insert(bundleStatusEvent).values({
+            .where(eq(bundle.id, b.id)),
+          ctx.db.insert(bundleStatusEvent).values({
             id: crypto.randomUUID(),
             companyId: ctx.companyId,
             bundleId: b.id,
@@ -367,19 +364,23 @@ export const dispatchRouter = router({
             reason: "dispatch.addBundle",
             actorId: ctx.session.user.id,
             dispatchId: d.id,
-          });
-        }
+          }),
+        );
+      }
 
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+      statements.push(
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.addBundle",
             subjectType: "dispatch",
             subjectId: d.id,
             meta: { bundleId: b.id, serial: b.serial, dispatchStatus: d.status },
           },
-        );
-      });
+        ),
+      );
+
+      await atomicBatch(ctx.db, statements);
       return { success: true };
     }),
 
@@ -391,84 +392,82 @@ export const dispatchRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "No serials provided" });
       }
 
-      const result = await ctx.db.transaction(async (tx) => {
-        const d = await tx.query.dispatch.findFirst({
-          where: and(
-            eq(dispatch.id, input.id),
-            eq(dispatch.companyId, ctx.companyId),
-            isNull(dispatch.deletedAt),
-          ),
+      const d = await ctx.db.query.dispatch.findFirst({
+        where: and(
+          eq(dispatch.id, input.id),
+          eq(dispatch.companyId, ctx.companyId),
+          isNull(dispatch.deletedAt),
+        ),
+      });
+      if (!d) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+      }
+      if (d.status !== "draft" && d.status !== "reserved") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Bundles can only be added in draft or reserved status",
         });
-        if (!d) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
-        }
-        if (d.status !== "draft" && d.status !== "reserved") {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Bundles can only be added in draft or reserved status",
-          });
-        }
+      }
 
-        const bundles = await tx
-          .select()
-          .from(bundle)
-          .where(
-            and(eq(bundle.companyId, ctx.companyId), inArray(bundle.serial, trimmed)),
-          );
+      const bundles = await ctx.db
+        .select()
+        .from(bundle)
+        .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.serial, trimmed)));
 
-        const found = new Map(bundles.map((b) => [b.serial, b]));
-        const missing = trimmed.filter((s) => !found.has(s));
-        const unavailable = bundles.filter((b) => b.status !== "available");
+      const found = new Map(bundles.map((b) => [b.serial, b]));
+      const missing = trimmed.filter((s) => !found.has(s));
+      const unavailable = bundles.filter((b) => b.status !== "available");
 
-        if (missing.length > 0 || unavailable.length > 0) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message:
-              missing.length > 0
-                ? `Unknown serials: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? "…" : ""}`
-                : `Bundles not available: ${unavailable
-                    .slice(0, 5)
-                    .map((b) => `${b.serial} (${b.status})`)
-                    .join(", ")}${unavailable.length > 5 ? "…" : ""}`,
-          });
-        }
+      if (missing.length > 0 || unavailable.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            missing.length > 0
+              ? `Unknown serials: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? "…" : ""}`
+              : `Bundles not available: ${unavailable
+                  .slice(0, 5)
+                  .map((b) => `${b.serial} (${b.status})`)
+                  .join(", ")}${unavailable.length > 5 ? "…" : ""}`,
+        });
+      }
 
-        // Reject duplicates already in this dispatch
-        const existingItemRows = await tx
-          .select({ bundleId: dispatchItem.bundleId })
-          .from(dispatchItem)
-          .where(
-            and(
-              eq(dispatchItem.companyId, ctx.companyId),
-              eq(dispatchItem.dispatchId, d.id),
-              inArray(
-                dispatchItem.bundleId,
-                bundles.map((b) => b.id),
-              ),
+      const existingItemRows = await ctx.db
+        .select({ bundleId: dispatchItem.bundleId })
+        .from(dispatchItem)
+        .where(
+          and(
+            eq(dispatchItem.companyId, ctx.companyId),
+            eq(dispatchItem.dispatchId, d.id),
+            inArray(
+              dispatchItem.bundleId,
+              bundles.map((b) => b.id),
             ),
-          );
-        const alreadyAdded = new Set(existingItemRows.map((r) => r.bundleId));
-        const toAdd = bundles.filter((b) => !alreadyAdded.has(b.id));
-        if (toAdd.length === 0) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "All provided serials are already in this dispatch",
-          });
-        }
+          ),
+        );
+      const alreadyAdded = new Set(existingItemRows.map((r) => r.bundleId));
+      const toAdd = bundles.filter((b) => !alreadyAdded.has(b.id));
+      if (toAdd.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "All provided serials are already in this dispatch",
+        });
+      }
 
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-
-        await tx.insert(dispatchItem).values(
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const statements: SqliteBatchItem[] = [
+        ctx.db.insert(dispatchItem).values(
           toAdd.map((b) => ({
             id: crypto.randomUUID(),
             companyId: ctx.companyId,
             dispatchId: d.id,
             bundleId: b.id,
           })),
-        );
+        ),
+      ];
 
-        if (d.status === "reserved") {
-          await tx
+      if (d.status === "reserved") {
+        statements.push(
+          ctx.db
             .update(bundle)
             .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
             .where(
@@ -479,8 +478,8 @@ export const dispatchRouter = router({
                   toAdd.map((b) => b.id),
                 ),
               ),
-            );
-          await tx.insert(bundleStatusEvent).values(
+            ),
+          ctx.db.insert(bundleStatusEvent).values(
             toAdd.map((b) => ({
               id: crypto.randomUUID(),
               companyId: ctx.companyId,
@@ -491,11 +490,13 @@ export const dispatchRouter = router({
               actorId: ctx.session.user.id,
               dispatchId: d.id,
             })),
-          );
-        }
+          ),
+        );
+      }
 
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+      statements.push(
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.addBundle",
             subjectType: "dispatch",
@@ -506,49 +507,48 @@ export const dispatchRouter = router({
               dispatchStatus: d.status,
             },
           },
-        );
+        ),
+      );
 
-        return { added: toAdd.length };
-      });
+      await atomicBatch(ctx.db, statements);
 
-      return { success: true, ...result };
+      return { success: true, added: toAdd.length };
     }),
 
   removeBundle: companyProcedure
     .input(z.object({ id: z.string(), bundleId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const d = await tx.query.dispatch.findFirst({
-          where: and(
-            eq(dispatch.id, input.id),
-            eq(dispatch.companyId, ctx.companyId),
-            isNull(dispatch.deletedAt),
-          ),
+      const d = await ctx.db.query.dispatch.findFirst({
+        where: and(
+          eq(dispatch.id, input.id),
+          eq(dispatch.companyId, ctx.companyId),
+          isNull(dispatch.deletedAt),
+        ),
+      });
+      if (!d) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+      }
+      if (d.status !== "draft" && d.status !== "reserved") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Bundles can only be removed in draft or reserved status",
         });
-        if (!d) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
-        }
-        if (d.status !== "draft" && d.status !== "reserved") {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Bundles can only be removed in draft or reserved status",
-          });
-        }
+      }
 
-        const existingItem = await tx.query.dispatchItem.findFirst({
-          where: and(
-            eq(dispatchItem.companyId, ctx.companyId),
-            eq(dispatchItem.dispatchId, d.id),
-            eq(dispatchItem.bundleId, input.bundleId),
-          ),
-        });
-        if (!existingItem) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not in this dispatch" });
-        }
+      const existingItem = await ctx.db.query.dispatchItem.findFirst({
+        where: and(
+          eq(dispatchItem.companyId, ctx.companyId),
+          eq(dispatchItem.dispatchId, d.id),
+          eq(dispatchItem.bundleId, input.bundleId),
+        ),
+      });
+      if (!existingItem) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not in this dispatch" });
+      }
 
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-
-        await tx
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const statements: SqliteBatchItem[] = [
+        ctx.db
           .delete(dispatchItem)
           .where(
             and(
@@ -556,22 +556,20 @@ export const dispatchRouter = router({
               eq(dispatchItem.dispatchId, d.id),
               eq(dispatchItem.bundleId, input.bundleId),
             ),
-          );
+          ),
+      ];
 
-        if (d.status === "reserved") {
-          const b = await tx.query.bundle.findFirst({
-            where: and(
-              eq(bundle.id, input.bundleId),
-              eq(bundle.companyId, ctx.companyId),
-            ),
-          });
-          if (b && b.status === "reserved") {
-            await tx
+      if (d.status === "reserved") {
+        const b = await ctx.db.query.bundle.findFirst({
+          where: and(eq(bundle.id, input.bundleId), eq(bundle.companyId, ctx.companyId)),
+        });
+        if (b && b.status === "reserved") {
+          statements.push(
+            ctx.db
               .update(bundle)
               .set({ status: "available", currentDispatchId: null, serverSeq: seq })
-              .where(eq(bundle.id, b.id));
-
-            await tx.insert(bundleStatusEvent).values({
+              .where(eq(bundle.id, b.id)),
+            ctx.db.insert(bundleStatusEvent).values({
               id: crypto.randomUUID(),
               companyId: ctx.companyId,
               bundleId: b.id,
@@ -580,83 +578,79 @@ export const dispatchRouter = router({
               reason: "dispatch.removeBundle",
               actorId: ctx.session.user.id,
               dispatchId: d.id,
-            });
-          }
+            }),
+          );
         }
+      }
 
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+      statements.push(
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.removeBundle",
             subjectType: "dispatch",
             subjectId: d.id,
             meta: { bundleId: input.bundleId, dispatchStatus: d.status },
           },
-        );
-      });
+        ),
+      );
+
+      await atomicBatch(ctx.db, statements);
       return { success: true };
     }),
 
   reserve: companyProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const d = await tx.query.dispatch.findFirst({
-          where: and(
-            eq(dispatch.id, input.id),
-            eq(dispatch.companyId, ctx.companyId),
-            isNull(dispatch.deletedAt),
-          ),
+      const d = await ctx.db.query.dispatch.findFirst({
+        where: and(
+          eq(dispatch.id, input.id),
+          eq(dispatch.companyId, ctx.companyId),
+          isNull(dispatch.deletedAt),
+        ),
+      });
+      if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+      assertDispatchTransition(d.status, "reserved");
+
+      const items = await ctx.db
+        .select({ bundleId: dispatchItem.bundleId })
+        .from(dispatchItem)
+        .where(
+          and(eq(dispatchItem.companyId, ctx.companyId), eq(dispatchItem.dispatchId, d.id)),
+        );
+
+      if (items.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Cannot reserve an empty dispatch",
         });
-        if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
-        assertDispatchTransition(d.status, "reserved");
+      }
 
-        const items = await tx
-          .select({ bundleId: dispatchItem.bundleId })
-          .from(dispatchItem)
-          .where(
-            and(
-              eq(dispatchItem.companyId, ctx.companyId),
-              eq(dispatchItem.dispatchId, d.id),
-            ),
-          );
+      const bundleIds = items.map((i) => i.bundleId);
+      const bundles = await ctx.db
+        .select()
+        .from(bundle)
+        .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, bundleIds)));
 
-        if (items.length === 0) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Cannot reserve an empty dispatch",
-          });
-        }
+      const notAvailable = bundles.filter((b) => b.status !== "available");
+      if (notAvailable.length > 0) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `Cannot reserve: ${notAvailable.length} bundle(s) no longer available (${notAvailable
+            .slice(0, 3)
+            .map((b) => `${b.serial}=${b.status}`)
+            .join(", ")}${notAvailable.length > 3 ? "…" : ""})`,
+        });
+      }
 
-        const bundleIds = items.map((i) => i.bundleId);
-        const bundles = await tx
-          .select()
-          .from(bundle)
-          .where(
-            and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, bundleIds)),
-          );
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
 
-        const notAvailable = bundles.filter((b) => b.status !== "available");
-        if (notAvailable.length > 0) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: `Cannot reserve: ${notAvailable.length} bundle(s) no longer available (${notAvailable
-              .slice(0, 3)
-              .map((b) => `${b.serial}=${b.status}`)
-              .join(", ")}${notAvailable.length > 3 ? "…" : ""})`,
-          });
-        }
-
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-
-        await tx
+      await atomicBatch(ctx.db, [
+        ctx.db
           .update(bundle)
           .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
-          .where(
-            and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, bundleIds)),
-          );
-
-        await tx.insert(bundleStatusEvent).values(
+          .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, bundleIds))),
+        ctx.db.insert(bundleStatusEvent).values(
           bundleIds.map((bid) => ({
             id: crypto.randomUUID(),
             companyId: ctx.companyId,
@@ -667,55 +661,252 @@ export const dispatchRouter = router({
             actorId: ctx.session.user.id,
             dispatchId: d.id,
           })),
-        );
-
-        await tx
-          .update(dispatch)
-          .set({ status: "reserved", serverSeq: seq })
-          .where(eq(dispatch.id, d.id));
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+        ),
+        ctx.db.update(dispatch).set({ status: "reserved", serverSeq: seq }).where(eq(dispatch.id, d.id)),
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.reserve",
             subjectType: "dispatch",
             subjectId: d.id,
             meta: { itemCount: items.length },
           },
-        );
-      });
+        ),
+      ]);
       return { success: true };
     }),
 
   unreserve: companyProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const d = await tx.query.dispatch.findFirst({
-          where: and(
-            eq(dispatch.id, input.id),
-            eq(dispatch.companyId, ctx.companyId),
-            isNull(dispatch.deletedAt),
-          ),
-        });
-        if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
-        assertDispatchTransition(d.status, "draft");
+      const d = await ctx.db.query.dispatch.findFirst({
+        where: and(
+          eq(dispatch.id, input.id),
+          eq(dispatch.companyId, ctx.companyId),
+          isNull(dispatch.deletedAt),
+        ),
+      });
+      if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+      assertDispatchTransition(d.status, "draft");
 
-        const items = await tx
+      const items = await ctx.db
+        .select({ bundleId: dispatchItem.bundleId })
+        .from(dispatchItem)
+        .where(
+          and(eq(dispatchItem.companyId, ctx.companyId), eq(dispatchItem.dispatchId, d.id)),
+        );
+
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const statements: SqliteBatchItem[] = [
+        ctx.db.update(dispatch).set({ status: "draft", serverSeq: seq }).where(eq(dispatch.id, d.id)),
+      ];
+
+      if (items.length > 0) {
+        const bundleIds = items.map((i) => i.bundleId);
+        const reservedBundles = await ctx.db
+          .select()
+          .from(bundle)
+          .where(
+            and(
+              eq(bundle.companyId, ctx.companyId),
+              inArray(bundle.id, bundleIds),
+              eq(bundle.currentDispatchId, d.id),
+            ),
+          );
+        const notReservedHere = reservedBundles.filter((b) => b.status !== "reserved");
+        if (reservedBundles.length !== bundleIds.length || notReservedHere.length > 0) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Cannot unreserve: one or more bundles are no longer reserved for this dispatch",
+          });
+        }
+
+        statements.unshift(
+          ctx.db
+            .update(bundle)
+            .set({ status: "available", currentDispatchId: null, serverSeq: seq })
+            .where(
+              and(
+                eq(bundle.companyId, ctx.companyId),
+                inArray(bundle.id, bundleIds),
+                eq(bundle.status, "reserved"),
+                eq(bundle.currentDispatchId, d.id),
+              ),
+            ),
+          ctx.db.insert(bundleStatusEvent).values(
+            bundleIds.map((bid) => ({
+              id: crypto.randomUUID(),
+              companyId: ctx.companyId,
+              bundleId: bid,
+              fromStatus: "reserved" as const,
+              toStatus: "available" as const,
+              reason: "dispatch.unreserve",
+              actorId: ctx.session.user.id,
+              dispatchId: d.id,
+            })),
+          ),
+        );
+      }
+
+      statements.push(
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          {
+            action: "dispatch.unreserve",
+            subjectType: "dispatch",
+            subjectId: d.id,
+            meta: { itemCount: items.length },
+          },
+        ),
+      );
+
+      await atomicBatch(ctx.db, statements);
+      return { success: true };
+    }),
+
+  complete: companyProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const d = await ctx.db.query.dispatch.findFirst({
+        where: and(
+          eq(dispatch.id, input.id),
+          eq(dispatch.companyId, ctx.companyId),
+          isNull(dispatch.deletedAt),
+        ),
+      });
+      if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+      assertDispatchTransition(d.status, "completed");
+
+      const items = await ctx.db
+        .select({ bundleId: dispatchItem.bundleId })
+        .from(dispatchItem)
+        .where(
+          and(eq(dispatchItem.companyId, ctx.companyId), eq(dispatchItem.dispatchId, d.id)),
+        );
+
+      if (items.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Cannot complete an empty dispatch",
+        });
+      }
+
+      const bundleIds = items.map((i) => i.bundleId);
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const completedAt = new Date();
+      const bundles = await ctx.db
+        .select()
+        .from(bundle)
+        .where(
+          and(
+            eq(bundle.companyId, ctx.companyId),
+            inArray(bundle.id, bundleIds),
+            eq(bundle.currentDispatchId, d.id),
+          ),
+        );
+      const notReservedHere = bundles.filter((b) => b.status !== "reserved");
+      if (bundles.length !== bundleIds.length || notReservedHere.length > 0) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Cannot complete: one or more bundles are no longer reserved for this dispatch",
+        });
+      }
+
+      const { statements: packingListStatements } = await appendPackingListWrites(ctx.db, {
+        companyId: ctx.companyId,
+        dispatchRow: {
+          id: d.id,
+          code: d.code,
+          customerId: d.customerId,
+          shipDate: d.shipDate ?? null,
+          notes: d.notes ?? null,
+          status: "completed",
+          completedAt,
+        },
+        session: ctx.session,
+        impersonation: ctx.impersonation,
+      });
+
+      await atomicBatch(ctx.db, [
+        ctx.db
+          .update(bundle)
+          .set({ status: "dispatched", serverSeq: seq })
+          .where(
+            and(
+              eq(bundle.companyId, ctx.companyId),
+              inArray(bundle.id, bundleIds),
+              eq(bundle.status, "reserved"),
+              eq(bundle.currentDispatchId, d.id),
+            ),
+          ),
+        ctx.db.insert(bundleStatusEvent).values(
+          bundleIds.map((bid) => ({
+            id: crypto.randomUUID(),
+            companyId: ctx.companyId,
+            bundleId: bid,
+            fromStatus: "reserved" as const,
+            toStatus: "dispatched" as const,
+            reason: "dispatch.complete",
+            actorId: ctx.session.user.id,
+            dispatchId: d.id,
+          })),
+        ),
+        ctx.db
+          .update(dispatch)
+          .set({
+            status: "completed",
+            completedBy: ctx.session.user.id,
+            completedAt,
+            serverSeq: seq,
+          })
+          .where(eq(dispatch.id, d.id)),
+        ...packingListStatements,
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          {
+            action: "dispatch.complete",
+            subjectType: "dispatch",
+            subjectId: d.id,
+            meta: { itemCount: items.length },
+          },
+        ),
+      ]);
+      return { success: true };
+    }),
+
+  cancel: companyProcedure
+    .input(z.object({ id: z.string(), reason: z.string().nullable().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const d = await ctx.db.query.dispatch.findFirst({
+        where: and(
+          eq(dispatch.id, input.id),
+          eq(dispatch.companyId, ctx.companyId),
+          isNull(dispatch.deletedAt),
+        ),
+      });
+      if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+      assertDispatchTransition(d.status, "cancelled");
+
+      const wasReserved = d.status === "reserved";
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      let releasedCount = 0;
+      const statements: SqliteBatchItem[] = [
+        ctx.db
+          .update(dispatch)
+          .set({ status: "cancelled", serverSeq: seq })
+          .where(eq(dispatch.id, d.id)),
+      ];
+
+      if (wasReserved) {
+        const items = await ctx.db
           .select({ bundleId: dispatchItem.bundleId })
           .from(dispatchItem)
           .where(
-            and(
-              eq(dispatchItem.companyId, ctx.companyId),
-              eq(dispatchItem.dispatchId, d.id),
-            ),
+            and(eq(dispatchItem.companyId, ctx.companyId), eq(dispatchItem.dispatchId, d.id)),
           );
-
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-
         if (items.length > 0) {
           const bundleIds = items.map((i) => i.bundleId);
-          const reservedBundles = await tx
+          const reservedBundles = await ctx.db
             .select()
             .from(bundle)
             .where(
@@ -729,219 +920,12 @@ export const dispatchRouter = router({
           if (reservedBundles.length !== bundleIds.length || notReservedHere.length > 0) {
             throw new TRPCError({
               code: "CONFLICT",
-              message: "Cannot unreserve: one or more bundles are no longer reserved for this dispatch",
+              message: "Cannot cancel: one or more bundles are no longer reserved for this dispatch",
             });
           }
 
-          await tx
-            .update(bundle)
-            .set({ status: "available", currentDispatchId: null, serverSeq: seq })
-            .where(
-              and(
-                eq(bundle.companyId, ctx.companyId),
-                inArray(bundle.id, bundleIds),
-                eq(bundle.status, "reserved"),
-                eq(bundle.currentDispatchId, d.id),
-              ),
-            );
-
-          await tx.insert(bundleStatusEvent).values(
-            bundleIds.map((bid) => ({
-              id: crypto.randomUUID(),
-              companyId: ctx.companyId,
-              bundleId: bid,
-              fromStatus: "reserved" as const,
-              toStatus: "available" as const,
-              reason: "dispatch.unreserve",
-              actorId: ctx.session.user.id,
-              dispatchId: d.id,
-            })),
-          );
-        }
-
-        await tx
-          .update(dispatch)
-          .set({ status: "draft", serverSeq: seq })
-          .where(eq(dispatch.id, d.id));
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
-          {
-            action: "dispatch.unreserve",
-            subjectType: "dispatch",
-            subjectId: d.id,
-            meta: { itemCount: items.length },
-          },
-        );
-      });
-      return { success: true };
-    }),
-
-  complete: companyProcedure
-    .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const d = await tx.query.dispatch.findFirst({
-          where: and(
-            eq(dispatch.id, input.id),
-            eq(dispatch.companyId, ctx.companyId),
-            isNull(dispatch.deletedAt),
-          ),
-        });
-        if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
-        assertDispatchTransition(d.status, "completed");
-
-        const items = await tx
-          .select({ bundleId: dispatchItem.bundleId })
-          .from(dispatchItem)
-          .where(
-            and(
-              eq(dispatchItem.companyId, ctx.companyId),
-              eq(dispatchItem.dispatchId, d.id),
-            ),
-          );
-
-        if (items.length === 0) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Cannot complete an empty dispatch",
-          });
-        }
-
-        const bundleIds = items.map((i) => i.bundleId);
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-        const bundles = await tx
-          .select()
-          .from(bundle)
-          .where(
-            and(
-              eq(bundle.companyId, ctx.companyId),
-              inArray(bundle.id, bundleIds),
-              eq(bundle.currentDispatchId, d.id),
-            ),
-          );
-        const notReservedHere = bundles.filter((b) => b.status !== "reserved");
-        if (bundles.length !== bundleIds.length || notReservedHere.length > 0) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "Cannot complete: one or more bundles are no longer reserved for this dispatch",
-          });
-        }
-
-        await tx
-          .update(bundle)
-          .set({ status: "dispatched", serverSeq: seq })
-          .where(
-            and(
-              eq(bundle.companyId, ctx.companyId),
-              inArray(bundle.id, bundleIds),
-              eq(bundle.status, "reserved"),
-              eq(bundle.currentDispatchId, d.id),
-            ),
-          );
-
-        await tx.insert(bundleStatusEvent).values(
-          bundleIds.map((bid) => ({
-            id: crypto.randomUUID(),
-            companyId: ctx.companyId,
-            bundleId: bid,
-            fromStatus: "reserved" as const,
-            toStatus: "dispatched" as const,
-            reason: "dispatch.complete",
-            actorId: ctx.session.user.id,
-            dispatchId: d.id,
-          })),
-        );
-
-        await tx
-          .update(dispatch)
-          .set({
-            status: "completed",
-            completedBy: ctx.session.user.id,
-            completedAt: new Date(),
-            serverSeq: seq,
-          })
-          .where(eq(dispatch.id, d.id));
-
-        // Auto-create the packing list inside the same transaction so it is
-        // always present when the dispatch status becomes "completed".
-        await createPackingListInTx(tx, {
-          companyId: ctx.companyId,
-          dispatchRow: {
-            id: d.id,
-            code: d.code,
-            customerId: d.customerId,
-            shipDate: d.shipDate ?? null,
-            notes: d.notes ?? null,
-            status: "completed",
-            completedAt: new Date(),
-          },
-          session: ctx.session,
-          impersonation: ctx.impersonation,
-        });
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
-          {
-            action: "dispatch.complete",
-            subjectType: "dispatch",
-            subjectId: d.id,
-            meta: { itemCount: items.length },
-          },
-        );
-      });
-      return { success: true };
-    }),
-
-  cancel: companyProcedure
-    .input(z.object({ id: z.string(), reason: z.string().nullable().optional() }))
-    .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const d = await tx.query.dispatch.findFirst({
-          where: and(
-            eq(dispatch.id, input.id),
-            eq(dispatch.companyId, ctx.companyId),
-            isNull(dispatch.deletedAt),
-          ),
-        });
-        if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
-        assertDispatchTransition(d.status, "cancelled");
-
-        const wasReserved = d.status === "reserved";
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-
-        let releasedCount = 0;
-        if (wasReserved) {
-          const items = await tx
-            .select({ bundleId: dispatchItem.bundleId })
-            .from(dispatchItem)
-            .where(
-              and(
-                eq(dispatchItem.companyId, ctx.companyId),
-                eq(dispatchItem.dispatchId, d.id),
-              ),
-            );
-          if (items.length > 0) {
-            const bundleIds = items.map((i) => i.bundleId);
-            const reservedBundles = await tx
-              .select()
-              .from(bundle)
-              .where(
-                and(
-                  eq(bundle.companyId, ctx.companyId),
-                  inArray(bundle.id, bundleIds),
-                  eq(bundle.currentDispatchId, d.id),
-                ),
-              );
-            const notReservedHere = reservedBundles.filter((b) => b.status !== "reserved");
-            if (reservedBundles.length !== bundleIds.length || notReservedHere.length > 0) {
-              throw new TRPCError({
-                code: "CONFLICT",
-                message: "Cannot cancel: one or more bundles are no longer reserved for this dispatch",
-              });
-            }
-
-            await tx
+          statements.unshift(
+            ctx.db
               .update(bundle)
               .set({ status: "available", currentDispatchId: null, serverSeq: seq })
               .where(
@@ -951,8 +935,8 @@ export const dispatchRouter = router({
                   eq(bundle.status, "reserved"),
                   eq(bundle.currentDispatchId, d.id),
                 ),
-              );
-            await tx.insert(bundleStatusEvent).values(
+              ),
+            ctx.db.insert(bundleStatusEvent).values(
               bundleIds.map((bid) => ({
                 id: crypto.randomUUID(),
                 companyId: ctx.companyId,
@@ -963,64 +947,62 @@ export const dispatchRouter = router({
                 actorId: ctx.session.user.id,
                 dispatchId: d.id,
               })),
-            );
-            releasedCount = items.length;
-          }
+            ),
+          );
+          releasedCount = items.length;
         }
+      }
 
-        await tx
-          .update(dispatch)
-          .set({ status: "cancelled", serverSeq: seq })
-          .where(eq(dispatch.id, d.id));
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+      statements.push(
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.cancel",
             subjectType: "dispatch",
             subjectId: d.id,
             meta: { fromStatus: d.status, releasedCount, reason: input.reason ?? null },
           },
-        );
-      });
+        ),
+      );
+
+      await atomicBatch(ctx.db, statements);
       return { success: true };
     }),
 
   softDelete: companyProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const d = await tx.query.dispatch.findFirst({
-          where: and(
-            eq(dispatch.id, input.id),
-            eq(dispatch.companyId, ctx.companyId),
-            isNull(dispatch.deletedAt),
-          ),
+      const d = await ctx.db.query.dispatch.findFirst({
+        where: and(
+          eq(dispatch.id, input.id),
+          eq(dispatch.companyId, ctx.companyId),
+          isNull(dispatch.deletedAt),
+        ),
+      });
+      if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+      if (d.status !== "draft" && d.status !== "cancelled") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only draft or cancelled dispatches can be deleted",
         });
-        if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
-        if (d.status !== "draft" && d.status !== "cancelled") {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Only draft or cancelled dispatches can be deleted",
-          });
-        }
+      }
 
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-        await tx
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      await atomicBatch(ctx.db, [
+        ctx.db
           .update(dispatch)
           .set({ deletedAt: new Date(), serverSeq: seq })
-          .where(eq(dispatch.id, d.id));
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          .where(eq(dispatch.id, d.id)),
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.delete",
             subjectType: "dispatch",
             subjectId: d.id,
             meta: { fromStatus: d.status },
           },
-        );
-      });
+        ),
+      ]);
       return { success: true };
     }),
 });

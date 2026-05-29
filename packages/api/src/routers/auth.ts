@@ -6,6 +6,7 @@ import { user } from "@orrn/db/schema/auth";
 import { createAuth } from "@orrn/auth";
 import type { LengthUnit } from "../lib/length";
 
+import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
 import { authedProcedure, router } from "../index";
 
 /**
@@ -108,36 +109,40 @@ export const authRouter = router({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
 
-      await ctx.db.transaction(async (tx) => {
-        await tx
+      const statements: SqliteBatchItem[] = [
+        ctx.db
           .update(user)
           .set({ onboardingCompleted: true })
-          .where(eq(user.id, userId));
+          .where(eq(user.id, userId)),
+      ];
 
-        if (ctx.companyId) {
-          const currentCompany = await tx
-            .select()
-            .from(company)
-            .where(eq(company.id, ctx.companyId))
-            .get();
+      if (ctx.companyId) {
+        const currentCompany = await ctx.db
+          .select()
+          .from(company)
+          .where(eq(company.id, ctx.companyId))
+          .get();
 
-          if (currentCompany) {
-            const currentSettings = currentCompany.settings ?? {};
-            const updatedSettings = {
-              ...currentSettings,
-              facilityLocation: input.facilityLocation,
-              primaryContact: input.primaryContact,
-              timezone: input.timezone,
-              pressCount: input.pressCount,
-            };
-
-            await tx
+        if (currentCompany) {
+          const currentSettings = currentCompany.settings ?? {};
+          statements.push(
+            ctx.db
               .update(company)
-              .set({ settings: updatedSettings })
-              .where(eq(company.id, ctx.companyId));
-          }
+              .set({
+                settings: {
+                  ...currentSettings,
+                  facilityLocation: input.facilityLocation,
+                  primaryContact: input.primaryContact,
+                  timezone: input.timezone,
+                  pressCount: input.pressCount,
+                },
+              })
+              .where(eq(company.id, ctx.companyId)),
+          );
         }
-      });
+      }
+
+      await atomicBatch(ctx.db, statements);
 
       return { success: true };
     }),

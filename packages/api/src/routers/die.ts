@@ -4,7 +4,8 @@ import { TRPCError } from "@trpc/server";
 
 import { die, dieStatuses } from "@orrn/db/schema/catalog";
 import { companyProcedure, router } from "../index";
-import { writeAudit } from "../lib/audit";
+import { auditInsert } from "../lib/audit";
+import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { nextCompanySeq } from "../lib/sequence";
 
 export const dimensionsSchema = z.object({
@@ -101,11 +102,10 @@ export const dieRouter = router({
       }
 
       const id = crypto.randomUUID();
-      
-      await ctx.db.transaction(async (tx) => {
-        const serverSeq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-        
-        await tx.insert(die).values({
+      const serverSeq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+
+      await atomicBatch(ctx.db, [
+        ctx.db.insert(die).values({
           id,
           companyId: ctx.companyId,
           serverSeq,
@@ -117,18 +117,17 @@ export const dieRouter = router({
           weightMaxG: input.weightMaxG,
           status: input.status,
           notes: input.notes,
-        });
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+        }),
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "die.create",
             subjectType: "die",
             subjectId: id,
             meta: { series: input.series, sectionCode: input.sectionCode },
-          }
-        );
-      });
+          },
+        ),
+      ]);
 
       return { success: true, id };
     }),
@@ -140,37 +139,35 @@ export const dieRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Min weight cannot be greater than max weight" });
       }
 
-      await ctx.db.transaction(async (tx) => {
-        const existing = await tx.query.die.findFirst({
+      const existing = await ctx.db.query.die.findFirst({
+        where: and(eq(die.id, input.id), eq(die.companyId, ctx.companyId), isNull(die.deletedAt)),
+      });
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Die not found" });
+      }
+
+      if (existing.series !== input.series || existing.sectionCode !== input.sectionCode) {
+        const duplicate = await ctx.db.query.die.findFirst({
           where: and(
-            eq(die.id, input.id),
             eq(die.companyId, ctx.companyId),
-            isNull(die.deletedAt)
-          )
+            eq(die.series, input.series),
+            eq(die.sectionCode, input.sectionCode),
+            isNull(die.deletedAt),
+          ),
         });
-
-        if (!existing) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Die not found" });
-        }
-
-        // Check duplicate on change
-        if (existing.series !== input.series || existing.sectionCode !== input.sectionCode) {
-          const duplicate = await tx.query.die.findFirst({
-            where: and(
-              eq(die.companyId, ctx.companyId),
-              eq(die.series, input.series),
-              eq(die.sectionCode, input.sectionCode),
-              isNull(die.deletedAt)
-            )
+        if (duplicate) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Another die with this series and section code already exists",
           });
-          if (duplicate) {
-            throw new TRPCError({ code: "CONFLICT", message: "Another die with this series and section code already exists" });
-          }
         }
+      }
 
-        const serverSeq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
+      const serverSeq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
 
-        await tx
+      await atomicBatch(ctx.db, [
+        ctx.db
           .update(die)
           .set({
             series: input.series,
@@ -183,18 +180,17 @@ export const dieRouter = router({
             notes: input.notes,
             serverSeq,
           })
-          .where(eq(die.id, input.id));
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          .where(eq(die.id, input.id)),
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "die.update",
             subjectType: "die",
             subjectId: input.id,
             meta: { series: input.series, sectionCode: input.sectionCode },
-          }
-        );
-      });
+          },
+        ),
+      ]);
 
       return { success: true };
     }),
@@ -202,39 +198,34 @@ export const dieRouter = router({
   delete: companyProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const existing = await tx.query.die.findFirst({
-          where: and(
-            eq(die.id, input.id),
-            eq(die.companyId, ctx.companyId),
-            isNull(die.deletedAt)
-          )
-        });
+      const existing = await ctx.db.query.die.findFirst({
+        where: and(eq(die.id, input.id), eq(die.companyId, ctx.companyId), isNull(die.deletedAt)),
+      });
 
-        if (!existing) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Die not found" });
-        }
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Die not found" });
+      }
 
-        const serverSeq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
+      const serverSeq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
 
-        await tx
+      await atomicBatch(ctx.db, [
+        ctx.db
           .update(die)
           .set({
             deletedAt: new Date(),
             serverSeq,
           })
-          .where(eq(die.id, input.id));
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          .where(eq(die.id, input.id)),
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "die.delete",
             subjectType: "die",
             subjectId: input.id,
             meta: { series: existing.series, sectionCode: existing.sectionCode },
-          }
-        );
-      });
+          },
+        ),
+      ]);
 
       return { success: true };
     }),
@@ -276,57 +267,55 @@ export const dieRouter = router({
         return { success: true, count: 0 };
       }
 
-      await ctx.db.transaction(async (tx) => {
-        const serverSeq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-        
-        // Insert new
-        if (input.newRows.length > 0) {
-          const values = input.newRows.map(row => ({
-            id: crypto.randomUUID(),
-            companyId: ctx.companyId,
-            serverSeq,
-            series: row.series,
-            sectionCode: row.sectionCode,
-            name: row.name,
-            dimensions: row.dimensions,
-            weightMinG: row.weightMinG,
-            weightMaxG: row.weightMaxG,
-            status: row.status,
-            notes: row.notes,
-          }));
+      const serverSeq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const statements: SqliteBatchItem[] = [];
 
-          const chunkSize = 100;
-          for (let i = 0; i < values.length; i += chunkSize) {
-            const chunk = values.slice(i, i + chunkSize);
-            await tx.insert(die).values(chunk);
-          }
-        }
+      if (input.newRows.length > 0) {
+        const values = input.newRows.map((row) => ({
+          id: crypto.randomUUID(),
+          companyId: ctx.companyId,
+          serverSeq,
+          series: row.series,
+          sectionCode: row.sectionCode,
+          name: row.name,
+          dimensions: row.dimensions,
+          weightMinG: row.weightMinG,
+          weightMaxG: row.weightMaxG,
+          status: row.status,
+          notes: row.notes,
+        }));
+        pushChunkedInserts(statements, (chunk) => ctx.db.insert(die).values(chunk), values, 100);
+      }
 
-        // Update existing
-        for (const row of input.updatedRows) {
-          await tx.update(die).set({
-            name: row.name,
-            dimensions: row.dimensions,
-            weightMinG: row.weightMinG,
-            weightMaxG: row.weightMaxG,
-            status: row.status,
-            notes: row.notes,
-            serverSeq,
-          }).where(and(
-             eq(die.id, row.existingId),
-             eq(die.companyId, ctx.companyId)
-          ));
-        }
+      for (const row of input.updatedRows) {
+        statements.push(
+          ctx.db
+            .update(die)
+            .set({
+              name: row.name,
+              dimensions: row.dimensions,
+              weightMinG: row.weightMinG,
+              weightMaxG: row.weightMaxG,
+              status: row.status,
+              notes: row.notes,
+              serverSeq,
+            })
+            .where(and(eq(die.id, row.existingId), eq(die.companyId, ctx.companyId))),
+        );
+      }
 
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+      statements.push(
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "die.import",
             subjectType: "die",
             meta: { newCount: input.newRows.length, updateCount: input.updatedRows.length },
-          }
-        );
-      });
+          },
+        ),
+      );
+
+      await atomicBatch(ctx.db, statements);
 
       return { success: true, count: input.newRows.length + input.updatedRows.length };
     }),

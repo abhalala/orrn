@@ -1,9 +1,11 @@
-import { Badge, StatusBadge } from "@orrn/ui/components/badge";
+import { Badge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { Select } from "@orrn/ui/components/select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
@@ -11,7 +13,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@orrn/web-shared/components/can";
-import { clearImpersonateCompanyId, setImpersonateCompanyId } from "@orrn/web-shared/lib/impersonation";
+import { setImpersonateCompanyId } from "@orrn/web-shared/lib/impersonation";
 import { appUrls } from "@orrn/web-shared/lib/urls";
 import { requirePlatformAdmin } from "@orrn/web-shared/lib/admin-guards";
 import { queryClient, trpc } from "@orrn/web-shared/utils/trpc";
@@ -86,7 +88,14 @@ function AdminCompanyDetailComponent() {
         id: "status",
         header: "Status",
         flex: 0.6,
-        cell: (row) => (row.revokedAt ? "Revoked" : "Active/expired"),
+        cell: (row) =>
+          row.revokedAt ? (
+            <Badge tone="danger">Revoked</Badge>
+          ) : new Date(row.expiresAt).getTime() < Date.now() ? (
+            <Badge tone="neutral">Expired</Badge>
+          ) : (
+            <Badge tone="success">Active</Badge>
+          ),
       },
       { id: "reason", header: "Reason", flex: 1, cell: (row) => row.reason ?? "—" },
     ];
@@ -109,13 +118,15 @@ function AdminCompanyDetailComponent() {
         description={c.slug}
         actions={
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" asChild>
-              <Link to="/admin/companies">Back to list</Link>
-            </Button>
+            <Link to="/admin/companies" search={{ status: "all" }} className="no-underline">
+              <Button variant="outline">Back to list</Button>
+            </Link>
             <Can do="platform.impersonate">
               <Button
                 disabled={c.status !== "active" || impersonateMutation.isPending}
-                onClick={() => impersonateMutation.mutate({ companyId: c.id, ttlMinutes: 30 })}
+                onClick={() =>
+                  impersonateMutation.mutate({ companyId: c.id, ttlMinutes: 30 })
+                }
               >
                 Impersonate (30m)
               </Button>
@@ -147,7 +158,15 @@ function AdminCompanyDetailComponent() {
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 text-sm">
           <div>
             <p className="text-muted-foreground text-xs">Status</p>
-            <Badge tone={c.status === "active" ? "success" : c.status === "suspended" ? "danger" : "neutral"}>
+            <Badge
+              tone={
+                c.status === "active"
+                  ? "success"
+                  : c.status === "suspended"
+                    ? "danger"
+                    : "neutral"
+              }
+            >
               {c.status}
             </Badge>
           </div>
@@ -189,6 +208,19 @@ function AdminCompanyDetailComponent() {
   );
 }
 
+const PLAN_OPTIONS = [
+  { value: "starter", label: "Starter" },
+  { value: "growth", label: "Growth" },
+  { value: "enterprise", label: "Enterprise" },
+];
+
+const MODULES = [
+  { id: "customers", label: "Customer Management" },
+  { id: "dies", label: "Die Management" },
+  { id: "bundles", label: "Bundle & Production Tracking" },
+  { id: "dispatches", label: "Dispatch & Logistics" },
+];
+
 function PlanAndModulesForm({
   companyId,
   initialPlan,
@@ -201,7 +233,6 @@ function PlanAndModulesForm({
   const qc = useQueryClient();
   const [plan, setPlan] = useState(initialPlan || "starter");
   const [activeModules, setActiveModules] = useState<string[]>(initialModules || []);
-  const [isUpdating, setIsUpdating] = useState(false);
 
   const updateMutation = useMutation({
     ...trpc.platform.updatePlanAndModules.mutationOptions(),
@@ -212,77 +243,42 @@ function PlanAndModulesForm({
     onError: (e: any) => toast.error(e.message || "Failed to update"),
   });
 
-  const modulesList = [
-    { id: "customers", label: "Customer Management" },
-    { id: "dies", label: "Die Management" },
-    { id: "bundles", label: "Bundle & Production Tracking" },
-    { id: "dispatches", label: "Dispatch & Logistics" },
-  ];
-
-  const handleModuleToggle = (modId: string) => {
-    if (activeModules.includes(modId)) {
-      setActiveModules(activeModules.filter((m) => m !== modId));
-    } else {
-      setActiveModules([...activeModules, modId]);
-    }
-  };
-
-  const handleSave = async () => {
-    setIsUpdating(true);
-    try {
-      await updateMutation.mutateAsync({
-        companyId,
-        plan,
-        modules: activeModules,
-      });
-    } finally {
-      setIsUpdating(false);
-    }
+  const toggleModule = (modId: string) => {
+    setActiveModules((curr) =>
+      curr.includes(modId) ? curr.filter((m) => m !== modId) : [...curr, modId],
+    );
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Plan & Active Modules</CardTitle>
+        <CardTitle>Plan and active modules</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-muted-foreground block" htmlFor="companyPlan">
-            Billing Plan
-          </label>
-          <select
-            id="companyPlan"
-            value={plan}
-            onChange={(e) => setPlan(e.target.value)}
-            className="flex h-10 w-full max-w-xs rounded-md border border-input border-border/40 bg-[#0b0f1a]/50 px-3 py-2 text-sm text-[#f5f7ff] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#5B6CFF] focus-visible:border-[#5B6CFF]"
-          >
-            <option value="starter">Starter</option>
-            <option value="growth">Growth</option>
-            <option value="enterprise">Enterprise</option>
-          </select>
+          <Label htmlFor="companyPlan">Billing plan</Label>
+          <Select value={plan} onValueChange={setPlan} options={PLAN_OPTIONS} width={240} />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-muted-foreground block">
-            Active Modules
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            {modulesList.map((m) => {
+          <Label>Active modules</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            {MODULES.map((m) => {
               const isChecked = activeModules.includes(m.id);
               return (
                 <label
                   key={m.id}
-                  className={`flex items-center space-x-3 rounded-lg border p-3 cursor-pointer transition ${
+                  className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
                     isChecked
-                      ? "border-[#5B6CFF] bg-[#5B6CFF]/10 text-[#f5f7ff]"
-                      : "border-border/40 bg-card/40 hover:bg-card/70 text-muted-foreground"
+                      ? "border-primary/60 bg-primary/10 text-foreground"
+                      : "border-border bg-background hover:bg-muted/40 text-muted-foreground"
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={isChecked}
-                    onChange={() => handleModuleToggle(m.id)}
-                    className="h-4 w-4 rounded border-gray-300 text-[#5B6CFF] focus:ring-[#5B6CFF]"
+                    onChange={() => toggleModule(m.id)}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                   />
                   <span className="text-sm font-medium">{m.label}</span>
                 </label>
@@ -292,11 +288,10 @@ function PlanAndModulesForm({
         </div>
 
         <Button
-          onClick={handleSave}
-          disabled={isUpdating}
-          className="bg-[#5B6CFF] hover:bg-[#3b4edd] text-white"
+          onClick={() => updateMutation.mutate({ companyId, plan, modules: activeModules })}
+          disabled={updateMutation.isPending}
         >
-          {isUpdating ? "Saving..." : "Save Changes"}
+          {updateMutation.isPending ? "Saving…" : "Save changes"}
         </Button>
       </CardContent>
     </Card>

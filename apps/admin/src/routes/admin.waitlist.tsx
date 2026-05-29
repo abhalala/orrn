@@ -1,9 +1,10 @@
+import { Badge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -27,6 +28,7 @@ type WaitlistRow = {
 
 function AdminWaitlistComponent() {
   const { data: requests, isLoading, refetch } = useQuery(trpc.platform.waitlistList.queryOptions());
+  const pendingCount = requests?.length ?? 0;
 
   const approveMutation = useMutation({
     ...trpc.platform.waitlistApprove.mutationOptions(),
@@ -82,7 +84,7 @@ function AdminWaitlistComponent() {
         <div className="flex gap-2">
           <Can do="platform.waitlist.review">
             <Button
-              variant="outline"
+              variant="destructive"
               size="sm"
               onClick={() => rejectMutation.mutate({ id: r.id })}
               disabled={rejectMutation.isPending || approveMutation.isPending}
@@ -106,8 +108,18 @@ function AdminWaitlistComponent() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Platform"
-        title="Waitlist"
+        title={
+          <span className="flex items-center gap-3">
+            Waitlist
+            {pendingCount > 0 ? <Badge tone="warning">{pendingCount} pending</Badge> : null}
+          </span>
+        }
         description="Review and approve incoming company requests."
+        actions={
+          <Link to="/admin" className="no-underline">
+            <Button variant="outline">Back to console</Button>
+          </Link>
+        }
       />
 
       <DataTable

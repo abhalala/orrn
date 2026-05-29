@@ -1,7 +1,10 @@
+import type { BatchItem } from "drizzle-orm/batch";
+
 import { auditLog } from "@orrn/db/schema";
 
 import { createId } from "./id";
 import type { Context } from "../context";
+import type { OrrnDb } from "./atomic";
 
 export type AuditInput = {
   action: string;
@@ -22,20 +25,39 @@ export type AuditInput = {
  *
  * Once M9 lands real grants we can split these apart further.
  */
+export function auditInsert(
+  ctx: Pick<Context, "db" | "session" | "companyId"> & {
+    impersonation?: Context["impersonation"];
+    db: OrrnDb;
+  },
+  input: AuditInput,
+): BatchItem<"sqlite"> {
+  const actorId = ctx.session?.user.id ?? null;
+  const impersonatorId = ctx.impersonation ? ctx.impersonation.actorUserId : null;
+
+  return ctx.db.insert(auditLog).values({
+    id: createId(),
+    companyId: ctx.companyId,
+    actorId,
+    impersonatorId,
+    action: input.action,
+    subjectType: input.subjectType,
+    subjectId: input.subjectId ?? null,
+    meta: input.meta ?? {},
+  });
+}
+
 export async function writeAudit(
   ctx: Pick<Context, "db" | "session" | "companyId"> & {
     impersonation?: Context["impersonation"];
   },
   input: AuditInput,
 ) {
-  const actorId = ctx.session?.user.id ?? null;
-  const impersonatorId = ctx.impersonation ? ctx.impersonation.actorUserId : null;
-
   await ctx.db.insert(auditLog).values({
     id: createId(),
     companyId: ctx.companyId,
-    actorId,
-    impersonatorId,
+    actorId: ctx.session?.user.id ?? null,
+    impersonatorId: ctx.impersonation ? ctx.impersonation.actorUserId : null,
     action: input.action,
     subjectType: input.subjectType,
     subjectId: input.subjectId ?? null,

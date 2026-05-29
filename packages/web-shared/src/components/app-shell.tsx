@@ -6,7 +6,7 @@ import {
   SidebarItem,
   SidebarSection,
 } from "@orrn/ui/components/sidebar";
-import { Link, useLocation, useMatchRoute } from "@tanstack/react-router";
+import { Link, useMatchRoute } from "@tanstack/react-router";
 import {
   Bell,
   Boxes,
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { Breadcrumbs } from "../components/breadcrumbs";
 import { ImpersonationBanner } from "../components/impersonation-banner";
 import { ModeToggle } from "../components/mode-toggle";
 import UserMenu from "../components/user-menu";
@@ -147,7 +148,7 @@ export function AppShell({ children }: AppShellProps) {
         </Sidebar>
         <div className="flex-1 flex flex-col min-w-0">
           <TopBar />
-          <Breadcrumbs />
+          <Breadcrumbs homePath="/dashboard" />
           <main className="flex-1 overflow-auto">
             <div className="mx-auto w-full max-w-6xl px-6 py-6 space-y-6">{children}</div>
           </main>
@@ -205,44 +206,6 @@ function TopBar() {
       </div>
     </div>
   );
-}
-
-function Breadcrumbs() {
-  const location = useLocation();
-  const segments = location.pathname.split("/").filter(Boolean);
-  if (segments.length === 0) return null;
-  return (
-    <nav
-      aria-label="Breadcrumb"
-      className="flex items-center gap-1 px-6 h-9 text-xs text-muted-foreground border-b border-border bg-background"
-    >
-      <Link to="/dashboard" className="hover:text-foreground hover:underline">
-        Home
-      </Link>
-      {segments.map((seg, i) => {
-        const path = "/" + segments.slice(0, i + 1).join("/");
-        const isLast = i === segments.length - 1;
-        return (
-          <span key={path} className="flex items-center gap-1">
-            <span aria-hidden>/</span>
-            {isLast ? (
-              <span className="text-foreground">{prettifySegment(seg)}</span>
-            ) : (
-              <Link to={path as any} className="hover:text-foreground hover:underline">
-                {prettifySegment(seg)}
-              </Link>
-            )}
-          </span>
-        );
-      })}
-    </nav>
-  );
-}
-
-function prettifySegment(seg: string): string {
-  if (seg === "$id" || seg.startsWith("$")) return "Detail";
-  if (seg === "new") return "New";
-  return seg.charAt(0).toUpperCase() + seg.slice(1);
 }
 
 /**

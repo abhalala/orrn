@@ -13,7 +13,8 @@ import {
 } from "@orrn/db/schema/inventory";
 
 import { companyProcedure, router } from "../index";
-import { writeAudit } from "../lib/audit";
+import { auditInsert } from "../lib/audit";
+import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
 import { nextCompanySeq } from "../lib/sequence";
 
@@ -75,11 +76,36 @@ export const bundleRouter = router({
       const now = new Date();
       const userId = ctx.session.user.id;
 
-      const created = await ctx.db.transaction(async (tx) => {
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-        const code = formatGroupCode(seq);
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const code = formatGroupCode(seq);
 
-        await tx.insert(bundleGroup).values({
+      const bundleRows = input.rows.map((row, idx) => ({
+        id: crypto.randomUUID(),
+        companyId: ctx.companyId,
+        serverSeq: seq,
+        groupId,
+        dieId: input.dieId,
+        serial: formatBundleSerial(code, idx + 1),
+        quantity: row.quantity,
+        weightG: row.weightG,
+        lengthMm: row.lengthMm,
+        status: "available" as const,
+        createdBy: userId,
+      }));
+
+      const eventRows = bundleRows.map((row) => ({
+        id: crypto.randomUUID(),
+        companyId: ctx.companyId,
+        bundleId: row.id,
+        fromStatus: null,
+        toStatus: "available" as const,
+        reason: "receipt",
+        actorId: userId,
+        at: now,
+      }));
+
+      const statements: SqliteBatchItem[] = [
+        ctx.db.insert(bundleGroup).values({
           id: groupId,
           companyId: ctx.companyId,
           serverSeq: seq,
@@ -89,44 +115,18 @@ export const bundleRouter = router({
           purchaseOrderRef: input.purchaseOrderRef ?? null,
           notes: input.notes ?? null,
           createdBy: userId,
-        });
-
-        const bundleRows = input.rows.map((row, idx) => ({
-          id: crypto.randomUUID(),
-          companyId: ctx.companyId,
-          serverSeq: seq,
-          groupId,
-          dieId: input.dieId,
-          serial: formatBundleSerial(code, idx + 1),
-          quantity: row.quantity,
-          weightG: row.weightG,
-          lengthMm: row.lengthMm,
-          status: "available" as const,
-          createdBy: userId,
-        }));
-
-        // Chunk inserts to stay under SQLite variable limits.
-        const chunkSize = 50;
-        for (let i = 0; i < bundleRows.length; i += chunkSize) {
-          await tx.insert(bundle).values(bundleRows.slice(i, i + chunkSize));
-        }
-
-        const eventRows = bundleRows.map((row) => ({
-          id: crypto.randomUUID(),
-          companyId: ctx.companyId,
-          bundleId: row.id,
-          fromStatus: null,
-          toStatus: "available" as const,
-          reason: "receipt",
-          actorId: userId,
-          at: now,
-        }));
-        for (let i = 0; i < eventRows.length; i += chunkSize) {
-          await tx.insert(bundleStatusEvent).values(eventRows.slice(i, i + chunkSize));
-        }
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+        }),
+      ];
+      pushChunkedInserts(statements, (chunk) => ctx.db.insert(bundle).values(chunk), bundleRows, 50);
+      pushChunkedInserts(
+        statements,
+        (chunk) => ctx.db.insert(bundleStatusEvent).values(chunk),
+        eventRows,
+        50,
+      );
+      statements.push(
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "bundle.receipt.create",
             subjectType: "bundle_group",
@@ -138,12 +138,12 @@ export const bundleRouter = router({
               purchaseOrderRef: input.purchaseOrderRef ?? null,
             },
           },
-        );
+        ),
+      );
 
-        return { groupId, code, bundleCount: bundleRows.length };
-      });
+      await atomicBatch(ctx.db, statements);
 
-      return { success: true, ...created };
+      return { success: true, groupId, code, bundleCount: bundleRows.length };
     }),
 
   listGroups: companyProcedure
@@ -352,24 +352,23 @@ export const bundleRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const existing = await tx.query.bundle.findFirst({
-          where: and(eq(bundle.id, input.id), eq(bundle.companyId, ctx.companyId)),
-        });
-        if (!existing) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
-        }
+      const existing = await ctx.db.query.bundle.findFirst({
+        where: and(eq(bundle.id, input.id), eq(bundle.companyId, ctx.companyId)),
+      });
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
+      }
 
-        assertTransitionAllowed(existing.status, input.toStatus);
+      assertTransitionAllowed(existing.status, input.toStatus);
 
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
 
-        await tx
+      await atomicBatch(ctx.db, [
+        ctx.db
           .update(bundle)
           .set({ status: input.toStatus, serverSeq: seq })
-          .where(eq(bundle.id, existing.id));
-
-        await tx.insert(bundleStatusEvent).values({
+          .where(eq(bundle.id, existing.id)),
+        ctx.db.insert(bundleStatusEvent).values({
           id: crypto.randomUUID(),
           companyId: ctx.companyId,
           bundleId: existing.id,
@@ -377,10 +376,9 @@ export const bundleRouter = router({
           toStatus: input.toStatus,
           reason: input.reason ?? null,
           actorId: ctx.session.user.id,
-        });
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+        }),
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "bundle.transition",
             subjectType: "bundle",
@@ -391,8 +389,8 @@ export const bundleRouter = router({
               reason: input.reason ?? null,
             },
           },
-        );
-      });
+        ),
+      ]);
 
       return { success: true };
     }),

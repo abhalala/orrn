@@ -105,6 +105,12 @@ bun run deploy
 - Content fields may use last-write-wins by server timestamp.
 - Client mutation pushes must be idempotent.
 
+## D1 writes (atomic multi-statement)
+
+- Do **not** use `db.transaction()` on Cloudflare D1 — Drizzle emits SQL `BEGIN`, which D1 rejects.
+- Perform reads with `db` first, then `atomicBatch()` from `@orrn/db/atomic` (re-exported as `@orrn/api/lib/atomic`) for writes that must succeed or fail together.
+- `nextCompanySeq()` runs outside the batch (a failed batch may leave a gap in sequence numbers; that is acceptable).
+
 ## Worker performance rules
 
 - Minimize Worker CPU and wall time.

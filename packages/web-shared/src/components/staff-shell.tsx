@@ -1,14 +1,15 @@
 import type { Action } from "@orrn/api/lib/permissions";
-import { Badge } from "@orrn/ui/components/badge";
+import { StatusBadge } from "@orrn/ui/components/badge";
 import {
   Sidebar,
   SidebarItem,
   SidebarSection,
 } from "@orrn/ui/components/sidebar";
-import { Link, useLocation, useMatchRoute } from "@tanstack/react-router";
-import { Building2, ClipboardList, Shield, Users } from "lucide-react";
+import { Link, useMatchRoute } from "@tanstack/react-router";
+import { Building2, ClipboardList, LayoutDashboard, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { Breadcrumbs } from "../components/breadcrumbs";
 import { ModeToggle } from "../components/mode-toggle";
 import UserMenu from "../components/user-menu";
 import { can, useMe } from "../lib/me";
@@ -21,7 +22,7 @@ type NavItem = {
 };
 
 const STAFF_NAV: readonly NavItem[] = [
-  { to: "/admin", label: "Console", icon: <Shield size={16} /> },
+  { to: "/admin", label: "Console", icon: <LayoutDashboard size={16} /> },
   {
     to: "/admin/companies",
     label: "Companies",
@@ -79,21 +80,34 @@ export function StaffShell({ children }: { children: ReactNode }) {
           </SidebarSection>
         </Sidebar>
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="flex items-center justify-between gap-3 px-6 h-14 border-b border-border bg-background">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Signed in as</span>
-              <span className="text-sm font-medium">{me?.user.email}</span>
-              {me?.platformRole ? (
-                <Badge tone="warning">{me.platformRole.replace("_", " ").toUpperCase()}</Badge>
-              ) : null}
-            </div>
-            <UserMenu signInTo="/" />
-          </header>
+          <StaffTopBar />
+          <Breadcrumbs homePath="/admin" homeLabel="Console" skipSegments={["admin"]} />
           <main className="flex-1 overflow-auto">
-            <div className="mx-auto w-full max-w-6xl px-6 py-6 space-y-6">{children}</div>
+            <div className="mx-auto w-full max-w-7xl px-6 py-6 space-y-6">{children}</div>
           </main>
         </div>
       </div>
+    </div>
+  );
+}
+
+function StaffTopBar() {
+  const { data: me } = useMe();
+  const platformRole = me?.platformRole;
+  return (
+    <div className="flex items-center justify-between gap-3 px-6 h-14 border-b border-border bg-background">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-sm text-muted-foreground hidden sm:inline">Signed in as</span>
+        <span className="text-sm font-medium text-foreground truncate">{me?.user.email}</span>
+        {platformRole ? (
+          <StatusBadge
+            kind="role"
+            value="platform"
+            label={platformRole.replace("_", " ").toUpperCase()}
+          />
+        ) : null}
+      </div>
+      <UserMenu signInTo="/" />
     </div>
   );
 }

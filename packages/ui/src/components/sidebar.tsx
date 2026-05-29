@@ -145,21 +145,23 @@ export function SidebarItem({ active, icon, children, onPress, testID }: Sidebar
       paddingHorizontal={collapsed ? 0 : 10}
       paddingVertical={8}
       borderRadius={8}
-      backgroundColor={active ? "$accent" : "transparent"}
-      hoverStyle={{ backgroundColor: active ? "$accent" : "$backgroundHover" }}
+      borderLeftWidth={3}
+      borderLeftColor={active ? "$primary" : "transparent"}
+      backgroundColor={active ? "$backgroundHover" : "transparent"}
+      hoverStyle={{ backgroundColor: "$backgroundHover" }}
       gap={collapsed ? 0 : 10}
       justifyContent={collapsed ? "center" : "flex-start"}
     >
       {icon ? (
         <Stack width={20} alignItems="center" justifyContent="center">
-          {icon}
+          <Text color={active ? "$primary" : "$mutedFg"}>{icon}</Text>
         </Stack>
       ) : null}
       {!collapsed ? (
         <Text
           fontSize={13}
           fontWeight={active ? "600" : "500"}
-          color={active ? "$accentFg" : "$color"}
+          color={active ? "$color" : "$mutedFg"}
         >
           {children}
         </Text>

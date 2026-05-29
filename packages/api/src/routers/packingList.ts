@@ -13,10 +13,13 @@ import {
 import { die } from "@orrn/db/schema/catalog";
 import { packingList, packingListLine } from "@orrn/db/schema/packing";
 
-import { companyProcedure, router } from "../index";
+import type { BatchItem } from "drizzle-orm/batch";
+
 import type { Context } from "../context";
-import { writeAudit } from "../lib/audit";
+import { auditInsert } from "../lib/audit";
+import { atomicBatch, pushChunkedInserts, type OrrnDb } from "../lib/atomic";
 import { nextCompanySeq } from "../lib/sequence";
+import { companyProcedure, router } from "../index";
 
 // ---------------------------------------------------------------------------
 // Local types
@@ -154,7 +157,7 @@ async function buildSnapshot(
 }
 
 // ---------------------------------------------------------------------------
-// Exported helper — called from dispatch.complete inside its transaction so
+// Exported helper — called from dispatch.complete inside the same D1 batch so
 // a packing list is always atomically present when a dispatch completes.
 // ---------------------------------------------------------------------------
 type DispatchRowForPL = {
@@ -167,68 +170,90 @@ type DispatchRowForPL = {
   completedAt: Date | null;
 };
 
-export async function createPackingListInTx(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
-  opts: {
-    companyId: string;
-    dispatchRow: DispatchRowForPL;
-    session: NonNullable<Context["session"]>;
-    impersonation?: Context["impersonation"];
-  },
-) {
-  const seq = await nextCompanySeq({ db: tx }, opts.companyId);
+type PackingListWriteOpts = {
+  companyId: string;
+  dispatchRow: DispatchRowForPL;
+  session: NonNullable<Context["session"]>;
+  impersonation?: Context["impersonation"];
+  plId?: string;
+  auditAction?: "packingList.create" | "packingList.regenerate";
+  auditMeta?: Record<string, unknown>;
+};
+
+/** Build D1 batch statements for a new packing list (reads use `db` first). */
+export async function packingListWriteBatch(
+  db: OrrnDb,
+  opts: PackingListWriteOpts,
+): Promise<{ plId: string; code: string; statements: BatchItem<"sqlite">[] }> {
+  const plId = opts.plId ?? crypto.randomUUID();
+  const seq = await nextCompanySeq({ db }, opts.companyId);
   const code = `PL-${seq.toString().padStart(6, "0")}`;
 
   const { snapshot, items } = await buildSnapshot(
-    tx,
+    db,
     opts.companyId,
     opts.dispatchRow,
     opts.session.user.id,
   );
 
-  const [pl] = await tx
-    .insert(packingList)
-    .values({
-      id: crypto.randomUUID(),
+  const statements: BatchItem<"sqlite">[] = [
+    db.insert(packingList).values({
+      id: plId,
       companyId: opts.companyId,
       serverSeq: seq,
       dispatchId: opts.dispatchRow.id,
       code,
       snapshot,
       createdBy: opts.session.user.id,
-    })
-    .returning();
-
-  if (!pl) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to auto-create packing list" });
+    }),
+  ];
 
   if (items.length > 0) {
-    await tx.insert(packingListLine).values(
-      items.map((item, index) => ({
-        id: crypto.randomUUID(),
-        companyId: opts.companyId,
-        packingListId: pl.id,
-        bundleId: item.bundleId,
-        dieId: item.dieId,
-        quantity: Number(item.bundleQuantity),
-        weightG: Number(item.bundleWeightG),
-        lengthMm: Number(item.bundleLengthMm),
-        groupLabel: item.groupId ?? `GROUP-${index + 1}`,
-      })),
+    const lineValues = items.map((item, index) => ({
+      id: crypto.randomUUID(),
+      companyId: opts.companyId,
+      packingListId: plId,
+      bundleId: item.bundleId,
+      dieId: item.dieId,
+      quantity: Number(item.bundleQuantity),
+      weightG: Number(item.bundleWeightG),
+      lengthMm: Number(item.bundleLengthMm),
+      groupLabel: item.groupId ?? `GROUP-${index + 1}`,
+    }));
+    pushChunkedInserts(
+      statements,
+      (chunk) => db.insert(packingListLine).values(chunk),
+      lineValues,
+      50,
     );
   }
 
-  await writeAudit(
-    { db: tx, companyId: opts.companyId, session: opts.session, impersonation: opts.impersonation },
-    {
-      action: "packingList.create",
-      subjectType: "packing_list",
-      subjectId: pl.id,
-      meta: { dispatchId: opts.dispatchRow.id, code, bundleCount: items.length },
-    },
+  statements.push(
+    auditInsert(
+      { db, companyId: opts.companyId, session: opts.session, impersonation: opts.impersonation },
+      {
+        action: opts.auditAction ?? "packingList.create",
+        subjectType: "packing_list",
+        subjectId: plId,
+        meta: opts.auditMeta ?? {
+          dispatchId: opts.dispatchRow.id,
+          code,
+          bundleCount: items.length,
+        },
+      },
+    ),
   );
 
-  return pl;
+  return { plId, code, statements };
+}
+
+/** Auto-create packing list during dispatch.complete (append to a larger atomic batch). */
+export async function appendPackingListWrites(
+  db: OrrnDb,
+  opts: PackingListWriteOpts,
+): Promise<{ plId: string; statements: BatchItem<"sqlite">[] }> {
+  const { plId, statements } = await packingListWriteBatch(db, opts);
+  return { plId, statements };
 }
 
 // ---------------------------------------------------------------------------
@@ -270,62 +295,22 @@ export const packingListRouter = router({
         });
       }
 
-      const result = await ctx.db.transaction(async (tx) => {
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-        const code = `PL-${seq.toString().padStart(6, "0")}`;
-
-        const { snapshot, items } = await buildSnapshot(
-          tx as any,
-          ctx.companyId,
-          dispatchRow,
-          ctx.session.user.id,
-        );
-
-        const [pl] = await tx
-          .insert(packingList)
-          .values({
-            id: crypto.randomUUID(),
-            companyId: ctx.companyId,
-            serverSeq: seq,
-            dispatchId: dispatchRow.id,
-            code,
-            snapshot,
-            createdBy: ctx.session.user.id,
-          })
-          .returning();
-
-        if (!pl) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create packing list" });
-
-        if (items.length > 0) {
-          await tx.insert(packingListLine).values(
-            items.map((item, index) => ({
-              id: crypto.randomUUID(),
-              companyId: ctx.companyId,
-              packingListId: pl.id,
-              bundleId: item.bundleId,
-              dieId: item.dieId,
-              quantity: Number(item.bundleQuantity),
-              weightG: Number(item.bundleWeightG),
-              lengthMm: Number(item.bundleLengthMm),
-              groupLabel: item.groupId ?? `GROUP-${index + 1}`,
-            })),
-          );
-        }
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
-          {
-            action: "packingList.create",
-            subjectType: "packing_list",
-            subjectId: pl.id,
-            meta: { dispatchId: dispatchRow.id, code, bundleCount: items.length },
-          },
-        );
-
-        return pl;
+      const { plId, statements } = await packingListWriteBatch(ctx.db, {
+        companyId: ctx.companyId,
+        dispatchRow,
+        session: ctx.session,
+        impersonation: ctx.impersonation,
       });
+      await atomicBatch(ctx.db, statements);
 
-      return result;
+      const pl = await ctx.db.query.packingList.findFirst({
+        where: and(eq(packingList.id, plId), eq(packingList.companyId, ctx.companyId)),
+      });
+      if (!pl) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create packing list" });
+      }
+
+      return pl;
     }),
 
   get: companyProcedure
@@ -410,90 +395,49 @@ export const packingListRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Packing list not found" });
       }
 
-      const result = await ctx.db.transaction(async (tx) => {
-        const dispatchRow = await tx.query.dispatch.findFirst({
-          where: and(
-            eq(dispatch.id, existing.dispatchId),
-            eq(dispatch.companyId, ctx.companyId),
-            eq(dispatch.status, "completed"),
-            isNull(dispatch.deletedAt),
-          ),
-        });
-
-        if (!dispatchRow) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Associated dispatch not found or not completed",
-          });
-        }
-
-        // Delete lines then header
-        await tx
-          .delete(packingListLine)
-          .where(eq(packingListLine.packingListId, existing.id));
-        await tx
-          .delete(packingList)
-          .where(eq(packingList.id, existing.id));
-
-        const seq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-        const code = `PL-${seq.toString().padStart(6, "0")}`;
-
-        const { snapshot, items } = await buildSnapshot(
-          tx as any,
-          ctx.companyId,
-          dispatchRow,
-          ctx.session.user.id,
-        );
-
-        const [pl] = await tx
-          .insert(packingList)
-          .values({
-            id: crypto.randomUUID(),
-            companyId: ctx.companyId,
-            serverSeq: seq,
-            dispatchId: dispatchRow.id,
-            code,
-            snapshot,
-            createdBy: ctx.session.user.id,
-          })
-          .returning();
-
-        if (!pl) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to regenerate packing list" });
-
-        if (items.length > 0) {
-          await tx.insert(packingListLine).values(
-            items.map((item, index) => ({
-              id: crypto.randomUUID(),
-              companyId: ctx.companyId,
-              packingListId: pl.id,
-              bundleId: item.bundleId,
-              dieId: item.dieId,
-              quantity: Number(item.bundleQuantity),
-              weightG: Number(item.bundleWeightG),
-              lengthMm: Number(item.bundleLengthMm),
-              groupLabel: item.groupId ?? `GROUP-${index + 1}`,
-            })),
-          );
-        }
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
-          {
-            action: "packingList.regenerate",
-            subjectType: "packing_list",
-            subjectId: pl.id,
-            meta: {
-              dispatchId: dispatchRow.id,
-              previousId: existing.id,
-              code,
-              bundleCount: items.length,
-            },
-          },
-        );
-
-        return pl;
+      const dispatchRow = await ctx.db.query.dispatch.findFirst({
+        where: and(
+          eq(dispatch.id, existing.dispatchId),
+          eq(dispatch.companyId, ctx.companyId),
+          eq(dispatch.status, "completed"),
+          isNull(dispatch.deletedAt),
+        ),
       });
 
-      return result;
+      if (!dispatchRow) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Associated dispatch not found or not completed",
+        });
+      }
+
+      const newPlId = crypto.randomUUID();
+      const { statements: createStatements } = await packingListWriteBatch(ctx.db, {
+        companyId: ctx.companyId,
+        dispatchRow,
+        session: ctx.session,
+        impersonation: ctx.impersonation,
+        plId: newPlId,
+        auditAction: "packingList.regenerate",
+        auditMeta: {
+          dispatchId: dispatchRow.id,
+          previousId: existing.id,
+        },
+      });
+
+      await atomicBatch(ctx.db, [
+        ctx.db.delete(packingListLine).where(eq(packingListLine.packingListId, existing.id)),
+        ctx.db.delete(packingList).where(eq(packingList.id, existing.id)),
+        ...createStatements,
+      ]);
+
+      const pl = await ctx.db.query.packingList.findFirst({
+        where: and(eq(packingList.id, newPlId), eq(packingList.companyId, ctx.companyId)),
+      });
+      if (!pl) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to regenerate packing list" });
+      }
+
+      return pl;
     }),
 });

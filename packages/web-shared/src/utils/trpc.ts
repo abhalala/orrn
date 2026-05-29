@@ -1,15 +1,37 @@
 import type { AppRouter } from "@orrn/api/routers/index";
 import { env } from "@orrn/env/web";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
-import { createTRPCClient, httpBatchLink } from "@trpc/client";
+import { TRPCClientError, createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 
 import { getImpersonateCompanyId } from "../lib/impersonation";
 
+function isAuthMeQueryKey(queryKey: unknown): boolean {
+  return (
+    Array.isArray(queryKey) &&
+    Array.isArray(queryKey[0]) &&
+    queryKey[0][0] === "auth" &&
+    queryKey[0][1] === "me"
+  );
+}
+
+function shouldToastQueryError(error: unknown, query: { queryKey: unknown }): boolean {
+  if (isAuthMeQueryKey(query.queryKey)) {
+    return false;
+  }
+  if (error instanceof TRPCClientError && error.data?.code === "UNAUTHORIZED") {
+    return false;
+  }
+  return true;
+}
+
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
+      if (!shouldToastQueryError(error, query)) {
+        return;
+      }
       toast.error(error.message, {
         action: {
           label: "retry",

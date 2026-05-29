@@ -4,7 +4,8 @@ import { TRPCError } from "@trpc/server";
 
 import { customer } from "@orrn/db/schema/customers";
 import { companyProcedure, router } from "../index";
-import { writeAudit } from "../lib/audit";
+import { auditInsert } from "../lib/audit";
+import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { nextCompanySeq } from "../lib/sequence";
 
 const customerBaseSchema = z.object({
@@ -75,11 +76,10 @@ export const customerRouter = router({
     .input(customerBaseSchema)
     .mutation(async ({ ctx, input }) => {
       const id = crypto.randomUUID();
-      
-      await ctx.db.transaction(async (tx) => {
-        const serverSeq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-        
-        await tx.insert(customer).values({
+      const serverSeq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+
+      await atomicBatch(ctx.db, [
+        ctx.db.insert(customer).values({
           id,
           companyId: ctx.companyId,
           serverSeq,
@@ -90,18 +90,17 @@ export const customerRouter = router({
           shippingAddress: input.shippingAddress,
           taxId: input.taxId,
           notes: input.notes,
-        });
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+        }),
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "customer.create",
             subjectType: "customer",
             subjectId: id,
             meta: { name: input.name },
-          }
-        );
-      });
+          },
+        ),
+      ]);
 
       return { success: true, id };
     }),
@@ -109,22 +108,22 @@ export const customerRouter = router({
   update: companyProcedure
     .input(customerBaseSchema.extend({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const existing = await tx.query.customer.findFirst({
-          where: and(
-            eq(customer.id, input.id),
-            eq(customer.companyId, ctx.companyId),
-            isNull(customer.deletedAt)
-          )
-        });
+      const existing = await ctx.db.query.customer.findFirst({
+        where: and(
+          eq(customer.id, input.id),
+          eq(customer.companyId, ctx.companyId),
+          isNull(customer.deletedAt),
+        ),
+      });
 
-        if (!existing) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found" });
-        }
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found" });
+      }
 
-        const serverSeq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
+      const serverSeq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
 
-        await tx
+      await atomicBatch(ctx.db, [
+        ctx.db
           .update(customer)
           .set({
             name: input.name,
@@ -136,18 +135,17 @@ export const customerRouter = router({
             notes: input.notes,
             serverSeq,
           })
-          .where(eq(customer.id, input.id));
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          .where(eq(customer.id, input.id)),
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "customer.update",
             subjectType: "customer",
             subjectId: input.id,
             meta: { name: input.name },
-          }
-        );
-      });
+          },
+        ),
+      ]);
 
       return { success: true };
     }),
@@ -155,39 +153,38 @@ export const customerRouter = router({
   delete: companyProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const existing = await tx.query.customer.findFirst({
-          where: and(
-            eq(customer.id, input.id),
-            eq(customer.companyId, ctx.companyId),
-            isNull(customer.deletedAt)
-          )
-        });
+      const existing = await ctx.db.query.customer.findFirst({
+        where: and(
+          eq(customer.id, input.id),
+          eq(customer.companyId, ctx.companyId),
+          isNull(customer.deletedAt),
+        ),
+      });
 
-        if (!existing) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found" });
-        }
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found" });
+      }
 
-        const serverSeq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
+      const serverSeq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
 
-        await tx
+      await atomicBatch(ctx.db, [
+        ctx.db
           .update(customer)
           .set({
             deletedAt: new Date(),
             serverSeq,
           })
-          .where(eq(customer.id, input.id));
-
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          .where(eq(customer.id, input.id)),
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "customer.delete",
             subjectType: "customer",
             subjectId: input.id,
             meta: { name: existing.name },
-          }
-        );
-      });
+          },
+        ),
+      ]);
 
       return { success: true };
     }),
@@ -199,40 +196,40 @@ export const customerRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "No rows provided" });
       }
 
-      await ctx.db.transaction(async (tx) => {
-        const serverSeq = await nextCompanySeq({ db: tx as any }, ctx.companyId);
-        
-        const values = input.map(row => ({
-          id: crypto.randomUUID(),
-          companyId: ctx.companyId,
-          serverSeq,
-          name: row.name,
-          phone: row.phone,
-          email: row.email || null,
-          billingAddress: row.billingAddress,
-          shippingAddress: row.shippingAddress,
-          taxId: row.taxId,
-          notes: row.notes,
-        }));
+      const serverSeq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
 
-        // SQLite limits variables per query. We could batch this, but for simplicity we assume
-        // the client sends reasonable chunks (e.g. 50-100 rows).
-        // A production app should chunk this.
-        const chunkSize = 100;
-        for (let i = 0; i < values.length; i += chunkSize) {
-          const chunk = values.slice(i, i + chunkSize);
-          await tx.insert(customer).values(chunk);
-        }
+      const values = input.map((row) => ({
+        id: crypto.randomUUID(),
+        companyId: ctx.companyId,
+        serverSeq,
+        name: row.name,
+        phone: row.phone,
+        email: row.email || null,
+        billingAddress: row.billingAddress,
+        shippingAddress: row.shippingAddress,
+        taxId: row.taxId,
+        notes: row.notes,
+      }));
 
-        await writeAudit(
-          { db: tx as any, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+      const statements: SqliteBatchItem[] = [];
+      pushChunkedInserts(
+        statements,
+        (chunk) => ctx.db.insert(customer).values(chunk),
+        values,
+        100,
+      );
+      statements.push(
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "customer.import",
             subjectType: "customer",
             meta: { count: values.length },
-          }
-        );
-      });
+          },
+        ),
+      );
+
+      await atomicBatch(ctx.db, statements);
 
       return { success: true, count: input.length };
     }),

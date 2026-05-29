@@ -10,13 +10,15 @@
     "alchemy-deploy-dev": "ALCHEMY_STAGE=dev alchemy deploy --stage dev --adopt",
     "alchemy-deploy-prod": "ALCHEMY_STAGE=production alchemy deploy --stage production --adopt",
     "destroy": "alchemy destroy",
-    "bootstrap-super-admin": "bun --env-file=.env scripts/bootstrap-super-admin.ts"
+    "bootstrap-super-admin": "bun --env-file=.env scripts/bootstrap-super-admin.ts",
+    "set-staff-password": "bun --env-file=.env scripts/set-staff-password.ts"
   },
   "dependencies": {
     "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@better-auth/utils": "0.4.0",
     "@orrn/config": "workspace:*",
     "alchemy": "catalog:",
     "typescript": "^6"

@@ -1,16 +1,23 @@
+import { Badge } from "@orrn/ui/components/badge";
+import { Button } from "@orrn/ui/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
+import { Dialog, DialogCloseButton } from "@orrn/ui/components/dialog";
+import { EmptyState } from "@orrn/ui/components/empty-state";
+import { Input } from "@orrn/ui/components/input";
+import { Label } from "@orrn/ui/components/label";
+import { PageHeader } from "@orrn/ui/components/page-header";
+import { Select } from "@orrn/ui/components/select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { format } from "date-fns";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
-import { Input } from "@orrn/ui/components/input";
-import { Label } from "@orrn/ui/components/label";
-import { PageHeader } from "@orrn/ui/components/page-header";
 import { Can } from "@orrn/web-shared/components/can";
 import { requirePlatformAdmin } from "@orrn/web-shared/lib/admin-guards";
+import { useMe } from "@orrn/web-shared/lib/me";
 import { trpc } from "@orrn/web-shared/utils/trpc";
 
 export const Route = createFileRoute("/admin/staff")({
@@ -18,15 +25,37 @@ export const Route = createFileRoute("/admin/staff")({
   component: StaffAdminPage,
 });
 
+type StaffRole = "super_admin" | "admin" | "support";
+
+type StaffRow = {
+  userId: string;
+  name: string;
+  email: string;
+  role: StaffRole;
+  createdAt: Date | string | number;
+};
+
 const createSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  password: z.string().min(12),
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Valid email required"),
+  password: z.string().min(12, "Password must be at least 12 characters"),
   role: z.enum(["super_admin", "admin", "support"]),
 });
 
+const ROLE_TONE: Record<StaffRole, "warning" | "info" | "neutral"> = {
+  super_admin: "warning",
+  admin: "info",
+  support: "neutral",
+};
+
+function formatRole(role: StaffRole): string {
+  return role.replace("_", " ");
+}
+
 function StaffAdminPage() {
   const queryClient = useQueryClient();
+  const { data: me } = useMe();
+
   const staffQuery = useQuery(trpc.platform.staffList.queryOptions());
   const rolesQuery = useQuery(trpc.platform.staffAssignableRoles.queryOptions());
 
@@ -34,8 +63,10 @@ function StaffAdminPage() {
     name: "",
     email: "",
     password: "",
-    role: "support" as "super_admin" | "admin" | "support",
+    role: "support" as StaffRole,
   });
+
+  const [pendingRemove, setPendingRemove] = useState<StaffRow | null>(null);
 
   const createMutation = useMutation({
     ...trpc.platform.staffCreate.mutationOptions(),
@@ -60,12 +91,99 @@ function StaffAdminPage() {
     ...trpc.platform.staffRemove.mutationOptions(),
     onSuccess: () => {
       toast.success("Staff access removed");
+      setPendingRemove(null);
       void queryClient.invalidateQueries(trpc.platform.staffList.queryFilter());
     },
     onError: (err) => toast.error(err.message),
   });
 
-  const assignable = rolesQuery.data ?? [];
+  const assignable = (rolesQuery.data ?? []) as StaffRole[];
+  const roleOptions = assignable.map((role) => ({
+    value: role,
+    label: formatRole(role),
+  }));
+
+  const staff = (staffQuery.data ?? []) as StaffRow[];
+
+  const columns: DataTableColumn<StaffRow>[] = [
+    {
+      id: "name",
+      header: "Name",
+      cell: (row) => (
+        <div className="min-w-0">
+          <p className="font-medium text-foreground truncate">{row.name}</p>
+          <p className="text-xs text-muted-foreground truncate">{row.email}</p>
+        </div>
+      ),
+      flex: 2,
+      sortable: true,
+      sortValue: (row) => row.name.toLowerCase(),
+    },
+    {
+      id: "role",
+      header: "Role",
+      cell: (row) => {
+        const isSelf = row.userId === me?.user.id;
+        const canEdit = !isSelf && assignable.includes(row.role);
+        return (
+          <Can
+            do="platform.staff.updateRole"
+            fallback={
+              <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role).toUpperCase()}</Badge>
+            }
+          >
+            {canEdit ? (
+              <Select
+                value={row.role}
+                onValueChange={(v) =>
+                  updateRoleMutation.mutate({ userId: row.userId, role: v as StaffRole })
+                }
+                options={roleOptions}
+                width={160}
+                disabled={updateRoleMutation.isPending}
+              />
+            ) : (
+              <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role).toUpperCase()}</Badge>
+            )}
+          </Can>
+        );
+      },
+      flex: 1.2,
+    },
+    {
+      id: "created",
+      header: "Created",
+      cell: (row) => (
+        <span className="text-xs text-muted-foreground">
+          {format(new Date(row.createdAt), "PP")}
+        </span>
+      ),
+      flex: 1,
+      sortable: true,
+      sortValue: (row) => new Date(row.createdAt).getTime(),
+    },
+    {
+      id: "actions",
+      header: "",
+      align: "right",
+      cell: (row) => {
+        if (row.userId === me?.user.id) return null;
+        return (
+          <Can do="platform.staff.remove">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPendingRemove(row)}
+              disabled={removeMutation.isPending}
+            >
+              Remove
+            </Button>
+          </Can>
+        );
+      },
+      flex: 0.6,
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -80,125 +198,113 @@ function StaffAdminPage() {
           <CardHeader>
             <CardTitle>Create staff account</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 max-w-lg">
-            <div className="space-y-2">
-              <Label htmlFor="staff-name">Name</Label>
-              <Input
-                id="staff-name"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              />
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2 max-w-2xl">
+              <div className="space-y-2">
+                <Label htmlFor="staff-name">Name</Label>
+                <Input
+                  id="staff-name"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="staff-email">Email</Label>
+                <Input
+                  id="staff-email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="staff-password">Temporary password</Label>
+                <Input
+                  id="staff-password"
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Minimum 12 characters. Share securely out of band.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select
+                  value={form.role}
+                  onValueChange={(v) => setForm((f) => ({ ...f, role: v as StaffRole }))}
+                  options={roleOptions}
+                  width={240}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="staff-email">Email</Label>
-              <Input
-                id="staff-email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="staff-password">Temporary password</Label>
-              <Input
-                id="staff-password"
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              />
-              <p className="text-xs text-muted-foreground">Minimum 12 characters. Share securely out of band.</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="staff-role">Role</Label>
-              <select
-                id="staff-role"
-                className="w-full h-10 rounded-md border border-border bg-background px-3 text-sm"
-                value={form.role}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    role: e.target.value as typeof form.role,
-                  }))
-                }
+            <div className="mt-4">
+              <Button
+                disabled={createMutation.isPending}
+                onClick={() => {
+                  const parsed = createSchema.safeParse(form);
+                  if (!parsed.success) {
+                    toast.error(parsed.error.issues[0]?.message ?? "Invalid form");
+                    return;
+                  }
+                  createMutation.mutate(parsed.data);
+                }}
               >
-                {assignable.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
+                {createMutation.isPending ? "Creating…" : "Create account"}
+              </Button>
             </div>
-            <Button
-              disabled={createMutation.isPending}
-              onClick={() => {
-                const parsed = createSchema.safeParse(form);
-                if (!parsed.success) {
-                  toast.error(parsed.error.issues[0]?.message ?? "Invalid form");
-                  return;
-                }
-                createMutation.mutate(parsed.data);
-              }}
-            >
-              Create account
-            </Button>
           </CardContent>
         </Card>
       </Can>
 
       <Card>
         <CardHeader>
-          <CardTitle>Active staff</CardTitle>
+          <CardTitle>Active staff ({staff.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {staffQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {(staffQuery.data ?? []).map((row) => (
-                <li key={row.userId} className="py-3 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="font-medium">{row.name}</p>
-                    <p className="text-sm text-muted-foreground">{row.email}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Can do="platform.staff.updateRole">
-                      <select
-                        className="h-9 rounded-md border border-border bg-background px-2 text-sm"
-                        value={row.role}
-                        onChange={(e) =>
-                          updateRoleMutation.mutate({
-                            userId: row.userId,
-                            role: e.target.value as typeof form.role,
-                          })
-                        }
-                      >
-                        {assignable.map((role) => (
-                          <option key={role} value={role}>
-                            {role}
-                          </option>
-                        ))}
-                      </select>
-                    </Can>
-                    <Can do="platform.staff.remove">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (confirm(`Remove staff access for ${row.email}?`)) {
-                            removeMutation.mutate({ userId: row.userId });
-                          }
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    </Can>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <DataTable
+            columns={columns}
+            rows={staff}
+            rowKey={(row) => row.userId}
+            isLoading={staffQuery.isLoading}
+            emptyState={
+              <EmptyState
+                title="No staff yet"
+                description="Use the form above to create the first orrn.app staff account."
+              />
+            }
+          />
         </CardContent>
       </Card>
+
+      <Dialog
+        open={!!pendingRemove}
+        onOpenChange={(open) => {
+          if (!open) setPendingRemove(null);
+        }}
+        title="Remove staff access"
+        description={
+          pendingRemove
+            ? `Revoke orrn.app access for ${pendingRemove.email}? They will no longer be able to sign in to the staff console.`
+            : undefined
+        }
+        actions={
+          <>
+            <DialogCloseButton onPress={() => setPendingRemove(null)} />
+            <Button
+              variant="destructive"
+              disabled={removeMutation.isPending}
+              onClick={() => {
+                if (!pendingRemove) return;
+                removeMutation.mutate({ userId: pendingRemove.userId });
+              }}
+            >
+              {removeMutation.isPending ? "Removing…" : "Remove access"}
+            </Button>
+          </>
+        }
+      />
     </div>
   );
 }

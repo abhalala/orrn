@@ -25,6 +25,9 @@
     "./components/sign-in-form": "./src/components/sign-in-form.tsx",
     "./components/staff-sign-in-form": "./src/components/staff-sign-in-form.tsx",
     "./components/staff-shell": "./src/components/staff-shell.tsx",
+    "./components/breadcrumbs": "./src/components/breadcrumbs.tsx",
+    "./components/admin/stat-card": "./src/components/admin/stat-card.tsx",
+    "./components/admin/nav-card": "./src/components/admin/nav-card.tsx",
     "./components/sign-up-form": "./src/components/sign-up-form.tsx",
     "./components/import-dies-modal": "./src/components/import-dies-modal.tsx",
     "./index.css": "./src/index.css"

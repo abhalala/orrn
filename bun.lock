@@ -342,6 +342,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@better-auth/utils": "0.4.0",
         "@orrn/config": "workspace:*",
         "alchemy": "catalog:",
         "typescript": "^6",

@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 
 import { companyRoles, invite, membership } from "@orrn/db/schema/tenant";
 import { user } from "@orrn/db/schema/auth";
+import { atomicBatch } from "../lib/atomic";
 import { sendEmail } from "../lib/email";
 import { companyProcedure, roleGuard, publicProcedure, router } from "../index";
 
@@ -123,18 +124,18 @@ export const inviteRouter = router({
 
       const membershipId = crypto.randomUUID();
 
-      await ctx.db.transaction(async (tx) => {
-         await tx.insert(membership).values({
-            id: membershipId,
-            userId,
-            companyId: targetInvite.companyId,
-            role: targetInvite.role,
-         });
-
-         await tx.update(invite)
-            .set({ acceptedAt: new Date() })
-            .where(eq(invite.id, targetInvite.id));
-      });
+      await atomicBatch(ctx.db, [
+        ctx.db.insert(membership).values({
+          id: membershipId,
+          userId,
+          companyId: targetInvite.companyId,
+          role: targetInvite.role,
+        }),
+        ctx.db
+          .update(invite)
+          .set({ acceptedAt: new Date() })
+          .where(eq(invite.id, targetInvite.id)),
+      ]);
 
       return { success: true };
     }),
