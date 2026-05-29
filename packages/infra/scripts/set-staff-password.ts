@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import { config } from "dotenv";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { hashPassword } from "@orrn/auth/password";
+import { hashPassword } from "../../auth/src/password.ts";
 
 const infraDir = dirname(fileURLToPath(import.meta.url));
 config({ path: join(infraDir, "../.env") });

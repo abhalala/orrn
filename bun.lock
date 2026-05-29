@@ -340,7 +340,6 @@
     "packages/infra": {
       "name": "@orrn/infra",
       "dependencies": {
-        "@orrn/auth": "workspace:*",
         "dotenv": "catalog:",
         "zod": "catalog:",
       },
