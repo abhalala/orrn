@@ -14,6 +14,7 @@
     "set-staff-password": "bun --env-file=.env scripts/set-staff-password.ts"
   },
   "dependencies": {
+    "@orrn/auth": "workspace:*",
     "dotenv": "catalog:",
     "zod": "catalog:"
   },
