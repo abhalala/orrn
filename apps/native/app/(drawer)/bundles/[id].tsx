@@ -15,6 +15,7 @@ import {
 import { format } from "date-fns";
 
 import { queryClient, trpc } from "../../../utils/trpc";
+import { useLengthUnit } from "../../../utils/length";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -22,6 +23,7 @@ type BundleStatus = (typeof bundleStatuses)[number];
 export default function BundleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [reason, setReason] = useState("");
+  const lu = useLengthUnit();
 
   const { data, isLoading } = useQuery({
     ...trpc.bundle.getBundle.queryOptions({ id: id as string }),
@@ -117,7 +119,7 @@ export default function BundleDetailScreen() {
         </View>
         <View style={styles.kvRow}>
           <Text style={styles.kvLabel}>Length</Text>
-          <Text style={styles.kvValue}>{bundle.lengthMm} mm</Text>
+          <Text style={styles.kvValue}>{lu.formatLength(bundle.lengthMm)}</Text>
         </View>
         <View style={styles.kvRow}>
           <Text style={styles.kvLabel}>Created</Text>

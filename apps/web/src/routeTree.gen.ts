@@ -10,51 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WaitlistRouteImport } from './routes/waitlist'
-import { Route as SetupCredentialsRouteImport } from './routes/setup-credentials'
-import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as NoAccessRouteImport } from './routes/no-access'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as StockIndexRouteImport } from './routes/stock.index'
-import { Route as ReceiptsIndexRouteImport } from './routes/receipts.index'
-import { Route as DispatchesIndexRouteImport } from './routes/dispatches.index'
-import { Route as DiesIndexRouteImport } from './routes/dies.index'
-import { Route as CustomersIndexRouteImport } from './routes/customers.index'
-import { Route as BundlesIndexRouteImport } from './routes/bundles.index'
-import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as SettingsMembersRouteImport } from './routes/settings.members'
-import { Route as ReceiptsNewRouteImport } from './routes/receipts.new'
-import { Route as ReceiptsIdRouteImport } from './routes/receipts.$id'
-import { Route as PackingListsIdRouteImport } from './routes/packing-lists.$id'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
-import { Route as DispatchesNewRouteImport } from './routes/dispatches.new'
-import { Route as DispatchesIdRouteImport } from './routes/dispatches.$id'
-import { Route as DiesIdRouteImport } from './routes/dies.$id'
-import { Route as CustomersIdRouteImport } from './routes/customers.$id'
-import { Route as BundlesIdRouteImport } from './routes/bundles.$id'
-import { Route as AdminWaitlistRouteImport } from './routes/admin.waitlist'
-import { Route as AdminCompaniesIndexRouteImport } from './routes/admin.companies.index'
-import { Route as AdminCompaniesIdRouteImport } from './routes/admin.companies.$id'
 
 const WaitlistRoute = WaitlistRouteImport.update({
   id: '/waitlist',
   path: '/waitlist',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SetupCredentialsRoute = SetupCredentialsRouteImport.update({
-  id: '/setup-credentials',
-  path: '/setup-credentials',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OnboardingRoute = OnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NoAccessRoute = NoAccessRouteImport.update({
-  id: '/no-access',
-  path: '/no-access',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -62,69 +24,9 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StockIndexRoute = StockIndexRouteImport.update({
-  id: '/stock/',
-  path: '/stock/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReceiptsIndexRoute = ReceiptsIndexRouteImport.update({
-  id: '/receipts/',
-  path: '/receipts/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DispatchesIndexRoute = DispatchesIndexRouteImport.update({
-  id: '/dispatches/',
-  path: '/dispatches/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DiesIndexRoute = DiesIndexRouteImport.update({
-  id: '/dies/',
-  path: '/dies/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CustomersIndexRoute = CustomersIndexRouteImport.update({
-  id: '/customers/',
-  path: '/customers/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BundlesIndexRoute = BundlesIndexRouteImport.update({
-  id: '/bundles/',
-  path: '/bundles/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminIndexRoute = AdminIndexRouteImport.update({
-  id: '/admin/',
-  path: '/admin/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsMembersRoute = SettingsMembersRouteImport.update({
-  id: '/settings/members',
-  path: '/settings/members',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReceiptsNewRoute = ReceiptsNewRouteImport.update({
-  id: '/receipts/new',
-  path: '/receipts/new',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReceiptsIdRoute = ReceiptsIdRouteImport.update({
-  id: '/receipts/$id',
-  path: '/receipts/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PackingListsIdRoute = PackingListsIdRouteImport.update({
-  id: '/packing-lists/$id',
-  path: '/packing-lists/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
@@ -132,253 +34,39 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DispatchesNewRoute = DispatchesNewRouteImport.update({
-  id: '/dispatches/new',
-  path: '/dispatches/new',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DispatchesIdRoute = DispatchesIdRouteImport.update({
-  id: '/dispatches/$id',
-  path: '/dispatches/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DiesIdRoute = DiesIdRouteImport.update({
-  id: '/dies/$id',
-  path: '/dies/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CustomersIdRoute = CustomersIdRouteImport.update({
-  id: '/customers/$id',
-  path: '/customers/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BundlesIdRoute = BundlesIdRouteImport.update({
-  id: '/bundles/$id',
-  path: '/bundles/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminWaitlistRoute = AdminWaitlistRouteImport.update({
-  id: '/admin/waitlist',
-  path: '/admin/waitlist',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminCompaniesIndexRoute = AdminCompaniesIndexRouteImport.update({
-  id: '/admin/companies/',
-  path: '/admin/companies/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminCompaniesIdRoute = AdminCompaniesIdRouteImport.update({
-  id: '/admin/companies/$id',
-  path: '/admin/companies/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
-  '/no-access': typeof NoAccessRoute
-  '/onboarding': typeof OnboardingRoute
-  '/setup-credentials': typeof SetupCredentialsRoute
   '/waitlist': typeof WaitlistRoute
-  '/admin/waitlist': typeof AdminWaitlistRoute
-  '/bundles/$id': typeof BundlesIdRoute
-  '/customers/$id': typeof CustomersIdRoute
-  '/dies/$id': typeof DiesIdRoute
-  '/dispatches/$id': typeof DispatchesIdRoute
-  '/dispatches/new': typeof DispatchesNewRoute
   '/invite/$token': typeof InviteTokenRoute
-  '/packing-lists/$id': typeof PackingListsIdRoute
-  '/receipts/$id': typeof ReceiptsIdRoute
-  '/receipts/new': typeof ReceiptsNewRoute
-  '/settings/members': typeof SettingsMembersRoute
-  '/admin/': typeof AdminIndexRoute
-  '/bundles/': typeof BundlesIndexRoute
-  '/customers/': typeof CustomersIndexRoute
-  '/dies/': typeof DiesIndexRoute
-  '/dispatches/': typeof DispatchesIndexRoute
-  '/receipts/': typeof ReceiptsIndexRoute
-  '/stock/': typeof StockIndexRoute
-  '/admin/companies/$id': typeof AdminCompaniesIdRoute
-  '/admin/companies/': typeof AdminCompaniesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
-  '/no-access': typeof NoAccessRoute
-  '/onboarding': typeof OnboardingRoute
-  '/setup-credentials': typeof SetupCredentialsRoute
   '/waitlist': typeof WaitlistRoute
-  '/admin/waitlist': typeof AdminWaitlistRoute
-  '/bundles/$id': typeof BundlesIdRoute
-  '/customers/$id': typeof CustomersIdRoute
-  '/dies/$id': typeof DiesIdRoute
-  '/dispatches/$id': typeof DispatchesIdRoute
-  '/dispatches/new': typeof DispatchesNewRoute
   '/invite/$token': typeof InviteTokenRoute
-  '/packing-lists/$id': typeof PackingListsIdRoute
-  '/receipts/$id': typeof ReceiptsIdRoute
-  '/receipts/new': typeof ReceiptsNewRoute
-  '/settings/members': typeof SettingsMembersRoute
-  '/admin': typeof AdminIndexRoute
-  '/bundles': typeof BundlesIndexRoute
-  '/customers': typeof CustomersIndexRoute
-  '/dies': typeof DiesIndexRoute
-  '/dispatches': typeof DispatchesIndexRoute
-  '/receipts': typeof ReceiptsIndexRoute
-  '/stock': typeof StockIndexRoute
-  '/admin/companies/$id': typeof AdminCompaniesIdRoute
-  '/admin/companies': typeof AdminCompaniesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
-  '/no-access': typeof NoAccessRoute
-  '/onboarding': typeof OnboardingRoute
-  '/setup-credentials': typeof SetupCredentialsRoute
   '/waitlist': typeof WaitlistRoute
-  '/admin/waitlist': typeof AdminWaitlistRoute
-  '/bundles/$id': typeof BundlesIdRoute
-  '/customers/$id': typeof CustomersIdRoute
-  '/dies/$id': typeof DiesIdRoute
-  '/dispatches/$id': typeof DispatchesIdRoute
-  '/dispatches/new': typeof DispatchesNewRoute
   '/invite/$token': typeof InviteTokenRoute
-  '/packing-lists/$id': typeof PackingListsIdRoute
-  '/receipts/$id': typeof ReceiptsIdRoute
-  '/receipts/new': typeof ReceiptsNewRoute
-  '/settings/members': typeof SettingsMembersRoute
-  '/admin/': typeof AdminIndexRoute
-  '/bundles/': typeof BundlesIndexRoute
-  '/customers/': typeof CustomersIndexRoute
-  '/dies/': typeof DiesIndexRoute
-  '/dispatches/': typeof DispatchesIndexRoute
-  '/receipts/': typeof ReceiptsIndexRoute
-  '/stock/': typeof StockIndexRoute
-  '/admin/companies/$id': typeof AdminCompaniesIdRoute
-  '/admin/companies/': typeof AdminCompaniesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/dashboard'
-    | '/login'
-    | '/no-access'
-    | '/onboarding'
-    | '/setup-credentials'
-    | '/waitlist'
-    | '/admin/waitlist'
-    | '/bundles/$id'
-    | '/customers/$id'
-    | '/dies/$id'
-    | '/dispatches/$id'
-    | '/dispatches/new'
-    | '/invite/$token'
-    | '/packing-lists/$id'
-    | '/receipts/$id'
-    | '/receipts/new'
-    | '/settings/members'
-    | '/admin/'
-    | '/bundles/'
-    | '/customers/'
-    | '/dies/'
-    | '/dispatches/'
-    | '/receipts/'
-    | '/stock/'
-    | '/admin/companies/$id'
-    | '/admin/companies/'
+  fullPaths: '/' | '/login' | '/waitlist' | '/invite/$token'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/dashboard'
-    | '/login'
-    | '/no-access'
-    | '/onboarding'
-    | '/setup-credentials'
-    | '/waitlist'
-    | '/admin/waitlist'
-    | '/bundles/$id'
-    | '/customers/$id'
-    | '/dies/$id'
-    | '/dispatches/$id'
-    | '/dispatches/new'
-    | '/invite/$token'
-    | '/packing-lists/$id'
-    | '/receipts/$id'
-    | '/receipts/new'
-    | '/settings/members'
-    | '/admin'
-    | '/bundles'
-    | '/customers'
-    | '/dies'
-    | '/dispatches'
-    | '/receipts'
-    | '/stock'
-    | '/admin/companies/$id'
-    | '/admin/companies'
-  id:
-    | '__root__'
-    | '/'
-    | '/dashboard'
-    | '/login'
-    | '/no-access'
-    | '/onboarding'
-    | '/setup-credentials'
-    | '/waitlist'
-    | '/admin/waitlist'
-    | '/bundles/$id'
-    | '/customers/$id'
-    | '/dies/$id'
-    | '/dispatches/$id'
-    | '/dispatches/new'
-    | '/invite/$token'
-    | '/packing-lists/$id'
-    | '/receipts/$id'
-    | '/receipts/new'
-    | '/settings/members'
-    | '/admin/'
-    | '/bundles/'
-    | '/customers/'
-    | '/dies/'
-    | '/dispatches/'
-    | '/receipts/'
-    | '/stock/'
-    | '/admin/companies/$id'
-    | '/admin/companies/'
+  to: '/' | '/login' | '/waitlist' | '/invite/$token'
+  id: '__root__' | '/' | '/login' | '/waitlist' | '/invite/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
-  NoAccessRoute: typeof NoAccessRoute
-  OnboardingRoute: typeof OnboardingRoute
-  SetupCredentialsRoute: typeof SetupCredentialsRoute
   WaitlistRoute: typeof WaitlistRoute
-  AdminWaitlistRoute: typeof AdminWaitlistRoute
-  BundlesIdRoute: typeof BundlesIdRoute
-  CustomersIdRoute: typeof CustomersIdRoute
-  DiesIdRoute: typeof DiesIdRoute
-  DispatchesIdRoute: typeof DispatchesIdRoute
-  DispatchesNewRoute: typeof DispatchesNewRoute
   InviteTokenRoute: typeof InviteTokenRoute
-  PackingListsIdRoute: typeof PackingListsIdRoute
-  ReceiptsIdRoute: typeof ReceiptsIdRoute
-  ReceiptsNewRoute: typeof ReceiptsNewRoute
-  SettingsMembersRoute: typeof SettingsMembersRoute
-  AdminIndexRoute: typeof AdminIndexRoute
-  BundlesIndexRoute: typeof BundlesIndexRoute
-  CustomersIndexRoute: typeof CustomersIndexRoute
-  DiesIndexRoute: typeof DiesIndexRoute
-  DispatchesIndexRoute: typeof DispatchesIndexRoute
-  ReceiptsIndexRoute: typeof ReceiptsIndexRoute
-  StockIndexRoute: typeof StockIndexRoute
-  AdminCompaniesIdRoute: typeof AdminCompaniesIdRoute
-  AdminCompaniesIndexRoute: typeof AdminCompaniesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -390,39 +78,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WaitlistRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/setup-credentials': {
-      id: '/setup-credentials'
-      path: '/setup-credentials'
-      fullPath: '/setup-credentials'
-      preLoaderRoute: typeof SetupCredentialsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/onboarding': {
-      id: '/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof OnboardingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/no-access': {
-      id: '/no-access'
-      path: '/no-access'
-      fullPath: '/no-access'
-      preLoaderRoute: typeof NoAccessRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -432,83 +92,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/stock/': {
-      id: '/stock/'
-      path: '/stock'
-      fullPath: '/stock/'
-      preLoaderRoute: typeof StockIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/receipts/': {
-      id: '/receipts/'
-      path: '/receipts'
-      fullPath: '/receipts/'
-      preLoaderRoute: typeof ReceiptsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dispatches/': {
-      id: '/dispatches/'
-      path: '/dispatches'
-      fullPath: '/dispatches/'
-      preLoaderRoute: typeof DispatchesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dies/': {
-      id: '/dies/'
-      path: '/dies'
-      fullPath: '/dies/'
-      preLoaderRoute: typeof DiesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/customers/': {
-      id: '/customers/'
-      path: '/customers'
-      fullPath: '/customers/'
-      preLoaderRoute: typeof CustomersIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/bundles/': {
-      id: '/bundles/'
-      path: '/bundles'
-      fullPath: '/bundles/'
-      preLoaderRoute: typeof BundlesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/': {
-      id: '/admin/'
-      path: '/admin'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings/members': {
-      id: '/settings/members'
-      path: '/settings/members'
-      fullPath: '/settings/members'
-      preLoaderRoute: typeof SettingsMembersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/receipts/new': {
-      id: '/receipts/new'
-      path: '/receipts/new'
-      fullPath: '/receipts/new'
-      preLoaderRoute: typeof ReceiptsNewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/receipts/$id': {
-      id: '/receipts/$id'
-      path: '/receipts/$id'
-      fullPath: '/receipts/$id'
-      preLoaderRoute: typeof ReceiptsIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/packing-lists/$id': {
-      id: '/packing-lists/$id'
-      path: '/packing-lists/$id'
-      fullPath: '/packing-lists/$id'
-      preLoaderRoute: typeof PackingListsIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/invite/$token': {
       id: '/invite/$token'
       path: '/invite/$token'
@@ -516,93 +99,14 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dispatches/new': {
-      id: '/dispatches/new'
-      path: '/dispatches/new'
-      fullPath: '/dispatches/new'
-      preLoaderRoute: typeof DispatchesNewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dispatches/$id': {
-      id: '/dispatches/$id'
-      path: '/dispatches/$id'
-      fullPath: '/dispatches/$id'
-      preLoaderRoute: typeof DispatchesIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dies/$id': {
-      id: '/dies/$id'
-      path: '/dies/$id'
-      fullPath: '/dies/$id'
-      preLoaderRoute: typeof DiesIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/customers/$id': {
-      id: '/customers/$id'
-      path: '/customers/$id'
-      fullPath: '/customers/$id'
-      preLoaderRoute: typeof CustomersIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/bundles/$id': {
-      id: '/bundles/$id'
-      path: '/bundles/$id'
-      fullPath: '/bundles/$id'
-      preLoaderRoute: typeof BundlesIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/waitlist': {
-      id: '/admin/waitlist'
-      path: '/admin/waitlist'
-      fullPath: '/admin/waitlist'
-      preLoaderRoute: typeof AdminWaitlistRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/companies/': {
-      id: '/admin/companies/'
-      path: '/admin/companies'
-      fullPath: '/admin/companies/'
-      preLoaderRoute: typeof AdminCompaniesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/companies/$id': {
-      id: '/admin/companies/$id'
-      path: '/admin/companies/$id'
-      fullPath: '/admin/companies/$id'
-      preLoaderRoute: typeof AdminCompaniesIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
-  NoAccessRoute: NoAccessRoute,
-  OnboardingRoute: OnboardingRoute,
-  SetupCredentialsRoute: SetupCredentialsRoute,
   WaitlistRoute: WaitlistRoute,
-  AdminWaitlistRoute: AdminWaitlistRoute,
-  BundlesIdRoute: BundlesIdRoute,
-  CustomersIdRoute: CustomersIdRoute,
-  DiesIdRoute: DiesIdRoute,
-  DispatchesIdRoute: DispatchesIdRoute,
-  DispatchesNewRoute: DispatchesNewRoute,
   InviteTokenRoute: InviteTokenRoute,
-  PackingListsIdRoute: PackingListsIdRoute,
-  ReceiptsIdRoute: ReceiptsIdRoute,
-  ReceiptsNewRoute: ReceiptsNewRoute,
-  SettingsMembersRoute: SettingsMembersRoute,
-  AdminIndexRoute: AdminIndexRoute,
-  BundlesIndexRoute: BundlesIndexRoute,
-  CustomersIndexRoute: CustomersIndexRoute,
-  DiesIndexRoute: DiesIndexRoute,
-  DispatchesIndexRoute: DispatchesIndexRoute,
-  ReceiptsIndexRoute: ReceiptsIndexRoute,
-  StockIndexRoute: StockIndexRoute,
-  AdminCompaniesIdRoute: AdminCompaniesIdRoute,
-  AdminCompaniesIndexRoute: AdminCompaniesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

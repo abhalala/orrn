@@ -5,8 +5,12 @@
   "scripts": {
     "dev": "alchemy dev",
     "deploy": "alchemy deploy",
-    "deploy:dev": "alchemy deploy --stage dev --adopt",
-    "destroy": "alchemy destroy"
+    "deploy:dev": "bun --env-file=.env run alchemy-deploy-dev",
+    "deploy:prod": "bun --env-file=.env run alchemy-deploy-prod",
+    "alchemy-deploy-dev": "ALCHEMY_STAGE=dev alchemy deploy --stage dev --adopt",
+    "alchemy-deploy-prod": "ALCHEMY_STAGE=production alchemy deploy --stage production --adopt",
+    "destroy": "alchemy destroy",
+    "bootstrap-super-admin": "bun --env-file=.env scripts/bootstrap-super-admin.ts"
   },
   "dependencies": {
     "dotenv": "catalog:",

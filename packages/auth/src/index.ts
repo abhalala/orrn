@@ -2,6 +2,7 @@ import { expo } from "@better-auth/expo";
 import { createDb } from "@orrn/db";
 import * as schema from "@orrn/db/schema/auth";
 import { env } from "@orrn/env/server";
+import { trustedWebOrigins } from "./origins";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins/two-factor";
@@ -24,7 +25,7 @@ async function sendAuthEmail(options: { to: string; subject: string; html: strin
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from: "ORRN <hello@orrn.io>",
+      from: "ORRN <no-reply@orrn.in>",
       to: options.to,
       subject: options.subject,
       html: options.html,
@@ -51,7 +52,10 @@ export function createAuth() {
       schema: schema,
     }),
     trustedOrigins: [
-      env.CORS_ORIGIN,
+      ...trustedWebOrigins({
+        corsOrigin: env.CORS_ORIGIN,
+        corsAllowedOrigins: env.CORS_ALLOWED_ORIGINS,
+      }),
       "orrn://",
       ...(env.NODE_ENV === "development"
         ? ["exp://", "exp://**", "exp://192.168.*.*:*/**", "http://localhost:8081"]

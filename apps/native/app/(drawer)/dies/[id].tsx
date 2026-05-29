@@ -5,6 +5,7 @@ import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityInd
 import { Picker } from "@react-native-picker/picker";
 
 import { trpc, queryClient } from "../../../utils/trpc";
+import { useLengthUnit } from "../../../utils/length";
 
 const dieStatuses = ["active", "archived"] as const;
 
@@ -12,6 +13,7 @@ export default function DieFormScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const isNew = id === "new";
+  const lu = useLengthUnit();
 
   const [series, setSeries] = useState("");
   const [sectionCode, setSectionCode] = useState("");
@@ -42,11 +44,11 @@ export default function DieFormScreen() {
       setNotes(die.notes || "");
       
       const dims: any = die.dimensions || {};
-      setWidthMm(dims.widthMm?.toString() || "");
-      setHeightMm(dims.heightMm?.toString() || "");
-      setThicknessMm(dims.thicknessMm?.toString() || "");
+      setWidthMm(dims.widthMm != null ? lu.formatLengthValue(dims.widthMm) : "");
+      setHeightMm(dims.heightMm != null ? lu.formatLengthValue(dims.heightMm) : "");
+      setThicknessMm(dims.thicknessMm != null ? lu.formatLengthValue(dims.thicknessMm) : "");
     }
-  }, [die, isNew]);
+  }, [die, isNew, lu]);
 
   const createMutation = useMutation({
     ...trpc.die.create.mutationOptions(),
@@ -113,9 +115,9 @@ export default function DieFormScreen() {
       status,
       notes,
       dimensions: {
-        widthMm: widthMm ? Number(widthMm) : undefined,
-        heightMm: heightMm ? Number(heightMm) : undefined,
-        thicknessMm: thicknessMm ? Number(thicknessMm) : undefined,
+        widthMm: widthMm ? lu.parseLengthDecimal(widthMm) : undefined,
+        heightMm: heightMm ? lu.parseLengthDecimal(heightMm) : undefined,
+        thicknessMm: thicknessMm ? lu.parseLengthDecimal(thicknessMm) : undefined,
       }
     };
 
@@ -218,7 +220,7 @@ export default function DieFormScreen() {
           </View>
 
           <View style={styles.fieldset}>
-            <Text style={styles.legend}>Dimensions (mm)</Text>
+            <Text style={styles.legend}>Dimensions ({lu.label})</Text>
             <View style={styles.row}>
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={styles.subLabel}>Width</Text>

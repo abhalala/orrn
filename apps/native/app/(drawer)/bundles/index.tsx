@@ -14,6 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import { trpc } from "../../../utils/trpc";
+import { useLengthUnit } from "../../../utils/length";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -37,6 +38,7 @@ function statusStyle(status: BundleStatus) {
 export default function BundlesScreen() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
+  const lu = useLengthUnit();
 
   const { data, isLoading } = useQuery({
     ...trpc.bundle.listBundles.queryOptions({
@@ -123,7 +125,7 @@ export default function BundlesScreen() {
                   </Text>
                   <Text style={styles.meta}>Receipt: {item.groupCode}</Text>
                   <Text style={styles.detail}>
-                    Qty {item.quantity} · {item.weightG}g · {item.lengthMm}mm
+                    Qty {item.quantity} · {item.weightG}g · {lu.formatLength(item.lengthMm)}
                   </Text>
                 </TouchableOpacity>
               </Link>

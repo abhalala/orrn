@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 
 import type { Context } from "./context";
+import { can, type Action } from "./lib/permissions";
 
 export const t = initTRPC.context<Context>().create();
 
@@ -51,10 +52,10 @@ export const companyProcedure = authedProcedure.use(({ ctx, next }) => {
 });
 
 export const platformProcedure = authedProcedure.use(({ ctx, next }) => {
-  if (!ctx.isPlatformAdmin) {
+  if (!ctx.isPlatformAdmin || !ctx.platformRole) {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "Platform admin access required",
+      message: "Platform staff access required",
     });
   }
 
@@ -62,9 +63,28 @@ export const platformProcedure = authedProcedure.use(({ ctx, next }) => {
     ctx: {
       ...ctx,
       isPlatformAdmin: true,
+      platformRole: ctx.platformRole,
     },
   });
 });
+
+/** Platform staff route guard — checks internal staff role against permissions matrix. */
+export function platformGuard(action: Action) {
+  return platformProcedure.use(({ ctx, next }) => {
+    const me = {
+      company: null,
+      isPlatformAdmin: true,
+      platformRole: ctx.platformRole,
+    };
+    if (!can(me, action)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Insufficient platform permissions",
+      });
+    }
+    return next({ ctx });
+  });
+}
 
 type Role = NonNullable<Context["role"]>;
 

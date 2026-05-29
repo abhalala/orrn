@@ -1,4 +1,6 @@
-import type { CompanyRole } from "@orrn/db/schema/tenant";
+import type { CompanyRole, PlatformStaffRole } from "@orrn/db/schema/tenant";
+
+export type { PlatformStaffRole };
 
 /**
  * Action keys used across the app.
@@ -55,13 +57,19 @@ export const ACTIONS = [
   // Company settings
   "settings.update",
 
-  // Platform admin (only allowed if isPlatformAdmin === true)
+  // Platform staff (orrn.app) — checked against platformRole, not tenant role
   "platform.waitlist.review",
   "platform.company.manage",
   "platform.impersonate",
+  "platform.staff.list",
+  "platform.staff.create",
+  "platform.staff.updateRole",
+  "platform.staff.remove",
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
+
+const PLATFORM_ACTIONS = ACTIONS.filter((a) => a.startsWith("platform.")) as Action[];
 
 /**
  * Role -> set of allowed action keys.
@@ -110,22 +118,37 @@ const ROLE_ACTIONS: Record<CompanyRole, ReadonlySet<Action>> = {
   viewer: new Set<Action>(),
 };
 
+/** ORRN staff console (orrn.app) permissions by internal staff role. */
+const PLATFORM_ROLE_ACTIONS: Record<PlatformStaffRole, ReadonlySet<Action>> = {
+  super_admin: new Set<Action>(PLATFORM_ACTIONS),
+  admin: new Set<Action>([
+    "platform.waitlist.review",
+    "platform.company.manage",
+    "platform.impersonate",
+    "platform.staff.list",
+    "platform.staff.create",
+    "platform.staff.updateRole",
+  ]),
+  support: new Set<Action>(["platform.waitlist.review", "platform.company.manage", "platform.staff.list"]),
+};
+
 export type MeLike = {
   company: { role: CompanyRole } | null;
   isPlatformAdmin: boolean;
+  platformRole: PlatformStaffRole | null;
 };
 
 /**
  * Check if a given me-shaped object is allowed to perform an action.
  *
- * Platform-scoped actions ("platform.*") require `me.isPlatformAdmin === true`
- * regardless of company role.
+ * Platform-scoped actions require a platform staff role with the action in its set.
  */
 export function can(me: MeLike | null | undefined, action: Action): boolean {
   if (!me) return false;
 
   if (action.startsWith("platform.")) {
-    return me.isPlatformAdmin;
+    if (!me.isPlatformAdmin || !me.platformRole) return false;
+    return PLATFORM_ROLE_ACTIONS[me.platformRole].has(action);
   }
 
   if (!me.company) return false;
@@ -139,4 +162,23 @@ export function can(me: MeLike | null | undefined, action: Action): boolean {
  */
 export function canAny(me: MeLike | null | undefined, actions: readonly Action[]): boolean {
   return actions.some((a) => can(me, a));
+}
+
+/** Roles a staff member may assign when creating/updating others (never above own role). */
+export function assignablePlatformRoles(actor: PlatformStaffRole): PlatformStaffRole[] {
+  switch (actor) {
+    case "super_admin":
+      return ["super_admin", "admin", "support"];
+    case "admin":
+      return ["admin", "support"];
+    default:
+      return [];
+  }
+}
+
+export function canAssignPlatformRole(
+  actor: PlatformStaffRole,
+  target: PlatformStaffRole,
+): boolean {
+  return assignablePlatformRoles(actor).includes(target);
 }

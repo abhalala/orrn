@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -7,8 +7,9 @@ import { z } from "zod";
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
-import { authClient } from "@/lib/auth-client";
-import { trpc } from "@/utils/trpc";
+import { authClient } from "@orrn/web-shared/lib/auth-client";
+import { appUrls } from "@orrn/web-shared/lib/urls";
+import { trpc } from "@orrn/web-shared/utils/trpc";
 
 export const Route = createFileRoute("/invite/$token")({
   component: InviteComponent,
@@ -16,7 +17,6 @@ export const Route = createFileRoute("/invite/$token")({
 
 function InviteComponent() {
   const { token } = Route.useParams();
-  const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -27,7 +27,7 @@ function InviteComponent() {
     ...trpc.invite.acceptByToken.mutationOptions(),
     onSuccess: () => {
       toast.success("Successfully joined the company!");
-      navigate({ to: "/dashboard" });
+      window.location.href = `${appUrls.erp}/dashboard`;
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to accept invite");

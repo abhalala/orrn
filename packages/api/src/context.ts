@@ -48,13 +48,14 @@ export async function createContext({ context }: CreateContextOptions) {
 
   const [platform] = userId
     ? await db
-        .select({ userId: platformAdmin.userId })
+        .select({ userId: platformAdmin.userId, role: platformAdmin.role })
         .from(platformAdmin)
         .where(eq(platformAdmin.userId, userId))
         .limit(1)
     : [];
 
   const isPlatformAdmin = Boolean(platform);
+  const platformRole = platform?.role ?? null;
 
   let impersonation: ImpersonationInfo | null = null;
   let effectiveMember = ownMember ?? null;
@@ -123,6 +124,7 @@ export async function createContext({ context }: CreateContextOptions) {
     companyId: effectiveCompanyId,
     role: effectiveRole,
     isPlatformAdmin,
+    platformRole,
     impersonation,
     impersonationHeaderRejected,
   };

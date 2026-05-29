@@ -37,11 +37,14 @@
     "check-types": "turbo check-types",
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
+    "dev:erp": "turbo -F erp dev",
+    "dev:admin": "turbo -F admin dev",
     "dev:server": "turbo -F @orrn/infra dev",
     "db:push": "turbo -F @orrn/db db:push",
     "db:generate": "turbo -F @orrn/db db:generate",
     "deploy": "turbo -F @orrn/infra deploy",
     "deploy:dev": "turbo -F @orrn/infra deploy:dev",
+    "deploy:prod": "turbo -F @orrn/infra deploy:prod",
     "destroy": "turbo -F @orrn/infra destroy"
   },
   "dependencies": {

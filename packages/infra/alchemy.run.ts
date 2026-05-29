@@ -1,56 +1,139 @@
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import alchemy from "alchemy";
 import { D1Database, Vite, Worker } from "alchemy/cloudflare";
 import { CloudflareStateStore } from "alchemy/state";
 import type { Scope } from "alchemy";
 import { config } from "dotenv";
 
-config({ path: "./.env" });
-config({ path: "../../apps/web/.env" });
-config({ path: "../../apps/server/.env" });
+const infraDir = dirname(fileURLToPath(import.meta.url));
+
+config({ path: join(infraDir, ".env") });
+config({ path: join(infraDir, "../../apps/server/.env") });
 
 const app = await alchemy("orrn", {
-  stateStore: (scope: Scope) => new CloudflareStateStore(scope),
+  stateStore: (scope: Scope) =>
+    new CloudflareStateStore(scope, {
+      forceUpdate: process.env.ALCHEMY_STATE_FORCE_UPDATE === "1",
+    }),
 });
+
 const devMasterKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 const zoneName = "orrn.app";
-const zoneId = process.env.CLOUDFLARE_ZONE_ID;
-const webDomain = process.env.WEB_DOMAIN ?? `dev.${zoneName}`;
-const apiDomain = process.env.API_DOMAIN ?? `api.dev.${zoneName}`;
-const webUrl = `https://${webDomain}`;
-const apiUrl = `https://${apiDomain}`;
-const isLocalDev = !process.env.WEB_DOMAIN && process.env.NODE_ENV !== "production";
-const cookieDomain = isLocalDev ? "" : `.${webDomain}`;
+const stage = process.env.ALCHEMY_STAGE ?? "production";
+const isDevStage = stage === "dev";
 
-if (!zoneId) {
-  throw new Error("CLOUDFLARE_ZONE_ID is required to deploy custom domains.");
+const zoneIdApp = process.env.CLOUDFLARE_ZONE_ID_APP ?? process.env.CLOUDFLARE_ZONE_ID;
+const zoneIdIn = process.env.CLOUDFLARE_ZONE_ID_IN;
+
+const isLocalDev = !process.env.WEB_DOMAIN && process.env.NODE_ENV !== "production";
+
+type DomainBinding = { domainName: string; zoneId: string; adopt: true };
+
+function requireZone(id: string | undefined, label: string): string {
+  if (!id) {
+    throw new Error(`${label} is required to deploy custom domains.`);
+  }
+  return id;
 }
+
+let marketingDomain: DomainBinding;
+let erpDomain: DomainBinding;
+let adminDomain: DomainBinding;
+let apiDomain: string;
+let apiZoneId: string;
+let corsOrigin: string;
+let corsAllowedOrigins: string;
+let webErpUrl: string;
+let cookieDomain: string;
+let marketingUrl: string;
+let erpUrl: string;
+let staffUrl: string;
+
+if (isDevStage) {
+  const appZone = requireZone(zoneIdApp, "CLOUDFLARE_ZONE_ID or CLOUDFLARE_ZONE_ID_APP");
+  const webHost = process.env.WEB_DOMAIN ?? `dev.${zoneName}`;
+  const erpHost = process.env.ERP_DOMAIN ?? `erp.${webHost}`;
+  const staffHost = process.env.STAFF_DOMAIN ?? `staff.${zoneName}`;
+
+  apiDomain = process.env.API_DOMAIN ?? `api.dev.${zoneName}`;
+  apiZoneId = appZone;
+  marketingDomain = { domainName: webHost, zoneId: appZone, adopt: true };
+  erpDomain = { domainName: erpHost, zoneId: appZone, adopt: true };
+  adminDomain = { domainName: staffHost, zoneId: appZone, adopt: true };
+
+  marketingUrl = process.env.VITE_MARKETING_URL ?? `https://${webHost}`;
+  erpUrl = process.env.VITE_ERP_URL ?? process.env.WEB_ERP_URL ?? `https://${erpHost}`;
+  staffUrl = process.env.VITE_STAFF_URL ?? `https://${staffHost}`;
+  corsOrigin = process.env.CORS_ORIGIN ?? marketingUrl;
+  corsAllowedOrigins =
+    process.env.CORS_ALLOWED_ORIGINS ?? `${marketingUrl},${erpUrl},${staffUrl}`;
+  webErpUrl = erpUrl;
+  cookieDomain = isLocalDev ? "" : `.${zoneName}`;
+} else {
+  const inZone = requireZone(zoneIdIn, "CLOUDFLARE_ZONE_ID_IN");
+  const appZone = requireZone(zoneIdApp, "CLOUDFLARE_ZONE_ID_APP or CLOUDFLARE_ZONE_ID");
+
+  apiDomain = process.env.API_DOMAIN ?? "api.orrn.in";
+  apiZoneId = inZone;
+  marketingDomain = { domainName: "orrn.in", zoneId: inZone, adopt: true };
+  erpDomain = { domainName: "erp.orrn.in", zoneId: inZone, adopt: true };
+  adminDomain = { domainName: "orrn.app", zoneId: appZone, adopt: true };
+
+  marketingUrl = process.env.VITE_MARKETING_URL ?? "https://orrn.in";
+  erpUrl = process.env.VITE_ERP_URL ?? process.env.WEB_ERP_URL ?? "https://erp.orrn.in";
+  staffUrl = process.env.VITE_STAFF_URL ?? "https://orrn.app";
+  corsOrigin = process.env.CORS_ORIGIN ?? marketingUrl;
+  corsAllowedOrigins =
+    process.env.CORS_ALLOWED_ORIGINS ?? `${marketingUrl},${erpUrl},${staffUrl}`;
+  webErpUrl = erpUrl;
+  cookieDomain = isLocalDev ? "" : ".orrn.in";
+}
+
+const apiUrl = `https://${apiDomain}`;
+const viteServerUrl = process.env.VITE_SERVER_URL ?? apiUrl;
+const betterAuthUrl = process.env.BETTER_AUTH_URL ?? apiUrl;
+
+const webBindings = {
+  VITE_SERVER_URL: viteServerUrl,
+  VITE_MARKETING_URL: marketingUrl,
+  VITE_ERP_URL: erpUrl,
+  VITE_STAFF_URL: staffUrl,
+};
 
 const db = await D1Database("database", {
   migrationsDir: "../../packages/db/src/migrations",
 });
 
+/** Marketing + login — orrn.in (prod) / dev.orrn.app (dev) */
 export const web = await Vite("web", {
   cwd: "../../apps/web",
   assets: "dist",
   adopt: true,
-  bindings: {
-    VITE_SERVER_URL: process.env.VITE_SERVER_URL ?? apiUrl,
-  },
-  domains: [
-    {
-      domainName: webDomain,
-      zoneId,
-      adopt: true,
-    },
-    {
-      domainName: `erp.${webDomain}`,
-      zoneId,
-      adopt: true,
-    },
-  ],
-  dev: {
-    domain: "localhost:3001",
-  },
+  bindings: webBindings,
+  domains: [marketingDomain],
+  dev: { domain: "localhost:3001" },
+});
+
+/** Tenant ERP — erp.orrn.in */
+export const erp = await Vite("erp", {
+  cwd: "../../apps/erp",
+  assets: "dist",
+  adopt: true,
+  bindings: webBindings,
+  domains: [erpDomain],
+  dev: { domain: "localhost:3002" },
+});
+
+/** Platform staff console — orrn.app */
+export const admin = await Vite("admin", {
+  cwd: "../../apps/admin",
+  assets: "dist",
+  adopt: true,
+  bindings: webBindings,
+  domains: [adminDomain],
+  dev: { domain: "localhost:3003" },
 });
 
 export const server = await Worker("server", {
@@ -60,28 +143,25 @@ export const server = await Worker("server", {
   adopt: true,
   bindings: {
     DB: db,
-    NODE_ENV: process.env.NODE_ENV ?? "development",
-    CORS_ORIGIN: process.env.CORS_ORIGIN ?? webUrl,
+    NODE_ENV: process.env.NODE_ENV ?? (isDevStage ? "development" : "production"),
+    CORS_ORIGIN: corsOrigin,
+    CORS_ALLOWED_ORIGINS: corsAllowedOrigins,
+    WEB_ERP_URL: webErpUrl,
     BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
-    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL ?? apiUrl,
+    BETTER_AUTH_URL: betterAuthUrl,
     ORRN_MASTER_KEY: process.env.ORRN_MASTER_KEY ?? devMasterKey,
     RESEND_API_KEY: process.env.RESEND_API_KEY ?? "",
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL ?? "",
     COOKIE_DOMAIN: cookieDomain,
   },
-  domains: [
-    {
-      domainName: apiDomain,
-      zoneId,
-      adopt: true,
-    },
-  ],
-  dev: {
-    port: 3000,
-  },
+  domains: [{ domainName: apiDomain, zoneId: apiZoneId, adopt: true }],
+  dev: { port: 3000 },
 });
 
-console.log(`Web    -> ${web.url}`);
-console.log(`Server -> ${server.url}`);
+console.log(`Stage     -> ${stage}`);
+console.log(`Marketing -> ${web.url}`);
+console.log(`ERP       -> ${erp.url}`);
+console.log(`Admin     -> ${admin.url}`);
+console.log(`Server    -> ${server.url}`);
 
 await app.finalize();

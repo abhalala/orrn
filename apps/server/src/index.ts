@@ -2,6 +2,7 @@ import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@orrn/api/context";
 import { appRouter } from "@orrn/api/routers/index";
 import { createAuth } from "@orrn/auth";
+import { isAllowedWebOrigin } from "@orrn/auth/origins";
 import { createDb } from "@orrn/db";
 import { env } from "@orrn/env/server";
 import { Hono } from "hono";
@@ -18,12 +19,11 @@ app.use(
   cors({
     origin: (origin) => {
       if (!origin) return env.CORS_ORIGIN;
-      const baseHost = env.CORS_ORIGIN.replace(/^https?:\/\//, "");
-      const originHost = origin.replace(/^https?:\/\//, "");
       if (
-        origin === env.CORS_ORIGIN ||
-        originHost === baseHost ||
-        originHost.endsWith(`.${baseHost}`) ||
+        isAllowedWebOrigin(origin, {
+          corsOrigin: env.CORS_ORIGIN,
+          corsAllowedOrigins: env.CORS_ALLOWED_ORIGINS,
+        }) ||
         origin === "http://localhost:3001"
       ) {
         return origin;

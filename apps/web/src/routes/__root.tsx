@@ -6,15 +6,13 @@ import {
   HeadContent,
   Outlet,
   createRootRouteWithContext,
-  useLocation,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
-import { AppShell } from "@/components/app-shell";
-import { TenantCacheGuard } from "@/components/tenant-cache-guard";
-import { ThemeProvider } from "@/components/theme-provider";
-import type { trpc } from "@/utils/trpc";
-import { getDomainConfig } from "@/lib/domain";
+import { TenantCacheGuard } from "@orrn/web-shared/components/tenant-cache-guard";
+import { ThemeProvider } from "@orrn/web-shared/components/theme-provider";
+import type { trpc } from "@orrn/web-shared/utils/trpc";
+import "@orrn/web-shared/index.css";
 import "../index.css";
 
 export interface RouterAppContext {
@@ -37,24 +35,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   }),
 });
 
-/**
- * Routes whose URL starts with one of these prefixes are PUBLIC and rendered
- * outside the authenticated AppShell. Keep this in sync with the file routes
- * that DO NOT use `requireCompanyMe` / `requirePlatformAdmin` in beforeLoad.
- */
-const PUBLIC_PATH_PREFIXES = ["/login", "/waitlist", "/invite", "/no-access"] as const;
-function isPublicPath(pathname: string, isOrrnAppDomain: boolean): boolean {
-  if (pathname === "/") return true;
-  if (isOrrnAppDomain) return false;
-  return PUBLIC_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
-}
-
 function RootComponent() {
-  const location = useLocation();
-  const { isOrrnAppDomain } = getDomainConfig();
-  const isPublic = isPublicPath(location.pathname, isOrrnAppDomain);
-  const isHome = location.pathname === "/";
-
   return (
     <>
       <HeadContent />
@@ -66,28 +47,13 @@ function RootComponent() {
       >
         <OrrnUiProvider defaultTheme="dark">
           <TenantCacheGuard />
-          {isPublic ? (
-            <div className="relative min-h-screen w-full bg-background flex flex-col justify-between overflow-x-hidden">
-              {/* Global Background Gradient Mesh for all public routes */}
-              <div className="absolute inset-0 -z-10 overflow-hidden">
-                <div className="absolute left-[15%] top-[-10%] h-[600px] w-[600px] rounded-full bg-gradient-to-tr from-[#5b6cff]/10 to-[#22d3ee]/5 blur-[120px]" />
-                <div className="absolute right-[5%] top-[20%] h-[500px] w-[500px] rounded-full bg-gradient-to-br from-[#22d3ee]/8 to-[#3b4edd]/10 blur-[100px]" />
-              </div>
-              {isHome ? (
-                <div className="w-full">
-                  <Outlet />
-                </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center p-4">
-                  <Outlet />
-                </div>
-              )}
+          <div className="relative min-h-screen w-full bg-background flex flex-col overflow-x-hidden">
+            <div className="absolute inset-0 -z-10 overflow-hidden">
+              <div className="absolute left-[15%] top-[-10%] h-[600px] w-[600px] rounded-full bg-gradient-to-tr from-[#5b6cff]/10 to-[#22d3ee]/5 blur-[120px]" />
+              <div className="absolute right-[5%] top-[20%] h-[500px] w-[500px] rounded-full bg-gradient-to-br from-[#22d3ee]/8 to-[#3b4edd]/10 blur-[100px]" />
             </div>
-          ) : (
-            <AppShell>
-              <Outlet />
-            </AppShell>
-          )}
+            <Outlet />
+          </div>
           <Toaster richColors />
         </OrrnUiProvider>
       </ThemeProvider>

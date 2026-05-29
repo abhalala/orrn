@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -20,78 +20,25 @@ import {
   Cpu
 } from "lucide-react";
 
-import { getDomainConfig } from "@/lib/domain";
-import { trpc } from "@/utils/trpc";
+import { appUrls } from "@orrn/web-shared/lib/urls";
+import { trpc } from "@orrn/web-shared/utils/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Button } from "@orrn/ui/components/button";
-import SignInForm from "@/components/sign-in-form";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,
 });
 
 function HomeComponent() {
-  const navigate = useNavigate();
-  const { isErpDomain, isOrrnAppDomain, erpUrl, marketingUrl } = getDomainConfig();
   const healthCheck = useQuery(trpc.healthCheck.queryOptions());
   const meQuery = useQuery(trpc.auth.me.queryOptions());
   const [activeTab, setActiveTab] = useState<"dies" | "bundles" | "dispatches" | "printing">("dies");
 
   useEffect(() => {
     if (meQuery.data?.user) {
-      if (isOrrnAppDomain) {
-        navigate({ to: "/admin" as any });
-      } else if (!isErpDomain) {
-        window.location.href = `${erpUrl}/dashboard`;
-      } else {
-        navigate({ to: "/dashboard" as any });
-      }
-    } else {
-      if (isErpDomain && !meQuery.isLoading) {
-        window.location.href = `${marketingUrl}/login`;
-      }
+      window.location.href = `${appUrls.erp}/dashboard`;
     }
-  }, [meQuery.data, meQuery.isLoading, isErpDomain, isOrrnAppDomain, erpUrl, marketingUrl, navigate]);
-
-  if (isOrrnAppDomain) {
-    if (meQuery.isLoading) {
-      return (
-        <div className="flex min-h-screen items-center justify-center bg-[#0b0f1a]">
-          <div className="flex flex-col items-center gap-4">
-            <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#5B6CFF] border-t-transparent" />
-            <div className="text-xs font-semibold tracking-wider text-muted-foreground uppercase font-mono animate-pulse">
-              Authenticating staff console...
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center p-4 bg-[#0b0f1a]">
-        {/* Background mesh glow */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[#5B6CFF]/10 rounded-full blur-[80px] pointer-events-none -z-10" />
-        <div className="w-full max-w-md space-y-6">
-          <div className="flex flex-col items-center gap-3 mb-6">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#5B6CFF] to-[#22D3EE] shadow-lg shadow-[#5B6CFF]/25 border border-white/10 transition-transform hover:scale-105 duration-300">
-              <span className="text-3xl font-black text-white">O</span>
-            </div>
-            <div className="text-center">
-              <h2 className="text-sm font-bold tracking-[0.25em] text-[#f5f7ff] font-mono">
-                ORRN SYSTEM CORES
-              </h2>
-              <span className="text-[10px] font-mono tracking-widest text-[#22D3EE] uppercase font-semibold">
-                Staff Administration Gateway
-              </span>
-            </div>
-          </div>
-          <div className="relative group rounded-2xl p-1 bg-gradient-to-b from-[#5B6CFF]/20 to-transparent">
-            <SignInForm />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  }, [meQuery.data]);
 
   const tabsConfig = {
     dies: {

@@ -73,26 +73,31 @@ The dev seed route is only mounted when `NODE_ENV=development`. It attaches the
 local user to an active demo company and creates customers, dies, receipt
 bundles, stock, and draft/reserved/completed dispatches for UI review.
 
-## Dev Deployment
+## Deployment (Cloudflare)
 
-Pushes to `main` deploy the dev environment through GitHub Actions:
+Infrastructure: **Alchemy** → Cloudflare Workers + D1 + custom domains. Full runbook: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
-- Web: `https://dev.orrn.app`
-- API/Auth: `https://api.dev.orrn.app`
+### Dev (`main` branch → GitHub `dev` environment)
 
-Configure the GitHub `dev` environment with these secrets:
+- Marketing / web: `https://dev.orrn.app`
+- ERP: `https://erp.dev.orrn.app`
+- API / auth: `https://api.dev.orrn.app`
 
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ZONE_ID`
-- `ALCHEMY_PASSWORD`
-- `ALCHEMY_STATE_TOKEN`
-- `BETTER_AUTH_SECRET`
-- `ORRN_MASTER_KEY`
+Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID` (zone `orrn.app`), `ALCHEMY_*`, `BETTER_AUTH_SECRET`, `ORRN_MASTER_KEY`. Optional: `RESEND_API_KEY`, `WEBHOOK_BASE_URL`.
 
-Optional secrets/vars:
+### Production (manual workflow → GitHub `production` environment)
 
-- `RESEND_API_KEY`
-- `WEBHOOK_BASE_URL`
+- Marketing: `https://orrn.in`
+- ERP: `https://erp.orrn.in`
+- Staff / platform admin: `https://orrn.app`
+- API / auth: `https://api.orrn.in`
+
+Secrets: same as dev plus **`CLOUDFLARE_ZONE_ID_IN`** (`orrn.in`) and **`CLOUDFLARE_ZONE_ID_APP`** (`orrn.app`). Run **Actions → Deploy Production**.
+
+```bash
+bun run deploy:dev   # stage dev
+bun run deploy:prod  # stage production
+```
 
 ## Database Setup
 

@@ -11,6 +11,7 @@ import {
 import { format } from "date-fns";
 
 import { trpc } from "../../../utils/trpc";
+import { useLengthUnit } from "../../../utils/length";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -32,6 +33,7 @@ function statusStyle(status: BundleStatus | string) {
 
 export default function ReceiptDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const lu = useLengthUnit();
 
   const { data, isLoading } = useQuery({
     ...trpc.bundle.getGroup.queryOptions({ id: id as string }),
@@ -95,7 +97,7 @@ export default function ReceiptDetailScreen() {
                   </Text>
                 </View>
                 <Text style={styles.bundleMeta}>
-                  Qty {item.quantity} · {item.weightG}g · {item.lengthMm}mm
+                  Qty {item.quantity} · {item.weightG}g · {lu.formatLength(item.lengthMm)}
                 </Text>
               </TouchableOpacity>
             </Link>

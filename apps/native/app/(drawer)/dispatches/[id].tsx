@@ -17,11 +17,13 @@ import {
 import { format } from "date-fns";
 
 import { queryClient, trpc } from "../../../utils/trpc";
+import { useLengthUnit } from "../../../utils/length";
 
 export default function DispatchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [serialInput, setSerialInput] = useState("");
+  const lu = useLengthUnit();
 
   const { data, isLoading } = useQuery({
     ...trpc.dispatch.getDispatch.queryOptions({ id: id as string }),
@@ -277,7 +279,7 @@ export default function DispatchDetailScreen() {
             <Pressable style={{ flex: 1, minHeight: 44 }}>
               <Text style={styles.itemSerial}>{item.serial}</Text>
               <Text style={styles.itemMeta}>
-                {item.dieSeries} / {item.dieSectionCode} · {item.weightG}g · {item.lengthMm}mm
+                {item.dieSeries} / {item.dieSectionCode} · {item.weightG}g · {lu.formatLength(item.lengthMm)}
               </Text>
             </Pressable>
           </Link>
@@ -298,6 +300,7 @@ export default function DispatchDetailScreen() {
 }
 
 function PackingListCard({ dispatchId }: { dispatchId: string }) {
+  const lu = useLengthUnit();
   const { data: pl, isLoading } = useQuery({
     ...trpc.packingList.byDispatch.queryOptions({ dispatchId }),
   });
@@ -314,7 +317,7 @@ function PackingListCard({ dispatchId }: { dispatchId: string }) {
       `Bundles: ${totals.totalBundles ?? 0}`,
       `Total Qty: ${totals.totalQuantity ?? 0}`,
       `Total Weight: ${totals.totalWeightKg ?? 0} kg`,
-      `Total Length: ${totals.totalLengthM ?? 0} m`,
+      `Total Length: ${lu.formatLength((totals.totalLengthM ?? 0) * 1000)}`,
       "",
       "Items:",
       ...(snap.items ?? []).map((item, i) =>

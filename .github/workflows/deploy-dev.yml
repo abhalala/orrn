@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
     env:
+      ALCHEMY_STAGE: dev
       ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
       ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}

@@ -7,6 +7,9 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
 export const companyStatus = ["pending", "active", "suspended"] as const;
 export const companyRoles = ["owner", "admin", "manager", "operator", "viewer"] as const;
+/** ORRN internal staff roles (orrn.app console). */
+export const platformStaffRoles = ["super_admin", "admin", "support"] as const;
+export type PlatformStaffRole = (typeof platformStaffRoles)[number];
 export const waitlistStatuses = ["pending", "approved", "rejected"] as const;
 
 export const company = sqliteTable(
@@ -54,6 +57,8 @@ export const platformAdmin = sqliteTable("platform_admin", {
   userId: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
+  role: text("role", { enum: platformStaffRoles }).notNull().default("support"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
 });
 

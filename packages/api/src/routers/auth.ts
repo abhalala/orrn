@@ -4,6 +4,7 @@ import { z } from "zod";
 import { company } from "@orrn/db/schema/tenant";
 import { user } from "@orrn/db/schema/auth";
 import { createAuth } from "@orrn/auth";
+import type { LengthUnit } from "../lib/length";
 
 import { authedProcedure, router } from "../index";
 
@@ -38,6 +39,7 @@ export const authRouter = router({
                 status: company.status,
                 plan: company.plan,
                 modules: company.modules,
+                settings: company.settings,
               })
               .from(company)
               .where(eq(company.id, ctx.companyId))
@@ -64,9 +66,11 @@ export const authRouter = router({
               plan: companyRow.plan,
               modules: companyRow.modules ?? [],
               role: ctx.role,
+              settings: (companyRow.settings ?? {}) as { lengthUnit?: LengthUnit; [key: string]: unknown },
             }
           : null,
       isPlatformAdmin: ctx.isPlatformAdmin,
+      platformRole: ctx.platformRole,
       impersonation: ctx.impersonation
         ? {
             actorUserId: ctx.impersonation.actorUserId,

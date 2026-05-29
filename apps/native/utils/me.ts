@@ -1,18 +1,28 @@
 import type { Action, MeLike } from "@orrn/api/lib/permissions";
 import { can as rawCan, canAny as rawCanAny } from "@orrn/api/lib/permissions";
+import type { LengthUnit } from "@orrn/api/lib/length";
 import { useQuery } from "@tanstack/react-query";
 
 import { trpc } from "@/utils/trpc";
 
 export type Me = {
-  user: { id: string; name: string; email: string; image: string | null };
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+    onboardingCompleted: boolean;
+    twoFactorEnabled: boolean;
+  };
   company: {
     id: string;
     name: string;
     slug: string;
     status: string;
     plan: string | null;
+    modules: string[];
     role: "owner" | "admin" | "manager" | "operator" | "viewer";
+    settings: { lengthUnit?: LengthUnit; [key: string]: unknown };
   } | null;
   isPlatformAdmin: boolean;
   impersonation: { actorUserId: string; companyId: string; grantId: string; expiresAt: string } | null;

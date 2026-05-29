@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { queryClient, trpc } from "../../../utils/trpc";
+import { useLengthUnit } from "../../../utils/length";
 
 type Row = { quantity: string; weightG: string; lengthMm: string };
 
@@ -25,6 +26,7 @@ export default function NewReceiptScreen() {
   const [purchaseOrderRef, setPurchaseOrderRef] = useState("");
   const [notes, setNotes] = useState("");
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
+  const lu = useLengthUnit();
 
   const { data: diesData } = useQuery({
     ...trpc.die.list.queryOptions({ limit: 100, offset: 0 }),
@@ -62,13 +64,13 @@ export default function NewReceiptScreen() {
     try {
       const parsedRows = rows.map((r, i) => {
         const q = Number(r.quantity);
-        const w = Number(r.weightG);
-        const l = Number(r.lengthMm);
+        const w = parseInt(r.weightG, 10);
+        const l = lu.parseLength(r.lengthMm);
         if (!Number.isInteger(q) || q < 1)
           throw new Error(`Row ${i + 1}: quantity must be a positive integer`);
-        if (!Number.isInteger(w) || w < 0)
+        if (!Number.isInteger(w) || w < 0 || isNaN(w))
           throw new Error(`Row ${i + 1}: weight must be a non-negative integer`);
-        if (!Number.isInteger(l) || l < 0)
+        if (l < 0)
           throw new Error(`Row ${i + 1}: length must be a non-negative integer`);
         return { quantity: q, weightG: w, lengthMm: l };
       });
@@ -167,7 +169,7 @@ export default function NewReceiptScreen() {
                 />
               </View>
               <View style={styles.rowField}>
-                <Text style={styles.subLabel}>Length (mm)</Text>
+                <Text style={styles.subLabel}>Length ({lu.label})</Text>
                 <TextInput
                   style={styles.input}
                   keyboardType="number-pad"

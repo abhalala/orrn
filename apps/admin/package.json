@@ -1,0 +1,53 @@
+{
+  "name": "admin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "serve": "vite preview",
+    "start": "vite",
+    "check-types": "vite build && tsc --noEmit",
+    "dev:bare": "vite dev"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@orrn/api": "workspace:*",
+    "@orrn/env": "workspace:*",
+    "@orrn/ui": "workspace:*",
+    "@orrn/web-shared": "workspace:*",
+    "@tailwindcss/vite": "^4.2.2",
+    "@tamagui/vite-plugin": "catalog:",
+    "@tanstack/react-form": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "@tanstack/react-router": "^1.168.22",
+    "@trpc/client": "catalog:",
+    "@trpc/server": "catalog:",
+    "@trpc/tanstack-react-query": "catalog:",
+    "better-auth": "catalog:",
+    "date-fns": "^4.2.1",
+    "dotenv": "catalog:",
+    "lucide-react": "^1.8.0",
+    "next-themes": "catalog:",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-native-web": "catalog:",
+    "sonner": "^2.0.7",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@orrn/config": "workspace:*",
+    "@tanstack/react-query-devtools": "^5.91.1",
+    "@tanstack/react-router-devtools": "^1.166.13",
+    "@tanstack/router-plugin": "^1.167.22",
+    "@types/node": "^22.13.14",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "^6.0.1",
+    "alchemy": "catalog:",
+    "postcss": "^8.5.10",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^6",
+    "vite": "^8.0.8"
+  }
+}

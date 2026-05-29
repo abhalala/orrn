@@ -23,7 +23,7 @@ export async function sendEmail(options: SendEmailOptions) {
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from: "ORRN <hello@orrn.io>", // Replace with verified domain
+      from: "ORRN <no-reply@orrn.in>",
       to: options.to,
       subject: options.subject,
       html: options.html,

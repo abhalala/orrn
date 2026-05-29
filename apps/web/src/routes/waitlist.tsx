@@ -10,7 +10,7 @@ import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@orrn/web-shared/utils/trpc";
 
 const waitlistSearchSchema = z.object({
   mode: z.enum(["waitlist", "demo"]).optional(),
