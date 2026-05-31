@@ -9,11 +9,14 @@
     "serve": "vite preview",
     "start": "vite",
     "check-types": "vite build && tsc --noEmit",
-    "dev:bare": "vite dev"
+    "dev:bare": "vite dev",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@orrn/server": "workspace:*",
+    "@orrn/documents": "workspace:*",
     "@orrn/env": "workspace:*",
     "@orrn/ui": "workspace:*",
     "@react-pdf/renderer": "^4.5.1",
@@ -48,6 +51,7 @@
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "catalog:",
+    "@playwright/test": "^1.58.2",
     "@vitejs/plugin-react": "^6.0.1",
     "alchemy": "catalog:",
     "postcss": "^8.5.10",

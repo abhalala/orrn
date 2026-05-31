@@ -149,6 +149,11 @@
     outline-offset: 2px;
   }
 
+  .orrn-data-table-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
   @media (max-width: 767px) {
     html,
     body,
@@ -198,6 +203,7 @@
 
     .orrn-mobile-nav {
       display: flex !important;
+      padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
       width: 100% !important;
       max-width: 100vw !important;
       overflow-x: auto !important;
@@ -215,6 +221,11 @@
 
     .orrn-mobile-nav-item {
       min-width: 70px !important;
+    }
+
+    .orrn-auth-card {
+      max-height: calc(100svh - 2rem);
+      overflow-y: auto;
     }
   }
 

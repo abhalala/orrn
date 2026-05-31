@@ -1,8 +1,9 @@
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent, CardFooter } from "@orrn/ui/components/card";
-import { Input } from "@orrn/ui/components/input";
+import { Input, TextArea } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { Select } from "@orrn/ui/components/select";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -28,14 +29,17 @@ function NewDispatchComponent() {
 
   const createMutation = useMutation({
     ...trpc.dispatch.create.mutationOptions(),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
       toast.success(`Dispatch ${res.code} created`);
       navigate({ to: "/dispatches/$id", params: { id: res.id } });
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast.error(error.message || "Failed to create dispatch");
     },
   });
+
+  const customerOptions =
+    customersData?.items.map((c) => ({ label: c.name, value: c.id })) ?? [];
 
   const handleSubmit = () => {
     if (!customerId) {
@@ -62,19 +66,13 @@ function NewDispatchComponent() {
         <CardContent className="space-y-4 pt-6">
           <div className="space-y-2">
             <Label htmlFor="customer">Customer *</Label>
-            <select
-              id="customer"
-              className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            <Select
               value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
-            >
-              <option value="">Select a customer…</option>
-              {customersData?.items.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={setCustomerId}
+              options={customerOptions}
+              placeholder="Select a customer…"
+              width="100%"
+            />
           </div>
 
           <div className="space-y-2">
@@ -84,12 +82,11 @@ function NewDispatchComponent() {
 
           <div className="space-y-2">
             <Label htmlFor="notes">Notes</Label>
-            <textarea
+            <TextArea
               id="notes"
               rows={3}
-              className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChangeText={setNotes}
               placeholder="Optional"
             />
           </div>

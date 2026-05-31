@@ -8,7 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { ImpersonationBanner } from "@/components/impersonation-banner";
-import { AppThemeProvider } from "@/contexts/app-theme-context";
+import { AppThemeProvider, useAppTheme } from "@/contexts/app-theme-context";
 import { useMe } from "@/utils/me";
 import { queryClient } from "@/utils/trpc";
 
@@ -58,17 +58,23 @@ function StackLayout() {
   );
 }
 
+function ThemedOrrnUiProvider({ children }: { children: React.ReactNode }) {
+  const { currentTheme } = useAppTheme();
+  const tamaguiTheme = currentTheme === "light" ? "light" : "dark";
+  return <OrrnUiProvider theme={tamaguiTheme}>{children}</OrrnUiProvider>;
+}
+
 export default function Layout() {
   return (
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardProvider>
           <AppThemeProvider>
-            <OrrnUiProvider defaultTheme="dark">
+            <ThemedOrrnUiProvider>
               <HeroUINativeProvider>
                 <StackLayout />
               </HeroUINativeProvider>
-            </OrrnUiProvider>
+            </ThemedOrrnUiProvider>
           </AppThemeProvider>
         </KeyboardProvider>
       </GestureHandlerRootView>

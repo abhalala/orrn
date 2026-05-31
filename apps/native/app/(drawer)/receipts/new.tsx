@@ -2,16 +2,15 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Picker } from "@react-native-picker/picker";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Button } from "@orrn/ui/components/button";
 
+import {
+  ErpField,
+  ErpListCard,
+  ErpSectionTitle,
+  ErpTextInput,
+} from "@/components/erp";
 import { queryClient, trpc } from "../../../utils/trpc";
 import { useLengthUnit } from "../../../utils/length";
 
@@ -87,19 +86,22 @@ export default function NewReceiptScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      className="flex-1 bg-background"
+      keyboardShouldPersistTaps="handled"
+      contentInsetAdjustmentBehavior="automatic"
+    >
       <Stack.Screen options={{ title: "New Receipt" }} />
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Receipt details</Text>
+      <ErpListCard className="mx-4 mt-4 gap-4">
+        <ErpSectionTitle>Receipt details</ErpSectionTitle>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Die *</Text>
-          <View style={styles.pickerContainer}>
+        <ErpField label="Die *">
+          <View className="overflow-hidden rounded-md border border-border">
             <Picker
               selectedValue={dieId}
               onValueChange={(val: string) => setDieId(val)}
-              style={styles.picker}
+              style={{ height: 50 }}
             >
               <Picker.Item label="Select a die..." value="" />
               {(diesData?.items ?? []).map((d) => (
@@ -111,171 +113,89 @@ export default function NewReceiptScreen() {
               ))}
             </Picker>
           </View>
-        </View>
+        </ErpField>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Unit *</Text>
-          <TextInput
-            style={styles.input}
+        <ErpField label="Unit *">
+          <ErpTextInput
             value={unit}
             onChangeText={setUnit}
             placeholder="pcs, kg, m..."
           />
-        </View>
+        </ErpField>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>PO Reference</Text>
-          <TextInput
-            style={styles.input}
-            value={purchaseOrderRef}
-            onChangeText={setPurchaseOrderRef}
-          />
-        </View>
+        <ErpField label="PO Reference">
+          <ErpTextInput value={purchaseOrderRef} onChangeText={setPurchaseOrderRef} />
+        </ErpField>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Notes</Text>
-          <TextInput style={styles.input} value={notes} onChangeText={setNotes} />
-        </View>
-      </View>
+        <ErpField label="Notes">
+          <ErpTextInput value={notes} onChangeText={setNotes} />
+        </ErpField>
+      </ErpListCard>
 
-      <View style={styles.card}>
-        <View style={styles.bundlesHeader}>
-          <Text style={styles.sectionTitle}>Bundles ({rows.length})</Text>
-          <TouchableOpacity onPress={addRow} style={styles.smallButton}>
-            <Text style={styles.smallButtonText}>+ Add row</Text>
-          </TouchableOpacity>
+      <ErpListCard className="mx-4 mt-4 gap-3">
+        <View className="flex-row items-center justify-between">
+          <ErpSectionTitle>Bundles ({rows.length})</ErpSectionTitle>
+          <Pressable
+            onPress={addRow}
+            className="rounded-md border border-border px-3 py-1.5"
+          >
+            <Text className="text-sm font-medium text-foreground">+ Add row</Text>
+          </Pressable>
         </View>
 
         {rows.map((row, idx) => (
-          <View key={idx} style={styles.bundleRow}>
-            <Text style={styles.rowNum}>#{idx + 1}</Text>
-            <View style={styles.rowFields}>
-              <View style={styles.rowField}>
-                <Text style={styles.subLabel}>Qty</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  value={row.quantity}
-                  onChangeText={(v) => updateRow(idx, { quantity: v })}
-                />
+          <View
+            key={idx}
+            className="flex-row items-end gap-2 border-t border-border py-2"
+          >
+            <Text className="w-6 pb-3 text-xs text-muted">#{idx + 1}</Text>
+            <View className="flex-1 flex-row gap-1.5">
+              <View className="flex-1">
+                <ErpField label="Qty">
+                  <ErpTextInput
+                    keyboardType="number-pad"
+                    value={row.quantity}
+                    onChangeText={(v) => updateRow(idx, { quantity: v })}
+                  />
+                </ErpField>
               </View>
-              <View style={styles.rowField}>
-                <Text style={styles.subLabel}>Weight (g)</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  value={row.weightG}
-                  onChangeText={(v) => updateRow(idx, { weightG: v })}
-                />
+              <View className="flex-1">
+                <ErpField label="Weight (g)">
+                  <ErpTextInput
+                    keyboardType="number-pad"
+                    value={row.weightG}
+                    onChangeText={(v) => updateRow(idx, { weightG: v })}
+                  />
+                </ErpField>
               </View>
-              <View style={styles.rowField}>
-                <Text style={styles.subLabel}>Length ({lu.label})</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  value={row.lengthMm}
-                  onChangeText={(v) => updateRow(idx, { lengthMm: v })}
-                />
+              <View className="flex-1">
+                <ErpField label={`Length (${lu.label})`}>
+                  <ErpTextInput
+                    keyboardType="number-pad"
+                    value={row.lengthMm}
+                    onChangeText={(v) => updateRow(idx, { lengthMm: v })}
+                  />
+                </ErpField>
               </View>
             </View>
-            <TouchableOpacity
+            <Pressable
               onPress={() => removeRow(idx)}
               disabled={rows.length === 1}
-              style={[styles.removeButton, rows.length === 1 && styles.disabled]}
+              className={`h-10 w-8 items-center justify-center rounded-md bg-danger/10 ${rows.length === 1 ? "opacity-40" : ""}`}
             >
-              <Text style={styles.removeButtonText}>×</Text>
-            </TouchableOpacity>
+              <Text className="text-xl font-semibold text-danger">×</Text>
+            </Pressable>
           </View>
         ))}
+      </ErpListCard>
+
+      <View className="mx-4 mt-4 min-h-12">
+        <Button size="lg" disabled={createMutation.isPending} onPress={handleSubmit}>
+          {createMutation.isPending ? "Saving..." : "Create receipt"}
+        </Button>
       </View>
 
-      <TouchableOpacity
-        style={[styles.submitButton, createMutation.isPending && styles.disabled]}
-        onPress={handleSubmit}
-        disabled={createMutation.isPending}
-      >
-        <Text style={styles.submitButtonText}>
-          {createMutation.isPending ? "Saving..." : "Create receipt"}
-        </Text>
-      </TouchableOpacity>
-
-      <View style={{ height: 32 }} />
+      <View className="h-8" />
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
-  card: {
-    backgroundColor: "white",
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e5e5e5",
-    gap: 12,
-  },
-  sectionTitle: { fontSize: 16, fontWeight: "600" },
-  field: { gap: 6 },
-  label: { fontSize: 14, fontWeight: "500", color: "#333" },
-  subLabel: { fontSize: 12, color: "#666", marginBottom: 4 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#d4d4d8",
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: "#d4d4d8",
-    borderRadius: 6,
-    overflow: "hidden",
-  },
-  picker: { height: 50 },
-  bundlesHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  smallButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#d4d4d8",
-  },
-  smallButtonText: { fontSize: 13, fontWeight: "500" },
-  bundleRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#f3f4f6",
-  },
-  rowNum: { fontSize: 12, color: "#6b7280", width: 24, paddingBottom: 12 },
-  rowFields: { flex: 1, flexDirection: "row", gap: 6 },
-  rowField: { flex: 1 },
-  removeButton: {
-    width: 32,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 6,
-    backgroundColor: "#fee2e2",
-  },
-  removeButtonText: { color: "#b91c1c", fontSize: 22, fontWeight: "600" },
-  submitButton: {
-    backgroundColor: "#111827",
-    marginHorizontal: 16,
-    marginTop: 16,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  submitButtonText: { color: "white", fontSize: 16, fontWeight: "600" },
-  disabled: { opacity: 0.6 },
-});
