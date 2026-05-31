@@ -9,7 +9,7 @@ import { config } from "dotenv";
 
 const infraDir = dirname(fileURLToPath(import.meta.url));
 
-config({ path: join(infraDir, "../../../.env") });
+config({ path: join(infraDir, "../../.env") });
 config({ path: join(infraDir, "../../../../apps/server/.env") });
 
 const app = await alchemy("orrn", {
@@ -79,12 +79,12 @@ const webBindings = {
 };
 
 const db = await D1Database("database", {
-  migrationsDir: "../../../../packages/db/src/migrations",
+  migrationsDir: "../db/src/migrations",
 });
 
 /** Unified web app — orrn.in (prod) / dev.orrn.app (dev) */
 export const web = await Vite("web", {
-  cwd: "../../../../apps/web",
+  cwd: "../../apps/web",
   assets: "dist",
   adopt: true,
   bindings: webBindings,
@@ -93,7 +93,7 @@ export const web = await Vite("web", {
 });
 
 export const server = await Worker("server", {
-  cwd: "../../../../apps/server",
+  cwd: "../../apps/server",
   entrypoint: "src/index.ts",
   compatibility: "node",
   adopt: true,
