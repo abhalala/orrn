@@ -20,13 +20,13 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
-    "dev": "alchemy dev",
-    "deploy": "alchemy deploy",
+    "dev": "alchemy dev src/infra/alchemy.run.ts",
+    "deploy": "alchemy deploy src/infra/alchemy.run.ts",
     "deploy:dev": "bun --env-file=.env run alchemy-deploy-dev",
     "deploy:prod": "bun --env-file=.env run alchemy-deploy-prod",
-    "alchemy-deploy-dev": "ALCHEMY_STAGE=dev alchemy deploy --stage dev --adopt",
-    "alchemy-deploy-prod": "NODE_ENV=production ALCHEMY_STAGE=production alchemy deploy --stage production --adopt",
-    "destroy": "alchemy destroy",
+    "alchemy-deploy-dev": "ALCHEMY_STAGE=dev alchemy deploy src/infra/alchemy.run.ts --stage dev --adopt",
+    "alchemy-deploy-prod": "NODE_ENV=production ALCHEMY_STAGE=production alchemy deploy src/infra/alchemy.run.ts --stage production --adopt",
+    "destroy": "alchemy destroy src/infra/alchemy.run.ts",
     "bootstrap-super-admin": "bun --env-file=.env src/infra/scripts/bootstrap-super-admin.ts",
     "set-staff-password": "bun --env-file=.env src/infra/scripts/set-staff-password.ts"
   },
