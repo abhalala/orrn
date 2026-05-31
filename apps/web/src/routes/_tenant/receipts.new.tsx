@@ -169,6 +169,8 @@ function NewReceiptComponent() {
         flex: 1,
         cell: (row) => (
           <Input
+            width="100%"
+            minWidth={0}
             type="number"
             min={1}
             value={row.quantity}
@@ -182,6 +184,8 @@ function NewReceiptComponent() {
         flex: 1,
         cell: (row) => (
           <Input
+            width="100%"
+            minWidth={0}
             type="number"
             min={0}
             value={row.weightG}
@@ -195,6 +199,8 @@ function NewReceiptComponent() {
         flex: 1,
         cell: (row) => (
           <Input
+            width="100%"
+            minWidth={0}
             type="number"
             min={0}
             value={row.lengthMm}
@@ -217,7 +223,7 @@ function NewReceiptComponent() {
   }, [rowIndex, rows.length]);
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="w-full min-w-0 max-w-4xl mx-auto space-y-4 md:space-y-6">
       <PageHeader
         eyebrow="Receipts"
         title="New production receipt"
@@ -253,12 +259,19 @@ function NewReceiptComponent() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="unit">Unit *</Label>
-            <Input id="unit" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="pcs, kg, m…" />
+            <Input
+              id="unit"
+              width="100%"
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              placeholder="pcs, kg, m…"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="po">PO reference</Label>
             <Input
               id="po"
+              width="100%"
               value={purchaseOrderRef}
               onChange={(e) => setPurchaseOrderRef(e.target.value)}
               placeholder="Optional"
@@ -266,7 +279,13 @@ function NewReceiptComponent() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="notes">Notes</Label>
-            <Input id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+            <Input
+              id="notes"
+              width="100%"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Optional"
+            />
           </div>
         </CardContent>
       </Card>
@@ -291,7 +310,69 @@ function NewReceiptComponent() {
           </Toolbar>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} />
+          <div className="space-y-3 md:hidden">
+            {rows.map((row) => (
+              <div
+                key={row.id}
+                className="space-y-3 rounded-lg border border-border bg-background p-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    Bundle {rowIndex.get(row.id)}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => removeRow(row.id)}
+                    disabled={rows.length === 1}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`${row.id}-quantity`}>Quantity *</Label>
+                    <Input
+                      id={`${row.id}-quantity`}
+                      width="100%"
+                      inputMode="numeric"
+                      type="number"
+                      min={1}
+                      value={row.quantity}
+                      onChange={(e) => updateRow(row.id, { quantity: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`${row.id}-weight`}>Weight (g) *</Label>
+                    <Input
+                      id={`${row.id}-weight`}
+                      width="100%"
+                      inputMode="numeric"
+                      type="number"
+                      min={0}
+                      value={row.weightG}
+                      onChange={(e) => updateRow(row.id, { weightG: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`${row.id}-length`}>Length ({lu.label}) *</Label>
+                    <Input
+                      id={`${row.id}-length`}
+                      width="100%"
+                      inputMode="decimal"
+                      type="number"
+                      min={0}
+                      value={row.lengthMm}
+                      onChange={(e) => updateRow(row.id, { lengthMm: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="hidden min-w-0 md:block">
+            <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} />
+          </div>
           <p className="text-xs text-muted-foreground mt-4">
             Totals: {totalQuantity} qty · {totalWeightG} g
           </p>

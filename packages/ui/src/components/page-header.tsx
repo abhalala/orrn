@@ -18,7 +18,7 @@ export type PageHeaderProps = {
 export function PageHeader({ title, description, actions, eyebrow }: PageHeaderProps) {
   return (
     <XStack alignItems="flex-start" justifyContent="space-between" gap={12} flexWrap="wrap">
-      <YStack gap={4} flex={1} minWidth={220}>
+      <YStack gap={4} flex={1} minWidth={0}>
         {eyebrow ? (
           <Paragraph
             fontSize={11}
@@ -30,11 +30,18 @@ export function PageHeader({ title, description, actions, eyebrow }: PageHeaderP
             {eyebrow}
           </Paragraph>
         ) : null}
-        <H1 fontSize={24} fontWeight="650" color="$color" margin={0} lineHeight={30}>
+        <H1
+          className="orrn-page-title"
+          fontSize={24}
+          fontWeight="650"
+          color="$color"
+          margin={0}
+          lineHeight={30}
+        >
           {title}
         </H1>
         {description ? (
-          <Paragraph fontSize={13} color="$mutedFg" margin={0} maxWidth={680}>
+          <Paragraph className="orrn-page-description" fontSize={13} color="$mutedFg" margin={0} maxWidth={680}>
             {description}
           </Paragraph>
         ) : null}
