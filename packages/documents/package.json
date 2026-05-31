@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./packing-list": "./src/packing-list/index.ts"
+    "./packing-list": {
+      "default": "./src/packing-list/index.ts"
+    }
   },
   "scripts": {
     "check-types": "tsc --noEmit"
