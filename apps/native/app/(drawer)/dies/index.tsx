@@ -16,18 +16,7 @@ export default function DiesScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen 
-        options={{ 
-          title: "Dies",
-          headerRight: () => (
-            <Link href="/dies/new" asChild>
-              <TouchableOpacity style={styles.addButton}>
-                <Ionicons name="add" size={24} color="#007AFF" />
-              </TouchableOpacity>
-            </Link>
-          ),
-        }} 
-      />
+      <Stack.Screen options={{ title: "Dies" }} />
 
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
@@ -102,9 +91,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     fontSize: 16,
-  },
-  addButton: {
-    marginRight: 16,
   },
   list: {
     paddingHorizontal: 16,

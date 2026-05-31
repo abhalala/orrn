@@ -14,6 +14,7 @@ import {
 } from "react-native";
 
 import { queryClient, trpc } from "../../../utils/trpc";
+import { Can } from "@/components/can";
 
 export default function NewDispatchScreen() {
   const router = useRouter();
@@ -58,8 +59,17 @@ export default function NewDispatchScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: "New Dispatch" }} />
+    <Can
+      do="dispatch.create"
+      fallback={
+        <View style={[styles.container, styles.center]}>
+          <Stack.Screen options={{ title: "New Dispatch" }} />
+          <Text style={styles.deniedText}>You don't have permission to create dispatches.</Text>
+        </View>
+      }
+    >
+      <ScrollView style={styles.container} keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="automatic">
+        <Stack.Screen options={{ title: "New Dispatch" }} />
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Dispatch details</Text>
@@ -115,12 +125,14 @@ export default function NewDispatchScreen() {
       </TouchableOpacity>
 
       <View style={{ height: 32 }} />
-    </ScrollView>
+      </ScrollView>
+    </Can>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
   card: {
     backgroundColor: "white",
     marginHorizontal: 16,
@@ -160,4 +172,5 @@ const styles = StyleSheet.create({
   },
   submitButtonText: { color: "white", fontSize: 16, fontWeight: "600" },
   disabled: { opacity: 0.6 },
+  deniedText: { fontSize: 15, color: "#64748b", textAlign: "center", paddingHorizontal: 24 },
 });

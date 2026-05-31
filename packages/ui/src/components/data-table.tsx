@@ -82,14 +82,22 @@ export function DataTable<Row>({
     });
   };
 
+  const minTableWidth = useMemo(
+    () => columns.reduce((sum, col) => sum + (col.minWidth ?? 88), 0),
+    [columns],
+  );
+
   return (
-    <YStack
+    <Stack
       borderWidth={1}
       borderColor="$borderColor"
       borderRadius={12}
       backgroundColor="$backgroundStrong"
       overflow="hidden"
+      width="100%"
     >
+      <Stack overflow="scroll" width="100%" className="orrn-data-table-scroll">
+        <YStack minWidth={minTableWidth} width="100%">
       <XStack
         backgroundColor="$muted"
         paddingHorizontal={12}
@@ -202,7 +210,9 @@ export function DataTable<Row>({
         </XStack>
       ) : null}
       {footer}
-    </YStack>
+        </YStack>
+      </Stack>
+    </Stack>
   );
 }
 

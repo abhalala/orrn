@@ -167,6 +167,8 @@ export function MobileNav({ items }: { items: readonly AppFrameNavItem[] }) {
       borderTopColor="$borderColor"
       backgroundColor="$backgroundStrong"
       overflowX="auto"
+      flexShrink={0}
+      zIndex={20}
     >
       {visible.map((item) => {
         const content = (

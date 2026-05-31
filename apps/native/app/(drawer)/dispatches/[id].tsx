@@ -18,6 +18,7 @@ import { format } from "date-fns";
 
 import { queryClient, trpc } from "../../../utils/trpc";
 import { useLengthUnit } from "../../../utils/length";
+import { Can } from "@/components/can";
 
 export default function DispatchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -168,105 +169,115 @@ export default function DispatchDetailScreen() {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Actions</Text>
             <View style={styles.actionRow}>
-              <View style={styles.actionBtnWrap}>
-                <Button
-                  size="lg"
-                  disabled={!canReserve || reserveMutation.isPending}
-                  onPress={() =>
-                    confirm("Reserve", "Reserve all bundles for this dispatch?", () =>
-                      reserveMutation.mutate({ id: id as string }),
-                    )
-                  }
-                >
-                  Reserve
-                </Button>
-              </View>
-              <View style={styles.actionBtnWrap}>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  disabled={!canUnreserve || unreserveMutation.isPending}
-                  onPress={() => unreserveMutation.mutate({ id: id as string })}
-                >
-                  Unreserve
-                </Button>
-              </View>
-              <View style={styles.actionBtnWrap}>
-                <Button
-                  size="lg"
-                  disabled={!canComplete || completeMutation.isPending}
-                  onPress={() =>
-                    confirm(
-                      "Complete",
-                      "Mark all bundles as dispatched? This cannot be undone.",
-                      () => completeMutation.mutate({ id: id as string }),
-                    )
-                  }
-                >
-                  Complete
-                </Button>
-              </View>
-              <View style={styles.actionBtnWrap}>
-                <Button
-                  size="lg"
-                  variant="destructive"
-                  disabled={!canCancel || cancelMutation.isPending}
-                  onPress={() =>
-                    confirm(
-                      "Cancel",
-                      "Cancel this dispatch?",
-                      () => cancelMutation.mutate({ id: id as string, reason: null }),
-                      true,
-                    )
-                  }
-                >
-                  Cancel
-                </Button>
-              </View>
-              {canDelete ? (
+              <Can do="dispatch.reserve">
                 <View style={styles.actionBtnWrap}>
                   <Button
                     size="lg"
-                    variant="ghost"
-                    disabled={deleteMutation.isPending}
+                    disabled={!canReserve || reserveMutation.isPending}
+                    onPress={() =>
+                      confirm("Reserve", "Reserve all bundles for this dispatch?", () =>
+                        reserveMutation.mutate({ id: id as string }),
+                      )
+                    }
+                  >
+                    Reserve
+                  </Button>
+                </View>
+                <View style={styles.actionBtnWrap}>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    disabled={!canUnreserve || unreserveMutation.isPending}
+                    onPress={() => unreserveMutation.mutate({ id: id as string })}
+                  >
+                    Unreserve
+                  </Button>
+                </View>
+              </Can>
+              <Can do="dispatch.complete">
+                <View style={styles.actionBtnWrap}>
+                  <Button
+                    size="lg"
+                    disabled={!canComplete || completeMutation.isPending}
                     onPress={() =>
                       confirm(
-                        "Delete",
-                        "Hide this dispatch from active views?",
-                        () => deleteMutation.mutate({ id: id as string }),
+                        "Complete",
+                        "Mark all bundles as dispatched? This cannot be undone.",
+                        () => completeMutation.mutate({ id: id as string }),
+                      )
+                    }
+                  >
+                    Complete
+                  </Button>
+                </View>
+              </Can>
+              <Can do="dispatch.cancel">
+                <View style={styles.actionBtnWrap}>
+                  <Button
+                    size="lg"
+                    variant="destructive"
+                    disabled={!canCancel || cancelMutation.isPending}
+                    onPress={() =>
+                      confirm(
+                        "Cancel",
+                        "Cancel this dispatch?",
+                        () => cancelMutation.mutate({ id: id as string, reason: null }),
                         true,
                       )
                     }
                   >
-                    Delete
+                    Cancel
                   </Button>
                 </View>
-              ) : null}
+              </Can>
+              <Can do="dispatch.delete">
+                {canDelete ? (
+                  <View style={styles.actionBtnWrap}>
+                    <Button
+                      size="lg"
+                      variant="ghost"
+                      disabled={deleteMutation.isPending}
+                      onPress={() =>
+                        confirm(
+                          "Delete",
+                          "Hide this dispatch from active views?",
+                          () => deleteMutation.mutate({ id: id as string }),
+                          true,
+                        )
+                      }
+                    >
+                      Delete
+                    </Button>
+                  </View>
+                ) : null}
+              </Can>
             </View>
           </View>
 
-          {canAddOrRemove ? (
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Scan or paste serials</Text>
-              <TextArea
-                value={serialInput}
-                onChangeText={setSerialInput}
-                placeholder="BG-000123-B001"
-                autoCapitalize="characters"
-                autoCorrect={false}
-                rows={4}
-              />
-              <View style={styles.primaryBtnWrap}>
-                <Button
-                  size="lg"
-                  disabled={addSerialsMutation.isPending}
-                  onPress={handleAddSerials}
-                >
-                  {addSerialsMutation.isPending ? "Adding…" : "Add to dispatch"}
-                </Button>
+          <Can do="dispatch.addBundle">
+            {canAddOrRemove ? (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Scan or paste serials</Text>
+                <TextArea
+                  value={serialInput}
+                  onChangeText={setSerialInput}
+                  placeholder="BG-000123-B001"
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  rows={4}
+                />
+                <View style={styles.primaryBtnWrap}>
+                  <Button
+                    size="lg"
+                    disabled={addSerialsMutation.isPending}
+                    onPress={handleAddSerials}
+                  >
+                    {addSerialsMutation.isPending ? "Adding…" : "Add to dispatch"}
+                  </Button>
+                </View>
               </View>
-            </View>
-          ) : null}
+            ) : null}
+          </Can>
 
           {d.status === "completed" ? <PackingListCard dispatchId={d.id} /> : null}
 
@@ -284,13 +295,15 @@ export default function DispatchDetailScreen() {
             </Pressable>
           </Link>
           {canAddOrRemove ? (
-            <Pressable
-              style={styles.removeButton}
-              disabled={removeMutation.isPending}
-              onPress={() => removeMutation.mutate({ id: id as string, bundleId: item.bundleId })}
-            >
-              <Text style={styles.removeText}>Remove</Text>
-            </Pressable>
+            <Can do="dispatch.addBundle">
+              <Pressable
+                style={styles.removeButton}
+                disabled={removeMutation.isPending}
+                onPress={() => removeMutation.mutate({ id: id as string, bundleId: item.bundleId })}
+              >
+                <Text style={styles.removeText}>Remove</Text>
+              </Pressable>
+            </Can>
           ) : null}
         </View>
       )}

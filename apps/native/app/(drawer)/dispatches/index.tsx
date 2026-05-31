@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 
 import { trpc } from "../../../utils/trpc";
+import { Can } from "@/components/can";
 
 const dispatchStatuses = ["draft", "reserved", "completed", "cancelled"] as const;
 type DispatchStatus = (typeof dispatchStatuses)[number];
@@ -54,11 +55,13 @@ export default function DispatchesScreen() {
         options={{
           title: "Dispatches",
           headerRight: () => (
-            <Link href="/dispatches/new" asChild>
-              <TouchableOpacity style={styles.addButton}>
-                <Ionicons name="add" size={24} color="#007AFF" />
-              </TouchableOpacity>
-            </Link>
+            <Can do="dispatch.create">
+              <Link href="/dispatches/new" asChild>
+                <TouchableOpacity style={styles.addButton} accessibilityLabel="New dispatch">
+                  <Ionicons name="add" size={24} color="#007AFF" />
+                </TouchableOpacity>
+              </Link>
+            </Can>
           ),
         }}
       />

@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 
 import { trpc } from "../../../utils/trpc";
+import { Can } from "@/components/can";
 
 export default function ReceiptsScreen() {
   const [search, setSearch] = useState("");
@@ -28,11 +29,13 @@ export default function ReceiptsScreen() {
         options={{
           title: "Receipts",
           headerRight: () => (
-            <Link href="/receipts/new" asChild>
-              <TouchableOpacity style={styles.addButton}>
-                <Ionicons name="add" size={24} color="#007AFF" />
-              </TouchableOpacity>
-            </Link>
+            <Can do="receipt.create">
+              <Link href="/receipts/new" asChild>
+                <TouchableOpacity style={styles.addButton} accessibilityLabel="New receipt">
+                  <Ionicons name="add" size={24} color="#007AFF" />
+                </TouchableOpacity>
+              </Link>
+            </Can>
           ),
         }}
       />

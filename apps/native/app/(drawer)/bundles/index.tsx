@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { trpc } from "../../../utils/trpc";
 import { useLengthUnit } from "../../../utils/length";
+import { Can } from "@/components/can";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -55,11 +56,13 @@ export default function BundlesScreen() {
         options={{
           title: "Bundles",
           headerRight: () => (
-            <Link href="/receipts/new" asChild>
-              <TouchableOpacity style={styles.addButton}>
-                <Ionicons name="add" size={24} color="#007AFF" />
-              </TouchableOpacity>
-            </Link>
+            <Can do="receipt.create">
+              <Link href="/receipts/new" asChild>
+                <TouchableOpacity style={styles.addButton} accessibilityLabel="New receipt">
+                  <Ionicons name="add" size={24} color="#007AFF" />
+                </TouchableOpacity>
+              </Link>
+            </Can>
           ),
         }}
       />

@@ -12,12 +12,14 @@ import {
 } from "react-native";
 
 import { trpc } from "../../../utils/trpc";
+import { useLengthUnit } from "../../../utils/length";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
 
 export default function StockScreen() {
   const [status, setStatus] = useState<BundleStatus>("available");
+  const lu = useLengthUnit();
 
   const { data, isLoading } = useQuery({
     ...trpc.bundle.stockSummary.queryOptions({ status }),
@@ -60,7 +62,7 @@ export default function StockScreen() {
         <SummaryCard label="Bundles" value={Number(totals.bundleCount).toString()} />
         <SummaryCard label="Quantity" value={Number(totals.totalQuantity).toString()} />
         <SummaryCard label="Weight (g)" value={Number(totals.totalWeightG).toLocaleString()} />
-        <SummaryCard label="Length (mm)" value={Number(totals.totalLengthMm).toLocaleString()} />
+        <SummaryCard label={`Length (${lu.label})`} value={lu.formatLength(Number(totals.totalLengthMm))} />
       </View>
 
       {isLoading ? (

@@ -16,6 +16,7 @@ import { format } from "date-fns";
 
 import { queryClient, trpc } from "../../../utils/trpc";
 import { useLengthUnit } from "../../../utils/length";
+import { Can } from "@/components/can";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -128,31 +129,33 @@ export default function BundleDetailScreen() {
       </View>
 
       {canTransition && targetStatus ? (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>
-            {isAvailable ? "Void this bundle" : "Restore this bundle"}
-          </Text>
-          <Input
-            placeholder="Reason (optional)"
-            value={reason}
-            onChangeText={setReason}
-            height={48}
-          />
-          <View style={styles.buttonWrap}>
-            <Button
-              variant={isAvailable ? "destructive" : "default"}
-              size="lg"
-              disabled={transitionMutation.isPending}
-              onPress={confirmTransition}
-            >
-              {transitionMutation.isPending
-                ? "Saving…"
-                : isAvailable
-                  ? "Void bundle"
-                  : "Restore bundle"}
-            </Button>
+        <Can do="bundle.transition">
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>
+              {isAvailable ? "Void this bundle" : "Restore this bundle"}
+            </Text>
+            <Input
+              placeholder="Reason (optional)"
+              value={reason}
+              onChangeText={setReason}
+              height={48}
+            />
+            <View style={styles.buttonWrap}>
+              <Button
+                variant={isAvailable ? "destructive" : "default"}
+                size="lg"
+                disabled={transitionMutation.isPending}
+                onPress={confirmTransition}
+              >
+                {transitionMutation.isPending
+                  ? "Saving…"
+                  : isAvailable
+                    ? "Void bundle"
+                    : "Restore bundle"}
+              </Button>
+            </View>
           </View>
-        </View>
+        </Can>
       ) : (
         <View style={[styles.card, styles.muted]}>
           <Text style={styles.mutedText}>
