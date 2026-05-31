@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
-import Papa from "papaparse";
 import { toast } from "sonner";
 
 import { trpc } from "@/shared/utils/trpc";
@@ -62,7 +61,7 @@ function NewReceiptComponent() {
   const removeRow = (id: string) =>
     setRows((prev) => (prev.length === 1 ? prev : prev.filter((r) => r.id !== id)));
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     const ext = file.name.split(".").pop()?.toLowerCase();
@@ -99,6 +98,8 @@ function NewReceiptComponent() {
       };
       reader.readAsText(file);
     } else if (ext === "csv") {
+      const Papa = (await import("papaparse")).default;
+
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,

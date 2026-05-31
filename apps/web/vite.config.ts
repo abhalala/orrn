@@ -8,6 +8,27 @@ export default defineConfig({
   server: {
     port: 3001,
   },
+  build: {
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("@react-pdf")) return "pdf-export";
+          if (id.includes("xlsx")) return "xlsx";
+          if (id.includes("@tanstack")) return "tanstack";
+          if (id.includes("tamagui") || id.includes("@tamagui")) {
+            return "tamagui";
+          }
+          if (id.includes("react") || id.includes("react-dom")) {
+            return "react-vendor";
+          }
+          if (id.includes("papaparse")) return "csv-parser";
+          return undefined;
+        },
+      },
+    },
+  },
   resolve: {
     tsconfigPaths: true,
     dedupe: ["react", "react-dom"],

@@ -7,7 +7,6 @@ import { Toolbar } from "@orrn/ui/components/toolbar";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
-import Papa from "papaparse";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -47,9 +46,11 @@ function CustomersListComponent() {
     },
   });
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    const Papa = (await import("papaparse")).default;
 
     Papa.parse(file, {
       header: true,

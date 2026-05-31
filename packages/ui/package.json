@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./provider": "./src/provider.tsx",
     "./tamagui.config": "./src/tamagui.config.ts",
     "./tokens": "./src/tokens.ts",
     "./globals.css": "./src/styles/globals.css",

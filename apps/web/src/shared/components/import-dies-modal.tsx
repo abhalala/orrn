@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
 import { toast } from "sonner";
-import Papa from "papaparse";
 import { useMutation } from "@tanstack/react-query";
 
 import { useLengthUnit } from "../lib/length";
@@ -18,7 +17,7 @@ export function ImportDiesModal({ onClose, onSuccess }: { onClose: () => void, o
   const processMutation = useMutation(trpc.die.processImport.mutationOptions());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -57,6 +56,8 @@ export function ImportDiesModal({ onClose, onSuccess }: { onClose: () => void, o
       };
       reader.readAsText(file);
     } else if (ext === 'csv') {
+      const Papa = (await import("papaparse")).default;
+
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
