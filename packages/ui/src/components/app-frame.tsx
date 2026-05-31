@@ -24,6 +24,7 @@ export type AppStatusBarProps = {
 export function AppStatusBar({ brand, context, actions, navToggle }: AppStatusBarProps) {
   return (
     <XStack
+      className="orrn-status-bar"
       alignItems="center"
       justifyContent="space-between"
       gap={12}
@@ -69,15 +70,17 @@ export function AppFrame({
   maxWidth = 1180,
 }: AppFrameProps) {
   return (
-    <YStack height="100svh" width="100%" backgroundColor="$background">
+    <YStack height="100svh" width="100%" maxWidth="100vw" overflow="hidden" backgroundColor="$background">
       {banner}
       <XStack flex={1} minHeight={0} width="100%" overflow="hidden">
         {sidebar ? <Stack className="orrn-desktop-nav" height="100%">{sidebar}</Stack> : null}
-        <YStack flex={1} minWidth={0}>
+        <YStack flex={1} minWidth={0} maxWidth="100%">
           {statusBar}
-          <Stack flex={1} overflow="auto">
+          <Stack className="orrn-page-scroll" flex={1} width="100%" minWidth={0} overflow="auto">
             <YStack
+              className="orrn-app-content"
               width="100%"
+              minWidth={0}
               maxWidth={maxWidth}
               alignSelf="center"
               paddingHorizontal={16}
@@ -111,9 +114,9 @@ export function PageScaffold({
   children,
 }: PageScaffoldProps) {
   return (
-    <YStack gap={16}>
+    <YStack gap={16} minWidth={0}>
       <XStack alignItems="flex-start" justifyContent="space-between" gap={12} flexWrap="wrap">
-        <YStack gap={4} minWidth={220} flex={1}>
+        <YStack gap={4} minWidth={0} flex={1}>
           {eyebrow ? (
             <Paragraph
               margin={0}
@@ -125,11 +128,24 @@ export function PageScaffold({
               {eyebrow}
             </Paragraph>
           ) : null}
-          <H1 margin={0} fontSize={24} lineHeight={30} fontWeight="650" color="$color">
+          <H1
+            className="orrn-page-title"
+            margin={0}
+            fontSize={24}
+            lineHeight={30}
+            fontWeight="650"
+            color="$color"
+          >
             {title}
           </H1>
           {description ? (
-            <Paragraph margin={0} color="$mutedFg" fontSize={13} maxWidth={680}>
+            <Paragraph
+              className="orrn-page-description"
+              margin={0}
+              color="$mutedFg"
+              fontSize={13}
+              maxWidth={680}
+            >
               {description}
             </Paragraph>
           ) : null}
@@ -173,6 +189,7 @@ export function MobileNav({ items }: { items: readonly AppFrameNavItem[] }) {
       {visible.map((item) => {
         const content = (
           <YStack
+            className="orrn-mobile-nav-item"
             key={item.key}
             alignItems="center"
             justifyContent="center"

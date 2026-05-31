@@ -46,7 +46,7 @@ export function Breadcrumbs({
   return (
     <nav
       aria-label="Breadcrumb"
-      className="flex items-center gap-1 px-6 h-9 text-xs text-muted-foreground border-b border-border bg-background"
+      className="flex h-9 items-center gap-1 overflow-x-auto whitespace-nowrap border-b border-border bg-background px-3 text-xs text-muted-foreground md:px-6"
     >
       <Link to={homePath as "/"} className="hover:text-foreground hover:underline">
         {homeLabel}
