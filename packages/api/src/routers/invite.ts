@@ -5,7 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { companyRoles, invite, membership } from "@orrn/db/schema/tenant";
 import { user } from "@orrn/db/schema/auth";
 import { atomicBatch } from "../lib/atomic";
-import { sendEmail } from "../lib/email";
+import { sendEmail, renderOrrnEmailHtml } from "../lib/email";
 import { companyProcedure, roleGuard, publicProcedure, router } from "../index";
 
 export const inviteRouter = router({
@@ -59,8 +59,13 @@ export const inviteRouter = router({
       await sendEmail({
         to: input.email,
         subject: "You've been invited to join a company on ORRN",
-        html: `<p>You have been invited to join a company on ORRN.</p>
-               <p>Click <a href="${inviteUrl}">here</a> to accept the invitation and set up your account.</p>`,
+        html: renderOrrnEmailHtml({
+          title: "Workspace Invitation",
+          description: `You have been invited to join a company workspace on ORRN-AL with the role of ${input.role.toUpperCase()}. Click the button below to accept the invitation and complete your account setup.`,
+          buttonText: "Accept Invitation",
+          buttonUrl: inviteUrl,
+          footerText: "If you did not expect this invitation, you can safely ignore this email. This invitation is valid for 7 days."
+        }),
       });
 
       return { success: true };

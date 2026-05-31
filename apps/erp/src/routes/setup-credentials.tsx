@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
+import { Eye, EyeOff, Clipboard, ShieldCheck } from "lucide-react";
 
 import { Button } from "@orrn/ui/components/button";
 import { Input } from "@orrn/ui/components/input";
@@ -17,13 +18,15 @@ export const Route = createFileRoute("/setup-credentials")({
 
 function OrrnLogo() {
   return (
-    <svg className="w-12 h-12 mx-auto filter drop-shadow-[0_0_12px_rgba(91,108,255,0.6)]" viewBox="0 0 100 100" fill="none">
+    <svg className="w-12 h-12 mx-auto filter drop-shadow-[0_0_12px_rgba(91,108,255,0.6)] animate-pulse" viewBox="0 0 100 100" fill="none">
       <polygon points="50,15 85,35 85,75 50,95 15,75 15,35" fill="none" stroke="#5B6CFF" strokeWidth="4" />
       <polygon points="50,25 75,40 75,70 50,85 25,70 25,40" fill="none" stroke="#22D3EE" strokeWidth="2" opacity="0.8" />
       <polygon points="50,40 60,50 50,60 40,50" fill="#5B6CFF" />
     </svg>
   );
-}function SetupCredentialsComponent() {
+}
+
+function SetupCredentialsComponent() {
   const navigate = useNavigate();
   const [step, setStep] = useState<"password" | "totp">("password");
   
@@ -31,11 +34,12 @@ function OrrnLogo() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   
   // TOTP states
   const [totpUri, setTotpUri] = useState("");
   const [secretKey, setSecretKey] = useState("");
-  const [totpCode, setTotpCode] = useState("");
   const [totpDigits, setTotpDigits] = useState<string[]>(Array(6).fill(""));
 
   const setPasswordMutation = useMutation(trpc.auth.setPassword.mutationOptions());
@@ -93,7 +97,6 @@ function OrrnLogo() {
 
     setIsSubmitting(true);
     try {
-      // Use verifyTotp to verify the client code and complete 2FA enablement
       const { error } = await authClient.twoFactor.verifyTotp({
         code: finalCode,
       });
@@ -151,6 +154,10 @@ function OrrnLogo() {
         newDigits[index] = "";
         setTotpDigits(newDigits);
       }
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      document.getElementById(`totp-digit-${index - 1}`)?.focus();
+    } else if (e.key === "ArrowRight" && index < 5) {
+      document.getElementById(`totp-digit-${index + 1}`)?.focus();
     }
   };
 
@@ -160,7 +167,6 @@ function OrrnLogo() {
     if (pastedData.length === 6) {
       const digitsArray = pastedData.split("");
       setTotpDigits(digitsArray);
-      // Focus last input
       document.getElementById(`totp-digit-5`)?.focus();
     }
   };
@@ -172,13 +178,13 @@ function OrrnLogo() {
       <div className="absolute bottom-[-10%] right-[20%] w-[500px] h-[500px] bg-gradient-to-l from-[#22D3EE]/10 to-[#5B6CFF]/5 rounded-full blur-[100px] pointer-events-none -z-10 animate-pulse duration-[8000ms]" />
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-[0.15] pointer-events-none -z-10" />
 
-      <div className="w-full max-w-lg space-y-8 rounded-2xl border border-[#5B6CFF]/20 bg-[#121826]/70 p-8 shadow-2xl backdrop-blur-xl transition-all duration-300 relative overflow-hidden">
+      <div className="w-full max-w-lg space-y-8 rounded-2xl border border-white/10 bg-[#121826]/40 p-8 shadow-2xl backdrop-blur-xl transition-all duration-300 relative overflow-hidden">
         {/* Top border highlight */}
-        <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#5B6CFF]/30 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#5B6CFF]/35 to-transparent" />
         
         <div className="space-y-3 text-center">
           <OrrnLogo />
-          <h1 className="text-3xl font-extrabold tracking-tight text-[#f5f7ff] font-mono">
+          <h1 className="text-3xl font-extrabold tracking-tight text-[#f5f7ff] font-sans">
             {step === "password" ? "Secure Your Account" : "Activate Two-Factor"}
           </h1>
           <p className="text-xs text-muted-foreground font-mono">
@@ -191,22 +197,33 @@ function OrrnLogo() {
         {/* Step indicator */}
         <div className="flex items-center justify-center space-x-4">
           <span className={`h-2 w-16 rounded-full transition-all duration-300 ${step === "password" ? "bg-[#5B6CFF] shadow-[0_0_8px_#5B6CFF]" : "bg-[#5B6CFF]/30"}`} />
-          <span className={`h-2 w-16 rounded-full transition-all duration-300 ${step === "totp" ? "bg-[#5B6CFF] shadow-[0_0_8px_#5B6CFF]" : "bg-muted/20"}`} />
+          <span className={`h-2 w-16 rounded-full transition-all duration-300 ${step === "totp" ? "bg-[#5B6CFF] shadow-[0_0_8px_#5B6CFF]" : "bg-white/10"}`} />
         </div>
 
         {step === "password" ? (
           <form onSubmit={handlePasswordSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">New Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="bg-[#0b0f1a]/60 border-border/40 focus:border-[#5B6CFF] focus:ring-1 focus:ring-[#5B6CFF] text-[#f5f7ff] text-sm h-10 transition-all rounded-lg"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="bg-[#0b0f1a]/60 border-white/10 focus:border-[#5B6CFF] text-[#f5f7ff] text-sm h-10 transition-all rounded-lg w-full pr-10"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-[#5B6CFF] transition-colors focus:outline-none rounded-md p-1"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
               
               {/* Strength Meter */}
               {password && (
@@ -228,7 +245,7 @@ function OrrnLogo() {
                               : strength <= 4
                                 ? "bg-yellow-500"
                                 : "bg-emerald-500"
-                            : "bg-muted/30"
+                            : "bg-white/10"
                         }`}
                       />
                     ))}
@@ -239,34 +256,52 @@ function OrrnLogo() {
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword" className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="bg-[#0b0f1a]/60 border-border/40 focus:border-[#5B6CFF] focus:ring-1 focus:ring-[#5B6CFF] text-[#f5f7ff] text-sm h-10 transition-all rounded-lg"
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirm ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="bg-[#0b0f1a]/60 border-white/10 focus:border-[#5B6CFF] text-[#f5f7ff] text-sm h-10 transition-all rounded-lg w-full pr-10"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(!showConfirm)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-[#5B6CFF] transition-colors focus:outline-none rounded-md p-1"
+                  aria-label={showConfirm ? "Hide password" : "Show password"}
+                >
+                  {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             <Button
               type="submit"
-              className="w-full mt-2 bg-[#5B6CFF] hover:bg-[#3b4edd] text-white font-bold h-10 rounded-lg shadow-lg shadow-[#5B6CFF]/20 border border-white/5 transition-all hover:scale-[1.01]"
-              disabled={isSubmitting}
+              className="w-full mt-6 bg-[#5B6CFF] hover:bg-[#3b4edd] text-white font-bold h-10 rounded-lg shadow-lg shadow-[#5B6CFF]/20 border border-white/5 transition-all hover:scale-[1.01] flex items-center justify-center gap-2"
+              disabled={isSubmitting || password.length < 8 || password !== confirmPassword}
             >
-              {isSubmitting ? "Saving Password..." : "Save Password & Continue"}
+              {isSubmitting ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span>Saving Password…</span>
+                </>
+              ) : (
+                "Save Password & Continue"
+              )}
             </Button>
           </form>
         ) : (
           <form onSubmit={handleTotpVerify} className="space-y-6">
             <div className="flex flex-col items-center justify-center space-y-4">
-              <div className="relative rounded-xl border border-border/20 bg-[#0B0F1A] p-4 shadow-2xl">
+              <div className="relative rounded-xl border border-white/10 bg-[#0B0F1A] p-4 shadow-2xl overflow-hidden group">
                 {totpUri ? (
                   <img
                     src={`https://chart.googleapis.com/chart?chs=180&cht=qr&chl=${encodeURIComponent(totpUri)}`}
                     alt="2FA QR Code"
-                    className="h-[180px] w-[180px] select-none rounded-lg"
+                    className="h-[180px] w-[180px] select-none rounded-lg filter brightness-95 contrast-105"
                   />
                 ) : (
                   <div className="flex h-[180px] w-[180px] items-center justify-center text-xs font-mono text-muted-foreground animate-pulse">
@@ -274,14 +309,14 @@ function OrrnLogo() {
                   </div>
                 )}
                 {/* Neon Cyan Scanning Indicator Line */}
-                <div className="absolute left-0 top-0 h-0.5 w-full bg-[#22D3EE] shadow-[0_0_8px_#22D3EE] animate-[bounce_3s_infinite]" />
+                <div className="absolute left-0 top-0 h-[2px] w-full bg-gradient-to-r from-transparent via-[#22D3EE] to-transparent shadow-[0_0_12px_#22D3EE] animate-[bounce_3s_infinite]" />
               </div>
 
               {secretKey && (
                 <div className="w-full text-center space-y-2">
                   <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest block">Secret Key (Manual Entry)</span>
                   <div className="flex items-center justify-center space-x-2">
-                    <code className="text-[11px] bg-[#0b0f1a]/80 px-3 py-1.5 rounded-lg border border-border/20 text-cyan-400 font-mono select-all">
+                    <code className="text-[11px] bg-[#0b0f1a]/80 px-3 py-1.5 rounded-lg border border-white/5 text-cyan-400 font-mono select-all">
                       {secretKey}
                     </code>
                     <button
@@ -290,11 +325,15 @@ function OrrnLogo() {
                         navigator.clipboard.writeText(secretKey);
                         toast.success("Secret copied!");
                       }}
-                      className="text-xs text-[#22D3EE] hover:text-[#22D3EE]/80 font-bold font-mono"
+                      className="text-xs text-[#22D3EE] hover:text-[#22D3EE]/80 font-bold font-mono flex items-center gap-1 bg-white/5 px-2 py-1 rounded-md transition-colors border border-white/5"
                     >
-                      Copy
+                      <Clipboard size={12} />
+                      <span>Copy</span>
                     </button>
                   </div>
+                  <p className="text-[10px] text-muted-foreground max-w-xs mx-auto mt-2 leading-relaxed">
+                    🔑 <strong>Can't scan?</strong> Copy this key and enter it manually into your authenticator app (e.g., Google Authenticator) to link your account.
+                  </p>
                 </div>
               )}
             </div>
@@ -317,7 +356,9 @@ function OrrnLogo() {
                     value={digit}
                     onChange={(e) => handleDigitChange(idx, e.target.value)}
                     onKeyDown={(e) => handleDigitKeyDown(idx, e)}
-                    className="w-11 h-12 text-center text-xl font-bold font-mono text-[#f5f7ff] bg-[#0b0f1a]/60 border border-border/40 focus:border-[#5B6CFF] focus:ring-1 focus:ring-[#5B6CFF] rounded-lg outline-none transition-all"
+                    className="w-11 h-12 text-center text-xl font-bold font-mono text-[#f5f7ff] bg-[#0b0f1a]/60 border border-white/10 focus:border-[#5B6CFF] focus:ring-1 focus:ring-[#5B6CFF] rounded-lg outline-none transition-all"
+                    spellCheck={false}
+                    autoComplete="one-time-code"
                   />
                 ))}
               </div>
@@ -325,10 +366,20 @@ function OrrnLogo() {
 
             <Button
               type="submit"
-              className="w-full bg-[#5B6CFF] hover:bg-[#3b4edd] text-white font-bold h-10 rounded-lg shadow-lg shadow-[#5B6CFF]/20 border border-white/5 transition-all hover:scale-[1.01]"
+              className="w-full bg-[#5B6CFF] hover:bg-[#3b4edd] text-white font-bold h-10 rounded-lg shadow-lg shadow-[#5B6CFF]/20 border border-white/5 transition-all hover:scale-[1.01] flex items-center justify-center gap-2"
               disabled={isSubmitting || !totpUri || totpDigits.join("").length !== 6}
             >
-              {isSubmitting ? "Verifying..." : "Verify & Complete Setup"}
+              {isSubmitting ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span>Verifying Setup…</span>
+                </>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <ShieldCheck size={16} />
+                  <span>Verify & Complete Setup</span>
+                </span>
+              )}
             </Button>
           </form>
         )}

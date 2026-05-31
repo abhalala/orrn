@@ -46,6 +46,8 @@ type StyleBag = {
   onKeyDown?: (e: any) => void;
   onSubmit?: (e: any) => void;
   onSubmitEditing?: (e: any) => void;
+  autoComplete?: string;
+  spellCheck?: boolean;
 };
 
 export type InputProps = StyleBag & {
