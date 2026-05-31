@@ -54,14 +54,6 @@ function DrawerLayout() {
           ),
         }}
       />
-      {/* Legacy tabs demo — hidden from production nav */}
-      <Drawer.Screen
-        name="(tabs)"
-        options={{
-          drawerItemStyle: { display: "none" },
-          headerShown: false,
-        }}
-      />
       <Drawer.Screen
         name="customers"
         options={{

@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { CheckCircle2, LockKeyhole } from "lucide-react";
 
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
@@ -31,34 +32,28 @@ function RouteComponent() {
         description="Operational snapshot for your plant facility. Active modules are enabled below."
       />
 
-      {/* Dynamic Operations Guide */}
-      <Card className="border-[#5B6CFF]/30 bg-[#121826]/40 backdrop-blur">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-[#22D3EE] font-bold text-lg flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-            Operations Guide ({plan.toUpperCase()})
-          </CardTitle>
+          <CardTitle>Operations Guide ({plan.toUpperCase()})</CardTitle>
           <CardDescription>Tailored instructions based on your plant active configuration.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <ul className="space-y-3 text-sm text-muted-foreground">
             {plan === "starter" && (
               <li className="flex gap-2">
-                <span className="text-[#5B6CFF] font-bold">✓</span>
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
                 <span>Your plant is running on the <strong>Starter</strong> tier. You can organize customers and register dies.</span>
               </li>
             )}
             {plan === "growth" && (
               <li className="flex gap-2">
-                <span className="text-[#5B6CFF] font-bold">✓</span>
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
                 <span>You have access to <strong>Growth</strong> parameters including bundle lifecycles and production receipts.</span>
               </li>
             )}
             {plan === "enterprise" && (
               <li className="flex gap-2">
-                <span className="text-[#5B6CFF] font-bold">✓</span>
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
                 <span><strong>Enterprise</strong> mode enabled. You can connect automated printing queues and scale dispatches.</span>
               </li>
             )}
@@ -66,20 +61,20 @@ function RouteComponent() {
             {/* Module Specific Guides */}
             {hasModule("dies") && (
               <li className="flex gap-2">
-                <span className="text-[#22D3EE] font-bold">→</span>
-                <span>Go to <Link to="/dies" className="text-[#5B6CFF] hover:underline">Dies</Link> to configure aluminum profile weights and press settings.</span>
+                <span className="text-primary">→</span>
+                <span>Go to <Link to="/dies" className="text-primary hover:underline">Dies</Link> to configure aluminum profile weights and press settings.</span>
               </li>
             )}
             {hasModule("bundles") && (
               <li className="flex gap-2">
-                <span className="text-[#22D3EE] font-bold">→</span>
-                <span>Create a new <Link to="/receipts" className="text-[#5B6CFF] hover:underline">Receipt</Link> to log completed extrusion press cycles and generate bundle tags.</span>
+                <span className="text-primary">→</span>
+                <span>Create a new <Link to="/receipts" className="text-primary hover:underline">Receipt</Link> to log completed extrusion press cycles and generate bundle tags.</span>
               </li>
             )}
             {hasModule("dispatches") && (
               <li className="flex gap-2">
-                <span className="text-[#22D3EE] font-bold">→</span>
-                <span>Use <Link to="/dispatches" search={{ status: "all" }} className="text-[#5B6CFF] hover:underline">Dispatches</Link> to prepare shipping runs, allocate bundles to trailers, and download packing lists.</span>
+                <span className="text-primary">→</span>
+                <span>Use <Link to="/dispatches" search={{ status: "all" }} className="text-primary hover:underline">Dispatches</Link> to prepare shipping runs, allocate bundles to trailers, and download packing lists.</span>
               </li>
             )}
           </ul>
@@ -140,7 +135,7 @@ function RouteComponent() {
 function ModuleCard({ to, title, description }: { to: string; title: string; description: string }) {
   return (
     <Link to={to as any} className="no-underline">
-      <Card className="hover:border-[#5B6CFF]/50 transition-colors duration-200">
+      <Card className="hover:border-primary/50">
         <CardHeader>
           <CardTitle>{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
@@ -152,12 +147,12 @@ function ModuleCard({ to, title, description }: { to: string; title: string; des
 
 function LockedModuleCard({ title, description }: { title: string; description: string }) {
   return (
-    <Card className="opacity-55 cursor-not-allowed border-dashed bg-[#0b0f1a]/30">
+    <Card className="cursor-not-allowed border-dashed opacity-60">
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-muted-foreground">
           {title}
-          <span className="text-[10px] uppercase font-bold tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded border border-border/40">
-            Locked
+          <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <LockKeyhole size={10} aria-hidden="true" /> Locked
           </span>
         </CardTitle>
         <CardDescription>{description}</CardDescription>

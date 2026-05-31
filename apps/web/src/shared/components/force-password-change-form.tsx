@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@orrn/ui/components/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { useMutation } from "@tanstack/react-query";
@@ -67,16 +68,13 @@ export default function ForcePasswordChangeForm({
   };
 
   return (
-    <div className="w-full max-w-md p-8 rounded-2xl border border-[#5B6CFF]/15 bg-[#121826]/70 backdrop-blur-xl shadow-2xl space-y-6 relative overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#5B6CFF]/30 to-transparent" />
+    <Card width="100%" maxWidth={420} alignSelf="center">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
 
-      <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-extrabold tracking-tight text-[#f5f7ff] font-mono">
-          {title}
-        </h1>
-        <p className="text-xs text-muted-foreground font-mono">{description}</p>
-      </div>
-
+      <CardContent>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <Label
@@ -91,7 +89,6 @@ export default function ForcePasswordChangeForm({
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="bg-[#0b0f1a]/60 border-border/40 h-10"
             required
           />
           {password ? (
@@ -143,7 +140,6 @@ export default function ForcePasswordChangeForm({
             placeholder="••••••••"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className="bg-[#0b0f1a]/60 border-border/40 h-10"
             required
           />
         </div>
@@ -156,6 +152,7 @@ export default function ForcePasswordChangeForm({
           {mutation.isPending ? "Updating…" : "Update password"}
         </Button>
       </form>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

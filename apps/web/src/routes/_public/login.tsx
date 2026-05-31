@@ -15,5 +15,9 @@ export const Route = createFileRoute("/_public/login")({
 function RouteComponent() {
   const { next } = Route.useSearch();
 
-  return <SignInForm next={next} />;
+  return (
+    <main className="grid min-h-screen w-full place-items-center px-4 py-10">
+      <SignInForm next={next} />
+    </main>
+  );
 }

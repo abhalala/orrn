@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 
 import { H1, Paragraph, XStack, YStack } from "@orrn/ui/lib/tg";
 
+import { PageActions } from "./app-frame";
+
 export type PageHeaderProps = {
   title: ReactNode;
   description?: ReactNode;
@@ -15,8 +17,8 @@ export type PageHeaderProps = {
  */
 export function PageHeader({ title, description, actions, eyebrow }: PageHeaderProps) {
   return (
-    <XStack alignItems="flex-start" justifyContent="space-between" gap={16} flexWrap="wrap">
-      <YStack gap={4} flex={1} minWidth={240}>
+    <XStack alignItems="flex-start" justifyContent="space-between" gap={12} flexWrap="wrap">
+      <YStack gap={4} flex={1} minWidth={220}>
         {eyebrow ? (
           <Paragraph
             fontSize={11}
@@ -28,20 +30,16 @@ export function PageHeader({ title, description, actions, eyebrow }: PageHeaderP
             {eyebrow}
           </Paragraph>
         ) : null}
-        <H1 fontSize={24} fontWeight="700" color="$color" margin={0} lineHeight={28}>
+        <H1 fontSize={24} fontWeight="650" color="$color" margin={0} lineHeight={30}>
           {title}
         </H1>
         {description ? (
-          <Paragraph fontSize={13} color="$mutedFg" margin={0} maxWidth={640}>
+          <Paragraph fontSize={13} color="$mutedFg" margin={0} maxWidth={680}>
             {description}
           </Paragraph>
         ) : null}
       </YStack>
-      {actions ? (
-        <XStack alignItems="center" gap={8} flexWrap="wrap">
-          {actions}
-        </XStack>
-      ) : null}
+      {actions ? <PageActions>{actions}</PageActions> : null}
     </XStack>
   );
 }

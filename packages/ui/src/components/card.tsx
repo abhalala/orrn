@@ -18,11 +18,16 @@ export function Card({ size = "default", children, ...rest }: CardProps) {
     <TgCard
       bordered
       elevate={false}
-      borderRadius={12}
+      borderRadius={8}
       backgroundColor="$backgroundStrong"
       borderColor="$borderColor"
       padding={size === "sm" ? 12 : 16}
       gap={size === "sm" ? 8 : 12}
+      alignItems="stretch"
+      shadowColor="rgba(0,0,0,0.18)"
+      shadowRadius={18}
+      shadowOpacity={0.12}
+      shadowOffset={{ width: 0, height: 12 }}
       {...rest}
     >
       {children}

@@ -27,12 +27,10 @@ function ChangePasswordComponent() {
   const me = meQuery.data as Me | undefined;
 
   return (
-    <div className="w-full max-w-md p-8 rounded-2xl border border-border/40 bg-card/60 backdrop-blur-md shadow-2xl space-y-6">
-      <ForcePasswordChangeForm
-        onSuccess={() => {
-          window.location.replace(me?.isPlatformAdmin ? "/admin" : "/dashboard");
-        }}
-      />
-    </div>
+    <ForcePasswordChangeForm
+      onSuccess={() => {
+        window.location.replace(me?.isPlatformAdmin ? "/admin" : "/dashboard");
+      }}
+    />
   );
 }

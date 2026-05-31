@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { Button } from "@orrn/ui/components/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { authClient } from "@/shared/lib/auth-client";
@@ -69,12 +70,13 @@ function InviteComponent() {
   };
 
   return (
-    <div className="w-full max-w-md p-8 rounded-2xl border border-border/40 bg-card/60 backdrop-blur-md shadow-2xl space-y-6">
-      <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-extrabold tracking-tight">Accept Invitation</h1>
-        <p className="text-sm text-muted-foreground">Join your company workspace on ORRN-AL.</p>
-      </div>
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle>Accept Invitation</CardTitle>
+        <CardDescription>Join your company workspace on ORRN.</CardDescription>
+      </CardHeader>
 
+      <CardContent>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="name">Full Name</Label>
@@ -119,6 +121,7 @@ function InviteComponent() {
           {isSubmitting ? "Processing..." : "Create Account & Join"}
         </Button>
       </form>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

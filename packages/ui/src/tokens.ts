@@ -9,15 +9,15 @@
  */
 
 export const brand = {
-  /** Primary action color — indigo, leans purple to feel less generic-blue. */
-  primary: "#5b6cff",
-  primarySoft: "#eef0ff",
-  primaryStrong: "#3b4edd",
+  /** Primary action color — clear blue without the neon SaaS cast. */
+  primary: "#4f7cff",
+  primarySoft: "#eaf0ff",
+  primaryStrong: "#2f5fe8",
   primaryFg: "#ffffff",
 
   /** Accent for secondary nav highlights, badges, etc. */
-  accent: "#22d3ee",
-  accentFg: "#062a33",
+  accent: "#2dd4bf",
+  accentFg: "#062923",
 } as const;
 
 /**
@@ -29,24 +29,24 @@ export const brand = {
  */
 export const neutrals = {
   light: {
-    bg: "#f8fafc",
+    bg: "#f6f8fb",
     bgElevated: "#ffffff",
-    bgMuted: "#f1f5f9",
-    border: "#e2e8f0",
+    bgMuted: "#edf2f7",
+    border: "#d9e1ea",
     borderStrong: "#cbd5e1",
-    fg: "#0f172a",
-    fgMuted: "#64748b",
-    fgSubtle: "#94a3b8",
+    fg: "#111827",
+    fgMuted: "#5d6b7c",
+    fgSubtle: "#8b98a9",
   },
   dark: {
-    bg: "#0b0f1a",
-    bgElevated: "#121826",
-    bgMuted: "#1c2333",
-    border: "#1e293b",
-    borderStrong: "#3a445e",
-    fg: "#f5f7ff",
-    fgMuted: "#a3acc4",
-    fgSubtle: "#6c7591",
+    bg: "#070a11",
+    bgElevated: "#101722",
+    bgMuted: "#182231",
+    border: "#263142",
+    borderStrong: "#3a475a",
+    fg: "#f4f7fb",
+    fgMuted: "#a7b2c2",
+    fgSubtle: "#737f91",
   },
 } as const;
 

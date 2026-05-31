@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@orrn/ui/components/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { useForm } from "@tanstack/react-form";
@@ -93,20 +94,17 @@ export default function StaffSignInForm() {
   });
 
   return (
-    <div className="w-full max-w-md p-8 rounded-2xl border border-[#5B6CFF]/15 bg-[#121826]/70 backdrop-blur-xl shadow-2xl space-y-6 relative overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#5B6CFF]/30 to-transparent" />
-
-      <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-extrabold tracking-tight text-[#f5f7ff] font-mono">
-          {showTwoFactor ? "Verification" : "Staff sign in"}
-        </h1>
-        <p className="text-xs text-muted-foreground font-mono">
+    <Card width="100%" maxWidth={420} alignSelf="center">
+      <CardHeader>
+        <CardTitle>{showTwoFactor ? "Verification" : "Staff Sign In"}</CardTitle>
+        <CardDescription>
           {showTwoFactor
             ? "Authenticator code required."
             : "orrn.app — internal staff only. Use the credentials issued by your administrator."}
-        </p>
-      </div>
+        </CardDescription>
+      </CardHeader>
 
+      <CardContent>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -134,7 +132,6 @@ export default function StaffSignInForm() {
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="bg-[#0b0f1a]/60 border-border/40 h-10"
                   />
                 </div>
               )}
@@ -153,7 +150,6 @@ export default function StaffSignInForm() {
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    className="bg-[#0b0f1a]/60 border-border/40 h-10"
                   />
                 </div>
               )}
@@ -191,6 +187,7 @@ export default function StaffSignInForm() {
           </>
         )}
       </form>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

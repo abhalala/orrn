@@ -19,64 +19,64 @@
    Tailwind utilities like `bg-card`, `text-muted-foreground` still resolve.
    Values come from `@orrn/ui/tokens`. */
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #f6f8fb;
+  --foreground: #111827;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #111827;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #5b6cff;
+  --popover-foreground: #111827;
+  --primary: #4f7cff;
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #eef0ff;
-  --accent-foreground: #3b4edd;
+  --secondary: #edf2f7;
+  --secondary-foreground: #111827;
+  --muted: #edf2f7;
+  --muted-foreground: #5d6b7c;
+  --accent: #e9fbf8;
+  --accent-foreground: #0f766e;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #5b6cff;
+  --border: #d9e1ea;
+  --input: #d9e1ea;
+  --ring: #4f7cff;
   --radius: 0.5rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #0f172a;
-  --sidebar-primary: #5b6cff;
+  --sidebar-primary: #4f7cff;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f1f5f9;
-  --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #5b6cff;
+  --sidebar-accent: #edf2f7;
+  --sidebar-accent-foreground: #111827;
+  --sidebar-border: #d9e1ea;
+  --sidebar-ring: #4f7cff;
 }
 
 .dark {
-  --background: #0b0f1a;
-  --foreground: #f5f7ff;
-  --card: #121826;
-  --card-foreground: #f5f7ff;
-  --popover: #121826;
-  --popover-foreground: #f5f7ff;
-  --primary: #5b6cff;
+  --background: #070a11;
+  --foreground: #f4f7fb;
+  --card: #101722;
+  --card-foreground: #f4f7fb;
+  --popover: #101722;
+  --popover-foreground: #f4f7fb;
+  --primary: #4f7cff;
   --primary-foreground: #ffffff;
-  --secondary: #1c2333;
-  --secondary-foreground: #f5f7ff;
-  --muted: #1c2333;
-  --muted-foreground: #a3acc4;
-  --accent: #1c2333;
-  --accent-foreground: #c7d2fe;
+  --secondary: #182231;
+  --secondary-foreground: #f4f7fb;
+  --muted: #182231;
+  --muted-foreground: #a7b2c2;
+  --accent: #0f2a2a;
+  --accent-foreground: #7dd3c7;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #27304a;
-  --input: #27304a;
-  --ring: #5b6cff;
-  --sidebar: #121826;
-  --sidebar-foreground: #f5f7ff;
-  --sidebar-primary: #5b6cff;
+  --border: #263142;
+  --input: #263142;
+  --ring: #4f7cff;
+  --sidebar: #101722;
+  --sidebar-foreground: #f4f7fb;
+  --sidebar-primary: #4f7cff;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1c2333;
-  --sidebar-accent-foreground: #f5f7ff;
-  --sidebar-border: #27304a;
-  --sidebar-ring: #5b6cff;
+  --sidebar-accent: #182231;
+  --sidebar-accent-foreground: #f4f7fb;
+  --sidebar-border: #263142;
+  --sidebar-ring: #4f7cff;
 }
 
 @theme inline {
@@ -124,5 +124,49 @@
     font-family: var(--font-sans);
     background-color: var(--background);
     color: var(--foreground);
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .orrn-auth-card form,
+  .orrn-auth-card form > *,
+  .orrn-auth-card input,
+  .orrn-auth-card button {
+    width: 100%;
+  }
+
+  .orrn-auth-card input {
+    background: color-mix(in srgb, var(--background) 72%, var(--card));
+    border-color: var(--border);
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 767px) {
+    .orrn-desktop-nav {
+      display: none !important;
+    }
+
+    .orrn-mobile-nav {
+      display: flex !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

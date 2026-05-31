@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@orrn/ui/components/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { ShieldAlert } from "lucide-react";
 
 import { authClient } from "@/shared/lib/auth-client";
@@ -15,22 +16,19 @@ function NoAccessComponent() {
   const { data: me } = useMe();
 
   return (
-    <div className="w-full max-w-md p-8 rounded-2xl border border-border/40 bg-card/60 backdrop-blur-md shadow-2xl space-y-6 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
-        <ShieldAlert className="h-6 w-6" />
-      </div>
-      
-      <div className="space-y-2">
-        <h1 className="text-3xl font-extrabold tracking-tight">No Active Company</h1>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Hi {me?.user?.name ?? "there"}, your account isn&apos;t associated with an active company tenant yet.
-        </p>
-        <p className="text-xs text-muted-foreground/80 leading-relaxed">
-          Please ask your company workspace administrator to send you an invitation link, or contact support for assistance.
-        </p>
-      </div>
+    <Card className="w-full max-w-md text-center">
+      <CardHeader>
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-amber-500/10 text-amber-600">
+          <ShieldAlert className="h-6 w-6" aria-hidden="true" />
+        </div>
+        <CardTitle>No Active Company</CardTitle>
+        <CardDescription>
+          Hi {me?.user?.name ?? "there"}, your account is not associated with an active company tenant yet.
+        </CardDescription>
+      </CardHeader>
 
-      <div className="flex justify-center gap-4 pt-4 border-t border-border/20">
+      <CardContent>
+      <div className="flex justify-center gap-3">
         <Link to="/">
           <Button variant="outline" className="border-border">Back to Home</Button>
         </Link>
@@ -51,6 +49,7 @@ function NoAccessComponent() {
           Sign Out
         </Button>
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
