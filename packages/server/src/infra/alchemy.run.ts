@@ -78,6 +78,25 @@ const webBindings = {
   VITE_PUBLIC_URL: webPublicUrl,
 };
 
+const spaFallbackScript = `
+export default {
+  async fetch(request, env) {
+    const response = await env.ASSETS.fetch(request);
+    if (response.status !== 404 || request.method !== "GET") {
+      return response;
+    }
+
+    const accept = request.headers.get("accept") ?? "";
+    if (!accept.includes("text/html")) {
+      return response;
+    }
+
+    const url = new URL(request.url);
+    return env.ASSETS.fetch(new Request(new URL("/", url), request));
+  },
+};
+`;
+
 const db = await D1Database("database", {
   migrationsDir: "../db/src/migrations",
 });
@@ -89,6 +108,7 @@ export const web = await Vite("web", {
   adopt: true,
   bindings: webBindings,
   domains: [webDomain],
+  script: spaFallbackScript,
   dev: { domain: "localhost:3001" },
 });
 
