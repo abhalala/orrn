@@ -1,8 +1,17 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { useState, useEffect } from "react";
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from "react-native";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Button } from "@orrn/ui/components/button";
+import { TextArea } from "@orrn/ui/components/input";
 
+import {
+  ErpField,
+  ErpListCard,
+  ErpLoading,
+  ErpScreen,
+  ErpTextInput,
+} from "@/components/erp";
 import { trpc, queryClient } from "../../../utils/trpc";
 
 export default function CustomerFormScreen() {
@@ -40,7 +49,7 @@ export default function CustomerFormScreen() {
     },
     onError: (error) => {
       Alert.alert("Error", error.message || "Failed to create customer");
-    }
+    },
   });
 
   const updateMutation = useMutation({
@@ -53,7 +62,7 @@ export default function CustomerFormScreen() {
     },
     onError: (error) => {
       Alert.alert("Error", error.message || "Failed to update customer");
-    }
+    },
   });
 
   const deleteMutation = useMutation({
@@ -65,7 +74,7 @@ export default function CustomerFormScreen() {
     },
     onError: (error) => {
       Alert.alert("Error", error.message || "Failed to delete customer");
-    }
+    },
   });
 
   const handleSave = () => {
@@ -95,12 +104,12 @@ export default function CustomerFormScreen() {
       "Are you sure you want to delete this customer?",
       [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive", 
-          onPress: () => deleteMutation.mutate({ id: id as string }) 
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteMutation.mutate({ id: id as string }),
         },
-      ]
+      ],
     );
   };
 
@@ -108,155 +117,70 @@ export default function CustomerFormScreen() {
 
   if (!isNew && isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
+      <ErpScreen>
+        <ErpLoading />
+      </ErpScreen>
     );
   }
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <Stack.Screen 
-        options={{ 
+    <ScrollView
+      className="flex-1 bg-background"
+      keyboardShouldPersistTaps="handled"
+      contentInsetAdjustmentBehavior="automatic"
+    >
+      <Stack.Screen
+        options={{
           title: isNew ? "New Customer" : "Edit Customer",
-          headerRight: () => !isNew ? (
-            <TouchableOpacity onPress={handleDelete} disabled={deleteMutation.isPending}>
-              <Text style={styles.deleteText}>Delete</Text>
-            </TouchableOpacity>
-          ) : undefined,
-        }} 
+          headerRight: () =>
+            !isNew ? (
+              <TouchableOpacity onPress={handleDelete} disabled={deleteMutation.isPending}>
+                <Text className="mr-4 text-base font-medium text-danger">Delete</Text>
+              </TouchableOpacity>
+            ) : undefined,
+        }}
       />
 
-      <View style={styles.card}>
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Name *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Acme Corp"
-              value={name}
-              onChangeText={setName}
-            />
-          </View>
+      <ErpListCard className="mx-4 mt-4 gap-4">
+        <ErpField label="Name *">
+          <ErpTextInput placeholder="Acme Corp" value={name} onChangeText={setName} />
+        </ErpField>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="contact@acme.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
+        <ErpField label="Email">
+          <ErpTextInput
+            placeholder="contact@acme.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
+        </ErpField>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="+1 (555) 000-0000"
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-            />
-          </View>
+        <ErpField label="Phone">
+          <ErpTextInput
+            placeholder="+1 (555) 000-0000"
+            keyboardType="phone-pad"
+            value={phone}
+            onChangeText={setPhone}
+          />
+        </ErpField>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Tax ID</Text>
-            <TextInput
-              style={styles.input}
-              value={taxId}
-              onChangeText={setTaxId}
-            />
-          </View>
+        <ErpField label="Tax ID">
+          <ErpTextInput value={taxId} onChangeText={setTaxId} />
+        </ErpField>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Notes</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              multiline
-              numberOfLines={4}
-              value={notes}
-              onChangeText={setNotes}
-            />
-          </View>
+        <ErpField label="Notes">
+          <TextArea value={notes} onChangeText={setNotes} rows={4} />
+        </ErpField>
 
-          <TouchableOpacity 
-            style={[styles.button, isSubmitting && styles.buttonDisabled]} 
-            onPress={handleSave}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.buttonText}>
-              {isSubmitting ? "Saving..." : "Save Customer"}
-            </Text>
-          </TouchableOpacity>
+        <View className="mt-2 min-h-12">
+          <Button size="lg" disabled={isSubmitting} onPress={handleSave}>
+            {isSubmitting ? "Saving..." : "Save Customer"}
+          </Button>
         </View>
-      </View>
+      </ErpListCard>
+
+      <View className="h-8" />
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  card: {
-    backgroundColor: "white",
-    margin: 16,
-    padding: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e5e5e5",
-  },
-  form: {
-    gap: 16,
-  },
-  inputGroup: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#333",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#d4d4d8",
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: "top",
-  },
-  button: {
-    backgroundColor: "#000",
-    paddingVertical: 12,
-    borderRadius: 6,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  deleteText: {
-    color: "#ef4444",
-    fontSize: 16,
-    fontWeight: "500",
-    marginRight: 16,
-  },
-});

@@ -36,6 +36,14 @@
     "check-types": {
       "dependsOn": ["^check-types"]
     },
+    "test:visual": {
+      "dependsOn": ["^check-types"],
+      "cache": false
+    },
+    "test:visual:update": {
+      "dependsOn": ["^check-types"],
+      "cache": false
+    },
     "dev": {
       "cache": false,
       "persistent": true

@@ -1,6 +1,7 @@
 import { StatusBadge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
 import { TextArea } from "@orrn/ui/components/input";
+import type { PLSnapshot } from "@orrn/documents/packing-list";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
@@ -10,15 +11,25 @@ import {
   FlatList,
   Pressable,
   Share,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
 import { format } from "date-fns";
 
+import {
+  ErpEmpty,
+  ErpListCard,
+  ErpLoading,
+  ErpMutedText,
+  ErpRowBetween,
+  ErpScreen,
+  ErpSectionTitle,
+  ErpTitleText,
+} from "@/components/erp";
+import { Can } from "@/components/can";
+import { sharePackingListPdf, sharePackingListXlsx } from "@/lib/packing-list-export";
 import { queryClient, trpc } from "../../../utils/trpc";
 import { useLengthUnit } from "../../../utils/length";
-import { Can } from "@/components/can";
 
 export default function DispatchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -97,16 +108,16 @@ export default function DispatchDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
+      <ErpScreen>
+        <ErpLoading />
+      </ErpScreen>
     );
   }
   if (!data) {
     return (
-      <View style={styles.center}>
-        <Text>Dispatch not found.</Text>
-      </View>
+      <ErpScreen>
+        <ErpMutedText className="mt-5 text-center">Dispatch not found.</ErpMutedText>
+      </ErpScreen>
     );
   }
 
@@ -139,38 +150,40 @@ export default function DispatchDetailScreen() {
 
   return (
     <FlatList
-      style={styles.container}
+      className="flex-1 bg-background"
       data={items}
       keyExtractor={(it) => it.itemId}
-      contentContainerStyle={{ paddingBottom: 32 }}
+      contentContainerClassName="pb-8"
       contentInsetAdjustmentBehavior="automatic"
       ListHeaderComponent={
         <View>
           <Stack.Screen options={{ title: d.code }} />
 
-          <View style={styles.card}>
-            <View style={styles.row}>
-              <Text style={styles.code}>{d.code}</Text>
+          <ErpListCard className="mx-4 mt-4 gap-2">
+            <ErpRowBetween>
+              <ErpTitleText mono>{d.code}</ErpTitleText>
               <StatusBadge kind="dispatch" value={d.status} />
-            </View>
-            <Text style={styles.meta}>Customer: {c?.name ?? "(deleted)"}</Text>
+            </ErpRowBetween>
+            <ErpMutedText>Customer: {c?.name ?? "(deleted)"}</ErpMutedText>
             {d.shipDate ? (
-              <Text style={styles.meta}>Ship: {format(new Date(d.shipDate), "PP")}</Text>
+              <ErpMutedText>Ship: {format(new Date(d.shipDate), "PP")}</ErpMutedText>
             ) : null}
-            {d.notes ? <Text style={styles.meta}>Notes: {d.notes}</Text> : null}
-            <Text style={styles.meta}>
+            {d.notes ? <ErpMutedText>Notes: {d.notes}</ErpMutedText> : null}
+            <ErpMutedText>
               {items.length} bundles · {items.reduce((sum, x) => sum + x.weightG, 0)} g total
-            </Text>
+            </ErpMutedText>
             {d.completedAt ? (
-              <Text style={styles.meta}>Completed {format(new Date(d.completedAt), "PP p")}</Text>
+              <ErpMutedText>
+                Completed {format(new Date(d.completedAt), "PP p")}
+              </ErpMutedText>
             ) : null}
-          </View>
+          </ErpListCard>
 
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Actions</Text>
-            <View style={styles.actionRow}>
+          <ErpListCard className="mx-4 mt-4 gap-3">
+            <ErpSectionTitle>Actions</ErpSectionTitle>
+            <View className="flex-row flex-wrap gap-2">
               <Can do="dispatch.reserve">
-                <View style={styles.actionBtnWrap}>
+                <View className="min-h-12 min-w-[47%] flex-grow">
                   <Button
                     size="lg"
                     disabled={!canReserve || reserveMutation.isPending}
@@ -183,7 +196,7 @@ export default function DispatchDetailScreen() {
                     Reserve
                   </Button>
                 </View>
-                <View style={styles.actionBtnWrap}>
+                <View className="min-h-12 min-w-[47%] flex-grow">
                   <Button
                     size="lg"
                     variant="outline"
@@ -195,7 +208,7 @@ export default function DispatchDetailScreen() {
                 </View>
               </Can>
               <Can do="dispatch.complete">
-                <View style={styles.actionBtnWrap}>
+                <View className="min-h-12 min-w-[47%] flex-grow">
                   <Button
                     size="lg"
                     disabled={!canComplete || completeMutation.isPending}
@@ -212,7 +225,7 @@ export default function DispatchDetailScreen() {
                 </View>
               </Can>
               <Can do="dispatch.cancel">
-                <View style={styles.actionBtnWrap}>
+                <View className="min-h-12 min-w-[47%] flex-grow">
                   <Button
                     size="lg"
                     variant="destructive"
@@ -232,7 +245,7 @@ export default function DispatchDetailScreen() {
               </Can>
               <Can do="dispatch.delete">
                 {canDelete ? (
-                  <View style={styles.actionBtnWrap}>
+                  <View className="min-h-12 min-w-[47%] flex-grow">
                     <Button
                       size="lg"
                       variant="ghost"
@@ -252,12 +265,12 @@ export default function DispatchDetailScreen() {
                 ) : null}
               </Can>
             </View>
-          </View>
+          </ErpListCard>
 
           <Can do="dispatch.addBundle">
             {canAddOrRemove ? (
-              <View style={styles.card}>
-                <Text style={styles.sectionTitle}>Scan or paste serials</Text>
+              <ErpListCard className="mx-4 mt-4 gap-3">
+                <ErpSectionTitle>Scan or paste serials</ErpSectionTitle>
                 <TextArea
                   value={serialInput}
                   onChangeText={setSerialInput}
@@ -266,7 +279,7 @@ export default function DispatchDetailScreen() {
                   autoCorrect={false}
                   rows={4}
                 />
-                <View style={styles.primaryBtnWrap}>
+                <View className="mt-1 min-h-12">
                   <Button
                     size="lg"
                     disabled={addSerialsMutation.isPending}
@@ -275,50 +288,55 @@ export default function DispatchDetailScreen() {
                     {addSerialsMutation.isPending ? "Adding…" : "Add to dispatch"}
                   </Button>
                 </View>
-              </View>
+              </ErpListCard>
             ) : null}
           </Can>
 
           {d.status === "completed" ? <PackingListCard dispatchId={d.id} /> : null}
 
-          <Text style={styles.itemsTitle}>Items ({items.length})</Text>
+          <Text className="px-4 pb-2 pt-4 text-xs font-semibold uppercase tracking-wide text-muted">
+            Items ({items.length})
+          </Text>
         </View>
       }
       renderItem={({ item }) => (
-        <View style={styles.itemRow}>
+        <View className="mx-4 mb-2 min-h-14 flex-row items-center rounded-lg border border-border bg-card p-3">
           <Link href={`/bundles/${item.bundleId}`} asChild>
-            <Pressable style={{ flex: 1, minHeight: 44 }}>
-              <Text style={styles.itemSerial}>{item.serial}</Text>
-              <Text style={styles.itemMeta}>
-                {item.dieSeries} / {item.dieSectionCode} · {item.weightG}g · {lu.formatLength(item.lengthMm)}
-              </Text>
+            <Pressable className="min-h-11 flex-1">
+              <ErpTitleText mono>{item.serial}</ErpTitleText>
+              <ErpMutedText className="mt-1">
+                {item.dieSeries} / {item.dieSectionCode} · {item.weightG}g ·{" "}
+                {lu.formatLength(item.lengthMm)}
+              </ErpMutedText>
             </Pressable>
           </Link>
           {canAddOrRemove ? (
             <Can do="dispatch.addBundle">
               <Pressable
-                style={styles.removeButton}
+                className="min-h-11 justify-center rounded-lg bg-danger/10 px-3 py-2.5"
                 disabled={removeMutation.isPending}
                 onPress={() => removeMutation.mutate({ id: id as string, bundleId: item.bundleId })}
               >
-                <Text style={styles.removeText}>Remove</Text>
+                <Text className="text-sm font-semibold text-danger">Remove</Text>
               </Pressable>
             </Can>
           ) : null}
         </View>
       )}
-      ListEmptyComponent={<Text style={styles.empty}>No bundles in this dispatch yet.</Text>}
+      ListEmptyComponent={<ErpEmpty>No bundles in this dispatch yet.</ErpEmpty>}
     />
   );
 }
 
 function PackingListCard({ dispatchId }: { dispatchId: string }) {
   const lu = useLengthUnit();
+  const [exporting, setExporting] = useState<"pdf" | "xlsx" | "text" | null>(null);
+
   const { data: pl, isLoading } = useQuery({
     ...trpc.packingList.byDispatch.queryOptions({ dispatchId }),
   });
 
-  async function handleShare() {
+  async function handleShareText() {
     if (!pl) return;
     const snap = pl.snapshot as PLSnapshot;
     const cust = snap.dispatch?.customer?.name ?? "—";
@@ -333,7 +351,7 @@ function PackingListCard({ dispatchId }: { dispatchId: string }) {
       `Total Length: ${lu.formatLength((totals.totalLengthM ?? 0) * 1000)}`,
       "",
       "Items:",
-      ...(snap.items ?? []).map((item, i) =>
+      ...(snap.items ?? []).map((item: PLSnapshot["items"][number], i: number) =>
         `${i + 1}. ${item.bundleSerial} | ${item.die?.series}/${item.die?.sectionCode} | qty ${item.quantity} | ${(item.weightG / 1000).toFixed(3)} kg`,
       ),
     ];
@@ -344,105 +362,77 @@ function PackingListCard({ dispatchId }: { dispatchId: string }) {
     }
   }
 
+  async function handleExportPdf() {
+    if (!pl) return;
+    setExporting("pdf");
+    try {
+      await sharePackingListPdf(pl.snapshot as PLSnapshot, pl.code, lu.unit);
+    } catch {
+      Alert.alert("Error", "Failed to export PDF");
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  async function handleExportXlsx() {
+    if (!pl) return;
+    setExporting("xlsx");
+    try {
+      await sharePackingListXlsx(pl.snapshot as PLSnapshot, pl.code, lu.unit);
+    } catch {
+      Alert.alert("Error", "Failed to export XLSX");
+    } finally {
+      setExporting(null);
+    }
+  }
+
   return (
-    <View style={styles.card}>
-      <Text style={styles.sectionTitle}>Packing list</Text>
+    <ErpListCard className="mx-4 mt-4 gap-3">
+      <ErpSectionTitle>Packing list</ErpSectionTitle>
       {isLoading ? (
         <ActivityIndicator size="small" />
       ) : !pl ? (
-        <Text style={styles.mutedText}>No packing list available.</Text>
+        <ErpMutedText>No packing list available.</ErpMutedText>
       ) : (
-        <View style={{ gap: 12 }}>
-          <Text style={{ fontFamily: "Menlo", fontSize: 14, fontWeight: "600" }}>{pl.code}</Text>
-          <Text style={styles.mutedText}>
+        <View className="gap-3">
+          <ErpTitleText mono>{pl.code}</ErpTitleText>
+          <ErpMutedText>
             Generated {format(new Date((pl.snapshot as PLSnapshot).generatedAt), "PP p")}
-          </Text>
-          <View style={styles.primaryBtnWrap}>
-            <Button size="lg" variant="outline" onPress={handleShare}>
-              Share / export
-            </Button>
+          </ErpMutedText>
+          <View className="flex-row flex-wrap gap-2">
+            <View className="min-h-12 min-w-[30%] flex-1">
+              <Button
+                size="lg"
+                variant="outline"
+                disabled={exporting !== null}
+                onPress={handleExportPdf}
+              >
+                {exporting === "pdf" ? "Exporting…" : "PDF"}
+              </Button>
+            </View>
+            <View className="min-h-12 min-w-[30%] flex-1">
+              <Button
+                size="lg"
+                variant="outline"
+                disabled={exporting !== null}
+                onPress={handleExportXlsx}
+              >
+                {exporting === "xlsx" ? "Exporting…" : "XLSX"}
+              </Button>
+            </View>
+            <View className="min-h-12 min-w-[30%] flex-1">
+              <Button
+                size="lg"
+                variant="outline"
+                disabled={exporting !== null}
+                onPress={handleShareText}
+              >
+                Text
+              </Button>
+            </View>
           </View>
         </View>
       )}
-    </View>
+    </ErpListCard>
   );
 }
-
-type PLSnapshot = {
-  generatedAt: string;
-  dispatch?: { code?: string; customer?: { name?: string } };
-  totals?: {
-    totalBundles?: number;
-    totalQuantity?: number;
-    totalWeightKg?: number;
-    totalLengthM?: number;
-  };
-  items?: Array<{
-    bundleSerial: string;
-    quantity: number;
-    weightG: number;
-    die?: { series?: string; sectionCode?: string };
-  }>;
-};
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  card: {
-    backgroundColor: "white",
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    gap: 12,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-  },
-  code: { fontSize: 18, fontWeight: "700", fontFamily: "Menlo", flex: 1 },
-  meta: { fontSize: 14, color: "#475569", lineHeight: 20 },
-  sectionTitle: { fontSize: 17, fontWeight: "600" },
-  actionRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  actionBtnWrap: { minWidth: "47%", flexGrow: 1, minHeight: 48 },
-  primaryBtnWrap: { minHeight: 48, marginTop: 4 },
-  itemsTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#64748b",
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  itemRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "white",
-    marginHorizontal: 16,
-    marginBottom: 8,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    minHeight: 56,
-  },
-  itemSerial: { fontSize: 15, fontWeight: "600", fontFamily: "Menlo" },
-  itemMeta: { fontSize: 13, color: "#64748b", marginTop: 4 },
-  removeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: "#fee2e2",
-    minHeight: 44,
-    justifyContent: "center",
-  },
-  removeText: { color: "#b91c1c", fontSize: 14, fontWeight: "600" },
-  empty: { textAlign: "center", color: "#64748b", marginTop: 20, fontSize: 14 },
-  mutedText: { fontSize: 13, color: "#64748b", lineHeight: 18 },
-});

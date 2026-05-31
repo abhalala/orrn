@@ -13,6 +13,8 @@ export function ThemeToggle() {
 
   return (
     <Pressable
+      testID="theme-toggle"
+      accessibilityLabel="Toggle theme"
       onPress={() => {
         if (Platform.OS === "ios") {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

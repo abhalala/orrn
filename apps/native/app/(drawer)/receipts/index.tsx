@@ -1,38 +1,41 @@
 import { useQuery } from "@tanstack/react-query";
 import { Stack, Link } from "expo-router";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { FlatList, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useThemeColor } from "heroui-native";
 import { format } from "date-fns";
 
-import { trpc } from "../../../utils/trpc";
+import {
+  ErpCardPressable,
+  ErpEmpty,
+  ErpLoading,
+  ErpMutedText,
+  ErpScreen,
+  ErpSearchBar,
+  ErpTitleText,
+} from "@/components/erp";
 import { Can } from "@/components/can";
+import { trpc } from "../../../utils/trpc";
 
 export default function ReceiptsScreen() {
   const [search, setSearch] = useState("");
+  const primaryColor = useThemeColor("link");
 
   const { data, isLoading } = useQuery({
     ...trpc.bundle.listGroups.queryOptions({ search, limit: 50, offset: 0 }),
   });
 
   return (
-    <View style={styles.container}>
+    <ErpScreen>
       <Stack.Screen
         options={{
           title: "Receipts",
           headerRight: () => (
             <Can do="receipt.create">
               <Link href="/receipts/new" asChild>
-                <TouchableOpacity style={styles.addButton} accessibilityLabel="New receipt">
-                  <Ionicons name="add" size={24} color="#007AFF" />
+                <TouchableOpacity className="mr-4" accessibilityLabel="New receipt">
+                  <Ionicons name="add" size={24} color={primaryColor} />
                 </TouchableOpacity>
               </Link>
             </Can>
@@ -40,83 +43,47 @@ export default function ReceiptsScreen() {
         }}
       />
 
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by code or PO ref..."
-          value={search}
-          onChangeText={setSearch}
-        />
-      </View>
+      <ErpSearchBar
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Search by code or PO ref..."
+      />
 
       {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" />
-        </View>
+        <ErpLoading />
       ) : (
         <FlatList
           data={data?.items || []}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerClassName="px-4 pb-4 gap-3"
           renderItem={({ item }) => (
             <Link href={`/receipts/${item.id}`} asChild>
-              <TouchableOpacity style={styles.card}>
-                <Text style={styles.code}>{item.code}</Text>
-                <Text style={styles.detail}>
+              <ErpCardPressable>
+                <ErpTitleText mono>{item.code}</ErpTitleText>
+                <ErpMutedText>
                   Die: {item.dieSeries} / {item.dieSectionCode} · {item.unit}
-                </Text>
+                </ErpMutedText>
                 {item.purchaseOrderRef ? (
-                  <Text style={styles.detail}>PO: {item.purchaseOrderRef}</Text>
+                  <ErpMutedText>PO: {item.purchaseOrderRef}</ErpMutedText>
                 ) : null}
-                <Text style={styles.detail}>
+                <ErpMutedText>
                   {Number(item.bundleCount)} bundles · {Number(item.totalWeightG)} g total
-                </Text>
-                <Text style={styles.date}>
+                </ErpMutedText>
+                <ErpMutedText className="mt-1 text-xs">
                   {format(new Date(item.createdAt), "MMM d, yyyy")}
-                </Text>
-              </TouchableOpacity>
+                </ErpMutedText>
+              </ErpCardPressable>
             </Link>
           )}
           ListEmptyComponent={
-            <Text style={styles.empty}>
+            <ErpEmpty>
               {search
                 ? "No receipts match this search."
                 : "No receipts yet. Tap + to create one."}
-            </Text>
+            </ErpEmpty>
           }
         />
       )}
-    </View>
+    </ErpScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "white",
-    margin: 16,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e5e5e5",
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, paddingVertical: 12, fontSize: 16 },
-  addButton: { marginRight: 16 },
-  list: { paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
-  card: {
-    backgroundColor: "white",
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e5e5e5",
-  },
-  code: { fontSize: 16, fontWeight: "700", fontFamily: "Menlo", marginBottom: 6 },
-  detail: { fontSize: 13, color: "#444", marginBottom: 2 },
-  date: { fontSize: 12, color: "#888", marginTop: 4 },
-  empty: { textAlign: "center", color: "#666", marginTop: 20 },
-});

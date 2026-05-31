@@ -1,9 +1,18 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { useState, useEffect } from "react";
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from "react-native";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import { Button } from "@orrn/ui/components/button";
+import { TextArea } from "@orrn/ui/components/input";
 
+import {
+  ErpField,
+  ErpListCard,
+  ErpLoading,
+  ErpScreen,
+  ErpTextInput,
+} from "@/components/erp";
 import { trpc, queryClient } from "../../../utils/trpc";
 import { useLengthUnit } from "../../../utils/length";
 
@@ -22,8 +31,7 @@ export default function DieFormScreen() {
   const [weightMaxG, setWeightMaxG] = useState("0");
   const [status, setStatus] = useState<(typeof dieStatuses)[number]>("active");
   const [notes, setNotes] = useState("");
-  
-  // Dimensions
+
   const [widthMm, setWidthMm] = useState("");
   const [heightMm, setHeightMm] = useState("");
   const [thicknessMm, setThicknessMm] = useState("");
@@ -42,7 +50,7 @@ export default function DieFormScreen() {
       setWeightMaxG(die.weightMaxG.toString());
       setStatus(die.status);
       setNotes(die.notes || "");
-      
+
       const dims: any = die.dimensions || {};
       setWidthMm(dims.widthMm != null ? lu.formatLengthValue(dims.widthMm) : "");
       setHeightMm(dims.heightMm != null ? lu.formatLengthValue(dims.heightMm) : "");
@@ -59,7 +67,7 @@ export default function DieFormScreen() {
     },
     onError: (error) => {
       Alert.alert("Error", error.message || "Failed to create die");
-    }
+    },
   });
 
   const updateMutation = useMutation({
@@ -72,7 +80,7 @@ export default function DieFormScreen() {
     },
     onError: (error) => {
       Alert.alert("Error", error.message || "Failed to update die");
-    }
+    },
   });
 
   const deleteMutation = useMutation({
@@ -84,7 +92,7 @@ export default function DieFormScreen() {
     },
     onError: (error) => {
       Alert.alert("Error", error.message || "Failed to delete die");
-    }
+    },
   });
 
   const handleSave = () => {
@@ -118,7 +126,7 @@ export default function DieFormScreen() {
         widthMm: widthMm ? lu.parseLengthDecimal(widthMm) : undefined,
         heightMm: heightMm ? lu.parseLengthDecimal(heightMm) : undefined,
         thicknessMm: thicknessMm ? lu.parseLengthDecimal(thicknessMm) : undefined,
-      }
+      },
     };
 
     if (isNew) {
@@ -134,12 +142,12 @@ export default function DieFormScreen() {
       "Are you sure you want to delete this die?",
       [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive", 
-          onPress: () => deleteMutation.mutate({ id: id as string }) 
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteMutation.mutate({ id: id as string }),
         },
-      ]
+      ],
     );
   };
 
@@ -147,240 +155,129 @@ export default function DieFormScreen() {
 
   if (!isNew && isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
+      <ErpScreen>
+        <ErpLoading />
+      </ErpScreen>
     );
   }
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <Stack.Screen 
-        options={{ 
+    <ScrollView
+      className="flex-1 bg-background"
+      keyboardShouldPersistTaps="handled"
+      contentInsetAdjustmentBehavior="automatic"
+    >
+      <Stack.Screen
+        options={{
           title: isNew ? "New Die" : "Edit Die",
-          headerRight: () => !isNew ? (
-            <TouchableOpacity onPress={handleDelete} disabled={deleteMutation.isPending}>
-              <Text style={styles.deleteText}>Delete</Text>
-            </TouchableOpacity>
-          ) : undefined,
-        }} 
+          headerRight: () =>
+            !isNew ? (
+              <TouchableOpacity onPress={handleDelete} disabled={deleteMutation.isPending}>
+                <Text className="mr-4 text-base font-medium text-danger">Delete</Text>
+              </TouchableOpacity>
+            ) : undefined,
+        }}
       />
 
-      <View style={styles.card}>
-        <View style={styles.form}>
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>Series *</Text>
-              <TextInput
-                style={styles.input}
-                value={series}
-                onChangeText={setSeries}
-              />
-            </View>
-
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>Section Code *</Text>
-              <TextInput
-                style={styles.input}
-                value={sectionCode}
-                onChangeText={setSectionCode}
-              />
-            </View>
+      <ErpListCard className="mx-4 mt-4 gap-4">
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <ErpField label="Series *">
+              <ErpTextInput value={series} onChangeText={setSeries} />
+            </ErpField>
           </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Name</Text>
-            <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-            />
+          <View className="flex-1">
+            <ErpField label="Section Code *">
+              <ErpTextInput value={sectionCode} onChangeText={setSectionCode} />
+            </ErpField>
           </View>
+        </View>
 
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>Min Weight (g) *</Text>
-              <TextInput
-                style={styles.input}
+        <ErpField label="Name">
+          <ErpTextInput value={name} onChangeText={setName} />
+        </ErpField>
+
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <ErpField label="Min Weight (g) *">
+              <ErpTextInput
                 keyboardType="numeric"
                 value={weightMinG}
                 onChangeText={setWeightMinG}
               />
-            </View>
-
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>Max Weight (g) *</Text>
-              <TextInput
-                style={styles.input}
+            </ErpField>
+          </View>
+          <View className="flex-1">
+            <ErpField label="Max Weight (g) *">
+              <ErpTextInput
                 keyboardType="numeric"
                 value={weightMaxG}
                 onChangeText={setWeightMaxG}
               />
-            </View>
+            </ErpField>
           </View>
+        </View>
 
-          <View style={styles.fieldset}>
-            <Text style={styles.legend}>Dimensions ({lu.label})</Text>
-            <View style={styles.row}>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.subLabel}>Width</Text>
-                <TextInput
-                  style={styles.input}
+        <View className="gap-2 rounded-lg border border-border p-3">
+          <Text className="text-sm font-semibold text-foreground">
+            Dimensions ({lu.label})
+          </Text>
+          <View className="flex-row gap-2">
+            <View className="flex-1">
+              <ErpField label="Width">
+                <ErpTextInput
                   keyboardType="numeric"
                   value={widthMm}
                   onChangeText={setWidthMm}
                 />
-              </View>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.subLabel}>Height</Text>
-                <TextInput
-                  style={styles.input}
+              </ErpField>
+            </View>
+            <View className="flex-1">
+              <ErpField label="Height">
+                <ErpTextInput
                   keyboardType="numeric"
                   value={heightMm}
                   onChangeText={setHeightMm}
                 />
-              </View>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.subLabel}>Thickness</Text>
-                <TextInput
-                  style={styles.input}
+              </ErpField>
+            </View>
+            <View className="flex-1">
+              <ErpField label="Thickness">
+                <ErpTextInput
                   keyboardType="numeric"
                   value={thicknessMm}
                   onChangeText={setThicknessMm}
                 />
-              </View>
+              </ErpField>
             </View>
           </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Status</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={status}
-                onValueChange={(itemValue: string) => setStatus(itemValue as any)}
-                style={styles.picker}
-              >
-                <Picker.Item label="Active" value="active" />
-                <Picker.Item label="Archived" value="archived" />
-              </Picker>
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Notes</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              multiline
-              numberOfLines={4}
-              value={notes}
-              onChangeText={setNotes}
-            />
-          </View>
-
-          <TouchableOpacity 
-            style={[styles.button, isSubmitting && styles.buttonDisabled]} 
-            onPress={handleSave}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.buttonText}>
-              {isSubmitting ? "Saving..." : "Save Die"}
-            </Text>
-          </TouchableOpacity>
         </View>
-      </View>
+
+        <ErpField label="Status">
+          <View className="overflow-hidden rounded-md border border-border">
+            <Picker
+              selectedValue={status}
+              onValueChange={(itemValue: string) => setStatus(itemValue as any)}
+              style={{ height: 50 }}
+            >
+              <Picker.Item label="Active" value="active" />
+              <Picker.Item label="Archived" value="archived" />
+            </Picker>
+          </View>
+        </ErpField>
+
+        <ErpField label="Notes">
+          <TextArea value={notes} onChangeText={setNotes} rows={4} />
+        </ErpField>
+
+        <View className="mt-2 min-h-12">
+          <Button size="lg" disabled={isSubmitting} onPress={handleSave}>
+            {isSubmitting ? "Saving..." : "Save Die"}
+          </Button>
+        </View>
+      </ErpListCard>
+
+      <View className="h-8" />
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  card: {
-    backgroundColor: "white",
-    margin: 16,
-    padding: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e5e5e5",
-  },
-  form: {
-    gap: 16,
-  },
-  row: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  inputGroup: {
-    gap: 6,
-  },
-  fieldset: {
-    borderWidth: 1,
-    borderColor: "#e5e5e5",
-    borderRadius: 8,
-    padding: 12,
-    gap: 8,
-  },
-  legend: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#333",
-  },
-  subLabel: {
-    fontSize: 12,
-    color: "#666",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#d4d4d8",
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: "#d4d4d8",
-    borderRadius: 6,
-    overflow: "hidden",
-  },
-  picker: {
-    height: 50,
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: "top",
-  },
-  button: {
-    backgroundColor: "#000",
-    paddingVertical: 12,
-    borderRadius: 6,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  deleteText: {
-    color: "#ef4444",
-    fontSize: 16,
-    fontWeight: "500",
-    marginRight: 16,
-  },
-});

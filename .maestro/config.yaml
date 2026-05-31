@@ -1,0 +1,11 @@
+# Maestro visual/smoke flows for the ORRN native app.
+#
+# Prerequisites:
+#   - Install Maestro: https://maestro.mobile.dev/getting-started/installing-maestro
+#   - Start the dev client: bun run dev:native
+#   - Set MAESTRO_APP_ID to your dev client bundle id if not using Expo Go.
+#
+# Run: maestro test .maestro/flows
+
+env:
+  APP_ID: ${MAESTRO_APP_ID:-host.exp.exponent}

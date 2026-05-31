@@ -1,0 +1,11 @@
+# Theme toggle smoke — requires signed-in session on home screen.
+appId: ${APP_ID}
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "ORRN"
+    timeout: 30000
+- tapOn:
+    id: "theme-toggle"
+    optional: true
+- takeScreenshot: after-theme-toggle

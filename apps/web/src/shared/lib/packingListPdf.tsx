@@ -4,6 +4,8 @@
  */
 import type { LengthUnit } from "@orrn/server/lib/length";
 import { formatLengthValue } from "@orrn/server/lib/length";
+import type { PLSnapshot } from "@orrn/documents/packing-list";
+export type { PLSnapshot } from "@orrn/documents/packing-list";
 import {
   Document,
   Font,
@@ -13,42 +15,6 @@ import {
   View,
   pdf,
 } from "@react-pdf/renderer";
-
-// ---------------------------------------------------------------------------
-// Types (mirrors the snapshot shape written by the server)
-// ---------------------------------------------------------------------------
-export type PLSnapshot = {
-  dispatch: {
-    code: string;
-    customer: {
-      name: string;
-      phone?: string | null;
-      email?: string | null;
-      billingAddress?: Record<string, unknown> | null;
-      shippingAddress?: Record<string, unknown> | null;
-      taxId?: string | null;
-    };
-    shipDate: string | null;
-    notes: string;
-    completedAt: string | null;
-  };
-  company: { id: string; name: string };
-  items: Array<{
-    bundleSerial: string;
-    die: { series: string; sectionCode: string };
-    groupId: string;
-    quantity: number;
-    weightG: number;
-    lengthMm: number;
-  }>;
-  totals: {
-    totalBundles: number;
-    totalQuantity: number;
-    totalWeightKg: number;
-    totalLengthM: number;
-  };
-  generatedAt: string;
-};
 
 // ---------------------------------------------------------------------------
 // Styles

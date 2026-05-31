@@ -54,7 +54,7 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <OrrnUiProvider defaultTheme="dark">
+        <OrrnUiProvider theme="dark">
           <Outlet />
           <Toaster richColors />
         </OrrnUiProvider>

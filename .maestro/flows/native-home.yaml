@@ -1,0 +1,10 @@
+# Smoke test: app launches and shows ORRN home or sign-in.
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "ORRN"
+    timeout: 30000
+- assertVisible: "ORRN"
+- takeScreenshot: home-screen
