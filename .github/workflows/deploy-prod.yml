@@ -1,6 +1,12 @@
 name: Deploy Production
 
+# Auto-deploy on push to the `prod` branch. Manual dispatch is also
+# allowed for hotfixes, but only the `prod` branch is honored — pushes
+# to other branches and dispatches from non-prod refs are skipped below.
 on:
+  push:
+    branches:
+      - prod
   workflow_dispatch:
 
 concurrency:
@@ -10,6 +16,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy orrn.in
+    if: github.ref == 'refs/heads/prod'
     runs-on: ubuntu-latest
     environment: production
     env:
