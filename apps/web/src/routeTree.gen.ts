@@ -9,104 +9,745 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WaitlistRouteImport } from './routes/waitlist'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as TenantRouteImport } from './routes/_tenant'
+import { Route as PublicRouteImport } from './routes/_public'
+import { Route as PlatformRouteImport } from './routes/_platform'
+import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
+import { Route as PublicWaitlistRouteImport } from './routes/_public/waitlist'
+import { Route as PublicLoginRouteImport } from './routes/_public/login'
+import { Route as AuthedSetupCredentialsRouteImport } from './routes/_authed/setup-credentials'
+import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
+import { Route as AuthedNoAccessRouteImport } from './routes/_authed/no-access'
+import { Route as AuthedChangePasswordRouteImport } from './routes/_authed/change-password'
+import { Route as TenantStockIndexRouteImport } from './routes/_tenant/stock.index'
+import { Route as TenantReceiptsIndexRouteImport } from './routes/_tenant/receipts.index'
+import { Route as TenantDispatchesIndexRouteImport } from './routes/_tenant/dispatches.index'
+import { Route as TenantDiesIndexRouteImport } from './routes/_tenant/dies.index'
+import { Route as TenantCustomersIndexRouteImport } from './routes/_tenant/customers.index'
+import { Route as TenantBundlesIndexRouteImport } from './routes/_tenant/bundles.index'
+import { Route as PlatformAdminIndexRouteImport } from './routes/_platform/admin.index'
+import { Route as TenantSettingsMembersRouteImport } from './routes/_tenant/settings.members'
+import { Route as TenantReceiptsNewRouteImport } from './routes/_tenant/receipts.new'
+import { Route as TenantReceiptsIdRouteImport } from './routes/_tenant/receipts.$id'
+import { Route as TenantPackingListsIdRouteImport } from './routes/_tenant/packing-lists.$id'
+import { Route as TenantDispatchesNewRouteImport } from './routes/_tenant/dispatches.new'
+import { Route as TenantDispatchesIdRouteImport } from './routes/_tenant/dispatches.$id'
+import { Route as TenantDiesIdRouteImport } from './routes/_tenant/dies.$id'
+import { Route as TenantCustomersIdRouteImport } from './routes/_tenant/customers.$id'
+import { Route as TenantBundlesIdRouteImport } from './routes/_tenant/bundles.$id'
+import { Route as PublicInviteTokenRouteImport } from './routes/_public/invite.$token'
+import { Route as PlatformAdminWaitlistRouteImport } from './routes/_platform/admin.waitlist'
+import { Route as PlatformAdminStaffRouteImport } from './routes/_platform/admin.staff'
+import { Route as PlatformAdminCompaniesIndexRouteImport } from './routes/_platform/admin.companies.index'
+import { Route as PlatformAdminCompaniesIdRouteImport } from './routes/_platform/admin.companies.$id'
 
-const WaitlistRoute = WaitlistRouteImport.update({
-  id: '/waitlist',
-  path: '/waitlist',
+const TenantRoute = TenantRouteImport.update({
+  id: '/_tenant',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const PublicRoute = PublicRouteImport.update({
+  id: '/_public',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const PlatformRoute = PlatformRouteImport.update({
+  id: '/_platform',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedRoute = AuthedRouteImport.update({
+  id: '/_authed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => PublicRoute,
 } as any)
-const InviteTokenRoute = InviteTokenRouteImport.update({
+const TenantDashboardRoute = TenantDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => TenantRoute,
+} as any)
+const PublicWaitlistRoute = PublicWaitlistRouteImport.update({
+  id: '/waitlist',
+  path: '/waitlist',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicLoginRoute = PublicLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => PublicRoute,
+} as any)
+const AuthedSetupCredentialsRoute = AuthedSetupCredentialsRouteImport.update({
+  id: '/setup-credentials',
+  path: '/setup-credentials',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedNoAccessRoute = AuthedNoAccessRouteImport.update({
+  id: '/no-access',
+  path: '/no-access',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedChangePasswordRoute = AuthedChangePasswordRouteImport.update({
+  id: '/change-password',
+  path: '/change-password',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const TenantStockIndexRoute = TenantStockIndexRouteImport.update({
+  id: '/stock/',
+  path: '/stock/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantReceiptsIndexRoute = TenantReceiptsIndexRouteImport.update({
+  id: '/receipts/',
+  path: '/receipts/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDispatchesIndexRoute = TenantDispatchesIndexRouteImport.update({
+  id: '/dispatches/',
+  path: '/dispatches/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDiesIndexRoute = TenantDiesIndexRouteImport.update({
+  id: '/dies/',
+  path: '/dies/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCustomersIndexRoute = TenantCustomersIndexRouteImport.update({
+  id: '/customers/',
+  path: '/customers/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantBundlesIndexRoute = TenantBundlesIndexRouteImport.update({
+  id: '/bundles/',
+  path: '/bundles/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const PlatformAdminIndexRoute = PlatformAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const TenantSettingsMembersRoute = TenantSettingsMembersRouteImport.update({
+  id: '/settings/members',
+  path: '/settings/members',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantReceiptsNewRoute = TenantReceiptsNewRouteImport.update({
+  id: '/receipts/new',
+  path: '/receipts/new',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantReceiptsIdRoute = TenantReceiptsIdRouteImport.update({
+  id: '/receipts/$id',
+  path: '/receipts/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPackingListsIdRoute = TenantPackingListsIdRouteImport.update({
+  id: '/packing-lists/$id',
+  path: '/packing-lists/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDispatchesNewRoute = TenantDispatchesNewRouteImport.update({
+  id: '/dispatches/new',
+  path: '/dispatches/new',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDispatchesIdRoute = TenantDispatchesIdRouteImport.update({
+  id: '/dispatches/$id',
+  path: '/dispatches/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDiesIdRoute = TenantDiesIdRouteImport.update({
+  id: '/dies/$id',
+  path: '/dies/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCustomersIdRoute = TenantCustomersIdRouteImport.update({
+  id: '/customers/$id',
+  path: '/customers/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantBundlesIdRoute = TenantBundlesIdRouteImport.update({
+  id: '/bundles/$id',
+  path: '/bundles/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const PublicInviteTokenRoute = PublicInviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => PublicRoute,
 } as any)
+const PlatformAdminWaitlistRoute = PlatformAdminWaitlistRouteImport.update({
+  id: '/admin/waitlist',
+  path: '/admin/waitlist',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformAdminStaffRoute = PlatformAdminStaffRouteImport.update({
+  id: '/admin/staff',
+  path: '/admin/staff',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformAdminCompaniesIndexRoute =
+  PlatformAdminCompaniesIndexRouteImport.update({
+    id: '/admin/companies/',
+    path: '/admin/companies/',
+    getParentRoute: () => PlatformRoute,
+  } as any)
+const PlatformAdminCompaniesIdRoute =
+  PlatformAdminCompaniesIdRouteImport.update({
+    id: '/admin/companies/$id',
+    path: '/admin/companies/$id',
+    getParentRoute: () => PlatformRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/waitlist': typeof WaitlistRoute
-  '/invite/$token': typeof InviteTokenRoute
+  '/': typeof PublicIndexRoute
+  '/change-password': typeof AuthedChangePasswordRoute
+  '/no-access': typeof AuthedNoAccessRoute
+  '/onboarding': typeof AuthedOnboardingRoute
+  '/setup-credentials': typeof AuthedSetupCredentialsRoute
+  '/login': typeof PublicLoginRoute
+  '/waitlist': typeof PublicWaitlistRoute
+  '/dashboard': typeof TenantDashboardRoute
+  '/admin/staff': typeof PlatformAdminStaffRoute
+  '/admin/waitlist': typeof PlatformAdminWaitlistRoute
+  '/invite/$token': typeof PublicInviteTokenRoute
+  '/bundles/$id': typeof TenantBundlesIdRoute
+  '/customers/$id': typeof TenantCustomersIdRoute
+  '/dies/$id': typeof TenantDiesIdRoute
+  '/dispatches/$id': typeof TenantDispatchesIdRoute
+  '/dispatches/new': typeof TenantDispatchesNewRoute
+  '/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/receipts/$id': typeof TenantReceiptsIdRoute
+  '/receipts/new': typeof TenantReceiptsNewRoute
+  '/settings/members': typeof TenantSettingsMembersRoute
+  '/admin/': typeof PlatformAdminIndexRoute
+  '/bundles/': typeof TenantBundlesIndexRoute
+  '/customers/': typeof TenantCustomersIndexRoute
+  '/dies/': typeof TenantDiesIndexRoute
+  '/dispatches/': typeof TenantDispatchesIndexRoute
+  '/receipts/': typeof TenantReceiptsIndexRoute
+  '/stock/': typeof TenantStockIndexRoute
+  '/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
+  '/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/waitlist': typeof WaitlistRoute
-  '/invite/$token': typeof InviteTokenRoute
+  '/': typeof PublicIndexRoute
+  '/change-password': typeof AuthedChangePasswordRoute
+  '/no-access': typeof AuthedNoAccessRoute
+  '/onboarding': typeof AuthedOnboardingRoute
+  '/setup-credentials': typeof AuthedSetupCredentialsRoute
+  '/login': typeof PublicLoginRoute
+  '/waitlist': typeof PublicWaitlistRoute
+  '/dashboard': typeof TenantDashboardRoute
+  '/admin/staff': typeof PlatformAdminStaffRoute
+  '/admin/waitlist': typeof PlatformAdminWaitlistRoute
+  '/invite/$token': typeof PublicInviteTokenRoute
+  '/bundles/$id': typeof TenantBundlesIdRoute
+  '/customers/$id': typeof TenantCustomersIdRoute
+  '/dies/$id': typeof TenantDiesIdRoute
+  '/dispatches/$id': typeof TenantDispatchesIdRoute
+  '/dispatches/new': typeof TenantDispatchesNewRoute
+  '/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/receipts/$id': typeof TenantReceiptsIdRoute
+  '/receipts/new': typeof TenantReceiptsNewRoute
+  '/settings/members': typeof TenantSettingsMembersRoute
+  '/admin': typeof PlatformAdminIndexRoute
+  '/bundles': typeof TenantBundlesIndexRoute
+  '/customers': typeof TenantCustomersIndexRoute
+  '/dies': typeof TenantDiesIndexRoute
+  '/dispatches': typeof TenantDispatchesIndexRoute
+  '/receipts': typeof TenantReceiptsIndexRoute
+  '/stock': typeof TenantStockIndexRoute
+  '/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
+  '/admin/companies': typeof PlatformAdminCompaniesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/waitlist': typeof WaitlistRoute
-  '/invite/$token': typeof InviteTokenRoute
+  '/_authed': typeof AuthedRouteWithChildren
+  '/_platform': typeof PlatformRouteWithChildren
+  '/_public': typeof PublicRouteWithChildren
+  '/_tenant': typeof TenantRouteWithChildren
+  '/_authed/change-password': typeof AuthedChangePasswordRoute
+  '/_authed/no-access': typeof AuthedNoAccessRoute
+  '/_authed/onboarding': typeof AuthedOnboardingRoute
+  '/_authed/setup-credentials': typeof AuthedSetupCredentialsRoute
+  '/_public/login': typeof PublicLoginRoute
+  '/_public/waitlist': typeof PublicWaitlistRoute
+  '/_tenant/dashboard': typeof TenantDashboardRoute
+  '/_public/': typeof PublicIndexRoute
+  '/_platform/admin/staff': typeof PlatformAdminStaffRoute
+  '/_platform/admin/waitlist': typeof PlatformAdminWaitlistRoute
+  '/_public/invite/$token': typeof PublicInviteTokenRoute
+  '/_tenant/bundles/$id': typeof TenantBundlesIdRoute
+  '/_tenant/customers/$id': typeof TenantCustomersIdRoute
+  '/_tenant/dies/$id': typeof TenantDiesIdRoute
+  '/_tenant/dispatches/$id': typeof TenantDispatchesIdRoute
+  '/_tenant/dispatches/new': typeof TenantDispatchesNewRoute
+  '/_tenant/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/_tenant/receipts/$id': typeof TenantReceiptsIdRoute
+  '/_tenant/receipts/new': typeof TenantReceiptsNewRoute
+  '/_tenant/settings/members': typeof TenantSettingsMembersRoute
+  '/_platform/admin/': typeof PlatformAdminIndexRoute
+  '/_tenant/bundles/': typeof TenantBundlesIndexRoute
+  '/_tenant/customers/': typeof TenantCustomersIndexRoute
+  '/_tenant/dies/': typeof TenantDiesIndexRoute
+  '/_tenant/dispatches/': typeof TenantDispatchesIndexRoute
+  '/_tenant/receipts/': typeof TenantReceiptsIndexRoute
+  '/_tenant/stock/': typeof TenantStockIndexRoute
+  '/_platform/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
+  '/_platform/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/waitlist' | '/invite/$token'
+  fullPaths:
+    | '/'
+    | '/change-password'
+    | '/no-access'
+    | '/onboarding'
+    | '/setup-credentials'
+    | '/login'
+    | '/waitlist'
+    | '/dashboard'
+    | '/admin/staff'
+    | '/admin/waitlist'
+    | '/invite/$token'
+    | '/bundles/$id'
+    | '/customers/$id'
+    | '/dies/$id'
+    | '/dispatches/$id'
+    | '/dispatches/new'
+    | '/packing-lists/$id'
+    | '/receipts/$id'
+    | '/receipts/new'
+    | '/settings/members'
+    | '/admin/'
+    | '/bundles/'
+    | '/customers/'
+    | '/dies/'
+    | '/dispatches/'
+    | '/receipts/'
+    | '/stock/'
+    | '/admin/companies/$id'
+    | '/admin/companies/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/waitlist' | '/invite/$token'
-  id: '__root__' | '/' | '/login' | '/waitlist' | '/invite/$token'
+  to:
+    | '/'
+    | '/change-password'
+    | '/no-access'
+    | '/onboarding'
+    | '/setup-credentials'
+    | '/login'
+    | '/waitlist'
+    | '/dashboard'
+    | '/admin/staff'
+    | '/admin/waitlist'
+    | '/invite/$token'
+    | '/bundles/$id'
+    | '/customers/$id'
+    | '/dies/$id'
+    | '/dispatches/$id'
+    | '/dispatches/new'
+    | '/packing-lists/$id'
+    | '/receipts/$id'
+    | '/receipts/new'
+    | '/settings/members'
+    | '/admin'
+    | '/bundles'
+    | '/customers'
+    | '/dies'
+    | '/dispatches'
+    | '/receipts'
+    | '/stock'
+    | '/admin/companies/$id'
+    | '/admin/companies'
+  id:
+    | '__root__'
+    | '/_authed'
+    | '/_platform'
+    | '/_public'
+    | '/_tenant'
+    | '/_authed/change-password'
+    | '/_authed/no-access'
+    | '/_authed/onboarding'
+    | '/_authed/setup-credentials'
+    | '/_public/login'
+    | '/_public/waitlist'
+    | '/_tenant/dashboard'
+    | '/_public/'
+    | '/_platform/admin/staff'
+    | '/_platform/admin/waitlist'
+    | '/_public/invite/$token'
+    | '/_tenant/bundles/$id'
+    | '/_tenant/customers/$id'
+    | '/_tenant/dies/$id'
+    | '/_tenant/dispatches/$id'
+    | '/_tenant/dispatches/new'
+    | '/_tenant/packing-lists/$id'
+    | '/_tenant/receipts/$id'
+    | '/_tenant/receipts/new'
+    | '/_tenant/settings/members'
+    | '/_platform/admin/'
+    | '/_tenant/bundles/'
+    | '/_tenant/customers/'
+    | '/_tenant/dies/'
+    | '/_tenant/dispatches/'
+    | '/_tenant/receipts/'
+    | '/_tenant/stock/'
+    | '/_platform/admin/companies/$id'
+    | '/_platform/admin/companies/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  LoginRoute: typeof LoginRoute
-  WaitlistRoute: typeof WaitlistRoute
-  InviteTokenRoute: typeof InviteTokenRoute
+  AuthedRoute: typeof AuthedRouteWithChildren
+  PlatformRoute: typeof PlatformRouteWithChildren
+  PublicRoute: typeof PublicRouteWithChildren
+  TenantRoute: typeof TenantRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/waitlist': {
-      id: '/waitlist'
-      path: '/waitlist'
-      fullPath: '/waitlist'
-      preLoaderRoute: typeof WaitlistRouteImport
+    '/_tenant': {
+      id: '/_tenant'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof TenantRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/_public': {
+      id: '/_public'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PublicRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/_platform': {
+      id: '/_platform'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PlatformRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authed': {
+      id: '/_authed'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_public/': {
+      id: '/_public/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof PublicIndexRouteImport
+      parentRoute: typeof PublicRoute
     }
-    '/invite/$token': {
-      id: '/invite/$token'
+    '/_tenant/dashboard': {
+      id: '/_tenant/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof TenantDashboardRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_public/waitlist': {
+      id: '/_public/waitlist'
+      path: '/waitlist'
+      fullPath: '/waitlist'
+      preLoaderRoute: typeof PublicWaitlistRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/login': {
+      id: '/_public/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof PublicLoginRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_authed/setup-credentials': {
+      id: '/_authed/setup-credentials'
+      path: '/setup-credentials'
+      fullPath: '/setup-credentials'
+      preLoaderRoute: typeof AuthedSetupCredentialsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/onboarding': {
+      id: '/_authed/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthedOnboardingRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/no-access': {
+      id: '/_authed/no-access'
+      path: '/no-access'
+      fullPath: '/no-access'
+      preLoaderRoute: typeof AuthedNoAccessRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/change-password': {
+      id: '/_authed/change-password'
+      path: '/change-password'
+      fullPath: '/change-password'
+      preLoaderRoute: typeof AuthedChangePasswordRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_tenant/stock/': {
+      id: '/_tenant/stock/'
+      path: '/stock'
+      fullPath: '/stock/'
+      preLoaderRoute: typeof TenantStockIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/receipts/': {
+      id: '/_tenant/receipts/'
+      path: '/receipts'
+      fullPath: '/receipts/'
+      preLoaderRoute: typeof TenantReceiptsIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dispatches/': {
+      id: '/_tenant/dispatches/'
+      path: '/dispatches'
+      fullPath: '/dispatches/'
+      preLoaderRoute: typeof TenantDispatchesIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dies/': {
+      id: '/_tenant/dies/'
+      path: '/dies'
+      fullPath: '/dies/'
+      preLoaderRoute: typeof TenantDiesIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/customers/': {
+      id: '/_tenant/customers/'
+      path: '/customers'
+      fullPath: '/customers/'
+      preLoaderRoute: typeof TenantCustomersIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/bundles/': {
+      id: '/_tenant/bundles/'
+      path: '/bundles'
+      fullPath: '/bundles/'
+      preLoaderRoute: typeof TenantBundlesIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_platform/admin/': {
+      id: '/_platform/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof PlatformAdminIndexRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/_tenant/settings/members': {
+      id: '/_tenant/settings/members'
+      path: '/settings/members'
+      fullPath: '/settings/members'
+      preLoaderRoute: typeof TenantSettingsMembersRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/receipts/new': {
+      id: '/_tenant/receipts/new'
+      path: '/receipts/new'
+      fullPath: '/receipts/new'
+      preLoaderRoute: typeof TenantReceiptsNewRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/receipts/$id': {
+      id: '/_tenant/receipts/$id'
+      path: '/receipts/$id'
+      fullPath: '/receipts/$id'
+      preLoaderRoute: typeof TenantReceiptsIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/packing-lists/$id': {
+      id: '/_tenant/packing-lists/$id'
+      path: '/packing-lists/$id'
+      fullPath: '/packing-lists/$id'
+      preLoaderRoute: typeof TenantPackingListsIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dispatches/new': {
+      id: '/_tenant/dispatches/new'
+      path: '/dispatches/new'
+      fullPath: '/dispatches/new'
+      preLoaderRoute: typeof TenantDispatchesNewRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dispatches/$id': {
+      id: '/_tenant/dispatches/$id'
+      path: '/dispatches/$id'
+      fullPath: '/dispatches/$id'
+      preLoaderRoute: typeof TenantDispatchesIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dies/$id': {
+      id: '/_tenant/dies/$id'
+      path: '/dies/$id'
+      fullPath: '/dies/$id'
+      preLoaderRoute: typeof TenantDiesIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/customers/$id': {
+      id: '/_tenant/customers/$id'
+      path: '/customers/$id'
+      fullPath: '/customers/$id'
+      preLoaderRoute: typeof TenantCustomersIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/bundles/$id': {
+      id: '/_tenant/bundles/$id'
+      path: '/bundles/$id'
+      fullPath: '/bundles/$id'
+      preLoaderRoute: typeof TenantBundlesIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_public/invite/$token': {
+      id: '/_public/invite/$token'
       path: '/invite/$token'
       fullPath: '/invite/$token'
-      preLoaderRoute: typeof InviteTokenRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof PublicInviteTokenRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_platform/admin/waitlist': {
+      id: '/_platform/admin/waitlist'
+      path: '/admin/waitlist'
+      fullPath: '/admin/waitlist'
+      preLoaderRoute: typeof PlatformAdminWaitlistRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/_platform/admin/staff': {
+      id: '/_platform/admin/staff'
+      path: '/admin/staff'
+      fullPath: '/admin/staff'
+      preLoaderRoute: typeof PlatformAdminStaffRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/_platform/admin/companies/': {
+      id: '/_platform/admin/companies/'
+      path: '/admin/companies'
+      fullPath: '/admin/companies/'
+      preLoaderRoute: typeof PlatformAdminCompaniesIndexRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/_platform/admin/companies/$id': {
+      id: '/_platform/admin/companies/$id'
+      path: '/admin/companies/$id'
+      fullPath: '/admin/companies/$id'
+      preLoaderRoute: typeof PlatformAdminCompaniesIdRouteImport
+      parentRoute: typeof PlatformRoute
     }
   }
 }
 
+interface AuthedRouteChildren {
+  AuthedChangePasswordRoute: typeof AuthedChangePasswordRoute
+  AuthedNoAccessRoute: typeof AuthedNoAccessRoute
+  AuthedOnboardingRoute: typeof AuthedOnboardingRoute
+  AuthedSetupCredentialsRoute: typeof AuthedSetupCredentialsRoute
+}
+
+const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedChangePasswordRoute: AuthedChangePasswordRoute,
+  AuthedNoAccessRoute: AuthedNoAccessRoute,
+  AuthedOnboardingRoute: AuthedOnboardingRoute,
+  AuthedSetupCredentialsRoute: AuthedSetupCredentialsRoute,
+}
+
+const AuthedRouteWithChildren =
+  AuthedRoute._addFileChildren(AuthedRouteChildren)
+
+interface PlatformRouteChildren {
+  PlatformAdminStaffRoute: typeof PlatformAdminStaffRoute
+  PlatformAdminWaitlistRoute: typeof PlatformAdminWaitlistRoute
+  PlatformAdminIndexRoute: typeof PlatformAdminIndexRoute
+  PlatformAdminCompaniesIdRoute: typeof PlatformAdminCompaniesIdRoute
+  PlatformAdminCompaniesIndexRoute: typeof PlatformAdminCompaniesIndexRoute
+}
+
+const PlatformRouteChildren: PlatformRouteChildren = {
+  PlatformAdminStaffRoute: PlatformAdminStaffRoute,
+  PlatformAdminWaitlistRoute: PlatformAdminWaitlistRoute,
+  PlatformAdminIndexRoute: PlatformAdminIndexRoute,
+  PlatformAdminCompaniesIdRoute: PlatformAdminCompaniesIdRoute,
+  PlatformAdminCompaniesIndexRoute: PlatformAdminCompaniesIndexRoute,
+}
+
+const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
+  PlatformRouteChildren,
+)
+
+interface PublicRouteChildren {
+  PublicLoginRoute: typeof PublicLoginRoute
+  PublicWaitlistRoute: typeof PublicWaitlistRoute
+  PublicIndexRoute: typeof PublicIndexRoute
+  PublicInviteTokenRoute: typeof PublicInviteTokenRoute
+}
+
+const PublicRouteChildren: PublicRouteChildren = {
+  PublicLoginRoute: PublicLoginRoute,
+  PublicWaitlistRoute: PublicWaitlistRoute,
+  PublicIndexRoute: PublicIndexRoute,
+  PublicInviteTokenRoute: PublicInviteTokenRoute,
+}
+
+const PublicRouteWithChildren =
+  PublicRoute._addFileChildren(PublicRouteChildren)
+
+interface TenantRouteChildren {
+  TenantDashboardRoute: typeof TenantDashboardRoute
+  TenantBundlesIdRoute: typeof TenantBundlesIdRoute
+  TenantCustomersIdRoute: typeof TenantCustomersIdRoute
+  TenantDiesIdRoute: typeof TenantDiesIdRoute
+  TenantDispatchesIdRoute: typeof TenantDispatchesIdRoute
+  TenantDispatchesNewRoute: typeof TenantDispatchesNewRoute
+  TenantPackingListsIdRoute: typeof TenantPackingListsIdRoute
+  TenantReceiptsIdRoute: typeof TenantReceiptsIdRoute
+  TenantReceiptsNewRoute: typeof TenantReceiptsNewRoute
+  TenantSettingsMembersRoute: typeof TenantSettingsMembersRoute
+  TenantBundlesIndexRoute: typeof TenantBundlesIndexRoute
+  TenantCustomersIndexRoute: typeof TenantCustomersIndexRoute
+  TenantDiesIndexRoute: typeof TenantDiesIndexRoute
+  TenantDispatchesIndexRoute: typeof TenantDispatchesIndexRoute
+  TenantReceiptsIndexRoute: typeof TenantReceiptsIndexRoute
+  TenantStockIndexRoute: typeof TenantStockIndexRoute
+}
+
+const TenantRouteChildren: TenantRouteChildren = {
+  TenantDashboardRoute: TenantDashboardRoute,
+  TenantBundlesIdRoute: TenantBundlesIdRoute,
+  TenantCustomersIdRoute: TenantCustomersIdRoute,
+  TenantDiesIdRoute: TenantDiesIdRoute,
+  TenantDispatchesIdRoute: TenantDispatchesIdRoute,
+  TenantDispatchesNewRoute: TenantDispatchesNewRoute,
+  TenantPackingListsIdRoute: TenantPackingListsIdRoute,
+  TenantReceiptsIdRoute: TenantReceiptsIdRoute,
+  TenantReceiptsNewRoute: TenantReceiptsNewRoute,
+  TenantSettingsMembersRoute: TenantSettingsMembersRoute,
+  TenantBundlesIndexRoute: TenantBundlesIndexRoute,
+  TenantCustomersIndexRoute: TenantCustomersIndexRoute,
+  TenantDiesIndexRoute: TenantDiesIndexRoute,
+  TenantDispatchesIndexRoute: TenantDispatchesIndexRoute,
+  TenantReceiptsIndexRoute: TenantReceiptsIndexRoute,
+  TenantStockIndexRoute: TenantStockIndexRoute,
+}
+
+const TenantRouteWithChildren =
+  TenantRoute._addFileChildren(TenantRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  LoginRoute: LoginRoute,
-  WaitlistRoute: WaitlistRoute,
-  InviteTokenRoute: InviteTokenRoute,
+  AuthedRoute: AuthedRouteWithChildren,
+  PlatformRoute: PlatformRouteWithChildren,
+  PublicRoute: PublicRouteWithChildren,
+  TenantRoute: TenantRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

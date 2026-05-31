@@ -32,20 +32,18 @@
   "type": "module",
   "scripts": {
     "dev": "turbo dev",
-    "dev:local": "turbo -F @orrn/infra dev",
+    "dev:local": "turbo -F @orrn/server dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
-    "dev:erp": "turbo -F erp dev",
-    "dev:admin": "turbo -F admin dev",
-    "dev:server": "turbo -F @orrn/infra dev",
+    "dev:server": "turbo -F @orrn/server dev",
     "db:push": "turbo -F @orrn/db db:push",
     "db:generate": "turbo -F @orrn/db db:generate",
-    "deploy": "turbo -F @orrn/infra deploy",
-    "deploy:dev": "turbo -F @orrn/infra deploy:dev",
-    "deploy:prod": "turbo -F @orrn/infra deploy:prod",
-    "destroy": "turbo -F @orrn/infra destroy"
+    "deploy": "turbo -F @orrn/server deploy",
+    "deploy:dev": "turbo -F @orrn/server deploy:dev",
+    "deploy:prod": "turbo -F @orrn/server deploy:prod",
+    "destroy": "turbo -F @orrn/server destroy"
   },
   "dependencies": {
     "@orrn/env": "workspace:*",

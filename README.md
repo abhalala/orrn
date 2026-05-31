@@ -8,7 +8,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **TanStack Router** - File-based routing with full type safety
 - **React Native** - Build mobile apps using React
 - **Expo** - Tools for React Native development
-- **Shared UI** — Tamagui-based `@orrn/ui` + `@orrn/design` tokens (web + native)
+- **Shared UI** — Tamagui-based `@orrn/ui` components, tokens, and config (web + native)
 - **Hono** - Lightweight, performant server framework
 - **tRPC** - End-to-end type-safe APIs
 - **workers** - Runtime environment
@@ -79,20 +79,17 @@ Infrastructure: **Alchemy** → Cloudflare Workers + D1 + custom domains. Full r
 
 ### Dev (`main` branch → GitHub `dev` environment)
 
-- Marketing / web: `https://dev.orrn.app`
-- ERP: `https://erp.dev.orrn.app`
+- Unified web app: `https://dev.orrn.app`
 - API / auth: `https://api.dev.orrn.app`
 
 Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID` (zone `orrn.app`), `ALCHEMY_*`, `BETTER_AUTH_SECRET`, `ORRN_MASTER_KEY`. Optional: `RESEND_API_KEY`, `WEBHOOK_BASE_URL`.
 
 ### Production (manual workflow → GitHub `production` environment)
 
-- Marketing: `https://orrn.in`
-- ERP: `https://erp.orrn.in`
-- Staff / platform admin: `https://orrn.app`
+- Unified web app: `https://orrn.in`
 - API / auth: `https://api.orrn.in`
 
-Secrets: same as dev plus **`CLOUDFLARE_ZONE_ID_IN`** (`orrn.in`) and **`CLOUDFLARE_ZONE_ID_APP`** (`orrn.app`). Run **Actions → Deploy Production**.
+Secrets: same as dev plus **`CLOUDFLARE_ZONE_ID_IN`** (`orrn.in`). Run **Actions → Deploy Production**.
 
 ```bash
 bun run deploy:dev   # stage dev
@@ -128,9 +125,9 @@ The API is running at [http://localhost:3000](http://localhost:3000).
 
 ORRN uses a shared Tamagui design system across web and native:
 
-- **Brand tokens** — edit colors, spacing, typography, and status palettes in [`packages/design/src/tokens.ts`](packages/design/src/tokens.ts). Tamagui themes are wired in [`packages/design/src/tamagui.config.ts`](packages/design/src/tamagui.config.ts).
+- **Brand tokens** — edit colors, spacing, typography, and status palettes in [`packages/ui/src/tokens.ts`](packages/ui/src/tokens.ts). Tamagui themes are wired in [`packages/ui/src/tamagui.config.ts`](packages/ui/src/tamagui.config.ts).
 - **Shared components** — cross-platform primitives live in [`packages/ui/src/components/`](packages/ui/src/components/) (`Button`, `Card`, `DataTable`, `PageHeader`, `StatusBadge`, `Sidebar`, etc.).
-- **Web app shell** — authenticated routes render inside [`apps/web/src/components/app-shell.tsx`](apps/web/src/components/app-shell.tsx) (sidebar, top bar, breadcrumbs). Public routes (`/`, `/login`, `/waitlist`, `/invite/*`, `/no-access`) render without the shell.
+- **Web app shell** — authenticated tenant routes render through [`apps/web/src/shared/components/app-shell.tsx`](apps/web/src/shared/components/app-shell.tsx); platform routes render through [`apps/web/src/shared/components/staff-shell.tsx`](apps/web/src/shared/components/staff-shell.tsx).
 - **Tailwind bridge** — web utility classes mirror design tokens via [`packages/ui/src/styles/globals.css`](packages/ui/src/styles/globals.css).
 
 Import shared components like this:
@@ -141,7 +138,7 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { StatusBadge } from "@orrn/ui/components/badge";
 ```
 
-Role-aware UI uses the shared permissions matrix in `packages/api/src/lib/permissions.ts` with `<Can do="…">` on web and native.
+Role-aware UI uses the shared permissions matrix in `packages/server/src/lib/permissions.ts` with `<Can do="…">` on web and native.
 
 ## Deployment (Cloudflare via Alchemy)
 
@@ -161,11 +158,13 @@ orrn/
 │   ├── native/      # Mobile application (React Native, Expo)
 │   └── server/      # Backend API (Hono, TRPC)
 ├── packages/
-│   ├── ui/          # Shared Tamagui components (@orrn/ui)
-│   ├── design/      # Brand tokens + Tamagui config (@orrn/design)
-│   ├── api/         # API layer / business logic
+│   ├── ui/          # Shared Tamagui components, tokens, and config (@orrn/ui)
+│   ├── server/      # tRPC API layer, routers, permissions, and Alchemy infra
 │   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
+│   ├── db/          # Database schema & queries
+│   ├── env/         # Validated server/web/native env access
+│   ├── crypto/      # Tenant secret wrapping helpers
+│   └── config/      # Shared TypeScript config
 ```
 
 ## Available Scripts

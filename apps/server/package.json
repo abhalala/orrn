@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@hono/trpc-server": "^0.4.0",
-    "@orrn/api": "workspace:*",
+    "@orrn/server": "workspace:*",
     "@orrn/auth": "workspace:*",
     "@orrn/db": "workspace:*",
     "@orrn/env": "workspace:*",

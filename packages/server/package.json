@@ -1,0 +1,50 @@
+{
+  "name": "@orrn/server",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./context": {
+      "default": "./src/context.ts"
+    },
+    "./routers/*": {
+      "default": "./src/routers/*.ts"
+    },
+    "./lib/*": {
+      "default": "./src/lib/*.ts"
+    },
+    "./infra/alchemy.run": {
+      "default": "./src/infra/alchemy.run.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "dev": "alchemy dev",
+    "deploy": "alchemy deploy",
+    "deploy:dev": "bun --env-file=.env run alchemy-deploy-dev",
+    "deploy:prod": "bun --env-file=.env run alchemy-deploy-prod",
+    "alchemy-deploy-dev": "ALCHEMY_STAGE=dev alchemy deploy --stage dev --adopt",
+    "alchemy-deploy-prod": "NODE_ENV=production ALCHEMY_STAGE=production alchemy deploy --stage production --adopt",
+    "destroy": "alchemy destroy",
+    "bootstrap-super-admin": "bun --env-file=.env src/infra/scripts/bootstrap-super-admin.ts",
+    "set-staff-password": "bun --env-file=.env src/infra/scripts/set-staff-password.ts"
+  },
+  "dependencies": {
+    "@orrn/auth": "workspace:*",
+    "@orrn/db": "workspace:*",
+    "@orrn/env": "workspace:*",
+    "@trpc/client": "catalog:",
+    "@trpc/server": "catalog:",
+    "drizzle-orm": "^0.45.1",
+    "dotenv": "catalog:",
+    "zod": "catalog:",
+    "alchemy": "catalog:"
+  },
+  "devDependencies": {
+    "@better-auth/utils": "0.4.0",
+    "@orrn/config": "workspace:*",
+    "hono": "catalog:",
+    "typescript": "^6"
+  }
+}

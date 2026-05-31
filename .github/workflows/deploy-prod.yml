@@ -9,7 +9,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy orrn.in + orrn.app
+    name: Deploy orrn.in
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -26,13 +26,11 @@ jobs:
       WEBHOOK_BASE_URL: ${{ vars.WEBHOOK_BASE_URL }}
       API_DOMAIN: api.orrn.in
       VITE_SERVER_URL: https://api.orrn.in
+      VITE_PUBLIC_URL: https://orrn.in
       BETTER_AUTH_URL: https://api.orrn.in
       CORS_ORIGIN: https://orrn.in
-      CORS_ALLOWED_ORIGINS: https://orrn.in,https://erp.orrn.in,https://orrn.app
-      WEB_ERP_URL: https://erp.orrn.in
-      VITE_MARKETING_URL: https://orrn.in
-      VITE_ERP_URL: https://erp.orrn.in
-      VITE_STAFF_URL: https://orrn.app
+      CORS_ALLOWED_ORIGINS: https://orrn.in
+      WEB_PUBLIC_URL: https://orrn.in
       NODE_ENV: production
     steps:
       - name: Checkout

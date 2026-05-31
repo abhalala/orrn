@@ -29,8 +29,10 @@ jobs:
       WEB_DOMAIN: dev.orrn.app
       API_DOMAIN: api.dev.orrn.app
       VITE_SERVER_URL: https://api.dev.orrn.app
+      VITE_PUBLIC_URL: https://dev.orrn.app
       BETTER_AUTH_URL: https://api.dev.orrn.app
       CORS_ORIGIN: https://dev.orrn.app
+      WEB_PUBLIC_URL: https://dev.orrn.app
       NODE_ENV: development
     steps:
       - name: Checkout

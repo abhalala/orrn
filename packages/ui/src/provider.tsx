@@ -1,4 +1,4 @@
-import { tamaguiConfig } from "@orrn/design";
+import { tamaguiConfig } from "./tamagui.config";
 import type { ReactNode } from "react";
 import { TamaguiProvider, Theme } from "tamagui";
 

@@ -1,50 +1,17 @@
-import type { Action, MeLike } from "@orrn/api/lib/permissions";
-import { can as rawCan, canAny as rawCanAny } from "@orrn/api/lib/permissions";
-import type { LengthUnit } from "@orrn/api/lib/length";
 import { useQuery } from "@tanstack/react-query";
+import { can, canAny } from "@orrn/server/lib/permissions";
+import type { Action, Me } from "@orrn/server/lib/permissions";
 
 import { trpc } from "@/utils/trpc";
 
-export type Me = {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    image: string | null;
-    onboardingCompleted: boolean;
-    twoFactorEnabled: boolean;
-  };
-  company: {
-    id: string;
-    name: string;
-    slug: string;
-    status: string;
-    plan: string | null;
-    modules: string[];
-    role: "owner" | "admin" | "manager" | "operator" | "viewer";
-    settings: { lengthUnit?: LengthUnit; [key: string]: unknown };
-  } | null;
-  isPlatformAdmin: boolean;
-  impersonation: { actorUserId: string; companyId: string; grantId: string; expiresAt: string } | null;
-};
-
 /**
- * Native mirror of apps/web/src/lib/me.ts. Reads `auth.me` via React Query so
- * the result is shared across the drawer layout and every screen.
+ * Native mirror of the web `useMe` hook. The permission matrix and `Me` shape
+ * live in `@orrn/server/lib/permissions`; this file only owns native query
+ * wiring.
  */
 export function useMe() {
   return useQuery(trpc.auth.me.queryOptions());
 }
 
-export function can(me: Me | MeLike | null | undefined, action: Action): boolean {
-  return rawCan(me as MeLike | null | undefined, action);
-}
-
-export function canAny(
-  me: Me | MeLike | null | undefined,
-  actions: readonly Action[],
-): boolean {
-  return rawCanAny(me as MeLike | null | undefined, actions);
-}
-
-export type { Action };
+export { can, canAny };
+export type { Action, Me };

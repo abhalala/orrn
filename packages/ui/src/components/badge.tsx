@@ -5,7 +5,7 @@ import {
   dispatchStatusTones,
   roleTones,
   type StatusTone,
-} from "@orrn/design";
+} from "../tokens";
 import { Stack, Text } from "@orrn/ui/lib/tg";
 
 export type BadgeTone = "neutral" | "info" | "success" | "warning" | "danger" | "brand";

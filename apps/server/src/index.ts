@@ -1,6 +1,6 @@
 import { trpcServer } from "@hono/trpc-server";
-import { createContext } from "@orrn/api/context";
-import { appRouter } from "@orrn/api/routers/index";
+import { createContext } from "@orrn/server/context";
+import { appRouter } from "@orrn/server/routers/index";
 import { createAuth } from "@orrn/auth";
 import { isAllowedWebOrigin } from "@orrn/auth/origins";
 import { createDb } from "@orrn/db";

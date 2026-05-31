@@ -14,7 +14,7 @@ export default defineConfig({
   },
   plugins: [
     tamaguiPlugin({
-      config: "../../packages/design/src/tamagui.config.ts",
+      config: "../../packages/ui/src/tamagui.config.ts",
       components: ["tamagui", "@orrn/ui"],
       outputCSS: "./src/tamagui.generated.css",
     }),

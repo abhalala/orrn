@@ -2,11 +2,11 @@
  * Token-bridge stylesheet for the web app.
  *
  * Tamagui owns the actual component styling on web + native via
- * `@orrn/ui` and `@orrn/design`. Tailwind v4 stays as a fallback so the
- * remaining legacy utility classes (`bg-muted`, `text-foreground`, etc.) keep
- * rendering during/after the M7 migration without forcing every screen to be
+ * `@orrn/ui`. Tailwind v4 stays as a fallback so the remaining legacy
+ * utility classes (`bg-muted`, `text-foreground`, etc.) keep rendering
+ * during/after the M7 migration without forcing every screen to be
  * rewritten in one pass. Every CSS variable in here mirrors a token from
- * `@orrn/design/tokens` — do not introduce new raw color values here.
+ * `@orrn/ui/tokens` — do not introduce new raw color values here.
  */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -17,7 +17,7 @@
 
 /* Bridge: keep semantic CSS variables on :root / .dark so legacy
    Tailwind utilities like `bg-card`, `text-muted-foreground` still resolve.
-   Values come from `@orrn/design/tokens`. */
+   Values come from `@orrn/ui/tokens`. */
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;

@@ -12,8 +12,8 @@ ORRN (domain: orrn.in) is built as a sellable multi-company ERP SaaS for manufac
 - Monorepo: Turborepo.
 - Web: Vite + React + TanStack Router + TanStack Query + tRPC client.
 - Native: Expo + React Native + expo-router.
-- Shared UI: `@orrn/design` tokens + `@orrn/ui` Tamagui components for web and native (consistent branding and ui styling).
-- Server: Cloudflare Worker + Hono + tRPC v11.
+- Shared UI: `@orrn/ui` Tamagui components, tokens, and Tamagui config for web and native.
+- Server: `@orrn/server` tRPC package + thin Cloudflare Worker/Hono entrypoint.
 - Auth: Better Auth with email/password and Expo support.
 - Database: Cloudflare D1 / SQLite via Drizzle ORM.
 - Infra: Alchemy.
@@ -55,11 +55,11 @@ bun run deploy
 ## Roles & client-side capability gating
 
 - The canonical role-capability matrix lives in
-  `packages/api/src/lib/permissions.ts` (`ACTIONS`, `ROLE_ACTIONS`, `can`,
+  `packages/server/src/lib/permissions.ts` (`ACTIONS`, `ROLE_ACTIONS`, `can`,
   `canAny`). It is the single source of truth for both server `roleGuard`
   middleware and client `<Can>` / `useMe` hooks.
 - Add new actions to that file (do not invent ad-hoc client-side booleans),
-  then reuse them via `<Can do="…">` on web (`apps/web/src/components/can.tsx`)
+  then reuse them via `<Can do="…">` on web (`apps/web/src/shared/components/can.tsx`)
   and native (`apps/native/components/can.tsx`).
 - Action buttons that mutate state must be wrapped in `<Can>` — never
   conditionally removed by hand. The server is still authoritative.
@@ -108,7 +108,7 @@ bun run deploy
 ## D1 writes (atomic multi-statement)
 
 - Do **not** use `db.transaction()` on Cloudflare D1 — Drizzle emits SQL `BEGIN`, which D1 rejects.
-- Perform reads with `db` first, then `atomicBatch()` from `@orrn/db/atomic` (re-exported as `@orrn/api/lib/atomic`) for writes that must succeed or fail together.
+- Perform reads with `db` first, then `atomicBatch()` from `@orrn/db/atomic` (re-exported as `@orrn/server/lib/atomic`) for writes that must succeed or fail together.
 - `nextCompanySeq()` runs outside the batch (a failed batch may leave a gap in sequence numbers; that is acceptable).
 
 ## Worker performance rules

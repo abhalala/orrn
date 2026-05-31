@@ -1,4 +1,4 @@
-import type { AppRouter } from "@orrn/api/routers/index";
+import type { AppRouter } from "@orrn/server/routers/index";
 import { env } from "@orrn/env/native";
 import { QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";

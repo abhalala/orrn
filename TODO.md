@@ -2,6 +2,34 @@
 
 This file is the source of truth for current implementation orchestration.
 
+## Completed architecture migration: Simplification ✅
+
+### Scope
+Eliminate package and app boundaries that no longer carried independent
+ownership while preserving the product surface: marketing, tenant ERP,
+platform admin, native app, tRPC API, auth, D1 schema, and Alchemy deploy.
+
+### Deliverables
+- [x] 1. Merged `@orrn/design` tokens/config into `@orrn/ui`.
+- [x] 2. Merged `@orrn/api` and `@orrn/infra` into `@orrn/server`.
+- [x] 3. Dissolved `@orrn/web-shared` into `apps/web/src/shared`.
+- [x] 4. Merged `apps/web`, `apps/erp`, and `apps/admin` into one TanStack
+         Router app with `_public`, `_authed`, `_tenant`, and `_platform`
+         route groups.
+- [x] 5. Split the platform tRPC router into focused waitlist, companies,
+         impersonation, and staff modules.
+- [x] 6. Added reusable tRPC CRUD helpers and refactored the customer router as
+         the pilot call site.
+- [x] 7. Centralized the `Me` type and permission helpers in
+         `packages/server/src/lib/permissions.ts` for web and native.
+- [x] 8. Updated docs and repo guidance for the simplified package/domain
+         layout.
+
+### Validation
+- `bun run check-types` passes across all 7 turbo tasks.
+
+---
+
 ## Active milestone: M9 Platform Admin Console + Impersonation Grants
 
 ### M9 Scope
@@ -73,10 +101,10 @@ on web and a Share export on native. No new permission set — reuses `dispatch.
          with totals, items table, Download PDF, Download Excel, Regenerate.
 - [x] 7. Web: `dispatches.$id.tsx` — `<PackingListSection>` card auto-shown for
          completed dispatches; links to detail; inline PDF + Excel + Regenerate.
-- [x] 8. `apps/web/src/lib/packingListPdf.tsx` — PDF template built with
+- [x] 8. `apps/web/src/shared/lib/packingListPdf.tsx` — PDF template built with
          `@react-pdf/renderer` (A4, company header, items table, totals,
          footer). Lazy-imported to keep the initial bundle lean.
-- [x] 9. `apps/web/src/lib/packingListXlsx.ts` — Excel workbook (Summary +
+- [x] 9. `apps/web/src/shared/lib/packingListXlsx.ts` — Excel workbook (Summary +
          Items sheets) via SheetJS `xlsx`. Lazy-imported.
 - [x] 10. Native: `PackingListCard` component in dispatch detail, visible for
           completed dispatches. "Share / Export" uses `Share.share()` from
@@ -126,15 +154,15 @@ cache on sign-out and company switch, and stub the impersonation banner that
 M9 will fully wire up. No visual rewrite — that's M7.
 
 ### M6 Deliverables
-- [x] 1. New `auth.me` tRPC query in `packages/api/src/routers/auth.ts`,
-       registered in `packages/api/src/routers/index.ts`, returning
+- [x] 1. New `auth.me` tRPC query in `packages/server/src/routers/auth.ts`,
+       registered in `packages/server/src/routers/index.ts`, returning
        `{ user, company: { id, name, slug, status, plan, role } | null,
        isPlatformAdmin, impersonation }`.
-- [x] 2. Role-capability matrix in `packages/api/src/lib/permissions.ts`
+- [x] 2. Role-capability matrix in `packages/server/src/lib/permissions.ts`
        (actions for customer/die/receipt/bundle/dispatch/member/settings/
        platform.*) plus pure `can(me, action)` / `canAny(me, actions)` helpers
        reused by web and native.
-- [x] 3. Route guards on web via shared `apps/web/src/lib/route-guards.ts`
+- [x] 3. Route guards on web via shared `apps/web/src/shared/lib/guards.ts`
        (`requireSession`, `requireCompanyMe`, `requirePlatformAdmin`,
        `loadMe`). Decision: kept the flat route layout (Option A) instead of
        layout-group restructure to minimise router churn. Every authenticated
@@ -143,9 +171,9 @@ M9 will fully wire up. No visual rewrite — that's M7.
 - [x] 4. New `/no-access` page for signed-in users without an active company
        membership, with a sign-out action that clears the QueryClient.
 - [x] 5. `<Can do="…">` component + `useMe()` hook on web
-       (`apps/web/src/lib/me.ts`, `apps/web/src/components/can.tsx`) and on
+       (`apps/web/src/shared/lib/me.ts`, `apps/web/src/shared/components/can.tsx`) and on
        native (`apps/native/utils/me.ts`, `apps/native/components/can.tsx`).
-- [x] 6. Web header (`apps/web/src/components/header.tsx`) filters nav links
+- [x] 6. Web shell (`apps/web/src/shared/components/app-shell.tsx`) filters nav links
        by capability, shows company name + role badge, exposes the platform
        link only for platform admins, and renders the impersonation banner.
 - [x] 7. Action gating across web screens: customers, dies, receipts,
@@ -302,7 +330,7 @@ Production-Receipt-based bundle creation with auto-generated codes/serials, an M
 - Master key bound to Worker via `ORRN_MASTER_KEY` secret
 
 **UI Foundation (Tamagui)**
-- Shared design system `@orrn/design` with v4 config
+- Shared design system in `@orrn/ui` with tokens and Tamagui v4 config
 - Web: Vite plugin + generated CSS; Native: Babel plugin
 - Provider wrapper `OrrnUiProvider` injected at app roots
 - Existing shadcn components remain functional; new components use Tamagui primitives
