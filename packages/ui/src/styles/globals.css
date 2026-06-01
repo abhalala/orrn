@@ -1,12 +1,13 @@
 /**
  * Token-bridge stylesheet for the web app.
  *
- * Tamagui owns the actual component styling on web + native via
- * `@orrn/ui`. Tailwind v4 stays as a fallback so the remaining legacy
- * utility classes (`bg-muted`, `text-foreground`, etc.) keep rendering
- * during/after the M7 migration without forcing every screen to be
- * rewritten in one pass. Every CSS variable in here mirrors a token from
- * `@orrn/ui/tokens` — do not introduce new raw color values here.
+ * Tailwind v4 + shadcn semantic tokens. Every CSS variable in here mirrors
+ * a token from `@orrn/ui/tokens` — do not introduce new raw color values.
+ *
+ * Note: `--accent` is shadcn's neutral surface for hover/active highlights
+ * (sidebar selection, dropdown focus, button ghost hover, table row hover).
+ * It must stay neutral. The brand's teal (`brand.accent` in tokens.ts) is
+ * available for explicit highlights; do not bind it to `--accent`.
  */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -15,9 +16,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Bridge: keep semantic CSS variables on :root / .dark so legacy
-   Tailwind utilities like `bg-card`, `text-muted-foreground` still resolve.
-   Values come from `@orrn/ui/tokens`. */
 :root {
   --background: #f6f8fb;
   --foreground: #111827;
@@ -31,8 +29,8 @@
   --secondary-foreground: #111827;
   --muted: #edf2f7;
   --muted-foreground: #5d6b7c;
-  --accent: #e9fbf8;
-  --accent-foreground: #0f766e;
+  --accent: #e7edf5;
+  --accent-foreground: #111827;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #d9e1ea;
@@ -43,7 +41,7 @@
   --sidebar-foreground: #0f172a;
   --sidebar-primary: #4f7cff;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #edf2f7;
+  --sidebar-accent: #e7edf5;
   --sidebar-accent-foreground: #111827;
   --sidebar-border: #d9e1ea;
   --sidebar-ring: #4f7cff;
@@ -62,8 +60,8 @@
   --secondary-foreground: #f4f7fb;
   --muted: #182231;
   --muted-foreground: #a7b2c2;
-  --accent: #0f2a2a;
-  --accent-foreground: #7dd3c7;
+  --accent: #1e2a3d;
+  --accent-foreground: #f4f7fb;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #263142;
@@ -73,7 +71,7 @@
   --sidebar-foreground: #f4f7fb;
   --sidebar-primary: #4f7cff;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #182231;
+  --sidebar-accent: #1e2a3d;
   --sidebar-accent-foreground: #f4f7fb;
   --sidebar-border: #263142;
   --sidebar-ring: #4f7cff;
