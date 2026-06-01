@@ -6,6 +6,7 @@ import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { Select } from "@orrn/ui/components/select";
 import { Toolbar } from "@orrn/ui/components/toolbar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -88,6 +89,14 @@ function AdminSpoolComponent() {
     }),
   });
 
+  const { data: activeCompanies, isLoading: companiesLoading } = useQuery({
+    ...trpc.platform.companiesList.queryOptions({
+      limit: 100,
+      offset: 0,
+      status: "active",
+    }),
+  });
+
   // ── Mutations ────────────────────────────────────────────────────────
   const createMutation = useMutation({
     ...trpc.platform.spoolDeploymentCreate.mutationOptions(),
@@ -141,7 +150,7 @@ function AdminSpoolComponent() {
     const trimmedSub = createSubdomain.trim().toLowerCase();
 
     if (!trimmedId) {
-      setCreateError("Company ID is required");
+      setCreateError("Select a tenant first");
       return;
     }
     if (!trimmedSub) {
@@ -193,6 +202,15 @@ function AdminSpoolComponent() {
         return "neutral" as const;
     }
   };
+
+  const companyOptions = useMemo(
+    () =>
+      (activeCompanies?.items ?? []).map((row) => ({
+        value: row.id,
+        label: `${row.name} · ${row.slug}`,
+      })),
+    [activeCompanies?.items],
+  );
 
   // ── Columns ──────────────────────────────────────────────────────────
   const columns = useMemo((): DataTableColumn<DeploymentRow>[] => {
@@ -480,14 +498,18 @@ function AdminSpoolComponent() {
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="company-id">Company ID</Label>
-            <Input
-              id="company-id"
-              placeholder="Enter the company UUID"
+            <Label htmlFor="company-id">Tenant</Label>
+            <Select
               value={createCompanyId}
-              onChangeText={setCreateCompanyId}
-              disabled={createMutation.isPending}
+              onValueChange={setCreateCompanyId}
+              options={companyOptions}
+              placeholder={companiesLoading ? "Loading active tenants…" : "Select a tenant…"}
+              disabled={createMutation.isPending || companiesLoading || companyOptions.length === 0}
+              className="w-full"
             />
+            <p className="m-0 text-[11px] text-muted-foreground">
+              Choose the active tenant that should receive this spool deployment.
+            </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="subdomain">Subdomain</Label>

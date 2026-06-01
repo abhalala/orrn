@@ -17,13 +17,29 @@ function base64ToBytes(value: string) {
   return bytes;
 }
 
-async function importAesKey(masterKeyBase64: string) {
-  const raw = base64ToBytes(masterKeyBase64);
-  if (raw.byteLength !== 32) {
-    throw new Error("ORRN_MASTER_KEY must be a base64-encoded 32-byte key");
+async function importAesKey(masterKey: string) {
+  const normalized = masterKey.trim();
+  if (!normalized) {
+    throw new Error("ORRN_MASTER_KEY is required");
   }
 
-  return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
+  let raw: Uint8Array | null = null;
+  try {
+    const decoded = base64ToBytes(normalized);
+    if (decoded.byteLength === 32) {
+      raw = decoded;
+    }
+  } catch {
+    // Fall through to raw-string derivation.
+  }
+
+  if (!raw) {
+    raw = new Uint8Array(
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized)),
+    );
+  }
+
+  return crypto.subtle.importKey("raw", raw as BufferSource, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
 export async function wrapSecret(plaintext: string, masterKeyBase64: string) {

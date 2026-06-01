@@ -69,7 +69,7 @@ export const spoolProcedures = {
   spoolDeploymentCreate: platformGuard("platform.spool.manage")
     .input(
       z.object({
-        companyId: z.string(),
+        companyId: z.uuid(),
         subdomain: z
           .string()
           .min(3)
