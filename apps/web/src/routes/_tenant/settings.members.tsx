@@ -244,6 +244,29 @@ function MembersComponent() {
             rows={(invites ?? []) as InviteRow[]}
             rowKey={(r) => r.id}
             columns={inviteColumns}
+            renderCard={(r) => (
+              <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="m-0 truncate text-sm font-semibold text-foreground">{r.email}</p>
+                    <p className="m-0 text-xs text-muted-foreground">
+                      Expires {format(new Date(r.expiresAt), "MMM d, yyyy")}
+                    </p>
+                  </div>
+                  <StatusBadge kind="role" value={r.role} />
+                </div>
+                <Can do="member.invite">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => revokeMutation.mutate({ inviteId: r.id })}
+                    disabled={revokeMutation.isPending}
+                  >
+                    Revoke invite
+                  </Button>
+                </Can>
+              </div>
+            )}
             emptyState={<EmptyState title="No pending invites" />}
           />
         </CardContent>
@@ -259,6 +282,56 @@ function MembersComponent() {
             rows={(members ?? []) as unknown as MemberRow[]}
             rowKey={(r) => r.id}
             columns={memberColumns}
+            renderCard={(m) => (
+              <div className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="m-0 truncate text-sm font-semibold text-foreground">{m.user.name}</p>
+                    <p className="m-0 truncate text-xs text-muted-foreground">{m.user.email}</p>
+                  </div>
+                  <Can do="member.remove">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeMutation.mutate({ membershipId: m.id })}
+                      disabled={removeMutation.isPending}
+                    >
+                      Remove
+                    </Button>
+                  </Can>
+                </div>
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="m-0 text-xs font-medium text-muted-foreground">Joined</p>
+                    <p className="m-0 text-sm text-foreground">{format(new Date(m.createdAt), "MMM d, yyyy")}</p>
+                  </div>
+                  <div className="min-w-[160px]">
+                    <p className="m-0 mb-1 text-xs font-medium text-muted-foreground">Role</p>
+                    {canManageMembers ? (
+                      <select
+                        value={m.role}
+                        onChange={(e) =>
+                          updateRoleMutation.mutate({
+                            membershipId: m.id,
+                            role: e.target.value as CompanyRole,
+                          })
+                        }
+                        className="w-full rounded-md border border-border bg-transparent px-2 py-1 text-sm capitalize"
+                        disabled={updateRoleMutation.isPending}
+                      >
+                        {companyRoles.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <StatusBadge kind="role" value={m.role} />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             isLoading={isLoading}
             emptyState={<EmptyState title="No members yet" />}
           />

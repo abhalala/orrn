@@ -407,6 +407,45 @@ function DispatchDetailComponent() {
             rows={items as DispatchItemRow[]}
             rowKey={(it) => it.itemId}
             columns={itemColumns}
+            renderCard={(it) => (
+              <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link to="/bundles/$id" params={{ id: it.bundleId }} className="font-mono text-sm font-semibold hover:underline">
+                      {it.serial}
+                    </Link>
+                    <p className="m-0 text-xs text-muted-foreground">
+                      {it.dieSeries} / {it.dieSectionCode}
+                    </p>
+                  </div>
+                  <StatusBadge kind="bundle" value={it.status} size="sm" />
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <p className="m-0 text-xs font-medium text-muted-foreground">Qty</p>
+                    <p className="m-0 text-foreground">{it.quantity}</p>
+                  </div>
+                  <div>
+                    <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
+                    <p className="m-0 text-foreground">{it.weightG.toLocaleString()} g</p>
+                  </div>
+                  <div>
+                    <p className="m-0 text-xs font-medium text-muted-foreground">Length</p>
+                    <p className="m-0 text-foreground">{lu.formatLength(it.lengthMm)}</p>
+                  </div>
+                </div>
+                {canAddOrRemove ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={removeMutation.isPending}
+                    onClick={() => removeMutation.mutate({ id, bundleId: it.bundleId })}
+                  >
+                    Remove from dispatch
+                  </Button>
+                ) : null}
+              </div>
+            )}
             emptyState={
               <EmptyState
                 title="No bundles yet"

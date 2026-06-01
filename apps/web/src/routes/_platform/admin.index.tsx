@@ -210,6 +210,19 @@ function RecentWaitlistCard({
         columns={columns}
         rows={rows}
         rowKey={(r) => r.id}
+        renderCard={(r) => (
+          <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-background p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="m-0 truncate text-sm font-semibold text-foreground">{r.companyName}</p>
+                <p className="m-0 truncate text-xs text-muted-foreground">{r.requesterEmail}</p>
+              </div>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {formatDistanceToNow(new Date(r.createdAt), { addSuffix: true })}
+              </span>
+            </div>
+          </div>
+        )}
         isLoading={isLoading}
         emptyState={
           <EmptyState
@@ -288,6 +301,26 @@ function RecentCompaniesCard({
         columns={columns}
         rows={rows}
         rowKey={(r) => r.id}
+        renderCard={(r) => (
+          <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <Link
+                  to="/admin/companies/$id"
+                  params={{ id: r.id }}
+                  className="truncate text-sm font-semibold text-foreground hover:underline"
+                >
+                  {r.name}
+                </Link>
+                <p className="m-0 text-xs text-muted-foreground">{r.slug}</p>
+              </div>
+              <Badge tone={r.status === "active" ? "success" : r.status === "suspended" ? "danger" : "neutral"}>
+                {r.status}
+              </Badge>
+            </div>
+            <p className="m-0 text-xs text-muted-foreground">Joined {format(new Date(r.createdAt), "MMM d")}</p>
+          </div>
+        )}
         isLoading={isLoading}
         emptyState={
           <EmptyState

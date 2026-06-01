@@ -126,6 +126,41 @@ function AdminWaitlistComponent() {
         rows={(requests ?? []) as WaitlistRow[]}
         rowKey={(r) => r.id}
         columns={columns}
+        renderCard={(r) => (
+          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="m-0 truncate text-base font-semibold text-foreground">{r.companyName}</p>
+                <p className="m-0 truncate text-sm text-muted-foreground">
+                  {r.requesterName} · {r.requesterEmail}
+                </p>
+              </div>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {format(new Date(r.createdAt), "MMM d, yyyy")}
+              </span>
+            </div>
+            <p className="m-0 line-clamp-3 text-sm text-muted-foreground">{r.notes || "No notes provided."}</p>
+            <div className="mt-auto flex justify-end gap-2 border-t border-border pt-3">
+              <Can do="platform.waitlist.review">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => rejectMutation.mutate({ id: r.id })}
+                  disabled={rejectMutation.isPending || approveMutation.isPending}
+                >
+                  Reject
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => approveMutation.mutate({ id: r.id })}
+                  disabled={rejectMutation.isPending || approveMutation.isPending}
+                >
+                  Approve
+                </Button>
+              </Can>
+            </div>
+          </div>
+        )}
         isLoading={isLoading}
         emptyState={<EmptyState title="No pending requests" description="The waitlist is empty right now." />}
       />

@@ -1,8 +1,9 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
 import { Button } from "./button";
+import { Skeleton } from "./skeleton";
 
 export type DataTableColumn<Row> = {
   id: string;
@@ -19,6 +20,7 @@ export type DataTableProps<Row> = {
   columns: DataTableColumn<Row>[];
   rows: Row[];
   rowKey: (row: Row) => string;
+  renderCard?: (row: Row) => ReactNode;
   onRowPress?: (row: Row) => void;
   isLoading?: boolean;
   emptyState?: ReactNode;
@@ -30,22 +32,24 @@ export type DataTableProps<Row> = {
 type SortState = { columnId: string; dir: "asc" | "desc" } | null;
 
 /**
- * Web DataTable. Sortable + paginated client-side. The native variant is
+ * Web list surface. Sortable + paginated client-side. The native variant is
  * intentionally not provided — native list screens use FlatList directly.
  */
 export function DataTable<Row>({
   columns,
   rows,
   rowKey,
+  renderCard,
   onRowPress,
   isLoading,
   emptyState,
-  pageSize,
+  pageSize = 12,
   initialPage = 1,
   footer,
 }: DataTableProps<Row>) {
   const [sort, setSort] = useState<SortState>(null);
   const [page, setPage] = useState(initialPage);
+  const sortableColumns = useMemo(() => columns.filter((col) => col.sortable), [columns]);
 
   const sortedRows = useMemo(() => {
     if (!sort) return rows;
@@ -66,6 +70,10 @@ export function DataTable<Row>({
     return copy;
   }, [rows, sort, columns]);
 
+  useEffect(() => {
+    setPage(initialPage);
+  }, [initialPage, rows.length, sort]);
+
   const totalPages = pageSize ? Math.max(1, Math.ceil(sortedRows.length / pageSize)) : 1;
   const safePage = Math.min(Math.max(1, page), totalPages);
   const pageRows = pageSize
@@ -80,103 +88,151 @@ export function DataTable<Row>({
     });
   };
 
-  const minTableWidth = useMemo(
-    () => columns.reduce((sum, col) => sum + (col.minWidth ?? 88), 0),
-    [columns],
-  );
+  return (
+    <div className="flex w-full flex-col gap-3">
+      {sortableColumns.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Sort</span>
+          {sortableColumns.map((col) => {
+            const active = sort?.columnId === col.id;
+            const label = labelText(col.header);
+            return (
+              <Button
+                key={col.id}
+                variant={active ? "secondary" : "outline"}
+                size="sm"
+                aria-label={`Sort by ${label}`}
+                onPress={() => toggleSort(col.id)}
+              >
+                {col.header}
+                {active ? <span aria-hidden="true">{sort.dir === "asc" ? "Asc" : "Desc"}</span> : null}
+              </Button>
+            );
+          })}
+        </div>
+      ) : null}
 
-  const alignClass = (a?: "left" | "right" | "center") =>
-    a === "right" ? "justify-end" : a === "center" ? "justify-center" : "justify-start";
+      {isLoading ? (
+        <LoadingCards />
+      ) : pageRows.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border bg-card p-2">
+          {emptyState ?? <DefaultEmpty />}
+        </div>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {pageRows.map((row) => (
+            <div key={rowKey(row)}>
+              {renderCard ? (
+                renderCard(row)
+              ) : (
+                <CardListItem
+                  columns={columns}
+                  row={row}
+                  onPress={onRowPress ? () => onRowPress(row) : undefined}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {pageSize && sortedRows.length > pageSize ? (
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="m-0 text-xs text-muted-foreground">
+            Page {safePage} of {totalPages} · showing {(safePage - 1) * pageSize + 1}-
+            {Math.min(safePage * pageSize, sortedRows.length)} of {sortedRows.length}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safePage <= 1}
+              onPress={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safePage >= totalPages}
+              onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {footer}
+    </div>
+  );
+}
+
+function CardListItem<Row>({
+  columns,
+  row,
+  onPress,
+}: {
+  columns: DataTableColumn<Row>[];
+  row: Row;
+  onPress?: () => void;
+}) {
+  const visibleColumns = columns.filter((col) => col.header !== "");
+  const actionColumns = columns.filter((col) => col.header === "" || col.id === "actions");
+  const [primaryColumn, ...detailColumns] = visibleColumns;
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!onPress) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onPress();
+    }
+  };
 
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-border bg-card">
-      <div className="orrn-data-table-scroll w-full overflow-x-auto">
-        <div className="flex w-full flex-col" style={{ minWidth: minTableWidth }}>
-          <div className="flex flex-row items-center gap-2 border-b border-border bg-muted px-3 py-2.5">
-            {columns.map((col) => (
-              <div
-                key={col.id}
-                className={cn("flex items-center", alignClass(col.align))}
-                style={{ flex: col.flex ?? 1, minWidth: col.minWidth }}
-              >
-                {col.sortable ? (
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    className="!px-0"
-                    onPress={() => toggleSort(col.id)}
-                  >
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {col.header} {sort?.columnId === col.id ? (sort.dir === "asc" ? "▲" : "▼") : ""}
-                    </span>
-                  </Button>
-                ) : (
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {col.header}
-                  </span>
-                )}
+    <div
+      className={cn(
+        "flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm transition-colors",
+        onPress ? "cursor-pointer hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background" : "",
+      )}
+      role={onPress ? "button" : undefined}
+      tabIndex={onPress ? 0 : undefined}
+      onClick={onPress}
+      onKeyDown={onKeyDown}
+    >
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {primaryColumn ? (
+            <>
+              <p className="m-0 text-[11px] font-semibold uppercase text-muted-foreground">
+                {primaryColumn.header}
+              </p>
+              <div className="mt-1 min-w-0 text-sm font-semibold text-foreground">
+                {asNode(primaryColumn.cell(row))}
               </div>
+            </>
+          ) : null}
+        </div>
+        {actionColumns.length > 0 ? (
+          <div className="flex shrink-0 items-center gap-2">
+            {actionColumns.map((col) => (
+              <div key={col.id}>{asNode(col.cell(row))}</div>
             ))}
           </div>
-
-          {isLoading ? (
-            <div className="flex items-center justify-center p-5">
-              <p className="m-0 text-sm text-muted-foreground">Loading…</p>
-            </div>
-          ) : pageRows.length === 0 ? (
-            <div className="p-1">{emptyState ?? <DefaultEmpty />}</div>
-          ) : (
-            pageRows.map((row, idx) => (
-              <div
-                key={rowKey(row)}
-                onClick={onRowPress ? () => onRowPress(row) : undefined}
-                className={cn(
-                  "flex flex-row items-stretch gap-2 px-3 py-3",
-                  idx === pageRows.length - 1 ? "" : "border-b border-border",
-                  onRowPress ? "cursor-pointer hover:bg-accent/30" : "",
-                )}
-              >
-                {columns.map((col) => (
-                  <div
-                    key={col.id}
-                    className={cn("flex items-center", alignClass(col.align))}
-                    style={{ flex: col.flex ?? 1, minWidth: col.minWidth }}
-                  >
-                    {asNode(col.cell(row))}
-                  </div>
-                ))}
-              </div>
-            ))
-          )}
-
-          {pageSize && sortedRows.length > pageSize ? (
-            <div className="flex items-center justify-between gap-3 border-t border-border p-3">
-              <p className="m-0 text-xs text-muted-foreground">
-                Page {safePage} of {totalPages} · {sortedRows.length} rows
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={safePage <= 1}
-                  onPress={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={safePage >= totalPages}
-                  onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          ) : null}
-          {footer}
-        </div>
+        ) : null}
       </div>
+
+      {detailColumns.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {detailColumns.map((col) => (
+            <div key={col.id} className={cn("min-w-0", col.align === "right" ? "sm:text-right" : "")}>
+              <p className="m-0 text-[11px] font-semibold uppercase text-muted-foreground">
+                {col.header}
+              </p>
+              <div className="mt-1 min-w-0 text-sm text-foreground">{asNode(col.cell(row))}</div>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -188,10 +244,33 @@ function asNode(value: ReactNode): ReactNode {
   return value;
 }
 
+function labelText(value: ReactNode): string {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  return "column";
+}
+
+function LoadingCards() {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Loading list">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+          <Skeleton className="h-4 w-1/2" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Skeleton className="h-9" />
+            <Skeleton className="h-9" />
+            <Skeleton className="h-9" />
+            <Skeleton className="h-9" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DefaultEmpty() {
   return (
     <div className="flex items-center justify-center p-5">
-      <p className="m-0 text-sm text-muted-foreground">No rows.</p>
+      <p className="m-0 text-sm text-muted-foreground">No items.</p>
     </div>
   );
 }

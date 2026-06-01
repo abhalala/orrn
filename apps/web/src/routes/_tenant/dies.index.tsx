@@ -122,6 +122,41 @@ function DiesListComponent() {
         rows={(data?.items ?? []) as DieRow[]}
         rowKey={(r) => r.id}
         columns={columns}
+        renderCard={(r) => (
+          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="m-0 font-mono text-lg font-semibold text-foreground">{r.series}</p>
+                <p className="m-0 text-sm text-muted-foreground">{r.name || "Unnamed die"}</p>
+              </div>
+              <Badge tone={r.status === "active" ? "success" : "neutral"}>{r.status.toUpperCase()}</Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Section</p>
+                <p className="m-0 font-mono text-foreground">{r.sectionCode}</p>
+              </div>
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Created</p>
+                <p className="m-0 text-foreground">{format(new Date(r.createdAt), "MMM d, yyyy")}</p>
+              </div>
+            </div>
+            <div className="mt-auto flex justify-end">
+              <Can
+                do="die.update"
+                fallback={
+                  <Link to="/dies/$id" params={{ id: r.id }}>
+                    <Button variant="outline" size="sm">View</Button>
+                  </Link>
+                }
+              >
+                <Link to="/dies/$id" params={{ id: r.id }}>
+                  <Button variant="outline" size="sm">Edit</Button>
+                </Link>
+              </Can>
+            </div>
+          </div>
+        )}
         isLoading={isLoading}
         emptyState={
           <EmptyState

@@ -123,6 +123,40 @@ function StockComponent() {
         rows={items}
         rowKey={(r) => r.dieId}
         columns={columns}
+        renderCard={(r) => (
+          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="m-0 font-mono text-lg font-semibold text-foreground">{r.dieSeries}</p>
+                <p className="m-0 text-sm text-muted-foreground">{r.dieName || r.dieSectionCode}</p>
+              </div>
+              <Link to="/bundles" search={{ status, dieId: r.dieId, groupId: undefined }}>
+                <Button variant="outline" size="sm">Bundles</Button>
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Section</p>
+                <p className="m-0 font-mono text-foreground">{r.dieSectionCode}</p>
+              </div>
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Bundles</p>
+                <p className="m-0 text-foreground">{Number(r.bundleCount).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Quantity</p>
+                <p className="m-0 text-foreground">{Number(r.totalQuantity).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
+                <p className="m-0 text-foreground">{Number(r.totalWeightG).toLocaleString()} g</p>
+              </div>
+            </div>
+            <p className="m-0 border-t border-border pt-3 text-xs text-muted-foreground">
+              Total length {lu.formatLength(Number(r.totalLengthMm))}
+            </p>
+          </div>
+        )}
         isLoading={isLoading}
         emptyState={<EmptyState title={`No ${status} stock`} description="Nothing in this bucket yet." />}
       />

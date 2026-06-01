@@ -129,6 +129,30 @@ function ReceiptDetailComponent() {
             rows={bundles as BundleRow[]}
             rowKey={(b) => b.id}
             columns={columns}
+            renderCard={(b) => (
+              <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <Link to="/bundles/$id" params={{ id: b.id }} className="font-mono text-sm font-semibold hover:underline">
+                    {b.serial}
+                  </Link>
+                  <StatusBadge kind="bundle" value={b.status} size="sm" />
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <p className="m-0 text-xs font-medium text-muted-foreground">Qty</p>
+                    <p className="m-0 text-foreground">{b.quantity}</p>
+                  </div>
+                  <div>
+                    <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
+                    <p className="m-0 text-foreground">{b.weightG.toLocaleString()} g</p>
+                  </div>
+                  <div>
+                    <p className="m-0 text-xs font-medium text-muted-foreground">Length</p>
+                    <p className="m-0 text-foreground">{lu.formatLength(b.lengthMm)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
             emptyState={
               <EmptyState
                 title="No bundles"

@@ -227,6 +227,39 @@ function PackingListDetailComponent() {
             columns={columns}
             rows={tableRows}
             rowKey={(row) => `${row.bundleSerial}-${row.index}`}
+            renderCard={(row) => (
+              <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="m-0 text-xs font-medium text-muted-foreground">#{row.index}</p>
+                    <p className="m-0 truncate font-mono text-sm font-semibold text-foreground">
+                      {row.bundleSerial}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">
+                    Qty {row.quantity}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="m-0 text-xs font-medium text-muted-foreground">Die</p>
+                    <p className="m-0 text-foreground">{row.die.series} / {row.die.sectionCode}</p>
+                  </div>
+                  <div>
+                    <p className="m-0 text-xs font-medium text-muted-foreground">Group</p>
+                    <p className="m-0 font-mono text-foreground">{row.groupId || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
+                    <p className="m-0 text-foreground">{(row.weightG / 1000).toFixed(3)} kg</p>
+                  </div>
+                  <div>
+                    <p className="m-0 text-xs font-medium text-muted-foreground">Length</p>
+                    <p className="m-0 text-foreground">{lu.formatLength(row.lengthMm)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
             emptyState={<EmptyState title="No items in snapshot" />}
           />
         </CardContent>

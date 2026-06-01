@@ -267,6 +267,61 @@ function StaffAdminPage() {
             columns={columns}
             rows={staff}
             rowKey={(row) => row.userId}
+            renderCard={(row) => {
+              const isSelf = row.userId === me?.user.id;
+              const canEdit = !isSelf && assignable.includes(row.role);
+              return (
+                <div className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="m-0 truncate text-sm font-semibold text-foreground">{row.name}</p>
+                      <p className="m-0 truncate text-xs text-muted-foreground">{row.email}</p>
+                    </div>
+                    {!isSelf ? (
+                      <Can do="platform.staff.remove">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPendingRemove(row)}
+                          disabled={removeMutation.isPending}
+                        >
+                          Remove
+                        </Button>
+                      </Can>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <p className="m-0 text-xs font-medium text-muted-foreground">Created</p>
+                      <p className="m-0 text-sm text-foreground">{format(new Date(row.createdAt), "PP")}</p>
+                    </div>
+                    <div className="min-w-[160px]">
+                      <p className="m-0 mb-1 text-xs font-medium text-muted-foreground">Role</p>
+                      <Can
+                        do="platform.staff.updateRole"
+                        fallback={
+                          <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role).toUpperCase()}</Badge>
+                        }
+                      >
+                        {canEdit ? (
+                          <Select
+                            value={row.role}
+                            onValueChange={(v) =>
+                              updateRoleMutation.mutate({ userId: row.userId, role: v as StaffRole })
+                            }
+                            options={roleOptions}
+                            width={160}
+                            disabled={updateRoleMutation.isPending}
+                          />
+                        ) : (
+                          <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role).toUpperCase()}</Badge>
+                        )}
+                      </Can>
+                    </div>
+                  </div>
+                </div>
+              );
+            }}
             isLoading={staffQuery.isLoading}
             emptyState={
               <EmptyState
