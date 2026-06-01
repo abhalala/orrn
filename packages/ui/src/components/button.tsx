@@ -58,21 +58,38 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref,
 ) {
   const Comp = asChild ? Slot : "button";
+
+  // When asChild is true we delegate to Radix Slot, which calls
+  // React.Children.only on its children. Rendering `{loading ? <Loader/> : null}{children}`
+  // unconditionally would give Slot two siblings (even when `loading` is false
+  // the literal `null` counts) and crash with "expected to receive a single
+  // React element child". Build the children once, conditionally, so Slot
+  // sees a single element.
+  const content = asChild ? (
+    children
+  ) : (
+    <>
+      {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+      {children}
+    </>
+  );
+
   return (
     <Comp
       ref={ref as any}
       type={asChild ? undefined : (type ?? "button")}
       data-slot="button"
       className={cn(buttonVariants({ variant, size }), className)}
-      disabled={disabled || loading}
+      // `disabled` is invalid on anchors etc., so only set it when we own
+      // the underlying element.
+      disabled={asChild ? undefined : (disabled || loading)}
       onClick={(e: any) => {
         onPress?.(e);
         onClick?.(e);
       }}
       {...rest}
     >
-      {loading ? <Loader2 className="size-4 animate-spin" /> : null}
-      {children}
+      {content}
     </Comp>
   );
 });
