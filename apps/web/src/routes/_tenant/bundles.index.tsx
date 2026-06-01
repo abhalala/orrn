@@ -6,11 +6,13 @@ import { Input } from "@orrn/ui/components/input";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Tabs } from "@orrn/ui/components/tabs";
 import { Toolbar } from "@orrn/ui/components/toolbar";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { useState } from "react";
 
+import { Can } from "@/shared/components/can";
+import { ImportBundlesModal } from "@/shared/components/import-bundles-modal";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
@@ -47,7 +49,9 @@ function BundlesListComponent() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [serialSearch, setSerialSearch] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
   const lu = useLengthUnit();
+  const queryClient = useQueryClient();
 
   const status: StatusFilter = search.status ?? "all";
 
@@ -112,12 +116,29 @@ function BundlesListComponent() {
             <Link to="/receipts">
               <Button variant="outline">View Receipts</Button>
             </Link>
+            <Can do="bundle.import">
+              <Button variant="outline" onClick={() => setImportOpen(true)}>
+                Import bundles
+              </Button>
+            </Can>
             <Link to="/receipts/new">
               <Button>New Production Receipt</Button>
             </Link>
           </>
         }
       />
+
+      {importOpen ? (
+        <ImportBundlesModal
+          onClose={() => setImportOpen(false)}
+          onSuccess={() => {
+            setImportOpen(false);
+            queryClient.invalidateQueries({ queryKey: trpc.bundle.listBundles.queryKey() });
+            queryClient.invalidateQueries({ queryKey: trpc.bundle.listGroups.queryKey() });
+            queryClient.invalidateQueries({ queryKey: trpc.bundle.stockSummary.queryKey() });
+          }}
+        />
+      ) : null}
 
       <Toolbar
         actions={
@@ -152,6 +173,41 @@ function BundlesListComponent() {
         rows={(data?.items ?? []) as BundleRow[]}
         rowKey={(r) => r.id}
         columns={columns}
+        renderCard={(r) => (
+          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <Link to="/bundles/$id" params={{ id: r.id }} className="font-mono text-sm font-semibold hover:underline">
+                  {r.serial}
+                </Link>
+                <p className="m-0 text-xs text-muted-foreground">
+                  {r.dieSeries} / {r.dieSectionCode}
+                </p>
+              </div>
+              <StatusBadge kind="bundle" value={r.status} />
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Qty</p>
+                <p className="m-0 text-foreground">{Number(r.quantity)}</p>
+              </div>
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
+                <p className="m-0 text-foreground">{Number(r.weightG).toLocaleString()} g</p>
+              </div>
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Length</p>
+                <p className="m-0 text-foreground">{lu.formatLength(Number(r.lengthMm))}</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-border pt-3 text-xs">
+              <Link to="/receipts/$id" params={{ id: r.groupId }} className="font-mono text-muted-foreground hover:text-foreground hover:underline">
+                {r.groupCode}
+              </Link>
+              <span className="text-muted-foreground">{format(new Date(r.createdAt), "MMM d, yyyy")}</span>
+            </div>
+          </div>
+        )}
         isLoading={isLoading}
         emptyState={
           <EmptyState

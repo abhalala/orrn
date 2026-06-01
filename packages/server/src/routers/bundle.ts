@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, like, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { die } from "@orrn/db/schema/catalog";
@@ -31,6 +31,29 @@ const receiptInputSchema = z.object({
   notes: z.string().nullable().optional(),
   rows: z.array(bundleRowSchema).min(1, "At least one bundle row is required").max(200, "Max 200 rows per receipt"),
 });
+
+/**
+ * One row from a legacy bundle import CSV/JSON. Each row identifies its die by
+ * (series, sectionCode) — the same natural key dies are imported with — so
+ * customers don't have to know internal die IDs when migrating data.
+ */
+const bundleImportRowSchema = z.object({
+  dieSeries: z.string().min(1, "dieSeries is required"),
+  dieSectionCode: z.string().min(1, "dieSectionCode is required"),
+  quantity: z.number().int().min(1, "Quantity must be at least 1"),
+  weightG: z.number().int().min(0, "Weight must be >= 0"),
+  lengthMm: z.number().int().min(0, "Length must be >= 0"),
+});
+
+/**
+ * Code prefix used for auto-created legacy import receipts (per company, per
+ * die). We allocate one bundleGroup per (companyId, dieId) the first time a
+ * die appears in any import, then reuse it on subsequent imports. The prefix
+ * is also how the UI distinguishes legacy receipts in the receipts list.
+ */
+const LEGACY_GROUP_PREFIX = "LEGACY";
+const LEGACY_GROUP_UNIT = "legacy";
+const LEGACY_GROUP_NOTES = "Auto-generated for legacy/bulk bundle imports.";
 
 // M4 state machine: only available <-> void.
 // Reserved/dispatched transitions are owned by the dispatch state machine in M5.
@@ -430,5 +453,234 @@ export const bundleRouter = router({
       );
 
       return { items: rows, totals };
+    }),
+
+  /**
+   * Bulk-import bundles from a CSV / JSON file (typically migrating from a
+   * legacy system). Each row identifies its die by (series, sectionCode);
+   * bundles for the same die land in a single auto-created `LEGACY-…` bundle
+   * group, lazily allocated on first use and reused on subsequent imports.
+   *
+   * This is intentionally separate from `createReceipt` — production receipts
+   * are operator workflow with PO refs, units, etc.; legacy bundles are a
+   * "just put these on the shelf" data-migration tool.
+   */
+  bulkImport: companyProcedure
+    .input(
+      z.object({
+        rows: z
+          .array(bundleImportRowSchema)
+          .min(1, "At least one row is required")
+          .max(2000, "Max 2000 bundles per import — split larger files into batches"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // 1. Resolve every (series, sectionCode) in the file to a die id.
+      //    Build a Set of unique keys first so a 2000-row file with 5 distinct
+      //    dies hits the DB once per die rather than once per row.
+      const uniqueDieKeys = new Map<string, { series: string; sectionCode: string }>();
+      for (const row of input.rows) {
+        const key = `${row.dieSeries}::${row.dieSectionCode}`;
+        if (!uniqueDieKeys.has(key)) {
+          uniqueDieKeys.set(key, { series: row.dieSeries, sectionCode: row.dieSectionCode });
+        }
+      }
+
+      const dieKeyToId = new Map<string, { id: string; series: string; sectionCode: string }>();
+      const unknownKeys: string[] = [];
+      for (const [key, { series, sectionCode }] of uniqueDieKeys) {
+        const dieRow = await ctx.db.query.die.findFirst({
+          where: and(
+            eq(die.companyId, ctx.companyId),
+            eq(die.series, series),
+            eq(die.sectionCode, sectionCode),
+            isNull(die.deletedAt),
+          ),
+          columns: { id: true, series: true, sectionCode: true },
+        });
+        if (!dieRow) {
+          unknownKeys.push(`${series} / ${sectionCode}`);
+          continue;
+        }
+        dieKeyToId.set(key, dieRow);
+      }
+
+      if (unknownKeys.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Unknown die${unknownKeys.length === 1 ? "" : "s"}: ${unknownKeys
+            .slice(0, 5)
+            .join(", ")}${unknownKeys.length > 5 ? ` (+${unknownKeys.length - 5} more)` : ""}. Import the dies catalog first.`,
+        });
+      }
+
+      // 2. For every die used in this import, find-or-create its legacy group.
+      //    A single (companyId, dieId) can have at most ONE legacy group; if
+      //    one exists we append to it so the receipts list doesn't explode
+      //    after repeated imports.
+      const dieIds = Array.from(dieKeyToId.values()).map((d) => d.id);
+
+      const existingLegacyGroups = dieIds.length > 0
+        ? await ctx.db
+            .select({
+              id: bundleGroup.id,
+              code: bundleGroup.code,
+              dieId: bundleGroup.dieId,
+            })
+            .from(bundleGroup)
+            .where(
+              and(
+                eq(bundleGroup.companyId, ctx.companyId),
+                inArray(bundleGroup.dieId, dieIds),
+                like(bundleGroup.code, `${LEGACY_GROUP_PREFIX}-%`),
+              ),
+            )
+        : [];
+
+      const dieIdToGroup = new Map<string, { id: string; code: string }>();
+      for (const g of existingLegacyGroups) {
+        // First match wins — we expect at most one per (companyId, dieId).
+        if (!dieIdToGroup.has(g.dieId)) {
+          dieIdToGroup.set(g.dieId, { id: g.id, code: g.code });
+        }
+      }
+
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const userId = ctx.session.user.id;
+      const statements: SqliteBatchItem[] = [];
+
+      // 3. Allocate a new legacy group for any die that doesn't have one yet.
+      //    Codes use a monotonic suffix derived from the company sequence so
+      //    they're unique-by-construction and order roughly by creation.
+      let nextLegacySuffix = seq;
+      const newGroups: Array<{
+        id: string;
+        code: string;
+        dieId: string;
+      }> = [];
+      for (const dieRow of dieKeyToId.values()) {
+        if (dieIdToGroup.has(dieRow.id)) continue;
+        const code = `${LEGACY_GROUP_PREFIX}-${String(nextLegacySuffix).padStart(6, "0")}`;
+        nextLegacySuffix += 1;
+        const groupId = crypto.randomUUID();
+        dieIdToGroup.set(dieRow.id, { id: groupId, code });
+        newGroups.push({ id: groupId, code, dieId: dieRow.id });
+        statements.push(
+          ctx.db.insert(bundleGroup).values({
+            id: groupId,
+            companyId: ctx.companyId,
+            serverSeq: seq,
+            code,
+            dieId: dieRow.id,
+            unit: LEGACY_GROUP_UNIT,
+            purchaseOrderRef: null,
+            notes: LEGACY_GROUP_NOTES,
+            createdBy: userId,
+          }),
+        );
+      }
+
+      // 4. For each existing legacy group we're appending to, find the highest
+      //    serial index so we can continue numbering without collisions. New
+      //    groups start at 1.
+      const existingDieIdsAppendedTo = Array.from(dieIdToGroup.keys()).filter(
+        (id) => !newGroups.some((g) => g.dieId === id),
+      );
+      const groupIdToNextIdx = new Map<string, number>();
+      for (const g of newGroups) {
+        groupIdToNextIdx.set(g.id, 1);
+      }
+      for (const dieId of existingDieIdsAppendedTo) {
+        const group = dieIdToGroup.get(dieId)!;
+        const existing = await ctx.db
+          .select({ serial: bundle.serial })
+          .from(bundle)
+          .where(
+            and(eq(bundle.companyId, ctx.companyId), eq(bundle.groupId, group.id)),
+          );
+        let maxIdx = 0;
+        for (const row of existing) {
+          // Serial is `{groupCode}-B{N…}` — strip prefix and parse the tail.
+          const m = row.serial.match(/-B(\d+)$/);
+          const tail = m?.[1];
+          if (tail) {
+            const n = parseInt(tail, 10);
+            if (!isNaN(n) && n > maxIdx) maxIdx = n;
+          }
+        }
+        groupIdToNextIdx.set(group.id, maxIdx + 1);
+      }
+
+      // 5. Build the bundle + status event rows.
+      const now = new Date();
+      const bundleRows: Array<typeof bundle.$inferInsert> = [];
+      const eventRows: Array<typeof bundleStatusEvent.$inferInsert> = [];
+
+      for (const row of input.rows) {
+        const dieRow = dieKeyToId.get(`${row.dieSeries}::${row.dieSectionCode}`)!;
+        const group = dieIdToGroup.get(dieRow.id)!;
+        const idx = groupIdToNextIdx.get(group.id)!;
+        groupIdToNextIdx.set(group.id, idx + 1);
+
+        const bundleId = crypto.randomUUID();
+        bundleRows.push({
+          id: bundleId,
+          companyId: ctx.companyId,
+          serverSeq: seq,
+          groupId: group.id,
+          dieId: dieRow.id,
+          serial: formatBundleSerial(group.code, idx),
+          quantity: row.quantity,
+          weightG: row.weightG,
+          lengthMm: row.lengthMm,
+          status: "available",
+          createdBy: userId,
+        });
+        eventRows.push({
+          id: crypto.randomUUID(),
+          companyId: ctx.companyId,
+          bundleId,
+          fromStatus: null,
+          toStatus: "available",
+          reason: "legacy-import",
+          actorId: userId,
+          at: now,
+        });
+      }
+
+      // 6. Chunk-insert everything in a single atomic batch.
+      pushChunkedInserts(statements, (chunk) => ctx.db.insert(bundle).values(chunk), bundleRows, 50);
+      pushChunkedInserts(
+        statements,
+        (chunk) => ctx.db.insert(bundleStatusEvent).values(chunk),
+        eventRows,
+        50,
+      );
+
+      statements.push(
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          {
+            action: "bundle.import",
+            subjectType: "bundle_group",
+            meta: {
+              bundleCount: bundleRows.length,
+              dieCount: dieKeyToId.size,
+              newGroups: newGroups.length,
+              reusedGroups: existingDieIdsAppendedTo.length,
+            },
+          },
+        ),
+      );
+
+      await atomicBatch(ctx.db, statements);
+
+      return {
+        success: true,
+        bundleCount: bundleRows.length,
+        dieCount: dieKeyToId.size,
+        newGroups: newGroups.length,
+        reusedGroups: existingDieIdsAppendedTo.length,
+      };
     }),
 });

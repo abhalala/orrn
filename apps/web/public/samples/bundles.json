@@ -1,0 +1,25 @@
+[
+  {
+    "dieSeries": "1000",
+    "dieSectionCode": "A101",
+    "quantity": 12,
+    "weightG": 4500,
+    "lengthMm": 6000,
+    "notes": "Legacy stock from old warehouse"
+  },
+  {
+    "dieSeries": "1000",
+    "dieSectionCode": "B202",
+    "quantity": 8,
+    "weightG": 11200,
+    "lengthMm": 6000
+  },
+  {
+    "dieSeries": "2000",
+    "dieSectionCode": "C303",
+    "quantity": 5,
+    "weightG": 7100,
+    "lengthMm": 3050,
+    "notes": "Imported 2024-09"
+  }
+]

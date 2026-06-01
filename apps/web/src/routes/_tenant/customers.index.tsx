@@ -4,13 +4,13 @@ import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Input } from "@orrn/ui/components/input";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Toolbar } from "@orrn/ui/components/toolbar";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { useRef, useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 
 import { Can } from "@/shared/components/can";
+import { ImportCustomersModal } from "@/shared/components/import-customers-modal";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -29,56 +29,11 @@ type CustomerRow = {
 
 function CustomersListComponent() {
   const [search, setSearch] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
     ...trpc.customer.list.queryOptions({ search, limit: 50, offset: 0 }),
   });
-
-  const importMutation = useMutation({
-    ...trpc.customer.importCsv.mutationOptions(),
-    onSuccess: (res) => {
-      toast.success(`Imported ${res.count} customers successfully`);
-      refetch();
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to import customers");
-    },
-  });
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const Papa = (await import("papaparse")).default;
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const parsedData = results.data
-          .map((row: any) => ({
-            name: row.name || row.Name,
-            email: row.email || row.Email || "",
-            phone: row.phone || row.Phone || "",
-            taxId: row.taxId || row["Tax ID"] || "",
-            notes: row.notes || row.Notes || "",
-          }))
-          .filter((r) => !!r.name);
-
-        if (parsedData.length === 0) {
-          toast.error("No valid rows found. Ensure you have a 'name' column.");
-          return;
-        }
-
-        importMutation.mutate(parsedData);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      },
-      error: (error) => {
-        toast.error(`CSV Parsing error: ${error.message}`);
-      },
-    });
-  };
 
   const columns: DataTableColumn<CustomerRow>[] = [
     {
@@ -128,20 +83,9 @@ function CustomersListComponent() {
         description="Manage your customer relationships."
         actions={
           <>
-            <input
-              type="file"
-              accept=".csv"
-              className="hidden"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-            />
             <Can do="customer.import">
-              <Button
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={importMutation.isPending}
-              >
-                {importMutation.isPending ? "Importing…" : "Import CSV"}
+              <Button variant="outline" onClick={() => setImportOpen(true)}>
+                Import CSV
               </Button>
             </Can>
             <Can do="customer.create">
@@ -152,6 +96,16 @@ function CustomersListComponent() {
           </>
         }
       />
+
+      {importOpen ? (
+        <ImportCustomersModal
+          onClose={() => setImportOpen(false)}
+          onSuccess={() => {
+            setImportOpen(false);
+            refetch();
+          }}
+        />
+      ) : null}
 
       <Toolbar>
         <Input
@@ -166,6 +120,40 @@ function CustomersListComponent() {
         rows={(data?.items ?? []) as CustomerRow[]}
         rowKey={(r) => r.id}
         columns={columns}
+        renderCard={(r) => (
+          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="m-0 truncate text-base font-semibold text-foreground">{r.name}</p>
+                <p className="m-0 text-xs text-muted-foreground">
+                  Customer since {format(new Date(r.createdAt), "MMM d, yyyy")}
+                </p>
+              </div>
+              <Can
+                do="customer.update"
+                fallback={
+                  <Link to="/customers/$id" params={{ id: r.id }}>
+                    <Button variant="outline" size="sm">View</Button>
+                  </Link>
+                }
+              >
+                <Link to="/customers/$id" params={{ id: r.id }}>
+                  <Button variant="outline" size="sm">Edit</Button>
+                </Link>
+              </Can>
+            </div>
+            <div className="grid gap-3 text-sm sm:grid-cols-2">
+              <div className="min-w-0">
+                <p className="m-0 text-xs font-medium text-muted-foreground">Email</p>
+                <p className="m-0 truncate text-foreground">{r.email || "—"}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="m-0 text-xs font-medium text-muted-foreground">Phone</p>
+                <p className="m-0 truncate text-foreground">{r.phone || "—"}</p>
+              </div>
+            </div>
+          </div>
+        )}
         isLoading={isLoading}
         emptyState={
           <EmptyState

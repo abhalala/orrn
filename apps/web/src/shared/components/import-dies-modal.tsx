@@ -1,10 +1,11 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 
 import { useLengthUnit } from "../lib/length";
 import { Button } from "@orrn/ui/components/button";
 import { Dialog, DialogCloseButton } from "@orrn/ui/components/dialog";
+import { ImportDropzone } from "@orrn/ui/components/import-dropzone";
 import { trpc } from "../utils/trpc";
 
 export function ImportDiesModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
@@ -12,15 +13,13 @@ export function ImportDiesModal({ onClose, onSuccess }: { onClose: () => void; o
   const [validRows, setValidRows] = useState<any[]>([]);
   const [duplicateRows, setDuplicateRows] = useState<any[]>([]);
   const [resolvedRows, setResolvedRows] = useState<any[]>([]);
+  const [selectedFile, setSelectedFile] = useState<{ name: string; size: number } | null>(null);
   const lu = useLengthUnit();
   const validateMutation = useMutation(trpc.die.validateImport.mutationOptions());
   const processMutation = useMutation(trpc.die.processImport.mutationOptions());
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const handleFile = async (file: File) => {
+    setSelectedFile({ name: file.name, size: file.size });
     const ext = file.name.split(".").pop()?.toLowerCase();
 
     if (ext === "json") {
@@ -93,7 +92,8 @@ export function ImportDiesModal({ onClose, onSuccess }: { onClose: () => void; o
         },
       });
     } else {
-      toast.error("Unsupported file type");
+      toast.error("Unsupported file type — please upload a .csv or .json file");
+      setSelectedFile(null);
     }
   };
 
@@ -114,7 +114,10 @@ export function ImportDiesModal({ onClose, onSuccess }: { onClose: () => void; o
           processFinal(res.validRows, []);
         }
       },
-      onError: (err) => toast.error(err.message || "Failed to validate file"),
+      onError: (err) => {
+        toast.error(err.message || "Failed to validate file");
+        setSelectedFile(null);
+      },
     });
   };
 
@@ -181,40 +184,21 @@ export function ImportDiesModal({ onClose, onSuccess }: { onClose: () => void; o
         ) : null
       }
     >
-      <div className="max-h-[min(60vh,520px)] overflow-y-auto">
+      <div className="max-h-[min(60vh,520px)] overflow-y-auto px-px">
         {step === "upload" && (
-          <div className="space-y-6">
-            <div className="flex flex-wrap gap-4">
-              <a
-                href="/samples/dies.csv"
-                download
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Download sample CSV
-              </a>
-              <a
-                href="/samples/dies.json"
-                download
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Download sample JSON
-              </a>
-            </div>
-
-            <div className="space-y-4 rounded-lg border-2 border-dashed border-border p-8 text-center sm:p-12">
-              <input
-                type="file"
-                accept=".csv,.json"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-              />
-              <p className="text-sm text-muted-foreground">Upload your .csv or .json file to begin.</p>
-              <Button onClick={() => fileInputRef.current?.click()} disabled={validateMutation.isPending}>
-                {validateMutation.isPending ? "Validating…" : "Select file"}
-              </Button>
-            </div>
-          </div>
+          <ImportDropzone
+            accept=".csv,.json"
+            onFile={handleFile}
+            loading={validateMutation.isPending}
+            selectedFile={selectedFile}
+            onClear={() => setSelectedFile(null)}
+            samples={[
+              { label: "Sample CSV", href: "/samples/dies.csv" },
+              { label: "Sample JSON", href: "/samples/dies.json" },
+            ]}
+            heading="Drop your dies file here"
+            hint="or click to browse — duplicates can be skipped or overwritten on the next step"
+          />
         )}
 
         {step === "resolving" && (
