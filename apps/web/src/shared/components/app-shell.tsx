@@ -52,12 +52,26 @@ export function WorkspaceShell({
     return canAny(me, item.requires);
   });
 
+  /**
+   * An item is "parent-like" when another visible nav item's `to` lives under
+   * its `to` (e.g. `/admin` is the parent of `/admin/waitlist`). Parent items
+   * must match the path exactly so they don't show as active alongside their
+   * children. Leaf items keep fuzzy matching so detail pages like
+   * `/admin/companies/123` still light up their parent ("Companies").
+   */
+  function isItemActive(itemTo: string): boolean {
+    const isParent = filteredNav.some(
+      (other) => other.to !== itemTo && other.to.startsWith(`${itemTo}/`),
+    );
+    return !!matchRoute({ to: itemTo as any, fuzzy: !isParent });
+  }
+
   const mobileItems = filteredNav.map((item) => ({
     key: item.key,
     label: item.label,
     icon: item.icon,
     href: item.to,
-    active: !!matchRoute({ to: item.to as any, fuzzy: true }),
+    active: isItemActive(item.to),
   }));
 
   return (
@@ -80,7 +94,7 @@ export function WorkspaceShell({
         >
           <SidebarSection label={staffMode ? "Platform" : "Operations"}>
             {filteredNav.map((item) => {
-              const isActive = !!matchRoute({ to: item.to as any, fuzzy: true });
+              const isActive = isItemActive(item.to);
               return (
                 <Link key={item.key} to={item.to as any} className="no-underline">
                   <SidebarItem active={isActive} icon={item.icon}>
