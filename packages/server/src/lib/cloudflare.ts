@@ -33,12 +33,31 @@ interface DnsRecordResult {
   proxied: boolean;
 }
 
+interface ZoneResult {
+  account?: { id?: string | null } | null;
+}
+
 function requireCloudflareBinding(name: "CF_API_TOKEN" | "CF_ACCOUNT_ID" | "CF_ZONE_ID_IN", value: string) {
   const trimmed = value.trim();
   if (!trimmed) {
     throw new Error(`Missing Cloudflare binding: ${name}`);
   }
   return trimmed;
+}
+
+async function resolveCloudflareAccountId(): Promise<string> {
+  const explicit = env.CF_ACCOUNT_ID.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  const zoneId = requireCloudflareBinding("CF_ZONE_ID_IN", env.CF_ZONE_ID_IN);
+  const zone = await cfFetch<ZoneResult>(`/zones/${zoneId}`);
+  const derived = zone.account?.id?.trim();
+  if (!derived) {
+    throw new Error("Unable to derive Cloudflare account id from zone binding");
+  }
+  return derived;
 }
 
 function headers(): Record<string, string> {
@@ -73,7 +92,7 @@ async function cfFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
  * Returns the tunnel ID and token (the token is used by cloudflared).
  */
 export async function createTunnel(name: string): Promise<{ id: string; token: string }> {
-  const accountId = requireCloudflareBinding("CF_ACCOUNT_ID", env.CF_ACCOUNT_ID);
+  const accountId = await resolveCloudflareAccountId();
   const result = await cfFetch<TunnelResult>(
     `/accounts/${accountId}/cfd_tunnel`,
     {
@@ -89,7 +108,7 @@ export async function createTunnel(name: string): Promise<{ id: string; token: s
  * Delete a Cloudflare Tunnel.
  */
 export async function deleteTunnel(tunnelId: string): Promise<void> {
-  const accountId = requireCloudflareBinding("CF_ACCOUNT_ID", env.CF_ACCOUNT_ID);
+  const accountId = await resolveCloudflareAccountId();
   await cfFetch(`/accounts/${accountId}/cfd_tunnel/${tunnelId}`, {
     method: "DELETE",
   });

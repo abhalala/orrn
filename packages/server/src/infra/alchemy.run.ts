@@ -155,7 +155,7 @@ export const server = await Worker("server", {
     COOKIE_DOMAIN: cookieDomain,
     CF_API_TOKEN: process.env.CF_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN ?? "",
     CF_ACCOUNT_ID: process.env.CF_ACCOUNT_ID ?? process.env.CLOUDFLARE_ACCOUNT_ID ?? "",
-    CF_ZONE_ID_IN: process.env.CF_ZONE_ID_IN ?? "",
+    CF_ZONE_ID_IN: process.env.CF_ZONE_ID_IN ?? process.env.CLOUDFLARE_ZONE_ID_IN ?? process.env.CLOUDFLARE_ZONE_ID ?? "",
   },
   domains: [{ domainName: apiDomain, zoneId: apiZoneId, adopt: true }],
   dev: { port: 3000 },
