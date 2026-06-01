@@ -33,9 +33,17 @@ interface DnsRecordResult {
   proxied: boolean;
 }
 
+function requireCloudflareBinding(name: "CF_API_TOKEN" | "CF_ACCOUNT_ID" | "CF_ZONE_ID_IN", value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`Missing Cloudflare binding: ${name}`);
+  }
+  return trimmed;
+}
+
 function headers(): Record<string, string> {
   return {
-    Authorization: `Bearer ${env.CF_API_TOKEN}`,
+    Authorization: `Bearer ${requireCloudflareBinding("CF_API_TOKEN", env.CF_API_TOKEN)}`,
     "Content-Type": "application/json",
   };
 }
@@ -65,8 +73,9 @@ async function cfFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
  * Returns the tunnel ID and token (the token is used by cloudflared).
  */
 export async function createTunnel(name: string): Promise<{ id: string; token: string }> {
+  const accountId = requireCloudflareBinding("CF_ACCOUNT_ID", env.CF_ACCOUNT_ID);
   const result = await cfFetch<TunnelResult>(
-    `/accounts/${env.CF_ACCOUNT_ID}/cfd_tunnel`,
+    `/accounts/${accountId}/cfd_tunnel`,
     {
       method: "POST",
       body: JSON.stringify({ name, tunnel_type: "cfd_tunnel" }),
@@ -80,7 +89,8 @@ export async function createTunnel(name: string): Promise<{ id: string; token: s
  * Delete a Cloudflare Tunnel.
  */
 export async function deleteTunnel(tunnelId: string): Promise<void> {
-  await cfFetch(`/accounts/${env.CF_ACCOUNT_ID}/cfd_tunnel/${tunnelId}`, {
+  const accountId = requireCloudflareBinding("CF_ACCOUNT_ID", env.CF_ACCOUNT_ID);
+  await cfFetch(`/accounts/${accountId}/cfd_tunnel/${tunnelId}`, {
     method: "DELETE",
   });
 }
@@ -97,8 +107,10 @@ export async function createCnameRecord(
   const dnsName = `${subdomain}.spool.orrn.in`;
   const tunnelTarget = `${tunnelId}.cfargotunnel.com`;
 
+  const zoneId = requireCloudflareBinding("CF_ZONE_ID_IN", env.CF_ZONE_ID_IN);
+
   const result = await cfFetch<DnsRecordResult>(
-    `/zones/${env.CF_ZONE_ID_IN}/dns_records`,
+    `/zones/${zoneId}/dns_records`,
     {
       method: "POST",
       body: JSON.stringify({
@@ -117,7 +129,8 @@ export async function createCnameRecord(
  * Delete a DNS record by its ID.
  */
 export async function deleteDnsRecord(recordId: string): Promise<void> {
-  await cfFetch(`/zones/${env.CF_ZONE_ID_IN}/dns_records/${recordId}`, {
+  const zoneId = requireCloudflareBinding("CF_ZONE_ID_IN", env.CF_ZONE_ID_IN);
+  await cfFetch(`/zones/${zoneId}/dns_records/${recordId}`, {
     method: "DELETE",
   });
 }
@@ -127,8 +140,9 @@ export async function deleteDnsRecord(recordId: string): Promise<void> {
  */
 export async function findDnsRecord(subdomain: string): Promise<string | null> {
   const dnsName = `${subdomain}.spool.orrn.in`;
+  const zoneId = requireCloudflareBinding("CF_ZONE_ID_IN", env.CF_ZONE_ID_IN);
   const results = await cfFetch<DnsRecordResult[]>(
-    `/zones/${env.CF_ZONE_ID_IN}/dns_records?name=${dnsName}&type=CNAME`,
+    `/zones/${zoneId}/dns_records?name=${dnsName}&type=CNAME`,
   );
 
   return results[0]?.id ?? null;
