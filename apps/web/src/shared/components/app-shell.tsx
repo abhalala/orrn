@@ -1,9 +1,11 @@
 import { AppFrame, AppStatusBar, MobileNav } from "@orrn/ui/components/app-frame";
 import { Badge, StatusBadge } from "@orrn/ui/components/badge";
+import { cn } from "@orrn/ui/lib/utils";
 import {
   Sidebar,
   SidebarItem,
   SidebarSection,
+  useSidebar,
 } from "@orrn/ui/components/sidebar";
 import { Link, useMatchRoute } from "@tanstack/react-router";
 import { Building2, Shield } from "lucide-react";
@@ -80,16 +82,7 @@ export function WorkspaceShell({
       maxWidth={maxWidth}
       sidebar={
         <Sidebar
-          brand={
-            <Link to={homePath as any} className="flex min-w-0 items-center gap-2 no-underline">
-              <div className="flex size-7 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-                O
-              </div>
-              <span className="truncate text-base font-semibold text-foreground">
-                {staffMode ? "ORRN Staff" : "ORRN"}
-              </span>
-            </Link>
-          }
+          brand={<SidebarBrand homePath={homePath} staffMode={staffMode} />}
           footer={<ModeToggle />}
         >
           <SidebarSection label={staffMode ? "Platform" : "Operations"}>
@@ -136,6 +129,29 @@ export function WorkspaceShell({
     >
       {children}
     </AppFrame>
+  );
+}
+
+function SidebarBrand({ homePath, staffMode }: { homePath: string; staffMode?: boolean }) {
+  const { collapsed } = useSidebar();
+  return (
+    <Link
+      to={homePath as any}
+      className={cn(
+        "flex min-w-0 items-center no-underline",
+        collapsed ? "justify-center gap-0" : "gap-2",
+      )}
+      aria-label={staffMode ? "ORRN Staff home" : "ORRN home"}
+    >
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
+        O
+      </div>
+      {!collapsed ? (
+        <span className="truncate text-base font-semibold text-foreground">
+          {staffMode ? "ORRN Staff" : "ORRN"}
+        </span>
+      ) : null}
+    </Link>
   );
 }
 

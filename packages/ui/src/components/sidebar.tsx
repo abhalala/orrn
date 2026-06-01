@@ -44,25 +44,26 @@ export function Sidebar({ brand, children, storageKey = "orrn:sidebar:v1", foote
     <SidebarContext.Provider value={{ collapsed, toggle: () => setCollapsed((v) => !v) }}>
       <aside
         style={{ width: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH }}
-        className="flex h-full flex-col gap-4 border-r border-border bg-card py-4"
+        className="flex h-full flex-col gap-4 overflow-hidden border-r border-border bg-card py-4 transition-[width] duration-200 ease-out"
       >
         <div
           className={cn(
-            "flex items-center justify-between gap-2",
-            collapsed ? "px-3" : "px-4",
+            "flex items-center gap-2",
+            collapsed ? "justify-center px-2" : "justify-between px-4",
           )}
         >
           {brand}
         </div>
-        <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2">{children}</div>
+        <div className={cn("flex flex-1 flex-col gap-1 overflow-y-auto", collapsed ? "px-2" : "px-2")}>{children}</div>
         {footer ? (
           <div className={cn("flex flex-col gap-2", collapsed ? "px-2" : "px-3")}>{footer}</div>
         ) : null}
-        <div className={cn("flex items-center justify-end", collapsed ? "px-2" : "px-3")}>
+        <div className={cn("flex items-center", collapsed ? "justify-center px-2" : "justify-end px-3")}>
           <button
             type="button"
             onClick={() => setCollapsed((v) => !v)}
-            className="rounded-md px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-accent"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="rounded-md px-2 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             {collapsed ? "›" : "‹ Collapse"}
           </button>

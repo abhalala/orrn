@@ -67,6 +67,14 @@ export function AppFrame({
               style={{
                 maxWidth,
                 paddingBottom: mobileNav ? 84 : 24,
+                /**
+                 * Scope the View Transitions API cross-fade to just the
+                 * page-content region. The sidebar and status bar are
+                 * persistent chrome — fading them on every route change
+                 * feels like the whole app is repainting. See
+                 * `::view-transition-*(page-content)` rules in globals.css.
+                 */
+                viewTransitionName: "page-content",
               }}
             >
               {children}
@@ -95,7 +103,7 @@ export function PageScaffold({
   children,
 }: PageScaffoldProps) {
   return (
-    <div className="flex min-w-0 flex-col gap-4">
+    <div className="flex min-w-0 animate-in fade-in-0 slide-in-from-bottom-1 flex-col gap-4 duration-300 ease-out">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {eyebrow ? (

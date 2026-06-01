@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { Suspense, lazy } from "react";
 
+import { NavigationProgress } from "@/shared/components/navigation-progress";
 import { ThemeProvider } from "@/shared/components/theme-provider";
 import type { trpc } from "@/shared/utils/trpc";
 import "../index.css";
@@ -53,6 +54,7 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
+        <NavigationProgress />
         <Outlet />
         <Toaster richColors />
       </ThemeProvider>
