@@ -477,44 +477,105 @@ export const bundleRouter = router({
     .mutation(async ({ ctx, input }) => {
       // 1. Resolve every (series, sectionCode) in the file to a die id.
       //    Build a Set of unique keys first so a 2000-row file with 5 distinct
-      //    dies hits the DB once per die rather than once per row.
+      //    dies hits the DB once per die rather than once per row. While
+      //    walking the rows we also track the weight min/max per die-key so
+      //    any die we have to auto-create gets a sensible initial range
+      //    derived from the bundles being imported, rather than `0..0`.
       const uniqueDieKeys = new Map<string, { series: string; sectionCode: string }>();
+      const weightRangeByKey = new Map<string, { min: number; max: number }>();
       for (const row of input.rows) {
         const key = `${row.dieSeries}::${row.dieSectionCode}`;
         if (!uniqueDieKeys.has(key)) {
           uniqueDieKeys.set(key, { series: row.dieSeries, sectionCode: row.dieSectionCode });
         }
+        const range = weightRangeByKey.get(key);
+        if (range) {
+          if (row.weightG < range.min) range.min = row.weightG;
+          if (row.weightG > range.max) range.max = row.weightG;
+        } else {
+          weightRangeByKey.set(key, { min: row.weightG, max: row.weightG });
+        }
       }
 
       const dieKeyToId = new Map<string, { id: string; series: string; sectionCode: string }>();
-      const unknownKeys: string[] = [];
+      const keysToCreate: Array<{ series: string; sectionCode: string }> = [];
+      const archivedKeys: string[] = [];
       for (const [key, { series, sectionCode }] of uniqueDieKeys) {
+        // Look up by the natural key WITHOUT a `deletedAt` filter so we can
+        // tell "doesn't exist yet" apart from "exists but was soft-deleted".
+        // The latter is a hard error: the unique index is on
+        // (companyId, series, sectionCode) regardless of deletedAt, so we'd
+        // hit a constraint violation if we tried to auto-create over it, and
+        // silently resurrecting a die the operator retired is the wrong call.
         const dieRow = await ctx.db.query.die.findFirst({
           where: and(
             eq(die.companyId, ctx.companyId),
             eq(die.series, series),
             eq(die.sectionCode, sectionCode),
-            isNull(die.deletedAt),
           ),
-          columns: { id: true, series: true, sectionCode: true },
+          columns: { id: true, series: true, sectionCode: true, deletedAt: true },
         });
         if (!dieRow) {
-          unknownKeys.push(`${series} / ${sectionCode}`);
+          keysToCreate.push({ series, sectionCode });
           continue;
         }
-        dieKeyToId.set(key, dieRow);
-      }
-
-      if (unknownKeys.length > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `Unknown die${unknownKeys.length === 1 ? "" : "s"}: ${unknownKeys
-            .slice(0, 5)
-            .join(", ")}${unknownKeys.length > 5 ? ` (+${unknownKeys.length - 5} more)` : ""}. Import the dies catalog first.`,
+        if (dieRow.deletedAt) {
+          archivedKeys.push(`${series} / ${sectionCode}`);
+          continue;
+        }
+        dieKeyToId.set(key, {
+          id: dieRow.id,
+          series: dieRow.series,
+          sectionCode: dieRow.sectionCode,
         });
       }
 
-      // 2. For every die used in this import, find-or-create its legacy group.
+      if (archivedKeys.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Die${archivedKeys.length === 1 ? "" : "s"} previously deleted: ${archivedKeys
+            .slice(0, 5)
+            .join(", ")}${archivedKeys.length > 5 ? ` (+${archivedKeys.length - 5} more)` : ""}. Restore them from the dies page before importing bundles.`,
+        });
+      }
+
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const userId = ctx.session.user.id;
+      const statements: SqliteBatchItem[] = [];
+
+      // 2. Auto-create any dies that don't exist yet. The natural key
+      //    (series, sectionCode) stays exactly as the operator imported it so
+      //    subsequent imports — and a later real dies-catalog import — match
+      //    the same row. The "legacy" marker lives in the `name` field so it
+      //    stands out on the dies index page without polluting the natural
+      //    key. Weight min/max default to the range observed in this import;
+      //    dimensions are empty and notes prompt operators to fill in the
+      //    real values before producing new receipts against the die.
+      const newDieIds: string[] = [];
+      for (const { series, sectionCode } of keysToCreate) {
+        const dieId = crypto.randomUUID();
+        const range = weightRangeByKey.get(`${series}::${sectionCode}`) ?? { min: 0, max: 0 };
+        statements.push(
+          ctx.db.insert(die).values({
+            id: dieId,
+            companyId: ctx.companyId,
+            serverSeq: seq,
+            series,
+            sectionCode,
+            name: `LEGACY · ${series} / ${sectionCode}`,
+            dimensions: {},
+            weightMinG: range.min,
+            weightMaxG: range.max,
+            status: "active",
+            notes:
+              "Auto-created from a bulk bundle import. Review the weight range and add dimensions before producing new receipts against this die.",
+          }),
+        );
+        dieKeyToId.set(`${series}::${sectionCode}`, { id: dieId, series, sectionCode });
+        newDieIds.push(dieId);
+      }
+
+      // 3. For every die used in this import, find-or-create its legacy group.
       //    A single (companyId, dieId) can have at most ONE legacy group; if
       //    one exists we append to it so the receipts list doesn't explode
       //    after repeated imports.
@@ -545,11 +606,7 @@ export const bundleRouter = router({
         }
       }
 
-      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const userId = ctx.session.user.id;
-      const statements: SqliteBatchItem[] = [];
-
-      // 3. Allocate a new legacy group for any die that doesn't have one yet.
+      // 4. Allocate a new legacy group for any die that doesn't have one yet.
       //    Codes use a monotonic suffix derived from the company sequence so
       //    they're unique-by-construction and order roughly by creation.
       let nextLegacySuffix = seq;
@@ -580,7 +637,7 @@ export const bundleRouter = router({
         );
       }
 
-      // 4. For each existing legacy group we're appending to, find the highest
+      // 5. For each existing legacy group we're appending to, find the highest
       //    serial index so we can continue numbering without collisions. New
       //    groups start at 1.
       const existingDieIdsAppendedTo = Array.from(dieIdToGroup.keys()).filter(
@@ -611,7 +668,7 @@ export const bundleRouter = router({
         groupIdToNextIdx.set(group.id, maxIdx + 1);
       }
 
-      // 5. Build the bundle + status event rows.
+      // 6. Build the bundle + status event rows.
       const now = new Date();
       const bundleRows: Array<typeof bundle.$inferInsert> = [];
       const eventRows: Array<typeof bundleStatusEvent.$inferInsert> = [];
@@ -648,7 +705,7 @@ export const bundleRouter = router({
         });
       }
 
-      // 6. Chunk-insert everything in a single atomic batch.
+      // 7. Chunk-insert everything in a single atomic batch.
       pushChunkedInserts(statements, (chunk) => ctx.db.insert(bundle).values(chunk), bundleRows, 50);
       pushChunkedInserts(
         statements,
@@ -666,6 +723,7 @@ export const bundleRouter = router({
             meta: {
               bundleCount: bundleRows.length,
               dieCount: dieKeyToId.size,
+              newDies: newDieIds.length,
               newGroups: newGroups.length,
               reusedGroups: existingDieIdsAppendedTo.length,
             },
@@ -679,6 +737,7 @@ export const bundleRouter = router({
         success: true,
         bundleCount: bundleRows.length,
         dieCount: dieKeyToId.size,
+        newDies: newDieIds.length,
         newGroups: newGroups.length,
         reusedGroups: existingDieIdsAppendedTo.length,
       };

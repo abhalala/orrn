@@ -40,12 +40,16 @@ export function ImportBundlesModal({
   const importMutation = useMutation({
     ...trpc.bundle.bulkImport.mutationOptions(),
     onSuccess: (res) => {
+      const diesNote =
+        res.newDies > 0
+          ? ` Created ${res.newDies} legacy die${res.newDies === 1 ? "" : "s"} — review on the dies page.`
+          : "";
       const groupsNote =
         res.newGroups > 0
           ? ` Created ${res.newGroups} legacy receipt${res.newGroups === 1 ? "" : "s"}.`
           : "";
       toast.success(
-        `Imported ${res.bundleCount} bundle${res.bundleCount === 1 ? "" : "s"} across ${res.dieCount} die${res.dieCount === 1 ? "" : "s"}.${groupsNote}`,
+        `Imported ${res.bundleCount} bundle${res.bundleCount === 1 ? "" : "s"} across ${res.dieCount} die${res.dieCount === 1 ? "" : "s"}.${diesNote}${groupsNote}`,
       );
       onSuccess();
     },
@@ -130,14 +134,20 @@ function LegacyReceiptNotice() {
   return (
     <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
       <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <div className="space-y-0.5">
+      <div className="space-y-1">
         <p className="m-0 text-xs font-medium text-foreground">
-          Bundles are filed under a per-die legacy receipt
+          Missing dies and receipts are auto-created
         </p>
         <p className="m-0 text-xs text-muted-foreground">
-          ORRN keeps every bundle linked to a receipt. Imported bundles join a
-          single auto-created <span className="font-mono">LEGACY-…</span>{" "}
-          receipt per die so they don't clutter your production receipt history.
+          Bundles are filed under a single{" "}
+          <span className="font-mono">LEGACY-…</span> receipt per die so they
+          don't clutter your production receipt history.
+        </p>
+        <p className="m-0 text-xs text-muted-foreground">
+          Any die that isn't in your catalog yet is created on the fly with a{" "}
+          <span className="font-mono">LEGACY ·</span> name prefix — review and
+          fill in dimensions and weight ranges on the dies page after the
+          import.
         </p>
       </div>
     </div>
