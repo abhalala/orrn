@@ -25,3 +25,4 @@ export {
   shadows,
   type StatusTone,
 } from "./tokens";
+export { NotFoundPage, type NotFoundPageProps } from "./components/not-found";

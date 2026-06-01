@@ -1,5 +1,8 @@
+import { Button } from "@orrn/ui/components/button";
+import { NotFoundPage } from "@orrn/ui/components/not-found";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
+import { Link, RouterProvider, createRouter } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import ReactDOM from "react-dom/client";
 
 import Loader from "@/shared/components/loader";
@@ -10,6 +13,8 @@ const router = createRouter({
   routeTree,
   defaultPreload: "intent",
   scrollRestoration: true,
+  defaultNotFoundComponent: WebNotFoundPage,
+  notFoundMode: "root",
   defaultPendingComponent: () => <Loader />,
   /**
    * Enable the browser View Transitions API for cross-fading between routes
@@ -27,10 +32,27 @@ const router = createRouter({
   defaultPendingMs: 300,
   defaultPendingMinMs: 250,
   context: { trpc, queryClient },
-  Wrap: function WrapComponent({ children }: { children: React.ReactNode }) {
+  Wrap: function WrapComponent({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   },
 });
+
+function WebNotFoundPage() {
+  return (
+    <NotFoundPage
+      primaryAction={
+        <Button asChild size="lg">
+          <Link to="/">Go to ORRN home</Link>
+        </Button>
+      }
+      secondaryAction={
+        <Button asChild size="lg" variant="outline">
+          <Link to="/login">Sign in</Link>
+        </Button>
+      }
+    />
+  );
+}
 
 declare module "@tanstack/react-router" {
   interface Register {

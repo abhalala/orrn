@@ -29,6 +29,10 @@
       "react-native": "./src/components/impersonation-banner.native.tsx",
       "default": "./src/components/impersonation-banner.tsx"
     },
+    "./components/not-found": {
+      "react-native": "./src/components/not-found.native.tsx",
+      "default": "./src/components/not-found.tsx"
+    },
     "./components/*": "./src/components/*.tsx",
     "./hooks/*": "./src/hooks/*.ts",
     "./postcss.config": "./postcss.config.mjs"
