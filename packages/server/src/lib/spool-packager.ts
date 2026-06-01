@@ -8,8 +8,8 @@
  * Trailer format (appended after the binary):
  *   [JSON config payload] [ORRN_SPOOL_V1\x00\x00\x00] [uint64 LE payload length]
  *
- * The binary is fetched from R2 (uploaded by orrn-spool CI), patched with
- * the deployment config, and streamed to the platform admin for download.
+ * The binary is fetched from GitHub releases, patched with the deployment
+ * config, and streamed to the authenticated browser for download.
  */
 
 export type Platform = "linux-amd64" | "darwin-amd64" | "darwin-arm64" | "windows-amd64";
@@ -38,15 +38,6 @@ export interface EmbeddedConfig {
 
 /** Trailer magic — must match Go's TrailerMagic constant exactly. */
 const TRAILER_MAGIC = "ORRN_SPOOL_V1\x00\x00\x00"; // 16 bytes
-
-/**
- * R2 key for a release binary.
- * Format: releases/spool/v{version}/{platform}/orrn-spool[.exe]
- */
-export function getReleaseKey(platform: Platform, version: string): string {
-  const ext = platform === "windows-amd64" ? ".exe" : "";
-  return `releases/spool/v${version}/${platform}/orrn-spool${ext}`;
-}
 
 /**
  * Filename for the patched binary deliverable.

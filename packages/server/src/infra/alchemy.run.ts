@@ -120,9 +120,9 @@ const LegacySpoolReleasesBucket = Resource(
   },
 );
 
-// Keep the historical state entry inert until CI credentials are allowed to
-// manage R2 directly again. Without this placeholder, Alchemy tries to delete
-// the old spool-releases resource and deploys fail on Cloudflare 403s.
+// Keep the historical spool-releases state entry inert. ORRN no longer serves
+// spool binaries from R2, but remote Alchemy state still contains this legacy
+// resource id and would otherwise try to delete the old bucket during deploy.
 await LegacySpoolReleasesBucket("spool-releases", {});
 
 /** Unified web app — orrn.in (prod) / dev.orrn.app (dev) */

@@ -9,6 +9,7 @@ import { env } from "@orrn/env/server";
 
 import { createCnameRecord, createTunnel, deleteDnsRecord, deleteTunnel, findDnsRecord } from "../../lib/cloudflare";
 import { signDownloadToken } from "../../lib/spool-crypto";
+import { getDeliverableFilename } from "../../lib/spool-packager";
 import { platformGuard } from "../../index";
 
 const SPOOL_DOMAIN_SUFFIX = ".spool.orrn.in";
@@ -283,9 +284,9 @@ export const spoolProcedures = {
 
       // Generate a short-lived download token signed with ORRN_MASTER_KEY
       const token = await signDownloadToken(input.id, input.platform, env.ORRN_MASTER_KEY);
-      const downloadUrl = `${env.WEB_PUBLIC_URL}/api/spool/deployments/${input.id}/download/${input.platform}?token=${token}`;
+      const downloadUrl = `${env.BETTER_AUTH_URL}/api/spool/deployments/${input.id}/download/${input.platform}?token=${token}`;
 
-      return { downloadUrl, filename: `orrn-spool-${row.subdomain}-${input.platform}.zip` };
+      return { downloadUrl, filename: getDeliverableFilename(row.subdomain, input.platform) };
     }),
 };
 

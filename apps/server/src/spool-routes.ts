@@ -5,7 +5,7 @@
  * 1. Webhook callbacks from spool instances (job status updates)
  * 2. Activation heartbeats from spool instances
  * 3. Update check requests from spool instances
- * 4. Signed download URLs for spool deliverables (Ninite-style binary patching)
+ * 4. Signed download URLs for spool deliverables (GitHub binary + trailer patching)
  */
 
 import { and, eq } from "drizzle-orm";
@@ -18,7 +18,8 @@ import { Hono } from "hono";
 import type { Context as HonoContext } from "hono";
 
 import { verifyWebhookSignature, verifySpoolToken, verifyDownloadToken } from "@orrn/server/lib/spool-crypto";
-import { patchBinaryWithConfig, getReleaseKey, getDeliverableFilename, type Platform, type PackageConfig } from "@orrn/server/lib/spool-packager";
+import { fetchSpoolBinary, normalizePlatform, resolveSpoolRelease } from "@orrn/server/lib/spool-release";
+import { patchBinaryWithConfig, getDeliverableFilename, type Platform, type PackageConfig } from "@orrn/server/lib/spool-packager";
 
 const spoolRoutes = new Hono();
 
@@ -197,31 +198,24 @@ spoolRoutes.get("/api/spool/update-check", async (c: HonoContext) => {
     return c.json({ error: "Invalid authentication" }, 403);
   }
 
-  // Check for updates from the release manifest in R2 when release storage is configured
   const response: UpdateCheckResponse = { update_available: false };
-  const releasesBucket = env.SPOOL_RELEASES_BUCKET;
-  if (!releasesBucket) {
+  const normalizedPlatform = normalizePlatform(platform);
+  if (!normalizedPlatform) {
     return c.json(response);
   }
 
   try {
-    const manifestKey = `releases/manifest.json`;
-    const manifestObj = await releasesBucket.get(manifestKey);
+    const release = await resolveSpoolRelease(normalizedPlatform);
+    const current = currentVersion ? currentVersion.replace(/^v/, "") : null;
 
-    if (manifestObj) {
-      const manifest = await manifestObj.json<Record<string, { version: string; url: string; sha256: string }>>();
-      const platformKey = `${platform}-amd64`;
-      const entry = manifest[platformKey];
-
-      if (entry && entry.version !== currentVersion) {
-        response.update_available = true;
-        response.latest_version = entry.version;
-        response.download_url = entry.url;
-        response.checksum = entry.sha256;
-      }
+    if (release && release.version !== current) {
+      response.update_available = true;
+      response.latest_version = release.version;
+      response.download_url = release.downloadUrl;
+      response.checksum = release.checksum ?? undefined;
     }
   } catch {
-    // If manifest is not available, just return no update
+    // If GitHub is unavailable, just return no update
   }
 
   return c.json(response);
@@ -229,9 +223,9 @@ spoolRoutes.get("/api/spool/update-check", async (c: HonoContext) => {
 
 // ─── Deliverable Download: Platform Admin → ORRN ────────────────────────────
 //
-// Ninite-style: fetches the pre-built binary from R2, patches it with the
-// deployment config trailer, and streams the result. The customer gets a
-// single executable with their auth secrets baked in — no config editing needed.
+// Ninite-style: fetches the platform binary from GitHub releases, patches it
+// with the deployment config trailer, and streams the result. The customer gets
+// a single executable with their auth secrets baked in — no config editing needed.
 
 spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoContext) => {
   const { id, platform } = c.req.param();
@@ -242,8 +236,8 @@ spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoC
   }
 
   // Validate platform
-  const validPlatforms: Platform[] = ["linux-amd64", "darwin-amd64", "darwin-arm64", "windows-amd64"];
-  if (!validPlatforms.includes(platform as Platform)) {
+  const normalizedPlatform = normalizePlatform(platform);
+  if (!normalizedPlatform) {
     return c.json({ error: "Invalid platform" }, 400);
   }
 
@@ -266,22 +260,12 @@ spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoC
     return c.json({ error: "Deployment not found or revoked" }, 404);
   }
 
-  // Determine the version to download
-  const spoolVersion = deployment.spoolVersion ?? "0.1.0";
-  const releaseKey = getReleaseKey(platform as Platform, spoolVersion);
-
-  const releasesBucket = env.SPOOL_RELEASES_BUCKET;
-  if (!releasesBucket) {
-    return c.json({ error: "Spool release distribution is not configured." }, 503);
+  const release = await resolveSpoolRelease(normalizedPlatform, deployment.spoolVersion ?? undefined);
+  if (!release) {
+    return c.json({ error: "Spool release binary was not found on GitHub for this platform/version." }, 404);
   }
 
-  // Fetch the pre-built binary from R2
-  const binaryObj = await releasesBucket.get(releaseKey);
-  if (!binaryObj) {
-    return c.json({ error: "Binary not found in releases. Upload the release binary to R2 first." }, 404);
-  }
-
-  const binaryData = new Uint8Array(await binaryObj.arrayBuffer());
+  const binaryData = await fetchSpoolBinary(release.downloadUrl);
 
   // Unwrap secrets for the embedded config
   const sharedSecret = await unwrapSecret(deployment.sharedSecretWrapped, env.ORRN_MASTER_KEY);
@@ -294,14 +278,14 @@ spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoC
     spoolDomain: deployment.spoolDomain,
     sharedSecret,
     cfTunnelToken,
-    orrnServerUrl: env.WEB_PUBLIC_URL,
+    orrnServerUrl: env.BETTER_AUTH_URL,
     tunnelEnabled: true,
-    platform: platform as Platform,
-    spoolVersion,
+    platform: normalizedPlatform as Platform,
+    spoolVersion: release.version,
   };
 
   const patchedBinary = patchBinaryWithConfig(binaryData, config);
-  const filename = getDeliverableFilename(deployment.subdomain, platform as Platform);
+  const filename = getDeliverableFilename(deployment.subdomain, normalizedPlatform as Platform);
 
   // Stream the patched binary back
   return new Response(patchedBinary, {
@@ -309,7 +293,7 @@ spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoC
       "Content-Type": "application/octet-stream",
       "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control": "no-store",
-      "X-Spool-Version": spoolVersion,
+      "X-Spool-Version": release.version,
     },
   });
 });
