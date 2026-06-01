@@ -107,18 +107,18 @@ export function SidebarItem({ active, icon, children, onPress, testID }: Sidebar
       data-testid={testID}
       onClick={onPress}
       className={cn(
-        "flex items-center rounded-md border-l-[3px] py-2 transition-colors",
+        "flex w-full items-center rounded-md border-l-[3px] py-2 text-left transition-colors",
         collapsed ? "justify-center px-0 gap-0" : "justify-start gap-2.5 px-2.5",
         active ? "border-primary bg-accent text-foreground" : "border-transparent text-muted-foreground hover:bg-accent/40",
       )}
     >
       {icon ? (
-        <span className={cn("flex w-5 items-center justify-center", active ? "text-primary" : "text-muted-foreground")}>
+        <span className={cn("flex w-5 shrink-0 items-center justify-center", active ? "text-primary" : "text-muted-foreground")}>
           {icon}
         </span>
       ) : null}
       {!collapsed ? (
-        <span className={cn("text-sm", active ? "font-semibold" : "font-medium")}>{children}</span>
+        <span className={cn("min-w-0 truncate text-sm", active ? "font-semibold" : "font-medium")}>{children}</span>
       ) : null}
     </button>
   );

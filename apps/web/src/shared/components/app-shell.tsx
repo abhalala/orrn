@@ -96,7 +96,7 @@ export function WorkspaceShell({
             {filteredNav.map((item) => {
               const isActive = isItemActive(item.to);
               return (
-                <Link key={item.key} to={item.to as any} className="no-underline">
+                <Link key={item.key} to={item.to as any} className="block w-full no-underline">
                   <SidebarItem active={isActive} icon={item.icon}>
                     {item.label}
                   </SidebarItem>
@@ -106,7 +106,7 @@ export function WorkspaceShell({
           </SidebarSection>
           {!staffMode && me?.isPlatformAdmin ? (
             <SidebarSection label="Staff">
-              <Link to={PLATFORM_LINK.to as any} className="no-underline">
+              <Link to={PLATFORM_LINK.to as any} className="block w-full no-underline">
                 <SidebarItem icon={PLATFORM_LINK.icon}>{PLATFORM_LINK.label}</SidebarItem>
               </Link>
             </SidebarSection>
