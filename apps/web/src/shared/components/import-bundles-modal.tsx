@@ -3,6 +3,7 @@ import { ImportDropzone } from "@orrn/ui/components/import-dropzone";
 import { useMutation } from "@tanstack/react-query";
 import { Info, Loader2 } from "lucide-react";
 import { useState } from "react";
+import Papa from "papaparse";
 import { toast } from "sonner";
 
 import { useLengthUnit } from "../lib/length";
@@ -14,6 +15,7 @@ type ImportRow = {
   quantity: number;
   weightG: number;
   lengthMm: number;
+  poNumber?: string | null;
 };
 
 /**
@@ -112,7 +114,7 @@ export function ImportBundlesModal({
               { label: "Sample JSON", href: "/samples/bundles.json" },
             ]}
             heading="Drop your bundles file here"
-            hint={`or click to browse — required columns: dieSeries, dieSectionCode, quantity, weightG, lengthMm (${lu.label})`}
+            hint={`or click to browse — required columns: dieSeries, dieSectionCode, quantity, weightG, lengthMm (${lu.label}); optional poNumber`}
           />
 
           <LegacyReceiptNotice />
@@ -168,7 +170,6 @@ async function parseFile(
       .filter(isValidRow);
   }
 
-  const Papa = (await import("papaparse")).default;
   return new Promise<ImportRow[]>((resolve, reject) => {
     Papa.parse<Record<string, string>>(file, {
       header: true,
@@ -204,6 +205,7 @@ function normalizeRow(
     quantity: Number(row.quantity ?? 0),
     weightG: Number(row.weightG ?? row.weight ?? 0),
     lengthMm: typeof length === "number" ? Math.round(length) : 0,
+    poNumber: String(row.poNumber ?? row.po_number ?? row.po ?? "").trim() || null,
   };
 }
 

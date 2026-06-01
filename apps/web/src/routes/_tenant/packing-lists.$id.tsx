@@ -14,7 +14,8 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { requireCompanyMe } from "@/shared/lib/guards";
-import type { PLSnapshot } from "@/shared/lib/packingListPdf";
+import { downloadPackingListPdf, type PLSnapshot } from "@/shared/lib/packingListPdf";
+import { downloadPackingListXlsx } from "@/shared/lib/packingListXlsx";
 
 export const Route = createFileRoute("/_tenant/packing-lists/$id")({
   component: PackingListDetailComponent,
@@ -28,6 +29,7 @@ function PackingListDetailComponent() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [pdfPending, setPdfPending] = useState(false);
+  const [qrPdfPending, setQrPdfPending] = useState(false);
   const [xlsxPending, setXlsxPending] = useState(false);
   const lu = useLengthUnit();
 
@@ -94,11 +96,22 @@ function PackingListDetailComponent() {
   const snap = pl.snapshot as unknown as PLSnapshot;
   const cust = snap.dispatch.customer;
   const tableRows = snap.items.map((item, index) => ({ ...item, index: index + 1 }));
+  const groupTotals = Array.from(
+    snap.items.reduce((map, item) => {
+      const key = item.groupId || "UNGROUPED";
+      const existing = map.get(key) ?? { label: key, bundles: 0, quantity: 0, weightG: 0, lengthMm: 0 };
+      existing.bundles += 1;
+      existing.quantity += item.quantity;
+      existing.weightG += item.weightG;
+      existing.lengthMm += item.lengthMm;
+      map.set(key, existing);
+      return map;
+    }, new Map<string, { label: string; bundles: number; quantity: number; weightG: number; lengthMm: number }>()),
+  ).map(([, value]) => value);
 
   async function handlePdf() {
     setPdfPending(true);
     try {
-      const { downloadPackingListPdf } = await import("@/shared/lib/packingListPdf");
       await downloadPackingListPdf(snap, pl!.code, lu.unit);
     } catch {
       toast.error("PDF generation failed");
@@ -107,10 +120,20 @@ function PackingListDetailComponent() {
     }
   }
 
+  async function handleQrPdf() {
+    setQrPdfPending(true);
+    try {
+      await downloadPackingListPdf(snap, pl!.code, lu.unit, { includeQr: true });
+    } catch {
+      toast.error("QR PDF generation failed");
+    } finally {
+      setQrPdfPending(false);
+    }
+  }
+
   async function handleXlsx() {
     setXlsxPending(true);
     try {
-      const { downloadPackingListXlsx } = await import("@/shared/lib/packingListXlsx");
       await downloadPackingListXlsx(snap, pl!.code, lu.unit);
     } catch {
       toast.error("Excel export failed");
@@ -192,9 +215,31 @@ function PackingListDetailComponent() {
         ))}
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Die groups / packing groups</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            rows={groupTotals}
+            rowKey={(row) => row.label}
+            columns={[
+              { id: "group", header: "Group", cell: (row) => row.label },
+              { id: "bundles", header: "Bundles", align: "right", cell: (row) => row.bundles },
+              { id: "qty", header: "Qty", align: "right", cell: (row) => row.quantity },
+              { id: "weight", header: "Weight (kg)", align: "right", cell: (row) => (row.weightG / 1000).toFixed(3) },
+              { id: "length", header: `Length (${lu.label})`, align: "right", cell: (row) => lu.formatLength(row.lengthMm) },
+            ]}
+          />
+        </CardContent>
+      </Card>
+
       <div className="flex flex-wrap gap-2">
         <Button onClick={handlePdf} disabled={pdfPending} variant="outline">
-          {pdfPending ? "Generating…" : "Download PDF"}
+          {pdfPending ? "Generating…" : "Download styled PDF"}
+        </Button>
+        <Button onClick={handleQrPdf} disabled={qrPdfPending} variant="outline">
+          {qrPdfPending ? "Generating…" : "Download QR PDF"}
         </Button>
         <Button onClick={handleXlsx} disabled={xlsxPending} variant="outline">
           {xlsxPending ? "Exporting…" : "Download Excel"}

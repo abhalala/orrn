@@ -100,8 +100,7 @@ function SpoolComponent() {
 
   // ── New Job dialog state ──────────────────────────────────────────────
   const [newJobOpen, setNewJobOpen] = useState(false);
-  const [jobPrinterId, setJobPrinterId] = useState("");
-  const [jobTemplateId, setJobTemplateId] = useState("");
+  const [jobProfileId, setJobProfileId] = useState("");
   const [jobVariables, setJobVariables] = useState("{}");
   const [jobCopies, setJobCopies] = useState("1");
 
@@ -126,6 +125,8 @@ function SpoolComponent() {
     data: templates,
     isLoading: templatesLoading,
   } = useQuery(trpc.spool.listTemplates.queryOptions());
+
+  const { data: profiles } = useQuery(trpc.spool.listProfiles.queryOptions());
 
   // ── Mutations ─────────────────────────────────────────────────────────
   const cancelJobMutation = useMutation({
@@ -168,8 +169,7 @@ function SpoolComponent() {
 
   // ── Form helpers ──────────────────────────────────────────────────────
   function resetJobForm() {
-    setJobPrinterId("");
-    setJobTemplateId("");
+    setJobProfileId("");
     setJobVariables("{}");
     setJobCopies("1");
   }
@@ -193,33 +193,26 @@ function SpoolComponent() {
       return;
     }
 
-    // The mutation requires a profileId. We use the selected template ID
-    // here as a stand-in; this will be resolved to a proper printer profile
-    // on the server once the printer profiles endpoint becomes available.
+    if (!jobProfileId) {
+      toast.error("Select a printer profile");
+      return;
+    }
+
     createJobMutation.mutate({
-      profileId: jobTemplateId,
+      profileId: jobProfileId,
       variables: parsedVariables,
       copies: copiesNum,
     });
   }
 
   // ── Dropdown options ──────────────────────────────────────────────────
-  const printerOptions: SelectOption[] = useMemo(
+  const profileOptions: SelectOption[] = useMemo(
     () =>
-      (printers ?? []).map((p) => ({
-        label: `${p.name} (${p.ip_address})`,
-        value: String(p.id),
+      (profiles ?? []).map((profile) => ({
+        label: `${profile.name} · ${profile.templateName}`,
+        value: profile.id,
       })),
-    [printers],
-  );
-
-  const templateOptions: SelectOption[] = useMemo(
-    () =>
-      (templates ?? []).map((t) => ({
-        label: t.name,
-        value: t.id,
-      })),
-    [templates],
+    [profiles],
   );
 
   // ── Columns: Print Queue ──────────────────────────────────────────────
@@ -541,22 +534,12 @@ function SpoolComponent() {
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="job-printer">Printer</Label>
+            <Label htmlFor="job-profile">Printer profile</Label>
             <Select
-              value={jobPrinterId}
-              onValueChange={setJobPrinterId}
-              options={printerOptions}
-              placeholder="Select a printer…"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="job-template">Template</Label>
-            <Select
-              value={jobTemplateId}
-              onValueChange={setJobTemplateId}
-              options={templateOptions}
-              placeholder="Select a template…"
+              value={jobProfileId}
+              onValueChange={setJobProfileId}
+              options={profileOptions}
+              placeholder="Select a printer profile…"
             />
           </div>
 

@@ -57,6 +57,13 @@
       "when": 1780339339250,
       "tag": "0007_flowery_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1780342808633,
+      "tag": "0008_keen_human_robot",
+      "breakpoints": true
     }
   ]
 }

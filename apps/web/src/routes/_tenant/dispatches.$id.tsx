@@ -15,7 +15,8 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { requireCompanyMe } from "@/shared/lib/guards";
-import type { PLSnapshot } from "@/shared/lib/packingListPdf";
+import { downloadPackingListPdf, type PLSnapshot } from "@/shared/lib/packingListPdf";
+import { downloadPackingListXlsx } from "@/shared/lib/packingListXlsx";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_tenant/dispatches/$id")({
@@ -32,6 +33,7 @@ type DispatchItemRow = {
   quantity: number;
   weightG: number;
   lengthMm: number;
+  groupLabel: string | null;
   status: string;
 };
 
@@ -556,6 +558,7 @@ function DispatchDetailComponent() {
 function PackingListSection({ dispatchId, lengthUnit }: { dispatchId: string; lengthUnit: "mm" | "inch" }) {
   const queryClient = useQueryClient();
   const [pdfPending, setPdfPending] = useState(false);
+  const [qrPdfPending, setQrPdfPending] = useState(false);
   const [xlsxPending, setXlsxPending] = useState(false);
 
   const { data: pl, isLoading } = useQuery({
@@ -575,7 +578,6 @@ function PackingListSection({ dispatchId, lengthUnit }: { dispatchId: string; le
     if (!pl) return;
     setPdfPending(true);
     try {
-      const { downloadPackingListPdf } = await import("@/shared/lib/packingListPdf");
       await downloadPackingListPdf(pl.snapshot as unknown as PLSnapshot, pl.code, lengthUnit);
     } catch {
       toast.error("PDF generation failed");
@@ -584,11 +586,22 @@ function PackingListSection({ dispatchId, lengthUnit }: { dispatchId: string; le
     }
   }
 
+  async function handleQrPdf() {
+    if (!pl) return;
+    setQrPdfPending(true);
+    try {
+      await downloadPackingListPdf(pl.snapshot as unknown as PLSnapshot, pl.code, lengthUnit, { includeQr: true });
+    } catch {
+      toast.error("QR PDF generation failed");
+    } finally {
+      setQrPdfPending(false);
+    }
+  }
+
   async function handleXlsx() {
     if (!pl) return;
     setXlsxPending(true);
     try {
-      const { downloadPackingListXlsx } = await import("@/shared/lib/packingListXlsx");
       await downloadPackingListXlsx(pl.snapshot as unknown as PLSnapshot, pl.code, lengthUnit);
     } catch {
       toast.error("Excel export failed");
@@ -625,6 +638,9 @@ function PackingListSection({ dispatchId, lengthUnit }: { dispatchId: string; le
           <div className="flex gap-2 flex-wrap">
             <Button size="sm" onClick={handlePdf} disabled={pdfPending} variant="outline">
               {pdfPending ? "Generating…" : "PDF"}
+            </Button>
+            <Button size="sm" onClick={handleQrPdf} disabled={qrPdfPending} variant="outline">
+              {qrPdfPending ? "Generating…" : "QR PDF"}
             </Button>
             <Button size="sm" onClick={handleXlsx} disabled={xlsxPending} variant="outline">
               {xlsxPending ? "Exporting…" : "Excel"}

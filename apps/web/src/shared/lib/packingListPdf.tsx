@@ -4,6 +4,7 @@
  */
 import type { LengthUnit } from "@orrn/server/lib/length";
 import { formatLengthValue } from "@orrn/server/lib/length";
+import QRCode from "qrcode";
 import type { PLSnapshot } from "@orrn/documents/packing-list";
 export type { PLSnapshot } from "@orrn/documents/packing-list";
 import {
@@ -11,6 +12,7 @@ import {
   Font,
   Page,
   StyleSheet,
+  Image,
   Text,
   View,
   pdf,
@@ -67,12 +69,13 @@ const s = StyleSheet.create({
   totalsValue: { fontSize: 11, fontFamily: "Helvetica-Bold" },
   footer: { position: "absolute", bottom: 24, left: 36, right: 36, fontSize: 7, color: "#aaa", textAlign: "center" },
   notesBox: { backgroundColor: "#fafafa", border: "1 solid #e5e7eb", padding: "6 8", borderRadius: 3 },
+  qr: { width: 62, height: 62, marginTop: 6 },
 });
 
 // ---------------------------------------------------------------------------
 // Document component
 // ---------------------------------------------------------------------------
-function PackingListDoc({ pl, code, lengthUnit }: { pl: PLSnapshot; code: string; lengthUnit: LengthUnit }) {
+function PackingListDoc({ pl, code, lengthUnit, qrDataUrl }: { pl: PLSnapshot; code: string; lengthUnit: LengthUnit; qrDataUrl?: string }) {
   const shipDate = pl.dispatch.shipDate
     ? new Date(pl.dispatch.shipDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
     : "—";
@@ -94,6 +97,7 @@ function PackingListDoc({ pl, code, lengthUnit }: { pl: PLSnapshot; code: string
             <Text style={s.plCode}>{code}</Text>
             <Text style={s.plSub}>Dispatch: {pl.dispatch.code}</Text>
             <Text style={s.plSub}>Generated: {genDate}</Text>
+            {qrDataUrl ? <Image src={qrDataUrl} style={s.qr} /> : null}
           </View>
         </View>
 
@@ -175,8 +179,11 @@ function PackingListDoc({ pl, code, lengthUnit }: { pl: PLSnapshot; code: string
 // ---------------------------------------------------------------------------
 // Download helper
 // ---------------------------------------------------------------------------
-export async function downloadPackingListPdf(pl: PLSnapshot, code: string, lengthUnit: LengthUnit = "mm") {
-  const blob = await pdf(<PackingListDoc pl={pl} code={code} lengthUnit={lengthUnit} />).toBlob();
+export async function downloadPackingListPdf(pl: PLSnapshot, code: string, lengthUnit: LengthUnit = "mm", opts: { includeQr?: boolean } = {}) {
+  const qrDataUrl = opts.includeQr
+    ? await QRCode.toDataURL(`${code}:${pl.dispatch.code}:${pl.generatedAt}`, { margin: 1, width: 128 })
+    : undefined;
+  const blob = await pdf(<PackingListDoc pl={pl} code={code} lengthUnit={lengthUnit} qrDataUrl={qrDataUrl} />).toBlob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

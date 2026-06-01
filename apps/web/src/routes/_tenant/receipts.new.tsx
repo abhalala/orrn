@@ -35,7 +35,7 @@ function NewReceiptComponent() {
   const navigate = useNavigate();
   const lu = useLengthUnit();
   const [dieId, setDieId] = useState("");
-  const [unit, setUnit] = useState(lu.unit);
+  const [unit, setUnit] = useState<string>(lu.unit);
   const [purchaseOrderRef, setPurchaseOrderRef] = useState("");
   const [notes, setNotes] = useState("");
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
