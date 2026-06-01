@@ -103,7 +103,7 @@ const db = await D1Database("database", {
 
 
 const LegacySpoolReleasesBucket = Resource(
-  "cloudflare::R2Bucket",
+  "internal::LegacySpoolReleasesState",
   async function legacySpoolReleasesBucket(id: string) {
     if (this.phase === "delete") {
       return this.destroy();
