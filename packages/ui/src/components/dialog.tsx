@@ -1,6 +1,10 @@
+"use client";
+
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Dialog as TgDialog, H4, Paragraph, XStack, YStack } from "@orrn/ui/lib/tg";
+import { cn } from "@orrn/ui/lib/utils";
 
 import { Button } from "./button";
 
@@ -14,9 +18,6 @@ export type DialogProps = {
   maxWidth?: number;
 };
 
-/**
- * Cross-platform modal dialog using Tamagui Dialog primitives.
- */
 export function Dialog({
   open,
   onOpenChange,
@@ -27,63 +28,49 @@ export function Dialog({
   maxWidth = 480,
 }: DialogProps) {
   return (
-    <TgDialog modal open={open} onOpenChange={onOpenChange}>
-      <TgDialog.Portal>
-        <TgDialog.Overlay
-          key="overlay"
-          backgroundColor="rgba(15, 23, 42, 0.65)"
-          animation="quick"
-          opacity={1}
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          data-slot="dialog-overlay"
+          className="fixed inset-0 z-50 bg-black/65 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
         />
-        <TgDialog.Content
-          key="content"
-          backgroundColor="$backgroundStrong"
-          borderRadius={12}
-          padding={20}
-          gap={16}
-          maxWidth={maxWidth}
-          width="90%"
-          borderWidth={1}
-          borderColor="$borderColor"
-          animation="quick"
-          enterStyle={{ opacity: 0, scale: 0.95 }}
-          exitStyle={{ opacity: 0, scale: 0.95 }}
+        <DialogPrimitive.Content
+          data-slot="dialog-content"
+          className={cn(
+            "fixed left-1/2 top-1/2 z-50 grid w-[90%] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-popover p-5 text-popover-foreground shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          )}
+          style={{ maxWidth }}
         >
           {title || description ? (
-            <YStack gap={4}>
+            <div className="flex flex-col gap-1">
               {title ? (
-                <TgDialog.Title asChild>
-                  <H4 fontSize={16} fontWeight="600" margin={0}>
-                    {title}
-                  </H4>
-                </TgDialog.Title>
+                <DialogPrimitive.Title className="m-0 text-base font-semibold">{title}</DialogPrimitive.Title>
               ) : null}
               {description ? (
-                <TgDialog.Description asChild>
-                  <Paragraph fontSize={13} color="$mutedFg" margin={0}>
-                    {description}
-                  </Paragraph>
-                </TgDialog.Description>
+                <DialogPrimitive.Description className="m-0 text-sm text-muted-foreground">
+                  {description}
+                </DialogPrimitive.Description>
               ) : null}
-            </YStack>
+            </div>
           ) : null}
 
           {children}
 
-          {actions ? (
-            <XStack gap={8} justifyContent="flex-end">
-              {actions}
-            </XStack>
-          ) : null}
-        </TgDialog.Content>
-      </TgDialog.Portal>
-    </TgDialog>
+          {actions ? <div className="flex justify-end gap-2">{actions}</div> : null}
+
+          <DialogPrimitive.Close
+            data-slot="dialog-close"
+            className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          >
+            <X className="size-4" />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
-/** Convenience cancel button that closes the dialog. */
 export function DialogCloseButton({
   onPress,
   children = "Cancel",

@@ -94,7 +94,7 @@ export default function StaffSignInForm() {
   });
 
   return (
-    <Card width="100%" maxWidth={420} alignSelf="center">
+    <Card className="w-full max-w-[420px] self-center">
       <CardHeader>
         <CardTitle>{showTwoFactor ? "Verification" : "Staff Sign In"}</CardTitle>
         <CardDescription>

@@ -1,118 +1,80 @@
-import { forwardRef, type MouseEvent, type ReactNode } from "react";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
+import { Loader2 } from "lucide-react";
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
-import { Button as TgButton, Spinner } from "@orrn/ui/lib/tg";
+import { cn } from "@orrn/ui/lib/utils";
 
 /**
- * ORRN Button. Cross-platform Tamagui primitive. Supports the same
- * `variant`/`size` API the old shadcn button used so screen migration is a
- * near find-and-replace.
+ * ORRN Button. Web (shadcn) implementation: Radix Slot + Tailwind classes.
+ * The native variant (`button.native.tsx`) preserves the same prop surface.
  *
- * Web callers can pass `onClick`; we forward it to Tamagui's `onPress`.
+ * `buttonVariants` is exported as a real CVA so anchor-style usages from
+ * pre-migration code still work; callers should prefer wrapping with
+ * `<Button asChild><a /></Button>` going forward.
  */
-export type ButtonVariant = "default" | "outline" | "secondary" | "ghost" | "destructive" | "link";
-export type ButtonSize = "xs" | "sm" | "default" | "lg" | "icon";
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-55 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        outline:
+          "border border-input bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "text-foreground hover:bg-accent hover:text-accent-foreground",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        link: "text-primary underline-offset-4 hover:underline px-0",
+      },
+      size: {
+        xs: "h-7 px-2 text-xs",
+        sm: "h-8 px-3 text-xs",
+        default: "h-9 px-4 text-sm",
+        lg: "h-11 px-6 text-sm",
+        icon: "h-9 w-9 p-0",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  },
+);
 
-const VARIANT_STYLES: Record<ButtonVariant, Record<string, unknown>> = {
-  default: {
-    backgroundColor: "$primary",
-    color: "$primaryFg",
-    borderWidth: 0,
-    hoverStyle: { backgroundColor: "$primaryHover" },
-    pressStyle: { backgroundColor: "$primaryHover" },
-  },
-  outline: {
-    backgroundColor: "transparent",
-    borderColor: "$borderColor",
-    borderWidth: 1,
-    color: "$color",
-    hoverStyle: { backgroundColor: "$backgroundHover" },
-    pressStyle: { backgroundColor: "$backgroundPress" },
-  },
-  secondary: {
-    backgroundColor: "$muted",
-    color: "$color",
-    borderWidth: 0,
-    hoverStyle: { backgroundColor: "$backgroundHover" },
-  },
-  ghost: {
-    backgroundColor: "transparent",
-    color: "$color",
-    borderWidth: 0,
-    hoverStyle: { backgroundColor: "$backgroundHover" },
-    pressStyle: { backgroundColor: "$backgroundPress" },
-  },
-  destructive: {
-    backgroundColor: "#ef4444",
-    color: "#ffffff",
-    borderWidth: 0,
-    hoverStyle: { backgroundColor: "#dc2626" },
-    pressStyle: { backgroundColor: "#dc2626" },
-  },
-  link: {
-    backgroundColor: "transparent",
-    color: "$primary",
-    borderWidth: 0,
-    paddingHorizontal: 0,
-    hoverStyle: { backgroundColor: "transparent" },
-  },
-};
+export type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>;
+export type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>["size"]>;
 
-const SIZE_STYLES: Record<ButtonSize, Record<string, unknown>> = {
-  xs: { height: 26, paddingHorizontal: 8, fontSize: 11 },
-  sm: { height: 30, paddingHorizontal: 10, fontSize: 12 },
-  default: { height: 36, paddingHorizontal: 14, fontSize: 13 },
-  lg: { height: 44, paddingHorizontal: 18, fontSize: 14 },
-  icon: { height: 36, width: 36, paddingHorizontal: 0 },
-};
+export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onChange"> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean;
+    loading?: boolean;
+    /** Native parity — forwarded to web `onClick` so screens written for RN keep working. */
+    onPress?: (e: any) => void;
+    children?: ReactNode;
+  };
 
-export type ButtonProps = {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
-  loading?: boolean;
-  disabled?: boolean;
-  onPress?: (e: any) => void;
-  /** Web compat — forwarded to Tamagui `onPress`. */
-  onClick?: (e: MouseEvent<HTMLElement>) => void;
-  className?: string;
-  children?: ReactNode;
-  [key: string]: any;
-};
-
-export const Button = forwardRef<unknown, ButtonProps>(function Button(
-  { variant: variantInput, size: sizeInput, loading, onClick, onPress, disabled, children, ...rest },
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { className, variant, size, asChild, loading, disabled, onPress, onClick, children, type, ...rest },
   ref,
 ) {
-  const variant: ButtonVariant = (variantInput as ButtonVariant) ?? "default";
-  const size: ButtonSize = (sizeInput as ButtonSize) ?? "default";
-  const variantStyle = VARIANT_STYLES[variant];
-  const sizeStyle = SIZE_STYLES[size];
+  const Comp = asChild ? Slot : "button";
   return (
-    <TgButton
+    <Comp
       ref={ref as any}
-      borderRadius={8}
-      fontWeight="500"
-      animation="quick"
-      cursor="pointer"
+      type={asChild ? undefined : (type ?? "button")}
+      data-slot="button"
+      className={cn(buttonVariants({ variant, size }), className)}
       disabled={disabled || loading}
-      opacity={disabled || loading ? 0.55 : 1}
-      onPress={(e: any) => {
+      onClick={(e: any) => {
         onPress?.(e);
-        onClick?.(e as unknown as MouseEvent<HTMLElement>);
+        onClick?.(e);
       }}
-      {...variantStyle}
-      {...sizeStyle}
       {...rest}
     >
-      {loading ? <Spinner size="small" color="$color" /> : null}
+      {loading ? <Loader2 className="size-4 animate-spin" /> : null}
       {children}
-    </TgButton>
+    </Comp>
   );
 });
 
-/**
- * Backwards-compat export: callers used `buttonVariants({ variant, size })` to
- * apply Tailwind classes to non-button elements (e.g. <Link>). We now return
- * an empty string so the call still works without breaking anchor-styling
- * during migration; new code should just use <Button> instead.
- */
-export const buttonVariants = (_opts?: { variant?: ButtonVariant; size?: ButtonSize }) => "";
+export { buttonVariants };

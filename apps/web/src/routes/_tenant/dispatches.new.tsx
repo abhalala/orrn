@@ -71,7 +71,7 @@ function NewDispatchComponent() {
               onValueChange={setCustomerId}
               options={customerOptions}
               placeholder="Select a customer…"
-              width="100%"
+              className="w-full"
             />
           </div>
 

@@ -114,7 +114,7 @@ function DiesListComponent() {
           placeholder="Search by name, series, section…"
           value={search}
           onChangeText={setSearch}
-          maxWidth={360}
+          className="max-w-[360px]"
         />
       </Toolbar>
 

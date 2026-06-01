@@ -1,6 +1,4 @@
-export * from "tamagui";
 export { OrrnUiProvider } from "./provider";
-export { default as tamaguiConfig, type OrrnTamaguiConfig } from "./tamagui.config";
 export {
   ActionMenu,
   AppFrame,

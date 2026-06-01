@@ -1,10 +1,10 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Drawer } from "expo-router/drawer";
-import { useThemeColor } from "heroui-native";
 import React, { useCallback } from "react";
 import { Text } from "react-native";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useThemeColor } from "@/lib/theme";
 import { canAny, useMe } from "@/utils/me";
 
 function DrawerLayout() {

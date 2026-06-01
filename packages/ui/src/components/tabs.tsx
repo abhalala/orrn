@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { XStack, YStack } from "@orrn/ui/lib/tg";
+import { cn } from "@orrn/ui/lib/utils";
 
 import { Button } from "./button";
 
@@ -13,16 +13,18 @@ export type TabsProps = {
   items: TabItem[];
   value: string;
   onValueChange: (value: string) => void;
+  className?: string;
   children?: ReactNode;
 };
 
 /**
- * Lightweight tabs as a strip of pill buttons.
+ * Pill-style tab strip. Keeps the simple `items`/`value`/`onValueChange`
+ * shape from the Tamagui implementation so consumers don't have to change.
  */
-export function Tabs({ items, value, onValueChange, children }: TabsProps) {
+export function Tabs({ items, value, onValueChange, className, children }: TabsProps) {
   return (
-    <YStack gap={12}>
-      <XStack gap={4} flexWrap="wrap">
+    <div className={cn("flex flex-col gap-3", className)}>
+      <div className="flex flex-wrap gap-1">
         {items.map((it) => (
           <Button
             key={it.id}
@@ -33,8 +35,8 @@ export function Tabs({ items, value, onValueChange, children }: TabsProps) {
             {it.label}
           </Button>
         ))}
-      </XStack>
+      </div>
       {children}
-    </YStack>
+    </div>
   );
 }

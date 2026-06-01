@@ -1,62 +1,56 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 
-import { Stack, Text, XStack, YStack } from "@orrn/ui/lib/tg";
+import { cn } from "@orrn/ui/lib/utils";
 
-/**
- * Plain primitives for hand-rolled table layouts where DataTable is too
- * structured. Render as Tamagui Stacks so they work on web + native.
- */
+type StackBag = HTMLAttributes<HTMLDivElement> & { children?: ReactNode };
 
-type StackBag = Record<string, any> & { children?: ReactNode };
-
-export function Table({ children, ...rest }: StackBag) {
+export function Table({ children, className, ...rest }: StackBag) {
   return (
-    <YStack
-      borderWidth={1}
-      borderColor="$borderColor"
-      borderRadius={12}
-      overflow="hidden"
-      backgroundColor="$backgroundStrong"
+    <div
+      className={cn(
+        "flex flex-col overflow-hidden rounded-xl border border-border bg-card",
+        className,
+      )}
       {...rest}
     >
       {children}
-    </YStack>
+    </div>
   );
 }
 
-export function TableHeader({ children, ...rest }: StackBag) {
+export function TableHeader({ children, className, ...rest }: StackBag) {
   return (
-    <XStack
-      backgroundColor="$muted"
-      paddingHorizontal={12}
-      paddingVertical={10}
-      borderBottomWidth={1}
-      borderBottomColor="$borderColor"
-      gap={8}
+    <div
+      className={cn(
+        "flex flex-row items-center gap-2 border-b border-border bg-muted px-3 py-2.5",
+        className,
+      )}
       {...rest}
     >
       {children}
-    </XStack>
+    </div>
   );
 }
 
-export function TableBody({ children, ...rest }: StackBag) {
-  return <YStack {...rest}>{children}</YStack>;
+export function TableBody({ children, className, ...rest }: StackBag) {
+  return (
+    <div className={cn("flex flex-col", className)} {...rest}>
+      {children}
+    </div>
+  );
 }
 
-export function TableRow({ children, ...rest }: StackBag) {
+export function TableRow({ children, className, ...rest }: StackBag) {
   return (
-    <XStack
-      paddingHorizontal={12}
-      paddingVertical={12}
-      borderBottomWidth={1}
-      borderBottomColor="$borderColor"
-      gap={8}
-      hoverStyle={{ backgroundColor: "$backgroundHover" }}
+    <div
+      className={cn(
+        "flex flex-row items-stretch gap-2 border-b border-border px-3 py-3 hover:bg-accent/30 last:border-b-0",
+        className,
+      )}
       {...rest}
     >
       {children}
-    </XStack>
+    </div>
   );
 }
 
@@ -64,18 +58,22 @@ export function TableHead({
   children,
   flex = 1,
   align = "left",
+  className,
+  style,
   ...rest
 }: StackBag & { flex?: number; align?: "left" | "right" | "center" }) {
+  const justify =
+    align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start";
   return (
-    <Stack
-      flex={flex}
-      alignItems={align === "right" ? "flex-end" : align === "center" ? "center" : "flex-start"}
+    <div
+      className={cn("flex items-center", justify, className)}
+      style={{ flex, ...style }}
       {...rest}
     >
-      <Text fontSize={11} fontWeight="600" color="$mutedFg" textTransform="uppercase">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {children}
-      </Text>
-    </Stack>
+      </span>
+    </div>
   );
 }
 
@@ -83,22 +81,23 @@ export function TableCell({
   children,
   flex = 1,
   align = "left",
+  className,
+  style,
   ...rest
 }: StackBag & { flex?: number; align?: "left" | "right" | "center" }) {
+  const justify =
+    align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start";
   return (
-    <Stack
-      flex={flex}
-      alignItems={align === "right" ? "flex-end" : align === "center" ? "center" : "flex-start"}
-      justifyContent="center"
+    <div
+      className={cn("flex items-center", justify, className)}
+      style={{ flex, ...style }}
       {...rest}
     >
       {typeof children === "string" || typeof children === "number" ? (
-        <Text fontSize={13} color="$color">
-          {children}
-        </Text>
+        <span className="text-sm text-foreground">{children}</span>
       ) : (
         children
       )}
-    </Stack>
+    </div>
   );
 }

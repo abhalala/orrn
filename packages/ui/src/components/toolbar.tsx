@@ -1,29 +1,19 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 
-import { XStack, YStack } from "@orrn/ui/lib/tg";
+import { cn } from "@orrn/ui/lib/utils";
 
-export type ToolbarProps = Record<string, any> & {
+export type ToolbarProps = HTMLAttributes<HTMLDivElement> & {
   children?: ReactNode;
   actions?: ReactNode;
 };
 
-/**
- * Horizontal toolbar used at the top of list screens (search + filters on the
- * left, action buttons on the right). Wraps gracefully on narrow viewports.
- */
-export function Toolbar({ children, actions, ...rest }: ToolbarProps) {
+export function Toolbar({ children, actions, className, ...rest }: ToolbarProps) {
   return (
-    <YStack gap={12}>
-      <XStack alignItems="center" gap={12} flexWrap="wrap" {...rest}>
-        <XStack alignItems="center" gap={8} flexWrap="wrap" flex={1} minWidth={200}>
-          {children}
-        </XStack>
-        {actions ? (
-          <XStack alignItems="center" gap={8} flexWrap="wrap">
-            {actions}
-          </XStack>
-        ) : null}
-      </XStack>
-    </YStack>
+    <div className={cn("flex flex-col gap-3", className)}>
+      <div className="flex flex-wrap items-center gap-3" {...rest}>
+        <div className="flex min-w-[200px] flex-1 flex-wrap items-center gap-2">{children}</div>
+        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      </div>
+    </div>
   );
 }

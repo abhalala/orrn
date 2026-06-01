@@ -3,8 +3,9 @@ import { Stack, Link } from "expo-router";
 import { useState } from "react";
 import { FlatList, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useThemeColor } from "heroui-native";
 import { StatusBadge } from "@orrn/ui/components/badge";
+
+import { useThemeColor } from "@/lib/theme";
 
 import {
   ErpCardPressable,

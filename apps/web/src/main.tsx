@@ -6,8 +6,6 @@ import Loader from "@/shared/components/loader";
 import { routeTree } from "./routeTree.gen";
 import { queryClient, trpc } from "@/shared/utils/trpc";
 
-import "./tamagui.generated.css";
-
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",

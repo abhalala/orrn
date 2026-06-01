@@ -1,11 +1,8 @@
 /**
- * Native toaster placeholder. We intentionally don't pull in Burnt yet — the
- * native screens currently use `Alert.alert` for feedback. When we want a
- * proper toast experience we can swap this for a Tamagui Toast or Burnt
- * adapter without touching call sites that import from this module.
+ * Native toaster placeholder. The native screens currently surface feedback
+ * via `Alert.alert`; this component is kept as a no-op import target so
+ * cross-platform code that imports it still resolves cleanly.
  */
-import { Stack } from "@orrn/ui/lib/tg";
-
 export function ToasterNative() {
-  return <Stack />;
+  return null;
 }

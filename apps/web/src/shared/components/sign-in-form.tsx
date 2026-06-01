@@ -107,8 +107,8 @@ export default function SignInForm({
 
   return (
     <div className="orrn-auth-card w-full max-w-[420px]">
-      <Card width="100%" alignSelf="center">
-      <CardHeader width="100%">
+      <Card className="w-full self-center">
+      <CardHeader className="w-full">
         <CardTitle>{showTwoFactor ? "Verification" : target === "staff" ? "Staff Sign In" : "Sign In"}</CardTitle>
         <CardDescription>
           {showTwoFactor
@@ -118,7 +118,7 @@ export default function SignInForm({
               : "Access your ORRN workspace."}
         </CardDescription>
       </CardHeader>
-      <CardContent width="100%">
+      <CardContent className="w-full">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -143,7 +143,7 @@ export default function SignInForm({
                       type="email"
                       placeholder="name@company.com"
                       autoComplete="email"
-                      width="100%"
+                      className="w-full"
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
@@ -167,7 +167,7 @@ export default function SignInForm({
                       type="password"
                       placeholder="Password"
                       autoComplete="current-password"
-                      width="100%"
+                      className="w-full"
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
@@ -183,7 +183,7 @@ export default function SignInForm({
 
               <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
                 {({ canSubmit, isSubmitting }) => (
-                  <Button type="submit" width="100%" disabled={!canSubmit || isSubmitting}>
+                  <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
                     {isSubmitting ? "Signing in…" : "Sign In"}
                   </Button>
                 )}
@@ -198,20 +198,19 @@ export default function SignInForm({
                   inputMode="numeric"
                   placeholder="123456"
                   maxLength={6}
-                  width="100%"
                   value={totpCode}
                   onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                  className="text-center font-mono text-xl tracking-[0.25em]"
+                  className="w-full text-center font-mono text-xl tracking-[0.25em]"
                   required
                 />
               </div>
-              <Button type="submit" width="100%" disabled={isVerifyingTotp || totpCode.length !== 6}>
+              <Button type="submit" className="w-full" disabled={isVerifyingTotp || totpCode.length !== 6}>
                 {isVerifyingTotp ? "Verifying…" : "Verify & Sign In"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                width="100%"
+                className="w-full"
                 onClick={() => {
                   setShowTwoFactor(false);
                   setTotpCode("");

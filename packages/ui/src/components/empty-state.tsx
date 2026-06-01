@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 
-import { H4, Paragraph, XStack, YStack } from "@orrn/ui/lib/tg";
-
 export type EmptyStateProps = {
   title: ReactNode;
   description?: ReactNode;
@@ -9,33 +7,15 @@ export type EmptyStateProps = {
   icon?: ReactNode;
 };
 
-/**
- * Cross-platform empty placeholder used in lists/tables when there's nothing
- * to show.
- */
 export function EmptyState({ title, description, actions, icon }: EmptyStateProps) {
   return (
-    <YStack
-      alignItems="center"
-      justifyContent="center"
-      gap={12}
-      paddingVertical={32}
-      paddingHorizontal={20}
-    >
-      {icon ? <YStack opacity={0.6}>{icon}</YStack> : null}
-      <H4 fontSize={16} fontWeight="600" textAlign="center" margin={0}>
-        {title}
-      </H4>
+    <div className="flex flex-col items-center justify-center gap-3 px-5 py-8">
+      {icon ? <div className="opacity-60">{icon}</div> : null}
+      <h4 className="m-0 text-center text-base font-semibold">{title}</h4>
       {description ? (
-        <Paragraph fontSize={13} color="$mutedFg" textAlign="center" margin={0} maxWidth={420}>
-          {description}
-        </Paragraph>
+        <p className="m-0 max-w-[420px] text-center text-sm text-muted-foreground">{description}</p>
       ) : null}
-      {actions ? (
-        <XStack gap={8} flexWrap="wrap" justifyContent="center">
-          {actions}
-        </XStack>
-      ) : null}
-    </YStack>
+      {actions ? <div className="flex flex-wrap justify-center gap-2">{actions}</div> : null}
+    </div>
   );
 }

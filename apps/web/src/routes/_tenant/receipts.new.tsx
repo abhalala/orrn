@@ -169,8 +169,7 @@ function NewReceiptComponent() {
         flex: 1,
         cell: (row) => (
           <Input
-            width="100%"
-            minWidth={0}
+            className="w-full min-w-0"
             type="number"
             min={1}
             value={row.quantity}
@@ -184,8 +183,7 @@ function NewReceiptComponent() {
         flex: 1,
         cell: (row) => (
           <Input
-            width="100%"
-            minWidth={0}
+            className="w-full min-w-0"
             type="number"
             min={0}
             value={row.weightG}
@@ -199,8 +197,7 @@ function NewReceiptComponent() {
         flex: 1,
         cell: (row) => (
           <Input
-            width="100%"
-            minWidth={0}
+            className="w-full min-w-0"
             type="number"
             min={0}
             value={row.lengthMm}
@@ -261,7 +258,7 @@ function NewReceiptComponent() {
             <Label htmlFor="unit">Unit *</Label>
             <Input
               id="unit"
-              width="100%"
+              className="w-full"
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
               placeholder="pcs, kg, m…"
@@ -271,7 +268,7 @@ function NewReceiptComponent() {
             <Label htmlFor="po">PO reference</Label>
             <Input
               id="po"
-              width="100%"
+              className="w-full"
               value={purchaseOrderRef}
               onChange={(e) => setPurchaseOrderRef(e.target.value)}
               placeholder="Optional"
@@ -281,7 +278,7 @@ function NewReceiptComponent() {
             <Label htmlFor="notes">Notes</Label>
             <Input
               id="notes"
-              width="100%"
+              className="w-full"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Optional"
@@ -334,7 +331,7 @@ function NewReceiptComponent() {
                     <Label htmlFor={`${row.id}-quantity`}>Quantity *</Label>
                     <Input
                       id={`${row.id}-quantity`}
-                      width="100%"
+                      className="w-full"
                       inputMode="numeric"
                       type="number"
                       min={1}
@@ -346,7 +343,7 @@ function NewReceiptComponent() {
                     <Label htmlFor={`${row.id}-weight`}>Weight (g) *</Label>
                     <Input
                       id={`${row.id}-weight`}
-                      width="100%"
+                      className="w-full"
                       inputMode="numeric"
                       type="number"
                       min={0}
@@ -358,7 +355,7 @@ function NewReceiptComponent() {
                     <Label htmlFor={`${row.id}-length`}>Length ({lu.label}) *</Label>
                     <Input
                       id={`${row.id}-length`}
-                      width="100%"
+                      className="w-full"
                       inputMode="decimal"
                       type="number"
                       min={0}

@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 
-import { H1, Paragraph, XStack, YStack } from "@orrn/ui/lib/tg";
-
 import { PageActions } from "./app-frame";
 
 export type PageHeaderProps = {
@@ -11,42 +9,25 @@ export type PageHeaderProps = {
   eyebrow?: ReactNode;
 };
 
-/**
- * Standard ORRN page header: eyebrow + title + description on the left,
- * actions slot on the right.
- */
 export function PageHeader({ title, description, actions, eyebrow }: PageHeaderProps) {
   return (
-    <XStack alignItems="flex-start" justifyContent="space-between" gap={12} flexWrap="wrap">
-      <YStack gap={4} flex={1} minWidth={0}>
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         {eyebrow ? (
-          <Paragraph
-            fontSize={11}
-            color="$mutedFg"
-            textTransform="uppercase"
-            letterSpacing={0.6}
-            margin={0}
-          >
+          <p className="m-0 text-[11px] uppercase tracking-wider text-muted-foreground">
             {eyebrow}
-          </Paragraph>
+          </p>
         ) : null}
-        <H1
-          className="orrn-page-title"
-          fontSize={24}
-          fontWeight="650"
-          color="$color"
-          margin={0}
-          lineHeight={30}
-        >
+        <h1 className="orrn-page-title m-0 text-2xl font-semibold leading-tight text-foreground">
           {title}
-        </H1>
+        </h1>
         {description ? (
-          <Paragraph className="orrn-page-description" fontSize={13} color="$mutedFg" margin={0} maxWidth={680}>
+          <p className="orrn-page-description m-0 max-w-[680px] text-sm text-muted-foreground">
             {description}
-          </Paragraph>
+          </p>
         ) : null}
-      </YStack>
+      </div>
       {actions ? <PageActions>{actions}</PageActions> : null}
-    </XStack>
+    </div>
   );
 }

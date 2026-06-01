@@ -136,7 +136,7 @@ function BundlesListComponent() {
           placeholder="Search by serial…"
           value={serialSearch}
           onChangeText={setSerialSearch}
-          maxWidth={320}
+          className="max-w-80"
         />
         <Tabs
           value={status}

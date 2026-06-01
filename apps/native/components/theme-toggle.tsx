@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { cssInterop } from "nativewind";
 import { Platform, Pressable } from "react-native";
 import Animated, { FadeOut, ZoomIn } from "react-native-reanimated";
-import { withUniwind } from "uniwind";
 
 import { useAppTheme } from "@/contexts/app-theme-context";
 
-const StyledIonicons = withUniwind(Ionicons);
+const StyledIonicons = cssInterop(Ionicons, {
+  className: { target: "style", nativeStyleToProp: { color: true } },
+});
 
 export function ThemeToggle() {
   const { toggleTheme, isLight } = useAppTheme();

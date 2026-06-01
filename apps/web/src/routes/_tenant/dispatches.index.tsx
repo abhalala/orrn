@@ -109,7 +109,7 @@ function DispatchesListComponent() {
           placeholder="Search by code or notes…"
           value={query}
           onChangeText={setQuery}
-          maxWidth={320}
+          className="max-w-80"
         />
         <Tabs
           value={status}

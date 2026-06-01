@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { H1, Paragraph, Stack, Text, XStack, YStack } from "@orrn/ui/lib/tg";
+import { cn } from "@orrn/ui/lib/utils";
 
 import { Button } from "./button";
 
@@ -23,32 +23,14 @@ export type AppStatusBarProps = {
 
 export function AppStatusBar({ brand, context, actions, navToggle }: AppStatusBarProps) {
   return (
-    <XStack
-      className="orrn-status-bar"
-      alignItems="center"
-      justifyContent="space-between"
-      gap={12}
-      minHeight={56}
-      paddingHorizontal={16}
-      borderBottomWidth={1}
-      borderBottomColor="$borderColor"
-      backgroundColor="$backgroundStrong"
-    >
-      <XStack alignItems="center" gap={10} minWidth={0} flex={1}>
+    <div className="orrn-status-bar flex min-h-14 items-center justify-between gap-3 border-b border-border bg-card px-4">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
         {navToggle}
         {brand}
-        {context ? (
-          <XStack alignItems="center" gap={8} minWidth={0} flex={1}>
-            {context}
-          </XStack>
-        ) : null}
-      </XStack>
-      {actions ? (
-        <XStack alignItems="center" gap={8} flexShrink={0}>
-          {actions}
-        </XStack>
-      ) : null}
-    </XStack>
+        {context ? <div className="flex min-w-0 flex-1 items-center gap-2">{context}</div> : null}
+      </div>
+      {actions ? <div className="flex flex-shrink-0 items-center gap-2">{actions}</div> : null}
+    </div>
   );
 }
 
@@ -70,31 +52,30 @@ export function AppFrame({
   maxWidth = 1180,
 }: AppFrameProps) {
   return (
-    <YStack height="100svh" width="100%" maxWidth="100vw" overflow="hidden" backgroundColor="$background">
+    <div
+      className="flex w-full max-w-screen flex-col overflow-hidden bg-background"
+      style={{ height: "100svh" }}
+    >
       {banner}
-      <XStack flex={1} minHeight={0} width="100%" overflow="hidden">
-        {sidebar ? <Stack className="orrn-desktop-nav" height="100%">{sidebar}</Stack> : null}
-        <YStack flex={1} minWidth={0} maxWidth="100%">
+      <div className="flex w-full flex-1 overflow-hidden min-h-0">
+        {sidebar ? <div className="orrn-desktop-nav h-full">{sidebar}</div> : null}
+        <div className="flex min-w-0 max-w-full flex-1 flex-col">
           {statusBar}
-          <Stack className="orrn-page-scroll" flex={1} width="100%" minWidth={0} overflow="auto">
-            <YStack
-              className="orrn-app-content"
-              width="100%"
-              minWidth={0}
-              maxWidth={maxWidth}
-              alignSelf="center"
-              paddingHorizontal={16}
-              paddingVertical={20}
-              paddingBottom={mobileNav ? 84 : 24}
-              gap={16}
+          <div className="orrn-page-scroll min-w-0 flex-1 overflow-auto w-full">
+            <div
+              className="orrn-app-content mx-auto flex w-full min-w-0 flex-col gap-4 px-4 py-5"
+              style={{
+                maxWidth,
+                paddingBottom: mobileNav ? 84 : 24,
+              }}
             >
               {children}
-            </YStack>
-          </Stack>
+            </div>
+          </div>
           {mobileNav}
-        </YStack>
-      </XStack>
-    </YStack>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -114,54 +95,31 @@ export function PageScaffold({
   children,
 }: PageScaffoldProps) {
   return (
-    <YStack gap={16} minWidth={0}>
-      <XStack alignItems="flex-start" justifyContent="space-between" gap={12} flexWrap="wrap">
-        <YStack gap={4} minWidth={0} flex={1}>
+    <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           {eyebrow ? (
-            <Paragraph
-              margin={0}
-              color="$mutedFg"
-              fontSize={11}
-              textTransform="uppercase"
-              letterSpacing={0.6}
-            >
-              {eyebrow}
-            </Paragraph>
+            <p className="m-0 text-[11px] uppercase tracking-wider text-muted-foreground">{eyebrow}</p>
           ) : null}
-          <H1
-            className="orrn-page-title"
-            margin={0}
-            fontSize={24}
-            lineHeight={30}
-            fontWeight="650"
-            color="$color"
-          >
+          <h1 className="orrn-page-title m-0 text-2xl font-semibold leading-tight text-foreground">
             {title}
-          </H1>
+          </h1>
           {description ? (
-            <Paragraph
-              className="orrn-page-description"
-              margin={0}
-              color="$mutedFg"
-              fontSize={13}
-              maxWidth={680}
-            >
+            <p className="orrn-page-description m-0 max-w-[680px] text-sm text-muted-foreground">
               {description}
-            </Paragraph>
+            </p>
           ) : null}
-        </YStack>
+        </div>
         {actions ? <PageActions>{actions}</PageActions> : null}
-      </XStack>
+      </div>
       {children}
-    </YStack>
+    </div>
   );
 }
 
 export function PageActions({ children }: { children: ReactNode }) {
   return (
-    <XStack alignItems="center" justifyContent="flex-end" gap={8} flexWrap="wrap">
-      {children}
-    </XStack>
+    <div className="flex flex-wrap items-center justify-end gap-2">{children}</div>
   );
 }
 
@@ -170,48 +128,32 @@ export function MobileNav({ items }: { items: readonly AppFrameNavItem[] }) {
   if (visible.length === 0) return null;
 
   return (
-    <XStack
-      display="none"
-      className="orrn-mobile-nav"
-      alignItems="stretch"
-      justifyContent="flex-start"
-      gap={4}
-      paddingHorizontal={8}
-      paddingTop={8}
-      paddingBottom={10}
-      borderTopWidth={1}
-      borderTopColor="$borderColor"
-      backgroundColor="$backgroundStrong"
-      overflowX="auto"
-      flexShrink={0}
-      zIndex={20}
+    <div
+      className="orrn-mobile-nav hidden flex-shrink-0 items-stretch gap-1 overflow-x-auto border-t border-border bg-card px-2 pb-2.5 pt-2"
+      style={{ zIndex: 20 }}
     >
       {visible.map((item) => {
         const content = (
-          <YStack
-            className="orrn-mobile-nav-item"
+          <div
             key={item.key}
-            alignItems="center"
-            justifyContent="center"
-            gap={2}
-            minWidth={52}
-            paddingHorizontal={6}
-            paddingVertical={6}
-            borderRadius={8}
-            backgroundColor={item.active ? "$backgroundHover" : "transparent"}
-            onPress={item.onPress}
-            cursor={item.onPress ? "pointer" : undefined}
+            onClick={item.onPress}
+            className={cn(
+              "orrn-mobile-nav-item flex min-w-[52px] cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md px-1.5 py-1.5",
+              item.active ? "bg-accent" : "",
+            )}
           >
-            {item.icon ? <Text color={item.active ? "$primary" : "$mutedFg"}>{item.icon}</Text> : null}
-            <Text
-              fontSize={10}
-              fontWeight={item.active ? "600" : "500"}
-              color={item.active ? "$color" : "$mutedFg"}
-              numberOfLines={1}
+            {item.icon ? (
+              <span className={cn(item.active ? "text-primary" : "text-muted-foreground")}>{item.icon}</span>
+            ) : null}
+            <span
+              className={cn(
+                "text-[10px]",
+                item.active ? "font-semibold text-foreground" : "font-medium text-muted-foreground",
+              )}
             >
               {item.label}
-            </Text>
-          </YStack>
+            </span>
+          </div>
         );
         if (!item.href) return content;
         return (
@@ -220,16 +162,12 @@ export function MobileNav({ items }: { items: readonly AppFrameNavItem[] }) {
           </a>
         );
       })}
-    </XStack>
+    </div>
   );
 }
 
 export function ActionMenu({ children }: { children: ReactNode }) {
-  return (
-    <XStack alignItems="center" gap={8} flexWrap="wrap">
-      {children}
-    </XStack>
-  );
+  return <div className="flex flex-wrap items-center gap-2">{children}</div>;
 }
 
 export function ConfirmAction({

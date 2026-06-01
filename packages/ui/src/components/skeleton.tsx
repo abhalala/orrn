@@ -1,18 +1,14 @@
-import { Stack } from "@orrn/ui/lib/tg";
+import type { HTMLAttributes } from "react";
 
-export type SkeletonProps = Record<string, any>;
+import { cn } from "@orrn/ui/lib/utils";
 
-/**
- * Tamagui-based shimmer placeholder.
- */
-export function Skeleton(props: SkeletonProps) {
+export type SkeletonProps = HTMLAttributes<HTMLDivElement>;
+
+export function Skeleton({ className, ...props }: SkeletonProps) {
   return (
-    <Stack
-      backgroundColor="$muted"
-      borderRadius={6}
-      opacity={0.8}
-      animation="lazy"
-      enterStyle={{ opacity: 0.6 }}
+    <div
+      data-slot="skeleton"
+      className={cn("animate-pulse rounded-md bg-muted", className)}
       {...props}
     />
   );

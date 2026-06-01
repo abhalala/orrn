@@ -1,4 +1,4 @@
-import { cn } from "heroui-native";
+import { cn } from "@orrn/ui/lib/utils";
 import { type PropsWithChildren } from "react";
 import { ScrollView, View, type ScrollViewProps, type ViewProps } from "react-native";
 import Animated, { type AnimatedProps } from "react-native-reanimated";

@@ -1,11 +1,10 @@
 /**
  * ORRN brand + status tokens. Single source of truth for colors across web
- * (Tamagui, Tailwind utility classes, raw CSS) and native (Tamagui, RN
- * StyleSheet).
+ * (Tailwind / shadcn) and native (NativeWind + RN StyleSheet).
  *
- * Keep raw hex values here. Tamagui themes (tamagui.config.ts) and Tailwind
- * @theme blocks (packages/ui/src/styles/globals.css) both pull from this file
- * so colors only ever live in one place.
+ * Keep raw hex values here. Tailwind @theme blocks in
+ * `packages/ui/src/styles/globals.css` (web) and `apps/native/global.css`
+ * (native) pull from this file so colors only ever live in one place.
  */
 
 export const brand = {

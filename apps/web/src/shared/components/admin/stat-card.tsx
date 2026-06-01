@@ -55,7 +55,7 @@ export function StatCard({
             {label}
           </p>
           {isLoading ? (
-            <Skeleton height={28} width={64} />
+            <Skeleton className="h-7 w-16" />
           ) : (
             <p className="text-2xl font-semibold text-foreground tabular-nums">{value}</p>
           )}

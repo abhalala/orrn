@@ -1,16 +1,7 @@
-import type { ReactNode } from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { Paragraph, Stack, Text, XStack, YStack } from "@orrn/ui/lib/tg";
+import { cn } from "@orrn/ui/lib/utils";
 
-/**
- * SaaS-style left navigation sidebar. Collapse state is persisted in
- * localStorage under a versioned key so callers can bump the version when the
- * layout meaningfully changes.
- *
- * Designed to be web-first (uses window.localStorage); native uses a Drawer
- * instead.
- */
 export type SidebarProps = {
   brand: ReactNode;
   children: ReactNode;
@@ -51,50 +42,32 @@ export function Sidebar({ brand, children, storageKey = "orrn:sidebar:v1", foote
 
   return (
     <SidebarContext.Provider value={{ collapsed, toggle: () => setCollapsed((v) => !v) }}>
-      <YStack
-        width={collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH}
-        height="100%"
-        backgroundColor="$backgroundStrong"
-        borderRightWidth={1}
-        borderRightColor="$borderColor"
-        paddingVertical={16}
-        gap={16}
+      <aside
+        style={{ width: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH }}
+        className="flex h-full flex-col gap-4 border-r border-border bg-card py-4"
       >
-        <XStack
-          alignItems="center"
-          justifyContent="space-between"
-          paddingHorizontal={collapsed ? 12 : 16}
-          gap={8}
+        <div
+          className={cn(
+            "flex items-center justify-between gap-2",
+            collapsed ? "px-3" : "px-4",
+          )}
         >
           {brand}
-        </XStack>
-        <YStack flex={1} paddingHorizontal={8} gap={4} overflow="scroll">
-          {children}
-        </YStack>
+        </div>
+        <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2">{children}</div>
         {footer ? (
-          <YStack paddingHorizontal={collapsed ? 8 : 12} gap={8}>
-            {footer}
-          </YStack>
+          <div className={cn("flex flex-col gap-2", collapsed ? "px-2" : "px-3")}>{footer}</div>
         ) : null}
-        <XStack
-          paddingHorizontal={collapsed ? 8 : 12}
-          alignItems="center"
-          justifyContent="flex-end"
-        >
-          <Stack
-            cursor="pointer"
-            onPress={() => setCollapsed((v) => !v)}
-            paddingHorizontal={8}
-            paddingVertical={6}
-            borderRadius={6}
-            hoverStyle={{ backgroundColor: "$backgroundHover" }}
+        <div className={cn("flex items-center justify-end", collapsed ? "px-2" : "px-3")}>
+          <button
+            type="button"
+            onClick={() => setCollapsed((v) => !v)}
+            className="rounded-md px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-accent"
           >
-            <Text fontSize={11} color="$mutedFg">
-              {collapsed ? "›" : "‹ Collapse"}
-            </Text>
-          </Stack>
-        </XStack>
-      </YStack>
+            {collapsed ? "›" : "‹ Collapse"}
+          </button>
+        </div>
+      </aside>
     </SidebarContext.Provider>
   );
 }
@@ -107,22 +80,14 @@ export type SidebarSectionProps = {
 export function SidebarSection({ label, children }: SidebarSectionProps) {
   const { collapsed } = useSidebar();
   return (
-    <YStack gap={2}>
+    <div className="flex flex-col gap-0.5">
       {label && !collapsed ? (
-        <Paragraph
-          fontSize={10}
-          color="$mutedFg"
-          textTransform="uppercase"
-          letterSpacing={0.8}
-          paddingHorizontal={10}
-          paddingVertical={6}
-          margin={0}
-        >
+        <p className="m-0 px-2.5 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
           {label}
-        </Paragraph>
+        </p>
       ) : null}
-      <YStack gap={2}>{children}</YStack>
-    </YStack>
+      <div className="flex flex-col gap-0.5">{children}</div>
+    </div>
   );
 }
 
@@ -137,35 +102,24 @@ export type SidebarItemProps = {
 export function SidebarItem({ active, icon, children, onPress, testID }: SidebarItemProps) {
   const { collapsed } = useSidebar();
   return (
-    <XStack
-      testID={testID}
-      onPress={onPress}
-      cursor={onPress ? "pointer" : undefined}
-      alignItems="center"
-      paddingHorizontal={collapsed ? 0 : 10}
-      paddingVertical={8}
-      borderRadius={8}
-      borderLeftWidth={3}
-      borderLeftColor={active ? "$primary" : "transparent"}
-      backgroundColor={active ? "$backgroundHover" : "transparent"}
-      hoverStyle={{ backgroundColor: "$backgroundHover" }}
-      gap={collapsed ? 0 : 10}
-      justifyContent={collapsed ? "center" : "flex-start"}
+    <button
+      type="button"
+      data-testid={testID}
+      onClick={onPress}
+      className={cn(
+        "flex items-center rounded-md border-l-[3px] py-2 transition-colors",
+        collapsed ? "justify-center px-0 gap-0" : "justify-start gap-2.5 px-2.5",
+        active ? "border-primary bg-accent text-foreground" : "border-transparent text-muted-foreground hover:bg-accent/40",
+      )}
     >
       {icon ? (
-        <Stack width={20} alignItems="center" justifyContent="center">
-          <Text color={active ? "$primary" : "$mutedFg"}>{icon}</Text>
-        </Stack>
+        <span className={cn("flex w-5 items-center justify-center", active ? "text-primary" : "text-muted-foreground")}>
+          {icon}
+        </span>
       ) : null}
       {!collapsed ? (
-        <Text
-          fontSize={13}
-          fontWeight={active ? "600" : "500"}
-          color={active ? "$color" : "$mutedFg"}
-        >
-          {children}
-        </Text>
+        <span className={cn("text-sm", active ? "font-semibold" : "font-medium")}>{children}</span>
       ) : null}
-    </XStack>
+    </button>
   );
 }

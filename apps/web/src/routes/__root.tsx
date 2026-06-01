@@ -1,4 +1,3 @@
-import { OrrnUiProvider } from "@orrn/ui/provider";
 import { Toaster } from "@orrn/ui/components/sonner";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -54,10 +53,8 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <OrrnUiProvider theme="dark">
-          <Outlet />
-          <Toaster richColors />
-        </OrrnUiProvider>
+        <Outlet />
+        <Toaster richColors />
       </ThemeProvider>
       {import.meta.env.DEV ? (
         <Suspense fallback={null}>

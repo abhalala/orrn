@@ -1,124 +1,93 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 
-import { Card as TgCard, H4, Paragraph, XStack, YStack } from "@orrn/ui/lib/tg";
+import { cn } from "@orrn/ui/lib/utils";
 
-/**
- * ORRN Card. Tamagui-based, cross-platform. The public API mirrors the
- * old shadcn card subcomponents (`CardHeader`, `CardTitle`, etc.) so screen
- * migration is mostly find-and-replace.
- */
-export type CardProps = Record<string, any> & {
+export type CardProps = HTMLAttributes<HTMLDivElement> & {
   size?: "sm" | "default";
-  className?: string;
-  children?: ReactNode;
 };
 
-export function Card({ size = "default", children, ...rest }: CardProps) {
+export function Card({ size = "default", className, ...props }: CardProps) {
   return (
-    <TgCard
-      bordered
-      elevate={false}
-      borderRadius={8}
-      backgroundColor="$backgroundStrong"
-      borderColor="$borderColor"
-      padding={size === "sm" ? 12 : 16}
-      gap={size === "sm" ? 8 : 12}
-      alignItems="stretch"
-      shadowColor="rgba(0,0,0,0.18)"
-      shadowRadius={18}
-      shadowOpacity={0.12}
-      shadowOffset={{ width: 0, height: 12 }}
-      {...rest}
-    >
-      {children}
-    </TgCard>
+    <div
+      data-slot="card"
+      className={cn(
+        "flex flex-col gap-3 rounded-lg border border-border bg-card text-card-foreground shadow-sm",
+        size === "sm" ? "p-3 gap-2" : "p-4",
+        className,
+      )}
+      {...props}
+    />
   );
 }
 
-export function CardHeader({ children, ...rest }: { children?: ReactNode } & Record<string, any>) {
+export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div data-slot="card-header" className={cn("flex flex-col gap-1", className)} {...props} />;
+}
+
+export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <YStack gap={4} {...rest}>
-      {children}
-    </YStack>
+    <h4
+      data-slot="card-title"
+      className={cn("text-base font-semibold leading-tight m-0", className)}
+      {...props}
+    />
   );
 }
 
-export function CardTitle({ children, ...rest }: { children?: ReactNode } & Record<string, any>) {
+export function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <H4 fontSize={16} fontWeight="600" color="$color" margin={0} {...rest}>
-      {children}
-    </H4>
+    <p
+      data-slot="card-description"
+      className={cn("text-xs text-muted-foreground m-0", className)}
+      {...props}
+    />
   );
 }
 
-export function CardDescription({ children, ...rest }: { children?: ReactNode } & Record<string, any>) {
+export function CardAction({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <Paragraph fontSize={12} color="$mutedFg" margin={0} {...rest}>
-      {children}
-    </Paragraph>
+    <div
+      data-slot="card-action"
+      className={cn("ml-auto flex items-center gap-2", className)}
+      {...props}
+    />
   );
 }
 
-export function CardAction({ children, ...rest }: { children?: ReactNode } & Record<string, any>) {
+export function CardContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div data-slot="card-content" className={cn("flex flex-col gap-2", className)} {...props} />;
+}
+
+export function CardFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <XStack alignItems="center" gap={8} marginLeft="auto" {...rest}>
-      {children}
-    </XStack>
+    <div
+      data-slot="card-footer"
+      className={cn("flex items-center gap-2 border-t border-border pt-3", className)}
+      {...props}
+    />
   );
 }
 
-export function CardContent({ children, ...rest }: { children?: ReactNode } & Record<string, any>) {
-  return (
-    <YStack gap={8} {...rest}>
-      {children}
-    </YStack>
-  );
-}
-
-export function CardFooter({ children, ...rest }: { children?: ReactNode } & Record<string, any>) {
-  return (
-    <XStack
-      alignItems="center"
-      paddingTop={12}
-      borderTopWidth={1}
-      borderTopColor="$borderColor"
-      gap={8}
-      {...rest}
-    >
-      {children}
-    </XStack>
-  );
-}
-
-export type CardSectionProps = {
+export type CardSectionProps = HTMLAttributes<HTMLDivElement> & {
   title?: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
   children?: ReactNode;
-} & Record<string, any>;
+};
 
-/** Convenience wrapper for the common "header row + content" pattern. */
-export function CardSection({ title, description, actions, children, ...rest }: CardSectionProps) {
+export function CardSection({ title, description, actions, className, children, ...rest }: CardSectionProps) {
   return (
-    <YStack gap={12} {...rest}>
+    <div className={cn("flex flex-col gap-3", className)} {...rest}>
       {(title || actions) && (
-        <XStack alignItems="center" gap={12}>
-          <YStack gap={2} flex={1}>
-            {title ? (
-              <H4 margin={0} fontSize={14} fontWeight="600">
-                {title}
-              </H4>
-            ) : null}
-            {description ? (
-              <Paragraph fontSize={12} color="$mutedFg" margin={0}>
-                {description}
-              </Paragraph>
-            ) : null}
-          </YStack>
+        <div className="flex items-center gap-3">
+          <div className="flex flex-1 flex-col gap-0.5">
+            {title ? <h4 className="m-0 text-sm font-semibold">{title}</h4> : null}
+            {description ? <p className="m-0 text-xs text-muted-foreground">{description}</p> : null}
+          </div>
           {actions}
-        </XStack>
+        </div>
       )}
       {children}
-    </YStack>
+    </div>
   );
 }

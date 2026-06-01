@@ -1,7 +1,3 @@
-import { Paragraph, Stack, Text, XStack } from "@orrn/ui/lib/tg";
-
-import { Button } from "./button";
-
 export type ImpersonationBannerProps = {
   companyName?: string | null;
   onStop: () => void;
@@ -9,8 +5,9 @@ export type ImpersonationBannerProps = {
 };
 
 /**
- * Shared sticky red banner used on both web and native any time the request
- * context shows we're inside an impersonation session.
+ * Shared sticky red banner used on web any time the request context shows
+ * we're inside an impersonation session. (Native uses the `.native.tsx`
+ * counterpart.)
  */
 export function ImpersonationBanner({
   companyName,
@@ -18,43 +15,29 @@ export function ImpersonationBanner({
   stopLabel = "Stop",
 }: ImpersonationBannerProps) {
   return (
-    <Stack
-      width="100%"
-      backgroundColor="#dc2626"
-      paddingHorizontal={16}
-      paddingVertical={10}
-      flexDirection="row"
-      alignItems="center"
-      justifyContent="space-between"
-      gap={12}
+    <div
+      className="flex w-full flex-row items-center justify-between gap-3 px-4 py-2.5"
+      style={{ backgroundColor: "#dc2626" }}
     >
-      <XStack alignItems="center" gap={8} flex={1} flexWrap="wrap">
-        <Text
-          color="#ffffff"
-          fontWeight="700"
-          fontSize={12}
-          textTransform="uppercase"
-          letterSpacing={0.6}
+      <div className="flex flex-1 flex-wrap items-center gap-2">
+        <span
+          className="text-xs font-bold uppercase"
+          style={{ color: "#ffffff", letterSpacing: "0.06em" }}
         >
           Impersonating
-        </Text>
-        <Paragraph color="#ffffff" fontSize={13} margin={0}>
+        </span>
+        <p className="m-0 text-sm" style={{ color: "#ffffff" }}>
           {companyName ?? "tenant"} — every action is audited.
-        </Paragraph>
-      </XStack>
-      <Button
-        variant="outline"
-        size="sm"
-        onPress={onStop}
-        backgroundColor="#ffffff"
-        borderColor="#ffffff"
-        hoverStyle={{ backgroundColor: "#fee2e2", borderColor: "#fee2e2" }}
-        pressStyle={{ backgroundColor: "#fee2e2", borderColor: "#fee2e2" }}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onStop}
+        className="rounded-md border border-white bg-white px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-rose-100"
+        style={{ color: "#b91c1c" }}
       >
-        <Text color="#b91c1c" fontWeight="600" fontSize={12}>
-          {stopLabel}
-        </Text>
-      </Button>
-    </Stack>
+        {stopLabel}
+      </button>
+    </div>
   );
 }

@@ -1,14 +1,13 @@
 import "@/global.css";
-import { OrrnUiProvider } from "@orrn/ui";
+
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
-import { HeroUINativeProvider } from "heroui-native";
 import { useEffect, useRef } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { ImpersonationBanner } from "@/components/impersonation-banner";
-import { AppThemeProvider, useAppTheme } from "@/contexts/app-theme-context";
+import { AppThemeProvider } from "@/contexts/app-theme-context";
 import { useMe } from "@/utils/me";
 import { queryClient } from "@/utils/trpc";
 
@@ -58,23 +57,13 @@ function StackLayout() {
   );
 }
 
-function ThemedOrrnUiProvider({ children }: { children: React.ReactNode }) {
-  const { currentTheme } = useAppTheme();
-  const tamaguiTheme = currentTheme === "light" ? "light" : "dark";
-  return <OrrnUiProvider theme={tamaguiTheme}>{children}</OrrnUiProvider>;
-}
-
 export default function Layout() {
   return (
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardProvider>
           <AppThemeProvider>
-            <ThemedOrrnUiProvider>
-              <HeroUINativeProvider>
-                <StackLayout />
-              </HeroUINativeProvider>
-            </ThemedOrrnUiProvider>
+            <StackLayout />
           </AppThemeProvider>
         </KeyboardProvider>
       </GestureHandlerRootView>

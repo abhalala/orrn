@@ -6,10 +6,29 @@
   "exports": {
     ".": "./src/index.ts",
     "./provider": "./src/provider.tsx",
-    "./tamagui.config": "./src/tamagui.config.ts",
     "./tokens": "./src/tokens.ts",
     "./globals.css": "./src/styles/globals.css",
     "./lib/*": "./src/lib/*.ts",
+    "./components/button": {
+      "react-native": "./src/components/button.native.tsx",
+      "default": "./src/components/button.tsx"
+    },
+    "./components/input": {
+      "react-native": "./src/components/input.native.tsx",
+      "default": "./src/components/input.tsx"
+    },
+    "./components/label": {
+      "react-native": "./src/components/label.native.tsx",
+      "default": "./src/components/label.tsx"
+    },
+    "./components/badge": {
+      "react-native": "./src/components/badge.native.tsx",
+      "default": "./src/components/badge.tsx"
+    },
+    "./components/impersonation-banner": {
+      "react-native": "./src/components/impersonation-banner.native.tsx",
+      "default": "./src/components/impersonation-banner.tsx"
+    },
     "./components/*": "./src/components/*.tsx",
     "./hooks/*": "./src/hooks/*.ts",
     "./postcss.config": "./postcss.config.mjs"
@@ -18,19 +37,22 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@tamagui/config": "catalog:",
-    "@tamagui/core": "catalog:",
-    "@base-ui/react": "^1.0.0",
+    "@radix-ui/react-checkbox": "^1.3.3",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-separator": "^1.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-tabs": "^1.1.13",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.546.0",
     "next-themes": "catalog:",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "shadcn": "^3.6.2",
     "sonner": "^2.0.5",
     "tailwind-merge": "^3.3.1",
-    "tamagui": "catalog:",
     "tw-animate-css": "^1.3.4"
   },
   "devDependencies": {

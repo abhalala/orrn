@@ -158,7 +158,7 @@ function CustomersListComponent() {
           placeholder="Search customers…"
           value={search}
           onChangeText={setSearch}
-          maxWidth={320}
+          className="max-w-80"
         />
       </Toolbar>
 

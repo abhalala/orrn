@@ -1,18 +1,27 @@
-import { tamaguiConfig } from "./tamagui.config";
+import { ThemeProvider as NextThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
-import { TamaguiProvider, Theme } from "tamagui";
 
+/**
+ * Web theme wrapper. Sets the `dark` class on `<html>` so Tailwind variants
+ * (e.g. `dark:bg-card`) flip. Native apps don't import this — they wire their
+ * own `nativewind` color-scheme provider inside `apps/native`.
+ */
 export function OrrnUiProvider({
   children,
-  theme = "dark",
+  theme,
 }: {
   children: ReactNode;
-  /** Active Tamagui theme; keep in sync with Uniwind on native. */
-  theme?: "dark" | "light";
+  /** Optional forced theme; if absent, follows system + user preference. */
+  theme?: "dark" | "light" | "system";
 }) {
   return (
-    <TamaguiProvider config={tamaguiConfig} defaultTheme={theme}>
-      <Theme name={theme}>{children}</Theme>
-    </TamaguiProvider>
+    <NextThemeProvider
+      attribute="class"
+      defaultTheme={theme ?? "system"}
+      enableSystem
+      disableTransitionOnChange
+    >
+      {children}
+    </NextThemeProvider>
   );
 }

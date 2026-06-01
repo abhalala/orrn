@@ -96,7 +96,7 @@ function ReceiptsListComponent() {
           placeholder="Search by receipt code or PO ref…"
           value={search}
           onChangeText={setSearch}
-          maxWidth={360}
+          className="max-w-[360px]"
         />
       </Toolbar>
 

@@ -1,7 +1,6 @@
-import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
-import { Paragraph, Stack, Text, XStack, YStack } from "@orrn/ui/lib/tg";
+import { cn } from "@orrn/ui/lib/utils";
 
 import { Button } from "./button";
 
@@ -31,9 +30,8 @@ export type DataTableProps<Row> = {
 type SortState = { columnId: string; dir: "asc" | "desc" } | null;
 
 /**
- * Cross-platform DataTable rendered as stacked rows of Tamagui Stacks. Works
- * the same on web and native. Sorting and pagination are client-side and
- * optional.
+ * Web DataTable. Sortable + paginated client-side. The native variant is
+ * intentionally not provided — native list screens use FlatList directly.
  */
 export function DataTable<Row>({
   columns,
@@ -87,152 +85,113 @@ export function DataTable<Row>({
     [columns],
   );
 
+  const alignClass = (a?: "left" | "right" | "center") =>
+    a === "right" ? "justify-end" : a === "center" ? "justify-center" : "justify-start";
+
   return (
-    <Stack
-      borderWidth={1}
-      borderColor="$borderColor"
-      borderRadius={12}
-      backgroundColor="$backgroundStrong"
-      overflow="hidden"
-      width="100%"
-    >
-      <Stack overflow="scroll" width="100%" className="orrn-data-table-scroll">
-        <YStack minWidth={minTableWidth} width="100%">
-      <XStack
-        backgroundColor="$muted"
-        paddingHorizontal={12}
-        paddingVertical={10}
-        borderBottomWidth={1}
-        borderBottomColor="$borderColor"
-        gap={8}
-      >
-        {columns.map((col) => (
-          <Stack
-            key={col.id}
-            flex={col.flex ?? 1}
-            minWidth={col.minWidth}
-            alignItems={
-              col.align === "right" ? "flex-end" : col.align === "center" ? "center" : "flex-start"
-            }
-          >
-            {col.sortable ? (
-              <Button
-                variant="ghost"
-                size="xs"
-                paddingHorizontal={0}
-                onPress={() => toggleSort(col.id)}
-              >
-                <Text fontSize={11} fontWeight="600" color="$mutedFg" textTransform="uppercase">
-                  {col.header} {sort?.columnId === col.id ? (sort.dir === "asc" ? "▲" : "▼") : ""}
-                </Text>
-              </Button>
-            ) : (
-              <Text fontSize={11} fontWeight="600" color="$mutedFg" textTransform="uppercase">
-                {col.header}
-              </Text>
-            )}
-          </Stack>
-        ))}
-      </XStack>
-
-      {isLoading ? (
-        <YStack padding={20} alignItems="center">
-          <Paragraph color="$mutedFg" margin={0}>
-            Loading…
-          </Paragraph>
-        </YStack>
-      ) : pageRows.length === 0 ? (
-        <YStack padding={4}>{emptyState ?? <DefaultEmpty />}</YStack>
-      ) : (
-        pageRows.map((row, idx) => (
-          <XStack
-            key={rowKey(row)}
-            paddingHorizontal={12}
-            paddingVertical={12}
-            gap={8}
-            borderBottomWidth={idx === pageRows.length - 1 ? 0 : 1}
-            borderBottomColor="$borderColor"
-            cursor={onRowPress ? "pointer" : undefined}
-            hoverStyle={onRowPress ? { backgroundColor: "$backgroundHover" } : undefined}
-            onPress={onRowPress ? () => onRowPress(row) : undefined}
-          >
+    <div className="w-full overflow-hidden rounded-xl border border-border bg-card">
+      <div className="orrn-data-table-scroll w-full overflow-x-auto">
+        <div className="flex w-full flex-col" style={{ minWidth: minTableWidth }}>
+          <div className="flex flex-row items-center gap-2 border-b border-border bg-muted px-3 py-2.5">
             {columns.map((col) => (
-              <Stack
+              <div
                 key={col.id}
-                flex={col.flex ?? 1}
-                minWidth={col.minWidth}
-                alignItems={
-                  col.align === "right"
-                    ? "flex-end"
-                    : col.align === "center"
-                      ? "center"
-                      : "flex-start"
-                }
-                justifyContent="center"
+                className={cn("flex items-center", alignClass(col.align))}
+                style={{ flex: col.flex ?? 1, minWidth: col.minWidth }}
               >
-                {asNode(col.cell(row))}
-              </Stack>
+                {col.sortable ? (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    className="!px-0"
+                    onPress={() => toggleSort(col.id)}
+                  >
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {col.header} {sort?.columnId === col.id ? (sort.dir === "asc" ? "▲" : "▼") : ""}
+                    </span>
+                  </Button>
+                ) : (
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {col.header}
+                  </span>
+                )}
+              </div>
             ))}
-          </XStack>
-        ))
-      )}
+          </div>
 
-      {pageSize && sortedRows.length > pageSize ? (
-        <XStack
-          padding={12}
-          borderTopWidth={1}
-          borderTopColor="$borderColor"
-          alignItems="center"
-          justifyContent="space-between"
-          gap={12}
-        >
-          <Paragraph fontSize={12} color="$mutedFg" margin={0}>
-            Page {safePage} of {totalPages} · {sortedRows.length} rows
-          </Paragraph>
-          <XStack gap={8}>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={safePage <= 1}
-              onPress={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={safePage >= totalPages}
-              onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next
-            </Button>
-          </XStack>
-        </XStack>
-      ) : null}
-      {footer}
-        </YStack>
-      </Stack>
-    </Stack>
+          {isLoading ? (
+            <div className="flex items-center justify-center p-5">
+              <p className="m-0 text-sm text-muted-foreground">Loading…</p>
+            </div>
+          ) : pageRows.length === 0 ? (
+            <div className="p-1">{emptyState ?? <DefaultEmpty />}</div>
+          ) : (
+            pageRows.map((row, idx) => (
+              <div
+                key={rowKey(row)}
+                onClick={onRowPress ? () => onRowPress(row) : undefined}
+                className={cn(
+                  "flex flex-row items-stretch gap-2 px-3 py-3",
+                  idx === pageRows.length - 1 ? "" : "border-b border-border",
+                  onRowPress ? "cursor-pointer hover:bg-accent/30" : "",
+                )}
+              >
+                {columns.map((col) => (
+                  <div
+                    key={col.id}
+                    className={cn("flex items-center", alignClass(col.align))}
+                    style={{ flex: col.flex ?? 1, minWidth: col.minWidth }}
+                  >
+                    {asNode(col.cell(row))}
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
+
+          {pageSize && sortedRows.length > pageSize ? (
+            <div className="flex items-center justify-between gap-3 border-t border-border p-3">
+              <p className="m-0 text-xs text-muted-foreground">
+                Page {safePage} of {totalPages} · {sortedRows.length} rows
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safePage <= 1}
+                  onPress={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safePage >= totalPages}
+                  onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          {footer}
+        </div>
+      </div>
+    </div>
   );
 }
 
 function asNode(value: ReactNode): ReactNode {
   if (typeof value === "string" || typeof value === "number") {
-    return (
-      <Text fontSize={13} color="$color">
-        {value}
-      </Text>
-    );
+    return <span className="text-sm text-foreground">{value}</span>;
   }
   return value;
 }
 
 function DefaultEmpty() {
   return (
-    <YStack padding={20} alignItems="center">
-      <Paragraph color="$mutedFg" margin={0}>
-        No rows.
-      </Paragraph>
-    </YStack>
+    <div className="flex items-center justify-center p-5">
+      <p className="m-0 text-sm text-muted-foreground">No rows.</p>
+    </div>
   );
 }

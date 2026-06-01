@@ -1,22 +1,23 @@
-import type { ReactNode } from "react";
+import * as LabelPrimitive from "@radix-ui/react-label";
+import { forwardRef, type ComponentPropsWithoutRef } from "react";
 
-import { Label as TgLabel } from "@orrn/ui/lib/tg";
+import { cn } from "@orrn/ui/lib/utils";
 
-export type LabelProps = Record<string, any> & {
-  htmlFor?: string;
-  className?: string;
-  children?: ReactNode;
-};
+export type LabelProps = ComponentPropsWithoutRef<typeof LabelPrimitive.Root>;
 
-export function Label({ className: _className, ...props }: LabelProps) {
+export const Label = forwardRef<HTMLLabelElement, LabelProps>(function Label(
+  { className, ...props },
+  ref,
+) {
   return (
-    <TgLabel
-      fontSize={12}
-      fontWeight="500"
-      color="$color"
-      lineHeight={16}
-      paddingVertical={2}
+    <LabelPrimitive.Root
+      ref={ref}
+      data-slot="label"
+      className={cn(
+        "text-xs font-medium leading-4 text-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+        className,
+      )}
       {...props}
     />
   );
-}
+});

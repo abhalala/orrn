@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useThemeColor } from "heroui-native";
+import { cssInterop, useColorScheme } from "nativewind";
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -11,6 +11,23 @@ import {
   type TextInputProps,
   type ViewProps,
 } from "react-native";
+
+const StyledIonicons = cssInterop(Ionicons, {
+  className: { target: "style", nativeStyleToProp: { color: true } },
+});
+
+/**
+ * Returns the hex color for the `muted-foreground` token in the current
+ * color scheme. Used for placeholders / icon tint where we need a raw color
+ * (e.g. `placeholderTextColor`, icon `color` prop).
+ *
+ * Values mirror the HSL tokens in apps/native/global.css.
+ */
+function useMutedColor(): string {
+  const { colorScheme } = useColorScheme();
+  // light: hsl(213 14% 43%) ≈ #5d6b7c, dark: hsl(215 17% 71%) ≈ #a7b2c2
+  return colorScheme === "dark" ? "#a7b2c2" : "#5d6b7c";
+}
 
 export function ErpScreen({ children, className }: { children: ReactNode; className?: string }) {
   return <View className={`flex-1 bg-background ${className ?? ""}`}>{children}</View>;
@@ -25,10 +42,10 @@ export function ErpSearchBar({
   onChangeText: (text: string) => void;
   placeholder: string;
 }) {
-  const muted = useThemeColor("muted");
+  const muted = useMutedColor();
   return (
     <View className="mx-4 mb-2 flex-row items-center rounded-lg border border-border bg-card px-3">
-      <Ionicons name="search" size={20} color={muted} style={{ marginRight: 8 }} />
+      <StyledIonicons name="search" size={20} color={muted} style={{ marginRight: 8 }} />
       <TextInput
         className="flex-1 py-3 text-base text-foreground"
         placeholder={placeholder}
@@ -109,7 +126,7 @@ export function ErpRowBetween({ children }: { children: ReactNode }) {
 }
 
 export function ErpMutedText({ children, className }: { children: ReactNode; className?: string }) {
-  return <Text className={`text-sm text-muted ${className ?? ""}`}>{children}</Text>;
+  return <Text className={`text-sm text-muted-foreground ${className ?? ""}`}>{children}</Text>;
 }
 
 export function ErpTitleText({ children, mono }: { children: ReactNode; mono?: boolean }) {
@@ -125,7 +142,7 @@ export function ErpSectionTitle({ children }: { children: ReactNode }) {
 }
 
 export function ErpEmpty({ children }: { children: ReactNode }) {
-  return <Text className="mt-5 text-center text-sm text-muted">{children}</Text>;
+  return <Text className="mt-5 text-center text-sm text-muted-foreground">{children}</Text>;
 }
 
 export function ErpLoading() {
@@ -152,7 +169,7 @@ export function ErpField({
 }
 
 export function ErpTextInput(props: TextInputProps) {
-  const muted = useThemeColor("muted");
+  const muted = useMutedColor();
   return (
     <TextInput
       className="rounded-md border border-border bg-card px-3 py-2.5 text-base text-foreground"
@@ -165,7 +182,7 @@ export function ErpTextInput(props: TextInputProps) {
 export function ErpKvRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <View className="min-h-7 flex-row items-center justify-between gap-3">
-      <Text className="text-sm text-muted">{label}</Text>
+      <Text className="text-sm text-muted-foreground">{label}</Text>
       {typeof value === "string" || typeof value === "number" ? (
         <Text className="text-base font-medium text-foreground">{value}</Text>
       ) : (
@@ -182,7 +199,7 @@ export function ErpSummaryGrid({ children }: { children: ReactNode }) {
 export function ErpSummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-1 rounded-lg border border-border bg-card p-2.5">
-      <Text className="text-[10px] text-muted">{label}</Text>
+      <Text className="text-[10px] text-muted-foreground">{label}</Text>
       <Text className="mt-0.5 text-base font-bold text-foreground">{value}</Text>
     </View>
   );

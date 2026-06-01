@@ -21,7 +21,6 @@
     "@orrn/ui": "workspace:*",
     "@react-pdf/renderer": "^4.5.1",
     "@tailwindcss/vite": "^4.2.2",
-    "@tamagui/vite-plugin": "catalog:",
     "@tanstack/react-form": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "^1.168.22",
@@ -37,7 +36,6 @@
     "papaparse": "^5.5.3",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-native-web": "catalog:",
     "sonner": "^2.0.7",
     "xlsx": "^0.18.5",
     "zod": "catalog:"

@@ -1,10 +1,10 @@
+import { useColorScheme } from "nativewind";
 import React, { createContext, useCallback, useContext, useMemo } from "react";
-import { Uniwind, useUniwind } from "uniwind";
 
 type ThemeName = "light" | "dark";
 
 type AppThemeContextType = {
-  currentTheme: string;
+  currentTheme: ThemeName;
   isLight: boolean;
   isDark: boolean;
   setTheme: (theme: ThemeName) => void;
@@ -13,34 +13,32 @@ type AppThemeContextType = {
 
 const AppThemeContext = createContext<AppThemeContextType | undefined>(undefined);
 
+/**
+ * Bridges NativeWind's color-scheme state to the rest of the app. NativeWind
+ * toggles the `dark` class on the JSX tree which drives every `dark:` Tailwind
+ * variant + the CSS variables defined in `apps/native/global.css`.
+ */
 export const AppThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const { theme } = useUniwind();
+  const { colorScheme, setColorScheme, toggleColorScheme } = useColorScheme();
 
-  const isLight = useMemo(() => {
-    return theme === "light";
-  }, [theme]);
+  const currentTheme: ThemeName = colorScheme === "light" ? "light" : "dark";
+  const isLight = currentTheme === "light";
+  const isDark = currentTheme === "dark";
 
-  const isDark = useMemo(() => {
-    return theme === "dark";
-  }, [theme]);
-
-  const setTheme = useCallback((newTheme: ThemeName) => {
-    Uniwind.setTheme(newTheme);
-  }, []);
+  const setTheme = useCallback(
+    (newTheme: ThemeName) => {
+      setColorScheme(newTheme);
+    },
+    [setColorScheme],
+  );
 
   const toggleTheme = useCallback(() => {
-    Uniwind.setTheme(theme === "light" ? "dark" : "light");
-  }, [theme]);
+    toggleColorScheme();
+  }, [toggleColorScheme]);
 
   const value = useMemo(
-    () => ({
-      currentTheme: theme,
-      isLight,
-      isDark,
-      setTheme,
-      toggleTheme,
-    }),
-    [theme, isLight, isDark, setTheme, toggleTheme],
+    () => ({ currentTheme, isLight, isDark, setTheme, toggleTheme }),
+    [currentTheme, isLight, isDark, setTheme, toggleTheme],
   );
 
   return <AppThemeContext.Provider value={value}>{children}</AppThemeContext.Provider>;
