@@ -6,6 +6,7 @@ export * from "./dispatch";
 export * from "./inventory";
 export * from "./packing";
 export * from "./printing";
+export * from "./spool";
 export * from "./sync";
 export * from "./tenant";
 export {};

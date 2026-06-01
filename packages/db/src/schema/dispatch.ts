@@ -52,6 +52,7 @@ export const dispatchItem = sqliteTable(
     bundleId: text("bundle_id")
       .notNull()
       .references(() => bundle.id, { onDelete: "restrict" }),
+    groupLabel: text("group_label"),
     addedAt: integer("added_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
   },
   (table) => [

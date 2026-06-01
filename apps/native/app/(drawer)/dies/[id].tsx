@@ -33,8 +33,9 @@ export default function DieFormScreen() {
   const [notes, setNotes] = useState("");
 
   const [widthMm, setWidthMm] = useState("");
-  const [heightMm, setHeightMm] = useState("");
+  const [legMm, setLegMm] = useState("");
   const [thicknessMm, setThicknessMm] = useState("");
+  const [obliqueMm, setObliqueMm] = useState("");
 
   const { data: die, isLoading } = useQuery({
     ...trpc.die.get.queryOptions({ id: id as string }),
@@ -52,9 +53,10 @@ export default function DieFormScreen() {
       setNotes(die.notes || "");
 
       const dims: any = die.dimensions || {};
-      setWidthMm(dims.widthMm != null ? lu.formatLengthValue(dims.widthMm) : "");
-      setHeightMm(dims.heightMm != null ? lu.formatLengthValue(dims.heightMm) : "");
-      setThicknessMm(dims.thicknessMm != null ? lu.formatLengthValue(dims.thicknessMm) : "");
+      setWidthMm(die.widthMm != null ? lu.formatLengthValue(die.widthMm) : dims.widthMm != null ? lu.formatLengthValue(dims.widthMm) : "");
+      setLegMm(die.legMm != null ? lu.formatLengthValue(die.legMm) : "");
+      setThicknessMm(die.thicknessMm != null ? lu.formatLengthValue(die.thicknessMm) : dims.thicknessMm != null ? lu.formatLengthValue(dims.thicknessMm) : "");
+      setObliqueMm(die.obliqueMm != null ? lu.formatLengthValue(die.obliqueMm) : "");
     }
   }, [die, isNew, lu]);
 
@@ -122,9 +124,12 @@ export default function DieFormScreen() {
       weightMaxG: wMax,
       status,
       notes,
+      obliqueMm: obliqueMm ? lu.parseLengthDecimal(obliqueMm) : null,
+      legMm: legMm ? lu.parseLengthDecimal(legMm) : null,
+      widthMm: widthMm ? lu.parseLengthDecimal(widthMm) : null,
+      thicknessMm: thicknessMm ? lu.parseLengthDecimal(thicknessMm) : null,
       dimensions: {
         widthMm: widthMm ? lu.parseLengthDecimal(widthMm) : undefined,
-        heightMm: heightMm ? lu.parseLengthDecimal(heightMm) : undefined,
         thicknessMm: thicknessMm ? lu.parseLengthDecimal(thicknessMm) : undefined,
       },
     };
@@ -220,34 +225,29 @@ export default function DieFormScreen() {
 
         <View className="gap-2 rounded-lg border border-border p-3">
           <Text className="text-sm font-semibold text-foreground">
-            Dimensions ({lu.label})
+            Nexus die geometry ({lu.label})
           </Text>
           <View className="flex-row gap-2">
             <View className="flex-1">
               <ErpField label="Width">
-                <ErpTextInput
-                  keyboardType="numeric"
-                  value={widthMm}
-                  onChangeText={setWidthMm}
-                />
-              </ErpField>
-            </View>
-            <View className="flex-1">
-              <ErpField label="Height">
-                <ErpTextInput
-                  keyboardType="numeric"
-                  value={heightMm}
-                  onChangeText={setHeightMm}
-                />
+                <ErpTextInput keyboardType="numeric" value={widthMm} onChangeText={setWidthMm} />
               </ErpField>
             </View>
             <View className="flex-1">
               <ErpField label="Thickness">
-                <ErpTextInput
-                  keyboardType="numeric"
-                  value={thicknessMm}
-                  onChangeText={setThicknessMm}
-                />
+                <ErpTextInput keyboardType="numeric" value={thicknessMm} onChangeText={setThicknessMm} />
+              </ErpField>
+            </View>
+          </View>
+          <View className="flex-row gap-2">
+            <View className="flex-1">
+              <ErpField label="Leg">
+                <ErpTextInput keyboardType="numeric" value={legMm} onChangeText={setLegMm} />
+              </ErpField>
+            </View>
+            <View className="flex-1">
+              <ErpField label="Oblique">
+                <ErpTextInput keyboardType="numeric" value={obliqueMm} onChangeText={setObliqueMm} />
               </ErpField>
             </View>
           </View>

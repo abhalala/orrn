@@ -64,10 +64,13 @@ function DieFormComponent() {
       series: die?.series || "",
       sectionCode: die?.sectionCode || "",
       name: die?.name || "",
+      obliqueMm: die?.obliqueMm ?? undefined,
+      legMm: die?.legMm ?? undefined,
+      widthMm: die?.widthMm ?? ((die?.dimensions?.widthMm as number | undefined) ?? undefined),
+      thicknessMm: die?.thicknessMm ?? ((die?.dimensions?.thicknessMm as number | undefined) ?? undefined),
       dimensions: {
-        widthMm: die?.dimensions?.widthMm as number | undefined,
-        heightMm: die?.dimensions?.heightMm as number | undefined,
-        thicknessMm: die?.dimensions?.thicknessMm as number | undefined,
+        widthMm: die?.widthMm ?? ((die?.dimensions?.widthMm as number | undefined) ?? undefined),
+        thicknessMm: die?.thicknessMm ?? ((die?.dimensions?.thicknessMm as number | undefined) ?? undefined),
       },
       weightMinG: die?.weightMinG || 0,
       weightMaxG: die?.weightMaxG || 0,
@@ -83,6 +86,10 @@ function DieFormComponent() {
         series: z.string().min(1, "Series is required"),
         sectionCode: z.string().min(1, "Section Code is required"),
         name: z.string(),
+        obliqueMm: z.number().optional(),
+        legMm: z.number().optional(),
+        widthMm: z.number().optional(),
+        thicknessMm: z.number().optional(),
         dimensions: z.any(),
         weightMinG: z.number().min(0),
         weightMaxG: z.number().min(0),
@@ -214,9 +221,9 @@ function DieFormComponent() {
             </div>
 
             <div className="space-y-2 border border-border p-4 rounded-md">
-              <Label>Dimensions ({lu.label})</Label>
-              <div className="grid grid-cols-3 gap-4">
-                <form.Field name="dimensions.widthMm">
+              <Label>Nexus die geometry ({lu.label})</Label>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <form.Field name="widthMm">
                   {(field) => (
                     <div className="space-y-1">
                       <Label htmlFor={field.name} className="text-xs text-muted-foreground">
@@ -232,11 +239,11 @@ function DieFormComponent() {
                     </div>
                   )}
                 </form.Field>
-                <form.Field name="dimensions.heightMm">
+                <form.Field name="thicknessMm">
                   {(field) => (
                     <div className="space-y-1">
                       <Label htmlFor={field.name} className="text-xs text-muted-foreground">
-                        Height
+                        Thickness
                       </Label>
                       <Input
                         id={field.name}
@@ -248,11 +255,27 @@ function DieFormComponent() {
                     </div>
                   )}
                 </form.Field>
-                <form.Field name="dimensions.thicknessMm">
+                <form.Field name="legMm">
                   {(field) => (
                     <div className="space-y-1">
                       <Label htmlFor={field.name} className="text-xs text-muted-foreground">
-                        Thickness
+                        Leg
+                      </Label>
+                      <Input
+                        id={field.name}
+                        type="number"
+                        value={field.state.value != null ? lu.formatLengthValue(field.state.value) : ""}
+                        onBlur={field.handleBlur}
+                        onChangeText={(text) => field.handleChange(text ? lu.parseLengthDecimal(text) : undefined)}
+                      />
+                    </div>
+                  )}
+                </form.Field>
+                <form.Field name="obliqueMm">
+                  {(field) => (
+                    <div className="space-y-1">
+                      <Label htmlFor={field.name} className="text-xs text-muted-foreground">
+                        Oblique
                       </Label>
                       <Input
                         id={field.name}

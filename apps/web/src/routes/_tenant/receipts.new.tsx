@@ -1,6 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
+import Papa from "papaparse";
 import { toast } from "sonner";
 
 import { trpc } from "@/shared/utils/trpc";
@@ -19,7 +20,7 @@ export const Route = createFileRoute("/_tenant/receipts/new")({
   beforeLoad: requireCompanyMe,
 });
 
-type Row = { id: string; quantity: string; weightG: string; lengthMm: string };
+type Row = { id: string; quantity: string; weightG: string; lengthMm: string; poNumber: string };
 
 let rowSeq = 0;
 const emptyRow = (): Row => ({
@@ -27,17 +28,18 @@ const emptyRow = (): Row => ({
   quantity: "",
   weightG: "",
   lengthMm: "",
+  poNumber: "",
 });
 
 function NewReceiptComponent() {
   const navigate = useNavigate();
+  const lu = useLengthUnit();
   const [dieId, setDieId] = useState("");
-  const [unit, setUnit] = useState("pcs");
+  const [unit, setUnit] = useState(lu.unit);
   const [purchaseOrderRef, setPurchaseOrderRef] = useState("");
   const [notes, setNotes] = useState("");
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const lu = useLengthUnit();
 
   const { data: diesData } = useQuery({
     ...trpc.die.list.queryOptions({ limit: 100, offset: 0 }),
@@ -75,6 +77,7 @@ function NewReceiptComponent() {
           lengthMm: String(
             row.lengthMm ?? row.length_mm ?? row["Length (mm)"] ?? row["Length (in)"] ?? "",
           ).trim(),
+          poNumber: String(row.poNumber ?? row.po_number ?? row["PO Number"] ?? row.po ?? "").trim(),
         }))
         .filter((r) => r.quantity && r.weightG && r.lengthMm);
       if (mapped.length === 0) {
@@ -98,8 +101,6 @@ function NewReceiptComponent() {
       };
       reader.readAsText(file);
     } else if (ext === "csv") {
-      const Papa = (await import("papaparse")).default;
-
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
@@ -135,7 +136,7 @@ function NewReceiptComponent() {
           throw new Error(`Row ${i + 1}: weight must be a non-negative integer`);
         if (l < 0)
           throw new Error(`Row ${i + 1}: length must be a non-negative integer`);
-        return { quantity: q, weightG: w, lengthMm: l };
+        return { quantity: q, weightG: w, lengthMm: l, poNumber: r.poNumber.trim() || null };
       });
       createMutation.mutate({
         dieId,
@@ -206,6 +207,19 @@ function NewReceiptComponent() {
         ),
       },
       {
+        id: "poNumber",
+        header: "PO",
+        flex: 1,
+        cell: (row) => (
+          <Input
+            className="w-full min-w-0"
+            value={row.poNumber}
+            onChange={(e) => updateRow(row.id, { poNumber: e.target.value })}
+            placeholder={purchaseOrderRef || "Optional"}
+          />
+        ),
+      },
+      {
         id: "actions",
         header: "",
         flex: 0.6,
@@ -217,14 +231,14 @@ function NewReceiptComponent() {
         ),
       },
     ];
-  }, [rowIndex, rows.length]);
+  }, [rowIndex, rows.length, purchaseOrderRef]);
 
   return (
     <div className="w-full min-w-0 max-w-4xl mx-auto space-y-4 md:space-y-6">
       <PageHeader
         eyebrow="Receipts"
-        title="New production receipt"
-        description="Records a production run as one immutable receipt with N bundles. Serials are auto-generated."
+        title="New bundling session"
+        description="Record a production batch, review the generated bundles, then print labels using the Nexus layout flow."
         actions={
           <Button variant="outline" onClick={() => navigate({ to: "/receipts" })}>
             Cancel
@@ -255,13 +269,13 @@ function NewReceiptComponent() {
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="unit">Unit *</Label>
+            <Label htmlFor="unit">Length unit *</Label>
             <Input
               id="unit"
               className="w-full"
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
-              placeholder="pcs, kg, m…"
+              placeholder="inch, mm…"
             />
           </div>
           <div className="space-y-2">
@@ -289,7 +303,7 @@ function NewReceiptComponent() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <CardTitle>Bundles ({rows.length})</CardTitle>
+          <CardTitle>Batch bundles ({rows.length})</CardTitle>
           <Toolbar>
             <input
               type="file"
@@ -363,6 +377,16 @@ function NewReceiptComponent() {
                       onChange={(e) => updateRow(row.id, { lengthMm: e.target.value })}
                     />
                   </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`${row.id}-po`}>PO override</Label>
+                    <Input
+                      id={`${row.id}-po`}
+                      className="w-full"
+                      value={row.poNumber}
+                      onChange={(e) => updateRow(row.id, { poNumber: e.target.value })}
+                      placeholder={purchaseOrderRef || "Optional"}
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -376,7 +400,7 @@ function NewReceiptComponent() {
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={createMutation.isPending}>
-            {createMutation.isPending ? "Saving…" : "Create receipt"}
+            {createMutation.isPending ? "Saving…" : "Create session"}
           </Button>
         </CardFooter>
       </Card>

@@ -11,10 +11,12 @@
     "@hono/trpc-server": "^0.4.0",
     "@orrn/server": "workspace:*",
     "@orrn/auth": "workspace:*",
+    "@orrn/crypto": "workspace:*",
     "@orrn/db": "workspace:*",
     "@orrn/env": "workspace:*",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
+    "drizzle-orm": "^0.45.1",
     "dotenv": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"

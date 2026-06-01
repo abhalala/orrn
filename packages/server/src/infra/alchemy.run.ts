@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import alchemy from "alchemy";
-import { D1Database, Vite, Worker } from "alchemy/cloudflare";
+import { D1Database, R2Bucket, Vite, Worker } from "alchemy/cloudflare";
 import { CloudflareStateStore } from "alchemy/state";
 import type { Scope } from "alchemy";
 import { config } from "dotenv";
@@ -101,6 +101,10 @@ const db = await D1Database("database", {
   migrationsDir: "../db/src/migrations",
 });
 
+const spoolReleases = await R2Bucket("spool-releases", {
+  adopt: true,
+});
+
 /** Unified web app — orrn.in (prod) / dev.orrn.app (dev) */
 export const web = await Vite("web", {
   cwd: "../../apps/web",
@@ -129,6 +133,10 @@ export const server = await Worker("server", {
     RESEND_API_KEY: process.env.RESEND_API_KEY ?? "",
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL ?? "",
     COOKIE_DOMAIN: cookieDomain,
+    CF_API_TOKEN: process.env.CF_API_TOKEN ?? "",
+    CF_ACCOUNT_ID: process.env.CF_ACCOUNT_ID ?? "",
+    CF_ZONE_ID_IN: process.env.CF_ZONE_ID_IN ?? "",
+    SPOOL_RELEASES_BUCKET: spoolReleases,
   },
   domains: [{ domainName: apiDomain, zoneId: apiZoneId, adopt: true }],
   dev: { port: 3000 },

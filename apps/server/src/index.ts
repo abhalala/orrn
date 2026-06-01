@@ -10,6 +10,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
 import { seedDevData } from "./dev-seed";
+import { spoolRoutes } from "./spool-routes";
 
 const app = new Hono();
 const auth = createAuth();
@@ -38,6 +39,9 @@ app.use(
 );
 
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+
+// Spool webhook and activation routes (non-tRPC)
+app.route("/", spoolRoutes);
 
 if (env.NODE_ENV === "development") {
   app.post("/dev/seed", async (c) => {

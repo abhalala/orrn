@@ -14,18 +14,18 @@ import {
 import { queryClient, trpc } from "../../../utils/trpc";
 import { useLengthUnit } from "../../../utils/length";
 
-type Row = { quantity: string; weightG: string; lengthMm: string };
+type Row = { quantity: string; weightG: string; lengthMm: string; poNumber: string };
 
-const emptyRow = (): Row => ({ quantity: "", weightG: "", lengthMm: "" });
+const emptyRow = (): Row => ({ quantity: "", weightG: "", lengthMm: "", poNumber: "" });
 
 export default function NewReceiptScreen() {
   const router = useRouter();
+  const lu = useLengthUnit();
   const [dieId, setDieId] = useState("");
-  const [unit, setUnit] = useState("pcs");
+  const [unit, setUnit] = useState(lu.unit);
   const [purchaseOrderRef, setPurchaseOrderRef] = useState("");
   const [notes, setNotes] = useState("");
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
-  const lu = useLengthUnit();
 
   const { data: diesData } = useQuery({
     ...trpc.die.list.queryOptions({ limit: 100, offset: 0 }),
@@ -71,7 +71,7 @@ export default function NewReceiptScreen() {
           throw new Error(`Row ${i + 1}: weight must be a non-negative integer`);
         if (l < 0)
           throw new Error(`Row ${i + 1}: length must be a non-negative integer`);
-        return { quantity: q, weightG: w, lengthMm: l };
+        return { quantity: q, weightG: w, lengthMm: l, poNumber: r.poNumber.trim() || null };
       });
       createMutation.mutate({
         dieId,
@@ -91,10 +91,10 @@ export default function NewReceiptScreen() {
       keyboardShouldPersistTaps="handled"
       contentInsetAdjustmentBehavior="automatic"
     >
-      <Stack.Screen options={{ title: "New Receipt" }} />
+      <Stack.Screen options={{ title: "New Bundling Session" }} />
 
       <ErpListCard className="mx-4 mt-4 gap-4">
-        <ErpSectionTitle>Receipt details</ErpSectionTitle>
+        <ErpSectionTitle>Bundling session details</ErpSectionTitle>
 
         <ErpField label="Die *">
           <View className="overflow-hidden rounded-md border border-border">
@@ -115,11 +115,11 @@ export default function NewReceiptScreen() {
           </View>
         </ErpField>
 
-        <ErpField label="Unit *">
+        <ErpField label="Length unit *">
           <ErpTextInput
             value={unit}
             onChangeText={setUnit}
-            placeholder="pcs, kg, m..."
+            placeholder="inch, mm..."
           />
         </ErpField>
 
@@ -134,7 +134,7 @@ export default function NewReceiptScreen() {
 
       <ErpListCard className="mx-4 mt-4 gap-3">
         <View className="flex-row items-center justify-between">
-          <ErpSectionTitle>Bundles ({rows.length})</ErpSectionTitle>
+          <ErpSectionTitle>Batch bundles ({rows.length})</ErpSectionTitle>
           <Pressable
             onPress={addRow}
             className="rounded-md border border-border px-3 py-1.5"
@@ -178,6 +178,15 @@ export default function NewReceiptScreen() {
                 </ErpField>
               </View>
             </View>
+            <View className="mt-2">
+              <ErpField label="PO override">
+                <ErpTextInput
+                  value={row.poNumber}
+                  onChangeText={(v) => updateRow(idx, { poNumber: v })}
+                  placeholder={purchaseOrderRef || "Optional"}
+                />
+              </ErpField>
+            </View>
             <Pressable
               onPress={() => removeRow(idx)}
               disabled={rows.length === 1}
@@ -191,7 +200,7 @@ export default function NewReceiptScreen() {
 
       <View className="mx-4 mt-4 min-h-12">
         <Button size="lg" disabled={createMutation.isPending} onPress={handleSubmit}>
-          {createMutation.isPending ? "Saving..." : "Create receipt"}
+          {createMutation.isPending ? "Saving..." : "Create session"}
         </Button>
       </View>
 

@@ -59,6 +59,15 @@ export const ACTIONS = [
   // Company settings
   "settings.update",
 
+  // Spool / printing
+  "spool.list_printers",
+  "spool.manage_printers",
+  "spool.manage_templates",
+  "spool.push_templates",
+  "spool.create_jobs",
+  "spool.manage_jobs",
+  "spool.view_queue",
+
   // Platform staff (orrn.app) — checked against platformRole, not tenant role
   "platform.waitlist.review",
   "platform.company.manage",
@@ -67,6 +76,7 @@ export const ACTIONS = [
   "platform.staff.create",
   "platform.staff.updateRole",
   "platform.staff.remove",
+  "platform.spool.manage",
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
@@ -79,8 +89,10 @@ const PLATFORM_ACTIONS = ACTIONS.filter((a) => a.startsWith("platform.")) as Act
  * - owner: everything.
  * - admin: everything except billing/owner-transfer (no such actions yet).
  * - manager: full CRUD on ops data + read-only members; no settings update.
+ *   Can manage printers, templates, and print jobs.
  * - operator: read everything in their company; create/edit bundles + dispatches
  *   (floor work); cannot edit customers/dies; cannot delete; no settings.
+ *   Can submit print jobs and view the queue.
  * - viewer: read-only across all modules; no create/edit/delete.
  */
 const ROLE_ACTIONS: Record<CompanyRole, ReadonlySet<Action>> = {
@@ -111,14 +123,27 @@ const ROLE_ACTIONS: Record<CompanyRole, ReadonlySet<Action>> = {
     "dispatch.cancel",
     "dispatch.addBundle",
     "packingList.regenerate",
+    "spool.list_printers",
+    "spool.manage_printers",
+    "spool.manage_templates",
+    "spool.push_templates",
+    "spool.create_jobs",
+    "spool.manage_jobs",
+    "spool.view_queue",
   ]),
   operator: new Set<Action>([
     "bundle.create",
     "bundle.update",
     "bundle.transition",
     "dispatch.addBundle",
+    "spool.list_printers",
+    "spool.create_jobs",
+    "spool.view_queue",
   ]),
-  viewer: new Set<Action>(),
+  viewer: new Set<Action>([
+    "spool.list_printers",
+    "spool.view_queue",
+  ]),
 };
 
 /** ORRN staff console (orrn.app) permissions by internal staff role. */
@@ -131,6 +156,7 @@ const PLATFORM_ROLE_ACTIONS: Record<PlatformStaffRole, ReadonlySet<Action>> = {
     "platform.staff.list",
     "platform.staff.create",
     "platform.staff.updateRole",
+    "platform.spool.manage",
   ]),
   support: new Set<Action>(["platform.waitlist.review", "platform.company.manage", "platform.staff.list"]),
 };

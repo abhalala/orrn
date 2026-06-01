@@ -22,6 +22,7 @@ import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboardin
 import { Route as AuthedNoAccessRouteImport } from './routes/_authed/no-access'
 import { Route as AuthedChangePasswordRouteImport } from './routes/_authed/change-password'
 import { Route as TenantStockIndexRouteImport } from './routes/_tenant/stock.index'
+import { Route as TenantSpoolIndexRouteImport } from './routes/_tenant/spool.index'
 import { Route as TenantReceiptsIndexRouteImport } from './routes/_tenant/receipts.index'
 import { Route as TenantDispatchesIndexRouteImport } from './routes/_tenant/dispatches.index'
 import { Route as TenantDiesIndexRouteImport } from './routes/_tenant/dies.index'
@@ -40,6 +41,7 @@ import { Route as TenantBundlesIdRouteImport } from './routes/_tenant/bundles.$i
 import { Route as PublicInviteTokenRouteImport } from './routes/_public/invite.$token'
 import { Route as PlatformAdminWaitlistRouteImport } from './routes/_platform/admin.waitlist'
 import { Route as PlatformAdminStaffRouteImport } from './routes/_platform/admin.staff'
+import { Route as PlatformAdminSpoolIndexRouteImport } from './routes/_platform/admin.spool.index'
 import { Route as PlatformAdminCompaniesIndexRouteImport } from './routes/_platform/admin.companies.index'
 import { Route as PlatformAdminCompaniesIdRouteImport } from './routes/_platform/admin.companies.$id'
 
@@ -102,6 +104,11 @@ const AuthedChangePasswordRoute = AuthedChangePasswordRouteImport.update({
 const TenantStockIndexRoute = TenantStockIndexRouteImport.update({
   id: '/stock/',
   path: '/stock/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantSpoolIndexRoute = TenantSpoolIndexRouteImport.update({
+  id: '/spool/',
+  path: '/spool/',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantReceiptsIndexRoute = TenantReceiptsIndexRouteImport.update({
@@ -194,6 +201,11 @@ const PlatformAdminStaffRoute = PlatformAdminStaffRouteImport.update({
   path: '/admin/staff',
   getParentRoute: () => PlatformRoute,
 } as any)
+const PlatformAdminSpoolIndexRoute = PlatformAdminSpoolIndexRouteImport.update({
+  id: '/admin/spool/',
+  path: '/admin/spool/',
+  getParentRoute: () => PlatformRoute,
+} as any)
 const PlatformAdminCompaniesIndexRoute =
   PlatformAdminCompaniesIndexRouteImport.update({
     id: '/admin/companies/',
@@ -234,9 +246,11 @@ export interface FileRoutesByFullPath {
   '/dies/': typeof TenantDiesIndexRoute
   '/dispatches/': typeof TenantDispatchesIndexRoute
   '/receipts/': typeof TenantReceiptsIndexRoute
+  '/spool/': typeof TenantSpoolIndexRoute
   '/stock/': typeof TenantStockIndexRoute
   '/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
   '/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
+  '/admin/spool/': typeof PlatformAdminSpoolIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
@@ -265,9 +279,11 @@ export interface FileRoutesByTo {
   '/dies': typeof TenantDiesIndexRoute
   '/dispatches': typeof TenantDispatchesIndexRoute
   '/receipts': typeof TenantReceiptsIndexRoute
+  '/spool': typeof TenantSpoolIndexRoute
   '/stock': typeof TenantStockIndexRoute
   '/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
   '/admin/companies': typeof PlatformAdminCompaniesIndexRoute
+  '/admin/spool': typeof PlatformAdminSpoolIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -301,9 +317,11 @@ export interface FileRoutesById {
   '/_tenant/dies/': typeof TenantDiesIndexRoute
   '/_tenant/dispatches/': typeof TenantDispatchesIndexRoute
   '/_tenant/receipts/': typeof TenantReceiptsIndexRoute
+  '/_tenant/spool/': typeof TenantSpoolIndexRoute
   '/_tenant/stock/': typeof TenantStockIndexRoute
   '/_platform/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
   '/_platform/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
+  '/_platform/admin/spool/': typeof PlatformAdminSpoolIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -334,9 +352,11 @@ export interface FileRouteTypes {
     | '/dies/'
     | '/dispatches/'
     | '/receipts/'
+    | '/spool/'
     | '/stock/'
     | '/admin/companies/$id'
     | '/admin/companies/'
+    | '/admin/spool/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -365,9 +385,11 @@ export interface FileRouteTypes {
     | '/dies'
     | '/dispatches'
     | '/receipts'
+    | '/spool'
     | '/stock'
     | '/admin/companies/$id'
     | '/admin/companies'
+    | '/admin/spool'
   id:
     | '__root__'
     | '/_authed'
@@ -400,9 +422,11 @@ export interface FileRouteTypes {
     | '/_tenant/dies/'
     | '/_tenant/dispatches/'
     | '/_tenant/receipts/'
+    | '/_tenant/spool/'
     | '/_tenant/stock/'
     | '/_platform/admin/companies/$id'
     | '/_platform/admin/companies/'
+    | '/_platform/admin/spool/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -503,6 +527,13 @@ declare module '@tanstack/react-router' {
       path: '/stock'
       fullPath: '/stock/'
       preLoaderRoute: typeof TenantStockIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/spool/': {
+      id: '/_tenant/spool/'
+      path: '/spool'
+      fullPath: '/spool/'
+      preLoaderRoute: typeof TenantSpoolIndexRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/receipts/': {
@@ -631,6 +662,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlatformAdminStaffRouteImport
       parentRoute: typeof PlatformRoute
     }
+    '/_platform/admin/spool/': {
+      id: '/_platform/admin/spool/'
+      path: '/admin/spool'
+      fullPath: '/admin/spool/'
+      preLoaderRoute: typeof PlatformAdminSpoolIndexRouteImport
+      parentRoute: typeof PlatformRoute
+    }
     '/_platform/admin/companies/': {
       id: '/_platform/admin/companies/'
       path: '/admin/companies'
@@ -671,6 +709,7 @@ interface PlatformRouteChildren {
   PlatformAdminIndexRoute: typeof PlatformAdminIndexRoute
   PlatformAdminCompaniesIdRoute: typeof PlatformAdminCompaniesIdRoute
   PlatformAdminCompaniesIndexRoute: typeof PlatformAdminCompaniesIndexRoute
+  PlatformAdminSpoolIndexRoute: typeof PlatformAdminSpoolIndexRoute
 }
 
 const PlatformRouteChildren: PlatformRouteChildren = {
@@ -679,6 +718,7 @@ const PlatformRouteChildren: PlatformRouteChildren = {
   PlatformAdminIndexRoute: PlatformAdminIndexRoute,
   PlatformAdminCompaniesIdRoute: PlatformAdminCompaniesIdRoute,
   PlatformAdminCompaniesIndexRoute: PlatformAdminCompaniesIndexRoute,
+  PlatformAdminSpoolIndexRoute: PlatformAdminSpoolIndexRoute,
 }
 
 const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
@@ -718,6 +758,7 @@ interface TenantRouteChildren {
   TenantDiesIndexRoute: typeof TenantDiesIndexRoute
   TenantDispatchesIndexRoute: typeof TenantDispatchesIndexRoute
   TenantReceiptsIndexRoute: typeof TenantReceiptsIndexRoute
+  TenantSpoolIndexRoute: typeof TenantSpoolIndexRoute
   TenantStockIndexRoute: typeof TenantStockIndexRoute
 }
 
@@ -737,6 +778,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantDiesIndexRoute: TenantDiesIndexRoute,
   TenantDispatchesIndexRoute: TenantDispatchesIndexRoute,
   TenantReceiptsIndexRoute: TenantReceiptsIndexRoute,
+  TenantSpoolIndexRoute: TenantSpoolIndexRoute,
   TenantStockIndexRoute: TenantStockIndexRoute,
 }
 

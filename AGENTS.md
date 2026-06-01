@@ -121,6 +121,19 @@ bun run deploy
 - Keep webhook handlers O(1): verify signature, update one row, return.
 - Large imports must be bounded by row/file limits and validated in manageable batches.
 
+## Spool integration (orrn-spool)
+
+- Each tenant gets a `spool_deployment` row in D1 with a shared secret (HMAC-SHA256), Cloudflare Tunnel token, and subdomain.
+- ORRN calls the spool's HTTP API with `Authorization: Bearer v1:<timestamp>:<HMAC>` — verified by `@orrn/server/lib/spool-crypto`.
+- Spool webhooks to ORRN carry `X-Webhook-Signature: <HMAC-SHA256>` — verified at `POST /webhooks/spool`.
+- Spool activation heartbeat: `POST /webhooks/spool/activate` with `X-Spool-Subdomain` header.
+- Auto-update: spool checks `GET /api/spool/update-check` on startup.
+- Platform admins create/revoke/rotate deployments via `platform.spool.*` tRPC routes.
+- Tenant users interact via `spool.*` tRPC routes (printers, templates, jobs).
+- Deliverables are platform-specific archives (zip/tar.gz) with pre-embedded config.yaml containing secrets.
+- The `@orrn/server/lib/cloudflare.ts` client provisions CF Tunnels and DNS CNAMEs for `<subdomain>.spool.orrn.in`.
+- The `@orrn/server/lib/spool-client.ts` SpoolClient class wraps all spool API calls with auto-signing.
+
 ## Data and documents
 
 - Packing lists store a historical JSON snapshot in D1.

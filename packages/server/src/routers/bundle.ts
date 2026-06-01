@@ -22,6 +22,7 @@ const bundleRowSchema = z.object({
   quantity: z.number().int().min(1, "Quantity must be at least 1"),
   weightG: z.number().int().min(0, "Weight must be >= 0"),
   lengthMm: z.number().int().min(0, "Length must be >= 0"),
+  poNumber: z.string().nullable().optional(),
 });
 
 const receiptInputSchema = z.object({
@@ -43,6 +44,7 @@ const bundleImportRowSchema = z.object({
   quantity: z.number().int().min(1, "Quantity must be at least 1"),
   weightG: z.number().int().min(0, "Weight must be >= 0"),
   lengthMm: z.number().int().min(0, "Length must be >= 0"),
+  poNumber: z.string().nullable().optional(),
 });
 
 /**
@@ -109,6 +111,7 @@ export const bundleRouter = router({
         groupId,
         dieId: input.dieId,
         serial: formatBundleSerial(code, idx + 1),
+        poNumber: row.poNumber ?? input.purchaseOrderRef ?? null,
         quantity: row.quantity,
         weightG: row.weightG,
         lengthMm: row.lengthMm,
@@ -276,7 +279,8 @@ export const bundleRouter = router({
       if (input.dieId) conditions.push(eq(bundle.dieId, input.dieId));
       if (input.groupId) conditions.push(eq(bundle.groupId, input.groupId));
       if (input.search) {
-        conditions.push(sql`${bundle.serial} LIKE ${`%${input.search}%`}`);
+        const pattern = `%${input.search}%`;
+        conditions.push(sql`(${bundle.serial} LIKE ${pattern} OR ${bundle.poNumber} LIKE ${pattern})`);
       }
 
       const items = await ctx.db
@@ -287,6 +291,7 @@ export const bundleRouter = router({
           quantity: bundle.quantity,
           weightG: bundle.weightG,
           lengthMm: bundle.lengthMm,
+          poNumber: bundle.poNumber,
           dieId: bundle.dieId,
           dieSeries: die.series,
           dieSectionCode: die.sectionCode,
@@ -690,6 +695,7 @@ export const bundleRouter = router({
           quantity: row.quantity,
           weightG: row.weightG,
           lengthMm: row.lengthMm,
+          poNumber: row.poNumber ?? null,
           status: "available",
           createdBy: userId,
         });

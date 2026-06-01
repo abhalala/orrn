@@ -51,6 +51,7 @@ export const bundle = sqliteTable(
       .notNull()
       .references(() => die.id, { onDelete: "restrict" }),
     serial: text("serial").notNull(),
+    poNumber: text("po_number"),
     quantity: integer("quantity").notNull(),
     weightG: integer("weight_g").notNull(),
     lengthMm: integer("length_mm").notNull(),

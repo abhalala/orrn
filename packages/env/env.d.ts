@@ -18,6 +18,10 @@ export interface CloudflareEnv {
   RESEND_API_KEY: string;
   WEBHOOK_BASE_URL: string;
   COOKIE_DOMAIN: string;
+  CF_API_TOKEN: string;
+  CF_ACCOUNT_ID: string;
+  CF_ZONE_ID_IN: string;
+  SPOOL_RELEASES_BUCKET: R2Bucket;
 }
 
 declare global {

@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { BundlePrintButton } from "@/shared/components/bundle-print-button";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { requireCompanyMe } from "@/shared/lib/guards";
@@ -63,16 +64,21 @@ function BundleDetailComponent() {
       <PageHeader
         eyebrow="Bundles"
         title={bundle.serial}
-        description="Bundle detail and status history."
+        description="Bundle detail, label printing, and status history."
         actions={
-          <Button
+          <>
+            <Can do="spool.create_jobs">
+              <BundlePrintButton bundleId={bundle.id} label="Print label" size="default" />
+            </Can>
+            <Button
             variant="outline"
             onClick={() =>
               navigate({ to: "/bundles", search: { status: "all", dieId: undefined, groupId: undefined } })
             }
           >
             Back to list
-          </Button>
+            </Button>
+          </>
         }
       />
 
@@ -92,7 +98,7 @@ function BundleDetailComponent() {
               </p>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Receipt</Label>
+              <Label className="text-xs text-muted-foreground">Bundling session</Label>
               <p className="font-mono text-sm">
                 {group ? (
                   <Link to="/receipts/$id" params={{ id: group.id }} className="hover:underline">
@@ -114,6 +120,10 @@ function BundleDetailComponent() {
             <div>
               <Label className="text-xs text-muted-foreground">Length</Label>
               <p>{lu.formatLength(bundle.lengthMm)}</p>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">PO</Label>
+              <p>{bundle.poNumber || group?.purchaseOrderRef || "—"}</p>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Created</Label>

@@ -190,6 +190,7 @@ export const dispatchRouter = router({
           weightG: bundle.weightG,
           lengthMm: bundle.lengthMm,
           groupId: bundle.groupId,
+          groupLabel: dispatchItem.groupLabel,
           dieId: bundle.dieId,
           dieSeries: die.series,
           dieSectionCode: die.sectionCode,
@@ -513,6 +514,50 @@ export const dispatchRouter = router({
       await atomicBatch(ctx.db, statements);
 
       return { success: true, added: toAdd.length };
+    }),
+
+  setItemGroupLabel: companyProcedure
+    .input(z.object({ id: z.string(), bundleId: z.string(), groupLabel: z.string().max(32).nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      const d = await ctx.db.query.dispatch.findFirst({
+        where: and(
+          eq(dispatch.id, input.id),
+          eq(dispatch.companyId, ctx.companyId),
+          isNull(dispatch.deletedAt),
+        ),
+      });
+      if (!d) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+      }
+      if (d.status !== "draft" && d.status !== "reserved") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Packing groups can only be edited before completion" });
+      }
+
+      const label = input.groupLabel?.trim().toUpperCase() || null;
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      await atomicBatch(ctx.db, [
+        ctx.db
+          .update(dispatchItem)
+          .set({ groupLabel: label })
+          .where(
+            and(
+              eq(dispatchItem.companyId, ctx.companyId),
+              eq(dispatchItem.dispatchId, d.id),
+              eq(dispatchItem.bundleId, input.bundleId),
+            ),
+          ),
+        ctx.db.update(dispatch).set({ serverSeq: seq }).where(eq(dispatch.id, d.id)),
+        auditInsert(
+          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          {
+            action: "dispatch.setPackingGroup",
+            subjectType: "dispatch",
+            subjectId: d.id,
+            meta: { bundleId: input.bundleId, groupLabel: label },
+          },
+        ),
+      ]);
+      return { success: true };
     }),
 
   removeBundle: companyProcedure

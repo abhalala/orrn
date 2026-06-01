@@ -2,11 +2,13 @@ import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { Input } from "@orrn/ui/components/input";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Tabs } from "@orrn/ui/components/tabs";
 import { Toolbar } from "@orrn/ui/components/toolbar";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 
 import { useLengthUnit } from "@/shared/lib/length";
 import { requireCompanyMe } from "@/shared/lib/guards";
@@ -23,6 +25,19 @@ export const Route = createFileRoute("/_tenant/stock/")({
   beforeLoad: requireCompanyMe,
 });
 
+type BundleStockRow = {
+  id: string;
+  serial: string;
+  poNumber: string | null;
+  dieSeries: string;
+  dieSectionCode: string;
+  groupCode: string;
+  quantity: number | string;
+  weightG: number | string;
+  lengthMm: number | string;
+  createdAt: string | number | Date;
+};
+
 type StockRow = {
   dieId: string;
   dieSeries: string;
@@ -38,10 +53,19 @@ function StockComponent() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const status: BundleStatus = search.status ?? "available";
+  const [serialSearch, setSerialSearch] = useState("");
   const lu = useLengthUnit();
 
   const { data, isLoading } = useQuery({
     ...trpc.bundle.stockSummary.queryOptions({ status }),
+  });
+  const { data: bundleData, isLoading: bundlesLoading } = useQuery({
+    ...trpc.bundle.listBundles.queryOptions({
+      status,
+      search: serialSearch || undefined,
+      limit: 100,
+      offset: 0,
+    }),
   });
 
   const items = (data?.items ?? []) as StockRow[];
@@ -94,11 +118,32 @@ function StockComponent() {
     },
   ];
 
+
+
+  const bundleColumns: DataTableColumn<BundleStockRow>[] = [
+    {
+      id: "serial",
+      header: "Serial",
+      flex: 1.4,
+      cell: (row) => (
+        <Link to="/bundles/$id" params={{ id: row.id }} className="font-mono text-xs hover:underline">
+          {row.serial}
+        </Link>
+      ),
+    },
+    { id: "po", header: "PO", cell: (row) => row.poNumber || "—" },
+    { id: "die", header: "Die", cell: (row) => `${row.dieSeries} / ${row.dieSectionCode}` },
+    { id: "session", header: "Session", cell: (row) => row.groupCode },
+    { id: "qty", header: "Qty", align: "right", cell: (row) => Number(row.quantity).toLocaleString() },
+    { id: "weight", header: "Weight (g)", align: "right", cell: (row) => Number(row.weightG).toLocaleString() },
+    { id: "length", header: `Length (${lu.label})`, align: "right", cell: (row) => lu.formatLength(Number(row.lengthMm)) },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Stock"
-        description="Inventory totals aggregated by die."
+        description="Bundle-level stock lookup with die aggregates for operations."
       />
 
       <Toolbar>
@@ -110,6 +155,12 @@ function StockComponent() {
             label: s.charAt(0).toUpperCase() + s.slice(1),
           }))}
         />
+        <Input
+          placeholder="Search serial…"
+          value={serialSearch}
+          onChangeText={setSerialSearch}
+          className="max-w-[260px]"
+        />
       </Toolbar>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -118,6 +169,14 @@ function StockComponent() {
         <SummaryCard label="Total Weight (g)" value={Number(totals.totalWeightG).toLocaleString()} />
         <SummaryCard label={`Total Length (${lu.label})`} value={lu.formatLength(Number(totals.totalLengthMm))} />
       </div>
+
+      <DataTable
+        rows={(bundleData?.items ?? []) as BundleStockRow[]}
+        rowKey={(row) => row.id}
+        columns={bundleColumns}
+        isLoading={bundlesLoading}
+        emptyState={<EmptyState title={`No ${status} bundles`} description="No bundle rows match this stock filter." />}
+      />
 
       <DataTable
         rows={items}

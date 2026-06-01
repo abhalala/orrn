@@ -32,14 +32,15 @@
   },
   "dependencies": {
     "@orrn/auth": "workspace:*",
+    "@orrn/crypto": "workspace:*",
     "@orrn/db": "workspace:*",
     "@orrn/env": "workspace:*",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
-    "drizzle-orm": "^0.45.1",
+    "alchemy": "catalog:",
     "dotenv": "catalog:",
-    "zod": "catalog:",
-    "alchemy": "catalog:"
+    "drizzle-orm": "^0.45.1",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@better-auth/utils": "0.4.0",

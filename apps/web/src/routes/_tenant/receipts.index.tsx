@@ -80,12 +80,12 @@ function ReceiptsListComponent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Receipts"
-        description={`Production receipts (bundle groups) — ${data?.total ?? 0} total`}
+        title="Bundling sessions"
+        description={`Production receipts / bundling sessions — ${data?.total ?? 0} total`}
         actions={
           <Can do="receipt.create">
             <Link to="/receipts/new">
-              <Button>New Production Receipt</Button>
+              <Button>New Bundling Session</Button>
             </Link>
           </Can>
         }
@@ -93,7 +93,7 @@ function ReceiptsListComponent() {
 
       <Toolbar>
         <Input
-          placeholder="Search by receipt code or PO ref…"
+          placeholder="Search by session code or PO ref…"
           value={search}
           onChangeText={setSearch}
           className="max-w-[360px]"
@@ -141,12 +141,12 @@ function ReceiptsListComponent() {
         isLoading={isLoading}
         emptyState={
           <EmptyState
-            title="No receipts yet"
-            description="Create your first production receipt to spawn bundles for the floor."
+            title="No bundling sessions yet"
+            description="Create your first bundling session to spawn bundles and print labels for the floor."
             actions={
               <Can do="receipt.create">
                 <Link to="/receipts/new">
-                  <Button>New receipt</Button>
+                  <Button>New session</Button>
                 </Link>
               </Can>
             }

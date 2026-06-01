@@ -77,6 +77,8 @@ export const printLog = sqliteTable(
     requestedBy: text("requested_by").references(() => user.id, { onDelete: "set null" }),
     spoolJobId: text("spool_job_id"),
     status: text("status", { enum: printStatuses }).notNull().default("queued"),
+    layout: text("layout"),
+    variables: text("variables", { mode: "json" }).$type<Record<string, unknown>>(),
     payloadHash: text("payload_hash"),
     responseText: text("response_text"),
     attempt: integer("attempt").notNull().default(1),

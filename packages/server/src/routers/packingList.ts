@@ -35,6 +35,7 @@ type PackingLineItem = {
   dieSeries: string;
   dieSectionCode: string;
   groupId: string | null;
+  groupLabel: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -79,6 +80,7 @@ async function buildSnapshot(
       dieId: die.id,
       dieSeries: die.series,
       dieSectionCode: die.sectionCode,
+      groupLabel: dispatchItem.groupLabel,
       groupId: bundle.groupId,
     })
     .from(dispatchItem)
@@ -138,7 +140,7 @@ async function buildSnapshot(
         series: item.dieSeries,
         sectionCode: item.dieSectionCode,
       },
-      groupId: item.groupId ?? "",
+      groupId: item.groupLabel ?? item.groupId ?? "",
       quantity: Number(item.bundleQuantity),
       weightG: Number(item.bundleWeightG),
       lengthMm: Number(item.bundleLengthMm),
@@ -218,7 +220,7 @@ export async function packingListWriteBatch(
       quantity: Number(item.bundleQuantity),
       weightG: Number(item.bundleWeightG),
       lengthMm: Number(item.bundleLengthMm),
-      groupLabel: item.groupId ?? `GROUP-${index + 1}`,
+      groupLabel: item.groupLabel ?? item.groupId ?? `GROUP-${index + 1}`,
     }));
     pushChunkedInserts(
       statements,

@@ -9,6 +9,7 @@ import { dieRouter } from "./die";
 import { bundleRouter } from "./bundle";
 import { dispatchRouter } from "./dispatch";
 import { packingListRouter } from "./packingList";
+import { spoolRouter } from "./spool";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -30,5 +31,6 @@ export const appRouter = router({
   bundle: bundleRouter,
   dispatch: dispatchRouter,
   packingList: packingListRouter,
+  spool: spoolRouter,
 });
 export type AppRouter = typeof appRouter;

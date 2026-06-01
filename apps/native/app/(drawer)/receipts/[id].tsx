@@ -35,7 +35,7 @@ export default function ReceiptDetailScreen() {
   if (!data) {
     return (
       <ErpScreen>
-        <ErpMutedText className="mt-5 text-center">Receipt not found.</ErpMutedText>
+        <ErpMutedText className="mt-5 text-center">Bundling session not found.</ErpMutedText>
       </ErpScreen>
     );
   }
@@ -58,9 +58,9 @@ export default function ReceiptDetailScreen() {
             <ErpMutedText>
               Die: {die ? `${die.series} / ${die.sectionCode}` : "—"}
             </ErpMutedText>
-            <ErpMutedText>Unit: {group.unit}</ErpMutedText>
+<ErpMutedText>Length unit: {group.unit}</ErpMutedText>
             {group.purchaseOrderRef ? (
-              <ErpMutedText>PO: {group.purchaseOrderRef}</ErpMutedText>
+              <ErpMutedText>Session PO: {group.purchaseOrderRef}</ErpMutedText>
             ) : null}
             {group.notes ? <ErpMutedText>Notes: {group.notes}</ErpMutedText> : null}
             <ErpMutedText>
@@ -79,12 +79,12 @@ export default function ReceiptDetailScreen() {
                 <StatusBadge kind="bundle" value={item.status} size="sm" />
               </ErpRowBetween>
               <ErpMutedText>
-                Qty {item.quantity} · {item.weightG}g · {lu.formatLength(item.lengthMm)}
+                Qty {item.quantity} · {item.weightG}g · {lu.formatLength(item.lengthMm)} · PO {item.poNumber || group.purchaseOrderRef || "—"}
               </ErpMutedText>
             </ErpCardPressable>
           </Link>
         )}
-        ListEmptyComponent={<ErpEmpty>No bundles in this receipt.</ErpEmpty>}
+        ListEmptyComponent={<ErpEmpty>No bundles in this session.</ErpEmpty>}
       />
     </ErpScreen>
   );

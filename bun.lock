@@ -82,12 +82,14 @@
       "dependencies": {
         "@hono/trpc-server": "^0.4.0",
         "@orrn/auth": "workspace:*",
+        "@orrn/crypto": "workspace:*",
         "@orrn/db": "workspace:*",
         "@orrn/env": "workspace:*",
         "@orrn/server": "workspace:*",
         "@trpc/server": "catalog:",
         "better-auth": "catalog:",
         "dotenv": "catalog:",
+        "drizzle-orm": "^0.45.1",
         "hono": "catalog:",
         "zod": "catalog:",
       },
@@ -224,6 +226,7 @@
       "name": "@orrn/server",
       "dependencies": {
         "@orrn/auth": "workspace:*",
+        "@orrn/crypto": "workspace:*",
         "@orrn/db": "workspace:*",
         "@orrn/env": "workspace:*",
         "@trpc/client": "catalog:",

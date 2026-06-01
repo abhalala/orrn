@@ -41,6 +41,7 @@ function DispatchDetailComponent() {
   const queryClient = useQueryClient();
   const [serialQuery, setSerialQuery] = useState("");
   const [bulkSerials, setBulkSerials] = useState("");
+  const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
   const lu = useLengthUnit();
 
   const { data, isLoading } = useQuery({
@@ -91,6 +92,15 @@ function DispatchDetailComponent() {
       invalidate();
     },
     onError: (e: any) => toast.error(e.message || "Failed to remove bundle"),
+  });
+
+  const groupLabelMutation = useMutation({
+    ...trpc.dispatch.setItemGroupLabel.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Packing group updated");
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to update packing group"),
   });
 
   const reserveMutation = useMutation({
@@ -172,6 +182,7 @@ function DispatchDetailComponent() {
       header: "Die",
       cell: (it) => `${it.dieSeries} / ${it.dieSectionCode}`,
     },
+    { id: "group", header: "Group", cell: (it) => it.groupLabel || "—" },
     { id: "qty", header: "Qty", align: "right", cell: (it) => it.quantity },
     { id: "weight", header: "Weight (g)", align: "right", cell: (it) => it.weightG },
     { id: "length", header: `Length (${lu.label})`, align: "right", cell: (it) => lu.formatLength(it.lengthMm) },
@@ -187,14 +198,36 @@ function DispatchDetailComponent() {
             header: "",
             align: "right" as const,
             cell: (it: DispatchItemRow) => (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={removeMutation.isPending}
-                onClick={() => removeMutation.mutate({ id, bundleId: it.bundleId })}
-              >
-                Remove
-              </Button>
+              <div className="flex items-center justify-end gap-2">
+                <Input
+                  value={groupLabels[it.itemId] ?? it.groupLabel ?? ""}
+                  onChange={(e) => setGroupLabels((prev) => ({ ...prev, [it.itemId]: e.target.value }))}
+                  placeholder="A"
+                  className="h-8 w-16"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={groupLabelMutation.isPending}
+                  onClick={() =>
+                    groupLabelMutation.mutate({
+                      id,
+                      bundleId: it.bundleId,
+                      groupLabel: groupLabels[it.itemId] ?? it.groupLabel ?? null,
+                    })
+                  }
+                >
+                  Group
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={removeMutation.isPending}
+                  onClick={() => removeMutation.mutate({ id, bundleId: it.bundleId })}
+                >
+                  Remove
+                </Button>
+              </div>
             ),
           },
         ]
@@ -206,7 +239,7 @@ function DispatchDetailComponent() {
       <PageHeader
         eyebrow="Dispatches"
         title={d.code}
-        description="Dispatch detail, bundle items, and lifecycle actions."
+        description="Dispatch lifecycle, scanned bundles, packing groups, and completion."
         actions={
           <Button variant="outline" onClick={() => navigate({ to: "/dispatches", search: { status: "all" } })}>
             Back to list
@@ -365,7 +398,7 @@ function DispatchDetailComponent() {
           </div>
 
           <div className="space-y-2 pt-4 border-t">
-            <Label htmlFor="bulk-serials">Paste serials (one per line)</Label>
+            <Label htmlFor="bulk-serials">Scan or paste serials / UUIDs (one per line)</Label>
             <textarea
               id="bulk-serials"
               rows={4}
@@ -417,6 +450,7 @@ function DispatchDetailComponent() {
                     <p className="m-0 text-xs text-muted-foreground">
                       {it.dieSeries} / {it.dieSectionCode}
                     </p>
+                    <p className="m-0 text-xs text-muted-foreground">Packing group {it.groupLabel || "—"}</p>
                   </div>
                   <StatusBadge kind="bundle" value={it.status} size="sm" />
                 </div>
@@ -435,14 +469,41 @@ function DispatchDetailComponent() {
                   </div>
                 </div>
                 {canAddOrRemove ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={removeMutation.isPending}
-                    onClick={() => removeMutation.mutate({ id, bundleId: it.bundleId })}
-                  >
-                    Remove from dispatch
-                  </Button>
+                  <div className="flex flex-wrap items-end gap-2 border-t border-border pt-3">
+                    <div className="min-w-28 flex-1">
+                      <Label htmlFor={`${it.itemId}-group`} className="text-xs text-muted-foreground">
+                        Packing group
+                      </Label>
+                      <Input
+                        id={`${it.itemId}-group`}
+                        value={groupLabels[it.itemId] ?? it.groupLabel ?? ""}
+                        onChange={(e) => setGroupLabels((prev) => ({ ...prev, [it.itemId]: e.target.value }))}
+                        placeholder="A"
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={groupLabelMutation.isPending}
+                      onClick={() =>
+                        groupLabelMutation.mutate({
+                          id,
+                          bundleId: it.bundleId,
+                          groupLabel: groupLabels[it.itemId] ?? it.groupLabel ?? null,
+                        })
+                      }
+                    >
+                      Set group
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={removeMutation.isPending}
+                      onClick={() => removeMutation.mutate({ id, bundleId: it.bundleId })}
+                    >
+                      Remove
+                    </Button>
+                  </div>
                 ) : null}
               </div>
             )}

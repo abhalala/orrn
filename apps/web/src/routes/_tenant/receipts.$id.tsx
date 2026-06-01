@@ -9,6 +9,8 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 
+import { Can } from "@/shared/components/can";
+import { BundlePrintButton } from "@/shared/components/bundle-print-button";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
@@ -25,6 +27,7 @@ type BundleRow = {
   weightG: number;
   lengthMm: number;
   status: string;
+  poNumber?: string | null;
 };
 
 function ReceiptDetailComponent() {
@@ -61,9 +64,24 @@ function ReceiptDetailComponent() {
     { id: "weight", header: "Weight (g)", align: "right", cell: (b) => b.weightG },
     { id: "length", header: `Length (${lu.label})`, align: "right", cell: (b) => lu.formatLength(b.lengthMm) },
     {
+      id: "po",
+      header: "PO",
+      cell: (b) => b.poNumber || group.purchaseOrderRef || "—",
+    },
+    {
       id: "status",
       header: "Status",
       cell: (b) => <StatusBadge kind="bundle" value={b.status} size="sm" />,
+    },
+    {
+      id: "print",
+      header: "Print",
+      align: "right",
+      cell: (b) => (
+        <Can do="spool.create_jobs">
+          <BundlePrintButton bundleId={b.id} label="Print" />
+        </Can>
+      ),
     },
   ];
 
@@ -72,7 +90,7 @@ function ReceiptDetailComponent() {
       <PageHeader
         eyebrow="Receipts"
         title={group.code}
-        description="Production receipt and bundles created from intake."
+        description="Bundling session created from production receipt data. Print labels before moving bundles into dispatch."
         actions={
           <Button variant="outline" onClick={() => navigate({ to: "/receipts" })}>
             Back to list
@@ -94,7 +112,7 @@ function ReceiptDetailComponent() {
               <p>{group.unit}</p>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">PO Reference</Label>
+              <Label className="text-xs text-muted-foreground">Session PO</Label>
               <p>{group.purchaseOrderRef || "—"}</p>
             </div>
             <div>
@@ -117,10 +135,10 @@ function ReceiptDetailComponent() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Bundles in this receipt</CardTitle>
+          <CardTitle>Bundles and labels</CardTitle>
           <Link to="/bundles" search={{ status: "all", groupId: group.id, dieId: undefined }}>
             <Button variant="outline" size="sm">
-              Open in bundle list
+Open in bundle list
             </Button>
           </Link>
         </CardHeader>
@@ -150,6 +168,12 @@ function ReceiptDetailComponent() {
                     <p className="m-0 text-xs font-medium text-muted-foreground">Length</p>
                     <p className="m-0 text-foreground">{lu.formatLength(b.lengthMm)}</p>
                   </div>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+                  <p className="m-0 text-xs text-muted-foreground">PO: {b.poNumber || group.purchaseOrderRef || "—"}</p>
+                  <Can do="spool.create_jobs">
+                    <BundlePrintButton bundleId={b.id} label="Print label" />
+                  </Can>
                 </div>
               </div>
             )}
