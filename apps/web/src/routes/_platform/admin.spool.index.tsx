@@ -533,6 +533,7 @@ function AdminSpoolComponent() {
       {/* ── Created Secrets Dialog ────────────────────────────────────── */}
       <Dialog
         open={createResult !== null}
+        maxWidth={720}
         onOpenChange={(open) => {
           if (!open) setCreateResult(null);
         }}
@@ -548,18 +549,34 @@ function AdminSpoolComponent() {
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <Label>Instance ID</Label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 truncate rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs">
+              <div className="flex min-w-0 items-start gap-2">
+                <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs whitespace-nowrap">
                   {createResult.instanceId}
                 </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                  onPress={() => copyToClipboard(createResult.instanceId, "Instance ID")}
+                >
+                  <Copy className="size-3" />
+                </Button>
               </div>
             </div>
             <div className="flex flex-col gap-1">
               <Label>Spool Domain</Label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs">
+              <div className="flex min-w-0 items-start gap-2">
+                <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs whitespace-nowrap">
                   {createResult.spoolDomain}
                 </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                  onPress={() => copyToClipboard(createResult.spoolDomain, "Spool domain")}
+                >
+                  <Copy className="size-3" />
+                </Button>
               </div>
             </div>
             <div className="flex flex-col gap-1">
@@ -567,13 +584,14 @@ function AdminSpoolComponent() {
                 <ShieldAlert className="size-3.5 text-amber-500" />
                 Shared Secret
               </Label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 truncate rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs">
+              <div className="flex min-w-0 items-start gap-2">
+                <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs whitespace-nowrap">
                   {createResult.sharedSecret}
                 </code>
                 <Button
                   size="sm"
                   variant="outline"
+                  className="shrink-0"
                   onPress={() => copyToClipboard(createResult.sharedSecret, "Shared secret")}
                 >
                   <Copy className="size-3" />
@@ -585,13 +603,14 @@ function AdminSpoolComponent() {
                 <ShieldAlert className="size-3.5 text-amber-500" />
                 Cloudflare Tunnel Token
               </Label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 truncate rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs">
+              <div className="flex min-w-0 items-start gap-2">
+                <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs whitespace-nowrap">
                   {createResult.cfTunnelToken}
                 </code>
                 <Button
                   size="sm"
                   variant="outline"
+                  className="shrink-0"
                   onPress={() => copyToClipboard(createResult.cfTunnelToken, "Tunnel token")}
                 >
                   <Copy className="size-3" />

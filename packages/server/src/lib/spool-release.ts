@@ -96,12 +96,15 @@ export async function resolveSpoolRelease(platform: Platform, version?: string):
 } | null> {
   const release = await fetchRelease(version);
   if (!release) {
-    return null;
+    if (version) {
+      throw new Error(`No GitHub release tagged v${normalizeVersion(version)} exists in ${GITHUB_REPO}.`);
+    }
+    throw new Error(`No GitHub releases are published in ${GITHUB_REPO}.`);
   }
 
   const binaryAsset = findBinaryAsset(release.assets ?? [], platform);
   if (!binaryAsset) {
-    return null;
+    throw new Error(`GitHub release ${release.tag_name} in ${GITHUB_REPO} has no binary asset for ${platform}.`);
   }
 
   let checksum: string | null = null;

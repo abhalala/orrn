@@ -260,12 +260,19 @@ spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoC
     return c.json({ error: "Deployment not found or revoked" }, 404);
   }
 
-  const release = await resolveSpoolRelease(normalizedPlatform, deployment.spoolVersion ?? undefined);
-  if (!release) {
-    return c.json({ error: "Spool release binary was not found on GitHub for this platform/version." }, 404);
+  let release;
+  let binaryData;
+  try {
+    release = await resolveSpoolRelease(normalizedPlatform, deployment.spoolVersion ?? undefined);
+    binaryData = await fetchSpoolBinary(release.downloadUrl);
+  } catch (error) {
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to fetch spool binary from GitHub.",
+      },
+      404,
+    );
   }
-
-  const binaryData = await fetchSpoolBinary(release.downloadUrl);
 
   // Unwrap secrets for the embedded config
   const sharedSecret = await unwrapSecret(deployment.sharedSecretWrapped, env.ORRN_MASTER_KEY);
