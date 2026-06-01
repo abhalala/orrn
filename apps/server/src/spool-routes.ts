@@ -260,10 +260,14 @@ spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoC
     return c.json({ error: "Deployment not found or revoked" }, 404);
   }
 
-  let release: Awaited<ReturnType<typeof resolveSpoolRelease>>;
+  let release: Exclude<Awaited<ReturnType<typeof resolveSpoolRelease>>, null>;
   let binaryData: Uint8Array;
   try {
-    release = await resolveSpoolRelease(normalizedPlatform, deployment.spoolVersion ?? undefined);
+    const resolvedRelease = await resolveSpoolRelease(normalizedPlatform, deployment.spoolVersion ?? undefined);
+    if (!resolvedRelease) {
+      throw new Error("Failed to resolve spool release.");
+    }
+    release = resolvedRelease;
     binaryData = await fetchSpoolBinary(release.downloadUrl);
   } catch (error) {
     return c.json(
@@ -272,10 +276,6 @@ spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoC
       },
       404,
     );
-  }
-
-  if (!release) {
-    return c.json({ error: "Failed to resolve spool release." }, 404);
   }
 
   // Unwrap secrets for the embedded config
