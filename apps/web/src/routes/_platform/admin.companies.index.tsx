@@ -222,6 +222,81 @@ function AdminCompaniesComponent() {
         columns={columns}
         rows={(data?.items as CompanyRow[]) ?? []}
         rowKey={(row) => row.id}
+        renderCard={(row) => (
+          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <Link
+                  to="/admin/companies/$id"
+                  params={{ id: row.id }}
+                  className="truncate text-base font-semibold text-foreground hover:underline"
+                >
+                  {row.name}
+                </Link>
+                <p className="m-0 font-mono text-xs text-muted-foreground">{row.slug}</p>
+              </div>
+              <Badge
+                tone={
+                  row.status === "active"
+                    ? "success"
+                    : row.status === "suspended"
+                      ? "danger"
+                      : "neutral"
+                }
+              >
+                {row.status}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Members</p>
+                <p className="m-0 text-foreground">{row.memberCount}</p>
+              </div>
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Plan</p>
+                <p className="m-0 capitalize text-foreground">{row.plan ?? "—"}</p>
+              </div>
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Created</p>
+                <p className="m-0 text-foreground">{format(new Date(row.createdAt), "MMM d")}</p>
+              </div>
+            </div>
+            <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-border pt-3">
+              <Can do="platform.impersonate">
+                <Button
+                  size="sm"
+                  disabled={row.status !== "active" || impersonateMutation.isPending}
+                  onClick={() =>
+                    impersonateMutation.mutate({ companyId: row.id, ttlMinutes: 30 })
+                  }
+                >
+                  Impersonate
+                </Button>
+              </Can>
+              <Can do="platform.company.manage">
+                {row.status === "active" ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={suspendMutation.isPending}
+                    onClick={() => suspendMutation.mutate({ id: row.id })}
+                  >
+                    Suspend
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={reactivateMutation.isPending}
+                    onClick={() => reactivateMutation.mutate({ id: row.id })}
+                  >
+                    Reactivate
+                  </Button>
+                )}
+              </Can>
+            </div>
+          </div>
+        )}
         isLoading={isLoading}
         emptyState={
           <EmptyState

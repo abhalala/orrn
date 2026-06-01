@@ -125,6 +125,36 @@ function DispatchesListComponent() {
         rows={items}
         rowKey={(r) => r.id}
         columns={columns}
+        renderCard={(r) => (
+          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <Link to="/dispatches/$id" params={{ id: r.id }} className="font-mono text-sm font-semibold hover:underline">
+                  {r.code}
+                </Link>
+                <p className="m-0 truncate text-sm text-muted-foreground">{r.customerName}</p>
+              </div>
+              <StatusBadge kind="dispatch" value={r.status} />
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Items</p>
+                <p className="m-0 text-foreground">{Number(r.itemCount)}</p>
+              </div>
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
+                <p className="m-0 text-foreground">{Number(r.totalWeightG).toLocaleString()} g</p>
+              </div>
+              <div>
+                <p className="m-0 text-xs font-medium text-muted-foreground">Ship</p>
+                <p className="m-0 text-foreground">{r.shipDate ? format(new Date(r.shipDate), "MMM d") : "—"}</p>
+              </div>
+            </div>
+            <p className="m-0 border-t border-border pt-3 text-xs text-muted-foreground">
+              Created {format(new Date(r.createdAt), "MMM d, yyyy")}
+            </p>
+          </div>
+        )}
         isLoading={isLoading}
         emptyState={
           <EmptyState

@@ -199,6 +199,37 @@ function AdminCompanyDetailComponent() {
             columns={grantColumns}
             rows={data.recentGrants as GrantRow[]}
             rowKey={(row) => row.id}
+            renderCard={(row) => {
+              const expired = new Date(row.expiresAt).getTime() < Date.now();
+              const status = row.revokedAt ? "Revoked" : expired ? "Expired" : "Active";
+              return (
+                <div className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="m-0 font-mono text-sm font-semibold text-foreground">
+                        {row.id.slice(0, 8)}…
+                      </p>
+                      <p className="m-0 text-xs text-muted-foreground">
+                        Created {format(new Date(row.createdAt), "PP p")}
+                      </p>
+                    </div>
+                    <Badge tone={status === "Active" ? "success" : status === "Revoked" ? "danger" : "neutral"}>
+                      {status}
+                    </Badge>
+                  </div>
+                  <div className="grid gap-3 text-sm sm:grid-cols-2">
+                    <div>
+                      <p className="m-0 text-xs font-medium text-muted-foreground">Expires</p>
+                      <p className="m-0 text-foreground">{format(new Date(row.expiresAt), "PP p")}</p>
+                    </div>
+                    <div>
+                      <p className="m-0 text-xs font-medium text-muted-foreground">Reason</p>
+                      <p className="m-0 text-foreground">{row.reason ?? "—"}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            }}
             emptyState={<EmptyState title="No grants yet" />}
           />
         </CardContent>

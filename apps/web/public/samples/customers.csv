@@ -1,0 +1,4 @@
+name,email,phone,taxId,notes
+Acme Industries,billing@acme.example,+1-555-0100,US-12-3456789,Net 30
+Globex Corporation,ap@globex.example,+1-555-0123,US-98-7654321,Prefers PO ref on invoices
+Initech LLC,accounts@initech.example,,US-55-5555555,

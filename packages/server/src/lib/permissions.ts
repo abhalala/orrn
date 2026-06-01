@@ -37,6 +37,7 @@ export const ACTIONS = [
   "bundle.update",
   "bundle.delete",
   "bundle.transition",
+  "bundle.import",
 
   // Dispatches
   "dispatch.create",
@@ -101,6 +102,7 @@ const ROLE_ACTIONS: Record<CompanyRole, ReadonlySet<Action>> = {
     "bundle.update",
     "bundle.delete",
     "bundle.transition",
+    "bundle.import",
     "dispatch.create",
     "dispatch.update",
     "dispatch.delete",

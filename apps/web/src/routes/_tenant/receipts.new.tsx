@@ -307,14 +307,14 @@ function NewReceiptComponent() {
           </Toolbar>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3 md:hidden">
-            {rows.map((row) => (
-              <div
-                key={row.id}
-                className="space-y-3 rounded-lg border border-border bg-background p-3"
-              >
+          <DataTable
+            columns={columns}
+            rows={rows}
+            rowKey={(r) => r.id}
+            renderCard={(row) => (
+              <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-foreground">
+                  <p className="m-0 text-sm font-semibold text-foreground">
                     Bundle {rowIndex.get(row.id)}
                   </p>
                   <Button
@@ -326,8 +326,8 @@ function NewReceiptComponent() {
                     Remove
                   </Button>
                 </div>
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="space-y-1.5">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="flex flex-col gap-1.5">
                     <Label htmlFor={`${row.id}-quantity`}>Quantity *</Label>
                     <Input
                       id={`${row.id}-quantity`}
@@ -339,7 +339,7 @@ function NewReceiptComponent() {
                       onChange={(e) => updateRow(row.id, { quantity: e.target.value })}
                     />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="flex flex-col gap-1.5">
                     <Label htmlFor={`${row.id}-weight`}>Weight (g) *</Label>
                     <Input
                       id={`${row.id}-weight`}
@@ -351,7 +351,7 @@ function NewReceiptComponent() {
                       onChange={(e) => updateRow(row.id, { weightG: e.target.value })}
                     />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="flex flex-col gap-1.5">
                     <Label htmlFor={`${row.id}-length`}>Length ({lu.label}) *</Label>
                     <Input
                       id={`${row.id}-length`}
@@ -365,11 +365,8 @@ function NewReceiptComponent() {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-          <div className="hidden min-w-0 md:block">
-            <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} />
-          </div>
+            )}
+          />
           <p className="text-xs text-muted-foreground mt-4">
             Totals: {totalQuantity} qty · {totalWeightG} g
           </p>
