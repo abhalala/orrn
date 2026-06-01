@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import alchemy from "alchemy";
+import alchemy, { Resource } from "alchemy";
 import { D1Database, Vite, Worker } from "alchemy/cloudflare";
 import { CloudflareStateStore } from "alchemy/state";
 import type { Scope } from "alchemy";
@@ -101,6 +101,29 @@ const db = await D1Database("database", {
   migrationsDir: "../db/src/migrations",
 });
 
+
+const LegacySpoolReleasesBucket = Resource(
+  "cloudflare::R2Bucket",
+  async function legacySpoolReleasesBucket(id: string) {
+    if (this.phase === "delete") {
+      return this.destroy();
+    }
+
+    return (
+      this.output ?? {
+        name: this.scope.createPhysicalName(id),
+        type: "r2_bucket",
+        accountId: "",
+        dev: { id: `${id}-legacy`, isDeployed: true },
+      }
+    );
+  },
+);
+
+// Keep the historical state entry inert until CI credentials are allowed to
+// manage R2 directly again. Without this placeholder, Alchemy tries to delete
+// the old spool-releases resource and deploys fail on Cloudflare 403s.
+await LegacySpoolReleasesBucket("spool-releases", {});
 
 /** Unified web app — orrn.in (prod) / dev.orrn.app (dev) */
 export const web = await Vite("web", {
