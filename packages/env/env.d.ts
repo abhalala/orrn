@@ -21,7 +21,7 @@ export interface CloudflareEnv {
   CF_API_TOKEN: string;
   CF_ACCOUNT_ID: string;
   CF_ZONE_ID_IN: string;
-  SPOOL_RELEASES_BUCKET: R2Bucket;
+  SPOOL_RELEASES_BUCKET?: R2Bucket;
 }
 
 declare global {

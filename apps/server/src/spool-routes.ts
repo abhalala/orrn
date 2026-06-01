@@ -197,12 +197,16 @@ spoolRoutes.get("/api/spool/update-check", async (c: HonoContext) => {
     return c.json({ error: "Invalid authentication" }, 403);
   }
 
-  // Check for updates from the release manifest in R2
+  // Check for updates from the release manifest in R2 when release storage is configured
   const response: UpdateCheckResponse = { update_available: false };
+  const releasesBucket = env.SPOOL_RELEASES_BUCKET;
+  if (!releasesBucket) {
+    return c.json(response);
+  }
 
   try {
     const manifestKey = `releases/manifest.json`;
-    const manifestObj = await env.SPOOL_RELEASES_BUCKET.get(manifestKey);
+    const manifestObj = await releasesBucket.get(manifestKey);
 
     if (manifestObj) {
       const manifest = await manifestObj.json<Record<string, { version: string; url: string; sha256: string }>>();
@@ -266,8 +270,13 @@ spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoC
   const spoolVersion = deployment.spoolVersion ?? "0.1.0";
   const releaseKey = getReleaseKey(platform as Platform, spoolVersion);
 
+  const releasesBucket = env.SPOOL_RELEASES_BUCKET;
+  if (!releasesBucket) {
+    return c.json({ error: "Spool release distribution is not configured." }, 503);
+  }
+
   // Fetch the pre-built binary from R2
-  const binaryObj = await env.SPOOL_RELEASES_BUCKET.get(releaseKey);
+  const binaryObj = await releasesBucket.get(releaseKey);
   if (!binaryObj) {
     return c.json({ error: "Binary not found in releases. Upload the release binary to R2 first." }, 404);
   }
