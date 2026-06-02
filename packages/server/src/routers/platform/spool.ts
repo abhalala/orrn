@@ -4,12 +4,14 @@ import { z } from "zod";
 
 import { spoolDeployment, spoolDeploymentStatuses } from "@orrn/db/schema/spool";
 import { company } from "@orrn/db/schema/tenant";
-import { wrapSecret } from "@orrn/crypto";
+import { unwrapSecret, wrapSecret } from "@orrn/crypto";
 import { env } from "@orrn/env/server";
 
 import { createCnameRecord, createTunnel, deleteDnsRecord, deleteTunnel, findDnsRecord } from "../../lib/cloudflare";
+import { buildDockerInstallScript } from "../../lib/spool-install-script";
 import { signDownloadToken } from "../../lib/spool-crypto";
 import { getDeliverableFilename } from "../../lib/spool-packager";
+import { resolveSpoolReleaseTag } from "../../lib/spool-release";
 import { platformGuard } from "../../index";
 
 const SPOOL_DOMAIN_SUFFIX = ".spool.orrn.in";
@@ -260,6 +262,44 @@ export const spoolProcedures = {
         .where(eq(spoolDeployment.id, input.id));
 
       return { sharedSecret: newSecret };
+    }),
+
+  spoolDeploymentDockerInstallScript: platformGuard("platform.spool.manage")
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const row = await ctx.db
+        .select()
+        .from(spoolDeployment)
+        .where(eq(spoolDeployment.id, input.id))
+        .get();
+
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Deployment not found" });
+      }
+      if (row.status === "revoked") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot generate install script for a revoked deployment" });
+      }
+
+      const sharedSecret = await unwrapSecret(row.sharedSecretWrapped, env.ORRN_MASTER_KEY);
+      const cfTunnelToken = await unwrapSecret(row.cfTunnelTokenWrapped, env.ORRN_MASTER_KEY);
+      const releaseTag = await resolveSpoolReleaseTag(row.spoolVersion ?? undefined);
+      const image = `ghcr.io/abhalala/orrn-spool:${releaseTag}`;
+      const script = buildDockerInstallScript({
+        subdomain: row.subdomain,
+        spoolDomain: row.spoolDomain,
+        image,
+        instanceId: row.instanceId,
+        sharedSecret,
+        cfTunnelToken,
+        orrnServerUrl: env.BETTER_AUTH_URL,
+      });
+
+      return {
+        filename: `install-${row.subdomain}-docker.sh`,
+        image,
+        releaseTag,
+        script,
+      };
     }),
 
   /** Generate a short-lived download URL for a deployment's deliverable archive. */

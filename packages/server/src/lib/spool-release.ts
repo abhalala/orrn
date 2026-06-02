@@ -89,6 +89,17 @@ export function normalizePlatform(platform: string | null | undefined): Platform
   return null;
 }
 
+export async function resolveSpoolReleaseTag(version?: string): Promise<string> {
+  const release = await fetchRelease(version);
+  if (!release) {
+    if (version) {
+      throw new Error(`No GitHub release tagged v${normalizeVersion(version)} exists in ${GITHUB_REPO}.`);
+    }
+    throw new Error(`No GitHub releases are published in ${GITHUB_REPO}.`);
+  }
+  return normalizeVersion(release.tag_name);
+}
+
 export async function resolveSpoolRelease(platform: Platform, version?: string): Promise<{
   version: string;
   downloadUrl: string;

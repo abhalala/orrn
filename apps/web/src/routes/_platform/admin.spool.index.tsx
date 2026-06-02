@@ -11,7 +11,7 @@ import { Toolbar } from "@orrn/ui/components/toolbar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format, formatDistanceToNow } from "date-fns";
-import { Copy, Download, Plus, RefreshCw, ShieldAlert, Trash2 } from "lucide-react";
+import { Copy, Download, Plus, RefreshCw, ServerCog, ShieldAlert, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -79,6 +79,7 @@ function AdminSpoolComponent() {
   // ── Download dialog state ────────────────────────────────────────────
   const [downloadTarget, setDownloadTarget] = useState<DeploymentRow | null>(null);
   const [downloadPlatform, setDownloadPlatform] = useState<"linux-amd64" | "darwin-amd64" | "darwin-arm64" | "windows-amd64">("darwin-arm64");
+  const [dockerTarget, setDockerTarget] = useState<DeploymentRow | null>(null);
 
   // ── Query ────────────────────────────────────────────────────────────
   const { data, isLoading } = useQuery({
@@ -142,6 +143,24 @@ function AdminSpoolComponent() {
       toast.success("Download started");
     },
     onError: (e: any) => toast.error(e.message || "Failed to generate download URL"),
+  });
+
+
+  const dockerInstallMutation = useMutation({
+    ...trpc.platform.spoolDeploymentDockerInstallScript.mutationOptions(),
+    onSuccess: (result) => {
+      const payload = result as { filename: string; script: string };
+      const blob = new Blob([payload.script], { type: "text/x-shellscript;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = payload.filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success("Docker install script downloaded");
+      setDockerTarget(null);
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to generate Docker install script"),
   });
 
   // ── Helpers ──────────────────────────────────────────────────────────
@@ -321,6 +340,24 @@ function AdminSpoolComponent() {
                     </Button>
                     <Button
                       size="sm"
+                      variant="outline"
+                      disabled={dockerInstallMutation.isPending}
+                      onPress={() => setDockerTarget(row)}
+                    >
+                      <ServerCog className="size-3" />
+                      Docker
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={dockerInstallMutation.isPending}
+                      onPress={() => setDockerTarget(row)}
+                    >
+                      <ServerCog className="size-3" />
+                      Docker
+                    </Button>
+                    <Button
+                      size="sm"
                       variant="destructive"
                       disabled={revokeMutation.isPending}
                       onClick={() => setRevokeTarget(row)}
@@ -335,7 +372,7 @@ function AdminSpoolComponent() {
         ),
       },
     ];
-  }, [regenerateMutation.isPending, revokeMutation.isPending, downloadMutation.isPending]);
+  }, [regenerateMutation.isPending, revokeMutation.isPending, downloadMutation.isPending, dockerInstallMutation.isPending]);
 
   return (
     <div className="space-y-6">
@@ -717,6 +754,48 @@ function AdminSpoolComponent() {
             </p>
           </div>
         ) : null}
+      </Dialog>
+
+      <Dialog
+        open={dockerTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !dockerInstallMutation.isPending) setDockerTarget(null);
+        }}
+        title="Download Docker Install Script"
+        description={`Generate a one-shot Docker install script for "${dockerTarget?.companyName ?? "—"}" (${dockerTarget?.subdomain ?? "—"}). The script pulls the published GHCR image, writes config files, persists data under /opt, and starts the container.`}
+        actions={
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              disabled={dockerInstallMutation.isPending}
+              onPress={() => setDockerTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              loading={dockerInstallMutation.isPending}
+              onPress={() => {
+                if (dockerTarget) {
+                  dockerInstallMutation.mutate({ id: dockerTarget.id });
+                }
+              }}
+            >
+              <ServerCog className="size-4" />
+              Download Install Script
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p className="m-0 text-sm text-muted-foreground">
+            The script will create <code>/opt/orrn-spool-${dockerTarget?.subdomain ?? "tenant"}</code>, persist spool data there, write a config file and env file, then run Docker with restart policy enabled.
+          </p>
+          <ul className="m-0 list-disc pl-5 text-sm text-muted-foreground">
+            <li>SQLite data: <code>/opt/.../data/spool.db</code></li>
+            <li>Archives: <code>/opt/.../data/archives</code></li>
+            <li>Container image: latest release tag from <code>ghcr.io/abhalala/orrn-spool</code></li>
+          </ul>
+        </div>
       </Dialog>
 
       {/* ── Download Binary Dialog ──────────────────────────────────────── */}
