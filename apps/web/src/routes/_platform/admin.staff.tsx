@@ -188,7 +188,7 @@ function StaffAdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Platform"
+        eyebrow="Godseye"
         title="Staff accounts"
         description="Internal orrn.app users. Accounts are created here — there is no public sign-up on orrn.app."
       />

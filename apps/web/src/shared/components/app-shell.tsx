@@ -8,7 +8,7 @@ import {
   useSidebar,
 } from "@orrn/ui/components/sidebar";
 import { Link, useMatchRoute } from "@tanstack/react-router";
-import { Building2, Shield } from "lucide-react";
+import { Building2, Eye, Shield } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Breadcrumbs } from "../components/breadcrumbs";
@@ -85,7 +85,7 @@ export function WorkspaceShell({
           brand={<SidebarBrand homePath={homePath} staffMode={staffMode} />}
           footer={<ModeToggle />}
         >
-          <SidebarSection label={staffMode ? "Platform" : "Operations"}>
+          <SidebarSection label={staffMode ? "Godseye" : "Operations"}>
             {filteredNav.map((item) => {
               const isActive = isItemActive(item.to);
               return (
@@ -107,23 +107,22 @@ export function WorkspaceShell({
         </Sidebar>
       }
       statusBar={
-        <>
-          <AppStatusBar
-            brand={
-              <div className="hidden items-center gap-2 md:flex">
-                <span className="text-sm font-medium text-foreground">{staffMode ? "Staff Console" : "Operations"}</span>
-              </div>
-            }
-            context={<StatusContext staffMode={staffMode} />}
-            actions={
-              <>
-                <ModeToggle />
-                <UserMenu signInTo={staffMode ? "/" : "/login"} />
-              </>
-            }
-          />
-          <Breadcrumbs homePath={homePath} homeLabel={homeLabel} skipSegments={skipSegments} />
-        </>
+        <AppStatusBar
+          /* Mobile: title + actions only. Desktop adds context + breadcrumbs. */
+          brand={<StatusContext staffMode={staffMode} />}
+          context={
+            <div className="hidden min-w-0 items-center gap-2 md:flex">
+              <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
+              <Breadcrumbs homePath={homePath} homeLabel={homeLabel} skipSegments={skipSegments} />
+            </div>
+          }
+          actions={
+            <>
+              <ModeToggle />
+              <UserMenu signInTo={staffMode ? "/" : "/login"} />
+            </>
+          }
+        />
       }
       mobileNav={<MobileNav items={mobileItems} />}
     >
@@ -141,14 +140,23 @@ function SidebarBrand({ homePath, staffMode }: { homePath: string; staffMode?: b
         "flex min-w-0 items-center no-underline",
         collapsed ? "justify-center gap-0" : "gap-2",
       )}
-      aria-label={staffMode ? "ORRN Staff home" : "ORRN home"}
+      aria-label={staffMode ? "Godseye console home" : "ORRN home"}
     >
       <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-        O
+        {staffMode ? <Eye size={14} aria-hidden="true" /> : "O"}
       </div>
       {!collapsed ? (
-        <span className="truncate text-base font-semibold text-foreground">
-          {staffMode ? "ORRN Staff" : "ORRN"}
+        <span className="flex min-w-0 items-baseline gap-1.5 truncate text-base font-semibold text-foreground">
+          {staffMode ? (
+            <>
+              Godseye
+              <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                by ORRN
+              </span>
+            </>
+          ) : (
+            "ORRN"
+          )}
         </span>
       ) : null}
     </Link>
@@ -160,7 +168,9 @@ function StatusContext({ staffMode }: { staffMode?: boolean }) {
   if (staffMode) {
     return (
       <div className="flex min-w-0 items-center gap-2">
-        <span className="truncate text-sm text-foreground">{me?.user.email}</span>
+        <Eye size={14} className="hidden shrink-0 text-primary sm:block" aria-hidden="true" />
+        <span className="hidden truncate text-sm font-medium text-foreground sm:block">Godseye</span>
+        <span className="truncate text-sm text-muted-foreground">{me?.user.email}</span>
         {me?.platformRole ? (
           <StatusBadge kind="role" value="platform" label={me.platformRole.replace("_", " ").toUpperCase()} />
         ) : null}

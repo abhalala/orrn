@@ -377,7 +377,7 @@ function AdminSpoolComponent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Platform"
+        eyebrow="Godseye"
         title="Spool Deployments"
         description={`Manage per-tenant spool deployments for LAN printing (${data?.total ?? 0} total).`}
         actions={

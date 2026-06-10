@@ -1,5 +1,6 @@
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent } from "@orrn/ui/components/card";
+import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
@@ -100,6 +101,9 @@ function DieFormComponent() {
   });
 
   if (!isNew && isLoading) return <div>Loading…</div>;
+  if (!isNew && !die) {
+    return <EmptyState title="Die not found" description="This die may have been removed." />;
+  }
 
   const handleDelete = () => {
     if (window.confirm("Are you sure you want to delete this die?")) {

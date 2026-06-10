@@ -114,7 +114,7 @@ export default function SignInForm({
           {showTwoFactor
             ? "Enter the 6-digit code from your authenticator app."
             : target === "staff"
-              ? "Access the ORRN staff console."
+              ? "Access the Godseye platform console."
               : "Access your ORRN workspace."}
         </CardDescription>
       </CardHeader>

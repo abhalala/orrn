@@ -22,6 +22,7 @@ function DrawerLayout() {
   const showBundles = hasCompany;
   const showDispatches = hasCompany;
   const showStock = hasCompany;
+  const showEdge = hasCompany;
   const showMembers = hasCompany && canAny(me, ["member.invite", "member.updateRole"]);
   const showPlatformWaitlist = me?.isPlatformAdmin === true;
 
@@ -135,6 +136,19 @@ function DrawerLayout() {
           ),
           drawerIcon: ({ size, color, focused }) => (
             <MaterialIcons name="warehouse" size={size} color={focused ? color : themeColorForeground} />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="edge"
+        options={{
+          headerTitle: "Edge Node",
+          drawerItemStyle: showEdge ? undefined : { display: "none" },
+          drawerLabel: ({ color, focused }) => (
+            <Text style={{ color: focused ? color : themeColorForeground, fontSize: 15 }}>Edge Node</Text>
+          ),
+          drawerIcon: ({ size, color, focused }) => (
+            <MaterialIcons name="router" size={size} color={focused ? color : themeColorForeground} />
           ),
         }}
       />

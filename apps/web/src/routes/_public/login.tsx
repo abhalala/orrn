@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
+import { AuthScreen } from "@/shared/components/auth-screen";
 import SignInForm from "@/shared/components/sign-in-form";
 
 const loginSearchSchema = z.object({
@@ -16,8 +17,8 @@ function RouteComponent() {
   const { next } = Route.useSearch();
 
   return (
-    <main className="grid min-h-screen w-full place-items-center px-4 py-10">
+    <AuthScreen>
       <SignInForm next={next} />
-    </main>
+    </AuthScreen>
   );
 }

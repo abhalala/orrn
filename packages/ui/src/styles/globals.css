@@ -45,6 +45,27 @@
   --sidebar-accent-foreground: #111827;
   --sidebar-border: #d9e1ea;
   --sidebar-ring: #4f7cff;
+
+  /* Extra surface layers (tokens.ts neutrals.*) */
+  --surface-sunken: #eef2f7;
+  --surface-overlay: #ffffff;
+
+  /* Brand ramp anchors for gradients/glow (tokens.ts brandRamp) */
+  --brand-300: #a2bcff;
+  --brand-400: #7c9cff;
+  --brand-500: #4f7cff;
+  --brand-600: #2f5fe8;
+  --brand-accent: #2dd4bf;
+
+  /* Motion tokens (tokens.ts motion) */
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 400ms;
+  --dur-slower: 700ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .dark {
@@ -75,6 +96,29 @@
   --sidebar-accent-foreground: #f4f7fb;
   --sidebar-border: #263142;
   --sidebar-ring: #4f7cff;
+
+  --surface-sunken: #04060c;
+  --surface-overlay: #141d2b;
+}
+
+/*
+ * Godseye (platform admin) accent layer. Applied on the `_platform` layout
+ * wrapper so the staff console reads violet while sharing every component
+ * with the tenant app. Light + dark both covered (`.dark .godseye` inherits
+ * the dark surfaces; only accent hues change).
+ */
+.godseye {
+  --primary: #8b5cf6;
+  --primary-foreground: #ffffff;
+  --ring: #8b5cf6;
+  --sidebar-primary: #8b5cf6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: #8b5cf6;
+  --brand-300: #c4b5fd;
+  --brand-400: #a78bfa;
+  --brand-500: #8b5cf6;
+  --brand-600: #7c3aed;
+  --brand-accent: #e879f9;
 }
 
 @theme inline {
@@ -106,6 +150,13 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-accent: var(--brand-accent);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -319,11 +370,11 @@
 }
 
 ::view-transition-old(page-content) {
-  animation: orrn-vt-fade-out 160ms ease-out forwards;
+  animation: orrn-vt-fade-out var(--dur-fast) var(--ease-out-quart) forwards;
 }
 
 ::view-transition-new(page-content) {
-  animation: orrn-vt-fade-in 260ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: orrn-vt-fade-in var(--dur-base) var(--ease-spring) forwards;
 }
 
 @keyframes orrn-vt-fade-out {
@@ -344,4 +395,80 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Brand utilities — glass panels, gradient text, glow, section containers,
+ * and fluid display typography. Shared by marketing + app surfaces.
+ * ------------------------------------------------------------------------- */
+
+/* Translucent glass panel. Falls back to a solid card when backdrop-filter
+   is unsupported. */
+.orrn-glass {
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+@supports (backdrop-filter: blur(12px)) {
+  .orrn-glass {
+    background: color-mix(in srgb, var(--card) 55%, transparent);
+    backdrop-filter: blur(12px) saturate(1.4);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  }
+}
+
+/* Brand gradient headline text. */
+.orrn-gradient-text {
+  background: linear-gradient(
+    100deg,
+    var(--foreground) 10%,
+    var(--brand-400) 55%,
+    var(--brand-accent) 95%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Soft brand glow behind hero elements / primary CTAs. */
+.orrn-glow {
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--brand-500) 35%, transparent),
+    0 0 80px color-mix(in srgb, var(--brand-500) 18%, transparent);
+}
+
+/* Standard marketing section container. */
+.orrn-section {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 72rem;
+  padding-inline: 1rem;
+}
+
+@media (min-width: 768px) {
+  .orrn-section {
+    padding-inline: 1.5rem;
+  }
+}
+
+/* Fluid display typography (tokens.ts displaySizes). */
+.orrn-display-1 {
+  font-size: clamp(2.5rem, 1.2rem + 5.5vw, 6rem);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  font-weight: 650;
+}
+
+.orrn-display-2 {
+  font-size: clamp(1.875rem, 1.1rem + 3vw, 3.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  font-weight: 620;
+}
+
+.orrn-display-3 {
+  font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 600;
 }

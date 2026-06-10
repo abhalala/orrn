@@ -8,6 +8,7 @@ import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
+import { AuthScreen } from "@/shared/components/auth-screen";
 import { authClient } from "@/shared/lib/auth-client";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -70,6 +71,7 @@ function InviteComponent() {
   };
 
   return (
+    <AuthScreen>
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>Accept Invitation</CardTitle>
@@ -123,5 +125,6 @@ function InviteComponent() {
       </form>
       </CardContent>
     </Card>
+    </AuthScreen>
   );
 }

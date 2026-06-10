@@ -8,6 +8,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { AppThemeProvider } from "@/contexts/app-theme-context";
+import { EdgeNodeProvider } from "@/contexts/edge-node-context";
 import { useMe } from "@/utils/me";
 import { queryClient } from "@/utils/trpc";
 
@@ -63,7 +64,9 @@ export default function Layout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardProvider>
           <AppThemeProvider>
-            <StackLayout />
+            <EdgeNodeProvider>
+              <StackLayout />
+            </EdgeNodeProvider>
           </AppThemeProvider>
         </KeyboardProvider>
       </GestureHandlerRootView>

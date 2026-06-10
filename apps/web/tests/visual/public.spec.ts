@@ -9,6 +9,9 @@ async function setTheme(page: import("@playwright/test").Page, theme: "light" | 
 }
 
 test.beforeEach(async ({ page }, testInfo) => {
+  // Marketing page is GSAP/Three.js animated; reduced motion swaps in static
+  // fallbacks so full-page screenshots are deterministic.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   const theme = testInfo.project.name.includes("light") ? "light" : "dark";
   await page.goto("/");
   await setTheme(page, theme);
@@ -41,8 +44,14 @@ test.describe("mobile shell", () => {
 
   test("login fits viewport without horizontal scroll", async ({ page }) => {
     await page.goto("/login");
-    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
-    expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
+    // Poll: third-party portals (toaster) can transiently overflow while
+    // their styles inject during mount.
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        ),
+      )
+      .toBeLessThanOrEqual(1);
   });
 });

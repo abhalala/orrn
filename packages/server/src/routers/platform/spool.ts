@@ -45,9 +45,9 @@ export const spoolProcedures = {
           instanceId: spoolDeployment.instanceId,
           status: spoolDeployment.status,
           subdomain: spoolDeployment.subdomain,
-          spoolDomain: spoolDeployment.spoolDomain,
-          spoolVersion: spoolDeployment.spoolVersion,
-          lastSeenAt: spoolDeployment.lastSeenAt,
+          spoolDomain: spoolDeployment.nodeDomain,
+          spoolVersion: spoolDeployment.runtimeVersion,
+          lastSeenAt: spoolDeployment.lastHeartbeatAt,
           createdAt: spoolDeployment.createdAt,
           updatedAt: spoolDeployment.updatedAt,
           companyName: company.name,
@@ -152,7 +152,7 @@ export const spoolProcedures = {
         instanceId,
         status: "pending",
         subdomain: input.subdomain,
-        spoolDomain,
+        nodeDomain: spoolDomain,
         cfTunnelId,
         cfTunnelTokenWrapped,
         sharedSecretHash,
@@ -180,10 +180,10 @@ export const spoolProcedures = {
           instanceId: spoolDeployment.instanceId,
           status: spoolDeployment.status,
           subdomain: spoolDeployment.subdomain,
-          spoolDomain: spoolDeployment.spoolDomain,
+          spoolDomain: spoolDeployment.nodeDomain,
           cfTunnelId: spoolDeployment.cfTunnelId,
-          spoolVersion: spoolDeployment.spoolVersion,
-          lastSeenAt: spoolDeployment.lastSeenAt,
+          spoolVersion: spoolDeployment.runtimeVersion,
+          lastSeenAt: spoolDeployment.lastHeartbeatAt,
           createdAt: spoolDeployment.createdAt,
           updatedAt: spoolDeployment.updatedAt,
           companyName: company.name,
@@ -282,11 +282,11 @@ export const spoolProcedures = {
 
       const sharedSecret = await unwrapSecret(row.sharedSecretWrapped, env.ORRN_MASTER_KEY);
       const cfTunnelToken = await unwrapSecret(row.cfTunnelTokenWrapped, env.ORRN_MASTER_KEY);
-      const releaseTag = await resolveSpoolReleaseTag(row.spoolVersion ?? undefined);
+      const releaseTag = await resolveSpoolReleaseTag(row.runtimeVersion ?? undefined);
       const image = `ghcr.io/abhalala/orrn-spool:${releaseTag}`;
       const script = buildDockerInstallScript({
         subdomain: row.subdomain,
-        spoolDomain: row.spoolDomain,
+        spoolDomain: row.nodeDomain,
         image,
         instanceId: row.instanceId,
         sharedSecret,

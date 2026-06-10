@@ -193,7 +193,7 @@ function AdminCompaniesComponent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Platform"
+        eyebrow="Godseye"
         title="Companies"
         description={`Tenant directory for support and onboarding (${data?.total ?? 0} total).`}
         actions={

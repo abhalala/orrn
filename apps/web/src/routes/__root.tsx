@@ -8,6 +8,7 @@ import {
 import { Suspense, lazy } from "react";
 
 import { NavigationProgress } from "@/shared/components/navigation-progress";
+import { RootNotFound } from "@/shared/components/not-found";
 import { ThemeProvider } from "@/shared/components/theme-provider";
 import type { trpc } from "@/shared/utils/trpc";
 import "../index.css";
@@ -31,6 +32,7 @@ export interface RouterAppContext {
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
   component: RootComponent,
+  notFoundComponent: RootNotFound,
   head: () => ({
     meta: [
       { title: "ORRN — multi-company ERP for manufactured inventory ops" },

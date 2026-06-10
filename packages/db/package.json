@@ -26,7 +26,8 @@
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.1",
     "libsql": "0.5.22",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@orrn/edge-runtime": "workspace:*"
   },
   "devDependencies": {
     "@orrn/config": "workspace:*",

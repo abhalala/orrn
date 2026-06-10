@@ -40,7 +40,8 @@
     "alchemy": "catalog:",
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.1",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@orrn/edge-runtime": "workspace:*"
   },
   "devDependencies": {
     "@better-auth/utils": "0.4.0",

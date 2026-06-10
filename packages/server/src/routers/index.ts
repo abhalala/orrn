@@ -10,6 +10,7 @@ import { bundleRouter } from "./bundle";
 import { dispatchRouter } from "./dispatch";
 import { packingListRouter } from "./packingList";
 import { spoolRouter } from "./spool";
+import { edgeRouter } from "./edge";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -32,5 +33,6 @@ export const appRouter = router({
   dispatch: dispatchRouter,
   packingList: packingListRouter,
   spool: spoolRouter,
+  edge: edgeRouter,
 });
 export type AppRouter = typeof appRouter;

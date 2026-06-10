@@ -100,11 +100,13 @@ export async function resolveSpoolReleaseTag(version?: string): Promise<string> 
   return normalizeVersion(release.tag_name);
 }
 
-export async function resolveSpoolRelease(platform: Platform, version?: string): Promise<{
+export interface ResolvedSpoolRelease {
   version: string;
   downloadUrl: string;
   checksum: string | null;
-} | null> {
+}
+
+export async function resolveSpoolRelease(platform: Platform, version?: string): Promise<ResolvedSpoolRelease | null> {
   const release = await fetchRelease(version);
   if (!release) {
     if (version) {

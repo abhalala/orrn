@@ -32,6 +32,7 @@
     "better-auth": "catalog:",
     "date-fns": "^4.2.1",
     "dotenv": "catalog:",
+    "gsap": "^3.15.0",
     "lucide-react": "^1.8.0",
     "next-themes": "catalog:",
     "papaparse": "^5.5.3",
@@ -44,6 +45,7 @@
   },
   "devDependencies": {
     "@orrn/config": "workspace:*",
+    "@playwright/test": "^1.58.2",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@tanstack/react-router-devtools": "^1.166.13",
     "@tanstack/router-plugin": "^1.167.22",
@@ -51,7 +53,6 @@
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "catalog:",
-    "@playwright/test": "^1.58.2",
     "@vitejs/plugin-react": "^6.0.1",
     "alchemy": "catalog:",
     "postcss": "^8.5.10",

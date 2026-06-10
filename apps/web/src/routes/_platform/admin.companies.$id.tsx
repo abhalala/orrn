@@ -112,7 +112,7 @@ function AdminCompanyDetailComponent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Platform · Companies"
+        eyebrow="Godseye · Companies"
         title={c.name}
         description={c.slug}
         actions={

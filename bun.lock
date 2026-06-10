@@ -26,6 +26,7 @@
         "@expo/vector-icons": "^15.1.1",
         "@gorhom/bottom-sheet": "^5.2.10",
         "@orrn/documents": "workspace:*",
+        "@orrn/edge-runtime": "workspace:*",
         "@orrn/env": "workspace:*",
         "@orrn/server": "workspace:*",
         "@orrn/ui": "workspace:*",
@@ -125,6 +126,7 @@
         "better-auth": "catalog:",
         "date-fns": "^4.2.1",
         "dotenv": "catalog:",
+        "gsap": "^3.15.0",
         "lucide-react": "^1.8.0",
         "next-themes": "catalog:",
         "papaparse": "^5.5.3",
@@ -186,6 +188,7 @@
       "name": "@orrn/db",
       "dependencies": {
         "@libsql/client": "0.15.15",
+        "@orrn/edge-runtime": "workspace:*",
         "@orrn/env": "workspace:*",
         "dotenv": "catalog:",
         "drizzle-orm": "^0.45.1",
@@ -204,6 +207,17 @@
       "dependencies": {
         "@orrn/server": "workspace:*",
         "xlsx": "^0.18.5",
+      },
+      "devDependencies": {
+        "@orrn/config": "workspace:*",
+        "typescript": "^6",
+      },
+    },
+    "packages/edge-runtime": {
+      "name": "@orrn/edge-runtime",
+      "version": "0.0.0",
+      "dependencies": {
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@orrn/config": "workspace:*",
@@ -230,6 +244,7 @@
         "@orrn/auth": "workspace:*",
         "@orrn/crypto": "workspace:*",
         "@orrn/db": "workspace:*",
+        "@orrn/edge-runtime": "workspace:*",
         "@orrn/env": "workspace:*",
         "@trpc/client": "catalog:",
         "@trpc/server": "catalog:",
@@ -874,6 +889,8 @@
     "@orrn/db": ["@orrn/db@workspace:packages/db"],
 
     "@orrn/documents": ["@orrn/documents@workspace:packages/documents"],
+
+    "@orrn/edge-runtime": ["@orrn/edge-runtime@workspace:packages/edge-runtime"],
 
     "@orrn/env": ["@orrn/env@workspace:packages/env"],
 
@@ -1684,6 +1701,8 @@
     "goober": ["goober@2.1.19", "", { "peerDependencies": { "csstype": "^3.0.10" } }, "sha512-U7veizMqxyKlM58+Z5j2ngJBH/r9siDmxpvNxSw0PylF6WQvrASJEZrxh1hidRBJc2jqoBVSyOban5u8m+6Rxg=="],
 
     "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
+
+    "gsap": ["gsap@3.15.0", "", {}, "sha512-dMW4CWBTUK1AEEDeZc1g4xpPGIrSf9fJF960qbTZmN/QwZIWY5wgliS6JWl9/25fpTGJrMRtSjGtOmPnfjZB+A=="],
 
     "has-flag": ["has-flag@4.0.0", "", {}, "sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ=="],
 

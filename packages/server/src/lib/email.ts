@@ -31,7 +31,7 @@ export function renderOrrnEmailHtml(options: {
                   <!-- Header Logo -->
                   <div style="text-align: center; margin-bottom: 32px;">
                     <span style="font-size: 26px; font-weight: 900; color: #f5f7ff; letter-spacing: 5px;">ORRN</span>
-                    <span style="display: block; font-size: 9px; color: #5b6cff; font-family: monospace; letter-spacing: 2px; text-transform: uppercase; margin-top: 6px; font-weight: bold;">Plant Operations Console</span>
+                    <span style="display: block; font-size: 9px; color: #4f7cff; font-family: monospace; letter-spacing: 2px; text-transform: uppercase; margin-top: 6px; font-weight: bold;">Plant Operations Console</span>
                   </div>
 
                   <!-- Title -->
@@ -42,7 +42,7 @@ export function renderOrrnEmailHtml(options: {
 
                   <!-- Action Button -->
                   <div style="text-align: center; margin: 32px 0;">
-                    <a href="${options.buttonUrl}" style="background-color: #5b6cff; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none; padding: 12px 32px; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(91, 108, 255, 0.25); text-align: center;">${options.buttonText}</a>
+                    <a href="${options.buttonUrl}" style="background-color: #4f7cff; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none; padding: 12px 32px; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(79, 124, 255, 0.25); text-align: center;">${options.buttonText}</a>
                   </div>
 
                   <!-- Divider -->

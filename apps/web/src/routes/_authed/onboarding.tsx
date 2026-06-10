@@ -200,15 +200,46 @@ function OnboardingComponent() {
   );
 }
 
+const STEP_META = [
+  { key: "terms", label: "Terms" },
+  { key: "profile", label: "Profile" },
+  { key: "operations", label: "Capacity" },
+] as const;
+
 function Stepper({ step }: { step: "terms" | "profile" | "operations" }) {
-  const order = ["terms", "profile", "operations"] as const;
-  const activeIndex = order.indexOf(step);
+  const activeIndex = STEP_META.findIndex((s) => s.key === step);
   return (
-    <div className="mb-2 grid grid-cols-3 gap-2">
-      {order.map((key, index) => (
-        <div key={key} className={`h-1.5 rounded-md ${index <= activeIndex ? "bg-primary" : "bg-muted"}`} />
-      ))}
-    </div>
+    <ol className="mb-4 flex items-center gap-2" aria-label="Onboarding progress">
+      {STEP_META.map((meta, index) => {
+        const state = index < activeIndex ? "done" : index === activeIndex ? "active" : "todo";
+        return (
+          <li key={meta.key} className="flex flex-1 items-center gap-2" aria-current={state === "active" ? "step" : undefined}>
+            <span
+              className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors duration-[var(--dur-base)] ${
+                state === "todo"
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-primary text-primary-foreground"
+              }`}
+            >
+              {state === "done" ? <CheckCircle size={13} aria-hidden="true" /> : index + 1}
+            </span>
+            <span
+              className={`hidden text-xs font-medium sm:block ${
+                state === "todo" ? "text-muted-foreground" : "text-foreground"
+              }`}
+            >
+              {meta.label}
+            </span>
+            <span
+              className={`h-1 flex-1 rounded-full transition-colors duration-[var(--dur-base)] ${
+                index <= activeIndex ? "bg-primary" : "bg-muted"
+              }`}
+              aria-hidden="true"
+            />
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

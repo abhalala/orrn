@@ -18,7 +18,12 @@ import { Hono } from "hono";
 import type { Context as HonoContext } from "hono";
 
 import { verifyWebhookSignature, verifySpoolToken, verifyDownloadToken } from "@orrn/server/lib/spool-crypto";
-import { fetchSpoolBinary, normalizePlatform, resolveSpoolRelease } from "@orrn/server/lib/spool-release";
+import {
+  fetchSpoolBinary,
+  normalizePlatform,
+  resolveSpoolRelease,
+  type ResolvedSpoolRelease,
+} from "@orrn/server/lib/spool-release";
 import { patchBinaryWithConfig, getDeliverableFilename, type Platform, type PackageConfig } from "@orrn/server/lib/spool-packager";
 
 const spoolRoutes = new Hono();
@@ -150,12 +155,12 @@ spoolRoutes.post("/webhooks/spool/activate", async (c: HonoContext) => {
     .update(spoolDeployment)
     .set({
       status: "active",
-      lastSeenAt: new Date(),
-      ...(body.version ? { spoolVersion: body.version } : {}),
+      lastHeartbeatAt: new Date(),
+      ...(body.version ? { runtimeVersion: body.version } : {}),
     })
     .where(eq(spoolDeployment.id, deployment.id));
 
-  return c.json({ status: "active", spool_domain: deployment.spoolDomain });
+  return c.json({ status: "active", spool_domain: deployment.nodeDomain });
 });
 
 // ─── Update Check: Spool → ORRN (auto-update) ──────────────────────────────
@@ -260,10 +265,10 @@ spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoC
     return c.json({ error: "Deployment not found or revoked" }, 404);
   }
 
-  let release: Exclude<Awaited<ReturnType<typeof resolveSpoolRelease>>, null>;
+  let release: ResolvedSpoolRelease;
   let binaryData: Uint8Array;
   try {
-    const resolvedRelease = await resolveSpoolRelease(normalizedPlatform, deployment.spoolVersion ?? undefined);
+    const resolvedRelease = await resolveSpoolRelease(normalizedPlatform, deployment.runtimeVersion ?? undefined);
     if (!resolvedRelease) {
       throw new Error("Failed to resolve spool release.");
     }
@@ -286,7 +291,7 @@ spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoC
   const config: PackageConfig = {
     instanceId: deployment.instanceId,
     subdomain: deployment.subdomain,
-    spoolDomain: deployment.spoolDomain,
+    spoolDomain: deployment.nodeDomain,
     sharedSecret,
     cfTunnelToken,
     orrnServerUrl: env.BETTER_AUTH_URL,
@@ -307,6 +312,36 @@ spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoC
       "X-Spool-Version": release.version,
     },
   });
+});
+
+async function forwardAlias(c: HonoContext, targetPath: string) {
+  const url = new URL(c.req.url);
+  const targetUrl = new URL(targetPath, url.origin);
+  targetUrl.search = url.search;
+  const body = c.req.method === "GET" || c.req.method === "HEAD" ? undefined : await c.req.raw.clone().arrayBuffer();
+  const request = new Request(targetUrl, {
+    method: c.req.method,
+    headers: c.req.raw.headers,
+    body,
+  });
+  return spoolRoutes.fetch(request);
+}
+
+spoolRoutes.post("/webhooks/edge/print-events", async (c: HonoContext) => {
+  return forwardAlias(c, "/webhooks/spool");
+});
+
+spoolRoutes.post("/webhooks/edge/heartbeat", async (c: HonoContext) => {
+  return forwardAlias(c, "/webhooks/spool/activate");
+});
+
+spoolRoutes.get("/api/edge/update-check", async (c: HonoContext) => {
+  return forwardAlias(c, "/api/spool/update-check");
+});
+
+spoolRoutes.get("/api/edge/nodes/:id/download/:platform", async (c: HonoContext) => {
+  const { id, platform } = c.req.param();
+  return forwardAlias(c, `/api/spool/deployments/${id}/download/${platform}`);
 });
 
 export { spoolRoutes };

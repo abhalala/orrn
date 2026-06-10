@@ -20,6 +20,56 @@ export const brand = {
 } as const;
 
 /**
+ * Full brand-blue ramp. Used for gradients, glass tints, glow effects, and
+ * hover states where the three flat brand values aren't enough. 500 ≡
+ * `brand.primary`.
+ */
+export const brandRamp = {
+  50: "#eef3ff",
+  100: "#dfe9ff",
+  200: "#c5d6ff",
+  300: "#a2bcff",
+  400: "#7c9cff",
+  500: "#4f7cff",
+  600: "#2f5fe8",
+  700: "#244cc4",
+  800: "#1f3e9c",
+  900: "#1e377c",
+  950: "#16234a",
+} as const;
+
+/**
+ * Godseye (platform admin console) accent identity. A violet layer applied on
+ * top of the shared theme via the `.godseye` CSS class so staff always know
+ * which surface they're on. Same components, different accent.
+ */
+export const godseye = {
+  primary: "#8b5cf6",
+  primarySoft: "#f1ebff",
+  primaryStrong: "#7c3aed",
+  primaryFg: "#ffffff",
+  /** Dark-mode tinted surfaces for the Godseye shell. */
+  darkBg: "#0a0814",
+  darkBgElevated: "#15101f",
+} as const;
+
+/**
+ * Motion tokens. Mirrored as CSS vars (`--dur-*`, `--ease-*`) in
+ * `globals.css`; reference these for any JS-driven animation (GSAP, RN) so
+ * web + native stay in step.
+ */
+export const motion = {
+  durationFast: 150,
+  durationBase: 250,
+  durationSlow: 400,
+  durationSlower: 700,
+  easeOutExpo: "cubic-bezier(0.16, 1, 0.3, 1)",
+  easeOutQuart: "cubic-bezier(0.25, 1, 0.5, 1)",
+  easeInOut: "cubic-bezier(0.65, 0, 0.35, 1)",
+  easeSpring: "cubic-bezier(0.32, 0.72, 0, 1)",
+} as const;
+
+/**
  * Neutral surface ramps, light + dark.
  *
  * The numbers loosely map to Tailwind's slate scale so screens migrating off
@@ -31,6 +81,10 @@ export const neutrals = {
     bg: "#f6f8fb",
     bgElevated: "#ffffff",
     bgMuted: "#edf2f7",
+    /** Recessed wells: input backgrounds, code blocks, inset panels. */
+    bgSunken: "#eef2f7",
+    /** Scrims/overlay surfaces above elevated content (sheets, popovers). */
+    bgOverlay: "#ffffff",
     border: "#d9e1ea",
     borderStrong: "#cbd5e1",
     fg: "#111827",
@@ -41,6 +95,8 @@ export const neutrals = {
     bg: "#070a11",
     bgElevated: "#101722",
     bgMuted: "#182231",
+    bgSunken: "#04060c",
+    bgOverlay: "#141d2b",
     border: "#263142",
     borderStrong: "#3a475a",
     fg: "#f4f7fb",
@@ -151,6 +207,19 @@ export const fontSizes = {
   "2xl": 24,
   "3xl": 30,
   "4xl": 36,
+} as const;
+
+/**
+ * Marketing display sizes. Clamp-based so the hero scales fluidly from
+ * mobile to desktop without breakpoint jumps. Web-only (CSS strings).
+ */
+export const displaySizes = {
+  /** Hero headline: 40px → 96px. */
+  display1: "clamp(2.5rem, 1.2rem + 5.5vw, 6rem)",
+  /** Section headline: 30px → 56px. */
+  display2: "clamp(1.875rem, 1.1rem + 3vw, 3.5rem)",
+  /** Sub-section headline: 24px → 36px. */
+  display3: "clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem)",
 } as const;
 
 /** Shadows. Web-only; native uses elevation. */

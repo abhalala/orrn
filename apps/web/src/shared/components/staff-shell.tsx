@@ -7,7 +7,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
   return (
     <WorkspaceShell
       homePath="/admin"
-      homeLabel="Console"
+      homeLabel="Godseye"
       skipSegments={["admin"]}
       nav={STAFF_NAV}
       maxWidth={1280}

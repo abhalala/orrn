@@ -59,6 +59,9 @@ export const ACTIONS = [
   // Company settings
   "settings.update",
 
+  // Edge node lifecycle
+  "edge.manage",
+
   // Spool / printing
   "spool.list_printers",
   "spool.manage_printers",
@@ -77,6 +80,7 @@ export const ACTIONS = [
   "platform.staff.updateRole",
   "platform.staff.remove",
   "platform.spool.manage",
+  "platform.edge.manage",
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
@@ -123,6 +127,7 @@ const ROLE_ACTIONS: Record<CompanyRole, ReadonlySet<Action>> = {
     "dispatch.cancel",
     "dispatch.addBundle",
     "packingList.regenerate",
+    "edge.manage",
     "spool.list_printers",
     "spool.manage_printers",
     "spool.manage_templates",
@@ -157,6 +162,8 @@ const PLATFORM_ROLE_ACTIONS: Record<PlatformStaffRole, ReadonlySet<Action>> = {
     "platform.staff.create",
     "platform.staff.updateRole",
     "platform.spool.manage",
+    "platform.edge.manage",
+  "platform.edge.manage",
   ]),
   support: new Set<Action>(["platform.waitlist.review", "platform.company.manage", "platform.staff.list"]),
 };

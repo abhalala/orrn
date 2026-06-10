@@ -107,7 +107,7 @@ function AdminWaitlistComponent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Platform"
+        eyebrow="Godseye"
         title={
           <span className="flex items-center gap-3">
             Waitlist

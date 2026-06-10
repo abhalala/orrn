@@ -35,10 +35,12 @@ async function getActiveDeployment(ctx: { db: OrrnDb; companyId: string }) {
   return deployment;
 }
 
+type ActiveSpoolDeployment = typeof spoolDeployment.$inferSelect;
+
 /** Create a SpoolClient from the deployment's wrapped secrets. */
-async function createSpoolClient(deployment: Awaited<ReturnType<typeof getActiveDeployment>>) {
+async function createSpoolClient(deployment: ActiveSpoolDeployment) {
   const sharedSecret = await unwrapSecret(deployment.sharedSecretWrapped, env.ORRN_MASTER_KEY);
-  return new SpoolClient(`https://${deployment.spoolDomain}`, sharedSecret);
+  return new SpoolClient(`https://${deployment.nodeDomain}`, sharedSecret);
 }
 
 export const spoolRouter = router({
@@ -509,9 +511,9 @@ export const spoolRouter = router({
         id: spoolDeployment.id,
         status: spoolDeployment.status,
         subdomain: spoolDeployment.subdomain,
-        spoolDomain: spoolDeployment.spoolDomain,
-        spoolVersion: spoolDeployment.spoolVersion,
-        lastSeenAt: spoolDeployment.lastSeenAt,
+        spoolDomain: spoolDeployment.nodeDomain,
+        spoolVersion: spoolDeployment.runtimeVersion,
+        lastSeenAt: spoolDeployment.lastHeartbeatAt,
       })
       .from(spoolDeployment)
       .where(eq(spoolDeployment.companyId, ctx.companyId!))

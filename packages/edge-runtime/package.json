@@ -1,0 +1,21 @@
+{
+  "name": "@orrn/edge-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@orrn/config": "workspace:*",
+    "typescript": "^6"
+  }
+}

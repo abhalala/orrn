@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { AuthScreen } from "@/shared/components/auth-screen";
 import { trpc } from "@/shared/utils/trpc";
 
 const waitlistSearchSchema = z.object({
@@ -92,7 +93,7 @@ function WaitlistComponent() {
 
   if (isSuccess) {
     return (
-      <main className="flex min-h-screen items-center justify-center px-4 py-10">
+      <AuthScreen>
         <Card className="w-full max-w-md text-center">
           <CardContent className="items-center gap-5">
             <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600">
@@ -111,12 +112,12 @@ function WaitlistComponent() {
             </Link>
           </CardContent>
         </Card>
-      </main>
+      </AuthScreen>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-10">
+    <AuthScreen>
       <Card className="w-full max-w-xl">
         <CardHeader>
           <CardTitle>Request ORRN Access</CardTitle>
@@ -212,7 +213,7 @@ function WaitlistComponent() {
           </div>
         </CardContent>
       </Card>
-    </main>
+    </AuthScreen>
   );
 }
 

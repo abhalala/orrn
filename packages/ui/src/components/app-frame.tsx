@@ -23,7 +23,7 @@ export type AppStatusBarProps = {
 
 export function AppStatusBar({ brand, context, actions, navToggle }: AppStatusBarProps) {
   return (
-    <div className="orrn-status-bar flex min-h-14 items-center justify-between gap-3 border-b border-border bg-card px-4">
+    <div className="orrn-status-bar flex min-h-14 items-center justify-between gap-3 border-b border-border bg-card/85 px-4 backdrop-blur-md">
       <div className="flex min-w-0 flex-1 items-center gap-2.5">
         {navToggle}
         {brand}
@@ -107,9 +107,9 @@ export function PageScaffold({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {eyebrow ? (
-            <p className="m-0 text-[11px] uppercase tracking-wider text-muted-foreground">{eyebrow}</p>
+            <p className="m-0 text-[11px] font-medium uppercase tracking-[0.12em] text-primary">{eyebrow}</p>
           ) : null}
-          <h1 className="orrn-page-title m-0 text-2xl font-semibold leading-tight text-foreground">
+          <h1 className="orrn-page-title m-0 text-2xl font-semibold leading-tight tracking-[-0.015em] text-foreground">
             {title}
           </h1>
           {description ? (
@@ -137,7 +137,7 @@ export function MobileNav({ items }: { items: readonly AppFrameNavItem[] }) {
 
   return (
     <div
-      className="orrn-mobile-nav hidden flex-shrink-0 items-stretch gap-1 overflow-x-auto border-t border-border bg-card px-2 pb-2.5 pt-2"
+      className="orrn-mobile-nav hidden flex-shrink-0 items-stretch gap-1 overflow-x-auto border-t border-border bg-card/90 px-2 pb-2.5 pt-2 backdrop-blur-md"
       style={{ zIndex: 20 }}
     >
       {visible.map((item) => {
@@ -145,18 +145,28 @@ export function MobileNav({ items }: { items: readonly AppFrameNavItem[] }) {
           <div
             key={item.key}
             onClick={item.onPress}
+            aria-current={item.active ? "page" : undefined}
             className={cn(
-              "orrn-mobile-nav-item flex min-w-[52px] cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md px-1.5 py-1.5",
-              item.active ? "bg-accent" : "",
+              "orrn-mobile-nav-item relative flex min-w-[52px] cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 pb-1.5 pt-2 transition-colors duration-[var(--dur-fast)]",
+              item.active ? "bg-primary/10" : "active:bg-accent/60",
             )}
           >
+            {/* Active top indicator pill */}
+            <span
+              aria-hidden="true"
+              className={cn(
+                "absolute left-1/2 top-0 h-[3px] w-6 -translate-x-1/2 rounded-b-full bg-primary transition-all duration-[var(--dur-base)]",
+                item.active ? "opacity-100 scale-x-100" : "opacity-0 scale-x-50",
+              )}
+              style={{ transitionTimingFunction: "var(--ease-spring)" }}
+            />
             {item.icon ? (
               <span className={cn(item.active ? "text-primary" : "text-muted-foreground")}>{item.icon}</span>
             ) : null}
             <span
               className={cn(
                 "text-[10px]",
-                item.active ? "font-semibold text-foreground" : "font-medium text-muted-foreground",
+                item.active ? "font-semibold text-primary" : "font-medium text-muted-foreground",
               )}
             >
               {item.label}

@@ -7,7 +7,7 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format, formatDistanceToNow } from "date-fns";
-import { Building2, CheckCircle2, ClipboardList, PauseCircle, Users } from "lucide-react";
+import { Building2, CheckCircle2, ClipboardList, PauseCircle, Printer, Users } from "lucide-react";
 
 import { NavCard } from "@/shared/components/admin/nav-card";
 import { StatCard } from "@/shared/components/admin/stat-card";
@@ -49,9 +49,9 @@ function AdminIndexComponent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Platform"
+        eyebrow="Godseye"
         title={`Welcome back, ${firstName}.`}
-        description="Operational snapshot for the orrn.app staff console."
+        description="Operational snapshot across every tenant — companies, waitlist, staff, and spool health."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -129,7 +129,7 @@ function AdminIndexComponent() {
         <h2 className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-3">
           Quick actions
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Can do="platform.company.manage">
             <NavCard
               title="Manage companies"
@@ -152,6 +152,14 @@ function AdminIndexComponent() {
               description="Create orrn.app staff logins with role-based permissions."
               to="/admin/staff"
               icon={<Users size={18} />}
+            />
+          </Can>
+          <Can do="platform.spool.manage">
+            <NavCard
+              title="Spool deployments"
+              description="Provision, rotate, and monitor per-tenant LAN print spools."
+              to="/admin/spool"
+              icon={<Printer size={18} />}
             />
           </Can>
         </div>
