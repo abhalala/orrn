@@ -1,21 +1,79 @@
-# orrn
+# ORRN — Multi-Tenant Manufacturing ERP
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Router, Hono, TRPC, and more.
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Bun](https://img.shields.io/badge/Bun-000000?style=flat&logo=bun&logoColor=white)](https://bun.sh)
+[![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?style=flat&logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
+[![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black)](https://react.dev/)
+[![Expo](https://img.shields.io/badge/Expo-000020?style=flat&logo=expo&logoColor=white)](https://expo.dev/)
+[![tRPC](https://img.shields.io/badge/tRPC-2596BE?style=flat&logo=trpc&logoColor=white)](https://trpc.io/)
 
-## Features
+**ORRN is a sellable multi-company ERP SaaS for manufactured inventory operations.** Built for extrusion plants and similar manufacturing workflows — managing dies, raw material bundles, stock, label printing, dispatches, and packing lists — with tenant-isolated data, web + native mobile access, and integrated LAN thermal printing.
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Router** - File-based routing with full type safety
-- **React Native** - Build mobile apps using React
-- **Expo** - Tools for React Native development
-- **Shared UI** — Tamagui-based `@orrn/ui` components, tokens, and config (web + native)
-- **Hono** - Lightweight, performant server framework
-- **tRPC** - End-to-end type-safe APIs
-- **workers** - Runtime environment
-- **Drizzle** - TypeScript-first ORM
-- **SQLite/Turso** - Database engine
-- **Authentication** - Better-Auth
-- **Turborepo** - Optimized monorepo build system
+- **Web:** [orrn.in](https://orrn.in)
+- **Dev:** [dev.orrn.app](https://dev.orrn.app)
+- **API:** `api.orrn.in`
+- **Print Spool Companion:** [orrn-spool](https://github.com/abhalala/orrn-spool)
+
+---
+
+## What It Does
+
+| Module | Description |
+|--------|-------------|
+| 🔧 **Die Management** | Track extrusion dies — specs, status, maintenance, lifecycle |
+| 📦 **Bundle / Receipt Tracking** | Raw material inbound: bundles, receipts, weight, QC status |
+| 📊 **Stock & Inventory** | Real-time stock levels, lot tracking, movement history |
+| 🏷️ **Label Printing** | Generate and print labels on TSC thermal printers via LAN spool |
+| 🚚 **Dispatch Management** | Outbound dispatches: pick, pack, ship, packing lists |
+| 👥 **Customer Management** | Customer profiles, order history, per-customer pricing |
+| 🔐 **Role-Based Access** | Owner, admin, manager, operator, viewer — per-company config |
+| 📋 **Audit Trail** | All mutations logged with actor, timestamp, and impersonation context |
+
+## Architecture
+
+```
+┌──────────────────────────────┐
+│        Web (React)           │  ← Vite + TanStack Router + TanStack Query
+│        Native (Expo)         │  ← iOS, iPadOS, Android
+├──────────────────────────────┤
+│      @orrn/ui (Tamagui)      │  ← Shared components, tokens, design system
+├──────────────────────────────┤
+│     tRPC API Layer            │  ← End-to-end type-safe APIs
+├──────────────────────────────┤
+│   Hono / Cloudflare Worker   │  ← Server runtime
+├──────────────────────────────┤
+│   D1 (SQLite) / Drizzle ORM  │  ← Database
+├──────────────────────────────┤
+│   orrn-spool (Go)            │  ← LAN thermal print spool (per-tenant)
+└──────────────────────────────┘
+```
+
+**Tenant isolation:** Every operational row carries a `companyId`. Routes never accept tenant IDs from client input — the server derives them from the authenticated session. Platform admins can impersonate tenants via time-boxed, audited grants.
+
+## Key Features
+
+- **Multi-tenant by design** — one deployment serves many companies, data fully isolated
+- **Cloudflare-native** — Workers + D1 edge database, global low-latency
+- **Cross-platform** — web (desktop/mobile browser) + native iOS/iPadOS/Android via Expo
+- **Thermal label printing** — integrates with [orrn-spool](https://github.com/abhalala/orrn-spool), a Go-based print spool deployed per tenant LAN (TSC printers, TSPL2 protocol, Gemini AI label design)
+- **Role-based UI gating** — canonical permission matrix in `packages/server/src/lib/permissions.ts` powers both server middleware and client `<Can>` components. No ad-hoc client booleans.
+- **Impersonation system** — platform admins can safely switch into tenant context with time-boxed grants, full audit logging, and a visible banner
+
+## Tech Stack
+
+| Category | Technology |
+|----------|-----------|
+| **Monorepo** | Turborepo + Bun |
+| **Web** | Vite + React + TanStack Router + TanStack Query |
+| **Mobile** | Expo + React Native + expo-router |
+| **Shared UI** | Tamagui (`@orrn/ui` — components, tokens, config for web + native) |
+| **Server** | Hono + tRPC on Cloudflare Workers |
+| **Auth** | Better Auth (email/password, Expo support) |
+| **Database** | Cloudflare D1 / SQLite via Drizzle ORM |
+| **Infrastructure** | Alchemy → Cloudflare Workers + D1 + custom domains |
+| **Printing** | Per-tenant LAN `orrn-spool` deployment (HTTP API + signed webhooks) |
+
+---
 
 ## Getting Started
 
@@ -154,17 +212,17 @@ For more details, see the guide on [Deploying to Cloudflare with Alchemy](https:
 ```
 orrn/
 ├── apps/
-│   ├── web/         # Frontend application (React + TanStack Router)
-│   ├── native/      # Mobile application (React Native, Expo)
-│   └── server/      # Backend API (Hono, TRPC)
+│   ├── web/          # Frontend application (React + TanStack Router)
+│   ├── native/       # Mobile application (React Native, Expo)
+│   └── server/       # Backend API (Hono, tRPC)
 ├── packages/
-│   ├── ui/          # Shared Tamagui components, tokens, and config (@orrn/ui)
-│   ├── server/      # tRPC API layer, routers, permissions, and Alchemy infra
-│   ├── auth/        # Authentication configuration & logic
-│   ├── db/          # Database schema & queries
-│   ├── env/         # Validated server/web/native env access
-│   ├── crypto/      # Tenant secret wrapping helpers
-│   └── config/      # Shared TypeScript config
+│   ├── ui/           # Shared Tamagui components, tokens, and config (@orrn/ui)
+│   ├── server/       # tRPC API layer, routers, permissions, and Alchemy infra
+│   ├── auth/         # Authentication configuration & logic
+│   ├── db/           # Database schema & queries
+│   ├── env/          # Validated server/web/native env access
+│   ├── crypto/       # Tenant secret wrapping helpers
+│   └── config/       # Shared TypeScript config
 ```
 
 ## Available Scripts
