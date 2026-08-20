@@ -1,10 +1,11 @@
 import { StatusBadge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
-import { TextArea } from "@orrn/ui/components/input";
+import { Input, TextArea } from "@orrn/ui/components/input";
 import type { PLSnapshot } from "@orrn/documents/packing-list";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import * as Haptics from "expo-haptics";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +13,7 @@ import {
   Pressable,
   Share,
   Text,
+  type TextInput,
   View,
 } from "react-native";
 import { format } from "date-fns";
@@ -34,7 +36,10 @@ import { useLengthUnit } from "../../../utils/length";
 export default function DispatchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const [serialInput, setSerialInput] = useState("");
+  const scanInputRef = useRef<TextInput>(null);
+  const [scanToken, setScanToken] = useState("");
+  const [scanFeedback, setScanFeedback] = useState("");
+  const [bulkTokens, setBulkTokens] = useState("");
   const lu = useLengthUnit();
 
   const { data, isLoading } = useQuery({
@@ -48,11 +53,26 @@ export default function DispatchDetailScreen() {
     queryClient.invalidateQueries({ queryKey: trpc.bundle.stockSummary.queryKey() });
   };
 
-  const addSerialsMutation = useMutation({
+  const scanMutation = useMutation({
+    ...trpc.dispatch.addBundlesBySerial.mutationOptions(),
+    onSuccess: (_res, variables) => {
+      setScanToken("");
+      setScanFeedback(`Added ${variables.serials[0]}`);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      invalidate();
+    },
+    onError: (e) => {
+      setScanFeedback(e.message || "Failed to scan bundle");
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+    onSettled: () => scanInputRef.current?.focus(),
+  });
+
+  const bulkMutation = useMutation({
     ...trpc.dispatch.addBundlesBySerial.mutationOptions(),
     onSuccess: (res) => {
       Alert.alert("Added", `${res.added} bundle(s) added`);
-      setSerialInput("");
+      setBulkTokens("");
       invalidate();
     },
     onError: (e) => Alert.alert("Error", e.message || "Failed to add"),
@@ -129,16 +149,23 @@ export default function DispatchDetailScreen() {
   const canCancel = d.status === "draft" || d.status === "reserved";
   const canDelete = d.status === "draft" || d.status === "cancelled";
 
-  const handleAddSerials = () => {
-    const serials = serialInput
+  const handleScan = () => {
+    const token = scanToken.trim();
+    if (!token) return;
+    setScanFeedback("");
+    scanMutation.mutate({ id: id as string, serials: [token] });
+  };
+
+  const handleAddBulk = () => {
+    const serials = bulkTokens
       .split(/[\n,\s]+/)
       .map((x) => x.trim())
       .filter(Boolean);
     if (serials.length === 0) {
-      Alert.alert("Validation", "Enter at least one serial");
+      Alert.alert("Validation", "Enter at least one uid or serial");
       return;
     }
-    addSerialsMutation.mutate({ id: id as string, serials });
+    bulkMutation.mutate({ id: id as string, serials });
   };
 
   const confirm = (title: string, body: string, onConfirm: () => void, destructive = false) => {
@@ -270,22 +297,46 @@ export default function DispatchDetailScreen() {
           <Can do="dispatch.addBundle">
             {canAddOrRemove ? (
               <ErpListCard className="mx-4 mt-4 gap-3">
-                <ErpSectionTitle>Scan or paste serials</ErpSectionTitle>
+                <ErpSectionTitle>Scan bundle sticker</ErpSectionTitle>
+                <Input
+                  ref={scanInputRef}
+                  value={scanToken}
+                  onChangeText={setScanToken}
+                  onSubmitEditing={handleScan}
+                  placeholder="Scan uid or enter serial"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  submitBehavior="submit"
+                  autoFocus
+                  editable={!scanMutation.isPending}
+                />
+                {scanFeedback ? (
+                  <ErpMutedText>{scanFeedback}</ErpMutedText>
+                ) : (
+                  <ErpMutedText>Scanner input is added when it sends Enter.</ErpMutedText>
+                )}
+                <View className="min-h-12">
+                  <Button size="lg" disabled={scanMutation.isPending} onPress={handleScan}>
+                    {scanMutation.isPending ? "Adding…" : "Add scanned bundle"}
+                  </Button>
+                </View>
+                <ErpSectionTitle>Bulk paste uids or serials</ErpSectionTitle>
                 <TextArea
-                  value={serialInput}
-                  onChangeText={setSerialInput}
-                  placeholder="BG-000123-B001"
-                  autoCapitalize="characters"
+                  value={bulkTokens}
+                  onChangeText={setBulkTokens}
+                  placeholder={"cm123exampleuid\n26H1903"}
+                  autoCapitalize="none"
                   autoCorrect={false}
                   rows={4}
                 />
                 <View className="mt-1 min-h-12">
                   <Button
                     size="lg"
-                    disabled={addSerialsMutation.isPending}
-                    onPress={handleAddSerials}
+                    disabled={bulkMutation.isPending}
+                    onPress={handleAddBulk}
                   >
-                    {addSerialsMutation.isPending ? "Adding…" : "Add to dispatch"}
+                    {bulkMutation.isPending ? "Adding…" : "Add pasted bundles"}
                   </Button>
                 </View>
               </ErpListCard>

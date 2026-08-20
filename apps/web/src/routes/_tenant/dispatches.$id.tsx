@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -41,6 +41,8 @@ function DispatchDetailComponent() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const scanInputRef = useRef<HTMLInputElement>(null);
+  const [scanToken, setScanToken] = useState("");
   const [serialQuery, setSerialQuery] = useState("");
   const [bulkSerials, setBulkSerials] = useState("");
   const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
@@ -75,6 +77,17 @@ function DispatchDetailComponent() {
       invalidate();
     },
     onError: (e: any) => toast.error(e.message || "Failed to add bundle"),
+  });
+
+  const scanMutation = useMutation({
+    ...trpc.dispatch.addBundlesBySerial.mutationOptions(),
+    onSuccess: (_res, variables) => {
+      toast.success(`Bundle scanned: ${variables.serials[0]}`);
+      setScanToken("");
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to scan bundle"),
+    onSettled: () => requestAnimationFrame(() => scanInputRef.current?.focus()),
   });
 
   const bulkMutation = useMutation({
@@ -167,6 +180,13 @@ function DispatchDetailComponent() {
 
   const totalQty = items.reduce((s, it) => s + it.quantity, 0);
   const totalWeight = items.reduce((s, it) => s + it.weightG, 0);
+
+  const handleScan = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const token = scanToken.trim();
+    if (!token) return;
+    scanMutation.mutate({ id, serials: [token] });
+  };
 
   const itemColumns: DataTableColumn<DispatchItemRow>[] = [
     {
@@ -362,6 +382,24 @@ function DispatchDetailComponent() {
             <CardTitle>Add bundles</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+          <form className="space-y-2" onSubmit={handleScan}>
+            <Label htmlFor="scan-token">Scan bundle sticker</Label>
+            <Input
+              ref={scanInputRef}
+              id="scan-token"
+              value={scanToken}
+              onChange={(e) => setScanToken(e.target.value)}
+              placeholder="Scan uid or enter serial, then press Enter"
+              autoComplete="off"
+              autoFocus
+              className="font-mono"
+              disabled={scanMutation.isPending}
+            />
+            <p className="text-xs text-muted-foreground">
+              The scanner should send Enter after the barcode.
+            </p>
+          </form>
+
           <div className="space-y-2">
             <Label htmlFor="serial-search">Search available bundles by serial</Label>
             <Input
@@ -400,14 +438,14 @@ function DispatchDetailComponent() {
           </div>
 
           <div className="space-y-2 pt-4 border-t">
-            <Label htmlFor="bulk-serials">Scan or paste serials / UUIDs (one per line)</Label>
+            <Label htmlFor="bulk-serials">Bulk paste uids or serials (one per line)</Label>
             <textarea
               id="bulk-serials"
               rows={4}
               className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               value={bulkSerials}
               onChange={(e) => setBulkSerials(e.target.value)}
-              placeholder="BG-000123-B001&#10;BG-000123-B002"
+              placeholder="cm123exampleuid&#10;26H1903"
             />
             <Button
               variant="outline"
@@ -419,13 +457,13 @@ function DispatchDetailComponent() {
                   .map((s) => s.trim())
                   .filter(Boolean);
                 if (serials.length === 0) {
-                  toast.error("No serials provided");
+                  toast.error("No uids or serials provided");
                   return;
                 }
                 bulkMutation.mutate({ id, serials });
               }}
             >
-              {bulkMutation.isPending ? "Adding..." : "Add by serial"}
+              {bulkMutation.isPending ? "Adding..." : "Add pasted bundles"}
             </Button>
           </div>
           </CardContent>

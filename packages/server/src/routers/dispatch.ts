@@ -390,7 +390,7 @@ export const dispatchRouter = router({
     .mutation(async ({ ctx, input }) => {
       const trimmed = Array.from(new Set(input.serials.map((s) => s.trim()).filter(Boolean)));
       if (trimmed.length === 0) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "No serials provided" });
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No scan tokens provided" });
       }
 
       const d = await ctx.db.query.dispatch.findFirst({
@@ -413,24 +413,48 @@ export const dispatchRouter = router({
       const bundles = await ctx.db
         .select()
         .from(bundle)
-        .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.serial, trimmed)));
+        .where(
+          and(
+            eq(bundle.companyId, ctx.companyId),
+            or(inArray(bundle.id, trimmed), inArray(bundle.serial, trimmed)),
+          ),
+        );
 
-      const found = new Map(bundles.map((b) => [b.serial, b]));
-      const missing = trimmed.filter((s) => !found.has(s));
-      const unavailable = bundles.filter((b) => b.status !== "available");
+      const byId = new Map(bundles.map((b) => [b.id, b]));
+      const bySerial = new Map(bundles.map((b) => [b.serial, b]));
+      const resolved = trimmed.map((token) => ({
+        token,
+        bundle: byId.get(token) ?? bySerial.get(token),
+      }));
+      const missing = resolved.filter((item) => !item.bundle).map((item) => item.token);
+      const unavailable = resolved.filter(
+        (item): item is typeof item & { bundle: NonNullable<typeof item.bundle> } =>
+          item.bundle !== undefined && item.bundle.status !== "available",
+      );
 
       if (missing.length > 0 || unavailable.length > 0) {
+        const errors = [];
+        if (missing.length > 0) {
+          errors.push(
+            `Unknown scan tokens: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? "…" : ""}`,
+          );
+        }
+        if (unavailable.length > 0) {
+          errors.push(
+            `Unavailable scan tokens: ${unavailable
+              .slice(0, 5)
+              .map(({ token, bundle: b }) => `${token} (${b.status})`)
+              .join(", ")}${unavailable.length > 5 ? "…" : ""}`,
+          );
+        }
         throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            missing.length > 0
-              ? `Unknown serials: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? "…" : ""}`
-              : `Bundles not available: ${unavailable
-                  .slice(0, 5)
-                  .map((b) => `${b.serial} (${b.status})`)
-                  .join(", ")}${unavailable.length > 5 ? "…" : ""}`,
+          code: missing.length > 0 ? "BAD_REQUEST" : "CONFLICT",
+          message: errors.join("; "),
         });
       }
+
+      const resolvedBundles = resolved.flatMap((item) => (item.bundle ? [item.bundle] : []));
+      const uniqueBundles = Array.from(new Map(resolvedBundles.map((b) => [b.id, b])).values());
 
       const existingItemRows = await ctx.db
         .select({ bundleId: dispatchItem.bundleId })
@@ -441,16 +465,16 @@ export const dispatchRouter = router({
             eq(dispatchItem.dispatchId, d.id),
             inArray(
               dispatchItem.bundleId,
-              bundles.map((b) => b.id),
+              uniqueBundles.map((b) => b.id),
             ),
           ),
         );
       const alreadyAdded = new Set(existingItemRows.map((r) => r.bundleId));
-      const toAdd = bundles.filter((b) => !alreadyAdded.has(b.id));
+      const toAdd = uniqueBundles.filter((b) => !alreadyAdded.has(b.id));
       if (toAdd.length === 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "All provided serials are already in this dispatch",
+          message: "All scanned bundles are already in this dispatch",
         });
       }
 

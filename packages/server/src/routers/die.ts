@@ -12,7 +12,10 @@ export const dimensionsSchema = z.object({
   widthMm: z.number().optional(),
   heightMm: z.number().optional(),
   thicknessMm: z.number().optional(),
-});
+  drawingUrl: z.string().optional(),
+  drawingName: z.string().optional(),
+  catalogueUrl: z.string().optional(),
+}).passthrough();
 
 const optionalDieLength = z.number().min(0).nullable().optional();
 
