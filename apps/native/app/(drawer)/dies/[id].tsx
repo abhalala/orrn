@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { useState, useEffect } from "react";
-import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Button } from "@orrn/ui/components/button";
 import { TextArea } from "@orrn/ui/components/input";
@@ -17,6 +17,25 @@ import { trpc, queryClient } from "../../../utils/trpc";
 import { useLengthUnit } from "../../../utils/length";
 
 const dieStatuses = ["active", "archived"] as const;
+const imageExtensions = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/i;
+
+function httpDrawingType(value: string) {
+  if (!/^https?:\/\//i.test(value)) return null;
+  const pathname = value.split(/[?#]/, 1)[0] ?? "";
+  if (imageExtensions.test(pathname)) return "image";
+  if (/\.pdf$/i.test(pathname)) return "pdf";
+  return null;
+}
+
+function attachmentName(value: string) {
+  const cleanValue = value.split(/[?#]/, 1)[0]?.replace(/\/$/, "") ?? "";
+  const name = cleanValue.split(/[\\/]/).pop() ?? "";
+  try {
+    return decodeURIComponent(name);
+  } catch {
+    return name;
+  }
+}
 
 export default function DieFormScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -36,6 +55,8 @@ export default function DieFormScreen() {
   const [legMm, setLegMm] = useState("");
   const [thicknessMm, setThicknessMm] = useState("");
   const [obliqueMm, setObliqueMm] = useState("");
+  const [drawingUrl, setDrawingUrl] = useState("");
+  const [catalogueUrl, setCatalogueUrl] = useState("");
 
   const { data: die, isLoading } = useQuery({
     ...trpc.die.get.queryOptions({ id: id as string }),
@@ -57,6 +78,8 @@ export default function DieFormScreen() {
       setLegMm(die.legMm != null ? lu.formatLengthValue(die.legMm) : "");
       setThicknessMm(die.thicknessMm != null ? lu.formatLengthValue(die.thicknessMm) : dims.thicknessMm != null ? lu.formatLengthValue(dims.thicknessMm) : "");
       setObliqueMm(die.obliqueMm != null ? lu.formatLengthValue(die.obliqueMm) : "");
+      setDrawingUrl(typeof dims.drawingUrl === "string" ? dims.drawingUrl : "");
+      setCatalogueUrl(typeof dims.catalogueUrl === "string" ? dims.catalogueUrl : "");
     }
   }, [die, isNew, lu]);
 
@@ -129,8 +152,12 @@ export default function DieFormScreen() {
       widthMm: widthMm ? lu.parseLengthDecimal(widthMm) : null,
       thicknessMm: thicknessMm ? lu.parseLengthDecimal(thicknessMm) : null,
       dimensions: {
+        ...(die?.dimensions ?? {}),
         widthMm: widthMm ? lu.parseLengthDecimal(widthMm) : undefined,
         thicknessMm: thicknessMm ? lu.parseLengthDecimal(thicknessMm) : undefined,
+        drawingUrl: drawingUrl.trim(),
+        drawingName: drawingUrl.trim() ? attachmentName(drawingUrl.trim()) : "",
+        catalogueUrl: catalogueUrl.trim(),
       },
     };
 
@@ -157,6 +184,15 @@ export default function DieFormScreen() {
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const drawingPreviewType = httpDrawingType(drawingUrl.trim());
+
+  const openDrawing = async () => {
+    try {
+      await Linking.openURL(drawingUrl.trim());
+    } catch {
+      Alert.alert("Unable to open drawing", "Check that the drawing URL is valid and available.");
+    }
+  };
 
   if (!isNew && isLoading) {
     return (
@@ -251,6 +287,51 @@ export default function DieFormScreen() {
               </ErpField>
             </View>
           </View>
+        </View>
+
+        <View className="gap-3 rounded-lg border border-border p-3">
+          <Text className="text-sm font-semibold text-foreground">Drawing and catalogue</Text>
+          <ErpField label="Drawing URL">
+            <ErpTextInput
+              value={drawingUrl}
+              onChangeText={setDrawingUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              placeholder="https://files.example.com/TR2042.pdf or TR2042.pdf"
+            />
+          </ErpField>
+
+          {drawingPreviewType === "image" ? (
+            <Image
+              source={{ uri: drawingUrl.trim() }}
+              resizeMode="contain"
+              accessibilityLabel="Die drawing preview"
+              className="h-64 w-full rounded-md border border-border bg-muted"
+            />
+          ) : drawingPreviewType === "pdf" ? (
+            <View className="h-24 items-center justify-center rounded-md border border-border bg-muted">
+              <Text className="text-sm text-muted-foreground">PDF drawing</Text>
+              <Text className="mt-1 text-xs text-muted-foreground">Open to preview in your PDF viewer</Text>
+            </View>
+          ) : null}
+
+          {drawingPreviewType ? (
+            <Button variant="outline" size="sm" onPress={openDrawing}>
+              Open drawing
+            </Button>
+          ) : null}
+
+          <ErpField label="Catalogue URL">
+            <ErpTextInput
+              value={catalogueUrl}
+              onChangeText={setCatalogueUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              placeholder="https://files.example.com/catalogue/TR2042"
+            />
+          </ErpField>
         </View>
 
         <ErpField label="Status">

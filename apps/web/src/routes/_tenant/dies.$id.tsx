@@ -16,6 +16,25 @@ import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 const dieStatuses = ["active", "archived"] as const;
+const imageExtensions = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/i;
+
+function httpDrawingType(value: string) {
+  if (!/^https?:\/\//i.test(value)) return null;
+  const pathname = value.split(/[?#]/, 1)[0] ?? "";
+  if (imageExtensions.test(pathname)) return "image";
+  if (/\.pdf$/i.test(pathname)) return "pdf";
+  return null;
+}
+
+function attachmentName(value: string) {
+  const cleanValue = value.split(/[?#]/, 1)[0]?.replace(/\/$/, "") ?? "";
+  const name = cleanValue.split(/[\\/]/).pop() ?? "";
+  try {
+    return decodeURIComponent(name);
+  } catch {
+    return name;
+  }
+}
 
 export const Route = createFileRoute("/_tenant/dies/$id")({
   component: DieFormComponent,
@@ -70,8 +89,12 @@ function DieFormComponent() {
       widthMm: die?.widthMm ?? ((die?.dimensions?.widthMm as number | undefined) ?? undefined),
       thicknessMm: die?.thicknessMm ?? ((die?.dimensions?.thicknessMm as number | undefined) ?? undefined),
       dimensions: {
+        ...die?.dimensions,
         widthMm: die?.widthMm ?? ((die?.dimensions?.widthMm as number | undefined) ?? undefined),
         thicknessMm: die?.thicknessMm ?? ((die?.dimensions?.thicknessMm as number | undefined) ?? undefined),
+        drawingUrl: typeof die?.dimensions?.drawingUrl === "string" ? die.dimensions.drawingUrl : "",
+        drawingName: typeof die?.dimensions?.drawingName === "string" ? die.dimensions.drawingName : "",
+        catalogueUrl: typeof die?.dimensions?.catalogueUrl === "string" ? die.dimensions.catalogueUrl : "",
       },
       weightMinG: die?.weightMinG || 0,
       weightMaxG: die?.weightMaxG || 0,
@@ -79,8 +102,18 @@ function DieFormComponent() {
       notes: die?.notes || "",
     },
     onSubmit: async ({ value }) => {
-      if (isNew) createMutation.mutate(value);
-      else updateMutation.mutate({ id, ...value });
+      const drawingUrl = value.dimensions.drawingUrl.trim();
+      const payload = {
+        ...value,
+        dimensions: {
+          ...value.dimensions,
+          drawingUrl,
+          drawingName: drawingUrl ? attachmentName(drawingUrl) : "",
+          catalogueUrl: value.dimensions.catalogueUrl.trim(),
+        },
+      };
+      if (isNew) createMutation.mutate(payload);
+      else updateMutation.mutate({ id, ...payload });
     },
     validators: {
       onSubmit: z.object({
@@ -292,6 +325,72 @@ function DieFormComponent() {
                   )}
                 </form.Field>
               </div>
+            </div>
+
+            <div className="space-y-4 border border-border p-4 rounded-md">
+              <Label>Drawing and catalogue</Label>
+              <form.Field name="dimensions.drawingUrl">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor={field.name}>Drawing URL</Label>
+                    <Input
+                      id={field.name}
+                      type="text"
+                      inputMode="url"
+                      placeholder="https://files.example.com/TR2042.pdf or TR2042.pdf"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChangeText={field.handleChange}
+                    />
+                  </div>
+                )}
+              </form.Field>
+
+              <form.Subscribe selector={(state) => state.values.dimensions.drawingUrl}>
+                {(drawingUrl) => {
+                  const previewType = httpDrawingType(drawingUrl.trim());
+                  if (!previewType) return null;
+                  return (
+                    <div className="space-y-2">
+                      {previewType === "image" ? (
+                        <img
+                          src={drawingUrl.trim()}
+                          alt="Die drawing preview"
+                          className="max-h-96 w-full rounded-md border border-border bg-muted object-contain"
+                        />
+                      ) : (
+                        <iframe
+                          src={drawingUrl.trim()}
+                          title="Die drawing preview"
+                          className="h-96 w-full rounded-md border border-border bg-muted"
+                        />
+                      )}
+                      <Button asChild variant="link" size="sm">
+                        <a href={drawingUrl.trim()} target="_blank" rel="noreferrer">
+                          Open drawing in new tab
+                        </a>
+                      </Button>
+                    </div>
+                  );
+                }}
+              </form.Subscribe>
+
+              <form.Field name="dimensions.catalogueUrl">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor={field.name}>Catalogue URL</Label>
+                    <Input
+                      id={field.name}
+                      type="text"
+                      inputMode="url"
+                      placeholder="https://files.example.com/catalogue/TR2042"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChangeText={field.handleChange}
+                    />
+                  </div>
+                )}
+              </form.Field>
             </div>
 
             <form.Field name="status">
