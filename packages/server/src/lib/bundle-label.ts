@@ -1,6 +1,8 @@
 import type { bundle, bundleGroup } from "@orrn/db/schema/inventory";
 import type { die } from "@orrn/db/schema/catalog";
 
+import { kgPer12ft } from "./weight-range";
+
 export type BundleLabelLayout = `x${number}`;
 
 export type BundleLabelVariables = {
@@ -58,8 +60,7 @@ export function buildBundleLabelVariables({
   const weightKg = bundleRow.weightG / 1000;
   const quantity = bundleRow.quantity;
   const weightEach = quantity > 0 ? weightKg / quantity : Number.NaN;
-  const lengthIn = mmToInches(bundleRow.lengthMm);
-  const weight12ft = quantity > 0 && lengthIn > 0 ? (weightKg / quantity / lengthIn) * 12 : Number.NaN;
+  const weight12ft = kgPer12ft(bundleRow.weightG, quantity, bundleRow.lengthMm) ?? Number.NaN;
   const bundlePo = "poNumber" in bundleRow ? bundleRow.poNumber : null;
 
   return {

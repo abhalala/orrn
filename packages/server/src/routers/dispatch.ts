@@ -12,10 +12,13 @@ import {
   type DispatchStatus,
 } from "@orrn/db/schema/dispatch";
 import { bundle, bundleStatusEvent } from "@orrn/db/schema/inventory";
+import { company } from "@orrn/db/schema/tenant";
 
 import { companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
-import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
+import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { chunk } from "../lib/d1-in";
+import { defaultGroupLabel, packingGroupKeyFromSettings } from "../lib/packing-group";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { nextCompanySeq } from "../lib/sequence";
 import { appendPackingListWrites } from "./packingList";
@@ -194,6 +197,9 @@ export const dispatchRouter = router({
           dieId: bundle.dieId,
           dieSeries: die.series,
           dieSectionCode: die.sectionCode,
+          dieName: die.name,
+          poNumber: bundle.poNumber,
+          createdAt: bundle.createdAt,
           addedAt: dispatchItem.addedAt,
         })
         .from(dispatchItem)
@@ -340,6 +346,13 @@ export const dispatchRouter = router({
         });
       }
 
+      const [companyRow, dieRow] = await Promise.all([
+        ctx.db.query.company.findFirst({ where: eq(company.id, ctx.companyId) }),
+        ctx.db.query.die.findFirst({ where: and(eq(die.id, b.dieId), eq(die.companyId, ctx.companyId)) }),
+      ]);
+      if (!dieRow) throw new TRPCError({ code: "NOT_FOUND", message: "Die not found" });
+      const groupLabel = defaultGroupLabel(dieRow, b, packingGroupKeyFromSettings(companyRow?.settings));
+
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const statements: SqliteBatchItem[] = [
         ctx.db.insert(dispatchItem).values({
@@ -347,6 +360,7 @@ export const dispatchRouter = router({
           companyId: ctx.companyId,
           dispatchId: d.id,
           bundleId: b.id,
+          ...(groupLabel ? { groupLabel } : {}),
         }),
       ];
 
@@ -376,7 +390,7 @@ export const dispatchRouter = router({
             action: "dispatch.addBundle",
             subjectType: "dispatch",
             subjectId: d.id,
-            meta: { bundleId: b.id, serial: b.serial, dispatchStatus: d.status },
+            meta: { bundleId: b.id, serial: b.serial, dispatchStatus: d.status, ...(groupLabel ? { groupLabel } : {}) },
           },
         ),
       );
@@ -410,15 +424,15 @@ export const dispatchRouter = router({
         });
       }
 
-      const bundles = await ctx.db
-        .select()
-        .from(bundle)
-        .where(
-          and(
-            eq(bundle.companyId, ctx.companyId),
-            or(inArray(bundle.id, trimmed), inArray(bundle.serial, trimmed)),
-          ),
-        );
+      const bundles = [] as Array<typeof bundle.$inferSelect>;
+      for (const tokens of chunk(trimmed)) {
+        bundles.push(...await ctx.db.select().from(bundle).where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, tokens))));
+      }
+      const foundIds = new Set(bundles.map((row) => row.id));
+      const remaining = trimmed.filter((token) => !foundIds.has(token));
+      for (const tokens of chunk(remaining)) {
+        bundles.push(...await ctx.db.select().from(bundle).where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.serial, tokens))));
+      }
 
       const byId = new Map(bundles.map((b) => [b.id, b]));
       const bySerial = new Map(bundles.map((b) => [b.serial, b]));
@@ -456,19 +470,10 @@ export const dispatchRouter = router({
       const resolvedBundles = resolved.flatMap((item) => (item.bundle ? [item.bundle] : []));
       const uniqueBundles = Array.from(new Map(resolvedBundles.map((b) => [b.id, b])).values());
 
-      const existingItemRows = await ctx.db
-        .select({ bundleId: dispatchItem.bundleId })
-        .from(dispatchItem)
-        .where(
-          and(
-            eq(dispatchItem.companyId, ctx.companyId),
-            eq(dispatchItem.dispatchId, d.id),
-            inArray(
-              dispatchItem.bundleId,
-              uniqueBundles.map((b) => b.id),
-            ),
-          ),
-        );
+      const existingItemRows: Array<{ bundleId: string }> = [];
+      for (const ids of chunk(uniqueBundles.map((b) => b.id))) {
+        existingItemRows.push(...await ctx.db.select({ bundleId: dispatchItem.bundleId }).from(dispatchItem).where(and(eq(dispatchItem.companyId, ctx.companyId), eq(dispatchItem.dispatchId, d.id), inArray(dispatchItem.bundleId, ids))));
+      }
       const alreadyAdded = new Set(existingItemRows.map((r) => r.bundleId));
       const toAdd = uniqueBundles.filter((b) => !alreadyAdded.has(b.id));
       if (toAdd.length === 0) {
@@ -478,33 +483,42 @@ export const dispatchRouter = router({
         });
       }
 
+      const companyRow = await ctx.db.query.company.findFirst({ where: eq(company.id, ctx.companyId) });
+      const packingGroupKey = packingGroupKeyFromSettings(companyRow?.settings);
+      const dieRows: Array<typeof die.$inferSelect> = [];
+      for (const ids of chunk(Array.from(new Set(toAdd.map((b) => b.dieId))))) {
+        dieRows.push(...await ctx.db.select().from(die).where(and(eq(die.companyId, ctx.companyId), inArray(die.id, ids))));
+      }
+      const diesById = new Map(dieRows.map((row) => [row.id, row]));
+      const groupLabels = new Map(toAdd.map((b) => {
+        const dieRow = diesById.get(b.dieId);
+        return [b.id, dieRow ? defaultGroupLabel(dieRow, b, packingGroupKey) : null];
+      }));
+
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const statements: SqliteBatchItem[] = [
-        ctx.db.insert(dispatchItem).values(
+      const statements: SqliteBatchItem[] = [];
+      pushChunkedInserts(statements, (values) => ctx.db.insert(dispatchItem).values(values),
           toAdd.map((b) => ({
             id: crypto.randomUUID(),
             companyId: ctx.companyId,
             dispatchId: d.id,
             bundleId: b.id,
-          })),
-        ),
-      ];
+            ...(groupLabels.get(b.id) ? { groupLabel: groupLabels.get(b.id)! } : {}),
+          })), 50);
 
       if (d.status === "reserved") {
-        statements.push(
+        for (const ids of chunk(toAdd.map((b) => b.id))) statements.push(
           ctx.db
             .update(bundle)
             .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
             .where(
               and(
                 eq(bundle.companyId, ctx.companyId),
-                inArray(
-                  bundle.id,
-                  toAdd.map((b) => b.id),
-                ),
+                inArray(bundle.id, ids),
               ),
             ),
-          ctx.db.insert(bundleStatusEvent).values(
+        );
+        pushChunkedInserts(statements, (values) => ctx.db.insert(bundleStatusEvent).values(values),
             toAdd.map((b) => ({
               id: crypto.randomUUID(),
               companyId: ctx.companyId,
@@ -514,9 +528,7 @@ export const dispatchRouter = router({
               reason: "dispatch.addBundle",
               actorId: ctx.session.user.id,
               dispatchId: d.id,
-            })),
-          ),
-        );
+            })), 50);
       }
 
       statements.push(
@@ -530,6 +542,7 @@ export const dispatchRouter = router({
               count: toAdd.length,
               serials: toAdd.map((b) => b.serial),
               dispatchStatus: d.status,
+              groupLabels: Object.fromEntries(Array.from(groupLabels).filter((entry): entry is [string, string] => entry[1] !== null)),
             },
           },
         ),
@@ -541,7 +554,7 @@ export const dispatchRouter = router({
     }),
 
   setItemGroupLabel: companyProcedure
-    .input(z.object({ id: z.string(), bundleId: z.string(), groupLabel: z.string().max(32).nullable() }))
+    .input(z.object({ id: z.string(), bundleId: z.string(), groupLabel: z.string().max(80, "Packing group must be 80 characters or fewer").nullable() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
         where: and(
@@ -557,7 +570,7 @@ export const dispatchRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Packing groups can only be edited before completion" });
       }
 
-      const label = input.groupLabel?.trim().toUpperCase() || null;
+      const label = input.groupLabel?.trim() || null;
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       await atomicBatch(ctx.db, [
         ctx.db

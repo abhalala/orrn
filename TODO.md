@@ -421,3 +421,6 @@ Self-serve company onboarding flow: public waitlist form → platform-admin appr
 - Email delivery: mock in dev, Resend in prod
 
 Ready to start M1 implementation.
+# PR B — grouped packing lists
+
+- Implement snapshot v2 grouped packing lists, automatic tenant-configured labels, D1-safe scan chunks, grouped web/native previews, and Fourcubes opt-in without schema or transition changes.

@@ -19,8 +19,9 @@ export async function sharePackingListPdf(
   pl: PLSnapshot,
   code: string,
   lengthUnit: LengthUnit = "mm",
+  options: { draft?: boolean } = {},
 ) {
-  const html = buildPackingListHtml(pl, code, lengthUnit);
+  const html = buildPackingListHtml(pl, code, lengthUnit, options);
   const { uri } = await Print.printToFileAsync({ html, base64: false });
   await shareFile(uri, "application/pdf");
 }

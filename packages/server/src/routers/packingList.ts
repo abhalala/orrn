@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { bundle } from "@orrn/db/schema/inventory";
@@ -19,6 +19,9 @@ import type { Context } from "../context";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, pushChunkedInserts, type OrrnDb } from "../lib/atomic";
 import { nextCompanySeq } from "../lib/sequence";
+import { chunk } from "../lib/d1-in";
+import { defaultGroupLabel, packingGroupKeyFromSettings } from "../lib/packing-group";
+import { formatWeightRange12ft, kgPer12ft, mmToFeet } from "../lib/weight-range";
 import { companyProcedure, router } from "../index";
 
 // ---------------------------------------------------------------------------
@@ -34,8 +37,12 @@ type PackingLineItem = {
   dieId: string;
   dieSeries: string;
   dieSectionCode: string;
-  groupId: string | null;
+  dieName: string | null;
+  poNumber: string | null;
+  bundleCreatedAt: Date;
+  addedAt: Date;
   groupLabel: string | null;
+  resolvedGroupLabel: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -69,47 +76,61 @@ async function buildSnapshot(
     where: eq(company.id, companyId),
   });
 
-  const items = await db
+  const dispatchItems = await db
     .select({
       itemId: dispatchItem.id,
+      bundleId: dispatchItem.bundleId,
+      groupLabel: dispatchItem.groupLabel,
+      addedAt: dispatchItem.addedAt,
+    })
+    .from(dispatchItem)
+    .where(and(eq(dispatchItem.dispatchId, dispatchRow.id), eq(dispatchItem.companyId, companyId)))
+    .orderBy(asc(dispatchItem.addedAt));
+
+  const bundleRows: Array<Omit<PackingLineItem, "itemId" | "groupLabel" | "resolvedGroupLabel" | "addedAt">> = [];
+  for (const ids of chunk(dispatchItems.map((item: { bundleId: string }) => item.bundleId))) {
+    bundleRows.push(...await db.select({
       bundleId: bundle.id,
       bundleSerial: bundle.serial,
       bundleQuantity: bundle.quantity,
       bundleWeightG: bundle.weightG,
       bundleLengthMm: bundle.lengthMm,
+      poNumber: bundle.poNumber,
+      bundleCreatedAt: bundle.createdAt,
       dieId: die.id,
       dieSeries: die.series,
       dieSectionCode: die.sectionCode,
-      groupLabel: dispatchItem.groupLabel,
-      groupId: bundle.groupId,
+      dieName: die.name,
     })
-    .from(dispatchItem)
-    .innerJoin(
-      bundle,
-      and(
-        eq(bundle.id, dispatchItem.bundleId),
-        eq(bundle.companyId, dispatchItem.companyId),
-      ),
-    )
-    .innerJoin(
-      die,
-      and(
-        eq(die.id, bundle.dieId),
-        eq(die.companyId, bundle.companyId),
-      ),
-    )
-    .where(
-      and(
-        eq(dispatchItem.dispatchId, dispatchRow.id),
-        eq(dispatchItem.companyId, companyId),
-      ),
-    ) as PackingLineItem[];
+    .from(bundle)
+    .innerJoin(die, and(eq(die.id, bundle.dieId), eq(die.companyId, bundle.companyId)))
+    .where(and(eq(bundle.companyId, companyId), inArray(bundle.id, ids))));
+  }
+  const bundlesById = new Map(bundleRows.map((row) => [row.bundleId, row]));
+  const packingGroupKey = packingGroupKeyFromSettings(companyRow?.settings);
+  const items: PackingLineItem[] = dispatchItems.flatMap((item: { itemId: string; bundleId: string; groupLabel: string | null; addedAt: Date }) => {
+    const row = bundlesById.get(item.bundleId);
+    if (!row) return [];
+    const resolvedGroupLabel = item.groupLabel?.trim() || defaultGroupLabel(
+      { sectionCode: row.dieSectionCode, name: row.dieName },
+      { weightG: row.bundleWeightG, quantity: row.bundleQuantity, lengthMm: row.bundleLengthMm },
+      packingGroupKey,
+    ) || "UNGROUPED";
+    return [{ ...row, ...item, resolvedGroupLabel }];
+  });
+
+  const firstSeen = new Map<string, number>();
+  for (const item of items) firstSeen.set(item.resolvedGroupLabel, Math.min(firstSeen.get(item.resolvedGroupLabel) ?? Infinity, item.addedAt.getTime()));
+  items.sort((a, b) => (firstSeen.get(a.resolvedGroupLabel)! - firstSeen.get(b.resolvedGroupLabel)!) || (a.addedAt.getTime() - b.addedAt.getTime()) || a.bundleSerial.localeCompare(b.bundleSerial));
 
   const totalQuantity = items.reduce((s: number, i: PackingLineItem) => s + Number(i.bundleQuantity), 0);
   const totalWeightG = items.reduce((s: number, i: PackingLineItem) => s + Number(i.bundleWeightG), 0);
   const totalLengthMm = items.reduce((s: number, i: PackingLineItem) => s + Number(i.bundleLengthMm), 0);
 
   const snapshot: Record<string, unknown> = {
+    schemaVersion: 2,
+    packingGroupKey,
+    packingListLayout: "orrn",
     dispatch: {
       code: dispatchRow.code,
       customer: {
@@ -139,12 +160,34 @@ async function buildSnapshot(
       die: {
         series: item.dieSeries,
         sectionCode: item.dieSectionCode,
+        name: item.dieName,
       },
-      groupId: item.groupLabel ?? item.groupId ?? "",
+      uid: item.bundleId,
+      groupId: item.resolvedGroupLabel,
+      groupLabel: item.resolvedGroupLabel,
+      poNumber: item.poNumber,
       quantity: Number(item.bundleQuantity),
       weightG: Number(item.bundleWeightG),
       lengthMm: Number(item.bundleLengthMm),
+      kgPer12ft: kgPer12ft(item.bundleWeightG, item.bundleQuantity, item.bundleLengthMm),
+      kgPerCut: item.bundleQuantity > 0 ? item.bundleWeightG / 1000 / item.bundleQuantity : null,
+      weightRange: formatWeightRange12ft(kgPer12ft(item.bundleWeightG, item.bundleQuantity, item.bundleLengthMm) ?? Number.NaN),
+      lengthFt: mmToFeet(item.bundleLengthMm),
+      packedAt: item.bundleCreatedAt.toISOString(),
     })),
+    groups: Array.from(new Set(items.map((item) => item.resolvedGroupLabel))).map((label) => {
+      const groupItems = items.filter((item) => item.resolvedGroupLabel === label);
+      const indexes = groupItems.map((item) => items.indexOf(item) + 1);
+      return {
+        label,
+        firstSeenAt: new Date(firstSeen.get(label) ?? 0).toISOString(),
+        bundleCount: groupItems.length,
+        quantity: groupItems.reduce((sum, item) => sum + Number(item.bundleQuantity), 0),
+        weightKg: Number((groupItems.reduce((sum, item) => sum + Number(item.bundleWeightG), 0) / 1000).toFixed(3)),
+        lotFrom: Math.min(...indexes),
+        lotTo: Math.max(...indexes),
+      };
+    }),
     totals: {
       totalBundles: items.length,
       totalQuantity,
@@ -211,7 +254,7 @@ export async function packingListWriteBatch(
   ];
 
   if (items.length > 0) {
-    const lineValues = items.map((item, index) => ({
+    const lineValues = items.map((item) => ({
       id: crypto.randomUUID(),
       companyId: opts.companyId,
       packingListId: plId,
@@ -220,7 +263,7 @@ export async function packingListWriteBatch(
       quantity: Number(item.bundleQuantity),
       weightG: Number(item.bundleWeightG),
       lengthMm: Number(item.bundleLengthMm),
-      groupLabel: item.groupLabel ?? item.groupId ?? `GROUP-${index + 1}`,
+      groupLabel: item.resolvedGroupLabel,
     }));
     pushChunkedInserts(
       statements,
@@ -287,7 +330,10 @@ export const packingListRouter = router({
       }
 
       const existing = await ctx.db.query.packingList.findFirst({
-        where: eq(packingList.dispatchId, input.dispatchId),
+        where: and(
+          eq(packingList.dispatchId, input.dispatchId),
+          eq(packingList.companyId, ctx.companyId),
+        ),
       });
 
       if (existing) {
