@@ -3,6 +3,7 @@ import { formatLengthValue } from "@orrn/server/lib/length";
 import * as XLSX from "xlsx";
 
 import type { PLSnapshot } from "./snapshot";
+import { groupPlItems } from "./group";
 
 function buildWorkbook(pl: PLSnapshot, code: string, lengthUnit: LengthUnit) {
   const cust = pl.dispatch.customer;
@@ -42,17 +43,33 @@ function buildWorkbook(pl: PLSnapshot, code: string, lengthUnit: LengthUnit) {
     "Weight (kg)",
     lengthLabel,
   ];
-  const rows = pl.items.map((item, i) => [
+  const itemRow = (item: PLSnapshot["items"][number], i: number) => [
     i + 1,
     item.bundleSerial,
     item.die.series,
     item.die.sectionCode,
-    item.groupId || "",
+    (item.groupLabel ?? item.groupId) || "",
     item.quantity,
     item.weightG,
     +(item.weightG / 1000).toFixed(3),
     formatLengthValue(item.lengthMm, lengthUnit),
-  ]);
+  ];
+  let rows: Array<Array<string | number>>;
+  const netRowIndexes: number[] = [];
+  if (pl.schemaVersion === 2) {
+    const grouped = groupPlItems(pl.items, pl.groups);
+    rows = [];
+    let index = 0;
+    for (const group of grouped.groups) {
+      rows.push([group.label]);
+      for (const item of group.items) rows.push(itemRow(item, index++));
+      rows.push([`${group.label} — ${group.subtotal.bundles} BUNDLE / ${group.subtotal.weightKg.toFixed(3)} kg`]);
+    }
+    rows.push(["NET", "", "", "", "", grouped.net.quantity, "", grouped.net.weightKg]);
+    netRowIndexes.push(rows.length);
+  } else {
+    rows = pl.items.map(itemRow);
+  }
 
   const wb = XLSX.utils.book_new();
 
@@ -61,6 +78,12 @@ function buildWorkbook(pl: PLSnapshot, code: string, lengthUnit: LengthUnit) {
   XLSX.utils.book_append_sheet(wb, wsMeta, "Summary");
 
   const wsItems = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  for (const rowIndex of netRowIndexes) {
+    for (let column = 0; column < headers.length; column += 1) {
+      const cell = wsItems[XLSX.utils.encode_cell({ r: rowIndex, c: column })];
+      if (cell) cell.s = { fill: { fgColor: { rgb: "FFF3BF" } }, font: { bold: true } };
+    }
+  }
   wsItems["!cols"] = [
     { wch: 4 },
     { wch: 16 },
@@ -86,6 +109,7 @@ export function buildPackingListXlsxBuffer(
   const arrayBuffer = XLSX.write(buildWorkbook(pl, code, lengthUnit), {
     type: "array",
     bookType: "xlsx",
+    cellStyles: true,
   }) as ArrayBuffer;
   return new Uint8Array(arrayBuffer);
 }
@@ -99,5 +123,6 @@ export function buildPackingListXlsxBase64(
   return XLSX.write(buildWorkbook(pl, code, lengthUnit), {
     type: "base64",
     bookType: "xlsx",
+    cellStyles: true,
   }) as string;
 }

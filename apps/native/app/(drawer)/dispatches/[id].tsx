@@ -1,7 +1,7 @@
 import { StatusBadge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
 import { Input, TextArea } from "@orrn/ui/components/input";
-import type { PLSnapshot } from "@orrn/documents/packing-list";
+import { buildLiveSnapshot, type PLSnapshot } from "@orrn/documents/packing-list";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -32,6 +32,7 @@ import { Can } from "@/components/can";
 import { sharePackingListPdf, sharePackingListXlsx } from "@/lib/packing-list-export";
 import { queryClient, trpc } from "../../../utils/trpc";
 import { useLengthUnit } from "../../../utils/length";
+import { useMe } from "../../../utils/me";
 
 export default function DispatchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -40,7 +41,9 @@ export default function DispatchDetailScreen() {
   const [scanToken, setScanToken] = useState("");
   const [scanFeedback, setScanFeedback] = useState("");
   const [bulkTokens, setBulkTokens] = useState("");
+  const [previewing, setPreviewing] = useState(false);
   const lu = useLengthUnit();
+  const { data: me } = useMe();
 
   const { data, isLoading } = useQuery({
     ...trpc.dispatch.getDispatch.queryOptions({ id: id as string }),
@@ -148,6 +151,15 @@ export default function DispatchDetailScreen() {
   const canComplete = d.status === "reserved" && items.length > 0;
   const canCancel = d.status === "draft" || d.status === "reserved";
   const canDelete = d.status === "draft" || d.status === "cancelled";
+  const setting = (me?.company?.settings as { packingGroupKey?: unknown } | undefined)?.packingGroupKey;
+  const packingGroupKey = setting === "die" || setting === "weightRange" ? setting : "manual";
+  const liveSnapshot = c && me?.company && canAddOrRemove ? buildLiveSnapshot({
+    company: { id: me.company.id, name: me.company.name },
+    customer: c,
+    dispatch: d,
+    items,
+    packingGroupKey,
+  }) : null;
 
   const handleScan = () => {
     const token = scanToken.trim();
@@ -342,6 +354,14 @@ export default function DispatchDetailScreen() {
               </ErpListCard>
             ) : null}
           </Can>
+
+          {liveSnapshot ? (
+            <ErpListCard className="mx-4 mt-4 gap-3">
+              <ErpSectionTitle>Live packing list preview</ErpSectionTitle>
+              <ErpMutedText>DRAFT · {items.length} bundles · {(items.reduce((sum, item) => sum + item.weightG, 0) / 1000).toFixed(3)} kg</ErpMutedText>
+              <View className="min-h-12"><Button size="lg" variant="outline" disabled={previewing} onPress={async () => { setPreviewing(true); try { await sharePackingListPdf(liveSnapshot, `DRAFT-${d.code}`, lu.unit, { draft: true }); } catch { Alert.alert("Error", "Failed to preview packing list"); } finally { setPreviewing(false); } }}>{previewing ? "Preparing…" : "Preview packing list (DRAFT)"}</Button></View>
+            </ErpListCard>
+          ) : null}
 
           {d.status === "completed" ? <PackingListCard dispatchId={d.id} /> : null}
 

@@ -5,7 +5,7 @@
 import type { LengthUnit } from "@orrn/server/lib/length";
 import { formatLengthValue } from "@orrn/server/lib/length";
 import QRCode from "qrcode";
-import type { PLSnapshot } from "@orrn/documents/packing-list";
+import { groupPlItems, type PLSnapshot } from "@orrn/documents/packing-list";
 export type { PLSnapshot } from "@orrn/documents/packing-list";
 import {
   Document,
@@ -70,12 +70,16 @@ const s = StyleSheet.create({
   footer: { position: "absolute", bottom: 24, left: 36, right: 36, fontSize: 7, color: "#aaa", textAlign: "center" },
   notesBox: { backgroundColor: "#fafafa", border: "1 solid #e5e7eb", padding: "6 8", borderRadius: 3 },
   qr: { width: 62, height: 62, marginTop: 6 },
+  draft: { color: "#b91c1c", fontSize: 20, fontFamily: "Helvetica-Bold", letterSpacing: 4, marginBottom: 8 },
+  groupRow: { padding: "5 6", backgroundColor: "#e5e7eb", fontFamily: "Helvetica-Bold" },
+  subtotalRow: { padding: "5 6", backgroundColor: "#f3f4f6", textAlign: "right", fontFamily: "Helvetica-Bold" },
+  netRow: { flexDirection: "row", padding: "6", backgroundColor: "#FFF3BF", fontFamily: "Helvetica-Bold" },
 });
 
 // ---------------------------------------------------------------------------
 // Document component
 // ---------------------------------------------------------------------------
-function PackingListDoc({ pl, code, lengthUnit, qrDataUrl }: { pl: PLSnapshot; code: string; lengthUnit: LengthUnit; qrDataUrl?: string }) {
+function PackingListDoc({ pl, code, lengthUnit, qrDataUrl, draft }: { pl: PLSnapshot; code: string; lengthUnit: LengthUnit; qrDataUrl?: string; draft?: boolean }) {
   const shipDate = pl.dispatch.shipDate
     ? new Date(pl.dispatch.shipDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
     : "—";
@@ -83,10 +87,24 @@ function PackingListDoc({ pl, code, lengthUnit, qrDataUrl }: { pl: PLSnapshot; c
     day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
   const cust = pl.dispatch.customer;
+  const grouped = pl.schemaVersion === 2 ? groupPlItems(pl.items, pl.groups) : null;
+  let rowIndex = 0;
+  const itemRow = (item: PLSnapshot["items"][number]) => {
+    const index = rowIndex++;
+    return <View key={`${item.bundleSerial}-${index}`} style={[s.tableRow, { backgroundColor: index % 2 === 0 ? "#fff" : "#fafafa" }]}>
+      <Text style={[s.td, s.w1]}>{item.bundleSerial}</Text>
+      <Text style={[s.td, s.w2]}>{item.die.series} / {item.die.sectionCode}</Text>
+      <Text style={[s.td, s.w3]}>{(item.groupLabel ?? item.groupId) || "—"}</Text>
+      <Text style={[s.td, s.w4]}>{item.quantity}</Text>
+      <Text style={[s.td, s.w5]}>{(item.weightG / 1000).toFixed(3)}</Text>
+      <Text style={[s.td, s.w6]}>{formatLengthValue(item.lengthMm, lengthUnit)}</Text>
+    </View>;
+  };
 
   return (
     <Document>
       <Page size="A4" style={s.page}>
+        {draft ? <Text style={s.draft}>DRAFT</Text> : null}
         {/* Header */}
         <View style={s.header}>
           <View>
@@ -137,19 +155,15 @@ function PackingListDoc({ pl, code, lengthUnit, qrDataUrl }: { pl: PLSnapshot; c
           <Text style={[s.th, s.w5, { textAlign: "right" }]}>Wt (kg)</Text>
           <Text style={[s.th, s.w6, { textAlign: "right" }]}>Len ({lengthUnit === "inch" ? "in" : "mm"})</Text>
         </View>
-        {pl.items.map((item, i) => (
-          <View key={i} style={[s.tableRow, { backgroundColor: i % 2 === 0 ? "#fff" : "#fafafa" }]}>
-            <Text style={[s.td, s.w1]}>{item.bundleSerial}</Text>
-            <Text style={[s.td, s.w2]}>{item.die.series} / {item.die.sectionCode}</Text>
-            <Text style={[s.td, s.w3]}>{item.groupId || "—"}</Text>
-            <Text style={[s.td, s.w4]}>{item.quantity}</Text>
-            <Text style={[s.td, s.w5]}>{(item.weightG / 1000).toFixed(3)}</Text>
-            <Text style={[s.td, s.w6]}>{formatLengthValue(item.lengthMm, lengthUnit)}</Text>
-          </View>
-        ))}
+        {grouped ? grouped.groups.map((group) => <View key={group.label}>
+          <Text style={s.groupRow}>{group.label}</Text>
+          {group.items.map(itemRow)}
+          <Text style={s.subtotalRow}>{group.label} — {group.subtotal.bundles} BUNDLE / {group.subtotal.weightKg.toFixed(3)} kg</Text>
+        </View>) : pl.items.map(itemRow)}
+        {grouped ? <View style={s.netRow}><Text style={[s.w1, { width: "50%" }]}>NET · {grouped.net.bundles} BUNDLE</Text><Text style={[s.w5, { width: "50%" }]}>{grouped.net.weightKg.toFixed(3)} kg</Text></View> : null}
 
         {/* Totals */}
-        <View style={s.totalsRow}>
+        {!grouped ? <View style={s.totalsRow}>
           <View>
             <Text style={s.totalsLabel}>Bundles</Text>
             <Text style={s.totalsValue}>{pl.totals.totalBundles}</Text>
@@ -166,7 +180,7 @@ function PackingListDoc({ pl, code, lengthUnit, qrDataUrl }: { pl: PLSnapshot; c
             <Text style={s.totalsLabel}>Total Len</Text>
             <Text style={s.totalsValue}>{formatLengthValue(pl.totals.totalLengthM * 1000, lengthUnit)} {lengthUnit === "inch" ? "in" : "mm"}</Text>
           </View>
-        </View>
+        </View> : null}
 
         <Text style={s.footer}>
           {pl.company.name} · {code} · This document is system-generated. Verify with original dispatch records.
@@ -179,11 +193,11 @@ function PackingListDoc({ pl, code, lengthUnit, qrDataUrl }: { pl: PLSnapshot; c
 // ---------------------------------------------------------------------------
 // Download helper
 // ---------------------------------------------------------------------------
-export async function downloadPackingListPdf(pl: PLSnapshot, code: string, lengthUnit: LengthUnit = "mm", opts: { includeQr?: boolean } = {}) {
+export async function downloadPackingListPdf(pl: PLSnapshot, code: string, lengthUnit: LengthUnit = "mm", opts: { includeQr?: boolean; draft?: boolean } = {}) {
   const qrDataUrl = opts.includeQr
     ? await QRCode.toDataURL(`${code}:${pl.dispatch.code}:${pl.generatedAt}`, { margin: 1, width: 128 })
     : undefined;
-  const blob = await pdf(<PackingListDoc pl={pl} code={code} lengthUnit={lengthUnit} qrDataUrl={qrDataUrl} />).toBlob();
+  const blob = await pdf(<PackingListDoc pl={pl} code={code} lengthUnit={lengthUnit} qrDataUrl={qrDataUrl} draft={opts.draft} />).toBlob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

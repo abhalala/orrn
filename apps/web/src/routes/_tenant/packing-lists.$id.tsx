@@ -59,7 +59,7 @@ function PackingListDetailComponent() {
         flex: 1,
         cell: (row) => `${row.die.series} / ${row.die.sectionCode}`,
       },
-      { id: "group", header: "Group", flex: 0.8, cell: (row) => row.groupId || "—" },
+      { id: "group", header: "Group", flex: 0.8, cell: (row) => (row.groupLabel ?? row.groupId) || "—" },
       { id: "qty", header: "Qty", flex: 0.5, align: "right", cell: (row) => row.quantity },
       {
         id: "weight",
@@ -96,7 +96,7 @@ function PackingListDetailComponent() {
   const snap = pl.snapshot as unknown as PLSnapshot;
   const cust = snap.dispatch.customer;
   const tableRows = snap.items.map((item, index) => ({ ...item, index: index + 1 }));
-  const groupTotals = Array.from(
+  const legacyGroupTotals = Array.from(
     snap.items.reduce((map, item) => {
       const key = item.groupId || "UNGROUPED";
       const existing = map.get(key) ?? { label: key, bundles: 0, quantity: 0, weightG: 0, lengthMm: 0 };
@@ -108,6 +108,16 @@ function PackingListDetailComponent() {
       return map;
     }, new Map<string, { label: string; bundles: number; quantity: number; weightG: number; lengthMm: number }>()),
   ).map(([, value]) => value);
+  const groupTotals = snap.schemaVersion === 2 && snap.groups
+    ? snap.groups.map((group) => ({
+        label: group.label,
+        bundles: group.bundleCount,
+        quantity: group.quantity,
+        weightG: group.weightKg * 1000,
+        lengthMm: 0,
+        lotRange: `${group.lotFrom}–${group.lotTo}`,
+      }))
+    : legacyGroupTotals;
 
   async function handlePdf() {
     setPdfPending(true);
@@ -225,6 +235,7 @@ function PackingListDetailComponent() {
             rowKey={(row) => row.label}
             columns={[
               { id: "group", header: "Group", cell: (row) => row.label },
+              { id: "lots", header: "Lots", cell: (row) => "lotRange" in row ? row.lotRange : "—" },
               { id: "bundles", header: "Bundles", align: "right", cell: (row) => row.bundles },
               { id: "qty", header: "Qty", align: "right", cell: (row) => row.quantity },
               { id: "weight", header: "Weight (kg)", align: "right", cell: (row) => (row.weightG / 1000).toFixed(3) },

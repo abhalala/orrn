@@ -18,6 +18,8 @@ import { requireCompanyMe } from "@/shared/lib/guards";
 import { downloadPackingListPdf, type PLSnapshot } from "@/shared/lib/packingListPdf";
 import { downloadPackingListXlsx } from "@/shared/lib/packingListXlsx";
 import { trpc } from "@/shared/utils/trpc";
+import { buildLiveSnapshot, groupPlItems } from "@orrn/documents/packing-list";
+import { useMe } from "@/shared/lib/me";
 
 export const Route = createFileRoute("/_tenant/dispatches/$id")({
   component: DispatchDetailComponent,
@@ -34,6 +36,10 @@ type DispatchItemRow = {
   weightG: number;
   lengthMm: number;
   groupLabel: string | null;
+  dieName: string | null;
+  poNumber: string | null;
+  createdAt: Date;
+  addedAt: Date;
   status: string;
 };
 
@@ -46,7 +52,9 @@ function DispatchDetailComponent() {
   const [serialQuery, setSerialQuery] = useState("");
   const [bulkSerials, setBulkSerials] = useState("");
   const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
+  const [previewPending, setPreviewPending] = useState(false);
   const lu = useLengthUnit();
+  const { data: me } = useMe();
 
   const { data, isLoading } = useQuery({
     ...trpc.dispatch.getDispatch.queryOptions({ id }),
@@ -170,6 +178,8 @@ function DispatchDetailComponent() {
   }
 
   const { dispatch: d, customer: c, items, events } = data;
+  const setting = (me?.company?.settings as { packingGroupKey?: unknown } | undefined)?.packingGroupKey;
+  const packingGroupKey = setting === "die" || setting === "weightRange" ? setting : "manual";
   const canEdit = d.status === "draft";
   const canAddOrRemove = d.status === "draft" || d.status === "reserved";
   const canReserve = d.status === "draft" && items.length > 0;
@@ -180,6 +190,14 @@ function DispatchDetailComponent() {
 
   const totalQty = items.reduce((s, it) => s + it.quantity, 0);
   const totalWeight = items.reduce((s, it) => s + it.weightG, 0);
+  const liveSnapshot = c && me?.company ? buildLiveSnapshot({
+    company: { id: me.company.id, name: me.company.name },
+    customer: c,
+    dispatch: d,
+    items,
+    packingGroupKey,
+  }) : null;
+  const liveGroups = liveSnapshot ? groupPlItems(liveSnapshot.items, liveSnapshot.groups) : null;
 
   const handleScan = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -221,11 +239,12 @@ function DispatchDetailComponent() {
             align: "right" as const,
             cell: (it: DispatchItemRow) => (
               <div className="flex items-center justify-end gap-2">
-                <Input
+                {packingGroupKey === "manual" ? <Can do="dispatch.update"><Input
+                  maxLength={80}
                   value={groupLabels[it.itemId] ?? it.groupLabel ?? ""}
                   onChange={(e) => setGroupLabels((prev) => ({ ...prev, [it.itemId]: e.target.value }))}
                   placeholder="A"
-                  className="h-8 w-16"
+                  className="h-8 w-32"
                 />
                 <Button
                   variant="outline"
@@ -241,6 +260,13 @@ function DispatchDetailComponent() {
                 >
                   Group
                 </Button>
+                </Can> : <div className="max-w-56 text-left">
+                  <span className="rounded bg-muted px-2 py-1 text-xs">{it.groupLabel || "UNGROUPED"}</span>
+                  <Can do="dispatch.update"><details className="mt-1 text-xs"><summary className="cursor-pointer">Override grouping</summary>
+                    <div className="mt-1 flex gap-1"><Input className="h-8 w-32" maxLength={80} value={groupLabels[it.itemId] ?? it.groupLabel ?? ""} onChange={(e) => setGroupLabels((prev) => ({ ...prev, [it.itemId]: e.target.value }))} />
+                    <Button variant="outline" size="sm" onClick={() => groupLabelMutation.mutate({ id, bundleId: it.bundleId, groupLabel: groupLabels[it.itemId] ?? it.groupLabel ?? null })}>Set</Button></div>
+                  </details></Can>
+                </div>}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -510,7 +536,7 @@ function DispatchDetailComponent() {
                 </div>
                 {canAddOrRemove ? (
                   <div className="flex flex-wrap items-end gap-2 border-t border-border pt-3">
-                    <div className="min-w-28 flex-1">
+                    {packingGroupKey === "manual" ? <Can do="dispatch.update"><div className="min-w-28 flex-1">
                       <Label htmlFor={`${it.itemId}-group`} className="text-xs text-muted-foreground">
                         Packing group
                       </Label>
@@ -519,6 +545,7 @@ function DispatchDetailComponent() {
                         value={groupLabels[it.itemId] ?? it.groupLabel ?? ""}
                         onChange={(e) => setGroupLabels((prev) => ({ ...prev, [it.itemId]: e.target.value }))}
                         placeholder="A"
+                        maxLength={80}
                       />
                     </div>
                     <Button
@@ -535,6 +562,10 @@ function DispatchDetailComponent() {
                     >
                       Set group
                     </Button>
+                    </Can> : <div className="min-w-40 flex-1">
+                      <span className="rounded bg-muted px-2 py-1 text-xs">{it.groupLabel || "UNGROUPED"}</span>
+                      <Can do="dispatch.update"><details className="mt-2 text-xs"><summary className="cursor-pointer">Override grouping</summary><div className="mt-2 flex gap-2"><Input maxLength={80} value={groupLabels[it.itemId] ?? it.groupLabel ?? ""} onChange={(e) => setGroupLabels((prev) => ({ ...prev, [it.itemId]: e.target.value }))} /><Button variant="outline" size="sm" onClick={() => groupLabelMutation.mutate({ id, bundleId: it.bundleId, groupLabel: groupLabels[it.itemId] ?? it.groupLabel ?? null })}>Set</Button></div></details></Can>
+                    </div>}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -556,6 +587,15 @@ function DispatchDetailComponent() {
           />
         </CardContent>
       </Card>
+
+      {liveSnapshot && liveGroups && canAddOrRemove ? <Card>
+        <CardHeader><CardTitle>Live packing list preview</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1 text-sm">{liveGroups.groups.map((group) => <div key={group.label} className="flex justify-between"><span>{group.label}</span><span>{group.subtotal.bundles} BUNDLE · {group.subtotal.weightKg.toFixed(3)} kg</span></div>)}</div>
+          <div className="flex justify-between rounded bg-[#FFF3BF] p-2 font-semibold"><span>NET</span><span>{liveGroups.net.bundles} BUNDLE · {liveGroups.net.weightKg.toFixed(3)} kg</span></div>
+          <Button variant="outline" disabled={previewPending} onClick={async () => { setPreviewPending(true); try { await downloadPackingListPdf(liveSnapshot, `DRAFT-${d.code}`, lu.unit, { draft: true }); } finally { setPreviewPending(false); } }}>{previewPending ? "Preparing…" : "Preview PDF (DRAFT)"}</Button>
+        </CardContent>
+      </Card> : null}
 
       {/* Packing list — shown for completed dispatches */}
       {d.status === "completed" && <PackingListSection dispatchId={d.id} lengthUnit={lu.unit} />}
