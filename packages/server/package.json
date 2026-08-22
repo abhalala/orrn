@@ -20,6 +20,7 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
+    "test": "bun test src/lib/dispatch-complete.test.ts",
     "dev": "alchemy dev src/infra/alchemy.run.ts",
     "deploy": "alchemy deploy src/infra/alchemy.run.ts",
     "deploy:dev": "bun --env-file=.env run alchemy-deploy-dev",
@@ -46,6 +47,7 @@
   "devDependencies": {
     "@better-auth/utils": "0.4.0",
     "@orrn/config": "workspace:*",
+    "@types/bun": "^1.3.14",
     "hono": "catalog:",
     "typescript": "^6"
   }

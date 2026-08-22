@@ -34,6 +34,12 @@ import { queryClient, trpc } from "../../../utils/trpc";
 import { useLengthUnit } from "../../../utils/length";
 import { useMe } from "../../../utils/me";
 
+function isStolenLot(dispatchStatus: string, bundleStatus: string) {
+  if (dispatchStatus === "draft") return bundleStatus !== "available";
+  if (dispatchStatus === "reserved") return bundleStatus !== "reserved";
+  return false;
+}
+
 export default function DispatchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -114,11 +120,6 @@ export default function DispatchDetailScreen() {
 
   const completeMutation = useMutation({
     ...trpc.dispatch.complete.mutationOptions(),
-    onSuccess: () => {
-      Alert.alert("Completed", "Bundles marked dispatched");
-      invalidate();
-    },
-    onError: (e) => Alert.alert("Error", e.message || "Failed to complete"),
   });
 
   const cancelMutation = useMutation({
@@ -159,7 +160,7 @@ export default function DispatchDetailScreen() {
   const canEditInvoiceNo = d.status === "draft" || d.status === "reserved";
   const canReserve = d.status === "draft" && items.length > 0;
   const canUnreserve = d.status === "reserved";
-  const canComplete = d.status === "reserved" && items.length > 0;
+  const canComplete = (d.status === "draft" || d.status === "reserved") && items.length > 0;
   const canCancel = d.status === "draft" || d.status === "reserved";
   const canDelete = d.status === "draft" || d.status === "cancelled";
   const setting = (me?.company?.settings as { packingGroupKey?: unknown } | undefined)?.packingGroupKey;
@@ -189,6 +190,28 @@ export default function DispatchDetailScreen() {
       return;
     }
     bulkMutation.mutate({ id: id as string, serials });
+  };
+
+  const handleComplete = async () => {
+    const dispatchId = id as string;
+    try {
+      await completeMutation.mutateAsync({ id: dispatchId });
+      invalidate();
+      try {
+        const pl = await queryClient.fetchQuery({
+          ...trpc.packingList.byDispatch.queryOptions({ dispatchId }),
+          staleTime: 0,
+        });
+        if (!pl) throw new Error("Packing list missing");
+        await sharePackingListPdf(pl.snapshot as PLSnapshot, pl.code, lu.unit);
+        Alert.alert("Completed", "Dispatch completed");
+      } catch {
+        Alert.alert("Completed", "Completed. Share failed — open the dispatch to retry.");
+      }
+    } catch (error) {
+      if ((error as { data?: { code?: string } }).data?.code === "CONFLICT") invalidate();
+      Alert.alert("Error", error instanceof Error ? error.message : "Failed to complete");
+    }
   };
 
   const confirm = (title: string, body: string, onConfirm: () => void, destructive = false) => {
@@ -261,6 +284,7 @@ export default function DispatchDetailScreen() {
                 <View className="min-h-12 min-w-[47%] flex-grow">
                   <Button
                     size="lg"
+                    variant="outline"
                     disabled={!canReserve || reserveMutation.isPending}
                     onPress={() =>
                       confirm("Reserve", "Reserve all bundles for this dispatch?", () =>
@@ -289,13 +313,13 @@ export default function DispatchDetailScreen() {
                     disabled={!canComplete || completeMutation.isPending}
                     onPress={() =>
                       confirm(
-                        "Complete",
-                        "Mark all bundles as dispatched? This cannot be undone.",
-                        () => completeMutation.mutate({ id: id as string }),
+                        "Complete & print",
+                        "Mark all bundles as dispatched and share the packing list? This cannot be undone.",
+                        () => void handleComplete(),
                       )
                     }
                   >
-                    Complete
+                    Complete & print
                   </Button>
                 </View>
               </Can>
@@ -415,6 +439,9 @@ export default function DispatchDetailScreen() {
                 {item.dieSeries} / {item.dieSectionCode} · {item.weightG}g ·{" "}
                 {lu.formatLength(item.lengthMm)}
               </ErpMutedText>
+              {isStolenLot(d.status, item.status) ? (
+                <Text className="mt-1 text-xs font-semibold text-danger">Not available — remove before retrying.</Text>
+              ) : null}
             </Pressable>
           </Link>
           {canAddOrRemove ? (

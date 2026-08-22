@@ -14,17 +14,25 @@ import {
 import { bundle, bundleStatusEvent } from "@orrn/db/schema/inventory";
 import { company } from "@orrn/db/schema/tenant";
 
-import { companyProcedure, router } from "../index";
+import { actionGuard, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { chunk } from "../lib/d1-in";
+import {
+  BUNDLE_LOCK_ERROR,
+  COMPLETE_EVENT_CHUNK_SIZE,
+  COMPLETE_ID_CHUNK_SIZE,
+  completeEventFromStatus,
+  isBundleLockAbort,
+  type CompleteFrom,
+} from "../lib/dispatch-complete";
 import { defaultGroupLabel, packingGroupKeyFromSettings } from "../lib/packing-group";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { nextCompanySeq } from "../lib/sequence";
 import { appendPackingListWrites } from "./packingList";
 
 const ALLOWED_DISPATCH_TRANSITIONS: Record<DispatchStatus, DispatchStatus[]> = {
-  draft: ["reserved", "cancelled"],
+  draft: ["reserved", "completed", "cancelled"],
   reserved: ["draft", "completed", "cancelled"],
   completed: [],
   cancelled: [],
@@ -58,7 +66,7 @@ const updateInput = z.object({
 });
 
 export const dispatchRouter = router({
-  create: companyProcedure
+  create: actionGuard("dispatch.create")
     .input(createInput)
     .mutation(async ({ ctx, input }) => {
       const customerRow = await ctx.db.query.customer.findFirst({
@@ -238,7 +246,7 @@ export const dispatchRouter = router({
       return { dispatch: row, customer: customerRow ?? null, items, events };
     }),
 
-  update: companyProcedure
+  update: actionGuard("dispatch.update")
     .input(updateInput)
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.query.dispatch.findFirst({
@@ -315,7 +323,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  addBundle: companyProcedure
+  addBundle: actionGuard("dispatch.addBundle")
     .input(z.object({ id: z.string(), bundleId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -415,7 +423,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  addBundlesBySerial: companyProcedure
+  addBundlesBySerial: actionGuard("dispatch.addBundle")
     .input(z.object({ id: z.string(), serials: z.array(z.string().min(1)).min(1).max(100) }))
     .mutation(async ({ ctx, input }) => {
       const trimmed = Array.from(new Set(input.serials.map((s) => s.trim()).filter(Boolean)));
@@ -569,7 +577,7 @@ export const dispatchRouter = router({
       return { success: true, added: toAdd.length };
     }),
 
-  setItemGroupLabel: companyProcedure
+  setItemGroupLabel: actionGuard("dispatch.update")
     .input(z.object({ id: z.string(), bundleId: z.string(), groupLabel: z.string().max(80, "Packing group must be 80 characters or fewer").nullable() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -613,7 +621,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  removeBundle: companyProcedure
+  removeBundle: actionGuard("dispatch.addBundle")
     .input(z.object({ id: z.string(), bundleId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -697,7 +705,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  reserve: companyProcedure
+  reserve: actionGuard("dispatch.reserve")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -725,10 +733,12 @@ export const dispatchRouter = router({
       }
 
       const bundleIds = items.map((i) => i.bundleId);
-      const bundles = await ctx.db
-        .select()
-        .from(bundle)
-        .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, bundleIds)));
+      const bundles: Array<typeof bundle.$inferSelect> = [];
+      for (const ids of chunk(bundleIds, COMPLETE_ID_CHUNK_SIZE)) {
+        bundles.push(...await ctx.db.select().from(bundle).where(
+          and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids)),
+        ));
+      }
 
       const notAvailable = bundles.filter((b) => b.status !== "available");
       if (notAvailable.length > 0) {
@@ -743,13 +753,19 @@ export const dispatchRouter = router({
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
 
-      await atomicBatch(ctx.db, [
-        ctx.db
-          .update(bundle)
+      const statements: SqliteBatchItem[] = [];
+      pushChunkedInserts(
+        statements,
+        (ids) => ctx.db.update(bundle)
           .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
-          .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, bundleIds))),
-        ctx.db.insert(bundleStatusEvent).values(
-          bundleIds.map((bid) => ({
+          .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids))),
+        bundleIds,
+        COMPLETE_ID_CHUNK_SIZE,
+      );
+      pushChunkedInserts(
+        statements,
+        (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
+        bundleIds.map((bid) => ({
             id: crypto.randomUUID(),
             companyId: ctx.companyId,
             bundleId: bid,
@@ -759,7 +775,9 @@ export const dispatchRouter = router({
             actorId: ctx.session.user.id,
             dispatchId: d.id,
           })),
-        ),
+        COMPLETE_EVENT_CHUNK_SIZE,
+      );
+      statements.push(
         ctx.db.update(dispatch).set({ status: "reserved", serverSeq: seq }).where(eq(dispatch.id, d.id)),
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
@@ -770,11 +788,12 @@ export const dispatchRouter = router({
             meta: { itemCount: items.length },
           },
         ),
-      ]);
+      );
+      await atomicBatch(ctx.db, statements);
       return { success: true };
     }),
 
-  unreserve: companyProcedure
+  unreserve: actionGuard("dispatch.reserve")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -801,16 +820,14 @@ export const dispatchRouter = router({
 
       if (items.length > 0) {
         const bundleIds = items.map((i) => i.bundleId);
-        const reservedBundles = await ctx.db
-          .select()
-          .from(bundle)
-          .where(
-            and(
-              eq(bundle.companyId, ctx.companyId),
-              inArray(bundle.id, bundleIds),
-              eq(bundle.currentDispatchId, d.id),
-            ),
-          );
+        const reservedBundles: Array<typeof bundle.$inferSelect> = [];
+        for (const ids of chunk(bundleIds, COMPLETE_ID_CHUNK_SIZE)) {
+          reservedBundles.push(...await ctx.db.select().from(bundle).where(and(
+            eq(bundle.companyId, ctx.companyId),
+            inArray(bundle.id, ids),
+            eq(bundle.currentDispatchId, d.id),
+          )));
+        }
         const notReservedHere = reservedBundles.filter((b) => b.status !== "reserved");
         if (reservedBundles.length !== bundleIds.length || notReservedHere.length > 0) {
           throw new TRPCError({
@@ -819,20 +836,27 @@ export const dispatchRouter = router({
           });
         }
 
-        statements.unshift(
-          ctx.db
+        const bundleStatements: SqliteBatchItem[] = [];
+        pushChunkedInserts(
+          bundleStatements,
+          (ids) => ctx.db
             .update(bundle)
             .set({ status: "available", currentDispatchId: null, serverSeq: seq })
             .where(
               and(
                 eq(bundle.companyId, ctx.companyId),
-                inArray(bundle.id, bundleIds),
+                inArray(bundle.id, ids),
                 eq(bundle.status, "reserved"),
                 eq(bundle.currentDispatchId, d.id),
               ),
             ),
-          ctx.db.insert(bundleStatusEvent).values(
-            bundleIds.map((bid) => ({
+          bundleIds,
+          COMPLETE_ID_CHUNK_SIZE,
+        );
+        pushChunkedInserts(
+          bundleStatements,
+          (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
+          bundleIds.map((bid) => ({
               id: crypto.randomUUID(),
               companyId: ctx.companyId,
               bundleId: bid,
@@ -842,8 +866,9 @@ export const dispatchRouter = router({
               actorId: ctx.session.user.id,
               dispatchId: d.id,
             })),
-          ),
+          COMPLETE_EVENT_CHUNK_SIZE,
         );
+        statements.unshift(...bundleStatements);
       }
 
       statements.push(
@@ -862,7 +887,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  complete: companyProcedure
+  complete: actionGuard("dispatch.complete")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -890,25 +915,28 @@ export const dispatchRouter = router({
       }
 
       const bundleIds = items.map((i) => i.bundleId);
-      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const completedAt = new Date();
-      const bundles = await ctx.db
-        .select()
-        .from(bundle)
-        .where(
-          and(
-            eq(bundle.companyId, ctx.companyId),
-            inArray(bundle.id, bundleIds),
-            eq(bundle.currentDispatchId, d.id),
-          ),
-        );
-      const notReservedHere = bundles.filter((b) => b.status !== "reserved");
-      if (bundles.length !== bundleIds.length || notReservedHere.length > 0) {
+      const from: CompleteFrom = d.status === "draft" ? "draft" : "reserved";
+      const bundles: Array<typeof bundle.$inferSelect> = [];
+      for (const ids of chunk(bundleIds, COMPLETE_ID_CHUNK_SIZE)) {
+        bundles.push(...await ctx.db.select().from(bundle).where(and(
+          eq(bundle.companyId, ctx.companyId),
+          inArray(bundle.id, ids),
+        )));
+      }
+      const unavailable = from === "draft"
+        ? bundles.length !== bundleIds.length || bundles.some((row) => row.status !== "available")
+        : bundles.length !== bundleIds.length || bundles.some((row) => row.status !== "reserved" || row.currentDispatchId !== d.id);
+      if (unavailable) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "Cannot complete: one or more bundles are no longer reserved for this dispatch",
+          message: from === "draft"
+            ? BUNDLE_LOCK_ERROR
+            : "Cannot complete: one or more bundles are no longer reserved for this dispatch",
         });
       }
+
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const completedAt = new Date();
 
       const { statements: packingListStatements } = await appendPackingListWrites(ctx.db, {
         companyId: ctx.companyId,
@@ -926,39 +954,46 @@ export const dispatchRouter = router({
         impersonation: ctx.impersonation,
       });
 
-      await atomicBatch(ctx.db, [
-        ctx.db
-          .update(bundle)
-          .set({ status: "dispatched", serverSeq: seq })
-          .where(
-            and(
-              eq(bundle.companyId, ctx.companyId),
-              inArray(bundle.id, bundleIds),
-              eq(bundle.status, "reserved"),
-              eq(bundle.currentDispatchId, d.id),
-            ),
-          ),
-        ctx.db.insert(bundleStatusEvent).values(
-          bundleIds.map((bid) => ({
+      const statements: SqliteBatchItem[] = [];
+      pushChunkedInserts(
+        statements,
+        (ids) => ctx.db.update(bundle)
+          .set(from === "draft"
+            ? { status: "dispatched", currentDispatchId: d.id, serverSeq: seq }
+            : { status: "dispatched", serverSeq: seq })
+          .where(from === "draft"
+            ? and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids), eq(bundle.status, "available"))
+            : and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids), eq(bundle.status, "reserved"), eq(bundle.currentDispatchId, d.id))),
+        bundleIds,
+        COMPLETE_ID_CHUNK_SIZE,
+      );
+      statements.push(ctx.db.update(dispatch).set({
+        status: sql`CASE WHEN (
+          SELECT COUNT(*) FROM ${bundle}
+          WHERE ${bundle.companyId} = ${ctx.companyId}
+            AND ${bundle.currentDispatchId} = ${d.id}
+            AND ${bundle.status} = 'dispatched'
+        ) = ${items.length} THEN 'completed' ELSE NULL END`,
+        completedBy: ctx.session.user.id,
+        completedAt,
+        serverSeq: seq,
+      }).where(eq(dispatch.id, d.id)));
+      pushChunkedInserts(
+        statements,
+        (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
+        bundleIds.map((bid) => ({
             id: crypto.randomUUID(),
             companyId: ctx.companyId,
             bundleId: bid,
-            fromStatus: "reserved" as const,
+            fromStatus: completeEventFromStatus(from),
             toStatus: "dispatched" as const,
             reason: "dispatch.complete",
             actorId: ctx.session.user.id,
             dispatchId: d.id,
           })),
-        ),
-        ctx.db
-          .update(dispatch)
-          .set({
-            status: "completed",
-            completedBy: ctx.session.user.id,
-            completedAt,
-            serverSeq: seq,
-          })
-          .where(eq(dispatch.id, d.id)),
+        COMPLETE_EVENT_CHUNK_SIZE,
+      );
+      statements.push(
         ...packingListStatements,
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
@@ -966,14 +1001,27 @@ export const dispatchRouter = router({
             action: "dispatch.complete",
             subjectType: "dispatch",
             subjectId: d.id,
-            meta: { itemCount: items.length },
+            meta: { fromStatus: from, bundleCount: items.length },
           },
         ),
-      ]);
+      );
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (error) {
+        if (isBundleLockAbort(error)) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: from === "draft"
+              ? BUNDLE_LOCK_ERROR
+              : "Cannot complete: one or more bundles are no longer reserved for this dispatch",
+          });
+        }
+        throw error;
+      }
       return { success: true };
     }),
 
-  cancel: companyProcedure
+  cancel: actionGuard("dispatch.cancel")
     .input(z.object({ id: z.string(), reason: z.string().nullable().optional() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -1005,16 +1053,14 @@ export const dispatchRouter = router({
           );
         if (items.length > 0) {
           const bundleIds = items.map((i) => i.bundleId);
-          const reservedBundles = await ctx.db
-            .select()
-            .from(bundle)
-            .where(
-              and(
-                eq(bundle.companyId, ctx.companyId),
-                inArray(bundle.id, bundleIds),
-                eq(bundle.currentDispatchId, d.id),
-              ),
-            );
+          const reservedBundles: Array<typeof bundle.$inferSelect> = [];
+          for (const ids of chunk(bundleIds, COMPLETE_ID_CHUNK_SIZE)) {
+            reservedBundles.push(...await ctx.db.select().from(bundle).where(and(
+              eq(bundle.companyId, ctx.companyId),
+              inArray(bundle.id, ids),
+              eq(bundle.currentDispatchId, d.id),
+            )));
+          }
           const notReservedHere = reservedBundles.filter((b) => b.status !== "reserved");
           if (reservedBundles.length !== bundleIds.length || notReservedHere.length > 0) {
             throw new TRPCError({
@@ -1023,20 +1069,27 @@ export const dispatchRouter = router({
             });
           }
 
-          statements.unshift(
-            ctx.db
+          const bundleStatements: SqliteBatchItem[] = [];
+          pushChunkedInserts(
+            bundleStatements,
+            (ids) => ctx.db
               .update(bundle)
               .set({ status: "available", currentDispatchId: null, serverSeq: seq })
               .where(
                 and(
                   eq(bundle.companyId, ctx.companyId),
-                  inArray(bundle.id, bundleIds),
+                  inArray(bundle.id, ids),
                   eq(bundle.status, "reserved"),
                   eq(bundle.currentDispatchId, d.id),
                 ),
               ),
-            ctx.db.insert(bundleStatusEvent).values(
-              bundleIds.map((bid) => ({
+            bundleIds,
+            COMPLETE_ID_CHUNK_SIZE,
+          );
+          pushChunkedInserts(
+            bundleStatements,
+            (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
+            bundleIds.map((bid) => ({
                 id: crypto.randomUUID(),
                 companyId: ctx.companyId,
                 bundleId: bid,
@@ -1046,8 +1099,9 @@ export const dispatchRouter = router({
                 actorId: ctx.session.user.id,
                 dispatchId: d.id,
               })),
-            ),
+            COMPLETE_EVENT_CHUNK_SIZE,
           );
+          statements.unshift(...bundleStatements);
           releasedCount = items.length;
         }
       }
@@ -1068,7 +1122,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  softDelete: companyProcedure
+  softDelete: actionGuard("dispatch.delete")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
