@@ -428,3 +428,7 @@ Ready to start M1 implementation.
 # PR C0 — dispatch invoice number
 
 - Add a nullable first-class invoice number, editable on draft/reserved dispatches and frozen into packing-list snapshots before PR C adds Complete & print.
+
+# PR C — complete and print
+
+- Allow manager-led draft or reserved completion with an atomic bundle lock, immutable packing-list creation, and immediate PDF/share output on web and native.

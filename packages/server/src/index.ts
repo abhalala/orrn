@@ -86,6 +86,15 @@ export function platformGuard(action: Action) {
   });
 }
 
+export function actionGuard(action: Action) {
+  return companyProcedure.use(({ ctx, next }) => {
+    if (!can({ company: { role: ctx.role }, isPlatformAdmin: ctx.isPlatformAdmin ?? false }, action)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Insufficient permissions" });
+    }
+    return next({ ctx });
+  });
+}
+
 type Role = NonNullable<Context["role"]>;
 
 export function roleGuard(...allowedRoles: Role[]) {

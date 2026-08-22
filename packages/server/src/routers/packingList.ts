@@ -272,7 +272,7 @@ export async function packingListWriteBatch(
       statements,
       (chunk) => db.insert(packingListLine).values(chunk),
       lineValues,
-      50,
+      10,
     );
   }
 

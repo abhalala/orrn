@@ -43,6 +43,12 @@ type DispatchItemRow = {
   status: string;
 };
 
+function isStolenLot(dispatchStatus: string, bundleStatus: string) {
+  if (dispatchStatus === "draft") return bundleStatus !== "available";
+  if (dispatchStatus === "reserved") return bundleStatus !== "reserved";
+  return false;
+}
+
 function DispatchDetailComponent() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -157,11 +163,6 @@ function DispatchDetailComponent() {
 
   const completeMutation = useMutation({
     ...trpc.dispatch.complete.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Dispatch completed");
-      invalidate();
-    },
-    onError: (e: any) => toast.error(e.message || "Failed to complete"),
   });
 
   const cancelMutation = useMutation({
@@ -196,7 +197,7 @@ function DispatchDetailComponent() {
   const canAddOrRemove = d.status === "draft" || d.status === "reserved";
   const canReserve = d.status === "draft" && items.length > 0;
   const canUnreserve = d.status === "reserved";
-  const canComplete = d.status === "reserved" && items.length > 0;
+  const canComplete = (d.status === "draft" || d.status === "reserved") && items.length > 0;
   const canCancel = d.status === "draft" || d.status === "reserved";
   const canDelete = d.status === "draft" || d.status === "cancelled";
 
@@ -216,6 +217,27 @@ function DispatchDetailComponent() {
     const token = scanToken.trim();
     if (!token) return;
     scanMutation.mutate({ id, serials: [token] });
+  };
+
+  const handleComplete = async () => {
+    try {
+      await completeMutation.mutateAsync({ id });
+      invalidate();
+      try {
+        const pl = await queryClient.fetchQuery({
+          ...trpc.packingList.byDispatch.queryOptions({ dispatchId: id }),
+          staleTime: 0,
+        });
+        if (!pl) throw new Error("Packing list missing");
+        await downloadPackingListPdf(pl.snapshot as PLSnapshot, pl.code, lu.unit);
+        toast.success("Dispatch completed");
+      } catch {
+        toast.error("Dispatch completed but download failed — reprint from Packing lists");
+      }
+    } catch (error) {
+      if ((error as { data?: { code?: string } }).data?.code === "CONFLICT") invalidate();
+      toast.error(error instanceof Error ? error.message : "Failed to complete");
+    }
   };
 
   const itemColumns: DataTableColumn<DispatchItemRow>[] = [
@@ -241,7 +263,7 @@ function DispatchDetailComponent() {
     {
       id: "status",
       header: "Status",
-      cell: (it) => <StatusBadge kind="bundle" value={it.status} size="sm" />,
+      cell: (it) => <div><StatusBadge kind="bundle" value={it.status} size="sm" />{isStolenLot(d.status, it.status) ? <p className="mt-1 text-xs text-destructive">Not available</p> : null}</div>,
     },
     ...(canAddOrRemove
       ? [
@@ -381,6 +403,7 @@ function DispatchDetailComponent() {
         <div className="flex flex-wrap gap-2">
           <Can do="dispatch.reserve">
             <Button
+              variant="outline"
               disabled={!canReserve || reserveMutation.isPending}
               onClick={() => reserveMutation.mutate({ id })}
             >
@@ -398,12 +421,12 @@ function DispatchDetailComponent() {
             <Button
               disabled={!canComplete || completeMutation.isPending}
               onClick={() => {
-                if (window.confirm("Complete this dispatch? Bundles will be marked as dispatched.")) {
-                  completeMutation.mutate({ id });
+                if (window.confirm("Complete this dispatch? Bundles will be marked as dispatched and a packing list will download.")) {
+                  void handleComplete();
                 }
               }}
             >
-              Complete
+              Complete & print
             </Button>
           </Can>
           <Can do="dispatch.cancel">
@@ -544,7 +567,7 @@ function DispatchDetailComponent() {
             rowKey={(it) => it.itemId}
             columns={itemColumns}
             renderCard={(it) => (
-              <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
+              <div className={`flex h-full min-w-0 flex-col gap-4 rounded-lg border bg-background p-4 ${isStolenLot(d.status, it.status) ? "border-destructive" : "border-border"}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <Link to="/bundles/$id" params={{ id: it.bundleId }} className="font-mono text-sm font-semibold hover:underline">
@@ -557,6 +580,7 @@ function DispatchDetailComponent() {
                   </div>
                   <StatusBadge kind="bundle" value={it.status} size="sm" />
                 </div>
+                {isStolenLot(d.status, it.status) ? <p className="m-0 text-xs font-medium text-destructive">Not available — remove this bundle before retrying.</p> : null}
                 <div className="grid grid-cols-3 gap-3 text-sm">
                   <div>
                     <p className="m-0 text-xs font-medium text-muted-foreground">Qty</p>
