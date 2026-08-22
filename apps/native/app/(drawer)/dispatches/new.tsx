@@ -21,6 +21,7 @@ export default function NewDispatchScreen() {
   const router = useRouter();
   const [customerId, setCustomerId] = useState("");
   const [shipDate, setShipDate] = useState("");
+  const [invoiceNo, setInvoiceNo] = useState("");
   const [notes, setNotes] = useState("");
 
   const { data: customersData } = useQuery({
@@ -55,6 +56,7 @@ export default function NewDispatchScreen() {
     createMutation.mutate({
       customerId,
       shipDate: shipMs,
+      invoiceNo: invoiceNo.trim() || null,
       notes: notes.trim() || null,
     });
   };
@@ -102,6 +104,16 @@ export default function NewDispatchScreen() {
               onChangeText={setShipDate}
               placeholder={Platform.OS === "ios" ? "2026-06-01" : "2026-06-01"}
               autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </ErpField>
+
+          <ErpField label="Invoice no">
+            <ErpTextInput
+              value={invoiceNo}
+              onChangeText={setInvoiceNo}
+              maxLength={64}
+              autoCapitalize="characters"
               autoCorrect={false}
             />
           </ErpField>

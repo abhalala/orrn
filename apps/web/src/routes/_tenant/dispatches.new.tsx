@@ -21,6 +21,7 @@ function NewDispatchComponent() {
   const navigate = useNavigate();
   const [customerId, setCustomerId] = useState("");
   const [shipDate, setShipDate] = useState("");
+  const [invoiceNo, setInvoiceNo] = useState("");
   const [notes, setNotes] = useState("");
 
   const { data: customersData } = useQuery({
@@ -50,6 +51,7 @@ function NewDispatchComponent() {
     createMutation.mutate({
       customerId,
       shipDate: shipMs ?? null,
+      invoiceNo: invoiceNo.trim() || null,
       notes: notes.trim() || null,
     });
   };
@@ -78,6 +80,17 @@ function NewDispatchComponent() {
           <div className="space-y-2">
             <Label htmlFor="shipDate">Ship date</Label>
             <Input id="shipDate" type="date" value={shipDate} onChange={(e) => setShipDate(e.target.value)} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="invoiceNo">Invoice no</Label>
+            <Input
+              id="invoiceNo"
+              maxLength={64}
+              value={invoiceNo}
+              onChange={(e) => setInvoiceNo(e.target.value)}
+              placeholder="Optional"
+            />
           </div>
 
           <div className="space-y-2">

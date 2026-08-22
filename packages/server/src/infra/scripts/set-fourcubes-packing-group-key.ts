@@ -12,8 +12,13 @@ const STAGE_DB: Record<string, string> = {
   dev: "0da1b8cd-02e2-4c06-9cb7-fcc61e317aa6",
 };
 const args = process.argv.slice(2);
-const stage = args.find((arg) => arg.startsWith("--stage="))?.split("=")[1]
+const stageArg = args.find((arg) => arg.startsWith("--stage="))?.split("=")[1]
   ?? (args.includes("--stage") ? args[args.indexOf("--stage") + 1] : "production");
+if (stageArg !== "production" && stageArg !== "dev") {
+  console.error("Invalid --stage (production|dev)");
+  process.exit(1);
+}
+const stage: keyof typeof STAGE_DB = stageArg;
 const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
 const token = process.env.CLOUDFLARE_API_TOKEN;
 const dbId = STAGE_DB[stage];

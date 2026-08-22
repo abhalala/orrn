@@ -22,6 +22,7 @@ function buildWorkbook(pl: PLSnapshot, code: string, lengthUnit: LengthUnit) {
     ["Customer Email", cust.email ?? ""],
     ["Ship Date", shipDate],
     ["Generated At", genDate],
+    ["Inv No", pl.dispatch.invoiceNo ?? ""],
     ["Notes", pl.dispatch.notes],
     [],
     ["Totals"],

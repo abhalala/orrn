@@ -424,3 +424,7 @@ Ready to start M1 implementation.
 # PR B — grouped packing lists
 
 - Implement snapshot v2 grouped packing lists, automatic tenant-configured labels, D1-safe scan chunks, grouped web/native previews, and Fourcubes opt-in without schema or transition changes.
+
+# PR C0 — dispatch invoice number
+
+- Add a nullable first-class invoice number, editable on draft/reserved dispatches and frozen into packing-list snapshots before PR C adds Complete & print.

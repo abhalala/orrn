@@ -38,8 +38,8 @@ type DispatchItemRow = {
   groupLabel: string | null;
   dieName: string | null;
   poNumber: string | null;
-  createdAt: Date;
-  addedAt: Date;
+  createdAt: Date | string;
+  addedAt: Date | string;
   status: string;
 };
 
@@ -52,6 +52,7 @@ function DispatchDetailComponent() {
   const [serialQuery, setSerialQuery] = useState("");
   const [bulkSerials, setBulkSerials] = useState("");
   const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
+  const [invoiceNoDraft, setInvoiceNoDraft] = useState<string>();
   const [previewPending, setPreviewPending] = useState(false);
   const lu = useLengthUnit();
   const { data: me } = useMe();
@@ -126,6 +127,16 @@ function DispatchDetailComponent() {
     onError: (e: any) => toast.error(e.message || "Failed to update packing group"),
   });
 
+  const invoiceNoMutation = useMutation({
+    ...trpc.dispatch.update.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Invoice number updated");
+      setInvoiceNoDraft(undefined);
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to update invoice number"),
+  });
+
   const reserveMutation = useMutation({
     ...trpc.dispatch.reserve.mutationOptions(),
     onSuccess: () => {
@@ -181,6 +192,7 @@ function DispatchDetailComponent() {
   const setting = (me?.company?.settings as { packingGroupKey?: unknown } | undefined)?.packingGroupKey;
   const packingGroupKey = setting === "die" || setting === "weightRange" ? setting : "manual";
   const canEdit = d.status === "draft";
+  const canEditInvoiceNo = d.status === "draft" || d.status === "reserved";
   const canAddOrRemove = d.status === "draft" || d.status === "reserved";
   const canReserve = d.status === "draft" && items.length > 0;
   const canUnreserve = d.status === "reserved";
@@ -315,6 +327,31 @@ function DispatchDetailComponent() {
         <div>
           <Label className="text-xs text-muted-foreground">Created</Label>
           <p>{format(new Date(d.createdAt), "PP p")}</p>
+        </div>
+        <div>
+          <Label htmlFor="invoiceNo" className="text-xs text-muted-foreground">Invoice no</Label>
+          {canEditInvoiceNo ? (
+            <Can do="dispatch.update" fallback={<p>{d.invoiceNo || "—"}</p>}>
+              <div className="mt-1 flex gap-2">
+                <Input
+                  id="invoiceNo"
+                  maxLength={64}
+                  value={invoiceNoDraft ?? d.invoiceNo ?? ""}
+                  onChange={(e) => setInvoiceNoDraft(e.target.value)}
+                />
+                <Button
+                  variant="outline"
+                  disabled={invoiceNoMutation.isPending}
+                  onClick={() => invoiceNoMutation.mutate({
+                    id,
+                    invoiceNo: (invoiceNoDraft ?? d.invoiceNo ?? "").trim() || null,
+                  })}
+                >
+                  Save
+                </Button>
+              </div>
+            </Can>
+          ) : <p>{d.invoiceNo || "—"}</p>}
         </div>
         {d.completedAt && (
           <div>

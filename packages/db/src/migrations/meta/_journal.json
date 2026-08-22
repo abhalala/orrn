@@ -71,6 +71,13 @@
       "when": 1780526263585,
       "tag": "0009_lonely_violations",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1787213715204,
+      "tag": "0010_omniscient_avengers",
+      "breakpoints": true
     }
   ]
 }
