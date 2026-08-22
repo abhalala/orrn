@@ -43,6 +43,8 @@ function assertDispatchTransition(from: DispatchStatus, to: DispatchStatus) {
 const createInput = z.object({
   customerId: z.string().min(1, "Customer is required"),
   shipDate: z.number().int().nullable().optional(),
+  invoiceNo: z.string().trim().max(64).nullable().optional()
+    .transform((value) => value === undefined ? undefined : value || null),
   notes: z.string().nullable().optional(),
 });
 
@@ -50,6 +52,8 @@ const updateInput = z.object({
   id: z.string(),
   customerId: z.string().optional(),
   shipDate: z.number().int().nullable().optional(),
+  invoiceNo: z.string().trim().max(64).nullable().optional()
+    .transform((value) => value === undefined ? undefined : value || null),
   notes: z.string().nullable().optional(),
 });
 
@@ -83,6 +87,7 @@ export const dispatchRouter = router({
           customerId: input.customerId,
           status: "draft",
           shipDate: input.shipDate ? new Date(input.shipDate) : null,
+          invoiceNo: input.invoiceNo ?? null,
           notes: input.notes ?? null,
           createdBy: userId,
         }),
@@ -92,7 +97,7 @@ export const dispatchRouter = router({
             action: "dispatch.create",
             subjectType: "dispatch",
             subjectId: id,
-            meta: { code, customerId: input.customerId },
+            meta: { code, customerId: input.customerId, invoiceNo: input.invoiceNo ?? null },
           },
         ),
       ]);
@@ -246,10 +251,19 @@ export const dispatchRouter = router({
       if (!existing) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
       }
-      if (existing.status !== "draft") {
+      if (existing.status !== "draft" && existing.status !== "reserved") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Only draft dispatches can be edited",
+          message: "Only draft or reserved dispatches can be edited",
+        });
+      }
+      if (
+        existing.status === "reserved" &&
+        (input.customerId !== undefined || input.shipDate !== undefined || input.notes !== undefined)
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only invoice number can be edited on a reserved dispatch",
         });
       }
 
@@ -280,6 +294,7 @@ export const dispatchRouter = router({
                   ? null
                   : new Date(input.shipDate),
             notes: input.notes ?? existing.notes,
+            invoiceNo: input.invoiceNo === undefined ? existing.invoiceNo : input.invoiceNo,
             serverSeq: seq,
           })
           .where(eq(dispatch.id, existing.id)),
@@ -292,6 +307,7 @@ export const dispatchRouter = router({
             meta: {
               customerId: input.customerId ?? existing.customerId,
               shipDate: input.shipDate ?? null,
+              invoiceNo: input.invoiceNo === undefined ? existing.invoiceNo : input.invoiceNo,
             },
           },
         ),
@@ -901,6 +917,7 @@ export const dispatchRouter = router({
           code: d.code,
           customerId: d.customerId,
           shipDate: d.shipDate ?? null,
+          invoiceNo: d.invoiceNo ?? null,
           notes: d.notes ?? null,
           status: "completed",
           completedAt,

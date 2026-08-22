@@ -109,6 +109,8 @@ export function buildPackingListHtml(
     ${cust.taxId ? `<div>Tax ID: ${escapeHtml(cust.taxId)}</div>` : ""}
     <div class="label" style="margin-top:8px">Ship Date</div>
     <div>${escapeHtml(shipDate)}</div>
+    <div class="label" style="margin-top:8px">Inv No</div>
+    <div>${escapeHtml(pl.dispatch.invoiceNo ?? "")}</div>
   </div>
   ${
     pl.dispatch.notes

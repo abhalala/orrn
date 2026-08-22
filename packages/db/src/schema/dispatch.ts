@@ -24,6 +24,7 @@ export const dispatch = sqliteTable(
       .references(() => customer.id, { onDelete: "restrict" }),
     status: text("status", { enum: dispatchStatuses }).notNull().default("draft"),
     shipDate: integer("ship_date", { mode: "timestamp_ms" }),
+    invoiceNo: text("invoice_no"),
     notes: text("notes"),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     completedBy: text("completed_by").references(() => user.id, { onDelete: "set null" }),

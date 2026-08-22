@@ -197,6 +197,10 @@ function PackingListDetailComponent() {
             <p className="font-mono">{snap.dispatch.code}</p>
           </div>
           <div>
+            <Label className="text-xs text-muted-foreground">Inv No</Label>
+            <p>{snap.dispatch.invoiceNo || "—"}</p>
+          </div>
+          <div>
             <Label className="text-xs text-muted-foreground">Generated</Label>
             <p>{format(new Date(snap.generatedAt), "PP p")}</p>
           </div>
@@ -235,7 +239,7 @@ function PackingListDetailComponent() {
             rowKey={(row) => row.label}
             columns={[
               { id: "group", header: "Group", cell: (row) => row.label },
-              { id: "lots", header: "Lots", cell: (row) => "lotRange" in row ? row.lotRange : "—" },
+              { id: "lots", header: "Lots", cell: (row) => "lotRange" in row ? String(row.lotRange) : "—" },
               { id: "bundles", header: "Bundles", align: "right", cell: (row) => row.bundles },
               { id: "qty", header: "Qty", align: "right", cell: (row) => row.quantity },
               { id: "weight", header: "Weight (kg)", align: "right", cell: (row) => (row.weightG / 1000).toFixed(3) },

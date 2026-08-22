@@ -1,0 +1,1 @@
+ALTER TABLE `dispatch` ADD `invoice_no` text;

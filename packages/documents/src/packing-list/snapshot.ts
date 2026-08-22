@@ -14,6 +14,7 @@ export type PLSnapshot = {
       taxId?: string | null;
     };
     shipDate: string | null;
+    invoiceNo?: string | null;
     notes: string;
     completedAt: string | null;
   };

@@ -133,6 +133,8 @@ function PackingListDoc({ pl, code, lengthUnit, qrDataUrl, draft }: { pl: PLSnap
           <View style={s.col}>
             <Text style={s.sectionLabel}>Ship Date</Text>
             <Text style={s.sectionValue}>{shipDate}</Text>
+            <Text style={[s.sectionLabel, { marginTop: 8 }]}>Inv No</Text>
+            <Text style={s.sectionValue}>{pl.dispatch.invoiceNo ?? ""}</Text>
           </View>
         </View>
 

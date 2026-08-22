@@ -58,6 +58,7 @@ async function buildSnapshot(
     code: string;
     customerId: string;
     shipDate: Date | null;
+    invoiceNo: string | null;
     notes: string | null;
     status: string;
     completedAt: Date | null;
@@ -88,7 +89,7 @@ async function buildSnapshot(
     .orderBy(asc(dispatchItem.addedAt));
 
   const bundleRows: Array<Omit<PackingLineItem, "itemId" | "groupLabel" | "resolvedGroupLabel" | "addedAt">> = [];
-  for (const ids of chunk(dispatchItems.map((item: { bundleId: string }) => item.bundleId))) {
+  for (const ids of chunk<string>(dispatchItems.map((item: { bundleId: string }) => item.bundleId))) {
     bundleRows.push(...await db.select({
       bundleId: bundle.id,
       bundleSerial: bundle.serial,
@@ -145,6 +146,7 @@ async function buildSnapshot(
       shipDate: dispatchRow.shipDate
         ? new Date(dispatchRow.shipDate).toISOString()
         : null,
+      invoiceNo: dispatchRow.invoiceNo ?? null,
       notes: dispatchRow.notes ?? "",
       status: dispatchRow.status as DispatchStatus,
       completedAt: dispatchRow.completedAt
@@ -210,6 +212,7 @@ type DispatchRowForPL = {
   code: string;
   customerId: string;
   shipDate: Date | null;
+  invoiceNo: string | null;
   notes: string | null;
   status: string;
   completedAt: Date | null;

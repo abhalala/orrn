@@ -41,6 +41,7 @@ export default function DispatchDetailScreen() {
   const [scanToken, setScanToken] = useState("");
   const [scanFeedback, setScanFeedback] = useState("");
   const [bulkTokens, setBulkTokens] = useState("");
+  const [invoiceNoDraft, setInvoiceNoDraft] = useState<string>();
   const [previewing, setPreviewing] = useState(false);
   const lu = useLengthUnit();
   const { data: me } = useMe();
@@ -85,6 +86,15 @@ export default function DispatchDetailScreen() {
     ...trpc.dispatch.removeBundle.mutationOptions(),
     onSuccess: () => invalidate(),
     onError: (e) => Alert.alert("Error", e.message || "Failed to remove"),
+  });
+
+  const invoiceNoMutation = useMutation({
+    ...trpc.dispatch.update.mutationOptions(),
+    onSuccess: () => {
+      setInvoiceNoDraft(undefined);
+      invalidate();
+    },
+    onError: (e) => Alert.alert("Error", e.message || "Failed to update invoice number"),
   });
 
   const reserveMutation = useMutation({
@@ -146,6 +156,7 @@ export default function DispatchDetailScreen() {
 
   const { dispatch: d, customer: c, items } = data;
   const canAddOrRemove = d.status === "draft" || d.status === "reserved";
+  const canEditInvoiceNo = d.status === "draft" || d.status === "reserved";
   const canReserve = d.status === "draft" && items.length > 0;
   const canUnreserve = d.status === "reserved";
   const canComplete = d.status === "reserved" && items.length > 0;
@@ -207,6 +218,31 @@ export default function DispatchDetailScreen() {
             {d.shipDate ? (
               <ErpMutedText>Ship: {format(new Date(d.shipDate), "PP")}</ErpMutedText>
             ) : null}
+            {canEditInvoiceNo ? (
+              <Can do="dispatch.update" fallback={<ErpMutedText>Inv No: {d.invoiceNo || "—"}</ErpMutedText>}>
+                <View className="flex-row items-center gap-2">
+                  <Input
+                    className="flex-1"
+                    value={invoiceNoDraft ?? d.invoiceNo ?? ""}
+                    onChangeText={setInvoiceNoDraft}
+                    maxLength={64}
+                    placeholder="Invoice no"
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                  />
+                  <Button
+                    variant="outline"
+                    disabled={invoiceNoMutation.isPending}
+                    onPress={() => invoiceNoMutation.mutate({
+                      id: id as string,
+                      invoiceNo: (invoiceNoDraft ?? d.invoiceNo ?? "").trim() || null,
+                    })}
+                  >
+                    Save
+                  </Button>
+                </View>
+              </Can>
+            ) : <ErpMutedText>Inv No: {d.invoiceNo || "—"}</ErpMutedText>}
             {d.notes ? <ErpMutedText>Notes: {d.notes}</ErpMutedText> : null}
             <ErpMutedText>
               {items.length} bundles · {items.reduce((sum, x) => sum + x.weightG, 0)} g total

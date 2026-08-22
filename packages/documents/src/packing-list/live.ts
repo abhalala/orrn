@@ -25,6 +25,7 @@ export function buildLiveSnapshot(input: {
   dispatch: {
     code: string;
     shipDate: Date | string | null;
+    invoiceNo?: string | null;
     notes?: string | null;
     status: string;
     completedAt?: Date | string | null;
@@ -74,6 +75,7 @@ export function buildLiveSnapshot(input: {
       code: input.dispatch.code,
       customer: input.customer,
       shipDate: input.dispatch.shipDate ? new Date(input.dispatch.shipDate).toISOString() : null,
+      invoiceNo: input.dispatch.invoiceNo ?? null,
       notes: input.dispatch.notes ?? "",
       completedAt: input.dispatch.completedAt ? new Date(input.dispatch.completedAt).toISOString() : null,
     },
