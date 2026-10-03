@@ -97,25 +97,28 @@ function RootNavigator() {
   if (state === "loading") return splashHidden ? <LoadingScreen /> : null;
   if (state === "offline") return <OfflineScreen onRetry={() => void me.refetch()} retrying={me.isFetching} />;
 
-  const noHeader = { headerShown: false };
+  // The gate swapping one world for another (cold start, sign-in, sign-out)
+  // fades; only screens opened from inside the app (More) slide in.
+  const gateSwap = { headerShown: false, animation: "fade" } as const;
+  const pushed = { headerShown: false };
   return (
     <GateContext value={state}>
       <Stack screenOptions={stackOptions}>
         {/* `index` first and unguarded: it is the fallback when a guard flips. */}
-        <Stack.Screen name="index" options={noHeader} />
+        <Stack.Screen name="index" options={gateSwap} />
         <Stack.Protected guard={state === "/(tabs)/today"}>
           {ROOT_ROUTES.app.map((name) => (
-            <Stack.Screen key={name} name={name} options={noHeader} />
+            <Stack.Screen key={name} name={name} options={name === "(tabs)" ? gateSwap : pushed} />
           ))}
         </Stack.Protected>
         <Stack.Protected guard={state === "/(auth)/sign-in"}>
           {ROOT_ROUTES.auth.map((name) => (
-            <Stack.Screen key={name} name={name} options={noHeader} />
+            <Stack.Screen key={name} name={name} options={gateSwap} />
           ))}
         </Stack.Protected>
         <Stack.Protected guard={state === "/no-access"}>
           {ROOT_ROUTES.noAccess.map((name) => (
-            <Stack.Screen key={name} name={name} options={noHeader} />
+            <Stack.Screen key={name} name={name} options={gateSwap} />
           ))}
         </Stack.Protected>
         {ROOT_ROUTES.public

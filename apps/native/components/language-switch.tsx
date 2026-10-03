@@ -6,6 +6,8 @@ import { Pressable, Text, View } from "react-native";
 /**
  * English / हिंदी toggle (spec §2: on the login screen and in More). A radio
  * group: each option names itself in its own script and says it is selected.
+ * Dark mode mirrors the web SegmentedControl (canvas track with a hairline,
+ * sunken pill with a control ring) so the choice stays visible.
  */
 export function LanguageSwitch({ className }: { className?: string }) {
   const { t, locale, setLocale } = useT();
@@ -19,7 +21,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
         accessibilityRole="radiogroup"
         accessibilityLabelledBy="language-label"
         accessibilityLabel={t("common.language")}
-        className="flex-row gap-1 rounded-full bg-surface-sunken p-1"
+        className="flex-row gap-1 rounded-full bg-surface-sunken p-1 dark:border dark:border-hairline dark:bg-canvas"
       >
         {LOCALES.map((code: Locale) => {
           const selected = code === locale;
@@ -33,7 +35,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
               onPress={() => setLocale(code)}
               className={cn(
                 "min-h-11 flex-1 items-center justify-center rounded-full px-4",
-                selected ? "bg-surface" : "active:opacity-70",
+                selected ? "bg-surface dark:border dark:border-control/40 dark:bg-surface-sunken" : "active:opacity-70",
               )}
               style={selected ? { shadowColor: c2.light.ink, shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 } : undefined}
             >
