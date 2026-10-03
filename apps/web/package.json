@@ -11,15 +11,18 @@
     "check-types": "vite build && tsc --noEmit",
     "dev:bare": "vite dev",
     "test": "bun test src",
-    "test:visual": "playwright test",
-    "test:visual:update": "playwright test --update-snapshots"
+    "test:e2e": "playwright test --project=e2e",
+    "test:visual": "playwright test --project=desktop-dark --project=mobile-dark --project=desktop-light --project=mobile-light",
+    "test:visual:update": "playwright test --project=desktop-dark --project=mobile-dark --project=desktop-light --project=mobile-light --update-snapshots"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
     "@orrn/documents": "workspace:*",
+    "@orrn/domain": "workspace:*",
     "@orrn/env": "workspace:*",
+    "@orrn/i18n": "workspace:*",
     "@orrn/server": "workspace:*",
     "@orrn/ui": "workspace:*",
     "@react-pdf/renderer": "^4.5.1",

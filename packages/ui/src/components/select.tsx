@@ -5,6 +5,8 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
+import { useFieldControl } from "./field";
+
 export type SelectOption = { label: string; value: string };
 
 export type SelectProps = {
@@ -16,6 +18,9 @@ export type SelectProps = {
   className?: string;
   /** Legacy Tamagui prop — accepted but renders as a width style. */
   width?: number | string;
+  id?: string;
+  /** Accessible name when the select isn't inside a `Field`. */
+  "aria-label"?: string;
 };
 
 /**
@@ -30,13 +35,18 @@ export function Select({
   disabled,
   className,
   width,
+  id,
+  "aria-label": ariaLabel,
 }: SelectProps) {
+  const a11y = useFieldControl({ id });
   return (
     <SelectPrimitive.Root value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectPrimitive.Trigger
+        {...a11y}
+        aria-label={ariaLabel}
         data-slot="select-trigger"
         className={cn(
-          "flex h-11 items-center justify-between gap-2 rounded-input border border-input bg-card px-3.5 text-[15px] text-foreground transition-[border-color] duration-[var(--dur-fast)] hover:border-foreground/70 focus-visible:border-foreground disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground pointer-coarse:text-base",
+          "flex h-11 min-w-0 items-center justify-between gap-2 rounded-input border border-input bg-card px-3.5 text-[15px] text-foreground transition-[border-color] duration-[var(--dur-fast)] hover:border-foreground/70 focus-visible:border-foreground disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground pointer-coarse:h-12 pointer-coarse:text-base aria-invalid:border-destructive",
           className,
         )}
         style={width != null ? { width } : undefined}
@@ -60,7 +70,7 @@ export function Select({
               <SelectPrimitive.Item
                 key={opt.value}
                 value={opt.value}
-                className="relative flex min-h-10 w-full cursor-default select-none items-center rounded-sm py-2 pl-8 pr-3 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[state=checked]:font-semibold data-disabled:pointer-events-none data-disabled:opacity-50 pointer-coarse:min-h-11"
+                className="relative flex min-h-10 w-full cursor-default select-none items-center rounded-input py-2 pl-8 pr-3 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[state=checked]:font-semibold data-disabled:pointer-events-none data-disabled:opacity-50 pointer-coarse:min-h-11"
               >
                 <span className="absolute left-2.5 flex size-4 items-center justify-center">
                   <SelectPrimitive.ItemIndicator>

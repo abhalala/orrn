@@ -1,3 +1,4 @@
+import { LinkProvider } from "@orrn/ui/components/link";
 import { Toaster } from "@orrn/ui/components/sonner";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -9,6 +10,7 @@ import { Suspense, lazy } from "react";
 
 import { NavigationProgress } from "@/shared/components/navigation-progress";
 import { RootNotFound } from "@/shared/components/not-found";
+import { RouterLink } from "@/shared/components/router-link";
 import { ThemeColorSync, ThemeProvider } from "@/shared/components/theme-provider";
 import type { trpc } from "@/shared/utils/trpc";
 import "../index.css";
@@ -59,7 +61,10 @@ function RootComponent() {
       >
         <ThemeColorSync />
         <NavigationProgress />
-        <Outlet />
+        {/* @orrn/ui links (tiles, list rows, back links) navigate through the router. */}
+        <LinkProvider component={RouterLink}>
+          <Outlet />
+        </LinkProvider>
         <Toaster richColors />
       </ThemeProvider>
       {/* Devtools stay out of automated runs (Playwright sets navigator.webdriver)

@@ -13,6 +13,7 @@ import { Route as TenantRouteImport } from './routes/_tenant'
 import { Route as PublicRouteImport } from './routes/_public'
 import { Route as PlatformRouteImport } from './routes/_platform'
 import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as Char91__uiChar93RouteImport } from './routes/[__ui]'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
 import { Route as PublicWaitlistRouteImport } from './routes/_public/waitlist'
@@ -59,6 +60,11 @@ const PlatformRoute = PlatformRouteImport.update({
 } as any)
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char91__uiChar93Route = Char91__uiChar93RouteImport.update({
+  id: '/__ui',
+  path: '/__ui',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PublicIndexRoute = PublicIndexRouteImport.update({
@@ -220,6 +226,7 @@ const PlatformAdminCompaniesIdRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/__ui': typeof Char91__uiChar93Route
   '/': typeof PublicIndexRoute
   '/change-password': typeof AuthedChangePasswordRoute
   '/no-access': typeof AuthedNoAccessRoute
@@ -253,6 +260,7 @@ export interface FileRoutesByFullPath {
   '/admin/spool/': typeof PlatformAdminSpoolIndexRoute
 }
 export interface FileRoutesByTo {
+  '/__ui': typeof Char91__uiChar93Route
   '/': typeof PublicIndexRoute
   '/change-password': typeof AuthedChangePasswordRoute
   '/no-access': typeof AuthedNoAccessRoute
@@ -287,6 +295,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/__ui': typeof Char91__uiChar93Route
   '/_authed': typeof AuthedRouteWithChildren
   '/_platform': typeof PlatformRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
@@ -326,6 +335,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/__ui'
     | '/'
     | '/change-password'
     | '/no-access'
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | '/admin/spool/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/__ui'
     | '/'
     | '/change-password'
     | '/no-access'
@@ -392,6 +403,7 @@ export interface FileRouteTypes {
     | '/admin/spool'
   id:
     | '__root__'
+    | '/__ui'
     | '/_authed'
     | '/_platform'
     | '/_public'
@@ -430,6 +442,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  Char91__uiChar93Route: typeof Char91__uiChar93Route
   AuthedRoute: typeof AuthedRouteWithChildren
   PlatformRoute: typeof PlatformRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
@@ -464,6 +477,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__ui': {
+      id: '/__ui'
+      path: '/__ui'
+      fullPath: '/__ui'
+      preLoaderRoute: typeof Char91__uiChar93RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_public/': {
@@ -786,6 +806,7 @@ const TenantRouteWithChildren =
   TenantRoute._addFileChildren(TenantRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  Char91__uiChar93Route: Char91__uiChar93Route,
   AuthedRoute: AuthedRouteWithChildren,
   PlatformRoute: PlatformRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,

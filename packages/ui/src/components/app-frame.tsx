@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
-import { Button } from "./button";
 
 export type AppFrameNavItem = {
   key: string;
@@ -87,50 +86,6 @@ export function AppFrame({
   );
 }
 
-export type PageScaffoldProps = {
-  title: ReactNode;
-  description?: ReactNode;
-  eyebrow?: ReactNode;
-  actions?: ReactNode;
-  children: ReactNode;
-};
-
-export function PageScaffold({
-  title,
-  description,
-  eyebrow,
-  actions,
-  children,
-}: PageScaffoldProps) {
-  return (
-    <div className="flex min-w-0 animate-in fade-in-0 slide-in-from-bottom-2 flex-col gap-5 duration-500 ease-[var(--ease-rise)]">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex min-w-[min(100%,18rem)] flex-1 flex-col gap-1.5">
-          {eyebrow ? (
-            <p className="m-0 text-[13px] font-medium text-muted-foreground">{eyebrow}</p>
-          ) : null}
-          <h1 className="orrn-page-title m-0 font-display text-[34px] font-extrabold leading-[1.05] tracking-[-0.035em] text-foreground">
-            {title}
-          </h1>
-          {description ? (
-            <p className="orrn-page-description m-0 max-w-[680px] text-[15px] leading-6 text-muted-foreground">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        {actions ? <PageActions>{actions}</PageActions> : null}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-export function PageActions({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center justify-end gap-2">{children}</div>
-  );
-}
-
 export function MobileNav({ items }: { items: readonly AppFrameNavItem[] }) {
   const visible = items.filter((item) => !item.hidden);
   if (visible.length === 0) return null;
@@ -176,37 +131,5 @@ export function MobileNav({ items }: { items: readonly AppFrameNavItem[] }) {
         );
       })}
     </nav>
-  );
-}
-
-export function ActionMenu({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap items-center gap-2">{children}</div>;
-}
-
-export function ConfirmAction({
-  label,
-  message,
-  onConfirm,
-  variant = "destructive",
-  disabled,
-}: {
-  label: ReactNode;
-  message: string;
-  onConfirm: () => void;
-  variant?: "default" | "outline" | "secondary" | "ghost" | "destructive";
-  disabled?: boolean;
-}) {
-  return (
-    <Button
-      variant={variant}
-      disabled={disabled}
-      onPress={() => {
-        if (typeof window === "undefined" || window.confirm(message)) {
-          onConfirm();
-        }
-      }}
-    >
-      {label}
-    </Button>
   );
 }

@@ -844,6 +844,18 @@ export const en = {
     footer: "orrn, for aluminium extrusion plants",
   },
 
+  /** Component library chrome (@orrn/ui): screen-reader and helper text. */
+  ui: {
+    stepOf: "Step {n} of {total}",
+    stepDone: "done",
+    stepCurrent: "current step",
+    searching: "Searching",
+    recent: "Recent",
+    pages: "Pages",
+    scanSubmit: "Find",
+    openGuide: "Open the guide: {title}",
+  },
+
   errors: {
     generic: "Something went wrong. Try again.",
     network: "No internet connection. Check it and try again.",

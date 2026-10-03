@@ -838,6 +838,17 @@ export const hi = {
     footer: "orrn, एल्युमिनियम एक्सट्रूज़न प्लांट के लिए",
   },
 
+  ui: {
+    stepOf: "कदम {n} / {total}",
+    stepDone: "हो गया",
+    stepCurrent: "अभी का कदम",
+    searching: "खोज रहे हैं",
+    recent: "हाल के",
+    pages: "पेज",
+    scanSubmit: "खोजें",
+    openGuide: "गाइड खोलें: {title}",
+  },
+
   errors: {
     generic: "कुछ गड़बड़ हो गई। फिर से कोशिश करें।",
     network: "इंटरनेट नहीं है। कनेक्शन जांचें और फिर से कोशिश करें।",

@@ -114,7 +114,9 @@
         "@fontsource-variable/geist": "^5.3.0",
         "@fontsource-variable/geist-mono": "^5.3.0",
         "@orrn/documents": "workspace:*",
+        "@orrn/domain": "workspace:*",
         "@orrn/env": "workspace:*",
+        "@orrn/i18n": "workspace:*",
         "@orrn/server": "workspace:*",
         "@orrn/ui": "workspace:*",
         "@react-pdf/renderer": "^4.5.1",
@@ -296,6 +298,8 @@
       "name": "@orrn/ui",
       "version": "0.0.0",
       "dependencies": {
+        "@orrn/domain": "workspace:*",
+        "@orrn/i18n": "workspace:*",
         "@radix-ui/react-checkbox": "^1.3.3",
         "@radix-ui/react-dialog": "^1.1.15",
         "@radix-ui/react-dropdown-menu": "^2.1.16",

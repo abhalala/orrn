@@ -18,11 +18,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       icons={{
-        success: <CircleCheckIcon className="size-4" />,
-        info: <InfoIcon className="size-4" />,
-        warning: <TriangleAlertIcon className="size-4" />,
-        error: <OctagonXIcon className="size-4" />,
-        loading: <Loader2Icon className="size-4 animate-spin" />,
+        success: <CircleCheckIcon className="size-[18px]" strokeWidth={2} aria-hidden="true" />,
+        info: <InfoIcon className="size-[18px]" strokeWidth={2} aria-hidden="true" />,
+        warning: <TriangleAlertIcon className="size-[18px]" strokeWidth={2} aria-hidden="true" />,
+        error: <OctagonXIcon className="size-[18px]" strokeWidth={2} aria-hidden="true" />,
+        loading: <Loader2Icon className="size-[18px] animate-spin" strokeWidth={2} aria-hidden="true" />,
       }}
       style={
         {
@@ -45,10 +45,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--error-border": "color-mix(in srgb, var(--tone-red-ink) 22%, transparent)",
         } as React.CSSProperties
       }
+      // Toasts never take focus; sonner announces them in a polite live region.
       toastOptions={{
         classNames: {
-          toast: "cn-toast font-sans shadow-md",
-          title: "font-semibold",
+          toast: "cn-toast !rounded-card font-sans !text-[15px] shadow-md !gap-3 !px-4 !py-3.5",
+          title: "!font-semibold leading-snug",
+          description: "!text-[14px] leading-snug",
+          actionButton: "!rounded-full !font-semibold !h-9 !px-3.5",
+          cancelButton: "!rounded-full !font-semibold !h-9 !px-3.5",
         },
       }}
       {...props}
