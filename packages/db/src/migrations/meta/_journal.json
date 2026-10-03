@@ -92,6 +92,13 @@
       "when": 1791048755667,
       "tag": "0012_whole_mikhail_rasputin",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1791049502160,
+      "tag": "0013_locations_stock_ledger",
+      "breakpoints": true
     }
   ]
 }

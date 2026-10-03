@@ -10,6 +10,7 @@ export * from "./packing";
 export * from "./printing";
 export * from "./series";
 export * from "./spool";
+export * from "./stock";
 export * from "./sync";
 export * from "./tenant";
 export {};

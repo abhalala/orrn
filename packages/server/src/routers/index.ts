@@ -14,6 +14,7 @@ import { spoolRouter } from "./spool";
 import { edgeRouter } from "./edge";
 import { dashboardRouter } from "./dashboard";
 import { resolveRouter } from "./resolve";
+import { stockRouter } from "./stock";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -40,5 +41,6 @@ export const appRouter = router({
   dashboard: dashboardRouter,
   approval: approvalRouter,
   resolve: resolveRouter,
+  stock: stockRouter,
 });
 export type AppRouter = typeof appRouter;

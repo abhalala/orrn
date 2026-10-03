@@ -120,10 +120,10 @@ const CASES: Case[] = [
     api.die.processImport({ newRows: [dieRow("I1")], updatedRows: [] }),
   ),
 
-  c("bundle.createReceipt", "bundle.create", async (fx) => fx.dieId, (api, dieId) =>
+  c("bundle.createReceipt", "bundle.pack", async (fx) => fx.dieId, (api, dieId) =>
     api.bundle.createReceipt({ dieId, unit: "pcs", rows: [{ quantity: 10, weightG: 25_000, lengthMm: 3_000 }] }),
   ),
-  c("bundle.transitionStatus", "bundle.transition", async (fx) => fx.bundles[0]!.id, (api, id) =>
+  c("bundle.transitionStatus", "bundle.void", async (fx) => fx.bundles[0]!.id, (api, id) =>
     api.bundle.transitionStatus({ id, toStatus: "void" }),
   ),
   c("bundle.bulkImport", "bundle.import", async () => null, (api) =>

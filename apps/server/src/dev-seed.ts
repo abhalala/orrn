@@ -13,11 +13,15 @@ import {
 import { packingList, packingListLine } from "@orrn/db/schema/packing";
 import { auditLog } from "@orrn/db/schema/audit";
 import { docSeries } from "@orrn/db/schema/series";
+import { location, stockLedger } from "@orrn/db/schema/stock";
 import { companySequence } from "@orrn/db/schema/sync";
 import { company, membership, platformAdmin } from "@orrn/db/schema/tenant";
 import { packingListWriteBatch } from "@orrn/server/routers/packingList";
 import { formatBundleSerial, formatGroupCode } from "@orrn/server/lib/bundleSerial";
 import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
+import { DEFAULT_LOCATIONS, defaultLocationStatements, openingRows } from "@orrn/server/lib/ledger";
+import { nextCompanySeq } from "@orrn/server/lib/sequence";
+import { kgPer12ftMilli } from "@orrn/server/lib/bundleWeight";
 import { and, eq, getTableColumns, inArray, ne } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
@@ -209,6 +213,10 @@ function insertChunks<T extends SQLiteTable>(db: Db, table: T, rows: T["$inferIn
     out.push(db.insert(table).values(rows.slice(i, i + perStatement)) as unknown as Statement);
   }
   return out;
+}
+
+function devLocationId(code: string) {
+  return `dev-loc-${code}`;
 }
 
 function pick<T>(items: readonly T[], index: number, label: string): T {
@@ -582,6 +590,9 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     });
   }
 
+  // Every bundle sits in one of the six yards (own generator, so the data above is unchanged).
+  const yardIds = DEFAULT_LOCATIONS.filter((l) => l.kind === "yard").map((l) => devLocationId(l.code));
+  const yardRand = mulberry32(13);
   const bundleRows: (typeof bundle.$inferInsert)[] = [];
   const eventRows: (typeof bundleStatusEvent.$inferInsert)[] = [];
   for (const member of bundles) {
@@ -600,6 +611,9 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       lengthMm: LENGTH_12FT_MM,
       status: member.status,
       currentDispatchId: member.currentDispatchId,
+      locationId: yardIds[Math.floor(yardRand() * yardIds.length)]!,
+      kgPer12ftMilli: kgPer12ftMilli({ weightG: member.weightG, quantity: member.quantity, lengthMm: LENGTH_12FT_MM }),
+      numberStyle: "legacy",
       createdBy: operatorId,
       createdAt: new Date(member.createdAt),
       updatedAt: new Date(lastAt),
@@ -639,7 +653,11 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     db.delete(packingList).where(eq(packingList.companyId, COMPANY_ID)),
     db.delete(dispatchItem).where(eq(dispatchItem.companyId, COMPANY_ID)),
     db.delete(bundleStatusEvent).where(eq(bundleStatusEvent.companyId, COMPANY_ID)),
+    // Dev reset of the demo company only: the one place ledger rows are ever deleted (the
+    // append-only grep test in plant-ledger.test.ts allows exactly this file).
+    db.delete(stockLedger).where(eq(stockLedger.companyId, COMPANY_ID)),
     db.delete(bundle).where(eq(bundle.companyId, COMPANY_ID)),
+    db.delete(location).where(eq(location.companyId, COMPANY_ID)),
     db.delete(bundleGroup).where(eq(bundleGroup.companyId, COMPANY_ID)),
     db.delete(dispatch).where(eq(dispatch.companyId, COMPANY_ID)),
     db.delete(die).where(eq(die.companyId, COMPANY_ID)),
@@ -685,6 +703,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       .onConflictDoUpdate({ target: companySequence.companyId, set: { value: sequenceAfterData } }),
     ...insertChunks(db, customer, customerRows),
     ...insertChunks(db, die, dieRows),
+    ...defaultLocationStatements(db, COMPANY_ID, { userId: ownerId, idFor: devLocationId }),
     ...insertChunks(db, bundleGroup, groups),
     ...insertChunks(db, bundle, bundleRows),
     ...insertChunks(db, bundleStatusEvent, eventRows),
@@ -715,6 +734,16 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     }
   }
 
+  // 5. Opening balance: the seeded in-stock bundles are taken onto the kg ledger at their yard,
+  //    exactly as stock.openingBalance does for a real plant's legacy stock.
+  const openingSeq = await nextCompanySeq({ db }, COMPANY_ID);
+  await atomicBatch(db, [
+    openingRows(
+      { db, companyId: COMPANY_ID, userId: ownerId, seq: openingSeq, postedAt: new Date(now) },
+      { voucherId: "dev-opening-balance" },
+    ),
+  ]);
+
   const bundlesByStatus: Record<string, number> = {};
   for (const member of bundles) bundlesByStatus[member.status] = (bundlesByStatus[member.status] ?? 0) + 1;
 
@@ -737,6 +766,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       bundles: bundleRows.length,
       dispatches: dispatchRows.length,
       packingLists: 2,
+      locations: DEFAULT_LOCATIONS.length,
     },
     bundlesByStatus,
   };

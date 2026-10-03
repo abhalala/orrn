@@ -173,6 +173,23 @@ bun run deploy
 - Tests that depend on "now" must pin it with `setClockForTests` (`lib/clock.ts`); `createReceipt`
   reads that clock.
 
+## Stock ledger and locations
+
+- `stock_ledger` is append-only: never UPDATE or DELETE a row (a grep test in
+  `packages/server/test/plant-ledger.test.ts` fails the build; only the dev-seed reset may delete).
+  A correction is a new opposite-sign row with `reversal_of` = the row it cancels.
+- Every stock-affecting submit writes its document rows, its ledger rows and an audit row in ONE
+  `atomicBatch`. Use the builders in `packages/server/src/lib/ledger.ts` (`packRows`, `moveRows`,
+  `voidRows`, `restoreRows`, `dispatchRows`, `openingRows`). For existing bundles they are
+  INSERT … SELECT statements that read location and weight at write time and land only if the
+  bundle write beside them landed (the bundle carries this request's `server_seq`).
+- Invariant (Review Focus 1): for every bundle, ledger balance = projection (available/reserved →
+  +weight at `bundle.location_id`, dispatched/void → 0). Bundles from before the ledger have no rows
+  and are skipped by every posting until `stock.openingBalance` takes them on.
+- Weights in the ledger are signed integer grams (`qty_g`). `location_id` NULL = place unknown
+  (legacy); there is no location 0 and no default location. `createReceipt` requires a yard
+  `locationId` once the company has an active yard location.
+
 ## Worker performance rules
 
 - Minimize Worker CPU and wall time.
