@@ -919,7 +919,7 @@ Counts: 919 screen strings in 25 groups, 10 guides with 182 strings.
 | `requests.empty` | No requests waiting. | कोई रिक्वेस्ट बाकी नहीं है। |
 | `requests.emptyBody` | New requests from the website show up here. | वेबसाइट से आई नई रिक्वेस्ट यहां दिखेंगी। |
 | `requests.from` | From {name} | {name} की ओर से |
-| `requests.received` | Received {date} | {date} को आई |
+| `requests.received` | Received {date} | आई: {date} |
 | `requests.noNotes` | No notes | कोई नोट नहीं |
 | `requests.approve` | Approve | मंज़ूर करें |
 | `requests.approveTitle` | Approve {company}? | {company} को मंज़ूर करें? |
