@@ -1,9 +1,9 @@
 /**
  * T23 server touch points for the Customers screens:
  * - `customer.list` search matches name, phone and GSTIN (the list and the guide promise all three).
- * - `analytics.customerKg` gives the kg column of the customers list for the page on screen:
- *   completed dispatch kg per customer over an inclusive company-day range (ruling RP10),
- *   gated by analytics.view, tenant-scoped, one statement under D1's 100 parameters.
+ * - `analytics.customerKg` gives the kg column of the customers list: completed dispatch kg per
+ *   customer over an inclusive company-day range (ruling RP10), gated by analytics.view,
+ *   tenant-scoped, aggregated with GROUP BY and binding no id list (AGENTS.md analytics rules).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
@@ -118,11 +118,11 @@ describe("customer.list search", () => {
 });
 
 describe("analytics.customerKg", () => {
-  test("completed kg and dispatch count per requested customer, inclusive company days", async () => {
+  test("completed kg and dispatch count per customer, inclusive company days, most kg first", async () => {
     const p = await plant();
     const kd = await namedCustomer(p.companyId, { name: "KD Extrusion" });
     const royal = await namedCustomer(p.companyId, { name: "Royal Aluminium" });
-    const quiet = await namedCustomer(p.companyId, { name: "Tejura & Sons" });
+    await namedCustomer(p.companyId, { name: "Tejura & Sons" });
     setClock(ist("2026-10-03T12:00:00"));
 
     // In range: 1 Sep 00:00 IST through 30 Sep 23:59 IST.
@@ -135,22 +135,22 @@ describe("analytics.customerKg", () => {
     // Not completed: never counted.
     await seedDispatch(p.companyId, royal, p.dieId, ist("2026-09-20T10:00:00"), [kg(999)], "reserved");
 
-    const res = await p.owner.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30", customerIds: [kd, royal, quiet] });
+    const res = await p.owner.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30" });
+    // A customer with nothing in the period is simply absent (the list reads it as 0).
     expect(res).toEqual({
       period: { from: "2026-09-01", to: "2026-09-30" },
       rows: [
         { customerId: kd, kgG: kg(175), dispatches: 2 },
         { customerId: royal, kgG: kg(40), dispatches: 1 },
-        { customerId: quiet, kgG: 0, dispatches: 0 },
       ],
     });
 
     // from == to is one whole day.
-    const oneDay = await p.owner.analytics.customerKg({ from: "2026-09-30", to: "2026-09-30", customerIds: [kd] });
+    const oneDay = await p.owner.analytics.customerKg({ from: "2026-09-30", to: "2026-09-30" });
     expect(oneDay.rows).toEqual([{ customerId: kd, kgG: kg(25), dispatches: 1 }]);
   });
 
-  test("another plant's customers and dispatches read as zero, never as their figures", async () => {
+  test("another plant's dispatches never count, even under one of this plant's customer ids", async () => {
     const a = await plant();
     const b = await plant();
     const mine = await namedCustomer(a.companyId, { name: "Mine" });
@@ -158,43 +158,44 @@ describe("analytics.customerKg", () => {
     await seedDispatch(b.companyId, theirs, b.dieId, ist("2026-09-10T10:00:00"), [kg(9_000)]);
     // A dispatch row filed under A's customer id but belonging to plant B.
     await seedDispatch(b.companyId, mine, b.dieId, ist("2026-09-11T10:00:00"), [kg(7_000)]);
+    await seedDispatch(a.companyId, mine, a.dieId, ist("2026-09-12T10:00:00"), [kg(3)]);
 
-    const res = await a.owner.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30", customerIds: [mine, theirs] });
-    expect(res.rows).toEqual([
-      { customerId: mine, kgG: 0, dispatches: 0 },
-      { customerId: theirs, kgG: 0, dispatches: 0 },
-    ]);
+    const res = await a.owner.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30" });
+    expect(res.rows).toEqual([{ customerId: mine, kgG: kg(3), dispatches: 1 }]);
   });
 
-  test("a full page of 50 customers stays under D1's parameter limit", async () => {
+  test("binds no id list: the parameter count stays small however many customers buy", async () => {
     const p = await plant();
-    const ids = await Promise.all(Array.from({ length: 50 }, (_, i) => namedCustomer(p.companyId, { name: `Buyer ${i}` })));
-    await seedDispatch(p.companyId, ids[49]!, p.dieId, ist("2026-09-10T10:00:00"), [kg(12)]);
+    const ids = await Promise.all(Array.from({ length: 120 }, (_, i) => namedCustomer(p.companyId, { name: `Buyer ${i}` })));
+    for (const cid of ids.slice(0, 120)) {
+      await env.db.insert(dispatch).values({
+        id: id(),
+        companyId: p.companyId,
+        code: `T23-E-${cid.slice(0, 8)}`,
+        customerId: cid,
+        status: "completed",
+        completedAt: ist("2026-09-10T10:00:00"),
+        createdAt: ist("2026-09-10T10:00:00"),
+      });
+    }
+    await seedDispatch(p.companyId, ids[119]!, p.dieId, ist("2026-09-11T10:00:00"), [kg(12)]);
     env.resetPeakParams();
-    const res = await p.owner.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30", customerIds: ids });
-    expect(res.rows).toHaveLength(50);
-    expect(res.rows[49]).toEqual({ customerId: ids[49]!, kgG: kg(12), dispatches: 1 });
+    const res = await p.owner.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30" });
+    expect(res.rows).toHaveLength(120);
+    expect(res.rows[0]).toEqual({ customerId: ids[119]!, kgG: kg(12), dispatches: 2 });
+    expect(env.peakParams()).toBeLessThanOrEqual(12);
     expect(env.peakParams()).toBeLessThanOrEqual(D1_MAX_PARAMS);
   });
 
-  test("repeated ids come back once, in first-seen order", async () => {
+  test("input: a valid inclusive range of at most three years", async () => {
     const p = await plant();
-    const a = await namedCustomer(p.companyId, { name: "A" });
-    const b = await namedCustomer(p.companyId, { name: "B" });
-    const res = await p.owner.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30", customerIds: [b, a, b] });
-    expect(res.rows.map((r) => r.customerId)).toEqual([b, a]);
-  });
-
-  test("input bounds: at most 50 ids, a valid inclusive range", async () => {
-    const p = await plant();
-    const many = Array.from({ length: 51 }, () => id());
-    await expect(p.owner.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30", customerIds: many })).rejects.toMatchObject({
+    await expect(p.owner.analytics.customerKg({ from: "2026-10-01", to: "2026-09-30" })).rejects.toMatchObject({
       code: "BAD_REQUEST",
     });
-    await expect(p.owner.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30", customerIds: [] })).rejects.toMatchObject({
+    await expect(p.owner.analytics.customerKg({ from: "2020-01-01", to: "2026-09-30" })).rejects.toMatchObject({
       code: "BAD_REQUEST",
     });
-    await expect(p.owner.analytics.customerKg({ from: "2026-10-01", to: "2026-09-30", customerIds: [id()] })).rejects.toMatchObject({
+    await expect(p.owner.analytics.customerKg({ from: "2026-9-1", to: "2026-09-30" })).rejects.toMatchObject({
       code: "BAD_REQUEST",
     });
   });
@@ -202,16 +203,17 @@ describe("analytics.customerKg", () => {
   test("analytics.view roles read it; floor roles and viewer get FORBIDDEN", async () => {
     const p = await plant();
     const c = await namedCustomer(p.companyId, { name: "Gate" });
+    await seedDispatch(p.companyId, c, p.dieId, ist("2026-09-10T10:00:00"), [kg(5)]);
     const allowed: CompanyRole[] = ["owner", "admin", "manager", "office", "accountant"];
     const denied: CompanyRole[] = ["supervisor", "packer", "foundry", "press", "storekeeper", "die_room", "operator", "viewer"];
     for (const role of allowed) {
       const api = env.caller({ role, companyId: p.companyId });
-      const res = await api.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30", customerIds: [c] });
-      expect({ role, rows: res.rows.length }).toEqual({ role, rows: 1 });
+      const res = await api.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30" });
+      expect({ role, rows: res.rows }).toEqual({ role, rows: [{ customerId: c, kgG: kg(5), dispatches: 1 }] });
     }
     for (const role of denied) {
       const api = env.caller({ role, companyId: p.companyId });
-      await expect(api.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30", customerIds: [c] })).rejects.toMatchObject({
+      await expect(api.analytics.customerKg({ from: "2026-09-01", to: "2026-09-30" })).rejects.toMatchObject({
         code: "FORBIDDEN",
       });
     }
