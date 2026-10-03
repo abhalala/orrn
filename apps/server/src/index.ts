@@ -36,7 +36,7 @@ app.use(
       return env.CORS_ORIGIN;
     },
     allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "x-orrn-impersonate-company"],
+    allowHeaders: ["Content-Type", "Authorization", "x-orrn-impersonate-company", "x-orrn-company"],
     credentials: true,
   }),
 );

@@ -1,4 +1,4 @@
-import type { CompanyRole, GuideBook } from "./types";
+import { COMPANY_ROLES, type CompanyRole, type GuideBook } from "./types";
 
 /**
  * SOP guides, English. Each describes orrn's own screens (spec §3). Button, tab
@@ -9,9 +9,9 @@ import type { CompanyRole, GuideBook } from "./types";
  * docs/superpowers/review/owner-questions.md.
  */
 
-const FLOOR: CompanyRole[] = ["owner", "admin", "manager", "operator"];
-const OFFICE: CompanyRole[] = ["owner", "admin", "manager"];
-const EVERYONE: CompanyRole[] = ["owner", "admin", "manager", "operator", "viewer"];
+const FLOOR: CompanyRole[] = ["owner", "admin", "manager", "supervisor", "packer", "operator"];
+const OFFICE: CompanyRole[] = ["owner", "admin", "manager", "office"];
+const EVERYONE: CompanyRole[] = [...COMPANY_ROLES];
 
 export const guidesEn: GuideBook = {
   "pack-session": {

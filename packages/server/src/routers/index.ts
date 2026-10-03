@@ -1,4 +1,5 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
+import { approvalRouter } from "./approval";
 import { authRouter } from "./auth";
 import { waitlistRouter } from "./waitlist";
 import { platformRouter } from "./platform";
@@ -36,5 +37,6 @@ export const appRouter = router({
   spool: spoolRouter,
   edge: edgeRouter,
   dashboard: dashboardRouter,
+  approval: approvalRouter,
 });
 export type AppRouter = typeof appRouter;

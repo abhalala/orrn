@@ -1,5 +1,19 @@
 /** Mirrors `companyRoles` in @orrn/db/schema/tenant (kept local so this package has no server deps). */
-export const COMPANY_ROLES = ["owner", "admin", "manager", "operator", "viewer"] as const;
+export const COMPANY_ROLES = [
+  "owner",
+  "admin",
+  "manager",
+  "office",
+  "accountant",
+  "supervisor",
+  "packer",
+  "foundry",
+  "press",
+  "storekeeper",
+  "die_room",
+  "operator",
+  "viewer",
+] as const;
 export type CompanyRole = (typeof COMPANY_ROLES)[number];
 
 export const GUIDE_SLUGS = [

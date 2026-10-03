@@ -1,4 +1,4 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
@@ -6,9 +6,47 @@ import { company, companyRoles, membership } from "@orrn/db/schema/tenant";
 import { atomicBatch, type OrrnDb } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { isValidTimezone } from "../lib/dayWindow";
-import { actionProcedure, companyProcedure, router } from "../index";
+import { listActiveMemberships } from "../lib/tenantContext";
+import { actionProcedure, authedProcedure, companyProcedure, router } from "../index";
 
 export const companyRouter = router({
+  /**
+   * Make `companyId` this user's default active company (spec P10). Requires a
+   * membership in an active company there; anything else is a generic NOT_FOUND.
+   * Clients may also send `x-orrn-company` per request; without it the company
+   * switched to last is active.
+   */
+  switch: authedProcedure
+    .input(z.object({ companyId: z.string().min(1).max(64) }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      const target = (await listActiveMemberships(ctx.db, userId)).find((m) => m.companyId === input.companyId);
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+      }
+
+      await atomicBatch(ctx.db, [
+        ctx.db
+          .update(membership)
+          // Strictly later than any earlier switch, so two switches in one millisecond still order.
+          .set({
+            lastActiveAt: sql`max(${Date.now()}, coalesce((select max(m2.last_active_at) from ${membership} m2 where m2.user_id = ${userId}), 0) + 1)`,
+          })
+          .where(and(eq(membership.id, target.id), eq(membership.userId, userId))),
+        auditInsert(
+          { ...ctx, companyId: target.companyId },
+          {
+            action: "company.switch",
+            subjectType: "membership",
+            subjectId: target.id,
+            meta: { from: ctx.companyId, to: target.companyId },
+          },
+        ),
+      ]);
+
+      return { companyId: target.companyId, name: target.name, role: target.role };
+    }),
+
   membersList: companyProcedure.query(async ({ ctx }) => {
     return ctx.db.query.membership.findMany({
       where: eq(membership.companyId, ctx.companyId),

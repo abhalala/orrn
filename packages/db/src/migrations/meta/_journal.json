@@ -71,6 +71,13 @@
       "when": 1780526263585,
       "tag": "0009_lonely_violations",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791046793963,
+      "tag": "0010_plant_roles_approvals",
+      "breakpoints": true
     }
   ]
 }
