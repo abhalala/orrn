@@ -101,6 +101,113 @@ export function segmentHitsBox(x0: number, y0: number, x1: number, y1: number, b
   return true;
 }
 
+/** A straight piece of a drawn line, for collision checks: x0, y0, x1, y1. */
+export type Segment = readonly [number, number, number, number];
+
+/** Shortest distance from a point to a box (0 inside it). */
+export function distanceToBox(x: number, y: number, b: Box): number {
+  return Math.hypot(Math.max(b.left - x, 0, x - b.right), Math.max(b.top - y, 0, y - b.bottom));
+}
+
+/* -------------------------------------------------------------------------- */
+/* Direct end labels                                                           */
+/* -------------------------------------------------------------------------- */
+
+/** A line's end dot and the rendered width of its label. */
+export type EndLabelEnd = { key: string; x: number; y: number; width: number };
+/** Where a label goes: right-aligned at `x`, text baseline at `base`. */
+export type EndLabelSpot = { key: string; x: number; base: number; box: Box };
+
+/**
+ * Baselines tried for an end label, relative to its dot, nearest first:
+ * level with it (directly left), just above, just below, then 3px further
+ * each way. All of them keep the label within `END_LABEL_REACH`.
+ */
+const END_LABEL_OFFSETS = [4.5, -10, 20, -13, 23] as const;
+/** Gap between a label's end and its dot's centre. */
+const END_LABEL_GAP = 8;
+/** A label is read as a line's own only within this many px of that line's end dot... */
+export const END_LABEL_REACH = 14;
+/** ...and at least this much nearer to it than to any other end dot (dots that meet get no labels). */
+export const END_LABEL_MARGIN = 8;
+
+/**
+ * Direct end labels, left of each end dot (level with it, just above or
+ * just below), clear of every line (`segments`), dot and other label. A
+ * label nudged further away detaches from its line, and labels beside dots
+ * that meet can't be told apart (dataviz marks-and-anatomy: never stack end
+ * labels). So if any label has no spot within `END_LABEL_REACH` of its own
+ * dot and `END_LABEL_MARGIN` nearer to it than to every other end dot,
+ * there are no end labels at all and the legend names the lines. Returns
+ * the spots in `ends` order.
+ */
+export function placeEndLabels(
+  ends: readonly EndLabelEnd[],
+  segments: readonly Segment[],
+  bounds: { top: number; bottom: number },
+): EndLabelSpot[] | null {
+  const dots: Box[] = ends.map((e) => ({ left: e.x - 6, right: e.x + 6, top: e.y - 6, bottom: e.y + 6 }));
+  const placed: EndLabelSpot[] = [];
+  for (const e of [...ends].sort((a, b) => a.y - b.y)) {
+    const others = ends.filter((o) => o !== e);
+    const spot = END_LABEL_OFFSETS.map((off) => {
+      const base = e.y + off;
+      const box: Box = { left: e.x - END_LABEL_GAP - e.width, right: e.x - END_LABEL_GAP, top: base - 12, bottom: base + 3 };
+      return { base, box };
+    }).find(({ box }) => {
+      const own = distanceToBox(e.x, e.y, box);
+      return (
+        box.top >= bounds.top &&
+        box.bottom <= bounds.bottom &&
+        own <= END_LABEL_REACH &&
+        others.every((o) => distanceToBox(o.x, o.y, box) >= own + END_LABEL_MARGIN) &&
+        !segments.some(([x0, y0, x1, y1]) => segmentHitsBox(x0, y0, x1, y1, box, 3)) &&
+        ![...dots, ...placed.map((p) => p.box)].some((b) => boxesOverlap(box, b))
+      );
+    });
+    if (!spot) return null;
+    placed.push({ key: e.key, x: e.x - END_LABEL_GAP, base: spot.base, box: spot.box });
+  }
+  const order = new Map(ends.map((e, i) => [e.key, i]));
+  return placed.sort((a, b) => order.get(a.key)! - order.get(b.key)!);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Bar value (cap) labels                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Where a bar's value label goes, in plot coordinates (the plot starts at
+ * x 0; the y-tick labels sit left of it). Centred on the bar when it fits;
+ * otherwise it starts at the bar's left edge (first bars) or ends at its
+ * right edge (last bars), so it never slides into the y-tick gutter or
+ * past the chart.
+ */
+export function placeCapLabel({
+  center,
+  width,
+  barLeft,
+  barRight,
+  plotRight,
+}: {
+  center: number;
+  width: number;
+  barLeft: number;
+  barRight: number;
+  plotRight: number;
+}): { x: number; anchor: "start" | "middle" | "end"; left: number; right: number } {
+  const left = center - width / 2;
+  if (left < 0) {
+    const x = Math.max(0, Math.min(barLeft, plotRight - width));
+    return { x, anchor: "start", left: x, right: x + width };
+  }
+  if (left + width > plotRight) {
+    const x = Math.min(plotRight, Math.max(barRight, width));
+    return { x, anchor: "end", left: x - width, right: x };
+  }
+  return { x: center, anchor: "middle", left, right: left + width };
+}
+
 /** A y scale from 0 to a nice maximum (magnitudes always start at zero). */
 export function valueScale(maxValue: number, height: number, ticks = 4) {
   const top = maxValue > 0 ? maxValue : 1;
@@ -168,23 +275,77 @@ export function chartLocaleTag(locale: string): string {
   return locale === "hi" ? "hi-IN" : "en-IN";
 }
 
+/** Date text for one chart. Build it with `chartDateFormat`. */
+export type ChartDateFormat = {
+  /** Tooltips, table rows and accessible names ("Mar 2026", "12 Mar 2026"). */
+  long(d: Date): string;
+  /** Axis ticks ("Mar", "12 Mar"). */
+  short(d: Date): string;
+  /** Axis tick that carries the year ("Oct 25", "1 Oct 2025"), where the axis crosses into a new year. */
+  shortWithYear?(d: Date): string;
+  /** Calendar year in the chart's time zone ("2026"). */
+  year?(d: Date): string;
+};
+
 /**
  * Date formatters for one chart: `long` for tooltips, table rows and
  * accessible names ("Mar 2026", "12 Mar 2026"), `short` for axis ticks
- * ("Mar", "12 Mar"). Pass the same pair to the chart and its table so they
- * always agree.
+ * ("Mar", "12 Mar"), `shortWithYear` for the ticks that must carry the year
+ * ("Oct 25" for months; "1 Oct 2025" for days, where a 2-digit year would
+ * read as a day). Pass the same formatter to the chart and its table so
+ * they always agree.
  */
-export function chartDateFormat(granularity: DateGranularity, locale = "en", timeZone = "Asia/Kolkata") {
+export function chartDateFormat(
+  granularity: DateGranularity,
+  locale = "en",
+  timeZone = "Asia/Kolkata",
+): Required<ChartDateFormat> {
   const tag = chartLocaleTag(locale);
+  const month = granularity === "month";
   const long = new Intl.DateTimeFormat(
     tag,
-    granularity === "month"
-      ? { month: "short", year: "numeric", timeZone }
-      : { day: "numeric", month: "short", year: "numeric", timeZone },
+    month ? { month: "short", year: "numeric", timeZone } : { day: "numeric", month: "short", year: "numeric", timeZone },
   );
-  const short = new Intl.DateTimeFormat(
-    tag,
-    granularity === "month" ? { month: "short", timeZone } : { day: "numeric", month: "short", timeZone },
+  const short = new Intl.DateTimeFormat(tag, month ? { month: "short", timeZone } : { day: "numeric", month: "short", timeZone });
+  const withYear = month ? new Intl.DateTimeFormat(tag, { month: "short", year: "2-digit", timeZone }) : long;
+  const year = new Intl.DateTimeFormat("en", { year: "numeric", timeZone });
+  return {
+    long: (d) => long.format(d),
+    short: (d) => short.format(d),
+    shortWithYear: (d) => withYear.format(d),
+    year: (d) => year.format(d),
+  };
+}
+
+/** Do these times fall in more than one calendar year (in the chart's time zone)? */
+function spansYears(times: readonly number[], dates: ChartDateFormat): boolean {
+  if (!dates.year || !dates.shortWithYear || times.length < 2) return false;
+  const first = dates.year(new Date(times[0]!));
+  return times.some((t) => dates.year!(new Date(t)) !== first);
+}
+
+/**
+ * Text for the x ticks actually drawn (`times`, oldest first). When they
+ * span more than one year, the first tick and the first tick of each new
+ * year carry the year ("Oct 25 ... Jan 26 ... Oct"), so a 13-month axis
+ * never shows two bare "Oct"s. Otherwise every tick is short.
+ */
+export function dateTickTexts(times: readonly number[], dates: ChartDateFormat): string[] {
+  if (!spansYears(times, dates)) return times.map((t) => dates.short(new Date(t)));
+  const years = times.map((t) => dates.year!(new Date(t)));
+  return times.map((t, i) =>
+    i === 0 || years[i] !== years[i - 1] ? dates.shortWithYear!(new Date(t)) : dates.short(new Date(t)),
   );
-  return { long: (d: Date) => long.format(d), short: (d: Date) => short.format(d) };
+}
+
+/** The widest x tick these dates could draw, for tick spacing (year ticks count when the data spans years). */
+export function widestDateTick(times: readonly number[], dates: ChartDateFormat, fontSize: number): number {
+  const withYear = spansYears(times, dates);
+  return Math.max(
+    0,
+    ...times.map((t) => {
+      const d = new Date(t);
+      return estimateTextWidth(withYear ? dates.shortWithYear!(d) : dates.short(d), fontSize);
+    }),
+  );
 }
