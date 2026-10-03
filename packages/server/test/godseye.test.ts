@@ -132,7 +132,7 @@ describe("platform.updatePlanAndModules", () => {
     const { companyId } = await env.seedCompany();
     const staff = env.caller({ platformRole: "super_admin" });
     await expect(
-      staff.platform.updatePlanAndModules({ companyId, plan: "growth", modules: ["dies", "payroll"] }),
+      staff.platform.updatePlanAndModules({ companyId, plan: "growth", modules: ["dies", "payroll"] as never }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
