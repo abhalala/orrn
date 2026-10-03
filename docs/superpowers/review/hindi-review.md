@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 736 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -826,7 +826,7 @@ Counts: 736 screen strings in 25 groups, 10 guides with 182 strings.
 | `stubTitle` | This screen is being rebuilt | यह स्क्रीन फिर से बन रही है |
 | `stubBody` | It will be back here soon. | यह जल्द ही यहाँ वापस आएगी। |
 
-### charts (23)
+### charts (29)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -852,7 +852,19 @@ Counts: 736 screen strings in 25 groups, 10 guides with 182 strings.
 | `isNew` | New | नया |
 | `isNewLong` | New this period | इस अवधि में नया |
 | `noValue` | No data | डेटा नहीं |
+| `soFar` | so far | अब तक |
+| `soFarLabel` | {label}, so far | {label}, अब तक |
+| `shareOfTotal` | {share} of total | कुल का {share} |
+| `unitThousand` | k | k (check) |
+| `unitLakh` | L | L (check) |
+| `unitCrore` | Cr | Cr (check) |
 | `sparkSummary` | {label}: {first} to {last}, high {max}, low {min} | {label}: {first} से {last}, सबसे ज़्यादा {max}, सबसे कम {min} |
+
+Please check, Lalubhai:
+
+- `unitThousand`: Chart axis short form for thousand. Kept as k for now. Should it be हज़ार or something shorter?
+- `unitLakh`: Chart axis short form for lakh (1.5L). Kept as L for now. Should it be लाख?
+- `unitCrore`: Chart axis short form for crore (1.2Cr). Kept as Cr for now. Should it be करोड़?
 
 ### errors (16)
 

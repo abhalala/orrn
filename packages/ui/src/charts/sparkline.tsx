@@ -13,6 +13,8 @@ export type SparklineProps = {
   label: string;
   /** Number text in the summary. Default compact en-IN. */
   format?(v: number): string;
+  /** Unit read after every number in the summary, e.g. "kg". */
+  unit?: string;
   /** Height in px. Default 36. */
   height?: number;
 };
@@ -25,8 +27,9 @@ const PAD = 6;
  * accessible name states first, last, high and low, and the tile's own
  * number carries the value.
  */
-export function Sparkline({ points, label, format = formatCompactIN, height = 36 }: SparklineProps) {
+export function Sparkline({ points, label, format: formatNumber = formatCompactIN, unit, height = 36 }: SparklineProps) {
   const { t } = useT();
+  const format = (v: number) => (unit ? `${formatNumber(v)} ${unit}` : formatNumber(v));
   const [ref, width] = useChartWidth<HTMLDivElement>();
   const summary =
     points.length > 0

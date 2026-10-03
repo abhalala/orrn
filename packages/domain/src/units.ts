@@ -76,6 +76,43 @@ export function formatCompactIN(value: number): string {
   return `${sign}${whole}`;
 }
 
+export type CompactSuffixes = { thousand: string; lakh: string; crore: string };
+
+const LATIN_SUFFIXES: CompactSuffixes = { thousand: "k", lakh: "L", crore: "Cr" };
+
+/**
+ * Tick labels for ONE chart axis. The unit comes from the largest absolute
+ * tick and every non-zero tick wears it, so an axis never mixes "50k" with
+ * "1L": `[0, 50k, 1L, 1.5L, 2L]` reads `0, 0.5L, 1L, 1.5L, 2L`. Precision is
+ * one choice for the whole axis: the fewest decimals (0 to 2) that show every
+ * tick exactly; trailing zeros are dropped. Below 1,000 the ticks are plain
+ * numbers. Suffixes come from i18n (`charts.unit*`); digits stay en-IN.
+ */
+export function formatAxisTicksIN(
+  ticks: readonly number[],
+  locale = "en",
+  suffixes: CompactSuffixes = LATIN_SUFFIXES,
+): string[] {
+  if (ticks.length === 0) return [];
+  const maxAbs = Math.max(...ticks.map((t) => Math.abs(t)));
+  const unit =
+    maxAbs >= 1_00_00_000
+      ? { size: 1_00_00_000, suffix: suffixes.crore }
+      : maxAbs >= 1_00_000
+        ? { size: 1_00_000, suffix: suffixes.lakh }
+        : maxAbs >= 1_000
+          ? { size: 1_000, suffix: suffixes.thousand }
+          : { size: 1, suffix: "" };
+  const scaled = ticks.map((t) => t / unit.size);
+  let decimals = 0;
+  while (decimals < 2 && scaled.some((v) => Math.abs(Number(v.toFixed(decimals)) - v) > 1e-9)) decimals++;
+  const nf = new Intl.NumberFormat(locale === "hi" ? "hi-IN" : "en-IN", {
+    maximumFractionDigits: decimals,
+    numberingSystem: "latn",
+  });
+  return scaled.map((v) => (v === 0 ? "0" : `${nf.format(v)}${unit.suffix}`));
+}
+
 /** Plain non-negative decimal, thousands commas allowed. No exponent, sign or junk. */
 export function parseDecimal(text: string): number | null {
   const cleaned = text.trim().replace(/,/g, "");

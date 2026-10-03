@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   MM_PER_FOOT,
   MM_PER_INCH,
+  formatAxisTicksIN,
   formatCompactIN,
   formatKg,
   formatKgTotal,
@@ -158,5 +159,49 @@ describe("compact en-IN formatting for chart axes", () => {
   test("negative values keep the sign", () => {
     expect(formatCompactIN(-1500)).toBe("-1.5k");
     expect(formatCompactIN(-2_00_000)).toBe("-2L");
+  });
+});
+
+describe("axis ticks: one unit for the whole axis", () => {
+  test("a lakh domain never mixes in k", () => {
+    expect(formatAxisTicksIN([0, 50_000, 1_00_000, 1_50_000, 2_00_000])).toEqual(["0", "0.5L", "1L", "1.5L", "2L"]);
+  });
+  test("a k domain stays in k", () => {
+    expect(formatAxisTicksIN([0, 2_000, 4_000, 6_000, 8_000, 10_000])).toEqual(["0", "2k", "4k", "6k", "8k", "10k"]);
+    expect(formatAxisTicksIN([0, 500, 1_000, 1_500])).toEqual(["0", "0.5k", "1k", "1.5k"]);
+  });
+  test("a crore domain, with quarter steps", () => {
+    expect(formatAxisTicksIN([0, 25_00_000, 50_00_000, 75_00_000, 1_00_00_000, 1_25_00_000])).toEqual([
+      "0",
+      "0.25Cr",
+      "0.5Cr",
+      "0.75Cr",
+      "1Cr",
+      "1.25Cr",
+    ]);
+  });
+  test("crossing a unit boundary takes the larger unit for every tick", () => {
+    expect(formatAxisTicksIN([0, 20_000, 40_000, 60_000, 80_000, 1_00_000, 1_20_000])).toEqual([
+      "0",
+      "0.2L",
+      "0.4L",
+      "0.6L",
+      "0.8L",
+      "1L",
+      "1.2L",
+    ]);
+  });
+  test("small domains are plain whole numbers", () => {
+    expect(formatAxisTicksIN([0, 200, 400, 600])).toEqual(["0", "200", "400", "600"]);
+  });
+  test("custom suffixes (from i18n) and negative ticks", () => {
+    expect(formatAxisTicksIN([-1_00_000, 0, 1_00_000], "hi", { thousand: "k", lakh: "लाख", crore: "Cr" })).toEqual([
+      "-1लाख",
+      "0",
+      "1लाख",
+    ]);
+  });
+  test("an empty axis", () => {
+    expect(formatAxisTicksIN([])).toEqual([]);
   });
 });

@@ -156,7 +156,7 @@ test.describe("tooltips", () => {
     const section = await openCharts(page);
     const c = card(section, "chart-volume");
     const bars = c.locator("[data-slot='chart-bar']");
-    await expect(bars).toHaveCount(12);
+    await expect(bars).toHaveCount(13);
     await expect(c.locator("[data-slot='chart-bar'][tabindex='0']")).toHaveCount(1);
     await bars.first().focus();
     await expect(tooltip(c)).toContainText((await bars.first().getAttribute("aria-label"))!.split(": ")[0]!);
@@ -198,7 +198,7 @@ test.describe("identity is never colour alone", () => {
   test("the sparkline tile names its trend for screen readers", async ({ page }) => {
     const section = await openCharts(page);
     const spark = card(section, "chart-spark").getByRole("img");
-    await expect(spark).toHaveAttribute("aria-label", /Dispatched, last 12 months: .+ to .+, high .+, low .+/);
+    await expect(spark).toHaveAttribute("aria-label", /Dispatched, last 12 months: .+ kg to .+ kg, high .+ kg, low .+ kg/);
   });
 });
 
@@ -300,5 +300,212 @@ test.describe("layout", () => {
       );
       for (let i = 1; i < boxes.length; i++) expect(boxes[i]!.left).toBeGreaterThanOrEqual(boxes[i - 1]!.right);
     }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Review round 1: correctness, not just presence                             */
+/* -------------------------------------------------------------------------- */
+
+test.describe("review round 1", () => {
+  for (const width of [375, 1280] as const) {
+    test(`ranked bars are on one scale: every track is the same width and bars are proportional (${width}px)`, async ({
+      page,
+    }) => {
+      const section = await openCharts(page, { width });
+      const c = card(section, "chart-leaders");
+      const rows = await c.locator("[data-slot='ranked-row']").evaluateAll((els) =>
+        els.map((el) => ({
+          value: Number(el.getAttribute("data-value")),
+          bar: el.querySelector<HTMLElement>("[data-slot='ranked-bar']")!.getBoundingClientRect().width,
+          track: el.querySelector<HTMLElement>("[data-slot='ranked-track']")!.getBoundingClientRect().width,
+        })),
+      );
+      expect(rows.length).toBe(9); // top 8 + Other
+      const track = rows[0]!.track;
+      const peak = Math.max(...rows.map((r) => r.value));
+      for (const r of rows) {
+        expect(Math.abs(r.track - track)).toBeLessThanOrEqual(0.5);
+        expect(Math.abs(r.bar - (r.value / peak) * track)).toBeLessThanOrEqual(1);
+      }
+    });
+  }
+
+  test("every y axis uses one unit: all non-zero ticks share a suffix", async ({ page }) => {
+    const section = await openCharts(page);
+    for (const id of ["chart-volume", "chart-trend", "chart-ageing", "chart-presses"]) {
+      const ticks = (await card(section, id).locator("[data-slot='chart-y-tick']").allTextContents()).filter((t) => t !== "0");
+      expect(ticks.length).toBeGreaterThan(1);
+      const suffixes = new Set(ticks.map((t) => t.replace(/^[\d.,-]+/, "")));
+      expect([...suffixes], `${id}: ${ticks.join(" ")}`).toHaveLength(1);
+    }
+    await expect(card(section, "chart-volume").locator("[data-slot='chart-y-tick']")).toHaveText(["0", "0.5L", "1L", "1.5L", "2L"]);
+  });
+
+  test("tables have one row per mark and every mark's value is in its row", async ({ page }) => {
+    const section = await openCharts(page);
+    for (const id of ["chart-volume", "chart-ageing"]) {
+      const c = card(section, id);
+      const names = await c.locator("[data-slot='chart-bar']").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")!));
+      const table = await tableCells(c);
+      await expect(table.locator("tbody tr")).toHaveCount(names.length);
+      for (const [i, name] of names.entries()) {
+        const [label, value] = name.split(": ");
+        await expect(table.locator("tbody tr").nth(i)).toContainText(label!);
+        await expect(table.locator("tbody tr").nth(i)).toContainText(value!);
+      }
+    }
+    const trend = card(section, "chart-trend");
+    const points = await trend.locator("[data-slot='chart-point']").count();
+    await expect((await tableCells(trend)).locator("tbody tr")).toHaveCount(points);
+    const leaders = card(section, "chart-leaders");
+    const ranked = await leaders.locator("[data-slot='ranked-row']").count();
+    await expect((await tableCells(leaders)).locator("tbody tr")).toHaveCount(ranked);
+  });
+
+  test("a missing movement reads No data in the table, never Same", async ({ page }) => {
+    const section = await openCharts(page);
+    const c = card(section, "chart-leaders");
+    const row = c.locator("[data-slot='ranked-row']", { hasText: "Kutch Facade Systems" });
+    await expect(row.locator("[data-slot='rank-movement']")).toHaveCount(0);
+    const table = await tableCells(c);
+    await expect(table.locator("tbody tr", { hasText: "Kutch Facade Systems" })).toContainText("No data");
+    await expect(table.locator("tbody tr", { hasText: "Kutch Facade Systems" })).not.toContainText("Same");
+  });
+
+  test("ranked bars: share has words for screen readers, Other is outside the list, ranks aren't read twice", async ({ page }) => {
+    const section = await openCharts(page);
+    const c = card(section, "chart-leaders");
+    await expect(c.getByRole("listitem")).toHaveCount(8);
+    await expect(c.getByText("Other customers", { exact: true })).toBeVisible();
+    await expect(c.getByText(/^\d+(\.\d)?% of total$/).first()).toBeAttached();
+    const rank = c.locator("[data-slot='ranked-rank']").first();
+    await expect(rank).toHaveAttribute("aria-hidden", "true");
+  });
+
+  test("the partial last day is drawn as provisional and says so far everywhere", async ({ page }) => {
+    const section = await openCharts(page);
+    const c = card(section, "chart-trend");
+    const dashed = c.locator("[data-slot='chart-partial-segment']");
+    await expect(dashed).toHaveCount(2);
+    for (const d of await dashed.all()) expect(await d.getAttribute("stroke-dasharray")).toBeTruthy();
+    const hollow = c.locator("[data-slot='chart-end-dot'][data-partial]");
+    await expect(hollow).toHaveCount(2);
+    for (const h of await hollow.all()) expect(await h.getAttribute("fill")).toBe("var(--card)");
+    const last = c.locator("[data-slot='chart-point']").last();
+    await expect(last).toHaveAttribute("aria-label", /so far/);
+    await last.focus();
+    await expect(tooltip(c).locator("[data-slot='chart-tooltip-title']")).toContainText("so far");
+    const table = await tableCells(c);
+    await expect(table.locator("tbody tr").last()).toContainText("so far");
+
+    const vol = card(section, "chart-volume");
+    const bar = vol.locator("[data-slot='chart-bar-mark'][data-partial]");
+    await expect(bar).toHaveCount(1);
+    expect(Number(await bar.getAttribute("fill-opacity"))).toBeLessThan(1);
+    expect(await bar.getAttribute("stroke-width")).toBe("2");
+    await expect(vol.locator("[data-slot='chart-bar']").last()).toHaveAttribute("aria-label", /so far/);
+  });
+
+  test("legend swatches match their lines by key, also after a series is filtered out", async ({ page }) => {
+    const section = await openCharts(page);
+    const c = card(section, "chart-presses");
+    const check = async (keys: string[]) => {
+      await expect(c.locator("[data-slot='legend-swatch']")).toHaveCount(keys.length);
+      for (const key of keys) {
+        const swatch = await c.locator(`[data-slot='legend-swatch'][data-series='${key}']`).evaluate((e) => getComputedStyle(e).backgroundColor);
+        const stroke = await c.locator(`[data-series='${key}'] [data-slot='chart-line']`).evaluate((e) => getComputedStyle(e).stroke);
+        expect(swatch, key).toBe(stroke);
+      }
+    };
+    await check(["press-1", "press-2", "press-3"]);
+    const press2 = await c.locator("[data-series='press-2'] [data-slot='chart-line']").evaluate((e) => getComputedStyle(e).stroke);
+    await c.getByRole("radio", { name: "Presses 2 and 3" }).click();
+    await check(["press-2", "press-3"]);
+    // The survivor keeps its colour.
+    expect(await c.locator("[data-series='press-2'] [data-slot='chart-line']").evaluate((e) => getComputedStyle(e).stroke)).toBe(press2);
+  });
+
+  test("keyboard is the same in both charts: newest first, Left and Right in x order, Home and End", async ({ page }) => {
+    const section = await openCharts(page);
+    for (const [id, slot] of [
+      ["chart-volume", "chart-bar"],
+      ["chart-trend", "chart-point"],
+    ] as const) {
+      const c = card(section, id);
+      const marks = c.locator(`[data-slot='${slot}']`);
+      const n = await marks.count();
+      await expect(marks.nth(n - 1)).toHaveAttribute("tabindex", "0");
+      await marks.nth(n - 1).focus();
+      await page.keyboard.press("ArrowLeft");
+      await expect(marks.nth(n - 2)).toBeFocused();
+      await page.keyboard.press("ArrowRight");
+      await expect(marks.nth(n - 1)).toBeFocused();
+      await page.keyboard.press("Home");
+      await expect(marks.first()).toBeFocused();
+      await page.keyboard.press("End");
+      await expect(marks.last()).toBeFocused();
+    }
+  });
+
+  test("at 375px tooltips never cover the y ticks or the peak value label", async ({ page }) => {
+    const section = await openCharts(page, { width: 375 });
+    const overlaps = (a: DOMRect, b: DOMRect) =>
+      Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
+    for (const [id, slot] of [
+      ["chart-volume", "chart-bar"],
+      ["chart-trend", "chart-point"],
+      ["chart-ageing", "chart-bar"],
+    ] as const) {
+      const c = card(section, id);
+      const marks = c.locator(`[data-slot='${slot}']`);
+      const n = await marks.count();
+      for (const i of [0, Math.floor(n / 2), n - 1]) {
+        await marks.nth(i).focus();
+        const tip = (await tooltip(c).boundingBox())!;
+        const avoid = await c
+          .locator("[data-slot='chart-y-tick'], [data-slot='chart-cap-label']")
+          .evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON()));
+        const t = { left: tip.x, right: tip.x + tip.width, top: tip.y, bottom: tip.y + tip.height } as DOMRect;
+        for (const a of avoid) expect(overlaps(t, a as DOMRect), `${id} mark ${i}: ${JSON.stringify({ t, a })}`).toBe(false);
+      }
+    }
+  });
+
+  test("bar focus ring is rounded and stays inside the plot, clear of the x labels", async ({ page }) => {
+    const section = await openCharts(page, { width: 375 });
+    const c = card(section, "chart-volume");
+    await c.locator("[data-slot='chart-bar']").last().focus();
+    await page.keyboard.press("ArrowLeft");
+    const ring = c.locator("[data-slot='chart-focus-ring']");
+    await expect(ring).toHaveCount(1);
+    expect(Number(await ring.getAttribute("rx"))).toBeGreaterThanOrEqual(8);
+    const rb = (await ring.boundingBox())!;
+    const tickTop = Math.min(...(await c.locator("[data-slot='chart-x-tick']").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().top))));
+    expect(rb.y + rb.height).toBeLessThanOrEqual(tickTop);
+  });
+
+  test("end labels don't sit on the other line", async ({ page }) => {
+    const section = await openCharts(page);
+    const hits = await card(section, "chart-trend").evaluate((root) => {
+      const labels = Array.from(root.querySelectorAll<SVGTextElement>("[data-slot='chart-end-label']"));
+      const lines = Array.from(root.querySelectorAll<SVGPathElement>("[data-slot='chart-line'], [data-slot='chart-partial-segment']"));
+      const svg = root.querySelector("svg")!;
+      const out: string[] = [];
+      for (const label of labels) {
+        const b = label.getBBox();
+        for (const line of lines) {
+          for (let i = 0; i <= 20; i++)
+            for (let j = 0; j <= 4; j++) {
+              const p = svg.createSVGPoint();
+              p.x = b.x + (b.width * i) / 20;
+              p.y = b.y + (b.height * j) / 4;
+              if (line.isPointInStroke(p)) out.push(`${label.textContent} on ${line.closest("[data-series]")?.getAttribute("data-series")}`);
+            }
+        }
+      }
+      return [...new Set(out)];
+    });
+    expect(hits).toEqual([]);
   });
 });

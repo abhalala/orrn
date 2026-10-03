@@ -47,11 +47,58 @@ export function assignSeriesSlots(keys: readonly string[], domain: readonly stri
   return out;
 }
 
+/**
+ * Legend entries for a set of series, coloured by the SAME slot assignment
+ * the marks use, so a swatch always matches its line, also after filtering.
+ */
+export function seriesLegend(
+  series: readonly { key: string; label: string }[],
+  colorDomain?: readonly string[],
+): { key: string; label: string; color: string }[] {
+  const slots = assignSeriesSlots(
+    series.map((s) => s.key),
+    colorDomain,
+  );
+  return series.map((s) => ({ key: s.key, label: s.label, color: seriesColor(slots[s.key]!) }));
+}
+
 /** Keep the first `limit` rows (already sorted by the caller) and sum the rest into Other. */
 export function foldToOther<T extends { value: number }>(rows: readonly T[], limit = CHART_MAX_SERIES) {
   const top = rows.slice(0, limit);
   const other = rows.slice(limit).reduce((sum, r) => sum + r.value, 0);
   return { rows: top, other };
+}
+
+/** Rectangle in chart-box pixels, for collision checks. */
+export type Box = { left: number; top: number; right: number; bottom: number };
+
+export function boxesOverlap(a: Box, b: Box, pad = 0): boolean {
+  return a.left < b.right + pad && b.left < a.right + pad && a.top < b.bottom + pad && b.top < a.bottom + pad;
+}
+
+/** Does the segment (x0,y0)-(x1,y1) pass through `box` grown by `pad`? (Liang-Barsky clip.) */
+export function segmentHitsBox(x0: number, y0: number, x1: number, y1: number, box: Box, pad = 0): boolean {
+  const [l, r, t, b] = [box.left - pad, box.right + pad, box.top - pad, box.bottom + pad];
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  let u0 = 0;
+  let u1 = 1;
+  for (const [p, q] of [
+    [-dx, x0 - l],
+    [dx, r - x0],
+    [-dy, y0 - t],
+    [dy, b - y0],
+  ] as const) {
+    if (p === 0) {
+      if (q < 0) return false;
+      continue;
+    }
+    const u = q / p;
+    if (p < 0) u0 = Math.max(u0, u);
+    else u1 = Math.min(u1, u);
+    if (u0 > u1) return false;
+  }
+  return true;
 }
 
 /** A y scale from 0 to a nice maximum (magnitudes always start at zero). */

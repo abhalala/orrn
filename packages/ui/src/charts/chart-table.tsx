@@ -85,48 +85,55 @@ export function ChartTable({ columns, rows, caption, className }: ChartTableProp
 /* Table builders: the table comes from the same data and formatters          */
 /* -------------------------------------------------------------------------- */
 
-type SeriesLike = { key: string; label: string; points: { t: Date; v: number }[] };
+type SeriesLike = { key: string; label: string; points: { t: Date; v: number; partial?: boolean }[] };
 
-/** One row per date, one column per series. Missing values read "No data". */
+/** One row per date, one column per series. A partial (open) date reads "so far"; missing values "No data". */
 export function timeSeriesTable(
   series: readonly SeriesLike[],
-  opts: { format(v: number): string; formatDate(d: Date): string; dateHeader: string; noValue: string },
+  opts: { t: Translate; format(v: number): string; formatDate(d: Date): string; dateHeader: string },
 ): ChartTableData {
+  const { t } = opts;
   const times = [...new Set(series.flatMap((s) => s.points.map((p) => p.t.getTime())))].sort((a, b) => a - b);
-  const lookup = series.map((s) => new Map(s.points.map((p) => [p.t.getTime(), p.v])));
+  const lookup = series.map((s) => new Map(s.points.map((p) => [p.t.getTime(), p])));
   return {
     columns: [{ key: "date", header: opts.dateHeader }, ...series.map((s) => ({ key: s.key, header: s.label, numeric: true }))],
-    rows: times.map((t) => {
-      const row: ChartTableRow = { date: opts.formatDate(new Date(t)) };
+    rows: times.map((time) => {
+      const date = opts.formatDate(new Date(time));
+      const partial = lookup.some((m) => m.get(time)?.partial);
+      const row: ChartTableRow = { date: partial ? t("charts.soFarLabel", { label: date }) : date };
       series.forEach((s, i) => {
-        const v = lookup[i]!.get(t);
-        row[s.key] = v === undefined ? opts.noValue : opts.format(v);
+        const p = lookup[i]!.get(time);
+        row[s.key] = p === undefined ? t("charts.noValue") : opts.format(p.v);
       });
       return row;
     }),
   };
 }
 
-/** One row per bar. */
+/** One row per bar. A partial (open) bucket reads "so far". */
 export function barTable(
-  data: readonly { key: string; label: string; value: number }[],
-  opts: { format(v: number): string; labelHeader: string; valueHeader: string },
+  data: readonly { key: string; label: string; value: number; partial?: boolean }[],
+  opts: { t: Translate; format(v: number): string; labelHeader: string; valueHeader: string },
 ): ChartTableData {
   return {
     columns: [
       { key: "label", header: opts.labelHeader },
       { key: "value", header: opts.valueHeader, numeric: true },
     ],
-    rows: data.map((d) => ({ label: d.label, value: opts.format(d.value) })),
+    rows: data.map((d) => ({
+      label: d.partial ? opts.t("charts.soFarLabel", { label: d.label }) : d.label,
+      value: opts.format(d.value),
+    })),
   };
 }
 
 type RankedLike = { key: string; label: string; value: number; share?: number; movement?: number | null };
 
-/** Words for a rank movement: "Up 2", "Down 1", "Same", "New". */
+/** Words for a rank movement: "Up 2", "Down 1", "Same", "New"; "No data" when it isn't known. */
 export function movementText(t: Translate, movement: number | null | undefined, long = false): string {
+  if (movement === undefined) return t("charts.noValue");
   if (movement === null) return t(long ? "charts.isNewLong" : "charts.isNew");
-  if (movement === undefined || movement === 0) return t(long ? "charts.noChangeLong" : "charts.noChange");
+  if (movement === 0) return t(long ? "charts.noChangeLong" : "charts.noChange");
   const count = Math.abs(movement);
   if (movement > 0) return t(long ? "charts.movedUpLong" : "charts.movedUp", { count });
   return t(long ? "charts.movedDownLong" : "charts.movedDown", { count });
@@ -140,7 +147,7 @@ export function formatShare(share: number): string {
 /** Rank, name, value, share and movement, plus the Other row last. */
 export function rankedTable(
   rows: readonly RankedLike[],
-  opts: { t: Translate; format(v: number): string; valueHeader: string; other?: number },
+  opts: { t: Translate; format(v: number): string; valueHeader: string; other?: number; otherLabel?: string },
 ): ChartTableData {
   const { t } = opts;
   const hasShare = rows.some((r) => r.share !== undefined);
@@ -160,7 +167,7 @@ export function rankedTable(
     movement: movementText(t, r.movement),
   }));
   if (opts.other && opts.other > 0) {
-    out.push({ name: t("charts.other"), rank: "", value: opts.format(opts.other), share: "", movement: "" });
+    out.push({ name: opts.otherLabel ?? t("charts.other"), rank: "", value: opts.format(opts.other), share: "", movement: "" });
   }
   return { columns, rows: out };
 }

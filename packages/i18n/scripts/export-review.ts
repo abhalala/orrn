@@ -23,6 +23,16 @@ function flatten(tree: Tree, prefix = ""): [string, string][] {
 
 const cell = (s: string) => s.replace(/\|/g, "\\|");
 
+/**
+ * Strings we deliberately left as the English value for now, with the
+ * question for Lalubhai. Shown as "(check)" in the table and listed under it.
+ */
+const FLAGGED: Record<string, string> = {
+  "charts.unitThousand": "Chart axis short form for thousand. Kept as k for now. Should it be हज़ार or something shorter?",
+  "charts.unitLakh": "Chart axis short form for lakh (1.5L). Kept as L for now. Should it be लाख?",
+  "charts.unitCrore": "Chart axis short form for crore (1.2Cr). Kept as Cr for now. Should it be करोड़?",
+};
+
 function guideRows(g: Guide): [string, string][] {
   return [
     ["Title", g.title],
@@ -70,9 +80,16 @@ export function buildHindiReview(): string {
     const rows = [...enFlat].filter(([k]) => k === ns || k.startsWith(`${ns}.`));
     out.push(`### ${ns} (${rows.length})`, "", "| Key | English | हिंदी |", "|---|---|---|");
     for (const [key, enValue] of rows) {
-      out.push(`| \`${key.slice(ns.length + 1)}\` | ${cell(enValue)} | ${cell(hiFlat.get(key) ?? "MISSING")} |`);
+      const flag = FLAGGED[key] ? " (check)" : "";
+      out.push(`| \`${key.slice(ns.length + 1)}\` | ${cell(enValue)} | ${cell(hiFlat.get(key) ?? "MISSING")}${flag} |`);
     }
     out.push("");
+    const flagged = rows.filter(([k]) => FLAGGED[k]);
+    if (flagged.length > 0) {
+      out.push("Please check, Lalubhai:", "");
+      for (const [k] of flagged) out.push(`- \`${k.slice(ns.length + 1)}\`: ${FLAGGED[k]}`);
+      out.push("");
+    }
   }
 
   out.push("## Guides", "");

@@ -180,14 +180,16 @@ export const chartSequential = {
   400: "#28aac0",
   500: "#058da0",
   600: "#057080",
-  700: "#005461",
+  700: "#005c69",
 } as const;
 
 /**
  * Ordinal ramp (ordered buckets such as stock age or die tiers): five steps
  * of the sequential hue, low to high. The near-surface end still clears 2:1,
  * so light starts at step 300; dark flips the anchor (low = near the dark
- * surface) and stops at step 700.
+ * surface) and stops at step 700. Step 700 is set so it clears 2:1 on every
+ * dark surface a chart can sit on (canvas, card, sunken, the raised #1c1c20
+ * card of Godseye and popovers), checked in `charts/palette.test.ts`.
  */
 export const chartOrdinal = {
   light: [

@@ -6,7 +6,8 @@
  * code would fold @react-pdf into the entry chunk, so the entry's content is
  * scanned too, not just chunk names. The chart kit (`@orrn/ui/charts`, d3)
  * is lazy too: every chart root carries `data-chart-kit`, so that string in
- * an entry or preloaded chunk means a chart was imported statically.
+ * an entry or preloaded chunk means a chart was imported statically, and
+ * d3 signatures (d3-scale, d3-shape, d3-array) catch d3 arriving without one.
  *
  * Run after `vite build`: `bun scripts/check-modulepreload.ts`.
  */
@@ -43,6 +44,14 @@ const FORBIDDEN_NAME = /pdf|xlsx|packing-list/i;
 const FORBIDDEN_CONTENT = /react-pdf/;
 // Marker attribute on every chart kit root (packages/ui/src/charts).
 const FORBIDDEN_CHARTS = /data-chart-kit/;
+// d3 code that survives minification, in case a helper drags d3 in without
+// a chart: d3-scale brings d3-color's named colours and d3-format's error,
+// d3-shape brings d3-path's arc error, d3-array's bisector keeps its keys.
+const FORBIDDEN_D3: [string, RegExp][] = [
+  ["d3-scale", /aliceblue|invalid format: /],
+  ["d3-shape", /negative radius/],
+  ["d3-array", /\{left:[\w$]+,center:[\w$]+,right:[\w$]+\}/],
+];
 const MAX_BYTES = 700_000;
 
 const problems: string[] = [];
@@ -64,6 +73,9 @@ for (const [kind, hrefs] of [["entry", entries], ["modulepreload", preloads]] as
     if (size > MAX_BYTES) problems.push(`${kind} ${href} is ${(size / 1000).toFixed(0)} kB (limit ${MAX_BYTES / 1000} kB)`);
     if (FORBIDDEN_CONTENT.test(content)) problems.push(`${kind} ${href} contains @react-pdf code`);
     if (FORBIDDEN_CHARTS.test(content)) problems.push(`${kind} ${href} contains the chart kit (load charts lazily)`);
+    for (const [lib, re] of FORBIDDEN_D3) {
+      if (re.test(content)) problems.push(`${kind} ${href} contains ${lib} code (load charts lazily)`);
+    }
   }
 }
 
@@ -72,5 +84,5 @@ if (problems.length > 0) {
   process.exit(1);
 }
 console.log(
-  `modulepreload check passed (${entries.length} entry, ${preloads.length} preloaded chunks, none heavy or containing @react-pdf or the chart kit).`,
+  `modulepreload check passed (${entries.length} entry, ${preloads.length} preloaded chunks, none heavy or containing @react-pdf, the chart kit or d3).`,
 );

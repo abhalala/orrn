@@ -681,7 +681,7 @@ function ChartsKitSection() {
     <KitSection
       id="charts"
       title="Charts"
-      note="Demo data. Every chart has a table view, a legend from two series, tooltips by keyboard and pointer, and colours that never reuse the status tones."
+      note="Demo data. Every chart sits in a ChartCard: its table view is the fallback for the low-contrast colours, so never mount a chart without one. Legends from two series, tooltips by keyboard and pointer, one unit per axis, open periods read so far, and colours that never reuse the status tones."
     >
       <Suspense
         fallback={

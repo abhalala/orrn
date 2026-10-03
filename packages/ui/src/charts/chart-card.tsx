@@ -8,11 +8,17 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
 
 import { ChartTable, type ChartTableData } from "./chart-table";
+import { seriesLegend } from "./scales";
 
-export type ChartLegendItem = {
-  label: string;
-  /** CSS colour, from `seriesColor(slot)` (never a raw hex). */
-  color: string;
+/**
+ * The legend is derived from the series and the same colour domain the chart
+ * uses (`seriesLegend`), so a swatch always matches its line by key. Callers
+ * can't pass colours by position.
+ */
+export type ChartLegend = {
+  series: { key: string; label: string }[];
+  /** The chart's `colorDomain`, when it has one. */
+  colorDomain?: string[];
   /** Mirrors the mark: a short line for lines, a square for bars and areas. */
   shape?: "line" | "square";
 };
@@ -21,10 +27,14 @@ export type ChartCardProps = Omit<HTMLAttributes<HTMLDivElement>, "title" | "chi
   title: string;
   /** What is plotted and in which unit, e.g. "kg dispatched per month". */
   subtitle?: string;
-  /** A range control (SegmentedControl) for a card that is its own scope, like the leaderboard. */
+  /**
+   * A range control (SegmentedControl) that scopes this card and nothing
+   * outside it. When the same period also scopes a list or other charts,
+   * put the control in one row above all of them instead.
+   */
   controls?: ReactNode;
   /** Shown for two or more series only: a single series is named by the title. */
-  legend?: ChartLegendItem[];
+  legend?: ChartLegend;
   /** The same numbers as the chart, for the "Show table" view. Build it with the table builders. */
   table: ChartTableData;
   state?: "loading" | "empty" | "error";
@@ -46,6 +56,8 @@ export type ChartCardProps = Omit<HTMLAttributes<HTMLDivElement>, "title" | "chi
  * or its table. Loading keeps the plot's shape (skeleton), empty invites
  * the next step, error says what happened and offers Try again.
  *
+ * Every chart must sit in a ChartCard: its table view is the fallback for
+ * the categorical slots under 3:1 and for end labels dropped on phones.
  * Gate it on the screen with `<Can do="analytics.view">`: charts are for
  * owners and managers, not the floor (analytics addendum A1).
  */
@@ -105,13 +117,15 @@ export function ChartCard({
 
       {controls ? <div className="flex min-w-0 flex-wrap items-center gap-3">{controls}</div> : null}
 
-      {ready && !showTable && legend && legend.length >= 2 ? (
+      {ready && !showTable && legend && legend.series.length >= 2 ? (
         <ul aria-label={t("charts.legend")} className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1.5 p-0">
-          {legend.map((item) => (
-            <li key={item.label} className="flex items-center gap-2 text-[13px] leading-5">
+          {seriesLegend(legend.series, legend.colorDomain).map((item) => (
+            <li key={item.key} className="flex items-center gap-2 text-[13px] leading-5">
               <span
                 aria-hidden="true"
-                className={cn("shrink-0", item.shape === "square" ? "size-2.5 rounded-[3px]" : "h-0.5 w-3.5 rounded-full")}
+                data-slot="legend-swatch"
+                data-series={item.key}
+                className={cn("shrink-0", legend.shape === "square" ? "size-2.5 rounded-[3px]" : "h-0.5 w-3.5 rounded-full")}
                 style={{ background: item.color }}
               />
               {item.label}

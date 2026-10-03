@@ -5,8 +5,8 @@ import { join } from "node:path";
 // The dataviz skill's validator, vendored verbatim. It computes the checks; we never eyeball them.
 import { validate, validateOrdinal } from "../../scripts/validate_palette.js";
 import { contrastRatio, parseHex } from "../lib/contrast";
-import { c2, chartCategorical, chartChrome, chartOrdinal, chartSequential, tones } from "../tokens";
-import { CHART_MAX_SERIES, assignSeriesSlots, foldToOther, seriesColor } from "./scales";
+import { c2, chartCategorical, chartChrome, chartOrdinal, chartSequential, inkPanel, tones } from "../tokens";
+import { CHART_MAX_SERIES, assignSeriesSlots, foldToOther, seriesColor, seriesLegend } from "./scales";
 
 type Report = { report: [string, unknown, string][]; ok: boolean };
 const run = (r: Report) => ({ ok: r.ok, failing: r.report.filter(([, s]) => s === false || s === "fail") });
@@ -109,6 +109,18 @@ describe("ordinal and sequential ramps", () => {
   }
 });
 
+describe("ordinal ramp on every dark surface a chart can sit on", () => {
+  // Card, canvas, sunken well, and the raised card used by Godseye and popovers.
+  const darkSurfaces = [c2.dark.surface, c2.dark.canvas, c2.dark.surfaceSunken, inkPanel.bgRaised];
+  for (const surface of darkSurfaces) {
+    test(`dark ordinal passes on ${surface}`, () => {
+      const result = run(validateOrdinal([...chartOrdinal.dark], { mode: "dark", surface }));
+      expect(result.failing).toEqual([]);
+      expect(result.ok).toBe(true);
+    });
+  }
+});
+
 describe("chart chrome", () => {
   for (const mode of ["light", "dark"] as const) {
     test(`${mode}: "Other" grey and the axis baseline are visible marks`, () => {
@@ -150,6 +162,24 @@ describe("series colour follows the key, never the rank", () => {
   });
 });
 
+describe("legend comes from the same slots as the marks", () => {
+  const all = [
+    { key: "press-1", label: "Press 1" },
+    { key: "press-2", label: "Press 2" },
+    { key: "press-3", label: "Press 3" },
+  ];
+  const domain = all.map((s) => s.key);
+  test("swatch colour is the key's slot, not its position", () => {
+    expect(seriesLegend(all.slice(1), domain)).toEqual([
+      { key: "press-2", label: "Press 2", color: "var(--chart-2)" },
+      { key: "press-3", label: "Press 3", color: "var(--chart-3)" },
+    ]);
+  });
+  test("without a domain the series order is the domain", () => {
+    expect(seriesLegend(all.slice(1)).map((l) => l.color)).toEqual(["var(--chart-1)", "var(--chart-2)"]);
+  });
+});
+
 describe("folding the tail into Other", () => {
   const rows = Array.from({ length: 11 }, (_, i) => ({ key: `c${i}`, label: `Customer ${i}`, value: 100 - i }));
   test("keeps the top N and sums the rest", () => {
@@ -187,4 +217,19 @@ describe("globals.css chart variables mirror tokens.ts", () => {
       expect(varIn(src, "chart-axis")).toBe(chartChrome[mode].axis);
     });
   }
+});
+
+describe("segmentHitsBox (end-label collision)", () => {
+  const box = { left: 10, top: 10, right: 20, bottom: 20 };
+  test("a segment through the box hits it", async () => {
+    const { segmentHitsBox } = await import("./scales");
+    expect(segmentHitsBox(0, 15, 30, 15, box)).toBe(true);
+    expect(segmentHitsBox(15, 0, 15, 30, box)).toBe(true);
+  });
+  test("a segment beside the box misses it, unless padded into it", async () => {
+    const { segmentHitsBox } = await import("./scales");
+    expect(segmentHitsBox(0, 25, 30, 25, box)).toBe(false);
+    expect(segmentHitsBox(0, 25, 30, 25, box, 6)).toBe(true);
+    expect(segmentHitsBox(0, 0, 5, 30, box)).toBe(false);
+  });
 });
