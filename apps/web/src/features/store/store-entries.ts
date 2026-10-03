@@ -11,8 +11,7 @@ export type EntryLike = {
   cancelledAt: Date | string | number | null;
   /**
    * Set when another record wrote this entry in its own batch (a melt's flux draw, PL-7 review):
-   * that record's cancel reverses it, and `store.cancel` refuses it. Optional so rows from a server
-   * without the column still type-check.
+   * that record's cancel reverses it, and `store.cancel` refuses it (`store.txns` returns it).
    */
   sourceType?: string | null;
 };
