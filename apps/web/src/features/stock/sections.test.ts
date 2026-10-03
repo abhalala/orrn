@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { filterSections, mergeSections, sectionTotals, sortSections, type SummaryRow } from "./sections";
+import { filterSections, mergeSections, sectionHeadline, sectionTotals, sortSections, type SummaryRow } from "./sections";
 
 const row = (over: Partial<SummaryRow> & { dieId: string }): SummaryRow => ({
   dieSeries: "PATTI",
@@ -112,5 +112,23 @@ describe("sectionTotals", () => {
       held: { bundles: 1, weightG: 50_000 },
       sections: 2,
     });
+  });
+});
+
+describe("sectionHeadline (the block on Sections and the hero on a section page agree)", () => {
+  const [mixed] = mergeSections(
+    [row({ dieId: "a", bundleCount: 4, totalWeightG: 200_000 })],
+    [row({ dieId: "a", bundleCount: 2, totalWeightG: 90_000 })],
+  );
+  const [allHeld] = mergeSections([], [row({ dieId: "h", bundleCount: 3, totalWeightG: 150_000 })]);
+
+  test("bundles in stock: green, the in-stock count and kg, held as a side note", () => {
+    expect(sectionHeadline(mixed)).toEqual({ state: "inStock", tone: "green", bundles: 4, weightG: 200_000, held: 2 });
+  });
+  test("every bundle held: blue, the held count and kg (a green 0 would mislead)", () => {
+    expect(sectionHeadline(allHeld)).toEqual({ state: "held", tone: "blue", bundles: 3, weightG: 150_000, held: 3 });
+  });
+  test("nothing on the floor (a die opened from its own page): neutral, not green", () => {
+    expect(sectionHeadline(undefined)).toEqual({ state: "none", tone: "neutral", bundles: 0, weightG: 0, held: 0 });
   });
 });

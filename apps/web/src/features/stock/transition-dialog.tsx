@@ -6,7 +6,10 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { renderScanMessage } from "@/features/scan/scan-outcome";
 import { trpc } from "@/shared/utils/trpc";
+
+import { transitionError } from "./format";
 
 const REASON_MAX = 500;
 
@@ -61,9 +64,14 @@ export function TransitionDialog({
           onDone();
         },
         onError: (err) => {
-          const code = err.data?.code;
-          // BAD_REQUEST carries the server's own reason (held by a dispatch, already void).
-          setError(code === "FORBIDDEN" ? t("stock.noPermission") : code === "BAD_REQUEST" ? err.message : t("bundle.transitionFailed"));
+          if (err.data?.code === "BAD_REQUEST") {
+            // The bundle changed since the page loaded: say how, close, and show where it is now.
+            toast.error(renderScanMessage(t, transitionError(err)));
+            onOpenChange(false);
+            onDone();
+            return;
+          }
+          setError(renderScanMessage(t, transitionError(err)));
         },
       },
     );

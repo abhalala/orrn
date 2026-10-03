@@ -7,11 +7,12 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { StatusBlock } from "@orrn/ui/components/status-block";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useMemo } from "react";
 
 import { BundleList } from "@/features/stock/bundle-list";
-import { PAGE_SIZE, offsetOf, validateSectionSearch } from "@/features/stock/bundle-search";
+import { PAGE_SIZE, offsetOf, sectionDefaultStatus, validateSectionSearch } from "@/features/stock/bundle-search";
 import { formatKgBand } from "@/features/stock/format";
-import { mergeSections, sectionLabel } from "@/features/stock/sections";
+import { mergeSections, sectionHeadline, sectionLabel } from "@/features/stock/sections";
 import { StatusFilter, type StatusFilterValue } from "@/features/stock/status-filter";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
@@ -24,27 +25,42 @@ export const Route = createFileRoute("/_tenant/stock/$dieId")({
 });
 
 /**
- * `/stock/$dieId`: one section's bundles. In stock first (the default
- * filter), then Held, Dispatched, Void or All. The hero block is the
- * section's stock; the die's kg/12ft band sits under the title.
+ * `/stock/$dieId`: one section's bundles, opening on In stock (or Held when
+ * every bundle is held, All when nothing is on the floor), with chips for
+ * every status. The hero block is the section's stock, coloured by the same
+ * rule as its block on Sections; the die's kg/12ft band sits under the title.
  */
 function SectionPage() {
   const { t } = useT();
   const { dieId } = Route.useParams();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const status: StatusFilterValue = search.status ?? "available";
 
   const dieQuery = useQuery({ ...trpc.die.get.queryOptions({ id: dieId }), retry: false });
   const available = useQuery(trpc.bundle.stockSummary.queryOptions({ status: "available" }));
   const reserved = useQuery(trpc.bundle.stockSummary.queryOptions({ status: "reserved" }));
+  const stock = useMemo(
+    () =>
+      available.data && reserved.data
+        ? mergeSections(available.data.items, reserved.data.items).find((s) => s.dieId === dieId)
+        : undefined,
+    [available.data, reserved.data, dieId],
+  );
+  const summaryReady = Boolean(available.data && reserved.data);
+  const summaryFailed = available.isError || reserved.isError;
+  const head = sectionHeadline(stock);
+  // No chip in the URL: open where the section's bundles are (wait for the summary, else In stock).
+  const status: StatusFilterValue | null =
+    search.status ?? (summaryReady ? sectionDefaultStatus(head.state) : summaryFailed ? "available" : null);
+
   const bundles = useQuery({
     ...trpc.bundle.listBundles.queryOptions({
       dieId,
-      status: status === "all" ? undefined : status,
+      status: status === "all" || status === null ? undefined : status,
       limit: PAGE_SIZE,
       offset: offsetOf(search.page),
     }),
+    enabled: status !== null,
     placeholderData: keepPreviousData,
   });
 
@@ -64,16 +80,7 @@ function SectionPage() {
   const die = dieQuery.data;
   const label = die ? sectionLabel(die) : "";
   const band = die ? formatKgBand(die.weightMinG, die.weightMaxG) : null;
-  const stock =
-    available.data && reserved.data
-      ? mergeSections(available.data.items, reserved.data.items).find((s) => s.dieId === dieId)
-      : undefined;
-  const inStock = stock?.available ?? { bundles: 0, weightG: 0 };
-  const held = stock?.held.bundles ?? 0;
-  const summaryLoading = available.isPending || reserved.isPending;
-
-  const setStatus = (next: StatusFilterValue) =>
-    navigate({ search: { status: next === "available" ? undefined : next, page: undefined } });
+  const setStatus = (next: StatusFilterValue) => navigate({ search: { status: next, page: undefined } });
   const setOffset = (offset: number) =>
     navigate({ search: (prev) => ({ ...prev, page: offset / PAGE_SIZE + 1 > 1 ? offset / PAGE_SIZE + 1 : undefined }) });
 
@@ -101,32 +108,41 @@ function SectionPage() {
         </div>
       )}
 
-      {summaryLoading ? (
+      {summaryFailed ? null : !summaryReady ? (
         <Skeleton className="h-[168px] w-full rounded-block sm:max-w-sm" />
       ) : (
-        <div className="sm:max-w-sm" data-testid="section-hero">
+        <div className="sm:max-w-sm" data-testid="section-hero" data-tone={head.tone}>
+          {/* Same rule as the section's block: green in stock, blue when all held, neutral when empty. */}
           <StatusBlock
-            tone="green"
-            title={t("status.bundle.available")}
-            meta={[
-              t("stock.block.kg", { kg: formatKgTotal(gToKg(inStock.weightG)) }),
-              held > 0 ? t("stock.heldChip", { count: held }) : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-            value={inStock.bundles}
-            unit={t("stock.block.unitInStock", { count: inStock.bundles })}
+            tone={head.tone}
+            title={t(head.state === "held" ? "status.bundle.reserved" : "status.bundle.available")}
+            meta={
+              head.state === "none"
+                ? undefined
+                : [
+                    t("stock.block.kg", { kg: formatKgTotal(gToKg(head.weightG)) }),
+                    head.state === "inStock" && head.held > 0 ? t("stock.heldChip", { count: head.held }) : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+            }
+            value={head.bundles}
+            unit={t(head.state === "held" ? "stock.block.unitHeld" : "stock.block.unitInStock", { count: head.bundles })}
           />
         </div>
       )}
 
-      <StatusFilter value={status} options={FILTERS} onChange={setStatus} />
+      {status === null ? (
+        <Skeleton className="h-11 w-full max-w-md rounded-full" />
+      ) : (
+        <StatusFilter value={status} options={FILTERS} onChange={setStatus} />
+      )}
 
       <BundleList
         rows={bundles.data?.items ?? []}
         total={bundles.data ? Number(bundles.data.total) : undefined}
         page={{ offset: offsetOf(search.page), limit: PAGE_SIZE, onChange: setOffset }}
-        loading={bundles.isFetching}
+        loading={status === null || bundles.isFetching}
         showSection={false}
         label={label ? t("stock.section.bundlesLabel", { section: label }) : t("stock.list.bundlesLabel")}
         empty={

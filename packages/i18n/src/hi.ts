@@ -458,7 +458,6 @@ export const hi = {
       unitHeld: "{count:bundle|bundle} होल्ड पर",
       band: "{band} kg/12ft",
       kg: "{kg} kg",
-      noBand: "वज़न रेंज नहीं डाली",
     },
     charts: {
       ageTitle: "स्टॉक कितना पुराना",
@@ -537,7 +536,7 @@ export const hi = {
     howToVoid: "रद्द या वापस कैसे करें",
     actionsLabel: "Bundle के काम",
     transitionFailed: "Bundle नहीं बदला। दोबारा कोशिश करें।",
-    loadError: "यह bundle लोड नहीं हुआ। इंटरनेट देखें, फिर दोबारा कोशिश करें।",
+    changedElsewhere: "आपके खोलने के बाद यह bundle बदल गया। पेज अब इसकी अभी की हालत दिखा रहा है।",
     historyChanged: "स्टेटस बदला: {status}",
     reasonLine: "कारण: {reason}",
     inDispatch: "Dispatch {code} में",

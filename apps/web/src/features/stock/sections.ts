@@ -106,3 +106,29 @@ export function sectionTotals(rows: readonly SectionStock[]): {
     rows.reduce((t, s) => ({ bundles: t.bundles + pick(s).bundles, weightG: t.weightG + pick(s).weightG }), NONE);
   return { available: sum((s) => s.available), held: sum((s) => s.held), sections: rows.length };
 }
+
+export type SectionHeadline = {
+  /** In stock: free bundles. Held: every bundle on the floor is reserved. None: nothing on the floor. */
+  state: "inStock" | "held" | "none";
+  tone: "green" | "blue" | "neutral";
+  bundles: number;
+  weightG: number;
+  /** Held bundles, shown beside the in-stock count. */
+  held: number;
+};
+
+/**
+ * What a section's block (Sections) and hero (its own page) show: the
+ * in-stock count in green; the held count in blue when every bundle is held;
+ * neutral when nothing is on the floor. Status is the colour, so a green
+ * "0 in stock" never appears.
+ */
+export function sectionHeadline(s: SectionStock | undefined): SectionHeadline {
+  if (s && s.available.bundles > 0) {
+    return { state: "inStock", tone: "green", bundles: s.available.bundles, weightG: s.available.weightG, held: s.held.bundles };
+  }
+  if (s && s.held.bundles > 0) {
+    return { state: "held", tone: "blue", bundles: s.held.bundles, weightG: s.held.weightG, held: s.held.bundles };
+  }
+  return { state: "none", tone: "neutral", bundles: 0, weightG: 0, held: 0 };
+}

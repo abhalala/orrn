@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 794 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 793 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -410,7 +410,7 @@ Counts: 794 screen strings in 25 groups, 10 guides with 182 strings.
 | `continuous.result.notFound` | Not found | नहीं मिला |
 | `continuous.done` | Done scanning | स्कैन बंद करें |
 
-### stock (54)
+### stock (53)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -435,7 +435,6 @@ Counts: 794 screen strings in 25 groups, 10 guides with 182 strings.
 | `block.unitHeld` | {count:bundle\|bundles} held | {count:bundle\|bundle} होल्ड पर |
 | `block.band` | {band} kg/12ft | {band} kg/12ft |
 | `block.kg` | {kg} kg | {kg} kg |
-| `block.noBand` | No weight range set | वज़न रेंज नहीं डाली |
 | `charts.ageTitle` | Stock age | स्टॉक कितना पुराना |
 | `charts.ageSubtitle` | kg on the floor, in stock and held, by days since packing | फ़्लोर पर kg, स्टॉक और होल्ड, पैकिंग के बाद के दिनों के हिसाब से |
 | `charts.ageLabel` | Stock age, kg by days since packing | स्टॉक की उम्र, पैकिंग के बाद के दिनों के हिसाब से kg |
@@ -505,7 +504,7 @@ Counts: 794 screen strings in 25 groups, 10 guides with 182 strings.
 | `howToVoid` | How to void or restore | रद्द या वापस कैसे करें |
 | `actionsLabel` | Bundle actions | Bundle के काम |
 | `transitionFailed` | The bundle didn't change. Try again. | Bundle नहीं बदला। दोबारा कोशिश करें। |
-| `loadError` | This bundle didn't load. Check the connection, then try again. | यह bundle लोड नहीं हुआ। इंटरनेट देखें, फिर दोबारा कोशिश करें। |
+| `changedElsewhere` | This bundle changed since you opened it. The page now shows where it is. | आपके खोलने के बाद यह bundle बदल गया। पेज अब इसकी अभी की हालत दिखा रहा है। |
 | `historyChanged` | Changed to {status} | स्टेटस बदला: {status} |
 | `reasonLine` | Reason: {reason} | कारण: {reason} |
 | `inDispatch` | In dispatch {code} | Dispatch {code} में |

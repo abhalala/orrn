@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { addOutcome, formatKgBand, formatWhen, reprintErrorKey } from "./format";
+import { formatKgBand, formatWhen, reprintErrorKey, transitionError } from "./format";
 
 const NOW = Date.parse("2026-10-03T12:00:00Z");
 
@@ -58,21 +58,30 @@ describe("reprintErrorKey", () => {
   });
 });
 
-describe("addOutcome (one bundle into a dispatch)", () => {
-  const base = { added: [], alreadyInDispatch: [], notFound: [], unavailable: [] };
-  test("added", () => {
-    expect(addOutcome({ ...base, added: ["26I4086"] })).toEqual({ kind: "added" });
+describe("transitionError (void or restore refused)", () => {
+  test("no permission", () => {
+    expect(transitionError(trpcError("FORBIDDEN", "Forbidden"))).toEqual({ key: "stock.noPermission" });
   });
-  test("already there is calm, not an error", () => {
-    expect(addOutcome({ ...base, alreadyInDispatch: ["26I4086"] })).toEqual({ kind: "already" });
-  });
-  test("not available carries the server's reason", () => {
-    expect(addOutcome({ ...base, unavailable: [{ serial: "26I4086", reason: "Held in DSP-0012" }] })).toEqual({
-      kind: "unavailable",
-      reason: "Held in DSP-0012",
+  test("held by a dispatch since the page loaded: say which one, in the UI language", () => {
+    expect(transitionError(trpcError("BAD_REQUEST", "Bundle is held by D-0007"))).toEqual({
+      key: "scan.continuous.heldBy",
+      vars: { code: "D-0007" },
     });
   });
-  test("not found", () => {
-    expect(addOutcome({ ...base, notFound: ["26I4086"] })).toEqual({ kind: "notFound" });
+  test("dispatched since the page loaded", () => {
+    expect(transitionError(trpcError("BAD_REQUEST", "Bundle is already dispatched"))).toEqual({
+      key: "scan.continuous.dispatched",
+    });
+  });
+  test("someone else already voided or restored it: never the server's English", () => {
+    expect(transitionError(trpcError("BAD_REQUEST", 'Bundle is already in status "void"'))).toEqual({
+      key: "bundle.changedElsewhere",
+    });
+    expect(
+      transitionError(trpcError("BAD_REQUEST", "Transition reserved -> void is not allowed in M4. Dispatch transitions are managed by the dispatch flow.")),
+    ).toEqual({ key: "bundle.changedElsewhere" });
+  });
+  test("anything else", () => {
+    expect(transitionError(new Error("boom"))).toEqual({ key: "bundle.transitionFailed" });
   });
 });

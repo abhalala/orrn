@@ -1,6 +1,8 @@
 import { formatKg, gToKg } from "@orrn/domain";
 import type { Locale, MessageKey } from "@orrn/i18n";
 
+import { rejectionMessage, type ScanMessage } from "@/features/scan/scan-outcome";
+
 /** Plant default when the company has no timezone set (dashboard.today uses the same). */
 export const DEFAULT_TIMEZONE = "Asia/Kolkata";
 
@@ -64,24 +66,21 @@ export function reprintErrorKey(error: unknown): MessageKey {
   return "stock.reprintFailed";
 }
 
-export type AddReport = {
-  added: string[];
-  alreadyInDispatch: string[];
-  notFound: string[];
-  unavailable: { serial: string; reason: string }[];
-};
-
-export type AddOutcome =
-  | { kind: "added" }
-  | { kind: "already" }
-  | { kind: "unavailable"; reason: string }
-  | { kind: "notFound" };
-
-/** `dispatch.addBundlesBySerial` report for one bundle. Already in the dispatch is calm (Review Focus 1). */
-export function addOutcome(report: AddReport): AddOutcome {
-  if (report.added.length > 0) return { kind: "added" };
-  if (report.alreadyInDispatch.length > 0) return { kind: "already" };
-  const blocked = report.unavailable[0];
-  if (blocked) return { kind: "unavailable", reason: blocked.reason };
-  return { kind: "notFound" };
+/**
+ * What to tell someone whose Void or Restore was refused. A refusal means the
+ * bundle changed since the page loaded (held, dispatched, or already voided by
+ * someone else); the server's words are English, so only its hold and dispatch
+ * reasons are reused (as scan wording), the rest become one plain sentence.
+ */
+export function transitionError(error: unknown): ScanMessage & { key: MessageKey } {
+  const e = (error && typeof error === "object" ? error : {}) as TrpcLike;
+  const code = e.data?.code;
+  const message = typeof e.message === "string" ? e.message : "";
+  if (code === "FORBIDDEN") return { key: "stock.noPermission" };
+  if (code !== "BAD_REQUEST") return { key: "bundle.transitionFailed" };
+  if (/^Bundle is (held by|already dispatched)/i.test(message)) {
+    const mapped = rejectionMessage(message);
+    if ("key" in mapped) return mapped;
+  }
+  return { key: "bundle.changedElsewhere" };
 }

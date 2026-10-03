@@ -10,10 +10,10 @@ import { ChevronRight, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { addOutcome, renderScanMessage } from "@/features/scan/scan-outcome";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
-import { addOutcome } from "./format";
 
 /**
  * "Add to dispatch" (spec §3 `/b/:serial`): a sheet listing the dispatches
@@ -57,7 +57,7 @@ export function AddToDispatchSheet({
       { id: d.id, serials: [serial] },
       {
         onSuccess: (report) => {
-          const outcome = addOutcome(report);
+          const outcome = addOutcome(report, serial);
           void queryClient.invalidateQueries({ queryKey: trpc.dispatch.listDispatches.queryKey() });
           void queryClient.invalidateQueries({ queryKey: trpc.bundle.getBySerial.queryKey() });
           const openAction = { label: t("bundle.openDispatchPlain"), onClick: () => navigate({ to: "/dispatch/$id", params: { id: d.id } }) };
@@ -67,8 +67,10 @@ export function AddToDispatchSheet({
           } else if (outcome.kind === "already") {
             toast(t("bundle.alreadyInDispatch", { code: d.code }), { action: openAction });
             onOpenChange(false);
-          } else if (outcome.kind === "unavailable") {
-            toast.error(outcome.reason);
+          } else if (outcome.kind === "rejected") {
+            // Held, dispatched or voided since the page loaded: the page refreshes to show it.
+            toast.error(renderScanMessage(t, outcome.message));
+            onOpenChange(false);
           } else {
             toast.error(t("bundle.addNotFound"));
           }

@@ -464,7 +464,6 @@ export const en = {
       unitHeld: "{count:bundle|bundles} held",
       band: "{band} kg/12ft",
       kg: "{kg} kg",
-      noBand: "No weight range set",
     },
     charts: {
       ageTitle: "Stock age",
@@ -543,7 +542,7 @@ export const en = {
     howToVoid: "How to void or restore",
     actionsLabel: "Bundle actions",
     transitionFailed: "The bundle didn't change. Try again.",
-    loadError: "This bundle didn't load. Check the connection, then try again.",
+    changedElsewhere: "This bundle changed since you opened it. The page now shows where it is.",
     historyChanged: "Changed to {status}",
     reasonLine: "Reason: {reason}",
     inDispatch: "In dispatch {code}",

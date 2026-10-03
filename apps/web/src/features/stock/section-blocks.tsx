@@ -10,7 +10,7 @@ import { ChevronRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { formatKgBand } from "./format";
-import { sectionLabel, type SectionStock } from "./sections";
+import { sectionHeadline, sectionLabel, type SectionStock } from "./sections";
 
 const GRID = "m-0 grid list-none grid-cols-2 gap-3 p-0 md:grid-cols-3 xl:grid-cols-4";
 /** Rise only the first screenful on first load; the rest appear still. */
@@ -24,10 +24,10 @@ const RISE_LIMIT = 8;
  */
 export function SectionBlock({ section, rise }: { section: SectionStock; rise?: number }) {
   const { t } = useT();
-  const allHeld = section.available.bundles === 0 && section.held.bundles > 0;
-  const shown = allHeld ? section.held : section.available;
+  const head = sectionHeadline(section);
+  const allHeld = head.state === "held";
   const band = formatKgBand(section.weightMinG, section.weightMaxG);
-  const kg = formatKgTotal(gToKg(section.available.weightG + (allHeld ? section.held.weightG : 0)));
+  const kg = formatKgTotal(gToKg(head.weightG));
 
   return (
     <Link
@@ -35,7 +35,7 @@ export function SectionBlock({ section, rise }: { section: SectionStock; rise?: 
       params={{ dieId: section.dieId }}
       data-testid="section-block"
       data-die-id={section.dieId}
-      data-tone={allHeld ? "blue" : "green"}
+      data-tone={head.tone}
       className={cn(
         "orrn-block orrn-block-sheen animate-press flex h-full min-h-[164px] min-w-0 flex-col p-4 text-left no-underline transition-[filter,scale] duration-[var(--dur-fast)] hover:brightness-[1.04] sm:p-[18px]",
         allHeld ? "orrn-block-blue" : "orrn-block-green",
@@ -56,17 +56,17 @@ export function SectionBlock({ section, rise }: { section: SectionStock; rise?: 
       </span>
 
       <span className="relative mt-auto flex flex-wrap items-baseline gap-x-2 gap-y-0.5 pt-4">
-        <BigNumber value={shown.bundles} className="text-[40px] sm:text-[44px]" />
+        <BigNumber value={head.bundles} className="text-[40px] sm:text-[44px]" />
         <span className="min-w-0 text-[13px] font-semibold break-words">
-          {t(allHeld ? "stock.block.unitHeld" : "stock.block.unitInStock", { count: shown.bundles })}
+          {t(allHeld ? "stock.block.unitHeld" : "stock.block.unitInStock", { count: head.bundles })}
         </span>
       </span>
 
       <span className="relative mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] font-medium leading-snug">
         <span className="font-mono tabular-nums">{t("stock.block.kg", { kg })}</span>
         {band ? <span className="tabular-nums">{t("stock.block.band", { band })}</span> : null}
-        {!allHeld && section.held.bundles > 0 ? (
-          <Chip tone="blue">{t("stock.heldChip", { count: section.held.bundles })}</Chip>
+        {!allHeld && head.held > 0 ? (
+          <Chip tone="blue">{t("stock.heldChip", { count: head.held })}</Chip>
         ) : null}
       </span>
     </Link>

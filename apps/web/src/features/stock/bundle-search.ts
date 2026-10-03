@@ -15,7 +15,7 @@ export type BundlesSearch = {
   groupId?: string;
 };
 
-/** `/stock/$dieId` URL state. No status means In stock (available first, spec §3 Stock). */
+/** `/stock/$dieId` URL state. No status means the section's default (`sectionDefaultStatus`). */
 export type SectionSearch = {
   status?: BundleStatus | "all";
   page?: number;
@@ -57,8 +57,17 @@ export function validateBundlesSearch(raw: Record<string, unknown>): BundlesSear
 }
 
 export function validateSectionSearch(raw: Record<string, unknown>): SectionSearch {
-  const status = raw.status === "all" ? "all" : isStatus(raw.status) && raw.status !== "available" ? raw.status : undefined;
+  const status = raw.status === "all" ? "all" : isStatus(raw.status) ? raw.status : undefined;
   return compact({ status, page: page(raw.page) });
+}
+
+/**
+ * The chip a section opens on (spec §3 Stock: available first): In stock,
+ * or Held when every bundle is held, or All when nothing is on the floor,
+ * so a section never opens on an empty list it has bundles for.
+ */
+export function sectionDefaultStatus(state: "inStock" | "held" | "none"): BundleStatus | "all" {
+  return state === "inStock" ? "available" : state === "held" ? "reserved" : "all";
 }
 
 /** Server offset for a 1-based page (page 1 is omitted from the URL). */

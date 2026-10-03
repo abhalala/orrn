@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { PAGE_SIZE, offsetOf, validateBundlesSearch, validateSectionSearch } from "./bundle-search";
+import { PAGE_SIZE, offsetOf, sectionDefaultStatus, validateBundlesSearch, validateSectionSearch } from "./bundle-search";
 
 describe("validateBundlesSearch (/stock/bundles)", () => {
   test("keeps a known status, drops unknown ones and the 'all' default", () => {
@@ -40,12 +40,20 @@ describe("validateBundlesSearch (/stock/bundles)", () => {
 });
 
 describe("validateSectionSearch (/stock/$dieId)", () => {
-  test("defaults to in stock: 'available' is omitted, 'all' and other statuses are kept", () => {
+  test("keeps a chosen status (the default depends on the section's stock), drops unknown ones", () => {
     expect(validateSectionSearch({})).toEqual({});
-    expect(validateSectionSearch({ status: "available" })).toEqual({});
+    expect(validateSectionSearch({ status: "available" })).toEqual({ status: "available" });
     expect(validateSectionSearch({ status: "all" })).toEqual({ status: "all" });
     expect(validateSectionSearch({ status: "reserved", page: 2 })).toEqual({ status: "reserved", page: 2 });
     expect(validateSectionSearch({ status: "gone" })).toEqual({});
+  });
+});
+
+describe("sectionDefaultStatus (no chip in the URL)", () => {
+  test("in stock first; held when every bundle is held; all when nothing is on the floor", () => {
+    expect(sectionDefaultStatus("inStock")).toBe("available");
+    expect(sectionDefaultStatus("held")).toBe("reserved");
+    expect(sectionDefaultStatus("none")).toBe("all");
   });
 });
 
