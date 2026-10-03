@@ -15,7 +15,7 @@ export function Skeleton({ className, ...props }: SkeletonProps) {
   return (
     <div
       data-slot="skeleton"
-      className={cn("orrn-skeleton-shimmer rounded-md bg-muted", className)}
+      className={cn("orrn-skeleton-shimmer rounded-md bg-surface-sunken", className)}
       {...props}
     />
   );

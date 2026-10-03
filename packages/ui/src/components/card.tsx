@@ -11,8 +11,8 @@ export function Card({ size = "default", className, ...props }: CardProps) {
     <div
       data-slot="card"
       className={cn(
-        "flex flex-col gap-3 rounded-lg border border-border bg-card text-card-foreground shadow-sm",
-        size === "sm" ? "p-3 gap-2" : "p-4",
+        "flex flex-col gap-3 rounded-card border border-border bg-card text-card-foreground shadow-sm",
+        size === "sm" ? "p-3 gap-2" : "p-5",
         className,
       )}
       {...props}
@@ -28,7 +28,7 @@ export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingEle
   return (
     <h4
       data-slot="card-title"
-      className={cn("text-base font-semibold leading-tight m-0", className)}
+      className={cn("m-0 text-base font-semibold leading-snug tracking-[-0.01em]", className)}
       {...props}
     />
   );
@@ -38,7 +38,7 @@ export function CardDescription({ className, ...props }: HTMLAttributes<HTMLPara
   return (
     <p
       data-slot="card-description"
-      className={cn("text-xs text-muted-foreground m-0", className)}
+      className={cn("m-0 text-[13px] leading-5 text-muted-foreground", className)}
       {...props}
     />
   );
@@ -62,7 +62,7 @@ export function CardFooter({ className, ...props }: HTMLAttributes<HTMLDivElemen
   return (
     <div
       data-slot="card-footer"
-      className={cn("flex items-center gap-2 border-t border-border pt-3", className)}
+      className={cn("flex items-center gap-2 border-t border-border pt-4", className)}
       {...props}
     />
   );
@@ -81,8 +81,8 @@ export function CardSection({ title, description, actions, className, children, 
       {(title || actions) && (
         <div className="flex items-center gap-3">
           <div className="flex flex-1 flex-col gap-0.5">
-            {title ? <h4 className="m-0 text-sm font-semibold">{title}</h4> : null}
-            {description ? <p className="m-0 text-xs text-muted-foreground">{description}</p> : null}
+            {title ? <h4 className="m-0 text-[15px] font-semibold tracking-[-0.01em]">{title}</h4> : null}
+            {description ? <p className="m-0 text-[13px] text-muted-foreground">{description}</p> : null}
           </div>
           {actions}
         </div>

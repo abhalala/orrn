@@ -8,7 +8,7 @@ export function Table({ children, className, ...rest }: StackBag) {
   return (
     <div
       className={cn(
-        "flex flex-col overflow-hidden rounded-xl border border-border bg-card",
+        "flex flex-col overflow-hidden rounded-card border border-border bg-card",
         className,
       )}
       {...rest}
@@ -22,7 +22,7 @@ export function TableHeader({ children, className, ...rest }: StackBag) {
   return (
     <div
       className={cn(
-        "flex flex-row items-center gap-2 border-b border-border bg-muted px-3 py-2.5",
+        "flex flex-row items-center gap-2 border-b border-border bg-surface-sunken/70 px-4 py-2.5",
         className,
       )}
       {...rest}
@@ -44,7 +44,7 @@ export function TableRow({ children, className, ...rest }: StackBag) {
   return (
     <div
       className={cn(
-        "flex flex-row items-stretch gap-2 border-b border-border px-3 py-3 hover:bg-accent/30 last:border-b-0",
+        "flex flex-row items-stretch gap-2 border-b border-border px-4 py-3 transition-colors duration-[var(--dur-fast)] hover:bg-accent/50 last:border-b-0",
         className,
       )}
       {...rest}
@@ -70,7 +70,7 @@ export function TableHead({
       style={{ flex, ...style }}
       {...rest}
     >
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <span className="text-xs font-medium text-muted-foreground">
         {children}
       </span>
     </div>
