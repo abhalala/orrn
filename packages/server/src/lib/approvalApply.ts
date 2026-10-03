@@ -2,6 +2,7 @@ import { and, eq, sql, type SQL } from "drizzle-orm";
 
 import { approval, type ApprovalKind } from "@orrn/db/schema/approval";
 import { dieInstance, dieTierChange } from "@orrn/db/schema/dies";
+import { cast } from "@orrn/db/schema/foundry";
 import { dcNote } from "@orrn/db/schema/purchase";
 
 import type { OrrnDb, SqliteBatchItem } from "./atomic";
@@ -116,10 +117,54 @@ const dcNoteDecision: ApprovalApplier = (ctx, row, decision) => {
 };
 
 /**
+ * Cast close-out with an unexplained tail (Review Focus 4): approved → the cast is closed (closed
+ * by the approver); rejected → back to open, the close-out figures cleared, so melts can be added
+ * and the close asked again. Only the close request this approval was opened for is touched
+ * (`close_approval_id`), scoped to the company, and only if this decision landed.
+ */
+const castCloseDecision: ApprovalApplier = (ctx, row, decision) => {
+  const { db, companyId, seq } = ctx;
+  const subject = and(
+    eq(cast.id, row.subjectId),
+    eq(cast.companyId, companyId),
+    eq(cast.status, "closing"),
+    eq(cast.closeApprovalId, row.id),
+    decisionLanded(ctx, row.id, decision),
+  );
+  if (decision === "approved") {
+    return [
+      db
+        .update(cast)
+        .set({ status: "closed", closedAt: ctx.decidedAt, closedBy: ctx.userId, serverSeq: seq, updatedAt: ctx.decidedAt })
+        .where(subject),
+    ];
+  }
+  return [
+    db
+      .update(cast)
+      .set({
+        status: "open",
+        closeRequestedAt: null,
+        closeRequestedBy: null,
+        tailG: null,
+        tailBp: null,
+        tailReason: null,
+        closeSummary: null,
+        closedAt: null,
+        closedBy: null,
+        serverSeq: seq,
+        updatedAt: ctx.decidedAt,
+      })
+      .where(subject),
+  ];
+};
+
+/**
  * Per-kind apply hooks run by `approval.decide` inside the decision's own batch. A kind with no
  * hook is a pure sign-off (its module reads the approval's status itself).
  */
 export const APPROVAL_APPLIERS: Partial<Record<ApprovalKind, ApprovalApplier>> = {
   die_rerank: dieRerank,
   dc_note: dcNoteDecision,
+  cast_close: castCloseDecision,
 };
