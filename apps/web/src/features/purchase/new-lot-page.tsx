@@ -26,7 +26,6 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "rea
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
-import { canAny, useMe } from "@/shared/lib/me";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { bookDateText, kgText, pctText } from "./format";
@@ -240,10 +239,8 @@ type StepProps = { draft: LotDraft; set(patch: Partial<LotDraft>): void; errors:
 
 function VendorStep({ draft, set, errors, itemName }: StepProps & { itemName(id: string | null): string }) {
   const { t } = useT();
-  const { data: me } = useMe();
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
-  const canAdd = canAny(me, ["masters.publish", "masters.draft", "purchase.receipt"]);
 
   const recentLots = useQuery(trpc.purchase.lots.list.queryOptions({ limit: 20, offset: 0 }));
   const recent: ComboboxOption<string>[] = useMemo(() => {
@@ -284,12 +281,12 @@ function VendorStep({ draft, set, errors, itemName }: StepProps & { itemName(id:
           recent={recent}
         />
       </Field>
-      {canAdd ? (
+      <Can do="purchase.receipt">
         <Button type="button" variant="secondary" className="self-start" onClick={() => setAdding(true)}>
           <Plus aria-hidden="true" strokeWidth={2} />
           {t("purchase.new.addVendor")}
         </Button>
-      ) : null}
+      </Can>
 
       {vendor.data && vendor.data.usualItems.length > 0 ? (
         <div className="flex flex-col gap-2">
@@ -378,9 +375,11 @@ function VendorSheet({
           <Button size="lg" variant="secondary" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </Button>
-          <Button size="lg" loading={create.isPending} onClick={submit}>
-            {t("purchase.new.saveVendor")}
-          </Button>
+          <Can do="purchase.receipt">
+            <Button size="lg" loading={create.isPending} onClick={submit}>
+              {t("purchase.new.saveVendor")}
+            </Button>
+          </Can>
         </>
       }
     >

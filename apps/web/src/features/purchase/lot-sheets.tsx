@@ -17,6 +17,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { Can } from "@/shared/components/can";
+import type { Action } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import { kgText } from "./format";
@@ -95,9 +97,11 @@ export function WeightsSheet({
           <Button size="lg" variant="secondary" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </Button>
-          <Button size="lg" loading={save.isPending} onClick={submit}>
-            {t("purchase.detail.saveWeights")}
-          </Button>
+          <Can do="purchase.receipt">
+            <Button size="lg" loading={save.isPending} onClick={submit}>
+              {t("purchase.detail.saveWeights")}
+            </Button>
+          </Can>
         </>
       }
     >
@@ -219,9 +223,11 @@ export function NoteSheet({
           <Button size="lg" variant="secondary" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </Button>
-          <Button size="lg" loading={send.isPending} onClick={submit}>
-            {t("purchase.detail.sendNote")}
-          </Button>
+          <Can do="purchase.dcnote">
+            <Button size="lg" loading={send.isPending} onClick={submit}>
+              {t("purchase.detail.sendNote")}
+            </Button>
+          </Can>
         </>
       }
     >
@@ -308,9 +314,11 @@ export function StoreSheet({
       onOpenChange={onOpenChange}
       title={t("purchase.detail.markOk")}
       footer={
-        <Button size="lg" loading={pending} disabled={!store} onClick={() => onConfirm(store)}>
-          {t("purchase.detail.markOk")}
-        </Button>
+        <Can do="purchase.receipt">
+          <Button size="lg" loading={pending} disabled={!store} onClick={() => onConfirm(store)}>
+            {t("purchase.detail.markOk")}
+          </Button>
+        </Can>
       }
     >
       <Field label={t("purchase.detail.store")}>
@@ -332,10 +340,13 @@ export function CancelLotDialog({
   open,
   onOpenChange,
   lotId,
+  action,
 }: {
   open: boolean;
   onOpenChange(open: boolean): void;
   lotId: string;
+  /** Who may cancel this lot: masters.publish once it is OK (stock reverses), else purchase.receipt too. */
+  action: Action;
 }) {
   const { t } = useT();
   const invalidate = useInvalidatePurchase();
@@ -369,16 +380,18 @@ export function CancelLotDialog({
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             {t("purchase.detail.keep")}
           </Button>
-          <Button
-            variant="danger"
-            loading={cancel.isPending}
-            onClick={() => {
-              setSubmitted(true);
-              if (!error) cancel.mutate({ id: lotId, reason: reason.trim() });
-            }}
-          >
-            {t("purchase.detail.cancel")}
-          </Button>
+          <Can do={action}>
+            <Button
+              variant="danger"
+              loading={cancel.isPending}
+              onClick={() => {
+                setSubmitted(true);
+                if (!error) cancel.mutate({ id: lotId, reason: reason.trim() });
+              }}
+            >
+              {t("purchase.detail.cancel")}
+            </Button>
+          </Can>
         </>
       }
     >

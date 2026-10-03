@@ -210,10 +210,11 @@ function LotDetail({ data }: { data: LotData }) {
       </Can>,
     );
   }
+  // An OK lot is in stock: only masters.publish may cancel it (the server's rule); before OK either action may.
+  const cancelAction = status === "ok" || !perms.receipt ? "masters.publish" : "purchase.receipt";
   if (step.canCancel) {
-    // An OK lot is in stock: only masters.publish may cancel it (the server's rule); before OK either action may.
     secondary.push(
-      <Can key="cancel" do={status === "ok" || !perms.receipt ? "masters.publish" : "purchase.receipt"}>
+      <Can key="cancel" do={cancelAction}>
         <Button variant="ghost" className="text-tone-red-ink" onClick={() => setSheet("cancel")}>
           {t("purchase.detail.cancel")}
         </Button>
@@ -296,7 +297,12 @@ function LotDetail({ data }: { data: LotData }) {
         pending={markOk.isPending}
         onConfirm={(locationId) => markOk.mutate({ id: lot.id, to: "ok", locationId })}
       />
-      <CancelLotDialog open={sheet === "cancel"} onOpenChange={(o) => setSheet(o ? "cancel" : null)} lotId={lot.id} />
+      <CancelLotDialog
+        open={sheet === "cancel"}
+        onOpenChange={(o) => setSheet(o ? "cancel" : null)}
+        lotId={lot.id}
+        action={cancelAction}
+      />
     </>
   );
 }

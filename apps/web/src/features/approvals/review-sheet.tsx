@@ -82,7 +82,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
 
   const footer =
     state === "decide" ? (
-      <>
+      <CanDecide item={current}>
         <Button
           size="lg"
           variant="danger"
@@ -104,7 +104,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         >
           {t("approvals.approve")}
         </Button>
-      </>
+      </CanDecide>
     ) : undefined;
 
   return (
@@ -162,6 +162,16 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
       </div>
     </Sheet>
   );
+}
+
+/**
+ * `<Can>` for decisions: approving follows the approver roles of the request's kind
+ * (APPROVER_ROLES, not an action), and nobody decides their own request. The server
+ * (`approval.decide`) is still authoritative.
+ */
+export function CanDecide({ item, children }: { item: ApprovalItem; children: ReactNode }) {
+  const { data: me } = useMe();
+  return decideState(me, item) === "decide" ? <>{children}</> : null;
 }
 
 function Block({ title, children }: { title: string; children: ReactNode }) {
