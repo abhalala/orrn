@@ -484,6 +484,7 @@ export const hi = {
     reasonHint: "जैसे: दो बार पैक हुआ, गलत वज़न डाला।",
     voided: "Bundle रद्द हो गया",
     restored: "Bundle वापस आ गया",
+    publicSignIn: "स्टॉक की जानकारी देखने के लिए साइन इन करें",
     ambiguousTitle: "कौन सा bundle?",
     ambiguousBody: "{code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें।",
   },

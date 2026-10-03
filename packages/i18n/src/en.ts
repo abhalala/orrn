@@ -490,6 +490,7 @@ export const en = {
     reasonHint: "For example: packed twice, wrong weight entered.",
     voided: "Bundle voided",
     restored: "Bundle restored",
+    publicSignIn: "Sign in to see stock details",
     ambiguousTitle: "Which bundle?",
     ambiguousBody: "More than one bundle has the number {code}. Pick the year it was packed.",
   },

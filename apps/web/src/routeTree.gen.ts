@@ -15,6 +15,7 @@ import { Route as PlatformRouteImport } from './routes/_platform'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as Char91__uiChar93RouteImport } from './routes/[__ui]'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as BSerialRouteImport } from './routes/b.$serial'
 import { Route as TenantTodayRouteImport } from './routes/_tenant/today'
 import { Route as TenantSettingsRouteImport } from './routes/_tenant/settings'
 import { Route as TenantPrintingRouteImport } from './routes/_tenant/printing'
@@ -54,7 +55,6 @@ import { Route as TenantDispatchIdRouteImport } from './routes/_tenant/dispatch.
 import { Route as TenantDiesIdRouteImport } from './routes/_tenant/dies.$id'
 import { Route as TenantCustomersIdRouteImport } from './routes/_tenant/customers.$id'
 import { Route as TenantBundlesIdRouteImport } from './routes/_tenant/bundles.$id'
-import { Route as TenantBSerialRouteImport } from './routes/_tenant/b.$serial'
 import { Route as PublicInviteTokenRouteImport } from './routes/_public/invite.$token'
 import { Route as PlatformAdminWaitlistRouteImport } from './routes/_platform/admin.waitlist'
 import { Route as PlatformAdminStaffRouteImport } from './routes/_platform/admin.staff'
@@ -88,6 +88,11 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PublicRoute,
+} as any)
+const BSerialRoute = BSerialRouteImport.update({
+  id: '/b/$serial',
+  path: '/b/$serial',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const TenantTodayRoute = TenantTodayRouteImport.update({
   id: '/today',
@@ -284,11 +289,6 @@ const TenantBundlesIdRoute = TenantBundlesIdRouteImport.update({
   path: '/bundles/$id',
   getParentRoute: () => TenantRoute,
 } as any)
-const TenantBSerialRoute = TenantBSerialRouteImport.update({
-  id: '/b/$serial',
-  path: '/b/$serial',
-  getParentRoute: () => TenantRoute,
-} as any)
 const PublicInviteTokenRoute = PublicInviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
@@ -342,11 +342,11 @@ export interface FileRoutesByFullPath {
   '/printing': typeof TenantPrintingRoute
   '/settings': typeof TenantSettingsRouteWithChildren
   '/today': typeof TenantTodayRoute
+  '/b/$serial': typeof BSerialRoute
   '/admin/requests': typeof PlatformAdminRequestsRoute
   '/admin/staff': typeof PlatformAdminStaffRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/invite/$token': typeof PublicInviteTokenRoute
-  '/b/$serial': typeof TenantBSerialRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
   '/customers/$id': typeof TenantCustomersIdRoute
   '/dies/$id': typeof TenantDiesIdRoute
@@ -393,11 +393,11 @@ export interface FileRoutesByTo {
   '/printing': typeof TenantPrintingRoute
   '/settings': typeof TenantSettingsRouteWithChildren
   '/today': typeof TenantTodayRoute
+  '/b/$serial': typeof BSerialRoute
   '/admin/requests': typeof PlatformAdminRequestsRoute
   '/admin/staff': typeof PlatformAdminStaffRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/invite/$token': typeof PublicInviteTokenRoute
-  '/b/$serial': typeof TenantBSerialRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
   '/customers/$id': typeof TenantCustomersIdRoute
   '/dies/$id': typeof TenantDiesIdRoute
@@ -448,12 +448,12 @@ export interface FileRoutesById {
   '/_tenant/printing': typeof TenantPrintingRoute
   '/_tenant/settings': typeof TenantSettingsRouteWithChildren
   '/_tenant/today': typeof TenantTodayRoute
+  '/b/$serial': typeof BSerialRoute
   '/_public/': typeof PublicIndexRoute
   '/_platform/admin/requests': typeof PlatformAdminRequestsRoute
   '/_platform/admin/staff': typeof PlatformAdminStaffRoute
   '/_platform/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/_public/invite/$token': typeof PublicInviteTokenRoute
-  '/_tenant/b/$serial': typeof TenantBSerialRoute
   '/_tenant/bundles/$id': typeof TenantBundlesIdRoute
   '/_tenant/customers/$id': typeof TenantCustomersIdRoute
   '/_tenant/dies/$id': typeof TenantDiesIdRoute
@@ -502,11 +502,11 @@ export interface FileRouteTypes {
     | '/printing'
     | '/settings'
     | '/today'
+    | '/b/$serial'
     | '/admin/requests'
     | '/admin/staff'
     | '/admin/waitlist'
     | '/invite/$token'
-    | '/b/$serial'
     | '/bundles/$id'
     | '/customers/$id'
     | '/dies/$id'
@@ -553,11 +553,11 @@ export interface FileRouteTypes {
     | '/printing'
     | '/settings'
     | '/today'
+    | '/b/$serial'
     | '/admin/requests'
     | '/admin/staff'
     | '/admin/waitlist'
     | '/invite/$token'
-    | '/b/$serial'
     | '/bundles/$id'
     | '/customers/$id'
     | '/dies/$id'
@@ -607,12 +607,12 @@ export interface FileRouteTypes {
     | '/_tenant/printing'
     | '/_tenant/settings'
     | '/_tenant/today'
+    | '/b/$serial'
     | '/_public/'
     | '/_platform/admin/requests'
     | '/_platform/admin/staff'
     | '/_platform/admin/waitlist'
     | '/_public/invite/$token'
-    | '/_tenant/b/$serial'
     | '/_tenant/bundles/$id'
     | '/_tenant/customers/$id'
     | '/_tenant/dies/$id'
@@ -651,6 +651,7 @@ export interface RootRouteChildren {
   PlatformRoute: typeof PlatformRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
   TenantRoute: typeof TenantRouteWithChildren
+  BSerialRoute: typeof BSerialRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -696,6 +697,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRoute
+    }
+    '/b/$serial': {
+      id: '/b/$serial'
+      path: '/b/$serial'
+      fullPath: '/b/$serial'
+      preLoaderRoute: typeof BSerialRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_tenant/today': {
       id: '/_tenant/today'
@@ -970,13 +978,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantBundlesIdRouteImport
       parentRoute: typeof TenantRoute
     }
-    '/_tenant/b/$serial': {
-      id: '/_tenant/b/$serial'
-      path: '/b/$serial'
-      fullPath: '/b/$serial'
-      preLoaderRoute: typeof TenantBSerialRouteImport
-      parentRoute: typeof TenantRoute
-    }
     '/_public/invite/$token': {
       id: '/_public/invite/$token'
       path: '/invite/$token'
@@ -1108,7 +1109,6 @@ interface TenantRouteChildren {
   TenantPrintingRoute: typeof TenantPrintingRoute
   TenantSettingsRoute: typeof TenantSettingsRouteWithChildren
   TenantTodayRoute: typeof TenantTodayRoute
-  TenantBSerialRoute: typeof TenantBSerialRoute
   TenantBundlesIdRoute: typeof TenantBundlesIdRoute
   TenantCustomersIdRoute: typeof TenantCustomersIdRoute
   TenantDiesIdRoute: typeof TenantDiesIdRoute
@@ -1141,7 +1141,6 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPrintingRoute: TenantPrintingRoute,
   TenantSettingsRoute: TenantSettingsRouteWithChildren,
   TenantTodayRoute: TenantTodayRoute,
-  TenantBSerialRoute: TenantBSerialRoute,
   TenantBundlesIdRoute: TenantBundlesIdRoute,
   TenantCustomersIdRoute: TenantCustomersIdRoute,
   TenantDiesIdRoute: TenantDiesIdRoute,
@@ -1178,6 +1177,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlatformRoute: PlatformRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
   TenantRoute: TenantRouteWithChildren,
+  BSerialRoute: BSerialRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -10,6 +10,11 @@ type LegacyLocation = { pathname: string; searchStr: string };
  * old entry in history so Back doesn't bounce.
  */
 export function legacyRedirect(location: LegacyLocation) {
-  const href = resolveRedirect(location.pathname, location.searchStr) ?? "/today";
+  const href = resolveRedirect(location.pathname, location.searchStr);
+  if (!href) {
+    // A route file is wired to this helper but `redirects.ts` has no row for it.
+    if (import.meta.env.DEV) throw new Error(`No redirect mapped for ${location.pathname}; add it to STATIC_REDIRECTS.`);
+    return redirect({ href: "/today", replace: true });
+  }
   return redirect({ href, replace: true });
 }

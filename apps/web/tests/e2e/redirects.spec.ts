@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { signInViaApi } from "./helpers/accounts";
+import { signInViaApi, signInViaForm } from "./helpers/accounts";
 
 /**
  * Route map (Task 15): every pre-C2 URL lands on its new home with the query
@@ -96,10 +96,73 @@ test.describe("/b/$serial", () => {
     await expect(page.getByText("Not found in this company")).toBeVisible();
   });
 
-  test("a signed-out visit goes to login and returns", async ({ page }) => {
-    await page.context().clearCookies();
+  test("canonicalising a code keeps the query", async ({ page }) => {
+    await page.goto(`/b/${SEEDED_SERIAL.toLowerCase()}?from=qr`);
+    await expect(page).toHaveURL(new RegExp(`/b/${SEEDED_SERIAL}\\?from=qr$`));
+  });
+});
+
+/**
+ * Signed-out label scans (plant spec P8): the public view, not a login wall.
+ * The API only knows a company by its host (`<slug>.orrn.in`), which local
+ * dev doesn't have, so the public lookup is answered here; what the page does
+ * with the answer and the request it makes are real.
+ */
+test.describe("/b/$serial signed out", () => {
+  async function stubPublicBundle(page: Page) {
+    const urls: string[] = [];
+    await page.route("**/trpc/resolve.publicBundle*", async (route) => {
+      urls.push(route.request().url());
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([{ result: { data: { number: "26I4086", section: "ZP 9015" } } }]),
+      });
+    });
+    return urls;
+  }
+
+  test("shows the number and section with a sign-in button, no login wall", async ({ page }) => {
+    const urls = await stubPublicBundle(page);
+    await page.goto("/b/26I4086");
+    await expect(page).toHaveURL(/\/b\/26I4086$/);
+    await expect(page.getByTestId("public-number")).toHaveText("26I4086");
+    await expect(page.getByTestId("public-section")).toHaveText("ZP 9015");
+    await expect(page.getByRole("link", { name: "Sign in to see stock details" })).toBeVisible();
+    // No stock facts, no app shell.
+    await expect(page.getByText("Weight", { exact: true })).toHaveCount(0);
+    await expect(page.locator("[data-slot='app-shell']")).toHaveCount(0);
+    // The request names the code and the host the QR was scanned on.
+    const input = new URL(urls[0]!).searchParams.get("input") ?? "";
+    expect(input).toContain("26I4086");
+    expect(input).toContain("localhost:3002");
+  });
+
+  test("sign-in keeps the page and returns to the tenant summary", async ({ page }) => {
+    await stubPublicBundle(page);
     await page.goto(`/b/${SEEDED_SERIAL}`);
+    const link = page.getByRole("link", { name: "Sign in to see stock details" });
+    await expect(link).toHaveAttribute("href", new RegExp(`/login\\?next=%2Fb%2F${SEEDED_SERIAL}$`));
+    await link.click();
     await expect(page).toHaveURL(new RegExp(`/login\\?next=%2Fb%2F${SEEDED_SERIAL}$`));
+    await signInViaForm(page, "owner");
+    await expect(page).toHaveURL(new RegExp(`/b/${SEEDED_SERIAL}$`));
+    await expect(page.locator("[data-slot='app-shell']")).toBeVisible();
+    await expect(page.getByText("Weight", { exact: true })).toBeVisible();
+  });
+
+  test("an unknown code (here: no company on this host) says not found, with sign-in", async ({ page }) => {
+    await page.goto("/b/26X9999999");
+    await expect(page.getByRole("heading", { level: 1, name: "Not found" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign in to see stock details" })).toBeVisible();
+  });
+
+  test("staff without a company see the public view and no sign-in button", async ({ page }) => {
+    await signInViaApi(page, "staff");
+    await stubPublicBundle(page);
+    await page.goto("/b/26I4086");
+    await expect(page.getByTestId("public-number")).toHaveText("26I4086");
+    await expect(page.getByRole("link", { name: "Sign in to see stock details" })).toHaveCount(0);
   });
 });
 

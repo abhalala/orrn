@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 698 screen strings in 24 groups, 10 guides with 182 strings.
+Counts: 699 screen strings in 24 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -424,7 +424,7 @@ Counts: 698 screen strings in 24 groups, 10 guides with 182 strings.
 | `columns.po` | PO | PO |
 | `columns.packed` | Packed | पैक हुआ |
 
-### bundle (32)
+### bundle (33)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -458,6 +458,7 @@ Counts: 698 screen strings in 24 groups, 10 guides with 182 strings.
 | `reasonHint` | For example: packed twice, wrong weight entered. | जैसे: दो बार पैक हुआ, गलत वज़न डाला। |
 | `voided` | Bundle voided | Bundle रद्द हो गया |
 | `restored` | Bundle restored | Bundle वापस आ गया |
+| `publicSignIn` | Sign in to see stock details | स्टॉक की जानकारी देखने के लिए साइन इन करें |
 | `ambiguousTitle` | Which bundle? | कौन सा bundle? |
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 
