@@ -14,8 +14,9 @@ export type CreateContextOptions = {
  * Request context: session → active membership → companyId/role.
  *
  * - `x-orrn-company` picks the active company for a user in several plants
- *   (spec P10); honoured only with a membership there, else the most recent
- *   membership is used (so single-membership users are unaffected).
+ *   (spec P10). Naming a company without a membership there makes every
+ *   authed procedure FORBIDDEN (ruling RP2). Without the header the most
+ *   recent membership is used (single-membership users are unaffected).
  * - `x-orrn-impersonate-company` (platform staff with a live grant) overrides
  *   both and acts as owner.
  */

@@ -46,7 +46,9 @@ const meOf = (role: CompanyRole) => ({ company: { role }, isPlatformAdmin: false
  * (see APPROVALS below), not holders of the submit action. Viewer reads reports.
  */
 const MATRIX: Record<string, CompanyRole[]> = {
-  "bundle.pack": ["packer", "supervisor"],
+  // Digest: packer + supervisor. Ruling RP3: every role that already packs via bundle.create
+  // keeps it, so packing can be guarded by bundle.pack without anyone losing it.
+  "bundle.pack": ["packer", "supervisor", "manager", "admin", "operator"],
   "bundle.void": ["supervisor", "manager", "admin"],
   "stock.move": ["operator", "packer", "supervisor", "office"],
   "stock.count": ["operator", "packer", "supervisor", "office"],
@@ -145,9 +147,12 @@ describe("permission matrix (digest §4.2)", () => {
     }
   });
 
-  test("bundle.create follows bundle.pack for the new roles", () => {
-    for (const role of ALL_ROLES.filter((r) => !(r in LEGACY))) {
-      expect(can(meOf(role), "bundle.create")).toBe(can(meOf(role), "bundle.pack"));
+  test("bundle.pack and bundle.create have exactly the same holders (RP3)", () => {
+    for (const role of ALL_ROLES) {
+      expect({ role, pack: can(meOf(role), "bundle.pack") }).toEqual({
+        role,
+        pack: can(meOf(role), "bundle.create"),
+      });
     }
   });
 
@@ -402,11 +407,25 @@ describe("many plants per person (spec P10)", () => {
     expect(otherCustomers.items.every((c) => c.companyId === a.companyId)).toBe(true);
   });
 
-  test("a header naming a company the user is not in is ignored", async () => {
-    const { b, userId } = await accountantInTwoPlants();
+  test("a header naming a company the user is not in is FORBIDDEN, never a silent fallback (RP2)", async () => {
+    const { userId } = await accountantInTwoPlants();
     const stranger = await env.seedCompany();
-    const me = await env.callerForUser(userId, { company: stranger.companyId }).auth.me();
-    expect(me.company?.id).toBe(b.companyId);
+    const api = env.callerForUser(userId, { company: stranger.companyId });
+    for (const call of [() => api.auth.me(), () => api.customer.list({}), () => api.customer.create({ name: "x" })]) {
+      await expect(call()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+        message: "You don't have access to that plant",
+      });
+    }
+    const leaked = await env.db.select().from(customer).where(eq(customer.name, "x"));
+    expect(leaked).toHaveLength(0);
+  });
+
+  test("a missing header still falls back to the last switched / newest membership (RP2)", async () => {
+    const { a, b, userId } = await accountantInTwoPlants();
+    expect((await env.callerForUser(userId).auth.me()).company?.id).toBe(b.companyId);
+    await env.callerForUser(userId).company.switch({ companyId: a.companyId });
+    expect((await env.callerForUser(userId).auth.me()).company?.id).toBe(a.companyId);
   });
 
   test("a single-membership user resolves exactly as before", async () => {
@@ -437,7 +456,10 @@ describe("many plants per person (spec P10)", () => {
     const { a, b, userId } = await accountantInTwoPlants();
     const { company } = await import("@orrn/db/schema");
     await env.db.update(company).set({ status: "suspended" }).where(eq(company.id, b.companyId));
-    const me = await env.callerForUser(userId, { company: b.companyId }).auth.me();
+    await expect(env.callerForUser(userId, { company: b.companyId }).auth.me()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    const me = await env.callerForUser(userId).auth.me();
     expect(me.company?.id).toBe(a.companyId);
     expect(me.memberships.map((m) => m.companyId)).toEqual([a.companyId]);
     await expect(env.callerForUser(userId).company.switch({ companyId: b.companyId })).rejects.toMatchObject({

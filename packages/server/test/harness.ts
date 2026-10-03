@@ -225,6 +225,7 @@ export async function createTestEnv(): Promise<TestEnv> {
         request: new Request("https://api.test"),
         impersonation: null,
         impersonationHeaderRejected: false,
+        companyHeaderRejected: false,
       };
 
       if (as === null) {

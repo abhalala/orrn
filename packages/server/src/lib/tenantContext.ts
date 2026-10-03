@@ -9,7 +9,8 @@ type Db = ReturnType<typeof createDb>;
 
 /**
  * Active company for users in more than one plant (spec P10). Honoured only
- * when the user has a membership in that (active) company; otherwise ignored.
+ * when the user has a membership in that (active) company; naming any other
+ * company rejects the request (ruling RP2: never a silent fallback).
  */
 export const COMPANY_HEADER = "x-orrn-company";
 
@@ -91,6 +92,8 @@ export async function resolveTenantContext(
   let effectiveCompanyId: string | null = ownMember?.companyId ?? null;
   let effectiveRole: CompanyRole | null = ownMember?.role ?? null;
   let impersonationHeaderRejected = false;
+  // RP2: a named company the user can't act in is an error, not a fallback.
+  let companyHeaderRejected = Boolean(input.companyHeader) && !requested;
 
   if (input.impersonateHeader) {
     const resolved = await resolveImpersonation(db, {
@@ -111,6 +114,8 @@ export async function resolveTenantContext(
       };
       effectiveCompanyId = resolved.companyId;
       effectiveRole = "owner";
+      // Impersonation picks the company itself; the plant header is irrelevant.
+      companyHeaderRejected = false;
       impersonation = {
         actorUserId: userId,
         companyId: resolved.companyId,
@@ -128,5 +133,6 @@ export async function resolveTenantContext(
     platformRole,
     impersonation,
     impersonationHeaderRejected,
+    companyHeaderRejected,
   };
 }
