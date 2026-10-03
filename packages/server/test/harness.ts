@@ -82,9 +82,12 @@ export type TestEnv = {
    * deterministically to simulate a race. `fn`'s own batches don't re-trigger it.
    */
   beforeNextBatch(fn: () => Promise<unknown>): void;
+  /** Most parameters bound to one statement since the last reset (or since start). */
+  peakParams(): number;
+  resetPeakParams(): void;
 };
 
-type BatchHook = { next: (() => Promise<unknown>) | null };
+type BatchHook = { next: (() => Promise<unknown>) | null; peakParams: number };
 
 /**
  * Wraps a D1 binding so `prepare(sql).bind(...args)` throws when more than 100
@@ -113,6 +116,7 @@ function withParamLimit(d1: D1Database, hook: BatchHook): D1Database {
                   if (args.length > D1_MAX_PARAMS) {
                     throw new Error("D1_TOO_MANY_PARAMS");
                   }
+                  hook.peakParams = Math.max(hook.peakParams, args.length);
                   return stmtTarget.bind(...args);
                 };
               }
@@ -161,7 +165,7 @@ export async function createTestEnv(): Promise<TestEnv> {
   const rawD1 = await mf.getD1Database("DB");
   await applyMigrations(rawD1);
 
-  const batchHook: BatchHook = { next: null };
+  const batchHook: BatchHook = { next: null, peakParams: 0 };
   const d1 = withParamLimit(rawD1, batchHook);
   workersEnv.DB = d1;
 
@@ -387,6 +391,12 @@ export async function createTestEnv(): Promise<TestEnv> {
     seedBundles,
     beforeNextBatch(fn) {
       batchHook.next = fn;
+    },
+    peakParams() {
+      return batchHook.peakParams;
+    },
+    resetPeakParams() {
+      batchHook.peakParams = 0;
     },
   };
 }

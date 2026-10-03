@@ -76,6 +76,8 @@ const MATRIX: Record<string, CompanyRole[]> = {
   // QC / ageing / cut stations → press + supervisor (spec P9).
   "qc.enter": ["press", "supervisor"],
   "ageing.enter": ["press", "supervisor"],
+  // Analytics addendum A1: charts for owner/manager and the office roles, not the floor or viewer.
+  "analytics.view": ["admin", "manager", "office", "accountant"],
 };
 
 /** The pre-PL-1 permission matrix for the five original roles; must not move. */
