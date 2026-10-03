@@ -19,6 +19,8 @@ export type WebNavItem = {
   key: string;
   to: string;
   label: string;
+  /** Shorter label for the phone tab bar when `label` would not fit. */
+  shortLabel?: string;
   icon: ReactNode;
   scope: "tenant" | "staff";
   requires?: readonly Action[];
@@ -53,7 +55,7 @@ export const TENANT_NAV: readonly WebNavItem[] = [
   {
     key: "receipts",
     to: "/receipts",
-    label: "Receipts",
+    label: "Packing",
     icon: <Receipt size={16} aria-hidden="true" />,
     scope: "tenant",
     implemented: true,
@@ -85,7 +87,7 @@ export const TENANT_NAV: readonly WebNavItem[] = [
   {
     key: "spool",
     to: "/spool",
-    label: "Print Queue",
+    label: "Printing",
     icon: <Printer size={16} aria-hidden="true" />,
     scope: "tenant",
     requires: ["spool.view_queue"],
@@ -123,7 +125,8 @@ export const STAFF_NAV: readonly WebNavItem[] = [
   {
     key: "waitlist",
     to: "/admin/waitlist",
-    label: "Waitlist",
+    label: "Access requests",
+    shortLabel: "Requests",
     icon: <ClipboardList size={16} aria-hidden="true" />,
     scope: "staff",
     requires: ["platform.waitlist.review"],
@@ -141,7 +144,7 @@ export const STAFF_NAV: readonly WebNavItem[] = [
   {
     key: "spool",
     to: "/admin/spool",
-    label: "Spool",
+    label: "Printing",
     icon: <Printer size={16} aria-hidden="true" />,
     scope: "staff",
     requires: ["platform.spool.manage"],
@@ -152,7 +155,7 @@ export const STAFF_NAV: readonly WebNavItem[] = [
 export const PLATFORM_LINK: WebNavItem = {
   key: "platform-console",
   to: "/admin",
-  label: "Godseye Console",
+  label: "Godseye console",
   icon: <Eye size={16} aria-hidden="true" />,
   scope: "staff",
   implemented: true,

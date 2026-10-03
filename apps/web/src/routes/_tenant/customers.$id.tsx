@@ -1,7 +1,8 @@
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent } from "@orrn/ui/components/card";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Input } from "@orrn/ui/components/input";
+import { Input, TextArea } from "@orrn/ui/components/input";
+import { FormActions } from "@orrn/ui/components/form-actions";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { useForm } from "@tanstack/react-form";
@@ -124,7 +125,9 @@ function CustomerFormComponent() {
             <form.Field name="name">
               {(field) => (
                 <div className="space-y-2">
-                  <Label htmlFor={field.name}>Name *</Label>
+                  <Label htmlFor={field.name}>
+                    Name <span className="font-normal text-muted-foreground">(required)</span>
+                  </Label>
                   <Input
                     id={field.name}
                     value={field.state.value}
@@ -196,10 +199,9 @@ function CustomerFormComponent() {
               {(field) => (
                 <div className="space-y-2">
                   <Label htmlFor={field.name}>Notes</Label>
-                  <textarea
+                  <TextArea
                     id={field.name}
                     rows={4}
-                    className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
@@ -208,7 +210,7 @@ function CustomerFormComponent() {
               )}
             </form.Field>
 
-            <div className="pt-4 flex justify-end space-x-2">
+            <FormActions className="pt-2">
               <Button variant="outline" type="button" onClick={() => navigate({ to: "/customers" })}>
                 Cancel
               </Button>
@@ -226,12 +228,12 @@ function CustomerFormComponent() {
                     >
                       {createMutation.isPending || updateMutation.isPending
                         ? "Saving…"
-                        : "Save Customer"}
+                        : "Save customer"}
                     </Button>
                   )}
                 </form.Subscribe>
               </Can>
-            </div>
+            </FormActions>
           </form>
         </CardContent>
       </Card>

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
@@ -15,6 +15,35 @@ export type TabsProps = {
   children?: ReactNode;
 };
 
+/** Which ends of a horizontally scrolling strip have hidden content. */
+function useOverflowEdges<T extends HTMLElement>(contentKey: string) {
+  const ref = useRef<T>(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const next = { start: el.scrollLeft > 1, end: max - el.scrollLeft > 1 };
+    setEdges((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
+  }, []);
+  // Re-measure when the strip resizes or its segments change (count or
+  // labels, via `contentKey`). Without ResizeObserver (old browsers, tests)
+  // it measures once per content change and on scroll.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    for (const child of Array.from(el.children)) ro.observe(child);
+    return () => ro.disconnect();
+  }, [update, contentKey]);
+  return { ref, edges, onScroll: update };
+}
+
+const FADE = "24px";
+
 /**
  * C2 segmented control: a sunken pill track with the selected segment raised
  * on the surface. Keeps the simple `items`/`value`/`onValueChange` shape so
@@ -22,9 +51,22 @@ export type TabsProps = {
  * (`aria-pressed`), so keyboard users tab through them and press Enter/Space.
  */
 export function Tabs({ items, value, onValueChange, className, children }: TabsProps) {
+  const { ref, edges, onScroll } = useOverflowEdges<HTMLDivElement>(items.map((it) => it.id).join("|"));
+  // Fade the side(s) that have more segments, so a phone user can see the
+  // strip scrolls. Mask only, no layout change.
+  const mask =
+    edges.start || edges.end
+      ? `linear-gradient(to right, ${edges.start ? "transparent" : "currentColor"} 0, currentColor ${edges.start ? FADE : "0"}, currentColor calc(100% - ${edges.end ? FADE : "0px"}), ${edges.end ? "transparent" : "currentColor"} 100%)`
+      : undefined;
   return (
-    <div className={cn("flex flex-col gap-4", className)}>
-      <div className="flex max-w-full gap-1 self-start overflow-x-auto rounded-full bg-surface-sunken p-1 [scrollbar-width:none] dark:bg-background dark:ring-1 dark:ring-border">
+    <div className={cn("flex min-w-0 max-w-full flex-col gap-4", className)}>
+      {/* The track scrolls sideways when the segments outgrow a phone row;
+          it never widens the page. */}
+      <div
+        ref={ref}
+        onScroll={onScroll}
+        style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
+        className="flex min-w-0 max-w-full gap-1 self-start overflow-x-auto overscroll-x-contain rounded-full bg-surface-sunken p-1 [scrollbar-width:none] dark:bg-background dark:ring-1 dark:ring-border">
         {items.map((it) => {
           const active = value === it.id;
           return (
@@ -34,7 +76,7 @@ export function Tabs({ items, value, onValueChange, className, children }: TabsP
               aria-pressed={active}
               onClick={() => onValueChange(it.id)}
               className={cn(
-                "inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold transition-[background-color,color,box-shadow,transform] duration-[var(--dur-fast)] active:scale-[0.97] pointer-coarse:h-11",
+                "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13px] sm:px-4 font-semibold transition-[background-color,color,box-shadow,transform] duration-[var(--dur-fast)] active:scale-[0.97] pointer-coarse:h-11",
                 active
                   ? "bg-card text-foreground shadow-sm dark:bg-popover"
                   : "text-muted-foreground hover:text-foreground",

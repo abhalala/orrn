@@ -1,6 +1,7 @@
 import { Button } from "@orrn/ui/components/button";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { ListCard, stretchedLink } from "@orrn/ui/components/list-card";
 import { Input } from "@orrn/ui/components/input";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Toolbar } from "@orrn/ui/components/toolbar";
@@ -44,8 +45,8 @@ function CustomersListComponent() {
       cell: (r) => <span className="font-medium">{r.name}</span>,
       flex: 2,
     },
-    { id: "email", header: "Email", cell: (r) => r.email || "—", flex: 2 },
-    { id: "phone", header: "Phone", cell: (r) => r.phone || "—" },
+    { id: "email", header: "Email", cell: (r) => r.email || "Not set", flex: 2 },
+    { id: "phone", header: "Phone", cell: (r) => r.phone || "Not set" },
     {
       id: "created",
       header: "Created",
@@ -89,9 +90,11 @@ function CustomersListComponent() {
               </Button>
             </Can>
             <Can do="customer.create">
-              <Link to="/customers/$id" params={{ id: "new" }}>
-                <Button>Add Customer</Button>
-              </Link>
+              <Button asChild>
+                <Link to="/customers/$id" params={{ id: "new" }}>
+                  Add customer
+                </Link>
+              </Button>
             </Can>
           </>
         }
@@ -112,7 +115,8 @@ function CustomersListComponent() {
           placeholder="Search customers…"
           value={search}
           onChangeText={setSearch}
-          className="max-w-80"
+          aria-label="Search customers"
+          className="sm:max-w-80"
         />
       </Toolbar>
 
@@ -121,38 +125,20 @@ function CustomersListComponent() {
         rowKey={(r) => r.id}
         columns={columns}
         renderCard={(r) => (
-          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="m-0 truncate text-base font-semibold text-foreground">{r.name}</p>
-                <p className="m-0 text-xs text-muted-foreground">
-                  Customer since {format(new Date(r.createdAt), "MMM d, yyyy")}
-                </p>
-              </div>
-              <Can
-                do="customer.update"
-                fallback={
-                  <Link to="/customers/$id" params={{ id: r.id }}>
-                    <Button variant="outline" size="sm">View</Button>
-                  </Link>
-                }
-              >
-                <Link to="/customers/$id" params={{ id: r.id }}>
-                  <Button variant="outline" size="sm">Edit</Button>
-                </Link>
-              </Can>
-            </div>
-            <div className="grid gap-3 text-sm sm:grid-cols-2">
-              <div className="min-w-0">
-                <p className="m-0 text-xs font-medium text-muted-foreground">Email</p>
-                <p className="m-0 truncate text-foreground">{r.email || "—"}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="m-0 text-xs font-medium text-muted-foreground">Phone</p>
-                <p className="m-0 truncate text-foreground">{r.phone || "—"}</p>
-              </div>
-            </div>
-          </div>
+          <ListCard
+            title={
+              <Link to="/customers/$id" params={{ id: r.id }} className={stretchedLink}>
+                {r.name}
+              </Link>
+            }
+            titleText={r.name}
+            subtitle={`Customer since ${format(new Date(r.createdAt), "MMM d, yyyy")}`}
+            facts={[
+              { label: "Email", value: r.email || "Not set", truncate: true },
+              { label: "Phone", value: r.phone || "Not set" },
+            ]}
+            className="[&_dl]:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]"
+          />
         )}
         isLoading={isLoading}
         emptyState={
@@ -161,9 +147,11 @@ function CustomersListComponent() {
             description="Add your first customer or import a CSV to get started."
             actions={
               <Can do="customer.create">
-                <Link to="/customers/$id" params={{ id: "new" }}>
-                  <Button>Add customer</Button>
-                </Link>
+                <Button asChild>
+                  <Link to="/customers/$id" params={{ id: "new" }}>
+                    Add customer
+                  </Link>
+                </Button>
               </Can>
             }
           />

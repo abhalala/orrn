@@ -1,9 +1,11 @@
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent } from "@orrn/ui/components/card";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Input } from "@orrn/ui/components/input";
+import { Input, TextArea } from "@orrn/ui/components/input";
+import { FormActions } from "@orrn/ui/components/form-actions";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { NativeSelect } from "@orrn/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -148,7 +150,9 @@ function DieFormComponent() {
               <form.Field name="series">
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor={field.name}>Series *</Label>
+                    <Label htmlFor={field.name}>
+                    Series <span className="font-normal text-muted-foreground">(required)</span>
+                  </Label>
                     <Input
                       id={field.name}
                       value={field.state.value}
@@ -163,7 +167,9 @@ function DieFormComponent() {
               <form.Field name="sectionCode">
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor={field.name}>Section Code *</Label>
+                    <Label htmlFor={field.name}>
+                    Section code <span className="font-normal text-muted-foreground">(required)</span>
+                  </Label>
                     <Input
                       id={field.name}
                       value={field.state.value}
@@ -194,7 +200,9 @@ function DieFormComponent() {
               <form.Field name="weightMinG">
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor={field.name}>Min Weight (g) *</Label>
+                    <Label htmlFor={field.name}>
+                    Min weight (g) <span className="font-normal text-muted-foreground">(required)</span>
+                  </Label>
                     <Input
                       id={field.name}
                       type="number"
@@ -210,7 +218,9 @@ function DieFormComponent() {
               <form.Field name="weightMaxG">
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor={field.name}>Max Weight (g) *</Label>
+                    <Label htmlFor={field.name}>
+                    Max weight (g) <span className="font-normal text-muted-foreground">(required)</span>
+                  </Label>
                     <Input
                       id={field.name}
                       type="number"
@@ -224,7 +234,7 @@ function DieFormComponent() {
               </form.Field>
             </div>
 
-            <div className="space-y-2 border border-border p-4 rounded-md">
+            <div className="space-y-2 rounded-card border border-border p-4">
               <Label>Nexus die geometry ({lu.label})</Label>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <form.Field name="widthMm">
@@ -298,9 +308,9 @@ function DieFormComponent() {
               {(field) => (
                 <div className="space-y-2">
                   <Label htmlFor={field.name}>Status</Label>
-                  <select
+                  <NativeSelect
                     id={field.name}
-                    className="flex h-9 w-full max-w-[200px] items-center justify-between rounded-md border border-border bg-background px-3 text-sm"
+                    className="sm:max-w-[200px]"
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value as any)}
@@ -310,7 +320,7 @@ function DieFormComponent() {
                         {status.charAt(0).toUpperCase() + status.slice(1)}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
               )}
             </form.Field>
@@ -319,10 +329,9 @@ function DieFormComponent() {
               {(field) => (
                 <div className="space-y-2">
                   <Label htmlFor={field.name}>Notes</Label>
-                  <textarea
+                  <TextArea
                     id={field.name}
                     rows={4}
-                    className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
@@ -331,7 +340,7 @@ function DieFormComponent() {
               )}
             </form.Field>
 
-            <div className="pt-4 flex justify-end gap-2">
+            <FormActions className="pt-2">
               <Button variant="outline" type="button" onClick={() => navigate({ to: "/dies" })}>
                 Cancel
               </Button>
@@ -347,12 +356,12 @@ function DieFormComponent() {
                       type="submit"
                       disabled={!canSubmit || createMutation.isPending || updateMutation.isPending}
                     >
-                      {createMutation.isPending || updateMutation.isPending ? "Saving…" : "Save Die"}
+                      {createMutation.isPending || updateMutation.isPending ? "Saving…" : "Save die"}
                     </Button>
                   )}
                 </form.Subscribe>
               </Can>
-            </div>
+            </FormActions>
           </form>
         </CardContent>
       </Card>

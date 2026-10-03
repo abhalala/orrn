@@ -1,8 +1,9 @@
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardFooter } from "@orrn/ui/components/card";
+import { Card, CardContent } from "@orrn/ui/components/card";
 import { Input, TextArea } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { FormActions } from "@orrn/ui/components/form-actions";
 import { Select } from "@orrn/ui/components/select";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -63,14 +64,17 @@ function NewDispatchComponent() {
       />
 
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="customer">Customer *</Label>
+            <Label htmlFor="customer">
+              Customer <span className="font-normal text-muted-foreground">(required)</span>
+            </Label>
             <Select
               value={customerId}
               onValueChange={setCustomerId}
               options={customerOptions}
               placeholder="Select a customer…"
+              id="customer"
               className="w-full"
             />
           </div>
@@ -91,15 +95,16 @@ function NewDispatchComponent() {
             />
           </div>
         </CardContent>
-        <CardFooter className="justify-end gap-2">
-          <Button variant="outline" onClick={() => navigate({ to: "/dispatches", search: { status: "all" } })}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={createMutation.isPending}>
-            {createMutation.isPending ? "Creating…" : "Create draft"}
-          </Button>
-        </CardFooter>
       </Card>
+
+      <FormActions>
+        <Button variant="outline" onClick={() => navigate({ to: "/dispatches", search: { status: "all" } })}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} disabled={createMutation.isPending}>
+          {createMutation.isPending ? "Creating…" : "Create draft"}
+        </Button>
+      </FormActions>
     </div>
   );
 }

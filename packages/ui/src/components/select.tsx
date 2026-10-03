@@ -14,6 +14,8 @@ export type SelectProps = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Id for the trigger, so a `<Label htmlFor>` names it. */
+  id?: string;
   /** Legacy Tamagui prop — accepted but renders as a width style. */
   width?: number | string;
 };
@@ -29,27 +31,31 @@ export function Select({
   placeholder = "Select…",
   disabled,
   className,
+  id,
   width,
 }: SelectProps) {
   return (
     <SelectPrimitive.Root value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectPrimitive.Trigger
+        id={id}
         data-slot="select-trigger"
         className={cn(
-          "flex h-11 items-center justify-between gap-2 rounded-input border border-input bg-card px-3.5 text-[15px] text-foreground transition-[border-color] duration-[var(--dur-fast)] hover:border-foreground/70 focus-visible:border-foreground disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground pointer-coarse:text-base",
+          "flex h-12 min-w-0 items-center justify-between gap-2 rounded-input sm:h-11 border border-input bg-card px-3.5 text-[15px] text-foreground transition-[border-color] duration-[var(--dur-fast)] hover:border-foreground/70 focus-visible:border-foreground disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground pointer-coarse:text-base",
           className,
         )}
         style={width != null ? { width } : undefined}
       >
-        <SelectPrimitive.Value placeholder={placeholder} />
+        <span className="min-w-0 truncate text-left">
+          <SelectPrimitive.Value placeholder={placeholder} />
+        </span>
         <SelectPrimitive.Icon asChild>
-          <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
 
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content
-          className="relative z-50 max-h-96 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-card border border-border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          className="relative z-50 max-h-96 min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-card border border-border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
           position="popper"
         >
           <SelectPrimitive.ScrollUpButton className="flex h-6 cursor-default items-center justify-center">

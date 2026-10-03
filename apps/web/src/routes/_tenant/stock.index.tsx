@@ -1,7 +1,8 @@
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { Card } from "@orrn/ui/components/card";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { ListCard, stretchedLink } from "@orrn/ui/components/list-card";
 import { Input } from "@orrn/ui/components/input";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Tabs } from "@orrn/ui/components/tabs";
@@ -13,6 +14,7 @@ import { useState } from "react";
 import { useLengthUnit } from "@/shared/lib/length";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
+import { formatKgTotal, kgTotalValue, kgValue } from "@/shared/lib/weight";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -79,7 +81,7 @@ function StockComponent() {
   const columns: DataTableColumn<StockRow>[] = [
     { id: "series", header: "Die", cell: (r) => r.dieSeries, sortable: true, sortValue: (r) => r.dieSeries },
     { id: "section", header: "Section", cell: (r) => r.dieSectionCode },
-    { id: "name", header: "Name", cell: (r) => r.dieName || "—", flex: 2 },
+    { id: "name", header: "Name", cell: (r) => r.dieName || "Unnamed die", flex: 2 },
     {
       id: "bundles",
       header: "Bundles",
@@ -94,9 +96,9 @@ function StockComponent() {
     },
     {
       id: "weight",
-      header: "Weight (g)",
+      header: "Weight (kg)",
       align: "right",
-      cell: (r) => Number(r.totalWeightG).toLocaleString(),
+      cell: (r) => kgTotalValue(r.totalWeightG),
     },
     {
       id: "length",
@@ -109,11 +111,11 @@ function StockComponent() {
       header: "",
       align: "right",
       cell: (r) => (
-        <Link to="/bundles" search={{ status, dieId: r.dieId, groupId: undefined }}>
-          <Button variant="ghost" size="sm">
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/bundles" search={{ status, dieId: r.dieId, groupId: undefined }}>
             View bundles
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       ),
     },
   ];
@@ -126,17 +128,17 @@ function StockComponent() {
       header: "Serial",
       flex: 1.4,
       cell: (row) => (
-        <Link to="/bundles/$id" params={{ id: row.id }} className="font-mono text-xs hover:underline">
+        <Link to="/bundles/$id" params={{ id: row.id }} className="font-mono hover:underline">
           {row.serial}
         </Link>
       ),
     },
-    { id: "po", header: "PO", cell: (row) => row.poNumber || "—" },
     { id: "die", header: "Die", cell: (row) => `${row.dieSeries} / ${row.dieSectionCode}` },
-    { id: "session", header: "Session", cell: (row) => row.groupCode },
-    { id: "qty", header: "Qty", align: "right", cell: (row) => Number(row.quantity).toLocaleString() },
-    { id: "weight", header: "Weight (g)", align: "right", cell: (row) => Number(row.weightG).toLocaleString() },
+    { id: "qty", header: "Pieces", align: "right", cell: (row) => Number(row.quantity).toLocaleString() },
+    { id: "weight", header: "Weight (kg)", align: "right", cell: (row) => kgValue(row.weightG) },
     { id: "length", header: `Length (${lu.label})`, align: "right", cell: (row) => lu.formatLength(Number(row.lengthMm)) },
+    { id: "session", header: "Session", cell: (row) => <span className="font-mono">{row.groupCode}</span> },
+    { id: "po", header: "PO", cell: (row) => row.poNumber || "None" },
   ];
 
   return (
@@ -159,17 +161,19 @@ function StockComponent() {
           placeholder="Search serial…"
           value={serialSearch}
           onChangeText={setSerialSearch}
-          className="max-w-[260px]"
+          aria-label="Search stock by serial"
+          className="sm:max-w-[260px]"
         />
       </Toolbar>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <section aria-label="Stock totals" className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <SummaryCard label="Bundles" value={Number(totals.bundleCount).toLocaleString()} />
-        <SummaryCard label="Total Quantity" value={Number(totals.totalQuantity).toLocaleString()} />
-        <SummaryCard label="Total Weight (g)" value={Number(totals.totalWeightG).toLocaleString()} />
-        <SummaryCard label={`Total Length (${lu.label})`} value={lu.formatLength(Number(totals.totalLengthMm))} />
-      </div>
+        <SummaryCard label="Pieces" value={Number(totals.totalQuantity).toLocaleString()} />
+        <SummaryCard label="Weight (kg)" value={kgTotalValue(totals.totalWeightG)} />
+        <SummaryCard label={`Length (${lu.label})`} value={lu.formatLength(Number(totals.totalLengthMm))} />
+      </section>
 
+      <h2 className="m-0 mb-3 text-base font-semibold tracking-[-0.01em] text-foreground">Bundles</h2>
       <DataTable
         rows={(bundleData?.items ?? []) as BundleStockRow[]}
         rowKey={(row) => row.id}
@@ -178,43 +182,34 @@ function StockComponent() {
         emptyState={<EmptyState title={`No ${status} bundles`} description="No bundle rows match this stock filter." />}
       />
 
+      <h2 className="m-0 mb-3 text-base font-semibold tracking-[-0.01em] text-foreground">By die</h2>
       <DataTable
         rows={items}
         rowKey={(r) => r.dieId}
         columns={columns}
         renderCard={(r) => (
-          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="m-0 font-mono text-lg font-semibold text-foreground">{r.dieSeries}</p>
-                <p className="m-0 text-sm text-muted-foreground">{r.dieName || r.dieSectionCode}</p>
-              </div>
-              <Link to="/bundles" search={{ status, dieId: r.dieId, groupId: undefined }}>
-                <Button variant="outline" size="sm">Bundles</Button>
+          <ListCard
+            mono
+            title={
+              <Link
+                to="/bundles"
+                search={{ status, dieId: r.dieId, groupId: undefined }}
+                className={stretchedLink}
+                aria-label={`${r.dieSeries} / ${r.dieSectionCode}: view bundles`}
+              >
+                {r.dieSeries} / {r.dieSectionCode}
               </Link>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Section</p>
-                <p className="m-0 font-mono text-foreground">{r.dieSectionCode}</p>
-              </div>
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Bundles</p>
-                <p className="m-0 text-foreground">{Number(r.bundleCount).toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Quantity</p>
-                <p className="m-0 text-foreground">{Number(r.totalQuantity).toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
-                <p className="m-0 text-foreground">{Number(r.totalWeightG).toLocaleString()} g</p>
-              </div>
-            </div>
-            <p className="m-0 border-t border-border pt-3 text-xs text-muted-foreground">
-              Total length {lu.formatLength(Number(r.totalLengthMm))}
-            </p>
-          </div>
+            }
+            titleText={`${r.dieSeries} / ${r.dieSectionCode}`}
+            subtitle={r.dieName || "Unnamed die"}
+            subtitleText={r.dieName ?? undefined}
+            facts={[
+              { label: "Bundles", value: Number(r.bundleCount).toLocaleString() },
+              { label: "Pieces", value: Number(r.totalQuantity).toLocaleString() },
+              { label: "Weight", value: formatKgTotal(r.totalWeightG) },
+            ]}
+            footer={<span>Total length {lu.formatLength(Number(r.totalLengthMm))}</span>}
+          />
         )}
         isLoading={isLoading}
         emptyState={<EmptyState title={`No ${status} stock`} description="Nothing in this bucket yet." />}
@@ -225,12 +220,17 @@ function StockComponent() {
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle>{value}</CardTitle>
-      </CardHeader>
-      <CardContent />
+    <Card className="min-w-0 gap-1 p-4">
+      <p className="m-0 break-words text-[13px] font-medium text-muted-foreground">
+        {label}
+      </p>
+      {/* Key numbers are never ellipsised: smaller on phones and free to wrap. */}
+      <p
+        data-no-truncate=""
+        className="m-0 break-words font-display text-[22px] font-extrabold leading-tight tracking-[-0.03em] tabular-nums text-foreground sm:text-[26px]"
+      >
+        {value}
+      </p>
     </Card>
   );
 }

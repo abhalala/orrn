@@ -68,13 +68,31 @@ export function WorkspaceShell({
     return !!matchRoute({ to: itemTo as any, fuzzy: !isParent });
   }
 
-  const mobileItems = filteredNav.map((item) => ({
-    key: item.key,
-    label: item.label,
-    icon: item.icon,
-    href: item.to,
-    active: isItemActive(item.to),
-  }));
+  const priority = mobilePriority(staffMode ? "staff" : me?.company?.role);
+  const rank = (key: string) => {
+    const i = priority.indexOf(key);
+    return i === -1 ? priority.length : i;
+  };
+  // Phone tab bar: the role's most-used destinations first; the rest go
+  // behind "More" (MobileNav keeps at most 5 tabs).
+  const mobileItems = filteredNav
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => rank(a.item.key) - rank(b.item.key) || a.index - b.index)
+    .map(({ item }) => ({
+      key: item.key,
+      label: item.shortLabel ? (
+        <>
+          <span aria-hidden="true">{item.shortLabel}</span>
+          <span className="sr-only">{item.label}</span>
+        </>
+      ) : (
+        item.label
+      ),
+      fullLabel: item.label,
+      icon: item.icon,
+      href: item.to,
+      active: isItemActive(item.to),
+    }));
 
   return (
     <AppFrame
@@ -129,7 +147,22 @@ export function WorkspaceShell({
           }
         />
       }
-      mobileNav={<MobileNav items={mobileItems} />}
+      mobileNav={
+        <MobileNav
+          items={mobileItems}
+          renderLink={({ item, className, children, onNavigate }) => (
+            <Link
+              key={item.key}
+              to={item.href as any}
+              aria-current={item.active ? "page" : undefined}
+              className={className}
+              onClick={onNavigate}
+            >
+              {children}
+            </Link>
+          )}
+        />
+      }
     >
       {children}
     </AppFrame>
@@ -178,9 +211,16 @@ function StatusContext({ staffMode }: { staffMode?: boolean }) {
       <div className="flex min-w-0 items-center gap-2">
         <Eye size={16} className="hidden shrink-0 text-tone-violet-ink sm:block" aria-hidden="true" />
         <span className="hidden truncate text-sm font-medium text-foreground sm:block">Godseye</span>
-        <span className="truncate text-sm text-muted-foreground">{me?.user.email}</span>
+        <span className="truncate text-sm text-muted-foreground" title={me?.user.email}>
+          {me?.user.email}
+        </span>
         {me?.platformRole ? (
-          <StatusBadge kind="role" value="platform" label={sentenceCase(me.platformRole.replace(/_/g, " "))} />
+          <StatusBadge
+            kind="role"
+            value="platform"
+            label={sentenceCase(me.platformRole.replace(/_/g, " "))}
+            className="hidden sm:inline-flex"
+          />
         ) : null}
       </div>
     );
@@ -191,13 +231,36 @@ function StatusContext({ staffMode }: { staffMode?: boolean }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
       <Building2 size={16} className="hidden shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
-      <span className="truncate text-sm font-semibold text-foreground">{me.company.name}</span>
-      {me.company.role ? <StatusBadge kind="role" value={me.company.role} label={sentenceCase(me.company.role)} /> : null}
+      <span className="truncate text-sm font-semibold text-foreground" title={me.company.name}>
+        {me.company.name}
+      </span>
+      {me.company.role ? (
+        <StatusBadge
+          kind="role"
+          value={me.company.role}
+          label={sentenceCase(me.company.role)}
+          className="hidden sm:inline-flex"
+        />
+      ) : null}
       {me.isPlatformAdmin ? (
-        <StatusBadge kind="role" value="platform" label="Platform" />
+        <StatusBadge kind="role" value="platform" label="Platform" className="hidden md:inline-flex" />
       ) : null}
     </div>
   );
+}
+
+/** Tab-bar order per role: what each person reaches for most on the floor. */
+function mobilePriority(role: string | null | undefined): string[] {
+  switch (role) {
+    case "staff":
+      return ["console", "companies", "waitlist", "staff", "spool"];
+    case "operator":
+      return ["dashboard", "bundles", "dispatches", "spool", "stock"];
+    case "viewer":
+      return ["dashboard", "stock", "bundles", "dispatches"];
+    default:
+      return ["dashboard", "dispatches", "bundles", "stock"];
+  }
 }
 
 function sentenceCase(value: string): string {

@@ -6,14 +6,16 @@ import { toast } from "sonner";
 
 import { trpc } from "@/shared/utils/trpc";
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
-import { Toolbar } from "@orrn/ui/components/toolbar";
+import { FormActions } from "@orrn/ui/components/form-actions";
+import { NativeSelect } from "@orrn/ui/components/native-select";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { useLengthUnit } from "@/shared/lib/length";
+import { formatKgTotal } from "@/shared/lib/weight";
 
 export const Route = createFileRoute("/_tenant/receipts/new")({
   component: NewReceiptComponent,
@@ -162,7 +164,7 @@ function NewReceiptComponent() {
         id: "index",
         header: "#",
         flex: 0.3,
-        cell: (row) => rowIndex.get(row.id) ?? "—",
+        cell: (row) => rowIndex.get(row.id) ?? "",
       },
       {
         id: "quantity",
@@ -236,26 +238,21 @@ function NewReceiptComponent() {
   return (
     <div className="w-full min-w-0 max-w-4xl mx-auto space-y-4 md:space-y-6">
       <PageHeader
-        eyebrow="Receipts"
-        title="New bundling session"
-        description="Record a production batch, review the generated bundles, then print labels using the Nexus layout flow."
-        actions={
-          <Button variant="outline" onClick={() => navigate({ to: "/receipts" })}>
-            Cancel
-          </Button>
-        }
+        eyebrow="Packing"
+        title="New packing session"
+        description="Record a production batch, review the bundles it makes, then print their labels."
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Receipt details</CardTitle>
+          <CardTitle>Session details</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="die">Die *</Label>
-            <select
+            <Label htmlFor="die">Die <span className="font-normal text-muted-foreground">(required)</span></Label>
+            <NativeSelect
               id="die"
-              className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              
               value={dieId}
               onChange={(e) => setDieId(e.target.value)}
             >
@@ -263,13 +260,13 @@ function NewReceiptComponent() {
               {diesData?.items.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.series} / {d.sectionCode}
-                  {d.name ? ` — ${d.name}` : ""}
+                  {d.name ? `, ${d.name}` : ""}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="unit">Length unit *</Label>
+            <Label htmlFor="unit">Length unit <span className="font-normal text-muted-foreground">(required)</span></Label>
             <Input
               id="unit"
               className="w-full"
@@ -302,9 +299,9 @@ function NewReceiptComponent() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <CardTitle>Batch bundles ({rows.length})</CardTitle>
-          <Toolbar>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle>Bundles in this batch ({rows.length})</CardTitle>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
             <input
               type="file"
               accept=".csv,.json"
@@ -313,12 +310,12 @@ function NewReceiptComponent() {
               onChange={handleFileUpload}
             />
             <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-              Import CSV / JSON
+              Import CSV or JSON
             </Button>
             <Button variant="outline" size="sm" onClick={addRow}>
               Add row
             </Button>
-          </Toolbar>
+          </div>
         </CardHeader>
         <CardContent>
           <DataTable
@@ -327,8 +324,8 @@ function NewReceiptComponent() {
             rowKey={(r) => r.id}
             renderCard={(row) => (
               <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="m-0 text-sm font-semibold text-foreground">
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <p className="m-0 min-w-0 truncate text-sm font-semibold text-foreground">
                     Bundle {rowIndex.get(row.id)}
                   </p>
                   <Button
@@ -342,7 +339,7 @@ function NewReceiptComponent() {
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor={`${row.id}-quantity`}>Quantity *</Label>
+                    <Label htmlFor={`${row.id}-quantity`}>Pieces <span className="font-normal text-muted-foreground">(required)</span></Label>
                     <Input
                       id={`${row.id}-quantity`}
                       className="w-full"
@@ -354,7 +351,7 @@ function NewReceiptComponent() {
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor={`${row.id}-weight`}>Weight (g) *</Label>
+                    <Label htmlFor={`${row.id}-weight`}>Weight (g) <span className="font-normal text-muted-foreground">(required)</span></Label>
                     <Input
                       id={`${row.id}-weight`}
                       className="w-full"
@@ -366,7 +363,7 @@ function NewReceiptComponent() {
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor={`${row.id}-length`}>Length ({lu.label}) *</Label>
+                    <Label htmlFor={`${row.id}-length`}>Length ({lu.label}) <span className="font-normal text-muted-foreground">(required)</span></Label>
                     <Input
                       id={`${row.id}-length`}
                       className="w-full"
@@ -392,18 +389,19 @@ function NewReceiptComponent() {
             )}
           />
           <p className="text-xs text-muted-foreground mt-4">
-            Totals: {totalQuantity} qty · {totalWeightG} g
+            Totals: {totalQuantity.toLocaleString()} pcs, {formatKgTotal(totalWeightG)}
           </p>
         </CardContent>
-        <CardFooter className="justify-end gap-2">
-          <Button variant="outline" onClick={() => navigate({ to: "/receipts" })}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={createMutation.isPending}>
-            {createMutation.isPending ? "Saving…" : "Create session"}
-          </Button>
-        </CardFooter>
       </Card>
+
+      <FormActions>
+        <Button variant="outline" onClick={() => navigate({ to: "/receipts" })}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} disabled={createMutation.isPending}>
+          {createMutation.isPending ? "Saving…" : "Create session"}
+        </Button>
+      </FormActions>
     </div>
   );
 }

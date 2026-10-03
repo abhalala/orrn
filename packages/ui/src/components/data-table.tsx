@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from
 import { cn } from "@orrn/ui/lib/utils";
 
 import { Button } from "./button";
+import { NativeSelect } from "./native-select";
 import { Skeleton } from "./skeleton";
 
 export type DataTableColumn<Row> = {
@@ -28,6 +29,12 @@ export type DataTableProps<Row> = {
   initialPage?: number;
   footer?: ReactNode;
 };
+
+/**
+ * Container-aware card grid: as many columns as fit at >= 18rem each, so a
+ * list inside a half-width panel never squeezes cards into slivers.
+ */
+const LIST_GRID = "grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-3";
 
 type SortState = { columnId: string; dir: "asc" | "desc" } | null;
 
@@ -91,25 +98,52 @@ export function DataTable<Row>({
   return (
     <div className="flex w-full flex-col gap-3">
       {sortableColumns.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[13px] font-medium text-muted-foreground">Sort</span>
-          {sortableColumns.map((col) => {
-            const active = sort?.columnId === col.id;
-            const label = labelText(col.header);
-            return (
-              <Button
-                key={col.id}
-                variant={active ? "secondary" : "outline"}
-                size="sm"
-                aria-label={`Sort by ${label}`}
-                onPress={() => toggleSort(col.id)}
-              >
-                {col.header}
-                {active ? <span aria-hidden="true">{sort.dir === "asc" ? "Asc" : "Desc"}</span> : null}
-              </Button>
-            );
-          })}
-        </div>
+        <>
+          {/* Phones: one compact sort picker instead of a wall of pills. */}
+          <label className="flex items-center gap-3 sm:hidden">
+            <span className="shrink-0 text-[13px] font-medium text-muted-foreground">Sort</span>
+            <NativeSelect
+              density="compact"
+              value={sort ? `${sort.columnId}:${sort.dir}` : ""}
+              onChange={(e) => {
+                const [columnId, dir] = e.target.value.split(":");
+                setSort(columnId ? { columnId, dir: dir === "desc" ? "desc" : "asc" } : null);
+              }}
+            >
+              <option value="">Default order</option>
+              {sortableColumns.map((col) => {
+                const label = labelText(col.header);
+                return [
+                  <option key={`${col.id}:asc`} value={`${col.id}:asc`}>
+                    {label}, ascending
+                  </option>,
+                  <option key={`${col.id}:desc`} value={`${col.id}:desc`}>
+                    {label}, descending
+                  </option>,
+                ];
+              })}
+            </NativeSelect>
+          </label>
+          <div className="hidden flex-wrap items-center gap-2 sm:flex">
+            <span className="text-[13px] font-medium text-muted-foreground">Sort</span>
+            {sortableColumns.map((col) => {
+              const active = sort?.columnId === col.id;
+              const label = labelText(col.header);
+              return (
+                <Button
+                  key={col.id}
+                  variant={active ? "secondary" : "outline"}
+                  size="sm"
+                  aria-label={`Sort by ${label}`}
+                  onPress={() => toggleSort(col.id)}
+                >
+                  {col.header}
+                  {active ? <span aria-hidden="true">{sort.dir === "asc" ? "Asc" : "Desc"}</span> : null}
+                </Button>
+              );
+            })}
+          </div>
+        </>
       ) : null}
 
       {isLoading ? (
@@ -119,9 +153,9 @@ export function DataTable<Row>({
           {emptyState ?? <DefaultEmpty />}
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className={LIST_GRID}>
           {pageRows.map((row) => (
-            <div key={rowKey(row)}>
+            <div key={rowKey(row)} className="min-w-0">
               {renderCard ? (
                 renderCard(row)
               ) : (
@@ -176,8 +210,11 @@ function CardListItem<Row>({
   row: Row;
   onPress?: () => void;
 }) {
-  const visibleColumns = columns.filter((col) => col.header !== "");
   const actionColumns = columns.filter((col) => col.header === "" || col.id === "actions");
+  const statusColumn = columns.find((col) => col.id === "status" && col.header !== "");
+  const visibleColumns = columns.filter(
+    (col) => col.header !== "" && col.id !== "actions" && col !== statusColumn,
+  );
   const [primaryColumn, ...detailColumns] = visibleColumns;
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -188,10 +225,12 @@ function CardListItem<Row>({
     }
   };
 
+  // Phone-first card: the key value leads (with its status chip on the same
+  // line), then the secondary facts in a compact label-over-value grid.
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 shadow-sm transition-[background-color,border-color,transform] duration-[var(--dur-fast)]",
+        "flex h-full min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 shadow-sm transition-[background-color,border-color,transform] duration-[var(--dur-fast)]",
         onPress ? "cursor-pointer hover:border-control/60 active:scale-[0.99]" : "",
       )}
       role={onPress ? "button" : undefined}
@@ -203,17 +242,16 @@ function CardListItem<Row>({
         <div className="min-w-0 flex-1">
           {primaryColumn ? (
             <>
-              <p className="m-0 text-xs font-medium text-muted-foreground">
-                {primaryColumn.header}
-              </p>
-              <div className="mt-1 min-w-0 text-[15px] font-semibold text-foreground">
+              <p className="sr-only">{primaryColumn.header}</p>
+              <div className="min-w-0 truncate text-[15px] font-semibold leading-6 text-foreground">
                 {asNode(primaryColumn.cell(row))}
               </div>
             </>
           ) : null}
         </div>
-        {actionColumns.length > 0 ? (
+        {statusColumn || actionColumns.length > 0 ? (
           <div className="flex shrink-0 items-center gap-2">
+            {statusColumn ? <div>{asNode(statusColumn.cell(row))}</div> : null}
             {actionColumns.map((col) => (
               <div key={col.id}>{asNode(col.cell(row))}</div>
             ))}
@@ -222,24 +260,61 @@ function CardListItem<Row>({
       </div>
 
       {detailColumns.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        // Phones show the first three facts in one row; wider cards show all.
+        <dl className="m-0 grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-2.5 sm:grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] max-sm:[&>div:nth-child(n+4)]:hidden">
           {detailColumns.map((col) => (
-            <div key={col.id} className={cn("min-w-0", col.align === "right" ? "sm:text-right" : "")}>
-              <p className="m-0 text-xs font-medium text-muted-foreground">
-                {col.header}
-              </p>
-              <div className="mt-1 min-w-0 text-sm text-foreground">{asNode(col.cell(row))}</div>
+            <div key={col.id} className="min-w-0">
+              <dt className="break-words text-xs font-medium text-muted-foreground">{col.header}</dt>
+              <FactValue value={col.cell(row)} />
             </div>
           ))}
-        </div>
+        </dl>
       ) : null}
     </div>
   );
 }
 
-function asNode(value: ReactNode): ReactNode {
+/**
+ * A card fact value. Numbers and phrases ("AL / ROUND-10", "Oct 3, 2026")
+ * wrap at spaces and are never ellipsised: touch users can't hover for a
+ * title. Only a single unbroken token too long for the cell (a long PO or
+ * reference) gets an ellipsis, with the full value in `title`.
+ */
+function FactValue({ value }: { value: ReactNode }) {
+  const base = "m-0 mt-0.5 min-w-0 text-sm text-foreground";
+  if (typeof value === "number" || (typeof value === "string" && /^[\d\s.,:/+-]*$/.test(value))) {
+    return (
+      <dd data-no-truncate="" className={cn(base, "break-words tabular-nums")}>
+        {value}
+      </dd>
+    );
+  }
+  if (typeof value === "string" && !/\s/.test(value)) {
+    return (
+      <dd title={value} className={cn(base, "truncate")}>
+        {value}
+      </dd>
+    );
+  }
+  if (typeof value === "string") {
+    return (
+      <dd data-no-truncate="" className={cn(base, "break-words")}>
+        {value}
+      </dd>
+    );
+  }
+  return <dd className={cn(base, "break-words")}>{value}</dd>;
+}
+
+function asNode(value: ReactNode, truncate = true): ReactNode {
   if (typeof value === "string" || typeof value === "number") {
-    return <span className="text-sm text-foreground">{value}</span>;
+    return truncate ? (
+      <span className="truncate" title={String(value)}>
+        {value}
+      </span>
+    ) : (
+      <span>{value}</span>
+    );
   }
   return value;
 }
@@ -251,7 +326,7 @@ function labelText(value: ReactNode): string {
 
 function LoadingCards() {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Loading list">
+    <div className={LIST_GRID} aria-label="Loading list">
       {Array.from({ length: 6 }).map((_, index) => (
         <div key={index} className="flex flex-col gap-3 rounded-card border border-border bg-card p-4">
           <Skeleton className="h-4 w-1/2" />

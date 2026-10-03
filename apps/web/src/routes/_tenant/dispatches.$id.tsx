@@ -9,15 +9,19 @@ import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Input } from "@orrn/ui/components/input";
+import { Fact, FactList } from "@orrn/ui/components/fact-list";
+import { Input, TextArea } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { Skeleton } from "@orrn/ui/components/skeleton";
+import { Truncate } from "@orrn/ui/components/truncate";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { downloadPackingListPdf, type PLSnapshot } from "@/shared/lib/packingListPdf";
 import { downloadPackingListXlsx } from "@/shared/lib/packingListXlsx";
 import { trpc } from "@/shared/utils/trpc";
+import { formatKg, formatKgTotal, kgValue } from "@/shared/lib/weight";
 
 export const Route = createFileRoute("/_tenant/dispatches/$id")({
   component: DispatchDetailComponent,
@@ -151,7 +155,15 @@ function DispatchDetailComponent() {
     onError: (e: any) => toast.error(e.message || "Failed to delete"),
   });
 
-  if (isLoading) return <div>Loading…</div>;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-5" aria-busy="true" aria-label="Loading dispatch">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-40 w-full rounded-card" />
+        <Skeleton className="h-28 w-full rounded-card" />
+      </div>
+    );
+  }
   if (!data) {
     return <EmptyState title="Dispatch not found" description="This dispatch may have been removed." />;
   }
@@ -184,9 +196,9 @@ function DispatchDetailComponent() {
       header: "Die",
       cell: (it) => `${it.dieSeries} / ${it.dieSectionCode}`,
     },
-    { id: "group", header: "Group", cell: (it) => it.groupLabel || "—" },
+    { id: "group", header: "Group", cell: (it) => it.groupLabel || "None" },
     { id: "qty", header: "Qty", align: "right", cell: (it) => it.quantity },
-    { id: "weight", header: "Weight (g)", align: "right", cell: (it) => it.weightG },
+    { id: "weight", header: "Weight (kg)", align: "right", cell: (it) => kgValue(it.weightG) },
     { id: "length", header: `Length (${lu.label})`, align: "right", cell: (it) => lu.formatLength(it.lengthMm) },
     {
       id: "status",
@@ -250,44 +262,28 @@ function DispatchDetailComponent() {
       />
 
       <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-        <div>
-          <Label className="text-xs text-muted-foreground">Status</Label>
-          <p className="mt-1">
+        <FactList>
+          <Fact label="Status">
             <StatusBadge kind="dispatch" value={d.status} />
-          </p>
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">Customer</Label>
-          <p className="font-medium">{c?.name ?? "(deleted)"}</p>
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">Ship Date</Label>
-          <p>{d.shipDate ? format(new Date(d.shipDate), "PP") : "—"}</p>
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">Created</Label>
-          <p>{format(new Date(d.createdAt), "PP p")}</p>
-        </div>
-        {d.completedAt && (
-          <div>
-            <Label className="text-xs text-muted-foreground">Completed</Label>
-            <p>{format(new Date(d.completedAt), "PP p")}</p>
-          </div>
-        )}
-        <div className="col-span-2">
-          <Label className="text-xs text-muted-foreground">Notes</Label>
-          <p>{d.notes || "—"}</p>
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs text-muted-foreground">Totals</Label>
-          <p>
-            {items.length} bundle(s) · {totalQty} qty · {totalWeight} g
-          </p>
-        </div>
-          </div>
-        </CardContent>
+          </Fact>
+          <Fact label="Customer" wide>
+            <Truncate lines={2} className="font-medium">
+              {c?.name ?? "Deleted customer"}
+            </Truncate>
+          </Fact>
+          <Fact label="Ship date">{d.shipDate ? format(new Date(d.shipDate), "PP") : "Not set"}</Fact>
+          <Fact label="Created">{format(new Date(d.createdAt), "PP p")}</Fact>
+          {d.completedAt ? <Fact label="Completed">{format(new Date(d.completedAt), "PP p")}</Fact> : null}
+          <Fact label="Totals">
+            <span className="tabular-nums">
+              {items.length} {items.length === 1 ? "bundle" : "bundles"}, {totalQty.toLocaleString()} pcs,{" "}
+              {formatKgTotal(totalWeight)}
+            </span>
+          </Fact>
+          <Fact label="Notes" wide>
+            {d.notes || "None"}
+          </Fact>
+        </FactList>
       </Card>
 
       <Card>
@@ -295,48 +291,60 @@ function DispatchDetailComponent() {
           <CardTitle>Actions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          <Can do="dispatch.reserve">
-            <Button
-              disabled={!canReserve || reserveMutation.isPending}
-              onClick={() => reserveMutation.mutate({ id })}
-            >
-              Reserve
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!canUnreserve || unreserveMutation.isPending}
-              onClick={() => unreserveMutation.mutate({ id })}
-            >
-              Unreserve
-            </Button>
-          </Can>
-          <Can do="dispatch.complete">
-            <Button
-              disabled={!canComplete || completeMutation.isPending}
-              onClick={() => {
-                if (window.confirm("Complete this dispatch? Bundles will be marked as dispatched.")) {
-                  completeMutation.mutate({ id });
-                }
-              }}
-            >
-              Complete
-            </Button>
-          </Can>
-          <Can do="dispatch.cancel">
-            <Button
-              variant="destructive"
-              disabled={!canCancel || cancelMutation.isPending}
-              onClick={() => {
-                if (window.confirm("Cancel this dispatch?")) {
-                  cancelMutation.mutate({ id, reason: null });
-                }
-              }}
-            >
-              Cancel
-            </Button>
-          </Can>
-          {canDelete && (
+        {/* Only the moves that make sense for this status. Phones: a 2-up
+            grid of full-width pills; wider: a row. */}
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>*:nth-child(odd):last-child]:col-span-2">
+          {d.status === "draft" ? (
+            <Can do="dispatch.reserve">
+              <Button
+                disabled={!canReserve || reserveMutation.isPending}
+                onClick={() => reserveMutation.mutate({ id })}
+              >
+                Reserve
+              </Button>
+            </Can>
+          ) : null}
+          {canUnreserve ? (
+            <Can do="dispatch.reserve">
+              <Button
+                variant="outline"
+                disabled={unreserveMutation.isPending}
+                onClick={() => unreserveMutation.mutate({ id })}
+              >
+                Unreserve
+              </Button>
+            </Can>
+          ) : null}
+          {d.status === "reserved" ? (
+            <Can do="dispatch.complete">
+              <Button
+                disabled={!canComplete || completeMutation.isPending}
+                onClick={() => {
+                  if (window.confirm("Complete this dispatch? Bundles will be marked as dispatched.")) {
+                    completeMutation.mutate({ id });
+                  }
+                }}
+              >
+                Complete
+              </Button>
+            </Can>
+          ) : null}
+          {canCancel ? (
+            <Can do="dispatch.cancel">
+              <Button
+                variant="destructive"
+                disabled={cancelMutation.isPending}
+                onClick={() => {
+                  if (window.confirm("Cancel this dispatch?")) {
+                    cancelMutation.mutate({ id, reason: null });
+                  }
+                }}
+              >
+                Cancel dispatch
+              </Button>
+            </Can>
+          ) : null}
+          {canDelete ? (
             <Can do="dispatch.delete">
               <Button
                 variant="ghost"
@@ -350,7 +358,12 @@ function DispatchDetailComponent() {
                 Delete
               </Button>
             </Can>
-          )}
+          ) : null}
+          {d.status === "completed" ? (
+            <p className="col-span-2 m-0 text-sm text-muted-foreground">
+              Dispatched. The packing list below is ready to print.
+            </p>
+          ) : null}
         </div>
         </CardContent>
       </Card>
@@ -368,7 +381,7 @@ function DispatchDetailComponent() {
               id="serial-search"
               value={serialQuery}
               onChange={(e) => setSerialQuery(e.target.value)}
-              placeholder="Type at least 1 character..."
+              placeholder="Type part of a serial"
             />
             {serialQuery && availableQuery.data && (
               <div className="border rounded-md mt-2 max-h-64 overflow-auto">
@@ -377,14 +390,17 @@ function DispatchDetailComponent() {
                 ) : (
                   <ul className="divide-y">
                     {availableQuery.data.items.map((b) => (
-                      <li key={b.id} className="flex items-center justify-between p-3 text-sm">
-                        <div>
-                          <p className="font-mono">{b.serial}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {b.dieSeries} / {b.dieSectionCode} · qty {b.quantity} · {b.weightG}g · {lu.formatLength(b.lengthMm)}
-                          </p>
+                      <li key={b.id} className="flex min-w-0 items-center justify-between gap-3 p-3 text-sm">
+                        <div className="min-w-0 flex-1">
+                          <Truncate as="p" mono className="m-0 font-semibold">
+                            {b.serial}
+                          </Truncate>
+                          <Truncate as="p" className="m-0 text-xs text-muted-foreground">
+                            {`${b.dieSeries} / ${b.dieSectionCode}, ${b.quantity} pcs, ${formatKg(b.weightG)}, ${lu.formatLength(b.lengthMm)}`}
+                          </Truncate>
                         </div>
                         <Button
+                          className="shrink-0"
                           size="sm"
                           disabled={addMutation.isPending}
                           onClick={() => addMutation.mutate({ id, bundleId: b.id })}
@@ -400,18 +416,18 @@ function DispatchDetailComponent() {
           </div>
 
           <div className="space-y-2 pt-4 border-t">
-            <Label htmlFor="bulk-serials">Scan or paste serials / UUIDs (one per line)</Label>
-            <textarea
+            <Label htmlFor="bulk-serials">Scan or paste serials, one per line</Label>
+            <TextArea
               id="bulk-serials"
               rows={4}
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="font-mono"
               value={bulkSerials}
               onChange={(e) => setBulkSerials(e.target.value)}
-              placeholder="BG-000123-B001&#10;BG-000123-B002"
+              placeholder={"BG-000123-B001\nBG-000123-B002"}
             />
             <Button
               variant="outline"
-              size="sm"
+              className="w-full sm:w-auto"
               disabled={bulkMutation.isPending || !bulkSerials.trim()}
               onClick={() => {
                 const serials = bulkSerials
@@ -425,7 +441,7 @@ function DispatchDetailComponent() {
                 bulkMutation.mutate({ id, serials });
               }}
             >
-              {bulkMutation.isPending ? "Adding..." : "Add by serial"}
+              {bulkMutation.isPending ? "Adding…" : "Add by serial"}
             </Button>
           </div>
           </CardContent>
@@ -444,26 +460,26 @@ function DispatchDetailComponent() {
             columns={itemColumns}
             renderCard={(it) => (
               <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <Link to="/bundles/$id" params={{ id: it.bundleId }} className="font-mono text-sm font-semibold hover:underline">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <Link to="/bundles/$id" params={{ id: it.bundleId }} className="block truncate font-mono text-sm font-semibold hover:underline">
                       {it.serial}
                     </Link>
                     <p className="m-0 text-xs text-muted-foreground">
                       {it.dieSeries} / {it.dieSectionCode}
                     </p>
-                    <p className="m-0 text-xs text-muted-foreground">Packing group {it.groupLabel || "—"}</p>
+                    <p className="m-0 text-xs text-muted-foreground">Packing group {it.groupLabel || "not set"}</p>
                   </div>
                   <StatusBadge kind="bundle" value={it.status} size="sm" />
                 </div>
-                <div className="grid grid-cols-3 gap-3 text-sm">
+                <div className="grid grid-cols-3 gap-3 text-sm [&>div]:min-w-0">
                   <div>
-                    <p className="m-0 text-xs font-medium text-muted-foreground">Qty</p>
+                    <p className="m-0 text-xs font-medium text-muted-foreground">Pieces</p>
                     <p className="m-0 text-foreground">{it.quantity}</p>
                   </div>
                   <div>
                     <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
-                    <p className="m-0 text-foreground">{it.weightG.toLocaleString()} g</p>
+                    <p className="m-0 text-foreground">{formatKg(it.weightG)}</p>
                   </div>
                   <div>
                     <p className="m-0 text-xs font-medium text-muted-foreground">Length</p>
@@ -532,14 +548,16 @@ function DispatchDetailComponent() {
         ) : (
           <ul className="space-y-2">
             {events.map((ev) => (
-              <li key={ev.id} className="flex items-start justify-between text-sm border-b last:border-b-0 pb-2 gap-4">
-                <div>
-                  <p className="font-medium">{ev.action}</p>
+              <li key={ev.id} className="flex min-w-0 items-start justify-between gap-4 border-b pb-2 text-sm last:border-b-0">
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 font-medium">{ev.action}</p>
                   {ev.meta && Object.keys(ev.meta).length > 0 && (
-                    <p className="text-xs text-muted-foreground font-mono">{JSON.stringify(ev.meta)}</p>
+                    <Truncate as="p" mono className="m-0 text-xs text-muted-foreground">
+                      {JSON.stringify(ev.meta)}
+                    </Truncate>
                   )}
                 </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                   {format(new Date(ev.at), "PP p")}
                 </span>
               </li>
@@ -612,13 +630,13 @@ function PackingListSection({ dispatchId, lengthUnit }: { dispatchId: string; le
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Packing list</CardTitle>
+      <CardHeader className="flex min-w-0 flex-row items-center justify-between gap-3">
+        <CardTitle className="min-w-0 truncate">Packing list</CardTitle>
         {pl && (
           <Link
             to="/packing-lists/$id"
             params={{ id: pl.id }}
-            className="text-sm text-primary hover:underline font-mono"
+            className="shrink-0 font-mono text-sm text-foreground underline-offset-4 hover:underline"
           >
             {pl.code}
           </Link>
@@ -635,7 +653,7 @@ function PackingListSection({ dispatchId, lengthUnit }: { dispatchId: string; le
           <p className="text-xs text-muted-foreground">
             Generated {format(new Date((pl.snapshot as any).generatedAt as string), "PP p")}
           </p>
-          <div className="flex gap-2 flex-wrap">
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap [&>[data-slot=button]]:w-full sm:[&>[data-slot=button]]:w-auto">
             <Button size="sm" onClick={handlePdf} disabled={pdfPending} variant="outline">
               {pdfPending ? "Generating…" : "PDF"}
             </Button>

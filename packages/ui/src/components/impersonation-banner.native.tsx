@@ -40,7 +40,7 @@ export function ImpersonationBanner({
           Impersonating
         </Text>
         <Text style={{ color: "#ffffff", fontSize: 13 }}>
-          {companyName ?? "tenant"} — every action is audited.
+          {companyName ?? "this company"}. Every action is audited.
         </Text>
       </View>
       <Pressable

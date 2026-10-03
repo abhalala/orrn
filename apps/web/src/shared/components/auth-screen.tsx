@@ -28,7 +28,7 @@ export function AuthScreen({ children }: { children: ReactNode }) {
         </Link>
       </header>
 
-      <div className="flex w-full flex-1 flex-col items-center justify-center py-8 sm:py-10">
+      <div className="flex w-full flex-1 flex-col items-center justify-center py-6 sm:py-10">
         <div className="orrn-auth-card orrn-rise flex w-full flex-col items-center">{children}</div>
       </div>
 

@@ -6,6 +6,8 @@ import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Select } from "@orrn/ui/components/select";
+import { Skeleton } from "@orrn/ui/components/skeleton";
+import { Truncate } from "@orrn/ui/components/truncate";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
@@ -96,12 +98,18 @@ function AdminCompanyDetailComponent() {
             <Badge tone="success">Active</Badge>
           ),
       },
-      { id: "reason", header: "Reason", flex: 1, cell: (row) => row.reason ?? "—" },
+      { id: "reason", header: "Reason", flex: 1, cell: (row) => row.reason ?? "None" },
     ];
   }, []);
 
   if (isLoading) {
-    return <EmptyState title="Loading company…" />;
+    return (
+      <div className="flex flex-col gap-5" aria-busy="true" aria-label="Loading company">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton className="h-24 w-full rounded-card" />
+        <Skeleton className="h-56 w-full rounded-card" />
+      </div>
+    );
   }
   if (!data) {
     return <EmptyState title="Company not found" />;
@@ -114,12 +122,18 @@ function AdminCompanyDetailComponent() {
       <PageHeader
         eyebrow="Godseye · Companies"
         title={c.name}
-        description={c.slug}
+        description={
+          <Truncate mono className="text-sm">
+            {c.slug}
+          </Truncate>
+        }
         actions={
-          <div className="flex gap-2 flex-wrap">
-            <Link to="/admin/companies" search={{ status: "all" }} className="no-underline">
-              <Button variant="outline">Back to list</Button>
-            </Link>
+          <>
+            <Button asChild variant="outline">
+              <Link to="/admin/companies" search={{ status: "all" }}>
+                Back to list
+              </Link>
+            </Button>
             <Can do="platform.impersonate">
               <Button
                 disabled={c.status !== "active" || impersonateMutation.isPending}
@@ -127,7 +141,7 @@ function AdminCompanyDetailComponent() {
                   impersonateMutation.mutate({ companyId: c.id, ttlMinutes: 30 })
                 }
               >
-                Impersonate (30m)
+                Open support session
               </Button>
             </Can>
             <Can do="platform.company.manage">
@@ -149,12 +163,12 @@ function AdminCompanyDetailComponent() {
                 </Button>
               )}
             </Can>
-          </div>
+          </>
         }
       />
 
       <Card>
-        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 text-sm">
+        <CardContent className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4 [&>div]:min-w-0">
           <div>
             <p className="text-muted-foreground text-xs">Status</p>
             <Badge
@@ -166,12 +180,12 @@ function AdminCompanyDetailComponent() {
                     : "neutral"
               }
             >
-              {c.status}
+              {c.status.charAt(0).toUpperCase() + c.status.slice(1)}
             </Badge>
           </div>
           <div>
             <p className="text-muted-foreground text-xs">Plan</p>
-            <p className="capitalize">{c.plan ?? "—"}</p>
+            <p className="m-0 truncate capitalize">{c.plan ?? "None"}</p>
           </div>
           <div>
             <p className="text-muted-foreground text-xs">Members</p>
@@ -204,8 +218,8 @@ function AdminCompanyDetailComponent() {
               const status = row.revokedAt ? "Revoked" : expired ? "Expired" : "Active";
               return (
                 <div className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
                       <p className="m-0 font-mono text-sm font-semibold text-foreground">
                         {row.id.slice(0, 8)}…
                       </p>
@@ -224,7 +238,7 @@ function AdminCompanyDetailComponent() {
                     </div>
                     <div>
                       <p className="m-0 text-xs font-medium text-muted-foreground">Reason</p>
-                      <p className="m-0 text-foreground">{row.reason ?? "—"}</p>
+                      <p className="m-0 break-words text-foreground">{row.reason ?? "None"}</p>
                     </div>
                   </div>
                 </div>
@@ -245,10 +259,10 @@ const PLAN_OPTIONS = [
 ];
 
 const MODULES = [
-  { id: "customers", label: "Customer Management" },
-  { id: "dies", label: "Die Management" },
-  { id: "bundles", label: "Bundle & Production Tracking" },
-  { id: "dispatches", label: "Dispatch & Logistics" },
+  { id: "customers", label: "Customers" },
+  { id: "dies", label: "Dies" },
+  { id: "bundles", label: "Bundles and production" },
+  { id: "dispatches", label: "Dispatch and packing lists" },
 ];
 
 function PlanAndModulesForm({
@@ -287,7 +301,7 @@ function PlanAndModulesForm({
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="companyPlan">Billing plan</Label>
-          <Select value={plan} onValueChange={setPlan} options={PLAN_OPTIONS} width={240} />
+          <Select id="companyPlan" value={plan} onValueChange={setPlan} options={PLAN_OPTIONS} className="w-full sm:w-60" />
         </div>
 
         <div className="space-y-2">
@@ -298,7 +312,7 @@ function PlanAndModulesForm({
               return (
                 <label
                   key={m.id}
-                  className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                  className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-input border p-3 transition-colors ${
                     isChecked
                       ? "border-primary/60 bg-primary/10 text-foreground"
                       : "border-border bg-background hover:bg-muted/40 text-muted-foreground"
@@ -310,7 +324,7 @@ function PlanAndModulesForm({
                     onChange={() => toggleModule(m.id)}
                     className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                   />
-                  <span className="text-sm font-medium">{m.label}</span>
+                  <span className="min-w-0 text-sm font-medium">{m.label}</span>
                 </label>
               );
             })}
@@ -318,6 +332,7 @@ function PlanAndModulesForm({
         </div>
 
         <Button
+          className="w-full sm:w-auto"
           onClick={() => updateMutation.mutate({ companyId, plan, modules: activeModules })}
           disabled={updateMutation.isPending}
         >

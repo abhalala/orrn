@@ -5,17 +5,22 @@ import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { Skeleton } from "@orrn/ui/components/skeleton";
+import { Truncate } from "@orrn/ui/components/truncate";
+import { Fact, FactList } from "@orrn/ui/components/fact-list";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ArrowRight } from "lucide-react";
 
 import { BundlePrintButton } from "@/shared/components/bundle-print-button";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
+import { formatKg } from "@/shared/lib/weight";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -50,7 +55,14 @@ function BundleDetailComponent() {
     },
   });
 
-  if (isLoading) return <div>Loading…</div>;
+  if (isLoading) {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5" aria-busy="true" aria-label="Loading bundle">
+        <Skeleton className="h-9 w-56" />
+        <Skeleton className="h-48 w-full rounded-card" />
+      </div>
+    );
+  }
   if (!data) return <EmptyState title="Bundle not found" description="This bundle may have been removed." />;
 
   const { bundle, die, group, activeDispatch, events } = data;
@@ -89,63 +101,55 @@ function BundleDetailComponent() {
             <StatusBadge kind="bundle" value={bundle.status} />
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div>
-              <Label className="text-xs text-muted-foreground">Die</Label>
-              <p className="font-medium">
-                {die ? `${die.series} / ${die.sectionCode}${die.name ? ` — ${die.name}` : ""}` : "—"}
-              </p>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Bundling session</Label>
-              <p className="font-mono text-sm">
-                {group ? (
-                  <Link to="/receipts/$id" params={{ id: group.id }} className="hover:underline">
-                    {group.code}
-                  </Link>
-                ) : (
-                  "—"
-                )}
-              </p>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Quantity</Label>
-              <p>{bundle.quantity}</p>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Weight</Label>
-              <p>{bundle.weightG} g</p>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Length</Label>
-              <p>{lu.formatLength(bundle.lengthMm)}</p>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">PO</Label>
-              <p>{bundle.poNumber || group?.purchaseOrderRef || "—"}</p>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Created</Label>
-              <p>{format(new Date(bundle.createdAt), "PP p")}</p>
-            </div>
-          </div>
-        </CardContent>
+        <FactList>
+          <Fact label="Die" wide>
+            {die ? (
+              <>
+                <span className="font-mono font-medium">
+                  {die.series} / {die.sectionCode}
+                </span>
+                {die.name ? <Truncate lines={2} className="text-sm text-muted-foreground">{die.name}</Truncate> : null}
+              </>
+            ) : (
+              "Not set"
+            )}
+          </Fact>
+          <Fact label="Packing session" mono>
+            {group ? (
+              <Link to="/receipts/$id" params={{ id: group.id }} className="hover:underline">
+                {group.code}
+              </Link>
+            ) : (
+              "Not set"
+            )}
+          </Fact>
+          <Fact label="Pieces">{bundle.quantity.toLocaleString()}</Fact>
+          <Fact label="Weight">{formatKg(bundle.weightG)}</Fact>
+          <Fact label="Length">{lu.formatLength(bundle.lengthMm)}</Fact>
+          <Fact label="PO" truncate>
+            {bundle.poNumber || group?.purchaseOrderRef || "None"}
+          </Fact>
+          <Fact label="Created">{format(new Date(bundle.createdAt), "PP p")}</Fact>
+        </FactList>
       </Card>
 
       {activeDispatch ? (
         <Card>
-          <CardContent className="flex items-center justify-between gap-4">
-            <div>
-              <Label className="text-xs text-muted-foreground">Active dispatch</Label>
-              <p className="font-mono text-sm">{activeDispatch.code}</p>
-              <StatusBadge kind="dispatch" value={activeDispatch.status} size="sm" />
+          <CardContent className="flex min-w-0 flex-wrap items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="m-0 text-[13px] font-medium text-muted-foreground">Active dispatch</p>
+              <div className="mt-1 flex min-w-0 items-center gap-2">
+                <Truncate mono className="text-[15px] font-semibold">
+                  {activeDispatch.code}
+                </Truncate>
+                <StatusBadge kind="dispatch" value={activeDispatch.status} size="sm" />
+              </div>
             </div>
-            <Link to="/dispatches/$id" params={{ id: activeDispatch.id }}>
-              <Button variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm" className="max-sm:w-full">
+              <Link to="/dispatches/$id" params={{ id: activeDispatch.id }}>
                 View dispatch
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       ) : null}
@@ -172,6 +176,7 @@ function BundleDetailComponent() {
                 />
               </div>
               <Button
+                className="w-full sm:w-auto"
                 variant={isAvailable ? "destructive" : "default"}
                 onClick={() =>
                   transitionMutation.mutate({ id, toStatus: targetStatus, reason: reason || null })
@@ -211,11 +216,12 @@ function BundleDetailComponent() {
                   key={ev.id}
                   className="flex flex-wrap items-center justify-between gap-2 text-sm border-b border-border last:border-b-0 pb-3"
                 >
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <StatusBadge kind="bundle" value={ev.fromStatus ?? "available"} size="sm" />
-                    <span className="text-muted-foreground">→</span>
+                    <ArrowRight size={14} className="text-muted-foreground" aria-hidden="true" />
+                    <span className="sr-only">to</span>
                     <StatusBadge kind="bundle" value={ev.toStatus} size="sm" />
-                    {ev.reason ? <span className="text-muted-foreground">— {ev.reason}</span> : null}
+                    {ev.reason ? <span className="min-w-0 break-words text-muted-foreground">Reason: {ev.reason}</span> : null}
                   </div>
                   <span className="text-xs text-muted-foreground">
                     {format(new Date(ev.at), "PP p")}

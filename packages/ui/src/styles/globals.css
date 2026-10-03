@@ -348,7 +348,11 @@
     font-family: var(--font-sans);
     background-color: var(--background);
     color: var(--foreground);
+    /* clip, not hidden: hidden still makes a scroll container that focus or
+       scrollIntoView can push sideways. `hidden` first is the Safari < 16
+       fallback (clip is ignored there). */
     overflow-x: hidden;
+    overflow-x: clip;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -405,6 +409,18 @@
     outline-offset: 2px;
   }
 
+  /* Safari < 16 ignores overflow: clip; fall back to hidden for the shell. */
+  @supports not (overflow: clip) {
+    [data-shell-row],
+    [data-shell-frame] {
+      overflow: hidden;
+    }
+
+    .orrn-app-content {
+      overflow-x: hidden;
+    }
+  }
+
   .orrn-data-table-scroll {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
@@ -417,6 +433,7 @@
       width: 100%;
       max-width: 100vw;
       overflow-x: hidden;
+      overflow-x: clip;
     }
 
     .orrn-desktop-nav {
@@ -449,12 +466,12 @@
     .orrn-page-title {
       font-size: 28px !important;
       line-height: 32px !important;
-      overflow-wrap: anywhere;
+      overflow-wrap: break-word;
     }
 
     .orrn-page-description {
       max-width: 100% !important;
-      overflow-wrap: anywhere;
+      overflow-wrap: break-word;
     }
 
     .orrn-mobile-nav {
@@ -462,21 +479,6 @@
       padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
       width: 100% !important;
       max-width: 100vw !important;
-      overflow-x: auto !important;
-      overscroll-behavior-x: contain;
-      scrollbar-width: none;
-    }
-
-    .orrn-mobile-nav::-webkit-scrollbar {
-      display: none;
-    }
-
-    .orrn-mobile-nav a {
-      flex: 0 0 auto;
-    }
-
-    .orrn-mobile-nav-item {
-      min-width: 70px !important;
     }
 
     .orrn-auth-card {

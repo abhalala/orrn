@@ -9,13 +9,16 @@ import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { Fact, FactList } from "@orrn/ui/components/fact-list";
+import { ListCard } from "@orrn/ui/components/list-card";
+import { Truncate } from "@orrn/ui/components/truncate";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { downloadPackingListPdf, type PLSnapshot } from "@/shared/lib/packingListPdf";
 import { downloadPackingListXlsx } from "@/shared/lib/packingListXlsx";
+import { formatKg, formatKgTotal, kgTotalValue, kgValue } from "@/shared/lib/weight";
 
 export const Route = createFileRoute("/_tenant/packing-lists/$id")({
   component: PackingListDetailComponent,
@@ -59,14 +62,14 @@ function PackingListDetailComponent() {
         flex: 1,
         cell: (row) => `${row.die.series} / ${row.die.sectionCode}`,
       },
-      { id: "group", header: "Group", flex: 0.8, cell: (row) => row.groupId || "—" },
+      { id: "group", header: "Group", flex: 0.8, cell: (row) => row.groupId || "None" },
       { id: "qty", header: "Qty", flex: 0.5, align: "right", cell: (row) => row.quantity },
       {
         id: "weight",
         header: "Weight (kg)",
         flex: 0.7,
         align: "right",
-        cell: (row) => (row.weightG / 1000).toFixed(3),
+        cell: (row) => kgValue(row.weightG),
       },
       {
         id: "length",
@@ -170,54 +173,56 @@ function PackingListDetailComponent() {
       />
 
       <Card>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 text-sm">
-          <div>
-            <Label className="text-xs text-muted-foreground">Customer</Label>
-            <p className="font-medium">{cust.name}</p>
-            {cust.phone ? <p className="text-muted-foreground">{cust.phone}</p> : null}
-            {cust.email ? <p className="text-muted-foreground">{cust.email}</p> : null}
-            {cust.taxId ? <p className="text-muted-foreground">Tax ID: {cust.taxId}</p> : null}
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Ship date</Label>
-            <p>{snap.dispatch.shipDate ? format(new Date(snap.dispatch.shipDate), "PP") : "—"}</p>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Dispatch</Label>
-            <p className="font-mono">{snap.dispatch.code}</p>
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Generated</Label>
-            <p>{format(new Date(snap.generatedAt), "PP p")}</p>
-          </div>
+        <FactList>
+          <Fact label="Customer" wide>
+            <Truncate lines={2} className="font-medium">
+              {cust.name}
+            </Truncate>
+            {cust.phone ? <span className="block text-sm text-muted-foreground">{cust.phone}</span> : null}
+            {cust.email ? (
+              <Truncate className="text-sm text-muted-foreground">{cust.email}</Truncate>
+            ) : null}
+            {cust.taxId ? (
+              <Truncate className="text-sm text-muted-foreground">{`Tax ID: ${cust.taxId}`}</Truncate>
+            ) : null}
+          </Fact>
+          <Fact label="Ship date">
+            {snap.dispatch.shipDate ? format(new Date(snap.dispatch.shipDate), "PP") : "Not set"}
+          </Fact>
+          <Fact label="Dispatch" mono>
+            {snap.dispatch.code}
+          </Fact>
+          <Fact label="Generated">{format(new Date(snap.generatedAt), "PP p")}</Fact>
           {snap.dispatch.notes ? (
-            <div className="md:col-span-2">
-              <Label className="text-xs text-muted-foreground">Notes</Label>
-              <p>{snap.dispatch.notes}</p>
-            </div>
+            <Fact label="Notes" wide>
+              {snap.dispatch.notes}
+            </Fact>
           ) : null}
-        </CardContent>
+        </FactList>
       </Card>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <section aria-label="Packing list totals" className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         {[
           { label: "Bundles", value: snap.totals.totalBundles },
-          { label: "Total qty", value: snap.totals.totalQuantity },
-          { label: "Total weight", value: `${snap.totals.totalWeightKg} kg` },
-          { label: "Total length", value: lu.formatLength(snap.totals.totalLengthM * 1000) },
+          { label: "Pieces", value: snap.totals.totalQuantity },
+          { label: "Weight", value: formatKgTotal(Number(snap.totals.totalWeightKg) * 1000) },
+          { label: "Length", value: lu.formatLength(snap.totals.totalLengthM * 1000) },
         ].map(({ label, value }) => (
-          <Card key={label}>
-            <CardContent className="pt-6 text-center">
-              <p className="text-xs text-muted-foreground mb-1">{label}</p>
-              <p className="text-2xl font-bold font-mono">{value}</p>
-            </CardContent>
+          <Card key={label} className="min-w-0 gap-1 p-4">
+            <p className="m-0 break-words text-[13px] font-medium text-muted-foreground">{label}</p>
+            <p
+              data-no-truncate=""
+              className="m-0 break-words font-display text-[22px] font-extrabold leading-tight tracking-[-0.03em] tabular-nums text-foreground sm:text-[26px]"
+            >
+              {value}
+            </p>
           </Card>
         ))}
-      </div>
+      </section>
 
       <Card>
         <CardHeader>
-          <CardTitle>Die groups / packing groups</CardTitle>
+          <CardTitle>Packing groups</CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable
@@ -226,15 +231,15 @@ function PackingListDetailComponent() {
             columns={[
               { id: "group", header: "Group", cell: (row) => row.label },
               { id: "bundles", header: "Bundles", align: "right", cell: (row) => row.bundles },
-              { id: "qty", header: "Qty", align: "right", cell: (row) => row.quantity },
-              { id: "weight", header: "Weight (kg)", align: "right", cell: (row) => (row.weightG / 1000).toFixed(3) },
+              { id: "qty", header: "Pieces", align: "right", cell: (row) => row.quantity },
+              { id: "weight", header: "Weight (kg)", align: "right", cell: (row) => kgTotalValue(row.weightG) },
               { id: "length", header: `Length (${lu.label})`, align: "right", cell: (row) => lu.formatLength(row.lengthMm) },
             ]}
           />
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
         <Button onClick={handlePdf} disabled={pdfPending} variant="outline">
           {pdfPending ? "Generating…" : "Download styled PDF"}
         </Button>
@@ -273,37 +278,19 @@ function PackingListDetailComponent() {
             rows={tableRows}
             rowKey={(row) => `${row.bundleSerial}-${row.index}`}
             renderCard={(row) => (
-              <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="m-0 text-xs font-medium text-muted-foreground">#{row.index}</p>
-                    <p className="m-0 truncate font-mono text-sm font-semibold text-foreground">
-                      {row.bundleSerial}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">
-                    Qty {row.quantity}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="m-0 text-xs font-medium text-muted-foreground">Die</p>
-                    <p className="m-0 text-foreground">{row.die.series} / {row.die.sectionCode}</p>
-                  </div>
-                  <div>
-                    <p className="m-0 text-xs font-medium text-muted-foreground">Group</p>
-                    <p className="m-0 font-mono text-foreground">{row.groupId || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
-                    <p className="m-0 text-foreground">{(row.weightG / 1000).toFixed(3)} kg</p>
-                  </div>
-                  <div>
-                    <p className="m-0 text-xs font-medium text-muted-foreground">Length</p>
-                    <p className="m-0 text-foreground">{lu.formatLength(row.lengthMm)}</p>
-                  </div>
-                </div>
-              </div>
+              <ListCard
+                mono
+                className="bg-background"
+                title={row.bundleSerial}
+                titleText={row.bundleSerial}
+                subtitle={`#${row.index} · ${row.die.series} / ${row.die.sectionCode}`}
+                facts={[
+                  { label: "Pieces", value: row.quantity.toLocaleString() },
+                  { label: "Weight", value: formatKg(row.weightG) },
+                  { label: "Length", value: lu.formatLength(row.lengthMm) },
+                ]}
+                footer={<span className="min-w-0 truncate">Packing group {row.groupId || "not set"}</span>}
+              />
             )}
             emptyState={<EmptyState title="No items in snapshot" />}
           />

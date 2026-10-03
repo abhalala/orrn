@@ -2,6 +2,7 @@ import { StatusBadge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { ListCard, stretchedLink } from "@orrn/ui/components/list-card";
 import { Input } from "@orrn/ui/components/input";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Tabs } from "@orrn/ui/components/tabs";
@@ -16,6 +17,7 @@ import { ImportBundlesModal } from "@/shared/components/import-bundles-modal";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
+import { formatKg, kgValue } from "@/shared/lib/weight";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -84,7 +86,7 @@ function BundlesListComponent() {
     },
     {
       id: "receipt",
-      header: "Receipt",
+      header: "Packing session",
       cell: (r) => (
         <Link to="/receipts/$id" params={{ id: r.groupId }} className="font-mono text-xs hover:underline">
           {r.groupCode}
@@ -92,7 +94,7 @@ function BundlesListComponent() {
       ),
     },
     { id: "qty", header: "Qty", align: "right", cell: (r) => Number(r.quantity) },
-    { id: "weight", header: "Weight (g)", align: "right", cell: (r) => Number(r.weightG) },
+    { id: "weight", header: "Weight (kg)", align: "right", cell: (r) => kgValue(r.weightG) },
     { id: "length", header: `Length (${lu.label})`, align: "right", cell: (r) => lu.formatLength(Number(r.lengthMm)) },
     {
       id: "status",
@@ -110,20 +112,20 @@ function BundlesListComponent() {
     <div className="space-y-6">
       <PageHeader
         title="Bundles"
-        description={`All bundles across receipts (${data?.total ?? 0} total)`}
+        description={`Every bundle from every packing session (${data?.total ?? 0} in total).`}
         actions={
           <>
-            <Link to="/receipts">
-              <Button variant="outline">View Receipts</Button>
-            </Link>
+            <Button asChild variant="outline">
+              <Link to="/receipts">View packing</Link>
+            </Button>
             <Can do="bundle.import">
               <Button variant="outline" onClick={() => setImportOpen(true)}>
                 Import bundles
               </Button>
             </Can>
-            <Link to="/receipts/new">
-              <Button>New Production Receipt</Button>
-            </Link>
+            <Button asChild>
+              <Link to="/receipts/new">New packing session</Link>
+            </Button>
           </>
         }
       />
@@ -157,7 +159,8 @@ function BundlesListComponent() {
           placeholder="Search by serial…"
           value={serialSearch}
           onChangeText={setSerialSearch}
-          className="max-w-80"
+          aria-label="Search bundles by serial"
+          className="sm:max-w-80"
         />
         <Tabs
           value={status}
@@ -174,39 +177,33 @@ function BundlesListComponent() {
         rowKey={(r) => r.id}
         columns={columns}
         renderCard={(r) => (
-          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <Link to="/bundles/$id" params={{ id: r.id }} className="font-mono text-sm font-semibold hover:underline">
-                  {r.serial}
-                </Link>
-                <p className="m-0 text-xs text-muted-foreground">
-                  {r.dieSeries} / {r.dieSectionCode}
-                </p>
-              </div>
-              <StatusBadge kind="bundle" value={r.status} />
-            </div>
-            <div className="grid grid-cols-3 gap-3 text-sm">
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Qty</p>
-                <p className="m-0 text-foreground">{Number(r.quantity)}</p>
-              </div>
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
-                <p className="m-0 text-foreground">{Number(r.weightG).toLocaleString()} g</p>
-              </div>
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Length</p>
-                <p className="m-0 text-foreground">{lu.formatLength(Number(r.lengthMm))}</p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between gap-3 border-t border-border pt-3 text-xs">
-              <Link to="/receipts/$id" params={{ id: r.groupId }} className="font-mono text-muted-foreground hover:text-foreground hover:underline">
-                {r.groupCode}
+          <ListCard
+            mono
+            title={
+              <Link to="/bundles/$id" params={{ id: r.id }} className={stretchedLink}>
+                {r.serial}
               </Link>
-              <span className="text-muted-foreground">{format(new Date(r.createdAt), "MMM d, yyyy")}</span>
-            </div>
-          </div>
+            }
+            subtitle={`${r.dieSeries} / ${r.dieSectionCode}`}
+            status={<StatusBadge kind="bundle" value={r.status} />}
+            facts={[
+              { label: "Pieces", value: Number(r.quantity).toLocaleString() },
+              { label: "Weight", value: formatKg(r.weightG) },
+              { label: "Length", value: lu.formatLength(Number(r.lengthMm)) },
+            ]}
+            footer={
+              <>
+                <Link
+                  to="/receipts/$id"
+                  params={{ id: r.groupId }}
+                  className="min-w-0 truncate font-mono text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  {r.groupCode}
+                </Link>
+                <span className="shrink-0">{format(new Date(r.createdAt), "MMM d, yyyy")}</span>
+              </>
+            }
+          />
         )}
         isLoading={isLoading}
         emptyState={
@@ -215,7 +212,7 @@ function BundlesListComponent() {
             description={
               search.dieId || search.groupId
                 ? "Nothing matches the active filter."
-                : "Bundles appear here once a receipt is created."
+                : "Bundles appear here once a packing session is saved."
             }
           />
         }
