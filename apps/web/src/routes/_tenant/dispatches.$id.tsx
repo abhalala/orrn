@@ -19,6 +19,30 @@ import { downloadPackingListPdf, type PLSnapshot } from "@/shared/lib/packingLis
 import { downloadPackingListXlsx } from "@/shared/lib/packingListXlsx";
 import { trpc } from "@/shared/utils/trpc";
 
+type AddReport = {
+  added: string[];
+  alreadyInDispatch: string[];
+  notFound: string[];
+  unavailable: { serial: string; reason: string }[];
+};
+
+/** One line for the bulk-add toast: what went in, what was already there, what was skipped and why. */
+function describeAddReport(res: AddReport) {
+  const skipped = [
+    ...res.notFound.map((serial) => ({ serial, reason: "not found" })),
+    ...res.unavailable,
+  ];
+  const parts: string[] = [];
+  if (res.added.length > 0) parts.push(`Added ${res.added.length}`);
+  else if (skipped.length > 0) parts.push("Nothing added");
+  if (res.alreadyInDispatch.length > 0) parts.push(`${res.alreadyInDispatch.length} already in this dispatch`);
+  if (skipped.length > 0) {
+    const shown = skipped.slice(0, 3).map((s) => `${s.serial} (${s.reason})`);
+    parts.push(`${skipped.length} not added: ${shown.join(", ")}${skipped.length > 3 ? "…" : ""}`);
+  }
+  return { message: parts.join(". "), skippedSerials: skipped.map((s) => s.serial) };
+}
+
 export const Route = createFileRoute("/_tenant/dispatches/$id")({
   component: DispatchDetailComponent,
   beforeLoad: requireCompanyMe,
@@ -69,8 +93,9 @@ function DispatchDetailComponent() {
 
   const addMutation = useMutation({
     ...trpc.dispatch.addBundle.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Bundle added");
+    onSuccess: (res) => {
+      if (res.alreadyInDispatch.length > 0) toast.info("Already in this dispatch");
+      else toast.success("Bundle added");
       setSerialQuery("");
       invalidate();
     },
@@ -79,9 +104,13 @@ function DispatchDetailComponent() {
 
   const bulkMutation = useMutation({
     ...trpc.dispatch.addBundlesBySerial.mutationOptions(),
-    onSuccess: (res: any) => {
-      toast.success(`Added ${res.added.length} bundle(s)`);
-      setBulkSerials("");
+    onSuccess: (res) => {
+      const { message, skippedSerials } = describeAddReport(res);
+      if (skippedSerials.length > 0) toast.warning(message);
+      else if (res.added.length === 0) toast.info(message);
+      else toast.success(message);
+      // Leave the skipped serials in the box so they can be fixed and retried.
+      setBulkSerials(skippedSerials.join("\n"));
       invalidate();
     },
     onError: (e: any) => toast.error(e.message || "Failed to add bundles"),

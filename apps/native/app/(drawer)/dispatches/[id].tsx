@@ -31,6 +31,30 @@ import { sharePackingListPdf, sharePackingListXlsx } from "@/lib/packing-list-ex
 import { queryClient, trpc } from "../../../utils/trpc";
 import { useLengthUnit } from "../../../utils/length";
 
+type AddReport = {
+  added: string[];
+  alreadyInDispatch: string[];
+  notFound: string[];
+  unavailable: { serial: string; reason: string }[];
+};
+
+/** What went in, what was already there, what was skipped and why. */
+function describeAddReport(res: AddReport) {
+  const skipped = [
+    ...res.notFound.map((serial) => ({ serial, reason: "not found" })),
+    ...res.unavailable,
+  ];
+  const parts: string[] = [];
+  if (res.added.length > 0) parts.push(`Added ${res.added.length}`);
+  else if (skipped.length > 0) parts.push("Nothing added");
+  if (res.alreadyInDispatch.length > 0) parts.push(`${res.alreadyInDispatch.length} already in this dispatch`);
+  if (skipped.length > 0) {
+    const shown = skipped.slice(0, 3).map((s) => `${s.serial} (${s.reason})`);
+    parts.push(`${skipped.length} not added: ${shown.join(", ")}${skipped.length > 3 ? "…" : ""}`);
+  }
+  return { message: parts.join(". "), skippedSerials: skipped.map((s) => s.serial) };
+}
+
 export default function DispatchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -51,8 +75,18 @@ export default function DispatchDetailScreen() {
   const addSerialsMutation = useMutation({
     ...trpc.dispatch.addBundlesBySerial.mutationOptions(),
     onSuccess: (res) => {
-      Alert.alert("Added", `${res.added.length} bundle(s) added`);
-      setSerialInput("");
+      const { message, skippedSerials } = describeAddReport(res);
+      const title =
+        skippedSerials.length > 0
+          ? res.added.length > 0
+            ? "Some bundles not added"
+            : "Nothing added"
+          : res.added.length > 0
+            ? "Added"
+            : "Already in this dispatch";
+      Alert.alert(title, message);
+      // Leave the skipped serials in the box so they can be fixed and retried.
+      setSerialInput(skippedSerials.join("\n"));
       invalidate();
     },
     onError: (e) => Alert.alert("Error", e.message || "Failed to add"),

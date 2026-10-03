@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { auditLog } from "@orrn/db/schema/audit";
@@ -22,6 +22,7 @@ import {
   IN_LIST_CHUNK,
   mapInChunks,
   pushChunkedInserts,
+  type OrrnDb,
   type SqliteBatchItem,
 } from "../lib/atomic";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
@@ -30,17 +31,30 @@ import { nextCompanySeq } from "../lib/sequence";
 import { appendPackingListWrites } from "./packingList";
 
 /*
- * State predicates (audit S6): every write re-states the status it expects —
- * bundle UPDATEs carry `status = <expected>` (and `current_dispatch_id = <this
- * dispatch>` when releasing or dispatching), dispatch UPDATEs carry
- * `status IN (<allowed from>)`. Each procedure also reads and checks state
- * before writing, so sequential misuse (complete after cancel, …) errors.
+ * State predicates (audit S6). Each procedure reads and checks state first, so
+ * sequential misuse (complete after cancel, …) errors. The writes then re-state
+ * what they expect, because D1 runs each batch serially but can't abort it when
+ * a guarded UPDATE matches 0 rows:
+ *   - dispatch UPDATEs carry `status IN (<allowed from>)` and `deleted_at IS NULL`;
+ *   - bundle UPDATEs carry `status = <expected>`, plus `current_dispatch_id =
+ *     <this dispatch>` when releasing or dispatching;
+ *   - every UPDATE that reserves a bundle also requires the dispatch row to be
+ *     live and reserved right now (EXISTS); `reserve` runs its dispatch UPDATE
+ *     first and requires that its own write landed (`server_seq = <seq>`);
+ *   - cancel and unreserve release every bundle still reserved to the dispatch
+ *     (not just the items they read); complete releases and unlists any bundle
+ *     reserved to it after its read.
  *
- * Residual race (audit S6, FLAG): a D1 batch can't abort when a guarded UPDATE
- * matches 0 rows, so two truly concurrent requests can still both pass their
- * reads and let the batch's INSERTs (items, status events, audit) land beside a
- * no-op UPDATE. The predicates keep bundle/dispatch status itself from being
- * corrupted; closing the gap fully needs real transactions (Postgres rebuild).
+ * Guaranteed, whatever the interleaving of these procedures: no bundle is left
+ * reserved against a dispatch that is not live and reserved, and neither status
+ * moves along a transition the domain table forbids.
+ *
+ * Not guaranteed (audit S6, FLAG; needs real transactions, Postgres rebuild):
+ * the losing request's INSERTs still land beside its no-op UPDATEs. That means
+ * stray dispatch_item rows (e.g. an add that lost to a cancel lists the bundle
+ * on the cancelled dispatch), stray bundle_status_event and audit rows, and,
+ * for complete racing cancel, a packing list (with lines) for a dispatch that
+ * ended up cancelled.
  */
 
 /** Statuses a dispatch may move to `to` from, per the shared domain table. */
@@ -72,14 +86,115 @@ function dispatchInStatus(companyId: string, id: string, statuses: DispatchStatu
 
 const EDITABLE_DISPATCH: DispatchStatus[] = ["draft", "reserved"];
 
+/**
+ * IN-list size for bundle UPDATEs that also carry an EXISTS guard: SET (3) +
+ * company/status (2) + guard (3-4) bound params on top of the ids stays < 100.
+ */
+const GUARDED_IN_CHUNK = 80;
+
+/**
+ * EXISTS guard for bundle-reserving UPDATEs: the dispatch is live and reserved
+ * at write time. With `serverSeq`, it must also be this request's own write.
+ */
+function dispatchIsHeld(db: OrrnDb, companyId: string, id: string, serverSeq?: number) {
+  return exists(
+    db
+      .select({ one: sql`1` })
+      .from(dispatch)
+      .where(
+        and(
+          eq(dispatch.companyId, companyId),
+          eq(dispatch.id, id),
+          isNull(dispatch.deletedAt),
+          eq(dispatch.status, "reserved"),
+          serverSeq === undefined ? undefined : eq(dispatch.serverSeq, serverSeq),
+        ),
+      ),
+  );
+}
+
+/** EXISTS guard: this request's complete() write landed on the dispatch. */
+function completedBySeq(db: OrrnDb, companyId: string, id: string, serverSeq: number) {
+  return exists(
+    db
+      .select({ one: sql`1` })
+      .from(dispatch)
+      .where(
+        and(
+          eq(dispatch.companyId, companyId),
+          eq(dispatch.id, id),
+          eq(dispatch.status, "completed"),
+          eq(dispatch.serverSeq, serverSeq),
+        ),
+      ),
+  );
+}
+
+/** Catch-all release: every bundle still reserved to this dispatch, read or not. */
+function releaseAllHolds(db: OrrnDb, companyId: string, dispatchId: string, seq: number) {
+  return db
+    .update(bundle)
+    .set({ status: "available", currentDispatchId: null, serverSeq: seq })
+    .where(
+      and(
+        eq(bundle.companyId, companyId),
+        eq(bundle.currentDispatchId, dispatchId),
+        eq(bundle.status, "reserved"),
+      ),
+    );
+}
+
 /** The UNIQUE(dispatch_id, bundle_id) index fired: a concurrent add of the same bundle won. */
 function isDuplicateItemError(e: unknown): boolean {
   for (let cur: unknown = e, depth = 0; cur && depth < 5; depth += 1) {
     const message = cur instanceof Error ? cur.message : String(cur);
-    if (message.includes("UNIQUE constraint failed: dispatch_item")) return true;
+    if (message.includes("UNIQUE constraint failed: dispatch_item.dispatch_id, dispatch_item.bundle_id")) {
+      return true;
+    }
     cur = (cur as { cause?: unknown }).cause;
   }
   return false;
+}
+
+type ReleaseCtx = {
+  db: OrrnDb;
+  companyId: string;
+  session: { user: { id: string } };
+};
+
+/**
+ * Writes that free every bundle reserved to `dispatchId`: one status event per
+ * bundle read as held, then the catch-all UPDATE (which also catches bundles
+ * reserved after the read). A partly lost hold no longer blocks release.
+ */
+async function releaseStatements(ctx: ReleaseCtx, dispatchId: string, seq: number, reason: string) {
+  const held = await ctx.db
+    .select({ id: bundle.id })
+    .from(bundle)
+    .where(
+      and(
+        eq(bundle.companyId, ctx.companyId),
+        eq(bundle.currentDispatchId, dispatchId),
+        eq(bundle.status, "reserved"),
+      ),
+    );
+  const statements: SqliteBatchItem[] = [];
+  pushChunkedInserts(
+    statements,
+    (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
+    held.map((b) => ({
+      id: crypto.randomUUID(),
+      companyId: ctx.companyId,
+      bundleId: b.id,
+      fromStatus: "reserved" as const,
+      toStatus: "available" as const,
+      reason,
+      actorId: ctx.session.user.id,
+      dispatchId,
+    })),
+  );
+  statements.push(releaseAllHolds(ctx.db, ctx.companyId, dispatchId, seq));
+  return { statements, releasedCount: held.length };
 }
 
 export type AddBundlesReport = {
@@ -412,6 +527,7 @@ export const dispatchRouter = router({
                   eq(bundle.companyId, ctx.companyId),
                   eq(bundle.id, b.id),
                   eq(bundle.status, "available"),
+                  dispatchIsHeld(ctx.db, ctx.companyId, d.id),
                 ),
               ),
             ctx.db.insert(bundleStatusEvent).values({
@@ -539,7 +655,7 @@ export const dispatchRouter = router({
 
         if (d.status === "reserved") {
           const addIds = toAdd.map((b) => b.id);
-          for (const ids of chunk(addIds, IN_LIST_CHUNK)) {
+          for (const ids of chunk(addIds, GUARDED_IN_CHUNK)) {
             statements.push(
               ctx.db
                 .update(bundle)
@@ -549,6 +665,7 @@ export const dispatchRouter = router({
                     eq(bundle.companyId, ctx.companyId),
                     inArray(bundle.id, ids),
                     eq(bundle.status, "available"),
+                    dispatchIsHeld(ctx.db, ctx.companyId, d.id),
                   ),
                 ),
             );
@@ -800,8 +917,15 @@ export const dispatchRouter = router({
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
 
-      const statements: SqliteBatchItem[] = [];
-      for (const ids of chunk(bundleIds, IN_LIST_CHUNK)) {
+      // Dispatch first; the bundle holds only apply if that exact write landed
+      // (a softDelete or cancel that won the race leaves server_seq != seq).
+      const statements: SqliteBatchItem[] = [
+        ctx.db
+          .update(dispatch)
+          .set({ status: "reserved", serverSeq: seq })
+          .where(dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("reserved"))),
+      ];
+      for (const ids of chunk(bundleIds, GUARDED_IN_CHUNK)) {
         statements.push(
           ctx.db
             .update(bundle)
@@ -811,6 +935,7 @@ export const dispatchRouter = router({
                 eq(bundle.companyId, ctx.companyId),
                 inArray(bundle.id, ids),
                 eq(bundle.status, "available"),
+                dispatchIsHeld(ctx.db, ctx.companyId, d.id, seq),
               ),
             ),
         );
@@ -830,10 +955,6 @@ export const dispatchRouter = router({
         })),
       );
       statements.push(
-        ctx.db
-          .update(dispatch)
-          .set({ status: "reserved", serverSeq: seq })
-          .where(dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("reserved"))),
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
@@ -861,84 +982,20 @@ export const dispatchRouter = router({
       if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
       assertDispatchTransition(d.status, "draft");
 
-      const items = await ctx.db
-        .select({ bundleId: dispatchItem.bundleId })
-        .from(dispatchItem)
-        .where(
-          and(eq(dispatchItem.companyId, ctx.companyId), eq(dispatchItem.dispatchId, d.id)),
-        );
-
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const statements: SqliteBatchItem[] = [
+      const { statements, releasedCount } = await releaseStatements(ctx, d.id, seq, "dispatch.unreserve");
+      statements.push(
         ctx.db
           .update(dispatch)
           .set({ status: "draft", serverSeq: seq })
           .where(dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("draft"))),
-      ];
-
-      if (items.length > 0) {
-        const bundleIds = items.map((i) => i.bundleId);
-        const reservedBundles = await mapInChunks(bundleIds, (ids) =>
-          ctx.db
-            .select()
-            .from(bundle)
-            .where(
-              and(
-                eq(bundle.companyId, ctx.companyId),
-                inArray(bundle.id, ids),
-                eq(bundle.currentDispatchId, d.id),
-              ),
-            ),
-        );
-        const notReservedHere = reservedBundles.filter((b) => b.status !== "reserved");
-        if (reservedBundles.length !== bundleIds.length || notReservedHere.length > 0) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "Cannot unreserve: one or more bundles are no longer reserved for this dispatch",
-          });
-        }
-
-        const releaseStatements: SqliteBatchItem[] = [];
-        for (const ids of chunk(bundleIds, IN_LIST_CHUNK)) {
-          releaseStatements.push(
-            ctx.db
-              .update(bundle)
-              .set({ status: "available", currentDispatchId: null, serverSeq: seq })
-              .where(
-                and(
-                  eq(bundle.companyId, ctx.companyId),
-                  inArray(bundle.id, ids),
-                  eq(bundle.status, "reserved"),
-                  eq(bundle.currentDispatchId, d.id),
-                ),
-              ),
-          );
-        }
-        pushChunkedInserts(
-          releaseStatements,
-          (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
-          bundleIds.map((bid) => ({
-            id: crypto.randomUUID(),
-            companyId: ctx.companyId,
-            bundleId: bid,
-            fromStatus: "reserved" as const,
-            toStatus: "available" as const,
-            reason: "dispatch.unreserve",
-            actorId: ctx.session.user.id,
-            dispatchId: d.id,
-          })),
-        );
-        statements.unshift(...releaseStatements);
-      }
-
-      statements.push(
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.unreserve",
             subjectType: "dispatch",
             subjectId: d.id,
-            meta: { itemCount: items.length },
+            meta: { itemCount: releasedCount },
           },
         ),
       );
@@ -1052,6 +1109,41 @@ export const dispatchRouter = router({
             serverSeq: seq,
           })
           .where(dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("completed"))),
+        // Bundles added (and reserved) after our read are not on the packing
+        // list: unlist and release them, but only if our completion landed.
+        ctx.db
+          .delete(dispatchItem)
+          .where(
+            and(
+              eq(dispatchItem.companyId, ctx.companyId),
+              eq(dispatchItem.dispatchId, d.id),
+              inArray(
+                dispatchItem.bundleId,
+                ctx.db
+                  .select({ id: bundle.id })
+                  .from(bundle)
+                  .where(
+                    and(
+                      eq(bundle.companyId, ctx.companyId),
+                      eq(bundle.currentDispatchId, d.id),
+                      eq(bundle.status, "reserved"),
+                    ),
+                  ),
+              ),
+              completedBySeq(ctx.db, ctx.companyId, d.id, seq),
+            ),
+          ),
+        ctx.db
+          .update(bundle)
+          .set({ status: "available", currentDispatchId: null, serverSeq: seq })
+          .where(
+            and(
+              eq(bundle.companyId, ctx.companyId),
+              eq(bundle.currentDispatchId, d.id),
+              eq(bundle.status, "reserved"),
+              completedBySeq(ctx.db, ctx.companyId, d.id, seq),
+            ),
+          ),
         ...packingListStatements,
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
@@ -1080,81 +1172,20 @@ export const dispatchRouter = router({
       if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
       assertDispatchTransition(d.status, "cancelled");
 
-      const wasReserved = d.status === "reserved";
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      let releasedCount = 0;
-      const statements: SqliteBatchItem[] = [
+      // Always release, even from draft: a reserve may land between our read
+      // and this batch.
+      const { statements, releasedCount } = await releaseStatements(
+        ctx,
+        d.id,
+        seq,
+        input.reason ?? "dispatch.cancel",
+      );
+      statements.push(
         ctx.db
           .update(dispatch)
           .set({ status: "cancelled", serverSeq: seq })
           .where(dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("cancelled"))),
-      ];
-
-      if (wasReserved) {
-        const items = await ctx.db
-          .select({ bundleId: dispatchItem.bundleId })
-          .from(dispatchItem)
-          .where(
-            and(eq(dispatchItem.companyId, ctx.companyId), eq(dispatchItem.dispatchId, d.id)),
-          );
-        if (items.length > 0) {
-          const bundleIds = items.map((i) => i.bundleId);
-          const reservedBundles = await mapInChunks(bundleIds, (ids) =>
-            ctx.db
-              .select()
-              .from(bundle)
-              .where(
-                and(
-                  eq(bundle.companyId, ctx.companyId),
-                  inArray(bundle.id, ids),
-                  eq(bundle.currentDispatchId, d.id),
-                ),
-              ),
-          );
-          const notReservedHere = reservedBundles.filter((b) => b.status !== "reserved");
-          if (reservedBundles.length !== bundleIds.length || notReservedHere.length > 0) {
-            throw new TRPCError({
-              code: "CONFLICT",
-              message: "Cannot cancel: one or more bundles are no longer reserved for this dispatch",
-            });
-          }
-
-          const releaseStatements: SqliteBatchItem[] = [];
-          for (const ids of chunk(bundleIds, IN_LIST_CHUNK)) {
-            releaseStatements.push(
-              ctx.db
-                .update(bundle)
-                .set({ status: "available", currentDispatchId: null, serverSeq: seq })
-                .where(
-                  and(
-                    eq(bundle.companyId, ctx.companyId),
-                    inArray(bundle.id, ids),
-                    eq(bundle.status, "reserved"),
-                    eq(bundle.currentDispatchId, d.id),
-                  ),
-                ),
-            );
-          }
-          pushChunkedInserts(
-            releaseStatements,
-            (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
-            bundleIds.map((bid) => ({
-              id: crypto.randomUUID(),
-              companyId: ctx.companyId,
-              bundleId: bid,
-              fromStatus: "reserved" as const,
-              toStatus: "available" as const,
-              reason: input.reason ?? "dispatch.cancel",
-              actorId: ctx.session.user.id,
-              dispatchId: d.id,
-            })),
-          );
-          statements.unshift(...releaseStatements);
-          releasedCount = items.length;
-        }
-      }
-
-      statements.push(
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {

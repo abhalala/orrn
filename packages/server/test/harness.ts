@@ -60,16 +60,33 @@ export type TestEnv = {
     n: number,
     status?: BundleStatus,
   ): Promise<{ id: string; serial: string }[]>;
+  /**
+   * Run `fn` once, right before the next D1 `batch()` (i.e. after a procedure's
+   * reads, before its atomic write). Lets tests interleave another mutation
+   * deterministically to simulate a race. `fn`'s own batches don't re-trigger it.
+   */
+  beforeNextBatch(fn: () => Promise<unknown>): void;
 };
+
+type BatchHook = { next: (() => Promise<unknown>) | null };
 
 /**
  * Wraps a D1 binding so `prepare(sql).bind(...args)` throws when more than 100
  * parameters are bound, mirroring production D1. `bind()` returns the real
  * statement, so `batch()` (which needs genuine statements) keeps working.
+ * `batch()` first runs any pending `beforeNextBatch` hook.
  */
-function withParamLimit(d1: D1Database): D1Database {
+function withParamLimit(d1: D1Database, hook: BatchHook): D1Database {
   return new Proxy(d1, {
     get(target, prop) {
+      if (prop === "batch") {
+        return async (statements: D1PreparedStatement[]) => {
+          const fn = hook.next;
+          hook.next = null;
+          if (fn) await fn();
+          return target.batch(statements);
+        };
+      }
       if (prop === "prepare") {
         return (query: string) => {
           const stmt = target.prepare(query);
@@ -128,7 +145,8 @@ export async function createTestEnv(): Promise<TestEnv> {
   const rawD1 = await mf.getD1Database("DB");
   await applyMigrations(rawD1);
 
-  const d1 = withParamLimit(rawD1);
+  const batchHook: BatchHook = { next: null };
+  const d1 = withParamLimit(rawD1, batchHook);
   workersEnv.DB = d1;
 
   // Server modules read `env.DB` from the mocked `cloudflare:workers`; import
@@ -311,5 +329,8 @@ export async function createTestEnv(): Promise<TestEnv> {
     seedDie,
     seedCustomer,
     seedBundles,
+    beforeNextBatch(fn) {
+      batchHook.next = fn;
+    },
   };
 }
