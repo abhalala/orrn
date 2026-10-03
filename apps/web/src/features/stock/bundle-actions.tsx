@@ -8,7 +8,6 @@ import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
-import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import { AddToDispatchSheet } from "./add-to-dispatch-sheet";
@@ -35,11 +34,10 @@ export function BundleActions({
 }) {
   const { t } = useT();
   const queryClient = useQueryClient();
-  const { data: me } = useMe();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [transitionOpen, setTransitionOpen] = useState(false);
 
-  const canAdd = bundle.status === "available" && can(me, "dispatch.addBundle");
+  const canAdd = bundle.status === "available";
   const canReprint = bundle.status !== "void";
   const transitionTo = bundle.status === "available" ? "void" : bundle.status === "void" ? "available" : null;
 
@@ -73,7 +71,7 @@ export function BundleActions({
   return (
     <>
       <div role="group" aria-label={t("bundle.actionsLabel")} className="flex flex-wrap items-center gap-2" data-testid="bundle-actions">
-        {canAdd ? addButton("max-md:hidden") : null}
+        {canAdd ? <Can do="dispatch.addBundle">{addButton("max-md:hidden")}</Can> : null}
         {canReprint ? (
           <Can do="spool.create_jobs">
             <Button
@@ -105,14 +103,13 @@ export function BundleActions({
       {children}
 
       {canAdd ? (
-        // Phones: the main action stays one thumb away, above the tab bar.
-        <div className="sticky bottom-[calc(var(--shell-tabbar-offset)+8px)] z-10 rounded-card border border-border bg-card/95 p-2 shadow-md backdrop-blur-md md:hidden">
-          {addButton("w-full")}
-        </div>
-      ) : null}
-
-      {canAdd ? (
-        <AddToDispatchSheet open={sheetOpen} onOpenChange={setSheetOpen} serial={bundle.serial} description={description} />
+        <Can do="dispatch.addBundle">
+          {/* Phones: the main action stays one thumb away, above the tab bar. */}
+          <div className="sticky bottom-[calc(var(--shell-tabbar-offset)+8px)] z-10 rounded-card border border-border bg-card/95 p-2 shadow-md backdrop-blur-md md:hidden">
+            {addButton("w-full")}
+          </div>
+          <AddToDispatchSheet open={sheetOpen} onOpenChange={setSheetOpen} serial={bundle.serial} description={description} />
+        </Can>
       ) : null}
       {transitionTo ? (
         <TransitionDialog

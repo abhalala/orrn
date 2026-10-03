@@ -180,7 +180,15 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange(op
     enabled: searchable && hasModule("customers"),
     staleTime: 30_000,
   });
-  const loading = trimmed.length >= 2 && (!settled || dispatches.isFetching || dies.isFetching || customers.isFetching);
+  // Partial serials and PO numbers (Task 21): the bundles whose serial or PO contains the text.
+  const bundles = useQuery({
+    ...trpc.bundle.listBundles.queryOptions({ search: debounced, limit: 5 }),
+    enabled: searchable && hasModule("bundles"),
+    staleTime: 30_000,
+  });
+  const loading =
+    trimmed.length >= 2 &&
+    (!settled || bundles.isFetching || dispatches.isFetching || dies.isFetching || customers.isFetching);
 
   const results = useMemo<Result[]>(() => {
     const out: Result[] = [];
@@ -196,6 +204,18 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange(op
     }
     // Remote groups only for the query they were fetched for, so Enter never opens a stale row.
     if (settled && debounced.length >= 2) {
+      for (const b of bundles.data?.items ?? []) {
+        if (b.serial === serial) continue;
+        out.push({
+          id: `bundle-row-${b.id}`,
+          group: "bundle",
+          label: b.serial,
+          mono: true,
+          meta: [[b.dieSeries, b.dieSectionCode].filter(Boolean).join(" "), t(`status.bundle.${b.status}`)].join(" · "),
+          icon: Package,
+          to: `/b/${encodeURIComponent(b.serial)}`,
+        });
+      }
       for (const d of dispatches.data?.items ?? []) {
         const status = DISPATCH_STATUS[d.status];
         out.push({
@@ -232,7 +252,7 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange(op
     return out;
     // `hasModule` derives from `me`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trimmed, settled, debounced, dispatches.data, dies.data, customers.data, me, t]);
+  }, [trimmed, settled, debounced, bundles.data, dispatches.data, dies.data, customers.data, me, t]);
 
   // Keep the highlighted row when it survives a refresh, else the first one.
   const active = results.find((r) => r.id === activeId) ?? results[0] ?? null;
