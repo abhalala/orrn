@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 919 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -91,7 +91,7 @@ Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 | `bundlesKg` | {bundles} {bundles:bundle\|bundles} · {kg} kg | {bundles} bundle · {kg} kg |
 | `feetInches` | {ft} ft {in} in | {ft} ft {in} in |
 
-### status (30)
+### status (31)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -125,6 +125,7 @@ Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 | `request.rejected` | Rejected | नामंज़ूर |
 | `company.active` | Active | चालू |
 | `company.suspended` | Suspended | रोकी गई |
+| `company.pending` | Waiting for approval | मंज़ूरी बाकी |
 
 ### roles (13)
 
@@ -744,44 +745,220 @@ Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 | `all` | All guides | सारी गाइड |
 | `empty` | No guides for your role yet. | आपके रोल के लिए अभी कोई गाइड नहीं है। |
 
-### admin (34)
+### admin (210)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Godseye | Godseye |
-| `kpis.active` | Active companies | चालू कंपनियां |
-| `kpis.suspended` | Suspended | रोकी गई |
-| `kpis.pendingRequests` | Pending requests | बाकी रिक्वेस्ट |
-| `kpis.staff` | Staff | स्टाफ़ |
-| `recentCompanies` | Recent companies | हाल की कंपनियां |
+| `overview.title` | Overview | सारांश |
+| `overview.subtitle` | Companies, access requests and staff on orrn. | orrn पर कंपनियां, एक्सेस रिक्वेस्ट और स्टाफ़। |
+| `overview.kpis` | At a glance | एक नज़र में |
+| `overview.active` | Active companies | चालू कंपनियां |
+| `overview.activeMeta` | {count} in total | कुल {count} |
+| `overview.suspended` | Suspended | रोकी गई |
+| `overview.suspendedMeta` | Access paused | एक्सेस रुका हुआ |
+| `overview.pending` | Access requests | एक्सेस रिक्वेस्ट |
+| `overview.pendingMeta` | Waiting for review | जांच बाकी है |
+| `overview.pendingNone` | All reviewed | सब जांच ली गईं |
+| `overview.staff` | Staff | स्टाफ़ |
+| `overview.staffMeta` | Godseye logins | Godseye लॉगिन |
+| `overview.waiting` | Waiting for review | जांच बाकी |
+| `overview.waitingEmpty` | No requests waiting. | कोई रिक्वेस्ट बाकी नहीं है। |
+| `overview.recent` | Recent companies | हाल की कंपनियां |
+| `overview.recentEmpty` | Approved requests become companies here. | मंज़ूर रिक्वेस्ट यहां कंपनी बनकर दिखती हैं। |
+| `overview.viewAll` | View all | सब देखें |
+| `overview.viewAllRequests` | View all access requests | सभी एक्सेस रिक्वेस्ट देखें |
+| `overview.viewAllCompanies` | View all companies | सभी कंपनियां देखें |
+| `overview.loadError` | The overview didn't load. Check the connection and try again. | सारांश लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
+| `overview.requestFrom` | {name}, {email} | {name}, {email} |
 | `companies.title` | Companies | कंपनियां |
+| `companies.subtitle` | {count} {count:company\|companies} on orrn | orrn पर {count} {count:कंपनी\|कंपनियां} |
 | `companies.search` | Search companies | कंपनी खोजें |
-| `companies.empty` | No companies yet. | अभी कोई कंपनी नहीं है। |
-| `companies.tabs.plan` | Plan and modules | प्लान और मॉड्यूल |
-| `companies.tabs.printing` | Printing | प्रिंटिंग |
-| `companies.tabs.access` | Access | एक्सेस |
-| `companies.suspend` | Suspend company | कंपनी रोकें |
-| `companies.reactivate` | Reactivate company | कंपनी फिर से चालू करें |
+| `companies.searchHint` | Name or short name | नाम या छोटा नाम |
+| `companies.status` | Status | स्थिति |
+| `companies.printingOnly` | Only with label printing | सिर्फ़ लेबल प्रिंटिंग वाली |
+| `companies.filterPending` | Waiting | बाकी |
+| `companies.columns.company` | Company | कंपनी |
+| `companies.columns.status` | Status | स्थिति |
+| `companies.columns.printing` | Label printing | लेबल प्रिंटिंग |
+| `companies.columns.members` | Members | सदस्य |
+| `companies.columns.joined` | Joined | जुड़ी |
+| `companies.empty` | No companies yet. Approved access requests show up here. | अभी कोई कंपनी नहीं है। मंज़ूर एक्सेस रिक्वेस्ट यहां दिखती हैं। |
+| `companies.emptyFiltered` | No companies match. Try another search or filter. | कोई कंपनी मेल नहीं खाती। दूसरी खोज या फ़िल्टर आज़माएं। |
+| `companies.clearFilters` | Clear filters | फ़िल्टर हटाएं |
+| `companies.loadError` | Companies didn't load. Check the connection and try again. | कंपनियां लोड नहीं हुईं। कनेक्शन देखें और फिर कोशिश करें। |
+| `companies.listLabel` | Companies | कंपनियां |
+| `company.back` | Companies | कंपनियां |
+| `company.facts` | Company facts | कंपनी की जानकारी |
+| `company.status` | Status | स्थिति |
+| `company.plan` | Plan | प्लान |
+| `company.members` | Members | सदस्य |
+| `company.joined` | Joined | जुड़ी |
+| `company.noPlan` | No plan | कोई प्लान नहीं |
+| `company.notFound` | This company doesn't exist, or it was removed. | यह कंपनी मौजूद नहीं है, या हटा दी गई है। |
+| `company.loadError` | This company didn't load. Check the connection and try again. | यह कंपनी लोड नहीं हुई। कनेक्शन देखें और फिर कोशिश करें। |
+| `company.suspend` | Suspend | रोकें |
+| `company.suspendTitle` | Suspend {company}? | {company} को रोकें? |
+| `company.suspendBody` | Everyone at {company} loses access until you reactivate it. Their data stays. | {company} के सभी लोगों का एक्सेस तब तक बंद रहेगा जब तक आप इसे फिर से चालू नहीं करते। उनका डेटा बना रहेगा। |
+| `company.suspended` | Company suspended | कंपनी रोक दी गई |
+| `company.reactivate` | Reactivate | फिर से चालू करें |
+| `company.reactivateTitle` | Reactivate {company}? | {company} को फिर से चालू करें? |
+| `company.reactivateBody` | Everyone at {company} can sign in again. | {company} के सभी लोग फिर से साइन इन कर सकेंगे। |
+| `company.reactivated` | Company reactivated | कंपनी फिर से चालू हो गई |
+| `company.sections` | Company sections | कंपनी के हिस्से |
+| `company.tabs.plan` | Plan and modules | प्लान और मॉड्यूल |
+| `company.tabs.printing` | Printing | प्रिंटिंग |
+| `company.tabs.access` | Access | एक्सेस |
+| `plan.plan` | Plan | प्लान |
+| `plan.plans.starter` | Starter | स्टार्टर |
+| `plan.plans.growth` | Growth | ग्रोथ |
+| `plan.plans.enterprise` | Enterprise | एंटरप्राइज़ |
+| `plan.modules` | Modules | मॉड्यूल |
+| `plan.modulesHint` | With none ticked, every module is on. | कोई भी न चुना हो तो सभी मॉड्यूल चालू रहते हैं। |
+| `plan.moduleNames.customers` | Customers | कस्टमर |
+| `plan.moduleNames.dies` | Dies | डाई |
+| `plan.moduleNames.bundles` | Packing and stock | पैकिंग और स्टॉक |
+| `plan.moduleNames.dispatches` | Dispatch and packing lists | डिस्पैच और पैकिंग लिस्ट |
+| `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
+| `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
+| `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
+| `plan.moduleHints.dispatches` | Dispatches and printed packing lists | डिस्पैच और छपी पैकिंग लिस्ट |
+| `plan.save` | Save plan | प्लान सेव करें |
+| `plan.saved` | Plan saved | प्लान सेव हो गया |
+| `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
+| `printing.noneTitle` | Label printing isn't set up | लेबल प्रिंटिंग सेट नहीं है |
+| `printing.noneBody` | Set up a print station so {company} can print bundle labels on their own printers. | प्रिंट स्टेशन सेट करें ताकि {company} अपने प्रिंटर पर बंडल लेबल छाप सके। |
 | `printing.setUp` | Set up label printing | लेबल प्रिंटिंग सेट करें |
-| `printing.turnOff` | Turn off label printing | लेबल प्रिंटिंग बंद करें |
+| `printing.inactive` | Only active companies can print labels. Reactivate {company} first. | सिर्फ़ चालू कंपनियां लेबल छाप सकती हैं। पहले {company} को फिर से चालू करें। |
+| `printing.addAnother` | Add a print station | एक और प्रिंट स्टेशन जोड़ें |
+| `printing.restricted` | Your role can't manage label printing. Ask a Godseye admin. | आपका रोल लेबल प्रिंटिंग नहीं संभाल सकता। किसी Godseye एडमिन से कहें। |
+| `printing.station` | Print station | प्रिंट स्टेशन |
+| `printing.address` | Address | पता |
+| `printing.version` | Version | वर्ज़न |
+| `printing.versionUnknown` | Not reported yet | अभी नहीं बताया |
+| `printing.lastSeen` | Last seen | आखिरी बार दिखा |
+| `printing.never` | Never | कभी नहीं |
+| `printing.setUpOn` | Set up | सेट किया |
+| `printing.nameLabel` | Station name | स्टेशन का नाम |
+| `printing.nameHint` | 3 to 63 lowercase letters, numbers or hyphens. | 3 से 63 छोटे अंग्रेज़ी अक्षर, अंक या हाइफ़न। |
+| `printing.namePreview` | Address: {address} | पता: {address} |
+| `printing.nameRequired` | Enter a station name. | स्टेशन का नाम लिखें। |
+| `printing.nameLength` | Use 3 to 63 characters. | 3 से 63 अक्षर रखें। |
+| `printing.nameFormat` | Use lowercase letters, numbers and hyphens. Start and end with a letter or number. | छोटे अंग्रेज़ी अक्षर, अंक और हाइफ़न लिखें। शुरू और अंत अक्षर या अंक से हो। |
+| `printing.nameTaken` | That station name is taken. Try another. | यह स्टेशन नाम पहले से लिया हुआ है। कोई दूसरा आज़माएं। |
+| `printing.create` | Set up print station | प्रिंट स्टेशन सेट करें |
+| `printing.created` | Print station set up | प्रिंट स्टेशन सेट हो गया |
+| `printing.secretsTitle` | Copy these now | इन्हें अभी कॉपी करें |
+| `printing.secretsBody` | They are shown only once. The print station needs them to connect. | ये सिर्फ़ एक बार दिखेंगे। प्रिंट स्टेशन को जुड़ने के लिए इनकी ज़रूरत है। |
+| `printing.instanceId` | Instance ID | Instance ID |
+| `printing.sharedSecret` | Shared secret | Shared secret |
+| `printing.tunnelToken` | Tunnel token | Tunnel token |
+| `printing.copyValue` | Copy {label} | {label} कॉपी करें |
+| `printing.copied` | {label} copied | {label} कॉपी हो गया |
+| `printing.copyFailed` | Couldn't copy. Select the text and copy it. | कॉपी नहीं हुआ। टेक्स्ट चुनकर कॉपी करें। |
 | `printing.rotateSecret` | Rotate secret | Secret बदलें |
+| `printing.rotateTitle` | Rotate the secret for {address}? | {address} का secret बदलें? |
+| `printing.rotateBody` | The current secret stops working right away. The print station needs the new one to keep printing. | अभी वाला secret तुरंत काम करना बंद कर देगा। प्रिंटिंग चालू रखने के लिए प्रिंट स्टेशन को नया secret चाहिए। |
+| `printing.rotated` | Secret rotated | Secret बदल गया |
+| `printing.newSecret` | New shared secret | नया shared secret |
 | `printing.installScript` | Install script | इंस्टॉल स्क्रिप्ट |
+| `printing.installTitle` | Download the install script | इंस्टॉल स्क्रिप्ट डाउनलोड करें |
+| `printing.installBody` | A shell script for a Linux or macOS computer with Docker. It sets up the print station for {address}. | Docker वाले Linux या macOS कंप्यूटर के लिए शेल स्क्रिप्ट। यह {address} के लिए प्रिंट स्टेशन सेट करती है। |
+| `printing.installDownload` | Download script | स्क्रिप्ट डाउनलोड करें |
+| `printing.installed` | Install script downloaded | इंस्टॉल स्क्रिप्ट डाउनलोड हो गई |
 | `printing.downloads` | Downloads | डाउनलोड |
+| `printing.downloadsTitle` | Download the print station app | प्रिंट स्टेशन ऐप डाउनलोड करें |
+| `printing.downloadsBody` | The app comes set up for {address}. Run it on a computer on the plant network. | ऐप {address} के लिए पहले से सेट है। इसे प्लांट नेटवर्क के किसी कंप्यूटर पर चलाएं। |
+| `printing.computer` | Computer | कंप्यूटर |
+| `printing.platforms.darwinArm64` | Mac with Apple chip | Apple चिप वाला Mac |
+| `printing.platforms.darwinAmd64` | Mac with Intel chip | Intel चिप वाला Mac |
+| `printing.platforms.linuxAmd64` | Linux | Linux |
+| `printing.platforms.windowsAmd64` | Windows | Windows |
+| `printing.download` | Download app | ऐप डाउनलोड करें |
+| `printing.downloadStarted` | Download started | डाउनलोड शुरू हो गया |
+| `printing.turnOff` | Turn off label printing | लेबल प्रिंटिंग बंद करें |
+| `printing.turnOffShort` | Turn off | बंद करें |
+| `printing.turnOffTitle` | Turn off {address}? | {address} बंद करें? |
+| `printing.turnOffBody` | Labels stop printing at {company} until you set up a new print station. | नया प्रिंट स्टेशन सेट होने तक {company} में लेबल नहीं छपेंगे। |
+| `printing.turnedOff` | Label printing turned off | लेबल प्रिंटिंग बंद हो गई |
+| `printing.history` | Turned off earlier | पहले बंद किए गए |
+| `printing.loadError` | Print stations didn't load. Check the connection and try again. | प्रिंट स्टेशन लोड नहीं हुए। कनेक्शन देखें और फिर कोशिश करें। |
+| `printing.stationsLabel` | Print stations | प्रिंट स्टेशन |
 | `access.impersonate` | Impersonate | कंपनी के रूप में खोलें |
+| `access.title` | Open {company} as support | {company} को सपोर्ट के रूप में खोलें |
+| `access.body` | You see orrn as their owner would. Every change is recorded with your name. | आप orrn को उनके मालिक की तरह देखेंगे। हर बदलाव आपके नाम से दर्ज होगा। |
+| `access.reasonLabel` | Reason (optional) | वजह (ज़रूरी नहीं) |
+| `access.reasonHint` | Shown in the session list below. | नीचे सेशन लिस्ट में दिखेगी। |
+| `access.durationLabel` | Session length | सेशन कितनी देर |
+| `access.minutes` | {count} min | {count} मिनट |
+| `access.started` | Support session started | सपोर्ट सेशन शुरू हुआ |
+| `access.inactive` | Only active companies can be opened. Reactivate {company} first. | सिर्फ़ चालू कंपनियां खोली जा सकती हैं। पहले {company} को फिर से चालू करें। |
+| `access.restricted` | Your role can't open companies as support. | आपका रोल कंपनियों को सपोर्ट के रूप में नहीं खोल सकता। |
 | `access.banner` | Viewing {company} as orrn support | {company} को orrn सपोर्ट के रूप में देख रहे हैं |
 | `access.stop` | Stop impersonating | सपोर्ट व्यू बंद करें |
 | `access.expires` | Ends at {time} | {time} पर खत्म होगा |
+| `access.endsSoon` | Ends at {time}, in under 5 minutes | {time} पर खत्म होगा, 5 मिनट से कम बचे |
+| `access.sessions` | Support sessions | सपोर्ट सेशन |
+| `access.sessionsEmpty` | No support sessions yet. | अभी कोई सपोर्ट सेशन नहीं। |
+| `access.staff` | Staff | स्टाफ़ |
+| `access.reason` | Reason | वजह |
+| `access.startedAt` | Started | शुरू हुआ |
+| `access.ends` | Ends | खत्म |
+| `access.state.active` | Active | चालू |
+| `access.state.ended` | Ended | खत्म |
+| `access.state.stopped` | Stopped | बंद किया |
+| `access.noReason` | No reason given | कोई वजह नहीं दी |
+| `access.resume` | Resume | फिर से खोलें |
+| `access.stopSession` | Stop | बंद करें |
+| `access.stopped` | Support session stopped | सपोर्ट सेशन बंद हुआ |
+| `access.unknownStaff` | Former staff | पुराना स्टाफ़ |
+| `access.staffYou` | {name} (you) | {name} (आप) |
 | `requests.title` | Access requests | एक्सेस रिक्वेस्ट |
+| `requests.waiting` | {count} waiting | {count} बाकी |
+| `requests.none` | Nothing waiting | कुछ बाकी नहीं |
 | `requests.empty` | No requests waiting. | कोई रिक्वेस्ट बाकी नहीं है। |
+| `requests.emptyBody` | New requests from the website show up here. | वेबसाइट से आई नई रिक्वेस्ट यहां दिखेंगी। |
+| `requests.from` | From {name} | {name} की ओर से |
+| `requests.received` | Received {date} | {date} को आई |
+| `requests.noNotes` | No notes | कोई नोट नहीं |
 | `requests.approve` | Approve | मंज़ूर करें |
-| `requests.reject` | Reject | नामंज़ूर करें |
+| `requests.approveTitle` | Approve {company}? | {company} को मंज़ूर करें? |
+| `requests.approveBody` | This creates the company and emails a sign-in link to {email}. | इससे कंपनी बनेगी और {email} पर साइन इन लिंक ईमेल होगा। |
 | `requests.approved` | Request approved | रिक्वेस्ट मंज़ूर हो गई |
+| `requests.reject` | Reject | नामंज़ूर करें |
+| `requests.rejectTitle` | Reject {company}? | {company} को नामंज़ूर करें? |
+| `requests.rejectBody` | The request is closed. {email} is not emailed. | रिक्वेस्ट बंद हो जाएगी। {email} को ईमेल नहीं जाएगा। |
 | `requests.rejected` | Request rejected | रिक्वेस्ट नामंज़ूर हो गई |
+| `requests.loadError` | Requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर कोशिश करें। |
+| `requests.listLabel` | Waiting requests | बाकी रिक्वेस्ट |
 | `staff.title` | Staff | स्टाफ़ |
+| `staff.subtitle` | People who can sign in to Godseye. There is no public sign-up. | जो लोग Godseye में साइन इन कर सकते हैं। यहां कोई खुला साइन अप नहीं है। |
 | `staff.add` | Add staff | स्टाफ़ जोड़ें |
+| `staff.addTitle` | Add a staff account | स्टाफ़ अकाउंट जोड़ें |
 | `staff.name` | Name | नाम |
 | `staff.email` | Email | ईमेल |
+| `staff.password` | Temporary password | अस्थायी पासवर्ड |
+| `staff.passwordHint` | At least 12 characters. Share it in person or on a call. | कम से कम 12 अक्षर। इसे मिलकर या कॉल पर बताएं। |
+| `staff.passwordShort` | Use at least 12 characters. | कम से कम 12 अक्षर रखें। |
+| `staff.emailTaken` | An account with this email already exists. | इस ईमेल से पहले से एक अकाउंट है। |
 | `staff.role` | Role | रोल |
+| `staff.roleHints.super_admin` | Everything, including removing staff. | सब कुछ, स्टाफ़ हटाना भी। |
+| `staff.roleHints.admin` | Companies, requests, printing, support sessions and adding staff. | कंपनियां, रिक्वेस्ट, प्रिंटिंग, सपोर्ट सेशन और स्टाफ़ जोड़ना। |
+| `staff.roleHints.support` | Companies and requests. No support sessions or printing. | कंपनियां और रिक्वेस्ट। सपोर्ट सेशन या प्रिंटिंग नहीं। |
+| `staff.create` | Add account | अकाउंट जोड़ें |
+| `staff.created` | Staff account added | स्टाफ़ अकाउंट जुड़ गया |
+| `staff.you` | You | आप |
+| `staff.added` | Added | जोड़ा गया |
+| `staff.roleFor` | Role for {name} | {name} का रोल |
+| `staff.roleChanged` | Role changed | रोल बदल गया |
+| `staff.remove` | Remove | हटाएं |
+| `staff.removeLabel` | Remove {name} | {name} को हटाएं |
+| `staff.removeTitle` | Remove {name}? | {name} को हटाएं? |
+| `staff.removeBody` | {email} can no longer sign in to Godseye. | {email} अब Godseye में साइन इन नहीं कर पाएगा। |
+| `staff.removed` | Staff access removed | स्टाफ़ एक्सेस हटा दिया गया |
+| `staff.empty` | No staff yet. | अभी कोई स्टाफ़ नहीं। |
+| `staff.loadError` | Staff didn't load. Check the connection and try again. | स्टाफ़ लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
+| `staff.listLabel` | Staff accounts | स्टाफ़ अकाउंट |
 
 ### marketing (24)
 
