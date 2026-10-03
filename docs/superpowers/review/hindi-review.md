@@ -876,7 +876,7 @@ Please check, Lalubhai:
 | `subtitle` | Scrap lots from the kanta to the scrap store | स्क्रैप के लॉट, कांटे से स्क्रैप स्टोर तक |
 | `newLot` | New lot | नया लॉट |
 | `lotStatus.booking` | Booked | बुक हुआ |
-| `lotStatus.unload` | Unloading | उतर रहा है |
+| `lotStatus.unload` | Unloading | उतराई में |
 | `lotStatus.ok` | OK | OK |
 | `lotStatus.cancelled` | Cancelled | कैंसल |
 | `flag.shortWithoutNote` | Short, needs note | कम है, नोट चाहिए |
@@ -884,10 +884,10 @@ Please check, Lalubhai:
 | `filter.label` | Show | दिखाएं |
 | `filter.all` | All | सभी |
 | `filter.booking` | Booked | बुक हुए |
-| `filter.unload` | Unloading | उतर रहे |
+| `filter.unload` | Unloading | उतराई में |
 | `filter.ok` | OK | OK |
 | `kpi.atKanta` | At the kanta | कांटे पर |
-| `kpi.atKantaMeta` | Booked or unloading | बुक हुए या उतर रहे |
+| `kpi.atKantaMeta` | Booked or unloading | बुक हुए या उतराई में |
 | `kpi.lots` | {count:lot\|lots} | {count:लॉट\|लॉट} |
 | `kpi.inStock` | Scrap in stock | स्टॉक में स्क्रैप |
 | `kpi.inStockMeta` | All scrap stores | सभी स्क्रैप स्टोर |
@@ -991,7 +991,7 @@ Please check, Lalubhai:
 | `detail.material` | Material | माल |
 | `detail.rate` | Rate | रेट |
 | `detail.amount` | Amount | रकम |
-| `detail.payable` | Payable | देने वाला |
+| `detail.payable` | Payable | देय वज़न |
 | `detail.billBook` | Bill book | बिल बुक |
 | `detail.partyBillNo` | Party bill number | पार्टी का बिल नंबर |
 | `detail.vehicleNo` | Vehicle | गाड़ी |
@@ -1013,8 +1013,8 @@ Please check, Lalubhai:
 | `detail.stockNever` | This lot never went into stock. | यह लॉट कभी स्टॉक में नहीं आया। |
 | `detail.stockIn` | {kg} kg in at {location} | {location} में {kg} kg आया |
 | `detail.stockOut` | {kg} kg out at {location} | {location} से {kg} kg गया |
-| `detail.markUnload` | Mark unloading | उतर रहा है करें |
-| `detail.markedUnload` | Marked unloading | उतर रहा है किया |
+| `detail.markUnload` | Mark unloading | उतराई चालू करें |
+| `detail.markedUnload` | Marked unloading | उतराई चालू की |
 | `detail.markOk` | Mark OK | OK करें |
 | `detail.markedOk` | Marked OK. {kg} kg in scrap stock at {location}. | OK हो गया। {location} में {kg} kg स्क्रैप स्टॉक में। |
 | `detail.weigh` | Enter our kanta weight | हमारे कांटे का वज़न डालें |
