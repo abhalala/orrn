@@ -6,6 +6,7 @@ import { Input } from "@orrn/ui/components/input";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Tabs } from "@orrn/ui/components/tabs";
 import { Toolbar } from "@orrn/ui/components/toolbar";
+import { Truncate } from "@orrn/ui/components/truncate";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
@@ -78,7 +79,7 @@ function AdminCompaniesComponent() {
     onSuccess: (grant) => {
       setImpersonateCompanyId(grant.companyId);
       queryClient.clear();
-      toast.success("Impersonation grant created — loading tenant view");
+      toast.success("Support session started. Opening their workspace.");
       window.location.href = "/dashboard";
     },
     onError: (e: any) => toast.error(e.message || "Failed to start impersonation"),
@@ -102,7 +103,16 @@ function AdminCompaniesComponent() {
           </Link>
         ),
       },
-      { id: "slug", header: "Slug", flex: 1, cell: (row) => row.slug },
+      {
+        id: "slug",
+        header: "Slug",
+        flex: 1,
+        cell: (row) => (
+          <Truncate mono className="text-xs">
+            {row.slug}
+          </Truncate>
+        ),
+      },
       {
         id: "status",
         header: "Status",
@@ -119,7 +129,7 @@ function AdminCompaniesComponent() {
                   : "neutral"
             }
           >
-            {row.status}
+            {sentenceCase(row.status)}
           </Badge>
         ),
       },
@@ -195,7 +205,7 @@ function AdminCompaniesComponent() {
       <PageHeader
         eyebrow="Godseye"
         title="Companies"
-        description={`Tenant directory for support and onboarding (${data?.total ?? 0} total).`}
+        description={`Every company on ORRN, for support and onboarding (${data?.total ?? 0} in total).`}
         actions={
           <Link to="/admin" className="no-underline">
             <Button variant="outline">Back to console</Button>
@@ -224,16 +234,18 @@ function AdminCompaniesComponent() {
         rowKey={(row) => row.id}
         renderCard={(row) => (
           <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
                 <Link
                   to="/admin/companies/$id"
                   params={{ id: row.id }}
-                  className="truncate text-base font-semibold text-foreground hover:underline"
+                  className="block min-w-0 text-base font-semibold text-foreground hover:underline"
                 >
-                  {row.name}
+                  <Truncate lines={2}>{row.name}</Truncate>
                 </Link>
-                <p className="m-0 font-mono text-xs text-muted-foreground">{row.slug}</p>
+                <Truncate as="p" mono className="m-0 mt-0.5 text-xs text-muted-foreground">
+                  {row.slug}
+                </Truncate>
               </div>
               <Badge
                 tone={
@@ -244,19 +256,19 @@ function AdminCompaniesComponent() {
                       : "neutral"
                 }
               >
-                {row.status}
+                {sentenceCase(row.status)}
               </Badge>
             </div>
             <div className="grid grid-cols-3 gap-3 text-sm">
-              <div>
+              <div className="min-w-0">
                 <p className="m-0 text-xs font-medium text-muted-foreground">Members</p>
                 <p className="m-0 text-foreground">{row.memberCount}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="m-0 text-xs font-medium text-muted-foreground">Plan</p>
-                <p className="m-0 capitalize text-foreground">{row.plan ?? "—"}</p>
+                <p className="m-0 truncate capitalize text-foreground">{row.plan ?? "None"}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="m-0 text-xs font-medium text-muted-foreground">Created</p>
                 <p className="m-0 text-foreground">{format(new Date(row.createdAt), "MMM d")}</p>
               </div>
@@ -304,11 +316,15 @@ function AdminCompaniesComponent() {
             description={
               query
                 ? "Try a different search query or status filter."
-                : "Approved waitlist requests appear here as new tenants."
+                : "Approved access requests show up here as new companies."
             }
           />
         }
       />
     </div>
   );
+}
+
+function sentenceCase(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

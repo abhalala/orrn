@@ -348,7 +348,9 @@
     font-family: var(--font-sans);
     background-color: var(--background);
     color: var(--foreground);
-    overflow-x: hidden;
+    /* clip, not hidden: hidden still makes a scroll container that focus or
+       scrollIntoView can push sideways. */
+    overflow-x: clip;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -416,7 +418,7 @@
     #root {
       width: 100%;
       max-width: 100vw;
-      overflow-x: hidden;
+      overflow-x: clip;
     }
 
     .orrn-desktop-nav {
@@ -449,12 +451,12 @@
     .orrn-page-title {
       font-size: 28px !important;
       line-height: 32px !important;
-      overflow-wrap: anywhere;
+      overflow-wrap: break-word;
     }
 
     .orrn-page-description {
       max-width: 100% !important;
-      overflow-wrap: anywhere;
+      overflow-wrap: break-word;
     }
 
     .orrn-mobile-nav {

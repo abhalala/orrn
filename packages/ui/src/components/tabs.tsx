@@ -23,8 +23,10 @@ export type TabsProps = {
  */
 export function Tabs({ items, value, onValueChange, className, children }: TabsProps) {
   return (
-    <div className={cn("flex flex-col gap-4", className)}>
-      <div className="flex max-w-full gap-1 self-start overflow-x-auto rounded-full bg-surface-sunken p-1 [scrollbar-width:none] dark:bg-background dark:ring-1 dark:ring-border">
+    <div className={cn("flex min-w-0 max-w-full flex-col gap-4", className)}>
+      {/* The track scrolls sideways when the segments outgrow a phone row;
+          it never widens the page. */}
+      <div className="flex min-w-0 max-w-full gap-1 self-start overflow-x-auto overscroll-x-contain rounded-full bg-surface-sunken p-1 [scrollbar-width:none] dark:bg-background dark:ring-1 dark:ring-border">
         {items.map((it) => {
           const active = value === it.id;
           return (
@@ -34,7 +36,7 @@ export function Tabs({ items, value, onValueChange, className, children }: TabsP
               aria-pressed={active}
               onClick={() => onValueChange(it.id)}
               className={cn(
-                "inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold transition-[background-color,color,box-shadow,transform] duration-[var(--dur-fast)] active:scale-[0.97] pointer-coarse:h-11",
+                "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13px] sm:px-4 font-semibold transition-[background-color,color,box-shadow,transform] duration-[var(--dur-fast)] active:scale-[0.97] pointer-coarse:h-11",
                 active
                   ? "bg-card text-foreground shadow-sm dark:bg-popover"
                   : "text-muted-foreground hover:text-foreground",

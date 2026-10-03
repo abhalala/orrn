@@ -91,28 +91,36 @@ export function StatCard({
           : "relative overflow-hidden"
       }
     >
-      <div className="flex items-start gap-3">
-        {icon ? (
-          <div
-            aria-hidden="true"
-            className={`flex size-10 shrink-0 items-center justify-center rounded-md ${TONE_CLASSES[tone]}`}
-          >
-            {icon}
+      {/* Stacks (icon over text) in narrow cells such as the 2-up phone
+          grid; sits side by side once the card has room. */}
+      <div className="@container">
+        <div className="flex flex-col items-start gap-2.5 @[15rem]:flex-row @[15rem]:gap-3">
+          {icon ? (
+            <div
+              aria-hidden="true"
+              className={`flex size-10 shrink-0 items-center justify-center rounded-md ${TONE_CLASSES[tone]}`}
+            >
+              {icon}
+            </div>
+          ) : null}
+          <div className="w-full min-w-0 flex-1 space-y-1">
+            <p className="m-0 truncate text-[13px] font-medium text-muted-foreground" title={label}>
+              {label}
+            </p>
+            <div className="flex items-end justify-between gap-2">
+              {isLoading ? (
+                <Skeleton className="h-7 w-16" />
+              ) : (
+                <p className="m-0 font-display text-[34px] font-extrabold leading-none tracking-[-0.035em] tabular-nums text-foreground">{value}</p>
+              )}
+              {!isLoading && trend ? <Sparkline data={trend} /> : null}
+            </div>
+            {hint ? (
+              <p className="m-0 truncate text-[13px] text-muted-foreground" title={hint}>
+                {hint}
+              </p>
+            ) : null}
           </div>
-        ) : null}
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="m-0 text-[13px] font-medium text-muted-foreground">
-            {label}
-          </p>
-          <div className="flex items-end justify-between gap-2">
-            {isLoading ? (
-              <Skeleton className="h-7 w-16" />
-            ) : (
-              <p className="m-0 font-display text-[34px] font-extrabold leading-none tracking-[-0.035em] tabular-nums text-foreground">{value}</p>
-            )}
-            {!isLoading && trend ? <Sparkline data={trend} /> : null}
-          </div>
-          {hint ? <p className="m-0 text-[13px] text-muted-foreground">{hint}</p> : null}
         </div>
       </div>
     </Card>
@@ -121,7 +129,7 @@ export function StatCard({
   if (!to) return body;
 
   return (
-    <Link to={to as "/"} className="rounded-card no-underline">
+    <Link to={to as "/"} className="block min-w-0 rounded-card no-underline">
       {body}
     </Link>
   );

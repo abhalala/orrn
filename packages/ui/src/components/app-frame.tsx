@@ -53,17 +53,24 @@ export function AppFrame({
 }: AppFrameProps) {
   return (
     <div
-      className="flex w-full max-w-screen flex-col overflow-hidden bg-background text-foreground"
+      // `overflow-clip` (not hidden) so focus/scrollIntoView can never scroll
+      // the chrome sideways; the page scrolls vertically inside <main> only.
+      className="relative flex w-full max-w-screen flex-col overflow-clip bg-background text-foreground"
       style={{ height: "100dvh" }}
     >
       {banner}
-      <div className="flex w-full flex-1 overflow-hidden min-h-0">
-        {sidebar ? <div className="orrn-desktop-nav h-full">{sidebar}</div> : null}
-        <div className="flex min-w-0 max-w-full flex-1 flex-col">
+      <div data-shell-row="" className="flex min-h-0 w-full flex-1 overflow-clip">
+        {sidebar ? <div className="orrn-desktop-nav h-full shrink-0">{sidebar}</div> : null}
+        {/* min-w-0 + basis-0: the column takes the space left by the sidebar
+            and never grows to fit its content. */}
+        <div className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col">
           {statusBar}
-          <main id="main" className="orrn-page-scroll min-w-0 flex-1 overflow-auto w-full">
+          <main id="main" className="orrn-page-scroll relative min-w-0 w-full flex-1 overflow-y-auto overflow-x-hidden">
             <div
-              className="orrn-app-content mx-auto flex w-full min-w-0 flex-col gap-5 px-6 py-7"
+              // Content can never widen the page: the column is min-w-0
+              // and anything wider than it is clipped here (and caught by the
+              // layout guards in apps/web/tests/visual/layout-guards.ts).
+              className="orrn-app-content mx-auto flex w-full min-w-0 flex-col gap-5 overflow-x-clip px-6 py-7"
               style={{
                 maxWidth,
                 paddingBottom: mobileNav ? 84 : 24,
@@ -109,7 +116,7 @@ export function PageScaffold({
           {eyebrow ? (
             <p className="m-0 text-[13px] font-medium text-muted-foreground">{eyebrow}</p>
           ) : null}
-          <h1 className="orrn-page-title m-0 font-display text-[34px] font-extrabold leading-[1.05] tracking-[-0.035em] text-foreground">
+          <h1 className="orrn-page-title m-0 min-w-0 break-words font-display text-[34px] font-extrabold leading-[1.05] tracking-[-0.035em] text-foreground">
             {title}
           </h1>
           {description ? (

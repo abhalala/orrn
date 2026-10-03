@@ -46,20 +46,24 @@ export function Breadcrumbs({
   return (
     <nav
       aria-label="Breadcrumb"
-      className="flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap text-[13px] text-muted-foreground"
+      className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] text-muted-foreground"
     >
-      <Link to={homePath as "/"} className="hover:text-foreground hover:underline">
+      <Link to={homePath as "/"} className="shrink-0 hover:text-foreground hover:underline">
         {homeLabel}
       </Link>
       {crumbs.map(({ seg, path }, i) => {
         const isLast = i === crumbs.length - 1;
         return (
-          <span key={path} className="flex items-center gap-1">
-            <span aria-hidden>/</span>
+          // Each crumb ellipsises on its own (ids can be long); the full
+          // label stays in `title` and in the accessible name.
+          <span key={path} className={isLast ? "flex min-w-0 items-center gap-1" : "flex min-w-0 shrink-[2] items-center gap-1"}>
+            <span aria-hidden className="shrink-0">/</span>
             {isLast ? (
-              <span aria-current="page" className="font-medium text-foreground">{prettifySegment(seg)}</span>
+              <span aria-current="page" title={prettifySegment(seg)} className="min-w-0 truncate font-medium text-foreground">
+                {prettifySegment(seg)}
+              </span>
             ) : (
-              <Link to={path as "/"} className="hover:text-foreground hover:underline">
+              <Link to={path as "/"} title={prettifySegment(seg)} className="min-w-0 truncate hover:text-foreground hover:underline">
                 {prettifySegment(seg)}
               </Link>
             )}

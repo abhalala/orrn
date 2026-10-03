@@ -7,7 +7,9 @@ import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Select } from "@orrn/ui/components/select";
+import { Tabs } from "@orrn/ui/components/tabs";
 import { Toolbar } from "@orrn/ui/components/toolbar";
+import { Truncate } from "@orrn/ui/components/truncate";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format, formatDistanceToNow } from "date-fns";
@@ -396,19 +398,14 @@ function AdminSpoolComponent() {
       />
 
       <Toolbar>
-        <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5">
-          <span className="text-xs font-medium text-muted-foreground">Filter:</span>
-          {(["all", ...DEPLOYMENT_STATUSES] as const).map((s) => (
-            <Button
-              key={s}
-              size="sm"
-              variant={status === s ? "secondary" : "ghost"}
-              onPress={() => navigate({ search: { status: s as StatusFilter } })}
-            >
-              {s.charAt(0).toUpperCase() + s.slice(1)}
-            </Button>
-          ))}
-        </div>
+        <Tabs
+          value={status}
+          onValueChange={(v) => navigate({ search: { status: v as StatusFilter } })}
+          items={(["all", ...DEPLOYMENT_STATUSES] as const).map((s) => ({
+            id: s,
+            label: s.charAt(0).toUpperCase() + s.slice(1),
+          }))}
+        />
       </Toolbar>
 
       <DataTable
@@ -417,17 +414,23 @@ function AdminSpoolComponent() {
         rowKey={(row) => row.id}
         renderCard={(row) => (
           <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-base font-semibold text-foreground">{row.companyName}</p>
-                <p className="m-0 font-mono text-xs text-muted-foreground">{row.subdomain}</p>
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <Truncate as="p" className="m-0 text-base font-semibold text-foreground">
+                  {row.companyName}
+                </Truncate>
+                <Truncate as="p" mono className="m-0 text-xs text-muted-foreground">
+                  {row.subdomain}
+                </Truncate>
               </div>
-              <Badge tone={statusTone(row.status)}>{row.status}</Badge>
+              <Badge tone={statusTone(row.status)}>{row.status.charAt(0).toUpperCase() + row.status.slice(1)}</Badge>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-2 gap-3 text-sm [&>div]:min-w-0">
               <div>
                 <p className="m-0 text-xs font-medium text-muted-foreground">Domain</p>
-                <p className="m-0 truncate font-mono text-xs text-foreground">{row.spoolDomain}</p>
+                <Truncate as="p" mono className="m-0 text-xs text-foreground">
+                  {row.spoolDomain}
+                </Truncate>
               </div>
               <div>
                 <p className="m-0 text-xs font-medium text-muted-foreground">Version</p>

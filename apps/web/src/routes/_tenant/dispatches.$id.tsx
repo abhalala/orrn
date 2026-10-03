@@ -9,9 +9,11 @@ import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { Fact, FactList } from "@orrn/ui/components/fact-list";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { Truncate } from "@orrn/ui/components/truncate";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { requireCompanyMe } from "@/shared/lib/guards";
@@ -250,44 +252,28 @@ function DispatchDetailComponent() {
       />
 
       <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-        <div>
-          <Label className="text-xs text-muted-foreground">Status</Label>
-          <p className="mt-1">
+        <FactList>
+          <Fact label="Status">
             <StatusBadge kind="dispatch" value={d.status} />
-          </p>
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">Customer</Label>
-          <p className="font-medium">{c?.name ?? "(deleted)"}</p>
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">Ship Date</Label>
-          <p>{d.shipDate ? format(new Date(d.shipDate), "PP") : "—"}</p>
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">Created</Label>
-          <p>{format(new Date(d.createdAt), "PP p")}</p>
-        </div>
-        {d.completedAt && (
-          <div>
-            <Label className="text-xs text-muted-foreground">Completed</Label>
-            <p>{format(new Date(d.completedAt), "PP p")}</p>
-          </div>
-        )}
-        <div className="col-span-2">
-          <Label className="text-xs text-muted-foreground">Notes</Label>
-          <p>{d.notes || "—"}</p>
-        </div>
-        <div className="sm:col-span-2">
-          <Label className="text-xs text-muted-foreground">Totals</Label>
-          <p>
-            {items.length} bundle(s) · {totalQty} qty · {totalWeight} g
-          </p>
-        </div>
-          </div>
-        </CardContent>
+          </Fact>
+          <Fact label="Customer">
+            <Truncate lines={2} className="font-medium">
+              {c?.name ?? "Deleted customer"}
+            </Truncate>
+          </Fact>
+          <Fact label="Ship date">{d.shipDate ? format(new Date(d.shipDate), "PP") : "Not set"}</Fact>
+          <Fact label="Created">{format(new Date(d.createdAt), "PP p")}</Fact>
+          {d.completedAt ? <Fact label="Completed">{format(new Date(d.completedAt), "PP p")}</Fact> : null}
+          <Fact label="Totals">
+            <span className="tabular-nums">
+              {items.length} {items.length === 1 ? "bundle" : "bundles"}, {totalQty.toLocaleString()} pcs,{" "}
+              {totalWeight.toLocaleString()} g
+            </span>
+          </Fact>
+          <Fact label="Notes" wide>
+            {d.notes || "None"}
+          </Fact>
+        </FactList>
       </Card>
 
       <Card>
@@ -532,14 +518,16 @@ function DispatchDetailComponent() {
         ) : (
           <ul className="space-y-2">
             {events.map((ev) => (
-              <li key={ev.id} className="flex items-start justify-between text-sm border-b last:border-b-0 pb-2 gap-4">
-                <div>
-                  <p className="font-medium">{ev.action}</p>
+              <li key={ev.id} className="flex min-w-0 items-start justify-between gap-4 border-b pb-2 text-sm last:border-b-0">
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 font-medium">{ev.action}</p>
                   {ev.meta && Object.keys(ev.meta).length > 0 && (
-                    <p className="text-xs text-muted-foreground font-mono">{JSON.stringify(ev.meta)}</p>
+                    <Truncate as="p" mono className="m-0 text-xs text-muted-foreground">
+                      {JSON.stringify(ev.meta)}
+                    </Truncate>
                   )}
                 </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                   {format(new Date(ev.at), "PP p")}
                 </span>
               </li>

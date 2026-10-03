@@ -29,6 +29,12 @@ export type DataTableProps<Row> = {
   footer?: ReactNode;
 };
 
+/**
+ * Container-aware card grid: as many columns as fit at >= 18rem each, so a
+ * list inside a half-width panel never squeezes cards into slivers.
+ */
+const LIST_GRID = "grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-3";
+
 type SortState = { columnId: string; dir: "asc" | "desc" } | null;
 
 /**
@@ -119,9 +125,9 @@ export function DataTable<Row>({
           {emptyState ?? <DefaultEmpty />}
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className={LIST_GRID}>
           {pageRows.map((row) => (
-            <div key={rowKey(row)}>
+            <div key={rowKey(row)} className="min-w-0">
               {renderCard ? (
                 renderCard(row)
               ) : (
@@ -176,8 +182,11 @@ function CardListItem<Row>({
   row: Row;
   onPress?: () => void;
 }) {
-  const visibleColumns = columns.filter((col) => col.header !== "");
   const actionColumns = columns.filter((col) => col.header === "" || col.id === "actions");
+  const statusColumn = columns.find((col) => col.id === "status" && col.header !== "");
+  const visibleColumns = columns.filter(
+    (col) => col.header !== "" && col.id !== "actions" && col !== statusColumn,
+  );
   const [primaryColumn, ...detailColumns] = visibleColumns;
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -188,10 +197,12 @@ function CardListItem<Row>({
     }
   };
 
+  // Phone-first card: the key value leads (with its status chip on the same
+  // line), then the secondary facts in a compact label-over-value grid.
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 shadow-sm transition-[background-color,border-color,transform] duration-[var(--dur-fast)]",
+        "flex h-full min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 shadow-sm transition-[background-color,border-color,transform] duration-[var(--dur-fast)]",
         onPress ? "cursor-pointer hover:border-control/60 active:scale-[0.99]" : "",
       )}
       role={onPress ? "button" : undefined}
@@ -203,17 +214,16 @@ function CardListItem<Row>({
         <div className="min-w-0 flex-1">
           {primaryColumn ? (
             <>
-              <p className="m-0 text-xs font-medium text-muted-foreground">
-                {primaryColumn.header}
-              </p>
-              <div className="mt-1 min-w-0 text-[15px] font-semibold text-foreground">
+              <p className="sr-only">{primaryColumn.header}</p>
+              <div className="min-w-0 truncate text-[15px] font-semibold leading-6 text-foreground">
                 {asNode(primaryColumn.cell(row))}
               </div>
             </>
           ) : null}
         </div>
-        {actionColumns.length > 0 ? (
+        {statusColumn || actionColumns.length > 0 ? (
           <div className="flex shrink-0 items-center gap-2">
+            {statusColumn ? <div>{asNode(statusColumn.cell(row))}</div> : null}
             {actionColumns.map((col) => (
               <div key={col.id}>{asNode(col.cell(row))}</div>
             ))}
@@ -222,16 +232,14 @@ function CardListItem<Row>({
       </div>
 
       {detailColumns.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <dl className="m-0 grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-x-4 gap-y-2.5">
           {detailColumns.map((col) => (
-            <div key={col.id} className={cn("min-w-0", col.align === "right" ? "sm:text-right" : "")}>
-              <p className="m-0 text-xs font-medium text-muted-foreground">
-                {col.header}
-              </p>
-              <div className="mt-1 min-w-0 text-sm text-foreground">{asNode(col.cell(row))}</div>
+            <div key={col.id} className="min-w-0">
+              <dt className="truncate text-xs font-medium text-muted-foreground">{col.header}</dt>
+              <dd className="m-0 mt-0.5 min-w-0 truncate text-sm text-foreground">{asNode(col.cell(row))}</dd>
             </div>
           ))}
-        </div>
+        </dl>
       ) : null}
     </div>
   );
@@ -239,7 +247,11 @@ function CardListItem<Row>({
 
 function asNode(value: ReactNode): ReactNode {
   if (typeof value === "string" || typeof value === "number") {
-    return <span className="text-sm text-foreground">{value}</span>;
+    return (
+      <span className="truncate" title={String(value)}>
+        {value}
+      </span>
+    );
   }
   return value;
 }
@@ -251,7 +263,7 @@ function labelText(value: ReactNode): string {
 
 function LoadingCards() {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Loading list">
+    <div className={LIST_GRID} aria-label="Loading list">
       {Array.from({ length: 6 }).map((_, index) => (
         <div key={index} className="flex flex-col gap-3 rounded-card border border-border bg-card p-4">
           <Skeleton className="h-4 w-1/2" />

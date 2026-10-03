@@ -58,7 +58,7 @@ export function Badge({
     <span
       data-slot="badge"
       className={cn(
-        "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-full font-semibold leading-none tracking-[0.005em]",
+        "inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full font-semibold leading-none tracking-[0.005em]",
         SIZE_CLASSES[size],
         !overrides && TONE_CLASSES[tone],
         className,
