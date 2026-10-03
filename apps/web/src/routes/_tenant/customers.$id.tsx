@@ -1,240 +1,589 @@
+import { dispatchTone, formatKgTotal, type DispatchStatus } from "@orrn/domain";
+import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent } from "@orrn/ui/components/card";
+import { Chip } from "@orrn/ui/components/chip";
+import { Dialog } from "@orrn/ui/components/dialog";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Input, TextArea } from "@orrn/ui/components/input";
 import { FormActions } from "@orrn/ui/components/form-actions";
-import { Label } from "@orrn/ui/components/label";
+import { HowToButton } from "@orrn/ui/components/how-to-button";
+import { riseDelay } from "@orrn/ui/components/motion";
 import { PageHeader } from "@orrn/ui/components/page-header";
-import { useForm } from "@tanstack/react-form";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
+import { Sheet } from "@orrn/ui/components/sheet";
+import { Skeleton } from "@orrn/ui/components/skeleton";
+import { StatusBlock } from "@orrn/ui/components/status-block";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Mail, Pencil, Phone, Trash2 } from "lucide-react";
+import { lazy, Suspense, useId, useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
 
+import { addressLines, addressToDraft, EMPTY_ADDRESS, sameDraft } from "@/features/customers/address";
+import { ChartCardSkeleton } from "@/features/customers/chart-card-skeleton";
+import { CustomerForm, type StoredCustomer } from "@/features/customers/customer-form";
+import { formatDay, formatInstantDay } from "@/features/customers/dates";
+import { KpiTile, KpiTileSkeleton } from "@/features/customers/kpi-tile";
+import { cadenceDays, lastDispatchPhrase, type Period } from "@/features/customers/period";
+import { PeriodRow } from "@/features/customers/period-row";
+import { periodSearch, rememberPeriod, usePeriod, type PeriodState } from "@/features/customers/use-period";
 import { Can } from "@/shared/components/can";
+import { can, useMe } from "@/shared/lib/me";
+import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
 
+// The chart kit loads only for analytics.view roles (never in the entry chunk).
+const VolumeCard = lazy(() => import("@/features/customers/customer-charts").then((m) => ({ default: m.VolumeCard })));
+const SectionsCard = lazy(() => import("@/features/customers/customer-charts").then((m) => ({ default: m.SectionsCard })));
+
+type CustomerSearch = { period?: Period };
+
 export const Route = createFileRoute("/_tenant/customers/$id")({
-  component: CustomerFormComponent,
+  validateSearch: (search: Record<string, unknown>): CustomerSearch => ({ period: periodSearch(search.period) }),
+  component: CustomerRoute,
 });
 
-function CustomerFormComponent() {
+function CustomerRoute() {
   const { id } = Route.useParams();
+  return id === "new" ? <NewCustomer /> : <CustomerDetail id={id} />;
+}
+
+function NewCustomer() {
+  const { t } = useT();
   const navigate = useNavigate();
-  const isNew = id === "new";
-
-  const { data: customer, isLoading } = useQuery({
-    ...trpc.customer.get.queryOptions({ id }),
-    enabled: !isNew,
-  });
-
-  const createMutation = useMutation({
-    ...trpc.customer.create.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Customer created");
-      navigate({ to: "/customers" });
-    },
-    onError: (error: any) => toast.error(error.message || "Failed to create customer"),
-  });
-
-  const updateMutation = useMutation({
-    ...trpc.customer.update.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Customer updated");
-      navigate({ to: "/customers" });
-    },
-    onError: (error: any) => toast.error(error.message || "Failed to update customer"),
-  });
-
-  const deleteMutation = useMutation({
-    ...trpc.customer.delete.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Customer deleted");
-      navigate({ to: "/customers" });
-    },
-    onError: (error: any) => toast.error(error.message || "Failed to delete customer"),
-  });
-
-  const form = useForm({
-    defaultValues: {
-      name: customer?.name || "",
-      email: customer?.email || "",
-      phone: customer?.phone || "",
-      taxId: customer?.taxId || "",
-      notes: customer?.notes || "",
-    },
-    onSubmit: async ({ value }) => {
-      if (isNew) createMutation.mutate(value);
-      else updateMutation.mutate({ id, ...value });
-    },
-    validators: {
-      onSubmit: z.object({
-        name: z.string().min(1, "Name is required"),
-        email: z.string().email("Invalid email").or(z.literal("")),
-        phone: z.string(),
-        taxId: z.string(),
-        notes: z.string(),
-      }),
-    },
-  });
-
-  if (!isNew && isLoading) return <div>Loading…</div>;
-  if (!isNew && !customer) {
-    return (
-      <EmptyState
-        title="Customer not found"
-        description="This customer may have been removed."
+  const formId = useId();
+  const [pending, setPending] = useState(false);
+  return (
+    <>
+      <PageHeader
+        back={{ to: "/customers", label: t("nav.customers") }}
+        title={t("customers.form.titleNew")}
+        actions={<HowToButton slug="add-customer" />}
       />
+      <div className="flex w-full max-w-[720px] flex-col gap-6 rounded-card border border-border bg-card p-4 sm:p-6">
+        <CustomerForm
+          formId={formId}
+          onPendingChange={setPending}
+          onSaved={(newId) => navigate({ to: "/customers/$id", params: { id: newId }, replace: true })}
+        />
+        <FormActions className="max-sm:bottom-[calc(var(--shell-tabbar-offset)+12px)]">
+          <Button variant="secondary" asChild>
+            <Link to="/customers">{t("common.cancel")}</Link>
+          </Button>
+          <Button type="submit" form={formId} loading={pending}>
+            {t("customers.form.submit")}
+          </Button>
+        </FormActions>
+      </div>
+    </>
+  );
+}
+
+function CustomerDetail({ id }: { id: string }) {
+  const { t } = useT();
+  const { data: me } = useMe();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const search = Route.useSearch();
+  const routeNavigate = Route.useNavigate();
+  const formId = useId();
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [pending, setPending] = useState(false);
+  const analytics = can(me, "analytics.view");
+  const periodState = usePeriod(search.period);
+
+  const query = useQuery({ ...trpc.customer.get.queryOptions({ id }), retry: false });
+
+  const remove = useMutation({
+    ...trpc.customer.delete.mutationOptions(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: trpc.customer.list.queryKey() });
+      toast.success(t("customers.detail.deleted"));
+      navigate({ to: "/customers" });
+    },
+    onError: (error) => {
+      toast.error(error.data?.code === "FORBIDDEN" ? t("errors.forbidden") : t("errors.generic"));
+    },
+  });
+
+  const back = { to: "/customers", label: t("nav.customers") };
+
+  if (query.isPending) {
+    return (
+      <div aria-busy="true" className="flex flex-col gap-5">
+        <span className="sr-only">{t("common.loading")}</span>
+        <Skeleton className="h-11 w-28 rounded-full" />
+        <Skeleton className="h-10 w-2/3 max-w-[420px]" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <KpiTileSkeleton className="col-span-2 md:col-span-1" />
+          <KpiTileSkeleton />
+          <KpiTileSkeleton />
+          <KpiTileSkeleton className="col-span-2 md:col-span-1" />
+        </div>
+      </div>
     );
   }
 
-  const handleDelete = () => {
-    if (window.confirm("Are you sure you want to delete this customer?")) {
-      deleteMutation.mutate({ id });
-    }
-  };
+  if (query.isError) {
+    const missing = isNotFound(query.error);
+    return (
+      <>
+        <PageHeader back={back} title={t("nav.customers")} />
+        <EmptyState
+          title={missing ? t("customers.detail.notFound") : t("customers.detail.loadFailed")}
+          action={
+            missing ? (
+              <Button asChild variant="secondary">
+                <Link to="/customers">{t("customers.detail.backToList")}</Link>
+              </Button>
+            ) : (
+              <Button variant="secondary" onClick={() => query.refetch()}>
+                {t("common.retry")}
+              </Button>
+            )
+          }
+        />
+      </>
+    );
+  }
+
+  const customer = query.data as StoredCustomer;
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
+    <>
       <PageHeader
-        eyebrow="Customers"
-        title={isNew ? "New customer" : customer?.name || "Edit customer"}
+        back={back}
+        title={customer.name}
+        subtitle={customer.taxId ? t("customers.detail.gstin", { gstin: customer.taxId }) : undefined}
         actions={
-          !isNew && (
-            <Can do="customer.delete">
-              <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
-                Delete
+          <>
+            <HowToButton slug="add-customer" />
+            <Can do="customer.update">
+              <Button variant="secondary" onClick={() => setEditing(true)}>
+                <Pencil aria-hidden="true" strokeWidth={2} />
+                {t("customers.detail.edit")}
               </Button>
             </Can>
-          )
+          </>
         }
       />
 
-      <Card>
-        <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              form.handleSubmit();
-            }}
-            className="space-y-4"
-          >
-            <form.Field name="name">
-              {(field) => (
-                <div className="space-y-2">
-                  <Label htmlFor={field.name}>
-                    Name <span className="font-normal text-muted-foreground">(required)</span>
-                  </Label>
-                  <Input
-                    id={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChangeText={field.handleChange}
-                    placeholder="Acme Corp"
-                  />
-                  {field.state.meta.errors.map((error: any) => (
-                    <p key={error?.toString()} className="text-sm text-destructive">
-                      {error?.toString()}
-                    </p>
-                  ))}
-                </div>
-              )}
-            </form.Field>
+      {analytics ? (
+        <CustomerAnalytics
+          customerId={customer.id}
+          periodState={periodState}
+          onPeriod={(next) => {
+            rememberPeriod(next);
+            routeNavigate({ search: { period: next }, replace: true });
+          }}
+        />
+      ) : null}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <form.Field name="email">
-                {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>Email</Label>
-                    <Input
-                      id={field.name}
-                      type="email"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChangeText={field.handleChange}
-                      placeholder="contact@acme.com"
-                    />
-                    {field.state.meta.errors.map((error: any) => (
-                      <p key={error?.toString()} className="text-sm text-destructive">
-                        {error?.toString()}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </form.Field>
-              <form.Field name="phone">
-                {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>Phone</Label>
-                    <Input
-                      id={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChangeText={field.handleChange}
-                      placeholder="+1 (555) 000-0000"
-                    />
-                  </div>
-                )}
-              </form.Field>
-            </div>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <ContactCard customer={customer} className="lg:col-start-2 lg:row-start-1" />
+        <RecentDispatches customerId={customer.id} today={periodState.today} timeZone={periodState.timeZone} className="lg:col-start-1 lg:row-start-1" />
+      </div>
 
-            <form.Field name="taxId">
-              {(field) => (
-                <div className="space-y-2">
-                  <Label htmlFor={field.name}>Tax ID</Label>
-                  <Input
-                    id={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChangeText={field.handleChange}
-                  />
-                </div>
-              )}
-            </form.Field>
+      <Sheet
+        open={editing}
+        onOpenChange={setEditing}
+        title={t("customers.detail.editTitle", { name: customer.name })}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditing(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" form={formId} loading={pending}>
+              {t("customers.form.submit")}
+            </Button>
+          </>
+        }
+      >
+        {editing ? (
+          <div className="flex flex-col gap-6">
+            <CustomerForm formId={formId} customer={customer} onPendingChange={setPending} onSaved={() => setEditing(false)} />
+            <Can do="customer.delete">
+              <div className="border-t border-border pt-4">
+                <Button variant="ghost" className="-ml-3 text-destructive hover:text-destructive" onClick={() => setDeleting(true)}>
+                  <Trash2 aria-hidden="true" strokeWidth={2} />
+                  {t("customers.detail.delete")}
+                </Button>
+              </div>
+            </Can>
+          </div>
+        ) : null}
+      </Sheet>
 
-            <form.Field name="notes">
-              {(field) => (
-                <div className="space-y-2">
-                  <Label htmlFor={field.name}>Notes</Label>
-                  <TextArea
-                    id={field.name}
-                    rows={4}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </div>
-              )}
-            </form.Field>
+      <Dialog
+        open={deleting}
+        onOpenChange={setDeleting}
+        title={t("customers.detail.deleteTitle", { name: customer.name })}
+        description={t("customers.detail.deleteBody")}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => setDeleting(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              variant="danger"
+              loading={remove.isPending}
+              onClick={() => {
+                setEditing(false);
+                remove.mutate({ id: customer.id });
+              }}
+            >
+              {t("customers.detail.delete")}
+            </Button>
+          </>
+        }
+      />
+    </>
+  );
+}
 
-            <FormActions className="pt-2">
-              <Button variant="outline" type="button" onClick={() => navigate({ to: "/customers" })}>
-                Cancel
-              </Button>
-              <Can do={isNew ? "customer.create" : "customer.update"}>
-                <form.Subscribe
-                  selector={(state) => ({
-                    canSubmit: state.canSubmit,
-                    isSubmitting: state.isSubmitting,
-                  })}
-                >
-                  {({ canSubmit }) => (
-                    <Button
-                      type="submit"
-                      disabled={!canSubmit || createMutation.isPending || updateMutation.isPending}
-                    >
-                      {createMutation.isPending || updateMutation.isPending
-                        ? "Saving…"
-                        : "Save customer"}
-                    </Button>
-                  )}
-                </form.Subscribe>
-              </Can>
-            </FormActions>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+/**
+ * The owner's view of one customer (analytics addendum §4): when they last took material and how
+ * often, the period's KPI tiles, 12 months of volume and what they buy. analytics.view only.
+ */
+function CustomerAnalytics({
+  customerId,
+  periodState,
+  onPeriod,
+}: {
+  customerId: string;
+  periodState: PeriodState;
+  onPeriod(period: Period): void;
+}) {
+  const { t, locale } = useT();
+  const { period, range, months, today } = periodState;
+
+  const year = useQuery({
+    ...trpc.analytics.customerSummary.queryOptions({ customerId, from: months.from, to: months.to, bucket: "month" }),
+  });
+  const current = useQuery({
+    ...trpc.analytics.customerSummary.queryOptions({ customerId, from: range.from, to: range.to, bucket: "month" }),
+    placeholderData: keepPreviousData,
+  });
+  const board = useQuery({
+    ...trpc.analytics.customerLeaderboard.queryOptions({ from: range.from, to: range.to, limit: 1 }),
+    placeholderData: keepPreviousData,
+  });
+
+  const last = year.data ? lastDispatchPhrase(year.data.daysSinceLast) : null;
+  const cadence = year.data ? cadenceDays(year.data.cadenceDays) : null;
+  const totals = current.data?.totals;
+  const totalKgG = board.data?.totalKgG ?? 0;
+  const share = totals && totalKgG > 0 ? (totals.kgG / totalKgG) * 100 : 0;
+  const caption = t("customers.period.range", { from: formatDay(range.from, locale, today), to: formatDay(range.to, locale, today) });
+  const openOrders = current.data?.openOrders ?? null;
+
+  return (
+    <>
+      <p data-slot="customer-facts" className="m-0 -mt-2 min-h-6 text-[15px] leading-6 font-medium break-words text-muted-foreground">
+        {last ? (
+          <>
+            {t(last.key, last.count === undefined ? undefined : { count: last.count })}
+            {cadence !== null ? ` · ${t("customers.detail.cadence", { count: cadence })}` : null}
+          </>
+        ) : year.isPending ? (
+          <Skeleton className="inline-block h-4 w-60 align-middle" />
+        ) : null}
+      </p>
+
+      <PeriodRow period={period} range={range} today={today} onChange={onPeriod} />
+
+      {current.isError && !current.data ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-card border border-border bg-card p-4">
+          <p className="m-0 flex-1 text-[15px] font-medium">{t("customers.detail.kpi.analyticsFailed")}</p>
+          <Button variant="secondary" onClick={() => current.refetch()}>
+            {t("common.retry")}
+          </Button>
+        </div>
+      ) : totals ? (
+        <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 lg:grid-cols-4" aria-busy={current.isFetching || undefined}>
+          <StatusBlock
+            tone="neutral"
+            title={t("customers.detail.kpi.kg")}
+            meta={caption}
+            value={totals.kgG / 1000}
+            format={formatKgTotal}
+            unit={t("units.kg")}
+            className="animate-rise col-span-2 md:col-span-1"
+            style={riseDelay(0)}
+          />
+          <KpiTile
+            label={t("customers.detail.kpi.dispatches")}
+            value={totals.dispatches}
+            className="animate-rise"
+            style={riseDelay(1)}
+          />
+          <KpiTile
+            label={t("customers.detail.kpi.avgLoad")}
+            value={totals.avgLoadKgG / 1000}
+            format={formatKgTotal}
+            unit={t("customers.detail.kpi.perDispatch")}
+            className="animate-rise"
+            style={riseDelay(2)}
+          />
+          <KpiTile
+            label={t("customers.detail.kpi.share")}
+            meta={t("customers.detail.kpi.shareOf", { total: formatKgTotal(totalKgG / 1000) })}
+            value={share}
+            format={(n) => `${new Intl.NumberFormat("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n)}%`}
+            className="animate-rise col-span-2 md:col-span-1"
+            style={riseDelay(3)}
+          />
+        </div>
+      ) : (
+        <div aria-busy="true" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <span className="sr-only">{t("common.loading")}</span>
+          <KpiTileSkeleton className="col-span-2 md:col-span-1" />
+          <KpiTileSkeleton />
+          <KpiTileSkeleton />
+          <KpiTileSkeleton className="col-span-2 md:col-span-1" />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <Suspense fallback={<ChartCardSkeleton />}>
+          <VolumeCard
+            series={year.data?.series ?? []}
+            state={year.isPending ? "loading" : year.isError ? "error" : undefined}
+            onRetry={() => year.refetch()}
+          />
+        </Suspense>
+        <Suspense fallback={<ChartCardSkeleton />}>
+          <SectionsCard
+            sections={current.data?.topSections ?? []}
+            state={current.isPending ? "loading" : current.isError && !current.data ? "error" : undefined}
+            refreshing={current.isFetching && !current.isPending}
+            onRetry={() => current.refetch()}
+          />
+        </Suspense>
+      </div>
+
+      {openOrders ? <OpenOrders orders={openOrders} /> : null}
+    </>
+  );
+}
+
+/** Order book for the customer, once sales orders exist (plant PL-8). Hidden while null. */
+function OpenOrders({ orders }: { orders: { orderedG: number; dispatchedG: number; bakiG: number; lines: number } }) {
+  const { t } = useT();
+  const titleId = useId();
+  const cells = [
+    { key: "ordered", label: t("customers.detail.openOrders.ordered"), g: orders.orderedG },
+    { key: "dispatched", label: t("customers.detail.openOrders.dispatched"), g: orders.dispatchedG },
+    { key: "baki", label: t("customers.detail.openOrders.baki"), g: orders.bakiG },
+  ];
+  return (
+    <section aria-labelledby={titleId} className="flex flex-col gap-3 rounded-card border border-border bg-card p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id={titleId} className="m-0 text-[17px] leading-6 font-semibold tracking-[-0.01em]">
+          {t("customers.detail.openOrders.title")}
+        </h2>
+        <span className="text-[13px] font-medium text-muted-foreground">
+          {t("customers.detail.openOrders.lines", { count: orders.lines })}
+        </span>
+      </div>
+      <dl className="m-0 grid grid-cols-3 gap-3">
+        {cells.map((c) => (
+          <div key={c.key} className="flex min-w-0 flex-col gap-0.5">
+            <dt className="text-[13px] font-medium text-muted-foreground">{c.label}</dt>
+            <dd data-no-truncate="" className="m-0 font-mono text-[17px] font-semibold tabular-nums">
+              {formatKgTotal(c.g / 1000)} {t("units.kg")}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function ContactCard({ customer, className }: { customer: StoredCustomer; className?: string }) {
+  const { t } = useT();
+  const titleId = useId();
+  const billing = addressLines(customer.billingAddress);
+  const shippingDraft = addressToDraft(customer.shippingAddress);
+  const shippingSame =
+    sameDraft(shippingDraft, EMPTY_ADDRESS) || sameDraft(shippingDraft, addressToDraft(customer.billingAddress));
+  const shipping = addressLines(customer.shippingAddress);
+
+  return (
+    <section aria-labelledby={titleId} className={`flex min-w-0 flex-col gap-4 rounded-card border border-border bg-card p-5 ${className ?? ""}`}>
+      <h2 id={titleId} className="m-0 text-[17px] leading-6 font-semibold tracking-[-0.01em]">
+        {t("customers.detail.contact")}
+      </h2>
+      {customer.phone || customer.email ? (
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
+          {customer.phone ? (
+            <li>
+              <a
+                href={`tel:${customer.phone.replace(/\s+/g, "")}`}
+                className="-mx-2 inline-flex min-h-11 items-center gap-2.5 rounded-input px-2 text-[15px] font-medium tabular-nums text-foreground no-underline hover:bg-accent"
+              >
+                <Phone aria-hidden="true" strokeWidth={2} className="size-[18px] shrink-0 text-muted-foreground" />
+                <span className="sr-only">{t("customers.form.phone")}: </span>
+                {customer.phone}
+              </a>
+            </li>
+          ) : null}
+          {customer.email ? (
+            <li className="min-w-0">
+              <a
+                href={`mailto:${customer.email}`}
+                className="-mx-2 inline-flex min-h-11 max-w-full items-center gap-2.5 rounded-input px-2 text-[15px] font-medium text-foreground no-underline hover:bg-accent"
+              >
+                <Mail aria-hidden="true" strokeWidth={2} className="size-[18px] shrink-0 text-muted-foreground" />
+                <span className="sr-only">{t("customers.form.email")}: </span>
+                <span className="min-w-0 [overflow-wrap:anywhere]">{customer.email}</span>
+              </a>
+            </li>
+          ) : null}
+        </ul>
+      ) : (
+        <p className="m-0 text-[15px] text-muted-foreground">{t("customers.detail.noContact")}</p>
+      )}
+
+      <div className="flex flex-col gap-1 border-t border-border pt-3">
+        <h3 className="m-0 text-[13px] font-semibold text-muted-foreground">{t("customers.form.billingAddress")}</h3>
+        {billing.length > 0 ? (
+          <address className="text-[15px] leading-6 not-italic break-words">
+            {billing.map((line) => (
+              <span key={line} className="block">
+                {line}
+              </span>
+            ))}
+          </address>
+        ) : (
+          <p className="m-0 text-[15px] text-muted-foreground">{t("customers.detail.noAddress")}</p>
+        )}
+      </div>
+      {billing.length > 0 || shipping.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          <h3 className="m-0 text-[13px] font-semibold text-muted-foreground">{t("customers.form.shippingAddress")}</h3>
+          {shippingSame && billing.length > 0 ? (
+            <p className="m-0 text-[15px] leading-6">{t("customers.detail.sameAsBilling")}</p>
+          ) : (
+            <address className="text-[15px] leading-6 not-italic break-words">
+              {shipping.map((line) => (
+                <span key={line} className="block">
+                  {line}
+                </span>
+              ))}
+            </address>
+          )}
+        </div>
+      ) : null}
+      {customer.notes ? (
+        <div className="flex flex-col gap-1 border-t border-border pt-3">
+          <h3 className="m-0 text-[13px] font-semibold text-muted-foreground">{t("customers.form.notes")}</h3>
+          <p className="m-0 text-[15px] leading-6 break-words whitespace-pre-line">{customer.notes}</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+type DispatchRow = {
+  id: string;
+  code: string;
+  status: DispatchStatus;
+  shipDate: string | Date | null;
+  createdAt: string | Date;
+  itemCount: number;
+  totalWeightG: number;
+};
+
+const RECENT_PAGE = 10;
+
+/** Every dispatch to this customer, newest first, linking to the dispatch. Visible to every role. */
+function RecentDispatches({
+  customerId,
+  today,
+  timeZone,
+  className,
+}: {
+  customerId: string;
+  today: string;
+  timeZone: string;
+  className?: string;
+}) {
+  const { t, locale } = useT();
+  const titleId = useId();
+  const [offset, setOffset] = useState(0);
+  const query = useQuery({
+    ...trpc.dispatch.listDispatches.queryOptions({ customerId, limit: RECENT_PAGE, offset }),
+    placeholderData: keepPreviousData,
+  });
+
+  const columns: ResponsiveListColumn<DispatchRow>[] = [
+    {
+      key: "code",
+      header: t("customers.detail.recent.code"),
+      cell: (d) => (
+        <span data-no-truncate="" className="font-mono whitespace-nowrap">
+          {d.code}
+        </span>
+      ),
+    },
+    {
+      key: "date",
+      header: t("customers.detail.recent.date"),
+      cell: (d) => <span className="whitespace-nowrap">{formatInstantDay(d.shipDate ?? d.createdAt, locale, timeZone, today)}</span>,
+    },
+    {
+      key: "status",
+      header: t("customers.detail.recent.status"),
+      cell: (d) => <Chip tone={dispatchTone(d.status)}>{t(`status.dispatch.${d.status}`)}</Chip>,
+    },
+    {
+      key: "bundles",
+      header: t("customers.detail.recent.bundles"),
+      align: "end",
+      cell: (d) => <span className="font-mono">{d.itemCount}</span>,
+    },
+    {
+      key: "kg",
+      header: t("customers.detail.recent.kg"),
+      align: "end",
+      cell: (d) => (
+        <span data-no-truncate="" className="font-mono whitespace-nowrap">
+          {formatKgTotal(d.totalWeightG / 1000)}
+        </span>
+      ),
+    },
+  ];
+
+  return (
+    <section aria-labelledby={titleId} className={`flex min-w-0 flex-col gap-3 ${className ?? ""}`}>
+      <h2 id={titleId} className="m-0 text-[17px] leading-6 font-semibold tracking-[-0.01em]">
+        {t("customers.detail.recent.title")}
+      </h2>
+      <ResponsiveList
+        label={t("customers.detail.recent.label")}
+        rows={(query.data?.items ?? []) as DispatchRow[]}
+        columns={columns}
+        rowKey={(d) => d.id}
+        rowHref={(d) => `/dispatch/${d.id}`}
+        total={query.data?.total}
+        loading={query.isFetching}
+        page={{ offset, limit: RECENT_PAGE, onChange: setOffset }}
+        empty={
+          query.isError ? (
+            <EmptyState
+              title={t("errors.generic")}
+              action={
+                <Button variant="secondary" onClick={() => query.refetch()}>
+                  {t("common.retry")}
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState title={t("customers.noDispatches")} />
+          )
+        }
+      />
+    </section>
   );
 }

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 835 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -564,22 +564,43 @@ Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 | `regenerateBody` | orrn builds it again from the bundles in this dispatch as they are now. | orrn इस dispatch के bundle की अभी की जानकारी से इसे फिर से बनाएगा। |
 | `regenerated` | Packing list regenerated | पैकिंग लिस्ट फिर से बन गई |
 
-### dies (32)
+### dies (58)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Dies | Die |
+| `subtitle` | Weight bands and measurements for every die. | हर die का वज़न रेंज और नाप। |
 | `newDie` | New die | नया die |
 | `search` | Search code, series or section | कोड, सीरीज़ या सेक्शन खोजें |
+| `searchLabel` | Search dies | Die खोजें |
+| `listLabel` | Dies | Die |
 | `columns.code` | Die | Die |
 | `columns.series` | Series | सीरीज़ |
 | `columns.section` | Section | सेक्शन |
 | `columns.name` | Name | नाम |
 | `columns.range` | Range (kg/12ft) | रेंज (kg/12ft) |
 | `columns.status` | Status | स्टेटस |
+| `rangeValue` | {min}-{max} | {min}-{max} |
+| `unnamed` | No name | कोई नाम नहीं |
 | `empty` | No dies yet. | अभी कोई die नहीं है। |
+| `emptyBody` | Add a die, or import the catalogue from a CSV file. | Die जोड़ें, या CSV फ़ाइल से कैटलॉग इम्पोर्ट करें। |
 | `emptyAction` | Add a die | Die जोड़ें |
 | `importCsv` | Import CSV | CSV इम्पोर्ट करें |
+| `detail.band` | Weight per 12 ft | 12 ft का वज़न |
+| `detail.bandValue` | {min} to {max} | {min} से {max} |
+| `detail.measurements` | Measurements | नाप |
+| `detail.noMeasurements` | No measurements yet. | अभी कोई नाप नहीं है। |
+| `detail.code` | Code | कोड |
+| `detail.seeStock` | See stock | स्टॉक देखें |
+| `detail.edit` | Edit die | Die बदलें |
+| `detail.editTitle` | Edit die {code} | Die {code} बदलें |
+| `detail.notFound` | This die doesn't exist or was deleted. | यह die नहीं मिला या डिलीट हो गया है। |
+| `detail.backToList` | Back to dies | Die की लिस्ट पर वापस |
+| `detail.delete` | Delete die | Die डिलीट करें |
+| `detail.deleteTitle` | Delete die {code}? | Die {code} डिलीट करें? |
+| `detail.deleteBody` | It leaves this list and Pack. Bundles already packed keep it. | यह इस लिस्ट और पैकिंग से हट जाएगा। जो bundle पैक हो चुके हैं, उनमें यह रहेगा। |
+| `detail.deleted` | Die deleted | Die डिलीट हो गया |
+| `detail.loadFailed` | This die didn't load. Check the connection and try again. | यह die लोड नहीं हुआ। इंटरनेट जांच कर फिर से कोशिश करें। |
 | `form.titleNew` | New die | नया die |
 | `form.titleEdit` | Die {code} | Die {code} |
 | `form.series` | Series | सीरीज़ |
@@ -588,11 +609,14 @@ Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 | `form.weightMin` | Min weight (kg/12ft) | कम से कम वज़न (kg/12ft) |
 | `form.weightMax` | Max weight (kg/12ft) | ज़्यादा से ज़्यादा वज़न (kg/12ft) |
 | `form.rangeHint` | Weight of one 12 ft length, in kg. | 12 ft लंबाई का वज़न, kg में। |
-| `form.rangeOrder` | Max weight must be more than min weight. | ज़्यादा से ज़्यादा वज़न, कम से कम वज़न से बड़ा होना चाहिए। |
+| `form.rangeOrder` | Max weight can't be less than min weight. | ज़्यादा से ज़्यादा वज़न, कम से कम वज़न से कम नहीं हो सकता। |
 | `form.status` | Status | स्टेटस |
 | `form.statusHint` | Archived dies don't show in Pack. | बंद die पैकिंग में नहीं दिखते। |
 | `form.notes` | Notes | नोट |
 | `form.advanced` | Advanced | एडवांस |
+| `form.advancedHint` | Width, thickness, oblique and leg. All optional. | चौड़ाई, मोटाई, oblique और लेग। सब ज़रूरी नहीं। |
+| `form.measureHintMm` | In mm. | mm में। |
+| `form.measureHintInch` | In inches, like 0.125 for 1/8 in. | इंच में, जैसे 1/8 in के लिए 0.125। |
 | `form.width` | Width | चौड़ाई |
 | `form.thickness` | Thickness | मोटाई |
 | `form.oblique` | Oblique | Oblique |
@@ -600,19 +624,38 @@ Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 | `form.submit` | Save die | Die सेव करें |
 | `form.saved` | Die saved | Die सेव हो गया |
 | `form.codeTaken` | This code belongs to a deleted die. Use a different code. | यह कोड एक डिलीट हुए die का है। दूसरा कोड डालें। |
+| `form.duplicate` | A die with this series and section code already exists. | इस सीरीज़ और सेक्शन कोड का die पहले से है। |
+| `form.fixErrors` | Check the fields marked in red. | लाल निशान वाले खाने जांचें। |
 
-### customers (28)
+### customers (95)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Customers | ग्राहक |
+| `subtitle` | Who buys from the plant, and how much. | प्लांट से कौन खरीदता है, और कितना। |
 | `newCustomer` | New customer | नया ग्राहक |
 | `search` | Search name, phone or GSTIN | नाम, फ़ोन या GSTIN खोजें |
+| `searchLabel` | Search customers | ग्राहक खोजें |
+| `listLabel` | Customers | ग्राहक |
 | `columns.name` | Name | नाम |
 | `columns.phone` | Phone | फ़ोन |
 | `columns.gstin` | GSTIN | GSTIN |
+| `columns.city` | City | शहर |
+| `columns.kg` | Dispatched (kg) | Dispatch हुआ (kg) |
 | `empty` | No customers yet. | अभी कोई ग्राहक नहीं है। |
+| `emptyBody` | Add a customer before their first dispatch. | पहले dispatch से पहले ग्राहक जोड़ें। |
 | `emptyAction` | Add a customer | ग्राहक जोड़ें |
+| `importCsv` | Import CSV | CSV इम्पोर्ट करें |
+| `period.label` | Period | समय |
+| `period.month` | This month | इस महीने |
+| `period.quarter` | This quarter | इस तिमाही |
+| `period.fy` | This year | इस साल |
+| `period.range` | {from} to {to} | {from} से {to} |
+| `leaderboard.title` | Who is leading | सबसे आगे कौन |
+| `leaderboard.subtitle` | kg dispatched per customer. {total} kg in all. | हर ग्राहक को dispatch हुआ kg। कुल {total} kg। |
+| `leaderboard.label` | Customers by kg dispatched | dispatch हुए kg के हिसाब से ग्राहक |
+| `leaderboard.otherShare` | Other customers ({share}) | बाकी ग्राहक ({share}) |
+| `leaderboard.valueHeader` | Dispatched | Dispatch हुआ |
 | `form.titleNew` | New customer | नया ग्राहक |
 | `form.name` | Name | नाम |
 | `form.nameHint` | As it should print on the packing list. | जैसा पैकिंग लिस्ट पर छपना चाहिए। |
@@ -626,11 +669,61 @@ Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 | `form.shippingAddress` | Shipping address | डिलीवरी का पता |
 | `form.sameAsBilling` | Same as billing address | बिलिंग वाला पता ही |
 | `form.addressLine` | Address | पता |
+| `form.addressLine2` | Address line 2 | पता, दूसरी लाइन |
 | `form.city` | City | शहर |
 | `form.state` | State | राज्य |
 | `form.pincode` | PIN code | पिन कोड |
 | `form.submit` | Save customer | ग्राहक सेव करें |
 | `form.saved` | Customer saved | ग्राहक सेव हो गया |
+| `form.fixErrors` | Check the fields marked in red. | लाल निशान वाले खाने जांचें। |
+| `detail.gstin` | GSTIN {gstin} | GSTIN {gstin} |
+| `detail.lastToday` | Last dispatch today | आखिरी dispatch आज |
+| `detail.lastYesterday` | Last dispatch yesterday | आखिरी dispatch कल |
+| `detail.lastDaysAgo` | Last dispatch {count} {count:day\|days} ago | आखिरी dispatch {count} दिन पहले |
+| `detail.lastNever` | No dispatches yet | अभी कोई dispatch नहीं |
+| `detail.cadence` | Every ~{count} {count:day\|days} | हर ~{count} दिन में |
+| `detail.edit` | Edit customer | ग्राहक बदलें |
+| `detail.editTitle` | Edit {name} | {name} बदलें |
+| `detail.contact` | Contact | संपर्क |
+| `detail.noContact` | No phone or email yet. | अभी कोई फ़ोन या ईमेल नहीं है। |
+| `detail.noAddress` | No address yet. | अभी कोई पता नहीं है। |
+| `detail.sameAsBilling` | Same as billing address | बिलिंग वाला पता ही |
+| `detail.notFound` | This customer doesn't exist or was deleted. | यह ग्राहक नहीं मिला या डिलीट हो गया है। |
+| `detail.backToList` | Back to customers | ग्राहकों की लिस्ट पर वापस |
+| `detail.loadFailed` | This customer didn't load. Check the connection and try again. | यह ग्राहक लोड नहीं हुआ। इंटरनेट जांच कर फिर से कोशिश करें। |
+| `detail.delete` | Delete customer | ग्राहक डिलीट करें |
+| `detail.deleteTitle` | Delete {name}? | {name} को डिलीट करें? |
+| `detail.deleteBody` | They leave this list and the dispatch picker. Past dispatches and packing lists keep their name. | यह इस लिस्ट और dispatch चुनने की लिस्ट से हट जाएगा। पुराने dispatch और पैकिंग लिस्ट में नाम रहेगा। |
+| `detail.deleted` | Customer deleted | ग्राहक डिलीट हो गया |
+| `detail.kpi.kg` | Dispatched | Dispatch हुआ |
+| `detail.kpi.dispatches` | Dispatches | Dispatch |
+| `detail.kpi.avgLoad` | Average load | औसत लोड |
+| `detail.kpi.share` | Share of all dispatches | सभी dispatch में हिस्सा |
+| `detail.kpi.shareOf` | of {total} kg in all | कुल {total} kg में से |
+| `detail.kpi.perDispatch` | kg per dispatch | kg हर dispatch |
+| `detail.kpi.analyticsFailed` | These numbers didn't load. | ये आंकड़े लोड नहीं हुए। |
+| `detail.volume.title` | Monthly volume | हर महीने का माल |
+| `detail.volume.subtitle` | kg dispatched per month, last 12 months | हर महीने dispatch हुआ kg, पिछले 12 महीने |
+| `detail.volume.label` | kg dispatched per month | हर महीने dispatch हुआ kg |
+| `detail.volume.month` | Month | महीना |
+| `detail.volume.value` | Dispatched | Dispatch हुआ |
+| `detail.sections.title` | What they buy | क्या खरीदते हैं |
+| `detail.sections.subtitle` | Top sections by kg dispatched in this period | इस समय में kg के हिसाब से टॉप सेक्शन |
+| `detail.sections.label` | Sections by kg dispatched | dispatch हुए kg के हिसाब से सेक्शन |
+| `detail.sections.other` | Other sections | बाकी सेक्शन |
+| `detail.sections.valueHeader` | Dispatched | Dispatch हुआ |
+| `detail.recent.title` | Recent dispatches | हाल के dispatch |
+| `detail.recent.label` | Recent dispatches | हाल के dispatch |
+| `detail.recent.code` | Dispatch | Dispatch |
+| `detail.recent.date` | Date | तारीख |
+| `detail.recent.status` | Status | स्टेटस |
+| `detail.recent.bundles` | Bundles | Bundle |
+| `detail.recent.kg` | kg | kg |
+| `detail.openOrders.title` | Open orders | बाकी ऑर्डर |
+| `detail.openOrders.ordered` | Ordered | ऑर्डर हुआ |
+| `detail.openOrders.dispatched` | Dispatched | Dispatch हुआ |
+| `detail.openOrders.baki` | Baki | बाकी |
+| `detail.openOrders.lines` | {count} {count:line\|lines} | {count} लाइन |
 | `dispatches` | Dispatches | Dispatch |
 | `noDispatches` | No dispatches for this customer yet. | इस ग्राहक का अभी कोई dispatch नहीं है। |
 

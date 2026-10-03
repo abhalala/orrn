@@ -1,368 +1,265 @@
+import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent } from "@orrn/ui/components/card";
+import { Dialog } from "@orrn/ui/components/dialog";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Input, TextArea } from "@orrn/ui/components/input";
 import { FormActions } from "@orrn/ui/components/form-actions";
-import { Label } from "@orrn/ui/components/label";
+import { HowToButton } from "@orrn/ui/components/how-to-button";
 import { PageHeader } from "@orrn/ui/components/page-header";
-import { NativeSelect } from "@orrn/ui/components/native-select";
-import { useForm } from "@tanstack/react-form";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Sheet } from "@orrn/ui/components/sheet";
+import { Skeleton } from "@orrn/ui/components/skeleton";
+import { StatusBlock } from "@orrn/ui/components/status-block";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Boxes, Pencil, Trash2 } from "lucide-react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
 
+import { OverflowMenu } from "@/features/catalog/overflow-menu";
+import { dieCode, measurementText } from "@/features/dies/die-display";
+import { DieForm } from "@/features/dies/die-form";
+import { GEOMETRY_FIELDS, kgText, type StoredDie } from "@/features/dies/die-model";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
+import { can, useMe } from "@/shared/lib/me";
+import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-const dieStatuses = ["active", "archived"] as const;
-
 export const Route = createFileRoute("/_tenant/dies/$id")({
-  component: DieFormComponent,
+  component: DieRoute,
 });
 
-function DieFormComponent() {
+function DieRoute() {
   const { id } = Route.useParams();
+  return id === "new" ? <NewDie /> : <DieDetail id={id} />;
+}
+
+function NewDie() {
+  const { t } = useT();
   const navigate = useNavigate();
-  const isNew = id === "new";
-  const lu = useLengthUnit();
-
-  const { data: die, isLoading } = useQuery({
-    ...trpc.die.get.queryOptions({ id }),
-    enabled: !isNew,
-  });
-
-  const createMutation = useMutation({
-    ...trpc.die.create.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Die created");
-      navigate({ to: "/dies" });
-    },
-    onError: (error: any) => toast.error(error.message || "Failed to create die"),
-  });
-
-  const updateMutation = useMutation({
-    ...trpc.die.update.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Die updated");
-      navigate({ to: "/dies" });
-    },
-    onError: (error: any) => toast.error(error.message || "Failed to update die"),
-  });
-
-  const deleteMutation = useMutation({
-    ...trpc.die.delete.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Die deleted");
-      navigate({ to: "/dies" });
-    },
-    onError: (error: any) => toast.error(error.message || "Failed to delete die"),
-  });
-
-  const form = useForm({
-    defaultValues: {
-      series: die?.series || "",
-      sectionCode: die?.sectionCode || "",
-      name: die?.name || "",
-      obliqueMm: die?.obliqueMm ?? undefined,
-      legMm: die?.legMm ?? undefined,
-      widthMm: die?.widthMm ?? ((die?.dimensions?.widthMm as number | undefined) ?? undefined),
-      thicknessMm: die?.thicknessMm ?? ((die?.dimensions?.thicknessMm as number | undefined) ?? undefined),
-      dimensions: {
-        widthMm: die?.widthMm ?? ((die?.dimensions?.widthMm as number | undefined) ?? undefined),
-        thicknessMm: die?.thicknessMm ?? ((die?.dimensions?.thicknessMm as number | undefined) ?? undefined),
-      },
-      weightMinG: die?.weightMinG || 0,
-      weightMaxG: die?.weightMaxG || 0,
-      status: die?.status || "active",
-      notes: die?.notes || "",
-    },
-    onSubmit: async ({ value }) => {
-      if (isNew) createMutation.mutate(value);
-      else updateMutation.mutate({ id, ...value });
-    },
-    validators: {
-      onSubmit: z.object({
-        series: z.string().min(1, "Series is required"),
-        sectionCode: z.string().min(1, "Section Code is required"),
-        name: z.string(),
-        obliqueMm: z.union([z.number(), z.undefined()]),
-        legMm: z.union([z.number(), z.undefined()]),
-        widthMm: z.union([z.number(), z.undefined()]),
-        thicknessMm: z.union([z.number(), z.undefined()]),
-        dimensions: z.any(),
-        weightMinG: z.number().min(0),
-        weightMaxG: z.number().min(0),
-        status: z.enum(dieStatuses),
-        notes: z.string(),
-      }),
-    },
-  });
-
-  if (!isNew && isLoading) return <div>Loading…</div>;
-  if (!isNew && !die) {
-    return <EmptyState title="Die not found" description="This die may have been removed." />;
-  }
-
-  const handleDelete = () => {
-    if (window.confirm("Are you sure you want to delete this die?")) {
-      deleteMutation.mutate({ id });
-    }
-  };
-
-  const fieldError = (errors: unknown[]) =>
-    errors.map((error: any) => (
-      <p key={error?.toString()} className="text-sm text-destructive">
-        {error?.toString()}
-      </p>
-    ));
+  const { unit } = useLengthUnit();
+  const formId = useId();
+  const [pending, setPending] = useState(false);
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
+    <>
       <PageHeader
-        eyebrow="Dies"
-        title={isNew ? "New die" : die ? `${die.series} / ${die.sectionCode}` : "Edit die"}
+        back={{ to: "/dies", label: t("nav.dies") }}
+        title={t("dies.form.titleNew")}
+        actions={<HowToButton slug="edit-die" />}
+      />
+      <div className="flex w-full max-w-[720px] flex-col gap-5 rounded-card border border-border bg-card p-4 sm:p-6">
+        <DieForm
+          formId={formId}
+          unit={unit}
+          onPendingChange={setPending}
+          onSaved={(newId) => navigate({ to: "/dies/$id", params: { id: newId }, replace: true })}
+        />
+        <FormActions className="max-sm:bottom-[calc(var(--shell-tabbar-offset)+12px)]">
+          <Button variant="secondary" asChild>
+            <Link to="/dies">{t("common.cancel")}</Link>
+          </Button>
+          <Button type="submit" form={formId} loading={pending}>
+            {t("dies.form.submit")}
+          </Button>
+        </FormActions>
+      </div>
+    </>
+  );
+}
+
+function DieDetail({ id }: { id: string }) {
+  const { t } = useT();
+  const { data: me } = useMe();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { unit } = useLengthUnit();
+  const formId = useId();
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  const query = useQuery({ ...trpc.die.get.queryOptions({ id }), retry: false });
+
+  const remove = useMutation({
+    ...trpc.die.delete.mutationOptions(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: trpc.die.list.queryKey() });
+      toast.success(t("dies.detail.deleted"));
+      navigate({ to: "/dies" });
+    },
+    onError: (error) => {
+      toast.error(error.data?.code === "FORBIDDEN" ? t("errors.forbidden") : t("errors.generic"));
+    },
+  });
+
+  const back = { to: "/dies", label: t("nav.dies") };
+
+  if (query.isPending) {
+    return (
+      <div aria-busy="true" className="flex flex-col gap-5">
+        <span className="sr-only">{t("common.loading")}</span>
+        <Skeleton className="h-11 w-24 rounded-full" />
+        <Skeleton className="h-10 w-2/3 max-w-[420px]" />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Skeleton className="h-[184px] rounded-[22px]" />
+          <Skeleton className="h-[184px] rounded-card" />
+        </div>
+      </div>
+    );
+  }
+
+  if (query.isError) {
+    const missing = isNotFound(query.error);
+    return (
+      <>
+        <PageHeader back={back} title={t("nav.dies")} />
+        <EmptyState
+          title={missing ? t("dies.detail.notFound") : t("dies.detail.loadFailed")}
+          action={
+            missing ? (
+              <Button asChild variant="secondary">
+                <Link to="/dies">{t("dies.detail.backToList")}</Link>
+              </Button>
+            ) : (
+              <Button variant="secondary" onClick={() => query.refetch()}>
+                {t("common.retry")}
+              </Button>
+            )
+          }
+        />
+      </>
+    );
+  }
+
+  const die = query.data as StoredDie & { id: string };
+  const code = dieCode(die);
+  const units = { mm: t("units.mm"), inch: t("units.inch") };
+  const measurements = GEOMETRY_FIELDS.map((field) => {
+    const column = ({ width: "widthMm", thickness: "thicknessMm", oblique: "obliqueMm", leg: "legMm" } as const)[field];
+    const legacy = field === "width" || field === "thickness" ? die.dimensions?.[column] : undefined;
+    const mm = die[column] ?? (typeof legacy === "number" ? legacy : null);
+    return { field, mm };
+  }).filter((m): m is { field: (typeof GEOMETRY_FIELDS)[number]; mm: number } => m.mm !== null);
+
+  return (
+    <>
+      <PageHeader
+        back={back}
+        title={code}
+        subtitle={die.name ?? undefined}
         actions={
-          !isNew && (
-            <Can do="die.delete">
-              <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
-                Delete
+          <>
+            <HowToButton slug="edit-die" />
+            <OverflowMenu
+              items={
+                can(me, "die.delete")
+                  ? [
+                      {
+                        key: "delete",
+                        label: t("dies.detail.delete"),
+                        icon: <Trash2 aria-hidden="true" strokeWidth={2} />,
+                        onSelect: () => setDeleting(true),
+                        danger: true,
+                      },
+                    ]
+                  : []
+              }
+            />
+            <Can do="die.update">
+              <Button onClick={() => setEditing(true)}>
+                <Pencil aria-hidden="true" strokeWidth={2} />
+                {t("dies.detail.edit")}
               </Button>
             </Can>
-          )
+          </>
         }
       />
 
-      <Card>
-        <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              form.handleSubmit();
-            }}
-            className="space-y-4"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <form.Field name="series">
-                {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>
-                    Series <span className="font-normal text-muted-foreground">(required)</span>
-                  </Label>
-                    <Input
-                      id={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChangeText={field.handleChange}
-                    />
-                    {fieldError(field.state.meta.errors)}
-                  </div>
-                )}
-              </form.Field>
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
+        <StatusBlock
+          tone={die.status === "active" ? "green" : "neutral"}
+          title={t("dies.detail.band")}
+          meta={t(`status.die.${die.status}`)}
+          value={t("dies.detail.bandValue", { min: kgText(die.weightMinG), max: kgText(die.weightMaxG) })}
+          mono={false}
+          unit={t("units.kgPer12ft")}
+          className="animate-rise"
+        />
 
-              <form.Field name="sectionCode">
-                {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>
-                    Section code <span className="font-normal text-muted-foreground">(required)</span>
-                  </Label>
-                    <Input
-                      id={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChangeText={field.handleChange}
-                    />
-                    {fieldError(field.state.meta.errors)}
-                  </div>
-                )}
-              </form.Field>
-            </div>
-
-            <form.Field name="name">
-              {(field) => (
-                <div className="space-y-2">
-                  <Label htmlFor={field.name}>Name</Label>
-                  <Input
-                    id={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChangeText={field.handleChange}
-                  />
+        <section
+          aria-labelledby={`${formId}-measure`}
+          className="flex min-w-0 flex-col gap-4 rounded-card border border-border bg-card p-5"
+        >
+          <h2 id={`${formId}-measure`} className="m-0 text-[17px] leading-6 font-semibold tracking-[-0.01em]">
+            {t("dies.detail.measurements")}
+          </h2>
+          {measurements.length > 0 ? (
+            <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
+              {measurements.map((m) => (
+                <div key={m.field} className="flex min-w-0 flex-col gap-0.5">
+                  <dt className="text-[13px] font-medium text-muted-foreground">{t(`dies.form.${m.field}`)}</dt>
+                  <dd data-no-truncate="" className="m-0 font-mono text-[17px] font-semibold tabular-nums">
+                    {measurementText(m.mm, unit, units)}
+                  </dd>
                 </div>
-              )}
-            </form.Field>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <form.Field name="weightMinG">
-                {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>
-                    Min weight (g) <span className="font-normal text-muted-foreground">(required)</span>
-                  </Label>
-                    <Input
-                      id={field.name}
-                      type="number"
-                      value={String(field.state.value ?? "")}
-                      onBlur={field.handleBlur}
-                      onChangeText={(text) => field.handleChange(Number(text))}
-                    />
-                    {fieldError(field.state.meta.errors)}
-                  </div>
-                )}
-              </form.Field>
-
-              <form.Field name="weightMaxG">
-                {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>
-                    Max weight (g) <span className="font-normal text-muted-foreground">(required)</span>
-                  </Label>
-                    <Input
-                      id={field.name}
-                      type="number"
-                      value={String(field.state.value ?? "")}
-                      onBlur={field.handleBlur}
-                      onChangeText={(text) => field.handleChange(Number(text))}
-                    />
-                    {fieldError(field.state.meta.errors)}
-                  </div>
-                )}
-              </form.Field>
+              ))}
+            </dl>
+          ) : (
+            <p className="m-0 text-[15px] text-muted-foreground">{t("dies.detail.noMeasurements")}</p>
+          )}
+          {die.notes ? (
+            <div className="flex min-w-0 flex-col gap-0.5 border-t border-border pt-3">
+              <span className="text-[13px] font-medium text-muted-foreground">{t("dies.form.notes")}</span>
+              <p className="m-0 text-[15px] leading-6 break-words whitespace-pre-line">{die.notes}</p>
             </div>
+          ) : null}
+          <div className="mt-auto pt-1">
+            <Button variant="secondary" asChild>
+              <Link to="/stock/$dieId" params={{ dieId: die.id }}>
+                <Boxes aria-hidden="true" strokeWidth={2} />
+                {t("dies.detail.seeStock")}
+              </Link>
+            </Button>
+          </div>
+        </section>
+      </div>
 
-            <div className="space-y-2 rounded-card border border-border p-4">
-              <Label>Nexus die geometry ({lu.label})</Label>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <form.Field name="widthMm">
-                  {(field) => (
-                    <div className="space-y-1">
-                      <Label htmlFor={field.name} className="text-xs text-muted-foreground">
-                        Width
-                      </Label>
-                      <Input
-                        id={field.name}
-                        type="number"
-                        value={field.state.value != null ? lu.formatLengthValue(field.state.value) : ""}
-                        onBlur={field.handleBlur}
-                        onChangeText={(text) => field.handleChange(text ? lu.parseLengthDecimal(text) : undefined)}
-                      />
-                    </div>
-                  )}
-                </form.Field>
-                <form.Field name="thicknessMm">
-                  {(field) => (
-                    <div className="space-y-1">
-                      <Label htmlFor={field.name} className="text-xs text-muted-foreground">
-                        Thickness
-                      </Label>
-                      <Input
-                        id={field.name}
-                        type="number"
-                        value={field.state.value != null ? lu.formatLengthValue(field.state.value) : ""}
-                        onBlur={field.handleBlur}
-                        onChangeText={(text) => field.handleChange(text ? lu.parseLengthDecimal(text) : undefined)}
-                      />
-                    </div>
-                  )}
-                </form.Field>
-                <form.Field name="legMm">
-                  {(field) => (
-                    <div className="space-y-1">
-                      <Label htmlFor={field.name} className="text-xs text-muted-foreground">
-                        Leg
-                      </Label>
-                      <Input
-                        id={field.name}
-                        type="number"
-                        value={field.state.value != null ? lu.formatLengthValue(field.state.value) : ""}
-                        onBlur={field.handleBlur}
-                        onChangeText={(text) => field.handleChange(text ? lu.parseLengthDecimal(text) : undefined)}
-                      />
-                    </div>
-                  )}
-                </form.Field>
-                <form.Field name="obliqueMm">
-                  {(field) => (
-                    <div className="space-y-1">
-                      <Label htmlFor={field.name} className="text-xs text-muted-foreground">
-                        Oblique
-                      </Label>
-                      <Input
-                        id={field.name}
-                        type="number"
-                        value={field.state.value != null ? lu.formatLengthValue(field.state.value) : ""}
-                        onBlur={field.handleBlur}
-                        onChangeText={(text) => field.handleChange(text ? lu.parseLengthDecimal(text) : undefined)}
-                      />
-                    </div>
-                  )}
-                </form.Field>
-              </div>
-            </div>
+      <Sheet
+        open={editing}
+        onOpenChange={setEditing}
+        title={t("dies.detail.editTitle", { code })}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditing(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" form={formId} loading={pending}>
+              {t("dies.form.submit")}
+            </Button>
+          </>
+        }
+      >
+        {editing ? (
+          <DieForm formId={formId} unit={unit} die={die} onPendingChange={setPending} onSaved={() => setEditing(false)} />
+        ) : null}
+      </Sheet>
 
-            <form.Field name="status">
-              {(field) => (
-                <div className="space-y-2">
-                  <Label htmlFor={field.name}>Status</Label>
-                  <NativeSelect
-                    id={field.name}
-                    className="sm:max-w-[200px]"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value as any)}
-                  >
-                    {dieStatuses.map((status) => (
-                      <option key={status} value={status}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </div>
-              )}
-            </form.Field>
-
-            <form.Field name="notes">
-              {(field) => (
-                <div className="space-y-2">
-                  <Label htmlFor={field.name}>Notes</Label>
-                  <TextArea
-                    id={field.name}
-                    rows={4}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </div>
-              )}
-            </form.Field>
-
-            <FormActions className="pt-2">
-              <Button variant="outline" type="button" onClick={() => navigate({ to: "/dies" })}>
-                Cancel
-              </Button>
-              <Can do={isNew ? "die.create" : "die.update"}>
-                <form.Subscribe
-                  selector={(state) => ({
-                    canSubmit: state.canSubmit,
-                    isSubmitting: state.isSubmitting,
-                  })}
-                >
-                  {({ canSubmit }) => (
-                    <Button
-                      type="submit"
-                      disabled={!canSubmit || createMutation.isPending || updateMutation.isPending}
-                    >
-                      {createMutation.isPending || updateMutation.isPending ? "Saving…" : "Save die"}
-                    </Button>
-                  )}
-                </form.Subscribe>
-              </Can>
-            </FormActions>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+      <Dialog
+        open={deleting}
+        onOpenChange={setDeleting}
+        title={t("dies.detail.deleteTitle", { code })}
+        description={t("dies.detail.deleteBody")}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => setDeleting(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate({ id: die.id })}>
+              {t("dies.detail.delete")}
+            </Button>
+          </>
+        }
+      />
+    </>
   );
 }
