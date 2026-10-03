@@ -8,7 +8,7 @@ import { createAuth } from "@orrn/auth";
 
 import { atomicBatch, type SqliteBatchItem } from "../../lib/atomic";
 import { webBaseUrl } from "../../lib/webUrl";
-import { platformGuard, platformProcedure } from "../../index";
+import { platformGuard } from "../../index";
 
 export const waitlistProcedures = {
   waitlistList: platformGuard("platform.waitlist.review").query(async ({ ctx }) => {
@@ -137,7 +137,7 @@ export const waitlistProcedures = {
       return { success: true };
     }),
 
-  waitlistReject: platformProcedure
+  waitlistReject: platformGuard("platform.waitlist.review")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const request = await ctx.db
