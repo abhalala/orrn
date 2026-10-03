@@ -18,6 +18,7 @@ import { useLengthUnit } from "@/shared/lib/length";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { downloadPackingListPdf, type PLSnapshot } from "@/shared/lib/packingListPdf";
 import { downloadPackingListXlsx } from "@/shared/lib/packingListXlsx";
+import { formatKg, formatKgTotal, kgTotalValue, kgValue } from "@/shared/lib/weight";
 
 export const Route = createFileRoute("/_tenant/packing-lists/$id")({
   component: PackingListDetailComponent,
@@ -68,7 +69,7 @@ function PackingListDetailComponent() {
         header: "Weight (kg)",
         flex: 0.7,
         align: "right",
-        cell: (row) => (row.weightG / 1000).toFixed(3),
+        cell: (row) => kgValue(row.weightG),
       },
       {
         id: "length",
@@ -204,12 +205,15 @@ function PackingListDetailComponent() {
         {[
           { label: "Bundles", value: snap.totals.totalBundles },
           { label: "Pieces", value: snap.totals.totalQuantity },
-          { label: "Weight", value: `${snap.totals.totalWeightKg} kg` },
+          { label: "Weight", value: formatKgTotal(Number(snap.totals.totalWeightKg) * 1000) },
           { label: "Length", value: lu.formatLength(snap.totals.totalLengthM * 1000) },
         ].map(({ label, value }) => (
           <Card key={label} className="min-w-0 gap-1 p-4">
-            <p className="m-0 truncate text-[13px] font-medium text-muted-foreground">{label}</p>
-            <p className="m-0 truncate font-display text-[26px] font-extrabold leading-tight tracking-[-0.03em] tabular-nums text-foreground">
+            <p className="m-0 break-words text-[13px] font-medium text-muted-foreground">{label}</p>
+            <p
+              data-no-truncate=""
+              className="m-0 break-words font-display text-[22px] font-extrabold leading-tight tracking-[-0.03em] tabular-nums text-foreground sm:text-[26px]"
+            >
               {value}
             </p>
           </Card>
@@ -228,7 +232,7 @@ function PackingListDetailComponent() {
               { id: "group", header: "Group", cell: (row) => row.label },
               { id: "bundles", header: "Bundles", align: "right", cell: (row) => row.bundles },
               { id: "qty", header: "Pieces", align: "right", cell: (row) => row.quantity },
-              { id: "weight", header: "Weight (kg)", align: "right", cell: (row) => (row.weightG / 1000).toFixed(3) },
+              { id: "weight", header: "Weight (kg)", align: "right", cell: (row) => kgTotalValue(row.weightG) },
               { id: "length", header: `Length (${lu.label})`, align: "right", cell: (row) => lu.formatLength(row.lengthMm) },
             ]}
           />
@@ -282,7 +286,7 @@ function PackingListDetailComponent() {
                 subtitle={`#${row.index} · ${row.die.series} / ${row.die.sectionCode}`}
                 facts={[
                   { label: "Pieces", value: row.quantity.toLocaleString() },
-                  { label: "Weight", value: `${(row.weightG / 1000).toFixed(3)} kg` },
+                  { label: "Weight", value: formatKg(row.weightG) },
                   { label: "Length", value: lu.formatLength(row.lengthMm) },
                 ]}
                 footer={<span className="min-w-0 truncate">Packing group {row.groupId || "not set"}</span>}

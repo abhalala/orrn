@@ -15,6 +15,7 @@ import { FormActions } from "@orrn/ui/components/form-actions";
 import { NativeSelect } from "@orrn/ui/components/native-select";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { useLengthUnit } from "@/shared/lib/length";
+import { formatKgTotal } from "@/shared/lib/weight";
 
 export const Route = createFileRoute("/_tenant/receipts/new")({
   component: NewReceiptComponent,
@@ -237,14 +238,14 @@ function NewReceiptComponent() {
   return (
     <div className="w-full min-w-0 max-w-4xl mx-auto space-y-4 md:space-y-6">
       <PageHeader
-        eyebrow="Receipts"
-        title="New bundling session"
+        eyebrow="Packing"
+        title="New packing session"
         description="Record a production batch, review the bundles it makes, then print their labels."
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Receipt details</CardTitle>
+          <CardTitle>Session details</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -388,7 +389,7 @@ function NewReceiptComponent() {
             )}
           />
           <p className="text-xs text-muted-foreground mt-4">
-            Totals: {totalQuantity.toLocaleString()} pcs, {totalWeightG.toLocaleString()} g
+            Totals: {totalQuantity.toLocaleString()} pcs, {formatKgTotal(totalWeightG)}
           </p>
         </CardContent>
       </Card>

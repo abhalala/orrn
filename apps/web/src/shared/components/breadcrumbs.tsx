@@ -74,8 +74,17 @@ export function Breadcrumbs({
   );
 }
 
+/** Plain labels for path segments whose route names predate the UI copy. */
+const SEGMENT_LABELS: Record<string, string> = {
+  receipts: "Packing",
+  spool: "Printing",
+  waitlist: "Access requests",
+  "packing-lists": "Packing lists",
+};
+
 function prettifySegment(seg: string): string {
   if (seg === "$id" || seg.startsWith("$")) return "Detail";
   if (seg === "new") return "New";
+  if (SEGMENT_LABELS[seg]) return SEGMENT_LABELS[seg];
   return seg.charAt(0).toUpperCase() + seg.slice(1);
 }

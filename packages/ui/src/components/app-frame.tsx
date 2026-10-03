@@ -57,6 +57,7 @@ export function AppFrame({
     <div
       // `overflow-clip` (not hidden) so focus/scrollIntoView can never scroll
       // the chrome sideways; the page scrolls vertically inside <main> only.
+      data-shell-frame=""
       className="relative flex w-full max-w-screen flex-col overflow-clip bg-background text-foreground"
       style={{ height: "100dvh" }}
     >

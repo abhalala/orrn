@@ -261,11 +261,11 @@ function CardListItem<Row>({
 
       {detailColumns.length > 0 ? (
         // Phones show the first three facts in one row; wider cards show all.
-        <dl className="m-0 grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-x-4 gap-y-2.5 max-sm:[&>div:nth-child(n+4)]:hidden">
+        <dl className="m-0 grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-2.5 sm:grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] max-sm:[&>div:nth-child(n+4)]:hidden">
           {detailColumns.map((col) => (
             <div key={col.id} className="min-w-0">
-              <dt className="truncate text-xs font-medium text-muted-foreground">{col.header}</dt>
-              <dd className="m-0 mt-0.5 min-w-0 truncate text-sm text-foreground">{asNode(col.cell(row))}</dd>
+              <dt className="break-words text-xs font-medium text-muted-foreground">{col.header}</dt>
+              <FactValue value={col.cell(row)} />
             </div>
           ))}
         </dl>
@@ -274,12 +274,46 @@ function CardListItem<Row>({
   );
 }
 
-function asNode(value: ReactNode): ReactNode {
-  if (typeof value === "string" || typeof value === "number") {
+/**
+ * A card fact value. Numbers and phrases ("AL / ROUND-10", "Oct 3, 2026")
+ * wrap at spaces and are never ellipsised: touch users can't hover for a
+ * title. Only a single unbroken token too long for the cell (a long PO or
+ * reference) gets an ellipsis, with the full value in `title`.
+ */
+function FactValue({ value }: { value: ReactNode }) {
+  const base = "m-0 mt-0.5 min-w-0 text-sm text-foreground";
+  if (typeof value === "number" || (typeof value === "string" && /^[\d\s.,:/+-]*$/.test(value))) {
     return (
+      <dd data-no-truncate="" className={cn(base, "break-words tabular-nums")}>
+        {value}
+      </dd>
+    );
+  }
+  if (typeof value === "string" && !/\s/.test(value)) {
+    return (
+      <dd title={value} className={cn(base, "truncate")}>
+        {value}
+      </dd>
+    );
+  }
+  if (typeof value === "string") {
+    return (
+      <dd data-no-truncate="" className={cn(base, "break-words")}>
+        {value}
+      </dd>
+    );
+  }
+  return <dd className={cn(base, "break-words")}>{value}</dd>;
+}
+
+function asNode(value: ReactNode, truncate = true): ReactNode {
+  if (typeof value === "string" || typeof value === "number") {
+    return truncate ? (
       <span className="truncate" title={String(value)}>
         {value}
       </span>
+    ) : (
+      <span>{value}</span>
     );
   }
   return value;

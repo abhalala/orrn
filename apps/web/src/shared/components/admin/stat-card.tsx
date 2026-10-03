@@ -111,7 +111,12 @@ export function StatCard({
               {isLoading ? (
                 <Skeleton className="h-7 w-16" />
               ) : (
-                <p className="m-0 font-display text-[34px] font-extrabold leading-none tracking-[-0.035em] tabular-nums text-foreground">{value}</p>
+                <p
+                  data-no-truncate=""
+                  className="m-0 break-words font-display text-[30px] font-extrabold leading-none tracking-[-0.035em] tabular-nums text-foreground sm:text-[34px]"
+                >
+                  {value}
+                </p>
               )}
               {!isLoading && trend ? <Sparkline data={trend} /> : null}
             </div>

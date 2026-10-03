@@ -16,6 +16,12 @@ export type ListCardFact = {
   /** Full value for the tooltip when it may be cut. */
   title?: string;
   mono?: boolean;
+  /**
+   * One line with an ellipsis (emails, long names). Off by default: numbers
+   * and codes wrap at spaces instead, so they are never hidden on touch
+   * screens where `title` can't be read.
+   */
+  truncate?: boolean;
 };
 
 export type ListCardProps = {
@@ -84,11 +90,13 @@ export function ListCard({
         <dl className="m-0 grid grid-cols-3 gap-3">
           {facts.map((fact, i) => (
             <div key={i} className="min-w-0">
-              <dt className="truncate text-xs font-medium text-muted-foreground">{fact.label}</dt>
+              <dt className="break-words text-xs font-medium text-muted-foreground">{fact.label}</dt>
               <dd
-                title={fact.title ?? (typeof fact.value === "string" ? fact.value : undefined)}
+                title={fact.truncate ? (fact.title ?? (typeof fact.value === "string" ? fact.value : undefined)) : undefined}
+                data-no-truncate={fact.truncate ? undefined : ""}
                 className={cn(
-                  "m-0 mt-0.5 truncate text-sm tabular-nums text-foreground",
+                  "m-0 mt-0.5 text-sm tabular-nums text-foreground",
+                  fact.truncate ? "truncate" : "break-words",
                   fact.mono && "font-mono",
                 )}
               >

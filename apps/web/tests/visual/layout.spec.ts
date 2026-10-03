@@ -1,6 +1,4 @@
 import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -13,13 +11,15 @@ import {
 /**
  * Layout guard sweep: every route, at phone, tablet and desktop widths, in the
  * project's colour scheme (light and dark projects). Fails on sideways scroll,
- * clipped text, text under a chip, wrapped slugs/codes or squeezed columns.
+ * clipped text, text under a chip, wrapped slugs/codes, squeezed columns or
+ * ellipsised key values.
  *
  * Public pages run without a session. Signed-in routes need a running API and
- * two local accounts (a company owner and a Godseye staff user):
+ * two local test accounts (a company owner and a Godseye staff user), given as
  *   LAYOUT_OWNER_EMAIL / LAYOUT_OWNER_PASSWORD
  *   LAYOUT_STAFF_EMAIL / LAYOUT_STAFF_PASSWORD
- * or a `apps/server/.hotfix-accounts.local` file with OWNER_EMAIL=… lines.
+ * or as LAYOUT_ACCOUNTS_FILE pointing at a KEY=value file outside the repo
+ * (OWNER_EMAIL, OWNER_PASSWORD, STAFF_EMAIL, STAFF_PASSWORD).
  * The API origin comes from VITE_SERVER_URL (the same value the web app uses).
  * Without credentials the signed-in suites are skipped, not failed.
  */
@@ -27,9 +27,9 @@ import {
 const API_URL = process.env.VITE_SERVER_URL ?? "http://127.0.0.1:8787";
 
 function loadAccounts() {
-  const file = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../server/.hotfix-accounts.local");
   const fromFile: Record<string, string> = {};
-  if (fs.existsSync(file)) {
+  const file = process.env.LAYOUT_ACCOUNTS_FILE;
+  if (file && fs.existsSync(file)) {
     for (const line of fs.readFileSync(file, "utf8").split("\n")) {
       const idx = line.indexOf("=");
       if (idx > 0) fromFile[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
@@ -69,7 +69,8 @@ const OWNER_ROUTES = [
   "/dispatches/new",
   "/spool",
   "/settings/members",
-  "/change-password",
+  // /change-password only renders for accounts flagged must-change-password;
+  // everyone else is redirected, so it is not part of this sweep.
 ];
 const OWNER_DETAILS: { list: string; pattern: RegExp }[] = [
   { list: "/customers", pattern: /^\/customers\/(?!new)[^/]+$/ },
@@ -106,9 +107,30 @@ async function discover(page: Page, details: { list: string; pattern: RegExp }[]
       .locator("main a[href]")
       .evaluateAll((els) => els.map((el) => new URL((el as HTMLAnchorElement).href).pathname));
     const match = hrefs.find((h) => pattern.test(h));
+    // Every list must link to at least one detail page, or that detail
+    // route silently drops out of the sweep.
+    expect(match, `no detail link matching ${pattern} on ${list}`).toBeTruthy();
     if (match) found.push(match);
   }
   return found;
+}
+
+/** A packing list lives under a completed dispatch: find one through the list. */
+async function discoverPackingList(page: Page): Promise<string> {
+  await page.goto("/dispatches?status=completed");
+  await settle(page);
+  const dispatches = await page
+    .locator("main a[href]")
+    .evaluateAll((els) => els.map((el) => new URL((el as HTMLAnchorElement).href).pathname));
+  for (const href of [...new Set(dispatches.filter((h) => /^\/dispatches\/(?!new)[^/]+$/.test(h)))]) {
+    await page.goto(href);
+    await settle(page);
+    const pl = await page
+      .locator("main a[href*='/packing-lists/']")
+      .evaluateAll((els) => els.map((el) => new URL((el as HTMLAnchorElement).href).pathname));
+    if (pl[0]) return pl[0];
+  }
+  throw new Error("no completed dispatch with a packing list; complete one in the local data");
 }
 
 async function sweep(page: Page, routes: string[], widths: number[]) {
@@ -118,6 +140,13 @@ async function sweep(page: Page, routes: string[], widths: number[]) {
     for (const route of routes) {
       await page.goto(route);
       await settle(page);
+      // A guard redirect (login, onboarding, no-access) would sweep the wrong
+      // page and pass for the wrong reason.
+      const landed = new URL(page.url()).pathname;
+      if (landed !== route) {
+        failures.push(`${route} @ ${width}px: redirected to ${landed}`);
+        continue;
+      }
       const issues: LayoutIssue[] = [
         ...(await collectHorizontalScrollIssues(page)),
         ...(await collectClippedTextIssues(page)),
@@ -146,14 +175,15 @@ test("public routes keep text and layout intact", async ({ page }, testInfo) => 
 test.describe("signed in", () => {
   test.skip(
     !ACCOUNTS.owner.email || !ACCOUNTS.staff.email,
-    "Set LAYOUT_OWNER_* and LAYOUT_STAFF_* (or apps/server/.hotfix-accounts.local) to run signed-in layout checks.",
+    "Set LAYOUT_OWNER_* and LAYOUT_STAFF_* (or LAYOUT_ACCOUNTS_FILE) to run signed-in layout checks.",
   );
 
   test("company routes keep text and layout intact", async ({ page }, testInfo) => {
     test.setTimeout(600_000);
     await signIn(page, "owner");
     const details = await discover(page, OWNER_DETAILS);
-    await sweep(page, [...OWNER_ROUTES, ...details], widthsFor(testInfo.project.name));
+    const packingList = await discoverPackingList(page);
+    await sweep(page, [...OWNER_ROUTES, ...details, packingList], widthsFor(testInfo.project.name));
   });
 
   test("Godseye routes keep text and layout intact", async ({ page }, testInfo) => {

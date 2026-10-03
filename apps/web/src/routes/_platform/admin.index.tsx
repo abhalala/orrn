@@ -55,7 +55,9 @@ type RecentWaitlistRow = {
  */
 const STATS = "grid grid-cols-2 gap-3 @md:gap-4 @4xl:grid-cols-4";
 const FOUR_UP = "grid grid-cols-1 gap-4 @md:grid-cols-2 @4xl:grid-cols-4";
-const TWO_UP = "grid grid-cols-1 gap-4 @4xl:grid-cols-2";
+// grid-flow-col + auto-cols-fr: two panels split the row, a lone panel
+// (when the viewer can only see one) takes all of it.
+const TWO_UP = "grid grid-cols-1 gap-4 @4xl:grid-flow-col @4xl:auto-cols-fr @4xl:grid-cols-none";
 
 function AdminIndexComponent() {
   const { data: me } = useMe();
@@ -214,8 +216,8 @@ function AdminIndexComponent() {
           </Can>
           <Can do="platform.spool.manage">
             <NavCard
-              title="Label printing"
-              description="Set up, rotate keys for and check each company's print station."
+              title="Printing"
+              description="Set up print stations and rotate their keys."
               to="/admin/spool"
               icon={<Printer size={18} />}
             />
@@ -342,7 +344,7 @@ function CompanyRow({ row }: { row: RecentCompanyRow }) {
             <span aria-hidden="true" className="shrink-0">
               ·
             </span>
-            <span className="shrink-0 whitespace-nowrap">Joined {format(new Date(row.createdAt), "MMM d")}</span>
+            <span className="shrink-0 whitespace-nowrap">Joined {joinedLabel(new Date(row.createdAt))}</span>
           </div>
         </div>
         <ChevronRight
@@ -353,4 +355,9 @@ function CompanyRow({ row }: { row: RecentCompanyRow }) {
       </Link>
     </li>
   );
+}
+
+/** "Oct 3" this year, "Oct 3, 2025" otherwise. */
+function joinedLabel(date: Date): string {
+  return format(date, date.getFullYear() === new Date().getFullYear() ? "MMM d" : "MMM d, yyyy");
 }

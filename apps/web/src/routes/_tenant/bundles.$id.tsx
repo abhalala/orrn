@@ -20,6 +20,7 @@ import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
+import { formatKg } from "@/shared/lib/weight";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -113,7 +114,7 @@ function BundleDetailComponent() {
               "Not set"
             )}
           </Fact>
-          <Fact label="Bundling session" mono>
+          <Fact label="Packing session" mono>
             {group ? (
               <Link to="/receipts/$id" params={{ id: group.id }} className="hover:underline">
                 {group.code}
@@ -123,7 +124,7 @@ function BundleDetailComponent() {
             )}
           </Fact>
           <Fact label="Pieces">{bundle.quantity.toLocaleString()}</Fact>
-          <Fact label="Weight">{bundle.weightG.toLocaleString()} g</Fact>
+          <Fact label="Weight">{formatKg(bundle.weightG)}</Fact>
           <Fact label="Length">{lu.formatLength(bundle.lengthMm)}</Fact>
           <Fact label="PO" truncate>
             {bundle.poNumber || group?.purchaseOrderRef || "None"}

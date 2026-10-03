@@ -9,7 +9,8 @@ import { expect, type Locator, type Page } from "@playwright/test";
  *
  * `expectNoClippedText` fails when text is cut off without an ellipsis, runs
  * under a status chip, breaks a long token (slug, code, email) across lines,
- * or is squeezed into a column too narrow to read.
+ * is squeezed into a column too narrow to read, or when a key value marked
+ * `data-no-truncate` (big numbers, weights, die codes) is ellipsised at all.
  *
  * Both run inside the page so they see the real computed layout. Each issue is
  * reported with a short CSS path and the offending text so a failure points
@@ -217,6 +218,27 @@ export async function collectClippedTextIssues(
       }
       return null;
     };
+
+    // 0. Key values marked `data-no-truncate` (big numbers, weights, codes on
+    //    cards) must show in full: touch users cannot hover for a title.
+    for (const el of Array.from(base.querySelectorAll("[data-no-truncate]"))) {
+      if (isIgnored(el) || isVisuallyHidden(el)) continue;
+      const targets = [el, ...Array.from(el.querySelectorAll("*"))];
+      for (const t of targets) {
+        const cs = getComputedStyle(t);
+        const clamped = cs.webkitLineClamp !== "none" && cs.webkitLineClamp !== "" && cs.webkitLineClamp !== undefined;
+        const cut = t.scrollWidth > t.clientWidth + 1 && cs.overflowX !== "visible";
+        if (cs.textOverflow === "ellipsis" || clamped || cut) {
+          issues.push({
+            kind: "truncated-key-value",
+            path: pathOf(t),
+            text: (t.textContent ?? "").trim().slice(0, 60),
+            detail: cs.textOverflow === "ellipsis" ? "ellipsised" : clamped ? "line-clamped" : `cut: scrollWidth ${t.scrollWidth} > clientWidth ${t.clientWidth}`,
+          });
+          break;
+        }
+      }
+    }
 
     const textNodes: Text[] = [];
     const walker = document.createTreeWalker(base, NodeFilter.SHOW_TEXT, {

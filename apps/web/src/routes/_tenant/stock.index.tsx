@@ -14,6 +14,7 @@ import { useState } from "react";
 import { useLengthUnit } from "@/shared/lib/length";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
+import { formatKgTotal, kgTotalValue, kgValue } from "@/shared/lib/weight";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -95,9 +96,9 @@ function StockComponent() {
     },
     {
       id: "weight",
-      header: "Weight (g)",
+      header: "Weight (kg)",
       align: "right",
-      cell: (r) => Number(r.totalWeightG).toLocaleString(),
+      cell: (r) => kgTotalValue(r.totalWeightG),
     },
     {
       id: "length",
@@ -134,7 +135,7 @@ function StockComponent() {
     },
     { id: "die", header: "Die", cell: (row) => `${row.dieSeries} / ${row.dieSectionCode}` },
     { id: "qty", header: "Pieces", align: "right", cell: (row) => Number(row.quantity).toLocaleString() },
-    { id: "weight", header: "Weight (g)", align: "right", cell: (row) => Number(row.weightG).toLocaleString() },
+    { id: "weight", header: "Weight (kg)", align: "right", cell: (row) => kgValue(row.weightG) },
     { id: "length", header: `Length (${lu.label})`, align: "right", cell: (row) => lu.formatLength(Number(row.lengthMm)) },
     { id: "session", header: "Session", cell: (row) => <span className="font-mono">{row.groupCode}</span> },
     { id: "po", header: "PO", cell: (row) => row.poNumber || "None" },
@@ -168,7 +169,7 @@ function StockComponent() {
       <section aria-label="Stock totals" className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <SummaryCard label="Bundles" value={Number(totals.bundleCount).toLocaleString()} />
         <SummaryCard label="Pieces" value={Number(totals.totalQuantity).toLocaleString()} />
-        <SummaryCard label="Weight (g)" value={Number(totals.totalWeightG).toLocaleString()} />
+        <SummaryCard label="Weight (kg)" value={kgTotalValue(totals.totalWeightG)} />
         <SummaryCard label={`Length (${lu.label})`} value={lu.formatLength(Number(totals.totalLengthMm))} />
       </section>
 
@@ -205,7 +206,7 @@ function StockComponent() {
             facts={[
               { label: "Bundles", value: Number(r.bundleCount).toLocaleString() },
               { label: "Pieces", value: Number(r.totalQuantity).toLocaleString() },
-              { label: "Weight", value: `${Number(r.totalWeightG).toLocaleString()} g` },
+              { label: "Weight", value: formatKgTotal(r.totalWeightG) },
             ]}
             footer={<span>Total length {lu.formatLength(Number(r.totalLengthMm))}</span>}
           />
@@ -220,10 +221,14 @@ function StockComponent() {
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <Card className="min-w-0 gap-1 p-4">
-      <p className="m-0 truncate text-[13px] font-medium text-muted-foreground" title={label}>
+      <p className="m-0 break-words text-[13px] font-medium text-muted-foreground">
         {label}
       </p>
-      <p className="m-0 truncate font-display text-[26px] font-extrabold leading-tight tracking-[-0.03em] tabular-nums text-foreground" title={value}>
+      {/* Key numbers are never ellipsised: smaller on phones and free to wrap. */}
+      <p
+        data-no-truncate=""
+        className="m-0 break-words font-display text-[22px] font-extrabold leading-tight tracking-[-0.03em] tabular-nums text-foreground sm:text-[26px]"
+      >
         {value}
       </p>
     </Card>

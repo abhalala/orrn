@@ -31,7 +31,7 @@ export const Route = createFileRoute("/_tenant/spool/")({
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 const TABS_LIST = [
-  { id: "queue", label: "Print Queue" },
+  { id: "queue", label: "Queue" },
   { id: "printers", label: "Printers" },
   { id: "labels", label: "Labels" },
 ] as const;
@@ -419,7 +419,7 @@ function SpoolComponent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Print queue"
+        title="Printing"
         description="Print jobs, printers and label templates for this site."
         actions={
           <Can do="spool.create_jobs">

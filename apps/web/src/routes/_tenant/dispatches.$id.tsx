@@ -21,6 +21,7 @@ import { requireCompanyMe } from "@/shared/lib/guards";
 import { downloadPackingListPdf, type PLSnapshot } from "@/shared/lib/packingListPdf";
 import { downloadPackingListXlsx } from "@/shared/lib/packingListXlsx";
 import { trpc } from "@/shared/utils/trpc";
+import { formatKg, formatKgTotal, kgValue } from "@/shared/lib/weight";
 
 export const Route = createFileRoute("/_tenant/dispatches/$id")({
   component: DispatchDetailComponent,
@@ -197,7 +198,7 @@ function DispatchDetailComponent() {
     },
     { id: "group", header: "Group", cell: (it) => it.groupLabel || "None" },
     { id: "qty", header: "Qty", align: "right", cell: (it) => it.quantity },
-    { id: "weight", header: "Weight (g)", align: "right", cell: (it) => it.weightG },
+    { id: "weight", header: "Weight (kg)", align: "right", cell: (it) => kgValue(it.weightG) },
     { id: "length", header: `Length (${lu.label})`, align: "right", cell: (it) => lu.formatLength(it.lengthMm) },
     {
       id: "status",
@@ -276,7 +277,7 @@ function DispatchDetailComponent() {
           <Fact label="Totals">
             <span className="tabular-nums">
               {items.length} {items.length === 1 ? "bundle" : "bundles"}, {totalQty.toLocaleString()} pcs,{" "}
-              {totalWeight.toLocaleString()} g
+              {formatKgTotal(totalWeight)}
             </span>
           </Fact>
           <Fact label="Notes" wide>
@@ -395,7 +396,7 @@ function DispatchDetailComponent() {
                             {b.serial}
                           </Truncate>
                           <Truncate as="p" className="m-0 text-xs text-muted-foreground">
-                            {`${b.dieSeries} / ${b.dieSectionCode}, ${b.quantity} pcs, ${b.weightG.toLocaleString()} g, ${lu.formatLength(b.lengthMm)}`}
+                            {`${b.dieSeries} / ${b.dieSectionCode}, ${b.quantity} pcs, ${formatKg(b.weightG)}, ${lu.formatLength(b.lengthMm)}`}
                           </Truncate>
                         </div>
                         <Button
@@ -478,7 +479,7 @@ function DispatchDetailComponent() {
                   </div>
                   <div>
                     <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
-                    <p className="m-0 text-foreground">{it.weightG.toLocaleString()} g</p>
+                    <p className="m-0 text-foreground">{formatKg(it.weightG)}</p>
                   </div>
                   <div>
                     <p className="m-0 text-xs font-medium text-muted-foreground">Length</p>

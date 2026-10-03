@@ -17,6 +17,7 @@ import { ImportBundlesModal } from "@/shared/components/import-bundles-modal";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
+import { formatKg, kgValue } from "@/shared/lib/weight";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof bundleStatuses)[number];
@@ -85,7 +86,7 @@ function BundlesListComponent() {
     },
     {
       id: "receipt",
-      header: "Receipt",
+      header: "Packing session",
       cell: (r) => (
         <Link to="/receipts/$id" params={{ id: r.groupId }} className="font-mono text-xs hover:underline">
           {r.groupCode}
@@ -93,7 +94,7 @@ function BundlesListComponent() {
       ),
     },
     { id: "qty", header: "Qty", align: "right", cell: (r) => Number(r.quantity) },
-    { id: "weight", header: "Weight (g)", align: "right", cell: (r) => Number(r.weightG) },
+    { id: "weight", header: "Weight (kg)", align: "right", cell: (r) => kgValue(r.weightG) },
     { id: "length", header: `Length (${lu.label})`, align: "right", cell: (r) => lu.formatLength(Number(r.lengthMm)) },
     {
       id: "status",
@@ -111,11 +112,11 @@ function BundlesListComponent() {
     <div className="space-y-6">
       <PageHeader
         title="Bundles"
-        description={`All bundles across receipts (${data?.total ?? 0} total)`}
+        description={`Every bundle from every packing session (${data?.total ?? 0} in total).`}
         actions={
           <>
             <Button asChild variant="outline">
-              <Link to="/receipts">View receipts</Link>
+              <Link to="/receipts">View packing</Link>
             </Button>
             <Can do="bundle.import">
               <Button variant="outline" onClick={() => setImportOpen(true)}>
@@ -123,7 +124,7 @@ function BundlesListComponent() {
               </Button>
             </Can>
             <Button asChild>
-              <Link to="/receipts/new">New production receipt</Link>
+              <Link to="/receipts/new">New packing session</Link>
             </Button>
           </>
         }
@@ -187,7 +188,7 @@ function BundlesListComponent() {
             status={<StatusBadge kind="bundle" value={r.status} />}
             facts={[
               { label: "Pieces", value: Number(r.quantity).toLocaleString() },
-              { label: "Weight", value: `${Number(r.weightG).toLocaleString()} g` },
+              { label: "Weight", value: formatKg(r.weightG) },
               { label: "Length", value: lu.formatLength(Number(r.lengthMm)) },
             ]}
             footer={
@@ -211,7 +212,7 @@ function BundlesListComponent() {
             description={
               search.dieId || search.groupId
                 ? "Nothing matches the active filter."
-                : "Bundles appear here once a receipt is created."
+                : "Bundles appear here once a packing session is saved."
             }
           />
         }

@@ -111,11 +111,11 @@ function AdminWaitlistComponent() {
         eyebrow="Godseye"
         title={
           <span className="flex flex-wrap items-center gap-3">
-            Waitlist
+            Access requests
             {pendingCount > 0 ? <Badge tone="warning" size="md">{pendingCount} pending</Badge> : null}
           </span>
         }
-        description="Review and approve incoming company requests."
+        description="Review and approve companies asking for ORRN access."
         actions={
           <Button asChild variant="outline">
             <Link to="/admin">Back to console</Link>
@@ -168,7 +168,7 @@ function AdminWaitlistComponent() {
           </div>
         )}
         isLoading={isLoading}
-        emptyState={<EmptyState title="No pending requests" description="The waitlist is empty right now." />}
+        emptyState={<EmptyState title="No pending requests" description="New access requests show up here." />}
       />
     </div>
   );

@@ -26,6 +26,7 @@ test("guards catch the clipping bug patterns", async ({ page }) => {
       <p style="width:90px;margin:0;font-size:12px">fourcubes-industry-llp-4210094c</p>
       <p style="width:34px;margin:0;font-size:13px">Oct 6, 2026</p>
       <div style="width:120px;overflow:hidden;white-space:nowrap"><span>A label that is cut off without an ellipsis</span></div>
+      <p data-no-truncate style="width:40px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">18,940.5 kg</p>
       <div style="width:3000px;height:4px"></div>
     `;
     document.body.insertBefore(host, document.body.firstChild);
@@ -33,7 +34,7 @@ test("guards catch the clipping bug patterns", async ({ page }) => {
 
   const text = await collectClippedTextIssues(page, "#guard-fixture");
   const kinds = new Set(text.map((i) => i.kind));
-  expect([...kinds].sort()).toEqual(expect.arrayContaining(["clipped", "squeezed", "token-wrap", "under-chip"]));
+  expect([...kinds].sort()).toEqual(expect.arrayContaining(["clipped", "squeezed", "token-wrap", "truncated-key-value", "under-chip"]));
 
   const scroll = await collectHorizontalScrollIssues(page);
   expect(scroll.some((i) => i.kind === "past-viewport" || i.kind === "page-scroll")).toBe(true);
@@ -50,6 +51,7 @@ test("guards pass the same content laid out properly", async ({ page }) => {
       </div>
       <p style="width:120px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace">fourcubes-industry-llp-4210094c</p>
       <p style="width:200px;margin:0">Oct 6, 2026</p>
+      <p data-no-truncate style="width:60px;margin:0;overflow-wrap:break-word">18,940.5 kg</p>
     `;
     document.body.insertBefore(host, document.body.firstChild);
   });

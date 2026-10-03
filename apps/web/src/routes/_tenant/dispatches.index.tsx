@@ -15,6 +15,7 @@ import { useState } from "react";
 import { Can } from "@/shared/components/can";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
+import { formatKgTotal, kgTotalValue } from "@/shared/lib/weight";
 
 const dispatchStatuses = ["draft", "reserved", "completed", "cancelled"] as const;
 type DispatchStatus = (typeof dispatchStatuses)[number];
@@ -75,9 +76,9 @@ function DispatchesListComponent() {
     { id: "items", header: "Items", align: "right", cell: (r) => Number(r.itemCount) },
     {
       id: "weight",
-      header: "Weight (g)",
+      header: "Weight (kg)",
       align: "right",
-      cell: (r) => Number(r.totalWeightG).toLocaleString(),
+      cell: (r) => kgTotalValue(r.totalWeightG),
     },
     {
       id: "ship",
@@ -140,7 +141,7 @@ function DispatchesListComponent() {
             status={<StatusBadge kind="dispatch" value={r.status} />}
             facts={[
               { label: "Bundles", value: Number(r.itemCount).toLocaleString() },
-              { label: "Weight", value: `${Number(r.totalWeightG).toLocaleString()} g` },
+              { label: "Weight", value: formatKgTotal(r.totalWeightG) },
               { label: "Ship date", value: r.shipDate ? format(new Date(r.shipDate), "MMM d") : "Not set" },
             ]}
           />

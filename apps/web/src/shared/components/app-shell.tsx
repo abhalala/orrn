@@ -80,7 +80,14 @@ export function WorkspaceShell({
     .sort((a, b) => rank(a.item.key) - rank(b.item.key) || a.index - b.index)
     .map(({ item }) => ({
       key: item.key,
-      label: item.label,
+      label: item.shortLabel ? (
+        <>
+          <span aria-hidden="true">{item.shortLabel}</span>
+          <span className="sr-only">{item.label}</span>
+        </>
+      ) : (
+        item.label
+      ),
       icon: item.icon,
       href: item.to,
       active: isItemActive(item.to),

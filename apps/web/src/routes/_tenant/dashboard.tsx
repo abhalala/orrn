@@ -71,7 +71,7 @@ function RouteComponent() {
             {hasModule("bundles") && (
               <li className="flex gap-2">
                 <ChevronRight size={16} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <span>Create a new <Link to="/receipts" className="text-primary hover:underline">Receipt</Link> to log completed extrusion press cycles and generate bundle tags.</span>
+                <span>Start a <Link to="/receipts" className="text-primary hover:underline">packing session</Link> to log completed extrusion press cycles and generate bundle tags.</span>
               </li>
             )}
             {hasModule("dispatches") && (
@@ -100,13 +100,13 @@ function RouteComponent() {
 
         {hasModule("bundles") ? (
           <>
-            <ModuleCard to="/receipts" title="Receipts" description="Production receipts and the bundles they spawn." />
+            <ModuleCard to="/receipts" title="Packing" description="Packing sessions and the bundles they create." />
             <ModuleCard to="/bundles" title="Bundles" description="Every bundle, its status, and where it lives." />
             <ModuleCard to="/stock" title="Stock" description="Aggregated stock totals by die." />
           </>
         ) : (
           <>
-            <LockedModuleCard title="Receipts" description="Record production and create bundles." />
+            <LockedModuleCard title="Packing" description="Record production and create bundles." />
             <LockedModuleCard title="Bundles" description="Bundle inventory and tracking." />
             <LockedModuleCard title="Stock" description="Aggregate stock totals." />
           </>

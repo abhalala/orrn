@@ -16,6 +16,7 @@ import { BundlePrintButton } from "@/shared/components/bundle-print-button";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
+import { formatKg, formatKgTotal, kgValue } from "@/shared/lib/weight";
 
 export const Route = createFileRoute("/_tenant/receipts/$id")({
   component: ReceiptDetailComponent,
@@ -43,7 +44,7 @@ function ReceiptDetailComponent() {
 
   if (isLoading) return <div>Loading…</div>;
   if (!data) {
-    return <EmptyState title="Receipt not found" description="This receipt may have been removed." />;
+    return <EmptyState title="Packing session not found" description="It may have been removed. Go back to Packing to find it." />;
   }
 
   const { group, die, bundles } = data;
@@ -63,7 +64,7 @@ function ReceiptDetailComponent() {
       ),
     },
     { id: "qty", header: "Pieces", align: "right", cell: (b) => b.quantity },
-    { id: "weight", header: "Weight (g)", align: "right", cell: (b) => b.weightG },
+    { id: "weight", header: "Weight (kg)", align: "right", cell: (b) => kgValue(b.weightG) },
     { id: "length", header: `Length (${lu.label})`, align: "right", cell: (b) => lu.formatLength(b.lengthMm) },
     {
       id: "po",
@@ -90,9 +91,9 @@ function ReceiptDetailComponent() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <PageHeader
-        eyebrow="Receipts"
+        eyebrow="Packing"
         title={group.code}
-        description="Bundling session created from production receipt data. Print labels before moving bundles into dispatch."
+        description="Packing session from one press run. Print labels before moving bundles into dispatch."
         actions={
           <Button variant="outline" onClick={() => navigate({ to: "/receipts" })}>
             Back to list
@@ -121,7 +122,7 @@ function ReceiptDetailComponent() {
           <Fact label="Created">{format(new Date(group.createdAt), "PP p")}</Fact>
           <Fact label="Totals" wide>
             <span className="tabular-nums">
-              {bundles.length} bundles, {totalQuantity.toLocaleString()} pcs, {totalWeightG.toLocaleString()} g,{" "}
+              {bundles.length} bundles, {totalQuantity.toLocaleString()} pcs, {formatKgTotal(totalWeightG)},{" "}
               {lu.formatLength(totalLengthMm)}
             </span>
           </Fact>
@@ -157,7 +158,7 @@ function ReceiptDetailComponent() {
                 status={<StatusBadge kind="bundle" value={b.status} size="sm" />}
                 facts={[
                   { label: "Pieces", value: b.quantity.toLocaleString() },
-                  { label: "Weight", value: `${b.weightG.toLocaleString()} g` },
+                  { label: "Weight", value: formatKg(b.weightG) },
                   { label: "Length", value: lu.formatLength(b.lengthMm) },
                 ]}
                 footer={
@@ -175,7 +176,7 @@ function ReceiptDetailComponent() {
             emptyState={
               <EmptyState
                 title="No bundles"
-                description="This receipt has no bundles yet."
+                description="This packing session has no bundles yet."
               />
             }
           />

@@ -13,6 +13,7 @@ import { useState } from "react";
 import { Can } from "@/shared/components/can";
 import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
+import { formatKgTotal, kgTotalValue } from "@/shared/lib/weight";
 
 export const Route = createFileRoute("/_tenant/receipts/")({
   component: ReceiptsListComponent,
@@ -67,9 +68,9 @@ function ReceiptsListComponent() {
     },
     {
       id: "weight",
-      header: "Total Weight (g)",
+      header: "Weight (kg)",
       align: "right",
-      cell: (r) => Number(r.totalWeightG).toLocaleString(),
+      cell: (r) => kgTotalValue(r.totalWeightG),
     },
     {
       id: "created",
@@ -81,12 +82,12 @@ function ReceiptsListComponent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Bundling sessions"
-        description={`Each session records one press run and the bundles it made (${data?.total ?? 0} in total).`}
+        title="Packing"
+        description={`Each packing session records one press run and the bundles it made (${data?.total ?? 0} in total).`}
         actions={
           <Can do="receipt.create">
             <Button asChild>
-              <Link to="/receipts/new">New bundling session</Link>
+              <Link to="/receipts/new">New packing session</Link>
             </Button>
           </Can>
         }
@@ -97,7 +98,7 @@ function ReceiptsListComponent() {
           placeholder="Search by session code or PO ref…"
           value={search}
           onChangeText={setSearch}
-          aria-label="Search bundling sessions"
+          aria-label="Search packing sessions"
           className="sm:max-w-[360px]"
         />
       </Toolbar>
@@ -117,7 +118,7 @@ function ReceiptsListComponent() {
             subtitle={`${r.dieSeries} / ${r.dieSectionCode}`}
             facts={[
               { label: "Bundles", value: Number(r.bundleCount).toLocaleString() },
-              { label: "Weight", value: `${Number(r.totalWeightG).toLocaleString()} g` },
+              { label: "Weight", value: formatKgTotal(r.totalWeightG) },
               { label: "Created", value: format(new Date(r.createdAt), "MMM d") },
             ]}
             footer={
@@ -130,8 +131,8 @@ function ReceiptsListComponent() {
         isLoading={isLoading}
         emptyState={
           <EmptyState
-            title="No bundling sessions yet"
-            description="Create your first bundling session to spawn bundles and print labels for the floor."
+            title="No packing sessions yet"
+            description="Start a packing session to create bundles and print their labels."
             actions={
               <Can do="receipt.create">
                 <Button asChild>

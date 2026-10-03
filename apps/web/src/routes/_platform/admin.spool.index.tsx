@@ -110,18 +110,18 @@ function AdminSpoolComponent() {
       setCreateSubdomain("");
       setCreateError("");
       qc.invalidateQueries({ queryKey: trpc.platform.spoolDeploymentsList.queryKey() });
-      toast.success("Spool deployment created");
+      toast.success("Print station created");
     },
     onError: (e: any) => {
       setCreateError(e.message);
-      toast.error(e.message || "Failed to create deployment");
+      toast.error(e.message || "Could not create the print station. Try again.");
     },
   });
 
   const revokeMutation = useMutation({
     ...trpc.platform.spoolDeploymentRevoke.mutationOptions(),
     onSuccess: () => {
-      toast.success("Deployment revoked");
+      toast.success("Print station revoked");
       setRevokeTarget(null);
       qc.invalidateQueries({ queryKey: trpc.platform.spoolDeploymentsList.queryKey() });
     },
@@ -132,7 +132,7 @@ function AdminSpoolComponent() {
     ...trpc.platform.spoolDeploymentRegenerateSecret.mutationOptions(),
     onSuccess: (result) => {
       setNewSecretValue((result as { sharedSecret: string }).sharedSecret);
-      toast.success("Secret regenerated");
+      toast.success("Key rotated");
       qc.invalidateQueries({ queryKey: trpc.platform.spoolDeploymentsList.queryKey() });
     },
     onError: (e: any) => toast.error(e.message || "Failed to regenerate secret"),
@@ -381,7 +381,7 @@ function AdminSpoolComponent() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Godseye"
-        title="Label printing"
+        title="Printing"
         description={`Each company's print station for LAN label printers (${data?.total ?? 0} in total).`}
         actions={
           <>
@@ -579,7 +579,7 @@ function AdminSpoolComponent() {
         onOpenChange={(open) => {
           if (!open) setCreateResult(null);
         }}
-        title="Deployment Created"
+        title="Print station created"
         description="Copy these credentials now. They will not be shown again."
         actions={
           <Button onPress={() => setCreateResult(null)}>
@@ -590,7 +590,7 @@ function AdminSpoolComponent() {
         {createResult ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <Label>Instance ID</Label>
+              <Label>Instance id</Label>
               <div className="flex min-w-0 items-start gap-2">
                 <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs whitespace-nowrap">
                   {createResult.instanceId}
@@ -606,7 +606,7 @@ function AdminSpoolComponent() {
               </div>
             </div>
             <div className="flex flex-col gap-1">
-              <Label>Spool Domain</Label>
+              <Label>Print station address</Label>
               <div className="flex min-w-0 items-start gap-2">
                 <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs whitespace-nowrap">
                   {createResult.spoolDomain}
@@ -624,7 +624,7 @@ function AdminSpoolComponent() {
             <div className="flex flex-col gap-1">
               <Label className="flex items-center gap-1.5">
                 <ShieldAlert className="size-3.5 text-amber-500" />
-                Shared Secret
+                Shared secret
               </Label>
               <div className="flex min-w-0 items-start gap-2">
                 <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-border bg-muted px-2 py-1 font-mono text-xs whitespace-nowrap">
@@ -669,8 +669,8 @@ function AdminSpoolComponent() {
         onOpenChange={(open) => {
           if (!open && !revokeMutation.isPending) setRevokeTarget(null);
         }}
-        title="Revoke Deployment"
-        description={`This will permanently revoke the spool deployment for "${revokeTarget?.companyName ?? "this company"}" (${revokeTarget?.subdomain ?? "no subdomain"}). The Cloudflare tunnel and DNS record will be deleted, and the spool will stop functioning.`}
+        title="Revoke print station"
+        description={`This permanently revokes the print station for "${revokeTarget?.companyName ?? "this company"}" (${revokeTarget?.subdomain ?? "no subdomain"}). Its tunnel and DNS record are deleted and its printers stop receiving labels.`}
         actions={
           <div className="flex gap-2">
             <Button
@@ -700,11 +700,11 @@ function AdminSpoolComponent() {
             setNewSecretValue(null);
           }
         }}
-        title="Regenerate Shared Secret"
+        title="Rotate print station key"
         description={
           newSecretValue
-            ? "The new shared secret is shown below. Update your spool configuration with this value."
-            : `Generate a new shared secret for "${secretTarget?.companyName ?? "this company"}" (${secretTarget?.subdomain ?? "no subdomain"}). The old secret will stop working immediately.`
+            ? "The new key is shown below. Update the print station with this value."
+            : `Create a new key for "${secretTarget?.companyName ?? "this company"}" (${secretTarget?.subdomain ?? "no subdomain"}). The old key stops working immediately.`
         }
         actions={
           newSecretValue ? (
@@ -766,7 +766,7 @@ function AdminSpoolComponent() {
         onOpenChange={(open) => {
           if (!open && !dockerInstallMutation.isPending) setDockerTarget(null);
         }}
-        title="Download Docker Install Script"
+        title="Download Docker install script"
         description={`Generate a one-shot Docker install script for "${dockerTarget?.companyName ?? "this company"}" (${dockerTarget?.subdomain ?? "no subdomain"}). The script pulls the published GHCR image, writes config files, persists data under /opt, and starts the container.`}
         actions={
           <div className="flex gap-2">
@@ -809,8 +809,8 @@ function AdminSpoolComponent() {
         onOpenChange={(open) => {
           if (!open && !downloadMutation.isPending) setDownloadTarget(null);
         }}
-        title="Download Spool Binary"
-        description={`Download a pre-configured binary for "${downloadTarget?.companyName ?? "this company"}" (${downloadTarget?.subdomain ?? "no subdomain"}). The binary has deployment secrets baked in, so no config editing needed.`}
+        title="Download print station app"
+        description={`Download the print station app for "${downloadTarget?.companyName ?? "this company"}" (${downloadTarget?.subdomain ?? "no subdomain"}). It comes with its keys built in, so there is nothing to configure.`}
         actions={
           <div className="flex gap-2">
             <Button

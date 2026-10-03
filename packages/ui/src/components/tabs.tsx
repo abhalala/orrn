@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
@@ -21,12 +21,47 @@ export type TabsProps = {
  * consumers don't have to change. Segments are toggle buttons
  * (`aria-pressed`), so keyboard users tab through them and press Enter/Space.
  */
+/** Which ends of a horizontally scrolling strip have hidden content. */
+function useOverflowEdges<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const next = { start: el.scrollLeft > 1, end: max - el.scrollLeft > 1 };
+    setEdges((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
+  }, []);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [update]);
+  return { ref, edges, onScroll: update };
+}
+
+const FADE = "24px";
+
 export function Tabs({ items, value, onValueChange, className, children }: TabsProps) {
+  const { ref, edges, onScroll } = useOverflowEdges<HTMLDivElement>();
+  // Fade the side(s) that have more segments, so a phone user can see the
+  // strip scrolls. Mask only, no layout change.
+  const mask =
+    edges.start || edges.end
+      ? `linear-gradient(to right, ${edges.start ? "transparent" : "currentColor"} 0, currentColor ${edges.start ? FADE : "0"}, currentColor calc(100% - ${edges.end ? FADE : "0px"}), ${edges.end ? "transparent" : "currentColor"} 100%)`
+      : undefined;
   return (
     <div className={cn("flex min-w-0 max-w-full flex-col gap-4", className)}>
       {/* The track scrolls sideways when the segments outgrow a phone row;
           it never widens the page. */}
-      <div className="flex min-w-0 max-w-full gap-1 self-start overflow-x-auto overscroll-x-contain rounded-full bg-surface-sunken p-1 [scrollbar-width:none] dark:bg-background dark:ring-1 dark:ring-border">
+      <div
+        ref={ref}
+        onScroll={onScroll}
+        style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
+        className="flex min-w-0 max-w-full gap-1 self-start overflow-x-auto overscroll-x-contain rounded-full bg-surface-sunken p-1 [scrollbar-width:none] dark:bg-background dark:ring-1 dark:ring-border">
         {items.map((it) => {
           const active = value === it.id;
           return (

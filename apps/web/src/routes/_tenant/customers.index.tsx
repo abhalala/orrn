@@ -134,7 +134,7 @@ function CustomersListComponent() {
             titleText={r.name}
             subtitle={`Customer since ${format(new Date(r.createdAt), "MMM d, yyyy")}`}
             facts={[
-              { label: "Email", value: r.email || "Not set" },
+              { label: "Email", value: r.email || "Not set", truncate: true },
               { label: "Phone", value: r.phone || "Not set" },
             ]}
             className="[&_dl]:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]"
