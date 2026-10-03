@@ -2,8 +2,6 @@ import type { ReactNode } from "react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
-import { Button } from "./button";
-
 export type TabItem = {
   id: string;
   label: ReactNode;
@@ -18,23 +16,34 @@ export type TabsProps = {
 };
 
 /**
- * Pill-style tab strip. Keeps the simple `items`/`value`/`onValueChange`
- * shape from the Tamagui implementation so consumers don't have to change.
+ * C2 segmented control: a sunken pill track with the selected segment raised
+ * on the surface. Keeps the simple `items`/`value`/`onValueChange` shape so
+ * consumers don't have to change. Segments are toggle buttons
+ * (`aria-pressed`), so keyboard users tab through them and press Enter/Space.
  */
 export function Tabs({ items, value, onValueChange, className, children }: TabsProps) {
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
-      <div className="flex flex-wrap gap-1">
-        {items.map((it) => (
-          <Button
-            key={it.id}
-            variant={value === it.id ? "default" : "outline"}
-            size="sm"
-            onPress={() => onValueChange(it.id)}
-          >
-            {it.label}
-          </Button>
-        ))}
+    <div className={cn("flex flex-col gap-4", className)}>
+      <div className="flex max-w-full gap-1 self-start overflow-x-auto rounded-full bg-surface-sunken p-1 [scrollbar-width:none] dark:bg-background dark:ring-1 dark:ring-border">
+        {items.map((it) => {
+          const active = value === it.id;
+          return (
+            <button
+              key={it.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onValueChange(it.id)}
+              className={cn(
+                "inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold transition-[background-color,color,box-shadow,transform] duration-[var(--dur-fast)] active:scale-[0.97] pointer-coarse:h-11",
+                active
+                  ? "bg-card text-foreground shadow-sm dark:bg-popover"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {it.label}
+            </button>
+          );
+        })}
       </div>
       {children}
     </div>

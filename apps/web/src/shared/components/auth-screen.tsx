@@ -2,56 +2,37 @@ import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 /**
- * Shared backdrop for auth and onboarding flows: brand-gradient wash with a
- * subtle grid, ORRN wordmark up top, and a centered content well. Children
- * (cards/forms) sit on top of the gradient — pair with `Card` for the glass
- * look.
+ * Shared frame for auth and onboarding flows (C2): flat warm canvas, the
+ * orrn wordmark up top, and a centred content well. Children are usually a
+ * `Card` (white surface, 16px radius) holding the form.
  */
 export function AuthScreen({ children }: { children: ReactNode }) {
   return (
-    <main className="relative flex min-h-svh w-full flex-col items-center overflow-hidden bg-background px-4 py-8 text-foreground">
-      {/* Brand gradient backdrop */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(60% 50% at 20% 0%, color-mix(in srgb, var(--brand-500) 14%, transparent), transparent 70%), radial-gradient(50% 45% at 85% 10%, color-mix(in srgb, var(--brand-accent) 9%, transparent), transparent 70%), radial-gradient(70% 60% at 50% 110%, color-mix(in srgb, var(--brand-600) 10%, transparent), transparent 70%)",
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px)",
-          backgroundSize: "44px 44px",
-          maskImage: "radial-gradient(70% 60% at 50% 30%, black, transparent)",
-        }}
-      />
-
-      <header className="relative z-10 flex w-full max-w-5xl items-center justify-between py-2">
-        <Link to="/" className="flex items-center gap-2 no-underline" aria-label="ORRN home">
-          <div className="flex size-7 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-            O
-          </div>
-          <span className="text-base font-semibold text-foreground">ORRN</span>
+    <main className="flex min-h-[100dvh] w-full flex-col items-center bg-background px-4 pb-6 pt-4 text-foreground sm:px-6">
+      <header className="flex w-full max-w-5xl items-center justify-between gap-4">
+        <Link
+          to="/"
+          className="flex min-h-11 items-center gap-2.5 rounded-full pr-2 no-underline"
+          aria-label="ORRN home"
+        >
+          <span aria-hidden="true" className="orrn-mark size-8" />
+          <span className="font-display text-[22px] font-extrabold tracking-[-0.03em] text-foreground">
+            orrn
+          </span>
         </Link>
         <Link
           to="/"
-          className="text-xs font-medium text-muted-foreground no-underline transition-colors duration-[var(--dur-fast)] hover:text-foreground"
+          className="inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium text-muted-foreground no-underline transition-colors duration-[var(--dur-fast)] hover:bg-accent hover:text-foreground"
         >
-          ← Back to home
+          Back to home
         </Link>
       </header>
 
-      <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center py-6">
-        <div className="orrn-auth-card flex w-full animate-in fade-in-0 slide-in-from-bottom-2 flex-col items-center duration-500 ease-out">
-          {children}
-        </div>
+      <div className="flex w-full flex-1 flex-col items-center justify-center py-8 sm:py-10">
+        <div className="orrn-auth-card orrn-rise flex w-full flex-col items-center">{children}</div>
       </div>
 
-      <footer className="relative z-10 py-2 text-center text-xs text-muted-foreground">
+      <footer className="py-2 text-center text-[13px] text-muted-foreground">
         © {new Date().getFullYear()} ORRN · Tenant-isolated ERP for manufactured inventory
       </footer>
     </main>

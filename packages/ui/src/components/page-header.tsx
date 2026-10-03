@@ -11,18 +11,16 @@ export type PageHeaderProps = {
 
 export function PageHeader({ title, description, actions, eyebrow }: PageHeaderProps) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex min-w-[min(100%,18rem)] flex-1 flex-col gap-1.5">
         {eyebrow ? (
-          <p className="m-0 text-[11px] font-medium uppercase tracking-[0.12em] text-primary">
-            {eyebrow}
-          </p>
+          <p className="m-0 text-[13px] font-medium text-muted-foreground">{eyebrow}</p>
         ) : null}
-        <h1 className="orrn-page-title m-0 text-2xl font-semibold leading-tight tracking-[-0.015em] text-foreground">
+        <h1 className="orrn-page-title m-0 font-display text-[34px] font-extrabold leading-[1.05] tracking-[-0.035em] text-foreground">
           {title}
         </h1>
         {description ? (
-          <p className="orrn-page-description m-0 max-w-[680px] text-sm text-muted-foreground">
+          <p className="orrn-page-description m-0 max-w-[680px] text-[15px] leading-6 text-muted-foreground">
             {description}
           </p>
         ) : null}

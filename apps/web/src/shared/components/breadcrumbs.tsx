@@ -46,7 +46,7 @@ export function Breadcrumbs({
   return (
     <nav
       aria-label="Breadcrumb"
-      className="flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap text-xs text-muted-foreground"
+      className="flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap text-[13px] text-muted-foreground"
     >
       <Link to={homePath as "/"} className="hover:text-foreground hover:underline">
         {homeLabel}
@@ -57,7 +57,7 @@ export function Breadcrumbs({
           <span key={path} className="flex items-center gap-1">
             <span aria-hidden>/</span>
             {isLast ? (
-              <span className="text-foreground">{prettifySegment(seg)}</span>
+              <span aria-current="page" className="font-medium text-foreground">{prettifySegment(seg)}</span>
             ) : (
               <Link to={path as "/"} className="hover:text-foreground hover:underline">
                 {prettifySegment(seg)}

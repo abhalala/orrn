@@ -29,12 +29,26 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-bg": "var(--popover)",
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          "--border-radius": "16px",
+          // `richColors` toasts use the C2 chip pairs (>= 4.5:1 both themes).
+          "--success-bg": "var(--tone-green-tint)",
+          "--success-text": "var(--tone-green-ink)",
+          "--success-border": "color-mix(in srgb, var(--tone-green-ink) 22%, transparent)",
+          "--info-bg": "var(--tone-blue-tint)",
+          "--info-text": "var(--tone-blue-ink)",
+          "--info-border": "color-mix(in srgb, var(--tone-blue-ink) 22%, transparent)",
+          "--warning-bg": "var(--tone-amber-tint)",
+          "--warning-text": "var(--tone-amber-ink)",
+          "--warning-border": "color-mix(in srgb, var(--tone-amber-ink) 22%, transparent)",
+          "--error-bg": "var(--tone-red-tint)",
+          "--error-text": "var(--tone-red-ink)",
+          "--error-border": "color-mix(in srgb, var(--tone-red-ink) 22%, transparent)",
         } as React.CSSProperties
       }
       toastOptions={{
         classNames: {
-          toast: "cn-toast",
+          toast: "cn-toast font-sans shadow-md",
+          title: "font-semibold",
         },
       }}
       {...props}

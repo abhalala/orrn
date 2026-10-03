@@ -17,21 +17,21 @@ export type NavCardProps = {
  */
 export function NavCard({ title, description, to, icon }: NavCardProps) {
   return (
-    <Link to={to as "/"} className="no-underline group">
-      <Card className="h-full transition-all duration-[var(--dur-fast)] hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md">
+    <Link to={to as "/"} className="group rounded-card no-underline">
+      <Card className="h-full transition-[border-color,box-shadow,transform] duration-[var(--dur-fast)] hover:border-control/60 hover:shadow-md group-active:scale-[0.99]">
         <div className="flex items-start gap-3">
           {icon ? (
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors duration-[var(--dur-fast)] group-hover:bg-primary/15">
+            <div aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-md bg-tone-violet-tint text-tone-violet-ink">
               {icon}
             </div>
           ) : null}
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-foreground text-sm">{title}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+            <p className="m-0 text-[15px] font-semibold text-foreground">{title}</p>
+            <p className="m-0 mt-1 text-[13px] text-muted-foreground">{description}</p>
           </div>
           <ChevronRight
             size={16}
-            className="mt-0.5 text-muted-foreground transition-all duration-[var(--dur-fast)] group-hover:translate-x-0.5 group-hover:text-primary"
+            className="mt-0.5 text-muted-foreground transition-all duration-[var(--dur-fast)] group-hover:translate-x-0.5 group-hover:text-foreground" aria-hidden="true"
           />
         </div>
       </Card>

@@ -6,22 +6,33 @@ import {
   dispatchStatusTones,
   roleTones,
   type StatusTone,
+  type ToneName,
 } from "../tokens";
 
 export type BadgeTone = "neutral" | "info" | "success" | "warning" | "danger" | "brand";
 
+/** C2 chip classes: theme-aware tint + ink pairs (>= 4.5:1, see tokens.test.ts). */
+const PALETTE_CLASSES: Record<ToneName, string> = {
+  neutral: "bg-tone-neutral-tint text-tone-neutral-ink",
+  blue: "bg-tone-blue-tint text-tone-blue-ink",
+  green: "bg-tone-green-tint text-tone-green-ink",
+  amber: "bg-tone-amber-tint text-tone-amber-ink",
+  red: "bg-tone-red-tint text-tone-red-ink",
+  violet: "bg-tone-violet-tint text-tone-violet-ink",
+};
+
 const TONE_CLASSES: Record<BadgeTone, string> = {
-  neutral: "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
-  info: "bg-blue-100 text-blue-900 dark:bg-blue-900/40 dark:text-blue-200",
-  success: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200",
-  warning: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200",
-  danger: "bg-rose-100 text-rose-900 dark:bg-rose-900/40 dark:text-rose-200",
-  brand: "bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-200",
+  neutral: PALETTE_CLASSES.neutral,
+  info: PALETTE_CLASSES.blue,
+  success: PALETTE_CLASSES.green,
+  warning: PALETTE_CLASSES.amber,
+  danger: PALETTE_CLASSES.red,
+  brand: "bg-primary text-primary-foreground",
 };
 
 const SIZE_CLASSES = {
-  sm: "px-2 py-0.5 text-[10px]",
-  md: "px-2.5 py-1 text-xs",
+  sm: "min-h-[22px] px-2.5 py-0.5 text-[11px]",
+  md: "min-h-7 px-3 py-1 text-xs",
 } as const;
 
 export type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
@@ -47,7 +58,7 @@ export function Badge({
     <span
       data-slot="badge"
       className={cn(
-        "inline-flex items-center justify-center rounded-full font-semibold leading-none",
+        "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-full font-semibold leading-none tracking-[0.005em]",
         SIZE_CLASSES[size],
         !overrides && TONE_CLASSES[tone],
         className,
@@ -84,21 +95,23 @@ export type StatusBadgeProps = Omit<BadgeProps, "tone" | "background" | "foregro
 };
 
 /**
- * Specialised badge for our dispatch / bundle / role status palettes. Uses
- * the raw token colors from `@orrn/ui/tokens` so palettes stay consistent
- * with native.
+ * Specialised badge for our dispatch / bundle / role status palettes. The
+ * status word is always rendered (colour is never the only signal). Tone
+ * mapping lives in `@orrn/ui/tokens` so web and native stay consistent.
  */
-export function StatusBadge({ kind, value, label, ...rest }: StatusBadgeProps) {
+export function StatusBadge({ kind, value, label, className, ...rest }: StatusBadgeProps) {
   const tone = statusToneFor(kind, value);
   if (!tone) {
     return (
-      <Badge tone="neutral" {...rest}>
+      <Badge tone="neutral" className={className} {...rest}>
         {label ?? value}
       </Badge>
     );
   }
+  // Web renders the theme-aware C2 chip for the status tone; the raw
+  // `bg`/`fg` hex pair is the light-mode equivalent kept for native.
   return (
-    <Badge background={tone.bg} foreground={tone.fg} {...rest}>
+    <Badge {...rest} className={cn(PALETTE_CLASSES[tone.palette], className)}>
       {label ?? value.charAt(0).toUpperCase() + value.slice(1)}
     </Badge>
   );

@@ -1,13 +1,19 @@
 /**
- * Token-bridge stylesheet for the web app.
+ * Token-bridge stylesheet for the web app. C2 "colour-block pop".
  *
- * Tailwind v4 + shadcn semantic tokens. Every CSS variable in here mirrors
- * a token from `@orrn/ui/tokens` — do not introduce new raw color values.
+ * Tailwind v4 + shadcn semantic tokens. Every raw colour in here mirrors a
+ * token from `@orrn/ui/tokens` (`tokens.test.ts` parses the `:root` and
+ * `.dark` blocks below and fails if they drift). Do not add raw colours in
+ * components; use these variables or the Tailwind names they generate:
  *
- * Note: `--accent` is shadcn's neutral surface for hover/active highlights
- * (sidebar selection, dropdown focus, button ghost hover, table row hover).
- * It must stay neutral. The brand's teal (`brand.accent` in tokens.ts) is
- * available for explicit highlights; do not bind it to `--accent`.
+ *   bg-canvas / bg-surface / bg-surface-sunken / text-ink / text-ink-muted
+ *   border-hairline / border-control
+ *   bg-tone-{green,blue,amber,red,violet,neutral}-tint + text-tone-*-ink (chips)
+ *   .orrn-block .orrn-block-{tone} (gradient status blocks)
+ *   rounded-input (12) rounded-card (16) rounded-block (22) rounded-hero (26) rounded-full (pill)
+ *   font-display (Bricolage) font-sans (Geist) font-mono (Geist Mono)
+ *
+ * `--accent` is shadcn's neutral hover surface. It stays neutral.
  */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -17,45 +23,96 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #f6f8fb;
-  --foreground: #111827;
-  --card: #ffffff;
-  --card-foreground: #111827;
-  --popover: #ffffff;
-  --popover-foreground: #111827;
-  --primary: #4f7cff;
+  /* C2 surfaces (tokens.ts c2.light) */
+  --canvas: #f4f4f1;
+  --surface: #ffffff;
+  --surface-sunken: #efefeb;
+  --ink: #0c0c0e;
+  --ink-muted: #66666b;
+  --hairline: #e7e7e2;
+  --control: #85858b;
+
+  /* Tone gradients (same in both themes) + chips (tokens.ts tones) */
+  --tone-green-from: #13873f;
+  --tone-green-to: #0b6b30;
+  --tone-green-on: #ffffff;
+  --tone-green-tint: #dcf5e3;
+  --tone-green-ink: #0d5c2b;
+  --tone-blue-from: #2563eb;
+  --tone-blue-to: #1d4ed8;
+  --tone-blue-on: #ffffff;
+  --tone-blue-tint: #e0eaff;
+  --tone-blue-ink: #1a43b8;
+  --tone-amber-from: #ffc21a;
+  --tone-amber-to: #ff9500;
+  --tone-amber-on: #1a1200;
+  --tone-amber-tint: #fff0cc;
+  --tone-amber-ink: #7a4300;
+  --tone-red-from: #dc2626;
+  --tone-red-to: #b91c1c;
+  --tone-red-on: #ffffff;
+  --tone-red-tint: #fde3e1;
+  --tone-red-ink: #a01818;
+  --tone-violet-from: #7c3aed;
+  --tone-violet-to: #6d28d9;
+  --tone-violet-on: #ffffff;
+  --tone-violet-tint: #ede6ff;
+  --tone-violet-ink: #5b21b6;
+  --tone-neutral-from: #2a2a2e;
+  --tone-neutral-to: #0c0c0e;
+  --tone-neutral-on: #ffffff;
+  --tone-neutral-tint: #ecece7;
+  --tone-neutral-ink: #3a3a3e;
+
+  /* shadcn semantic layer */
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
   --primary-foreground: #ffffff;
-  --secondary: #edf2f7;
-  --secondary-foreground: #111827;
-  --muted: #edf2f7;
-  --muted-foreground: #5d6b7c;
-  --accent: #e7edf5;
-  --accent-foreground: #111827;
-  --destructive: #ef4444;
+  --secondary: var(--surface-sunken);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--surface-sunken);
+  --accent-foreground: var(--ink);
+  --destructive: #b91c1c;
   --destructive-foreground: #ffffff;
-  --border: #d9e1ea;
-  --input: #d9e1ea;
-  --ring: #4f7cff;
-  --radius: 0.5rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #0f172a;
-  --sidebar-primary: #4f7cff;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e7edf5;
-  --sidebar-accent-foreground: #111827;
-  --sidebar-border: #d9e1ea;
-  --sidebar-ring: #4f7cff;
+  --border: var(--hairline);
+  --input: var(--control);
+  --ring: var(--ink);
+  --radius: 1rem;
 
-  /* Extra surface layers (tokens.ts neutrals.*) */
-  --surface-sunken: #eef2f7;
-  --surface-overlay: #ffffff;
+  /* Sidebar = ink panel in both themes (tokens.ts inkPanel) */
+  --sidebar: #0c0c0e;
+  --sidebar-foreground: #f4f4f1;
+  --sidebar-muted: #a1a1a8;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #0c0c0e;
+  --sidebar-accent: #1c1c20;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #26262a;
+  --sidebar-ring: #f4f4f1;
 
-  /* Brand ramp anchors for gradients/glow (tokens.ts brandRamp) */
-  --brand-300: #a2bcff;
-  --brand-400: #7c9cff;
-  --brand-500: #4f7cff;
-  --brand-600: #2f5fe8;
-  --brand-accent: #2dd4bf;
+  /* Extra surface layers */
+  --surface-overlay: var(--surface);
+
+  /* Legacy brand ramp names, now neutral (tokens.ts brandRamp, deprecated) */
+  --brand-300: #d4d4cf;
+  --brand-400: #a1a1a8;
+  --brand-500: #66666b;
+  --brand-600: #3a3a3e;
+  --brand-accent: var(--tone-green-from);
+
+  /* Shadows tinted to ink (tokens.ts shadows) */
+  --shadow-tint: 12 12 14;
+  --elev-sm: 0 1px 2px rgb(var(--shadow-tint) / 0.06);
+  --elev-md: 0 6px 16px rgb(var(--shadow-tint) / 0.1);
+  --elev-block: 0 10px 24px rgb(var(--shadow-tint) / 0.12);
+  --elev-button: 0 6px 16px rgb(var(--shadow-tint) / 0.18);
 
   /* Motion tokens (tokens.ts motion) */
   --dur-fast: 150ms;
@@ -66,63 +123,161 @@
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-pop: cubic-bezier(0.2, 0.9, 0.3, 1.35);
+  --ease-rise: cubic-bezier(0.2, 0.9, 0.3, 1.15);
 }
 
 .dark {
-  --background: #070a11;
-  --foreground: #f4f7fb;
-  --card: #101722;
-  --card-foreground: #f4f7fb;
-  --popover: #101722;
-  --popover-foreground: #f4f7fb;
-  --primary: #4f7cff;
-  --primary-foreground: #ffffff;
-  --secondary: #182231;
-  --secondary-foreground: #f4f7fb;
-  --muted: #182231;
-  --muted-foreground: #a7b2c2;
-  --accent: #1e2a3d;
-  --accent-foreground: #f4f7fb;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #263142;
-  --input: #263142;
-  --ring: #4f7cff;
-  --sidebar: #101722;
-  --sidebar-foreground: #f4f7fb;
-  --sidebar-primary: #4f7cff;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1e2a3d;
-  --sidebar-accent-foreground: #f4f7fb;
-  --sidebar-border: #263142;
-  --sidebar-ring: #4f7cff;
+  /* C2 surfaces (tokens.ts c2.dark) */
+  --canvas: #0c0c0e;
+  --surface: #17171a;
+  --surface-sunken: #1f1f23;
+  --ink: #f4f4f1;
+  --ink-muted: #9a9aa0;
+  --hairline: #26262a;
+  --control: #6b6b72;
 
-  --surface-sunken: #04060c;
-  --surface-overlay: #141d2b;
+  /* Chips (tokens.ts tones.*.dark). Gradients don't change. */
+  --tone-green-tint: #0f2a1a;
+  --tone-green-ink: #7ee2a2;
+  --tone-blue-tint: #132042;
+  --tone-blue-ink: #9cbcff;
+  --tone-amber-tint: #2e2206;
+  --tone-amber-ink: #ffd166;
+  --tone-red-tint: #33120f;
+  --tone-red-ink: #ffa49a;
+  --tone-violet-tint: #231637;
+  --tone-violet-ink: #c9b5ff;
+  --tone-neutral-tint: #26262a;
+  --tone-neutral-ink: #d4d4d8;
+
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: #1c1c20;
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: #0c0c0e;
+  --secondary: var(--surface-sunken);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--surface-sunken);
+  --accent-foreground: var(--ink);
+  --destructive: #f87171;
+  --destructive-foreground: #0c0c0e;
+  --border: var(--hairline);
+  --input: var(--control);
+  --ring: var(--ink);
+
+  /* The ink panel needs its own edge against the near-black dark canvas. */
+  --sidebar: #050506;
+  --sidebar-primary: #f4f4f1;
+
+  --surface-overlay: #1c1c20;
+
+  --shadow-tint: 0 0 0;
+  --elev-sm: 0 1px 2px rgb(var(--shadow-tint) / 0.4);
+  --elev-md: 0 6px 16px rgb(var(--shadow-tint) / 0.45);
+  --elev-block: 0 10px 24px rgb(var(--shadow-tint) / 0.5);
+  --elev-button: 0 6px 16px rgb(var(--shadow-tint) / 0.5);
 }
 
 /*
- * Godseye (platform admin) accent layer. Applied on the `_platform` layout
- * wrapper so the staff console reads violet while sharing every component
- * with the tenant app. Light + dark both covered (`.dark .godseye` inherits
- * the dark surfaces; only accent hues change).
+ * Godseye (platform admin) accent layer, the violet tone. Applied on the
+ * `_platform` layout wrapper so the staff console reads violet while sharing
+ * every component with the tenant app.
  */
 .godseye {
-  --primary: #8b5cf6;
-  --primary-foreground: #ffffff;
-  --ring: #8b5cf6;
-  --sidebar-primary: #8b5cf6;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-ring: #8b5cf6;
-  --brand-300: #c4b5fd;
-  --brand-400: #a78bfa;
-  --brand-500: #8b5cf6;
-  --brand-600: #7c3aed;
-  --brand-accent: #e879f9;
+  --primary: var(--tone-violet-from);
+  --primary-foreground: var(--tone-violet-on);
+  --ring: var(--tone-violet-to);
+  --brand-accent: var(--tone-violet-from);
+}
+
+.dark .godseye {
+  --ring: var(--tone-violet-ink);
+}
+
+/*
+ * Ink panel: a near-black surface with light text in BOTH themes (sidebar,
+ * marketing closing block). Re-declares the semantic layer so nested
+ * components (buttons, menus, focus rings) stay legible on it.
+ */
+/* Layered so Tailwind utilities on the same element win (e.g. flex,
+   max-w-*, padding on .orrn-section / .orrn-mark). */
+@layer components {
+  .orrn-ink-panel {
+    --background: #0c0c0e;
+    --foreground: #f4f4f1;
+    --card: #1c1c20;
+    --card-foreground: #f4f4f1;
+    --primary: #f4f4f1;
+    --primary-foreground: #0c0c0e;
+    --secondary: #1c1c20;
+    --secondary-foreground: #f4f4f1;
+    --muted: #1c1c20;
+    --muted-foreground: #a1a1a8;
+    --accent: #1c1c20;
+    --accent-foreground: #ffffff;
+    --border: #26262a;
+    --input: #6b6b72;
+    --ring: #f4f4f1;
+    --ink: #f4f4f1;
+    --ink-muted: #a1a1a8;
+    --hairline: #26262a;
+    --surface: #1c1c20;
+    --surface-sunken: #1c1c20;
+    color: #f4f4f1;
+    color-scheme: dark;
+  }
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Geist Variable", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-display:
+    "Bricolage Grotesque Variable", "Geist Variable", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-hairline: var(--hairline);
+  --color-control: var(--control);
+
+  --color-tone-green: var(--tone-green-from);
+  --color-tone-green-to: var(--tone-green-to);
+  --color-tone-green-on: var(--tone-green-on);
+  --color-tone-green-tint: var(--tone-green-tint);
+  --color-tone-green-ink: var(--tone-green-ink);
+  --color-tone-blue: var(--tone-blue-from);
+  --color-tone-blue-to: var(--tone-blue-to);
+  --color-tone-blue-on: var(--tone-blue-on);
+  --color-tone-blue-tint: var(--tone-blue-tint);
+  --color-tone-blue-ink: var(--tone-blue-ink);
+  --color-tone-amber: var(--tone-amber-from);
+  --color-tone-amber-to: var(--tone-amber-to);
+  --color-tone-amber-on: var(--tone-amber-on);
+  --color-tone-amber-tint: var(--tone-amber-tint);
+  --color-tone-amber-ink: var(--tone-amber-ink);
+  --color-tone-red: var(--tone-red-from);
+  --color-tone-red-to: var(--tone-red-to);
+  --color-tone-red-on: var(--tone-red-on);
+  --color-tone-red-tint: var(--tone-red-tint);
+  --color-tone-red-ink: var(--tone-red-ink);
+  --color-tone-violet: var(--tone-violet-from);
+  --color-tone-violet-to: var(--tone-violet-to);
+  --color-tone-violet-on: var(--tone-violet-on);
+  --color-tone-violet-tint: var(--tone-violet-tint);
+  --color-tone-violet-ink: var(--tone-violet-ink);
+  --color-tone-neutral: var(--tone-neutral-from);
+  --color-tone-neutral-to: var(--tone-neutral-to);
+  --color-tone-neutral-on: var(--tone-neutral-on);
+  --color-tone-neutral-tint: var(--tone-neutral-tint);
+  --color-tone-neutral-ink: var(--tone-neutral-ink);
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -130,6 +285,7 @@
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
   --color-sidebar: var(--sidebar);
   --color-ring: var(--ring);
   --color-input: var(--input);
@@ -157,17 +313,36 @@
   --color-brand-500: var(--brand-500);
   --color-brand-600: var(--brand-600);
   --color-brand-accent: var(--brand-accent);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
+
+  /* Radius rule: inputs 12, cards/sheets/dialogs 16, blocks 22, hero 26, pill. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 16px;
+  --radius-2xl: 22px;
+  --radius-3xl: 26px;
+  --radius-input: 12px;
+  --radius-card: 16px;
+  --radius-block: 22px;
+  --radius-hero: 26px;
+
+  --shadow-sm: var(--elev-sm);
+  --shadow-md: var(--elev-md);
+  --shadow-lg: var(--elev-block);
+  --shadow-block: var(--elev-block);
+  --shadow-button: var(--elev-button);
 }
 
 @layer base {
   * {
     border-color: var(--border);
   }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   html,
   body {
     font-family: var(--font-sans);
@@ -177,6 +352,38 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  body {
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-optical-sizing: auto;
+  }
+
+  /* Touch layouts read at 16px (spec: body 15, 16 on touch). */
+  @media (pointer: coarse) {
+    body {
+      font-size: 16px;
+    }
+  }
+
+  /* Page titles are display type everywhere. */
+  h1 {
+    font-family: var(--font-display);
+    letter-spacing: -0.03em;
+  }
+
+  .font-mono,
+  code,
+  kbd,
+  samp {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--ink) 16%, transparent);
+  }
+
   .orrn-auth-card form,
   .orrn-auth-card form > *,
   .orrn-auth-card input,
@@ -184,15 +391,15 @@
     width: 100%;
   }
 
-  .orrn-auth-card input {
-    background: color-mix(in srgb, var(--background) 72%, var(--card));
-    border-color: var(--border);
-  }
-
   html.dark {
     color-scheme: dark;
   }
 
+  html.light {
+    color-scheme: light;
+  }
+
+  /* Focus ring: 2px ink with a 2px offset, visible on both themes. */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
@@ -217,9 +424,9 @@
     }
 
     .orrn-status-bar {
-      min-height: 52px !important;
-      padding-left: 12px !important;
-      padding-right: 12px !important;
+      min-height: 56px !important;
+      padding-left: 16px !important;
+      padding-right: 16px !important;
       gap: 8px !important;
     }
 
@@ -235,13 +442,13 @@
     .orrn-app-content {
       max-width: 100vw !important;
       min-width: 0 !important;
-      padding: 12px 12px 88px !important;
-      gap: 12px !important;
+      padding: 16px 16px 96px !important;
+      gap: 16px !important;
     }
 
     .orrn-page-title {
-      font-size: 22px !important;
-      line-height: 28px !important;
+      font-size: 28px !important;
+      line-height: 32px !important;
       overflow-wrap: anywhere;
     }
 
@@ -273,8 +480,7 @@
     }
 
     .orrn-auth-card {
-      max-height: calc(100svh - 2rem);
-      overflow-y: auto;
+      max-height: none;
     }
   }
 
@@ -295,9 +501,7 @@
   }
 }
 
-/* Top NProgress-style bar. Indeterminate slide while loading, sweep-to-full
-   on completion. Translates a 30%-wide bar across the track and clips with
-   overflow:hidden on the parent (see NavigationProgress). */
+/* Top NProgress-style bar. */
 @keyframes orrn-nav-progress-slide {
   0% {
     transform: translateX(-100%);
@@ -313,30 +517,22 @@
   }
 }
 
-@keyframes orrn-nav-progress-finish {
-  0% {
-    transform: translateX(var(--start-x, 0%));
-    width: 100%;
+/* Layered so Tailwind utilities on the same element win (e.g. flex,
+   max-w-*, padding on .orrn-section / .orrn-mark). */
+@layer components {
+  .orrn-nav-progress-running {
+    width: 30%;
+    animation: orrn-nav-progress-slide 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
-  100% {
+
+  .orrn-nav-progress-done {
+    width: 100%;
     transform: translateX(0%);
-    width: 100%;
+    transition: transform 200ms ease-out;
   }
 }
 
-.orrn-nav-progress-running {
-  width: 30%;
-  animation: orrn-nav-progress-slide 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-.orrn-nav-progress-done {
-  width: 100%;
-  transform: translateX(0%);
-  transition: transform 200ms ease-out;
-}
-
-/* Skeleton shimmer. Overlays a soft gradient sweep on top of the muted
-   background so loading cards feel like they're working rather than dead. */
+/* Skeleton shimmer (loading only). */
 @keyframes orrn-skeleton-shimmer {
   0% {
     background-position: -200% 0;
@@ -346,23 +542,23 @@
   }
 }
 
-.orrn-skeleton-shimmer {
-  background-image: linear-gradient(
-    90deg,
-    transparent 0%,
-    color-mix(in srgb, var(--foreground) 6%, transparent) 50%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  background-repeat: no-repeat;
-  animation: orrn-skeleton-shimmer 1.6s ease-in-out infinite;
+/* Layered so Tailwind utilities on the same element win (e.g. flex,
+   max-w-*, padding on .orrn-section / .orrn-mark). */
+@layer components {
+  .orrn-skeleton-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--foreground) 6%, transparent) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: orrn-skeleton-shimmer 1.6s ease-in-out infinite;
+  }
 }
 
-/* View-transition cross-fade. The browser pairs an "old" (outgoing) snapshot
-   with a "new" (incoming) snapshot during navigation. We disable the default
-   `root` crossfade (which would fade the entire viewport, including the
-   sidebar + status bar) and instead animate just the `page-content` region —
-   marked with `view-transition-name: page-content` in AppFrame. */
+/* View-transition cross-fade scoped to the page-content region. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
@@ -398,77 +594,196 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Brand utilities — glass panels, gradient text, glow, section containers,
- * and fluid display typography. Shared by marketing + app surfaces.
+ * C2 motion: pop (success), rise (first-load stagger), press (pressables).
+ * All of it collapses under prefers-reduced-motion (rule above).
  * ------------------------------------------------------------------------- */
-
-/* Translucent glass panel. Falls back to a solid card when backdrop-filter
-   is unsupported. */
-.orrn-glass {
-  background: color-mix(in srgb, var(--card) 78%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+@keyframes orrn-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
-@supports (backdrop-filter: blur(12px)) {
+@keyframes orrn-rise {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Layered so Tailwind utilities on the same element win (e.g. flex,
+   max-w-*, padding on .orrn-section / .orrn-mark). */
+@layer components {
+  .orrn-pop {
+    animation: orrn-pop 0.6s var(--ease-pop) both;
+  }
+
+  .orrn-rise {
+    animation: orrn-rise 0.55s var(--ease-rise) both;
+    animation-delay: var(--rise-delay, 0ms);
+  }
+
+  .orrn-press {
+    transition: transform var(--dur-fast) var(--ease-out-quart);
+  }
+
+  .orrn-press:active {
+    transform: scale(0.97);
+  }
+
+  /* ---------------------------------------------------------------------------
+   * C2 brand + block utilities.
+   * ------------------------------------------------------------------------- */
+
+  /* Brand mark: a small tile with the four status tones. */
+  .orrn-mark {
+    display: inline-block;
+    flex-shrink: 0;
+    border-radius: 30%;
+    background: conic-gradient(
+      from 200deg,
+      var(--tone-red-from),
+      var(--tone-amber-from),
+      var(--tone-green-from),
+      var(--tone-blue-from),
+      var(--tone-red-from)
+    );
+  }
+
+  .godseye .orrn-mark {
+    background: linear-gradient(160deg, var(--tone-violet-from), var(--tone-violet-to));
+  }
+
+  /* Status colour block: gradient tile, 22px radius, soft ink shadow. Text on
+     it is measured against the lighter stop (tokens.test.ts). */
+  .orrn-block {
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    box-shadow:
+      var(--elev-block),
+      inset 0 1px 0 rgb(255 255 255 / 0.16);
+  }
+
+  .orrn-block-hero {
+    border-radius: 26px;
+  }
+
+  .orrn-block-green {
+    background: linear-gradient(160deg, var(--tone-green-from), var(--tone-green-to));
+    color: var(--tone-green-on);
+  }
+
+  .orrn-block-blue {
+    background: linear-gradient(160deg, var(--tone-blue-from), var(--tone-blue-to));
+    color: var(--tone-blue-on);
+  }
+
+  .orrn-block-amber {
+    background: linear-gradient(160deg, var(--tone-amber-from), var(--tone-amber-to));
+    color: var(--tone-amber-on);
+  }
+
+  .orrn-block-red {
+    background: linear-gradient(160deg, var(--tone-red-from), var(--tone-red-to));
+    color: var(--tone-red-on);
+  }
+
+  .orrn-block-violet {
+    background: linear-gradient(160deg, var(--tone-violet-from), var(--tone-violet-to));
+    color: var(--tone-violet-on);
+  }
+
+  .orrn-block-neutral {
+    background: linear-gradient(160deg, var(--tone-neutral-from), var(--tone-neutral-to));
+    color: var(--tone-neutral-on);
+  }
+
+  /* In dark mode the neutral block needs an edge against the near-black canvas. */
+  .dark .orrn-block-neutral {
+    box-shadow:
+      var(--elev-block),
+      inset 0 0 0 1px var(--hairline);
+  }
+
+  /* Legacy class names kept for any remaining references, restyled flat. */
   .orrn-glass {
-    background: color-mix(in srgb, var(--card) 55%, transparent);
-    backdrop-filter: blur(12px) saturate(1.4);
-    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    background: var(--card);
+    border: 1px solid var(--border);
   }
-}
 
-/* Brand gradient headline text. */
-.orrn-gradient-text {
-  background: linear-gradient(
-    100deg,
-    var(--foreground) 10%,
-    var(--brand-400) 55%,
-    var(--brand-accent) 95%
-  );
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-}
+  .orrn-gradient-text {
+    color: inherit;
+  }
 
-/* Soft brand glow behind hero elements / primary CTAs. */
-.orrn-glow {
-  box-shadow:
-    0 0 24px color-mix(in srgb, var(--brand-500) 35%, transparent),
-    0 0 80px color-mix(in srgb, var(--brand-500) 18%, transparent);
-}
+  .orrn-glow {
+    box-shadow: var(--elev-button);
+  }
 
-/* Standard marketing section container. */
-.orrn-section {
-  margin-inline: auto;
-  width: 100%;
-  max-width: 72rem;
-  padding-inline: 1rem;
-}
-
-@media (min-width: 768px) {
+  /* Standard marketing section container (1200px content). */
   .orrn-section {
-    padding-inline: 1.5rem;
+    margin-inline: auto;
+    width: 100%;
+    max-width: 75rem;
+    padding-inline: 1rem;
   }
-}
 
-/* Fluid display typography (tokens.ts displaySizes). */
-.orrn-display-1 {
-  font-size: clamp(2.5rem, 1.2rem + 5.5vw, 6rem);
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-  font-weight: 650;
-}
+  @media (min-width: 768px) {
+    .orrn-section {
+      padding-inline: 1.5rem;
+    }
+  }
 
-.orrn-display-2 {
-  font-size: clamp(1.875rem, 1.1rem + 3vw, 3.5rem);
-  line-height: 1.08;
-  letter-spacing: -0.025em;
-  font-weight: 620;
-}
+  /* Fluid display typography (tokens.ts displaySizes), Bricolage. */
+  .orrn-display-1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.75rem, 1.4rem + 5.6vw, 6rem);
+    line-height: 0.95;
+    letter-spacing: -0.045em;
+    font-weight: 800;
+  }
 
-.orrn-display-3 {
-  font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem);
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  font-weight: 600;
+  .orrn-display-2 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.2rem + 3vw, 3.5rem);
+    line-height: 1;
+    letter-spacing: -0.035em;
+    font-weight: 800;
+  }
+
+  .orrn-display-3 {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    font-weight: 750;
+  }
+
+  /* Auth/onboarding card title: the page's h1, in display type. */
+  .orrn-auth-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+    color: var(--foreground);
+  }
+
+  @media (min-width: 640px) {
+    .orrn-auth-title {
+      font-size: 34px;
+    }
+  }
 }

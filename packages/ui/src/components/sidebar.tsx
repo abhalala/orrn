@@ -6,6 +6,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+
 import { cn } from "@orrn/ui/lib/utils";
 
 export type SidebarProps = {
@@ -80,7 +82,10 @@ export function Sidebar({ brand, children, storageKey = "orrn:sidebar:v1", foote
           transitionTimingFunction: "var(--ease-spring)",
           transitionDuration: "var(--dur-base)",
         }}
-        className="flex h-full flex-col gap-4 overflow-hidden border-r border-border bg-sidebar py-4 transition-[width]"
+        // Ink panel in both themes (C2): near-black with light text. The
+        // `orrn-ink-panel` scope re-points focus rings and nested component
+        // tokens so everything stays legible on it.
+        className="orrn-ink-panel flex h-full flex-col gap-5 overflow-hidden border-r border-sidebar-border bg-sidebar py-5 text-sidebar-foreground transition-[width]"
       >
         <div
           className={cn(
@@ -90,21 +95,33 @@ export function Sidebar({ brand, children, storageKey = "orrn:sidebar:v1", foote
         >
           {brand}
         </div>
-        <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-2">{children}</div>
+        <nav aria-label="Main" className="flex flex-1 flex-col gap-4 overflow-y-auto px-2.5 py-0.5">
+          {children}
+        </nav>
         {footer ? (
           <div className={cn("flex flex-col gap-2", collapsed ? "px-2" : "px-3")}>{footer}</div>
         ) : null}
         {/* Hide the manual toggle on tablet — the rail is forced there. */}
         {!isTablet ? (
-          <div className={cn("flex items-center", collapsed ? "justify-center px-2" : "justify-end px-3")}>
+          <div className={cn("flex items-center", collapsed ? "justify-center px-2" : "justify-start px-2.5")}>
             <button
               type="button"
               onClick={() => setUserCollapsed((v) => !v)}
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              className="rounded-md px-2 py-1.5 text-[11px] text-muted-foreground transition-colors duration-[var(--dur-fast)] hover:bg-sidebar-accent hover:text-foreground"
+              className={cn(
+                "flex min-h-11 items-center gap-2 rounded-full text-[13px] font-medium text-sidebar-muted transition-colors duration-[var(--dur-fast)] hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                collapsed ? "w-11 justify-center" : "px-3.5",
+              )}
             >
-              {collapsed ? "›" : "‹ Collapse"}
+              {collapsed ? (
+                <PanelLeftOpen className="size-[18px]" aria-hidden="true" />
+              ) : (
+                <>
+                  <PanelLeftClose className="size-[18px]" aria-hidden="true" />
+                  Collapse
+                </>
+              )}
             </button>
           </div>
         ) : null}
@@ -126,9 +143,7 @@ export function SidebarSection({ label, children }: SidebarSectionProps) {
         collapsed ? (
           <div className="mx-2 my-1 border-t border-sidebar-border" aria-hidden="true" />
         ) : (
-          <p className="m-0 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            {label}
-          </p>
+          <p className="m-0 px-3.5 pb-1.5 pt-1 text-xs font-medium text-sidebar-muted">{label}</p>
         )
       ) : null}
       <div className="flex flex-col gap-0.5">{children}</div>
@@ -151,6 +166,39 @@ export function SidebarItem({ active, icon, children, onPress, testID, tooltip }
   const title = collapsed
     ? (tooltip ?? (typeof children === "string" ? children : undefined))
     : undefined;
+  const className = cn(
+    "relative flex min-h-11 w-full items-center rounded-full text-left transition-[background-color,color,transform] duration-[var(--dur-fast)] active:scale-[0.97]",
+    collapsed ? "justify-center gap-0 px-0" : "justify-start gap-3 px-3.5",
+    active
+      ? "bg-sidebar-primary font-semibold text-sidebar-primary-foreground"
+      : "font-medium text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground",
+  );
+  const content = (
+    <>
+      {icon ? (
+        <span className="flex w-5 shrink-0 items-center justify-center [&_svg]:size-[18px]" aria-hidden="true">
+          {icon}
+        </span>
+      ) : null}
+      {collapsed ? (
+        <span className="sr-only">{children}</span>
+      ) : (
+        <span className="min-w-0 truncate text-sm">{children}</span>
+      )}
+    </>
+  );
+
+  // When there's no press handler the item is wrapped in a router <Link>
+  // (app shell). Render a non-interactive element then so we never nest a
+  // button inside a link.
+  if (!onPress) {
+    return (
+      <span data-testid={testID} title={title} data-active={active ? "" : undefined} className={className}>
+        {content}
+      </span>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -158,36 +206,9 @@ export function SidebarItem({ active, icon, children, onPress, testID, tooltip }
       onClick={onPress}
       title={title}
       aria-current={active ? "page" : undefined}
-      className={cn(
-        "relative flex w-full items-center rounded-lg py-2 text-left transition-colors duration-[var(--dur-fast)]",
-        collapsed ? "justify-center gap-0 px-0" : "justify-start gap-2.5 px-2.5",
-        active
-          ? "bg-sidebar-primary/12 text-sidebar-primary"
-          : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-      )}
+      className={className}
     >
-      {/* Active rail indicator */}
-      <span
-        aria-hidden="true"
-        className={cn(
-          "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-sidebar-primary transition-all duration-[var(--dur-base)]",
-          active ? "opacity-100" : "opacity-0",
-        )}
-        style={{ transitionTimingFunction: "var(--ease-spring)" }}
-      />
-      {icon ? (
-        <span
-          className={cn(
-            "flex w-5 shrink-0 items-center justify-center",
-            active ? "text-sidebar-primary" : "text-muted-foreground",
-          )}
-        >
-          {icon}
-        </span>
-      ) : null}
-      {!collapsed ? (
-        <span className={cn("min-w-0 truncate text-sm", active ? "font-semibold" : "font-medium")}>{children}</span>
-      ) : null}
+      {content}
     </button>
   );
 }

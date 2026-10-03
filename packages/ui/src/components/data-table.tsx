@@ -92,7 +92,7 @@ export function DataTable<Row>({
     <div className="flex w-full flex-col gap-3">
       {sortableColumns.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Sort</span>
+          <span className="text-[13px] font-medium text-muted-foreground">Sort</span>
           {sortableColumns.map((col) => {
             const active = sort?.columnId === col.id;
             const label = labelText(col.header);
@@ -115,7 +115,7 @@ export function DataTable<Row>({
       {isLoading ? (
         <LoadingCards />
       ) : pageRows.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-card p-2">
+        <div className="rounded-card border border-dashed border-control/60 bg-card p-2">
           {emptyState ?? <DefaultEmpty />}
         </div>
       ) : (
@@ -137,8 +137,8 @@ export function DataTable<Row>({
       )}
 
       {pageSize && sortedRows.length > pageSize ? (
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="m-0 text-xs text-muted-foreground">
+        <div className="flex flex-col gap-3 rounded-card border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="m-0 text-[13px] text-muted-foreground">
             Page {safePage} of {totalPages} · showing {(safePage - 1) * pageSize + 1}-
             {Math.min(safePage * pageSize, sortedRows.length)} of {sortedRows.length}
           </p>
@@ -191,8 +191,8 @@ function CardListItem<Row>({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm transition-colors",
-        onPress ? "cursor-pointer hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background" : "",
+        "flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 shadow-sm transition-[background-color,border-color,transform] duration-[var(--dur-fast)]",
+        onPress ? "cursor-pointer hover:border-control/60 active:scale-[0.99]" : "",
       )}
       role={onPress ? "button" : undefined}
       tabIndex={onPress ? 0 : undefined}
@@ -203,10 +203,10 @@ function CardListItem<Row>({
         <div className="min-w-0 flex-1">
           {primaryColumn ? (
             <>
-              <p className="m-0 text-[11px] font-semibold uppercase text-muted-foreground">
+              <p className="m-0 text-xs font-medium text-muted-foreground">
                 {primaryColumn.header}
               </p>
-              <div className="mt-1 min-w-0 text-sm font-semibold text-foreground">
+              <div className="mt-1 min-w-0 text-[15px] font-semibold text-foreground">
                 {asNode(primaryColumn.cell(row))}
               </div>
             </>
@@ -225,7 +225,7 @@ function CardListItem<Row>({
         <div className="grid gap-3 sm:grid-cols-2">
           {detailColumns.map((col) => (
             <div key={col.id} className={cn("min-w-0", col.align === "right" ? "sm:text-right" : "")}>
-              <p className="m-0 text-[11px] font-semibold uppercase text-muted-foreground">
+              <p className="m-0 text-xs font-medium text-muted-foreground">
                 {col.header}
               </p>
               <div className="mt-1 min-w-0 text-sm text-foreground">{asNode(col.cell(row))}</div>
@@ -253,7 +253,7 @@ function LoadingCards() {
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Loading list">
       {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+        <div key={index} className="flex flex-col gap-3 rounded-card border border-border bg-card p-4">
           <Skeleton className="h-4 w-1/2" />
           <div className="grid gap-3 sm:grid-cols-2">
             <Skeleton className="h-9" />

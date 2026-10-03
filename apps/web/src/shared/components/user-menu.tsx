@@ -19,25 +19,25 @@ export default function UserMenu({ signInTo = "/login" }: { signInTo?: string })
   const { data: session, isPending } = authClient.useSession();
 
   if (isPending) {
-    return <Skeleton className="h-9 w-24" />;
+    return <Skeleton className="h-11 w-28 rounded-full" />;
   }
 
   if (!session) {
     return (
-      <Link to={signInTo as "/"}>
-        <Button variant="outline">Sign In</Button>
-      </Link>
+      <Button asChild variant="outline">
+        <Link to={signInTo as "/"}>Sign in</Link>
+      </Button>
     );
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline">{session.user.name}</Button>
+        <Button variant="outline" className="max-w-[40vw] truncate">{session.user.name}</Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="bg-card">
+      <DropdownMenuContent align="end">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuLabel>My account</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem>{session.user.email}</DropdownMenuItem>
           <DropdownMenuItem
@@ -57,7 +57,7 @@ export default function UserMenu({ signInTo = "/login" }: { signInTo?: string })
               });
             }}
           >
-            Sign Out
+            Sign out
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

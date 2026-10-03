@@ -36,33 +36,33 @@ export function Select({
       <SelectPrimitive.Trigger
         data-slot="select-trigger"
         className={cn(
-          "flex h-9 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground",
+          "flex h-11 items-center justify-between gap-2 rounded-input border border-input bg-card px-3.5 text-[15px] text-foreground transition-[border-color] duration-[var(--dur-fast)] hover:border-foreground/70 focus-visible:border-foreground disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground pointer-coarse:text-base",
           className,
         )}
         style={width != null ? { width } : undefined}
       >
         <SelectPrimitive.Value placeholder={placeholder} />
         <SelectPrimitive.Icon asChild>
-          <ChevronDown className="size-4 opacity-50" />
+          <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
 
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content
-          className="relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          className="relative z-50 max-h-96 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-card border border-border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
           position="popper"
         >
           <SelectPrimitive.ScrollUpButton className="flex h-6 cursor-default items-center justify-center">
             <ChevronUp className="size-4" />
           </SelectPrimitive.ScrollUpButton>
-          <SelectPrimitive.Viewport className="p-1">
+          <SelectPrimitive.Viewport className="p-1.5">
             {options.map((opt) => (
               <SelectPrimitive.Item
                 key={opt.value}
                 value={opt.value}
-                className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-7 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50"
+                className="relative flex min-h-10 w-full cursor-default select-none items-center rounded-sm py-2 pl-8 pr-3 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[state=checked]:font-semibold data-disabled:pointer-events-none data-disabled:opacity-50 pointer-coarse:min-h-11"
               >
-                <span className="absolute left-2 flex size-3.5 items-center justify-center">
+                <span className="absolute left-2.5 flex size-4 items-center justify-center">
                   <SelectPrimitive.ItemIndicator>
                     <Check className="size-4" />
                   </SelectPrimitive.ItemIndicator>

@@ -1,5 +1,5 @@
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@orrn/ui/components/card";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -81,13 +81,13 @@ function OnboardingComponent() {
   };
 
   return (
-    <Card className="w-full max-w-2xl">
+    <Card className="w-full max-w-2xl gap-6 p-6 shadow-md sm:p-8">
       <CardHeader>
-        <CardTitle>
-          {step === "terms" && "Terms of Service"}
-          {step === "profile" && "Facility Profile"}
-          {step === "operations" && "Plant Parameters"}
-        </CardTitle>
+        <h1 className="orrn-auth-title">
+          {step === "terms" && "Terms of service"}
+          {step === "profile" && "Facility profile"}
+          {step === "operations" && "Plant parameters"}
+        </h1>
         <CardDescription>
           {step === "terms" && "Review the agreement for multi-company manufactured operations."}
           {step === "profile" && "Provide baseline plant and contact details."}
@@ -117,7 +117,7 @@ function OnboardingComponent() {
                 type="checkbox"
                 checked={termsAgreed}
                 onChange={(e) => setTermsAgreed(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-border text-primary"
+                className="mt-0.5 size-5 shrink-0 accent-foreground"
               />
               <span className="text-sm text-foreground">I agree to the terms and conditions.</span>
             </label>
@@ -215,7 +215,7 @@ function Stepper({ step }: { step: "terms" | "profile" | "operations" }) {
         return (
           <li key={meta.key} className="flex flex-1 items-center gap-2" aria-current={state === "active" ? "step" : undefined}>
             <span
-              className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors duration-[var(--dur-base)] ${
+              className={`flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors duration-[var(--dur-base)] ${
                 state === "todo"
                   ? "bg-muted text-muted-foreground"
                   : "bg-primary text-primary-foreground"
@@ -232,7 +232,7 @@ function Stepper({ step }: { step: "terms" | "profile" | "operations" }) {
             </span>
             <span
               className={`h-1 flex-1 rounded-full transition-colors duration-[var(--dur-base)] ${
-                index <= activeIndex ? "bg-primary" : "bg-muted"
+                index <= activeIndex ? "bg-primary" : "bg-surface-sunken"
               }`}
               aria-hidden="true"
             />

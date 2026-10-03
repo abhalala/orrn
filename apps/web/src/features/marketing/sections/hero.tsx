@@ -1,165 +1,64 @@
 /**
- * Hero: pure GSAP. A staggered headline reveal beside a layered "live
- * operations" card cluster — bundles table with a sweeping scan line, a print
- * job toast, a stock chart, and a dispatch status chip. Cards float idly,
- * tilt with the pointer (desktop), and parallax apart on scroll. No WebGL.
+ * Hero (C2): an ink Bricolage headline beside a colour-block composition.
+ * Status IS the colour: green available, blue reserved, black dispatched.
+ * The composition is clearly labelled demo data. GSAP plays one entrance
+ * (rise stagger, then a `pop` on the printed label); nothing loops, and
+ * reduced motion shows everything static.
  */
 import { Button } from "@orrn/ui/components/button";
+import { cn } from "@orrn/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, CheckCircle2, Factory, Package, Printer, Truck } from "lucide-react";
+import { Check, Factory, Printer, Truck } from "lucide-react";
 import { useRef } from "react";
 
-import { EASE, MQ, gsap, useMarketingGsap } from "../use-gsap";
+import { EASE, gsap, useMarketingGsap } from "../use-gsap";
 
 const HEADLINE_LINES = ["Inventory truth", "from press", "to dispatch."];
 
-const BUNDLE_ROWS = [
-  { serial: "BND-88421", status: "Available", pieces: "48 pcs", tone: "ok" },
-  { serial: "BND-88420", status: "Reserved", pieces: "36 pcs", tone: "warn" },
-  { serial: "BND-88419", status: "Dispatched", pieces: "60 pcs", tone: "muted" },
-  { serial: "BND-88418", status: "Available", pieces: "24 pcs", tone: "ok" },
+const BUNDLE_BLOCKS = [
+  { serial: "BND-88421", status: "Available", pieces: 48, tone: "green" },
+  { serial: "BND-88420", status: "Reserved", pieces: 36, tone: "blue" },
+  { serial: "BND-88419", status: "Dispatched", pieces: 60, tone: "neutral" },
 ] as const;
-
-const STOCK_BARS = [42, 68, 55, 80, 64, 92, 74] as const;
 
 export function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null);
 
-  useMarketingGsap(sectionRef, (mm) => {
-    // ---- Entrance: badge → headline lines → copy → CTAs → card cluster ----
+  useMarketingGsap(sectionRef, () => {
     const tl = gsap.timeline({ defaults: { ease: EASE.outExpo } });
-    tl.from("[data-hero-badge]", { y: 16, opacity: 0, duration: 0.7 })
+    tl.from("[data-hero-badge]", { y: 14, opacity: 0, duration: 0.6 })
+      .from("[data-hero-line]", { yPercent: 110, duration: 0.9, stagger: 0.1 }, "-=0.35")
+      .from("[data-hero-copy]", { y: 14, opacity: 0, duration: 0.7 }, "-=0.55")
+      .from("[data-hero-cta]", { y: 14, opacity: 0, duration: 0.6, stagger: 0.07 }, "-=0.5")
       .from(
-        "[data-hero-line]",
-        { yPercent: 110, opacity: 0, duration: 0.9, stagger: 0.12 },
-        "-=0.4",
-      )
-      .from("[data-hero-copy]", { y: 20, opacity: 0, duration: 0.8 }, "-=0.5")
-      .from("[data-hero-cta]", { y: 16, opacity: 0, duration: 0.7, stagger: 0.08 }, "-=0.5")
-      .from(
-        "[data-hero-card]",
-        { y: 64, opacity: 0, rotateX: 8, duration: 1, stagger: 0.14 },
-        "-=0.7",
-      )
-      .from(
-        "[data-hero-bar]",
-        { scaleY: 0, transformOrigin: "bottom", duration: 0.6, stagger: 0.05, ease: EASE.outQuart },
+        "[data-hero-block]",
+        { y: 14, opacity: 0, duration: 0.55, stagger: 0.07, ease: EASE.rise },
         "-=0.6",
       )
-      .from("[data-hero-row]", { x: 18, opacity: 0, duration: 0.5, stagger: 0.07 }, "-=0.9");
-
-    // ---- Idle: cards float gently at different cadences ----
-    gsap.utils.toArray<HTMLElement>("[data-hero-float]").forEach((el, i) => {
-      gsap.to(el, {
-        y: i % 2 === 0 ? 10 : -12,
-        duration: 2.6 + i * 0.5,
-        yoyo: true,
-        repeat: -1,
-        ease: "sine.inOut",
-      });
-    });
-
-    // ---- Scan line sweeps the bundles table forever ----
-    gsap.fromTo(
-      "[data-hero-scan]",
-      { top: "12%" },
-      { top: "94%", duration: 2.8, repeat: -1, yoyo: true, ease: "sine.inOut" },
-    );
-
-    // ---- Scroll: content drifts up; cards parallax apart by depth ----
-    gsap.to("[data-hero-content]", {
-      yPercent: -16,
-      opacity: 0.1,
-      ease: "none",
-      scrollTrigger: {
-        trigger: sectionRef.current,
-        start: "top top",
-        end: "bottom 35%",
-        scrub: true,
-      },
-    });
-    gsap.utils.toArray<HTMLElement>("[data-hero-card]").forEach((card) => {
-      const depth = Number(card.dataset.depth ?? 1);
-      gsap.to(card, {
-        yPercent: -22 * depth,
-        ease: "none",
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: "top top",
-          end: "bottom top",
-          scrub: 0.4,
-        },
-      });
-    });
-
-    // ---- Desktop only: pointer tilt on the cluster ----
-    mm.add(MQ.desktop, () => {
-      const cluster = sectionRef.current?.querySelector<HTMLElement>("[data-hero-cluster]");
-      if (!cluster) return;
-      gsap.set(cluster, { transformPerspective: 1200 });
-      const tiltX = gsap.quickTo(cluster, "rotationX", { duration: 0.8, ease: "power3.out" });
-      const tiltY = gsap.quickTo(cluster, "rotationY", { duration: 0.8, ease: "power3.out" });
-
-      function onPointerMove(event: PointerEvent) {
-        const nx = (event.clientX / window.innerWidth) * 2 - 1;
-        const ny = (event.clientY / window.innerHeight) * 2 - 1;
-        tiltY(nx * 7);
-        tiltX(-ny * 5);
-      }
-      window.addEventListener("pointermove", onPointerMove, { passive: true });
-      return () => window.removeEventListener("pointermove", onPointerMove);
-    });
+      .from(
+        "[data-hero-pop]",
+        { scale: 0.6, opacity: 0, duration: 0.6, ease: EASE.pop },
+        "-=0.15",
+      );
   });
 
   return (
-    <section
-      ref={sectionRef}
-      className="relative flex min-h-[100svh] items-center overflow-hidden"
-    >
-      {/* Backdrop: brand gradient orbs + dot grid, fading into the page. */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 75% 55% at 70% 25%, color-mix(in srgb, var(--brand-500) 24%, transparent), transparent 70%), radial-gradient(ellipse 45% 40% at 15% 80%, color-mix(in srgb, var(--brand-accent) 12%, transparent), transparent 70%)",
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.35]"
-          style={{
-            backgroundImage:
-              "radial-gradient(color-mix(in srgb, var(--foreground) 14%, transparent) 1px, transparent 1px)",
-            backgroundSize: "28px 28px",
-            maskImage: "radial-gradient(ellipse 70% 60% at 60% 40%, black, transparent 75%)",
-          }}
-        />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
-      </div>
-
-      <div
-        data-hero-content
-        className="orrn-section relative z-10 grid items-center gap-14 pb-24 pt-32 md:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] md:pt-36 lg:gap-20"
-      >
+    <section ref={sectionRef} className="relative overflow-hidden">
+      <div className="orrn-section grid items-center gap-12 pb-20 pt-28 md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] md:gap-10 md:pb-28 md:pt-36 lg:gap-16">
         {/* ---- Copy column ---- */}
         <div>
-          <div
+          <p
             data-hero-badge
-            className="orrn-glass mb-8 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium text-muted-foreground"
+            className="m-0 mb-7 inline-flex min-h-9 items-center gap-2 rounded-full border border-border bg-card px-3.5 text-[13px] font-medium text-foreground shadow-sm"
           >
-            <Factory size={14} className="text-primary" aria-hidden="true" />
+            <Factory size={15} className="text-tone-green-ink" aria-hidden="true" />
             Built for aluminum extrusion operations first
-          </div>
+          </p>
 
-          <h1 className="orrn-display-1 max-w-4xl text-foreground">
-            {HEADLINE_LINES.map((line, index) => (
-              <span key={line} className="block overflow-hidden">
-                <span
-                  data-hero-line
-                  className={
-                    index === HEADLINE_LINES.length - 1 ? "orrn-gradient-text block" : "block"
-                  }
-                >
+          <h1 className="orrn-display-1 m-0 max-w-[12ch] text-foreground">
+            {HEADLINE_LINES.map((line) => (
+              <span key={line} className="block overflow-hidden pb-[0.06em]">
+                <span data-hero-line className="block">
                   {line}
                 </span>
               </span>
@@ -168,172 +67,104 @@ export function HeroSection() {
 
           <p
             data-hero-copy
-            className="mt-6 max-w-xl text-lg leading-8 text-muted-foreground md:text-xl"
+            className="m-0 mt-6 max-w-xl text-lg leading-8 text-muted-foreground"
           >
             ORRN is the multi-company ERP for dies, bundles, stock, dispatches,
-            packing lists, and floor-native print workflows — tenant-isolated by
+            packing lists, and floor-native print workflows, tenant-isolated by
             design.
           </p>
 
-          <div className="mt-10 flex flex-wrap gap-3">
+          <div className="mt-9 flex flex-wrap gap-3">
             <span data-hero-cta className="inline-flex">
-              <Button asChild size="lg" className="orrn-glow gap-2">
+              <Button asChild size="lg">
                 <Link to="/waitlist" search={{ mode: "demo" }}>
-                  Request Demo <ArrowRight size={16} aria-hidden="true" />
+                  Request demo
                 </Link>
               </Button>
             </span>
             <span data-hero-cta className="inline-flex">
               <Button asChild size="lg" variant="outline">
                 <Link to="/waitlist" search={{ mode: "waitlist" }}>
-                  Join Waitlist
+                  Join waitlist
                 </Link>
               </Button>
             </span>
           </div>
         </div>
 
-        {/* ---- Visual column: layered live-ops cards ---- */}
-        <div data-hero-cluster className="relative mx-auto w-full max-w-md md:max-w-none">
-          {/* Main bundles table */}
-          <div data-hero-card data-depth="1" className="relative">
-            <div data-hero-float>
-              <div className="orrn-glass relative overflow-hidden rounded-2xl p-5 shadow-xl">
-                <div className="flex items-center justify-between border-b border-border pb-3">
-                  <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <Package size={15} className="text-primary" aria-hidden="true" />
-                    Bundles
-                  </span>
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="relative flex size-2">
-                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--brand-accent)] opacity-60" />
-                      <span className="relative inline-flex size-2 rounded-full bg-[var(--brand-accent)]" />
-                    </span>
-                    Live
-                  </span>
-                </div>
-                <div className="mt-4 space-y-2.5">
-                  {BUNDLE_ROWS.map((row) => (
-                    <div
-                      key={row.serial}
-                      data-hero-row
-                      className="flex items-center justify-between rounded-lg border border-border bg-background/60 px-4 py-3"
-                    >
-                      <span className="font-mono text-sm font-medium text-foreground">
-                        {row.serial}
-                      </span>
-                      <span
-                        className={
-                          row.tone === "ok"
-                            ? "rounded-full bg-[color-mix(in_srgb,var(--brand-accent)_18%,transparent)] px-2.5 py-0.5 text-xs font-medium text-[var(--brand-accent)]"
-                            : row.tone === "warn"
-                              ? "rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary"
-                              : "rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
-                        }
-                      >
-                        {row.status}
-                      </span>
-                      <span className="font-mono text-xs text-muted-foreground">{row.pieces}</span>
-                    </div>
-                  ))}
-                </div>
-                {/* Scan line */}
-                <div
-                  data-hero-scan
-                  className="pointer-events-none absolute inset-x-3 top-[12%] h-px"
-                  style={{
-                    background:
-                      "linear-gradient(90deg, transparent, var(--brand-accent), transparent)",
-                    boxShadow: "0 0 14px 2px color-mix(in srgb, var(--brand-accent) 55%, transparent)",
-                  }}
-                  aria-hidden="true"
-                />
-              </div>
-            </div>
-          </div>
+        {/* ---- Colour-block composition (demo data) ---- */}
+        <figure className="m-0" aria-label="Example bundles in orrn, demo data">
+          <figcaption className="mb-3 flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-control" />
+            Demo data
+          </figcaption>
 
-          {/* Print job toast — floats top-right */}
-          <div
-            data-hero-card
-            data-depth="1.8"
-            className="absolute -right-4 -top-10 w-56 md:-right-8 md:-top-12"
-          >
-            <div data-hero-float>
-              <div className="orrn-glass rounded-xl p-3.5 shadow-lg">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                    <Printer size={15} aria-hidden="true" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-foreground">Label printed</p>
-                    <p className="truncate text-[11px] text-muted-foreground">
-                      JOB-5512 · Zebra ZT411
-                    </p>
-                  </div>
-                  <CheckCircle2
-                    size={15}
-                    className="ml-auto shrink-0 text-[var(--brand-accent)]"
-                    aria-hidden="true"
-                  />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1.2fr_1fr]">
+            {BUNDLE_BLOCKS.map((block, index) => (
+              <div
+                key={block.serial}
+                data-hero-block
+                className={cn(
+                  "orrn-block flex flex-col justify-between p-4 sm:p-5",
+                  `orrn-block-${block.tone}`,
+                  index === 0 ? "col-span-2 min-h-[200px] sm:col-span-1 sm:row-span-2 sm:min-h-[296px]" : "min-h-[142px]",
+                )}
+              >
+                <div>
+                  <p className="m-0 font-display text-lg font-bold tracking-[-0.02em]">{block.status}</p>
+                  <p className="m-0 font-mono text-[13px]">{block.serial}</p>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Stock chart — floats bottom-left */}
-          <div
-            data-hero-card
-            data-depth="1.4"
-            className="absolute -bottom-12 -left-4 w-52 md:-left-10"
-          >
-            <div data-hero-float>
-              <div className="orrn-glass rounded-xl p-4 shadow-lg">
-                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Stock on hand
+                <p className="m-0 mt-4 flex items-baseline gap-2">
+                  <span
+                    className={cn(
+                      "font-display font-extrabold leading-[0.9] tracking-[-0.045em]",
+                      index === 0 ? "text-[72px] sm:text-[88px]" : "text-[44px] sm:text-[52px]",
+                    )}
+                  >
+                    {block.pieces}
+                  </span>
+                  <span className="text-[13px] font-medium">pieces</span>
                 </p>
-                <p className="mt-1 font-mono text-lg font-semibold text-foreground">12,408 pcs</p>
-                <div className="mt-3 flex h-12 items-end gap-1.5">
-                  {STOCK_BARS.map((height, i) => (
-                    <div
-                      key={i}
-                      data-hero-bar
-                      className="flex-1 rounded-sm bg-primary/70"
-                      style={{ height: `${height}%`, opacity: 0.5 + (i / STOCK_BARS.length) * 0.5 }}
-                    />
-                  ))}
-                </div>
+              </div>
+            ))}
+
+            <div
+              data-hero-block
+              className="col-span-2 grid gap-3 rounded-card border border-border bg-card p-3 shadow-sm sm:grid-cols-2"
+            >
+              <div className="flex items-center gap-3 rounded-md bg-background p-3">
+                <span
+                  data-hero-pop
+                  aria-hidden="true"
+                  className="orrn-block-green flex size-10 shrink-0 items-center justify-center rounded-full"
+                >
+                  <Check size={20} strokeWidth={3} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-foreground">Label printed</span>
+                  <span className="flex items-center gap-1.5 truncate font-mono text-xs text-muted-foreground">
+                    <Printer size={12} aria-hidden="true" />
+                    JOB-5512 · Zebra ZT411
+                  </span>
+                </span>
+              </div>
+              <div className="flex items-center gap-3 rounded-md bg-background p-3">
+                <span
+                  aria-hidden="true"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-tone-blue-tint text-tone-blue-ink"
+                >
+                  <Truck size={18} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-mono text-sm font-semibold text-foreground">DSP-1204</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    12 bundles, reserved to dispatched
+                  </span>
+                </span>
               </div>
             </div>
           </div>
-
-          {/* Dispatch chip — floats mid-right */}
-          <div
-            data-hero-card
-            data-depth="2.2"
-            className="absolute -right-2 bottom-6 w-60 md:-right-12"
-          >
-            <div data-hero-float>
-              <div className="orrn-glass rounded-xl p-3.5 shadow-lg">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--brand-accent)_16%,transparent)] text-[var(--brand-accent)]">
-                    <Truck size={15} aria-hidden="true" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-foreground">DSP-1204</p>
-                    <p className="truncate text-[11px] text-muted-foreground">
-                      12 bundles · Reserved → Dispatched
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Scroll hint */}
-      <div className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2 text-xs text-muted-foreground">
-        <span className="block animate-bounce">↓</span>
+        </figure>
       </div>
     </section>
   );

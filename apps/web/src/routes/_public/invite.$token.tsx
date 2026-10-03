@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@orrn/ui/components/card";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { AuthScreen } from "@/shared/components/auth-screen";
@@ -72,16 +72,16 @@ function InviteComponent() {
 
   return (
     <AuthScreen>
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md gap-6 p-6 shadow-md sm:p-8">
       <CardHeader>
-        <CardTitle>Accept Invitation</CardTitle>
-        <CardDescription>Join your company workspace on ORRN.</CardDescription>
+        <h1 className="orrn-auth-title">Accept invitation</h1>
+        <CardDescription className="text-[15px] leading-6">Join your company workspace on ORRN.</CardDescription>
       </CardHeader>
 
       <CardContent>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="name">Full Name</Label>
+          <Label htmlFor="name">Full name</Label>
           <Input
             id="name"
             placeholder="Jane Doe"
@@ -116,11 +116,12 @@ function InviteComponent() {
         </div>
 
         <Button 
-          type="submit" 
-          className="w-full mt-2" 
+          type="submit"
+          size="lg"
+          className="w-full mt-2"
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Processing..." : "Create Account & Join"}
+          {isSubmitting ? "Processing..." : "Create account and join"}
         </Button>
       </form>
       </CardContent>

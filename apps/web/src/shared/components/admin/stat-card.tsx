@@ -24,11 +24,11 @@ export type StatCardProps = {
 };
 
 const TONE_CLASSES: Record<NonNullable<StatCardProps["tone"]>, string> = {
-  primary: "bg-primary/10 text-primary",
-  warning: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  success: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  danger: "bg-red-500/10 text-red-600 dark:text-red-400",
-  neutral: "bg-muted text-muted-foreground",
+  primary: "bg-tone-violet-tint text-tone-violet-ink",
+  warning: "bg-tone-amber-tint text-tone-amber-ink",
+  success: "bg-tone-green-tint text-tone-green-ink",
+  danger: "bg-tone-red-tint text-tone-red-ink",
+  neutral: "bg-surface-sunken text-foreground",
 };
 
 function Sparkline({ data }: { data: number[] }) {
@@ -51,7 +51,7 @@ function Sparkline({ data }: { data: number[] }) {
       height={h}
       viewBox={`0 0 ${w} ${h}`}
       aria-hidden="true"
-      className="shrink-0 text-primary"
+      className="shrink-0 text-foreground"
     >
       <polyline
         points={points}
@@ -87,37 +87,32 @@ export function StatCard({
     <Card
       className={
         interactive
-          ? "group relative overflow-hidden transition-all duration-[var(--dur-fast)] hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+          ? "group relative overflow-hidden transition-[border-color,box-shadow,transform] duration-[var(--dur-fast)] hover:border-control/60 hover:shadow-md active:scale-[0.99]"
           : "relative overflow-hidden"
       }
     >
-      {interactive ? (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-primary/10 opacity-0 blur-2xl transition-opacity duration-[var(--dur-base)] group-hover:opacity-100"
-        />
-      ) : null}
       <div className="flex items-start gap-3">
         {icon ? (
           <div
-            className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${TONE_CLASSES[tone]}`}
+            aria-hidden="true"
+            className={`flex size-10 shrink-0 items-center justify-center rounded-md ${TONE_CLASSES[tone]}`}
           >
             {icon}
           </div>
         ) : null}
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="m-0 text-[13px] font-medium text-muted-foreground">
             {label}
           </p>
           <div className="flex items-end justify-between gap-2">
             {isLoading ? (
               <Skeleton className="h-7 w-16" />
             ) : (
-              <p className="text-2xl font-semibold tabular-nums text-foreground">{value}</p>
+              <p className="m-0 font-display text-[34px] font-extrabold leading-none tracking-[-0.035em] tabular-nums text-foreground">{value}</p>
             )}
             {!isLoading && trend ? <Sparkline data={trend} /> : null}
           </div>
-          {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+          {hint ? <p className="m-0 text-[13px] text-muted-foreground">{hint}</p> : null}
         </div>
       </div>
     </Card>
@@ -126,7 +121,7 @@ export function StatCard({
   if (!to) return body;
 
   return (
-    <Link to={to as "/"} className="no-underline">
+    <Link to={to as "/"} className="rounded-card no-underline">
       {body}
     </Link>
   );

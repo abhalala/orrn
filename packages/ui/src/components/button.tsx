@@ -14,24 +14,33 @@ import { cn } from "@orrn/ui/lib/utils";
  * `<Button asChild><a /></Button>` going forward.
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-55 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  // Pill, ink-first. Focus ring comes from the global :focus-visible rule
+  // (2px ink, 2px offset). `active:scale` is the C2 `press` motion.
+  "inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-semibold tracking-[-0.005em] transition-[background-color,color,box-shadow,transform,opacity] duration-[var(--dur-fast)] ease-[var(--ease-out-quart)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        /** Primary: ink pill (black on light, off-white on dark). */
+        default:
+          "bg-primary text-primary-foreground shadow-button hover:bg-primary/88",
+        /** Secondary: surface pill with a hairline. */
         outline:
-          "border border-input bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "border border-border bg-card text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/70",
         ghost: "text-foreground hover:bg-accent hover:text-accent-foreground",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        link: "text-primary underline-offset-4 hover:underline px-0",
+        /** Destructive: the red tone block. */
+        destructive:
+          "bg-[linear-gradient(160deg,var(--tone-red-from),var(--tone-red-to))] text-tone-red-on shadow-button hover:brightness-95",
+        link: "rounded-sm px-0 text-foreground underline decoration-1 underline-offset-4 hover:decoration-2",
       },
       size: {
-        xs: "h-7 px-2 text-xs",
-        sm: "h-8 px-3 text-xs",
-        default: "h-9 px-4 text-sm",
-        lg: "h-11 px-6 text-sm",
-        icon: "h-9 w-9 p-0",
+        // Touch targets: >= 44px on coarse pointers for every size; the
+        // compact sizes only shrink for mouse/trackpad users.
+        xs: "h-8 px-3 text-xs pointer-coarse:h-11 pointer-coarse:px-4",
+        sm: "h-9 px-3.5 text-[13px] pointer-coarse:h-11 pointer-coarse:px-4",
+        default: "h-11 px-5 text-sm",
+        lg: "h-14 px-7 text-base",
+        icon: "size-11 p-0",
       },
     },
     defaultVariants: {

@@ -1,5 +1,5 @@
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@orrn/ui/components/card";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { useMutation } from "@tanstack/react-query";
@@ -124,9 +124,9 @@ function SetupCredentialsComponent() {
   };
 
   return (
-    <Card className="w-full max-w-lg">
+    <Card className="w-full max-w-lg gap-6 p-6 shadow-md sm:p-8">
       <CardHeader>
-        <CardTitle>{step === "password" ? "Secure Your Account" : "Activate Two-Factor Authentication"}</CardTitle>
+        <h1 className="orrn-auth-title">{step === "password" ? "Secure your account" : "Turn on two-factor authentication"}</h1>
         <CardDescription>
           {step === "password"
             ? "Set your permanent password before entering the workspace."
@@ -135,8 +135,8 @@ function SetupCredentialsComponent() {
       </CardHeader>
       <CardContent>
         <div className="mb-2 flex gap-2">
-          <span className={`h-1.5 flex-1 rounded-md ${step === "password" ? "bg-primary" : "bg-muted"}`} />
-          <span className={`h-1.5 flex-1 rounded-md ${step === "totp" ? "bg-primary" : "bg-muted"}`} />
+          <span className={`h-1.5 flex-1 rounded-full ${step === "password" ? "bg-primary" : "bg-surface-sunken"}`} />
+          <span className={`h-1.5 flex-1 rounded-full ${step === "totp" ? "bg-primary" : "bg-surface-sunken"}`} />
         </div>
 
         {step === "password" ? (
@@ -284,7 +284,7 @@ function PasswordInput({
 
 function StrengthMeter({ strength }: { strength: number }) {
   const label = strength <= 2 ? "Weak" : strength <= 4 ? "Good" : "Strong";
-  const tone = strength <= 2 ? "bg-red-500" : strength <= 4 ? "bg-yellow-500" : "bg-emerald-500";
+  const tone = strength <= 2 ? "bg-tone-red" : strength <= 4 ? "bg-tone-amber" : "bg-tone-green";
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs font-medium text-muted-foreground">
@@ -293,7 +293,7 @@ function StrengthMeter({ strength }: { strength: number }) {
       </div>
       <div className="flex h-1.5 gap-1">
         {[1, 2, 3, 4, 5].map((level) => (
-          <div key={level} className={`h-full flex-1 rounded-md ${level <= strength ? tone : "bg-muted"}`} />
+          <div key={level} className={`h-full flex-1 rounded-full ${level <= strength ? tone : "bg-surface-sunken"}`} />
         ))}
       </div>
     </div>

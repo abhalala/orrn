@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@orrn/ui/components/card";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { useForm } from "@tanstack/react-form";
@@ -94,13 +94,13 @@ export default function StaffSignInForm() {
   });
 
   return (
-    <Card className="w-full max-w-[420px] self-center">
+    <Card className="w-full max-w-[420px] self-center gap-6 p-6 shadow-md sm:p-8">
       <CardHeader>
-        <CardTitle>{showTwoFactor ? "Verification" : "Staff Sign In"}</CardTitle>
+        <h1 className="orrn-auth-title">{showTwoFactor ? "Verification" : "Staff sign in"}</h1>
         <CardDescription>
           {showTwoFactor
             ? "Authenticator code required."
-            : "orrn.app — internal staff only. Use the credentials issued by your administrator."}
+            : "orrn.app: internal staff only. Use the credentials issued by your administrator."}
         </CardDescription>
       </CardHeader>
 
@@ -122,7 +122,7 @@ export default function StaffSignInForm() {
             <form.Field name="email">
               {(field) => (
                 <div className="space-y-1.5">
-                  <Label htmlFor={field.name} className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">
+                  <Label htmlFor={field.name}>
                     Email
                   </Label>
                   <Input
@@ -140,7 +140,7 @@ export default function StaffSignInForm() {
             <form.Field name="password">
               {(field) => (
                 <div className="space-y-1.5">
-                  <Label htmlFor={field.name} className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">
+                  <Label htmlFor={field.name}>
                     Password
                   </Label>
                   <Input
@@ -159,7 +159,7 @@ export default function StaffSignInForm() {
               selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
             >
               {({ canSubmit, isSubmitting }) => (
-                <Button type="submit" className="w-full mt-2" disabled={!canSubmit || isSubmitting}>
+                <Button type="submit" size="lg" className="w-full mt-2" disabled={!canSubmit || isSubmitting}>
                   {isSubmitting ? "Signing in…" : "Sign in"}
                 </Button>
               )}
@@ -168,7 +168,7 @@ export default function StaffSignInForm() {
         ) : (
           <>
             <div className="space-y-2">
-              <Label htmlFor="staff-totp" className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono">
+              <Label htmlFor="staff-totp">
                 2FA code
               </Label>
               <Input
@@ -181,7 +181,7 @@ export default function StaffSignInForm() {
                 className="text-center font-mono text-2xl tracking-[0.4em] h-12"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isVerifyingTotp || totpCode.length !== 6}>
+            <Button type="submit" size="lg" className="w-full" disabled={isVerifyingTotp || totpCode.length !== 6}>
               {isVerifyingTotp ? "Verifying…" : "Verify"}
             </Button>
           </>

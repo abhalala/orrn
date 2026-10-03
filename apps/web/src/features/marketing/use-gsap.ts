@@ -19,6 +19,10 @@ export const EASE = {
   outExpo: "expo.out",
   outQuart: "power4.out",
   inOut: "power2.inOut",
+  /** C2 `pop`: overshoot then settle. */
+  pop: "back.out(2.2)",
+  /** C2 `rise`: slight overshoot on the slide-up. */
+  rise: "back.out(1.4)",
 } as const;
 
 export function usePrefersReducedMotion(): boolean {

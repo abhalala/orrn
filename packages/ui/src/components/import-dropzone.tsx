@@ -135,10 +135,10 @@ export function ImportDropzone({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "group relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "group relative flex flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed px-6 py-10 text-center transition-colors",
           dragOver
-            ? "border-primary bg-primary/5"
-            : "border-border bg-muted/30 hover:border-primary/60 hover:bg-muted/50",
+            ? "border-foreground bg-surface-sunken"
+            : "border-control/50 bg-surface-sunken/50 hover:border-control hover:bg-surface-sunken",
           (disabled || loading) && "pointer-events-none opacity-60",
           !disabled && !loading && "cursor-pointer",
         )}
@@ -164,7 +164,7 @@ export function ImportDropzone({
             <div
               className={cn(
                 "flex size-12 items-center justify-center rounded-full transition-colors",
-                dragOver ? "bg-primary/15 text-primary" : "bg-background text-muted-foreground",
+                dragOver ? "bg-primary text-primary-foreground" : "bg-card text-foreground shadow-sm",
               )}
             >
               {loading ? (
@@ -179,7 +179,7 @@ export function ImportDropzone({
               </p>
               <p className="m-0 text-xs text-muted-foreground">{hint}</p>
             </div>
-            <p className="m-0 text-[11px] uppercase tracking-wider text-muted-foreground/80">
+            <p className="m-0 text-xs text-muted-foreground">
               {acceptToHint(accept)}
             </p>
           </>
@@ -199,8 +199,8 @@ function SelectedFileBadge({
   loading?: boolean;
 }) {
   return (
-    <div className="flex w-full max-w-md items-center gap-3 rounded-lg border border-border bg-background px-3 py-2 text-left">
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+    <div className="flex w-full max-w-md items-center gap-3 rounded-card border border-border bg-card px-3 py-2 text-left">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-sunken text-foreground">
         {loading ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
       </div>
       <div className="min-w-0 flex-1">
@@ -217,7 +217,7 @@ function SelectedFileBadge({
             onClear();
           }}
           aria-label="Remove selected file"
-          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex size-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <X className="size-4" />
         </button>

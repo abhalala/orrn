@@ -1,5 +1,5 @@
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@orrn/ui/components/card";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { useForm } from "@tanstack/react-form";
@@ -107,10 +107,12 @@ export default function SignInForm({
 
   return (
     <div className="orrn-auth-card w-full max-w-[420px]">
-      <Card className="w-full self-center">
-      <CardHeader className="w-full">
-        <CardTitle>{showTwoFactor ? "Verification" : target === "staff" ? "Staff Sign In" : "Sign In"}</CardTitle>
-        <CardDescription>
+      <Card className="w-full self-center gap-6 p-6 shadow-md sm:p-8">
+      <CardHeader className="w-full gap-2">
+        <h1 className="m-0 font-display text-[34px] font-extrabold leading-[1.05] tracking-[-0.035em] text-foreground">
+          {showTwoFactor ? "Verification" : target === "staff" ? "Staff sign in" : "Sign in"}
+        </h1>
+        <CardDescription className="text-[15px] leading-6">
           {showTwoFactor
             ? "Enter the 6-digit code from your authenticator app."
             : target === "staff"
@@ -129,14 +131,14 @@ export default function SignInForm({
               form.handleSubmit();
             }
           }}
-          className="w-full space-y-4"
+          className="w-full space-y-5"
         >
           {!showTwoFactor ? (
             <>
               <form.Field name="email">
                 {(field) => (
                   <div className="w-full space-y-1.5">
-                    <Label htmlFor={field.name}>Email Address</Label>
+                    <Label htmlFor={field.name}>Email address</Label>
                     <Input
                       id={field.name}
                       name={field.name}
@@ -149,7 +151,7 @@ export default function SignInForm({
                       onChange={(e) => field.handleChange(e.target.value)}
                     />
                     {field.state.meta.errors.map((error) => (
-                      <p key={error?.message} className="text-xs text-destructive">
+                      <p key={error?.message} className="m-0 text-[13px] font-medium text-destructive" role="alert">
                         {error?.message}
                       </p>
                     ))}
@@ -173,7 +175,7 @@ export default function SignInForm({
                       onChange={(e) => field.handleChange(e.target.value)}
                     />
                     {field.state.meta.errors.map((error) => (
-                      <p key={error?.message} className="text-xs text-destructive">
+                      <p key={error?.message} className="m-0 text-[13px] font-medium text-destructive" role="alert">
                         {error?.message}
                       </p>
                     ))}
@@ -183,8 +185,8 @@ export default function SignInForm({
 
               <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}>
                 {({ canSubmit, isSubmitting }) => (
-                  <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
-                    {isSubmitting ? "Signing in…" : "Sign In"}
+                  <Button type="submit" size="lg" className="w-full" disabled={!canSubmit || isSubmitting}>
+                    {isSubmitting ? "Signing in…" : "Sign in"}
                   </Button>
                 )}
               </form.Subscribe>
@@ -192,7 +194,7 @@ export default function SignInForm({
           ) : (
             <>
               <div className="w-full space-y-1.5">
-                <Label htmlFor="totpCode">Authenticator Code</Label>
+                <Label htmlFor="totpCode">Authenticator code</Label>
                 <Input
                   id="totpCode"
                   inputMode="numeric"
@@ -204,8 +206,8 @@ export default function SignInForm({
                   required
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isVerifyingTotp || totpCode.length !== 6}>
-                {isVerifyingTotp ? "Verifying…" : "Verify & Sign In"}
+              <Button type="submit" size="lg" className="w-full" disabled={isVerifyingTotp || totpCode.length !== 6}>
+                {isVerifyingTotp ? "Verifying…" : "Verify and sign in"}
               </Button>
               <Button
                 type="button"
@@ -216,21 +218,21 @@ export default function SignInForm({
                   setTotpCode("");
                 }}
               >
-                Back to Password
+                Back to password
               </Button>
             </>
           )}
         </form>
 
         {!showTwoFactor && showWaitlistLink ? (
-          <div className="border-t border-border pt-4 text-center text-sm text-muted-foreground">
+          <div className="mt-3 border-t border-border pt-5 text-center text-sm text-muted-foreground">
             Need access?{" "}
             {target === "staff" ? (
-              <a href="/waitlist" className="font-medium text-primary hover:underline">
+              <a href="/waitlist" className="font-semibold text-foreground underline decoration-control underline-offset-4 hover:decoration-foreground">
                 Request access on orrn.in
               </a>
             ) : (
-              <Link to="/waitlist" className="font-medium text-primary hover:underline">
+              <Link to="/waitlist" className="font-semibold text-foreground underline decoration-control underline-offset-4 hover:decoration-foreground">
                 Request a demo or join the waitlist
               </Link>
             )}

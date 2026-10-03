@@ -8,7 +8,10 @@ import {
 import { cn } from "@orrn/ui/lib/utils";
 
 const inputBase =
-  "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 file:border-0 file:bg-transparent file:text-sm file:font-medium";
+  // C2 field: 44px tall, 12px radius, white surface, control-strength border
+// (>= 3:1). 16px text on touch so iOS doesn't zoom. Focus = global ink ring
+// plus an ink border.
+  "flex h-11 w-full rounded-input border border-input bg-card px-3.5 py-2 text-[15px] text-foreground transition-[border-color,box-shadow] duration-[var(--dur-fast)] placeholder:text-muted-foreground hover:border-foreground/70 focus-visible:border-foreground aria-invalid:border-destructive disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:text-base file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground";
 
 type OnChangeText = (text: string) => void;
 
@@ -55,7 +58,7 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
       data-slot="textarea"
       rows={rows}
       className={cn(
-        "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+        "flex min-h-24 w-full rounded-input border border-input bg-card px-3.5 py-2.5 text-[15px] text-foreground transition-[border-color,box-shadow] duration-[var(--dur-fast)] placeholder:text-muted-foreground hover:border-foreground/70 focus-visible:border-foreground aria-invalid:border-destructive disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:text-base",
         className,
       )}
       onChange={(e) => {
