@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 755 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -811,6 +811,24 @@ Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 | `cta.title` | Try it on your floor | अपने फ़्लोर पर आज़माएं |
 | `cta.body` | Tell us about your plant and we'll get in touch. | अपने प्लांट के बारे में बताएं, हम संपर्क करेंगे। |
 | `footer` | orrn, for aluminium extrusion plants | orrn, एल्युमिनियम एक्सट्रूज़न प्लांट के लिए |
+
+### native (13)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `scanHint` | Opens the camera to scan a bundle label. | बंडल लेबल स्कैन करने के लिए कैमरा खोलता है। |
+| `offlineTitle` | Can't reach orrn | orrn से कनेक्ट नहीं हो पा रहा |
+| `offlineBody` | Check the phone's internet connection, then try again. | फ़ोन का इंटरनेट कनेक्शन जांचें, फिर से कोशिश करें। |
+| `setPasswordTitle` | Set your own password first | पहले अपना पासवर्ड बनाएं |
+| `setPasswordBody` | Your account has a temporary password. Sign in to orrn on a computer, set a new password, then come back here. | आपके अकाउंट में अभी अस्थायी पासवर्ड है। कंप्यूटर पर orrn में साइन इन करें, नया पासवर्ड बनाएं, फिर यहाँ वापस आएं। |
+| `staffTitle` | Godseye is on the web | Godseye वेब पर है |
+| `staffBody` | Staff accounts don't belong to a plant. Open orrn on a computer to use Godseye. | स्टाफ अकाउंट किसी प्लांट का हिस्सा नहीं होते। Godseye इस्तेमाल करने के लिए कंप्यूटर पर orrn खोलें। |
+| `checkAgain` | Check again | फिर से जांचें |
+| `tooManyTries` | Too many tries. Wait a minute, then try again. | बहुत बार कोशिश हो गई। एक मिनट रुकें, फिर कोशिश करें। |
+| `codeTimedOut` | That took too long. Sign in again. | बहुत देर हो गई। फिर से साइन इन करें। |
+| `verifying` | Checking code | कोड जांच रहे हैं |
+| `signingOut` | Signing out | साइन आउट हो रहा है |
+| `version` | Version {version} | वर्ज़न {version} |
 
 ### ui (9)
 

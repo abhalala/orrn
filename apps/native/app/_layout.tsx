@@ -1,90 +1,142 @@
 import "@/global.css";
 
-import { QueryClientProvider } from "@tanstack/react-query";
+import { I18nProvider, useT } from "@orrn/i18n";
+import type { Me } from "@orrn/server/lib/permissions";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
-import { useEffect, useRef } from "react";
+import { StatusBar } from "expo-status-bar";
+import { colorScheme } from "nativewind";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
-import { ImpersonationBanner } from "@/components/impersonation-banner";
-import { AppThemeProvider } from "@/contexts/app-theme-context";
-import { EdgeNodeProvider } from "@/contexts/edge-node-context";
+import { MessageScreen } from "@/components/message-screen";
+import { TenantCacheGuard } from "@/components/tenant-cache-guard";
+import { Button } from "@/components/ui/button";
 import { fontAssets } from "@/lib/fonts";
-import { useMe } from "@/utils/me";
+import { resolveGate, ROOT_ROUTES, type GateState } from "@/lib/gate";
+import { GateContext } from "@/lib/gate-context";
+import { readInitialLocale, storeLocale } from "@/lib/locale-store";
+import { useStackOptions } from "@/lib/screen-options";
+import { sessionPresence } from "@/lib/session-presence";
+import { useThemeColor } from "@/lib/theme";
+import { meQueryOptions } from "@/utils/me";
 import { queryClient } from "@/utils/trpc";
 
-// Keep the splash screen up until the C2 typefaces are ready.
-SplashScreen.preventAutoHideAsync();
+// Keep the splash up until the C2 typefaces are loaded and the gate has decided.
+void SplashScreen.preventAutoHideAsync();
+// The manual theme toggle is gone (audit N15): follow the device.
+colorScheme.set("system");
 
-export const unstable_settings = {
-  initialRouteName: "(drawer)",
-};
-
-/**
- * Watches `me.company.id` for changes and clears React Query cache on switch.
- * Native parity for the web TenantCacheGuard.
- */
-function TenantCacheGuard() {
-  const { data: me } = useMe();
-  const lastCompanyIdRef = useRef<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    const next = me?.company?.id ?? null;
-    const prev = lastCompanyIdRef.current;
-    if (prev === undefined) {
-      lastCompanyIdRef.current = next;
-      return;
-    }
-    if (prev !== next) {
-      queryClient.removeQueries({
-        predicate: (q) => {
-          const head = Array.isArray(q.queryKey) ? q.queryKey[0] : null;
-          if (typeof head === "string" && head.startsWith("auth")) return false;
-          return true;
-        },
-      });
-      lastCompanyIdRef.current = next;
-    }
-  }, [me?.company?.id]);
-
-  return null;
-}
-
-function StackLayout() {
+/** Per-device language: SecureStore `orrn.locale`, else the device language. */
+function LocaleProvider({ children }: { children: ReactNode }) {
+  const [initial] = useState(readInitialLocale);
   return (
-    <>
-      <ImpersonationBanner />
-      <TenantCacheGuard />
-      <Stack screenOptions={{}}>
-        <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
-      </Stack>
-    </>
+    <I18nProvider locale={initial} onLocaleChange={storeLocale}>
+      {children}
+    </I18nProvider>
   );
 }
 
-export default function Layout() {
-  const [fontsLoaded, fontError] = useFonts(fontAssets);
-  const fontsReady = fontsLoaded || fontError != null;
+function LoadingScreen() {
+  const { t } = useT();
+  const ink = useThemeColor("foreground");
+  return (
+    <View className="flex-1 items-center justify-center bg-canvas" accessible accessibilityLabel={t("common.loading")}>
+      <ActivityIndicator color={ink} />
+    </View>
+  );
+}
 
+function OfflineScreen({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
+  const { t } = useT();
+  return (
+    <MessageScreen title={t("native.offlineTitle")} body={t("native.offlineBody")}>
+      <Button size="lg" label={t("common.retry")} loading={retrying} onPress={onRetry} />
+    </MessageScreen>
+  );
+}
+
+/**
+ * The auth gate (audit N3). `resolveGate` decides once; each group of screens
+ * sits in a `Stack.Protected` whose guard is that decision, so a deep link to
+ * a tab while signed out lands on sign-in, and signing in or out moves the
+ * person without any manual `router.replace`. Screen lists come from
+ * `ROOT_ROUTES` (a test fails if a screen exists outside them).
+ */
+function RootNavigator() {
+  const hasSession = useSyncExternalStore(sessionPresence.subscribe, sessionPresence.get);
+  const me = useQuery({ ...meQueryOptions(), enabled: hasSession });
+  const state: GateState = resolveGate({
+    hasSession,
+    me: me.data as Me | undefined,
+    error: me.error,
+    isPending: me.isPending,
+  });
+  const stackOptions = useStackOptions();
+  const { t } = useT();
+
+  // First decision hides the splash; later loads (after sign-in) show a spinner instead.
+  const [splashHidden, setSplashHidden] = useState(false);
   useEffect(() => {
-    // A font error must not brick the app: fall back to system fonts.
-    if (fontsReady) void SplashScreen.hideAsync();
-  }, [fontsReady]);
+    if (state !== "loading" && !splashHidden) {
+      setSplashHidden(true);
+      void SplashScreen.hideAsync();
+    }
+  }, [state, splashHidden]);
 
-  if (!fontsReady) return null;
+  if (state === "loading") return splashHidden ? <LoadingScreen /> : null;
+  if (state === "offline") return <OfflineScreen onRetry={() => void me.refetch()} retrying={me.isFetching} />;
+
+  const noHeader = { headerShown: false };
+  return (
+    <GateContext value={state}>
+      <Stack screenOptions={stackOptions}>
+        {/* `index` first and unguarded: it is the fallback when a guard flips. */}
+        <Stack.Screen name="index" options={noHeader} />
+        <Stack.Protected guard={state === "/(tabs)/today"}>
+          {ROOT_ROUTES.app.map((name) => (
+            <Stack.Screen key={name} name={name} options={noHeader} />
+          ))}
+        </Stack.Protected>
+        <Stack.Protected guard={state === "/(auth)/sign-in"}>
+          {ROOT_ROUTES.auth.map((name) => (
+            <Stack.Screen key={name} name={name} options={noHeader} />
+          ))}
+        </Stack.Protected>
+        <Stack.Protected guard={state === "/no-access"}>
+          {ROOT_ROUTES.noAccess.map((name) => (
+            <Stack.Screen key={name} name={name} options={noHeader} />
+          ))}
+        </Stack.Protected>
+        {ROOT_ROUTES.public
+          .filter((name) => name !== "index")
+          .map((name) => (
+            <Stack.Screen key={name} name={name} options={{ title: t("auth.invite.genericTitle") }} />
+          ))}
+      </Stack>
+    </GateContext>
+  );
+}
+
+export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts(fontAssets);
+  // A font error must not brick the app: fall back to system fonts.
+  if (!fontsLoaded && fontError == null) return null;
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <KeyboardProvider>
-          <AppThemeProvider>
-            <EdgeNodeProvider>
-              <StackLayout />
-            </EdgeNodeProvider>
-          </AppThemeProvider>
-        </KeyboardProvider>
-      </GestureHandlerRootView>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <KeyboardProvider>
+        <QueryClientProvider client={queryClient}>
+          <LocaleProvider>
+            <StatusBar style="auto" />
+            <TenantCacheGuard />
+            <RootNavigator />
+          </LocaleProvider>
+        </QueryClientProvider>
+      </KeyboardProvider>
+    </GestureHandlerRootView>
   );
 }

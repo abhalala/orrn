@@ -895,6 +895,23 @@ export const en = {
     footer: "orrn, for aluminium extrusion plants",
   },
 
+  /** Native app chrome (apps/native): gate screens, tab bar, sign-in extras. */
+  native: {
+    scanHint: "Opens the camera to scan a bundle label.",
+    offlineTitle: "Can't reach orrn",
+    offlineBody: "Check the phone's internet connection, then try again.",
+    setPasswordTitle: "Set your own password first",
+    setPasswordBody: "Your account has a temporary password. Sign in to orrn on a computer, set a new password, then come back here.",
+    staffTitle: "Godseye is on the web",
+    staffBody: "Staff accounts don't belong to a plant. Open orrn on a computer to use Godseye.",
+    checkAgain: "Check again",
+    tooManyTries: "Too many tries. Wait a minute, then try again.",
+    codeTimedOut: "That took too long. Sign in again.",
+    verifying: "Checking code",
+    signingOut: "Signing out",
+    version: "Version {version}",
+  },
+
   /** Component library chrome (@orrn/ui): screen-reader and helper text. */
   ui: {
     stepOf: "Step {n} of {total}",

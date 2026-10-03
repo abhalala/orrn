@@ -1,14 +1,61 @@
 {
   "expo": {
+    "name": "orrn",
+    "slug": "orrn",
     "scheme": "orrn",
-    "userInterfaceStyle": "automatic",
+    "version": "1.0.0",
     "orientation": "default",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f4f4f1",
+      "dark": {
+        "image": "./assets/images/splash-icon.png",
+        "backgroundColor": "#0c0c0e"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "in.orrn.app",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "in.orrn.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png",
+        "backgroundColor": "#0c0c0e"
+      }
+    },
+    "locales": {
+      "en": "./locales/en.json",
+      "hi": "./locales/hi.json"
+    },
     "web": {
       "bundler": "metro"
     },
-    "name": "orrn",
-    "slug": "orrn",
-    "plugins": ["expo-font"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-localization",
+        {
+          "supportedLocales": ["en", "hi"]
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "orrn uses the camera to scan bundle labels.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
