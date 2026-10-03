@@ -291,6 +291,8 @@ export async function createTestEnv(): Promise<TestEnv> {
     d1,
     async dispose() {
       await mf.dispose();
+      // Don't leave a disposed D1 reachable through the shared mocked env.
+      delete workersEnv.DB;
     },
     seedCompany,
     caller,
