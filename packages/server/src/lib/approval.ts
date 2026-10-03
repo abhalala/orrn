@@ -7,6 +7,10 @@ import type { OrrnDb, SqliteBatchItem } from "./atomic";
  * it in the same atomicBatch as the document that needs the second person
  * (D/C note, cast close, die re-rank, dispatch overdraw, phantom void). The
  * partial unique index allows one pending request per (company, kind, subject).
+ *
+ * The caller MUST have already loaded `subjectId` scoped to `ctx.companyId`
+ * (e.g. scopedFindOrThrow) — this helper does not check that the subject
+ * belongs to the tenant, and an approval must never point across tenants.
  */
 export function requestApprovalInsert(
   ctx: { db: OrrnDb; companyId: string; session: { user: { id: string } } },

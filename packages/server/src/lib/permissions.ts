@@ -156,6 +156,9 @@ const LEGACY_ROLE_ACTIONS = {
  * Who holds each plant action — digest §4.2 verbatim (owner holds everything
  * and is not listed). Additions from spec P9: QC/ageing → press + supervisor;
  * RP3: bundle.pack also for admin/manager/operator (they hold bundle.create);
+ * RP4: every legacy holder of a legacy action also holds its plant key
+ * (dispatch.scan ⇐ dispatch.addBundle, bundle.void ⇐ bundle.transition), so a
+ * guard can move to the plant key with no silent loss (pinned in plant-roles.test.ts);
  * reports read for office roles and viewer. `dispatch.complete` already exists
  * as a legacy action; the plant roles listed here are added to it.
  */
@@ -163,10 +166,12 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   // Digest: packer + supervisor. Ruling RP3: also every legacy role that packs via
   // bundle.create (admin, manager, operator), so bundle.pack ≡ bundle.create for everyone.
   "bundle.pack": ["packer", "supervisor", "manager", "admin", "operator"],
-  "bundle.void": ["supervisor", "manager", "admin"],
+  // RP4: operator holds bundle.transition (legacy void) → also bundle.void.
+  "bundle.void": ["supervisor", "manager", "admin", "operator"],
   "stock.move": ["operator", "packer", "supervisor", "office"],
   "stock.count": ["operator", "packer", "supervisor", "office"],
-  "dispatch.scan": ["operator", "packer", "supervisor", "office"],
+  // RP4: manager/admin hold dispatch.addBundle → also dispatch.scan.
+  "dispatch.scan": ["operator", "packer", "supervisor", "office", "manager", "admin"],
   "dispatch.complete": ["supervisor", "office", "manager"],
   "cast.enter": ["foundry", "supervisor"],
   "cast.close": ["supervisor", "manager"],

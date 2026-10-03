@@ -49,10 +49,12 @@ const MATRIX: Record<string, CompanyRole[]> = {
   // Digest: packer + supervisor. Ruling RP3: every role that already packs via bundle.create
   // keeps it, so packing can be guarded by bundle.pack without anyone losing it.
   "bundle.pack": ["packer", "supervisor", "manager", "admin", "operator"],
-  "bundle.void": ["supervisor", "manager", "admin"],
+  // RP4: operator holds bundle.transition (legacy void) → also bundle.void.
+  "bundle.void": ["supervisor", "manager", "admin", "operator"],
   "stock.move": ["operator", "packer", "supervisor", "office"],
   "stock.count": ["operator", "packer", "supervisor", "office"],
-  "dispatch.scan": ["operator", "packer", "supervisor", "office"],
+  // RP4: manager/admin hold dispatch.addBundle → also dispatch.scan.
+  "dispatch.scan": ["operator", "packer", "supervisor", "office", "manager", "admin"],
   // Pre-existing action: legacy admin keeps it (old 5-role matrix is frozen).
   "dispatch.complete": ["supervisor", "office", "manager", "admin"],
   "cast.enter": ["foundry", "supervisor"],
@@ -156,6 +158,67 @@ describe("permission matrix (digest §4.2)", () => {
     }
   });
 
+  /**
+   * RP4: every holder of a legacy action also holds its plant key, so later
+   * tasks can switch a guard to the plant key without anyone silently losing it.
+   * (edge.manage and printer/template admin are deliberately not mapped to
+   * users.manage: that would hand managers user management.)
+   */
+  const LEGACY_TO_PLANT: Record<string, Action> = {
+    "bundle.create": "bundle.pack",
+    "bundle.update": "bundle.pack",
+    "receipt.create": "bundle.pack",
+    "receipt.update": "bundle.pack",
+    "bundle.transition": "bundle.void",
+    "bundle.delete": "bundle.void",
+    "receipt.delete": "bundle.void",
+    "dispatch.addBundle": "dispatch.scan",
+    "dispatch.create": "dispatch.scan",
+    "dispatch.update": "dispatch.scan",
+    "dispatch.reserve": "dispatch.scan",
+    "dispatch.cancel": "dispatch.complete",
+    "dispatch.delete": "dispatch.complete",
+    "packingList.regenerate": "dispatch.complete",
+    "customer.create": "masters.publish",
+    "customer.update": "masters.publish",
+    "customer.delete": "masters.publish",
+    "customer.import": "masters.publish",
+    "die.create": "masters.publish",
+    "die.update": "masters.publish",
+    "die.delete": "masters.publish",
+    "die.import": "masters.publish",
+    "bundle.import": "masters.publish",
+    "member.invite": "users.manage",
+    "member.updateRole": "users.manage",
+    "member.remove": "users.manage",
+    "settings.update": "users.manage",
+  };
+
+  test("every holder of a legacy action holds its plant key (RP4)", () => {
+    for (const [legacy, plant] of Object.entries(LEGACY_TO_PLANT)) {
+      for (const role of ALL_ROLES) {
+        if (!can(meOf(role), legacy as Action)) continue;
+        expect({ role, legacy, plant, held: can(meOf(role), plant) }).toEqual({ role, legacy, plant, held: true });
+      }
+    }
+  });
+
+  test("the primary pairs have exactly the same holders (RP3/RP4)", () => {
+    for (const [legacy, plant] of [
+      ["bundle.create", "bundle.pack"],
+      ["dispatch.addBundle", "dispatch.scan"],
+      ["bundle.transition", "bundle.void"],
+    ] as const) {
+      for (const role of ALL_ROLES) {
+        expect({ role, legacy, held: can(meOf(role), plant) }).toEqual({
+          role,
+          legacy,
+          held: can(meOf(role), legacy),
+        });
+      }
+    }
+  });
+
   test("no tenant role holds a platform action", () => {
     for (const role of ALL_ROLES) {
       for (const action of ACTIONS.filter((a) => a.startsWith("platform."))) {
@@ -248,7 +311,9 @@ describe("approvals", () => {
       { kind: "dc_note", subjectId: crypto.randomUUID(), serverSeq: 1, requestNote: "FC kanta 1.2% short", meta: { diffG: 4_200 } },
     );
     await env.db.batch([statement]);
-    const [opened] = await env.caller({ role: "manager", companyId }).approval.list({ status: "pending" });
+    const {
+      items: [opened],
+    } = await env.caller({ role: "manager", companyId }).approval.list({ status: "pending" });
     expect(opened).toMatchObject({ id, kind: "dc_note", requestNote: "FC kanta 1.2% short", meta: { diffG: 4_200 } });
 
     const res = await env
@@ -333,15 +398,37 @@ describe("approvals", () => {
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
 
     const listB = await env.caller({ role: "viewer", companyId: b.companyId }).approval.list({ status: "pending" });
-    expect(listB.map((r) => r.id)).toEqual([idB]);
-    expect(listB[0]?.requestedByName).toContain("office");
+    expect(listB.items.map((r) => r.id)).toEqual([idB]);
+    expect(listB.total).toBe(1);
+    expect(listB.items[0]?.requestedByName).toContain("office");
 
     await env.caller({ role: "manager", companyId: b.companyId }).approval.decide({ id: idB, decision: "approved" });
     const pendingB = await env.caller({ role: "viewer", companyId: b.companyId }).approval.list({ status: "pending" });
-    expect(pendingB).toHaveLength(0);
+    expect(pendingB.items).toHaveLength(0);
+    expect(pendingB.total).toBe(0);
     const approvedB = await env.caller({ role: "viewer", companyId: b.companyId }).approval.list({ status: "approved" });
-    expect(approvedB.map((r) => r.id)).toEqual([idB]);
-    expect(approvedB[0]?.decidedByName).toContain("manager");
+    expect(approvedB.items.map((r) => r.id)).toEqual([idB]);
+    expect(approvedB.items[0]?.decidedByName).toContain("manager");
+  });
+
+  test("list pages with limit/offset and reports total and nextOffset", async () => {
+    const { companyId, users } = await env.seedCompany();
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      ids.push(await seedApproval(companyId, users.office.id, "dc_note"));
+    }
+    const api = env.caller({ role: "viewer", companyId });
+    const p1 = await api.approval.list({ status: "pending", limit: 2 });
+    expect(p1.items).toHaveLength(2);
+    expect(p1.total).toBe(5);
+    expect(p1.nextOffset).toBe(2);
+    const p2 = await api.approval.list({ status: "pending", limit: 2, offset: 2 });
+    const p3 = await api.approval.list({ status: "pending", limit: 2, offset: 4 });
+    expect(p3.items).toHaveLength(1);
+    expect(p3.nextOffset).toBeNull();
+    const seen = [...p1.items, ...p2.items, ...p3.items].map((r) => r.id);
+    expect(new Set(seen).size).toBe(5);
+    expect([...seen].sort()).toEqual([...ids].sort());
   });
 
   test("only one pending approval per kind and subject", async () => {
@@ -465,6 +552,36 @@ describe("many plants per person (spec P10)", () => {
     await expect(env.callerForUser(userId).company.switch({ companyId: b.companyId })).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
+  });
+
+  test("impersonation wins over x-orrn-company; a foreign plant header is not rejected under a grant", async () => {
+    const { impersonationGrant, platformAdmin } = await import("@orrn/db/schema");
+    const own = await env.seedCompany();
+    const target = await env.seedCompany();
+    const foreign = await env.seedCompany();
+    // A support engineer who is also a member of their own plant.
+    const staffId = await env.seedUser("staff");
+    await env.db.insert(platformAdmin).values({ userId: staffId, role: "super_admin" });
+    await env.addMembership(staffId, own.companyId, "viewer");
+    await env.db.insert(impersonationGrant).values({
+      id: crypto.randomUUID(),
+      platformAdminId: staffId,
+      companyId: target.companyId,
+      expiresAt: new Date(Date.now() + 60 * 60_000),
+    });
+
+    for (const header of [own.companyId, foreign.companyId]) {
+      const me = await env
+        .callerForUser(staffId, { impersonate: target.companyId, company: header })
+        .auth.me();
+      expect(me.company?.id).toBe(target.companyId);
+      expect(me.company?.role).toBe("owner");
+      expect(me.impersonation?.companyId).toBe(target.companyId);
+    }
+    // Without a grant the foreign header is rejected as usual.
+    await expect(
+      env.callerForUser(staffId, { company: foreign.companyId }).auth.me(),
+    ).rejects.toMatchObject({ code: "FORBIDDEN", message: "You don't have access to that plant" });
   });
 
   test("writes land in the active company only", async () => {

@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 
@@ -21,20 +21,25 @@ const decider = alias(user, "approval_decider");
  * router lists them and records the decision.
  */
 export const approvalRouter = router({
-  /** Tenant-scoped list, newest first. Reads are open to every role. */
+  /**
+   * Tenant-scoped list, newest first, paginated by limit/offset with `total`
+   * and `nextOffset` (null on the last page). Reads are open to every role.
+   */
   list: companyProcedure
     .input(
       z.object({
         status: z.enum(approvalStatuses).optional(),
         kind: z.enum(approvalKinds).optional(),
         limit: z.number().int().min(1).max(200).default(50),
+        offset: z.number().int().min(0).default(0),
       }),
     )
     .query(async ({ ctx, input }) => {
       const conditions: (SQL | undefined)[] = [eq(approval.companyId, ctx.companyId)];
       if (input.status) conditions.push(eq(approval.status, input.status));
       if (input.kind) conditions.push(eq(approval.kind, input.kind));
-      return ctx.db
+      const where = and(...conditions);
+      const items = await ctx.db
         .select({
           id: approval.id,
           kind: approval.kind,
@@ -53,9 +58,14 @@ export const approvalRouter = router({
         .from(approval)
         .leftJoin(requester, eq(requester.id, approval.requestedBy))
         .leftJoin(decider, eq(decider.id, approval.decidedBy))
-        .where(and(...conditions))
+        .where(where)
         .orderBy(desc(approval.createdAt), desc(approval.id))
-        .limit(input.limit);
+        .limit(input.limit)
+        .offset(input.offset);
+      const [totalRow] = await ctx.db.select({ n: count() }).from(approval).where(where);
+      const total = totalRow?.n ?? 0;
+      const next = input.offset + items.length;
+      return { items, total, limit: input.limit, offset: input.offset, nextOffset: next < total ? next : null };
     }),
 
   /**

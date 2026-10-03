@@ -51,13 +51,41 @@ bun run deploy
   all non-`auth.me` queries when the active `companyId` changes. The
   `TenantCacheGuard` on web and its native equivalent handle this — do not
   delete them.
+- A person can belong to several plants (companies). The active plant comes
+  from the `x-orrn-company` request header, resolved in
+  `packages/server/src/lib/tenantContext.ts`:
+  - The header is honoured only when the user has a membership in that company
+    and the company is active. Any other value makes every authenticated call
+    fail with `403 FORBIDDEN` "You don't have access to that plant" — never a
+    silent fallback to another plant.
+  - Clients that get that error must clear their stored `x-orrn-company`
+    value, refetch `auth.me` and let the user pick a plant again.
+  - Without the header, the active plant is the one last chosen with
+    `company.switch({ companyId })`, else the newest membership.
+  - `auth.me` returns `company` (the active plant) and `memberships:
+    { companyId, name, role }[]`; build the plant switcher from that.
+  - A valid impersonation grant wins over `x-orrn-company`.
+  - The header carries a choice, never authority: the server still derives
+    `companyId` from the session + membership, and inputs still never carry
+    `companyId`.
 
 ## Roles & client-side capability gating
 
 - The canonical role-capability matrix lives in
   `packages/server/src/lib/permissions.ts` (`ACTIONS`, `ROLE_ACTIONS`, `can`,
-  `canAny`). It is the single source of truth for both server `roleGuard`
-  middleware and client `<Can>` / `useMe` hooks.
+  `canAny`, `APPROVER_ROLES`, `canApprove`). It is the single source of truth
+  for server `actionProcedure(action)` guards and client `<Can>` / `useMe`
+  hooks.
+- Guard every new mutation with `actionProcedure(<plant action>)` using the
+  plant keys (`bundle.pack`, `bundle.void`, `stock.move`, `stock.count`,
+  `dispatch.scan`, `dispatch.complete`, `cast.enter`, `cast.close`, `press.run`,
+  `die.reading`, `die.card`, `die.rerank`, `purchase.receipt`,
+  `purchase.dcnote`, `store.txn`, `order.manage`, `invoice.link`,
+  `masters.draft`, `masters.publish`, `users.manage`, `export.accounts`,
+  `reports.read`, `qc.enter`, `ageing.enter`), not the legacy keys. Every
+  holder of a legacy key also holds its plant equivalent, so moving a guard to
+  a plant key removes access from nobody (tests in
+  `packages/server/test/plant-roles.test.ts` pin this).
 - Add new actions to that file (do not invent ad-hoc client-side booleans),
   then reuse them via `<Can do="…">` on web (`apps/web/src/shared/components/can.tsx`)
   and native (`apps/native/components/can.tsx`).
@@ -91,9 +119,21 @@ bun run deploy
 
 ## User and role model
 
-- Regular users belong to exactly one company.
+- Regular users can belong to several companies (plants), one membership per
+  (user, company), each with its own role. See Tenant isolation for how the
+  active plant is chosen.
 - Platform admins are stored separately and are not normal tenant members.
-- Company roles for v1: `owner`, `admin`, `manager`, `operator`, `viewer`.
+- Company roles (13): `owner`, `admin` (plant admin), `manager`, `office`,
+  `accountant`, `supervisor`, `packer`, `foundry`, `press`, `storekeeper`,
+  `die_room`, `operator` (floor operator), `viewer`. The matrix follows the
+  plant architecture digest §4.2; owner holds every tenant action.
+- Approvals: submits that need a second person open an `approval` row
+  (`lib/approval.ts`, in the same `atomicBatch` as the document) and are decided
+  with `approval.decide`. Kinds and approver roles: `dc_note`, `die_rerank`,
+  `dispatch_overdraw`, `phantom_void` → owner, admin, manager; `cast_close` →
+  owner, admin, manager, foundry. The requester can never decide their own
+  request (owner included); a decided request cannot be decided again. One
+  pending request per (company, kind, subject).
 - Platform impersonation is web-only/support-only, time-boxed, bannered, and audited.
 
 ## Native sync rules
