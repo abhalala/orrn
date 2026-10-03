@@ -1,6 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
-import { entryState, entryTone, exchangePartner, recentItemIds, signedQty, type EntryLike } from "./store-entries";
+import {
+  canCancelEntry,
+  entrySource,
+  entryState,
+  entryTone,
+  exchangePartner,
+  recentItemIds,
+  savedOutcome,
+  signedQty,
+  type EntryLike,
+} from "./store-entries";
 
 const base: EntryLike = {
   id: "t1",
@@ -60,5 +70,39 @@ describe("recentItemIds", () => {
     expect(recentItemIds(rows, 3)).toEqual(["a", "b", "c"]);
     expect(recentItemIds(rows)).toEqual(["a", "b", "c", "d", "e"]);
     expect(recentItemIds([])).toEqual([]);
+  });
+});
+
+describe("canCancelEntry (RP15, PL-7 review: draws another record made are cancelled there)", () => {
+  test("a live entry the storekeeper typed can be cancelled", () => {
+    expect(canCancelEntry(base)).toBe(true);
+    expect(canCancelEntry({ ...base, kind: "mrs", sourceType: null })).toBe(true);
+    expect(entrySource(base)).toBeNull();
+  });
+
+  test("an entry already cancelled cannot be cancelled again", () => {
+    expect(canCancelEntry({ ...base, cancelledAt: "2026-10-03T08:00:00Z" })).toBe(false);
+  });
+
+  test("a melt's flux draw belongs to the melt: no cancel here", () => {
+    const draw = { ...base, kind: "mrs" as const, sourceType: "melt" };
+    expect(canCancelEntry(draw)).toBe(false);
+    expect(entrySource(draw)).toBe("melt");
+  });
+});
+
+describe("savedOutcome (RP18 replays)", () => {
+  test("a new entry is saved", () => {
+    expect(savedOutcome({ replayed: false })).toBe("saved");
+    expect(savedOutcome({ replayed: false, cancelled: false })).toBe("saved");
+  });
+
+  test("a retry of a saved entry returns it: still saved, nothing posted twice", () => {
+    expect(savedOutcome({ replayed: true })).toBe("saved");
+    expect(savedOutcome({ replayed: true, cancelled: false })).toBe("saved");
+  });
+
+  test("a retry of an entry someone cancelled meanwhile must not read as stock moved", () => {
+    expect(savedOutcome({ replayed: true, cancelled: true })).toBe("cancelled");
   });
 });

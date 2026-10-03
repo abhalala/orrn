@@ -820,6 +820,10 @@ export const en = {
       again: "Exchange another",
       newInUnder: "New part in under {number}",
     },
+    replayCancelled: {
+      title: "Already cancelled",
+      body: "{number} was saved earlier and has since been cancelled, so nothing moved now. Enter it again if it is still needed.",
+    },
     entry: {
       item: "Item",
       quantity: "Quantity",
@@ -839,6 +843,7 @@ export const en = {
       cancelEffect: "The number stays in the register, marked cancelled, and the store goes back to what it was.",
       cancelledToast: "{number} cancelled",
       open: "Open {number}",
+      belongsTo: "This entry belongs to another record ({source}). Cancel that record to undo it.",
     },
     itemPage: {
       notFound: "Store item not found",

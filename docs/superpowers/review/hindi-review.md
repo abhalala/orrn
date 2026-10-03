@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 898 screen strings in 26 groups, 11 guides with 200 strings.
+Counts: 901 screen strings in 26 groups, 11 guides with 200 strings.
 
 ## Screen strings
 
@@ -635,7 +635,7 @@ Counts: 898 screen strings in 26 groups, 11 guides with 200 strings.
 | `dispatches` | Dispatches | Dispatch |
 | `noDispatches` | No dispatches for this customer yet. | इस ग्राहक का अभी कोई dispatch नहीं है। |
 
-### store (155)
+### store (158)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -750,6 +750,8 @@ Counts: 898 screen strings in 26 groups, 11 guides with 200 strings.
 | `exchange.done` | Exchanged | बदल गया |
 | `exchange.again` | Exchange another | और बदलें |
 | `exchange.newInUnder` | New part in under {number} | नया पार्ट {number} से आया |
+| `replayCancelled.title` | Already cancelled | पहले ही रद्द |
+| `replayCancelled.body` | {number} was saved earlier and has since been cancelled, so nothing moved now. Enter it again if it is still needed. | {number} पहले सेव हुआ था और बाद में रद्द हो गया, इसलिए अभी कुछ नहीं बदला। ज़रूरत हो तो फिर से दर्ज करें। |
 | `entry.item` | Item | सामान |
 | `entry.quantity` | Quantity | मात्रा |
 | `entry.when` | When | कब |
@@ -768,6 +770,7 @@ Counts: 898 screen strings in 26 groups, 11 guides with 200 strings.
 | `entry.cancelEffect` | The number stays in the register, marked cancelled, and the store goes back to what it was. | नंबर रजिस्टर में रद्द लिखकर रहेगा, और स्टोर पहले जैसा हो जाएगा। |
 | `entry.cancelledToast` | {number} cancelled | {number} रद्द हो गया |
 | `entry.open` | Open {number} | {number} खोलें |
+| `entry.belongsTo` | This entry belongs to another record ({source}). Cancel that record to undo it. | यह एंट्री दूसरे रिकॉर्ड ({source}) की है। इसे वापस लेने के लिए वह रिकॉर्ड रद्द करें। |
 | `itemPage.notFound` | Store item not found | स्टोर का सामान नहीं मिला |
 | `itemPage.notFoundBody` | It may belong to another plant. Go back to the store and pick it again. | यह शायद किसी दूसरे प्लांट का है। स्टोर पर वापस जाकर फिर से चुनें। |
 | `itemPage.edit` | Edit item | सामान बदलें |

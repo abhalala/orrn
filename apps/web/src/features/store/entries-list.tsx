@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
-import { entryState, entryTone, exchangePartner } from "./store-entries";
+import { canCancelEntry, entrySource, entryState, entryTone, exchangePartner } from "./store-entries";
 import { purposeLabel, unitShort } from "./store-labels";
 import { formatQty } from "./store-qty";
 import { StoreLoadError } from "./store-ui";
@@ -220,7 +220,9 @@ function EntrySheet({
   };
 
   const e = current?.entry;
-  const cancellable = Boolean(e && entryState(e) !== "cancelled");
+  const cancellable = Boolean(e && canCancelEntry(e));
+  // A melt's flux draw (PL-7 review): undone by cancelling the melt, never here.
+  const source = e && !e.cancelledAt ? entrySource(e) : null;
 
   return (
     <Sheet
@@ -297,6 +299,11 @@ function EntrySheet({
           {e.exchangeId && current?.partner ? (
             <p className="m-0 text-[14px] text-muted-foreground">
               {t("store.entry.exchangedWith", { number: current.partner.number })}
+            </p>
+          ) : null}
+          {source ? (
+            <p className="m-0 text-[14px] leading-6 text-muted-foreground break-words">
+              {t("store.entry.belongsTo", { source: purposeLabel(t, source) })}
             </p>
           ) : null}
           {e.cancelledAt ? (

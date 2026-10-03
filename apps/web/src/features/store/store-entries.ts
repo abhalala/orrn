@@ -9,6 +9,12 @@ export type EntryLike = {
   qtyMilli: number;
   exchangeId: string | null;
   cancelledAt: Date | string | number | null;
+  /**
+   * Set when another record wrote this entry in its own batch (a melt's flux draw, PL-7 review):
+   * that record's cancel reverses it, and `store.cancel` refuses it. Optional so rows from a server
+   * without the column still type-check.
+   */
+  sourceType?: string | null;
 };
 
 export type EntryState = "received" | "issued" | "cancelled";
@@ -51,4 +57,25 @@ export function recentItemIds(entries: readonly Pick<EntryLike, "itemId">[], lim
     if (out.length >= limit) break;
   }
   return out;
+}
+
+/** The kind of record that wrote this entry (a melt), or null for one the storekeeper typed. */
+export function entrySource(entry: EntryLike): string | null {
+  return entry.sourceType ?? null;
+}
+
+/**
+ * Whether the storekeeper may cancel this entry here (RP15): not already cancelled, and not drawn
+ * by another record (`sourceType`), which is undone by cancelling that record instead.
+ */
+export function canCancelEntry(entry: EntryLike): boolean {
+  return entryState(entry) !== "cancelled" && !entry.sourceType;
+}
+
+/**
+ * What a receive/issue/exchange answer means for the person (RP18). A replay of a saved entry is
+ * still "saved" (one entry, one number); a replay of an entry cancelled meanwhile moved no stock.
+ */
+export function savedOutcome(result: { replayed: boolean; cancelled?: boolean }): "saved" | "cancelled" {
+  return result.replayed && result.cancelled === true ? "cancelled" : "saved";
 }

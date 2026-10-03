@@ -814,6 +814,10 @@ export const hi = {
       again: "और बदलें",
       newInUnder: "नया पार्ट {number} से आया",
     },
+    replayCancelled: {
+      title: "पहले ही रद्द",
+      body: "{number} पहले सेव हुआ था और बाद में रद्द हो गया, इसलिए अभी कुछ नहीं बदला। ज़रूरत हो तो फिर से दर्ज करें।",
+    },
     entry: {
       item: "सामान",
       quantity: "मात्रा",
@@ -833,6 +837,7 @@ export const hi = {
       cancelEffect: "नंबर रजिस्टर में रद्द लिखकर रहेगा, और स्टोर पहले जैसा हो जाएगा।",
       cancelledToast: "{number} रद्द हो गया",
       open: "{number} खोलें",
+      belongsTo: "यह एंट्री दूसरे रिकॉर्ड ({source}) की है। इसे वापस लेने के लिए वह रिकॉर्ड रद्द करें।",
     },
     itemPage: {
       notFound: "स्टोर का सामान नहीं मिला",

@@ -18,7 +18,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { BigQty } from "./big-qty";
 import { useRequestIds } from "./request-id";
-import { recentItemIds } from "./store-entries";
+import { recentItemIds, savedOutcome } from "./store-entries";
 import { countedIn, purposeLabel, qtyProblemText, unitShort } from "./store-labels";
 import {
   formatQty,
@@ -42,7 +42,14 @@ import {
 
 export type EntryMode = "receive" | "issue" | "exchange";
 
-type Saved = { numbers: [string] | [string, string]; itemName: string; milli: number; unit: string };
+type Saved = {
+  numbers: [string] | [string, string];
+  itemName: string;
+  milli: number;
+  unit: string;
+  /** A retry returned an entry someone cancelled meanwhile (RP18): nothing moved now. */
+  cancelled: boolean;
+};
 
 type FieldKey = "item" | "qty" | "old" | "new" | "purpose";
 
@@ -273,7 +280,13 @@ function EntryFormBody({
           note: note_,
           clientRequestId: ids.idFor(signature),
         });
-        done({ numbers: [res.number], itemName: item.name, milli: problems.milli, unit: item.unit });
+        done({
+          numbers: [res.number],
+          itemName: item.name,
+          milli: problems.milli,
+          unit: item.unit,
+          cancelled: savedOutcome(res) === "cancelled",
+        });
       } else if (mode === "issue" && problems.milli !== null && purpose) {
         const signature = ["issue", item.id, problems.milli, purpose, ref.trim(), note_ ?? ""].join("|");
         const res = await issue.mutateAsync({
@@ -284,7 +297,13 @@ function EntryFormBody({
           note: note_,
           clientRequestId: ids.idFor(signature),
         });
-        done({ numbers: [res.number], itemName: item.name, milli: problems.milli, unit: item.unit });
+        done({
+          numbers: [res.number],
+          itemName: item.name,
+          milli: problems.milli,
+          unit: item.unit,
+          cancelled: savedOutcome(res) === "cancelled",
+        });
       } else if (mode === "exchange" && problems.outMilli !== null && problems.inMilli !== null) {
         const signature = ["exchange", item.id, problems.outMilli, problems.inMilli, note_ ?? ""].join("|");
         const res = await exchange.mutateAsync({
@@ -299,6 +318,7 @@ function EntryFormBody({
           itemName: item.name,
           milli: problems.inMilli,
           unit: item.unit,
+          cancelled: savedOutcome(res) === "cancelled",
         });
       }
     } catch {
@@ -313,7 +333,9 @@ function EntryFormBody({
     ids.reset();
     setSaved(s);
     setAnnounce(
-      `${t(copy.done)}. ${s.numbers.join(", ")}. ${t("store.qtyOf", { qty: formatQty(s.milli), unit: unitShort(t, s.unit, s.milli), item: s.itemName })}`,
+      s.cancelled
+        ? `${t("store.replayCancelled.title")}. ${t("store.replayCancelled.body", { number: s.numbers[0] })}`
+        : `${t(copy.done)}. ${s.numbers.join(", ")}. ${t("store.qtyOf", { qty: formatQty(s.milli), unit: unitShort(t, s.unit, s.milli), item: s.itemName })}`,
     );
     void invalidate();
   };
@@ -328,23 +350,31 @@ function EntryFormBody({
     return (
       <div className="flex max-w-[640px] flex-col gap-4">
         {live}
-        <StatusBlock
-          tone="green"
-          title={t(copy.done)}
-          meta={
-            mode === "exchange" && saved.numbers[1]
-              ? t("store.exchange.newInUnder", { number: saved.numbers[1] })
-              : t("store.qtyOf", {
-                  qty: formatQty(saved.milli),
-                  unit: unitShort(t, saved.unit, saved.milli),
-                  item: saved.itemName,
-                })
-          }
-          value={saved.numbers[0]}
-          mono
-          countUp={false}
-          className="animate-pop orrn-block-hero"
-        />
+        {saved.cancelled ? (
+          <StoreNote
+            tone="attention"
+            title={t("store.replayCancelled.title")}
+            body={t("store.replayCancelled.body", { number: saved.numbers[0] })}
+          />
+        ) : (
+          <StatusBlock
+            tone="green"
+            title={t(copy.done)}
+            meta={
+              mode === "exchange" && saved.numbers[1]
+                ? t("store.exchange.newInUnder", { number: saved.numbers[1] })
+                : t("store.qtyOf", {
+                    qty: formatQty(saved.milli),
+                    unit: unitShort(t, saved.unit, saved.milli),
+                    item: saved.itemName,
+                  })
+            }
+            value={saved.numbers[0]}
+            mono
+            countUp={false}
+            className="animate-pop orrn-block-hero"
+          />
+        )}
         <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
           <Button ref={againRef} size="lg" onClick={resetForAnother}>
             {t(copy.again)}
