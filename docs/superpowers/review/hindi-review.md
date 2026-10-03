@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 838 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -664,7 +664,7 @@ Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 | `notSetUpBody` | Ask the orrn team to set up label printing for your plant. | अपने प्लांट के लिए लेबल प्रिंटिंग सेट करवाने के लिए orrn टीम से कहें। |
 | `restricted` | You can see the queue. Ask a manager to change printers or labels. | आप कतार देख सकते हैं। प्रिंटर या लेबल बदलने के लिए मैनेजर से कहें। |
 
-### settings (59)
+### settings (63)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -727,6 +727,107 @@ Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 | `data.rowProblem` | Row {row}: {reason} | लाइन {row}: {reason} |
 | `data.submit` | Import {count} {count:row\|rows} | {count} लाइन इम्पोर्ट करें |
 | `data.imported` | {count} {count:row\|rows} imported | {count} लाइन इम्पोर्ट हो {count:गई\|गईं} |
+| `data.bundlesBody` | Stock on your shelves from before orrn. Dies not in orrn yet are added for you. | orrn से पहले से रैक पर रखा स्टॉक। जो die orrn में नहीं हैं, वे अपने आप जुड़ जाते हैं। |
+| `data.diesBody` | Series, section code and the weight range per 12 ft. | Series, section code और 12 ft का वज़न रेंज। |
+| `data.customersBody` | Names, phone numbers, email and GSTIN. | नाम, फ़ोन नंबर, ईमेल और GSTIN। |
+| `data.noAccess` | Your role can't import data. Ask an owner or admin if you need it. | आपके रोल से डेटा इम्पोर्ट नहीं होता। ज़रूरत हो तो owner या admin से कहें। |
+
+### imports (92)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title.bundles` | Import old bundles | पुराने bundle इम्पोर्ट करें |
+| `title.dies` | Import dies | Die इम्पोर्ट करें |
+| `title.customers` | Import customers | ग्राहक इम्पोर्ट करें |
+| `about.bundles` | Bundles already on your shelves from before orrn. | orrn से पहले से रैक पर रखे bundle। |
+| `about.dies` | Your die list, with the weight range per 12 ft. | आपकी die लिस्ट, 12 ft के वज़न रेंज के साथ। |
+| `about.customers` | Customer names, phone numbers, email and GSTIN. | ग्राहकों के नाम, फ़ोन नंबर, ईमेल और GSTIN। |
+| `drop.title` | Drop a CSV or Excel file here | CSV या Excel फ़ाइल यहां छोड़ें |
+| `drop.or` | or | या |
+| `drop.choose` | Choose file | फ़ाइल चुनें |
+| `drop.types` | CSV or Excel (.csv, .xlsx, .xls) | CSV या Excel (.csv, .xlsx, .xls) |
+| `drop.dragging` | Drop to read this file | यह फ़ाइल पढ़ने के लिए छोड़ें |
+| `columns.heading` | Columns orrn reads | orrn ये कॉलम पढ़ता है |
+| `columns.required` | Needed | ज़रूरी |
+| `columns.optional` | Optional | चाहें तो |
+| `columns.unitRule` | Put the unit in the column name: Length (mm), Length (in), Length (ft), Weight (kg) or Weight (g). | कॉलम के नाम में यूनिट लिखें: Length (mm), Length (in), Length (ft), Weight (kg) या Weight (g)। |
+| `columns.lengthFallbackMm` | A length column with no unit is read in mm, your company setting. | बिना यूनिट वाला length कॉलम mm में पढ़ा जाता है, जो आपकी कंपनी की सेटिंग है। |
+| `columns.lengthFallbackInch` | A length column with no unit is read in inches, your company setting. 11 ft 6 in also works. | बिना यूनिट वाला length कॉलम इंच में पढ़ा जाता है, जो आपकी कंपनी की सेटिंग है। 11 ft 6 in भी चलता है। |
+| `columns.weightFallback` | A weight column with no unit is read in kg. | बिना यूनिट वाला weight कॉलम kg में पढ़ा जाता है। |
+| `columns.sample` | Download sample sheet | सैंपल शीट डाउनलोड करें |
+| `legacyDies` | Dies not in orrn yet are added for you, marked legacy. Check their weight range on the Dies page afterwards. | जो die orrn में नहीं हैं, वे legacy निशान के साथ अपने आप जुड़ते हैं। बाद में Dies पेज पर उनका वज़न रेंज जांच लें। |
+| `reading` | Reading {name} | {name} पढ़ रहे हैं |
+| `checking` | Checking these dies against orrn | ये die orrn से मिला रहे हैं |
+| `readFailed` | orrn couldn't read this file. Save it as CSV or Excel (.xlsx) and choose it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे CSV या Excel (.xlsx) में सेव करके फिर चुनें। |
+| `wrongType` | This is not a CSV or Excel file. Choose a .csv, .xlsx or .xls file. | यह CSV या Excel फ़ाइल नहीं है। .csv, .xlsx या .xls फ़ाइल चुनें। |
+| `noRows` | This file has no rows under the header row. Add rows and choose it again. | इस फ़ाइल में हेडर के नीचे कोई लाइन नहीं है। लाइनें जोड़कर फिर चुनें। |
+| `tooManyRows` | This file has {count} rows. orrn takes up to {max} at a time. Split it into smaller files. | इस फ़ाइल में {count} लाइनें हैं। orrn एक बार में {max} तक लेता है। इसे छोटी फ़ाइलों में बांटें। |
+| `tooBig` | This file is larger than {size}. Split it into smaller files. | यह फ़ाइल {size} से बड़ी है। इसे छोटी फ़ाइलों में बांटें। |
+| `missingTitle` | Columns missing | कॉलम नहीं मिले |
+| `missingBody` | Add {count:this column\|these columns} to the sheet and choose it again: | शीट में {count:यह कॉलम\|ये कॉलम} जोड़ें और फिर चुनें: |
+| `chooseAnother` | Choose another file | दूसरी फ़ाइल चुनें |
+| `ready` | Ready to import | इम्पोर्ट के लिए तैयार |
+| `problems` | Need fixing | ठीक करनी हैं |
+| `rows` | {count:row\|rows} | {count:लाइन\|लाइन} |
+| `readAs.heading` | How orrn read your columns | orrn ने आपके कॉलम ऐसे पढ़े |
+| `readAs.plain` | {field} | {field} |
+| `readAs.unit` | {field} in {unit} | {field}, {unit} में |
+| `readAs.fallback` | {field} in {unit}, from your company setting | {field}, {unit} में, आपकी कंपनी की सेटिंग से |
+| `readAs.notUsed` | Not used: {columns} | इस्तेमाल नहीं हुए: {columns} |
+| `unit.mm` | mm | mm |
+| `unit.in` | inches | इंच |
+| `unit.ft` | feet | फ़ुट |
+| `unit.kg` | kg | kg |
+| `unit.g` | grams | ग्राम |
+| `preview.heading` | First rows, as orrn will save them | पहली लाइनें, जैसे orrn सेव करेगा |
+| `preview.row` | Row | लाइन |
+| `problemList` | Rows with problems | दिक्कत वाली लाइनें |
+| `problemMore` | {count} more. Download the rows to see them all. | {count} और। सब देखने के लिए लाइनें डाउनलोड करें। |
+| `downloadProblems` | Download rows with problems | दिक्कत वाली लाइनें डाउनलोड करें |
+| `problemColumn` | Problem | दिक्कत |
+| `existing.title` | {count} {count:die is\|dies are} already in orrn | {count} die पहले से orrn में {count:है\|हैं} |
+| `existing.label` | Dies already in orrn | जो die पहले से orrn में हैं |
+| `existing.skip` | Leave as they are | जैसे हैं वैसे रहने दें |
+| `existing.update` | Update from this sheet | इस शीट से अपडेट करें |
+| `nothingReady` | No rows are ready to import. Fix the rows with problems and choose the file again. | कोई लाइन इम्पोर्ट के लिए तैयार नहीं है। दिक्कत वाली लाइनें ठीक करके फ़ाइल फिर चुनें। |
+| `saving` | Saving {done} of {total} rows | {total} में से {done} लाइन सेव हुईं |
+| `keepOpen` | Keep this open until it finishes. | पूरा होने तक इसे खुला रखें। |
+| `done` | Imported | इम्पोर्ट हो गया |
+| `newDies` | {count} new {count:die\|dies} added, marked legacy. Check {count:its\|their} weight range on the Dies page. | {count} नई die legacy निशान के साथ {count:जुड़ी\|जुड़ीं}। Dies पेज पर वज़न रेंज जांच लें। |
+| `partial` | Saved {done} of {total} rows. The rest were not saved. | {total} में से {done} लाइन सेव हुईं। बाकी सेव नहीं हुईं। |
+| `retry` | Try the rest again | बाकी फिर से भेजें |
+| `downloadUnsaved` | Download rows not saved | जो लाइनें सेव नहीं हुईं, डाउनलोड करें |
+| `field.dieSeries` | Die series | Die series |
+| `field.dieSectionCode` | Section code | Section code |
+| `field.quantity` | Pieces | पीस |
+| `field.weight` | Weight | वज़न |
+| `field.length` | Length | लंबाई |
+| `field.poNumber` | PO number | PO नंबर |
+| `field.series` | Series | Series |
+| `field.sectionCode` | Section code | Section code |
+| `field.name` | Name | नाम |
+| `field.weightMin` | Min weight (kg/12ft) | कम से कम वज़न (kg/12ft) |
+| `field.weightMax` | Max weight (kg/12ft) | ज़्यादा से ज़्यादा वज़न (kg/12ft) |
+| `field.width` | Width | चौड़ाई |
+| `field.height` | Height | ऊंचाई |
+| `field.thickness` | Thickness | मोटाई |
+| `field.oblique` | Oblique | Oblique |
+| `field.leg` | Leg | Leg |
+| `field.status` | Status | स्टेटस |
+| `field.notes` | Notes | नोट |
+| `field.phone` | Phone | फ़ोन |
+| `field.email` | Email | ईमेल |
+| `field.taxId` | GSTIN | GSTIN |
+| `reason.blank` | {column} is empty. | {column} खाली है। |
+| `reason.notNumber` | {column} is not a plain number. Use digits only, like 45.5. | {column} सादा नंबर नहीं है। सिर्फ़ अंक लिखें, जैसे 45.5। |
+| `reason.notWhole` | {column} must be a whole number. | {column} पूरा नंबर होना चाहिए। |
+| `reason.notPositive` | {column} must be more than 0. | {column} 0 से ज़्यादा होना चाहिए। |
+| `reason.tooLong` | {column} is longer than {max} characters. | {column} {max} अक्षरों से लंबा है। |
+| `reason.badEmail` | {column} is not an email address. | {column} ईमेल पता नहीं है। |
+| `reason.badStatus` | {column} must be active or archived. | {column} active या archived होना चाहिए। |
+| `reason.rangeOrder` | Max weight is less than min weight. | ज़्यादा से ज़्यादा वज़न, कम से कम वज़न से कम है। |
+| `reason.duplicate` | Same die as row {other}. | लाइन {other} वाली die ही है। |
+| `reason.deletedDie` | A deleted die uses this code. Restore it on the Dies page or use a different code. | यह कोड एक डिलीट की गई die का है। Dies पेज पर उसे वापस लाएं या दूसरा कोड लिखें। |
 
 ### guides (11)
 

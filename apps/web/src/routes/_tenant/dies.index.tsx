@@ -1,3 +1,4 @@
+import { useT } from "@orrn/i18n";
 import { Badge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
@@ -12,7 +13,7 @@ import { format } from "date-fns";
 import { useState } from "react";
 
 import { Can } from "@/shared/components/can";
-import { ImportDiesModal } from "@/shared/components/import-dies-modal";
+import { ImportSheet } from "@/features/imports/import-sheet";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_tenant/dies/")({
@@ -29,6 +30,7 @@ type DieRow = {
 };
 
 function DiesListComponent() {
+  const { t } = useT();
   const [search, setSearch] = useState("");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
@@ -96,7 +98,7 @@ function DiesListComponent() {
           <>
             <Can do="die.import">
               <Button variant="outline" onClick={() => setIsImportModalOpen(true)}>
-                Import CSV or JSON
+                {t("imports.title.dies")}
               </Button>
             </Can>
             <Can do="die.create">
@@ -165,15 +167,7 @@ function DiesListComponent() {
         }
       />
 
-      {isImportModalOpen && (
-        <ImportDiesModal
-          onClose={() => setIsImportModalOpen(false)}
-          onSuccess={() => {
-            setIsImportModalOpen(false);
-            refetch();
-          }}
-        />
-      )}
+      <ImportSheet kind="dies" open={isImportModalOpen} onOpenChange={setIsImportModalOpen} onImported={() => void refetch()} />
     </div>
   );
 }

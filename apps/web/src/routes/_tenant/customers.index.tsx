@@ -1,3 +1,4 @@
+import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -11,7 +12,7 @@ import { format } from "date-fns";
 import { useState } from "react";
 
 import { Can } from "@/shared/components/can";
-import { ImportCustomersModal } from "@/shared/components/import-customers-modal";
+import { ImportSheet } from "@/features/imports/import-sheet";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_tenant/customers/")({
@@ -28,6 +29,7 @@ type CustomerRow = {
 
 function CustomersListComponent() {
   const [search, setSearch] = useState("");
+  const { t } = useT();
   const [importOpen, setImportOpen] = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
@@ -84,7 +86,7 @@ function CustomersListComponent() {
           <>
             <Can do="customer.import">
               <Button variant="outline" onClick={() => setImportOpen(true)}>
-                Import CSV
+                {t("imports.title.customers")}
               </Button>
             </Can>
             <Can do="customer.create">
@@ -98,15 +100,7 @@ function CustomersListComponent() {
         }
       />
 
-      {importOpen ? (
-        <ImportCustomersModal
-          onClose={() => setImportOpen(false)}
-          onSuccess={() => {
-            setImportOpen(false);
-            refetch();
-          }}
-        />
-      ) : null}
+      <ImportSheet kind="customers" open={importOpen} onOpenChange={setImportOpen} onImported={() => void refetch()} />
 
       <Toolbar>
         <Input
