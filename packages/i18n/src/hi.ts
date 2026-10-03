@@ -163,6 +163,7 @@ export const hi = {
     more: "और",
     dies: "Die",
     customers: "ग्राहक",
+    store: "स्टोर",
     printing: "प्रिंटिंग",
     guides: "गाइड",
     settings: "सेटिंग्स",

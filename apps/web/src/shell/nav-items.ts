@@ -2,6 +2,7 @@ import type { MessageKey } from "@orrn/i18n";
 import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 import {
   BookOpen,
+  Boxes,
   Building2,
   Cylinder,
   House,
@@ -45,6 +46,9 @@ export const TENANT_PRIMARY: readonly NavItem[] = [
 export const TENANT_MORE: readonly NavItem[] = [
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },
   { key: "customers", to: "/customers", labelKey: "nav.customers", icon: Users, module: "customers" },
+  // PL-W6. Plant screens are gated by role, not by the legacy SaaS modules. PL-W10 owns the
+  // role-aware nav table (storekeeper: Today · Purchase · Scan · Store · More) and moves this entry.
+  { key: "store", to: "/store", labelKey: "nav.store", icon: Boxes, requires: ["store.txn", "masters.publish"] },
   { key: "printing", to: "/printing", labelKey: "nav.printing", icon: Printer, requires: ["spool.view_queue"] },
   { key: "guides", to: "/guides", labelKey: "nav.guides", icon: BookOpen },
   {

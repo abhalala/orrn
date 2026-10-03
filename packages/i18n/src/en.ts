@@ -169,6 +169,7 @@ export const en = {
     more: "More",
     dies: "Dies",
     customers: "Customers",
+    store: "Store",
     printing: "Printing",
     guides: "Guides",
     settings: "Settings",
