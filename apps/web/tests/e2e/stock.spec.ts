@@ -305,43 +305,46 @@ test.describe("screenshots", () => {
   const dir = process.env.T21_SHOTS_DIR;
   test.skip(!dir, "set T21_SHOTS_DIR to capture");
 
-  for (const width of [375, 1280]) {
-    for (const scheme of ["light", "dark"] as const) {
-      test(`capture ${width} ${scheme}`, async ({ page }) => {
-        await open(page, "/stock", { width, scheme });
-        const shot = async (name: string) => {
-          await page.waitForLoadState("networkidle");
-          await expect(page.locator("[aria-busy='true']")).toHaveCount(0);
-          await page.screenshot({ path: `${dir}/${name}-${width}-${scheme}.png`, fullPage: true });
-        };
-        await shot("stock-sections");
-        const s = await trpcQuery<Summary>(page, "bundle.stockSummary", { status: "available" });
-        await page.goto(`/stock/${s.items[0]!.dieId}`);
-        await shot("stock-section");
-        await page.goto("/stock/bundles");
-        await shot("stock-bundles");
-        const held = await trpcQuery<{ items: BundleRow[] }>(page, "bundle.listBundles", { status: "reserved", limit: 1 });
-        await page.goto(`/b/${held.items[0]!.serial}`);
-        await shot("bundle-held");
-        const avail = await trpcQuery<{ items: BundleRow[] }>(page, "bundle.listBundles", { status: "available", limit: 1 });
+  // 375 and 1280 in both themes (the report's set), plus the iPad rail at 820 in light.
+  const sets = [
+    ...[375, 1280].flatMap((width) => (["light", "dark"] as const).map((scheme) => ({ width, scheme }))),
+    { width: 820, scheme: "light" as const },
+  ];
+  for (const { width, scheme } of sets) {
+    test(`capture ${width} ${scheme}`, async ({ page }) => {
+      await open(page, "/stock", { width, scheme });
+      const shot = async (name: string) => {
+        await page.waitForLoadState("networkidle");
+        await expect(page.locator("[aria-busy='true']")).toHaveCount(0);
+        await page.screenshot({ path: `${dir}/${name}-${width}-${scheme}.png`, fullPage: true });
+      };
+      await shot("stock-sections");
+      const s = await trpcQuery<Summary>(page, "bundle.stockSummary", { status: "available" });
+      await page.goto(`/stock/${s.items[0]!.dieId}`);
+      await shot("stock-section");
+      await page.goto("/stock/bundles");
+      await shot("stock-bundles");
+      const held = await trpcQuery<{ items: BundleRow[] }>(page, "bundle.listBundles", { status: "reserved", limit: 1 });
+      await page.goto(`/b/${held.items[0]!.serial}`);
+      await shot("bundle-held");
+      const avail = await trpcQuery<{ items: BundleRow[] }>(page, "bundle.listBundles", { status: "available", limit: 1 });
+      await page.goto(`/b/${avail.items[0]!.serial}`);
+      await shot("bundle-available");
+      const gone = await trpcQuery<{ items: BundleRow[] }>(page, "bundle.listBundles", { status: "void", limit: 1 });
+      await page.goto(`/b/${gone.items[0]!.serial}`);
+      await shot("bundle-void");
+      if (width === 375) {
         await page.goto(`/b/${avail.items[0]!.serial}`);
-        await shot("bundle-available");
-        const gone = await trpcQuery<{ items: BundleRow[] }>(page, "bundle.listBundles", { status: "void", limit: 1 });
-        await page.goto(`/b/${gone.items[0]!.serial}`);
-        await shot("bundle-void");
-        if (width === 375) {
-          await page.goto(`/b/${avail.items[0]!.serial}`);
-          await page.getByRole("button", { name: "Add to dispatch" }).click();
-          await expect(page.getByRole("dialog", { name: "Add to dispatch" })).toBeVisible();
-          await page.waitForTimeout(400);
-          await page.screenshot({ path: `${dir}/bundle-add-sheet-${width}-${scheme}.png` });
-          await page.keyboard.press("Escape");
-          await page.getByRole("button", { name: "Void bundle" }).click();
-          await expect(page.getByRole("dialog", { name: "Void this bundle?" })).toBeVisible();
-          await page.waitForTimeout(300);
-          await page.screenshot({ path: `${dir}/bundle-void-dialog-${width}-${scheme}.png` });
-        }
-      });
-    }
+        await page.getByRole("button", { name: "Add to dispatch" }).click();
+        await expect(page.getByRole("dialog", { name: "Add to dispatch" })).toBeVisible();
+        await page.waitForTimeout(400);
+        await page.screenshot({ path: `${dir}/bundle-add-sheet-${width}-${scheme}.png` });
+        await page.keyboard.press("Escape");
+        await page.getByRole("button", { name: "Void bundle" }).click();
+        await expect(page.getByRole("dialog", { name: "Void this bundle?" })).toBeVisible();
+        await page.waitForTimeout(300);
+        await page.screenshot({ path: `${dir}/bundle-void-dialog-${width}-${scheme}.png` });
+      }
+    });
   }
 });
