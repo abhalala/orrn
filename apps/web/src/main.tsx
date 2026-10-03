@@ -89,6 +89,14 @@ declare module "@tanstack/react-router" {
   }
 }
 
+declare global {
+  interface Window {
+    /** Set once per page load; e2e checks it survives navigation (no full reloads). */
+    __orrnBoot?: number;
+  }
+}
+window.__orrnBoot ??= Date.now();
+
 const rootElement = document.getElementById("app");
 
 if (!rootElement) {

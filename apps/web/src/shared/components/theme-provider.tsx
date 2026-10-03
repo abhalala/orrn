@@ -1,6 +1,13 @@
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
 import * as React from "react";
 
+/**
+ * Theme follows the device unless the person picks Light or Dark in the
+ * account menu; that choice is stored under this key (index.html reads it
+ * before paint, so there is no flash).
+ */
+export const THEME_STORAGE_KEY = "orrn.theme";
+
 export function ThemeProvider({
   children,
   ...props

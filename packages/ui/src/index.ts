@@ -1,13 +1,5 @@
 export { OrrnUiProvider } from "./provider";
 export {
-  AppFrame,
-  AppStatusBar,
-  MobileNav,
-  type AppFrameNavItem,
-  type AppFrameProps,
-  type AppStatusBarProps,
-} from "./components/app-frame";
-export {
   brand,
   brandRamp,
   godseye,

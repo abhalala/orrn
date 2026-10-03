@@ -2,11 +2,11 @@ import { test, expect } from "@playwright/test";
 
 async function setTheme(page: import("@playwright/test").Page, theme: "light" | "dark") {
   // The app follows the system theme by default; the projects already emulate
-  // it, and this pins the next-themes choice (storage key "vite-ui-theme") too.
+  // it, and this pins the next-themes choice (storage key "orrn.theme") too.
   await page.evaluate((t) => {
     document.documentElement.classList.remove("light", "dark");
     document.documentElement.classList.add(t);
-    localStorage.setItem("vite-ui-theme", t);
+    localStorage.setItem("orrn.theme", t);
   }, theme);
 }
 

@@ -26,6 +26,7 @@ import { Route as AuthedChangePasswordRouteImport } from './routes/_authed/chang
 import { Route as TenantStockIndexRouteImport } from './routes/_tenant/stock.index'
 import { Route as TenantSpoolIndexRouteImport } from './routes/_tenant/spool.index'
 import { Route as TenantReceiptsIndexRouteImport } from './routes/_tenant/receipts.index'
+import { Route as TenantGuidesIndexRouteImport } from './routes/_tenant/guides.index'
 import { Route as TenantDispatchesIndexRouteImport } from './routes/_tenant/dispatches.index'
 import { Route as TenantDiesIndexRouteImport } from './routes/_tenant/dies.index'
 import { Route as TenantCustomersIndexRouteImport } from './routes/_tenant/customers.index'
@@ -40,6 +41,7 @@ import { Route as TenantDispatchesIdRouteImport } from './routes/_tenant/dispatc
 import { Route as TenantDiesIdRouteImport } from './routes/_tenant/dies.$id'
 import { Route as TenantCustomersIdRouteImport } from './routes/_tenant/customers.$id'
 import { Route as TenantBundlesIdRouteImport } from './routes/_tenant/bundles.$id'
+import { Route as TenantBSerialRouteImport } from './routes/_tenant/b.$serial'
 import { Route as PublicInviteTokenRouteImport } from './routes/_public/invite.$token'
 import { Route as PlatformAdminWaitlistRouteImport } from './routes/_platform/admin.waitlist'
 import { Route as PlatformAdminStaffRouteImport } from './routes/_platform/admin.staff'
@@ -128,6 +130,11 @@ const TenantReceiptsIndexRoute = TenantReceiptsIndexRouteImport.update({
   path: '/receipts/',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantGuidesIndexRoute = TenantGuidesIndexRouteImport.update({
+  id: '/guides/',
+  path: '/guides/',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantDispatchesIndexRoute = TenantDispatchesIndexRouteImport.update({
   id: '/dispatches/',
   path: '/dispatches/',
@@ -198,6 +205,11 @@ const TenantBundlesIdRoute = TenantBundlesIdRouteImport.update({
   path: '/bundles/$id',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantBSerialRoute = TenantBSerialRouteImport.update({
+  id: '/b/$serial',
+  path: '/b/$serial',
+  getParentRoute: () => TenantRoute,
+} as any)
 const PublicInviteTokenRoute = PublicInviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
@@ -245,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/admin/staff': typeof PlatformAdminStaffRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/invite/$token': typeof PublicInviteTokenRoute
+  '/b/$serial': typeof TenantBSerialRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
   '/customers/$id': typeof TenantCustomersIdRoute
   '/dies/$id': typeof TenantDiesIdRoute
@@ -259,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/customers/': typeof TenantCustomersIndexRoute
   '/dies/': typeof TenantDiesIndexRoute
   '/dispatches/': typeof TenantDispatchesIndexRoute
+  '/guides/': typeof TenantGuidesIndexRoute
   '/receipts/': typeof TenantReceiptsIndexRoute
   '/spool/': typeof TenantSpoolIndexRoute
   '/stock/': typeof TenantStockIndexRoute
@@ -280,6 +294,7 @@ export interface FileRoutesByTo {
   '/admin/staff': typeof PlatformAdminStaffRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/invite/$token': typeof PublicInviteTokenRoute
+  '/b/$serial': typeof TenantBSerialRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
   '/customers/$id': typeof TenantCustomersIdRoute
   '/dies/$id': typeof TenantDiesIdRoute
@@ -294,6 +309,7 @@ export interface FileRoutesByTo {
   '/customers': typeof TenantCustomersIndexRoute
   '/dies': typeof TenantDiesIndexRoute
   '/dispatches': typeof TenantDispatchesIndexRoute
+  '/guides': typeof TenantGuidesIndexRoute
   '/receipts': typeof TenantReceiptsIndexRoute
   '/spool': typeof TenantSpoolIndexRoute
   '/stock': typeof TenantStockIndexRoute
@@ -320,6 +336,7 @@ export interface FileRoutesById {
   '/_platform/admin/staff': typeof PlatformAdminStaffRoute
   '/_platform/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/_public/invite/$token': typeof PublicInviteTokenRoute
+  '/_tenant/b/$serial': typeof TenantBSerialRoute
   '/_tenant/bundles/$id': typeof TenantBundlesIdRoute
   '/_tenant/customers/$id': typeof TenantCustomersIdRoute
   '/_tenant/dies/$id': typeof TenantDiesIdRoute
@@ -334,6 +351,7 @@ export interface FileRoutesById {
   '/_tenant/customers/': typeof TenantCustomersIndexRoute
   '/_tenant/dies/': typeof TenantDiesIndexRoute
   '/_tenant/dispatches/': typeof TenantDispatchesIndexRoute
+  '/_tenant/guides/': typeof TenantGuidesIndexRoute
   '/_tenant/receipts/': typeof TenantReceiptsIndexRoute
   '/_tenant/spool/': typeof TenantSpoolIndexRoute
   '/_tenant/stock/': typeof TenantStockIndexRoute
@@ -357,6 +375,7 @@ export interface FileRouteTypes {
     | '/admin/staff'
     | '/admin/waitlist'
     | '/invite/$token'
+    | '/b/$serial'
     | '/bundles/$id'
     | '/customers/$id'
     | '/dies/$id'
@@ -371,6 +390,7 @@ export interface FileRouteTypes {
     | '/customers/'
     | '/dies/'
     | '/dispatches/'
+    | '/guides/'
     | '/receipts/'
     | '/spool/'
     | '/stock/'
@@ -392,6 +412,7 @@ export interface FileRouteTypes {
     | '/admin/staff'
     | '/admin/waitlist'
     | '/invite/$token'
+    | '/b/$serial'
     | '/bundles/$id'
     | '/customers/$id'
     | '/dies/$id'
@@ -406,6 +427,7 @@ export interface FileRouteTypes {
     | '/customers'
     | '/dies'
     | '/dispatches'
+    | '/guides'
     | '/receipts'
     | '/spool'
     | '/stock'
@@ -431,6 +453,7 @@ export interface FileRouteTypes {
     | '/_platform/admin/staff'
     | '/_platform/admin/waitlist'
     | '/_public/invite/$token'
+    | '/_tenant/b/$serial'
     | '/_tenant/bundles/$id'
     | '/_tenant/customers/$id'
     | '/_tenant/dies/$id'
@@ -445,6 +468,7 @@ export interface FileRouteTypes {
     | '/_tenant/customers/'
     | '/_tenant/dies/'
     | '/_tenant/dispatches/'
+    | '/_tenant/guides/'
     | '/_tenant/receipts/'
     | '/_tenant/spool/'
     | '/_tenant/stock/'
@@ -582,6 +606,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantReceiptsIndexRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/guides/': {
+      id: '/_tenant/guides/'
+      path: '/guides'
+      fullPath: '/guides/'
+      preLoaderRoute: typeof TenantGuidesIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/dispatches/': {
       id: '/_tenant/dispatches/'
       path: '/dispatches'
@@ -678,6 +709,13 @@ declare module '@tanstack/react-router' {
       path: '/bundles/$id'
       fullPath: '/bundles/$id'
       preLoaderRoute: typeof TenantBundlesIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/b/$serial': {
+      id: '/_tenant/b/$serial'
+      path: '/b/$serial'
+      fullPath: '/b/$serial'
+      preLoaderRoute: typeof TenantBSerialRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_public/invite/$token': {
@@ -784,6 +822,7 @@ const PublicRouteWithChildren =
 interface TenantRouteChildren {
   TenantDashboardRoute: typeof TenantDashboardRoute
   TenantTodayRoute: typeof TenantTodayRoute
+  TenantBSerialRoute: typeof TenantBSerialRoute
   TenantBundlesIdRoute: typeof TenantBundlesIdRoute
   TenantCustomersIdRoute: typeof TenantCustomersIdRoute
   TenantDiesIdRoute: typeof TenantDiesIdRoute
@@ -797,6 +836,7 @@ interface TenantRouteChildren {
   TenantCustomersIndexRoute: typeof TenantCustomersIndexRoute
   TenantDiesIndexRoute: typeof TenantDiesIndexRoute
   TenantDispatchesIndexRoute: typeof TenantDispatchesIndexRoute
+  TenantGuidesIndexRoute: typeof TenantGuidesIndexRoute
   TenantReceiptsIndexRoute: typeof TenantReceiptsIndexRoute
   TenantSpoolIndexRoute: typeof TenantSpoolIndexRoute
   TenantStockIndexRoute: typeof TenantStockIndexRoute
@@ -805,6 +845,7 @@ interface TenantRouteChildren {
 const TenantRouteChildren: TenantRouteChildren = {
   TenantDashboardRoute: TenantDashboardRoute,
   TenantTodayRoute: TenantTodayRoute,
+  TenantBSerialRoute: TenantBSerialRoute,
   TenantBundlesIdRoute: TenantBundlesIdRoute,
   TenantCustomersIdRoute: TenantCustomersIdRoute,
   TenantDiesIdRoute: TenantDiesIdRoute,
@@ -818,6 +859,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantCustomersIndexRoute: TenantCustomersIndexRoute,
   TenantDiesIndexRoute: TenantDiesIndexRoute,
   TenantDispatchesIndexRoute: TenantDispatchesIndexRoute,
+  TenantGuidesIndexRoute: TenantGuidesIndexRoute,
   TenantReceiptsIndexRoute: TenantReceiptsIndexRoute,
   TenantSpoolIndexRoute: TenantSpoolIndexRoute,
   TenantStockIndexRoute: TenantStockIndexRoute,

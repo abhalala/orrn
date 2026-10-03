@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 665 screen strings in 23 groups, 10 guides with 182 strings.
+Counts: 675 screen strings in 23 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -136,7 +136,7 @@ Counts: 665 screen strings in 23 groups, 10 guides with 182 strings.
 | `operator` | Operator | ऑपरेटर |
 | `viewer` | Viewer | व्यूअर |
 
-### nav (27)
+### nav (36)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -166,7 +166,16 @@ Counts: 665 screen strings in 23 groups, 10 guides with 182 strings.
 | `adminOverview` | Overview | सारांश |
 | `adminCompanies` | Companies | कंपनियां |
 | `adminRequests` | Access requests | एक्सेस रिक्वेस्ट |
+| `adminRequestsShort` | Requests | रिक्वेस्ट |
 | `adminStaff` | Staff | स्टाफ़ |
+| `openAccount` | Account and more | अकाउंट और बाकी पेज |
+| `home` | orrn home | orrn होम |
+| `godseye` | Godseye | Godseye |
+| `godseyeHome` | Godseye home | Godseye होम |
+| `paletteOpenBundle` | Open bundle {serial} | Bundle {serial} खोलें |
+| `paletteResults` | {count} {count:result\|results} | {count} {count:नतीजा\|नतीजे} |
+| `paletteMove` | Move | ऊपर-नीचे जाएं |
+| `paletteOpen` | Open | खोलें |
 
 ### auth (43)
 
@@ -343,7 +352,7 @@ Counts: 665 screen strings in 23 groups, 10 guides with 182 strings.
 | `detail.labelSent` | Label sent to printer | लेबल प्रिंटर को भेज दिया |
 | `detail.viewBundle` | Open bundle {serial} | Bundle {serial} खोलें |
 
-### scan (22)
+### scan (23)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -360,6 +369,7 @@ Counts: 665 screen strings in 23 groups, 10 guides with 182 strings.
 | `torchOn` | Turn torch on | टॉर्च चालू करें |
 | `torchOff` | Turn torch off | टॉर्च बंद करें |
 | `notFound` | Not found in this company | इस कंपनी में नहीं मिला |
+| `unrecognised` | That isn't a bundle serial or label link. Check it and try again. | यह bundle का serial या लेबल लिंक नहीं है। देखकर फिर से कोशिश करें। |
 | `continuous.title` | Scanning into {code} | {code} में स्कैन हो रहा है |
 | `continuous.added` | Added {serial} | {serial} जुड़ गया |
 | `continuous.count` | {count} added | {count} {count:जुड़ा\|जुड़े} |

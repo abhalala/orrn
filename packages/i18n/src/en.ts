@@ -172,7 +172,16 @@ export const en = {
     adminOverview: "Overview",
     adminCompanies: "Companies",
     adminRequests: "Access requests",
+    adminRequestsShort: "Requests",
     adminStaff: "Staff",
+    openAccount: "Account and more",
+    home: "orrn home",
+    godseye: "Godseye",
+    godseyeHome: "Godseye home",
+    paletteOpenBundle: "Open bundle {serial}",
+    paletteResults: "{count} {count:result|results}",
+    paletteMove: "Move",
+    paletteOpen: "Open",
   },
 
   auth: {
@@ -388,6 +397,7 @@ export const en = {
     torchOn: "Turn torch on",
     torchOff: "Turn torch off",
     notFound: "Not found in this company",
+    unrecognised: "That isn't a bundle serial or label link. Check it and try again.",
     continuous: {
       title: "Scanning into {code}",
       added: "Added {serial}",

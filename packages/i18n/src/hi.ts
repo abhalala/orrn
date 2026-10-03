@@ -166,7 +166,16 @@ export const hi = {
     adminOverview: "सारांश",
     adminCompanies: "कंपनियां",
     adminRequests: "एक्सेस रिक्वेस्ट",
+    adminRequestsShort: "रिक्वेस्ट",
     adminStaff: "स्टाफ़",
+    openAccount: "अकाउंट और बाकी पेज",
+    home: "orrn होम",
+    godseye: "Godseye",
+    godseyeHome: "Godseye होम",
+    paletteOpenBundle: "Bundle {serial} खोलें",
+    paletteResults: "{count} {count:नतीजा|नतीजे}",
+    paletteMove: "ऊपर-नीचे जाएं",
+    paletteOpen: "खोलें",
   },
 
   auth: {
@@ -382,6 +391,7 @@ export const hi = {
     torchOn: "टॉर्च चालू करें",
     torchOff: "टॉर्च बंद करें",
     notFound: "इस कंपनी में नहीं मिला",
+    unrecognised: "यह bundle का serial या लेबल लिंक नहीं है। देखकर फिर से कोशिश करें।",
     continuous: {
       title: "{code} में स्कैन हो रहा है",
       added: "{serial} जुड़ गया",
