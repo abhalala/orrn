@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 901 screen strings in 26 groups, 11 guides with 200 strings.
+Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 
 ## Screen strings
 
@@ -990,7 +990,7 @@ Counts: 901 screen strings in 26 groups, 11 guides with 200 strings.
 | `stubTitle` | This screen is being rebuilt | यह स्क्रीन फिर से बन रही है |
 | `stubBody` | It will be back here soon. | यह जल्द ही यहाँ वापस आएगी। |
 
-### charts (29)
+### charts (28)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1016,7 +1016,6 @@ Counts: 901 screen strings in 26 groups, 11 guides with 200 strings.
 | `isNew` | New | नया |
 | `isNewLong` | New this period | इस अवधि में नया |
 | `noValue` | No data | डेटा नहीं |
-| `soFar` | so far | अब तक |
 | `soFarLabel` | {label}, so far | {label}, अब तक |
 | `shareOfTotal` | {share} of total | कुल का {share} |
 | `unitThousand` | k | k (check) |
