@@ -126,7 +126,7 @@ function GroupTable({ group, unit, fresh, canRemove, removing, onRemove }: Bundl
               data-serial={it.serial}
               data-fresh={isFresh || undefined}
               className={cn(
-                "border-b border-border transition-colors duration-[var(--dur-slow)] last:border-0",
+                "border-b border-border last:border-0",
                 isFresh && "bg-tone-green-tint",
               )}
             >
@@ -167,7 +167,7 @@ function GroupRows({ group, unit, fresh, canRemove, removing, onRemove }: Bundle
             data-serial={it.serial}
             data-fresh={isFresh || undefined}
             className={cn(
-              "flex min-h-16 min-w-0 items-center gap-3 px-4 py-2.5 transition-colors duration-[var(--dur-slow)]",
+              "flex min-h-16 min-w-0 items-center gap-3 px-4 py-2.5",
               isFresh && "bg-tone-green-tint",
             )}
           >
