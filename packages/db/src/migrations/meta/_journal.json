@@ -99,6 +99,13 @@
       "when": 1791049502160,
       "tag": "0013_locations_stock_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1791051525914,
+      "tag": "0014_die_room",
+      "breakpoints": true
     }
   ]
 }

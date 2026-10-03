@@ -200,6 +200,22 @@ bun run deploy
   (legacy); there is no location 0 and no default location. `createReceipt` requires a yard
   `locationId` once the company has an active yard location.
 
+## Die room (sections, die copies, tiers)
+
+- The `die` table is the SECTION catalogue (12170 Domal and its weight band per 12 ft); do not rename
+  it. A physical copy ("oblique") is a `die_instance` row (`packages/db/src/schema/dies.ts`,
+  `routers/dieInstance.ts`). Bundles and press runs reference the copy (`bundle.die_instance_id` is
+  nullable for legacy stock and not a foreign key; validate it in code).
+- The oblique code `{sectionCode}-{n}` and `n` are allocated inside the insert (`INSERT … SELECT`),
+  unique per section, permanent, never reused; `update` cannot change them.
+- A tier (`tier_rank`, 1 = best, several copies may share one) changes only through `die_tier_change`:
+  `dieInstance.proposeTier` (die.rerank) opens an approval of kind `die_rerank` (subject = the tier
+  change id), and `approval.decide` applies it in the decision's own batch through the per-kind hook
+  table `APPROVAL_APPLIERS` in `lib/approvalApply.ts`. A later approval kind that needs an effect adds
+  its hook there; hook statements must be scoped by company and guarded with `decisionLanded`.
+- `kg_per_12ft_milli` is thousandths of a kg, which equals grams per 12 ft, the unit of the section
+  band (`die.weight_min_g` / `weight_max_g`). `drift` compares them directly.
+
 ## Worker performance rules
 
 - Minimize Worker CPU and wall time.

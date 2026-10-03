@@ -7,6 +7,7 @@ import { companyRouter } from "./company";
 import { inviteRouter } from "./invite";
 import { customerRouter } from "./customer";
 import { dieRouter } from "./die";
+import { dieInstanceRouter } from "./dieInstance";
 import { bundleRouter } from "./bundle";
 import { dispatchRouter } from "./dispatch";
 import { packingListRouter } from "./packingList";
@@ -33,6 +34,7 @@ export const appRouter = router({
   invite: inviteRouter,
   customer: customerRouter,
   die: dieRouter,
+  dieInstance: dieInstanceRouter,
   bundle: bundleRouter,
   dispatch: dispatchRouter,
   packingList: packingListRouter,

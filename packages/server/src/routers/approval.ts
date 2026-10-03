@@ -6,6 +6,7 @@ import { z } from "zod";
 import { user } from "@orrn/db/schema/auth";
 import { approval, approvalKinds, approvalStatuses } from "@orrn/db/schema/approval";
 
+import { APPROVAL_APPLIERS } from "../lib/approvalApply";
 import { atomicBatch } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { canApprove } from "../lib/permissions";
@@ -73,6 +74,8 @@ export const approvalRouter = router({
    * may decide, never the requester; a decided request is BAD_REQUEST. The
    * UPDATE is conditional on `pending`, and the audit row is written only if
    * this request's write landed, so two racing approvers produce one decision.
+   * Kinds with an apply hook (lib/approvalApply.ts) write their effect in the same
+   * batch, guarded the same way.
    */
   decide: companyProcedure
     .input(
@@ -112,6 +115,14 @@ export const approvalRouter = router({
         eq(approval.status, input.decision),
       );
 
+      // Kind-specific effect (e.g. die re-rank writes the tier), guarded to land only if this
+      // decision did, in the same batch as the decision.
+      const apply = APPROVAL_APPLIERS[row.kind]?.(
+        { db: ctx.db, companyId: ctx.companyId, seq: serverSeq, decidedAt },
+        { id: row.id, subjectId: row.subjectId },
+        input.decision,
+      ) ?? [];
+
       await atomicBatch(ctx.db, [
         ctx.db
           .update(approval)
@@ -119,6 +130,7 @@ export const approvalRouter = router({
           .where(
             and(eq(approval.id, row.id), eq(approval.companyId, ctx.companyId), eq(approval.status, "pending")),
           ),
+        ...apply,
         auditInsertGuarded(
           ctx,
           {

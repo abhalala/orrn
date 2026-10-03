@@ -3,6 +3,7 @@ export * from "./approval";
 export * from "./audit";
 export * from "./catalog";
 export * from "./customers";
+export * from "./dies";
 export * from "./dispatch";
 export * from "./inventory";
 export * from "./legacy";
