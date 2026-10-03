@@ -1,4 +1,5 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
+import { analyticsRouter } from "./analytics";
 import { approvalRouter } from "./approval";
 import { authRouter } from "./auth";
 import { waitlistRouter } from "./waitlist";
@@ -48,5 +49,6 @@ export const appRouter = router({
   stock: stockRouter,
   vendor: vendorRouter,
   purchase: purchaseRouter,
+  analytics: analyticsRouter,
 });
 export type AppRouter = typeof appRouter;

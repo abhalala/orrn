@@ -82,7 +82,7 @@ bun run deploy
   `die.reading`, `die.card`, `die.rerank`, `purchase.receipt`,
   `purchase.dcnote`, `store.txn`, `order.manage`, `invoice.link`,
   `masters.draft`, `masters.publish`, `users.manage`, `export.accounts`,
-  `reports.read`, `qc.enter`, `ageing.enter`), not the legacy keys. Every
+  `reports.read`, `qc.enter`, `ageing.enter`, `analytics.view`), not the legacy keys. Every
   holder of a legacy key also holds its plant equivalent, so moving a guard to
   a plant key removes access from nobody (tests in
   `packages/server/test/plant-roles.test.ts` pin this).
@@ -250,6 +250,23 @@ bun run deploy
   and type/reason — never weights or money (rate = amount ÷ kg); `approval.list` also strips other
   keys and the request note for callers without purchase read access. Approvers read the figures
   from `purchase.dcNotes.get`. Merging needs a confirmed (active) keeper.
+
+## Analytics (charts and customer numbers)
+
+- Router `analytics` (`routers/analytics.ts`, spec
+  `docs/superpowers/specs/2026-10-03-orrn-analytics-addendum.md` §3): `customerSummary`,
+  `customerLeaderboard`, `trends`, `stockAgeing`, `dispatchVolume`. All read-only and guarded by
+  `actionProcedure("analytics.view")` = owner, admin, manager, office, accountant. Floor roles and
+  viewer get FORBIDDEN; on the client gate every chart with `<Can do="analytics.view">`.
+- Volume counts completed dispatches only (`status = 'completed'`, not soft-deleted), dated by
+  `completed_at` and weighed as the sum of their bundles' `weight_g`. Weights return as integer grams.
+- Buckets use the company timezone (`settings.timezone`, IST default). Dates are company-local
+  `YYYY-MM-DD`, and ranges are half-open (`from` inclusive, `to` exclusive). `lib/zonedBuckets.ts`
+  shifts timestamps by the zone's offset inside SQL. The offset segments are inlined as integer
+  literals, so bucketing binds no parameters. Aggregate with GROUP BY and never bind id lists.
+- Stock ageing counts available + reserved bundles by whole days since pack (`bundle.created_at`).
+  Section breakdowns are the top 8 plus an `Other` row (`sectionId: null`). `openOrders` stays null
+  until sales orders exist (PL-8).
 
 ## Worker performance rules
 
