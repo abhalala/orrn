@@ -1,17 +1,26 @@
-import { bundleTone, formatKg, gToKg, kgPer12ft } from "@orrn/domain";
+import { formatKg, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { UiLink } from "@orrn/ui/components/link";
+import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, redirect, useLocation } from "@tanstack/react-router";
+import { ChevronLeft } from "lucide-react";
+import { useMemo } from "react";
 
+import { BundleActions } from "@/features/stock/bundle-actions";
+import { BundleFacts } from "@/features/stock/bundle-facts";
+import { BundleHero } from "@/features/stock/bundle-hero";
+import { BundleTimeline } from "@/features/stock/bundle-timeline";
+import { buildTimeline } from "@/features/stock/timeline";
+import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { isCompanySlug } from "@/shared/lib/bundle-qr";
 import { loadMe } from "@/shared/lib/guards";
 import { useLengthUnit } from "@/shared/lib/length";
 import { bundleDetailPath } from "@/shared/lib/paths";
 import { isNotFound } from "@/shared/lib/session-errors";
-import { trpcClient } from "@/shared/utils/trpc";
+import { trpc, trpcClient } from "@/shared/utils/trpc";
 import { TenantFrame } from "@/shell/tenant-frame";
 
 type Candidate = { bundleId: string; number: string; year: number };
@@ -29,7 +38,9 @@ type Candidate = { bundleId: string; number: string; year: number };
  *   view from `resolve.publicBundle` (company from `?c=`, else the host), only
  *   `{ number, section }`, and a button to sign in that returns here with `c`. Quantity and status stay behind a membership.
  *
- * The tenant page is a minimal summary; the Stock task builds the full screen.
+ * The member view (Task 21): status hero, actions, facts and history. The
+ * loader seeds React Query, so actions refresh the page by invalidating
+ * `bundle.getBySerial` like every other screen.
  */
 export const Route = createFileRoute("/b/$serial")({
   // `c` names the company on the label QR (`/b/26I4086?c=fourcubes`): production serves every
@@ -69,8 +80,10 @@ export const Route = createFileRoute("/b/$serial")({
       throw redirect({ href: `${bundleDetailPath({ serial: hit.number })}${location.searchStr}`, replace: true });
     }
     try {
+      // Plain client (a miss is this page's own message, not a toast), then seed the query cache.
       const detail = await trpcClient.bundle.getBySerial.query({ serial: hit.number });
-      return { audience: "member" as const, kind: "bundle" as const, detail };
+      context.queryClient.setQueryData(trpc.bundle.getBySerial.queryKey({ serial: hit.number }), detail);
+      return { audience: "member" as const, kind: "bundle" as const, serial: hit.number, detail };
     } catch (error) {
       if (!isNotFound(error)) throw error;
       return { audience: "member" as const, kind: "notFound" as const };
@@ -85,7 +98,7 @@ function BundlePage() {
   return (
     <TenantFrame>
       {data.kind === "bundle" ? (
-        <BundleSummary detail={data.detail} />
+        <BundleDetail serial={data.serial} initial={data.detail} />
       ) : data.kind === "ambiguous" ? (
         <PickYear candidates={data.candidates} />
       ) : (
@@ -132,40 +145,50 @@ function PublicBundle({ data }: { data: { kind: "found"; number: string; section
 
 type Detail = Awaited<ReturnType<typeof trpcClient.bundle.getBySerial.query>>;
 
-function BundleSummary({ detail }: { detail: Detail }) {
+/** Bundle page for a member: hero, actions, facts, history (spec §3 `/b/:serial`). */
+function BundleDetail({ serial, initial }: { serial: string; initial: Detail }) {
   const { t } = useT();
   const lu = useLengthUnit();
-  const { bundle, die } = detail;
-  const perFoot = kgPer12ft({ weightG: bundle.weightG, pieces: bundle.quantity, lengthMm: bundle.lengthMm });
-
-  const facts: { label: string; value: string }[] = [
-    { label: t("bundle.facts.weight"), value: `${formatKg(gToKg(bundle.weightG))} kg` },
-    { label: t("bundle.facts.pieces"), value: String(bundle.quantity) },
-    { label: t("bundle.facts.cutLength"), value: lu.formatLength(bundle.lengthMm) },
-    { label: t("bundle.facts.kgPer12ft"), value: perFoot === null ? "-" : formatKg(perFoot) },
-    { label: t("bundle.facts.section"), value: die ? `${die.series} ${die.sectionCode}` : "-" },
-    ...(bundle.poNumber ? [{ label: t("bundle.facts.po"), value: bundle.poNumber }] : []),
-  ];
+  const when = useCompanyWhen();
+  const query = useQuery({
+    ...trpc.bundle.getBySerial.queryOptions({ serial }),
+    initialData: initial,
+    // The loader just fetched it; refetch when an action invalidates it.
+    staleTime: 30_000,
+  });
+  const { bundle, die, group, activeDispatch, events } = query.data;
+  const timeline = useMemo(() => buildTimeline(events, bundle), [events, bundle]);
+  const section = die ? [die.series, die.sectionCode].filter(Boolean).join(" ") : null;
 
   return (
     <>
-      <PageHeader
-        title={t("bundle.title", { serial: bundle.serial })}
-        back={{ to: "/stock/bundles", label: t("stock.list.title") }}
+      <UiLink
+        to="/stock/bundles"
+        className="-mb-2 -ml-3 inline-flex min-h-11 items-center gap-1 self-start rounded-full pr-3 pl-2 text-[15px] font-semibold text-muted-foreground no-underline transition-colors duration-[var(--dur-fast)] hover:bg-accent hover:text-foreground"
+      >
+        <ChevronLeft aria-hidden="true" className="size-5" strokeWidth={2} />
+        {t("stock.list.title")}
+      </UiLink>
+      <BundleHero
+        serial={bundle.serial}
+        status={bundle.status}
+        section={section}
+        dieName={die?.name ?? null}
+        dispatch={activeDispatch}
       />
-      <div>
-        <Chip tone={bundleTone(bundle.status)}>{t(`status.bundle.${bundle.status}`)}</Chip>
-      </div>
-      <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-4 rounded-card border border-border bg-card p-4 sm:grid-cols-3">
-        {facts.map((f) => (
-          <div key={f.label} className="flex min-w-0 flex-col gap-0.5">
-            <dt className="text-[13px] font-medium text-muted-foreground">{f.label}</dt>
-            <dd className="m-0 truncate font-mono text-[17px] font-semibold" title={f.value}>
-              {f.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <BundleActions
+        bundle={bundle}
+        description={`${t("bundle.title", { serial: bundle.serial })} · ${formatKg(gToKg(bundle.weightG))} kg`}
+      >
+        <BundleFacts
+          bundle={bundle}
+          die={die}
+          group={group}
+          lengthUnit={lu.unit}
+          packedAt={when(bundle.createdAt)}
+        />
+        <BundleTimeline entries={timeline} activeDispatch={activeDispatch} />
+      </BundleActions>
     </>
   );
 }
