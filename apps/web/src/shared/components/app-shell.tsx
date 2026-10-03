@@ -1,5 +1,5 @@
 import { AppFrame, AppStatusBar, MobileNav } from "@orrn/ui/components/app-frame";
-import { Badge, StatusBadge } from "@orrn/ui/components/badge";
+import { StatusBadge } from "@orrn/ui/components/badge";
 import { cn } from "@orrn/ui/lib/utils";
 import {
   Sidebar,
@@ -8,7 +8,7 @@ import {
   useSidebar,
 } from "@orrn/ui/components/sidebar";
 import { Link, useMatchRoute } from "@tanstack/react-router";
-import { Building2, Eye, Shield } from "lucide-react";
+import { Building2, Eye } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Breadcrumbs } from "../components/breadcrumbs";
@@ -89,7 +89,12 @@ export function WorkspaceShell({
             {filteredNav.map((item) => {
               const isActive = isItemActive(item.to);
               return (
-                <Link key={item.key} to={item.to as any} className="block w-full no-underline">
+                <Link
+                  key={item.key}
+                  to={item.to as any}
+                  aria-current={isActive ? "page" : undefined}
+                  className="block w-full rounded-full no-underline"
+                >
                   <SidebarItem active={isActive} icon={item.icon}>
                     {item.label}
                   </SidebarItem>
@@ -99,7 +104,7 @@ export function WorkspaceShell({
           </SidebarSection>
           {!staffMode && me?.isPlatformAdmin ? (
             <SidebarSection label="Staff">
-              <Link to={PLATFORM_LINK.to as any} className="block w-full no-underline">
+              <Link to={PLATFORM_LINK.to as any} className="block w-full rounded-full no-underline">
                 <SidebarItem icon={PLATFORM_LINK.icon}>{PLATFORM_LINK.label}</SidebarItem>
               </Link>
             </SidebarSection>
@@ -137,25 +142,28 @@ function SidebarBrand({ homePath, staffMode }: { homePath: string; staffMode?: b
     <Link
       to={homePath as any}
       className={cn(
-        "flex min-w-0 items-center no-underline",
-        collapsed ? "justify-center gap-0" : "gap-2",
+        "flex min-h-11 min-w-0 items-center rounded-full no-underline",
+        collapsed ? "justify-center gap-0" : "gap-2.5 px-1.5",
       )}
       aria-label={staffMode ? "Godseye console home" : "ORRN home"}
     >
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-        {staffMode ? <Eye size={14} aria-hidden="true" /> : "O"}
-      </div>
+      <span
+        aria-hidden="true"
+        className="orrn-mark flex size-8 items-center justify-center text-white"
+      >
+        {staffMode ? <Eye size={16} aria-hidden="true" /> : null}
+      </span>
       {!collapsed ? (
-        <span className="flex min-w-0 items-baseline gap-1.5 truncate text-base font-semibold text-foreground">
+        <span className="flex min-w-0 items-baseline gap-1.5 truncate font-display text-xl font-extrabold tracking-[-0.03em] text-sidebar-foreground">
           {staffMode ? (
             <>
               Godseye
-              <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                by ORRN
+              <span className="font-sans text-xs font-medium tracking-normal text-sidebar-muted">
+                by orrn
               </span>
             </>
           ) : (
-            "ORRN"
+            "orrn"
           )}
         </span>
       ) : null}
@@ -168,11 +176,11 @@ function StatusContext({ staffMode }: { staffMode?: boolean }) {
   if (staffMode) {
     return (
       <div className="flex min-w-0 items-center gap-2">
-        <Eye size={14} className="hidden shrink-0 text-primary sm:block" aria-hidden="true" />
+        <Eye size={16} className="hidden shrink-0 text-tone-violet-ink sm:block" aria-hidden="true" />
         <span className="hidden truncate text-sm font-medium text-foreground sm:block">Godseye</span>
         <span className="truncate text-sm text-muted-foreground">{me?.user.email}</span>
         {me?.platformRole ? (
-          <StatusBadge kind="role" value="platform" label={me.platformRole.replace("_", " ").toUpperCase()} />
+          <StatusBadge kind="role" value="platform" label={sentenceCase(me.platformRole.replace(/_/g, " "))} />
         ) : null}
       </div>
     );
@@ -182,16 +190,17 @@ function StatusContext({ staffMode }: { staffMode?: boolean }) {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <Building2 size={14} className="hidden shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
-      <span className="truncate text-sm text-foreground">{me.company.name}</span>
-      {me.company.role ? <StatusBadge kind="role" value={me.company.role} label={me.company.role.toUpperCase()} /> : null}
+      <Building2 size={16} className="hidden shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
+      <span className="truncate text-sm font-semibold text-foreground">{me.company.name}</span>
+      {me.company.role ? <StatusBadge kind="role" value={me.company.role} label={sentenceCase(me.company.role)} /> : null}
       {me.isPlatformAdmin ? (
-        <Badge tone="warning">
-          <span className="inline-flex items-center gap-1">
-            <Shield size={10} aria-hidden="true" /> PLATFORM
-          </span>
-        </Badge>
+        <StatusBadge kind="role" value="platform" label="Platform" />
       ) : null}
     </div>
   );
+}
+
+function sentenceCase(value: string): string {
+  const lower = value.toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
 }

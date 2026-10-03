@@ -39,13 +39,13 @@ export function NavigationProgress() {
     <div
       aria-hidden="true"
       className={cn(
-        "pointer-events-none fixed inset-x-0 top-0 z-[100] h-0.5 overflow-hidden transition-opacity duration-200",
+        "pointer-events-none fixed inset-x-0 top-0 z-[100] h-[3px] overflow-hidden transition-opacity duration-200",
         visible ? "opacity-100" : "opacity-0",
       )}
     >
       <div
         className={cn(
-          "h-full rounded-r-full bg-primary shadow-[0_0_10px_var(--primary)]",
+          "h-full rounded-r-full bg-primary",
           isNavigating ? "orrn-nav-progress-running" : "orrn-nav-progress-done",
         )}
       />

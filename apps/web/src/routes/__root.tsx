@@ -35,7 +35,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   notFoundComponent: RootNotFound,
   head: () => ({
     meta: [
-      { title: "ORRN — multi-company ERP for manufactured inventory ops" },
+      { title: "ORRN: multi-company ERP for manufactured inventory ops" },
       {
         name: "description",
         content:
@@ -52,7 +52,8 @@ function RootComponent() {
       <HeadContent />
       <ThemeProvider
         attribute="class"
-        defaultTheme="dark"
+        defaultTheme="system"
+        enableSystem
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >

@@ -1,16 +1,18 @@
 import { test, expect } from "@playwright/test";
 
 async function setTheme(page: import("@playwright/test").Page, theme: "light" | "dark") {
+  // The app follows the system theme by default; the projects already emulate
+  // it, and this pins the next-themes choice (storage key "vite-ui-theme") too.
   await page.evaluate((t) => {
     document.documentElement.classList.remove("light", "dark");
     document.documentElement.classList.add(t);
-    localStorage.setItem("theme", t);
+    localStorage.setItem("vite-ui-theme", t);
   }, theme);
 }
 
 test.beforeEach(async ({ page }, testInfo) => {
-  // Marketing page is GSAP/Three.js animated; reduced motion swaps in static
-  // fallbacks so full-page screenshots are deterministic.
+  // Marketing page is GSAP animated; reduced motion swaps in static layouts
+  // so full-page screenshots are deterministic.
   await page.emulateMedia({ reducedMotion: "reduce" });
   const theme = testInfo.project.name.includes("light") ? "light" : "dark";
   await page.goto("/");
@@ -20,7 +22,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 test.describe("public marketing", () => {
   test("landing page layout", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("ORRN", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /Inventory truth/ })).toBeVisible();
     await expect(page).toHaveScreenshot("landing.png", { fullPage: true });
   });
 });
@@ -28,13 +30,13 @@ test.describe("public marketing", () => {
 test.describe("public auth", () => {
   test("login page layout", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByRole("heading", { name: "Sign In" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
     await expect(page).toHaveScreenshot("login.png", { fullPage: true });
   });
 
   test("waitlist page layout", async ({ page }) => {
     await page.goto("/waitlist");
-    await expect(page.getByText("Request ORRN Access")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Request ORRN access" })).toBeVisible();
     await expect(page).toHaveScreenshot("waitlist.png", { fullPage: true });
   });
 });
