@@ -26,6 +26,7 @@ import {
 } from "@orrn/db/schema/purchase";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
+import { storeItem, storeTxn } from "@orrn/db/schema/store";
 import { companySequence } from "@orrn/db/schema/sync";
 import { company, membership, platformAdmin } from "@orrn/db/schema/tenant";
 import { packingListWriteBatch } from "@orrn/server/routers/packingList";
@@ -905,6 +906,10 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     // Dev reset of the demo company only: the one place ledger rows are ever deleted (the
     // append-only grep test in plant-ledger.test.ts allows exactly this file).
     db.delete(stockLedger).where(eq(stockLedger.companyId, COMPANY_ID)),
+    // Store entries the app made since the last seed (RESTRICT on location and store_item; their
+    // GRN/MRS numbers would also collide once doc_series restarts below).
+    db.delete(storeTxn).where(eq(storeTxn.companyId, COMPANY_ID)),
+    db.delete(storeItem).where(eq(storeItem.companyId, COMPANY_ID)),
     db.delete(approval).where(eq(approval.companyId, COMPANY_ID)),
     db.delete(dcNote).where(eq(dcNote.companyId, COMPANY_ID)),
     db.delete(purchaseLot).where(eq(purchaseLot.companyId, COMPANY_ID)),
