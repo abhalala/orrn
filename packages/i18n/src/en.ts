@@ -863,6 +863,14 @@ export const en = {
     sub: "orrn tracks each bundle from packing to dispatch, so the floor and the office see the same stock.",
     requestAccess: "Request access",
     signIn: "Sign in",
+    homeLabel: "orrn home",
+    metaTitle: "orrn: every bundle, accounted for",
+    /** Words inside the demo pictures (marked "Demo data", hidden from screen readers). */
+    visual: {
+      bundles: "{count:bundle|bundles}",
+      pieces: "{count} pcs",
+      packingListReady: "Packing list ready",
+    },
     flow: {
       title: "Pack. Stock. Dispatch.",
       pack: "Enter each bundle's weight and pieces, and print its label.",
@@ -875,12 +883,15 @@ export const en = {
       hindi: "Hindi and English, one tap apart.",
       camera: "Scan labels with the phone camera.",
       devices: "Runs on a phone, a tablet or a laptop.",
+      tryIt: "Try it on this page",
     },
     office: {
       title: "For the office",
       stock: "Stock by section, up to date as bundles are packed and dispatched.",
       packingList: "Packing lists with your company header, ready to print or send.",
       labels: "Labels print on your own printers over the plant network.",
+      demoCompany: "Your company name",
+      demoCustomer: "Demo customer",
     },
     trust: {
       title: "Your data stays yours",
@@ -893,6 +904,8 @@ export const en = {
       body: "Tell us about your plant and we'll get in touch.",
     },
     footer: "orrn, for aluminium extrusion plants",
+    footerNav: "Footer",
+    copyright: "© {year} orrn",
   },
 
   /** Component library chrome (@orrn/ui): screen-reader and helper text. */

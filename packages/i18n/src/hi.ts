@@ -857,6 +857,13 @@ export const hi = {
     sub: "orrn हर bundle को पैकिंग से dispatch तक ट्रैक करता है, ताकि फ़्लोर और ऑफ़िस एक ही स्टॉक देखें।",
     requestAccess: "एक्सेस मांगें",
     signIn: "साइन इन करें",
+    homeLabel: "orrn होम",
+    metaTitle: "orrn: हर bundle का पूरा हिसाब",
+    visual: {
+      bundles: "{count:bundle|bundle}",
+      pieces: "{count} पीस",
+      packingListReady: "पैकिंग लिस्ट तैयार",
+    },
     flow: {
       title: "पैकिंग। स्टॉक। Dispatch।",
       pack: "हर bundle का वज़न और पीस डालें, और उसका लेबल प्रिंट करें।",
@@ -869,12 +876,15 @@ export const hi = {
       hindi: "हिंदी और English, एक टैप पर।",
       camera: "फ़ोन के कैमरे से लेबल स्कैन करें।",
       devices: "फ़ोन, टैबलेट या लैपटॉप पर चलता है।",
+      tryIt: "इसी पेज पर आज़माएं",
     },
     office: {
       title: "ऑफ़िस के लिए",
       stock: "सेक्शन के हिसाब से स्टॉक, हर पैकिंग और dispatch के साथ अपडेट।",
       packingList: "आपकी कंपनी के हेडर वाली पैकिंग लिस्ट, प्रिंट करने या भेजने के लिए तैयार।",
       labels: "प्लांट के नेटवर्क पर आपके अपने प्रिंटर से लेबल प्रिंट होते हैं।",
+      demoCompany: "आपकी कंपनी का नाम",
+      demoCustomer: "डेमो ग्राहक",
     },
     trust: {
       title: "आपका डेटा आपका ही रहता है",
@@ -887,6 +897,8 @@ export const hi = {
       body: "अपने प्लांट के बारे में बताएं, हम संपर्क करेंगे।",
     },
     footer: "orrn, एल्युमिनियम एक्सट्रूज़न प्लांट के लिए",
+    footerNav: "फ़ुटर",
+    copyright: "© {year} orrn",
   },
 
   ui: {
