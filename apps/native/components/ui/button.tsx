@@ -1,12 +1,11 @@
 import { cn } from "@orrn/ui/lib/utils";
 import { motion } from "@orrn/ui/tokens";
 import type { ReactNode } from "react";
-import { ActivityIndicator, Pressable, Text, type PressableProps } from "react-native";
-import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
+import { ActivityIndicator, Text, type PressableProps } from "react-native";
+import { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 
+import { AnimatedPressable } from "@/lib/nativewind-interop";
 import { useThemeColor } from "@/lib/theme";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 /** `lg` is the 56px floor size for primary actions; `md` (48px) for everything else. */

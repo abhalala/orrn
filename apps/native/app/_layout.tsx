@@ -1,4 +1,5 @@
 import "@/global.css";
+import "@/lib/nativewind-interop";
 
 import { I18nProvider, useT } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
@@ -20,6 +21,7 @@ import { resolveGate, ROOT_ROUTES, type GateState } from "@/lib/gate";
 import { GateContext } from "@/lib/gate-context";
 import { readInitialLocale, storeLocale } from "@/lib/locale-store";
 import { useStackOptions } from "@/lib/screen-options";
+import { shouldRetryQuery } from "@/lib/session";
 import { sessionPresence } from "@/lib/session-presence";
 import { useThemeColor } from "@/lib/theme";
 import { meQueryOptions } from "@/utils/me";
@@ -68,7 +70,8 @@ function OfflineScreen({ onRetry, retrying }: { onRetry: () => void; retrying: b
  */
 function RootNavigator() {
   const hasSession = useSyncExternalStore(sessionPresence.subscribe, sessionPresence.get);
-  const me = useQuery({ ...meQueryOptions(), enabled: hasSession });
+  // One retry, not three: an offline cold start reaches the offline screen in a second or two.
+  const me = useQuery({ ...meQueryOptions(), enabled: hasSession, retry: (n, e) => n < 1 && shouldRetryQuery(n, e) });
   const state: GateState = resolveGate({
     hasSession,
     me: me.data as Me | undefined,

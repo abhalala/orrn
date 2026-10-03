@@ -6,15 +6,15 @@ import { c2, motion, tones } from "@orrn/ui/tokens";
 import * as Haptics from "expo-haptics";
 import type { Tabs } from "expo-router";
 import type { ComponentProps } from "react";
-import { Pressable, Text, View } from "react-native";
-import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
+import { Text, View } from "react-native";
+import { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 
+import { AnimatedPressable } from "@/lib/nativewind-interop";
 import { useThemeColor } from "@/lib/theme";
 import { placeScan, TAB_ROUTES, type TabName } from "@/lib/nav";
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>["tabBar"]>>[0];
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /** Press feedback shared by the tabs: a small scale, none under reduced motion. */
 function usePress() {

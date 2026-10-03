@@ -42,7 +42,6 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
         accessibilityHint={!error && hint ? hint : undefined}
         accessibilityLabelledBy={`${id}-label`}
         accessibilityState={{ disabled: !editable }}
-        aria-invalid={!!error}
         editable={editable}
         placeholderTextColor={placeholderColor}
         className={cn(
