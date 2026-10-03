@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, isNotNull, ne } from "drizzle-orm";
 import { z } from "zod";
 
 import { hashPassword } from "@orrn/auth/password";
@@ -101,6 +101,24 @@ export const authRouter = router({
   setPassword: authedProcedure
     .input(z.object({ password: z.string().min(8) }))
     .mutation(async ({ ctx, input }) => {
+      // First password for a magic-link account only. Better Auth refuses a
+      // second one with a generic 500; say CONFLICT so the welcome stepper can
+      // move on instead of showing a crash (Task 17).
+      const existing = await ctx.db
+        .select({ id: account.id })
+        .from(account)
+        .where(
+          and(
+            eq(account.userId, ctx.session.user.id),
+            eq(account.providerId, "credential"),
+            isNotNull(account.password),
+          ),
+        )
+        .get();
+      if (existing) {
+        throw new TRPCError({ code: "CONFLICT", message: "A password is already set for this account" });
+      }
+
       const auth = createAuth();
       await auth.api.setPassword({
         body: {
@@ -199,22 +217,30 @@ export const authRouter = router({
   completeOnboarding: authedProcedure
     .input(
       z.object({
-        facilityLocation: z.string().min(1),
-        primaryContact: z.string().min(1),
-        timezone: z.string().min(1),
-        pressCount: z.number().int().min(0).default(0),
+        facilityLocation: z.string().trim().min(1).max(200).optional(),
+        primaryContact: z.string().trim().min(1).max(64).optional(),
+        timezone: z.string().trim().min(1).max(64).optional(),
+        pressCount: z.number().int().min(0).max(500).default(0),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
 
       // Company fields (facility, contact, timezone, press count) are company
-      // settings: only roles that may update settings write them. Everyone else
-      // just marks their own onboarding done; company inputs are ignored.
+      // settings: only roles that may update settings write them, and they
+      // must send them. Everyone else just marks their own onboarding done and
+      // may send nothing (the welcome stepper's last step); company inputs are
+      // ignored for them.
       const canWriteCompany = Boolean(
         ctx.companyId &&
           can({ company: ctx.role ? { role: ctx.role } : null, isPlatformAdmin: false }, "settings.update"),
       );
+      if (canWriteCompany && (!input.facilityLocation || !input.primaryContact || !input.timezone)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Location, contact phone and time zone are required",
+        });
+      }
 
       const statements: SqliteBatchItem[] = [
         ctx.db

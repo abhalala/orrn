@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 815 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -193,7 +193,7 @@ Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 | `paletteMove` | Move | ऊपर-नीचे जाएं |
 | `paletteOpen` | Open | खोलें |
 
-### auth (43)
+### auth (87)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -206,76 +206,149 @@ Counts: 742 screen strings in 25 groups, 10 guides with 182 strings.
 | `login.wrongCredentials` | Email or password is wrong. Check both and try again. | ईमेल या पासवर्ड गलत है। दोनों जांचें और फिर से कोशिश करें। |
 | `login.newHere` | New to orrn? | orrn पर नए हैं? |
 | `login.requestAccess` | Request access | एक्सेस मांगें |
+| `login.showPassword` | Show password | पासवर्ड दिखाएं |
+| `login.hidePassword` | Hide password | पासवर्ड छिपाएं |
 | `totp.title` | Enter your code | अपना कोड डालें |
 | `totp.body` | Open your authenticator app and type the 6-digit code for orrn. | अपना authenticator ऐप खोलें और orrn वाला 6 अंकों का कोड लिखें। |
 | `totp.code` | 6-digit code | 6 अंकों का कोड |
 | `totp.submit` | Verify | जांचें |
+| `totp.verifying` | Checking | जांच हो रही है |
 | `totp.wrongCode` | That code didn't work. Codes change every 30 seconds, so type the newest one. | यह कोड नहीं चला। कोड हर 30 सेकंड में बदलता है, इसलिए सबसे नया कोड डालें। |
+| `totp.codeRequired` | Type all 6 digits. | पूरे 6 अंक लिखें। |
+| `totp.trust` | Trust this device for 30 days | इस डिवाइस पर 30 दिन तक भरोसा रखें |
+| `totp.useBackup` | Use a backup code instead | इसकी जगह बैकअप कोड इस्तेमाल करें |
+| `totp.useApp` | Use the authenticator app instead | इसकी जगह authenticator ऐप इस्तेमाल करें |
+| `totp.backupTitle` | Enter a backup code | बैकअप कोड डालें |
+| `totp.backupBody` | Type one of the backup codes you saved when you turned on two-factor. Each one works once. | टू-फ़ैक्टर चालू करते समय जो बैकअप कोड सेव किए थे, उनमें से एक लिखें। हर कोड एक बार ही चलता है। |
+| `totp.backupCode` | Backup code | बैकअप कोड |
+| `totp.backupRequired` | Type a backup code. | बैकअप कोड लिखें। |
+| `totp.wrongBackup` | That backup code didn't work. Check it, or use one you haven't used yet. | यह बैकअप कोड नहीं चला। इसे जांचें, या कोई ऐसा कोड डालें जो पहले इस्तेमाल नहीं हुआ। |
+| `totp.back` | Back to password | पासवर्ड पर वापस |
+| `validation.email` | Enter your email. | अपना ईमेल डालें। |
+| `validation.password` | Enter your password. | अपना पासवर्ड डालें। |
+| `validation.passwordShort` | Use at least 8 characters. | कम से कम 8 अक्षर रखें। |
+| `validation.name` | Enter your name. | अपना नाम डालें। |
+| `validation.company` | Enter your company's name. | अपनी कंपनी का नाम डालें। |
+| `errors.tooMany` | Too many tries. Wait a minute, then try again. | बहुत बार कोशिश हो गई। एक मिनट रुकें, फिर कोशिश करें। |
+| `errors.twoFactorExpired` | That took too long. Sign in again with your password. | बहुत देर हो गई। अपने पासवर्ड से फिर से साइन इन करें। |
+| `brand.label` | How orrn works | orrn कैसे काम करता है |
+| `brand.holdStep` | Hold | होल्ड |
+| `brand.pack` | Weight and pieces in, label out. | वज़न और पीस डालें, लेबल निकालें। |
+| `brand.hold` | Kept for one customer. | एक ग्राहक के लिए रखे गए। |
+| `brand.dispatch` | Scanned out with a packing list. | पैकिंग लिस्ट के साथ स्कैन होकर बाहर। |
 | `requestAccess.title` | Request access | एक्सेस मांगें |
 | `requestAccess.subtitle` | Tell us about your plant and we'll get in touch to set up your company. | अपने प्लांट के बारे में बताएं। आपकी कंपनी सेट करने के लिए हम संपर्क करेंगे। |
 | `requestAccess.company` | Company name | कंपनी का नाम |
 | `requestAccess.name` | Your name | आपका नाम |
 | `requestAccess.workEmail` | Work email | काम का ईमेल |
 | `requestAccess.lines` | Extrusion lines | एक्सट्रूज़न लाइनें |
+| `requestAccess.slotTitle` | When could we show you orrn? | हम आपको orrn कब दिखा सकते हैं? |
+| `requestAccess.slotHint` | Optional. We'll confirm the time by email. | ज़रूरी नहीं। समय हम ईमेल से पक्का करेंगे। |
 | `requestAccess.preferredDate` | Preferred date | पसंद की तारीख |
 | `requestAccess.preferredTime` | Preferred time | पसंद का समय |
 | `requestAccess.notes` | Anything else we should know | और कुछ जो हमें पता होना चाहिए |
+| `requestAccess.notesHint` | Optional. Up to {max} characters. | ज़रूरी नहीं। ज़्यादा से ज़्यादा {max} अक्षर। |
 | `requestAccess.submit` | Send request | रिक्वेस्ट भेजें |
+| `requestAccess.submitting` | Sending | भेज रहे हैं |
+| `requestAccess.failed` | The request didn't send. Check the fields and try again. | रिक्वेस्ट नहीं गई। जानकारी जांचें और फिर से कोशिश करें। |
 | `requestAccess.successTitle` | Request sent | रिक्वेस्ट भेज दी |
 | `requestAccess.successBody` | We have your request. We'll reply to {email}. | आपकी रिक्वेस्ट मिल गई। हम {email} पर जवाब देंगे। |
 | `requestAccess.backHome` | Back to home | होम पर वापस |
 | `invite.title` | Join {company} | {company} से जुड़ें |
 | `invite.subtitle` | You're joining as {role}. | आप {role} के रूप में जुड़ रहे हैं। |
 | `invite.genericTitle` | Join your team on orrn | orrn पर अपनी टीम से जुड़ें |
+| `invite.genericBody` | Use the email address your invite was sent to. | वही ईमेल डालें जिस पर आपका इनवाइट आया है। |
 | `invite.name` | Your name | आपका नाम |
 | `invite.email` | Email | ईमेल |
 | `invite.password` | Password | पासवर्ड |
 | `invite.passwordHint` | At least 8 characters. | कम से कम 8 अक्षर। |
 | `invite.submit` | Create account and join | अकाउंट बनाएं और जुड़ें |
+| `invite.submitting` | Joining | जुड़ रहे हैं |
+| `invite.signInSubmit` | Sign in and join | साइन इन करें और जुड़ें |
 | `invite.existingAccount` | This email already has an account. Sign in to join. | इस ईमेल का अकाउंट पहले से है। जुड़ने के लिए साइन इन करें। |
+| `invite.signedInAs` | You're signed in as {email}. | आप {email} से साइन इन हैं। |
+| `invite.joinAsMe` | Join with this account | इसी अकाउंट से जुड़ें |
+| `invite.otherAccount` | Use another account | दूसरा अकाउंट इस्तेमाल करें |
+| `invite.joined` | Joined | जुड़ गए |
+| `invite.expiredTitle` | This invite link doesn't work | यह इनवाइट लिंक काम नहीं कर रहा |
 | `invite.expired` | This invite link has expired or was already used. Ask your admin for a new one. | यह इनवाइट लिंक पुराना हो गया है या पहले ही इस्तेमाल हो चुका है। अपने एडमिन से नया लिंक मांगें। |
+| `invite.wrongEmailTitle` | This invite is for a different email | यह इनवाइट किसी दूसरे ईमेल के लिए है |
+| `invite.wrongEmail` | Sign out, then open the link again and use the email the invite was sent to. | साइन आउट करें, फिर लिंक दोबारा खोलें और वही ईमेल डालें जिस पर इनवाइट आया था। |
+| `invite.goSignIn` | Go to sign in | साइन इन पर जाएं |
 | `noAccess.title` | Your account isn't in a company yet | आपका अकाउंट अभी किसी कंपनी में नहीं है |
 | `noAccess.body` | You're signed in as {email}. | आप {email} से साइन इन हैं। |
+| `noAccess.signedInLabel` | Signed in as | इस ईमेल से साइन इन हैं |
 | `noAccess.ask` | Ask your admin to invite this email. | अपने एडमिन से इस ईमेल को इनवाइट करने के लिए कहें। |
+| `noAccess.copyEmail` | Copy email | ईमेल कॉपी करें |
 | `noAccess.switchAccount` | Sign out and use another account | साइन आउट करें और दूसरा अकाउंट इस्तेमाल करें |
+| `noAccess.ownPlant` | Setting up orrn for your own plant? | अपने प्लांट के लिए orrn शुरू करना है? |
 | `sessionExpired` | Your session ended. Sign in again. | आपका सेशन खत्म हो गया। फिर से साइन इन करें। |
 | `signOut` | Sign out | साइन आउट |
 
-### welcome (31)
+### welcome (60)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Welcome to orrn | orrn में आपका स्वागत है |
 | `subtitle` | A few steps before you start. | शुरू करने से पहले कुछ कदम। |
+| `progress` | Setup steps | सेटअप के कदम |
 | `steps.password` | Password | पासवर्ड |
 | `steps.twoFactor` | Two-factor | टू-फ़ैक्टर |
 | `steps.company` | Company details | कंपनी की जानकारी |
 | `steps.done` | Done | हो गया |
 | `password.title` | Set your password | अपना पासवर्ड बनाएं |
 | `password.body` | You'll use this with your email to sign in. | साइन इन करने के लिए आप ईमेल के साथ यही पासवर्ड डालेंगे। |
+| `password.forcedBody` | Your admin gave you a temporary password. Choose your own to continue. | आपके एडमिन ने आपको कुछ समय का पासवर्ड दिया था। आगे बढ़ने के लिए अपना पासवर्ड बनाएं। |
 | `password.newPassword` | New password | नया पासवर्ड |
 | `password.confirmPassword` | Type it again | फिर से लिखें |
 | `password.hint` | At least 8 characters. | कम से कम 8 अक्षर। |
 | `password.mismatch` | The two passwords don't match. | दोनों पासवर्ड एक जैसे नहीं हैं। |
 | `password.submit` | Save password | पासवर्ड सेव करें |
+| `password.submitting` | Saving | सेव हो रहा है |
+| `password.saved` | Password saved | पासवर्ड सेव हो गया |
+| `password.alreadySet` | This account already has a password, so we kept it. | इस अकाउंट का पासवर्ड पहले से है, इसलिए वही रखा है। |
 | `twoFactor.title` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
 | `twoFactor.body` | Scan this QR code with an authenticator app, then type the 6-digit code it shows. | इस QR कोड को authenticator ऐप से स्कैन करें, फिर ऐप में दिख रहा 6 अंकों का कोड लिखें। |
+| `twoFactor.confirmBody` | Type your password to get your QR code. | QR कोड पाने के लिए अपना पासवर्ड लिखें। |
+| `twoFactor.confirmPassword` | Your password | आपका पासवर्ड |
+| `twoFactor.showQr` | Show QR code | QR कोड दिखाएं |
+| `twoFactor.wrongPassword` | That password is wrong. Type the one you just set. | यह पासवर्ड गलत है। वही लिखें जो आपने अभी बनाया। |
+| `twoFactor.loading` | Getting your QR code | आपका QR कोड आ रहा है |
+| `twoFactor.qrAlt` | QR code for your authenticator app | आपके authenticator ऐप के लिए QR कोड |
 | `twoFactor.manualKey` | Can't scan it? Type this key in the app instead. | स्कैन नहीं हो रहा? यह key ऐप में लिख दें। |
+| `twoFactor.copyKey` | Copy key | key कॉपी करें |
 | `twoFactor.code` | 6-digit code | 6 अंकों का कोड |
+| `twoFactor.submit` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
+| `twoFactor.verifying` | Checking | जांच हो रही है |
+| `twoFactor.enabled` | Two-factor is on | टू-फ़ैक्टर चालू है |
 | `twoFactor.backupTitle` | Backup codes | बैकअप कोड |
 | `twoFactor.backupBody` | Keep these somewhere safe. Each one works once if you lose your phone. | इन्हें संभाल कर रखें। फ़ोन खो जाए तो हर कोड एक बार काम करेगा। |
-| `twoFactor.submit` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
+| `twoFactor.copyCodes` | Copy codes | कोड कॉपी करें |
+| `twoFactor.continue` | I saved them, continue | सेव कर लिए, आगे बढ़ें |
 | `company.title` | Company details | कंपनी की जानकारी |
 | `company.body` | Tell us where your plant is and how to reach you. | बताएं कि आपका प्लांट कहां है और आपसे कैसे संपर्क करें। |
 | `company.location` | Location | जगह |
+| `company.locationHint` | Town or industrial area, like Pandesara, Surat. | शहर या इंडस्ट्रियल एरिया, जैसे पांडेसरा, सूरत। |
 | `company.contact` | Contact phone | संपर्क फ़ोन |
 | `company.timezone` | Time zone | टाइम ज़ोन |
+| `company.thisDevice` | {zone} (this device) | {zone} (यह डिवाइस) |
 | `company.presses` | Number of presses | प्रेस की संख्या |
+| `company.termsTitle` | The short version of the terms | शर्तें, छोटे में |
+| `company.termsUse` | Use orrn for your company's work, in the role you were given. | orrn को अपनी कंपनी के काम के लिए, अपने दिए गए रोल में इस्तेमाल करें। |
+| `company.termsPasswords` | Keep your password and authenticator to yourself. | अपना पासवर्ड और authenticator किसी से शेयर न करें। |
+| `company.termsData` | Your company's data stays in your company, and every change is logged. | आपकी कंपनी का डेटा आपकी कंपनी में ही रहता है, और हर बदलाव का रिकॉर्ड रहता है। |
 | `company.terms` | I agree to the orrn terms of service | मुझे orrn की सेवा शर्तें मंज़ूर हैं |
+| `company.termsRequired` | Tick the box to agree before you continue. | आगे बढ़ने से पहले बॉक्स पर टिक करके मंज़ूरी दें। |
 | `company.submit` | Save and continue | सेव करें और आगे बढ़ें |
+| `company.submitting` | Saving | सेव हो रहा है |
 | `done.title` | You're set up | सब तैयार है |
 | `done.body` | Your account is ready. | आपका अकाउंट तैयार है। |
+| `done.as` | You're in {company} as {role}. | आप {company} में {role} के रूप में हैं। |
+| `done.joinedTitle` | Welcome to {company} | {company} में आपका स्वागत है |
 | `done.go` | Go to Today | आज का पेज खोलें |
+| `done.goAdmin` | Open Godseye | Godseye खोलें |
+| `done.goOther` | Continue | आगे बढ़ें |
+| `done.opening` | Opening | खुल रहा है |
 
 ### today (29)
 
