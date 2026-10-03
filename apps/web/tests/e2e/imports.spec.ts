@@ -159,10 +159,15 @@ test.describe("import sheet", () => {
     await expect(sheet.getByText("12 ft", { exact: true })).toBeVisible();
     await expect(sheet.getByText("Weight (kg) is empty.")).toBeVisible();
     await expect(sheet.getByText("Weight (kg) is not a plain number. Use digits only, like 45.5.")).toBeVisible();
+    // One live region, mounted with the sheet, reads each stage out.
+    const announce = page.locator("[data-slot='import-announce']");
+    await expect(announce).toHaveAttribute("role", "status");
+    await expect(announce).toHaveText("1 row ready. 2 rows with problems.");
 
     await sheet.getByRole("button", { name: "Import 1 row" }).click();
     await expect(stage(page)).toHaveAttribute("data-stage", "done");
     await expect(sheet.locator("[data-slot='status-block']")).toContainText("Imported");
+    await expect(announce).toHaveText("1 row imported");
 
     const saved = await trpcQuery<{ items: { lengthMm: number; weightG: number; quantity: number }[] }>(
       page,
