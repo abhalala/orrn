@@ -365,6 +365,7 @@ export const dispatchRouter = router({
           dieId: bundle.dieId,
           dieSeries: die.series,
           dieSectionCode: die.sectionCode,
+          dieName: die.name,
           addedAt: dispatchItem.addedAt,
         })
         .from(dispatchItem)

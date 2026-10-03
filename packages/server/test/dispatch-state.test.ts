@@ -189,6 +189,18 @@ describe("dispatch and bundle state predicates", () => {
     ]);
   });
 
+  test("getDispatch names each item's die (the floor knows sections by name)", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = env.caller({ role: "owner", companyId });
+    const dieId = await env.seedDie(companyId, { name: 'Patti 1" x 1/8"' });
+    const customerId = await env.seedCustomer(companyId);
+    const [b] = await env.seedBundles(companyId, dieId, 1);
+    const d = await api.dispatch.create({ customerId });
+    await api.dispatch.addBundle({ id: d.id, bundleId: b!.id });
+    const res = await api.dispatch.getDispatch({ id: d.id });
+    expect(res.items[0]).toMatchObject({ serial: b!.serial, dieName: 'Patti 1" x 1/8"' });
+  });
+
   test("addBundlesBySerial with nothing addable writes nothing and does not throw", async () => {
     const { api, customerId } = await setup(0);
     const d = await api.dispatch.create({ customerId });
