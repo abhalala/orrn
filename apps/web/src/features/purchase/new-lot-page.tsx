@@ -25,6 +25,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { Can } from "@/shared/components/can";
 import { canAny, useMe } from "@/shared/lib/me";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
@@ -208,21 +209,23 @@ function NewLotForm() {
                 {t("common.back")}
               </Button>
             ) : null}
-            <Button type="submit" size="lg" loading={saving}>
-              {last ? t("purchase.new.save") : t("common.next")}
-            </Button>
+            <Can do="purchase.receipt">
+              <Button type="submit" size="lg" loading={saving}>
+                {last ? t("purchase.new.save") : t("common.next")}
+              </Button>
+            </Can>
           </div>
         </form>
 
         <aside aria-label={t("purchase.new.summary")} className="sticky top-24 hidden lg:block">
           <Summary
-                draft={draft}
-                reading={reading}
-                toleranceBp={tolBp}
-                itemName={itemName(draft.itemId)}
-                locale={locale}
-                canNote={perms.dcnote}
-              />
+            draft={draft}
+            reading={reading}
+            toleranceBp={tolBp}
+            itemName={itemName(draft.itemId)}
+            locale={locale}
+            canNote={perms.dcnote}
+          />
         </aside>
       </div>
     </>

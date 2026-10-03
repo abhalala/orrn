@@ -141,23 +141,29 @@ function LotDetail({ data }: { data: LotData }) {
   const primaryButton = (() => {
     if (step.primary === "weigh") {
       return (
-        <Button size="lg" onClick={() => setSheet("weights")}>
-          {t("purchase.detail.weigh")}
-        </Button>
+        <Can do="purchase.receipt">
+          <Button size="lg" onClick={() => setSheet("weights")}>
+            {t("purchase.detail.weigh")}
+          </Button>
+        </Can>
       );
     }
     if (step.primary === "note") {
       return (
-        <Button size="lg" onClick={() => setSheet("note")}>
-          {t("purchase.detail.raiseNote")}
-        </Button>
+        <Can do="purchase.dcnote">
+          <Button size="lg" onClick={() => setSheet("note")}>
+            {t("purchase.detail.raiseNote")}
+          </Button>
+        </Can>
       );
     }
     if (step.primary === "ok") {
       return (
-        <Button size="lg" loading={markOk.isPending || stores.isLoading} onClick={onOk}>
-          {t("purchase.detail.markOk")}
-        </Button>
+        <Can do="purchase.receipt">
+          <Button size="lg" loading={markOk.isPending || stores.isLoading} onClick={onOk}>
+            {t("purchase.detail.markOk")}
+          </Button>
+        </Can>
       );
     }
     return null;
@@ -205,10 +211,13 @@ function LotDetail({ data }: { data: LotData }) {
     );
   }
   if (step.canCancel) {
+    // An OK lot is in stock: only masters.publish may cancel it (the server's rule); before OK either action may.
     secondary.push(
-      <Button key="cancel" variant="ghost" className="text-tone-red-ink" onClick={() => setSheet("cancel")}>
-        {t("purchase.detail.cancel")}
-      </Button>,
+      <Can key="cancel" do={status === "ok" || !perms.receipt ? "masters.publish" : "purchase.receipt"}>
+        <Button variant="ghost" className="text-tone-red-ink" onClick={() => setSheet("cancel")}>
+          {t("purchase.detail.cancel")}
+        </Button>
+      </Can>,
     );
   }
 
