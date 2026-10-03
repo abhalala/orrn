@@ -199,10 +199,10 @@ function ScanCorners() {
   const corner = "absolute size-5 border-tone-neutral-on";
   return (
     <>
-      <span className={cn(corner, "left-3 top-3 rounded-tl-md border-l-2 border-t-2")} />
-      <span className={cn(corner, "right-3 top-3 rounded-tr-md border-r-2 border-t-2")} />
-      <span className={cn(corner, "bottom-3 left-3 rounded-bl-md border-b-2 border-l-2")} />
-      <span className={cn(corner, "bottom-3 right-3 rounded-br-md border-b-2 border-r-2")} />
+      <span className={cn(corner, "left-3 top-3 rounded-tl-input border-l-2 border-t-2")} />
+      <span className={cn(corner, "right-3 top-3 rounded-tr-input border-r-2 border-t-2")} />
+      <span className={cn(corner, "bottom-3 left-3 rounded-bl-input border-b-2 border-l-2")} />
+      <span className={cn(corner, "bottom-3 right-3 rounded-br-input border-b-2 border-r-2")} />
     </>
   );
 }
