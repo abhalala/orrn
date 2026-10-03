@@ -138,6 +138,10 @@ export function devLocalWranglerArgs(ports: Pick<DevPorts, "apiURL" | "webURL" |
     "wrangler.local.jsonc",
     "--port",
     String(ports.apiPort),
+    // The inspector defaults to 9229 for every worker; two worktrees starting together race for it and
+    // the loser dies with "Address already in use". 0 lets the OS pick a free port per worker.
+    "--inspector-port",
+    "0",
     "--var",
     `BETTER_AUTH_URL:${apiOrigin}`,
     "--var",

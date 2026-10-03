@@ -33,6 +33,7 @@ Up to ten worktrees can run dev servers and Playwright at once. Each gets its ow
 | `E2E_API_PORT` (or `E2E_API_URL`) | `dev:local` API worker, e2e API URL | `3000` |
 | `E2E_WEB_PORT` (or `E2E_BASE_URL`) | Vite dev server, e2e base URL | `3002` |
 | `VISUAL_WEB_PORT` (or `PLAYWRIGHT_BASE_URL`) | Vite server of the public-page visual suite | web port + 100 in a worktree, else `3001` |
+| `E2E_WORKERS` | Playwright workers per run (`--workers` still wins) | Playwright's default; `.wt-ports.env` sets `3` |
 
 The `E2E_` prefix is historical: the same variables drive the plain dev servers, so a worktree has one place
 that says "my ports". `.superpowers/sdd/coord/wt-setup.sh` writes them to `.wt-ports.env` at the worktree root:
@@ -45,6 +46,11 @@ bun run --cwd apps/web dev:bare              # web on $E2E_WEB_PORT
 curl -XPOST localhost:$E2E_API_PORT/dev/seed
 bun run --cwd apps/web test:e2e              # starts (or reuses) both on those ports, seeds, runs
 ```
+
+Several worktrees running e2e at once need the lower worker count: with Playwright's default each run takes
+about half the cores, and first-load pages then miss the 5 s expect timeout (blank page, no `h1`).
+`dev:local` also starts wrangler with `--inspector-port 0`, because every worker otherwise tries to bind
+9229 and the second one to start dies with "Address already in use".
 
 `dev:local` passes `--port` and `--var` overrides to wrangler so auth base URL, CORS origin and the public web
 URL match the ports; `wrangler.local.jsonc` keeps the defaults. In development the API accepts CORS and Better

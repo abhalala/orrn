@@ -13,7 +13,8 @@ import { defineConfig, devices, type PlaywrightTestConfig } from "@playwright/te
  *
  * Ports are per worktree, so up to ten worktrees can run these suites at once:
  * E2E_API_PORT / E2E_WEB_PORT (or E2E_API_URL / E2E_BASE_URL) for the stack and
- * VISUAL_WEB_PORT (or PLAYWRIGHT_BASE_URL) for the public-page suite. Defaults
+ * VISUAL_WEB_PORT (or PLAYWRIGHT_BASE_URL) for the public-page suite, and
+ * E2E_WORKERS caps the workers per run (unset: Playwright's default). Defaults
  * are today's single-checkout ports, API 3000, web 3002, visual 3001. In a
  * worktree, `source .wt-ports.env` first: with no ports in the environment this
  * config refuses to run rather than reuse another worktree's servers.
@@ -58,6 +59,14 @@ const portEnv = {
   E2E_BASE_URL: ports.webURL,
 };
 
+/**
+ * Playwright's default is one worker per two cores, per run. Several worktrees running at once
+ * multiply that and push first-load pages past the 5 s expect timeout (blank page, no h1), so
+ * wt-setup.sh writes E2E_WORKERS=3 into .wt-ports.env. `--workers` on the command line still wins.
+ */
+const workersFromEnv = Number(process.env.E2E_WORKERS);
+const e2eWorkers = Number.isInteger(workersFromEnv) && workersFromEnv > 0 ? workersFromEnv : undefined;
+
 const visualServer: NonNullable<PlaywrightTestConfig["webServer"]> = {
   command: `bun run dev:bare -- --host 127.0.0.1 --port ${ports.visualPort} --strictPort`,
   url: visualBaseURL,
@@ -94,7 +103,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : e2eWorkers,
   reporter: [["list"], ["html", { open: "never" }]],
   snapshotPathTemplate: "{testDir}/{testFilePath}-snapshots/{arg}-{projectName}{ext}",
   use: {

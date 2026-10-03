@@ -129,6 +129,14 @@ describe("devLocalWranglerArgs", () => {
     expect(vars.get("WEB_PUBLIC_URL")).toBe("http://localhost:3291");
   });
 
+  test("never binds the shared default inspector port 9229 (two concurrent workers would race for it)", () => {
+    const args = devLocalWranglerArgs(resolveDevPorts({ E2E_API_PORT: "3290", E2E_WEB_PORT: "3291" }));
+    const at = args.indexOf("--inspector-port");
+    expect(at).toBeGreaterThan(-1);
+    expect(args[at + 1]).toBe("0"); // 0 = let the OS pick a free one
+    expect(args).not.toContain("9229");
+  });
+
   test("defaults reproduce today's wrangler.local.jsonc values", () => {
     const args = devLocalWranglerArgs(resolveDevPorts({}));
     expect(args).toContain("3000");
