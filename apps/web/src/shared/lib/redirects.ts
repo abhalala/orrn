@@ -22,7 +22,8 @@ export const STATIC_REDIRECTS: Record<string, string> = {
   "/change-password": "/welcome",
   "/waitlist": "/request-access",
   "/admin/waitlist": "/admin/requests",
-  "/admin/spool": "/admin/companies",
+  // Spec §3: the old print station list is the companies list with the Printing filter on.
+  "/admin/spool": "/admin/companies?printing=1",
 };
 
 /** Old parent path to its new parent: `/receipts/abc` becomes `/pack/abc`. */

@@ -219,8 +219,9 @@ test("staff: /admin/waitlist and /admin/spool land on the new pages", async ({ p
   await page.goto("/admin/waitlist");
   await expect(page).toHaveURL(/\/admin\/requests$/);
   await page.goto("/admin/spool");
-  // The companies list adds its own default filter to the URL.
-  await expect(page).toHaveURL(/\/admin\/companies(\?|$)/);
+  // Spec §3: the companies list with the Printing filter on.
+  await expect(page).toHaveURL(/\/admin\/companies\?(.*&)?printing=(1|true)/);
+  await expect(page.getByRole("checkbox", { name: "Only with label printing" })).toBeChecked();
 });
 
 test("signed-out old URLs go to login and come back to the new page", async ({ page }) => {

@@ -17,7 +17,8 @@ const SPEC_ROWS: readonly (readonly [old: string, next: string])[] = [
   ["/change-password", "/welcome"],
   ["/waitlist", "/request-access"],
   ["/admin/waitlist", "/admin/requests"],
-  ["/admin/spool", "/admin/companies"],
+  // Spec §3.2/§3: "redirects to /admin/companies with a Printing filter".
+  ["/admin/spool", "/admin/companies?printing=1"],
 ];
 
 describe("STATIC_REDIRECTS", () => {
@@ -33,6 +34,11 @@ describe("resolveRedirect: static rows", () => {
       expect(resolveRedirect(old, "")).toBe(next);
     });
   }
+
+  test("old print station filters carry over next to the Printing filter", () => {
+    expect(resolveRedirect("/admin/spool", "?status=active")).toBe("/admin/companies?printing=1&status=active");
+    expect(resolveRedirect("/admin/spool/", "printing=0")).toBe("/admin/companies?printing=1");
+  });
 
   test("a trailing slash is the same path", () => {
     expect(resolveRedirect("/receipts/", "")).toBe("/pack");

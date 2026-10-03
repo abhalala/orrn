@@ -3,10 +3,12 @@ import type { HTMLAttributes, ReactNode } from "react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
+import type { ToneName } from "../tokens";
 import { PALETTE_CLASSES } from "./badge";
 
 export type ChipProps = Omit<HTMLAttributes<HTMLSpanElement>, "children"> & {
-  tone: StatusTone;
+  /** A status tone; `violet` is for Godseye only (staff, support sessions). */
+  tone: StatusTone | Extract<ToneName, "violet">;
   /** The status word ("In stock", "Held", "Void"). Colour is never the only signal. */
   children: ReactNode;
 };

@@ -1,363 +1,250 @@
 import { useT } from "@orrn/i18n";
-import { Badge, type BadgeTone } from "@orrn/ui/components/badge";
-import { Button } from "@orrn/ui/components/button";
-import { Card } from "@orrn/ui/components/card";
-import { EmptyState } from "@orrn/ui/components/empty-state";
+import { Chip } from "@orrn/ui/components/chip";
+import { motionClass, riseDelay } from "@orrn/ui/components/motion";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Skeleton } from "@orrn/ui/components/skeleton";
-import { Truncate } from "@orrn/ui/components/truncate";
+import { StatusBlock } from "@orrn/ui/components/status-block";
+import { UiLink } from "@orrn/ui/components/link";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { format, formatDistanceToNow } from "date-fns";
-import {
-  Building2,
-  CheckCircle2,
-  ChevronRight,
-  ClipboardList,
-  PauseCircle,
-  Printer,
-  Users,
-} from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { NavCard } from "@/shared/components/admin/nav-card";
-import { StatCard } from "@/shared/components/admin/stat-card";
-import { Can } from "@/shared/components/can";
-import { useMe } from "@/shared/lib/me";
+import { formatAgo, formatDay } from "@/features/admin/format";
+import { companyStatusKey, companyStatusTone } from "@/features/admin/status";
+import type { Overview } from "@/features/admin/types";
+import { LoadError, Panel } from "@/features/admin/ui";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_platform/admin/")({
-  component: AdminIndexComponent,
+  component: AdminOverview,
 });
 
-type RecentCompanyRow = {
-  id: string;
-  name: string;
-  slug: string;
-  status: string;
-  plan: string | null;
-  createdAt: Date | string | number;
-};
-
-type RecentWaitlistRow = {
-  id: string;
-  companyName: string;
-  requesterName: string;
-  requesterEmail: string;
-  createdAt: Date | string | number;
-};
-
 /**
- * Container-aware grids (the content column, not the viewport, decides):
- * stat cards go 4 -> 2, shortcut cards 4 -> 2 -> 1, the two panels sit side by side
- * only when each still gets >= 28rem.
+ * Godseye home (spec §3 Godseye): the KPI row is the screen's one loud
+ * element (Active companies in violet, attention in amber), then two quiet
+ * lists. Each block and list only renders when the staff role can see it
+ * (the server sends null for the rest).
  */
-const STATS = "grid grid-cols-2 gap-3 @md:gap-4 @4xl:grid-cols-4";
-const FOUR_UP = "grid grid-cols-1 gap-4 @md:grid-cols-2 @4xl:grid-cols-4";
-// grid-flow-col + auto-cols-fr: two panels split the row, a lone panel
-// (when the viewer can only see one) takes all of it.
-const TWO_UP = "grid grid-cols-1 gap-4 @4xl:grid-flow-col @4xl:auto-cols-fr @4xl:grid-cols-none";
-
-function AdminIndexComponent() {
+function AdminOverview() {
   const { t } = useT();
-  const { data: me } = useMe();
-  const firstName = me?.user.name?.split(" ")[0] ?? "there";
-
-  const overviewQuery = useQuery(trpc.platform.overview.queryOptions());
-  const overview = overviewQuery.data;
-  const isLoading = overviewQuery.isLoading;
-  const pending = overview?.waitlist?.pending ?? 0;
+  const overview = useQuery(trpc.platform.overview.queryOptions());
+  const data = overview.data;
 
   return (
     <div className="@container flex min-w-0 flex-col gap-6">
-      <PageHeader
-        eyebrow={t("admin.title")}
-        title={`Welcome back, ${firstName}.`}
-        description="Companies, access requests, staff and printing at a glance."
-      />
+      <PageHeader title={t("admin.overview.title")} subtitle={t("admin.overview.subtitle")} />
 
-      {overviewQuery.isError ? (
-        <Card role="alert" className="flex-row flex-wrap items-center justify-between gap-3">
-          <p className="m-0 min-w-0 flex-1 text-sm text-foreground">
-            The overview did not load. Check your connection, then try again.
-          </p>
-          <Button variant="outline" size="sm" onPress={() => overviewQuery.refetch()}>
-            Try again
-          </Button>
-        </Card>
+      {overview.isError ? (
+        <LoadError message={t("admin.overview.loadError")} onRetry={() => void overview.refetch()} />
       ) : null}
 
-      <section aria-label="At a glance" className={STATS}>
-        {overview?.companies || isLoading ? (
-          <StatCard
-            label={t("admin.kpis.active")}
-            value={overview?.companies?.active ?? 0}
-            hint={overview?.companies ? `${overview.companies.total} in total` : undefined}
-            icon={<Building2 size={18} />}
-            tone="primary"
-            to="/admin/companies"
-            isLoading={isLoading}
-          />
-        ) : null}
-        {overview?.companies || isLoading ? (
-          <StatCard
-            label={t("admin.kpis.suspended")}
-            value={overview?.companies?.suspended ?? 0}
-            hint="Access paused"
-            icon={<PauseCircle size={18} />}
-            tone="warning"
-            to="/admin/companies"
-            isLoading={isLoading}
-          />
-        ) : null}
-        {overview?.waitlist || isLoading ? (
-          <StatCard
-            label={t("admin.requests.title")}
-            value={pending}
-            hint={pending > 0 ? "Waiting for review" : "All reviewed"}
-            icon={<ClipboardList size={18} />}
-            tone={pending > 0 ? "warning" : "success"}
-            to="/admin/requests"
-            isLoading={isLoading}
-          />
-        ) : null}
-        {overview?.staff || isLoading ? (
-          <StatCard
-            label="Staff accounts"
-            value={overview?.staff?.total ?? 0}
-            hint="Godseye logins"
-            icon={<Users size={18} />}
-            tone="neutral"
-            to="/admin/staff"
-            isLoading={isLoading}
-          />
-        ) : null}
-      </section>
-
-      <div className={TWO_UP}>
-        <Can do="platform.waitlist.review">
-          <Panel
-            title={t("admin.requests.title")}
-            icon={<ClipboardList size={18} />}
-            viewAll={
-              <Link to="/admin/requests" className="no-underline">
-                View all<span className="sr-only"> access requests</span>
-              </Link>
-            }
-          >
-            <PanelList
-              isLoading={isLoading}
-              rows={overview?.waitlist?.recent ?? []}
-              empty={
-                <EmptyState
-                  icon={<CheckCircle2 size={20} />}
-                  title="No requests waiting"
-                  description="New access requests show up here."
-                />
-              }
-              renderRow={(r) => <WaitlistRow key={r.id} row={r} />}
-            />
-          </Panel>
-        </Can>
-        <Can do="platform.company.manage">
-          <Panel
-            title={t("admin.recentCompanies")}
-            icon={<Building2 size={18} />}
-            viewAll={
-              <Link to="/admin/companies" search={{ status: "all" }} className="no-underline">
-                View all<span className="sr-only"> companies</span>
-              </Link>
-            }
-          >
-            <PanelList
-              isLoading={isLoading}
-              rows={overview?.companies?.recent ?? []}
-              empty={
-                <EmptyState
-                  icon={<Building2 size={20} />}
-                  title="No companies yet"
-                  description="Approved access requests become companies here."
-                />
-              }
-              renderRow={(r) => <CompanyRow key={r.id} row={r} />}
-            />
-          </Panel>
-        </Can>
-      </div>
-
-      <section aria-labelledby="quick-actions" className="flex flex-col gap-3">
-        <h2 id="quick-actions" className="m-0 text-base font-semibold tracking-[-0.01em] text-foreground">
-          Quick actions
+      <section aria-labelledby="godseye-kpis" aria-busy={overview.isPending || undefined}>
+        <h2 id="godseye-kpis" className="sr-only">
+          {t("admin.overview.kpis")}
         </h2>
-        <div className={FOUR_UP}>
-          <Can do="platform.company.manage">
-            <NavCard
-              title="Manage companies"
-              description="Browse companies, pause access and open support sessions."
-              to="/admin/companies"
-              icon={<Building2 size={18} />}
-            />
-          </Can>
-          <Can do="platform.waitlist.review">
-            <NavCard
-              title="Review requests"
-              description="Approve or decline requests for ORRN access."
-              to="/admin/requests"
-              icon={<ClipboardList size={18} />}
-            />
-          </Can>
-          <Can do="platform.staff.list">
-            <NavCard
-              title="Staff accounts"
-              description="Create Godseye logins and set what each person can do."
-              to="/admin/staff"
-              icon={<Users size={18} />}
-            />
-          </Can>
-          <Can do="platform.spool.manage">
-            <NavCard
-              title="Printing"
-              description="Set up print stations and rotate their keys."
-              to="/admin/companies"
-              icon={<Printer size={18} />}
-            />
-          </Can>
-        </div>
+        {overview.isPending ? <KpiSkeleton /> : data ? <Kpis data={data} /> : null}
       </section>
+
+      {overview.isPending ? (
+        <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2" aria-hidden="true">
+          <ListSkeleton />
+          <ListSkeleton />
+        </div>
+      ) : data && (data.waitlist || data.companies) ? (
+        <div className="grid grid-cols-1 gap-4 @3xl:grid-flow-col @3xl:auto-cols-fr">
+          {data.waitlist ? <WaitingList rows={data.waitlist.recent} /> : null}
+          {data.companies ? <RecentCompanies rows={data.companies.recent} /> : null}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function Panel({
-  title,
-  icon,
-  viewAll,
-  children,
-}: {
-  title: string;
-  icon: ReactNode;
-  viewAll: ReactNode;
-  children: ReactNode;
-}) {
+const KPI_GRID = "grid grid-cols-2 gap-3 @md:gap-4 @4xl:grid-cols-4";
+
+function Kpis({ data }: { data: Overview }) {
+  const { t } = useT();
+  const blocks: ReactNode[] = [];
+  if (data.companies) {
+    const { active, suspended, total } = data.companies;
+    blocks.push(
+      <StatusBlock
+        key="active"
+        tone="violet"
+        title={t("admin.overview.active")}
+        meta={t("admin.overview.activeMeta", { count: total })}
+        value={active}
+        href="/admin/companies?status=active"
+      />,
+      <StatusBlock
+        key="suspended"
+        tone={suspended > 0 ? "amber" : "neutral"}
+        title={t("admin.overview.suspended")}
+        meta={t("admin.overview.suspendedMeta")}
+        value={suspended}
+        href="/admin/companies?status=suspended"
+      />,
+    );
+  }
+  if (data.waitlist) {
+    const pending = data.waitlist.pending;
+    blocks.push(
+      <StatusBlock
+        key="requests"
+        tone={pending > 0 ? "amber" : "green"}
+        title={t("admin.overview.pending")}
+        meta={pending > 0 ? t("admin.overview.pendingMeta") : t("admin.overview.pendingNone")}
+        value={pending}
+        href="/admin/requests"
+      />,
+    );
+  }
+  if (data.staff) {
+    blocks.push(
+      <StatusBlock
+        key="staff"
+        tone="neutral"
+        title={t("admin.overview.staff")}
+        meta={t("admin.overview.staffMeta")}
+        value={data.staff.total}
+        href="/admin/staff"
+      />,
+    );
+  }
   return (
-    <Card className="min-w-0 gap-2 p-0">
-      <div className="flex min-w-0 items-center gap-3 px-5 pb-1 pt-4">
-        <span aria-hidden="true" className="shrink-0 text-muted-foreground">
-          {icon}
-        </span>
-        <h2 className="m-0 min-w-0 flex-1 truncate text-base font-semibold tracking-[-0.01em] text-foreground">
-          {title}
-        </h2>
-        <Button asChild variant="outline" size="sm" className="shrink-0">
-          {viewAll}
-        </Button>
-      </div>
-      <div className="px-2 pb-2">{children}</div>
-    </Card>
+    <ul className={`m-0 list-none p-0 ${KPI_GRID}`}>
+      {blocks.map((block, i) => (
+        <li key={i} className={`flex min-w-0 ${motionClass.rise}`} style={riseDelay(i)}>
+          {block}
+        </li>
+      ))}
+    </ul>
   );
 }
 
-function PanelList<Row>({
-  rows,
-  isLoading,
-  empty,
-  renderRow,
+function KpiSkeleton() {
+  return (
+    <div className={KPI_GRID} aria-hidden="true">
+      {Array.from({ length: 4 }, (_, i) => (
+        <Skeleton key={i} className="h-[168px] rounded-block" />
+      ))}
+    </div>
+  );
+}
+
+function ListSkeleton() {
+  return (
+    <div className="flex flex-col gap-1 rounded-card border border-border bg-card p-2">
+      <Skeleton className="m-3 h-5 w-40" />
+      {Array.from({ length: 3 }, (_, i) => (
+        <div key={i} className="flex flex-col gap-2 px-3 py-3.5">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-3.5 w-1/2" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ListPanel({
+  id,
+  title,
+  viewAll,
+  children,
 }: {
-  rows: Row[];
-  isLoading: boolean;
-  empty: ReactNode;
-  renderRow: (row: Row) => ReactNode;
+  id: string;
+  title: string;
+  viewAll: { to: string; label: string; srLabel: string };
+  children: ReactNode;
 }) {
-  if (isLoading) {
-    return (
-      <ul aria-label="Loading" className="m-0 flex list-none flex-col p-0">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <li key={i} className="flex flex-col gap-2 px-3 py-3.5">
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-3.5 w-1/2" />
-          </li>
-        ))}
-      </ul>
-    );
-  }
-  if (rows.length === 0) return <div className="px-3 pb-2">{empty}</div>;
-  return <ul className="m-0 flex list-none flex-col divide-y divide-border p-0">{rows.map(renderRow)}</ul>;
+  return (
+    <Panel aria-labelledby={id} className="flex flex-col p-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 pt-2 pb-1">
+        <h2 id={id} className="m-0 min-w-0 font-display text-[19px] font-bold tracking-[-0.02em] text-foreground">
+          {title}
+        </h2>
+        <UiLink
+          to={viewAll.to}
+          className="-mr-1 inline-flex min-h-11 items-center rounded-full px-3 text-[14px] font-semibold text-foreground no-underline transition-colors duration-[var(--dur-fast)] hover:bg-accent"
+        >
+          <span aria-hidden="true">{viewAll.label}</span>
+          <span className="sr-only">{viewAll.srLabel}</span>
+        </UiLink>
+      </div>
+      {children}
+    </Panel>
+  );
 }
 
 const ROW_LINK =
   "group flex min-h-14 min-w-0 items-center gap-3 rounded-input px-3 py-3 no-underline transition-colors duration-[var(--dur-fast)] hover:bg-accent";
 
-function WaitlistRow({ row }: { row: RecentWaitlistRow }) {
-  const created = new Date(row.createdAt);
+function WaitingList({ rows }: { rows: NonNullable<Overview["waitlist"]>["recent"] }) {
+  const { t, locale } = useT();
   return (
-    <li className="min-w-0">
-      <Link to="/admin/requests" className={ROW_LINK}>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex min-w-0 items-baseline gap-3">
-            <Truncate className="flex-1 text-[15px] font-semibold text-foreground">{row.companyName}</Truncate>
-            <time
-              dateTime={created.toISOString()}
-              title={format(created, "PPp")}
-              className="shrink-0 text-[13px] text-muted-foreground"
-            >
-              {formatDistanceToNow(created, { addSuffix: true })}
-            </time>
-          </div>
-          <div className="flex min-w-0 items-baseline gap-1.5 text-[13px] text-muted-foreground">
-            <Truncate className="max-w-[45%] shrink-0">{row.requesterName}</Truncate>
-            <span aria-hidden="true" className="shrink-0">
-              ·
-            </span>
-            <Truncate className="flex-1">{row.requesterEmail}</Truncate>
-          </div>
-        </div>
-        <ChevronRight
-          size={16}
-          aria-hidden="true"
-          className="shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
-        />
-      </Link>
-    </li>
+    <ListPanel
+      id="godseye-waiting"
+      title={t("admin.overview.waiting")}
+      viewAll={{ to: "/admin/requests", label: t("admin.overview.viewAll"), srLabel: t("admin.overview.viewAllRequests") }}
+    >
+      {rows.length === 0 ? (
+        <p className="m-0 px-3 pt-2 pb-4 text-[15px] text-muted-foreground">{t("admin.overview.waitingEmpty")}</p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col p-0">
+          {rows.map((row) => (
+            <li key={row.id} className="min-w-0 border-t border-border first:border-t-0">
+              <UiLink to="/admin/requests" className={ROW_LINK}>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-[15px] font-semibold text-foreground break-words">{row.companyName}</span>
+                  <span className="text-[13px] text-muted-foreground [overflow-wrap:anywhere]">
+                    {t("admin.overview.requestFrom", { name: row.requesterName, email: row.requesterEmail })}
+                  </span>
+                </span>
+                <time
+                  dateTime={new Date(row.createdAt).toISOString()}
+                  className="shrink-0 text-[13px] whitespace-nowrap text-muted-foreground"
+                >
+                  {formatAgo(row.createdAt, { locale })}
+                </time>
+                <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} />
+              </UiLink>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ListPanel>
   );
 }
 
-const COMPANY_TONE: Record<string, BadgeTone> = {
-  active: "success",
-  suspended: "danger",
-  pending: "neutral",
-};
-
-function CompanyRow({ row }: { row: RecentCompanyRow }) {
-  const status = row.status.charAt(0).toUpperCase() + row.status.slice(1);
+function RecentCompanies({ rows }: { rows: NonNullable<Overview["companies"]>["recent"] }) {
+  const { t, locale } = useT();
   return (
-    <li className="min-w-0">
-      <Link to="/admin/companies/$id" params={{ id: row.id }} className={ROW_LINK}>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <Truncate className="text-[15px] font-semibold text-foreground">{row.name}</Truncate>
-            <Badge tone={COMPANY_TONE[row.status] ?? "neutral"}>{status}</Badge>
-          </div>
-          <div className="flex min-w-0 items-baseline gap-1.5 text-[13px] text-muted-foreground">
-            <Truncate mono className="text-xs">
-              {row.slug}
-            </Truncate>
-            <span aria-hidden="true" className="shrink-0">
-              ·
-            </span>
-            <span className="shrink-0 whitespace-nowrap">Joined {joinedLabel(new Date(row.createdAt))}</span>
-          </div>
-        </div>
-        <ChevronRight
-          size={16}
-          aria-hidden="true"
-          className="shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
-        />
-      </Link>
-    </li>
+    <ListPanel
+      id="godseye-recent"
+      title={t("admin.overview.recent")}
+      viewAll={{ to: "/admin/companies", label: t("admin.overview.viewAll"), srLabel: t("admin.overview.viewAllCompanies") }}
+    >
+      {rows.length === 0 ? (
+        <p className="m-0 px-3 pt-2 pb-4 text-[15px] text-muted-foreground">{t("admin.overview.recentEmpty")}</p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col p-0">
+          {rows.map((row) => (
+            <li key={row.id} className="min-w-0 border-t border-border first:border-t-0">
+              <UiLink to={`/admin/companies/${encodeURIComponent(row.id)}`} className={ROW_LINK}>
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="text-[15px] font-semibold text-foreground break-words">{row.name}</span>
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
+                    <Chip tone={companyStatusTone(row.status)}>{t(companyStatusKey(row.status))}</Chip>
+                    <span className="whitespace-nowrap">{formatDay(row.createdAt, { locale })}</span>
+                  </span>
+                </span>
+                <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} />
+              </UiLink>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ListPanel>
   );
-}
-
-/** "Oct 3" this year, "Oct 3, 2025" otherwise. */
-function joinedLabel(date: Date): string {
-  return format(date, date.getFullYear() === new Date().getFullYear() ? "MMM d" : "MMM d, yyyy");
 }
