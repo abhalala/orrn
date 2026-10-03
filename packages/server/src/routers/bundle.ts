@@ -43,6 +43,15 @@ const receiptInputSchema = z.object({
   rows: z.array(bundleRowSchema).min(1, "At least one bundle row is required").max(200, "Max 200 rows per receipt"),
 });
 
+function errorText(e: unknown): string {
+  let text = "";
+  for (let cur: unknown = e, depth = 0; cur && depth < 5; depth += 1) {
+    text += ` ${cur instanceof Error ? cur.message : String(cur)}`;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return text;
+}
+
 /**
  * The yard a receipt's bundles go to. Required once the company has an active yard location
  * (no default, digest Stage 13); companies without locations keep packing without one.
@@ -226,18 +235,48 @@ export const bundleRouter = router({
         at: now,
       }));
 
+      const groupValues = {
+        id: groupId,
+        companyId: ctx.companyId,
+        serverSeq: seq,
+        code,
+        dieId: input.dieId,
+        unit: input.unit,
+        purchaseOrderRef: input.purchaseOrderRef ?? null,
+        notes: input.notes ?? null,
+        createdBy: userId,
+      };
       const statements: SqliteBatchItem[] = [
-        ctx.db.insert(bundleGroup).values({
-          id: groupId,
-          companyId: ctx.companyId,
-          serverSeq: seq,
-          code,
-          dieId: input.dieId,
-          unit: input.unit,
-          purchaseOrderRef: input.purchaseOrderRef ?? null,
-          notes: input.notes ?? null,
-          createdBy: userId,
-        }),
+        locationId
+          ? // The group row lands only while the yard is still an active yard. Without it the bundle
+            // inserts below break their group foreign key and the whole batch rolls back, so a yard
+            // retired or re-typed after our read takes no bundles (write-time guard).
+            ctx.db.insert(bundleGroup).select(
+              ctx.db
+                .select({
+                  id: sql<string>`${groupValues.id}`.as("id"),
+                  companyId: sql<string>`${groupValues.companyId}`.as("company_id"),
+                  serverSeq: sql<number>`${groupValues.serverSeq}`.as("server_seq"),
+                  code: sql<string>`${groupValues.code}`.as("code"),
+                  dieId: sql<string>`${groupValues.dieId}`.as("die_id"),
+                  unit: sql<string>`${groupValues.unit}`.as("unit"),
+                  purchaseOrderRef: sql<string | null>`${groupValues.purchaseOrderRef}`.as("purchase_order_ref"),
+                  notes: sql<string | null>`${groupValues.notes}`.as("notes"),
+                  createdBy: sql<string>`${groupValues.createdBy}`.as("created_by"),
+                  createdAt: sql<number>`${now.getTime()}`.as("created_at"),
+                  updatedAt: sql<number>`${now.getTime()}`.as("updated_at"),
+                })
+                .from(location)
+                .where(
+                  and(
+                    eq(location.id, locationId),
+                    eq(location.companyId, ctx.companyId),
+                    eq(location.active, true),
+                    eq(location.kind, "yard"),
+                  ),
+                ),
+            )
+          : ctx.db.insert(bundleGroup).values(groupValues),
       ];
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundle).values(rows), bundleRows);
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundleStatusEvent).values(rows), eventRows);
@@ -267,7 +306,15 @@ export const bundleRouter = router({
         ),
       );
 
-      await atomicBatch(ctx.db, statements);
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (e) {
+        if (locationId && errorText(e).includes("FOREIGN KEY constraint failed")) {
+          // Rolled back by the write-time yard guard: name the reason.
+          await receiptLocation(ctx.db, ctx.companyId, locationId);
+        }
+        throw e;
+      }
 
       return { success: true, groupId, code, bundleCount: bundleRows.length };
     }),

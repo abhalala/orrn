@@ -168,6 +168,46 @@ export function packRows(
   return out;
 }
 
+/** EXISTS: `locationId` is, right now, an active yard of the company (where bundles may be put). */
+export function activeYard(db: OrrnDb, companyId: string, locationId: string): SQL {
+  return exists(
+    db
+      .select({ one: sql`1` })
+      .from(location)
+      .where(
+        and(
+          eq(location.id, locationId),
+          eq(location.companyId, companyId),
+          eq(location.active, true),
+          eq(location.kind, "yard"),
+        ),
+      ),
+  );
+}
+
+/**
+ * The location holds no stock right now: no available/reserved bundle sits there and its ledger
+ * balance (any item kind) is zero. Used as a write-time guard inside the UPDATE that retires or
+ * re-types a location, so a move that lands after the caller's read cannot slip past it.
+ */
+export function locationIsEmpty(db: OrrnDb, companyId: string, locationId: string): SQL {
+  return and(
+    notExists(
+      db
+        .select({ one: sql`1` })
+        .from(bundle)
+        .where(
+          and(
+            eq(bundle.companyId, companyId),
+            eq(bundle.locationId, locationId),
+            inArray(bundle.status, [...IN_STOCK_STATUSES]),
+          ),
+        ),
+    ),
+    sql`coalesce((select sum(l.qty_g) from ${stockLedger} l where l.company_id = ${companyId} and l.location_id = ${locationId}), 0) = 0`,
+  ) as SQL;
+}
+
 /**
  * Move: for each chunk, − rows at the bundle's current location (read in the statement), then the
  * bundle UPDATE to `toLocationId`, both under the same predicate (in stock, not already there);
@@ -188,6 +228,8 @@ export function moveRows(
       inArray(bundle.id, ids),
       inArray(bundle.status, [...IN_STOCK_STATUSES]),
       sql`${bundle.locationId} is not ${input.toLocationId}`,
+      // Evaluated at write time: a location retired or re-typed after the request read it takes no bundle.
+      activeYard(db, companyId, input.toLocationId),
     );
     out.push(
       db.insert(stockLedger).select(

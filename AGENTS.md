@@ -186,6 +186,16 @@ bun run deploy
 - Invariant (Review Focus 1): for every bundle, ledger balance = projection (available/reserved →
   +weight at `bundle.location_id`, dispatched/void → 0). Bundles from before the ledger have no rows
   and are skipped by every posting until `stock.openingBalance` takes them on.
+- The only things that ever touch a ledger row are foreign-key actions: the company cascade
+  (deleting a company deletes its rows) and `created_by` SET NULL (deleting a user blanks the actor).
+  Code never UPDATEs or DELETEs one. `location_id` is `ON DELETE restrict`, so a location with ledger
+  rows cannot be deleted (retire it instead).
+- Locations: a location that holds stock (in-stock bundles or a non-zero ledger balance) cannot be
+  retired or change `kind`. The check is part of the UPDATE itself (`locationIsEmpty`), not a read
+  before it, and the other side is guarded too: `moveRows` only lands bundles while the target is
+  still an active yard, and `createReceipt` inserts its `bundle_group` with `INSERT … SELECT` from the
+  active yard, so a yard retired after the request read it makes the batch roll back (the bundle rows
+  break their group foreign key). `stock.move` returns `moved` counted inside its own batch.
 - Weights in the ledger are signed integer grams (`qty_g`). `location_id` NULL = place unknown
   (legacy); there is no location 0 and no default location. `createReceipt` requires a yard
   `locationId` once the company has an active yard location.

@@ -12,7 +12,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { kgPer12ft } from "@orrn/domain";
-import { bundle, location, stockLedger, user } from "@orrn/db/schema";
+import { auditLog, bundle, location, stockLedger, user } from "@orrn/db/schema";
 import { asc, eq } from "drizzle-orm";
 
 import { can, type Action } from "../src/lib/permissions";
@@ -676,6 +676,196 @@ describe("locations", () => {
     await p.owner.stock.locations.update({ id, name: "Yard seven" });
     const [renamed] = await env.db.select().from(location).where(eq(location.id, id));
     expect(renamed!.name).toBe("Yard seven");
+  });
+});
+
+/** Pack `n` bundles into `locationId`; returns them. */
+async function packInto(p: Awaited<ReturnType<typeof plant>>, locationId: string, n = 1, weightG = 25_000) {
+  const res = await p.owner.bundle.createReceipt({
+    dieId: p.dieId,
+    unit: "pcs",
+    locationId,
+    rows: Array.from({ length: n }, () => row(weightG)),
+  });
+  return env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId)).orderBy(asc(bundle.serial));
+}
+
+describe("locations: write-time guards", () => {
+  test("a location that holds stock cannot change kind or be retired; an empty one can", async () => {
+    const p = await plant();
+    await packInto(p, p.loc("Y1"));
+    await expect(p.owner.stock.locations.update({ id: p.loc("Y1"), kind: "store" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await expect(p.owner.stock.locations.update({ id: p.loc("Y1"), active: false })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    // The refused update changed nothing, not even the other fields in the same call.
+    await expect(
+      p.owner.stock.locations.update({ id: p.loc("Y1"), kind: "store", name: "Renamed" }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const [still] = await env.db.select().from(location).where(eq(location.id, p.loc("Y1")));
+    expect(still).toMatchObject({ kind: "yard", active: true, name: "Yard 1" });
+    // Same kind, or other fields, are fine on a stocked location.
+    await p.owner.stock.locations.update({ id: p.loc("Y1"), kind: "yard", name: "Front yard" });
+
+    await p.owner.stock.locations.update({ id: p.loc("Y6"), kind: "store" });
+    await p.owner.stock.locations.update({ id: p.loc("Y6"), active: false });
+    const [y6] = await env.db.select().from(location).where(eq(location.id, p.loc("Y6")));
+    expect(y6).toMatchObject({ kind: "store", active: false });
+    // Emptied by moving the stock out, then retiring works.
+    const [b] = await packInto(p, p.loc("Y2"));
+    await p.owner.stock.move({ bundleIds: [b!.id], toLocationId: p.loc("Y3") });
+    await p.owner.stock.locations.update({ id: p.loc("Y2"), active: false });
+    await expectConsistent(p.owner, p.companyId, "after guarded updates");
+  });
+
+  test("race: stock that lands after the retire's read blocks the retire", async () => {
+    const p = await plant();
+    const [b] = await packInto(p, p.loc("Y1"));
+    // The retire sees an empty Y6; a move lands in Y6 before its write.
+    env.beforeNextBatch(() => p.owner.stock.move({ bundleIds: [b!.id], toLocationId: p.loc("Y6") }));
+    await expect(p.owner.stock.locations.update({ id: p.loc("Y6"), active: false })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    const [y6] = await env.db.select().from(location).where(eq(location.id, p.loc("Y6")));
+    expect(y6!.active).toBe(true);
+    const audits = await env.db.select().from(auditLog).where(eq(auditLog.subjectId, p.loc("Y6")));
+    expect(audits.filter((a) => a.action === "location.update")).toEqual([]);
+    await expectConsistent(p.owner, p.companyId, "retire vs move");
+  });
+
+  test("race: stock that lands after a kind change's read blocks it", async () => {
+    const p = await plant();
+    const [b] = await packInto(p, p.loc("Y1"));
+    env.beforeNextBatch(() => p.owner.stock.move({ bundleIds: [b!.id], toLocationId: p.loc("Y5") }));
+    await expect(p.owner.stock.locations.update({ id: p.loc("Y5"), kind: "store" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect((await env.db.select().from(location).where(eq(location.id, p.loc("Y5"))))[0]!.kind).toBe("yard");
+    await expectConsistent(p.owner, p.companyId, "kind change vs move");
+  });
+
+  test("race: a move into a yard retired after its read is refused, nothing posted", async () => {
+    const p = await plant();
+    const [b] = await packInto(p, p.loc("Y1"));
+    const before = await ledgerRows(p.companyId);
+    env.beforeNextBatch(() => p.owner.stock.locations.update({ id: p.loc("Y6"), active: false }));
+    await expect(p.owner.stock.move({ bundleIds: [b!.id], toLocationId: p.loc("Y6") })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect((await env.db.select().from(bundle).where(eq(bundle.id, b!.id)))[0]!.locationId).toBe(p.loc("Y1"));
+    expect(await ledgerRows(p.companyId)).toEqual(before);
+    await expectConsistent(p.owner, p.companyId, "move vs retire");
+  });
+
+  test("race: a receipt into a yard retired or re-typed after its read is refused whole", async () => {
+    const p = await plant();
+    const before = (await env.db.select().from(bundle).where(eq(bundle.companyId, p.companyId))).length;
+    for (const [code, patch] of [
+      ["Y6", { active: false }],
+      ["Y5", { kind: "store" as const }],
+    ] as const) {
+      env.beforeNextBatch(() => p.owner.stock.locations.update({ id: p.loc(code), ...patch }));
+      await expect(
+        p.owner.bundle.createReceipt({ dieId: p.dieId, unit: "pcs", locationId: p.loc(code), rows: [row(), row()] }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    }
+    expect((await env.db.select().from(bundle).where(eq(bundle.companyId, p.companyId))).length).toBe(before);
+    expect(await ledgerRows(p.companyId)).toEqual([]);
+    expect(
+      await env.db.select().from(auditLog).where(eq(auditLog.action, "bundle.receipt.create")),
+    ).toEqual(expect.not.arrayContaining([expect.objectContaining({ companyId: p.companyId })]));
+    // A receipt into a healthy yard still works afterwards.
+    await expect(
+      p.owner.bundle.createReceipt({ dieId: p.dieId, unit: "pcs", locationId: p.loc("Y1"), rows: [row()] }),
+    ).resolves.toBeDefined();
+    await expectConsistent(p.owner, p.companyId, "receipt vs retire");
+  });
+});
+
+describe("races: ledger equals projection after each interleaving", () => {
+  test("move vs move to the same yard: `moved` counts only what this request moved", async () => {
+    const p = await plant();
+    const bs = await packInto(p, p.loc("Y1"), 3);
+    // A reads three bundles to move; B puts the first one at A's target before A writes.
+    env.beforeNextBatch(() => p.owner.stock.move({ bundleIds: [bs[0]!.id], toLocationId: p.loc("Y2") }));
+    const a = await p.owner.stock.move({ bundleIds: bs.map((b) => b.id), toLocationId: p.loc("Y2") });
+    expect(a.moved).toBe(2);
+    expect(a.unchanged).toBe(1);
+    expect(a.voucherId).not.toBeNull();
+    const rows = await env.db.select().from(bundle).where(eq(bundle.companyId, p.companyId));
+    expect(rows.every((b) => b.locationId === p.loc("Y2"))).toBe(true);
+    const movedByA = (await ledgerRows(p.companyId)).filter((r) => r.voucherId === a.voucherId && r.qtyG < 0);
+    expect(movedByA.length).toBe(2);
+    await expectConsistent(p.owner, p.companyId, "move vs move (same target)");
+  });
+
+  test("move vs move to different yards: the later write wins and the ledger follows", async () => {
+    const p = await plant();
+    const bs = await packInto(p, p.loc("Y1"), 3);
+    env.beforeNextBatch(() => p.owner.stock.move({ bundleIds: [bs[0]!.id, bs[1]!.id], toLocationId: p.loc("Y3") }));
+    const a = await p.owner.stock.move({ bundleIds: bs.map((b) => b.id), toLocationId: p.loc("Y2") });
+    expect(a.moved).toBe(3);
+    const rows = await env.db.select().from(bundle).where(eq(bundle.companyId, p.companyId));
+    expect(rows.every((b) => b.locationId === p.loc("Y2"))).toBe(true);
+    // A's − rows left Y3 for the two B had moved, Y1 for the third.
+    const outA = (await ledgerRows(p.companyId)).filter((r) => r.voucherId === a.voucherId && r.qtyG < 0);
+    expect(outA.map((r) => r.locationId).sort()).toEqual([p.loc("Y1"), p.loc("Y3"), p.loc("Y3")].sort());
+    await expectConsistent(p.owner, p.companyId, "move vs move (different targets)");
+  });
+
+  test("move vs void: a bundle voided after the move's read is skipped and not counted", async () => {
+    const p = await plant();
+    const bs = await packInto(p, p.loc("Y1"), 2);
+    env.beforeNextBatch(() => p.owner.bundle.transitionStatus({ id: bs[0]!.id, toStatus: "void", reason: "bent" }));
+    const out = await p.owner.stock.move({ bundleIds: bs.map((b) => b.id), toLocationId: p.loc("Y2") });
+    expect(out.moved).toBe(1);
+    const [voided] = await env.db.select().from(bundle).where(eq(bundle.id, bs[0]!.id));
+    expect(voided).toMatchObject({ status: "void", locationId: p.loc("Y1") });
+    await expectConsistent(p.owner, p.companyId, "move vs void");
+
+    // All skipped: a no-op, no voucher.
+    env.beforeNextBatch(() => p.owner.bundle.transitionStatus({ id: bs[1]!.id, toStatus: "void", reason: "bent" }));
+    const none = await p.owner.stock.move({ bundleIds: [bs[1]!.id], toLocationId: p.loc("Y3") });
+    expect(none).toMatchObject({ moved: 0, voucherId: null });
+    await expectConsistent(p.owner, p.companyId, "move vs void (nothing moved)");
+  });
+
+  test("void vs move: a move that lands before the void's write is voided where it now sits", async () => {
+    const p = await plant();
+    const [b] = await packInto(p, p.loc("Y1"));
+    env.beforeNextBatch(() => p.owner.stock.move({ bundleIds: [b!.id], toLocationId: p.loc("Y4") }));
+    await p.owner.bundle.transitionStatus({ id: b!.id, toStatus: "void", reason: "bent" });
+    const rows = (await ledgerRows(p.companyId)).filter((r) => r.itemRef === b!.id);
+    const voidRow = rows.find((r) => r.voucherType === "void");
+    expect(voidRow).toMatchObject({ locationId: p.loc("Y4"), qtyG: -25_000 });
+    await expectConsistent(p.owner, p.companyId, "void vs move");
+  });
+
+  test("void vs reserve: whichever lands first, the ledger equals the bundle rows", async () => {
+    // Reserve reads an available bundle; a void lands before the reserve writes.
+    const a = await plant();
+    const [b1, b2] = await packInto(a, a.loc("Y1"), 2);
+    const d1 = await a.owner.dispatch.create({ customerId: a.customerId });
+    await a.owner.dispatch.addBundle({ id: d1.id, bundleId: b1!.id });
+    await a.owner.dispatch.addBundle({ id: d1.id, bundleId: b2!.id });
+    env.beforeNextBatch(() => a.owner.bundle.transitionStatus({ id: b1!.id, toStatus: "void", reason: "bent" }));
+    await a.owner.dispatch.reserve({ id: d1.id }).catch(() => null);
+    const [v1] = await env.db.select().from(bundle).where(eq(bundle.id, b1!.id));
+    expect(v1!.status).toBe("void");
+    await expectConsistent(a.owner, a.companyId, "reserve lost to void");
+
+    // Void reads an available bundle; a reserve lands before the void writes.
+    const c = await plant();
+    const [x] = await packInto(c, c.loc("Y1"), 1);
+    const d2 = await c.owner.dispatch.create({ customerId: c.customerId });
+    await c.owner.dispatch.addBundle({ id: d2.id, bundleId: x!.id });
+    env.beforeNextBatch(() => c.owner.dispatch.reserve({ id: d2.id }));
+    await c.owner.bundle.transitionStatus({ id: x!.id, toStatus: "void", reason: "bent" }).catch(() => null);
+    const [after] = await env.db.select().from(bundle).where(eq(bundle.id, x!.id));
+    expect(["void", "reserved"]).toContain(after!.status);
+    await expectConsistent(c.owner, c.companyId, "void lost to reserve");
   });
 });
 
