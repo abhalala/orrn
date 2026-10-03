@@ -2,7 +2,7 @@ import { expo } from "@better-auth/expo";
 import { createDb } from "@orrn/db";
 import * as schema from "@orrn/db/schema/auth";
 import { env } from "@orrn/env/server";
-import { trustedWebOrigins } from "./origins";
+import { DEV_LOCAL_TRUSTED_ORIGINS, trustedWebOrigins } from "./origins";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins/two-factor";
@@ -121,7 +121,14 @@ function buildAuth() {
       }),
       "orrn://",
       ...(env.NODE_ENV === "development"
-        ? ["exp://", "exp://**", "exp://192.168.*.*:*/**", "http://localhost:8081"]
+        ? [
+            "exp://",
+            "exp://**",
+            "exp://192.168.*.*:*/**",
+            "http://localhost:8081",
+            // Every worktree runs its own web port; mirrors isDevLocalOrigin in @orrn/server (CORS).
+            ...DEV_LOCAL_TRUSTED_ORIGINS,
+          ]
         : []),
     ],
     emailAndPassword: {

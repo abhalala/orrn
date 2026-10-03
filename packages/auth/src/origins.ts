@@ -32,3 +32,10 @@ export function trustedWebOrigins(config: {
 }): string[] {
   return parseOriginList(config.corsOrigin, config.corsAllowedOrigins);
 }
+
+/**
+ * Better Auth `trustedOrigins` wildcard patterns for local web dev servers on any port. Added only
+ * when NODE_ENV is "development" (packages/auth/src/index.ts). Same set as `isDevLocalOrigin` in
+ * @orrn/server/lib/devOrigins, which the CORS middleware uses.
+ */
+export const DEV_LOCAL_TRUSTED_ORIGINS = ["http://localhost:*", "http://127.0.0.1:*"] as const;

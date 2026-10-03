@@ -11,6 +11,8 @@ build
 # Environment variables
 .env
 .env*.local
+# Per-worktree dev/e2e ports written by .superpowers/sdd/coord/wt-setup.sh (source it)
+.wt-ports.env
 
 # IDEs and editors
 .vscode/*

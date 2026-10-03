@@ -22,7 +22,14 @@
     "VITE_PUBLIC_URL",
     "BETTER_AUTH_URL",
     "CORS_ORIGIN",
-    "NODE_ENV"
+    "NODE_ENV",
+    "E2E_API_PORT",
+    "E2E_WEB_PORT",
+    "E2E_API_URL",
+    "E2E_BASE_URL",
+    "VISUAL_WEB_PORT",
+    "PLAYWRIGHT_BASE_URL",
+    "PLAYWRIGHT_SKIP_WEBSERVER"
   ],
   "tasks": {
     "build": {

@@ -4,7 +4,7 @@ import { signInViaApi, signInViaForm } from "./helpers/accounts";
 
 /**
  * Session, guards and loading hygiene (audit W2, W3, W4, W11, W12, W13).
- * Needs the local stack: API on :3000, web on :3002, seeded accounts.
+ * Needs the local stack: this worktree's API + web ports, seeded accounts.
  */
 
 const IMPERSONATION_KEY = "orrn:impersonate-company-id";
