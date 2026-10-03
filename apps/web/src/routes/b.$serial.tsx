@@ -6,6 +6,7 @@ import { EmptyState } from "@orrn/ui/components/empty-state";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Link, createFileRoute, redirect, useLocation } from "@tanstack/react-router";
 
+import { isCompanySlug } from "@/shared/lib/bundle-qr";
 import { loadMe } from "@/shared/lib/guards";
 import { useLengthUnit } from "@/shared/lib/length";
 import { bundleDetailPath } from "@/shared/lib/paths";
@@ -25,12 +26,16 @@ type Candidate = { bundleId: string; number: string; year: number };
  *   `J540`, legacy FCMS id, `BG-` serial): `resolve.byCode` finds the bundle and
  *   a non-canonical code is replaced by the bundle's own number.
  * - Everyone else (signed out, or signed in without a company): the public
- *   view from `resolve.publicBundle`, only `{ number, section }`, and a button
- *   to sign in that returns here. Quantity and status stay behind a membership.
+ *   view from `resolve.publicBundle` (company from `?c=`, else the host), only
+ *   `{ number, section }`, and a button to sign in that returns here with `c`. Quantity and status stay behind a membership.
  *
  * The tenant page is a minimal summary; the Stock task builds the full screen.
  */
 export const Route = createFileRoute("/b/$serial")({
+  // `c` names the company on the label QR (`/b/26I4086?c=fourcubes`): production serves every
+  // company from one host. A value that isn't a slug is ignored.
+  validateSearch: (search: Record<string, unknown>): { c?: string } =>
+    isCompanySlug(search.c) ? { c: search.c } : {},
   // Loads `me` without redirecting a signed-out visitor.
   beforeLoad: async ({ context }) => {
     const me = await loadMe(context.queryClient);
@@ -40,13 +45,15 @@ export const Route = createFileRoute("/b/$serial")({
     }
     return { me };
   },
-  loader: async ({ params, context, location }) => {
+  // The router merges raw search keys back in, so check again here.
+  loaderDeps: ({ search }) => ({ c: isCompanySlug(search.c) ? search.c : undefined }),
+  loader: async ({ params, context, location, deps }) => {
     if (!context.me?.company) {
       try {
         // Plain client: a miss is this page's own message, not an error toast.
         const found = await trpcClient.resolve.publicBundle.query({
           code: params.serial,
-          companyHost: window.location.host,
+          companyHost: deps.c ?? window.location.host,
         });
         return { audience: "public" as const, kind: "found" as const, number: found.number, section: found.section };
       } catch (error) {

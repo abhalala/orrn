@@ -97,8 +97,8 @@ test.describe("/b/$serial", () => {
   });
 
   test("canonicalising a code keeps the query", async ({ page }) => {
-    await page.goto(`/b/${SEEDED_SERIAL.toLowerCase()}?from=qr`);
-    await expect(page).toHaveURL(new RegExp(`/b/${SEEDED_SERIAL}\\?from=qr$`));
+    await page.goto(`/b/${SEEDED_SERIAL.toLowerCase()}?from=qr&c=orrn-demo`);
+    await expect(page).toHaveURL(new RegExp(`/b/${SEEDED_SERIAL}\\?from=qr&c=orrn-demo$`));
   });
 });
 
@@ -149,6 +149,33 @@ test.describe("/b/$serial signed out", () => {
     await expect(page).toHaveURL(new RegExp(`/b/${SEEDED_SERIAL}$`));
     await expect(page.locator("[data-slot='app-shell']")).toBeVisible();
     await expect(page.getByText("Weight", { exact: true })).toBeVisible();
+  });
+
+  test("?c= names the company (real server, demo company), and sign-in keeps it", async ({ page }) => {
+    const sent: string[] = [];
+    page.on("request", (req) => {
+      if (req.url().includes("resolve.publicBundle")) sent.push(decodeURIComponent(req.url()));
+    });
+    await page.goto(`/b/${SEEDED_SERIAL}?c=orrn-demo`);
+    await expect(page.getByTestId("public-number")).toHaveText(SEEDED_SERIAL);
+    await expect(page.getByTestId("public-section")).not.toBeEmpty();
+    expect(sent.join(" ")).toContain('"companyHost":"orrn-demo"');
+    await expect(page.getByRole("link", { name: "Sign in to see stock details" })).toHaveAttribute(
+      "href",
+      new RegExp(`/login\\?next=%2Fb%2F${SEEDED_SERIAL}%3Fc%3Dorrn-demo$`),
+    );
+    // Quantity and status stay behind a membership.
+    await expect(page.getByText("Weight", { exact: true })).toHaveCount(0);
+  });
+
+  test("a ?c= that isn't a slug is ignored and the host is used", async ({ page }) => {
+    const sent: string[] = [];
+    page.on("request", (req) => {
+      if (req.url().includes("resolve.publicBundle")) sent.push(decodeURIComponent(req.url()));
+    });
+    await page.goto("/b/26I4086?c=Not%20A%20Slug");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    expect(sent.join(" ")).toContain('"companyHost":"localhost:3002"');
   });
 
   test("an unknown code (here: no company on this host) says not found, with sign-in", async ({ page }) => {
