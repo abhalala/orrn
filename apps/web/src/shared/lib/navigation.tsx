@@ -85,7 +85,7 @@ export const TENANT_NAV: readonly WebNavItem[] = [
   {
     key: "spool",
     to: "/spool",
-    label: "Print Queue",
+    label: "Print queue",
     icon: <Printer size={16} aria-hidden="true" />,
     scope: "tenant",
     requires: ["spool.view_queue"],
@@ -152,7 +152,7 @@ export const STAFF_NAV: readonly WebNavItem[] = [
 export const PLATFORM_LINK: WebNavItem = {
   key: "platform-console",
   to: "/admin",
-  label: "Godseye Console",
+  label: "Godseye console",
   icon: <Eye size={16} aria-hidden="true" />,
   scope: "staff",
   implemented: true,

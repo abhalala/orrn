@@ -2,6 +2,7 @@ import { Badge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { ListCard, stretchedLink } from "@orrn/ui/components/list-card";
 import { Input } from "@orrn/ui/components/input";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Toolbar } from "@orrn/ui/components/toolbar";
@@ -50,12 +51,12 @@ function DiesListComponent() {
       header: "Section",
       cell: (r) => <span className="font-mono text-xs">{r.sectionCode}</span>,
     },
-    { id: "name", header: "Name", cell: (r) => r.name || "—", flex: 2 },
+    { id: "name", header: "Name", cell: (r) => r.name || "Unnamed die", flex: 2 },
     {
       id: "status",
       header: "Status",
       cell: (r) => (
-        <Badge tone={r.status === "active" ? "success" : "neutral"}>{r.status.toUpperCase()}</Badge>
+        <Badge tone={r.status === "active" ? "success" : "neutral"}>{r.status.charAt(0).toUpperCase() + r.status.slice(1)}</Badge>
       ),
     },
     {
@@ -97,13 +98,15 @@ function DiesListComponent() {
           <>
             <Can do="die.import">
               <Button variant="outline" onClick={() => setIsImportModalOpen(true)}>
-                Import CSV / JSON
+                Import CSV or JSON
               </Button>
             </Can>
             <Can do="die.create">
-              <Link to="/dies/$id" params={{ id: "new" }}>
-                <Button>Add Die</Button>
-              </Link>
+              <Button asChild>
+                <Link to="/dies/$id" params={{ id: "new" }}>
+                  Add die
+                </Link>
+              </Button>
             </Can>
           </>
         }
@@ -114,7 +117,8 @@ function DiesListComponent() {
           placeholder="Search by name, series, section…"
           value={search}
           onChangeText={setSearch}
-          className="max-w-[360px]"
+          aria-label="Search dies"
+          className="sm:max-w-[360px]"
         />
       </Toolbar>
 
@@ -123,50 +127,40 @@ function DiesListComponent() {
         rowKey={(r) => r.id}
         columns={columns}
         renderCard={(r) => (
-          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="m-0 font-mono text-lg font-semibold text-foreground">{r.series}</p>
-                <p className="m-0 text-sm text-muted-foreground">{r.name || "Unnamed die"}</p>
-              </div>
-              <Badge tone={r.status === "active" ? "success" : "neutral"}>{r.status.toUpperCase()}</Badge>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Section</p>
-                <p className="m-0 font-mono text-foreground">{r.sectionCode}</p>
-              </div>
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Created</p>
-                <p className="m-0 text-foreground">{format(new Date(r.createdAt), "MMM d, yyyy")}</p>
-              </div>
-            </div>
-            <div className="mt-auto flex justify-end">
-              <Can
-                do="die.update"
-                fallback={
-                  <Link to="/dies/$id" params={{ id: r.id }}>
-                    <Button variant="outline" size="sm">View</Button>
-                  </Link>
-                }
-              >
-                <Link to="/dies/$id" params={{ id: r.id }}>
-                  <Button variant="outline" size="sm">Edit</Button>
-                </Link>
-              </Can>
-            </div>
-          </div>
+          <ListCard
+            mono
+            title={
+              <Link to="/dies/$id" params={{ id: r.id }} className={stretchedLink}>
+                {r.series} / {r.sectionCode}
+              </Link>
+            }
+            titleText={`${r.series} / ${r.sectionCode}`}
+            subtitle={r.name || "Unnamed die"}
+            subtitleText={r.name ?? undefined}
+            status={
+              <Badge tone={r.status === "active" ? "success" : "neutral"}>
+                {r.status.charAt(0).toUpperCase() + r.status.slice(1)}
+              </Badge>
+            }
+            facts={[
+              { label: "Series", value: r.series, mono: true },
+              { label: "Section", value: r.sectionCode, mono: true },
+              { label: "Added", value: format(new Date(r.createdAt), "MMM d, yyyy") },
+            ]}
+          />
         )}
         isLoading={isLoading}
         emptyState={
           <EmptyState
             title="No dies yet"
-            description="Add your first die or import the catalog from CSV / JSON."
+            description="Add your first die or import the catalogue from CSV or JSON."
             actions={
               <Can do="die.create">
-                <Link to="/dies/$id" params={{ id: "new" }}>
-                  <Button>Add die</Button>
-                </Link>
+                <Button asChild>
+                  <Link to="/dies/$id" params={{ id: "new" }}>
+                    Add die
+                  </Link>
+                </Button>
               </Can>
             }
           />

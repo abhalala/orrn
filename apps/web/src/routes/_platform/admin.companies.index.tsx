@@ -207,9 +207,9 @@ function AdminCompaniesComponent() {
         title="Companies"
         description={`Every company on ORRN, for support and onboarding (${data?.total ?? 0} in total).`}
         actions={
-          <Link to="/admin" className="no-underline">
-            <Button variant="outline">Back to console</Button>
-          </Link>
+          <Button asChild variant="outline">
+            <Link to="/admin">Back to console</Link>
+          </Button>
         }
       />
       <Toolbar>
@@ -217,7 +217,8 @@ function AdminCompaniesComponent() {
           placeholder="Search name or slug…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="max-w-sm"
+          aria-label="Search companies"
+          className="sm:max-w-sm"
         />
         <Tabs
           value={status}
@@ -273,10 +274,11 @@ function AdminCompaniesComponent() {
                 <p className="m-0 text-foreground">{format(new Date(row.createdAt), "MMM d")}</p>
               </div>
             </div>
-            <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-border pt-3">
+            <div className="mt-auto grid grid-cols-2 gap-2 border-t border-border pt-3 sm:flex sm:flex-wrap sm:justify-end [&>*:nth-child(odd):last-child]:col-span-2">
               <Can do="platform.impersonate">
                 <Button
                   size="sm"
+                  variant="outline"
                   disabled={row.status !== "active" || impersonateMutation.isPending}
                   onClick={() =>
                     impersonateMutation.mutate({ companyId: row.id, ttlMinutes: 30 })
@@ -289,7 +291,8 @@ function AdminCompaniesComponent() {
                 {row.status === "active" ? (
                   <Button
                     size="sm"
-                    variant="destructive"
+                    variant="outline"
+                    className="text-destructive"
                     disabled={suspendMutation.isPending}
                     onClick={() => suspendMutation.mutate({ id: row.id })}
                   >

@@ -1,6 +1,6 @@
 import { Badge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { Dialog } from "@orrn/ui/components/dialog";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -225,7 +225,7 @@ function SpoolComponent() {
         sortValue: (r) => r.templateId,
         cell: (r) => (
           <span className="truncate font-medium">
-            {r.templateId ? r.templateId.slice(0, 8) : "—"}
+            {r.templateId ? r.templateId.slice(0, 8) : "None"}
           </span>
         ),
       },
@@ -234,7 +234,7 @@ function SpoolComponent() {
         header: "Printer",
         cell: (r) => (
           <span className="truncate font-mono text-xs">
-            {r.profileId ? r.profileId.slice(0, 8) : "—"}
+            {r.profileId ? r.profileId.slice(0, 8) : "None"}
           </span>
         ),
       },
@@ -245,7 +245,7 @@ function SpoolComponent() {
         sortValue: (r) => r.status,
         cell: (r) => (
           <Badge tone={STATUS_TONES[r.status] ?? "neutral"}>
-            {r.status.toUpperCase()}
+            {r.status.charAt(0).toUpperCase() + r.status.slice(1)}
           </Badge>
         ),
       },
@@ -369,7 +369,7 @@ function SpoolComponent() {
         header: "Spool Template ID",
         cell: (r) => (
           <span className="font-mono text-xs text-muted-foreground">
-            {r.spoolTemplateId || "—"}
+            {r.spoolTemplateId || "None"}
           </span>
         ),
       },
@@ -382,7 +382,7 @@ function SpoolComponent() {
           <span className="text-xs text-muted-foreground">
             {r.spoolPushedAt
               ? formatDistanceToNow(new Date(r.spoolPushedAt), { addSuffix: true })
-              : "—"}
+              : "Never"}
           </span>
         ),
       },
@@ -419,13 +419,13 @@ function SpoolComponent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Spool"
-        description="Print queue, printers, and label templates for LAN label printing."
+        title="Print queue"
+        description="Print jobs, printers and label templates for this site."
         actions={
           <Can do="spool.create_jobs">
             <Button onPress={() => setNewJobOpen(true)}>
               <Plus className="size-4" />
-              New Print Job
+              New print job
             </Button>
           </Can>
         }
@@ -452,7 +452,7 @@ function SpoolComponent() {
             emptyState={
               <EmptyState
                 title="No print jobs"
-                description="Print jobs submitted from this tenant will appear here."
+                description="Labels you send to print show up here."
                 icon={<Printer className="size-8" />}
               />
             }
@@ -606,8 +606,8 @@ function DeploymentStatusSection({
   if (!deployment) {
     return (
       <EmptyState
-        title="No spool deployment"
-        description="No spool deployment configured. Contact your admin."
+        title="No print station yet"
+        description="Label printing is not connected for this company. Ask ORRN support to set up your print station."
         icon={<Printer className="size-8" />}
       />
     );
@@ -616,32 +616,29 @@ function DeploymentStatusSection({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-3">
-          <CardTitle>Spool Deployment</CardTitle>
+        <div className="flex min-w-0 items-center gap-3">
+          <CardTitle className="min-w-0 truncate">Print station</CardTitle>
           <Badge tone={DEPLOYMENT_TONES[deployment.status] ?? "neutral"}>
-            {deployment.status.toUpperCase()}
+            {deployment.status.charAt(0).toUpperCase() + deployment.status.slice(1)}
           </Badge>
         </div>
-        <CardDescription>
-          {deployment.spoolDomain}
-        </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-          <div>
-            <span className="text-xs font-medium text-muted-foreground">Domain</span>
-            <p className="m-0 font-mono text-xs text-foreground mt-0.5">
+        <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:flex sm:flex-wrap [&>div]:min-w-0">
+          <div className="col-span-2 sm:col-span-1">
+            <span className="text-xs font-medium text-muted-foreground">Address</span>
+            <p className="m-0 mt-0.5 truncate font-mono text-xs text-foreground" title={deployment.spoolDomain}>
               {deployment.spoolDomain}
             </p>
           </div>
           <div>
             <span className="text-xs font-medium text-muted-foreground">Version</span>
             <p className="m-0 text-xs text-foreground mt-0.5">
-              {deployment.spoolVersion || "—"}
+              {deployment.spoolVersion || "Unknown"}
             </p>
           </div>
           <div>
-            <span className="text-xs font-medium text-muted-foreground">Last Seen</span>
+            <span className="text-xs font-medium text-muted-foreground">Last seen</span>
             <p className="m-0 text-xs text-foreground mt-0.5">
               {deployment.lastSeenAt
                 ? formatDistanceToNow(new Date(deployment.lastSeenAt), { addSuffix: true })

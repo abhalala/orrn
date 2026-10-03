@@ -109,13 +109,27 @@ export async function collectHorizontalScrollIssues(
       return false;
     };
 
+    // Right edge actually painted: clipped by any overflow ancestor (text cut
+    // by an ellipsis or a clip box does not stick out of the viewport).
+    const paintedRight = (el: Element, right: number, stopAt?: Element | null): number => {
+      let r = right;
+      let node = el.parentElement;
+      while (node && node !== document.body && node !== stopAt) {
+        if (getComputedStyle(node).overflowX !== "visible") {
+          r = Math.min(r, node.getBoundingClientRect().right);
+        }
+        node = node.parentElement;
+      }
+      return r;
+    };
+
     for (const el of Array.from(document.body.querySelectorAll("*"))) {
       if (isIgnored(el)) continue;
       const style = getComputedStyle(el);
       if (style.display === "none" || style.visibility === "hidden" || style.position === "fixed") continue;
       const rect = el.getBoundingClientRect();
       if (rect.width <= 1 || rect.height <= 1) continue;
-      if (rect.right > vw + 1 && rect.left < vw && !insideHorizontalScroller(el)) {
+      if (rect.right > vw + 1 && rect.left < vw && !insideHorizontalScroller(el) && paintedRight(el, rect.right) > vw + 1) {
         // Inside a fixed overlay (sheet, dialog, popover) the overlay itself is
         // the frame; only report when the overlay itself is on screen.
         issues.push({
@@ -126,6 +140,29 @@ export async function collectHorizontalScrollIssues(
         });
       }
     }
+    // The app content column clips sideways overflow (so the page never
+    // scrolls); anything sticking past its padding edge is still a bug.
+    const content = document.querySelector(".orrn-app-content");
+    if (content) {
+      const cs = getComputedStyle(content);
+      const inner = content.getBoundingClientRect().right - parseFloat(cs.paddingRight) + 1;
+      for (const el of Array.from(content.querySelectorAll("*"))) {
+        if (isIgnored(el)) continue;
+        const style = getComputedStyle(el);
+        if (style.display === "none" || style.position === "fixed") continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.width <= 1 || rect.height <= 1) continue;
+        if (rect.right > inner && !insideHorizontalScroller(el) && paintedRight(el, rect.right, content) > inner) {
+          issues.push({
+            kind: "past-content",
+            path: pathOf(el),
+            text: (el.textContent ?? "").trim().slice(0, 60),
+            detail: `right ${Math.round(rect.right)} > content edge ${Math.round(inner - 1)}`,
+          });
+        }
+      }
+    }
+
     // Report the outermost offenders only.
     const seen = new Set<string>();
     return issues.filter((i) => {

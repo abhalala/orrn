@@ -2,6 +2,7 @@ import { StatusBadge } from "@orrn/ui/components/badge";
 import { Button } from "@orrn/ui/components/button";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { ListCard, stretchedLink } from "@orrn/ui/components/list-card";
 import { Input } from "@orrn/ui/components/input";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Tabs } from "@orrn/ui/components/tabs";
@@ -81,7 +82,7 @@ function DispatchesListComponent() {
     {
       id: "ship",
       header: "Ship Date",
-      cell: (r) => (r.shipDate ? format(new Date(r.shipDate), "MMM d, yyyy") : "—"),
+      cell: (r) => (r.shipDate ? format(new Date(r.shipDate), "MMM d, yyyy") : "Not set"),
     },
     {
       id: "created",
@@ -97,9 +98,9 @@ function DispatchesListComponent() {
         description={`Outbound shipments and reservations (${data?.total ?? 0} total)`}
         actions={
           <Can do="dispatch.create">
-            <Link to="/dispatches/new">
-              <Button>New Dispatch</Button>
-            </Link>
+            <Button asChild>
+              <Link to="/dispatches/new">New dispatch</Link>
+            </Button>
           </Can>
         }
       />
@@ -109,7 +110,8 @@ function DispatchesListComponent() {
           placeholder="Search by code or notes…"
           value={query}
           onChangeText={setQuery}
-          className="max-w-80"
+          aria-label="Search dispatches"
+          className="sm:max-w-80"
         />
         <Tabs
           value={status}
@@ -126,34 +128,22 @@ function DispatchesListComponent() {
         rowKey={(r) => r.id}
         columns={columns}
         renderCard={(r) => (
-          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <Link to="/dispatches/$id" params={{ id: r.id }} className="font-mono text-sm font-semibold hover:underline">
-                  {r.code}
-                </Link>
-                <p className="m-0 truncate text-sm text-muted-foreground">{r.customerName}</p>
-              </div>
-              <StatusBadge kind="dispatch" value={r.status} />
-            </div>
-            <div className="grid grid-cols-3 gap-3 text-sm">
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Items</p>
-                <p className="m-0 text-foreground">{Number(r.itemCount)}</p>
-              </div>
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
-                <p className="m-0 text-foreground">{Number(r.totalWeightG).toLocaleString()} g</p>
-              </div>
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Ship</p>
-                <p className="m-0 text-foreground">{r.shipDate ? format(new Date(r.shipDate), "MMM d") : "—"}</p>
-              </div>
-            </div>
-            <p className="m-0 border-t border-border pt-3 text-xs text-muted-foreground">
-              Created {format(new Date(r.createdAt), "MMM d, yyyy")}
-            </p>
-          </div>
+          <ListCard
+            mono
+            title={
+              <Link to="/dispatches/$id" params={{ id: r.id }} className={stretchedLink}>
+                {r.code}
+              </Link>
+            }
+            subtitle={r.customerName}
+            subtitleText={r.customerName ?? undefined}
+            status={<StatusBadge kind="dispatch" value={r.status} />}
+            facts={[
+              { label: "Bundles", value: Number(r.itemCount).toLocaleString() },
+              { label: "Weight", value: `${Number(r.totalWeightG).toLocaleString()} g` },
+              { label: "Ship date", value: r.shipDate ? format(new Date(r.shipDate), "MMM d") : "Not set" },
+            ]}
+          />
         )}
         isLoading={isLoading}
         emptyState={
@@ -162,9 +152,9 @@ function DispatchesListComponent() {
             description="Create a draft dispatch to start reserving bundles for a customer."
             actions={
               <Can do="dispatch.create">
-                <Link to="/dispatches/new">
-                  <Button>New dispatch</Button>
-                </Link>
+                <Button asChild>
+                  <Link to="/dispatches/new">New dispatch</Link>
+                </Button>
               </Can>
             }
           />

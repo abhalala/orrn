@@ -129,7 +129,7 @@ function StaffAdminPage() {
           <Can
             do="platform.staff.updateRole"
             fallback={
-              <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role).toUpperCase()}</Badge>
+              <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role)}</Badge>
             }
           >
             {canEdit ? (
@@ -143,7 +143,7 @@ function StaffAdminPage() {
                 disabled={updateRoleMutation.isPending}
               />
             ) : (
-              <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role).toUpperCase()}</Badge>
+              <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role)}</Badge>
             )}
           </Can>
         );
@@ -190,7 +190,7 @@ function StaffAdminPage() {
       <PageHeader
         eyebrow="Godseye"
         title="Staff accounts"
-        description="Internal orrn.app users. Accounts are created here — there is no public sign-up on orrn.app."
+        description="Internal orrn.app users. Accounts are created here; there is no public sign-up on orrn.app."
       />
 
       <Can do="platform.staff.create">
@@ -230,17 +230,19 @@ function StaffAdminPage() {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label>Role</Label>
+                <Label htmlFor="staff-role">Role</Label>
                 <Select
+                  id="staff-role"
                   value={form.role}
                   onValueChange={(v) => setForm((f) => ({ ...f, role: v as StaffRole }))}
                   options={roleOptions}
-                  width={240}
+                  className="w-full sm:w-60"
                 />
               </div>
             </div>
             <div className="mt-4">
               <Button
+                className="w-full sm:w-auto"
                 disabled={createMutation.isPending}
                 onClick={() => {
                   const parsed = createSchema.safeParse(form);
@@ -272,10 +274,10 @@ function StaffAdminPage() {
               const canEdit = !isSelf && assignable.includes(row.role);
               return (
                 <div className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="m-0 truncate text-sm font-semibold text-foreground">{row.name}</p>
-                      <p className="m-0 truncate text-xs text-muted-foreground">{row.email}</p>
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 truncate text-sm font-semibold text-foreground" title={row.name}>{row.name}</p>
+                      <p className="m-0 truncate text-xs text-muted-foreground" title={row.email}>{row.email}</p>
                     </div>
                     {!isSelf ? (
                       <Can do="platform.staff.remove">
@@ -295,26 +297,29 @@ function StaffAdminPage() {
                       <p className="m-0 text-xs font-medium text-muted-foreground">Created</p>
                       <p className="m-0 text-sm text-foreground">{format(new Date(row.createdAt), "PP")}</p>
                     </div>
-                    <div className="min-w-[160px]">
-                      <p className="m-0 mb-1 text-xs font-medium text-muted-foreground">Role</p>
+                    <div className="w-full min-w-0 sm:w-40">
+                      <label htmlFor={`role-${row.userId}`} className="m-0 mb-1 block text-xs font-medium text-muted-foreground">
+                        Role
+                      </label>
                       <Can
                         do="platform.staff.updateRole"
                         fallback={
-                          <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role).toUpperCase()}</Badge>
+                          <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role)}</Badge>
                         }
                       >
                         {canEdit ? (
                           <Select
+                            id={`role-${row.userId}`}
                             value={row.role}
                             onValueChange={(v) =>
                               updateRoleMutation.mutate({ userId: row.userId, role: v as StaffRole })
                             }
                             options={roleOptions}
-                            width={160}
+                            className="w-full"
                             disabled={updateRoleMutation.isPending}
                           />
                         ) : (
-                          <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role).toUpperCase()}</Badge>
+                          <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role)}</Badge>
                         )}
                       </Can>
                     </div>

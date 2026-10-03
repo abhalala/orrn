@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from
 import { cn } from "@orrn/ui/lib/utils";
 
 import { Button } from "./button";
+import { NativeSelect } from "./native-select";
 import { Skeleton } from "./skeleton";
 
 export type DataTableColumn<Row> = {
@@ -97,25 +98,52 @@ export function DataTable<Row>({
   return (
     <div className="flex w-full flex-col gap-3">
       {sortableColumns.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[13px] font-medium text-muted-foreground">Sort</span>
-          {sortableColumns.map((col) => {
-            const active = sort?.columnId === col.id;
-            const label = labelText(col.header);
-            return (
-              <Button
-                key={col.id}
-                variant={active ? "secondary" : "outline"}
-                size="sm"
-                aria-label={`Sort by ${label}`}
-                onPress={() => toggleSort(col.id)}
-              >
-                {col.header}
-                {active ? <span aria-hidden="true">{sort.dir === "asc" ? "Asc" : "Desc"}</span> : null}
-              </Button>
-            );
-          })}
-        </div>
+        <>
+          {/* Phones: one compact sort picker instead of a wall of pills. */}
+          <label className="flex items-center gap-3 sm:hidden">
+            <span className="shrink-0 text-[13px] font-medium text-muted-foreground">Sort</span>
+            <NativeSelect
+              density="compact"
+              value={sort ? `${sort.columnId}:${sort.dir}` : ""}
+              onChange={(e) => {
+                const [columnId, dir] = e.target.value.split(":");
+                setSort(columnId ? { columnId, dir: dir === "desc" ? "desc" : "asc" } : null);
+              }}
+            >
+              <option value="">Default order</option>
+              {sortableColumns.map((col) => {
+                const label = labelText(col.header);
+                return [
+                  <option key={`${col.id}:asc`} value={`${col.id}:asc`}>
+                    {label}, ascending
+                  </option>,
+                  <option key={`${col.id}:desc`} value={`${col.id}:desc`}>
+                    {label}, descending
+                  </option>,
+                ];
+              })}
+            </NativeSelect>
+          </label>
+          <div className="hidden flex-wrap items-center gap-2 sm:flex">
+            <span className="text-[13px] font-medium text-muted-foreground">Sort</span>
+            {sortableColumns.map((col) => {
+              const active = sort?.columnId === col.id;
+              const label = labelText(col.header);
+              return (
+                <Button
+                  key={col.id}
+                  variant={active ? "secondary" : "outline"}
+                  size="sm"
+                  aria-label={`Sort by ${label}`}
+                  onPress={() => toggleSort(col.id)}
+                >
+                  {col.header}
+                  {active ? <span aria-hidden="true">{sort.dir === "asc" ? "Asc" : "Desc"}</span> : null}
+                </Button>
+              );
+            })}
+          </div>
+        </>
       ) : null}
 
       {isLoading ? (
@@ -232,7 +260,8 @@ function CardListItem<Row>({
       </div>
 
       {detailColumns.length > 0 ? (
-        <dl className="m-0 grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-x-4 gap-y-2.5">
+        // Phones show the first three facts in one row; wider cards show all.
+        <dl className="m-0 grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-x-4 gap-y-2.5 max-sm:[&>div:nth-child(n+4)]:hidden">
           {detailColumns.map((col) => (
             <div key={col.id} className="min-w-0">
               <dt className="truncate text-xs font-medium text-muted-foreground">{col.header}</dt>

@@ -3,6 +3,7 @@ import { Button } from "@orrn/ui/components/button";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { Truncate } from "@orrn/ui/components/truncate";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format } from "date-fns";
@@ -71,7 +72,7 @@ function AdminWaitlistComponent() {
       header: "Notes",
       cell: (r) => (
         <span className="text-xs text-muted-foreground line-clamp-1 max-w-[280px]">
-          {r.notes || "—"}
+          {r.notes || "None"}
         </span>
       ),
       flex: 2,
@@ -109,16 +110,16 @@ function AdminWaitlistComponent() {
       <PageHeader
         eyebrow="Godseye"
         title={
-          <span className="flex items-center gap-3">
+          <span className="flex flex-wrap items-center gap-3">
             Waitlist
-            {pendingCount > 0 ? <Badge tone="warning">{pendingCount} pending</Badge> : null}
+            {pendingCount > 0 ? <Badge tone="warning" size="md">{pendingCount} pending</Badge> : null}
           </span>
         }
         description="Review and approve incoming company requests."
         actions={
-          <Link to="/admin" className="no-underline">
-            <Button variant="outline">Back to console</Button>
-          </Link>
+          <Button asChild variant="outline">
+            <Link to="/admin">Back to console</Link>
+          </Button>
         }
       />
 
@@ -128,19 +129,24 @@ function AdminWaitlistComponent() {
         columns={columns}
         renderCard={(r) => (
           <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="m-0 truncate text-base font-semibold text-foreground">{r.companyName}</p>
-                <p className="m-0 truncate text-sm text-muted-foreground">
-                  {r.requesterName} · {r.requesterEmail}
-                </p>
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <Truncate as="p" lines={2} className="m-0 text-base font-semibold text-foreground">
+                  {r.companyName}
+                </Truncate>
+                <Truncate as="p" className="m-0 text-sm text-muted-foreground">
+                  {r.requesterName}
+                </Truncate>
+                <Truncate as="p" className="m-0 text-sm text-muted-foreground">
+                  {r.requesterEmail}
+                </Truncate>
               </div>
               <span className="shrink-0 text-xs text-muted-foreground">
                 {format(new Date(r.createdAt), "MMM d, yyyy")}
               </span>
             </div>
-            <p className="m-0 line-clamp-3 text-sm text-muted-foreground">{r.notes || "No notes provided."}</p>
-            <div className="mt-auto flex justify-end gap-2 border-t border-border pt-3">
+            <p className="m-0 line-clamp-3 break-words text-sm text-muted-foreground">{r.notes || "No notes provided."}</p>
+            <div className="mt-auto grid grid-cols-2 gap-2 border-t border-border pt-3 sm:flex sm:justify-end">
               <Can do="platform.waitlist.review">
                 <Button
                   variant="destructive"

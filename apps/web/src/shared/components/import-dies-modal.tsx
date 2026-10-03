@@ -92,7 +92,7 @@ export function ImportDiesModal({ onClose, onSuccess }: { onClose: () => void; o
         },
       });
     } else {
-      toast.error("Unsupported file type — please upload a .csv or .json file");
+      toast.error("That file type is not supported. Upload a .csv or .json file.");
       setSelectedFile(null);
     }
   };
@@ -197,7 +197,7 @@ export function ImportDiesModal({ onClose, onSuccess }: { onClose: () => void; o
               { label: "Sample JSON", href: "/samples/dies.json" },
             ]}
             heading="Drop your dies file here"
-            hint="or click to browse — duplicates can be skipped or overwritten on the next step"
+            hint="or click to browse. Duplicates can be skipped or overwritten on the next step"
           />
         )}
 
@@ -214,7 +214,7 @@ export function ImportDiesModal({ onClose, onSuccess }: { onClose: () => void; o
               <div className="space-y-4 rounded-md border border-border p-4">
                 <div>
                   <p className="font-semibold">
-                    {duplicateRows[0].series} — {duplicateRows[0].sectionCode}
+                    {duplicateRows[0].series} / {duplicateRows[0].sectionCode}
                   </p>
                   <p className="text-sm text-muted-foreground">{duplicateRows[0].name}</p>
                 </div>

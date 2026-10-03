@@ -2,6 +2,7 @@ import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@orrn/ui/components/card";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
+import { NativeSelect } from "@orrn/ui/components/native-select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Activity, CheckCircle, Clock, MapPin, Phone, Shield } from "lucide-react";
@@ -152,18 +153,18 @@ function OnboardingComponent() {
                 />
               </Field>
               <Field label="Operational Timezone" icon={<Clock size={14} aria-hidden="true" />}>
-                <select
+                <NativeSelect
                   id="timezone"
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                  
                 >
                   <option value="America/New_York">Eastern Time (ET)</option>
                   <option value="America/Chicago">Central Time (CT)</option>
                   <option value="America/Denver">Mountain Time (MT)</option>
                   <option value="America/Los_Angeles">Pacific Time (PT)</option>
                   <option value="UTC">Coordinated Universal Time (UTC)</option>
-                </select>
+                </NativeSelect>
               </Field>
             </div>
 

@@ -8,10 +8,10 @@ import {
 import { cn } from "@orrn/ui/lib/utils";
 
 const inputBase =
-  // C2 field: 44px tall, 12px radius, white surface, control-strength border
+  // C2 field: 48px tall on phones, 44px from sm, 12px radius, white surface, control-strength border
 // (>= 3:1). 16px text on touch so iOS doesn't zoom. Focus = global ink ring
 // plus an ink border.
-  "flex h-11 w-full rounded-input border border-input bg-card px-3.5 py-2 text-[15px] text-foreground transition-[border-color,box-shadow] duration-[var(--dur-fast)] placeholder:text-muted-foreground hover:border-foreground/70 focus-visible:border-foreground aria-invalid:border-destructive disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:text-base file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground";
+  "flex h-12 w-full rounded-input sm:h-11 border border-input bg-card px-3.5 py-2 text-[15px] text-foreground transition-[border-color,box-shadow] duration-[var(--dur-fast)] placeholder:text-muted-foreground hover:border-foreground/70 focus-visible:border-foreground aria-invalid:border-destructive disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:text-base file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground";
 
 type OnChangeText = (text: string) => void;
 

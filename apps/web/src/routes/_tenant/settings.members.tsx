@@ -6,6 +6,7 @@ import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { NativeSelect } from "@orrn/ui/components/native-select";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { format } from "date-fns";
@@ -137,7 +138,8 @@ function MembersComponent() {
       header: "Role",
       cell: (m) =>
         canManageMembers ? (
-          <select
+          <NativeSelect
+            aria-label={`Role for ${m.user.name}`}
             value={m.role}
             onChange={(e) =>
               updateRoleMutation.mutate({
@@ -145,7 +147,7 @@ function MembersComponent() {
                 role: e.target.value as CompanyRole,
               })
             }
-            className="bg-transparent text-sm capitalize border border-border rounded px-2 py-1"
+            density="compact" className="w-36 capitalize"
             disabled={updateRoleMutation.isPending}
           >
             {companyRoles.map((r) => (
@@ -153,7 +155,7 @@ function MembersComponent() {
                 {r}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         ) : (
           <StatusBadge kind="role" value={m.role} />
         ),
@@ -197,8 +199,8 @@ function MembersComponent() {
             <CardDescription>Send a one-time invitation link to a teammate's email.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex-1 min-w-[200px] space-y-1">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem_auto] sm:items-end">
+              <div className="min-w-0 space-y-1.5">
                 <Label htmlFor="invite-email">Email</Label>
                 <Input
                   id="invite-email"
@@ -208,22 +210,23 @@ function MembersComponent() {
                   onChangeText={setEmail}
                 />
               </div>
-              <div className="space-y-1">
+              <div className="min-w-0 space-y-1.5">
                 <Label htmlFor="invite-role">Role</Label>
-                <select
+                <NativeSelect
                   id="invite-role"
                   value={role}
                   onChange={(e) => setRole(e.target.value as CompanyRole)}
-                  className="flex h-9 items-center justify-between rounded-md border border-border bg-background px-3 text-sm capitalize"
+                  className="capitalize"
                 >
                   {companyRoles.map((r) => (
                     <option key={r} value={r}>
                       {r}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <Button
+                className="w-full sm:w-auto"
                 onClick={() => inviteMutation.mutate({ email, role })}
                 disabled={!email || inviteMutation.isPending}
               >
@@ -246,9 +249,9 @@ function MembersComponent() {
             columns={inviteColumns}
             renderCard={(r) => (
               <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="m-0 truncate text-sm font-semibold text-foreground">{r.email}</p>
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="m-0 truncate text-sm font-semibold text-foreground" title={r.email}>{r.email}</p>
                     <p className="m-0 text-xs text-muted-foreground">
                       Expires {format(new Date(r.expiresAt), "MMM d, yyyy")}
                     </p>
@@ -284,10 +287,10 @@ function MembersComponent() {
             columns={memberColumns}
             renderCard={(m) => (
               <div className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="m-0 truncate text-sm font-semibold text-foreground">{m.user.name}</p>
-                    <p className="m-0 truncate text-xs text-muted-foreground">{m.user.email}</p>
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="m-0 truncate text-sm font-semibold text-foreground" title={m.user.name}>{m.user.name}</p>
+                    <p className="m-0 truncate text-xs text-muted-foreground" title={m.user.email}>{m.user.email}</p>
                   </div>
                   <Can do="member.remove">
                     <Button
@@ -308,7 +311,8 @@ function MembersComponent() {
                   <div className="min-w-[160px]">
                     <p className="m-0 mb-1 text-xs font-medium text-muted-foreground">Role</p>
                     {canManageMembers ? (
-                      <select
+                      <NativeSelect
+                        aria-label={`Role for ${m.user.name}`}
                         value={m.role}
                         onChange={(e) =>
                           updateRoleMutation.mutate({
@@ -316,7 +320,7 @@ function MembersComponent() {
                             role: e.target.value as CompanyRole,
                           })
                         }
-                        className="w-full rounded-md border border-border bg-transparent px-2 py-1 text-sm capitalize"
+                        density="compact" className="capitalize"
                         disabled={updateRoleMutation.isPending}
                       >
                         {companyRoles.map((r) => (
@@ -324,7 +328,7 @@ function MembersComponent() {
                             {r}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     ) : (
                       <StatusBadge kind="role" value={m.role} />
                     )}

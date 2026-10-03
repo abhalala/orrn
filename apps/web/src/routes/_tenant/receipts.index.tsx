@@ -1,6 +1,7 @@
 import { Button } from "@orrn/ui/components/button";
 import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { ListCard, stretchedLink } from "@orrn/ui/components/list-card";
 import { Input } from "@orrn/ui/components/input";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Toolbar } from "@orrn/ui/components/toolbar";
@@ -57,7 +58,7 @@ function ReceiptsListComponent() {
       ),
     },
     { id: "unit", header: "Unit", cell: (r) => r.unit },
-    { id: "po", header: "PO Ref", cell: (r) => r.purchaseOrderRef || "—" },
+    { id: "po", header: "PO Ref", cell: (r) => r.purchaseOrderRef || "None" },
     {
       id: "bundles",
       header: "Bundles",
@@ -81,12 +82,12 @@ function ReceiptsListComponent() {
     <div className="space-y-6">
       <PageHeader
         title="Bundling sessions"
-        description={`Production receipts / bundling sessions — ${data?.total ?? 0} total`}
+        description={`Each session records one press run and the bundles it made (${data?.total ?? 0} in total).`}
         actions={
           <Can do="receipt.create">
-            <Link to="/receipts/new">
-              <Button>New Bundling Session</Button>
-            </Link>
+            <Button asChild>
+              <Link to="/receipts/new">New bundling session</Link>
+            </Button>
           </Can>
         }
       />
@@ -96,7 +97,8 @@ function ReceiptsListComponent() {
           placeholder="Search by session code or PO ref…"
           value={search}
           onChangeText={setSearch}
-          className="max-w-[360px]"
+          aria-label="Search bundling sessions"
+          className="sm:max-w-[360px]"
         />
       </Toolbar>
 
@@ -105,38 +107,25 @@ function ReceiptsListComponent() {
         rowKey={(r) => r.id}
         columns={columns}
         renderCard={(r) => (
-          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <Link to="/receipts/$id" params={{ id: r.id }} className="font-mono text-sm font-semibold hover:underline">
-                  {r.code}
-                </Link>
-                <p className="m-0 text-xs text-muted-foreground">
-                  {r.dieSeries} / {r.dieSectionCode}
-                </p>
-              </div>
-              <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">
-                {Number(r.bundleCount)} bundles
+          <ListCard
+            mono
+            title={
+              <Link to="/receipts/$id" params={{ id: r.id }} className={stretchedLink}>
+                {r.code}
+              </Link>
+            }
+            subtitle={`${r.dieSeries} / ${r.dieSectionCode}`}
+            facts={[
+              { label: "Bundles", value: Number(r.bundleCount).toLocaleString() },
+              { label: "Weight", value: `${Number(r.totalWeightG).toLocaleString()} g` },
+              { label: "Created", value: format(new Date(r.createdAt), "MMM d") },
+            ]}
+            footer={
+              <span className="min-w-0 truncate" title={r.purchaseOrderRef ?? undefined}>
+                PO ref: {r.purchaseOrderRef || "None"}
               </span>
-            </div>
-            <div className="grid grid-cols-3 gap-3 text-sm">
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Unit</p>
-                <p className="m-0 text-foreground">{r.unit}</p>
-              </div>
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Weight</p>
-                <p className="m-0 text-foreground">{Number(r.totalWeightG).toLocaleString()} g</p>
-              </div>
-              <div>
-                <p className="m-0 text-xs font-medium text-muted-foreground">Created</p>
-                <p className="m-0 text-foreground">{format(new Date(r.createdAt), "MMM d")}</p>
-              </div>
-            </div>
-            <p className="m-0 border-t border-border pt-3 text-xs text-muted-foreground">
-              PO ref: {r.purchaseOrderRef || "—"}
-            </p>
-          </div>
+            }
+          />
         )}
         isLoading={isLoading}
         emptyState={
@@ -145,9 +134,9 @@ function ReceiptsListComponent() {
             description="Create your first bundling session to spawn bundles and print labels for the floor."
             actions={
               <Can do="receipt.create">
-                <Link to="/receipts/new">
-                  <Button>New session</Button>
-                </Link>
+                <Button asChild>
+                  <Link to="/receipts/new">New session</Link>
+                </Button>
               </Can>
             }
           />

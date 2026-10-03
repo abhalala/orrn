@@ -44,7 +44,7 @@ export function ImportBundlesModal({
     onSuccess: (res) => {
       const diesNote =
         res.newDies > 0
-          ? ` Created ${res.newDies} legacy die${res.newDies === 1 ? "" : "s"} — review on the dies page.`
+          ? ` Created ${res.newDies} legacy die${res.newDies === 1 ? "" : "s"}. Review them on the dies page.`
           : "";
       const groupsNote =
         res.newGroups > 0
@@ -67,7 +67,7 @@ export function ImportBundlesModal({
 
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext !== "csv" && ext !== "json") {
-      toast.error("Unsupported file type — please upload a .csv or .json file");
+      toast.error("That file type is not supported. Upload a .csv or .json file.");
       setSelectedFile(null);
       return;
     }
@@ -114,7 +114,7 @@ export function ImportBundlesModal({
               { label: "Sample JSON", href: "/samples/bundles.json" },
             ]}
             heading="Drop your bundles file here"
-            hint={`or click to browse — required columns: dieSeries, dieSectionCode, quantity, weightG, lengthMm (${lu.label}); optional poNumber`}
+            hint={`or click to browse. Required columns: dieSeries, dieSectionCode, quantity, weightG, lengthMm (${lu.label}); optional poNumber`}
           />
 
           <LegacyReceiptNotice />
@@ -147,7 +147,7 @@ function LegacyReceiptNotice() {
         </p>
         <p className="m-0 text-xs text-muted-foreground">
           Any die that isn't in your catalog yet is created on the fly with a{" "}
-          <span className="font-mono">LEGACY ·</span> name prefix — review and
+          <span className="font-mono">LEGACY ·</span> name prefix. Review and
           fill in dimensions and weight ranges on the dies page after the
           import.
         </p>

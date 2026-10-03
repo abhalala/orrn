@@ -7,13 +7,14 @@ export type FactListProps = HTMLAttributes<HTMLDListElement> & {
 };
 
 /**
- * Label-over-value facts for detail pages: one column on phones, two from
- * `sm`, each cell `min-w-0` so long values ellipsise or wrap inside their own
- * cell instead of pushing neighbours. Use `wide` on a `Fact` for notes.
+ * Label-over-value facts for detail pages: two columns (short facts pair up
+ * even on phones), each cell `min-w-0` so long values ellipsise or wrap inside
+ * their own cell instead of pushing neighbours. Use `wide` on a `Fact` for
+ * names, notes and addresses.
  */
 export function FactList({ className, children, ...rest }: FactListProps) {
   return (
-    <dl className={cn("m-0 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2", className)} {...rest}>
+    <dl className={cn("m-0 grid grid-cols-2 gap-x-4 gap-y-4 sm:gap-x-6", className)} {...rest}>
       {children}
     </dl>
   );
@@ -22,7 +23,7 @@ export function FactList({ className, children, ...rest }: FactListProps) {
 export type FactProps = {
   label: ReactNode;
   children: ReactNode;
-  /** Span both columns (notes, addresses). */
+  /** Span both columns (names, notes, addresses). */
   wide?: boolean;
   /** Geist Mono for codes, serials and numbers. */
   mono?: boolean;
@@ -36,7 +37,7 @@ export function Fact({ label, children, wide, mono, truncate, title, className }
   const autoTitle =
     title ?? (truncate && (typeof children === "string" || typeof children === "number") ? String(children) : undefined);
   return (
-    <div className={cn("min-w-0", wide && "sm:col-span-2", className)}>
+    <div className={cn("min-w-0", wide && "col-span-2", className)}>
       <dt className="text-[13px] font-medium text-muted-foreground">{label}</dt>
       <dd
         title={autoTitle}
