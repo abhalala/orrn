@@ -18,7 +18,7 @@ import { entryState, entryTone, exchangePartner } from "./store-entries";
 import { purposeLabel, unitShort } from "./store-labels";
 import { formatQty } from "./store-qty";
 import { StoreLoadError } from "./store-ui";
-import { errorMessage, useInvalidateStore, useStoreEntries, type StoreEntry } from "./use-store";
+import { errorMessage, useInvalidateStore, useStoreAccess, useStoreEntries, type StoreEntry } from "./use-store";
 
 const PAGE = 20;
 const MAX = 500;
@@ -180,6 +180,7 @@ function EntrySheet({
   onOpenChange(open: boolean): void;
 }) {
   const { t, locale } = useT();
+  const { canEnter } = useStoreAccess();
   const invalidate = useInvalidateStore();
   const reasonId = `cancel-reason-${useId().replace(/:/g, "")}`;
   const reasonRef = useRef<HTMLTextAreaElement | null>(null);
@@ -231,7 +232,8 @@ function EntrySheet({
       title={e?.number ?? ""}
       description={e ? stateWord(t, e) : undefined}
       footer={
-        e && cancellable ? (
+        // Without store.txn there is no footer at all (an empty bar otherwise); Can still guards the buttons.
+        e && cancellable && canEnter ? (
           <Can do="store.txn">
             {confirming ? (
               <>
