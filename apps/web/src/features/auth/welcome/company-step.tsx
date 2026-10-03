@@ -5,6 +5,7 @@ import { NativeSelect } from "@orrn/ui/components/native-select";
 import { useMutation } from "@tanstack/react-query";
 import { useId, useMemo, useRef, useState, type FormEvent, type Ref } from "react";
 
+import { Can } from "@/shared/components/can";
 import type { Me } from "@/shared/lib/me";
 import { queryClient, trpc } from "@/shared/utils/trpc";
 
@@ -155,9 +156,12 @@ export function CompanyStep({
         </section>
 
         {save.isError ? <FormAlert>{t("errors.generic")}</FormAlert> : null}
-        <Button type="submit" size="lg" loading={save.isPending} className="w-full">
-          {save.isPending ? t("welcome.company.submitting") : t("welcome.company.submit")}
-        </Button>
+        {/* The welcome steps only offer this step to these roles; the server re-checks. */}
+        <Can do="settings.update">
+          <Button type="submit" size="lg" loading={save.isPending} className="w-full">
+            {save.isPending ? t("welcome.company.submitting") : t("welcome.company.submit")}
+          </Button>
+        </Can>
       </form>
     </div>
   );
