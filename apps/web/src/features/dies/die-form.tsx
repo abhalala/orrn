@@ -51,8 +51,8 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
   const [draft, setDraft] = useState<DieDraft>(() => (die ? dieToDraft(die, unit) : EMPTY_DIE_DRAFT));
   const [errors, setErrors] = useState<DieDraftErrors>({});
   const [announce, setAnnounce] = useState("");
-  const hasGeometry = GEOMETRY_FIELDS.some((f) => draft[f] !== "");
-  const [advanced, setAdvanced] = useState(hasGeometry);
+  // Measurements are rarely edited: closed until asked for (or until one of them has an error).
+  const [advanced, setAdvanced] = useState(false);
   const advancedId = useId();
 
   const onSuccess = async (id: string) => {

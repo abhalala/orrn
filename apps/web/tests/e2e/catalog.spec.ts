@@ -235,7 +235,8 @@ test.describe("customers", () => {
     );
     expect(saved.taxId).toBe("24AABCK4471M1Z6");
     expect(saved.billingAddress).toEqual({ line1: "Plot 9, GIDC", city: "Rajkot", state: "Gujarat", postalCode: "360002" });
-    expect(saved.shippingAddress).toEqual({ line1: "Shed 4, Aji Industrial Area", city: "Rajkot" });
+    // Unticking "Same as billing address" starts shipping from billing; only the street changed here.
+    expect(saved.shippingAddress).toEqual({ line1: "Shed 4, Aji Industrial Area", city: "Rajkot", state: "Gujarat", postalCode: "360002" });
   });
 
   test("editing in the sheet keeps the address and saves the change", async ({ page }) => {
@@ -290,7 +291,8 @@ test.describe("customers", () => {
       const kdKg = board1.rows.find((r) => r.customerId === kd.id)!.kgG / 1000;
       const kdText = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(kdKg);
       await page.getByLabel("Search customers").fill("KD Extrusion");
-      await expect(page.locator("main#main").getByText(kdText).first()).toBeVisible();
+      const list = page.getByRole(width >= 1024 ? "table" : "list", { name: "Customers", exact: true });
+      await expect(list.getByText(kdText)).toBeVisible();
 
       await period.getByRole("radio", { name: "This month" }).click();
       await expect(page).toHaveURL(/period=month/);

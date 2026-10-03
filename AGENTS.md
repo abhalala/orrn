@@ -293,7 +293,7 @@ bun run deploy
 
 - Router `analytics` (`routers/analytics.ts`, spec
   `docs/superpowers/specs/2026-10-03-orrn-analytics-addendum.md` §3): `customerSummary`,
-  `customerLeaderboard`, `trends`, `stockAgeing`, `dispatchVolume`. All read-only and guarded by
+  `customerLeaderboard`, `customerKg` (the customers list kg column), `trends`, `stockAgeing`, `dispatchVolume`. All read-only and guarded by
   `actionProcedure("analytics.view")` = owner, admin, manager, office, accountant. Floor roles and
   viewer get FORBIDDEN; on the client gate every chart with `<Can do="analytics.view">`.
 - Volume counts completed dispatches only (`status = 'completed'`, not soft-deleted), dated by
