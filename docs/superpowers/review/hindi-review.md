@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 675 screen strings in 23 groups, 10 guides with 182 strings.
+Counts: 678 screen strings in 24 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -135,6 +135,14 @@ Counts: 675 screen strings in 23 groups, 10 guides with 182 strings.
 | `manager` | Manager | मैनेजर |
 | `operator` | Operator | ऑपरेटर |
 | `viewer` | Viewer | व्यूअर |
+
+### platformRoles (3)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `super_admin` | Super admin | सुपर एडमिन |
+| `admin` | Admin | एडमिन |
+| `support` | Support | सपोर्ट |
 
 ### nav (36)
 

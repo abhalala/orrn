@@ -145,6 +145,12 @@ export const en = {
     viewer: "Viewer",
   },
 
+  platformRoles: {
+    super_admin: "Super admin",
+    admin: "Admin",
+    support: "Support",
+  },
+
   nav: {
     main: "Main",
     today: "Today",

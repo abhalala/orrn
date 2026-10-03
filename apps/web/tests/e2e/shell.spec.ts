@@ -114,20 +114,58 @@ test.describe("phone (390)", () => {
     expect(await page.evaluate(() => (window as unknown as { __orrnBoot?: number }).__orrnBoot)).toBe(boot);
   });
 
-  test("the tab bar slides away on scroll down and comes back on scroll up", async ({ page }) => {
-    await open(page, { width: 390, height: 700 });
-    // Make the page tall enough to scroll, whatever the screen shows today.
-    await page.evaluate(() => {
-      const spacer = document.createElement("div");
-      spacer.style.height = "3000px";
-      document.querySelector("main#main")?.appendChild(spacer);
-    });
+  test("the tab bar stays put after scrolling a long page", async ({ page }) => {
+    await open(page, { width: 390, height: 700, path: "/stock" });
+    await page.waitForLoadState("networkidle");
+    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThan(1400);
+    await page.mouse.wheel(0, 1200);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(600);
     const bar = page.locator("[data-slot='tab-bar']");
-    await expect(bar).toHaveAttribute("data-hidden", "false");
-    await page.mouse.wheel(0, 600);
-    await expect(bar).toHaveAttribute("data-hidden", "true");
-    await page.mouse.wheel(0, -300);
-    await expect(bar).toHaveAttribute("data-hidden", "false");
+    await expect(bar).toBeInViewport({ ratio: 1 });
+    const box = await bar.boundingBox();
+    expect(Math.round((box?.y ?? 0) + (box?.height ?? 0))).toBe(700);
+  });
+
+  test("the page is only as tall as its content, also after a long page", async ({ page }) => {
+    const extra = () =>
+      page.evaluate(() => {
+        const shell = document.querySelector("[data-slot='app-shell']")!.getBoundingClientRect().height;
+        return document.documentElement.scrollHeight - Math.max(shell, window.innerHeight);
+      });
+    await open(page, { width: 390, height: 700, path: "/stock" });
+    await page.waitForLoadState("networkidle");
+    expect(await extra()).toBeLessThanOrEqual(1);
+    await mainNav(page).getByRole("link", { name: "Today" }).click();
+    await expect(page).toHaveURL(HOME);
+    await page.waitForLoadState("networkidle");
+    expect(await extra()).toBeLessThanOrEqual(1);
+    // Nothing outside the shell adds height either.
+    const shellHeight = await page.evaluate(
+      () => document.querySelector("[data-slot='app-shell']")!.getBoundingClientRect().height,
+    );
+    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(
+      Math.max(shellHeight, 700) + 1,
+    );
+  });
+
+  test("a sticky action bar sits above the tab bar", async ({ page }) => {
+    await open(page, { width: 390, height: 700, path: "/guides" });
+    // The pattern flow screens use for their sticky bottom bar.
+    await page.evaluate(() => {
+      const host = document.querySelector("main#main > div")!;
+      const spacer = document.createElement("div");
+      spacer.style.height = "2000px";
+      const bar = document.createElement("div");
+      bar.dataset.testid = "sticky-bar";
+      bar.style.cssText = "position:sticky;bottom:var(--shell-tabbar-offset);height:56px;background:red;";
+      host.appendChild(spacer);
+      host.appendChild(bar);
+    });
+    const bar = await page.getByTestId("sticky-bar").boundingBox();
+    const tabs = await page.locator("[data-slot='tab-bar']").boundingBox();
+    expect(bar && tabs).toBeTruthy();
+    expect(bar!.y + bar!.height).toBeLessThanOrEqual(tabs!.y + 1);
+    expect(bar!.y + bar!.height).toBeGreaterThan(tabs!.y - 24);
   });
 
   test("Scan opens the scanner and a typed serial opens that bundle", async ({ page }) => {
@@ -177,6 +215,20 @@ test.describe("roles and modules", () => {
     const nav = mainNav(page);
     await expect(nav.getByRole("link", { name: "Stock" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Pack" })).toHaveCount(0);
+  });
+
+  test("Settings is only for people who manage the company or team (R24)", async ({ page }) => {
+    await open(page, { role: "operator", width: 390 });
+    await page.getByRole("button", { name: "Account and more" }).click();
+    const sheet = page.getByRole("dialog", { name: "More" });
+    await expect(sheet.getByRole("link", { name: "Guides" })).toBeVisible();
+    await expect(sheet.getByRole("link", { name: "Settings" })).toHaveCount(0);
+  });
+
+  test("viewers don't see Settings in the sidebar either", async ({ page }) => {
+    await open(page, { role: "viewer", width: 1280 });
+    await expect(mainNav(page).getByRole("link", { name: "Guides" })).toBeVisible();
+    await expect(mainNav(page).getByRole("link", { name: "Settings" })).toHaveCount(0);
   });
 
   test("a company with only the customers module hides Dies and Dispatch", async ({ page }) => {
@@ -274,6 +326,15 @@ test.describe("iPad and laptop", () => {
     await expect(page).toHaveURL(/\/customers$/);
   });
 
+  test("⌘K does nothing while another sheet is open", async ({ page }) => {
+    await open(page, { width: 1280 });
+    await page.getByRole("button", { name: "Scan", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Scan" })).toBeVisible();
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(page.getByRole("dialog", { name: "Scan or search" })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Scan" })).toBeVisible();
+  });
+
   test("/ opens the palette when not typing", async ({ page }) => {
     await open(page, { width: 1280 });
     await page.locator("main#main h1").first().click();
@@ -364,6 +425,8 @@ test.describe("layout and accessibility", () => {
   test("Godseye is clean at 390 and 1280", async ({ page }) => {
     for (const width of [390, 1280]) {
       await open(page, { role: "staff", width, path: "/admin" });
+      // The overview's own loading skeleton has an axe finding (aria-label on a div); Task 27 rebuilds it.
+      await page.waitForLoadState("networkidle");
       await expectNoHorizontalScroll(page);
       expect(await blockingAxeViolations(page)).toEqual([]);
     }

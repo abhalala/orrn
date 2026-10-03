@@ -50,7 +50,14 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "customers", to: "/customers", labelKey: "nav.customers", icon: Users, module: "customers" },
   { key: "printing", to: "/printing", labelKey: "nav.printing", icon: Printer, requires: ["spool.view_queue"] },
   { key: "guides", to: "/guides", labelKey: "nav.guides", icon: BookOpen },
-  { key: "settings", to: "/settings", labelKey: "nav.settings", icon: Settings },
+  {
+    key: "settings",
+    to: "/settings",
+    labelKey: "nav.settings",
+    icon: Settings,
+    // Ruling R24: people who can change company settings or the team.
+    requires: ["settings.update", "member.invite", "member.updateRole", "member.remove"],
+  },
 ];
 
 export const GODSEYE_NAV: readonly NavItem[] = [

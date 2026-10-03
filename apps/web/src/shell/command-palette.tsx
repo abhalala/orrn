@@ -45,16 +45,23 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 /**
- * Tenant-only. ⌘K / Ctrl+K toggles the palette anywhere; `/` opens it when the
- * person isn't typing in a field and no other dialog is open.
+ * Tenant-only. ⌘K / Ctrl+K toggles the palette and `/` opens it (when the
+ * person isn't typing in a field); both are ignored while another dialog or
+ * sheet is open.
  */
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const openRef = useRef(false);
+  openRef.current = open;
 
   useEffect(() => {
+    const otherDialogOpen = () =>
+      !openRef.current && !!document.querySelector("[role='dialog'], [role='alertdialog']");
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing) return;
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
+        // A sheet or dialog is in the middle of something: don't stack the palette on it.
+        if (otherDialogOpen()) return;
         e.preventDefault();
         setOpen((v) => !v);
         return;
@@ -65,7 +72,8 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
         !e.ctrlKey &&
         !e.altKey &&
         !isTypingTarget(e.target) &&
-        !document.querySelector("[role='dialog'], [role='alertdialog']")
+        !openRef.current &&
+        !otherDialogOpen()
       ) {
         e.preventDefault();
         setOpen(true);

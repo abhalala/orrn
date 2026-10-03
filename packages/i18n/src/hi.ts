@@ -139,6 +139,12 @@ export const hi = {
     viewer: "व्यूअर",
   },
 
+  platformRoles: {
+    super_admin: "सुपर एडमिन",
+    admin: "एडमिन",
+    support: "सपोर्ट",
+  },
+
   nav: {
     main: "मुख्य",
     today: "आज",

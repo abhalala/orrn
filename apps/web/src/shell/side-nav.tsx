@@ -13,7 +13,7 @@ import { navTarget } from "./route-compat";
 
 /**
  * From 768px: one ink panel that is an icon rail on iPad portrait (88px, icon
- * over a short label) and a full sidebar from 1024px (264px, icon beside the
+ * over a short label) and a full sidebar from 1024px (272px, icon beside the
  * label, "Scan or search ⌘K" at the top, the More group under a quiet label,
  * account in the footer). Same DOM for both, so there is exactly one primary
  * `nav` landmark at any width.

@@ -32,15 +32,17 @@ describe("visibleItems", () => {
     ]);
   });
 
-  test("viewer has no Pack but keeps Stock and Printing", () => {
+  test("viewer has no Pack and no Settings but keeps Stock and Printing", () => {
     const visible = keys(visibleItems(ALL, me("viewer")));
     expect(visible).not.toContain("pack");
+    expect(visible).not.toContain("settings");
     expect(visible).toContain("stock");
     expect(visible).toContain("printing");
   });
 
-  test("operator packs", () => {
+  test("operator packs but doesn't see Settings (R24)", () => {
     expect(keys(visibleItems(TENANT_PRIMARY, me("operator")))).toContain("pack");
+    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["dies", "customers", "printing", "guides"]);
   });
 
   test("modules filter (case-insensitive); empty list means all on", () => {

@@ -54,17 +54,12 @@ function useIdentity(variant: ShellVariant) {
   const role =
     variant === "godseye"
       ? me?.platformRole
-        ? sentenceCase(me.platformRole.replace(/_/g, " "))
+        ? t(`platformRoles.${me.platformRole}` as MessageKey)
         : null
       : roleKey
         ? t(roleKey)
         : null;
   return { me, place, role };
-}
-
-function sentenceCase(value: string): string {
-  const lower = value.toLowerCase();
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
 export function Avatar({ name, className }: { name: string | undefined; className?: string }) {

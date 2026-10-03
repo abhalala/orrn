@@ -3,7 +3,7 @@ import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import { cn } from "@orrn/ui/lib/utils";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Eye } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { useScan } from "@/features/scan/scan-context";
 import { ImpersonationBanner } from "@/shared/components/impersonation-banner";
@@ -15,7 +15,7 @@ import { GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, visibleItems } from "./nav-it
 import { navTarget } from "./route-compat";
 import { SideNav } from "./side-nav";
 import { SkipLink } from "./skip-link";
-import { TabBar, useHiddenOnScrollDown } from "./tab-bar";
+import { TabBar } from "./tab-bar";
 
 export type AppShellProps = {
   variant: ShellVariant;
@@ -49,8 +49,6 @@ function ShellFrame({ variant, children }: AppShellProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [moreOpen, setMoreOpen] = useState(false);
   const tablet = useMediaQuery(breakpoints.tablet);
-  // Only phones have the tab bar; elsewhere nothing needs to watch the scroll.
-  const tabBarHidden = useHiddenOnScrollDown(!tablet);
 
   const godseye = variant === "godseye";
   const primary = visibleItems(godseye ? GODSEYE_NAV : TENANT_PRIMARY, me);
@@ -75,14 +73,10 @@ function ShellFrame({ variant, children }: AppShellProps) {
       data-variant={variant}
       className={cn(
         "min-h-[100dvh] bg-background text-foreground md:grid md:grid-cols-[auto_minmax(0,1fr)]",
+        // Sticky bottom bars inside screens use `bottom: var(--shell-tabbar-offset)` to sit above the phone tab bar.
+        "[--shell-tabbar-offset:calc(73px+env(safe-area-inset-bottom))] md:[--shell-tabbar-offset:0px]",
         godseye && "godseye",
       )}
-      style={
-        {
-          // Sticky bottom bars inside screens sit on top of the tab bar, and follow it down when it hides.
-          "--shell-tabbar-offset": tabBarHidden ? "0px" : "calc(68px + env(safe-area-inset-bottom))",
-        } as CSSProperties
-      }
     >
       <SkipLink />
 
@@ -137,7 +131,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
           <div
             className={cn(
               "mx-auto flex w-full min-w-0 flex-col gap-5 px-4 pt-4 md:px-6 md:pt-7 md:pb-12 lg:px-8 lg:pt-8",
-              "pb-[calc(68px+env(safe-area-inset-bottom)+32px)]",
+              "pb-[calc(var(--shell-tabbar-offset)+32px)]",
               godseye ? "max-w-[1200px]" : "max-w-[1100px]",
             )}
             style={{ viewTransitionName: "page-content" }}
@@ -147,7 +141,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
         </main>
       </div>
 
-      <TabBar items={primary} pathname={pathname} variant={variant} onScan={openScan} hidden={tabBarHidden} />
+      <TabBar items={primary} pathname={pathname} variant={variant} onScan={openScan} />
 
       <MoreSheet
         open={moreOpen}
@@ -198,10 +192,14 @@ function useFocusHeadingOnRouteChange() {
     if (!main) return;
     const startedOn = document.activeElement;
 
-    const focusHeading = () => {
+    // Someone moved focus on purpose (typed in a field, opened a sheet): leave it.
+    const userMovedFocus = () => {
       const active = document.activeElement;
-      // Someone moved focus on purpose (typed in a field, opened a sheet): leave it.
-      if (active && active !== startedOn && active !== document.body && active !== main) return true;
+      return !!active && active !== startedOn && active !== document.body && active !== main;
+    };
+
+    const focusHeading = () => {
+      if (userMovedFocus()) return true;
       const heading = main.querySelector<HTMLElement>("h1");
       if (!heading) return false;
       if (!heading.hasAttribute("tabindex")) heading.setAttribute("tabindex", "-1");
@@ -211,13 +209,17 @@ function useFocusHeadingOnRouteChange() {
     };
 
     if (focusHeading()) return;
+    let timeout = 0;
     const observer = new MutationObserver(() => {
-      if (focusHeading()) observer.disconnect();
+      if (!focusHeading()) return;
+      observer.disconnect();
+      window.clearTimeout(timeout);
     });
     observer.observe(main, { childList: true, subtree: true });
-    const timeout = window.setTimeout(() => {
+    // No heading after 2 s: focus main itself, unless the person has moved on.
+    timeout = window.setTimeout(() => {
       observer.disconnect();
-      if (!main.contains(document.activeElement)) main.focus({ preventScroll: true });
+      if (!userMovedFocus()) main.focus({ preventScroll: true });
     }, 2000);
     return () => {
       observer.disconnect();
