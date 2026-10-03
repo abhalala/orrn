@@ -128,17 +128,23 @@ export function activeLocation(companyId: string, locationId: string, kind: Loca
 /** The outer purchase_lot's id, table-qualified (correlated subqueries must not bind to their own table). */
 export const OUTER_LOT_ID: SQL = sql`${sql.identifier("purchase_lot")}.${sql.identifier("id")}`;
 
-/** What the lot put into scrap stock: its OK row, D/C deductions and cancel reversals (grams). */
+/**
+ * What the lot put into scrap stock: its OK row, D/C deductions and cancel reversals (grams).
+ * Two equality lookups on (company, voucher type, voucher id), the prefix of the voucher-line
+ * unique index, so each lot reads only its own rows. These three voucher types post scrap_grade
+ * rows only; an `item_kind` filter or an OR across them makes SQLite scan every scrap row of the
+ * plant per lot instead (test "reads its own postings by voucher").
+ */
 export function lotPostedSql(companyId: string, lotId: SQL): SQL<number> {
-  return sql<number>`coalesce((
+  return sql<number>`(coalesce((
     select sum(lp.qty_g) from ${stockLedger} lp
-    where lp.company_id = ${companyId} and lp.item_kind = 'scrap_grade' and (
-      (lp.voucher_type in ('purchase_lot', 'purchase_lot_cancel') and lp.voucher_id = ${lotId})
-      or (lp.voucher_type = 'dc_note' and lp.voucher_id in (
-        select dn.id from ${dcNote} dn where dn.company_id = ${companyId} and dn.lot_id = ${lotId}
-      ))
+    where lp.company_id = ${companyId} and lp.voucher_type in ('purchase_lot', 'purchase_lot_cancel') and lp.voucher_id = ${lotId}
+  ), 0) + coalesce((
+    select sum(lq.qty_g) from ${stockLedger} lq
+    where lq.company_id = ${companyId} and lq.voucher_type = 'dc_note' and lq.voucher_id in (
+      select dn.id from ${dcNote} dn where dn.company_id = ${companyId} and dn.lot_id = ${lotId}
     )
-  ), 0)`;
+  ), 0))`;
 }
 
 /** What live (not cancelled) melts have drawn from the lot (grams). */
