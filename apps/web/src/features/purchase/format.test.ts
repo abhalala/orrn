@@ -34,3 +34,12 @@ describe("bookDateText", () => {
     expect(bookDateText("soon", "en")).toBe("soon");
   });
 });
+
+describe("instantDateText", () => {
+  test("shows the plant's wall clock and survives a bad zone", async () => {
+    const { instantDateText } = await import("./format");
+    // 3 Oct 2026 08:30 UTC is 14:00 in India.
+    expect(instantDateText("2026-10-03T08:30:00Z", "en")).toMatch(/3 Oct.*2:00/);
+    expect(instantDateText("2026-10-03T08:30:00Z", "en", "Not/AZone")).toMatch(/3 Oct.*2:00/);
+  });
+});

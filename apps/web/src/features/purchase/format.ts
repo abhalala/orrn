@@ -39,12 +39,18 @@ export function bookDateText(date: string, locale: Locale): string {
 
 /** An instant as a date in the plant's time zone. */
 export function instantDateText(at: Date | string | number, locale: Locale, timeZone = "Asia/Kolkata"): string {
-  return new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-IN", {
+  const options: Intl.DateTimeFormatOptions = {
     day: "numeric",
     month: "short",
     hour: "numeric",
     minute: "2-digit",
-    timeZone,
     numberingSystem: "latn",
-  }).format(new Date(at));
+  };
+  const tag = locale === "hi" ? "hi-IN" : "en-IN";
+  try {
+    return new Intl.DateTimeFormat(tag, { ...options, timeZone }).format(new Date(at));
+  } catch {
+    // A bad zone in settings must not break the screen.
+    return new Intl.DateTimeFormat(tag, { ...options, timeZone: "Asia/Kolkata" }).format(new Date(at));
+  }
 }
