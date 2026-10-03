@@ -5,7 +5,9 @@
   "scripts": {
     "build": "tsdown",
     "check-types": "tsc -b",
-    "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server"
+    "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
+    "dev:local": "wrangler dev -c wrangler.local.jsonc",
+    "dev:local:migrate": "wrangler d1 migrations apply orrn-local --local -c wrangler.local.jsonc"
   },
   "dependencies": {
     "@hono/trpc-server": "^0.4.0",
@@ -28,6 +30,6 @@
     "alchemy": "catalog:",
     "tsdown": "^0.21.9",
     "typescript": "^6",
-    "wrangler": "^4.77.0"
+    "wrangler": "4"
   }
 }

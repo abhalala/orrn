@@ -1,0 +1,27 @@
+// Local-only dev config. Deploys still go through Alchemy (packages/server/src/infra/alchemy.run.ts).
+// Usage: bun run dev:local:migrate && bun run dev:local   (then POST http://localhost:3000/dev/seed)
+{
+  "name": "orrn-server-local",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "orrn-local", "database_id": "local", "migrations_dir": "../../packages/db/src/migrations" }
+  ],
+  "vars": {
+    "NODE_ENV": "development",
+    "CORS_ORIGIN": "http://localhost:3002",
+    "CORS_ALLOWED_ORIGINS": "http://localhost:3002",
+    "WEB_PUBLIC_URL": "http://localhost:3002",
+    "BETTER_AUTH_SECRET": "local-dev-secret-not-for-production-0123456789",
+    "BETTER_AUTH_URL": "http://localhost:3000",
+    "ORRN_MASTER_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "RESEND_API_KEY": "",
+    "WEBHOOK_BASE_URL": "",
+    "COOKIE_DOMAIN": "",
+    "CF_API_TOKEN": "",
+    "CF_ACCOUNT_ID": "",
+    "CF_ZONE_ID_IN": ""
+  },
+  "dev": { "port": 3000 }
+}

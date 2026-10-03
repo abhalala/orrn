@@ -56,3 +56,7 @@ temp
 
 # brainstorming companion
 .superpowers/
+
+# local dev
+.wrangler/
+*.local

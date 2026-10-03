@@ -47,6 +47,7 @@
     "@better-auth/utils": "0.4.0",
     "@orrn/config": "workspace:*",
     "hono": "catalog:",
+    "miniflare": "4.20260515.0",
     "typescript": "^6"
   }
 }
