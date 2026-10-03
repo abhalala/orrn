@@ -18,6 +18,15 @@ describe("volumeBars", () => {
     ]);
   });
 
+  test("each bar carries its month (mid-month UTC) so the axis can add the year where it crosses one", () => {
+    const bars = volumeBars(months, "en");
+    expect(bars.map((b) => b.t?.toISOString())).toEqual([
+      "2025-11-15T00:00:00.000Z",
+      "2025-12-15T00:00:00.000Z",
+      "2026-10-15T00:00:00.000Z",
+    ]);
+  });
+
   test("an empty answer is no bars", () => {
     expect(volumeBars([], "en")).toEqual([]);
   });

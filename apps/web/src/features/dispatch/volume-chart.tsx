@@ -6,7 +6,7 @@ import { useMemo } from "react";
 
 import { trpc } from "@/shared/utils/trpc";
 
-import { volumeBars } from "./volume-data";
+import { volumeBars, volumeDateFormat } from "./volume-data";
 
 const kg = (v: number) => `${formatKgTotal(v)} kg`;
 
@@ -22,6 +22,7 @@ export default function DispatchVolumeChart() {
   const query = useQuery(trpc.analytics.dispatchVolume.queryOptions({ months: 12 }));
 
   const data = useMemo(() => volumeBars(query.data ?? [], locale), [query.data, locale]);
+  const dates = useMemo(() => volumeDateFormat(locale), [locale]);
 
   // Nothing dispatched in a year (a new company): no chart at all. The kit's empty
   // state asks for a longer period, which this card doesn't offer.
@@ -39,7 +40,7 @@ export default function DispatchVolumeChart() {
       refreshing={query.isFetching && !query.isPending}
       onRetry={() => void query.refetch()}
     >
-      <BarChart data={data} format={kg} label={t("dispatch.volume.label")} />
+      <BarChart data={data} format={kg} formatDate={dates} label={t("dispatch.volume.label")} />
     </ChartCard>
   );
 }
