@@ -12,6 +12,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { CustomerPicker, type PickedCustomer } from "@/features/dispatch/customer-picker";
+import { dispatchErrorText } from "@/features/dispatch/errors";
 import { parseDayInput } from "@/features/dispatch/format";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
@@ -78,7 +79,8 @@ function NewDispatchForm() {
           // Straight into Build.
           void navigate({ to: "/dispatch/$id", params: { id: res.id }, replace: true });
         },
-        onError: (err) => setErrors({ form: err.message || t("errors.generic") }),
+        // In the reader's language (a removed customer, no access, offline), never the server's English.
+        onError: (err) => setErrors({ form: dispatchErrorText(t, err) }),
       },
     );
   };
