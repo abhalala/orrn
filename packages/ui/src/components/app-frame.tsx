@@ -146,7 +146,8 @@ export function MobileNav({ items }: { items: readonly AppFrameNavItem[] }) {
           <div
             key={item.key}
             onClick={item.onPress}
-            aria-current={item.active ? "page" : undefined}
+            // When wrapped in an <a> (href set) the link carries aria-current.
+            aria-current={!item.href && item.active ? "page" : undefined}
             className={cn(
               "orrn-mobile-nav-item relative flex min-h-14 min-w-[56px] cursor-pointer flex-col items-center justify-center gap-1 rounded-card px-2 py-1.5 transition-[background-color,color,transform] duration-[var(--dur-fast)] active:scale-[0.97]",
               item.active ? "bg-primary text-primary-foreground" : "text-muted-foreground active:bg-accent",

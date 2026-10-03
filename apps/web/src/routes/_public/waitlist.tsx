@@ -216,14 +216,6 @@ function WaitlistComponent() {
             </form.Subscribe>
           </form>
 
-          <div className="text-center">
-            <Link
-              to="/"
-              className="inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium text-muted-foreground no-underline hover:bg-accent hover:text-foreground"
-            >
-              Back to home
-            </Link>
-          </div>
         </CardContent>
       </Card>
     </AuthScreen>

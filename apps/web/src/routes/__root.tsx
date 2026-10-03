@@ -9,7 +9,7 @@ import { Suspense, lazy } from "react";
 
 import { NavigationProgress } from "@/shared/components/navigation-progress";
 import { RootNotFound } from "@/shared/components/not-found";
-import { ThemeProvider } from "@/shared/components/theme-provider";
+import { ThemeColorSync, ThemeProvider } from "@/shared/components/theme-provider";
 import type { trpc } from "@/shared/utils/trpc";
 import "../index.css";
 
@@ -57,11 +57,14 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
+        <ThemeColorSync />
         <NavigationProgress />
         <Outlet />
         <Toaster richColors />
       </ThemeProvider>
-      {import.meta.env.DEV ? (
+      {/* Devtools stay out of automated runs (Playwright sets navigator.webdriver)
+          so visual snapshots and axe only see product UI. */}
+      {import.meta.env.DEV && !navigator.webdriver ? (
         <Suspense fallback={null}>
           <TanStackRouterDevtools position="bottom-left" />
           <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />

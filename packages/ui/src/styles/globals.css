@@ -205,29 +205,33 @@
  * marketing closing block). Re-declares the semantic layer so nested
  * components (buttons, menus, focus rings) stay legible on it.
  */
-.orrn-ink-panel {
-  --background: #0c0c0e;
-  --foreground: #f4f4f1;
-  --card: #1c1c20;
-  --card-foreground: #f4f4f1;
-  --primary: #f4f4f1;
-  --primary-foreground: #0c0c0e;
-  --secondary: #1c1c20;
-  --secondary-foreground: #f4f4f1;
-  --muted: #1c1c20;
-  --muted-foreground: #a1a1a8;
-  --accent: #1c1c20;
-  --accent-foreground: #ffffff;
-  --border: #26262a;
-  --input: #6b6b72;
-  --ring: #f4f4f1;
-  --ink: #f4f4f1;
-  --ink-muted: #a1a1a8;
-  --hairline: #26262a;
-  --surface: #1c1c20;
-  --surface-sunken: #1c1c20;
-  color: #f4f4f1;
-  color-scheme: dark;
+/* Layered so Tailwind utilities on the same element win (e.g. flex,
+   max-w-*, padding on .orrn-section / .orrn-mark). */
+@layer components {
+  .orrn-ink-panel {
+    --background: #0c0c0e;
+    --foreground: #f4f4f1;
+    --card: #1c1c20;
+    --card-foreground: #f4f4f1;
+    --primary: #f4f4f1;
+    --primary-foreground: #0c0c0e;
+    --secondary: #1c1c20;
+    --secondary-foreground: #f4f4f1;
+    --muted: #1c1c20;
+    --muted-foreground: #a1a1a8;
+    --accent: #1c1c20;
+    --accent-foreground: #ffffff;
+    --border: #26262a;
+    --input: #6b6b72;
+    --ring: #f4f4f1;
+    --ink: #f4f4f1;
+    --ink-muted: #a1a1a8;
+    --hairline: #26262a;
+    --surface: #1c1c20;
+    --surface-sunken: #1c1c20;
+    color: #f4f4f1;
+    color-scheme: dark;
+  }
 }
 
 @theme inline {
@@ -513,15 +517,19 @@
   }
 }
 
-.orrn-nav-progress-running {
-  width: 30%;
-  animation: orrn-nav-progress-slide 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
+/* Layered so Tailwind utilities on the same element win (e.g. flex,
+   max-w-*, padding on .orrn-section / .orrn-mark). */
+@layer components {
+  .orrn-nav-progress-running {
+    width: 30%;
+    animation: orrn-nav-progress-slide 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
 
-.orrn-nav-progress-done {
-  width: 100%;
-  transform: translateX(0%);
-  transition: transform 200ms ease-out;
+  .orrn-nav-progress-done {
+    width: 100%;
+    transform: translateX(0%);
+    transition: transform 200ms ease-out;
+  }
 }
 
 /* Skeleton shimmer (loading only). */
@@ -534,16 +542,20 @@
   }
 }
 
-.orrn-skeleton-shimmer {
-  background-image: linear-gradient(
-    90deg,
-    transparent 0%,
-    color-mix(in srgb, var(--foreground) 6%, transparent) 50%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  background-repeat: no-repeat;
-  animation: orrn-skeleton-shimmer 1.6s ease-in-out infinite;
+/* Layered so Tailwind utilities on the same element win (e.g. flex,
+   max-w-*, padding on .orrn-section / .orrn-mark). */
+@layer components {
+  .orrn-skeleton-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--foreground) 6%, transparent) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: orrn-skeleton-shimmer 1.6s ease-in-out infinite;
+  }
 }
 
 /* View-transition cross-fade scoped to the page-content region. */
@@ -610,164 +622,168 @@
   }
 }
 
-.orrn-pop {
-  animation: orrn-pop 0.6s var(--ease-pop) both;
-}
-
-.orrn-rise {
-  animation: orrn-rise 0.55s var(--ease-rise) both;
-  animation-delay: var(--rise-delay, 0ms);
-}
-
-.orrn-press {
-  transition: transform var(--dur-fast) var(--ease-out-quart);
-}
-
-.orrn-press:active {
-  transform: scale(0.97);
-}
-
-/* ---------------------------------------------------------------------------
- * C2 brand + block utilities.
- * ------------------------------------------------------------------------- */
-
-/* Brand mark: a small tile with the four status tones. */
-.orrn-mark {
-  display: inline-block;
-  flex-shrink: 0;
-  border-radius: 30%;
-  background: conic-gradient(
-    from 200deg,
-    var(--tone-red-from),
-    var(--tone-amber-from),
-    var(--tone-green-from),
-    var(--tone-blue-from),
-    var(--tone-red-from)
-  );
-}
-
-.godseye .orrn-mark {
-  background: linear-gradient(160deg, var(--tone-violet-from), var(--tone-violet-to));
-}
-
-/* Status colour block: gradient tile, 22px radius, soft ink shadow. Text on
-   it is measured against the lighter stop (tokens.test.ts). */
-.orrn-block {
-  position: relative;
-  overflow: hidden;
-  border-radius: 22px;
-  box-shadow:
-    var(--elev-block),
-    inset 0 1px 0 rgb(255 255 255 / 0.16);
-}
-
-.orrn-block-hero {
-  border-radius: 26px;
-}
-
-.orrn-block-green {
-  background: linear-gradient(160deg, var(--tone-green-from), var(--tone-green-to));
-  color: var(--tone-green-on);
-}
-
-.orrn-block-blue {
-  background: linear-gradient(160deg, var(--tone-blue-from), var(--tone-blue-to));
-  color: var(--tone-blue-on);
-}
-
-.orrn-block-amber {
-  background: linear-gradient(160deg, var(--tone-amber-from), var(--tone-amber-to));
-  color: var(--tone-amber-on);
-}
-
-.orrn-block-red {
-  background: linear-gradient(160deg, var(--tone-red-from), var(--tone-red-to));
-  color: var(--tone-red-on);
-}
-
-.orrn-block-violet {
-  background: linear-gradient(160deg, var(--tone-violet-from), var(--tone-violet-to));
-  color: var(--tone-violet-on);
-}
-
-.orrn-block-neutral {
-  background: linear-gradient(160deg, var(--tone-neutral-from), var(--tone-neutral-to));
-  color: var(--tone-neutral-on);
-}
-
-/* In dark mode the neutral block needs an edge against the near-black canvas. */
-.dark .orrn-block-neutral {
-  box-shadow:
-    var(--elev-block),
-    inset 0 0 0 1px var(--hairline);
-}
-
-/* Legacy class names kept for any remaining references, restyled flat. */
-.orrn-glass {
-  background: var(--card);
-  border: 1px solid var(--border);
-}
-
-.orrn-gradient-text {
-  color: inherit;
-}
-
-.orrn-glow {
-  box-shadow: var(--elev-button);
-}
-
-/* Standard marketing section container (1200px content). */
-.orrn-section {
-  margin-inline: auto;
-  width: 100%;
-  max-width: 75rem;
-  padding-inline: 1rem;
-}
-
-@media (min-width: 768px) {
-  .orrn-section {
-    padding-inline: 1.5rem;
+/* Layered so Tailwind utilities on the same element win (e.g. flex,
+   max-w-*, padding on .orrn-section / .orrn-mark). */
+@layer components {
+  .orrn-pop {
+    animation: orrn-pop 0.6s var(--ease-pop) both;
   }
-}
 
-/* Fluid display typography (tokens.ts displaySizes), Bricolage. */
-.orrn-display-1 {
-  font-family: var(--font-display);
-  font-size: clamp(2.75rem, 1.4rem + 5.6vw, 6rem);
-  line-height: 0.95;
-  letter-spacing: -0.045em;
-  font-weight: 800;
-}
+  .orrn-rise {
+    animation: orrn-rise 0.55s var(--ease-rise) both;
+    animation-delay: var(--rise-delay, 0ms);
+  }
 
-.orrn-display-2 {
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 1.2rem + 3vw, 3.5rem);
-  line-height: 1;
-  letter-spacing: -0.035em;
-  font-weight: 800;
-}
+  .orrn-press {
+    transition: transform var(--dur-fast) var(--ease-out-quart);
+  }
 
-.orrn-display-3 {
-  font-family: var(--font-display);
-  font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem);
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-  font-weight: 750;
-}
+  .orrn-press:active {
+    transform: scale(0.97);
+  }
 
-/* Auth/onboarding card title: the page's h1, in display type. */
-.orrn-auth-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 30px;
-  font-weight: 800;
-  line-height: 1.08;
-  letter-spacing: -0.035em;
-  color: var(--foreground);
-}
+  /* ---------------------------------------------------------------------------
+   * C2 brand + block utilities.
+   * ------------------------------------------------------------------------- */
 
-@media (min-width: 640px) {
+  /* Brand mark: a small tile with the four status tones. */
+  .orrn-mark {
+    display: inline-block;
+    flex-shrink: 0;
+    border-radius: 30%;
+    background: conic-gradient(
+      from 200deg,
+      var(--tone-red-from),
+      var(--tone-amber-from),
+      var(--tone-green-from),
+      var(--tone-blue-from),
+      var(--tone-red-from)
+    );
+  }
+
+  .godseye .orrn-mark {
+    background: linear-gradient(160deg, var(--tone-violet-from), var(--tone-violet-to));
+  }
+
+  /* Status colour block: gradient tile, 22px radius, soft ink shadow. Text on
+     it is measured against the lighter stop (tokens.test.ts). */
+  .orrn-block {
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    box-shadow:
+      var(--elev-block),
+      inset 0 1px 0 rgb(255 255 255 / 0.16);
+  }
+
+  .orrn-block-hero {
+    border-radius: 26px;
+  }
+
+  .orrn-block-green {
+    background: linear-gradient(160deg, var(--tone-green-from), var(--tone-green-to));
+    color: var(--tone-green-on);
+  }
+
+  .orrn-block-blue {
+    background: linear-gradient(160deg, var(--tone-blue-from), var(--tone-blue-to));
+    color: var(--tone-blue-on);
+  }
+
+  .orrn-block-amber {
+    background: linear-gradient(160deg, var(--tone-amber-from), var(--tone-amber-to));
+    color: var(--tone-amber-on);
+  }
+
+  .orrn-block-red {
+    background: linear-gradient(160deg, var(--tone-red-from), var(--tone-red-to));
+    color: var(--tone-red-on);
+  }
+
+  .orrn-block-violet {
+    background: linear-gradient(160deg, var(--tone-violet-from), var(--tone-violet-to));
+    color: var(--tone-violet-on);
+  }
+
+  .orrn-block-neutral {
+    background: linear-gradient(160deg, var(--tone-neutral-from), var(--tone-neutral-to));
+    color: var(--tone-neutral-on);
+  }
+
+  /* In dark mode the neutral block needs an edge against the near-black canvas. */
+  .dark .orrn-block-neutral {
+    box-shadow:
+      var(--elev-block),
+      inset 0 0 0 1px var(--hairline);
+  }
+
+  /* Legacy class names kept for any remaining references, restyled flat. */
+  .orrn-glass {
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+
+  .orrn-gradient-text {
+    color: inherit;
+  }
+
+  .orrn-glow {
+    box-shadow: var(--elev-button);
+  }
+
+  /* Standard marketing section container (1200px content). */
+  .orrn-section {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 75rem;
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .orrn-section {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  /* Fluid display typography (tokens.ts displaySizes), Bricolage. */
+  .orrn-display-1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.75rem, 1.4rem + 5.6vw, 6rem);
+    line-height: 0.95;
+    letter-spacing: -0.045em;
+    font-weight: 800;
+  }
+
+  .orrn-display-2 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.2rem + 3vw, 3.5rem);
+    line-height: 1;
+    letter-spacing: -0.035em;
+    font-weight: 800;
+  }
+
+  .orrn-display-3 {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    font-weight: 750;
+  }
+
+  /* Auth/onboarding card title: the page's h1, in display type. */
   .orrn-auth-title {
-    font-size: 34px;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+    color: var(--foreground);
+  }
+
+  @media (min-width: 640px) {
+    .orrn-auth-title {
+      font-size: 34px;
+    }
   }
 }
