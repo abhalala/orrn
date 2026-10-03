@@ -96,3 +96,14 @@ describe("decideState", () => {
     expect(decideState(null, row())).toBe("view");
   });
 });
+
+describe("APPROVAL_KINDS", () => {
+  // Completeness against the server's kinds is checked at compile time in approval-view.ts.
+  test("lists each kind once and recognises only those", async () => {
+    const { APPROVAL_KINDS, isApprovalKind } = await import("./approval-view");
+    expect(new Set(APPROVAL_KINDS).size).toBe(APPROVAL_KINDS.length);
+    expect(APPROVAL_KINDS.every(isApprovalKind)).toBe(true);
+    expect(isApprovalKind("nope")).toBe(false);
+    expect(isApprovalKind(undefined)).toBe(false);
+  });
+});

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 984 screen strings in 27 groups, 11 guides with 202 strings.
+Counts: 990 screen strings in 27 groups, 11 guides with 202 strings.
 
 ## Screen strings
 
@@ -868,7 +868,7 @@ Please check, Lalubhai:
 - `unitLakh`: Chart axis short form for lakh (1.5L). Kept as L for now. Should it be लाख?
 - `unitCrore`: Chart axis short form for crore (1.2Cr). Kept as Cr for now. Should it be करोड़?
 
-### purchase (185)
+### purchase (191)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -911,6 +911,11 @@ Please check, Lalubhai:
 | `diff.within` | {kg} kg short, within {pct} | {kg} kg कम, {pct} के अंदर |
 | `diff.short` | {kg} kg short, beyond {pct} | {kg} kg कम, {pct} से ज़्यादा |
 | `diff.incomplete` | Not weighed on our kanta | हमारे कांटे पर नहीं तौला |
+| `diffWord.even` | Same weight | वज़न बराबर |
+| `diffWord.over` | Over | ज़्यादा |
+| `diffWord.within` | Short, within {pct} | कम, {pct} के अंदर |
+| `diffWord.short` | Short, beyond {pct} | कम, {pct} से ज़्यादा |
+| `diffWord.incomplete` | Not weighed on our kanta | हमारे कांटे पर नहीं तौला |
 | `tolerance` | Tolerance {kg} kg ({pct}) | छूट {kg} kg ({pct}) |
 | `charts.rateTitle` | Rate paid | दिया गया रेट |
 | `charts.rateSubtitle` | Average ₹ per kg by month for the most bought items, this month so far | सबसे ज़्यादा खरीदे माल का महीने वार औसत ₹ प्रति kg, इस महीने अब तक |
@@ -1004,6 +1009,7 @@ Please check, Lalubhai:
 | `detail.noteBori` | Bori {kg} kg | बोरी {kg} kg |
 | `detail.stockTitle` | Scrap stock | स्क्रैप स्टॉक |
 | `detail.stockNone` | Goes into scrap stock when it is marked OK. | OK होने पर स्क्रैप स्टॉक में जाएगा। |
+| `detail.stockNever` | This lot never went into stock. | यह लॉट कभी स्टॉक में नहीं आया। |
 | `detail.stockIn` | {kg} kg in at {location} | {location} में {kg} kg आया |
 | `detail.stockOut` | {kg} kg out at {location} | {location} से {kg} kg गया |
 | `detail.markUnload` | Mark unloading | उतर रहा है करें |
@@ -1064,8 +1070,8 @@ Please check, Lalubhai:
 |---|---|---|
 | `title` | Approvals | मंज़ूरी |
 | `subtitle` | Requests that need a second person | जिन कामों पर दूसरे व्यक्ति की मंज़ूरी चाहिए |
-| `waiting` | {count} {count:request\|requests} waiting | {count} {count:रिक्वेस्ट\|रिक्वेस्ट} इंतज़ार में |
-| `waitingMeta` | Oldest first | सबसे पुरानी पहले |
+| `waitingTitle` | Waiting for a decision | फ़ैसले के इंतज़ार में |
+| `waitingUnit` | {count:request\|requests} | {count:रिक्वेस्ट\|रिक्वेस्ट} |
 | `filter.label` | Show | दिखाएं |
 | `filter.pending` | Waiting | इंतज़ार में |
 | `filter.approved` | Approved | मंज़ूर |

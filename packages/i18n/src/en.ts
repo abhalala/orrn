@@ -996,6 +996,13 @@ export const en = {
       short: "{kg} kg short, beyond {pct}",
       incomplete: "Not weighed on our kanta",
     },
+    diffWord: {
+      even: "Same weight",
+      over: "Over",
+      within: "Short, within {pct}",
+      short: "Short, beyond {pct}",
+      incomplete: "Not weighed on our kanta",
+    },
     tolerance: "Tolerance {kg} kg ({pct})",
     charts: {
       rateTitle: "Rate paid",
@@ -1102,6 +1109,7 @@ export const en = {
       noteBori: "Bori {kg} kg",
       stockTitle: "Scrap stock",
       stockNone: "Goes into scrap stock when it is marked OK.",
+      stockNever: "This lot never went into stock.",
       stockIn: "{kg} kg in at {location}",
       stockOut: "{kg} kg out at {location}",
       markUnload: "Mark unloading",
@@ -1164,8 +1172,8 @@ export const en = {
   approvals: {
     title: "Approvals",
     subtitle: "Requests that need a second person",
-    waiting: "{count} {count:request|requests} waiting",
-    waitingMeta: "Oldest first",
+    waitingTitle: "Waiting for a decision",
+    waitingUnit: "{count:request|requests}",
     filter: {
       label: "Show",
       pending: "Waiting",

@@ -11,6 +11,18 @@ import { canApprove, type ApprovalKind, type Me } from "@orrn/server/lib/permiss
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
+/** The approval kinds (mirror of `approvalKinds` in @orrn/db/schema/approval; the db package stays out of the web bundle). */
+export const APPROVAL_KINDS = ["dc_note", "cast_close", "die_rerank", "dispatch_overdraw", "phantom_void"] as const satisfies readonly ApprovalKind[];
+
+// Compile-time: every server kind is listed (a new kind fails check-types here until it is added).
+type MissingKind = Exclude<ApprovalKind, (typeof APPROVAL_KINDS)[number]>;
+const everyKindListed: [MissingKind] extends [never] ? true : never = true;
+void everyKindListed;
+
+export function isApprovalKind(v: unknown): v is ApprovalKind {
+  return typeof v === "string" && (APPROVAL_KINDS as readonly string[]).includes(v);
+}
+
 export const APPROVAL_TONE: Record<ApprovalStatus, StatusTone> = {
   pending: "amber",
   approved: "green",

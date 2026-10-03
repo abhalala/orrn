@@ -987,6 +987,13 @@ export const hi = {
       short: "{kg} kg कम, {pct} से ज़्यादा",
       incomplete: "हमारे कांटे पर नहीं तौला",
     },
+    diffWord: {
+      even: "वज़न बराबर",
+      over: "ज़्यादा",
+      within: "कम, {pct} के अंदर",
+      short: "कम, {pct} से ज़्यादा",
+      incomplete: "हमारे कांटे पर नहीं तौला",
+    },
     tolerance: "छूट {kg} kg ({pct})",
     charts: {
       rateTitle: "दिया गया रेट",
@@ -1093,6 +1100,7 @@ export const hi = {
       noteBori: "बोरी {kg} kg",
       stockTitle: "स्क्रैप स्टॉक",
       stockNone: "OK होने पर स्क्रैप स्टॉक में जाएगा।",
+      stockNever: "यह लॉट कभी स्टॉक में नहीं आया।",
       stockIn: "{location} में {kg} kg आया",
       stockOut: "{location} से {kg} kg गया",
       markUnload: "उतर रहा है करें",
@@ -1154,8 +1162,8 @@ export const hi = {
   approvals: {
     title: "मंज़ूरी",
     subtitle: "जिन कामों पर दूसरे व्यक्ति की मंज़ूरी चाहिए",
-    waiting: "{count} {count:रिक्वेस्ट|रिक्वेस्ट} इंतज़ार में",
-    waitingMeta: "सबसे पुरानी पहले",
+    waitingTitle: "फ़ैसले के इंतज़ार में",
+    waitingUnit: "{count:रिक्वेस्ट|रिक्वेस्ट}",
     filter: {
       label: "दिखाएं",
       pending: "इंतज़ार में",

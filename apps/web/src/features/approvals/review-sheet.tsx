@@ -1,0 +1,240 @@
+/**
+ * Review one approval request: what it is, who asked and why, the figures an
+ * approver needs (a D/C note shows the lot's two kantas, the short, the
+ * tolerance and whether the notes cover it, from `purchase.dcNotes.get`, which
+ * only purchase readers may call), and Approve / Reject. Reject asks for a
+ * reason so the requester can fix it. Nobody decides their own request.
+ */
+import { useT } from "@orrn/i18n";
+import type { AppRouter } from "@orrn/server/routers/index";
+import { Button } from "@orrn/ui/components/button";
+import { Chip } from "@orrn/ui/components/chip";
+import { Field, TextInput } from "@orrn/ui/components/field";
+import { UiLink } from "@orrn/ui/components/link";
+import { Sheet } from "@orrn/ui/components/sheet";
+import { Skeleton } from "@orrn/ui/components/skeleton";
+import { cn } from "@orrn/ui/lib/utils";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { inferRouterOutputs } from "@trpc/server";
+import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+
+import { canAny, useMe } from "@/shared/lib/me";
+import { trpc } from "@/shared/utils/trpc";
+
+import { kgText, pctText } from "../purchase/format";
+import { formatRate } from "../purchase/lot-view";
+import { APPROVAL_TONE, approvalSubject, decideState } from "./approval-view";
+
+export type ApprovalItem = inferRouterOutputs<AppRouter>["approval"]["list"]["items"][number];
+
+/** The server's `purchaseReader`: who may see purchase figures. */
+const PURCHASE_READERS = ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"] as const;
+
+export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null; onOpenChange(open: boolean): void }) {
+  const { t } = useT();
+  const { data: me } = useMe();
+  const queryClient = useQueryClient();
+  const [note, setNote] = useState("");
+  const [rejectTried, setRejectTried] = useState(false);
+  // Keep the last item while the sheet animates closed.
+  const [shown, setShown] = useState<ApprovalItem | null>(item);
+  useEffect(() => {
+    if (item) {
+      setShown(item);
+      setNote("");
+      setRejectTried(false);
+    }
+  }, [item]);
+
+  const open = item !== null;
+  const current = item ?? shown;
+  const state = current ? decideState(me, current) : "view";
+  const subject = current ? approvalSubject(current) : null;
+  const readsFigures = canAny(me, PURCHASE_READERS);
+  const isNote = current?.kind === "dc_note";
+
+  const figures = useQuery({
+    ...trpc.purchase.dcNotes.get.queryOptions({ id: current?.subjectId ?? "" }),
+    enabled: open && isNote && readsFigures,
+  });
+
+  const decide = useMutation(
+    trpc.approval.decide.mutationOptions({
+      onSuccess: async (res) => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.approval.pathKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.purchase.pathKey() }),
+        ]);
+        toast.success(res.status === "approved" ? t("approvals.approved") : t("approvals.rejected"));
+        onOpenChange(false);
+      },
+      onError: (e) => toast.error(e.message),
+    }),
+  );
+
+  if (!current || !subject) {
+    return <Sheet open={false} onOpenChange={onOpenChange} title={t("approvals.title")}>{null}</Sheet>;
+  }
+
+  const title = t(subject.titleKey, subject.vars) || t(subject.kindKey);
+  const rejectError = rejectTried && note.trim() === "" ? t("approvals.rejectNeedsNote") : undefined;
+
+  const footer =
+    state === "decide" ? (
+      <>
+        <Button
+          size="lg"
+          variant="danger"
+          loading={decide.isPending && decide.variables?.decision === "rejected"}
+          disabled={decide.isPending}
+          onClick={() => {
+            setRejectTried(true);
+            if (note.trim() === "") return;
+            decide.mutate({ id: current.id, decision: "rejected", note: note.trim() });
+          }}
+        >
+          {t("approvals.reject")}
+        </Button>
+        <Button
+          size="lg"
+          loading={decide.isPending && decide.variables?.decision === "approved"}
+          disabled={decide.isPending}
+          onClick={() => decide.mutate({ id: current.id, decision: "approved", ...(note.trim() ? { note: note.trim() } : {}) })}
+        >
+          {t("approvals.approve")}
+        </Button>
+      </>
+    ) : undefined;
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} title={title} description={t(subject.kindKey)} footer={footer}>
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip tone={APPROVAL_TONE[current.status]}>{t(`status.request.${current.status}`)}</Chip>
+          <span className="text-[14px] text-muted-foreground">
+            {t("approvals.askedBy", { name: current.requestedByName ?? t("approvals.someone") })}
+          </span>
+        </div>
+
+        {current.requestNote ? (
+          <Block title={t("approvals.theirNote")}>
+            <p className="m-0 rounded-input bg-surface-sunken px-3 py-2 text-[15px] break-words">{current.requestNote}</p>
+          </Block>
+        ) : null}
+
+        {isNote ? (
+          readsFigures ? (
+            <NoteFigures data={figures.data} loading={figures.isLoading} error={figures.isError} />
+          ) : (
+            <p className="m-0 text-[14px] text-muted-foreground">{t("approvals.figuresHidden")}</p>
+          )
+        ) : null}
+
+        {subject.href ? (
+          <UiLink
+            to={subject.href}
+            className="inline-flex min-h-11 items-center self-start rounded-full border border-border bg-card px-5 text-[15px] font-semibold text-foreground no-underline shadow-sm hover:bg-surface-sunken"
+          >
+            {t("approvals.open")}
+          </UiLink>
+        ) : null}
+
+        {current.status !== "pending" ? (
+          <Block title={t("approvals.decisionNote")}>
+            <p className="m-0 text-[15px] break-words">
+              {t("approvals.decidedBy", {
+                status: t(`status.request.${current.status}`),
+                name: current.decidedByName ?? t("approvals.someone"),
+              })}
+              {current.note ? `: ${current.note}` : ""}
+            </p>
+          </Block>
+        ) : state === "decide" ? (
+          <Field label={t("approvals.note")} hint={t("approvals.noteHint")} error={rejectError}>
+            <TextInput value={note} onChangeText={setNote} maxLength={500} />
+          </Field>
+        ) : (
+          <p role="status" className="m-0 rounded-card border border-border bg-surface-sunken px-4 py-3 text-[15px]">
+            {state === "own" ? t("approvals.own") : t("approvals.viewOnly")}
+          </p>
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
+function Block({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="m-0 text-[14px] font-semibold">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+type NoteData = inferRouterOutputs<AppRouter>["purchase"]["dcNotes"]["get"];
+
+function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loading: boolean; error: boolean }) {
+  const { t } = useT();
+  if (loading) {
+    return (
+      <div aria-busy="true" className="flex flex-col gap-2">
+        {Array.from({ length: 5 }, (_, i) => (
+          <Skeleton key={i} className="h-5 w-full" />
+        ))}
+      </div>
+    );
+  }
+  if (error || !data) return <p className="m-0 text-[14px] text-destructive">{t("approvals.error")}</p>;
+  const { note, lot } = data;
+  const pct = pctText(data.toleranceBp);
+  const weightDebit = note.type === "debit" && note.reason === "weight";
+  const rows: [string, string][] = [
+    [t("approvals.party"), `${kgText(lot.partyKgG)} kg`],
+    [t("approvals.ours"), lot.fcKgG === null ? "-" : `${kgText(lot.fcKgG)} kg`],
+    [t("approvals.short"), data.shortG === null ? "-" : `${kgText(Math.max(0, data.shortG))} kg`],
+    [t("approvals.tolerance"), `${kgText(data.toleranceG)} kg (${pct})`],
+    [t("approvals.kgDiff"), `${kgText(note.kgDiffG)} kg`],
+    [t("approvals.bori"), `${kgText(note.boriDeductionG)} kg`],
+    [t("approvals.rate"), t("purchase.detail.perKg", { rate: formatRate(lot.ratePaise) })],
+    [t("approvals.amount"), formatRate(note.amountPaise)],
+  ];
+  return (
+    <Block title={t("approvals.figures")}>
+      <dl className="m-0 flex flex-col divide-y divide-border rounded-card border border-border px-4">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex min-h-11 flex-wrap items-baseline justify-between gap-x-4 py-2 text-[15px]">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="m-0 font-mono font-medium">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {weightDebit && data.shortBeyondTolerance ? (
+        <p
+          className={cn(
+            "m-0 rounded-input px-3 py-2 text-[14px] font-semibold",
+            data.noteCoversShort ? "bg-tone-green-tint text-tone-green-ink" : "bg-tone-red-tint text-tone-red-ink",
+          )}
+        >
+          {data.noteCoversShort ? t("approvals.covers", { pct }) : t("approvals.notCovers", { pct })}
+        </p>
+      ) : null}
+      {data.otherNotes.length > 0 ? (
+        <div className="flex flex-col gap-1.5 pt-1">
+          <h4 className="m-0 text-[14px] font-semibold">{t("approvals.otherNotes")}</h4>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            {data.otherNotes.map((n) => (
+              <li key={n.id} className="flex flex-wrap items-center gap-2 text-[14px]">
+                <span className="font-mono font-semibold">{n.number}</span>
+                <span>{t(`purchase.detail.noteType.${n.type}`)}</span>
+                <span className="font-mono text-muted-foreground">{kgText(n.kgDiffG)} kg</span>
+                <Chip tone={APPROVAL_TONE[n.status]}>{t(`status.request.${n.status}`)}</Chip>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </Block>
+  );
+}
