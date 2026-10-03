@@ -21,7 +21,8 @@
     "COOKIE_DOMAIN": "",
     "CF_API_TOKEN": "",
     "CF_ACCOUNT_ID": "",
-    "CF_ZONE_ID_IN": ""
+    "CF_ZONE_ID_IN": "",
+    "ORRN_LOCAL_PASSWORD": "orrn-local-dev-only"
   },
   "dev": { "port": 3000 }
 }

@@ -45,9 +45,16 @@ app.route("/", spoolRoutes);
 
 if (env.NODE_ENV === "development") {
   app.post("/dev/seed", async (c) => {
-    const body: { email?: string } = await c.req.json<{ email?: string }>().catch(() => ({}));
-    const result = await seedDevData(createDb(), body.email ?? "owner@orrn.local");
-    return c.json(result, result.status as 200 | 404);
+    try {
+      const result = await seedDevData(createDb(), { password: env.ORRN_LOCAL_PASSWORD });
+      return c.json(result, result.status);
+    } catch (error) {
+      console.error("dev seed failed", error);
+      return c.json(
+        { ok: false, status: 500, message: error instanceof Error ? error.message : String(error) },
+        500,
+      );
+    }
   });
 }
 

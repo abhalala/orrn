@@ -1,0 +1,92 @@
+# Local development
+
+Runs the API worker on a local D1 database (Wrangler/Miniflare). Nothing here touches Cloudflare.
+Deploys still go through Alchemy (`packages/server/src/infra/alchemy.run.ts`).
+
+Ports: API `3000`, web `3002`. Port `3001` is deliberately avoided because other local apps often use it.
+
+## First run
+
+```bash
+bun install
+
+# 1. Create/upgrade the local D1 (migrations come from packages/db/src/migrations)
+bun run --cwd apps/server dev:local:migrate
+
+# 2. API worker on http://localhost:3000 (config: apps/server/wrangler.local.jsonc)
+bun run --cwd apps/server dev:local
+
+# 3. Web on http://localhost:3002
+bun run --cwd apps/web dev:bare -- --port 3002
+```
+
+The web app reads `apps/web/.env.development.local` (gitignored); copy `apps/web/.env.example` if it is
+missing. Native uses `apps/native/.env.example` the same way.
+
+## Seed realistic data
+
+With the API running:
+
+```bash
+curl -XPOST localhost:3000/dev/seed
+```
+
+Only works when `NODE_ENV` is `development` (set by `wrangler.local.jsonc`). It creates one demo company,
+"Fourcubes Extrusions (Demo)", configured for inch lengths, `Asia/Kolkata`, all modules on:
+
+| Data | Amount |
+| --- | --- |
+| Dies (`Patti 1" × 1/8"` 14701, `Angle 1" × 1"` 11250, `Tee 1¼"` 13090, `Channel ¾"` 12212, …) | 12, with kg per 12 ft ranges |
+| Customers (KD Extrusion, Royal Aluminium, Tejura & Sons, Shivam Bhavnagar, Apex Fabricators, Mehta Windows) | 6, with GSTIN and addresses |
+| Packing sessions (bundle groups `BG-000001` to `BG-000008`), last 10 days, 2 today | 8 |
+| Bundles, 12 ft (3658 mm), 40 to 60 kg, 18 to 24 pcs | 120 |
+| Bundle status | 71 available, 10 reserved, 36 dispatched, 3 void |
+| Dispatches | 1 draft (6 bundles), 1 held/reserved (10), 2 completed with packing lists (one today) |
+
+Weights are stored in grams, lengths in mm. Bundle serials, company sequence, status events and packing list
+snapshots are created the same way the app creates them, so codes made later in the UI do not collide.
+
+The seed is idempotent: calling it again resets that demo company's dies, customers, bundles, dispatches and
+packing lists and recreates them. Anything you added to the demo company in the UI is discarded. Existing
+logins are kept.
+
+## Test accounts
+
+Users are created through Better Auth (real password hashes). Fixed emails:
+
+| Role | Email |
+| --- | --- |
+| Owner | `owner@orrn.local` |
+| Operator | `operator@orrn.local` |
+| Viewer | `viewer@orrn.local` |
+| ORRN staff (`super_admin`, Godseye) | `staff@orrn.local` |
+
+The shared password is `vars.ORRN_LOCAL_PASSWORD` in `apps/server/wrangler.local.jsonc` (local only, never
+deployed). If that binding is removed, the seed generates a password and returns it once in the JSON.
+
+Tests and scripts read the accounts from `apps/server/.dev.local-account.local` (gitignored). Write it with:
+
+```bash
+bun run --cwd apps/server scripts/write-local-accounts.ts
+```
+
+It contains `ORRN_LOCAL_EMAIL_OWNER`, `ORRN_LOCAL_EMAIL_OPERATOR`, `ORRN_LOCAL_EMAIL_VIEWER`,
+`ORRN_LOCAL_EMAIL_STAFF` and `ORRN_LOCAL_PASSWORD`.
+
+## Reset everything
+
+```bash
+# stop the API worker first
+rm -rf apps/server/.wrangler/state
+bun run --cwd apps/server dev:local:migrate
+bun run --cwd apps/server dev:local
+curl -XPOST localhost:3000/dev/seed
+```
+
+Inspect the local database:
+
+```bash
+cd apps/server
+bunx wrangler d1 execute orrn-local --local -c wrangler.local.jsonc \
+  --command "select status, count(*) from bundle group by status"
+```

@@ -226,7 +226,8 @@ export async function packingListWriteBatch(
       statements,
       (chunk) => db.insert(packingListLine).values(chunk),
       lineValues,
-      50,
+      // 9 bound params per line; D1 allows at most 100 per statement.
+      10,
     );
   }
 

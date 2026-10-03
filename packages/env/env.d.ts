@@ -21,6 +21,8 @@ export interface CloudflareEnv {
   CF_API_TOKEN: string;
   CF_ACCOUNT_ID: string;
   CF_ZONE_ID_IN: string;
+  /** Local wrangler only: password for the seeded dev accounts. Never set in deployed stages. */
+  ORRN_LOCAL_PASSWORD?: string;
 }
 
 declare global {
