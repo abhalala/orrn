@@ -63,6 +63,8 @@ export type LedgerItemKind = (typeof ledgerItemKinds)[number];
  * - purchase_lot: + scrap (item+grade) at the scrap store when a lot reaches OK (voucher = lot)
  * - dc_note: − bori deduction of a D/C note approved after its lot was OK (voucher = note)
  * - purchase_lot_cancel: reversal of a lot's postings when an OK lot is cancelled (voucher = lot)
+ * - store_grn: + store item at the STORE location (voucher = the GRN; qty in milli-units)
+ * - store_mrs: − store item at the STORE location (voucher = the MRS; qty in milli-units)
  */
 export const ledgerVoucherTypes = [
   "opening",
@@ -74,6 +76,8 @@ export const ledgerVoucherTypes = [
   "purchase_lot",
   "dc_note",
   "purchase_lot_cancel",
+  "store_grn",
+  "store_mrs",
 ] as const;
 export type LedgerVoucherType = (typeof ledgerVoucherTypes)[number];
 
@@ -100,7 +104,10 @@ export const stockLedger = sqliteTable(
     itemRef: text("item_ref").notNull(),
     /** NULL = place unknown (legacy stock taken on before locations existed). */
     locationId: text("location_id").references(() => location.id, { onDelete: "restrict" }),
-    /** Signed grams: + into the location, − out of it. */
+    /**
+     * Signed grams: + into the location, − out of it. For `item_kind = 'store_item'` the unit is
+     * milli-units of the item's own unit (kg, litre, piece, …), not grams.
+     */
     qtyG: integer("qty_g").notNull(),
     postedAt: integer("posted_at", { mode: "timestamp_ms" }).notNull(),
     /** The row this one cancels (void reverses pack, restore reverses void). */

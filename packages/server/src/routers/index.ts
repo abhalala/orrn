@@ -17,6 +17,7 @@ import { edgeRouter } from "./edge";
 import { dashboardRouter } from "./dashboard";
 import { resolveRouter } from "./resolve";
 import { stockRouter } from "./stock";
+import { storeRouter } from "./store";
 import { purchaseRouter } from "./purchase";
 import { vendorRouter } from "./vendor";
 
@@ -47,6 +48,7 @@ export const appRouter = router({
   approval: approvalRouter,
   resolve: resolveRouter,
   stock: stockRouter,
+  store: storeRouter,
   vendor: vendorRouter,
   purchase: purchaseRouter,
   analytics: analyticsRouter,

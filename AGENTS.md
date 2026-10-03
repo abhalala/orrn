@@ -251,6 +251,29 @@ bun run deploy
   keys and the request note for callers without purchase read access. Approvers read the figures
   from `purchase.dcNotes.get`. Merging needs a confirmed (active) keeper.
 
+## Central store (items, GRN, MRS)
+
+- Tables `store_item` and `store_txn` in `packages/db/src/schema/store.ts`; router `store`
+  (`routers/store.ts`, builders in `lib/store.ts`): `items.list` (any member), `items.create` /
+  `items.update` (store.txn OR masters.publish), `receive` (GRN), `issue` (MRS), `exchange` (old for
+  new) (all store.txn = storekeeper, owner), `balances` and `txns` (store.txn OR masters.publish =
+  storekeeper, manager, admin, owner).
+- Quantities are integer milli-units of the item's unit (`qtyMilli`, `qty_milli`; 1000 = 1 kg, 1 litre
+  or 1 piece), capped at 100,000 units; piece/set/box/bag take whole units. The ledger carries the
+  same number in `qty_g` for item_kind `store_item`, so `stock.balance` of that kind is milli-units,
+  not grams. The unit is locked once an item has a movement.
+- A GRN or MRS is one `store_txn` row + one ledger row (`store_grn` / `store_mrs`, voucher = the txn
+  id, at the active `store` location, never created implicitly: no store location, no posting) + audit
+  row in one `atomicBatch`. The ledger and audit rows are `INSERT … SELECT … FROM store_txn`, so they
+  land exactly when the document did. An issue's document INSERT holds the balance check
+  (`sum(stock_ledger) >= qty`) in its WHERE, so racing issues cannot overdraw; keep it there.
+- Numbers `GRN-{n}` / `MRS-{n}` per financial year (`doc_series`, unique per company, kind, period).
+  An exchange takes one MRS (the old out, purpose `exchange`) and one GRN (the new in), linked by
+  `exchange_id`. Numbers allocated before a write that then loses a race leave a gap.
+- No cancel yet. Corrections go through an opposite movement; add `cancelled_at` + reversal rows
+  (Global Constraints) when the plan asks for it. `ref_id` on an MRS (a melt or nitriding log) is an
+  opaque id, not a foreign key, until PL-5 and the die room define the targets.
+
 ## Analytics (charts and customer numbers)
 
 - Router `analytics` (`routers/analytics.ts`, spec
