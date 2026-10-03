@@ -24,7 +24,7 @@ import {
   type OrrnDb,
   type SqliteBatchItem,
 } from "../lib/atomic";
-import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
+import { bundleBlock, bundleBlockReason, holdingDispatchCodes, type BundleBlock } from "../lib/bundleHold";
 import { now as clockNow } from "../lib/clock";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { dispatchRows } from "../lib/ledger";
@@ -205,7 +205,7 @@ export type AddBundlesReport = {
   added: string[];
   alreadyInDispatch: string[];
   notFound: string[];
-  unavailable: { serial: string; reason: string }[];
+  unavailable: ({ serial: string } & BundleBlock)[];
 };
 
 const createInput = z.object({
@@ -639,7 +639,7 @@ export const dispatchRouter = router({
           const b = bySerial.get(serial);
           if (!b) report.notFound.push(serial);
           else if (inThisDispatch.has(b.id)) report.alreadyInDispatch.push(serial);
-          else if (b.status !== "available") report.unavailable.push({ serial, reason: bundleBlockReason(b, codes) });
+          else if (b.status !== "available") report.unavailable.push({ serial, ...bundleBlock(b, codes) });
           else toAdd.push(b);
         }
         if (toAdd.length === 0) return report;

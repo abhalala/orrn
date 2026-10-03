@@ -1,7 +1,7 @@
 import { createI18n } from "@orrn/i18n";
 import { describe, expect, test } from "bun:test";
 
-import { addOutcome, rejectionMessage, renderScanMessage, scanErrorKey } from "./scan-outcome";
+import { addOutcome, blockMessage, rejectionMessage, renderScanMessage, scanErrorKey } from "./scan-outcome";
 
 const { t } = createI18n("en");
 const say = (reason: string) => renderScanMessage(t, rejectionMessage(reason));
@@ -25,6 +25,26 @@ describe("rejectionMessage", () => {
   });
 });
 
+describe("blockMessage (structured reasons, T22)", () => {
+  const sayBlock = (b: Parameters<typeof blockMessage>[0], tr = t) => renderScanMessage(tr, blockMessage(b));
+  test("words each code without reading the English sentence", () => {
+    expect(sayBlock({ reason: "ignored", code: "held", status: "reserved", heldBy: "D-0042" })).toBe("Held for D-0042");
+    expect(sayBlock({ reason: "ignored", code: "held", status: "reserved", heldBy: null })).toBe("Held for another dispatch");
+    expect(sayBlock({ reason: "ignored", code: "dispatched", status: "dispatched", heldBy: null })).toBe("Already dispatched");
+    expect(sayBlock({ reason: "ignored", code: "void", status: "void", heldBy: null })).toBe("This bundle is void");
+    expect(sayBlock({ reason: "ignored", code: "status", status: "available", heldBy: null })).toBe(
+      "Can't add a bundle that is In stock",
+    );
+  });
+  test("Hindi words come from the code too", () => {
+    const hi = createI18n("hi").t;
+    expect(sayBlock({ reason: "Bundle is void", code: "void", status: "void", heldBy: null }, hi)).toBe("यह bundle रद्द है");
+  });
+  test("an older server without a code falls back to its sentence", () => {
+    expect(sayBlock({ reason: "Bundle is held by D-0007" })).toBe("Held for D-0007");
+  });
+});
+
 describe("addOutcome", () => {
   const empty = { added: [], alreadyInDispatch: [], notFound: [], unavailable: [] };
   test("reads the scanned serial's line of the report", () => {
@@ -36,6 +56,12 @@ describe("addOutcome", () => {
       serial: "A",
       message: { key: "scan.continuous.void" },
     });
+    expect(
+      addOutcome(
+        { ...empty, unavailable: [{ serial: "A", reason: "x", code: "held", status: "reserved", heldBy: "D-0003" }] },
+        "A",
+      ),
+    ).toEqual({ kind: "rejected", serial: "A", message: { key: "scan.continuous.heldBy", vars: { code: "D-0003" } } });
   });
 });
 

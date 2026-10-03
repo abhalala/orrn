@@ -1,15 +1,27 @@
 import type { MessageKey, Translate, TranslateVars } from "@orrn/i18n";
 
+const BUNDLE_STATUSES = ["available", "reserved", "dispatched", "void"] as const;
+type BundleStatus = (typeof BUNDLE_STATUSES)[number];
+
+/**
+ * Why the server refused one bundle. `code`, `status` and `heldBy` are the
+ * structured reason (T22); `reason` is the English sentence older servers
+ * send alone, kept as a fallback.
+ */
+export type BundleBlock = {
+  reason: string;
+  code?: "held" | "dispatched" | "void" | "status";
+  status?: BundleStatus;
+  heldBy?: string | null;
+};
+
 /** What `dispatch.addBundlesBySerial` reports (partial success per serial). */
 export type AddBundlesReport = {
   added: string[];
   alreadyInDispatch: string[];
   notFound: string[];
-  unavailable: { serial: string; reason: string }[];
+  unavailable: ({ serial: string } & BundleBlock)[];
 };
-
-const BUNDLE_STATUSES = ["available", "reserved", "dispatched", "void"] as const;
-type BundleStatus = (typeof BUNDLE_STATUSES)[number];
 
 /**
  * A message to show: an i18n key plus its variables (`status` names a bundle
@@ -35,8 +47,24 @@ export function addOutcome(report: AddBundlesReport, serial: string): AddOutcome
   if (report.added.includes(serial)) return { kind: "added", serial };
   if (report.alreadyInDispatch.includes(serial)) return { kind: "already", serial };
   const blocked = report.unavailable.find((u) => u.serial === serial);
-  if (blocked) return { kind: "rejected", serial, message: rejectionMessage(blocked.reason) };
+  if (blocked) return { kind: "rejected", serial, message: blockMessage(blocked) };
   return { kind: "notFound", serial };
+}
+
+/** The floor wording for a refused bundle, from its structured reason; the English sentence only as a fallback. */
+export function blockMessage(block: BundleBlock): ScanMessage {
+  switch (block.code) {
+    case "held":
+      return block.heldBy ? { key: "scan.continuous.heldBy", vars: { code: block.heldBy } } : { key: "scan.continuous.heldElsewhere" };
+    case "dispatched":
+      return { key: "scan.continuous.dispatched" };
+    case "void":
+      return { key: "scan.continuous.void" };
+    case "status":
+      if (block.status) return { key: "scan.continuous.wrongStatus", status: block.status };
+      break;
+  }
+  return rejectionMessage(block.reason);
 }
 
 /**

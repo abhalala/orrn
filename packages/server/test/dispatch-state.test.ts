@@ -158,8 +158,9 @@ describe("dispatch and bundle state predicates", () => {
       alreadyInDispatch: [already!.serial],
       notFound: ["NOPE-0001"],
       unavailable: [
-        { serial: heldElsewhere!.serial, reason: `Bundle is held by ${other.code}` },
-        { serial: voided!.serial, reason: "Bundle is void" },
+        // Structured reasons (T22): the UI words them in the reader's language; `reason` stays for old clients.
+        { serial: heldElsewhere!.serial, reason: `Bundle is held by ${other.code}`, code: "held", status: "reserved", heldBy: other.code },
+        { serial: voided!.serial, reason: "Bundle is void", code: "void", status: "void", heldBy: null },
       ],
     });
     expect(await itemCount(d.id)).toBe(4);
@@ -170,6 +171,22 @@ describe("dispatch and bundle state predicates", () => {
     }
     expect((await bundleRow(heldElsewhere!.id)).currentDispatchId).toBe(other.id);
     expect((await bundleRow(voided!.id)).status).toBe("void");
+  });
+
+  test("addBundlesBySerial reports a dispatched bundle with a structured reason", async () => {
+    const { api, customerId, bundles } = await setup(2);
+    const [shipped, other] = bundles;
+    const done = await api.dispatch.create({ customerId });
+    await api.dispatch.addBundle({ id: done.id, bundleId: shipped!.id });
+    await api.dispatch.reserve({ id: done.id });
+    await api.dispatch.complete({ id: done.id });
+
+    const d = await api.dispatch.create({ customerId });
+    const res = await api.dispatch.addBundlesBySerial({ id: d.id, serials: [shipped!.serial, other!.serial] });
+    expect(res.added).toEqual([other!.serial]);
+    expect(res.unavailable).toEqual([
+      { serial: shipped!.serial, reason: "Bundle is already dispatched", code: "dispatched", status: "dispatched", heldBy: null },
+    ]);
   });
 
   test("addBundlesBySerial with nothing addable writes nothing and does not throw", async () => {

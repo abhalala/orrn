@@ -46,3 +46,39 @@ export function bundleBlockReason(
       return `Bundle is ${b.status}`;
   }
 }
+
+/** Why a bundle can't be added, in a form a client can word in its own language. */
+export type BundleBlockCode = "held" | "dispatched" | "void" | "status";
+
+export type BundleBlock = {
+  /** English sentence (`bundleBlockReason`), kept for clients that predate `code`. */
+  reason: string;
+  code: BundleBlockCode;
+  /** The bundle's status when it was refused. */
+  status: BundleStatus;
+  /** Code of the dispatch holding it (`held` only, when known). */
+  heldBy: string | null;
+};
+
+/** Structured twin of `bundleBlockReason` for per-serial reports (T22). */
+export function bundleBlock(
+  b: { status: BundleStatus; currentDispatchId: string | null },
+  codes: Map<string, string>,
+): BundleBlock {
+  const reason = bundleBlockReason(b, codes);
+  switch (b.status) {
+    case "reserved":
+      return {
+        reason,
+        code: "held",
+        status: b.status,
+        heldBy: (b.currentDispatchId ? codes.get(b.currentDispatchId) : undefined) ?? null,
+      };
+    case "dispatched":
+      return { reason, code: "dispatched", status: b.status, heldBy: null };
+    case "void":
+      return { reason, code: "void", status: b.status, heldBy: null };
+    default:
+      return { reason, code: "status", status: b.status, heldBy: null };
+  }
+}
