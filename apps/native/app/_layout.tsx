@@ -27,6 +27,10 @@ import { useThemeColor } from "@/lib/theme";
 import { meQueryOptions } from "@/utils/me";
 import { queryClient } from "@/utils/trpc";
 
+// A link that cold-starts the app (an invite) opens on top of "/", so Back
+// lands on the gate's choice instead of leaving a lone screen with no way out.
+export const unstable_settings = { initialRouteName: "index" };
+
 // Keep the splash up until the C2 typefaces are loaded and the gate has decided.
 void SplashScreen.preventAutoHideAsync();
 // The manual theme toggle is gone (audit N15): follow the device.

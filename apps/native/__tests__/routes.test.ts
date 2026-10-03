@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { ROOT_ROUTES } from "../lib/gate";
@@ -58,6 +58,12 @@ describe("route table", () => {
       }
     }
     expect(TAB_ROUTES.filter((t) => t.stack).map((t) => t.name)).toEqual(["today", "pack", "stock", "dispatch"]);
+  });
+
+  test("a link that cold-starts the app (an invite) keeps \"/\" underneath, so Back reaches the gate", () => {
+    // Without it the invite screen opened from a link is the only screen in the stack: no way back.
+    const layout = readFileSync(join(APP, "_layout.tsx"), "utf8");
+    expect(layout).toMatch(/export const unstable_settings = \{ initialRouteName: "index" \}/);
   });
 
   test("sign-in lives in the (auth) group and More has a stack", () => {
