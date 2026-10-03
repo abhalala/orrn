@@ -41,7 +41,7 @@ export function formatKg(kg: number, digits = 2): string {
 }
 
 export function formatKgTotal(kg: number): string {
-  return new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(kg);
+  return fixedIN(kg, 1);
 }
 
 /** Plain non-negative decimal, thousands commas allowed. No exponent, sign or junk. */

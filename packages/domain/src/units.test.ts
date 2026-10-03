@@ -62,6 +62,8 @@ describe("kg formatting", () => {
   test("formatKgTotal", () => {
     expect(formatKgTotal(1234.56)).toBe("1,234.6");
     expect(formatKgTotal(52)).toBe("52.0");
+    // en-IN lakh grouping, consistent with formatKg
+    expect(formatKgTotal(1234567.8)).toBe("12,34,567.8");
   });
 });
 
@@ -115,6 +117,10 @@ describe("formatLength", () => {
     expect(formatLength(3658, "inch")).toBe("12 ft");
     expect(formatLength(3505, "inch")).toBe("11 ft 6 in");
     expect(formatLength(152, "inch")).toBe("6 in");
+  });
+  test("rounding carries into the next foot", () => {
+    // 3656 mm = 143.94 in -> 144 in = 12 ft, not 11 ft 12 in
+    expect(formatLength(3656, "inch")).toBe("12 ft");
   });
   test("inches round to the nearest 0.25", () => {
     // 11 ft 6.25 in = 138.25 in = 3511.55 mm
