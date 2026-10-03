@@ -57,7 +57,8 @@ export function RankedBars({ rows, format, other, otherLabel, label }: RankedBar
       className="orrn-chart-in grid gap-x-2 gap-y-3.5"
       style={{ gridTemplateColumns: columns }}
     >
-      <ol aria-label={label} className="col-span-full m-0 grid list-none grid-cols-subgrid gap-y-3.5 p-0">
+      {/* role="list": WebKit drops list semantics from list-style: none lists. */}
+      <ol role="list" aria-label={label} className="col-span-full m-0 grid list-none grid-cols-subgrid gap-y-3.5 p-0">
         {rows.map((row, i) => (
           <Row
             key={row.key}

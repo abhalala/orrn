@@ -33,5 +33,6 @@ export {
   ordinalColor,
   seriesColor,
   seriesLegend,
+  type ChartDateFormat,
   type DateGranularity,
 } from "./scales";
