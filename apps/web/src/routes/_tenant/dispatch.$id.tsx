@@ -117,6 +117,12 @@ function DispatchDetail({ data }: { data: DetailData }) {
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: trpc.dispatch.getDispatch.queryKey({ id: d.id }) });
     void queryClient.invalidateQueries({ queryKey: trpc.dispatch.listDispatches.pathKey() });
+    // Stock lists and bundle pages show held/dispatched state (completing also posts ledger rows);
+    // Today and the volume chart show kg.
+    void queryClient.invalidateQueries({ queryKey: trpc.bundle.pathKey() });
+    void queryClient.invalidateQueries({ queryKey: trpc.stock.pathKey() });
+    void queryClient.invalidateQueries({ queryKey: trpc.dashboard.pathKey() });
+    void queryClient.invalidateQueries({ queryKey: trpc.analytics.pathKey() });
   }, [queryClient, d.id]);
 
   const onAdded = useCallback(
