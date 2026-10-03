@@ -2,30 +2,23 @@
  * The only door to heavy export code. `@react-pdf/renderer` (~1.4 MB) and the
  * xlsx writer load via `await import()` when a user clicks Download, never as
  * part of an initial or route chunk (W3). Import these functions, not
- * `packingListPdf` or `@orrn/documents/packing-list` directly.
+ * `packingListPdf` or `@orrn/documents/packing-list` directly. Pass the
+ * snapshot already parsed by `parsePackingListSnapshot` (W17).
  */
-import type { PLSnapshot } from "@orrn/documents/packing-list";
-import type { LengthUnit } from "@orrn/server/lib/length";
+import type { PackingListSnapshot } from "@orrn/documents/packing-list/model";
 
-export type { PLSnapshot };
+export type { PackingListSnapshot };
 
-export async function downloadPackingListPdf(
-  pl: PLSnapshot,
-  code: string,
-  lengthUnit: LengthUnit = "mm",
-  opts: { includeQr?: boolean } = {},
-) {
+export type ExportOptions = { timeZone?: string };
+
+export async function downloadPackingListPdf(pl: PackingListSnapshot, code: string, opts: ExportOptions = {}) {
   const { downloadPackingListPdf: run } = await import("./packingListPdf");
-  await run(pl, code, lengthUnit, opts);
+  await run(pl, code, opts);
 }
 
-export async function downloadPackingListXlsx(
-  pl: PLSnapshot,
-  code: string,
-  lengthUnit: LengthUnit = "mm",
-) {
+export async function downloadPackingListXlsx(pl: PackingListSnapshot, code: string, opts: ExportOptions = {}) {
   const { buildPackingListXlsxBuffer } = await import("@orrn/documents/packing-list");
-  const buffer = buildPackingListXlsxBuffer(pl, code, lengthUnit);
+  const buffer = buildPackingListXlsxBuffer(pl, code, undefined, opts);
   const blob = new Blob([new Uint8Array(buffer)], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
@@ -33,6 +26,8 @@ export async function downloadPackingListXlsx(
   const a = document.createElement("a");
   a.href = url;
   a.download = `${code}.xlsx`;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
