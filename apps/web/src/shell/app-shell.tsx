@@ -12,7 +12,6 @@ import { useMe } from "@/shared/lib/me";
 import { CommandPaletteProvider } from "./command-palette";
 import { Avatar, MoreSheet, type ShellVariant } from "./more-menu";
 import { GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, visibleItems } from "./nav-items";
-import { navTarget } from "./route-compat";
 import { SideNav } from "./side-nav";
 import { SkipLink } from "./skip-link";
 import { TabBar } from "./tab-bar";
@@ -101,7 +100,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
             )}
           >
             <Link
-              to={(godseye ? "/admin" : navTarget("/today")) as never}
+              to={(godseye ? "/admin" : "/today") as never}
               aria-label={godseye ? t("nav.godseyeHome") : t("nav.home")}
               className="flex size-11 shrink-0 items-center justify-center rounded-full"
             >

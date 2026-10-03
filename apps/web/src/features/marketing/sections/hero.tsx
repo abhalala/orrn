@@ -77,14 +77,14 @@ export function HeroSection() {
           <div className="mt-9 flex flex-wrap gap-3">
             <span data-hero-cta className="inline-flex">
               <Button asChild size="lg">
-                <Link to="/waitlist" search={{ mode: "demo" }}>
+                <Link to="/request-access" search={{ mode: "demo" }}>
                   Request demo
                 </Link>
               </Button>
             </span>
             <span data-hero-cta className="inline-flex">
               <Button asChild size="lg" variant="outline">
-                <Link to="/waitlist" search={{ mode: "waitlist" }}>
+                <Link to="/request-access" search={{ mode: "waitlist" }}>
                   Join waitlist
                 </Link>
               </Button>

@@ -12,9 +12,8 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "./helpers/layout-
  */
 
 const SEEDED_SERIAL = "BG-000001-B001";
-// Bundle detail lives at /bundles/$id until the route map task moves it to /b/$serial.
-const BUNDLE_URL = new RegExp(`/(b/${SEEDED_SERIAL}|bundles/[^/?#]+)$`);
-const HOME = /\/(today|dashboard)$/;
+const BUNDLE_URL = new RegExp(`/b/${SEEDED_SERIAL}$`);
+const HOME = /\/today$/;
 
 type Scheme = "light" | "dark";
 
@@ -115,7 +114,7 @@ test.describe("phone (390)", () => {
   });
 
   test("the tab bar stays put after scrolling a long page", async ({ page }) => {
-    await open(page, { width: 390, height: 700, path: "/stock" });
+    await open(page, { width: 390, height: 700, path: "/dies" });
     await page.waitForLoadState("networkidle");
     expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThan(1400);
     await page.mouse.wheel(0, 1200);
@@ -132,7 +131,7 @@ test.describe("phone (390)", () => {
         const shell = document.querySelector("[data-slot='app-shell']")!.getBoundingClientRect().height;
         return document.documentElement.scrollHeight - Math.max(shell, window.innerHeight);
       });
-    await open(page, { width: 390, height: 700, path: "/stock" });
+    await open(page, { width: 390, height: 700, path: "/dies" });
     await page.waitForLoadState("networkidle");
     expect(await extra()).toBeLessThanOrEqual(1);
     await mainNav(page).getByRole("link", { name: "Today" }).click();
@@ -398,8 +397,8 @@ test.describe("layout and accessibility", () => {
     }
   }
 
-  // Axe runs on /guides: a C2 page, so findings are the shell's. Old screens
-  // (the dashboard's inline links) are covered when their own tasks rebuild them.
+  // Axe runs on /guides: a C2 page, so findings are the shell's. Screens still
+  // stubbed are covered when their own tasks build them.
   for (const width of [390, 1280]) {
     for (const scheme of ["light", "dark"] as const) {
       test(`axe: no serious or critical issues at ${width}px (${scheme})`, async ({ page }) => {

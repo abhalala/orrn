@@ -7,7 +7,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { bundleDetailPath } from "@/shell/route-compat";
+import { bundleDetailPath } from "@/shared/lib/paths";
 import { trpcClient } from "@/shared/utils/trpc";
 
 /**

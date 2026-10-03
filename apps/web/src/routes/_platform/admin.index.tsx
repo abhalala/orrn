@@ -90,7 +90,7 @@ function AdminIndexComponent() {
             tone={
               (overview?.waitlist?.pending ?? 0) > 0 ? "warning" : "success"
             }
-            to="/admin/waitlist"
+            to="/admin/requests"
             isLoading={isLoading}
           />
         ) : null}
@@ -140,7 +140,7 @@ function AdminIndexComponent() {
             <NavCard
               title="Review waitlist"
               description="Approve or reject inbound SaaS waitlist requests."
-              to="/admin/waitlist"
+              to="/admin/requests"
               icon={<ClipboardList size={18} />}
             />
           </Can>
@@ -156,7 +156,7 @@ function AdminIndexComponent() {
             <NavCard
               title="Spool deployments"
               description="Provision, rotate, and monitor per-tenant LAN print spools."
-              to="/admin/spool"
+              to="/admin/companies"
               icon={<Printer size={18} />}
             />
           </Can>
@@ -205,7 +205,7 @@ function RecentWaitlistCard({
           <span className="flex items-center gap-2">
             <ClipboardList size={16} /> Pending waitlist
           </span>
-          <Link to="/admin/waitlist" className="no-underline">
+          <Link to="/admin/requests" className="no-underline">
             <Button variant="outline" size="sm">
               View all
             </Button>

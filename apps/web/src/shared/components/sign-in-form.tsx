@@ -215,7 +215,7 @@ export default function SignInForm({
         {!showTwoFactor && showWaitlistLink ? (
           <div className="mt-3 border-t border-border pt-5 text-center text-sm text-muted-foreground">
             Need access?{" "}
-            <Link to="/waitlist" className="font-semibold text-foreground underline decoration-control underline-offset-4 hover:decoration-foreground">
+            <Link to="/request-access" className="font-semibold text-foreground underline decoration-control underline-offset-4 hover:decoration-foreground">
               Request a demo or join the waitlist
             </Link>
           </div>

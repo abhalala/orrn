@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Me } from "./me";
-import { homeFor, resolveHomeTarget } from "./home";
+import { homeFor, homeTarget } from "./home";
 
 function me(over: Partial<Me> & { user?: Partial<Me["user"]> } = {}): Me {
   const { user, ...rest } = over;
@@ -51,15 +51,11 @@ describe("homeFor", () => {
   });
 });
 
-describe("resolveHomeTarget", () => {
-  test("maps /welcome onto the screens that exist today", () => {
-    expect(resolveHomeTarget("/welcome", me({ user: { mustChangePassword: true } }))).toBe("/change-password");
-    expect(resolveHomeTarget("/welcome", me({ user: { onboardingCompleted: false } }))).toBe("/onboarding");
-  });
-
-  test("passes other destinations through", () => {
-    expect(resolveHomeTarget("/today", me())).toBe("/today");
-    expect(resolveHomeTarget("/admin", me())).toBe("/admin");
-    expect(resolveHomeTarget("/no-access", me())).toBe("/no-access");
+describe("homeTarget", () => {
+  test("is where homeFor says, /welcome included", () => {
+    expect(homeTarget(me())).toBe("/today");
+    expect(homeTarget(me({ user: { mustChangePassword: true } }))).toBe("/welcome");
+    expect(homeTarget(me({ user: { onboardingCompleted: false } }))).toBe("/welcome");
+    expect(homeTarget(me({ company: null }))).toBe("/no-access");
   });
 });

@@ -28,7 +28,7 @@ function InviteComponent() {
     ...trpc.invite.acceptByToken.mutationOptions(),
     onSuccess: () => {
       toast.success("Successfully joined the company!");
-      window.location.href = "/dashboard";
+      window.location.href = "/today";
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to accept invite");

@@ -77,7 +77,7 @@ function AdminCompaniesComponent() {
       setImpersonation(grant.companyId, grant.expiresAt);
       queryClient.clear();
       toast.success("Impersonation grant created — loading tenant view");
-      window.location.href = "/dashboard";
+      window.location.href = "/today";
     },
     onError: (e: any) => toast.error(e.message || "Failed to start impersonation"),
   });

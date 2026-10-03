@@ -490,6 +490,8 @@ export const en = {
     reasonHint: "For example: packed twice, wrong weight entered.",
     voided: "Bundle voided",
     restored: "Bundle restored",
+    ambiguousTitle: "Which bundle?",
+    ambiguousBody: "More than one bundle has the number {code}. Pick the year it was packed.",
   },
 
   dispatch: {
@@ -885,6 +887,8 @@ export const en = {
     recent: "Recent",
     pages: "Pages",
     pageRangeOpen: "{from}-{to}",
+    stubTitle: "This screen is being rebuilt",
+    stubBody: "It will be back here soon.",
   },
 
   errors: {

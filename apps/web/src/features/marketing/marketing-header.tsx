@@ -76,7 +76,7 @@ export function MarketingHeader() {
               <Link to="/login">Sign in</Link>
             </Button>
             <Button asChild>
-              <Link to="/waitlist" search={{ mode: "demo" }}>
+              <Link to="/request-access" search={{ mode: "demo" }}>
                 Request demo
               </Link>
             </Button>
@@ -118,7 +118,7 @@ export function MarketingHeader() {
                 <Link to="/login">Sign in</Link>
               </Button>
               <Button asChild>
-                <Link to="/waitlist" search={{ mode: "demo" }}>
+                <Link to="/request-access" search={{ mode: "demo" }}>
                   Request demo
                 </Link>
               </Button>

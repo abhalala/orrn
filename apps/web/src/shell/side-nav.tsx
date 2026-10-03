@@ -9,7 +9,6 @@ import { useMe } from "@/shared/lib/me";
 import { usePalette, paletteShortcutLabel } from "./command-palette";
 import { AccountMenu, Avatar, type ShellVariant } from "./more-menu";
 import { isItemActive, type NavItem } from "./nav-items";
-import { navTarget } from "./route-compat";
 
 /**
  * From 768px: one ink panel that is an icon rail on iPad portrait (88px, icon
@@ -37,7 +36,7 @@ export function SideNav({
   const { t } = useT();
   const palette = usePalette();
   const moreLabelId = useId();
-  const home = variant === "godseye" ? "/admin" : navTarget("/today");
+  const home = variant === "godseye" ? "/admin" : "/today";
 
   // In the rail, Scan sits in the middle of the primary items, like the tab bar.
   const scanAt = Math.floor(primary.length / 2);
@@ -206,7 +205,7 @@ function NavLink({
   const Icon = item.icon;
   return (
     <Link
-      to={navTarget(item.to) as never}
+      to={item.to as never}
       aria-current={active ? "page" : undefined}
       title={label}
       className={cn(

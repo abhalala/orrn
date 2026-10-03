@@ -55,7 +55,7 @@ export function CtaSection() {
         </p>
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
-            <Link to="/waitlist" search={{ mode: "demo" }}>
+            <Link to="/request-access" search={{ mode: "demo" }}>
               Request demo
             </Link>
           </Button>
@@ -98,7 +98,7 @@ export function CtaSection() {
             Sign in
           </Link>
           <Link
-            to="/waitlist"
+            to="/request-access"
             search={{ mode: "waitlist" }}
             className="font-medium text-foreground underline decoration-control underline-offset-4 hover:decoration-foreground"
           >

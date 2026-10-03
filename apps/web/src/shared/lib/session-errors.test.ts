@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   isClientError,
   isImpersonationForbidden,
+  isNotFound,
   isUnauthorized,
   shouldRetryQuery,
 } from "./session-errors";
@@ -38,5 +39,14 @@ describe("session error classification", () => {
     expect(shouldRetryQuery(0, trpcErr("INTERNAL_SERVER_ERROR", 500))).toBe(true);
     expect(shouldRetryQuery(2, new TypeError("Failed to fetch"))).toBe(true);
     expect(shouldRetryQuery(3, new TypeError("Failed to fetch"))).toBe(false);
+  });
+});
+
+describe("isNotFound", () => {
+  test("is true only for a tRPC NOT_FOUND", () => {
+    expect(isNotFound({ data: { code: "NOT_FOUND" } })).toBe(true);
+    expect(isNotFound({ data: { code: "FORBIDDEN" } })).toBe(false);
+    expect(isNotFound(new Error("Not found"))).toBe(false);
+    expect(isNotFound(null)).toBe(false);
   });
 });

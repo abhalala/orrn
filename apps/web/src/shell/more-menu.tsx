@@ -23,7 +23,6 @@ import { signOutAndReset } from "@/shared/lib/sign-out";
 
 import { LanguageToggle } from "./language-toggle";
 import type { NavItem } from "./nav-items";
-import { navTarget } from "./route-compat";
 
 export type ShellVariant = "tenant" | "godseye";
 
@@ -133,7 +132,7 @@ export function MoreSheet({
           <ul className="m-0 flex list-none flex-col overflow-hidden rounded-card border border-border p-0">
             {items.map((item) => (
               <li key={item.key} className="border-b border-border last:border-b-0">
-                <SheetRow to={navTarget(item.to)} icon={<item.icon className="size-5" strokeWidth={2} />} onClick={close}>
+                <SheetRow to={item.to} icon={<item.icon className="size-5" strokeWidth={2} />} onClick={close}>
                   {t(item.labelKey)}
                 </SheetRow>
               </li>

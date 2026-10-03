@@ -17,13 +17,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { legacyPrefixes, navTarget } from "./route-compat";
-
 export type NavModule = "customers" | "dies" | "bundles" | "dispatches";
 
 export type NavItem = {
   key: string;
-  /** C2 path. Link with `navTarget(item.to)` until the route map lands. */
   to: string;
   labelKey: MessageKey;
   /** Shorter label for the phone tab bar, where five items share 375px. */
@@ -56,7 +53,7 @@ export const TENANT_MORE: readonly NavItem[] = [
     labelKey: "nav.settings",
     icon: Settings,
     // Ruling R24: people who can change company settings or the team.
-    requires: ["settings.update", "member.invite", "member.updateRole", "member.remove"],
+    requires: ["settings.update", "member.invite", "member.updateRole", "member.remove", "users.manage"],
   },
 ];
 
@@ -98,10 +95,13 @@ function under(path: string, prefix: string) {
   return path === prefix || path.startsWith(`${prefix}/`);
 }
 
-/** Whether `pathname` belongs to this item (its section, old URLs included). */
+/**
+ * Whether `pathname` belongs to this item. Old URLs never get here: they
+ * redirect before the shell renders, so only current paths are matched.
+ * A bundle (`/b/...`) is part of Stock.
+ */
 export function isItemActive(item: NavItem, pathname: string): boolean {
-  const target = navTarget(item.to);
-  if (item.exact) return pathname === item.to || pathname === target;
-  const prefixes = [item.to, target, ...(legacyPrefixes[item.key] ?? [])];
-  return prefixes.some((p) => under(pathname, p));
+  if (item.exact) return pathname === item.to;
+  if (item.key === "stock" && under(pathname, "/b")) return true;
+  return under(pathname, item.to);
 }

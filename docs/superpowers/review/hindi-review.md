@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 694 screen strings in 24 groups, 10 guides with 182 strings.
+Counts: 698 screen strings in 24 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -424,7 +424,7 @@ Counts: 694 screen strings in 24 groups, 10 guides with 182 strings.
 | `columns.po` | PO | PO |
 | `columns.packed` | Packed | पैक हुआ |
 
-### bundle (30)
+### bundle (32)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -458,6 +458,8 @@ Counts: 694 screen strings in 24 groups, 10 guides with 182 strings.
 | `reasonHint` | For example: packed twice, wrong weight entered. | जैसे: दो बार पैक हुआ, गलत वज़न डाला। |
 | `voided` | Bundle voided | Bundle रद्द हो गया |
 | `restored` | Bundle restored | Bundle वापस आ गया |
+| `ambiguousTitle` | Which bundle? | कौन सा bundle? |
+| `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 
 ### dispatch (54)
 
@@ -795,7 +797,7 @@ Counts: 694 screen strings in 24 groups, 10 guides with 182 strings.
 | `cta.body` | Tell us about your plant and we'll get in touch. | अपने प्लांट के बारे में बताएं, हम संपर्क करेंगे। |
 | `footer` | orrn, for aluminium extrusion plants | orrn, एल्युमिनियम एक्सट्रूज़न प्लांट के लिए |
 
-### ui (7)
+### ui (9)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -806,6 +808,8 @@ Counts: 694 screen strings in 24 groups, 10 guides with 182 strings.
 | `recent` | Recent | हाल के |
 | `pages` | Pages | पेज |
 | `pageRangeOpen` | {from}-{to} | {from}-{to} |
+| `stubTitle` | This screen is being rebuilt | यह स्क्रीन फिर से बन रही है |
+| `stubBody` | It will be back here soon. | यह जल्द ही यहाँ वापस आएगी। |
 
 ### errors (16)
 

@@ -22,7 +22,6 @@ import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import { TENANT_MORE, TENANT_PRIMARY, visibleItems } from "./nav-items";
-import { navTarget } from "./route-compat";
 
 type PaletteContextValue = { open(): void; available: boolean };
 
@@ -113,7 +112,7 @@ type Result = {
   /** Serials and codes read in Geist Mono. */
   mono?: boolean;
   icon: LucideIcon;
-  /** C2 path; opened through `navTarget` until the route map lands. */
+  /** C2 path. */
   to: string;
 };
 
@@ -248,7 +247,7 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange(op
   const choose = useCallback(
     (result: Result) => {
       onOpenChange(false);
-      void navigate({ to: navTarget(result.to) as never });
+      void navigate({ to: result.to as never });
     },
     [navigate, onOpenChange],
   );

@@ -8,8 +8,7 @@ import { signInViaApi, signInViaForm } from "./helpers/accounts";
  */
 
 const IMPERSONATION_KEY = "orrn:impersonate-company-id";
-// `/today` forwards to the existing dashboard until its real screen lands.
-const HOME = /\/(today|dashboard)$/;
+const HOME = /\/today$/;
 
 async function setStoredImpersonation(page: Page, value: string) {
   await page.addInitScript(
@@ -148,8 +147,8 @@ test.describe("auth.me failures during navigation (W11)", () => {
     await page.clock.install();
     await page.goto("/dies");
     await expect(page).toHaveURL(/\/dies$/);
-    await page.goto("/dashboard");
-    await expect(page.getByRole("heading", { level: 1, name: /Welcome back/ })).toBeVisible();
+    await page.goto("/today");
+    await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeVisible();
     await page.waitForLoadState("networkidle");
     await page.clock.fastForward(45_000);
   }

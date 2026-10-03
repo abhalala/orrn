@@ -5,7 +5,6 @@ import { ScanLine } from "lucide-react";
 
 import type { ShellVariant } from "./more-menu";
 import { isItemActive, type NavItem } from "./nav-items";
-import { navTarget } from "./route-compat";
 
 /**
  * Phone bottom bar (< 768px): Today · Pack · Scan · Stock · Dispatch for a
@@ -36,7 +35,7 @@ export function TabBar({
     return (
       <li key={item.key} className="min-w-0">
         <Link
-          to={navTarget(item.to) as never}
+          to={item.to as never}
           aria-current={active ? "page" : undefined}
           className={cn(
             "group flex h-[62px] min-w-0 flex-col items-center justify-center gap-0.5 rounded-card pt-1.5 pb-1 no-underline transition-[color,scale] duration-[var(--dur-fast)] active:scale-[0.97]",

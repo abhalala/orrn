@@ -31,3 +31,8 @@ export function shouldRetryQuery(failureCount: number, error: unknown): boolean 
   if (isClientError(error)) return false;
   return failureCount < 3;
 }
+
+/** tRPC NOT_FOUND: the record doesn't exist in this company. */
+export function isNotFound(error: unknown): boolean {
+  return asTrpcLike(error)?.data?.code === "NOT_FOUND";
+}

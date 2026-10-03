@@ -78,20 +78,20 @@ export async function requireSignedIn({ context, location }: GuardArgs) {
 export async function requireCompanyMe({ context, location }: GuardArgs) {
   const me = await loadMe(context.queryClient);
   if (!me) throw toLogin(location);
-  if (me.user.mustChangePassword) throw redirect({ to: "/change-password" });
+  if (me.user.mustChangePassword) throw redirect({ to: "/welcome" });
   if (!me.company) {
     // Staff have no company of their own; their home is the console.
     throw redirect({ to: me.isPlatformAdmin && me.platformRole ? "/admin" : "/no-access" });
   }
-  if (!me.impersonation && !me.user.onboardingCompleted) throw redirect({ to: "/onboarding" });
+  if (!me.impersonation && !me.user.onboardingCompleted) throw redirect({ to: "/welcome" });
   return { me };
 }
 
-/** Signed-in user who has finished the forced-password step (onboarding, setup-credentials). */
+/** Signed-in user who has finished the forced-password step (welcome). */
 export async function requireSession({ context, location }: GuardArgs) {
   const me = await loadMe(context.queryClient);
   if (!me) throw toLogin(location);
-  if (me.user.mustChangePassword) throw redirect({ to: "/change-password" });
+  if (me.user.mustChangePassword) throw redirect({ to: "/welcome" });
   return { me };
 }
 
@@ -99,7 +99,7 @@ export async function requireSession({ context, location }: GuardArgs) {
 export async function requirePlatformAdmin({ context, location }: GuardArgs) {
   const me = await loadMe(context.queryClient);
   if (!me) throw toLogin(location);
-  if (me.user.mustChangePassword) throw redirect({ to: "/change-password" });
+  if (me.user.mustChangePassword) throw redirect({ to: "/welcome" });
   if (!me.isPlatformAdmin || !me.platformRole) throw redirect({ to: homeTarget(me) });
   return { me };
 }

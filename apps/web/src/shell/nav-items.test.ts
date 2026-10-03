@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 
 import type { Me } from "@orrn/server/lib/permissions";
 
+import { bundleDetailPath } from "../shared/lib/paths";
+
 import { GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, isItemActive, visibleItems, type NavItem } from "./nav-items";
-import { bundleDetailPath, navTarget } from "./route-compat";
 
 function me(role: "owner" | "operator" | "viewer", modules?: string[]): Me {
   return {
@@ -61,19 +62,24 @@ describe("visibleItems", () => {
 describe("isItemActive", () => {
   const byKey = (k: string) => ALL.find((i) => i.key === k)!;
 
-  test("matches the C2 path, today's route and old URLs", () => {
-    expect(isItemActive(byKey("today"), "/dashboard")).toBe(true);
+  test("matches the item's path and everything under it", () => {
     expect(isItemActive(byKey("today"), "/today")).toBe(true);
-    expect(isItemActive(byKey("dispatch"), "/dispatches/abc")).toBe(true);
-    expect(isItemActive(byKey("dispatch"), "/packing-lists/abc")).toBe(true);
-    expect(isItemActive(byKey("stock"), "/bundles/abc")).toBe(true);
-    expect(isItemActive(byKey("pack"), "/receipts/new")).toBe(true);
-    expect(isItemActive(byKey("settings"), "/settings/members")).toBe(true);
+    expect(isItemActive(byKey("dispatch"), "/dispatch/abc")).toBe(true);
+    expect(isItemActive(byKey("stock"), "/stock/bundles")).toBe(true);
+    expect(isItemActive(byKey("pack"), "/pack/new")).toBe(true);
+    expect(isItemActive(byKey("settings"), "/settings")).toBe(true);
+  });
+
+  test("a bundle page belongs to Stock", () => {
+    expect(isItemActive(byKey("stock"), "/b/26I4086")).toBe(true);
+    expect(isItemActive(byKey("pack"), "/b/26I4086")).toBe(false);
   });
 
   test("does not confuse siblings with a shared prefix", () => {
     expect(isItemActive(byKey("dispatch"), "/dies")).toBe(false);
-    expect(isItemActive(byKey("pack"), "/packing-lists/x")).toBe(false);
+    expect(isItemActive(byKey("dispatch"), "/dispatches/abc")).toBe(false);
+    expect(isItemActive(byKey("stock"), "/bundles/abc")).toBe(false);
+    expect(isItemActive(byKey("stock"), "/bx")).toBe(false);
   });
 
   test("Godseye overview is exact", () => {
@@ -83,21 +89,10 @@ describe("isItemActive", () => {
   });
 });
 
-describe("navTarget", () => {
-  test("maps C2 paths to today's routes on a segment boundary", () => {
-    expect(navTarget("/today")).toBe("/dashboard");
-    expect(navTarget("/pack/new")).toBe("/receipts/new");
-    expect(navTarget("/dispatch/abc")).toBe("/dispatches/abc");
-    expect(navTarget("/stock")).toBe("/stock");
-    expect(navTarget("/stock/bundles")).toBe("/bundles");
-    expect(navTarget("/printing")).toBe("/spool");
-    expect(navTarget("/settings")).toBe("/settings/members");
-    expect(navTarget("/admin/requests")).toBe("/admin/waitlist");
-    expect(navTarget("/dies")).toBe("/dies");
-    expect(navTarget("/guides")).toBe("/guides");
-  });
-
-  test("bundle detail uses the id route for now", () => {
-    expect(bundleDetailPath({ id: "b 1", serial: "BG-1" })).toBe("/bundles/b%201");
+describe("bundleDetailPath", () => {
+  test("is the label QR path, serial encoded", () => {
+    expect(bundleDetailPath({ serial: "26I4086" })).toBe("/b/26I4086");
+    expect(bundleDetailPath({ serial: "BG-000001-B001" })).toBe("/b/BG-000001-B001");
+    expect(bundleDetailPath({ serial: "a b/c" })).toBe("/b/a%20b%2Fc");
   });
 });

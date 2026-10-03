@@ -34,10 +34,10 @@ test.describe("public auth", () => {
     await expect(page).toHaveScreenshot("login.png", { fullPage: true });
   });
 
-  test("waitlist page layout", async ({ page }) => {
-    await page.goto("/waitlist");
-    await expect(page.getByRole("heading", { level: 1, name: "Request ORRN access" })).toBeVisible();
-    await expect(page).toHaveScreenshot("waitlist.png", { fullPage: true });
+  test("request access page layout", async ({ page }) => {
+    await page.goto("/request-access");
+    await expect(page.getByRole("heading", { level: 1, name: "Request access" })).toBeVisible();
+    await expect(page).toHaveScreenshot("request-access.png", { fullPage: true });
   });
 });
 
