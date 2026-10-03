@@ -76,6 +76,14 @@
 - [ ] Tests: oblique codes per section unique and permanent; tier applies only after approval; drift ordering; tenant isolation.
 - [ ] Commit `feat(server): die instances, readings, nitriding, tier re-rank`.
 
+### PL-A1: Analytics queries (analytics addendum)
+
+**Spec:** `docs/superpowers/specs/2026-10-03-orrn-analytics-addendum.md` §2–§3. **Files:** `packages/server/src/routers/analytics.ts` (mount `analytics`), `packages/server/src/lib/permissions.ts` (`analytics.view` → owner, admin, manager, office, accountant), test `plant-analytics.test.ts`.
+
+**Interfaces (Produces):** exactly the five procedures and return shapes in addendum §3 (`customerSummary`, `customerLeaderboard`, `trends`, `stockAgeing`, `dispatchVolume`); `openOrders` null until PL-8.
+- [ ] Tests: tenant isolation; analytics.view matrix (operator, packer, viewer FORBIDDEN); IST bucket boundaries; top-8 + Other folding; previous-period rank and delta; cadence median; ≤100 params with 200 dispatches.
+- [ ] Commit `feat(server): analytics queries for customers, trends, ageing and volume`.
+
 ### PL-5: Foundry — casts and melts
 
 **Files:** `packages/db/src/schema/foundry.ts` (`cast`, `melt`, `melt_input`, `melt_output`, `spectro_result`, `return_stream`), `packages/server/src/routers/foundry.ts`. Stage 3–5 fields. Test `plant-foundry.test.ts`.

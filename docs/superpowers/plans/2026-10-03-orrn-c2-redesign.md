@@ -324,6 +324,17 @@
 
 Each screen task: (1) write the Playwright spec named below (runs at 390 and 1280, light; asserts the listed behaviour, no overflow, axe no serious/critical); (2) run → FAIL; (3) implement with Task 12 components, `t()` strings, `@orrn/domain` formatting, `<Can>` on mutations, `HowToButton` where listed; (4) run → PASS; (5) commit. Only the decisions are listed.
 
+### Task AN-2: Chart kit (analytics addendum)
+
+**Spec:** `docs/superpowers/specs/2026-10-03-orrn-analytics-addendum.md` §2 (A1–A4) and §4 chart kit. **Rules:** dataviz skill at `/private/tmp/claude-501/bundled-skills/2.1.286/2cebe3d6bc2035b3958410c0eed96bb0/dataviz/` (read SKILL.md and every reference file before writing chart code; run `scripts/validate_palette.js` for light and dark).
+
+**Files:** `packages/ui/src/charts/{chart-card.tsx,time-series-chart.tsx,bar-chart.tsx,ranked-bars.tsx,sparkline.tsx,chart-table.tsx,scales.ts,index.ts}`, `packages/ui/src/tokens.ts` (`chartCategorical`, `chartSequential`, light + dark), `packages/ui/src/charts/palette.test.ts`, `/__ui` kit section, `apps/web/tests/e2e/charts.spec.ts`; deps `d3-scale`, `d3-shape`, `d3-array` (+ types) in packages/ui.
+
+**Interfaces (Produces):** `ChartCard({ title, subtitle?, controls?, legend?: { label; color }[], table: { columns; rows }, state?: "loading" | "empty" | "error", children })`; `TimeSeriesChart({ series: { key; label; points: { t: Date; v: number }[] }[], kind: "line" | "area", format(v): string, height? })`; `BarChart({ data: { key; label; value }[], format, height? })`; `RankedBars({ rows: { key; label; value; share?: number; movement?: number | null }[], format, other?: number })`; `Sparkline({ points: number[], label: string })`. Categorical palette never uses the C2 status tones; series colour follows the series key (stable), never rank.
+
+- [ ] Tests (Playwright on /__ui + bun): palette validator passes light and dark; each chart has a working "Show table" view with the same numbers; tooltips reachable by keyboard and pointer; legend present for ≥2 series; no element identifies a series by colour alone; axe clean; reduced motion = no animation; layout guards at 375/820/1280; charts are lazy (not in the entry chunk — modulepreload check still passes).
+- [ ] Commit `feat(ui): accessible chart kit for analytics`.
+
 ### Task 17: Front door — login, request access, invite, welcome, no-access
 
 **Files:** `routes/_public/login.tsx`, `request-access.tsx`, `invite.$token.tsx`; `routes/_authed/welcome.tsx`, `no-access.tsx`; `features/auth/{sign-in-form.tsx,welcome-steps.ts}`; delete `shared/components/auth-screen.tsx`, `force-password-change-form.tsx` (logic folds into welcome). Test: `tests/e2e/front-door.spec.ts`.
@@ -342,7 +353,7 @@ Each screen task: (1) write the Playwright spec named below (runs at 390 and 128
 ### Task 19: Today
 
 **Files:** `routes/_tenant/today.tsx`, `features/today/{kpis.tsx,open-dispatches.tsx,recent-sessions.tsx,start-here.tsx}`. Test: `tests/e2e/today.spec.ts`.
-- Data: `dashboard.today` only. KPI blocks with `BigNumber countUp`. Action tiles: Pack (`bundle.create`), Dispatch (`dispatch.create` or `dispatch.addBundle`), Stock (all), Guides (all). Start-here checklist when company has 0 dies or 0 bundles.
+- Data: `dashboard.today` (all roles) plus, for `analytics.view` only, `analytics.trends` (90-day packed vs dispatched TimeSeriesChart) and `analytics.stockAgeing` (BarChart) from the analytics addendum. KPI blocks with `BigNumber countUp`. Action tiles: Pack (`bundle.create`), Dispatch (`dispatch.create` or `dispatch.addBundle`), Stock (all), Guides (all). Start-here checklist when company has 0 dies or 0 bundles.
 - Spec asserts: seeded numbers match a direct `dashboard.today` call; viewer sees no Pack tile; empty company shows checklist.
 
 ### Task 20: Pack — list, new, session detail
@@ -357,6 +368,7 @@ Each screen task: (1) write the Playwright spec named below (runs at 390 and 128
 ### Task 21: Stock — sections, section, all bundles, bundle detail
 
 **Files:** `routes/_tenant/stock.index.tsx`, `stock.$dieId.tsx`, `stock.bundles.tsx`, `b.$serial.tsx`; `features/stock/{section-blocks.tsx,bundle-hero.tsx,bundle-timeline.tsx,add-to-dispatch-sheet.tsx}`. Test: `tests/e2e/stock.spec.ts`.
+- For `analytics.view`: stock ageing BarChart + top sections RankedBars (analytics addendum §4).
 - Sections from `stockSummary({status:"available"})` + `stockSummary({status:"reserved"})` merged per die; sort by kg/A–Z; search client-side over loaded sections.
 - Bundles list: server paging via `listBundles({status, search, limit:50, offset})`, debounced search with `placeholderData: keepPreviousData` (W15), status chips.
 - Bundle page via `getBySerial`; actions: Add to dispatch (sheet lists `listDispatches({status:"draft"})`), Reprint, Void/Restore with reason. `HowToButton` `reprint-label` / `void-bundle`.
@@ -365,6 +377,7 @@ Each screen task: (1) write the Playwright spec named below (runs at 390 and 128
 ### Task 22: Dispatch — list, new, build/hold/dispatch, packing list
 
 **Files:** `routes/_tenant/dispatch.index.tsx`, `dispatch.new.tsx`, `dispatch.$id.tsx`; `features/dispatch/{dispatch-header.tsx,build-step.tsx,paste-serials-sheet.tsx,hold-step.tsx,complete-sheet.tsx,packing-list-view.tsx,group-items.ts}`; modify `packages/documents/src/packing-list/{xlsx.ts,types.ts}` and `apps/web/src/shared/lib/packingListPdf.tsx` (W5, W6, W17). Test: `tests/e2e/dispatch.spec.ts`, `packages/documents/src/packing-list/xlsx.test.ts`.
+- For `analytics.view`: dispatch list shows a monthly volume BarChart (`analytics.dispatchVolume`).
 - `groupItems(items): { key: string; label: string; dieLabel: string; bundles: Item[]; weightG: number; pieces: number }[]` — group by `groupLabel` else die (never receipt id).
 - Action availability from `dispatchActions(status)` (Task 7); overflow menu holds Cancel/Delete.
 - Paste sheet uses `splitPastedSerials`, sends in chunks of 100, shows the server report (added / already / not found / unavailable with reasons).
@@ -376,7 +389,7 @@ Each screen task: (1) write the Playwright spec named below (runs at 390 and 128
 
 **Files:** `routes/_tenant/dies.index.tsx`, `dies.$id.tsx`, `customers.index.tsx`, `customers.$id.tsx`; `features/dies/die-form.tsx`, `features/customers/customer-form.tsx`. Test: `tests/e2e/catalog.spec.ts`.
 - Die form: weight range edited in kg/12ft (`kgToG` on save), geometry under Advanced with `NumberInput` in company unit, only changed fields sent (N6 parity). Conflict message for deleted-die codes (S16).
-- Customer form adds billing/shipping address fields the server already accepts; detail lists `listDispatches({customerId})`.
+- Customer detail is view-first per the analytics addendum §4: header (last dispatch, cadence), KPI tiles, monthly volume chart, top sections, recent dispatches, open orders/baki when available, Edit as a secondary sheet; charts only with `analytics.view`. Customers list shows the leaderboard card (period control, RankedBars with movement) for `analytics.view`. Customer form adds billing/shipping address fields the server already accepts.
 - Lists: server search + paging. `HowToButton` `edit-die` / `add-customer`.
 - Spec asserts: inch company opens a die with 10 mm thickness and saves untouched → still 10 mm; customer address persists; deleted die code shows the conflict message.
 
