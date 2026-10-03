@@ -224,7 +224,7 @@ test.describe("customers", () => {
     await expect(page.getByText("GSTIN 24AABCK4471M1Z6")).toBeVisible();
     await page.reload();
     await expect(page.getByText("Plot 9, GIDC")).toBeVisible();
-    await expect(page.getByText("Rajkot, Gujarat 360002")).toBeVisible();
+    await expect(page.getByText("Rajkot, Gujarat 360002")).toHaveCount(2);
     await expect(page.getByText("Shed 4, Aji Industrial Area")).toBeVisible();
 
     const id = new URL(page.url()).pathname.split("/").pop()!;
