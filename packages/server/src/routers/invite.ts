@@ -5,8 +5,9 @@ import { TRPCError } from "@trpc/server";
 import { companyRoles, invite, membership } from "@orrn/db/schema/tenant";
 import { user } from "@orrn/db/schema/auth";
 import { atomicBatch } from "../lib/atomic";
+import { auditInsert } from "../lib/audit";
 import { sendEmail, renderOrrnEmailHtml } from "../lib/email";
-import { companyProcedure, roleGuard, publicProcedure, router } from "../index";
+import { actionProcedure, companyProcedure, roleGuard, publicProcedure, router } from "../index";
 
 export const inviteRouter = router({
   list: companyProcedure.query(async ({ ctx }) => {
@@ -19,9 +20,16 @@ export const inviteRouter = router({
     });
   }),
 
-  create: roleGuard("owner", "admin")
+  create: actionProcedure("member.invite")
     .input(z.object({ email: z.string().email(), role: z.enum(companyRoles) }))
     .mutation(async ({ ctx, input }) => {
+      if (input.role === "owner" && ctx.role !== "owner") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only an owner can invite another owner",
+        });
+      }
+
       const existingUser = await ctx.db.query.user.findFirst({
         where: eq(user.email, input.email)
       });
@@ -43,15 +51,23 @@ export const inviteRouter = router({
       const token = crypto.randomUUID();
       const tokenHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
 
-      await ctx.db.insert(invite).values({
-        id: inviteId,
-        companyId: ctx.companyId,
-        email: input.email,
-        role: input.role,
-        tokenHash,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        invitedBy: ctx.session.user.id,
-      });
+      await atomicBatch(ctx.db, [
+        ctx.db.insert(invite).values({
+          id: inviteId,
+          companyId: ctx.companyId,
+          email: input.email,
+          role: input.role,
+          tokenHash,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          invitedBy: ctx.session.user.id,
+        }),
+        auditInsert(ctx, {
+          action: "member.invite",
+          subjectType: "invite",
+          subjectId: inviteId,
+          meta: { email: input.email, role: input.role },
+        }),
+      ]);
 
       // TODO: Get base URL from environment
       const inviteUrl = `http://localhost:5173/invite/${token}`;

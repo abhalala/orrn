@@ -1,15 +1,16 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 
 import { hashPassword } from "@orrn/auth/password";
-import { account, user } from "@orrn/db/schema/auth";
+import { account, session as sessionTable, user } from "@orrn/db/schema/auth";
 import { company } from "@orrn/db/schema/tenant";
 import { createAuth } from "@orrn/auth";
 import type { LengthUnit } from "../lib/length";
 
 import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
+import { can } from "../lib/permissions";
 import { authedProcedure, router } from "../index";
 
 /**
@@ -121,12 +122,28 @@ export const authRouter = router({
    *
    * Bypasses Better Auth's `changePassword` (which would need the current
    * password) by writing directly to the credential row, then atomically
-   * clearing `must_change_password` and emitting an audit row.
+   * clearing `must_change_password`, revoking every other session of the user
+   * and emitting an audit row.
+   *
+   * Only callable while `must_change_password` is set: otherwise any stolen
+   * session could rotate the password without knowing the current one.
    */
   changeInitialPassword: authedProcedure
     .input(z.object({ newPassword: z.string().min(8) }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
+
+      const flagRow = await ctx.db
+        .select({ mustChangePassword: user.mustChangePassword })
+        .from(user)
+        .where(eq(user.id, userId))
+        .get();
+      if (!flagRow?.mustChangePassword) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Password change is not required for this account",
+        });
+      }
 
       const credential = await ctx.db
         .select({ id: account.id })
@@ -142,6 +159,7 @@ export const authRouter = router({
       }
 
       const hashed = await hashPassword(input.newPassword);
+      const currentSessionId = ctx.session.session?.id;
 
       await atomicBatch(ctx.db, [
         ctx.db
@@ -152,6 +170,13 @@ export const authRouter = router({
           .update(user)
           .set({ mustChangePassword: false })
           .where(eq(user.id, userId)),
+        // Revoke every other session (e.g. whoever knew the temporary
+        // password); keep the one performing the change.
+        currentSessionId
+          ? ctx.db
+              .delete(sessionTable)
+              .where(and(eq(sessionTable.userId, userId), ne(sessionTable.id, currentSessionId)))
+          : ctx.db.delete(sessionTable).where(eq(sessionTable.userId, userId)),
         auditInsert(ctx, {
           action: "auth.password_force_change",
           subjectType: "user",
@@ -173,6 +198,15 @@ export const authRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
+
+      // Company fields (facility, contact, timezone, press count) are company
+      // settings: only roles that may update settings can write them.
+      if (ctx.companyId && !can({ company: ctx.role ? { role: ctx.role } : null, isPlatformAdmin: false }, "settings.update")) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only an owner or admin can complete company onboarding",
+        });
+      }
 
       const statements: SqliteBatchItem[] = [
         ctx.db
@@ -203,6 +237,12 @@ export const authRouter = router({
                 },
               })
               .where(eq(company.id, ctx.companyId)),
+            auditInsert(ctx, {
+              action: "settings.update",
+              subjectType: "company",
+              subjectId: ctx.companyId,
+              meta: { via: "onboarding" },
+            }),
           );
         }
       }

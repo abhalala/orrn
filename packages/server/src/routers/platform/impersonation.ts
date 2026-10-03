@@ -8,7 +8,7 @@ import { platformGuard, platformProcedure } from "../../index";
 const DEFAULT_IMPERSONATION_TTL_MINUTES = 30;
 
 export const impersonationProcedures = {
-  impersonationCreateGrant: platformProcedure
+  impersonationCreateGrant: platformGuard("platform.impersonate")
     .input(
       z.object({
         companyId: z.string(),

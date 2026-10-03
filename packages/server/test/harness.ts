@@ -37,7 +37,11 @@ const COMPANY_ROLES: readonly CompanyRole[] = ["owner", "admin", "manager", "ope
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../db/src/migrations");
 
-type CallerAs = { role: CompanyRole; companyId: string } | { platformRole: PlatformStaffRole } | null;
+/** `sessionId` is the Better Auth session row id for the "current session" (optional). */
+type CallerAs =
+  | { role: CompanyRole; companyId: string; sessionId?: string }
+  | { platformRole: PlatformStaffRole; sessionId?: string }
+  | null;
 
 export type TestEnv = {
   db: Db;
@@ -203,7 +207,10 @@ export async function createTestEnv(): Promise<TestEnv> {
         const u = await platformUser(as.platformRole);
         return {
           ...base,
-          session: { user: { id: u.id, name: u.name, email: u.email } } as unknown as Context["session"],
+          session: {
+            user: { id: u.id, name: u.name, email: u.email },
+            session: { id: as.sessionId ?? "test-session" },
+          } as unknown as Context["session"],
           membership: null,
           companyId: null,
           role: null,
@@ -228,7 +235,10 @@ export async function createTestEnv(): Promise<TestEnv> {
       }
       return {
         ...base,
-        session: { user: { id: row.userId, name: row.name, email: row.email } } as unknown as Context["session"],
+        session: {
+          user: { id: row.userId, name: row.name, email: row.email },
+          session: { id: as.sessionId ?? "test-session" },
+        } as unknown as Context["session"],
         membership: {
           id: row.membershipId,
           companyId: as.companyId,

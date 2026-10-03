@@ -1,8 +1,10 @@
 import { createAuth } from "@orrn/auth";
 import { createDb } from "@orrn/db";
-import { company, impersonationGrant, membership, platformAdmin } from "@orrn/db/schema";
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { company, membership, platformAdmin } from "@orrn/db/schema";
+import { and, eq } from "drizzle-orm";
 import type { Context as HonoContext } from "hono";
+
+import { resolveImpersonation } from "./lib/impersonation";
 
 export type CreateContextOptions = {
   context: HonoContext;
@@ -66,52 +68,30 @@ export async function createContext({ context }: CreateContextOptions) {
   let impersonationHeaderRejected = false;
 
   if (impersonateCompanyId) {
-    if (!isPlatformAdmin || !userId) {
+    const resolved = await resolveImpersonation(db, {
+      userId,
+      isPlatformAdmin,
+      platformRole,
+      targetCompanyId: impersonateCompanyId,
+    });
+
+    if (!resolved.ok || !userId) {
       impersonationHeaderRejected = true;
     } else {
-      const now = new Date();
-      const [grant] = await db
-        .select()
-        .from(impersonationGrant)
-        .where(
-          and(
-            eq(impersonationGrant.platformAdminId, userId),
-            eq(impersonationGrant.companyId, impersonateCompanyId),
-            isNull(impersonationGrant.revokedAt),
-            gt(impersonationGrant.expiresAt, now),
-          ),
-        )
-        .orderBy(desc(impersonationGrant.createdAt))
-        .limit(1);
-
-      if (!grant) {
-        impersonationHeaderRejected = true;
-      } else {
-        const [impCompany] = await db
-          .select({ id: company.id, status: company.status })
-          .from(company)
-          .where(eq(company.id, impersonateCompanyId))
-          .limit(1);
-
-        if (!impCompany || impCompany.status !== "active") {
-          impersonationHeaderRejected = true;
-        } else {
-          effectiveMember = {
-            id: `impersonation:${impCompany.id}`,
-            companyId: impCompany.id,
-            role: "owner" as const,
-            companyStatus: impCompany.status,
-          };
-          effectiveCompanyId = impCompany.id;
-          effectiveRole = "owner" as const;
-          impersonation = {
-            actorUserId: userId,
-            companyId: impCompany.id,
-            grantId: grant.id,
-            expiresAt: grant.expiresAt,
-          };
-        }
-      }
+      effectiveMember = {
+        id: `impersonation:${resolved.companyId}`,
+        companyId: resolved.companyId,
+        role: "owner" as const,
+        companyStatus: resolved.companyStatus,
+      };
+      effectiveCompanyId = resolved.companyId;
+      effectiveRole = "owner" as const;
+      impersonation = {
+        actorUserId: userId,
+        companyId: resolved.companyId,
+        grantId: resolved.grantId,
+        expiresAt: resolved.expiresAt,
+      };
     }
   }
 
