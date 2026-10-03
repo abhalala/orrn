@@ -1,4 +1,9 @@
-/** Immutable packing list snapshot shape stored in D1 and used for client exports. */
+/**
+ * @deprecated The raw v1 shape, kept only for the old native drawer screen
+ * until Task 29 replaces it. Parse stored snapshots with
+ * `parsePackingListSnapshot` (types.ts) and build rows with
+ * `packingListModel` (rows.ts); never show `totals.totalLengthM` (S12/W7).
+ */
 export type PLSnapshot = {
   dispatch: {
     code: string;

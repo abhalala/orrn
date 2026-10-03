@@ -212,11 +212,14 @@
       "name": "@orrn/documents",
       "version": "0.0.0",
       "dependencies": {
+        "@orrn/domain": "workspace:*",
         "@orrn/server": "workspace:*",
         "xlsx": "^0.18.5",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@orrn/config": "workspace:*",
+        "@types/bun": "^1.3.13",
         "typescript": "^6",
       },
     },
