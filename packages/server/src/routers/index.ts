@@ -1,4 +1,5 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
+import { approvalRouter } from "./approval";
 import { authRouter } from "./auth";
 import { waitlistRouter } from "./waitlist";
 import { platformRouter } from "./platform";
@@ -12,6 +13,7 @@ import { packingListRouter } from "./packingList";
 import { spoolRouter } from "./spool";
 import { edgeRouter } from "./edge";
 import { dashboardRouter } from "./dashboard";
+import { resolveRouter } from "./resolve";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -36,5 +38,7 @@ export const appRouter = router({
   spool: spoolRouter,
   edge: edgeRouter,
   dashboard: dashboardRouter,
+  approval: approvalRouter,
+  resolve: resolveRouter,
 });
 export type AppRouter = typeof appRouter;

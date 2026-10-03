@@ -1,6 +1,6 @@
 export const DEFAULT_TIMEZONE = "Asia/Kolkata";
 
-type Ymd = { year: number; month: number; day: number };
+export type Ymd = { year: number; month: number; day: number };
 
 function formatterFor(timeZone: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -38,6 +38,18 @@ function localMidnightUtc(fmt: Intl.DateTimeFormat, ymd: Ymd): number {
   // Re-evaluate once at the candidate so a DST change between guess and start settles.
   start = guess - offsetMs(fmt, start);
   return start;
+}
+
+/** Calendar date (year, month 1-12, day) of the instant `ms` on the wall clock of `timezone`. */
+export function zonedYmd(timezone: string = DEFAULT_TIMEZONE, ms: number = Date.now()): Ymd {
+  return wallClockAsUtc(formatterFor(timezone), ms).ymd;
+}
+
+/** UTC instant at which the calendar month containing `now` starts on the wall clock of `timezone`. */
+export function monthStartMs(timezone: string = DEFAULT_TIMEZONE, now: number = Date.now()): number {
+  const fmt = formatterFor(timezone);
+  const { ymd } = wallClockAsUtc(fmt, now);
+  return localMidnightUtc(fmt, { year: ymd.year, month: ymd.month, day: 1 });
 }
 
 /**

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 678 screen strings in 24 groups, 10 guides with 182 strings.
+Counts: 694 screen strings in 24 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -126,13 +126,21 @@ Counts: 678 screen strings in 24 groups, 10 guides with 182 strings.
 | `company.active` | Active | चालू |
 | `company.suspended` | Suspended | रोकी गई |
 
-### roles (5)
+### roles (13)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `owner` | Owner | मालिक |
 | `admin` | Admin | एडमिन |
 | `manager` | Manager | मैनेजर |
+| `office` | Office | ऑफ़िस |
+| `accountant` | Accountant | अकाउंटेंट |
+| `supervisor` | Supervisor | सुपरवाइज़र |
+| `packer` | Packer | पैकर |
+| `foundry` | Foundry | फाउंड्री |
+| `press` | Press | प्रेस |
+| `storekeeper` | Storekeeper | स्टोरकीपर |
+| `die_room` | Die room | डाई रूम |
 | `operator` | Operator | ऑपरेटर |
 | `viewer` | Viewer | व्यूअर |
 
@@ -639,7 +647,7 @@ Counts: 678 screen strings in 24 groups, 10 guides with 182 strings.
 | `notSetUpBody` | Ask the orrn team to set up label printing for your plant. | अपने प्लांट के लिए लेबल प्रिंटिंग सेट करवाने के लिए orrn टीम से कहें। |
 | `restricted` | You can see the queue. Ask a manager to change printers or labels. | आप कतार देख सकते हैं। प्रिंटर या लेबल बदलने के लिए मैनेजर से कहें। |
 
-### settings (51)
+### settings (59)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -665,6 +673,14 @@ Counts: 678 screen strings in 24 groups, 10 guides with 182 strings.
 | `team.roleHints.owner` | Everything, including team and company settings. | सब कुछ, टीम और कंपनी सेटिंग्स समेत। |
 | `team.roleHints.admin` | Everything, including team and company settings. | सब कुछ, टीम और कंपनी सेटिंग्स समेत। |
 | `team.roleHints.manager` | Dies, customers, dispatches and printers. No team or settings. | Die, ग्राहक, dispatch और प्रिंटर। टीम या सेटिंग्स नहीं। |
+| `team.roleHints.office` | Orders, dispatches, scrap weighing, D/C notes, Tally export and reports. | ऑर्डर, dispatch, स्क्रैप का वज़न, D/C नोट, Tally export और रिपोर्ट। |
+| `team.roleHints.accountant` | Reads orders, invoices and D/C notes. GST and Tally export. Can belong to several plants. | ऑर्डर, बिल और D/C नोट देखना। GST और Tally export। कई प्लांट में हो सकते हैं। |
+| `team.roleHints.supervisor` | Packing, stock, dispatch, casts, press runs, quality checks and ageing. Voids bundles. | पैकिंग, स्टॉक, dispatch, कास्ट, प्रेस रन, क्वालिटी जाँच और एजिंग। Bundle रद्द करना। |
+| `team.roleHints.packer` | Packs bundles and prints labels, moves and counts stock, scans onto packing lists. | Bundle पैक करना और लेबल प्रिंट करना, स्टॉक की जगह बदलना और गिनना, packing list पर स्कैन करना। |
+| `team.roleHints.foundry` | Cast entry and spectro. Approves cast close-outs. | कास्ट एंट्री और स्पेक्ट्रो। कास्ट क्लोज़ को मंज़ूरी देना। |
+| `team.roleHints.press` | Press runs, die weight readings, quality checks and ageing. | प्रेस रन, die वज़न रीडिंग, क्वालिटी जाँच और एजिंग। |
+| `team.roleHints.storekeeper` | Scrap weighing, and items issued from or returned to the store. | स्क्रैप का वज़न, और स्टोर से सामान देना और वापस लेना। |
+| `team.roleHints.die_room` | Die cards, nitriding, die weight readings. Proposes tier changes. | Die कार्ड, नाइट्राइडिंग, die वज़न रीडिंग। टियर बदलने का प्रस्ताव। |
 | `team.roleHints.operator` | Packs bundles, scans into dispatches, voids bundles and prints labels. | Bundle पैक करना, dispatch में स्कैन करना, bundle रद्द करना और लेबल प्रिंट करना। |
 | `team.roleHints.viewer` | Can see everything. Can't change anything. | सब कुछ देख सकते हैं, कुछ बदल नहीं सकते। |
 | `team.sendInvite` | Send invite | इनवाइट भेजें |

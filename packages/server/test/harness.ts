@@ -33,8 +33,6 @@ export type { BundleStatus, CompanyRole, PlatformStaffRole };
 /** D1 rejects statements with more than 100 bound parameters. */
 export const D1_MAX_PARAMS = 100;
 
-const COMPANY_ROLES: readonly CompanyRole[] = ["owner", "admin", "manager", "operator", "viewer"];
-
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../db/src/migrations");
 
 /** `sessionId` is the Better Auth session row id for the "current session" (optional). */
@@ -52,6 +50,24 @@ export type TestEnv = {
     users: Record<CompanyRole, { id: string; email: string }>;
   }>;
   caller(as: CallerAs): ReturnType<typeof appRouter.createCaller>;
+  /**
+   * Caller for a specific user, with the tenant context resolved exactly as in
+   * production (resolveTenantContext): `company` is the `x-orrn-company`
+   * header, `impersonate` the impersonation header.
+   */
+  callerForUser(
+    userId: string,
+    opts?: { company?: string; impersonate?: string; sessionId?: string },
+  ): ReturnType<typeof appRouter.createCaller>;
+  /** Insert a bare user (no membership); returns its id. */
+  seedUser(name?: string): Promise<string>;
+  /** Add a membership for an existing user (a user may belong to several companies). */
+  addMembership(
+    userId: string,
+    companyId: string,
+    role: CompanyRole,
+    opts?: { createdAt?: Date },
+  ): Promise<string>;
   seedDie(companyId: string, over?: Partial<DieInsert>): Promise<string>;
   seedCustomer(companyId: string): Promise<string>;
   seedBundles(
@@ -159,6 +175,8 @@ export async function createTestEnv(): Promise<TestEnv> {
     "@orrn/db/schema"
   );
   const { and, eq } = await import("drizzle-orm");
+  const { companyRoles } = await import("@orrn/db/schema/tenant");
+  const { resolveTenantContext } = await import("../src/lib/tenantContext");
 
   const db = createDb();
   const platformUsers = new Map<PlatformStaffRole, { id: string; name: string; email: string }>();
@@ -176,7 +194,7 @@ export async function createTestEnv(): Promise<TestEnv> {
     });
 
     const users = {} as Record<CompanyRole, { id: string; email: string }>;
-    for (const role of COMPANY_ROLES) {
+    for (const role of companyRoles) {
       const id = createId();
       const email = `${role}.${tag}@test.orrn`;
       await db.insert(user).values({ id, name: `${role} ${tag}`, email });
@@ -207,6 +225,7 @@ export async function createTestEnv(): Promise<TestEnv> {
         request: new Request("https://api.test"),
         impersonation: null,
         impersonationHeaderRejected: false,
+        companyHeaderRejected: false,
       };
 
       if (as === null) {
@@ -271,6 +290,40 @@ export async function createTestEnv(): Promise<TestEnv> {
     });
   }
 
+  async function seedUser(name = "user") {
+    const id = createId();
+    await db.insert(user).values({ id, name: `${name} ${uniq("")}`, email: `${uniq("u")}@test.orrn` });
+    return id;
+  }
+
+  async function addMembership(userId: string, companyId: string, role: CompanyRole, opts: { createdAt?: Date } = {}) {
+    const id = createId();
+    await db.insert(membership).values({ id, userId, companyId, role, ...(opts.createdAt ? { createdAt: opts.createdAt } : {}) });
+    return id;
+  }
+
+  function callerForUser(userId: string, opts: { company?: string; impersonate?: string; sessionId?: string } = {}) {
+    return appRouter.createCaller(async (): Promise<Context> => {
+      const [u] = await db.select().from(user).where(eq(user.id, userId)).limit(1);
+      if (!u) throw new Error(`No user ${userId}`);
+      const tenant = await resolveTenantContext(db, {
+        userId,
+        companyHeader: opts.company ?? null,
+        impersonateHeader: opts.impersonate ?? null,
+      });
+      return {
+        auth: null,
+        db,
+        request: new Request("https://api.test"),
+        session: {
+          user: { id: u.id, name: u.name, email: u.email },
+          session: { id: opts.sessionId ?? "test-session" },
+        } as unknown as Context["session"],
+        ...tenant,
+      };
+    });
+  }
+
   async function seedDie(companyId: string, over: Partial<DieInsert> = {}) {
     const id = over.id ?? createId();
     await db.insert(die).values({
@@ -326,6 +379,9 @@ export async function createTestEnv(): Promise<TestEnv> {
     },
     seedCompany,
     caller,
+    callerForUser,
+    seedUser,
+    addMembership,
     seedDie,
     seedCustomer,
     seedBundles,

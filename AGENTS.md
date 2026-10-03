@@ -51,13 +51,41 @@ bun run deploy
   all non-`auth.me` queries when the active `companyId` changes. The
   `TenantCacheGuard` on web (mounted once in `__root.tsx`) and its native
   equivalent handle this — do not delete them.
+- A person can belong to several plants (companies). The active plant comes
+  from the `x-orrn-company` request header, resolved in
+  `packages/server/src/lib/tenantContext.ts`:
+  - The header is honoured only when the user has a membership in that company
+    and the company is active. Any other value makes every authenticated call
+    fail with `403 FORBIDDEN` "You don't have access to that plant" — never a
+    silent fallback to another plant.
+  - Clients that get that error must clear their stored `x-orrn-company`
+    value, refetch `auth.me` and let the user pick a plant again.
+  - Without the header, the active plant is the one last chosen with
+    `company.switch({ companyId })`, else the newest membership.
+  - `auth.me` returns `company` (the active plant) and `memberships:
+    { companyId, name, role }[]`; build the plant switcher from that.
+  - A valid impersonation grant wins over `x-orrn-company`.
+  - The header carries a choice, never authority: the server still derives
+    `companyId` from the session + membership, and inputs still never carry
+    `companyId`.
 
 ## Roles & client-side capability gating
 
 - The canonical role-capability matrix lives in
   `packages/server/src/lib/permissions.ts` (`ACTIONS`, `ROLE_ACTIONS`, `can`,
-  `canAny`). It is the single source of truth for both server `roleGuard`
-  middleware and client `<Can>` / `useMe` hooks.
+  `canAny`, `APPROVER_ROLES`, `canApprove`). It is the single source of truth
+  for server `actionProcedure(action)` guards and client `<Can>` / `useMe`
+  hooks.
+- Guard every new mutation with `actionProcedure(<plant action>)` using the
+  plant keys (`bundle.pack`, `bundle.void`, `stock.move`, `stock.count`,
+  `dispatch.scan`, `dispatch.complete`, `cast.enter`, `cast.close`, `press.run`,
+  `die.reading`, `die.card`, `die.rerank`, `purchase.receipt`,
+  `purchase.dcnote`, `store.txn`, `order.manage`, `invoice.link`,
+  `masters.draft`, `masters.publish`, `users.manage`, `export.accounts`,
+  `reports.read`, `qc.enter`, `ageing.enter`), not the legacy keys. Every
+  holder of a legacy key also holds its plant equivalent, so moving a guard to
+  a plant key removes access from nobody (tests in
+  `packages/server/test/plant-roles.test.ts` pin this).
 - Add new actions to that file (do not invent ad-hoc client-side booleans),
   then reuse them via `<Can do="…">` on web (`apps/web/src/shared/components/can.tsx`)
   and native (`apps/native/components/can.tsx`).
@@ -92,9 +120,21 @@ bun run deploy
 
 ## User and role model
 
-- Regular users belong to exactly one company.
+- Regular users can belong to several companies (plants), one membership per
+  (user, company), each with its own role. See Tenant isolation for how the
+  active plant is chosen.
 - Platform admins are stored separately and are not normal tenant members.
-- Company roles for v1: `owner`, `admin`, `manager`, `operator`, `viewer`.
+- Company roles (13): `owner`, `admin` (plant admin), `manager`, `office`,
+  `accountant`, `supervisor`, `packer`, `foundry`, `press`, `storekeeper`,
+  `die_room`, `operator` (floor operator), `viewer`. The matrix follows the
+  plant architecture digest §4.2; owner holds every tenant action.
+- Approvals: submits that need a second person open an `approval` row
+  (`lib/approval.ts`, in the same `atomicBatch` as the document) and are decided
+  with `approval.decide`. Kinds and approver roles: `dc_note`, `die_rerank`,
+  `dispatch_overdraw`, `phantom_void` → owner, admin, manager; `cast_close` →
+  owner, admin, manager, foundry. The requester can never decide their own
+  request (owner included); a decided request cannot be decided again. One
+  pending request per (company, kind, subject).
 - Platform impersonation is web-only/support-only, time-boxed, bannered, and audited.
 
 ## Native sync rules
@@ -111,6 +151,28 @@ bun run deploy
 - Do **not** use `db.transaction()` on Cloudflare D1 — Drizzle emits SQL `BEGIN`, which D1 rejects.
 - Perform reads with `db` first, then `atomicBatch()` from `@orrn/db/atomic` (re-exported as `@orrn/server/lib/atomic`) for writes that must succeed or fail together.
 - `nextCompanySeq()` runs outside the batch (a failed batch may leave a gap in sequence numbers; that is acceptable).
+
+## Document numbers (doc series)
+
+- Plant document numbers (bundle, cast, PL, lot, MRS/GRN, SO, press run, D/C note, count) come
+  only from `nextDocNumber` / `allocateDocNumbers` (`packages/server/src/lib/docNumber.ts`), backed by
+  the `doc_series` counter per (company, doc_type, period). Never build a number client-side or
+  with `nextCompanySeq` (that is the `serverSeq` sync cursor and the legacy `BG-` group code).
+- Periods are computed on the company wall clock (`settings.timezone`, default `Asia/Kolkata`):
+  `YYYY-MM` for bundle and cast (sequence resets each month), the Apr-Mar financial year
+  (`2026-27`) for everything else. **Do not change `timezone` mid-period**: the period key would
+  shift and a month/FY could be split or restarted.
+- `settings.bundleNumbering` is `"plant"` (`26I4086`) or `"legacy"` (`BG-000001-B001`, default).
+  A plant admin can switch only in a month with no bundles; platform staff (impersonating) any
+  time. `settings.plSeries = { prefix, start }` sets the PL book prefix and the first number of
+  each new FY (it does not renumber a series already started). Both are set via
+  `company.updateSettings` (audited).
+- `resolve.byCode` (signed in) resolves plant numbers, old month-only numbers (ambiguous across
+  years), legacy cuids (`legacy_bundle_map`) and BG serials. The signed-out QR page
+  (`resolve.publicBundle`) returns only `{ number, section }`; kg, pcs and status need a membership
+  in that company. Numbers are sequential and there is no rate limit, so never add more public fields.
+- Tests that depend on "now" must pin it with `setClockForTests` (`lib/clock.ts`); `createReceipt`
+  reads that clock.
 
 ## Worker performance rules
 

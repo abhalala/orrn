@@ -43,7 +43,10 @@ test("platform caller is platform staff without a company", async () => {
 
 test("seedCompany creates one member per role and respects settings", async () => {
   const { companyId, users } = await env.seedCompany({ settings: { lengthUnit: "inch" } });
-  expect(Object.keys(users).sort()).toEqual(["admin", "manager", "operator", "owner", "viewer"]);
+  expect(Object.keys(users).sort()).toEqual([
+    "accountant", "admin", "die_room", "foundry", "manager", "office", "operator", "owner", "packer",
+    "press", "storekeeper", "supervisor", "viewer",
+  ]);
   for (const role of ["owner", "admin", "manager", "operator", "viewer"] as const) {
     const me = await env.caller({ role, companyId }).auth.me();
     expect(me.company?.role).toBe(role);

@@ -1,4 +1,4 @@
-import type { CompanyRole, GuideBook } from "./types";
+import { COMPANY_ROLES, type CompanyRole, type GuideBook } from "./types";
 
 /**
  * SOP guides, Hindi. Same steps as guides/en.ts, one for one. Button and tab
@@ -6,9 +6,9 @@ import type { CompanyRole, GuideBook } from "./types";
  * Kept in Latin script: bundle, die, dispatch, PO, kg, serials, codes, numbers.
  */
 
-const FLOOR: CompanyRole[] = ["owner", "admin", "manager", "operator"];
-const OFFICE: CompanyRole[] = ["owner", "admin", "manager"];
-const EVERYONE: CompanyRole[] = ["owner", "admin", "manager", "operator", "viewer"];
+const FLOOR: CompanyRole[] = ["owner", "admin", "manager", "supervisor", "packer", "operator"];
+const OFFICE: CompanyRole[] = ["owner", "admin", "manager", "office"];
+const EVERYONE: CompanyRole[] = [...COMPANY_ROLES];
 
 export const guidesHi: GuideBook = {
   "pack-session": {

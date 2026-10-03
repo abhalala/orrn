@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { normalizeSerial } from "@orrn/domain";
 import { die } from "@orrn/db/schema/catalog";
+import { company } from "@orrn/db/schema/tenant";
 import { dispatch } from "@orrn/db/schema/dispatch";
 import {
   bundle,
@@ -18,6 +19,8 @@ import { auditInsert } from "../lib/audit";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
+import { now as clockNow } from "../lib/clock";
+import { allocateDocNumbers } from "../lib/docNumber";
 import { nextCompanySeq } from "../lib/sequence";
 
 const bundleRowSchema = z.object({
@@ -145,11 +148,23 @@ export const bundleRouter = router({
       }
 
       const groupId = crypto.randomUUID();
-      const now = new Date();
+      const now = clockNow();
       const userId = ctx.session.user.id;
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const code = formatGroupCode(seq);
+
+      // Plant tenants number every bundle from the monthly doc series (26I4086); everyone else
+      // keeps BG-000001-B001. The block is reserved in one atomic statement before the batch.
+      const [co] = await ctx.db
+        .select({ settings: company.settings })
+        .from(company)
+        .where(eq(company.id, ctx.companyId))
+        .limit(1);
+      const plantNumbers =
+        co?.settings?.bundleNumbering === "plant"
+          ? (await allocateDocNumbers(ctx.db, ctx.companyId, "bundle", now, input.rows.length, userId)).numbers
+          : null;
 
       const bundleRows = input.rows.map((row, idx) => ({
         id: crypto.randomUUID(),
@@ -157,7 +172,7 @@ export const bundleRouter = router({
         serverSeq: seq,
         groupId,
         dieId: input.dieId,
-        serial: formatBundleSerial(code, idx + 1),
+        serial: plantNumbers ? plantNumbers[idx]! : formatBundleSerial(code, idx + 1),
         poNumber: row.poNumber ?? input.purchaseOrderRef ?? null,
         quantity: row.quantity,
         weightG: row.weightG,

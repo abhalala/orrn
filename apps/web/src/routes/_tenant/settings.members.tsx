@@ -16,7 +16,21 @@ import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
-const companyRoles = ["owner", "admin", "manager", "operator", "viewer"] as const;
+const companyRoles = [
+  "owner",
+  "admin",
+  "manager",
+  "office",
+  "accountant",
+  "supervisor",
+  "packer",
+  "foundry",
+  "press",
+  "storekeeper",
+  "die_room",
+  "operator",
+  "viewer",
+] as const;
 type CompanyRole = (typeof companyRoles)[number];
 
 type MemberRow = {

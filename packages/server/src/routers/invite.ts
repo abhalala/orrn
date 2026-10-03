@@ -8,7 +8,7 @@ import { atomicBatch } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { sendEmail, renderOrrnEmailHtml } from "../lib/email";
 import { webBaseUrl } from "../lib/webUrl";
-import { actionProcedure, companyProcedure, roleGuard, publicProcedure, router } from "../index";
+import { actionProcedure, companyProcedure, publicProcedure, router } from "../index";
 
 export const inviteRouter = router({
   list: companyProcedure.query(async ({ ctx }) => {
@@ -89,7 +89,7 @@ export const inviteRouter = router({
       return { success: true };
     }),
 
-  revoke: roleGuard("owner", "admin")
+  revoke: actionProcedure("member.invite")
     .input(z.object({ inviteId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const targetInvite = await ctx.db.query.invite.findFirst({

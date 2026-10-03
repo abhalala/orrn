@@ -6,7 +6,26 @@ import { user } from "./auth";
 const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
 export const companyStatus = ["pending", "active", "suspended"] as const;
-export const companyRoles = ["owner", "admin", "manager", "operator", "viewer"] as const;
+/**
+ * Tenant roles (spec P9: the document's 12 plus `viewer`). Stored as text, so
+ * adding a value needs no data migration. `admin` = plant admin, `operator` =
+ * floor operator. The permission matrix lives in packages/server/src/lib/permissions.ts.
+ */
+export const companyRoles = [
+  "owner",
+  "admin",
+  "manager",
+  "office",
+  "accountant",
+  "supervisor",
+  "packer",
+  "foundry",
+  "press",
+  "storekeeper",
+  "die_room",
+  "operator",
+  "viewer",
+] as const;
 /** ORRN internal staff roles (orrn.app console). */
 export const platformStaffRoles = ["super_admin", "admin", "support"] as const;
 export type PlatformStaffRole = (typeof platformStaffRoles)[number];
@@ -46,9 +65,13 @@ export const membership = sqliteTable(
       .references(() => company.id, { onDelete: "cascade" }),
     role: text("role", { enum: companyRoles }).notNull().default("viewer"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    /** Set by `company.switch`; the active company without a header is the latest of these. */
+    lastActiveAt: integer("last_active_at", { mode: "timestamp_ms" }),
   },
   (table) => [
-    uniqueIndex("membership_user_unique").on(table.userId),
+    // Many plants per person (spec P10, ruling RP1): one membership per (user, company).
+    // Its leading user_id column also serves the per-user membership lookup.
+    uniqueIndex("membership_user_company_unique").on(table.userId, table.companyId),
     index("membership_company_idx").on(table.companyId),
   ],
 );

@@ -23,6 +23,12 @@ export const authedProcedure = t.procedure.use(({ ctx, next }) => {
       message: "Invalid, expired, or revoked impersonation grant",
     });
   }
+  if (ctx.companyHeaderRejected) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You don't have access to that plant",
+    });
+  }
   return next({
     ctx: {
       ...ctx,

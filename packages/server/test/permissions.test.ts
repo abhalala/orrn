@@ -27,7 +27,12 @@ afterAll(async () => {
   await env.dispose();
 });
 
-const ROLES: CompanyRole[] = ["owner", "admin", "manager", "operator", "viewer"];
+// The five original roles plus the plant roles (spec P9). Allowed/denied comes from can();
+// plant-roles.test.ts pins the matrix itself.
+const ROLES: CompanyRole[] = [
+  "owner", "admin", "manager", "office", "accountant", "supervisor", "packer",
+  "foundry", "press", "storekeeper", "die_room", "operator", "viewer",
+];
 
 type Api = ReturnType<TestEnv["caller"]>;
 

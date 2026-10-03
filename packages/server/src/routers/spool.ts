@@ -13,7 +13,7 @@ import { env } from "@orrn/env/server";
 import { buildBundleLabelVariables } from "../lib/bundle-label";
 import { SpoolClient } from "../lib/spool-client";
 import { can } from "../lib/permissions";
-import { companyProcedure, roleGuard, router } from "../index";
+import { actionProcedure, companyProcedure, router } from "../index";
 
 /** Get the active spool deployment for the current company, or throw. */
 async function getActiveDeployment(ctx: { db: OrrnDb; companyId: string }) {
@@ -59,7 +59,7 @@ export const spoolRouter = router({
       return client.listPrinters();
     }),
 
-  addPrinter: roleGuard("owner", "admin", "manager")
+  addPrinter: actionProcedure("spool.manage_printers")
     .input(
       z.object({
         name: z.string().min(1).max(255),
@@ -93,7 +93,7 @@ export const spoolRouter = router({
       return client.getPrinterStatus(input.printerId);
     }),
 
-  testPrinter: roleGuard("owner", "admin", "manager")
+  testPrinter: actionProcedure("spool.manage_printers")
     .input(z.object({ printerId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const deployment = await getActiveDeployment(ctx);
@@ -149,7 +149,7 @@ export const spoolRouter = router({
     return rows;
   }),
 
-  pushTemplate: roleGuard("owner", "admin", "manager")
+  pushTemplate: actionProcedure("spool.push_templates")
     .input(z.object({ templateId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const template = await ctx.db
@@ -202,7 +202,7 @@ export const spoolRouter = router({
 
   // ─── Print Jobs ──────────────────────────────────────────────────────────────
 
-  createJob: roleGuard("owner", "admin", "manager", "operator")
+  createJob: actionProcedure("spool.create_jobs")
     .input(
       z.object({
         profileId: z.string(),
@@ -288,7 +288,7 @@ export const spoolRouter = router({
       }
     }),
 
-  printBundleLabel: roleGuard("owner", "admin", "manager", "operator")
+  printBundleLabel: actionProcedure("spool.create_jobs")
     .input(
       z.object({
         bundleId: z.string(),
@@ -441,7 +441,7 @@ export const spoolRouter = router({
       return row;
     }),
 
-  cancelJob: roleGuard("owner", "admin", "manager")
+  cancelJob: actionProcedure("spool.manage_jobs")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const row = await ctx.db
@@ -472,7 +472,7 @@ export const spoolRouter = router({
       return { success: true };
     }),
 
-  retryJob: roleGuard("owner", "admin", "manager")
+  retryJob: actionProcedure("spool.manage_jobs")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const row = await ctx.db

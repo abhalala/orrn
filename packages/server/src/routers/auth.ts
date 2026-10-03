@@ -11,6 +11,7 @@ import type { LengthUnit } from "../lib/length";
 import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { can } from "../lib/permissions";
+import { listActiveMemberships } from "../lib/tenantContext";
 import { authedProcedure, router } from "../index";
 
 /**
@@ -53,6 +54,12 @@ export const authRouter = router({
           )[0] ?? null
         : null;
 
+    const memberships = (await listActiveMemberships(ctx.db, userId)).map((m) => ({
+      companyId: m.companyId,
+      name: m.name,
+      role: m.role,
+    }));
+
     return {
       user: {
         id: userId,
@@ -76,6 +83,8 @@ export const authRouter = router({
               settings: (companyRow.settings ?? {}) as { lengthUnit?: LengthUnit; [key: string]: unknown },
             }
           : null,
+      /** Every active company this user belongs to, most recent first (spec P10). */
+      memberships,
       isPlatformAdmin: ctx.isPlatformAdmin,
       platformRole: ctx.platformRole,
       impersonation: ctx.impersonation
