@@ -2,20 +2,23 @@
  * Local dev + e2e ports, one source of truth for every entrypoint:
  *
  * - apps/server/scripts/dev-local.ts  (wrangler dev on the API port)
- * - apps/web/vite.config.ts           (Vite dev server on the web port)
+ * - apps/web/vite.config.ts           (bare Vite dev server: web port, VITE_SERVER_URL/VITE_PUBLIC_URL;
+ *                                      imported lazily there so `vite build` never loads this file)
  * - apps/web/playwright.config.ts     (webServer commands, reuse checks, base URLs)
  * - apps/web/tests/e2e/helpers/ports.ts (test-side URLs)
  *
- * Each git worktree gets its own pair, written by .superpowers/sdd/coord/wt-setup.sh to
- * `.wt-ports.env` (source it before dev/e2e). The variables keep their historical E2E_ prefix, but
- * they drive the plain dev servers too, so a worktree has exactly one place that says "my ports".
+ * Each git worktree gets its own pair in `.wt-ports.env` at its root (source it before dev/e2e; the
+ * recipe is in docs/LOCAL_DEV.md "Worktrees"). The variables keep their historical E2E_ prefix, but
+ * they drive the plain dev servers too, so the environment is the one place that says "my ports":
+ * values derived from them (wrangler --var, VITE_SERVER_URL/VITE_PUBLIC_URL) beat the env files.
  *
  *   E2E_API_PORT  / E2E_API_URL   API worker      default 3000
  *   E2E_WEB_PORT  / E2E_BASE_URL  Vite web app    default 3002
  *   VISUAL_WEB_PORT / PLAYWRIGHT_BASE_URL  public-page visual suite, default 3001
  *
  * Defaults are the original single-checkout ports. 3001 is a foreign app on this Mac, so a
- * worktree never gets it: with a web port set, the visual port is web + 100.
+ * worktree never gets it: whenever a web port is set (E2E_WEB_PORT or E2E_BASE_URL) and the visual
+ * port is not, the visual port is web + 100.
  *
  * Pure and dependency-free apart from node:fs/path (tooling only, never imported by the Worker).
  */
@@ -27,7 +30,7 @@ export const DEFAULT_WEB_PORT = 3002;
 export const DEFAULT_VISUAL_PORT = 3001;
 /** Visual port = web port + this when a per-worktree web port is set. */
 export const VISUAL_PORT_OFFSET = 100;
-/** Written at the root of every wt-setup.sh worktree. */
+/** Sits at the root of every worktree that has its own ports (docs/LOCAL_DEV.md "Worktrees"). */
 export const WORKTREE_PORTS_FILE = ".wt-ports.env";
 
 export type DevPortsEnv = Readonly<Record<string, string | undefined>>;
@@ -124,6 +127,35 @@ export function resolveDevPorts(env: DevPortsEnv): DevPorts {
   };
 }
 
+/** True when the environment names this service's port (port or URL variable, not blank). */
+function hasExplicitPort(env: DevPortsEnv, portVar: string, urlVar: string): boolean {
+  return blankToUndefined(env[portVar]) !== undefined || blankToUndefined(env[urlVar]) !== undefined;
+}
+
+export interface ViteEnvDefaults {
+  VITE_SERVER_URL?: string;
+  VITE_PUBLIC_URL?: string;
+}
+
+/**
+ * VITE_SERVER_URL / VITE_PUBLIC_URL for a bare `vite dev` (apps/web/vite.config.ts) whose ports came
+ * from the environment, so the app calls the API on the ports the shell says even when
+ * apps/web/.env.development.local names other ones (Vite lets process.env beat env files).
+ * A value already in the environment wins (Playwright and Alchemy pass their own); a service with no
+ * port variable gets nothing, so a plain checkout keeps reading its env file.
+ */
+export function viteEnvDefaults(env: DevPortsEnv): ViteEnvDefaults {
+  const ports = resolveDevPorts(env);
+  const out: ViteEnvDefaults = {};
+  if (hasExplicitPort(env, "E2E_API_PORT", "E2E_API_URL") && blankToUndefined(env.VITE_SERVER_URL) === undefined) {
+    out.VITE_SERVER_URL = new URL(ports.apiURL).origin;
+  }
+  if (hasExplicitPort(env, "E2E_WEB_PORT", "E2E_BASE_URL") && blankToUndefined(env.VITE_PUBLIC_URL) === undefined) {
+    out.VITE_PUBLIC_URL = new URL(ports.webURL).origin;
+  }
+  return out;
+}
+
 /**
  * `wrangler dev` arguments for apps/server/wrangler.local.jsonc on this worktree's ports.
  * `--port` beats `dev.port` in the config, and `--var` beats `vars`, so the committed config keeps
@@ -172,7 +204,7 @@ function findWorktreeRoot(startDir: string): string | undefined {
 }
 
 /**
- * Refuse to start a dev/e2e entrypoint from a wt-setup.sh worktree (a `.wt-ports.env` exists above
+ * Refuse to start a dev/e2e entrypoint from a ports worktree (a `.wt-ports.env` exists above
  * `startDir`) when that worktree's ports are not in the environment. Without this the entrypoints
  * fall back to the shared defaults (API 3000, web 3002, visual 3001), reuse whichever server is
  * already there (possibly another worktree's, or a foreign app) and test the wrong code.

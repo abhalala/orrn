@@ -62,7 +62,7 @@ const portEnv = {
 /**
  * Playwright's default is one worker per two cores, per run. Several worktrees running at once
  * multiply that and push first-load pages past the 5 s expect timeout (blank page, no h1), so
- * wt-setup.sh writes E2E_WORKERS=3 into .wt-ports.env. `--workers` on the command line still wins.
+ * .wt-ports.env sets E2E_WORKERS=3 (docs/LOCAL_DEV.md). `--workers` on the command line still wins.
  */
 const workersFromEnv = Number(process.env.E2E_WORKERS);
 const e2eWorkers = Number.isInteger(workersFromEnv) && workersFromEnv > 0 ? workersFromEnv : undefined;

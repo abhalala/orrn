@@ -32,11 +32,24 @@ Up to ten worktrees can run dev servers and Playwright at once. Each gets its ow
 | --- | --- | --- |
 | `E2E_API_PORT` (or `E2E_API_URL`) | `dev:local` API worker, e2e API URL | `3000` |
 | `E2E_WEB_PORT` (or `E2E_BASE_URL`) | Vite dev server, e2e base URL | `3002` |
-| `VISUAL_WEB_PORT` (or `PLAYWRIGHT_BASE_URL`) | Vite server of the public-page visual suite | web port + 100 in a worktree, else `3001` |
+| `VISUAL_WEB_PORT` (or `PLAYWRIGHT_BASE_URL`) | Vite server of the public-page visual suite | web port + 100 whenever `E2E_WEB_PORT` or `E2E_BASE_URL` is set, else `3001` |
 | `E2E_WORKERS` | Playwright workers per run (`--workers` still wins) | Playwright's default; `.wt-ports.env` sets `3` |
 
-The `E2E_` prefix is historical: the same variables drive the plain dev servers, so a worktree has one place
-that says "my ports". `.superpowers/sdd/coord/wt-setup.sh` writes them to `.wt-ports.env` at the worktree root:
+The `E2E_` prefix is historical: the same variables drive the plain dev servers. A worktree keeps them in
+`.wt-ports.env` at its root (gitignored; the build orchestration writes it, by hand it is six lines, one free
+pair per worktree):
+
+```bash
+# <worktree>/.wt-ports.env
+export E2E_API_PORT=3200
+export E2E_WEB_PORT=3201
+export E2E_API_URL=http://localhost:3200
+export E2E_BASE_URL=http://localhost:3201
+export VISUAL_WEB_PORT=3301
+export E2E_WORKERS=3
+```
+
+Then:
 
 ```bash
 cd ../wt/<TASK> && source .wt-ports.env      # once per shell
@@ -52,16 +65,28 @@ about half the cores, and first-load pages then miss the 5 s expect timeout (bla
 `dev:local` also starts wrangler with `--inspector-port 0`, because every worker otherwise tries to bind
 9229 and the second one to start dies with "Address already in use".
 
-`dev:local` passes `--port` and `--var` overrides to wrangler so auth base URL, CORS origin and the public web
-URL match the ports; `wrangler.local.jsonc` keeps the defaults. In development the API accepts CORS and Better
-Auth origins from `http://localhost:<any port>` and `http://127.0.0.1:<any port>` (production never does).
+The environment is the one place that says "my ports"; everything derived from it beats the files:
+
+- `dev:local` passes `--port` and `--var` overrides to wrangler so auth base URL, CORS origin and the public web
+  URL match the ports; `wrangler.local.jsonc` keeps the defaults.
+- A bare `vite dev` (`dev:bare`, Alchemy dev) sets `VITE_SERVER_URL` / `VITE_PUBLIC_URL` from the ports when
+  they are in the environment, beating `apps/web/.env.development.local` (which may name other ports, for
+  example after you override the four `E2E_` variables). A `VITE_` value already in the environment wins.
+  `vite dev --port <n>` by hand skips this: set the two `VITE_` values yourself (Playwright does).
+
+In development the API accepts CORS and Better Auth origins from `http://localhost:<any port>` and
+`http://127.0.0.1:<any port>` (production never does; `packages/server/test/authTrustedOrigins.test.ts`).
+
+Node: a bare `vite dev` loads the port resolver (`@orrn/server/lib/devPorts`, TypeScript) through Node, so it
+needs Node 22.18 or newer and says so otherwise. `vite build` (check-types, deploys) and the servers Playwright
+starts (they pass `--port`) never load it and run on any Node that Vite supports.
 
 Guard rail: in a worktree (a `.wt-ports.env` exists above the current directory) Vite, `dev:local` and
 Playwright refuse to start without the ports in the environment, instead of silently using 3000/3002 and
-attaching to another worktree's servers. A plain checkout is never blocked. `bun run dev` / Alchemy dev still
-uses fixed ports 3000/3001 and is not for worktrees. Browser cookies are per host, not per port, so signing in
-to two worktrees in the same browser profile makes them overwrite each other's session; use separate profiles
-(Playwright contexts are isolated already).
+attaching to another worktree's servers. A plain checkout is never blocked. `bun run dev` (Alchemy dev) runs
+the API on 3000 and a bare `vite dev` on 3002 (`dev.domain` in `alchemy.run.ts`) and is not for worktrees.
+Browser cookies are per host, not per port, so signing in to two worktrees in the same browser profile makes
+them overwrite each other's session; use separate profiles (Playwright contexts are isolated already).
 
 ## Seed realistic data
 
@@ -121,7 +146,7 @@ It contains `ORRN_LOCAL_EMAIL_OWNER`, `ORRN_LOCAL_EMAIL_OPERATOR`, `ORRN_LOCAL_E
 rm -rf apps/server/.wrangler/state
 bun run --cwd apps/server dev:local:migrate
 bun run --cwd apps/server dev:local
-curl -XPOST localhost:3000/dev/seed
+curl -XPOST localhost:${E2E_API_PORT:-3000}/dev/seed
 ```
 
 Inspect the local database:

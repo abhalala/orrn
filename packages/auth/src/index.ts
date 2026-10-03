@@ -2,7 +2,7 @@ import { expo } from "@better-auth/expo";
 import { createDb } from "@orrn/db";
 import * as schema from "@orrn/db/schema/auth";
 import { env } from "@orrn/env/server";
-import { DEV_LOCAL_TRUSTED_ORIGINS, trustedWebOrigins } from "./origins";
+import { trustedOriginsFor } from "./origins";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins/two-factor";
@@ -114,23 +114,8 @@ function buildAuth() {
 
       schema: schema,
     }),
-    trustedOrigins: [
-      ...trustedWebOrigins({
-        corsOrigin: env.CORS_ORIGIN,
-        corsAllowedOrigins: env.CORS_ALLOWED_ORIGINS,
-      }),
-      "orrn://",
-      ...(env.NODE_ENV === "development"
-        ? [
-            "exp://",
-            "exp://**",
-            "exp://192.168.*.*:*/**",
-            "http://localhost:8081",
-            // Every worktree runs its own web port; mirrors isDevLocalOrigin in @orrn/server (CORS).
-            ...DEV_LOCAL_TRUSTED_ORIGINS,
-          ]
-        : []),
-    ],
+    // Tested in packages/server/test/authTrustedOrigins.test.ts (production never trusts localhost).
+    trustedOrigins: trustedOriginsFor(env),
     emailAndPassword: {
       enabled: true,
       password: {

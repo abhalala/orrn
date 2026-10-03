@@ -7,6 +7,7 @@ import {
   assertWorktreePorts,
   devLocalWranglerArgs,
   resolveDevPorts,
+  viteEnvDefaults,
 } from "../src/lib/devPorts";
 
 describe("resolveDevPorts defaults (today's stack)", () => {
@@ -194,5 +195,46 @@ describe("assertWorktreePorts (never fall back to the shared defaults from a wor
     expect(() =>
       assertWorktreePorts({ PLAYWRIGHT_BASE_URL: "http://127.0.0.1:3301" }, nested(), ["visual"]),
     ).not.toThrow();
+  });
+});
+
+describe("viteEnvDefaults (bare vite dev talks to the ports the shell says)", () => {
+  test("explicit ports give the app this worktree's API and public URL", () => {
+    expect(viteEnvDefaults({ E2E_API_PORT: "3290", E2E_WEB_PORT: "3291" })).toEqual({
+      VITE_SERVER_URL: "http://localhost:3290",
+      VITE_PUBLIC_URL: "http://localhost:3291",
+    });
+  });
+
+  test("URL variables are used as origins (no path or trailing slash reaches the app)", () => {
+    expect(viteEnvDefaults({ E2E_API_URL: "http://127.0.0.1:3290/", E2E_BASE_URL: "http://127.0.0.1:3291/x" })).toEqual({
+      VITE_SERVER_URL: "http://127.0.0.1:3290",
+      VITE_PUBLIC_URL: "http://127.0.0.1:3291",
+    });
+  });
+
+  test("a plain checkout (no port variables) keeps reading apps/web/.env.development.local", () => {
+    expect(viteEnvDefaults({})).toEqual({});
+    expect(viteEnvDefaults({ E2E_API_PORT: " ", E2E_BASE_URL: "" })).toEqual({});
+  });
+
+  test("only the service whose port is set gets a value", () => {
+    expect(viteEnvDefaults({ E2E_WEB_PORT: "3291" })).toEqual({ VITE_PUBLIC_URL: "http://localhost:3291" });
+    expect(viteEnvDefaults({ E2E_API_PORT: "3290" })).toEqual({ VITE_SERVER_URL: "http://localhost:3290" });
+  });
+
+  test("VITE_ values already in the environment win (Playwright and Alchemy pass their own)", () => {
+    expect(
+      viteEnvDefaults({
+        E2E_API_PORT: "3290",
+        E2E_WEB_PORT: "3291",
+        VITE_SERVER_URL: "https://api.dev.example",
+        VITE_PUBLIC_URL: "https://web.dev.example",
+      }),
+    ).toEqual({});
+  });
+
+  test("a port that disagrees with its URL still throws", () => {
+    expect(() => viteEnvDefaults({ E2E_API_PORT: "3290", E2E_API_URL: "http://localhost:3299" })).toThrow(/disagrees/);
   });
 });
