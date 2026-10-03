@@ -85,6 +85,6 @@ const SEGMENT_LABELS: Record<string, string> = {
 function prettifySegment(seg: string): string {
   if (seg === "$id" || seg.startsWith("$")) return "Detail";
   if (seg === "new") return "New";
-  if (SEGMENT_LABELS[seg]) return SEGMENT_LABELS[seg];
+  if (Object.hasOwn(SEGMENT_LABELS, seg)) return SEGMENT_LABELS[seg];
   return seg.charAt(0).toUpperCase() + seg.slice(1);
 }

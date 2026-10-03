@@ -366,7 +366,7 @@ function SpoolComponent() {
       { id: "kind", header: "Kind", cell: (r) => r.kind },
       {
         id: "spoolTemplateId",
-        header: "Spool Template ID",
+        header: "Label template ID",
         cell: (r) => (
           <span className="font-mono text-xs text-muted-foreground">
             {r.spoolTemplateId || "None"}

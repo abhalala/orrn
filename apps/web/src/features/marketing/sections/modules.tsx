@@ -49,7 +49,7 @@ const MODULES = [
   },
   {
     key: "bundles",
-    title: "Receipts and bundles",
+    title: "Packing and bundles",
     icon: Package,
     tone: "blue" as Tone,
     description:
@@ -87,7 +87,7 @@ const MODULES = [
     description:
       "Signed spool jobs reach tenant-local thermal printers: no printer I/O in the cloud, every attempt logged.",
     mock: {
-      header: "Print queue",
+      header: "Printing",
       rows: [
         ["JOB-5512", "Printed", "Zebra ZT411"],
         ["JOB-5511", "Queued", "Zebra ZT411"],

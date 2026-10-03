@@ -34,7 +34,7 @@ function AdminWaitlistComponent() {
   const approveMutation = useMutation({
     ...trpc.platform.waitlistApprove.mutationOptions(),
     onSuccess: () => {
-      toast.success("Waitlist request approved");
+      toast.success("Access request approved");
       refetch();
     },
     onError: (error: any) => {
@@ -45,7 +45,7 @@ function AdminWaitlistComponent() {
   const rejectMutation = useMutation({
     ...trpc.platform.waitlistReject.mutationOptions(),
     onSuccess: () => {
-      toast.success("Waitlist request rejected");
+      toast.success("Access request rejected");
       refetch();
     },
     onError: (error: any) => {

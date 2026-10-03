@@ -88,6 +88,7 @@ export function WorkspaceShell({
       ) : (
         item.label
       ),
+      fullLabel: item.label,
       icon: item.icon,
       href: item.to,
       active: isItemActive(item.to),

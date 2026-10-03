@@ -15,14 +15,8 @@ export type TabsProps = {
   children?: ReactNode;
 };
 
-/**
- * C2 segmented control: a sunken pill track with the selected segment raised
- * on the surface. Keeps the simple `items`/`value`/`onValueChange` shape so
- * consumers don't have to change. Segments are toggle buttons
- * (`aria-pressed`), so keyboard users tab through them and press Enter/Space.
- */
 /** Which ends of a horizontally scrolling strip have hidden content. */
-function useOverflowEdges<T extends HTMLElement>() {
+function useOverflowEdges<T extends HTMLElement>(contentKey: string) {
   const ref = useRef<T>(null);
   const [edges, setEdges] = useState({ start: false, end: false });
   const update = useCallback(() => {
@@ -32,21 +26,32 @@ function useOverflowEdges<T extends HTMLElement>() {
     const next = { start: el.scrollLeft > 1, end: max - el.scrollLeft > 1 };
     setEdges((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
   }, []);
+  // Re-measure when the strip resizes or its segments change (count or
+  // labels, via `contentKey`). Without ResizeObserver (old browsers, tests)
+  // it measures once per content change and on scroll.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     update();
+    if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(update);
     ro.observe(el);
+    for (const child of Array.from(el.children)) ro.observe(child);
     return () => ro.disconnect();
-  }, [update]);
+  }, [update, contentKey]);
   return { ref, edges, onScroll: update };
 }
 
 const FADE = "24px";
 
+/**
+ * C2 segmented control: a sunken pill track with the selected segment raised
+ * on the surface. Keeps the simple `items`/`value`/`onValueChange` shape so
+ * consumers don't have to change. Segments are toggle buttons
+ * (`aria-pressed`), so keyboard users tab through them and press Enter/Space.
+ */
 export function Tabs({ items, value, onValueChange, className, children }: TabsProps) {
-  const { ref, edges, onScroll } = useOverflowEdges<HTMLDivElement>();
+  const { ref, edges, onScroll } = useOverflowEdges<HTMLDivElement>(items.map((it) => it.id).join("|"));
   // Fade the side(s) that have more segments, so a phone user can see the
   // strip scrolls. Mask only, no layout change.
   const mask =

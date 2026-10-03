@@ -615,7 +615,7 @@ function AdminSpoolComponent() {
                   size="sm"
                   variant="outline"
                   className="shrink-0"
-                  onPress={() => copyToClipboard(createResult.spoolDomain, "Spool domain")}
+                  onPress={() => copyToClipboard(createResult.spoolDomain, "Print station address")}
                 >
                   <Copy className="size-3" />
                 </Button>
@@ -793,7 +793,7 @@ function AdminSpoolComponent() {
       >
         <div className="flex flex-col gap-3">
           <p className="m-0 text-sm text-muted-foreground">
-            The script will create <code>/opt/orrn-spool-${dockerTarget?.subdomain ?? "tenant"}</code>, persist spool data there, write a config file and env file, then run Docker with restart policy enabled.
+            The script will create <code>/opt/orrn-spool-${dockerTarget?.subdomain ?? "station"}</code>, keep print station data there, write a config file and env file, then run Docker with restart policy enabled.
           </p>
           <ul className="m-0 list-disc pl-5 text-sm text-muted-foreground">
             <li>SQLite data: <code>/opt/.../data/spool.db</code></li>
