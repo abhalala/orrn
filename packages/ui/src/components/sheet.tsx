@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { escapeUnlessComboboxOpen } from "@orrn/ui/lib/escape";
 import { useReturnFocus } from "@orrn/ui/lib/return-focus";
 import { cn } from "@orrn/ui/lib/utils";
 
@@ -41,6 +42,7 @@ export function Sheet({ open, onOpenChange, title, children, footer, description
         <DialogPrimitive.Content
           data-slot="sheet"
           {...returnFocus}
+          onEscapeKeyDown={escapeUnlessComboboxOpen}
           // No description: tell Radix explicitly so it doesn't point at a missing node.
           {...(description ? {} : { "aria-describedby": undefined })}
           className={cn(
@@ -57,7 +59,7 @@ export function Sheet({ open, onOpenChange, title, children, footer, description
           </div>
           <div className="flex items-start gap-3 px-5 pt-2 pb-3 lg:px-6 lg:pt-5">
             <div className="flex min-w-0 flex-1 flex-col gap-1 pt-1.5">
-              <DialogPrimitive.Title className="m-0 font-display text-[22px] font-bold leading-tight tracking-[-0.025em] [overflow-wrap:anywhere]">
+              <DialogPrimitive.Title className="m-0 font-display text-[22px] font-bold leading-tight tracking-[-0.025em] break-words">
                 {title}
               </DialogPrimitive.Title>
               {description ? (

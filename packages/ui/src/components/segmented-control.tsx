@@ -125,7 +125,9 @@ export function SegmentedControl<T extends string>({
               active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <span className="truncate">{opt.label}</span>
+            <span className="truncate" title={opt.label}>
+              {opt.label}
+            </span>
           </button>
         );
       })}

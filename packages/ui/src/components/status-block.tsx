@@ -22,6 +22,8 @@ export type StatusBlockProps = {
   countUp?: boolean;
   /** Formats a numeric value. Default en-IN grouping. */
   format?: (n: number) => string;
+  /** Show a text value in Geist Mono (serials, codes). Default true for text values. */
+  mono?: boolean;
   className?: string;
   style?: CSSProperties;
 };
@@ -44,6 +46,7 @@ export function StatusBlock({
   onClick,
   countUp = true,
   format,
+  mono,
   className,
   style,
 }: StatusBlockProps) {
@@ -53,11 +56,11 @@ export function StatusBlock({
   const body: ReactNode = (
     <>
       <span className="relative flex items-start justify-between gap-3">
-        <span className="min-w-0">
-          <span className="block font-display text-[17px] font-bold leading-tight tracking-[-0.02em] [overflow-wrap:anywhere]">
+        <span className="min-w-0 flex-1">
+          <span className="block font-display text-[17px] font-bold leading-tight tracking-[-0.02em] break-words">
             {title}
           </span>
-          {meta ? <span className="mt-1 block text-[13px] font-medium leading-snug">{meta}</span> : null}
+          {meta ? <span className="mt-1 block text-[13px] font-medium leading-snug break-words">{meta}</span> : null}
         </span>
         {interactive ? <ChevronRight aria-hidden="true" className="-mr-1 size-5 shrink-0" strokeWidth={2} /> : null}
       </span>
@@ -65,11 +68,19 @@ export function StatusBlock({
         {typeof value === "number" ? (
           <BigNumber value={value} format={format} countUp={countUp} className="text-[44px] sm:text-[52px]" />
         ) : (
-          <span className="font-display text-[44px] font-extrabold leading-[0.95] tracking-[-0.04em] tabular-nums [overflow-wrap:anywhere] sm:text-[52px]">
+          <span
+            className={cn(
+              "min-w-0 leading-[0.95] tabular-nums",
+              mono ?? true
+                ? // A serial or code: one mono block that may break anywhere, never letter-per-line columns.
+                  "max-w-full font-mono text-[36px] font-semibold tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-[40px]"
+                : "font-display text-[44px] font-extrabold tracking-[-0.04em] break-words sm:text-[52px]",
+            )}
+          >
             {value}
           </span>
         )}
-        {unit ? <span className="text-[13px] font-semibold tabular-nums">{unit}</span> : null}
+        {unit ? <span className="min-w-0 text-[13px] font-semibold tabular-nums break-words">{unit}</span> : null}
       </span>
       {pct !== undefined ? (
         <span
@@ -93,7 +104,7 @@ export function StatusBlock({
     "orrn-block orrn-block-sheen flex min-h-[168px] w-full min-w-0 flex-col p-[18px] text-left no-underline",
     `orrn-block-${tone}`,
     interactive &&
-      "animate-press cursor-pointer transition-[filter,transform] duration-[var(--dur-fast)] hover:brightness-[1.04]",
+      "animate-press cursor-pointer transition-[filter,scale] duration-[var(--dur-fast)] hover:brightness-[1.04]",
     className,
   );
 

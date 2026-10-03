@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { escapeUnlessComboboxOpen } from "@orrn/ui/lib/escape";
 import { useReturnFocus } from "@orrn/ui/lib/return-focus";
 import { cn } from "@orrn/ui/lib/utils";
 
@@ -41,35 +42,40 @@ export function Dialog({
         <DialogPrimitive.Content
           data-slot="dialog-content"
           {...returnFocus}
+          onEscapeKeyDown={escapeUnlessComboboxOpen}
+          // The content box itself never scrolls (the inner div does), so a
+          // portalled combobox list positioned inside it is never clipped.
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-5 overflow-y-auto rounded-card border border-border bg-popover p-6 text-popover-foreground shadow-lg outline-none duration-200 ease-[var(--ease-spring)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+            "fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-card border border-border bg-popover text-popover-foreground shadow-lg outline-none duration-200 ease-[var(--ease-spring)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           )}
           style={{ maxWidth }}
           {...(description ? {} : { "aria-describedby": undefined })}
         >
-          {title || description ? (
-            <div className="flex flex-col gap-1.5 pr-10">
-              {title ? (
-                <DialogPrimitive.Title className="m-0 font-display text-[22px] font-bold leading-tight tracking-[-0.025em]">
-                  {title}
-                </DialogPrimitive.Title>
-              ) : null}
-              {description ? (
-                <DialogPrimitive.Description className="m-0 text-[15px] leading-6 text-muted-foreground">
-                  {description}
-                </DialogPrimitive.Description>
-              ) : null}
-            </div>
-          ) : null}
+          <div className="grid min-h-0 gap-5 overflow-y-auto overscroll-contain p-6">
+            {title || description ? (
+              <div className="flex min-w-0 flex-col gap-1.5 pr-10">
+                {title ? (
+                  <DialogPrimitive.Title className="m-0 font-display text-[22px] font-bold leading-tight tracking-[-0.025em] break-words">
+                    {title}
+                  </DialogPrimitive.Title>
+                ) : null}
+                {description ? (
+                  <DialogPrimitive.Description className="m-0 text-[15px] leading-6 text-muted-foreground">
+                    {description}
+                  </DialogPrimitive.Description>
+                ) : null}
+              </div>
+            ) : null}
 
-          {children}
+            {children}
 
-          {actions ? (
-            // Phones: full-width stack, primary (last) on top. Wider: a row, primary on the right.
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end [&>*]:w-full sm:[&>*]:w-auto">
-              {actions}
-            </div>
-          ) : null}
+            {actions ? (
+              // Phones: full-width stack, primary (last) on top. Wider: a row, primary on the right.
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end [&>*]:w-full sm:[&>*]:w-auto">
+                {actions}
+              </div>
+            ) : null}
+          </div>
 
           <DialogPrimitive.Close
             data-slot="dialog-close"

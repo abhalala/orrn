@@ -29,7 +29,7 @@ const MD = "h-11 px-5 text-[15px]";
 const buttonVariants = cva(
   // Focus ring comes from the global :focus-visible rule (2px ink, 2px
   // offset). `active:scale` is the C2 `press` motion (off under reduced motion).
-  "inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold tracking-[-0.005em] transition-[background-color,color,box-shadow,transform,opacity,filter] duration-[var(--dur-fast)] ease-[var(--ease-out-quart)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 aria-busy:cursor-progress [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-[18px]",
+  "inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold tracking-[-0.005em] transition-[background-color,color,box-shadow,transform,scale,opacity,filter] duration-[var(--dur-fast)] ease-[var(--ease-out-quart)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 aria-busy:cursor-progress [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-[18px]",
   {
     variants: {
       variant: {

@@ -48,7 +48,7 @@ export function ActionTile({ tone, title, hint, icon, to, className, style }: Ac
       style={style}
       className={cn(
         TONE_CLASS[tone],
-        "animate-press relative flex min-h-[128px] min-w-0 flex-col justify-between gap-4 p-4 no-underline transition-[filter,transform,background-color] duration-[var(--dur-fast)] hover:brightness-[1.04] sm:p-5",
+        "animate-press relative flex min-h-[128px] min-w-0 flex-col justify-between gap-4 p-4 no-underline transition-[filter,scale,background-color] duration-[var(--dur-fast)] hover:brightness-[1.04] sm:p-5",
         tone === "neutral" && "hover:brightness-100 hover:bg-surface-sunken/60",
         className,
       )}
@@ -63,11 +63,13 @@ export function ActionTile({ tone, title, hint, icon, to, className, style }: Ac
         {icon}
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="font-display text-[19px] font-bold leading-tight tracking-[-0.02em] [overflow-wrap:anywhere]">
+        <span className="font-display text-[19px] font-bold leading-tight tracking-[-0.02em] break-words">
           {title}
         </span>
         {hint ? (
-          <span className={cn("text-[13px] font-medium leading-snug", tone === "neutral" && "text-muted-foreground")}>
+          <span
+            className={cn("text-[13px] font-medium leading-snug break-words", tone === "neutral" && "text-muted-foreground")}
+          >
             {hint}
           </span>
         ) : null}

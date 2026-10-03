@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import { expectNoClippedText, expectNoHorizontalScroll } from "./helpers/layout-guards";
+
 /**
  * The C2 component library, exercised on the dev-only kitchen sink at /__ui.
  * Every redesigned screen is built from these components, so this suite is the
@@ -8,7 +10,7 @@ import { expect, test, type Page } from "@playwright/test";
  * text (W9), table vs stacked list, axe clean in both themes, reduced motion.
  */
 
-const WIDTHS = [390, 820, 1280] as const;
+const WIDTHS = [390, 820, 1280, 1440] as const;
 const SCHEMES = ["light", "dark"] as const;
 
 async function openKit(page: Page, opts: { width: number; scheme?: "light" | "dark"; reducedMotion?: boolean }) {
@@ -41,16 +43,28 @@ async function blockingAxeViolations(page: Page) {
 test.describe("layout", () => {
   for (const width of WIDTHS) {
     for (const scheme of SCHEMES) {
-      test(`no horizontal overflow at ${width}px (${scheme})`, async ({ page }) => {
+      test(`no sideways scroll and no clipped text at ${width}px (${scheme})`, async ({ page }) => {
         await openKit(page, { width, scheme });
-        const overflow = await page.evaluate(() => ({
-          scrollWidth: document.documentElement.scrollWidth,
-          innerWidth: window.innerWidth,
-        }));
-        expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.innerWidth);
+        await expectNoHorizontalScroll(page);
+        await expectNoClippedText(page);
       });
     }
   }
+
+  test("long text wraps or truncates with the full value on hover", async ({ page }) => {
+    await openKit(page, { width: 390 });
+    const section = page.locator("section[aria-labelledby='kit-long-text']");
+    await expectNoClippedText(page, section);
+    const name = section.getByText("KD Extrusion Private Limited, Rajkot", { exact: true });
+    await expect(name).toHaveAttribute("title", "KD Extrusion Private Limited, Rajkot");
+    // The status block title wraps by words: never one letter per line.
+    const title = section.locator("[data-slot='status-block'] span").first();
+    const lines = await title.evaluate((el) => {
+      const lh = parseFloat(getComputedStyle(el).lineHeight);
+      return Math.round(el.getBoundingClientRect().height / lh);
+    });
+    expect(lines).toBeLessThanOrEqual(4);
+  });
 });
 
 test.describe("touch targets on a phone", () => {
@@ -122,6 +136,23 @@ test.describe("ResponsiveList", () => {
     await expect(page.locator("table")).toHaveCount(0);
   });
 
+  test("a control inside a linked row works and doesn't follow the row link", async ({ page }) => {
+    await openKit(page, { width: 1280 });
+    const list = page.getByTestId("kit-list");
+    await list.getByRole("button", { name: "Print label BG-000318-B001" }).click();
+    await expect(page.getByText("Label sent to printer: BG-000318-B001")).toBeVisible();
+    await expect(page).toHaveURL(/\/__ui$/);
+  });
+
+  test("on a phone the row is one link and its control still works", async ({ page }) => {
+    await openKit(page, { width: 390 });
+    const list = page.getByTestId("kit-list");
+    await expect(list.getByRole("link", { name: "BG-000318-B001" })).toHaveAttribute("href", "/b/BG-000318-B001");
+    await list.getByRole("button", { name: "Print label BG-000318-B001" }).click();
+    await expect(page.getByText("Label sent to printer: BG-000318-B001")).toBeVisible();
+    await expect(page).toHaveURL(/\/__ui$/);
+  });
+
   test("pages with Previous and Next", async ({ page }) => {
     await openKit(page, { width: 1280 });
     const list = page.getByTestId("kit-list");
@@ -140,6 +171,9 @@ test.describe("ScanField", () => {
     await scan.press("Enter");
     await expect(scan).toHaveValue("");
     await expect(page.getByTestId("kit-scan-result")).toHaveText("Scanned bg-000318-b007");
+    // No <form> of its own, so it can live inside another form.
+    await expect(page.locator("[data-slot='scan-field'] form, form [data-slot='scan-field']")).toHaveCount(0);
+    await expect(page.locator("[data-slot='scan-field']")).not.toHaveJSProperty("tagName", "FORM");
   });
 });
 
@@ -158,10 +192,55 @@ test.describe("Combobox", () => {
   });
 });
 
+test.describe("Combobox, stale results", () => {
+  test("Enter can't pick an option from the previous query while a new one loads", async ({ page }) => {
+    await openKit(page, { width: 1280 });
+    const die = page.getByRole("combobox", { name: "Die" });
+    await die.click();
+    await die.pressSequentially("angle");
+    await expect(page.getByRole("option").first()).toBeVisible();
+    await die.pressSequentially("zz");
+    await die.press("ArrowDown");
+    await die.press("Enter");
+    await expect(die).toHaveValue("anglezz");
+    await expect(page.locator("[data-slot='combobox-popup'] p", { hasText: 'Nothing matches "anglezz"' })).toBeVisible();
+  });
+});
+
+test.describe("Combobox inside a sheet", () => {
+  for (const width of [390, 1280] as const) {
+    test(`every option is visible and Escape closes the list first (${width}px)`, async ({ page }) => {
+      await openKit(page, { width });
+      await page.getByRole("button", { name: "Open sheet with picker" }).click();
+      const sheet = page.getByRole("dialog", { name: "Change die" });
+      await expect(sheet).toBeVisible();
+      const die = sheet.getByRole("combobox", { name: "Die" });
+      await die.click();
+      await die.pressSequentially("1");
+      const options = page.getByRole("option");
+      await expect(options).toHaveCount(5);
+      for (let i = 0; i < 5; i++) await expect(options.nth(i)).toBeInViewport({ ratio: 1 });
+      // The list lives inside the dialog, so picking with the pointer works.
+      await options.nth(1).click();
+      await expect(die).toHaveValue('Angle 1" x 1"');
+      await expect(sheet).toBeVisible();
+
+      await die.fill("");
+      await die.pressSequentially("1");
+      await expect(options).toHaveCount(5);
+      await page.keyboard.press("Escape");
+      await expect(sheet.getByRole("listbox")).toBeHidden();
+      await expect(sheet).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(sheet).toHaveCount(0);
+    });
+  }
+});
+
 test.describe("Sheet", () => {
   test("opens with a title, traps focus and closes on Escape", async ({ page }) => {
     await openKit(page, { width: 390 });
-    const trigger = page.getByRole("button", { name: "Open sheet" });
+    const trigger = page.getByRole("button", { name: "Open sheet", exact: true });
     await trigger.click();
     const sheet = page.getByRole("dialog", { name: "Bundle 26I4086" });
     await expect(sheet).toBeVisible();
@@ -192,7 +271,7 @@ test.describe("accessibility", () => {
 
   test("axe: the open sheet is clean too", async ({ page }) => {
     await openKit(page, { width: 390, scheme: "dark" });
-    await page.getByRole("button", { name: "Open sheet" }).click();
+    await page.getByRole("button", { name: "Open sheet", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     const blocking = await blockingAxeViolations(page);
     expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
@@ -203,7 +282,7 @@ test.describe("motion", () => {
   test("reduced motion: nothing is animating, even after a success pop", async ({ page }) => {
     await openKit(page, { width: 1280, reducedMotion: true });
     await page.getByRole("button", { name: "Play success" }).click();
-    await page.getByRole("button", { name: "Open sheet" }).click();
+    await page.getByRole("button", { name: "Open sheet", exact: true }).click();
     // Two frames: long enough for any 0.01ms fallback, far too short for real motion.
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     const running = await page.evaluate(() =>

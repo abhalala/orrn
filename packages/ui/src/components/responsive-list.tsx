@@ -12,6 +12,10 @@ import { Skeleton } from "./skeleton";
 export type ResponsiveListColumn<T> = {
   key: string;
   header: string;
+  /**
+   * Cell content. Text wraps at word boundaries; keep serials and codes on
+   * one line (`font-mono whitespace-nowrap`) so they never split mid-code.
+   */
   cell(row: T): ReactNode;
   /** Right-align (numbers, weights). */
   align?: "end";
@@ -24,9 +28,18 @@ export type ResponsiveListPage = { offset: number; limit: number; onChange(offse
 export type ResponsiveListProps<T> = {
   rows: T[];
   columns: ResponsiveListColumn<T>[];
-  /** Makes each row one link (the whole row is the target). */
+  /**
+   * Makes each row one link: the first column's content becomes the link and
+   * a stretched pseudo-element makes the whole row clickable. Buttons, links
+   * and inputs inside the other cells are lifted above it (`relative z-[1]`),
+   * so they keep working; keep the first column free of interactive content.
+   */
   rowHref?(row: T): string;
-  /** Total rows on the server, for "1-50 of 312" (W8: never a silently truncated list). */
+  /**
+   * Total rows on the server, for "1-50 of 312" (W8: never a silently
+   * truncated list). Pass it whenever the API returns it; without it the
+   * pager can only say "1-50".
+   */
   total?: number;
   /** Server paging. Shows the range and Previous / Next. */
   page?: ResponsiveListPage;
@@ -42,6 +55,15 @@ export type ResponsiveListProps<T> = {
 };
 
 const SKELETON_ROWS = 5;
+
+/** Raise interactive things in a cell above the row's stretched link (globals.css). */
+const LIFT_INTERACTIVE = "orrn-row-lift";
+
+/** Phone rows: same lift, but only inside the label/value grid (the title holds the row link). */
+const LIFT_INTERACTIVE_REST = "orrn-row-lift-dl";
+
+const STRETCHED_LINK =
+  "no-underline outline-none after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring focus-visible:after:outline-solid";
 
 /**
  * One list, two layouts. From 1024px it is a real `<table>` with
@@ -118,15 +140,13 @@ export function ResponsiveList<T>({
                           <td
                             key={col.key}
                             className={cn(
-                              "h-[52px] px-4 py-2 align-middle first:pl-5 last:pr-5",
-                              col.align === "end" && "text-right tabular-nums",
+                              "h-[52px] px-4 py-2 align-middle break-words first:pl-5 last:pr-5",
+                              col.align === "end" && "text-right whitespace-nowrap tabular-nums",
+                              href && c > 0 && LIFT_INTERACTIVE,
                             )}
                           >
                             {c === 0 && href ? (
-                              <UiLink
-                                to={href}
-                                className="font-semibold text-foreground no-underline outline-none after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring focus-visible:after:outline-solid"
-                              >
+                              <UiLink to={href} className={cn("font-semibold text-foreground", STRETCHED_LINK)}>
                                 {col.cell(row)}
                               </UiLink>
                             ) : (
@@ -161,42 +181,43 @@ export function ResponsiveList<T>({
             ))
           : rows.map((row, i) => {
               const href = rowHref?.(row);
-              const content = (
-                <>
-                  <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-                    <span className="min-w-0 text-[15px] font-semibold text-foreground [overflow-wrap:anywhere]">
-                      {first?.cell(row)}
-                    </span>
+              return (
+                <li
+                  key={keyOf(row, i)}
+                  className={cn(
+                    "relative flex min-h-16 items-center gap-3 px-4 py-3.5",
+                    href &&
+                      "animate-press transition-[background-color,scale] duration-[var(--dur-fast)] active:bg-surface-sunken has-[a:focus-visible]:bg-surface-sunken/60",
+                  )}
+                >
+                  <div className={cn("flex min-w-0 flex-1 flex-col gap-1.5", href && LIFT_INTERACTIVE_REST)}>
+                    <div className="min-w-0 text-[15px] font-semibold text-foreground break-words">
+                      {href ? (
+                        <UiLink to={href} className={cn("text-inherit", STRETCHED_LINK)}>
+                          {first?.cell(row)}
+                        </UiLink>
+                      ) : (
+                        first?.cell(row)
+                      )}
+                    </div>
                     {phoneColumns.length ? (
                       <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3 md:grid-cols-4">
                         {phoneColumns.map((col) => (
                           <div key={col.key} className="flex min-w-0 flex-col">
-                            <dt className="text-[12px] font-medium text-muted-foreground">{col.header}</dt>
-                            <dd className="m-0 min-w-0 text-[14px] text-foreground tabular-nums [overflow-wrap:anywhere]">
+                            <dt className="truncate text-[12px] font-medium text-muted-foreground" title={col.header}>
+                              {col.header}
+                            </dt>
+                            <dd className="m-0 min-w-0 text-[14px] text-foreground tabular-nums break-words">
                               {col.cell(row)}
                             </dd>
                           </div>
                         ))}
                       </dl>
                     ) : null}
-                  </span>
+                  </div>
                   {href ? (
                     <ChevronRight aria-hidden="true" strokeWidth={2} className="size-5 shrink-0 text-muted-foreground" />
                   ) : null}
-                </>
-              );
-              return (
-                <li key={keyOf(row, i)}>
-                  {href ? (
-                    <UiLink
-                      to={href}
-                      className="animate-press flex min-h-16 items-center gap-3 px-4 py-3.5 text-inherit no-underline transition-colors duration-[var(--dur-fast)] focus-visible:-outline-offset-2 active:bg-surface-sunken"
-                    >
-                      {content}
-                    </UiLink>
-                  ) : (
-                    <div className="flex min-h-16 items-center gap-3 px-4 py-3.5">{content}</div>
-                  )}
                 </li>
               );
             })}
@@ -208,13 +229,14 @@ export function ResponsiveList<T>({
   if (page && !isEmpty && !firstLoad) {
     const from = page.offset + 1;
     const to = page.offset + rows.length;
-    const knownTotal = total ?? to;
     const atStart = page.offset <= 0;
     const atEnd = total !== undefined ? to >= total : rows.length < page.limit;
     footer = (
       <div className="flex items-center justify-between gap-3 pt-3">
         <p aria-live="polite" className="m-0 pl-1 text-[13px] font-medium text-muted-foreground tabular-nums">
-          {t("common.pageRange", { from, to, total: knownTotal.toLocaleString("en-IN") })}
+          {total !== undefined
+            ? t("common.pageRange", { from, to, total: total.toLocaleString("en-IN") })
+            : t("ui.pageRangeOpen", { from, to })}
         </p>
         <nav aria-label={t("ui.pages")} className="flex gap-2">
           <IconButton

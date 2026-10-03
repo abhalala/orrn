@@ -50,11 +50,11 @@ export function PageHeader(props: PageHeaderProps | LegacyPageHeaderProps) {
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {eyebrow ? <p className="m-0 text-[13px] font-medium text-muted-foreground">{eyebrow}</p> : null}
-          <h1 className="orrn-page-title m-0 font-display text-[30px] font-extrabold leading-[1.05] tracking-[-0.035em] text-foreground [overflow-wrap:anywhere] sm:text-[34px]">
+          <h1 className="orrn-page-title m-0 font-display text-[30px] font-extrabold leading-[1.05] tracking-[-0.035em] text-foreground break-words sm:text-[34px]">
             {title}
           </h1>
           {subtitle ? (
-            <p className="orrn-page-description m-0 max-w-[680px] text-[15px] leading-6 text-muted-foreground">
+            <p className="orrn-page-description m-0 max-w-[680px] text-[15px] leading-6 break-words text-muted-foreground">
               {subtitle}
             </p>
           ) : null}

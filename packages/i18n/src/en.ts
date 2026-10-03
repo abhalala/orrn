@@ -852,8 +852,7 @@ export const en = {
     searching: "Searching",
     recent: "Recent",
     pages: "Pages",
-    scanSubmit: "Find",
-    openGuide: "Open the guide: {title}",
+    pageRangeOpen: "{from}-{to}",
   },
 
   errors: {

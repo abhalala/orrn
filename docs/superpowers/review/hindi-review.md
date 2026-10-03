@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 666 screen strings in 23 groups, 10 guides with 182 strings.
+Counts: 665 screen strings in 23 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -761,7 +761,7 @@ Counts: 666 screen strings in 23 groups, 10 guides with 182 strings.
 | `cta.body` | Tell us about your plant and we'll get in touch. | अपने प्लांट के बारे में बताएं, हम संपर्क करेंगे। |
 | `footer` | orrn, for aluminium extrusion plants | orrn, एल्युमिनियम एक्सट्रूज़न प्लांट के लिए |
 
-### ui (8)
+### ui (7)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -771,8 +771,7 @@ Counts: 666 screen strings in 23 groups, 10 guides with 182 strings.
 | `searching` | Searching | खोज रहे हैं |
 | `recent` | Recent | हाल के |
 | `pages` | Pages | पेज |
-| `scanSubmit` | Find | खोजें |
-| `openGuide` | Open the guide: {title} | गाइड खोलें: {title} |
+| `pageRangeOpen` | {from}-{to} | {from}-{to} |
 
 ### errors (16)
 

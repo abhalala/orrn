@@ -710,11 +710,15 @@
     color: var(--tone-neutral-on);
   }
 
-  /* In dark mode the neutral block needs an edge against the near-black canvas. */
+  /* In dark mode the ink/neutral block would melt into the near-black canvas:
+     raise it to a lifted ink (the gradient's light stop down to the raised
+     surface) with a light hairline. White text still clears 12:1 on it. */
   .dark .orrn-block-neutral {
+    background: linear-gradient(160deg, var(--tone-neutral-from), var(--surface-sunken));
     box-shadow:
       var(--elev-block),
-      inset 0 0 0 1px var(--hairline);
+      inset 0 0 0 1px rgb(255 255 255 / 0.1),
+      inset 0 1px 0 rgb(255 255 255 / 0.12);
   }
 
   /* Legacy class names kept for any remaining references, restyled flat. */
@@ -834,11 +838,19 @@
   }
 }
 
+/* Press uses the individual `scale` property, so it composes with any
+   `transform` and with the element's own transition utilities. The default
+   transition below sits in the components layer: an element's own
+   `transition-[...]` utility wins, and should list `scale`. */
 @utility animate-press {
-  transition: transform var(--dur-fast) var(--ease-out-quart);
-
   &:active {
-    transform: scale(0.97);
+    scale: 0.97;
+  }
+}
+
+@layer components {
+  .animate-press {
+    transition: scale var(--dur-fast) var(--ease-out-quart);
   }
 }
 
@@ -924,6 +936,14 @@
     animation: orrn-fade-out var(--dur-fast) var(--ease-out-quart) both;
   }
 
+  /* ResponsiveList rows with a stretched row link: lift real controls in the
+     other cells above the link so they stay clickable. */
+  .orrn-row-lift :is(a, button, input, select, textarea, label, summary, [role="button"], [role="checkbox"], [role="switch"], [tabindex]),
+  .orrn-row-lift-dl dl :is(a, button, input, select, textarea, label, summary, [role="button"], [role="checkbox"], [role="switch"], [tabindex]) {
+    position: relative;
+    z-index: 1;
+  }
+
   /* Status block sheen: top-right corner only, clear of the text (text is
      measured against the lighter gradient stop, not the sheen). */
   .orrn-block-sheen::before {
@@ -963,6 +983,7 @@
   .animate-press:active,
   .orrn-press:active,
   [data-slot="button"]:active {
+    scale: none !important;
     transform: none !important;
   }
 }

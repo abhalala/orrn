@@ -845,8 +845,7 @@ export const hi = {
     searching: "खोज रहे हैं",
     recent: "हाल के",
     pages: "पेज",
-    scanSubmit: "खोजें",
-    openGuide: "गाइड खोलें: {title}",
+    pageRangeOpen: "{from}-{to}",
   },
 
   errors: {
