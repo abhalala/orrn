@@ -78,6 +78,16 @@ const leaderboardInput = z
   .object({ from: isoDate, to: isoDate, limit: z.number().int().min(1).max(25).default(10) })
   .superRefine(checkRange);
 
+/** One page of the customers list (ResponsiveList pages hold 50 rows). */
+const MAX_KG_CUSTOMERS = 50;
+const customerKgInput = z
+  .object({
+    from: isoDate,
+    to: isoDate,
+    customerIds: z.array(z.string().min(1).max(64)).min(1).max(MAX_KG_CUSTOMERS),
+  })
+  .superRefine(checkRange);
+
 const trendsInput = z.object({ days: z.number().int().min(1).max(366).default(90) });
 const volumeInput = z.object({ months: z.number().int().min(1).max(36).default(12) });
 
@@ -132,6 +142,12 @@ export type CustomerLeaderboard = {
   /** Share of `otherKgG`; with the rows' shares it sums to exactly 100.0 when `totalKgG` > 0. */
   otherSharePct: number;
   totalKgG: number;
+};
+
+/** kg column of the customers list: one row per requested id, in first-seen order (0 when none). */
+export type CustomerKg = {
+  period: { from: string; to: string };
+  rows: { customerId: string; kgG: number; dispatches: number }[];
 };
 
 export type TrendDay = { date: string; packedKgG: number; dispatchedKgG: number };
@@ -443,6 +459,50 @@ export const analyticsRouter = router({
         totalKgG,
       };
     }),
+
+  /**
+   * Completed-dispatch kg and count per customer over the days from..to (inclusive), for the
+   * customers on one page of the list (task T23: the list's kg column follows the leaderboard's
+   * period). Same join rule as everywhere here. Ids from another company, unknown ids and
+   * customers without dispatches read 0: only this company's dispatch rows are ever summed.
+   * Binds the ids (at most 50) plus a handful of scalars: well under D1's 100.
+   */
+  customerKg: analyticsProcedure.input(customerKgInput).query(async ({ ctx, input }): Promise<CustomerKg> => {
+    const companyId = ctx.companyId;
+    const ids = [...new Set(input.customerIds)];
+    const timezone = await timezoneOf(ctx.db, companyId);
+    const fromMs = localMidnight(timezone, input.from);
+    const endMs = localMidnight(timezone, addDays(input.to, 1));
+
+    const rows = await ctx.db
+      .select({
+        customerId: dispatch.customerId,
+        kgG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+        dispatches: sql<number>`count(distinct ${dispatch.id})`,
+      })
+      .from(dispatch)
+      .leftJoin(dispatchItem, itemsOfDispatch(companyId))
+      .leftJoin(bundle, bundleOfItem(companyId))
+      .where(
+        and(
+          completedDispatches(companyId),
+          inArray(dispatch.customerId, ids),
+          gte(dispatch.completedAt, new Date(fromMs)),
+          lt(dispatch.completedAt, new Date(endMs)),
+        ),
+      )
+      .groupBy(dispatch.customerId);
+
+    const byId = new Map(rows.map((r) => [r.customerId, r]));
+    return {
+      period: { from: input.from, to: input.to },
+      rows: ids.map((customerId) => ({
+        customerId,
+        kgG: num(byId.get(customerId)?.kgG),
+        dispatches: num(byId.get(customerId)?.dispatches),
+      })),
+    };
+  }),
 
   /**
    * Daily packed vs dispatched kg for the last `days` company days, today last (Today chart).

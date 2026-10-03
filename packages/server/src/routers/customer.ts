@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, like } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
@@ -22,6 +22,11 @@ const MAX_IMPORT_ROWS = 2000;
 
 type Customer = typeof customer.$inferSelect;
 
+/** Escape LIKE wildcards so a search term is matched literally (paired with `ESCAPE '\\'`). */
+function escapeLike(term: string): string {
+  return term.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 export const customerRouter = router({
   list: companyProcedure
     .input(z.object({
@@ -36,8 +41,15 @@ export const customerRouter = router({
         isNull(customer.deletedAt),
       ];
 
-      if (input.search) {
-        conditions.push(like(customer.name, `%${input.search}%`));
+      const search = input.search?.trim();
+      if (search) {
+        // Name, phone or GSTIN (what the list and the add-customer guide promise). LIKE is
+        // case-insensitive for ASCII, so a GSTIN typed in lower case still matches; % and _ in
+        // the term are matched literally.
+        const pattern = `%${escapeLike(search)}%`;
+        conditions.push(
+          sql`(${customer.name} LIKE ${pattern} ESCAPE '\\' OR ${customer.phone} LIKE ${pattern} ESCAPE '\\' OR ${customer.taxId} LIKE ${pattern} ESCAPE '\\')`,
+        );
       }
 
       const result = await paginatedList<Customer>(ctx.db, {
