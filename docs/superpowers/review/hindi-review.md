@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 897 screen strings in 26 groups, 11 guides with 200 strings.
+Counts: 898 screen strings in 26 groups, 11 guides with 200 strings.
 
 ## Screen strings
 
@@ -635,7 +635,7 @@ Counts: 897 screen strings in 26 groups, 11 guides with 200 strings.
 | `dispatches` | Dispatches | Dispatch |
 | `noDispatches` | No dispatches for this customer yet. | इस ग्राहक का अभी कोई dispatch नहीं है। |
 
-### store (154)
+### store (155)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -719,6 +719,7 @@ Counts: 897 screen strings in 26 groups, 11 guides with 200 strings.
 | `form.oldOut` | Old going out | पुराना जो बाहर जा रहा है |
 | `form.newIn` | New coming in | नया जो आ रहा है |
 | `form.purpose` | What is it for | किस काम के लिए |
+| `form.purposeRequired` | Choose what it is for. | किस काम के लिए है, चुनें। |
 | `form.ref` | Cast, die or job | कास्ट, die या जॉब |
 | `form.refHint` | Optional. A cast number, die or job card. | ज़रूरी नहीं। कास्ट नंबर, die या जॉब कार्ड। |
 | `form.challan` | Challan or bill number | चालान या बिल नंबर |

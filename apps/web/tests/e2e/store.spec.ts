@@ -454,9 +454,7 @@ test.describe("keyboard and language", () => {
 test.describe("layout and accessibility", () => {
   for (const width of [375, 390, 820, 1280, 1440]) {
     for (const scheme of ["light", "dark"] as const) {
-      test(`store pages at ${width}px (${scheme}): no sideways scroll, nothing clipped${width === 390 || width === 1280 ? ", axe clean" : ""}`, async ({
-        page,
-      }) => {
+      test(`store pages at ${width}px (${scheme}): no sideways scroll, nothing clipped, axe clean`, async ({ page }) => {
         await open(page, { width, scheme, path: "/today" });
         const ids = await ensureDemoStore(page);
         const pages = [
@@ -476,26 +474,24 @@ test.describe("layout and accessibility", () => {
           await page.waitForLoadState("networkidle");
           await expectNoHorizontalScroll(page);
           await expectNoClippedText(page, "main#main");
-          if (width === 390 || width === 1280) expect(await blockingAxeViolations(page), p.path).toEqual([]);
+          expect(await blockingAxeViolations(page), p.path).toEqual([]);
         }
-        if (width === 390 || width === 1280) {
-          // Sheets: an entry and the item editor.
-          await page.goto(`/store/items/${ids["Cover flux"]}`);
-          await page
-            .getByRole("button", { name: /^Open GRN-/ })
-            .first()
-            .click();
-          await expect(page.getByRole("dialog")).toBeVisible();
-          await page.getByRole("dialog").getByRole("button", { name: "Cancel entry" }).click();
-          await expect(page.getByRole("dialog").getByLabel("Why cancel it")).toBeVisible();
-          expect(await blockingAxeViolations(page), "entry sheet").toEqual([]);
-          await expectNoClippedText(page, "[role='dialog']");
-          await page.keyboard.press("Escape");
-          await expect(page.getByRole("dialog")).toBeHidden();
-          await page.getByRole("button", { name: "Edit item" }).click();
-          await expect(page.getByRole("dialog", { name: "Edit store item" })).toBeVisible();
-          expect(await blockingAxeViolations(page), "item sheet").toEqual([]);
-        }
+        // Sheets: an entry and the item editor (bottom sheet on phones, side sheet from 768px).
+        await page.goto(`/store/items/${ids["Cover flux"]}`);
+        await page
+          .getByRole("button", { name: /^Open GRN-/ })
+          .first()
+          .click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+        await page.getByRole("dialog").getByRole("button", { name: "Cancel entry" }).click();
+        await expect(page.getByRole("dialog").getByLabel("Why cancel it")).toBeVisible();
+        expect(await blockingAxeViolations(page), "entry sheet").toEqual([]);
+        await expectNoClippedText(page, "[role='dialog']");
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("dialog")).toBeHidden();
+        await page.getByRole("button", { name: "Edit item" }).click();
+        await expect(page.getByRole("dialog", { name: "Edit store item" })).toBeVisible();
+        expect(await blockingAxeViolations(page), "item sheet").toEqual([]);
       });
     }
   }
