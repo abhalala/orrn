@@ -14,7 +14,24 @@ export const dimensionsSchema = z.object({
   thicknessMm: z.number().optional(),
 });
 
-const optionalDieLength = z.number().int().min(0).nullable().optional();
+/**
+ * Die geometry keeps 0.1 mm precision (the oblique decides the die tier), so decimals are valid;
+ * anything finer than 0.1 mm is rounded away.
+ */
+const dieLength = z
+  .number()
+  .finite()
+  .nonnegative()
+  .transform((n) => Math.round(n * 10) / 10);
+const optionalDieLength = dieLength.nullable().optional();
+
+/** Weights are stored as whole grams: decimals from forms are rounded, and must still be >= 1 g. */
+const dieWeightG = z
+  .number()
+  .finite()
+  .positive()
+  .transform((n) => Math.round(n))
+  .pipe(z.number().int().min(1));
 
 /** Cap for dies per import call; matches bundle.bulkImport and customer.importCsv. */
 const MAX_IMPORT_ROWS = 2000;
@@ -28,8 +45,8 @@ export const dieBaseSchema = z.object({
   widthMm: optionalDieLength,
   thicknessMm: optionalDieLength,
   dimensions: dimensionsSchema.default({}),
-  weightMinG: z.number().int().min(0, "Min weight must be >= 0"),
-  weightMaxG: z.number().int().min(0, "Max weight must be >= 0"),
+  weightMinG: dieWeightG,
+  weightMaxG: dieWeightG,
   status: z.enum(dieStatuses).default("active"),
   notes: z.string().max(500).nullable().optional(),
 });
@@ -271,28 +288,34 @@ export const dieRouter = router({
   validateImport: actionProcedure("die.import")
     .input(z.array(dieBaseSchema).max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"))
     .mutation(async ({ ctx, input }) => {
-      // Find duplicates
-      const validRows: z.infer<typeof dieBaseSchema>[] = [];
-      const duplicates: (z.infer<typeof dieBaseSchema> & { existingId: string })[] = [];
+      type Row = z.infer<typeof dieBaseSchema>;
+      const validRows: Row[] = [];
+      const duplicates: (Row & { existingId: string })[] = [];
+      // Rows whose code is held by a soft-deleted die: importing them would hit the unique index.
+      const errors: (Row & { error: string })[] = [];
+
+      // One chunked lookup (live and deleted dies) instead of a query per row.
+      const codes = [...new Set(input.map((row) => row.sectionCode))];
+      const found = await mapInChunks(codes, (slice) =>
+        ctx.db
+          .select({ id: die.id, series: die.series, sectionCode: die.sectionCode, deletedAt: die.deletedAt })
+          .from(die)
+          .where(and(eq(die.companyId, ctx.companyId), inArray(die.sectionCode, slice))),
+      );
+      const byKey = new Map(found.map((d) => [`${d.series}\u0000${d.sectionCode}`, d]));
 
       for (const row of input) {
-        const existing = await ctx.db.query.die.findFirst({
-          where: and(
-            eq(die.companyId, ctx.companyId),
-            eq(die.series, row.series),
-            eq(die.sectionCode, row.sectionCode),
-            isNull(die.deletedAt)
-          )
-        });
-
-        if (existing) {
-          duplicates.push({ ...row, existingId: existing.id });
-        } else {
+        const existing = byKey.get(`${row.series}\u0000${row.sectionCode}`);
+        if (!existing) {
           validRows.push(row);
+        } else if (existing.deletedAt) {
+          errors.push({ ...row, error: DELETED_DIE_CONFLICT.message });
+        } else {
+          duplicates.push({ ...row, existingId: existing.id });
         }
       }
 
-      return { validRows, duplicates };
+      return { validRows, duplicates, errors };
     }),
 
   processImport: actionProcedure("die.import")

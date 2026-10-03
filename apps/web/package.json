@@ -10,6 +10,7 @@
     "start": "vite",
     "check-types": "vite build && tsc --noEmit",
     "dev:bare": "vite dev",
+    "test": "bun test src",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots"
   },

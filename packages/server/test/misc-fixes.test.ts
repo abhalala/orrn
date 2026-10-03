@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 
-import { invite, user, waitlistRequest } from "@orrn/db/schema";
+import { die, invite, user, waitlistRequest } from "@orrn/db/schema";
 import { eq } from "drizzle-orm";
 
 import { isDevLocalOrigin } from "../src/lib/devOrigins";
@@ -181,6 +181,23 @@ describe("dies (S16)", () => {
     });
   });
 
+  test("validateImport flags a deleted-die code as an error row, not a valid new row", async () => {
+    const { companyId } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    const gone = await owner.die.create(dieInput("Z", "DEL-4"));
+    await owner.die.delete({ id: gone.id });
+    await owner.die.create(dieInput("Z", "LIVE-4"));
+    const res = await owner.die.validateImport([
+      dieInput("Z", "DEL-4"),
+      dieInput("Z", "LIVE-4"),
+      dieInput("Z", "FRESH-4"),
+    ]);
+    expect(res.errors.map((r) => r.sectionCode)).toEqual(["DEL-4"]);
+    expect(res.errors[0]!.error).toBe("A deleted die uses this code");
+    expect(res.duplicates.map((r) => r.sectionCode)).toEqual(["LIVE-4"]);
+    expect(res.validRows.map((r) => r.sectionCode)).toEqual(["FRESH-4"]);
+  });
+
   test("import of a code held by a deleted die → CONFLICT, not 500", async () => {
     const { companyId } = await env.seedCompany();
     const owner = env.caller({ role: "owner", companyId });
@@ -281,15 +298,46 @@ describe("input bounds (S15)", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
-  test("die dimensions must be whole numbers", async () => {
+  test("die geometry keeps 0.1 mm precision; weights round to whole grams (R16)", async () => {
     const { companyId } = await env.seedCompany();
     const owner = env.caller({ role: "owner", companyId });
+    const { id } = await owner.die.create({
+      series: "S",
+      sectionCode: "F1",
+      obliqueMm: 38.1,
+      legMm: 12.34,
+      widthMm: 20,
+      weightMinG: 2400.4,
+      weightMaxG: 2600.6,
+    });
+    const [row] = await env.db.select().from(die).where(eq(die.id, id));
+    expect(row!.obliqueMm).toBe(38.1);
+    expect(row!.legMm).toBe(12.3); // finer than 0.1 mm is rounded away
+    expect(row!.widthMm).toBe(20);
+    expect(row!.weightMinG).toBe(2400);
+    expect(row!.weightMaxG).toBe(2601);
+
+    // An existing die with decimal geometry can be re-saved (update path).
     await expect(
-      owner.die.create({ series: "S", sectionCode: "F1", obliqueMm: 12.5, weightMinG: 1, weightMaxG: 2 }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(
-      owner.die.create({ series: "S", sectionCode: "F2", weightMinG: 1.5, weightMaxG: 2 }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      owner.die.update({ id, series: "S", sectionCode: "F1", obliqueMm: 38.1, weightMinG: 2400.4, weightMaxG: 2600 }),
+    ).resolves.toBeDefined();
+  });
+
+  test("die geometry and weights reject negatives, zero weights and non-finite values", async () => {
+    const { companyId } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    const base = { series: "S", sectionCode: "F2", weightMinG: 100, weightMaxG: 200 };
+    for (const bad of [
+      { obliqueMm: -1 },
+      { obliqueMm: Number.NaN },
+      { weightMinG: 0 },
+      { weightMinG: 0.3 },
+      { weightMaxG: -5 },
+      { weightMinG: Number.POSITIVE_INFINITY },
+      { weightMinG: 300 }, // min > max still refused
+    ]) {
+      await expect(owner.die.create({ ...base, ...bad })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    }
   });
 });
 

@@ -1,3 +1,4 @@
+import { Button } from "@orrn/ui/components/button";
 import { Dialog, DialogCloseButton } from "@orrn/ui/components/dialog";
 import { ImportDropzone } from "@orrn/ui/components/import-dropzone";
 import { useMutation } from "@tanstack/react-query";
@@ -6,17 +7,15 @@ import { useState } from "react";
 import Papa from "papaparse";
 import { toast } from "sonner";
 
+import {
+  describeSkipped,
+  normalizeRow,
+  partitionRows,
+  type ImportRow,
+  type ParsedFile,
+} from "../lib/bundle-import-rows";
 import { useLengthUnit } from "../lib/length";
 import { trpc } from "../utils/trpc";
-
-type ImportRow = {
-  dieSeries: string;
-  dieSectionCode: string;
-  quantity: number;
-  weightG: number;
-  lengthMm: number;
-  poNumber?: string | null;
-};
 
 /**
  * Modal for bulk-importing bundles from legacy systems.
@@ -36,7 +35,8 @@ export function ImportBundlesModal({
   onSuccess: () => void;
 }) {
   const [selectedFile, setSelectedFile] = useState<{ name: string; size: number } | null>(null);
-  const [phase, setPhase] = useState<"upload" | "processing">("upload");
+  const [phase, setPhase] = useState<"upload" | "review" | "processing">("upload");
+  const [pending, setPending] = useState<{ rows: ImportRow[]; skipped: number[] } | null>(null);
   const lu = useLengthUnit();
 
   const importMutation = useMutation({
@@ -73,10 +73,22 @@ export function ImportBundlesModal({
     }
 
     try {
-      const rows = await parseFile(file, ext, lu.parseLengthDecimal);
+      const { rows, skipped } = await parseFile(file, ext, lu.parseLengthDecimal);
       if (rows.length === 0) {
-        toast.error("No valid rows found. Required columns: dieSeries, dieSectionCode, quantity, weightG, lengthMm.");
+        toast.error(
+          skipped.length > 0
+            ? `No valid rows found — ${describeSkipped(skipped)} Quantity, weightG and length must be greater than 0.`
+            : "No valid rows found. Required columns: dieSeries, dieSectionCode, quantity, weightG, lengthMm.",
+        );
         setSelectedFile(null);
+        return;
+      }
+
+      // Rows the server would reject (blank/zero weight or length, no die) are never sent. When
+      // any were dropped, show which before importing the rest.
+      if (skipped.length > 0) {
+        setPending({ rows, skipped });
+        setPhase("review");
         return;
       }
 
@@ -98,7 +110,29 @@ export function ImportBundlesModal({
       description="Bring bundles from a legacy system into ORRN. Each row identifies its die by series + section code."
       maxWidth={680}
       actions={
-        phase === "upload" ? <DialogCloseButton onPress={onClose}>Close</DialogCloseButton> : null
+        phase === "upload" ? (
+          <DialogCloseButton onPress={onClose}>Close</DialogCloseButton>
+        ) : phase === "review" && pending ? (
+          <>
+            <DialogCloseButton
+              onPress={() => {
+                setPending(null);
+                setSelectedFile(null);
+                setPhase("upload");
+              }}
+            >
+              Choose another file
+            </DialogCloseButton>
+            <Button
+              onPress={() => {
+                setPhase("processing");
+                importMutation.mutate({ rows: pending.rows });
+              }}
+            >
+              {`Import ${pending.rows.length} valid row${pending.rows.length === 1 ? "" : "s"}`}
+            </Button>
+          </>
+        ) : null
       }
     >
       {phase === "upload" ? (
@@ -118,6 +152,16 @@ export function ImportBundlesModal({
           />
 
           <LegacyReceiptNotice />
+        </div>
+      ) : phase === "review" && pending ? (
+        <div className="space-y-2" role="alert">
+          <p className="m-0 text-sm font-medium text-foreground">
+            {pending.skipped.length} row{pending.skipped.length === 1 ? "" : "s"} will be skipped
+          </p>
+          <p className="m-0 text-xs text-muted-foreground">
+            {describeSkipped(pending.skipped)} Each needs a die series, section code, and a quantity,
+            weight and length greater than 0.
+          </p>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
@@ -160,64 +204,24 @@ async function parseFile(
   file: File,
   ext: string,
   parseLength: (raw: string) => number | undefined,
-): Promise<ImportRow[]> {
+): Promise<ParsedFile> {
   if (ext === "json") {
     const text = await file.text();
     const parsed = JSON.parse(text);
     const list = Array.isArray(parsed) ? parsed : [parsed];
-    return list
-      .map((row: Record<string, unknown>) => normalizeRow(row, parseLength))
-      .filter(isValidRow);
+    return partitionRows(
+      list.map((row: Record<string, unknown>) => normalizeRow(row ?? {}, parseLength)),
+    );
   }
 
-  return new Promise<ImportRow[]>((resolve, reject) => {
+  return new Promise<ParsedFile>((resolve, reject) => {
     Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const rows = results.data
-          .map((row) => normalizeRow(row, parseLength))
-          .filter(isValidRow);
-        resolve(rows);
+        resolve(partitionRows(results.data.map((row) => normalizeRow(row, parseLength))));
       },
       error: (err) => reject(new Error(`CSV parsing error: ${err.message}`)),
     });
   });
-}
-
-function normalizeRow(
-  row: Record<string, unknown>,
-  parseLength: (raw: string) => number | undefined,
-): Partial<ImportRow> {
-  // CSVs come in with everything as strings; JSON can have native numbers.
-  // Support both `lengthMm` (canonical) and `lengthIn` (operator-friendly via
-  // the active unit's parser) so the importer matches the rest of the app.
-  const lengthRaw = row.lengthMm ?? row.lengthIn ?? row.length;
-  const length = typeof lengthRaw === "number"
-    ? lengthRaw
-    : typeof lengthRaw === "string" && lengthRaw.length > 0
-      ? parseLength(lengthRaw)
-      : undefined;
-
-  return {
-    dieSeries: String(row.dieSeries ?? row.series ?? "").trim(),
-    dieSectionCode: String(row.dieSectionCode ?? row.sectionCode ?? "").trim(),
-    quantity: Number(row.quantity ?? 0),
-    weightG: Number(row.weightG ?? row.weight ?? 0),
-    lengthMm: typeof length === "number" ? Math.round(length) : 0,
-    poNumber: String(row.poNumber ?? row.po_number ?? row.po ?? "").trim() || null,
-  };
-}
-
-function isValidRow(row: Partial<ImportRow>): row is ImportRow {
-  return (
-    !!row.dieSeries &&
-    !!row.dieSectionCode &&
-    typeof row.quantity === "number" &&
-    row.quantity > 0 &&
-    typeof row.weightG === "number" &&
-    row.weightG >= 0 &&
-    typeof row.lengthMm === "number" &&
-    row.lengthMm >= 0
-  );
 }

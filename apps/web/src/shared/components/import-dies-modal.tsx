@@ -108,6 +108,14 @@ export function ImportDiesModal({ onClose, onSuccess }: { onClose: () => void; o
         setValidRows(res.validRows);
         setDuplicateRows(res.duplicates);
 
+        if (res.errors.length > 0) {
+          const codes = res.errors.slice(0, 5).map((r) => `${r.series} ${r.sectionCode}`).join(", ");
+          const more = res.errors.length > 5 ? ` and ${res.errors.length - 5} more` : "";
+          toast.warning(
+            `${res.errors.length} row${res.errors.length === 1 ? "" : "s"} skipped: a deleted die uses the code (${codes}${more}).`,
+          );
+        }
+
         if (res.duplicates.length > 0) {
           setStep("resolving");
         } else {
