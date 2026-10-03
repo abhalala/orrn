@@ -354,11 +354,13 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     owner: await ensureUser(db, "owner", password),
     operator: await ensureUser(db, "operator", password),
     viewer: await ensureUser(db, "viewer", password),
+    office: await ensureUser(db, "office", password),
     staff: await ensureUser(db, "staff", password),
   };
   const createdUsers = (Object.keys(users) as DevAccountKey[]).filter((key) => users[key].created);
   const ownerId = users.owner.id;
   const operatorId = users.operator.id;
+  const officeId = users.office.id;
 
   // A user can belong to one company only; never silently move someone out of another tenant.
   const elsewhere = await db
@@ -366,7 +368,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     .from(membership)
     .where(
       and(
-        inArray(membership.userId, [ownerId, operatorId, users.viewer.id]),
+        inArray(membership.userId, [ownerId, operatorId, users.viewer.id, officeId]),
         ne(membership.companyId, COMPANY_ID),
       ),
     );
@@ -831,8 +833,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         status: "approved",
         approvalId,
         decidedAt: new Date(decidedAt),
-        // The demo has no office account; the yard started the note on the spot, the owner approved it.
-        createdBy: operatorId,
+        // The office raised the note the yard started on the spot; the owner approved it.
+        createdBy: officeId,
         createdAt: new Date(raisedAt),
         updatedAt: new Date(decidedAt),
       });
@@ -844,8 +846,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         subjectId: noteId,
         status: "approved",
         requestNote: def.dcNote.note,
-        meta: { number: `DCN-${dcSeq}`, lotId: id, kgDiffG, boriDeductionG: boriG, amountPaise },
-        requestedBy: operatorId,
+        meta: { number: `DCN-${dcSeq}`, lotId: id, lotNumber: `LOT-${lotSeq}`, type: "debit", reason: "weight" },
+        requestedBy: officeId,
         decidedBy: ownerId,
         decidedAt: new Date(decidedAt),
         createdAt: new Date(raisedAt),
@@ -946,6 +948,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       { id: "dev-membership-owner", userId: ownerId, companyId: COMPANY_ID, role: "owner" as const },
       { id: "dev-membership-operator", userId: operatorId, companyId: COMPANY_ID, role: "operator" as const },
       { id: "dev-membership-viewer", userId: users.viewer.id, companyId: COMPANY_ID, role: "viewer" as const },
+      { id: "dev-membership-office", userId: officeId, companyId: COMPANY_ID, role: "office" as const },
     ]),
     db
       .insert(platformAdmin)
@@ -1019,6 +1022,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       owner: DEV_ACCOUNTS.owner.email,
       operator: DEV_ACCOUNTS.operator.email,
       viewer: DEV_ACCOUNTS.viewer.email,
+      office: DEV_ACCOUNTS.office.email,
       staff: DEV_ACCOUNTS.staff.email,
     },
     createdUsers,

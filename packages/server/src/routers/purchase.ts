@@ -61,9 +61,15 @@ import { purchaseReader } from "./vendor";
 
 const LOT_NOT_FOUND = { code: "NOT_FOUND", message: "Lot not found" } as const;
 
-/** Up to 1,000 t in grams: far beyond any truck. */
-const grams = z.number().int().min(0).max(1_000_000_000);
-const positiveGrams = z.number().int().min(1).max(1_000_000_000);
+/**
+ * Up to 100 t in grams: beyond any truck. With rates capped at ₹10,000/kg (1e6 paise) every
+ * amount (≤ 1e8 g × 1e6 paise / 1000 = 1e11) and every product in the register (party × rate ≤
+ * 1e14) stays far below 2^53.
+ */
+const MAX_LOT_G = 100_000_000;
+const MAX_RATE_PAISE = 1_000_000;
+const grams = z.number().int().min(0).max(MAX_LOT_G);
+const positiveGrams = z.number().int().min(1).max(MAX_LOT_G);
 const isoDate = z.string().refine(isIsoDate, "Use a date like 2026-10-03");
 const bp = z.number().int().min(0).max(10_000);
 const optText = (max: number) => z.string().trim().max(max).nullable().optional();
@@ -166,10 +172,26 @@ function lotLiveWeightNoteKg(): SQL {
  */
 function lotMayBeOk(toleranceBp: number): SQL {
   const lot = (c: string) => sql`${sql.identifier("purchase_lot")}.${sql.identifier(c)}`;
-  return sql`(${lot("fc_kg_g")} is not null and ${lot("fc_kg_g")} > 0 and (
-    (${lot("party_kg_g")} - ${lot("fc_kg_g")}) * 10000 <= ${lot("party_kg_g")} * ${toleranceBp}
-    or ${lotLiveWeightNoteKg()} >= (${lot("party_kg_g")} - ${lot("fc_kg_g")}) - (${lot("party_kg_g")} * ${toleranceBp}) / 10000
-  ))`;
+  const bp = sql`cast(${toleranceBp} as integer)`;
+  // floor(party × bp / 10 000) in integers even if D1 binds the parameter as a REAL.
+  const tolG = sql`cast((${lot("party_kg_g")} * ${bp}) / 10000 as integer)`;
+  return sql`(${lot("fc_kg_g")} is not null and ${lot("fc_kg_g")} > 0
+    and ${lot("fc_kg_g")} - ${lotBoriG(["approved"])} > 0
+    and (
+      (${lot("party_kg_g")} - ${lot("fc_kg_g")}) * 10000 <= ${lot("party_kg_g")} * ${bp}
+      or ${lotLiveWeightNoteKg()} >= (${lot("party_kg_g")} - ${lot("fc_kg_g")}) - ${tolG}
+    ))`;
+}
+
+/** SQL over the outer `purchase_lot` row: bori of its notes with the given statuses. */
+function lotBoriG(statuses: ("pending" | "approved")[]): SQL {
+  const lot = (c: string) => sql`${sql.identifier("purchase_lot")}.${sql.identifier(c)}`;
+  const list = sql.join(
+    statuses.map((st) => sql`${st}`),
+    sql`, `,
+  );
+  return sql`coalesce((select sum(n.bori_deduction_g) from ${dcNote} n where n.company_id = ${lot("company_id")} and n.lot_id = ${lot("id")}
+    and n.status in (${list})), 0)`;
 }
 
 /** Kg diff a weight note must cover for the lot to go OK: shortfall beyond tolerance (0 if none). */
@@ -195,7 +217,11 @@ async function liveWeightNoteKg(ctx: Ctx, lotId: string): Promise<number> {
   return Number(row?.g ?? 0);
 }
 
-async function hasLiveWeightNote(ctx: Ctx, lotId: string): Promise<boolean> {
+/**
+ * The lot has a live note (pending or approved) raised on its weights: a weight debit note, or any
+ * note with a bori deduction. Party and FC kg are then locked.
+ */
+async function hasWeightLockingNote(ctx: Ctx, lotId: string): Promise<boolean> {
   const [row] = await ctx.db
     .select({ id: dcNote.id })
     .from(dcNote)
@@ -203,20 +229,19 @@ async function hasLiveWeightNote(ctx: Ctx, lotId: string): Promise<boolean> {
       and(
         eq(dcNote.companyId, ctx.companyId),
         eq(dcNote.lotId, lotId),
-        eq(dcNote.type, "debit"),
-        eq(dcNote.reason, "weight"),
         inArray(dcNote.status, ["pending", "approved"]),
+        sql`((${dcNote.type} = 'debit' and ${dcNote.reason} = 'weight') or ${dcNote.boriDeductionG} > 0)`,
       ),
     )
     .limit(1);
   return Boolean(row);
 }
 
-/** SQL over the outer `purchase_lot` row: it has a live weight debit note (weights are then locked). */
-function lotHasWeightNote(): SQL {
+/** SQL over the outer `purchase_lot` row: the write-time form of `hasWeightLockingNote`. */
+function lotHasWeightLockingNote(): SQL {
   const lot = (c: string) => sql`${sql.identifier("purchase_lot")}.${sql.identifier(c)}`;
   return sql`exists (select 1 from ${dcNote} n where n.company_id = ${lot("company_id")} and n.lot_id = ${lot("id")}
-    and n.type = 'debit' and n.reason = 'weight' and n.status in ('pending', 'approved'))`;
+    and n.status in ('pending', 'approved') and ((n.type = 'debit' and n.reason = 'weight') or n.bori_deduction_g > 0))`;
 }
 
 function auditCtx(ctx: {
@@ -655,7 +680,7 @@ const lotsRouter = router({
         grade: z.string().trim().min(1).max(64),
         partyKgG: positiveGrams,
         fcKgG: positiveGrams.nullable().optional(),
-        ratePaise: z.number().int().min(1).max(100_000_000),
+        ratePaise: z.number().int().min(1).max(MAX_RATE_PAISE),
         billBook: z.enum(billBooks).default("main"),
         ...lotFields,
       }),
@@ -763,7 +788,7 @@ const lotsRouter = router({
         grade: z.string().trim().min(1).max(64).optional(),
         partyKgG: positiveGrams.optional(),
         fcKgG: positiveGrams.nullable().optional(),
-        ratePaise: z.number().int().min(1).max(100_000_000).optional(),
+        ratePaise: z.number().int().min(1).max(MAX_RATE_PAISE).optional(),
         billBook: z.enum(billBooks).optional(),
         ...lotFields,
       }),
@@ -788,10 +813,10 @@ const lotsRouter = router({
           message: "This lot is OK and in stock; its item, grade and weights are locked (cancel and re-enter it)",
         });
       }
-      if (weightChange && (await hasLiveWeightNote(ctx, lot.id))) {
+      if (weightChange && (await hasWeightLockingNote(ctx, lot.id))) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "A D/C note on the weight is open for this lot; the weights are locked",
+          message: "A D/C note on the weight or with a bori deduction is open for this lot; the weights are locked",
         });
       }
       if (input.vendorId !== undefined && input.vendorId !== lot.vendorId) {
@@ -812,7 +837,7 @@ const lotsRouter = router({
         eq(purchaseLot.id, lot.id),
         eq(purchaseLot.companyId, ctx.companyId),
         stockChange ? inArray(purchaseLot.status, ["booking", "unload"]) : ne(purchaseLot.status, "cancelled"),
-        weightChange ? sql`not ${lotHasWeightNote()}` : undefined,
+        weightChange ? sql`not ${lotHasWeightLockingNote()}` : undefined,
         patch.vendorId
           ? sql`exists (select 1 from ${vendor} v where v.id = ${patch.vendorId} and v.company_id = ${ctx.companyId} and v.status in ('draft', 'active'))`
           : undefined,
@@ -1102,15 +1127,28 @@ const dcNotesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const lot = await loadLot(ctx, input.lotId);
       if (lot.status === "cancelled") throw new TRPCError({ code: "BAD_REQUEST", message: "This lot is cancelled" });
-      if (input.reason === "weight" && lot.fcKgG === null) {
+      if (input.boriDeductionG > 0 && input.type !== "debit") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Bori is deducted only on a debit note" });
+      }
+      const needsFc = input.reason === "weight" || input.boriDeductionG > 0;
+      if (needsFc && lot.fcKgG === null) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Weigh the lot on the FC kanta first" });
       }
       if (input.kgDiffG + input.boriDeductionG === 0 && !(input.amountPaise && input.amountPaise > 0)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Enter the kg difference, the bori deduction or an amount" });
       }
-      const baseG = lot.fcKgG ?? lot.partyKgG;
-      if (input.boriDeductionG >= baseG) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "The bori deduction must be less than the lot's weight" });
+      if (input.kgDiffG > lot.partyKgG) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The kg difference cannot exceed the party weight" });
+      }
+      if (input.boriDeductionG > 0) {
+        // All live bori on the lot (pending + approved + this one) must stay below its FC weight.
+        const [live] = await ctx.db
+          .select({ g: sql<number>`coalesce(sum(${dcNote.boriDeductionG}), 0)` })
+          .from(dcNote)
+          .where(and(eq(dcNote.companyId, ctx.companyId), eq(dcNote.lotId, lot.id), inArray(dcNote.status, ["pending", "approved"])));
+        if (Number(live?.g ?? 0) + input.boriDeductionG >= lot.fcKgG!) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "The bori deductions must stay below the lot's FC weight" });
+        }
       }
       const [open] = await ctx.db
         .select({ number: dcNote.number })
@@ -1134,20 +1172,9 @@ const dcNotesRouter = router({
         subjectId: id,
         serverSeq: seq,
         requestNote: input.note ?? null,
-        meta: {
-          number: doc.number,
-          lotId: lot.id,
-          lotNumber: lot.number,
-          type: input.type,
-          reason: input.reason,
-          partyKgG: lot.partyKgG,
-          fcKgG: lot.fcKgG,
-          shortG: lot.fcKgG === null ? null : lot.partyKgG - lot.fcKgG,
-          toleranceBp: tolBp,
-          kgDiffG: input.kgDiffG,
-          boriDeductionG: input.boriDeductionG,
-          amountPaise,
-        },
+        // No weights or money here: approval.list is readable by every role (rate = amount ÷ kg).
+        // The approver reads the figures from purchase.dcNotes.get.
+        meta: { number: doc.number, lotId: lot.id, lotNumber: lot.number, type: input.type, reason: input.reason },
         // Only if the note below landed (the lot was not cancelled in between).
         guard: { from: dcNote, where: and(eq(dcNote.id, id), eq(dcNote.serverSeq, seq)) },
       });
@@ -1179,7 +1206,17 @@ const dcNotesRouter = router({
               })
               .from(purchaseLot)
               .where(
-                and(eq(purchaseLot.id, lot.id), eq(purchaseLot.companyId, ctx.companyId), ne(purchaseLot.status, "cancelled")),
+                and(
+                  eq(purchaseLot.id, lot.id),
+                  eq(purchaseLot.companyId, ctx.companyId),
+                  ne(purchaseLot.status, "cancelled"),
+                  // Write-time: weights the note relies on are still there and still large enough.
+                  needsFc ? sql`${lotCol("fc_kg_g")} is not null` : undefined,
+                  sql`${input.kgDiffG} <= ${lotCol("party_kg_g")}`,
+                  input.boriDeductionG > 0
+                    ? sql`${lotBoriG(["pending", "approved"])} + ${input.boriDeductionG} < ${lotCol("fc_kg_g")}`
+                    : undefined,
+                ),
               ),
           ),
           request.statement,
@@ -1205,9 +1242,38 @@ const dcNotesRouter = router({
         .from(dcNote)
         .where(and(eq(dcNote.id, id), eq(dcNote.companyId, ctx.companyId)))
         .limit(1);
-      if (!landed) throw new TRPCError({ code: "BAD_REQUEST", message: "This lot is cancelled" });
+      if (!landed) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The lot changed (cancelled or reweighed) while saving; open it again" });
+      }
       return { id, number: doc.number, approvalId, amountPaise };
     }),
+
+  /**
+   * One note with what the approver needs to decide: the lot's weights, rate, shortfall,
+   * tolerance and cover, and the lot's other notes. Purchase readers only (amounts are commercial).
+   */
+  get: purchaseReader.input(z.object({ id: z.string().min(1) })).query(async ({ ctx, input }) => {
+    const [note] = await ctx.db
+      .select()
+      .from(dcNote)
+      .where(and(eq(dcNote.id, input.id), eq(dcNote.companyId, ctx.companyId)))
+      .limit(1);
+    if (!note) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+    const [lot] = await lotSelect(ctx.db)
+      .where(and(eq(purchaseLot.id, note.lotId), eq(purchaseLot.companyId, ctx.companyId)))
+      .limit(1);
+    if (!lot) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+    const [notes, settings] = await Promise.all([notesForLots(ctx, [lot.id]), companySettings(ctx)]);
+    const tolBp = dcToleranceBp(settings);
+    return {
+      note,
+      lot,
+      otherNotes: notes.filter((n) => n.id !== note.id),
+      toleranceBp: tolBp,
+      uncoveredShortG: lot.fcKgG === null ? 0 : uncoveredShortG(lot.partyKgG, lot.fcKgG, tolBp),
+      ...lotMath(lot, notes, tolBp),
+    };
+  }),
 });
 
 // ---------------------------------------------------------------------------

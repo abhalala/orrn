@@ -891,13 +891,148 @@ describe("permission matrix", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Fix round 1: amounts never leak, bori limits, write-time guards, caps
+// ---------------------------------------------------------------------------
+
+describe("fix round 1", () => {
+  test("approval.list shows a packer no weights, money or note text for a dc_note; the approver reads them from dcNotes.get", async () => {
+    const p = await plant();
+    const lot = await newLot(p, { fcKgG: 9_900 * KG });
+    const note = await p.office.purchase.dcNotes.create({
+      lotId: lot.id, type: "debit", reason: "weight", kgDiffG: 100 * KG, boriDeductionG: 20 * KG, note: "20 bori, ₹18,500",
+    });
+    const stored = await approvalFor(note.id);
+    expect(Object.keys(stored.meta).sort()).toEqual(["lotId", "lotNumber", "number", "reason", "type"]);
+    // A forged/older request carrying figures is redacted for non-readers anyway.
+    await env.db
+      .update(approval)
+      .set({ meta: { ...stored.meta, amountPaise: 1, partyKgG: 2, kgDiffG: 3 } })
+      .where(eq(approval.id, stored.id));
+    for (const role of ["packer", "press", "foundry", "die_room"] as const) {
+      const list = await env.caller({ role, companyId: p.companyId }).approval.list({ kind: "dc_note" });
+      const item = list.items.find((i) => i.subjectId === note.id)!;
+      expect(item.requestNote).toBeNull();
+      expect(Object.keys(item.meta).sort()).toEqual(["lotId", "lotNumber", "number", "reason", "type"]);
+      await expect(env.caller({ role, companyId: p.companyId }).purchase.dcNotes.get({ id: note.id })).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
+    }
+    const managerView = (await p.manager.approval.list({ kind: "dc_note" })).items.find((i) => i.subjectId === note.id)!;
+    expect(managerView.requestNote).toBe("20 bori, ₹18,500");
+    const detail = await p.manager.purchase.dcNotes.get({ id: note.id });
+    expect(detail.note).toMatchObject({ kgDiffG: 100 * KG, boriDeductionG: 20 * KG, amountPaise: 120 * 18_500 });
+    expect(detail.lot).toMatchObject({ partyKgG: 10_000 * KG, fcKgG: 9_900 * KG, ratePaise: 18_500 });
+    expect(detail).toMatchObject({ shortG: 100 * KG, toleranceBp: 50, uncoveredShortG: 50 * KG, noteCoversShort: true });
+    const other = await plant();
+    await expect(other.manager.purchase.dcNotes.get({ id: note.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  test("bori only on debit notes, needs FC kg, and all live bori stays below FC kg", async () => {
+    const p = await plant();
+    const lot = await newLot(p, { partyKgG: 1_000 * KG, fcKgG: 1_000 * KG });
+    await expect(
+      p.office.purchase.dcNotes.create({ lotId: lot.id, type: "credit", reason: "weight", kgDiffG: 0, boriDeductionG: 10 * KG }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const n1 = await p.office.purchase.dcNotes.create({
+      lotId: lot.id, type: "debit", reason: "grade", kgDiffG: 0, boriDeductionG: 600 * KG,
+    });
+    await p.manager.approval.decide({ id: n1.approvalId, decision: "approved" });
+    await expect(
+      p.office.purchase.dcNotes.create({ lotId: lot.id, type: "debit", reason: "grade", kgDiffG: 0, boriDeductionG: 600 * KG }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await p.office.purchase.dcNotes.create({ lotId: lot.id, type: "debit", reason: "grade", kgDiffG: 0, boriDeductionG: 399 * KG });
+    const unweighed = await newLot(p, { fcKgG: undefined });
+    await expect(
+      p.office.purchase.dcNotes.create({ lotId: unweighed.id, type: "debit", reason: "grade", kgDiffG: 0, boriDeductionG: 1 * KG }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  test("race: FC kg lowered after the note read the lot — the bori note does not land", async () => {
+    const p = await plant();
+    const lot = await newLot(p, { partyKgG: 1_000 * KG, fcKgG: 1_000 * KG });
+    env.beforeNextBatch(() => p.storekeeper.purchase.lots.update({ id: lot.id, fcKgG: 500 * KG }));
+    await expect(
+      p.office.purchase.dcNotes.create({ lotId: lot.id, type: "debit", reason: "grade", kgDiffG: 0, boriDeductionG: 600 * KG }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await env.db.select().from(dcNote).where(eq(dcNote.lotId, lot.id))).toEqual([]);
+    expect(await env.db.select().from(approval).where(eq(approval.companyId, p.companyId))).toEqual([]);
+  });
+
+  test("race: FC kg cleared after a weight note read the lot — the note does not land", async () => {
+    const p = await plant();
+    const lot = await newLot(p, { fcKgG: 9_000 * KG });
+    env.beforeNextBatch(() => p.storekeeper.purchase.lots.update({ id: lot.id, fcKgG: null }));
+    await expect(
+      p.office.purchase.dcNotes.create({ lotId: lot.id, type: "debit", reason: "weight", kgDiffG: 1_000 * KG, boriDeductionG: 0 }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await env.db.select().from(dcNote).where(eq(dcNote.lotId, lot.id))).toEqual([]);
+  });
+
+  test("a live bori note locks the weights even on a grade note", async () => {
+    const p = await plant();
+    const lot = await newLot(p);
+    await p.office.purchase.dcNotes.create({ lotId: lot.id, type: "debit", reason: "grade", kgDiffG: 0, boriDeductionG: 10 * KG });
+    await expect(p.storekeeper.purchase.lots.update({ id: lot.id, fcKgG: 9_000 * KG })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await expect(p.storekeeper.purchase.lots.update({ id: lot.id, partyKgG: 11_000 * KG })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+  });
+
+  test("OK refuses a lot whose approved bori would leave no stock", async () => {
+    const p = await plant();
+    const lot = await newLot(p, { partyKgG: 1_000 * KG, fcKgG: 1_000 * KG });
+    // A note row from before the guard existed (or written around it).
+    await env.db.insert(dcNote).values({
+      id: crypto.randomUUID(), companyId: p.companyId, number: "DCN-X", period: "2026-27", lotId: lot.id,
+      type: "debit", reason: "grade", boriDeductionG: 1_000 * KG, toleranceBp: 50, status: "approved",
+    });
+    await expect(p.storekeeper.purchase.lots.advance({ id: lot.id, to: "ok" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await ledgerFor(p.companyId)).toEqual([]);
+  });
+
+  test("caps: party ≤ 100 t, rate ≤ ₹10,000/kg, kg diff ≤ party", async () => {
+    const p = await plant();
+    await expect(newLot(p, { partyKgG: 100_000_001 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(newLot(p, { ratePaise: 1_000_001 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await newLot(p, { partyKgG: 100_000_000, fcKgG: 100_000_000, ratePaise: 1_000_000 });
+    const lot = await newLot(p, { partyKgG: 1_000 * KG, fcKgG: 900 * KG });
+    await expect(
+      p.office.purchase.dcNotes.create({ lotId: lot.id, type: "debit", reason: "weight", kgDiffG: 1_000 * KG + 1, boriDeductionG: 0 }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  test("merging into a draft keeper is refused; removing an alias is audited once", async () => {
+    const p = await plant();
+    const draft = await p.operator.vendor.create({ name: "Draft Keeper" });
+    const dup = await p.manager.vendor.create({ name: "Draft Keepers", aliases: ["DK"] });
+    await expect(p.manager.vendor.merge({ keepId: draft.id, mergeIds: [dup.id] })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await p.manager.vendor.confirm({ id: draft.id });
+    expect((await p.manager.vendor.merge({ keepId: draft.id, mergeIds: [dup.id] })).merged).toBe(1);
+    const [alias] = await env.db.select().from(vendorAlias).where(eq(vendorAlias.alias, "DK"));
+    await Promise.allSettled([
+      p.manager.vendor.removeAlias({ id: alias!.id }),
+      p.admin.vendor.removeAlias({ id: alias!.id }),
+    ]);
+    const audits = await env.db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "vendor.alias.remove")));
+    expect(audits).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Dev seed
 // ---------------------------------------------------------------------------
 
 describe("dev seed: scrap purchase", () => {
   test("vendors with aliases, ten lots, one short lot with an approved D/C note; ledger = register; re-runnable", async () => {
     const { user } = await import("@orrn/db/schema");
-    for (const key of ["owner", "operator", "viewer", "staff"]) {
+    for (const key of ["owner", "operator", "viewer", "office", "staff"]) {
       await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` });
     }
     const seedPath = "../../../apps/server/src/dev-seed";

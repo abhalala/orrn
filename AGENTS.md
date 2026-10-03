@@ -242,7 +242,14 @@ bun run deploy
   that store holds less than the lot put there; when melts record the lot they draw from, tighten
   `lotCancelLeavesStockNonNegative` to "no draw on this lot".
 - After OK the stock fields (item, grade, party/FC kg) are locked; rate, bill no, dross stay editable.
-  Weights are locked while a weight note is pending or approved.
+  Weights are locked while a weight note or any note with bori is pending or approved.
+- Bori is allowed only on debit notes and needs FC kg; Σ live bori (pending + approved + new) < FC kg
+  is checked inside the note INSERT, and OK also requires FC − Σ approved bori > 0. Caps: lot weights
+  ≤ 100 t (1e8 g), rate ≤ ₹10,000/kg (1e6 paise), kg diff ≤ party kg.
+- `approval.list` is readable by every role, so a dc_note approval's `meta` carries only number, lot
+  and type/reason — never weights or money (rate = amount ÷ kg); `approval.list` also strips other
+  keys and the request note for callers without purchase read access. Approvers read the figures
+  from `purchase.dcNotes.get`. Merging needs a confirmed (active) keeper.
 
 ## Worker performance rules
 

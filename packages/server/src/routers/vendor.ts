@@ -18,7 +18,7 @@ import { company } from "@orrn/db/schema/tenant";
 
 import { actionProcedure, anyActionProcedure, router } from "../index";
 import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
-import { auditInsert, auditInsertGuarded } from "../lib/audit";
+import { auditInsertGuarded } from "../lib/audit";
 import { can } from "../lib/permissions";
 import { GSTIN_RE, nameKey } from "../lib/purchase";
 import { nextCompanySeq } from "../lib/sequence";
@@ -481,14 +481,15 @@ export const vendorRouter = router({
         .where(and(eq(vendorAlias.id, input.id), eq(vendorAlias.companyId, ctx.companyId)))
         .limit(1);
       if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+      const mine = and(eq(vendorAlias.id, row.id), eq(vendorAlias.companyId, ctx.companyId));
       await atomicBatch(ctx.db, [
-        ctx.db.delete(vendorAlias).where(and(eq(vendorAlias.id, row.id), eq(vendorAlias.companyId, ctx.companyId))),
-        auditInsert(ctx, {
-          action: "vendor.alias.remove",
-          subjectType: "vendor",
-          subjectId: row.vendorId,
-          meta: { alias: row.alias },
-        }),
+        // Audit first, guarded on the alias still existing: of two racing removes only one is audited.
+        auditInsertGuarded(
+          ctx,
+          { action: "vendor.alias.remove", subjectType: "vendor", subjectId: row.vendorId, meta: { alias: row.alias } },
+          { from: vendorAlias, where: mine },
+        ),
+        ctx.db.delete(vendorAlias).where(mine),
       ]);
       return { success: true };
     }),
@@ -516,6 +517,9 @@ export const vendorRouter = router({
       if (keep.status === "merged" || keep.status === "archived") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Keep a live vendor" });
       }
+      if (keep.status === "draft") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Confirm this vendor before merging others into it" });
+      }
       const rows = await ctx.db
         .select({ id: vendor.id, name: vendor.name, nameKey: vendor.nameKey, status: vendor.status })
         .from(vendor)
@@ -527,11 +531,7 @@ export const vendorRouter = router({
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const userId = ctx.session.user.id;
-      const keepLive = sql`exists (select 1 from ${vendor} k where k.id = ${keep.id} and k.company_id = ${ctx.companyId} and k.status in ('draft', 'active'))`;
-      const [lotsBefore] = await ctx.db
-        .select({ n: sql<number>`count(*)` })
-        .from(purchaseLot)
-        .where(and(eq(purchaseLot.companyId, ctx.companyId), inArray(purchaseLot.vendorId, mergeIds)));
+      const keepLive = sql`exists (select 1 from ${vendor} k where k.id = ${keep.id} and k.company_id = ${ctx.companyId} and k.status = 'active')`;
 
       // Names of merged vendors become aliases of the keeper (one per distinct key, never the keeper's own).
       const nameAliases = new Map<string, string>();
@@ -581,7 +581,7 @@ export const vendorRouter = router({
                   and(
                     eq(vendor.id, keep.id),
                     eq(vendor.companyId, ctx.companyId),
-                    inArray(vendor.status, LIVE),
+                    eq(vendor.status, "active"),
                     // Only when this request's merge landed for a vendor with that name.
                     sql`exists (select 1 from ${vendor} m where m.company_id = ${ctx.companyId} and m.name_key = ${key} and m.status = 'merged' and m.merged_into_id = ${keep.id} and m.server_seq = ${seq})`,
                   ),
@@ -611,6 +611,11 @@ export const vendorRouter = router({
         .where(and(eq(vendor.companyId, ctx.companyId), inArray(vendor.id, mergeIds), eq(vendor.serverSeq, seq), eq(vendor.status, "merged")));
       const merged = Number(mergedRow?.n ?? 0);
       if (merged === 0) throw new TRPCError({ code: "CONFLICT", message: "The vendors changed; try again" });
-      return { keepId: keep.id, merged, lotsMoved: Number(lotsBefore?.n ?? 0) };
+      // Lots this request moved carry its seq.
+      const [moved] = await ctx.db
+        .select({ n: sql<number>`count(*)` })
+        .from(purchaseLot)
+        .where(and(eq(purchaseLot.companyId, ctx.companyId), eq(purchaseLot.vendorId, keep.id), eq(purchaseLot.serverSeq, seq)));
+      return { keepId: keep.id, merged, lotsMoved: Number(moved?.n ?? 0) };
     }),
 });
