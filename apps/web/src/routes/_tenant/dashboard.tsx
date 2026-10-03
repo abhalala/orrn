@@ -4,12 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2, LockKeyhole } from "lucide-react";
 
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_tenant/dashboard")({
   component: RouteComponent,
-  beforeLoad: requireCompanyMe,
 });
 
 function RouteComponent() {

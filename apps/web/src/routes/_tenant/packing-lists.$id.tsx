@@ -13,13 +13,10 @@ import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
-import { requireCompanyMe } from "@/shared/lib/guards";
-import { downloadPackingListPdf, type PLSnapshot } from "@/shared/lib/packingListPdf";
-import { downloadPackingListXlsx } from "@/shared/lib/packingListXlsx";
+import { downloadPackingListPdf, downloadPackingListXlsx, type PLSnapshot } from "@/shared/lib/exports";
 
 export const Route = createFileRoute("/_tenant/packing-lists/$id")({
   component: PackingListDetailComponent,
-  beforeLoad: requireCompanyMe,
 });
 
 type SnapshotItem = PLSnapshot["items"][number];

@@ -12,14 +12,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // No pdf/xlsx/react chunks: a name-based "react" rule also matched
+          // @react-pdf and dragged the 1.4 MB renderer into every page's
+          // modulepreload list. Export libs load via dynamic import only.
           if (!id.includes("node_modules")) return undefined;
-          if (id.includes("@react-pdf")) return "pdf-export";
-          if (id.includes("xlsx")) return "xlsx";
           if (id.includes("@tanstack")) return "tanstack";
           if (id.includes("@radix-ui")) return "radix";
-          if (id.includes("react") || id.includes("react-dom")) {
-            return "react-vendor";
-          }
           if (id.includes("papaparse")) return "csv-parser";
           return undefined;
         },

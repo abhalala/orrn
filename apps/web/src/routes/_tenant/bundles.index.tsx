@@ -13,7 +13,6 @@ import { useState } from "react";
 
 import { Can } from "@/shared/components/can";
 import { ImportBundlesModal } from "@/shared/components/import-bundles-modal";
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -28,7 +27,6 @@ export const Route = createFileRoute("/_tenant/bundles/")({
     dieId: (search.dieId as string | undefined) ?? undefined,
     groupId: (search.groupId as string | undefined) ?? undefined,
   }),
-  beforeLoad: requireCompanyMe,
 });
 
 type BundleRow = {

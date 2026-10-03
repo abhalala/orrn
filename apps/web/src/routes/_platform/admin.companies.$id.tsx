@@ -13,13 +13,11 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
-import { setImpersonateCompanyId } from "@/shared/lib/impersonation";
-import { requirePlatformAdmin } from "@/shared/lib/guards";
+import { setImpersonation } from "@/shared/lib/impersonation";
 import { queryClient, trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_platform/admin/companies/$id")({
   component: AdminCompanyDetailComponent,
-  beforeLoad: requirePlatformAdmin,
 });
 
 type GrantRow = {
@@ -60,7 +58,7 @@ function AdminCompanyDetailComponent() {
   const impersonateMutation = useMutation({
     ...trpc.platform.impersonationCreateGrant.mutationOptions(),
     onSuccess: (grant) => {
-      setImpersonateCompanyId(grant.companyId);
+      setImpersonation(grant.companyId, grant.expiresAt);
       queryClient.clear();
       toast.success("Impersonation grant created");
       window.location.href = "/dashboard";

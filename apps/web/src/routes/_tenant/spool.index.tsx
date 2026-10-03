@@ -18,14 +18,12 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 // ─── Route ─────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/_tenant/spool/")({
   component: SpoolComponent,
-  beforeLoad: requireCompanyMe,
 });
 
 // ─── Types ──────────────────────────────────────────────────────────────────

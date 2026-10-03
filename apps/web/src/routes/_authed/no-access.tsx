@@ -3,9 +3,8 @@ import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@orrn/ui/components/card";
 import { ShieldAlert } from "lucide-react";
 
-import { authClient } from "@/shared/lib/auth-client";
+import { signOutAndReset } from "@/shared/lib/sign-out";
 import { useMe } from "@/shared/lib/me";
-import { queryClient } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_authed/no-access")({
   component: NoAccessComponent,
@@ -36,14 +35,7 @@ function NoAccessComponent() {
           variant="ghost"
           className="text-muted-foreground"
           onClick={() => {
-            authClient.signOut({
-              fetchOptions: {
-                onSuccess: () => {
-                  queryClient.clear();
-                  navigate({ to: "/" });
-                },
-              },
-            });
+            void signOutAndReset(() => navigate({ to: "/" }));
           }}
         >
           Sign out

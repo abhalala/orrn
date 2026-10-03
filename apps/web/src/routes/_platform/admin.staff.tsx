@@ -16,12 +16,10 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { Can } from "@/shared/components/can";
-import { requirePlatformAdmin } from "@/shared/lib/guards";
 import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_platform/admin/staff")({
-  beforeLoad: requirePlatformAdmin,
   component: StaffAdminPage,
 });
 

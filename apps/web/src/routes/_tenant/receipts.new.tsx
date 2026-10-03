@@ -12,12 +12,10 @@ import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Toolbar } from "@orrn/ui/components/toolbar";
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { useLengthUnit } from "@/shared/lib/length";
 
 export const Route = createFileRoute("/_tenant/receipts/new")({
   component: NewReceiptComponent,
-  beforeLoad: requireCompanyMe,
 });
 
 type Row = { id: string; quantity: string; weightG: string; lengthMm: string; poNumber: string };

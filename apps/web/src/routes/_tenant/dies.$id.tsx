@@ -12,14 +12,12 @@ import { z } from "zod";
 
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 const dieStatuses = ["active", "archived"] as const;
 
 export const Route = createFileRoute("/_tenant/dies/$id")({
   component: DieFormComponent,
-  beforeLoad: requireCompanyMe,
 });
 
 function DieFormComponent() {

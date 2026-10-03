@@ -11,7 +11,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { useLengthUnit } from "@/shared/lib/length";
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
@@ -22,7 +21,6 @@ export const Route = createFileRoute("/_tenant/stock/")({
   validateSearch: (search: Record<string, unknown>) => ({
     status: (search.status as BundleStatus | undefined) ?? "available",
   }),
-  beforeLoad: requireCompanyMe,
 });
 
 type BundleStockRow = {

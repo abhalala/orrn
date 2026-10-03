@@ -12,7 +12,8 @@ import ReactDOM from "react-dom/client";
 
 import Loader from "@/shared/components/loader";
 import { routeTree } from "./routeTree.gen";
-import { queryClient, trpc } from "@/shared/utils/trpc";
+import { isPublicPath } from "@/shared/lib/session-errors";
+import { queryClient, registerSessionEndedHandler, trpc } from "@/shared/utils/trpc";
 
 const router = createRouter({
   routeTree,
@@ -40,6 +41,26 @@ const router = createRouter({
   Wrap: function WrapComponent({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   },
+});
+
+/**
+ * The session ended mid-use (UNAUTHORIZED from any query or mutation): go to
+ * /login and come back to this page afterwards. Skipped on public pages, and
+ * while a navigation is pending (the route guard answers that one itself with
+ * its own redirect), so it can never fight a guard into a loop.
+ */
+let leavingForLogin = false;
+registerSessionEndedHandler(() => {
+  if (leavingForLogin || router.state.status === "pending") return;
+  const { pathname, href } = router.state.location;
+  if (isPublicPath(pathname)) return;
+  leavingForLogin = true;
+  void router
+    .navigate({ to: "/login", search: { next: href }, replace: true })
+    .then(() => queryClient.clear())
+    .finally(() => {
+      leavingForLogin = false;
+    });
 });
 
 function WebNotFoundPage() {

@@ -12,7 +12,7 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import { authClient } from "../lib/auth-client";
-import { queryClient } from "../utils/trpc";
+import { signOutAndReset } from "../lib/sign-out";
 
 export default function UserMenu({ signInTo = "/login" }: { signInTo?: string }) {
   const navigate = useNavigate();
@@ -43,18 +43,7 @@ export default function UserMenu({ signInTo = "/login" }: { signInTo?: string })
           <DropdownMenuItem
             variant="destructive"
             onClick={() => {
-              authClient.signOut({
-                fetchOptions: {
-                  onSuccess: () => {
-                    // Drop ALL cached data so a different user on the same
-                    // browser doesn't see the previous tenant's lists.
-                    queryClient.clear();
-                    navigate({
-                      to: "/",
-                    });
-                  },
-                },
-              });
+              void signOutAndReset(() => navigate({ to: "/" }));
             }}
           >
             Sign out

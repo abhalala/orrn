@@ -1,41 +1,38 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
-import { useMe } from "../lib/me";
+import { dropTenantQueries, isAuthMeQueryKey } from "../lib/tenant-cache";
 import { queryClient } from "../utils/trpc";
 
+type MeData = { company?: { id?: string } | null } | undefined;
+
+function companyIdOf(data: unknown): string | null {
+  return (data as MeData)?.company?.id ?? null;
+}
+
 /**
- * Clears all cached React Query data whenever the active company changes
- * (sign-in as different user, invite-accept switching companies, or
- * impersonation start/stop). This prevents the previous tenant's lists from
- * flashing on the new tenant's screens.
+ * Mounted once in `__root.tsx`. Watches `auth.me` in the query cache and, when
+ * the active company changes (different user signs in, invite switches company,
+ * impersonation starts or stops), drops every other cached query so the
+ * previous tenant's lists never flash on the new tenant's screens.
+ *
+ * It subscribes to the cache instead of calling `useMe()`, so public pages do
+ * not fire an `auth.me` request just to mount this guard.
  */
 export function TenantCacheGuard() {
-  const { data: me } = useMe();
-  const lastCompanyIdRef = useRef<string | null | undefined>(undefined);
-
   useEffect(() => {
-    const next = me?.company?.id ?? null;
-    const prev = lastCompanyIdRef.current;
+    const cache = queryClient.getQueryCache();
+    const existing = cache.getAll().find((q) => isAuthMeQueryKey(q.queryKey));
+    let current: string | null | undefined = existing?.state.data ? companyIdOf(existing.state.data) : undefined;
 
-    // First load — just record the company id, don't drop the cache (we may
-    // have just prefetched it during a route guard).
-    if (prev === undefined) {
-      lastCompanyIdRef.current = next;
-      return;
-    }
-
-    if (prev !== next) {
-      queryClient.removeQueries({
-        predicate: (q) => {
-          // Keep the auth.me query itself so re-fetch is fast.
-          const head = Array.isArray(q.queryKey) ? q.queryKey[0] : null;
-          if (typeof head === "string" && head.startsWith("auth")) return false;
-          return true;
-        },
-      });
-      lastCompanyIdRef.current = next;
-    }
-  }, [me?.company?.id]);
+    return cache.subscribe((event) => {
+      if (event.type !== "updated" || event.action.type !== "success") return;
+      if (!isAuthMeQueryKey(event.query.queryKey)) return;
+      const next = companyIdOf(event.query.state.data);
+      // First observation just records the company; it may have been prefetched by a guard.
+      if (current !== undefined && current !== next) dropTenantQueries(queryClient);
+      current = next;
+    });
+  }, []);
 
   return null;
 }

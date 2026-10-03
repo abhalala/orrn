@@ -15,6 +15,7 @@ import { Route as PlatformRouteImport } from './routes/_platform'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as Char91__uiChar93RouteImport } from './routes/[__ui]'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as TenantTodayRouteImport } from './routes/_tenant/today'
 import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
 import { Route as PublicWaitlistRouteImport } from './routes/_public/waitlist'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
@@ -71,6 +72,11 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PublicRoute,
+} as any)
+const TenantTodayRoute = TenantTodayRouteImport.update({
+  id: '/today',
+  path: '/today',
+  getParentRoute: () => TenantRoute,
 } as any)
 const TenantDashboardRoute = TenantDashboardRouteImport.update({
   id: '/dashboard',
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof PublicLoginRoute
   '/waitlist': typeof PublicWaitlistRoute
   '/dashboard': typeof TenantDashboardRoute
+  '/today': typeof TenantTodayRoute
   '/admin/staff': typeof PlatformAdminStaffRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/invite/$token': typeof PublicInviteTokenRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   '/login': typeof PublicLoginRoute
   '/waitlist': typeof PublicWaitlistRoute
   '/dashboard': typeof TenantDashboardRoute
+  '/today': typeof TenantTodayRoute
   '/admin/staff': typeof PlatformAdminStaffRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/invite/$token': typeof PublicInviteTokenRoute
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   '/_public/login': typeof PublicLoginRoute
   '/_public/waitlist': typeof PublicWaitlistRoute
   '/_tenant/dashboard': typeof TenantDashboardRoute
+  '/_tenant/today': typeof TenantTodayRoute
   '/_public/': typeof PublicIndexRoute
   '/_platform/admin/staff': typeof PlatformAdminStaffRoute
   '/_platform/admin/waitlist': typeof PlatformAdminWaitlistRoute
@@ -344,6 +353,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/waitlist'
     | '/dashboard'
+    | '/today'
     | '/admin/staff'
     | '/admin/waitlist'
     | '/invite/$token'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/waitlist'
     | '/dashboard'
+    | '/today'
     | '/admin/staff'
     | '/admin/waitlist'
     | '/invite/$token'
@@ -415,6 +426,7 @@ export interface FileRouteTypes {
     | '/_public/login'
     | '/_public/waitlist'
     | '/_tenant/dashboard'
+    | '/_tenant/today'
     | '/_public/'
     | '/_platform/admin/staff'
     | '/_platform/admin/waitlist'
@@ -492,6 +504,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRoute
+    }
+    '/_tenant/today': {
+      id: '/_tenant/today'
+      path: '/today'
+      fullPath: '/today'
+      preLoaderRoute: typeof TenantTodayRouteImport
+      parentRoute: typeof TenantRoute
     }
     '/_tenant/dashboard': {
       id: '/_tenant/dashboard'
@@ -764,6 +783,7 @@ const PublicRouteWithChildren =
 
 interface TenantRouteChildren {
   TenantDashboardRoute: typeof TenantDashboardRoute
+  TenantTodayRoute: typeof TenantTodayRoute
   TenantBundlesIdRoute: typeof TenantBundlesIdRoute
   TenantCustomersIdRoute: typeof TenantCustomersIdRoute
   TenantDiesIdRoute: typeof TenantDiesIdRoute
@@ -784,6 +804,7 @@ interface TenantRouteChildren {
 
 const TenantRouteChildren: TenantRouteChildren = {
   TenantDashboardRoute: TenantDashboardRoute,
+  TenantTodayRoute: TenantTodayRoute,
   TenantBundlesIdRoute: TenantBundlesIdRoute,
   TenantCustomersIdRoute: TenantCustomersIdRoute,
   TenantDiesIdRoute: TenantDiesIdRoute,

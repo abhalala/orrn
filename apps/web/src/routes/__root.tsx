@@ -11,6 +11,7 @@ import { Suspense, lazy } from "react";
 import { NavigationProgress } from "@/shared/components/navigation-progress";
 import { RootNotFound } from "@/shared/components/not-found";
 import { RouterLink } from "@/shared/components/router-link";
+import { TenantCacheGuard } from "@/shared/components/tenant-cache-guard";
 import { ThemeColorSync, ThemeProvider } from "@/shared/components/theme-provider";
 import type { trpc } from "@/shared/utils/trpc";
 import "../index.css";
@@ -61,6 +62,7 @@ function RootComponent() {
       >
         <ThemeColorSync />
         <NavigationProgress />
+        <TenantCacheGuard />
         {/* @orrn/ui links (tiles, list rows, back links) navigate through the router. */}
         <LinkProvider component={RouterLink}>
           <Outlet />

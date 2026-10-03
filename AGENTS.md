@@ -49,8 +49,8 @@ bun run deploy
   not roll your own per-route session checks.
 - Clear the React Query cache (`queryClient.clear()`) on sign-out, and drop
   all non-`auth.me` queries when the active `companyId` changes. The
-  `TenantCacheGuard` on web and its native equivalent handle this — do not
-  delete them.
+  `TenantCacheGuard` on web (mounted once in `__root.tsx`) and its native
+  equivalent handle this — do not delete them.
 
 ## Roles & client-side capability gating
 
@@ -74,6 +74,7 @@ bun run deploy
   revoked). Never accept impersonation targets from the request body.
 - Platform admins create grants via `platform.impersonationCreateGrant` (web
   console). The web client stores the target `companyId` in `sessionStorage`
+  (with the grant's `expiresAt`; expired or corrupt values are dropped on read)
   and sends it as the header on every tRPC request. Revoke via
   `platform.impersonationRevokeGrant` when stopping impersonation.
 - If the header is present but the grant is missing, expired, or revoked,

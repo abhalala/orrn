@@ -11,13 +11,11 @@ import { format } from "date-fns";
 
 import { Can } from "@/shared/components/can";
 import { BundlePrintButton } from "@/shared/components/bundle-print-button";
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_tenant/receipts/$id")({
   component: ReceiptDetailComponent,
-  beforeLoad: requireCompanyMe,
 });
 
 type BundleRow = {

@@ -11,12 +11,10 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { Can } from "@/shared/components/can";
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_tenant/customers/$id")({
   component: CustomerFormComponent,
-  beforeLoad: requireCompanyMe,
 });
 
 function CustomerFormComponent() {

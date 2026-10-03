@@ -6,8 +6,8 @@ import { HeroSection } from "@/features/marketing/sections/hero";
 import { ModulesSection } from "@/features/marketing/sections/modules";
 import { TenantFirstSection } from "@/features/marketing/sections/tenant-first";
 import { WorkflowSection } from "@/features/marketing/sections/workflow";
-import type { Me } from "@/shared/lib/me";
-import { trpc } from "@/shared/utils/trpc";
+import { loadMe } from "@/shared/lib/guards";
+import { homeTarget } from "@/shared/lib/home";
 
 export const Route = createFileRoute("/_public/")({
   /**
@@ -15,14 +15,9 @@ export const Route = createFileRoute("/_public/")({
    * they never see a flash of the landing content.
    */
   beforeLoad: async ({ context }) => {
-    let me: Me | null = null;
-    try {
-      me = (await context.queryClient.ensureQueryData(trpc.auth.me.queryOptions())) as Me;
-    } catch {
-      me = null;
-    }
+    const me = await loadMe(context.queryClient);
     if (me?.user) {
-      throw redirect({ to: me.isPlatformAdmin ? "/admin" : "/dashboard" });
+      throw redirect({ to: homeTarget(me) });
     }
   },
   component: HomeComponent,

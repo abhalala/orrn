@@ -1,0 +1,52 @@
+import { describe, expect, test } from "bun:test";
+
+import {
+  isClientError,
+  isImpersonationForbidden,
+  isPublicPath,
+  isUnauthorized,
+  shouldRetryQuery,
+} from "./session-errors";
+
+const trpcErr = (code: string, httpStatus: number, message = "x") => ({ message, data: { code, httpStatus } });
+
+describe("session error classification", () => {
+  test("recognises UNAUTHORIZED", () => {
+    expect(isUnauthorized(trpcErr("UNAUTHORIZED", 401))).toBe(true);
+    expect(isUnauthorized(trpcErr("FORBIDDEN", 403))).toBe(false);
+    expect(isUnauthorized(new Error("boom"))).toBe(false);
+    expect(isUnauthorized(null)).toBe(false);
+  });
+
+  test("recognises the impersonation grant FORBIDDEN by its server message", () => {
+    expect(
+      isImpersonationForbidden(trpcErr("FORBIDDEN", 403, "Invalid, expired, or revoked impersonation grant")),
+    ).toBe(true);
+    expect(isImpersonationForbidden(trpcErr("FORBIDDEN", 403, "Company access required"))).toBe(false);
+    expect(isImpersonationForbidden(trpcErr("UNAUTHORIZED", 401, "Invalid, expired, or revoked impersonation grant"))).toBe(false);
+  });
+
+  test("4xx is a client error, 5xx and network errors are not", () => {
+    expect(isClientError(trpcErr("BAD_REQUEST", 400))).toBe(true);
+    expect(isClientError(trpcErr("NOT_FOUND", 404))).toBe(true);
+    expect(isClientError(trpcErr("INTERNAL_SERVER_ERROR", 500))).toBe(false);
+    expect(isClientError(new TypeError("Failed to fetch"))).toBe(false);
+  });
+
+  test("retry: never on 4xx, up to 3 times otherwise", () => {
+    expect(shouldRetryQuery(0, trpcErr("UNAUTHORIZED", 401))).toBe(false);
+    expect(shouldRetryQuery(0, trpcErr("FORBIDDEN", 403))).toBe(false);
+    expect(shouldRetryQuery(0, trpcErr("INTERNAL_SERVER_ERROR", 500))).toBe(true);
+    expect(shouldRetryQuery(2, new TypeError("Failed to fetch"))).toBe(true);
+    expect(shouldRetryQuery(3, new TypeError("Failed to fetch"))).toBe(false);
+  });
+
+  test("public paths never bounce to login", () => {
+    for (const p of ["/", "/login", "/waitlist", "/invite/abc", "/request-access"]) {
+      expect(isPublicPath(p)).toBe(true);
+    }
+    for (const p of ["/today", "/dashboard", "/admin", "/dispatches/1", "/loginx"]) {
+      expect(isPublicPath(p)).toBe(false);
+    }
+  });
+});

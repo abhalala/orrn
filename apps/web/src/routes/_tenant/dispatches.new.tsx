@@ -9,12 +9,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_tenant/dispatches/new")({
   component: NewDispatchComponent,
-  beforeLoad: requireCompanyMe,
 });
 
 function NewDispatchComponent() {

@@ -3,20 +3,18 @@ import { useQuery } from "@tanstack/react-query";
 
 import ForcePasswordChangeForm from "@/shared/components/force-password-change-form";
 import type { Me } from "@/shared/lib/me";
+import { loadMe } from "@/shared/lib/guards";
+import { homeTarget } from "@/shared/lib/home";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_authed/change-password")({
   beforeLoad: async ({ context }) => {
-    const me = await context.queryClient
-      .ensureQueryData(trpc.auth.me.queryOptions())
-      .catch(() => null);
-
+    const me = await loadMe(context.queryClient);
     if (!me) {
       throw redirect({ to: "/login" });
     }
-    const typed = me as Me;
-    if (!typed.user.mustChangePassword) {
-      throw redirect({ to: typed.isPlatformAdmin ? "/admin" : "/dashboard" });
+    if (!me.user.mustChangePassword) {
+      throw redirect({ to: homeTarget(me) });
     }
   },
   component: ChangePasswordComponent,

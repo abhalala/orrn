@@ -1,7 +1,7 @@
 import { ImpersonationBanner as SharedImpersonationBanner } from "@orrn/ui/components/impersonation-banner";
 import { useMutation } from "@tanstack/react-query";
 
-import { clearImpersonateCompanyId } from "../lib/impersonation";
+import { clearImpersonation } from "../lib/impersonation";
 import { useMe } from "../lib/me";
 import { queryClient, trpc } from "../utils/trpc";
 
@@ -25,7 +25,7 @@ export function ImpersonationBanner() {
       onStop={() => {
         const grantId = me.impersonation?.grantId;
         const finish = () => {
-          clearImpersonateCompanyId();
+          clearImpersonation();
           queryClient.clear();
           window.location.reload();
         };

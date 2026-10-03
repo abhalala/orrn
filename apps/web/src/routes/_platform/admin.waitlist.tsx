@@ -9,12 +9,10 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
-import { requirePlatformAdmin } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_platform/admin/waitlist")({
   component: AdminWaitlistComponent,
-  beforeLoad: requirePlatformAdmin,
 });
 
 type WaitlistRow = {

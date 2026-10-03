@@ -9,17 +9,16 @@ import { toast } from "sonner";
 import z from "zod";
 
 import { authClient } from "../lib/auth-client";
+import { homeTarget } from "../lib/home";
+import type { Me } from "../lib/me";
+import { safeNext } from "../lib/safe-next";
 import { queryClient, trpc } from "../utils/trpc";
-
-export type SignInTarget = "erp" | "staff";
 
 export default function SignInForm({
   next,
-  target = "erp",
   showWaitlistLink = true,
 }: {
   next?: string;
-  target?: SignInTarget;
   showWaitlistLink?: boolean;
 }) {
   const [showTwoFactor, setShowTwoFactor] = useState(false);
@@ -29,28 +28,19 @@ export default function SignInForm({
   const handleSuccessRedirect = async () => {
     queryClient.removeQueries();
 
-    let mustChangePassword = false;
+    // Role-aware landing (staff to /admin, unfinished setup to the welcome
+    // steps); `next` is honoured only when it is a same-origin path (W4).
+    let destination = "/today";
     try {
-      const me = await queryClient.fetchQuery(trpc.auth.me.queryOptions());
-      mustChangePassword = Boolean(me?.user.mustChangePassword);
+      const me = (await queryClient.fetchQuery(trpc.auth.me.queryOptions())) as Me;
+      const home = homeTarget(me);
+      destination = home === "/today" || home === "/admin" ? safeNext(next, home) : home;
     } catch {
-      // Default redirect remains valid when auth.me is temporarily unavailable.
+      destination = safeNext(next, "/today");
     }
 
-    if (mustChangePassword) {
-      window.location.href = "/change-password";
-      return;
-    }
-
-    let redirectUrl = target === "staff" ? "/admin" : "/dashboard";
-    if (next) {
-      redirectUrl = next.startsWith("http://") || next.startsWith("https://")
-        ? next
-        : next.startsWith("/") ? next : `/${next}`;
-    }
-
-    window.location.href = redirectUrl;
     toast.success("Sign in successful");
+    window.location.href = destination;
   };
 
   const handleTotpSubmit = async () => {
@@ -110,14 +100,12 @@ export default function SignInForm({
       <Card className="w-full self-center gap-6 p-6 shadow-md sm:p-8">
       <CardHeader className="w-full gap-2">
         <h1 className="m-0 font-display text-[34px] font-extrabold leading-[1.05] tracking-[-0.035em] text-foreground">
-          {showTwoFactor ? "Verification" : target === "staff" ? "Staff sign in" : "Sign in"}
+          {showTwoFactor ? "Verification" : "Sign in"}
         </h1>
         <CardDescription className="text-[15px] leading-6">
           {showTwoFactor
             ? "Enter the 6-digit code from your authenticator app."
-            : target === "staff"
-              ? "Access the Godseye platform console."
-              : "Access your ORRN workspace."}
+            : "Access your ORRN workspace."}
         </CardDescription>
       </CardHeader>
       <CardContent className="w-full">
@@ -227,15 +215,9 @@ export default function SignInForm({
         {!showTwoFactor && showWaitlistLink ? (
           <div className="mt-3 border-t border-border pt-5 text-center text-sm text-muted-foreground">
             Need access?{" "}
-            {target === "staff" ? (
-              <a href="/waitlist" className="font-semibold text-foreground underline decoration-control underline-offset-4 hover:decoration-foreground">
-                Request access on orrn.in
-              </a>
-            ) : (
-              <Link to="/waitlist" className="font-semibold text-foreground underline decoration-control underline-offset-4 hover:decoration-foreground">
-                Request a demo or join the waitlist
-              </Link>
-            )}
+            <Link to="/waitlist" className="font-semibold text-foreground underline decoration-control underline-offset-4 hover:decoration-foreground">
+              Request a demo or join the waitlist
+            </Link>
           </div>
         ) : null}
       </CardContent>

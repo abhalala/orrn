@@ -12,13 +12,11 @@ import { Building2, CheckCircle2, ClipboardList, PauseCircle, Printer, Users } f
 import { NavCard } from "@/shared/components/admin/nav-card";
 import { StatCard } from "@/shared/components/admin/stat-card";
 import { Can } from "@/shared/components/can";
-import { requirePlatformAdmin } from "@/shared/lib/guards";
 import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_platform/admin/")({
   component: AdminIndexComponent,
-  beforeLoad: requirePlatformAdmin,
 });
 
 type RecentCompanyRow = {

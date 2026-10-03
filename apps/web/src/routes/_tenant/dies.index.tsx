@@ -12,12 +12,10 @@ import { useState } from "react";
 
 import { Can } from "@/shared/components/can";
 import { ImportDiesModal } from "@/shared/components/import-dies-modal";
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_tenant/dies/")({
   component: DiesListComponent,
-  beforeLoad: requireCompanyMe,
 });
 
 type DieRow = {

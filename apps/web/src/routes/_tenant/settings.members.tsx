@@ -14,7 +14,6 @@ import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 const companyRoles = ["owner", "admin", "manager", "operator", "viewer"] as const;
@@ -36,7 +35,6 @@ type InviteRow = {
 
 export const Route = createFileRoute("/_tenant/settings/members")({
   component: MembersComponent,
-  beforeLoad: requireCompanyMe,
 });
 
 function MembersComponent() {

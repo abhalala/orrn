@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { BundlePrintButton } from "@/shared/components/bundle-print-button";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
@@ -22,7 +21,6 @@ type BundleStatus = (typeof bundleStatuses)[number];
 
 export const Route = createFileRoute("/_tenant/bundles/$id")({
   component: BundleDetailComponent,
-  beforeLoad: requireCompanyMe,
 });
 
 function BundleDetailComponent() {

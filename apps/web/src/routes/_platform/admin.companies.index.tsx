@@ -13,8 +13,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
-import { setImpersonateCompanyId } from "@/shared/lib/impersonation";
-import { requirePlatformAdmin } from "@/shared/lib/guards";
+import { setImpersonation } from "@/shared/lib/impersonation";
 import { queryClient, trpc } from "@/shared/utils/trpc";
 
 const COMPANY_STATUSES = ["pending", "active", "suspended"] as const;
@@ -23,7 +22,6 @@ type StatusFilter = CompanyStatus | "all";
 
 export const Route = createFileRoute("/_platform/admin/companies/")({
   component: AdminCompaniesComponent,
-  beforeLoad: requirePlatformAdmin,
   validateSearch: (search: Record<string, unknown>) => ({
     status: (search.status as StatusFilter | undefined) ?? "all",
   }),
@@ -76,7 +74,7 @@ function AdminCompaniesComponent() {
   const impersonateMutation = useMutation({
     ...trpc.platform.impersonationCreateGrant.mutationOptions(),
     onSuccess: (grant) => {
-      setImpersonateCompanyId(grant.companyId);
+      setImpersonation(grant.companyId, grant.expiresAt);
       queryClient.clear();
       toast.success("Impersonation grant created — loading tenant view");
       window.location.href = "/dashboard";

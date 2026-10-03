@@ -12,7 +12,6 @@ import { format } from "date-fns";
 import { useState } from "react";
 
 import { Can } from "@/shared/components/can";
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 const dispatchStatuses = ["draft", "reserved", "completed", "cancelled"] as const;
@@ -24,7 +23,6 @@ export const Route = createFileRoute("/_tenant/dispatches/")({
   validateSearch: (search: Record<string, unknown>) => ({
     status: (search.status as StatusFilter | undefined) ?? "all",
   }),
-  beforeLoad: requireCompanyMe,
 });
 
 type DispatchRow = {

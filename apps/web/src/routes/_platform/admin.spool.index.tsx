@@ -16,7 +16,6 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
-import { requirePlatformAdmin } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 const DEPLOYMENT_STATUSES = ["pending", "active", "revoked"] as const;
@@ -27,7 +26,6 @@ const SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
 export const Route = createFileRoute("/_platform/admin/spool/")({
   component: AdminSpoolComponent,
-  beforeLoad: requirePlatformAdmin,
   validateSearch: (search: Record<string, unknown>) => ({
     status: (search.status as StatusFilter | undefined) ?? "all",
   }),

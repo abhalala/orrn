@@ -10,12 +10,10 @@ import { format } from "date-fns";
 import { useState } from "react";
 
 import { Can } from "@/shared/components/can";
-import { requireCompanyMe } from "@/shared/lib/guards";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_tenant/receipts/")({
   component: ReceiptsListComponent,
-  beforeLoad: requireCompanyMe,
 });
 
 type ReceiptRow = {
