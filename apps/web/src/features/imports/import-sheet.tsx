@@ -51,7 +51,7 @@ type Stage =
   | ({ name: "review"; dieCheck?: DieCheck } & Loaded)
   | ({ name: "saving"; dieCheck?: DieCheck } & Loaded & Progress)
   | ({ name: "failed"; dieCheck?: DieCheck; failedChunk: number; message: string } & Loaded & Progress)
-  | { name: "done"; count: number; newDies: number };
+  | { name: "done"; count: number; newDies: number; sheet: SheetRows; rejected: readonly RejectedRow[] };
 
 type Op = { row: number; data: ParsedRow; existingId?: string };
 
@@ -84,6 +84,15 @@ function errorMessage(error: unknown, t: Translate): string {
 
 function describeRejected(r: RejectedRow, t: Translate) {
   return t(r.reason, { column: r.column, ...r.vars });
+}
+
+function downloadProblems(kind: ImportKind, sheet: SheetRows, rejected: readonly RejectedRow[], t: Translate) {
+  downloadCsv(
+    `orrn-${kind}-problems.csv`,
+    problemsCsv(sheet, rejected, { row: t("imports.preview.row"), problem: t("imports.problemColumn") }, (r) =>
+      describeRejected(r, t),
+    ),
+  );
 }
 
 /**
@@ -251,7 +260,7 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
       return;
     }
     toast.success(t("settings.data.imported", { count: run.done }));
-    setStage({ name: "done", count: run.done, newDies });
+    setStage({ name: "done", count: run.done, newDies, sheet: loaded.sheet, rejected: plan.rejected });
     onImported?.(run.done);
   };
 
@@ -320,7 +329,12 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
         ) : stage.name === "reading" || stage.name === "checking" ? (
           <ReadingStage name={stage.file.name} checking={stage.name === "checking"} />
         ) : stage.name === "done" ? (
-          <DoneStage count={stage.count} newDies={stage.newDies} />
+          <DoneStage
+            count={stage.count}
+            newDies={stage.newDies}
+            problems={stage.rejected.length}
+            onDownloadProblems={() => downloadProblems(kind, stage.sheet, stage.rejected, t)}
+          />
         ) : (
           <>
             <FileRow
@@ -684,17 +698,7 @@ function ReviewStage({
           <div>
             <Button
               variant="secondary"
-              onClick={() =>
-                downloadCsv(
-                  `orrn-${kind}-problems.csv`,
-                  problemsCsv(
-                    sheet,
-                    rejected,
-                    { row: t("imports.preview.row"), problem: t("imports.problemColumn") },
-                    (r) => describeRejected(r, t),
-                  ),
-                )
-              }
+              onClick={() => downloadProblems(kind, sheet, rejected, t)}
             >
               <Download aria-hidden="true" strokeWidth={2} />
               {t("imports.downloadProblems")}
@@ -877,7 +881,17 @@ function FailedStage({
   );
 }
 
-function DoneStage({ count, newDies }: { count: number; newDies: number }) {
+function DoneStage({
+  count,
+  newDies,
+  problems,
+  onDownloadProblems,
+}: {
+  count: number;
+  newDies: number;
+  problems: number;
+  onDownloadProblems(): void;
+}) {
   const { t } = useT();
   return (
     <div className="flex flex-col gap-4">
@@ -896,6 +910,15 @@ function DoneStage({ count, newDies }: { count: number; newDies: number }) {
           <Info aria-hidden="true" strokeWidth={2} className="mt-1 size-[18px] shrink-0 text-muted-foreground" />
           <span className="min-w-0 break-words">{t("imports.newDies", { count: newDies })}</span>
         </p>
+      ) : null}
+      {problems > 0 ? (
+        <div className="flex flex-col items-start gap-2">
+          <p className="m-0 text-[15px] leading-6 text-foreground">{t("settings.data.rowsRejected", { count: problems })}</p>
+          <Button variant="secondary" onClick={onDownloadProblems}>
+            <Download aria-hidden="true" strokeWidth={2} />
+            {t("imports.downloadProblems")}
+          </Button>
+        </div>
       ) : null}
     </div>
   );
