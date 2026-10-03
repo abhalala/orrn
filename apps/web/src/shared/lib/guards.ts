@@ -19,30 +19,51 @@ type GuardArgs = {
 /** Session check is cheap but must not go stale for a whole visit (W11). */
 export const ME_STALE_MS = 30_000;
 
-function fetchMe(queryClient: QueryClient) {
-  return queryClient.fetchQuery({ ...trpc.auth.me.queryOptions(), staleTime: ME_STALE_MS });
+/**
+ * Guard-time options for `auth.me`: no retries (a guard must answer fast) and
+ * `networkMode: "always"` so an offline navigation attempts the request and
+ * fails, instead of pausing forever and hanging the navigation.
+ */
+function meGuardOptions() {
+  return {
+    ...trpc.auth.me.queryOptions(),
+    staleTime: ME_STALE_MS,
+    retry: false as const,
+    networkMode: "always" as const,
+  };
 }
 
 /**
- * Current `auth.me`, revalidated at most every 30 s. Null means signed out.
- * A FORBIDDEN impersonation-grant error (expired or revoked grant) drops the
- * stored grant and retries once as the plain user instead of looping (W2).
+ * Current `auth.me`. Null means signed out, and only means that when the
+ * server says UNAUTHORIZED or there is no cached `me` to fall back on.
+ *
+ * - Cached `me` (fresh or stale): returned immediately. When stale it
+ *   revalidates in the background, so a dead session (401) still reaches the
+ *   global handler and a 5xx or offline blip never bounces a signed-in user to
+ *   /login or hangs the navigation.
+ * - No cache: fetched once. UNAUTHORIZED or any other failure means null.
+ * - A FORBIDDEN impersonation-grant error (expired or revoked grant) drops the
+ *   stored grant and retries once as the plain user instead of looping (W2).
  */
 export async function loadMe(queryClient: QueryClient): Promise<Me | null> {
+  const options = meGuardOptions();
+  if (queryClient.getQueryData(options.queryKey) !== undefined) {
+    return (await queryClient.ensureQueryData({ ...options, revalidateIfStale: true })) as Me;
+  }
   try {
-    return (await fetchMe(queryClient)) as Me;
+    return (await queryClient.fetchQuery(options)) as Me;
   } catch (error) {
     if (!isImpersonationForbidden(error)) return null;
     clearImpersonation();
     try {
-      return (await fetchMe(queryClient)) as Me;
+      return (await queryClient.fetchQuery(meGuardOptions())) as Me;
     } catch {
       return null;
     }
   }
 }
 
-function toLogin(location: { href: string }) {
+export function toLogin(location: { href: string }) {
   return redirect({ to: "/login", search: { next: location.href } });
 }
 

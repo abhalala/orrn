@@ -31,10 +31,3 @@ export function shouldRetryQuery(failureCount: number, error: unknown): boolean 
   if (isClientError(error)) return false;
   return failureCount < 3;
 }
-
-const PUBLIC_EXACT = new Set(["/", "/login", "/waitlist", "/request-access"]);
-
-/** Paths that render for signed-out visitors, so an UNAUTHORIZED there must not redirect. */
-export function isPublicPath(pathname: string): boolean {
-  return PUBLIC_EXACT.has(pathname) || pathname.startsWith("/invite/");
-}

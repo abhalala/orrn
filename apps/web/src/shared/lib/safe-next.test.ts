@@ -23,6 +23,15 @@ describe("safeNext", () => {
     expect(safeNext("evil.com", "/today")).toBe("/today");
   });
 
+  test("rejects percent-encoded slash tricks and absolute same-origin URLs", () => {
+    expect(safeNext("/%2F%2Fevil.com", "/today")).toBe("/today");
+    expect(safeNext("/%5Cevil.com", "/today")).toBe("/today");
+    expect(safeNext("%2F%2Fevil", "/today")).toBe("/today");
+    expect(safeNext("http://localhost:3002/stock", "/today")).toBe("/today");
+    expect(safeNext("/bad%zz", "/today")).toBe("/today");
+    expect(safeNext("/stock%20list?q=a%2Fb", "/today")).toBe("/stock%20list?q=a%2Fb");
+  });
+
   test("rejects control characters browsers strip from URLs", () => {
     expect(safeNext("/\t/evil.com", "/today")).toBe("/today");
     expect(safeNext("/\n/evil.com", "/today")).toBe("/today");

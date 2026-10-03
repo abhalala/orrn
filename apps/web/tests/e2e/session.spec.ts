@@ -137,6 +137,63 @@ test.describe("session expiry mid-use (W11)", () => {
   });
 });
 
+test.describe("auth.me failures during navigation (W11)", () => {
+  /**
+   * Signed in with a cached `me`, then past its 30 s freshness window, so the
+   * next navigation makes the guard revalidate. `/dies` is visited first so its
+   * route chunk is already loaded when the network is cut.
+   */
+  async function signedInWithStaleMe(page: Page) {
+    await signInViaApi(page, "owner");
+    await page.clock.install();
+    await page.goto("/dies");
+    await expect(page).toHaveURL(/\/dies$/);
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { level: 1, name: /Welcome back/ })).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await page.clock.fastForward(45_000);
+  }
+
+  test("a 500 from auth.me keeps the signed-in user on the page", async ({ page }) => {
+    await signedInWithStaleMe(page);
+    let hits = 0;
+    await page.route("**/trpc/auth.me*", async (route) => {
+      hits += 1;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify([
+          { error: { message: "boom", code: -32603, data: { code: "INTERNAL_SERVER_ERROR", httpStatus: 500 } } },
+        ]),
+      });
+    });
+    await page.getByRole("link", { name: "Dies", exact: true }).first().dispatchEvent("click");
+    // The Dies screen itself must render (the URL alone can change before the guard resolves).
+    await expect(page.getByRole("heading", { level: 1, name: "Dies" })).toBeVisible({ timeout: 3_000 });
+    await expect(page).toHaveURL(/\/dies$/);
+    expect(hits).toBeGreaterThan(0);
+  });
+
+  test("navigating offline with a cached me does not hang or sign out", async ({ page }) => {
+    await signedInWithStaleMe(page);
+    // context.setOffline would also cut Vite's HMR socket (the dev server then
+    // reloads the page), so cut only the API and tell React Query it is offline.
+    await page.route("**/trpc/**", (route) => route.abort("internetdisconnected"));
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await page.getByRole("link", { name: "Dies", exact: true }).first().dispatchEvent("click");
+    // The Dies screen itself must render (the URL alone can change before the guard resolves).
+    await expect(page.getByRole("heading", { level: 1, name: "Dies" })).toBeVisible({ timeout: 3_000 });
+    await expect(page).toHaveURL(/\/dies$/);
+  });
+
+  test("a 401 from the background revalidation still sends the user to login", async ({ page, context }) => {
+    await signedInWithStaleMe(page);
+    await context.clearCookies();
+    await page.getByRole("link", { name: "Dies", exact: true }).first().dispatchEvent("click");
+    await expect(page).toHaveURL(/\/login\?next=%2Fdies$/, { timeout: 5_000 });
+  });
+});
+
 test.describe("loading hygiene (W3)", () => {
   const HEAVY = /pdf-export|react-pdf|packingListPdf|xlsx/i;
 

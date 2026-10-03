@@ -3,15 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 
 import ForcePasswordChangeForm from "@/shared/components/force-password-change-form";
 import type { Me } from "@/shared/lib/me";
-import { loadMe } from "@/shared/lib/guards";
+import { loadMe, toLogin } from "@/shared/lib/guards";
 import { homeTarget } from "@/shared/lib/home";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_authed/change-password")({
-  beforeLoad: async ({ context }) => {
+  beforeLoad: async ({ context, location }) => {
     const me = await loadMe(context.queryClient);
     if (!me) {
-      throw redirect({ to: "/login" });
+      throw toLogin(location);
     }
     if (!me.user.mustChangePassword) {
       throw redirect({ to: homeTarget(me) });

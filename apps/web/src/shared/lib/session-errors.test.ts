@@ -3,7 +3,6 @@ import { describe, expect, test } from "bun:test";
 import {
   isClientError,
   isImpersonationForbidden,
-  isPublicPath,
   isUnauthorized,
   shouldRetryQuery,
 } from "./session-errors";
@@ -39,14 +38,5 @@ describe("session error classification", () => {
     expect(shouldRetryQuery(0, trpcErr("INTERNAL_SERVER_ERROR", 500))).toBe(true);
     expect(shouldRetryQuery(2, new TypeError("Failed to fetch"))).toBe(true);
     expect(shouldRetryQuery(3, new TypeError("Failed to fetch"))).toBe(false);
-  });
-
-  test("public paths never bounce to login", () => {
-    for (const p of ["/", "/login", "/waitlist", "/invite/abc", "/request-access"]) {
-      expect(isPublicPath(p)).toBe(true);
-    }
-    for (const p of ["/today", "/dashboard", "/admin", "/dispatches/1", "/loginx"]) {
-      expect(isPublicPath(p)).toBe(false);
-    }
   });
 });

@@ -12,7 +12,6 @@ import ReactDOM from "react-dom/client";
 
 import Loader from "@/shared/components/loader";
 import { routeTree } from "./routeTree.gen";
-import { isPublicPath } from "@/shared/lib/session-errors";
 import { queryClient, registerSessionEndedHandler, trpc } from "@/shared/utils/trpc";
 
 const router = createRouter({
@@ -43,17 +42,21 @@ const router = createRouter({
   },
 });
 
+/** Layouts that sit behind a session guard; anything else (public pages, 404) never bounces to login. */
+const GUARDED_LAYOUTS = new Set(["/_tenant", "/_platform", "/_authed"]);
+
 /**
  * The session ended mid-use (UNAUTHORIZED from any query or mutation): go to
- * /login and come back to this page afterwards. Skipped on public pages, and
- * while a navigation is pending (the route guard answers that one itself with
- * its own redirect), so it can never fight a guard into a loop.
+ * /login and come back to this page afterwards. Only acts on a page rendered
+ * inside a guarded layout (derived from the route match, no hand-kept path
+ * list), and not while a navigation is pending (the route guard answers that
+ * one itself with its own redirect), so it can never fight a guard into a loop.
  */
 let leavingForLogin = false;
 registerSessionEndedHandler(() => {
   if (leavingForLogin || router.state.status === "pending") return;
-  const { pathname, href } = router.state.location;
-  if (isPublicPath(pathname)) return;
+  if (!router.state.matches.some((m) => GUARDED_LAYOUTS.has(m.routeId))) return;
+  const { href } = router.state.location;
   leavingForLogin = true;
   void router
     .navigate({ to: "/login", search: { next: href }, replace: true })

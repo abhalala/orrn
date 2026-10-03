@@ -12,6 +12,13 @@ export function safeNext(next: string | null | undefined, fallback: string): str
   if (!next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return fallback;
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f]/.test(next)) return fallback;
+  // A percent-encoded `//` or `/\` is the same trick one decode away.
+  try {
+    const decoded = decodeURIComponent(next);
+    if (decoded.startsWith("//") || decoded.startsWith("/\\")) return fallback;
+  } catch {
+    return fallback;
+  }
   try {
     const url = new URL(next, PROBE_ORIGIN);
     if (url.origin !== PROBE_ORIGIN) return fallback;
