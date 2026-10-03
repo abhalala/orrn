@@ -1,0 +1,25 @@
+{
+  "name": "@orrn/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./guides": "./src/guides/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "bun test",
+    "export-review": "bun scripts/export-review.ts"
+  },
+  "devDependencies": {
+    "@orrn/config": "workspace:*",
+    "@types/bun": "^1.3.13",
+    "@types/react": "^19.2.10",
+    "react": "19.2.0",
+    "typescript": "^6"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0"
+  }
+}
