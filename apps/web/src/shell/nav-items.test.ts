@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Me } from "@orrn/server/lib/permissions";
+import type { CompanyRole, Me } from "@orrn/server/lib/permissions";
 
 import { bundleDetailPath } from "../shared/lib/paths";
 
 import { GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, isItemActive, visibleItems, type NavItem } from "./nav-items";
 
-function me(role: "owner" | "operator" | "viewer", modules?: string[]): Me {
+function me(role: CompanyRole, modules?: string[]): Me {
   return {
     user: { id: "u1", name: "U", email: "u@orrn.local" },
     company: { id: "c1", name: "Co", slug: "co", status: "active", plan: null, role, modules },
@@ -25,6 +25,8 @@ describe("visibleItems", () => {
       "pack",
       "stock",
       "dispatch",
+      "purchase",
+      "approvals",
       "dies",
       "customers",
       "printing",
@@ -43,13 +45,26 @@ describe("visibleItems", () => {
 
   test("operator packs but doesn't see Settings (R24)", () => {
     expect(keys(visibleItems(TENANT_PRIMARY, me("operator")))).toContain("pack");
-    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["dies", "customers", "printing", "guides"]);
+    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["purchase", "dies", "customers", "printing", "guides"]);
   });
 
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
-    expect(visible).toEqual(["today", "customers", "printing", "guides", "settings"]);
+    expect(visible).toEqual(["today", "purchase", "approvals", "customers", "printing", "guides", "settings"]);
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length);
+  });
+
+  test("Purchase for purchase readers, Approvals for approvers and requesters (PL-W2)", () => {
+    const more = (role: CompanyRole) => keys(visibleItems(TENANT_MORE, me(role)));
+    expect(more("storekeeper")).toContain("purchase");
+    expect(more("storekeeper")).not.toContain("approvals");
+    expect(more("office")).toEqual(expect.arrayContaining(["purchase", "approvals"]));
+    expect(more("manager")).toEqual(expect.arrayContaining(["purchase", "approvals"]));
+    expect(more("die_room")).toContain("approvals");
+    expect(more("foundry")).toContain("approvals");
+    expect(more("packer")).not.toContain("purchase");
+    expect(more("packer")).not.toContain("approvals");
+    expect(more("press")).not.toContain("purchase");
   });
 
   test("Godseye items follow the platform role", () => {

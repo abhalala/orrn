@@ -71,9 +71,9 @@ describe("guides", () => {
   });
 
   test("listGuides filters by role", () => {
-    expect(listGuides("en")).toHaveLength(10);
+    expect(listGuides("en")).toHaveLength(11);
     const viewer = listGuides("en", "viewer").map((g) => g.slug);
     expect(viewer).toEqual(["scan-bundle", "printer-trouble"]);
-    expect(listGuides("en", "owner")).toHaveLength(10);
+    expect(listGuides("en", "owner")).toHaveLength(11);
   });
 });
