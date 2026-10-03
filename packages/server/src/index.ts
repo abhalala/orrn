@@ -1,7 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 
 import type { Context } from "./context";
-import { can, type Action } from "./lib/permissions";
+import { can, canAny, type Action } from "./lib/permissions";
 
 export const t = initTRPC.context<Context>().create();
 
@@ -66,6 +66,20 @@ export function actionProcedure(action: Action) {
   return companyProcedure.use(({ ctx, next }) => {
     const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
     if (!can(me, action)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You don't have permission to do that",
+      });
+    }
+    return next({ ctx });
+  });
+}
+
+/** Like {@link actionProcedure}, but any one of `actions` is enough (e.g. die.card OR masters.publish). */
+export function anyActionProcedure(...actions: readonly Action[]) {
+  return companyProcedure.use(({ ctx, next }) => {
+    const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+    if (!canAny(me, actions)) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "You don't have permission to do that",
