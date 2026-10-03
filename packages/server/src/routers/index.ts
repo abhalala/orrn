@@ -13,6 +13,7 @@ import { packingListRouter } from "./packingList";
 import { spoolRouter } from "./spool";
 import { edgeRouter } from "./edge";
 import { dashboardRouter } from "./dashboard";
+import { resolveRouter } from "./resolve";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -38,5 +39,6 @@ export const appRouter = router({
   edge: edgeRouter,
   dashboard: dashboardRouter,
   approval: approvalRouter,
+  resolve: resolveRouter,
 });
 export type AppRouter = typeof appRouter;

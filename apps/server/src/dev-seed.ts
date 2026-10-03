@@ -12,6 +12,7 @@ import {
 } from "@orrn/db/schema/inventory";
 import { packingList, packingListLine } from "@orrn/db/schema/packing";
 import { auditLog } from "@orrn/db/schema/audit";
+import { docSeries } from "@orrn/db/schema/series";
 import { companySequence } from "@orrn/db/schema/sync";
 import { company, membership, platformAdmin } from "@orrn/db/schema/tenant";
 import { packingListWriteBatch } from "@orrn/server/routers/packingList";
@@ -33,6 +34,9 @@ const LENGTH_12FT_MM = 3658;
 const IST_OFFSET_MS = 330 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
+
+/** Demo plant numbers new bundles like the real plant (26I4086); seeded history keeps its BG serials. */
+const DEMO_SETTINGS = { lengthUnit: "inch", timezone: "Asia/Kolkata", bundleNumbering: "plant" };
 
 /** "All modules on" (see `visibleItems` in the nav spec). */
 const ALL_MODULES = ["customers", "dies", "bundles", "dispatches"];
@@ -641,6 +645,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     db.delete(die).where(eq(die.companyId, COMPANY_ID)),
     db.delete(customer).where(eq(customer.companyId, COMPANY_ID)),
     db.delete(auditLog).where(eq(auditLog.companyId, COMPANY_ID)),
+    db.delete(docSeries).where(eq(docSeries.companyId, COMPANY_ID)),
     db
       .insert(company)
       .values({
@@ -649,7 +654,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         slug: "orrn-demo",
         status: "active",
         plan: "dev",
-        settings: { lengthUnit: "inch", timezone: "Asia/Kolkata" },
+        settings: DEMO_SETTINGS,
         modules: ALL_MODULES,
         createdAt: new Date(pastAt(10, 9)),
       })
@@ -660,7 +665,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
           slug: "orrn-demo",
           status: "active",
           plan: "dev",
-          settings: { lengthUnit: "inch", timezone: "Asia/Kolkata" },
+          settings: DEMO_SETTINGS,
           modules: ALL_MODULES,
         },
       }),
