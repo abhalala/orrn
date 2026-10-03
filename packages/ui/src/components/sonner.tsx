@@ -49,8 +49,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast: "cn-toast !rounded-card font-sans !text-[15px] shadow-md !gap-3 !px-4 !py-3.5",
-          title: "!font-semibold leading-snug",
-          description: "!text-[14px] leading-snug",
+          title: "!font-semibold leading-snug break-words",
+          description: "!text-[14px] leading-snug break-words",
           actionButton: "!rounded-full !font-semibold !h-9 !px-3.5",
           cancelButton: "!rounded-full !font-semibold !h-9 !px-3.5",
         },

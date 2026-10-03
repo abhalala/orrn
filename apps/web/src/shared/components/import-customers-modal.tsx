@@ -43,7 +43,7 @@ export function ImportCustomersModal({
 
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext !== "csv") {
-      toast.error("Unsupported file type — please upload a .csv file");
+      toast.error("That file type is not supported. Upload a .csv file.");
       setSelectedFile(null);
       return;
     }
@@ -64,7 +64,7 @@ export function ImportCustomersModal({
           .filter((r) => !!r.name);
 
         if (parsed.length === 0) {
-          toast.error("No valid rows found — ensure your file has a 'name' column.");
+          toast.error("No valid rows found. Make sure the file has a 'name' column.");
           setSelectedFile(null);
           return;
         }
@@ -101,7 +101,7 @@ export function ImportCustomersModal({
           onClear={() => setSelectedFile(null)}
           samples={[{ label: "Sample CSV", href: "/samples/customers.csv" }]}
           heading="Drop your customers CSV here"
-          hint="or click to browse — required columns: name. Optional: email, phone, taxId, notes."
+          hint="or click to browse. Required columns: name. Optional: email, phone, taxId, notes."
         />
       ) : (
         <ProcessingState message="Importing customers…" />

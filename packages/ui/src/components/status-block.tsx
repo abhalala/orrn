@@ -69,6 +69,7 @@ export function StatusBlock({
           <BigNumber value={value} format={format} countUp={countUp} className="text-[44px] sm:text-[52px]" />
         ) : (
           <span
+            data-no-truncate=""
             className={cn(
               "min-w-0 leading-[0.95] tabular-nums",
               mono ?? true

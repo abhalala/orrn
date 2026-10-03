@@ -17,7 +17,7 @@ export type NavCardProps = {
  */
 export function NavCard({ title, description, to, icon }: NavCardProps) {
   return (
-    <Link to={to as "/"} className="group rounded-card no-underline">
+    <Link to={to as "/"} className="group block min-w-0 rounded-card no-underline">
       <Card className="h-full transition-[border-color,box-shadow,transform] duration-[var(--dur-fast)] hover:border-control/60 hover:shadow-md group-active:scale-[0.99]">
         <div className="flex items-start gap-3">
           {icon ? (
@@ -31,7 +31,7 @@ export function NavCard({ title, description, to, icon }: NavCardProps) {
           </div>
           <ChevronRight
             size={16}
-            className="mt-0.5 text-muted-foreground transition-all duration-[var(--dur-fast)] group-hover:translate-x-0.5 group-hover:text-foreground" aria-hidden="true"
+            className="mt-0.5 shrink-0 text-muted-foreground transition-all duration-[var(--dur-fast)] group-hover:translate-x-0.5 group-hover:text-foreground" aria-hidden="true"
           />
         </div>
       </Card>

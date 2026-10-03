@@ -1,4 +1,4 @@
-import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
@@ -18,6 +18,35 @@ export type TabsProps = {
   children?: ReactNode;
 };
 
+/** Which ends of a horizontally scrolling strip have hidden content. */
+function useOverflowEdges<T extends HTMLElement>(contentKey: string) {
+  const ref = useRef<T>(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const next = { start: el.scrollLeft > 1, end: max - el.scrollLeft > 1 };
+    setEdges((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
+  }, []);
+  // Re-measure when the strip resizes or its tabs change (count or labels,
+  // via `contentKey`). Without ResizeObserver (old browsers, tests) it
+  // measures once per content change and on scroll.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    for (const child of Array.from(el.children)) ro.observe(child);
+    return () => ro.disconnect();
+  }, [update, contentKey]);
+  return { ref, edges, onScroll: update };
+}
+
+const FADE = "24px";
+
 /**
  * Sections of one screen (Settings: Company, Team, Data). Real ARIA tabs:
  * one tab stop, arrow keys move and select, Home/End jump. Underlined, so
@@ -31,6 +60,13 @@ export function Tabs({ items, value, onValueChange, label, className, children }
     items.findIndex((it) => it.id === value),
   );
   const hasPanel = children !== undefined && children !== null;
+  const { ref: stripRef, edges, onScroll } = useOverflowEdges<HTMLDivElement>(items.map((it) => it.id).join("|"));
+  // Fade the side(s) that have more tabs, so a phone user can see the strip
+  // scrolls. Mask only, no layout change.
+  const mask =
+    edges.start || edges.end
+      ? `linear-gradient(to right, ${edges.start ? "transparent" : "currentColor"} 0, currentColor ${edges.start ? FADE : "0"}, currentColor calc(100% - ${edges.end ? FADE : "0px"}), ${edges.end ? "transparent" : "currentColor"} 100%)`
+      : undefined;
 
   const move = (to: number) => {
     const i = (to + items.length) % items.length;
@@ -56,9 +92,12 @@ export function Tabs({ items, value, onValueChange, label, className, children }
   return (
     <div className={cn("flex min-w-0 flex-col gap-5", className)}>
       <div
+        ref={stripRef}
         role="tablist"
         aria-label={label}
-        className="flex max-w-full gap-1 overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onScroll={onScroll}
+        style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
+        className="flex min-w-0 max-w-full gap-1 overflow-x-auto overscroll-x-contain border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {items.map((it, i) => {
           const active = i === selectedIndex;

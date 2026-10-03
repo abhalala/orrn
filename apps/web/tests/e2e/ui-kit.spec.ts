@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-import { expectNoClippedText, expectNoHorizontalScroll } from "./helpers/layout-guards";
+import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
 /**
  * The C2 component library, exercised on the dev-only kitchen sink at /__ui.

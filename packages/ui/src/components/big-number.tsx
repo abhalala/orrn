@@ -17,7 +17,8 @@ const defaultFormat = (n: number) => Math.round(n).toLocaleString("en-IN");
 /**
  * Display number in Bricolage with tabular figures. Size comes from the
  * parent (`text-[52px]` etc.). While counting, screen readers get the final
- * value only; the moving digits are hidden from them.
+ * value only; the moving digits are hidden from them. Marked
+ * `data-no-truncate`: the e2e layout guard fails if it is ever cut off.
  */
 export function BigNumber({ value, format = defaultFormat, countUp = false, className, ...rest }: BigNumberProps) {
   const shown = useCountUp(value, { enabled: countUp });
@@ -26,6 +27,8 @@ export function BigNumber({ value, format = defaultFormat, countUp = false, clas
   return (
     <span
       data-slot="big-number"
+      // A key value: shown in full, never ellipsised (layout guards check it).
+      data-no-truncate=""
       className={cn(
         "inline-block font-display font-extrabold leading-[0.95] tracking-[-0.04em] tabular-nums",
         className,

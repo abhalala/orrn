@@ -1,18 +1,29 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
 /**
- * Layout guards for any screen. They catch the production text-clipping
- * family: pages that scroll sideways, text running under a chip, and text
- * that overflows its box without an ellipsis.
+ * Layout guards for any screen, shared by the e2e and visual Playwright
+ * projects (one implementation; do not copy it). They catch the production
+ * text-clipping family: pages that scroll sideways, text running under a
+ * chip, text that overflows its box without an ellipsis, and key values
+ * marked `data-no-truncate` (big numbers, weights, codes) that are cut off
+ * at all.
+ *
+ * `collect*` return the issues (for sweeps and the self-check spec);
+ * `expect*` fail the test with every issue listed.
  */
+
+export type LayoutIssue = {
+  kind: "page-scroll" | "past-viewport" | "overflow-no-ellipsis" | "under-chip" | "truncated-key-value";
+  detail: string;
+};
 
 /**
  * The page never scrolls sideways, and nothing pokes past the right edge.
- * The global CSS sets `overflow-x: hidden` on phones, which hides the
- * scrollbar but not the cut-off content, so this also checks every visible
- * element's box (except inside a container that scrolls or clips on purpose).
+ * The global CSS clips sideways overflow on body, which hides the scrollbar
+ * but not the cut-off content, so this also checks every visible element's
+ * box (except inside a container that scrolls or clips on purpose).
  */
-export async function expectNoHorizontalScroll(page: Page) {
+export async function collectHorizontalScrollIssues(page: Page): Promise<LayoutIssue[]> {
   const result = await page.evaluate(() => {
     const vw = window.innerWidth;
     const doc = document.documentElement;
@@ -35,21 +46,32 @@ export async function expectNoHorizontalScroll(page: Page) {
     }
     return { scrollWidth: doc.scrollWidth, innerWidth: vw, offenders: offenders.slice(0, 10) };
   });
-  expect(result.scrollWidth, "document scrolls sideways").toBeLessThanOrEqual(result.innerWidth);
-  expect(result.offenders, "elements past the right edge").toEqual([]);
+  const issues: LayoutIssue[] = [];
+  if (result.scrollWidth > result.innerWidth) {
+    issues.push({
+      kind: "page-scroll",
+      detail: `document scrollWidth ${result.scrollWidth} > innerWidth ${result.innerWidth}`,
+    });
+  }
+  for (const o of result.offenders) issues.push({ kind: "past-viewport", detail: o });
+  return issues;
 }
 
 /**
  * Text is never cut off or covered:
+ * - a key value marked `data-no-truncate` (or anything inside it) must not be
+ *   ellipsised, line-clamped or cut by an overflow box: touch users cannot
+ *   hover for a title;
  * - an element with its own text whose content is wider than its box must
  *   show an ellipsis (`text-overflow: ellipsis`) or be a deliberate scroller;
  * - no text overlaps a chip or badge next to it.
  */
-export async function expectNoClippedText(page: Page, scope?: Locator) {
-  const root = scope ? await scope.elementHandle() : null;
-  const problems = await page.evaluate((rootEl) => {
+export async function collectClippedTextIssues(page: Page, scope?: Locator | string): Promise<LayoutIssue[]> {
+  const locator = typeof scope === "string" ? page.locator(scope).first() : scope;
+  const root = locator ? await locator.elementHandle() : null;
+  return page.evaluate((rootEl) => {
     const base = (rootEl as Element | null) ?? document.body;
-    const out: string[] = [];
+    const out: { kind: LayoutIssue["kind"]; detail: string }[] = [];
     const describe = (el: Element) =>
       `${el.tagName.toLowerCase()}${el.getAttribute("data-slot") ? `[${el.getAttribute("data-slot")}]` : ""} "${(el.textContent ?? "").trim().slice(0, 40)}"`;
     const visible = (el: Element) => {
@@ -63,6 +85,28 @@ export async function expectNoClippedText(page: Page, scope?: Locator) {
       return cs.clip !== "auto" || cs.clipPath !== "none" || (cs.position === "absolute" && el.getBoundingClientRect().width <= 1);
     };
 
+    // 0. Key values marked `data-no-truncate` show in full.
+    for (const el of Array.from(base.querySelectorAll<HTMLElement>("[data-no-truncate]"))) {
+      if (!visible(el) || srOnly(el)) continue;
+      for (const t of [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))]) {
+        if (t !== el && (!visible(t) || srOnly(t))) continue;
+        const cs = getComputedStyle(t);
+        const clampValue = cs.getPropertyValue("-webkit-line-clamp") || cs.getPropertyValue("line-clamp");
+        const clamped = clampValue !== "" && clampValue !== "none";
+        const cut = t.scrollWidth > t.clientWidth + 1 && cs.overflowX !== "visible";
+        if (cs.textOverflow === "ellipsis" || clamped || cut) {
+          const how =
+            cs.textOverflow === "ellipsis"
+              ? "ellipsised"
+              : clamped
+                ? "line-clamped"
+                : `cut (${t.scrollWidth} > ${t.clientWidth})`;
+          out.push({ kind: "truncated-key-value", detail: `key value ${how}: ${describe(t)}` });
+          break;
+        }
+      }
+    }
+
     // 1. Overflowing text without an ellipsis.
     for (const el of Array.from(base.querySelectorAll<HTMLElement>("*"))) {
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof SVGElement) continue;
@@ -71,7 +115,10 @@ export async function expectNoClippedText(page: Page, scope?: Locator) {
       const cs = getComputedStyle(el);
       if (cs.overflowX === "auto" || cs.overflowX === "scroll") continue;
       if (el.scrollWidth > el.clientWidth + 1 && cs.textOverflow !== "ellipsis") {
-        out.push(`overflows without ellipsis: ${describe(el)} (${el.scrollWidth} > ${el.clientWidth})`);
+        out.push({
+          kind: "overflow-no-ellipsis",
+          detail: `overflows without ellipsis: ${describe(el)} (${el.scrollWidth} > ${el.clientWidth})`,
+        });
       }
     }
 
@@ -113,7 +160,7 @@ export async function expectNoClippedText(page: Page, scope?: Locator) {
           const overlapX = Math.min(r.right, c.right) - Math.max(r.left, c.left);
           const overlapY = Math.min(r.bottom, c.bottom) - Math.max(r.top, c.top);
           if (overlapX > 1 && overlapY > 1) {
-            out.push(`text under ${describe(chip)}: "${n.textContent.trim().slice(0, 40)}"`);
+            out.push({ kind: "under-chip", detail: `text under ${describe(chip)}: "${n.textContent.trim().slice(0, 40)}"` });
             break;
           }
         }
@@ -121,5 +168,20 @@ export async function expectNoClippedText(page: Page, scope?: Locator) {
     }
     return out.slice(0, 15);
   }, root);
-  expect(problems, problems.join("\n")).toEqual([]);
+}
+
+function format(issues: LayoutIssue[]): string {
+  return issues.map((i) => `[${i.kind}] ${i.detail}`).join("\n");
+}
+
+/** Fails when the page scrolls sideways or an element sticks out past the right edge. */
+export async function expectNoHorizontalScroll(page: Page) {
+  const issues = await collectHorizontalScrollIssues(page);
+  expect(issues, `Horizontal overflow on ${page.url()}:\n${format(issues)}`).toEqual([]);
+}
+
+/** Fails when text is clipped without an ellipsis, runs under a chip, or a `data-no-truncate` value is cut. */
+export async function expectNoClippedText(page: Page, scope?: Locator | string) {
+  const issues = await collectClippedTextIssues(page, scope);
+  expect(issues, `Clipped text on ${page.url()}:\n${format(issues)}`).toEqual([]);
 }

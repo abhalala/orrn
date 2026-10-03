@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
-import { expectNoClippedText, expectNoHorizontalScroll } from "./helpers/layout-guards";
+import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
 /**
  * The C2 app shell (Task 14): phone tab bar with a raised Scan, iPad icon

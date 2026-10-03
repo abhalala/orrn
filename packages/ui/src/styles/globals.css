@@ -360,6 +360,8 @@
   }
 
   body {
+    /* `hidden` first is the Safari < 16 fallback (clip is ignored there). */
+    overflow-x: hidden;
     overflow-x: clip;
   }
 
@@ -438,12 +440,12 @@
     .orrn-page-title {
       font-size: 28px !important;
       line-height: 32px !important;
-      overflow-wrap: anywhere;
+      overflow-wrap: break-word;
     }
 
     .orrn-page-description {
       max-width: 100% !important;
-      overflow-wrap: anywhere;
+      overflow-wrap: break-word;
     }
 
     .orrn-auth-card {
