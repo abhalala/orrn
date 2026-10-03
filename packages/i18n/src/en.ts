@@ -908,6 +908,33 @@ export const en = {
     stubBody: "It will be back here soon.",
   },
 
+  /** Chart kit chrome (@orrn/ui/charts). Legend and series labels come from the screen. */
+  charts: {
+    showTable: "Show table",
+    hideTable: "Hide table",
+    legend: "Legend",
+    loading: "Loading chart",
+    emptyTitle: "No data for this period",
+    emptyBody: "Pick a longer period to see more.",
+    errorTitle: "This chart didn't load",
+    errorBody: "Check the connection and try again.",
+    other: "Other",
+    rank: "Rank",
+    name: "Name",
+    share: "Share",
+    movement: "Movement",
+    movedUp: "Up {count}",
+    movedDown: "Down {count}",
+    movedUpLong: "Up {count} {count:place|places} from the previous period",
+    movedDownLong: "Down {count} {count:place|places} from the previous period",
+    noChange: "Same",
+    noChangeLong: "Same place as the previous period",
+    isNew: "New",
+    isNewLong: "New this period",
+    noValue: "No data",
+    sparkSummary: "{label}: {first} to {last}, high {max}, low {min}",
+  },
+
   errors: {
     generic: "Something went wrong. Try again.",
     network: "No internet connection. Check it and try again.",

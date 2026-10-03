@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 713 screen strings in 24 groups, 10 guides with 182 strings.
+Counts: 736 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -825,6 +825,34 @@ Counts: 713 screen strings in 24 groups, 10 guides with 182 strings.
 | `pageRangeOpen` | {from}-{to} | {from}-{to} |
 | `stubTitle` | This screen is being rebuilt | यह स्क्रीन फिर से बन रही है |
 | `stubBody` | It will be back here soon. | यह जल्द ही यहाँ वापस आएगी। |
+
+### charts (23)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `showTable` | Show table | टेबल दिखाएं |
+| `hideTable` | Hide table | टेबल छिपाएं |
+| `legend` | Legend | संकेत |
+| `loading` | Loading chart | चार्ट लोड हो रहा है |
+| `emptyTitle` | No data for this period | इस अवधि का कोई डेटा नहीं |
+| `emptyBody` | Pick a longer period to see more. | ज़्यादा देखने के लिए लंबी अवधि चुनें। |
+| `errorTitle` | This chart didn't load | यह चार्ट लोड नहीं हुआ |
+| `errorBody` | Check the connection and try again. | कनेक्शन जांचें और फिर से कोशिश करें। |
+| `other` | Other | बाकी |
+| `rank` | Rank | रैंक |
+| `name` | Name | नाम |
+| `share` | Share | हिस्सा |
+| `movement` | Movement | बदलाव |
+| `movedUp` | Up {count} | {count} ऊपर |
+| `movedDown` | Down {count} | {count} नीचे |
+| `movedUpLong` | Up {count} {count:place\|places} from the previous period | पिछली अवधि से {count} {count:स्थान\|स्थान} ऊपर |
+| `movedDownLong` | Down {count} {count:place\|places} from the previous period | पिछली अवधि से {count} {count:स्थान\|स्थान} नीचे |
+| `noChange` | Same | वही |
+| `noChangeLong` | Same place as the previous period | पिछली अवधि जैसा ही स्थान |
+| `isNew` | New | नया |
+| `isNewLong` | New this period | इस अवधि में नया |
+| `noValue` | No data | डेटा नहीं |
+| `sparkSummary` | {label}: {first} to {last}, high {max}, low {min} | {label}: {first} से {last}, सबसे ज़्यादा {max}, सबसे कम {min} |
 
 ### errors (16)
 

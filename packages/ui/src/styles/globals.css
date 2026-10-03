@@ -32,6 +32,25 @@
   --hairline: #e7e7e2;
   --control: #85858b;
 
+  /* Chart palette (tokens.ts chartCategorical/chartOrdinal/chartChrome).
+     Categorical slots never reuse the status tones. */
+  --chart-1: #1f9aae;
+  --chart-2: #b12c90;
+  --chart-3: #9f9500;
+  --chart-4: #b7676e;
+  --chart-5: #2d76a5;
+  --chart-6: #ab6127;
+  --chart-7: #4da87f;
+  --chart-8: #c175ce;
+  --chart-ord-1: #63c4d7;
+  --chart-ord-2: #28aac0;
+  --chart-ord-3: #058da0;
+  --chart-ord-4: #057080;
+  --chart-ord-5: #005461;
+  --chart-other: #85858b;
+  --chart-grid: #ecece7;
+  --chart-axis: #c4c4bd;
+
   /* Tone gradients (same in both themes) + chips (tokens.ts tones) */
   --tone-green-from: #13873f;
   --tone-green-to: #0b6b30;
@@ -136,6 +155,24 @@
   --ink-muted: #9a9aa0;
   --hairline: #26262a;
   --control: #6b6b72;
+
+  /* Chart palette, dark steps (same hues, selected for the dark surface). */
+  --chart-1: #1fa1b6;
+  --chart-2: #b43493;
+  --chart-3: #9e9623;
+  --chart-4: #af6067;
+  --chart-5: #1f7eb6;
+  --chart-6: #b45e0d;
+  --chart-7: #4ba67d;
+  --chart-8: #b771c4;
+  --chart-ord-1: #005461;
+  --chart-ord-2: #057080;
+  --chart-ord-3: #058da0;
+  --chart-ord-4: #28aac0;
+  --chart-ord-5: #63c4d7;
+  --chart-other: #7c7c84;
+  --chart-grid: #25252a;
+  --chart-axis: #46464d;
 
   /* Chips (tokens.ts tones.*.dark). Gradients don't change. */
   --tone-green-tint: #0f2a1a;
@@ -928,6 +965,23 @@
   }
 }
 
+/* Chart marks fade in once when a chart first draws (opacity only, so no
+   value ever appears to move). Off under reduced motion. */
+@keyframes orrn-chart-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@layer components {
+  .orrn-chart-in {
+    animation: orrn-chart-in var(--dur-slow) var(--ease-out-quart) both;
+  }
+}
+
 /* Reduced motion: no keyframe motion at all from the C2 classes (the global
    rule above already shortens everything else to 0.01ms). */
 @media (prefers-reduced-motion: reduce) {
@@ -939,6 +993,7 @@
   .orrn-overlay,
   .orrn-skeleton-shimmer,
   .orrn-nav-progress-running,
+  .orrn-chart-in,
   .animate-shimmer::after,
   [data-slot="dialog-overlay"],
   [data-slot="dialog-content"],

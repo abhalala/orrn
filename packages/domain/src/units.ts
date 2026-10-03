@@ -44,6 +44,38 @@ export function formatKgTotal(kg: number): string {
   return fixedIN(kg, 1);
 }
 
+const COMPACT_UNITS = [
+  { size: 1_00_00_000, suffix: "Cr" },
+  { size: 1_00_000, suffix: "L" },
+  { size: 1_000, suffix: "k" },
+] as const;
+
+/**
+ * Compact en-IN number for chart axis ticks: "950", "12k", "1.2L", "1.1Cr".
+ * Indian grouping (lakh, crore), never millions. At most one decimal below
+ * 100 of a unit; a value that would round to "100k" or "100L" moves up to
+ * "1L" / "1Cr". Tooltips and labels use the full `formatKgTotal` instead.
+ */
+export function formatCompactIN(value: number): string {
+  if (!Number.isFinite(value)) return "";
+  const sign = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+  const oneDecimal = (n: number) => (n < 100 ? Math.round(n * 10) / 10 : Math.round(n));
+  for (let i = 0; i < COMPACT_UNITS.length; i++) {
+    const unit = COMPACT_UNITS[i]!;
+    if (abs < unit.size) continue;
+    const scaled = oneDecimal(abs / unit.size);
+    const bigger = COMPACT_UNITS[i - 1];
+    // 99,990 is "1L", not "100k" (crore has no bigger unit: "250Cr", "1,235Cr").
+    if (bigger && scaled * unit.size >= bigger.size) return `${sign}1${bigger.suffix}`;
+    return `${sign}${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 1 }).format(scaled)}${unit.suffix}`;
+  }
+  // 999.6 rounds to 1,000: show it as "1k".
+  const whole = Math.round(abs);
+  if (whole >= 1_000) return `${sign}1k`;
+  return `${sign}${whole}`;
+}
+
 /** Plain non-negative decimal, thousands commas allowed. No exponent, sign or junk. */
 export function parseDecimal(text: string): number | null {
   const cleaned = text.trim().replace(/,/g, "");

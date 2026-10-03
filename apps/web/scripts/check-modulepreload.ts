@@ -4,7 +4,9 @@
  * under 700 kB per chunk. Those load via `await import()` on click only (see
  * src/shared/lib/exports.ts). A static import of the PDF module from shared
  * code would fold @react-pdf into the entry chunk, so the entry's content is
- * scanned too, not just chunk names.
+ * scanned too, not just chunk names. The chart kit (`@orrn/ui/charts`, d3)
+ * is lazy too: every chart root carries `data-chart-kit`, so that string in
+ * an entry or preloaded chunk means a chart was imported statically.
  *
  * Run after `vite build`: `bun scripts/check-modulepreload.ts`.
  */
@@ -39,6 +41,8 @@ const FORBIDDEN_NAME = /pdf|xlsx|packing-list/i;
 // Present in the renderer's own strings, absent from app code ("@react-pdf" alone is not enough:
 // bundlers strip package specifiers, but the renderer keeps its producer/stylesheet strings).
 const FORBIDDEN_CONTENT = /react-pdf/;
+// Marker attribute on every chart kit root (packages/ui/src/charts).
+const FORBIDDEN_CHARTS = /data-chart-kit/;
 const MAX_BYTES = 700_000;
 
 const problems: string[] = [];
@@ -59,6 +63,7 @@ for (const [kind, hrefs] of [["entry", entries], ["modulepreload", preloads]] as
     if (FORBIDDEN_NAME.test(href)) problems.push(`${kind} ${href} is an export library chunk`);
     if (size > MAX_BYTES) problems.push(`${kind} ${href} is ${(size / 1000).toFixed(0)} kB (limit ${MAX_BYTES / 1000} kB)`);
     if (FORBIDDEN_CONTENT.test(content)) problems.push(`${kind} ${href} contains @react-pdf code`);
+    if (FORBIDDEN_CHARTS.test(content)) problems.push(`${kind} ${href} contains the chart kit (load charts lazily)`);
   }
 }
 
@@ -67,5 +72,5 @@ if (problems.length > 0) {
   process.exit(1);
 }
 console.log(
-  `modulepreload check passed (${entries.length} entry, ${preloads.length} preloaded chunks, none heavy or containing @react-pdf).`,
+  `modulepreload check passed (${entries.length} entry, ${preloads.length} preloaded chunks, none heavy or containing @react-pdf or the chart kit).`,
 );

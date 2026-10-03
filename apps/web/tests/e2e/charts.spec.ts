@@ -1,0 +1,304 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
+
+/**
+ * The chart kit (`@orrn/ui/charts`) on the dev-only /__ui page, Charts
+ * section. Every analytics screen is built from these, so the rules live
+ * here: a table view with the same numbers, tooltips by keyboard and
+ * pointer, a legend for two or more series, nothing identified by colour
+ * alone, axe clean, no motion under reduced motion, layout guards.
+ */
+
+const SCHEMES = ["light", "dark"] as const;
+
+async function openCharts(
+  page: Page,
+  opts: { width: number; scheme?: "light" | "dark"; reducedMotion?: boolean } = { width: 1280 },
+) {
+  await page.setViewportSize({ width: opts.width, height: 900 });
+  await page.emulateMedia({
+    colorScheme: opts.scheme ?? "light",
+    reducedMotion: opts.reducedMotion === false ? "no-preference" : "reduce",
+  });
+  await page.goto("/__ui");
+  await expect(page.locator("html")).toHaveClass(new RegExp(`\\b${opts.scheme ?? "light"}\\b`));
+  const section = page.locator("section[aria-labelledby='kit-charts']");
+  await section.scrollIntoViewIfNeeded();
+  // Lazy section: wait for its plots to measure and draw.
+  await expect(section.locator("[data-testid='chart-trend'] svg [data-slot='chart-point']").first()).toBeAttached();
+  return section;
+}
+
+const card = (section: Locator, id: string) => section.getByTestId(id);
+const tooltip = (c: Locator) => c.locator("[data-slot='chart-tooltip']");
+
+async function tableCells(c: Locator) {
+  await c.getByRole("button", { name: "Show table" }).click();
+  const table = c.getByRole("table");
+  await expect(table).toBeVisible();
+  return table;
+}
+
+test.describe("table view", () => {
+  test("every chart card has a Show table toggle that swaps to a real table and back", async ({ page }) => {
+    const section = await openCharts(page);
+    for (const id of ["chart-volume", "chart-leaders", "chart-trend", "chart-ageing"]) {
+      const c = card(section, id);
+      const toggle = c.getByRole("button", { name: "Show table" });
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await toggle.click();
+      const hide = c.getByRole("button", { name: "Hide table" });
+      await expect(hide).toHaveAttribute("aria-expanded", "true");
+      const table = c.getByRole("table");
+      await expect(table.locator("th[scope='col']").first()).toBeVisible();
+      await expect(table.locator("tbody tr").first()).toBeVisible();
+      await hide.click();
+      await expect(c.getByRole("table")).toHaveCount(0);
+    }
+  });
+
+  test("bar chart: the tooltip and the table show the same number", async ({ page }) => {
+    const section = await openCharts(page);
+    const c = card(section, "chart-volume");
+    const bar = c.locator("[data-slot='chart-bar']").nth(3);
+    const label = (await bar.getAttribute("aria-label")) ?? "";
+    await bar.hover();
+    const tip = tooltip(c);
+    await expect(tip).toBeVisible();
+    const [month, value] = label.split(": ");
+    expect(month && value).toBeTruthy();
+    await expect(tip).toContainText(month!);
+    await expect(tip).toContainText(value!);
+    const table = await tableCells(c);
+    const row = table.locator("tbody tr", { hasText: month! });
+    await expect(row).toHaveCount(1);
+    await expect(row).toContainText(value!.replace(/ kg$/, ""));
+  });
+
+  test("time series: every series value in the tooltip is in the table row for that day", async ({ page }) => {
+    const section = await openCharts(page);
+    const c = card(section, "chart-trend");
+    const point = c.locator("[data-slot='chart-point'][tabindex='0']");
+    await point.focus();
+    const tip = tooltip(c);
+    await expect(tip).toBeVisible();
+    const date = (await tip.locator("[data-slot='chart-tooltip-title']").textContent())!.trim();
+    const values = await tip.locator("[data-slot='chart-tooltip-value']").allTextContents();
+    expect(values).toHaveLength(2);
+    const table = await tableCells(c);
+    const row = table.locator("tbody tr", { has: page.locator("th", { hasText: new RegExp(`^${date}$`) }) });
+    await expect(row).toHaveCount(1);
+    for (const v of values) await expect(row).toContainText(v.replace(/ kg$/, "").trim());
+  });
+
+  test("ranked bars: the direct labels are the table's numbers", async ({ page }) => {
+    const section = await openCharts(page);
+    const c = card(section, "chart-leaders");
+    const first = c.locator("[data-slot='ranked-row']").first();
+    const name = (await first.locator("[data-slot='ranked-label']").textContent())!.trim();
+    const value = (await first.locator("[data-slot='ranked-value']").textContent())!.trim();
+    const table = await tableCells(c);
+    const row = table.locator("tbody tr", { hasText: name });
+    await expect(row).toContainText(value);
+    // Other is folded in, never a ninth colour.
+    await expect(table.locator("tbody tr").last()).toContainText("Other");
+  });
+});
+
+test.describe("tooltips", () => {
+  test("time series: Tab lands on the chart, arrows move the crosshair, Home and End jump", async ({ page }) => {
+    const section = await openCharts(page);
+    const c = card(section, "chart-trend");
+    const points = c.locator("[data-slot='chart-point']");
+    const count = await points.count();
+    expect(count).toBeGreaterThan(30);
+    // One tab stop for the whole plot (roving tabindex).
+    await expect(c.locator("[data-slot='chart-point'][tabindex='0']")).toHaveCount(1);
+    // The table toggle sits in the card header, so the plot is the next tab stop.
+    await c.getByRole("button", { name: "Show table" }).focus();
+    await page.keyboard.press("Tab");
+    await expect(c.locator("[data-slot='chart-point']:focus")).toHaveCount(1);
+    const tip = tooltip(c);
+    await expect(tip).toBeVisible();
+    const before = await tip.locator("[data-slot='chart-tooltip-title']").textContent();
+    await page.keyboard.press("ArrowLeft");
+    await expect(tip.locator("[data-slot='chart-tooltip-title']")).not.toHaveText(before!);
+    await page.keyboard.press("Home");
+    await expect(points.first()).toBeFocused();
+    await page.keyboard.press("End");
+    await expect(points.last()).toBeFocused();
+    // The focused point's accessible name says the same as the tooltip.
+    const name = await points.last().getAttribute("aria-label");
+    const title = (await tip.locator("[data-slot='chart-tooltip-title']").textContent())!.trim();
+    expect(name).toContain(title);
+    await page.keyboard.press("Escape");
+    await expect(tip).toBeHidden();
+  });
+
+  test("time series: the pointer snaps the crosshair to the nearest day anywhere on the plot", async ({ page }) => {
+    const section = await openCharts(page);
+    const c = card(section, "chart-trend");
+    const plot = c.locator("svg[data-slot='chart-plot']");
+    const box = (await plot.boundingBox())!;
+    await page.mouse.move(box.x + box.width * 0.5, box.y + 12);
+    const tip = tooltip(c);
+    await expect(tip).toBeVisible();
+    // A vertical hairline has no width, so check it is drawn rather than "visible".
+    await expect(c.locator("[data-slot='chart-crosshair']")).toHaveCount(1);
+    await expect(tip.locator("[data-slot='chart-tooltip-value']")).toHaveCount(2);
+    await page.mouse.move(box.x + box.width + 40, box.y - 40);
+    await expect(tip).toBeHidden();
+  });
+
+  test("bar chart: each bar is focusable and shows its own tooltip", async ({ page }) => {
+    const section = await openCharts(page);
+    const c = card(section, "chart-volume");
+    const bars = c.locator("[data-slot='chart-bar']");
+    await expect(bars).toHaveCount(12);
+    await expect(c.locator("[data-slot='chart-bar'][tabindex='0']")).toHaveCount(1);
+    await bars.first().focus();
+    await expect(tooltip(c)).toContainText((await bars.first().getAttribute("aria-label"))!.split(": ")[0]!);
+    await page.keyboard.press("ArrowRight");
+    await expect(bars.nth(1)).toBeFocused();
+    await expect(tooltip(c)).toContainText((await bars.nth(1).getAttribute("aria-label"))!.split(": ")[0]!);
+  });
+});
+
+test.describe("identity is never colour alone", () => {
+  test("two series get a legend with words; single series get none", async ({ page }) => {
+    const section = await openCharts(page);
+    const legend = card(section, "chart-trend").getByRole("list", { name: "Legend" });
+    await expect(legend.getByRole("listitem")).toHaveText(["Packed", "Dispatched"]);
+    for (const id of ["chart-volume", "chart-leaders", "chart-ageing"]) {
+      await expect(card(section, id).getByRole("list", { name: "Legend" })).toHaveCount(0);
+    }
+  });
+
+  test("lines are direct-labelled at their ends and every mark has a text name", async ({ page }) => {
+    const section = await openCharts(page);
+    const trend = card(section, "chart-trend");
+    await expect(trend.locator("[data-slot='chart-end-label']")).toHaveText(["Packed", "Dispatched"]);
+    for (const id of ["chart-volume", "chart-ageing"]) {
+      const names = await card(section, id).locator("[data-slot='chart-bar']").evaluateAll((els) =>
+        els.map((e) => e.getAttribute("aria-label") ?? ""),
+      );
+      expect(names.every((n) => /\S+: \S+/.test(n))).toBe(true);
+    }
+  });
+
+  test("rank movement is written in words, not only an arrow or a colour", async ({ page }) => {
+    const section = await openCharts(page);
+    const chips = card(section, "chart-leaders").locator("[data-slot='rank-movement']");
+    expect(await chips.count()).toBeGreaterThan(3);
+    for (const text of await chips.allInnerTexts()) expect(text.trim()).toMatch(/^(Up \d+|Down \d+|Same|New)$/);
+  });
+
+  test("the sparkline tile names its trend for screen readers", async ({ page }) => {
+    const section = await openCharts(page);
+    const spark = card(section, "chart-spark").getByRole("img");
+    await expect(spark).toHaveAttribute("aria-label", /Dispatched, last 12 months: .+ to .+, high .+, low .+/);
+  });
+});
+
+test.describe("states", () => {
+  test("loading, empty and error cards say what is happening", async ({ page }) => {
+    const section = await openCharts(page);
+    await expect(card(section, "chart-loading")).toHaveAttribute("aria-busy", "true");
+    await expect(card(section, "chart-empty")).toContainText("No data for this period");
+    const error = card(section, "chart-error");
+    await expect(error).toContainText("This chart didn't load");
+    await expect(error.getByRole("button", { name: "Try again" })).toBeVisible();
+    for (const id of ["chart-loading", "chart-empty", "chart-error"]) {
+      await expect(card(section, id).getByRole("button", { name: "Show table" })).toHaveCount(0);
+    }
+  });
+});
+
+test.describe("accessibility", () => {
+  for (const width of [375, 1280] as const) {
+    for (const scheme of SCHEMES) {
+      test(`axe: charts and their tables clean at ${width}px (${scheme})`, async ({ page }) => {
+        const section = await openCharts(page, { width, scheme });
+        await card(section, "chart-trend").getByRole("button", { name: "Show table" }).click();
+        await card(section, "chart-volume").locator("[data-slot='chart-bar']").first().focus();
+        const results = await new AxeBuilder({ page })
+          .include("section[aria-labelledby='kit-charts']")
+          .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+          .analyze();
+        const blocking = results.violations
+          .filter((v) => v.impact === "serious" || v.impact === "critical")
+          .map((v) => ({ id: v.id, help: v.help, targets: v.nodes.slice(0, 5).map((n) => n.target.join(" ")) }));
+        expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
+      });
+    }
+  }
+});
+
+test.describe("motion", () => {
+  const chartAnimations = (page: Page) =>
+    page.evaluate(() =>
+      document
+        .getAnimations()
+        .filter((a) => {
+          const target = (a.effect as KeyframeEffect | null)?.target as Element | null;
+          return !!target?.closest("section[aria-labelledby='kit-charts']");
+        })
+        .filter((a) => a.playState === "running")
+        .map((a) => (a as CSSAnimation).animationName ?? a.constructor.name),
+    );
+
+  test("reduced motion: nothing in the charts animates", async ({ page }) => {
+    await openCharts(page, { width: 1280, reducedMotion: true });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    expect(await chartAnimations(page)).toEqual([]);
+  });
+
+  test("without reduced motion the marks reveal once", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/__ui");
+    const section = page.locator("section[aria-labelledby='kit-charts']");
+    await section.scrollIntoViewIfNeeded();
+    await expect(section.locator("[data-slot='chart-point']").first()).toBeAttached();
+    const names = await page.evaluate(() => document.getAnimations().map((a) => (a as CSSAnimation).animationName));
+    expect(names).toContain("orrn-chart-in");
+  });
+});
+
+test.describe("layout", () => {
+  for (const width of [375, 820, 1280] as const) {
+    for (const scheme of SCHEMES) {
+      test(`no sideways scroll and no clipped text at ${width}px (${scheme})`, async ({ page }) => {
+        const section = await openCharts(page, { width, scheme });
+        await expectNoHorizontalScroll(page);
+        await expectNoClippedText(page, section);
+        // With every table open too.
+        for (const id of ["chart-volume", "chart-leaders", "chart-trend", "chart-ageing"]) {
+          await card(section, id).getByRole("button", { name: "Show table" }).click();
+        }
+        await expectNoHorizontalScroll(page);
+        await expectNoClippedText(page, section);
+      });
+    }
+  }
+
+  test("plots stay inside their cards and axis labels don't overlap at 375px", async ({ page }) => {
+    const section = await openCharts(page, { width: 375 });
+    for (const id of ["chart-volume", "chart-trend", "chart-ageing"]) {
+      const c = card(section, id);
+      const cb = (await c.boundingBox())!;
+      const pb = (await c.locator("svg[data-slot='chart-plot']").boundingBox())!;
+      expect(pb.x).toBeGreaterThanOrEqual(cb.x);
+      expect(pb.x + pb.width).toBeLessThanOrEqual(cb.x + cb.width + 0.5);
+      const boxes = await c.locator("svg [data-slot='chart-x-tick']").evaluateAll((els) =>
+        els.map((e) => {
+          const r = e.getBoundingClientRect();
+          return { left: r.left, right: r.right };
+        }),
+      );
+      for (let i = 1; i < boxes.length; i++) expect(boxes[i]!.left).toBeGreaterThanOrEqual(boxes[i - 1]!.right);
+    }
+  });
+});

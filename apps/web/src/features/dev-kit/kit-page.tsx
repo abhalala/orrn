@@ -33,8 +33,11 @@ import { Tabs } from "@orrn/ui/components/tabs";
 import { cn } from "@orrn/ui/lib/utils";
 import { BookOpen, Boxes, CircleCheck, MoreHorizontal, Package, Printer, ScanLine, Truck } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+
+/** The chart kit loads lazily, the way analytics screens load it. */
+const ChartsSection = lazy(() => import("./charts-section"));
 
 /* -------------------------------------------------------------------------- */
 /* Demo data                                                                  */
@@ -149,6 +152,7 @@ export default function KitPage() {
         <ListSection />
         <OverlaysSection />
         <FeedbackSection />
+        <ChartsKitSection />
         <LongTextSection />
       </main>
     </I18nProvider>
@@ -668,6 +672,27 @@ function FeedbackSection() {
           />
         </div>
       </div>
+    </KitSection>
+  );
+}
+
+function ChartsKitSection() {
+  return (
+    <KitSection
+      id="charts"
+      title="Charts"
+      note="Demo data. Every chart has a table view, a legend from two series, tooltips by keyboard and pointer, and colours that never reuse the status tones."
+    >
+      <Suspense
+        fallback={
+          <div aria-busy="true" className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Skeleton className="h-[340px] rounded-card" />
+            <Skeleton className="h-[340px] rounded-card" />
+          </div>
+        }
+      >
+        <ChartsSection />
+      </Suspense>
     </KitSection>
   );
 }

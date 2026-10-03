@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   MM_PER_FOOT,
   MM_PER_INCH,
+  formatCompactIN,
   formatKg,
   formatKgTotal,
   formatLength,
@@ -125,5 +126,37 @@ describe("formatLength", () => {
   test("inches round to the nearest 0.25", () => {
     // 11 ft 6.25 in = 138.25 in = 3511.55 mm
     expect(formatLength(3512, "inch")).toBe("11 ft 6.25 in");
+  });
+});
+
+describe("compact en-IN formatting for chart axes", () => {
+  test("small numbers stay whole", () => {
+    expect(formatCompactIN(0)).toBe("0");
+    expect(formatCompactIN(950)).toBe("950");
+    expect(formatCompactIN(999.4)).toBe("999");
+  });
+  test("thousands use k with at most one decimal", () => {
+    expect(formatCompactIN(1000)).toBe("1k");
+    expect(formatCompactIN(1500)).toBe("1.5k");
+    expect(formatCompactIN(12000)).toBe("12k");
+    expect(formatCompactIN(12500)).toBe("12.5k");
+    expect(formatCompactIN(99_000)).toBe("99k");
+  });
+  test("lakh and crore, Indian grouping not millions", () => {
+    expect(formatCompactIN(1_00_000)).toBe("1L");
+    expect(formatCompactIN(1_20_000)).toBe("1.2L");
+    expect(formatCompactIN(12_50_000)).toBe("12.5L");
+    expect(formatCompactIN(1_00_00_000)).toBe("1Cr");
+    expect(formatCompactIN(1_10_00_000)).toBe("1.1Cr");
+    expect(formatCompactIN(2_50_00_00_000)).toBe("250Cr");
+    expect(formatCompactIN(12_34_56_78_900)).toBe("1,235Cr");
+  });
+  test("rounding never shows 100k or 100L: it moves up a unit", () => {
+    expect(formatCompactIN(99_990)).toBe("1L");
+    expect(formatCompactIN(99_99_000)).toBe("1Cr");
+  });
+  test("negative values keep the sign", () => {
+    expect(formatCompactIN(-1500)).toBe("-1.5k");
+    expect(formatCompactIN(-2_00_000)).toBe("-2L");
   });
 });
