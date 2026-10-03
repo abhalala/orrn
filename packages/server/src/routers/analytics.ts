@@ -7,7 +7,10 @@
  * - Volume = completed dispatches only: `dispatch.status = 'completed'`, not soft-deleted, dated by
  *   `dispatch.completed_at` (set by `dispatch.complete`), weighed as the sum of its bundles' grams.
  * - Buckets and ranges are company-local calendar days (`settings.timezone`, IST default); dates are
- *   `YYYY-MM-DD` and ranges are half-open: `from` inclusive, `to` exclusive (local midnights).
+ *   `YYYY-MM-DD` and both `from` and `to` are inclusive days (ruling RP10, as `purchase.register`):
+ *   `from == to` is one day, and the query ends at the local midnight that starts the day after `to`.
+ * - One join rule everywhere: dispatch LEFT JOIN item LEFT JOIN bundle, each scoped to the company,
+ *   so a completed dispatch with no items counts as a dispatch of 0 kg.
  * - Aggregation happens in SQL (GROUP BY); no statement binds ids from JS, so the bound-parameter
  *   count is a small constant whatever the data size (D1 allows 100).
  * - Weights are integer grams (`…KgG`); formatting is the client's job.
@@ -52,19 +55,19 @@ const analyticsProcedure = actionProcedure("analytics.view");
 
 const isoDate = z.string().refine(isIsoDate, "Use a date like 2026-10-03");
 
-/** from < to (to is exclusive) and at most 3 calendar years apart. */
+/** from <= to (both inclusive days) and at most 3 calendar years: to < from + 3 years. */
 function checkRange(r: { from: string; to: string }, ctx: z.RefinementCtx) {
   if (!isIsoDate(r.from) || !isIsoDate(r.to)) return;
-  if (r.from >= r.to) {
-    ctx.addIssue({ code: "custom", message: "From must be before To", path: ["to"] });
-  } else if (r.to > addYears(r.from, MAX_RANGE_YEARS)) {
+  if (r.from > r.to) {
+    ctx.addIssue({ code: "custom", message: "From must be on or before To", path: ["to"] });
+  } else if (r.to >= addYears(r.from, MAX_RANGE_YEARS)) {
     ctx.addIssue({ code: "custom", message: `A range can cover at most ${MAX_RANGE_YEARS} years`, path: ["to"] });
   }
 }
 
 const summaryInput = z
   .object({
-    customerId: z.string().min(1),
+    customerId: z.string().min(1).max(64),
     from: isoDate,
     to: isoDate,
     bucket: z.enum(["week", "month"]).default("month"),
@@ -126,6 +129,8 @@ export type CustomerLeaderboard = {
     deltaPct: number | null;
   }[];
   otherKgG: number;
+  /** Share of `otherKgG`; with the rows' shares it sums to exactly 100.0 when `totalKgG` > 0. */
+  otherSharePct: number;
   totalKgG: number;
 };
 
@@ -145,7 +150,32 @@ export type DispatchMonth = { month: string; kgG: number; dispatches: number };
 
 const num = (v: unknown) => Number(v ?? 0);
 const round1 = (x: number) => Math.round(x * 10) / 10;
-const pct = (part: number, whole: number) => (whole > 0 ? round1((part / whole) * 100) : 0);
+
+/**
+ * Percentages to one decimal by the largest-remainder method, so they sum to exactly 100.0 when
+ * `whole` > 0 and `parts` add up to `whole`. Works in integer tenths of a percent.
+ */
+function shares(parts: number[], whole: number): number[] {
+  if (whole <= 0) return parts.map(() => 0);
+  const tenths = parts.map((p) => Math.floor((p * 1000) / whole));
+  const rest = parts.map((p, i) => ({ i, r: p * 1000 - tenths[i]! * whole }));
+  let left = 1000 - tenths.reduce((t, x) => t + x, 0);
+  rest.sort((a, b) => b.r - a.r || a.i - b.i);
+  for (const { i } of rest) {
+    if (left <= 0) break;
+    tenths[i]! += 1;
+    left -= 1;
+  }
+  return tenths.map((t) => t / 10);
+}
+
+/** Competition ranks (1, 1, 3) over values already sorted descending. */
+function competitionRanks(sortedDesc: number[]): number[] {
+  const out: number[] = [];
+  sortedDesc.forEach((v, i) => out.push(i > 0 && v === sortedDesc[i - 1] ? out[i - 1]! : i + 1));
+  return out;
+}
+
 const toMs = (v: unknown) => (v instanceof Date ? v.getTime() : Number(v));
 const iso = (v: unknown) => new Date(toMs(v)).toISOString();
 
@@ -164,13 +194,15 @@ function foldSections(
     label: sectionLabel(r),
     kgG: num(r.kgG),
     bundles: num(r.bundles),
-    sharePct: pct(num(r.kgG), totalKgG),
+    sharePct: 0,
   }));
   const otherKgG = totalKgG - rows.reduce((t, r) => t + r.kgG, 0);
   const otherBundles = totalBundles - rows.reduce((t, r) => t + r.bundles, 0);
   if (otherBundles > 0 || otherKgG > 0) {
-    rows.push({ sectionId: null, label: "Other", kgG: otherKgG, bundles: otherBundles, sharePct: pct(otherKgG, totalKgG) });
+    rows.push({ sectionId: null, label: "Other", kgG: otherKgG, bundles: otherBundles, sharePct: 0 });
   }
+  const pcts = shares(rows.map((r) => r.kgG), totalKgG);
+  rows.forEach((r, i) => (r.sharePct = pcts[i]!));
   return rows;
 }
 
@@ -198,7 +230,7 @@ async function timezoneOf(db: OrrnDb, companyId: string): Promise<string> {
 
 export const analyticsRouter = router({
   /**
-   * One customer over [from, to): totals, a week or month series, top sections, cadence. First/last
+   * One customer over the days from..to (inclusive): totals, a week or month series, top sections, cadence. First/last
    * dispatch, days since last and the 10 recent dispatches are all-time (not range-bound).
    */
   customerSummary: analyticsProcedure.input(summaryInput).query(async ({ ctx, input }): Promise<CustomerSummary> => {
@@ -214,7 +246,8 @@ export const analyticsRouter = router({
     if (!cust) throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found" });
 
     const unit: BucketUnit = input.bucket;
-    const { fromMs, toMs: endMs, segments } = zonedRange(timezone, input.from, input.to);
+    const end = addDays(input.to, 1);
+    const { fromMs, toMs: endMs, segments } = zonedRange(timezone, input.from, end);
     const mine = and(completedDispatches(companyId), eq(dispatch.customerId, cust.id));
     const inRange = and(mine, gte(dispatch.completedAt, new Date(fromMs)), lt(dispatch.completedAt, new Date(endMs)));
     const key = bucketKeyExpr(dispatch.completedAt, segments, unit);
@@ -288,7 +321,7 @@ export const analyticsRouter = router({
     ]);
 
     const byKey = new Map(seriesRows.map((r) => [r.key, r]));
-    const series = bucketStarts(input.from, input.to, unit).map((bucketStart) => {
+    const series = bucketStarts(input.from, end, unit).map((bucketStart) => {
       const r = byKey.get(bucketStart);
       return { bucketStart, kgG: num(r?.kgG), dispatches: num(r?.dispatches) };
     });
@@ -329,32 +362,37 @@ export const analyticsRouter = router({
   }),
 
   /**
-   * Who is leading over [from, to), against the same number of days immediately before. Ranks are
-   * by kg (ties by name, then id) over every customer with volume; `rows` is the top `limit`.
+   * Who is leading over the days from..to (inclusive), against the same number of days immediately
+   * before. Rows are live customers of this company with a completed dispatch in the period, ranked
+   * by kg with competition ranks (equal kg → equal rank); ties are listed by lower(name), then id.
+   * Soft-deleted (or unmatched) customers are never listed, but their kg stays in `otherKgG` and
+   * `totalKgG`, so the total matches `dispatchVolume`.
    */
   customerLeaderboard: analyticsProcedure
     .input(leaderboardInput)
     .query(async ({ ctx, input }): Promise<CustomerLeaderboard> => {
       const companyId = ctx.companyId;
       const timezone = await timezoneOf(ctx.db, companyId);
-      const previous = { from: addDays(input.from, -daysBetween(input.from, input.to)), to: input.from };
+      const days = daysBetween(input.from, input.to) + 1;
+      const previous = { from: addDays(input.from, -days), to: addDays(input.from, -1) };
       const prevFromMs = localMidnight(timezone, previous.from);
       const fromMs = localMidnight(timezone, input.from);
-      const endMs = localMidnight(timezone, input.to);
+      const endMs = localMidnight(timezone, addDays(input.to, 1));
       const current = sql`${dispatch.completedAt} >= ${fromMs}`;
 
       const rows = await ctx.db
         .select({
           customerId: dispatch.customerId,
           name: customer.name,
+          listable: sql<number>`(${customer.id} is not null and ${customer.deletedAt} is null)`,
           kgG: sql<number>`coalesce(sum(case when ${current} then ${bundle.weightG} end), 0)`,
           dispatches: sql<number>`count(distinct case when ${current} then ${dispatch.id} end)`,
           prevKgG: sql<number>`coalesce(sum(case when ${dispatch.completedAt} < ${fromMs} then ${bundle.weightG} end), 0)`,
         })
         .from(dispatch)
-        .innerJoin(customer, and(eq(customer.id, dispatch.customerId), eq(customer.companyId, companyId)))
-        .innerJoin(dispatchItem, itemsOfDispatch(companyId))
-        .innerJoin(bundle, bundleOfItem(companyId))
+        .leftJoin(customer, and(eq(customer.id, dispatch.customerId), eq(customer.companyId, companyId)))
+        .leftJoin(dispatchItem, itemsOfDispatch(companyId))
+        .leftJoin(bundle, bundleOfItem(companyId))
         .where(
           and(
             completedDispatches(companyId),
@@ -364,39 +402,44 @@ export const analyticsRouter = router({
         )
         .groupBy(dispatch.customerId);
 
-      type Row = (typeof rows)[number];
-      const byKg = (kgOf: (r: Row) => number) => (a: Row, b: Row) =>
-        kgOf(b) - kgOf(a) ||
-        (a.name < b.name ? -1 : a.name > b.name ? 1 : 0) ||
-        (a.customerId < b.customerId ? -1 : 1);
+      type Row = (typeof rows)[number] & { name: string };
+      const listed = rows.filter((r): r is Row => num(r.listable) === 1 && r.name !== null);
+      const byKg = (kgOf: (r: Row) => number) => (a: Row, b: Row) => {
+        const an = a.name.toLowerCase();
+        const bn = b.name.toLowerCase();
+        return kgOf(b) - kgOf(a) || (an < bn ? -1 : an > bn ? 1 : 0) || (a.customerId < b.customerId ? -1 : 1);
+      };
 
-      const prevRank = new Map(
-        rows
-          .filter((r) => num(r.prevKgG) > 0)
-          .sort(byKg((r) => num(r.prevKgG)))
-          .map((r, i) => [r.customerId, i + 1]),
-      );
-      const ranked = rows.filter((r) => num(r.kgG) > 0).sort(byKg((r) => num(r.kgG)));
-      const totalKgG = ranked.reduce((t, r) => t + num(r.kgG), 0);
-      const top = ranked.slice(0, input.limit).map((r, i) => {
-        const kgG = num(r.kgG);
-        const prevKgG = num(r.prevKgG);
-        return {
-          customerId: r.customerId,
-          name: r.name,
-          kgG,
-          sharePct: pct(kgG, totalKgG),
-          dispatches: num(r.dispatches),
-          rank: i + 1,
-          previousRank: prevRank.get(r.customerId) ?? null,
-          deltaPct: prevKgG > 0 ? round1(((kgG - prevKgG) / prevKgG) * 100) : null,
-        };
-      });
+      const prevSorted = listed.filter((r) => num(r.prevKgG) > 0).sort(byKg((r) => num(r.prevKgG)));
+      const prevRanks = competitionRanks(prevSorted.map((r) => num(r.prevKgG)));
+      const prevRank = new Map(prevSorted.map((r, i) => [r.customerId, prevRanks[i]!]));
+
+      const ranked = listed.filter((r) => num(r.dispatches) > 0).sort(byKg((r) => num(r.kgG)));
+      const ranks = competitionRanks(ranked.map((r) => num(r.kgG)));
+      const totalKgG = rows.reduce((t, r) => t + num(r.kgG), 0);
+      const top = ranked.slice(0, input.limit);
+      const topKgG = top.reduce((t, r) => t + num(r.kgG), 0);
+      const otherKgG = totalKgG - topKgG;
+      const pcts = shares([...top.map((r) => num(r.kgG)), otherKgG], totalKgG);
       return {
         period: { from: input.from, to: input.to },
         previous,
-        rows: top,
-        otherKgG: totalKgG - top.reduce((t, r) => t + r.kgG, 0),
+        rows: top.map((r, i) => {
+          const kgG = num(r.kgG);
+          const prevKgG = num(r.prevKgG);
+          return {
+            customerId: r.customerId,
+            name: r.name,
+            kgG,
+            sharePct: pcts[i]!,
+            dispatches: num(r.dispatches),
+            rank: ranks[i]!,
+            previousRank: prevRank.get(r.customerId) ?? null,
+            deltaPct: prevKgG > 0 ? round1(((kgG - prevKgG) / prevKgG) * 100) : null,
+          };
+        }),
+        otherKgG,
+        otherSharePct: pcts.at(-1)!,
         totalKgG,
       };
     }),
@@ -431,8 +474,8 @@ export const analyticsRouter = router({
       ctx.db
         .select({ key: shippedKey, kgG: sql<number>`coalesce(sum(${bundle.weightG}), 0)` })
         .from(dispatch)
-        .innerJoin(dispatchItem, itemsOfDispatch(companyId))
-        .innerJoin(bundle, bundleOfItem(companyId))
+        .leftJoin(dispatchItem, itemsOfDispatch(companyId))
+        .leftJoin(bundle, bundleOfItem(companyId))
         .where(
           and(
             completedDispatches(companyId),
@@ -452,17 +495,20 @@ export const analyticsRouter = router({
   }),
 
   /**
-   * In-stock bundles (available + reserved) by age since pack (`bundle.created_at`, whole elapsed
-   * days): 0–15, 16–30, 31–60, 60+ (61 and over), by kg and bundles; plus top 8 sections by kg.
+   * In-stock bundles (available + reserved) by age = company calendar days from the pack date
+   * (`bundle.created_at`) to today: 0–15, 16–30, 31–60, 60+ (61 and over), by kg and bundles; plus
+   * the top 8 sections by kg and an "Other" row.
    */
   stockAgeing: analyticsProcedure.query(async ({ ctx }): Promise<StockAgeing> => {
     const companyId = ctx.companyId;
+    const timezone = await timezoneOf(ctx.db, companyId);
     const nowMs = now().getTime();
+    const today = localDate(timezone, nowMs);
     const inStock = and(eq(bundle.companyId, companyId), inArray(bundle.status, ["available", "reserved"]));
-    // Server-computed integers inlined as literals: the CASE appears in SELECT and GROUP BY, and
-    // binding `nowMs` would cost a parameter per mention.
-    const age = sql`((${sql.raw(String(Math.trunc(nowMs)))} - ${bundle.createdAt}) / ${sql.raw(String(DAY_MS))})`;
-    const bucket = sql<number>`case when ${age} <= 15 then 0 when ${age} <= 30 then 1 when ${age} <= 60 then 2 else 3 end`;
+    // Packed on or after local midnight of (today − N) ⇔ at most N calendar days old. The edges are
+    // server-computed integers inlined as literals (the CASE appears in SELECT and GROUP BY).
+    const edge = (days: number) => sql.raw(String(localMidnight(timezone, addDays(today, -days))));
+    const bucket = sql<number>`case when ${bundle.createdAt} >= ${edge(15)} then 0 when ${bundle.createdAt} >= ${edge(30)} then 1 when ${bundle.createdAt} >= ${edge(60)} then 2 else 3 end`;
 
     const [bucketRows, sectionRows] = await Promise.all([
       ctx.db

@@ -260,13 +260,24 @@ bun run deploy
   viewer get FORBIDDEN; on the client gate every chart with `<Can do="analytics.view">`.
 - Volume counts completed dispatches only (`status = 'completed'`, not soft-deleted), dated by
   `completed_at` and weighed as the sum of their bundles' `weight_g`. Weights return as integer grams.
+  One join rule everywhere: dispatch LEFT JOIN item LEFT JOIN bundle, every join scoped by
+  `company_id` (a foreign key does not check the company; the cross-wired tenant test in
+  `plant-analytics.test.ts` fails if any join filter goes). A completed dispatch with no items is a
+  dispatch of 0 kg.
 - Buckets use the company timezone (`settings.timezone`, IST default). Dates are company-local
-  `YYYY-MM-DD`, and ranges are half-open (`from` inclusive, `to` exclusive). `lib/zonedBuckets.ts`
-  shifts timestamps by the zone's offset inside SQL. The offset segments are inlined as integer
-  literals, so bucketing binds no parameters. Aggregate with GROUP BY and never bind id lists.
-- Stock ageing counts available + reserved bundles by whole days since pack (`bundle.created_at`).
-  Section breakdowns are the top 8 plus an `Other` row (`sectionId: null`). `openOrders` stays null
-  until sales orders exist (PL-8).
+  `YYYY-MM-DD`; `from` and `to` are both inclusive days (ruling RP10, as `purchase.register`), so
+  `from == to` is one day and the query ends at the local midnight after `to`. The previous period
+  is the same number of days ending the day before `from`. `lib/zonedBuckets.ts` shifts timestamps
+  by the zone's offset inside SQL; the offset segments are inlined integer literals, so bucketing
+  binds no parameters. Aggregate with GROUP BY and never bind id lists.
+- Leaderboard: competition ranks (equal kg → equal rank, 1, 1, 3), ties listed by lower(name) then
+  id, previous ranks the same way. Soft-deleted or unmatched customers are never rows; their kg stays
+  in `otherKgG`/`totalKgG`. Shares use the largest-remainder method (rows + Other = 100.0).
+- Stock ageing counts available + reserved bundles by company calendar days from the pack date
+  (`bundle.created_at`) to today. Section breakdowns are the top 8 plus an `Other` row
+  (`sectionId: null`). `openOrders` stays null until sales orders exist (PL-8).
+- Indexes `dispatch(company_id, completed_at)` and `bundle(company_id, created_at)` (migration 0016)
+  serve the range filters.
 
 ## Worker performance rules
 

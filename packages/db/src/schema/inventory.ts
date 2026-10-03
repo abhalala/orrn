@@ -85,6 +85,8 @@ export const bundle = sqliteTable(
     index("bundle_company_status_die_idx").on(table.companyId, table.status, table.dieId),
     index("bundle_company_dispatch_idx").on(table.companyId, table.currentDispatchId),
     index("bundle_company_location_status_idx").on(table.companyId, table.locationId, table.status),
+    // Packed-kg trends and stock ageing by pack time (PL-A1, ruling RP13).
+    index("bundle_company_created_idx").on(table.companyId, table.createdAt),
   ],
 );
 
