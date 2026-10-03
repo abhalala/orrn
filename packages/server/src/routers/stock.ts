@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { bundle } from "@orrn/db/schema/inventory";
 import { ledgerItemKinds, location, locationKinds, stockLedger } from "@orrn/db/schema/stock";
+import { storeItem } from "@orrn/db/schema/store";
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
@@ -19,6 +20,8 @@ import type { Context } from "../context";
 import { atomicBatch, atomicBatchLast, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
 import { resolveCode } from "../lib/codeResolver";
+import { canAny } from "../lib/permissions";
+import type { CompanyRole } from "@orrn/db/schema/tenant";
 import {
   defaultLocationStatements,
   IN_STOCK_STATUSES,
@@ -39,6 +42,11 @@ const locationCode = z
   .refine((s) => /^[A-Z0-9][A-Z0-9-]*$/.test(s), "Use letters, digits and dashes")
   // Digest Stage 13: legacy data uses location 0 for "unknown"; it is never a real place.
   .refine((s) => !/^0+$/.test(s), "Location 0 is not allowed");
+
+/** Store stock (consumables) is not for the floor: store keepers, publishers and analytics readers. */
+function canSeeStoreStock(role: CompanyRole) {
+  return canAny({ company: { role }, isPlatformAdmin: false, platformRole: null }, ["store.txn", "masters.publish", "analytics.view"]);
+}
 
 /** The audit writer's slice of the request context. */
 function auditCtx(ctx: Pick<Context, "session" | "impersonation"> & { db: OrrnDb; companyId: string }) {
@@ -359,6 +367,11 @@ export const stockRouter = router({
   /**
    * Ledger balance per (item kind, item, location), non-zero only. `at` = as of that instant;
    * `locationId: null` = stock whose place is unknown (legacy).
+   *
+   * Units: bundle, scrap and billet rows are grams in `qtyG`. A `store_item` row is in the item's
+   * own unit (kg, litre, piece, …), so it returns `qtyG: null` with `qtyMilli` (1000 = 1 unit) and
+   * `unit`; grams are never mixed with milli-units. Store rows are only returned to callers who
+   * hold store.txn, masters.publish or analytics.view.
    */
   balance: companyProcedure
     .input(
@@ -377,35 +390,76 @@ export const stockRouter = router({
       else if (input.locationId !== undefined) conditions.push(eq(stockLedger.locationId, input.locationId));
       if (input.itemKind) conditions.push(eq(stockLedger.itemKind, input.itemKind));
       if (input.itemRef) conditions.push(eq(stockLedger.itemRef, input.itemRef));
+      if (!canSeeStoreStock(ctx.role)) conditions.push(ne(stockLedger.itemKind, "store_item"));
 
       const rows = await ctx.db
         .select({
           itemKind: stockLedger.itemKind,
           itemRef: stockLedger.itemRef,
           locationId: stockLedger.locationId,
-          qtyG: sql<number>`sum(${stockLedger.qtyG})`,
+          unit: storeItem.unit,
+          qty: sql<number>`sum(${stockLedger.qtyG})`,
         })
         .from(stockLedger)
+        .leftJoin(
+          storeItem,
+          and(
+            eq(stockLedger.itemKind, "store_item"),
+            eq(storeItem.id, stockLedger.itemRef),
+            eq(storeItem.companyId, stockLedger.companyId),
+          ),
+        )
         .where(and(...conditions))
-        .groupBy(stockLedger.itemKind, stockLedger.itemRef, stockLedger.locationId)
+        .groupBy(stockLedger.itemKind, stockLedger.itemRef, stockLedger.locationId, storeItem.unit)
         .having(sql`sum(${stockLedger.qtyG}) <> 0`)
         .orderBy(asc(stockLedger.itemKind), asc(stockLedger.locationId), asc(stockLedger.itemRef));
-      return { items: rows.map((r) => ({ ...r, qtyG: Number(r.qtyG) })) };
+      return {
+        items: rows.map((r) =>
+          r.itemKind === "store_item"
+            ? {
+                itemKind: r.itemKind,
+                itemRef: r.itemRef,
+                locationId: r.locationId,
+                qtyG: null as number | null,
+                qtyMilli: Number(r.qty),
+                unit: r.unit,
+              }
+            : { itemKind: r.itemKind, itemRef: r.itemRef, locationId: r.locationId, qtyG: Number(r.qty) },
+        ),
+      };
     }),
 
-  /** Stock per location (every company location, plus "unknown"), from the ledger. */
+  /**
+   * Stock per location (every company location, plus "unknown"), from the ledger. Totals per item
+   * kind: grams in `qtyG`; for `store_item` `qtyG` is null and `byUnit` lists milli-unit totals per
+   * unit (kg, litre, piece, …), never one number across units. Store totals are only returned to
+   * callers who hold store.txn, masters.publish or analytics.view.
+   */
   byLocation: companyProcedure
     .input(z.object({ at: z.number().int().optional() }).default({}))
     .query(async ({ ctx, input }) => {
+      const scope = and(
+        ledgerScope(ctx.companyId, input.at !== undefined ? new Date(input.at) : undefined),
+        canSeeStoreStock(ctx.role) ? undefined : ne(stockLedger.itemKind, "store_item"),
+      );
       const per = ctx.db
         .select({
           itemKind: stockLedger.itemKind,
           locationId: stockLedger.locationId,
+          unit: storeItem.unit,
           qty: sql<number>`sum(${stockLedger.qtyG})`.as("qty"),
         })
         .from(stockLedger)
-        .where(ledgerScope(ctx.companyId, input.at !== undefined ? new Date(input.at) : undefined))
-        .groupBy(stockLedger.itemKind, stockLedger.itemRef, stockLedger.locationId)
+        .leftJoin(
+          storeItem,
+          and(
+            eq(stockLedger.itemKind, "store_item"),
+            eq(storeItem.id, stockLedger.itemRef),
+            eq(storeItem.companyId, stockLedger.companyId),
+          ),
+        )
+        .where(scope)
+        .groupBy(stockLedger.itemKind, stockLedger.itemRef, stockLedger.locationId, storeItem.unit)
         .having(sql`sum(${stockLedger.qtyG}) <> 0`)
         .as("per");
       const [totals, locations] = await Promise.all([
@@ -413,21 +467,43 @@ export const stockRouter = router({
           .select({
             locationId: per.locationId,
             itemKind: per.itemKind,
+            unit: per.unit,
             itemCount: sql<number>`count(*)`,
-            qtyG: sql<number>`sum(${per.qty})`,
+            qty: sql<number>`sum(${per.qty})`,
           })
           .from(per)
-          .groupBy(per.locationId, per.itemKind),
+          .groupBy(per.locationId, per.itemKind, per.unit),
         ctx.db
           .select()
           .from(location)
           .where(eq(location.companyId, ctx.companyId))
           .orderBy(asc(location.sortOrder), asc(location.code)),
       ]);
-      const totalsFor = (locationId: string | null) =>
-        totals
-          .filter((t) => t.locationId === locationId)
-          .map((t) => ({ itemKind: t.itemKind, itemCount: Number(t.itemCount), qtyG: Number(t.qtyG) }));
+      type Total =
+        | { itemKind: Exclude<(typeof ledgerItemKinds)[number], "store_item">; itemCount: number; qtyG: number }
+        | {
+            itemKind: "store_item";
+            itemCount: number;
+            qtyG: null;
+            byUnit: { unit: string; itemCount: number; qtyMilli: number }[];
+          };
+      const totalsFor = (locationId: string | null): Total[] => {
+        const out: Total[] = [];
+        for (const t of totals.filter((x) => x.locationId === locationId)) {
+          if (t.itemKind !== "store_item") {
+            out.push({ itemKind: t.itemKind, itemCount: Number(t.itemCount), qtyG: Number(t.qty) });
+            continue;
+          }
+          let store = out.find((x): x is Extract<Total, { itemKind: "store_item" }> => x.itemKind === "store_item");
+          if (!store) {
+            store = { itemKind: "store_item", itemCount: 0, qtyG: null, byUnit: [] };
+            out.push(store);
+          }
+          store.itemCount += Number(t.itemCount);
+          store.byUnit.push({ unit: t.unit ?? "unknown", itemCount: Number(t.itemCount), qtyMilli: Number(t.qty) });
+        }
+        return out;
+      };
       return {
         locations: locations.map((l) => ({
           id: l.id,

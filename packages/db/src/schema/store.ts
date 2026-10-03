@@ -36,8 +36,12 @@ export const storeItem = sqliteTable(
     nameKey: text("name_key").notNull(),
     unit: text("unit", { enum: storeUnits }).notNull(),
     category: text("category", { enum: storeCategories }).notNull().default("other"),
-    /** Retired items take no new movements; their stock still shows on balances. */
+    /**
+     * Retired items take no new movements and can only be retired at a balance of 0. `retired_at`
+     * is set exactly when `active` is false; the name is unique among items with no `retired_at`.
+     */
     active: integer("active", { mode: "boolean" }).notNull().default(true),
+    retiredAt: integer("retired_at", { mode: "timestamp_ms" }),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
@@ -46,7 +50,10 @@ export const storeItem = sqliteTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("store_item_company_name_key_unique").on(table.companyId, table.nameKey),
+    // One ACTIVE item per normalised name: a retired "Cover flux" does not block a new one.
+    uniqueIndex("store_item_company_name_key_unique")
+      .on(table.companyId, table.nameKey)
+      .where(sql`${table.retiredAt} is null`),
     index("store_item_company_server_seq_idx").on(table.companyId, table.serverSeq),
   ],
 );
@@ -94,10 +101,27 @@ export const storeTxn = sqliteTable(
     /** Both legs of one exchange carry the same id. */
     exchangeId: text("exchange_id"),
     note: text("note"),
+    /**
+     * Client-generated idempotency key (the app's retry/offline queue): a second submit with the
+     * same key returns the first entry. Exchanges carry it on the outgoing (MRS) leg.
+     */
+    clientRequestId: text("client_request_id"),
+    /**
+     * Cancelled entries keep their number; a `store_*_cancel` ledger row reverses the stock effect.
+     * Both legs of an exchange are cancelled together.
+     */
+    cancelledAt: integer("cancelled_at", { mode: "timestamp_ms" }),
+    cancelledBy: text("cancelled_by").references(() => user.id, { onDelete: "set null" }),
+    cancelReason: text("cancel_reason"),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    /** NULL until the entry is changed (cancelled). */
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }),
   },
   (table) => [
+    uniqueIndex("store_txn_company_request_unique")
+      .on(table.companyId, table.clientRequestId)
+      .where(sql`${table.clientRequestId} is not null`),
     uniqueIndex("store_txn_company_number_unique").on(table.companyId, table.kind, table.period, table.number),
     index("store_txn_company_item_idx").on(table.companyId, table.itemId, table.createdAt),
     index("store_txn_company_created_idx").on(table.companyId, table.createdAt),

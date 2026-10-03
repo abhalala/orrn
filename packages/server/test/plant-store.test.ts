@@ -8,7 +8,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
-import { auditLog, location, stockLedger, storeItem, storeTxn } from "@orrn/db/schema";
+import { auditLog, stockLedger, storeItem, storeTxn } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { can as canMe, type Action } from "../src/lib/permissions";
@@ -125,10 +125,15 @@ describe("store items", () => {
     const p = await plant();
     await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 5 * U });
     await p.storekeeper.store.items.update({ id: p.fluxId, name: "Cover flux (K)" });
+    // Minor 3: an item with stock cannot be retired (the stock would be frozen)
+    await expect(p.manager.store.items.update({ id: p.fluxId, active: false })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await env.db.select().from(storeItem).where(eq(storeItem.id, p.fluxId)))[0]!.active).toBe(true);
+    await p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: 5 * U, purpose: "melt" });
     await p.manager.store.items.update({ id: p.fluxId, active: false });
     const [row] = await env.db.select().from(storeItem).where(eq(storeItem.id, p.fluxId));
     expect(row!.name).toBe("Cover flux (K)");
     expect(row!.active).toBe(false);
+    expect(row!.retiredAt).toBeInstanceOf(Date);
     await expect(p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: U })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: U, purpose: "melt" })).rejects.toMatchObject({
       code: "BAD_REQUEST",
@@ -136,8 +141,38 @@ describe("store items", () => {
     const actions = await auditActions(p.companyId);
     expect(actions).toContain("store_item.create");
     expect(actions.filter((a) => a === "store_item.update")).toHaveLength(2);
-    // a retired item with stock still shows on balances, so the stock is not hidden
-    expect(await balanceOf(p, p.fluxId)).toBe(5 * U);
+    // reactivating clears retired_at
+    await p.manager.store.items.update({ id: p.fluxId, active: true });
+    expect((await env.db.select().from(storeItem).where(eq(storeItem.id, p.fluxId)))[0]!.retiredAt).toBeNull();
+  });
+
+  test("RACE: a receipt lands after the retire read the balance as 0 — the retire does not land", async () => {
+    const p = await plant();
+    env.beforeNextBatch(() => p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: U }));
+    await expect(p.manager.store.items.update({ id: p.fluxId, active: false })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await env.db.select().from(storeItem).where(eq(storeItem.id, p.fluxId)))[0]!.active).toBe(true);
+  });
+
+  test("Minor 9: a name is unique among active items only — a retired name can be reused", async () => {
+    const p = await plant();
+    await p.manager.store.items.update({ id: p.fluxId, active: false });
+    const again = await p.manager.store.items.create({ name: "Cover flux", unit: "kg", category: "chemical" });
+    expect(again.id).not.toBe(p.fluxId);
+    await expect(p.manager.store.items.update({ id: p.fluxId, active: true })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(p.manager.store.items.create({ name: "cover flux", unit: "kg", category: "chemical" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
+
+  test("item id inputs are capped at 64 characters", async () => {
+    const p = await plant();
+    const long = "x".repeat(65);
+    await expect(p.manager.store.items.update({ id: long, name: "A" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.storekeeper.store.receive({ itemId: long, qtyMilli: U })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.storekeeper.store.issue({ itemId: long, qtyMilli: U, purpose: "melt" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.storekeeper.store.exchange({ itemId: long, qtyOutMilli: U, qtyInMilli: U })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.manager.store.txns({ itemId: long })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.storekeeper.store.cancel({ txnId: long, reason: "x" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   test("the unit cannot change once the item has a movement", async () => {
@@ -553,6 +588,27 @@ describe("permission matrix", () => {
     }
   });
 
+  test("items.update: storekeeper, manager, admin and owner; everyone else FORBIDDEN", async () => {
+    const p = await plant();
+    for (const role of ROLES) {
+      const ok = ["storekeeper", "manager", "admin", "owner"].includes(role);
+      const call = p[role].store.items.update({ id: p.fluxId, category: "chemical" });
+      if (ok) await expect(call).resolves.toBeTruthy();
+      else await expect(call).rejects.toMatchObject({ code: "FORBIDDEN" });
+    }
+  });
+
+  test("cancel needs store.txn: storekeeper and owner only", async () => {
+    const p = await plant();
+    for (const role of ROLES) {
+      const ok = role === "storekeeper" || role === "owner";
+      const r = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: U });
+      const call = p[role].store.cancel({ txnId: r.id, reason: "test" });
+      if (ok) await expect(call).resolves.toBeTruthy();
+      else await expect(call).rejects.toMatchObject({ code: "FORBIDDEN" });
+    }
+  });
+
   test("unauthenticated callers are rejected", async () => {
     const anon = env.caller(null);
     await expect(anon.store.balances()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
@@ -596,18 +652,416 @@ describe("D1 limits and ledger = projection", () => {
     expect(ledger).toBe(projected);
     expect(await balanceOf(p, p.fluxId)).toBe(ledger);
     expect(ledger).toBeGreaterThanOrEqual(0);
-    // at no point did the running balance (ledger order) dip below zero
-    const rows = (await storeLedger(p.companyId, p.fluxId)).sort((a, b) => a.postedAt.getTime() - b.postedAt.getTime() || a.serverSeq - b.serverSeq);
-    expect(rows.length).toBe(txns.length);
+    // Minor 5: the running balance after every ledger row, in ledger order, never dips below zero
+    const rows = (await storeLedger(p.companyId, p.fluxId)).sort(
+      (x, y) => x.postedAt.getTime() - y.postedAt.getTime() || x.serverSeq - y.serverSeq,
+    );
+    let running = 0;
+    for (const r of rows) {
+      running += r.qtyG;
+      expect(running).toBeGreaterThanOrEqual(0);
+    }
+    expect(running).toBe(ledger);
+    expect(rows.length).toBeGreaterThan(10);
+    expect(rows.some((r) => r.qtyG < 0)).toBe(true);
     // every txn has exactly one ledger row and vice versa
     expect(new Set(rows.map((r) => r.voucherId))).toEqual(new Set(txns.map((t) => t.id)));
   });
 
-  test("stock.balance reads store rows too (qty in milli-units for item_kind store_item)", async () => {
+  test("ledger created_at uses the injected clock (Minor 10)", async () => {
     const p = await plant();
-    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 8 * U });
-    const storeLoc = (await env.db.select().from(location).where(and(eq(location.companyId, p.companyId), eq(location.kind, "store"))))[0]!;
+    setClock(new Date("2027-01-15T10:00:00Z"));
+    const r = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: U });
+    const [row] = (await storeLedger(p.companyId, p.fluxId)).filter((x) => x.voucherId === r.id);
+    expect(row!.createdAt.getTime()).toBe(new Date("2027-01-15T10:00:00Z").getTime());
+    expect(row!.postedAt.getTime()).toBe(new Date("2027-01-15T10:00:00Z").getTime());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RP15: cancel
+// ---------------------------------------------------------------------------
+
+async function ledgerRowsOf(companyId: string, voucherId: string) {
+  return (await storeLedger(companyId)).filter((r) => r.voucherId === voucherId);
+}
+
+describe("store.cancel (RP15)", () => {
+  test("cancelling a GRN reverses its ledger row, keeps its number, issues no new number, audits", async () => {
+    const p = await plant();
+    const grn = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U });
+    const out = await p.storekeeper.store.cancel({ txnId: grn.id, reason: "Wrong item booked" });
+    expect(out).toMatchObject({ txnId: grn.id, number: "GRN-1", kind: "grn" });
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(0);
+    expect(await balanceOf(p, p.fluxId)).toBe(0);
+
+    const rows = await ledgerRowsOf(p.companyId, grn.id);
+    const orig = rows.find((r) => r.voucherType === "store_grn")!;
+    const rev = rows.find((r) => r.voucherType === "store_grn_cancel")!;
+    expect(rev).toMatchObject({ itemKind: "store_item", itemRef: p.fluxId, qtyG: -10 * U, reversalOf: orig.id, locationId: orig.locationId, reason: "Wrong item booked" });
+    expect(rev.postedAt.getTime()).toBeGreaterThan(orig.postedAt.getTime());
+    expect(rev.createdBy).toBe(p.users.storekeeper.id);
+
+    const [txn] = await env.db.select().from(storeTxn).where(eq(storeTxn.id, grn.id));
+    expect(txn).toMatchObject({ number: "GRN-1", cancelReason: "Wrong item booked", cancelledBy: p.users.storekeeper.id });
+    expect(txn!.cancelledAt).toBeInstanceOf(Date);
+    expect(txn!.updatedAt).toBeInstanceOf(Date);
+    // no new number was taken: the next receipt is GRN-2, and there is no new document row
+    expect((await txnRows(p.companyId)).length).toBe(1);
+    expect((await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: U })).number).toBe("GRN-2");
+    expect((await auditActions(p.companyId)).filter((a) => a === "store.cancel")).toHaveLength(1);
+  });
+
+  test("cancelling an MRS puts the stock back", async () => {
+    const p = await plant();
+    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U });
+    const mrs = await p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: 4 * U, purpose: "melt" });
+    await p.storekeeper.store.cancel({ txnId: mrs.id, reason: "Not used" });
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(10 * U);
+    const rows = await ledgerRowsOf(p.companyId, mrs.id);
+    expect(rows.find((r) => r.voucherType === "store_mrs_cancel")).toMatchObject({ qtyG: 4 * U });
+  });
+
+  test("a GRN cannot be cancelled once its stock was drawn: refused with the shortfall, nothing written", async () => {
+    const p = await plant();
+    const grn = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U });
+    const mrs = await p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: 6 * U, purpose: "melt" });
+    await expect(p.storekeeper.store.cancel({ txnId: grn.id, reason: "oops" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await storeLedger(p.companyId)).filter((r) => r.reversalOf !== null)).toEqual([]);
+    expect((await env.db.select().from(storeTxn).where(eq(storeTxn.id, grn.id)))[0]!.cancelledAt).toBeNull();
+    expect((await auditActions(p.companyId)).filter((a) => a === "store.cancel")).toEqual([]);
+    // undo the issue first, then the receipt
+    await p.storekeeper.store.cancel({ txnId: mrs.id, reason: "undo" });
+    await p.storekeeper.store.cancel({ txnId: grn.id, reason: "oops" });
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(0);
+  });
+
+  test("cancelling either leg of an exchange reverses both legs atomically", async () => {
+    const p = await plant();
+    await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 3 * U });
+    const ex = await p.storekeeper.store.exchange({ itemId: p.bearingId, qtyOutMilli: 2 * U, qtyInMilli: 2 * U });
+    await p.storekeeper.store.cancel({ txnId: ex.grnId, reason: "Vendor refused" });
+    expect(await ledgerBalance(p.companyId, p.bearingId)).toBe(3 * U);
+    const txns = await txnRows(p.companyId);
+    for (const id of [ex.mrsId, ex.grnId]) {
+      expect(txns.find((t) => t.id === id)!.cancelledAt).toBeInstanceOf(Date);
+    }
+    const revs = (await storeLedger(p.companyId)).filter((r) => r.reversalOf !== null);
+    expect(revs.map((r) => [r.voucherType, r.qtyG]).sort()).toEqual([["store_grn_cancel", -2 * U], ["store_mrs_cancel", 2 * U]]);
+    expect((await auditActions(p.companyId)).filter((a) => a === "store.cancel")).toHaveLength(1);
+    await expect(p.storekeeper.store.cancel({ txnId: ex.mrsId, reason: "again" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  test("exchange cancel is guarded on the net: the new items were used, so neither leg is cancelled", async () => {
+    const p = await plant();
+    await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 2 * U });
+    const ex = await p.storekeeper.store.exchange({ itemId: p.bearingId, qtyOutMilli: 2 * U, qtyInMilli: 3 * U }); // balance 3
+    await p.storekeeper.store.issue({ itemId: p.bearingId, qtyMilli: 3 * U, purpose: "maintenance" }); // balance 0
+    // cancelling would take 3 out and put 2 back: net -1
+    await expect(p.storekeeper.store.cancel({ txnId: ex.mrsId, reason: "x" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const txns = await txnRows(p.companyId);
+    expect(txns.filter((t) => t.cancelledAt !== null)).toEqual([]);
+    expect((await storeLedger(p.companyId)).filter((r) => r.reversalOf !== null)).toEqual([]);
+    // one more unit in: net 1 - 3 + 2 = 0, allowed
+    await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: U });
+    await p.storekeeper.store.cancel({ txnId: ex.mrsId, reason: "x" });
+    expect(await ledgerBalance(p.companyId, p.bearingId)).toBe(0);
+  });
+
+  test("cancelling twice is refused; one reversal only", async () => {
+    const p = await plant();
+    const grn = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 5 * U });
+    await p.storekeeper.store.cancel({ txnId: grn.id, reason: "a" });
+    await expect(p.storekeeper.store.cancel({ txnId: grn.id, reason: "b" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await storeLedger(p.companyId)).filter((r) => r.reversalOf !== null)).toHaveLength(1);
+  });
+
+  test("RACE: two concurrent cancels of one GRN produce exactly one reversal", async () => {
+    const p = await plant();
+    const grn = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 5 * U });
+    const results = await Promise.allSettled([
+      p.storekeeper.store.cancel({ txnId: grn.id, reason: "first" }),
+      p.owner.store.cancel({ txnId: grn.id, reason: "second" }),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect((results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason).toMatchObject({ code: "BAD_REQUEST" });
+    expect((await storeLedger(p.companyId)).filter((r) => r.reversalOf !== null)).toHaveLength(1);
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(0);
+    expect((await auditActions(p.companyId)).filter((a) => a === "store.cancel")).toHaveLength(1);
+  });
+
+  test("RACE: the other cancel lands between this one's read and write — the write does not land (MRS and exchange too)", async () => {
+    const p = await plant();
+    await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 5 * U });
+    const mrs = await p.storekeeper.store.issue({ itemId: p.bearingId, qtyMilli: 2 * U, purpose: "maintenance" });
+    env.beforeNextBatch(() => p.owner.store.cancel({ txnId: mrs.id, reason: "other" }));
+    await expect(p.storekeeper.store.cancel({ txnId: mrs.id, reason: "mine" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await storeLedger(p.companyId)).filter((r) => r.reversalOf !== null)).toHaveLength(1);
+    expect(await ledgerBalance(p.companyId, p.bearingId)).toBe(5 * U);
+
+    const ex = await p.storekeeper.store.exchange({ itemId: p.bearingId, qtyOutMilli: U, qtyInMilli: U });
+    env.beforeNextBatch(() => p.owner.store.cancel({ txnId: ex.grnId, reason: "other" }));
+    await expect(p.storekeeper.store.cancel({ txnId: ex.mrsId, reason: "mine" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await storeLedger(p.companyId)).filter((r) => r.reversalOf !== null)).toHaveLength(3);
+  });
+
+  test("RACE: an issue drains the stock after the GRN cancel read the balance — the cancel does not land", async () => {
+    const p = await plant();
+    const grn = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U });
+    env.beforeNextBatch(() => p.owner.store.issue({ itemId: p.fluxId, qtyMilli: 6 * U, purpose: "melt" }));
+    await expect(p.storekeeper.store.cancel({ txnId: grn.id, reason: "late" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(4 * U);
+    expect((await storeLedger(p.companyId)).filter((r) => r.reversalOf !== null)).toEqual([]);
+  });
+
+  test("validation and isolation: reason required, unknown id and other company's id are NOT_FOUND", async () => {
+    const a = await plant();
+    const b = await plant();
+    const grn = await a.storekeeper.store.receive({ itemId: a.fluxId, qtyMilli: U });
+    await expect(a.storekeeper.store.cancel({ txnId: grn.id, reason: "  " })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(a.storekeeper.store.cancel({ txnId: grn.id, reason: "x".repeat(501) })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(b.storekeeper.store.cancel({ txnId: grn.id, reason: "steal" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(a.storekeeper.store.cancel({ txnId: "nope", reason: "x" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect((await env.db.select().from(storeTxn).where(eq(storeTxn.id, grn.id)))[0]!.cancelledAt).toBeNull();
+  });
+
+  test("txns shows cancelled entries; the ledger still equals the live (uncancelled) projection; params stay <= 100", async () => {
+    const p = await plant();
+    env.resetPeakParams();
+    const g1 = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U });
+    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 5 * U });
+    const m1 = await p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: 3 * U, purpose: "melt" });
+    await p.storekeeper.store.cancel({ txnId: m1.id, reason: "r".repeat(500) });
+    await p.storekeeper.store.cancel({ txnId: g1.id, reason: "r" });
+    const list = (await p.manager.store.txns({})).items;
+    expect(list.find((t) => t.id === g1.id)).toMatchObject({ cancelReason: "r" });
+    expect(list.find((t) => t.id === g1.id)!.cancelledAt).toBeInstanceOf(Date);
+    expect(list.filter((t) => t.cancelledAt === null)).toHaveLength(1);
+    const live = (await txnRows(p.companyId)).filter((t) => t.cancelledAt === null).reduce((s, t) => s + (t.kind === "grn" ? t.qtyMilli : -t.qtyMilli), 0);
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(live);
+    expect(await balanceOf(p, p.fluxId)).toBe(5 * U);
+    expect(env.peakParams()).toBeLessThanOrEqual(100);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RP16: unit-safe balances in stock.balance and stock.byLocation
+// ---------------------------------------------------------------------------
+
+describe("RP16: stock.balance and stock.byLocation never add grams to milli-units", () => {
+  async function stocked() {
+    const p = await plant();
+    const ldo = await p.storekeeper.store.items.create({ name: "LDO", unit: "litre", category: "fuel" });
+    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 12_500 }); // 12.5 kg
+    await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 3 * U }); // 3 pieces
+    await p.storekeeper.store.receive({ itemId: ldo.id, qtyMilli: 40 * U }); // 40 L
+    const storeLoc = (await p.owner.stock.locations.list()).items.find((l) => l.code === "STORE")!;
+    return { p, ldoId: ldo.id, storeLoc };
+  }
+
+  test("stock.balance: store rows have qtyG null, qtyMilli and unit", async () => {
+    const { p, ldoId, storeLoc } = await stocked();
     const res = await p.manager.stock.balance({ itemKind: "store_item", locationId: storeLoc.id });
-    expect(res.items).toEqual([{ itemKind: "store_item", itemRef: p.fluxId, locationId: storeLoc.id, qtyG: 8 * U }]);
+    const byRef = new Map(res.items.map((r) => [r.itemRef, r]));
+    expect(byRef.get(p.fluxId)).toEqual({ itemKind: "store_item", itemRef: p.fluxId, locationId: storeLoc.id, qtyG: null, qtyMilli: 12_500, unit: "kg" });
+    expect(byRef.get(p.bearingId)).toMatchObject({ qtyG: null, qtyMilli: 3 * U, unit: "piece" });
+    expect(byRef.get(ldoId)).toMatchObject({ qtyG: null, qtyMilli: 40 * U, unit: "litre" });
+  });
+
+  test("stock.byLocation: STORE totals carry no grams, only per-unit milli totals", async () => {
+    const { p, storeLoc } = await stocked();
+    const summary = await p.manager.stock.byLocation();
+    const store = summary.locations.find((l) => l.id === storeLoc.id)!;
+    const total = store.totals.find((t) => t.itemKind === "store_item")!;
+    expect(total).toMatchObject({ itemKind: "store_item", itemCount: 3, qtyG: null });
+    if (total.itemKind !== "store_item") throw new Error("expected the store_item total");
+    expect([...total.byUnit].sort((a, b) => a.unit.localeCompare(b.unit))).toEqual([
+      { unit: "kg", itemCount: 1, qtyMilli: 12_500 },
+      { unit: "litre", itemCount: 1, qtyMilli: 40 * U },
+      { unit: "piece", itemCount: 1, qtyMilli: 3 * U },
+    ]);
+  });
+
+  test("Minor 2: store rows are hidden from callers without store.txn, masters.publish or analytics.view", async () => {
+    const { p } = await stocked();
+    for (const role of ROLES) {
+      const sees = ["storekeeper", "manager", "admin", "owner", "office", "accountant"].includes(role);
+      const bal = await p[role].stock.balance({ itemKind: "store_item" });
+      expect({ role, n: bal.items.length }).toEqual({ role, n: sees ? 3 : 0 });
+      const sum = await p[role].stock.byLocation();
+      const has = sum.locations.some((l) => l.totals.some((t) => t.itemKind === "store_item"));
+      expect({ role, has }).toEqual({ role, has: sees });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RP17: draw builder for a cast batch
+// ---------------------------------------------------------------------------
+
+describe("RP17: store draws inside another document's batch (lib/store)", () => {
+  async function libParts(p: Plant) {
+    const lib = await import("../src/lib/store");
+    const { atomicBatch } = await import("../src/lib/atomic");
+    const { auditInsert } = await import("../src/lib/audit");
+    const { nextCompanySeq } = await import("../src/lib/sequence");
+    const userId = p.users.foundry.id;
+    const prep = async (draws: { itemId: string; qtyMilli: number }[], castId: string) => {
+      const seq = await nextCompanySeq({ db: env.db }, p.companyId);
+      const audit = { db: env.db, companyId: p.companyId, session: { user: { id: userId } } as never, impersonation: null };
+      const prepared = await lib.prepareStoreDraws(env.db, {
+        companyId: p.companyId, userId, seq, at: new Date(), audit,
+        draws: draws.map((d) => ({ ...d, purpose: "melt" as const, refId: castId })),
+      });
+      return { prepared, seq, audit };
+    };
+    const run = async (draws: { itemId: string; qtyMilli: number }[], castId: string) => {
+      const { prepared, audit } = await prep(draws, castId);
+      try {
+        await atomicBatch(env.db, [
+          ...prepared.statements,
+          // the dependent document: only exists if every draw landed
+          auditInsert(audit, { action: "dummy.cast", subjectType: "cast", subjectId: castId }),
+        ]);
+      } catch (e) {
+        if (lib.isStoreDrawAbort(e)) await prepared.explain();
+        throw e;
+      }
+      return prepared;
+    };
+    return { lib, run, prep };
+  }
+  const dummyCasts = async (companyId: string) =>
+    (await env.db.select().from(auditLog).where(eq(auditLog.companyId, companyId))).filter((r) => r.action === "dummy.cast");
+
+  test("covered draws land with the dependent row: txn (melt, refId = cast), ledger, MRS numbers in order", async () => {
+    const p = await plant();
+    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U });
+    await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 4 * U });
+    const { run } = await libParts(p);
+    const prepared = await run([{ itemId: p.fluxId, qtyMilli: 6 * U }, { itemId: p.bearingId, qtyMilli: 2 * U }], "cast-K32");
+    expect(prepared.numbers).toEqual(["MRS-1", "MRS-2"]);
+    const txns = (await txnRows(p.companyId)).filter((t) => t.kind === "mrs");
+    expect(txns.map((t) => [t.purpose, t.refId]).sort()).toEqual([["melt", "cast-K32"], ["melt", "cast-K32"]]);
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(4 * U);
+    expect(await ledgerBalance(p.companyId, p.bearingId)).toBe(2 * U);
+    expect(await dummyCasts(p.companyId)).toHaveLength(1);
+  });
+
+  test("a refused draw fails the WHOLE batch: no dependent row, no txn, no ledger, no audit, and it explains why", async () => {
+    const p = await plant();
+    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U });
+    await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 1 * U });
+    const { run, prep } = await libParts(p);
+    // pre-check already refuses: thrown from prepare, nothing allocated
+    await expect(prep([{ itemId: p.bearingId, qtyMilli: 2 * U }], "cast-1")).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    // two draws of the same item that together overdraw: the pre-check adds them up
+    await expect(run([{ itemId: p.fluxId, qtyMilli: 6 * U }, { itemId: p.fluxId, qtyMilli: 6 * U }], "cast-2")).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(await dummyCasts(p.companyId)).toEqual([]);
+    expect((await txnRows(p.companyId)).filter((t) => t.kind === "mrs")).toEqual([]);
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(10 * U);
+    expect((await auditActions(p.companyId)).filter((a) => a === "store.issue")).toEqual([]);
+  });
+
+  test("RACE: another issue drains the stock after prepare — the cast batch fails whole", async () => {
+    const p = await plant();
+    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U });
+    const { run } = await libParts(p);
+    env.beforeNextBatch(() => p.owner.store.issue({ itemId: p.fluxId, qtyMilli: 8 * U, purpose: "other" }));
+    await expect(run([{ itemId: p.fluxId, qtyMilli: 6 * U }], "cast-3")).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await dummyCasts(p.companyId)).toEqual([]);
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(2 * U);
+  });
+
+  test("validation through the lib: retired item, whole pieces, missing store location, other company's item", async () => {
+    const p = await plant();
+    const q = await plant();
+    await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 4 * U });
+    const { prep } = await libParts(p);
+    await expect(prep([{ itemId: p.bearingId, qtyMilli: 500 }], "c")).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(prep([{ itemId: q.fluxId, qtyMilli: U }], "c")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(prep([{ itemId: p.fluxId, qtyMilli: 0 }], "c")).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const none = await plant({ locations: false });
+    const { prep: prepNone } = await libParts(none);
+    await expect(prepNone([{ itemId: none.fluxId, qtyMilli: U }], "c")).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("store location") });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RP18: clientRequestId
+// ---------------------------------------------------------------------------
+
+describe("RP18: clientRequestId makes receive, issue and exchange idempotent", () => {
+  test("a double submit returns the original and posts once, taking no second number", async () => {
+    const p = await plant();
+    const a = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 5 * U, clientRequestId: "req-1" });
+    const b = await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 5 * U, clientRequestId: "req-1" });
+    expect(b).toMatchObject({ id: a.id, number: a.number });
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(5 * U);
+    expect((await txnRows(p.companyId)).length).toBe(1);
+    expect((await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: U })).number).toBe("GRN-2");
+
+    const i1 = await p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: 2 * U, purpose: "melt", clientRequestId: "req-2" });
+    const i2 = await p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: 2 * U, purpose: "melt", clientRequestId: "req-2" });
+    expect(i2).toMatchObject({ id: i1.id, number: i1.number });
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(4 * U);
+  });
+
+  test("exchange replays return both legs", async () => {
+    const p = await plant();
+    await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 3 * U });
+    const e1 = await p.storekeeper.store.exchange({ itemId: p.bearingId, qtyOutMilli: U, qtyInMilli: 2 * U, clientRequestId: "ex-1" });
+    const e2 = await p.storekeeper.store.exchange({ itemId: p.bearingId, qtyOutMilli: U, qtyInMilli: 2 * U, clientRequestId: "ex-1" });
+    expect(e2).toMatchObject({ exchangeId: e1.exchangeId, mrsId: e1.mrsId, grnId: e1.grnId, mrsNumber: e1.mrsNumber, grnNumber: e1.grnNumber });
+    expect(await ledgerBalance(p.companyId, p.bearingId)).toBe(4 * U);
+  });
+
+  test("a replay of a refused-then-fixed or different request under the same id is a CONFLICT, not a silent return", async () => {
+    const p = await plant();
+    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 5 * U, clientRequestId: "req-x" });
+    await expect(p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 6 * U, clientRequestId: "req-x" })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(p.storekeeper.store.issue({ itemId: p.fluxId, qtyMilli: 5 * U, purpose: "melt", clientRequestId: "req-x" })).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  test("ids are scoped per company; ids are validated (1..64)", async () => {
+    const a = await plant();
+    const b = await plant();
+    const ra = await a.storekeeper.store.receive({ itemId: a.fluxId, qtyMilli: U, clientRequestId: "same" });
+    const rb = await b.storekeeper.store.receive({ itemId: b.fluxId, qtyMilli: U, clientRequestId: "same" });
+    expect(ra.id).not.toBe(rb.id);
+    await expect(a.storekeeper.store.receive({ itemId: a.fluxId, qtyMilli: U, clientRequestId: "x".repeat(65) })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(a.storekeeper.store.receive({ itemId: a.fluxId, qtyMilli: U, clientRequestId: "" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  test("RACE: a concurrent double submit posts once; both calls return the same entry", async () => {
+    const p = await plant();
+    const [a, b] = await Promise.all([
+      p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 5 * U, clientRequestId: "dbl" }),
+      p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 5 * U, clientRequestId: "dbl" }),
+    ]);
+    expect(a.id).toBe(b.id);
+    expect((await txnRows(p.companyId)).length).toBe(1);
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(5 * U);
+    expect((await auditActions(p.companyId)).filter((x) => x === "store.receive")).toHaveLength(1);
+  });
+
+  test("RACE: the same request lands between this one's lookup and write (issue and exchange) — the loser returns the original", async () => {
+    const p = await plant();
+    await p.storekeeper.store.receive({ itemId: p.fluxId, qtyMilli: 10 * U });
+    await p.storekeeper.store.receive({ itemId: p.bearingId, qtyMilli: 5 * U });
+    const first = { itemId: p.fluxId, qtyMilli: 3 * U, purpose: "melt" as const, clientRequestId: "r-i" };
+    env.beforeNextBatch(() => p.storekeeper.store.issue(first));
+    const lost = await p.storekeeper.store.issue(first);
+    expect(await ledgerBalance(p.companyId, p.fluxId)).toBe(7 * U);
+    expect((await txnRows(p.companyId)).filter((t) => t.id === lost.id)).toHaveLength(1);
+
+    const ex = { itemId: p.bearingId, qtyOutMilli: U, qtyInMilli: U, clientRequestId: "r-e" };
+    env.beforeNextBatch(() => p.storekeeper.store.exchange(ex));
+    const lostEx = await p.storekeeper.store.exchange(ex);
+    expect(lostEx.mrsNumber).toBeTruthy();
+    expect((await txnRows(p.companyId)).filter((t) => t.exchangeId === lostEx.exchangeId)).toHaveLength(2);
+    expect(await ledgerBalance(p.companyId, p.bearingId)).toBe(5 * U);
   });
 });

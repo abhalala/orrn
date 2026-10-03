@@ -254,25 +254,39 @@ bun run deploy
 ## Central store (items, GRN, MRS)
 
 - Tables `store_item` and `store_txn` in `packages/db/src/schema/store.ts`; router `store`
-  (`routers/store.ts`, builders in `lib/store.ts`): `items.list` (any member), `items.create` /
-  `items.update` (store.txn OR masters.publish), `receive` (GRN), `issue` (MRS), `exchange` (old for
-  new) (all store.txn = storekeeper, owner), `balances` and `txns` (store.txn OR masters.publish =
-  storekeeper, manager, admin, owner).
+  (`routers/store.ts`, builders and shared checks in `lib/store.ts`): `items.list` (any member),
+  `items.create` / `items.update` (store.txn OR masters.publish), `receive` (GRN), `issue` (MRS),
+  `exchange` (old for new), `cancel` (all store.txn = storekeeper, owner), `balances` and `txns`
+  (store.txn OR masters.publish = storekeeper, manager, admin, owner).
 - Quantities are integer milli-units of the item's unit (`qtyMilli`, `qty_milli`; 1000 = 1 kg, 1 litre
   or 1 piece), capped at 100,000 units; piece/set/box/bag take whole units. The ledger carries the
-  same number in `qty_g` for item_kind `store_item`, so `stock.balance` of that kind is milli-units,
-  not grams. The unit is locked once an item has a movement.
+  same number in `qty_g` for item_kind `store_item`. Because of that, `stock.balance` and
+  `stock.byLocation` return `qtyG: null` for store rows, with `qtyMilli` + `unit` (balance) or
+  `byUnit[]` (byLocation); never add grams and milli-units. They also leave store rows out for callers
+  without store.txn, masters.publish or analytics.view. The unit is locked once an item has a movement.
+  An item can be retired only at balance 0; the name is unique among items with `retired_at` null.
 - A GRN or MRS is one `store_txn` row + one ledger row (`store_grn` / `store_mrs`, voucher = the txn
   id, at the active `store` location, never created implicitly: no store location, no posting) + audit
   row in one `atomicBatch`. The ledger and audit rows are `INSERT … SELECT … FROM store_txn`, so they
   land exactly when the document did. An issue's document INSERT holds the balance check
   (`sum(stock_ledger) >= qty`) in its WHERE, so racing issues cannot overdraw; keep it there.
+  `lib/store.ts resolveStoreLocation` is the one location resolver for reads and writes.
 - Numbers `GRN-{n}` / `MRS-{n}` per financial year (`doc_series`, unique per company, kind, period).
   An exchange takes one MRS (the old out, purpose `exchange`) and one GRN (the new in), linked by
   `exchange_id`. Numbers allocated before a write that then loses a race leave a gap.
-- No cancel yet. Corrections go through an opposite movement; add `cancelled_at` + reversal rows
-  (Global Constraints) when the plan asks for it. `ref_id` on an MRS (a melt or nitriding log) is an
-  opaque id, not a foreign key, until PL-5 and the die room define the targets.
+- `store.cancel` (RP15): the entry keeps its number and gets `cancelled_at/by/reason`; reversal rows
+  (`store_grn_cancel` / `store_mrs_cancel`, same voucher id, `reversal_of` = the original row) are
+  inserted first, guarded at write time by "balance minus what the group added stays >= 0" and
+  `cancelled_at is null`, then the mark UPDATE keys on those rows. Either leg cancels both legs. No new
+  number. A second concurrent cancel inserts nothing.
+- `clientRequestId` (RP18, max 64) on receive/issue/exchange: unique per company; looked up before a
+  number is taken; a unique-index race returns the original; the same id with a different entry is a
+  CONFLICT. An exchange keeps it on its MRS leg.
+- Other documents that consume store items (a cast's chemicals, LDO) call
+  `prepareStoreDraws` (lib/store.ts) and put its `statements` in their own batch. The last statement
+  aborts the whole batch (NOT NULL on `store_txn.id`) unless every draw landed, so the cast cannot
+  land without its consumables; catch with `isStoreDrawAbort(e)` and `await prepared.explain()`.
+  Use purpose `melt` and `refId` = the cast id. `ref_id` is an opaque id, not a foreign key.
 
 ## Analytics (charts and customer numbers)
 

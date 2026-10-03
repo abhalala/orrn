@@ -72,7 +72,7 @@ async function projection(companyId: string) {
 
 async function ledgerBalance(api: Api, at?: number) {
   const { items } = await api.stock.balance({ itemKind: "bundle", ...(at !== undefined ? { at } : {}) });
-  return new Map(items.map((i) => [`${i.itemRef}|${i.locationId}`, i.qtyG]));
+  return new Map(items.map((i) => [`${i.itemRef}|${i.locationId}`, i.qtyG ?? 0]));
 }
 
 function perLocation(m: Map<string, number>) {

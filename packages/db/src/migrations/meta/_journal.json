@@ -127,6 +127,13 @@
       "when": 1791057709830,
       "tag": "0017_store",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1791058651009,
+      "tag": "0018_store_cancel",
+      "breakpoints": true
     }
   ]
 }

@@ -65,6 +65,7 @@ export type LedgerItemKind = (typeof ledgerItemKinds)[number];
  * - purchase_lot_cancel: reversal of a lot's postings when an OK lot is cancelled (voucher = lot)
  * - store_grn: + store item at the STORE location (voucher = the GRN; qty in milli-units)
  * - store_mrs: − store item at the STORE location (voucher = the MRS; qty in milli-units)
+ * - store_grn_cancel / store_mrs_cancel: reversal of a cancelled GRN / MRS (voucher = the same txn id)
  */
 export const ledgerVoucherTypes = [
   "opening",
@@ -78,6 +79,8 @@ export const ledgerVoucherTypes = [
   "purchase_lot_cancel",
   "store_grn",
   "store_mrs",
+  "store_grn_cancel",
+  "store_mrs_cancel",
 ] as const;
 export type LedgerVoucherType = (typeof ledgerVoucherTypes)[number];
 
