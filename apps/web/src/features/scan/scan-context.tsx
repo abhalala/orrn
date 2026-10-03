@@ -1,24 +1,17 @@
-import { parseScan } from "@orrn/domain";
-import { useT } from "@orrn/i18n";
-import { Field } from "@orrn/ui/components/field";
-import { ScanField } from "@orrn/ui/components/scan-field";
-import { Sheet } from "@orrn/ui/components/sheet";
-import { useNavigate } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouterState } from "@tanstack/react-router";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { bundleDetailPath } from "@/shared/lib/paths";
-import { trpcClient } from "@/shared/utils/trpc";
+import { ScanSheet, type AddBundlesReport, type ScanMode } from "./scan-sheet";
+
+export type { AddBundlesReport, ScanMode } from "./scan-sheet";
 
 /**
  * Global scan entry (ruling R5). `useScan().open()` from the tab bar, rail or
- * sidebar opens a sheet with the manual / wedge-scanner field; a serial or a
- * label link opens that bundle. Task 16 replaces the sheet with the camera
- * scanner and adds `{ kind: "dispatch" }` for continuous scanning into a
- * dispatch, behind the same `open(mode)` call.
+ * sidebar opens the scan sheet in lookup mode (a serial or label link opens
+ * that bundle); a dispatch's Build step calls
+ * `open({ kind: "dispatch", dispatchId, dispatchCode, onAdded })` for
+ * continuous scanning into that dispatch.
  */
-export type ScanMode = { kind: "lookup" };
-
 type ScanContextValue = { open(mode?: ScanMode): void; available: boolean };
 
 const ScanContext = createContext<ScanContextValue>({ open: () => {}, available: false });
@@ -27,80 +20,57 @@ export function useScan() {
   return useContext(ScanContext);
 }
 
+type SheetState = { mode: ScanMode; open: boolean; session: number };
+
+type ScanSeamWindow = Window & {
+  __orrnScan?: { open(mode?: Partial<ScanMode>): void };
+  __orrnScanReports?: AddBundlesReport[];
+};
+
 export function ScanProvider({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const value = useMemo<ScanContextValue>(() => ({ open: () => setOpen(true), available: true }), []);
+  const [sheet, setSheet] = useState<SheetState>({ mode: { kind: "lookup" }, open: false, session: 0 });
+
+  // A fresh sheet per open: results, count and camera state never carry over.
+  const open = useCallback(
+    (mode: ScanMode = { kind: "lookup" }) => setSheet((s) => ({ mode, open: true, session: s.session + 1 })),
+    [],
+  );
+  const onOpenChange = useCallback((next: boolean) => setSheet((s) => ({ ...s, open: next })), []);
+
+  // Leaving the page (back button, a link) closes the sheet and with it the camera.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  useEffect(() => {
+    setSheet((s) => (s.open ? { ...s, open: false } : s));
+  }, [pathname]);
+
+  // Test seam (dev server only; dropped from production builds): open any
+  // mode before the screens that call it exist. Dispatch reports are kept on
+  // `window.__orrnScanReports` when no `onAdded` is given.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const w = window as ScanSeamWindow;
+    w.__orrnScan = {
+      open(mode) {
+        if (mode?.kind === "dispatch" && mode.dispatchId) {
+          open({
+            kind: "dispatch",
+            dispatchId: mode.dispatchId,
+            dispatchCode: mode.dispatchCode,
+            onAdded: mode.onAdded ?? ((report) => (w.__orrnScanReports ??= []).push(report)),
+          });
+        } else open({ kind: "lookup" });
+      },
+    };
+    return () => {
+      delete w.__orrnScan;
+    };
+  }, [open]);
+
+  const value = useMemo<ScanContextValue>(() => ({ open, available: true }), [open]);
   return (
     <ScanContext.Provider value={value}>
       {children}
-      <LookupSheet open={open} onOpenChange={setOpen} />
+      <ScanSheet key={sheet.session} mode={sheet.mode} open={sheet.open} onOpenChange={onOpenChange} />
     </ScanContext.Provider>
-  );
-}
-
-type Feedback = { kind: "searching"; serial: string } | { kind: "notFound"; serial: string } | { kind: "unrecognised" };
-
-function LookupSheet({ open, onOpenChange }: { open: boolean; onOpenChange(open: boolean): void }) {
-  const { t } = useT();
-  const navigate = useNavigate();
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
-  // Only the newest scan may act (a wedge scanner can fire twice quickly).
-  const latest = useRef(0);
-
-  const close = useCallback(
-    (next: boolean) => {
-      if (!next) setFeedback(null);
-      onOpenChange(next);
-    },
-    [onOpenChange],
-  );
-
-  const onScan = async (raw: string) => {
-    const parsed = parseScan(raw);
-    if (parsed.kind !== "serial") {
-      setFeedback({ kind: "unrecognised" });
-      return;
-    }
-    const ticket = ++latest.current;
-    setFeedback({ kind: "searching", serial: parsed.serial });
-    try {
-      // The plain client, so a miss is shown here and not also as an error toast.
-      const found = await trpcClient.bundle.getBySerial.query({ serial: parsed.serial });
-      if (ticket !== latest.current) return;
-      close(false);
-      void navigate({ to: bundleDetailPath(found.bundle) as never });
-    } catch {
-      if (ticket !== latest.current) return;
-      setFeedback({ kind: "notFound", serial: parsed.serial });
-    }
-  };
-
-  return (
-    <Sheet open={open} onOpenChange={close} title={t("scan.title")}>
-      <div className="flex flex-col gap-4 pt-1">
-        <Field label={t("scan.manualLabel")} hint={t("scan.manualHint")}>
-          <ScanField onScan={onScan} placeholder="BG-000001-B001" autoFocus />
-        </Field>
-        <p role="status" aria-live="polite" className="m-0 flex min-h-6 min-w-0 items-center gap-2 text-[15px]">
-          {feedback?.kind === "searching" ? (
-            <>
-              <Loader2 aria-hidden="true" className="size-4 shrink-0 animate-spin text-muted-foreground" />
-              <span className="text-muted-foreground">{t("ui.searching")}</span>
-            </>
-          ) : null}
-          {feedback?.kind === "notFound" ? (
-            <>
-              <span className="font-semibold text-destructive">{t("scan.notFound")}</span>
-              <span className="min-w-0 truncate font-mono text-muted-foreground" title={feedback.serial}>
-                {feedback.serial}
-              </span>
-            </>
-          ) : null}
-          {feedback?.kind === "unrecognised" ? (
-            <span className="font-semibold text-destructive">{t("scan.unrecognised")}</span>
-          ) : null}
-        </p>
-      </div>
-    </Sheet>
   );
 }

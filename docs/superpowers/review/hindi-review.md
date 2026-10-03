@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 699 screen strings in 24 groups, 10 guides with 182 strings.
+Counts: 713 screen strings in 24 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -368,7 +368,7 @@ Counts: 699 screen strings in 24 groups, 10 guides with 182 strings.
 | `detail.labelSent` | Label sent to printer | लेबल प्रिंटर को भेज दिया |
 | `detail.viewBundle` | Open bundle {serial} | Bundle {serial} खोलें |
 
-### scan (23)
+### scan (37)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -382,6 +382,12 @@ Counts: 699 screen strings in 24 groups, 10 guides with 182 strings.
 | `allowCamera` | Turn on camera | कैमरा चालू करें |
 | `cameraBlocked` | The camera is blocked. Allow it in your browser or phone settings, or type the serial below. | कैमरा बंद है। ब्राउज़र या फ़ोन की सेटिंग में इसे चालू करें, या नीचे serial लिखें। |
 | `noCamera` | No camera found. Type the serial below. | कैमरा नहीं मिला। नीचे serial लिखें। |
+| `cameraStarting` | Starting the camera | कैमरा चालू हो रहा है |
+| `cameraFailed` | The camera didn't start. Type the serial below, or try again. | कैमरा चालू नहीं हुआ। नीचे serial लिखें, या फिर से कोशिश करें। |
+| `cameraOff` | Turn off camera | कैमरा बंद करें |
+| `ambiguous` | More than one bundle has this number. Pick the right one. | इस नंबर के एक से ज़्यादा bundle हैं। सही वाला चुनें। |
+| `madeIn` | Made in {year} | {year} में बना |
+| `recent` | Recent scans | हाल के स्कैन |
 | `torchOn` | Turn torch on | टॉर्च चालू करें |
 | `torchOff` | Turn torch off | टॉर्च बंद करें |
 | `notFound` | Not found in this company | इस कंपनी में नहीं मिला |
@@ -394,6 +400,14 @@ Counts: 699 screen strings in 24 groups, 10 guides with 182 strings.
 | `continuous.void` | This bundle is void | यह bundle रद्द है |
 | `continuous.dispatched` | Already dispatched | पहले ही dispatch हो चुका है |
 | `continuous.wrongStatus` | Can't add a bundle that is {status} | "{status}" वाला bundle नहीं जोड़ सकते |
+| `continuous.heldBy` | Held for {code} | {code} के लिए होल्ड पर है |
+| `continuous.adding` | Adding {serial} | {serial} जोड़ रहे हैं |
+| `continuous.closed` | This dispatch can't take more bundles now. | इस dispatch में अब और bundle नहीं जुड़ सकते। |
+| `continuous.empty` | Scan a bundle label to add it. | जोड़ने के लिए bundle का लेबल स्कैन करें। |
+| `continuous.result.added` | Added | जुड़ा |
+| `continuous.result.already` | Already added | पहले से जुड़ा |
+| `continuous.result.rejected` | Not added | नहीं जुड़ा |
+| `continuous.result.notFound` | Not found | नहीं मिला |
 | `continuous.done` | Done scanning | स्कैन बंद करें |
 
 ### stock (23)
