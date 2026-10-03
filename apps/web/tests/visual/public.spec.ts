@@ -22,7 +22,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 test.describe("public marketing", () => {
   test("landing page layout", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1, name: /Inventory truth/ })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Every bundle, accounted for." })).toBeVisible();
     await expect(page).toHaveScreenshot("landing.png", { fullPage: true });
   });
 });

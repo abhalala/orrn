@@ -17,7 +17,7 @@ import { useRef } from "react";
 
 import { DEMO_BUNDLE, DEMO_STOCK, demoKg, formatKgTotal } from "./demo-data";
 import { DemoLabel } from "./demo-label";
-import { EASE, gsap, useMarketingGsap } from "./use-gsap";
+import { EASE, gsap, onceInView, useMarketingGsap } from "./use-gsap";
 
 export function Hero() {
   const { t, locale } = useT();
@@ -25,7 +25,7 @@ export function Hero() {
 
   useMarketingGsap(visualRef, ({ scope }) => {
     const viewfinder = scope.querySelector<HTMLElement>("[data-viewfinder]");
-    const tl = gsap.timeline({ delay: 0.15, defaults: { ease: EASE.out } });
+    const tl = gsap.timeline({ paused: true, delay: 0.15, defaults: { ease: EASE.out } });
     tl.from('[data-anim="hero-phone"]', { y: 32, opacity: 0, duration: 0.7 })
       .from(
         '[data-anim^="hero-tile"]',
@@ -41,6 +41,9 @@ export function Hero() {
       .to("[data-scanline]", { opacity: 0, duration: 0.15 })
       .from('[data-anim="hero-pop"]', { scale: 0.6, opacity: 0, duration: 0.6, ease: EASE.pop }, "-=0.1")
       .from('[data-anim="hero-printed"]', { scale: 0.6, opacity: 0, duration: 0.5, ease: EASE.pop }, "-=0.3");
+    // In view on load when side by side; stacked under the text on phones and
+    // tablets it plays when it scrolls in.
+    return onceInView(scope, () => tl.play());
   });
 
   return (
