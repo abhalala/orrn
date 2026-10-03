@@ -1,0 +1,16 @@
+# Sign-in checks the fields before calling the server, and the language switch works.
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 30000
+# The heading and the button are both "Sign in"; the button is the second.
+- tapOn:
+    text: "Sign in"
+    index: 1
+- assertVisible: "Fill this in."
+- tapOn: "हिंदी"
+- assertVisible: "साइन इन करें"
+- takeScreenshot: sign-in-hindi

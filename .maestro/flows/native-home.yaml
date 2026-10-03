@@ -1,10 +1,13 @@
-# Smoke test: app launches and shows ORRN home or sign-in.
+# Smoke test: a fresh install opens on sign-in (no stored session, no network call).
 appId: ${APP_ID}
 ---
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "ORRN"
+    visible: "Sign in"
     timeout: 30000
-- assertVisible: "ORRN"
-- takeScreenshot: home-screen
+- assertVisible: "orrn"
+- assertVisible: "Email"
+- assertVisible: "Password"
+- assertVisible: "हिंदी"
+- takeScreenshot: sign-in
