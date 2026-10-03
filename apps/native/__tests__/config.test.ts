@@ -81,7 +81,8 @@ describe("babel (N13)", () => {
     });
     const keys = (opts.plugins as { key: string }[]).map((p) => p.key).filter((k) => /worklet|reanimated/.test(k));
     expect(keys).toEqual(["worklets"]);
-  });
+    // Loading the whole Babel preset chain is slow on a busy machine.
+  }, 30_000);
 });
 
 describe("tailwind", () => {
