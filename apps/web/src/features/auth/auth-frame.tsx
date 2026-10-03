@@ -50,14 +50,9 @@ export function AuthFrame({ children, brand = false, width = "form", footer }: A
           <div className={cn("flex w-full min-w-0 flex-col", width === "wide" ? "max-w-[560px]" : "max-w-[400px]")}>
             {brand ? <BrandStrip className="mb-8 lg:hidden" /> : null}
             {children}
+            {footer ? <div className="mt-8">{footer}</div> : null}
           </div>
         </main>
-
-        {footer ? (
-          <div className="flex justify-center px-4 pb-6 sm:px-6">
-            <div className={cn("w-full", width === "wide" ? "max-w-[560px]" : "max-w-[400px]")}>{footer}</div>
-          </div>
-        ) : null}
       </div>
 
       {brand ? <BrandPanel className="hidden lg:sticky lg:top-0 lg:order-first lg:flex lg:h-[100dvh] lg:flex-col" /> : null}
