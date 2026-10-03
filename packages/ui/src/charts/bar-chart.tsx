@@ -3,17 +3,40 @@ import { scaleBand } from "d3-scale";
 
 import { TICK_FONT, XTicks, YAxis, useRovingMarks, useYAxis } from "./chart-internals";
 import { ChartTooltip } from "./chart-tooltip";
-import { estimateTextWidth, maxOf, ordinalColor, pickTickIndices, seriesColor, type Box } from "./scales";
+import {
+  chartDateFormat,
+  dateTickTexts,
+  detectGranularity,
+  estimateTextWidth,
+  maxOf,
+  ordinalColor,
+  pickTickIndices,
+  placeCapLabel,
+  seriesColor,
+  widestDateTick,
+  type Box,
+  type ChartDateFormat,
+} from "./scales";
 import { useChartWidth } from "./use-chart-width";
 
 export type BarDatum = {
   key: string;
   /** Full name for the tooltip, the table and the accessible name ("Mar 2026"). */
   label: string;
-  /** Shorter axis tick text ("Mar"). Defaults to `label`. */
+  /** Shorter axis tick text for undated buckets ("0-15"). Defaults to `label`. */
   short?: string;
+  /**
+   * Start of a dated bucket (month, day). When every bar has one, the chart
+   * writes the axis ticks from `formatDate` and adds the year where the axis
+   * crosses into a new one ("Oct 25 ... Jan 26 ... Oct"); `short` is ignored.
+   */
+  t?: Date;
   value: number;
-  /** The bucket is still open (this month): a light fill with an outline, read "so far". Last bar only. */
+  /**
+   * The bucket is still open (this month): a light fill with an outline,
+   * read "so far" in the tooltip, name and table. Never carries a value
+   * label on the plot. Last bar only.
+   */
   partial?: boolean;
 };
 
@@ -36,6 +59,8 @@ export type BarChartProps = {
   slot?: number;
   /** Labels for the whole set of y ticks (one unit per axis). Default compact en-IN. */
   formatTicks?(ticks: number[]): string[];
+  /** Tick text for dated bars (`t`). Default: `chartDateFormat` by bucket size. */
+  formatDate?: ChartDateFormat;
 };
 
 const TOP = 24;
@@ -45,6 +70,10 @@ const BAR_MAX = 24;
 const RADIUS = 4;
 /** C2 input radius, for the keyboard focus ring around a bar. */
 const RING_RADIUS = 12;
+/** A bar with a value above zero is never thinner than this, so a day-one month still shows. */
+const MIN_BAR = 2;
+/** A partial bar's outlined box is at least this tall, so its outline reads. */
+const MIN_PARTIAL = 4;
 
 /** Column with a 4px rounded data end, square at the baseline. */
 function columnPath(x: number, y: number, w: number, h: number): string {
@@ -65,15 +94,31 @@ function columnPath(x: number, y: number, w: number, h: number): string {
  * Vertical bar chart, one series. Bars are at most 24px wide and grow from
  * one baseline; values sit on the caps when every label fits, otherwise
  * only the tallest complete bar is labelled and the rest live in the
- * tooltip and the table. A partial last bucket is a light fill with a 2px
- * outline and reads "so far". Each bar is its own hit target (the full
- * band, full height) with its own tooltip; keyboard focus draws a rounded
- * ring inside the plot. One tab stop, starting on the newest bar.
+ * tooltip and the table. A value label stays inside the plot (never over
+ * the y-axis ticks): at the first and last bars it lines up with the bar's
+ * outer edge. A partial last bucket is a light fill with a 2px outline, at
+ * least a sliver tall, and reads "so far"; it never carries a value label.
+ * Each bar is its own hit target (the full band, full height) with its own
+ * tooltip; keyboard focus draws a rounded ring inside the plot that starts
+ * below any value label it would cross. One tab stop, starting on the
+ * newest bar.
  */
-export function BarChart({ data, format, height = 240, label, ordinal = false, slot = 0, formatTicks }: BarChartProps) {
-  const { t } = useT();
+export function BarChart({
+  data,
+  format,
+  height = 240,
+  label,
+  ordinal = false,
+  slot = 0,
+  formatTicks,
+  formatDate,
+}: BarChartProps) {
+  const { t, locale } = useT();
   const [ref, width] = useChartWidth<HTMLDivElement>();
-  const roving = useRovingMarks(data.length, "chart-bar");
+  const roving = useRovingMarks(
+    data.map((d) => d.key),
+    "chart-bar",
+  );
 
   const peak = maxOf(data.map((d) => d.value));
   const plotH = Math.max(40, height - TOP - BOTTOM);
@@ -90,26 +135,62 @@ export function BarChart({ data, format, height = 240, label, ordinal = false, s
   const center = (key: string) => band(key)! + band.bandwidth() / 2;
   const colorAt = (i: number) => (ordinal ? ordinalColor(i, data.length) : seriesColor(slot));
   const nameOf = (d: BarDatum) => (d.partial ? t("charts.soFarLabel", { label: d.label }) : d.label);
+  /** Top of a bar: a value above zero always shows, at least a sliver. */
+  const topOf = (d: BarDatum) => (d.value > 0 ? Math.min(y(d.value), plotH - (d.partial ? MIN_PARTIAL : MIN_BAR)) : y(d.value));
 
   const capLabels = data.map((d) => format(d.value));
-  const allCapsFit = capLabels.every((c) => estimateTextWidth(c, TICK_FONT, true) + 6 <= step);
-  // The peak label goes on the tallest COMPLETE bar: an open bucket is never the headline.
-  const completePeak = maxOf(data.filter((d) => !d.partial).map((d) => d.value));
+  // Value labels go on complete bars only: an open bucket is never a headline.
+  const complete = data.filter((d) => !d.partial);
+  const allCapsFit = complete.every((d) => estimateTextWidth(format(d.value), TICK_FONT, true) + 6 <= step);
+  const completePeak = maxOf(complete.map((d) => d.value));
   const peakIndex = data.findIndex((d) => !d.partial && d.value === completePeak);
   const caps = data
     .map((d, i) => {
-      if (!(allCapsFit || i === peakIndex)) return null;
+      if (d.partial || !(allCapsFit || i === peakIndex)) return null;
       const w = estimateTextWidth(capLabels[i]!, TICK_FONT, true);
-      const cx = Math.max(w / 2 - left, Math.min(plotW + RIGHT - w / 2, center(d.key)));
-      const base = y(d.value) - 6;
-      return { key: d.key, i, cx, base, box: { left: cx - w / 2, right: cx + w / 2, top: base - 12, bottom: base + 3 } as Box };
+      const spot = placeCapLabel({
+        center: center(d.key),
+        width: w,
+        barLeft: barX(d.key),
+        barRight: barX(d.key) + barW,
+        plotRight: plotW + RIGHT,
+      });
+      const base = topOf(d) - 6;
+      return { key: d.key, i, ...spot, base, box: { left: spot.left, right: spot.right, top: base - 12, bottom: base + 3 } as Box };
     })
     .filter((c): c is NonNullable<typeof c> => c !== null);
 
-  const xLabelWidth = Math.max(...data.map((d) => estimateTextWidth(d.short ?? d.label, TICK_FONT)), 16);
+  // Dated bars write their own ticks, with the year where the axis crosses one.
+  const times = data.every((d) => d.t) ? data.map((d) => d.t!.getTime()) : null;
+  const dates = formatDate ?? (times ? chartDateFormat(detectGranularity(times), locale) : null);
+  const xLabelWidth =
+    times && dates
+      ? widestDateTick(times, dates, TICK_FONT)
+      : Math.max(...data.map((d) => estimateTextWidth(d.short ?? d.label, TICK_FONT)), 16);
   const tickIdx = pickTickIndices(data.length, plotW, Math.max(step, xLabelWidth + 12));
+  const tickTexts =
+    times && dates
+      ? dateTickTexts(
+          tickIdx.map((i) => times[i]!),
+          dates,
+        )
+      : tickIdx.map((i) => data[i]!.short ?? data[i]!.label);
   const show = roving.show;
-  const focused = roving.focusVisible ? show : null;
+  const focused = roving.focusRing;
+
+  // The ring never runs through a value label: where one crosses it, the
+  // ring starts just below that label.
+  const ring = (() => {
+    if (focused === null) return null;
+    const x0 = band(data[focused]!.key)! - 3;
+    const x1 = x0 + band.bandwidth() + 6;
+    const fullTop = -TOP + 3;
+    // A label well inside the ring (clear of its sides and rounded corners) doesn't touch it.
+    const inside = (b: Box) => b.left >= x0 + 2 && b.right <= x1 - 2 && b.top >= fullTop + RING_RADIUS;
+    const crossing = caps.filter((c) => c.box.left < x1 + 1 && c.box.right > x0 - 1 && !inside(c.box));
+    const top = Math.max(fullTop, ...crossing.map((c) => c.box.bottom + 2));
+    return { left: x0, right: x1, top, bottom: plotH + 3 };
+  })();
 
   return (
     <div
@@ -124,21 +205,20 @@ export function BarChart({ data, format, height = 240, label, ordinal = false, s
           <g transform={`translate(${left},${TOP})`}>
             <YAxis ticks={ticks} labels={labels} y={y} plotW={plotW} />
             <XTicks
-              items={tickIdx.map((i) => ({ key: data[i]!.key, x: center(data[i]!.key), text: data[i]!.short ?? data[i]!.label }))}
+              items={tickIdx.map((i, k) => ({ key: data[i]!.key, x: center(data[i]!.key), text: tickTexts[k]! }))}
               plotH={plotH}
               minX={-left}
               maxX={plotW + RIGHT}
             />
 
-            {/* Under the marks and labels: the cap text's halo hides the ring where they cross. */}
-            {focused !== null ? (
+            {ring ? (
               <rect
                 data-slot="chart-focus-ring"
                 aria-hidden="true"
-                x={band(data[focused]!.key)! - 3}
-                y={-TOP + 3}
-                width={band.bandwidth() + 6}
-                height={TOP - 3 + plotH + 3}
+                x={ring.left}
+                y={ring.top}
+                width={ring.right - ring.left}
+                height={ring.bottom - ring.top}
                 rx={RING_RADIUS}
                 fill="none"
                 stroke="var(--ring)"
@@ -151,6 +231,7 @@ export function BarChart({ data, format, height = 240, label, ordinal = false, s
               {data.map((d, i) => {
                 const color = colorAt(i);
                 const lift = show === i ? { filter: "brightness(1.12) saturate(1.1)" } : undefined;
+                const top = topOf(d);
                 if (d.partial) {
                   // Inset by the outline's half width so the 2px stroke stays on the bar.
                   return (
@@ -158,7 +239,7 @@ export function BarChart({ data, format, height = 240, label, ordinal = false, s
                       key={d.key}
                       data-slot="chart-bar-mark"
                       data-partial=""
-                      d={columnPath(barX(d.key) + 1, y(d.value) + 1, barW - 2, plotH - y(d.value) - 1)}
+                      d={columnPath(barX(d.key) + 1, top + 1, barW - 2, plotH - top - 1)}
                       fill={color}
                       fillOpacity={0.35}
                       stroke={color}
@@ -171,7 +252,7 @@ export function BarChart({ data, format, height = 240, label, ordinal = false, s
                   <path
                     key={d.key}
                     data-slot="chart-bar-mark"
-                    d={columnPath(barX(d.key), y(d.value), barW, plotH - y(d.value))}
+                    d={columnPath(barX(d.key), top, barW, plotH - top)}
                     fill={color}
                     style={lift}
                   />
@@ -181,9 +262,9 @@ export function BarChart({ data, format, height = 240, label, ordinal = false, s
                 <text
                   key={c.key}
                   data-slot="chart-cap-label"
-                  x={c.cx}
+                  x={c.x}
                   y={c.base}
-                  textAnchor="middle"
+                  textAnchor={c.anchor}
                   stroke="var(--card)"
                   strokeWidth={4}
                   strokeLinejoin="round"
