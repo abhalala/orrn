@@ -780,6 +780,7 @@ export const en = {
       oldOut: "Old going out",
       newIn: "New coming in",
       purpose: "What is it for",
+      purposeRequired: "Choose what it is for.",
       ref: "Cast, die or job",
       refHint: "Optional. A cast number, die or job card.",
       challan: "Challan or bill number",

@@ -1,4 +1,5 @@
-import { getGuide, useT, type GuideSlug } from "@orrn/i18n";
+import { useT, type GuideSlug } from "@orrn/i18n";
+import { getGuide } from "@orrn/i18n/guides";
 import { BookOpen } from "lucide-react";
 import { useState } from "react";
 
