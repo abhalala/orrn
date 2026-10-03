@@ -2,9 +2,10 @@ import { and, count, eq } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
-import { companyRoles, membership } from "@orrn/db/schema/tenant";
+import { company, companyRoles, membership } from "@orrn/db/schema/tenant";
 import { atomicBatch, type OrrnDb } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
+import { isValidTimezone } from "../lib/dayWindow";
 import { actionProcedure, companyProcedure, router } from "../index";
 
 export const companyRouter = router({
@@ -22,6 +23,45 @@ export const companyRouter = router({
       }
     });
   }),
+
+  updateSettings: actionProcedure("settings.update")
+    .input(
+      z.object({
+        lengthUnit: z.enum(["mm", "inch"]).optional(),
+        timezone: z
+          .string()
+          .max(100)
+          .refine(isValidTimezone, "Unknown timezone")
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [row] = await ctx.db
+        .select({ settings: company.settings })
+        .from(company)
+        .where(eq(company.id, ctx.companyId))
+        .limit(1);
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+      }
+
+      const patch: Record<string, unknown> = {};
+      if (input.lengthUnit !== undefined) patch.lengthUnit = input.lengthUnit;
+      if (input.timezone !== undefined) patch.timezone = input.timezone;
+      const settings = { ...(row.settings ?? {}), ...patch };
+
+      await atomicBatch(ctx.db, [
+        ctx.db.update(company).set({ settings }).where(eq(company.id, ctx.companyId)),
+        auditInsert(ctx, {
+          action: "company.settings.update",
+          subjectType: "company",
+          subjectId: ctx.companyId,
+          meta: { changed: patch, previous: Object.fromEntries(Object.keys(patch).map((k) => [k, (row.settings ?? {})[k] ?? null])) },
+        }),
+      ]);
+
+      return { settings };
+    }),
 
   membersUpdateRole: actionProcedure("member.updateRole")
     .input(z.object({ membershipId: z.string(), role: z.enum(companyRoles) }))

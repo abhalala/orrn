@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, inArray, isNull, like, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { normalizeSerial } from "@orrn/domain";
 import { die } from "@orrn/db/schema/catalog";
 import { dispatch } from "@orrn/db/schema/dispatch";
 import {
@@ -14,7 +15,7 @@ import {
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
-import { atomicBatch, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
 import { nextCompanySeq } from "../lib/sequence";
@@ -81,6 +82,51 @@ function assertTransitionAllowed(from: BundleStatus, to: BundleStatus) {
       message: `Transition ${from} -> ${to} is not allowed in M4. Dispatch transitions are managed by the dispatch flow.`,
     });
   }
+}
+
+/** Shared by getBundle / getBySerial: die, group, active dispatch and recent events for a bundle row. */
+async function loadBundleDetail(
+  db: OrrnDb,
+  companyId: string,
+  row: typeof bundle.$inferSelect | undefined,
+) {
+  if (!row) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
+  }
+
+  const [dieRow, groupRow] = await Promise.all([
+    db.query.die.findFirst({
+      where: and(eq(die.id, row.dieId), eq(die.companyId, companyId)),
+    }),
+    db.query.bundleGroup.findFirst({
+      where: and(eq(bundleGroup.id, row.groupId), eq(bundleGroup.companyId, companyId)),
+    }),
+  ]);
+
+  let activeDispatch: { id: string; code: string; status: string } | null = null;
+  if (row.currentDispatchId && (row.status === "reserved" || row.status === "dispatched")) {
+    const d = await db.query.dispatch.findFirst({
+      where: and(eq(dispatch.id, row.currentDispatchId), eq(dispatch.companyId, companyId)),
+    });
+    if (d) {
+      activeDispatch = { id: d.id, code: d.code, status: d.status };
+    }
+  }
+
+  const events = await db
+    .select()
+    .from(bundleStatusEvent)
+    .where(and(eq(bundleStatusEvent.companyId, companyId), eq(bundleStatusEvent.bundleId, row.id)))
+    .orderBy(desc(bundleStatusEvent.at))
+    .limit(20);
+
+  return {
+    bundle: row,
+    die: dieRow ?? null,
+    group: groupRow ?? null,
+    activeDispatch,
+    events,
+  };
 }
 
 export const bundleRouter = router({
@@ -320,51 +366,16 @@ export const bundleRouter = router({
       const row = await ctx.db.query.bundle.findFirst({
         where: and(eq(bundle.id, input.id), eq(bundle.companyId, ctx.companyId)),
       });
-      if (!row) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
-      }
+      return loadBundleDetail(ctx.db, ctx.companyId, row);
+    }),
 
-      const [dieRow, groupRow] = await Promise.all([
-        ctx.db.query.die.findFirst({
-          where: and(eq(die.id, row.dieId), eq(die.companyId, ctx.companyId)),
-        }),
-        ctx.db.query.bundleGroup.findFirst({
-          where: and(eq(bundleGroup.id, row.groupId), eq(bundleGroup.companyId, ctx.companyId)),
-        }),
-      ]);
-
-      let activeDispatch: { id: string; code: string; status: string } | null = null;
-      if (row.currentDispatchId && (row.status === "reserved" || row.status === "dispatched")) {
-        const d = await ctx.db.query.dispatch.findFirst({
-          where: and(
-            eq(dispatch.id, row.currentDispatchId),
-            eq(dispatch.companyId, ctx.companyId),
-          ),
-        });
-        if (d) {
-          activeDispatch = { id: d.id, code: d.code, status: d.status };
-        }
-      }
-
-      const events = await ctx.db
-        .select()
-        .from(bundleStatusEvent)
-        .where(
-          and(
-            eq(bundleStatusEvent.companyId, ctx.companyId),
-            eq(bundleStatusEvent.bundleId, row.id),
-          ),
-        )
-        .orderBy(desc(bundleStatusEvent.at))
-        .limit(20);
-
-      return {
-        bundle: row,
-        die: dieRow ?? null,
-        group: groupRow ?? null,
-        activeDispatch,
-        events,
-      };
+  getBySerial: companyProcedure
+    .input(z.object({ serial: z.string().min(1).max(200) }))
+    .query(async ({ ctx, input }) => {
+      const row = await ctx.db.query.bundle.findFirst({
+        where: and(eq(bundle.serial, normalizeSerial(input.serial)), eq(bundle.companyId, ctx.companyId)),
+      });
+      return loadBundleDetail(ctx.db, ctx.companyId, row);
     }),
 
   transitionStatus: actionProcedure("bundle.transition")
