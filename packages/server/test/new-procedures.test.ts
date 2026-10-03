@@ -166,6 +166,8 @@ describe("dashboard.today", () => {
     const res = await env.caller({ role: "viewer", companyId: a.companyId }).dashboard.today();
 
     expect(res.dispatchedToday).toEqual({ dispatches: 1, weightG: 50_000 });
+    // Completed dispatches are not open; the other plant's are never counted.
+    expect(res.openDispatchCount).toBe(1);
     expect(res.openDispatches).toEqual([
       {
         id: openId,
@@ -292,6 +294,8 @@ describe("dashboard.today", () => {
     }
     const res = await env.caller({ role: "viewer", companyId }).dashboard.today();
     expect(res.openDispatches.length).toBe(10);
+    // The list is capped; the count is not (Today's Dispatch tile shows "12 open").
+    expect(res.openDispatchCount).toBe(12);
     expect(res.openDispatches[0]!.code).toBe("D-11");
     expect(res.openDispatches[0]).toMatchObject({ bundles: 0, weightG: 0 });
   });

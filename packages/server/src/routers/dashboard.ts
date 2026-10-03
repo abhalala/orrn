@@ -36,7 +36,13 @@ export const dashboardRouter = router({
     const start = new Date(startMs);
     const end = new Date(endMs);
 
-    const [packedRows, dispatchedRows, stockRows, openRows, sessionRows, failedRows] = await Promise.all([
+    const openDispatch = and(
+      eq(dispatch.companyId, companyId),
+      inArray(dispatch.status, ["draft", "reserved"]),
+      isNull(dispatch.deletedAt),
+    );
+
+    const [packedRows, dispatchedRows, stockRows, openRows, sessionRows, failedRows, openCountRows] = await Promise.all([
       ctx.db
         .select({ n: sql<number>`count(*)`, w: sql<number>`coalesce(sum(${bundle.weightG}), 0)` })
         .from(bundle)
@@ -87,13 +93,7 @@ export const dashboardRouter = router({
         })
         .from(dispatch)
         .innerJoin(customer, and(eq(customer.id, dispatch.customerId), eq(customer.companyId, dispatch.companyId)))
-        .where(
-          and(
-            eq(dispatch.companyId, companyId),
-            inArray(dispatch.status, ["draft", "reserved"]),
-            isNull(dispatch.deletedAt),
-          ),
-        )
+        .where(openDispatch)
         .orderBy(desc(dispatch.createdAt), desc(dispatch.id))
         .limit(LIST_LIMIT),
       ctx.db
@@ -127,6 +127,8 @@ export const dashboardRouter = router({
             lt(printLog.createdAt, end),
           ),
         ),
+      // The open list is capped at LIST_LIMIT; the count is not.
+      ctx.db.select({ n: sql<number>`count(*)` }).from(dispatch).where(openDispatch),
     ]);
 
     const stock = Object.fromEntries(bundleStatuses.map((s) => [s, { bundles: 0, weightG: 0 }])) as Record<
@@ -177,6 +179,7 @@ export const dashboardRouter = router({
       packedToday: { bundles: num(packedRows[0]?.n), weightG: num(packedRows[0]?.w) },
       dispatchedToday: { dispatches: num(dispatchedRows[0]?.dispatches), weightG: num(dispatchedRows[0]?.w) },
       stock,
+      openDispatchCount: num(openCountRows[0]?.n),
       openDispatches: openRows.map((r) => ({
         id: r.id,
         code: r.code,
