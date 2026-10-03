@@ -16,6 +16,20 @@ const app = new Hono();
 const auth = createAuth();
 
 app.use(logger());
+
+// Production only: upgrade plain-HTTP requests to HTTPS and send HSTS.
+// Local dev runs on http://localhost and must keep working.
+app.use("*", async (c, next) => {
+  if (env.NODE_ENV !== "production") return next();
+  const url = new URL(c.req.url);
+  if (url.protocol === "http:") {
+    url.protocol = "https:";
+    return c.redirect(url.toString(), c.req.method === "GET" || c.req.method === "HEAD" ? 301 : 308);
+  }
+  await next();
+  c.header("Strict-Transport-Security", "max-age=31536000");
+});
+
 app.use(
   "/*",
   cors({

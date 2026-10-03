@@ -37,6 +37,7 @@ function requireZone(id: string | undefined, label: string): string {
 }
 
 let webDomain: DomainBinding;
+let webAliasDomains: DomainBinding[] = [];
 let apiDomain: string;
 let apiZoneId: string;
 let corsOrigin: string;
@@ -62,6 +63,9 @@ if (isDevStage) {
   apiDomain = process.env.API_DOMAIN ?? "api.orrn.in";
   apiZoneId = inZone;
   webDomain = { domainName: "orrn.in", zoneId: inZone, adopt: true };
+  // www.orrn.in had no DNS record; serve it from the same Worker, which
+  // redirects it to the apex host.
+  webAliasDomains = [{ domainName: "www.orrn.in", zoneId: inZone, adopt: true }];
 
   webPublicUrl = "https://orrn.in";
   corsOrigin = webPublicUrl;
@@ -78,21 +82,50 @@ const webBindings = {
   VITE_PUBLIC_URL: webPublicUrl,
 };
 
+// Edge rules for the web Worker:
+// 1. Plain-HTTP requests get a permanent redirect to HTTPS (browsers showed
+//    "Not secure" for http://orrn.in because nothing upgraded the request).
+// 2. "www." hosts redirect to the apex host.
+// 3. Unknown HTML routes fall back to the SPA shell.
+// 4. Every HTTPS response carries HSTS so browsers stop trying HTTP at all.
+//    No includeSubDomains/preload: tenant and print-station hosts decide for
+//    themselves.
 const spaFallbackScript = `
+const HSTS = "max-age=31536000";
+
+function withHsts(response) {
+  const headers = new Headers(response.headers);
+  headers.set("Strict-Transport-Security", HSTS);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request, env) {
-    const response = await env.ASSETS.fetch(request);
-    if (response.status !== 404 || request.method !== "GET") {
-      return response;
-    }
-
-    const accept = request.headers.get("accept") ?? "";
-    if (!accept.includes("text/html")) {
-      return response;
-    }
-
     const url = new URL(request.url);
-    return env.ASSETS.fetch(new Request(new URL("/", url), request));
+    const isLocal = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    const redirectStatus = request.method === "GET" || request.method === "HEAD" ? 301 : 308;
+
+    if (!isLocal && url.protocol === "http:") {
+      url.protocol = "https:";
+      return Response.redirect(url.toString(), redirectStatus);
+    }
+    if (url.hostname.startsWith("www.")) {
+      url.hostname = url.hostname.slice(4);
+      return Response.redirect(url.toString(), redirectStatus);
+    }
+
+    let response = await env.ASSETS.fetch(request);
+    if (response.status === 404 && request.method === "GET") {
+      const accept = request.headers.get("accept") ?? "";
+      if (accept.includes("text/html")) {
+        response = await env.ASSETS.fetch(new Request(new URL("/", url), request));
+      }
+    }
+    return isLocal ? response : withHsts(response);
   },
 };
 `;
@@ -131,7 +164,7 @@ export const web = await Vite("web", {
   assets: "dist",
   adopt: true,
   bindings: webBindings,
-  domains: [webDomain],
+  domains: [webDomain, ...webAliasDomains],
   script: spaFallbackScript,
   dev: { domain: "localhost:3001" },
 });
