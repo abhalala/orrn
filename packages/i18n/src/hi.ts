@@ -1073,6 +1073,7 @@ export const hi = {
       ours: "हमारा कांटा",
       difference: "फ़र्क",
       facts: "लॉट की जानकारी",
+      nextStep: "अगला कदम",
       vendor: "पार्टी",
       material: "माल",
       rate: "रेट",

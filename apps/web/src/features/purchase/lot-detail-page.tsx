@@ -18,7 +18,7 @@ import { cn } from "@orrn/ui/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import { AlertTriangle, CircleCheck } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
@@ -155,7 +155,7 @@ function LotDetail({ data }: { data: LotData }) {
     }
     if (step.primary === "ok") {
       return (
-        <Button size="lg" loading={markOk.isPending} onClick={onOk}>
+        <Button size="lg" loading={markOk.isPending || stores.isLoading} onClick={onOk}>
           {t("purchase.detail.markOk")}
         </Button>
       );
@@ -232,7 +232,7 @@ function LotDetail({ data }: { data: LotData }) {
       />
 
       {message || secondary.length > 0 || primaryButton ? (
-        <section aria-label={t("purchase.detail.facts")} className="flex flex-col gap-3">
+        <section aria-label={t("purchase.detail.nextStep")} className="flex flex-col gap-3">
           {message ? (
             <p
               role="status"
@@ -378,9 +378,12 @@ function Figure({ label, value, unit }: { label: string; value: string; unit: st
 /* -------------------------------------------------------------------------- */
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
+  const id = useId();
   return (
-    <section className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 sm:p-5">
-      <h2 className="m-0 font-display text-[19px] font-bold tracking-[-0.02em]">{title}</h2>
+    <section aria-labelledby={id} className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 sm:p-5">
+      <h2 id={id} className="m-0 font-display text-[19px] font-bold tracking-[-0.02em]">
+        {title}
+      </h2>
       {children}
     </section>
   );

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 990 screen strings in 27 groups, 11 guides with 202 strings.
+Counts: 991 screen strings in 27 groups, 11 guides with 202 strings.
 
 ## Screen strings
 
@@ -868,7 +868,7 @@ Please check, Lalubhai:
 - `unitLakh`: Chart axis short form for lakh (1.5L). Kept as L for now. Should it be लाख?
 - `unitCrore`: Chart axis short form for crore (1.2Cr). Kept as Cr for now. Should it be करोड़?
 
-### purchase (191)
+### purchase (192)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -986,6 +986,7 @@ Please check, Lalubhai:
 | `detail.ours` | Our kanta | हमारा कांटा |
 | `detail.difference` | Difference | फ़र्क |
 | `detail.facts` | Lot details | लॉट की जानकारी |
+| `detail.nextStep` | Next step | अगला कदम |
 | `detail.vendor` | Vendor | पार्टी |
 | `detail.material` | Material | माल |
 | `detail.rate` | Rate | रेट |

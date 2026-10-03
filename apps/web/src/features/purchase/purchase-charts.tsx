@@ -38,7 +38,7 @@ export default function PurchaseCharts() {
   const register = useQuery(trpc.purchase.register.queryOptions({ from: range.from, to: range.to }));
 
   const monthDates = useMemo(() => chartDateFormat("month", locale), [locale]);
-  const lots = register.data?.lots ?? [];
+  const lots = useMemo(() => register.data?.lots ?? [], [register.data]);
 
   const rateSeries: TimeSeries[] = useMemo(
     () =>
@@ -56,7 +56,7 @@ export default function PurchaseCharts() {
   const state = register.isLoading ? "loading" : register.isError ? "error" : undefined;
 
   return (
-    <section aria-label={t("purchase.charts.rateTitle")} className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <ChartCard
         data-testid="purchase-chart-rate"
         level={2}
@@ -106,6 +106,6 @@ export default function PurchaseCharts() {
           label={t("purchase.charts.vendorLabel")}
         />
       </ChartCard>
-    </section>
+    </div>
   );
 }

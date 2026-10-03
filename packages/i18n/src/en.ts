@@ -1082,6 +1082,7 @@ export const en = {
       ours: "Our kanta",
       difference: "Difference",
       facts: "Lot details",
+      nextStep: "Next step",
       vendor: "Vendor",
       material: "Material",
       rate: "Rate",

@@ -129,7 +129,7 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
         }
       />
 
-      <section aria-label={t("purchase.title")} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {atKanta === null ? (
           <Skeleton className="h-[168px] rounded-block" />
         ) : (
@@ -157,7 +157,7 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
         ) : (
           <Skeleton className="h-[168px] rounded-block" />
         )}
-      </section>
+      </div>
 
       <div className="flex flex-col gap-3">
         <SegmentedControl
