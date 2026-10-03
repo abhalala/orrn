@@ -29,6 +29,7 @@
     "dev:local": "turbo -F @orrn/server dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
+    "test": "turbo test",
     "test:visual": "turbo -F web test:visual",
     "test:visual:update": "turbo -F web test:visual:update",
     "test:maestro": "maestro test .maestro/flows",

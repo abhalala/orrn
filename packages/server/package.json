@@ -20,6 +20,7 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
+    "test": "bun test",
     "dev": "alchemy dev src/infra/alchemy.run.ts",
     "deploy": "alchemy deploy src/infra/alchemy.run.ts",
     "deploy:dev": "bun --env-file=.env run alchemy-deploy-dev",
