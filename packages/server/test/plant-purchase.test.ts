@@ -236,6 +236,74 @@ describe("Review Focus 2: no short-weighed lot is OK without a D/C note", () => 
 });
 
 // ---------------------------------------------------------------------------
+// Ruling RP8: weight notes must cover the shortfall beyond tolerance
+// ---------------------------------------------------------------------------
+
+describe("RP8: the weight notes must cover the shortfall beyond tolerance", () => {
+  // 10,000 kg billed, 9,000 kg on the FC kanta: 1,000 kg short, 50 kg tolerance → notes must cover 950 kg.
+  const weightNote = (p: Plant, lotId: string, kgDiffG: number, type: "debit" | "credit" = "debit") =>
+    p.office.purchase.dcNotes.create({ lotId, type, reason: "weight", kgDiffG, boriDeductionG: 0, note: "x" });
+
+  test("a note smaller than the shortfall beyond tolerance keeps OK blocked; a covering one unlocks", async () => {
+    const p = await plant();
+    const lot = await newLot(p, { fcKgG: 9_000 * KG });
+    const small = await weightNote(p, lot.id, 949 * KG + 999);
+    await expect(p.storekeeper.purchase.lots.advance({ id: lot.id, to: "ok" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("950 kg"),
+    });
+    const reg = await p.office.purchase.register({ from: "2026-10-01", to: "2026-10-31" });
+    expect(reg.lots[0]).toMatchObject({ hasWeightNote: true, noteCoversShort: false, flag: "short_without_note" });
+    await p.manager.approval.decide({ id: small.approvalId, decision: "rejected" });
+    await weightNote(p, lot.id, 950 * KG);
+    await p.storekeeper.purchase.lots.advance({ id: lot.id, to: "ok" });
+    expect(await scrapBalance(p.companyId)).toBe(9_000 * KG);
+  });
+
+  test("two partial notes that sum to cover unlock (one approved, one pending)", async () => {
+    const p = await plant();
+    const lot = await newLot(p, { fcKgG: 9_000 * KG });
+    const n1 = await weightNote(p, lot.id, 500 * KG);
+    await p.manager.approval.decide({ id: n1.approvalId, decision: "approved" });
+    await expect(p.storekeeper.purchase.lots.advance({ id: lot.id, to: "ok" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await weightNote(p, lot.id, 450 * KG);
+    await p.storekeeper.purchase.lots.advance({ id: lot.id, to: "ok" });
+    expect((await lotRow(lot.id)).status).toBe("ok");
+  });
+
+  test("rejected notes and credit notes do not count toward the cover", async () => {
+    const p = await plant();
+    const lot = await newLot(p, { fcKgG: 9_000 * KG });
+    const n1 = await weightNote(p, lot.id, 500 * KG);
+    await p.manager.approval.decide({ id: n1.approvalId, decision: "approved" });
+    const n2 = await weightNote(p, lot.id, 450 * KG);
+    await p.manager.approval.decide({ id: n2.approvalId, decision: "rejected" });
+    const n3 = await weightNote(p, lot.id, 450 * KG, "credit");
+    await p.manager.approval.decide({ id: n3.approvalId, decision: "approved" });
+    await expect(p.storekeeper.purchase.lots.advance({ id: lot.id, to: "ok" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(await ledgerFor(p.companyId)).toEqual([]);
+  });
+
+  test("race: the note that completed the cover is rejected after OK read it — the OK write does not land", async () => {
+    const p = await plant();
+    const lot = await newLot(p, { fcKgG: 9_000 * KG });
+    const n1 = await weightNote(p, lot.id, 500 * KG);
+    await p.manager.approval.decide({ id: n1.approvalId, decision: "approved" });
+    const n2 = await weightNote(p, lot.id, 450 * KG);
+    env.beforeNextBatch(() => p.manager.approval.decide({ id: n2.approvalId, decision: "rejected" }));
+    await expect(p.storekeeper.purchase.lots.advance({ id: lot.id, to: "ok" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect((await lotRow(lot.id)).status).toBe("booking");
+    expect(await ledgerFor(p.companyId)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tolerance from settings
 // ---------------------------------------------------------------------------
 

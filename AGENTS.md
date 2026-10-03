@@ -232,8 +232,9 @@ bun run deploy
   Brokers (dalal, "K" in a party name) are never vendors.
 - Lots: `booking → unload → ok` (booking → ok allowed), `cancelled`. Review Focus 2: OK is refused
   when party − FC > party × `settings.dcTolerancePct` / 10 000 (basis points despite the name, default
-  50 = 0.5 %) unless the lot has a debit note on the weight that is pending or approved. The rule sits
-  in the OK UPDATE's WHERE (not only in a read before it); keep it there.
+  50 = 0.5 %) unless the lot's live weight debit notes (pending or approved) cover the shortfall beyond
+  tolerance: Σ kg_diff_g ≥ (party − FC) − floor(party × bp / 10 000) (ruling RP8). The rule sits in
+  the OK UPDATE's WHERE (not only in a read before it); keep it there.
 - Ledger: OK posts `purchase_lot` (+ FC kg − approved bori) at the scrap store, item_kind
   `scrap_grade`, item_ref `{scrapItemId}:{scrapGradeId}` (`lib/purchase.ts scrapItemRef`), voucher =
   lot id. A note approved after OK posts `dc_note` (− bori) from the `dc_note` approval hook. Cancelling

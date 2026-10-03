@@ -7,9 +7,10 @@
  *   OK posts + scrap (item+grade) at the scrap store: FC kg minus the bori of D/C notes approved
  *   so far, in the same batch as the lot UPDATE and the audit row.
  * - Review Focus 2: OK is refused when FC kg is short of party kg beyond the company tolerance
- *   (`settings.dcTolerancePct`, basis points, default 50) and the lot has no debit note on the
- *   weight that is pending or approved. The rule is part of the UPDATE's WHERE, so a note rejected
- *   or a weight corrected after the request read the lot still cannot let a short lot through.
+ *   (`settings.dcTolerancePct`, basis points, default 50) unless the lot's debit notes on the
+ *   weight that are pending or approved cover the shortfall beyond tolerance (ruling RP8). The rule
+ *   is part of the UPDATE's WHERE, so a note rejected or a weight corrected after the request read
+ *   the lot still cannot let a short lot through.
  * - A D/C note opens an approval (kind dc_note); `approval.decide` applies it (lib/approvalApply):
  *   approved bori comes off the stock (now if the lot is OK, else at OK) and off the payable kg.
  * - Cancelling an OK lot (masters.publish) writes reversal rows for every posting of the lot,
@@ -147,20 +148,51 @@ function checkBookDate(settings: Record<string, unknown>, date: string) {
   if (date > latest) throw new TRPCError({ code: "BAD_REQUEST", message: "The lot date is in the future" });
 }
 
-/** SQL over the outer `purchase_lot` row: it has a debit note on the weight that is pending or approved. */
-function lotHasWeightNote(): SQL {
+/**
+ * SQL over the outer `purchase_lot` row: total kg diff of its live weight debit notes (pending or
+ * approved, type debit, reason weight).
+ */
+function lotLiveWeightNoteKg(): SQL {
   const lot = (c: string) => sql`${sql.identifier("purchase_lot")}.${sql.identifier(c)}`;
-  return sql`exists (select 1 from ${dcNote} n where n.company_id = ${lot("company_id")} and n.lot_id = ${lot("id")}
-    and n.type = 'debit' and n.reason = 'weight' and n.status in ('pending', 'approved'))`;
+  return sql`coalesce((select sum(n.kg_diff_g) from ${dcNote} n where n.company_id = ${lot("company_id")} and n.lot_id = ${lot("id")}
+    and n.type = 'debit' and n.reason = 'weight' and n.status in ('pending', 'approved')), 0)`;
 }
 
-/** SQL over the outer `purchase_lot` row: FC kg is within tolerance of party kg, or a weight note covers it. */
+/**
+ * SQL over the outer `purchase_lot` row (Review Focus 2, ruling RP8): FC kg is within tolerance of
+ * party kg, or the live weight notes cover the shortfall beyond tolerance:
+ * Σ kg diff ≥ (party − FC) − floor(party × bp / 10 000). SQLite integer division floors positive
+ * integers, the same as `toleranceG`.
+ */
 function lotMayBeOk(toleranceBp: number): SQL {
   const lot = (c: string) => sql`${sql.identifier("purchase_lot")}.${sql.identifier(c)}`;
   return sql`(${lot("fc_kg_g")} is not null and ${lot("fc_kg_g")} > 0 and (
     (${lot("party_kg_g")} - ${lot("fc_kg_g")}) * 10000 <= ${lot("party_kg_g")} * ${toleranceBp}
-    or ${lotHasWeightNote()}
+    or ${lotLiveWeightNoteKg()} >= (${lot("party_kg_g")} - ${lot("fc_kg_g")}) - (${lot("party_kg_g")} * ${toleranceBp}) / 10000
   ))`;
+}
+
+/** Kg diff a weight note must cover for the lot to go OK: shortfall beyond tolerance (0 if none). */
+function uncoveredShortG(partyKgG: number, fcKgG: number, toleranceBp: number): number {
+  if (!isShortBeyondTolerance(partyKgG, fcKgG, toleranceBp)) return 0;
+  return partyKgG - fcKgG - toleranceG(partyKgG, toleranceBp);
+}
+
+/** Total kg diff of the lot's live weight debit notes (pending or approved). */
+async function liveWeightNoteKg(ctx: Ctx, lotId: string): Promise<number> {
+  const [row] = await ctx.db
+    .select({ g: sql<number>`coalesce(sum(${dcNote.kgDiffG}), 0)` })
+    .from(dcNote)
+    .where(
+      and(
+        eq(dcNote.companyId, ctx.companyId),
+        eq(dcNote.lotId, lotId),
+        eq(dcNote.type, "debit"),
+        eq(dcNote.reason, "weight"),
+        inArray(dcNote.status, ["pending", "approved"]),
+      ),
+    );
+  return Number(row?.g ?? 0);
 }
 
 async function hasLiveWeightNote(ctx: Ctx, lotId: string): Promise<boolean> {
@@ -178,6 +210,13 @@ async function hasLiveWeightNote(ctx: Ctx, lotId: string): Promise<boolean> {
     )
     .limit(1);
   return Boolean(row);
+}
+
+/** SQL over the outer `purchase_lot` row: it has a live weight debit note (weights are then locked). */
+function lotHasWeightNote(): SQL {
+  const lot = (c: string) => sql`${sql.identifier("purchase_lot")}.${sql.identifier(c)}`;
+  return sql`exists (select 1 from ${dcNote} n where n.company_id = ${lot("company_id")} and n.lot_id = ${lot("id")}
+    and n.type = 'debit' and n.reason = 'weight' and n.status in ('pending', 'approved'))`;
 }
 
 function auditCtx(ctx: {
@@ -459,17 +498,24 @@ function lotMath(
   const creditPaise = approved.filter((n) => n.type === "credit").reduce((s, n) => s + n.amountPaise, 0);
   const shortG = lot.fcKgG === null ? null : lot.partyKgG - lot.fcKgG;
   const shortBeyondTolerance = isShortBeyondTolerance(lot.partyKgG, lot.fcKgG, tolBp);
-  const hasWeightNote = notes.some(
+  const liveWeight = notes.filter(
     (n) => n.type === "debit" && n.reason === "weight" && (n.status === "pending" || n.status === "approved"),
   );
+  const hasWeightNote = liveWeight.length > 0;
+  const weightNoteKgG = liveWeight.reduce((s, n) => s + n.kgDiffG, 0);
+  // RP8: the live weight notes must cover the shortfall beyond tolerance.
+  const uncoveredG = lot.fcKgG === null ? 0 : uncoveredShortG(lot.partyKgG, lot.fcKgG, tolBp);
+  const noteCoversShort = weightNoteKgG >= uncoveredG;
   const pending = notes.some((n) => n.status === "pending");
   const flag: "short_without_note" | "note_pending" | null =
-    lot.status !== "cancelled" && shortBeyondTolerance && !hasWeightNote ? "short_without_note" : pending ? "note_pending" : null;
+    lot.status !== "cancelled" && shortBeyondTolerance && !noteCoversShort ? "short_without_note" : pending ? "note_pending" : null;
   return {
     shortG,
     toleranceG: toleranceG(lot.partyKgG, tolBp),
     shortBeyondTolerance,
     hasWeightNote,
+    weightNoteKgG,
+    noteCoversShort,
     flag,
     debitKgG,
     creditKgG,
@@ -802,9 +848,10 @@ const lotsRouter = router({
 
   /**
    * booking → unload, or booking/unload → ok (purchase.receipt). OK needs FC kg and an active
-   * scrap store, and — Review Focus 2 — a weight debit note (pending or approved) whenever FC kg
-   * is short of party kg beyond the tolerance. The same rule is in the UPDATE's WHERE, and the
-   * ledger posting lands only if the UPDATE did.
+   * scrap store, and — Review Focus 2, ruling RP8 — when FC kg is short of party kg beyond the
+   * tolerance, live weight debit notes (pending or approved) whose kg diff sums to at least the
+   * shortfall beyond tolerance. The same rule is in the UPDATE's WHERE, and the ledger posting
+   * lands only if the UPDATE did.
    */
   advance: actionProcedure("purchase.receipt")
     .input(z.object({ id: z.string().min(1), to: z.enum(["unload", "ok"]), locationId: z.string().min(1).optional() }))
@@ -841,10 +888,17 @@ const lotsRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Weigh the lot on the FC kanta first" });
       }
       const tolBp = dcToleranceBp(await companySettings(ctx));
-      const shortMessage = (party: number, fc: number) =>
-        `FC kanta is ${kg(party - fc)} kg short of the party kanta (more than ${pct(tolBp)}): raise a debit note first`;
-      if (isShortBeyondTolerance(lot.partyKgG, lot.fcKgG, tolBp) && !(await hasLiveWeightNote(ctx, lot.id))) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: shortMessage(lot.partyKgG, lot.fcKgG) });
+      const shortMessage = (party: number, fc: number, coveredG: number) => {
+        const need = uncoveredShortG(party, fc, tolBp);
+        return coveredG > 0
+          ? `FC kanta is ${kg(party - fc)} kg short; the debit notes cover ${kg(coveredG)} kg but ${kg(need)} kg (the short beyond ${pct(tolBp)}) must be covered`
+          : `FC kanta is ${kg(party - fc)} kg short of the party kanta (more than ${pct(tolBp)}): raise a debit note for at least ${kg(need)} kg first`;
+      };
+      if (isShortBeyondTolerance(lot.partyKgG, lot.fcKgG, tolBp)) {
+        const coveredG = await liveWeightNoteKg(ctx, lot.id);
+        if (coveredG < uncoveredShortG(lot.partyKgG, lot.fcKgG, tolBp)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: shortMessage(lot.partyKgG, lot.fcKgG, coveredG) });
+        }
       }
       const store = await scrapStoreFor(ctx, input.locationId);
       const at = clockNow();
@@ -884,7 +938,10 @@ const lotsRouter = router({
         }
         if (now.fcKgG === null) throw new TRPCError({ code: "BAD_REQUEST", message: "Weigh the lot on the FC kanta first" });
         if (isShortBeyondTolerance(now.partyKgG, now.fcKgG, tolBp)) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: shortMessage(now.partyKgG, now.fcKgG) });
+          const coveredG = await liveWeightNoteKg(ctx, lot.id);
+          if (coveredG < uncoveredShortG(now.partyKgG, now.fcKgG, tolBp)) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: shortMessage(now.partyKgG, now.fcKgG, coveredG) });
+          }
         }
         throw new TRPCError({ code: "BAD_REQUEST", message: "The scrap store changed; try again" });
       }
