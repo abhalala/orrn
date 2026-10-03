@@ -56,7 +56,9 @@ export function BrandPanel({ className }: { className?: string }) {
             <p className="m-0 font-display text-[40px] font-extrabold leading-[1.02] tracking-[-0.04em] text-balance xl:text-[54px]">
               {t("marketing.headline")}
             </p>
-            <p className="m-0 max-w-[44ch] text-[16px] leading-6 font-medium xl:text-[17px]">{t("marketing.sub")}</p>
+            <p className="m-0 max-w-[44ch] text-[16px] leading-6 font-medium xl:text-[17px] [@media(max-height:640px)]:hidden">
+              {t("marketing.sub")}
+            </p>
           </div>
           <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0">
             {TILES.map((tile, i) => (

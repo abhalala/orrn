@@ -1,17 +1,14 @@
 import { useT } from "@orrn/i18n";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { SignInForm } from "@/features/auth/sign-in-form";
 
-const loginSearchSchema = z.object({
-  next: z.string().optional(),
-});
-
 export const Route = createFileRoute("/_public/login")({
   component: LoginPage,
-  validateSearch: loginSearchSchema,
+  // Plain check (no zod): route options sit in the entry chunk every page loads.
+  validateSearch: (search: Record<string, unknown>): { next?: string } =>
+    typeof search.next === "string" ? { next: search.next } : {},
 });
 
 function LoginPage() {

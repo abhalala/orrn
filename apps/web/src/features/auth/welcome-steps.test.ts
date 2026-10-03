@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
+import { en } from "@orrn/i18n";
+import { can } from "@orrn/server/lib/permissions";
+
 import type { Me } from "@/shared/lib/me";
 
-import { parseMagicFlag, welcomeSteps, welcomeTimeline } from "./welcome-steps";
+import { COMPANY_SETUP_ROLES, parseMagicFlag, welcomeSteps, welcomeTimeline } from "./welcome-steps";
 
 type MeOver = Partial<Omit<Me, "user" | "company">> & {
   user?: Partial<Me["user"]>;
@@ -79,11 +82,19 @@ describe("welcomeSteps: edges", () => {
   });
 
   test("magic flag on a non-owner sets the password but never asks for two-factor", () => {
-    expect(welcomeSteps(me({ company: { role: "operator" } }), { magic: true })).toEqual(["password"]);
+    const operator = me({ company: { role: "operator" }, user: { onboardingCompleted: false } });
+    expect(welcomeSteps(operator, { magic: true })).toEqual(["password"]);
   });
 
   test("forced change and magic link together still ask for the password once", () => {
-    expect(welcomeSteps(me({ user: { mustChangePassword: true } }), { magic: true })).toEqual(["password", "twoFactor"]);
+    const owner = me({ user: { mustChangePassword: true, onboardingCompleted: false } });
+    expect(welcomeSteps(owner, { magic: true })).toEqual(["password", "twoFactor", "company"]);
+  });
+
+  test("a stale magic link on a set-up account asks for nothing", () => {
+    // Old emails still point at /setup-credentials, which lands on /welcome?magic=1.
+    expect(welcomeSteps(me(), { magic: true })).toEqual([]);
+    expect(welcomeSteps(me({ user: { mustChangePassword: true } }), { magic: true })).toEqual(["password"]);
   });
 
   test("an impersonating admin has no company chores in someone else's company", () => {
@@ -116,5 +127,15 @@ describe("parseMagicFlag", () => {
     expect(parseMagicFlag(true)).toBe(false);
     expect(parseMagicFlag("yes")).toBe(false);
     expect(parseMagicFlag(undefined)).toBe(false);
+  });
+});
+
+describe("COMPANY_SETUP_ROLES", () => {
+  test("is exactly the roles the server lets write company settings", () => {
+    // Every company role has a name in the dictionary (roles.*).
+    const roles = Object.keys(en.roles) as NonNullable<Me["company"]>["role"][];
+    expect(roles.length).toBeGreaterThanOrEqual(13);
+    const writers = roles.filter((role) => can(me({ company: { role } }), "settings.update"));
+    expect([...COMPANY_SETUP_ROLES].sort()).toEqual([...writers].sort());
   });
 });

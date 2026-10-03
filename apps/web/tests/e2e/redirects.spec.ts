@@ -33,9 +33,11 @@ test.describe("old URLs redirect", () => {
     ["/dispatches/xyz", /\/dispatch\/xyz$/],
     ["/spool", /\/printing$/],
     ["/settings/members", /\/settings\?tab=team$/],
-    ["/onboarding", /\/welcome$/],
-    ["/change-password", /\/welcome$/],
-    ["/setup-credentials", /\/welcome\?magic=1$/],
+    // The welcome stepper sends a fully set-up owner (this suite's user) on
+    // home; front-door.spec.ts covers these for an account with open steps.
+    ["/onboarding", /\/today$/],
+    ["/change-password", /\/today$/],
+    ["/setup-credentials", /\/today$/],
     ["/waitlist?mode=demo", /\/request-access\?mode=demo$/],
   ];
 
@@ -207,10 +209,10 @@ test.describe("new routes exist", () => {
     });
   }
 
-  test("/welcome renders for a signed-in user", async ({ page }) => {
+  test("/welcome sends a fully set-up user home", async ({ page }) => {
     await page.goto("/welcome");
-    await expect(page).toHaveURL(/\/welcome$/);
-    await expect(page.locator("h1").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/today$/);
+    await expect(page.locator("main#main h1").first()).toBeVisible();
   });
 });
 
