@@ -30,6 +30,11 @@ export type CameraScannerProps = {
 
 /** How often the frame is read. Fast enough to feel instant, light on a phone battery. */
 const SCAN_INTERVAL_MS = 120;
+/** Consecutive unreadable frames (about 2.5 s) before the reader counts as broken. */
+const MAX_DETECT_FAILURES = 20;
+
+/** States that show the "Turn on camera" button. */
+const ASKING: CameraState[] = ["explain", "blocked", "failed"];
 
 type TorchCapabilities = MediaTrackCapabilities & { torch?: boolean };
 
@@ -47,14 +52,24 @@ export function CameraScanner({ onDetect, active, autoStart, emphasis, className
   const { t } = useT();
   const [state, setState] = useState<CameraState>("checking");
   const [torch, setTorch] = useState<{ supported: boolean; on: boolean }>({ supported: false, on: false });
+  const rootRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const turnOnRef = useRef<HTMLButtonElement>(null);
+  const turnOffRef = useRef<HTMLButtonElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
   const runRef = useRef(0);
   const resumeRef = useRef(false);
+  const stateRef = useRef<CameraState>("checking");
+  stateRef.current = state;
+  // Set when a person's action swaps the camera controls: focus then follows
+  // to the control that replaced the one they used (never on an auto start).
+  const moveFocusRef = useRef(false);
   const onDetectRef = useRef(onDetect);
   onDetectRef.current = onDetect;
 
+  /** Stops the stream and cancels any start still waiting for the browser or the reader. */
   const stop = useCallback(() => {
     runRef.current += 1;
     if (timerRef.current !== null) window.clearTimeout(timerRef.current);
@@ -93,11 +108,8 @@ export function CameraScanner({ onDetect, active, autoStart, emphasis, className
       return;
     }
     streamRef.current = stream;
-    setState("live");
-    const track = stream.getVideoTracks()[0];
-    const caps = (track?.getCapabilities?.() ?? {}) as TorchCapabilities;
-    setTorch({ supported: Boolean(caps.torch), on: false });
 
+    // The reader must be ready before the viewfinder claims to be scanning.
     let detector: Detector;
     try {
       detector = await loadDetector();
@@ -108,6 +120,14 @@ export function CameraScanner({ onDetect, active, autoStart, emphasis, className
       }
       return;
     }
+    if (run !== runRef.current) return;
+
+    setState("live");
+    const track = stream.getVideoTracks()[0];
+    const caps = (track?.getCapabilities?.() ?? {}) as TorchCapabilities;
+    setTorch({ supported: Boolean(caps.torch), on: false });
+
+    let failures = 0;
     const tick = async () => {
       if (run !== runRef.current) return;
       const video = videoRef.current;
@@ -115,9 +135,19 @@ export function CameraScanner({ onDetect, active, autoStart, emphasis, className
         try {
           const codes = await detector.detect(video);
           if (run !== runRef.current) return;
+          failures = 0;
           for (const code of codes) if (code.rawValue) onDetectRef.current(code.rawValue);
         } catch {
-          // A frame that can't be read (camera warming up); the next one will do.
+          // One bad frame happens (camera warming up); a run of them means the reader is broken.
+          failures += 1;
+          if (failures > MAX_DETECT_FAILURES) {
+            if (run !== runRef.current) return;
+            const hadFocus = Boolean(rootRef.current?.contains(document.activeElement));
+            stop();
+            moveFocusRef.current = hadFocus;
+            setState("failed");
+            return;
+          }
         }
       }
       if (run === runRef.current) timerRef.current = window.setTimeout(tick, SCAN_INTERVAL_MS);
@@ -125,12 +155,26 @@ export function CameraScanner({ onDetect, active, autoStart, emphasis, className
     void tick();
   }, [stop]);
 
-  // The live stream goes into the <video> once it is rendered.
+  // The stream goes into the <video> as soon as it is rendered (starting and live).
   useEffect(() => {
     const video = videoRef.current;
-    if (state !== "live" || !video || !streamRef.current) return;
+    if ((state !== "live" && state !== "starting") || !video || !streamRef.current) return;
     if (video.srcObject !== streamRef.current) video.srcObject = streamRef.current;
     void video.play().catch(() => {});
+  }, [state]);
+
+  // Focus follows a swap of the camera controls the person caused, so it is
+  // never dropped on the page behind the sheet.
+  useEffect(() => {
+    if (!moveFocusRef.current) return;
+    if (state === "starting") {
+      viewportRef.current?.focus();
+      return;
+    }
+    moveFocusRef.current = false;
+    if (state === "live") turnOffRef.current?.focus();
+    else if (ASKING.includes(state)) turnOnRef.current?.focus();
+    else rootRef.current?.focus();
   }, [state]);
 
   // First look: can this browser use a camera at all, and is it already allowed?
@@ -160,17 +204,18 @@ export function CameraScanner({ onDetect, active, autoStart, emphasis, className
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Closing the sheet stops the camera straight away.
+  // Closing the sheet stops the camera straight away, including a start still in flight.
   useEffect(() => {
-    if (active) return;
-    if (streamRef.current) stop();
+    if (!active) stop();
   }, [active, stop]);
 
-  // A hidden page (app switch, screen lock) never keeps the camera on.
+  // A hidden page (app switch, screen lock) never keeps the camera on, and a
+  // start that was still waiting is cancelled; both pick up again on return.
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
-        if (streamRef.current) {
+        const current = stateRef.current;
+        if (current === "live" || current === "starting") {
           resumeRef.current = true;
           stop();
           setState("explain");
@@ -186,6 +231,11 @@ export function CameraScanner({ onDetect, active, autoStart, emphasis, className
 
   useEffect(() => stop, [stop]);
 
+  const turnOn = () => {
+    moveFocusRef.current = true;
+    void start();
+  };
+
   const toggleTorch = async () => {
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track) return;
@@ -199,6 +249,7 @@ export function CameraScanner({ onDetect, active, autoStart, emphasis, className
   };
 
   const turnOff = () => {
+    moveFocusRef.current = true;
     stop();
     setState("explain");
   };
@@ -213,10 +264,20 @@ export function CameraScanner({ onDetect, active, autoStart, emphasis, className
           : null;
 
   return (
-    <div data-slot="camera-scanner" data-state={state} className={cn("min-w-0", className)}>
+    <div
+      ref={rootRef}
+      tabIndex={-1}
+      data-slot="camera-scanner"
+      data-state={state}
+      className={cn("flex min-w-0 flex-col gap-2 outline-none", className)}
+    >
       {state === "live" || state === "starting" ? (
         <div className="flex flex-col gap-2">
-          <div className="relative aspect-[4/3] max-h-[36dvh] w-full overflow-hidden rounded-card bg-tone-neutral text-tone-neutral-on">
+          <div
+            ref={viewportRef}
+            tabIndex={-1}
+            className="relative aspect-[4/3] max-h-[30dvh] w-full overflow-hidden rounded-card bg-tone-neutral text-tone-neutral-on outline-none sm:max-h-[36dvh]"
+          >
             <video
               ref={videoRef}
               aria-hidden="true"
@@ -246,6 +307,7 @@ export function CameraScanner({ onDetect, active, autoStart, emphasis, className
               />
             ) : null}
             <IconButton
+              ref={turnOffRef}
               variant="secondary"
               label={t("scan.cameraOff")}
               icon={<CameraOff strokeWidth={2} />}
@@ -269,16 +331,13 @@ export function CameraScanner({ onDetect, active, autoStart, emphasis, className
               <p className="m-0 text-[14px] leading-5 text-muted-foreground">{t("scan.cameraBody")}</p>
             </div>
           </div>
-          {/* Announced when it appears: the person just tapped and is waiting for the camera. */}
-          <p aria-live="polite" className="m-0 text-[14px] leading-5 font-medium text-destructive empty:hidden">
-            {message}
-          </p>
-          {state !== "unsupported" && state !== "noCamera" ? (
+          {ASKING.includes(state) ? (
             <Button
+              ref={turnOnRef}
               variant={emphasis}
               size={emphasis === "primary" ? "lg" : "md"}
               className="w-full sm:w-auto sm:self-start"
-              onClick={() => void start()}
+              onClick={turnOn}
             >
               <Camera strokeWidth={2} aria-hidden="true" />
               {t("scan.allowCamera")}
@@ -286,6 +345,11 @@ export function CameraScanner({ onDetect, active, autoStart, emphasis, className
           ) : null}
         </div>
       )}
+      {/* One live region for the camera's problems, always in the DOM, so a
+          blocked or failing camera is announced when the text appears. */}
+      <p aria-live="polite" className="m-0 text-[14px] leading-5 font-medium text-destructive">
+        {message}
+      </p>
     </div>
   );
 }

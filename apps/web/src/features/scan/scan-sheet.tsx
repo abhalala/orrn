@@ -10,10 +10,9 @@ import { cn } from "@orrn/ui/lib/utils";
 import type { StatusTone } from "@orrn/domain";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { toast } from "sonner";
 
-import { bundleDetailPath } from "@/shared/lib/paths";
 import { trpcClient } from "@/shared/utils/trpc";
 
 import { CameraScanner } from "./camera-scanner";
@@ -81,29 +80,44 @@ export function ScanSheet({ mode, open, onOpenChange }: ScanSheetProps) {
 
 type ScanWindow = Window & { __orrnFakeScan?: (value: string) => void };
 
+/** Phones and iPads: camera first, keyboard kept down. Laptops: the field first and focused. */
+function useCoarsePointer() {
+  return useMediaQuery("(pointer: coarse)");
+}
+
+/**
+ * Camera and field, with the panel's feedback (count, status) placed where the
+ * eye already is: right under the viewfinder on phones and iPads, so a small
+ * screen shows the result without scrolling while the camera runs; under the
+ * field on laptops, where a wedge scanner types into it.
+ */
 function ScanInputs({
   onScan,
   active,
   fieldRef,
+  feedback,
 }: {
   onScan(raw: string): void;
   active: boolean;
   fieldRef: RefObject<HTMLInputElement | null>;
+  feedback: ReactNode;
 }) {
   const { t } = useT();
-  // Phones and iPads lead with the camera and keep the keyboard down; laptops
-  // lead with the field, focused, so a wedge scanner types straight into it.
-  const coarse = useMediaQuery("(pointer: coarse)");
+  const coarse = useCoarsePointer();
   const onScanRef = useRef(onScan);
   onScanRef.current = onScan;
   const dedupe = useMemo(() => createDeduper(), []);
 
-  // Camera reads repeat every frame: one per value per 1.5 s. Typed and wedge
-  // entries are deliberate and always go through.
+  // Camera reads repeat every frame: one per value per 1.5 s. The key is the
+  // parsed code, so the same label read as a link and as a bare number (or in
+  // another case) counts once. Typed and wedge entries are deliberate and
+  // always go through.
   const onDetect = useCallback(
     (raw: string) => {
       const value = raw.trim();
-      if (!value || !dedupe.accept(value)) return;
+      if (!value) return;
+      const parsed = parseScan(value);
+      if (!dedupe.accept(parsed.kind === "serial" ? parsed.serial : value)) return;
       onScanRef.current(value);
     },
     [dedupe],
@@ -134,8 +148,9 @@ function ScanInputs({
     </Field>
   );
   return (
-    <div className="flex flex-col gap-4">
+    <div className={cn("flex flex-col", coarse ? "gap-3" : "gap-4")}>
       {coarse ? camera : field}
+      {feedback}
       {coarse ? field : camera}
     </div>
   );
@@ -166,11 +181,28 @@ const LINE_TEXT: Record<LineTone, string> = {
 /**
  * One polite live region for every result. Each new result replaces the
  * inner node (keyed), so a repeat ("Already in this dispatch" twice) is
- * announced again.
+ * announced again. Progress ("Searching", "Adding X") is shown next to it but
+ * outside the region: only outcomes are announced.
  */
-function StatusLine({ line }: { line: Line | null }) {
+const StatusLine = forwardRef<HTMLDivElement, { line: Line | null }>(function StatusLine({ line }, ref) {
+  const progress = line?.tone === "progress" ? line : null;
+  const result = line && line.tone !== "progress" ? line : null;
   return (
-    <p role="status" aria-live="polite" className="m-0 min-h-6 min-w-0 text-[15px] leading-6">
+    <div ref={ref} tabIndex={-1} className="min-h-6 min-w-0 text-[15px] leading-6 outline-none">
+      {progress ? (
+        <p className="m-0 flex min-w-0 items-start gap-2">
+          {LINE_ICON.progress}
+          <span className={cn("min-w-0 flex-1 break-words font-semibold", LINE_TEXT.progress)}>{progress.message}</span>
+        </p>
+      ) : null}
+      <StatusRegion line={result} />
+    </div>
+  );
+});
+
+function StatusRegion({ line }: { line: Line | null }) {
+  return (
+    <p role="status" aria-live="polite" className="m-0 min-w-0">
       {line ? (
         <span key={line.id} className="flex min-w-0 items-start gap-2">
           {LINE_ICON[line.tone]}
@@ -222,7 +254,7 @@ function LookupPanel({ active, onDone }: { active: boolean; onDone(): void }) {
 
   const go = (number: string) => {
     onDone();
-    void navigate({ to: bundleDetailPath({ serial: number }) as never });
+    void navigate({ to: "/b/$serial", params: { serial: number } });
   };
 
   const onScan = async (raw: string) => {
@@ -253,9 +285,17 @@ function LookupPanel({ active, onDone }: { active: boolean; onDone(): void }) {
 
   return (
     <div className="flex flex-col gap-4 pt-1">
-      <ScanInputs onScan={(raw) => void onScan(raw)} active={active} fieldRef={fieldRef} />
-      <StatusLine line={line} />
-      {candidates ? <CandidateList candidates={candidates} onPick={(c) => go(c.number)} /> : null}
+      <ScanInputs
+        onScan={(raw) => void onScan(raw)}
+        active={active}
+        fieldRef={fieldRef}
+        feedback={
+          <>
+            <StatusLine line={line} />
+            {candidates ? <CandidateList candidates={candidates} onPick={(c) => go(c.number)} /> : null}
+          </>
+        }
+      />
     </div>
   );
 }
@@ -279,7 +319,9 @@ const RECENT_LIMIT = 8;
 
 function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "dispatch" }>; active: boolean }) {
   const { t } = useT();
+  const coarse = useCoarsePointer();
   const fieldRef = useRef<HTMLInputElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
   const [count, setCount] = useState(0);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const [line, setLine] = useState<Line | null>(null);
@@ -306,6 +348,7 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
     }
     let serial = parsed.serial;
     setLine({ id, tone: "progress", message: t("scan.continuous.adding", { serial }) });
+    let addedReport: AddBundlesReport | null = null;
     try {
       // Old month-only numbers and legacy ids: find the bundle's own number first.
       if (!isStoredNumber(serial)) {
@@ -338,15 +381,17 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
             extra: t("scan.continuous.count", { count: countRef.current }),
           });
           remember(serial, "added");
-          modeRef.current.onAdded(report);
+          addedReport = report;
           break;
         }
         case "already": {
           // Calm: a second read of a bundle already on the list is not an error.
+          // The status line announces it; the toast is visual only (hidden from
+          // assistive tech) so it isn't said twice.
           setLine({ id, tone: "neutral", message: t("scan.continuous.already"), serial });
           // At the top: a bottom toast would sit on the sheet's field and Done button.
-          toast(t("scan.continuous.already"), {
-            description: serial,
+          toast(<span aria-hidden="true">{t("scan.continuous.already")}</span>, {
+            description: <span aria-hidden="true">{serial}</span>,
             id: `scan-already-${serial}`,
             position: "top-center",
             duration: 2500,
@@ -371,11 +416,22 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
       buzz([30, 50, 30]);
       setLine({ id, tone: "error", message: t(scanErrorKey(error, "dispatch")), serial });
     }
+    // Outside the try: a problem in the screen behind must not read as a failed add.
+    if (addedReport) {
+      try {
+        modeRef.current.onAdded(addedReport);
+      } catch (error) {
+        console.error("scan: onAdded failed", error);
+      }
+    }
   };
 
   const onScan = (raw: string) => {
     setCandidates(null);
-    queue.current = queue.current.then(() => process(raw));
+    // One scan that throws must never stall the ones queued behind it.
+    queue.current = queue.current
+      .then(() => process(raw))
+      .catch((error: unknown) => console.error("scan: processing failed", error));
   };
 
   const resultWord: Record<ResultKind, string> = {
@@ -387,40 +443,50 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
 
   return (
     <div className="flex flex-col gap-4 pt-1">
-      <ScanInputs onScan={onScan} active={active} fieldRef={fieldRef} />
+      <ScanInputs
+        onScan={onScan}
+        active={active}
+        fieldRef={fieldRef}
+        feedback={
+          <>
+            {/* The one loud element: the running count, which pops on every add. */}
+            <div
+              key={count}
+              data-slot="scan-count-block"
+              className={cn(
+                // Compact on phones so count and status stay above the fold under a live camera.
+                "flex min-h-[72px] min-w-0 flex-wrap items-end justify-between gap-x-4 gap-y-1 p-[14px] sm:min-h-[88px] sm:p-[18px]",
+                count > 0 ? "orrn-block orrn-block-green animate-pop" : "rounded-block border border-border bg-card",
+              )}
+            >
+              <p
+                data-testid="scan-count"
+                data-no-truncate=""
+                className="m-0 font-display text-[30px] font-extrabold leading-none tracking-[-0.035em] tabular-nums sm:text-[34px]"
+              >
+                {t("scan.continuous.count", { count })}
+              </p>
+              {lastAdded ? (
+                <p className="m-0 min-w-0 font-mono text-[15px] font-semibold [overflow-wrap:anywhere]">{lastAdded}</p>
+              ) : null}
+            </div>
 
-      {/* The one loud element: the running count, which pops on every add. */}
-      <div
-        key={count}
-        data-slot="scan-count-block"
-        className={cn(
-          "flex min-h-[88px] min-w-0 flex-wrap items-end justify-between gap-x-4 gap-y-1 p-[18px]",
-          count > 0 ? "orrn-block orrn-block-green animate-pop" : "rounded-block border border-border bg-card",
-        )}
-      >
-        <p
-          data-testid="scan-count"
-          data-no-truncate=""
-          className="m-0 font-display text-[34px] font-extrabold leading-none tracking-[-0.035em] tabular-nums"
-        >
-          {t("scan.continuous.count", { count })}
-        </p>
-        {lastAdded ? (
-          <p className="m-0 min-w-0 font-mono text-[15px] font-semibold [overflow-wrap:anywhere]">{lastAdded}</p>
-        ) : null}
-      </div>
+            <StatusLine ref={statusRef} line={line} />
 
-      <StatusLine line={line} />
-
-      {candidates ? (
-        <CandidateList
-          candidates={candidates}
-          onPick={(c) => {
-            onScan(c.number);
-            fieldRef.current?.focus();
-          }}
-        />
-      ) : null}
+            {candidates ? (
+              <CandidateList
+                candidates={candidates}
+                onPick={(c) => {
+                  onScan(c.number);
+                  // Keep focus in the sheet; on a phone, not on the field (no keyboard over the camera).
+                  if (coarse) statusRef.current?.focus();
+                  else fieldRef.current?.focus();
+                }}
+              />
+            ) : null}
+          </>
+        }
+      />
 
       {recent.length > 0 ? (
         <ul aria-label={t("scan.recent")} className="m-0 flex list-none flex-col divide-y divide-border p-0">

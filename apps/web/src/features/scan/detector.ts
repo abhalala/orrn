@@ -26,7 +26,18 @@ export function loadDetector(): Promise<Detector> {
   return pending;
 }
 
+/** Dev-only test seam: `window.__orrnDetector = "fail-load" | "fail-detect"` forces a broken reader. */
+function forcedFailure(): Detector | null {
+  if (!import.meta.env.DEV) return null;
+  const forced = (globalThis as { __orrnDetector?: string }).__orrnDetector;
+  if (forced === "fail-load") throw new Error("Forced detector load failure");
+  if (forced === "fail-detect") return { detect: () => Promise.reject(new Error("Forced detect failure")) };
+  return null;
+}
+
 async function create(): Promise<Detector> {
+  const forced = forcedFailure();
+  if (forced) return forced;
   const Native = (globalThis as { BarcodeDetector?: NativeDetectorClass }).BarcodeDetector;
   if (Native) {
     try {
@@ -41,10 +52,14 @@ async function create(): Promise<Detector> {
     import("barcode-detector/ponyfill"),
     import("zxing-wasm/reader/zxing_reader.wasm?url"),
   ]);
-  prepareZXingModule({
+  // Load and instantiate the wasm now, not on the first detect(): a 404, a CSP
+  // block or a glue/wasm mismatch then fails here and the camera says so,
+  // instead of every frame failing silently behind a live-looking viewfinder.
+  await prepareZXingModule({
     overrides: {
       locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? wasmUrl : prefix + path),
     },
+    fireImmediately: true,
   });
   return new BarcodeDetector({ formats: [...SCAN_FORMATS] });
 }

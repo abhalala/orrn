@@ -32,6 +32,7 @@ type ScanWindow = Window & {
   __orrnScanReports?: { added: string[]; alreadyInDispatch: string[]; notFound: string[] }[];
   __orrnStreams?: MediaStream[];
   __orrnGumCalls?: number;
+  __orrnDetector?: string;
 };
 
 async function open(page: Page, opts: { width: number; scheme?: Scheme; height?: number }) {
@@ -171,6 +172,8 @@ test.describe("dispatch mode", () => {
     const toast = page.locator("[data-sonner-toast]").filter({ hasText: "Already in this dispatch" });
     await expect(toast).toBeVisible();
     await expect(toast).not.toHaveAttribute("data-type", "error");
+    // Visual only: the status line already announced it, so assistive tech hears it once.
+    await expect(toast.locator("[aria-hidden='true']", { hasText: "Already in this dispatch" })).toHaveCount(1);
 
     // The screen that opened the sheet hears about every add.
     const reports = await page.evaluate(() => (window as ScanWindow).__orrnScanReports ?? []);
@@ -214,11 +217,12 @@ test.describe("dispatch mode", () => {
     const dispatch = await newDraftDispatch(page);
     const [serial] = await serials(page, "available", 1);
     const sheet = await openDispatchScan(page, dispatch);
+    // The same label read as a link, in lower case and bare: one bundle, one add.
     await page.evaluate((s) => {
       const w = window as ScanWindow;
       w.__orrnFakeScan!(s);
-      w.__orrnFakeScan!(s);
-      w.__orrnFakeScan!(s);
+      w.__orrnFakeScan!(`${location.origin}/b/${s}?c=demo`);
+      w.__orrnFakeScan!(s.toLowerCase());
     }, serial!);
     await expect(sheet.getByTestId("scan-count")).toHaveText("1 added");
     await page.waitForTimeout(400);
@@ -332,5 +336,39 @@ test.describe("camera", () => {
     await field.fill(SEEDED_SERIAL);
     await field.press("Enter");
     await expect(page).toHaveURL(new RegExp(`/b/${SEEDED_SERIAL}$`));
+  });
+
+  for (const failure of ["fail-load", "fail-detect"] as const) {
+    test(`a reader that ${failure === "fail-load" ? "can't load" : "can't read frames"} says so and stops the camera`, async ({ page }) => {
+      await spyOnCamera(page);
+      await page.addInitScript((f) => ((window as ScanWindow).__orrnDetector = f), failure);
+      await open(page, { width: 390 });
+      await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: "Scan" }).click();
+      const sheet = page.getByRole("dialog", { name: "Scan" });
+      const region = sheet.locator("[data-slot='camera-scanner'] p[aria-live='polite']");
+      // The camera's live region is there before anything goes wrong, so the error is announced.
+      await expect(region).toHaveCount(1);
+      await expect(region).toBeEmpty();
+      await sheet.getByRole("button", { name: "Turn on camera" }).click();
+      await expect(region).toHaveText(/The camera didn't start\. Type the serial below/, { timeout: 8000 });
+      await expect(sheet.locator("video")).toHaveCount(0);
+      await expect
+        .poll(() => page.evaluate(() => (window as ScanWindow).__orrnStreams!.every((s) => s.getTracks().every((t) => t.readyState === "ended"))))
+        .toBe(true);
+      // Focus follows to the retry button, not lost behind the sheet.
+      await expect(sheet.getByRole("button", { name: "Turn on camera" })).toBeFocused();
+      await expect(sheet.getByLabel("Serial or label link")).toBeEnabled();
+    });
+  }
+
+  test("focus moves with the camera controls", async ({ page }) => {
+    await spyOnCamera(page);
+    await open(page, { width: 390 });
+    await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: "Scan" }).click();
+    const sheet = page.getByRole("dialog", { name: "Scan" });
+    await sheet.getByRole("button", { name: "Turn on camera" }).click();
+    await expect(sheet.getByRole("button", { name: "Turn off camera" })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(sheet.getByRole("button", { name: "Turn on camera" })).toBeFocused();
   });
 });
