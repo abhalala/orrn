@@ -663,9 +663,9 @@ describe("permissions", () => {
   test("each action follows the matrix for all 13 roles; reads are open to every member", async () => {
     const p = await plant();
     const target = await newCopy(p);
-    const cases: { action: Action | null; name: string; run: (api: ReturnType<TestEnv["caller"]>) => Promise<unknown> }[] = [
-      { action: "die.card", name: "create", run: (api) => api.dieInstance.create({ sectionId: p.sectionId }) },
-      { action: "die.card", name: "update", run: (api) => api.dieInstance.update({ id: target.id, notes: "n" }) },
+    const cases: { action: Action | Action[] | null; name: string; run: (api: ReturnType<TestEnv["caller"]>) => Promise<unknown> }[] = [
+      { action: ["die.card", "masters.publish"], name: "create", run: (api) => api.dieInstance.create({ sectionId: p.sectionId }) },
+      { action: ["die.card", "masters.publish"], name: "update", run: (api) => api.dieInstance.update({ id: target.id, notes: "n" }) },
       { action: "die.card", name: "addNitriding", run: (api) => api.dieInstance.addNitriding({ dieInstanceId: target.id }) },
       { action: "die.reading", name: "addReading", run: (api) => api.dieInstance.addReading({ dieInstanceId: target.id, kgPer12ftMilli: 1_650 }) },
       { action: null, name: "list", run: (api) => api.dieInstance.list({}) },
@@ -675,7 +675,8 @@ describe("permissions", () => {
     for (const role of ROLES) {
       const api = env.caller({ role, companyId: p.companyId });
       for (const c of cases) {
-        const allowed = c.action === null || can(role, c.action);
+        const allowed =
+          c.action === null || [c.action].flat().some((a) => can(role, a));
         const res = c.run(api);
         if (allowed) await expect(res).resolves.toBeDefined();
         else await expect(res).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -692,6 +693,29 @@ describe("permissions", () => {
       if (can(role, "die.rerank")) await expect(res).resolves.toBeDefined();
       else await expect(res).rejects.toMatchObject({ code: "FORBIDDEN" });
     }
+  });
+
+  test("RP7: manager and admin create and edit die cards; operator and press are FORBIDDEN", async () => {
+    const p = await plant();
+    const made = await env.caller({ role: "manager", companyId: p.companyId }).dieInstance.create({
+      sectionId: p.sectionId,
+      supplier: "Acme",
+    });
+    expect(made.code).toBe("12170-1");
+    await env.caller({ role: "admin", companyId: p.companyId }).dieInstance.update({ id: made.id, hardness: 1_000 });
+    expect((await instanceRow(made.id)).hardness).toBe(1_000);
+    for (const role of ["operator", "press", "supervisor", "viewer"] as const) {
+      const api = env.caller({ role, companyId: p.companyId });
+      await expect(api.dieInstance.create({ sectionId: p.sectionId })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(api.dieInstance.update({ id: made.id, notes: "x" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    }
+    // Nitriding and tier proposals stay with the die room.
+    await expect(
+      env.caller({ role: "manager", companyId: p.companyId }).dieInstance.addNitriding({ dieInstanceId: made.id }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      env.caller({ role: "manager", companyId: p.companyId }).dieInstance.proposeTier({ dieInstanceId: made.id, rank: 1, reason: "x" }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   test("the matrix itself: die room cards/nitrides/re-ranks, press and supervisor read weights", () => {

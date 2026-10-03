@@ -22,7 +22,7 @@ import {
   nitridingLog,
 } from "@orrn/db/schema/dies";
 
-import { actionProcedure, companyProcedure, router } from "../index";
+import { actionProcedure, anyActionProcedure, companyProcedure, router } from "../index";
 import { requestApprovalInsert } from "../lib/approval";
 import { atomicBatch, mapInChunks, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
@@ -87,6 +87,9 @@ function auditCtx(ctx: {
 }) {
   return { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation };
 }
+
+/** Die card fields (create/update): the die room, or masters holders (manager, admin) per ruling RP7. */
+const dieCardEditor = anyActionProcedure("die.card", "masters.publish");
 
 export const dieInstanceRouter = router({
   /** Copies, lightest section code first; filter by section and status. Any member may read. */
@@ -186,7 +189,7 @@ export const dieInstanceRouter = router({
    * section, never reused). A `tierRank` given here is the first placement: an applied history
    * row, no approval (re-ranking an existing copy always needs one).
    */
-  create: actionProcedure("die.card")
+  create: dieCardEditor
     .input(z.object({ sectionId: z.string().min(1), tierRank: rank.optional(), ...dieCardFields }))
     .mutation(async ({ ctx, input }) => {
       const [section] = await ctx.db
@@ -291,7 +294,7 @@ export const dieInstanceRouter = router({
     }),
 
   /** Die card fields only. The code and section are permanent; the tier changes only by approval. */
-  update: actionProcedure("die.card")
+  update: dieCardEditor
     .input(z.object({ id: z.string().min(1), ...dieCardFields }))
     .mutation(async ({ ctx, input }) => {
       const existing = await loadInstance(ctx, input.id);

@@ -206,6 +206,8 @@ bun run deploy
   it. A physical copy ("oblique") is a `die_instance` row (`packages/db/src/schema/dies.ts`,
   `routers/dieInstance.ts`). Bundles and press runs reference the copy (`bundle.die_instance_id` is
   nullable for legacy stock and not a foreign key; validate it in code).
+- `dieInstance.create`/`update` (die card fields) accept `die.card` OR `masters.publish` (ruling RP7,
+  `anyActionProcedure`); nitriding stays `die.card`, tier proposals `die.rerank`.
 - The oblique code `{sectionCode}-{n}` and `n` are allocated inside the insert (`INSERT … SELECT`),
   unique per section, permanent, never reused; `update` cannot change them.
 - A tier (`tier_rank`, 1 = best, several copies may share one) changes only through `die_tier_change`:
