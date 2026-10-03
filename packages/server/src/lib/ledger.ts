@@ -19,6 +19,7 @@
  */
 import { and, eq, exists, inArray, notExists, sql, type SQL } from "drizzle-orm";
 
+import { countLine } from "@orrn/db/schema/count";
 import { bundle } from "@orrn/db/schema/inventory";
 import { dcNote, purchaseLot } from "@orrn/db/schema/purchase";
 import { location, stockLedger, type LedgerVoucherType, type LocationKind } from "@orrn/db/schema/stock";
@@ -42,7 +43,7 @@ export const IN_STOCK_STATUSES = ["available", "reserved"] as const;
 export const LEDGER_IN_CHUNK = 60;
 
 /** A uuid v4 generated per row by SQLite, for INSERT … SELECT postings. */
-const sqlUuid = sql<string>`lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (random() & 3), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))`;
+export const sqlUuid = sql<string>`lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (random() & 3), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))`;
 
 /** EXISTS: the outer `bundle` row already has ledger rows. */
 function bundleOnLedger(db: OrrnDb) {
@@ -104,11 +105,12 @@ function postedAtFor(ctx: PostingCtx): SQL<number> {
 
 type BundleSelectOpts = {
   voucherType: LedgerVoucherType;
-  voucherId: string;
+  /** A fixed id, or a column of a joined table (e.g. the count line that voids the bundle). */
+  voucherId: string | SQL<string>;
   line: SQL<number>;
   sign: 1 | -1;
   reversalOf?: SQL<string | null>;
-  reason?: string | null;
+  reason?: string | SQL<string> | null;
 };
 
 /** One ledger row per selected `bundle` row. Keys follow stock_ledger's column order (insert-select rule). */
@@ -219,7 +221,17 @@ export function locationIsEmpty(db: OrrnDb, companyId: string, locationId: strin
  */
 export function moveRows(
   ctx: PostingCtx,
-  input: { voucherId: string; bundleIds: readonly string[]; toLocationId: string; reason?: string | null },
+  input: {
+    voucherId: string;
+    bundleIds: readonly string[];
+    toLocationId: string;
+    reason?: string | null;
+    /**
+     * Extra write-time condition on the outer `bundle` row (e.g. "still where the count saw the
+     * system have it"); a bundle that fails it is neither posted nor moved.
+     */
+    onlyIf?: SQL;
+  },
 ): SqliteBatchItem[] {
   const { db, companyId } = ctx;
   const out: SqliteBatchItem[] = [];
@@ -232,6 +244,7 @@ export function moveRows(
       sql`${bundle.locationId} is not ${input.toLocationId}`,
       // Evaluated at write time: a location retired or re-typed after the request read it takes no bundle.
       activeYard(db, companyId, input.toLocationId),
+      input.onlyIf,
     );
     out.push(
       db.insert(stockLedger).select(
@@ -348,6 +361,47 @@ export function restoreRows(
           eq(bundle.id, input.bundleId),
           eq(bundle.status, "available"),
           eq(bundle.serverSeq, ctx.seq),
+          bundleOnLedger(db),
+        ),
+      ),
+  );
+}
+
+/**
+ * Phantom void (approval `phantom_void`, PL-10): reversal of the pack / opening / restore row of
+ * every bundle this decision voided, at wherever the bundle sits. Voucher = the bundle's count
+ * line (line 1), so each reversal names the count that called it a phantom. Run AFTER the bundle
+ * UPDATE to `void` (stamped with the decision's seq); lands only for bundles that UPDATE voided.
+ */
+export function phantomVoidRows(ctx: PostingCtx, input: { approvalId: string }): SqliteBatchItem {
+  const { db, companyId } = ctx;
+  const line = (column: string) => sql`${sql.identifier("count_line")}.${sql.identifier(column)}`;
+  return db.insert(stockLedger).select(
+    db
+      .select(
+        bundleRowSelect(ctx, {
+          voucherType: "void",
+          voucherId: sql<string>`${line("id")}`,
+          line: sql<number>`1`,
+          sign: -1,
+          reversalOf: latestBundleRow(["pack", "opening", "restore"], true),
+          reason: sql<string>`'Phantom at count ' || coalesce((
+            select cs.number from count_session cs
+            where cs.id = ${line("session_id")} and cs.company_id = ${line("company_id")}
+          ), '')`,
+        }),
+      )
+      .from(bundle)
+      .innerJoin(countLine, and(eq(countLine.companyId, bundle.companyId), eq(countLine.bundleId, bundle.id)))
+      .where(
+        and(
+          eq(bundle.companyId, companyId),
+          eq(bundle.status, "void"),
+          eq(bundle.serverSeq, ctx.seq),
+          eq(countLine.companyId, companyId),
+          eq(countLine.approvalId, input.approvalId),
+          eq(countLine.kind, "phantom"),
+          eq(countLine.resolution, "void_requested"),
           bundleOnLedger(db),
         ),
       ),

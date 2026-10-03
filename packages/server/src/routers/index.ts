@@ -5,6 +5,7 @@ import { authRouter } from "./auth";
 import { waitlistRouter } from "./waitlist";
 import { platformRouter } from "./platform";
 import { companyRouter } from "./company";
+import { countRouter } from "./count";
 import { inviteRouter } from "./invite";
 import { customerRouter } from "./customer";
 import { dieRouter } from "./die";
@@ -48,6 +49,7 @@ export const appRouter = router({
   approval: approvalRouter,
   resolve: resolveRouter,
   stock: stockRouter,
+  count: countRouter,
   store: storeRouter,
   vendor: vendorRouter,
   purchase: purchaseRouter,

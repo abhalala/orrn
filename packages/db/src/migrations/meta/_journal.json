@@ -134,6 +134,13 @@
       "when": 1791058651009,
       "tag": "0018_store_cancel",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1791063322170,
+      "tag": "0019_stock_count",
+      "breakpoints": true
     }
   ]
 }

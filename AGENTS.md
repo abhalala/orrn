@@ -135,7 +135,8 @@ bun run deploy
   request (owner included); a decided request cannot be decided again. One
   pending request per (company, kind, subject). Kinds with an effect apply it in
   the decision's batch through `APPROVAL_APPLIERS` (`lib/approvalApply.ts`):
-  `die_rerank` (tier) and `dc_note` (note status, bori deduction posting).
+  `die_rerank` (tier), `dc_note` (note status, bori deduction posting) and
+  `phantom_void` (voids a count's still-missing phantoms, reversal rows).
 - Platform impersonation is web-only/support-only, time-boxed, bannered, and audited.
 
 ## Native sync rules
@@ -287,6 +288,28 @@ bun run deploy
   aborts the whole batch (NOT NULL on `store_txn.id`) unless every draw landed, so the cast cannot
   land without its consumables; catch with `isStoreDrawAbort(e)` and `await prepared.explain()`.
   Use purpose `melt` and `refId` = the cast id. `ref_id` is an opaque id, not a foreign key.
+
+## Stock count (phantom report)
+
+- Tables in `packages/db/src/schema/count.ts`: `count_session` (`CNT-{n}` per financial year,
+  open → closed | cancelled), `count_location` (the yards a count covers; partial unique index = one
+  open count per location), `count_seen` (scans; repeat code or bundle ignored, unknown codes kept),
+  `count_line` (the report frozen at close). Router `count` (`routers/count.ts`), SQL in
+  `lib/count.ts`. Mutations need `stock.count`; `list`, `get`, `phantomSummary` are open to members.
+- One classification for the open-count preview (`count.get`, the "missing list before close") and
+  the frozen close: phantom = in stock at a counted yard, not seen, and no ledger row after the
+  count's `start_seq` (bundles packed or moved in during the count and not scanned are `changed`,
+  never phantom); moved = seen at a counted yard, system has it at another counted yard; found =
+  seen but unknown/ambiguous code, not in stock, or in stock outside the count (or place unknown).
+  A scan with a newer ledger row than the scan (`server_seq` compare) is superseded (matched).
+- Close posts NO kg rows (spec §5); the closed session is the checkpoint. Close is idempotent and
+  every statement after the session UPDATE is guarded by `close_seq`.
+- `count.resolve` `void_phantom` stamps the lines `void_requested` and opens ONE `phantom_void`
+  approval per count (subject = session id). On approval the hook voids only bundles still
+  available at the expected location, with no ledger row since close and no later scan; it posts
+  `void` reversal rows (voucher = the count line, `reversal_of` = pack/opening/restore row) and
+  status events; the rest become `cleared`. `move_found` moves moved/found bundles to the seen yard
+  with ordinary `move` rows, guarded by "still where the count saw the system have it".
 
 ## Analytics (charts and customer numbers)
 
