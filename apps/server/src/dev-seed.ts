@@ -12,6 +12,18 @@ import {
 } from "@orrn/db/schema/inventory";
 import { packingList, packingListLine } from "@orrn/db/schema/packing";
 import { auditLog } from "@orrn/db/schema/audit";
+import { approval } from "@orrn/db/schema/approval";
+import {
+  dcNote,
+  purchaseLot,
+  scrapGrade,
+  scrapItem,
+  vendor,
+  vendorAlias,
+  type BillBook,
+  type PurchaseLotStatus,
+  type VendorStatus,
+} from "@orrn/db/schema/purchase";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { companySequence } from "@orrn/db/schema/sync";
@@ -22,6 +34,14 @@ import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
 import { DEFAULT_LOCATIONS, defaultLocationStatements, openingRows } from "@orrn/server/lib/ledger";
 import { nextCompanySeq } from "@orrn/server/lib/sequence";
 import { kgPer12ftMilli } from "@orrn/server/lib/bundleWeight";
+import { docPeriod } from "@orrn/server/lib/docNumber";
+import {
+  bookDateInstant,
+  DEFAULT_SCRAP_GRADES,
+  DEFAULT_SCRAP_ITEMS,
+  nameKey,
+  scrapItemRef,
+} from "@orrn/server/lib/purchase";
 import { and, eq, getTableColumns, inArray, ne } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
@@ -40,7 +60,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 
 /** Demo plant numbers new bundles like the real plant (26I4086); seeded history keeps its BG serials. */
-const DEMO_SETTINGS = { lengthUnit: "inch", timezone: "Asia/Kolkata", bundleNumbering: "plant" };
+const DEMO_SETTINGS = { lengthUnit: "inch", timezone: "Asia/Kolkata", bundleNumbering: "plant", dcTolerancePct: 50 };
 
 /** "All modules on" (see `visibleItems` in the nav spec). */
 const ALL_MODULES = ["customers", "dies", "bundles", "dispatches"];
@@ -182,6 +202,58 @@ const SESSIONS: SessionDef[] = [
   { dieKey: "angle125", count: 15, daysAgo: 2, hour: 16.0, note: "Press 2, evening shift" },
   { dieKey: "flat2", count: 16, daysAgo: 0, hour: 0, todayFraction: 0.3, note: "Press 1, morning run" },
   { dieKey: "angle1", count: 14, daysAgo: 0, hour: 0, todayFraction: 0.55, note: "Press 2, second run" },
+];
+
+// ---------------------------------------------------------------------------
+// Scrap purchase (PL-6): vendors as the purchase book spells them, and ten lots
+// ---------------------------------------------------------------------------
+type VendorDef = { key: string; name: string; aliases: string[]; gstin: string | null; city: string; status: VendorStatus };
+
+/** Demo vendors; aliases are the other spellings the book and the floor use. Brokers are not vendors. */
+const VENDORS: VendorDef[] = [
+  { key: "kd", name: "K.D. Metals", aliases: ["KD Metal", "K.D. Metal Works"], gstin: "24AAKFK1234L1Z5", city: "Rajkot", status: "active" },
+  { key: "ganesh", name: "Shree Ganesh Metal Traders", aliases: ["Ganesh Metal", "SHREE GANESH"], gstin: "24ABQPG5678M1Z2", city: "Ahmedabad", status: "active" },
+  { key: "ambe", name: "Jay Ambe Scrap Co.", aliases: ["Jay Ambe", "JAI AMBE SCRAP"], gstin: null, city: "Rajkot", status: "active" },
+  { key: "rar", name: "Rajkot Alu Recyclers", aliases: ["RAR"], gstin: "24AAJCR4321K1ZQ", city: "Rajkot", status: "active" },
+  { key: "mahavir", name: "Mahavir Metal Corporation", aliases: ["Mahavir Metals", "MAHAVEER METAL"], gstin: "27AAGFM7788P1Z9", city: "Mumbai", status: "active" },
+  { key: "bharat", name: "Bharat Cable Scrap", aliases: ["Bharat Cable"], gstin: null, city: "Jamnagar", status: "active" },
+  { key: "gulf", name: "Gulf Alloys Trading", aliases: ["Gulf Alloys"], gstin: "24AAHCG2468H1Z3", city: "Mundra", status: "active" },
+  // Created inline at the kanta by the yard; waiting for a manager to confirm.
+  { key: "patel", name: "Patel Kabadi Bhandar", aliases: ["Patel Kabadi"], gstin: null, city: "Gondal", status: "draft" },
+];
+
+type LotDef = {
+  vendorKey: string;
+  daysAgo: number;
+  item: string;
+  grade: string;
+  origin: string;
+  partyKg: number;
+  fcKg: number | null;
+  /** ₹ per kg. */
+  rate: number;
+  billBook: BillBook;
+  status: PurchaseLotStatus;
+  drossBp?: number;
+  vehicleNo: string;
+  /** Short-weighed lot: the debit note (kg diff + bori) the manager approved. */
+  dcNote?: { kgDiff: number; boriKg: number; note: string };
+};
+
+const LOTS: LotDef[] = [
+  { vendorKey: "kd", daysAgo: 18, item: "IMP BELLING", grade: "A", origin: "LOCAL", partyKg: 12_450, fcKg: 12_430, rate: 198.5, billBook: "main", status: "ok", drossBp: 350, vehicleNo: "GJ03AB4521" },
+  { vendorKey: "ganesh", daysAgo: 16, item: "SOFT CABLE", grade: "A+", origin: "LOCAL", partyKg: 8_200, fcKg: 8_185, rate: 214, billBook: "main", status: "ok", vehicleNo: "GJ01CX7710" },
+  {
+    vendorKey: "ambe", daysAgo: 13, item: "KAGAL PATTI", grade: "B", origin: "LOCAL", partyKg: 6_540, fcKg: 6_320, rate: 176, billBook: "wb", status: "ok", drossBp: 600, vehicleNo: "GJ03BT2290",
+    dcNote: { kgDiff: 220, boriKg: 45, note: "FC kanta 220 kg short; 30 bori × 1.5 kg" },
+  },
+  { vendorKey: "rar", daysAgo: 11, item: "CENTRING", grade: "A", origin: "EC GRADE", partyKg: 10_020, fcKg: 10_005, rate: 201, billBook: "ub", status: "ok", vehicleNo: "GJ03HK8801" },
+  { vendorKey: "mahavir", daysAgo: 9, item: "ANGLE", grade: "A", origin: "MALAYSIA 6063", partyKg: 15_600, fcKg: 15_560, rate: 207, billBook: "main", status: "ok", drossBp: 280, vehicleNo: "MH04GR5521" },
+  { vendorKey: "gulf", daysAgo: 7, item: "IMP BELLING", grade: "A+", origin: "DUBAI", partyKg: 18_000, fcKg: 17_950, rate: 211, billBook: "main", status: "ok", vehicleNo: "GJ12BZ3107" },
+  { vendorKey: "bharat", daysAgo: 5, item: "SOFT CABLE", grade: "A", origin: "LOCAL", partyKg: 5_400, fcKg: 5_395, rate: 209, billBook: "wb", status: "ok", vehicleNo: "GJ10AC6612" },
+  { vendorKey: "patel", daysAgo: 3, item: "TRANS PATRA", grade: "B", origin: "LOCAL", partyKg: 3_250, fcKg: 3_248, rate: 172, billBook: "ub", status: "ok", vehicleNo: "GJ03DL0954" },
+  { vendorKey: "kd", daysAgo: 0, item: "TT", grade: "C", origin: "LOCAL", partyKg: 7_300, fcKg: 7_280, rate: 168, billBook: "main", status: "unload", vehicleNo: "GJ03AB4521" },
+  { vendorKey: "ganesh", daysAgo: 0, item: "PATTA/ROTTER/HEATSINK", grade: "B", origin: "LOCAL", partyKg: 9_100, fcKg: null, rate: 182, billBook: "main", status: "booking", vehicleNo: "GJ01CX7710" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -644,6 +716,181 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     });
   }
 
+  // Scrap purchase: masters, vendors, lots, the approved D/C note and the OK lots' scrap postings.
+  const grams = (kgValue: number) => Math.round(kgValue * 1000);
+  const istDate = (ms: number) => new Date(ms + IST_OFFSET_MS).toISOString().slice(0, 10);
+  const gradeId = (code: string) => `dev-grade-${code.replace("+", "plus")}`;
+  const scrapItemId = (name: string) => `dev-scrap-${nameKey(name)}`;
+  const vendorId = (key: string) => `dev-vendor-${key}`;
+  const scrapLocationId = devLocationId("SCRAP");
+  const gradeRows: (typeof scrapGrade.$inferInsert)[] = DEFAULT_SCRAP_GRADES.map((g, idx) => ({
+    id: gradeId(g.code),
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    code: g.code,
+    name: g.name,
+    sortOrder: idx + 1,
+    createdBy: ownerId,
+  }));
+  const scrapItemRows: (typeof scrapItem.$inferInsert)[] = DEFAULT_SCRAP_ITEMS.map((name, idx) => ({
+    id: scrapItemId(name),
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    name,
+    nameKey: nameKey(name),
+    sortOrder: idx + 1,
+    createdBy: ownerId,
+  }));
+  const vendorRows: (typeof vendor.$inferInsert)[] = VENDORS.map((v) => ({
+    id: vendorId(v.key),
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    name: v.name,
+    nameKey: nameKey(v.name),
+    gstin: v.gstin,
+    city: v.city,
+    status: v.status,
+    createdBy: v.status === "draft" ? operatorId : ownerId,
+    createdAt: new Date(pastAt(20, 10)),
+  }));
+  const vendorAliasRows: (typeof vendorAlias.$inferInsert)[] = VENDORS.flatMap((v) =>
+    v.aliases.map((aliasText, idx) => ({
+      id: `${vendorId(v.key)}-alias-${idx + 1}`,
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      vendorId: vendorId(v.key),
+      alias: aliasText,
+      aliasKey: nameKey(aliasText),
+      createdBy: ownerId,
+    })),
+  );
+  const lotSeqByPeriod = new Map<string, number>();
+  const lotRows: (typeof purchaseLot.$inferInsert)[] = [];
+  const dcNoteRows: (typeof dcNote.$inferInsert)[] = [];
+  const approvalRows: (typeof approval.$inferInsert)[] = [];
+  const scrapLedgerRows: (typeof stockLedger.$inferInsert)[] = [];
+  let dcSeq = 0;
+  LOTS.forEach((def, idx) => {
+    const id = `dev-lot-${String(idx + 1).padStart(2, "0")}`;
+    const createdAt = def.daysAgo === 0 ? todayAt(0.2 + idx * 0.05) : pastAt(def.daysAgo, 9 + (idx % 4));
+    const lotDate = istDate(createdAt);
+    const period = docPeriod("lot", bookDateInstant(lotDate), DEMO_SETTINGS.timezone);
+    const lotSeq = (lotSeqByPeriod.get(period) ?? 0) + 1;
+    lotSeqByPeriod.set(period, lotSeq);
+    const okAt = def.status === "ok" ? createdAt + 2 * HOUR_MS : null;
+    const ratePaise = Math.round(def.rate * 100);
+    lotRows.push({
+      id,
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number: `LOT-${lotSeq}`,
+      period,
+      vendorId: vendorId(def.vendorKey),
+      lotDate,
+      origin: def.origin,
+      scrapItemId: scrapItemId(def.item),
+      scrapGradeId: gradeId(def.grade),
+      partyKgG: grams(def.partyKg),
+      fcKgG: def.fcKg === null ? null : grams(def.fcKg),
+      ratePaise,
+      drossBp: def.drossBp ?? null,
+      billBook: def.billBook,
+      vehicleNo: def.vehicleNo,
+      status: def.status,
+      locationId: def.status === "ok" ? scrapLocationId : null,
+      okAt: okAt === null ? null : new Date(okAt),
+      okBy: okAt === null ? null : operatorId,
+      createdBy: operatorId,
+      createdAt: new Date(createdAt),
+      updatedAt: new Date(okAt ?? createdAt),
+    });
+    let boriG = 0;
+    if (def.dcNote) {
+      dcSeq += 1;
+      const noteId = `${id}-dcn`;
+      const approvalId = `${noteId}-approval`;
+      const raisedAt = createdAt + HOUR_MS;
+      const decidedAt = createdAt + 5 * HOUR_MS;
+      const kgDiffG = grams(def.dcNote.kgDiff);
+      boriG = grams(def.dcNote.boriKg);
+      const amountPaise = Math.round(((kgDiffG + boriG) * ratePaise) / 1000);
+      dcNoteRows.push({
+        id: noteId,
+        companyId: COMPANY_ID,
+        serverSeq: nextSeq(),
+        number: `DCN-${dcSeq}`,
+        period: docPeriod("dc_note", new Date(raisedAt), DEMO_SETTINGS.timezone),
+        lotId: id,
+        type: "debit",
+        reason: "weight",
+        kgDiffG,
+        boriDeductionG: boriG,
+        amountPaise,
+        toleranceBp: DEMO_SETTINGS.dcTolerancePct,
+        note: def.dcNote.note,
+        status: "approved",
+        approvalId,
+        decidedAt: new Date(decidedAt),
+        // The demo has no office account; the yard started the note on the spot, the owner approved it.
+        createdBy: operatorId,
+        createdAt: new Date(raisedAt),
+        updatedAt: new Date(decidedAt),
+      });
+      approvalRows.push({
+        id: approvalId,
+        companyId: COMPANY_ID,
+        serverSeq: nextSeq(),
+        kind: "dc_note",
+        subjectId: noteId,
+        status: "approved",
+        requestNote: def.dcNote.note,
+        meta: { number: `DCN-${dcSeq}`, lotId: id, kgDiffG, boriDeductionG: boriG, amountPaise },
+        requestedBy: operatorId,
+        decidedBy: ownerId,
+        decidedAt: new Date(decidedAt),
+        createdAt: new Date(raisedAt),
+        updatedAt: new Date(decidedAt),
+      });
+    }
+    if (okAt !== null && def.fcKg !== null) {
+      scrapLedgerRows.push({
+        id: `${id}-ledger-1`,
+        companyId: COMPANY_ID,
+        serverSeq: nextSeq(),
+        voucherType: "purchase_lot",
+        voucherId: id,
+        line: 1,
+        itemKind: "scrap_grade",
+        itemRef: scrapItemRef(scrapItemId(def.item), gradeId(def.grade)),
+        locationId: scrapLocationId,
+        qtyG: grams(def.fcKg) - boriG,
+        postedAt: new Date(okAt),
+        reason: `LOT-${lotSeq}`,
+        createdBy: operatorId,
+        createdAt: new Date(okAt),
+      });
+    }
+  });
+  // Series continue after the seeded book: the next lot / note from the app gets the next number.
+  const purchaseSeriesRows: (typeof docSeries.$inferInsert)[] = [
+    ...[...lotSeqByPeriod.entries()].map(([period, value]) => ({
+      id: `dev-series-lot-${period}`,
+      companyId: COMPANY_ID,
+      docType: "lot" as const,
+      period,
+      value,
+      createdBy: ownerId,
+    })),
+    ...[...new Set(dcNoteRows.map((n) => n.period))].map((period) => ({
+      id: `dev-series-dc_note-${period}`,
+      companyId: COMPANY_ID,
+      docType: "dc_note" as const,
+      period,
+      value: dcNoteRows.filter((n) => n.period === period).length,
+      createdBy: ownerId,
+    })),
+  ];
+
   // Sequence now covers everything allocated above; packing-list codes continue from it.
   const sequenceAfterData = seq;
 
@@ -656,6 +903,13 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     // Dev reset of the demo company only: the one place ledger rows are ever deleted (the
     // append-only grep test in plant-ledger.test.ts allows exactly this file).
     db.delete(stockLedger).where(eq(stockLedger.companyId, COMPANY_ID)),
+    db.delete(approval).where(eq(approval.companyId, COMPANY_ID)),
+    db.delete(dcNote).where(eq(dcNote.companyId, COMPANY_ID)),
+    db.delete(purchaseLot).where(eq(purchaseLot.companyId, COMPANY_ID)),
+    db.delete(vendorAlias).where(eq(vendorAlias.companyId, COMPANY_ID)),
+    db.delete(vendor).where(eq(vendor.companyId, COMPANY_ID)),
+    db.delete(scrapItem).where(eq(scrapItem.companyId, COMPANY_ID)),
+    db.delete(scrapGrade).where(eq(scrapGrade.companyId, COMPANY_ID)),
     db.delete(bundle).where(eq(bundle.companyId, COMPANY_ID)),
     db.delete(location).where(eq(location.companyId, COMPANY_ID)),
     db.delete(bundleGroup).where(eq(bundleGroup.companyId, COMPANY_ID)),
@@ -709,6 +963,15 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     ...insertChunks(db, bundleStatusEvent, eventRows),
     ...insertChunks(db, dispatch, dispatchRows),
     ...insertChunks(db, dispatchItem, itemRows),
+    ...insertChunks(db, scrapGrade, gradeRows),
+    ...insertChunks(db, scrapItem, scrapItemRows),
+    ...insertChunks(db, vendor, vendorRows),
+    ...insertChunks(db, vendorAlias, vendorAliasRows),
+    ...insertChunks(db, purchaseLot, lotRows),
+    ...insertChunks(db, dcNote, dcNoteRows),
+    ...insertChunks(db, approval, approvalRows),
+    ...insertChunks(db, stockLedger, scrapLedgerRows),
+    ...insertChunks(db, docSeries, purchaseSeriesRows),
   ];
   await atomicBatch(db, statements);
 
@@ -767,6 +1030,12 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       dispatches: dispatchRows.length,
       packingLists: 2,
       locations: DEFAULT_LOCATIONS.length,
+      vendors: vendorRows.length,
+      vendorAliases: vendorAliasRows.length,
+      scrapItems: scrapItemRows.length,
+      scrapGrades: gradeRows.length,
+      purchaseLots: lotRows.length,
+      dcNotes: dcNoteRows.length,
     },
     bundlesByStatus,
   };

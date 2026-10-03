@@ -60,8 +60,21 @@ export type LedgerItemKind = (typeof ledgerItemKinds)[number];
  * - void: reversal of the bundle's pack row (voucher = the status event)
  * - restore: void undone, the bundle is packed again (voucher = the status event)
  * - dispatch: − bundle kg at its location when the DN completes (voucher = dispatch)
+ * - purchase_lot: + scrap (item+grade) at the scrap store when a lot reaches OK (voucher = lot)
+ * - dc_note: − bori deduction of a D/C note approved after its lot was OK (voucher = note)
+ * - purchase_lot_cancel: reversal of a lot's postings when an OK lot is cancelled (voucher = lot)
  */
-export const ledgerVoucherTypes = ["opening", "pack", "move", "void", "restore", "dispatch"] as const;
+export const ledgerVoucherTypes = [
+  "opening",
+  "pack",
+  "move",
+  "void",
+  "restore",
+  "dispatch",
+  "purchase_lot",
+  "dc_note",
+  "purchase_lot_cancel",
+] as const;
 export type LedgerVoucherType = (typeof ledgerVoucherTypes)[number];
 
 /**

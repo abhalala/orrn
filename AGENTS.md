@@ -133,7 +133,9 @@ bun run deploy
   `dispatch_overdraw`, `phantom_void` → owner, admin, manager; `cast_close` →
   owner, admin, manager, foundry. The requester can never decide their own
   request (owner included); a decided request cannot be decided again. One
-  pending request per (company, kind, subject).
+  pending request per (company, kind, subject). Kinds with an effect apply it in
+  the decision's batch through `APPROVAL_APPLIERS` (`lib/approvalApply.ts`):
+  `die_rerank` (tier) and `dc_note` (note status, bori deduction posting).
 - Platform impersonation is web-only/support-only, time-boxed, bannered, and audited.
 
 ## Native sync rules
@@ -217,6 +219,29 @@ bun run deploy
   its hook there; hook statements must be scoped by company and guarded with `decisionLanded`.
 - `kg_per_12ft_milli` is thousandths of a kg, which equals grams per 12 ft, the unit of the section
   band (`die.weight_min_g` / `weight_max_g`). `drift` compares them directly.
+
+## Scrap purchase (vendors, lots, D/C notes)
+
+- Tables in `packages/db/src/schema/purchase.ts`; routers `vendor` (`routers/vendor.ts`) and
+  `purchase` (`routers/purchase.ts`: `scrapItems`, `scrapGrades`, `lots`, `dcNotes`, `register`,
+  `scrapStock`, `seedScrapDefaults`). Weights grams, money paise, percentages basis points.
+- Vendors resolve by `nameKey` (letters/digits, lower case) of the name or any alias; one key belongs
+  to one live vendor. masters.publish creates active vendors; purchase.receipt / masters.draft holders
+  create `draft` vendors inline that a masters.publish holder confirms. `vendor.merge` moves lots and
+  aliases to the keeper and turns the merged names into aliases; merged rows stay (`merged_into_id`).
+  Brokers (dalal, "K" in a party name) are never vendors.
+- Lots: `booking → unload → ok` (booking → ok allowed), `cancelled`. Review Focus 2: OK is refused
+  when party − FC > party × `settings.dcTolerancePct` / 10 000 (basis points despite the name, default
+  50 = 0.5 %) unless the lot has a debit note on the weight that is pending or approved. The rule sits
+  in the OK UPDATE's WHERE (not only in a read before it); keep it there.
+- Ledger: OK posts `purchase_lot` (+ FC kg − approved bori) at the scrap store, item_kind
+  `scrap_grade`, item_ref `{scrapItemId}:{scrapGradeId}` (`lib/purchase.ts scrapItemRef`), voucher =
+  lot id. A note approved after OK posts `dc_note` (− bori) from the `dc_note` approval hook. Cancelling
+  an OK lot (masters.publish) posts `purchase_lot_cancel` reversals and is refused if the item+grade at
+  that store holds less than the lot put there; when melts record the lot they draw from, tighten
+  `lotCancelLeavesStockNonNegative` to "no draw on this lot".
+- After OK the stock fields (item, grade, party/FC kg) are locked; rate, bill no, dross stay editable.
+  Weights are locked while a weight note is pending or approved.
 
 ## Worker performance rules
 

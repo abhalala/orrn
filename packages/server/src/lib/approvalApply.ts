@@ -2,13 +2,17 @@ import { and, eq, sql, type SQL } from "drizzle-orm";
 
 import { approval, type ApprovalKind } from "@orrn/db/schema/approval";
 import { dieInstance, dieTierChange } from "@orrn/db/schema/dies";
+import { dcNote } from "@orrn/db/schema/purchase";
 
 import type { OrrnDb, SqliteBatchItem } from "./atomic";
+import { dcNoteDeductionRows } from "./ledger";
 
 /** What an approval's apply hook sees: this request, and the decision that is being written. */
 export type ApplyCtx = {
   db: OrrnDb;
   companyId: string;
+  /** The deciding user (ledger rows the hook posts carry it as created_by). */
+  userId: string | null;
   /** This decision's company sequence; the decided approval row carries it. */
   seq: number;
   decidedAt: Date;
@@ -78,9 +82,44 @@ const dieRerank: ApprovalApplier = (ctx, row, decision) => {
 };
 
 /**
+ * D/C note on a scrap lot (spec P14): the note takes the decision. Approved: if its lot is already
+ * OK, the bori deduction is posted now (− at the lot's scrap store); if the lot is not OK yet, its
+ * OK posting will subtract it. A lot never waits on approval to go OK: a pending weight note is
+ * enough (the debit note is "started on the spot"); approval only makes the deduction effective.
+ * Statements are scoped to the company, the note must still be pending, and the decision must
+ * have landed, so the losing approver of a race (or a forged subject) changes nothing.
+ */
+const dcNoteDecision: ApprovalApplier = (ctx, row, decision) => {
+  const { db, companyId, seq } = ctx;
+  const statements: SqliteBatchItem[] = [
+    db
+      .update(dcNote)
+      .set({ status: decision, approvalId: row.id, decidedAt: ctx.decidedAt, serverSeq: seq })
+      .where(
+        and(
+          eq(dcNote.id, row.subjectId),
+          eq(dcNote.companyId, companyId),
+          eq(dcNote.status, "pending"),
+          decisionLanded(ctx, row.id, decision),
+        ),
+      ),
+  ];
+  if (decision === "approved") {
+    statements.push(
+      dcNoteDeductionRows(
+        { db, companyId, userId: ctx.userId, seq, postedAt: ctx.decidedAt },
+        { noteId: row.subjectId },
+      ),
+    );
+  }
+  return statements;
+};
+
+/**
  * Per-kind apply hooks run by `approval.decide` inside the decision's own batch. A kind with no
  * hook is a pure sign-off (its module reads the approval's status itself).
  */
 export const APPROVAL_APPLIERS: Partial<Record<ApprovalKind, ApprovalApplier>> = {
   die_rerank: dieRerank,
+  dc_note: dcNoteDecision,
 };
