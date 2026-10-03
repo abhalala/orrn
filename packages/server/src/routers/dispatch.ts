@@ -12,6 +12,7 @@ import {
   type DispatchStatus,
 } from "@orrn/db/schema/dispatch";
 import { bundle, bundleStatusEvent } from "@orrn/db/schema/inventory";
+import { DISPATCH_TRANSITIONS, normalizeSerial } from "@orrn/domain";
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
@@ -23,19 +24,34 @@ import {
   pushChunkedInserts,
   type SqliteBatchItem,
 } from "../lib/atomic";
+import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { nextCompanySeq } from "../lib/sequence";
 import { appendPackingListWrites } from "./packingList";
 
-const ALLOWED_DISPATCH_TRANSITIONS: Record<DispatchStatus, DispatchStatus[]> = {
-  draft: ["reserved", "cancelled"],
-  reserved: ["draft", "completed", "cancelled"],
-  completed: [],
-  cancelled: [],
-};
+/*
+ * State predicates (audit S6): every write re-states the status it expects —
+ * bundle UPDATEs carry `status = <expected>` (and `current_dispatch_id = <this
+ * dispatch>` when releasing or dispatching), dispatch UPDATEs carry
+ * `status IN (<allowed from>)`. Each procedure also reads and checks state
+ * before writing, so sequential misuse (complete after cancel, …) errors.
+ *
+ * Residual race (audit S6, FLAG): a D1 batch can't abort when a guarded UPDATE
+ * matches 0 rows, so two truly concurrent requests can still both pass their
+ * reads and let the batch's INSERTs (items, status events, audit) land beside a
+ * no-op UPDATE. The predicates keep bundle/dispatch status itself from being
+ * corrupted; closing the gap fully needs real transactions (Postgres rebuild).
+ */
+
+/** Statuses a dispatch may move to `to` from, per the shared domain table. */
+function dispatchStatusesInto(to: DispatchStatus): DispatchStatus[] {
+  return (Object.keys(DISPATCH_TRANSITIONS) as DispatchStatus[]).filter((from) =>
+    DISPATCH_TRANSITIONS[from].includes(to),
+  );
+}
 
 function assertDispatchTransition(from: DispatchStatus, to: DispatchStatus) {
-  const allowed = ALLOWED_DISPATCH_TRANSITIONS[from] ?? [];
+  const allowed = DISPATCH_TRANSITIONS[from] ?? [];
   if (!allowed.includes(to)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -43,6 +59,35 @@ function assertDispatchTransition(from: DispatchStatus, to: DispatchStatus) {
     });
   }
 }
+
+/** WHERE for a dispatch UPDATE: this tenant's live row, still in one of `statuses`. */
+function dispatchInStatus(companyId: string, id: string, statuses: DispatchStatus[]) {
+  return and(
+    eq(dispatch.companyId, companyId),
+    eq(dispatch.id, id),
+    isNull(dispatch.deletedAt),
+    inArray(dispatch.status, statuses),
+  );
+}
+
+const EDITABLE_DISPATCH: DispatchStatus[] = ["draft", "reserved"];
+
+/** The UNIQUE(dispatch_id, bundle_id) index fired: a concurrent add of the same bundle won. */
+function isDuplicateItemError(e: unknown): boolean {
+  for (let cur: unknown = e, depth = 0; cur && depth < 5; depth += 1) {
+    const message = cur instanceof Error ? cur.message : String(cur);
+    if (message.includes("UNIQUE constraint failed: dispatch_item")) return true;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+export type AddBundlesReport = {
+  added: string[];
+  alreadyInDispatch: string[];
+  notFound: string[];
+  unavailable: { serial: string; reason: string }[];
+};
 
 const createInput = z.object({
   customerId: z.string().min(1, "Customer is required"),
@@ -280,10 +325,11 @@ export const dispatchRouter = router({
                 : input.shipDate === null
                   ? null
                   : new Date(input.shipDate),
-            notes: input.notes ?? existing.notes,
+            // undefined = leave as is; null clears (audit S18).
+            notes: input.notes === undefined ? existing.notes : input.notes,
             serverSeq: seq,
           })
-          .where(eq(dispatch.id, existing.id)),
+          .where(dispatchInStatus(ctx.companyId, existing.id, ["draft"])),
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
@@ -303,225 +349,255 @@ export const dispatchRouter = router({
   addBundle: actionProcedure("dispatch.addBundle")
     .input(z.object({ id: z.string(), bundleId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const d = await ctx.db.query.dispatch.findFirst({
-        where: and(
-          eq(dispatch.id, input.id),
-          eq(dispatch.companyId, ctx.companyId),
-          isNull(dispatch.deletedAt),
-        ),
-      });
-      if (!d) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
-      }
-      if (d.status !== "draft" && d.status !== "reserved") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Bundles can only be added in draft or reserved status",
+      const run = async () => {
+        const d = await ctx.db.query.dispatch.findFirst({
+          where: and(
+            eq(dispatch.id, input.id),
+            eq(dispatch.companyId, ctx.companyId),
+            isNull(dispatch.deletedAt),
+          ),
         });
-      }
+        if (!d) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+        }
+        if (d.status !== "draft" && d.status !== "reserved") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Bundles can only be added in draft or reserved status",
+          });
+        }
 
-      const b = await ctx.db.query.bundle.findFirst({
-        where: and(eq(bundle.id, input.bundleId), eq(bundle.companyId, ctx.companyId)),
-      });
-      if (!b) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
-      }
-      if (b.status !== "available") {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: `Bundle ${b.serial} is not available (currently ${b.status})`,
+        const b = await ctx.db.query.bundle.findFirst({
+          where: and(eq(bundle.id, input.bundleId), eq(bundle.companyId, ctx.companyId)),
         });
-      }
+        if (!b) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
+        }
 
-      const existingItem = await ctx.db.query.dispatchItem.findFirst({
-        where: and(
-          eq(dispatchItem.companyId, ctx.companyId),
-          eq(dispatchItem.dispatchId, d.id),
-          eq(dispatchItem.bundleId, b.id),
-        ),
-      });
-      if (existingItem) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Bundle is already in this dispatch",
+        // Already-added first (audit S13): a rescan on a held dispatch finds the
+        // bundle reserved by this very dispatch, which is fine, not an error.
+        const existingItem = await ctx.db.query.dispatchItem.findFirst({
+          where: and(
+            eq(dispatchItem.companyId, ctx.companyId),
+            eq(dispatchItem.dispatchId, d.id),
+            eq(dispatchItem.bundleId, b.id),
+          ),
         });
-      }
+        if (existingItem) {
+          return { success: true, added: [] as string[], alreadyInDispatch: [b.serial] };
+        }
 
-      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const statements: SqliteBatchItem[] = [
-        ctx.db.insert(dispatchItem).values({
-          id: crypto.randomUUID(),
-          companyId: ctx.companyId,
-          dispatchId: d.id,
-          bundleId: b.id,
-        }),
-      ];
+        if (b.status !== "available") {
+          const codes = await holdingDispatchCodes(ctx.db, ctx.companyId, [b]);
+          throw new TRPCError({ code: "BAD_REQUEST", message: bundleBlockReason(b, codes) });
+        }
 
-      if (d.status === "reserved") {
-        statements.push(
-          ctx.db
-            .update(bundle)
-            .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
-            .where(eq(bundle.id, b.id)),
-          ctx.db.insert(bundleStatusEvent).values({
+        const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+        const statements: SqliteBatchItem[] = [
+          ctx.db.insert(dispatchItem).values({
             id: crypto.randomUUID(),
             companyId: ctx.companyId,
-            bundleId: b.id,
-            fromStatus: "available",
-            toStatus: "reserved",
-            reason: "dispatch.addBundle",
-            actorId: ctx.session.user.id,
             dispatchId: d.id,
+            bundleId: b.id,
           }),
-        );
-      }
+        ];
 
-      statements.push(
-        auditInsert(
-          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
-          {
-            action: "dispatch.addBundle",
-            subjectType: "dispatch",
-            subjectId: d.id,
-            meta: { bundleId: b.id, serial: b.serial, dispatchStatus: d.status },
-          },
-        ),
-      );
-
-      await atomicBatch(ctx.db, statements);
-      return { success: true };
-    }),
-
-  addBundlesBySerial: actionProcedure("dispatch.addBundle")
-    .input(z.object({ id: z.string(), serials: z.array(z.string().min(1)).min(1).max(100) }))
-    .mutation(async ({ ctx, input }) => {
-      const trimmed = Array.from(new Set(input.serials.map((s) => s.trim()).filter(Boolean)));
-      if (trimmed.length === 0) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "No serials provided" });
-      }
-
-      const d = await ctx.db.query.dispatch.findFirst({
-        where: and(
-          eq(dispatch.id, input.id),
-          eq(dispatch.companyId, ctx.companyId),
-          isNull(dispatch.deletedAt),
-        ),
-      });
-      if (!d) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
-      }
-      if (d.status !== "draft" && d.status !== "reserved") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Bundles can only be added in draft or reserved status",
-        });
-      }
-
-      const bundles = await mapInChunks(trimmed, (serials) =>
-        ctx.db
-          .select()
-          .from(bundle)
-          .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.serial, serials))),
-      );
-
-      const found = new Map(bundles.map((b) => [b.serial, b]));
-      const missing = trimmed.filter((s) => !found.has(s));
-      const unavailable = bundles.filter((b) => b.status !== "available");
-
-      if (missing.length > 0 || unavailable.length > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            missing.length > 0
-              ? `Unknown serials: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? "…" : ""}`
-              : `Bundles not available: ${unavailable
-                  .slice(0, 5)
-                  .map((b) => `${b.serial} (${b.status})`)
-                  .join(", ")}${unavailable.length > 5 ? "…" : ""}`,
-        });
-      }
-
-      const existingItemRows = await mapInChunks(
-        bundles.map((b) => b.id),
-        (ids) =>
-          ctx.db
-            .select({ bundleId: dispatchItem.bundleId })
-            .from(dispatchItem)
-            .where(
-              and(
-                eq(dispatchItem.companyId, ctx.companyId),
-                eq(dispatchItem.dispatchId, d.id),
-                inArray(dispatchItem.bundleId, ids),
-              ),
-            ),
-      );
-      const alreadyAdded = new Set(existingItemRows.map((r) => r.bundleId));
-      const toAdd = bundles.filter((b) => !alreadyAdded.has(b.id));
-      if (toAdd.length === 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "All provided serials are already in this dispatch",
-        });
-      }
-
-      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const statements: SqliteBatchItem[] = [];
-      pushChunkedInserts(
-        statements,
-        (rows) => ctx.db.insert(dispatchItem).values(rows),
-        toAdd.map((b) => ({
-          id: crypto.randomUUID(),
-          companyId: ctx.companyId,
-          dispatchId: d.id,
-          bundleId: b.id,
-        })),
-      );
-
-      if (d.status === "reserved") {
-        const addIds = toAdd.map((b) => b.id);
-        for (const ids of chunk(addIds, IN_LIST_CHUNK)) {
+        if (d.status === "reserved") {
           statements.push(
             ctx.db
               .update(bundle)
               .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
-              .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids))),
+              .where(
+                and(
+                  eq(bundle.companyId, ctx.companyId),
+                  eq(bundle.id, b.id),
+                  eq(bundle.status, "available"),
+                ),
+              ),
+            ctx.db.insert(bundleStatusEvent).values({
+              id: crypto.randomUUID(),
+              companyId: ctx.companyId,
+              bundleId: b.id,
+              fromStatus: "available",
+              toStatus: "reserved",
+              reason: "dispatch.addBundle",
+              actorId: ctx.session.user.id,
+              dispatchId: d.id,
+            }),
           );
         }
-        pushChunkedInserts(
-          statements,
-          (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
-          addIds.map((bundleId) => ({
-            id: crypto.randomUUID(),
-            companyId: ctx.companyId,
-            bundleId,
-            fromStatus: "available" as const,
-            toStatus: "reserved" as const,
-            reason: "dispatch.addBundle",
-            actorId: ctx.session.user.id,
-            dispatchId: d.id,
-          })),
+
+        statements.push(
+          auditInsert(
+            { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+            {
+              action: "dispatch.addBundle",
+              subjectType: "dispatch",
+              subjectId: d.id,
+              meta: { bundleId: b.id, serial: b.serial, dispatchStatus: d.status },
+            },
+          ),
         );
+
+        await atomicBatch(ctx.db, statements);
+        return { success: true, added: [b.serial], alreadyInDispatch: [] as string[] };
+      };
+
+      try {
+        return await run();
+      } catch (e) {
+        // A concurrent scan of the same bundle inserted first; the batch rolled
+        // back, so re-read: this time it reports "already in this dispatch".
+        if (isDuplicateItemError(e)) return run();
+        throw e;
+      }
+    }),
+
+  /**
+   * Adds bundles by serial and reports per serial instead of all-or-nothing:
+   * already-in-this-dispatch is split out before availability (audit S13), so a
+   * rescan on a held dispatch is calm, and the valid serials still go in.
+   */
+  addBundlesBySerial: actionProcedure("dispatch.addBundle")
+    .input(z.object({ id: z.string(), serials: z.array(z.string().min(1)).min(1).max(100) }))
+    .mutation(async ({ ctx, input }): Promise<AddBundlesReport> => {
+      const serials = Array.from(new Set(input.serials.map(normalizeSerial).filter(Boolean)));
+      if (serials.length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No serials provided" });
       }
 
-      statements.push(
-        auditInsert(
-          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
-          {
-            action: "dispatch.addBundle",
-            subjectType: "dispatch",
-            subjectId: d.id,
-            meta: {
-              count: toAdd.length,
-              serials: toAdd.map((b) => b.serial),
-              dispatchStatus: d.status,
+      const run = async (): Promise<AddBundlesReport> => {
+        const d = await ctx.db.query.dispatch.findFirst({
+          where: and(
+            eq(dispatch.id, input.id),
+            eq(dispatch.companyId, ctx.companyId),
+            isNull(dispatch.deletedAt),
+          ),
+        });
+        if (!d) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+        }
+        if (d.status !== "draft" && d.status !== "reserved") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Bundles can only be added in draft or reserved status",
+          });
+        }
+
+        const bundles = await mapInChunks(serials, (chunkSerials) =>
+          ctx.db
+            .select()
+            .from(bundle)
+            .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.serial, chunkSerials))),
+        );
+        const bySerial = new Map(bundles.map((b) => [b.serial, b]));
+
+        const existingItemRows = await mapInChunks(
+          bundles.map((b) => b.id),
+          (ids) =>
+            ctx.db
+              .select({ bundleId: dispatchItem.bundleId })
+              .from(dispatchItem)
+              .where(
+                and(
+                  eq(dispatchItem.companyId, ctx.companyId),
+                  eq(dispatchItem.dispatchId, d.id),
+                  inArray(dispatchItem.bundleId, ids),
+                ),
+              ),
+        );
+        const inThisDispatch = new Set(existingItemRows.map((r) => r.bundleId));
+        const codes = await holdingDispatchCodes(
+          ctx.db,
+          ctx.companyId,
+          bundles.filter((b) => !inThisDispatch.has(b.id)),
+        );
+
+        const report: AddBundlesReport = { added: [], alreadyInDispatch: [], notFound: [], unavailable: [] };
+        const toAdd: typeof bundles = [];
+        for (const serial of serials) {
+          const b = bySerial.get(serial);
+          if (!b) report.notFound.push(serial);
+          else if (inThisDispatch.has(b.id)) report.alreadyInDispatch.push(serial);
+          else if (b.status !== "available") report.unavailable.push({ serial, reason: bundleBlockReason(b, codes) });
+          else toAdd.push(b);
+        }
+        if (toAdd.length === 0) return report;
+
+        const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+        const statements: SqliteBatchItem[] = [];
+        pushChunkedInserts(
+          statements,
+          (rows) => ctx.db.insert(dispatchItem).values(rows),
+          toAdd.map((b) => ({
+            id: crypto.randomUUID(),
+            companyId: ctx.companyId,
+            dispatchId: d.id,
+            bundleId: b.id,
+          })),
+        );
+
+        if (d.status === "reserved") {
+          const addIds = toAdd.map((b) => b.id);
+          for (const ids of chunk(addIds, IN_LIST_CHUNK)) {
+            statements.push(
+              ctx.db
+                .update(bundle)
+                .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
+                .where(
+                  and(
+                    eq(bundle.companyId, ctx.companyId),
+                    inArray(bundle.id, ids),
+                    eq(bundle.status, "available"),
+                  ),
+                ),
+            );
+          }
+          pushChunkedInserts(
+            statements,
+            (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
+            addIds.map((bundleId) => ({
+              id: crypto.randomUUID(),
+              companyId: ctx.companyId,
+              bundleId,
+              fromStatus: "available" as const,
+              toStatus: "reserved" as const,
+              reason: "dispatch.addBundle",
+              actorId: ctx.session.user.id,
+              dispatchId: d.id,
+            })),
+          );
+        }
+
+        statements.push(
+          auditInsert(
+            { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+            {
+              action: "dispatch.addBundle",
+              subjectType: "dispatch",
+              subjectId: d.id,
+              meta: {
+                count: toAdd.length,
+                serials: toAdd.map((b) => b.serial),
+                dispatchStatus: d.status,
+              },
             },
-          },
-        ),
-      );
+          ),
+        );
 
-      await atomicBatch(ctx.db, statements);
+        await atomicBatch(ctx.db, statements);
+        report.added = toAdd.map((b) => b.serial);
+        return report;
+      };
 
-      return { success: true, added: toAdd.length };
+      try {
+        return await run();
+      } catch (e) {
+        // A concurrent scan inserted one of these first and the whole batch
+        // rolled back; re-read once so it lands in alreadyInDispatch.
+        if (isDuplicateItemError(e)) return run();
+        throw e;
+      }
     }),
 
   setItemGroupLabel: actionProcedure("dispatch.addBundle")
@@ -541,6 +617,18 @@ export const dispatchRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Packing groups can only be edited before completion" });
       }
 
+      // Audit S18: an UPDATE on a missing item used to no-op silently.
+      const existingItem = await ctx.db.query.dispatchItem.findFirst({
+        where: and(
+          eq(dispatchItem.companyId, ctx.companyId),
+          eq(dispatchItem.dispatchId, d.id),
+          eq(dispatchItem.bundleId, input.bundleId),
+        ),
+      });
+      if (!existingItem) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not in this dispatch" });
+      }
+
       const label = input.groupLabel?.trim().toUpperCase() || null;
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       await atomicBatch(ctx.db, [
@@ -554,7 +642,10 @@ export const dispatchRouter = router({
               eq(dispatchItem.bundleId, input.bundleId),
             ),
           ),
-        ctx.db.update(dispatch).set({ serverSeq: seq }).where(eq(dispatch.id, d.id)),
+        ctx.db
+          .update(dispatch)
+          .set({ serverSeq: seq })
+          .where(dispatchInStatus(ctx.companyId, d.id, EDITABLE_DISPATCH)),
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
@@ -616,12 +707,21 @@ export const dispatchRouter = router({
         const b = await ctx.db.query.bundle.findFirst({
           where: and(eq(bundle.id, input.bundleId), eq(bundle.companyId, ctx.companyId)),
         });
-        if (b && b.status === "reserved") {
+        // Only release a hold that belongs to this dispatch (audit S6): the
+        // bundle may be held by another dispatch that also lists it.
+        if (b && b.status === "reserved" && b.currentDispatchId === d.id) {
           statements.push(
             ctx.db
               .update(bundle)
               .set({ status: "available", currentDispatchId: null, serverSeq: seq })
-              .where(eq(bundle.id, b.id)),
+              .where(
+                and(
+                  eq(bundle.companyId, ctx.companyId),
+                  eq(bundle.id, b.id),
+                  eq(bundle.status, "reserved"),
+                  eq(bundle.currentDispatchId, d.id),
+                ),
+              ),
             ctx.db.insert(bundleStatusEvent).values({
               id: crypto.randomUUID(),
               companyId: ctx.companyId,
@@ -706,7 +806,13 @@ export const dispatchRouter = router({
           ctx.db
             .update(bundle)
             .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
-            .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids))),
+            .where(
+              and(
+                eq(bundle.companyId, ctx.companyId),
+                inArray(bundle.id, ids),
+                eq(bundle.status, "available"),
+              ),
+            ),
         );
       }
       pushChunkedInserts(
@@ -724,7 +830,10 @@ export const dispatchRouter = router({
         })),
       );
       statements.push(
-        ctx.db.update(dispatch).set({ status: "reserved", serverSeq: seq }).where(eq(dispatch.id, d.id)),
+        ctx.db
+          .update(dispatch)
+          .set({ status: "reserved", serverSeq: seq })
+          .where(dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("reserved"))),
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
@@ -761,7 +870,10 @@ export const dispatchRouter = router({
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const statements: SqliteBatchItem[] = [
-        ctx.db.update(dispatch).set({ status: "draft", serverSeq: seq }).where(eq(dispatch.id, d.id)),
+        ctx.db
+          .update(dispatch)
+          .set({ status: "draft", serverSeq: seq })
+          .where(dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("draft"))),
       ];
 
       if (items.length > 0) {
@@ -939,7 +1051,7 @@ export const dispatchRouter = router({
             completedAt,
             serverSeq: seq,
           })
-          .where(eq(dispatch.id, d.id)),
+          .where(dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("completed"))),
         ...packingListStatements,
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
@@ -975,7 +1087,7 @@ export const dispatchRouter = router({
         ctx.db
           .update(dispatch)
           .set({ status: "cancelled", serverSeq: seq })
-          .where(eq(dispatch.id, d.id)),
+          .where(dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("cancelled"))),
       ];
 
       if (wasReserved) {
@@ -1069,6 +1181,9 @@ export const dispatchRouter = router({
         ),
       });
       if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+      if (d.status === "reserved") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Release the held stock first" });
+      }
       if (d.status !== "draft" && d.status !== "cancelled") {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1081,7 +1196,8 @@ export const dispatchRouter = router({
         ctx.db
           .update(dispatch)
           .set({ deletedAt: new Date(), serverSeq: seq })
-          .where(eq(dispatch.id, d.id)),
+          // A concurrent reserve must not leave held stock on a deleted dispatch.
+          .where(dispatchInStatus(ctx.companyId, d.id, ["draft", "cancelled"])),
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {

@@ -275,7 +275,9 @@ export async function createTestEnv(): Promise<TestEnv> {
 
   async function seedBundles(companyId: string, dieId: string, n: number, status: BundleStatus = "available") {
     const groupId = createId();
-    const code = `${formatGroupCode(Math.floor(Math.random() * 900_000) + 100_000)}-${uniq("")}`;
+    // Real serials are upper case (formatGroupCode/formatBundleSerial); keep seeds that way so
+    // normalizeSerial() lookups match.
+    const code = `${formatGroupCode(Math.floor(Math.random() * 900_000) + 100_000)}-${uniq("").toUpperCase()}`;
     await db.insert(bundleGroup).values({ id: groupId, companyId, code, dieId, unit: "pcs" });
 
     const rows = Array.from({ length: n }, (_, i) => ({

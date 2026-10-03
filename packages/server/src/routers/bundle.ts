@@ -15,6 +15,7 @@ import {
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
 import { nextCompanySeq } from "../lib/sequence";
 
@@ -382,6 +383,14 @@ export const bundleRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
       }
 
+      // Reserved/dispatched bundles belong to the dispatch flow; say who holds them.
+      if (
+        input.toStatus !== existing.status &&
+        (existing.status === "reserved" || existing.status === "dispatched")
+      ) {
+        const codes = await holdingDispatchCodes(ctx.db, ctx.companyId, [existing]);
+        throw new TRPCError({ code: "BAD_REQUEST", message: bundleBlockReason(existing, codes) });
+      }
       assertTransitionAllowed(existing.status, input.toStatus);
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
@@ -390,7 +399,15 @@ export const bundleRouter = router({
         ctx.db
           .update(bundle)
           .set({ status: input.toStatus, serverSeq: seq })
-          .where(eq(bundle.id, existing.id)),
+          // Status predicate (audit S6): a dispatch that reserved the bundle
+          // after our read must not have its hold overwritten by a void.
+          .where(
+            and(
+              eq(bundle.companyId, ctx.companyId),
+              eq(bundle.id, existing.id),
+              eq(bundle.status, existing.status),
+            ),
+          ),
         ctx.db.insert(bundleStatusEvent).values({
           id: crypto.randomUUID(),
           companyId: ctx.companyId,

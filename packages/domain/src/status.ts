@@ -27,7 +27,7 @@ export function dispatchTone(status: DispatchStatus): StatusTone {
   return DISPATCH_TONES[status];
 }
 
-/** Mirrors ALLOWED_DISPATCH_TRANSITIONS in packages/server/src/routers/dispatch.ts. */
+/** Allowed dispatch transitions. The server dispatch router enforces this same table. */
 export const DISPATCH_TRANSITIONS: Record<DispatchStatus, readonly DispatchStatus[]> = {
   draft: ["reserved", "cancelled"],
   reserved: ["draft", "completed", "cancelled"],

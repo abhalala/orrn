@@ -100,14 +100,14 @@ describe("D1 100-bound-parameter limit", () => {
     const { companyId, api, customerId, bundles } = await setup(100);
     const { id } = await api.dispatch.create({ customerId });
     const res = await api.dispatch.addBundlesBySerial({ id, serials: bundles.map((b) => b.serial) });
-    expect(res.added).toBe(100);
+    expect(res.added).toHaveLength(100);
     expect(await countRows(dispatchItem, and(eq(dispatchItem.companyId, companyId), eq(dispatchItem.dispatchId, id)))).toBe(100);
 
     // Reserved dispatch: the bundle update + status events must chunk too.
     const more = await env.seedBundles(companyId, await env.seedDie(companyId), 100);
     await api.dispatch.reserve({ id });
     const res2 = await api.dispatch.addBundlesBySerial({ id, serials: more.map((b) => b.serial) });
-    expect(res2.added).toBe(100);
+    expect(res2.added).toHaveLength(100);
     expect(await countRows(bundle, and(eq(bundle.companyId, companyId), eq(bundle.status, "reserved")))).toBe(200);
   });
 

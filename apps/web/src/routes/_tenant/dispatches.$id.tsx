@@ -80,7 +80,7 @@ function DispatchDetailComponent() {
   const bulkMutation = useMutation({
     ...trpc.dispatch.addBundlesBySerial.mutationOptions(),
     onSuccess: (res: any) => {
-      toast.success(`Added ${res.added} bundle(s)`);
+      toast.success(`Added ${res.added.length} bundle(s)`);
       setBulkSerials("");
       invalidate();
     },

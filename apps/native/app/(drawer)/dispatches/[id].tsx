@@ -51,7 +51,7 @@ export default function DispatchDetailScreen() {
   const addSerialsMutation = useMutation({
     ...trpc.dispatch.addBundlesBySerial.mutationOptions(),
     onSuccess: (res) => {
-      Alert.alert("Added", `${res.added} bundle(s) added`);
+      Alert.alert("Added", `${res.added.length} bundle(s) added`);
       setSerialInput("");
       invalidate();
     },
