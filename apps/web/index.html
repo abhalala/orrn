@@ -3,7 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f4f4f1" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0c0c0e" media="(prefers-color-scheme: dark)" />
     <title>orrn</title>
+    <script>
+      // Pre-paint theme: apply the saved choice (next-themes key) or the
+      // system preference before React mounts so there is no flash.
+      (function () {
+        try {
+          var t = localStorage.getItem("vite-ui-theme");
+          if (t !== "light" && t !== "dark") {
+            t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          }
+          document.documentElement.classList.add(t);
+          document.documentElement.style.colorScheme = t;
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      html { background: #f4f4f1; }
+      html.dark { background: #0c0c0e; }
+    </style>
   </head>
 
   <body>

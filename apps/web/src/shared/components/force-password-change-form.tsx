@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@orrn/ui/components/card";
 import { Input } from "@orrn/ui/components/input";
 import { Label } from "@orrn/ui/components/label";
 import { useMutation } from "@tanstack/react-query";
@@ -68,9 +68,9 @@ export default function ForcePasswordChangeForm({
   };
 
   return (
-    <Card className="w-full max-w-[420px] self-center">
+    <Card className="w-full max-w-[420px] self-center gap-6 p-6 shadow-md sm:p-8">
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <h1 className="orrn-auth-title">{title}</h1>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
 
@@ -79,7 +79,6 @@ export default function ForcePasswordChangeForm({
         <div className="space-y-1.5">
           <Label
             htmlFor="new-password"
-            className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono"
           >
             New password
           </Label>
@@ -93,15 +92,15 @@ export default function ForcePasswordChangeForm({
           />
           {password ? (
             <div className="space-y-1 pt-1">
-              <div className="flex justify-between text-[10px] font-mono font-bold text-muted-foreground uppercase">
+              <div className="flex justify-between text-xs font-medium text-muted-foreground">
                 <span>Password strength</span>
                 <span
                   className={
                     strength <= 2
-                      ? "text-red-400"
+                      ? "text-tone-red-ink"
                       : strength <= 4
-                        ? "text-yellow-400"
-                        : "text-emerald-400"
+                        ? "text-tone-amber-ink"
+                        : "text-tone-green-ink"
                   }
                 >
                   {strength <= 2 ? "Weak" : strength <= 4 ? "Good" : "Strong"}
@@ -114,11 +113,11 @@ export default function ForcePasswordChangeForm({
                     className={`h-full flex-1 rounded-full transition-colors duration-300 ${
                       level <= strength
                         ? strength <= 2
-                          ? "bg-red-500"
+                          ? "bg-tone-red"
                           : strength <= 4
-                            ? "bg-yellow-500"
-                            : "bg-emerald-500"
-                        : "bg-muted/30"
+                            ? "bg-tone-amber"
+                            : "bg-tone-green"
+                        : "bg-surface-sunken"
                     }`}
                   />
                 ))}
@@ -130,7 +129,6 @@ export default function ForcePasswordChangeForm({
         <div className="space-y-1.5">
           <Label
             htmlFor="confirm-password"
-            className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-mono"
           >
             Confirm new password
           </Label>
@@ -146,6 +144,7 @@ export default function ForcePasswordChangeForm({
 
         <Button
           type="submit"
+          size="lg"
           className="w-full mt-2"
           disabled={mutation.isPending || password.length < 8 || password !== confirm}
         >

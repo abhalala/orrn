@@ -1,3 +1,8 @@
+// C2 type, self-hosted (no font CDN at runtime): Bricolage Grotesque for
+// display (with its optical-size axis), Geist for UI, Geist Mono for numbers.
+import "@fontsource-variable/bricolage-grotesque/opsz.css";
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
 import { Button } from "@orrn/ui/components/button";
 import { NotFoundPage } from "@orrn/ui/components/not-found";
 import { QueryClientProvider } from "@tanstack/react-query";
