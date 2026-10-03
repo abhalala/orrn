@@ -39,19 +39,31 @@ export function StoreSection({
 }
 
 /** A quiet one-line note on the surface (read-only access, setup still needed). */
-export function StoreNote({ title, body, tone = "info" }: { title?: string; body: string; tone?: "info" | "attention" }) {
+export function StoreNote({
+  title,
+  body,
+  tone = "info",
+}: {
+  title?: string;
+  body: string;
+  tone?: "info" | "attention";
+}) {
   const Icon = tone === "attention" ? AlertCircle : Info;
   return (
     <div
       className={cn(
         "flex items-start gap-3 rounded-card border px-4 py-3.5",
-        tone === "attention" ? "border-tone-amber-ink/30 bg-tone-amber-tint text-tone-amber-ink" : "border-border bg-card",
+        tone === "attention"
+          ? "border-tone-amber-ink/30 bg-tone-amber-tint text-tone-amber-ink"
+          : "border-border bg-card",
       )}
     >
       <Icon aria-hidden="true" strokeWidth={2} className="mt-0.5 size-5 shrink-0" />
       <div className="flex min-w-0 flex-col gap-0.5">
         {title ? <p className="m-0 text-[15px] font-semibold leading-snug break-words">{title}</p> : null}
-        <p className={cn("m-0 text-[14px] leading-6 break-words", tone === "info" && "text-muted-foreground")}>{body}</p>
+        <p className={cn("m-0 text-[14px] leading-6 break-words", tone === "info" && "text-muted-foreground")}>
+          {body}
+        </p>
       </div>
     </div>
   );

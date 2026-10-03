@@ -100,7 +100,13 @@ export function StoreEntries({ itemId, label }: { itemId?: string; label: string
     },
     ...(itemId
       ? []
-      : [{ key: "item", header: t("store.columns.item"), cell: (r: StoreEntry) => <span className="break-words">{r.itemName}</span> }]),
+      : [
+          {
+            key: "item",
+            header: t("store.columns.item"),
+            cell: (r: StoreEntry) => <span className="break-words">{r.itemName}</span>,
+          },
+        ]),
     { key: "qty", header: t("store.columns.quantity"), align: "end", cell: (r) => <SignedQty entry={r} /> },
     { key: "status", header: t("store.columns.status"), cell: (r) => <EntryChip entry={r} /> },
     {
@@ -112,7 +118,9 @@ export function StoreEntries({ itemId, label }: { itemId?: string; label: string
     {
       key: "when",
       header: t("store.columns.when"),
-      cell: (r) => <span className="whitespace-nowrap text-muted-foreground tabular-nums">{formatWhen(r.createdAt, locale)}</span>,
+      cell: (r) => (
+        <span className="whitespace-nowrap text-muted-foreground tabular-nums">{formatWhen(r.createdAt, locale)}</span>
+      ),
     },
   ];
 
@@ -296,7 +304,12 @@ function EntrySheet({
           ) : null}
           {confirming && cancellable ? (
             <div className="flex flex-col gap-3 border-t border-border pt-4">
-              <Field label={t("store.entry.reason")} hint={t("store.entry.reasonHint")} error={reasonError} id={reasonId}>
+              <Field
+                label={t("store.entry.reason")}
+                hint={t("store.entry.reasonHint")}
+                error={reasonError}
+                id={reasonId}
+              >
                 <TextArea
                   ref={reasonRef}
                   id={reasonId}

@@ -55,11 +55,13 @@ export function StoreItemPicker({
       valueLabel={selected?.name}
       search={async (q) => {
         const k = key(q);
-        return items
-          .filter((i) => key(i.name).includes(k))
-          // Long enough for any real search; the list itself is never cut short before filtering.
-          .slice(0, 50)
-          .map(toOption);
+        return (
+          items
+            .filter((i) => key(i.name).includes(k))
+            // Long enough for any real search; the list itself is never cut short before filtering.
+            .slice(0, 50)
+            .map(toOption)
+        );
       }}
     />
   );

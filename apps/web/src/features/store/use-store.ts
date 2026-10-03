@@ -3,13 +3,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useCallback } from "react";
 
-import { can, canAny, useMe } from "@/shared/lib/me";
+import { can, canAny, useMe, type Action } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 type Outputs = inferRouterOutputs<AppRouter>;
 export type StoreBalance = Outputs["store"]["balances"]["items"][number];
 export type StoreItem = Outputs["store"]["items"]["list"]["items"][number];
 export type StoreEntry = Outputs["store"]["txns"]["items"][number];
+
+/** Who may add and edit store items (ruling RP19): for `<Can do={ITEM_EDITORS}>`. */
+export const ITEM_EDITORS: readonly Action[] = ["store.txn", "masters.publish"];
 
 /**
  * Who may do what in the store (server: routers/store.ts):
@@ -22,7 +25,7 @@ export function useStoreAccess() {
   return {
     canRead: canAny(me, ["store.txn", "masters.publish"]),
     canEnter: can(me, "store.txn"),
-    canEditItems: canAny(me, ["store.txn", "masters.publish"]),
+    canEditItems: canAny(me, ITEM_EDITORS),
   };
 }
 

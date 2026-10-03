@@ -7,10 +7,12 @@ import { useNavigate } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { Can } from "@/shared/components/can";
+
 import { BalanceFilters, BalancesEmpty, BalancesList, useBalanceFilter, type BalanceRow } from "./balances-list";
 import { StoreItemSheet } from "./item-sheet";
 import { StoreLoadError, StoreNoAccess } from "./store-ui";
-import { useStoreAccess, useStoreBalances, useStoreItems } from "./use-store";
+import { ITEM_EDITORS, useStoreAccess, useStoreBalances, useStoreItems } from "./use-store";
 
 type Show = "active" | "retired" | "all";
 
@@ -53,12 +55,12 @@ export function StoreItemsPage({ startAdding = false }: { startAdding?: boolean 
       title={t("store.items")}
       subtitle={t("store.itemsPage.subtitle")}
       actions={
-        access.canEditItems ? (
+        <Can do={ITEM_EDITORS}>
           <Button onClick={() => setAdding(true)} aria-haspopup="dialog">
             <Plus aria-hidden="true" strokeWidth={2} />
             {t("store.addItem")}
           </Button>
-        ) : undefined
+        </Can>
       }
     />
   );
@@ -120,11 +122,11 @@ export function StoreItemsPage({ startAdding = false }: { startAdding?: boolean 
                   hasAny={shown.length > 0}
                   query={filter.query}
                   action={
-                    access.canEditItems ? (
+                    <Can do={ITEM_EDITORS}>
                       <Button onClick={() => setAdding(true)} aria-haspopup="dialog">
                         {t("store.addItem")}
                       </Button>
-                    ) : undefined
+                    </Can>
                   }
                 />
               )

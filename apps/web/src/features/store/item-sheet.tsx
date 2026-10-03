@@ -7,11 +7,12 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
 import { categoryLabel, unitName } from "./store-labels";
 import { STORE_CATEGORIES, STORE_UNITS, type StoreCategory, type StoreUnit } from "./store-qty";
-import { errorMessage, useInvalidateStore } from "./use-store";
+import { errorMessage, ITEM_EDITORS, useInvalidateStore } from "./use-store";
 
 export type EditableItem = { id: string; name: string; unit: string; category: string; active: boolean };
 
@@ -117,9 +118,11 @@ export function StoreItemSheet({
           <Button variant="secondary" size="lg" onClick={close}>
             {t("common.cancel")}
           </Button>
-          <Button type="submit" form={formId} size="lg" loading={busy}>
-            {t("store.itemForm.save")}
-          </Button>
+          <Can do={ITEM_EDITORS}>
+            <Button type="submit" form={formId} size="lg" loading={busy}>
+              {t("store.itemForm.save")}
+            </Button>
+          </Can>
         </>
       }
     >
@@ -152,7 +155,11 @@ export function StoreItemSheet({
           </NativeSelect>
         </Field>
         <Field label={t("store.itemForm.category")} id={categoryId}>
-          <NativeSelect id={categoryId} value={category} onChange={(e) => setCategory(e.currentTarget.value as StoreCategory)}>
+          <NativeSelect
+            id={categoryId}
+            value={category}
+            onChange={(e) => setCategory(e.currentTarget.value as StoreCategory)}
+          >
             {STORE_CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {categoryLabel(t, c)}
@@ -162,18 +169,27 @@ export function StoreItemSheet({
         </Field>
 
         {error ? (
-          <p role="alert" className="m-0 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink break-words">
+          <p
+            role="alert"
+            className="m-0 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink break-words"
+          >
             {errorMessage(error)}
           </p>
         ) : null}
 
         {item ? (
-          <div className="flex flex-col items-start gap-2 border-t border-border pt-4">
-            <p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("store.itemForm.retireHint")}</p>
-            <Button variant={item.active ? "ghost" : "secondary"} onClick={() => void setActive(!item.active)} disabled={busy}>
-              {item.active ? t("store.itemForm.retire") : t("store.itemForm.restore")}
-            </Button>
-          </div>
+          <Can do={ITEM_EDITORS}>
+            <div className="flex flex-col items-start gap-2 border-t border-border pt-4">
+              <p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("store.itemForm.retireHint")}</p>
+              <Button
+                variant={item.active ? "ghost" : "secondary"}
+                onClick={() => void setActive(!item.active)}
+                disabled={busy}
+              >
+                {item.active ? t("store.itemForm.retire") : t("store.itemForm.restore")}
+              </Button>
+            </div>
+          </Can>
         ) : null}
       </form>
     </Sheet>

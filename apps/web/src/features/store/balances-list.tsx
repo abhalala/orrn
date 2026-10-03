@@ -83,7 +83,13 @@ export function Qty({ milli, unit, className }: { milli: number; unit: string; c
 }
 
 /** The status word for a store item: empty (amber), retired (quiet), or nothing to flag. */
-export function ItemStatus({ row, showInUse = false }: { row: Pick<BalanceRow, "active" | "balanceMilli">; showInUse?: boolean }) {
+export function ItemStatus({
+  row,
+  showInUse = false,
+}: {
+  row: Pick<BalanceRow, "active" | "balanceMilli">;
+  showInUse?: boolean;
+}) {
   const { t } = useT();
   if (!row.active) return <Chip tone="neutral">{t("store.status.retired")}</Chip>;
   if (row.balanceMilli <= 0) return <Chip tone="amber">{t("store.status.empty")}</Chip>;
@@ -142,15 +148,7 @@ export function BalancesList({
 }
 
 /** Empty list: no items at all, or nothing matching the search or category. */
-export function BalancesEmpty({
-  hasAny,
-  query,
-  action,
-}: {
-  hasAny: boolean;
-  query: string;
-  action?: ReactNode;
-}) {
+export function BalancesEmpty({ hasAny, query, action }: { hasAny: boolean; query: string; action?: ReactNode }) {
   const { t } = useT();
   if (!hasAny) return <EmptyState title={t("store.noItems")} body={t("store.noItemsBody")} action={action} />;
   if (query.trim()) return <EmptyState title={t("common.noResults", { query: query.trim() })} />;

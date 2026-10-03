@@ -13,13 +13,22 @@ import { Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 
+import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
 import { BigQty } from "./big-qty";
 import { useRequestIds } from "./request-id";
 import { recentItemIds } from "./store-entries";
 import { countedIn, purposeLabel, qtyProblemText, unitShort } from "./store-labels";
-import { formatQty, ISSUE_PURPOSES, isCountable, isShort, parseQtyMilli, type IssuePurpose, type StoreUnit } from "./store-qty";
+import {
+  formatQty,
+  ISSUE_PURPOSES,
+  isCountable,
+  isShort,
+  parseQtyMilli,
+  type IssuePurpose,
+  type StoreUnit,
+} from "./store-qty";
 import { StoreItemPicker } from "./item-picker";
 import { StoreLoadError, StoreNoAccess, StoreNote } from "./store-ui";
 import {
@@ -38,9 +47,27 @@ type Saved = { numbers: [string] | [string, string]; itemName: string; milli: nu
 type FieldKey = "item" | "qty" | "old" | "new" | "purpose";
 
 const COPY = {
-  receive: { title: "store.receive.title", subtitle: "store.receive.subtitle", submit: "store.receive.submit", done: "store.receive.done", again: "store.receive.again" },
-  issue: { title: "store.issue.title", subtitle: "store.issue.subtitle", submit: "store.issue.submit", done: "store.issue.done", again: "store.issue.again" },
-  exchange: { title: "store.exchange.title", subtitle: "store.exchange.subtitle", submit: "store.exchange.submit", done: "store.exchange.done", again: "store.exchange.again" },
+  receive: {
+    title: "store.receive.title",
+    subtitle: "store.receive.subtitle",
+    submit: "store.receive.submit",
+    done: "store.receive.done",
+    again: "store.receive.again",
+  },
+  issue: {
+    title: "store.issue.title",
+    subtitle: "store.issue.subtitle",
+    submit: "store.issue.submit",
+    done: "store.issue.done",
+    again: "store.issue.again",
+  },
+  exchange: {
+    title: "store.exchange.title",
+    subtitle: "store.exchange.subtitle",
+    submit: "store.exchange.submit",
+    done: "store.exchange.done",
+    again: "store.exchange.again",
+  },
 } as const;
 
 /**
@@ -150,6 +177,8 @@ function EntryFormBody({
   const [announce, setAnnounce] = useState("");
 
   const fieldRefs = useRef<Partial<Record<FieldKey, HTMLElement | null>>>({});
+  // Set before the first await: a second tap in the same frame never starts a second request.
+  const inFlight = useRef(false);
   const againRef = useRef<HTMLButtonElement | null>(null);
 
   const item = items.find((i) => i.id === itemId) ?? null;
@@ -224,7 +253,7 @@ function EntryFormBody({
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (mutation.isPending) return;
+    if (inFlight.current) return;
     setAttempted(true);
     const order: FieldKey[] = ["item", "qty", "old", "new", "purpose"];
     const firstBad = order.find((k) => problems.errors[k]);
@@ -233,6 +262,7 @@ function EntryFormBody({
       return;
     }
     const note_ = note.trim() || null;
+    inFlight.current = true;
     try {
       if (mode === "receive" && problems.milli !== null) {
         const signature = ["receive", item.id, problems.milli, challan.trim(), note_ ?? ""].join("|");
@@ -264,18 +294,27 @@ function EntryFormBody({
           note: note_,
           clientRequestId: ids.idFor(signature),
         });
-        done({ numbers: [res.mrsNumber, res.grnNumber], itemName: item.name, milli: problems.inMilli, unit: item.unit });
+        done({
+          numbers: [res.mrsNumber, res.grnNumber],
+          itemName: item.name,
+          milli: problems.inMilli,
+          unit: item.unit,
+        });
       }
     } catch {
       // The message shows above the submit (mutation.error); the balance may have changed meanwhile.
       void invalidate();
+    } finally {
+      inFlight.current = false;
     }
   };
 
   const done = (s: Saved) => {
     ids.reset();
     setSaved(s);
-    setAnnounce(`${t(copy.done)}. ${s.numbers.join(", ")}. ${t("store.qtyOf", { qty: formatQty(s.milli), unit: unitShort(t, s.unit, s.milli), item: s.itemName })}`);
+    setAnnounce(
+      `${t(copy.done)}. ${s.numbers.join(", ")}. ${t("store.qtyOf", { qty: formatQty(s.milli), unit: unitShort(t, s.unit, s.milli), item: s.itemName })}`,
+    );
     void invalidate();
   };
 
@@ -295,7 +334,11 @@ function EntryFormBody({
           meta={
             mode === "exchange" && saved.numbers[1]
               ? t("store.exchange.newInUnder", { number: saved.numbers[1] })
-              : t("store.qtyOf", { qty: formatQty(saved.milli), unit: unitShort(t, saved.unit, saved.milli), item: saved.itemName })
+              : t("store.qtyOf", {
+                  qty: formatQty(saved.milli),
+                  unit: unitShort(t, saved.unit, saved.milli),
+                  item: saved.itemName,
+                })
           }
           value={saved.numbers[0]}
           mono
@@ -326,7 +369,11 @@ function EntryFormBody({
   const purposeErrorId = `purpose-error-${uid}`;
 
   return (
-    <form noValidate onSubmit={(e) => void submit(e)} className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+    <form
+      noValidate
+      onSubmit={(e) => void submit(e)}
+      className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start"
+    >
       {live}
       <div className="flex min-w-0 flex-col gap-5">
         <Field label={t("store.form.item")} error={shownError("item")}>
@@ -347,7 +394,11 @@ function EntryFormBody({
 
         {mode === "exchange" ? (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <Field label={t("store.form.oldOut")} error={shownError("old")} hint={item ? inStoreHint(t, item) : undefined}>
+            <Field
+              label={t("store.form.oldOut")}
+              error={shownError("old")}
+              hint={item ? inStoreHint(t, item) : undefined}
+            >
               <NumberInput
                 ref={(el) => void (fieldRefs.current.old = el)}
                 value={oldQty}
@@ -401,7 +452,9 @@ function EntryFormBody({
                     key={p}
                     className={cn(
                       "animate-press relative flex min-h-14 min-w-0 cursor-pointer items-center gap-3 rounded-input border bg-card px-4 py-2 text-[15px] font-semibold transition-[border-color,box-shadow] duration-[var(--dur-fast)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring",
-                      checked ? "border-foreground shadow-[inset_0_0_0_1px_var(--foreground)]" : "border-input hover:border-foreground/70",
+                      checked
+                        ? "border-foreground shadow-[inset_0_0_0_1px_var(--foreground)]"
+                        : "border-input hover:border-foreground/70",
                     )}
                   >
                     <input
@@ -452,16 +505,21 @@ function EntryFormBody({
         <NoteField value={note} onChange={setNote} />
 
         {mutation.error ? (
-          <p role="alert" className="m-0 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink break-words">
+          <p
+            role="alert"
+            className="m-0 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink break-words"
+          >
             {t("store.form.failed", { reason: errorMessage(mutation.error) })}
           </p>
         ) : null}
 
-        <FormActions className="max-sm:bottom-[calc(var(--shell-tabbar-offset)+12px)]">
-          <Button type="submit" size="lg" loading={mutation.isPending}>
-            {t(copy.submit)}
-          </Button>
-        </FormActions>
+        <Can do="store.txn">
+          <FormActions className="max-sm:bottom-[calc(var(--shell-tabbar-offset)+12px)]">
+            <Button type="submit" size="lg" loading={mutation.isPending}>
+              {t(copy.submit)}
+            </Button>
+          </FormActions>
+        </Can>
       </div>
 
       {item ? <SelectedItem item={item} className="hidden lg:flex" /> : null}
@@ -470,7 +528,10 @@ function EntryFormBody({
 }
 
 function inStoreHint(t: ReturnType<typeof useT>["t"], item: StoreBalance): string {
-  return t("store.form.quantityHint", { qty: formatQty(item.balanceMilli), unit: unitShort(t, item.unit, item.balanceMilli) });
+  return t("store.form.quantityHint", {
+    qty: formatQty(item.balanceMilli),
+    unit: unitShort(t, item.unit, item.balanceMilli),
+  });
 }
 
 function NoteField({ value, onChange }: { value: string; onChange(v: string): void }) {
@@ -478,7 +539,14 @@ function NoteField({ value, onChange }: { value: string; onChange(v: string): vo
   const id = `store-note-${useId().replace(/:/g, "")}`;
   return (
     <Field label={t("store.form.note")} hint={t("store.form.noteHint")} id={id}>
-      <TextArea id={id} aria-describedby={`${id}-hint`} rows={2} maxLength={500} value={value} onChangeText={onChange} />
+      <TextArea
+        id={id}
+        aria-describedby={`${id}-hint`}
+        rows={2}
+        maxLength={500}
+        value={value}
+        onChangeText={onChange}
+      />
     </Field>
   );
 }

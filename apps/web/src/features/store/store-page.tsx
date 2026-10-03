@@ -7,10 +7,12 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { Link } from "@tanstack/react-router";
 import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine } from "lucide-react";
 
+import { Can } from "@/shared/components/can";
+
 import { BalanceFilters, BalancesEmpty, BalancesList, useBalanceFilter } from "./balances-list";
 import { StoreEntries } from "./entries-list";
 import { StoreLoadError, StoreNoAccess, StoreNote, StoreSection } from "./store-ui";
-import { useStoreAccess, useStoreBalances } from "./use-store";
+import { ITEM_EDITORS, useStoreAccess, useStoreBalances } from "./use-store";
 
 /**
  * Store (spec P17, route /store): the storekeeper's screen. One loud element, the black Issue
@@ -31,7 +33,9 @@ export function StorePage() {
       actions={
         access.canRead ? (
           <>
-            {access.canEnter ? <HowToButton slug="store-entries" /> : null}
+            <Can do="store.txn">
+              <HowToButton slug="store-entries" />
+            </Can>
             <Button asChild variant="secondary">
               <Link to="/store/items">{t("store.items")}</Link>
             </Button>
@@ -54,7 +58,7 @@ export function StorePage() {
     <>
       {header}
 
-      {access.canEnter ? (
+      <Can do="store.txn" fallback={<StoreNote body={t("store.readOnly")} />}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <ActionTile
             tone="ink"
@@ -84,9 +88,7 @@ export function StorePage() {
             style={riseDelay(2)}
           />
         </div>
-      ) : (
-        <StoreNote body={t("store.readOnly")} />
-      )}
+      </Can>
 
       {balances.data?.locationId === null ? (
         <StoreNote tone="attention" title={t("store.noLocation")} body={t("store.noLocationBody")} />
@@ -114,13 +116,13 @@ export function StorePage() {
                   hasAny={rows.length > 0}
                   query={filter.query}
                   action={
-                    access.canEditItems ? (
+                    <Can do={ITEM_EDITORS}>
                       <Button asChild>
                         <Link to="/store/items" search={{ add: true }}>
                           {t("store.addItem")}
                         </Link>
                       </Button>
-                    ) : undefined
+                    </Can>
                   }
                 />
               }

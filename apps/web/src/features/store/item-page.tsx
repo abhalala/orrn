@@ -7,12 +7,14 @@ import { StatusBlock } from "@orrn/ui/components/status-block";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { Can } from "@/shared/components/can";
+
 import { StoreEntries } from "./entries-list";
 import { StoreItemSheet } from "./item-sheet";
 import { countedIn, unitShort } from "./store-labels";
 import { formatQty } from "./store-qty";
 import { StoreLoadError, StoreNoAccess, StoreNote, StoreSection } from "./store-ui";
-import { useStoreAccess, useStoreBalances, useStoreItems } from "./use-store";
+import { ITEM_EDITORS, useStoreAccess, useStoreBalances, useStoreItems } from "./use-store";
 
 /**
  * One store item (route /store/items/$id): what is in the store as the page's colour block, the
@@ -98,11 +100,11 @@ export function StoreItemPage({ id }: { id: string }) {
         title={item.name}
         subtitle={countedIn(t, item)}
         actions={
-          access.canEditItems ? (
+          <Can do={ITEM_EDITORS}>
             <Button variant="secondary" aria-haspopup="dialog" onClick={() => setEditing(true)}>
               {t("store.itemPage.edit")}
             </Button>
-          ) : undefined
+          </Can>
         }
       />
 
@@ -117,24 +119,26 @@ export function StoreItemPage({ id }: { id: string }) {
 
       {!item.active ? <StoreNote body={t("store.itemPage.retiredNote")} /> : null}
 
-      {access.canEnter && item.active ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Button asChild size="lg">
-            <Link to="/store/issue" search={{ item: item.id }}>
-              {t("store.actions.issue")}
-            </Link>
-          </Button>
-          <Button asChild variant="secondary" size="lg">
-            <Link to="/store/receive" search={{ item: item.id }}>
-              {t("store.actions.receive")}
-            </Link>
-          </Button>
-          <Button asChild variant="secondary" size="lg">
-            <Link to="/store/exchange" search={{ item: item.id }}>
-              {t("store.actions.exchange")}
-            </Link>
-          </Button>
-        </div>
+      {item.active ? (
+        <Can do="store.txn">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <Button asChild size="lg">
+              <Link to="/store/issue" search={{ item: item.id }}>
+                {t("store.actions.issue")}
+              </Link>
+            </Button>
+            <Button asChild variant="secondary" size="lg">
+              <Link to="/store/receive" search={{ item: item.id }}>
+                {t("store.actions.receive")}
+              </Link>
+            </Button>
+            <Button asChild variant="secondary" size="lg">
+              <Link to="/store/exchange" search={{ item: item.id }}>
+                {t("store.actions.exchange")}
+              </Link>
+            </Button>
+          </div>
+        </Can>
       ) : null}
 
       <StoreSection id="store-item-entries" title={t("store.entries")}>

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { expect, type Page } from "@playwright/test";
 
 /**
- * Local seed accounts (owner/operator/viewer/staff @orrn.local). The shared
+ * Local seed accounts (owner/operator/viewer/office/staff @orrn.local). The shared
  * password comes from ORRN_LOCAL_PASSWORD or, by default, from
  * `apps/server/.dev.local-account.local` (written by
  * `bun apps/server/scripts/write-local-accounts.ts`). Local D1 only.
@@ -20,7 +20,7 @@ function localPassword(): string {
   return line.slice("ORRN_LOCAL_PASSWORD=".length).trim();
 }
 
-export type LocalRole = "owner" | "operator" | "viewer" | "staff";
+export type LocalRole = "owner" | "operator" | "viewer" | "office" | "staff";
 
 /** Fill and submit the real sign-in form on the current /login page. */
 export async function signInViaForm(page: Page, role: LocalRole) {

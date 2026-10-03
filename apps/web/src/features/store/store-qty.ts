@@ -63,7 +63,9 @@ export function qtyToText(milli: number): string {
   const sign = milli < 0 ? "-" : "";
   const abs = Math.abs(milli);
   const whole = Math.floor(abs / 1000);
-  const frac = String(abs % 1000).padStart(3, "0").replace(/0+$/, "");
+  const frac = String(abs % 1000)
+    .padStart(3, "0")
+    .replace(/0+$/, "");
   return `${sign}${whole}${frac ? `.${frac}` : ""}`;
 }
 
