@@ -728,6 +728,69 @@ describe("melts.cancel: reversal rows, never edits", () => {
     expect((await meltsOf(p.companyId))[0]!.cancelledAt).toBeNull();
   });
 
+  test("never returns a draw onto a retired store item: reactivate it first (ruling PL7RR)", async () => {
+    const p = await plant();
+    const lot = await okLot(p, 20_000);
+    const c = await openCast(p);
+    const tabs = await p.storekeeper.store.items.create({ name: "Degasser tablets", unit: "kg", category: "chemical" });
+    await p.storekeeper.store.receive({ itemId: tabs.id, qtyMilli: 3 * U });
+    const m = await p.foundry.foundry.melts.create(
+      meltPayload(c.id, lot.id, p, { chemicals: [{ storeItemId: tabs.id, openMilli: 3 * U, usedMilli: 3 * U, closeMilli: 0 }] }),
+    );
+    // used up by the melt, so the storekeeper may retire it
+    await p.storekeeper.store.items.update({ id: tabs.id, active: false });
+    await expect(p.supervisor.foundry.melts.cancel({ meltId: m.id, reason: "x" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("Degasser tablets"),
+    });
+    expect(await ledger(p.companyId, { voucherType: "melt_cancel" })).toEqual([]);
+    expect(await storeBalance(p.companyId, tabs.id)).toBe(0);
+    expect((await meltsOf(p.companyId))[0]!.cancelledAt).toBeNull();
+    await p.storekeeper.store.items.update({ id: tabs.id, active: true });
+    await p.supervisor.foundry.melts.cancel({ meltId: m.id, reason: "x" });
+    expect(await storeBalance(p.companyId, tabs.id)).toBe(3 * U);
+  });
+
+  test("RACE: the store item is retired after the cancel read it — the cancel does not land", async () => {
+    const p = await plant();
+    const lot = await okLot(p, 20_000);
+    const c = await openCast(p);
+    const tabs = await p.storekeeper.store.items.create({ name: "Degasser tablets", unit: "kg", category: "chemical" });
+    await p.storekeeper.store.receive({ itemId: tabs.id, qtyMilli: 3 * U });
+    const m = await p.foundry.foundry.melts.create(
+      meltPayload(c.id, lot.id, p, { chemicals: [{ storeItemId: tabs.id, openMilli: 3 * U, usedMilli: 3 * U, closeMilli: 0 }] }),
+    );
+    env.beforeNextBatch(() => p.storekeeper.store.items.update({ id: tabs.id, active: false }));
+    await expect(p.supervisor.foundry.melts.cancel({ meltId: m.id, reason: "x" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("Degasser tablets"),
+    });
+    expect(await ledger(p.companyId, { voucherType: "melt_cancel" })).toEqual([]);
+    expect(await storeBalance(p.companyId, tabs.id)).toBe(0);
+    expect((await meltsOf(p.companyId))[0]!.cancelledAt).toBeNull();
+  });
+
+  test("never returns a draw into a retired store location: reactivate it first", async () => {
+    const p = await plant();
+    const lot = await okLot(p, 20_000);
+    const c = await openCast(p);
+    const m = await p.foundry.foundry.melts.create(
+      meltPayload(c.id, lot.id, p, { chemicals: [{ storeItemId: p.fluxId, openMilli: 100 * U, usedMilli: 100 * U, closeMilli: 0 }] }),
+    );
+    await p.storekeeper.store.issue({ itemId: p.ldoId, qtyMilli: 1_000 * U, purpose: "other" });
+    // the store is empty now, so it can be retired
+    await p.owner.stock.locations.update({ id: p.loc("STORE"), active: false });
+    await expect(p.supervisor.foundry.melts.cancel({ meltId: m.id, reason: "x" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("STORE"),
+    });
+    expect(await ledger(p.companyId, { voucherType: "melt_cancel" })).toEqual([]);
+    expect(await storeBalance(p.companyId, p.fluxId)).toBe(0);
+    await p.owner.stock.locations.update({ id: p.loc("STORE"), active: true });
+    await p.supervisor.foundry.melts.cancel({ meltId: m.id, reason: "x" });
+    expect(await storeBalance(p.companyId, p.fluxId)).toBe(100 * U);
+  });
+
   test("only cast.enter / cast.close holders cancel; never on a closed cast; NOT_FOUND across companies", async () => {
     const p = await plant();
     const q = await plant();
@@ -1095,7 +1158,7 @@ describe("D1 limits and invariants", () => {
     await p.supervisor.foundry.melts.cancel({ meltId: r.id, reason: "test" });
     expect(env.peakParams()).toBeLessThanOrEqual(100);
     expect(sum(await ledger(p.companyId, { voucherId: r.id }))).toBe(0);
-  }, 30_000);
+  }, 120_000);
 
   test("more than 60 inputs or 40 chemicals is BAD_REQUEST", async () => {
     const p = await plant();

@@ -315,7 +315,8 @@ bun run deploy
   `{item}:{grade}` at the lot's scrap store per lot line, − `return_stream` at plant scrap, + `billet`
   item_ref = cast id at the billet store, + DROSS / FE / returned charge streams at plant scrap.
   A lot's remaining kg = its ledger postings (OK, D/C deductions, cancel) − Σ kg of live melt lines on
-  it (`lotPostedSql` − `lotDrawnSql`); `lotCancelLeavesStockNonNegative` refuses cancelling an OK lot
+  it (`lotPostedSql` − `lotDrawnSql`; the postings are read by voucher on the voucher-line unique
+  index, never by item_kind, or every scrap row is scanned per lot); `lotCancelLeavesStockNonNegative` refuses cancelling an OK lot
   any live melt has drawn from.
 - Balance (spec P15): `meltBalance` — loss above 3 % of the input (`lossG × 10000 > inputG × 300`) or
   any output above input warns; warnings are returned and stored on the melt (`melt.warnings`), never
@@ -329,7 +330,8 @@ bun run deploy
   post − billets (item_ref = cast id) when a press run consumes them, or the tail double counts.
 - `melts.cancel` (cast.enter or cast.close, open casts only): marks the melt, reverses every melt
   ledger row (`melt_cancel`, `reversal_of`), cancels its MRS draws through `storeCancelRows/Mark`;
-  refused when the cast's billets on hand are below the melt's logs (the press used them).
+  refused when the cast's billets on hand are below the melt's logs (the press used them), or while a
+  drawn store item or the store location is retired (reactivate first; checked inside the UPDATE).
 - `lots.available` (RP9) is the foundry's lot list: remaining kg by lot and by item + grade, never
   rates, party kg, vendor, bill or D/C figures. Readable by cast.enter, cast.close and purchase readers.
 - `spectro.attach` (cast.enter): file as base64 text ≤ 1 MB decoded (image/jpeg|png|webp, pdf, csv,

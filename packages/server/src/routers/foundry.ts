@@ -1355,13 +1355,9 @@ const meltsRouter = router({
       const billetsShort = () =>
         bad(`The press has already used billets of ${c.number}; this melt can no longer be cancelled`);
       if (Number(onHand?.g ?? 0) < m.logsG) billetsShort();
-      const txns = (
-        await ctx.db
-          .select({ id: storeTxn.id, cancelledAt: storeTxn.cancelledAt })
-          .from(meltChemical)
-          .innerJoin(storeTxn, and(eq(storeTxn.id, meltChemical.storeTxnId), eq(storeTxn.companyId, meltChemical.companyId)))
-          .where(and(eq(meltChemical.companyId, companyId), eq(meltChemical.meltId, m.id)))
-      ).filter((t) => t.cancelledAt === null);
+      const txns = await liveMeltDraws(ctx, m.id);
+      const blocked = storeReturnBlock(txns);
+      if (blocked) bad(blocked);
 
       const userId = ctx.session.user.id;
       const at = clockNow();
@@ -1380,6 +1376,7 @@ const meltsRouter = router({
               isNull(melt.cancelledAt),
               sql`exists (select 1 from ${cast} oc where oc.id = ${c.id} and oc.company_id = ${companyId} and oc.status = 'open')`,
               sql`${billetsSql} >= ${melt.logsG}`,
+              drawsCanReturn(companyId, m.id),
             ),
           ),
         foundryAbort(ctx.db, companyId, sql`not exists (select 1 from ${melt} mm where mm.id = ${m.id} and mm.company_id = ${companyId} and mm.server_seq = ${seq} and mm.cancelled_at is not null)`),
@@ -1447,6 +1444,8 @@ const meltsRouter = router({
           if (castNow.status !== "open") bad(`${castStateMessage(castNow)}; its melts stay as they are`);
           const [h] = await ctx.db.select({ g: billetsSql }).from(cast).where(and(eq(cast.id, c.id), eq(cast.companyId, companyId))).limit(1);
           if (Number(h?.g ?? 0) < m.logsG) billetsShort();
+          const blockedNow = storeReturnBlock(await liveMeltDraws(ctx, m.id));
+          if (blockedNow) bad(blockedNow);
           bad("The melt changed; open it again");
         }
         throw e;
@@ -1454,6 +1453,51 @@ const meltsRouter = router({
       return { id: m.id, cancelled: true as const };
     }),
 });
+
+/** The melt's store draws not cancelled yet, with what a cancel would return them to. */
+async function liveMeltDraws(ctx: Ctx, meltId: string) {
+  return ctx.db
+    .select({
+      id: storeTxn.id,
+      number: storeTxn.number,
+      itemName: storeItem.name,
+      itemActive: storeItem.active,
+      locationCode: location.code,
+      locationActive: location.active,
+      locationKind: location.kind,
+    })
+    .from(meltChemical)
+    .innerJoin(storeTxn, and(eq(storeTxn.id, meltChemical.storeTxnId), eq(storeTxn.companyId, meltChemical.companyId)))
+    .leftJoin(storeItem, and(eq(storeItem.id, storeTxn.itemId), eq(storeItem.companyId, storeTxn.companyId)))
+    .leftJoin(location, and(eq(location.id, storeTxn.locationId), eq(location.companyId, storeTxn.companyId)))
+    .where(and(eq(meltChemical.companyId, ctx.companyId), eq(meltChemical.meltId, meltId), isNull(storeTxn.cancelledAt)));
+}
+
+/**
+ * Cancelling a melt puts its chemicals back in the store. Like `store.cancel` (ruling PL7RR), it
+ * never puts stock on a retired item or into a retired / re-typed store location.
+ */
+function storeReturnBlock(draws: Awaited<ReturnType<typeof liveMeltDraws>>): string | null {
+  for (const d of draws) {
+    if (!d.itemActive) return `${d.itemName ?? d.number} is retired in the store; reactivate it first (cancelling the melt returns it)`;
+    if (!d.locationActive || d.locationKind !== "store") {
+      return `${d.locationCode ?? "The store location"} is retired; reactivate it first (cancelling the melt returns ${d.itemName ?? d.number} there)`;
+    }
+  }
+  return null;
+}
+
+/** Write-time twin of `storeReturnBlock`: every live draw of the melt still has an active item and store location. */
+function drawsCanReturn(companyId: string, meltId: string) {
+  return sql`not exists (
+    select 1 from ${meltChemical} dc
+    join ${storeTxn} dt on dt.id = dc.store_txn_id and dt.company_id = dc.company_id and dt.cancelled_at is null
+    left join ${storeItem} di on di.id = dt.item_id and di.company_id = dt.company_id
+    left join ${location} dl on dl.id = dt.location_id and dl.company_id = dt.company_id
+    where dc.company_id = ${companyId} and dc.melt_id = ${meltId}
+      and (di.active is not 1 or dl.active is not 1 or dl.kind is not 'store')
+  )`;
+}
 
 /** A melt batch aborted: say why from the state as it is now. */
 async function explainMeltLost(ctx: Ctx, c: CastRow, input: MeltCreateInput, before: Map<string, LotForMelt>): Promise<never> {
