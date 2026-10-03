@@ -161,7 +161,9 @@ await LegacySpoolReleasesBucket("spool-releases", {});
 /** Unified web app — orrn.in (prod) / dev.orrn.app (dev) */
 export const web = await Vite("web", {
   cwd: "../../apps/web",
-  assets: "dist",
+  // run_worker_first: static files would otherwise be served before the
+  // Worker runs, skipping the HTTPS upgrade and HSTS below.
+  assets: { directory: "dist", run_worker_first: true },
   adopt: true,
   bindings: webBindings,
   domains: [webDomain, ...webAliasDomains],
