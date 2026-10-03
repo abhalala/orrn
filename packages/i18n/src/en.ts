@@ -2,8 +2,11 @@
  * English messages: the source of truth for keys.
  *
  * Interpolation: `{name}` inserts a variable. `{count:bundle|bundles}` picks the
- * first word when `count` is 1 and the second otherwise (Hindi usually needs
- * neither form, so `hi.ts` may write just `{count} bundle`).
+ * first form when `count` is 1 and the second otherwise. Use it in BOTH locales
+ * wherever a word agrees with a number. In Hindi the noun often stays the same
+ * (`{count} bundle`, `{count} लेबल`) but the verb or adjective changes:
+ * `{count} {count:जुड़ा|जुड़े}`, `प्रिंट नहीं {count:हुआ|हुए}`, `पहले से {count:है|हैं}`.
+ * Called without that variable, a form template renders as `{count}`.
  *
  * Copy rules: sentence case, no em/en dashes, no arrows, straight quotes,
  * plain floor words. Never "spool", "receipt" or "tenant".
@@ -669,7 +672,7 @@ export const en = {
       submit: "Send print job",
     },
     notSetUpTitle: "Label printing isn't set up",
-    notSetUpBody: "Ask your orrn contact to set up label printing for your plant.",
+    notSetUpBody: "Ask the orrn team to set up label printing for your plant.",
     restricted: "You can see the queue. Ask a manager to change printers or labels.",
   },
 

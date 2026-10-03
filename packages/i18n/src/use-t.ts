@@ -1,4 +1,14 @@
-import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { createI18n, DEFAULT_LOCALE, type Locale, type Translate } from "./core";
 
 /**
@@ -33,13 +43,17 @@ export function I18nProvider({ locale: initial, onLocaleChange, children }: I18n
     setLocaleState(initial);
   }, [initial]);
 
-  const setLocale = useCallback(
-    (next: Locale) => {
-      setLocaleState(next);
-      onLocaleChange?.(next);
-    },
-    [onLocaleChange],
-  );
+  // Keep the latest callback in a ref so an inline `onLocaleChange` doesn't
+  // give `setLocale` (and so every `useT()` consumer) a new identity each render.
+  const onLocaleChangeRef = useRef(onLocaleChange);
+  useEffect(() => {
+    onLocaleChangeRef.current = onLocaleChange;
+  });
+
+  const setLocale = useCallback((next: Locale) => {
+    setLocaleState(next);
+    onLocaleChangeRef.current?.(next);
+  }, []);
 
   const value = useMemo<I18nContextValue>(() => {
     const { t } = createI18n(locale);

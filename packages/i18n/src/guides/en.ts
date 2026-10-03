@@ -1,8 +1,9 @@
 import type { CompanyRole, GuideBook } from "./types";
 
 /**
- * SOP guides, English. Each describes orrn's own screens (spec §3). Button and
- * tab names in quotes-free form match en.ts exactly, so a reader can find them.
+ * SOP guides, English. Each describes orrn's own screens (spec §3). Button, tab
+ * and status names are in straight double quotes and match an en.ts value
+ * exactly (parity.test.ts checks this), so a reader can find them on screen.
  * Roles follow ROLE_ACTIONS in packages/server/src/lib/permissions.ts.
  * Lines that touch plant practice are marked `confirm:` and listed in
  * docs/superpowers/review/owner-questions.md.
@@ -21,7 +22,7 @@ export const guidesEn: GuideBook = {
     steps: [
       {
         title: "Start a session",
-        body: "Open Pack and tap New packing session.",
+        body: "Open \"Pack\" and tap \"New packing session\".",
       },
       {
         title: "Choose the die",
@@ -34,7 +35,7 @@ export const guidesEn: GuideBook = {
       {
         title: "Enter each bundle",
         // confirm: weight before pieces (owner question Q2).
-        body: "Type the weight in kg and press Next. Type the pieces and press Next again. The bundle is added to the list and a new card opens.",
+        body: "Type the weight in kg and press \"Next\". Type the pieces and press \"Next\" again. The bundle is added to the list and a new card opens.",
       },
       {
         title: "Check the kg/12ft chip",
@@ -42,13 +43,13 @@ export const guidesEn: GuideBook = {
       },
       {
         title: "Review and save",
-        body: "Tap Review and check the bundle count, pieces and kg. Then tap Save and print labels. If label printing isn't set up, the button says Save session.",
+        body: "Tap \"Review\" and check the bundle count, pieces and kg. Then tap \"Save and print labels\". If label printing isn't set up, the button says \"Save session\".",
       },
     ],
     problems: [
       {
         title: "One bundle has a different length or PO",
-        fix: "On that bundle's card, tap Different length or PO and enter it. The rest of the session keeps the defaults.",
+        fix: "On that bundle's card, tap \"Different length or PO\" and enter it. The rest of the session keeps the defaults.",
       },
       {
         title: "I typed a wrong weight",
@@ -56,7 +57,7 @@ export const guidesEn: GuideBook = {
       },
       {
         title: "Some labels didn't print",
-        fix: "The session is already saved. Tap Retry failed labels, or open the session later and tap Reprint on each bundle. If it keeps failing, see The printer isn't printing.",
+        fix: "The session is already saved. Tap \"Retry failed labels\", or open the session later and tap \"Reprint\" on each bundle. If it keeps failing, see \"The printer isn't printing\".",
       },
     ],
   },
@@ -69,7 +70,7 @@ export const guidesEn: GuideBook = {
     steps: [
       {
         title: "Find the bundle",
-        body: "Scan the old label if it still reads. If it doesn't, open Stock, then Bundles, and search the serial or PO.",
+        body: "Scan the old label if it still reads. If it doesn't, open \"Stock\", then \"Bundles\", and search the serial or PO.",
       },
       {
         title: "Check it's the right bundle",
@@ -77,17 +78,17 @@ export const guidesEn: GuideBook = {
       },
       {
         title: "Reprint",
-        body: "Tap Reprint label. From a packing session you can also tap Reprint on one bundle, or Print all labels for the whole session.",
+        body: "Tap \"Reprint label\". From a packing session you can also tap \"Reprint\" on one bundle, or \"Print all labels\" for the whole session.",
       },
       {
         title: "Replace the label",
-        // confirm: plant practice for removing the old label.
+        // confirm: plant practice for removing the old label (owner question Q5).
         body: "Take the new label from the printer and put it on the bundle. Remove the old label so the bundle carries only one.",
       },
     ],
     problems: [
       {
-        title: "There's no Reprint button",
+        title: "There's no \"Reprint\" button",
         fix: "Either your role can't print or label printing isn't set up for your company. Ask a manager.",
       },
       {
@@ -96,7 +97,7 @@ export const guidesEn: GuideBook = {
       },
       {
         title: "The label came out blank or cut off",
-        fix: "See The printer isn't printing.",
+        fix: "See \"The printer isn't printing\".",
       },
     ],
   },
@@ -109,7 +110,7 @@ export const guidesEn: GuideBook = {
     steps: [
       {
         title: "Open Scan",
-        body: "On a phone, tap Scan in the middle of the bottom bar. On a laptop, click Scan or search, or press Ctrl+K (Cmd+K on a Mac).",
+        body: "On a phone, tap \"Scan\" in the middle of the bottom bar. On a laptop, click \"Scan or search\", or press Ctrl+K (Cmd+K on a Mac).",
       },
       {
         title: "Allow the camera",
@@ -121,7 +122,7 @@ export const guidesEn: GuideBook = {
       },
       {
         title: "Read the result",
-        body: "The bundle opens. Green means In stock, blue means Held, red means Void. A dispatched bundle shows which dispatch it went in.",
+        body: "The bundle opens. Green means \"In stock\", blue means \"Held\", red means \"Void\". A dispatched bundle shows which dispatch it went in.",
       },
       {
         title: "No camera, or a barcode gun",
@@ -130,12 +131,12 @@ export const guidesEn: GuideBook = {
     ],
     problems: [
       {
-        title: "It says Not found in this company",
+        title: "It says \"Not found in this company\"",
         fix: "Check the serial you typed. If it's right, the label isn't from a bundle in your company.",
       },
       {
         title: "The camera is blocked",
-        fix: "Allow camera access in your browser or phone settings, then open Scan again. You can always type the serial instead.",
+        fix: "Allow camera access in your browser or phone settings, then open \"Scan\" again. You can always type the serial instead.",
       },
       {
         title: "The camera won't read the label",
@@ -153,11 +154,11 @@ export const guidesEn: GuideBook = {
       {
         title: "Open the dispatch",
         // confirm: who starts a dispatch (owner question Q4).
-        body: "Open Dispatch, go to the Building tab and tap the dispatch. If it isn't there, ask the office to create it with New dispatch.",
+        body: "Open \"Dispatch\", go to the \"Building\" tab and tap the dispatch. If it isn't there, ask the office to create it with \"New dispatch\".",
       },
       {
         title: "Start scanning",
-        body: "Tap Scan bundles. The camera stays open and adds each bundle you scan.",
+        body: "Tap \"Scan bundles\". The camera stays open and adds each bundle you scan.",
       },
       {
         title: "Scan each label",
@@ -168,17 +169,17 @@ export const guidesEn: GuideBook = {
         body: "If a bundle is held for another dispatch, void or already dispatched, orrn says why and doesn't add it. Check with your manager before using that bundle.",
       },
       {
-        title: "Check the totals",
-        body: "Tap Done scanning. Bundles are grouped by section with a bundle count and kg for each group. Check them against the order.",
+        title: "Have a list of serials instead?",
+        body: "Tap \"Paste serials\", paste them in and tap \"Add bundles\". orrn shows how many were added and why any were skipped.",
       },
       {
-        title: "Have a list of serials instead?",
-        body: "Tap Paste serials, paste them in and tap Add bundles. orrn shows how many were added and why any were skipped.",
+        title: "Check the totals",
+        body: "Tap \"Done scanning\". Bundles are grouped by section with a bundle count and kg for each group. Check them against the order.",
       },
     ],
     problems: [
       {
-        title: "It says Already in this dispatch",
+        title: "It says \"Already in this dispatch\"",
         fix: "You scanned the same bundle twice. Nothing changed. Carry on with the next one.",
       },
       {
@@ -186,8 +187,8 @@ export const guidesEn: GuideBook = {
         fix: "Tap the remove button on that bundle's row.",
       },
       {
-        title: "There's no Scan bundles button",
-        fix: "The dispatch isn't in Building any more, or your role can't add bundles. Check the status at the top of the dispatch.",
+        title: "There's no \"Scan bundles\" button",
+        fix: "The dispatch isn't in \"Building\" any more, or your role can't add bundles. Check the status at the top of the dispatch.",
       },
     ],
   },
@@ -204,34 +205,34 @@ export const guidesEn: GuideBook = {
       },
       {
         title: "Hold stock",
-        body: "Tap Hold stock. Every bundle in the dispatch is held for it, so nobody can put them in another dispatch. Bundles added after this are held straight away.",
+        body: "Tap \"Hold stock\". Every bundle in the dispatch is held for it, so nobody can put them in another dispatch. Bundles added after this are held straight away.",
       },
       {
         title: "Release if plans change",
-        body: "Tap Release to send the dispatch back to Building. Its bundles go back in stock until you hold again.",
+        body: "Tap \"Release\" to send the dispatch back to \"Building\". Its bundles go back in stock until you hold again.",
       },
       {
         title: "Dispatch",
-        // confirm: the moment the floor marks a dispatch done.
-        body: "When the bundles are ready to leave, tap Dispatch, check the totals and confirm. After this, bundles can't be added or removed.",
+        // confirm: the moment the floor marks a dispatch done (owner question Q6).
+        body: "When the bundles are ready to leave, tap \"Dispatch\", check the totals and confirm. After this, bundles can't be added or removed.",
       },
       {
         title: "Get the packing list",
-        body: "The packing list opens. Tap Download PDF to print it, or Download Excel for the office. On the phone app, tap Share to send it.",
+        body: "The packing list opens. Tap \"Download PDF\" to print it, or \"Download Excel\" for the office. On the phone app, tap \"Share\" to send it.",
       },
     ],
     problems: [
       {
-        title: "I don't see Hold stock or Dispatch",
+        title: "I don't see \"Hold stock\" or \"Dispatch\"",
         fix: "Only managers, admins and owners can hold and dispatch. Ask one of them.",
       },
       {
         title: "The dispatch has to be stopped",
-        fix: "Open More actions and tap Cancel dispatch. Held bundles go back to stock. A dispatch that is already Dispatched can't be cancelled.",
+        fix: "Open \"More actions\" and tap \"Cancel dispatch\". Held bundles go back to stock. A dispatch that is already \"Dispatched\" can't be cancelled.",
       },
       {
         title: "A number on the packing list looks wrong",
-        fix: "A manager can tap Regenerate to build the packing list again from the bundles as they are now.",
+        fix: "A manager can tap \"Regenerate\" to build the packing list again from the bundles as they are now.",
       },
     ],
   },
@@ -244,29 +245,29 @@ export const guidesEn: GuideBook = {
     steps: [
       {
         title: "Open the bundle",
-        body: "Scan its label, or open Stock, then Bundles, and search the serial.",
+        body: "Scan its label, or open \"Stock\", then \"Bundles\", and search the serial.",
       },
       {
         title: "Check the status",
-        body: "Only a bundle that is In stock can be voided. If it is Held, it has to come out of its dispatch first. Ask a manager.",
+        body: "Only a bundle that is \"In stock\" can be voided. If it is \"Held\", it has to come out of its dispatch first. Ask a manager.",
       },
       {
         title: "Void it",
-        body: "Tap Void bundle, write the reason and confirm. The bundle turns red and can't go into a dispatch.",
+        body: "Tap \"Void bundle\", write the reason and confirm. The bundle turns red and can't go into a dispatch.",
       },
       {
         title: "Restore it if needed",
-        body: "If the void was a mistake, open the bundle, tap Restore bundle and give a reason. It goes back to In stock.",
+        body: "If the void was a mistake, open the bundle, tap \"Restore bundle\" and give a reason. It goes back to \"In stock\".",
       },
       {
         title: "Check the history",
-        body: "The History list on the bundle shows each change, who made it and the reason.",
+        body: "The \"History\" list on the bundle shows each change, who made it and the reason.",
       },
     ],
     problems: [
       {
-        title: "There's no Void button",
-        fix: "Either the bundle isn't In stock, or your role can't change bundle status. Ask a manager.",
+        title: "There's no \"Void bundle\" button",
+        fix: "Either the bundle isn't \"In stock\", or your role can't change bundle status. Ask a manager.",
       },
       {
         title: "I voided the wrong bundle",
@@ -283,7 +284,7 @@ export const guidesEn: GuideBook = {
     steps: [
       {
         title: "Open Dies",
-        body: "Open More, then Dies. Tap New die, or tap an existing die to edit it.",
+        body: "Open \"More\", then \"Dies\". Tap \"New die\", or tap an existing die to edit it.",
       },
       {
         title: "Enter the code",
@@ -296,15 +297,15 @@ export const guidesEn: GuideBook = {
       },
       {
         title: "Set the status",
-        body: "Active dies show in Pack. Archived dies are hidden from Pack but keep all their bundles and history.",
+        body: "\"Active\" dies show in Pack. \"Archived\" dies are hidden from Pack but keep all their bundles and history.",
       },
       {
         title: "Add measurements if you have them",
-        body: "Width, thickness, oblique and leg are under Advanced. They are optional.",
+        body: "Width, thickness, oblique and leg are under \"Advanced\". They are optional.",
       },
       {
         title: "Save",
-        body: "Tap Save die.",
+        body: "Tap \"Save die\".",
       },
     ],
     problems: [
@@ -314,7 +315,7 @@ export const guidesEn: GuideBook = {
       },
       {
         title: "I have many dies to add",
-        fix: "Use Import CSV from the menu on the Dies list. Owners and admins can also import from Settings, Data.",
+        fix: "Use \"Import CSV\" from the menu on the Dies list. Owners and admins can also import from \"Settings\", then \"Data\".",
       },
       {
         title: "I can't edit dies",
@@ -331,7 +332,7 @@ export const guidesEn: GuideBook = {
     steps: [
       {
         title: "Open Customers",
-        body: "Open More, then Customers, and tap New customer. You can also tap New customer while creating a dispatch.",
+        body: "Open \"More\", then \"Customers\", and tap \"New customer\". You can also tap \"New customer\" while creating a dispatch.",
       },
       {
         title: "Name and contact",
@@ -343,11 +344,11 @@ export const guidesEn: GuideBook = {
       },
       {
         title: "Addresses",
-        body: "Enter the billing address. If goods go to the same place, tick Same as billing address. If not, fill in the shipping address.",
+        body: "Enter the billing address. If goods go to the same place, tick \"Same as billing address\". If not, fill in the shipping address.",
       },
       {
         title: "Save",
-        body: "Tap Save customer. Later, this page also lists every dispatch to the customer.",
+        body: "Tap \"Save customer\". Later, this page also lists every dispatch to the customer.",
       },
     ],
     problems: [
@@ -370,19 +371,19 @@ export const guidesEn: GuideBook = {
     steps: [
       {
         title: "Open Team",
-        body: "Open Settings and go to the Team tab.",
+        body: "Open \"Settings\" and go to the \"Team\" tab.",
       },
       {
         title: "Enter their email",
-        body: "Tap Invite member and type the email they will sign in with.",
+        body: "Tap \"Invite member\" and type the email they will sign in with.",
       },
       {
         title: "Choose a role",
-        body: "Operator for floor staff who pack, scan and print labels. Manager for staff who also run dispatches, dies, customers and printers. Viewer for people who only need to look. Admin for people who also manage the team and settings.",
+        body: "\"Operator\" for floor staff who pack, scan and print labels. \"Manager\" for staff who also run dispatches, dies, customers and printers. \"Viewer\" for people who only need to look. \"Admin\" for people who also manage the team and settings.",
       },
       {
         title: "Send the invite",
-        body: "Tap Send invite. They get an email with a link that works for 7 days.",
+        body: "Tap \"Send invite\". They get an email with a link that works for 7 days.",
       },
       {
         title: "They join",
@@ -417,37 +418,37 @@ export const guidesEn: GuideBook = {
     steps: [
       {
         title: "Check the queue",
-        body: "Open Printing and look at the Queue tab. A failed job shows Failed and the reason.",
+        body: "Open \"Printing\" and look at the \"Queue\" tab. A failed job shows \"Failed\" and the reason.",
       },
       {
         title: "Check the printer",
-        body: "Open the Printers tab. If the printer shows Offline, check it is switched on, has labels loaded and its cable is connected.",
+        body: "Open the \"Printers\" tab. If the printer shows \"Offline\", check it is switched on, has labels loaded and its cable is connected.",
       },
       {
         title: "Check label printing",
-        // confirm: who looks after the plant print computer.
-        body: "If every printer is Offline, open Settings, then Printing. If it says Not connected, the plant computer that sends labels to the printers is off or has no internet. Ask whoever looks after it to restart it.",
+        // confirm: who looks after the plant print computer (owner question Q7).
+        body: "If every printer is \"Offline\", open \"Settings\", then \"Printing\". If it says \"Not connected\", the plant computer that sends labels to the printers is off or has no internet. Ask whoever looks after it to restart it.",
       },
       {
         title: "Retry the job",
-        body: "Once the printer is back, a manager taps Retry on the failed job in the Queue tab. You can also reprint from the bundle or the packing session.",
+        body: "Once the printer is back, a manager taps \"Retry\" on the failed job in the \"Queue\" tab. You can also reprint from the bundle or the packing session.",
       },
       {
         title: "Still stuck",
-        body: "Note the reason shown on the failed job and send it to your orrn contact.",
+        body: "Note the reason shown on the failed job and send it to the orrn team.",
       },
     ],
     problems: [
       {
         title: "Labels come out blank",
-        fix: "Check the label roll is loaded the right way round. If it still happens, ask a manager to tap Send label design to printers on the Labels tab.",
+        fix: "Check the label roll is loaded the right way round. If it still happens, ask a manager to tap \"Send label design to printers\" on the \"Labels\" tab.",
       },
       {
-        title: "It says Label printing isn't set up",
-        fix: "Label printing hasn't been set up for your company yet. Ask your orrn contact.",
+        title: "It says \"Label printing isn't set up\"",
+        fix: "Label printing hasn't been set up for your company yet. Ask the orrn team.",
       },
       {
-        title: "There's no Retry button",
+        title: "There's no \"Retry\" button",
         fix: "Only managers, admins and owners can retry or cancel jobs. Ask one of them.",
       },
     ],

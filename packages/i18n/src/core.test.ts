@@ -20,6 +20,23 @@ describe("createI18n", () => {
     expect(createI18n("hi").t("units.bundles", { count: 3 })).toBe("3 bundle");
   });
 
+  test("Hindi verbs agree with count 1", () => {
+    const { t } = createI18n("hi");
+    expect(t("scan.continuous.count", { count: 1 })).toBe("1 जुड़ा");
+    expect(t("scan.continuous.count", { count: 5 })).toBe("5 जुड़े");
+    expect(t("dispatch.paste.added", { count: 1 })).toBe("1 जुड़ा");
+    expect(t("dispatch.paste.already", { count: 1 })).toBe("1 इस dispatch में पहले से है");
+    expect(t("dispatch.paste.already", { count: 2 })).toBe("2 इस dispatch में पहले से हैं");
+    expect(t("dispatch.paste.notFound", { count: 1 })).toBe("1 नहीं मिला");
+    expect(t("dispatch.paste.unavailable", { count: 1 })).toBe("1 उपलब्ध नहीं है");
+    expect(t("today.tiles.dispatchHint", { count: 1 })).toBe("1 खुला");
+    expect(t("today.tiles.dispatchHint", { count: 3 })).toBe("3 खुले");
+    expect(t("today.printProblemsCount", { count: 1 })).toBe("1 लेबल प्रिंट नहीं हुआ");
+    expect(t("pack.new.printFailed", { count: 4 })).toBe("4 लेबल प्रिंट नहीं हुए");
+    expect(t("settings.data.imported", { count: 1 })).toBe("1 लाइन इम्पोर्ट हो गई");
+    expect(t("settings.data.imported", { count: 12 })).toBe("12 लाइन इम्पोर्ट हो गईं");
+  });
+
   test("falls back to the key when nothing matches", () => {
     const { t } = createI18n("hi");
     expect(t("no.such.key" as never)).toBe("no.such.key");
@@ -30,6 +47,11 @@ describe("interpolate", () => {
   test("leaves unknown variables visible", () => {
     expect(interpolate("Hello {name}", {})).toBe("Hello {name}");
     expect(interpolate("Hello {name}")).toBe("Hello {name}");
+  });
+
+  test("renders a form template as {count} when the variable is missing", () => {
+    expect(interpolate("{count} {count:bundle|bundles}")).toBe("{count} {count}");
+    expect(interpolate("{count:जुड़ा|जुड़े}", { other: 1 })).toBe("{count}");
   });
 });
 

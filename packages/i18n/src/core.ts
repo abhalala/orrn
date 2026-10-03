@@ -30,14 +30,13 @@ function lookup(dict: Messages, key: string): string | undefined {
 
 /**
  * Fills `{name}` with `vars.name`, and `{count:one|other}` with `one` when
- * `vars.count` is 1, else `other`. Unknown variables are left as written so a
- * missing value is visible instead of silently blank.
+ * `vars.count` is 1, else `other`. A missing variable renders as `{name}` (form
+ * templates too) so the gap is visible instead of silently blank.
  */
-export function interpolate(template: string, vars?: TranslateVars): string {
-  if (!vars) return template;
-  return template.replace(/\{(\w+)(?::([^|}]*)\|([^}]*))?\}/g, (whole, name: string, one?: string, other?: string) => {
+export function interpolate(template: string, vars: TranslateVars = {}): string {
+  return template.replace(/\{(\w+)(?::([^|}]*)\|([^}]*))?\}/g, (_whole, name: string, one?: string, other?: string) => {
     const value = vars[name];
-    if (value === undefined) return whole;
+    if (value === undefined) return `{${name}}`;
     if (one !== undefined && other !== undefined) return Number(value) === 1 ? one : other;
     return String(value);
   });

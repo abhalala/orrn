@@ -258,7 +258,9 @@
         "@orrn/config": "workspace:*",
         "@types/bun": "^1.3.13",
         "@types/react": "^19.2.10",
+        "@types/react-dom": "catalog:",
         "react": "19.2.0",
+        "react-dom": "19.2.0",
         "typescript": "^6",
       },
       "peerDependencies": {

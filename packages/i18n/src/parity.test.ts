@@ -132,9 +132,9 @@ describe("copy rules", () => {
     expect(all.filter((s) => /spool|receipt|tenant|mutation/i.test(s))).toEqual([]);
   });
 
-  test("no ALL-CAPS words except known acronyms", () => {
+  test("no ALL-CAPS words except known acronyms (English, and Latin text inside Hindi)", () => {
     const allowed = new Set(["PO", "PDF", "GSTIN", "GST", "CSV", "QR", "PL", "JSON", "PIN", "OK", "ID", "BG", "B001"]);
-    const offenders = allEnglish.flatMap((s) =>
+    const offenders = all.flatMap((s) =>
       [...s.matchAll(/\b[A-Z][A-Z0-9]+\b/g)].map((m) => m[0]).filter((w) => !allowed.has(w)),
     );
     expect(offenders).toEqual([]);
@@ -142,5 +142,34 @@ describe("copy rules", () => {
 
   test("at most one middle dot per string", () => {
     expect(all.filter((s) => (s.match(/·/g) ?? []).length > 1)).toEqual([]);
+  });
+});
+
+describe("guides name real buttons", () => {
+  const quoted = (s: string) => [...s.matchAll(/"([^"]+)"/g)].map((m) => m[1] as string);
+
+  function unknownNames(book: typeof guidesEn, values: Set<string>): string[] {
+    const titles = new Set(GUIDE_SLUGS.map((s) => book[s].title));
+    return GUIDE_SLUGS.flatMap((slug) =>
+      guideStrings(book[slug])
+        .flatMap(quoted)
+        .filter((name) => !values.has(name) && !titles.has(name))
+        .map((name) => `${slug}: ${name}`),
+    );
+  }
+
+  test("every quoted name in the English guides is an en.ts string or a guide title", () => {
+    expect(unknownNames(guidesEn, new Set(enFlat.values()))).toEqual([]);
+  });
+
+  test("every quoted name in the Hindi guides is a hi.ts string or a guide title", () => {
+    expect(unknownNames(guidesHi, new Set(hiFlat.values()))).toEqual([]);
+  });
+
+  test("each guide quotes UI names in both locales or in neither", () => {
+    const mismatched = GUIDE_SLUGS.filter(
+      (slug) => (guideStrings(guidesEn[slug]).flatMap(quoted).length > 0) !== (guideStrings(guidesHi[slug]).flatMap(quoted).length > 0),
+    );
+    expect(mismatched).toEqual([]);
   });
 });

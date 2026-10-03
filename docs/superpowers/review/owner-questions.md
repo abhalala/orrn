@@ -2,7 +2,7 @@
 
 For the owner and Lalu uncle, sent on WhatsApp. Each block below is ready to paste as one message. They answer with the question number and an option number, for example `Q1 1`. The build doesn't wait for answers: the default in brackets is what orrn does until we hear back.
 
-Q1 to Q4 come from spec section 9. Q5 to Q8 come from lines in the SOP guides that touch plant practice (marked `confirm:` in `packages/i18n/src/guides/en.ts`) and from two Hindi word choices in `packages/i18n/src/hi.ts`.
+Q1 to Q4 come from spec section 9. Q5 to Q8 come from lines in the SOP guides that touch plant practice (marked `confirm:` in `packages/i18n/src/guides/en.ts`) and from three Hindi word choices in `packages/i18n/src/hi.ts`.
 
 ## Spec questions
 
@@ -49,7 +49,7 @@ Does one packing session (one die) use a single cut length?
 ### Q4. What floor operators can do with a dispatch (default: 1)
 
 ```
-*Q4* फ़्लोर के ऑपरेटर dispatch में क्या कर सकें?
+*Q4* ऑपरेटर को dispatch में क्या करने देना है?
 What should floor operators be able to do with a dispatch?
 
 1. सिर्फ़ स्कैन करके bundle डालें, dispatch ऑफ़िस बनाए (only scan into one the office made)
@@ -106,11 +106,11 @@ If the computer that sends labels to the printers is off, who restarts it?
 जवाब / Reply: Q7 और नंबर
 ```
 
-### Q8. Two Hindi words (default: 1 and 1)
+### Q8. Three Hindi words (default: 1, 1 and 1)
 
 ```
-*Q8* ऐप में ये दो शब्द कैसे लिखें?
-How should the app write these two words?
+*Q8* ऐप में ये तीन शब्द कैसे लिखें?
+How should the app write these three words?
 
 Customer:
 1. ग्राहक
@@ -120,5 +120,10 @@ Void bundle (गलत entry या खराब):
 1. रद्द
 2. Void (English में ही)
 
-जवाब / Reply: Q8 और दो नंबर, जैसे Q8 2 1
+Cut length:
+1. कट लंबाई
+2. कट लेंथ
+3. Cut length (English में ही)
+
+जवाब / Reply: Q8 और तीन नंबर, जैसे Q8 2 1 1
 ```
