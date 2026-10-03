@@ -31,7 +31,7 @@ With the API running:
 curl -XPOST localhost:3000/dev/seed
 ```
 
-Only works when `NODE_ENV` is `development` (set by `wrangler.local.jsonc`). It creates one demo company,
+Only works against the local stack (see Test accounts). It creates one demo company,
 "Fourcubes Extrusions (Demo)", configured for inch lengths, `Asia/Kolkata`, all modules on:
 
 | Data | Amount |
@@ -62,7 +62,8 @@ Users are created through Better Auth (real password hashes). Fixed emails:
 | ORRN staff (`super_admin`, Godseye) | `staff@orrn.local` |
 
 The shared password is `vars.ORRN_LOCAL_PASSWORD` in `apps/server/wrangler.local.jsonc` (local only, never
-deployed). If that binding is removed, the seed generates a password and returns it once in the JSON.
+deployed). `/dev/seed` refuses to run (404) unless that binding is set and the request host is
+`localhost`, `127.0.0.1` or `[::1]`, because the deployed dev stage also runs with `NODE_ENV=development`.
 
 Tests and scripts read the accounts from `apps/server/.dev.local-account.local` (gitignored). Write it with:
 

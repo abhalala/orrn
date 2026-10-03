@@ -9,6 +9,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
+import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
+
 import { seedDevData } from "./dev-seed";
 import { spoolRoutes } from "./spool-routes";
 
@@ -45,8 +47,11 @@ app.route("/", spoolRoutes);
 
 if (env.NODE_ENV === "development") {
   app.post("/dev/seed", async (c) => {
+    // NODE_ENV=development is also bound on the deployed dev stage, so require the local-only
+    // password binding and a loopback host. Anything else looks like the route does not exist.
+    if (!canRunDevSeed(env, c.req.url)) return c.notFound();
     try {
-      const result = await seedDevData(createDb(), { password: env.ORRN_LOCAL_PASSWORD });
+      const result = await seedDevData(createDb(), { password: env.ORRN_LOCAL_PASSWORD ?? "" });
       return c.json(result, result.status);
     } catch (error) {
       console.error("dev seed failed", error);

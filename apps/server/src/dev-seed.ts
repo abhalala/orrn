@@ -17,7 +17,7 @@ import { company, membership, platformAdmin } from "@orrn/db/schema/tenant";
 import { packingListWriteBatch } from "@orrn/server/routers/packingList";
 import { formatBundleSerial, formatGroupCode } from "@orrn/server/lib/bundleSerial";
 import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
-import { eq, getTableColumns, inArray, or } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, ne } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 
@@ -255,17 +255,15 @@ export type SeedResult =
       companyId: string;
       accounts: Record<DevAccountKey, string>;
       createdUsers: DevAccountKey[];
-      /** Only present when no ORRN_LOCAL_PASSWORD binding was set and new users were created. */
-      generatedPassword?: string;
       counts: Record<string, number>;
       bundlesByStatus: Record<string, number>;
     }
   | { ok: false; status: 500; message: string };
 
-export async function seedDevData(db: Db, opts: { password?: string } = {}): Promise<SeedResult> {
+export async function seedDevData(db: Db, opts: { password: string }): Promise<SeedResult> {
   const now = Date.now();
-  const hasBinding = Boolean(opts.password);
-  const password = opts.password || `orrn-local-${crypto.randomUUID().slice(0, 12)}`;
+  const password = opts.password;
+  if (!password) throw new Error("dev-seed: refusing to run without ORRN_LOCAL_PASSWORD");
 
   // 1. Users go through Better Auth so password hashes are real.
   const users = {
@@ -277,6 +275,22 @@ export async function seedDevData(db: Db, opts: { password?: string } = {}): Pro
   const createdUsers = (Object.keys(users) as DevAccountKey[]).filter((key) => users[key].created);
   const ownerId = users.owner.id;
   const operatorId = users.operator.id;
+
+  // A user can belong to one company only; never silently move someone out of another tenant.
+  const elsewhere = await db
+    .select({ userId: membership.userId, companyId: membership.companyId })
+    .from(membership)
+    .where(
+      and(
+        inArray(membership.userId, [ownerId, operatorId, users.viewer.id]),
+        ne(membership.companyId, COMPANY_ID),
+      ),
+    );
+  if (elsewhere.length > 0) {
+    throw new Error(
+      `dev-seed: seed users already belong to another company (${elsewhere.map((m) => m.companyId).join(", ")}); reset the local D1 state`,
+    );
+  }
 
   // 2. Build the plant in memory.
   const rand = mulberry32(20261003);
@@ -650,14 +664,7 @@ export async function seedDevData(db: Db, opts: { password?: string } = {}): Pro
           modules: ALL_MODULES,
         },
       }),
-    db
-      .delete(membership)
-      .where(
-        or(
-          eq(membership.companyId, COMPANY_ID),
-          inArray(membership.userId, [ownerId, operatorId, users.viewer.id]),
-        ),
-      ),
+    db.delete(membership).where(eq(membership.companyId, COMPANY_ID)),
     db.insert(membership).values([
       { id: "dev-membership-owner", userId: ownerId, companyId: COMPANY_ID, role: "owner" as const },
       { id: "dev-membership-operator", userId: operatorId, companyId: COMPANY_ID, role: "operator" as const },
@@ -728,6 +735,5 @@ export async function seedDevData(db: Db, opts: { password?: string } = {}): Pro
     },
     bundlesByStatus,
   };
-  if (!hasBinding && createdUsers.length > 0) result.generatedPassword = password;
   return result;
 }
