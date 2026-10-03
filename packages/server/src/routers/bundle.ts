@@ -14,7 +14,7 @@ import {
 
 import { companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
-import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { atomicBatch, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
 import { nextCompanySeq } from "../lib/sequence";
 
@@ -143,13 +143,8 @@ export const bundleRouter = router({
           createdBy: userId,
         }),
       ];
-      pushChunkedInserts(statements, (chunk) => ctx.db.insert(bundle).values(chunk), bundleRows, 50);
-      pushChunkedInserts(
-        statements,
-        (chunk) => ctx.db.insert(bundleStatusEvent).values(chunk),
-        eventRows,
-        50,
-      );
+      pushChunkedInserts(statements, (rows) => ctx.db.insert(bundle).values(rows), bundleRows);
+      pushChunkedInserts(statements, (rows) => ctx.db.insert(bundleStatusEvent).values(rows), eventRows);
       statements.push(
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
@@ -586,22 +581,23 @@ export const bundleRouter = router({
       //    after repeated imports.
       const dieIds = Array.from(dieKeyToId.values()).map((d) => d.id);
 
-      const existingLegacyGroups = dieIds.length > 0
-        ? await ctx.db
-            .select({
-              id: bundleGroup.id,
-              code: bundleGroup.code,
-              dieId: bundleGroup.dieId,
-            })
-            .from(bundleGroup)
-            .where(
-              and(
-                eq(bundleGroup.companyId, ctx.companyId),
-                inArray(bundleGroup.dieId, dieIds),
-                like(bundleGroup.code, `${LEGACY_GROUP_PREFIX}-%`),
-              ),
-            )
-        : [];
+      // Chunked: a 2000-row import can touch far more than 100 dies.
+      const existingLegacyGroups = await mapInChunks(dieIds, (ids) =>
+        ctx.db
+          .select({
+            id: bundleGroup.id,
+            code: bundleGroup.code,
+            dieId: bundleGroup.dieId,
+          })
+          .from(bundleGroup)
+          .where(
+            and(
+              eq(bundleGroup.companyId, ctx.companyId),
+              inArray(bundleGroup.dieId, ids),
+              like(bundleGroup.code, `${LEGACY_GROUP_PREFIX}-%`),
+            ),
+          ),
+      );
 
       const dieIdToGroup = new Map<string, { id: string; code: string }>();
       for (const g of existingLegacyGroups) {
@@ -712,13 +708,8 @@ export const bundleRouter = router({
       }
 
       // 7. Chunk-insert everything in a single atomic batch.
-      pushChunkedInserts(statements, (chunk) => ctx.db.insert(bundle).values(chunk), bundleRows, 50);
-      pushChunkedInserts(
-        statements,
-        (chunk) => ctx.db.insert(bundleStatusEvent).values(chunk),
-        eventRows,
-        50,
-      );
+      pushChunkedInserts(statements, (rows) => ctx.db.insert(bundle).values(rows), bundleRows);
+      pushChunkedInserts(statements, (rows) => ctx.db.insert(bundleStatusEvent).values(rows), eventRows);
 
       statements.push(
         auditInsert(

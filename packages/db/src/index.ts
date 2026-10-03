@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";
 
 export { atomicBatch, pushChunkedInserts, type OrrnDb } from "./atomic";
+export { chunk, D1_MAX_PARAMS, IN_LIST_CHUNK, mapInChunks, rowsPerStatement } from "./chunk";
 
 /**
  * Cloudflare D1 binding used by the API worker.

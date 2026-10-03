@@ -314,7 +314,7 @@ export const dieRouter = router({
           status: row.status,
           notes: row.notes,
         }));
-        pushChunkedInserts(statements, (chunk) => ctx.db.insert(die).values(chunk), values, 100);
+        pushChunkedInserts(statements, (rows) => ctx.db.insert(die).values(rows), values);
       }
 
       for (const row of input.updatedRows) {

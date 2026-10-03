@@ -193,12 +193,7 @@ export const customerRouter = router({
           }));
 
           const statements: SqliteBatchItem[] = [];
-          pushChunkedInserts(
-            statements,
-            (chunk) => ctx.db.insert(customer).values(chunk),
-            values,
-            100,
-          );
+          pushChunkedInserts(statements, (rows) => ctx.db.insert(customer).values(rows), values);
           return statements;
         },
       );

@@ -15,7 +15,14 @@ import { bundle, bundleStatusEvent } from "@orrn/db/schema/inventory";
 
 import { companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
-import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
+import {
+  atomicBatch,
+  chunk,
+  IN_LIST_CHUNK,
+  mapInChunks,
+  pushChunkedInserts,
+  type SqliteBatchItem,
+} from "../lib/atomic";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { nextCompanySeq } from "../lib/sequence";
 import { appendPackingListWrites } from "./packingList";
@@ -410,10 +417,12 @@ export const dispatchRouter = router({
         });
       }
 
-      const bundles = await ctx.db
-        .select()
-        .from(bundle)
-        .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.serial, trimmed)));
+      const bundles = await mapInChunks(trimmed, (serials) =>
+        ctx.db
+          .select()
+          .from(bundle)
+          .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.serial, serials))),
+      );
 
       const found = new Map(bundles.map((b) => [b.serial, b]));
       const missing = trimmed.filter((s) => !found.has(s));
@@ -432,19 +441,20 @@ export const dispatchRouter = router({
         });
       }
 
-      const existingItemRows = await ctx.db
-        .select({ bundleId: dispatchItem.bundleId })
-        .from(dispatchItem)
-        .where(
-          and(
-            eq(dispatchItem.companyId, ctx.companyId),
-            eq(dispatchItem.dispatchId, d.id),
-            inArray(
-              dispatchItem.bundleId,
-              bundles.map((b) => b.id),
+      const existingItemRows = await mapInChunks(
+        bundles.map((b) => b.id),
+        (ids) =>
+          ctx.db
+            .select({ bundleId: dispatchItem.bundleId })
+            .from(dispatchItem)
+            .where(
+              and(
+                eq(dispatchItem.companyId, ctx.companyId),
+                eq(dispatchItem.dispatchId, d.id),
+                inArray(dispatchItem.bundleId, ids),
+              ),
             ),
-          ),
-        );
+      );
       const alreadyAdded = new Set(existingItemRows.map((r) => r.bundleId));
       const toAdd = bundles.filter((b) => !alreadyAdded.has(b.id));
       if (toAdd.length === 0) {
@@ -455,43 +465,41 @@ export const dispatchRouter = router({
       }
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const statements: SqliteBatchItem[] = [
-        ctx.db.insert(dispatchItem).values(
-          toAdd.map((b) => ({
-            id: crypto.randomUUID(),
-            companyId: ctx.companyId,
-            dispatchId: d.id,
-            bundleId: b.id,
-          })),
-        ),
-      ];
+      const statements: SqliteBatchItem[] = [];
+      pushChunkedInserts(
+        statements,
+        (rows) => ctx.db.insert(dispatchItem).values(rows),
+        toAdd.map((b) => ({
+          id: crypto.randomUUID(),
+          companyId: ctx.companyId,
+          dispatchId: d.id,
+          bundleId: b.id,
+        })),
+      );
 
       if (d.status === "reserved") {
-        statements.push(
-          ctx.db
-            .update(bundle)
-            .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
-            .where(
-              and(
-                eq(bundle.companyId, ctx.companyId),
-                inArray(
-                  bundle.id,
-                  toAdd.map((b) => b.id),
-                ),
-              ),
-            ),
-          ctx.db.insert(bundleStatusEvent).values(
-            toAdd.map((b) => ({
-              id: crypto.randomUUID(),
-              companyId: ctx.companyId,
-              bundleId: b.id,
-              fromStatus: "available" as const,
-              toStatus: "reserved" as const,
-              reason: "dispatch.addBundle",
-              actorId: ctx.session.user.id,
-              dispatchId: d.id,
-            })),
-          ),
+        const addIds = toAdd.map((b) => b.id);
+        for (const ids of chunk(addIds, IN_LIST_CHUNK)) {
+          statements.push(
+            ctx.db
+              .update(bundle)
+              .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
+              .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids))),
+          );
+        }
+        pushChunkedInserts(
+          statements,
+          (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
+          addIds.map((bundleId) => ({
+            id: crypto.randomUUID(),
+            companyId: ctx.companyId,
+            bundleId,
+            fromStatus: "available" as const,
+            toStatus: "reserved" as const,
+            reason: "dispatch.addBundle",
+            actorId: ctx.session.user.id,
+            dispatchId: d.id,
+          })),
         );
       }
 
@@ -672,10 +680,12 @@ export const dispatchRouter = router({
       }
 
       const bundleIds = items.map((i) => i.bundleId);
-      const bundles = await ctx.db
-        .select()
-        .from(bundle)
-        .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, bundleIds)));
+      const bundles = await mapInChunks(bundleIds, (ids) =>
+        ctx.db
+          .select()
+          .from(bundle)
+          .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids))),
+      );
 
       const notAvailable = bundles.filter((b) => b.status !== "available");
       if (notAvailable.length > 0) {
@@ -690,23 +700,30 @@ export const dispatchRouter = router({
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
 
-      await atomicBatch(ctx.db, [
-        ctx.db
-          .update(bundle)
-          .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
-          .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, bundleIds))),
-        ctx.db.insert(bundleStatusEvent).values(
-          bundleIds.map((bid) => ({
-            id: crypto.randomUUID(),
-            companyId: ctx.companyId,
-            bundleId: bid,
-            fromStatus: "available" as const,
-            toStatus: "reserved" as const,
-            reason: "dispatch.reserve",
-            actorId: ctx.session.user.id,
-            dispatchId: d.id,
-          })),
-        ),
+      const statements: SqliteBatchItem[] = [];
+      for (const ids of chunk(bundleIds, IN_LIST_CHUNK)) {
+        statements.push(
+          ctx.db
+            .update(bundle)
+            .set({ status: "reserved", currentDispatchId: d.id, serverSeq: seq })
+            .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids))),
+        );
+      }
+      pushChunkedInserts(
+        statements,
+        (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
+        bundleIds.map((bid) => ({
+          id: crypto.randomUUID(),
+          companyId: ctx.companyId,
+          bundleId: bid,
+          fromStatus: "available" as const,
+          toStatus: "reserved" as const,
+          reason: "dispatch.reserve",
+          actorId: ctx.session.user.id,
+          dispatchId: d.id,
+        })),
+      );
+      statements.push(
         ctx.db.update(dispatch).set({ status: "reserved", serverSeq: seq }).where(eq(dispatch.id, d.id)),
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
@@ -717,7 +734,8 @@ export const dispatchRouter = router({
             meta: { itemCount: items.length },
           },
         ),
-      ]);
+      );
+      await atomicBatch(ctx.db, statements);
       return { success: true };
     }),
 
@@ -748,16 +766,18 @@ export const dispatchRouter = router({
 
       if (items.length > 0) {
         const bundleIds = items.map((i) => i.bundleId);
-        const reservedBundles = await ctx.db
-          .select()
-          .from(bundle)
-          .where(
-            and(
-              eq(bundle.companyId, ctx.companyId),
-              inArray(bundle.id, bundleIds),
-              eq(bundle.currentDispatchId, d.id),
+        const reservedBundles = await mapInChunks(bundleIds, (ids) =>
+          ctx.db
+            .select()
+            .from(bundle)
+            .where(
+              and(
+                eq(bundle.companyId, ctx.companyId),
+                inArray(bundle.id, ids),
+                eq(bundle.currentDispatchId, d.id),
+              ),
             ),
-          );
+        );
         const notReservedHere = reservedBundles.filter((b) => b.status !== "reserved");
         if (reservedBundles.length !== bundleIds.length || notReservedHere.length > 0) {
           throw new TRPCError({
@@ -766,31 +786,37 @@ export const dispatchRouter = router({
           });
         }
 
-        statements.unshift(
-          ctx.db
-            .update(bundle)
-            .set({ status: "available", currentDispatchId: null, serverSeq: seq })
-            .where(
-              and(
-                eq(bundle.companyId, ctx.companyId),
-                inArray(bundle.id, bundleIds),
-                eq(bundle.status, "reserved"),
-                eq(bundle.currentDispatchId, d.id),
+        const releaseStatements: SqliteBatchItem[] = [];
+        for (const ids of chunk(bundleIds, IN_LIST_CHUNK)) {
+          releaseStatements.push(
+            ctx.db
+              .update(bundle)
+              .set({ status: "available", currentDispatchId: null, serverSeq: seq })
+              .where(
+                and(
+                  eq(bundle.companyId, ctx.companyId),
+                  inArray(bundle.id, ids),
+                  eq(bundle.status, "reserved"),
+                  eq(bundle.currentDispatchId, d.id),
+                ),
               ),
-            ),
-          ctx.db.insert(bundleStatusEvent).values(
-            bundleIds.map((bid) => ({
-              id: crypto.randomUUID(),
-              companyId: ctx.companyId,
-              bundleId: bid,
-              fromStatus: "reserved" as const,
-              toStatus: "available" as const,
-              reason: "dispatch.unreserve",
-              actorId: ctx.session.user.id,
-              dispatchId: d.id,
-            })),
-          ),
+          );
+        }
+        pushChunkedInserts(
+          releaseStatements,
+          (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
+          bundleIds.map((bid) => ({
+            id: crypto.randomUUID(),
+            companyId: ctx.companyId,
+            bundleId: bid,
+            fromStatus: "reserved" as const,
+            toStatus: "available" as const,
+            reason: "dispatch.unreserve",
+            actorId: ctx.session.user.id,
+            dispatchId: d.id,
+          })),
         );
+        statements.unshift(...releaseStatements);
       }
 
       statements.push(
@@ -839,16 +865,18 @@ export const dispatchRouter = router({
       const bundleIds = items.map((i) => i.bundleId);
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const completedAt = new Date();
-      const bundles = await ctx.db
-        .select()
-        .from(bundle)
-        .where(
-          and(
-            eq(bundle.companyId, ctx.companyId),
-            inArray(bundle.id, bundleIds),
-            eq(bundle.currentDispatchId, d.id),
+      const bundles = await mapInChunks(bundleIds, (ids) =>
+        ctx.db
+          .select()
+          .from(bundle)
+          .where(
+            and(
+              eq(bundle.companyId, ctx.companyId),
+              inArray(bundle.id, ids),
+              eq(bundle.currentDispatchId, d.id),
+            ),
           ),
-        );
+      );
       const notReservedHere = bundles.filter((b) => b.status !== "reserved");
       if (bundles.length !== bundleIds.length || notReservedHere.length > 0) {
         throw new TRPCError({
@@ -872,30 +900,37 @@ export const dispatchRouter = router({
         impersonation: ctx.impersonation,
       });
 
-      await atomicBatch(ctx.db, [
-        ctx.db
-          .update(bundle)
-          .set({ status: "dispatched", serverSeq: seq })
-          .where(
-            and(
-              eq(bundle.companyId, ctx.companyId),
-              inArray(bundle.id, bundleIds),
-              eq(bundle.status, "reserved"),
-              eq(bundle.currentDispatchId, d.id),
+      const statements: SqliteBatchItem[] = [];
+      for (const ids of chunk(bundleIds, IN_LIST_CHUNK)) {
+        statements.push(
+          ctx.db
+            .update(bundle)
+            .set({ status: "dispatched", serverSeq: seq })
+            .where(
+              and(
+                eq(bundle.companyId, ctx.companyId),
+                inArray(bundle.id, ids),
+                eq(bundle.status, "reserved"),
+                eq(bundle.currentDispatchId, d.id),
+              ),
             ),
-          ),
-        ctx.db.insert(bundleStatusEvent).values(
-          bundleIds.map((bid) => ({
-            id: crypto.randomUUID(),
-            companyId: ctx.companyId,
-            bundleId: bid,
-            fromStatus: "reserved" as const,
-            toStatus: "dispatched" as const,
-            reason: "dispatch.complete",
-            actorId: ctx.session.user.id,
-            dispatchId: d.id,
-          })),
-        ),
+        );
+      }
+      pushChunkedInserts(
+        statements,
+        (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
+        bundleIds.map((bid) => ({
+          id: crypto.randomUUID(),
+          companyId: ctx.companyId,
+          bundleId: bid,
+          fromStatus: "reserved" as const,
+          toStatus: "dispatched" as const,
+          reason: "dispatch.complete",
+          actorId: ctx.session.user.id,
+          dispatchId: d.id,
+        })),
+      );
+      statements.push(
         ctx.db
           .update(dispatch)
           .set({
@@ -915,7 +950,8 @@ export const dispatchRouter = router({
             meta: { itemCount: items.length },
           },
         ),
-      ]);
+      );
+      await atomicBatch(ctx.db, statements);
       return { success: true };
     }),
 
@@ -951,16 +987,18 @@ export const dispatchRouter = router({
           );
         if (items.length > 0) {
           const bundleIds = items.map((i) => i.bundleId);
-          const reservedBundles = await ctx.db
-            .select()
-            .from(bundle)
-            .where(
-              and(
-                eq(bundle.companyId, ctx.companyId),
-                inArray(bundle.id, bundleIds),
-                eq(bundle.currentDispatchId, d.id),
+          const reservedBundles = await mapInChunks(bundleIds, (ids) =>
+            ctx.db
+              .select()
+              .from(bundle)
+              .where(
+                and(
+                  eq(bundle.companyId, ctx.companyId),
+                  inArray(bundle.id, ids),
+                  eq(bundle.currentDispatchId, d.id),
+                ),
               ),
-            );
+          );
           const notReservedHere = reservedBundles.filter((b) => b.status !== "reserved");
           if (reservedBundles.length !== bundleIds.length || notReservedHere.length > 0) {
             throw new TRPCError({
@@ -969,31 +1007,37 @@ export const dispatchRouter = router({
             });
           }
 
-          statements.unshift(
-            ctx.db
-              .update(bundle)
-              .set({ status: "available", currentDispatchId: null, serverSeq: seq })
-              .where(
-                and(
-                  eq(bundle.companyId, ctx.companyId),
-                  inArray(bundle.id, bundleIds),
-                  eq(bundle.status, "reserved"),
-                  eq(bundle.currentDispatchId, d.id),
+          const releaseStatements: SqliteBatchItem[] = [];
+          for (const ids of chunk(bundleIds, IN_LIST_CHUNK)) {
+            releaseStatements.push(
+              ctx.db
+                .update(bundle)
+                .set({ status: "available", currentDispatchId: null, serverSeq: seq })
+                .where(
+                  and(
+                    eq(bundle.companyId, ctx.companyId),
+                    inArray(bundle.id, ids),
+                    eq(bundle.status, "reserved"),
+                    eq(bundle.currentDispatchId, d.id),
+                  ),
                 ),
-              ),
-            ctx.db.insert(bundleStatusEvent).values(
-              bundleIds.map((bid) => ({
-                id: crypto.randomUUID(),
-                companyId: ctx.companyId,
-                bundleId: bid,
-                fromStatus: "reserved" as const,
-                toStatus: "available" as const,
-                reason: input.reason ?? "dispatch.cancel",
-                actorId: ctx.session.user.id,
-                dispatchId: d.id,
-              })),
-            ),
+            );
+          }
+          pushChunkedInserts(
+            releaseStatements,
+            (rows) => ctx.db.insert(bundleStatusEvent).values(rows),
+            bundleIds.map((bid) => ({
+              id: crypto.randomUUID(),
+              companyId: ctx.companyId,
+              bundleId: bid,
+              fromStatus: "reserved" as const,
+              toStatus: "available" as const,
+              reason: input.reason ?? "dispatch.cancel",
+              actorId: ctx.session.user.id,
+              dispatchId: d.id,
+            })),
           );
+          statements.unshift(...releaseStatements);
           releasedCount = items.length;
         }
       }

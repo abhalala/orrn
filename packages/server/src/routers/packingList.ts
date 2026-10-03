@@ -222,13 +222,7 @@ export async function packingListWriteBatch(
       lengthMm: Number(item.bundleLengthMm),
       groupLabel: item.groupLabel ?? item.groupId ?? `GROUP-${index + 1}`,
     }));
-    pushChunkedInserts(
-      statements,
-      (chunk) => db.insert(packingListLine).values(chunk),
-      lineValues,
-      // 9 bound params per line; D1 allows at most 100 per statement.
-      10,
-    );
+    pushChunkedInserts(statements, (rows) => db.insert(packingListLine).values(rows), lineValues);
   }
 
   statements.push(
