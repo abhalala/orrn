@@ -1014,7 +1014,6 @@ export const hi = {
     isNew: "नया",
     isNewLong: "इस अवधि में नया",
     noValue: "डेटा नहीं",
-    soFar: "अब तक",
     soFarLabel: "{label}, अब तक",
     shareOfTotal: "कुल का {share}",
     unitThousand: "k",
