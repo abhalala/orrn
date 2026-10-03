@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
+import { DEV_LOCAL_TRUSTED_ORIGINS } from "@orrn/auth/origins";
+
 import { isDevLocalOrigin } from "../src/lib/devOrigins";
 import { resolveCorsOrigin } from "../src/lib/corsOrigin";
 
@@ -57,6 +59,19 @@ describe("isDevLocalOrigin (per-worktree ports)", () => {
     ]) {
       expect(isDevLocalOrigin(d, origin)).toBe(false);
     }
+  });
+});
+
+describe("Better Auth trusted origins mirror the CORS rule", () => {
+  // packages/auth adds these patterns in development only; CORS uses isDevLocalOrigin. A browser needs both
+  // to agree, or sign-in from a worktree's web port passes CORS and then fails with INVALID_ORIGIN.
+  test("the auth wildcard hosts are exactly the hosts isDevLocalOrigin accepts", () => {
+    const hosts = DEV_LOCAL_TRUSTED_ORIGINS.map((pattern) => pattern.replace(/:\*$/, ""));
+    expect(hosts).toEqual(["http://localhost", "http://127.0.0.1"]);
+    for (const host of hosts) {
+      expect(isDevLocalOrigin({ NODE_ENV: "development" }, `${host}:3293`)).toBe(true);
+    }
+    expect(DEV_LOCAL_TRUSTED_ORIGINS.every((pattern) => pattern.endsWith(":*") && pattern.startsWith("http://"))).toBe(true);
   });
 });
 
