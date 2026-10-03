@@ -602,7 +602,12 @@ function WeightsStep({
           </span>
           {reading.diffG !== null ? <span className="text-[16px] font-semibold">kg</span> : null}
         </p>
-        <p aria-live="polite" className="relative m-0 text-[15px] font-semibold break-words">
+        {/* The tolerance chip: the verdict in words, so the block's colour is never the only signal. */}
+        <p
+          aria-live="polite"
+          data-testid="tolerance-chip"
+          className="relative m-0 inline-flex max-w-full self-start rounded-full bg-black/15 px-3 py-1 text-[15px] font-semibold break-words"
+        >
           {word}
         </p>
         {reading.partyG !== null ? (
