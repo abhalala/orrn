@@ -70,6 +70,18 @@ export function LoadError({ message, onRetry, className }: { message: string; on
   );
 }
 
+/**
+ * The latest non-null value. A dialog opened for one row (`open={row !== null}`)
+ * keeps that row's title while it animates out after the row is cleared,
+ * instead of flashing an empty title. Derived state set during render (the
+ * React-documented pattern), so no effect and no ref read in render.
+ */
+export function useLastValue<T>(value: T | null): T | null {
+  const [last, setLast] = useState<T | null>(value);
+  if (value !== null && value !== last) setLast(value);
+  return value ?? last;
+}
+
 export type ConfirmDialogProps = {
   open: boolean;
   onOpenChange(open: boolean): void;

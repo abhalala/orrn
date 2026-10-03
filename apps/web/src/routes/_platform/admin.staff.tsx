@@ -15,7 +15,7 @@ import { toast } from "sonner";
 
 import { formatDay } from "@/features/admin/format";
 import type { StaffRow } from "@/features/admin/types";
-import { ConfirmDialog, errorCode, errorText, LoadError } from "@/features/admin/ui";
+import { ConfirmDialog, errorCode, errorText, LoadError, useLastValue } from "@/features/admin/ui";
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
@@ -53,6 +53,7 @@ function AdminStaff() {
   const assignable = useQuery(trpc.platform.staffAssignableRoles.queryOptions());
   const [addOpen, setAddOpen] = useState(false);
   const [removing, setRemoving] = useState<StaffRow | null>(null);
+  const removingShown = useLastValue(removing);
 
   const refresh = () =>
     Promise.all([
@@ -172,8 +173,8 @@ function AdminStaff() {
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => (open ? undefined : setRemoving(null))}
-        title={removing ? t("admin.staff.removeTitle", { name: removing.name }) : ""}
-        body={removing ? t("admin.staff.removeBody", { email: removing.email }) : ""}
+        title={removingShown ? t("admin.staff.removeTitle", { name: removingShown.name }) : ""}
+        body={removingShown ? t("admin.staff.removeBody", { email: removingShown.email }) : ""}
         confirmLabel={t("admin.staff.remove")}
         tone="danger"
         pending={remove.isPending}

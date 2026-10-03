@@ -18,7 +18,7 @@ import { trpc } from "@/shared/utils/trpc";
 import { formatAgo, formatDay } from "./format";
 import { printingKey, printingTone, suggestStationName, validateStationName } from "./status";
 import type { CreatedDeployment, DeploymentRow } from "./types";
-import { ConfirmDialog, CopyField, errorCode, errorText, Fact, LoadError, Panel } from "./ui";
+import { ConfirmDialog, CopyField, errorCode, errorText, Fact, LoadError, Panel, useLastValue } from "./ui";
 
 /** The print station address suffix. The server builds the real one; this is only the live preview. */
 const ADDRESS_SUFFIX = ".spool.orrn.in";
@@ -349,6 +349,7 @@ function RotateDialog({ action, onClose }: { action: Action | null; onClose(): v
   const invalidate = useInvalidateStations();
   const [secret, setSecret] = useState<string | null>(null);
   const row = action?.kind === "rotate" ? action.row : null;
+  const shown = useLastValue(row);
   const rotate = useMutation({
     ...trpc.platform.spoolDeploymentRegenerateSecret.mutationOptions(),
     onSuccess: async (result) => {
@@ -369,7 +370,7 @@ function RotateDialog({ action, onClose }: { action: Action | null; onClose(): v
     <Dialog
       open={row !== null}
       onOpenChange={(open) => (open ? undefined : close())}
-      title={row ? t("admin.printing.rotateTitle", { address: row.spoolDomain }) : undefined}
+      title={shown ? t("admin.printing.rotateTitle", { address: shown.spoolDomain }) : undefined}
       description={secret ? t("admin.printing.secretsBody") : t("admin.printing.rotateBody")}
       maxWidth={560}
       actions={
@@ -403,6 +404,7 @@ function saveTextFile(filename: string, text: string) {
 function InstallDialog({ action, onClose }: { action: Action | null; onClose(): void }) {
   const { t } = useT();
   const row = action?.kind === "install" ? action.row : null;
+  const shown = useLastValue(row);
   const install = useMutation({
     ...trpc.platform.spoolDeploymentDockerInstallScript.mutationOptions(),
     onSuccess: (result) => {
@@ -417,7 +419,7 @@ function InstallDialog({ action, onClose }: { action: Action | null; onClose(): 
       open={row !== null}
       onOpenChange={(open) => (open ? undefined : onClose())}
       title={t("admin.printing.installTitle")}
-      body={row ? t("admin.printing.installBody", { address: row.spoolDomain }) : ""}
+      body={shown ? t("admin.printing.installBody", { address: shown.spoolDomain }) : ""}
       confirmLabel={t("admin.printing.installDownload")}
       pending={install.isPending}
       onConfirm={() => row && install.mutate({ id: row.id })}
@@ -429,6 +431,7 @@ function DownloadsDialog({ action, onClose }: { action: Action | null; onClose()
   const { t } = useT();
   const groupId = useId();
   const row = action?.kind === "downloads" ? action.row : null;
+  const shown = useLastValue(row);
   const [platform, setPlatform] = useState<DownloadPlatform>("darwin-arm64");
   const download = useMutation({
     ...trpc.platform.spoolDeploymentDownloadUrl.mutationOptions(),
@@ -449,7 +452,7 @@ function DownloadsDialog({ action, onClose }: { action: Action | null; onClose()
       open={row !== null}
       onOpenChange={(open) => (open || download.isPending ? undefined : onClose())}
       title={t("admin.printing.downloadsTitle")}
-      description={row ? t("admin.printing.downloadsBody", { address: row.spoolDomain }) : undefined}
+      description={shown ? t("admin.printing.downloadsBody", { address: shown.spoolDomain }) : undefined}
       actions={
         <>
           <DialogCloseButton onPress={onClose} />
@@ -504,6 +507,7 @@ function TurnOffDialog({
   const { t } = useT();
   const invalidate = useInvalidateStations();
   const row = action?.kind === "turnOff" ? action.row : null;
+  const shown = useLastValue(row);
   const revoke = useMutation({
     ...trpc.platform.spoolDeploymentRevoke.mutationOptions(),
     onSuccess: async () => {
@@ -517,7 +521,7 @@ function TurnOffDialog({
     <ConfirmDialog
       open={row !== null}
       onOpenChange={(open) => (open ? undefined : onClose())}
-      title={row ? t("admin.printing.turnOffTitle", { address: row.spoolDomain }) : ""}
+      title={shown ? t("admin.printing.turnOffTitle", { address: shown.spoolDomain }) : ""}
       body={t("admin.printing.turnOffBody", { company: company.name })}
       confirmLabel={t("admin.printing.turnOffShort")}
       tone="danger"

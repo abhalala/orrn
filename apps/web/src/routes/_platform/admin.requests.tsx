@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 import { formatAgo, formatDay } from "@/features/admin/format";
 import type { WaitlistRow } from "@/features/admin/types";
-import { ConfirmDialog, errorText, LoadError, Panel } from "@/features/admin/ui";
+import { ConfirmDialog, errorText, LoadError, Panel, useLastValue } from "@/features/admin/ui";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -62,6 +62,8 @@ function AdminRequests() {
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
   const pending = approve.isPending || reject.isPending;
+  // The dialog keeps its words while it closes.
+  const shown = useLastValue(decision);
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
@@ -101,8 +103,8 @@ function AdminRequests() {
       <ConfirmDialog
         open={decision?.kind === "approve"}
         onOpenChange={(open) => (open ? undefined : setDecision(null))}
-        title={decision ? t("admin.requests.approveTitle", { company: decision.row.companyName }) : ""}
-        body={decision ? t("admin.requests.approveBody", { email: decision.row.requesterEmail }) : ""}
+        title={shown ? t("admin.requests.approveTitle", { company: shown.row.companyName }) : ""}
+        body={shown ? t("admin.requests.approveBody", { email: shown.row.requesterEmail }) : ""}
         confirmLabel={t("admin.requests.approve")}
         pending={pending}
         onConfirm={() => decision && approve.mutate({ id: decision.row.id })}
@@ -110,8 +112,8 @@ function AdminRequests() {
       <ConfirmDialog
         open={decision?.kind === "reject"}
         onOpenChange={(open) => (open ? undefined : setDecision(null))}
-        title={decision ? t("admin.requests.rejectTitle", { company: decision.row.companyName }) : ""}
-        body={decision ? t("admin.requests.rejectBody", { email: decision.row.requesterEmail }) : ""}
+        title={shown ? t("admin.requests.rejectTitle", { company: shown.row.companyName }) : ""}
+        body={shown ? t("admin.requests.rejectBody", { email: shown.row.requesterEmail }) : ""}
         confirmLabel={t("admin.requests.reject")}
         tone="danger"
         pending={pending}
