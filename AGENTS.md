@@ -324,15 +324,16 @@ bun run deploy
   INSERT … SELECT per input line (lot still OK with `posted − drawn ≥ kg`; stream still active and
   `charge`) → `foundryAbort` (NOT NULL on `melt_input.id`) unless every line landed → outputs,
   ledger rows (VALUES; the abort makes them safe) → `prepareStoreDraws` statements for store chemicals
-  (ruling RP17, purpose `melt`, refId = cast id; its own abort) → chemical lines → audit. Catch
+  (ruling RP17, purpose `melt`, refId = cast id, `source` = the melt; its own abort) → chemical
+  lines (each with its MRS id in `store_txn_id`) → audit. Catch
   `isFoundryAbort` / `isStoreDrawAbort` and explain from current state.
 - Ledger of a melt (voucher `melt`, line = melt_input / melt_output line): − `scrap_grade`
   `{item}:{grade}` at the lot's scrap store per lot line, − `return_stream` at plant scrap, + `billet`
   item_ref = cast id at the billet store, + DROSS / FE / returned charge streams at plant scrap.
   A lot's remaining kg = its ledger postings (OK, D/C deductions, cancel) − Σ kg of live melt lines on
   it (`lotPostedSql` − `lotDrawnSql`; the postings are read by voucher on the voucher-line unique
-  index, never by item_kind, or every scrap row is scanned per lot); `lotCancelLeavesStockNonNegative` refuses cancelling an OK lot
-  any live melt has drawn from.
+  index, never by item_kind, or every scrap row is scanned per lot); `lotCancelLeavesStockNonNegative`
+  refuses cancelling an OK lot any live melt has drawn from.
 - Balance (spec P15): `meltBalance` — loss above 3 % of the input (`lossG × 10000 > inputG × 300`) or
   any output above input warns; warnings are returned and stored on the melt (`melt.warnings`), never
   block. Burn loss up to 3 % per melt (`allowed_burn_g`) counts as explained at close-out.
@@ -346,7 +347,8 @@ bun run deploy
 - `melts.cancel` (cast.enter or cast.close, open casts only): marks the melt, reverses every melt
   ledger row (`melt_cancel`, `reversal_of`), cancels its MRS draws through `storeCancelRows/Mark`;
   refused when the cast's billets on hand are below the melt's logs (the press used them), or while a
-  drawn store item or the store location is retired (reactivate first; checked inside the UPDATE).
+  drawn store item or the store location is retired (reactivate first; `storeCancelRows` holds the
+  same rule at write time and the cancel's "every draw reversed" abort fails the batch).
 - `lots.available` (RP9) is the foundry's lot list: remaining kg by lot and by item + grade, never
   rates, party kg, vendor, bill or D/C figures. Readable by cast.enter, cast.close and purchase readers.
 - `spectro.attach` (cast.enter): file as base64 text ≤ 1 MB decoded (image/jpeg|png|webp, pdf, csv,

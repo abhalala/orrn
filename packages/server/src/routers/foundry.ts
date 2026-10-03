@@ -80,6 +80,7 @@ import {
 import { nameKey } from "../lib/purchase";
 import { nextCompanySeq } from "../lib/sequence";
 import {
+  diagnoseStoreCancel,
   isStoreDrawAbort,
   MAX_STORE_DRAWS,
   MAX_STORE_QTY_MILLI,
@@ -1044,6 +1045,8 @@ const meltsRouter = router({
               seq,
               at,
               audit: auditCtx(ctx),
+              // The draw belongs to this melt: store.cancel refuses it, melts.cancel reverses it (PL7RR).
+              source: { type: "melt", id: meltId },
               draws: draws.map((d) => ({
                 itemId: d.storeItemId!,
                 qtyMilli: d.usedMilli,
@@ -1376,7 +1379,6 @@ const meltsRouter = router({
               isNull(melt.cancelledAt),
               sql`exists (select 1 from ${cast} oc where oc.id = ${c.id} and oc.company_id = ${companyId} and oc.status = 'open')`,
               sql`${billetsSql} >= ${melt.logsG}`,
-              drawsCanReturn(companyId, m.id),
             ),
           ),
         foundryAbort(ctx.db, companyId, sql`not exists (select 1 from ${melt} mm where mm.id = ${m.id} and mm.company_id = ${companyId} and mm.server_seq = ${seq} and mm.cancelled_at is not null)`),
@@ -1444,8 +1446,13 @@ const meltsRouter = router({
           if (castNow.status !== "open") bad(`${castStateMessage(castNow)}; its melts stay as they are`);
           const [h] = await ctx.db.select({ g: billetsSql }).from(cast).where(and(eq(cast.id, c.id), eq(cast.companyId, companyId))).limit(1);
           if (Number(h?.g ?? 0) < m.logsG) billetsShort();
-          const blockedNow = storeReturnBlock(await liveMeltDraws(ctx, m.id));
+          const drawsNow = await liveMeltDraws(ctx, m.id);
+          const blockedNow = storeReturnBlock(drawsNow);
           if (blockedNow) bad(blockedNow);
+          for (const d of txns) {
+            const why = await diagnoseStoreCancel(ctx.db, companyId, d.id);
+            if (why) throw why;
+          }
           bad("The melt changed; open it again");
         }
         throw e;
@@ -1475,7 +1482,9 @@ async function liveMeltDraws(ctx: Ctx, meltId: string) {
 
 /**
  * Cancelling a melt puts its chemicals back in the store. Like `store.cancel` (ruling PL7RR), it
- * never puts stock on a retired item or into a retired / re-typed store location.
+ * never puts stock on a retired item or into a retired / re-typed store location: this read gives
+ * the melt-side message; `storeCancelRows` holds the same rule at write time (nothing lands, the
+ * cancel's store abort fails the batch).
  */
 function storeReturnBlock(draws: Awaited<ReturnType<typeof liveMeltDraws>>): string | null {
   for (const d of draws) {
@@ -1485,18 +1494,6 @@ function storeReturnBlock(draws: Awaited<ReturnType<typeof liveMeltDraws>>): str
     }
   }
   return null;
-}
-
-/** Write-time twin of `storeReturnBlock`: every live draw of the melt still has an active item and store location. */
-function drawsCanReturn(companyId: string, meltId: string) {
-  return sql`not exists (
-    select 1 from ${meltChemical} dc
-    join ${storeTxn} dt on dt.id = dc.store_txn_id and dt.company_id = dc.company_id and dt.cancelled_at is null
-    left join ${storeItem} di on di.id = dt.item_id and di.company_id = dt.company_id
-    left join ${location} dl on dl.id = dt.location_id and dl.company_id = dt.company_id
-    where dc.company_id = ${companyId} and dc.melt_id = ${meltId}
-      and (di.active is not 1 or dl.active is not 1 or dl.kind is not 'store')
-  )`;
 }
 
 /** A melt batch aborted: say why from the state as it is now. */

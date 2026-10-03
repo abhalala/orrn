@@ -392,6 +392,23 @@ describe("melts.create posts the melt's stock effect in one batch", () => {
     expect(chem.find((x) => x.name === "Grain refiner")).toMatchObject({ storeItemId: null, storeTxnId: null, unit: "kg" });
   });
 
+  test("RP17: each draw names its melt, so the store register cannot cancel it on its own (PL7RR)", async () => {
+    const p = await plant();
+    const lot = await okLot(p, 20_000);
+    const c = await openCast(p);
+    const r = await p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p));
+    const [txn] = await env.db.select().from(storeTxn).where(and(eq(storeTxn.companyId, p.companyId), eq(storeTxn.kind, "mrs")));
+    expect(txn).toMatchObject({ sourceType: "melt", sourceId: r.id, refId: c.id });
+    await expect(p.storekeeper.store.cancel({ txnId: txn!.id, reason: "x" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("cancel the melt instead"),
+    });
+    expect(await storeBalance(p.companyId, p.fluxId)).toBe(88 * U);
+    // the melt's own cancel returns it
+    await p.supervisor.foundry.melts.cancel({ meltId: r.id, reason: "x" });
+    expect(await storeBalance(p.companyId, p.fluxId)).toBe(100 * U);
+  });
+
   test("RP17: a chemical the store cannot cover refuses the WHOLE melt — no melt, no ledger, no MRS, no lot draw", async () => {
     const p = await plant();
     const lot = await okLot(p, 20_000);
