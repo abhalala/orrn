@@ -666,11 +666,11 @@ function ReviewStage({
           <ul className="m-0 flex list-none flex-col divide-y divide-border rounded-card border border-border bg-card p-0">
             {rejected.slice(0, PROBLEMS_SHOWN).map((r) => (
               <li key={`${r.row}-${r.column}`} className="flex items-start gap-3 px-4 py-2.5 text-[14px] leading-5">
-                <span className="w-14 shrink-0 font-mono font-semibold tabular-nums text-tone-amber-ink">
+                <span aria-hidden="true" className="w-14 shrink-0 font-mono font-semibold tabular-nums text-tone-amber-ink">
                   {r.row}
                 </span>
                 <span className="min-w-0 flex-1 break-words text-foreground">
-                  <span className="sr-only">{t("imports.preview.row")} {r.row}: </span>
+                  <span className="sr-only">{t("settings.data.rowProblem", { row: r.row, reason: "" })}</span>
                   {describeRejected(r, t)}
                 </span>
               </li>

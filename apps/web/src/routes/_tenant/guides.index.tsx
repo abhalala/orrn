@@ -1,4 +1,5 @@
-import { listGuides, useT, type GuideSlug } from "@orrn/i18n";
+import { useT, type GuideSlug } from "@orrn/i18n";
+import { listGuides } from "@orrn/i18n/guides";
 import { GuideSheet } from "@orrn/ui/components/how-to-button";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { createFileRoute } from "@tanstack/react-router";
