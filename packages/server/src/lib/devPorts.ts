@@ -22,7 +22,7 @@
  *
  * Pure and dependency-free apart from node:fs/path (tooling only, never imported by the Worker).
  */
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 export const DEFAULT_API_PORT = 3000;
@@ -32,6 +32,8 @@ export const DEFAULT_VISUAL_PORT = 3001;
 export const VISUAL_PORT_OFFSET = 100;
 /** Sits at the root of every worktree that has its own ports (docs/LOCAL_DEV.md "Worktrees"). */
 export const WORKTREE_PORTS_FILE = ".wt-ports.env";
+/** Exported by `.wt-ports.env`: the worktree whose ports the environment holds. */
+export const WORKTREE_ROOT_VAR = "ORRN_WT_ROOT";
 
 export type DevPortsEnv = Readonly<Record<string, string | undefined>>;
 
@@ -193,6 +195,19 @@ const NEED_VARS: Record<PortNeed, readonly string[]> = {
   visual: ["VISUAL_WEB_PORT", "PLAYWRIGHT_BASE_URL", "E2E_WEB_PORT", "E2E_BASE_URL"],
 };
 
+/** Same directory, ignoring trailing slashes and symlinks (macOS /var vs /private/var). */
+function samePath(a: string, b: string): boolean {
+  const canonical = (path: string) => {
+    const resolved = resolve(path);
+    try {
+      return realpathSync(resolved);
+    } catch {
+      return resolved;
+    }
+  };
+  return canonical(a) === canonical(b);
+}
+
 function findWorktreeRoot(startDir: string): string | undefined {
   let dir = resolve(startDir);
   for (;;) {
@@ -208,10 +223,26 @@ function findWorktreeRoot(startDir: string): string | undefined {
  * `startDir`) when that worktree's ports are not in the environment. Without this the entrypoints
  * fall back to the shared defaults (API 3000, web 3002, visual 3001), reuse whichever server is
  * already there (possibly another worktree's, or a foreign app) and test the wrong code.
- * A plain checkout has no marker file and is never blocked.
+ *
+ * `.wt-ports.env` also exports ORRN_WT_ROOT, so the environment says whose ports it holds: a shell
+ * that sourced another worktree's file (or inherited it) is refused too, because the entrypoints
+ * would reuse that worktree's servers. Without the variable (an older `.wt-ports.env`, or ports set
+ * by hand) only the presence of the ports is checked.
+ * A plain checkout has no marker file and is blocked only when ORRN_WT_ROOT names a worktree.
  */
 export function assertWorktreePorts(env: DevPortsEnv, startDir: string, needs: readonly PortNeed[]): void {
   const root = findWorktreeRoot(startDir);
+  const portsOf = blankToUndefined(env[WORKTREE_ROOT_VAR]);
+  if (portsOf !== undefined && (root === undefined || !samePath(portsOf, root))) {
+    const here = root ?? resolve(startDir);
+    throw new Error(
+      `${WORKTREE_ROOT_VAR}=${portsOf}: the ports in this environment belong to that worktree, but this is ${here}, ` +
+        `so this would reuse that worktree's servers and test its code. Open a new shell (or unset ${WORKTREE_ROOT_VAR} ` +
+        `and the E2E_ variables)` +
+        (root ? `, run: source .wt-ports.env (in ${root})` : "") +
+        `, and retry.`,
+    );
+  }
   if (!root) return;
   for (const need of needs) {
     const vars = NEED_VARS[need];

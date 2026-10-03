@@ -16,8 +16,9 @@ import { defineConfig, devices, type PlaywrightTestConfig } from "@playwright/te
  * VISUAL_WEB_PORT (or PLAYWRIGHT_BASE_URL) for the public-page suite, and
  * E2E_WORKERS caps the workers per run (unset: Playwright's default). Defaults
  * are today's single-checkout ports, API 3000, web 3002, visual 3001. In a
- * worktree, `source .wt-ports.env` first: with no ports in the environment this
- * config refuses to run rather than reuse another worktree's servers.
+ * worktree, `source .wt-ports.env` first: with no ports in the environment, or
+ * with another worktree's (ORRN_WT_ROOT), this config refuses to run rather than
+ * reuse another worktree's servers.
  * See packages/server/src/lib/devPorts.ts.
  *
  * Only the servers a run needs are started, so `--project=e2e` never boots the

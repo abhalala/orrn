@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -195,6 +195,54 @@ describe("assertWorktreePorts (never fall back to the shared defaults from a wor
     expect(() =>
       assertWorktreePorts({ PLAYWRIGHT_BASE_URL: "http://127.0.0.1:3301" }, nested(), ["visual"]),
     ).not.toThrow();
+  });
+
+  describe("ORRN_WT_ROOT (whose ports these are)", () => {
+    let other: string;
+    beforeEach(() => {
+      other = mkdtempSync(join(tmpdir(), "orrn-wt-other-"));
+      writeFileSync(join(other, ".wt-ports.env"), "");
+    });
+    afterEach(() => rmSync(other, { recursive: true, force: true }));
+
+    const ports = { E2E_API_PORT: "3204", E2E_WEB_PORT: "3205" };
+
+    test("ports sourced from another worktree's .wt-ports.env are refused, naming both worktrees", () => {
+      writeFileSync(join(root, ".wt-ports.env"), "");
+      let message = "";
+      try {
+        assertWorktreePorts({ ...ports, ORRN_WT_ROOT: other }, nested(), ["api", "web"]);
+      } catch (error) {
+        message = String((error as Error).message);
+      }
+      expect(message).toContain(other);
+      expect(message).toContain(root);
+      expect(message).toMatch(/source \.wt-ports\.env/);
+      // Visual-only runs (public pages) are refused the same way: they would reuse the other server too.
+      expect(() => assertWorktreePorts({ VISUAL_WEB_PORT: "3305", ORRN_WT_ROOT: other }, nested(), ["visual"])).toThrow(
+        /ORRN_WT_ROOT/,
+      );
+    });
+
+    test("ORRN_WT_ROOT naming this worktree passes, also as its real path or with a trailing slash", () => {
+      writeFileSync(join(root, ".wt-ports.env"), "");
+      for (const named of [root, `${root}/`, realpathSync(root)]) {
+        expect(() => assertWorktreePorts({ ...ports, ORRN_WT_ROOT: named }, nested(), ["api", "web"])).not.toThrow();
+      }
+    });
+
+    test("a worktree's ports used from a plain checkout are refused (they would reuse that worktree's servers)", () => {
+      // `root` has no .wt-ports.env here: it plays a checkout without per-worktree ports.
+      expect(() => assertWorktreePorts({ ...ports, ORRN_WT_ROOT: other }, nested(), ["api", "web"])).toThrow(
+        /ORRN_WT_ROOT/,
+      );
+    });
+
+    test("an older .wt-ports.env without ORRN_WT_ROOT still works (the check needs the variable)", () => {
+      writeFileSync(join(root, ".wt-ports.env"), "");
+      expect(() => assertWorktreePorts(ports, nested(), ["api", "web"])).not.toThrow();
+      expect(() => assertWorktreePorts({ ...ports, ORRN_WT_ROOT: "  " }, nested(), ["api", "web"])).not.toThrow();
+    });
   });
 });
 

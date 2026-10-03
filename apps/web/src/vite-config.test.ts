@@ -7,6 +7,8 @@
  *   supports: checked by loading the config with TypeScript stripping switched off.
  * - A bare `vite dev` reads this worktree's ports from @orrn/server/lib/devPorts and points the app
  *   at them (VITE_SERVER_URL / VITE_PUBLIC_URL), beating apps/web/.env.development.local.
+ * - `vite preview` (command "serve" with isPreview) is not the dev server: it gets no dev port, no
+ *   worktree guard and no TypeScript loading, and keeps Vite's own preview defaults.
  *
  * Each Node process loads the config several times (one scenario per load) because the plugins
  * take seconds to import; one process per Node mode keeps the file at two launches.
@@ -35,6 +37,8 @@ const nodeStripsTypes = atLeast(23, 6) || (major === 22 && minor >= 18);
 interface Scenario {
   name: string;
   command: "build" | "serve";
+  /** `vite preview` loads the config with command "serve" and isPreview: true. */
+  isPreview?: boolean;
   argv?: string[];
   env?: Record<string, string>;
 }
@@ -61,7 +65,12 @@ for (const s of scenarios) {
   Object.assign(process.env, s.env ?? {});
   const mode = s.command === "build" ? "production" : "development";
   try {
-    const loaded = await loadConfigFromFile({ command: s.command, mode }, "vite.config.ts", process.cwd(), "silent");
+    const loaded = await loadConfigFromFile(
+      { command: s.command, mode, isPreview: s.isPreview === true },
+      "vite.config.ts",
+      process.cwd(),
+      "silent",
+    );
     const env = loadEnv(mode, process.cwd(), "VITE_");
     out[s.name] = {
       server: loaded?.config.server ?? null,
@@ -83,7 +92,7 @@ function baseEnv(): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (value === undefined) continue;
-    if (/^(E2E_|VITE_|VISUAL_WEB_PORT$|PLAYWRIGHT_|NODE_OPTIONS$)/.test(key)) continue;
+    if (/^(E2E_|VITE_|VISUAL_WEB_PORT$|PLAYWRIGHT_|NODE_OPTIONS$|ORRN_WT_ROOT$)/.test(key)) continue;
     env[key] = value;
   }
   return env;
@@ -112,6 +121,8 @@ describe.skipIf(!nodeBin)("vite.config.ts on a Node that cannot load TypeScript"
       { name: "build", command: "build", env: ports },
       { name: "devWithPort", command: "serve", argv: ["--port", "4321"], env: ports },
       { name: "bareDev", command: "serve", env: ports },
+      { name: "preview", command: "serve", isPreview: true, env: ports },
+      { name: "previewNoPorts", command: "serve", isPreview: true },
     ]);
   }, 60_000);
 
@@ -128,6 +139,15 @@ describe.skipIf(!nodeBin)("vite.config.ts on a Node that cannot load TypeScript"
   test("a bare vite dev says which Node it needs instead of a bare ERR_UNKNOWN_FILE_EXTENSION", () => {
     expect(results.bareDev?.error).toContain("Node 22.18");
     expect(results.bareDev?.error).toContain("--port");
+  });
+
+  test("vite preview is not the dev server: no dev port, no strictPort, no worktree guard", () => {
+    // A strictPort here would be inherited by preview (preview.strictPort ?? server.strictPort), so a
+    // busy 4173 would fail instead of moving on; the guard would refuse a worktree without ports.
+    expect(results.preview?.error).toBeUndefined();
+    expect(results.preview?.server ?? null).toBeNull();
+    expect(results.previewNoPorts?.error).toBeUndefined();
+    expect(results.previewNoPorts?.server ?? null).toBeNull();
   });
 });
 

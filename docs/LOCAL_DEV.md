@@ -36,8 +36,8 @@ Up to ten worktrees can run dev servers and Playwright at once. Each gets its ow
 | `E2E_WORKERS` | Playwright workers per run (`--workers` still wins) | Playwright's default; `.wt-ports.env` sets `3` |
 
 The `E2E_` prefix is historical: the same variables drive the plain dev servers. A worktree keeps them in
-`.wt-ports.env` at its root (gitignored; the build orchestration writes it, by hand it is six lines, one free
-pair per worktree):
+`.wt-ports.env` at its root (gitignored; the build orchestration writes it, by hand it is seven lines, one free
+pair per worktree that no other worktree uses):
 
 ```bash
 # <worktree>/.wt-ports.env
@@ -47,6 +47,7 @@ export E2E_API_URL=http://localhost:3200
 export E2E_BASE_URL=http://localhost:3201
 export VISUAL_WEB_PORT=3301
 export E2E_WORKERS=3
+export ORRN_WT_ROOT='/absolute/path/to/this/worktree'
 ```
 
 Then:
@@ -83,7 +84,11 @@ starts (they pass `--port`) never load it and run on any Node that Vite supports
 
 Guard rail: in a worktree (a `.wt-ports.env` exists above the current directory) Vite, `dev:local` and
 Playwright refuse to start without the ports in the environment, instead of silently using 3000/3002 and
-attaching to another worktree's servers. A plain checkout is never blocked. `bun run dev` (Alchemy dev) runs
+attaching to another worktree's servers. They also refuse when `ORRN_WT_ROOT` names a different worktree (the
+shell sourced someone else's `.wt-ports.env`, so the run would reuse that worktree's servers); open a new
+shell or source your own file. A plain checkout is blocked only by a worktree's `ORRN_WT_ROOT`. The guard
+cannot tell two worktrees apart that were given the same port pair: never share a pair. `vite preview` is
+not the dev server and keeps Vite's own preview port. `bun run dev` (Alchemy dev) runs
 the API on 3000 and a bare `vite dev` on 3002 (`dev.domain` in `alchemy.run.ts`) and is not for worktrees.
 Browser cookies are per host, not per port, so signing in to two worktrees in the same browser profile makes
 them overwrite each other's session; use separate profiles (Playwright contexts are isolated already).

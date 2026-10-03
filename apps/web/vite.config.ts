@@ -24,7 +24,8 @@ async function loadDevPorts() {
 }
 
 /**
- * Dev server only. The port is this worktree's E2E_WEB_PORT (default 3002, the documented local port;
+ * Dev server only (`vite dev`; `vite preview` also runs with command "serve" but keeps Vite's own
+ * preview defaults, see the config below). The port is this worktree's E2E_WEB_PORT (default 3002, the documented local port;
  * 3001 belongs to a foreign app) and is strict, so a taken port fails loudly instead of hopping to one
  * the API does not allow. An explicit `--port` on the command line (Playwright passes one for each
  * server it starts, with its own VITE_ values) wins, so the config only supplies the default.
@@ -40,8 +41,10 @@ async function devServer(): Promise<ServerOptions> {
   return { port: resolveDevPorts(process.env).webPort, strictPort: true };
 }
 
-export default defineConfig(async ({ command }): Promise<UserConfig> => ({
-  server: command === "serve" ? await devServer() : undefined,
+export default defineConfig(async ({ command, isPreview }): Promise<UserConfig> => ({
+  // `vite preview` is command "serve" too; it inherits server.strictPort, so it must not get the dev
+  // server options (nor the worktree guard, nor the TypeScript resolver).
+  server: command === "serve" && !isPreview ? await devServer() : undefined,
   build: {
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
