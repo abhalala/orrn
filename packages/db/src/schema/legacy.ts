@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
+import { user } from "./auth";
 import { bundle } from "./inventory";
 import { company } from "./tenant";
 
@@ -17,10 +18,12 @@ export const legacyBundleMap = sqliteTable(
     companyId: text("company_id")
       .notNull()
       .references(() => company.id, { onDelete: "cascade" }),
+    serverSeq: integer("server_seq").notNull().default(0),
     legacyId: text("legacy_id").notNull(),
     bundleId: text("bundle_id")
       .notNull()
       .references(() => bundle.id, { onDelete: "cascade" }),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
   },
   (table) => [

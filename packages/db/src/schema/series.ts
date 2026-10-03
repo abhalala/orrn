@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
+import { user } from "./auth";
 import { company } from "./tenant";
 
 const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
@@ -37,6 +38,8 @@ export const docSeries = sqliteTable(
     docType: text("doc_type", { enum: docTypes }).notNull(),
     period: text("period").notNull(),
     value: integer("value").notNull().default(0),
+    /** Whoever first used this series in this period. */
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .default(nowMs)

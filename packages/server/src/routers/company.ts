@@ -1,11 +1,13 @@
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
+import { bundle } from "@orrn/db/schema/inventory";
 import { company, companyRoles, membership } from "@orrn/db/schema/tenant";
 import { atomicBatch, type OrrnDb } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
-import { isValidTimezone } from "../lib/dayWindow";
+import { now } from "../lib/clock";
+import { DEFAULT_TIMEZONE, isValidTimezone, monthStartMs } from "../lib/dayWindow";
 import { listActiveMemberships } from "../lib/tenantContext";
 import { actionProcedure, authedProcedure, companyProcedure, router } from "../index";
 
@@ -71,6 +73,15 @@ export const companyRouter = router({
           .max(100)
           .refine(isValidTimezone, "Unknown timezone")
           .optional(),
+        /** Bundle number style (spec P7). Switching mid-month would mix styles; see the guard below. */
+        bundleNumbering: z.enum(["plant", "legacy"]).optional(),
+        /** The plant's PL book: printed before the FY and the first sequence number of each new FY. */
+        plSeries: z
+          .object({
+            prefix: z.string().max(12).regex(/^\S*$/, "No spaces in the prefix"),
+            start: z.number().int().positive().max(999_999_999),
+          })
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -86,6 +97,28 @@ export const companyRouter = router({
       const patch: Record<string, unknown> = {};
       if (input.lengthUnit !== undefined) patch.lengthUnit = input.lengthUnit;
       if (input.timezone !== undefined) patch.timezone = input.timezone;
+      if (input.plSeries !== undefined) patch.plSeries = input.plSeries;
+      if (input.bundleNumbering !== undefined) {
+        patch.bundleNumbering = input.bundleNumbering;
+        const current = row.settings?.bundleNumbering === "plant" ? "plant" : "legacy";
+        // Platform staff (impersonating) may switch at any time; the plant's own admin only when no
+        // bundle has been created this month, so one month never mixes BG serials and plant numbers.
+        if (input.bundleNumbering !== current && !(ctx.isPlatformAdmin && ctx.impersonation)) {
+          const tz = typeof row.settings?.timezone === "string" && isValidTimezone(row.settings.timezone)
+            ? row.settings.timezone
+            : DEFAULT_TIMEZONE;
+          const [{ n } = { n: 0 }] = await ctx.db
+            .select({ n: count() })
+            .from(bundle)
+            .where(and(eq(bundle.companyId, ctx.companyId), gte(bundle.createdAt, new Date(monthStartMs(tz, now().getTime())))));
+          if (n > 0) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Bundle numbering can only be changed in a month with no bundles yet. Ask support to switch it now.",
+            });
+          }
+        }
+      }
       const settings = { ...(row.settings ?? {}), ...patch };
 
       await atomicBatch(ctx.db, [

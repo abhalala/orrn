@@ -19,6 +19,7 @@ import { auditInsert } from "../lib/audit";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
+import { now as clockNow } from "../lib/clock";
 import { allocateDocNumbers } from "../lib/docNumber";
 import { nextCompanySeq } from "../lib/sequence";
 
@@ -147,7 +148,7 @@ export const bundleRouter = router({
       }
 
       const groupId = crypto.randomUUID();
-      const now = new Date();
+      const now = clockNow();
       const userId = ctx.session.user.id;
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
@@ -162,7 +163,7 @@ export const bundleRouter = router({
         .limit(1);
       const plantNumbers =
         co?.settings?.bundleNumbering === "plant"
-          ? (await allocateDocNumbers(ctx.db, ctx.companyId, "bundle", now, input.rows.length)).numbers
+          ? (await allocateDocNumbers(ctx.db, ctx.companyId, "bundle", now, input.rows.length, userId)).numbers
           : null;
 
       const bundleRows = input.rows.map((row, idx) => ({

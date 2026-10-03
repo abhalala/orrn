@@ -85,6 +85,7 @@ export async function allocateDocNumbers(
   docType: DocType,
   at: Date,
   count: number,
+  createdBy: string | null = null,
 ): Promise<DocNumberBlock> {
   if (!Number.isInteger(count) || count < 0) throw new RangeError(`Invalid count ${count}`);
 
@@ -98,7 +99,7 @@ export async function allocateDocNumbers(
   const start = docType === "pl" ? settings.plStart : 1;
   const [row] = await db
     .insert(docSeries)
-    .values({ id: crypto.randomUUID(), companyId, docType, period, value: start - 1 + count })
+    .values({ id: crypto.randomUUID(), companyId, docType, period, value: start - 1 + count, createdBy })
     .onConflictDoUpdate({
       target: [docSeries.companyId, docSeries.docType, docSeries.period],
       set: { value: sql`${docSeries.value} + ${count}`, updatedAt: new Date() },
@@ -111,7 +112,13 @@ export async function allocateDocNumbers(
 }
 
 /** The next number of a series. All plant documents get their number here, never client-side. */
-export async function nextDocNumber(db: OrrnDb, companyId: string, docType: DocType, at: Date): Promise<DocNumber> {
-  const block = await allocateDocNumbers(db, companyId, docType, at, 1);
+export async function nextDocNumber(
+  db: OrrnDb,
+  companyId: string,
+  docType: DocType,
+  at: Date,
+  createdBy: string | null = null,
+): Promise<DocNumber> {
+  const block = await allocateDocNumbers(db, companyId, docType, at, 1, createdBy);
   return { seq: block.seqs[0]!, number: block.numbers[0]!, period: block.period };
 }

@@ -160,18 +160,22 @@ describe("nextDocNumber", () => {
 });
 
 describe("createReceipt numbering", () => {
-  const istNow = () => {
-    const d = new Date(Date.now() + 330 * 60_000);
-    return { yy: String(d.getUTCFullYear() % 100).padStart(2, "0"), month: d.getUTCMonth() + 1 };
-  };
+  // createReceipt reads the injectable clock, so these never depend on the real month.
+  const PINNED = ist("2026-09-15T10:00:00");
+  beforeAll(async () => {
+    (await import("../src/lib/clock")).setClockForTests(PINNED);
+  });
+  afterAll(async () => {
+    (await import("../src/lib/clock")).setClockForTests(null);
+  });
   const rows = (n: number) => Array.from({ length: n }, () => ({ quantity: 10, weightG: 25_000, lengthMm: 3658 }));
 
   test("plant mode: per-bundle plant numbers in creation order, continuing across receipts", async () => {
     const { companyId } = await env.seedCompany({ settings: { bundleNumbering: "plant" } });
     const dieId = await env.seedDie(companyId);
     const c = env.caller({ role: "packer", companyId });
-    const { yy, month } = istNow();
-    const letter = "ABCDEFGHIJKL"[month - 1]!;
+    const yy = "26";
+    const letter = "I";
 
     const r1 = await c.bundle.createReceipt({ dieId, unit: "pcs", rows: rows(3) });
     const r2 = await c.bundle.createReceipt({ dieId, unit: "pcs", rows: rows(2) });
@@ -198,6 +202,34 @@ describe("createReceipt numbering", () => {
     const seqs = serials.map((s) => Number(s.slice(3))).sort((a, b) => a - b);
     expect(seqs[0]).toBe(1);
     expect(seqs[199]).toBe(200);
+  });
+
+  test("receipt in a new month restarts at 1 and a new year changes the prefix", async () => {
+    const clock = await import("../src/lib/clock");
+    const { companyId } = await env.seedCompany({ settings: { bundleNumbering: "plant" } });
+    const dieId = await env.seedDie(companyId);
+    const c = env.caller({ role: "packer", companyId });
+    try {
+      clock.setClockForTests(ist("2026-12-31T23:59:00"));
+      const dec = await c.bundle.createReceipt({ dieId, unit: "pcs", rows: rows(2) });
+      clock.setClockForTests(ist("2027-01-01T00:01:00"));
+      const jan = await c.bundle.createReceipt({ dieId, unit: "pcs", rows: rows(1) });
+      const serialsOf = async (groupId: string) =>
+        (await env.db.select().from(bundle).where(eq(bundle.groupId, groupId))).map((b) => b.serial).sort();
+      expect(await serialsOf(dec.groupId)).toEqual(["26L1", "26L2"]);
+      expect(await serialsOf(jan.groupId)).toEqual(["27A1"]);
+    } finally {
+      clock.setClockForTests(PINNED);
+    }
+  });
+
+  test("doc_series row records who first used the series", async () => {
+    const { companyId, users } = await env.seedCompany({ settings: { bundleNumbering: "plant" } });
+    const dieId = await env.seedDie(companyId);
+    await env.caller({ role: "packer", companyId }).bundle.createReceipt({ dieId, unit: "pcs", rows: rows(1) });
+    const [row] = await env.db.select().from(docSeries).where(eq(docSeries.companyId, companyId));
+    expect(row!.createdBy).toBe(users.packer.id);
+    expect(row!.period).toBe("2026-09");
   });
 
   test("two companies number independently", async () => {
@@ -368,29 +400,39 @@ describe("resolve.publicBundle", () => {
     });
     const { company } = await import("@orrn/db/schema");
     const [row] = await env.db.select({ slug: company.slug }).from(company).where(eq(company.id, co.companyId));
-    return { ...co, id, slug: row!.slug, groupId };
+    return { ...co, id, slug: row!.slug, groupId, dieId };
   }
 
-  test("signed-out caller gets exactly { number, section, kg, pcs, status }", async () => {
+  test("signed-out caller gets exactly { number, section } (RP5)", async () => {
     const { slug } = await setup();
     const pub = env.caller(null);
-    const expected = { number: "26I4086", section: "DOMAL 12170", kg: 143.2, pcs: 24, status: "available" as const };
+    const expected = { number: "26I4086", section: "DOMAL 12170" };
     expect(await pub.resolve.publicBundle({ code: "26I4086", companyHost: `${slug}.orrn.in` })).toEqual(expected);
     // QR URL, lower case, host with port, bare slug
     expect(await pub.resolve.publicBundle({ code: "https://x.orrn.in/b/26i4086", companyHost: `${slug.toUpperCase()}.orrn.in:443` })).toEqual(expected);
     expect(await pub.resolve.publicBundle({ code: "26I4086", companyHost: slug })).toEqual(expected);
-    expect(Object.keys(await pub.resolve.publicBundle({ code: "26I4086", companyHost: slug })).sort()).toEqual(
-      ["kg", "number", "pcs", "section", "status"],
-    );
+    const res = await pub.resolve.publicBundle({ code: "26I4086", companyHost: slug });
+    expect(Object.keys(res).sort()).toEqual(["number", "section"]);
+    expect(JSON.stringify(res)).not.toContain("143");
   });
 
-  test("status follows the bundle", async () => {
+  test("a member of that company also gets kg, pcs and status", async () => {
     const { slug, companyId, id } = await setup();
     const { bundle: b } = await import("@orrn/db/schema");
+    for (const role of ["viewer", "packer", "owner"] as const) {
+      const res = await env.caller({ role, companyId }).resolve.publicBundle({ code: "26I4086", companyHost: slug });
+      expect(res).toEqual({ number: "26I4086", section: "DOMAL 12170", kg: 143.2, pcs: 24, status: "available" });
+    }
     await env.db.update(b).set({ status: "void" }).where(eq(b.id, id));
-    const r = await env.caller(null).resolve.publicBundle({ code: "26I4086", companyHost: slug });
-    expect(r.status).toBe("void");
-    expect(companyId).toBeTruthy();
+    const res = await env.caller({ role: "viewer", companyId }).resolve.publicBundle({ code: "26I4086", companyHost: slug });
+    expect((res as { status: string }).status).toBe("void");
+  });
+
+  test("a member of another company only gets the signed-out view", async () => {
+    const a = await setup();
+    const other = await env.seedCompany();
+    const res = await env.caller({ role: "owner", companyId: other.companyId }).resolve.publicBundle({ code: "26I4086", companyHost: a.slug });
+    expect(res).toEqual({ number: "26I4086", section: "DOMAL 12170" });
   });
 
   test("anything else is NOT_FOUND with one generic message", async () => {
@@ -417,19 +459,26 @@ describe("resolve.publicBundle", () => {
     expect((await pub.resolve.publicBundle({ code: "26I5000", companyHost: b.slug })).number).toBe("26I5000");
   });
 
-  test("ambiguous month-only code is NOT_FOUND publicly; a unique one resolves", async () => {
-    const { slug, companyId, dieId: _ } = { ...(await setup()), dieId: "" };
-    const die2 = await env.seedDie(companyId);
+  test("old month-only codes (unique or ambiguous) are NOT_FOUND to signed-out callers", async () => {
+    const { slug, companyId, dieId } = await setup();
     const mk = async (serial: string) => {
       const groupId = crypto.randomUUID();
-      await env.db.insert(bundleGroup).values({ id: groupId, companyId, code: `G-${groupId}`, dieId: die2, unit: "pcs" });
-      await env.db.insert(bundle).values({ id: crypto.randomUUID(), companyId, groupId, dieId: die2, serial, quantity: 1, weightG: 1000, lengthMm: 3000 });
+      await env.db.insert(bundleGroup).values({ id: groupId, companyId, code: `G-${groupId}`, dieId, unit: "pcs" });
+      await env.db.insert(bundle).values({ id: crypto.randomUUID(), companyId, groupId, dieId, serial, quantity: 1, weightG: 1000, lengthMm: 3000 });
     };
     await mk("25J540");
     const pub = env.caller(null);
-    expect((await pub.resolve.publicBundle({ code: "J540", companyHost: slug })).number).toBe("25J540");
+    expect(await pub.resolve.publicBundle({ code: "J540", companyHost: slug }).catch((e) => e.code)).toBe("NOT_FOUND");
     await mk("26J540");
     expect(await pub.resolve.publicBundle({ code: "J540", companyHost: slug }).catch((e) => e.code)).toBe("NOT_FOUND");
+    // a signed-in member still gets a unique old-style match, but never an ambiguous one
+    const member = env.caller({ role: "viewer", companyId });
+    expect(await member.resolve.publicBundle({ code: "J540", companyHost: slug }).catch((e) => e.code)).toBe("NOT_FOUND");
+    const solo = await member.resolve.publicBundle({ code: "J541", companyHost: slug }).catch((e) => e.code);
+    expect(solo).toBe("NOT_FOUND"); // no such bundle
+    await mk("25K7");
+    expect((await member.resolve.publicBundle({ code: "K7", companyHost: slug })).number).toBe("25K7");
+    expect(await pub.resolve.publicBundle({ code: "K7", companyHost: slug }).catch((e) => e.code)).toBe("NOT_FOUND");
   });
 
   test("suspended or pending companies expose nothing", async () => {
@@ -437,5 +486,128 @@ describe("resolve.publicBundle", () => {
     const { company } = await import("@orrn/db/schema");
     await env.db.update(company).set({ status: "suspended" }).where(eq(company.id, companyId));
     expect(await env.caller(null).resolve.publicBundle({ code: "26I4086", companyHost: slug }).catch((e) => e.code)).toBe("NOT_FOUND");
+  });
+});
+
+describe("company.updateSettings: numbering settings", () => {
+  const PINNED = ist("2026-09-15T10:00:00");
+  beforeAll(async () => {
+    (await import("../src/lib/clock")).setClockForTests(PINNED);
+  });
+  afterAll(async () => {
+    (await import("../src/lib/clock")).setClockForTests(null);
+  });
+
+  async function addBundle(companyId: string, createdAt: Date) {
+    const dieId = await env.seedDie(companyId);
+    const groupId = crypto.randomUUID();
+    await env.db.insert(bundleGroup).values({ id: groupId, companyId, code: `G-${groupId}`, dieId, unit: "pcs" });
+    await env.db.insert(bundle).values({
+      id: crypto.randomUUID(),
+      companyId,
+      groupId,
+      dieId,
+      serial: `S-${groupId}`,
+      quantity: 1,
+      weightG: 1000,
+      lengthMm: 3000,
+      createdAt,
+    });
+  }
+  const settingsOf = async (companyId: string) => {
+    const { company } = await import("@orrn/db/schema");
+    return (await env.db.select().from(company).where(eq(company.id, companyId)))[0]!.settings;
+  };
+
+  test("admin sets bundleNumbering and plSeries; merged, audited, used by nextDocNumber", async () => {
+    const { auditLog } = await import("@orrn/db/schema");
+    const { companyId } = await env.seedCompany({ settings: { lengthUnit: "mm" } });
+    const admin = env.caller({ role: "admin", companyId });
+    const res = await admin.company.updateSettings({ bundleNumbering: "plant", plSeries: { prefix: "FC/", start: 4501 } });
+    expect(res.settings).toEqual({ lengthUnit: "mm", bundleNumbering: "plant", plSeries: { prefix: "FC/", start: 4501 } });
+    expect(await settingsOf(companyId)).toEqual(res.settings);
+    const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, companyId), eq(auditLog.action, "company.settings.update")));
+    expect(audits).toHaveLength(1);
+    expect(audits[0]!.meta).toMatchObject({ changed: { bundleNumbering: "plant", plSeries: { prefix: "FC/", start: 4501 } } });
+    expect((await dn.nextDocNumber(env.db, companyId, "pl", PINNED)).number).toBe("FC/2026-27/4501");
+  });
+
+  test("validation: enum, prefix length/whitespace, start positive int; nothing written", async () => {
+    const { companyId } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    const bad: unknown[] = [
+      { bundleNumbering: "other" },
+      { plSeries: { prefix: "ABCDEFGHIJKLM", start: 1 } },
+      { plSeries: { prefix: "P L/", start: 1 } },
+      { plSeries: { prefix: "PL/\n", start: 1 } },
+      { plSeries: { prefix: "PL/", start: 0 } },
+      { plSeries: { prefix: "PL/", start: -5 } },
+      { plSeries: { prefix: "PL/", start: 1.5 } },
+      { plSeries: { prefix: "PL/" } },
+    ];
+    for (const input of bad) {
+      await expect(owner.company.updateSettings(input as never)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    }
+    expect(await settingsOf(companyId)).toEqual({});
+    // 12 chars and an empty prefix are fine
+    await owner.company.updateSettings({ plSeries: { prefix: "ABCDEFGHIJKL", start: 1 } });
+    await owner.company.updateSettings({ plSeries: { prefix: "", start: 1 } });
+  });
+
+  test("only users.manage roles may set them", async () => {
+    const { companyId } = await env.seedCompany();
+    for (const role of ["manager", "office", "viewer"] as const) {
+      await expect(env.caller({ role, companyId }).company.updateSettings({ bundleNumbering: "plant" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    }
+  });
+
+  test("switching bundleNumbering is refused when a bundle exists this month (IST), allowed otherwise", async () => {
+    const { companyId } = await env.seedCompany();
+    const admin = env.caller({ role: "admin", companyId });
+    // last month's bundle (31 Aug 23:59 IST) does not block
+    await addBundle(companyId, ist("2026-08-31T23:59:00"));
+    expect((await admin.company.updateSettings({ bundleNumbering: "plant" })).settings.bundleNumbering).toBe("plant");
+    // 1 Sep 00:00 IST bundle (still 31 Aug in UTC) blocks the switch back
+    await addBundle(companyId, ist("2026-09-01T00:00:00"));
+    await expect(admin.company.updateSettings({ bundleNumbering: "legacy" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await settingsOf(companyId)).bundleNumbering).toBe("plant");
+    // re-saving the current value is not a switch
+    await admin.company.updateSettings({ bundleNumbering: "plant" });
+    // other settings are never blocked
+    await admin.company.updateSettings({ lengthUnit: "inch" });
+  });
+
+  test("no setting counts as legacy: re-saving legacy is allowed, switching to plant is blocked this month", async () => {
+    const { companyId } = await env.seedCompany();
+    const admin = env.caller({ role: "owner", companyId });
+    // 'legacy' on a company with no setting is not a switch
+    await addBundle(companyId, ist("2026-09-02T10:00:00"));
+    await admin.company.updateSettings({ bundleNumbering: "legacy" });
+    await expect(admin.company.updateSettings({ bundleNumbering: "plant" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  test("platform staff (impersonating) may switch mid-month", async () => {
+    const { user, platformAdmin, impersonationGrant } = await import("@orrn/db/schema");
+    const { companyId } = await env.seedCompany();
+    await addBundle(companyId, ist("2026-09-10T10:00:00"));
+    const staffId = crypto.randomUUID();
+    await env.db.insert(user).values({ id: staffId, name: "Staff", email: `staff.${staffId}@test.orrn` });
+    await env.db.insert(platformAdmin).values({ userId: staffId, role: "admin" });
+    await env.db.insert(impersonationGrant).values({
+      id: crypto.randomUUID(),
+      platformAdminId: staffId,
+      companyId,
+      expiresAt: new Date(Date.now() + 10 * 60_000),
+    });
+    const staff = env.callerForUser(staffId, { impersonate: companyId });
+    expect((await staff.company.updateSettings({ bundleNumbering: "plant" })).settings.bundleNumbering).toBe("plant");
+  });
+
+  test("the month check follows the company timezone", async () => {
+    const { companyId } = await env.seedCompany({ settings: { timezone: "UTC" } });
+    // 31 Aug 20:00 UTC = 1 Sep IST, but still August in UTC: does not block a UTC company
+    await addBundle(companyId, new Date("2026-08-31T20:00:00Z"));
+    const owner = env.caller({ role: "owner", companyId });
+    expect((await owner.company.updateSettings({ bundleNumbering: "plant" })).settings.bundleNumbering).toBe("plant");
   });
 });

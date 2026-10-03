@@ -151,6 +151,28 @@ bun run deploy
 - Perform reads with `db` first, then `atomicBatch()` from `@orrn/db/atomic` (re-exported as `@orrn/server/lib/atomic`) for writes that must succeed or fail together.
 - `nextCompanySeq()` runs outside the batch (a failed batch may leave a gap in sequence numbers; that is acceptable).
 
+## Document numbers (doc series)
+
+- Plant document numbers (bundle, cast, PL, lot, MRS/GRN, SO, press run, D/C note, count) come
+  only from `nextDocNumber` / `allocateDocNumbers` (`packages/server/src/lib/docNumber.ts`), backed by
+  the `doc_series` counter per (company, doc_type, period). Never build a number client-side or
+  with `nextCompanySeq` (that is the `serverSeq` sync cursor and the legacy `BG-` group code).
+- Periods are computed on the company wall clock (`settings.timezone`, default `Asia/Kolkata`):
+  `YYYY-MM` for bundle and cast (sequence resets each month), the Apr-Mar financial year
+  (`2026-27`) for everything else. **Do not change `timezone` mid-period**: the period key would
+  shift and a month/FY could be split or restarted.
+- `settings.bundleNumbering` is `"plant"` (`26I4086`) or `"legacy"` (`BG-000001-B001`, default).
+  A plant admin can switch only in a month with no bundles; platform staff (impersonating) any
+  time. `settings.plSeries = { prefix, start }` sets the PL book prefix and the first number of
+  each new FY (it does not renumber a series already started). Both are set via
+  `company.updateSettings` (audited).
+- `resolve.byCode` (signed in) resolves plant numbers, old month-only numbers (ambiguous across
+  years), legacy cuids (`legacy_bundle_map`) and BG serials. The signed-out QR page
+  (`resolve.publicBundle`) returns only `{ number, section }`; kg, pcs and status need a membership
+  in that company. Numbers are sequential and there is no rate limit, so never add more public fields.
+- Tests that depend on "now" must pin it with `setClockForTests` (`lib/clock.ts`); `createReceipt`
+  reads that clock.
+
 ## Worker performance rules
 
 - Minimize Worker CPU and wall time.

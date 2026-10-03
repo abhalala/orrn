@@ -45,6 +45,13 @@ export function zonedYmd(timezone: string = DEFAULT_TIMEZONE, ms: number = Date.
   return wallClockAsUtc(formatterFor(timezone), ms).ymd;
 }
 
+/** UTC instant at which the calendar month containing `now` starts on the wall clock of `timezone`. */
+export function monthStartMs(timezone: string = DEFAULT_TIMEZONE, now: number = Date.now()): number {
+  const fmt = formatterFor(timezone);
+  const { ymd } = wallClockAsUtc(fmt, now);
+  return localMidnightUtc(fmt, { year: ymd.year, month: ymd.month, day: 1 });
+}
+
 /**
  * The [startMs, endMs) UTC window of the calendar day containing `now` in
  * `timezone` (local midnight to next local midnight).
