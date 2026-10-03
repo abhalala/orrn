@@ -827,7 +827,7 @@ Counts: 838 screen strings in 26 groups, 10 guides with 182 strings.
 | `reason.badStatus` | {column} must be active or archived. | {column} active या archived होना चाहिए। |
 | `reason.rangeOrder` | Max weight is less than min weight. | ज़्यादा से ज़्यादा वज़न, कम से कम वज़न से कम है। |
 | `reason.duplicate` | Same die as row {other}. | लाइन {other} वाली die ही है। |
-| `reason.deletedDie` | A deleted die uses this code. Restore it on the Dies page or use a different code. | यह कोड एक डिलीट की गई die का है। Dies पेज पर उसे वापस लाएं या दूसरा कोड लिखें। |
+| `reason.deletedDie` | A deleted die already uses this section code. Use a different code for this die. | यह section code एक डिलीट की गई die का है। इस die के लिए दूसरा कोड लिखें। |
 
 ### guides (11)
 

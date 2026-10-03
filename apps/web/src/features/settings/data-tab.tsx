@@ -6,6 +6,7 @@ import { useId, useState, type ComponentType } from "react";
 
 import { ImportSheet } from "@/features/imports/import-sheet";
 import type { ImportKind } from "@/features/imports/parse";
+import { Can } from "@/shared/components/can";
 import { can, useMe, type Action } from "@/shared/lib/me";
 
 type ImportRow = {
@@ -25,7 +26,8 @@ const ROWS: readonly ImportRow[] = [
 /**
  * Settings → Data: one row per import (old bundles, dies, customers), each
  * opening the import sheet. Only rows the person's role can run are shown
- * (the server checks again on every call).
+ * (`<Can>` per row; the filter only decides the empty state) and the server
+ * checks again on every call.
  */
 export function DataTab() {
   const { t } = useT();
@@ -54,14 +56,15 @@ export function DataTab() {
       ) : (
         <ul className="m-0 flex list-none flex-col divide-y divide-border overflow-hidden rounded-card border border-border bg-card p-0">
           {rows.map((row) => (
-            <ImportRowItem
-              key={row.kind}
-              row={row}
-              onOpen={() => {
-                setKind(row.kind);
-                setOpen(true);
-              }}
-            />
+            <Can key={row.kind} do={row.action}>
+              <ImportRowItem
+                row={row}
+                onOpen={() => {
+                  setKind(row.kind);
+                  setOpen(true);
+                }}
+              />
+            </Can>
           ))}
         </ul>
       )}

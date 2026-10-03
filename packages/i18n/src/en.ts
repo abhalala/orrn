@@ -908,7 +908,7 @@ export const en = {
       badStatus: "{column} must be active or archived.",
       rangeOrder: "Max weight is less than min weight.",
       duplicate: "Same die as row {other}.",
-      deletedDie: "A deleted die uses this code. Restore it on the Dies page or use a different code.",
+      deletedDie: "A deleted die already uses this section code. Use a different code for this die.",
     },
   },
 

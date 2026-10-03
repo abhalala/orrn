@@ -902,7 +902,7 @@ export const hi = {
       badStatus: "{column} active या archived होना चाहिए।",
       rangeOrder: "ज़्यादा से ज़्यादा वज़न, कम से कम वज़न से कम है।",
       duplicate: "लाइन {other} वाली die ही है।",
-      deletedDie: "यह कोड एक डिलीट की गई die का है। Dies पेज पर उसे वापस लाएं या दूसरा कोड लिखें।",
+      deletedDie: "यह section code एक डिलीट की गई die का है। इस die के लिए दूसरा कोड लिखें।",
     },
   },
 

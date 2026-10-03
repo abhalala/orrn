@@ -10,7 +10,6 @@ import { cn } from "@orrn/ui/lib/utils";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Download, FileSpreadsheet, Info, Loader2, UploadCloud } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { toast } from "sonner";
 
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
@@ -259,10 +258,35 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
       });
       return;
     }
-    toast.success(t("settings.data.imported", { count: run.done }));
     setStage({ name: "done", count: run.done, newDies, sheet: loaded.sheet, rejected: plan.rejected });
     onImported?.(run.done);
   };
+
+  // One live region that stays mounted for the whole sheet, so every stage change is read out
+  // (a region inserted together with its text is often skipped by screen readers).
+  const announcement = (() => {
+    switch (stage.name) {
+      case "reading":
+        return t("imports.reading", { name: stage.file.name });
+      case "checking":
+        return t("imports.checking");
+      case "review": {
+        if (stage.parsed.missingColumns.length > 0) return t("imports.missingTitle");
+        const ready = plan?.ops.length ?? 0;
+        const problems = plan?.rejected.length ?? 0;
+        return problems > 0
+          ? `${t("settings.data.rowsOk", { count: ready })}. ${t("settings.data.rowsRejected", { count: problems })}.`
+          : t("settings.data.rowsOk", { count: ready });
+      }
+      case "saving":
+        return t("imports.saving", { done: stage.done.toLocaleString("en-IN"), total: stage.total.toLocaleString("en-IN") });
+      case "done":
+        return t("settings.data.imported", { count: stage.count });
+      default:
+        // Pick errors and a failed save use role="alert" in place.
+        return "";
+    }
+  })();
 
   const footer = (() => {
     switch (stage.name) {
@@ -323,6 +347,9 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
       footer={footer}
       className="lg:w-[520px]"
     >
+      <p role="status" data-slot="import-announce" className="sr-only">
+        {announcement}
+      </p>
       <div data-slot="import-sheet" data-stage={stage.name} aria-busy={busy || undefined} className="flex flex-col gap-6 pt-1">
         {stage.name === "pick" ? (
           <PickStage kind={kind} unit={unit} error={stage.error} onFile={(f) => void readFile(f)} />
@@ -561,8 +588,8 @@ function ReadingStage({ name, checking }: { name: string; checking: boolean }) {
   const { t } = useT();
   return (
     <div className="flex flex-col gap-4">
-      <p role="status" className="m-0 flex items-start gap-2 text-[15px] font-semibold leading-6 text-muted-foreground">
-        <Loader2 aria-hidden="true" className="mt-0.5 size-[18px] shrink-0 animate-spin" />
+      <p className="m-0 flex items-start gap-2 text-[15px] font-semibold leading-6 text-muted-foreground">
+        <Loader2 aria-hidden="true" className="mt-0.5 size-[18px] shrink-0 animate-spin motion-reduce:animate-none" />
         <span className="min-w-0 break-all">{checking ? t("imports.checking") : t("imports.reading", { name })}</span>
       </p>
       <div className="grid grid-cols-2 gap-3">
@@ -642,10 +669,6 @@ function ReviewStage({
           />
         ) : null}
       </div>
-      <p role="status" className="sr-only">
-        {t("settings.data.rowsOk", { count: ready })}
-        {problems > 0 ? ` ${t("settings.data.rowsRejected", { count: problems })}` : ""}
-      </p>
 
       {ready === 0 && existing === 0 ? (
         <p className="m-0 text-[15px] font-medium leading-6 text-foreground">{t("imports.nothingReady")}</p>
@@ -846,9 +869,6 @@ function SavingStage({ done, total }: Progress) {
         />
       </div>
       <p className="m-0 text-[14px] text-muted-foreground">{t("imports.keepOpen")}</p>
-      <p role="status" className="sr-only">
-        {label}
-      </p>
     </div>
   );
 }
@@ -902,9 +922,6 @@ function DoneStage({
         unit={t("imports.rows", { count })}
         className={motionClass.pop}
       />
-      <p role="status" className="sr-only">
-        {t("settings.data.imported", { count })}
-      </p>
       {newDies > 0 ? (
         <p className="m-0 flex items-start gap-2 text-[15px] leading-6 text-foreground">
           <Info aria-hidden="true" strokeWidth={2} className="mt-1 size-[18px] shrink-0 text-muted-foreground" />
