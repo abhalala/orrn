@@ -73,7 +73,7 @@ test.describe("Sections", () => {
     }
 
     const totalBundles = available.items.reduce((t, r) => t + Number(r.bundleCount), 0);
-    await expect(page.getByTestId("stock-totals")).toContainText(`${totalBundles} bundles`);
+    await expect(page.getByTestId("stock-totals")).toContainText(`${totalBundles.toLocaleString("en-IN")} bundles`);
     await expectNoGrams(page);
   });
 
