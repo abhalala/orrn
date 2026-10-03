@@ -9,6 +9,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
+import { isDevLocalOrigin } from "@orrn/server/lib/devOrigins";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
 
 import { seedDevData } from "./dev-seed";
@@ -28,7 +29,7 @@ app.use(
           corsOrigin: env.CORS_ORIGIN,
           corsAllowedOrigins: env.CORS_ALLOWED_ORIGINS,
         }) ||
-        origin === "http://localhost:3001"
+        isDevLocalOrigin(env, origin)
       ) {
         return origin;
       }

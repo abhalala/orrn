@@ -20,17 +20,17 @@ import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
 import { nextCompanySeq } from "../lib/sequence";
 
 const bundleRowSchema = z.object({
-  quantity: z.number().int().min(1, "Quantity must be at least 1"),
-  weightG: z.number().int().min(0, "Weight must be >= 0"),
-  lengthMm: z.number().int().min(0, "Length must be >= 0"),
-  poNumber: z.string().nullable().optional(),
+  quantity: z.number().int().positive("Quantity must be at least 1"),
+  weightG: z.number().int().positive("Weight must be greater than 0"),
+  lengthMm: z.number().int().positive("Length must be greater than 0"),
+  poNumber: z.string().max(500).nullable().optional(),
 });
 
 const receiptInputSchema = z.object({
   dieId: z.string().min(1, "Die is required"),
-  unit: z.string().min(1, "Unit is required"),
-  purchaseOrderRef: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  unit: z.string().min(1, "Unit is required").max(500),
+  purchaseOrderRef: z.string().max(500).nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
   rows: z.array(bundleRowSchema).min(1, "At least one bundle row is required").max(200, "Max 200 rows per receipt"),
 });
 
@@ -40,12 +40,12 @@ const receiptInputSchema = z.object({
  * customers don't have to know internal die IDs when migrating data.
  */
 const bundleImportRowSchema = z.object({
-  dieSeries: z.string().min(1, "dieSeries is required"),
-  dieSectionCode: z.string().min(1, "dieSectionCode is required"),
-  quantity: z.number().int().min(1, "Quantity must be at least 1"),
-  weightG: z.number().int().min(0, "Weight must be >= 0"),
-  lengthMm: z.number().int().min(0, "Length must be >= 0"),
-  poNumber: z.string().nullable().optional(),
+  dieSeries: z.string().min(1, "dieSeries is required").max(500),
+  dieSectionCode: z.string().min(1, "dieSectionCode is required").max(500),
+  quantity: z.number().int().positive("Quantity must be at least 1"),
+  weightG: z.number().int().positive("Weight must be greater than 0"),
+  lengthMm: z.number().int().positive("Length must be greater than 0"),
+  poNumber: z.string().max(500).nullable().optional(),
 });
 
 /**
@@ -372,7 +372,7 @@ export const bundleRouter = router({
       z.object({
         id: z.string(),
         toStatus: z.enum(bundleStatuses),
-        reason: z.string().nullable().optional(),
+        reason: z.string().max(500).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {

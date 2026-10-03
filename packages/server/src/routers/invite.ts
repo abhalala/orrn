@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
@@ -7,6 +7,7 @@ import { user } from "@orrn/db/schema/auth";
 import { atomicBatch } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { sendEmail, renderOrrnEmailHtml } from "../lib/email";
+import { webBaseUrl } from "../lib/webUrl";
 import { actionProcedure, companyProcedure, roleGuard, publicProcedure, router } from "../index";
 
 export const inviteRouter = router({
@@ -21,8 +22,10 @@ export const inviteRouter = router({
   }),
 
   create: actionProcedure("member.invite")
-    .input(z.object({ email: z.string().email(), role: z.enum(companyRoles) }))
+    .input(z.object({ email: z.string().trim().max(320).email(), role: z.enum(companyRoles) }))
     .mutation(async ({ ctx, input }) => {
+      // Emails are compared case-insensitively everywhere; store them lower-cased (audit S7).
+      const email = input.email.toLowerCase();
       if (input.role === "owner" && ctx.role !== "owner") {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -31,7 +34,7 @@ export const inviteRouter = router({
       }
 
       const existingUser = await ctx.db.query.user.findFirst({
-        where: eq(user.email, input.email)
+        where: sql`lower(${user.email}) = ${email}`,
       });
       
       if (existingUser) {
@@ -55,7 +58,7 @@ export const inviteRouter = router({
         ctx.db.insert(invite).values({
           id: inviteId,
           companyId: ctx.companyId,
-          email: input.email,
+          email,
           role: input.role,
           tokenHash,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
@@ -65,15 +68,14 @@ export const inviteRouter = router({
           action: "member.invite",
           subjectType: "invite",
           subjectId: inviteId,
-          meta: { email: input.email, role: input.role },
+          meta: { email, role: input.role },
         }),
       ]);
 
-      // TODO: Get base URL from environment
-      const inviteUrl = `http://localhost:5173/invite/${token}`;
+      const inviteUrl = `${webBaseUrl()}/invite/${token}`;
 
       await sendEmail({
-        to: input.email,
+        to: email,
         subject: "You've been invited to join a company on ORRN",
         html: renderOrrnEmailHtml({
           title: "Workspace Invitation",
@@ -139,7 +141,7 @@ export const inviteRouter = router({
       
       // Ensure the logged in user matches the invite email
       const currentUser = await ctx.db.query.user.findFirst({ where: eq(user.id, userId) });
-      if (currentUser?.email !== targetInvite.email) {
+      if (currentUser?.email.toLowerCase() !== targetInvite.email.toLowerCase()) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Invite email does not match logged in user" });
       }
 

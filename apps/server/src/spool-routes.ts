@@ -83,7 +83,11 @@ spoolRoutes.post("/webhooks/spool", async (c: HonoContext) => {
     return c.json({ error: "Invalid JSON payload" }, 400);
   }
 
-  // Update print_log based on event type
+  // Update print_log based on event type. A signed body without `data` used to crash the handler
+  // (500, so the spool retried forever); it is malformed, so say 400 (audit S18).
+  if (!payload || typeof payload !== "object" || !payload.data || typeof payload.data !== "object") {
+    return c.json({ error: "Missing data" }, 400);
+  }
   const { event, data } = payload;
 
   if (data.job_id && event !== "printer_status_changed") {

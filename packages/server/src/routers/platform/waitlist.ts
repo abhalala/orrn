@@ -4,10 +4,10 @@ import { z } from "zod";
 
 import { company, membership, waitlistRequest } from "@orrn/db/schema/tenant";
 import { user } from "@orrn/db/schema/auth";
-import { env } from "@orrn/env/server";
 import { createAuth } from "@orrn/auth";
 
 import { atomicBatch, type SqliteBatchItem } from "../../lib/atomic";
+import { webBaseUrl } from "../../lib/webUrl";
 import { platformGuard, platformProcedure } from "../../index";
 
 export const waitlistProcedures = {
@@ -36,7 +36,7 @@ export const waitlistProcedures = {
       }
 
       const companyId = request.companyId ?? crypto.randomUUID();
-      const webBase = (env.WEB_PUBLIC_URL ?? env.CORS_ORIGIN).replace(/\/$/, "");
+      const webBase = webBaseUrl();
 
       const companyExists = await ctx.db
         .select()
@@ -140,6 +140,21 @@ export const waitlistProcedures = {
   waitlistReject: platformProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      const request = await ctx.db
+        .select()
+        .from(waitlistRequest)
+        .where(eq(waitlistRequest.id, input.id))
+        .get();
+
+      if (!request) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Waitlist request not found" });
+      }
+      // An approved request already has a company + owner; rejecting it would leave that
+      // access in place while the record says otherwise (audit S18).
+      if (request.status !== "pending") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Request is already processed" });
+      }
+
       await ctx.db
         .update(waitlistRequest)
         .set({
@@ -147,7 +162,7 @@ export const waitlistProcedures = {
           reviewedBy: ctx.session.user.id,
           reviewedAt: new Date(),
         })
-        .where(eq(waitlistRequest.id, input.id));
+        .where(and(eq(waitlistRequest.id, input.id), eq(waitlistRequest.status, "pending")));
 
       return { success: true };
     }),

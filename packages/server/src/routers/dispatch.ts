@@ -207,14 +207,14 @@ export type AddBundlesReport = {
 const createInput = z.object({
   customerId: z.string().min(1, "Customer is required"),
   shipDate: z.number().int().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
 });
 
 const updateInput = z.object({
   id: z.string(),
   customerId: z.string().optional(),
   shipDate: z.number().int().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
 });
 
 export const dispatchRouter = router({

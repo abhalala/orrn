@@ -8,14 +8,17 @@ import { pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { paginatedList, scopedFindOrThrow, withAudit } from "../lib/helpers";
 
 const customerBaseSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  phone: z.string().nullable().optional(),
-  email: z.string().email().nullable().optional().or(z.literal("")),
+  name: z.string().min(1, "Name is required").max(500),
+  phone: z.string().max(500).nullable().optional(),
+  email: z.string().max(500).email().nullable().optional().or(z.literal("")),
   billingAddress: z.record(z.string(), z.unknown()).nullable().optional(),
   shippingAddress: z.record(z.string(), z.unknown()).nullable().optional(),
-  taxId: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  taxId: z.string().max(500).nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
 });
+
+/** Same cap as bundle.bulkImport: a larger import must be split into batches (D1 + Worker CPU). */
+const MAX_IMPORT_ROWS = 2000;
 
 type Customer = typeof customer.$inferSelect;
 
@@ -165,7 +168,7 @@ export const customerRouter = router({
     }),
 
   importCsv: actionProcedure("customer.import")
-    .input(z.array(customerBaseSchema))
+    .input(z.array(customerBaseSchema).max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"))
     .mutation(async ({ ctx, input }) => {
       if (input.length === 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "No rows provided" });

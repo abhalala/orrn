@@ -1,11 +1,11 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { die, dieStatuses } from "@orrn/db/schema/catalog";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
-import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { atomicBatch, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { nextCompanySeq } from "../lib/sequence";
 
 export const dimensionsSchema = z.object({
@@ -14,22 +14,34 @@ export const dimensionsSchema = z.object({
   thicknessMm: z.number().optional(),
 });
 
-const optionalDieLength = z.number().min(0).nullable().optional();
+const optionalDieLength = z.number().int().min(0).nullable().optional();
+
+/** Cap for dies per import call; matches bundle.bulkImport and customer.importCsv. */
+const MAX_IMPORT_ROWS = 2000;
 
 export const dieBaseSchema = z.object({
-  series: z.string().min(1, "Series is required"),
-  sectionCode: z.string().min(1, "Section Code is required"),
-  name: z.string().nullable().optional(),
+  series: z.string().min(1, "Series is required").max(500),
+  sectionCode: z.string().min(1, "Section Code is required").max(500),
+  name: z.string().max(500).nullable().optional(),
   obliqueMm: optionalDieLength,
   legMm: optionalDieLength,
   widthMm: optionalDieLength,
   thicknessMm: optionalDieLength,
   dimensions: dimensionsSchema.default({}),
-  weightMinG: z.number().min(0, "Min weight must be >= 0"),
-  weightMaxG: z.number().min(0, "Max weight must be >= 0"),
+  weightMinG: z.number().int().min(0, "Min weight must be >= 0"),
+  weightMaxG: z.number().int().min(0, "Max weight must be >= 0"),
   status: z.enum(dieStatuses).default("active"),
-  notes: z.string().nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
 });
+
+/**
+ * The unique index on (company, series, section code) also covers soft-deleted dies, so reusing a
+ * deleted die's code used to fail the insert with a 500 (audit S16). Say so instead.
+ */
+const DELETED_DIE_CONFLICT = {
+  code: "CONFLICT",
+  message: "A deleted die uses this code",
+} as const;
 
 export const dieRouter = router({
   list: companyProcedure
@@ -93,16 +105,18 @@ export const dieRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Min weight cannot be greater than max weight" });
       }
 
-      // Check duplicate
+      // Check duplicate (including soft-deleted dies: they still hold the unique code)
       const existing = await ctx.db.query.die.findFirst({
         where: and(
           eq(die.companyId, ctx.companyId),
           eq(die.series, input.series),
           eq(die.sectionCode, input.sectionCode),
-          isNull(die.deletedAt)
         )
       });
 
+      if (existing?.deletedAt) {
+        throw new TRPCError(DELETED_DIE_CONFLICT);
+      }
       if (existing) {
         throw new TRPCError({ code: "CONFLICT", message: "A die with this series and section code already exists" });
       }
@@ -167,9 +181,11 @@ export const dieRouter = router({
             eq(die.companyId, ctx.companyId),
             eq(die.series, input.series),
             eq(die.sectionCode, input.sectionCode),
-            isNull(die.deletedAt),
           ),
         });
+        if (duplicate?.deletedAt) {
+          throw new TRPCError(DELETED_DIE_CONFLICT);
+        }
         if (duplicate) {
           throw new TRPCError({
             code: "CONFLICT",
@@ -253,7 +269,7 @@ export const dieRouter = router({
     }),
 
   validateImport: actionProcedure("die.import")
-    .input(z.array(dieBaseSchema))
+    .input(z.array(dieBaseSchema).max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"))
     .mutation(async ({ ctx, input }) => {
       // Find duplicates
       const validRows: z.infer<typeof dieBaseSchema>[] = [];
@@ -281,12 +297,34 @@ export const dieRouter = router({
 
   processImport: actionProcedure("die.import")
     .input(z.object({
-      newRows: z.array(dieBaseSchema),
-      updatedRows: z.array(dieBaseSchema.extend({ existingId: z.string() }))
+      newRows: z.array(dieBaseSchema).max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"),
+      updatedRows: z
+        .array(dieBaseSchema.extend({ existingId: z.string() }))
+        .max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"),
     }))
     .mutation(async ({ ctx, input }) => {
       if (input.newRows.length === 0 && input.updatedRows.length === 0) {
         return { success: true, count: 0 };
+      }
+
+      if (input.newRows.length > 0) {
+        const codes = [...new Set(input.newRows.map((row) => row.sectionCode))];
+        const deleted = await mapInChunks(codes, (slice) =>
+          ctx.db
+            .select({ series: die.series, sectionCode: die.sectionCode })
+            .from(die)
+            .where(
+              and(
+                eq(die.companyId, ctx.companyId),
+                isNotNull(die.deletedAt),
+                inArray(die.sectionCode, slice),
+              ),
+            ),
+        );
+        const taken = new Set(deleted.map((d) => `${d.series}\u0000${d.sectionCode}`));
+        if (input.newRows.some((row) => taken.has(`${row.series}\u0000${row.sectionCode}`))) {
+          throw new TRPCError(DELETED_DIE_CONFLICT);
+        }
       }
 
       const serverSeq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
