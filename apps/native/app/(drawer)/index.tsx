@@ -21,9 +21,9 @@ export default function Home() {
   const { data: session } = authClient.useSession();
   const { data: me } = useMe();
   const isConnected = healthCheck?.data === "OK";
-  const mutedColor = useThemeColor("muted");
+  const mutedColor = useThemeColor("muted-foreground");
   const successColor = useThemeColor("success");
-  const dangerColor = useThemeColor("danger");
+  const dangerColor = useThemeColor("destructive");
   const foregroundColor = useThemeColor("foreground");
 
   return (

@@ -167,7 +167,7 @@ export default function BundleDetailScreen() {
             >
               <View className="flex-row flex-wrap items-center gap-2">
                 <StatusBadge kind="bundle" value={ev.fromStatus ?? "available"} size="sm" />
-                <Text className="text-base text-muted">→</Text>
+                <Text className="text-base text-muted-foreground">→</Text>
                 <StatusBadge kind="bundle" value={ev.toStatus} size="sm" />
               </View>
               <ErpMutedText className="text-xs">

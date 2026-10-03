@@ -178,7 +178,7 @@ export default function DieFormScreen() {
           headerRight: () =>
             !isNew ? (
               <TouchableOpacity onPress={handleDelete} disabled={deleteMutation.isPending}>
-                <Text className="mr-4 text-base font-medium text-danger">Delete</Text>
+                <Text className="mr-4 text-base font-medium text-destructive">Delete</Text>
               </TouchableOpacity>
             ) : undefined,
         }}

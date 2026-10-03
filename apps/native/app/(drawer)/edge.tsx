@@ -76,7 +76,7 @@ export default function EdgeScreen() {
 
       {bootstrapError ? (
         <ErpListCard>
-          <Text className="font-medium text-danger">Stored runtime config is invalid</Text>
+          <Text className="font-medium text-destructive">Stored runtime config is invalid</Text>
           <ErpMutedText>{bootstrapError}</ErpMutedText>
         </ErpListCard>
       ) : null}
@@ -129,10 +129,10 @@ export default function EdgeScreen() {
             </ErpCardPressable>
             {config ? (
               <Pressable
-                className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3"
+                className="rounded-lg border border-tone-red-ink/40 bg-tone-red-tint px-4 py-3"
                 onPress={() => revokeMutation.mutate({ id: config.deploymentId })}
               >
-                <Text className="font-semibold text-danger">
+                <Text className="font-semibold text-tone-red-ink">
                   {revokeMutation.isPending ? "Revoking…" : "Revoke local node"}
                 </Text>
               </Pressable>

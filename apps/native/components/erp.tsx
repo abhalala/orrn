@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { cssInterop, useColorScheme } from "nativewind";
+import { cssInterop } from "nativewind";
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -12,22 +12,11 @@ import {
   type ViewProps,
 } from "react-native";
 
+import { useThemeColor } from "@/lib/theme";
+
 const StyledIonicons = cssInterop(Ionicons, {
   className: { target: "style", nativeStyleToProp: { color: true } },
 });
-
-/**
- * Returns the hex color for the `muted-foreground` token in the current
- * color scheme. Used for placeholders / icon tint where we need a raw color
- * (e.g. `placeholderTextColor`, icon `color` prop).
- *
- * Values mirror the HSL tokens in apps/native/global.css.
- */
-function useMutedColor(): string {
-  const { colorScheme } = useColorScheme();
-  // light: hsl(213 14% 43%) ≈ #5d6b7c, dark: hsl(215 17% 71%) ≈ #a7b2c2
-  return colorScheme === "dark" ? "#a7b2c2" : "#5d6b7c";
-}
 
 export function ErpScreen({ children, className }: { children: ReactNode; className?: string }) {
   return <View className={`flex-1 bg-background ${className ?? ""}`}>{children}</View>;
@@ -42,7 +31,7 @@ export function ErpSearchBar({
   onChangeText: (text: string) => void;
   placeholder: string;
 }) {
-  const muted = useMutedColor();
+  const muted = useThemeColor("muted-foreground");
   return (
     <View className="mx-4 mb-2 flex-row items-center rounded-lg border border-border bg-card px-3">
       <StyledIonicons name="search" size={20} color={muted} style={{ marginRight: 8 }} />
@@ -169,7 +158,7 @@ export function ErpField({
 }
 
 export function ErpTextInput(props: TextInputProps) {
-  const muted = useMutedColor();
+  const muted = useThemeColor("muted-foreground");
   return (
     <TextInput
       className="rounded-md border border-border bg-card px-3 py-2.5 text-base text-foreground"

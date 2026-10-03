@@ -148,7 +148,7 @@ export default function NewReceiptScreen() {
             key={idx}
             className="flex-row items-end gap-2 border-t border-border py-2"
           >
-            <Text className="w-6 pb-3 text-xs text-muted">#{idx + 1}</Text>
+            <Text className="w-6 pb-3 text-xs text-muted-foreground">#{idx + 1}</Text>
             <View className="flex-1 flex-row gap-1.5">
               <View className="flex-1">
                 <ErpField label="Qty">
@@ -190,9 +190,9 @@ export default function NewReceiptScreen() {
             <Pressable
               onPress={() => removeRow(idx)}
               disabled={rows.length === 1}
-              className={`h-10 w-8 items-center justify-center rounded-md bg-danger/10 ${rows.length === 1 ? "opacity-40" : ""}`}
+              className={`h-10 w-8 items-center justify-center rounded-md bg-tone-red-tint ${rows.length === 1 ? "opacity-40" : ""}`}
             >
-              <Text className="text-xl font-semibold text-danger">×</Text>
+              <Text className="text-xl font-semibold text-tone-red-ink">×</Text>
             </Pressable>
           </View>
         ))}

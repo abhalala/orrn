@@ -36,7 +36,7 @@ export function NotFoundPage({
 
           <Text
             aria-hidden
-            className="font-mono text-8xl font-semibold tracking-tighter text-muted"
+            className="font-mono text-8xl font-semibold tracking-tighter text-muted-foreground"
           >
             404
           </Text>

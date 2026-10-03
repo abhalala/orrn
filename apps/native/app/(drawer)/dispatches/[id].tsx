@@ -328,7 +328,7 @@ export default function DispatchDetailScreen() {
 
           {d.status === "completed" ? <PackingListCard dispatchId={d.id} /> : null}
 
-          <Text className="px-4 pb-2 pt-4 text-xs font-semibold uppercase tracking-wide text-muted">
+          <Text className="px-4 pb-2 pt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Items ({items.length})
           </Text>
         </View>
@@ -347,11 +347,11 @@ export default function DispatchDetailScreen() {
           {canAddOrRemove ? (
             <Can do="dispatch.addBundle">
               <Pressable
-                className="min-h-11 justify-center rounded-lg bg-danger/10 px-3 py-2.5"
+                className="min-h-11 justify-center rounded-lg bg-tone-red-tint px-3 py-2.5"
                 disabled={removeMutation.isPending}
                 onPress={() => removeMutation.mutate({ id: id as string, bundleId: item.bundleId })}
               >
-                <Text className="text-sm font-semibold text-danger">Remove</Text>
+                <Text className="text-sm font-semibold text-tone-red-ink">Remove</Text>
               </Pressable>
             </Can>
           ) : null}

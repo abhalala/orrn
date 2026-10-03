@@ -6,13 +6,14 @@
  *
  * `nativewind/babel` runs the CSS-to-StyleSheet transform.
  *
- * Reanimated's plugin MUST stay last per its docs.
+ * No explicit reanimated/worklets plugin: babel-preset-expo adds the worklets
+ * plugin itself when react-native-worklets is installed (it is), and listing
+ * it a second time double-transforms every worklet (audit N13).
  */
 module.exports = function (api) {
   api.cache(true);
 
   return {
     presets: [["babel-preset-expo", { jsxImportSource: "nativewind" }], "nativewind/babel"],
-    plugins: ["react-native-reanimated/plugin"],
   };
 };

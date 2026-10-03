@@ -30,7 +30,7 @@ export default function PlatformWaitlistScreen() {
   if (error) {
     return (
       <ErpScreen className="items-center justify-center">
-        <Text className="text-danger">Unable to load waitlist.</Text>
+        <Text className="text-destructive">Unable to load waitlist.</Text>
       </ErpScreen>
     );
   }

@@ -3,6 +3,8 @@
 // correctly, so disabling the inner typecheck is safe.
 import { Pressable, Text, View } from "react-native";
 
+import { dangerText, tones } from "../tokens";
+
 export type ImpersonationBannerProps = {
   companyName?: string | null;
   onStop: () => void;
@@ -18,7 +20,7 @@ export function ImpersonationBanner({
     <View
       style={{
         width: "100%",
-        backgroundColor: "#dc2626",
+        backgroundColor: tones.red.from,
         paddingHorizontal: 16,
         paddingVertical: 10,
         flexDirection: "row",
@@ -30,7 +32,7 @@ export function ImpersonationBanner({
       <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
         <Text
           style={{
-            color: "#ffffff",
+            color: tones.red.on,
             fontWeight: "700",
             fontSize: 12,
             textTransform: "uppercase",
@@ -39,7 +41,7 @@ export function ImpersonationBanner({
         >
           Impersonating
         </Text>
-        <Text style={{ color: "#ffffff", fontSize: 13 }}>
+        <Text style={{ color: tones.red.on, fontSize: 13 }}>
           {companyName ?? "tenant"} — every action is audited.
         </Text>
       </View>
@@ -48,11 +50,11 @@ export function ImpersonationBanner({
         style={{
           paddingHorizontal: 12,
           paddingVertical: 6,
-          backgroundColor: "#ffffff",
+          backgroundColor: tones.red.on,
           borderRadius: 6,
         }}
       >
-        <Text style={{ color: "#b91c1c", fontWeight: "600", fontSize: 12 }}>{stopLabel}</Text>
+        <Text style={{ color: dangerText.light, fontWeight: "600", fontSize: 12 }}>{stopLabel}</Text>
       </Pressable>
     </View>
   );

@@ -27,14 +27,13 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   return (
     <TextInput
       ref={ref}
-      placeholderTextColor="#9ca3af"
       secureTextEntry={secureTextEntry ?? type === "password"}
       onChangeText={(text) => {
         onChangeText?.(text);
         onChange?.({ target: { value: text } });
       }}
       className={cn(
-        "h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground",
+        "h-11 w-full rounded-input border border-control bg-surface px-3 text-sm text-foreground placeholder:text-muted-foreground",
         className,
       )}
       {...rest}
@@ -53,14 +52,13 @@ export const TextArea = forwardRef<TextInput, TextAreaProps>(function TextArea(
       ref={ref}
       multiline
       numberOfLines={rows}
-      placeholderTextColor="#9ca3af"
       textAlignVertical="top"
       onChangeText={(text) => {
         onChangeText?.(text);
         onChange?.({ target: { value: text } });
       }}
       className={cn(
-        "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground",
+        "w-full rounded-input border border-control bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground",
         className,
       )}
       style={{ minHeight: rows * 22 }}

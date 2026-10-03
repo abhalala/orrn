@@ -10,7 +10,7 @@ import { canAny, useMe } from "@/utils/me";
 function DrawerLayout() {
   const themeColorForeground = useThemeColor("foreground");
   const themeColorBackground = useThemeColor("background");
-  const themeColorMuted = useThemeColor("muted");
+  const themeColorMuted = useThemeColor("muted-foreground");
 
   const { data: me } = useMe();
   const hasCompany = !!me?.company;
