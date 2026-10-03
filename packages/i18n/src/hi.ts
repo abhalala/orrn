@@ -1000,7 +1000,7 @@ export const hi = {
       empty: "कोई रिक्वेस्ट बाकी नहीं है।",
       emptyBody: "वेबसाइट से आई नई रिक्वेस्ट यहां दिखेंगी।",
       from: "{name} की ओर से",
-      received: "{date} को आई",
+      received: "आई: {date}",
       noNotes: "कोई नोट नहीं",
       approve: "मंज़ूर करें",
       approveTitle: "{company} को मंज़ूर करें?",

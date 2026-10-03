@@ -66,7 +66,7 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
     setModules((current) => (on ? [...new Set([...current, id])] : current.filter((m) => m !== id)));
 
   return (
-    <Panel aria-label={t("admin.company.tabs.plan")} className="flex flex-col gap-6 p-5 sm:p-6">
+    <Panel as="div" className="flex flex-col gap-6 p-5 sm:p-6">
       <div className="flex min-w-0 flex-col gap-2">
         <p id={`${groupId}-plan`} className="m-0 text-[14px] font-semibold text-foreground">
           {t("admin.plan.plan")}

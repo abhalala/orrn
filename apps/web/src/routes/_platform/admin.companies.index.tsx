@@ -9,7 +9,7 @@ import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/r
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { formatDay } from "@/features/admin/format";
 import { companyStatusKey, companyStatusTone, printingKey, printingTone } from "@/features/admin/status";
@@ -60,11 +60,13 @@ function AdminCompanies() {
   const debounced = useDebounced(query.trim(), 250);
   const offset = search.offset ?? 0;
 
-  // A new search starts on the first page.
+  // A new search starts on the first page (not on mount: a link to page 2 stays on page 2).
+  const lastSearch = useRef(debounced);
   useEffect(() => {
+    if (lastSearch.current === debounced) return;
+    lastSearch.current = debounced;
     if (offset > 0) void navigate({ search: (s) => ({ ...s, offset: undefined }), replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debounced]);
+  }, [debounced, offset, navigate]);
 
   const list = useQuery({
     ...trpc.platform.companiesList.queryOptions({
