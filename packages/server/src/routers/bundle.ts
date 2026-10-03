@@ -12,7 +12,7 @@ import {
   type BundleStatus,
 } from "@orrn/db/schema/inventory";
 
-import { companyProcedure, router } from "../index";
+import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
@@ -83,7 +83,7 @@ function assertTransitionAllowed(from: BundleStatus, to: BundleStatus) {
 }
 
 export const bundleRouter = router({
-  createReceipt: companyProcedure
+  createReceipt: actionProcedure("bundle.create")
     .input(receiptInputSchema)
     .mutation(async ({ ctx, input }) => {
       const dieRow = await ctx.db.query.die.findFirst({
@@ -366,7 +366,7 @@ export const bundleRouter = router({
       };
     }),
 
-  transitionStatus: companyProcedure
+  transitionStatus: actionProcedure("bundle.transition")
     .input(
       z.object({
         id: z.string(),
@@ -465,7 +465,7 @@ export const bundleRouter = router({
    * are operator workflow with PO refs, units, etc.; legacy bundles are a
    * "just put these on the shelf" data-migration tool.
    */
-  bulkImport: companyProcedure
+  bulkImport: actionProcedure("bundle.import")
     .input(
       z.object({
         rows: z

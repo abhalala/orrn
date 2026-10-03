@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { die, dieStatuses } from "@orrn/db/schema/catalog";
-import { companyProcedure, router } from "../index";
+import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { nextCompanySeq } from "../lib/sequence";
@@ -86,7 +86,7 @@ export const dieRouter = router({
       return item;
     }),
 
-  create: companyProcedure
+  create: actionProcedure("die.create")
     .input(dieBaseSchema)
     .mutation(async ({ ctx, input }) => {
       if (input.weightMinG > input.weightMaxG) {
@@ -146,7 +146,7 @@ export const dieRouter = router({
       return { success: true, id };
     }),
 
-  update: companyProcedure
+  update: actionProcedure("die.update")
     .input(dieBaseSchema.extend({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       if (input.weightMinG > input.weightMaxG) {
@@ -217,7 +217,7 @@ export const dieRouter = router({
       return { success: true };
     }),
 
-  delete: companyProcedure
+  delete: actionProcedure("die.delete")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.query.die.findFirst({
@@ -252,7 +252,7 @@ export const dieRouter = router({
       return { success: true };
     }),
 
-  validateImport: companyProcedure
+  validateImport: actionProcedure("die.import")
     .input(z.array(dieBaseSchema))
     .mutation(async ({ ctx, input }) => {
       // Find duplicates
@@ -279,7 +279,7 @@ export const dieRouter = router({
       return { validRows, duplicates };
     }),
 
-  processImport: companyProcedure
+  processImport: actionProcedure("die.import")
     .input(z.object({
       newRows: z.array(dieBaseSchema),
       updatedRows: z.array(dieBaseSchema.extend({ existingId: z.string() }))

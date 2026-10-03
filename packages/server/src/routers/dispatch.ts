@@ -13,7 +13,7 @@ import {
 } from "@orrn/db/schema/dispatch";
 import { bundle, bundleStatusEvent } from "@orrn/db/schema/inventory";
 
-import { companyProcedure, router } from "../index";
+import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import {
   atomicBatch,
@@ -58,7 +58,7 @@ const updateInput = z.object({
 });
 
 export const dispatchRouter = router({
-  create: companyProcedure
+  create: actionProcedure("dispatch.create")
     .input(createInput)
     .mutation(async ({ ctx, input }) => {
       const customerRow = await ctx.db.query.customer.findFirst({
@@ -234,7 +234,7 @@ export const dispatchRouter = router({
       return { dispatch: row, customer: customerRow ?? null, items, events };
     }),
 
-  update: companyProcedure
+  update: actionProcedure("dispatch.update")
     .input(updateInput)
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.query.dispatch.findFirst({
@@ -300,7 +300,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  addBundle: companyProcedure
+  addBundle: actionProcedure("dispatch.addBundle")
     .input(z.object({ id: z.string(), bundleId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -392,7 +392,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  addBundlesBySerial: companyProcedure
+  addBundlesBySerial: actionProcedure("dispatch.addBundle")
     .input(z.object({ id: z.string(), serials: z.array(z.string().min(1)).min(1).max(100) }))
     .mutation(async ({ ctx, input }) => {
       const trimmed = Array.from(new Set(input.serials.map((s) => s.trim()).filter(Boolean)));
@@ -524,7 +524,7 @@ export const dispatchRouter = router({
       return { success: true, added: toAdd.length };
     }),
 
-  setItemGroupLabel: companyProcedure
+  setItemGroupLabel: actionProcedure("dispatch.addBundle")
     .input(z.object({ id: z.string(), bundleId: z.string(), groupLabel: z.string().max(32).nullable() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -568,7 +568,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  removeBundle: companyProcedure
+  removeBundle: actionProcedure("dispatch.addBundle")
     .input(z.object({ id: z.string(), bundleId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -652,7 +652,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  reserve: companyProcedure
+  reserve: actionProcedure("dispatch.reserve")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -739,7 +739,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  unreserve: companyProcedure
+  unreserve: actionProcedure("dispatch.reserve")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -835,7 +835,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  complete: companyProcedure
+  complete: actionProcedure("dispatch.complete")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -955,7 +955,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  cancel: companyProcedure
+  cancel: actionProcedure("dispatch.cancel")
     .input(z.object({ id: z.string(), reason: z.string().nullable().optional() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({
@@ -1058,7 +1058,7 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
-  softDelete: companyProcedure
+  softDelete: actionProcedure("dispatch.delete")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const d = await ctx.db.query.dispatch.findFirst({

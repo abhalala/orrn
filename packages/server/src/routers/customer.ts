@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { customer } from "@orrn/db/schema/customers";
-import { companyProcedure, router } from "../index";
+import { actionProcedure, companyProcedure, router } from "../index";
 import { pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { paginatedList, scopedFindOrThrow, withAudit } from "../lib/helpers";
 
@@ -63,7 +63,7 @@ export const customerRouter = router({
       );
     }),
 
-  create: companyProcedure
+  create: actionProcedure("customer.create")
     .input(customerBaseSchema)
     .mutation(async ({ ctx, input }) => {
       const { id } = await withAudit(
@@ -92,7 +92,7 @@ export const customerRouter = router({
       return { success: true, id };
     }),
 
-  update: companyProcedure
+  update: actionProcedure("customer.update")
     .input(customerBaseSchema.extend({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await scopedFindOrThrow<Customer>(
@@ -131,7 +131,7 @@ export const customerRouter = router({
       return { success: true };
     }),
 
-  delete: companyProcedure
+  delete: actionProcedure("customer.delete")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await scopedFindOrThrow<Customer>(
@@ -164,7 +164,7 @@ export const customerRouter = router({
       return { success: true };
     }),
 
-  importCsv: companyProcedure
+  importCsv: actionProcedure("customer.import")
     .input(z.array(customerBaseSchema))
     .mutation(async ({ ctx, input }) => {
       if (input.length === 0) {

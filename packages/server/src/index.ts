@@ -51,6 +51,24 @@ export const companyProcedure = authedProcedure.use(({ ctx, next }) => {
   });
 });
 
+/**
+ * Company procedure that also requires the caller's role to allow `action` in
+ * the permission matrix. The server is authoritative; hiding buttons is only a
+ * convenience. Use on every mutation that changes ops data.
+ */
+export function actionProcedure(action: Action) {
+  return companyProcedure.use(({ ctx, next }) => {
+    const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+    if (!can(me, action)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You don't have permission to do that",
+      });
+    }
+    return next({ ctx });
+  });
+}
+
 export const platformProcedure = authedProcedure.use(({ ctx, next }) => {
   if (!ctx.isPlatformAdmin || !ctx.platformRole) {
     throw new TRPCError({

@@ -19,7 +19,7 @@ import type { Context } from "../context";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, pushChunkedInserts, type OrrnDb } from "../lib/atomic";
 import { nextCompanySeq } from "../lib/sequence";
-import { companyProcedure, router } from "../index";
+import { actionProcedure, companyProcedure, router } from "../index";
 
 // ---------------------------------------------------------------------------
 // Local types
@@ -262,7 +262,7 @@ export const packingListRouter = router({
    * Auto-creation is handled inside dispatch.complete; this endpoint is for
    * the rare case where auto-creation was missed or for future re-trigger.
    */
-  create: companyProcedure
+  create: actionProcedure("dispatch.complete")
     .input(z.object({ dispatchId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const dispatchRow = await ctx.db.query.dispatch.findFirst({
@@ -378,7 +378,7 @@ export const packingListRouter = router({
    * Regenerate: delete the existing packing list and create a fresh one.
    * New code + sequence number; snapshot is rebuilt from live data.
    */
-  regenerate: companyProcedure
+  regenerate: actionProcedure("packingList.regenerate")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db.query.packingList.findFirst({
