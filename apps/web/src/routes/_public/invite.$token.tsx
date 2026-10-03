@@ -15,7 +15,7 @@ import { SignInForm } from "@/features/auth/sign-in-form";
 import { useFinishSignIn } from "@/features/auth/use-finish-sign-in";
 import { authClient } from "@/shared/lib/auth-client";
 import { signOutAndReset } from "@/shared/lib/sign-out";
-import { trpc } from "@/shared/utils/trpc";
+import { queryClient, trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_public/invite/$token")({
   component: InvitePage,
@@ -62,8 +62,12 @@ function InvitePage() {
       await accept.mutateAsync({ token, name });
     } catch (error) {
       const outcome = inviteAcceptOutcome(error);
-      if (outcome === "failed") setAcceptError("errors.generic");
-      else setView(outcome);
+      if (outcome === "failed") {
+        setAcceptError("errors.generic");
+        // They may have just signed in (the sign-in view): re-read who is
+        // signed in so the page offers "Join with this account" to retry.
+        void queryClient.invalidateQueries(trpc.auth.me.queryFilter());
+      } else setView(outcome);
       return;
     }
     toast.success(t("auth.invite.joined"));

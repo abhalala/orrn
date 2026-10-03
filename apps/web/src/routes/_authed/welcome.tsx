@@ -9,7 +9,7 @@ import { CompanyStep } from "@/features/auth/welcome/company-step";
 import { DoneStep } from "@/features/auth/welcome/done-step";
 import { PasswordStep } from "@/features/auth/welcome/password-step";
 import { TwoFactorStep } from "@/features/auth/welcome/two-factor-step";
-import { parseMagicFlag, welcomeSteps, welcomeTimeline } from "@/features/auth/welcome-steps";
+import { leaveWelcome, parseMagicFlag, welcomeSteps, welcomeTimeline } from "@/features/auth/welcome-steps";
 import { homeTarget } from "@/shared/lib/home";
 import { signOutAndReset } from "@/shared/lib/sign-out";
 
@@ -23,10 +23,8 @@ export const Route = createFileRoute("/_authed/welcome")({
   validateSearch: (search: Record<string, unknown>): { magic?: 1 } => (parseMagicFlag(search.magic) ? { magic: 1 } : {}),
   beforeLoad: ({ context, search }) => {
     const { me } = context;
-    const steps = welcomeSteps(me, { magic: search.magic === 1 });
-    // Nothing left to do: home, like the old /change-password did. (People
-    // with only their onboarding flag open still see the closing screen.)
-    if (steps.length === 0 && (me.user.onboardingCompleted || me.impersonation)) {
+    // Nothing left to do here: home, like the old /change-password did.
+    if (leaveWelcome(me, welcomeSteps(me, { magic: search.magic === 1 }))) {
       throw redirect({ to: homeTarget(me), replace: true });
     }
   },

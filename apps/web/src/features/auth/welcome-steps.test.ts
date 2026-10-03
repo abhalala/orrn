@@ -5,7 +5,7 @@ import { can } from "@orrn/server/lib/permissions";
 
 import type { Me } from "@/shared/lib/me";
 
-import { COMPANY_SETUP_ROLES, parseMagicFlag, welcomeSteps, welcomeTimeline } from "./welcome-steps";
+import { COMPANY_SETUP_ROLES, leaveWelcome, parseMagicFlag, welcomeSteps, welcomeTimeline } from "./welcome-steps";
 
 type MeOver = Partial<Omit<Me, "user" | "company">> & {
   user?: Partial<Me["user"]>;
@@ -110,6 +110,30 @@ describe("welcomeSteps: edges", () => {
     // Their own forced password change still stands: the guards send them here for it.
     const forced = me({ ...actor, user: { mustChangePassword: true, onboardingCompleted: false }, impersonation: grant });
     expect(welcomeSteps(forced)).toEqual(["password"]);
+  });
+});
+
+describe("leaveWelcome", () => {
+  test("stays while a step is open", () => {
+    const owner = me({ user: { onboardingCompleted: false } });
+    expect(leaveWelcome(owner, welcomeSteps(owner, { magic: true }))).toBe(false);
+  });
+
+  test("an invited member whose only open item is the onboarding flag stays for the closing screen", () => {
+    const operator = me({ company: { role: "operator" }, user: { onboardingCompleted: false } });
+    expect(welcomeSteps(operator)).toEqual([]);
+    expect(leaveWelcome(operator, [])).toBe(false);
+  });
+
+  test("leaves when set up, impersonating, or in no company (their home is elsewhere)", () => {
+    expect(leaveWelcome(me(), [])).toBe(true);
+    const grant = { actorUserId: "u1", companyId: "c1", grantId: "g1", expiresAt: "2099-01-01T00:00:00.000Z" };
+    expect(leaveWelcome(me({ user: { onboardingCompleted: false }, impersonation: grant }), [])).toBe(true);
+    // Signed up on their own, no company: /no-access explains, a "You're set up" screen would not.
+    expect(leaveWelcome(me({ company: null, user: { onboardingCompleted: false } }), [])).toBe(true);
+    // Staff with the flag open go to the console.
+    const staff = me({ company: null, isPlatformAdmin: true, platformRole: "support", user: { onboardingCompleted: false } });
+    expect(leaveWelcome(staff, [])).toBe(true);
   });
 });
 

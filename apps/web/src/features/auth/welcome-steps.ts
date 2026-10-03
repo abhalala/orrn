@@ -47,6 +47,18 @@ export function welcomeSteps(me: Me, options: WelcomeOptions = {}): WelcomeStep[
  */
 export const COMPANY_SETUP_ROLES: readonly string[] = ["owner", "admin"];
 
+/**
+ * True when `/welcome` has nothing for this person and should send them home
+ * (like the old `/change-password` did). People whose only open item is the
+ * onboarding flag (invited operators) stay for the closing screen; people in
+ * no company never do, since their home (/no-access or the console) is the
+ * screen that explains where they stand.
+ */
+export function leaveWelcome(me: Me, steps: WelcomeStep[]): boolean {
+  if (steps.length > 0) return false;
+  return me.user.onboardingCompleted === true || Boolean(me.impersonation) || !me.company;
+}
+
 /** The stepper's stages: every open step, then "done". */
 export function welcomeTimeline(steps: WelcomeStep[]): WelcomeStage[] {
   return [...steps, "done"];
