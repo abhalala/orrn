@@ -45,8 +45,14 @@ export function Office() {
   );
 }
 
+/** The example sheet's date, in the reader's language (it is demo data, like the rest). */
+const DEMO_DATE = new Date(2026, 9, 3);
+
 function PackingListSheet() {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const date = new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-IN", { day: "numeric", month: "short" }).format(
+    DEMO_DATE,
+  );
   const th = "px-2 py-2.5 text-left text-[12px] font-semibold text-muted-foreground first:pl-0 last:pr-0";
   const td = "px-2 py-2.5 font-mono text-[13px] text-foreground first:pl-0 last:pr-0";
   return (
@@ -66,19 +72,19 @@ function PackingListSheet() {
       </div>
 
       <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-3 border-y border-border py-4 sm:grid-cols-3">
-        <Fact label={t("packingList.plNo")} value="DSP-0412" mono />
-        <Fact label={t("packingList.date")} value="3 Oct" />
+        <Fact label={t("packingList.plNo")} value="DSP-000412" mono />
+        <Fact label={t("packingList.date")} value={date} />
         <Fact label={t("packingList.customer")} value={t("marketing.office.demoCustomer")} />
       </dl>
 
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b border-border">
-            <th className={th}>{t("packingList.columns.sr")}</th>
-            <th className={th}>{t("packingList.columns.bundleNo")}</th>
-            <th className={`${th} text-right`}>{t("packingList.columns.weightKg")}</th>
-            <th className={`${th} hidden text-right sm:table-cell`}>{t("packingList.columns.pcs")}</th>
-            <th className={`${th} hidden text-right sm:table-cell`}>{t("packingList.columns.kgPer12ft")}</th>
+            <th scope="col" className={th}>{t("packingList.columns.sr")}</th>
+            <th scope="col" className={th}>{t("packingList.columns.bundleNo")}</th>
+            <th scope="col" className={`${th} text-right`}>{t("packingList.columns.weightKg")}</th>
+            <th scope="col" className={`${th} hidden text-right sm:table-cell`}>{t("packingList.columns.pcs")}</th>
+            <th scope="col" className={`${th} hidden text-right sm:table-cell`}>{t("packingList.columns.kgPer12ft")}</th>
           </tr>
         </thead>
         <tbody>
