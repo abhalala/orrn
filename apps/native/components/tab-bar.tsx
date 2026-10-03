@@ -2,33 +2,20 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useT } from "@orrn/i18n";
 import { cn } from "@orrn/ui/lib/utils";
-import { c2, motion, tones } from "@orrn/ui/tokens";
+import { c2, tones } from "@orrn/ui/tokens";
 import * as Haptics from "expo-haptics";
 import type { Tabs } from "expo-router";
 import type { ComponentProps } from "react";
 import { Text, View } from "react-native";
-import { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 
-import { AnimatedPressable } from "@/lib/nativewind-interop";
+import { PressableScale } from "@/components/ui/pressable-scale";
 import { useThemeColor } from "@/lib/theme";
 import { placeScan, TAB_ROUTES, type TabName } from "@/lib/nav";
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>["tabBar"]>>[0];
 
-
-/** Press feedback shared by the tabs: a small scale, none under reduced motion. */
-function usePress() {
-  const reduceMotion = useReducedMotion();
-  const scale = useSharedValue(1);
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
-  return {
-    style,
-    onPressIn: () => {
-      if (!reduceMotion) scale.set(withTiming(0.95, { duration: motion.durationFast }));
-    },
-    onPressOut: () => scale.set(withTiming(1, { duration: motion.durationFast })),
-  };
-}
+/** Tabs shrink a touch more than buttons: the target is small and the glyph light. */
+const TAB_PRESS_SCALE = 0.95;
 
 function TabItem({
   label,
@@ -43,20 +30,17 @@ function TabItem({
   onPress: () => void;
   onLongPress: () => void;
 }) {
-  const press = usePress();
   const ink = useThemeColor("foreground");
   const muted = useThemeColor("muted-foreground");
 
   return (
-    <AnimatedPressable
+    <PressableScale
       accessibilityRole="tab"
       accessibilityLabel={label}
       accessibilityState={{ selected: focused }}
       onPress={onPress}
       onLongPress={onLongPress}
-      onPressIn={press.onPressIn}
-      onPressOut={press.onPressOut}
-      style={press.style}
+      scaleTo={TAB_PRESS_SCALE}
       className="min-h-[60px] min-w-0 flex-1 items-center justify-center gap-0.5 rounded-card pb-1 pt-1.5"
     >
       <View className={cn("h-8 w-14 items-center justify-center rounded-full", focused && "bg-surface-sunken")}>
@@ -69,17 +53,16 @@ function TabItem({
       >
         {label}
       </Text>
-    </AnimatedPressable>
+    </PressableScale>
   );
 }
 
 function ScanButton({ label, focused, onPress }: { label: string; focused: boolean; onPress: () => void }) {
   const { t } = useT();
-  const press = usePress();
   const ring = useThemeColor("card");
 
   return (
-    <AnimatedPressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={t("native.scanHint")}
@@ -88,9 +71,7 @@ function ScanButton({ label, focused, onPress }: { label: string; focused: boole
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
         onPress();
       }}
-      onPressIn={press.onPressIn}
-      onPressOut={press.onPressOut}
-      style={press.style}
+      scaleTo={TAB_PRESS_SCALE}
       className="-mt-5 min-w-0 flex-1 items-center gap-0.5 pb-1"
     >
       <View
@@ -110,7 +91,7 @@ function ScanButton({ label, focused, onPress }: { label: string; focused: boole
       <Text numberOfLines={1} maxFontSizeMultiplier={1.3} className="text-[11px] leading-4 font-sans-semibold text-ink">
         {label}
       </Text>
-    </AnimatedPressable>
+    </PressableScale>
   );
 }
 

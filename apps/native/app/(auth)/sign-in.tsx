@@ -3,15 +3,17 @@ import * as Haptics from "expo-haptics";
 import { useRef, useState } from "react";
 import { Text, View, type TextInput } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import { FadeIn, FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BrandMark } from "@/components/brand-mark";
 import { LanguageSwitch } from "@/components/language-switch";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
+import { ScreenTitle } from "@/components/ui/screen-title";
 import { announce } from "@/lib/a11y";
 import { authClient } from "@/lib/auth-client";
+import { AnimatedView } from "@/lib/nativewind-interop";
 import { afterPassword, afterTotp, cleanTotp } from "@/lib/sign-in-flow";
 import { afterSignIn } from "@/lib/sign-out";
 
@@ -122,15 +124,9 @@ export default function SignInScreen() {
         <View className="w-full max-w-[420px] gap-8 self-center">
           <BrandMark />
 
-          <Animated.View key={step} entering={FadeInDown.duration(250)} className="gap-6">
+          <AnimatedView key={step} entering={FadeInDown.duration(250)} className="gap-6">
             <View className="gap-2">
-              <Text
-                accessibilityRole="header"
-                className="font-display-extrabold text-[34px] leading-10 tracking-tight text-ink"
-                maxFontSizeMultiplier={1.4}
-              >
-                {title}
-              </Text>
+              <ScreenTitle>{title}</ScreenTitle>
               <Text className="font-sans text-base leading-6 text-ink-muted">{subtitle}</Text>
             </View>
 
@@ -192,7 +188,7 @@ export default function SignInScreen() {
             )}
 
             {formError ? (
-              <Animated.View entering={FadeIn.duration(150)}>
+              <AnimatedView entering={FadeIn.duration(150)}>
                 <Text
                   accessibilityRole="alert"
                   accessibilityLiveRegion="polite"
@@ -200,7 +196,7 @@ export default function SignInScreen() {
                 >
                   {t(formError)}
                 </Text>
-              </Animated.View>
+              </AnimatedView>
             ) : null}
 
             {step === "password" ? (
@@ -233,7 +229,7 @@ export default function SignInScreen() {
                 />
               </View>
             )}
-          </Animated.View>
+          </AnimatedView>
         </View>
 
         <LanguageSwitch className="w-full max-w-[420px] self-center" />

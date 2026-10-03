@@ -1,10 +1,8 @@
 import { cn } from "@orrn/ui/lib/utils";
-import { motion } from "@orrn/ui/tokens";
 import type { ReactNode } from "react";
 import { ActivityIndicator, Text, type PressableProps } from "react-native";
-import { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 
-import { AnimatedPressable } from "@/lib/nativewind-interop";
+import { PressableScale } from "@/components/ui/pressable-scale";
 import { useThemeColor } from "@/lib/theme";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
@@ -38,7 +36,7 @@ export type ButtonProps = Omit<PressableProps, "children" | "style"> & {
 
 /**
  * C2 pill button for native. Every press scales to `motion.pressScale` (none
- * under reduced motion); the label is the accessible name; disabled and busy
+ * under reduced motion, see PressableScale); the label is the accessible name; disabled and busy
  * states reach VoiceOver/TalkBack through `accessibilityState`.
  */
 export function Button({
@@ -50,32 +48,18 @@ export function Button({
   icon,
   disabled,
   className,
-  onPressIn,
-  onPressOut,
   ...rest
 }: ButtonProps) {
-  const reduceMotion = useReducedMotion();
-  const scale = useSharedValue(1);
-  const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
   const spinner = useThemeColor(variant === "primary" ? "card" : "foreground");
   const inactive = disabled || loading;
   const shown = loading && loadingLabel ? loadingLabel : label;
 
   return (
-    <AnimatedPressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={shown}
       accessibilityState={{ disabled: !!inactive, busy: loading }}
       disabled={inactive}
-      onPressIn={(e) => {
-        if (!reduceMotion) scale.set(withTiming(motion.pressScale, { duration: motion.durationFast }));
-        onPressIn?.(e);
-      }}
-      onPressOut={(e) => {
-        scale.set(withTiming(1, { duration: motion.durationFast }));
-        onPressOut?.(e);
-      }}
-      style={animated}
       className={cn(
         "flex-row items-center justify-center gap-2 rounded-full px-6",
         size === "lg" ? "min-h-14" : "min-h-12",
@@ -92,6 +76,6 @@ export function Button({
       >
         {shown}
       </Text>
-    </AnimatedPressable>
+    </PressableScale>
   );
 }

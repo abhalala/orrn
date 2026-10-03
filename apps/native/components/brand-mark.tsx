@@ -21,8 +21,17 @@ export function BrandMark({ size = 40 }: { size?: number }) {
     >
       <View
         className="items-center justify-center"
-        // The tile stays ink in both themes, like the app icon.
-        style={{ width: size, height: size, borderRadius: 9 * unit, padding: 7 * unit, gap, backgroundColor: inkPanel.bg }}
+        // The tile stays ink in both themes, like the app icon; the hairline keeps its shape on the dark canvas.
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 9 * unit,
+          padding: 7 * unit,
+          gap,
+          backgroundColor: inkPanel.bg,
+          borderWidth: 1,
+          borderColor: inkPanel.border,
+        }}
       >
         <View className="flex-row" style={{ gap }}>
           <View className="bg-tone-red" style={cube} />
