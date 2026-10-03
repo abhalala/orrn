@@ -144,7 +144,6 @@ export default function SignInScreen() {
                     if (fieldErrors.email) setFieldErrors((e) => ({ ...e, email: undefined }));
                   }}
                   error={fieldErrors.email ? t(fieldErrors.email) : null}
-                  placeholder="name@company.com"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
