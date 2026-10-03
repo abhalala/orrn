@@ -200,13 +200,12 @@ export const authRouter = router({
       const userId = ctx.session.user.id;
 
       // Company fields (facility, contact, timezone, press count) are company
-      // settings: only roles that may update settings can write them.
-      if (ctx.companyId && !can({ company: ctx.role ? { role: ctx.role } : null, isPlatformAdmin: false }, "settings.update")) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only an owner or admin can complete company onboarding",
-        });
-      }
+      // settings: only roles that may update settings write them. Everyone else
+      // just marks their own onboarding done; company inputs are ignored.
+      const canWriteCompany = Boolean(
+        ctx.companyId &&
+          can({ company: ctx.role ? { role: ctx.role } : null, isPlatformAdmin: false }, "settings.update"),
+      );
 
       const statements: SqliteBatchItem[] = [
         ctx.db
@@ -215,7 +214,7 @@ export const authRouter = router({
           .where(eq(user.id, userId)),
       ];
 
-      if (ctx.companyId) {
+      if (canWriteCompany && ctx.companyId) {
         const currentCompany = await ctx.db
           .select()
           .from(company)

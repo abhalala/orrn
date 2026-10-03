@@ -246,15 +246,18 @@ describe("completeOnboarding (S14)", () => {
     pressCount: 3,
   };
 
-  test("operator cannot change company fields (FORBIDDEN)", async () => {
-    const { companyId } = await env.seedCompany({ settings: { facilityLocation: "Original" } });
+  test("non-settings members complete only their own onboarding; company row untouched", async () => {
+    const { companyId, users } = await env.seedCompany({ settings: { facilityLocation: "Original" } });
     for (const role of ["operator", "viewer", "manager"] as const) {
-      await expect(env.caller({ role, companyId }).auth.completeOnboarding(input)).rejects.toMatchObject({
-        code: "FORBIDDEN",
-      });
+      const [before] = await env.db.select().from(company).where(eq(company.id, companyId));
+      await env.caller({ role, companyId }).auth.completeOnboarding(input);
+      const [after] = await env.db.select().from(company).where(eq(company.id, companyId));
+      expect(after).toEqual(before!);
+      expect(after!.settings).toMatchObject({ facilityLocation: "Original" });
+      const [u] = await env.db.select().from(user).where(eq(user.id, users[role].id));
+      expect(u!.onboardingCompleted).toBe(true);
     }
-    const [row] = await env.db.select().from(company).where(eq(company.id, companyId));
-    expect(row!.settings).toMatchObject({ facilityLocation: "Original" });
+    expect((await audits(companyId, "settings.update")).length).toBe(0);
   });
 
   test("owner and admin can", async () => {
