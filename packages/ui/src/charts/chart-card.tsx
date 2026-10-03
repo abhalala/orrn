@@ -99,7 +99,7 @@ export function ChartCard({
           <Heading id={titleId} className="m-0 text-[17px] leading-6 font-semibold tracking-[-0.01em]">
             {title}
           </Heading>
-          {subtitle ? <p className="m-0 text-[13px] leading-5 text-muted-foreground">{subtitle}</p> : null}
+          {subtitle ? <p className="m-0 text-[13px] leading-5 text-pretty text-muted-foreground">{subtitle}</p> : null}
         </div>
         {ready ? (
           <Button
@@ -118,7 +118,8 @@ export function ChartCard({
       {controls ? <div className="flex min-w-0 flex-wrap items-center gap-3">{controls}</div> : null}
 
       {ready && !showTable && legend && legend.series.length >= 2 ? (
-        <ul aria-label={t("charts.legend")} className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1.5 p-0">
+        // role="list": WebKit drops list semantics from list-style: none lists.
+        <ul role="list" aria-label={t("charts.legend")} className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1.5 p-0">
           {seriesLegend(legend.series, legend.colorDomain).map((item) => (
             <li key={item.key} className="flex items-center gap-2 text-[13px] leading-5">
               <span

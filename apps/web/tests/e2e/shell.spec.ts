@@ -7,8 +7,8 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
 /**
  * The C2 app shell (Task 14): phone tab bar with a raised Scan, iPad icon
  * rail, laptop sidebar with "Scan or search ⌘K", the More sheet, language and
- * theme, landmarks and the command palette. Needs the local stack (API :3000,
- * web :3002, seeded accounts).
+ * theme, landmarks and the command palette. Needs the local stack (this
+ * worktree's API + web ports, seeded accounts).
  */
 
 const SEEDED_SERIAL = "BG-000001-B001";
