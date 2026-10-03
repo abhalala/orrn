@@ -1,10 +1,10 @@
-import { and, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
 import { bundle, bundleGroup, bundleStatuses, type BundleStatus } from "@orrn/db/schema/inventory";
-import { printLog } from "@orrn/db/schema/printing";
+import { printLog, printerProfile } from "@orrn/db/schema/printing";
 import { company } from "@orrn/db/schema/tenant";
 
 import { companyProcedure, router } from "../index";
@@ -19,8 +19,14 @@ export const dashboardRouter = router({
   today: companyProcedure.query(async ({ ctx }) => {
     const companyId = ctx.companyId;
 
+    // The company row plus the "Start here" facts in one statement (4 bound params).
     const [companyRow] = await ctx.db
-      .select({ settings: company.settings })
+      .select({
+        settings: company.settings,
+        hasDie: sql<number>`exists(select 1 from ${die} where ${die.companyId} = ${companyId} and ${die.deletedAt} is null)`,
+        hasCustomer: sql<number>`exists(select 1 from ${customer} where ${customer.companyId} = ${companyId} and ${customer.deletedAt} is null)`,
+        hasPrinter: sql<number>`exists(select 1 from ${printerProfile} where ${printerProfile.companyId} = ${companyId} and ${printerProfile.deletedAt} is null)`,
+      })
       .from(company)
       .where(eq(company.id, companyId))
       .limit(1);
@@ -35,7 +41,13 @@ export const dashboardRouter = router({
         .select({ n: sql<number>`count(*)`, w: sql<number>`coalesce(sum(${bundle.weightG}), 0)` })
         .from(bundle)
         .where(
-          and(eq(bundle.companyId, companyId), gte(bundle.createdAt, start), lt(bundle.createdAt, end)),
+          and(
+            eq(bundle.companyId, companyId),
+            // RP11: a void bundle was never really packed; it stays out of every packed figure.
+            ne(bundle.status, "void"),
+            gte(bundle.createdAt, start),
+            lt(bundle.createdAt, end),
+          ),
         ),
       ctx.db
         .select({
@@ -153,7 +165,7 @@ export const dashboardRouter = router({
             w: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
           })
           .from(bundle)
-          .where(and(eq(bundle.companyId, companyId), inArray(bundle.groupId, ids)))
+          .where(and(eq(bundle.companyId, companyId), ne(bundle.status, "void"), inArray(bundle.groupId, ids)))
           .groupBy(bundle.groupId),
       );
       for (const r of rows) groupTotals.set(r.groupId, { bundles: num(r.n), weightG: num(r.w) });
@@ -180,6 +192,16 @@ export const dashboardRouter = router({
         createdAt: r.createdAt.toISOString(),
       })),
       failedPrintJobs: num(failedRows[0]?.n),
+      /**
+       * First steps for an empty plant (Today's "Start here"): a live die, a live customer, any
+       * bundle ever packed (void included: the step was done) and a live label printer.
+       */
+      setup: {
+        dies: num(companyRow?.hasDie) > 0,
+        customers: num(companyRow?.hasCustomer) > 0,
+        bundles: bundleStatuses.some((s) => stock[s].bundles > 0),
+        printers: num(companyRow?.hasPrinter) > 0,
+      },
     };
   }),
 });
