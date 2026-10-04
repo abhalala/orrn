@@ -310,6 +310,37 @@ test.describe("layout and accessibility", () => {
   }
 });
 
+test.describe("Hindi", () => {
+  test("sections, a section and a bundle in Hindi at 375: nothing clipped, no sideways scroll, Latin digits", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("orrn.locale", "hi"));
+    await open(page, "/stock", { width: 375 });
+    await expect(page.locator("html")).toHaveAttribute("lang", "hi");
+    await expect(page.getByTestId("section-block").first()).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await expectNoHorizontalScroll(page);
+    await expectNoClippedText(page);
+    await expect(page.getByTestId("section-block").first().locator("[data-slot='big-number']")).toHaveText(/^\d+$/);
+
+    const s = await trpcQuery<Summary>(page, "bundle.stockSummary", { status: "available" });
+    await page.goto(`/stock/${s.items[0]!.dieId}`);
+    await expect(page.getByTestId("section-hero")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await expectNoHorizontalScroll(page);
+    await expectNoClippedText(page);
+
+    const l = await trpcQuery<{ items: BundleRow[] }>(page, "bundle.listBundles", { status: "reserved", limit: 1 });
+    await page.goto(`/b/${l.items[0]!.serial}`);
+    await expect(page.getByTestId("bundle-hero")).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    await expectNoClippedText(page);
+    if (process.env.T21_SHOTS_DIR) {
+      await page.screenshot({ path: `${process.env.T21_SHOTS_DIR}/bundle-held-375-light-hi.png`, fullPage: true });
+    }
+  });
+});
+
 /**
  * Screenshots for the task report: every screen at 375 and 1280, light and
  * dark. Only when T21_SHOTS_DIR is set (they are review material, not a test).
