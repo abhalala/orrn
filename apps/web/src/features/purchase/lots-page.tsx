@@ -25,6 +25,7 @@ import { bookDayText, kgText, slashBreaks } from "./format";
 import { readKantaG } from "./kanta";
 import { DiffText, LotStatusChip, useCompanyToday, useToleranceBp } from "./lot-ui";
 import type { LotStatus } from "./lot-view";
+import { showsQueryError } from "./query-state";
 
 const PurchaseCharts = lazy(() => import("./purchase-charts"));
 
@@ -173,7 +174,7 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
           }}
           options={LOT_FILTERS.map((f) => ({ value: f, label: t(`purchase.filter.${f}`) }))}
         />
-        {lots.isError ? (
+        {showsQueryError(lots) ? (
           <div role="alert" className="rounded-card border border-border bg-card">
             <EmptyState
               title={t("purchase.list.error")}

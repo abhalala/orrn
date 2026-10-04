@@ -24,6 +24,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { kgText, pctText } from "../purchase/format";
 import { formatRate } from "../purchase/lot-view";
+import { showsQueryError } from "../purchase/query-state";
 import { APPROVAL_TONE, approvalSubject, decideState, subjectCodes, unbrokenCodes } from "./approval-view";
 
 export type ApprovalItem = inferRouterOutputs<AppRouter>["approval"]["list"]["items"][number];
@@ -125,7 +126,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
 
         {isNote ? (
           readsFigures ? (
-            <NoteFigures data={figures.data} loading={figures.isLoading} error={figures.isError} />
+            <NoteFigures data={figures.data} loading={figures.isLoading} error={showsQueryError(figures)} />
           ) : (
             <p className="m-0 text-[14px] text-muted-foreground">{t("approvals.figuresHidden")}</p>
           )

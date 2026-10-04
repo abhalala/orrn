@@ -48,7 +48,8 @@ export function LotDetailPage({ id }: { id: string }) {
       </>
     );
   }
-  if (lotQuery.isError || !lotQuery.data) {
+  // Only when there is no lot to show: a failed refetch keeps `data` (showsQueryError).
+  if (!lotQuery.data) {
     const notFound = lotQuery.error?.data?.code === "NOT_FOUND";
     return (
       <>

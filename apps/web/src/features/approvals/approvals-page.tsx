@@ -23,6 +23,7 @@ import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import { instantDateText } from "../purchase/format";
+import { showsQueryError } from "../purchase/query-state";
 import type { ApprovalKind } from "@orrn/server/lib/permissions";
 
 import {
@@ -124,7 +125,7 @@ export function ApprovalsPage({
             </li>
           ))}
         </ul>
-      ) : list.isError ? (
+      ) : showsQueryError(list) ? (
         <div role="alert" className="rounded-card border border-border bg-card">
           <EmptyState
             title={t("approvals.error")}

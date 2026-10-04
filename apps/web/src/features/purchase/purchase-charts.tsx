@@ -24,6 +24,7 @@ import { chartWindow, kgByVendor, monthlyRates } from "./chart-data";
 import { kgText } from "./format";
 import { useCompanyToday } from "./lot-ui";
 import { formatRate } from "./lot-view";
+import { showsQueryError } from "./query-state";
 
 const TOP_VENDORS = 8;
 const RATE_SERIES = 3;
@@ -53,7 +54,7 @@ export default function PurchaseCharts() {
 
   const rate = (v: number) => t("purchase.detail.perKg", { rate: formatRate(Math.round(v * 100)) });
   const kg = (v: number) => `${kgText(Math.round(v * 1000))} kg`;
-  const state = register.isLoading ? "loading" : register.isError ? "error" : undefined;
+  const state = register.isLoading ? "loading" : showsQueryError(register) ? "error" : undefined;
 
   return (
     <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
