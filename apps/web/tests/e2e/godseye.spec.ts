@@ -86,7 +86,7 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   await expect(page.getByText("No plan saved yet.")).toBeVisible();
   await page.getByRole("checkbox", { name: /Dies/ }).check();
   await page.getByRole("button", { name: "Save plan" }).click();
-  await expect(page.getByText("Plan saved")).toBeVisible();
+  await expect(page.getByText("Plan saved", { exact: true })).toBeVisible();
   await expect(facts).toContainText("Starter");
   await expect(page.getByRole("button", { name: "Save plan" })).toBeDisabled();
   const companyUrl = new URL(page.url());
