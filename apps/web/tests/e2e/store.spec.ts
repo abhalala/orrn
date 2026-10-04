@@ -39,6 +39,28 @@ async function trpcMutate<T>(page: Page, path: string, input: unknown): Promise<
   return (await res.json()).result.data as T;
 }
 
+/**
+ * A demo-seed entry with a fixed clientRequestId. Parallel tests seed the same demo items; when two
+ * of them send the same issue at the same moment, the twin that loses the balance guard is told
+ * "Only 0 kg ..." instead of getting the winner's entry back (server: the lost-write path does not
+ * re-check the request id; bulletin PLW6 2026-10-04). A retry a moment later looks the id up first
+ * and replays the winner's entry, which is what a person's retry would get.
+ */
+async function demoMutate(page: Page, path: string, input: unknown): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    const res = await page.context().request.post(`${API_URL}/trpc/${path}`, {
+      headers: { origin: WEB_ORIGIN, "content-type": "application/json" },
+      data: input,
+    });
+    if (res.ok()) return;
+    const body = await res.text();
+    if (res.status() !== 400 || attempt >= 6) {
+      expect(res.ok(), `${path} returned ${res.status()}: ${body}`).toBe(true);
+    }
+    await page.waitForTimeout(400 * attempt);
+  }
+}
+
 async function trpcQuery<T>(page: Page, path: string, input?: unknown): Promise<T> {
   const qs = input === undefined ? "" : `?input=${encodeURIComponent(JSON.stringify(input))}`;
   const res = await page.context().request.get(`${API_URL}/trpc/${path}${qs}`, { headers: { origin: WEB_ORIGIN } });
@@ -107,14 +129,14 @@ async function ensureDemoStore(page: Page): Promise<Record<string, string>> {
     }
     const id = found!.id;
     ids[d.name] = id;
-    await trpcMutate(page, "store.receive", {
+    await demoMutate(page, "store.receive", {
       itemId: id,
       qtyMilli: d.grn,
       grnRef: "CH-2231",
       clientRequestId: `demo-grn-${id}`,
     });
     if ("mrs" in d) {
-      await trpcMutate(page, "store.issue", {
+      await demoMutate(page, "store.issue", {
         itemId: id,
         qtyMilli: d.mrs,
         purpose: d.purpose,
@@ -123,7 +145,7 @@ async function ensureDemoStore(page: Page): Promise<Record<string, string>> {
       });
     }
     if ("exchange" in d) {
-      await trpcMutate(page, "store.exchange", {
+      await demoMutate(page, "store.exchange", {
         itemId: id,
         qtyOutMilli: d.exchange,
         qtyInMilli: d.exchange,
