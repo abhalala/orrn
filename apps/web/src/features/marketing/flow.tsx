@@ -5,8 +5,10 @@
  *
  * Scroll-linked: when the list reaches the lower part of the viewport the
  * demos play in order (wide: one sequence across the row; phone: each block
- * as it arrives). `data-played` on the section records it. Reduced motion
- * shows every demo in its final state.
+ * as it arrives). `data-played` on the section records that they started;
+ * the e2e checks the end state itself (every demo part at opacity 1, no
+ * transform, the count at its number). Reduced motion shows every demo in
+ * its final state.
  */
 import { useT, type MessageKey } from "@orrn/i18n";
 import { cn } from "@orrn/ui/lib/utils";
@@ -15,6 +17,7 @@ import { useRef, type ReactNode } from "react";
 
 import { DEMO_BUNDLE, DEMO_PACKING_LIST, DEMO_STOCK, demoKg } from "./demo-data";
 import { DemoLabel } from "./demo-label";
+import { displaySetting } from "./display-type";
 import { EASE, MQ, gsap, onceInView, useMarketingGsap } from "./use-gsap";
 
 type Step = {
@@ -42,17 +45,23 @@ function setCount(el: HTMLElement, n: number) {
   if (el.firstChild) el.firstChild.nodeValue = String(n);
 }
 
-/** One step's demo as a paused timeline, built from `from` tweens (final state = markup). */
+/**
+ * One step's demo as a paused timeline, built from `from` tweens (final state
+ * = markup). The stock figure fades in as one line (number and unit together,
+ * so the unit never shows alone) and only the number counts up.
+ */
 function stepTimeline(block: Element): gsap.core.Timeline {
   const tl = gsap.timeline({ paused: true, defaults: { ease: EASE.out } });
   const rows = block.querySelectorAll("[data-demo-row]");
   const pop = block.querySelectorAll("[data-demo-pop]");
+  const stat = block.querySelector<HTMLElement>("[data-demo-stat]");
   const count = block.querySelector<HTMLElement>("[data-demo-count]");
   if (rows.length) tl.from(rows, { x: -16, opacity: 0, duration: 0.45, stagger: 0.09 });
+  if (stat) tl.from(stat, { opacity: 0, duration: 0.2 }, 0);
   if (count) {
     const target = Number(count.dataset.demoCount);
     const state = { n: 0 };
-    tl.from(count, { opacity: 0, duration: 0.2 }, 0).to(
+    tl.to(
       state,
       { n: target, duration: 0.8, ease: "power2.out", onUpdate: () => setCount(count, Math.round(state.n)) },
       0,
@@ -63,7 +72,7 @@ function stepTimeline(block: Element): gsap.core.Timeline {
 }
 
 export function Flow() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const sectionRef = useRef<HTMLElement>(null);
 
   const reduced = useMarketingGsap(sectionRef, ({ scope, mm }) => {
@@ -113,10 +122,19 @@ export function Flow() {
       data-played={reduced ? "true" : undefined}
       className="orrn-section py-20 md:py-28"
     >
-      <h2 id="flow-title" className="orrn-display-2 m-0 max-w-[16ch] text-balance text-foreground">
+      <h2
+        id="flow-title"
+        className={cn("orrn-display-2 m-0 max-w-[16ch] text-balance text-foreground", displaySetting(locale))}
+      >
         {t("marketing.flow.title")}
       </h2>
-      <ol data-flow-list className="m-0 mt-10 grid list-none gap-4 p-0 md:mt-14 md:grid-cols-3 md:gap-5">
+      {/* role="list": WebKit drops list semantics from unstyled lists, and the order is the message.
+          items-start: each block fits its content, so the step-down shows on both edges. */}
+      <ol
+        role="list"
+        data-flow-list
+        className="m-0 mt-10 grid list-none gap-4 p-0 md:mt-14 md:grid-cols-3 md:items-start md:gap-5"
+      >
         {STEPS.map((step) => (
           <li key={step.key} className={cn("min-w-0", step.offset)}>
             <FlowBlock step={step}>
@@ -130,18 +148,25 @@ export function Flow() {
 }
 
 function FlowBlock({ step, children }: { step: Step; children: ReactNode }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const Icon = step.icon;
   return (
-    <article data-flow-step className={cn("orrn-block flex h-full flex-col gap-4 p-5 md:p-6", `orrn-block-${step.tone}`)}>
+    <article data-flow-step={step.key} className={cn("orrn-block flex flex-col gap-4 p-5 md:p-6", `orrn-block-${step.tone}`)}>
       <div className="flex items-center gap-3">
         <span aria-hidden="true" className="flex size-11 shrink-0 items-center justify-center rounded-full bg-tone-neutral-to/20">
           <Icon className="size-[22px]" strokeWidth={2} />
         </span>
-        <h3 className="m-0 font-display text-[26px] font-bold leading-tight tracking-[-0.03em]">{t(step.title)}</h3>
+        <h3
+          className={cn(
+            "m-0 font-display text-[26px] font-bold",
+            displaySetting(locale, "leading-tight tracking-[-0.03em]"),
+          )}
+        >
+          {t(step.title)}
+        </h3>
       </div>
       <p className="m-0 text-pretty text-[16px] leading-7">{t(step.body)}</p>
-      <div data-demo-visual aria-hidden="true" className="mt-auto flex flex-col gap-2 rounded-card bg-tone-neutral-to/20 p-3">
+      <div data-demo-visual aria-hidden="true" className="flex flex-col gap-2 rounded-card bg-tone-neutral-to/20 p-3">
         <DemoLabel onColor className="self-start" />
         {children}
       </div>
@@ -188,7 +213,7 @@ function StockDemo() {
   const { t } = useT();
   return (
     <>
-      <p className="m-0 flex items-baseline gap-2">
+      <p data-demo-stat className="m-0 flex items-baseline gap-2">
         <span
           data-demo-count={DEMO_STOCK.inStock}
           className="font-display text-[44px] font-extrabold leading-none tracking-[-0.045em]"

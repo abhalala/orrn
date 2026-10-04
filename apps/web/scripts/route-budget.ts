@@ -85,7 +85,11 @@ export function staticClosure(dist: string, roots: string[]): string[] {
   return [...seen];
 }
 
-/** What a first visit to the route marked by `marker` downloads in JS. */
+/**
+ * What a first visit to the route marked by `marker` downloads in JS. Route
+ * layout chunks without the marker (for `/`, the 238 B `/_public` layout) are
+ * not counted; they are a few hundred bytes.
+ */
 export function measureRoute(dist: string, marker: string): RouteBudget {
   const html = readFileSync(join(dist, "index.html"), "utf8");
   const routeChunks = chunksWithMarker(dist, marker);

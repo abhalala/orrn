@@ -3,10 +3,12 @@
  * plant's printed one (company header, PL no, the same columns). Demo data.
  */
 import { useT, type MessageKey } from "@orrn/i18n";
+import { cn } from "@orrn/ui/lib/utils";
 import { FileText, Printer, Warehouse, type LucideIcon } from "lucide-react";
 
 import { DEMO_PACKING_LIST, demoKg, demoKg12ft, demoTotalKg } from "./demo-data";
 import { DemoLabel } from "./demo-label";
+import { displaySetting } from "./display-type";
 
 const POINTS: { icon: LucideIcon; text: MessageKey }[] = [
   { icon: Warehouse, text: "marketing.office.stock" },
@@ -15,12 +17,12 @@ const POINTS: { icon: LucideIcon; text: MessageKey }[] = [
 ];
 
 export function Office() {
-  const { t } = useT();
+  const { t, locale } = useT();
   return (
     <section id="office" aria-labelledby="office-title" className="orrn-section py-20 md:py-28">
       <div className="grid gap-12 lg:grid-cols-[minmax(0,4fr)_minmax(0,7fr)] lg:items-center lg:gap-16">
         <div className="min-w-0">
-          <h2 id="office-title" className="orrn-display-2 m-0 text-balance text-foreground">
+          <h2 id="office-title" className={cn("orrn-display-2 m-0 text-balance text-foreground", displaySetting(locale))}>
             {t("marketing.office.title")}
           </h2>
           <ul className="m-0 mt-8 flex list-none flex-col gap-7 p-0">
@@ -59,7 +61,7 @@ function PackingListSheet() {
     <div
       data-demo-visual
       aria-hidden="true"
-      className="flex flex-col gap-5 rounded-card border border-border bg-card p-5 shadow-sm sm:p-7"
+      className="flex flex-col gap-5 rounded-card border border-border bg-card p-5 sm:p-7"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">

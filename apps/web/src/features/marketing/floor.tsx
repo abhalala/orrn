@@ -5,12 +5,14 @@
  */
 import { useT, type MessageKey } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
+import { cn } from "@orrn/ui/lib/utils";
 import { Hand, Languages, ScanLine, Smartphone, type LucideIcon } from "lucide-react";
 
 import { LanguageToggle } from "@/shell/language-toggle";
 
 import { DEMO_BUNDLE, demoKg, demoKg12ft } from "./demo-data";
 import { DemoLabel } from "./demo-label";
+import { displaySetting } from "./display-type";
 
 const POINTS: { icon: LucideIcon; text: MessageKey }[] = [
   { icon: Hand, text: "marketing.floor.buttons" },
@@ -20,12 +22,12 @@ const POINTS: { icon: LucideIcon; text: MessageKey }[] = [
 ];
 
 export function Floor() {
-  const { t } = useT();
+  const { t, locale } = useT();
   return (
     <section id="floor" aria-labelledby="floor-title" className="orrn-section py-20 md:py-28">
       <div className="grid gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-center lg:gap-16">
         <div className="min-w-0 lg:order-2">
-          <h2 id="floor-title" className="orrn-display-2 m-0 text-balance text-foreground">
+          <h2 id="floor-title" className={cn("orrn-display-2 m-0 text-balance text-foreground", displaySetting(locale))}>
             {t("marketing.floor.title")}
           </h2>
           <ul className="m-0 mt-8 grid list-none gap-x-10 gap-y-7 p-0 sm:grid-cols-2">
@@ -61,7 +63,8 @@ function BundleCard() {
     <div
       data-demo-visual
       aria-hidden="true"
-      className="mx-auto flex w-full max-w-[26rem] flex-col gap-5 rounded-card border border-border bg-card p-5 shadow-sm sm:p-6 lg:mx-0"
+      // Tablets stack it under the text: set right, like the hero picture (one diagonal).
+      className="mx-auto flex w-full max-w-[26rem] flex-col gap-5 rounded-card border border-border bg-card p-5 sm:p-6 md:mr-0 lg:mx-0"
     >
       <div className="flex items-center justify-between gap-3">
         <p className="m-0 font-display text-[22px] font-bold tracking-[-0.03em] text-foreground">
@@ -72,7 +75,9 @@ function BundleCard() {
       <BigField label={t("pack.new.weight")} value={demoKg(DEMO_BUNDLE)} />
       <BigField label={t("pack.new.pieces")} value={String(DEMO_BUNDLE.pieces)} />
       <div className="flex flex-wrap items-center gap-3">
-        <span className="font-mono text-[15px] font-semibold text-foreground">{demoKg12ft(DEMO_BUNDLE)} kg/12ft</span>
+        <span className="font-mono text-[15px] font-semibold text-foreground">
+          {demoKg12ft(DEMO_BUNDLE)} {t("units.kgPer12ft")}
+        </span>
         <Chip tone="green">{t("status.range.inRange")}</Chip>
       </div>
       <span className="flex h-14 w-full items-center justify-center rounded-full bg-primary px-7 text-[17px] font-bold tracking-[-0.01em] text-primary-foreground shadow-button">

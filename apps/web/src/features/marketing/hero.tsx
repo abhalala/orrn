@@ -17,6 +17,7 @@ import { useRef } from "react";
 
 import { DEMO_BUNDLE, DEMO_STOCK, demoKg, formatKgTotal } from "./demo-data";
 import { DemoLabel } from "./demo-label";
+import { displaySetting } from "./display-type";
 import { EASE, gsap, onceInView, useMarketingGsap } from "./use-gsap";
 
 export function Hero() {
@@ -54,8 +55,7 @@ export function Hero() {
             id="hero-title"
             className={cn(
               "m-0 max-w-[14ch] text-balance font-display text-[clamp(2.75rem,1.3rem+4.4vw,4.75rem)] font-extrabold text-foreground",
-              // Devanagari needs room for its marks and no negative tracking.
-              locale === "hi" ? "leading-[1.2] tracking-normal" : "leading-[0.98] tracking-[-0.045em]",
+              displaySetting(locale, "leading-[0.98] tracking-[-0.045em]"),
             )}
           >
             {t("marketing.headline")}
@@ -87,7 +87,10 @@ function HeroPicture() {
     // Tablets stack it under the text: set right, so text and picture read as a diagonal.
     <div className="relative mx-auto w-full max-w-[30rem] md:mr-0 lg:mx-auto">
       <DemoLabel className="mb-4" />
-      <div className="relative h-[25.5rem] sm:h-[27rem]">
+      {/* Fixed-size pieces placed absolutely: below 390 px the whole collage scales down
+          (zoom keeps layout and text in proportion), so the tiles never land on the
+          scanned label or the result. */}
+      <div className="relative h-[25.5rem] max-[359px]:[zoom:0.8] min-[360px]:max-[389px]:[zoom:0.9] sm:h-[27rem]">
         {/* The phone: the Scan screen right after a label was read. */}
         <div className="absolute left-0 top-0 w-[13.5rem] sm:w-[15rem]">
           <div
@@ -95,7 +98,7 @@ function HeroPicture() {
             className="rounded-hero bg-tone-neutral-to p-2 shadow-block ring-1 ring-hairline dark:bg-surface-sunken"
           >
             <div className="flex flex-col gap-3 rounded-block bg-background p-3 text-foreground">
-              <p className="m-0 font-display text-[20px] font-bold leading-tight tracking-[-0.03em]">
+              <p data-collage-text className="m-0 font-display text-[20px] font-bold leading-tight tracking-[-0.03em]">
                 {t("scan.title")}
               </p>
               <div
@@ -103,12 +106,15 @@ function HeroPicture() {
                 className="relative flex h-[7.5rem] items-center justify-center overflow-hidden rounded-card bg-tone-neutral-from sm:h-[8.5rem]"
               >
                 <ScanCorners />
-                <div className="flex items-center gap-2 rounded-input bg-tone-neutral-on px-3 py-2 text-tone-neutral-to">
+                <div
+                  data-collage-text
+                  className="flex items-center gap-2 rounded-input bg-tone-neutral-on px-3 py-2 text-tone-neutral-to"
+                >
                   <QrCode className="size-9" strokeWidth={2} />
                   <span className="font-mono text-[12px] font-semibold leading-tight">
                     {DEMO_BUNDLE.serial}
                     <br />
-                    {demoKg(DEMO_BUNDLE)} kg
+                    {demoKg(DEMO_BUNDLE)} {t("units.kg")}
                   </span>
                 </div>
                 <span
@@ -117,16 +123,18 @@ function HeroPicture() {
                 />
               </div>
               <div data-anim="hero-pop" className="orrn-block orrn-block-green p-3">
-                <p className="m-0 flex items-center gap-1.5 text-[13px] font-semibold">
+                <p data-collage-text className="m-0 flex items-center gap-1.5 text-[13px] font-semibold">
                   <CircleCheck className="size-4" strokeWidth={2} />
                   {t("status.bundle.available")}
                 </p>
-                <p className="m-0 mt-1 font-mono text-[15px] font-semibold">{DEMO_BUNDLE.serial}</p>
-                <p className="m-0 mt-2 flex items-baseline gap-2">
+                <p data-collage-text className="m-0 mt-1 font-mono text-[15px] font-semibold">
+                  {DEMO_BUNDLE.serial}
+                </p>
+                <p data-collage-text className="m-0 mt-2 flex items-baseline gap-2">
                   <span className="font-display text-[28px] font-extrabold leading-none tracking-[-0.04em]">
                     {demoKg(DEMO_BUNDLE)}
                   </span>
-                  <span className="text-[13px] font-semibold">kg</span>
+                  <span className="text-[13px] font-semibold">{t("units.kg")}</span>
                   <span className="text-[13px]">{t("marketing.visual.pieces", { count: DEMO_BUNDLE.pieces })}</span>
                 </p>
               </div>
@@ -156,7 +164,7 @@ function HeroPicture() {
         <div className="absolute bottom-0 right-0">
           <span
             data-anim="hero-printed"
-            className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-card px-4 text-[14px] font-semibold text-foreground shadow-sm"
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-card px-4 text-[14px] font-semibold text-foreground"
           >
             <Printer className="size-4" strokeWidth={2} />
             {t("status.printJob.success")}
@@ -190,7 +198,9 @@ function StockTile({
         </span>
         <span className="text-[13px] font-semibold">{t("marketing.visual.bundles", { count })}</span>
       </p>
-      <p className="m-0 mt-2 font-mono text-[13px]">{kg} kg</p>
+      <p className="m-0 mt-2 font-mono text-[13px]">
+        {kg} {t("units.kg")}
+      </p>
     </div>
   );
 }

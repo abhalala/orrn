@@ -18,7 +18,7 @@ export function MarketingFooter() {
             <span className="ml-2">{t("marketing.footer")}</span>
           </p>
         </div>
-        <nav aria-label={t("marketing.footerNav")} className="-ml-3 flex flex-wrap items-center gap-1 md:ml-0">
+        <nav aria-label={t("marketing.footerNav")} className="-ml-3 flex flex-wrap items-center gap-2 md:ml-0">
           <Link to="/request-access" className={link}>
             {t("marketing.requestAccess")}
           </Link>

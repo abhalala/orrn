@@ -36,14 +36,17 @@ describe("measureRoute", () => {
     "assets/preload.js": "export const p=1;",
     "assets/shared.js": "export const x=1;".repeat(20),
     "assets/route.js": 'import{y}from"./route-dep.js";const el={"data-orrn-marketing":true};const l=()=>import("./lazy.js");',
-    "assets/route-dep.js": "export const y=2;".repeat(30),
+    // Two and three hops from the route chunk, through a subfolder and back up with "../".
+    "assets/route-dep.js": 'import{d}from"./nested/deep.js";' + "export const y=2;".repeat(30),
+    "assets/nested/deep.js": 'import{f}from"../leaf.js";export const d=5;',
+    "assets/leaf.js": "export const f=6;".repeat(40),
     "assets/lazy.js": "export const z=3;".repeat(500),
     "assets/other.js": "export const o=4;".repeat(500),
   };
 
   beforeAll(() => {
     dist = mkdtempSync(join(tmpdir(), "route-budget-"));
-    mkdirSync(join(dist, "assets"));
+    mkdirSync(join(dist, "assets", "nested"), { recursive: true });
     writeFileSync(
       join(dist, "index.html"),
       '<script type="module" src="/assets/entry.js"></script><link rel="modulepreload" href="/assets/preload.js">',
@@ -53,9 +56,17 @@ describe("measureRoute", () => {
 
   afterAll(() => rmSync(dist, { recursive: true, force: true }));
 
-  test("counts the entry, preloads and the marked route chunk with their static imports only", () => {
+  test("counts the entry, preloads and the marked route chunk with their whole static import chain only", () => {
     const result = measureRoute(dist, "data-orrn-marketing");
-    const counted = ["assets/entry.js", "assets/preload.js", "assets/route-dep.js", "assets/route.js", "assets/shared.js"];
+    const counted = [
+      "assets/entry.js",
+      "assets/leaf.js",
+      "assets/nested/deep.js",
+      "assets/preload.js",
+      "assets/route-dep.js",
+      "assets/route.js",
+      "assets/shared.js",
+    ];
     expect(result.files.map((f) => f.file).sort()).toEqual(counted);
     expect(result.routeChunks).toEqual(["assets/route.js"]);
     const expected = counted.reduce((sum, path) => sum + gzipSync(files[path]!).length, 0);
