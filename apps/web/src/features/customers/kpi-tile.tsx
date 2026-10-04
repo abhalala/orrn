@@ -4,7 +4,7 @@ import { cn } from "@orrn/ui/lib/utils";
 import type { CSSProperties } from "react";
 
 /**
- * A quiet KPI tile on the white surface: label, big Bricolage number, unit and one meta line.
+ * A quiet KPI tile on the white surface: label, one meta line, big Bricolage number and its unit below.
  * The screen's one loud tile is a StatusBlock beside these.
  */
 export function KpiTile({
@@ -32,9 +32,13 @@ export function KpiTile({
     >
       <span className="font-display text-[17px] leading-tight font-bold tracking-[-0.02em] break-words">{label}</span>
       {meta ? <span className="mt-1 text-[13px] leading-snug font-medium break-words text-muted-foreground">{meta}</span> : null}
-      <span className="mt-auto flex flex-wrap items-baseline gap-x-2 gap-y-1 pt-6">
+      {/* The unit always takes its own line (empty when there is none), so the numbers of tiles
+          side by side sit on one baseline even when a long unit would have wrapped on a phone. */}
+      <span className="mt-auto flex flex-col gap-1 pt-6">
         <BigNumber value={value} format={format} countUp className="text-[36px] sm:text-[40px]" />
-        {unit ? <span className="min-w-0 text-[13px] font-semibold break-words">{unit}</span> : null}
+        <span aria-hidden={unit ? undefined : true} className="min-h-5 min-w-0 text-[13px] leading-5 font-semibold break-words">
+          {unit}
+        </span>
       </span>
     </div>
   );

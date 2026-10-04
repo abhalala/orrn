@@ -345,6 +345,26 @@ test.describe("customers", () => {
     });
   }
 
+  test("on a phone the leaderboard table keeps names readable and fades the side that hides columns", async ({ page }) => {
+    await open(page, "/customers", { width: 375 });
+    const board = page.getByRole("group", { name: "Who is leading" });
+    await board.getByRole("button", { name: "Show table" }).click();
+    const table = board.getByRole("region", { name: "Who is leading" });
+    await expect(table).toBeVisible();
+    // AN-2 UX m5: the name column keeps 9rem, so "KD Extrusion" stays on one line instead of a word a line.
+    const name = table.getByRole("rowheader", { name: "KD Extrusion" });
+    expect((await name.boundingBox())!.width).toBeGreaterThanOrEqual(144);
+    const fade = board.locator("[data-slot='chart-table-fade']");
+    await expect(table).toHaveAttribute("data-hidden-end", "");
+    await expect(fade).toHaveAttribute("data-side", "end");
+    await table.evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
+    await expect(table).not.toHaveAttribute("data-hidden-end", "");
+    await expect(table).toHaveAttribute("data-hidden-start", "");
+    await expect(fade).toHaveAttribute("data-side", "start");
+    await expect(table.getByRole("columnheader", { name: "Movement" })).toBeInViewport();
+    await expectCleanLayout(page);
+  });
+
   test("the monthly volume table matches the server's numbers", async ({ page }) => {
     await signInViaApi(page, "owner");
     const kd = await customerByName(page, "KD Extrusion");
