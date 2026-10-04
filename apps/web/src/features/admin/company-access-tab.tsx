@@ -15,7 +15,7 @@ import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import { formatDay, formatTime } from "./format";
-import { grantState, grantStateKey, grantTone } from "./status";
+import { grantEndsAt, grantState, grantStateKey, grantTone } from "./status";
 import type { CompanyDetail, GrantRow } from "./types";
 import { errorText, Panel } from "./ui";
 import { useEnterCompany } from "./use-impersonate";
@@ -107,7 +107,8 @@ export function CompanyAccessTab({ detail }: { detail: CompanyDetail }) {
     {
       key: "ends",
       header: t("admin.access.ends"),
-      cell: (row) => <span className="whitespace-nowrap tabular-nums">{formatTime(row.expiresAt, locale)}</span>,
+      // A stopped session shows when it was stopped, not the end it never reached.
+      cell: (row) => <span className="whitespace-nowrap tabular-nums">{formatTime(grantEndsAt(row), locale)}</span>,
     },
     {
       key: "actions",

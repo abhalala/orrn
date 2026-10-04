@@ -182,6 +182,33 @@ test("a company that does not exist still has a page heading and a way back", as
   await expect(page.locator("main#main").getByRole("link", { name: "Companies", exact: true }).first()).toBeVisible();
 });
 
+/** How far the segmented control's raised thumb sits from the checked segment (0 = exactly under it). */
+async function thumbMiss(page: Page) {
+  return page.locator("main#main [data-slot='segmented-control']").first().evaluate((track) => {
+    const thumb = track.querySelector(":scope > span[aria-hidden='true']")?.getBoundingClientRect();
+    const checked = track.querySelector("[role='radio'][aria-checked='true']")?.getBoundingClientRect();
+    if (!thumb || !checked) return Number.POSITIVE_INFINITY;
+    return Math.round(Math.max(Math.abs(thumb.left - checked.left), Math.abs(thumb.width - checked.width)));
+  });
+}
+
+test("the plan picker's highlight stays under the chosen plan on a phone, also after switching to Hindi", async ({ page }) => {
+  await signInViaApi(page, "staff");
+  await open(page, "/admin/companies/dev-company-orrn", { width: 375 });
+  await expect(page.getByRole("radiogroup", { name: "Plan" })).toBeVisible();
+  await expect.poll(() => thumbMiss(page), { timeout: 3_000 }).toBeLessThanOrEqual(1);
+  // New labels, same full-width track: the thumb must follow the segment, not keep the English width.
+  await page.getByRole("button", { name: "Account and more" }).click();
+  await page.getByRole("dialog").getByRole("radio", { name: "हिंदी" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "hi");
+  await page.keyboard.press("Escape");
+  try {
+    await expect.poll(() => thumbMiss(page), { timeout: 3_000 }).toBeLessThanOrEqual(1);
+  } finally {
+    await page.evaluate(() => localStorage.removeItem("orrn.locale"));
+  }
+});
+
 test("staff: add a support account, then remove it", async ({ page }) => {
   const tag = uniq();
   await signInViaApi(page, "staff");

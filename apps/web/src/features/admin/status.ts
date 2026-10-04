@@ -31,6 +31,11 @@ export function grantState(
   return toDate(grant.expiresAt).getTime() > now.getTime() ? "active" : "ended";
 }
 
+/** When a support session ends (or ended): the moment it was stopped, else its planned end. */
+export function grantEndsAt(grant: { expiresAt: DateInput; revokedAt: DateInput | null }): Date {
+  return toDate(grant.revokedAt ?? grant.expiresAt);
+}
+
 /** In progress is blue (spec §2); finished sessions are quiet. */
 export function grantTone(state: GrantState): ToneName {
   return state === "active" ? "blue" : "neutral";

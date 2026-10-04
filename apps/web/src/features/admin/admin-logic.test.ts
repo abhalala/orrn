@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { formatAgo, formatDay, formatTime } from "./format";
 import {
   companyStatusTone,
+  grantEndsAt,
   grantState,
   grantTone,
   printingTone,
@@ -80,6 +81,12 @@ describe("grantState", () => {
     expect(
       grantState({ expiresAt: new Date(NOW.getTime() - 1), revokedAt: new Date(NOW.getTime() - 60_000).toISOString() }, NOW),
     ).toBe("stopped");
+  });
+
+  test("a stopped session ends when it was stopped, not at its planned end", () => {
+    const stoppedAt = new Date(NOW.getTime() - 60_000);
+    expect(grantEndsAt({ ...base, revokedAt: stoppedAt.toISOString() }).getTime()).toBe(stoppedAt.getTime());
+    expect(grantEndsAt(base).getTime()).toBe(base.expiresAt.getTime());
   });
 
   test("tones: active blue (in progress), the rest neutral", () => {
