@@ -1,6 +1,6 @@
 import { expect, test as setup } from "@playwright/test";
 
-const apiURL = process.env.E2E_API_URL ?? "http://localhost:3000";
+import { API_URL as apiURL } from "./helpers/ports";
 
 /**
  * Seeds the local demo company (owner/operator/viewer/staff accounts, dies,
