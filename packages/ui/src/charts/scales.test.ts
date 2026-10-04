@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 
 import {
   END_LABEL_MARGIN,
-  capLabelBars,
   END_LABEL_REACH,
   chartDateFormat,
   dateTickTexts,
@@ -165,28 +164,5 @@ describe("dates on the x axis carry the year where it changes", () => {
   test("custom formatters without a year format keep the short text", () => {
     const dates = { long: (d: Date) => d.toISOString(), short: () => "x" };
     expect(dateTickTexts(months([2025, 11], 3), dates)).toEqual(["x", "x", "x"]);
-  });
-});
-
-describe("capLabelBars", () => {
-  const bars = (values: number[], partialLast = false) => values.map((value, i) => ({ value, partial: partialLast && i === values.length - 1 }));
-
-  test("every complete bar is labelled when all labels fit", () => {
-    expect(capLabelBars(bars([3, 5, 4]), true)).toEqual([0, 1, 2]);
-  });
-
-  test("only the tallest complete bar when they don't fit; ties go to the first", () => {
-    expect(capLabelBars(bars([3, 5, 5, 2]), false)).toEqual([1]);
-  });
-
-  test("an open (partial) bar never carries a label, even when it is the tallest", () => {
-    expect(capLabelBars(bars([3, 5, 9], true), false)).toEqual([1]);
-    expect(capLabelBars(bars([3, 5, 9], true), true)).toEqual([0, 1]);
-  });
-
-  test("zero bars carry no label: the axis already says 0 (no '0.0 kg' on a quiet year)", () => {
-    expect(capLabelBars(bars([0, 0, 0, 995.2], true), false)).toEqual([]);
-    expect(capLabelBars(bars([0, 4, 0, 2]), true)).toEqual([1, 3]);
-    expect(capLabelBars(bars([0, 0, 0]), true)).toEqual([]);
   });
 });

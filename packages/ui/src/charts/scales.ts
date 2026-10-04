@@ -177,20 +177,6 @@ export function placeEndLabels(
 /* -------------------------------------------------------------------------- */
 
 /**
- * Which bars carry a value label, by index: complete bars above zero; all of
- * them when every label fits, otherwise only the tallest (the first of equal
- * ones). An open (partial) bucket is never a headline, and a zero bar needs
- * no label because the axis already reads 0 (a quiet year would otherwise
- * say "0.0 kg" over its tallest-of-nothing bar).
- */
-export function capLabelBars(data: readonly { value: number; partial?: boolean }[], allFit: boolean): number[] {
-  const labelled = data.flatMap((d, i) => (d.partial || !(d.value > 0) ? [] : [i]));
-  if (allFit || labelled.length === 0) return labelled;
-  const peak = Math.max(...labelled.map((i) => data[i]!.value));
-  return [labelled.find((i) => data[i]!.value === peak)!];
-}
-
-/**
  * Where a bar's value label goes, in plot coordinates (the plot starts at
  * x 0; the y-tick labels sit left of it). Centred on the bar when it fits;
  * otherwise it starts at the bar's left edge (first bars) or ends at its
