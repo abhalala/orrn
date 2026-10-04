@@ -277,17 +277,32 @@ bun run deploy
   `exchange_id`. Numbers allocated before a write that then loses a race leave a gap.
 - `store.cancel` (RP15): the entry keeps its number and gets `cancelled_at/by/reason`; reversal rows
   (`store_grn_cancel` / `store_mrs_cancel`, same voucher id, `reversal_of` = the original row) are
-  inserted first, guarded at write time by "balance minus what the group added stays >= 0" and
-  `cancelled_at is null`, then the mark UPDATE keys on those rows. Either leg cancels both legs. No new
-  number. A second concurrent cancel inserts nothing.
+  inserted first, guarded at write time by "balance minus what the group added stays >= 0",
+  `cancelled_at is null`, the item still active and the entry's location still an active `store`
+  location (a cancel never puts stock onto a retired item or location: reactivate it first), then the
+  mark UPDATE keys on those rows. Either leg cancels both legs. No new number. A second concurrent
+  cancel inserts nothing. `diagnoseStoreCancel(db, companyId, txnId)` says why a reversal did not land.
+  Who may cancel: store.txn only (storekeeper, owner), any entry, with a reason (ruling PL7RR).
 - `clientRequestId` (RP18, max 64) on receive/issue/exchange: unique per company; looked up before a
-  number is taken; a unique-index race returns the original; the same id with a different entry is a
-  CONFLICT. An exchange keeps it on its MRS leg.
-- Other documents that consume store items (a cast's chemicals, LDO) call
+  number is taken; a unique-index race returns the original; the same id with a different entry
+  (kind, item, quantity, purpose, exchange in-quantity) is a CONFLICT. An exchange keeps it on its MRS
+  leg. Results carry `replayed` and `cancelled` (a retry of an entry cancelled since must not show it as
+  saved stock).
+- Other documents that consume store items (a melt's chemicals, LDO; a nitriding log's gas) call
   `prepareStoreDraws` (lib/store.ts) and put its `statements` in their own batch. The last statement
-  aborts the whole batch (NOT NULL on `store_txn.id`) unless every draw landed, so the cast cannot
+  aborts the whole batch (NOT NULL on `store_txn.id`) unless every draw landed, so the melt cannot
   land without its consumables; catch with `isStoreDrawAbort(e)` and `await prepared.explain()`.
-  Use purpose `melt` and `refId` = the cast id. `ref_id` is an opaque id, not a foreign key.
+  Use purpose `melt` and `refId` = the cast id, and pass `source: { type: "melt", id: meltId }`.
+  At most 40 draws (the abort binds one id each; 40 bind 43 parameters); refId ≤ 64, note ≤ 500;
+  skip the call when nothing is drawn (an empty list throws). `ref_id` / `source_id` are opaque ids,
+  not foreign keys.
+- Draws are marked: `store_txn.source_type` / `source_id` name the drawing document (default: the
+  draw's purpose and refId); store-screen entries have NULL. `store.cancel` refuses a marked entry
+  ("MRS-12 belongs to a melt; cancel the melt instead"), so a melt's consumption and the store
+  register cannot drift apart. The document's own cancel reverses its draws in its batch with
+  `storeCancelRows` + `storeCancelMark` per draw (they ignore `source_type`) plus its own "every draw
+  reversed" abort, and explains a refusal with `diagnoseStoreCancel`. `store.txns` returns the marker
+  so the screen offers "open the melt" instead of Cancel.
 
 ## Analytics (charts and customer numbers)
 
