@@ -96,6 +96,14 @@ export const storeTxn = sqliteTable(
     purpose: text("purpose", { enum: storeIssuePurposes }),
     /** MRS only: the melt, nitriding log or job the issue is for (opaque id, not a foreign key). */
     refId: text("ref_id"),
+    /**
+     * Set when another document drew this MRS inside its own batch (`prepareStoreDraws`, RP17): the
+     * document kind (`melt`, `nitriding`, …) and its id (opaque, not a foreign key). NULL = an entry
+     * made on the store screen. Such an entry belongs to that document: `store.cancel` refuses it,
+     * and only the document's own cancel reverses it. Never changes after insert.
+     */
+    sourceType: text("source_type"),
+    sourceId: text("source_id"),
     /** GRN only: the vendor's challan or bill number. */
     grnRef: text("grn_ref"),
     /** Both legs of one exchange carry the same id. */
