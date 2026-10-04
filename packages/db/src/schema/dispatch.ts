@@ -36,6 +36,8 @@ export const dispatch = sqliteTable(
     uniqueIndex("dispatch_company_code_unique").on(table.companyId, table.code),
     index("dispatch_company_status_idx").on(table.companyId, table.status),
     index("dispatch_company_server_seq_idx").on(table.companyId, table.serverSeq),
+    // Analytics ranges and buckets by completion time (PL-A1, ruling RP13).
+    index("dispatch_company_completed_idx").on(table.companyId, table.completedAt),
   ],
 );
 
