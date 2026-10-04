@@ -64,16 +64,19 @@ function AdminCompany() {
   if (detail.isPending) return <DetailSkeleton />;
   if (detail.isError) {
     return errorCode(detail.error) === "NOT_FOUND" ? (
-      <Panel>
-        <EmptyState
-          title={t("admin.company.notFound")}
-          action={
-            <Button asChild variant="secondary">
-              <UiLink to="/admin/companies">{t("admin.company.back")}</UiLink>
-            </Button>
-          }
-        />
-      </Panel>
+      <div className="flex flex-col gap-5">
+        <PageHeader title={t("admin.companies.title")} back={{ to: "/admin/companies", label: t("admin.company.back") }} />
+        <Panel>
+          <EmptyState
+            title={t("admin.company.notFound")}
+            action={
+              <Button asChild variant="secondary">
+                <UiLink to="/admin/companies">{t("admin.company.back")}</UiLink>
+              </Button>
+            }
+          />
+        </Panel>
+      </div>
     ) : (
       <div className="flex flex-col gap-5">
         <PageHeader title={t("admin.companies.title")} back={{ to: "/admin/companies", label: t("admin.company.back") }} />

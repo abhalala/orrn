@@ -45,7 +45,7 @@ export function ImpersonationBanner({
         onClick={stopping ? undefined : onStop}
         aria-busy={stopping || undefined}
         aria-disabled={stopping || undefined}
-        className="inline-flex h-9 shrink-0 items-center rounded-full bg-tone-violet-on px-4 text-[13px] font-semibold text-tone-violet-to transition-transform duration-[var(--dur-fast)] hover:opacity-95 active:scale-[0.97] focus-visible:outline-tone-violet-on aria-busy:cursor-progress aria-busy:opacity-80 pointer-coarse:h-11"
+        className="inline-flex min-h-11 shrink-0 items-center rounded-full bg-tone-violet-on px-4 text-[14px] font-semibold text-tone-violet-to transition-transform duration-[var(--dur-fast)] hover:opacity-95 active:scale-[0.97] focus-visible:outline-tone-violet-on aria-busy:cursor-progress aria-busy:opacity-80"
       >
         {stopLabel}
       </button>

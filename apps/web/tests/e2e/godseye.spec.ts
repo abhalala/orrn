@@ -124,6 +124,9 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   await expect(banner).toBeVisible();
   await expect(banner).toContainText(`Viewing ${company} as orrn support`);
   await expect(banner).toContainText(/Ends at \d{2}:\d{2}/);
+  // Touch target: the brief asks for 44px everywhere, laptop included.
+  const stopBox = await banner.getByRole("button", { name: "Stop impersonating" }).boundingBox();
+  expect(stopBox?.height ?? 0).toBeGreaterThanOrEqual(44);
   await expect(page.locator("[data-slot='app-shell']")).toHaveAttribute("data-variant", "tenant");
   expect(await blockingAxeViolations(page, "[data-slot='impersonation-banner']"), "impersonation banner").toEqual([]);
   const stored = await page.evaluate(() => sessionStorage.getItem("orrn:impersonate-company-id"));
@@ -169,6 +172,14 @@ test("overview: KPI blocks link to their lists", async ({ page }) => {
   await expect(kpis.getByRole("link", { name: /Access requests/ })).toHaveAttribute("href", "/admin/requests");
   await expect(kpis.getByRole("link", { name: /Staff/ })).toHaveAttribute("href", "/admin/staff");
   await expect(page.locator("[data-slot='status-block'][data-tone='violet']")).toHaveCount(1);
+});
+
+test("a company that does not exist still has a page heading and a way back", async ({ page }) => {
+  await signInViaApi(page, "staff");
+  await open(page, "/admin/companies/no-such-company");
+  await expect(page.getByRole("heading", { level: 1, name: "Companies" })).toBeVisible();
+  await expect(page.getByText("This company doesn't exist, or it was removed.")).toBeVisible();
+  await expect(page.locator("main#main").getByRole("link", { name: "Companies", exact: true }).first()).toBeVisible();
 });
 
 test("staff: add a support account, then remove it", async ({ page }) => {
