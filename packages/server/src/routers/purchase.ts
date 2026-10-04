@@ -42,6 +42,7 @@ import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteB
 import { auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { nextDocNumber } from "../lib/docNumber";
+import { boriMeltedMessage, lotRemaining, lotRemainingSql, OUTER_LOT_ID } from "../lib/foundry";
 import { lotCancelLeavesStockNonNegative, lotCancelRows, lotOkRows } from "../lib/ledger";
 import { can } from "../lib/permissions";
 import {
@@ -1149,6 +1150,14 @@ const dcNotesRouter = router({
         if (Number(live?.g ?? 0) + input.boriDeductionG >= lot.fcKgG!) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "The bori deductions must stay below the lot's FC weight" });
         }
+        // An OK lot the foundry has drawn from: the bori may take only what is left (PL-5 review I-1),
+        // or approving it drives the lot and its scrap grade below zero.
+        if (lot.status === "ok") {
+          const left = await lotRemaining(ctx.db, ctx.companyId, lot.id);
+          if (left.remainingG < input.boriDeductionG) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: boriMeltedMessage(lot.number, left.drawnG, left.remainingG) });
+          }
+        }
       }
       const [open] = await ctx.db
         .select({ number: dcNote.number })
@@ -1216,6 +1225,10 @@ const dcNotesRouter = router({
                   input.boriDeductionG > 0
                     ? sql`${lotBoriG(["pending", "approved"])} + ${input.boriDeductionG} < ${lotCol("fc_kg_g")}`
                     : undefined,
+                  // Write-time twin of the melted-kg check: a melt that lands first wins.
+                  input.boriDeductionG > 0
+                    ? sql`(${lotCol("status")} <> 'ok' or ${lotRemainingSql(ctx.companyId, OUTER_LOT_ID)} >= ${input.boriDeductionG})`
+                    : undefined,
                 ),
               ),
           ),
@@ -1243,6 +1256,13 @@ const dcNotesRouter = router({
         .where(and(eq(dcNote.id, id), eq(dcNote.companyId, ctx.companyId)))
         .limit(1);
       if (!landed) {
+        if (input.boriDeductionG > 0) {
+          const now = await loadLot(ctx, lot.id);
+          const left = await lotRemaining(ctx.db, ctx.companyId, lot.id);
+          if (now.status === "ok" && left.remainingG < input.boriDeductionG) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: boriMeltedMessage(lot.number, left.drawnG, left.remainingG) });
+          }
+        }
         throw new TRPCError({ code: "BAD_REQUEST", message: "The lot changed (cancelled or reweighed) while saving; open it again" });
       }
       return { id, number: doc.number, approvalId, amountPaise };

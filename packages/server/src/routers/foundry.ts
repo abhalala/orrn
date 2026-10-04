@@ -62,6 +62,7 @@ import {
   castInputSql,
   castLiveMeltsSql,
   castLogsSql,
+  castTailSql,
   castTailWithinBand,
   defaultReturnStreamStatements,
   DROSS_STREAM,
@@ -71,7 +72,8 @@ import {
   isFoundryAbort,
   isUniqueViolation,
   lotDrawnSql,
-  lotPostedSql,
+  lotRemainingSql,
+  lotStockSql,
   OUTER_CAST_ID,
   OUTER_LOT_ID,
   resolveBilletStore,
@@ -108,6 +110,12 @@ export const MAX_MELT_RETURNS = 10;
 const MAX_MELT_SPAN_MS = 72 * 3_600_000;
 /** Clock slack for "not in the future". */
 const FUTURE_SLACK_MS = 10 * 60_000;
+/**
+ * How long before its cast was opened a melt may have started: a cast is often opened on the
+ * tablet after the campaign began (the sheet is typed up later), but a melt weeks earlier is a
+ * wrong date, and it would move the melt in the yield report (casting end dates it).
+ */
+const MAX_MELT_BEFORE_CAST_MS = 7 * 24 * 3_600_000;
 /** LDO tank dip: 0 … 240 inches, in tenths. */
 const MAX_TENTH_IN = 2_400;
 /** Spectro file: 1 MB decoded (base64 of it is at most 1,398,104 characters). */
@@ -318,13 +326,15 @@ const AVAILABLE_LOTS_MAX = 1_000;
 
 const lotsRouter = router({
   /**
-   * OK lots that still hold scrap, in book order (oldest first), with remaining kg = what the lot posted − what
-   * live melts drew; and the same totals by item + grade. No rate, party kg, vendor, bill or D/C
-   * figures: the foundry picks lots without seeing what they cost.
+   * OK lots that still hold scrap, in book order (oldest first), with remaining kg = what the lot
+   * holds for the furnace (its postings less the bori of a pending D/C note, never shown on its own)
+   * − what live melts drew; and the same totals by item + grade. No rate, party kg, vendor, bill or
+   * D/C figures: the foundry picks lots without seeing what they cost.
    */
   available: anyActionProcedure("cast.enter", "cast.close", "purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish").query(
     async ({ ctx }) => {
-      const posted = lotPostedSql(ctx.companyId, OUTER_LOT_ID);
+      // Company-scoped sums (do not drop their company_id terms: the lot filter below does not cover them).
+      const stock = lotStockSql(ctx.companyId, OUTER_LOT_ID);
       const drawn = lotDrawnSql(ctx.companyId, OUTER_LOT_ID);
       const rows = await ctx.db
         .select({
@@ -340,14 +350,16 @@ const lotsRouter = router({
           locationId: purchaseLot.locationId,
           locationCode: location.code,
           okAt: purchaseLot.okAt,
-          stockG: posted,
+          stockG: stock,
           drawnG: drawn,
         })
         .from(purchaseLot)
         .innerJoin(scrapItem, and(eq(scrapItem.id, purchaseLot.scrapItemId), eq(scrapItem.companyId, purchaseLot.companyId)))
         .innerJoin(scrapGrade, and(eq(scrapGrade.id, purchaseLot.scrapGradeId), eq(scrapGrade.companyId, purchaseLot.companyId)))
+        // Every join matches the company too: a foreign key does not check it (location.id is a primary
+        // key, so the company term never changes a match today; it keeps a cross-wired row out).
         .leftJoin(location, and(eq(location.id, purchaseLot.locationId), eq(location.companyId, purchaseLot.companyId)))
-        .where(and(eq(purchaseLot.companyId, ctx.companyId), eq(purchaseLot.status, "ok"), sql`${posted} - ${drawn} > 0`))
+        .where(and(eq(purchaseLot.companyId, ctx.companyId), eq(purchaseLot.status, "ok"), sql`${stock} - ${drawn} > 0`))
         // Book order: financial year, then the lot's number (LOT-2 before LOT-10).
         .orderBy(
           asc(purchaseLot.period),
@@ -465,6 +477,8 @@ const castsRouter = router({
       ]);
       const items = rows.map(({ liveMelts, ...r }) => ({
         ...r,
+        // LIVE melts (cancelled ones excluded). casts.get().cast.meltCount is different: every melt
+        // ever added, cancelled included (the next melt's number − 1). Screens show this one.
         meltCount: Number(liveMelts),
         inputG: Number(r.inputG),
         logsG: Number(r.logsG),
@@ -673,9 +687,11 @@ const castsRouter = router({
   /**
    * Close-out (cast.close, Review Focus 4). Tail within 1 % of the input: the cast closes now.
    * Above it: a reason is required and the cast waits in `closing` for a `cast_close` approval.
-   * The UPDATE carries the guards (still open, no melt added since the read, and for a no-reason
-   * close the tail still within 1 % at write time), so a melt or a billet movement that lands
-   * between the read and the batch makes the close refuse instead of closing on stale figures.
+   * The UPDATE carries the guards (still open; the cast row unchanged since the read — every melt
+   * create AND cancel moves its server_seq; for a no-reason close the tail still within 1 % at
+   * write time, for a close with a reason the tail still exactly what was read, so the approval
+   * never shows stale figures), so a melt, a melt cancel or a billet movement that lands between
+   * the read and the batch makes the close refuse instead of closing on stale figures.
    */
   close: actionProcedure("cast.close")
     .input(z.object({ castId: id, tailReason: optText(500) }))
@@ -730,8 +746,12 @@ const castsRouter = router({
               eq(cast.id, c.id),
               eq(cast.companyId, ctx.companyId),
               eq(cast.status, "open"),
+              // melts.create and melts.cancel both move server_seq (melt_count alone misses a cancel).
+              eq(cast.serverSeq, c.serverSeq),
               eq(cast.meltCount, c.meltCount),
-              co.needsReason ? undefined : castTailWithinBand(ctx.companyId, sql`${c.id}`, CAST_TAIL_REASON_BP),
+              co.needsReason
+                ? sql`${castTailSql(ctx.companyId, sql`${c.id}`)} = ${co.tailG}`
+                : castTailWithinBand(ctx.companyId, sql`${c.id}`, CAST_TAIL_REASON_BP),
             ),
           ),
       ];
@@ -837,8 +857,7 @@ type LotForMelt = {
 };
 
 async function lotsForMelt(ctx: Ctx, lotIds: string[]): Promise<Map<string, LotForMelt>> {
-  const posted = lotPostedSql(ctx.companyId, OUTER_LOT_ID);
-  const drawn = lotDrawnSql(ctx.companyId, OUTER_LOT_ID);
+  const remaining = lotRemainingSql(ctx.companyId, OUTER_LOT_ID);
   const rows = await mapInChunks(
     lotIds,
     (ids) =>
@@ -850,7 +869,7 @@ async function lotsForMelt(ctx: Ctx, lotIds: string[]): Promise<Map<string, LotF
           locationId: purchaseLot.locationId,
           scrapItemId: purchaseLot.scrapItemId,
           scrapGradeId: purchaseLot.scrapGradeId,
-          remainingG: sql<number>`${posted} - ${drawn}`,
+          remainingG: remaining,
         })
         .from(purchaseLot)
         .where(and(eq(purchaseLot.companyId, ctx.companyId), inArray(purchaseLot.id, ids))),
@@ -870,14 +889,23 @@ async function streamsByIds(ctx: Ctx, ids: string[]) {
   return new Map(rows.map((r) => [r.id, r]));
 }
 
+/** The by-product stream dross / Fe posts to: it must exist, be active and be a by-product. */
 async function streamByCode(ctx: Ctx, code: string) {
+  const label = code === DROSS_STREAM ? "Dross" : "Fe";
   const [row] = await ctx.db
     .select()
     .from(returnStream)
     .where(and(eq(returnStream.companyId, ctx.companyId), eq(returnStream.code, code)))
     .limit(1);
-  if (!row || !row.active) bad(`Add the ${code === DROSS_STREAM ? "Dross" : "Fe"} return stream first (Masters → Return streams)`);
+  if (!row) bad(`Add the ${label} return stream first (Masters → Return streams)`);
+  if (!row.active) bad(`The ${label} return stream (${code}) is retired; reactivate it first (Masters → Return streams)`);
+  if (row.kind !== "byproduct") bad(`The ${code} return stream must be a by-product stream to take ${label.toLowerCase()}`);
   return row;
+}
+
+/** EXISTS: the stream is still active and of `kind` (write-time guard for output streams). */
+function activeStream(companyId: string, streamId: string, kind: "charge" | "byproduct") {
+  return sql`exists (select 1 from ${returnStream} os where os.id = ${streamId} and os.company_id = ${companyId} and os.active = 1 and os.kind = ${kind})`;
 }
 
 /** The shape every melts.create caller gets back (a repeat with the same clientRequestId included). */
@@ -922,7 +950,7 @@ async function meltByRequest(ctx: Ctx, requestId: string) {
   return row;
 }
 
-function validateTimes(t: MeltCreateInput["timestamps"], at: Date) {
+function validateTimes(t: MeltCreateInput["timestamps"], at: Date, c: Pick<CastRow, "number" | "openedAt">) {
   const order = [t.preheatStart, t.chargingStart, t.chargingEnd, t.castingStart, t.castingEnd];
   const names = ["preheat start", "charging start", "charging end", "casting start", "casting end"];
   for (let i = 1; i < order.length; i += 1) {
@@ -930,6 +958,9 @@ function validateTimes(t: MeltCreateInput["timestamps"], at: Date) {
   }
   if (t.castingEnd > at.getTime() + FUTURE_SLACK_MS) bad("The casting end is in the future");
   if (t.castingEnd - t.preheatStart > MAX_MELT_SPAN_MS) bad("Check the times: the melt runs over 3 days");
+  if (t.preheatStart < c.openedAt.getTime() - MAX_MELT_BEFORE_CAST_MS) {
+    bad(`The preheat start is more than 7 days before ${c.number} was opened; check the date`);
+  }
 }
 
 type LedgerValues = typeof stockLedger.$inferInsert;
@@ -953,7 +984,7 @@ const meltsRouter = router({
       if (c.status !== "open") bad(castStateMessage(c));
       if (input.alloy && input.alloy !== c.alloy) bad(`${c.number} is ${c.alloy}; open a new cast for ${input.alloy}`);
       const at = clockNow();
-      validateTimes(input.timestamps, at);
+      validateTimes(input.timestamps, at, c);
 
       // Inputs
       const seen = new Set<string>();
@@ -1060,7 +1091,8 @@ const meltsRouter = router({
       const meltLanded = sql`exists (select 1 from ${melt} ml where ml.id = ${meltId} and ml.company_id = ${companyId} and ml.server_seq = ${seq})`;
       const statements: SqliteBatchItem[] = [];
 
-      // 1. The cast takes the melt: still open, still has its posting locations.
+      // 1. The cast takes the melt: still open, still has its posting locations and output streams
+      //    (input streams are guarded on their own lines below). Everything after lands only if this did.
       statements.push(
         ctx.db
           .update(cast)
@@ -1072,6 +1104,9 @@ const meltsRouter = router({
               eq(cast.status, "open"),
               billet ? activeLocation(companyId, billet.id, "billet_store") : undefined,
               plantScrap ? activeLocation(companyId, plantScrap.id, "wip") : undefined,
+              dross ? activeStream(companyId, dross.id, "byproduct") : undefined,
+              fe ? activeStream(companyId, fe.id, "byproduct") : undefined,
+              ...outReturns.map((r) => activeStream(companyId, r.streamId, "charge")),
             ),
           ),
       );
@@ -1177,7 +1212,8 @@ const meltsRouter = router({
                     eq(purchaseLot.locationId, lot.locationId!),
                     eq(purchaseLot.scrapItemId, lot.scrapItemId),
                     eq(purchaseLot.scrapGradeId, lot.scrapGradeId),
-                    sql`${lotPostedSql(companyId, OUTER_LOT_ID)} - ${lotDrawnSql(companyId, OUTER_LOT_ID)} >= ${inp.kgG}`,
+                    // Postings − pending bori − live draws (the same expression lots.available shows).
+                    sql`${lotRemainingSql(companyId, OUTER_LOT_ID)} >= ${inp.kgG}`,
                     meltLanded,
                   ),
                 ),
@@ -1369,6 +1405,13 @@ const meltsRouter = router({
       const orig = alias(stockLedger, "orig");
       const o = (col: string) => sql`${sql.identifier("orig")}.${sql.identifier(col)}`;
       const statements: SqliteBatchItem[] = [
+        // The cast changes with its melt: a close that read the figures before this cancel then
+        // refuses (it guards on the cast's server_seq), and sync clients see the cast move. The
+        // abort below rolls this back when the melt itself does not cancel.
+        ctx.db
+          .update(cast)
+          .set({ serverSeq: seq, updatedAt: at })
+          .where(and(eq(cast.id, c.id), eq(cast.companyId, companyId), eq(cast.status, "open"))),
         ctx.db
           .update(melt)
           .set({ cancelledAt: at, cancelledBy: userId, cancelReason: reason, serverSeq: seq, updatedAt: at })
@@ -1377,7 +1420,7 @@ const meltsRouter = router({
               eq(melt.id, m.id),
               eq(melt.companyId, companyId),
               isNull(melt.cancelledAt),
-              sql`exists (select 1 from ${cast} oc where oc.id = ${c.id} and oc.company_id = ${companyId} and oc.status = 'open')`,
+              sql`exists (select 1 from ${cast} oc where oc.id = ${c.id} and oc.company_id = ${companyId} and oc.status = 'open' and oc.server_seq = ${seq})`,
               sql`${billetsSql} >= ${melt.logsG}`,
             ),
           ),
@@ -1509,14 +1552,19 @@ async function explainMeltLost(ctx: Ctx, c: CastRow, input: MeltCreateInput, bef
       if (lot.remainingG < i.kgG) bad(`Only ${fmtKg(Math.max(lot.remainingG, 0))} kg left in ${lot.number}`);
     }
   }
-  const streamIds = input.inputs.filter((x) => x.kind === "return_stream").map((x) => x.ref);
+  const streamIds = [
+    ...new Set([...input.inputs.filter((x) => x.kind === "return_stream").map((x) => x.ref), ...input.outputs.returns.map((r) => r.streamId)]),
+  ];
   const streams = await streamsByIds(ctx, streamIds);
   for (const sid of streamIds) {
     const s = streams.get(sid);
     if (!s || !s.active) bad(`${s?.name ?? "A return stream"} was retired`);
   }
-  await resolveBilletStore(ctx.db, ctx.companyId);
-  await resolvePlantScrap(ctx.db, ctx.companyId);
+  if (input.outputs.drossG > 0) await streamByCode(ctx, DROSS_STREAM);
+  if (input.outputs.feG > 0) await streamByCode(ctx, FE_STREAM);
+  const hasLogs = input.outputs.logs.kgG > 0 || input.outputs.logs.pcs > 0;
+  if (hasLogs) await resolveBilletStore(ctx.db, ctx.companyId);
+  if (streamIds.length > 0 || input.outputs.drossG > 0 || input.outputs.feG > 0) await resolvePlantScrap(ctx.db, ctx.companyId);
   bad("The foundry data changed; try again");
 }
 

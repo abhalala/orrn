@@ -1,11 +1,13 @@
+import { TRPCError } from "@trpc/server";
 import { and, eq, sql, type SQL } from "drizzle-orm";
 
 import { approval, type ApprovalKind } from "@orrn/db/schema/approval";
 import { dieInstance, dieTierChange } from "@orrn/db/schema/dies";
 import { cast } from "@orrn/db/schema/foundry";
-import { dcNote } from "@orrn/db/schema/purchase";
+import { dcNote, purchaseLot } from "@orrn/db/schema/purchase";
 
 import type { OrrnDb, SqliteBatchItem } from "./atomic";
+import { boriMeltedMessage, dcNoteOverdrawAbort, isFoundryAbort, lotRemaining } from "./foundry";
 import { dcNoteDeductionRows } from "./ledger";
 
 /** What an approval's apply hook sees: this request, and the decision that is being written. */
@@ -88,7 +90,9 @@ const dieRerank: ApprovalApplier = (ctx, row, decision) => {
  * OK posting will subtract it. A lot never waits on approval to go OK: a pending weight note is
  * enough (the debit note is "started on the spot"); approval only makes the deduction effective.
  * Statements are scoped to the company, the note must still be pending, and the decision must
- * have landed, so the losing approver of a race (or a forged subject) changes nothing.
+ * have landed, so the losing approver of a race (or a forged subject) changes nothing. An approval
+ * whose bori would take an OK lot below what the foundry melted aborts the whole decision
+ * (`dcNoteOverdrawAbort`, explained by `explainApplyAbort`); rejecting is always possible.
  */
 const dcNoteDecision: ApprovalApplier = (ctx, row, decision) => {
   const { db, companyId, seq } = ctx;
@@ -111,6 +115,7 @@ const dcNoteDecision: ApprovalApplier = (ctx, row, decision) => {
         { db, companyId, userId: ctx.userId, seq, postedAt: ctx.decidedAt },
         { noteId: row.subjectId },
       ),
+      dcNoteOverdrawAbort(db, companyId, row.subjectId),
     );
   }
   return statements;
@@ -168,3 +173,30 @@ export const APPROVAL_APPLIERS: Partial<Record<ApprovalKind, ApprovalApplier>> =
   dc_note: dcNoteDecision,
   cast_close: castCloseDecision,
 };
+
+/**
+ * A decision batch failed: if an apply hook's own abort refused it, throw the reason (BAD_REQUEST)
+ * read from the current state; otherwise return and let the caller rethrow the original error.
+ */
+export async function explainApplyAbort(
+  db: OrrnDb,
+  companyId: string,
+  row: { kind: ApprovalKind; subjectId: string },
+  e: unknown,
+): Promise<void> {
+  if (row.kind !== "dc_note" || !isFoundryAbort(e)) return;
+  const [note] = await db
+    .select({ lotId: dcNote.lotId, lotNumber: purchaseLot.number, number: dcNote.number, boriG: dcNote.boriDeductionG, status: dcNote.status })
+    .from(dcNote)
+    .innerJoin(purchaseLot, and(eq(purchaseLot.id, dcNote.lotId), eq(purchaseLot.companyId, dcNote.companyId)))
+    .where(and(eq(dcNote.id, row.subjectId), eq(dcNote.companyId, companyId)))
+    .limit(1);
+  if (!note) return;
+  const left = await lotRemaining(db, companyId, note.lotId);
+  // The batch rolled back, so the note is still pending and its own bori is held back in `remainingG`.
+  const forBori = left.remainingG + (note.status === "pending" ? note.boriG : 0);
+  throw new TRPCError({
+    code: "BAD_REQUEST",
+    message: boriMeltedMessage(note.lotNumber, left.drawnG, forBori, `Reject ${note.number} and raise it again`),
+  });
+}
