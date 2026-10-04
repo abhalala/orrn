@@ -27,6 +27,22 @@ export async function atomicBatch(
 }
 
 /**
+ * Like {@link atomicBatch}, and returns the rows of the LAST statement, which must be a SELECT.
+ * It runs inside the batch, after every other statement, so it reports what this batch itself
+ * wrote and cannot be skewed by a request that lands after the batch (D1 runs a batch serially).
+ */
+export async function atomicBatchLast<Row>(
+  db: OrrnDb,
+  statements: readonly SqliteBatchItem[],
+): Promise<Row[]> {
+  if (statements.length === 0) {
+    return [];
+  }
+  const results = (await db.batch(statements as NonEmptyBatch)) as unknown as unknown[];
+  return (results[results.length - 1] ?? []) as Row[];
+}
+
+/**
  * Append insert builders for `rows`, split so every statement stays under the
  * D1 bound-parameter limit. The rows-per-statement count is derived from the
  * widest row's column count, so callers never hard-code a chunk size.

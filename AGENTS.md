@@ -82,7 +82,7 @@ bun run deploy
   `die.reading`, `die.card`, `die.rerank`, `purchase.receipt`,
   `purchase.dcnote`, `store.txn`, `order.manage`, `invoice.link`,
   `masters.draft`, `masters.publish`, `users.manage`, `export.accounts`,
-  `reports.read`, `qc.enter`, `ageing.enter`), not the legacy keys. Every
+  `reports.read`, `qc.enter`, `ageing.enter`, `analytics.view`), not the legacy keys. Every
   holder of a legacy key also holds its plant equivalent, so moving a guard to
   a plant key removes access from nobody (tests in
   `packages/server/test/plant-roles.test.ts` pin this).
@@ -134,7 +134,9 @@ bun run deploy
   `dispatch_overdraw`, `phantom_void` → owner, admin, manager; `cast_close` →
   owner, admin, manager, foundry. The requester can never decide their own
   request (owner included); a decided request cannot be decided again. One
-  pending request per (company, kind, subject).
+  pending request per (company, kind, subject). Kinds with an effect apply it in
+  the decision's batch through `APPROVAL_APPLIERS` (`lib/approvalApply.ts`):
+  `die_rerank` (tier) and `dc_note` (note status, bori deduction posting).
 - Platform impersonation is web-only/support-only, time-boxed, bannered, and audited.
 
 ## Native sync rules
@@ -173,6 +175,162 @@ bun run deploy
   in that company. Numbers are sequential and there is no rate limit, so never add more public fields.
 - Tests that depend on "now" must pin it with `setClockForTests` (`lib/clock.ts`); `createReceipt`
   reads that clock.
+
+## Stock ledger and locations
+
+- `stock_ledger` is append-only: never UPDATE or DELETE a row (a grep test in
+  `packages/server/test/plant-ledger.test.ts` fails the build; only the dev-seed reset may delete).
+  A correction is a new opposite-sign row with `reversal_of` = the row it cancels.
+- Every stock-affecting submit writes its document rows, its ledger rows and an audit row in ONE
+  `atomicBatch`. Use the builders in `packages/server/src/lib/ledger.ts` (`packRows`, `moveRows`,
+  `voidRows`, `restoreRows`, `dispatchRows`, `openingRows`). For existing bundles they are
+  INSERT … SELECT statements that read location and weight at write time and land only if the
+  bundle write beside them landed (the bundle carries this request's `server_seq`).
+- Invariant (Review Focus 1): for every bundle, ledger balance = projection (available/reserved →
+  +weight at `bundle.location_id`, dispatched/void → 0). Bundles from before the ledger have no rows
+  and are skipped by every posting until `stock.openingBalance` takes them on.
+- The only things that ever touch a ledger row are foreign-key actions: the company cascade
+  (deleting a company deletes its rows) and `created_by` SET NULL (deleting a user blanks the actor).
+  Code never UPDATEs or DELETEs one. `location_id` is `ON DELETE restrict`, so a location with ledger
+  rows cannot be deleted (retire it instead).
+- Locations: a location that holds stock (in-stock bundles or a non-zero ledger balance) cannot be
+  retired or change `kind`. The check is part of the UPDATE itself (`locationIsEmpty`), not a read
+  before it, and the other side is guarded too: `moveRows` only lands bundles while the target is
+  still an active yard, and `createReceipt` inserts its `bundle_group` with `INSERT … SELECT` from the
+  active yard, so a yard retired after the request read it makes the batch roll back (the bundle rows
+  break their group foreign key). `stock.move` returns `moved` counted inside its own batch.
+- Weights in the ledger are signed integer grams (`qty_g`). `location_id` NULL = place unknown
+  (legacy); there is no location 0 and no default location. `createReceipt` requires a yard
+  `locationId` once the company has an active yard location.
+
+## Die room (sections, die copies, tiers)
+
+- The `die` table is the SECTION catalogue (12170 Domal and its weight band per 12 ft); do not rename
+  it. A physical copy ("oblique") is a `die_instance` row (`packages/db/src/schema/dies.ts`,
+  `routers/dieInstance.ts`). Bundles and press runs reference the copy (`bundle.die_instance_id` is
+  nullable for legacy stock and not a foreign key; validate it in code).
+- `dieInstance.create`/`update` (die card fields) accept `die.card` OR `masters.publish` (ruling RP7,
+  `anyActionProcedure`); nitriding stays `die.card`, tier proposals `die.rerank`.
+- The oblique code `{sectionCode}-{n}` and `n` are allocated inside the insert (`INSERT … SELECT`),
+  unique per section, permanent, never reused; `update` cannot change them.
+- A tier (`tier_rank`, 1 = best, several copies may share one) changes only through `die_tier_change`:
+  `dieInstance.proposeTier` (die.rerank) opens an approval of kind `die_rerank` (subject = the tier
+  change id), and `approval.decide` applies it in the decision's own batch through the per-kind hook
+  table `APPROVAL_APPLIERS` in `lib/approvalApply.ts`. A later approval kind that needs an effect adds
+  its hook there; hook statements must be scoped by company and guarded with `decisionLanded`.
+- `kg_per_12ft_milli` is thousandths of a kg, which equals grams per 12 ft, the unit of the section
+  band (`die.weight_min_g` / `weight_max_g`). `drift` compares them directly.
+
+## Scrap purchase (vendors, lots, D/C notes)
+
+- Tables in `packages/db/src/schema/purchase.ts`; routers `vendor` (`routers/vendor.ts`) and
+  `purchase` (`routers/purchase.ts`: `scrapItems`, `scrapGrades`, `lots`, `dcNotes`, `register`,
+  `scrapStock`, `seedScrapDefaults`). Weights grams, money paise, percentages basis points.
+- Vendors resolve by `nameKey` (letters/digits, lower case) of the name or any alias; one key belongs
+  to one live vendor. masters.publish creates active vendors; purchase.receipt / masters.draft holders
+  create `draft` vendors inline that a masters.publish holder confirms. `vendor.merge` moves lots and
+  aliases to the keeper and turns the merged names into aliases; merged rows stay (`merged_into_id`).
+  Brokers (dalal, "K" in a party name) are never vendors.
+- Lots: `booking → unload → ok` (booking → ok allowed), `cancelled`. Review Focus 2: OK is refused
+  when party − FC > party × `settings.dcTolerancePct` / 10 000 (basis points despite the name, default
+  50 = 0.5 %) unless the lot's live weight debit notes (pending or approved) cover the shortfall beyond
+  tolerance: Σ kg_diff_g ≥ (party − FC) − floor(party × bp / 10 000) (ruling RP8). The rule sits in
+  the OK UPDATE's WHERE (not only in a read before it); keep it there.
+- Ledger: OK posts `purchase_lot` (+ FC kg − approved bori) at the scrap store, item_kind
+  `scrap_grade`, item_ref `{scrapItemId}:{scrapGradeId}` (`lib/purchase.ts scrapItemRef`), voucher =
+  lot id. A note approved after OK posts `dc_note` (− bori) from the `dc_note` approval hook. Cancelling
+  an OK lot (masters.publish) posts `purchase_lot_cancel` reversals and is refused if the item+grade at
+  that store holds less than the lot put there; when melts record the lot they draw from, tighten
+  `lotCancelLeavesStockNonNegative` to "no draw on this lot".
+- After OK the stock fields (item, grade, party/FC kg) are locked; rate, bill no, dross stay editable.
+  Weights are locked while a weight note or any note with bori is pending or approved.
+- Bori is allowed only on debit notes and needs FC kg; Σ live bori (pending + approved + new) < FC kg
+  is checked inside the note INSERT, and OK also requires FC − Σ approved bori > 0. Caps: lot weights
+  ≤ 100 t (1e8 g), rate ≤ ₹10,000/kg (1e6 paise), kg diff ≤ party kg.
+- `approval.list` is readable by every role, so a dc_note approval's `meta` carries only number, lot
+  and type/reason — never weights or money (rate = amount ÷ kg); `approval.list` also strips other
+  keys and the request note for callers without purchase read access. Approvers read the figures
+  from `purchase.dcNotes.get`. Merging needs a confirmed (active) keeper.
+
+## Central store (items, GRN, MRS)
+
+- Tables `store_item` and `store_txn` in `packages/db/src/schema/store.ts`; router `store`
+  (`routers/store.ts`, builders and shared checks in `lib/store.ts`): `items.list` (any member),
+  `items.create` / `items.update` (store.txn OR masters.publish), `receive` (GRN), `issue` (MRS),
+  `exchange` (old for new), `cancel` (all store.txn = storekeeper, owner), `balances` and `txns`
+  (store.txn OR masters.publish = storekeeper, manager, admin, owner).
+- Quantities are integer milli-units of the item's unit (`qtyMilli`, `qty_milli`; 1000 = 1 kg, 1 litre
+  or 1 piece), capped at 100,000 units; piece/set/box/bag take whole units. The ledger carries the
+  same number in `qty_g` for item_kind `store_item`. Because of that, `stock.balance` and
+  `stock.byLocation` return `qtyG: null` for store rows, with `qtyMilli` + `unit` (balance) or
+  `byUnit[]` (byLocation); never add grams and milli-units. They also leave store rows out for callers
+  without store.txn, masters.publish or analytics.view. The unit is locked once an item has a movement.
+  An item can be retired only at balance 0; the name is unique among items with `retired_at` null.
+- A GRN or MRS is one `store_txn` row + one ledger row (`store_grn` / `store_mrs`, voucher = the txn
+  id, at the active `store` location, never created implicitly: no store location, no posting) + audit
+  row in one `atomicBatch`. The ledger and audit rows are `INSERT … SELECT … FROM store_txn`, so they
+  land exactly when the document did. An issue's document INSERT holds the balance check
+  (`sum(stock_ledger) >= qty`) in its WHERE, so racing issues cannot overdraw; keep it there.
+  `lib/store.ts resolveStoreLocation` is the one location resolver for reads and writes.
+- Numbers `GRN-{n}` / `MRS-{n}` per financial year (`doc_series`, unique per company, kind, period).
+  An exchange takes one MRS (the old out, purpose `exchange`) and one GRN (the new in), linked by
+  `exchange_id`. Numbers allocated before a write that then loses a race leave a gap.
+- `store.cancel` (RP15): the entry keeps its number and gets `cancelled_at/by/reason`; reversal rows
+  (`store_grn_cancel` / `store_mrs_cancel`, same voucher id, `reversal_of` = the original row) are
+  inserted first, guarded at write time by "balance minus what the group added stays >= 0",
+  `cancelled_at is null`, the item still active and the entry's location still an active `store`
+  location (a cancel never puts stock onto a retired item or location: reactivate it first), then the
+  mark UPDATE keys on those rows. Either leg cancels both legs. No new number. A second concurrent
+  cancel inserts nothing. `diagnoseStoreCancel(db, companyId, txnId)` says why a reversal did not land.
+  Who may cancel: store.txn only (storekeeper, owner), any entry, with a reason (ruling PL7RR).
+- `clientRequestId` (RP18, max 64) on receive/issue/exchange: unique per company; looked up before a
+  number is taken; a unique-index race returns the original; the same id with a different entry
+  (kind, item, quantity, purpose, exchange in-quantity) is a CONFLICT. An exchange keeps it on its MRS
+  leg. Results carry `replayed` and `cancelled` (a retry of an entry cancelled since must not show it as
+  saved stock).
+- Other documents that consume store items (a melt's chemicals, LDO; a nitriding log's gas) call
+  `prepareStoreDraws` (lib/store.ts) and put its `statements` in their own batch. The last statement
+  aborts the whole batch (NOT NULL on `store_txn.id`) unless every draw landed, so the melt cannot
+  land without its consumables; catch with `isStoreDrawAbort(e)` and `await prepared.explain()`.
+  Use purpose `melt` and `refId` = the cast id, and pass `source: { type: "melt", id: meltId }`.
+  At most 40 draws (the abort binds one id each; 40 bind 43 parameters); refId ≤ 64, note ≤ 500;
+  skip the call when nothing is drawn (an empty list throws). `ref_id` / `source_id` are opaque ids,
+  not foreign keys.
+- Draws are marked: `store_txn.source_type` / `source_id` name the drawing document (default: the
+  draw's purpose and refId); store-screen entries have NULL. `store.cancel` refuses a marked entry
+  ("MRS-12 belongs to a melt; cancel the melt instead"), so a melt's consumption and the store
+  register cannot drift apart. The document's own cancel reverses its draws in its batch with
+  `storeCancelRows` + `storeCancelMark` per draw (they ignore `source_type`) plus its own "every draw
+  reversed" abort, and explains a refusal with `diagnoseStoreCancel`. `store.txns` returns the marker
+  so the screen offers "open the melt" instead of Cancel.
+
+## Analytics (charts and customer numbers)
+
+- Router `analytics` (`routers/analytics.ts`, spec
+  `docs/superpowers/specs/2026-10-03-orrn-analytics-addendum.md` §3): `customerSummary`,
+  `customerLeaderboard`, `trends`, `stockAgeing`, `dispatchVolume`. All read-only and guarded by
+  `actionProcedure("analytics.view")` = owner, admin, manager, office, accountant. Floor roles and
+  viewer get FORBIDDEN; on the client gate every chart with `<Can do="analytics.view">`.
+- Volume counts completed dispatches only (`status = 'completed'`, not soft-deleted), dated by
+  `completed_at` and weighed as the sum of their bundles' `weight_g`. Weights return as integer grams.
+  One join rule everywhere: dispatch LEFT JOIN item LEFT JOIN bundle, every join scoped by
+  `company_id` (a foreign key does not check the company; the cross-wired tenant test in
+  `plant-analytics.test.ts` fails if any join filter goes). A completed dispatch with no items is a
+  dispatch of 0 kg.
+- Buckets use the company timezone (`settings.timezone`, IST default). Dates are company-local
+  `YYYY-MM-DD`; `from` and `to` are both inclusive days (ruling RP10, as `purchase.register`), so
+  `from == to` is one day and the query ends at the local midnight after `to`. The previous period
+  is the same number of days ending the day before `from`. `lib/zonedBuckets.ts` shifts timestamps
+  by the zone's offset inside SQL; the offset segments are inlined integer literals, so bucketing
+  binds no parameters. Aggregate with GROUP BY and never bind id lists.
+- Leaderboard: competition ranks (equal kg → equal rank, 1, 1, 3), ties listed by lower(name) then
+  id, previous ranks the same way. Soft-deleted or unmatched customers are never rows; their kg stays
+  in `otherKgG`/`totalKgG`. Shares use the largest-remainder method (rows + Other = 100.0).
+- Stock ageing counts available + reserved bundles by company calendar days from the pack date
+  (`bundle.created_at`) to today. Section breakdowns are the top 8 plus an `Other` row
+  (`sectionId: null`). `openOrders` stays null until sales orders exist (PL-8).
+- Indexes `dispatch(company_id, completed_at)` and `bundle(company_id, created_at)` (migration 0016)
+  serve the range filters.
 
 ## Worker performance rules
 
