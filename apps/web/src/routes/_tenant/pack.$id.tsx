@@ -18,6 +18,7 @@ import { packedWhen } from "@/features/pack/format";
 import { bundleRange, formatK12, lengthUnitOf, RangeChip, timezoneOf } from "@/features/pack/pack-ui";
 import { PrintPanel } from "@/features/pack/print-panel";
 import { useCanPrintLabels, usePrintQueue } from "@/features/pack/use-print-labels";
+import { useLocationCodes } from "@/features/pack/use-yards";
 import { Can } from "@/shared/components/can";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { useMe } from "@/shared/lib/me";
@@ -35,6 +36,7 @@ type SessionBundle = {
   weightG: number;
   lengthMm: number;
   poNumber: string | null;
+  locationId: string | null;
 };
 
 const STATUS_ORDER: BundleStatus[] = ["available", "reserved", "dispatched", "void"];
@@ -50,6 +52,7 @@ function PackSession() {
   const session = useQuery(trpc.bundle.getGroup.queryOptions({ id }));
   const { canPrint } = useCanPrintLabels();
   const queue = usePrintQueue(id);
+  const locationCodes = useLocationCodes();
 
   const data = session.data;
   // Serials in counting order (26J9 before 26J10; the server sorts them as text).
@@ -174,6 +177,8 @@ function PackSession() {
   const totalWeightG = bundles.reduce((s, b) => s + b.weightG, 0);
   const totalPieces = bundles.reduce((s, b) => s + b.quantity, 0);
   const lengths = new Set(bundles.map((b) => b.lengthMm));
+  // Where the bundles are now (packed into one yard; a later move can split them).
+  const yards = new Set(bundles.flatMap((b) => (b.locationId ? [b.locationId] : [])));
   const when = packedWhen(group.createdAt, { timeZone, locale });
   const whenText =
     when.day === "today"
@@ -251,6 +256,13 @@ function PackSession() {
                   : ""}
             </span>
           </Fact>
+          {yards.size > 0 ? (
+            <Fact label={t("pack.new.yard")}>
+              <span className="font-mono font-semibold" data-testid="session-yard">
+                {yards.size === 1 ? (locationCodes.get([...yards][0]!) ?? "") : t("pack.detail.mixed")}
+              </span>
+            </Fact>
+          ) : null}
           <Fact label={t("pack.new.po")}>
             {group.purchaseOrderRef ? (
               <span className="font-mono font-semibold break-all">{group.purchaseOrderRef}</span>

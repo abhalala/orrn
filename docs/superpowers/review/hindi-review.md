@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 812 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 816 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -311,7 +311,7 @@ Counts: 812 screen strings in 25 groups, 10 guides with 182 strings.
 | `startHere.packFirst` | Pack your first bundles | पहले bundle पैक करें |
 | `startHere.connectPrinter` | Connect a label printer | लेबल प्रिंटर जोड़ें |
 
-### pack (123)
+### pack (127)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -365,6 +365,10 @@ Counts: 812 screen strings in 25 groups, 10 guides with 182 strings.
 | `new.cutLengthHintInch` | Feet and inches, for example 11 ft 6 in. | फ़ुट और इंच, जैसे 11 ft 6 in. |
 | `new.cutLengthHintMm` | In millimetres, for example 3658. | मिलीमीटर में, जैसे 3658. |
 | `new.cutLengthRequired` | Enter the cut length. | कट लंबाई डालें। |
+| `new.yard` | Yard | यार्ड |
+| `new.yardHint` | Where these bundles will be stacked. | ये bundle किस यार्ड में रखे जाएंगे। |
+| `new.yardRequired` | Choose the yard these bundles go to. | ये bundle किस यार्ड में जाएंगे, वह चुनें। |
+| `new.yardsFailed` | Yards didn't load. Check the connection and try again. | यार्ड लोड नहीं हुए। कनेक्शन जांचें और फिर से कोशिश करें। |
 | `new.po` | PO | PO |
 | `new.noPo` | No PO | PO नहीं |
 | `new.poValue` | PO {po} | PO {po} |

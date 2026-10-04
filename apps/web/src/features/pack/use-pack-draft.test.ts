@@ -6,6 +6,7 @@ import {
   addBundle,
   clearDraft,
   emptyDraft,
+  reachableStep,
   readDraft,
   removeBundle,
   replaceBundle,
@@ -153,5 +154,52 @@ describe("toReceiptInput (bundle.createReceipt payload)", () => {
     expect(
       toReceiptInput(addBundle(draftWith({ defaults: { lengthMm: 0 } }), { weightG: 1, pieces: 1 }), "inch"),
     ).toBeNull();
+  });
+});
+
+describe("yard (location) for the session", () => {
+  test("the yard goes on the payload as locationId", () => {
+    const d = addBundle(draftWith({ defaults: { lengthMm: 3505, locationId: "loc-y3" } }), { weightG: 47_900, pieces: 20 });
+    expect(toReceiptInput(d, "inch")?.locationId).toBe("loc-y3");
+  });
+
+  test("no yard chosen sends no locationId (companies without yards)", () => {
+    const d = addBundle(draftWith(), { weightG: 47_900, pieces: 20 });
+    expect(toReceiptInput(d, "inch")).not.toHaveProperty("locationId");
+  });
+
+  test("a stored yard survives a reload; a non-string yard makes the draft unreadable", () => {
+    const storage = memoryStorage();
+    const d = addBundle(draftWith({ defaults: { lengthMm: 3505, locationId: "loc-y3" } }), { weightG: 1, pieces: 1 });
+    writeDraft(storage, d);
+    expect(readDraft(storage, "co-1")?.defaults.locationId).toBe("loc-y3");
+    storage.setItem(PACK_DRAFT_KEY, JSON.stringify({ ...d, defaults: { lengthMm: 3505, locationId: 7 } }));
+    expect(readDraft(storage, "co-1")).toBeNull();
+  });
+
+  test("reachableStep keeps the packer on step 1 until die, cut length and (when the company has yards) the yard are set", () => {
+    const withBundle = addBundle(draftWith({ step: 2 }), { weightG: 1, pieces: 1 });
+    expect(reachableStep(withBundle, { yardIds: [] })).toBe(2);
+    expect(reachableStep(withBundle, { yardIds: ["loc-y1", "loc-y2"] })).toBe(0);
+    const yard = { ...withBundle, defaults: { ...withBundle.defaults, locationId: "loc-y1" } };
+    expect(reachableStep(yard, { yardIds: ["loc-y1", "loc-y2"] })).toBe(2);
+    expect(reachableStep({ ...yard, bundles: [] }, { yardIds: ["loc-y1"] })).toBe(1);
+    expect(reachableStep({ ...yard, dieId: null }, { yardIds: ["loc-y1"] })).toBe(0);
+  });
+
+  test("a yard retired since the draft was typed sends the packer back to pick another", () => {
+    const d = addBundle(draftWith({ step: 1, defaults: { lengthMm: 3505, locationId: "loc-y6" } }), {
+      weightG: 1,
+      pieces: 1,
+    });
+    expect(reachableStep(d, { yardIds: ["loc-y1", "loc-y2"] })).toBe(0);
+    // A company that has no yards any more packs without one; the stale id is not a blocker.
+    expect(reachableStep(d, { yardIds: [] })).toBe(1);
+  });
+
+  test("toReceiptInput leaves out a yard the company no longer has yards for", () => {
+    const d = addBundle(draftWith({ defaults: { lengthMm: 3505, locationId: "loc-y6" } }), { weightG: 1, pieces: 1 });
+    expect(toReceiptInput(d, "inch", { yardIds: [] })).not.toHaveProperty("locationId");
+    expect(toReceiptInput(d, "inch", { yardIds: ["loc-y6"] })?.locationId).toBe("loc-y6");
   });
 });

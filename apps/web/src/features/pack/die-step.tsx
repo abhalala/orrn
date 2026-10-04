@@ -13,9 +13,11 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type Keybo
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
-import { lengthToInput } from "./pack-math";
+import { chooseYard, lengthToInput } from "./pack-math";
 import { PackBar, formatRangeKg } from "./pack-ui";
 import type { PackDraft } from "./use-pack-draft";
+import { readLastYard, type YardState } from "./use-yards";
+import { YardPicker } from "./yard-picker";
 
 export type DieOption = {
   id: string;
@@ -44,7 +46,8 @@ const bySection = (a: DieOption, b: DieOption) =>
 
 /**
  * Step 1: the session's die, then its defaults (cut length once for the whole
- * session, optional PO). Dies are a searchable list of big rows (recent
+ * session, the yard the bundles go to once the company has yards, optional
+ * PO). Dies are a searchable list of big rows (recent
  * first, archived hidden) rather than a dropdown, so a gloved thumb can pick
  * one. Keyboard: type, then Enter picks a single match, or arrow down into
  * the rows; after a pick focus moves to the cut length.
@@ -53,11 +56,13 @@ export function DieStep({
   draft,
   update,
   unit,
+  yards,
   onNext,
 }: {
   draft: PackDraft;
   update(fn: (d: PackDraft) => PackDraft): void;
   unit: LengthUnit;
+  yards: YardState;
   onNext(): void;
 }) {
   const { t } = useT();
@@ -130,6 +135,7 @@ export function DieStep({
         }
         draft={draft}
         unit={unit}
+        yards={yards}
         firstInputRef={firstLengthRef}
         onSubmit={(defaults) => {
           if (draft.dieId === null) {
@@ -407,6 +413,7 @@ function DefaultsForm({
   summary,
   draft,
   unit,
+  yards,
   firstInputRef,
   onSubmit,
 }: {
@@ -414,6 +421,7 @@ function DefaultsForm({
   summary?: ReactNode;
   draft: PackDraft;
   unit: LengthUnit;
+  yards: YardState;
   firstInputRef: React.RefObject<HTMLInputElement | null>;
   onSubmit(defaults: PackDraft["defaults"]): boolean;
 }) {
@@ -424,6 +432,12 @@ function DefaultsForm({
   const [inches, setInches] = useState(initial.inches);
   const [po, setPo] = useState(draft.defaults.po ?? "");
   const [lengthError, setLengthError] = useState<string | undefined>();
+  // The yard tapped here; until then the draft's yard, else this device's last yard (chooseYard).
+  const [pickedYard, setPickedYard] = useState<string | undefined>();
+  const [lastYard] = useState(() => readLastYard(draft.companyId));
+  const [yardError, setYardError] = useState<string | undefined>();
+  const yardRef = useRef<HTMLInputElement | null>(null);
+  const yardId = chooseYard({ current: pickedYard ?? draft.defaults.locationId, lastUsed: lastYard, yards: yards.yards });
   const legendId = useId();
   const errorId = `${legendId}-error`;
   const hintId = `${legendId}-hint`;
@@ -437,8 +451,20 @@ function DefaultsForm({
       return;
     }
     setLengthError(undefined);
+    // Yards still loading or not loaded: the server would refuse a session without its yard.
+    if (yards.loading) return;
+    if (yards.failed) {
+      yards.retry();
+      return;
+    }
+    if (yards.yards.length > 0 && !yardId) {
+      setYardError(t("pack.new.yardRequired"));
+      yardRef.current?.focus();
+      return;
+    }
+    setYardError(undefined);
     const trimmed = po.trim();
-    onSubmit({ lengthMm, ...(trimmed ? { po: trimmed } : {}) });
+    onSubmit({ lengthMm, ...(trimmed ? { po: trimmed } : {}), ...(yardId ? { locationId: yardId } : {}) });
   };
 
   const describedBy = [hintId, lengthError ? errorId : null].filter(Boolean).join(" ");
@@ -512,6 +538,28 @@ function DefaultsForm({
             />
           </Field>
         )}
+
+        {yards.loading || yards.failed || yards.yards.length > 0 ? (
+          <YardPicker
+            yards={yards.yards}
+            value={yardId}
+            onChange={(id) => {
+              setPickedYard(id);
+              setYardError(undefined);
+            }}
+            loading={yards.loading}
+            failed={yards.failed}
+            onRetry={yards.retry}
+            error={
+              yardError ??
+              // Bundles typed before the yard was asked (or its yard was retired): say why we are back here.
+              (draft.bundles.length > 0 && !yards.loading && yards.yards.length > 0 && !yardId
+                ? t("pack.new.yardRequired")
+                : undefined)
+            }
+            firstRef={yardRef}
+          />
+        ) : null}
 
         <Field label={t("pack.new.po")} hint={t("common.optional")} className="sm:max-w-[360px]">
           <TextInput

@@ -32,8 +32,11 @@ export type PackDraft = {
   companyId: string;
   step: PackStep;
   dieId: string | null;
-  /** Session defaults. `lengthMm` 0 = not entered yet. */
-  defaults: { lengthMm: number; po?: string };
+  /**
+   * Session defaults. `lengthMm` 0 = not entered yet. `locationId` is the yard
+   * the bundles go to (required by the server once the company has yards).
+   */
+  defaults: { lengthMm: number; po?: string; locationId?: string };
   bundles: DraftBundle[];
 };
 
@@ -78,6 +81,7 @@ function parseDraft(raw: string): PackDraft | null {
     typeof defaults.lengthMm !== "number" ||
     !(defaults.lengthMm >= 0) ||
     !(defaults.po === undefined || typeof defaults.po === "string") ||
+    !(defaults.locationId === undefined || typeof defaults.locationId === "string") ||
     !Array.isArray(d.bundles) ||
     d.bundles.length > MAX_BUNDLES ||
     !d.bundles.every(isDraftBundle)
@@ -138,6 +142,8 @@ export type ReceiptInput = {
   dieId: string;
   unit: string;
   purchaseOrderRef: string | null;
+  /** The yard; left out for companies without yard locations. */
+  locationId?: string;
   rows: { quantity: number; weightG: number; lengthMm: number; poNumber: string | null }[];
 };
 
@@ -146,17 +152,35 @@ const cleanPo = (po: string | undefined) => {
   return v === "" ? null : v;
 };
 
+/** The company's active yard ids; empty for a company without yard locations. */
+export type YardContext = { yardIds: readonly string[] };
+
+/**
+ * The yard the session's bundles go to, or undefined when the company has no
+ * yards (the server only asks for one once yards exist). A yard that is no
+ * longer active counts as not chosen.
+ */
+function sessionYard(d: PackDraft, yards: YardContext | undefined): string | undefined {
+  const id = d.defaults.locationId;
+  if (!id) return undefined;
+  if (!yards) return id;
+  return yards.yardIds.includes(id) ? id : undefined;
+}
+
 /**
  * The `bundle.createReceipt` payload, or null while the die, the cut length
  * or every bundle is still missing. A row's `poNumber` is set only for an
- * override; otherwise the server falls back to the session PO.
+ * override; otherwise the server falls back to the session PO. With `yards`
+ * given, a yard the company no longer has is left out.
  */
-export function toReceiptInput(d: PackDraft, unit: LengthUnit): ReceiptInput | null {
+export function toReceiptInput(d: PackDraft, unit: LengthUnit, yards?: YardContext): ReceiptInput | null {
   if (!d.dieId || !(d.defaults.lengthMm > 0) || d.bundles.length === 0) return null;
+  const locationId = sessionYard(d, yards);
   return {
     dieId: d.dieId,
     unit,
     purchaseOrderRef: cleanPo(d.defaults.po),
+    ...(locationId ? { locationId } : {}),
     rows: d.bundles.map((b) => ({
       quantity: b.pieces,
       weightG: b.weightG,
@@ -164,6 +188,18 @@ export function toReceiptInput(d: PackDraft, unit: LengthUnit): ReceiptInput | n
       poNumber: b.po === undefined ? null : cleanPo(b.po),
     })),
   };
+}
+
+/**
+ * The step the draft can really be on: a reload never lands past a missing
+ * die, cut length or (when the company has yards) an active yard, nor on
+ * Review without a bundle.
+ */
+export function reachableStep(d: PackDraft, yards: YardContext): PackStep {
+  if (!d.dieId || !(d.defaults.lengthMm > 0)) return 0;
+  if (yards.yardIds.length > 0 && !sessionYard(d, yards)) return 0;
+  if (d.step === 2 && d.bundles.length === 0) return 1;
+  return d.step;
 }
 
 /** `window.sessionStorage`, or null where reading it throws (blocked site data). */

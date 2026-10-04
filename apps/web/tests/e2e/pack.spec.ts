@@ -67,8 +67,11 @@ const weightField = (page: Page) => page.getByLabel("Weight (kg)", { exact: true
 const piecesField = (page: Page) => page.getByLabel("Pieces", { exact: true });
 const savedRows = (page: Page) => page.locator("[data-slot='saved-bundle']");
 
-/** Step 1 by keyboard: search the die, Enter picks the single match, then 11 ft 6 in and Enter. */
-async function chooseDieAndLength(page: Page, feet = "11", inches = "6") {
+const yardGroup = (page: Page) => page.getByRole("group", { name: "Yard" });
+const yardTile = (page: Page, code: string) => yardGroup(page).getByRole("radio", { name: new RegExp(`^${code}\\b`) });
+
+/** Step 1 by keyboard: search the die, Enter picks the single match, then 11 ft 6 in. */
+async function chooseDieAndTypeLength(page: Page, feet = "11", inches = "6") {
   await tabTo(page, page.getByLabel("Search die code or section"));
   await page.keyboard.type(DIE);
   await expect(page.locator("button[data-die]")).toHaveCount(1);
@@ -78,6 +81,19 @@ async function chooseDieAndLength(page: Page, feet = "11", inches = "6") {
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Inches", { exact: true })).toBeFocused();
   await page.keyboard.type(inches);
+}
+
+/**
+ * Step 1 by keyboard, yard included: Tab into the yard tiles (the seed company
+ * has yards Y1 to Y6; a fresh browser has no last yard, so the first tile
+ * takes focus), arrow keys choose, Enter moves on to Bundles.
+ */
+async function chooseDieAndLength(page: Page, feet = "11", inches = "6") {
+  await chooseDieAndTypeLength(page, feet, inches);
+  await page.keyboard.press("Tab");
+  await expect(yardTile(page, "Y1")).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(yardTile(page, "Y2")).toBeChecked();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { level: 2, name: "Bundles" })).toBeVisible();
   await expect(weightField(page)).toBeFocused();
@@ -99,7 +115,17 @@ test.describe("pack", () => {
   }) => {
     test.setTimeout(180_000);
     await open(page, "/pack/new");
-    await chooseDieAndLength(page);
+    await chooseDieAndTypeLength(page);
+    // Enter without a yard: the yard is asked for and focus goes to the first tile.
+    await page.keyboard.press("Enter");
+    await expect(yardGroup(page)).toContainText("Choose the yard these bundles go to.");
+    await expect(yardTile(page, "Y1")).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect(yardTile(page, "Y2")).toBeChecked();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { level: 2, name: "Bundles" })).toBeVisible();
+    await expect(weightField(page)).toBeFocused();
+    await expect(page.getByTestId("session-yard")).toHaveText("Y2");
 
     // In range, then one below range: the live readout turns amber before saving, the row keeps an amber chip.
     for (let i = 1; i <= 6; i++) await typeBundle(page, `47.${90 + (i % 5)}`, "20");
@@ -147,20 +173,31 @@ test.describe("pack", () => {
     expect(groupId).not.toBe("new");
     await expect(page.getByRole("heading", { level: 1, name: /^Session / })).toBeVisible();
     await expect(page.getByTestId("session-cut-length")).toHaveText("11 ft 6 in");
+    await expect(page.getByTestId("session-yard")).toHaveText("Y2");
     await expect(page.locator("[data-slot='session-totals']")).toContainText("40");
 
-    const group = await trpcQuery<{ bundles: { lengthMm: number; quantity: number }[]; group: { unit: string } }>(
-      page,
-      "bundle.getGroup",
-      { id: groupId },
-    );
+    const group = await trpcQuery<{
+      bundles: { lengthMm: number; quantity: number; locationId: string | null }[];
+      group: { unit: string };
+    }>(page, "bundle.getGroup", { id: groupId });
     expect(group.bundles).toHaveLength(40);
     expect(new Set(group.bundles.map((b) => b.lengthMm))).toEqual(new Set([3505]));
     expect(group.group.unit).toBe("inch");
+    const locations = await trpcQuery<{ items: { id: string; code: string }[] }>(page, "stock.locations.list", {});
+    const y2 = locations.items.find((l) => l.code === "Y2")!.id;
+    expect(new Set(group.bundles.map((b) => b.locationId))).toEqual(new Set([y2]));
 
     // The draft is gone after saving.
     const stored = await page.evaluate(() => sessionStorage.getItem("orrn.packDraft"));
     expect(stored).toBeNull();
+
+    // The next session on this device starts on the same yard; Enter in the cut length goes straight on.
+    await page.goto("/pack/new");
+    await chooseDieAndTypeLength(page);
+    await expect(yardTile(page, "Y2")).toBeChecked();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { level: 2, name: "Bundles" })).toBeVisible();
+    await expect(page.getByTestId("session-yard")).toHaveText("Y2");
   });
 
   test("one bundle with a different length and PO; the list shows who packed it", async ({ page }) => {

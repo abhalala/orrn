@@ -25,6 +25,8 @@ type Props = {
   unit: LengthUnit;
   die: DieOption | null;
   dieLoading: boolean;
+  /** The session's yard code ("Y3"), or null when the company packs without yards. */
+  yardCode: string | null;
   onChangeDefaults(): void;
   onReview(): void;
   announce(message: string): void;
@@ -40,7 +42,17 @@ const weightText = (g: number) => String(Number(gToKg(g).toFixed(3)));
  * Saved bundles collapse to rows above the card; a row opens that bundle
  * for editing or removal. The bar keeps the running total and Review in reach.
  */
-export function BundlesStep({ draft, update, unit, die, dieLoading, onChangeDefaults, onReview, announce }: Props) {
+export function BundlesStep({
+  draft,
+  update,
+  unit,
+  die,
+  dieLoading,
+  yardCode,
+  onChangeDefaults,
+  onReview,
+  announce,
+}: Props) {
   const { t } = useT();
   const verdictWord = useVerdictWord();
   const uid = useId();
@@ -202,7 +214,14 @@ export function BundlesStep({ draft, update, unit, die, dieLoading, onChangeDefa
 
   return (
     <div className="flex flex-col gap-4">
-      <SessionStrip draft={draft} unit={unit} die={die} dieLoading={dieLoading} onChange={onChangeDefaults} />
+      <SessionStrip
+        draft={draft}
+        unit={unit}
+        die={die}
+        dieLoading={dieLoading}
+        yardCode={yardCode}
+        onChange={onChangeDefaults}
+      />
 
       <section aria-labelledby={`${uid}-saved`} className="flex flex-col gap-2">
         <h3 id={`${uid}-saved`} className="m-0 text-[15px] font-semibold">
@@ -613,12 +632,14 @@ function SessionStrip({
   unit,
   die,
   dieLoading,
+  yardCode,
   onChange,
 }: {
   draft: PackDraft;
   unit: LengthUnit;
   die: DieOption | null;
   dieLoading: boolean;
+  yardCode: string | null;
   onChange(): void;
 }) {
   const { t } = useT();
@@ -640,6 +661,14 @@ function SessionStrip({
             {formatLength(draft.defaults.lengthMm, unit)}
           </dd>
         </div>
+        {yardCode ? (
+          <div className="flex items-baseline gap-2">
+            <dt className="text-[13px] font-medium text-muted-foreground">{t("pack.new.yard")}</dt>
+            <dd className="m-0 font-mono text-[15px] font-semibold" data-testid="session-yard">
+              {yardCode}
+            </dd>
+          </div>
+        ) : null}
         <div className="flex items-baseline gap-2">
           <dt className="text-[13px] font-medium text-muted-foreground">{t("pack.new.po")}</dt>
           <dd

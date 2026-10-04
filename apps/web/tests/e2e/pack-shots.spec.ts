@@ -59,6 +59,11 @@ for (const { width, scheme } of VIEWS) {
     await page.getByLabel("Feet", { exact: true }).fill("11");
     await page.getByLabel("Inches", { exact: true }).fill("6");
     await page.getByLabel("PO", { exact: true }).fill("PO-4471");
+    // Next without a yard shows the yard question's error.
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(page.getByText("Choose the yard these bundles go to.")).toBeVisible();
+    await shot(page, `pack-new-1-yard-error-${tag}`);
+    await page.locator("[data-slot='yard-picker'] label").filter({ hasText: "Y3" }).click();
     await shot(page, `pack-new-1-defaults-${tag}`);
     await page.getByRole("button", { name: "Next", exact: true }).click();
 

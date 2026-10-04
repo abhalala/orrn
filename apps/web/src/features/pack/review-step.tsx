@@ -17,6 +17,8 @@ type Props = {
   draft: PackDraft;
   unit: LengthUnit;
   die: DieOption | null;
+  /** The session's yard code, or null for a company without yards. */
+  yardCode: string | null;
   canPrint: boolean;
   saving: boolean;
   saveError: string | null;
@@ -34,7 +36,7 @@ type Props = {
  * can print and label printing is connected.
  */
 export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
-  { draft, unit, die, canPrint, saving, saveError, popped, onBack, onSave },
+  { draft, unit, die, yardCode, canPrint, saving, saveError, popped, onBack, onSave },
   ref,
 ) {
   const { t } = useT();
@@ -92,9 +94,15 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
             <span className="text-muted-foreground">{t("pack.new.noPo")}</span>
           )}
         </Fact>
-        <Fact label={t("pack.new.totalBundles")}>
-          <span className="font-semibold">{t("units.bundles", { count: totals.bundles })}</span>
-        </Fact>
+        {yardCode ? (
+          <Fact label={t("pack.new.yard")}>
+            <span className="font-mono font-semibold">{yardCode}</span>
+          </Fact>
+        ) : (
+          <Fact label={t("pack.new.totalBundles")}>
+            <span className="font-semibold">{t("units.bundles", { count: totals.bundles })}</span>
+          </Fact>
+        )}
       </dl>
 
       <section aria-labelledby="pack-review-list" className="flex flex-col gap-2">

@@ -1,6 +1,15 @@
 import { describe, expect, test } from "bun:test";
 
-import { bundleKgPer12ft, draftTotals, lengthToInput, parsePieces, parseWeightG, rangeVerdict } from "./pack-math";
+import {
+  activeYards,
+  bundleKgPer12ft,
+  chooseYard,
+  draftTotals,
+  lengthToInput,
+  parsePieces,
+  parseWeightG,
+  rangeVerdict,
+} from "./pack-math";
 
 describe("parseWeightG (kg text to whole grams)", () => {
   test("decimal kg to grams", () => {
@@ -98,5 +107,38 @@ describe("draftTotals", () => {
       ]),
     ).toEqual({ bundles: 2, pieces: 41, weightG: 102_550 });
     expect(draftTotals([])).toEqual({ bundles: 0, pieces: 0, weightG: 0 });
+  });
+});
+
+describe("activeYards (where packed bundles can go)", () => {
+  const loc = (code: string, kind: string, active = true) => ({ id: `id-${code}`, code, name: code, kind, active });
+  test("only active yards, in the server's order", () => {
+    const items = [loc("Y2", "yard"), loc("BILLET", "billet_store"), loc("Y1", "yard"), loc("Y9", "yard", false), loc("SCRAP", "scrap_store")];
+    expect(activeYards(items).map((y) => y.code)).toEqual(["Y2", "Y1"]);
+  });
+  test("a company without yards gets none (no yard question)", () => {
+    expect(activeYards([loc("STORE", "store")])).toEqual([]);
+    expect(activeYards(undefined)).toEqual([]);
+  });
+});
+
+describe("chooseYard (which yard tile starts selected)", () => {
+  const yards = [
+    { id: "y1", code: "Y1", name: "Yard 1" },
+    { id: "y2", code: "Y2", name: "Yard 2" },
+  ];
+  test("the draft's own yard wins while it is still active", () => {
+    expect(chooseYard({ current: "y2", lastUsed: "y1", yards })).toBe("y2");
+  });
+  test("a fresh session starts on the yard last packed into on this device", () => {
+    expect(chooseYard({ current: undefined, lastUsed: "y1", yards })).toBe("y1");
+  });
+  test("a retired yard is never offered; nothing is selected rather than guessing", () => {
+    expect(chooseYard({ current: "y9", lastUsed: "y8", yards })).toBeUndefined();
+    expect(chooseYard({ current: "y9", lastUsed: "y1", yards })).toBe("y1");
+    expect(chooseYard({ current: undefined, lastUsed: null, yards })).toBeUndefined();
+  });
+  test("no yards, no selection", () => {
+    expect(chooseYard({ current: "y1", lastUsed: "y1", yards: [] })).toBeUndefined();
   });
 });

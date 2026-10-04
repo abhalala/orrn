@@ -6,6 +6,7 @@ import { HowToButton } from "@orrn/ui/components/how-to-button";
 import { UiLink } from "@orrn/ui/components/link";
 import { usePrefersReducedMotion } from "@orrn/ui/components/motion";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { Skeleton } from "@orrn/ui/components/skeleton";
 import { Stepper } from "@orrn/ui/components/stepper";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -16,8 +17,9 @@ import { BundlesStep } from "@/features/pack/bundles-step";
 import { DieStep, type DieOption } from "@/features/pack/die-step";
 import { lengthUnitOf } from "@/features/pack/pack-ui";
 import { ReviewStep } from "@/features/pack/review-step";
-import { toReceiptInput, usePackDraft, type PackDraft, type PackStep } from "@/features/pack/use-pack-draft";
+import { reachableStep, toReceiptInput, usePackDraft, type PackStep } from "@/features/pack/use-pack-draft";
 import { sessionPrintQueue, useCanPrintLabels } from "@/features/pack/use-print-labels";
+import { useYards, writeLastYard } from "@/features/pack/use-yards";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -52,13 +54,6 @@ function NewPackSession() {
   return <PackFlow companyId={me.company.id} settings={me.company.settings} />;
 }
 
-/** The step the draft can really be on (a reload never lands past a missing die, length or bundle). */
-function reachableStep(d: PackDraft): PackStep {
-  if (!d.dieId || !(d.defaults.lengthMm > 0)) return 0;
-  if (d.step === 2 && d.bundles.length === 0) return 1;
-  return d.step;
-}
-
 function PackFlow({ companyId, settings }: { companyId: string; settings: unknown }) {
   const { t } = useT();
   const navigate = useNavigate();
@@ -67,7 +62,10 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
   const unit = lengthUnitOf(settings);
   const { draft, update, discard, finish, restored } = usePackDraft(companyId);
   const { canPrint } = useCanPrintLabels();
-  const step = reachableStep(draft);
+  const yards = useYards();
+  // While the yards load, a restored draft waits on its own step (no flash of step 1 then back to the yard).
+  const step: PackStep = yards.loading ? draft.step : reachableStep(draft, { yardIds: yards.yardIds });
+  const yardCode = yards.yards.find((y) => y.id === draft.defaults.locationId)?.code ?? null;
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -111,12 +109,13 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
   };
 
   const save = async () => {
-    const input = toReceiptInput(draft, unit);
+    const input = toReceiptInput(draft, unit, { yardIds: yards.yardIds });
     if (!input || create.isPending) return;
     setSaveError(null);
     try {
       const res = await create.mutateAsync(input);
       finish();
+      if (input.locationId) writeLastYard(companyId, input.locationId);
       setPopped(true);
       announce(t("pack.new.saved"));
       toast.success(t("pack.new.saved"));
@@ -138,8 +137,19 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
         reduced ? 0 : POP_MS,
       );
     } catch (error) {
-      const code = (error as { data?: { code?: string } } | null)?.data?.code;
-      setSaveError(code === "FORBIDDEN" ? t("pack.new.forbidden") : t("pack.new.saveFailed"));
+      const err = error as { data?: { code?: string }; message?: string } | null;
+      const code = err?.data?.code;
+      // A yard added or retired since the yards loaded.
+      const yardProblem = code === "BAD_REQUEST" && /yard/i.test(err?.message ?? "");
+      // Fresh yards move the packer back to step 1 by themselves when the chosen yard is gone.
+      if (yardProblem) yards.retry();
+      setSaveError(
+        code === "FORBIDDEN"
+          ? t("pack.new.forbidden")
+          : yardProblem
+            ? t("pack.new.yardRequired")
+            : t("pack.new.saveFailed"),
+      );
     }
   };
 
@@ -187,7 +197,12 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
         </h2>
 
         {step === 0 ? (
-          <DieStep draft={draft} update={update} unit={unit} onNext={() => goTo(1)} />
+          <DieStep draft={draft} update={update} unit={unit} yards={yards} onNext={() => goTo(1)} />
+        ) : yards.loading ? (
+          <div aria-busy="true" className="flex flex-col gap-3">
+            <Skeleton className="h-12 rounded-card" />
+            <Skeleton className="h-[220px] rounded-card" />
+          </div>
         ) : step === 1 ? (
           <BundlesStep
             draft={draft}
@@ -195,6 +210,7 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
             unit={unit}
             die={dieOption}
             dieLoading={die.isPending && draft.dieId !== null}
+            yardCode={yardCode}
             onChangeDefaults={() => goTo(0)}
             onReview={() => goTo(2)}
             announce={announce}
@@ -204,6 +220,7 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
             draft={draft}
             unit={unit}
             die={dieOption}
+            yardCode={yardCode}
             canPrint={canPrint}
             saving={create.isPending || popped}
             saveError={saveError}

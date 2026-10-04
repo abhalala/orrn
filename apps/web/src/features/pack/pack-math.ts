@@ -72,3 +72,32 @@ export function draftTotals(bundles: readonly { weightG: number; pieces: number 
   }
   return { bundles: bundles.length, pieces, weightG };
 }
+
+export type YardOption = { id: string; code: string; name: string };
+
+/**
+ * The yards packed bundles can go to: active locations of kind `yard`, in
+ * the server's order (sort order, then code). Empty for a company without
+ * yards, which packs without one (the server only asks once yards exist).
+ */
+export function activeYards(
+  items: readonly { id: string; code: string; name: string; kind: string; active: boolean }[] | undefined,
+): YardOption[] {
+  return (items ?? []).filter((l) => l.kind === "yard" && l.active).map(({ id, code, name }) => ({ id, code, name }));
+}
+
+/**
+ * The yard tile that starts selected: the draft's own yard while it is still
+ * active, else the yard last packed into on this device (a packing station
+ * stays at one yard), else none. A retired yard is never offered.
+ */
+export function chooseYard(opts: {
+  current: string | undefined;
+  lastUsed: string | null;
+  yards: readonly YardOption[];
+}): string | undefined {
+  const active = (id: string | null | undefined) => (id ? opts.yards.some((y) => y.id === id) : false);
+  if (active(opts.current)) return opts.current;
+  if (active(opts.lastUsed)) return opts.lastUsed ?? undefined;
+  return undefined;
+}
