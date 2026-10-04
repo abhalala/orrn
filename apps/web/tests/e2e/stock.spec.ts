@@ -333,6 +333,8 @@ test.describe("Hindi", () => {
     const l = await trpcQuery<{ items: BundleRow[] }>(page, "bundle.listBundles", { status: "reserved", limit: 1 });
     await page.goto(`/b/${l.items[0]!.serial}`);
     await expect(page.getByTestId("bundle-hero")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("[aria-busy='true']")).toHaveCount(0);
     await expectNoHorizontalScroll(page);
     await expectNoClippedText(page);
     if (process.env.T21_SHOTS_DIR) {
