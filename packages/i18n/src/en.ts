@@ -322,6 +322,7 @@ export const en = {
       dispatch: "Dispatch",
       dispatchHint: "{count} open",
       dispatchHintNone: "None open",
+      dispatchHintAny: "Load and send a truck",
       stock: "Stock",
       stockHint: "Bundles by section",
       guides: "Guides",

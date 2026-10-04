@@ -36,9 +36,16 @@ async function open(page: Page, opts: { role?: LocalRole; width: number; scheme?
   await page.emulateMedia({ colorScheme: opts.scheme ?? "light", reducedMotion: "reduce" });
   await signInViaApi(page, opts.role ?? "owner");
   await page.goto("/today");
-  await expect(page.locator("[data-slot='app-shell']")).toBeVisible();
+  // The first page of a cold Vite dev server can take longer than 5 s at high machine load.
+  await expect(page.locator("[data-slot='app-shell']")).toBeVisible({ timeout: 20_000 });
   await expect(page.locator("main#main h1")).toBeVisible();
 }
+
+/** Top edge of each tile's title block: tiles in one row must line up whatever their hint length. */
+const tileTitleTops = (page: Page) =>
+  tiles(page)
+    .locator("[data-slot='action-tile'] > span:nth-child(2)")
+    .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
 
 /** The same procedure the screen calls, straight from the API with this browser's session. */
 async function directToday(page: Page): Promise<TodayPayload> {
@@ -110,6 +117,10 @@ for (const width of [390, 1280]) {
       );
       await expect(links.nth(2)).toContainText("Stock");
       await expect(links.nth(3)).toContainText("Guides");
+      // "Start a packing session" wraps on a phone; titles in a row still line up.
+      const tops = await tileTitleTops(page);
+      if (width >= 768) expect(new Set(tops).size, `title tops ${tops}`).toBe(1);
+      else expect([tops[0], tops[2]], `title tops ${tops}`).toEqual([tops[1], tops[3]]);
 
       const openList = page.getByTestId("today-open-dispatches");
       for (const d of today.openDispatches) {
@@ -228,6 +239,10 @@ test.describe("states", () => {
     await expect(page.getByText("Today's numbers didn't load")).toBeVisible({ timeout: 15_000 });
     // One message, in the screen's words: the global error toast stays quiet.
     await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
+    // The tiles still work; Dispatch has no count to show, so it reads a plain line (titles stay aligned).
+    await expect(tiles(page).getByRole("link", { name: /Dispatch/ })).toContainText("Load and send a truck");
+    const tops = await tileTitleTops(page);
+    expect([tops[0], tops[2]], `title tops ${tops}`).toEqual([tops[1], tops[3]]);
     fail = false;
     await page.getByRole("button", { name: "Try again" }).first().click();
     await expect(numbers(page).getByTestId("kpi-packed")).toBeVisible();

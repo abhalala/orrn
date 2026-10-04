@@ -53,7 +53,9 @@ const ACCENT_WELL: Record<NonNullable<ActionTileProps["accent"]>, string> = {
 
 /**
  * Primary navigation tile (Today: Pack, Scan, Stock, Dispatch). A link with
- * an icon well, a display title and an optional one-line hint.
+ * an icon well, a display title and an optional one-line hint. Content sits
+ * at the top, so in a row of tiles stretched to one height the titles line up
+ * even when one hint wraps to two lines.
  */
 export function ActionTile({ tone, title, hint, icon, to, accent, className, style }: ActionTileProps) {
   return (
@@ -64,7 +66,7 @@ export function ActionTile({ tone, title, hint, icon, to, accent, className, sty
       style={style}
       className={cn(
         TONE_CLASS[tone],
-        "animate-press relative flex min-h-[128px] min-w-0 flex-col justify-between gap-4 p-4 no-underline transition-[filter,scale,background-color] duration-[var(--dur-fast)] hover:brightness-[1.04] sm:p-5",
+        "animate-press relative flex min-h-[128px] min-w-0 flex-col justify-start gap-4 p-4 no-underline transition-[filter,scale,background-color] duration-[var(--dur-fast)] hover:brightness-[1.04] sm:p-5",
         tone === "neutral" && "hover:brightness-100 hover:bg-surface-sunken/60",
         className,
       )}

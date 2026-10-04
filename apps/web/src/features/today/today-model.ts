@@ -184,3 +184,18 @@ export function todayTiles(me: Me | null | undefined): TodayTile[] {
   const tiles = visibleItems(TILES, me) as TodayTile[];
   return tiles.some((tile) => ACTION_TILES.has(tile.key)) ? tiles : [];
 }
+
+export type TileHint = { key: MessageKey; vars?: Record<string, string> };
+
+/**
+ * The line under a tile's title. Dispatch says how many are open ("14 open",
+ * "None open"); while that count is unknown (loading, or the numbers failed)
+ * it reads a plain line instead of nothing, so every tile keeps two lines and
+ * the titles in a row line up.
+ */
+export function tileHint(tile: TodayTile, openCount: number | undefined): TileHint {
+  if (tile.key !== "dispatch") return { key: tile.hintKey };
+  if (openCount === undefined) return { key: "today.tiles.dispatchHintAny" };
+  if (openCount > 0) return { key: "today.tiles.dispatchHint", vars: { count: formatCount(openCount) } };
+  return { key: "today.tiles.dispatchHintNone" };
+}

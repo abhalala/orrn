@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 786 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 787 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -277,7 +277,7 @@ Counts: 786 screen strings in 25 groups, 10 guides with 182 strings.
 | `done.body` | Your account is ready. | आपका अकाउंट तैयार है। |
 | `done.go` | Go to Today | आज का पेज खोलें |
 
-### today (74)
+### today (75)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -303,6 +303,7 @@ Counts: 786 screen strings in 25 groups, 10 guides with 182 strings.
 | `tiles.dispatch` | Dispatch | Dispatch |
 | `tiles.dispatchHint` | {count} open | {count} {count:खुला\|खुले} |
 | `tiles.dispatchHintNone` | None open | कोई खुला नहीं |
+| `tiles.dispatchHintAny` | Load and send a truck | गाड़ी लोड करके भेजें |
 | `tiles.stock` | Stock | स्टॉक |
 | `tiles.stockHint` | Bundles by section | सेक्शन के हिसाब से bundle |
 | `tiles.guides` | Guides | गाइड |

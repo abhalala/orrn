@@ -5,7 +5,7 @@ import { useId } from "react";
 
 import { useMe } from "@/shared/lib/me";
 
-import { formatCount, todayTiles, type TodayTile } from "./today-model";
+import { tileHint, todayTiles, type TodayTile } from "./today-model";
 
 /** Each tile keeps its area colour in the icon well (spec: Pack blue, Dispatch red, Stock amber, Guides black). */
 const ACCENT: Record<TodayTile["key"], NonNullable<ActionTileProps["accent"]>> = {
@@ -21,7 +21,8 @@ const ACCENT: Record<TodayTile["key"], NonNullable<ActionTileProps["accent"]>> =
  * Guides alongside (viewers and other read-only roles get no tiles, spec
  * section 3). Quiet white tiles: the KPI row above is the screen's
  * one loud element (design brief), and the tab bar already reaches each area.
- * `openCount` is undefined while unknown (loading or error): no hint then.
+ * `openCount` is undefined while unknown (loading or error): Dispatch then
+ * reads a plain line ("Load and send a truck") instead of a count.
  */
 export function TodayTiles({ openCount, startIndex = 0 }: { openCount?: number; startIndex?: number }) {
   const { t } = useT();
@@ -29,12 +30,6 @@ export function TodayTiles({ openCount, startIndex = 0 }: { openCount?: number; 
   const headingId = useId();
   const tiles = todayTiles(me);
   if (tiles.length === 0) return null;
-
-  const hint = (tile: TodayTile) => {
-    if (tile.key !== "dispatch") return t(tile.hintKey);
-    if (openCount === undefined) return undefined;
-    return openCount > 0 ? t("today.tiles.dispatchHint", { count: formatCount(openCount) }) : t("today.tiles.dispatchHintNone");
-  };
 
   return (
     <section aria-labelledby={headingId} data-testid="today-tiles">
@@ -44,6 +39,7 @@ export function TodayTiles({ openCount, startIndex = 0 }: { openCount?: number; 
       <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 md:grid-cols-4">
         {tiles.map((tile, i) => {
           const Icon = tile.icon;
+          const hint = tileHint(tile, openCount);
           return (
             <li key={tile.key} className="animate-rise flex min-w-0" style={riseDelay(startIndex + i)}>
               <ActionTile
@@ -51,7 +47,7 @@ export function TodayTiles({ openCount, startIndex = 0 }: { openCount?: number; 
                 accent={ACCENT[tile.key]}
                 to={tile.to}
                 title={t(tile.labelKey)}
-                hint={hint(tile)}
+                hint={t(hint.key, hint.vars)}
                 icon={<Icon aria-hidden="true" strokeWidth={2} />}
                 className="w-full"
               />

@@ -316,6 +316,7 @@ export const hi = {
       dispatch: "Dispatch",
       dispatchHint: "{count} {count:खुला|खुले}",
       dispatchHintNone: "कोई खुला नहीं",
+      dispatchHintAny: "गाड़ी लोड करके भेजें",
       stock: "स्टॉक",
       stockHint: "सेक्शन के हिसाब से bundle",
       guides: "गाइड",

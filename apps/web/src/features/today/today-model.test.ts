@@ -11,6 +11,7 @@ import {
   inStock,
   needsStartHere,
   startHereSteps,
+  tileHint,
   todayTiles,
   trendSeries,
   type TodayData,
@@ -196,6 +197,26 @@ describe("todayTiles", () => {
   test("Pack starts a session; Dispatch opens the list", () => {
     const byKey = Object.fromEntries(todayTiles(me("owner")).map((t) => [t.key, t.to]));
     expect(byKey).toEqual({ pack: "/pack/new", dispatch: "/dispatch", stock: "/stock", guides: "/guides" });
+  });
+});
+
+describe("tileHint", () => {
+  const tile = (key: string) => todayTiles(me("owner")).find((t) => t.key === key)!;
+
+  test("Dispatch carries the open count, grouped, or says none are open", () => {
+    expect(tileHint(tile("dispatch"), 14)).toEqual({ key: "today.tiles.dispatchHint", vars: { count: "14" } });
+    expect(tileHint(tile("dispatch"), 1284)).toEqual({ key: "today.tiles.dispatchHint", vars: { count: "1,284" } });
+    expect(tileHint(tile("dispatch"), 0)).toEqual({ key: "today.tiles.dispatchHintNone" });
+  });
+
+  test("while the count is unknown (loading or failed) Dispatch still has a line, so tile titles line up", () => {
+    expect(tileHint(tile("dispatch"), undefined)).toEqual({ key: "today.tiles.dispatchHintAny" });
+  });
+
+  test("other tiles keep their own hint", () => {
+    expect(tileHint(tile("pack"), 3)).toEqual({ key: "today.tiles.packHint" });
+    expect(tileHint(tile("stock"), undefined)).toEqual({ key: "today.tiles.stockHint" });
+    expect(tileHint(tile("guides"), 0)).toEqual({ key: "today.tiles.guidesHint" });
   });
 });
 
