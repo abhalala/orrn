@@ -3,14 +3,12 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { expectNoHorizontalScroll } from "../helpers/layout-guards";
 import { localPassword, signInViaApi, signInViaForm } from "./helpers/accounts";
+import { API_URL as API, WEB_ORIGIN as ORIGIN } from "./helpers/ports";
 
 /**
  * Front door (plan Task 17): sign in, request access, invite, welcome,
  * no-access. Needs the local stack and the seeded accounts.
  */
-
-const API = process.env.E2E_API_URL ?? "http://localhost:3000";
-const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3002";
 
 function unique(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}@orrn.local`;
