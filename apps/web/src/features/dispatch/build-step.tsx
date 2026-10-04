@@ -2,9 +2,10 @@ import { formatKgTotal, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { useToastLift } from "@orrn/ui/hooks/use-toast-lift";
 import { cn } from "@orrn/ui/lib/utils";
 import { ClipboardPaste, ScanLine, Search } from "lucide-react";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 import { Can } from "@/shared/components/can";
 
@@ -57,11 +58,13 @@ export type ItemsSectionProps = {
   removing?: string | null;
   onRemove?(item: DispatchItem): void;
   onEditLabel?(group: ItemGroup): void;
-  emptyAction?: ReactNode;
 };
 
-/** "Bundles in this dispatch": the grouped list, or the empty state that invites the first scan. */
-export function ItemsSection({ emptyAction, ...props }: ItemsSectionProps) {
+/**
+ * "Bundles in this dispatch": the grouped list, or an empty state that points
+ * at the first scan (no button of its own: Scan bundles sits right above it).
+ */
+export function ItemsSection(props: ItemsSectionProps) {
   const { t } = useT();
   return (
     <section aria-labelledby="dispatch-items" className="flex min-w-0 flex-col gap-3">
@@ -70,7 +73,7 @@ export function ItemsSection({ emptyAction, ...props }: ItemsSectionProps) {
       </h2>
       {props.items.length === 0 ? (
         <div className="rounded-card border border-border bg-card">
-          <EmptyState title={t("dispatch.build.empty")} action={emptyAction} />
+          <EmptyState title={t("dispatch.build.empty")} />
         </div>
       ) : (
         <BundleGroups {...props} />
@@ -83,6 +86,7 @@ export function ItemsSection({ emptyAction, ...props }: ItemsSectionProps) {
  * The flow's sticky action bar: running totals on the left, the next steps on
  * the right. It sits above the phone tab bar and stays in reach while the
  * list scrolls. `note` explains why the actions are off (an empty dispatch).
+ * Toasts are lifted above it while it is on screen.
  */
 export function ActionBar({
   bundles,
@@ -96,8 +100,12 @@ export function ActionBar({
   children: ReactNode;
 }) {
   const { t } = useT();
+  const ref = useRef<HTMLDivElement>(null);
+  // Toasts ("Stock held", "Removed") rise above the bar instead of covering Dispatch.
+  useToastLift(ref);
   return (
     <div
+      ref={ref}
       data-slot="dispatch-action-bar"
       className="sticky bottom-[calc(var(--shell-tabbar-offset)+12px)] z-20 flex min-w-0 flex-col gap-2 rounded-card border border-border bg-card/95 p-2.5 shadow-md backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-3 sm:pl-5"
     >

@@ -255,13 +255,6 @@ function DispatchDetail({ data }: { data: DetailData }) {
           removing={removing}
           onRemove={(item) => void remove(item)}
           onEditLabel={setLabelGroup}
-          emptyAction={
-            status === "draft" && canAdd ? (
-              <Button onClick={openScan} aria-haspopup="dialog">
-                {t("dispatch.build.scanBundles")}
-              </Button>
-            ) : undefined
-          }
         />
       )}
 

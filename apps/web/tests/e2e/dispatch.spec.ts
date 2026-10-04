@@ -111,6 +111,10 @@ test.describe("dispatch: build, hold, dispatch, packing list", () => {
     await page.getByRole("button", { name: "Hold stock" }).click();
     await expect(hero(page)).toHaveAttribute("data-status", "reserved");
     await expect(page.getByText("Bundles you add now are held straight away.")).toBeVisible();
+    // The "Stock held" toast rises above the sticky bar instead of covering Dispatch.
+    const toastBox = await page.locator("[data-sonner-toast]").filter({ hasText: "Stock held" }).boundingBox();
+    const barBox = await page.locator("[data-slot='dispatch-action-bar']").boundingBox();
+    expect(toastBox && barBox && toastBox.y + toastBox.height <= barBox.y + 1).toBe(true);
 
     await page.getByRole("button", { name: "Dispatch", exact: true }).click();
     const confirm = page.getByRole("dialog", { name: /^Dispatch DSP-/ });
