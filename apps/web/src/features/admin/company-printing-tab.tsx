@@ -70,7 +70,8 @@ export function CompanyPrintingTab({ company }: { company: PrintingCompany }) {
       </div>
     );
   }
-  if (list.isError) {
+  // Error panel only with nothing to show: a failed refetch keeps the last good data (showsLoadError).
+  if (!list.data) {
     return <LoadError message={t("admin.printing.loadError")} onRetry={() => void list.refetch()} />;
   }
 

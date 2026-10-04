@@ -13,6 +13,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { formatDay } from "@/features/admin/format";
 import { companyStatusKey, companyStatusTone, printingKey, printingTone } from "@/features/admin/status";
+import { showsLoadError } from "@/features/admin/query-state";
 import type { CompanyListRow } from "@/features/admin/types";
 import { LoadError } from "@/features/admin/ui";
 import { trpc } from "@/shared/utils/trpc";
@@ -171,7 +172,7 @@ function AdminCompanies() {
         </label>
       </div>
 
-      {list.isError && !list.data ? (
+      {showsLoadError(list) ? (
         <LoadError message={t("admin.companies.loadError")} onRetry={() => void list.refetch()} />
       ) : (
         <ResponsiveList

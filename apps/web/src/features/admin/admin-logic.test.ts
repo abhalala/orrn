@@ -12,6 +12,7 @@ import {
 } from "./status";
 import { accessTabPath, impersonationEndsSoon } from "./impersonate";
 import { initialPlan, planForm } from "./plan";
+import { showsLoadError } from "./query-state";
 
 const NOW = new Date(2026, 9, 3, 15, 0, 0);
 
@@ -145,5 +146,14 @@ describe("plan form", () => {
   test("the starting plan is the saved one, Starter when none", () => {
     expect(initialPlan(null)).toBe("starter");
     expect(initialPlan("dev")).toBe("dev");
+  });
+});
+
+describe("showsLoadError", () => {
+  test("only a query with nothing to show gets the error panel", () => {
+    expect(showsLoadError({ isError: true, data: undefined })).toBe(true);
+    // A failed refetch keeps the last good data (React Query v5): keep showing it.
+    expect(showsLoadError({ isError: true, data: { rows: [] } })).toBe(false);
+    expect(showsLoadError({ isError: false, data: undefined })).toBe(false);
   });
 });

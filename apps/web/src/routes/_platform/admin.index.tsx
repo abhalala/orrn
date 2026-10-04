@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 
 import { formatAgo, formatDay } from "@/features/admin/format";
 import { companyStatusKey, companyStatusTone } from "@/features/admin/status";
+import { showsLoadError } from "@/features/admin/query-state";
 import type { Overview } from "@/features/admin/types";
 import { LoadError, Panel } from "@/features/admin/ui";
 import { trpc } from "@/shared/utils/trpc";
@@ -35,7 +36,7 @@ function AdminOverview() {
     <div className="@container flex min-w-0 flex-col gap-6">
       <PageHeader title={t("admin.overview.title")} subtitle={t("admin.overview.subtitle")} />
 
-      {overview.isError ? (
+      {showsLoadError(overview) ? (
         <LoadError message={t("admin.overview.loadError")} onRetry={() => void overview.refetch()} />
       ) : null}
 

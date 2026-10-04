@@ -14,6 +14,7 @@ import { useId, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { formatDay } from "@/features/admin/format";
+import { showsLoadError } from "@/features/admin/query-state";
 import type { StaffRow } from "@/features/admin/types";
 import { ConfirmDialog, errorCode, errorText, LoadError, useLastValue } from "@/features/admin/ui";
 import { Can } from "@/shared/components/can";
@@ -155,7 +156,7 @@ function AdminStaff() {
         }
       />
 
-      {staff.isError && !staff.data ? (
+      {showsLoadError(staff) ? (
         <LoadError message={t("admin.staff.loadError")} onRetry={() => void staff.refetch()} />
       ) : (
         <ResponsiveList

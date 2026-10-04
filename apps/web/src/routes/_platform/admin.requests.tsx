@@ -9,6 +9,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { formatAgo, formatDay } from "@/features/admin/format";
+import { showsLoadError } from "@/features/admin/query-state";
 import type { WaitlistRow } from "@/features/admin/types";
 import { ConfirmDialog, errorText, LoadError, Panel, useLastValue } from "@/features/admin/ui";
 import { Can } from "@/shared/components/can";
@@ -84,7 +85,7 @@ function AdminRequests() {
             <Skeleton key={i} className="h-[172px] rounded-card" />
           ))}
         </div>
-      ) : list.isError ? (
+      ) : showsLoadError(list) ? (
         <LoadError message={t("admin.requests.loadError")} onRetry={() => void list.refetch()} />
       ) : rows.length === 0 ? (
         <Panel>

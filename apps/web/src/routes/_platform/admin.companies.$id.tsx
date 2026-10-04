@@ -62,7 +62,8 @@ function AdminCompany() {
   const tab: Tab = search.tab && tabs.includes(search.tab) ? search.tab : "plan";
 
   if (detail.isPending) return <DetailSkeleton />;
-  if (detail.isError) {
+  // Error panel only with nothing to show: a failed refetch keeps the last good data (showsLoadError).
+  if (!detail.data) {
     return errorCode(detail.error) === "NOT_FOUND" ? (
       <div className="flex flex-col gap-5">
         <PageHeader title={t("admin.companies.title")} back={{ to: "/admin/companies", label: t("admin.company.back") }} />
