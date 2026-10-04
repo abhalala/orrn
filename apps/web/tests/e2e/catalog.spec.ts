@@ -79,6 +79,27 @@ async function expectCleanLayout(page: Page) {
   expect(await blockingAxeViolations(page)).toEqual([]);
 }
 
+/**
+ * Make every later request for these procedures fail (network error), then fire the window-focus
+ * refetch React Query does on its own when someone comes back to the tab. Resolves once the failures
+ * stop (retries included: 1 s, 2 s, 4 s apart).
+ */
+async function failBackgroundRefetch(page: Page, procedures: string[]) {
+  let failed = 0;
+  const pattern = new RegExp(`/trpc/[^?]*(${procedures.map((p) => p.replace(".", "\\.")).join("|")})`);
+  await page.route(pattern, (route) => {
+    failed += 1;
+    return route.abort("failed");
+  });
+  await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
+  await expect.poll(() => failed, { timeout: 15_000 }).toBeGreaterThan(0);
+  let seen = -1;
+  while (seen !== failed) {
+    seen = failed;
+    await page.waitForTimeout(5_000);
+  }
+}
+
 const unique = () => `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`.toUpperCase();
 
 type Die = { id: string; thicknessMm: number | null; widthMm: number | null; weightMinG: number; weightMaxG: number };
@@ -209,6 +230,17 @@ test.describe("dies", () => {
     await expect(page.getByLabel("Search dies")).toHaveValue("14701");
     await expect(page.getByRole("link", { name: /PATTI 14701/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /ANGLE 11250/ })).toHaveCount(0);
+  });
+
+  test("a failed background refetch keeps the die on screen instead of an error page", async ({ page }) => {
+    await signInViaApi(page, "owner");
+    const { id, sectionCode } = await createDie(page);
+    await open(page, `/dies/${id}`, { width: 1280 });
+    await expect(page.getByRole("heading", { level: 1, name: new RegExp(sectionCode) })).toBeVisible();
+    await settled(page);
+    await failBackgroundRefetch(page, ["die.get"]);
+    await expect(page.getByRole("heading", { level: 1, name: new RegExp(sectionCode) })).toBeVisible();
+    await expect(page.getByText("Weight per 12 ft")).toBeVisible();
   });
 
   test("an operator can read a die but has no edit or delete", async ({ page }) => {
@@ -363,6 +395,19 @@ test.describe("customers", () => {
     await expect(fade).toHaveAttribute("data-side", "start");
     await expect(table.getByRole("columnheader", { name: "Movement" })).toBeInViewport();
     await expectCleanLayout(page);
+  });
+
+  test("a failed background refetch keeps the customer and their charts on screen", async ({ page }) => {
+    await signInViaApi(page, "owner");
+    const kd = await customerByName(page, "KD Extrusion");
+    await open(page, `/customers/${kd.id}`, { width: 1280 });
+    await expect(page.getByRole("heading", { level: 1, name: "KD Extrusion" })).toBeVisible();
+    await settled(page);
+    // Both the customer and its 12-month summary refetch on focus; a bad moment must not blank either.
+    await failBackgroundRefetch(page, ["customer.get", "analytics.customerSummary"]);
+    await expect(page.getByRole("heading", { level: 1, name: "KD Extrusion" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Contact" })).toBeVisible();
+    await expect(page.getByText("This chart didn't load")).toHaveCount(0);
   });
 
   test("the monthly volume table matches the server's numbers", async ({ page }) => {
