@@ -4,6 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
+import { API_URL as API, WEB_ORIGIN as ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
 /**
@@ -22,8 +23,6 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
  * 1280 in light and dark.
  */
 
-const API = process.env.E2E_API_URL ?? "http://localhost:3000";
-const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3002";
 const SHOTS = process.env.T23_SHOTS;
 
 type Scheme = "light" | "dark";
@@ -63,6 +62,8 @@ async function blockingAxeViolations(page: Page) {
 }
 
 async function expectCleanLayout(page: Page) {
+  // Refetching lists and charts dim to 60% on purpose; check the settled screen.
+  await expect(page.locator("main#main [aria-busy='true']")).toHaveCount(0, { timeout: 15_000 });
   await expectNoHorizontalScroll(page);
   await expectNoClippedText(page, "main#main");
   expect(await blockingAxeViolations(page)).toEqual([]);
@@ -148,7 +149,9 @@ test.describe("dies", () => {
     await page.getByLabel("Min weight (kg/12ft)").fill("2.4");
     await page.getByLabel("Max weight (kg/12ft)").fill("2.6");
     await page.getByRole("button", { name: "Save die" }).click();
-    await expect(page.getByText("This code belongs to a deleted die. Use a different code.")).toBeVisible();
+    // Shown under Section code (and said once in the form's polite live region).
+    await expect(page.locator("[id$='-sectionCode-error']")).toHaveText("This code belongs to a deleted die. Use a different code.");
+    await expect(page.getByLabel("Section code")).toHaveAttribute("aria-invalid", "true");
     await expect(page).toHaveURL(/\/dies\/new$/);
   });
 
@@ -180,6 +183,7 @@ test.describe("dies", () => {
       await open(page, "/dies", { width });
       await expect(page.getByRole("heading", { level: 1, name: "Dies" })).toBeVisible();
       await page.getByLabel("Search dies").fill("14701");
+      await expect(page).toHaveURL(/q=(%22)?14701/);
       const row = page.getByRole("link", { name: /PATTI 14701/ });
       await expect(row).toBeVisible();
       await expect(page.getByText("Active").first()).toBeVisible();
@@ -189,6 +193,13 @@ test.describe("dies", () => {
       await expectCleanLayout(page);
     });
   }
+
+  test("a shared link with a numeric search (?q=14701) keeps the search", async ({ page }) => {
+    await open(page, "/dies?q=14701", { width: 1280 });
+    await expect(page.getByLabel("Search dies")).toHaveValue("14701");
+    await expect(page.getByRole("link", { name: /PATTI 14701/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /ANGLE 11250/ })).toHaveCount(0);
+  });
 
   test("an operator can read a die but has no edit or delete", async ({ page }) => {
     await signInViaApi(page, "owner");
@@ -291,6 +302,7 @@ test.describe("customers", () => {
       const kdKg = board1.rows.find((r) => r.customerId === kd.id)!.kgG / 1000;
       const kdText = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(kdKg);
       await page.getByLabel("Search customers").fill("KD Extrusion");
+      await expect(page).toHaveURL(/q=KD/);
       const list = page.getByRole(width >= 1024 ? "table" : "list", { name: "Customers", exact: true });
       await expect(list.getByText(kdText)).toBeVisible();
 
@@ -356,6 +368,20 @@ test.describe("customers", () => {
   });
 });
 
+/**
+ * Full-page screenshot without Playwright's fullPage resize: that resize fires ResizeObservers
+ * mid-capture, so charts and the segmented control's thumb are caught re-measuring (blank plot,
+ * stray thumb). Grow the viewport to the page first, let it settle, then capture.
+ */
+async function shoot(page: Page, path: string) {
+  const viewport = page.viewportSize()!;
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  await page.setViewportSize({ width: viewport.width, height: Math.max(viewport.height, height) });
+  await page.waitForTimeout(500);
+  await page.screenshot({ path });
+  await page.setViewportSize(viewport);
+}
+
 test.describe("screenshots", () => {
   test.skip(!SHOTS, "set T23_SHOTS=<dir> to capture screenshots");
   test.setTimeout(240_000);
@@ -381,7 +407,7 @@ test.describe("screenshots", () => {
           await page.goto(path);
           await expect(page.locator("main#main h1").first()).toBeVisible();
           await page.waitForLoadState("networkidle");
-          await page.screenshot({ path: `${SHOTS}/${name}-${width}-${scheme}.png`, fullPage: true });
+          await shoot(page, `${SHOTS}/${name}-${width}-${scheme}.png`);
         }
         // The edit sheets.
         await page.goto(`/customers/${kd.id}`);
@@ -405,7 +431,7 @@ test.describe("screenshots", () => {
         await page.goto(`/customers/${kd.id}`);
         await expect(page.locator("main#main h1").first()).toBeVisible();
         await page.waitForLoadState("networkidle");
-        await page.screenshot({ path: `${SHOTS}/customer-detail-operator-${width}-${scheme}.png`, fullPage: true });
+        await shoot(page, `${SHOTS}/customer-detail-operator-${width}-${scheme}.png`);
       }
     }
   });

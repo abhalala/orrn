@@ -12,6 +12,7 @@ import { lazy, Suspense, useMemo, useState } from "react";
 
 import { ListSearch } from "@/features/catalog/list-search";
 import { OverflowMenu } from "@/features/catalog/overflow-menu";
+import { offsetParam, searchTermParam } from "@/features/catalog/search-param";
 import { ChartCardSkeleton } from "@/features/customers/chart-card-skeleton";
 import { PeriodRow } from "@/features/customers/period-row";
 import { periodSearch, rememberPeriod, usePeriod } from "@/features/customers/use-period";
@@ -30,8 +31,8 @@ type CustomersSearch = { q?: string; offset?: number; period?: Period };
 
 export const Route = createFileRoute("/_tenant/customers/")({
   validateSearch: (search: Record<string, unknown>): CustomersSearch => ({
-    q: typeof search.q === "string" && search.q.trim() ? search.q.trim() : undefined,
-    offset: typeof search.offset === "number" && search.offset > 0 ? Math.floor(search.offset) : undefined,
+    q: searchTermParam(search.q),
+    offset: offsetParam(search.offset),
     period: periodSearch(search.period),
   }),
   component: CustomersList,

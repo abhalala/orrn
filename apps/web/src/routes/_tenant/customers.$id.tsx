@@ -279,7 +279,7 @@ function CustomerAnalytics({
 
   return (
     <>
-      <p data-slot="customer-facts" className="m-0 -mt-2 min-h-6 text-[15px] leading-6 font-medium break-words text-muted-foreground">
+      <div data-slot="customer-facts" className="-mt-2 min-h-6 text-[15px] leading-6 font-medium break-words text-muted-foreground">
         {last ? (
           <>
             {t(last.key, last.count === undefined ? undefined : { count: last.count })}
@@ -288,7 +288,7 @@ function CustomerAnalytics({
         ) : year.isPending ? (
           <Skeleton className="inline-block h-4 w-60 align-middle" />
         ) : null}
-      </p>
+      </div>
 
       <PeriodRow period={period} range={range} today={today} onChange={onPeriod} />
 

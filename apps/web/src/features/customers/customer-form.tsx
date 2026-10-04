@@ -143,7 +143,7 @@ export function CustomerForm({ formId, customer, onSaved, onPendingChange }: Cus
   const err = (field: keyof Errors) => (errors[field] ? t(errors[field]!) : undefined);
 
   return (
-    <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-6" aria-busy={pending || undefined}>
+    <form id={formId} noValidate onSubmit={submit} className="@container flex flex-col gap-6" aria-busy={pending || undefined}>
       <p aria-live="polite" className="sr-only">
         {announce}
       </p>
@@ -151,7 +151,7 @@ export function CustomerForm({ formId, customer, onSaved, onPendingChange }: Cus
         <Field label={t("customers.form.name")} hint={t("customers.form.nameHint")} error={err("name")} id={`${formId}-name`}>
           <TextInput value={draft.name} onChangeText={setText("name")} autoComplete="organization" maxLength={500} required />
         </Field>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2">
           <Field label={t("customers.form.phone")} id={`${formId}-phone`}>
             <TextInput type="tel" value={draft.phone} onChangeText={setText("phone")} autoComplete="tel" maxLength={500} />
           </Field>
@@ -174,7 +174,7 @@ export function CustomerForm({ formId, customer, onSaved, onPendingChange }: Cus
             autoCapitalize="characters"
             spellCheck={false}
             maxLength={20}
-            className="font-mono uppercase sm:max-w-[320px]"
+            className="font-mono uppercase @lg:max-w-[320px]"
           />
         </Field>
       </div>
@@ -242,14 +242,14 @@ function AddressFields({
       <Field label={t("customers.form.addressLine2")} id={`${idPrefix}-line2`}>
         <TextInput value={value.line2} onChangeText={set("line2")} autoComplete="address-line2" maxLength={200} />
       </Field>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,9rem)] sm:gap-4">
+      <div className="grid grid-cols-2 gap-3 @lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,9rem)] @lg:gap-4">
         <Field label={t("customers.form.city")} id={`${idPrefix}-city`}>
           <TextInput value={value.city} onChangeText={set("city")} autoComplete="address-level2" maxLength={100} />
         </Field>
         <Field label={t("customers.form.state")} id={`${idPrefix}-state`}>
           <TextInput value={value.state} onChangeText={set("state")} autoComplete="address-level1" maxLength={100} />
         </Field>
-        <Field label={t("customers.form.pincode")} id={`${idPrefix}-postalCode`} className="col-span-2 sm:col-span-1">
+        <Field label={t("customers.form.pincode")} id={`${idPrefix}-postalCode`} className="col-span-2 @lg:col-span-1">
           <TextInput
             value={value.postalCode}
             onChangeText={set("postalCode")}

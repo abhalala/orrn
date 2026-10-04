@@ -96,6 +96,8 @@ export function VolumeCard({
           key: s.bucketStart,
           label: dates.long(at),
           short: dates.short(at),
+          // Dated bars: the axis adds the year where the 12 months cross one ("Nov 25 ... Jan 26 ... Oct").
+          t: at,
           value: s.kgG / 1000,
           partial: i === series.length - 1,
         };
@@ -119,7 +121,7 @@ export function VolumeCard({
         valueHeader: t("customers.detail.volume.value"),
       })}
     >
-      <BarChart data={bars} format={kgText} label={t("customers.detail.volume.label")} />
+      <BarChart data={bars} format={kgText} formatDate={dates} label={t("customers.detail.volume.label")} />
     </ChartCard>
   );
 }

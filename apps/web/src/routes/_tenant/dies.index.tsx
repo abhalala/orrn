@@ -12,6 +12,7 @@ import { useState } from "react";
 
 import { ListSearch } from "@/features/catalog/list-search";
 import { OverflowMenu } from "@/features/catalog/overflow-menu";
+import { offsetParam, searchTermParam } from "@/features/catalog/search-param";
 import { dieCode, rangeText } from "@/features/dies/die-display";
 import { Can } from "@/shared/components/can";
 import { ImportDiesModal } from "@/shared/components/import-dies-modal";
@@ -24,8 +25,8 @@ type DiesSearch = { q?: string; offset?: number };
 
 export const Route = createFileRoute("/_tenant/dies/")({
   validateSearch: (search: Record<string, unknown>): DiesSearch => ({
-    q: typeof search.q === "string" && search.q.trim() ? search.q.trim() : undefined,
-    offset: typeof search.offset === "number" && search.offset > 0 ? Math.floor(search.offset) : undefined,
+    q: searchTermParam(search.q),
+    offset: offsetParam(search.offset),
   }),
   component: DiesList,
 });
