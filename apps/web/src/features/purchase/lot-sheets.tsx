@@ -21,6 +21,7 @@ import { Can } from "@/shared/components/can";
 import type { Action } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
+import { isStaleRefusal } from "./errors";
 import { kgText } from "./format";
 import { kgTextToG, readKanta, MAX_LOT_KG } from "./kanta";
 import { DiffText } from "./lot-ui";
@@ -35,6 +36,18 @@ export function useInvalidatePurchase() {
       queryClient.invalidateQueries({ queryKey: trpc.purchase.pathKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.approval.pathKey() }),
     ]);
+}
+
+/**
+ * onError for the lot's sheets: say what the server said and, when it refused because the
+ * screen is stale ("This lot changed; open it again"), refresh the lot so the figures are current.
+ */
+export function useRefusalToast() {
+  const invalidate = useInvalidatePurchase();
+  return (e: { message: string }) => {
+    toast.error(e.message);
+    if (isStaleRefusal(e)) void invalidate();
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -54,6 +67,7 @@ export function WeightsSheet({
 }) {
   const { t } = useT();
   const invalidate = useInvalidatePurchase();
+  const onRefused = useRefusalToast();
   const [party, setParty] = useState(gToText(lot.partyKgG));
   const [fc, setFc] = useState(gToText(lot.fcKgG));
   const [submitted, setSubmitted] = useState(false);
@@ -77,7 +91,7 @@ export function WeightsSheet({
         toast.success(t("purchase.detail.weightsSaved"));
         onOpenChange(false);
       },
-      onError: (e) => toast.error(e.message),
+      onError: onRefused,
     }),
   );
 
@@ -140,6 +154,7 @@ export function NoteSheet({
   lot,
   minNoteG,
   suggestG,
+  maxWeightG = null,
   onSent,
 }: {
   open: boolean;
@@ -149,10 +164,13 @@ export function NoteSheet({
   minNoteG: number;
   /** Starting kg for a weight debit note: the whole short. */
   suggestG: number;
+  /** The most a weight debit may debit: the short the live weight notes leave (null before our kanta weight). */
+  maxWeightG?: number | null;
   onSent?(): void;
 }) {
   const { t } = useT();
   const invalidate = useInvalidatePurchase();
+  const onRefused = useRefusalToast();
   const [type, setType] = useState<NoteType>("debit");
   const [reason, setReason] = useState<NoteReason>("weight");
   const [kg, setKg] = useState("");
@@ -179,6 +197,8 @@ export function NoteSheet({
   const errors: { kg?: string; bori?: string; amount?: string } = {};
   if (kgG === null) errors.kg = t("errors.invalidNumber");
   else if (kgG > lot.partyKgG) errors.kg = t("purchase.errors.noteTooBig");
+  // A weight debit covers the short, never more: a slip of the finger here is lakhs of rupees.
+  else if (weightDebit && maxWeightG !== null && kgG > maxWeightG) errors.kg = t("purchase.errors.noteOverShort");
   else if (weightDebit && minNoteG > 0 && kgG < minNoteG) errors.kg = t("purchase.errors.noteTooSmall");
   if (boriG === null || (boriG && lot.fcKgG !== null && boriG >= lot.fcKgG)) errors.bori = t("purchase.errors.bori");
   if (amount.trim() !== "" && amountRupees === null) errors.amount = t("errors.invalidNumber");
@@ -194,7 +214,7 @@ export function NoteSheet({
         onOpenChange(false);
         onSent?.();
       },
-      onError: (e) => toast.error(e.message),
+      onError: onRefused,
     }),
   );
 
@@ -264,7 +284,15 @@ export function NoteSheet({
         </div>
         <Field
           label={t("purchase.detail.kgDiff")}
-          hint={weightDebit && minNoteG > 0 ? t("purchase.new.noteKgHint", { min: kgText(minNoteG) }) : undefined}
+          hint={
+            weightDebit && maxWeightG !== null && minNoteG > 0
+              ? t("purchase.new.noteKgRange", { min: kgText(minNoteG), max: kgText(maxWeightG) })
+              : weightDebit && minNoteG > 0
+                ? t("purchase.new.noteKgHint", { min: kgText(minNoteG) })
+                : weightDebit && maxWeightG !== null
+                  ? t("purchase.new.noteKgMax", { max: kgText(maxWeightG) })
+                  : undefined
+          }
           error={submitted ? errors.kg : undefined}
         >
           <NumberInput value={kg} onValueChange={setKg} suffix="kg" />
@@ -350,6 +378,7 @@ export function CancelLotDialog({
 }) {
   const { t } = useT();
   const invalidate = useInvalidatePurchase();
+  const onRefused = useRefusalToast();
   const [reason, setReason] = useState("");
   const [submitted, setSubmitted] = useState(false);
   useEffect(() => {
@@ -365,7 +394,7 @@ export function CancelLotDialog({
         toast.success(t("purchase.detail.cancelled"));
         onOpenChange(false);
       },
-      onError: (e) => toast.error(e.message),
+      onError: onRefused,
     }),
   );
   const error = reason.trim() === "" ? t("purchase.errors.reason") : undefined;

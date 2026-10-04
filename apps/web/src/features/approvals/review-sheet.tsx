@@ -16,21 +16,28 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { canAny, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
+import { isStaleRefusal } from "../purchase/errors";
 import { kgText, pctText } from "../purchase/format";
-import { formatRate } from "../purchase/lot-view";
+import { formatRate, weightNotesOverShortG } from "../purchase/lot-view";
 import { showsQueryError } from "../purchase/query-state";
-import { APPROVAL_TONE, approvalSubject, decideState, subjectCodes, unbrokenCodes } from "./approval-view";
+import {
+  APPROVAL_TONE,
+  PURCHASE_READERS,
+  approvalSubject,
+  canOpenSubject,
+  decideState,
+  subjectCodes,
+  unbrokenCodes,
+} from "./approval-view";
 
 export type ApprovalItem = inferRouterOutputs<AppRouter>["approval"]["list"]["items"][number];
-
-/** The server's `purchaseReader`: who may see purchase figures. */
-const PURCHASE_READERS = ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"] as const;
 
 export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null; onOpenChange(open: boolean): void }) {
   const { t } = useT();
@@ -70,7 +77,17 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         toast.success(res.status === "approved" ? t("approvals.approved") : t("approvals.rejected"));
         onOpenChange(false);
       },
-      onError: (e) => toast.error(e.message),
+      onError: (e) => {
+        toast.error(e.message);
+        // "This request was already decided" (another approver won), "the lot changed": show what is true now.
+        if (isStaleRefusal(e)) {
+          void Promise.all([
+            queryClient.invalidateQueries({ queryKey: trpc.approval.pathKey() }),
+            queryClient.invalidateQueries({ queryKey: trpc.purchase.pathKey() }),
+          ]);
+          onOpenChange(false);
+        }
+      },
     }),
   );
 
@@ -80,6 +97,9 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
 
   const title = unbrokenCodes(t(subject.titleKey, subject.vars) || t(subject.kindKey), subjectCodes(subject));
   const rejectError = rejectTried && note.trim() === "" ? t("approvals.rejectNeedsNote") : undefined;
+  // Nobody approves a D/C note without its figures on screen; Reject stays open (it needs a reason anyway).
+  const figuresMissing = isNote && readsFigures && !figures.data;
+  const canOpen = subject.href !== null && subject.openKey !== null && canOpenSubject(me, current);
 
   const footer =
     state === "decide" ? (
@@ -100,7 +120,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         <Button
           size="lg"
           loading={decide.isPending && decide.variables?.decision === "approved"}
-          disabled={decide.isPending}
+          disabled={decide.isPending || figuresMissing}
           onClick={() => decide.mutate({ id: current.id, decision: "approved", ...(note.trim() ? { note: note.trim() } : {}) })}
         >
           {t("approvals.approve")}
@@ -109,7 +129,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
     ) : undefined;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title={title} description={t(subject.kindKey)} footer={footer}>
+    <Sheet open={open} onOpenChange={onOpenChange} title={title} footer={footer}>
       <div className="flex flex-col gap-5">
         <div className="flex flex-wrap items-center gap-2">
           <Chip tone={APPROVAL_TONE[current.status]}>{t(`status.request.${current.status}`)}</Chip>
@@ -132,12 +152,12 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
           )
         ) : null}
 
-        {subject.href && subject.openKey ? (
+        {canOpen ? (
           <UiLink
-            to={subject.href}
-            className="inline-flex min-h-11 items-center self-start rounded-full border border-border bg-card px-5 text-[15px] font-semibold text-foreground no-underline shadow-sm hover:bg-surface-sunken"
+            to={subject.href!}
+            className="inline-flex min-h-11 items-center self-start rounded-full border border-border bg-card px-5 text-[15px] font-semibold text-foreground no-underline hover:bg-surface-sunken"
           >
-            {t(subject.openKey)}
+            {t(subject.openKey!)}
           </UiLink>
         ) : null}
 
@@ -201,6 +221,11 @@ function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loa
   const { note, lot } = data;
   const pct = pctText(data.toleranceBp);
   const weightDebit = note.type === "debit" && note.reason === "weight";
+  // Live weight notes (this one included while it is live) beyond the whole short: almost always a typo.
+  const overG = weightDebit && note.status !== "rejected" ? weightNotesOverShortG(data.shortG, data.weightNoteKgG) : 0;
+  const othersLive = data.otherNotes.some(
+    (n) => n.type === "debit" && n.reason === "weight" && (n.status === "pending" || n.status === "approved"),
+  );
   const rows: [string, ReactNode][] = [
     [t("approvals.party"), `${kgText(lot.partyKgG)} kg`],
     [t("approvals.ours"), lot.fcKgG === null ? "-" : `${kgText(lot.fcKgG)} kg`],
@@ -226,7 +251,17 @@ function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loa
           </div>
         ))}
       </dl>
-      {weightDebit && data.shortBeyondTolerance ? (
+      {overG > 0 ? (
+        <p
+          data-testid="note-over-short"
+          className="m-0 flex items-start gap-2 rounded-input bg-tone-red-tint px-3 py-2 text-[14px] font-semibold text-tone-red-ink"
+        >
+          <AlertTriangle aria-hidden="true" strokeWidth={2} className="mt-0.5 size-4 shrink-0" />
+          <span className="min-w-0 break-words">
+            {othersLive ? t("approvals.overShortWithOthers", { kg: kgText(overG) }) : t("approvals.overShort", { kg: kgText(overG) })}
+          </span>
+        </p>
+      ) : weightDebit && data.shortBeyondTolerance ? (
         <p
           className={cn(
             "m-0 rounded-input px-3 py-2 text-[14px] font-semibold",

@@ -16,11 +16,11 @@ import { Select } from "@orrn/ui/components/select";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { StatusBlock } from "@orrn/ui/components/status-block";
 import { UiLink } from "@orrn/ui/components/link";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 
 import { useMe } from "@/shared/lib/me";
-import { trpc } from "@/shared/utils/trpc";
+import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { instantDateText } from "../purchase/format";
 import { showsQueryError } from "../purchase/query-state";
@@ -30,8 +30,11 @@ import {
   APPROVAL_KINDS,
   APPROVAL_TONE,
   approvalSubject,
+  approvalsPageInput,
+  canOpenSubject,
   decideState,
   isApprovalKind,
+  nextApprovalsOffset,
   splitCodes,
   subjectCodes,
   type ApprovalForView,
@@ -45,8 +48,6 @@ export function isApprovalStatus(v: unknown): v is ApprovalStatus {
 }
 export { isApprovalKind };
 
-const PAGE = 25;
-
 export function ApprovalsPage({
   status,
   kind,
@@ -57,15 +58,20 @@ export function ApprovalsPage({
   onChange(next: { status: ApprovalStatus; kind: ApprovalKind | undefined }): void;
 }) {
   const { t } = useT();
-  const [limit, setLimit] = useState(PAGE);
   const [reviewing, setReviewing] = useState<ApprovalItem | null>(null);
 
-  const list = useQuery({
-    ...trpc.approval.list.queryOptions({ status, kind, limit, offset: 0 }),
+  // Pages by offset from the server's nextOffset ("Show more" adds a page): approval.list caps
+  // limit at 200, so growing the limit broke the Approved and Rejected tabs once they passed 200.
+  // The key sits under the approval path, so every approval/purchase invalidation refreshes it.
+  const list = useInfiniteQuery({
+    queryKey: [["approval", "list"], { input: { status, kind }, type: "infinite" }] as const,
+    queryFn: ({ pageParam }) => trpcClient.approval.list.query(approvalsPageInput({ status, kind }, pageParam)),
+    initialPageParam: 0,
+    getNextPageParam: nextApprovalsOffset,
     placeholderData: keepPreviousData,
   });
   const waiting = useQuery(trpc.approval.list.queryOptions({ status: "pending", kind, limit: 1, offset: 0 }));
-  const items = (list.data?.items ?? []) as ApprovalItem[];
+  const items = useMemo(() => (list.data?.pages ?? []).flatMap((p) => p.items) as ApprovalItem[], [list.data]);
   const waitingCount = waiting.data?.total ?? null;
 
   return (
@@ -90,10 +96,7 @@ export function ApprovalsPage({
           // Kind select's baseline.
           className="sm:self-end"
           value={status}
-          onChange={(s) => {
-            setLimit(PAGE);
-            onChange({ status: s, kind });
-          }}
+          onChange={(s) => onChange({ status: s, kind })}
           options={APPROVAL_FILTERS.map((s) => ({ value: s, label: t(`approvals.filter.${s}`) }))}
         />
         <div className="flex min-w-0 flex-col gap-1.5 sm:w-64">
@@ -103,10 +106,7 @@ export function ApprovalsPage({
           <Select
             id="approval-kind"
             value={kind ?? "all"}
-            onValueChange={(v) => {
-              setLimit(PAGE);
-              onChange({ status, kind: isApprovalKind(v) ? v : undefined });
-            }}
+            onValueChange={(v) => onChange({ status, kind: isApprovalKind(v) ? v : undefined })}
             options={[
               { value: "all", label: t("approvals.allKinds") },
               ...APPROVAL_KINDS.map((k) => ({ value: k, label: t(`approvals.kind.${k}`) })),
@@ -163,10 +163,21 @@ export function ApprovalsPage({
               <RequestCard key={item.id} item={item} onReview={() => setReviewing(item)} />
             ))}
           </ul>
-          {list.data?.nextOffset != null ? (
-            <Button variant="secondary" className="self-center" loading={list.isFetching} onClick={() => setLimit((l) => l + PAGE)}>
+          {list.hasNextPage ? (
+            <Button
+              variant="secondary"
+              className="self-center"
+              loading={list.isFetchingNextPage}
+              disabled={list.isFetching}
+              onClick={() => void list.fetchNextPage()}
+            >
               {t("common.showMore")}
             </Button>
+          ) : null}
+          {list.isFetchNextPageError ? (
+            <p role="alert" className="m-0 self-center text-[14px] text-destructive">
+              {t("approvals.moreError")}
+            </p>
           ) : null}
         </>
       )}
@@ -194,6 +205,8 @@ function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void 
     ),
   );
   const tz = typeof me?.company?.settings?.timezone === "string" ? me.company.settings.timezone : undefined;
+  // Only link what this person can open (foundry and die room see D/C notes here, not purchase).
+  const href = subject.href && canOpenSubject(me, view) ? subject.href : null;
   const asked = t("approvals.askedBy", { name: item.requestedByName ?? t("approvals.someone") });
   return (
     <li
@@ -205,9 +218,10 @@ function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void 
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-[13px] font-medium text-muted-foreground">{t(subject.kindKey)}</span>
           <h2 className="m-0 font-display text-[18px] leading-snug font-bold tracking-[-0.02em] break-words">
-            {subject.href ? (
-              <UiLink to={subject.href} className="text-foreground underline-offset-4 hover:underline">
-                {titleNode}
+            {href ? (
+              // 44 px tall on touch (brief), still reading as a heading.
+              <UiLink to={href} className="inline-flex min-h-11 items-center text-foreground underline-offset-4 hover:underline">
+                <span>{titleNode}</span>
               </UiLink>
             ) : (
               titleNode

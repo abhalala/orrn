@@ -36,14 +36,27 @@ export function diffText(t: Translate, reading: KantaReading, toleranceBp: numbe
   }
 }
 
-/** Inline difference for lists: red ink and semibold only when short beyond the tolerance. */
-export function DiffText({ reading, toleranceBp, className }: { reading: KantaReading; toleranceBp: number; className?: string }) {
+/**
+ * Inline difference: red ink and semibold when short beyond the tolerance (live feedback while
+ * weighing). `quiet` keeps it muted always, for lists, where a chip names what needs action.
+ */
+export function DiffText({
+  reading,
+  toleranceBp,
+  quiet,
+  className,
+}: {
+  reading: KantaReading;
+  toleranceBp: number;
+  quiet?: boolean;
+  className?: string;
+}) {
   const { t } = useT();
   return (
     <span
       className={cn(
         "break-words",
-        reading.state === "short" ? "font-semibold text-tone-red-ink" : "text-muted-foreground",
+        reading.state === "short" && !quiet ? "font-semibold text-tone-red-ink" : "text-muted-foreground",
         className,
       )}
     >

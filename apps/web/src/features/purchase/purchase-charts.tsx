@@ -57,6 +57,13 @@ export default function PurchaseCharts() {
   const state = register.isLoading ? "loading" : showsQueryError(register) ? "error" : undefined;
 
   return (
+    <div className="flex flex-col gap-3">
+      {/* The register stops at 2,000 lots, oldest first: past that the newest months would drop out unseen. */}
+      {register.data?.truncated ? (
+        <p role="status" className="m-0 text-[14px] text-muted-foreground">
+          {t("purchase.charts.truncated")}
+        </p>
+      ) : null}
     <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <ChartCard
         data-testid="purchase-chart-rate"
@@ -107,6 +114,7 @@ export default function PurchaseCharts() {
           label={t("purchase.charts.vendorLabel")}
         />
       </ChartCard>
+    </div>
     </div>
   );
 }

@@ -59,21 +59,42 @@ export function bookDayText(date: string, locale: Locale, today: string): string
   return f.format(new Date(`${date}T12:00:00Z`));
 }
 
-/** An instant as a date in the plant's time zone. */
-export function instantDateText(at: Date | string | number, locale: Locale, timeZone = "Asia/Kolkata"): string {
-  const options: Intl.DateTimeFormatOptions = {
-    day: "numeric",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit",
-    numberingSystem: "latn",
-  };
+const YEAR_FORMATS = new Map<string, Intl.DateTimeFormat>();
+
+function yearIn(at: Date, timeZone: string): string {
+  let f = YEAR_FORMATS.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-IN", { year: "numeric", timeZone });
+    YEAR_FORMATS.set(timeZone, f);
+  }
+  return f.format(at);
+}
+
+/**
+ * An instant on the plant's wall clock (C2 dates): "3 Oct at 14:00", 24-hour, with the year only
+ * outside the plant's current year ("30 Dec 2025 at 22:12"). `now` is for tests.
+ */
+export function instantDateText(at: Date | string | number, locale: Locale, timeZone = "Asia/Kolkata", now: number = Date.now()): string {
   const tag = locale === "hi" ? "hi-IN" : "en-IN";
+  const when = new Date(at);
+  const format = (zone: string) => {
+    const options: Intl.DateTimeFormatOptions = {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      numberingSystem: "latn",
+      timeZone: zone,
+    };
+    if (yearIn(when, zone) !== yearIn(new Date(now), zone)) options.year = "numeric";
+    return new Intl.DateTimeFormat(tag, options).format(when);
+  };
   try {
-    return new Intl.DateTimeFormat(tag, { ...options, timeZone }).format(new Date(at));
+    return format(timeZone);
   } catch {
     // A bad zone in settings must not break the screen.
-    return new Intl.DateTimeFormat(tag, { ...options, timeZone: "Asia/Kolkata" }).format(new Date(at));
+    return format("Asia/Kolkata");
   }
 }
 

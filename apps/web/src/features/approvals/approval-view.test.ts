@@ -166,3 +166,31 @@ describe("APPROVAL_KINDS", () => {
     expect(isApprovalKind(undefined)).toBe(false);
   });
 });
+
+describe("approvalsPageInput", () => {
+  test("pages by offset at a fixed size, so 'Show more' never asks the server for more than its 200 cap", async () => {
+    const { APPROVALS_PAGE, approvalsPageInput, nextApprovalsOffset } = await import("./approval-view");
+    expect(APPROVALS_PAGE).toBe(25);
+    for (const offset of [0, 25, 200, 225, 5_000]) {
+      const input = approvalsPageInput({ status: "approved", kind: undefined }, offset);
+      expect(input).toEqual({ status: "approved", kind: undefined, limit: 25, offset });
+      expect(input.limit).toBeLessThanOrEqual(200);
+    }
+    // The server's nextOffset drives the next page; null ends the list.
+    expect(nextApprovalsOffset({ nextOffset: 225 })).toBe(225);
+    expect(nextApprovalsOffset({ nextOffset: null })).toBeUndefined();
+  });
+});
+
+describe("canOpenSubject", () => {
+  test("a D/C note's lot link only for purchase readers (foundry and die room see the inbox, not purchase)", async () => {
+    const { canOpenSubject } = await import("./approval-view");
+    expect(canOpenSubject(me("manager"), row())).toBe(true);
+    expect(canOpenSubject(me("office"), row())).toBe(true);
+    expect(canOpenSubject(me("foundry"), row())).toBe(false);
+    expect(canOpenSubject(me("die_room"), row())).toBe(false);
+    expect(canOpenSubject(null, row())).toBe(false);
+    // A die tier change keeps its die link.
+    expect(canOpenSubject(me("die_room"), row({ kind: "die_rerank", meta: { code: "1-A", sectionId: "s-1", toRank: 1 } }))).toBe(true);
+  });
+});

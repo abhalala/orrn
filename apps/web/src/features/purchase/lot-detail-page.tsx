@@ -15,9 +15,9 @@ import { motionClass } from "@orrn/ui/components/motion";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
-import { AlertTriangle, CircleCheck } from "lucide-react";
+import { AlertTriangle, CircleCheck, Info, Lock } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -26,11 +26,12 @@ import { RouterLink } from "@/shared/components/router-link";
 import { trpc } from "@/shared/utils/trpc";
 
 import { APPROVAL_TONE } from "../approvals/approval-view";
+import { isForbidden, isStaleRefusal } from "./errors";
 import { bookDateText, kgText, pctText, slashBreaks } from "./format";
 import { readKantaG, type KantaReading } from "./kanta";
 import { CancelLotDialog, NoteSheet, StoreSheet, WeightsSheet, useInvalidatePurchase } from "./lot-sheets";
 import { useLotPerms } from "./lot-ui";
-import { LOT_TONE, formatRate, lotNextStep, type LotStatus } from "./lot-view";
+import { LOT_TONE, formatRate, lotNextStep, maxWeightDebitG, type LotStatus } from "./lot-view";
 
 export function LotDetailPage({ id }: { id: string }) {
   const { t } = useT();
@@ -51,14 +52,16 @@ export function LotDetailPage({ id }: { id: string }) {
   // Only when there is no lot to show: a failed refetch keeps `data` (showsQueryError).
   if (!lotQuery.data) {
     const notFound = lotQuery.error?.data?.code === "NOT_FOUND";
+    // A role that can't read purchases (an approver from the foundry, a link passed on) is told so, not sent to check the connection.
+    const forbidden = isForbidden(lotQuery.error);
     return (
       <>
         <PageHeader title={t("purchase.title")} back={{ to: "/purchase", label: t("purchase.title") }} />
         <div role="alert" className="rounded-card border border-border bg-card">
           <EmptyState
-            title={notFound ? t("purchase.detail.notFound") : t("purchase.detail.error")}
+            title={forbidden ? t("errors.forbidden") : notFound ? t("purchase.detail.notFound") : t("purchase.detail.error")}
             action={
-              notFound ? (
+              forbidden ? undefined : notFound ? (
                 <Button asChild variant="secondary">
                   <RouterLink to="/purchase">{t("purchase.list.showAll")}</RouterLink>
                 </Button>
@@ -82,6 +85,7 @@ function LotDetail({ data }: { data: LotData }) {
   const { t, locale } = useT();
   const perms = useLotPerms();
   const invalidate = useInvalidatePurchase();
+  const queryClient = useQueryClient();
   const { lot, notes, ledger, toleranceBp } = data;
   const status = lot.status as LotStatus;
   const reading = readKantaG(lot.partyKgG, lot.fcKgG, toleranceBp);
@@ -91,6 +95,7 @@ function LotDetail({ data }: { data: LotData }) {
       fcKgG: lot.fcKgG,
       shortBeyondTolerance: data.shortBeyondTolerance,
       noteCoversShort: data.noteCoversShort,
+      flag: data.flag,
       notes: notes.map((n) => ({ status: n.status, type: n.type, reason: n.reason, boriDeductionG: n.boriDeductionG })),
     },
     perms,
@@ -100,6 +105,12 @@ function LotDetail({ data }: { data: LotData }) {
 
   const [sheet, setSheet] = useState<"weights" | "note" | "store" | "cancel" | null>(null);
   const [popKey, setPopKey] = useState(0);
+
+  // "This lot changed; open it again": a refusal because the screen is stale refreshes it.
+  const onAdvanceError = (e: { message: string }) => {
+    toast.error(e.message);
+    if (isStaleRefusal(e)) void queryClient.invalidateQueries({ queryKey: trpc.purchase.pathKey() });
+  };
 
   const stores = useQuery({
     ...trpc.stock.locations.list.queryOptions(),
@@ -113,7 +124,7 @@ function LotDetail({ data }: { data: LotData }) {
         await invalidate();
         toast.success(t("purchase.detail.markedUnload"));
       },
-      onError: (e) => toast.error(e.message),
+      onError: onAdvanceError,
     }),
   );
   const markOk = useMutation(
@@ -129,7 +140,7 @@ function LotDetail({ data }: { data: LotData }) {
           }),
         );
       },
-      onError: (e) => toast.error(e.message),
+      onError: onAdvanceError,
     }),
   );
 
@@ -171,16 +182,30 @@ function LotDetail({ data }: { data: LotData }) {
   })();
 
   const pct = pctText(toleranceBp);
-  let message: { tone: "warn" | "ok"; text: string } | null = null;
-  if (step.blocked === "weigh") message = { tone: "warn", text: t("purchase.detail.blockedWeigh") };
+  const shortVars = { kg: kgText(reading.shortG), pct, min: kgText(uncoveredG) };
+  // Live weight notes, for "covered by DCN-4" on a lot in stock.
+  const coveringNotes = notes
+    .filter((n) => n.type === "debit" && n.reason === "weight" && (n.status === "pending" || n.status === "approved"))
+    .map((n) => n.number)
+    .join(", ");
+  let message: { tone: "info" | "warn" | "ok"; text: string } | null = null;
+  // Not weighed yet is the normal next step, not an alarm.
+  if (step.blocked === "weigh") message = { tone: "info", text: t("purchase.detail.blockedWeigh") };
   else if (step.blocked === "short") {
-    const base = t("purchase.detail.blockedShort", { kg: kgText(reading.shortG), pct, min: kgText(uncoveredG) });
     message = {
       tone: "warn",
-      text: perms.dcnote ? base : `${base} ${t("purchase.detail.blockedShortOffice", { min: kgText(uncoveredG) })}`,
+      text: perms.dcnote ? t("purchase.detail.blockedShort", shortVars) : t("purchase.detail.blockedShortOffice", shortVars),
+    };
+  } else if (status === "ok" && step.shortWithoutNote) {
+    // In stock, short beyond tolerance, and no live note covers it (one was rejected after OK): the owner's measure.
+    message = {
+      tone: "warn",
+      text: perms.dcnote ? t("purchase.detail.okShortWithoutNote", shortVars) : t("purchase.detail.okShortOffice", shortVars),
     };
   } else if ((status === "booking" || status === "unload") && data.shortBeyondTolerance && data.noteCoversShort) {
     message = { tone: "ok", text: t("purchase.detail.noteCovers") };
+  } else if (status === "ok" && data.shortBeyondTolerance && data.noteCoversShort && coveringNotes) {
+    message = { tone: "ok", text: t("purchase.detail.coveredBy", { notes: coveringNotes }) };
   }
 
   const secondary: ReactNode[] = [];
@@ -211,6 +236,13 @@ function LotDetail({ data }: { data: LotData }) {
       </Can>,
     );
   }
+  // Why Edit weights is missing (the guide says: ask the manager to reject the note first).
+  const lockNote = step.weightsLocked ? (
+    <p className="m-0 flex items-start gap-2 text-[14px] leading-5 text-muted-foreground">
+      <Lock aria-hidden="true" strokeWidth={2} className="mt-0.5 size-4 shrink-0" />
+      <span className="min-w-0 break-words">{t("purchase.detail.weightsLocked")}</span>
+    </p>
+  ) : null;
   // An OK lot is in stock: only masters.publish may cancel it (the server's rule); before OK either action may.
   const cancelAction = status === "ok" || !perms.receipt ? "masters.publish" : "purchase.receipt";
   if (step.canCancel) {
@@ -242,22 +274,28 @@ function LotDetail({ data }: { data: LotData }) {
         toleranceBp={toleranceBp}
       />
 
-      {message || secondary.length > 0 || primaryButton ? (
+      {message || secondary.length > 0 || primaryButton || lockNote ? (
         <section aria-label={t("purchase.detail.nextStep")} className="flex flex-col gap-3">
           {message ? (
             <p
               role="status"
+              data-testid="lot-message"
+              data-tone={message.tone}
               className={cn(
                 "m-0 flex items-start gap-2.5 rounded-card border px-4 py-3 text-[15px] leading-6",
                 message.tone === "warn"
                   ? "border-tone-red-ink/30 bg-tone-red-tint text-tone-red-ink"
-                  : "border-tone-green-ink/30 bg-tone-green-tint text-tone-green-ink",
+                  : message.tone === "ok"
+                    ? "border-tone-green-ink/30 bg-tone-green-tint text-tone-green-ink"
+                    : "border-border bg-surface-sunken text-foreground",
               )}
             >
               {message.tone === "warn" ? (
                 <AlertTriangle aria-hidden="true" strokeWidth={2} className="mt-0.5 size-5 shrink-0" />
-              ) : (
+              ) : message.tone === "ok" ? (
                 <CircleCheck aria-hidden="true" strokeWidth={2} className="mt-0.5 size-5 shrink-0" />
+              ) : (
+                <Info aria-hidden="true" strokeWidth={2} className="mt-0.5 size-5 shrink-0" />
               )}
               <span className="min-w-0 break-words">{message.text}</span>
             </p>
@@ -266,6 +304,7 @@ function LotDetail({ data }: { data: LotData }) {
             {primaryButton ? <div className="hidden md:block">{primaryButton}</div> : null}
             {secondary}
           </div>
+          {lockNote}
         </section>
       ) : null}
 
@@ -290,6 +329,7 @@ function LotDetail({ data }: { data: LotData }) {
         lot={lot}
         minNoteG={uncoveredG}
         suggestG={reading.state === "short" ? Math.max(uncoveredG, reading.shortG - data.weightNoteKgG) : 0}
+        maxWeightG={maxWeightDebitG(lot, data.weightNoteKgG)}
       />
       <StoreSheet
         open={sheet === "store"}

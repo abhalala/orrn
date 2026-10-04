@@ -8,6 +8,7 @@
 import { parseDecimal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
+import { Checkbox } from "@orrn/ui/components/checkbox";
 import { Chip } from "@orrn/ui/components/chip";
 import { Combobox, type ComboboxOption } from "@orrn/ui/components/combobox";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -22,14 +23,15 @@ import { cn } from "@orrn/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { bookDateText, kgText, pctText } from "./format";
-import { readKanta, type KantaReading } from "./kanta";
+import { saveMayHaveLanded } from "./errors";
+import { bookDateText, kgText, pctText, slashBreaks } from "./format";
+import { kgTextToG, readKanta, type KantaReading } from "./kanta";
 import {
   BILL_BOOKS,
   EMPTY_DRAFT,
@@ -37,6 +39,9 @@ import {
   draftToCreateInput,
   draftToNoteInput,
   firstStepWithErrors,
+  noteKgText,
+  patchDraft,
+  sendsInlineNote,
   stepErrors,
   type DraftErrors,
   type LotDraft,
@@ -45,6 +50,7 @@ import {
 import { useInvalidatePurchase } from "./lot-sheets";
 import { useCompanyToday, useLotPerms, useToleranceBp } from "./lot-ui";
 import { formatRate } from "./lot-view";
+import { showsQueryError } from "./query-state";
 
 export function NewLotPage() {
   const { t } = useT();
@@ -69,22 +75,28 @@ function NewLotForm() {
   const tolBp = useToleranceBp();
   const today = useCompanyToday();
   const invalidate = useInvalidatePurchase();
-  const [draft, setDraft] = useState<LotDraft>(() => ({ ...EMPTY_DRAFT, date: today }));
+  // Only the office (purchase.dcnote) raises the inline note; the yard never starts with it ticked.
+  const [draft, setDraft] = useState<LotDraft>(() => ({ ...EMPTY_DRAFT, date: today, raiseNote: perms.dcnote }));
   const [stepIndex, setStepIndex] = useState(0);
   const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Bumped on every refused Next/Save, so focus moves to the first field to fix and the count is announced.
+  const [refused, setRefused] = useState(0);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const step: LotStep = LOT_STEPS[stepIndex]!;
   const last = stepIndex === LOT_STEPS.length - 1;
-  const opts = { toleranceBp: tolBp };
+  const opts = { toleranceBp: tolBp, canNote: perms.dcnote };
   const errors = showErrors ? stepErrors(draft, step, opts) : {};
-  const set = (patch: Partial<LotDraft>) => setDraft((d) => ({ ...d, ...patch }));
+  const errorCount = Object.keys(errors).length;
+  const set = useCallback((patch: Partial<LotDraft>) => setDraft((d) => patchDraft(d, patch)), []);
   const reading = readKanta(draft.partyText, draft.fcText, tolBp);
 
   const items = useQuery(trpc.purchase.scrapItems.list.queryOptions());
   const grades = useQuery(trpc.purchase.scrapGrades.list.queryOptions());
   const activeItems = useMemo(() => (items.data?.items ?? []).filter((i) => i.active), [items.data]);
+  const mastersFailed = showsQueryError(items) || showsQueryError(grades);
   const activeGrades = useMemo(() => (grades.data?.items ?? []).filter((g) => g.active), [grades.data]);
   const itemName = (id: string | null) => activeItems.find((i) => i.id === id)?.name ?? "";
 
@@ -98,17 +110,25 @@ function NewLotForm() {
     headingRef.current?.focus();
   }, [stepIndex]);
 
+  // After a refused Next or Save: focus the first field to fix (it reads its own error), on the
+  // step that has it. Runs after the heading effect above, so it wins when Save jumps back a step.
+  useEffect(() => {
+    if (refused === 0) return;
+    formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+  }, [refused]);
+
   const save = async () => {
     const bad = firstStepWithErrors(draft, opts);
     if (bad) {
       setShowErrors(true);
       setStepIndex(LOT_STEPS.indexOf(bad));
+      setRefused((n) => n + 1);
       return;
     }
     setSaving(true);
     try {
       const lot = await trpcClient.purchase.lots.create.mutate(draftToCreateInput(draft));
-      const noteInput = perms.dcnote ? draftToNoteInput(draft, lot.id, tolBp) : null;
+      const noteInput = draftToNoteInput(draft, lot.id, opts);
       if (noteInput) {
         try {
           const note = await trpcClient.purchase.dcNotes.create.mutate(noteInput);
@@ -122,7 +142,15 @@ function NewLotForm() {
       await invalidate();
       await navigate({ to: "/purchase/$id", params: { id: lot.id } });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("errors.generic"));
+      // No answer at all: the lot may be in the book already (lots.create takes no request id yet),
+      // so say so and point to the list instead of inviting a second truck with a new number.
+      if (saveMayHaveLanded(e)) {
+        toast.error(t("purchase.new.saveUnsure"), {
+          action: { label: t("purchase.new.openLots"), onClick: () => void navigate({ to: "/purchase" }) },
+        });
+      } else {
+        toast.error(e instanceof Error ? e.message : t("errors.generic"));
+      }
       setSaving(false);
     }
   };
@@ -130,6 +158,7 @@ function NewLotForm() {
   const next = () => {
     if (Object.keys(stepErrors(draft, step, opts)).length > 0) {
       setShowErrors(true);
+      setRefused((n) => n + 1);
       return;
     }
     setShowErrors(false);
@@ -155,6 +184,7 @@ function NewLotForm() {
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <form
+          ref={formRef}
           noValidate
           aria-labelledby="lot-step-heading"
           className="flex min-w-0 flex-col gap-5"
@@ -171,6 +201,10 @@ function NewLotForm() {
           >
             {stepLabels[stepIndex]}
           </h2>
+          {/* Polite: the count of things to fix after a refused Next or Save (focus also moves to the first). */}
+          <p aria-live="polite" className="sr-only">
+            {refused > 0 && errorCount > 0 ? t("purchase.new.fixCount", { count: errorCount }) : ""}
+          </p>
 
           {step === "vendor" ? (
             <VendorStep draft={draft} set={set} errors={errors} itemName={itemName} />
@@ -180,6 +214,8 @@ function NewLotForm() {
               set={set}
               errors={errors}
               loading={items.isLoading || grades.isLoading}
+              failed={mastersFailed}
+              onRetry={() => void Promise.all([items.refetch(), grades.refetch()])}
               items={activeItems}
               grades={activeGrades}
             />
@@ -202,7 +238,8 @@ function NewLotForm() {
             </div>
           ) : null}
 
-          <div className="sticky bottom-[calc(var(--shell-tabbar-offset)+12px)] z-10 flex gap-2 rounded-card border border-border bg-card/95 p-2 shadow-md backdrop-blur-md md:static md:justify-end md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-none [&>*]:flex-1 md:[&>*]:flex-none">
+          {/* Sticky on phones and iPads (the weights step with the note runs past one screen); in the flow on laptops. */}
+          <div className="sticky bottom-[calc(var(--shell-tabbar-offset)+12px)] z-10 flex gap-2 rounded-card border border-border bg-card/95 p-2 shadow-md backdrop-blur-md md:justify-end md:[&>*]:flex-none lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none [&>*]:flex-1">
             {stepIndex > 0 ? (
               <Button type="button" size="lg" variant="secondary" onClick={back} disabled={saving}>
                 {t("common.back")}
@@ -296,13 +333,15 @@ function VendorStep({ draft, set, errors, itemName }: StepProps & { itemName(id:
               const name = itemName(u.scrapItemId);
               if (!name) return null;
               return (
-                <li key={u.scrapItemId}>
+                <li key={u.scrapItemId} className="max-w-full">
+                  {/* Long names (PATTA/ROTTER/HEATSINK) wrap inside the pill instead of running off a phone. */}
                   <Button
                     type="button"
                     variant="secondary"
+                    className="h-auto min-h-11 max-w-full py-2 text-left whitespace-normal"
                     onClick={() => set({ itemId: u.scrapItemId, rateText: String(u.lastRatePaise / 100) })}
                   >
-                    {t("purchase.new.usualPick", { item: name, rate: formatRate(u.lastRatePaise) })}
+                    {slashBreaks(t("purchase.new.usualPick", { item: name, rate: formatRate(u.lastRatePaise) }))}
                   </Button>
                 </li>
               );
@@ -445,7 +484,7 @@ function ChoicePills({
             />
             <span
               className={cn(
-                "flex min-h-12 items-center rounded-full border border-border bg-card px-4 text-[15px] font-semibold transition-[background-color,color,border-color,scale] duration-[var(--dur-fast)] select-none peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring peer-focus-visible:outline-solid peer-active:scale-[0.97] hover:border-foreground/60",
+                "flex min-h-12 min-w-12 items-center justify-center rounded-full border border-border bg-card px-4 text-[15px] font-semibold transition-[background-color,color,border-color,scale] duration-[var(--dur-fast)] select-none peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring peer-focus-visible:outline-solid peer-active:scale-[0.97] hover:border-foreground/60",
                 mono && "font-mono",
               )}
             >
@@ -468,14 +507,32 @@ function MaterialStep({
   set,
   errors,
   loading,
+  failed,
+  onRetry,
   items,
   grades,
 }: StepProps & {
   loading: boolean;
+  failed: boolean;
+  onRetry(): void;
   items: { id: string; name: string }[];
   grades: { id: string; code: string }[];
 }) {
   const { t } = useT();
+  if (failed) {
+    return (
+      <div role="alert" className="rounded-card border border-border bg-card">
+        <EmptyState
+          title={t("purchase.new.mastersError")}
+          action={
+            <Button type="button" variant="secondary" onClick={onRetry}>
+              {t("common.retry")}
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
   if (loading) {
     return (
       <div aria-busy="true" className="flex flex-col gap-3">
@@ -566,14 +623,7 @@ function WeightsStep({
             ? t("purchase.diffWord.within", { pct })
             : t("purchase.diffWord.short", { pct });
 
-  // Start the note at the whole short the first time the lot turns short; never overwrite what was typed.
-  const prefilled = useRef(false);
-  useEffect(() => {
-    if (reading.needsNote && !prefilled.current && draft.noteKgText === "") {
-      prefilled.current = true;
-      set({ noteKgText: String(reading.shortG / 1000) });
-    }
-  }, [reading.needsNote, reading.shortG, draft.noteKgText, set]);
+  const raiseId = useId();
 
   return (
     <>
@@ -626,23 +676,29 @@ function WeightsStep({
             <p className="m-0 text-[15px] leading-6 text-muted-foreground">
               {t("purchase.new.noteBody", { kg: kgText(reading.shortG), pct, min: kgText(reading.minNoteG) })}
             </p>
-            <label className="flex min-h-11 cursor-pointer items-center gap-3 text-[15px] font-semibold">
-              <input
-                type="checkbox"
+            <div className="flex min-h-11 items-center gap-3">
+              <Checkbox
+                id={raiseId}
                 checked={draft.raiseNote}
-                onChange={(e) => set({ raiseNote: e.currentTarget.checked })}
-                className="size-5 shrink-0 accent-[var(--primary)]"
+                onCheckedChange={(checked) => set({ raiseNote: checked === true })}
               />
-              {t("purchase.new.raiseNote")}
-            </label>
+              <label htmlFor={raiseId} className="cursor-pointer text-[15px] font-semibold">
+                {t("purchase.new.raiseNote")}
+              </label>
+            </div>
             {draft.raiseNote ? (
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <Field
                   label={t("purchase.new.noteKg")}
-                  hint={t("purchase.new.noteKgHint", { min: kgText(reading.minNoteG) })}
+                  hint={t("purchase.new.noteKgRange", { min: kgText(reading.minNoteG), max: kgText(reading.shortG) })}
                   error={errors.noteKg ? t(errors.noteKg) : undefined}
                 >
-                  <NumberInput value={draft.noteKgText} onValueChange={(noteKgText) => set({ noteKgText })} suffix="kg" />
+                  {/* The whole short until the person types here; follows the weights again when they change. */}
+                  <NumberInput
+                    value={noteKgText(draft, toleranceBp)}
+                    onValueChange={(text) => set({ noteKgText: text })}
+                    suffix="kg"
+                  />
                 </Field>
                 <Field
                   label={`${t("purchase.new.bori")} (${t("common.optional").toLowerCase()})`}
@@ -732,12 +788,30 @@ function Summary({
   const { t } = useT();
   const none = t("purchase.new.notChosen");
   const rate = parseDecimal(draft.rateText);
+  const withNote = sendsInlineNote(draft, { toleranceBp, canNote });
+  const noteG = withNote ? kgTextToG(noteKgText(draft, toleranceBp)) : null;
+  const boriG = withNote ? kgTextToG(draft.boriText) : null;
   const rows: [string, ReactNode][] = [
     [t("purchase.new.vendor"), draft.vendorLabel || none],
     [t("purchase.new.item"), itemName ? (draft.grade ? t("purchase.material", { item: itemName, grade: draft.grade }) : itemName) : none],
     [t("purchase.new.rate"), rate !== null && rate > 0 ? <span className="font-mono">{formatRate(Math.round(rate * 100))}</span> : none],
     [t("purchase.detail.party"), reading.partyG !== null ? <span className="font-mono">{kgText(reading.partyG)} kg</span> : none],
     [t("purchase.detail.ours"), reading.fcG !== null ? <span className="font-mono">{kgText(reading.fcG)} kg</span> : none],
+    // The note goes with the lot: its kg is the last look before Save (and the approver's first).
+    ...(withNote
+      ? ([
+          [
+            t("purchase.new.summaryNote"),
+            noteG !== null ? (
+              <span className="font-mono">
+                {kgText(noteG)} kg{boriG ? `, ${t("purchase.detail.noteBori", { kg: kgText(boriG) })}` : ""}
+              </span>
+            ) : (
+              none
+            ),
+          ],
+        ] as [string, ReactNode][])
+      : []),
     [t("purchase.detail.billBook"), t(`purchase.billBooks.${draft.billBook}`)],
     [t("purchase.new.date"), draft.date ? bookDateText(draft.date, locale) : none],
   ];
@@ -752,7 +826,7 @@ function Summary({
           </div>
         ))}
       </dl>
-      {reading.state === "short" && !(canNote && draft.raiseNote) ? (
+      {reading.state === "short" && !withNote ? (
         <Chip tone="red" className="self-start">
           {t("purchase.flag.shortWithoutNote")}
         </Chip>

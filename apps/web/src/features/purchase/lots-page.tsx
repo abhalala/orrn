@@ -5,6 +5,7 @@
  */
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
+import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { HowToButton } from "@orrn/ui/components/how-to-button";
 import { motionClass, riseDelay } from "@orrn/ui/components/motion";
@@ -15,16 +16,17 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { StatusBlock } from "@orrn/ui/components/status-block";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
 
 import { Can } from "@/shared/components/can";
 import { RouterLink } from "@/shared/components/router-link";
 import { trpc } from "@/shared/utils/trpc";
 
+import { isForbidden } from "./errors";
 import { bookDayText, kgText, slashBreaks } from "./format";
 import { readKantaG } from "./kanta";
 import { DiffText, LotStatusChip, useCompanyToday, useToleranceBp } from "./lot-ui";
-import type { LotStatus } from "./lot-view";
+import { lotListChip, type LotFlag, type LotStatus } from "./lot-view";
 import { showsQueryError } from "./query-state";
 
 const PurchaseCharts = lazy(() => import("./purchase-charts"));
@@ -66,6 +68,22 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
   const stock = useQuery(trpc.purchase.scrapStock.queryOptions());
 
   const atKanta = booking.data && unload.data ? booking.data.total + unload.data.total : null;
+  const atKantaFailed = showsQueryError(booking) || showsQueryError(unload);
+
+  // The lots' flags (short without a note, note waiting) come from the register over this page's
+  // book dates: `lots.list` has no flag yet (PL-6 follow-up). Absent = unknown = no chip.
+  const rows = (lots.data?.items ?? []) as LotRow[];
+  const span = useMemo(() => {
+    if (rows.length === 0) return null;
+    const dates = rows.map((r) => r.lotDate).sort();
+    return { from: dates[0]!, to: dates[dates.length - 1]! };
+  }, [rows]);
+  const register = useQuery({
+    ...trpc.purchase.register.queryOptions(span ?? { from: today, to: today }),
+    enabled: span !== null,
+    select: (d) => new Map<string, LotFlag>(d.lots.map((l) => [l.id, l.flag])),
+  });
+  const flags = register.data;
 
   const columns: ResponsiveListColumn<LotRow>[] = [
     {
@@ -102,40 +120,84 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
     {
       key: "diff",
       header: t("purchase.list.difference"),
+      // Quiet words: a settled lot is not an alarm. What needs action is the chip in Status.
       cell: (l) =>
         l.status === "cancelled" ? (
           <span className="text-muted-foreground">-</span>
         ) : (
-          <DiffText reading={readKantaG(l.partyKgG, l.fcKgG, tolBp)} toleranceBp={tolBp} className="text-[14px]" />
+          <DiffText reading={readKantaG(l.partyKgG, l.fcKgG, tolBp)} toleranceBp={tolBp} quiet className="text-[14px]" />
         ),
     },
-    { key: "status", header: t("purchase.list.status"), cell: (l) => <LotStatusChip status={l.status} /> },
+    {
+      key: "status",
+      header: t("purchase.list.status"),
+      cell: (l) => {
+        const chip = lotListChip(l.status, flags?.get(l.id));
+        return (
+          <span className="flex flex-wrap items-center gap-1.5">
+            <LotStatusChip status={l.status} />
+            {chip === "shortWithoutNote" ? (
+              <Chip tone="red">{t("purchase.flag.shortWithoutNote")}</Chip>
+            ) : chip === "notePending" ? (
+              <Chip tone="amber">{t("purchase.flag.notePending")}</Chip>
+            ) : null}
+          </span>
+        );
+      },
+    },
   ];
 
   const filtered = filter !== "all";
 
+  const header = (
+    <PageHeader
+      title={t("purchase.title")}
+      subtitle={t("purchase.subtitle")}
+      actions={
+        <>
+          <HowToButton slug="weigh-scrap-lot" />
+          <Can do="purchase.receipt">
+            <Button asChild size="lg">
+              <RouterLink to="/purchase/new">
+                <Plus aria-hidden="true" strokeWidth={2} />
+                {t("purchase.newLot")}
+              </RouterLink>
+            </Button>
+          </Can>
+        </>
+      }
+    />
+  );
+
+  // A role that can't read purchases (a link passed on): say so once, no skeletons that never fill.
+  if (isForbidden(lots.error)) {
+    return (
+      <>
+        {header}
+        <div role="alert" className="rounded-card border border-border bg-card">
+          <EmptyState title={t("errors.forbidden")} />
+        </div>
+      </>
+    );
+  }
+
+  const kpiError = (onRetry: () => void): ReactNode => (
+    <div role="alert" className="flex min-h-[168px] flex-col items-start justify-center gap-3 rounded-block border border-border bg-card p-5">
+      <p className="m-0 text-[15px] font-medium">{t("purchase.kpi.error")}</p>
+      <Button variant="secondary" onClick={onRetry}>
+        {t("common.retry")}
+      </Button>
+    </div>
+  );
+
   return (
     <>
-      <PageHeader
-        title={t("purchase.title")}
-        subtitle={t("purchase.subtitle")}
-        actions={
-          <>
-            <HowToButton slug="weigh-scrap-lot" />
-            <Can do="purchase.receipt">
-              <Button asChild size="lg">
-                <RouterLink to="/purchase/new">
-                  <Plus aria-hidden="true" strokeWidth={2} />
-                  {t("purchase.newLot")}
-                </RouterLink>
-              </Button>
-            </Can>
-          </>
-        }
-      />
+      {header}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {atKanta === null ? (
+        {atKantaFailed ? (
+          kpiError(() => void Promise.all([booking.refetch(), unload.refetch()]))
+        ) : atKanta === null ? (
           <Skeleton className="h-[168px] rounded-block" />
         ) : (
           <StatusBlock
@@ -148,7 +210,9 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
             unit={t("purchase.kpi.lots", { count: atKanta })}
           />
         )}
-        {stock.data ? (
+        {showsQueryError(stock) ? (
+          kpiError(() => void stock.refetch())
+        ) : stock.data ? (
           <StatusBlock
             className={motionClass.rise}
             style={riseDelay(1)}
@@ -188,7 +252,7 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
         ) : (
           <ResponsiveList
             label={t("purchase.list.label")}
-            rows={(lots.data?.items ?? []) as LotRow[]}
+            rows={rows}
             columns={columns}
             rowKey={(l) => l.id}
             rowHref={(l) => `/purchase/${l.id}`}
@@ -201,7 +265,13 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
                   title={t("purchase.list.emptyFilteredTitle")}
                   body={t("purchase.list.emptyFilteredBody")}
                   action={
-                    <Button variant="secondary" onClick={() => onFilter("all")}>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setOffset(0);
+                        onFilter("all");
+                      }}
+                    >
                       {t("purchase.list.showAll")}
                     </Button>
                   }

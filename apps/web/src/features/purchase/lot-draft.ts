@@ -31,7 +31,10 @@ export type LotDraft = {
   fcText: string;
   /** Raise the debit note in the same save when the lot is short beyond tolerance. */
   raiseNote: boolean;
+  /** What the person typed into "Kg to debit"; read only once `noteKgEdited` (see `noteKgText`). */
   noteKgText: string;
+  /** The person typed into "Kg to debit" since the weights last changed. Until then the note is the whole short. */
+  noteKgEdited: boolean;
   boriText: string;
   noteText: string;
   billBook: BillBook;
@@ -54,6 +57,7 @@ export const EMPTY_DRAFT: LotDraft = {
   fcText: "",
   raiseNote: true,
   noteKgText: "",
+  noteKgEdited: false,
   boriText: "",
   noteText: "",
   billBook: "main",
@@ -91,7 +95,54 @@ function weightError(text: string, required: boolean, missing: MessageKey): Mess
   return undefined;
 }
 
-export function stepErrors(draft: LotDraft, step: LotStep, opts: { toleranceBp?: number } = {}): DraftErrors {
+/**
+ * Apply one edit the way the form does. NumberInput reports every key press, so the note kg is
+ * never copied from the weights while they are being typed (a note latched on the first digit of
+ * our kanta debited 991 kg for a 20 kg short). Instead: typing in "Kg to debit" marks it edited,
+ * and any change to a weight drops that edit, so the note follows the weights again.
+ */
+export function patchDraft(draft: LotDraft, patch: Partial<LotDraft>): LotDraft {
+  const next = { ...draft, ...patch };
+  if ("noteKgText" in patch && !("noteKgEdited" in patch)) next.noteKgEdited = true;
+  const weightsChanged =
+    ("partyText" in patch && patch.partyText !== draft.partyText) || ("fcText" in patch && patch.fcText !== draft.fcText);
+  if (weightsChanged) {
+    next.noteKgEdited = false;
+    next.noteKgText = "";
+  }
+  return next;
+}
+
+/** Grams as the text a NumberInput shows ("187.3"). */
+const gToText = (g: number) => String(g / 1000);
+
+/**
+ * The kg the inline debit note will debit, as text: what the person typed once they edited it,
+ * else the whole short from the weights as they are now (ruling: the note starts at the whole
+ * short), and nothing while the lot is not short beyond tolerance.
+ */
+export function noteKgText(draft: LotDraft, toleranceBp: number): string {
+  if (draft.noteKgEdited) return draft.noteKgText;
+  const reading = readKanta(draft.partyText, draft.fcText, toleranceBp);
+  return reading.needsNote ? gToText(reading.shortG) : "";
+}
+
+export type DraftOpts = {
+  toleranceBp?: number;
+  /**
+   * The person may raise D/C notes (purchase.dcnote). The inline note is checked and sent only
+   * then: a yard role never sees its fields, so it must never be blocked by them.
+   */
+  canNote?: boolean;
+};
+
+/** The inline note goes with the lot: the person may raise it, kept it ticked, and the lot is short beyond tolerance. */
+export function sendsInlineNote(draft: LotDraft, opts: DraftOpts): boolean {
+  if (!opts.canNote || !draft.raiseNote) return false;
+  return readKanta(draft.partyText, draft.fcText, opts.toleranceBp ?? 50).needsNote;
+}
+
+export function stepErrors(draft: LotDraft, step: LotStep, opts: DraftOpts = {}): DraftErrors {
   const errors: DraftErrors = {};
   if (step === "vendor") {
     if (!draft.vendorId) errors.vendor = "purchase.errors.vendor";
@@ -111,16 +162,16 @@ export function stepErrors(draft: LotDraft, step: LotStep, opts: { toleranceBp?:
     const fc = weightError(draft.fcText, false, "purchase.errors.fc");
     if (party) errors.party = party;
     if (fc) errors.fc = fc;
-    if (!party && !fc && draft.raiseNote) {
-      const reading = readKanta(draft.partyText, draft.fcText, opts.toleranceBp ?? 50);
-      if (reading.needsNote) {
-        const noteG = kgTextToG(draft.noteKgText);
-        if (noteG === null || noteG < reading.minNoteG) errors.noteKg = "purchase.errors.noteTooSmall";
-        else if (noteG > reading.partyG!) errors.noteKg = "purchase.errors.noteTooBig";
-        if (draft.boriText.trim() !== "") {
-          const boriG = kgTextToG(draft.boriText);
-          if (boriG === null || boriG >= reading.fcG!) errors.bori = "purchase.errors.bori";
-        }
+    if (!party && !fc && sendsInlineNote(draft, opts)) {
+      const tolBp = opts.toleranceBp ?? 50;
+      const reading = readKanta(draft.partyText, draft.fcText, tolBp);
+      const noteG = kgTextToG(noteKgText(draft, tolBp));
+      if (noteG === null || noteG < reading.minNoteG) errors.noteKg = "purchase.errors.noteTooSmall";
+      // A weight debit covers the short, never more (9,991 kg on a 200 kg short was a typo the approver saw as "covers").
+      else if (noteG > reading.shortG) errors.noteKg = "purchase.errors.noteOverShort";
+      if (draft.boriText.trim() !== "") {
+        const boriG = kgTextToG(draft.boriText);
+        if (boriG === null || boriG >= reading.fcG!) errors.bori = "purchase.errors.bori";
       }
     }
   } else {
@@ -133,7 +184,7 @@ export function stepErrors(draft: LotDraft, step: LotStep, opts: { toleranceBp?:
 }
 
 /** Steps with nothing wrong, for "Save" and for jumping back to the first bad step. */
-export function firstStepWithErrors(draft: LotDraft, opts: { toleranceBp?: number } = {}): LotStep | null {
+export function firstStepWithErrors(draft: LotDraft, opts: DraftOpts = {}): LotStep | null {
   return LOT_STEPS.find((s) => Object.keys(stepErrors(draft, s, opts)).length > 0) ?? null;
 }
 
@@ -189,12 +240,10 @@ export type NoteCreateInput = {
   note?: string;
 };
 
-/** The inline weight debit note, or null when not asked for or not needed. */
-export function draftToNoteInput(draft: LotDraft, lotId: string, toleranceBp: number): NoteCreateInput | null {
-  if (!draft.raiseNote) return null;
-  const reading = readKanta(draft.partyText, draft.fcText, toleranceBp);
-  if (!reading.needsNote) return null;
-  const kgDiffG = kgTextToG(draft.noteKgText);
+/** The inline weight debit note, or null when not allowed, not asked for or not needed. */
+export function draftToNoteInput(draft: LotDraft, lotId: string, opts: DraftOpts): NoteCreateInput | null {
+  if (!sendsInlineNote(draft, opts)) return null;
+  const kgDiffG = kgTextToG(noteKgText(draft, opts.toleranceBp ?? 50));
   if (kgDiffG === null) return null;
   const input: NoteCreateInput = {
     lotId,

@@ -50,8 +50,20 @@ describe("instantDateText", () => {
   test("shows the plant's wall clock and survives a bad zone", async () => {
     const { instantDateText } = await import("./format");
     // 3 Oct 2026 08:30 UTC is 14:00 in India.
-    expect(instantDateText("2026-10-03T08:30:00Z", "en")).toMatch(/3 Oct.*2:00/);
-    expect(instantDateText("2026-10-03T08:30:00Z", "en", "Not/AZone")).toMatch(/3 Oct.*2:00/);
+    expect(instantDateText("2026-10-03T08:30:00Z", "en")).toMatch(/3 Oct.*14:00/);
+    expect(instantDateText("2026-10-03T08:30:00Z", "en", "Not/AZone")).toMatch(/3 Oct.*14:00/);
+  });
+
+  test("24-hour clock; the year only outside the plant's current year (C2 spec dates)", async () => {
+    const { instantDateText } = await import("./format");
+    const now = Date.parse("2026-10-04T06:00:00Z");
+    // 30 Dec 2025 16:42 UTC is 22:12 in India.
+    expect(instantDateText("2025-12-30T16:42:00Z", "en", "Asia/Kolkata", now)).toBe("30 Dec 2025 at 22:12");
+    expect(instantDateText("2026-10-03T08:30:00Z", "en", "Asia/Kolkata", now)).toBe("3 Oct at 14:00");
+    expect(instantDateText("2026-10-03T19:00:00Z", "en", "Asia/Kolkata", now)).toBe("4 Oct at 00:30");
+    expect(instantDateText("2025-12-30T16:42:00Z", "hi", "Asia/Kolkata", now)).toMatch(/^30 \S+ 2025, 22:12$/);
+    // 31 Dec 2025 19:00 UTC is already 1 Jan 2026 in India: the plant's year, so no year.
+    expect(instantDateText("2025-12-31T19:00:00Z", "en", "Asia/Kolkata", Date.parse("2026-01-02T06:00:00Z"))).toBe("1 Jan at 00:30");
   });
 });
 

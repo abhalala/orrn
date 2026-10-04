@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 992 screen strings in 27 groups, 11 guides with 202 strings.
+Counts: 1008 screen strings in 27 groups, 11 guides with 202 strings.
 
 ## Screen strings
 
@@ -867,7 +867,7 @@ Please check, Lalubhai:
 - `unitLakh`: Chart axis short form for lakh (1.5L). Kept as L for now. Should it be लाख?
 - `unitCrore`: Chart axis short form for crore (1.2Cr). Kept as Cr for now. Should it be करोड़?
 
-### purchase (193)
+### purchase (206)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -890,6 +890,7 @@ Please check, Lalubhai:
 | `kpi.lots` | {count:lot\|lots} | {count:लॉट\|लॉट} |
 | `kpi.inStock` | Scrap in stock | स्टॉक में स्क्रैप |
 | `kpi.inStockMeta` | All scrap stores | सभी स्क्रैप स्टोर |
+| `kpi.error` | This figure didn't load. | यह आंकड़ा लोड नहीं हुआ। |
 | `list.label` | Scrap lots | स्क्रैप लॉट |
 | `list.lot` | Lot | लॉट |
 | `list.vendor` | Vendor | पार्टी |
@@ -925,6 +926,7 @@ Please check, Lalubhai:
 | `charts.vendorLabel` | Vendors by kg bought | खरीदे kg के हिसाब से पार्टियां |
 | `charts.bought` | Bought | खरीदा |
 | `charts.otherVendors` | Other vendors | बाकी पार्टियां |
+| `charts.truncated` | These charts count only the first 2,000 lots of the 6 months, so the latest weeks are missing. | ये चार्ट 6 महीनों के पहले 2,000 लॉट ही गिनते हैं, इसलिए सबसे नए हफ़्ते छूट गए हैं। |
 | `new.title` | New lot | नया लॉट |
 | `new.subtitle` | A truck at the kanta | कांटे पर आई गाड़ी |
 | `new.steps.vendor` | Vendor | पार्टी |
@@ -961,6 +963,13 @@ Please check, Lalubhai:
 | `new.raiseNote` | Raise the debit note now | डेबिट नोट अभी बनाएं |
 | `new.noteKg` | Kg to debit | डेबिट करने वाले kg |
 | `new.noteKgHint` | At least {min} kg. | कम से कम {min} kg। |
+| `new.noteKgRange` | From {min} kg up to the short, {max} kg. | {min} kg से कमी तक, {max} kg। |
+| `new.noteKgMax` | Up to the short still open, {max} kg. | बची हुई कमी तक, {max} kg। |
+| `new.summaryNote` | Debit note | डेबिट नोट |
+| `new.fixCount` | {count} {count:thing\|things} to fix on this step | इस कदम पर {count} {count:चीज़\|चीज़ें} ठीक करनी हैं |
+| `new.saveUnsure` | orrn didn't answer, so the lot may have saved. Check the lot list before you save it again. | orrn से जवाब नहीं आया, हो सकता है लॉट सेव हो गया हो। दोबारा सेव करने से पहले लॉट की सूची देखें। |
+| `new.openLots` | Open lots | लॉट देखें |
+| `new.mastersError` | The scrap items didn't load. Check the connection and try again. | स्क्रैप आइटम लोड नहीं हुए। कनेक्शन देखें और फिर से कोशिश करें। |
 | `new.bori` | Bori deduction (kg) | बोरी कटौती (kg) |
 | `new.boriHint` | Weight of the bags, when the party is charged for them. | बोरियों का वज़न, अगर पार्टी से काटना है। |
 | `new.noteText` | Note for the manager | मैनेजर के लिए नोट |
@@ -1034,7 +1043,10 @@ Please check, Lalubhai:
 | `detail.noteSent` | Note {number} sent for approval | नोट {number} मंज़ूरी के लिए भेजा |
 | `detail.blockedWeigh` | Weigh the truck on our kanta before marking it OK. | OK करने से पहले गाड़ी हमारे कांटे पर तौलें। |
 | `detail.blockedShort` | {kg} kg short, beyond {pct}. A debit note must cover at least {min} kg before OK. | {kg} kg कम, {pct} से ज़्यादा। OK से पहले डेबिट नोट कम से कम {min} kg ढके। |
-| `detail.blockedShortOffice` | Ask the office to raise a debit note for at least {min} kg. | ऑफ़िस से कम से कम {min} kg का डेबिट नोट बनवाएं। |
+| `detail.blockedShortOffice` | {kg} kg short, beyond {pct}. Ask the office to raise a debit note for at least {min} kg. | {kg} kg कम, {pct} से ज़्यादा। ऑफ़िस से कम से कम {min} kg का डेबिट नोट बनवाएं। |
+| `detail.okShortWithoutNote` | In stock, but {kg} kg short, beyond {pct}, and no live debit note covers it. Raise one for at least {min} kg. | स्टॉक में है, पर {kg} kg कम है, {pct} से ज़्यादा, और कोई चालू डेबिट नोट इसे नहीं ढकता। कम से कम {min} kg का नोट बनाएं। |
+| `detail.okShortOffice` | In stock, but {kg} kg short, beyond {pct}, and no live debit note covers it. Ask the office to raise one for at least {min} kg. | स्टॉक में है, पर {kg} kg कम है, {pct} से ज़्यादा, और कोई चालू डेबिट नोट इसे नहीं ढकता। ऑफ़िस से कम से कम {min} kg का नोट बनवाएं। |
+| `detail.coveredBy` | The short is covered by {notes}. | कमी {notes} से ढकी है। |
 | `detail.noteCovers` | The debit notes cover the short. The lot can go OK. | डेबिट नोट कमी को ढकते हैं। लॉट OK हो सकता है। |
 | `detail.store` | Scrap store | स्क्रैप स्टोर |
 | `detail.cancel` | Cancel lot | लॉट कैंसल करें |
@@ -1058,6 +1070,7 @@ Please check, Lalubhai:
 | `errors.tooHeavy` | That is more than 100 tonnes. Check the weight. | यह 100 टन से ज़्यादा है। वज़न जांच लें। |
 | `errors.noteTooSmall` | The note must cover at least the short beyond the tolerance. | नोट कम से कम छूट से ज़्यादा वाली कमी ढके। |
 | `errors.noteTooBig` | The note can't be more than the party weight. | नोट पार्टी के वज़न से ज़्यादा नहीं हो सकता। |
+| `errors.noteOverShort` | A weight debit can't be more than the short. Lower the kg. | वज़न का डेबिट कमी से ज़्यादा नहीं हो सकता। kg कम करें। |
 | `errors.bori` | The bori deduction must be less than our kanta weight. | बोरी कटौती हमारे कांटे के वज़न से कम हो। |
 | `errors.date` | Pick the lot date. | लॉट की तारीख चुनें। |
 | `errors.vehicle` | Keep the vehicle number under 20 characters. | गाड़ी नंबर 20 अक्षर से कम रखें। |
@@ -1065,7 +1078,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (56)
+### approvals (59)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1118,6 +1131,9 @@ Please check, Lalubhai:
 | `rate` | Rate | रेट |
 | `covers` | Covers the short beyond {pct} | {pct} से ज़्यादा वाली कमी ढकता है |
 | `notCovers` | Does not cover the short beyond {pct} | {pct} से ज़्यादा वाली कमी नहीं ढकता |
+| `overShort` | This note is {kg} kg more than the short. Check it before approving. | यह नोट कमी से {kg} kg ज़्यादा है। मंज़ूर करने से पहले जांचें। |
+| `overShortWithOthers` | With the lot's other weight notes, this comes to {kg} kg more than the short. Check it before approving. | लॉट के बाकी वज़न वाले नोट मिलाकर यह कमी से {kg} kg ज़्यादा है। मंज़ूर करने से पहले जांचें। |
+| `moreError` | More requests didn't load. Press Show more to try again. | और रिक्वेस्ट लोड नहीं हुईं। फिर से कोशिश के लिए और दिखाएं दबाएं। |
 | `otherNotes` | Other notes on this lot | इस लॉट के बाकी नोट |
 | `figuresHidden` | Your role can't see the purchase figures. | आपके रोल को खरीद के आंकड़े नहीं दिखते। |
 | `emptyPendingTitle` | Nothing waiting | कुछ इंतज़ार में नहीं |

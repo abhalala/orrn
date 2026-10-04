@@ -7,7 +7,7 @@
  */
 import type { StatusTone } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
-import { canApprove, type ApprovalKind, type Me } from "@orrn/server/lib/permissions";
+import { canAny, canApprove, type Action, type ApprovalKind, type Me } from "@orrn/server/lib/permissions";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -140,4 +140,29 @@ export function unbrokenCodes(title: string, codes: readonly string[]): string {
 /** The codes an approval title can carry (note, lot and die copy numbers). */
 export function subjectCodes(subject: ApprovalSubject): string[] {
   return ["number", "lot", "code", "ref"].map((k) => subject.vars[k]).filter((v): v is string => typeof v === "string");
+}
+
+/** The server's `purchaseReader`: who may read scrap purchase figures and lots. */
+export const PURCHASE_READERS: readonly Action[] = ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"];
+
+/**
+ * The subject's link works for this person: a D/C note opens its lot only for purchase readers
+ * (foundry and die room see the inbox but not purchase, and would land on a refusal).
+ */
+export function canOpenSubject(me: Me | null | undefined, row: ApprovalForView): boolean {
+  if (!me) return false;
+  if (row.kind === "dc_note") return canAny(me, PURCHASE_READERS);
+  return true;
+}
+
+/** Inbox page size. `approval.list` caps limit at 200, so pages grow by offset, never by limit. */
+export const APPROVALS_PAGE = 25;
+
+export function approvalsPageInput(filter: { status: ApprovalStatus; kind: ApprovalKind | undefined }, offset: number) {
+  return { status: filter.status, kind: filter.kind, limit: APPROVALS_PAGE, offset };
+}
+
+/** The next page's offset from the server's `nextOffset` (undefined ends "Show more"). */
+export function nextApprovalsOffset(last: { nextOffset: number | null }): number | undefined {
+  return last.nextOffset ?? undefined;
 }
