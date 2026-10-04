@@ -312,10 +312,25 @@ type OverdrawCtx = {
   impersonation?: Context["impersonation"];
 };
 
+/** The figures an overdraw request asks for, in a fixed key order (to tell "same ask" from "new ask"). */
+function overdrawFigures(meta: unknown): string {
+  const m = (meta ?? {}) as { toleranceBp?: unknown; lines?: unknown };
+  const lines = Array.isArray(m.lines) ? (m.lines as Record<string, unknown>[]) : [];
+  return JSON.stringify([
+    m.toleranceBp ?? null,
+    lines.map((l) => [l.lineId, l.orderedG, l.limitG, l.totalG, l.overG]),
+  ]);
+}
+
 /**
- * Review Focus 5: open (or refresh) the dispatch_overdraw request for this dispatch with the lines
- * that are over, then refuse with PRECONDITION_FAILED. Nothing else is written: no stock moves and
- * no PL number is taken. The approval's meta carries kg only (no money), so approval.list may show it.
+ * Review Focus 5: make sure a dispatch_overdraw request names exactly the lines that are over now,
+ * then refuse with PRECONDITION_FAILED. Nothing else is written: no stock moves and no PL number is
+ * taken. The approval's meta carries kg only (no money), so approval.list may show it.
+ *
+ * A pending request is NEVER rewritten (an approver may be reading it, and approval.decide approves
+ * what the row says): when it already names these figures it is left as it is; when the figures
+ * changed, it is withdrawn (rejected, "Withdrawn: …", ruling PL8-R6) and a new request is opened in
+ * the same batch, requested by whoever pressed Complete this time (so that person cannot approve it).
  */
 async function refuseOverdraw(
   ctx: OverdrawCtx,
@@ -340,37 +355,31 @@ async function refuseOverdraw(
       overG: l.overG,
     })),
   };
-  const pendingOf = () =>
-    ctx.db
-      .select({ id: approval.id, requestNote: approval.requestNote })
-      .from(approval)
-      .where(
-        and(
-          eq(approval.companyId, ctx.companyId),
-          eq(approval.kind, "dispatch_overdraw"),
-          eq(approval.subjectId, d.id),
-          eq(approval.status, "pending"),
-        ),
-      )
-      .limit(1);
-  const [pending] = await pendingOf();
-  const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-  const audit = auditInsert(ctx, {
-    action: "dispatch.overdraw.request",
-    subjectType: "dispatch",
-    subjectId: d.id,
-    meta: { ...meta, note: note ?? null },
-  });
-  if (pending) {
-    // Refresh the open request with today's figures so the approver sees what will actually leave.
-    await atomicBatch(ctx.db, [
-      ctx.db
-        .update(approval)
-        .set({ meta, requestNote: note ?? pending.requestNote, serverSeq: seq })
-        .where(and(eq(approval.id, pending.id), eq(approval.companyId, ctx.companyId), eq(approval.status, "pending"))),
-      audit,
-    ]);
-  } else {
+  const [pending] = await ctx.db
+    .select({ id: approval.id, meta: approval.meta })
+    .from(approval)
+    .where(
+      and(
+        eq(approval.companyId, ctx.companyId),
+        eq(approval.kind, "dispatch_overdraw"),
+        eq(approval.subjectId, d.id),
+        eq(approval.status, "pending"),
+      ),
+    )
+    .limit(1);
+  if (!pending || overdrawFigures(pending.meta) !== overdrawFigures(meta)) {
+    const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+    const statements: SqliteBatchItem[] = [];
+    if (pending) {
+      // Withdraw exactly the request we read, and only while it is still undecided. If it was
+      // decided meanwhile this lands nothing and the new request below still opens.
+      statements.push(
+        ctx.db
+          .update(approval)
+          .set({ status: "rejected", decidedAt: clockNow(), note: "Withdrawn: asked again with new figures.", serverSeq: seq })
+          .where(and(eq(approval.id, pending.id), eq(approval.companyId, ctx.companyId), eq(approval.status, "pending"))),
+      );
+    }
     const { statement } = requestApprovalInsert(ctx, {
       kind: "dispatch_overdraw",
       subjectId: d.id,
@@ -378,10 +387,20 @@ async function refuseOverdraw(
       requestNote: note ?? null,
       meta,
     });
+    statements.push(
+      statement,
+      auditInsert(ctx, {
+        action: "dispatch.overdraw.request",
+        subjectType: "dispatch",
+        subjectId: d.id,
+        meta: { ...meta, note: note ?? null, ...(pending ? { replaces: pending.id } : {}) },
+      }),
+    );
     try {
-      await atomicBatch(ctx.db, [statement, audit]);
+      await atomicBatch(ctx.db, statements);
     } catch (e) {
-      // A concurrent refusal opened it first (one pending request per subject): that one stands.
+      // A concurrent refusal opened its request first (one pending request per subject): that one
+      // stands, and the next Complete compares against it.
       if (!/UNIQUE constraint failed: approval\./.test(errorChain(e))) throw e;
     }
   }
@@ -628,7 +647,8 @@ export const dispatchRouter = router({
           orderId: salesOrder.id,
           orderNumber: salesOrder.number,
           lineNo: salesOrderLine.lineNo,
-          poNumber: bundle.poNumber,
+          // The PO the packing list prints: the linked order's, else the bundle's own.
+          poNumber: sql<string | null>`coalesce(nullif(trim(${salesOrder.poNumber}), ''), ${bundle.poNumber})`,
         })
         .from(dispatchItem)
         .innerJoin(
@@ -762,7 +782,14 @@ export const dispatchRouter = router({
       }
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const allowed: DispatchStatus[] = baseChange ? ["draft"] : ["draft", "reserved", "completed"];
+      // Write-time: the edit lands only in the state it was checked for. A header edit read on a
+      // draft/reserved dispatch must not land on one that completed meanwhile (R7: after completion
+      // only dispatch.complete holders edit the header, and the stored PL header must follow).
+      const allowed: DispatchStatus[] = baseChange
+        ? ["draft"]
+        : existing.status === "completed"
+          ? ["completed"]
+          : EDITABLE_DISPATCH;
       const statements: SqliteBatchItem[] = [
         ctx.db
           .update(dispatch)
@@ -861,6 +888,10 @@ export const dispatchRouter = router({
    * Link a dispatch item to a sales order line, or unlink it with null (spec P13). The line must be
    * an open order of this dispatch's customer, for the bundle's section; the dispatch must still
    * be draft or reserved. Overdraw is checked when the dispatch completes.
+   *
+   * Unlinking a bundle while the customer has an open line for its section takes it out of the
+   * Review Focus 5 check, so it needs order.manage (office, manager, owner): the floor cannot send
+   * kg beyond the order without the override by unlinking it (fix round 1, correctness I-2).
    */
   linkItem: actionProcedure("dispatch.scan")
     .input(z.object({ itemId: z.string().min(1).max(64), salesOrderLineId: z.string().min(1).max(64).nullable() }))
@@ -887,6 +918,20 @@ export const dispatchRouter = router({
       if (!item) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
       if (!EDITABLE_DISPATCH.includes(item.status)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Order lines can only be changed before the dispatch completes" });
+      }
+      const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+      // An unlink by someone without order.manage (the floor) is checked here and in the UPDATE itself.
+      const guardedUnlink = input.salesOrderLineId === null && !can(me, "order.manage");
+      /** EXISTS: the dispatch's customer (as it is now) has an open order line for the bundle's section. */
+      const openLineForBundle = sql`exists (select 1 from sales_order_line l join sales_order o on o.id = l.sales_order_id and o.company_id = ${ctx.companyId} join dispatch dd on dd.id = ${item.dispatchId} and dd.company_id = ${ctx.companyId} where l.company_id = ${ctx.companyId} and l.die_id = ${item.dieId} and o.customer_id = dd.customer_id and o.status in ('booking', 'confirmed', 'dispatching'))`;
+      if (guardedUnlink && item.from !== null) {
+        const [{ open } = { open: 0 }] = await ctx.db.select({ open: sql<number>`${openLineForBundle}` }).from(company).where(eq(company.id, ctx.companyId));
+        if (Number(open)) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "This customer has an open order for this section. Only the office can take the bundle off the order.",
+          });
+        }
       }
       if (input.salesOrderLineId) {
         const [line] = await ctx.db
@@ -925,8 +970,11 @@ export const dispatchRouter = router({
                   .where(dispatchInStatus(ctx.companyId, item.dispatchId, EDITABLE_DISPATCH)),
               ),
               input.salesOrderLineId
-                ? sql`exists (select 1 from sales_order_line l join sales_order o on o.id = l.sales_order_id and o.company_id = ${ctx.companyId} join dispatch dd on dd.id = ${item.dispatchId} and dd.company_id = ${ctx.companyId} where l.id = ${input.salesOrderLineId} and l.company_id = ${ctx.companyId} and o.customer_id = dd.customer_id and o.status in ('booking', 'confirmed', 'dispatching'))`
+                ? sql`exists (select 1 from sales_order_line l join sales_order o on o.id = l.sales_order_id and o.company_id = ${ctx.companyId} join dispatch dd on dd.id = ${item.dispatchId} and dd.company_id = ${ctx.companyId} join bundle bb on bb.id = ${item.bundleId} and bb.company_id = ${ctx.companyId} where l.id = ${input.salesOrderLineId} and l.company_id = ${ctx.companyId} and l.die_id = bb.die_id and o.customer_id = dd.customer_id and o.status in ('booking', 'confirmed', 'dispatching'))`
                 : undefined,
+              // Write-time half of the unlink rule: an open line for the section appearing after the
+              // read (order created or reopened, customer changed) refuses the floor's unlink.
+              guardedUnlink ? sql`not ${openLineForBundle}` : undefined,
             ),
           ),
         ctx.db
@@ -1632,8 +1680,9 @@ export const dispatchRouter = router({
             .set({
               status: "dispatched",
               serverSeq: seq,
-              // The bundle now counts as produced for the line it was dispatched against (if linked).
-              salesOrderLineId: sql`coalesce((select di.sales_order_line_id from dispatch_item di where di.company_id = ${ctx.companyId} and di.dispatch_id = ${d.id} and di.bundle_id = ${bundle.id}), ${bundle.salesOrderLineId})`,
+              // The bundle now counts as produced for the line it was dispatched against, and for no
+              // line when it left unlinked (it went to someone else, not to the line it was packed for).
+              salesOrderLineId: sql`(select di.sales_order_line_id from dispatch_item di where di.company_id = ${ctx.companyId} and di.dispatch_id = ${d.id} and di.bundle_id = ${bundle.id})`,
             })
             .where(
               and(

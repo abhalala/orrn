@@ -337,15 +337,22 @@ bun run deploy
 - Tables `sales_order` + `sales_order_line` (`packages/db/src/schema/sales.ts`); router `orders`
   (`routers/salesOrder.ts`): `create` / `update` need `order.manage` (office, manager, owner); `get`,
   `list`, `balance`, `openLines` are open to every member (lines carry no prices; Pack and Dispatch
-  need them, ruling PL8-R1). Numbers `SO-{n}` per FY from `nextDocNumber(.., "so", ..)`. A line's
+  need them, ruling PL8-R1). Numbers `SO-{n}` per FY from `nextDocNumber(.., "so", ..)`; the order stores
+  that `period` and the unique key is (company, period, number), so a number repeats every FY: show the
+  order date or period beside it. A line's
   section is a `die` row (`sectionId` in the API, `die_id` in SQL); weights are grams (`kgG`),
   `kgPer12ftMilli` = grams per 12 ft, cut length mm, `finish` free text (OI-09).
-- Baki maths live only in `lib/orders.ts` (`lineBalances`, `sumBalances`): ordered = line kg/pcs;
-  produced = non-void bundles whose `sales_order_line_id` is the line (set by `createReceipt` and moved
-  to the line a completed dispatch fulfilled, so produced includes dispatched); dispatched = bundles of
+- Baki maths live only in `lib/orders.ts` (`lineBalances`, `lineBalancePage`, `lineTotals`,
+  `orderTotals`, `sumBalances`): ordered = line kg/pcs;
+  produced = non-void bundles whose `sales_order_line_id` is the line (set by `createReceipt`; completion
+  sets it to the line the dispatch item was linked to, NULL when it left unlinked); dispatched = bundles of
   completed, live dispatches whose `dispatch_item.sales_order_line_id` is the line; baki = ordered −
   dispatched floored at 0, the excess is `overG`. Every subquery is scoped by the outer line's
   company (a forged cross-company id adds nothing); never compute baki anywhere else.
+- Rows are never cut silently: `lineBalances` throws `LineLimitError` past 1,000 lines; screens page
+  with `lineBalancePage` (`orders.balance` takes `limit`/`offset`, returns `nextOffset`), and report
+  totals come from SQL (`lineTotals`, `orderTotals`), never from summing a page. `withBaki` filters
+  baki > 0 in SQL before any limit (`openLines`).
 - Order status: booking ⇄ confirmed → dispatching (set by the first completed dispatch) → closed
   (reopen to confirmed). Cancel only while no live dispatch carries its lines. A line that has bundles
   or dispatch items cannot be removed or change section, and the order's customer cannot change once
@@ -356,13 +363,18 @@ bun run deploy
   same customer at write time (`dispatch.linkItem`, `bundle.createReceipt`, `addBundles*`).
 - Scanning a bundle onto a dispatch links it (`lib/orders.ts suggestLines`): the line it was packed
   for if that line is open for this customer and section, else the oldest open line of this customer
-  and section with baki left after what is already on this dispatch, else unlinked. The add reports
-  return `linked[]`.
+  and section with baki left after what is already on this dispatch, else the NEWEST open line of that
+  customer and section (so kg beyond the order meets the overdraw rule), else (no open line for the
+  section) unlinked. The add reports return `linked[]`. Unlinking (`linkItem` null) a bundle whose
+  section has an open line of the dispatch's customer needs `order.manage` (read and write time):
+  the floor cannot take kg off the order to skip the override (ruling PL8-R15).
 - Review Focus 5: `dispatch.complete` refuses (PRECONDITION_FAILED) when a linked line's dispatched
   total would pass ordered + tolerance (`customer.kg_tolerance_bp`, else `settings.orderToleranceBp`,
-  else 500 bp = 5 %) and opens/refreshes one `dispatch_overdraw` approval (meta = per-line kg, no
-  money); nothing moves and no PL number is taken. An approval covers only the line totals it was
-  asked for. The same rule is in the completing UPDATE's WHERE (`overdrawGuard`), followed by a
+  else 500 bp = 5 %) and opens one `dispatch_overdraw` approval (meta = per-line kg, no money);
+  nothing moves and no PL number is taken. An approval covers only the line totals it was asked for.
+  A pending request is never rewritten: the same figures leave it as it is; new figures withdraw it
+  ("Withdrawn: asked again with new figures.") and open a new one requested by whoever pressed
+  Complete (an approver approves only what they saw; nobody approves their own figures). The same rule is in the completing UPDATE's WHERE (`overdrawGuard`), followed by a
   `batchAbortUnless`, so a concurrent completion or a late link cannot slip through. A request left
   open becomes `rejected` with note "Withdrawn: …" when the dispatch completes within limits, is
   cancelled or is deleted (ruling PL8-R6).

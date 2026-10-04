@@ -17,7 +17,7 @@ import { anyActionProcedure, router } from "../index";
 import { companyTimezone, zonedMidnightMs, zonedYmd } from "../lib/dayWindow";
 
 /** Rows per register: a plant ships a few hundred loads a month; the cap keeps one call bounded. */
-const MAX_REGISTER_ROWS = 5_000;
+export const MAX_REGISTER_ROWS = 5_000;
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -80,7 +80,8 @@ export const reportsRouter = router({
             id: dispatch.id,
             code: dispatch.code,
             completedAt: dispatch.completedAt,
-            plNumber: dispatch.plNumber,
+            // Dispatches completed before PL-8 have no pl_number; their packing list code is the number.
+            plNumber: sql<string | null>`coalesce(${dispatch.plNumber}, (select pl.code from packing_list pl where pl.company_id = ${ctx.companyId} and pl.dispatch_id = ${dispatch}.${sql.identifier("id")} order by pl.created_at desc limit 1))`,
             invoiceNumber: dispatch.invoiceNumber,
             invoiceDate: dispatch.invoiceDate,
             vehicleNo: dispatch.vehicleNo,

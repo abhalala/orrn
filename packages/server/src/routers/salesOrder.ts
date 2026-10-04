@@ -27,7 +27,16 @@ import { atomicBatch, chunk, mapInChunks, pushChunkedInserts, type OrrnDb, type 
 import { now as clockNow } from "../lib/clock";
 import { companyTimezone, zonedYmd } from "../lib/dayWindow";
 import { nextDocNumber } from "../lib/docNumber";
-import { batchAbortUnless, isBatchAbort, lineBalances, ORDER_STATUS_MOVES, sumBalances } from "../lib/orders";
+import {
+  batchAbortUnless,
+  isBatchAbort,
+  lineBalancePage,
+  lineBalances,
+  lineTotals,
+  ORDER_STATUS_MOVES,
+  orderTotals,
+  sumBalances,
+} from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
 
 const MAX_LINES = 100;
@@ -155,7 +164,9 @@ export const salesOrderRouter = router({
       const today = zonedYmd(companyTimezone(co?.settings), at.getTime());
       const orderDate =
         input.orderDate ?? `${today.year}-${String(today.month).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
-      const { number } = await nextDocNumber(ctx.db, ctx.companyId, "so", at, userId);
+      // SO numbers restart every financial year: the order keeps the period it was numbered in, and
+      // the unique key is (company, period, number).
+      const { number, period } = await nextDocNumber(ctx.db, ctx.companyId, "so", at, userId);
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const id = crypto.randomUUID();
       const status: SalesOrderStatus = input.status ?? "booking";
@@ -165,6 +176,7 @@ export const salesOrderRouter = router({
           id,
           companyId: ctx.companyId,
           serverSeq: seq,
+          period,
           number,
           customerId: input.customerId,
           poNumber: blank(input.poNumber),
@@ -192,6 +204,7 @@ export const salesOrderRouter = router({
           subjectId: id,
           meta: {
             number,
+            period,
             customerId: input.customerId,
             lines: input.lines.length,
             kgG: input.lines.reduce((s, l) => s + l.kgG, 0),
@@ -213,7 +226,13 @@ export const salesOrderRouter = router({
       const at = clockNow();
 
       const existing = await ctx.db
-        .select({ id: salesOrderLine.id, lineNo: salesOrderLine.lineNo, dieId: salesOrderLine.dieId, linked: lineHasLinks(ctx.companyId, sql`${salesOrderLine.id}`) })
+        .select({
+          id: salesOrderLine.id,
+          lineNo: salesOrderLine.lineNo,
+          dieId: salesOrderLine.dieId,
+          kgG: salesOrderLine.kgG,
+          linked: lineHasLinks(ctx.companyId, sql`${salesOrderLine.id}`),
+        })
         .from(salesOrderLine)
         .where(and(eq(salesOrderLine.companyId, ctx.companyId), eq(salesOrderLine.salesOrderId, order.id)));
       const byId = new Map(existing.map((l) => [l.id, l]));
@@ -392,12 +411,14 @@ export const salesOrderRouter = router({
           ),
         );
       }
+      // Every changed line must carry this edit's seq afterwards: counting them (not "none without
+      // it") also fails the edit when a concurrent edit removed one of the lines.
       for (const part of chunk(changes.map((c) => c.id), 80)) {
         statements.push(
           batchAbortUnless(
             ctx.db,
             "sales_order_line",
-            sql`not exists (select 1 from sales_order_line l where l.company_id = ${ctx.companyId} and l.id in (${sql.join(part.map((id) => sql`${id}`), sql`, `)}) and l.server_seq <> ${seq})`,
+            sql`(select count(*) from sales_order_line l where l.company_id = ${ctx.companyId} and l.sales_order_id = ${order.id} and l.id in (${sql.join(part.map((id) => sql`${id}`), sql`, `)}) and l.server_seq = ${seq}) = ${part.length}`,
           ),
         );
       }
@@ -426,7 +447,17 @@ export const salesOrderRouter = router({
             ...(nextStatus ? { status: { from: order.status, to: nextStatus } } : {}),
             ...(input.customerId && input.customerId !== order.customerId ? { customerId: { from: order.customerId, to: input.customerId } } : {}),
             ...(input.lines
-              ? { linesRemoved: removals.map((r) => r.lineNo), linesChanged: changes.length, linesAdded: additions.length }
+              ? {
+                  linesRemoved: removals.map((r) => r.lineNo),
+                  linesChanged: changes.length,
+                  linesAdded: additions.length,
+                  // Ordered kg changes line by line (raising a line's kg lets more leave without an
+                  // override, ruling PL8-R15), so the order history shows who changed what.
+                  kgChanged: changes.flatMap((c) => {
+                    const cur = byId.get(c.id)!;
+                    return cur.kgG === c.kgG ? [] : [{ lineNo: cur.lineNo, fromG: cur.kgG, toG: c.kgG }];
+                  }),
+                }
               : {}),
           },
         }),
@@ -485,6 +516,7 @@ export const salesOrderRouter = router({
       const rows = await ctx.db
         .select({
           id: salesOrder.id,
+          period: salesOrder.period,
           number: salesOrder.number,
           customerId: salesOrder.customerId,
           customerName: customer.name,
@@ -505,15 +537,10 @@ export const salesOrderRouter = router({
         .innerJoin(customer, and(eq(customer.id, salesOrder.customerId), eq(customer.companyId, ctx.companyId)))
         .where(where);
 
-      const lines = await lineBalances(ctx.db, ctx.companyId, { orderIds: rows.map((r) => r.id) });
-      const byOrder = new Map<string, typeof lines>();
-      for (const l of lines) {
-        const list = byOrder.get(l.orderId) ?? [];
-        list.push(l);
-        byOrder.set(l.orderId, list);
-      }
+      // Per-order sums in SQL (GROUP BY order), never from a capped list of lines.
+      const sums = await orderTotals(ctx.db, ctx.companyId, rows.map((r) => r.id));
       const items = rows.map((r) => {
-        const t = sumBalances(byOrder.get(r.id) ?? []);
+        const t = sums.get(r.id) ?? sumBalances([]);
         return { ...r, lines: t.lines, orderedG: t.orderedG, producedG: t.producedG, dispatchedG: t.dispatchedG, bakiG: t.bakiG, overG: t.overG };
       });
       const total = totalRow?.n ?? 0;
@@ -523,8 +550,9 @@ export const salesOrderRouter = router({
 
   /**
    * Order balance (baki) per line — the "Order balance" report (spec P19): ordered, produced,
-   * dispatched and remaining kg and pcs. Open orders by default; `includeClosed` adds closed ones.
-   * Cancelled orders never appear.
+   * dispatched and remaining kg and pcs, oldest order first. Open orders by default; `includeClosed`
+   * adds closed ones. Cancelled orders never appear. Lines come a page at a time (`limit`, `offset`,
+   * `nextOffset` null on the last page); `totals` and `total` always cover every matching line.
    */
   balance: companyProcedure
     .input(
@@ -532,15 +560,21 @@ export const salesOrderRouter = router({
         customerId: z.string().min(1).max(64).optional(),
         orderId: z.string().min(1).max(64).optional(),
         includeClosed: z.boolean().optional(),
+        limit: z.number().int().min(1).max(1000).default(500),
+        offset: z.number().int().min(0).default(0),
       }),
     )
     .query(async ({ ctx, input }) => {
-      const lines = await lineBalances(ctx.db, ctx.companyId, {
+      const filter = {
         customerId: input.customerId,
         orderId: input.orderId,
-        statuses: input.includeClosed ? [...openSalesOrderStatuses, "closed"] : openSalesOrderStatuses,
-      });
-      return { lines, totals: sumBalances(lines) };
+        statuses: input.includeClosed ? [...openSalesOrderStatuses, "closed" as const] : openSalesOrderStatuses,
+      };
+      const [page, totals] = await Promise.all([
+        lineBalancePage(ctx.db, ctx.companyId, filter, { limit: input.limit, offset: input.offset }),
+        lineTotals(ctx.db, ctx.companyId, filter),
+      ]);
+      return { lines: page.lines, totals, total: totals.lines, nextOffset: page.nextOffset };
     }),
 
   /**
@@ -555,11 +589,14 @@ export const salesOrderRouter = router({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const lines = await lineBalances(ctx.db, ctx.companyId, {
-        customerId: input.customerId,
-        dieIds: input.dieId ? [input.dieId] : undefined,
-        openOnly: true,
-      });
-      return lines.filter((l) => l.bakiG > 0).slice(0, 50);
+      // Baki > 0 is part of the SQL, before the limit: old lines that are fully sent but not closed
+      // never crowd out the ones that still need bundles.
+      const { lines } = await lineBalancePage(
+        ctx.db,
+        ctx.companyId,
+        { customerId: input.customerId, dieIds: input.dieId ? [input.dieId] : undefined, openOnly: true, withBaki: true },
+        { limit: 50 },
+      );
+      return lines;
     }),
 });

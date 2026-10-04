@@ -7,24 +7,12 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
-import {
-  approval,
-  bundle,
-  customer,
-  dispatch,
-  dispatchItem,
-  docSeries,
-  packingList,
-  salesOrderLine,
-  stockLedger,
-} from "@orrn/db/schema";
-import { and, asc, eq } from "drizzle-orm";
+import { approval, bundle, customer, dispatchItem, docSeries, packingList } from "@orrn/db/schema";
+import { and, eq } from "drizzle-orm";
 
 import { can, type Action } from "../src/lib/permissions";
-import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
-
-/** Harness tests take 1–4 s each; under a loaded machine bun's 5 s default turns them into a Miniflare cascade. */
-const SLOW = 60_000;
+import { createTestEnv, type TestEnv } from "./harness";
+import { ist, kg, NOON, ROLES, salesHelpers, SLOW } from "./sales-fixture";
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
@@ -42,172 +30,7 @@ afterAll(async () => {
   await env.dispose();
 });
 
-type Api = ReturnType<TestEnv["caller"]>;
-
-const ROLES: CompanyRole[] = [
-  "owner", "admin", "manager", "office", "accountant", "supervisor", "packer",
-  "foundry", "press", "storekeeper", "die_room", "operator", "viewer",
-];
-
-const kg = (n: number) => Math.round(n * 1000);
-/** 2026-10-03 12:00 IST. */
-const NOON = new Date("2026-10-03T06:30:00.000Z");
-const ist = (local: string) => new Date(`${local}+05:30`);
-
-let sectionSeq = 0;
-
-async function plant(opts: { settings?: Record<string, unknown> } = {}) {
-  const { companyId, users } = await env.seedCompany({
-    settings: {
-      timezone: "Asia/Kolkata",
-      letterhead: {
-        legalName: "Fourcubes Aluminium Pvt Ltd",
-        gstin: "24AAACF1234A1Z5",
-        address: "Plot 12, GIDC, Surat 394 230",
-        phone: "+91 98250 00000",
-      },
-      ...opts.settings,
-    },
-  });
-  const as = (role: CompanyRole) => env.caller({ role, companyId });
-  const owner = as("owner");
-  await owner.stock.locations.seedDefaults();
-  const yard = (await owner.stock.locations.list()).items.find((l) => l.code === "Y1")!.id;
-  sectionSeq += 1;
-  const dieA = await env.seedDie(companyId, { series: "Domal", sectionCode: `1217${sectionSeq}A`, name: "Domal" });
-  const dieB = await env.seedDie(companyId, { series: "Slim", sectionCode: `1288${sectionSeq}B`, name: null });
-  const customerId = await env.seedCustomer(companyId);
-  const otherCustomer = await env.seedCustomer(companyId);
-  await env.db
-    .update(customer)
-    .set({
-      taxId: "24ABCDE1234F1Z9",
-      billingAddress: { line1: "Shed 4, Udhna", city: "Surat", state: "Gujarat", pincode: "394210" },
-      shippingAddress: { name: "Site office", lines: ["Ring Road", "Vadodara"] },
-    })
-    .where(eq(customer.id, customerId));
-
-  /** Pack bundles; rows are kg (and optional pcs / mm / po). Returns serials in row order. */
-  async function pack(
-    dieId: string,
-    rows: { kg: number; pcs?: number; mm?: number; po?: string }[],
-    salesOrderLineId?: string,
-  ) {
-    const res = await owner.bundle.createReceipt({
-      dieId,
-      unit: "pcs",
-      locationId: yard,
-      ...(salesOrderLineId ? { salesOrderLineId } : {}),
-      rows: rows.map((r) => ({
-        quantity: r.pcs ?? 10,
-        weightG: kg(r.kg),
-        lengthMm: r.mm ?? 3_658,
-        poNumber: r.po ?? null,
-      })),
-    });
-    const made = await env.db
-      .select({ id: bundle.id, serial: bundle.serial, weightG: bundle.weightG })
-      .from(bundle)
-      .where(and(eq(bundle.companyId, companyId), eq(bundle.groupId, res.groupId)))
-      .orderBy(asc(bundle.serial));
-    return made.map((b) => b.serial);
-  }
-
-  async function order(
-    lines: { dieId: string; kg: number; pcs?: number; finish?: string; mm?: number }[],
-    over: { customerId?: string; poNumber?: string; status?: "booking" | "confirmed" } = {},
-  ) {
-    const res = await owner.orders.create({
-      customerId: over.customerId ?? customerId,
-      poNumber: over.poNumber ?? null,
-      status: over.status,
-      lines: lines.map((l) => ({
-        sectionId: l.dieId,
-        cutLengthMm: l.mm ?? 3_658,
-        kgG: kg(l.kg),
-        pcs: l.pcs ?? null,
-        finish: l.finish ?? null,
-      })),
-    });
-    const got = await owner.orders.get({ id: res.id });
-    return { id: res.id, number: res.number, lineIds: got.lines.map((l) => l.lineId) };
-  }
-
-  /** Create, scan and reserve a dispatch; returns its id. */
-  async function held(serials: string[], cust = customerId, api: Api = owner) {
-    const { id } = await api.dispatch.create({ customerId: cust });
-    for (let i = 0; i < serials.length; i += 100) {
-      await api.dispatch.addBundlesBySerial({ id, serials: serials.slice(i, i + 100) });
-    }
-    await api.dispatch.reserve({ id });
-    return id;
-  }
-
-  async function lineOf(lineId: string) {
-    const { lines } = await owner.orders.balance({ includeClosed: true });
-    const l = lines.find((x) => x.lineId === lineId);
-    if (!l) throw new Error(`line ${lineId} not in balance`);
-    return l;
-  }
-
-  return { companyId, users, as, owner, yard, dieA, dieB, customerId, otherCustomer, pack, order, held, lineOf };
-}
-
-type Plant = Awaited<ReturnType<typeof plant>>;
-
-async function itemsOf(dispatchId: string) {
-  return env.db
-    .select({ id: dispatchItem.id, bundleId: dispatchItem.bundleId, lineId: dispatchItem.salesOrderLineId, serial: bundle.serial })
-    .from(dispatchItem)
-    .innerJoin(bundle, eq(bundle.id, dispatchItem.bundleId))
-    .where(eq(dispatchItem.dispatchId, dispatchId))
-    .orderBy(asc(bundle.serial));
-}
-
-async function dispatchRow(id: string) {
-  const [d] = await env.db.select().from(dispatch).where(eq(dispatch.id, id));
-  return d!;
-}
-
-async function plRow(dispatchId: string) {
-  const [pl] = await env.db.select().from(packingList).where(eq(packingList.dispatchId, dispatchId));
-  return pl ?? null;
-}
-
-async function ledgerOf(companyId: string, voucherId: string) {
-  return env.db
-    .select()
-    .from(stockLedger)
-    .where(and(eq(stockLedger.companyId, companyId), eq(stockLedger.voucherId, voucherId)));
-}
-
-/** Review Focus 1: ledger balance per bundle and location equals the bundle rows. */
-async function expectLedgerConsistent(p: Plant) {
-  const rows = await env.db
-    .select({ id: bundle.id, status: bundle.status, locationId: bundle.locationId, weightG: bundle.weightG })
-    .from(bundle)
-    .where(eq(bundle.companyId, p.companyId));
-  const proj = new Map<string, number>();
-  for (const b of rows) if (b.status === "available" || b.status === "reserved") proj.set(`${b.id}|${b.locationId}`, b.weightG);
-  const { items } = await p.owner.stock.balance({ itemKind: "bundle" });
-  const led = new Map(items.filter((i) => (i.qtyG ?? 0) !== 0).map((i) => [`${i.itemRef}|${i.locationId}`, i.qtyG ?? 0]));
-  const sorted = (m: Map<string, number>) => [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
-  expect(sorted(led)).toEqual(sorted(proj));
-}
-
-async function pendingOverdraw(companyId: string, dispatchId: string) {
-  return env.db
-    .select()
-    .from(approval)
-    .where(
-      and(
-        eq(approval.companyId, companyId),
-        eq(approval.kind, "dispatch_overdraw"),
-        eq(approval.subjectId, dispatchId),
-        eq(approval.status, "pending"),
-      ),
-    );
-}
+const { plant, itemsOf, dispatchRow, plRow, ledgerOf, expectLedgerConsistent, pendingOverdraw } = salesHelpers(() => env);
 
 // ---------------------------------------------------------------------------
 // Orders
@@ -226,6 +49,7 @@ describe("orders: create, numbers and validation", () => {
     const got = await p.owner.orders.get({ id: a.id });
     expect(got.order).toMatchObject({
       number: "SO-1",
+      period: "2026-27",
       customerId: p.customerId,
       poNumber: "PO-778",
       status: "booking",
@@ -343,6 +167,23 @@ describe("order status and line edits", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     // The customer cannot change once a line carries bundles.
     await expect(p.owner.orders.update({ id: o.id, customerId: p.otherCustomer })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  }, SLOW);
+
+  test("a line's kg change is in the order's audit history (raising kg lets more leave without an override)", async () => {
+    const p = await plant();
+    const o = await p.order([{ dieId: p.dieA, kg: 100 }, { dieId: p.dieB, kg: 200 }]);
+    const [l1, l2] = o.lineIds as [string, string];
+    await p.as("office").orders.update({
+      id: o.id,
+      lines: [
+        { id: l1, sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(150) },
+        { id: l2, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(200) },
+      ],
+    });
+    const { auditLog } = await import("@orrn/db/schema");
+    const rows = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "order.update")));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.meta).toMatchObject({ kgChanged: [{ lineNo: 1, fromG: kg(100), toG: kg(150) }], linesChanged: 2 });
   }, SLOW);
 
   test("race: a bundle packed for a line after the edit read it blocks a customer change, and nothing half-applies", async () => {
@@ -467,9 +308,9 @@ describe("Review Focus 5: dispatching past an order line's balance", () => {
     expect(await ledgerOf(p.companyId, d)).toHaveLength(0);
     const pl = await env.db.select().from(docSeries).where(and(eq(docSeries.companyId, p.companyId), eq(docSeries.docType, "pl")));
     expect(pl).toHaveLength(0);
-    // Asking again keeps one pending request (refreshed), not two.
+    // Asking again with the same figures leaves the one pending request as it is (never rewritten).
     await expect(p.owner.dispatch.complete({ id: d })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-    expect(await pendingOverdraw(p.companyId, d)).toHaveLength(1);
+    expect(await pendingOverdraw(p.companyId, d)).toEqual([expect.objectContaining({ id: req!.id, serverSeq: req!.serverSeq, meta: req!.meta })]);
     // getDispatch shows the state to the screen.
     const view = await p.owner.dispatch.getDispatch({ id: d });
     expect(view.overdraw).toMatchObject({ toleranceBp: 500, approval: { id: req!.id, status: "pending" } });
@@ -593,9 +434,12 @@ describe("Review Focus 5: dispatching past an order line's balance", () => {
     const o = await p.order([{ dieId: p.dieA, kg: 80 }]);
     const lineId = o.lineIds[0]!;
     const serials = await p.pack(p.dieA, [{ kg: 80 }, { kg: 80 }]);
-    const d = await p.held(serials); // auto-suggest links the first; no baki is left for the second
+    const d = await p.held(serials);
+    // The scan links both (the second meets the order's limit); the office takes the second off by hand.
     const items = await itemsOf(d);
-    expect(items.map((i) => i.lineId)).toEqual([lineId, null]);
+    expect(items.map((i) => i.lineId)).toEqual([lineId, lineId]);
+    await p.as("office").dispatch.linkItem({ itemId: items[1]!.id, salesOrderLineId: null });
+    // Complete reads 80 kg on the line (within the limit); the link lands before its batch.
     env.beforeNextBatch(() => p.owner.dispatch.linkItem({ itemId: items[1]!.id, salesOrderLineId: lineId }));
     await expect(p.owner.dispatch.complete({ id: d })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     expect((await dispatchRow(d)).status).toBe("reserved");
@@ -646,6 +490,43 @@ describe("order line suggested per bundle, and links", () => {
     expect(used.has(theirs.lineIds[0]!)).toBe(false);
   }, SLOW);
 
+  test("once every open line of the section is used up, the excess links to the NEWEST open line, so the override applies", async () => {
+    const p = await plant();
+    const old = await p.order([{ dieId: p.dieA, kg: 100 }]);
+    const newer = await p.order([{ dieId: p.dieA, kg: 100 }]);
+    const s = await p.pack(p.dieA, [{ kg: 100 }, { kg: 100 }, { kg: 50 }]);
+    const d = await p.held(s);
+    expect((await itemsOf(d)).map((i) => i.lineId)).toEqual([old.lineIds[0]!, newer.lineIds[0]!, newer.lineIds[0]!]);
+    await expect(p.owner.dispatch.complete({ id: d })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const [req] = await pendingOverdraw(p.companyId, d);
+    expect(req!.meta).toMatchObject({ lines: [{ lineId: newer.lineIds[0], totalG: kg(150), limitG: kg(105), overG: kg(45) }] });
+    // Within tolerance the excess simply rides on the line: 100 + 4 kg on a 100 kg line (limit 105).
+    const o3 = await p.order([{ dieId: p.dieB, kg: 100 }]);
+    const d2 = await p.held(await p.pack(p.dieB, [{ kg: 100 }, { kg: 4 }]));
+    expect((await itemsOf(d2)).map((i) => i.lineId)).toEqual([o3.lineIds[0]!, o3.lineIds[0]!]);
+    await p.owner.dispatch.complete({ id: d2 });
+    expect(await p.lineOf(o3.lineIds[0]!)).toMatchObject({ dispatchedG: kg(104), bakiG: 0, overG: kg(4) });
+  }, SLOW);
+
+  test("race: the floor's unlink that read 'no open line' refuses when the order reopens before it lands", async () => {
+    const p = await plant();
+    const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
+    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    await p.owner.dispatch.addBundlesBySerial({ id, serials: await p.pack(p.dieA, [{ kg: 100 }]) });
+    const [item] = await itemsOf(id);
+    expect(item!.lineId).toBe(o.lineIds[0]!);
+    // The order is closed: no open line for the section, so the packer may unlink…
+    await p.owner.orders.update({ id: o.id, status: "closed" });
+    // …but it is reopened between the unlink's read and its write.
+    env.beforeNextBatch(() => p.owner.orders.update({ id: o.id, status: "confirmed" }));
+    await expect(p.as("packer").dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect((await itemsOf(id))[0]!.lineId).toBe(o.lineIds[0]!);
+    // With the order closed and staying closed the packer's unlink lands.
+    await p.owner.orders.update({ id: o.id, status: "closed" });
+    await p.as("packer").dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
+    expect((await itemsOf(id))[0]!.lineId).toBeNull();
+  }, SLOW);
+
   test("race: a suggested line whose order closes before the scan lands leaves the bundle unlinked (the scan still succeeds)", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
@@ -667,7 +548,7 @@ describe("order line suggested per bundle, and links", () => {
     expect((await itemsOf(id)).map((i) => i.lineId)).toEqual([null, null, null]);
   }, SLOW);
 
-  test("without an open line with baki the bundle stays unlinked", async () => {
+  test("without an open line of this customer for the section the bundle stays unlinked", async () => {
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
@@ -693,7 +574,10 @@ describe("order line suggested per bundle, and links", () => {
     await expect(packer.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: mine.lineIds[1]! })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(packer.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: closed.lineIds[0]! })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(packer.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: foreign.lineIds[0]! })).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await packer.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
+    // The customer has an open line for this section: only order.manage may take the bundle off it.
+    await expect(packer.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect((await itemsOf(id))[0]!.lineId).toBe(mine.lineIds[0]!);
+    await p.as("office").dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
     expect((await itemsOf(id))[0]!.lineId).toBeNull();
     await packer.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: mine.lineIds[0]! });
     expect((await itemsOf(id))[0]!.lineId).toBe(mine.lineIds[0]!);
@@ -810,6 +694,13 @@ describe("pack against an order line", () => {
     const lines = await p.as("packer").orders.openLines({ dieId: p.dieA });
     expect(lines.map((l) => l.lineId)).toEqual([a.lineIds[0]!, b.lineIds[0]!]);
     expect((await p.as("packer").orders.openLines({ dieId: p.dieA, customerId: p.otherCustomer })).map((l) => l.lineId)).toEqual([b.lineIds[0]!]);
+    // Baki is filtered in SQL before the limit: the fully sent (still open) line never takes a slot.
+    const { lineBalancePage } = await import("../src/lib/orders");
+    const page = await lineBalancePage(env.db as never, p.companyId, { dieIds: [p.dieA], openOnly: true, withBaki: true }, { limit: 1 });
+    expect(page.lines.map((l) => l.lineId)).toEqual([a.lineIds[0]!]);
+    expect(page.nextOffset).toBe(1);
+    const all = await lineBalancePage(env.db as never, p.companyId, { dieIds: [p.dieA], openOnly: true }, { limit: 1 });
+    expect(all.lines.map((l) => l.orderId)).toEqual([a.id]);
   }, SLOW);
 });
 
@@ -986,7 +877,9 @@ describe("packing list v2: snapshot shape and number assigned once", () => {
     for (const text of [done.plNumber, "24AAACF1234A1Z5", "GJ05AB1234", "PO-778", "Range /12&#39;", "2 bundles · 49.750 kg", `${o.number} / 1`]) {
       expect(html.replace(/'/g, "&#39;")).toContain(text);
     }
-    for (const heading of docs.PL_COLUMN_HEADINGS) expect(html).toContain(`>${heading.replace(/'/g, "'")}<`);
+    const printed = ["Sr", "Bundle no", "Section", "Item", "Weight kg", "Cut ft", "Cut in", "Pcs", "kg/12ft", "Range /12'", "PO"];
+    expect([...docs.PL_COLUMN_HEADINGS]).toEqual(printed);
+    for (const heading of printed) expect(html.replace(/&#39;/g, "'")).toContain(`>${heading}<`);
     const xlsx = docs.buildPackingListXlsxBuffer(snap, done.plNumber);
     expect(String.fromCharCode(xlsx[0]!, xlsx[1]!)).toBe("PK");
     expect(docs.plFileName(done.plNumber)).toBe("PL-2026-27-1");
@@ -1075,6 +968,10 @@ describe("permission matrix", () => {
   }, SLOW);
 
   test("linkItem needs dispatch.scan; invoice fields need invoice.link", async () => {
+    // Literal pins (digest §4.2), so a change to the matrix fails here and not only in can().
+    expect(holders("dispatch.scan").sort()).toEqual(["admin", "manager", "office", "operator", "owner", "packer", "supervisor"]);
+    expect(holders("invoice.link").sort()).toEqual(["manager", "office", "owner"]);
+    expect(holders("dispatch.complete").sort()).toEqual(["admin", "manager", "office", "owner", "supervisor"]);
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 10 }]);
@@ -1194,8 +1091,3 @@ describe("analytics customerSummary.openOrders", () => {
     expect(sum.openOrders).toEqual({ orderedG: kg(1200), dispatchedG: kg(300), bakiG: kg(900), lines: 2 });
   }, SLOW);
 });
-
-// Keep the sales_order_line import used (schema export check).
-test("schema exports sales tables", () => {
-  expect(salesOrderLine).toBeTruthy();
-}, SLOW);

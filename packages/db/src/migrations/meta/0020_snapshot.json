@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "bb65bed4-dc88-4e5e-9063-734b8d89454c",
+  "id": "288ec609-98de-4f52-8136-24e2b51cfa90",
   "prevId": "818c9e3e-4d93-4f3c-b571-be6428a6af8b",
   "tables": {
     "approval": {
@@ -4917,6 +4917,13 @@
           "autoincrement": false,
           "default": 0
         },
+        "period": {
+          "name": "period",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "number": {
           "name": "number",
           "type": "text",
@@ -5007,10 +5014,11 @@
         }
       },
       "indexes": {
-        "sales_order_company_number_unique": {
-          "name": "sales_order_company_number_unique",
+        "sales_order_company_period_number_unique": {
+          "name": "sales_order_company_period_number_unique",
           "columns": [
             "company_id",
+            "period",
             "number"
           ],
           "isUnique": true

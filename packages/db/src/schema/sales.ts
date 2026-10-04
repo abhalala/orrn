@@ -28,7 +28,12 @@ export const salesOrder = sqliteTable(
       .notNull()
       .references(() => company.id, { onDelete: "cascade" }),
     serverSeq: integer("server_seq").notNull().default(0),
-    /** `SO-{n}` per financial year from `doc_series` (never client-side). */
+    /**
+     * The `doc_series` period the number was taken in: the Apr-Mar financial year (`2026-27`). SO
+     * numbers restart every FY, so the number is unique only within its period.
+     */
+    period: text("period").notNull(),
+    /** `SO-{n}` per financial year from `doc_series` (never client-side); repeats across FYs. */
     number: text("number").notNull(),
     customerId: text("customer_id")
       .notNull()
@@ -51,7 +56,7 @@ export const salesOrder = sqliteTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("sales_order_company_number_unique").on(table.companyId, table.number),
+    uniqueIndex("sales_order_company_period_number_unique").on(table.companyId, table.period, table.number),
     index("sales_order_company_customer_status_idx").on(table.companyId, table.customerId, table.status),
     index("sales_order_company_status_date_idx").on(table.companyId, table.status, table.orderDate),
     index("sales_order_company_server_seq_idx").on(table.companyId, table.serverSeq),

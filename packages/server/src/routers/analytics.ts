@@ -30,7 +30,7 @@ import type { OrrnDb } from "@orrn/db";
 import { actionProcedure, router } from "../index";
 import { now } from "../lib/clock";
 import { companyTimezone } from "../lib/dayWindow";
-import { lineBalances, sumBalances } from "../lib/orders";
+import { lineTotals } from "../lib/orders";
 import { isIsoDate } from "../lib/purchase";
 import {
   addDays,
@@ -322,10 +322,10 @@ export const analyticsRouter = router({
     ]);
 
     // Order book (PL-8): open orders' lines for this customer; null when there are none.
-    const openLines = await lineBalances(ctx.db, companyId, { customerId: cust.id, openOnly: true });
-    const book = sumBalances(openLines);
+    // Sums in SQL over every open line (no row cap).
+    const book = await lineTotals(ctx.db, companyId, { customerId: cust.id, openOnly: true });
     const openOrders: OpenOrders | null =
-      openLines.length === 0
+      book.lines === 0
         ? null
         : { orderedG: book.orderedG, dispatchedG: book.dispatchedG, bakiG: book.bakiG, lines: book.lines };
 

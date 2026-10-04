@@ -2,6 +2,7 @@ CREATE TABLE `sales_order` (
 	`id` text PRIMARY KEY NOT NULL,
 	`company_id` text NOT NULL,
 	`server_seq` integer DEFAULT 0 NOT NULL,
+	`period` text NOT NULL,
 	`number` text NOT NULL,
 	`customer_id` text NOT NULL,
 	`po_number` text,
@@ -20,7 +21,7 @@ CREATE TABLE `sales_order` (
 	FOREIGN KEY (`created_by`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `sales_order_company_number_unique` ON `sales_order` (`company_id`,`number`);--> statement-breakpoint
+CREATE UNIQUE INDEX `sales_order_company_period_number_unique` ON `sales_order` (`company_id`,`period`,`number`);--> statement-breakpoint
 CREATE INDEX `sales_order_company_customer_status_idx` ON `sales_order` (`company_id`,`customer_id`,`status`);--> statement-breakpoint
 CREATE INDEX `sales_order_company_status_date_idx` ON `sales_order` (`company_id`,`status`,`order_date`);--> statement-breakpoint
 CREATE INDEX `sales_order_company_server_seq_idx` ON `sales_order` (`company_id`,`server_seq`);--> statement-breakpoint
