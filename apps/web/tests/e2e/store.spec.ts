@@ -529,8 +529,12 @@ test.describe("screenshots", () => {
     for (const scheme of ["light", "dark"] as const) {
       test(`capture at ${width} ${scheme}`, async ({ page }) => {
         mkdirSync(dir!, { recursive: true });
-        const shot = (name: string) =>
-          page.screenshot({ path: join(dir!, `${name}-${width}-${scheme}.png`), fullPage: true });
+        // Scroll to the top first: a full-page capture taken while scrolled draws the fixed
+        // phone header at the scroll offset, mid-page.
+        const shot = async (name: string) => {
+          await page.evaluate(() => window.scrollTo(0, 0));
+          await page.screenshot({ path: join(dir!, `${name}-${width}-${scheme}.png`), fullPage: true });
+        };
         await open(page, { width, scheme, path: "/today" });
         const ids = await ensureDemoStore(page);
 
@@ -603,6 +607,7 @@ test.describe("screenshots", () => {
     await page.screenshot({ path: join(dir!, "store-hi-375-light.png"), fullPage: true });
     await page.goto(`/store/issue?item=${ids["Cover flux"]}`);
     await expect(page.getByText("अभी स्टोर में").first()).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: join(dir!, "store-issue-hi-375-light.png"), fullPage: true });
   });
 });
