@@ -702,7 +702,6 @@ export const en = {
     columns: {
       item: "Item",
       category: "Category",
-      unit: "Unit",
       inStore: "In store",
       status: "Status",
       entry: "Entry",
@@ -711,7 +710,7 @@ export const en = {
     },
     status: {
       empty: "Empty",
-      inUse: "In use",
+      inStock: "In stock",
       retired: "Retired",
     },
     noItems: "No store items yet",
@@ -769,6 +768,7 @@ export const en = {
       bag: "Bag",
     },
     countedIn: "{category}, counted in {unit}",
+    openItem: "Open {item}",
     qtyOf: "{qty} {unit} of {item}",
     form: {
       item: "Item",

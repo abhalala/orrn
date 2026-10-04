@@ -132,7 +132,7 @@ export function StorePage() {
       </StoreSection>
 
       <StoreSection id="store-recent" title={t("store.recent")}>
-        <StoreEntries label={t("store.recent")} />
+        <StoreEntries label={t("store.recent")} pageSize={10} />
       </StoreSection>
     </>
   );

@@ -85,6 +85,8 @@ const DEMO = [
   { name: "Caustic soda", unit: "kg", category: "chemical", grn: 25_000, mrs: 25_000, purpose: "nitriding" },
   { name: "Nitrogen gas cylinder", unit: "piece", category: "gas", grn: 6_000 },
   { name: "Roller bearing 6205", unit: "piece", category: "spare", grn: 8_000, exchange: 1_000 },
+  // Enough for the screenshot runs to issue 1.25 kg each without running out (the seed clears the store).
+  { name: "Graphite paste", unit: "kg", category: "other", grn: 40_000 },
 ] as const;
 
 async function ensureDemoStore(page: Page): Promise<Record<string, string>> {
@@ -240,7 +242,7 @@ test.describe("store entries", () => {
     await expect(done).toContainText(/MRS-\d+/);
     expect(await balanceOf(page, item.id)).toBe(15_500);
 
-    await page.getByRole("link", { name: item.name }).click();
+    await page.getByRole("link", { name: `Open ${item.name}` }).click();
     await expect(page.locator("[data-slot='status-block']")).toContainText("15.5");
     const list = page.getByRole("list", { name: "Entries" });
     await expect(list.getByRole("listitem")).toHaveCount(2);
@@ -561,8 +563,7 @@ test.describe("screenshots", () => {
         await expect(page.getByLabel("Old going out")).toBeVisible();
         await shot("store-exchange");
 
-        const item = await newItem(page, { prefix: "Graphite paste", receiveMilli: 4_000 });
-        await page.goto(`/store/issue?item=${item.id}`);
+        await page.goto(`/store/issue?item=${ids["Graphite paste"]}`);
         await page.getByLabel("Quantity").fill("1.25");
         await page.locator("label", { hasText: "Maintenance" }).click();
         await page.getByRole("button", { name: "Issue", exact: true }).click();

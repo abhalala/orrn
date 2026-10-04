@@ -384,7 +384,7 @@ function EntryFormBody({
           {item ? (
             <Button asChild variant="ghost" size="lg">
               <Link to="/store/items/$id" params={{ id: item.id }}>
-                {item.name}
+                {t("store.openItem", { item: item.name })}
               </Link>
             </Button>
           ) : null}

@@ -112,8 +112,6 @@ export function StoreItemsPage({ startAdding = false }: { startAdding?: boolean 
             rows={filter.filtered}
             loading={items.isLoading || balances.isLoading}
             label={t("store.items")}
-            showUnit
-            showInUse
             empty={
               show === "retired" && rows.length > 0 && !filter.query ? (
                 <EmptyState title={t("store.itemsPage.noRetired")} />

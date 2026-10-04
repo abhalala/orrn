@@ -696,7 +696,6 @@ export const hi = {
     columns: {
       item: "सामान",
       category: "किस्म",
-      unit: "इकाई",
       inStore: "स्टोर में",
       status: "स्थिति",
       entry: "एंट्री",
@@ -705,7 +704,7 @@ export const hi = {
     },
     status: {
       empty: "खाली",
-      inUse: "चालू",
+      inStock: "मौजूद",
       retired: "बंद",
     },
     noItems: "स्टोर में अभी कोई सामान नहीं है",
@@ -763,6 +762,7 @@ export const hi = {
       bag: "बोरी",
     },
     countedIn: "{category}, {unit} में गिनती",
+    openItem: "{item} खोलें",
     qtyOf: "{item}: {qty} {unit}",
     form: {
       item: "सामान",

@@ -20,7 +20,6 @@ import { formatQty } from "./store-qty";
 import { StoreLoadError } from "./store-ui";
 import { errorMessage, useInvalidateStore, useStoreAccess, useStoreEntries, type StoreEntry } from "./use-store";
 
-const PAGE = 20;
 const MAX = 500;
 
 /** "3 Oct, 10:42 am" in the person's language, Latin digits. */
@@ -70,11 +69,20 @@ function entryDetail(t: Translate, entry: StoreEntry): string {
 
 /**
  * The store register, newest first: GRNs and MRSs with cancelled ones marked. Each row opens the
- * entry (details and, for the storekeeper, "Cancel entry"). Shows 20, then older ones on request.
+ * entry (details and, for the storekeeper, "Cancel entry"). Shows `pageSize`, then older ones on request.
  */
-export function StoreEntries({ itemId, label }: { itemId?: string; label: string }) {
+export function StoreEntries({
+  itemId,
+  label,
+  pageSize = 20,
+}: {
+  itemId?: string;
+  label: string;
+  /** How many to show first (the store page shows the latest 10; an item page 20). */
+  pageSize?: number;
+}) {
   const { t, locale } = useT();
-  const [limit, setLimit] = useState(PAGE);
+  const [limit, setLimit] = useState(pageSize);
   const [openId, setOpenId] = useState<string | null>(null);
   const query = useStoreEntries({ itemId, limit });
   const rows = query.data?.items ?? [];

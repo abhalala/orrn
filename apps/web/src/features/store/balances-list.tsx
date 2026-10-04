@@ -82,38 +82,31 @@ export function Qty({ milli, unit, className }: { milli: number; unit: string; c
   );
 }
 
-/** The status word for a store item: empty (amber), retired (quiet), or nothing to flag. */
-export function ItemStatus({
-  row,
-  showInUse = false,
-}: {
-  row: Pick<BalanceRow, "active" | "balanceMilli">;
-  showInUse?: boolean;
-}) {
+/**
+ * The status word for a store item, always shown (a blank status reads as missing data): empty
+ * (amber chip), retired (quiet chip), otherwise a plain "In stock".
+ */
+export function ItemStatus({ row }: { row: Pick<BalanceRow, "active" | "balanceMilli"> }) {
   const { t } = useT();
   if (!row.active) return <Chip tone="neutral">{t("store.status.retired")}</Chip>;
   if (row.balanceMilli <= 0) return <Chip tone="amber">{t("store.status.empty")}</Chip>;
-  return showInUse ? <span className="text-[14px] text-muted-foreground">{t("store.status.inUse")}</span> : null;
+  return <span className="text-[14px] text-muted-foreground">{t("store.status.inStock")}</span>;
 }
 
 /**
  * Store items with what is in the store, one link per row to the item page. Table from 1024px,
- * stacked rows below. `extraColumns` lets the Store items page add the unit.
+ * stacked rows below. The unit shows beside each quantity, so it has no column of its own.
  */
 export function BalancesList({
   rows,
   loading,
   empty,
   label,
-  showUnit = false,
-  showInUse = false,
 }: {
   rows: BalanceRow[];
   loading: boolean;
   empty: ReactNode;
   label: string;
-  showUnit?: boolean;
-  showInUse?: boolean;
 }) {
   const { t } = useT();
   const columns: ResponsiveListColumn<BalanceRow>[] = [
@@ -125,13 +118,10 @@ export function BalancesList({
       cell: (r) => <Qty milli={r.balanceMilli} unit={r.unit} />,
     },
     { key: "category", header: t("store.columns.category"), cell: (r) => categoryLabel(t, r.category) },
-    ...(showUnit
-      ? [{ key: "unit", header: t("store.columns.unit"), cell: (r: BalanceRow) => unitShort(t, r.unit) }]
-      : []),
     {
       key: "status",
       header: t("store.columns.status"),
-      cell: (r) => <ItemStatus row={r} showInUse={showInUse} />,
+      cell: (r) => <ItemStatus row={r} />,
     },
   ];
   return (

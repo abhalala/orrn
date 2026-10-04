@@ -655,14 +655,13 @@ Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 | `allCategories` | All categories | सारी किस्में |
 | `columns.item` | Item | सामान |
 | `columns.category` | Category | किस्म |
-| `columns.unit` | Unit | इकाई |
 | `columns.inStore` | In store | स्टोर में |
 | `columns.status` | Status | स्थिति |
 | `columns.entry` | Entry | एंट्री |
 | `columns.quantity` | Quantity | मात्रा |
 | `columns.when` | When | कब |
 | `status.empty` | Empty | खाली |
-| `status.inUse` | In use | चालू |
+| `status.inStock` | In stock | मौजूद |
 | `status.retired` | Retired | बंद |
 | `noItems` | No store items yet | स्टोर में अभी कोई सामान नहीं है |
 | `noItemsBody` | Add the chemicals, fuel and spares you keep, then receive the first delivery. | जो केमिकल, ईंधन और स्पेयर आप रखते हैं उन्हें जोड़ें, फिर पहली डिलीवरी लें। |
@@ -709,6 +708,7 @@ Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 | `unitName.box` | Box | डिब्बा |
 | `unitName.bag` | Bag | बोरी |
 | `countedIn` | {category}, counted in {unit} | {category}, {unit} में गिनती |
+| `openItem` | Open {item} | {item} खोलें |
 | `qtyOf` | {qty} {unit} of {item} | {item}: {qty} {unit} |
 | `form.item` | Item | सामान |
 | `form.itemPlaceholder` | Search store items | स्टोर का सामान खोजें |
