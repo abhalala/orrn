@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { QueryClient, type QueryKey } from "@tanstack/react-query";
+import { QueryClient, QueryObserver, type QueryKey } from "@tanstack/react-query";
 
 import { afterSignInWith, SIGN_OUT_WAIT_MS, signOutWith } from "../lib/sign-out-flow";
 
@@ -67,6 +67,46 @@ describe("signOut order: cookie gone, then gate flipped, then cache reset", () =
     expect(Date.now() - started).toBeLessThan(1_000);
     expect(log).toEqual(["request", "gate:signed-out:cache-kept"]);
     expect(qc.getQueryData(bundlesKey)).toBeUndefined();
+  });
+
+  test("the reset waits for React to unmount the signed-in screens, so nothing refetches without a cookie", async () => {
+    // Seen on the simulator: auth.me went out once more after sign-out and got a 401,
+    // because the reset ran before React had committed the gate flip. React applies
+    // an external-store change in a microtask (sync lane), unmounting the tabs and
+    // disabling the root auth.me query; model exactly that.
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const fetched: string[] = [];
+    const observe = (key: QueryKey, name: string) => {
+      const observer = new QueryObserver(qc, {
+        queryKey: key,
+        queryFn: async () => {
+          fetched.push(name);
+          return name;
+        },
+      });
+      const unsubscribe = observer.subscribe(() => {});
+      return { observer, unsubscribe };
+    };
+    qc.setQueryData(meKey, { company: { id: "c1" } });
+    qc.setQueryData(bundlesKey, ["b1"]);
+    const me = observe(meKey, "auth.me");
+    const today = observe(bundlesKey, "bundle.list");
+
+    await signOutWith({
+      queryClient: qc,
+      authSignOut: async () => ({ data: { success: true } }),
+      presence: {
+        changed: () =>
+          queueMicrotask(() => {
+            today.unsubscribe(); // the tabs unmount
+            me.observer.setOptions({ queryKey: meKey, enabled: false }); // the gate's auth.me: enabled = hasSession
+          }),
+      },
+    });
+    expect(fetched).toEqual([]);
+    expect(qc.getQueryData(bundlesKey)).toBeUndefined();
+    expect(qc.getQueryData(meKey)).toBeUndefined();
+    me.unsubscribe();
   });
 
   test("the wait is short (about 1.5 s)", () => {

@@ -48,6 +48,10 @@ export async function signOutWith({ authSignOut, presence, queryClient, waitMs =
   await Promise.race([request, wait]);
   clearTimeout(timer);
   presence.changed();
+  // React applies the gate flip in a microtask; wait one macrotask so the tabs
+  // have unmounted and the gate's auth.me is disabled before the reset, or
+  // every mounted query refetches once with no cookie (a burst of 401s).
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
   await resetAfterSignOut(queryClient);
 }
 
