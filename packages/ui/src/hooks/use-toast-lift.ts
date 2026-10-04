@@ -5,7 +5,8 @@ import { useEffect, useId, type RefObject } from "react";
  * sticky action bar lives (Build: Hold stock / Dispatch). A toast over the
  * bar hides the next action, and hovering it to click pauses its timer, so
  * it never leaves. A sticky bar calls `useToastLift(ref)`; the shared
- * `Toaster` reads `--orrn-toast-bottom` and keeps toasts above the bar.
+ * `Toaster` reads `--orrn-toast-bottom` and keeps toasts above the bar, and
+ * the page's `scroll-padding-bottom` keeps a Tab-focused row above it too.
  */
 export const TOAST_LIFT_VAR = "--orrn-toast-bottom";
 
@@ -32,14 +33,33 @@ export function createToastLift(apply: (px: number | null) => void) {
   };
 }
 
+type StyleTarget = Pick<CSSStyleDeclaration, "setProperty" | "removeProperty">;
+
+/**
+ * The bar covers the bottom of the viewport, so the same clearance goes to two
+ * places: toasts start above it, and the page's scroll padding grows by it so
+ * a row reached by Tab scrolls up clear of the bar instead of hiding behind
+ * it (WCAG 2.4.11 Focus Not Obscured). `null` (no bar left) clears both.
+ */
+export function applyBarClearance(style: StyleTarget, px: number | null) {
+  if (px === null) {
+    style.removeProperty(TOAST_LIFT_VAR);
+    style.removeProperty("scroll-padding-bottom");
+    return;
+  }
+  style.setProperty(TOAST_LIFT_VAR, `${px}px`);
+  style.setProperty("scroll-padding-bottom", `${px}px`);
+}
+
 const shared = createToastLift((px) => {
   if (typeof document === "undefined") return;
-  const root = document.documentElement.style;
-  if (px === null) root.removeProperty(TOAST_LIFT_VAR);
-  else root.setProperty(TOAST_LIFT_VAR, `${px}px`);
+  applyBarClearance(document.documentElement.style, px);
 });
 
-/** Keeps toasts above this sticky bar while it is mounted (re-measured when it resizes or the viewport changes). */
+/**
+ * Keeps toasts, and keyboard focus scrolling, clear of this sticky bar while it
+ * is mounted (re-measured when it resizes or the viewport changes).
+ */
 export function useToastLift(ref: RefObject<HTMLElement | null>) {
   const id = useId();
   useEffect(() => {

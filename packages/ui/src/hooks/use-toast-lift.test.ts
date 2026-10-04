@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { createToastLift, toastLiftFor } from "./use-toast-lift";
+import { applyBarClearance, createToastLift, TOAST_LIFT_VAR, toastLiftFor } from "./use-toast-lift";
 
 describe("createToastLift", () => {
   test("the highest bar on screen decides how far toasts lift; none left clears it", () => {
@@ -29,5 +29,33 @@ describe("toastLiftFor", () => {
 
   test("a bar that is not sticky (bottom auto) still clears its own height", () => {
     expect(toastLiftFor({ stickyBottom: Number.NaN, height: 70 })).toBe(78);
+  });
+});
+
+describe("applyBarClearance", () => {
+  function fakeStyle() {
+    const props = new Map<string, string>();
+    return {
+      props,
+      setProperty: (k: string, v: string) => void props.set(k, v),
+      removeProperty: (k: string) => {
+        props.delete(k);
+        return "";
+      },
+    };
+  }
+
+  test("lifts toasts and pads the page's scroll end so keyboard focus scrolls clear of the bar (WCAG 2.4.11)", () => {
+    const style = fakeStyle();
+    applyBarClearance(style, 142);
+    expect(style.props.get(TOAST_LIFT_VAR)).toBe("142px");
+    expect(style.props.get("scroll-padding-bottom")).toBe("142px");
+  });
+
+  test("no bar left clears both", () => {
+    const style = fakeStyle();
+    applyBarClearance(style, 142);
+    applyBarClearance(style, null);
+    expect(style.props.size).toBe(0);
   });
 });

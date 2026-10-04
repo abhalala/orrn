@@ -317,6 +317,48 @@ const SCREENS = [
   { name: "packing-list", path: "/dispatch/dev-dispatch-done-1", ready: (p: Page) => p.getByTestId("packing-list-row").first() },
 ];
 
+const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
+const actionBar = (page: Page) => page.locator("[data-slot='dispatch-action-bar']");
+
+/** Whether the element `selector` names sits (partly) under the sticky action bar right now. */
+function underActionBar(page: Page, selector: string) {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    const bar = document.querySelector("[data-slot='dispatch-action-bar']");
+    if (!el || !bar) return false;
+    const a = el.getBoundingClientRect();
+    const b = bar.getBoundingClientRect();
+    return a.bottom > b.top && a.top < b.bottom && a.right > b.left && a.left < b.right;
+  }, selector);
+}
+
+/**
+ * Serious and critical axe findings. The sticky action bar covers whichever
+ * rows are under it until the page reaches its end; axe reads that as a small
+ * target, but it is a scroll position. Those findings are left out here and
+ * covered for real: target size is checked again with the page at its end
+ * (the bar resting in its own slot), and keyboard focus under the bar has its
+ * own test (WCAG 2.4.11).
+ */
+async function seriousViolations(page: Page, name: string) {
+  const axe = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+  const out: string[] = [];
+  for (const v of axe.violations) {
+    if (v.impact !== "serious" && v.impact !== "critical") continue;
+    for (const n of v.nodes) {
+      const sel = n.target.join(" ");
+      if (v.id === "target-size" && (await underActionBar(page, sel))) continue;
+      out.push(`${name}: ${v.id} ${sel}`);
+    }
+  }
+  if (await actionBar(page).count()) {
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const atEnd = await new AxeBuilder({ page }).withRules(["target-size"]).analyze();
+    for (const v of atEnd.violations) out.push(`${name} (page end): ${v.id} ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
+  }
+  return out;
+}
+
 test.describe("dispatch: accessibility and layout", () => {
   for (const width of [390, 1280]) {
     for (const scheme of ["light", "dark"] as const) {
@@ -328,12 +370,30 @@ test.describe("dispatch: accessibility and layout", () => {
           await page.waitForLoadState("networkidle");
           await expectNoHorizontalScroll(page);
           await expectNoClippedText(page);
-          const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
-          const bad = axe.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
-          expect(bad.map((v) => `${s.name}: ${v.id} ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+          expect(await seriousViolations(page, s.name)).toEqual([]);
         }
       });
     }
+  }
+
+  for (const width of [390, 1280]) {
+    test(`keyboard focus never hides behind the action bar at ${width} (WCAG 2.4.11)`, async ({ page }) => {
+      await start(page, "owner", { width, height: width < 768 ? 844 : 900 });
+      await page.goto("/dispatch/dev-dispatch-draft");
+      await expect(hero(page)).toBeVisible();
+      const removes = page.getByRole("button", { name: /^Remove / });
+      const count = await removes.count();
+      expect(count).toBeGreaterThan(2);
+      // Start at the top with focus on the first row, then walk the rows by keyboard.
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await removes.first().evaluate((el) => (el as HTMLElement).focus({ preventScroll: true }));
+      for (let i = 1; i < count; i++) {
+        await page.keyboard.press("Tab");
+        await expect(removes.nth(i)).toBeFocused();
+        const [btn, bar] = await Promise.all([removes.nth(i).boundingBox(), actionBar(page).boundingBox()]);
+        expect(btn!.y + btn!.height, `row ${i + 1}'s Remove clears the action bar`).toBeLessThanOrEqual(bar!.y);
+      }
+    });
   }
 });
 
