@@ -40,6 +40,12 @@ export const countSession = sqliteTable(
      * count and was not scanned is not called a phantom.
      */
     startSeq: integer("start_seq").notNull(),
+    /**
+     * In-stock bundles with no location (legacy stock taken on "where it is, place unknown") are
+     * expected by this count: unseen ones become phantoms. Only a count over every active yard may
+     * set it (on by default there): a bundle with no place that no yard holds is missing.
+     */
+    includeUnplaced: integer("include_unplaced", { mode: "boolean" }).notNull().default(false),
     note: text("note"),
     closedAt: integer("closed_at", { mode: "timestamp_ms" }),
     closedBy: text("closed_by").references(() => user.id, { onDelete: "set null" }),

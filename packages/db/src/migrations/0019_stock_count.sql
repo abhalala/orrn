@@ -86,6 +86,7 @@ CREATE TABLE `count_session` (
 	`period` text NOT NULL,
 	`status` text DEFAULT 'open' NOT NULL,
 	`start_seq` integer NOT NULL,
+	`include_unplaced` integer DEFAULT false NOT NULL,
 	`note` text,
 	`closed_at` integer,
 	`closed_by` text,

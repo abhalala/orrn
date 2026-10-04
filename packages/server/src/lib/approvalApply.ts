@@ -7,6 +7,7 @@ import { bundle, bundleStatusEvent } from "@orrn/db/schema/inventory";
 import { dcNote } from "@orrn/db/schema/purchase";
 
 import type { OrrnDb, SqliteBatchItem } from "./atomic";
+import { stillPhantomOfLine } from "./count";
 import { dcNoteDeductionRows, phantomVoidRows, sqlUuid } from "./ledger";
 
 /** What an approval's apply hook sees: this request, and the decision that is being written. */
@@ -147,15 +148,7 @@ const phantomVoidDecision: ApprovalApplier = (ctx, row, decision) => {
     inner join count_session cs on cs.id = cl.session_id and cs.company_id = cl.company_id
     where cl.company_id = ${companyId} and cl.approval_id = ${row.id} and cl.kind = 'phantom'
       and cl.resolution = 'void_requested' and cl.bundle_id = ${B("id")}
-      and ${B("location_id")} is cl.system_location_id
-      and not exists (
-        select 1 from stock_ledger l where l.company_id = ${companyId} and l.item_kind = 'bundle'
-          and l.item_ref = ${B("id")} and l.server_seq > cs.close_seq
-      )
-      and not exists (
-        select 1 from count_seen s where s.company_id = ${companyId} and s.bundle_id = ${B("id")}
-          and s.server_seq > cs.close_seq
-      )
+      and ${stillPhantomOfLine(companyId, B("id"), B("location_id"))}
   )`;
   const voidedByUs = and(eq(bundle.companyId, companyId), eq(bundle.status, "void"), eq(bundle.serverSeq, seq));
   return [

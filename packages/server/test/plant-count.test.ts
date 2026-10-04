@@ -427,7 +427,7 @@ describe("count.scan", () => {
     const p = await plant();
     const [a] = await p.pack("Y1", 1);
     const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
-    env.beforeNextBatch(() => p.office.count.close({ sessionId: s.id }));
+    env.beforeNextBatch(() => p.office.count.close({ sessionId: s.id, confirmUnscanned: true }));
     await expect(p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] })).rejects.toMatchObject({
       code: "BAD_REQUEST",
     });
@@ -587,7 +587,7 @@ describe("count.close classification", () => {
     const [a, b] = await p.pack("Y1", 2);
     const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
     env.beforeNextBatch(() => p.dispatchOut([b!.id]));
-    const report = await p.supervisor.count.close({ sessionId: s.id });
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
     expect(ids(report.phantom)).toEqual([a!.id]);
   });
 
@@ -608,7 +608,7 @@ describe("count.close classification", () => {
       code: "BAD_REQUEST",
     });
     const closed = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
-    await p.supervisor.count.close({ sessionId: closed.id });
+    await p.supervisor.count.close({ sessionId: closed.id, confirmUnscanned: true });
     await expect(p.supervisor.count.cancel({ sessionId: closed.id, reason: "late" })).rejects.toMatchObject({
       code: "BAD_REQUEST",
     });
@@ -625,7 +625,7 @@ describe("count.close classification", () => {
     await env.db.update(bundle).set({ createdAt: new Date(base - 20 * 86_400_000), castId: "cast-a" }).where(eq(bundle.id, old[1]!.id));
     await env.db.update(bundle).set({ createdAt: new Date(base - 2 * 86_400_000) }).where(eq(bundle.id, fresh[0]!.id));
     const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
-    const report = await p.supervisor.count.close({ sessionId: s.id });
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
     expect(report.byCast).toEqual([
       { castId: "cast-a", bundles: 2, weightG: 40_000 },
       { castId: null, bundles: 1, weightG: 30_000 },
@@ -956,7 +956,7 @@ describe("tenant isolation", () => {
     expect((await bundleRow(theirs!.id))).toMatchObject({ status: "available", locationId: other.loc("Y1") });
     // Their phantom report is theirs alone.
     const theirCount = await other.supervisor.count.start({ locationIds: [other.loc("Y1")] });
-    const theirReport = await other.supervisor.count.close({ sessionId: theirCount.id });
+    const theirReport = await other.supervisor.count.close({ sessionId: theirCount.id, confirmUnscanned: true });
     expect(ids(theirReport.phantom)).toEqual([theirs!.id]);
     await expect(p.manager.approval.decide({ id: "nope", decision: "approved" })).rejects.toMatchObject({
       code: "NOT_FOUND",
@@ -991,6 +991,8 @@ describe("tenant isolation", () => {
 describe("permission matrix", () => {
   test("stock.count holders are exactly owner, office, supervisor, packer, operator (digest §4.2)", () => {
     expect(COUNTERS.sort()).toEqual(["office", "operator", "owner", "packer", "supervisor"]);
+    // move_found also checks stock.move; a future split of the two keys must be noticed here.
+    expect(ROLES.filter((r) => can(r, "stock.move")).sort()).toEqual([...COUNTERS].sort());
   });
 
   test("start, scan, removeScans, close, cancel and resolve need stock.count; everyone else is FORBIDDEN", async () => {
@@ -1110,7 +1112,7 @@ describe("D1 limits and ledger = projection", () => {
     await expectConsistent(p.owner, p.companyId, "dispatched");
     // A recount right after finds the yard matching the screen: no phantoms, nothing moved.
     const again = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
-    await p.supervisor.count.scan({ sessionId: again.id, locationId: p.loc("Y1"), codes: [y1[1]!.serial, y2[0]!.serial].filter(Boolean) });
+    await p.supervisor.count.scan({ sessionId: again.id, locationId: p.loc("Y1"), codes: [y1[1]!.serial, y2[0]!.serial] });
     await p.supervisor.count.scan({ sessionId: again.id, locationId: p.loc("Y2"), codes: [y2[1]!.serial] });
     await p.supervisor.count.scan({ sessionId: again.id, locationId: p.loc("Y2"), codes: [y1[2]!.serial] });
     const recount = await p.supervisor.count.close({ sessionId: again.id });
@@ -1125,13 +1127,13 @@ describe("D1 limits and ledger = projection", () => {
   test("phantomSummary: the last count's phantom share and the phantoms still open (each bundle once)", async () => {
     const p = await plant();
     expect(await p.viewer.count.phantomSummary()).toEqual({ lastCount: null, open: { bundles: 0, weightG: 0 } });
-    const { p: q, s, phantoms, seen } = await closedWithPhantoms(3);
+    const { p: q, s, phantoms } = await closedWithPhantoms(3);
     const sum = await q.viewer.count.phantomSummary();
     expect(sum.lastCount).toMatchObject({ sessionId: s.id, number: "CNT-1", expected: 4, phantom: 3, phantomBp: 7_500 });
     expect(sum.open).toEqual({ bundles: 3, weightG: 75_000 });
     // A second count that scans nothing calls all four phantoms; the three repeats count once.
     const again = await q.office.count.start({ locationIds: [q.loc("Y1")] });
-    await q.office.count.close({ sessionId: again.id });
+    await q.office.count.close({ sessionId: again.id, confirmUnscanned: true });
     const sum2 = await q.viewer.count.phantomSummary();
     expect(sum2.lastCount).toMatchObject({ number: "CNT-2", expected: 4, phantom: 4, phantomBp: 10_000 });
     expect(sum2.open).toEqual({ bundles: 4, weightG: 100_000 });
@@ -1141,6 +1143,855 @@ describe("D1 limits and ledger = projection", () => {
     await q.owner.stock.move({ bundleIds: [phantoms[1]!.id], toLocationId: q.loc("Y3") });
     const sum3 = await q.viewer.count.phantomSummary();
     expect(sum3.open).toEqual({ bundles: 2, weightG: 50_000 });
-    expect(seen.id).toBeTruthy();
+  });
+});
+
+// ===========================================================================
+// Review round 1 (reviews/PL10-*-r0.md). Behaviour fixes first, then the pins the mutation run
+// asked for; bracketed ids in titles are the tests-r0 mutants each test kills.
+// ===========================================================================
+
+const DAY = 86_400_000;
+
+/** Every active yard of the plant (a full count). */
+function allYards(p: Awaited<ReturnType<typeof plant>>) {
+  return p.locs.filter((l) => l.kind === "yard" && l.active).map((l) => l.id);
+}
+
+/** A legacy (pre-ledger) bundle sitting in a yard: no ledger rows, location set. */
+async function legacyAt(p: Awaited<ReturnType<typeof plant>>, yard: string, n = 1) {
+  const rows = await env.seedBundles(p.companyId, p.dieId, n);
+  for (const r of rows) await env.db.update(bundle).set({ locationId: p.loc(yard) }).where(eq(bundle.id, r.id));
+  return rows;
+}
+
+describe("fix r1: bundles with no place (legacy stock taken on at location unknown)", () => {
+  test("a count over every active yard expects unplaced bundles: unseen ones are phantoms, void keeps ledger = projection", async () => {
+    const p = await plant();
+    const [a, b] = await p.pack("Y1", 2);
+    const legacy = await env.seedBundles(p.companyId, p.dieId, 3);
+    await p.owner.stock.openingBalance();
+    const s = await p.supervisor.count.start({ locationIds: allYards(p) });
+    expect((await p.viewer.count.get({ sessionId: s.id })).session.includeUnplaced).toBe(true);
+    // legacy[0] is found in Y1; legacy[1] and legacy[2] are nowhere.
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a!.serial, b!.serial, legacy[0]!.serial] });
+    const preview = (await p.viewer.count.get({ sessionId: s.id })).report;
+    expect(ids(preview.phantom)).toEqual([legacy[1]!.id, legacy[2]!.id].sort());
+    expect(preview.summary).toMatchObject({ expected: 5, phantom: 2, phantomBp: 4_000 });
+
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(ids(report.phantom)).toEqual([legacy[1]!.id, legacy[2]!.id].sort());
+    expect(report.phantom.every((x) => x.systemLocationId === null && x.systemLocationCode === null)).toBe(true);
+    expect(report.found).toHaveLength(1);
+    expect(report.found[0]).toMatchObject({ reason: "elsewhere", resolvedBundle: { bundleId: legacy[0]!.id, systemLocationId: null } });
+    expect(report.summary).toEqual({
+      expected: 5, seen: 3, matched: 2, phantom: 2, phantomG: 50_000, found: 1, moved: 0, changed: 0, phantomBp: 4_000,
+    });
+    expect(preview.summary).toEqual(report.summary);
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 2, weightG: 50_000 });
+
+    const opening = (await ledgerRows(p.companyId)).filter((r) => r.voucherType === "opening");
+    const res = voided(
+      await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [legacy[1]!.id, legacy[2]!.id] }),
+    );
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    for (const g of [legacy[1]!, legacy[2]!]) {
+      expect((await bundleRow(g.id)).status).toBe("void");
+      const rev = (await ledgerRows(p.companyId)).filter((r) => r.itemRef === g.id && r.voucherType === "void");
+      const open = opening.find((r) => r.itemRef === g.id)!;
+      expect(rev).toHaveLength(1);
+      expect(rev[0]).toMatchObject({ locationId: null, qtyG: -open.qtyG, reversalOf: open.id });
+    }
+    await expectConsistent(p.owner, p.companyId, "unplaced phantoms voided");
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+    // The one found in Y1 is placed there.
+    await p.supervisor.count.resolve({ sessionId: s.id, action: "move_found", bundleIds: [legacy[0]!.id] });
+    expect((await bundleRow(legacy[0]!.id)).locationId).toBe(p.loc("Y1"));
+    await expectConsistent(p.owner, p.companyId, "unplaced found placed");
+  });
+
+  test("a partial count never expects them; includeUnplaced needs every active yard; a full count can leave them out", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [legacy] = await env.seedBundles(p.companyId, p.dieId, 1);
+    await p.owner.stock.openingBalance();
+    await expect(
+      p.supervisor.count.start({ locationIds: [p.loc("Y1")], includeUnplaced: true }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const part = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    expect((await p.viewer.count.get({ sessionId: part.id })).session.includeUnplaced).toBe(false);
+    await p.supervisor.count.scan({ sessionId: part.id, codes: [a!.serial] });
+    const r1 = await p.supervisor.count.close({ sessionId: part.id });
+    expect(r1.phantom).toEqual([]);
+    expect(r1.summary).toMatchObject({ expected: 1, phantom: 0 });
+
+    const off = await p.supervisor.count.start({ locationIds: allYards(p), includeUnplaced: false });
+    await p.supervisor.count.scan({ sessionId: off.id, locationId: p.loc("Y1"), codes: [a!.serial] });
+    const r2 = await p.supervisor.count.close({ sessionId: off.id });
+    expect(r2.phantom).toEqual([]);
+    expect(r2.summary).toMatchObject({ expected: 1, phantom: 0 });
+    expect((await p.viewer.count.list({})).items.map((i) => [i.number, i.includeUnplaced])).toEqual([
+      ["CNT-2", false],
+      ["CNT-1", false],
+    ]);
+    expect((await bundleRow(legacy!.id)).status).toBe("available");
+  });
+
+  test("an unplaced bundle taken onto the ledger during the full count is 'changed', not a phantom", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const s = await p.supervisor.count.start({ locationIds: allYards(p) });
+    await env.seedBundles(p.companyId, p.dieId, 1);
+    await p.owner.stock.openingBalance();
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a!.serial] });
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.phantom).toEqual([]);
+    expect(report.summary).toMatchObject({ expected: 1, changed: 1, phantom: 0 });
+  });
+});
+
+describe("fix r1: phantomSummary uses the void hook's own 'still missing' rule", () => {
+  test("phantomSummary.open drops a phantom that a later count scanned in place (no move needed)", async () => {
+    const p = await plant();
+    const [a, x] = await p.pack("Y1", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: c1.id });
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 1, weightG: 25_000 });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [x!.serial] });
+    // Seen in a count that is still open: already not missing.
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [a!.serial] });
+    const r2 = await p.supervisor.count.close({ sessionId: c2.id });
+    expect(r2.phantom).toEqual([]);
+    const sum = await p.viewer.count.phantomSummary();
+    expect(sum.lastCount).toMatchObject({ number: "CNT-2", phantom: 0, phantomBp: 0 });
+    expect(sum.open).toEqual({ bundles: 0, weightG: 0 });
+  });
+});
+
+describe("fix r1: close confirmation, scan feedback, removeScans trail, paging", () => {
+  test("close refuses while a counted yard that holds stock has no scans, unless confirmUnscanned", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    await p.pack("Y2", 2);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2"), p.loc("Y3")] });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a!.serial] });
+    await expect(p.supervisor.count.close({ sessionId: s.id })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: expect.stringContaining("Y2"),
+    });
+    expect((await p.viewer.count.get({ sessionId: s.id })).session.status).toBe("open");
+    expect(await linesOf(s.id)).toHaveLength(0);
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(report.summary).toMatchObject({ expected: 3, seen: 1, matched: 1, phantom: 2 });
+    // A closed count closes again without the flag (idempotent), and an empty yard needs none.
+    expect((await p.supervisor.count.close({ sessionId: s.id })).summary).toEqual(report.summary);
+    const empty = await p.supervisor.count.start({ locationIds: [p.loc("Y4")] });
+    expect((await p.supervisor.count.close({ sessionId: empty.id })).summary.expected).toBe(0);
+  });
+
+  test("unrecognised codes are kept in upper case: 'lot/7a' and 'LOT/7A' are one scan", async () => {
+    const p = await plant();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const r = await p.supervisor.count.scan({ sessionId: s.id, codes: ["lot/7a", " LOT/7A "] });
+    expect(r.results.map((x) => [x.code, x.outcome, x.match])).toEqual([
+      ["LOT/7A", "recorded", "unknown"],
+      ["LOT/7A", "duplicate", "unknown"],
+    ]);
+    const again = await p.supervisor.count.scan({ sessionId: s.id, codes: ["Lot/7A"] });
+    expect(again.results[0]!.outcome).toBe("duplicate");
+    expect((await env.db.select().from(countSeen).where(eq(countSeen.sessionId, s.id))).map((x) => x.code)).toEqual(["LOT/7A"]);
+  });
+
+  test("scan with another company's location is NOT_FOUND; one of ours outside the count stays BAD_REQUEST", async () => {
+    const p = await plant();
+    const other = await plant();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
+    await expect(
+      p.supervisor.count.scan({ sessionId: s.id, locationId: other.loc("Y1"), codes: ["Q"] }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(
+      p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y3"), codes: ["Q"] }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  test("RACE: a scan of the same bundle lands at another yard first — the duplicate names that yard", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
+    env.beforeNextBatch(() => p.packer.count.scan({ sessionId: s.id, locationId: p.loc("Y2"), codes: [a!.serial] }));
+    const late = await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a!.serial] });
+    expect(late.results[0]).toMatchObject({ outcome: "duplicate", firstLocationId: p.loc("Y2"), seenId: null });
+  });
+
+  test("removeScans records what it removed (code, bundle, location) in the audit row", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const scan = await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial, "U-1"] });
+    await p.supervisor.count.removeScans({ sessionId: s.id, seenIds: scan.results.map((r) => r.seenId!) });
+    const [row] = await env.db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "count.removeScans")));
+    const meta = row!.meta as { scans: { id: string; code: string; bundleId: string | null; locationId: string }[] };
+    expect(meta.scans.map((x) => [x.code, x.bundleId, x.locationId]).sort()).toEqual(
+      [
+        [a!.serial, a!.id, p.loc("Y1")],
+        ["U-1", null, p.loc("Y1")],
+      ].sort(),
+    );
+    expect(meta.scans.map((x) => x.id).sort()).toEqual(scan.results.map((r) => r.seenId!).sort());
+  });
+
+  test("count.get pages the scans (newest first) and returns their total", async () => {
+    const p = await plant();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    for (const code of ["S-1", "S-2", "S-3"]) await p.supervisor.count.scan({ sessionId: s.id, codes: [code] });
+    const first = await p.viewer.count.get({ sessionId: s.id, scanLimit: 2 });
+    expect(first.scans.map((x) => x.code)).toEqual(["S-3", "S-2"]);
+    expect(first).toMatchObject({ scanTotal: 3, scanNextOffset: 2 });
+    const rest = await p.viewer.count.get({ sessionId: s.id, scanLimit: 2, scanOffset: 2 });
+    expect(rest.scans.map((x) => x.code)).toEqual(["S-1"]);
+    expect(rest.scanNextOffset).toBeNull();
+    // The report is never paged: the missing list needs every line.
+    expect(rest.report.found).toHaveLength(3);
+  });
+
+  test("a scan row of this company that points at another company's bundle reports as unknown (cross-wired join)", async () => {
+    const p = await plant();
+    const other = await plant();
+    const [theirs] = await env.seedBundles(other.companyId, other.dieId, 1);
+    await other.owner.stock.move({ bundleIds: [theirs!.id], toLocationId: other.loc("Y1") });
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await env.db.insert(countSeen).values({
+      id: crypto.randomUUID(),
+      companyId: p.companyId,
+      serverSeq: 1,
+      sessionId: s.id,
+      locationId: p.loc("Y1"),
+      code: "CROSS-1",
+      resolveKind: "bundle",
+      bundleId: theirs!.id,
+      scannedAt: new Date(),
+    });
+    for (const report of [
+      (await p.viewer.count.get({ sessionId: s.id })).report,
+      await p.supervisor.count.close({ sessionId: s.id }),
+    ]) {
+      expect(report.found).toHaveLength(1);
+      expect(report.found[0]).toMatchObject({ code: "CROSS-1", reason: "unknown", resolvedBundle: null });
+      expect(JSON.stringify(report)).not.toContain(theirs!.serial);
+      expect(report.moved).toEqual([]);
+    }
+  });
+});
+
+describe("review pins: report numbers", () => {
+  test("[I-3] reserved bundles (held by an open dispatch) are in stock: scanned = matched, unseen = phantom, both expected", async () => {
+    const p = await plant();
+    const [a, b, c] = await p.pack("Y1", 3);
+    await p.reserveOn([a!.id, b!.id]);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const scan = await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial, c!.serial] });
+    expect(scan.results.map((r) => r.match)).toEqual(["here", "here"]);
+    const preview = (await p.viewer.count.get({ sessionId: s.id })).report;
+    expect(preview.phantom.map((x) => [x.bundleId, x.status])).toEqual([[b!.id, "reserved"]]);
+    expect(preview.found).toEqual([]);
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.found).toEqual([]);
+    expect(report.moved).toEqual([]);
+    expect(report.phantom.map((x) => [x.bundleId, x.status])).toEqual([[b!.id, "reserved"]]);
+    expect(report.summary).toMatchObject({ expected: 3, seen: 2, matched: 2, phantom: 1, found: 0 });
+  });
+
+  test("[C03,C36] a RESERVED bundle missing from the yard is a phantom (reserved stock is stock)", async () => {
+    const p = await plant();
+    const [a, b] = await p.pack("Y1", 2);
+    await p.reserveOn([b!.id]);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(ids(report.phantom)).toEqual([a!.id, b!.id].sort());
+    expect(report.phantom.find((x) => x.bundleId === b!.id)!.status).toBe("reserved");
+    expect(report.summary).toMatchObject({ expected: 2, phantom: 2, phantomBp: 10_000 });
+  });
+
+  test("[C36] a reserved bundle seen outside the count is found 'elsewhere', not 'not_in_stock'", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y3", 1);
+    await p.reserveOn([a!.id]);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const scan = await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    expect(scan.results[0]!.match).toBe("elsewhere");
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.found[0]).toMatchObject({ reason: "elsewhere" });
+  });
+
+  test("[C07] a SEEN bundle moved into a counted yard during the count is matched, not 'changed': totals stay exact", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [b] = await p.pack("Y2", 1);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a!.serial, b!.serial] });
+    await p.owner.stock.move({ bundleIds: [b!.id], toLocationId: p.loc("Y1") });
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.summary).toEqual({
+      expected: 2, seen: 2, matched: 2, phantom: 0, phantomG: 0, found: 0, moved: 0, changed: 0, phantomBp: 0,
+    });
+  });
+
+  test("[C33] a count over an empty yard reports 0 bp, never NaN (report and phantomSummary)", async () => {
+    const p = await plant();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y6")] });
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.summary).toEqual({
+      expected: 0, seen: 0, matched: 0, phantom: 0, phantomG: 0, found: 0, moved: 0, changed: 0, phantomBp: 0,
+    });
+    expect((await p.viewer.count.phantomSummary()).lastCount).toMatchObject({ expected: 0, phantom: 0, phantomBp: 0 });
+  });
+
+  test("[C34] the phantom share rounds to the nearest basis point (2 of 3 = 6,667 bp)", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 3);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.summary).toMatchObject({ expected: 3, phantom: 2, phantomBp: 6_667 });
+    expect((await p.viewer.count.phantomSummary()).lastCount).toMatchObject({ phantomBp: 6_667 });
+  });
+
+  test("[C32] age buckets: 15 days is 0-15, 16 and 30 are 16-30, 31 and 60 are 31-60, 61 is 60+", async () => {
+    const p = await plant();
+    const base = Date.UTC(2026, 6, 1, 6, 0, 0); // 1 Jul, 11:30 IST
+    setClock(new Date(base));
+    const rows = await p.pack("Y1", 7, 10_000);
+    const ages = [0, 15, 16, 30, 31, 60, 61];
+    for (const [i, d] of ages.entries()) {
+      await env.db.update(bundle).set({ createdAt: new Date(base - d * DAY) }).where(eq(bundle.id, rows[i]!.id));
+    }
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(report.byAge.map((x) => [x.bucket, x.bundles])).toEqual([
+      ["0-15", 2], ["16-30", 2], ["31-60", 2], ["60+", 1],
+    ]);
+  });
+
+  test("[C31] age is counted in company calendar days: packed 01:30 IST on 16 Jun (15 Jun in UTC) is 15 days old on 1 Jul", async () => {
+    const p = await plant();
+    const base = Date.UTC(2026, 6, 1, 6, 0, 0);
+    setClock(new Date(base));
+    const [a] = await p.pack("Y1", 1);
+    await env.db.update(bundle).set({ createdAt: new Date(Date.UTC(2026, 5, 15, 20, 0, 0)) }).where(eq(bundle.id, a!.id));
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(report.byAge.map((x) => [x.bucket, x.bundles])).toEqual([
+      ["0-15", 1], ["16-30", 0], ["31-60", 0], ["60+", 0],
+    ]);
+  });
+
+  test("[C30] a closed report is frozen: reading it 40 days later does not age its phantoms", async () => {
+    const p = await plant();
+    const base = Date.UTC(2026, 6, 1, 6, 0, 0);
+    setClock(new Date(base));
+    const [a] = await p.pack("Y1", 1);
+    await env.db.update(bundle).set({ createdAt: new Date(base - 2 * DAY) }).where(eq(bundle.id, a!.id));
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(report.byAge[0]).toEqual({ bucket: "0-15", bundles: 1, weightG: 25_000 });
+    setClock(new Date(base + 40 * DAY));
+    const later = (await p.viewer.count.get({ sessionId: s.id })).report;
+    expect(later.byAge).toEqual(report.byAge);
+  });
+
+  test("[C35,R20,R21] an ambiguous old number (J540 = 26J540 or 27J540) is kept as an 'ambiguous' found line; the floor hears the candidates", async () => {
+    const p = await plant();
+    const [x, y] = await env.seedBundles(p.companyId, p.dieId, 2);
+    await env.db.update(bundle).set({ serial: "26J540" }).where(eq(bundle.id, x!.id));
+    await env.db.update(bundle).set({ serial: "27J540" }).where(eq(bundle.id, y!.id));
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const scan = await p.supervisor.count.scan({ sessionId: s.id, codes: ["J540"] });
+    expect(scan.results[0]).toMatchObject({ outcome: "recorded", match: "ambiguous", bundle: null });
+    // Newest year first: the floor asks which one (P8 defaults to the latest).
+    expect(scan.results[0]!.candidates).toEqual([
+      { bundleId: y!.id, serial: "27J540" },
+      { bundleId: x!.id, serial: "26J540" },
+    ]);
+    const [seen] = await env.db.select().from(countSeen).where(eq(countSeen.sessionId, s.id));
+    expect(seen).toMatchObject({ code: "J540", resolveKind: "ambiguous", bundleId: null });
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.found).toHaveLength(1);
+    expect(report.found[0]).toMatchObject({ code: "J540", reason: "ambiguous", resolvedBundle: null });
+  });
+
+  test("[C37] byCast lists the unknown cast last even when it holds the most kg", async () => {
+    const p = await plant();
+    const small = await p.pack("Y1", 2, 10_000);
+    await p.pack("Y1", 1, 50_000);
+    for (const b of small) await env.db.update(bundle).set({ castId: "cast-a" }).where(eq(bundle.id, b.id));
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(report.byCast).toEqual([
+      { castId: "cast-a", bundles: 2, weightG: 20_000 },
+      { castId: null, bundles: 1, weightG: 50_000 },
+    ]);
+  });
+});
+
+describe("review pins: reads and scoping", () => {
+  test("[R02,R03,R04] count.list filters by status and pages newest first", async () => {
+    const p = await plant();
+    const one = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.close({ sessionId: one.id });
+    const two = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.cancel({ sessionId: two.id, reason: "x" });
+    await p.supervisor.count.start({ locationIds: [p.loc("Y3")] });
+    expect((await p.viewer.count.list({ status: "closed" })).items.map((i) => i.number)).toEqual(["CNT-1"]);
+    expect((await p.viewer.count.list({ status: "open" })).items.map((i) => i.number)).toEqual(["CNT-3"]);
+    const first = await p.viewer.count.list({ limit: 2 });
+    expect(first.items.map((i) => i.number)).toEqual(["CNT-3", "CNT-2"]);
+    expect(first).toMatchObject({ total: 3, nextOffset: 2 });
+    const rest = await p.viewer.count.list({ limit: 2, offset: 2 });
+    expect(rest.items.map((i) => i.number)).toEqual(["CNT-1"]);
+    expect(rest.nextOffset).toBeNull();
+  });
+
+  test("[R06,C41] two counts open at once: each one lists and previews only its own scans", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [b] = await p.pack("Y2", 1);
+    const s1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const s2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: s1.id, codes: [a!.serial, "ZZ-ONLY-IN-1"] });
+    await p.supervisor.count.scan({ sessionId: s2.id, codes: [b!.serial] });
+    const g2 = await p.viewer.count.get({ sessionId: s2.id });
+    expect(g2.scans.map((s) => s.code)).toEqual([b!.serial]);
+    expect(g2.scanTotal).toBe(1);
+    expect(g2.report.found).toEqual([]);
+    expect(g2.report.moved).toEqual([]);
+    expect(g2.report.summary).toMatchObject({ expected: 1, seen: 1, matched: 1, found: 0, moved: 0, phantom: 0 });
+    const g1 = await p.viewer.count.get({ sessionId: s1.id });
+    expect(g1.scans.map((s) => s.code).sort()).toEqual([a!.serial, "ZZ-ONLY-IN-1"].sort());
+  });
+
+  test("[R22] a duplicate names the yard where the code was FIRST seen, not the yard being scanned now", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a!.serial] });
+    const again = await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y2"), codes: [a!.serial] });
+    expect(again.results[0]).toMatchObject({ outcome: "duplicate", firstLocationId: p.loc("Y1") });
+  });
+
+  test("[R07] a count covers at most 20 locations", async () => {
+    const p = await plant();
+    await expect(
+      p.supervisor.count.start({ locationIds: Array.from({ length: 21 }, (_, i) => `loc-${i}`) }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  test("[R88] count.get lists scans newest first", async () => {
+    const p = await plant();
+    const [a, b] = await p.pack("Y1", 2);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [b!.serial] });
+    expect((await p.viewer.count.get({ sessionId: s.id })).scans.map((x) => x.code)).toEqual([b!.serial, a!.serial]);
+  });
+
+  test("[S03] RACE: the same unknown code scanned twice at once is recorded once", async () => {
+    const p = await plant();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    env.beforeNextBatch(() => p.packer.count.scan({ sessionId: s.id, codes: ["ZZ-9"] }));
+    const late = await p.supervisor.count.scan({ sessionId: s.id, codes: ["ZZ-9"] });
+    expect(late.results[0]!.outcome).toBe("duplicate");
+    expect(await env.db.select().from(countSeen).where(eq(countSeen.sessionId, s.id))).toHaveLength(1);
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.found).toHaveLength(1);
+  });
+
+  test("[S02] RACE: one bundle scanned under two different codes at once is recorded once, and the count still closes", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const cuid = "ckz3p1x9q0000abcd1234efgh";
+    await env.db.insert(legacyBundleMap).values({ id: crypto.randomUUID(), companyId: p.companyId, legacyId: cuid, bundleId: a!.id });
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    env.beforeNextBatch(() => p.packer.count.scan({ sessionId: s.id, codes: [cuid] }));
+    const late = await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    expect(late.results[0]!.outcome).toBe("duplicate");
+    expect(await env.db.select().from(countSeen).where(eq(countSeen.sessionId, s.id))).toHaveLength(1);
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.summary).toMatchObject({ expected: 1, seen: 1, matched: 1, phantom: 0 });
+  });
+});
+
+describe("review pins: removeScans, close and cancel races", () => {
+  test("[R30] removeScans only touches scans of the count it names (another count's evidence survives)", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [b] = await p.pack("Y2", 1);
+    const s1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const scan1 = await p.supervisor.count.scan({ sessionId: s1.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: s1.id });
+    const s2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: s2.id, codes: [b!.serial] });
+    const res = await p.supervisor.count.removeScans({ sessionId: s2.id, seenIds: [scan1.results[0]!.seenId!] });
+    expect(res.removed).toBe(0);
+    expect(await env.db.select().from(countSeen).where(eq(countSeen.sessionId, s1.id))).toHaveLength(1);
+    expect(await env.db.select().from(countSeen).where(eq(countSeen.sessionId, s2.id))).toHaveLength(1);
+  });
+
+  test("[R32] RACE: the count is closed between removeScans' read and write — the frozen evidence is not deleted", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const scan = await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    env.beforeNextBatch(() => p.office.count.close({ sessionId: s.id }));
+    await expect(
+      p.supervisor.count.removeScans({ sessionId: s.id, seenIds: [scan.results[0]!.seenId!] }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await env.db.select().from(countSeen).where(eq(countSeen.sessionId, s.id))).toHaveLength(1);
+    expect(await auditActions(p.companyId)).not.toContain("count.removeScans");
+  });
+
+  test("[R33] removeScans with 120 ids stays under 100 bound parameters per statement", async () => {
+    const p = await plant();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const scan = await p.supervisor.count.scan({
+      sessionId: s.id,
+      codes: Array.from({ length: 120 }, (_, i) => `UNK-${i}`),
+    });
+    expect(scan.recorded).toBe(120);
+    env.resetPeakParams();
+    const res = await p.supervisor.count.removeScans({ sessionId: s.id, seenIds: scan.results.map((r) => r.seenId!) });
+    expect(res.removed).toBe(120);
+    expect(env.peakParams()).toBeLessThanOrEqual(100);
+    expect(await env.db.select().from(countSeen).where(eq(countSeen.sessionId, s.id))).toHaveLength(0);
+  });
+
+  test("[R50,R51] RACE: the count is closed between cancel's read and write — a closed count is never turned into cancelled", async () => {
+    const p = await plant();
+    await p.pack("Y1", 2);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    env.beforeNextBatch(() => p.office.count.close({ sessionId: s.id, confirmUnscanned: true }));
+    await expect(p.supervisor.count.cancel({ sessionId: s.id, reason: "changed my mind" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    const got = await p.viewer.count.get({ sessionId: s.id });
+    expect(got.session.status).toBe("closed");
+    expect(got.report.phantom).toHaveLength(2);
+    expect(await auditActions(p.companyId)).not.toContain("count.cancel");
+  });
+
+  test("[R40] RACE: the count is cancelled between close's read and write — close fails, it does not report a cancelled count", async () => {
+    const p = await plant();
+    await p.pack("Y1", 2);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    env.beforeNextBatch(() => p.office.count.cancel({ sessionId: s.id, reason: "wrong yard" }));
+    await expect(p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect((await p.viewer.count.get({ sessionId: s.id })).session.status).toBe("cancelled");
+    expect(await linesOf(s.id)).toHaveLength(0);
+  });
+});
+
+describe("review pins: void hook and phantomSummary", () => {
+  test("[L03] voiding an off-ledger (legacy) phantom posts no ledger row: ledger still equals projection", async () => {
+    const p = await plant();
+    const [legacy] = await legacyAt(p, "Y1");
+    const [a] = await p.pack("Y1", 1);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(ids(report.phantom)).toEqual([legacy!.id]);
+    const before = (await ledgerRows(p.companyId)).length;
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [legacy!.id] }));
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    expect((await bundleRow(legacy!.id)).status).toBe("void");
+    expect((await ledgerRows(p.companyId)).length).toBe(before);
+    await expectConsistent(p.owner, p.companyId, "off-ledger phantom void");
+  });
+
+  test("[L04] a phantom that came onto the ledger by opening balance is reversed against its opening row", async () => {
+    const p = await plant();
+    const [legacy] = await env.seedBundles(p.companyId, p.dieId, 1);
+    await p.owner.stock.openingBalance();
+    await p.owner.stock.move({ bundleIds: [legacy!.id], toLocationId: p.loc("Y1") });
+    const opening = (await ledgerRows(p.companyId)).find((r) => r.itemRef === legacy!.id && r.voucherType === "opening")!;
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(ids(report.phantom)).toEqual([legacy!.id]);
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [legacy!.id] }));
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    const rev = (await ledgerRows(p.companyId)).find((r) => r.itemRef === legacy!.id && r.voucherType === "void")!;
+    expect(rev).toMatchObject({ reversalOf: opening.id, qtyG: -opening.qtyG, locationId: p.loc("Y1") });
+    await expectConsistent(p.owner, p.companyId, "opening-balance phantom void");
+  });
+
+  test("[L02,A09] a phantom voided by hand after the request is not reversed (or logged) a second time by the approval", async () => {
+    const p = await plant();
+    const yard = await p.pack("Y1", 3);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [yard[0]!.serial] });
+    await p.supervisor.count.close({ sessionId: s.id });
+    const [first, second] = [yard[1]!, yard[2]!];
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [first.id, second.id] }));
+    await p.owner.bundle.transitionStatus({ id: first.id, toStatus: "void", reason: "found bent in the yard" });
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    const rows = (await ledgerRows(p.companyId)).filter((r) => r.itemRef === first.id);
+    expect(rows.map((r) => r.voucherType).sort()).toEqual(["pack", "void"]);
+    const events = await env.db.select().from(bundleStatusEvent).where(eq(bundleStatusEvent.bundleId, first.id));
+    expect(events.filter((e) => e.toStatus === "void")).toHaveLength(1);
+    const lines = await linesOf(s.id);
+    expect(lines.find((l) => l.bundleId === first.id)!.resolution).toBe("cleared");
+    expect(lines.find((l) => l.bundleId === second.id)!.resolution).toBe("voided");
+    await expectConsistent(p.owner, p.companyId, "manual void then approval");
+  });
+
+  test("[L05] a bundle that is a phantom of two counts is reversed once when one approval is decided", async () => {
+    const p = await plant();
+    const [a, x] = await p.pack("Y1", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: c1.id });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [a!.serial] });
+    const r2 = await p.supervisor.count.close({ sessionId: c2.id });
+    expect(ids(r2.phantom)).toEqual([x!.id]);
+    const req1 = voided(await p.supervisor.count.resolve({ sessionId: c1.id, action: "void_phantom", bundleIds: [x!.id] }));
+    const req2 = voided(await p.office.count.resolve({ sessionId: c2.id, action: "void_phantom", bundleIds: [x!.id] }));
+    await p.manager.approval.decide({ id: req1.approvalId, decision: "approved" });
+    expect((await ledgerRows(p.companyId)).filter((r) => r.itemRef === x!.id).map((r) => r.voucherType).sort()).toEqual(["pack", "void"]);
+    await expectConsistent(p.owner, p.companyId, "first of two approvals");
+    await p.admin.approval.decide({ id: req2.approvalId, decision: "approved" });
+    expect((await ledgerRows(p.companyId)).filter((r) => r.itemRef === x!.id)).toHaveLength(2);
+    await expectConsistent(p.owner, p.companyId, "second of two approvals");
+  });
+
+  test("[A03] an off-ledger phantom moved before the approval (no ledger row) is cleared, not voided", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [legacy] = await legacyAt(p, "Y1");
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: s.id });
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [legacy!.id] }));
+    await p.owner.stock.move({ bundleIds: [legacy!.id], toLocationId: p.loc("Y2") });
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    expect(await bundleRow(legacy!.id)).toMatchObject({ status: "available", locationId: p.loc("Y2") });
+    expect((await linesOf(s.id)).find((l) => l.bundleId === legacy!.id)!.resolution).toBe("cleared");
+  });
+
+  test("[A04] a phantom moved away and back before the approval is cleared, not voided", async () => {
+    const { p, s, phantoms } = await closedWithPhantoms(2);
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: phantoms.map((b) => b.id) }));
+    await p.owner.stock.move({ bundleIds: [phantoms[0]!.id], toLocationId: p.loc("Y2") });
+    await p.owner.stock.move({ bundleIds: [phantoms[0]!.id], toLocationId: p.loc("Y1") });
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    expect((await bundleRow(phantoms[0]!.id)).status).toBe("available");
+    expect((await bundleRow(phantoms[1]!.id)).status).toBe("void");
+    expect((await linesOf(s.id)).find((l) => l.bundleId === phantoms[0]!.id)!.resolution).toBe("cleared");
+    await expectConsistent(p.owner, p.companyId, "moved away and back");
+  });
+
+  test("[A06] an off-ledger phantom dispatched after the request is never voided by the approval", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [legacy] = await legacyAt(p, "Y1");
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: s.id });
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [legacy!.id] }));
+    await p.dispatchOut([legacy!.id]);
+    expect((await bundleRow(legacy!.id)).status).toBe("dispatched");
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    expect((await bundleRow(legacy!.id)).status).toBe("dispatched");
+    expect((await linesOf(s.id)).find((l) => l.bundleId === legacy!.id)!.resolution).toBe("cleared");
+  });
+
+  test("[C51] phantomSummary.open leaves out a phantom the approval cleared because a later count saw it", async () => {
+    const { p, s, phantoms } = await closedWithPhantoms(2);
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: phantoms.map((b) => b.id) }));
+    const later = await p.office.count.start({ locationIds: [p.loc("Y1")] });
+    await p.office.count.scan({ sessionId: later.id, codes: [phantoms[0]!.serial] });
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    expect((await linesOf(s.id)).find((l) => l.bundleId === phantoms[0]!.id)!.resolution).toBe("cleared");
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+  });
+
+  test("[C51] a phantom put on a dispatch after the void request is cleared by the approval and no longer 'still missing'", async () => {
+    // Reserving posts no ledger row and no scan: only the line's resolution says it turned up.
+    const { p, s, phantoms } = await closedWithPhantoms(2);
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: phantoms.map((b) => b.id) }));
+    await p.reserveOn([phantoms[0]!.id]);
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    expect(await bundleRow(phantoms[0]!.id)).toMatchObject({ status: "reserved", locationId: p.loc("Y1") });
+    expect((await linesOf(s.id)).find((l) => l.bundleId === phantoms[0]!.id)!.resolution).toBe("cleared");
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+  });
+
+  test("[C53] a phantom moved away and back is changed since the close: no longer 'still missing'", async () => {
+    const { p, phantoms } = await closedWithPhantoms(2);
+    await p.owner.stock.move({ bundleIds: [phantoms[0]!.id], toLocationId: p.loc("Y2") });
+    await p.owner.stock.move({ bundleIds: [phantoms[0]!.id], toLocationId: p.loc("Y1") });
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 1, weightG: 25_000 });
+  });
+
+  test("[C50,C52] off-ledger phantoms moved or voided after the close stop counting as missing", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [moved, gone] = await legacyAt(p, "Y1", 2);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: s.id });
+    expect((await p.viewer.count.phantomSummary()).open.bundles).toBe(2);
+    await p.owner.stock.move({ bundleIds: [moved!.id], toLocationId: p.loc("Y2") });
+    await p.owner.bundle.transitionStatus({ id: gone!.id, toStatus: "void", reason: "bent" });
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+  });
+
+  test("[spec M-1] a void approval clears a phantom that went away and came back to the same yard", async () => {
+    const p = await plant();
+    const [a, b] = await p.pack("Y1", 2);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: s.id });
+    const req = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [b!.id] }));
+    await p.owner.stock.move({ bundleIds: [b!.id], toLocationId: p.loc("Y2") });
+    await p.owner.stock.move({ bundleIds: [b!.id], toLocationId: p.loc("Y1") });
+    await p.manager.approval.decide({ id: req.approvalId, decision: "approved" });
+    expect((await bundleRow(b!.id)).status).toBe("available");
+  });
+});
+
+describe("review pins: resolve validation and return values", () => {
+  test("[R63,R64] void_phantom with a mix of valid and invalid bundles is refused whole: nothing is stamped", async () => {
+    const { p, c, d, started } = await classified();
+    await p.supervisor.count.close({ sessionId: started.id });
+    await expect(
+      p.supervisor.count.resolve({ sessionId: started.id, action: "void_phantom", bundleIds: [c.id, d.id] }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await linesOf(started.id)).find((l) => l.bundleId === c.id)!.resolution).toBe("open");
+    // One already waiting for its approval, one still open.
+    const k2 = await closedWithPhantoms(2);
+    voided(await k2.p.supervisor.count.resolve({ sessionId: k2.s.id, action: "void_phantom", bundleIds: [k2.phantoms[0]!.id] }));
+    await expect(
+      k2.p.supervisor.count.resolve({ sessionId: k2.s.id, action: "void_phantom", bundleIds: k2.phantoms.map((b) => b.id) }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await linesOf(k2.s.id)).find((l) => l.bundleId === k2.phantoms[1]!.id)!.resolution).toBe("open");
+  });
+
+  test("[R67] RACE: the same phantoms requested twice at once — the loser is refused, not handed a ghost approval id", async () => {
+    const { p, s, phantoms } = await closedWithPhantoms(2);
+    const same = { sessionId: s.id, action: "void_phantom" as const, bundleIds: phantoms.map((b) => b.id) };
+    env.beforeNextBatch(() => p.office.count.resolve(same));
+    await expect(p.supervisor.count.resolve(same)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(
+      await env.db.select().from(approval).where(and(eq(approval.companyId, p.companyId), eq(approval.kind, "phantom_void"))),
+    ).toHaveLength(1);
+  });
+
+  test("[R78] the requester's note travels with the approval; [R85] removeScans is audited", async () => {
+    const { p, s, phantoms } = await closedWithPhantoms(1);
+    const res = voided(
+      await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [phantoms[0]!.id], note: "Searched twice" }),
+    );
+    const [ap] = await env.db.select().from(approval).where(eq(approval.id, res.approvalId));
+    expect(ap!.requestNote).toBe("Searched twice");
+
+    const q = await plant();
+    const open = await q.supervisor.count.start({ locationIds: [q.loc("Y1")] });
+    const scan = await q.supervisor.count.scan({ sessionId: open.id, codes: ["U-1"] });
+    await q.supervisor.count.removeScans({ sessionId: open.id, seenIds: [scan.results[0]!.seenId!] });
+    expect(await auditActions(q.companyId)).toContain("count.removeScans");
+  });
+
+  test("[R86] move_found reports only the vouchers that landed", async () => {
+    const p = await plant();
+    const [d] = await p.pack("Y2", 1);
+    const [e] = await p.pack("Y3", 1);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [d!.serial] });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y2"), codes: [e!.serial] });
+    await p.supervisor.count.close({ sessionId: s.id });
+    // d is moved elsewhere (Y5) after the read: its voucher (target Y1) must not be reported.
+    env.beforeNextBatch(() => p.owner.stock.move({ bundleIds: [d!.id], toLocationId: p.loc("Y5") }));
+    const res = movedFound(await p.supervisor.count.resolve({ sessionId: s.id, action: "move_found", bundleIds: [d!.id, e!.id] }));
+    expect(res.moved).toBe(1);
+    expect(res.skipped).toEqual([d!.id]);
+    expect(res.voucherIds).toHaveLength(1);
+    const posted = (await ledgerRows(p.companyId)).filter((r) => r.voucherId === res.voucherIds[0]);
+    expect(posted.every((r) => r.itemRef === e!.id)).toBe(true);
+  });
+
+  test("[R87] move rows carry the reason 'Found at count CNT-n'", async () => {
+    const { p, d, started } = await classified();
+    await p.supervisor.count.close({ sessionId: started.id });
+    await p.supervisor.count.resolve({ sessionId: started.id, action: "move_found", bundleIds: [d.id] });
+    const rows = (await ledgerRows(p.companyId)).filter((r) => r.itemRef === d.id && r.voucherType === "move");
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.reason === "Found at count CNT-1")).toBe(true);
+  });
+});
+
+describe("review pins: cross-wired rows (a foreign key does not check the company)", () => {
+  test("[C01] another company's bundle that points at this company's yard is never expected or a phantom", async () => {
+    const p = await plant();
+    const other = await plant();
+    const [theirs] = await env.seedBundles(other.companyId, other.dieId, 1);
+    await env.db.update(bundle).set({ locationId: p.loc("Y1") }).where(eq(bundle.id, theirs!.id));
+    const [a] = await p.pack("Y1", 1);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const preview = (await p.viewer.count.get({ sessionId: s.id })).report;
+    expect(ids(preview.phantom)).toEqual([a!.id]);
+    expect(preview.summary.expected).toBe(1);
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(ids(report.phantom)).toEqual([a!.id]);
+    expect(report.summary).toMatchObject({ expected: 1, phantom: 1 });
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 1, weightG: 25_000 });
+  });
+
+  test("[C10,C16] another company's ledger rows never mark this company's bundle changed or supersede its scan", async () => {
+    const p = await plant();
+    const other = await plant();
+    const [a] = await p.pack("Y2", 1); // seen at Y1 below: moved
+    const [b] = await p.pack("Y1", 1); // never seen: phantom
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a!.serial] });
+    for (const bundleId of [a!.id, b!.id]) {
+      await env.db.insert(stockLedger).values({
+        id: crypto.randomUUID(),
+        companyId: other.companyId,
+        serverSeq: 9_000_000_000,
+        voucherType: "pack",
+        voucherId: crypto.randomUUID(),
+        line: 1,
+        itemKind: "bundle",
+        itemRef: bundleId,
+        locationId: other.loc("Y1"),
+        qtyG: 1,
+        postedAt: new Date(),
+      });
+    }
+    // Y2 was never scanned, but its one bundle was seen at Y1: no confirmation needed.
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(ids(report.phantom)).toEqual([b!.id]);
+    expect(ids(report.moved)).toEqual([a!.id]);
+    expect(report.summary.changed).toBe(0);
+  });
+
+  test("[C39] another company's approval that names this company's count is never its pending approval", async () => {
+    const { p, s } = await closedWithPhantoms(1);
+    const attacker = await plant();
+    await env.db.insert(approval).values({
+      id: crypto.randomUUID(),
+      companyId: attacker.companyId,
+      kind: "phantom_void",
+      subjectId: s.id,
+      requestedBy: attacker.users.supervisor.id,
+    });
+    expect((await p.viewer.count.get({ sessionId: s.id })).report.pendingApprovalId).toBeNull();
   });
 });

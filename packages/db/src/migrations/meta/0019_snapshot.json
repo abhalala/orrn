@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1ac44e40-068d-404e-acea-604a77293a55",
+  "id": "ec7fba99-d832-4ced-accf-8965a959a4fd",
   "prevId": "534f3620-d51f-4469-bb76-e08964320a43",
   "tables": {
     "approval": {
@@ -1690,6 +1690,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "include_unplaced": {
+          "name": "include_unplaced",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "note": {
           "name": "note",

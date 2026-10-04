@@ -9,6 +9,9 @@
  * - moved: seen at a counted location while the system has it at another counted location;
  * - found: seen, but the system does not have it there: unknown or ambiguous code, bundle not in
  *   stock (void / dispatched), or in stock outside the counted locations (or place unknown).
+ * A count over every active yard also expects in-stock bundles with no location
+ * (`include_unplaced`, legacy stock taken on "place unknown"): unseen, they are phantoms with no
+ * system location; seen, they are found (move_found places them).
  * A scan is superseded (reported as matched) when the bundle has ledger rows newer than the scan:
  * the system then knows something the scan did not (it was moved or dispatched after being seen).
  * "Newer" compares company sequences (`server_seq`), which only ever go up.
@@ -65,19 +68,48 @@ function seenInSession(companyId: string, sessionId: string): SQL {
   return sql`exists (select 1 from ${countSeen} s where s.company_id = ${companyId} and s.session_id = ${sessionId} and s.bundle_id = ${B("id")})`;
 }
 
-/** Over the outer `bundle`: in stock at one of the count's locations. */
-function atCountedLocation(companyId: string, sessionId: string): SQL {
-  return sql`${B("company_id")} = ${companyId} and ${B("status")} in ('available', 'reserved') and ${B("location_id")} in ${sessionLocations(companyId, sessionId)}`;
+/** What the classification needs from a count session (`include_unplaced` never changes after start). */
+export type CountScope = { id: string; startSeq: number; includeUnplaced: boolean };
+
+/**
+ * Over the outer `bundle`: in stock at one of the count's locations, or with no location at all
+ * when the count includes unplaced bundles.
+ */
+function atCountedLocation(companyId: string, scope: Pick<CountScope, "id" | "includeUnplaced">): SQL {
+  const where = scope.includeUnplaced
+    ? sql`(${B("location_id")} in ${sessionLocations(companyId, scope.id)} or ${B("location_id")} is null)`
+    : sql`${B("location_id")} in ${sessionLocations(companyId, scope.id)}`;
+  return sql`${B("company_id")} = ${companyId} and ${B("status")} in ('available', 'reserved') and ${where}`;
 }
 
 /** Over the outer `bundle`: a phantom of the count (see the module comment). */
-export function phantomWhere(companyId: string, sessionId: string, startSeq: number): SQL {
-  return sql`(${atCountedLocation(companyId, sessionId)} and not ${seenInSession(companyId, sessionId)} and not ${bundleChangedAfter(companyId, startSeq)})`;
+export function phantomWhere(companyId: string, scope: CountScope): SQL {
+  return sql`(${atCountedLocation(companyId, scope)} and not ${seenInSession(companyId, scope.id)} and not ${bundleChangedAfter(companyId, scope.startSeq)})`;
 }
 
 /** Over the outer `bundle`: at a counted location, not scanned, but changed after the count began. */
-export function changedWhere(companyId: string, sessionId: string, startSeq: number): SQL {
-  return sql`(${atCountedLocation(companyId, sessionId)} and not ${seenInSession(companyId, sessionId)} and ${bundleChangedAfter(companyId, startSeq)})`;
+export function changedWhere(companyId: string, scope: CountScope): SQL {
+  return sql`(${atCountedLocation(companyId, scope)} and not ${seenInSession(companyId, scope.id)} and ${bundleChangedAfter(companyId, scope.startSeq)})`;
+}
+
+/**
+ * Over `cl` (a phantom count_line), `cs` (its closed count_session) and a bundle's id and
+ * location columns: the bundle is STILL a phantom of that count. It sits where the count expected
+ * it (NULL = place unknown), has no ledger row since the close (not moved, voided, restored or
+ * dispatched) and no count has scanned it since. The phantom_void hook and the 7 am "phantoms
+ * still missing" number share this one rule so they cannot disagree. The caller adds the line
+ * filters (approval, resolution) and the bundle status it needs.
+ */
+export function stillPhantomOfLine(companyId: string, bundleId: SQL, bundleLocationId: SQL): SQL {
+  return sql`${bundleLocationId} is cl.system_location_id
+    and not exists (
+      select 1 from stock_ledger l where l.company_id = ${companyId} and l.item_kind = 'bundle'
+        and l.item_ref = ${bundleId} and l.server_seq > cs.close_seq
+    )
+    and not exists (
+      select 1 from count_seen s where s.company_id = ${companyId} and s.bundle_id = ${bundleId}
+        and s.server_seq > cs.close_seq
+    )`;
 }
 
 /**
@@ -111,7 +143,7 @@ export function closeLanded(ctx: Pick<CloseCtx, "companyId" | "seq">, sessionId:
  * "this request's close landed", so a close that lost a race (or ran on a closed count) writes
  * nothing; the partial unique indexes on count_line back that up.
  */
-export function closeStatements(ctx: CloseCtx, session: { id: string; startSeq: number }): SqliteBatchItem[] {
+export function closeStatements(ctx: CloseCtx, session: CountScope): SqliteBatchItem[] {
   const { db, companyId, seq } = ctx;
   const sessionId = session.id;
   const landed = closeLanded(ctx, sessionId);
@@ -169,7 +201,7 @@ export function closeStatements(ctx: CloseCtx, session: { id: string; startSeq: 
           ...tail,
         })
         .from(bundle)
-        .where(and(phantomWhere(companyId, sessionId, session.startSeq), landed)),
+        .where(and(phantomWhere(companyId, session), landed)),
     ),
     db.insert(countLine).select(
       db
@@ -199,10 +231,10 @@ export function closeStatements(ctx: CloseCtx, session: { id: string; startSeq: 
     db
       .update(countSession)
       .set({
-        expectedCount: sql<number>`${bundleCount(atCountedLocation(companyId, sessionId))} - ${bundleCount(
-          changedWhere(companyId, sessionId, session.startSeq),
+        expectedCount: sql<number>`${bundleCount(atCountedLocation(companyId, session))} - ${bundleCount(
+          changedWhere(companyId, session),
         )}`,
-        changedCount: bundleCount(changedWhere(companyId, sessionId, session.startSeq)),
+        changedCount: bundleCount(changedWhere(companyId, session)),
         seenCount: sql<number>`(select count(*) from ${countSeen} s where s.company_id = ${companyId} and s.session_id = ${sessionId})`,
         phantomCount: lineCount("phantom"),
         phantomG: sql<number>`(select coalesce(sum(x.weight_g), 0) from ${countLine} x where x.company_id = ${companyId} and x.session_id = ${sessionId} and x.kind = 'phantom')`,
@@ -218,6 +250,38 @@ export function closeStatements(ctx: CloseCtx, session: { id: string; startSeq: 
         ),
       ),
   ];
+}
+
+/**
+ * Before a close: phantoms nobody had a chance to see. Per counted yard with no scan at all, the
+ * phantoms it would report (a forgotten yard or a mis-tap on Close would put them all on the
+ * owner's report, and close is final); plus the unplaced phantoms when the count has no scan at
+ * all. A yard whose bundles were all seen elsewhere is not listed (nothing goes missing from it).
+ */
+export async function unscannedPhantoms(
+  db: OrrnDb,
+  companyId: string,
+  scope: CountScope,
+): Promise<{ yards: { locationId: string; code: string; bundles: number }[]; unplaced: number }> {
+  const [byLocation, scanned] = await Promise.all([
+    db
+      .select({ locationId: bundle.locationId, code: location.code, n: sql<number>`count(*)` })
+      .from(bundle)
+      .leftJoin(location, and(eq(location.id, bundle.locationId), eq(location.companyId, bundle.companyId)))
+      .where(phantomWhere(companyId, scope))
+      .groupBy(bundle.locationId, location.code)
+      .orderBy(asc(location.code)),
+    db
+      .selectDistinct({ locationId: countSeen.locationId })
+      .from(countSeen)
+      .where(and(eq(countSeen.companyId, companyId), eq(countSeen.sessionId, scope.id))),
+  ]);
+  const scannedAt = new Set(scanned.map((s) => s.locationId));
+  const yards = byLocation
+    .filter((r): r is typeof r & { locationId: string } => r.locationId !== null && !scannedAt.has(r.locationId))
+    .map((r) => ({ locationId: r.locationId, code: r.code ?? "?", bundles: Number(r.n) }));
+  const unplacedRow = byLocation.find((r) => r.locationId === null);
+  return { yards, unplaced: scanned.length === 0 && unplacedRow ? Number(unplacedRow.n) : 0 };
 }
 
 // ---------------------------------------------------------------------------
@@ -260,6 +324,11 @@ export type CountSummary = {
   /** In stock at the counted locations (excluding bundles that changed during the count, unseen). */
   expected: number;
   seen: number;
+  /**
+   * Scans that agree with the system: same location, or superseded by a newer ledger row. A bundle
+   * seen and then dispatched during the count still counts as matched although it is no longer
+   * expected, so `matched` can exceed `expected`.
+   */
   matched: number;
   phantom: number;
   phantomG: number;
@@ -310,6 +379,7 @@ type SessionLike = {
   number: string;
   status: CountStatus;
   startSeq: number;
+  includeUnplaced: boolean;
   closedAt: Date | null;
   expectedCount: number | null;
   seenCount: number | null;
@@ -368,7 +438,7 @@ async function previewLines(db: OrrnDb, companyId: string, session: SessionLike)
       })
       .from(bundle)
       .leftJoin(die, bundleDieJoin)
-      .where(phantomWhere(companyId, session.id, session.startSeq))
+      .where(phantomWhere(companyId, session))
       .orderBy(asc(bundle.serial)),
     db
       .select({
@@ -412,8 +482,8 @@ async function previewLines(db: OrrnDb, companyId: string, session: SessionLike)
 async function previewTotals(db: OrrnDb, companyId: string, session: SessionLike) {
   const count = (where: SQL) => db.select({ n: sql<number>`count(*)` }).from(bundle).where(where);
   const [[atLoc], [changed], [seen]] = await Promise.all([
-    count(sql`(${atCountedLocation(companyId, session.id)})`),
-    count(changedWhere(companyId, session.id, session.startSeq)),
+    count(sql`(${atCountedLocation(companyId, session)})`),
+    count(changedWhere(companyId, session)),
     db
       .select({ n: sql<number>`count(*)` })
       .from(countSeen)
@@ -604,7 +674,8 @@ export type PhantomSummary = {
   } | null;
   /**
    * Phantoms of closed counts still missing: line open or awaiting approval, bundle still in stock
-   * where the count expected it and unchanged since that close.
+   * where the count expected it, no ledger row since that close and not scanned by a later count
+   * (`stillPhantomOfLine`, the void hook's rule).
    */
   open: { bundles: number; weightG: number };
 };
@@ -637,11 +708,7 @@ export async function phantomSummary(db: OrrnDb, companyId: string): Promise<Pha
             inner join ${countSession} cs on cs.id = cl.session_id and cs.company_id = cl.company_id
             where cl.company_id = ${companyId} and cl.bundle_id = ${B("id")} and cl.kind = 'phantom'
               and cl.resolution in ('open', 'void_requested') and cs.status = 'closed'
-              and ${B("location_id")} is cl.system_location_id
-              and not exists (
-                select 1 from stock_ledger l where l.company_id = ${companyId} and l.item_kind = 'bundle'
-                  and l.item_ref = ${B("id")} and l.server_seq > cs.close_seq
-              )
+              and ${stillPhantomOfLine(companyId, B("id"), B("location_id"))}
           )`,
         ),
       ),

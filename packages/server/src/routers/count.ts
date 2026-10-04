@@ -1,12 +1,14 @@
 /**
  * Stock count and phantom report (PL-10; spec P6, §5 "Count close"; digest Stage 14).
  *
- * - `start`: a count over active yard locations (`CNT-{n}`); a location is in one open count.
+ * - `start`: a count over active yard locations (`CNT-{n}`); a location is in one open count. A
+ *   count over every active yard also expects bundles with no place (`includeUnplaced`).
  * - `scan`: codes seen at a counted location (plant number, old number, legacy cuid, QR text);
  *   repeats are ignored, unknown codes are kept (they become "found").
  * - `removeScans`: take back scans while the count is open (wrong location picked).
  * - `get`: the count, its scans and its report (live preview while open = the missing list).
  * - `close`: freezes phantom / found / moved; no kg rows (the closed count is the checkpoint).
+ *   A yard nobody scanned that would report phantoms needs `confirmUnscanned` (close is final).
  * - `cancel`: abandon an open count (reason required); its locations are free again.
  * - `resolve`: void_phantom → a `phantom_void` approval (a manager voids); move_found → move rows.
  * - `list`, `phantomSummary`: reads for every member.
@@ -41,7 +43,7 @@ import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { now as clockNow } from "../lib/clock";
 import { resolveCode } from "../lib/codeResolver";
-import { closeStatements, countReport, phantomSummary } from "../lib/count";
+import { closeStatements, countReport, phantomSummary, unscannedPhantoms } from "../lib/count";
 import { nextDocNumber } from "../lib/docNumber";
 import { LEDGER_IN_CHUNK, moveRows, type PostingCtx } from "../lib/ledger";
 import { can } from "../lib/permissions";
@@ -66,13 +68,19 @@ function auditCtx(ctx: CountCtx) {
   return { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation };
 }
 
-/** The normalised code stored for a scan: serial, legacy cuid, or the trimmed raw text. */
+/**
+ * The normalised code stored for a scan: serial, legacy cuid, or the trimmed raw text in upper
+ * case (so `lot/7a` and `LOT/7A` are one unknown code, as serials already are).
+ */
 function codeKey(raw: string): string {
   const c = classifyCode(raw);
   if (c.kind === "cuid") return c.id;
-  if (c.kind === "unknown") return raw.trim().slice(0, 200);
+  if (c.kind === "unknown") return raw.trim().slice(0, 200).toUpperCase();
   return c.serial;
 }
+
+/** Candidates the floor is offered for an ambiguous old number (newest year first). */
+const MAX_CANDIDATES = 10;
 
 async function loadSession(db: OrrnDb, companyId: string, sessionId: string): Promise<CountSessionRow> {
   const [row] = await db
@@ -140,6 +148,7 @@ export const countRouter = router({
           id: countSession.id,
           number: countSession.number,
           status: countSession.status,
+          includeUnplaced: countSession.includeUnplaced,
           note: countSession.note,
           startedAt: countSession.createdAt,
           startedByName: starter.name,
@@ -182,53 +191,74 @@ export const countRouter = router({
       };
     }),
 
-  /** One count: header, locations, scans (newest first) and its report (live preview while open). */
-  get: companyProcedure.input(z.object({ sessionId: id })).query(async ({ ctx, input }) => {
-    const s = await loadSession(ctx.db, ctx.companyId, input.sessionId);
-    const [locations, scans, [names]] = await Promise.all([
-      sessionLocationRows(ctx.db, ctx.companyId, s.id),
-      ctx.db
-        .select({
-          id: countSeen.id,
-          code: countSeen.code,
-          resolveKind: countSeen.resolveKind,
-          bundleId: countSeen.bundleId,
-          serial: bundle.serial,
-          locationId: countSeen.locationId,
-          locationCode: location.code,
-          scannedAt: countSeen.scannedAt,
-        })
-        .from(countSeen)
-        .leftJoin(bundle, and(eq(bundle.id, countSeen.bundleId), eq(bundle.companyId, countSeen.companyId)))
-        .leftJoin(location, and(eq(location.id, countSeen.locationId), eq(location.companyId, countSeen.companyId)))
-        .where(and(eq(countSeen.companyId, ctx.companyId), eq(countSeen.sessionId, s.id)))
-        .orderBy(desc(countSeen.scannedAt), desc(countSeen.serverSeq), asc(countSeen.code)),
-      ctx.db
-        .select({ startedByName: starter.name, closedByName: closer.name })
-        .from(countSession)
-        .leftJoin(starter, eq(starter.id, countSession.createdBy))
-        .leftJoin(closer, eq(closer.id, countSession.closedBy))
-        .where(and(eq(countSession.id, s.id), eq(countSession.companyId, ctx.companyId))),
-    ]);
-    const report = await countReport(ctx.db, ctx.companyId, s, clockNow());
-    return {
-      session: {
-        id: s.id,
-        number: s.number,
-        status: s.status,
-        note: s.note,
-        startedAt: s.createdAt,
-        startedByName: names?.startedByName ?? null,
-        closedAt: s.closedAt,
-        closedByName: names?.closedByName ?? null,
-        cancelledAt: s.cancelledAt,
-        cancelReason: s.cancelReason,
-      },
-      locations,
-      scans,
-      report,
-    };
-  }),
+  /**
+   * One count: header, locations, a page of its scans (newest first, `scanTotal` in all) and its
+   * report (live preview while open). The report is never paged: the missing list, by-cast and
+   * by-age need every line, and a count's lines are bounded by the stock in its yards.
+   */
+  get: companyProcedure
+    .input(
+      z.object({
+        sessionId: id,
+        scanLimit: z.number().int().min(1).max(500).default(100),
+        scanOffset: z.number().int().min(0).default(0),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const s = await loadSession(ctx.db, ctx.companyId, input.sessionId);
+      const scanWhere = and(eq(countSeen.companyId, ctx.companyId), eq(countSeen.sessionId, s.id));
+      const [locations, scans, [scanCount], [names]] = await Promise.all([
+        sessionLocationRows(ctx.db, ctx.companyId, s.id),
+        ctx.db
+          .select({
+            id: countSeen.id,
+            code: countSeen.code,
+            resolveKind: countSeen.resolveKind,
+            bundleId: countSeen.bundleId,
+            serial: bundle.serial,
+            locationId: countSeen.locationId,
+            locationCode: location.code,
+            scannedAt: countSeen.scannedAt,
+          })
+          .from(countSeen)
+          .leftJoin(bundle, and(eq(bundle.id, countSeen.bundleId), eq(bundle.companyId, countSeen.companyId)))
+          .leftJoin(location, and(eq(location.id, countSeen.locationId), eq(location.companyId, countSeen.companyId)))
+          .where(scanWhere)
+          .orderBy(desc(countSeen.scannedAt), desc(countSeen.serverSeq), asc(countSeen.code))
+          .limit(input.scanLimit)
+          .offset(input.scanOffset),
+        ctx.db.select({ n: countFn() }).from(countSeen).where(scanWhere),
+        ctx.db
+          .select({ startedByName: starter.name, closedByName: closer.name })
+          .from(countSession)
+          .leftJoin(starter, eq(starter.id, countSession.createdBy))
+          .leftJoin(closer, eq(closer.id, countSession.closedBy))
+          .where(and(eq(countSession.id, s.id), eq(countSession.companyId, ctx.companyId))),
+      ]);
+      const report = await countReport(ctx.db, ctx.companyId, s, clockNow());
+      const scanTotal = Number(scanCount?.n ?? 0);
+      const scanNext = input.scanOffset + scans.length;
+      return {
+        session: {
+          id: s.id,
+          number: s.number,
+          status: s.status,
+          includeUnplaced: s.includeUnplaced,
+          note: s.note,
+          startedAt: s.createdAt,
+          startedByName: names?.startedByName ?? null,
+          closedAt: s.closedAt,
+          closedByName: names?.closedByName ?? null,
+          cancelledAt: s.cancelledAt,
+          cancelReason: s.cancelReason,
+        },
+        locations,
+        scans,
+        scanTotal,
+        scanNextOffset: scanNext < scanTotal ? scanNext : null,
+        report,
+      };
+    }),
 
   /** The last count's phantom share and the phantoms still missing (7 am report / Today). */
   phantomSummary: companyProcedure.query(({ ctx }) => phantomSummary(ctx.db, ctx.companyId)),
@@ -237,6 +267,11 @@ export const countRouter = router({
     .input(
       z.object({
         locationIds: z.array(id).min(1, "Pick at least one location").max(20),
+        /**
+         * Expect bundles with no place too (unseen ones become phantoms). Default: on when the count
+         * covers every active yard, off otherwise; only a count over every active yard may set it.
+         */
+        includeUnplaced: z.boolean().optional(),
         note: z.string().trim().max(500).optional(),
       }),
     )
@@ -255,6 +290,19 @@ export const countRouter = router({
       }
       const busy = await openCountConflict(ctx.db, ctx.companyId, wanted);
       if (busy) throw new TRPCError({ code: "CONFLICT", message: busy });
+      // A bundle with no place is missing only if no yard holds it: that needs every active yard.
+      const activeYards = await ctx.db
+        .select({ id: location.id })
+        .from(location)
+        .where(and(eq(location.companyId, ctx.companyId), eq(location.kind, "yard"), eq(location.active, true)));
+      const everyYard = activeYards.every((y) => wanted.includes(y.id));
+      if (input.includeUnplaced && !everyYard) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Bundles with no place can be counted only in a count of every active yard",
+        });
+      }
+      const includeUnplaced = input.includeUnplaced ?? everyYard;
 
       const startedAt = clockNow();
       const userId = ctx.session.user.id;
@@ -270,6 +318,7 @@ export const countRouter = router({
           period: doc.period,
           status: "open",
           startSeq: seq,
+          includeUnplaced,
           note: input.note ? input.note : null,
           createdBy: userId,
           createdAt: startedAt,
@@ -294,7 +343,7 @@ export const countRouter = router({
           action: "count.start",
           subjectType: "count_session",
           subjectId: sessionId,
-          meta: { number: doc.number, locations: locs.map((l) => l.code) },
+          meta: { number: doc.number, locations: locs.map((l) => l.code), includeUnplaced },
         }),
       );
       try {
@@ -331,6 +380,12 @@ export const countRouter = router({
       let at: string;
       if (input.locationId) {
         if (!locIds.has(input.locationId)) {
+          const [ours] = await ctx.db
+            .select({ id: location.id })
+            .from(location)
+            .where(and(eq(location.id, input.locationId), eq(location.companyId, ctx.companyId)))
+            .limit(1);
+          if (!ours) throw new TRPCError({ code: "NOT_FOUND", message: "Location not found" });
           throw new TRPCError({ code: "BAD_REQUEST", message: `That location is not part of ${s.number}` });
         }
         at = input.locationId;
@@ -347,15 +402,22 @@ export const countRouter = router({
         if (!firstRaw.has(keys[i]!)) firstRaw.set(keys[i]!, raw);
       });
       const distinct = [...firstRaw.keys()];
-      const resolved = new Map<string, { kind: CountSeenKind; bundleId: string | null }>();
+      type Resolved = { kind: CountSeenKind; bundleId: string | null; candidates: { bundleId: string; serial: string }[] };
+      const resolved = new Map<string, Resolved>();
       await Promise.all(
         distinct.map(async (key) => {
           const r = await resolveCode(ctx.db, ctx.companyId, firstRaw.get(key)!);
           resolved.set(
             key,
             r.kind === "bundle"
-              ? { kind: "bundle", bundleId: r.bundleId }
-              : { kind: r.kind === "ambiguous" ? "ambiguous" : "not_found", bundleId: null },
+              ? { kind: "bundle", bundleId: r.bundleId, candidates: [] }
+              : r.kind === "ambiguous"
+                ? {
+                    kind: "ambiguous",
+                    bundleId: null,
+                    candidates: r.candidates.slice(0, MAX_CANDIDATES).map((c) => ({ bundleId: c.bundleId, serial: c.number })),
+                  }
+                : { kind: "not_found", bundleId: null, candidates: [] },
           );
         }),
       );
@@ -459,6 +521,33 @@ export const countRouter = router({
           const now = await loadSession(ctx.db, ctx.companyId, s.id);
           if (now.status !== "open") throw notOpen(now);
         }
+        // Codes a concurrent scan took first (unique indexes): name the yard where that scan landed.
+        const lost = fresh.filter((f) => !landedIds.has(f.seenId));
+        if (lost.length > 0) {
+          const lostBundles = lost.map((f) => f.bundleId).filter((x): x is string => !!x);
+          const [byCode, byBundle] = await Promise.all([
+            mapInChunks(
+              lost.map((f) => f.key),
+              (codes) =>
+                ctx.db
+                  .select({ code: countSeen.code, locationId: countSeen.locationId })
+                  .from(countSeen)
+                  .where(and(eq(countSeen.companyId, ctx.companyId), eq(countSeen.sessionId, s.id), inArray(countSeen.code, codes))),
+            ),
+            mapInChunks(lostBundles, (ids) =>
+              ctx.db
+                .select({ bundleId: countSeen.bundleId, locationId: countSeen.locationId })
+                .from(countSeen)
+                .where(and(eq(countSeen.companyId, ctx.companyId), eq(countSeen.sessionId, s.id), inArray(countSeen.bundleId, ids))),
+            ),
+          ]);
+          const codeAt = new Map(byCode.map((r) => [r.code, r.locationId]));
+          const bundleAt = new Map(byBundle.map((r) => [r.bundleId!, r.locationId]));
+          for (const f of lost) {
+            const where = codeAt.get(f.key) ?? (f.bundleId ? bundleAt.get(f.bundleId) : undefined);
+            if (where) firstLocation.set(f.key, where);
+          }
+        }
       }
 
       const freshByKey = new Map(fresh.map((f) => [f.key, f]));
@@ -488,6 +577,8 @@ export const countRouter = router({
           firstLocationId: recorded ? null : (firstLocation.get(key) ?? at),
           match,
           bundle: b,
+          /** Ambiguous old number: the bundles it could be (newest year first); scan the full number. */
+          candidates: r.candidates,
         };
       });
       const recorded = results.filter((r) => r.outcome === "recorded").length;
@@ -503,7 +594,12 @@ export const countRouter = router({
       const wanted = [...new Set(input.seenIds)];
       const mine = (ids: string[]) =>
         and(eq(countSeen.companyId, ctx.companyId), eq(countSeen.sessionId, s.id), inArray(countSeen.id, ids));
-      const before = await mapInChunks(wanted, (ids) => ctx.db.select({ id: countSeen.id }).from(countSeen).where(mine(ids)));
+      const before = await mapInChunks(wanted, (ids) =>
+        ctx.db
+          .select({ id: countSeen.id, code: countSeen.code, bundleId: countSeen.bundleId, locationId: countSeen.locationId })
+          .from(countSeen)
+          .where(mine(ids)),
+      );
       if (before.length === 0) return { removed: 0 };
       const openNow = sql`exists (select 1 from ${countSession} cs where cs.id = ${s.id} and cs.company_id = ${ctx.companyId} and cs.status = 'open')`;
       await atomicBatch(ctx.db, [
@@ -513,7 +609,8 @@ export const countRouter = router({
         ).map((ids) => ctx.db.delete(countSeen).where(and(mine(ids), openNow))),
         auditInsertGuarded(
           auditCtx(ctx),
-          { action: "count.removeScans", subjectType: "count_session", subjectId: s.id, meta: { seenIds: before.map((b) => b.id) } },
+          // The scans are deleted, so the audit row keeps what they were (ruling 8: the trail).
+          { action: "count.removeScans", subjectType: "count_session", subjectId: s.id, meta: { number: s.number, scans: before } },
           { from: countSession, where: and(eq(countSession.id, s.id), eq(countSession.companyId, ctx.companyId), eq(countSession.status, "open")) },
         ),
       ]);
@@ -529,19 +626,33 @@ export const countRouter = router({
 
   /**
    * Close the count and freeze its report. Idempotent: closing a closed count returns its report
-   * (two people closing at once get the same report; the lines are written once).
+   * (two people closing at once get the same report; the lines are written once). Close is final,
+   * so a counted yard with no scan at all that would report phantoms (or a count with no scan and
+   * unplaced phantoms) is refused with PRECONDITION_FAILED until the caller confirms
+   * (`confirmUnscanned: true`): the floor either forgot the yard or tapped Close by mistake.
    */
   close: actionProcedure("stock.count")
-    .input(z.object({ sessionId: id }))
+    .input(z.object({ sessionId: id, confirmUnscanned: z.boolean().default(false) }))
     .mutation(async ({ ctx, input }) => {
       const s = await loadSession(ctx.db, ctx.companyId, input.sessionId);
       if (s.status === "cancelled") throw notOpen(s);
+      if (s.status === "open" && !input.confirmUnscanned) {
+        const u = await unscannedPhantoms(ctx.db, ctx.companyId, s);
+        const parts = u.yards.map((y) => `${y.code} (${y.bundles} ${y.bundles === 1 ? "bundle" : "bundles"})`);
+        if (u.unplaced > 0) parts.push(`${u.unplaced} ${u.unplaced === 1 ? "bundle" : "bundles"} with no place`);
+        if (parts.length > 0) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: `Nothing was scanned for ${parts.join(", ")}; closing reports them all missing. Scan them, or close anyway.`,
+          });
+        }
+      }
       if (s.status === "open") {
         const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
         const closedAt = clockNow();
         const cctx = { db: ctx.db, companyId: ctx.companyId, userId: ctx.session.user.id, seq, closedAt };
         await atomicBatch(ctx.db, [
-          ...closeStatements(cctx, { id: s.id, startSeq: s.startSeq }),
+          ...closeStatements(cctx, { id: s.id, startSeq: s.startSeq, includeUnplaced: s.includeUnplaced }),
           auditInsertGuarded(
             auditCtx(ctx),
             { action: "count.close", subjectType: "count_session", subjectId: s.id, meta: { number: s.number } },
