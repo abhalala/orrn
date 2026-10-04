@@ -4,6 +4,7 @@ import { scaleBand } from "d3-scale";
 import { TICK_FONT, XTicks, YAxis, useRovingMarks, useYAxis } from "./chart-internals";
 import { ChartTooltip } from "./chart-tooltip";
 import {
+  capLabelBars,
   chartDateFormat,
   dateTickTexts,
   detectGranularity,
@@ -94,7 +95,7 @@ function columnPath(x: number, y: number, w: number, h: number): string {
  * Vertical bar chart, one series. Bars are at most 24px wide and grow from
  * one baseline; values sit on the caps when every label fits, otherwise
  * only the tallest complete bar is labelled and the rest live in the
- * tooltip and the table. A value label stays inside the plot (never over
+ * tooltip and the table. A zero bar is never labelled (the axis says 0). A value label stays inside the plot (never over
  * the y-axis ticks): at the first and last bars it lines up with the bar's
  * outer edge. A partial last bucket is a light fill with a 2px outline, at
  * least a sliver tall, and reads "so far"; it never carries a value label.
@@ -139,14 +140,13 @@ export function BarChart({
   const topOf = (d: BarDatum) => (d.value > 0 ? Math.min(y(d.value), plotH - (d.partial ? MIN_PARTIAL : MIN_BAR)) : y(d.value));
 
   const capLabels = data.map((d) => format(d.value));
-  // Value labels go on complete bars only: an open bucket is never a headline.
+  // Value labels go on complete bars above zero only: an open bucket is never a headline.
   const complete = data.filter((d) => !d.partial);
   const allCapsFit = complete.every((d) => estimateTextWidth(format(d.value), TICK_FONT, true) + 6 <= step);
-  const completePeak = maxOf(complete.map((d) => d.value));
-  const peakIndex = data.findIndex((d) => !d.partial && d.value === completePeak);
+  const labelled = new Set(capLabelBars(data, allCapsFit));
   const caps = data
     .map((d, i) => {
-      if (d.partial || !(allCapsFit || i === peakIndex)) return null;
+      if (!labelled.has(i)) return null;
       const w = estimateTextWidth(capLabels[i]!, TICK_FONT, true);
       const spot = placeCapLabel({
         center: center(d.key),
