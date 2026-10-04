@@ -304,6 +304,60 @@ bun run deploy
   reversed" abort, and explains a refusal with `diagnoseStoreCancel`. `store.txns` returns the marker
   so the screen offers "open the melt" instead of Cancel.
 
+## Foundry (casts, melts, spectro, close-out)
+
+- Tables in `packages/db/src/schema/foundry.ts` (`return_stream`, `cast`, `melt`, `melt_input`,
+  `melt_output`, `melt_chemical`, `spectro_result`); router `foundry` (`routers/foundry.ts`), shared
+  SQL in `lib/foundry.ts`, maths in `@orrn/domain` (`meltBalance`, `castTail`, `CAST_ALLOYS`).
+- Return streams: the foundry sheet's 9 `charge` streams (INGOT, PLANT-SCRAP, DISCARD, DROSS-INGOT,
+  BEND-LOG, HILL-METAL, PIT-METAL, TENDIS, DROSS-METAL) plus 2 `byproduct` streams (DROSS, FE).
+  Codes are stable keys other modules post to (press discard → DISCARD, ends / QC rejects →
+  PLANT-SCRAP); code and kind never change after create. They sit at the plant-scrap (`wip`)
+  location. `seedDefaults` (masters.publish or cast.enter) and every `casts.open` add missing ones.
+  Stream draws are not balance-guarded (no opening counts yet); negative balances show on
+  `returnStreams.list`.
+- A cast is a campaign: `casts.open` (cast.enter) takes its number from the doc series (`K31`, month
+  letter + monthly seq, year stored). Status `open → closing → closed` (`closing` = waiting on a
+  `cast_close` approval; rejected → `open`). Never use `cast` unquoted in raw SQL (it is a keyword):
+  interpolate `${cast}` or `sql.identifier("cast")`.
+- `melts.create` (cast.enter) is ONE batch: cast `melt_count + 1` (guarded: still open, billet store
+  and plant scrap still active) → melt row (INSERT … SELECT from that cast) → one guarded
+  INSERT … SELECT per input line (lot still OK with `posted − drawn ≥ kg`; stream still active and
+  `charge`) → `foundryAbort` (NOT NULL on `melt_input.id`) unless every line landed → outputs,
+  ledger rows (VALUES; the abort makes them safe) → `prepareStoreDraws` statements for store chemicals
+  (ruling RP17, purpose `melt`, refId = cast id, `source` = the melt; its own abort) → chemical
+  lines (each with its MRS id in `store_txn_id`) → audit. Catch
+  `isFoundryAbort` / `isStoreDrawAbort` and explain from current state.
+- Ledger of a melt (voucher `melt`, line = melt_input / melt_output line): − `scrap_grade`
+  `{item}:{grade}` at the lot's scrap store per lot line, − `return_stream` at plant scrap, + `billet`
+  item_ref = cast id at the billet store, + DROSS / FE / returned charge streams at plant scrap.
+  A lot's remaining kg = its ledger postings (OK, D/C deductions, cancel) − Σ kg of live melt lines on
+  it (`lotPostedSql` − `lotDrawnSql`; the postings are read by voucher on the voucher-line unique
+  index, never by item_kind, or every scrap row is scanned per lot); `lotCancelLeavesStockNonNegative`
+  refuses cancelling an OK lot any live melt has drawn from.
+- Balance (spec P15): `meltBalance` — loss above 3 % of the input (`lossG × 10000 > inputG × 300`) or
+  any output above input warns; warnings are returned and stored on the melt (`melt.warnings`), never
+  block. Burn loss up to 3 % per melt (`allowed_burn_g`) counts as explained at close-out.
+- Close-out (Review Focus 4, cast.close): tail = input − (by-products + allowed burn + bundles
+  (not void) with `cast_id` + press returns + billets of the cast on hand). `|tail| × 10000 >
+  input × 100` needs a reason → `closing` + approval `cast_close` (foundry, manager, admin, owner;
+  never the requester; applied by the `cast_close` hook in `lib/approvalApply.ts`). The close UPDATE
+  is guarded by `melt_count` unchanged and, for a no-reason close, `castTailWithinBand` at write time.
+  `castPressReturnsSql` returns 0 until PL-9 adds press-run / QC returns for the cast; PL-9 must also
+  post − billets (item_ref = cast id) when a press run consumes them, or the tail double counts.
+- `melts.cancel` (cast.enter or cast.close, open casts only): marks the melt, reverses every melt
+  ledger row (`melt_cancel`, `reversal_of`), cancels its MRS draws through `storeCancelRows/Mark`;
+  refused when the cast's billets on hand are below the melt's logs (the press used them), or while a
+  drawn store item or the store location is retired (reactivate first; `storeCancelRows` holds the
+  same rule at write time and the cancel's "every draw reversed" abort fails the batch).
+- `lots.available` (RP9) is the foundry's lot list: remaining kg by lot and by item + grade, never
+  rates, party kg, vendor, bill or D/C figures. Readable by cast.enter, cast.close and purchase readers.
+- `spectro.attach` (cast.enter): file as base64 text ≤ 1 MB decoded (image/jpeg|png|webp, pdf, csv,
+  text) and/or values in percent stored as integer ppm (`values_ppm`); `casts.get` lists results
+  without the file, `spectro.file` returns it. Moves to R2 later.
+- `clientRequestId` on `casts.open` and `melts.create`: a repeat returns the first; the same id for
+  another cast (or alloy) is a CONFLICT.
+
 ## Analytics (charts and customer numbers)
 
 - Router `analytics` (`routers/analytics.ts`, spec
