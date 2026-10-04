@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { expect, type Page } from "@playwright/test";
 
+import { API_URL, WEB_ORIGIN } from "./ports";
+
 /**
  * Local seed accounts (owner/operator/viewer/staff @orrn.local). The shared
  * password comes from ORRN_LOCAL_PASSWORD or, by default, from
@@ -35,8 +37,8 @@ export async function signInViaForm(page: Page, role: LocalRole) {
 
 /** Start a signed-in browser context cookie without the UI (tests that are not about the login screen). */
 export async function signInViaApi(page: Page, role: LocalRole) {
-  const apiURL = process.env.E2E_API_URL ?? "http://localhost:3000";
-  const origin = process.env.E2E_BASE_URL ?? "http://localhost:3002";
+  const apiURL = API_URL;
+  const origin = WEB_ORIGIN;
   const res = await page.context().request.post(`${apiURL}/api/auth/sign-in/email`, {
     headers: { origin },
     data: { email: `${role}@orrn.local`, password: localPassword() },

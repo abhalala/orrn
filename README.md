@@ -86,7 +86,8 @@ bun install
 ## Local UI Review
 
 The current local review setup runs the Cloudflare Worker through Alchemy on
-`http://localhost:3000` and the Vite web app on `http://localhost:3001`.
+`http://localhost:3000` and the Vite web app on `http://localhost:3002` (3001 is left to other
+local apps; worktrees use their own ports, see `docs/LOCAL_DEV.md`).
 Alchemy must be configured locally first with `alchemy configure` or
 `alchemy login`, or by exporting Cloudflare credentials.
 
@@ -103,12 +104,12 @@ bun run dev:server
 bun run dev:web
 ```
 
-Then open [http://localhost:3001](http://localhost:3001).
+Then open [http://localhost:3002](http://localhost:3002).
 
 The checked-in local env files are already aligned for this setup:
 
 - `apps/web/.env`: `VITE_SERVER_URL=http://localhost:3000`
-- `apps/server/.env`: `BETTER_AUTH_URL=http://localhost:3000`, `CORS_ORIGIN=http://localhost:3001`
+- `apps/server/.env`: `BETTER_AUTH_URL=http://localhost:3000`, `CORS_ORIGIN=http://localhost:3002`
 - `apps/native/.env`: `EXPO_PUBLIC_SERVER_URL=http://localhost:3000`
 
 ### Seed Demo Data
@@ -175,7 +176,7 @@ Then, run the development server:
 bun run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
+Open [http://localhost:3002](http://localhost:3002) in your browser to see the web application.
 Use the Expo Go app to run the mobile application.
 The API is running at [http://localhost:3000](http://localhost:3000).
 

@@ -1,14 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, signInViaForm } from "./helpers/accounts";
+import { API_URL, WEB_HOST } from "./helpers/ports";
 
 /**
  * Route map (Task 15): every pre-C2 URL lands on its new home with the query
- * kept. Needs the local stack (API :3000, web :3002, seeded accounts).
+ * kept. Needs the local stack (this worktree's API + web ports, seeded accounts).
  */
 
 const SEEDED_SERIAL = "BG-000001-B001";
-const API = process.env.E2E_API_URL ?? "http://localhost:3000";
+const API = API_URL;
 
 /** One tRPC GET as the signed-in user (same cookie jar as the page). */
 async function trpcGet<T>(page: Page, path: string, input: unknown): Promise<T> {
@@ -137,7 +138,7 @@ test.describe("/b/$serial signed out", () => {
     // The request names the code and the host the QR was scanned on.
     const input = new URL(urls[0]!).searchParams.get("input") ?? "";
     expect(input).toContain("26I4086");
-    expect(input).toContain("localhost:3002");
+    expect(input).toContain(WEB_HOST);
   });
 
   test("sign-in keeps the page and returns to the tenant summary", async ({ page }) => {
@@ -177,7 +178,7 @@ test.describe("/b/$serial signed out", () => {
     });
     await page.goto("/b/26I4086?c=Not%20A%20Slug");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    expect(sent.join(" ")).toContain('"companyHost":"localhost:3002"');
+    expect(sent.join(" ")).toContain(`"companyHost":"${WEB_HOST}"`);
   });
 
   test("an unknown code (here: no company on this host) says not found, with sign-in", async ({ page }) => {
