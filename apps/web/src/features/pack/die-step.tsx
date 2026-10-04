@@ -437,7 +437,11 @@ function DefaultsForm({
   const [lastYard] = useState(() => readLastYard(draft.companyId));
   const [yardError, setYardError] = useState<string | undefined>();
   const yardRef = useRef<HTMLInputElement | null>(null);
-  const yardId = chooseYard({ current: pickedYard ?? draft.defaults.locationId, lastUsed: lastYard, yards: yards.yards });
+  const yardId = chooseYard({
+    current: pickedYard ?? draft.defaults.locationId,
+    lastUsed: lastYard,
+    yards: yards.yards,
+  });
   const legendId = useId();
   const errorId = `${legendId}-error`;
   const hintId = `${legendId}-hint`;

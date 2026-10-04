@@ -25,7 +25,8 @@ export function useYards(): YardState {
   const yardIds = useMemo(() => yards.map((y) => y.id), [yards]);
   const { refetch } = q;
   const retry = useCallback(() => void refetch(), [refetch]);
-  return { yards, yardIds, loading: q.isPending, failed: q.isError, retry };
+  // A failed background refresh keeps the yards it already has.
+  return { yards, yardIds, loading: q.isPending, failed: q.isError && q.data === undefined, retry };
 }
 
 /** Location id to code for every location, retired ones too (the session page names where its bundles went). */
