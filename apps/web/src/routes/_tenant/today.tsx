@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { RouteStub } from "@/shared/components/route-stub";
+import { TodayScreen } from "@/features/today/today-screen";
 
 export const Route = createFileRoute("/_tenant/today")({
-  component: () => <RouteStub titleKey="today.title" />,
+  component: TodayScreen,
 });

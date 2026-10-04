@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 741 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 786 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -277,7 +277,7 @@ Counts: 741 screen strings in 25 groups, 10 guides with 182 strings.
 | `done.body` | Your account is ready. | आपका अकाउंट तैयार है। |
 | `done.go` | Go to Today | आज का पेज खोलें |
 
-### today (29)
+### today (74)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -285,31 +285,76 @@ Counts: 741 screen strings in 25 groups, 10 guides with 182 strings.
 | `greetingMorning` | Good morning, {name} | नमस्ते, {name} |
 | `greetingAfternoon` | Good afternoon, {name} | नमस्ते, {name} |
 | `greetingEvening` | Good evening, {name} | नमस्ते, {name} |
+| `numbersHeading` | Today so far | आज अब तक |
+| `shortcutsHeading` | Shortcuts | शॉर्टकट |
 | `kgPacked` | kg packed today | आज पैक हुआ kg |
 | `bundlesPacked` | Bundles packed today | आज पैक हुए bundle |
 | `kgDispatched` | kg dispatched today | आज dispatch हुआ kg |
 | `inStock` | In stock | स्टॉक में |
+| `packed` | Packed today | आज पैक हुआ |
+| `dispatched` | Dispatched today | आज dispatch हुआ |
+| `dispatchesDone` | {count} {count:dispatch\|dispatches} done | {count} dispatch {count:हुआ\|हुए} |
+| `noDispatchYet` | No dispatch done yet | अभी कोई dispatch नहीं हुआ |
+| `bundleUnit` | {count:bundle\|bundles} | {count:bundle\|bundle} |
+| `inStockKg` | {kg} kg | {kg} kg |
+| `nothingPackedYet` | No bundles yet | अभी कोई bundle नहीं |
 | `tiles.pack` | Pack | पैकिंग |
 | `tiles.packHint` | Start a packing session | पैकिंग सेशन शुरू करें |
 | `tiles.dispatch` | Dispatch | Dispatch |
 | `tiles.dispatchHint` | {count} open | {count} {count:खुला\|खुले} |
+| `tiles.dispatchHintNone` | None open | कोई खुला नहीं |
 | `tiles.stock` | Stock | स्टॉक |
 | `tiles.stockHint` | Bundles by section | सेक्शन के हिसाब से bundle |
 | `tiles.guides` | Guides | गाइड |
 | `tiles.guidesHint` | How each job is done | हर काम कैसे करें |
 | `openDispatches` | Open dispatches | खुले dispatch |
 | `noOpenDispatches` | No open dispatches. | कोई dispatch खुला नहीं है। |
+| `noOpenDispatchesBody` | Dispatches being built or held show up here. | जो dispatch बन रहे हैं या होल्ड पर हैं, वे यहां दिखेंगे। |
+| `allDispatches` | All dispatches | सभी dispatch |
 | `sessionsToday` | Packed today | आज की पैकिंग |
+| `sessionsTodayHeading` | Packing sessions today | आज के पैकिंग सेशन |
 | `noSessionsToday` | Nothing packed yet today. | आज अभी कुछ पैक नहीं हुआ। |
+| `noSessionsTodayBody` | Each packing session shows up here as it is saved. | हर पैकिंग सेशन सेव होते ही यहां दिखेगा। |
+| `allSessions` | All sessions | सभी सेशन |
 | `printProblems` | Print problems | प्रिंट की दिक्कतें |
 | `printProblemsCount` | {count} {count:label\|labels} didn't print | {count} लेबल प्रिंट नहीं {count:हुआ\|हुए} |
+| `printProblemsBody` | Check the printer, then print them again from Printing. | प्रिंटर देखें, फिर प्रिंटिंग से दोबारा प्रिंट करें। |
 | `openPrinting` | Open printing | प्रिंटिंग खोलें |
+| `loadErrorTitle` | Today's numbers didn't load | आज के आंकड़े लोड नहीं हुए |
+| `loadErrorBody` | Check the connection and try again. | इंटरनेट देखें और फिर से कोशिश करें। |
+| `trendsHeading` | Trends | रुझान |
+| `trend.title` | Packed and dispatched | पैक और dispatch |
+| `trend.subtitle` | kg per day, last 90 days, today so far | रोज़ का kg, पिछले 90 दिन, आज अब तक |
+| `trend.label` | Packed and dispatched, kg per day | पैक और dispatch, रोज़ का kg |
+| `trend.packed` | Packed | पैक हुआ |
+| `trend.dispatched` | Dispatched | Dispatch हुआ |
+| `trend.dateHeader` | Date | तारीख |
+| `trend.emptyTitle` | Nothing packed or dispatched in 90 days | 90 दिन में कुछ पैक या dispatch नहीं हुआ |
+| `trend.emptyBody` | Each day's kg shows up here once bundles are packed or dispatched. | Bundle पैक या dispatch होते ही हर दिन का kg यहां दिखेगा। |
+| `ageing.title` | Stock age | स्टॉक की उम्र |
+| `ageing.subtitle` | kg in stock by days since packing | पैकिंग से अब तक के दिनों के हिसाब से स्टॉक का kg |
+| `ageing.label` | Stock age, kg by days since packing | स्टॉक की उम्र, पैकिंग से दिनों के हिसाब से kg |
+| `ageing.ageHeader` | Age | उम्र |
+| `ageing.valueHeader` | In stock | स्टॉक में |
+| `ageing.upTo15` | 0-15 days | 0-15 दिन |
+| `ageing.upTo15Short` | 0-15 | 0-15 |
+| `ageing.upTo30` | 16-30 days | 16-30 दिन |
+| `ageing.upTo30Short` | 16-30 | 16-30 |
+| `ageing.upTo60` | 31-60 days | 31-60 दिन |
+| `ageing.upTo60Short` | 31-60 | 31-60 |
+| `ageing.over60` | Over 60 days | 60 दिन से ज़्यादा |
+| `ageing.over60Short` | 60+ | 60+ |
+| `ageing.emptyTitle` | Nothing in stock | स्टॉक में कुछ नहीं |
+| `ageing.emptyBody` | Packed bundles show up here by how long they have been waiting. | पैक हुए bundle यहां दिखेंगे, कितने दिन से रखे हैं उसके हिसाब से। |
 | `startHere.title` | Start here | यहां से शुरू करें |
 | `startHere.body` | Four things to set up before the floor starts using orrn. | फ़्लोर पर orrn चलाने से पहले ये चार काम कर लें। |
 | `startHere.addDie` | Add a die | Die जोड़ें |
 | `startHere.addCustomer` | Add a customer | ग्राहक जोड़ें |
 | `startHere.packFirst` | Pack your first bundles | पहले bundle पैक करें |
 | `startHere.connectPrinter` | Connect a label printer | लेबल प्रिंटर जोड़ें |
+| `startHere.progress` | {done} of {total} done | {total} में से {done} हो गए |
+| `startHere.done` | Done | हो गया |
+| `startHere.askAdmin` | An admin sets this up | यह एडमिन सेट करेंगे |
 
 ### pack (52)
 
