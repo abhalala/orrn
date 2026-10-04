@@ -2,14 +2,13 @@ import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@orrn/server/context";
 import { appRouter } from "@orrn/server/routers/index";
 import { createAuth } from "@orrn/auth";
-import { isAllowedWebOrigin } from "@orrn/auth/origins";
 import { createDb } from "@orrn/db";
 import { env } from "@orrn/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
-import { isDevLocalOrigin } from "@orrn/server/lib/devOrigins";
+import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
 
 import { seedDevData } from "./dev-seed";
@@ -36,19 +35,7 @@ app.use("*", async (c, next) => {
 app.use(
   "/*",
   cors({
-    origin: (origin) => {
-      if (!origin) return env.CORS_ORIGIN;
-      if (
-        isAllowedWebOrigin(origin, {
-          corsOrigin: env.CORS_ORIGIN,
-          corsAllowedOrigins: env.CORS_ALLOWED_ORIGINS,
-        }) ||
-        isDevLocalOrigin(env, origin)
-      ) {
-        return origin;
-      }
-      return env.CORS_ORIGIN;
-    },
+    origin: (origin) => resolveCorsOrigin(env, origin),
     allowMethods: ["GET", "POST", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "x-orrn-impersonate-company", "x-orrn-company"],
     credentials: true,

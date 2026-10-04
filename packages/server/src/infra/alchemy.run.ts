@@ -168,7 +168,8 @@ export const web = await Vite("web", {
   bindings: webBindings,
   domains: [webDomain, ...webAliasDomains],
   script: spaFallbackScript,
-  dev: { domain: "localhost:3001" },
+  // Alchemy runs a bare `vite dev`, which binds web port 3002 (strict) or $E2E_WEB_PORT (docs/LOCAL_DEV.md).
+  dev: { domain: "localhost:3002" },
 });
 
 export const server = await Worker("server", {

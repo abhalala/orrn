@@ -4,6 +4,7 @@ Runs the API worker on a local D1 database (Wrangler/Miniflare). Nothing here to
 Deploys still go through Alchemy (`packages/server/src/infra/alchemy.run.ts`).
 
 Ports: API `3000`, web `3002`. Port `3001` is deliberately avoided because other local apps often use it.
+Those are the single-checkout defaults; every git worktree runs its own pair (see Worktrees).
 
 ## First run
 
@@ -16,19 +17,88 @@ bun run --cwd apps/server dev:local:migrate
 # 2. API worker on http://localhost:3000 (config: apps/server/wrangler.local.jsonc)
 bun run --cwd apps/server dev:local
 
-# 3. Web on http://localhost:3002
-bun run --cwd apps/web dev:bare -- --port 3002
+# 3. Web on http://localhost:3002 (strict: fails instead of hopping to another port)
+bun run --cwd apps/web dev:bare
 ```
 
 The web app reads `apps/web/.env.development.local` (gitignored); copy `apps/web/.env.example` if it is
 missing. Native uses `apps/native/.env.example` the same way.
+
+## Worktrees: one port pair each
+
+Up to ten worktrees can run dev servers and Playwright at once. Each gets its own ports from the environment:
+
+| Variable | Drives | Default |
+| --- | --- | --- |
+| `E2E_API_PORT` (or `E2E_API_URL`) | `dev:local` API worker, e2e API URL | `3000` |
+| `E2E_WEB_PORT` (or `E2E_BASE_URL`) | Vite dev server, e2e base URL | `3002` |
+| `VISUAL_WEB_PORT` (or `PLAYWRIGHT_BASE_URL`) | Vite server of the public-page visual suite | web port + 100 whenever `E2E_WEB_PORT` or `E2E_BASE_URL` is set, else `3001` |
+| `E2E_WORKERS` | Playwright workers per run (`--workers` still wins) | Playwright's default; `.wt-ports.env` sets `3` |
+
+The `E2E_` prefix is historical: the same variables drive the plain dev servers. A worktree keeps them in
+`.wt-ports.env` at its root (gitignored; the build orchestration writes it, by hand it is seven lines, one free
+pair per worktree that no other worktree uses):
+
+```bash
+# <worktree>/.wt-ports.env
+export E2E_API_PORT=3200
+export E2E_WEB_PORT=3201
+export E2E_API_URL=http://localhost:3200
+export E2E_BASE_URL=http://localhost:3201
+export VISUAL_WEB_PORT=3301
+export E2E_WORKERS=3
+export ORRN_WT_ROOT='/absolute/path/to/this/worktree'
+```
+
+Then:
+
+```bash
+cd ../wt/<TASK> && source .wt-ports.env      # once per shell
+bun run --cwd apps/server dev:local:migrate  # per-worktree D1 in apps/server/.wrangler/state
+bun run --cwd apps/server dev:local          # API on $E2E_API_PORT
+bun run --cwd apps/web dev:bare              # web on $E2E_WEB_PORT
+curl -XPOST localhost:$E2E_API_PORT/dev/seed
+bun run --cwd apps/web test:e2e              # starts (or reuses) both on those ports, seeds, runs
+```
+
+Several worktrees running e2e at once need the lower worker count: with Playwright's default each run takes
+about half the cores, and first-load pages then miss the 5 s expect timeout (blank page, no `h1`).
+`dev:local` also starts wrangler with `--inspector-port 0`, because every worker otherwise tries to bind
+9229 and the second one to start dies with "Address already in use".
+
+The environment is the one place that says "my ports"; everything derived from it beats the files:
+
+- `dev:local` passes `--port` and `--var` overrides to wrangler so auth base URL, CORS origin and the public web
+  URL match the ports; `wrangler.local.jsonc` keeps the defaults.
+- A bare `vite dev` (`dev:bare`, Alchemy dev) sets `VITE_SERVER_URL` / `VITE_PUBLIC_URL` from the ports when
+  they are in the environment, beating `apps/web/.env.development.local` (which may name other ports, for
+  example after you override the four `E2E_` variables). A `VITE_` value already in the environment wins.
+  `vite dev --port <n>` by hand skips this: set the two `VITE_` values yourself (Playwright does).
+
+In development the API accepts CORS and Better Auth origins from `http://localhost:<any port>` and
+`http://127.0.0.1:<any port>` (production never does; `packages/server/test/authTrustedOrigins.test.ts`).
+
+Node: a bare `vite dev` loads the port resolver (`@orrn/server/lib/devPorts`, TypeScript) through Node, so it
+needs Node 22.18 or newer and says so otherwise. `vite build` (check-types, deploys) and the servers Playwright
+starts (they pass `--port`) never load it and run on any Node that Vite supports.
+
+Guard rail: in a worktree (a `.wt-ports.env` exists above the current directory) Vite, `dev:local` and
+Playwright refuse to start without the ports in the environment, instead of silently using 3000/3002 and
+attaching to another worktree's servers. They also refuse when `ORRN_WT_ROOT` names a different worktree (the
+shell sourced someone else's `.wt-ports.env`, so the run would reuse that worktree's servers); open a new
+shell or source your own file. A plain checkout is blocked only by a worktree's `ORRN_WT_ROOT`. The guard
+cannot tell two worktrees apart that were given the same port pair: never share a pair. `vite preview` is
+not the dev server and keeps Vite's own preview port. `bun run dev` (Alchemy dev) runs
+the API on 3000 and a bare `vite dev` on 3002 (`dev.domain` in `alchemy.run.ts`) and is not for worktrees.
+Browser cookies are per host, not per port, so signing in to two worktrees in the same browser profile makes
+them overwrite each other's session; use separate profiles (Playwright contexts are isolated already).
 
 ## Seed realistic data
 
 With the API running:
 
 ```bash
-curl -XPOST localhost:3000/dev/seed
+curl -XPOST localhost:3000/dev/seed      # in a worktree: localhost:$E2E_API_PORT
 ```
 
 Only works against the local stack (see Test accounts). It creates one demo company,
@@ -81,7 +151,7 @@ It contains `ORRN_LOCAL_EMAIL_OWNER`, `ORRN_LOCAL_EMAIL_OPERATOR`, `ORRN_LOCAL_E
 rm -rf apps/server/.wrangler/state
 bun run --cwd apps/server dev:local:migrate
 bun run --cwd apps/server dev:local
-curl -XPOST localhost:3000/dev/seed
+curl -XPOST localhost:${E2E_API_PORT:-3000}/dev/seed
 ```
 
 Inspect the local database:
