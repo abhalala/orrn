@@ -172,7 +172,7 @@ function PackList() {
               <Skeleton className="h-11 w-24" />
               <Skeleton className="h-4 w-32" />
             </div>
-          ) : today.isError || !packedToday ? (
+          ) : !packedToday ? (
             <span className="text-[14px] text-muted-foreground">{t("pack.loadFailed")}</span>
           ) : (
             <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
@@ -236,7 +236,8 @@ function PackList() {
           </div>
         </div>
 
-        {sessions.isError ? (
+        {/* A failed background refresh keeps the rows it has (React Query keeps data on a refetch error). */}
+        {sessions.isError && !sessions.data ? (
           <div className="rounded-card border border-border bg-card">
             <EmptyState
               title={t("pack.loadFailed")}

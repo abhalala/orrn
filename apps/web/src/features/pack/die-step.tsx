@@ -187,7 +187,8 @@ function DiePicker({ onChoose, error }: { onChoose(die: DieOption): void; error?
   }, [query, all.data, searched.data, recentSessions.data]);
 
   const loading = query !== "" ? searched.isPending : all.isPending;
-  const failed = query !== "" ? searched.isError : all.isError;
+  // A failed background refresh keeps the dies already listed.
+  const failed = query !== "" ? searched.isError && !searched.data : all.isError && !all.data;
   const options = [...recent, ...rest];
 
   const rows = () => Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("button[data-die]") ?? []);

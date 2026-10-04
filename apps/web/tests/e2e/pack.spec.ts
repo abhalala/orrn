@@ -359,6 +359,47 @@ test.describe("pack", () => {
     expect(printer.attempts()).toBe(5);
   });
 
+  test("a failed background refresh keeps the list and the session on screen", async ({ page }) => {
+    test.setTimeout(120_000);
+    /** React Query refetches stale queries when the tab becomes visible again (it listens on window). */
+    const refreshOnFocus = () => page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
+    /** Fail every request that carries `procedure` (batched or not) and count them. */
+    const failFrom = async (procedure: string) => {
+      const hits = { n: 0 };
+      await page.route(
+        (url) => url.pathname.startsWith("/trpc/") && url.pathname.includes(procedure),
+        (route) => {
+          hits.n++;
+          return route.abort();
+        },
+      );
+      return hits;
+    };
+
+    await open(page, "/pack");
+    const rows = page.locator("[data-slot='responsive-list']").getByRole("row").filter({ has: page.getByRole("link") });
+    await expect(rows.first()).toBeVisible();
+    const sessionCount = await rows.count();
+    const list = await failFrom("bundle.listGroups");
+    await refreshOnFocus();
+    // The first try plus the client's three retries all fail.
+    await expect.poll(() => list.n, { timeout: 45_000 }).toBeGreaterThanOrEqual(4);
+    await page.waitForTimeout(500);
+    await expect(page.getByText("Packing sessions didn't load. Check the connection and try again.")).toHaveCount(0);
+    await expect(rows).toHaveCount(sessionCount);
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+
+    await rows.first().getByRole("link").click();
+    await page.waitForURL(SESSION_URL);
+    await expect(page.locator("[data-slot='session-totals']")).toBeVisible();
+    const session = await failFrom("bundle.getGroup");
+    await refreshOnFocus();
+    await expect.poll(() => session.n, { timeout: 45_000 }).toBeGreaterThanOrEqual(4);
+    await page.waitForTimeout(500);
+    await expect(page.getByText("This session didn't load. Check the connection and try again.")).toHaveCount(0);
+    await expect(page.locator("[data-slot='session-totals']")).toBeVisible();
+  });
+
   test("a viewer sees sessions but can't start one", async ({ page }) => {
     await open(page, "/pack", { role: "viewer" });
     await expect(page.getByRole("link", { name: /New packing session/ })).toHaveCount(0);

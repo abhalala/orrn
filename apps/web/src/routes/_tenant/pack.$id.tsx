@@ -146,7 +146,8 @@ function PackSession() {
     return cols;
   }, [t, unit, die, bundles, canPrint, queue.run]);
 
-  if (session.isError) {
+  // Only when there is nothing to show: a failed background refresh keeps the session on screen.
+  if (session.isError && !data) {
     const notFound = isNotFound(session.error);
     return (
       <>
