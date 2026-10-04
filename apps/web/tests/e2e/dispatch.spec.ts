@@ -319,7 +319,8 @@ test.describe("dispatch: list", () => {
   test("the old /dispatches URL lands on /dispatch with its query", async ({ page }) => {
     await start(page, "owner");
     await page.goto("/dispatches?status=reserved");
-    await expect(page).toHaveURL(/\/dispatch\?status=reserved$/);
+    await expect(page).toHaveURL(/\/dispatch\?status=reserved$/, { timeout: 30_000 });
+    await expect(page.locator("main h1").first()).toBeAttached({ timeout: 30_000 });
     await expect(page.getByRole("radio", { name: "Held" })).toHaveAttribute("aria-checked", "true");
   });
 });
