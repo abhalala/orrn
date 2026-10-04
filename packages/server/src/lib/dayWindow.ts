@@ -2,8 +2,12 @@ export const DEFAULT_TIMEZONE = "Asia/Kolkata";
 
 export type Ymd = { year: number; month: number; day: number };
 
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
 function formatterFor(timeZone: string) {
-  return new Intl.DateTimeFormat("en-US", {
+  const cached = formatters.get(timeZone);
+  if (cached) return cached;
+  const fmt = new Intl.DateTimeFormat("en-US", {
     timeZone,
     hourCycle: "h23",
     year: "numeric",
@@ -13,6 +17,8 @@ function formatterFor(timeZone: string) {
     minute: "2-digit",
     second: "2-digit",
   });
+  formatters.set(timeZone, fmt);
+  return fmt;
 }
 
 /** Wall-clock parts of `ms` in `timeZone`, read back as if they were UTC. */
@@ -38,6 +44,27 @@ function localMidnightUtc(fmt: Intl.DateTimeFormat, ymd: Ymd): number {
   // Re-evaluate once at the candidate so a DST change between guess and start settles.
   start = guess - offsetMs(fmt, start);
   return start;
+}
+
+/** UTC offset of `timezone` at the instant `ms`, in milliseconds (positive east of UTC; IST = +19 800 000). */
+export function zonedOffsetMs(timezone: string, ms: number): number {
+  return offsetMs(formatterFor(timezone), ms);
+}
+
+/** UTC instant at which the wall clock in `timezone` reads `ymd` 00:00:00 (day may overflow the month). */
+export function zonedMidnightMs(timezone: string, ymd: Ymd): number {
+  const d = new Date(Date.UTC(ymd.year, ymd.month - 1, ymd.day));
+  return localMidnightUtc(formatterFor(timezone), {
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth() + 1,
+    day: d.getUTCDate(),
+  });
+}
+
+/** Company timezone from `company.settings` (IANA name), else IST. */
+export function companyTimezone(settings: Record<string, unknown> | null | undefined): string {
+  const tz = settings?.timezone;
+  return typeof tz === "string" && isValidTimezone(tz) ? tz : DEFAULT_TIMEZONE;
 }
 
 /** Calendar date (year, month 1-12, day) of the instant `ms` on the wall clock of `timezone`. */

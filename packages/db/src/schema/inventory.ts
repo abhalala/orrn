@@ -3,11 +3,16 @@ import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqli
 
 import { user } from "./auth";
 import { die } from "./catalog";
+import { location } from "./stock";
 import { company } from "./tenant";
 
 const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
 export const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
+
+/** How the bundle's number was made: plant monthly series (26I4086) or the BG-000001-B001 style. */
+export const bundleNumberStyles = ["plant", "legacy"] as const;
+export type BundleNumberStyle = (typeof bundleNumberStyles)[number];
 
 export const bundleGroup = sqliteTable(
   "bundle_group",
@@ -57,6 +62,16 @@ export const bundle = sqliteTable(
     lengthMm: integer("length_mm").notNull(),
     status: text("status", { enum: bundleStatuses }).notNull().default("available"),
     currentDispatchId: text("current_dispatch_id"),
+    /** Where the bundle sits (spec P6). Required for new bundles once the company has yard locations. */
+    locationId: text("location_id").references(() => location.id, { onDelete: "restrict" }),
+    // The next three point at tables later plant stages add (die_instance, cast, sales_order_line).
+    // SQLite cannot add a foreign key to an existing column, so these stay app-enforced.
+    dieInstanceId: text("die_instance_id"),
+    castId: text("cast_id"),
+    salesOrderLineId: text("sales_order_line_id"),
+    /** kg per 12 ft piece × 1000 (i.e. grams per 12 ft), computed with `kgPer12ft` at pack time. */
+    kgPer12ftMilli: integer("kg_per_12ft_milli"),
+    numberStyle: text("number_style", { enum: bundleNumberStyles }),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
@@ -69,6 +84,9 @@ export const bundle = sqliteTable(
     index("bundle_company_group_idx").on(table.companyId, table.groupId),
     index("bundle_company_status_die_idx").on(table.companyId, table.status, table.dieId),
     index("bundle_company_dispatch_idx").on(table.companyId, table.currentDispatchId),
+    index("bundle_company_location_status_idx").on(table.companyId, table.locationId, table.status),
+    // Packed-kg trends and stock ageing by pack time (PL-A1, ruling RP13).
+    index("bundle_company_created_idx").on(table.companyId, table.createdAt),
   ],
 );
 

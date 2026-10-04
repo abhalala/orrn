@@ -19,14 +19,15 @@ import { auditInsert } from "../lib/audit";
 import {
   atomicBatch,
   chunk,
-  IN_LIST_CHUNK,
   mapInChunks,
   pushChunkedInserts,
   type OrrnDb,
   type SqliteBatchItem,
 } from "../lib/atomic";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
+import { now as clockNow } from "../lib/clock";
 import { formatDispatchCode } from "../lib/dispatchCode";
+import { dispatchRows } from "../lib/ledger";
 import { nextCompanySeq } from "../lib/sequence";
 import { appendPackingListWrites } from "./packingList";
 
@@ -43,7 +44,10 @@ import { appendPackingListWrites } from "./packingList";
  *     first and requires that its own write landed (`server_seq = <seq>`);
  *   - cancel and unreserve release every bundle still reserved to the dispatch
  *     (not just the items they read); complete releases and unlists any bundle
- *     reserved to it after its read.
+ *     reserved to it after its read;
+ *   - complete runs its dispatch UPDATE first; its bundle → dispatched UPDATEs,
+ *     releases and stock-ledger rows (− kg per bundle at its location, ADR-004)
+ *     all require that exact write to have landed (completedBySeq).
  *
  * Guaranteed, whatever the interleaving of these procedures: no bundle is left
  * reserved against a dispatch that is not live and reserved, and neither status
@@ -1033,7 +1037,7 @@ export const dispatchRouter = router({
 
       const bundleIds = items.map((i) => i.bundleId);
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const completedAt = new Date();
+      const completedAt = clockNow();
       const bundles = await mapInChunks(bundleIds, (ids) =>
         ctx.db
           .select()
@@ -1069,8 +1073,21 @@ export const dispatchRouter = router({
         impersonation: ctx.impersonation,
       });
 
-      const statements: SqliteBatchItem[] = [];
-      for (const ids of chunk(bundleIds, IN_LIST_CHUNK)) {
+      // The dispatch UPDATE runs first; every bundle write and ledger row after it lands only if
+      // that exact write did (completedBySeq), so a completion that lost a race changes nothing.
+      const landed = completedBySeq(ctx.db, ctx.companyId, d.id, seq);
+      const statements: SqliteBatchItem[] = [
+        ctx.db
+          .update(dispatch)
+          .set({
+            status: "completed",
+            completedBy: ctx.session.user.id,
+            completedAt,
+            serverSeq: seq,
+          })
+          .where(dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("completed"))),
+      ];
+      for (const ids of chunk(bundleIds, GUARDED_IN_CHUNK)) {
         statements.push(
           ctx.db
             .update(bundle)
@@ -1081,6 +1098,7 @@ export const dispatchRouter = router({
                 inArray(bundle.id, ids),
                 eq(bundle.status, "reserved"),
                 eq(bundle.currentDispatchId, d.id),
+                landed,
               ),
             ),
         );
@@ -1100,15 +1118,6 @@ export const dispatchRouter = router({
         })),
       );
       statements.push(
-        ctx.db
-          .update(dispatch)
-          .set({
-            status: "completed",
-            completedBy: ctx.session.user.id,
-            completedAt,
-            serverSeq: seq,
-          })
-          .where(dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("completed"))),
         // Bundles added (and reserved) after our read are not on the packing
         // list: unlist and release them, but only if our completion landed.
         ctx.db
@@ -1130,7 +1139,7 @@ export const dispatchRouter = router({
                     ),
                   ),
               ),
-              completedBySeq(ctx.db, ctx.companyId, d.id, seq),
+              landed,
             ),
           ),
         ctx.db
@@ -1141,9 +1150,14 @@ export const dispatchRouter = router({
               eq(bundle.companyId, ctx.companyId),
               eq(bundle.currentDispatchId, d.id),
               eq(bundle.status, "reserved"),
-              completedBySeq(ctx.db, ctx.companyId, d.id, seq),
+              landed,
             ),
           ),
+        // DN = the stock-out (ADR-004): − bundle kg at each dispatched bundle's location.
+        dispatchRows(
+          { db: ctx.db, companyId: ctx.companyId, userId: ctx.session.user.id, seq, postedAt: completedAt },
+          { dispatchId: d.id, guard: landed },
+        ),
         ...packingListStatements,
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
