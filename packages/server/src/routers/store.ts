@@ -12,9 +12,12 @@
  *   (write time), not only in the read before it, so racing issues cannot both land.
  * - `cancel` (RP15) keeps the entry and its number, marks it cancelled and posts a reversal ledger
  *   row (`reversal_of`) in the same batch; a GRN cancel is guarded by the balance at write time,
- *   both legs of an exchange go together, a second cancel posts nothing.
+ *   no reversal lands on a retired item or store location, both legs of an exchange go together,
+ *   a second cancel posts nothing. Draws another document made (`source_type`) are cancelled only
+ *   with that document.
  * - `clientRequestId` (RP18) makes receive, issue and exchange idempotent: looked up before a
- *   number is taken, and a unique-index race returns the original entry.
+ *   number is taken, and a unique-index race returns the original entry. Results say `replayed`
+ *   and `cancelled` (a retry after the entry was cancelled must not report the stock as in).
  * - Items: store.txn OR masters.publish create/edit (the storekeeper owns the store screen; same
  *   shape as die cards, RP7). Receive/issue/exchange/cancel: store.txn. Balances and history:
  *   store.txn or masters.publish (= storekeeper, manager, admin, owner). Any member may list items.
@@ -43,17 +46,17 @@ import { nextCompanySeq } from "../lib/sequence";
 import {
   assertStoreQty,
   errorText,
+  explainStoreCancelLost,
   explainStoreWriteLost,
-  fmtMilli,
   loadStoreItem,
   MAX_STORE_QTY_MILLI,
   requireStoreBalance,
   resolveStoreLocation,
-  storeBalance,
   storeBalanceSql,
   storeCancelMark,
   storeCancelRows,
   storeLedgerInsert,
+  storeSourceLockedError,
   storeTxnInsert,
   type StoreTxnInput,
 } from "../lib/store";
@@ -314,7 +317,7 @@ export const storeRouter = router({
       const want = { kind: "grn", itemId: input.itemId, qtyMilli: input.qtyMilli } as const;
       const replay = (prior: StoreTxnRow) => {
         sameEntry(prior, want);
-        return { id: prior.id, number: prior.number, replayed: true as const };
+        return { id: prior.id, number: prior.number, replayed: true as const, cancelled: prior.cancelledAt !== null };
       };
       const earlier = await findByRequest(ctx, input.clientRequestId);
       if (earlier) return replay(earlier);
@@ -353,7 +356,7 @@ export const storeRouter = router({
         throw e;
       }
       if (!(await landed(ctx, id))) await explainStoreWriteLost(ctx.db, ctx.companyId, item.id, null, item.unit);
-      return { id, number: doc.number, replayed: false as const };
+      return { id, number: doc.number, replayed: false as const, cancelled: false };
     }),
 
   /** MRS: − stock at the store; refused when the balance would go negative. Returns the MRS number. */
@@ -373,7 +376,7 @@ export const storeRouter = router({
       const want = { kind: "mrs", itemId: input.itemId, qtyMilli: input.qtyMilli, purpose: input.purpose } as const;
       const replay = (prior: StoreTxnRow) => {
         sameEntry(prior, want);
-        return { id: prior.id, number: prior.number, replayed: true as const };
+        return { id: prior.id, number: prior.number, replayed: true as const, cancelled: prior.cancelledAt !== null };
       };
       const earlier = await findByRequest(ctx, input.clientRequestId);
       if (earlier) return replay(earlier);
@@ -413,7 +416,7 @@ export const storeRouter = router({
         throw e;
       }
       if (!(await landed(ctx, id))) await explainStoreWriteLost(ctx.db, ctx.companyId, item.id, input.qtyMilli, item.unit);
-      return { id, number: doc.number, replayed: false as const };
+      return { id, number: doc.number, replayed: false as const, cancelled: false };
     }),
 
   /**
@@ -432,7 +435,8 @@ export const storeRouter = router({
         if (inLeg?.q !== input.qtyInMilli) {
           throw new TRPCError({ code: "CONFLICT", message: "This request id was already used for a different entry" });
         }
-        return { ...legs, replayed: true as const };
+        // Both legs are cancelled together, so the MRS leg speaks for the exchange.
+        return { ...legs, replayed: true as const, cancelled: prior.cancelledAt !== null };
       };
       const earlier = await findByRequest(ctx, input.clientRequestId);
       if (earlier) return replay(earlier);
@@ -487,14 +491,17 @@ export const storeRouter = router({
       }
       if (!(await landed(ctx, mrsId))) await explainStoreWriteLost(ctx.db, ctx.companyId, item.id, input.qtyOutMilli, item.unit);
       if (!(await landed(ctx, grnId))) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The exchange was only half saved" });
-      return { exchangeId, mrsId, mrsNumber: mrs.number, grnId, grnNumber: grn.number, replayed: false as const };
+      return { exchangeId, mrsId, mrsNumber: mrs.number, grnId, grnNumber: grn.number, replayed: false as const, cancelled: false };
     }),
 
   /**
    * Cancel a GRN or MRS (RP15). The entry keeps its number and is marked cancelled; a reversal
    * ledger row (`reversal_of`) undoes its stock effect in the same batch. Cancelling a GRN is
    * refused when its stock was already drawn (the balance would go negative; checked at write
-   * time). Either leg of an exchange cancels both. No new number is taken.
+   * time), and any cancel is refused while the item or the entry's store location is retired
+   * (reactivate it first). Either leg of an exchange cancels both. No new number is taken.
+   * An MRS another document drew in its own batch (a melt's flux, `source_type` set) is refused
+   * here: only that document's cancel reverses it, so its consumption and the store agree.
    */
   cancel: actionProcedure("store.txn")
     .input(z.object({ txnId: id64, reason: z.string().trim().min(1).max(500) }))
@@ -508,6 +515,8 @@ export const storeRouter = router({
       const alreadyCancelled = () =>
         new TRPCError({ code: "BAD_REQUEST", message: `${txn.number} was already cancelled` });
       if (txn.cancelledAt) throw alreadyCancelled();
+      // `source_type` never changes after insert, so this read needs no write-time twin.
+      if (txn.sourceType) throw storeSourceLockedError(txn);
 
       const group = txn.exchangeId
         ? await ctx.db
@@ -545,25 +554,9 @@ export const storeRouter = router({
         ),
       ]);
       const [ok] = await ctx.db.select({ id: storeTxn.id }).from(storeTxn).where(mine).limit(1);
-      if (!ok) {
-        // Lost: cancelled by someone else meanwhile, or undoing it would overdraw the store.
-        const [now] = await ctx.db
-          .select()
-          .from(storeTxn)
-          .where(and(eq(storeTxn.id, txn.id), eq(storeTxn.companyId, ctx.companyId)))
-          .limit(1);
-        if (now?.cancelledAt) throw alreadyCancelled();
-        const item = await loadStoreItem(ctx.db, ctx.companyId, txn.itemId);
-        const net = group.reduce((sum, g) => sum + (g.kind === "grn" ? g.qtyMilli : -g.qtyMilli), 0);
-        const have = await storeBalance(ctx.db, ctx.companyId, txn.itemId, txn.locationId);
-        if (have < net) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: `Cannot cancel ${txn.number}: ${fmtMilli(net)} ${item.unit} of ${item.name} would have to come out, but only ${fmtMilli(Math.max(have, 0))} is in the store`,
-          });
-        }
-        throw new TRPCError({ code: "BAD_REQUEST", message: "The store changed; try again" });
-      }
+      // Lost: cancelled by someone else meanwhile, undoing it would overdraw the store, or the item
+      // or its store location was retired.
+      if (!ok) await explainStoreCancelLost(ctx.db, ctx.companyId, txn.id);
       return { txnId: txn.id, number: txn.number, kind: txn.kind, cancelledIds: group.map((g) => g.id) };
     }),
 
@@ -622,6 +615,9 @@ export const storeRouter = router({
           qtyMilli: storeTxn.qtyMilli,
           purpose: storeTxn.purpose,
           refId: storeTxn.refId,
+          /** Set for draws a melt or nitriding log made: cancel those from that document. */
+          sourceType: storeTxn.sourceType,
+          sourceId: storeTxn.sourceId,
           grnRef: storeTxn.grnRef,
           exchangeId: storeTxn.exchangeId,
           note: storeTxn.note,

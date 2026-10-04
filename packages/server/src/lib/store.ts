@@ -10,6 +10,7 @@ import {
   type StoreIssuePurpose,
   type StoreItemRow,
   type StoreTxnKind,
+  type StoreTxnRow,
 } from "@orrn/db/schema/store";
 import { company } from "@orrn/db/schema/tenant";
 
@@ -188,6 +189,8 @@ export type StoreTxnInput = {
   locationId: string;
   purpose: StoreIssuePurpose | null;
   refId: string | null;
+  /** The document whose batch drew this entry (RP17); omitted / null for store-screen entries. */
+  source?: { type: string; id: string | null } | null;
   grnRef: string | null;
   exchangeId: string | null;
   note: string | null;
@@ -221,6 +224,8 @@ export function storeTxnInsert(db: OrrnDb, input: StoreTxnInput): SqliteBatchIte
         locationId: sql<string>`${input.locationId}`.as("location_id"),
         purpose: sql<StoreIssuePurpose | null>`${input.purpose}`.as("purpose"),
         refId: sql<string | null>`${input.refId}`.as("ref_id"),
+        sourceType: sql<string | null>`${input.source?.type ?? null}`.as("source_type"),
+        sourceId: sql<string | null>`${input.source?.id ?? null}`.as("source_id"),
         grnRef: sql<string | null>`${input.grnRef}`.as("grn_ref"),
         exchangeId: sql<string | null>`${input.exchangeId}`.as("exchange_id"),
         note: sql<string | null>`${input.note}`.as("note"),
@@ -308,9 +313,15 @@ export type StoreCancelInput = {
 /**
  * Reversal ledger rows for the entry (and its exchange partner): − of a GRN, + of an MRS, each
  * pointing at its original row (`reversal_of`), voucher type `store_grn_cancel` / `store_mrs_cancel`,
- * the entry's own id as voucher. Lands only for entries not cancelled yet, and only if the net
- * effect of undoing the whole group leaves the balance at 0 or more (write time, same guard shape
- * as an issue). Run BEFORE `storeCancelMark`: the mark keys on these rows.
+ * the entry's own id as voucher. Lands only for entries not cancelled yet, only while the item is
+ * live and the entry's location is still an active `store` location (a retired item or location
+ * holds nothing, so a cancel must not put stock back onto one: reactivate it first), and only if the
+ * net effect of undoing the whole group leaves the balance at 0 or more (write time, same guard
+ * shape as an issue). Run BEFORE `storeCancelMark`: the mark keys on these rows. When nothing
+ * landed, `diagnoseStoreCancel` says why.
+ *
+ * It does not look at `source_type`: a document that drew stock (a melt) reverses its own draws
+ * with it. `store.cancel` is what refuses entries that belong to another document.
  */
 export function storeCancelRows(db: OrrnDb, input: StoreCancelInput): SqliteBatchItem {
   const { companyId } = input;
@@ -355,6 +366,8 @@ export function storeCancelRows(db: OrrnDb, input: StoreCancelInput): SqliteBatc
           eq(storeTxn.companyId, companyId),
           isNull(storeTxn.cancelledAt),
           cancelGroupWhere(input.txnId, input.exchangeId),
+          sql`exists (select 1 from ${storeItem} i where i.id = ${storeTxn.itemId} and i.company_id = ${companyId} and i.active = 1)`,
+          sql`exists (select 1 from ${location} s where s.id = ${storeTxn.locationId} and s.company_id = ${companyId} and s.kind = 'store' and s.active = 1)`,
           // Undoing the group must not take the balance below 0: balance − (what the group added).
           sql`${storeBalanceSql(companyId, sql`${storeTxn.itemId}`, sql`${storeTxn.locationId}`)} - ${groupNet} >= 0`,
         ),
@@ -391,6 +404,75 @@ export function storeCancelMark(db: OrrnDb, input: StoreCancelInput): SqliteBatc
     );
 }
 
+/** What a draw's source document is called in a message ("a melt"); other kinds get a generic message. */
+const SOURCE_NOUNS: Record<string, string> = { melt: "melt", nitriding: "nitriding log" };
+
+/**
+ * `store.cancel` cannot cancel an entry that another document drew inside its own batch (RP17):
+ * the document still records the consumption. Refused with where to cancel it instead.
+ */
+export function storeSourceLockedError(txn: Pick<StoreTxnRow, "number" | "sourceType">): TRPCError {
+  const noun = txn.sourceType ? SOURCE_NOUNS[txn.sourceType] : undefined;
+  return new TRPCError({
+    code: "BAD_REQUEST",
+    message: noun
+      ? `${txn.number} belongs to a ${noun}; cancel the ${noun} instead`
+      : `${txn.number} belongs to another document (${txn.sourceType}); cancel it there`,
+  });
+}
+
+/**
+ * Why a cancel's reversal did not land, from the state as it is now; null when nothing specific
+ * explains it (then "The store changed; try again"). In order: already cancelled; the stock it put
+ * in was drawn since (a GRN, or an exchange whose new items were used); the item is retired; the
+ * entry's store location is retired or no longer a store. A document that reverses its own draws
+ * (a melt's cancel) uses it for each draw that did not land.
+ */
+export async function diagnoseStoreCancel(db: OrrnDb, companyId: string, txnId: string): Promise<TRPCError | null> {
+  const [txn] = await db
+    .select()
+    .from(storeTxn)
+    .where(and(eq(storeTxn.id, txnId), eq(storeTxn.companyId, companyId)))
+    .limit(1);
+  if (!txn) return new TRPCError({ code: "NOT_FOUND", message: "Store entry not found" });
+  if (txn.cancelledAt) return new TRPCError({ code: "BAD_REQUEST", message: `${txn.number} was already cancelled` });
+  const group = txn.exchangeId
+    ? await db
+        .select()
+        .from(storeTxn)
+        .where(and(eq(storeTxn.companyId, companyId), eq(storeTxn.exchangeId, txn.exchangeId)))
+    : [txn];
+  const item = await loadStoreItem(db, companyId, txn.itemId);
+  const net = group.reduce((sum, g) => sum + (g.kind === "grn" ? g.qtyMilli : -g.qtyMilli), 0);
+  const have = await storeBalance(db, companyId, txn.itemId, txn.locationId);
+  if (have < net) {
+    return new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Cannot cancel ${txn.number}: ${fmtMilli(net)} ${item.unit} of ${item.name} would have to come out, but only ${fmtMilli(Math.max(have, 0))} is in the store`,
+    });
+  }
+  if (!item.active) {
+    return new TRPCError({ code: "BAD_REQUEST", message: `${item.name} is retired; reactivate it before cancelling ${txn.number}` });
+  }
+  const [loc] = await db
+    .select({ code: location.code, kind: location.kind, active: location.active })
+    .from(location)
+    .where(and(eq(location.id, txn.locationId), eq(location.companyId, companyId)))
+    .limit(1);
+  if (!loc || !loc.active || loc.kind !== "store") {
+    return new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Store location ${loc?.code ?? "?"} of ${txn.number} is retired or no longer a store; reactivate it before cancelling`,
+    });
+  }
+  return null;
+}
+
+/** The cancel did not land: say why from the state as it is now. */
+export async function explainStoreCancelLost(db: OrrnDb, companyId: string, txnId: string): Promise<never> {
+  throw (await diagnoseStoreCancel(db, companyId, txnId)) ?? STORE_CHANGED();
+}
+
 // ---------------------------------------------------------------------------
 // Draws for another document's batch (RP17: a cast's consumables)
 // ---------------------------------------------------------------------------
@@ -400,9 +482,21 @@ export type StoreDrawInput = {
   qtyMilli: number;
   /** A cast draws with purpose `melt` and `refId` = the cast id. */
   purpose: Exclude<StoreIssuePurpose, "exchange">;
+  /** ≤ 64 characters (the router's cap on `store.issue`). */
   refId?: string | null;
+  /** ≤ 500 characters. */
   note?: string | null;
 };
+
+/**
+ * The document whose batch draws the stock: kind (`melt`, `nitriding`; lower-case letters and `_`,
+ * ≤ 32) and id (≤ 64). Stored on each draw, so `store.cancel` refuses it and points at the document.
+ */
+export type StoreDrawSource = { type: string; id: string };
+
+const SOURCE_TYPE = /^[a-z][a-z_]{0,31}$/;
+const DRAW_REF_MAX = 64;
+const DRAW_NOTE_MAX = 500;
 
 type AuditCtx = Pick<Context, "session" | "impersonation"> & { db: OrrnDb; companyId: string };
 
@@ -427,6 +521,8 @@ export function storeDrawAbort(db: OrrnDb, companyId: string, ids: string[]): Sq
         locationId: sql<string>`'abort'`.as("location_id"),
         purpose: sql<StoreIssuePurpose | null>`null`.as("purpose"),
         refId: sql<string | null>`null`.as("ref_id"),
+        sourceType: sql<string | null>`null`.as("source_type"),
+        sourceId: sql<string | null>`null`.as("source_id"),
         grnRef: sql<string | null>`null`.as("grn_ref"),
         exchangeId: sql<string | null>`null`.as("exchange_id"),
         note: sql<string | null>`null`.as("note"),
@@ -466,11 +562,15 @@ export type PreparedStoreDraws = {
 
 /**
  * Validate and build MRS draws (one MRS number each) for a document that consumes store items.
- * Validation (item in this company and live, whole numbers for countable units, store location,
- * balance across all draws of an item) throws before any number is taken. The statements keep the
- * order txn₁, ledger₁, audit₁, txn₂, …, so draws of one item see each other; each document INSERT
- * holds the write-time balance guard; the trailing abort statement fails the whole batch if any
- * draw did not land.
+ * Validation (1 to 40 draws, item in this company and live, whole numbers for countable units,
+ * text caps, store location, balance across all draws of an item) throws before any number is
+ * taken. The statements keep the order txn₁, ledger₁, audit₁, txn₂, …, so draws of one item see
+ * each other; each document INSERT holds the write-time balance guard; the trailing abort statement
+ * fails the whole batch if any draw did not land.
+ *
+ * Every draw is marked with its document (`source`; when omitted, the draw's purpose and refId), so
+ * `store.cancel` refuses it and the document's own cancel reverses it (`storeCancelRows` +
+ * `storeCancelMark`). No draws at all is a caller bug (RangeError): skip the call instead.
  */
 export async function prepareStoreDraws(
   db: OrrnDb,
@@ -481,12 +581,21 @@ export async function prepareStoreDraws(
     at: Date;
     audit: AuditCtx;
     draws: StoreDrawInput[];
+    /** The document drawing the stock, e.g. `{ type: "melt", id: meltId }`. */
+    source?: StoreDrawSource;
   },
 ): Promise<PreparedStoreDraws> {
-  const { companyId, draws } = args;
+  const { companyId, draws, source } = args;
   if (draws.length === 0) throw new RangeError("No store draws");
   if (draws.length > MAX_STORE_DRAWS) {
     throw new TRPCError({ code: "BAD_REQUEST", message: `At most ${MAX_STORE_DRAWS} store items per document` });
+  }
+  const tooLong = (s: string | null | undefined, max: number) => s != null && s.length > max;
+  if (source && (!SOURCE_TYPE.test(source.type) || source.id.length < 1 || source.id.length > DRAW_REF_MAX)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "The drawing document needs a kind and an id (at most 64 characters)" });
+  }
+  if (draws.some((d) => tooLong(d.refId, DRAW_REF_MAX) || tooLong(d.note, DRAW_NOTE_MAX))) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `A store draw's reference is at most ${DRAW_REF_MAX} characters and its note ${DRAW_NOTE_MAX}` });
   }
   const items = new Map<string, StoreItemRow>();
   for (const d of draws) {
@@ -508,6 +617,7 @@ export async function prepareStoreDraws(
         id: ids[i]!, companyId, seq: args.seq, kind: "mrs", number: block.numbers[i]!, period: block.period,
         itemId: item.id, unit: item.unit, qtyMilli: d.qtyMilli, locationId: store.id,
         purpose: d.purpose, refId: d.refId ?? null, grnRef: null, exchangeId: null, note: d.note ?? null,
+        source: source ?? { type: d.purpose, id: d.refId ?? null },
         userId: args.userId, at: args.at, guardBalance: true,
       }),
       storeLedgerInsert(db, { companyId, seq: args.seq, txnId: ids[i]!, userId: args.userId, at: args.at }),
@@ -517,7 +627,10 @@ export async function prepareStoreDraws(
           action: "store.issue",
           subjectType: "store_txn",
           subjectId: ids[i]!,
-          meta: { number: block.numbers[i]!, itemId: item.id, qtyMilli: d.qtyMilli, purpose: d.purpose, refId: d.refId ?? null },
+          meta: {
+            number: block.numbers[i]!, itemId: item.id, qtyMilli: d.qtyMilli, purpose: d.purpose, refId: d.refId ?? null,
+            source: source ?? null,
+          },
         },
         { from: storeTxn, where: and(eq(storeTxn.id, ids[i]!), eq(storeTxn.companyId, companyId)) },
       ),
