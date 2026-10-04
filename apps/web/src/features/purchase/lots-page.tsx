@@ -21,7 +21,7 @@ import { Can } from "@/shared/components/can";
 import { RouterLink } from "@/shared/components/router-link";
 import { trpc } from "@/shared/utils/trpc";
 
-import { bookDayText, kgText } from "./format";
+import { bookDayText, kgText, slashBreaks } from "./format";
 import { readKantaG } from "./kanta";
 import { DiffText, LotStatusChip, useCompanyToday, useToleranceBp } from "./lot-ui";
 import type { LotStatus } from "./lot-view";
@@ -81,7 +81,7 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
     {
       key: "material",
       header: t("purchase.list.material"),
-      cell: (l) => t("purchase.material", { item: l.itemName, grade: l.gradeCode }),
+      cell: (l) => slashBreaks(t("purchase.material", { item: l.itemName, grade: l.gradeCode })),
     },
     {
       key: "party",

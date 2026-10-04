@@ -54,3 +54,11 @@ describe("instantDateText", () => {
     expect(instantDateText("2026-10-03T08:30:00Z", "en", "Not/AZone")).toMatch(/3 Oct.*2:00/);
   });
 });
+
+describe("slashBreaks", () => {
+  test("a zero-width space after each slash, so PATTA/ROTTER/HEATSINK wraps at a slash, not mid-word", async () => {
+    const { slashBreaks } = await import("./format");
+    expect(slashBreaks("PATTA/ROTTER/HEATSINK, grade B")).toBe("PATTA/​ROTTER/​HEATSINK, grade B");
+    expect(slashBreaks("SOFT CABLE, grade A")).toBe("SOFT CABLE, grade A");
+  });
+});

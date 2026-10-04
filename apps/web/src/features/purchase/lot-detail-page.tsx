@@ -26,7 +26,7 @@ import { RouterLink } from "@/shared/components/router-link";
 import { trpc } from "@/shared/utils/trpc";
 
 import { APPROVAL_TONE } from "../approvals/approval-view";
-import { bookDateText, kgText, pctText } from "./format";
+import { bookDateText, kgText, pctText, slashBreaks } from "./format";
 import { readKantaG, type KantaReading } from "./kanta";
 import { CancelLotDialog, NoteSheet, StoreSheet, WeightsSheet, useInvalidatePurchase } from "./lot-sheets";
 import { useLotPerms } from "./lot-ui";
@@ -236,7 +236,7 @@ function LotDetail({ data }: { data: LotData }) {
         pop={popKey > 0}
         status={status}
         vendor={lot.vendorName}
-        material={t("purchase.material", { item: lot.itemName, grade: lot.gradeCode })}
+        material={slashBreaks(t("purchase.material", { item: lot.itemName, grade: lot.gradeCode }))}
         reading={reading}
         toleranceBp={toleranceBp}
       />
@@ -410,7 +410,7 @@ function FactsCard({ data }: { data: LotData }) {
   const notSet = t("purchase.detail.notSet");
   const rows: [string, ReactNode, boolean?][] = [
     [t("purchase.detail.vendor"), lot.vendorName],
-    [t("purchase.detail.material"), t("purchase.material", { item: lot.itemName, grade: lot.gradeCode })],
+    [t("purchase.detail.material"), slashBreaks(t("purchase.material", { item: lot.itemName, grade: lot.gradeCode }))],
     [
       t("purchase.detail.rate"),
       <>

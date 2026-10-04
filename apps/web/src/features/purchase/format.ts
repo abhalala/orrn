@@ -76,3 +76,8 @@ export function instantDateText(at: Date | string | number, locale: Locale, time
     return new Intl.DateTimeFormat(tag, { ...options, timeZone: "Asia/Kolkata" }).format(new Date(at));
   }
 }
+
+/** Item names like "PATTA/ROTTER/HEATSINK": a zero-width space after each slash, so narrow cells wrap at a slash. */
+export function slashBreaks(text: string): string {
+  return text.replaceAll("/", "/​");
+}

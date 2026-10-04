@@ -303,6 +303,7 @@ test.describe("purchase and approvals", () => {
         await owner.setViewportSize({ width, height: 900 });
         await owner.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
         const shot = async (name: string) => {
+          await expect(owner.locator("main#main h1").first()).toBeVisible();
           await settled(owner);
           // Let sheets and toasts finish moving (finite animations only; a skeleton pulse never ends).
           await owner.evaluate(() =>
@@ -339,6 +340,11 @@ test.describe("purchase and approvals", () => {
         await shot("new-lot-weights");
         await owner.goto("/purchase/new");
         await shot("new-lot-vendor");
+        await owner.getByRole("combobox", { name: "Vendor" }).fill("K.D");
+        await owner.getByRole("option", { name: /K\.D\. Metals/ }).click();
+        await owner.getByRole("button", { name: "Next" }).click();
+        await owner.getByRole("radio", { name: "IMP BELLING" }).check();
+        await shot("new-lot-material");
       }
     }
   });
