@@ -1,8 +1,11 @@
 # Smoke test: a fresh install opens on sign-in (no stored session, no network call).
 appId: ${APP_ID}
 ---
+# clearKeychain: SecureStore is the iOS Keychain, which survives clearState
+# (the stored language and session cookie would carry into the next run).
 - launchApp:
     clearState: true
+    clearKeychain: true
 - extendedWaitUntil:
     visible: "Sign in"
     timeout: 30000

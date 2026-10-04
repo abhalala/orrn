@@ -7,8 +7,20 @@
  * start sat on the splash and the sign-in button spun for a minute or more.
  * Ten seconds is long for a floor screen and still generous for a slow 4G
  * link. Pure (no React Native imports) so bun tests can load it.
+ *
+ * Reads and sign-in use REQUEST_TIMEOUT_MS. tRPC saves use MUTATION_TIMEOUT_MS
+ * (lib/trpc-links.ts): giving up on the phone does not undo the server's work.
  */
 export const REQUEST_TIMEOUT_MS = 10_000;
+
+/**
+ * The ceiling for a tRPC save. A save can commit at once while its reply takes
+ * long to come back on a weak uplink; cutting it off at 10 s showed a saved
+ * pack session as failed and invited a second one (bundle.createReceipt and
+ * dispatch.create take no request id). Long, but still finite: Android's fetch
+ * would otherwise wait forever.
+ */
+export const MUTATION_TIMEOUT_MS = 60_000;
 
 /** Thrown when orrn sends nothing back within the timeout. */
 export class RequestTimeoutError extends Error {
@@ -31,7 +43,21 @@ export function isRequestTimeout(error: unknown): boolean {
   return false;
 }
 
-type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+/**
+ * What a failed save means to the person. "unsure": orrn never gave its own
+ * answer (a timeout, a dropped connection, a reply that is not orrn's), so the
+ * save may have landed; the screen says "Not sure it saved" and re-reads (or
+ * resends the same client request id) before it offers to try again.
+ * "failed": orrn answered with an error, so nothing was saved and trying again
+ * is safe.
+ */
+export function writeFailureKind(error: unknown): "unsure" | "failed" {
+  if (isRequestTimeout(error)) return "unsure";
+  const status = (error as { data?: { httpStatus?: unknown } | null } | null | undefined)?.data?.httpStatus;
+  return typeof status === "number" ? "failed" : "unsure";
+}
+
+export type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 /**
  * Wrap a fetch so it aborts after `ms`. The caller's own signal (React Query

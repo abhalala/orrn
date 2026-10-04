@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { QueryClient, QueryObserver, type QueryKey } from "@tanstack/react-query";
+import { MutationObserver, QueryClient, QueryObserver, type QueryKey } from "@tanstack/react-query";
 
+import { createQueryClient } from "../lib/query-client";
+import { RequestTimeoutError } from "../lib/request-timeout";
 import {
   companyIdOf,
   handleSessionError,
@@ -163,6 +165,12 @@ describe("errors and retries (parity with web)", () => {
     expect(shouldRetryQuery(0, new TypeError("Network request failed"))).toBe(true);
   });
 
+  test("a timed-out request is not retried: on a dead uplink every try costs another 10 s", () => {
+    const timedOut = Object.assign(new Error("Request timed out"), { name: "TRPCClientError", cause: new RequestTimeoutError(10_000) });
+    expect(shouldRetryQuery(0, timedOut)).toBe(false);
+    expect(shouldRetryQuery(0, new RequestTimeoutError(10_000))).toBe(false);
+  });
+
   test("UNAUTHORIZED on any other query re-checks auth.me once; auth.me's own 401 does not loop", async () => {
     const qc = seeded();
     let meFetches = 0;
@@ -183,5 +191,81 @@ describe("errors and retries (parity with web)", () => {
     await handleSessionError(qc, server, bundlesKey);
     expect(meFetches).toBe(1);
     unsubscribe();
+  });
+});
+
+describe("the app's QueryClient (utils/trpc.ts)", () => {
+  const unauthorized = { message: "UNAUTHORIZED", data: { code: "UNAUTHORIZED", httpStatus: 401 } };
+  const timedOut = Object.assign(new Error("Request timed out"), { name: "TRPCClientError", cause: new RequestTimeoutError(10_000) });
+
+  /** The gate's auth.me, mounted, counting how often it is fetched. */
+  function mountedMe(qc: QueryClient) {
+    let fetches = 0;
+    qc.setQueryData(meKey, { company: { id: "c1" } });
+    const observer = new QueryObserver(qc, {
+      queryKey: meKey,
+      queryFn: async () => {
+        fetches += 1;
+        return { company: { id: "c1" } };
+      },
+      staleTime: Infinity,
+      retry: false,
+    });
+    const unsubscribe = observer.subscribe(() => {});
+    return { fetches: () => fetches, unsubscribe };
+  }
+
+  test("is what utils/trpc.ts uses", () => {
+    expect(readFileSync(join(ROOT, "utils/trpc.ts"), "utf8")).toMatch(/export const queryClient: QueryClient = createQueryClient\(\);/);
+  });
+
+  test("a timed-out screen query is tried once, so its error shows after about 10 s, not 47 s", async () => {
+    const qc = createQueryClient();
+    let attempts = 0;
+    await qc
+      .fetchQuery({
+        queryKey: bundlesKey,
+        queryFn: async () => {
+          attempts += 1;
+          throw timedOut;
+        },
+      })
+      .catch(() => {});
+    expect(attempts).toBe(1);
+  });
+
+  test("transient failures keep the shared retry policy", () => {
+    expect(createQueryClient().getDefaultOptions().queries?.retry).toBe(shouldRetryQuery);
+  });
+
+  test("a 401 on a screen's query re-checks auth.me, so the gate moves to sign-in", async () => {
+    const qc = createQueryClient();
+    const me = mountedMe(qc);
+    await qc
+      .fetchQuery({
+        queryKey: bundlesKey,
+        queryFn: async () => {
+          throw unauthorized;
+        },
+      })
+      .catch(() => {});
+    await flush();
+    expect(me.fetches()).toBe(1);
+    me.unsubscribe();
+  });
+
+  test("a 401 on a save re-checks auth.me too", async () => {
+    const qc = createQueryClient();
+    const me = mountedMe(qc);
+    await new MutationObserver(qc, {
+      mutationFn: async () => {
+        throw unauthorized;
+      },
+    })
+      .mutate()
+      .catch(() => {});
+    await flush();
+    expect(me.fetches()).toBe(1);
+    me.unsubscribe();
   });
 });

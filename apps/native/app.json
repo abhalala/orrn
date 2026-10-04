@@ -7,24 +7,33 @@
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/images/icon.png",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#f4f4f1",
-      "dark": {
-        "image": "./assets/images/splash-icon.png",
-        "backgroundColor": "#0c0c0e"
-      }
-    },
     "ios": {
       "bundleIdentifier": "in.orrn.app",
       "supportsTablet": true,
+      "splash": {
+        "image": "./assets/images/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#f4f4f1",
+        "dark": {
+          "image": "./assets/images/splash-icon.png",
+          "backgroundColor": "#0c0c0e"
+        }
+      },
       "config": {
         "usesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "in.orrn.app",
+      "splash": {
+        "image": "./assets/images/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#f4f4f1",
+        "dark": {
+          "image": "./assets/images/splash-icon.png",
+          "backgroundColor": "#0c0c0e"
+        }
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png",

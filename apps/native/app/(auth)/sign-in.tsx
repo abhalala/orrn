@@ -61,7 +61,8 @@ export default function SignInScreen() {
     setFormError(null);
     const first = errors.email ?? errors.password;
     if (first) {
-      announce(t(first));
+      // Shown under the field in a live region (components/ui/field.tsx).
+      announce(t(first), { shownInLiveRegion: true });
       haptic("error");
       return;
     }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
@@ -9,14 +9,30 @@ const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
 const json = (p: string) => JSON.parse(read(p));
 
 type Plugin = string | [string, Record<string, unknown>];
+type Splash = { image: string; backgroundColor: string; dark?: { image: string; backgroundColor: string } };
 const appJson = json("app.json").expo as {
-  ios: { bundleIdentifier: string; supportsTablet: boolean };
-  android: { package: string; adaptiveIcon: Record<string, string> };
+  ios: { bundleIdentifier: string; supportsTablet: boolean; splash?: Splash };
+  android: { package: string; adaptiveIcon: Record<string, string>; splash?: Splash };
   icon: string;
-  splash: { image: string; backgroundColor: string; dark?: { image: string; backgroundColor: string } };
+  splash?: Splash;
   plugins: Plugin[];
   locales: Record<string, string>;
 };
+
+/** Expo's own splash resolvers, from the @expo/prebuild-config that `expo prebuild` runs. */
+function splashResolvers() {
+  const req = createRequire(join(ROOT, "package.json"));
+  const fromExpo = createRequire(req.resolve("expo/package.json"));
+  const dir = "@expo/prebuild-config/build/plugins/unversioned/expo-splash-screen";
+  const { getIosSplashConfig } = fromExpo(`${dir}/getIosSplashConfig`) as {
+    getIosSplashConfig: (config: unknown) => { backgroundColor?: string; image?: string; dark?: { backgroundColor?: string; image?: string } };
+  };
+  const { getAndroidSplashConfig, getAndroidDarkSplashConfig } = fromExpo(`${dir}/getAndroidSplashConfig`) as {
+    getAndroidSplashConfig: (config: unknown) => { backgroundColor?: string; image?: string } | null;
+    getAndroidDarkSplashConfig: (config: unknown) => { backgroundColor?: string; image?: string } | null;
+  };
+  return { getIosSplashConfig, getAndroidSplashConfig, getAndroidDarkSplashConfig };
+}
 const plugin = (name: string) => appJson.plugins.find((p) => (Array.isArray(p) ? p[0] : p) === name);
 
 describe("app.json (N13)", () => {
@@ -29,14 +45,31 @@ describe("app.json (N13)", () => {
   test("icon, adaptive icon and splash point at files that exist", () => {
     const files = [
       appJson.icon,
-      appJson.splash.image,
-      appJson.splash.dark?.image,
+      appJson.ios.splash?.image,
+      appJson.ios.splash?.dark?.image,
+      appJson.android.splash?.image,
+      appJson.android.splash?.dark?.image,
       ...Object.values(appJson.android.adaptiveIcon).filter((v) => v.startsWith("./")),
     ];
     for (const f of files) {
       expect(f).toBeString();
       expect(existsSync(join(ROOT, f as string))).toBe(true);
     }
+  });
+
+  test("the launch screen follows dark mode on both platforms (Expo ignores a top-level splash.dark)", () => {
+    const { getIosSplashConfig, getAndroidSplashConfig, getAndroidDarkSplashConfig } = splashResolvers();
+    const ios = getIosSplashConfig(appJson);
+    expect(ios.backgroundColor).toBe("#f4f4f1");
+    expect(ios.dark?.backgroundColor).toBe("#0c0c0e");
+    expect(ios.dark?.image).toBe(ios.image);
+    expect(getAndroidSplashConfig(appJson)?.backgroundColor).toBe("#f4f4f1");
+    expect(getAndroidDarkSplashConfig(appJson)?.backgroundColor).toBe("#0c0c0e");
+    expect(getAndroidDarkSplashConfig(appJson)?.image).toBe(appJson.android.splash?.image);
+  });
+
+  test("no top-level splash, so nothing silently overrides the per-platform ones", () => {
+    expect(appJson.splash).toBeUndefined();
   });
 
   test("camera plugin with a plain-language permission and no microphone", () => {
@@ -139,4 +172,27 @@ describe("removed (N14, N15)", () => {
       expect(deps).not.toContain(d);
     }
   });
+});
+
+describe("Maestro flows", () => {
+  const dir = join(REPO, ".maestro", "flows");
+  const flows = readdirSync(dir).filter((f) => f.endsWith(".yaml"));
+
+  test("there are flows", () => {
+    expect(flows.length).toBeGreaterThan(0);
+  });
+
+  // SecureStore is the iOS Keychain: it survives clearState and reinstalls, so the
+  // stored language (orrn.locale) and session cookie leaked from one run into the next.
+  for (const f of flows) {
+    test(`${f} starts from a clean install, Keychain included`, () => {
+      const src = readFileSync(join(dir, f), "utf8");
+      const launches = src.match(/- launchApp:[\s\S]*?(?=\n- |$)/g) ?? [];
+      expect(launches.length).toBeGreaterThan(0);
+      for (const launch of launches) {
+        expect(launch).toMatch(/clearState: true/);
+        expect(launch).toMatch(/clearKeychain: true/);
+      }
+    });
+  }
 });

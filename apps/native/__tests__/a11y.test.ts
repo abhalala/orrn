@@ -28,6 +28,17 @@ describe("announce once (TalkBack read sign-in errors twice)", () => {
   test("the sign-in form error goes through the live-region path", () => {
     expect(read("app/(auth)/sign-in.tsx")).toMatch(/announce\(t\(key\), \{ shownInLiveRegion: true \}\)/);
   });
+
+  test("field errors (shown under the field in a live region) go through it too", () => {
+    expect(read("components/ui/field.tsx")).toMatch(/accessibilityLiveRegion=\{error \? "polite" : "none"\}/);
+    expect(read("app/(auth)/sign-in.tsx")).toMatch(/announce\(t\(first\), \{ shownInLiveRegion: true \}\)/);
+  });
+
+  test("on sign-in, only the step change (not rendered in a live region) is announced on Android", () => {
+    const calls = read("app/(auth)/sign-in.tsx").match(/\bannounce\([^;]*\);/g) ?? [];
+    const plain = calls.filter((c) => !c.includes("shownInLiveRegion: true"));
+    expect(plain).toEqual(['announce(t("auth.totp.title"));']);
+  });
 });
 
 /** A stand-in for React Native's AppState. */

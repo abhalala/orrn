@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { en, hi } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 
 import { noAccessReason, offlineKind, resolveGate, routeForMe } from "../lib/gate";
@@ -126,5 +127,14 @@ describe("offline screen", () => {
     expect(layout).toMatch(/failedFetches > 1/);
     expect(layout).toMatch(/auth\.noAccess\.switchAccount/);
     expect(layout).toMatch(/signOut\(\)/);
+  });
+});
+
+describe("set-password copy (ruling T28-1: the person may own only a phone)", () => {
+  test("points to orrn.in in the phone's browser, not only to a computer", () => {
+    expect(en.native.setPasswordBody).toContain("orrn.in");
+    expect(en.native.setPasswordBody).toMatch(/phone's browser/);
+    expect(hi.native.setPasswordBody).toContain("orrn.in");
+    expect(hi.native.setPasswordBody).toContain("ब्राउज़र");
   });
 });

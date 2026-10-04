@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { QueryClient, QueryObserver, type QueryKey } from "@tanstack/react-query";
 
+import { resolveGate } from "../lib/gate";
+import { RequestTimeoutError } from "../lib/request-timeout";
 import { afterSignInWith, SIGN_OUT_WAIT_MS, signOutWith } from "../lib/sign-out-flow";
 
 const ROOT = join(import.meta.dir, "..");
@@ -147,5 +149,49 @@ describe("afterSignIn order: drop the previous person's rows, load auth.me, then
       presence: { changed: () => log.push("gate") },
     });
     expect(log).toEqual(["gate"]);
+  });
+
+  test("after a 401, a new sign-in whose auth.me fails never opens on the previous person's auth.me", async () => {
+    // A shared phone: A's session ends mid-use (auth.me 401s, the gate shows sign-in),
+    // then B signs in on flaky Wi-Fi and B's first auth.me times out. React Query keeps
+    // A's data through the 401, and the gate uses cached data once the error is no
+    // longer UNAUTHORIZED, so without a reset it opened the tabs as A.
+    const A = { user: { name: "Ravi (A)", mustChangePassword: false }, company: { id: "plant-A", role: "manager", modules: [] } };
+    const unauthorized = Object.assign(new Error("UNAUTHORIZED"), { data: { code: "UNAUTHORIZED", httpStatus: 401 } });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    let mode: "A" | "401" | "timeout" = "A";
+    const meFn = async () => {
+      if (mode === "A") return A;
+      if (mode === "401") throw unauthorized;
+      throw Object.assign(new Error("Request timed out"), { name: "TRPCClientError", cause: new RequestTimeoutError(10_000) });
+    };
+    const gate = new QueryObserver(qc, { queryKey: meKey, staleTime: 30_000, queryFn: meFn });
+    const unsubscribe = gate.subscribe(() => {});
+    const read = () => {
+      const r = gate.getCurrentResult();
+      return {
+        route: resolveGate({ hasSession: true, me: r.data as never, error: r.error, isPending: r.isPending, failedFetches: r.errorUpdateCount }),
+        name: (r.data as typeof A | undefined)?.user.name,
+      };
+    };
+    await new Promise((r) => setTimeout(r, 20));
+    expect(read().route).toBe("/(tabs)/today");
+
+    mode = "401";
+    await gate.refetch();
+    expect(read().route).toBe("/(auth)/sign-in");
+
+    mode = "timeout";
+    await afterSignInWith({
+      queryClient: qc,
+      fetchMe: () => qc.fetchQuery({ queryKey: meKey, queryFn: meFn, staleTime: 0, retry: false }),
+      presence: { changed() {} },
+    });
+    // The gate loads, then shows the offline screen with Try again: never A's name, plant or tabs.
+    expect(read().name).toBeUndefined();
+    expect(["loading", "offline"]).toContain(read().route);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(read()).toEqual({ route: "offline", name: undefined });
+    unsubscribe();
   });
 });

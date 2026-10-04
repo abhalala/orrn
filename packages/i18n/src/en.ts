@@ -901,7 +901,7 @@ export const en = {
     offlineTitle: "Can't reach orrn",
     offlineBody: "Check the phone's internet connection, then try again.",
     setPasswordTitle: "Set your own password first",
-    setPasswordBody: "Your account has a temporary password. Sign in to orrn on a computer, set a new password, then come back here.",
+    setPasswordBody: "Your account has a temporary password. Open orrn.in in your phone's browser or on a computer, sign in and set a new password, then come back here.",
     staffTitle: "Godseye is on the web",
     staffBody: "Staff accounts don't belong to a plant. Open orrn on a computer to use Godseye.",
     checkAgain: "Check again",
@@ -913,6 +913,8 @@ export const en = {
     codeTooShort: "Enter all 6 digits of the code.",
     serverTitle: "orrn ran into a problem",
     serverBody: "The problem is on orrn's side, not this phone. Try again in a minute.",
+    saveUnsureTitle: "Not sure it saved",
+    saveUnsureBody: "orrn didn't answer in time, so this may have saved. Check before you try again.",
   },
 
   /** Component library chrome (@orrn/ui): screen-reader and helper text. */

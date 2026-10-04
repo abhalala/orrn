@@ -100,11 +100,14 @@ describe("gate query retry", () => {
 });
 
 describe("wiring", () => {
-  test("every tRPC request goes through fetchWithTimeout", () => {
-    const src = read("utils/trpc.ts");
-    expect(src).toMatch(/const timedFetch = fetchWithTimeout\(/);
-    expect(src).toMatch(/fetch\(url, options\) \{\s*return timedFetch\(url,/);
-    expect(src.match(/\bfetch\(/g)?.length).toBe(2); // the link's fetch option and the one wrapped by fetchWithTimeout
+  test("every tRPC request goes through fetchWithTimeout (reads 10 s, saves a long ceiling)", () => {
+    const links = read("lib/trpc-links.ts");
+    expect(links).toMatch(/const timed = fetchWithTimeout\(fetchImpl, ms\);/);
+    expect(links).toMatch(/fetch: \(input, init\) => timed\(/);
+    expect(links).toMatch(/condition: \(op\) => op\.type === "mutation"/);
+    expect(links).toMatch(/true: link\(mutationTimeoutMs\)/);
+    expect(links).toMatch(/false: link\(queryTimeoutMs\)/);
+    // Details and behaviour: __tests__/trpc-links.test.ts.
   });
 
   test("Better Auth calls (sign-in, TOTP, sign-out) carry the same timeout", () => {
@@ -113,5 +116,12 @@ describe("wiring", () => {
 
   test("the root gate query uses gateQueryRetry", () => {
     expect(read("app/_layout.tsx")).toMatch(/retry:\s*gateQueryRetry/);
+  });
+
+  test("the native splash never stays longer than about 2 s (a slow first auth.me shows a spinner)", () => {
+    const src = read("app/_layout.tsx");
+    expect(src).toMatch(/const SPLASH_MAX_MS = 2_000;/);
+    expect(src).toMatch(/const timer = setTimeout\(hide, SPLASH_MAX_MS\);\s*return \(\) => clearTimeout\(timer\);/);
+    expect(src).toMatch(/if \(state !== "loading"\) \{\s*hide\(\);/);
   });
 });

@@ -37,20 +37,24 @@ export function isClientError(error: unknown): boolean {
   return typeof status === "number" && status >= 400 && status < 500;
 }
 
-/** React Query `retry`: no retry on 4xx; transient failures retry up to 3 times. */
+/**
+ * React Query `retry`: no retry on 4xx, none after a timeout, and other
+ * transient failures retry up to 3 times. A request that got no answer in 10 s
+ * is a dead uplink: three more tries kept a screen loading for about 47 s
+ * before it showed its error and its own Try again.
+ */
 export function shouldRetryQuery(failureCount: number, error: unknown): boolean {
   if (isClientError(error)) return false;
+  if (isRequestTimeout(error)) return false;
   return failureCount < 3;
 }
 
 /**
  * `retry` for the root gate's `auth.me`: one retry for a transient failure,
- * none for a 4xx, and none for a timeout. A request that got no answer in 10 s
- * is a dead uplink; trying again at once only keeps the person waiting another
- * 10 s before the offline screen (which has its own Try again).
+ * none for a 4xx, and none for a timeout (the offline screen has its own
+ * Try again).
  */
 export function gateQueryRetry(failureCount: number, error: unknown): boolean {
-  if (isRequestTimeout(error)) return false;
   return failureCount < 1 && shouldRetryQuery(failureCount, error);
 }
 

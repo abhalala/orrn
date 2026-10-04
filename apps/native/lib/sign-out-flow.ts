@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import { resetAfterSignOut, resetTenantQueries } from "./session";
+import { ME_QUERY_KEY, resetAfterSignOut, resetTenantQueries } from "./session";
 
 /**
  * Sign-in and sign-out sequencing with its dependencies passed in, so bun can
@@ -72,7 +72,12 @@ export async function afterSignInWith({ queryClient, fetchMe, presence }: AfterS
   try {
     await fetchMe();
   } catch {
-    // The gate shows its offline screen and retries from there.
+    // A 401 earlier (the previous session ended mid-use) left that person's
+    // auth.me in the cache, and the gate trusts cached data once the error is
+    // no longer UNAUTHORIZED: a shared phone opened as the previous person.
+    // Clear it, so the gate loads and then shows its offline screen (with
+    // Try again) instead. Not awaited: the gate's own refetch runs from here.
+    void queryClient.resetQueries({ queryKey: ME_QUERY_KEY, exact: true });
   }
   presence.changed();
 }

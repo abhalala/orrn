@@ -1,8 +1,11 @@
 # Sign-in checks the fields before calling the server, and the language switch works.
 appId: ${APP_ID}
 ---
+# clearKeychain: SecureStore is the iOS Keychain, which survives clearState
+# (the stored language and session cookie would carry into the next run).
 - launchApp:
     clearState: true
+    clearKeychain: true
 - extendedWaitUntil:
     visible: "Sign in"
     timeout: 30000
