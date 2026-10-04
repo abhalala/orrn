@@ -8,7 +8,7 @@ import { Sheet } from "@orrn/ui/components/sheet";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, KeyRound, Power, TerminalSquare } from "lucide-react";
+import { CircleCheck, Download, KeyRound, Power, TerminalSquare } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -131,12 +131,12 @@ function StationCard({ row, onAction }: { row: DeploymentRow; onAction(action: A
           <h2
             id={`station-${row.id}`}
             data-no-truncate=""
-            className="m-0 font-mono text-[17px] font-semibold text-foreground [overflow-wrap:anywhere]"
+            className="m-0 font-mono text-[15px] font-semibold text-foreground [overflow-wrap:anywhere] sm:text-[17px]"
           >
             {row.spoolDomain}
           </h2>
         </div>
-        <Chip tone={printingTone(row.status)}>{t(printingKey(row.status))}</Chip>
+        <Chip tone={printingTone(row.status)} truncate={false}>{t(printingKey(row.status))}</Chip>
       </div>
 
       <dl className="m-0 grid grid-cols-1 gap-4 min-[420px]:grid-cols-3">
@@ -191,7 +191,7 @@ function History({ rows }: { rows: DeploymentRow[] }) {
           >
             <span className="min-w-0 font-mono text-[13px] text-foreground [overflow-wrap:anywhere]">{row.spoolDomain}</span>
             <span className="flex items-center gap-3 text-[13px] text-muted-foreground">
-              <Chip tone="red">{t("status.printSetup.revoked")}</Chip>
+              <Chip tone="red" truncate={false}>{t("status.printSetup.revoked")}</Chip>
               <span className="whitespace-nowrap">{formatDay(row.createdAt, { locale })}</span>
             </span>
           </li>
@@ -242,8 +242,8 @@ function SetupSheet({
   const create = useMutation({
     ...trpc.platform.spoolDeploymentCreate.mutationOptions(),
     onSuccess: async (result) => {
+      // No toast here: it would sit over the sheet's Done button. The sheet says it instead.
       setCreated(result);
-      toast.success(t("admin.printing.created"));
       await invalidate();
     },
     onError: (err) => {
@@ -313,6 +313,13 @@ function SetupSheet({
     >
       {created ? (
         <div className="flex flex-col gap-4">
+          <p
+            role="status"
+            className="m-0 flex items-center gap-2 rounded-input bg-tone-green-tint px-4 py-3 text-[15px] font-semibold text-tone-green-ink"
+          >
+            <CircleCheck aria-hidden="true" className="size-5 shrink-0" strokeWidth={2} />
+            {t("admin.printing.created")}
+          </p>
           <CopyField label={t("admin.printing.address")} value={created.spoolDomain} />
           <CopyField label={t("admin.printing.instanceId")} value={created.instanceId} />
           <CopyField label={t("admin.printing.sharedSecret")} value={created.sharedSecret} />

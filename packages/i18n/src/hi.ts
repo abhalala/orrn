@@ -825,7 +825,6 @@ export const hi = {
       viewAllRequests: "सभी एक्सेस रिक्वेस्ट देखें",
       viewAllCompanies: "सभी कंपनियां देखें",
       loadError: "सारांश लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें।",
-      requestFrom: "{name}, {email}",
     },
     companies: {
       title: "कंपनियां",
@@ -897,6 +896,7 @@ export const hi = {
       save: "प्लान सेव करें",
       saved: "प्लान सेव हो गया",
       unsaved: "बदलाव सेव नहीं हुए",
+      noPlanYet: "अभी कोई प्लान सेव नहीं है।",
     },
     printing: {
       noneTitle: "लेबल प्रिंटिंग सेट नहीं है",

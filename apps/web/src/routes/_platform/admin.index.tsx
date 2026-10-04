@@ -196,17 +196,19 @@ function WaitingList({ rows }: { rows: NonNullable<Overview["waitlist"]>["recent
             <li key={row.id} className="min-w-0 border-t border-border first:border-t-0">
               <UiLink to="/admin/requests" className={ROW_LINK}>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="text-[15px] font-semibold text-foreground break-words">{row.companyName}</span>
-                  <span className="text-[13px] text-muted-foreground [overflow-wrap:anywhere]">
-                    {t("admin.overview.requestFrom", { name: row.requesterName, email: row.requesterEmail })}
+                  <span className="flex min-w-0 items-baseline justify-between gap-3">
+                    <span className="min-w-0 text-[15px] font-semibold text-foreground break-words">{row.companyName}</span>
+                    <time
+                      dateTime={new Date(row.createdAt).toISOString()}
+                      className="shrink-0 text-[13px] whitespace-nowrap text-muted-foreground"
+                    >
+                      {formatAgo(row.createdAt, { locale })}
+                    </time>
                   </span>
+                  <span className="text-[13px] text-muted-foreground break-words">{row.requesterName}</span>
+                  {/* An email has no spaces: on its own line it gets the full width before it may break. */}
+                  <span className="text-[13px] text-muted-foreground [overflow-wrap:anywhere]">{row.requesterEmail}</span>
                 </span>
-                <time
-                  dateTime={new Date(row.createdAt).toISOString()}
-                  className="shrink-0 text-[13px] whitespace-nowrap text-muted-foreground"
-                >
-                  {formatAgo(row.createdAt, { locale })}
-                </time>
                 <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} />
               </UiLink>
             </li>
@@ -235,7 +237,7 @@ function RecentCompanies({ rows }: { rows: NonNullable<Overview["companies"]>["r
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="text-[15px] font-semibold text-foreground break-words">{row.name}</span>
                   <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
-                    <Chip tone={companyStatusTone(row.status)}>{t(companyStatusKey(row.status))}</Chip>
+                    <Chip tone={companyStatusTone(row.status)} truncate={false}>{t(companyStatusKey(row.status))}</Chip>
                     <span className="whitespace-nowrap">{formatDay(row.createdAt, { locale })}</span>
                   </span>
                 </span>

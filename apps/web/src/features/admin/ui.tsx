@@ -190,9 +190,9 @@ export function CopyField({ label, value }: { label: string; value: string }) {
 }
 
 /** A label/value pair in a facts strip (`dl`). */
-export function Fact({ label, children }: { label: string; children: ReactNode }) {
+export function Fact({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1">
+    <div className={cn("flex min-w-0 flex-col gap-1", className)}>
       <dt className="text-[13px] font-medium text-muted-foreground">{label}</dt>
       <dd className="m-0 min-w-0 text-[15px] font-semibold text-foreground break-words">{children}</dd>
     </div>

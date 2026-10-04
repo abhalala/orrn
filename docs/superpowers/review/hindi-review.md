@@ -770,7 +770,6 @@ Counts: 918 screen strings in 25 groups, 10 guides with 182 strings.
 | `overview.viewAllRequests` | View all access requests | सभी एक्सेस रिक्वेस्ट देखें |
 | `overview.viewAllCompanies` | View all companies | सभी कंपनियां देखें |
 | `overview.loadError` | The overview didn't load. Check the connection and try again. | सारांश लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
-| `overview.requestFrom` | {name}, {email} | {name}, {email} |
 | `companies.title` | Companies | कंपनियां |
 | `companies.subtitle` | {count} {count:company\|companies} on orrn | orrn पर {count} {count:कंपनी\|कंपनियां} |
 | `companies.search` | Search companies | कंपनी खोजें |
@@ -826,6 +825,7 @@ Counts: 918 screen strings in 25 groups, 10 guides with 182 strings.
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
+| `plan.noPlanYet` | No plan saved yet. | अभी कोई प्लान सेव नहीं है। |
 | `printing.noneTitle` | Label printing isn't set up | लेबल प्रिंटिंग सेट नहीं है |
 | `printing.noneBody` | Set up a print station so {company} can print bundle labels on their own printers. | प्रिंट स्टेशन सेट करें ताकि {company} अपने प्रिंटर पर बंडल लेबल छाप सके। |
 | `printing.setUp` | Set up label printing | लेबल प्रिंटिंग सेट करें |

@@ -82,7 +82,7 @@ export function CompanyAccessTab({ detail }: { detail: CompanyDetail }) {
       header: t("admin.companies.columns.status"),
       cell: (row) => {
         const state = grantState(row, now);
-        return <Chip tone={grantTone(state)}>{t(grantStateKey(state))}</Chip>;
+        return <Chip tone={grantTone(state)} truncate={false}>{t(grantStateKey(state))}</Chip>;
       },
     },
     {

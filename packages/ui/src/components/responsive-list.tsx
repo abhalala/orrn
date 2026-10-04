@@ -21,6 +21,11 @@ export type ResponsiveListColumn<T> = {
   align?: "end";
   /** Leave out of the stacked phone row. The first column always shows. */
   hideOnPhone?: boolean;
+  /**
+   * Give the value two grid columns in the stacked phone row (a status chip
+   * with a long word, "Waiting for approval"), so it never has to be cut.
+   */
+  phoneWide?: boolean;
 };
 
 export type ResponsiveListPage = { offset: number; limit: number; onChange(offset: number): void };
@@ -203,7 +208,7 @@ export function ResponsiveList<T>({
                     {phoneColumns.length ? (
                       <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3 md:grid-cols-4">
                         {phoneColumns.map((col) => (
-                          <div key={col.key} className="flex min-w-0 flex-col">
+                          <div key={col.key} className={cn("flex min-w-0 flex-col", col.phoneWide && "col-span-2")}>
                             <dt className="truncate text-[12px] font-medium text-muted-foreground" title={col.header}>
                               {col.header}
                             </dt>

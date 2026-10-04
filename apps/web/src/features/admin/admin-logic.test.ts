@@ -10,6 +10,7 @@ import {
   validateStationName,
 } from "./status";
 import { accessTabPath, impersonationEndsSoon } from "./impersonate";
+import { initialPlan, planForm } from "./plan";
 
 const NOW = new Date(2026, 9, 3, 15, 0, 0);
 
@@ -117,5 +118,25 @@ describe("impersonation", () => {
   test("ends soon inside the last five minutes", () => {
     expect(impersonationEndsSoon(new Date(NOW.getTime() + 4 * 60_000).toISOString(), NOW)).toBe(true);
     expect(impersonationEndsSoon(new Date(NOW.getTime() + 20 * 60_000).toISOString(), NOW)).toBe(false);
+  });
+});
+
+describe("plan form", () => {
+  test("a company with no plan yet starts on Starter and can be saved as is", () => {
+    expect(planForm({ plan: null, modules: [] }, { plan: "starter", modules: [] })).toEqual({ dirty: true, noPlanYet: true });
+  });
+  test("unchanged plan and modules (any order) are not dirty", () => {
+    expect(planForm({ plan: "growth", modules: ["dies", "customers"] }, { plan: "growth", modules: ["customers", "dies"] })).toEqual({
+      dirty: false,
+      noPlanYet: false,
+    });
+  });
+  test("a changed plan or module is dirty", () => {
+    expect(planForm({ plan: "growth", modules: [] }, { plan: "enterprise", modules: [] }).dirty).toBe(true);
+    expect(planForm({ plan: "growth", modules: [] }, { plan: "growth", modules: ["dies"] }).dirty).toBe(true);
+  });
+  test("the starting plan is the saved one, Starter when none", () => {
+    expect(initialPlan(null)).toBe("starter");
+    expect(initialPlan("dev")).toBe("dev");
   });
 });

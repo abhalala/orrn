@@ -117,9 +117,10 @@ function Facts({ company }: { company: CompanyDetail["company"] }) {
   const planKey = company.plan ? PLAN_KEYS[company.plan] : undefined;
   return (
     <Panel aria-label={t("admin.company.facts")} className="px-5 py-4 sm:px-6">
-      <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-4 md:grid-cols-4">
-        <Fact label={t("admin.company.status")}>
-          <Chip tone={companyStatusTone(company.status)}>{t(companyStatusKey(company.status))}</Chip>
+      {/* Phone: the status gets its own row ("Waiting for approval" never has to be cut), the rest share one. */}
+      <dl className="m-0 grid grid-cols-3 gap-x-4 gap-y-4 md:grid-cols-4">
+        <Fact label={t("admin.company.status")} className="col-span-3 md:col-span-1">
+          <Chip tone={companyStatusTone(company.status)} truncate={false}>{t(companyStatusKey(company.status))}</Chip>
         </Fact>
         <Fact label={t("admin.company.plan")}>
           {planKey ? t(planKey) : company.plan ? <span className="font-mono">{company.plan}</span> : t("admin.company.noPlan")}

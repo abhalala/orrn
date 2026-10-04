@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
+import { initialPlan as startingPlan, planForm } from "./plan";
 import type { CompanyDetail } from "./types";
 import { errorText, Panel } from "./ui";
 
@@ -19,10 +20,6 @@ const PLAN_KEYS: Record<(typeof COMPANY_PLANS)[number], MessageKey> = {
   growth: "admin.plan.plans.growth",
   enterprise: "admin.plan.plans.enterprise",
 };
-
-function sameModules(a: readonly string[], b: readonly string[]) {
-  return a.length === b.length && a.every((m) => b.includes(m));
-}
 
 /**
  * Plan and modules (spec §3, Godseye company tab). Modules gate the
@@ -34,7 +31,7 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
   const { t } = useT();
   const qc = useQueryClient();
   const groupId = useId();
-  const initialPlan = company.plan ?? "starter";
+  const initialPlan = startingPlan(company.plan);
   const initialModules = (company.modules ?? []).filter((m): m is CompanyModule =>
     (COMPANY_MODULES as readonly string[]).includes(m),
   );
@@ -48,7 +45,7 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company.plan, (company.modules ?? []).join(",")]);
 
-  const dirty = plan !== initialPlan || !sameModules(modules, initialModules);
+  const { dirty, noPlanYet } = planForm({ plan: company.plan, modules: initialModules }, { plan, modules });
 
   const save = useMutation({
     ...trpc.platform.updatePlanAndModules.mutationOptions(),
@@ -119,7 +116,7 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
           {dirty ? (
             <p role="status" className="m-0 text-[13px] font-medium text-muted-foreground">
-              {t("admin.plan.unsaved")}
+              {noPlanYet ? t("admin.plan.noPlanYet") : t("admin.plan.unsaved")}
             </p>
           ) : null}
           <Button

@@ -89,19 +89,29 @@ function AdminCompanies() {
       cell: (row) => (
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="font-semibold text-foreground break-words">{row.name}</span>
-          <span className="font-mono text-[12px] text-muted-foreground [overflow-wrap:anywhere]">{row.slug}</span>
+          <span className="font-mono text-[12px] font-normal text-muted-foreground [overflow-wrap:anywhere]">{row.slug}</span>
         </span>
       ),
     },
     {
       key: "status",
       header: t("admin.companies.columns.status"),
-      cell: (row) => <Chip tone={companyStatusTone(row.status)}>{t(companyStatusKey(row.status))}</Chip>,
+      phoneWide: true,
+      cell: (row) => (
+        <Chip tone={companyStatusTone(row.status)} truncate={false}>
+          {t(companyStatusKey(row.status))}
+        </Chip>
+      ),
     },
     {
       key: "printing",
       header: t("admin.companies.columns.printing"),
-      cell: (row) => <Chip tone={printingTone(row.printing)}>{t(printingKey(row.printing))}</Chip>,
+      phoneWide: true,
+      cell: (row) => (
+        <Chip tone={printingTone(row.printing)} truncate={false}>
+          {t(printingKey(row.printing))}
+        </Chip>
+      ),
     },
     {
       key: "members",

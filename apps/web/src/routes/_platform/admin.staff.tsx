@@ -93,7 +93,7 @@ function AdminStaff() {
           <span className="font-semibold text-foreground break-words">
             {row.userId === me?.user.id ? t("admin.access.staffYou", { name: row.name }) : row.name}
           </span>
-          <span className="text-[13px] text-muted-foreground [overflow-wrap:anywhere]">{row.email}</span>
+          <span className="text-[13px] font-normal text-muted-foreground [overflow-wrap:anywhere]">{row.email}</span>
         </span>
       ),
     },
@@ -113,7 +113,7 @@ function AdminStaff() {
             className="w-full min-w-40 lg:w-44"
           />
         ) : (
-          <Chip tone="violet">{t(ROLE_KEYS[role])}</Chip>
+          <Chip tone="violet" truncate={false}>{t(ROLE_KEYS[role])}</Chip>
         );
       },
     },

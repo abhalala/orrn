@@ -831,7 +831,6 @@ export const en = {
       viewAllRequests: "View all access requests",
       viewAllCompanies: "View all companies",
       loadError: "The overview didn't load. Check the connection and try again.",
-      requestFrom: "{name}, {email}",
     },
     companies: {
       title: "Companies",
@@ -903,6 +902,7 @@ export const en = {
       save: "Save plan",
       saved: "Plan saved",
       unsaved: "Unsaved changes",
+      noPlanYet: "No plan saved yet.",
     },
     printing: {
       noneTitle: "Label printing isn't set up",
