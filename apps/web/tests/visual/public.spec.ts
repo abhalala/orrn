@@ -21,6 +21,9 @@ test.beforeEach(async ({ page }, testInfo) => {
 
 test.describe("public marketing", () => {
   test("landing page layout", async ({ page }) => {
+    // Two page loads plus a ~4-6k px full-page capture with stability shots:
+    // the default 30 s runs out on a busy machine before any comparison fails.
+    test.slow();
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Every bundle, accounted for." })).toBeVisible();
     // A long page: on touch projects the first full-page capture can still

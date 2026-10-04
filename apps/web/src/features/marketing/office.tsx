@@ -32,7 +32,7 @@ export function Office() {
                 >
                   <Icon className="size-5" strokeWidth={2} />
                 </span>
-                <p className="m-0 min-w-0 pt-2.5 text-[16px] leading-7 text-foreground">{t(text)}</p>
+                <p className="m-0 min-w-0 text-pretty pt-2.5 text-[16px] leading-7 text-foreground">{t(text)}</p>
               </li>
             ))}
           </ul>

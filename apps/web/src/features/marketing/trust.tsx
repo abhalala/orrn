@@ -26,7 +26,7 @@ export function Trust() {
           {POINTS.map(({ icon: Icon, text }) => (
             <li key={text} className="flex min-w-0 flex-col gap-4">
               <Icon aria-hidden="true" className="size-8 text-foreground" strokeWidth={2} />
-              <p className="m-0 max-w-[30rem] font-display text-[22px] font-semibold leading-snug tracking-[-0.02em] text-foreground md:text-[26px]">
+              <p className="m-0 max-w-[30rem] text-pretty font-display text-[22px] font-semibold leading-snug tracking-[-0.02em] text-foreground md:text-[26px]">
                 {t(text)}
               </p>
             </li>

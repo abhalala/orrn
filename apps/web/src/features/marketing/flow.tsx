@@ -140,7 +140,7 @@ function FlowBlock({ step, children }: { step: Step; children: ReactNode }) {
         </span>
         <h3 className="m-0 font-display text-[26px] font-bold leading-tight tracking-[-0.03em]">{t(step.title)}</h3>
       </div>
-      <p className="m-0 text-[16px] leading-7">{t(step.body)}</p>
+      <p className="m-0 text-pretty text-[16px] leading-7">{t(step.body)}</p>
       <div data-demo-visual aria-hidden="true" className="mt-auto flex flex-col gap-2 rounded-card bg-tone-neutral-to/20 p-3">
         <DemoLabel onColor className="self-start" />
         {children}
