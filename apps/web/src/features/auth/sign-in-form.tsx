@@ -46,7 +46,8 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
   const [code, setCode] = useState("");
   const [backupCode, setBackupCode] = useState("");
   const [trust, setTrust] = useState(true);
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string; code?: string }>({});
+  // Message keys, not text: errors already shown follow a language switch.
+  const [fieldErrors, setFieldErrors] = useState<{ email?: MessageKey; password?: MessageKey; code?: MessageKey }>({});
   const [formError, setFormError] = useState<MessageKey | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -77,9 +78,9 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
   async function submitPassword() {
     const errors: typeof fieldErrors = {};
     const trimmed = email.trim();
-    if (!trimmed) errors.email = t("auth.validation.email");
-    else if (!EMAIL.test(trimmed)) errors.email = t("errors.invalidEmail");
-    if (!password) errors.password = t("auth.validation.password");
+    if (!trimmed) errors.email = "auth.validation.email";
+    else if (!EMAIL.test(trimmed)) errors.email = "errors.invalidEmail";
+    if (!password) errors.password = "auth.validation.password";
     setFieldErrors(errors);
     setFormError(null);
     if (errors.email) return emailRef.current?.focus();
@@ -108,11 +109,11 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
   async function submitCode(value = mode === "backup" ? backupCode.trim() : code) {
     if (pending) return;
     if (mode === "totp" && value.length !== 6) {
-      setFieldErrors({ code: t("auth.totp.codeRequired") });
+      setFieldErrors({ code: "auth.totp.codeRequired" });
       return codeRef.current?.focus();
     }
     if (mode === "backup" && !value) {
-      setFieldErrors({ code: t("auth.totp.backupRequired") });
+      setFieldErrors({ code: "auth.totp.backupRequired" });
       return codeRef.current?.focus();
     }
     setFieldErrors({});
@@ -132,7 +133,7 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
           setFormError(key);
           return;
         }
-        setFieldErrors({ code: t(mode === "backup" && key === "auth.totp.wrongCode" ? "auth.totp.wrongBackup" : key) });
+        setFieldErrors({ code: mode === "backup" && key === "auth.totp.wrongCode" ? "auth.totp.wrongBackup" : key });
         if (mode === "totp") setCode("");
         codeRef.current?.focus();
         return;
@@ -173,7 +174,7 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
       <form noValidate onSubmit={onSubmit} className="flex flex-col gap-5" aria-busy={pending || undefined}>
         {mode === "password" ? (
           <>
-            <Field label={t("auth.login.email")} error={fieldErrors.email}>
+            <Field label={t("auth.login.email")} error={fieldErrors.email && t(fieldErrors.email)}>
               <TextInput
                 ref={emailRef}
                 type="email"
@@ -195,7 +196,7 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
               autoComplete="current-password"
               value={password}
               onValueChange={setPassword}
-              error={fieldErrors.password}
+              error={fieldErrors.password && t(fieldErrors.password)}
             />
           </>
         ) : mode === "totp" ? (
@@ -205,11 +206,11 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
             value={code}
             onValueChange={setCode}
             onComplete={(full) => void submitCode(full)}
-            error={fieldErrors.code}
+            error={fieldErrors.code && t(fieldErrors.code)}
             describedBy={bodyId}
           />
         ) : (
-          <Field label={t("auth.totp.backupCode")} error={fieldErrors.code}>
+          <Field label={t("auth.totp.backupCode")} error={fieldErrors.code && t(fieldErrors.code)}>
             <TextInput
               ref={codeRef}
               autoComplete="off"

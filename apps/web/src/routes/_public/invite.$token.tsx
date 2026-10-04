@@ -170,7 +170,7 @@ function InvitePage() {
   );
 }
 
-type CreateErrors = Partial<Record<"name" | "email" | "password", string>>;
+type CreateErrors = Partial<Record<"name" | "email" | "password", MessageKey>>;
 
 function CreateAccountForm({
   acceptError,
@@ -197,10 +197,10 @@ function CreateAccountForm({
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
     const next: CreateErrors = {};
-    if (!trimmedName) next.name = t("auth.validation.name");
-    if (!trimmedEmail) next.email = t("auth.validation.email");
-    else if (!EMAIL.test(trimmedEmail)) next.email = t("errors.invalidEmail");
-    if (password.length < 8) next.password = t("auth.validation.passwordShort");
+    if (!trimmedName) next.name = "auth.validation.name";
+    if (!trimmedEmail) next.email = "auth.validation.email";
+    else if (!EMAIL.test(trimmedEmail)) next.email = "errors.invalidEmail";
+    if (password.length < 8) next.password = "auth.validation.passwordShort";
     setErrors(next);
     setFormError(null);
     if (next.name) return nameRef.current?.focus();
@@ -213,11 +213,11 @@ function CreateAccountForm({
       if (error) {
         if (isExistingAccount(error)) return onExisting(trimmedEmail);
         if (error.code === "PASSWORD_TOO_SHORT") {
-          setErrors({ password: t("auth.validation.passwordShort") });
+          setErrors({ password: "auth.validation.passwordShort" });
           return passwordRef.current?.focus();
         }
         if (error.code === "INVALID_EMAIL") {
-          setErrors({ email: t("errors.invalidEmail") });
+          setErrors({ email: "errors.invalidEmail" });
           return emailRef.current?.focus();
         }
         const key = signInErrorKey(error);
@@ -236,7 +236,7 @@ function CreateAccountForm({
 
   return (
     <form noValidate onSubmit={(e) => void submit(e)} className="flex flex-col gap-5" aria-busy={pending || undefined}>
-      <Field label={t("auth.invite.name")} error={errors.name}>
+      <Field label={t("auth.invite.name")} error={errors.name && t(errors.name)}>
         <TextInput
           ref={nameRef}
           autoComplete="name"
@@ -245,7 +245,7 @@ function CreateAccountForm({
           onChange={(e) => setName(e.currentTarget.value)}
         />
       </Field>
-      <Field label={t("auth.invite.email")} error={errors.email}>
+      <Field label={t("auth.invite.email")} error={errors.email && t(errors.email)}>
         <TextInput
           ref={emailRef}
           type="email"
@@ -266,7 +266,7 @@ function CreateAccountForm({
         autoComplete="new-password"
         value={password}
         onValueChange={setPassword}
-        error={errors.password}
+        error={errors.password && t(errors.password)}
       />
       {shownError ? <FormAlert>{t(shownError)}</FormAlert> : null}
       <Button type="submit" size="lg" loading={pending} className="w-full">

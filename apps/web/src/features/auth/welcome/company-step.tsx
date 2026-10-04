@@ -1,4 +1,4 @@
-import { useT } from "@orrn/i18n";
+import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { NativeSelect } from "@orrn/ui/components/native-select";
@@ -13,7 +13,7 @@ import { FormAlert } from "../form-alert";
 import { DEFAULT_TIMEZONE, deviceTimezone, timezoneOptions } from "../timezones";
 import { StepHeading } from "./step-heading";
 
-type Errors = Partial<Record<"location" | "contact" | "presses" | "terms", string>>;
+type Errors = Partial<Record<"location" | "contact" | "presses" | "terms", MessageKey>>;
 
 function text(value: unknown): string {
   return typeof value === "string" ? value : "";
@@ -63,12 +63,12 @@ export function CompanyStep({
     e.preventDefault();
     if (save.isPending) return;
     const next: Errors = {};
-    if (!location.trim()) next.location = t("errors.required");
-    if (!contact.trim()) next.contact = t("errors.required");
+    if (!location.trim()) next.location = "errors.required";
+    if (!contact.trim()) next.contact = "errors.required";
     const pressCount = Number(presses.replace(/,/g, ""));
-    if (!presses.trim()) next.presses = t("errors.required");
-    else if (!Number.isInteger(pressCount) || pressCount < 0) next.presses = t("errors.wholeNumber");
-    if (!agreed) next.terms = t("welcome.company.termsRequired");
+    if (!presses.trim()) next.presses = "errors.required";
+    else if (!Number.isInteger(pressCount) || pressCount < 0) next.presses = "errors.wholeNumber";
+    if (!agreed) next.terms = "welcome.company.termsRequired";
     setErrors(next);
     const first = (["location", "contact", "presses", "terms"] as const).find((k) => next[k]);
     if (first) return refs[first].current?.focus();
@@ -91,7 +91,7 @@ export function CompanyStep({
     <div className="flex flex-col gap-6">
       <StepHeading headingRef={headingRef} title={t("welcome.company.title")} body={t("welcome.company.body")} />
       <form noValidate onSubmit={(e) => void submit(e)} className="flex flex-col gap-5" aria-busy={save.isPending || undefined}>
-        <Field label={t("welcome.company.location")} hint={t("welcome.company.locationHint")} error={errors.location}>
+        <Field label={t("welcome.company.location")} hint={t("welcome.company.locationHint")} error={errors.location && t(errors.location)}>
           <TextInput
             ref={refs.location}
             autoComplete="address-level2"
@@ -101,7 +101,7 @@ export function CompanyStep({
           />
         </Field>
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label={t("welcome.company.contact")} error={errors.contact}>
+          <Field label={t("welcome.company.contact")} error={errors.contact && t(errors.contact)}>
             <TextInput
               ref={refs.contact}
               type="tel"
@@ -113,7 +113,7 @@ export function CompanyStep({
               className="font-mono tabular-nums"
             />
           </Field>
-          <Field label={t("welcome.company.presses")} error={errors.presses}>
+          <Field label={t("welcome.company.presses")} error={errors.presses && t(errors.presses)}>
             <NumberInput ref={refs.presses} decimal={false} maxLength={3} value={presses} onValueChange={setPresses} />
           </Field>
         </div>
@@ -150,7 +150,7 @@ export function CompanyStep({
           </label>
           {errors.terms ? (
             <p id={termsErrorId} className="m-0 text-[13px] font-medium leading-5 text-destructive">
-              {errors.terms}
+              {t(errors.terms)}
             </p>
           ) : null}
         </section>

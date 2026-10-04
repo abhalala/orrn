@@ -51,10 +51,10 @@ export function TwoFactorStep({
   const { t } = useT();
   const [phase, setPhase] = useState<Phase>(password ? "loading" : "confirm");
   const [typed, setTyped] = useState("");
-  const [passwordError, setPasswordError] = useState<string | undefined>();
+  const [passwordError, setPasswordError] = useState<MessageKey | undefined>();
   const [setup, setSetup] = useState<Setup | null>(null);
   const [code, setCode] = useState("");
-  const [codeError, setCodeError] = useState<string | undefined>();
+  const [codeError, setCodeError] = useState<MessageKey | undefined>();
   const [formError, setFormError] = useState<MessageKey | null>(null);
   const [pending, setPending] = useState(false);
   const started = useRef(false);
@@ -71,7 +71,7 @@ export function TwoFactorStep({
       if (error || !data) {
         setPhase("confirm");
         if (error?.code === "INVALID_PASSWORD" || error?.status === 400 || error?.status === 401) {
-          setPasswordError(t("welcome.twoFactor.wrongPassword"));
+          setPasswordError("welcome.twoFactor.wrongPassword");
           requestAnimationFrame(() => passwordRef.current?.focus());
         } else {
           setFormError(totpErrorKey(error));
@@ -116,7 +116,7 @@ export function TwoFactorStep({
   async function verify(value = code) {
     if (pending) return;
     if (value.length !== 6) {
-      setCodeError(t("auth.totp.codeRequired"));
+      setCodeError("auth.totp.codeRequired");
       return codeRef.current?.focus();
     }
     setPending(true);
@@ -125,7 +125,7 @@ export function TwoFactorStep({
     try {
       const { error } = await authClient.twoFactor.verifyTotp({ code: value });
       if (error) {
-        setCodeError(t(totpErrorKey(error)));
+        setCodeError(totpErrorKey(error));
         setCode("");
         codeRef.current?.focus();
         return;
@@ -188,7 +188,7 @@ export function TwoFactorStep({
           onSubmit={(e: FormEvent) => {
             e.preventDefault();
             if (!typed) {
-              setPasswordError(t("auth.validation.password"));
+              setPasswordError("auth.validation.password");
               return passwordRef.current?.focus();
             }
             void enable(typed);
@@ -200,7 +200,7 @@ export function TwoFactorStep({
             autoComplete="current-password"
             value={typed}
             onValueChange={setTyped}
-            error={passwordError}
+            error={passwordError && t(passwordError)}
           />
           {formError ? <FormAlert>{t(formError)}</FormAlert> : null}
           <Button type="submit" size="lg" className="w-full">
@@ -259,7 +259,7 @@ export function TwoFactorStep({
             value={code}
             onValueChange={setCode}
             onComplete={(full) => void verify(full)}
-            error={codeError}
+            error={codeError && t(codeError)}
           />
           {formError ? <FormAlert>{t(formError)}</FormAlert> : null}
           <Button type="submit" size="lg" loading={pending} className="w-full">

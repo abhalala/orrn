@@ -1,4 +1,4 @@
-import { useT } from "@orrn/i18n";
+import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState, type FormEvent, type Ref } from "react";
@@ -35,7 +35,7 @@ export function PasswordStep({
   const { t } = useT();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [errors, setErrors] = useState<{ password?: string; confirm?: string }>({});
+  const [errors, setErrors] = useState<{ password?: MessageKey; confirm?: MessageKey }>({});
   const [failed, setFailed] = useState(false);
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLInputElement>(null);
@@ -48,8 +48,8 @@ export function PasswordStep({
     e.preventDefault();
     if (pending) return;
     const next: typeof errors = {};
-    if (password.length < 8) next.password = t("auth.validation.passwordShort");
-    else if (confirm !== password) next.confirm = t("welcome.password.mismatch");
+    if (password.length < 8) next.password = "auth.validation.passwordShort";
+    else if (confirm !== password) next.confirm = "welcome.password.mismatch";
     setErrors(next);
     setFailed(false);
     if (next.password) return passwordRef.current?.focus();
@@ -87,7 +87,7 @@ export function PasswordStep({
           autoComplete="new-password"
           value={password}
           onValueChange={setPassword}
-          error={errors.password}
+          error={errors.password && t(errors.password)}
         />
         <PasswordField
           ref={confirmRef}
@@ -95,7 +95,7 @@ export function PasswordStep({
           autoComplete="new-password"
           value={confirm}
           onValueChange={setConfirm}
-          error={errors.confirm}
+          error={errors.confirm && t(errors.confirm)}
         />
         {failed ? <FormAlert>{t("errors.generic")}</FormAlert> : null}
         <Button type="submit" size="lg" loading={pending} className="w-full">

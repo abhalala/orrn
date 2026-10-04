@@ -98,6 +98,24 @@ test.describe("sign in", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
   });
 
+  test("errors already on screen follow a language switch", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page.getByText("Enter your email.")).toBeVisible();
+    await page.getByRole("radio", { name: "हिंदी" }).click();
+    await expect(page.getByText("अपना ईमेल डालें।")).toBeVisible();
+    await expect(page.getByText("अपना पासवर्ड डालें।")).toBeVisible();
+    await expect(page.getByText("Enter your email.")).toHaveCount(0);
+    await page.getByRole("radio", { name: "English" }).click();
+
+    await page.goto("/request-access");
+    await page.getByRole("button", { name: "Send request" }).click();
+    await expect(page.getByText("Enter your company's name.")).toBeVisible();
+    await page.getByRole("radio", { name: "हिंदी" }).click();
+    await expect(page.getByText("अपनी कंपनी का नाम डालें।")).toBeVisible();
+    await page.getByRole("radio", { name: "English" }).click();
+  });
+
   test("laptop shows the brand panel, phone the colour strip, neither scrolls sideways", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/login");

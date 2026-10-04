@@ -1,4 +1,4 @@
-import { useT } from "@orrn/i18n";
+import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, NumberInput, TextInput, useFieldControl } from "@orrn/ui/components/field";
 import { TextArea } from "@orrn/ui/components/input";
@@ -35,7 +35,7 @@ type Values = {
   notes: string;
 };
 
-type Errors = Partial<Record<"companyName" | "requesterName" | "requesterEmail", string>>;
+type Errors = Partial<Record<"companyName" | "requesterName" | "requesterEmail", MessageKey>>;
 
 const EMPTY: Values = { companyName: "", requesterName: "", requesterEmail: "", lines: "", date: "", time: "", notes: "" };
 
@@ -65,11 +65,11 @@ function RequestAccessPage() {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     const next: Errors = {};
-    if (!values.companyName.trim()) next.companyName = t("auth.validation.company");
-    if (!values.requesterName.trim()) next.requesterName = t("auth.validation.name");
+    if (!values.companyName.trim()) next.companyName = "auth.validation.company";
+    if (!values.requesterName.trim()) next.requesterName = "auth.validation.name";
     const email = values.requesterEmail.trim();
-    if (!email) next.requesterEmail = t("auth.validation.email");
-    else if (!EMAIL.test(email)) next.requesterEmail = t("errors.invalidEmail");
+    if (!email) next.requesterEmail = "auth.validation.email";
+    else if (!EMAIL.test(email)) next.requesterEmail = "errors.invalidEmail";
     setErrors(next);
     const first = (["companyName", "requesterName", "requesterEmail"] as const).find((k) => next[k]);
     if (first) {
@@ -122,7 +122,7 @@ function RequestAccessPage() {
         </div>
 
         <form noValidate onSubmit={onSubmit} className="flex flex-col gap-5" aria-busy={submit.isPending || undefined}>
-          <Field label={t("auth.requestAccess.company")} error={errors.companyName}>
+          <Field label={t("auth.requestAccess.company")} error={errors.companyName && t(errors.companyName)}>
             <TextInput
               ref={refs.companyName}
               autoComplete="organization"
@@ -132,7 +132,7 @@ function RequestAccessPage() {
             />
           </Field>
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label={t("auth.requestAccess.name")} error={errors.requesterName}>
+            <Field label={t("auth.requestAccess.name")} error={errors.requesterName && t(errors.requesterName)}>
               <TextInput
                 ref={refs.requesterName}
                 autoComplete="name"
@@ -141,7 +141,7 @@ function RequestAccessPage() {
                 onChange={(e) => set("requesterName")(e.currentTarget.value)}
               />
             </Field>
-            <Field label={t("auth.requestAccess.workEmail")} error={errors.requesterEmail}>
+            <Field label={t("auth.requestAccess.workEmail")} error={errors.requesterEmail && t(errors.requesterEmail)}>
               <TextInput
                 ref={refs.requesterEmail}
                 type="email"
