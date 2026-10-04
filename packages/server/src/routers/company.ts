@@ -82,6 +82,11 @@ export const companyRouter = router({
             start: z.number().int().positive().max(999_999_999),
           })
           .optional(),
+        /**
+         * Scrap D/C note tolerance (spec P14) in basis points of the party weight, despite the
+         * name: 50 = 0.5 % (the default). A lot short by more needs a debit note before OK.
+         */
+        dcTolerancePct: z.number().int().min(0).max(10_000).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -98,6 +103,7 @@ export const companyRouter = router({
       if (input.lengthUnit !== undefined) patch.lengthUnit = input.lengthUnit;
       if (input.timezone !== undefined) patch.timezone = input.timezone;
       if (input.plSeries !== undefined) patch.plSeries = input.plSeries;
+      if (input.dcTolerancePct !== undefined) patch.dcTolerancePct = input.dcTolerancePct;
       if (input.bundleNumbering !== undefined) {
         patch.bundleNumbering = input.bundleNumbering;
         const current = row.settings?.bundleNumbering === "plant" ? "plant" : "legacy";
