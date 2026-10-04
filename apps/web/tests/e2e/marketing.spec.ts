@@ -105,13 +105,20 @@ test.describe("marketing page", () => {
 
   test("with motion, the hero settles into the same final state", async ({ page }) => {
     await page.goto("/");
-    await page.waitForTimeout(2500);
-    const unsettled = await page.evaluate(() =>
-      Array.from(document.querySelectorAll<HTMLElement>("[data-marketing-hero] [data-anim]"))
-        .filter((el) => getComputedStyle(el).opacity !== "1")
-        .map((el) => el.dataset.anim),
-    );
-    expect(unsettled).toEqual([]);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // The sequence runs about 2.5 s after the picture is in view; poll instead
+    // of a fixed wait so a busy machine does not read it mid-flight.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() =>
+            Array.from(document.querySelectorAll<HTMLElement>("[data-marketing-hero] [data-anim]"))
+              .filter((el) => getComputedStyle(el).opacity !== "1")
+              .map((el) => el.dataset.anim),
+          ),
+        { timeout: 10_000 },
+      )
+      .toEqual([]);
   });
 
   test("the flow demos play when scrolled into view", async ({ page }) => {
