@@ -78,3 +78,24 @@ export function canCancelEntry(entry: EntryLike): boolean {
 export function savedOutcome(result: { replayed: boolean; cancelled?: boolean }): "saved" | "cancelled" {
   return result.replayed && result.cancelled === true ? "cancelled" : "saved";
 }
+
+export type ItemAction = { kind: "issue" | "receive" | "exchange"; primary: boolean };
+
+/**
+ * The item page's entry buttons, the loud one first. With stock the everyday action is Issue; an
+ * empty item can only take a delivery (issue and the old leg of an exchange need stock), so
+ * Receive leads there instead of a black button that can only end in "not enough in the store".
+ */
+export function itemActions(balanceMilli: number): ItemAction[] {
+  return balanceMilli > 0
+    ? [
+        { kind: "issue", primary: true },
+        { kind: "receive", primary: false },
+        { kind: "exchange", primary: false },
+      ]
+    : [
+        { kind: "receive", primary: true },
+        { kind: "issue", primary: false },
+        { kind: "exchange", primary: false },
+      ];
+}

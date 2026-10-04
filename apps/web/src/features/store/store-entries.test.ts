@@ -6,6 +6,7 @@ import {
   entryState,
   entryTone,
   exchangePartner,
+  itemActions,
   recentItemIds,
   savedOutcome,
   signedQty,
@@ -104,5 +105,24 @@ describe("savedOutcome (RP18 replays)", () => {
 
   test("a retry of an entry someone cancelled meanwhile must not read as stock moved", () => {
     expect(savedOutcome({ replayed: true, cancelled: true })).toBe("cancelled");
+  });
+});
+
+describe("itemActions", () => {
+  test("an item with stock leads with Issue, the storekeeper's everyday action", () => {
+    expect(itemActions(207_500)).toEqual([
+      { kind: "issue", primary: true },
+      { kind: "receive", primary: false },
+      { kind: "exchange", primary: false },
+    ]);
+  });
+
+  test("an empty item leads with Receive: nothing can be issued or exchanged out of it", () => {
+    expect(itemActions(0)).toEqual([
+      { kind: "receive", primary: true },
+      { kind: "issue", primary: false },
+      { kind: "exchange", primary: false },
+    ]);
+    expect(itemActions(-1)[0]).toEqual({ kind: "receive", primary: true });
   });
 });

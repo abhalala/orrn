@@ -233,6 +233,8 @@ test.describe("store entries", () => {
 
     await page.goto(`/store/items/${item.id}`);
     await expect(page.getByRole("heading", { level: 1, name: item.name })).toBeVisible();
+    // With stock, Issue is the loud action.
+    await expect(page.getByRole("link", { name: "Issue", exact: true })).toHaveAttribute("data-variant", "primary");
     await page.getByRole("link", { name: "Issue", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/store/issue\\?item=${item.id}`));
     await expect(page.getByRole("combobox", { name: "Item" })).toHaveValue(item.name);
@@ -366,6 +368,15 @@ test.describe("store entries", () => {
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     await expect(page.getByText("Fuel, counted in L")).toBeVisible();
     await expect(page.locator("[data-slot='status-block']")).toContainText("Empty");
+    // An empty item leads with Receive: nothing can be issued or exchanged out of it yet.
+    const main = page.getByRole("main");
+    const receive = main.getByRole("link", { name: "Receive", exact: true });
+    await expect(receive).toHaveAttribute("data-variant", "primary");
+    await expect(main.getByRole("link", { name: "Issue", exact: true })).toHaveAttribute("data-variant", "secondary");
+    const order = await main
+      .locator("a[data-variant]")
+      .evaluateAll((els) => els.map((el) => el.textContent?.trim()).filter((x) => /^(Issue|Receive|Exchange)$/.test(x ?? "")));
+    expect(order).toEqual(["Receive", "Issue", "Exchange"]);
   });
 });
 
