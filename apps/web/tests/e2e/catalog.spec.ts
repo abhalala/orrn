@@ -468,6 +468,13 @@ test.describe("screenshots", () => {
         await page.waitForTimeout(400);
         await page.screenshot({ path: `${SHOTS}/die-edit-${width}-${scheme}.png` });
       }
+      // The leaderboard's table on a phone: names on one line, the fade over the hidden columns.
+      await page.setViewportSize({ width: 375, height: 900 });
+      await page.goto("/customers");
+      const board = page.getByRole("group", { name: "Who is leading" });
+      await board.getByRole("button", { name: "Show table" }).click();
+      await expect(board.getByRole("region", { name: "Who is leading" })).toHaveAttribute("data-hidden-end", "");
+      await board.screenshot({ path: `${SHOTS}/customers-table-375-${scheme}.png` });
     }
     // An operator's customer page (no charts).
     await page.context().clearCookies();
