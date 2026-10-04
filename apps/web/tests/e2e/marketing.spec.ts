@@ -68,6 +68,7 @@ test.describe("marketing page", () => {
 
   test("demo visuals are hidden from screen readers and carry a visible Demo data label", async ({ page }) => {
     await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     const visuals = page.locator("[data-demo-visual]");
     const count = await visuals.count();
     expect(count).toBeGreaterThanOrEqual(3);
@@ -150,8 +151,10 @@ test.describe("marketing page", () => {
     }
   }
 
-  test("keyboard: skip link, then header, then hero CTAs", async ({ page }) => {
+  test("keyboard: the skip link jumps past the header to the hero actions", async ({ page }) => {
     await page.goto("/");
+    // The page renders after the route's session check: wait for it before tabbing.
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await page.keyboard.press("Tab");
     await expect(page.getByRole("link", { name: "Skip to content" })).toBeFocused();
     await page.keyboard.press("Enter");

@@ -818,7 +818,7 @@ Counts: 751 screen strings in 25 groups, 10 guides with 182 strings.
 | `trust.roles` | Roles decide who can pack, dispatch or change settings. | रोल तय करते हैं कि कौन पैकिंग, dispatch या सेटिंग्स बदल सकता है। |
 | `cta.title` | Try it on your floor | अपने फ़्लोर पर आज़माएं |
 | `cta.body` | Tell us about your plant and we'll get in touch. | अपने प्लांट के बारे में बताएं, हम संपर्क करेंगे। |
-| `footer` | orrn, for aluminium extrusion plants | orrn, एल्युमिनियम एक्सट्रूज़न प्लांट के लिए |
+| `footer` | For aluminium extrusion plants | एल्युमिनियम एक्सट्रूज़न प्लांट के लिए |
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 

@@ -903,7 +903,7 @@ export const en = {
       title: "Try it on your floor",
       body: "Tell us about your plant and we'll get in touch.",
     },
-    footer: "orrn, for aluminium extrusion plants",
+    footer: "For aluminium extrusion plants",
     footerNav: "Footer",
     copyright: "© {year} orrn",
   },
