@@ -29,7 +29,8 @@ async function open(page: Page, path: string, opts: { width?: number; scheme?: S
   await page.emulateMedia({ colorScheme: opts.scheme ?? "light", reducedMotion: "reduce" });
   await signInViaApi(page, opts.role ?? "operator");
   await page.goto(path);
-  await expect(page.locator("main#main h1").first()).toBeVisible();
+  // A cold Vite (first test of a run on a loaded machine) can take longer than the 5 s default to paint.
+  await expect(page.locator("main#main h1").first()).toBeVisible({ timeout: 20_000 });
 }
 
 async function trpcQuery<T>(page: Page, path: string, input: unknown): Promise<T> {
