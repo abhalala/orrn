@@ -83,7 +83,8 @@ export function PasswordStep({
         <PasswordField
           ref={passwordRef}
           label={t("welcome.password.newPassword")}
-          hint={t("welcome.password.hint")}
+          // The error repeats the rule, so the hint steps aside while it shows.
+          hint={errors.password ? undefined : t("welcome.password.hint")}
           autoComplete="new-password"
           value={password}
           onValueChange={setPassword}

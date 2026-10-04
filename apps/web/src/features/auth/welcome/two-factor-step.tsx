@@ -87,7 +87,8 @@ export function TwoFactorStep({
       let qr: string | null = null;
       try {
         const QRCode = await import("qrcode");
-        qr = await QRCode.toDataURL(data.totpURI, { margin: 2, width: 400, errorCorrectionLevel: "M" });
+        // "L": a screen is never smudged, and fewer modules scan easier on cheap phones.
+        qr = await QRCode.toDataURL(data.totpURI, { margin: 2, width: 400, errorCorrectionLevel: "L" });
       } catch {
         qr = null; // The manual key below still works.
       }

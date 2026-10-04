@@ -262,7 +262,7 @@ function CreateAccountForm({
       <PasswordField
         ref={passwordRef}
         label={t("auth.invite.password")}
-        hint={t("auth.invite.passwordHint")}
+        hint={errors.password ? undefined : t("auth.invite.passwordHint")}
         autoComplete="new-password"
         value={password}
         onValueChange={setPassword}
