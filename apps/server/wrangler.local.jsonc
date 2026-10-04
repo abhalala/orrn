@@ -1,5 +1,8 @@
 // Local-only dev config. Deploys still go through Alchemy (packages/server/src/infra/alchemy.run.ts).
 // Usage: bun run dev:local:migrate && bun run dev:local   (then POST http://localhost:3000/dev/seed)
+// The values below are the single-checkout defaults (API 3000, web 3002). `bun run dev:local` runs
+// scripts/dev-local.ts, which overrides the port and the URL vars with --port / --var from
+// E2E_API_PORT / E2E_WEB_PORT so every git worktree gets its own pair (docs/LOCAL_DEV.md).
 {
   "name": "orrn-server-local",
   "main": "src/index.ts",

@@ -55,7 +55,8 @@ Dispatch detail (`dispatches/[id].tsx`) exposes PDF, XLSX, and Text buttons on c
 ### Web — Playwright
 
 ```bash
-# From repo root (starts Vite on :3001 unless PLAYWRIGHT_SKIP_WEBSERVER=1)
+# From repo root (starts Vite on :3001, or on $VISUAL_WEB_PORT in a worktree after
+# `source .wt-ports.env`, unless PLAYWRIGHT_SKIP_WEBSERVER=1; see docs/LOCAL_DEV.md)
 bun run test:visual
 
 # First-time or intentional UI refresh
