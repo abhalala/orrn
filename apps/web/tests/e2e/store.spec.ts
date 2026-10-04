@@ -208,6 +208,8 @@ test.describe("issue beyond balance is blocked", () => {
     );
     await expect(page.locator("[data-slot='status-block']")).toHaveCount(0);
     expect(await balanceOf(page, item.id)).toBe(5_000);
+    // Background refetches may still be inside the route handler when the test ends.
+    await page.unrouteAll({ behavior: "ignoreErrors" });
   });
 });
 
@@ -408,6 +410,7 @@ test.describe("who sees the store", () => {
     await page.goto("/store/issue");
     await expect(page.getByText("Only the storekeeper makes store entries")).toBeVisible();
     await expect(page.getByRole("button", { name: "Issue", exact: true })).toHaveCount(0);
+    await page.unrouteAll({ behavior: "ignoreErrors" });
   });
 });
 
