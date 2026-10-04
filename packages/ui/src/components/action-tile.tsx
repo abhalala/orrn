@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
+import { PALETTE_CLASSES } from "./badge";
 import { UiLink } from "./link";
 
 export type ActionTileProps = {
@@ -13,6 +14,12 @@ export type ActionTileProps = {
   /** Decorative; the title is the accessible name. */
   icon: ReactNode;
   to: string;
+  /**
+   * Quiet (`neutral`) tiles only: tints the icon well with an area colour
+   * (Today: Pack blue, Dispatch red, Stock amber, Guides ink) so the tile
+   * keeps its area colour while a screen's loud element is elsewhere.
+   */
+  accent?: Exclude<StatusTone, "neutral"> | "ink";
   className?: string;
   style?: CSSProperties;
 };
@@ -35,11 +42,20 @@ const ICON_WELL: Record<ActionTileProps["tone"], string> = {
   neutral: "bg-surface-sunken",
 };
 
+/** Icon wells for quiet tiles that keep an area colour (`accent`): the chip tint/ink pairs. */
+const ACCENT_WELL: Record<NonNullable<ActionTileProps["accent"]>, string> = {
+  ink: "bg-foreground text-background",
+  green: PALETTE_CLASSES.green,
+  blue: PALETTE_CLASSES.blue,
+  amber: PALETTE_CLASSES.amber,
+  red: PALETTE_CLASSES.red,
+};
+
 /**
  * Primary navigation tile (Today: Pack, Scan, Stock, Dispatch). A link with
  * an icon well, a display title and an optional one-line hint.
  */
-export function ActionTile({ tone, title, hint, icon, to, className, style }: ActionTileProps) {
+export function ActionTile({ tone, title, hint, icon, to, accent, className, style }: ActionTileProps) {
   return (
     <UiLink
       to={to}
@@ -57,7 +73,7 @@ export function ActionTile({ tone, title, hint, icon, to, className, style }: Ac
         aria-hidden="true"
         className={cn(
           "flex size-11 items-center justify-center rounded-full [&_svg]:size-[22px] [&_svg]:stroke-2",
-          ICON_WELL[tone],
+          tone === "neutral" && accent ? ACCENT_WELL[accent] : ICON_WELL[tone],
         )}
       >
         {icon}
