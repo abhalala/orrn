@@ -85,6 +85,9 @@ export function ApprovalsPage({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <SegmentedControl
           label={t("approvals.filter.label")}
+          // The control pins itself to the top of a row; here it sits on the
+          // Kind select's baseline.
+          className="sm:self-end"
           value={status}
           onChange={(s) => {
             setLimit(PAGE);
