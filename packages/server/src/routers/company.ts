@@ -87,6 +87,26 @@ export const companyRouter = router({
          * name: 50 = 0.5 % (the default). A lot short by more needs a debit note before OK.
          */
         dcTolerancePct: z.number().int().min(0).max(10_000).optional(),
+        /**
+         * Default order kg tolerance in basis points (500 = 5 %) for customers without their own
+         * (PL-8, Review Focus 5). Dispatching past ordered + tolerance needs a manager's approval.
+         */
+        orderToleranceBp: z.number().int().min(0).max(10_000).optional(),
+        /** Packing list letterhead (PL v2 header): legal name, GSTIN, address, phone. */
+        letterhead: z
+          .object({
+            legalName: z.string().trim().max(200).nullable().optional(),
+            gstin: z
+              .string()
+              .trim()
+              .toUpperCase()
+              .regex(/^$|^[0-9]{2}[A-Z0-9]{13}$/, "GSTIN is 15 letters and digits")
+              .nullable()
+              .optional(),
+            address: z.string().trim().max(500).nullable().optional(),
+            phone: z.string().trim().max(40).nullable().optional(),
+          })
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -104,6 +124,15 @@ export const companyRouter = router({
       if (input.timezone !== undefined) patch.timezone = input.timezone;
       if (input.plSeries !== undefined) patch.plSeries = input.plSeries;
       if (input.dcTolerancePct !== undefined) patch.dcTolerancePct = input.dcTolerancePct;
+      if (input.orderToleranceBp !== undefined) patch.orderToleranceBp = input.orderToleranceBp;
+      if (input.letterhead !== undefined) {
+        const current = (row.settings?.letterhead ?? {}) as Record<string, unknown>;
+        const next: Record<string, unknown> = { ...current };
+        for (const [k, v] of Object.entries(input.letterhead)) {
+          if (v !== undefined) next[k] = v === "" ? null : v;
+        }
+        patch.letterhead = next;
+      }
       if (input.bundleNumbering !== undefined) {
         patch.bundleNumbering = input.bundleNumbering;
         const current = row.settings?.bundleNumbering === "plant" ? "plant" : "legacy";

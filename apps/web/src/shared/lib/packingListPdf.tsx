@@ -187,7 +187,7 @@ export async function downloadPackingListPdf(pl: PLSnapshot, code: string, lengt
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${code}.pdf`;
+  a.download = `${code.replace(/[^A-Za-z0-9._-]+/g, "-")}.pdf`;
   a.click();
   URL.revokeObjectURL(url);
 }

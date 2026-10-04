@@ -2,9 +2,64 @@ import type { LengthUnit } from "@orrn/server/lib/length";
 import { formatLengthValue } from "@orrn/server/lib/length";
 import * as XLSX from "xlsx";
 
-import type { PLSnapshot } from "./snapshot";
+import { isPlSnapshotV2, PL_COLUMN_HEADINGS, plGroupTitle, type PLSnapshot } from "./snapshot";
+
+/** v2: one "Packing list" sheet — header block, the 11 columns, group titles, subtotals, total. */
+function buildWorkbookV2(pl: PLSnapshot & { header: NonNullable<PLSnapshot["header"]>; groups: NonNullable<PLSnapshot["groups"]>; summary: NonNullable<PLSnapshot["summary"]> }) {
+  const h = pl.header;
+  const aoa: (string | number | null)[][] = [
+    ["Packing list", h.plNumber],
+    ["Date", h.date],
+    ["From", h.company.legalName ?? h.company.name],
+    ["From GSTIN", h.company.gstin ?? ""],
+    ["From address", h.company.address ?? ""],
+    ["Bill to", h.billTo.name],
+    ["Bill to GSTIN", h.billTo.gstin ?? ""],
+    ["Bill to address", h.billTo.address ?? ""],
+    ["Ship to", h.shipTo.name],
+    ["Ship to GSTIN", h.shipTo.gstin ?? ""],
+    ["Ship to address", h.shipTo.address ?? ""],
+    ["Vehicle", h.vehicleNo ?? ""],
+    ["Driver", [h.driverName, h.driverPhone].filter(Boolean).join(" · ")],
+    ["Transporter", h.transporter ?? ""],
+    ["PO numbers", h.poNumbers.join(", ")],
+    ["Invoice", [h.invoiceNumber, h.invoiceDate].filter(Boolean).join(" · ")],
+    ["Dispatch", h.dispatchCode],
+    [],
+    [...PL_COLUMN_HEADINGS],
+  ];
+  for (const g of pl.groups) {
+    aoa.push([plGroupTitle(g)]);
+    for (const r of g.rows) {
+      aoa.push([
+        r.sr,
+        r.bundleNo,
+        r.section,
+        r.item,
+        +(r.weightG / 1000).toFixed(3),
+        r.cutFt,
+        r.cutIn,
+        r.pcs,
+        r.kgPer12ftMilli == null ? null : +(r.kgPer12ftMilli / 1000).toFixed(3),
+        r.range12ft,
+        r.po ?? "",
+      ]);
+    }
+    aoa.push([null, `${g.subtotal.bundles} bundles`, null, null, +(g.subtotal.weightG / 1000).toFixed(3), null, null, g.subtotal.pcs]);
+  }
+  aoa.push([]);
+  aoa.push([null, `${pl.summary.bundles} bundles`, null, null, +(pl.summary.weightG / 1000).toFixed(3), null, null, pl.summary.pcs]);
+  aoa.push([null, pl.summary.text]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = [{ wch: 16 }, { wch: 22 }, { wch: 10 }, { wch: 22 }, { wch: 11 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, { wch: 9 }, { wch: 10 }, { wch: 16 }];
+  XLSX.utils.book_append_sheet(wb, ws, "Packing list");
+  return wb;
+}
 
 function buildWorkbook(pl: PLSnapshot, code: string, lengthUnit: LengthUnit) {
+  if (isPlSnapshotV2(pl)) return buildWorkbookV2(pl);
   const cust = pl.dispatch.customer;
   const shipDate = pl.dispatch.shipDate
     ? new Date(pl.dispatch.shipDate).toLocaleDateString("en-IN")

@@ -1,5 +1,17 @@
-/** Immutable packing list snapshot shape stored in D1 and used for client exports. */
+import type { PlGroup, PlRow, PlSnapshotV2 } from "@orrn/server/lib/packingListSnapshot";
+
+export type { PlGroup, PlRow, PlSnapshotV2 };
+
+/**
+ * Immutable packing list snapshot stored in D1 and used for client exports.
+ *
+ * v1 keys (`dispatch`, `company`, `items`, `totals`, `generatedAt`) are on every snapshot. A v2
+ * snapshot (PL-8, `version: 2`) adds the real PL: `header` (letterhead, bill-to / ship-to, PL
+ * number, date, vehicle, driver, PO and invoice numbers), the 11 `columns`, rows `groups`ed by order
+ * line or section, and `summary` ("N bundles · X kg"). Check with `isPlSnapshotV2`.
+ */
 export type PLSnapshot = {
+  version?: 1 | 2;
   dispatch: {
     code: string;
     customer: {
@@ -30,4 +42,62 @@ export type PLSnapshot = {
     totalLengthM: number;
   };
   generatedAt: string;
+  header?: PlSnapshotV2["header"];
+  columns?: PlSnapshotV2["columns"];
+  groups?: PlSnapshotV2["groups"];
+  summary?: PlSnapshotV2["summary"];
 };
+
+export function isPlSnapshotV2(pl: PLSnapshot): pl is PLSnapshot & Pick<PlSnapshotV2, "version" | "header" | "columns" | "groups" | "summary"> {
+  return pl.version === 2 && Boolean(pl.header && pl.groups && pl.summary);
+}
+
+/** A safe file name for a PL number: "PL/2026-27/14" → "PL-2026-27-14" (slashes would make folders). */
+export function plFileName(code: string): string {
+  return code.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "packing-list";
+}
+
+/** Printed column headings, in order (the PL is a customer document, printed in English). */
+export const PL_COLUMN_HEADINGS = [
+  "Sr",
+  "Bundle no",
+  "Section",
+  "Item",
+  "Weight kg",
+  "Cut ft",
+  "Cut in",
+  "Pcs",
+  "kg/12ft",
+  "Range /12'",
+  "PO",
+] as const;
+
+const kg3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+
+/** "25.500" — kg with Indian grouping, gram precision (rows add up to the total exactly). */
+export function formatPlKg(weightG: number): string {
+  return kg3.format(weightG / 1000);
+}
+
+/** One printed row as the 11 cell texts. */
+export function plRowCells(r: PlRow): string[] {
+  return [
+    String(r.sr),
+    r.bundleNo,
+    r.section,
+    r.item,
+    formatPlKg(r.weightG),
+    String(r.cutFt),
+    String(r.cutIn),
+    String(r.pcs),
+    r.kgPer12ftMilli == null ? "—" : (r.kgPer12ftMilli / 1000).toFixed(3),
+    r.range12ft == null ? "—" : r.range12ft.toFixed(1),
+    r.po ?? "",
+  ];
+}
+
+/** "SO-12 / 1 · 12170 · Domal (Anodise) · PO 778" or "12170 · Domal" for bundles without a line. */
+export function plGroupTitle(g: PlGroup): string {
+  const parts = [g.orderNumber ? `${g.orderNumber} / ${g.lineNo}` : null, g.sectionCode, g.item, g.poNumber ? `PO ${g.poNumber}` : null];
+  return parts.filter(Boolean).join(" · ");
+}

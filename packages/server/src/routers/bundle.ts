@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { normalizeSerial } from "@orrn/domain";
 import { die } from "@orrn/db/schema/catalog";
+import { openSalesOrderStatuses, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { location } from "@orrn/db/schema/stock";
 import { company } from "@orrn/db/schema/tenant";
 import { dispatch } from "@orrn/db/schema/dispatch";
@@ -24,6 +25,7 @@ import { kgPer12ftMilli } from "../lib/bundleWeight";
 import { now as clockNow } from "../lib/clock";
 import { allocateDocNumbers } from "../lib/docNumber";
 import { packRows, restoreRows, voidRows, type PostingCtx } from "../lib/ledger";
+import { batchAbortUnless, isBatchAbort } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
 
 const bundleRowSchema = z.object({
@@ -40,6 +42,8 @@ const receiptInputSchema = z.object({
   notes: z.string().max(500).nullable().optional(),
   /** Yard location the bundles are put in (spec P6). Required once the company has yard locations. */
   locationId: z.string().min(1).optional(),
+  /** Sales order line these bundles are packed for (spec P13; `orders.openLines` suggests one). */
+  salesOrderLineId: z.string().min(1).max(64).optional(),
   rows: z.array(bundleRowSchema).min(1, "At least one bundle row is required").max(200, "Max 200 rows per receipt"),
 });
 
@@ -75,6 +79,33 @@ async function receiptLocation(db: OrrnDb, companyId: string, locationId: string
     .limit(1);
   if (anyYard) throw new TRPCError({ code: "BAD_REQUEST", message: "Pick the yard location for these bundles" });
   return null;
+}
+
+/**
+ * The order line a receipt is packed for: a line of this company, of an open order, for the same
+ * section. No line given = not packed against an order.
+ */
+async function receiptOrderLine(
+  db: OrrnDb,
+  companyId: string,
+  lineId: string | undefined,
+  dieId: string,
+): Promise<string | null> {
+  if (!lineId) return null;
+  const [line] = await db
+    .select({ id: salesOrderLine.id, dieId: salesOrderLine.dieId, status: salesOrder.status, number: salesOrder.number })
+    .from(salesOrderLine)
+    .innerJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, companyId)))
+    .where(and(eq(salesOrderLine.id, lineId), eq(salesOrderLine.companyId, companyId)))
+    .limit(1);
+  if (!line) throw new TRPCError({ code: "NOT_FOUND", message: "Order line not found" });
+  if (!(openSalesOrderStatuses as readonly string[]).includes(line.status)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `Order ${line.number} is ${line.status}; pick an open order` });
+  }
+  if (line.dieId !== dieId) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "That order line is for another section" });
+  }
+  return line.id;
 }
 
 /**
@@ -186,6 +217,7 @@ export const bundleRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Die not found" });
       }
       const locationId = await receiptLocation(ctx.db, ctx.companyId, input.locationId);
+      const salesOrderLineId = await receiptOrderLine(ctx.db, ctx.companyId, input.salesOrderLineId, input.dieId);
 
       const groupId = crypto.randomUUID();
       const now = clockNow();
@@ -219,6 +251,7 @@ export const bundleRouter = router({
         lengthMm: row.lengthMm,
         status: "available" as const,
         locationId,
+        salesOrderLineId,
         kgPer12ftMilli: kgPer12ftMilli(row),
         numberStyle: plantNumbers ? ("plant" as const) : ("legacy" as const),
         createdBy: userId,
@@ -279,6 +312,17 @@ export const bundleRouter = router({
           : ctx.db.insert(bundleGroup).values(groupValues),
       ];
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundle).values(rows), bundleRows);
+      if (salesOrderLineId) {
+        // Write-time: the order line still exists, is for this section and its order is still open
+        // (closed, cancelled or the line removed after the read above rolls the whole pack back).
+        statements.push(
+          batchAbortUnless(
+            ctx.db,
+            "sales_order_line",
+            sql`exists (select 1 from sales_order_line l join sales_order o on o.id = l.sales_order_id and o.company_id = ${ctx.companyId} where l.id = ${salesOrderLineId} and l.company_id = ${ctx.companyId} and l.die_id = ${input.dieId} and o.status in ('booking', 'confirmed', 'dispatching'))`,
+          ),
+        );
+      }
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundleStatusEvent).values(rows), eventRows);
       // Pack = + bundle kg at its location, voucher = this receipt (spec §5).
       statements.push(
@@ -301,6 +345,7 @@ export const bundleRouter = router({
               count: bundleRows.length,
               purchaseOrderRef: input.purchaseOrderRef ?? null,
               locationId,
+              salesOrderLineId,
             },
           },
         ),
@@ -309,6 +354,12 @@ export const bundleRouter = router({
       try {
         await atomicBatch(ctx.db, statements);
       } catch (e) {
+        if (salesOrderLineId && isBatchAbort(e, "sales_order_line")) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "That order line changed meanwhile (closed, cancelled or removed). Pick the line again.",
+          });
+        }
         if (locationId && errorText(e).includes("FOREIGN KEY constraint failed")) {
           // Rolled back by the write-time yard guard: name the reason.
           await receiptLocation(ctx.db, ctx.companyId, locationId);

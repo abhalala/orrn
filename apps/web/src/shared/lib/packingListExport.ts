@@ -1,5 +1,5 @@
 import type { LengthUnit } from "@orrn/server/lib/length";
-import { buildPackingListXlsxBuffer, type PLSnapshot } from "@orrn/documents/packing-list";
+import { buildPackingListXlsxBuffer, plFileName, type PLSnapshot } from "@orrn/documents/packing-list";
 
 export type { PLSnapshot };
 
@@ -15,7 +15,7 @@ export async function downloadPackingListXlsx(
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${code}.xlsx`;
+  a.download = `${plFileName(code)}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 }

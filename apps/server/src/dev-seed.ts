@@ -34,7 +34,7 @@ import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
 import { DEFAULT_LOCATIONS, defaultLocationStatements, openingRows } from "@orrn/server/lib/ledger";
 import { nextCompanySeq } from "@orrn/server/lib/sequence";
 import { kgPer12ftMilli } from "@orrn/server/lib/bundleWeight";
-import { docPeriod } from "@orrn/server/lib/docNumber";
+import { docPeriod, nextDocNumber } from "@orrn/server/lib/docNumber";
 import {
   bookDateInstant,
   DEFAULT_SCRAP_GRADES,
@@ -980,12 +980,22 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
 
   // 4. Packing lists for completed dispatches, built by the router's own writer so the
   //    snapshot shape matches production. Then backdate them to the completion time.
-  for (const plan of [c1, c2]) {
-    const dispatchRow = await db.query.dispatch.findFirst({ where: eq(dispatch.id, plan.id) });
-    if (!dispatchRow) throw new Error(`dev-seed: dispatch ${plan.id} missing after insert`);
+  const demoHeaders = [
+    { vehicleNo: "GJ05AB1234", driverName: "Ramesh Patel", driverPhone: "9825011111", transporter: "Shree Logistics" },
+    { vehicleNo: "GJ05CK7781", driverName: "Suresh Yadav", driverPhone: "9898022222", transporter: null },
+  ];
+  for (const [i, plan] of [c1, c2].entries()) {
+    const found = await db.query.dispatch.findFirst({ where: eq(dispatch.id, plan.id) });
+    if (!found) throw new Error(`dev-seed: dispatch ${plan.id} missing after insert`);
+    // PL numbers come from the PL book series, as dispatch.complete assigns them (PL-8).
+    const { number: plNumber } = await nextDocNumber(db, COMPANY_ID, "pl", new Date(plan.completedAt ?? now), ownerId);
+    const header = demoHeaders[i] ?? demoHeaders[0]!;
+    await db.update(dispatch).set({ plNumber, ...header }).where(eq(dispatch.id, plan.id));
+    const dispatchRow = { ...found, plNumber, ...header };
     const { plId, statements: plStatements } = await packingListWriteBatch(db, {
       companyId: COMPANY_ID,
       dispatchRow,
+      plNumber,
       session: { user: { id: ownerId } } as never,
     });
     await atomicBatch(db, plStatements);

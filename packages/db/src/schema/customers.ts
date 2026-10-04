@@ -20,6 +20,12 @@ export const customer = sqliteTable(
     shippingAddress: text("shipping_address", { mode: "json" }).$type<Record<string, unknown>>(),
     taxId: text("tax_id"),
     notes: text("notes"),
+    /**
+     * How far past an order line's kg this customer accepts, in basis points (500 = 5 %). Null =
+     * the company default (`settings.orderToleranceBp`, else 500). Dispatching beyond it needs a
+     * `dispatch_overdraw` approval (Review Focus 5).
+     */
+    kgToleranceBp: integer("kg_tolerance_bp"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),

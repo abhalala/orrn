@@ -327,9 +327,57 @@ bun run deploy
   in `otherKgG`/`totalKgG`. Shares use the largest-remainder method (rows + Other = 100.0).
 - Stock ageing counts available + reserved bundles by company calendar days from the pack date
   (`bundle.created_at`) to today. Section breakdowns are the top 8 plus an `Other` row
-  (`sectionId: null`). `openOrders` stays null until sales orders exist (PL-8).
+  (`sectionId: null`). `openOrders` sums the customer's open order lines (`lib/orders.ts`); null when
+  the customer has no open order line.
 - Indexes `dispatch(company_id, completed_at)` and `bundle(company_id, created_at)` (migration 0016)
   serve the range filters.
+
+## Sales orders, baki and dispatch header (PL-8)
+
+- Tables `sales_order` + `sales_order_line` (`packages/db/src/schema/sales.ts`); router `orders`
+  (`routers/salesOrder.ts`): `create` / `update` need `order.manage` (office, manager, owner); `get`,
+  `list`, `balance`, `openLines` are open to every member (lines carry no prices; Pack and Dispatch
+  need them, ruling PL8-R1). Numbers `SO-{n}` per FY from `nextDocNumber(.., "so", ..)`. A line's
+  section is a `die` row (`sectionId` in the API, `die_id` in SQL); weights are grams (`kgG`),
+  `kgPer12ftMilli` = grams per 12 ft, cut length mm, `finish` free text (OI-09).
+- Baki maths live only in `lib/orders.ts` (`lineBalances`, `sumBalances`): ordered = line kg/pcs;
+  produced = non-void bundles whose `sales_order_line_id` is the line (set by `createReceipt` and moved
+  to the line a completed dispatch fulfilled, so produced includes dispatched); dispatched = bundles of
+  completed, live dispatches whose `dispatch_item.sales_order_line_id` is the line; baki = ordered −
+  dispatched floored at 0, the excess is `overG`. Every subquery is scoped by the outer line's
+  company (a forged cross-company id adds nothing); never compute baki anywhere else.
+- Order status: booking ⇄ confirmed → dispatching (set by the first completed dispatch) → closed
+  (reopen to confirmed). Cancel only while no live dispatch carries its lines. A line that has bundles
+  or dispatch items cannot be removed or change section, and the order's customer cannot change once
+  any line has links; these checks also sit in the UPDATE/DELETE WHERE with a `batchAbortUnless`
+  statement, so an edit that loses a race fails whole (CONFLICT), never half-applies.
+- `dispatch_item.sales_order_line_id` and `bundle.sales_order_line_id` have no foreign key (SQLite
+  cannot add one to an existing table): every writer checks company + open order + same section +
+  same customer at write time (`dispatch.linkItem`, `bundle.createReceipt`, `addBundles*`).
+- Scanning a bundle onto a dispatch links it (`lib/orders.ts suggestLines`): the line it was packed
+  for if that line is open for this customer and section, else the oldest open line of this customer
+  and section with baki left after what is already on this dispatch, else unlinked. The add reports
+  return `linked[]`.
+- Review Focus 5: `dispatch.complete` refuses (PRECONDITION_FAILED) when a linked line's dispatched
+  total would pass ordered + tolerance (`customer.kg_tolerance_bp`, else `settings.orderToleranceBp`,
+  else 500 bp = 5 %) and opens/refreshes one `dispatch_overdraw` approval (meta = per-line kg, no
+  money); nothing moves and no PL number is taken. An approval covers only the line totals it was
+  asked for. The same rule is in the completing UPDATE's WHERE (`overdrawGuard`), followed by a
+  `batchAbortUnless`, so a concurrent completion or a late link cannot slip through. A request left
+  open becomes `rejected` with note "Withdrawn: …" when the dispatch completes within limits, is
+  cancelled or is deleted (ruling PL8-R6).
+- Dispatch header: `vehicleNo` (normalised GJ05AB1234), `driverName`, `driverPhone`, `transporter`
+  via `dispatch.update` until cancelled (after completion only `dispatch.complete` holders, and the
+  stored v2 PL header follows with `json_set`, same number and rows); `invoiceNumber`, `invoiceDate`
+  (Tally, P12) need `invoice.link`. `dispatch.update` answers CONFLICT when its write lost a race.
+- `dispatch.pl_number` is taken from the PL book series (`settings.plSeries`) at completion, once;
+  `packingList.regenerate` and a manual `packingList.create` reuse it. The snapshot is v2
+  (`lib/packingListSnapshot.ts`, zod `plSnapshotV2Schema`): `header` (letterhead from
+  `settings.letterhead`, bill-to/ship-to, PL no, date, vehicle, driver, PO and invoice numbers),
+  `columns` (11), `groups` by order line else section with subtotals, `summary.text` "N bundles ·
+  X kg", plus every v1 key with its old meaning so v1 renderers keep working.
+- `reports.salesRegisterCsv({ month })` (reports.read or export.accounts): one CSV row per completed
+  dispatch in the company calendar month, cells guarded against spreadsheet formulas.
 
 ## Worker performance rules
 
