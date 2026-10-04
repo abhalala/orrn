@@ -188,11 +188,20 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
       ) : null}
 
       <PackBar>
-        <Button variant="secondary" size="lg" onClick={onBack} disabled={saving}>
-          {t("pack.new.backToBundles")}
+        {/* Phones show "Back" so the bar stays one row; the name is still "Back to bundles". */}
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={onBack}
+          disabled={saving}
+          aria-label={t("pack.new.backToBundles")}
+          className="max-sm:px-5"
+        >
+          <span className="sm:hidden">{t("common.back")}</span>
+          <span className="max-sm:hidden">{t("pack.new.backToBundles")}</span>
         </Button>
         <Can do="bundle.pack">
-          <Button size="lg" onClick={onSave} loading={saving} className="sm:min-w-[220px]">
+          <Button size="lg" onClick={onSave} loading={saving} className="max-sm:px-5 sm:min-w-[220px]">
             {canPrint ? t("pack.new.saveAndPrint") : t("pack.new.saveOnly")}
           </Button>
         </Can>

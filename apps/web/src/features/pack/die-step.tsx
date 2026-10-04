@@ -4,6 +4,7 @@ import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { UiLink } from "@orrn/ui/components/link";
+import { usePrefersReducedMotion } from "@orrn/ui/components/motion";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -445,6 +446,20 @@ function DefaultsForm({
   const legendId = useId();
   const errorId = `${legendId}-error`;
   const hintId = `${legendId}-hint`;
+  const reduced = usePrefersReducedMotion();
+
+  /**
+   * Focus the yard tiles and bring the whole question, its error included,
+   * into view above the sticky bar (focusing a tile alone can leave the error
+   * line under the bar on a phone).
+   */
+  const focusYard = () => {
+    const tile = yardRef.current;
+    tile?.focus({ preventScroll: true });
+    requestAnimationFrame(() =>
+      tile?.closest("fieldset")?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" }),
+    );
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -463,7 +478,7 @@ function DefaultsForm({
     }
     if (yards.yards.length > 0 && !yardId) {
       setYardError(t("pack.new.yardRequired"));
-      yardRef.current?.focus();
+      focusYard();
       return;
     }
     setYardError(undefined);
@@ -536,7 +551,6 @@ function DefaultsForm({
               value={mm}
               onValueChange={setMm}
               suffix={t("units.mm")}
-              decimal={false}
               enterKeyHint="next"
               className="h-14 text-[22px]"
             />

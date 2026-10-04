@@ -307,7 +307,6 @@ export function BundlesStep({
                 if (errors.pieces) setErrors((x) => ({ ...x, pieces: undefined }));
               }}
               suffix={t("units.pcs")}
-              decimal={false}
               error={errors.pieces}
               enterKeyHint="next"
             />
@@ -394,6 +393,12 @@ export function BundlesStep({
   );
 }
 
+/**
+ * Weight or Pieces. Both accept a typed "." (NumberInput with decimals on):
+ * a whole-number-only input drops the "." silently, so "20.5" pieces would
+ * become 205; instead parsePieces refuses it with "Enter the pieces as a
+ * whole number." (Same for the mm cut length: it rounds to whole mm.)
+ */
 function BigNumberField({
   id,
   inputRef,
@@ -402,7 +407,6 @@ function BigNumberField({
   onChange,
   onKeyDown,
   suffix,
-  decimal = true,
   error,
   enterKeyHint,
 }: {
@@ -413,7 +417,6 @@ function BigNumberField({
   onChange(v: string): void;
   onKeyDown?(e: KeyboardEvent<HTMLInputElement>): void;
   suffix: string;
-  decimal?: boolean;
   error?: string;
   enterKeyHint?: "next" | "done";
 }) {
@@ -430,7 +433,6 @@ function BigNumberField({
         onValueChange={onChange}
         onKeyDown={onKeyDown}
         suffix={suffix}
-        decimal={decimal}
         enterKeyHint={enterKeyHint}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
@@ -550,7 +552,6 @@ function OverrideLength({
           value={value.mm}
           onValueChange={(mm) => onChange({ ...value, mm })}
           suffix={t("units.mm")}
-          decimal={false}
           aria-invalid={error ? true : undefined}
           className="h-12"
         />

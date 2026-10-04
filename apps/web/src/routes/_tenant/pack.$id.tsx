@@ -106,9 +106,9 @@ function PackSession() {
         },
       },
       {
+        // Shown on phones too: an amber bundle is what a floor check looks for.
         key: "range",
         header: t("pack.detail.rangeColumn"),
-        hideOnPhone: true,
         cell: (b) => {
           const { verdict } = bundleRange({ weightG: b.weightG, pieces: b.quantity, lengthMm: b.lengthMm }, die);
           return <RangeChip verdict={verdict} />;
@@ -216,7 +216,7 @@ function PackSession() {
           data-slot="session-totals"
           className="orrn-block orrn-block-neutral orrn-block-sheen flex flex-col gap-4 p-5 sm:p-6"
         >
-          <div className="relative flex flex-wrap items-end gap-x-6 gap-y-3">
+          <div className="relative flex flex-wrap items-end gap-x-6 gap-y-3 sm:gap-x-8">
             <div className="flex min-w-0 flex-col gap-1">
               <span className="text-[13px] font-semibold">{t("pack.columns.bundles")}</span>
               <BigNumber value={bundles.length} className="text-[44px] sm:text-[52px]" />

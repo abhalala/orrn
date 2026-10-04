@@ -62,7 +62,9 @@ for (const { width, scheme } of VIEWS) {
     // Next without a yard shows the yard question's error.
     await page.getByRole("button", { name: "Next", exact: true }).click();
     await expect(page.getByText("Choose the yard these bundles go to.")).toBeVisible();
-    await shot(page, `pack-new-1-yard-error-${tag}`);
+    // What is really on screen: the error line must sit above the sticky bar.
+    await page.waitForTimeout(400);
+    await shot(page, `pack-new-1-yard-error-viewport-${tag}`, { viewport: true });
     await page.locator("[data-slot='yard-picker'] label").filter({ hasText: "Y3" }).click();
     await shot(page, `pack-new-1-defaults-${tag}`);
     await page.getByRole("button", { name: "Next", exact: true }).click();
@@ -84,7 +86,10 @@ for (const { width, scheme } of VIEWS) {
     await shot(page, `pack-new-2-bundles-in-range-${tag}`);
     await pieces.press("Enter");
     await shot(page, `pack-new-2-bundles-after-save-viewport-${tag}`, { viewport: true });
+    // Above the die's range: the live kg/12ft block turns amber before saving.
     await weight.fill("55");
+    await pieces.fill("20");
+    await expect(page.locator("[data-slot='live-k12']")).toHaveAttribute("data-tone", "amber");
     await shot(page, `pack-new-2-bundles-amber-${tag}`);
     await weight.fill("");
     await pieces.fill("");
@@ -92,6 +97,7 @@ for (const { width, scheme } of VIEWS) {
     await page.getByRole("button", { name: "Review", exact: true }).click();
     await expect(page.locator("[data-slot='pack-totals']")).toBeVisible();
     await shot(page, `pack-new-3-review-${tag}`);
+    await shot(page, `pack-new-3-review-viewport-${tag}`, { viewport: true });
 
     await page.getByRole("button", { name: "Save and print labels" }).click();
     await page.waitForURL(SESSION_URL);

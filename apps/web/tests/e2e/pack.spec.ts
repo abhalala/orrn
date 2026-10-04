@@ -250,6 +250,60 @@ test.describe("pack", () => {
     await expect(row).toContainText(/Today, \d\d:\d\d/);
   });
 
+  test("a fraction typed in Pieces is refused with its message, never read as a bigger whole number", async ({
+    page,
+  }) => {
+    await open(page, "/pack/new");
+    await chooseDieAndLength(page);
+    await page.keyboard.type("47.90");
+    await page.keyboard.press("Enter");
+    await expect(piecesField(page)).toBeFocused();
+    // A gloved "20.5" must not become 205 pieces.
+    await page.keyboard.type("20.5");
+    await expect(piecesField(page)).toHaveValue("20.5");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Enter the pieces as a whole number.")).toBeVisible();
+    await expect(piecesField(page)).toBeFocused();
+    await expect(savedRows(page)).toHaveCount(0);
+  });
+
+  test("Tab through saved bundles on a phone: the focused row is never hidden under the action bar", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await open(page, "/pack/new", { width: 375 });
+    await page.setViewportSize({ width: 375, height: 740 });
+    const bar = page.locator("[data-slot='pack-bar']:visible");
+
+    // Next without a yard: the error line under the tiles comes into view above the bar, not under it.
+    await chooseDieAndTypeLength(page);
+    await page.keyboard.press("Enter");
+    const yardError = yardGroup(page).getByText("Choose the yard these bundles go to.");
+    await expect(yardError).toBeVisible();
+    await expect(yardTile(page, "Y1")).toBeFocused();
+    await expect
+      .poll(async () => {
+        const [e, b] = await Promise.all([yardError.boundingBox(), bar.boundingBox()]);
+        return e!.y + e!.height <= b!.y + 1;
+      }, "yard error above the action bar")
+      .toBe(true);
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    await expect(weightField(page)).toBeFocused();
+
+    for (let i = 1; i <= 12; i++) await typeBundle(page, `47.${90 + (i % 5)}`, "20");
+    await expect(savedRows(page)).toHaveCount(12);
+    // Row 1 is at the top of the page; Tab walks down the list (WCAG 2.4.11 focus not obscured).
+    await savedRows(page).first().focus();
+    for (let i = 1; i < 12; i++) {
+      await page.keyboard.press("Tab");
+      const row = savedRows(page).nth(i);
+      await expect(row).toBeFocused();
+      const [r, b] = await Promise.all([row.boundingBox(), bar.boundingBox()]);
+      expect(r!.y + r!.height, `row ${i + 1} bottom vs action bar top`).toBeLessThanOrEqual(b!.y + 1);
+    }
+  });
+
   test("an unsaved session shows on /pack as Not saved and can be continued", async ({ page }) => {
     await open(page, "/pack/new");
     await chooseDieAndLength(page);

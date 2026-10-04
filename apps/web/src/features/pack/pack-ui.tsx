@@ -2,7 +2,7 @@ import { formatKg, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { cn } from "@orrn/ui/lib/utils";
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 
 import { bundleKgPer12ft, rangeVerdict, type RangeVerdict } from "./pack-math";
 
@@ -63,7 +63,8 @@ export function useVerdictWord() {
  * the bottom while the page scrolls, with a summary on the left and the
  * step's buttons on the right. With a summary it stays one row on phones
  * (the summary text wraps, the button keeps its width) so the bar stays
- * short; without one the buttons share the full width.
+ * short; without one the last button grows to the full width left over
+ * (and the buttons wrap only when they cannot share one row).
  */
 export function PackBar({
   summary,
@@ -74,8 +75,11 @@ export function PackBar({
   children: ReactNode;
   className?: string;
 }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useFocusClearance(ref);
   return (
     <div
+      ref={ref}
       data-slot="pack-bar"
       className={cn(
         "sticky bottom-[calc(var(--shell-tabbar-offset)+12px)] z-20 mt-2 flex items-center gap-x-4 gap-y-2 rounded-card border border-border bg-card/95 p-2 pl-4 shadow-md backdrop-blur-md supports-[backdrop-filter]:bg-card/85",
@@ -87,13 +91,44 @@ export function PackBar({
       <div
         className={cn(
           "flex min-w-0 flex-wrap justify-end gap-2",
-          summary ? "shrink-0" : "max-sm:w-full max-sm:[&>*]:flex-1",
+          // Without a summary (Review): on phones the last button (the main action) takes the spare width.
+          summary ? "shrink-0" : "max-sm:w-full max-sm:[&>*:last-child]:flex-1",
         )}
       >
         {children}
       </div>
     </div>
   );
+}
+
+/**
+ * While a sticky bottom bar is on screen, the page keeps focused controls
+ * above it: `scroll-padding-bottom` on the page scroller = the bar's height
+ * plus its distance from the bottom (the phone tab bar). Without it, Tab onto
+ * a row that sits under the bar leaves that row hidden (WCAG 2.4.11). A
+ * hidden bar (step 1 while the die list is open) clears it.
+ */
+function useFocusClearance(ref: RefObject<HTMLElement | null>) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const apply = () => {
+      const height = el.offsetHeight;
+      const bottom = Number.parseFloat(getComputedStyle(el).bottom) || 0;
+      root.style.scrollPaddingBottom = height > 0 ? `${Math.ceil(height + bottom + 8)}px` : "";
+    };
+    apply();
+    const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(apply);
+    resize?.observe(el);
+    // The tab bar offset changes at the iPad breakpoint.
+    window.addEventListener("resize", apply);
+    return () => {
+      resize?.disconnect();
+      window.removeEventListener("resize", apply);
+      root.style.scrollPaddingBottom = "";
+    };
+  }, [ref]);
 }
 
 /** Mono value with a quiet unit after it ("52.40 kg"). Never wraps between number and unit. */
