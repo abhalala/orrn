@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 741 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 759 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -811,6 +811,29 @@ Counts: 741 screen strings in 25 groups, 10 guides with 182 strings.
 | `cta.title` | Try it on your floor | अपने फ़्लोर पर आज़माएं |
 | `cta.body` | Tell us about your plant and we'll get in touch. | अपने प्लांट के बारे में बताएं, हम संपर्क करेंगे। |
 | `footer` | orrn, for aluminium extrusion plants | orrn, एल्युमिनियम एक्सट्रूज़न प्लांट के लिए |
+
+### native (18)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `scanHint` | Opens the camera to scan a bundle label. | बंडल लेबल स्कैन करने के लिए कैमरा खोलता है। |
+| `offlineTitle` | Can't reach orrn | orrn से कनेक्ट नहीं हो पा रहा |
+| `offlineBody` | Check the phone's internet connection, then try again. | फ़ोन का इंटरनेट कनेक्शन जांचें, फिर से कोशिश करें। |
+| `setPasswordTitle` | Set your own password first | पहले अपना पासवर्ड बनाएं |
+| `setPasswordBody` | Your account has a temporary password. Open orrn.in in your phone's browser or on a computer, sign in and set a new password, then come back here. | आपके अकाउंट में अभी अस्थायी पासवर्ड है। फ़ोन के ब्राउज़र में या कंप्यूटर पर orrn.in खोलें, साइन इन करके नया पासवर्ड बनाएं, फिर यहाँ वापस आएं। |
+| `staffTitle` | Godseye is on the web | Godseye वेब पर है |
+| `staffBody` | Staff accounts don't belong to a plant. Open orrn on a computer to use Godseye. | स्टाफ अकाउंट किसी प्लांट का हिस्सा नहीं होते। Godseye इस्तेमाल करने के लिए कंप्यूटर पर orrn खोलें। |
+| `checkAgain` | Check again | फिर से जांचें |
+| `tooManyTries` | Too many tries. Wait a minute, then try again. | बहुत बार कोशिश हो गई। एक मिनट रुकें, फिर कोशिश करें। |
+| `codeTimedOut` | That took too long. Sign in again. | बहुत देर हो गई। फिर से साइन इन करें। |
+| `verifying` | Checking code | कोड जांच रहे हैं |
+| `signingOut` | Signing out | साइन आउट हो रहा है |
+| `version` | Version {version} | वर्ज़न {version} |
+| `codeTooShort` | Enter all 6 digits of the code. | कोड के सभी 6 अंक डालें। |
+| `serverTitle` | orrn ran into a problem | orrn में कोई दिक्कत आई |
+| `serverBody` | The problem is on orrn's side, not this phone. Try again in a minute. | दिक्कत orrn की तरफ़ से है, इस फ़ोन में नहीं। एक मिनट बाद फिर से कोशिश करें। |
+| `saveUnsureTitle` | Not sure it saved | पता नहीं सेव हुआ या नहीं |
+| `saveUnsureBody` | orrn didn't answer in time, so this may have saved. Check before you try again. | orrn ने समय पर जवाब नहीं दिया, इसलिए हो सकता है यह सेव हो गया हो। दोबारा कोशिश करने से पहले जांच लें। |
 
 ### ui (9)
 
