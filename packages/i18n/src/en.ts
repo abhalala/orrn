@@ -814,6 +814,7 @@ export const en = {
       choose: "Choose file",
       types: "CSV or Excel (.csv, .xlsx, .xls)",
       dragging: "Drop to read this file",
+      titleTouch: "Choose a CSV or Excel file",
     },
     columns: {
       heading: "Columns orrn reads",
@@ -842,6 +843,7 @@ export const en = {
     readAs: {
       heading: "How orrn read your columns",
       plain: "{field}",
+      same: "Used as it is",
       unit: "{field} in {unit}",
       fallback: "{field} in {unit}, from your company setting",
       notUsed: "Not used: {columns}",

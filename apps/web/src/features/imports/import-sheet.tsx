@@ -466,11 +466,19 @@ function PickStage({
             <UploadCloud className="size-6" strokeWidth={2} />
           </span>
           <p className="m-0 font-display text-[19px] font-bold leading-tight tracking-[-0.02em] text-foreground break-words">
-            {dragging ? t("imports.drop.dragging") : t("imports.drop.title")}
+            {dragging ? (
+              t("imports.drop.dragging")
+            ) : (
+              <>
+                {/* Phones and tablets have nothing to drag from: ask them to choose. */}
+                <span className="pointer-coarse:hidden">{t("imports.drop.title")}</span>
+                <span className="hidden pointer-coarse:inline">{t("imports.drop.titleTouch")}</span>
+              </>
+            )}
           </p>
-          <p className="m-0 text-[14px] text-muted-foreground">{t("imports.drop.or")}</p>
+          <p className="m-0 text-[14px] text-muted-foreground pointer-coarse:hidden">{t("imports.drop.or")}</p>
           <Button
-            variant="secondary"
+            className="pointer-coarse:h-14 pointer-coarse:px-7 pointer-coarse:text-[17px]"
             onClick={() => inputRef.current?.click()}
             aria-describedby={error ? `${errorId} ${guideId}` : guideId}
           >
@@ -751,6 +759,9 @@ function ColumnsRead({
     const isWeight = ["weight", "weightMin", "weightMax"].includes(c.field);
     if (isLength) return t("imports.readAs.fallback", { field, unit: t(unit === "mm" ? "imports.unit.mm" : "imports.unit.in") });
     if (isWeight) return t("imports.readAs.unit", { field, unit: t("imports.unit.kg") });
+    // "Die series" read as Die series says nothing; only a renamed column ("Qty" as Pieces) needs its field named.
+    const same = (text: string) => text.trim().toLowerCase().replace(/\s+/g, " ");
+    if (same(c.header) === same(field)) return t("imports.readAs.same");
     return t("imports.readAs.plain", { field });
   };
   return (

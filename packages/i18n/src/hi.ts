@@ -808,6 +808,7 @@ export const hi = {
       choose: "फ़ाइल चुनें",
       types: "CSV या Excel (.csv, .xlsx, .xls)",
       dragging: "यह फ़ाइल पढ़ने के लिए छोड़ें",
+      titleTouch: "CSV या Excel फ़ाइल चुनें",
     },
     columns: {
       heading: "orrn ये कॉलम पढ़ता है",
@@ -836,6 +837,7 @@ export const hi = {
     readAs: {
       heading: "orrn ने आपके कॉलम ऐसे पढ़े",
       plain: "{field}",
+      same: "जैसा है वैसा लिया",
       unit: "{field}, {unit} में",
       fallback: "{field}, {unit} में, आपकी कंपनी की सेटिंग से",
       notUsed: "इस्तेमाल नहीं हुए: {columns}",

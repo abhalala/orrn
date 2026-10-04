@@ -187,11 +187,15 @@ test.describe("import sheet", () => {
       name: "stock.xlsx",
       mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       buffer: xlsx([
-        ["Die series", "Section code", "Pieces", "Weight (g)", "Length (in)"],
+        ["Die series", "Section code", "Qty", "Weight (g)", "Length (in)"],
         ["PATTI", "14701", 10, 23500, 144],
       ]),
     });
     await expect(sheet.getByRole("definition").filter({ hasText: "Length in inches" })).toBeVisible();
+    // A renamed column names the field it fills; an unrenamed one just says it was used.
+    const read = sheet.locator("dl > div");
+    await expect(read.filter({ hasText: "Qty" }).getByRole("definition")).toHaveText("Pieces");
+    await expect(read.filter({ hasText: "Die series" }).getByRole("definition")).toHaveText("Used as it is");
     await sheet.getByRole("button", { name: "Import 1 row" }).click();
     await expect(stage(page)).toHaveAttribute("data-stage", "done");
     expect(sent).toEqual([{ rows: [{ dieSeries: "PATTI", dieSectionCode: "14701", quantity: 10, weightG: 23500, lengthMm: 3658, poNumber: null }] }]);
@@ -307,6 +311,7 @@ test.describe("screenshots", () => {
   for (const width of [375, 1280]) {
     for (const scheme of ["light", "dark"] as const) {
       test(`capture ${width} ${scheme}`, async ({ page }) => {
+        test.setTimeout(120_000);
         mkdirSync(dir!, { recursive: true });
         const shot = (name: string) => page.screenshot({ path: join(dir!, `${name}-${width}-${scheme}.png`), fullPage: false });
         await open(page, { width, scheme, height: width < 768 ? 812 : 900 });
@@ -332,12 +337,47 @@ test.describe("screenshots", () => {
         await expect(stage(page)).toHaveAttribute("data-stage", "review");
         await page.waitForTimeout(700);
         await shot("sheet-review");
-        await sheet.locator("[data-slot='sheet'] .overflow-y-auto").evaluate((el) => el.scrollTo(0, el.scrollHeight));
+        await sheet.locator(".overflow-y-auto").first().evaluate((el) => el.scrollTo(0, el.scrollHeight));
         await shot("sheet-review-problems");
         await sheet.getByRole("button", { name: "Import 2 rows" }).click();
         await expect(stage(page)).toHaveAttribute("data-stage", "done");
         await page.waitForTimeout(700);
         await shot("sheet-done");
+
+        // A save that fails part-way.
+        await page.keyboard.press("Escape");
+        const customers = await openImport(page, /Choose file Import customers/);
+        await answer(page, "customer.importCsv", (_input, call) =>
+          call === 0 ? { data: { success: true, count: 500 } } : { error: "The server is busy. Try again.", status: 400 },
+        );
+        const parties: (string | number)[][] = [["Name", "Phone", "GSTIN"]];
+        for (let i = 1; i <= 640; i++) parties.push([`Shree Ganesh Aluminium ${i}`, `98250 ${String(i).padStart(5, "0")}`, ""]);
+        await chooseFile(page, { name: "parties.csv", mimeType: "text/csv", buffer: csv(parties) });
+        await customers.getByRole("button", { name: "Import 640 rows" }).click();
+        await expect(stage(page)).toHaveAttribute("data-stage", "failed");
+        await page.waitForTimeout(400);
+        await shot("sheet-failed");
+
+        // Missing columns.
+        await customers.getByRole("button", { name: "Close" }).last().click();
+        const dies = await openImport(page, /Choose file Import dies/);
+        await chooseFile(page, { name: "dies.csv", mimeType: "text/csv", buffer: csv([["Series", "Name"], ["PATTI", "Patti"]]) });
+        await expect(dies.getByRole("alert")).toContainText("Columns missing");
+        await page.waitForTimeout(400);
+        await shot("sheet-missing");
+
+        // The same sheet from the Dies and Customers lists.
+        await page.keyboard.press("Escape");
+        await page.goto("/dies");
+        await page.getByRole("button", { name: "Import dies", exact: true }).click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+        await page.waitForTimeout(400);
+        await shot("dies-import-pick");
+        await page.goto("/customers");
+        await page.getByRole("button", { name: "Import customers", exact: true }).click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+        await page.waitForTimeout(400);
+        await shot("customers-import-pick");
       });
     }
   }

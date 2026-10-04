@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 837 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 839 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -732,7 +732,7 @@ Counts: 837 screen strings in 26 groups, 10 guides with 182 strings.
 | `data.customersBody` | Names, phone numbers, email and GSTIN. | नाम, फ़ोन नंबर, ईमेल और GSTIN। |
 | `data.noAccess` | Your role can't import data. Ask an owner or admin if you need it. | आपके रोल से डेटा इम्पोर्ट नहीं होता। ज़रूरत हो तो owner या admin से कहें। |
 
-### imports (92)
+### imports (94)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -747,6 +747,7 @@ Counts: 837 screen strings in 26 groups, 10 guides with 182 strings.
 | `drop.choose` | Choose file | फ़ाइल चुनें |
 | `drop.types` | CSV or Excel (.csv, .xlsx, .xls) | CSV या Excel (.csv, .xlsx, .xls) |
 | `drop.dragging` | Drop to read this file | यह फ़ाइल पढ़ने के लिए छोड़ें |
+| `drop.titleTouch` | Choose a CSV or Excel file | CSV या Excel फ़ाइल चुनें |
 | `columns.heading` | Columns orrn reads | orrn ये कॉलम पढ़ता है |
 | `columns.required` | Needed | ज़रूरी |
 | `columns.optional` | Optional | चाहें तो |
@@ -771,6 +772,7 @@ Counts: 837 screen strings in 26 groups, 10 guides with 182 strings.
 | `rows` | {count:row\|rows} | {count:लाइन\|लाइन} |
 | `readAs.heading` | How orrn read your columns | orrn ने आपके कॉलम ऐसे पढ़े |
 | `readAs.plain` | {field} | {field} |
+| `readAs.same` | Used as it is | जैसा है वैसा लिया |
 | `readAs.unit` | {field} in {unit} | {field}, {unit} में |
 | `readAs.fallback` | {field} in {unit}, from your company setting | {field}, {unit} में, आपकी कंपनी की सेटिंग से |
 | `readAs.notUsed` | Not used: {columns} | इस्तेमाल नहीं हुए: {columns} |
