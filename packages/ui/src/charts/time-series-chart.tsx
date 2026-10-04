@@ -7,15 +7,17 @@ import { TICK_FONT, XTicks, YAxis, useRovingMarks, useYAxis } from "./chart-inte
 import { ChartTooltip } from "./chart-tooltip";
 import {
   assignSeriesSlots,
-  boxesOverlap,
   chartDateFormat,
+  dateTickTexts,
   detectGranularity,
   estimateTextWidth,
   maxOf,
   pickTickIndices,
-  segmentHitsBox,
+  placeEndLabels,
   seriesColor,
-  type Box,
+  widestDateTick,
+  type ChartDateFormat,
+  type Segment,
 } from "./scales";
 import { useChartWidth } from "./use-chart-width";
 
@@ -42,22 +44,28 @@ export type TimeSeriesChartProps = {
   colorDomain?: string[];
   /** Labels for the whole set of y ticks (one unit per axis). Default compact en-IN ("0.5L", "1L"). */
   formatTicks?(ticks: number[]): string[];
-  /** Long date for tooltips and names; short date for ticks. Default: IST, en-IN, by bucket size. */
-  formatDate?: { long(d: Date): string; short(d: Date): string };
+  /**
+   * Long date for tooltips and names; short date for ticks, with the year
+   * where the axis crosses into a new one. Default: `chartDateFormat` by
+   * bucket size (IST, en-IN or hi-IN).
+   */
+  formatDate?: ChartDateFormat;
 };
 
 const TOP = 22;
 const BOTTOM = 26;
 const RIGHT = 8;
 const LABEL_FONT = 13;
-/** Text baselines tried for an end label, relative to its dot, nearest first. */
-const LABEL_OFFSETS = [-10, 20, -26, 36, -42, 52];
 
 /**
  * Line or area chart over time. Thin 2px lines, an 8px end dot per series,
- * direct end labels nudged clear of every line (dropped if no spot is
- * clear), hairline grid, one y axis from zero with one unit. A partial last
- * bucket is a dashed final segment with a hollow end dot, and reads "so far".
+ * hairline grid, one y axis from zero with one unit. Up to four series get
+ * direct end labels beside their own dot (level with it, just above or just
+ * below) and clear of every line (`placeEndLabels`); when the ends sit too
+ * close to tell the labels apart, there are no end labels and the legend
+ * names the lines, never a stacked or far-nudged label. A partial last
+ * bucket is a dashed final segment with a hollow end dot and no area wash,
+ * and reads "so far" (its end label too).
  * A crosshair snaps to the nearest date anywhere on the plot; the plot is
  * one tab stop starting on the newest date (see `useRovingMarks`). Each
  * date's accessible name reads every series, so the tooltip is never the
@@ -93,7 +101,7 @@ export function TimeSeriesChart({
     [series, colorDomain],
   );
   const lookup = useMemo(() => series.map((s) => new Map(s.points.map((p) => [p.t.getTime(), p]))), [series]);
-  const roving = useRovingMarks(times.length, "chart-point");
+  const roving = useRovingMarks(times, "chart-point");
 
   const peak = maxOf(series.flatMap((s) => s.points.map((p) => p.v)));
   const plotH = Math.max(40, height - TOP - BOTTOM);
@@ -134,51 +142,35 @@ export function TimeSeriesChart({
     return { solid: points, partial: null };
   };
 
-  // Every line as straight segments between its points; the padding covers
-  // the stroke and the small bow of the monotone curve.
-  const segments = series.flatMap((s) =>
+  // Every line as straight segments between its points; the padding in
+  // placeEndLabels covers the stroke and the small bow of the monotone curve.
+  const segments: Segment[] = series.flatMap((s) =>
     s.points.slice(1).map((p, i) => {
       const a = s.points[i]!;
       return [x(a.t.getTime()), y(a.v), x(p.t.getTime()), y(p.v)] as const;
     }),
   );
-  const hitsLine = (box: Box) => segments.some(([x0, y0, x1, y1]) => segmentHitsBox(x0, y0, x1, y1, box, 3));
 
-  // Direct end labels (<= 4 series, plot >= 360px): right-aligned left of the
-  // end dot, at the nearest baseline whose box clears every line, the dots
-  // and the other labels. If any label has no clear spot, none are drawn.
+  // Direct end labels: four series at most, on a plot of 360px or more.
+  // An open (partial) end says so: "Dispatched, so far".
+  const endText = (s: TimeSeries) =>
+    s.points[s.points.length - 1]?.partial ? t("charts.soFarLabel", { label: s.label }) : s.label;
   const placedLabels = (() => {
     if (series.length > 4 || plotW < 360) return null;
-    const ends = series
-      .map((s) => {
-        const last = s.points[s.points.length - 1];
-        return last ? { key: s.key, label: s.label, x: x(last.t.getTime()), y: y(last.v) } : null;
-      })
-      .filter((e): e is NonNullable<typeof e> => e !== null);
-    const dots: Box[] = ends.map((e) => ({ left: e.x - 6, right: e.x + 6, top: e.y - 6, bottom: e.y + 6 }));
-    const placed: { key: string; label: string; x: number; y: number; box: Box }[] = [];
-    for (const e of [...ends].sort((a, b) => a.y - b.y)) {
-      const w = estimateTextWidth(e.label, LABEL_FONT) + 4;
-      const spot = LABEL_OFFSETS.map((off) => e.y + off)
-        .map((base) => ({ base, box: { left: e.x - 8 - w, right: e.x - 8, top: base - 12, bottom: base + 3 } }))
-        .find(
-          ({ box }) =>
-            box.top >= -TOP + 2 &&
-            box.bottom <= plotH - 2 &&
-            !hitsLine(box) &&
-            ![...dots, ...placed.map((p) => p.box)].some((b) => boxesOverlap(box, b)),
-        );
-      if (!spot) return null;
-      placed.push({ key: e.key, label: e.label, x: e.x - 8, y: spot.base, box: spot.box });
-    }
-    const order = Object.fromEntries(series.map((s, i) => [s.key, i]));
-    return placed.sort((a, b) => order[a.key]! - order[b.key]!);
+    const ends = series.flatMap((s) => {
+      const last = s.points[s.points.length - 1];
+      return last
+        ? [{ key: s.key, x: x(last.t.getTime()), y: y(last.v), width: estimateTextWidth(endText(s), LABEL_FONT) + 4 }]
+        : [];
+    });
+    const spots = placeEndLabels(ends, segments, { top: -TOP + 2, bottom: plotH - 2 });
+    return spots?.map((spot) => ({ ...spot, text: endText(series.find((s) => s.key === spot.key)!) })) ?? null;
   })();
 
-  const tickIdx = pickTickIndices(
-    times.length,
-    plotW,
-    Math.max(...times.map((time) => estimateTextWidth(dates.short(new Date(time)), TICK_FONT)), 24) + 16,
+  const tickIdx = pickTickIndices(times.length, plotW, Math.max(widestDateTick(times, dates, TICK_FONT), 24) + 16);
+  const tickTexts = dateTickTexts(
+    tickIdx.map((i) => times[i]!),
+    dates,
   );
 
   const show = roving.show;
@@ -203,7 +195,7 @@ export function TimeSeriesChart({
           <g transform={`translate(${left},${TOP})`}>
             <YAxis ticks={ticks} labels={labels} y={y} plotW={plotW} />
             <XTicks
-              items={tickIdx.map((i) => ({ key: times[i]!, x: xs[i]!, text: dates.short(new Date(times[i]!)) }))}
+              items={tickIdx.map((i, k) => ({ key: times[i]!, x: xs[i]!, text: tickTexts[k]! }))}
               plotH={plotH}
               minX={-left}
               maxX={plotW + RIGHT}
@@ -215,8 +207,9 @@ export function TimeSeriesChart({
                 const { solid, partial } = split(s.points);
                 return (
                   <g key={s.key} data-series={s.key}>
+                    {/* The wash covers settled buckets only: none under the dashed, provisional span. */}
                     {kind === "area" ? (
-                      <path d={areaGen(s.points) ?? undefined} fill={color} fillOpacity={0.1} stroke="none" />
+                      <path data-slot="chart-area" d={areaGen(solid) ?? undefined} fill={color} fillOpacity={0.1} stroke="none" />
                     ) : null}
                     <path
                       data-slot="chart-line"
@@ -249,6 +242,7 @@ export function TimeSeriesChart({
                   <circle
                     key={s.key}
                     data-slot="chart-end-dot"
+                    data-series={s.key}
                     data-partial={last.partial ? "" : undefined}
                     cx={x(last.t.getTime())}
                     cy={y(last.v)}
@@ -263,8 +257,9 @@ export function TimeSeriesChart({
                 <text
                   key={e.key}
                   data-slot="chart-end-label"
+                  data-series={e.key}
                   x={e.x}
-                  y={e.y}
+                  y={e.base}
                   textAnchor="end"
                   stroke="var(--card)"
                   strokeWidth={4}
@@ -272,7 +267,7 @@ export function TimeSeriesChart({
                   paintOrder="stroke"
                   className="fill-foreground text-[13px] font-medium"
                 >
-                  {e.label}
+                  {e.text}
                 </text>
               ))}
             </g>
