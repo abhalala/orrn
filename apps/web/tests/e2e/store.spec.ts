@@ -26,7 +26,8 @@ async function open(page: Page, opts: { role?: LocalRole; width?: number; scheme
   await page.emulateMedia({ colorScheme: opts.scheme ?? "light", reducedMotion: "reduce" });
   await signInViaApi(page, opts.role ?? "owner");
   await page.goto(opts.path);
-  await expect(page.locator("main#main h1").first()).toBeVisible();
+  // First load after sign-in: generous, the machine runs several e2e suites at once.
+  await expect(page.locator("main#main h1").first()).toBeVisible({ timeout: 15_000 });
 }
 
 async function trpcMutate<T>(page: Page, path: string, input: unknown): Promise<T> {
@@ -452,6 +453,9 @@ test.describe("keyboard and language", () => {
 });
 
 test.describe("layout and accessibility", () => {
+  // Six pages and two sheets, each with layout guards and axe: well past the 30 s default under load.
+  test.describe.configure({ timeout: 180_000 });
+
   for (const width of [375, 390, 820, 1280, 1440]) {
     for (const scheme of ["light", "dark"] as const) {
       test(`store pages at ${width}px (${scheme}): no sideways scroll, nothing clipped, axe clean`, async ({ page }) => {
@@ -464,7 +468,7 @@ test.describe("layout and accessibility", () => {
             path: `/store/items/${ids["Roller bearing 6205"]}`,
             ready: page.getByRole("button", { name: /^Open MRS-/ }),
           },
-          { path: `/store/issue?item=${ids["Cover flux"]}`, ready: page.getByText("In store now").first() },
+          { path: `/store/issue?item=${ids["Cover flux"]}`, ready: page.getByText("In store now").filter({ visible: true }) },
           { path: "/store/receive", ready: page.getByRole("combobox", { name: "Item" }) },
           { path: `/store/exchange?item=${ids["Roller bearing 6205"]}`, ready: page.getByLabel("Old going out") },
         ];
@@ -513,6 +517,7 @@ test.describe("layout and accessibility", () => {
  * Run with STORE_SHOTS_DIR=<dir> to write them.
  */
 test.describe("screenshots", () => {
+  test.describe.configure({ timeout: 180_000 });
   const dir = process.env.STORE_SHOTS_DIR;
   test.skip(!dir, "set STORE_SHOTS_DIR to capture screenshots");
   for (const width of [375, 1280]) {

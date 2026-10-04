@@ -23,7 +23,6 @@ import { countedIn, purposeLabel, qtyProblemText, unitShort } from "./store-labe
 import {
   formatQty,
   ISSUE_PURPOSES,
-  isCountable,
   isShort,
   parseQtyMilli,
   type IssuePurpose,
@@ -395,7 +394,8 @@ function EntryFormBody({
   }
 
   const suffix = unit ? unitShort(t, unit) : undefined;
-  const decimal = !isCountable(unit);
+  // The point is always accepted, also for pieces: a field that silently drops it turns a typed
+  // "1.5" into 15. Countable items get "counted in whole numbers" instead (parseQtyMilli).
   const purposeErrorId = `purpose-error-${uid}`;
 
   return (
@@ -435,7 +435,6 @@ function EntryFormBody({
                 onValueChange={setOldQty}
                 onBlur={() => touch("old")}
                 suffix={suffix}
-                decimal={decimal}
                 aria-required="true"
                 enterKeyHint="next"
               />
@@ -447,7 +446,6 @@ function EntryFormBody({
                 onValueChange={setNewQty}
                 onBlur={() => touch("new")}
                 suffix={suffix}
-                decimal={decimal}
                 aria-required="true"
               />
             </Field>
@@ -464,7 +462,6 @@ function EntryFormBody({
               onValueChange={setQty}
               onBlur={() => touch("qty")}
               suffix={suffix}
-              decimal={decimal}
               aria-required="true"
               className="h-14 text-[22px] pointer-coarse:h-14"
             />
