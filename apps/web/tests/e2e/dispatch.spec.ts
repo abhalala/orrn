@@ -17,6 +17,11 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
 
 type Scheme = "light" | "dark";
 
+// Five worktrees share this machine: at a load average of 50+ a cold dev server takes well
+// over Playwright's defaults to compile a route on first visit, and the axe passes below
+// read six screens twice. Generous budgets; a passing test is no slower for them.
+test.describe.configure({ timeout: 120_000 });
+
 const kgText = (kg: number, digits = 2) =>
   new Intl.NumberFormat("en-IN", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(kg);
 
@@ -72,6 +77,16 @@ async function newDispatch(page: Page) {
 
 const hero = (page: Page) => page.locator("[data-slot='dispatch-hero']");
 
+/**
+ * Opens `path` and waits for its page heading (every dispatch screen has an h1, the
+ * loading skeleton too), allowing a cold route compile under load. Later expectations
+ * keep the normal 5 s budget.
+ */
+async function visit(page: Page, path: string) {
+  await page.goto(path);
+  await expect(page.locator("main h1").first()).toBeAttached({ timeout: 30_000 });
+}
+
 async function pasteSerials(page: Page, serials: string[]) {
   await page.getByRole("button", { name: "Paste serials" }).click();
   const sheet = page.getByRole("dialog", { name: "Paste serials" });
@@ -88,7 +103,7 @@ test.describe("dispatch: build, hold, dispatch, packing list", () => {
     const customer = await firstCustomer(page);
     const totalKg = bundles.reduce((s, b) => s + b.weightG, 0) / 1000;
 
-    await page.goto("/dispatch/new");
+    await visit(page, "/dispatch/new");
     await expect(page.getByRole("heading", { level: 1, name: "New dispatch" })).toBeVisible();
     const combo = page.getByRole("combobox", { name: "Customer" });
     await combo.fill(customer.name.slice(0, 6));
@@ -134,7 +149,7 @@ test.describe("dispatch: build, hold, dispatch, packing list", () => {
     await start(page, "owner", { width: 390, height: 844 });
     const bundles = await packFresh(page, 3);
     const d = await newDispatch(page);
-    await page.goto(`/dispatch/${d.id}`);
+    await visit(page, `/dispatch/${d.id}`);
     await expect(hero(page)).toBeVisible();
 
     let sheet = await pasteSerials(page, [bundles[0]!.serial, bundles[1]!.serial]);
@@ -157,7 +172,7 @@ test.describe("dispatch: build, hold, dispatch, packing list", () => {
     await trpcMutation(page, "dispatch.addBundlesBySerial", { id: other.id, serials: [b!.serial] });
     await trpcMutation(page, "dispatch.reserve", { id: other.id });
     const d = await newDispatch(page);
-    await page.goto(`/dispatch/${d.id}`);
+    await visit(page, `/dispatch/${d.id}`);
     const sheet = await pasteSerials(page, [b!.serial]);
     await expect(sheet).toContainText("1 not available");
     await expect(sheet).toContainText(`Held for ${other.code}`);
@@ -167,7 +182,7 @@ test.describe("dispatch: build, hold, dispatch, packing list", () => {
     await start(page, "owner");
     const [b] = await packFresh(page, 1);
     const d = await newDispatch(page);
-    await page.goto(`/dispatch/${d.id}`);
+    await visit(page, `/dispatch/${d.id}`);
     await page.getByRole("button", { name: "Scan bundles" }).click();
     const sheet = page.getByRole("dialog", { name: `Scanning into ${d.code}` });
     const field = sheet.getByLabel("Serial or label link");
@@ -187,7 +202,7 @@ test.describe("dispatch: build, hold, dispatch, packing list", () => {
     const bundles = await packFresh(page, 2);
     const d = await newDispatch(page);
     await trpcMutation(page, "dispatch.addBundlesBySerial", { id: d.id, serials: bundles.map((b) => b.serial) });
-    await page.goto(`/dispatch/${d.id}`);
+    await visit(page, `/dispatch/${d.id}`);
     await expect(page.getByTestId("dispatch-bundles")).toHaveText("2");
     await page.getByRole("button", { name: `Remove ${bundles[0]!.serial}` }).click();
     await expect(page.getByTestId("dispatch-bundles")).toHaveText("1");
@@ -200,7 +215,7 @@ test.describe("dispatch: build, hold, dispatch, packing list", () => {
     const bundles = await packFresh(page, 2);
     const d = await newDispatch(page);
     await trpcMutation(page, "dispatch.addBundlesBySerial", { id: d.id, serials: bundles.map((b) => b.serial) });
-    await page.goto(`/dispatch/${d.id}`);
+    await visit(page, `/dispatch/${d.id}`);
     await page.getByRole("button", { name: /^Set label/ }).click();
     const sheet = page.getByRole("dialog", { name: /^Packing group label for/ });
     await sheet.getByLabel("Packing group label").fill("a");
@@ -214,7 +229,7 @@ test.describe("dispatch: roles", () => {
   test("a viewer sees dispatches but no button that changes them", async ({ page }) => {
     await start(page, "viewer");
     for (const id of ["dev-dispatch-draft", "dev-dispatch-held"]) {
-      await page.goto(`/dispatch/${id}`);
+      await visit(page, `/dispatch/${id}`);
       await expect(hero(page)).toBeVisible();
       await expect(page.getByText("You can see this dispatch. Changes are made by the office.")).toBeVisible();
       for (const name of ["Scan bundles", "Paste serials", "Search to add", "Hold stock", "Release", "More actions", /^Remove /, /^Set label/]) {
@@ -222,16 +237,16 @@ test.describe("dispatch: roles", () => {
       }
       await expect(page.getByRole("button", { name: "Dispatch", exact: true })).toHaveCount(0);
     }
-    await page.goto("/dispatch/dev-dispatch-done-1");
+    await visit(page, "/dispatch/dev-dispatch-done-1");
     await expect(page.getByRole("button", { name: "Download PDF" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Regenerate" })).toHaveCount(0);
-    await page.goto("/dispatch");
+    await visit(page, "/dispatch");
     await expect(page.getByRole("link", { name: "New dispatch" })).toHaveCount(0);
   });
 
   test("an operator can scan into a dispatch but cannot hold or dispatch it", async ({ page }) => {
     await start(page, "operator");
-    await page.goto("/dispatch/dev-dispatch-draft");
+    await visit(page, "/dispatch/dev-dispatch-draft");
     await expect(hero(page)).toBeVisible();
     await expect(page.getByRole("button", { name: "Scan bundles" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Hold stock" })).toHaveCount(0);
@@ -240,7 +255,7 @@ test.describe("dispatch: roles", () => {
 
   test("the monthly volume chart is for analytics roles only", async ({ page }) => {
     await start(page, "owner");
-    await page.goto("/dispatch");
+    await visit(page, "/dispatch");
     await expect(page.getByTestId("dispatch-volume")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Dispatch volume" })).toBeVisible();
 
@@ -250,7 +265,7 @@ test.describe("dispatch: roles", () => {
     page.on("request", (r) => {
       if (/dispatchVolume|volume-chart/.test(r.url())) chartRequests.push(r.url());
     });
-    await page.goto("/dispatch");
+    await visit(page, "/dispatch");
     await expect(page.getByRole("heading", { level: 1, name: "Dispatch" })).toBeVisible();
     await page.waitForLoadState("networkidle");
     await expect(page.getByTestId("dispatch-volume")).toHaveCount(0);
@@ -265,7 +280,7 @@ test.describe("dispatch: packing list exports", () => {
     await start(page, "owner");
     const urls: string[] = [];
     page.on("request", (r) => urls.push(r.url()));
-    await page.goto("/dispatch/dev-dispatch-done-1");
+    await visit(page, "/dispatch/dev-dispatch-done-1");
     await expect(page.getByTestId("packing-list-row").first()).toBeVisible();
     await page.waitForLoadState("networkidle");
     expect(urls.filter((u) => HEAVY.test(u))).toEqual([]);
@@ -280,7 +295,7 @@ test.describe("dispatch: packing list exports", () => {
 
   test("Download Excel triggers an .xlsx download", async ({ page }) => {
     await start(page, "owner");
-    await page.goto("/dispatch/dev-dispatch-done-1");
+    await visit(page, "/dispatch/dev-dispatch-done-1");
     const [download] = await Promise.all([
       page.waitForEvent("download"),
       page.getByRole("button", { name: "Download Excel" }).click(),
@@ -292,7 +307,7 @@ test.describe("dispatch: packing list exports", () => {
 test.describe("dispatch: list", () => {
   test("status tabs filter the list and keep the choice in the URL", async ({ page }) => {
     await start(page, "owner");
-    await page.goto("/dispatch");
+    await visit(page, "/dispatch");
     await expect(page.getByRole("radio", { name: "Building" })).toHaveAttribute("aria-checked", "true");
     await page.getByRole("radio", { name: "Dispatched" }).click();
     await expect(page).toHaveURL(/status=completed/);
@@ -365,7 +380,7 @@ test.describe("dispatch: accessibility and layout", () => {
       test(`no serious axe violations, no sideways scroll, nothing clipped at ${width} ${scheme}`, async ({ page }) => {
         await start(page, "owner", { width, height: width < 768 ? 844 : 900, scheme });
         for (const s of SCREENS) {
-          await page.goto(s.path);
+          await visit(page, s.path);
           await expect(s.ready(page)).toBeVisible();
           await page.waitForLoadState("networkidle");
           await expectNoHorizontalScroll(page);
@@ -379,7 +394,7 @@ test.describe("dispatch: accessibility and layout", () => {
   for (const width of [390, 1280]) {
     test(`keyboard focus never hides behind the action bar at ${width} (WCAG 2.4.11)`, async ({ page }) => {
       await start(page, "owner", { width, height: width < 768 ? 844 : 900 });
-      await page.goto("/dispatch/dev-dispatch-draft");
+      await visit(page, "/dispatch/dev-dispatch-draft");
       await expect(hero(page)).toBeVisible();
       const removes = page.getByRole("button", { name: /^Remove / });
       const count = await removes.count();
@@ -402,7 +417,7 @@ test.describe("dispatch: Hindi on a phone", () => {
     await page.addInitScript(() => localStorage.setItem("orrn.locale", "hi"));
     await start(page, "owner", { width: 375, height: 812 });
     for (const s of SCREENS) {
-      await page.goto(s.path);
+      await visit(page, s.path);
       // Headings are in Hindi now; wait on the structure, not the English text.
       await expect(s.name === "list" || s.name === "new" ? page.getByRole("heading", { level: 1 }) : s.ready(page)).toBeVisible();
       await page.waitForLoadState("networkidle");
@@ -424,7 +439,7 @@ test.describe("dispatch: screenshots", () => {
         mkdirSync(dir, { recursive: true });
         await start(page, "owner", { width, height: width < 768 ? 812 : 900, scheme });
         for (const s of SCREENS) {
-          await page.goto(s.path);
+          await visit(page, s.path);
           await expect(s.ready(page)).toBeVisible();
           await page.waitForLoadState("networkidle");
           await page.screenshot({ path: `${dir}/${s.name}-${width}-${scheme}.png`, fullPage: true });
@@ -432,7 +447,7 @@ test.describe("dispatch: screenshots", () => {
           if (width < 768) await page.screenshot({ path: `${dir}/${s.name}-${width}-${scheme}-top.png` });
         }
         // The paste report on the draft (read only: nothing is sent for an empty paste).
-        await page.goto("/dispatch/dev-dispatch-draft");
+        await visit(page, "/dispatch/dev-dispatch-draft");
         await page.getByRole("button", { name: "Paste serials" }).click();
         await page.getByRole("dialog", { name: "Paste serials" }).getByLabel("Serials").fill("26I0001\n26I0002, 26I0003");
         await page.screenshot({ path: `${dir}/paste-${width}-${scheme}.png` });
