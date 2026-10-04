@@ -1,9 +1,9 @@
 import { forwardRef, useState } from "react";
 import type { PressableProps, View } from "react-native";
-import { useReducedMotion } from "react-native-reanimated";
 
 import { AnimatedPressable } from "@/lib/nativewind-interop";
 import { pressStyle } from "@/lib/press";
+import { useReduceMotion } from "@/lib/reduced-motion";
 
 export type PressableScaleProps = Omit<PressableProps, "style"> & {
   className?: string;
@@ -13,7 +13,8 @@ export type PressableScaleProps = Omit<PressableProps, "style"> & {
 
 /**
  * Every C2 pressable: a Pressable that takes `className` and shrinks a little
- * while pressed (the `press` motion), with no scale under reduced motion. The
+ * while pressed (the `press` motion), with no scale under reduced motion (read
+ * live, so turning Reduce Motion on mid-session takes effect at once). The
  * scale is a Reanimated CSS transition on a plain style (`pressStyle`), never a
  * `useAnimatedStyle` handle, so it survives NativeWind's style merge. Build
  * buttons, tiles, rows and tabs on this instead of a bare Pressable.
@@ -22,7 +23,7 @@ export const PressableScale = forwardRef<View, PressableScaleProps>(function Pre
   { scaleTo, onPressIn, onPressOut, className, ...rest },
   ref,
 ) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReduceMotion();
   const [pressed, setPressed] = useState(false);
 
   return (

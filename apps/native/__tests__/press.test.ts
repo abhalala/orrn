@@ -98,3 +98,23 @@ describe("Reanimated styles never pass through NativeWind", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("every pressable has the C2 press scale (spec section 2)", () => {
+  /** The pre-C2 invite kit; T29 rebuilds the invite screen (N4) and deletes it. */
+  const LEGACY = new Set(["components/erp.tsx"]);
+
+  test("screens and components build on PressableScale, never a bare Pressable", () => {
+    const offenders = ["app", "components", "features"]
+      .flatMap((d) => {
+        try {
+          return sourceFiles(join(ROOT, d));
+        } catch {
+          return [];
+        }
+      })
+      .map((file) => relative(ROOT, file))
+      .filter((rel) => rel !== "components/ui/pressable-scale.tsx" && !LEGACY.has(rel))
+      .filter((rel) => /<Pressable\b/.test(readFileSync(join(ROOT, rel), "utf8")));
+    expect(offenders).toEqual([]);
+  });
+});

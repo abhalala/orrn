@@ -43,3 +43,12 @@ export function afterTotp({ error }: AuthResult): TotpOutcome {
 export function cleanTotp(input: string): string {
   return input.replace(/\D/g, "").slice(0, 6);
 }
+
+/**
+ * Checked before sending the code. The button is disabled until six digits
+ * are typed, but the number pad's go key still submits; it must say why
+ * nothing was sent instead of doing nothing.
+ */
+export function totpInputError(code: string): MessageKey | null {
+  return code.length === 6 ? null : "native.codeTooShort";
+}

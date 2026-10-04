@@ -14,7 +14,7 @@ import { ScreenTitle } from "@/components/ui/screen-title";
 import { announce } from "@/lib/a11y";
 import { authClient } from "@/lib/auth-client";
 import { AnimatedView } from "@/lib/nativewind-interop";
-import { afterPassword, afterTotp, cleanTotp } from "@/lib/sign-in-flow";
+import { afterPassword, afterTotp, cleanTotp, totpInputError } from "@/lib/sign-in-flow";
 import { afterSignIn } from "@/lib/sign-out";
 
 type Step = "password" | "totp";
@@ -45,9 +45,10 @@ export default function SignInScreen() {
   const [formError, setFormError] = useState<MessageKey | null>(null);
   const passwordRef = useRef<TextInput>(null);
 
+  /** Shows a form error. It renders in a live region, which Android reads by itself. */
   function fail(key: MessageKey) {
     setFormError(key);
-    announce(t(key));
+    announce(t(key), { shownInLiveRegion: true });
     haptic("error");
   }
 
@@ -86,7 +87,8 @@ export default function SignInScreen() {
   }
 
   async function submitCode() {
-    if (code.length !== 6) return;
+    const short = totpInputError(code);
+    if (short) return fail(short);
     setFormError(null);
     setBusy(true);
     try {

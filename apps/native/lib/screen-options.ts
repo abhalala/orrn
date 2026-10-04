@@ -1,27 +1,16 @@
-import { useThemeColor } from "./theme";
+import { Platform } from "react-native";
 
-/** Font families registered in lib/fonts.ts. */
-const DISPLAY = "BricolageGrotesque_700Bold";
-const DISPLAY_LARGE = "BricolageGrotesque_800ExtraBold";
+import { stackOptions } from "./stack-options";
+import { useThemeColor } from "./theme";
 
 /**
  * Themed options for every Stack: canvas background, ink text, Bricolage
- * titles, no header hairline. `largeTitle` gives tab roots the iOS large
- * title (screens must scroll with `contentInsetAdjustmentBehavior="automatic"`).
+ * titles, no header hairline (lib/stack-options.ts). `largeTitle` gives tab
+ * roots the iOS large title (screens must scroll with
+ * `contentInsetAdjustmentBehavior="automatic"`).
  */
 export function useStackOptions({ largeTitle = false }: { largeTitle?: boolean } = {}) {
   const canvas = useThemeColor("background");
   const ink = useThemeColor("foreground");
-
-  return {
-    headerStyle: { backgroundColor: canvas },
-    headerTintColor: ink,
-    headerShadowVisible: false,
-    headerTitleStyle: { fontFamily: DISPLAY, fontSize: 18, color: ink },
-    headerLargeTitle: largeTitle,
-    headerLargeTitleShadowVisible: false,
-    headerLargeTitleStyle: { fontFamily: DISPLAY_LARGE, color: ink },
-    headerBackButtonDisplayMode: "minimal" as const,
-    contentStyle: { backgroundColor: canvas },
-  };
+  return stackOptions({ os: Platform.OS, canvas, ink, largeTitle });
 }

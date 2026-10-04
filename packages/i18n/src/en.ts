@@ -910,6 +910,9 @@ export const en = {
     verifying: "Checking code",
     signingOut: "Signing out",
     version: "Version {version}",
+    codeTooShort: "Enter all 6 digits of the code.",
+    serverTitle: "orrn ran into a problem",
+    serverBody: "The problem is on orrn's side, not this phone. Try again in a minute.",
   },
 
   /** Component library chrome (@orrn/ui): screen-reader and helper text. */

@@ -1,5 +1,7 @@
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 
+import { isRequestTimeout } from "./request-timeout";
+
 /**
  * Session and cache rules shared by the root layout, the tRPC client and
  * sign-out. Kept free of React Native imports so bun tests can load it.
@@ -42,6 +44,17 @@ export function shouldRetryQuery(failureCount: number, error: unknown): boolean 
 }
 
 /**
+ * `retry` for the root gate's `auth.me`: one retry for a transient failure,
+ * none for a 4xx, and none for a timeout. A request that got no answer in 10 s
+ * is a dead uplink; trying again at once only keeps the person waiting another
+ * 10 s before the offline screen (which has its own Try again).
+ */
+export function gateQueryRetry(failureCount: number, error: unknown): boolean {
+  if (isRequestTimeout(error)) return false;
+  return failureCount < 1 && shouldRetryQuery(failureCount, error);
+}
+
+/**
  * Company switch (another account signs in, an invite moves the person to a
  * new plant): reset every query except `auth.me` (audit N10). `resetQueries`
  * rather than `removeQueries`, so screens that are still mounted refetch for
@@ -74,4 +87,41 @@ export async function handleSessionError(
   if (!isUnauthorized(error)) return;
   if (queryKey && isAuthMeQueryKey(queryKey)) return;
   await queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY, exact: true });
+}
+
+/** The active company id in `auth.me` data, or null (signed in without a company). */
+export function companyIdOf(data: unknown): string | null {
+  return (data as { company?: { id?: string } | null } | undefined)?.company?.id ?? null;
+}
+
+/**
+ * The tenant cache guard's decision: reset only when a company was already
+ * known (`undefined` means no `auth.me` yet, e.g. a cold start) and the new
+ * one differs, a move to "no company" included.
+ */
+export function shouldResetForCompany(previous: string | null | undefined, next: string | null): boolean {
+  return previous !== undefined && previous !== next;
+}
+
+/**
+ * Native twin of web's TenantCacheGuard (AGENTS.md: do not delete). Watches
+ * the cache, never fetches: when a successful `auth.me` reports a different
+ * company (another account signed in, an invite moved the person, or a plant
+ * switch on another device moved this session, since native sends no
+ * `x-orrn-company`), every other query is reset so the previous plant's rows
+ * never show (audit N10). `auth.me` itself is kept so the gate doesn't bounce.
+ * Returns the unsubscribe.
+ */
+export function watchCompanyChanges(queryClient: QueryClient): () => void {
+  const cache = queryClient.getQueryCache();
+  const existing = cache.getAll().find((q) => isAuthMeQueryKey(q.queryKey));
+  let current: string | null | undefined = existing?.state.data ? companyIdOf(existing.state.data) : undefined;
+
+  return cache.subscribe((event) => {
+    if (event.type !== "updated" || event.action.type !== "success") return;
+    if (!isAuthMeQueryKey(event.query.queryKey)) return;
+    const next = companyIdOf(event.query.state.data);
+    if (shouldResetForCompany(current, next)) void resetTenantQueries(queryClient);
+    current = next;
+  });
 }

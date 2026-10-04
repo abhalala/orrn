@@ -70,10 +70,8 @@ export function Button({
       {...rest}
     >
       {loading ? <ActivityIndicator size="small" color={spinner} /> : icon}
-      <Text
-        className={cn("py-3 text-center font-sans-semibold", size === "lg" ? "text-base" : "text-[15px]", labels[variant])}
-        maxFontSizeMultiplier={1.6}
-      >
+      {/* No font-size cap: the label grows with Dynamic Type (brief a11y 8) and min-h lets the pill grow with it. */}
+      <Text className={cn("py-3 text-center font-sans-semibold", size === "lg" ? "text-base" : "text-[15px]", labels[variant])}>
         {shown}
       </Text>
     </PressableScale>

@@ -903,6 +903,9 @@ export const hi = {
     verifying: "कोड जांच रहे हैं",
     signingOut: "साइन आउट हो रहा है",
     version: "वर्ज़न {version}",
+    codeTooShort: "कोड के सभी 6 अंक डालें।",
+    serverTitle: "orrn में कोई दिक्कत आई",
+    serverBody: "दिक्कत orrn की तरफ़ से है, इस फ़ोन में नहीं। एक मिनट बाद फिर से कोशिश करें।",
   },
 
   ui: {

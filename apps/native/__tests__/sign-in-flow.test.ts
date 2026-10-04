@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { en } from "@orrn/i18n";
 
-import { afterPassword, afterTotp, cleanTotp } from "../lib/sign-in-flow";
+import { afterPassword, afterTotp, cleanTotp, totpInputError } from "../lib/sign-in-flow";
 
 function has(key: string): boolean {
   let node: unknown = en;
@@ -66,6 +68,22 @@ describe("cleanTotp", () => {
   });
 });
 
+describe("totpInputError (the go key with a short code)", () => {
+  test("fewer than six digits says what to do instead of doing nothing", () => {
+    expect(totpInputError("")).toBe("native.codeTooShort");
+    expect(totpInputError("12345")).toBe("native.codeTooShort");
+  });
+
+  test("six digits is ready to send", () => {
+    expect(totpInputError("123456")).toBeNull();
+  });
+
+  test("the sign-in screen shows it through fail()", () => {
+    const src = readFileSync(join(import.meta.dir, "..", "app/(auth)/sign-in.tsx"), "utf8");
+    expect(src).toMatch(/const short = totpInputError\(code\);\s*if \(short\) return fail\(short\);/);
+  });
+});
+
 describe("every message key exists in en", () => {
   test("keys used by the flow", () => {
     for (const k of [
@@ -75,6 +93,9 @@ describe("every message key exists in en", () => {
       "native.codeTimedOut",
       "errors.network",
       "errors.generic",
+      "native.codeTooShort",
+      "native.serverTitle",
+      "native.serverBody",
     ]) {
       expect(has(k)).toBe(true);
     }

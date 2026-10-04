@@ -41,16 +41,34 @@ export type GateInput = {
   error: unknown;
   /** No `auth.me` result yet. */
   isPending: boolean;
+  /**
+   * How many `auth.me` fetches have failed (React Query's `errorUpdateCount`).
+   * A refetch of an errored query with no data goes back to "pending", so
+   * this is what tells "Try again" on the offline screen from a first load.
+   */
+  failedFetches?: number;
 };
 
-export function resolveGate({ hasSession, me, error, isPending }: GateInput): GateState {
+/**
+ * Which copy the offline screen shows. A 5xx means orrn answered and failed,
+ * so blaming the phone's connection would send people chasing the wrong fix;
+ * anything else (no answer, a timeout, an unreadable reply) is the network.
+ */
+export function offlineKind(error: unknown): "network" | "server" {
+  const e = error as { data?: { httpStatus?: unknown } | null; meta?: { response?: { status?: unknown } } } | null | undefined;
+  const status = e?.data?.httpStatus ?? e?.meta?.response?.status;
+  return typeof status === "number" && status >= 500 ? "server" : "network";
+}
+
+export function resolveGate({ hasSession, me, error, isPending, failedFetches = 0 }: GateInput): GateState {
   // Never signed in on this phone: sign-in works without asking the server first.
   if (!hasSession) return "/(auth)/sign-in";
   // The server says the session is gone; stale data must not keep the app open.
   if (isUnauthorized(error)) return "/(auth)/sign-in";
   // Cached data survives a network blip.
   if (me) return routeForMe(me);
-  if (isPending) return "loading";
+  // Retrying after a failure keeps the offline screen (its button spins).
+  if (isPending) return failedFetches > 0 ? "offline" : "loading";
   return "offline";
 }
 
@@ -73,3 +91,12 @@ export const ROOT_ROUTES = {
    */
   public: ["index", "invite/[token]"],
 } as const satisfies Record<string, readonly string[]>;
+
+/**
+ * Signed-in root screens that are their own Stack and draw their own header
+ * (the root Stack hides its header for them). The first screen of a nested
+ * Stack gets no native back chevron, so each of these layouts must give it
+ * `headerLeft: () => <HeaderBack />` (__tests__/routes.test.ts). Every other
+ * pushed root screen keeps the root header, which has the native Back.
+ */
+export const NESTED_STACKS: readonly string[] = ["more"];

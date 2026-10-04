@@ -6,6 +6,7 @@ import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { Platform } from "react-native";
 
 import { authClient } from "@/lib/auth-client";
+import { fetchWithTimeout } from "@/lib/request-timeout";
 import { handleSessionError, shouldRetryQuery } from "@/lib/session";
 
 /**
@@ -32,13 +33,20 @@ export const queryClient: QueryClient = new QueryClient({
   }),
 });
 
+/**
+ * Every request gives up after 10 s (lib/request-timeout.ts): on Wi-Fi with a
+ * dead uplink the OS would otherwise wait 60 s on iOS and indefinitely on
+ * Android, and the gate's offline screen would never appear in time.
+ */
+const timedFetch = fetchWithTimeout((input, init) => fetch(input, init));
+
 const trpcClient = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
       url: `${env.EXPO_PUBLIC_SERVER_URL}/trpc`,
       fetch(url, options) {
-        return fetch(url, {
-          ...options,
+        return timedFetch(url, {
+          ...(options as RequestInit),
           // Better Auth Expo forwards the session cookie manually on native.
           credentials: Platform.OS === "web" ? "include" : "omit",
         });

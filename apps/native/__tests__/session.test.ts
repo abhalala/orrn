@@ -1,18 +1,27 @@
 import { describe, expect, test } from "bun:test";
-import { QueryClient, QueryObserver } from "@tanstack/react-query";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { QueryClient, QueryObserver, type QueryKey } from "@tanstack/react-query";
 
 import {
+  companyIdOf,
   handleSessionError,
   isAuthMeQueryKey,
   isUnauthorized,
   ME_QUERY_KEY,
   resetAfterSignOut,
   resetTenantQueries,
+  shouldResetForCompany,
   shouldRetryQuery,
+  watchCompanyChanges,
 } from "../lib/session";
 
-const meKey = [["auth", "me"], { type: "query" }] as const;
-const bundlesKey = [["bundle", "list"], { input: { limit: 20 }, type: "query" }] as const;
+const ROOT = join(import.meta.dir, "..");
+/** TanStack notifies cache listeners on a 0 ms timer; let it flush. */
+const flush = () => new Promise((r) => setTimeout(r, 10));
+
+const meKey: QueryKey = [["auth", "me"], { type: "query" }];
+const bundlesKey: QueryKey = [["bundle", "list"], { input: { limit: 20 }, type: "query" }];
 
 function seeded() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
@@ -35,7 +44,7 @@ describe("resetTenantQueries (company switch, N10)", () => {
   test("drops other tenant data but keeps auth.me so the gate does not bounce to sign-in", async () => {
     const qc = seeded();
     await resetTenantQueries(qc);
-    expect(qc.getQueryData(meKey)).toEqual({ company: { id: "c1" } });
+    expect<unknown>(qc.getQueryData(meKey)).toEqual({ company: { id: "c1" } });
     expect(qc.getQueryData(bundlesKey)).toBeUndefined();
   });
 
@@ -53,8 +62,75 @@ describe("resetTenantQueries (company switch, N10)", () => {
     const unsubscribe = observer.subscribe(() => {});
     await resetTenantQueries(qc);
     expect(calls).toBe(1);
-    expect(qc.getQueryData(bundlesKey)).toEqual(["c2-bundle"]);
+    expect<unknown>(qc.getQueryData(bundlesKey)).toEqual(["c2-bundle"]);
     unsubscribe();
+  });
+});
+
+describe("tenant cache guard (N10, AGENTS.md: do not delete)", () => {
+  test("shouldResetForCompany: only a real change after a known company", () => {
+    expect(shouldResetForCompany(undefined, "c1")).toBe(false);
+    expect(shouldResetForCompany("c1", "c1")).toBe(false);
+    expect(shouldResetForCompany("c1", "c2")).toBe(true);
+    expect(shouldResetForCompany("c1", null)).toBe(true);
+    expect(shouldResetForCompany(null, "c1")).toBe(true);
+  });
+
+  test("companyIdOf reads auth.me data defensively", () => {
+    expect(companyIdOf({ company: { id: "c1" } })).toBe("c1");
+    expect(companyIdOf({ company: null })).toBeNull();
+    expect(companyIdOf(undefined)).toBeNull();
+  });
+
+  test("auth.me reporting another plant drops the previous plant's rows but keeps auth.me", async () => {
+    const qc = seeded();
+    const stop = watchCompanyChanges(qc);
+    qc.setQueryData(meKey, { company: { id: "c2" } });
+    await flush();
+    expect(qc.getQueryData(bundlesKey)).toBeUndefined();
+    expect<unknown>(qc.getQueryData(meKey)).toEqual({ company: { id: "c2" } });
+    stop();
+  });
+
+  test("the same plant refetched keeps every row", async () => {
+    const qc = seeded();
+    const stop = watchCompanyChanges(qc);
+    qc.setQueryData(meKey, { company: { id: "c1" } });
+    await flush();
+    expect<unknown>(qc.getQueryData(bundlesKey)).toEqual(["b1", "b2"]);
+    stop();
+  });
+
+  test("the first auth.me after a cold start is not a switch", async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    qc.setQueryData(bundlesKey, ["b1"]);
+    const stop = watchCompanyChanges(qc);
+    qc.setQueryData(meKey, { company: { id: "c1" } });
+    await flush();
+    expect<unknown>(qc.getQueryData(bundlesKey)).toEqual(["b1"]);
+    stop();
+  });
+
+  test("other queries succeeding never trigger a reset", async () => {
+    const qc = seeded();
+    const stop = watchCompanyChanges(qc);
+    qc.setQueryData([["die", "list"], { type: "query" }], { company: { id: "c9" } });
+    await flush();
+    expect<unknown>(qc.getQueryData(bundlesKey)).toEqual(["b1", "b2"]);
+    stop();
+  });
+
+  test("after stop() nothing is watched", async () => {
+    const qc = seeded();
+    watchCompanyChanges(qc)();
+    qc.setQueryData(meKey, { company: { id: "c2" } });
+    await flush();
+    expect<unknown>(qc.getQueryData(bundlesKey)).toEqual(["b1", "b2"]);
+  });
+
+  test("the guard is mounted in the root layout and runs watchCompanyChanges on the app's QueryClient", () => {
+    expect(readFileSync(join(ROOT, "app/_layout.tsx"), "utf8")).toMatch(/<TenantCacheGuard \/>/);
+    expect(readFileSync(join(ROOT, "components/tenant-cache-guard.tsx"), "utf8")).toMatch(/watchCompanyChanges\(queryClient\)/);
   });
 });
 

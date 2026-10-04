@@ -1,7 +1,9 @@
 import { LOCALE_NAMES, LOCALES, useT, type Locale } from "@orrn/i18n";
 import { cn } from "@orrn/ui/lib/utils";
 import { c2 } from "@orrn/ui/tokens";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+
+import { PressableScale } from "@/components/ui/pressable-scale";
 
 /**
  * English / हिंदी toggle (spec §2: on the login screen and in More). A radio
@@ -26,23 +28,28 @@ export function LanguageSwitch({ className }: { className?: string }) {
         {LOCALES.map((code: Locale) => {
           const selected = code === locale;
           return (
-            <Pressable
+            <PressableScale
               key={code}
               accessibilityRole="radio"
               accessibilityState={{ checked: selected, selected }}
               accessibilityLanguage={code === "hi" ? "hi-IN" : "en-IN"}
               accessibilityLabel={LOCALE_NAMES[code]}
               onPress={() => setLocale(code)}
-              className={cn(
-                "min-h-11 flex-1 items-center justify-center rounded-full px-4",
-                selected ? "bg-surface dark:border dark:border-control/40 dark:bg-surface-sunken" : "active:opacity-70",
-              )}
-              style={selected ? { shadowColor: c2.light.ink, shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 } : undefined}
+              className="flex-1"
             >
-              <Text className={cn("text-[15px] text-ink", selected ? "font-sans-semibold" : "font-sans")}>
-                {LOCALE_NAMES[code]}
-              </Text>
-            </Pressable>
+              {/* The pill is an inner View: PressableScale owns the outer style (the press scale). */}
+              <View
+                className={cn(
+                  "min-h-11 items-center justify-center rounded-full px-4",
+                  selected && "bg-surface dark:border dark:border-control/40 dark:bg-surface-sunken",
+                )}
+                style={selected ? { shadowColor: c2.light.ink, shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 } : undefined}
+              >
+                <Text className={cn("text-[15px] text-ink", selected ? "font-sans-semibold" : "font-sans")}>
+                  {LOCALE_NAMES[code]}
+                </Text>
+              </View>
+            </PressableScale>
           );
         })}
       </View>

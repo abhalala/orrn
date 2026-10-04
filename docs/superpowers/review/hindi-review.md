@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 754 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 757 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -812,7 +812,7 @@ Counts: 754 screen strings in 26 groups, 10 guides with 182 strings.
 | `cta.body` | Tell us about your plant and we'll get in touch. | अपने प्लांट के बारे में बताएं, हम संपर्क करेंगे। |
 | `footer` | orrn, for aluminium extrusion plants | orrn, एल्युमिनियम एक्सट्रूज़न प्लांट के लिए |
 
-### native (13)
+### native (16)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -829,6 +829,9 @@ Counts: 754 screen strings in 26 groups, 10 guides with 182 strings.
 | `verifying` | Checking code | कोड जांच रहे हैं |
 | `signingOut` | Signing out | साइन आउट हो रहा है |
 | `version` | Version {version} | वर्ज़न {version} |
+| `codeTooShort` | Enter all 6 digits of the code. | कोड के सभी 6 अंक डालें। |
+| `serverTitle` | orrn ran into a problem | orrn में कोई दिक्कत आई |
+| `serverBody` | The problem is on orrn's side, not this phone. Try again in a minute. | दिक्कत orrn की तरफ़ से है, इस फ़ोन में नहीं। एक मिनट बाद फिर से कोशिश करें। |
 
 ### ui (9)
 
