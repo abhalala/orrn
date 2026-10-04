@@ -20,13 +20,43 @@ import {
   rankedTable,
   timeSeriesTable,
   type BarDatum,
+  type ChartDateFormat,
   type RankedRow,
   type TimeSeries,
 } from "@orrn/ui/charts";
 import { ArrowUp } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const kg = (v: number) => `${formatKgTotal(v)} kg`;
+
+/**
+ * A range control whose data arrives late, like a real query with
+ * `placeholderData`: the control moves at once, the chart keeps the old
+ * points (dimmed, `refreshing`) until the new ones land.
+ */
+function useDemoRange<T extends string>(initial: T, delay = 1200) {
+  const [range, setRange] = useState(initial);
+  const [loaded, setLoaded] = useState(initial);
+  useEffect(() => {
+    if (range === loaded) return;
+    const id = setTimeout(() => setLoaded(range), delay);
+    return () => clearTimeout(id);
+  }, [range, loaded, delay]);
+  return { range, setRange, loaded, refreshing: range !== loaded };
+}
+
+/**
+ * Bars for monthly buckets. `t` makes them dated bars: the kit writes the
+ * axis text itself and adds the year where the axis crosses one.
+ */
+const monthBars = (months: { t: Date; v: number; partial?: boolean }[], dates: ChartDateFormat): BarDatum[] =>
+  months.map((m) => ({
+    key: m.t.toISOString(),
+    label: dates.long(m.t),
+    t: m.t,
+    value: m.v,
+    partial: m.partial,
+  }));
 
 /** Midnight IST for a calendar date. */
 const ist = (y: number, m: number, d: number) =>
@@ -44,14 +74,29 @@ function noise(seed: number) {
 /* Monthly kg dispatched, Oct 2025 to Sep 2026, then October so far (today is 3 Oct). */
 const MONTHLY_KG = [148_320.5, 156_910, 139_480.2, 162_775.8, 171_240, 184_905.4, 158_630, 149_215.6, 166_480, 175_912.3, 181_045, 192_370.8];
 const OCTOBER_SO_FAR = 17_640.2;
-const MONTHS = [...MONTHLY_KG, OCTOBER_SO_FAR].map((v, i) => {
-  const month = ((9 + i) % 12) + 1;
-  const year = i < 3 ? 2025 : 2026;
-  return { t: ist(year, month, 1), v, partial: i === MONTHLY_KG.length };
-});
+/** Month buckets from Oct 2025, the last one still open. */
+const monthsFrom = (values: number[]) =>
+  values.map((v, i) => {
+    const month = ((9 + i) % 12) + 1;
+    const year = i < 3 ? 2025 : 2026;
+    return { t: ist(year, month, 1), v, partial: i === values.length - 1 };
+  });
+const MONTHS = monthsFrom([...MONTHLY_KG, OCTOBER_SO_FAR]);
+/* Edge case: the oldest month is the peak, and the open month has already passed it. */
+const MONTHS_PEAK_FIRST = monthsFrom([196_320.5, ...MONTHLY_KG.slice(1, 11), 171_045, 204_615.2]);
+/* Edge case: the 1st of the month, so the open bucket is a sliver. */
+const MONTHS_FIRST_DAY = monthsFrom([...MONTHLY_KG, 140.5]).slice(-7);
+/* Edge case: one customer's monthly kg as an area, October still open. */
+const CUSTOMER_MONTHLY: TimeSeries[] = [
+  {
+    key: "c-sga",
+    label: "Shree Ganesh Aluminium",
+    points: monthsFrom([24_310.5, 26_905, 22_480.2, 27_775.8, 29_240, 31_105.4, 26_630, 25_215.6, 28_480, 29_912.3, 30_045, 28_460.5, 2_410.8]),
+  },
+];
 
 /* 90 days of packed vs dispatched, 6 Jul to today (3 Oct 2026, still open). */
-const TREND: TimeSeries[] = (() => {
+const TREND_90: TimeSeries[] = (() => {
   const rand = noise(42);
   const packed: TimeSeries["points"] = [];
   const dispatched: TimeSeries["points"] = [];
@@ -72,6 +117,15 @@ const TREND: TimeSeries[] = (() => {
     { key: "dispatched", label: "Dispatched", points: dispatched },
   ];
 })();
+/* The same series, last 30 days. */
+const TREND_30: TimeSeries[] = TREND_90.map((s) => ({ ...s, points: s.points.slice(-30) }));
+
+/* Edge case: both lines end on nearly the same value, so end labels can't be told apart. */
+const CONVERGING: TimeSeries[] = TREND_90.map((s) => {
+  const points = s.points.slice(-31, -1).map((p) => ({ t: p.t, v: p.v }));
+  points[points.length - 1]!.v = s.key === "packed" ? 7_050.6 : 6_900;
+  return { ...s, points };
+});
 
 /* Weekly kg packed per press, 12 weeks: the colour-follows-key demo. */
 const PRESS_DOMAIN = ["press-1", "press-2", "press-3"];
@@ -137,21 +191,18 @@ export default function ChartsSection() {
 
   const monthDates = useMemo(() => chartDateFormat("month", locale), [locale]);
   const dayDates = useMemo(() => chartDateFormat("day", locale), [locale]);
-  const volume: BarDatum[] = useMemo(
-    () =>
-      MONTHS.map((m) => ({
-        key: m.t.toISOString(),
-        label: monthDates.long(m.t),
-        short: monthDates.short(m.t),
-        value: m.v,
-        partial: m.partial,
-      })),
-    [monthDates],
+  const volumeRange = useDemoRange<"12" | "6">("12");
+  const volume = useMemo(
+    () => monthBars(volumeRange.loaded === "12" ? MONTHS : MONTHS.slice(-7), monthDates),
+    [monthDates, volumeRange.loaded],
   );
+  const trendRange = useDemoRange<"90" | "30">("90");
+  const trend = trendRange.loaded === "90" ? TREND_90 : TREND_30;
   const leaders = foldToOther(CUSTOMERS[period], 8);
   const [presses, setPresses] = useState<"all" | "without-1">("all");
   const pressSeries = presses === "all" ? PRESSES : PRESSES.slice(1);
-  const weekDates = useMemo(() => chartDateFormat("day", locale), [locale]);
+  const peakFirst = useMemo(() => monthBars(MONTHS_PEAK_FIRST, monthDates), [monthDates]);
+  const firstDay = useMemo(() => monthBars(MONTHS_FIRST_DAY, monthDates), [monthDates]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -159,10 +210,26 @@ export default function ChartsSection() {
         <ChartCard
           data-testid="chart-volume"
           title="Dispatch volume"
-          subtitle="kg dispatched per month, last 12 months and October so far"
+          subtitle={
+            volumeRange.range === "12"
+              ? "kg dispatched per month, last 12 months and October so far"
+              : "kg dispatched per month, last 6 months and October so far"
+          }
+          refreshing={volumeRange.refreshing}
+          controls={
+            <SegmentedControl
+              label="Range"
+              value={volumeRange.range}
+              onChange={volumeRange.setRange}
+              options={[
+                { value: "12", label: "12 months" },
+                { value: "6", label: "6 months" },
+              ]}
+            />
+          }
           table={barTable(volume, { t, format: kg, labelHeader: "Month", valueHeader: "Dispatched" })}
         >
-          <BarChart data={volume} format={kg} label="Dispatch volume, kg per month" />
+          <BarChart data={volume} format={kg} formatDate={monthDates} label="Dispatch volume, kg per month" />
         </ChartCard>
 
         <ChartCard
@@ -202,11 +269,23 @@ export default function ChartsSection() {
           data-testid="chart-trend"
           className="md:col-span-2"
           title="Packed and dispatched"
-          subtitle="kg per day, last 90 days, today so far"
-          legend={{ series: TREND, shape: "line" }}
-          table={timeSeriesTable(TREND, { t, format: kg, formatDate: dayDates.long, dateHeader: "Date" })}
+          subtitle={trendRange.range === "90" ? "kg per day, last 90 days, today so far" : "kg per day, last 30 days, today so far"}
+          refreshing={trendRange.refreshing}
+          controls={
+            <SegmentedControl
+              label="Range"
+              value={trendRange.range}
+              onChange={trendRange.setRange}
+              options={[
+                { value: "90", label: "Last 90 days" },
+                { value: "30", label: "Last 30 days" },
+              ]}
+            />
+          }
+          legend={{ series: trend, shape: "line" }}
+          table={timeSeriesTable(trend, { t, format: kg, formatDate: dayDates.long, dateHeader: "Date" })}
         >
-          <TimeSeriesChart series={TREND} kind="line" format={kg} formatDate={dayDates} height={260} label="Packed and dispatched, kg per day" />
+          <TimeSeriesChart series={trend} kind="line" format={kg} formatDate={dayDates} height={260} label="Packed and dispatched, kg per day" />
         </ChartCard>
 
         <ChartCard
@@ -228,37 +307,38 @@ export default function ChartsSection() {
             <ArrowUp aria-hidden="true" className="size-3.5" strokeWidth={2} />
             Up 6.3% on August
           </span>
-          <Sparkline points={MONTHLY_KG} label="Dispatched, last 12 months" unit="kg" />
+          {/* Complete months only: October so far would read as a slump. */}
+          <Sparkline points={MONTHLY_KG} label="Dispatched, last 12 months" format={formatKgTotal} unit="kg" />
         </div>
 
-        <ChartCard
-          data-testid="chart-presses"
-          className="md:col-span-2"
-          title="Packed by press"
-          subtitle="kg packed per week, last 12 weeks"
-          controls={
-            <SegmentedControl
-              label="Presses"
-              value={presses}
-              onChange={setPresses}
-              options={[
-                { value: "all", label: "All presses" },
-                { value: "without-1", label: "Presses 2 and 3" },
-              ]}
-            />
-          }
-          legend={{ series: pressSeries, colorDomain: PRESS_DOMAIN, shape: "line" }}
-          table={timeSeriesTable(pressSeries, { t, format: kg, formatDate: weekDates.long, dateHeader: "Week of" })}
-        >
-          <TimeSeriesChart
-            series={pressSeries}
-            colorDomain={PRESS_DOMAIN}
-            kind="line"
-            format={kg}
-            formatDate={weekDates}
-            label="Packed by press, kg per week"
+        {/* A filter that changes which series show sits in a row above the card, never inside it. */}
+        <div data-testid="presses-demo" className="flex min-w-0 flex-col gap-3 md:col-span-2">
+          <SegmentedControl
+            label="Presses"
+            value={presses}
+            onChange={setPresses}
+            options={[
+              { value: "all", label: "All presses" },
+              { value: "without-1", label: "Presses 2 and 3" },
+            ]}
           />
-        </ChartCard>
+          <ChartCard
+            data-testid="chart-presses"
+            title="Packed by press"
+            subtitle="kg packed per week, last 12 weeks"
+            legend={{ series: pressSeries, colorDomain: PRESS_DOMAIN, shape: "line" }}
+            table={timeSeriesTable(pressSeries, { t, format: kg, formatDate: dayDates.long, dateHeader: "Week of" })}
+          >
+            <TimeSeriesChart
+              series={pressSeries}
+              colorDomain={PRESS_DOMAIN}
+              kind="line"
+              format={kg}
+              formatDate={dayDates}
+              label="Packed by press, kg per week"
+            />
+          </ChartCard>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -277,6 +357,55 @@ export default function ChartsSection() {
           table={{ columns: [], rows: [] }}
         >
           {null}
+        </ChartCard>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-1">
+        <h3 className="m-0 text-[17px] leading-6 font-semibold">Edge cases</h3>
+        <p className="m-0 max-w-[640px] text-[14px] leading-6 text-muted-foreground">
+          Data shapes the plant will hit. Each card shows what the kit does with it.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+        <ChartCard
+          data-testid="chart-edge-converge"
+          level={4}
+          title="Lines that end together"
+          subtitle="End labels give way to the legend when the ends meet"
+          legend={{ series: CONVERGING, shape: "line" }}
+          table={timeSeriesTable(CONVERGING, { t, format: kg, formatDate: dayDates.long, dateHeader: "Date" })}
+        >
+          <TimeSeriesChart series={CONVERGING} kind="line" format={kg} formatDate={dayDates} label="Packed and dispatched, kg per day" />
+        </ChartCard>
+
+        <ChartCard
+          data-testid="chart-edge-peak"
+          level={4}
+          title="Peak in the oldest month"
+          subtitle="kg per month. October so far has passed every full month"
+          table={barTable(peakFirst, { t, format: kg, labelHeader: "Month", valueHeader: "Dispatched" })}
+        >
+          <BarChart data={peakFirst} format={kg} formatDate={monthDates} label="Dispatch volume, kg per month" />
+        </ChartCard>
+
+        <ChartCard
+          data-testid="chart-edge-first-day"
+          level={4}
+          title="First day of the month"
+          subtitle="kg per month, October has barely started"
+          table={barTable(firstDay, { t, format: kg, labelHeader: "Month", valueHeader: "Dispatched" })}
+        >
+          <BarChart data={firstDay} format={kg} formatDate={monthDates} label="Dispatch volume, kg per month" />
+        </ChartCard>
+
+        <ChartCard
+          data-testid="chart-edge-area"
+          level={4}
+          title="One customer, as an area"
+          subtitle="kg per month, last 12 months and October so far"
+          table={timeSeriesTable(CUSTOMER_MONTHLY, { t, format: kg, formatDate: monthDates.long, dateHeader: "Month" })}
+        >
+          <TimeSeriesChart series={CUSTOMER_MONTHLY} kind="area" format={kg} label="Shree Ganesh Aluminium, kg per month" />
         </ChartCard>
       </div>
     </div>

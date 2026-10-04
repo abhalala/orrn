@@ -11,6 +11,8 @@ build
 # Environment variables
 .env
 .env*.local
+# Per-worktree dev/e2e ports (source it; recipe in docs/LOCAL_DEV.md "Worktrees")
+.wt-ports.env
 
 # IDEs and editors
 .vscode/*
