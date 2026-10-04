@@ -124,7 +124,9 @@ function CustomerDetail({ id }: { id: string }) {
     );
   }
 
-  if (query.isError) {
+  // Only a first load that failed is an error page: a failed background refetch (focus, retry)
+  // keeps data and sets isError, and must not throw good numbers away (T19 21:09Z gotcha).
+  if (query.isError && query.data === undefined) {
     const missing = isNotFound(query.error);
     return (
       <>
@@ -348,7 +350,7 @@ function CustomerAnalytics({
         <Suspense fallback={<ChartCardSkeleton />}>
           <VolumeCard
             series={year.data?.series ?? []}
-            state={year.isPending ? "loading" : year.isError ? "error" : undefined}
+            state={year.isPending ? "loading" : year.isError && !year.data ? "error" : undefined}
             onRetry={() => year.refetch()}
           />
         </Suspense>
