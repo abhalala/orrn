@@ -61,9 +61,19 @@ async function blockingAxeViolations(page: Page) {
     .map((v) => ({ id: v.id, help: v.help, targets: v.nodes.slice(0, 5).map((n) => n.target.join(" ")) }));
 }
 
+/**
+ * Wait for the screen to finish loading. Not `networkidle`: the app shell keeps polling, so it may
+ * never settle. Loading regions carry aria-busy and placeholders are skeletons (charts included,
+ * while the lazy kit chunk loads); none of either left means the screen shows its data.
+ */
+async function settled(page: Page) {
+  await expect(page.locator("main#main [aria-busy='true']")).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.locator("main#main [data-slot='skeleton']")).toHaveCount(0, { timeout: 15_000 });
+}
+
 async function expectCleanLayout(page: Page) {
   // Refetching lists and charts dim to 60% on purpose; check the settled screen.
-  await expect(page.locator("main#main [aria-busy='true']")).toHaveCount(0, { timeout: 15_000 });
+  await settled(page);
   await expectNoHorizontalScroll(page);
   await expectNoClippedText(page, "main#main");
   expect(await blockingAxeViolations(page)).toEqual([]);
@@ -368,6 +378,24 @@ test.describe("customers", () => {
   });
 });
 
+test.describe("dark", () => {
+  for (const width of [390, 1280]) {
+    test(`every screen is clean in dark at ${width} (no sideways scroll, no clipped text, axe)`, async ({ page }) => {
+      test.setTimeout(120_000);
+      await signInViaApi(page, "owner");
+      const kd = await customerByName(page, "KD Extrusion");
+      const dies = await trpcQuery<{ items: { id: string }[] }>(page, "die.list", { search: "14701", limit: 1 });
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+      for (const path of ["/dies", `/dies/${dies.items[0]!.id}`, "/dies/new", "/customers", `/customers/${kd.id}`, "/customers/new"]) {
+        await page.goto(path);
+        await expect(page.locator("main#main h1").first()).toBeVisible();
+        await expectCleanLayout(page);
+      }
+    });
+  }
+});
+
 /**
  * Full-page screenshot without Playwright's fullPage resize: that resize fires ResizeObservers
  * mid-capture, so charts and the segmented control's thumb are caught re-measuring (blank plot,
@@ -406,7 +434,7 @@ test.describe("screenshots", () => {
         for (const [name, path] of screens) {
           await page.goto(path);
           await expect(page.locator("main#main h1").first()).toBeVisible();
-          await page.waitForLoadState("networkidle");
+          await settled(page);
           await shoot(page, `${SHOTS}/${name}-${width}-${scheme}.png`);
         }
         // The edit sheets.
@@ -430,7 +458,7 @@ test.describe("screenshots", () => {
         await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
         await page.goto(`/customers/${kd.id}`);
         await expect(page.locator("main#main h1").first()).toBeVisible();
-        await page.waitForLoadState("networkidle");
+        await settled(page);
         await shoot(page, `${SHOTS}/customer-detail-operator-${width}-${scheme}.png`);
       }
     }
