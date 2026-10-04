@@ -15,7 +15,8 @@ type Fact = { key: string; label: string; value: ReactNode; mono?: boolean };
  * The bundle's facts on a white card (spec §3 `/b/:serial`): weight in kg,
  * pieces, cut length in the company unit, kg/12ft with its range chip against
  * the die's band, the billed weight range /12', the section, PO, packing
- * session and when it was packed.
+ * session and when it was packed. The section and session links are 44 px
+ * tall on touch (spec §2), like the history's dispatch link.
  */
 export function BundleFacts({
   bundle,
@@ -68,7 +69,7 @@ export function BundleFacts({
         <Link
           to="/stock/$dieId"
           params={{ dieId: bundle.dieId }}
-          className="font-semibold text-foreground underline decoration-1 underline-offset-4 hover:decoration-2"
+          className="inline-flex min-h-11 items-center font-semibold text-foreground underline decoration-1 underline-offset-4 hover:decoration-2 pointer-fine:min-h-0"
         >
           {[die.series, die.sectionCode].filter(Boolean).join(" ")}
         </Link>
@@ -87,7 +88,7 @@ export function BundleFacts({
               <Link
                 to="/pack/$id"
                 params={{ id: group.id }}
-                className="font-mono font-semibold text-foreground underline decoration-1 underline-offset-4 hover:decoration-2"
+                className="inline-flex min-h-11 items-center font-mono font-semibold text-foreground underline decoration-1 underline-offset-4 hover:decoration-2 pointer-fine:min-h-0"
               >
                 {group.code}
               </Link>

@@ -29,7 +29,9 @@ export type BundleListItem = {
  * The bundle table used by a section and by All bundles: a real table from
  * 1024px, stacked rows below (pieces and cut length share one pair there).
  * Weight in kg, cut length in the company unit, kg/12ft from weight, pieces
- * and length. Each row opens the bundle page.
+ * and length. Each row opens the bundle page. Stacked rows carry the status
+ * chip beside the serial in the row title instead of a "Status" pair, so a
+ * bundle takes one line less on phones and iPad portrait.
  */
 export function BundleList({
   rows,
@@ -55,17 +57,25 @@ export function BundleList({
   // Same breakpoint as ResponsiveList's table.
   const wide = useMediaQuery(breakpoints.desktop);
 
+  const chip = (r: BundleListItem) => <Chip tone={bundleTone(r.status)}>{t(`status.bundle.${r.status}`)}</Chip>;
   const columns: ResponsiveListColumn<BundleListItem>[] = [
-    {
-      key: "serial",
-      header: t("stock.columns.serial"),
-      cell: (r) => <span className="font-mono whitespace-nowrap">{r.serial}</span>,
-    },
-    {
-      key: "status",
-      header: t("stock.columns.status"),
-      cell: (r) => <Chip tone={bundleTone(r.status)}>{t(`status.bundle.${r.status}`)}</Chip>,
-    },
+    wide
+      ? {
+          key: "serial",
+          header: t("stock.columns.serial"),
+          cell: (r) => <span className="font-mono whitespace-nowrap">{r.serial}</span>,
+        }
+      : {
+          key: "serial",
+          header: t("stock.columns.serial"),
+          cell: (r) => (
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="font-mono whitespace-nowrap">{r.serial}</span>
+              {chip(r)}
+            </span>
+          ),
+        },
+    ...(wide ? [{ key: "status", header: t("stock.columns.status"), cell: chip }] : []),
     ...(showSection
       ? [
           {

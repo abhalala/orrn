@@ -9,7 +9,9 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { BundleList } from "@/features/stock/bundle-list";
-import { PAGE_SIZE, offsetOf, validateBundlesSearch } from "@/features/stock/bundle-search";
+import { PAGE_SIZE, offsetOf, pageWithinTotal, validateBundlesSearch } from "@/features/stock/bundle-search";
+import { failedWithoutData } from "@/features/stock/section-page";
+import { sectionLabel } from "@/features/stock/sections";
 import { StatusFilter, type StatusFilterValue } from "@/features/stock/status-filter";
 import { StockViewSwitch } from "@/features/stock/stock-view-switch";
 import { trpc } from "@/shared/utils/trpc";
@@ -66,6 +68,14 @@ function AllBundles() {
     placeholderData: keepPreviousData,
   });
 
+  // A page past the end (the list shrank, or an old link): go to the last page that has rows.
+  const total = bundles.data && !bundles.isPlaceholderData ? Number(bundles.data.total) : undefined;
+  useEffect(() => {
+    if (total === undefined) return;
+    const fixed = pageWithinTotal(search.page, total);
+    if (fixed !== search.page) navigate({ search: (prev) => ({ ...prev, page: fixed }), replace: true });
+  }, [total, search.page, navigate]);
+
   const setStatus = (next: StatusFilterValue) =>
     navigate({ search: (prev) => ({ ...prev, status: next === "all" ? undefined : next, page: undefined }) });
   const setOffset = (offset: number) => {
@@ -73,7 +83,17 @@ function AllBundles() {
     navigate({ search: (prev) => ({ ...prev, page: page > 1 ? page : undefined }) });
   };
   const clearScope = () => navigate({ search: (prev) => ({ ...prev, dieId: undefined, groupId: undefined, page: undefined }) });
-  const scope = search.groupId ? t("stock.list.filterGroup") : search.dieId ? t("stock.list.filterDie") : null;
+  // Name what an old /bundles?dieId=|groupId= link shows; every row shares it. No rows: the plain wording.
+  const first = bundles.isPlaceholderData ? undefined : bundles.data?.items[0];
+  const scope = search.groupId
+    ? first
+      ? t("stock.list.filterGroupNamed", { code: first.groupCode })
+      : t("stock.list.filterGroup")
+    : search.dieId
+      ? first
+        ? t("stock.list.filterDieNamed", { section: sectionLabel({ series: first.dieSeries, sectionCode: first.dieSectionCode }) })
+        : t("stock.list.filterDie")
+      : null;
 
   return (
     <>
@@ -112,7 +132,7 @@ function AllBundles() {
         loading={bundles.isFetching}
         label={t("stock.list.bundlesLabel")}
         empty={
-          bundles.isError ? (
+          failedWithoutData(bundles) ? (
             <EmptyState
               title={t("stock.loadError")}
               action={

@@ -74,3 +74,15 @@ export function sectionDefaultStatus(state: "inStock" | "held" | "none"): Bundle
 export function offsetOf(p: number | undefined): number {
   return ((p ?? 1) - 1) * PAGE_SIZE;
 }
+
+/**
+ * The page to show for `total` bundles: the same page while it has rows,
+ * else the last page that has some (undefined = page 1, left out of the URL).
+ * A list that shrank under someone on page 2, or a stale `?page=9` link,
+ * lands on rows and a pager instead of an empty list with no way back.
+ */
+export function pageWithinTotal(p: number | undefined, total: number): number | undefined {
+  if (offsetOf(p) < total) return p;
+  const last = Math.ceil(total / PAGE_SIZE);
+  return last > 1 ? last : undefined;
+}

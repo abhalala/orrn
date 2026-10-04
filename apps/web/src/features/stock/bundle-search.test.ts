@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
-import { PAGE_SIZE, offsetOf, sectionDefaultStatus, validateBundlesSearch, validateSectionSearch } from "./bundle-search";
+import {
+  PAGE_SIZE,
+  offsetOf,
+  pageWithinTotal,
+  sectionDefaultStatus,
+  validateBundlesSearch,
+  validateSectionSearch,
+} from "./bundle-search";
 
 describe("validateBundlesSearch (/stock/bundles)", () => {
   test("keeps a known status, drops unknown ones and the 'all' default", () => {
@@ -63,5 +70,25 @@ describe("offsetOf", () => {
     expect(offsetOf(undefined)).toBe(0);
     expect(offsetOf(2)).toBe(50);
     expect(offsetOf(4)).toBe(150);
+  });
+});
+
+describe("pageWithinTotal (a page past the end)", () => {
+  test("a page that has rows stays", () => {
+    expect(pageWithinTotal(undefined, 120)).toBeUndefined();
+    expect(pageWithinTotal(2, 120)).toBe(2);
+    expect(pageWithinTotal(3, 120)).toBe(3);
+  });
+
+  test("a page past the end goes to the last page that has rows", () => {
+    expect(pageWithinTotal(9, 120)).toBe(3);
+    expect(pageWithinTotal(4, 150)).toBe(3);
+    expect(pageWithinTotal(3, 100)).toBe(2);
+  });
+
+  test("when everything fits on one page, page 1 (left out of the URL)", () => {
+    expect(pageWithinTotal(2, 50)).toBeUndefined();
+    expect(pageWithinTotal(2, 1)).toBeUndefined();
+    expect(pageWithinTotal(5, 0)).toBeUndefined();
   });
 });

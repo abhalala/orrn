@@ -7,12 +7,13 @@ import { Field, TextInput } from "@orrn/ui/components/field";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Skeleton } from "@orrn/ui/components/skeleton";
-import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Suspense, lazy, useCallback, useMemo, useState } from "react";
 
+import { ChartsBoundary } from "@/features/stock/charts-boundary";
 import { SectionGrid, SectionGridSkeleton } from "@/features/stock/section-blocks";
+import { failedWithoutData } from "@/features/stock/section-page";
 import {
   filterSections,
   mergeSections,
@@ -51,8 +52,8 @@ export const Route = createFileRoute("/_tenant/stock/")({
  * `/stock`, Sections: one green block per section with bundles in stock
  * (blue when all of them are held), from `bundle.stockSummary` for available
  * and reserved stock merged per die. Search and sort run on the loaded
- * sections. Owners and managers also see stock age and top sections, above
- * the sections on wide screens and after them on phones.
+ * sections. Owners and managers also see stock age and top sections, after
+ * the sections at every width: the blocks are what the screen is for.
  */
 function StockSections() {
   const { t } = useT();
@@ -80,22 +81,13 @@ function StockSections() {
   const labelFor = useCallback((dieId: string) => labels.get(dieId), [labels]);
 
   const loading = available.isPending || reserved.isPending;
-  const failed = available.isError || reserved.isError;
+  // A failed background refetch keeps the stock already on screen (React Query v5 keeps data).
+  const failed = failedWithoutData(available) || failedWithoutData(reserved);
   const retry = () => {
     void available.refetch();
     void reserved.refetch();
   };
   const hasStock = sections.length > 0;
-  // Side by side above the sections from 1024px; on phones and iPad portrait the sections come first
-  // (in the DOM too, so reading and focus order match what is on screen).
-  const wide = useMediaQuery(breakpoints.desktop);
-  const charts = (
-    <Can do="analytics.view">
-      <Suspense fallback={<ChartsFallback />}>
-        <StockCharts labelFor={labelFor} />
-      </Suspense>
-    </Can>
-  );
 
   return (
     <>
@@ -119,8 +111,6 @@ function StockSections() {
       </div>
 
       <StockViewSwitch current="sections" />
-
-      {hasStock && wide ? charts : null}
 
       <section aria-labelledby="stock-sections-heading" className="flex min-w-0 flex-col gap-4">
         <h2 id="stock-sections-heading" className="sr-only">
@@ -209,7 +199,30 @@ function StockSections() {
         )}
       </section>
 
-      {hasStock && !wide ? charts : null}
+      {/* After the sections at every width (ruling): on a laptop the charts used to push every block below the fold. */}
+      {hasStock ? (
+        <Can do="analytics.view">
+          <ChartsBoundary
+            fallback={
+              <div className="rounded-card border border-border bg-card" data-testid="stock-charts-failed">
+                <EmptyState
+                  title={t("stock.charts.loadFailed")}
+                  action={
+                    // A reload: browsers keep a failed module import, so importing again in place fails again.
+                    <Button variant="secondary" onClick={() => window.location.reload()}>
+                      {t("common.retry")}
+                    </Button>
+                  }
+                />
+              </div>
+            }
+          >
+            <Suspense fallback={<ChartsFallback />}>
+              <StockCharts labelFor={labelFor} />
+            </Suspense>
+          </ChartsBoundary>
+        </Can>
+      ) : null}
     </>
   );
 }

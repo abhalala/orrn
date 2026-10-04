@@ -70,7 +70,13 @@ export function BundleActions({
 
   return (
     <>
-      <div role="group" aria-label={t("bundle.actionsLabel")} className="flex flex-wrap items-center gap-2" data-testid="bundle-actions">
+      {/* empty:hidden: a role with no action gets no empty "Bundle actions" group (and no gap under the hero). */}
+      <div
+        role="group"
+        aria-label={t("bundle.actionsLabel")}
+        className="flex flex-wrap items-center gap-2 empty:hidden"
+        data-testid="bundle-actions"
+      >
         {canAdd ? <Can do="dispatch.addBundle">{addButton("max-md:hidden")}</Can> : null}
         {canReprint ? (
           <Can do="spool.create_jobs">

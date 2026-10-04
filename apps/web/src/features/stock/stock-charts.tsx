@@ -12,6 +12,7 @@ import { useMemo } from "react";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ageBars, topSectionRows } from "./charts-data";
+import { failedWithoutData } from "./section-page";
 
 // An empty age bucket reads "0 kg", not "0.0 kg".
 const kg = (v: number) => (v === 0 ? "0 kg" : `${formatKgTotal(v)} kg`);
@@ -25,7 +26,14 @@ export default function StockCharts({ labelFor }: { labelFor(dieId: string): str
   const bars = useMemo(() => (data ? ageBars(data, t) : []), [data, t]);
   const top = useMemo(() => (data ? topSectionRows(data, labelFor) : { rows: [], other: 0 }), [data, labelFor]);
 
-  const state = ageing.isPending ? "loading" : ageing.isError ? "error" : data && data.totals.bundles === 0 ? "empty" : undefined;
+  // A failed background refetch keeps the charts on screen (React Query v5 keeps data); the error state is for no data.
+  const state = ageing.isPending
+    ? "loading"
+    : failedWithoutData(ageing)
+      ? "error"
+      : data && data.totals.bundles === 0
+        ? "empty"
+        : undefined;
   const retry = () => void ageing.refetch();
 
   return (

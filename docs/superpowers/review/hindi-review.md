@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 793 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 799 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -410,7 +410,7 @@ Counts: 793 screen strings in 25 groups, 10 guides with 182 strings.
 | `continuous.result.notFound` | Not found | नहीं मिला |
 | `continuous.done` | Done scanning | स्कैन बंद करें |
 
-### stock (54)
+### stock (60)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -442,11 +442,15 @@ Counts: 793 screen strings in 25 groups, 10 guides with 182 strings.
 | `charts.kgHeader` | kg | kg |
 | `charts.bucket` | {range} days | {range} दिन |
 | `charts.topTitle` | Top sections | सबसे ज़्यादा स्टॉक वाले सेक्शन |
-| `charts.topSubtitle` | kg on the floor per section, top 8 and the rest | हर सेक्शन का फ़्लोर पर kg, टॉप 8 और बाकी |
+| `charts.topSubtitle` | kg in stock and held per section, top 8 and the rest | हर सेक्शन का स्टॉक और होल्ड का kg, टॉप 8 और बाकी |
 | `charts.topLabel` | Sections by kg on the floor | फ़्लोर पर kg के हिसाब से सेक्शन |
 | `charts.otherSections` | Other sections | बाकी सेक्शन |
+| `charts.loadFailed` | Charts didn't load. Check the connection, then try again. | चार्ट लोड नहीं हुए। इंटरनेट देखें, फिर दोबारा कोशिश करें। |
 | `section.title` | Section {code} | सेक्शन {code} |
 | `section.empty` | No bundles with this status. | इस स्टेटस का कोई bundle नहीं है। |
+| `section.emptyAll` | No bundles packed for this section yet. | इस सेक्शन का अभी कोई bundle पैक नहीं हुआ। |
+| `section.nothingOnFloor` | Nothing on the floor | फ़्लोर पर कुछ नहीं |
+| `section.heroUnit` | {count:bundle\|bundles} | {count:bundle\|bundle} |
 | `section.band` | Weight range {band} kg/12ft | वज़न रेंज {band} kg/12ft |
 | `section.dieDetails` | Die details | Die की जानकारी |
 | `section.bundlesLabel` | Bundles of {section} | {section} के bundle |
@@ -456,6 +460,8 @@ Counts: 793 screen strings in 25 groups, 10 guides with 182 strings.
 | `list.bundlesLabel` | Bundles | Bundle |
 | `list.filterDie` | Showing one section | एक सेक्शन दिख रहा है |
 | `list.filterGroup` | Showing one packing session | एक पैकिंग सेशन दिख रहा है |
+| `list.filterDieNamed` | Showing {section} | {section} दिख रहा है |
+| `list.filterGroupNamed` | Showing packing session {code} | पैकिंग सेशन {code} दिख रहा है |
 | `list.clearFilter` | Show all bundles | सारे bundle दिखाएं |
 | `columns.serial` | Serial | Serial |
 | `columns.die` | Die | Die |

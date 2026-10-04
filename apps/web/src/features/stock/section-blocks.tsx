@@ -21,7 +21,10 @@ const RISE_LIMIT = 8;
  * number of bundles in stock, or blue when every bundle of the section is
  * held. Under the title: the kg, the die's kg/12ft band and the held count
  * as a blue chip; the number sits on the bottom edge so a row's numbers line
- * up. The status is always in words too ("in stock", "held").
+ * up. The status is always in words too ("in stock", "held"). Press feedback
+ * and the focus ring only: no hover effect on every block (design brief).
+ * Built here rather than with StatusBlock, which has no slot for the held
+ * chip (ruled in the ledger).
  */
 export function SectionBlock({ section, rise }: { section: SectionStock; rise?: number }) {
   const { t } = useT();
@@ -38,7 +41,7 @@ export function SectionBlock({ section, rise }: { section: SectionStock; rise?: 
       data-die-id={section.dieId}
       data-tone={head.tone}
       className={cn(
-        "orrn-block orrn-block-sheen animate-press flex h-full min-h-[164px] min-w-0 flex-col p-4 text-left no-underline transition-[filter,scale] duration-[var(--dur-fast)] hover:brightness-[1.04] sm:p-[18px]",
+        "orrn-block orrn-block-sheen animate-press flex h-full min-h-[164px] min-w-0 flex-col p-4 text-left no-underline transition-[scale] duration-[var(--dur-fast)] sm:p-[18px]",
         allHeld ? "orrn-block-blue" : "orrn-block-green",
         rise !== undefined && "animate-rise",
       )}
