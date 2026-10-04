@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
+import { API_URL as API, WEB_ORIGIN as ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
 /**
@@ -15,8 +16,6 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
  * request), operator weighs at the kanta but can't raise notes.
  */
 
-const API = process.env.E2E_API_URL ?? "http://localhost:3000";
-const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3002";
 const SHOTS = process.env.PLW2_SHOTS_DIR;
 
 type Scheme = "light" | "dark";
