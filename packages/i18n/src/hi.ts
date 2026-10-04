@@ -494,6 +494,7 @@ export const hi = {
       weight: "वज़न (kg)",
       pieces: "पीस",
       cutLength: "कट लंबाई",
+      piecesLength: "पीस × कट लंबाई",
       kgPer12ft: "kg/12ft",
       status: "स्टेटस",
       po: "PO",

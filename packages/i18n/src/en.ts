@@ -500,6 +500,7 @@ export const en = {
       weight: "Weight (kg)",
       pieces: "Pcs",
       cutLength: "Cut length",
+      piecesLength: "Pcs × cut length",
       kgPer12ft: "kg/12ft",
       status: "Status",
       po: "PO",

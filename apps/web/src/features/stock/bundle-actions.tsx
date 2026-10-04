@@ -20,8 +20,8 @@ import { TransitionDialog } from "./transition-dialog";
  * in stock only), Reprint label (`spool.create_jobs`, not for void bundles),
  * Void or Restore (`bundle.void`). On phones the main action is a 56px bar
  * above the tab bar; the rest sit in a row under the hero. `children` (the
- * facts and history) render between the row and the phone bar, so the bar
- * comes last in both the reading order and on screen.
+ * facts and history) render between the row and the two guide buttons, then
+ * the phone bar, so the bar comes last in both the reading order and on screen.
  */
 export function BundleActions({
   bundle,
@@ -96,11 +96,15 @@ export function BundleActions({
             </Button>
           </Can>
         ) : null}
-        <GuideButton slug="reprint-label">{t("bundle.howToReprint")}</GuideButton>
-        <GuideButton slug="void-bundle">{t("bundle.howToVoid")}</GuideButton>
       </div>
 
       {children}
+
+      {/* Help after the facts: the action row stays actions only, and on phones the guides don't push the facts down. */}
+      <div role="group" aria-label={t("nav.guides")} className="-mt-2 flex flex-wrap items-center gap-x-2" data-testid="bundle-guides">
+        <GuideButton slug="reprint-label">{t("bundle.howToReprint")}</GuideButton>
+        <GuideButton slug="void-bundle">{t("bundle.howToVoid")}</GuideButton>
+      </div>
 
       {canAdd ? (
         <Can do="dispatch.addBundle">

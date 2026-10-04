@@ -7,6 +7,7 @@ import { Field, TextInput } from "@orrn/ui/components/field";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Skeleton } from "@orrn/ui/components/skeleton";
+import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Suspense, lazy, useCallback, useMemo, useState } from "react";
@@ -50,7 +51,8 @@ export const Route = createFileRoute("/_tenant/stock/")({
  * `/stock`, Sections: one green block per section with bundles in stock
  * (blue when all of them are held), from `bundle.stockSummary` for available
  * and reserved stock merged per die. Search and sort run on the loaded
- * sections. Owners and managers also see stock age and top sections.
+ * sections. Owners and managers also see stock age and top sections, above
+ * the sections on wide screens and after them on phones.
  */
 function StockSections() {
   const { t } = useT();
@@ -84,6 +86,16 @@ function StockSections() {
     void reserved.refetch();
   };
   const hasStock = sections.length > 0;
+  // Side by side above the sections from 1024px; on phones and iPad portrait the sections come first
+  // (in the DOM too, so reading and focus order match what is on screen).
+  const wide = useMediaQuery(breakpoints.desktop);
+  const charts = (
+    <Can do="analytics.view">
+      <Suspense fallback={<ChartsFallback />}>
+        <StockCharts labelFor={labelFor} />
+      </Suspense>
+    </Can>
+  );
 
   return (
     <>
@@ -108,13 +120,7 @@ function StockSections() {
 
       <StockViewSwitch current="sections" />
 
-      {hasStock ? (
-        <Can do="analytics.view">
-          <Suspense fallback={<ChartsFallback />}>
-            <StockCharts labelFor={labelFor} />
-          </Suspense>
-        </Can>
-      ) : null}
+      {hasStock && wide ? charts : null}
 
       <section aria-labelledby="stock-sections-heading" className="flex min-w-0 flex-col gap-4">
         <h2 id="stock-sections-heading" className="sr-only">
@@ -202,6 +208,8 @@ function StockSections() {
           </>
         )}
       </section>
+
+      {hasStock && !wide ? charts : null}
     </>
   );
 }

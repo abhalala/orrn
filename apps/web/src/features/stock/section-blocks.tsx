@@ -19,8 +19,9 @@ const RISE_LIMIT = 8;
 /**
  * One section's stock as a C2 colour block (spec §3 Stock): green with the
  * number of bundles in stock, or blue when every bundle of the section is
- * held. The meta carries the kg, the die's kg/12ft band and the held count
- * as a blue chip. The status is always in words too ("in stock", "held").
+ * held. Under the title: the kg, the die's kg/12ft band and the held count
+ * as a blue chip; the number sits on the bottom edge so a row's numbers line
+ * up. The status is always in words too ("in stock", "held").
  */
 export function SectionBlock({ section, rise }: { section: SectionStock; rise?: number }) {
   const { t } = useT();
@@ -55,19 +56,22 @@ export function SectionBlock({ section, rise }: { section: SectionStock; rise?: 
         <ChevronRight aria-hidden="true" strokeWidth={2} className="-mr-1 size-5 shrink-0" />
       </span>
 
+      {/* Meta under the title and the number on the bottom edge, so numbers line up across a row. */}
+      <span className="relative mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[13px] font-medium leading-snug tabular-nums">
+        <span>{t("stock.block.kg", { kg })}</span>
+        {band ? <span>{t("stock.block.band", { band })}</span> : null}
+      </span>
+      {!allHeld && head.held > 0 ? (
+        <span className="relative mt-2 flex">
+          <Chip tone="blue">{t("stock.heldChip", { count: head.held })}</Chip>
+        </span>
+      ) : null}
+
       <span className="relative mt-auto flex flex-wrap items-baseline gap-x-2 gap-y-0.5 pt-4">
         <BigNumber value={head.bundles} className="text-[40px] sm:text-[44px]" />
         <span className="min-w-0 text-[13px] font-semibold break-words">
           {t(allHeld ? "stock.block.unitHeld" : "stock.block.unitInStock", { count: head.bundles })}
         </span>
-      </span>
-
-      <span className="relative mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] font-medium leading-snug">
-        <span className="font-mono tabular-nums">{t("stock.block.kg", { kg })}</span>
-        {band ? <span className="tabular-nums">{t("stock.block.band", { band })}</span> : null}
-        {!allHeld && head.held > 0 ? (
-          <Chip tone="blue">{t("stock.heldChip", { count: head.held })}</Chip>
-        ) : null}
       </span>
     </Link>
   );

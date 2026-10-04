@@ -2,6 +2,7 @@ import { bundleTone, formatKg, formatLength, gToKg, kgPer12ft, type BundleStatus
 import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { ResponsiveList, type ResponsiveListColumn, type ResponsiveListPage } from "@orrn/ui/components/responsive-list";
+import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import type { ReactNode } from "react";
 
 import { useLengthUnit } from "@/shared/lib/length";
@@ -26,8 +27,9 @@ export type BundleListItem = {
 
 /**
  * The bundle table used by a section and by All bundles: a real table from
- * 1024px, stacked rows below. Weight in kg, cut length in the company unit,
- * kg/12ft from weight, pieces and length. Each row opens the bundle page.
+ * 1024px, stacked rows below (pieces and cut length share one pair there).
+ * Weight in kg, cut length in the company unit, kg/12ft from weight, pieces
+ * and length. Each row opens the bundle page.
  */
 export function BundleList({
   rows,
@@ -50,6 +52,8 @@ export function BundleList({
   const { t } = useT();
   const lu = useLengthUnit();
   const when = useCompanyWhen();
+  // Same breakpoint as ResponsiveList's table.
+  const wide = useMediaQuery(breakpoints.desktop);
 
   const columns: ResponsiveListColumn<BundleListItem>[] = [
     {
@@ -77,18 +81,33 @@ export function BundleList({
       align: "end",
       cell: (r) => <span className="font-mono">{formatKg(gToKg(r.weightG))}</span>,
     },
-    {
-      key: "pieces",
-      header: t("stock.columns.pieces"),
-      align: "end",
-      cell: (r) => <span className="font-mono">{r.quantity}</span>,
-    },
-    {
-      key: "length",
-      header: t("stock.columns.cutLength"),
-      align: "end",
-      cell: (r) => <span className="font-mono">{formatLength(r.lengthMm, lu.unit)}</span>,
-    },
+    ...(wide
+      ? ([
+          {
+            key: "pieces",
+            header: t("stock.columns.pieces"),
+            align: "end",
+            cell: (r) => <span className="font-mono">{r.quantity}</span>,
+          },
+          {
+            key: "length",
+            header: t("stock.columns.cutLength"),
+            align: "end",
+            cell: (r) => <span className="font-mono">{formatLength(r.lengthMm, lu.unit)}</span>,
+          },
+        ] satisfies ResponsiveListColumn<BundleListItem>[])
+      : ([
+          {
+            // Stacked rows: one pair instead of two keeps a bundle to two lines of facts.
+            key: "piecesLength",
+            header: t("stock.columns.piecesLength"),
+            cell: (r) => (
+              <span className="font-mono whitespace-nowrap">
+                {r.quantity} × {formatLength(r.lengthMm, lu.unit)}
+              </span>
+            ),
+          },
+        ] satisfies ResponsiveListColumn<BundleListItem>[])),
     {
       key: "kg12",
       header: t("stock.columns.kgPer12ft"),

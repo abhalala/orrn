@@ -123,6 +123,19 @@ test.describe("Sections", () => {
     await expect(operator.getByTestId("stock-charts")).toHaveCount(0);
     await operator.close();
   });
+
+  test("on a phone the sections come first and the charts follow them (reading order = screen order)", async ({
+    page,
+  }) => {
+    await open(page, "/stock", { width: 390 });
+    await expect(page.getByTestId("chart-stock-age")).toBeVisible();
+    const gridFirst = await page.evaluate(() => {
+      const grid = document.querySelector("[data-testid='section-grid']");
+      const charts = document.querySelector("[data-testid='stock-charts']");
+      return !!grid && !!charts && !!(grid.compareDocumentPosition(charts) & Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    expect(gridFirst).toBe(true);
+  });
 });
 
 test.describe("All bundles", () => {
@@ -304,6 +317,8 @@ test.describe("layout and accessibility", () => {
 test.describe("screenshots", () => {
   const dir = process.env.T21_SHOTS_DIR;
   test.skip(!dir, "set T21_SHOTS_DIR to capture");
+  // Six full-page captures (plus a sheet and a dialog on phones) in one test.
+  test.setTimeout(150_000);
 
   // 375 and 1280 in both themes (the report's set), plus the iPad rail at 820 in light.
   const sets = [

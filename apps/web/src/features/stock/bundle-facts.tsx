@@ -47,7 +47,9 @@ export function BundleFacts({
           "-"
         ) : (
           <span className="flex flex-wrap items-center gap-2">
-            <span className="font-mono">{formatKg(perFoot)}</span>
+            <span data-no-truncate="" className="font-mono">
+              {formatKg(perFoot)}
+            </span>
             {range !== "noRange" ? <Chip tone={RANGE_TONE[range]}>{t(`status.range.${range}`)}</Chip> : null}
           </span>
         ),
@@ -105,7 +107,8 @@ export function BundleFacts({
         <div key={f.key} data-fact={f.key} className="flex min-w-0 flex-col gap-1">
           <dt className="text-[13px] font-medium leading-5 text-muted-foreground">{f.label}</dt>
           <dd
-            data-no-truncate=""
+            // Plain values must show in full. A value with a chip marks its own number (the chip may truncate).
+            data-no-truncate={typeof f.value === "string" ? "" : undefined}
             className={`m-0 text-[17px] font-semibold leading-6 break-words tabular-nums ${f.mono ? "font-mono" : ""}`}
           >
             {f.value}

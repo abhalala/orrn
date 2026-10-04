@@ -13,7 +13,8 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { ageBars, topSectionRows } from "./charts-data";
 
-const kg = (v: number) => `${formatKgTotal(v)} kg`;
+// An empty age bucket reads "0 kg", not "0.0 kg".
+const kg = (v: number) => (v === 0 ? "0 kg" : `${formatKgTotal(v)} kg`);
 const PLOT_HEIGHT = 220;
 
 export default function StockCharts({ labelFor }: { labelFor(dieId: string): string | undefined }) {
@@ -28,7 +29,7 @@ export default function StockCharts({ labelFor }: { labelFor(dieId: string): str
   const retry = () => void ageing.refetch();
 
   return (
-    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2" data-testid="stock-charts">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" data-testid="stock-charts">
       <ChartCard
         data-testid="chart-stock-age"
         level={2}
