@@ -6,6 +6,7 @@ import { useMemo } from "react";
 
 import { trpc } from "@/shared/utils/trpc";
 
+import { failedFirstLoad } from "./errors";
 import { volumeBars, volumeDateFormat } from "./volume-data";
 
 const kg = (v: number) => `${formatKgTotal(v)} kg`;
@@ -27,7 +28,7 @@ export default function DispatchVolumeChart() {
   // Nothing dispatched in a year (a new company): no chart at all. The kit's empty
   // state asks for a longer period, which this card doesn't offer.
   if (query.isSuccess && data.every((d) => d.value === 0)) return null;
-  const state = query.isPending ? "loading" : query.isError ? "error" : undefined;
+  const state = query.isPending ? "loading" : failedFirstLoad(query) ? "error" : undefined;
 
   return (
     <ChartCard

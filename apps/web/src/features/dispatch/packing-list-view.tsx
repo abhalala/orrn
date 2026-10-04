@@ -21,7 +21,7 @@ import { Can } from "@/shared/components/can";
 import { downloadPackingListPdf, downloadPackingListXlsx } from "@/shared/lib/exports";
 import { trpc } from "@/shared/utils/trpc";
 
-import { dispatchErrorText } from "./errors";
+import { dispatchErrorText, failedFirstLoad } from "./errors";
 import { formatShipDate } from "./format";
 import { useCompanyTimeZone } from "./hooks";
 
@@ -82,7 +82,7 @@ export function PackingListView({ dispatchId }: { dispatchId: string }) {
         <Skeleton className="h-[240px] w-full rounded-card" />
       </div>
     );
-  } else if (pl.isError) {
+  } else if (failedFirstLoad(pl)) {
     body = (
       <div className="rounded-card border border-border bg-card">
         <EmptyState

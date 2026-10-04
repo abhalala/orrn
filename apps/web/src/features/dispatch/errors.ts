@@ -28,3 +28,12 @@ export function dispatchErrorText(t: Translate, error: unknown): string {
       return t("errors.generic");
   }
 }
+
+/**
+ * Whether a read failed before it ever loaded. React Query v5 keeps `data`
+ * after a failed refetch (a poll, a refocus) and still sets `isError`; the
+ * screen keeps showing what it had instead of an error panel.
+ */
+export function failedFirstLoad(query: { isError: boolean; data: unknown }): boolean {
+  return query.isError && query.data === undefined;
+}
