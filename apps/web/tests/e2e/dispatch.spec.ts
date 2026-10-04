@@ -337,6 +337,23 @@ test.describe("dispatch: accessibility and layout", () => {
   }
 });
 
+test.describe("dispatch: Hindi on a phone", () => {
+  test("longer Hindi labels wrap instead of clipping, with no sideways scroll at 375", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("orrn.locale", "hi"));
+    await start(page, "owner", { width: 375, height: 812 });
+    for (const s of SCREENS) {
+      await page.goto(s.path);
+      // Headings are in Hindi now; wait on the structure, not the English text.
+      await expect(s.name === "list" || s.name === "new" ? page.getByRole("heading", { level: 1 }) : s.ready(page)).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator("html")).toHaveAttribute("lang", "hi");
+      await expectNoHorizontalScroll(page);
+      await expectNoClippedText(page);
+      if (process.env.T22_SHOTS) await page.screenshot({ path: `${process.env.T22_SHOTS}/${s.name}-375-light-hi.png`, fullPage: true });
+    }
+  });
+});
+
 /** Review screenshots (T22_SHOTS=<dir>): every screen at 375 and 1280, light and dark. */
 test.describe("dispatch: screenshots", () => {
   test.skip(!process.env.T22_SHOTS, "set T22_SHOTS to a folder to capture review screenshots");
@@ -351,6 +368,8 @@ test.describe("dispatch: screenshots", () => {
           await expect(s.ready(page)).toBeVisible();
           await page.waitForLoadState("networkidle");
           await page.screenshot({ path: `${dir}/${s.name}-${width}-${scheme}.png`, fullPage: true });
+          // A phone's first view as it really looks (fixed tab bar and sticky action bar in place).
+          if (width < 768) await page.screenshot({ path: `${dir}/${s.name}-${width}-${scheme}-top.png` });
         }
         // The paste report on the draft (read only: nothing is sent for an empty paste).
         await page.goto("/dispatch/dev-dispatch-draft");

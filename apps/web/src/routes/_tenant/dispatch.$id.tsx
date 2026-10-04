@@ -331,7 +331,7 @@ function DetailSkeleton() {
       <h1 className="sr-only">{t("dispatch.title")}</h1>
       <span className="sr-only">{t("common.loading")}</span>
       <Skeleton aria-hidden="true" className="h-11 w-32 rounded-full" />
-      <Skeleton aria-hidden="true" className="h-[236px] w-full rounded-hero" />
+      <Skeleton aria-hidden="true" className="h-[236px] w-full rounded-hero md:h-[176px]" />
       <Skeleton className="h-8 w-72 rounded-full" />
       <div className="grid grid-cols-2 gap-2 sm:flex">
         <Skeleton className="col-span-2 h-14 rounded-full sm:w-48" />

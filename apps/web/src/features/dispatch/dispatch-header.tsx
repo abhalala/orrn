@@ -50,12 +50,14 @@ export function DispatchHeader({
       data-slot="dispatch-hero"
       data-status={status}
       className={cn(
-        "orrn-block orrn-block-hero orrn-block-sheen flex min-w-0 flex-col gap-6 p-5 sm:p-6",
+        // Phones stack the numbers under the name; wider screens put them on the right so the
+        // block stays short and the bundles list starts higher.
+        "orrn-block orrn-block-hero orrn-block-sheen flex min-w-0 flex-col gap-6 p-5 sm:p-6 md:flex-row md:items-end md:justify-between md:gap-8",
         `orrn-block-${dispatchTone(status)}`,
         celebrate && "animate-pop animate-shimmer",
       )}
     >
-      <div className="relative flex min-w-0 flex-col gap-1">
+      <div className="relative flex min-w-0 flex-col gap-1 md:flex-1">
         <p className="m-0 text-[15px] font-semibold">{t(`status.dispatch.${status}`)}</p>
         <h1
           id="dispatch-title"
@@ -69,7 +71,7 @@ export function DispatchHeader({
         </p>
         <p className="m-0 text-[14px] font-medium">{when}</p>
       </div>
-      <dl className="relative m-0 flex flex-wrap gap-x-10 gap-y-3 sm:gap-x-12">
+      <dl className="relative m-0 flex shrink-0 flex-wrap gap-x-10 gap-y-3 sm:gap-x-12 md:flex-nowrap">
         <div className="flex min-w-0 flex-col gap-1">
           <dt className="text-[13px] font-semibold">{t("dispatch.columns.bundles")}</dt>
           <dd className="m-0">

@@ -339,39 +339,43 @@ function PackingListStack({ groups, totals }: Pick<PackingListModel, "groups" | 
   const { t } = useT();
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      {groups.map((g) => (
-        <section key={g.key} aria-label={groupTitle(t, g)} className="min-w-0 overflow-hidden rounded-card border border-border bg-card">
-          <div className="flex min-w-0 flex-col gap-0.5 border-b border-border px-4 py-3">
-            <h3 className="m-0 text-[15px] font-semibold break-words">{groupTitle(t, g)}</h3>
-            <p className="m-0 text-[13px] text-muted-foreground tabular-nums">
-              {t("packingList.totals", { bundles: g.bundles, kg: formatKg(g.weightKg) })}
-            </p>
-          </div>
-          <ul aria-label={t("packingList.rowsLabel")} className="m-0 list-none divide-y divide-border p-0">
-            {g.rows.map((r) => (
-              <li key={r.sr} data-testid="packing-list-row" className="flex min-w-0 flex-col gap-2 px-4 py-3">
-                <div className="flex min-w-0 items-baseline justify-between gap-3">
-                  <span className="min-w-0 [overflow-wrap:anywhere]">
-                    <span className="mr-2 font-mono text-[13px] text-muted-foreground">{r.sr}</span>
-                    <span className="font-mono text-[16px] font-semibold">{r.bundleNo}</span>
-                  </span>
-                  <span data-no-truncate="" className="shrink-0 font-mono text-[15px] font-semibold tabular-nums">
-                    {formatKg(r.weightKg)} {t("units.kg")}
-                  </span>
-                </div>
-                {g.labelled ? <p className="m-0 text-[13px] text-muted-foreground break-words">{r.item}</p> : null}
-                <dl className="m-0 grid grid-cols-3 gap-x-3 gap-y-1.5">
-                  <Fact label={t("packingList.columns.cutLengthFt")} value={String(r.cutLengthFt)} />
-                  <Fact label={t("packingList.columns.cutLengthIn")} value={String(r.cutLengthIn)} />
-                  <Fact label={t("packingList.columns.pcs")} value={String(r.pcs)} />
-                  <Fact label={t("packingList.columns.kgPer12ft")} value={num(r.kgPer12ft, 3)} />
-                  <Fact label={t("packingList.columns.weightRange")} value={num(r.weightRange12ft, 1)} strong />
-                </dl>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      {groups.map((g) => {
+        // The group title already names the item; a row repeats it only when one label spans several sections.
+        const mixed = new Set(g.rows.map((r) => r.item)).size > 1;
+        return (
+          <section key={g.key} aria-label={groupTitle(t, g)} className="min-w-0 overflow-hidden rounded-card border border-border bg-card">
+            <div className="flex min-w-0 flex-col gap-0.5 border-b border-border px-4 py-3">
+              <h3 className="m-0 text-[15px] font-semibold break-words">{groupTitle(t, g)}</h3>
+              <p className="m-0 text-[13px] text-muted-foreground tabular-nums">
+                {t("packingList.totals", { bundles: g.bundles, kg: formatKg(g.weightKg) })}
+              </p>
+            </div>
+            <ul aria-label={t("packingList.rowsLabel")} className="m-0 list-none divide-y divide-border p-0">
+              {g.rows.map((r) => (
+                <li key={r.sr} data-testid="packing-list-row" className="flex min-w-0 flex-col gap-2 px-4 py-3">
+                  <div className="flex min-w-0 items-baseline justify-between gap-3">
+                    <span className="min-w-0 [overflow-wrap:anywhere]">
+                      <span className="mr-2 font-mono text-[13px] text-muted-foreground">{r.sr}</span>
+                      <span className="font-mono text-[16px] font-semibold">{r.bundleNo}</span>
+                    </span>
+                    <span data-no-truncate="" className="shrink-0 font-mono text-[15px] font-semibold tabular-nums">
+                      {formatKg(r.weightKg)} {t("units.kg")}
+                    </span>
+                  </div>
+                  {mixed ? <p className="m-0 text-[13px] text-muted-foreground break-words">{r.item}</p> : null}
+                  <dl className="m-0 grid grid-cols-3 gap-x-3 gap-y-1.5">
+                    <Fact label={t("packingList.columns.cutLengthFt")} value={String(r.cutLengthFt)} />
+                    <Fact label={t("packingList.columns.cutLengthIn")} value={String(r.cutLengthIn)} />
+                    <Fact label={t("packingList.columns.pcs")} value={String(r.pcs)} />
+                    <Fact label={t("packingList.columns.kgPer12ft")} value={num(r.kgPer12ft, 3)} />
+                    <Fact label={t("packingList.columns.weightRange")} value={num(r.weightRange12ft, 1)} strong />
+                  </dl>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
       <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-card border-2 border-foreground bg-card px-4 py-3">
         <span className="text-[15px] font-bold">{t("packingList.grandTotal")}</span>
         <span data-testid="packing-list-total-kg" data-no-truncate="" className="font-mono text-[17px] font-bold tabular-nums">
