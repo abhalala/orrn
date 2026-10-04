@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, isNull, like, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { normalizeSerial } from "@orrn/domain";
+import { user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
 import { company } from "@orrn/db/schema/tenant";
 import { dispatch } from "@orrn/db/schema/dispatch";
@@ -261,6 +262,8 @@ export const bundleRouter = router({
           purchaseOrderRef: bundleGroup.purchaseOrderRef,
           notes: bundleGroup.notes,
           createdAt: bundleGroup.createdAt,
+          /** Who packed the session ("Packed by"); null once that user is deleted. */
+          createdByName: user.name,
           bundleCount: sql<number>`count(${bundle.id})`.as("bundle_count"),
           totalQuantity: sql<number>`coalesce(sum(${bundle.quantity}), 0)`.as("total_quantity"),
           totalWeightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`.as("total_weight_g"),
@@ -275,8 +278,9 @@ export const bundleRouter = router({
           bundle,
           and(eq(bundle.groupId, bundleGroup.id), eq(bundle.companyId, bundleGroup.companyId)),
         )
+        .leftJoin(user, eq(user.id, bundleGroup.createdBy))
         .where(and(...conditions))
-        .groupBy(bundleGroup.id, die.series, die.sectionCode)
+        .groupBy(bundleGroup.id, die.series, die.sectionCode, user.name)
         .orderBy(desc(bundleGroup.createdAt))
         .limit(input.limit)
         .offset(input.offset);
@@ -316,7 +320,12 @@ export const bundleRouter = router({
         .orderBy(asc(bundle.serial))
         .limit(500);
 
-      return { group, die: dieRow ?? null, bundles };
+      // "Packed by" on the session page; null once that user is deleted.
+      const packer = group.createdBy
+        ? await ctx.db.select({ name: user.name }).from(user).where(eq(user.id, group.createdBy)).get()
+        : undefined;
+
+      return { group, die: dieRow ?? null, bundles, packedByName: packer?.name ?? null };
     }),
 
   listBundles: companyProcedure
