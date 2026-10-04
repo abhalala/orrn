@@ -34,11 +34,6 @@ test.describe("old URLs redirect", () => {
     ["/dispatches/xyz", /\/dispatch\/xyz$/],
     ["/spool", /\/printing$/],
     ["/settings/members", /\/settings\?tab=team$/],
-    // The welcome stepper sends a fully set-up owner (this suite's user) on
-    // home; front-door.spec.ts covers these for an account with open steps.
-    ["/onboarding", /\/today$/],
-    ["/change-password", /\/today$/],
-    ["/setup-credentials", /\/today$/],
     ["/waitlist?mode=demo", /\/request-access\?mode=demo$/],
   ];
 
@@ -47,6 +42,24 @@ test.describe("old URLs redirect", () => {
       await page.goto(old);
       await expect(page).toHaveURL(next);
       await expect(page.locator("h1").first()).toBeVisible();
+    });
+  }
+
+  // The old setup URLs open the welcome stepper, which has nothing for this
+  // suite's fully set-up owner and sends them home. The stop at /welcome is
+  // checked here; front-door.spec.ts walks /setup-credentials (magic-link
+  // owner) and /change-password (temp password) with open steps.
+  for (const old of ["/onboarding", "/change-password", "/setup-credentials"]) {
+    test(`${old} goes through /welcome, which sends a set-up owner to /today`, async ({ page }) => {
+      const seen: string[] = [];
+      page.on("framenavigated", (frame) => {
+        if (frame === page.mainFrame()) seen.push(new URL(frame.url()).pathname);
+      });
+      await page.goto(`${old}?from=email`);
+      await expect(page).toHaveURL(/\/today$/);
+      await expect(page.locator("h1").first()).toBeVisible();
+      expect(seen, `navigations: ${seen.join(" -> ")}`).toContain("/welcome");
+      expect(seen.indexOf("/welcome")).toBeLessThan(seen.lastIndexOf("/today"));
     });
   }
 

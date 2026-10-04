@@ -160,8 +160,9 @@ function RequestAccessPage() {
             <NumberInput decimal={false} maxLength={3} value={values.lines} onValueChange={set("lines")} />
           </Field>
 
-          <fieldset className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
-            <legend className="mb-1 p-0">
+          {/* A rendered <legend> is not a flex item, so the gap would skip it: the margin keeps the form's rhythm. */}
+          <fieldset className="m-0 min-w-0 border-0 p-0">
+            <legend className="mb-4 p-0">
               <span className="block text-[15px] font-semibold leading-6 text-foreground">{t("auth.requestAccess.slotTitle")}</span>
               <span className="block text-[13px] leading-5 text-muted-foreground">{t("auth.requestAccess.slotHint")}</span>
             </legend>

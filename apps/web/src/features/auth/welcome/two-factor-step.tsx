@@ -23,6 +23,30 @@ function groupKey(secret: string) {
   return secret.replace(/(.{4})/g, "$1 ").trim();
 }
 
+/**
+ * Which account was last shown a QR in this tab. Every `enable` makes a new
+ * secret, so after a reload (phones drop tabs while you switch to the
+ * authenticator app) we say that the earlier QR no longer works.
+ */
+const QR_SHOWN_KEY = "orrn.welcome.qrShown";
+
+function readQrShown(): string | null {
+  try {
+    return window.sessionStorage.getItem(QR_SHOWN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeQrShown(userId: string | null) {
+  try {
+    if (userId) window.sessionStorage.setItem(QR_SHOWN_KEY, userId);
+    else window.sessionStorage.removeItem(QR_SHOWN_KEY);
+  } catch {
+    // Storage blocked (private mode): the notice is a nicety.
+  }
+}
+
 async function copyText(text: string, done: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -33,17 +57,19 @@ async function copyText(text: string, done: string) {
 }
 
 /**
- * Turn on two-factor (magic-link owners). Better Auth's `twoFactor.enable`
+ * Turn on two-factor (owners during first setup). Better Auth's `twoFactor.enable`
  * needs the password: the one just set in the password step, or typed here.
  * The QR is drawn in the browser (`qrcode`, loaded on demand) so the secret
  * never leaves the device; the old page sent it to a Google chart URL.
  * After the code checks out, the backup codes are shown once.
  */
 export function TwoFactorStep({
+  userId,
   password,
   onDone,
   headingRef,
 }: {
+  userId: string;
   password: string | null;
   onDone(): void;
   headingRef?: Ref<HTMLHeadingElement>;
@@ -57,6 +83,8 @@ export function TwoFactorStep({
   const [codeError, setCodeError] = useState<MessageKey | undefined>();
   const [formError, setFormError] = useState<MessageKey | null>(null);
   const [pending, setPending] = useState(false);
+  // A QR was already shown to this account in this tab: that one stopped working.
+  const [renewed, setRenewed] = useState(false);
   const started = useRef(false);
   const passwordRef = useRef<HTMLInputElement>(null);
   const codeRef = useRef<HTMLInputElement>(null);
@@ -92,6 +120,8 @@ export function TwoFactorStep({
       } catch {
         qr = null; // The manual key below still works.
       }
+      setRenewed(readQrShown() === userId);
+      writeQrShown(userId);
       setSetup({ uri: data.totpURI, secret, qr, backupCodes: data.backupCodes ?? [] });
       setPhase("scan");
     } catch (error) {
@@ -111,6 +141,8 @@ export function TwoFactorStep({
   }, [password]);
 
   useEffect(() => {
+    // The form under the keyboard was replaced: put focus where the next thing is typed.
+    if (phase === "scan") codeRef.current?.focus();
     if (phase === "backup") backupHeading.current?.focus();
   }, [phase]);
 
@@ -131,8 +163,9 @@ export function TwoFactorStep({
         codeRef.current?.focus();
         return;
       }
+      writeQrShown(null);
       await queryClient.invalidateQueries(trpc.auth.me.queryFilter());
-      toast.success(t("welcome.twoFactor.enabled"));
+      // No toast: the backup codes (or the next step) take the screen and focus.
       if (setup && setup.backupCodes.length > 0) setPhase("backup");
       else onDone();
     } catch (error) {
@@ -209,7 +242,8 @@ export function TwoFactorStep({
           </Button>
         </form>
       ) : phase === "loading" || !setup ? (
-        <div aria-busy="true" aria-label={t("welcome.twoFactor.loading")} className="flex flex-col items-center gap-5">
+        <div role="status" aria-busy="true" className="flex flex-col items-center gap-5">
+          <span className="sr-only">{t("welcome.twoFactor.loading")}</span>
           <Skeleton className="size-[216px] rounded-card" />
           <Skeleton className="h-5 w-full max-w-[280px]" />
           <Skeleton className="h-14 w-full" />
@@ -224,6 +258,7 @@ export function TwoFactorStep({
             void verify();
           }}
         >
+          {renewed ? <FormAlert tone="blue">{t("welcome.twoFactor.newQr")}</FormAlert> : null}
           <div className="flex flex-col items-center gap-4 rounded-card border border-border bg-card p-4 sm:flex-row sm:items-start">
             {setup.qr ? (
               // Always dark-on-white with a quiet zone, whatever the theme: scanners need it.
@@ -238,6 +273,7 @@ export function TwoFactorStep({
             <div className="flex min-w-0 flex-1 flex-col gap-2 self-stretch">
               <p className="m-0 text-[14px] leading-5 text-muted-foreground">{t("welcome.twoFactor.manualKey")}</p>
               <code
+                data-slot="totp-key"
                 data-no-truncate=""
                 className="block rounded-input bg-surface-sunken px-3 py-2.5 font-mono text-[15px] font-medium tracking-[0.04em] text-foreground [overflow-wrap:anywhere]"
               >

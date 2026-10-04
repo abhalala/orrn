@@ -37,6 +37,13 @@ describe("homeFor", () => {
     ).toBe("/welcome");
   });
 
+  test("an account with no password goes to /welcome to set one, even when set up", () => {
+    // Magic-link accounts: once the session ends there is no other way back in.
+    expect(homeFor(me({ user: { hasPassword: false } }))).toBe("/welcome");
+    expect(homeFor(me({ company: null, user: { hasPassword: false } }))).toBe("/welcome");
+    expect(homeFor(me({ user: { hasPassword: true } }))).toBe("/today");
+  });
+
   test("an impersonating admin lands on /today regardless of own onboarding", () => {
     expect(
       homeFor(

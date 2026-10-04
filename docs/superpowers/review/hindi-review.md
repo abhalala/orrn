@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 814 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 807 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -193,7 +193,7 @@ Counts: 814 screen strings in 25 groups, 10 guides with 182 strings.
 | `paletteMove` | Move | ऊपर-नीचे जाएं |
 | `paletteOpen` | Open | खोलें |
 
-### auth (87)
+### auth (82)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -207,7 +207,6 @@ Counts: 814 screen strings in 25 groups, 10 guides with 182 strings.
 | `login.newHere` | New to orrn? | orrn पर नए हैं? |
 | `login.requestAccess` | Request access | एक्सेस मांगें |
 | `login.showPassword` | Show password | पासवर्ड दिखाएं |
-| `login.hidePassword` | Hide password | पासवर्ड छिपाएं |
 | `totp.title` | Enter your code | अपना कोड डालें |
 | `totp.body` | Open your authenticator app and type the 6-digit code for orrn. | अपना authenticator ऐप खोलें और orrn वाला 6 अंकों का कोड लिखें। |
 | `totp.code` | 6-digit code | 6 अंकों का कोड |
@@ -234,8 +233,6 @@ Counts: 814 screen strings in 25 groups, 10 guides with 182 strings.
 | `brand.label` | How orrn works | orrn कैसे काम करता है |
 | `brand.holdStep` | Hold | होल्ड |
 | `brand.pack` | Weight and pieces in, label out. | वज़न और पीस डालें, लेबल निकालें। |
-| `brand.hold` | Kept for one customer. | एक ग्राहक के लिए रखे गए। |
-| `brand.dispatch` | Scanned out with a packing list. | पैकिंग लिस्ट के साथ स्कैन होकर बाहर। |
 | `requestAccess.title` | Request access | एक्सेस मांगें |
 | `requestAccess.subtitle` | Tell us about your plant and we'll get in touch to set up your company. | अपने प्लांट के बारे में बताएं। आपकी कंपनी सेट करने के लिए हम संपर्क करेंगे। |
 | `requestAccess.company` | Company name | कंपनी का नाम |
@@ -254,8 +251,6 @@ Counts: 814 screen strings in 25 groups, 10 guides with 182 strings.
 | `requestAccess.successTitle` | Request sent | रिक्वेस्ट भेज दी |
 | `requestAccess.successBody` | We have your request. We'll reply to {email}. | आपकी रिक्वेस्ट मिल गई। हम {email} पर जवाब देंगे। |
 | `requestAccess.backHome` | Back to home | होम पर वापस |
-| `invite.title` | Join {company} | {company} से जुड़ें |
-| `invite.subtitle` | You're joining as {role}. | आप {role} के रूप में जुड़ रहे हैं। |
 | `invite.genericTitle` | Join your team on orrn | orrn पर अपनी टीम से जुड़ें |
 | `invite.genericBody` | Use the email address your invite was sent to. | वही ईमेल डालें जिस पर आपका इनवाइट आया है। |
 | `invite.name` | Your name | आपका नाम |
@@ -285,13 +280,10 @@ Counts: 814 screen strings in 25 groups, 10 guides with 182 strings.
 | `sessionExpired` | Your session ended. Sign in again. | आपका सेशन खत्म हो गया। फिर से साइन इन करें। |
 | `signOut` | Sign out | साइन आउट |
 
-### welcome (60)
+### welcome (58)
 
 | Key | English | हिंदी |
 |---|---|---|
-| `title` | Welcome to orrn | orrn में आपका स्वागत है |
-| `subtitle` | A few steps before you start. | शुरू करने से पहले कुछ कदम। |
-| `progress` | Setup steps | सेटअप के कदम |
 | `steps.password` | Password | पासवर्ड |
 | `steps.twoFactor` | Two-factor | टू-फ़ैक्टर |
 | `steps.company` | Company details | कंपनी की जानकारी |
@@ -305,22 +297,21 @@ Counts: 814 screen strings in 25 groups, 10 guides with 182 strings.
 | `password.mismatch` | The two passwords don't match. | दोनों पासवर्ड एक जैसे नहीं हैं। |
 | `password.submit` | Save password | पासवर्ड सेव करें |
 | `password.submitting` | Saving | सेव हो रहा है |
-| `password.saved` | Password saved | पासवर्ड सेव हो गया |
-| `password.alreadySet` | This account already has a password, so we kept it. | इस अकाउंट का पासवर्ड पहले से है, इसलिए वही रखा है। |
+| `password.alreadySet` | This account already has a password, so we kept it. Use that one to sign in. | इस अकाउंट का पासवर्ड पहले से है, इसलिए वही रखा है। साइन इन के लिए वही डालें। |
 | `twoFactor.title` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
 | `twoFactor.body` | Scan this QR code with an authenticator app, then type the 6-digit code it shows. | इस QR कोड को authenticator ऐप से स्कैन करें, फिर ऐप में दिख रहा 6 अंकों का कोड लिखें। |
 | `twoFactor.confirmBody` | Type your password to get your QR code. | QR कोड पाने के लिए अपना पासवर्ड लिखें। |
 | `twoFactor.confirmPassword` | Your password | आपका पासवर्ड |
 | `twoFactor.showQr` | Show QR code | QR कोड दिखाएं |
-| `twoFactor.wrongPassword` | That password is wrong. Type the one you just set. | यह पासवर्ड गलत है। वही लिखें जो आपने अभी बनाया। |
+| `twoFactor.wrongPassword` | That password is wrong. Type the password you sign in with. | यह पासवर्ड गलत है। वही पासवर्ड लिखें जिससे आप साइन इन करते हैं। |
 | `twoFactor.loading` | Getting your QR code | आपका QR कोड आ रहा है |
 | `twoFactor.qrAlt` | QR code for your authenticator app | आपके authenticator ऐप के लिए QR कोड |
+| `twoFactor.newQr` | This is a new QR code. A code you added to your app before won't work, so scan this one. | यह नया QR कोड है। ऐप में पहले जोड़ा गया कोड अब काम नहीं करेगा, इसलिए इसे स्कैन करें। |
 | `twoFactor.manualKey` | Can't scan it? Type this key in the app instead. | स्कैन नहीं हो रहा? यह key ऐप में लिख दें। |
 | `twoFactor.copyKey` | Copy key | key कॉपी करें |
 | `twoFactor.code` | 6-digit code | 6 अंकों का कोड |
 | `twoFactor.submit` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
 | `twoFactor.verifying` | Checking | जांच हो रही है |
-| `twoFactor.enabled` | Two-factor is on | टू-फ़ैक्टर चालू है |
 | `twoFactor.backupTitle` | Backup codes | बैकअप कोड |
 | `twoFactor.backupBody` | Keep these somewhere safe. Each one works once if you lose your phone. | इन्हें संभाल कर रखें। फ़ोन खो जाए तो हर कोड एक बार काम करेगा। |
 | `twoFactor.copyCodes` | Copy codes | कोड कॉपी करें |
@@ -333,6 +324,7 @@ Counts: 814 screen strings in 25 groups, 10 guides with 182 strings.
 | `company.timezone` | Time zone | टाइम ज़ोन |
 | `company.thisDevice` | {zone} (this device) | {zone} (यह डिवाइस) |
 | `company.presses` | Number of presses | प्रेस की संख्या |
+| `company.pressesMax` | Up to {max} presses. | ज़्यादा से ज़्यादा {max} प्रेस। |
 | `company.termsTitle` | The short version of the terms | शर्तें, छोटे में |
 | `company.termsUse` | Use orrn for your company's work, in the role you were given. | orrn को अपनी कंपनी के काम के लिए, अपने दिए गए रोल में इस्तेमाल करें। |
 | `company.termsPasswords` | Keep your password and authenticator to yourself. | अपना पासवर्ड और authenticator किसी से शेयर न करें। |
@@ -345,6 +337,7 @@ Counts: 814 screen strings in 25 groups, 10 guides with 182 strings.
 | `done.body` | Your account is ready. | आपका अकाउंट तैयार है। |
 | `done.as` | You're in {company} as {role}. | आप {company} में {role} के रूप में हैं। |
 | `done.joinedTitle` | Welcome to {company} | {company} में आपका स्वागत है |
+| `done.joinedAs` | You're in as {role}. | आप {role} के रूप में जुड़ गए हैं। |
 | `done.go` | Go to Today | आज का पेज खोलें |
 | `done.goAdmin` | Open Godseye | Godseye खोलें |
 | `done.goOther` | Continue | आगे बढ़ें |

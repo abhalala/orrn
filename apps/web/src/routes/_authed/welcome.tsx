@@ -9,22 +9,22 @@ import { CompanyStep } from "@/features/auth/welcome/company-step";
 import { DoneStep } from "@/features/auth/welcome/done-step";
 import { PasswordStep } from "@/features/auth/welcome/password-step";
 import { TwoFactorStep } from "@/features/auth/welcome/two-factor-step";
-import { leaveWelcome, parseMagicFlag, welcomeSteps, welcomeTimeline } from "@/features/auth/welcome-steps";
+import { leaveWelcome, welcomeSteps, welcomeTimeline } from "@/features/auth/welcome-steps";
 import { homeTarget } from "@/shared/lib/home";
 import { signOutAndReset } from "@/shared/lib/sign-out";
 
 /**
  * One stepper for everything a person still owes before the app (spec
  * section 3): set password, two-factor, company details, done. Only the
- * steps `auth.me` says are open are shown. The old `/setup-credentials`
- * (magic link, `?magic=1`), `/onboarding` and `/change-password` land here.
+ * steps `auth.me` says are open are shown, so a reload, a detour or a later
+ * sign-in resumes at the first open step. The old `/setup-credentials`
+ * (magic link), `/onboarding` and `/change-password` land here.
  */
 export const Route = createFileRoute("/_authed/welcome")({
-  validateSearch: (search: Record<string, unknown>): { magic?: 1 } => (parseMagicFlag(search.magic) ? { magic: 1 } : {}),
-  beforeLoad: ({ context, search }) => {
+  beforeLoad: ({ context }) => {
     const { me } = context;
     // Nothing left to do here: home, like the old /change-password did.
-    if (leaveWelcome(me, welcomeSteps(me, { magic: search.magic === 1 }))) {
+    if (leaveWelcome(me, welcomeSteps(me))) {
       throw redirect({ to: homeTarget(me), replace: true });
     }
   },
@@ -35,9 +35,8 @@ function WelcomePage() {
   const { t } = useT();
   const navigate = useNavigate();
   const { me } = Route.useRouteContext();
-  const { magic } = Route.useSearch();
   // Fixed for this visit: finishing a step must not reshuffle the stepper.
-  const [stages] = useState(() => welcomeTimeline(welcomeSteps(me, { magic: magic === 1 })));
+  const [stages] = useState(() => welcomeTimeline(welcomeSteps(me)));
   const [index, setIndex] = useState(0);
   const password = useRef<string | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -81,6 +80,7 @@ function WelcomePage() {
       ) : stage === "twoFactor" ? (
         <TwoFactorStep
           headingRef={heading}
+          userId={me.user.id}
           password={password.current}
           onDone={() => {
             password.current = null;

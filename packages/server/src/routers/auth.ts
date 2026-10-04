@@ -35,6 +35,15 @@ export const authRouter = router({
       .where(eq(user.id, userId))
       .get();
 
+    // A magic-link account (waitlist approval) has no credential password until
+    // the welcome stepper sets one; /login takes only email + password, so the
+    // stepper keeps asking until it exists (Task 17 fix round 1).
+    const credential = await ctx.db
+      .select({ id: account.id })
+      .from(account)
+      .where(and(eq(account.userId, userId), eq(account.providerId, "credential"), isNotNull(account.password)))
+      .get();
+
     const companyRow =
       ctx.membership && ctx.companyId
         ? (
@@ -69,6 +78,7 @@ export const authRouter = router({
         onboardingCompleted: userRow?.onboardingCompleted ?? false,
         twoFactorEnabled: userRow?.twoFactorEnabled ?? false,
         mustChangePassword: userRow?.mustChangePassword ?? false,
+        hasPassword: Boolean(credential),
       },
       company:
         companyRow && ctx.role

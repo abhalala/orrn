@@ -6,10 +6,11 @@ import { Check } from "lucide-react";
 import { useState, type Ref } from "react";
 
 import { homeTarget } from "@/shared/lib/home";
-import { can, useMe, type Me } from "@/shared/lib/me";
+import { useMe, type Me } from "@/shared/lib/me";
 import { queryClient, trpc } from "@/shared/utils/trpc";
 
 import { FormAlert } from "../form-alert";
+import { finishesOnboardingHere } from "./finishes-onboarding";
 
 /**
  * Last stage: one green block (the screen's loud element, with a single pop)
@@ -38,16 +39,19 @@ export function DoneStep({
   const company = me.company;
   const roleName = company ? t(`roles.${company.role}` as MessageKey) : "";
   const title = joinedOnly && company ? t("welcome.done.joinedTitle", { company: company.name }) : t("welcome.done.title");
-  const line = company ? t("welcome.done.as", { company: company.name, role: roleName }) : t("welcome.done.body");
+  // The joined title already names the company, so the line carries only the role.
+  const line = !company
+    ? t("welcome.done.body")
+    : joinedOnly
+      ? t("welcome.done.joinedAs", { role: roleName })
+      : t("welcome.done.as", { company: company.name, role: roleName });
   const goLabel = company ? t("welcome.done.go") : me.isPlatformAdmin && me.platformRole ? t("welcome.done.goAdmin") : t("welcome.done.goOther");
 
   async function go() {
     setFailed(false);
     setOpening(true);
     try {
-      if (!me.user.onboardingCompleted && !can(me, "settings.update")) {
-        await finish.mutateAsync({});
-      }
+      if (finishesOnboardingHere(me)) await finish.mutateAsync({});
       await queryClient.invalidateQueries(trpc.auth.me.queryFilter());
       const fresh = (await queryClient.fetchQuery(trpc.auth.me.queryOptions())) as Me;
       await navigate({ to: homeTarget(fresh), replace: true });

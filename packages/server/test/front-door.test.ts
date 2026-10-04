@@ -94,3 +94,45 @@ describe("setPassword when a password already exists", () => {
     expect((await audits(companyId, "auth.password_set")).length).toBe(0);
   });
 });
+
+describe("auth.me hasPassword", () => {
+  test("false for a magic-link account (no credential password), true once one exists", async () => {
+    const { companyId, users } = await env.seedCompany();
+    const owner = users.owner;
+    const caller = () => env.caller({ role: "owner", companyId });
+
+    // Waitlist approval makes the owner with no account row at all.
+    expect((await caller().auth.me()).user.hasPassword).toBe(false);
+
+    // A credential row without a password (Better Auth never writes one, but the column allows it) still counts as none.
+    const accountId = crypto.randomUUID();
+    await env.db.insert(account).values({
+      id: accountId,
+      accountId: owner.id,
+      providerId: "credential",
+      userId: owner.id,
+      password: null,
+      updatedAt: new Date(),
+    });
+    expect((await caller().auth.me()).user.hasPassword).toBe(false);
+
+    await env.db
+      .update(account)
+      .set({ password: await hashPassword("first-pass-1") })
+      .where(eq(account.id, accountId));
+    expect((await caller().auth.me()).user.hasPassword).toBe(true);
+  });
+
+  test("another provider's account is not a password", async () => {
+    const { companyId, users } = await env.seedCompany();
+    await env.db.insert(account).values({
+      id: crypto.randomUUID(),
+      accountId: "google-123",
+      providerId: "google",
+      userId: users.admin.id,
+      password: null,
+      updatedAt: new Date(),
+    });
+    expect((await env.caller({ role: "admin", companyId }).auth.me()).user.hasPassword).toBe(false);
+  });
+});

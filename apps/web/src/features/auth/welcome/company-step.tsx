@@ -15,6 +15,9 @@ import { StepHeading } from "./step-heading";
 
 type Errors = Partial<Record<"location" | "contact" | "presses" | "terms", MessageKey>>;
 
+/** The most presses `auth.completeOnboarding` accepts (server: `pressCount` max 500). */
+export const MAX_PRESSES = 500;
+
 function text(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -68,6 +71,7 @@ export function CompanyStep({
     const pressCount = Number(presses.replace(/,/g, ""));
     if (!presses.trim()) next.presses = "errors.required";
     else if (!Number.isInteger(pressCount) || pressCount < 0) next.presses = "errors.wholeNumber";
+    else if (pressCount > MAX_PRESSES) next.presses = "welcome.company.pressesMax";
     if (!agreed) next.terms = "welcome.company.termsRequired";
     setErrors(next);
     const first = (["location", "contact", "presses", "terms"] as const).find((k) => next[k]);
@@ -113,7 +117,7 @@ export function CompanyStep({
               className="font-mono tabular-nums"
             />
           </Field>
-          <Field label={t("welcome.company.presses")} error={errors.presses && t(errors.presses)}>
+          <Field label={t("welcome.company.presses")} error={errors.presses && t(errors.presses, { max: MAX_PRESSES })}>
             <NumberInput ref={refs.presses} decimal={false} maxLength={3} value={presses} onValueChange={setPresses} />
           </Field>
         </div>

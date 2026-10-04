@@ -16,8 +16,9 @@ export const STATIC_REDIRECTS: Record<string, string> = {
   "/dispatches/new": "/dispatch/new",
   "/spool": "/printing",
   "/settings/members": "/settings?tab=team",
-  // Ruling R6: the emailed magic link lands in the welcome stepper's magic variant.
-  "/setup-credentials": "/welcome?magic=1",
+  // The emailed magic link (waitlist approval). Plain /welcome again: the steps
+  // come from auth.me, so the old ?magic=1 flag (ruling R6) is gone.
+  "/setup-credentials": "/welcome",
   "/onboarding": "/welcome",
   "/change-password": "/welcome",
   "/waitlist": "/request-access",

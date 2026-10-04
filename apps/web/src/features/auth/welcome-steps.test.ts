@@ -5,7 +5,7 @@ import { can } from "@orrn/server/lib/permissions";
 
 import type { Me } from "@/shared/lib/me";
 
-import { COMPANY_SETUP_ROLES, leaveWelcome, parseMagicFlag, welcomeSteps, welcomeTimeline } from "./welcome-steps";
+import { COMPANY_SETUP_ROLES, leaveWelcome, needsPassword, welcomeSteps, welcomeTimeline } from "./welcome-steps";
 
 type MeOver = Partial<Omit<Me, "user" | "company">> & {
   user?: Partial<Me["user"]>;
@@ -36,9 +36,9 @@ function me(over: MeOver = {}): Me {
 }
 
 describe("welcomeSteps: the four user types", () => {
-  test("magic-link owner from waitlist approval: password, two-factor, company", () => {
-    const owner = me({ user: { onboardingCompleted: false, twoFactorEnabled: false } });
-    expect(welcomeSteps(owner, { magic: true })).toEqual(["password", "twoFactor", "company"]);
+  test("magic-link owner from waitlist approval (no password yet): password, two-factor, company", () => {
+    const owner = me({ user: { onboardingCompleted: false, twoFactorEnabled: false, hasPassword: false } });
+    expect(welcomeSteps(owner)).toEqual(["password", "twoFactor", "company"]);
   });
 
   test("temp-password staff member (forced change): only the password step", () => {
@@ -46,16 +46,19 @@ describe("welcomeSteps: the four user types", () => {
       company: null,
       isPlatformAdmin: true,
       platformRole: "support",
-      user: { mustChangePassword: true, onboardingCompleted: true },
+      user: { mustChangePassword: true, onboardingCompleted: true, hasPassword: true },
     });
     expect(welcomeSteps(staff)).toEqual(["password"]);
     // A temp-password operator in a plant: still only the password.
-    const operator = me({ company: { role: "operator" }, user: { mustChangePassword: true, onboardingCompleted: false } });
+    const operator = me({
+      company: { role: "operator" },
+      user: { mustChangePassword: true, onboardingCompleted: false, hasPassword: true },
+    });
     expect(welcomeSteps(operator)).toEqual(["password"]);
   });
 
   test("invited admin with onboarding open: company details only", () => {
-    const admin = me({ company: { role: "admin" }, user: { onboardingCompleted: false } });
+    const admin = me({ company: { role: "admin" }, user: { onboardingCompleted: false, hasPassword: true } });
     expect(welcomeSteps(admin)).toEqual(["company"]);
   });
 
@@ -65,36 +68,60 @@ describe("welcomeSteps: the four user types", () => {
   });
 });
 
+describe("welcomeSteps: derived from auth.me, not from how they arrived", () => {
+  test("a magic-link owner who left before the password step gets it back on any later visit", () => {
+    // Came back through /today (requireCompanyMe), a reload or a sign-in: no URL flag anywhere.
+    const owner = me({ user: { onboardingCompleted: false, hasPassword: false } });
+    expect(welcomeSteps(owner)).toEqual(["password", "twoFactor", "company"]);
+  });
+
+  test("a reload after the password was set resumes at two-factor, not at 'Set your password'", () => {
+    const owner = me({ user: { onboardingCompleted: false, hasPassword: true, twoFactorEnabled: false } });
+    expect(welcomeSteps(owner)).toEqual(["twoFactor", "company"]);
+  });
+
+  test("an owner who set a password, signed out and signed back in still has to turn on two-factor", () => {
+    const owner = me({ user: { onboardingCompleted: false, hasPassword: true } });
+    expect(welcomeSteps(owner)).toContain("twoFactor");
+  });
+
+  test("any owner with onboarding open and two-factor off is asked for it, invited owners too", () => {
+    expect(welcomeSteps(me({ user: { onboardingCompleted: false, hasPassword: true } }))).toEqual(["twoFactor", "company"]);
+  });
+
+  test("an owner who already turned on two-factor skips it", () => {
+    const owner = me({ user: { onboardingCompleted: false, twoFactorEnabled: true, hasPassword: false } });
+    expect(welcomeSteps(owner)).toEqual(["password", "company"]);
+  });
+
+  test("a set-up account with no password is asked for one (it could never sign in again)", () => {
+    expect(welcomeSteps(me({ user: { hasPassword: false } }))).toEqual(["password"]);
+    // Two-factor is a first-setup step only.
+    expect(welcomeSteps(me({ user: { hasPassword: false, twoFactorEnabled: false } }))).not.toContain("twoFactor");
+  });
+
+  test("an older auth.me without hasPassword is read as having one", () => {
+    const owner = me({ user: { onboardingCompleted: false } });
+    expect("hasPassword" in owner.user).toBe(false);
+    expect(welcomeSteps(owner)).toEqual(["twoFactor", "company"]);
+  });
+});
+
 describe("welcomeSteps: edges", () => {
-  test("invited operator or viewer with onboarding open never sees company details", () => {
+  test("invited operator or viewer with onboarding open never sees company details or two-factor", () => {
     for (const role of ["operator", "viewer", "manager", "packer"] as const) {
-      expect(welcomeSteps(me({ company: { role }, user: { onboardingCompleted: false } }))).toEqual([]);
+      expect(welcomeSteps(me({ company: { role }, user: { onboardingCompleted: false, hasPassword: true } }))).toEqual([]);
     }
   });
 
-  test("owner with onboarding open but not from a magic link: company details only, no two-factor", () => {
-    expect(welcomeSteps(me({ user: { onboardingCompleted: false } }))).toEqual(["company"]);
+  test("a non-owner without a password sets one but is never asked for two-factor", () => {
+    const operator = me({ company: { role: "operator" }, user: { onboardingCompleted: false, hasPassword: false } });
+    expect(welcomeSteps(operator)).toEqual(["password"]);
   });
 
-  test("magic-link owner who already turned on two-factor skips it", () => {
-    const owner = me({ user: { onboardingCompleted: false, twoFactorEnabled: true } });
-    expect(welcomeSteps(owner, { magic: true })).toEqual(["password", "company"]);
-  });
-
-  test("magic flag on a non-owner sets the password but never asks for two-factor", () => {
-    const operator = me({ company: { role: "operator" }, user: { onboardingCompleted: false } });
-    expect(welcomeSteps(operator, { magic: true })).toEqual(["password"]);
-  });
-
-  test("forced change and magic link together still ask for the password once", () => {
-    const owner = me({ user: { mustChangePassword: true, onboardingCompleted: false } });
-    expect(welcomeSteps(owner, { magic: true })).toEqual(["password", "twoFactor", "company"]);
-  });
-
-  test("a stale magic link on a set-up account asks for nothing", () => {
-    // Old emails still point at /setup-credentials, which lands on /welcome?magic=1.
-    expect(welcomeSteps(me(), { magic: true })).toEqual([]);
-    expect(welcomeSteps(me({ user: { mustChangePassword: true } }), { magic: true })).toEqual(["password"]);
+  test("forced change and no password together still ask for the password once", () => {
+    const owner = me({ user: { mustChangePassword: true, onboardingCompleted: false, hasPassword: false } });
+    expect(welcomeSteps(owner)).toEqual(["password", "twoFactor", "company"]);
   });
 
   test("an impersonating admin has no company chores in someone else's company", () => {
@@ -102,10 +129,9 @@ describe("welcomeSteps: edges", () => {
     const actor = me({
       isPlatformAdmin: true,
       platformRole: "super_admin",
-      user: { onboardingCompleted: false },
+      user: { onboardingCompleted: false, hasPassword: true },
       impersonation: grant,
     });
-    expect(welcomeSteps(actor, { magic: true })).toEqual(["password"]);
     expect(welcomeSteps(actor)).toEqual([]);
     // Their own forced password change still stands: the guards send them here for it.
     const forced = me({ ...actor, user: { mustChangePassword: true, onboardingCompleted: false }, impersonation: grant });
@@ -113,14 +139,26 @@ describe("welcomeSteps: edges", () => {
   });
 });
 
+describe("needsPassword", () => {
+  test("a forced change or no password at all", () => {
+    expect(needsPassword(me({ user: { mustChangePassword: true, hasPassword: true } }))).toBe(true);
+    expect(needsPassword(me({ user: { hasPassword: false } }))).toBe(true);
+    expect(needsPassword(me({ user: { hasPassword: true } }))).toBe(false);
+    expect(needsPassword(me())).toBe(false);
+  });
+});
+
 describe("leaveWelcome", () => {
   test("stays while a step is open", () => {
-    const owner = me({ user: { onboardingCompleted: false } });
-    expect(leaveWelcome(owner, welcomeSteps(owner, { magic: true }))).toBe(false);
+    const owner = me({ user: { onboardingCompleted: false, hasPassword: false } });
+    expect(leaveWelcome(owner, welcomeSteps(owner))).toBe(false);
+    // A set-up account with no password stays for the password step instead of bouncing home.
+    const passwordless = me({ user: { hasPassword: false } });
+    expect(leaveWelcome(passwordless, welcomeSteps(passwordless))).toBe(false);
   });
 
   test("an invited member whose only open item is the onboarding flag stays for the closing screen", () => {
-    const operator = me({ company: { role: "operator" }, user: { onboardingCompleted: false } });
+    const operator = me({ company: { role: "operator" }, user: { onboardingCompleted: false, hasPassword: true } });
     expect(welcomeSteps(operator)).toEqual([]);
     expect(leaveWelcome(operator, [])).toBe(false);
   });
@@ -141,16 +179,6 @@ describe("welcomeTimeline", () => {
   test("ends with done, and done alone when nothing is left", () => {
     expect(welcomeTimeline(["password", "company"])).toEqual(["password", "company", "done"]);
     expect(welcomeTimeline([])).toEqual(["done"]);
-  });
-});
-
-describe("parseMagicFlag", () => {
-  test("accepts 1 as a number or string, nothing else", () => {
-    expect(parseMagicFlag(1)).toBe(true);
-    expect(parseMagicFlag("1")).toBe(true);
-    expect(parseMagicFlag(true)).toBe(false);
-    expect(parseMagicFlag("yes")).toBe(false);
-    expect(parseMagicFlag(undefined)).toBe(false);
   });
 });
 

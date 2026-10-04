@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { STATIC_REDIRECTS, resolveRedirect } from "./redirects";
 
-/** Spec §3.2, one row per old path. `/setup-credentials` is ruling R6, not the spec's `/welcome`. */
+/** Spec §3.2, one row per old path. */
 const SPEC_ROWS: readonly (readonly [old: string, next: string])[] = [
   ["/dashboard", "/today"],
   ["/receipts", "/pack"],
@@ -12,7 +12,7 @@ const SPEC_ROWS: readonly (readonly [old: string, next: string])[] = [
   ["/dispatches/new", "/dispatch/new"],
   ["/spool", "/printing"],
   ["/settings/members", "/settings?tab=team"],
-  ["/setup-credentials", "/welcome?magic=1"],
+  ["/setup-credentials", "/welcome"],
   ["/onboarding", "/welcome"],
   ["/change-password", "/welcome"],
   ["/waitlist", "/request-access"],
@@ -84,7 +84,6 @@ describe("resolveRedirect: query preservation", () => {
 
   test("merges into a target that already has a query", () => {
     expect(resolveRedirect("/settings/members", "?invite=1")).toBe("/settings?tab=team&invite=1");
-    expect(resolveRedirect("/setup-credentials", "?token=t1")).toBe("/welcome?magic=1&token=t1");
   });
 
   test("the target's own params win over an incoming one of the same name", () => {

@@ -3,15 +3,36 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { expectNoHorizontalScroll } from "../helpers/layout-guards";
 import { localPassword, signInViaApi, signInViaForm } from "./helpers/accounts";
+import { approvedOwnerMagicLink, devInvite, uniqueEmail } from "./helpers/front-door";
 import { API_URL as API, WEB_ORIGIN as ORIGIN } from "./helpers/ports";
+import { totp } from "./helpers/totp";
 
 /**
  * Front door (plan Task 17): sign in, request access, invite, welcome,
  * no-access. Needs the local stack and the seeded accounts.
  */
 
-function unique(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}@orrn.local`;
+const unique = uniqueEmail;
+
+/** An account in no company yet, made through the public sign-up. */
+async function createLooseAccount(browser: Browser, name: string) {
+  const email = unique("loose");
+  const password = `Loose-${crypto.randomUUID().slice(0, 12)}`;
+  const ctx = await browser.newContext();
+  try {
+    const res = await ctx.request.post(`${API}/api/auth/sign-up/email`, {
+      headers: { origin: ORIGIN },
+      data: { name, email, password },
+    });
+    expect(res.ok(), `sign-up returned ${res.status()}`).toBe(true);
+  } finally {
+    await ctx.close();
+  }
+  return { email, password };
+}
+
+function h1(page: Page, name: string | RegExp) {
+  return page.getByRole("heading", { level: 1, name });
 }
 
 /** A platform staff login with a temporary password (`mustChangePassword`), made by the seeded super admin. */
@@ -61,7 +82,9 @@ test.describe("sign in", () => {
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page.getByRole("alert")).toHaveText("Email or password is wrong. Check both and try again.");
     await expect(page).toHaveURL(/\/login$/);
+    // The alert can't tell which one is wrong, so both fields say so.
     await expect(page.getByLabel("Email", { exact: true })).toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute("aria-invalid", "true");
   });
 
   test("empty fields say what to fill in, without calling the server", async ({ page }) => {
@@ -83,10 +106,15 @@ test.describe("sign in", () => {
     const field = page.getByLabel("Password", { exact: true });
     await field.fill("secret-words");
     await expect(field).toHaveAttribute("type", "password");
-    await page.getByRole("button", { name: "Show password" }).click();
+    // A toggle keeps its name; aria-pressed carries the state.
+    const toggle = page.getByRole("button", { name: "Show password" });
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await toggle.click();
     await expect(field).toHaveAttribute("type", "text");
-    await page.getByRole("button", { name: "Hide password" }).click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await toggle.click();
     await expect(field).toHaveAttribute("type", "password");
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
   });
 
   test("one tap switches the screen to Hindi", async ({ page }) => {
@@ -151,30 +179,186 @@ test.describe("request access", () => {
 });
 
 test.describe("invite", () => {
-  test("an email that already has an account switches to sign-in, and a bad link says so", async ({ page }) => {
-    await page.goto("/invite/not-a-real-token");
-    await expect(page.getByRole("heading", { level: 1, name: "Join your team on orrn" })).toBeVisible();
-    await page.getByLabel("Your name").fill("Local Owner");
-    await page.getByLabel("Email", { exact: true }).fill("owner@orrn.local");
-    await page.getByLabel("Password", { exact: true }).fill(localPassword());
+  test("an invited operator makes an account, is welcomed into the company and lands on Today", async ({ page }) => {
+    const email = unique("op");
+    const { path, companyName } = await devInvite(page.context().request, { email, role: "operator" });
+    await page.goto(path);
+    await expect(h1(page, "Join your team on orrn")).toBeVisible();
+    await page.getByLabel("Your name").fill("Suresh Rathod");
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(`Suresh-${crypto.randomUUID().slice(0, 10)}`);
+    await page.getByRole("button", { name: "Create account and join" }).click();
+
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(h1(page, `Welcome to ${companyName}`)).toBeVisible();
+    // The title already names the company: the line says only the role.
+    await expect(page.getByText("You're in as Operator.")).toBeVisible();
+    await expect(page.locator("[data-slot='stepper']")).toHaveCount(0);
+    await expectNoSeriousAxe(page);
+    await page.getByRole("button", { name: "Go to Today" }).click();
+    await expect(page).toHaveURL(/\/today$/);
+
+    // "Go to Today" closed their onboarding: /welcome has nothing left and sends them home.
+    await page.goto("/welcome");
+    await expect(page).toHaveURL(/\/today$/);
+  });
+
+  test("an invited admin fills in company details on the way in", async ({ page }) => {
+    const email = unique("admin");
+    const { path, companyName } = await devInvite(page.context().request, { email, role: "admin" });
+    await page.goto(path);
+    await page.getByLabel("Your name").fill("Nisha Joshi");
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(`Nisha-${crypto.randomUUID().slice(0, 10)}`);
+    await page.getByRole("button", { name: "Create account and join" }).click();
+
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(h1(page, "Company details")).toBeVisible();
+    const stepper = page.locator("[data-slot='stepper']");
+    await expect(stepper.getByRole("listitem")).toHaveCount(2);
+    await expect(stepper).not.toContainText("Two-factor");
+
+    await page.getByRole("button", { name: "Save and continue" }).click();
+    await expect(page.getByText("Fill this in.")).toHaveCount(3);
+    await expect(page.getByText("Tick the box to agree before you continue.")).toBeVisible();
+    await expect(page.getByLabel("Location")).toBeFocused();
+
+    await page.getByLabel("Location").fill("Pandesara, Surat");
+    await page.getByLabel("Contact phone").fill("+91 98250 41177");
+    await page.getByLabel("Number of presses").fill("600");
+    await page.getByLabel("I agree to the orrn terms of service").check();
+    await page.getByRole("button", { name: "Save and continue" }).click();
+    // The server takes up to 500: say so on the field instead of "Something went wrong".
+    await expect(page.getByText("Up to 500 presses.")).toBeVisible();
+    await expect(page.getByLabel("Number of presses")).toBeFocused();
+
+    await page.getByLabel("Number of presses").fill("3");
+    await page.getByRole("button", { name: "Save and continue" }).click();
+    await expect(h1(page, "You're set up")).toBeVisible();
+    await expect(page.getByText(`You're in ${companyName} as Admin.`)).toBeVisible();
+    await page.getByRole("button", { name: "Go to Today" }).click();
+    await expect(page).toHaveURL(/\/today$/);
+    await page.goto("/welcome");
+    await expect(page).toHaveURL(/\/today$/);
+  });
+
+  test("an email that already has an account signs in to join", async ({ page, browser }) => {
+    const { email, password } = await createLooseAccount(browser, "Kiran Shah");
+    const { path, companyName } = await devInvite(page.context().request, { email, role: "viewer" });
+    await page.goto(path);
+    await page.getByLabel("Your name").fill("Kiran Shah");
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Create account and join" }).click();
 
     await expect(page.getByText("This email already has an account. Sign in to join.")).toBeVisible();
-    await expect(page.getByLabel("Email", { exact: true })).toHaveValue("owner@orrn.local");
-    await page.getByLabel("Password", { exact: true }).fill(localPassword());
+    await expect(page.getByLabel("Email", { exact: true })).toHaveValue(email);
+    await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Sign in and join" }).click();
 
-    await expect(page.getByRole("heading", { level: 1, name: "This invite link doesn't work" })).toBeVisible();
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(h1(page, `Welcome to ${companyName}`)).toBeVisible();
+    await expect(page.getByText("You're in as Viewer.")).toBeVisible();
+  });
+
+  test("a dead link says so before anyone makes an account", async ({ page }) => {
+    const { path } = await devInvite(page.context().request, { email: unique("late"), role: "viewer", expired: true });
+    for (const link of [path, "/invite/not-a-real-token"]) {
+      await page.goto(link);
+      await expect(h1(page, "This invite link doesn't work")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Create account and join" })).toHaveCount(0);
+    }
     await page.getByRole("link", { name: "Go to sign in" }).click();
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test("a signed-in visitor can join with the current account", async ({ page }) => {
+  test("a signed-in member with a dead link is offered their home, not the sign-in form", async ({ page }) => {
     await signInViaApi(page, "owner");
     await page.goto("/invite/not-a-real-token");
     await expect(page.getByText("You're signed in as owner@orrn.local.")).toBeVisible();
     await page.getByRole("button", { name: "Join with this account" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "This invite link doesn't work" })).toBeVisible();
+    await expect(h1(page, "This invite link doesn't work")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Go to sign in" })).toHaveCount(0);
+    await page.getByRole("link", { name: "Go to Today" }).click();
+    await expect(page).toHaveURL(/\/today$/);
+  });
+});
+
+test.describe("welcome: waitlist-approved owner (magic link)", () => {
+  test("password, a reload mid-setup, two-factor, company details, then a sign-in with an authenticator code", async ({
+    page,
+    browser,
+  }) => {
+    test.slow();
+    const companyName = `Shree Ganesh Extrusions ${Math.random().toString(36).slice(2, 6)}`;
+    const { email, url } = await approvedOwnerMagicLink(browser, companyName);
+    const stepper = page.locator("[data-slot='stepper']");
+    const key = page.locator("[data-slot='totp-key']");
+
+    // The emailed link signs in and lands on the old /setup-credentials, which opens the stepper.
+    await page.goto(url);
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(h1(page, "Set your password")).toBeVisible();
+    await expect(stepper.getByRole("listitem")).toHaveCount(4);
+
+    // Leaving before the password (typing /today) does not skip it: the steps come from the account.
+    await page.goto("/today");
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(h1(page, "Set your password")).toBeVisible();
+
+    const first = `First-${crypto.randomUUID().slice(0, 10)}`;
+    await page.getByLabel("New password", { exact: true }).fill(first);
+    await page.getByLabel("Type it again", { exact: true }).fill(first);
+    await page.getByRole("button", { name: "Save password" }).click();
+
+    await expect(h1(page, "Turn on two-factor")).toBeVisible();
+    await expect(key).toBeVisible();
+    // The QR replaced the form: the keyboard goes to the code field.
+    await expect(page.getByLabel("6-digit code")).toBeFocused();
+    const firstKey = (await key.innerText()).replace(/\s/g, "");
+
+    // The phone drops the tab while the owner copies the key into the authenticator app.
+    await page.reload();
+    await expect(h1(page, "Turn on two-factor")).toBeVisible();
+    await expect(h1(page, "Set your password")).toHaveCount(0);
+    await expect(stepper.getByRole("listitem")).toHaveCount(3);
+
+    await page.getByLabel("Your password", { exact: true }).fill(`${first}-typo`);
+    await page.getByRole("button", { name: "Show QR code" }).click();
+    await expect(page.getByText("That password is wrong. Type the password you sign in with.")).toBeVisible();
+    // The password set before the reload is the one that works.
+    await page.getByLabel("Your password", { exact: true }).fill(first);
+    await page.getByRole("button", { name: "Show QR code" }).click();
+    await expect(key).toBeVisible();
+    const secret = (await key.innerText()).replace(/\s/g, "");
+    expect(secret).not.toBe(firstKey);
+    await expect(page.getByText("This is a new QR code. A code you added to your app before won't work, so scan this one.")).toBeVisible();
+
+    await page.getByLabel("6-digit code").fill(totp(secret));
+    await expect(h1(page, "Backup codes")).toBeVisible();
+    await page.getByRole("button", { name: "I saved them, continue" }).click();
+
+    await expect(h1(page, "Company details")).toBeVisible();
+    await page.getByLabel("Location").fill("Sachin GIDC, Surat");
+    await page.getByLabel("Contact phone").fill("+91 98250 41177");
+    await page.getByLabel("Number of presses").fill("4");
+    await page.getByLabel("I agree to the orrn terms of service").check();
+    await page.getByRole("button", { name: "Save and continue" }).click();
+
+    await expect(h1(page, "You're set up")).toBeVisible();
+    await expect(page.getByText(`You're in ${companyName} as Owner.`)).toBeVisible();
+    await page.getByRole("button", { name: "Go to Today" }).click();
+    await expect(page).toHaveURL(/\/today$/);
+
+    // The next day: signed out, then the password and the authenticator code.
+    await page.context().clearCookies();
+    await page.goto("/login");
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(first);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(h1(page, "Enter your code")).toBeVisible();
+    await page.getByLabel("6-digit code").fill(totp(secret));
+    await expect(page).toHaveURL(/\/today$/);
   });
 });
 
@@ -250,7 +434,8 @@ test.describe("accessibility", () => {
       test(`login, request access and invite have no serious axe issues at ${width} ${scheme}`, async ({ page }) => {
         await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
         await page.setViewportSize({ width, height: 844 });
-        for (const path of ["/login", "/request-access", "/invite/not-a-real-token"]) {
+        const invite = await devInvite(page.context().request, { email: unique("axe"), role: "viewer" });
+        for (const path of ["/login", "/request-access", invite.path]) {
           await page.goto(path);
           await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
           await expect(page.locator("html")).toHaveClass(new RegExp(`\\b${scheme}\\b`));

@@ -10,6 +10,8 @@ export type PasswordFieldProps = {
   autoComplete: "current-password" | "new-password";
   hint?: string;
   error?: string;
+  /** Mark the field invalid when the error is shown elsewhere (the sign-in alert). */
+  invalid?: boolean;
   id?: string;
   name?: string;
   disabled?: boolean;
@@ -18,10 +20,12 @@ export type PasswordFieldProps = {
 /**
  * Password input with a show/hide toggle (gloves and small phone keyboards
  * make typos likely). The toggle is a real button inside the field, 44px on
- * touch, named for what it does; showing the password never submits.
+ * touch; showing the password never submits. It is a toggle button in the
+ * APG sense: a fixed name ("Show password") with `aria-pressed` carrying the
+ * state, so screen readers don't hear the state twice.
  */
 export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(function PasswordField(
-  { label, value, onValueChange, autoComplete, hint, error, id, name, disabled },
+  { label, value, onValueChange, autoComplete, hint, error, invalid, id, name, disabled },
   ref,
 ) {
   const { t } = useT();
@@ -40,14 +44,15 @@ export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(fu
           value={value}
           disabled={disabled}
           onChange={(e) => onValueChange(e.currentTarget.value)}
+          aria-invalid={invalid || undefined}
           className="pr-12"
         />
         <button
           type="button"
           onClick={() => setShown((s) => !s)}
           aria-pressed={shown}
-          aria-label={shown ? t("auth.login.hidePassword") : t("auth.login.showPassword")}
-          title={shown ? t("auth.login.hidePassword") : t("auth.login.showPassword")}
+          aria-label={t("auth.login.showPassword")}
+          title={t("auth.login.showPassword")}
           disabled={disabled}
           className="animate-press absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--dur-fast)] hover:text-foreground disabled:opacity-50"
         >

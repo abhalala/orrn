@@ -196,6 +196,8 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
               autoComplete="current-password"
               value={password}
               onValueChange={setPassword}
+              // The alert can't say which of the two is wrong, so both fields say so.
+              invalid={credentialsWrong}
               error={fieldErrors.password && t(fieldErrors.password)}
             />
           </>

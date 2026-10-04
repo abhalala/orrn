@@ -7,14 +7,15 @@ type Tile = {
   tone: "green" | "blue" | "red";
   step: MessageKey;
   status: MessageKey;
-  line: MessageKey;
+  /** One line under the step name; only the large first tile has room for it. */
+  line?: MessageKey;
 };
 
 /** The plant flow as the status colours the app uses for it. Words only, no numbers (nothing invented). */
 const TILES: Tile[] = [
   { tone: "green", step: "nav.pack", status: "status.bundle.available", line: "auth.brand.pack" },
-  { tone: "blue", step: "auth.brand.holdStep", status: "status.bundle.reserved", line: "auth.brand.hold" },
-  { tone: "red", step: "nav.dispatch", status: "status.bundle.dispatched", line: "auth.brand.dispatch" },
+  { tone: "blue", step: "auth.brand.holdStep", status: "status.bundle.reserved" },
+  { tone: "red", step: "nav.dispatch", status: "status.bundle.dispatched" },
 ];
 
 export function Wordmark({ className, onInk = false }: { className?: string; onInk?: boolean }) {
@@ -73,7 +74,7 @@ export function BrandPanel({ className }: { className?: string }) {
               >
                 <span className="relative flex flex-col gap-1">
                   <span className="font-display text-[17px] font-bold leading-tight tracking-[-0.02em]">{t(tile.step)}</span>
-                  {i === 0 ? (
+                  {tile.line ? (
                     <span className="text-[14px] font-medium leading-snug break-words">{t(tile.line)}</span>
                   ) : null}
                 </span>
