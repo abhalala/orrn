@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi } from "./helpers/accounts";
+import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
 /**
@@ -18,8 +19,8 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
  * The camera tests run Chromium with its fake capture device.
  */
 
-const API = process.env.E2E_API_URL ?? "http://localhost:3000";
-const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3002";
+const API = API_URL;
+const ORIGIN = WEB_ORIGIN;
 const SEEDED_SERIAL = "BG-000001-B001";
 
 // Chromium's fake capture device stands in for a camera (launch options are per file).

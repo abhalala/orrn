@@ -145,7 +145,10 @@ describe("dev-only CORS origins (S11)", () => {
   test("localhost origins are only allowed in development", () => {
     expect(isDevLocalOrigin({ NODE_ENV: "development" }, "http://localhost:3001")).toBe(true);
     expect(isDevLocalOrigin({ NODE_ENV: "development" }, "http://localhost:3002")).toBe(true);
-    expect(isDevLocalOrigin({ NODE_ENV: "development" }, "http://localhost:3003")).toBe(false);
+    // Any port: every worktree runs its own web port (see corsOrigin.test.ts for the full matrix).
+    expect(isDevLocalOrigin({ NODE_ENV: "development" }, "http://localhost:3003")).toBe(true);
+    expect(isDevLocalOrigin({ NODE_ENV: "development" }, "http://127.0.0.1:3291")).toBe(true);
+    expect(isDevLocalOrigin({ NODE_ENV: "development" }, "http://localhost.evil.example:3003")).toBe(false);
     expect(isDevLocalOrigin({ NODE_ENV: "production" }, "http://localhost:3001")).toBe(false);
     expect(isDevLocalOrigin({ NODE_ENV: "test" }, "http://localhost:3002")).toBe(false);
     expect(isDevLocalOrigin({}, "http://localhost:3001")).toBe(false);

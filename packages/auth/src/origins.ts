@@ -32,3 +32,38 @@ export function trustedWebOrigins(config: {
 }): string[] {
   return parseOriginList(config.corsOrigin, config.corsAllowedOrigins);
 }
+
+/**
+ * Better Auth `trustedOrigins` wildcard patterns for local web dev servers on any port. Added only
+ * when NODE_ENV is "development" (see trustedOriginsFor). Same set as `isDevLocalOrigin` in
+ * @orrn/server/lib/devOrigins, which the CORS middleware uses.
+ */
+export const DEV_LOCAL_TRUSTED_ORIGINS = ["http://localhost:*", "http://127.0.0.1:*"] as const;
+
+export interface TrustedOriginsEnv {
+  NODE_ENV?: string;
+  CORS_ORIGIN?: string;
+  CORS_ALLOWED_ORIGINS?: string;
+}
+
+/**
+ * Better Auth `trustedOrigins` (packages/auth/src/index.ts). Production: the configured web origins
+ * and the native `orrn://` scheme, nothing else. Development (local stack and the deployed dev stage)
+ * also trusts Expo, the Expo web port and local web servers on any port (one per worktree).
+ */
+export function trustedOriginsFor(env: TrustedOriginsEnv): string[] {
+  return [
+    ...trustedWebOrigins({ corsOrigin: env.CORS_ORIGIN ?? "", corsAllowedOrigins: env.CORS_ALLOWED_ORIGINS }),
+    "orrn://",
+    ...(env.NODE_ENV === "development"
+      ? [
+          "exp://",
+          "exp://**",
+          "exp://192.168.*.*:*/**",
+          "http://localhost:8081",
+          // Every worktree runs its own web port; mirrors isDevLocalOrigin in @orrn/server (CORS).
+          ...DEV_LOCAL_TRUSTED_ORIGINS,
+        ]
+      : []),
+  ];
+}
