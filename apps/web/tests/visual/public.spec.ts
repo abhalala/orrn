@@ -23,7 +23,10 @@ test.describe("public marketing", () => {
   test("landing page layout", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Every bundle, accounted for." })).toBeVisible();
-    await expect(page).toHaveScreenshot("landing.png", { fullPage: true });
+    // A long page: on touch projects the first full-page capture can still
+    // carry the coarse-pointer control heights (Playwright resizes the page to
+    // capture it), so give the stability check room for a third shot under load.
+    await expect(page).toHaveScreenshot("landing.png", { fullPage: true, timeout: 20_000 });
   });
 });
 
