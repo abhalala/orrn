@@ -63,18 +63,25 @@ function useScrollEdges<T extends HTMLElement>() {
 }
 
 /**
- * Card-coloured fade over the side that hides columns (AN-2 UX m5). Laid
- * over the scroller rather than masking it: a mask would also clip the
- * scroller's focus ring.
+ * The cue on the side that hides columns (AN-2 UX m5): a soft ink shadow at
+ * the very edge (dark on light, light on dark, so it reads in both themes)
+ * over a card-coloured fade of the text beneath it. Laid over the scroller
+ * rather than masking it: a mask would also clip the scroller's focus ring.
  */
 function EdgeFade({ side }: { side: "start" | "end" }) {
+  const toward = side === "start" ? "right" : "left";
   return (
     <span
       aria-hidden="true"
       data-slot="chart-table-fade"
       data-side={side}
-      className={cn("pointer-events-none absolute inset-y-0 w-8", side === "start" ? "left-0" : "right-0")}
-      style={{ background: `linear-gradient(to ${side === "start" ? "right" : "left"}, var(--card), transparent)` }}
+      className={cn("pointer-events-none absolute inset-y-0 w-10", side === "start" ? "left-0" : "right-0")}
+      style={{
+        background: [
+          `linear-gradient(to ${toward}, color-mix(in oklab, var(--foreground) 16%, transparent), transparent 10px)`,
+          `linear-gradient(to ${toward}, var(--card) 15%, transparent)`,
+        ].join(", "),
+      }}
     />
   );
 }
