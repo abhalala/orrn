@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 990 screen strings in 27 groups, 11 guides with 202 strings.
+Counts: 992 screen strings in 27 groups, 11 guides with 202 strings.
 
 ## Screen strings
 
@@ -867,7 +867,7 @@ Please check, Lalubhai:
 - `unitLakh`: Chart axis short form for lakh (1.5L). Kept as L for now. Should it be लाख?
 - `unitCrore`: Chart axis short form for crore (1.2Cr). Kept as Cr for now. Should it be करोड़?
 
-### purchase (192)
+### purchase (193)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -999,6 +999,7 @@ Please check, Lalubhai:
 | `detail.date` | Lot date | लॉट की तारीख |
 | `detail.notSet` | Not set | नहीं डाला |
 | `detail.perKg` | {rate} per kg | {rate} प्रति kg |
+| `detail.perKgUnit` | per kg | प्रति kg |
 | `detail.notesTitle` | Debit and credit notes | डेबिट और क्रेडिट नोट |
 | `detail.noNotes` | No notes on this lot. | इस लॉट पर कोई नोट नहीं। |
 | `detail.noteType.debit` | Debit note | डेबिट नोट |
@@ -1064,7 +1065,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (55)
+### approvals (56)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1102,7 +1103,8 @@ Please check, Lalubhai:
 | `rejectNeedsNote` | Write why you are rejecting it. | नामंज़ूर करने की वजह लिखें। |
 | `own` | Someone else has to approve your request. | आपकी रिक्वेस्ट कोई और मंज़ूर करेगा। |
 | `viewOnly` | A manager approves this. | इसे मैनेजर मंज़ूर करते हैं। |
-| `open` | Open | खोलें |
+| `openLot` | Open lot | लॉट खोलें |
+| `openDie` | Open die | डाई खोलें |
 | `theirNote` | Their note | उनका नोट |
 | `decisionNote` | Decision note | फ़ैसले का नोट |
 | `figures` | Figures | आंकड़े |

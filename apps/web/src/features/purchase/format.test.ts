@@ -35,6 +35,17 @@ describe("bookDateText", () => {
   });
 });
 
+describe("bookDayText", () => {
+  test("lists drop the year inside the plant's current year and keep it otherwise", async () => {
+    const { bookDayText } = await import("./format");
+    expect(bookDayText("2026-10-04", "en", "2026-10-04")).toBe("4 Oct");
+    expect(bookDayText("2026-01-31", "en", "2026-10-04")).toBe("31 Jan");
+    expect(bookDayText("2025-12-30", "en", "2026-01-02")).toBe("30 Dec 2025");
+    expect(bookDayText("2026-10-04", "hi", "2026-10-04")).toMatch(/^4 \S+$/);
+    expect(bookDayText("soon", "en", "2026-10-04")).toBe("soon");
+  });
+});
+
 describe("instantDateText", () => {
   test("shows the plant's wall clock and survives a bad zone", async () => {
     const { instantDateText } = await import("./format");

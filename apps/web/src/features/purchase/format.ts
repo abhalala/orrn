@@ -37,6 +37,28 @@ export function bookDateText(date: string, locale: Locale): string {
   return dateFormat(locale).format(new Date(`${date}T12:00:00Z`));
 }
 
+const DAY_FORMATS = new Map<Locale, Intl.DateTimeFormat>();
+
+/**
+ * A book date for lists: "4 Oct" inside the plant's current year (from `today`, the company's
+ * book date), "30 Dec 2025" otherwise.
+ */
+export function bookDayText(date: string, locale: Locale, today: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  if (date.slice(0, 4) !== today.slice(0, 4)) return bookDateText(date, locale);
+  let f = DAY_FORMATS.get(locale);
+  if (!f) {
+    f = new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-IN", {
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+      numberingSystem: "latn",
+    });
+    DAY_FORMATS.set(locale, f);
+  }
+  return f.format(new Date(`${date}T12:00:00Z`));
+}
+
 /** An instant as a date in the plant's time zone. */
 export function instantDateText(at: Date | string | number, locale: Locale, timeZone = "Asia/Kolkata"): string {
   const options: Intl.DateTimeFormatOptions = {

@@ -24,7 +24,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { kgText, pctText } from "../purchase/format";
 import { formatRate } from "../purchase/lot-view";
-import { APPROVAL_TONE, approvalSubject, decideState } from "./approval-view";
+import { APPROVAL_TONE, approvalSubject, decideState, subjectCodes, unbrokenCodes } from "./approval-view";
 
 export type ApprovalItem = inferRouterOutputs<AppRouter>["approval"]["list"]["items"][number];
 
@@ -77,7 +77,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
     return <Sheet open={false} onOpenChange={onOpenChange} title={t("approvals.title")}>{null}</Sheet>;
   }
 
-  const title = t(subject.titleKey, subject.vars) || t(subject.kindKey);
+  const title = unbrokenCodes(t(subject.titleKey, subject.vars) || t(subject.kindKey), subjectCodes(subject));
   const rejectError = rejectTried && note.trim() === "" ? t("approvals.rejectNeedsNote") : undefined;
 
   const footer =
@@ -131,12 +131,12 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
           )
         ) : null}
 
-        {subject.href ? (
+        {subject.href && subject.openKey ? (
           <UiLink
             to={subject.href}
             className="inline-flex min-h-11 items-center self-start rounded-full border border-border bg-card px-5 text-[15px] font-semibold text-foreground no-underline shadow-sm hover:bg-surface-sunken"
           >
-            {t("approvals.open")}
+            {t(subject.openKey)}
           </UiLink>
         ) : null}
 
@@ -200,14 +200,19 @@ function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loa
   const { note, lot } = data;
   const pct = pctText(data.toleranceBp);
   const weightDebit = note.type === "debit" && note.reason === "weight";
-  const rows: [string, string][] = [
+  const rows: [string, ReactNode][] = [
     [t("approvals.party"), `${kgText(lot.partyKgG)} kg`],
     [t("approvals.ours"), lot.fcKgG === null ? "-" : `${kgText(lot.fcKgG)} kg`],
     [t("approvals.short"), data.shortG === null ? "-" : `${kgText(Math.max(0, data.shortG))} kg`],
     [t("approvals.tolerance"), `${kgText(data.toleranceG)} kg (${pct})`],
     [t("approvals.kgDiff"), `${kgText(note.kgDiffG)} kg`],
     [t("approvals.bori"), `${kgText(note.boriDeductionG)} kg`],
-    [t("approvals.rate"), t("purchase.detail.perKg", { rate: formatRate(lot.ratePaise) })],
+    [
+      t("approvals.rate"),
+      <>
+        {formatRate(lot.ratePaise)} <span className="font-sans">{t("purchase.detail.perKgUnit")}</span>
+      </>,
+    ],
     [t("approvals.amount"), formatRate(note.amountPaise)],
   ];
   return (

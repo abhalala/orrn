@@ -1095,6 +1095,7 @@ export const en = {
       date: "Lot date",
       notSet: "Not set",
       perKg: "{rate} per kg",
+      perKgUnit: "per kg",
       notesTitle: "Debit and credit notes",
       noNotes: "No notes on this lot.",
       noteType: {
@@ -1210,7 +1211,8 @@ export const en = {
     rejectNeedsNote: "Write why you are rejecting it.",
     own: "Someone else has to approve your request.",
     viewOnly: "A manager approves this.",
-    open: "Open",
+    openLot: "Open lot",
+    openDie: "Open die",
     theirNote: "Their note",
     decisionNote: "Decision note",
     figures: "Figures",

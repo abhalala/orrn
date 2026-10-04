@@ -21,9 +21,9 @@ import { Can } from "@/shared/components/can";
 import { RouterLink } from "@/shared/components/router-link";
 import { trpc } from "@/shared/utils/trpc";
 
-import { bookDateText, kgText } from "./format";
+import { bookDayText, kgText } from "./format";
 import { readKantaG } from "./kanta";
-import { DiffText, LotStatusChip, useToleranceBp } from "./lot-ui";
+import { DiffText, LotStatusChip, useCompanyToday, useToleranceBp } from "./lot-ui";
 import type { LotStatus } from "./lot-view";
 
 const PurchaseCharts = lazy(() => import("./purchase-charts"));
@@ -52,6 +52,7 @@ type LotRow = {
 export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: LotFilter): void }) {
   const { t, locale } = useT();
   const tolBp = useToleranceBp();
+  const today = useCompanyToday();
   const [offset, setOffset] = useState(0);
   const status = filter === "all" ? undefined : filter;
 
@@ -72,7 +73,7 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
       cell: (l) => (
         <span className="flex flex-col">
           <span className="font-mono whitespace-nowrap">{l.number}</span>
-          <span className="text-[13px] font-normal text-muted-foreground">{bookDateText(l.lotDate, locale)}</span>
+          <span className="text-[13px] font-normal whitespace-nowrap text-muted-foreground">{bookDayText(l.lotDate, locale, today)}</span>
         </span>
       ),
     },
@@ -86,12 +87,15 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
       key: "party",
       header: t("purchase.list.party"),
       align: "end",
+      // Phones show the verdict (difference) and keep both kantas for the lot page: a card stays one glance.
+      hideOnPhone: true,
       cell: (l) => <span className="font-mono">{kgText(l.partyKgG)}</span>,
     },
     {
       key: "ours",
       header: t("purchase.list.ours"),
       align: "end",
+      hideOnPhone: true,
       cell: (l) => <span className="font-mono">{l.fcKgG === null ? "-" : kgText(l.fcKgG)}</span>,
     },
     {

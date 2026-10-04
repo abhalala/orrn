@@ -37,6 +37,7 @@ describe("approvalSubject", () => {
       titleKey: "approvals.subject.dcDebit",
       vars: { number: "DN-3", lot: "LOT-12" },
       href: "/purchase/lot-9",
+      openKey: "approvals.openLot",
     });
     expect(approvalSubject(row({ meta: { number: "CN-1", lotId: "lot-9", lotNumber: "LOT-12", type: "credit" } })).titleKey).toBe(
       "approvals.subject.dcCredit",
@@ -53,6 +54,7 @@ describe("approvalSubject", () => {
       titleKey: "approvals.subject.dieRerank",
       vars: { code: "14701-B", from: 2, to: 1 },
       href: "/dies/die-7",
+      openKey: "approvals.openDie",
     });
   });
 
@@ -62,12 +64,69 @@ describe("approvalSubject", () => {
       titleKey: "approvals.subject.generic",
       vars: { ref: "K31" },
       href: null,
+      openKey: null,
     });
     expect(approvalSubject(row({ kind: "phantom_void", meta: {} })).vars).toEqual({ ref: "" });
   });
 
   test("never trusts meta to build an unsafe link", () => {
     expect(approvalSubject(row({ meta: { number: "DN-3", lotId: "../../admin", lotNumber: "LOT-1", type: "debit" } })).href).toBeNull();
+  });
+});
+
+describe("splitCodes", () => {
+  test("cuts a title into text and whole codes, so LOT-13 never breaks at its hyphen", async () => {
+    const { splitCodes } = await import("./approval-view");
+    expect(splitCodes("Debit note DCN-2 on LOT-13", ["DCN-2", "LOT-13"])).toEqual([
+      { text: "Debit note ", code: false },
+      { text: "DCN-2", code: true },
+      { text: " on ", code: false },
+      { text: "LOT-13", code: true },
+    ]);
+  });
+
+  test("Hindi word order, repeated and missing codes, empty codes ignored", async () => {
+    const { splitCodes } = await import("./approval-view");
+    expect(splitCodes("LOT-13 पर डेबिट नोट DCN-2", ["DCN-2", "LOT-13", ""])).toEqual([
+      { text: "LOT-13", code: true },
+      { text: " पर डेबिट नोट ", code: false },
+      { text: "DCN-2", code: true },
+    ]);
+    expect(splitCodes("K31 and K31", ["K31", "Z9"])).toEqual([
+      { text: "K31", code: true },
+      { text: " and ", code: false },
+      { text: "K31", code: true },
+    ]);
+    expect(splitCodes("Nothing here", [])).toEqual([{ text: "Nothing here", code: false }]);
+  });
+
+  test("a longer code wins over a shorter one it contains", async () => {
+    const { splitCodes } = await import("./approval-view");
+    expect(splitCodes("LOT-1 and LOT-12", ["LOT-1", "LOT-12"])).toEqual([
+      { text: "LOT-1", code: true },
+      { text: " and ", code: false },
+      { text: "LOT-12", code: true },
+    ]);
+  });
+});
+
+describe("unbrokenCodes", () => {
+  test("for plain-text titles: a word joiner after each hyphen inside a code, nothing else changes", async () => {
+    const { unbrokenCodes } = await import("./approval-view");
+    expect(unbrokenCodes("Debit note DCN-2 on LOT-13", ["DCN-2", "LOT-13"])).toBe("Debit note DCN-\u20602 on LOT-\u206013");
+    expect(unbrokenCodes("Copy 14701-B, tier 2 to 1", ["14701-B"])).toBe("Copy 14701-\u2060B, tier 2 to 1");
+    expect(unbrokenCodes("Well-known LOT-1", ["LOT-1"])).toBe("Well-known LOT-\u20601");
+  });
+});
+
+describe("subjectCodes", () => {
+  test("the note, lot, die copy and fallback codes of a subject, never tier numbers", async () => {
+    const { subjectCodes } = await import("./approval-view");
+    expect(subjectCodes(approvalSubject(row()))).toEqual(["DN-3", "LOT-12"]);
+    expect(
+      subjectCodes(approvalSubject(row({ kind: "die_rerank", meta: { sectionId: "die-7", code: "14701-B", fromRank: 2, toRank: 1 } }))),
+    ).toEqual(["14701-B"]);
+    expect(subjectCodes(approvalSubject(row({ kind: "cast_close", meta: { code: "K31" } })))).toEqual(["K31"]);
   });
 });
 

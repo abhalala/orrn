@@ -29,6 +29,19 @@ async function open(page: Page, opts: { role: LocalRole; width: number; path: st
   await expect(page.locator("main#main h1").first()).toBeVisible();
 }
 
+/**
+ * The screen has finished loading: no skeleton or busy region left in main. (Not "networkidle":
+ * the shell keeps polling, so the network never goes quiet.)
+ */
+async function settled(page: Page) {
+  await expect(page.locator("main#main [aria-busy='true']")).toHaveCount(0, { timeout: 15_000 });
+}
+
+/** A sonner toast with this text (the screen's own words, like the "Rejected" filter, don't count). */
+function toast(page: Page, text: string) {
+  return page.locator("[data-sonner-toast]").filter({ hasText: text });
+}
+
 async function newPage(browser: Browser) {
   const context = await browser.newContext({ baseURL: ORIGIN });
   return context.newPage();
@@ -96,6 +109,8 @@ async function toWeightsStep(page: Page) {
 
 test.describe("purchase and approvals", () => {
   test("short lot -> D/C note -> manager approves -> lot OK -> scrap stock up", async ({ browser }) => {
+    // Two people, several screens and server round trips: more than the default 30 s under load.
+    test.setTimeout(120_000);
     const office = await newPage(browser);
     await open(office, { role: "office", width: 390, path: "/purchase/new" });
     const before = await scrapStockG(office);
@@ -116,6 +131,7 @@ test.describe("purchase and approvals", () => {
     await office.getByRole("button", { name: "Save lot" }).click();
     await expect(office).toHaveURL(/\/purchase\/[\w-]+$/);
     await expect(office.getByText(/Note .+ sent for approval/)).toBeVisible();
+    await expect(office.getByTestId("kanta-hero")).toBeVisible();
     const lotUrl = office.url();
     const lotNumber = (await office.locator("main#main h1").first().textContent())!.trim();
 
@@ -141,7 +157,8 @@ test.describe("purchase and approvals", () => {
     await expect(sheet).toContainText("Covers the short beyond 0.5%");
     await expect(await blockingAxeViolations(owner)).toEqual([]);
     await sheet.getByRole("button", { name: "Approve" }).click();
-    await expect(owner.getByText("Approved", { exact: true }).first()).toBeVisible();
+    await expect(toast(owner, "Approved")).toBeVisible();
+    await expect(sheet).toBeHidden();
     await expect(owner.getByTestId("approval-card").filter({ hasText: lotNumber })).toHaveCount(0);
 
     // Back at the kanta: mark OK, scrap stock goes up by our kanta weight (no bori).
@@ -166,6 +183,8 @@ test.describe("purchase and approvals", () => {
   });
 
   test("office raises the note from the lot page; reject needs a reason", async ({ browser }) => {
+    // Two people, several screens and server round trips: more than the default 30 s under load.
+    test.setTimeout(120_000);
     const office = await newPage(browser);
     await open(office, { role: "office", width: 1280, path: "/purchase" });
     const lot = await apiLot(office, { partyKg: 3000, fcKg: 2950 });
@@ -189,12 +208,15 @@ test.describe("purchase and approvals", () => {
     await expect(review.getByText("Write why you are rejecting it.")).toBeVisible();
     await review.getByLabel("Note").fill("Weigh it again on our kanta");
     await review.getByRole("button", { name: "Reject" }).click();
-    await expect(owner.getByText("Rejected", { exact: true }).first()).toBeVisible();
+    await expect(toast(owner, "Rejected")).toBeVisible();
+    await expect(review).toBeHidden();
     await owner.goto("/approvals?status=rejected");
     await expect(owner.getByTestId("approval-card").filter({ hasText: lot.number })).toContainText("Weigh it again on our kanta");
   });
 
   test("charts only for analytics roles", async ({ browser }) => {
+    // Two people, several screens and server round trips: more than the default 30 s under load.
+    test.setTimeout(120_000);
     const owner = await newPage(browser);
     await open(owner, { role: "owner", width: 1280, path: "/purchase" });
     await expect(owner.getByTestId("purchase-chart-rate")).toBeVisible();
@@ -209,6 +231,8 @@ test.describe("purchase and approvals", () => {
 
   for (const width of [375, 390, 820, 1280, 1440]) {
     test(`layout guards and axe at ${width}`, async ({ page }) => {
+      // Four screens in two themes, axe on two widths, then the weights step: well past the default 30 s.
+      test.setTimeout(240_000);
       await open(page, { role: "office", width, path: "/purchase" });
       const lot = await apiLot(page, { partyKg: 6540, fcKg: 6320 });
       const paths = ["/purchase", "/purchase/new", `/purchase/${lot.id}`, "/approvals"];
@@ -217,7 +241,7 @@ test.describe("purchase and approvals", () => {
           await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
           await page.goto(path);
           await expect(page.locator("main#main h1").first()).toBeVisible();
-          await page.waitForLoadState("networkidle");
+          await settled(page);
           await expectNoHorizontalScroll(page);
           await expectNoClippedText(page, "main#main");
           if (width === 390 || width === 1280) {
@@ -241,6 +265,8 @@ test.describe("purchase and approvals", () => {
   test("keyboard: the stepper moves focus to each step heading and Enter submits a step", async ({ page }) => {
     await open(page, { role: "office", width: 1280, path: "/purchase/new" });
     await page.getByRole("combobox", { name: "Vendor" }).fill("Ganesh");
+    // Results are debounced: wait for them before choosing with the keyboard.
+    await expect(page.getByRole("option", { name: /Ganesh/ })).toBeVisible();
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await page.keyboard.press("Tab");
@@ -256,6 +282,7 @@ test.describe("purchase and approvals", () => {
 
   test("screenshots for review", async ({ browser }) => {
     test.skip(!SHOTS, "set PLW2_SHOTS_DIR to capture screenshots");
+    test.setTimeout(300_000);
     const office = await newPage(browser);
     await open(office, { role: "office", width: 1280, path: "/purchase" });
     const shortLot = await apiLot(office, { partyKg: 6540, fcKg: 6320 });
@@ -276,7 +303,16 @@ test.describe("purchase and approvals", () => {
         await owner.setViewportSize({ width, height: 900 });
         await owner.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
         const shot = async (name: string) => {
-          await owner.waitForLoadState("networkidle");
+          await settled(owner);
+          // Let sheets and toasts finish moving (finite animations only; a skeleton pulse never ends).
+          await owner.evaluate(() =>
+            Promise.all(
+              document
+                .getAnimations()
+                .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+                .map((a) => a.finished.catch(() => undefined)),
+            ),
+          );
           await owner.screenshot({ path: `${SHOTS}/${name}-${width}-${scheme}.png`, fullPage: true });
         };
         await owner.goto("/purchase");

@@ -31,6 +31,8 @@ import {
   approvalSubject,
   decideState,
   isApprovalKind,
+  splitCodes,
+  subjectCodes,
   type ApprovalForView,
   type ApprovalStatus,
 } from "./approval-view";
@@ -176,14 +178,24 @@ function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void 
   const view: ApprovalForView = item;
   const subject = approvalSubject(view);
   const state = decideState(me, view);
-  const title = t(subject.titleKey, subject.vars);
+  const title = t(subject.titleKey, subject.vars) || t(subject.kindKey);
+  // Codes stay on one line: "LOT-" and "13" on two lines misreads.
+  const titleNode = splitCodes(title, subjectCodes(subject)).map((p, i) =>
+    p.code ? (
+      <span key={i} className="whitespace-nowrap">
+        {p.text}
+      </span>
+    ) : (
+      p.text
+    ),
+  );
   const tz = typeof me?.company?.settings?.timezone === "string" ? me.company.settings.timezone : undefined;
   const asked = t("approvals.askedBy", { name: item.requestedByName ?? t("approvals.someone") });
   return (
     <li
       data-testid="approval-card"
       data-kind={item.kind}
-      className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 shadow-sm sm:p-5"
+      className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 sm:p-5"
     >
       <div className="flex min-w-0 items-start gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -191,10 +203,10 @@ function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void 
           <h2 className="m-0 font-display text-[18px] leading-snug font-bold tracking-[-0.02em] break-words">
             {subject.href ? (
               <UiLink to={subject.href} className="text-foreground underline-offset-4 hover:underline">
-                {title || t(subject.kindKey)}
+                {titleNode}
               </UiLink>
             ) : (
-              title || t(subject.kindKey)
+              titleNode
             )}
           </h2>
         </div>
@@ -215,8 +227,12 @@ function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void 
           {item.note ? `: ${item.note}` : ""}
         </p>
       ) : null}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant={state === "decide" ? "primary" : "secondary"} onClick={onReview} aria-label={`${state === "decide" ? t("approvals.review") : t("approvals.view")}: ${title || t(subject.kindKey)}`}>
+      <div className="mt-auto flex flex-wrap items-center gap-2">
+        <Button
+          variant={state === "decide" ? "primary" : "secondary"}
+          onClick={onReview}
+          aria-label={`${state === "decide" ? t("approvals.review") : t("approvals.view")}: ${title}`}
+        >
           {state === "decide" ? t("approvals.review") : t("approvals.view")}
         </Button>
         {state === "own" ? <span className="text-[14px] text-muted-foreground">{t("approvals.own")}</span> : null}

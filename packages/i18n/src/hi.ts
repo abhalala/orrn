@@ -1086,6 +1086,7 @@ export const hi = {
       date: "लॉट की तारीख",
       notSet: "नहीं डाला",
       perKg: "{rate} प्रति kg",
+      perKgUnit: "प्रति kg",
       notesTitle: "डेबिट और क्रेडिट नोट",
       noNotes: "इस लॉट पर कोई नोट नहीं।",
       noteType: {
@@ -1200,7 +1201,8 @@ export const hi = {
     rejectNeedsNote: "नामंज़ूर करने की वजह लिखें।",
     own: "आपकी रिक्वेस्ट कोई और मंज़ूर करेगा।",
     viewOnly: "इसे मैनेजर मंज़ूर करते हैं।",
-    open: "खोलें",
+    openLot: "लॉट खोलें",
+    openDie: "डाई खोलें",
     theirNote: "उनका नोट",
     decisionNote: "फ़ैसले का नोट",
     figures: "आंकड़े",

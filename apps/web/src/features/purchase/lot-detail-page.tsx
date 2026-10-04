@@ -411,7 +411,12 @@ function FactsCard({ data }: { data: LotData }) {
   const rows: [string, ReactNode, boolean?][] = [
     [t("purchase.detail.vendor"), lot.vendorName],
     [t("purchase.detail.material"), t("purchase.material", { item: lot.itemName, grade: lot.gradeCode })],
-    [t("purchase.detail.rate"), t("purchase.detail.perKg", { rate: formatRate(lot.ratePaise) }), true],
+    [
+      t("purchase.detail.rate"),
+      <>
+        <span className="font-mono">{formatRate(lot.ratePaise)}</span> {t("purchase.detail.perKgUnit")}
+      </>,
+    ],
     [t("purchase.detail.payable"), `${kgText(data.payableKgG)} kg`, true],
     [t("purchase.detail.amount"), formatRate(data.amountPaise), true],
     [t("purchase.detail.billBook"), t(`purchase.billBooks.${lot.billBook}`)],
@@ -459,7 +464,7 @@ function NotesCard({ notes }: { notes: NoteRow[] }) {
                 </span>
                 <Chip tone={APPROVAL_TONE[n.status]}>{t(`status.request.${n.status}`)}</Chip>
               </div>
-              <p className="m-0 flex flex-wrap gap-x-4 gap-y-0.5 font-mono text-[14px] text-muted-foreground">
+              <p className="m-0 flex flex-wrap gap-x-4 gap-y-0.5 text-[14px] text-muted-foreground tabular-nums">
                 {n.kgDiffG > 0 ? <span>{t("purchase.detail.noteKg", { kg: kgText(n.kgDiffG) })}</span> : null}
                 {n.boriDeductionG > 0 ? <span>{t("purchase.detail.noteBori", { kg: kgText(n.boriDeductionG) })}</span> : null}
                 <span>{formatRate(n.amountPaise)}</span>
@@ -487,7 +492,7 @@ function StockCard({ ledger, lot, status }: { ledger: LotData["ledger"]; lot: Lo
             const location = row.locationId === lot.locationId ? (lot.locationCode ?? "-") : "-";
             const kg = kgText(Math.abs(row.qtyG));
             return (
-              <li key={row.id} className="font-mono text-[15px]">
+              <li key={row.id} className="text-[15px] tabular-nums">
                 {row.qtyG >= 0
                   ? t("purchase.detail.stockIn", { kg, location })
                   : t("purchase.detail.stockOut", { kg, location })}
