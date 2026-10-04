@@ -5,6 +5,7 @@ import { z } from "zod";
 import { normalizeSerial } from "@orrn/domain";
 import { user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
+import { location } from "@orrn/db/schema/stock";
 import { company } from "@orrn/db/schema/tenant";
 import { dispatch } from "@orrn/db/schema/dispatch";
 import {
@@ -20,8 +21,10 @@ import { auditInsert } from "../lib/audit";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
+import { kgPer12ftMilli } from "../lib/bundleWeight";
 import { now as clockNow } from "../lib/clock";
 import { allocateDocNumbers } from "../lib/docNumber";
+import { packRows, restoreRows, voidRows, type PostingCtx } from "../lib/ledger";
 import { nextCompanySeq } from "../lib/sequence";
 
 const bundleRowSchema = z.object({
@@ -36,8 +39,44 @@ const receiptInputSchema = z.object({
   unit: z.string().min(1, "Unit is required").max(500),
   purchaseOrderRef: z.string().max(500).nullable().optional(),
   notes: z.string().max(500).nullable().optional(),
+  /** Yard location the bundles are put in (spec P6). Required once the company has yard locations. */
+  locationId: z.string().min(1).optional(),
   rows: z.array(bundleRowSchema).min(1, "At least one bundle row is required").max(200, "Max 200 rows per receipt"),
 });
+
+function errorText(e: unknown): string {
+  let text = "";
+  for (let cur: unknown = e, depth = 0; cur && depth < 5; depth += 1) {
+    text += ` ${cur instanceof Error ? cur.message : String(cur)}`;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return text;
+}
+
+/**
+ * The yard a receipt's bundles go to. Required once the company has an active yard location
+ * (no default, digest Stage 13); companies without locations keep packing without one.
+ */
+async function receiptLocation(db: OrrnDb, companyId: string, locationId: string | undefined): Promise<string | null> {
+  if (locationId) {
+    const loc = await db.query.location.findFirst({
+      where: and(eq(location.id, locationId), eq(location.companyId, companyId)),
+    });
+    if (!loc) throw new TRPCError({ code: "NOT_FOUND", message: "Location not found" });
+    if (!loc.active) throw new TRPCError({ code: "BAD_REQUEST", message: `Location ${loc.code} is retired` });
+    if (loc.kind !== "yard") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: `Bundles go to a yard location, not ${loc.code}` });
+    }
+    return loc.id;
+  }
+  const [anyYard] = await db
+    .select({ id: location.id })
+    .from(location)
+    .where(and(eq(location.companyId, companyId), eq(location.kind, "yard"), eq(location.active, true)))
+    .limit(1);
+  if (anyYard) throw new TRPCError({ code: "BAD_REQUEST", message: "Pick the yard location for these bundles" });
+  return null;
+}
 
 /**
  * One row from a legacy bundle import CSV/JSON. Each row identifies its die by
@@ -134,7 +173,7 @@ async function loadBundleDetail(
 }
 
 export const bundleRouter = router({
-  createReceipt: actionProcedure("bundle.create")
+  createReceipt: actionProcedure("bundle.pack")
     .input(receiptInputSchema)
     .mutation(async ({ ctx, input }) => {
       const dieRow = await ctx.db.query.die.findFirst({
@@ -147,6 +186,7 @@ export const bundleRouter = router({
       if (!dieRow) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Die not found" });
       }
+      const locationId = await receiptLocation(ctx.db, ctx.companyId, input.locationId);
 
       const groupId = crypto.randomUUID();
       const now = clockNow();
@@ -179,6 +219,9 @@ export const bundleRouter = router({
         weightG: row.weightG,
         lengthMm: row.lengthMm,
         status: "available" as const,
+        locationId,
+        kgPer12ftMilli: kgPer12ftMilli(row),
+        numberStyle: plantNumbers ? ("plant" as const) : ("legacy" as const),
         createdBy: userId,
       }));
 
@@ -193,21 +236,59 @@ export const bundleRouter = router({
         at: now,
       }));
 
+      const groupValues = {
+        id: groupId,
+        companyId: ctx.companyId,
+        serverSeq: seq,
+        code,
+        dieId: input.dieId,
+        unit: input.unit,
+        purchaseOrderRef: input.purchaseOrderRef ?? null,
+        notes: input.notes ?? null,
+        createdBy: userId,
+      };
       const statements: SqliteBatchItem[] = [
-        ctx.db.insert(bundleGroup).values({
-          id: groupId,
-          companyId: ctx.companyId,
-          serverSeq: seq,
-          code,
-          dieId: input.dieId,
-          unit: input.unit,
-          purchaseOrderRef: input.purchaseOrderRef ?? null,
-          notes: input.notes ?? null,
-          createdBy: userId,
-        }),
+        locationId
+          ? // The group row lands only while the yard is still an active yard. Without it the bundle
+            // inserts below break their group foreign key and the whole batch rolls back, so a yard
+            // retired or re-typed after our read takes no bundles (write-time guard).
+            ctx.db.insert(bundleGroup).select(
+              ctx.db
+                .select({
+                  id: sql<string>`${groupValues.id}`.as("id"),
+                  companyId: sql<string>`${groupValues.companyId}`.as("company_id"),
+                  serverSeq: sql<number>`${groupValues.serverSeq}`.as("server_seq"),
+                  code: sql<string>`${groupValues.code}`.as("code"),
+                  dieId: sql<string>`${groupValues.dieId}`.as("die_id"),
+                  unit: sql<string>`${groupValues.unit}`.as("unit"),
+                  purchaseOrderRef: sql<string | null>`${groupValues.purchaseOrderRef}`.as("purchase_order_ref"),
+                  notes: sql<string | null>`${groupValues.notes}`.as("notes"),
+                  createdBy: sql<string>`${groupValues.createdBy}`.as("created_by"),
+                  createdAt: sql<number>`${now.getTime()}`.as("created_at"),
+                  updatedAt: sql<number>`${now.getTime()}`.as("updated_at"),
+                })
+                .from(location)
+                .where(
+                  and(
+                    eq(location.id, locationId),
+                    eq(location.companyId, ctx.companyId),
+                    eq(location.active, true),
+                    eq(location.kind, "yard"),
+                  ),
+                ),
+            )
+          : ctx.db.insert(bundleGroup).values(groupValues),
       ];
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundle).values(rows), bundleRows);
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundleStatusEvent).values(rows), eventRows);
+      // Pack = + bundle kg at its location, voucher = this receipt (spec §5).
+      statements.push(
+        ...packRows(
+          { db: ctx.db, companyId: ctx.companyId, userId, seq, postedAt: now },
+          { type: "pack", id: groupId },
+          bundleRows,
+        ),
+      );
       statements.push(
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
@@ -220,12 +301,21 @@ export const bundleRouter = router({
               dieId: input.dieId,
               count: bundleRows.length,
               purchaseOrderRef: input.purchaseOrderRef ?? null,
+              locationId,
             },
           },
         ),
       );
 
-      await atomicBatch(ctx.db, statements);
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (e) {
+        if (locationId && errorText(e).includes("FOREIGN KEY constraint failed")) {
+          // Rolled back by the write-time yard guard: name the reason.
+          await receiptLocation(ctx.db, ctx.companyId, locationId);
+        }
+        throw e;
+      }
 
       return { success: true, groupId, code, bundleCount: bundleRows.length };
     }),
@@ -402,7 +492,7 @@ export const bundleRouter = router({
       return loadBundleDetail(ctx.db, ctx.companyId, row);
     }),
 
-  transitionStatus: actionProcedure("bundle.transition")
+  transitionStatus: actionProcedure("bundle.void")
     .input(
       z.object({
         id: z.string(),
@@ -429,6 +519,20 @@ export const bundleRouter = router({
       assertTransitionAllowed(existing.status, input.toStatus);
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const eventId = crypto.randomUUID();
+      const posting: PostingCtx = {
+        db: ctx.db,
+        companyId: ctx.companyId,
+        userId: ctx.session.user.id,
+        seq,
+        postedAt: clockNow(),
+      };
+      // Void reverses the pack row; restore packs again. Voucher = the status event. Runs after
+      // the UPDATE and lands only if it did (lib/ledger.ts).
+      const ledgerPosting =
+        input.toStatus === "void"
+          ? voidRows(posting, { bundleId: existing.id, voucherId: eventId, reason: input.reason ?? null })
+          : restoreRows(posting, { bundleId: existing.id, voucherId: eventId, reason: input.reason ?? null });
 
       await atomicBatch(ctx.db, [
         ctx.db
@@ -443,8 +547,9 @@ export const bundleRouter = router({
               eq(bundle.status, existing.status),
             ),
           ),
+        ledgerPosting,
         ctx.db.insert(bundleStatusEvent).values({
-          id: crypto.randomUUID(),
+          id: eventId,
           companyId: ctx.companyId,
           bundleId: existing.id,
           fromStatus: existing.status,
@@ -722,7 +827,7 @@ export const bundleRouter = router({
       }
 
       // 6. Build the bundle + status event rows.
-      const now = new Date();
+      const now = clockNow();
       const bundleRows: Array<typeof bundle.$inferInsert> = [];
       const eventRows: Array<typeof bundleStatusEvent.$inferInsert> = [];
 
@@ -745,6 +850,8 @@ export const bundleRouter = router({
           lengthMm: row.lengthMm,
           poNumber: row.poNumber ?? null,
           status: "available",
+          kgPer12ftMilli: kgPer12ftMilli(row),
+          numberStyle: "legacy",
           createdBy: userId,
         });
         eventRows.push({
@@ -759,9 +866,18 @@ export const bundleRouter = router({
         });
       }
 
-      // 7. Chunk-insert everything in a single atomic batch.
+      // 7. Chunk-insert everything in a single atomic batch. Imported stock is taken onto the
+      //    ledger with an opening voucher; its place is unknown until it is moved.
+      const openingVoucherId = crypto.randomUUID();
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundle).values(rows), bundleRows);
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundleStatusEvent).values(rows), eventRows);
+      statements.push(
+        ...packRows(
+          { db: ctx.db, companyId: ctx.companyId, userId, seq, postedAt: now },
+          { type: "opening", id: openingVoucherId },
+          bundleRows.map((b) => ({ id: b.id!, weightG: b.weightG, locationId: null })),
+        ),
+      );
 
       statements.push(
         auditInsert(
@@ -775,6 +891,7 @@ export const bundleRouter = router({
               newDies: newDieIds.length,
               newGroups: newGroups.length,
               reusedGroups: existingDieIdsAppendedTo.length,
+              openingVoucherId,
             },
           },
         ),

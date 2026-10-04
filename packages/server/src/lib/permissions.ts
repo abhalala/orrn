@@ -101,6 +101,7 @@ export const PLANT_ACTIONS = [
   "reports.read",
   "qc.enter", // QC station (P9: press + supervisor)
   "ageing.enter", // ageing station (P9: press + supervisor)
+  "analytics.view", // charts and customer analytics (analytics addendum A1)
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -191,6 +192,9 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "reports.read": ["supervisor", "office", "manager", "admin", "accountant", "viewer"],
   "qc.enter": ["press", "supervisor"],
   "ageing.enter": ["press", "supervisor"],
+  // Analytics addendum A1: owner/manager get charts, not the floor; office (order desk) and the
+  // accountant need customer numbers. Floor roles and viewer do not hold it.
+  "analytics.view": ["admin", "manager", "office", "accountant"],
 };
 
 /**
