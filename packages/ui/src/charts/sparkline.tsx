@@ -7,11 +7,19 @@ import { seriesColor } from "./scales";
 import { useChartWidth } from "./use-chart-width";
 
 export type SparklineProps = {
-  /** Oldest first; the last point is the current period. */
+  /**
+   * Oldest first, complete periods only: the last point is the last
+   * complete period, never the open one (a month two days in reads as a
+   * slump, and a sparkline has no room to say "so far"). The tile's own
+   * number carries the open period.
+   */
   points: number[];
   /** What the trend is, e.g. "Dispatched, last 12 months". Read with a summary of the numbers. */
   label: string;
-  /** Number text in the summary. Default compact en-IN. */
+  /**
+   * Number text in the spoken summary. Pass the full figure (`formatKgTotal`):
+   * a screen reader can't say "1.5L". Default compact en-IN.
+   */
   format?(v: number): string;
   /** Unit read after every number in the summary, e.g. "kg". */
   unit?: string;
@@ -22,10 +30,10 @@ export type SparklineProps = {
 const PAD = 6;
 
 /**
- * Trend line for a stat tile: the de-emphasis grey with the current period
- * as an accent dot (slot 1). No axes and no tooltip: it is one image whose
- * accessible name states first, last, high and low, and the tile's own
- * number carries the value.
+ * Trend line for a stat tile: the de-emphasis grey with the latest complete
+ * period as an accent dot (slot 1). No axes and no tooltip: it is one image
+ * whose accessible name states first, last, high and low, and the tile's own
+ * number carries the value. Feed it complete periods only.
  */
 export function Sparkline({ points, label, format: formatNumber = formatCompactIN, unit, height = 36 }: SparklineProps) {
   const { t } = useT();

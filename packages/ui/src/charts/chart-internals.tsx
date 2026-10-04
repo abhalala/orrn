@@ -108,28 +108,53 @@ export function XTicks({
   );
 }
 
-type Active = { index: number; via: "pointer" | "focus"; focusVisible: boolean };
+export type MarkKey = string | number;
+type Tip = { key: MarkKey; via: "pointer" | "focus" };
 
 /**
  * One tab stop per plot (roving tabindex), starting on the newest mark.
  * Right/Up go to the next mark in x order, Left/Down to the previous,
  * Home/End to the ends, PageUp/PageDown seven at a time, Escape hides the
  * tooltip. Hover shows the same tooltip as focus.
+ *
+ * State is held by mark key, never by index, so new data can't point past
+ * the end (a range switch that drops marks under a resting pointer or a
+ * focused mark): a mark that is gone shows nothing, a mark that survives
+ * keeps its tooltip and focus at its new place, and a pointer tooltip is
+ * dropped when the set of marks changes (the pointer now rests on another
+ * mark; the next move shows it). Keyboard focus is tracked apart from the
+ * tooltip: Escape and hovering elsewhere change the tooltip, never the
+ * focus indicator.
  */
-export function useRovingMarks(count: number, slot: string) {
-  const [active, setActive] = useState<Active | null>(null);
-  const [roving, setRoving] = useState<number | null>(null);
+export function useRovingMarks(keys: readonly MarkKey[], slot: string) {
+  const count = keys.length;
+  const [tip, setTip] = useState<Tip | null>(null);
+  const [focused, setFocused] = useState<{ key: MarkKey; visible: boolean } | null>(null);
+  const [roving, setRoving] = useState<MarkKey | null>(null);
   const [hidden, setHidden] = useState(false);
-  const focusIndex = Math.max(0, Math.min(roving ?? count - 1, count - 1));
+
+  const signature = keys.join("\u0000");
+  const [seen, setSeen] = useState(signature);
+  if (seen !== signature) {
+    setSeen(signature);
+    setTip((t) => (t?.via === "pointer" ? null : t));
+  }
+
+  const indexOf = (key: MarkKey | null | undefined) => {
+    if (key === null || key === undefined) return null;
+    const i = keys.indexOf(key);
+    return i === -1 ? null : i;
+  };
+  const focusIndex = indexOf(roving) ?? count - 1;
 
   const move = (to: number, el: Element | null) => {
     const i = Math.max(0, Math.min(count - 1, to));
-    setRoving(i);
+    setRoving(keys[i] ?? null);
     el?.closest("svg")?.querySelectorAll<SVGElement>(`[data-slot='${slot}']`)[i]?.focus();
   };
 
   const onKeyDown = (e: KeyboardEvent<SVGElement>, i: number) => {
-    const keys: Record<string, number> = {
+    const moves: Record<string, number> = {
       ArrowRight: i + 1,
       ArrowUp: i + 1,
       ArrowLeft: i - 1,
@@ -143,34 +168,41 @@ export function useRovingMarks(count: number, slot: string) {
       setHidden(true);
       return;
     }
-    if (e.key in keys) {
+    if (e.key in moves) {
       e.preventDefault();
-      move(keys[e.key]!, e.currentTarget);
+      move(moves[e.key]!, e.currentTarget);
     }
   };
 
-  const markProps = (i: number) => ({
-    "data-slot": slot,
-    tabIndex: i === focusIndex ? 0 : -1,
-    onPointerEnter: () => {
-      setHidden(false);
-      setActive({ index: i, via: "pointer", focusVisible: false });
-    },
-    onFocus: (e: FocusEvent<SVGElement>) => {
-      setHidden(false);
-      setRoving(i);
-      setActive({ index: i, via: "focus", focusVisible: e.currentTarget.matches(":focus-visible") });
-    },
-    onBlur: () => setActive((a) => (a?.via === "focus" ? null : a)),
-    onKeyDown: (e: KeyboardEvent<SVGElement>) => onKeyDown(e, i),
-  });
+  const markProps = (i: number) => {
+    const key = keys[i]!;
+    return {
+      "data-slot": slot,
+      tabIndex: i === focusIndex ? 0 : -1,
+      onPointerEnter: () => {
+        setHidden(false);
+        setTip({ key, via: "pointer" });
+      },
+      onFocus: (e: FocusEvent<SVGElement>) => {
+        setHidden(false);
+        setRoving(key);
+        setFocused({ key, visible: e.currentTarget.matches(":focus-visible") });
+        setTip({ key, via: "focus" });
+      },
+      onBlur: () => {
+        setFocused((f) => (f?.key === key ? null : f));
+        setTip((t) => (t?.via === "focus" ? null : t));
+      },
+      onKeyDown: (e: KeyboardEvent<SVGElement>) => onKeyDown(e, i),
+    };
+  };
 
   return {
-    /** Index whose tooltip and crosshair show, or null. */
-    show: active && !hidden ? active.index : null,
-    /** Keyboard focus is on a mark and should be drawn. */
-    focusVisible: !!active && active.via === "focus" && active.focusVisible,
+    /** Index whose tooltip and crosshair show, or null. Always inside the current marks. */
+    show: tip && !hidden ? indexOf(tip.key) : null,
+    /** Index of the mark with visible keyboard focus, or null. Unaffected by Escape and hover. */
+    focusRing: focused?.visible ? indexOf(focused.key) : null,
     markProps,
-    onPointerLeave: () => setActive((a) => (a?.via === "pointer" ? null : a)),
+    onPointerLeave: () => setTip((t) => (t?.via === "pointer" ? null : t)),
   };
 }

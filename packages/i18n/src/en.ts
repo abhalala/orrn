@@ -932,7 +932,6 @@ export const en = {
     isNew: "New",
     isNewLong: "New this period",
     noValue: "No data",
-    soFar: "so far",
     soFarLabel: "{label}, so far",
     shareOfTotal: "{share} of total",
     unitThousand: "k",
