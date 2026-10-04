@@ -84,7 +84,8 @@ export function Hero() {
 function HeroPicture() {
   const { t } = useT();
   return (
-    <div className="relative mx-auto w-full max-w-[30rem]">
+    // Tablets stack it under the text: set right, so text and picture read as a diagonal.
+    <div className="relative mx-auto w-full max-w-[30rem] md:mr-0 lg:mx-auto">
       <DemoLabel className="mb-4" />
       <div className="relative h-[25.5rem] sm:h-[27rem]">
         {/* The phone: the Scan screen right after a label was read. */}
