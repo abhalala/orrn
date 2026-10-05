@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Me } from "@orrn/server/lib/permissions";
+import type { CompanyRole, Me } from "@orrn/server/lib/permissions";
 
 import { bundleDetailPath } from "../shared/lib/paths";
 
 import { GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, isItemActive, visibleItems, type NavItem } from "./nav-items";
 
-function me(role: "owner" | "operator" | "viewer", modules?: string[]): Me {
+function me(role: CompanyRole, modules?: string[]): Me {
   return {
     user: { id: "u1", name: "U", email: "u@orrn.local" },
     company: { id: "c1", name: "Co", slug: "co", status: "active", plan: null, role, modules },
@@ -28,6 +28,7 @@ describe("visibleItems", () => {
       "dies",
       "customers",
       "printing",
+      "masters",
       "guides",
       "settings",
     ]);
@@ -48,8 +49,18 @@ describe("visibleItems", () => {
 
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
-    expect(visible).toEqual(["today", "customers", "printing", "guides", "settings"]);
+    expect(visible).toEqual(["today", "customers", "printing", "masters", "guides", "settings"]);
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length);
+  });
+
+  test("Masters for the people who publish or draft masters (PL-W1)", () => {
+    const more = (role: CompanyRole) => keys(visibleItems(TENANT_MORE, me(role)));
+    for (const role of ["owner", "admin", "manager", "office"] as const) {
+      expect({ role, masters: more(role).includes("masters") }).toEqual({ role, masters: true });
+    }
+    for (const role of ["operator", "viewer", "storekeeper", "packer", "die_room", "accountant"] as const) {
+      expect({ role, masters: more(role).includes("masters") }).toEqual({ role, masters: false });
+    }
   });
 
   test("Godseye items follow the platform role", () => {
@@ -68,6 +79,13 @@ describe("isItemActive", () => {
     expect(isItemActive(byKey("stock"), "/stock/bundles")).toBe(true);
     expect(isItemActive(byKey("pack"), "/pack/new")).toBe(true);
     expect(isItemActive(byKey("settings"), "/settings")).toBe(true);
+    expect(isItemActive(byKey("masters"), "/masters/scrap")).toBe(true);
+  });
+
+  test("vendor pages belong to Masters", () => {
+    expect(isItemActive(byKey("masters"), "/vendors")).toBe(true);
+    expect(isItemActive(byKey("masters"), "/vendors/abc")).toBe(true);
+    expect(isItemActive(byKey("masters"), "/vendorsx")).toBe(false);
   });
 
   test("a bundle page belongs to Stock", () => {

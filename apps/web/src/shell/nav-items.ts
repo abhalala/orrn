@@ -2,6 +2,7 @@ import type { MessageKey } from "@orrn/i18n";
 import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 import {
   BookOpen,
+  BookMarked,
   Building2,
   Cylinder,
   House,
@@ -46,6 +47,9 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },
   { key: "customers", to: "/customers", labelKey: "nav.customers", icon: Users, module: "customers" },
   { key: "printing", to: "/printing", labelKey: "nav.printing", icon: Printer, requires: ["spool.view_queue"] },
+  // PL-W1: the plant's lists (vendors, scrap, locations, die copies). Gated by role; PL-W10 owns the
+  // role-aware nav table and moves this into the sidebar's Masters group.
+  { key: "masters", to: "/masters", labelKey: "nav.masters", icon: BookMarked, requires: ["masters.publish", "masters.draft"] },
   { key: "guides", to: "/guides", labelKey: "nav.guides", icon: BookOpen },
   {
     key: "settings",
@@ -98,10 +102,11 @@ function under(path: string, prefix: string) {
 /**
  * Whether `pathname` belongs to this item. Old URLs never get here: they
  * redirect before the shell renders, so only current paths are matched.
- * A bundle (`/b/...`) is part of Stock.
+ * A bundle (`/b/...`) is part of Stock; vendor pages (`/vendors/...`) are part of Masters.
  */
 export function isItemActive(item: NavItem, pathname: string): boolean {
   if (item.exact) return pathname === item.to;
   if (item.key === "stock" && under(pathname, "/b")) return true;
+  if (item.key === "masters" && under(pathname, "/vendors")) return true;
   return under(pathname, item.to);
 }

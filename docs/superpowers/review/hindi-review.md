@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 741 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 1067 screen strings in 27 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -152,7 +152,7 @@ Counts: 741 screen strings in 25 groups, 10 guides with 182 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (36)
+### nav (37)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -166,6 +166,7 @@ Counts: 741 screen strings in 25 groups, 10 guides with 182 strings.
 | `dies` | Dies | Die |
 | `customers` | Customers | ग्राहक |
 | `printing` | Printing | प्रिंटिंग |
+| `masters` | Masters | मास्टर |
 | `guides` | Guides | गाइड |
 | `settings` | Settings | सेटिंग्स |
 | `account` | Account | अकाउंट |
@@ -727,6 +728,341 @@ Counts: 741 screen strings in 25 groups, 10 guides with 182 strings.
 | `data.rowProblem` | Row {row}: {reason} | लाइन {row}: {reason} |
 | `data.submit` | Import {count} {count:row\|rows} | {count} लाइन इम्पोर्ट करें |
 | `data.imported` | {count} {count:row\|rows} imported | {count} लाइन इम्पोर्ट हो {count:गई\|गईं} |
+
+### masters (208)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `hub.title` | Masters | मास्टर |
+| `hub.subtitle` | The lists every other screen picks from. | वे लिस्टें जिनसे बाकी सभी स्क्रीन चुनती हैं। |
+| `hub.buying` | Buying and melting | खरीद और भट्टी |
+| `hub.floor` | Floor and dies | फ़्लोर और die |
+| `hub.vendors` | Vendors | पार्टियां |
+| `hub.vendorsHint` | Who sells us scrap, and the other spellings of their names | कौन हमें स्क्रैप बेचता है, और उनके नाम के दूसरे रूप |
+| `hub.vendorsNoun` | {count:vendor\|vendors} | {count:पार्टी\|पार्टियां} |
+| `hub.scrap` | Scrap and returns | स्क्रैप और रिटर्न |
+| `hub.scrapHint` | Scrap items and grades the yard buys, and streams the furnace takes back | यार्ड जो स्क्रैप आइटम और ग्रेड खरीदता है, और भट्टी में वापस जाने वाला माल |
+| `hub.scrapNoun` | {count:item\|items} | {count:आइटम\|आइटम} |
+| `hub.storeItems` | Store items | स्टोर का सामान |
+| `hub.storeItemsHint` | Chemicals, gas, fuel and spares the store keeps | स्टोर में रखे केमिकल, गैस, ईंधन और स्पेयर |
+| `hub.storeItemsNoun` | {count:item\|items} | {count:सामान\|सामान} |
+| `hub.locations` | Locations | जगहें |
+| `hub.locationsHint` | Yards and stores where stock sits | यार्ड और स्टोर जहां स्टॉक रहता है |
+| `hub.locationsNoun` | {count:place\|places} | {count:जगह\|जगहें} |
+| `hub.sections` | Sections | सेक्शन |
+| `hub.sectionsHint` | The catalogue of sections and their weight bands | सेक्शन की लिस्ट और उनकी वज़न रेंज |
+| `hub.sectionsNoun` | {count:section\|sections} | {count:सेक्शन\|सेक्शन} |
+| `hub.dieCopies` | Die copies | Die कॉपी |
+| `hub.dieCopiesHint` | Every physical die of every section, with its tier | हर सेक्शन की हर असली die, उसके टियर के साथ |
+| `hub.dieCopiesNoun` | {count:copy\|copies} | {count:कॉपी\|कॉपी} |
+| `hub.toConfirm` | Vendors to confirm | पक्की करने वाली पार्टियां |
+| `hub.toConfirmMeta` | Added at the kanta. Check each name, then confirm. | कांटे पर जोड़ी गईं। हर नाम जांचें, फिर पक्का करें। |
+| `show` | Show | दिखाएं |
+| `showInUse` | In use | चालू |
+| `showRetired` | Retired | बंद |
+| `showAll` | All | सभी |
+| `status.inUse` | In use | चालू |
+| `status.retired` | Retired | बंद |
+| `search` | Search | खोजें |
+| `order` | Position in lists | लिस्ट में जगह |
+| `orderHint` | Lower numbers come first. | छोटा नंबर पहले आता है। |
+| `orderInvalid` | Use a whole number from 0 to 10,000. | 0 से 10,000 तक का पूरा नंबर डालें। |
+| `retireHint` | Retired entries leave every picker but stay on old records. | बंद की गई चीज़ें किसी भी लिस्ट में चुनने को नहीं आतीं, पर पुराने रिकॉर्ड पर बनी रहती हैं। |
+| `retire` | Retire | बंद करें |
+| `restore` | Bring back | फिर से चालू करें |
+| `edit` | Edit {name} | {name} बदलें |
+| `readOnly` | Only a manager or the owner can change this list. | इस लिस्ट को सिर्फ़ मैनेजर या मालिक बदल सकते हैं। |
+| `loadFailed` | The list didn't load. | लिस्ट लोड नहीं हुई। |
+| `noRetired` | Nothing retired | कुछ भी बंद नहीं है |
+| `noAccess` | Your role can't open this list. | आपका रोल यह लिस्ट नहीं खोल सकता। |
+| `noAccessBody` | Ask a manager or the owner if you need it. | ज़रूरत हो तो मैनेजर या मालिक से पूछें। |
+| `backToMasters` | Masters | मास्टर |
+| `saved` | {name} saved | {name} सेव हो गया |
+| `added` | {name} added | {name} जुड़ गया |
+| `retired` | {name} retired | {name} बंद हो गया |
+| `restored` | {name} is back in use | {name} फिर से चालू है |
+| `seeded` | {count} {count:entry\|entries} added | {count} {count:चीज़\|चीज़ें} जुड़ीं |
+| `seededNone` | Every standard entry is already here | सभी स्टैंडर्ड चीज़ें पहले से हैं |
+| `errors.generic` | Couldn't save. Check the connection and try again. | सेव नहीं हुआ। इंटरनेट जांचें और फिर से कोशिश करें। |
+| `errors.changed` | Someone changed this a moment ago. Close it, open it again and retry. | किसी ने अभी इसे बदला है। इसे बंद करके फिर खोलें और दोबारा करें। |
+| `errors.forbidden` | Your role can't change this list. Ask a manager. | आपका रोल यह लिस्ट नहीं बदल सकता। मैनेजर से पूछें। |
+| `errors.notFound` | This entry is gone. Reload the list. | यह चीज़ अब नहीं है। लिस्ट दोबारा लोड करें। |
+| `errors.nameRequired` | Give it a name. | नाम डालें। |
+| `locations.title` | Locations | जगहें |
+| `locations.subtitle` | Yards and stores where stock sits. Packing, moving and counting pick from this list. | यार्ड और स्टोर जहां स्टॉक रहता है। पैकिंग, मूव और गिनती इसी लिस्ट से चुनते हैं। |
+| `locations.add` | Add location | जगह जोड़ें |
+| `locations.seed` | Add the plant's locations | प्लांट की जगहें जोड़ें |
+| `locations.seedTitle` | Add the plant's locations? | प्लांट की जगहें जोड़ें? |
+| `locations.seedBody` | This adds yards 1 to 6, the billet store, the scrap store, the central store and plant scrap, skipping any you already have. After this, packing asks which yard each bundle goes to. | इससे यार्ड 1 से 6, बिलेट स्टोर, स्क्रैप स्टोर, सेंट्रल स्टोर और प्लांट स्क्रैप जुड़ेंगे, जो पहले से हैं वे छोड़ दिए जाएंगे। इसके बाद पैकिंग में हर bundle का यार्ड पूछा जाएगा। |
+| `locations.empty` | No locations yet | अभी कोई जगह नहीं है |
+| `locations.emptyBody` | Add the plant's yards and stores in one go, or add your own. | प्लांट के यार्ड और स्टोर एक बार में जोड़ें, या अपनी जगहें जोड़ें। |
+| `locations.columns.code` | Code | कोड |
+| `locations.columns.name` | Name | नाम |
+| `locations.columns.kind` | Kind | किस्म |
+| `locations.columns.holds` | Holds | क्या रखा है |
+| `locations.columns.status` | Status | स्टेटस |
+| `locations.kind.yard` | Yard | यार्ड |
+| `locations.kind.billet_store` | Billet store | बिलेट स्टोर |
+| `locations.kind.scrap_store` | Scrap store | स्क्रैप स्टोर |
+| `locations.kind.store` | Central store | सेंट्रल स्टोर |
+| `locations.kind.wip` | Work in progress | काम चालू |
+| `locations.holdsEmpty` | Empty | खाली |
+| `locations.holdsBundles` | {count} {count:bundle\|bundles} | {count} bundle |
+| `locations.holdsKg` | {kg} kg | {kg} kg |
+| `locations.holdsItems` | {count} store {count:item\|items} | स्टोर के {count} सामान |
+| `locations.form.addTitle` | Add location | जगह जोड़ें |
+| `locations.form.editTitle` | Edit location {code} | जगह {code} बदलें |
+| `locations.form.code` | Code | कोड |
+| `locations.form.codeHint` | The short code painted at the spot. Letters, digits and dashes. | जगह पर लिखा छोटा कोड। अक्षर, अंक और डैश। |
+| `locations.form.codeRequired` | Give the location a code. | जगह का कोड डालें। |
+| `locations.form.codeInvalid` | Use letters, digits and dashes only, starting with a letter or digit. | सिर्फ़ अक्षर, अंक और डैश डालें, शुरुआत अक्षर या अंक से। |
+| `locations.form.codeZero` | 0 is not a place. Use the real yard code. | 0 कोई जगह नहीं है। यार्ड का असली कोड डालें। |
+| `locations.form.name` | Name | नाम |
+| `locations.form.nameRequired` | Give the location a name. | जगह का नाम डालें। |
+| `locations.form.kind` | Kind | किस्म |
+| `locations.form.kindHint` | Bundles go only to yards. The kind changes only while the location is empty. | Bundle सिर्फ़ यार्ड में जाते हैं। किस्म तभी बदलती है जब जगह खाली हो। |
+| `locations.form.save` | Save location | जगह सेव करें |
+| `locations.form.retire` | Retire location | जगह बंद करें |
+| `locations.form.retireHint` | A retired location leaves every picker. Only an empty location can be retired. | बंद जगह किसी लिस्ट में नहीं आती। सिर्फ़ खाली जगह बंद हो सकती है। |
+| `locations.errors.codeTaken` | Location {code} already exists. Use another code. | जगह {code} पहले से है। दूसरा कोड डालें। |
+| `locations.errors.notEmpty` | Location {code} still holds stock. Move it out first, then try again. | जगह {code} में अभी स्टॉक है। पहले उसे हटाएं, फिर कोशिश करें। |
+| `scrap.title` | Scrap and returns | स्क्रैप और रिटर्न |
+| `scrap.subtitle` | What the yard buys, and what the furnace takes back. | यार्ड क्या खरीदता है, और भट्टी में क्या वापस जाता है। |
+| `scrap.tabs.label` | Lists | लिस्टें |
+| `scrap.tabs.items` | Scrap items | स्क्रैप आइटम |
+| `scrap.tabs.grades` | Grades | ग्रेड |
+| `scrap.tabs.streams` | Return streams | रिटर्न स्ट्रीम |
+| `scrap.seed` | Add the standard grades and items | स्टैंडर्ड ग्रेड और आइटम जोड़ें |
+| `scrap.items.add` | Add scrap item | स्क्रैप आइटम जोड़ें |
+| `scrap.items.empty` | No scrap items yet | अभी कोई स्क्रैप आइटम नहीं है |
+| `scrap.items.emptyBody` | Add the purchase book's items and the standard grades in one go, or add your own. | खरीद बुक के आइटम और स्टैंडर्ड ग्रेड एक बार में जोड़ें, या अपने जोड़ें। |
+| `scrap.items.columns.name` | Item | आइटम |
+| `scrap.items.columns.recovery` | Expected recovery | अनुमानित रिकवरी |
+| `scrap.items.columns.status` | Status | स्टेटस |
+| `scrap.grades.add` | Add grade | ग्रेड जोड़ें |
+| `scrap.grades.empty` | No grades yet | अभी कोई ग्रेड नहीं है |
+| `scrap.grades.emptyBody` | Add the standard grades A+, A, B and C with the purchase book's items, or add your own. | खरीद बुक के आइटम के साथ स्टैंडर्ड ग्रेड A+, A, B और C जोड़ें, या अपने जोड़ें। |
+| `scrap.grades.columns.code` | Grade | ग्रेड |
+| `scrap.grades.columns.name` | Description | मतलब |
+| `scrap.grades.columns.recovery` | Expected recovery | अनुमानित रिकवरी |
+| `scrap.grades.columns.status` | Status | स्टेटस |
+| `scrap.form.itemAddTitle` | Add scrap item | स्क्रैप आइटम जोड़ें |
+| `scrap.form.itemEditTitle` | Edit scrap item | स्क्रैप आइटम बदलें |
+| `scrap.form.gradeAddTitle` | Add grade | ग्रेड जोड़ें |
+| `scrap.form.gradeEditTitle` | Edit grade {code} | ग्रेड {code} बदलें |
+| `scrap.form.name` | Name | नाम |
+| `scrap.form.nameHint` | As the purchase book writes it. | जैसा खरीद बुक में लिखा जाता है। |
+| `scrap.form.recovery` | Expected recovery (%) | अनुमानित रिकवरी (%) |
+| `scrap.form.recoveryHint` | Metal you expect back from 100 kg of it. Leave blank if you don't know yet. | 100 kg में से कितना मेटल वापस मिलने की उम्मीद है। पता न हो तो खाली छोड़ें। |
+| `scrap.form.recoveryInvalid` | Use a number from 0 to 100, with at most two decimals. | 0 से 100 तक का नंबर डालें, दशमलव के बाद ज़्यादा से ज़्यादा दो अंक। |
+| `scrap.form.gradeCode` | Grade | ग्रेड |
+| `scrap.form.gradeCodeHint` | Up to 8 letters, digits, + or -, like A+. | 8 तक अक्षर, अंक, + या -, जैसे A+। |
+| `scrap.form.gradeCodeRequired` | Give the grade a code. | ग्रेड का कोड डालें। |
+| `scrap.form.gradeCodeInvalid` | Use up to 8 letters, digits, + or -. | 8 तक अक्षर, अंक, + या - डालें। |
+| `scrap.form.gradeCodeFixed` | The grade itself stays as it is: lots already carry it. | ग्रेड का कोड नहीं बदलता: लॉट पर पहले से लिखा है। |
+| `scrap.form.gradeName` | Description | मतलब |
+| `scrap.form.gradeNameHint` | Optional. What this grade means at the kanta. | चाहें तो। कांटे पर इस ग्रेड का क्या मतलब है। |
+| `scrap.form.save` | Save | सेव करें |
+| `scrap.errors.itemTaken` | That scrap item is already in the list. | यह स्क्रैप आइटम लिस्ट में पहले से है। |
+| `scrap.errors.gradeTaken` | That grade is already in the list. | यह ग्रेड लिस्ट में पहले से है। |
+| `streams.add` | Add return stream | रिटर्न स्ट्रीम जोड़ें |
+| `streams.seed` | Add the foundry's streams | भट्टी की स्ट्रीम जोड़ें |
+| `streams.empty` | No return streams yet | अभी कोई रिटर्न स्ट्रीम नहीं है |
+| `streams.emptyBody` | Add the streams from the foundry sheet in one go, or add your own. | भट्टी की शीट वाली स्ट्रीम एक बार में जोड़ें, या अपनी जोड़ें। |
+| `streams.columns.code` | Code | कोड |
+| `streams.columns.name` | Name | नाम |
+| `streams.columns.kind` | Kind | किस्म |
+| `streams.columns.balance` | On hand | अभी कितना |
+| `streams.columns.status` | Status | स्टेटस |
+| `streams.kind.charge` | Goes back in | भट्टी में वापस |
+| `streams.kind.byproduct` | By-product | बाय-प्रोडक्ट |
+| `streams.balanceUncounted` | Not counted yet | अभी गिना नहीं |
+| `streams.form.addTitle` | Add return stream | रिटर्न स्ट्रीम जोड़ें |
+| `streams.form.editTitle` | Edit return stream {code} | रिटर्न स्ट्रीम {code} बदलें |
+| `streams.form.code` | Code | कोड |
+| `streams.form.codeHint` | Letters, digits and dashes. It can't change later. | अक्षर, अंक और डैश। बाद में नहीं बदलेगा। |
+| `streams.form.codeRequired` | Give the stream a code. | स्ट्रीम का कोड डालें। |
+| `streams.form.codeInvalid` | Use up to 20 letters, digits and dashes. | 20 तक अक्षर, अंक और डैश डालें। |
+| `streams.form.codeFixed` | The code and kind stay as they are: the stock book uses them. | कोड और किस्म नहीं बदलते: स्टॉक बुक इन्हें इस्तेमाल करती है। |
+| `streams.form.name` | Name | नाम |
+| `streams.form.kind` | Kind | किस्म |
+| `streams.form.kindHint` | Goes back in: the furnace melts it again. By-product: it leaves the melt, like dross. | भट्टी में वापस: भट्टी इसे फिर से पिघलाती है। बाय-प्रोडक्ट: पिघलाने में अलग निकलता है, जैसे ड्रॉस। |
+| `streams.form.save` | Save stream | स्ट्रीम सेव करें |
+| `streams.errors.taken` | A return stream with that code or name is already in the list. | इस कोड या नाम की रिटर्न स्ट्रीम लिस्ट में पहले से है। |
+| `dieCopies.title` | Die copies | Die कॉपी |
+| `dieCopies.subtitle` | Every physical die of every section: its tier, status and latest weight. | हर सेक्शन की हर असली die: उसका टियर, स्टेटस और ताज़ा वज़न। |
+| `dieCopies.add` | Add die copy | Die कॉपी जोड़ें |
+| `dieCopies.empty` | No die copies yet | अभी कोई die कॉपी नहीं है |
+| `dieCopies.emptyBody` | Add the first copy of a section. Its code is the section code and a number, like 12170-1. | किसी सेक्शन की पहली कॉपी जोड़ें। उसका कोड सेक्शन कोड और एक नंबर होता है, जैसे 12170-1। |
+| `dieCopies.emptyFiltered` | No copies match these filters | इन फ़िल्टर से कोई कॉपी नहीं मिली |
+| `dieCopies.filters.section` | Section | सेक्शन |
+| `dieCopies.filters.sectionPlaceholder` | All sections | सभी सेक्शन |
+| `dieCopies.filters.status` | Status | स्टेटस |
+| `dieCopies.filters.allStatuses` | Every status | हर स्टेटस |
+| `dieCopies.filters.clear` | Clear filters | फ़िल्टर हटाएं |
+| `dieCopies.columns.copy` | Copy | कॉपी |
+| `dieCopies.columns.section` | Section | सेक्शन |
+| `dieCopies.columns.tier` | Tier | टियर |
+| `dieCopies.columns.latest` | Latest kg/12ft | ताज़ा kg/12ft |
+| `dieCopies.columns.supplier` | Supplier | सप्लायर |
+| `dieCopies.columns.status` | Status | स्टेटस |
+| `dieCopies.tier` | Tier {rank} | टियर {rank} |
+| `dieCopies.notRanked` | Not ranked | टियर नहीं |
+| `dieCopies.noReading` | No reading | रीडिंग नहीं |
+| `dieCopies.status.available` | Ready | तैयार |
+| `dieCopies.status.in_use` | On the press | प्रेस पर |
+| `dieCopies.status.at_nitriding` | At nitriding | नाइट्राइडिंग में |
+| `dieCopies.status.retired` | Retired | बंद |
+| `dieCopies.openSection` | Open section {code} | सेक्शन {code} खोलें |
+| `dieCopies.form.addTitle` | Add die copy | Die कॉपी जोड़ें |
+| `dieCopies.form.editTitle` | Edit {code} | {code} बदलें |
+| `dieCopies.form.section` | Section | सेक्शन |
+| `dieCopies.form.sectionPlaceholder` | Search sections | सेक्शन खोजें |
+| `dieCopies.form.sectionRequired` | Choose the section this die makes. | यह die कौन सा सेक्शन बनाती है, चुनें। |
+| `dieCopies.form.sectionFixed` | Section {code}. The section and the copy number never change. | सेक्शन {code}। सेक्शन और कॉपी नंबर कभी नहीं बदलते। |
+| `dieCopies.form.supplier` | Supplier | सप्लायर |
+| `dieCopies.form.trial` | Trial kg/12ft | ट्रायल kg/12ft |
+| `dieCopies.form.trialHint` | Weight per 12 ft from the trial run. | ट्रायल रन में 12 ft का वज़न। |
+| `dieCopies.form.trialInvalid` | Use a weight above 0 and up to 500, with at most three decimals. | 0 से ऊपर और 500 तक का वज़न डालें, दशमलव के बाद ज़्यादा से ज़्यादा तीन अंक। |
+| `dieCopies.form.hardness` | Hardness | हार्डनेस |
+| `dieCopies.form.hardnessHint` | As tested. A whole number. | जांच में आई। पूरा नंबर। |
+| `dieCopies.form.hardnessInvalid` | Use a whole number from 1 to 5,000. | 1 से 5,000 तक का पूरा नंबर डालें। |
+| `dieCopies.form.life` | Expected life (kg) | अनुमानित लाइफ़ (kg) |
+| `dieCopies.form.lifeHint` | Kg this die should press before it is retired. | बंद करने से पहले यह die कितने kg प्रेस करे। |
+| `dieCopies.form.lifeInvalid` | Use a whole number of kg, above 0. | kg का पूरा नंबर डालें, 0 से ऊपर। |
+| `dieCopies.form.ftr` | FTR | FTR |
+| `dieCopies.form.ftrHint` | As written on the die card. | जैसा die कार्ड पर लिखा है। |
+| `dieCopies.form.tier` | First tier | पहला टियर |
+| `dieCopies.form.tierHint` | Only when you add the copy. Later changes go to a manager for approval. | सिर्फ़ कॉपी जोड़ते समय। बाद में बदलाव मैनेजर की मंज़ूरी से होता है। |
+| `dieCopies.form.tierInvalid` | Use a whole number from 1 to 99. | 1 से 99 तक का पूरा नंबर डालें। |
+| `dieCopies.form.tierLocked` | Tier changes are proposed from the die room and approved by a manager. | टियर का बदलाव die रूम से भेजा जाता है और मैनेजर मंज़ूर करते हैं। |
+| `dieCopies.form.status` | Status | स्टेटस |
+| `dieCopies.form.notes` | Notes | नोट |
+| `dieCopies.form.save` | Save die copy | Die कॉपी सेव करें |
+| `dieCopies.form.added` | Die copy {code} added | Die कॉपी {code} जुड़ गई |
+| `dieCopies.errors.sectionArchived` | That section is archived. Bring it back before adding copies. | यह सेक्शन बंद है। कॉपी जोड़ने से पहले इसे फिर से चालू करें। |
+
+### vendors (117)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Vendors | पार्टियां |
+| `subtitle` | Who sells us scrap. Lots, rates and D/C notes hang off these names. | कौन हमें स्क्रैप बेचता है। लॉट, रेट और D/C नोट इन्हीं नामों से जुड़े हैं। |
+| `add` | Add vendor | पार्टी जोड़ें |
+| `merge` | Merge vendors | पार्टियां मिलाएं |
+| `search` | Search vendors | पार्टी खोजें |
+| `searchHint` | Finds other spellings too. | दूसरे नामों से भी मिलती है। |
+| `show` | Show | दिखाएं |
+| `showAll` | All | सभी |
+| `showDraft` | To confirm | पक्की करनी हैं |
+| `showArchived` | Archived | बंद |
+| `showMerged` | Merged | मिलाई गईं |
+| `columns.vendor` | Vendor | पार्टी |
+| `columns.gstin` | GSTIN | GSTIN |
+| `columns.city` | City | शहर |
+| `columns.lastLot` | Last lot | आखिरी लॉट |
+| `columns.status` | Status | स्टेटस |
+| `unregistered` | Unregistered | बिना रजिस्ट्रेशन |
+| `noLots` | No lots yet | अभी कोई लॉट नहीं |
+| `empty` | No vendors yet | अभी कोई पार्टी नहीं है |
+| `emptyBody` | Add the people you buy scrap from. The yard can also add one at the kanta. | जिनसे आप स्क्रैप खरीदते हैं उन्हें जोड़ें। यार्ड भी कांटे पर पार्टी जोड़ सकता है। |
+| `emptyDraft` | Nothing to confirm | पक्का करने को कुछ नहीं |
+| `emptyArchived` | No archived vendors | कोई बंद पार्टी नहीं |
+| `emptyMerged` | No merged vendors | कोई मिलाई गई पार्टी नहीं |
+| `status.active` | Active | चालू |
+| `status.draft` | To confirm | पक्की करनी है |
+| `status.archived` | Archived | बंद |
+| `status.merged` | Merged | मिलाई गई |
+| `toConfirm` | {count} {count:vendor\|vendors} to confirm | {count} {count:पार्टी\|पार्टियां} पक्की करनी हैं |
+| `toConfirmBody` | The yard added these at the kanta. Check each name and GSTIN, then confirm. | यार्ड ने इन्हें कांटे पर जोड़ा है। हर नाम और GSTIN जांचें, फिर पक्का करें। |
+| `showThem` | Show them | इन्हें दिखाएं |
+| `noAccess` | Vendors are for the yard, the office and managers. | पार्टियां यार्ड, ऑफ़िस और मैनेजर के लिए हैं। |
+| `noAccessBody` | Rates are private. Ask a manager if you need this list. | रेट प्राइवेट हैं। ज़रूरत हो तो मैनेजर से पूछें। |
+| `page.details` | Details | जानकारी |
+| `page.gstin` | GSTIN | GSTIN |
+| `page.phone` | Phone | फ़ोन |
+| `page.city` | City | शहर |
+| `page.notes` | Notes | नोट |
+| `page.notGiven` | Not given | नहीं दिया |
+| `page.confirm` | Confirm vendor | पार्टी पक्की करें |
+| `page.confirmed` | {name} confirmed | {name} पक्की हो गई |
+| `page.draftNote` | Added at the kanta. Check the name and GSTIN, then confirm so it shows as a regular vendor. | कांटे पर जोड़ी गई। नाम और GSTIN जांचें, फिर पक्का करें ताकि यह आम पार्टी की तरह दिखे। |
+| `page.edit` | Edit vendor | पार्टी बदलें |
+| `page.archive` | Archive vendor | पार्टी बंद करें |
+| `page.archived` | {name} archived | {name} बंद हो गई |
+| `page.archivedNote` | Archived. It no longer shows when the yard picks a vendor. | बंद है। यार्ड पार्टी चुनते समय यह नहीं दिखती। |
+| `page.restore` | Bring back | फिर से चालू करें |
+| `page.restored` | {name} is back in use | {name} फिर से चालू है |
+| `page.mergeHere` | Merge duplicates into this vendor | इसमें डुप्लिकेट मिलाएं |
+| `page.mergedNote` | Merged into {name}. Its lots and spellings are there now. | {name} में मिला दी गई। इसके लॉट और नाम अब वहीं हैं। |
+| `page.openKeeper` | Open {name} | {name} खोलें |
+| `page.spellings` | Other spellings | दूसरे नाम |
+| `page.spellingsHint` | Names the book, slips or the floor use for this vendor. Searching any of them finds it. | बुक, पर्ची या फ़्लोर पर इस पार्टी के लिए लिखे जाने वाले नाम। इनमें से कोई भी खोजने पर यही पार्टी मिलती है। |
+| `page.noSpellings` | No other spellings yet. | अभी कोई दूसरा नाम नहीं। |
+| `page.spellingLabel` | New spelling | नया नाम |
+| `page.addSpelling` | Add spelling | नाम जोड़ें |
+| `page.spellingRequired` | Type the spelling to add. | जोड़ने के लिए नाम लिखें। |
+| `page.spellingAdded` | Spelling {alias} added | नाम {alias} जुड़ गया |
+| `page.removeSpelling` | Remove {alias} | {alias} हटाएं |
+| `page.spellingRemoved` | Spelling {alias} removed | नाम {alias} हटा दिया |
+| `page.usualItems` | Usual items | आम आइटम |
+| `page.usualItemsHint` | From the latest 50 lots. | पिछले 50 लॉट से। |
+| `page.lastRate` | Last rate {rate} | आखिरी रेट {rate} |
+| `page.lotCount` | {count} {count:lot\|lots} | {count} लॉट |
+| `page.noLots` | No lots from this vendor yet. | इस पार्टी का अभी कोई लॉट नहीं। |
+| `page.recentLots` | Recent lots | हाल के लॉट |
+| `page.columns.lot` | Lot | लॉट |
+| `page.columns.date` | Date | तारीख |
+| `page.columns.item` | Item | आइटम |
+| `page.columns.rate` | Rate | रेट |
+| `page.columns.status` | Status | स्टेटस |
+| `page.ratePerKg` | ₹{rate}/kg | ₹{rate}/kg |
+| `page.lotStatus.booking` | Booked | बुक |
+| `page.lotStatus.unload` | Unloading | उतर रहा है |
+| `page.lotStatus.ok` | OK | OK |
+| `page.lotStatus.cancelled` | Cancelled | रद्द |
+| `page.notFound` | This vendor doesn't exist in this company. | यह पार्टी इस कंपनी में नहीं है। |
+| `page.more` | More vendor actions | पार्टी के और काम |
+| `form.addTitle` | Add vendor | पार्टी जोड़ें |
+| `form.editTitle` | Edit vendor | पार्टी बदलें |
+| `form.name` | Name | नाम |
+| `form.nameHint` | As on their bill. Brokers are not vendors. | जैसा उनके बिल पर है। दलाल पार्टी नहीं होते। |
+| `form.nameRequired` | Give the vendor a name. | पार्टी का नाम डालें। |
+| `form.gstin` | GSTIN | GSTIN |
+| `form.gstinHint` | 15 characters. Leave blank for an unregistered vendor. | 15 अक्षर। बिना रजिस्ट्रेशन वाली पार्टी के लिए खाली छोड़ें। |
+| `form.gstinInvalid` | That isn't a valid GSTIN. It has 15 characters, like 24ABCDE1234F1Z5. | यह सही GSTIN नहीं है। इसमें 15 अक्षर होते हैं, जैसे 24ABCDE1234F1Z5। |
+| `form.phone` | Phone | फ़ोन |
+| `form.city` | City | शहर |
+| `form.notes` | Notes | नोट |
+| `form.spellings` | Other spellings | दूसरे नाम |
+| `form.spellingsHint` | Optional. One per line, as the book or slips write it. | चाहें तो। हर लाइन में एक, जैसा बुक या पर्ची में लिखा हो। |
+| `form.save` | Save vendor | पार्टी सेव करें |
+| `mergeSheet.title` | Merge vendors | पार्टियां मिलाएं |
+| `mergeSheet.titleInto` | Merge into {name} | {name} में मिलाएं |
+| `mergeSheet.body` | Pick the duplicates. Their lots and spellings move to the vendor you keep, and their names become its other spellings. | डुप्लिकेट चुनें। उनके लॉट और नाम रखी जाने वाली पार्टी में चले जाएंगे, और उनके नाम उसके दूसरे नाम बन जाएंगे। |
+| `mergeSheet.keep` | Keep this vendor | यह पार्टी रखें |
+| `mergeSheet.keepPlaceholder` | Search vendors | पार्टी खोजें |
+| `mergeSheet.keepHint` | Only a confirmed vendor can be kept. | सिर्फ़ पक्की पार्टी रखी जा सकती है। |
+| `mergeSheet.keepRequired` | Choose the vendor to keep. | रखने वाली पार्टी चुनें। |
+| `mergeSheet.search` | Find duplicates | डुप्लिकेट खोजें |
+| `mergeSheet.searchHint` | Started from the name. Change it to find other spellings. | नाम से शुरू किया है। दूसरे नाम खोजने के लिए बदलें। |
+| `mergeSheet.noMatches` | No other vendors match {query}. | {query} से कोई दूसरी पार्टी नहीं मिली। |
+| `mergeSheet.typeToSearch` | Type a name to find duplicates. | डुप्लिकेट खोजने के लिए नाम लिखें। |
+| `mergeSheet.picked` | {count} {count:duplicate\|duplicates} picked | {count} डुप्लिकेट चुने |
+| `mergeSheet.pickOne` | Pick at least one duplicate. | कम से कम एक डुप्लिकेट चुनें। |
+| `mergeSheet.submit` | Merge {count} | {count} मिलाएं |
+| `mergeSheet.confirmTitle` | Merge {count} {count:vendor\|vendors} into {name}? | {count} {count:पार्टी\|पार्टियां} {name} में मिलाएं? |
+| `mergeSheet.confirmBody` | This can't be undone. {names} will stop showing in lists, and their lots and spellings move to {name}. | यह वापस नहीं होगा। {names} लिस्ट में नहीं दिखेंगी, और उनके लॉट और नाम {name} में चले जाएंगे। |
+| `mergeSheet.confirm` | Merge | मिलाएं |
+| `mergeSheet.done` | Merged into {name}. {count} {count:lot\|lots} moved. | {name} में मिला दी गईं। {count} लॉट गए। |
+| `errors.nameTaken` | {name} already uses that name or spelling. | यह नाम {name} के पास पहले से है। |
+| `errors.nameTakenOther` | Another vendor already uses that name. | यह नाम किसी दूसरी पार्टी के पास पहले से है। |
+| `errors.spellingTaken` | Another vendor already uses that spelling. | यह नाम किसी दूसरी पार्टी के पास पहले से है। |
+| `errors.spellingIsName` | That is already the vendor's name. | यह तो पार्टी का अपना नाम है। |
+| `errors.confirmKeeperFirst` | Confirm this vendor before merging others into it. | दूसरी पार्टियां मिलाने से पहले इसे पक्का करें। |
+| `errors.alreadyMerged` | One of these vendors was merged a moment ago. Pick again. | इनमें से एक पार्टी अभी-अभी मिलाई गई। फिर से चुनें। |
+| `errors.wasMerged` | This vendor was merged into another one. | यह पार्टी किसी दूसरी में मिला दी गई है। |
+| `errors.keepLive` | Keep a vendor that is in use, not an archived one. | चालू पार्टी रखें, बंद वाली नहीं। |
 
 ### guides (11)
 

@@ -28,10 +28,12 @@ import { Route as AuthedSetupCredentialsRouteImport } from './routes/_authed/set
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
 import { Route as AuthedNoAccessRouteImport } from './routes/_authed/no-access'
 import { Route as AuthedChangePasswordRouteImport } from './routes/_authed/change-password'
+import { Route as TenantVendorsIndexRouteImport } from './routes/_tenant/vendors.index'
 import { Route as TenantStockIndexRouteImport } from './routes/_tenant/stock.index'
 import { Route as TenantSpoolIndexRouteImport } from './routes/_tenant/spool.index'
 import { Route as TenantReceiptsIndexRouteImport } from './routes/_tenant/receipts.index'
 import { Route as TenantPackIndexRouteImport } from './routes/_tenant/pack.index'
+import { Route as TenantMastersIndexRouteImport } from './routes/_tenant/masters.index'
 import { Route as TenantGuidesIndexRouteImport } from './routes/_tenant/guides.index'
 import { Route as TenantDispatchesIndexRouteImport } from './routes/_tenant/dispatches.index'
 import { Route as TenantDispatchIndexRouteImport } from './routes/_tenant/dispatch.index'
@@ -39,6 +41,7 @@ import { Route as TenantDiesIndexRouteImport } from './routes/_tenant/dies.index
 import { Route as TenantCustomersIndexRouteImport } from './routes/_tenant/customers.index'
 import { Route as TenantBundlesIndexRouteImport } from './routes/_tenant/bundles.index'
 import { Route as PlatformAdminIndexRouteImport } from './routes/_platform/admin.index'
+import { Route as TenantVendorsIdRouteImport } from './routes/_tenant/vendors.$id'
 import { Route as TenantStockBundlesRouteImport } from './routes/_tenant/stock.bundles'
 import { Route as TenantStockDieIdRouteImport } from './routes/_tenant/stock.$dieId'
 import { Route as TenantSettingsMembersRouteImport } from './routes/_tenant/settings.members'
@@ -47,6 +50,9 @@ import { Route as TenantReceiptsIdRouteImport } from './routes/_tenant/receipts.
 import { Route as TenantPackingListsIdRouteImport } from './routes/_tenant/packing-lists.$id'
 import { Route as TenantPackNewRouteImport } from './routes/_tenant/pack.new'
 import { Route as TenantPackIdRouteImport } from './routes/_tenant/pack.$id'
+import { Route as TenantMastersScrapRouteImport } from './routes/_tenant/masters.scrap'
+import { Route as TenantMastersLocationsRouteImport } from './routes/_tenant/masters.locations'
+import { Route as TenantMastersDiesRouteImport } from './routes/_tenant/masters.dies'
 import { Route as TenantGuidesSlugRouteImport } from './routes/_tenant/guides.$slug'
 import { Route as TenantDispatchesNewRouteImport } from './routes/_tenant/dispatches.new'
 import { Route as TenantDispatchesIdRouteImport } from './routes/_tenant/dispatches.$id'
@@ -154,6 +160,11 @@ const AuthedChangePasswordRoute = AuthedChangePasswordRouteImport.update({
   path: '/change-password',
   getParentRoute: () => AuthedRoute,
 } as any)
+const TenantVendorsIndexRoute = TenantVendorsIndexRouteImport.update({
+  id: '/vendors/',
+  path: '/vendors/',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantStockIndexRoute = TenantStockIndexRouteImport.update({
   id: '/stock/',
   path: '/stock/',
@@ -172,6 +183,11 @@ const TenantReceiptsIndexRoute = TenantReceiptsIndexRouteImport.update({
 const TenantPackIndexRoute = TenantPackIndexRouteImport.update({
   id: '/pack/',
   path: '/pack/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersIndexRoute = TenantMastersIndexRouteImport.update({
+  id: '/masters/',
+  path: '/masters/',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantGuidesIndexRoute = TenantGuidesIndexRouteImport.update({
@@ -208,6 +224,11 @@ const PlatformAdminIndexRoute = PlatformAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
   getParentRoute: () => PlatformRoute,
+} as any)
+const TenantVendorsIdRoute = TenantVendorsIdRouteImport.update({
+  id: '/vendors/$id',
+  path: '/vendors/$id',
+  getParentRoute: () => TenantRoute,
 } as any)
 const TenantStockBundlesRoute = TenantStockBundlesRouteImport.update({
   id: '/stock/bundles',
@@ -247,6 +268,21 @@ const TenantPackNewRoute = TenantPackNewRouteImport.update({
 const TenantPackIdRoute = TenantPackIdRouteImport.update({
   id: '/pack/$id',
   path: '/pack/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersScrapRoute = TenantMastersScrapRouteImport.update({
+  id: '/masters/scrap',
+  path: '/masters/scrap',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersLocationsRoute = TenantMastersLocationsRouteImport.update({
+  id: '/masters/locations',
+  path: '/masters/locations',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersDiesRoute = TenantMastersDiesRouteImport.update({
+  id: '/masters/dies',
+  path: '/masters/dies',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantGuidesSlugRoute = TenantGuidesSlugRouteImport.update({
@@ -355,6 +391,9 @@ export interface FileRoutesByFullPath {
   '/dispatches/$id': typeof TenantDispatchesIdRoute
   '/dispatches/new': typeof TenantDispatchesNewRoute
   '/guides/$slug': typeof TenantGuidesSlugRoute
+  '/masters/dies': typeof TenantMastersDiesRoute
+  '/masters/locations': typeof TenantMastersLocationsRoute
+  '/masters/scrap': typeof TenantMastersScrapRoute
   '/pack/$id': typeof TenantPackIdRoute
   '/pack/new': typeof TenantPackNewRoute
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
@@ -363,6 +402,7 @@ export interface FileRoutesByFullPath {
   '/settings/members': typeof TenantSettingsMembersRoute
   '/stock/$dieId': typeof TenantStockDieIdRoute
   '/stock/bundles': typeof TenantStockBundlesRoute
+  '/vendors/$id': typeof TenantVendorsIdRoute
   '/admin/': typeof PlatformAdminIndexRoute
   '/bundles/': typeof TenantBundlesIndexRoute
   '/customers/': typeof TenantCustomersIndexRoute
@@ -370,10 +410,12 @@ export interface FileRoutesByFullPath {
   '/dispatch/': typeof TenantDispatchIndexRoute
   '/dispatches/': typeof TenantDispatchesIndexRoute
   '/guides/': typeof TenantGuidesIndexRoute
+  '/masters/': typeof TenantMastersIndexRoute
   '/pack/': typeof TenantPackIndexRoute
   '/receipts/': typeof TenantReceiptsIndexRoute
   '/spool/': typeof TenantSpoolIndexRoute
   '/stock/': typeof TenantStockIndexRoute
+  '/vendors/': typeof TenantVendorsIndexRoute
   '/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
   '/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
   '/admin/spool/': typeof PlatformAdminSpoolIndexRoute
@@ -406,6 +448,9 @@ export interface FileRoutesByTo {
   '/dispatches/$id': typeof TenantDispatchesIdRoute
   '/dispatches/new': typeof TenantDispatchesNewRoute
   '/guides/$slug': typeof TenantGuidesSlugRoute
+  '/masters/dies': typeof TenantMastersDiesRoute
+  '/masters/locations': typeof TenantMastersLocationsRoute
+  '/masters/scrap': typeof TenantMastersScrapRoute
   '/pack/$id': typeof TenantPackIdRoute
   '/pack/new': typeof TenantPackNewRoute
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
@@ -414,6 +459,7 @@ export interface FileRoutesByTo {
   '/settings/members': typeof TenantSettingsMembersRoute
   '/stock/$dieId': typeof TenantStockDieIdRoute
   '/stock/bundles': typeof TenantStockBundlesRoute
+  '/vendors/$id': typeof TenantVendorsIdRoute
   '/admin': typeof PlatformAdminIndexRoute
   '/bundles': typeof TenantBundlesIndexRoute
   '/customers': typeof TenantCustomersIndexRoute
@@ -421,10 +467,12 @@ export interface FileRoutesByTo {
   '/dispatch': typeof TenantDispatchIndexRoute
   '/dispatches': typeof TenantDispatchesIndexRoute
   '/guides': typeof TenantGuidesIndexRoute
+  '/masters': typeof TenantMastersIndexRoute
   '/pack': typeof TenantPackIndexRoute
   '/receipts': typeof TenantReceiptsIndexRoute
   '/spool': typeof TenantSpoolIndexRoute
   '/stock': typeof TenantStockIndexRoute
+  '/vendors': typeof TenantVendorsIndexRoute
   '/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
   '/admin/companies': typeof PlatformAdminCompaniesIndexRoute
   '/admin/spool': typeof PlatformAdminSpoolIndexRoute
@@ -462,6 +510,9 @@ export interface FileRoutesById {
   '/_tenant/dispatches/$id': typeof TenantDispatchesIdRoute
   '/_tenant/dispatches/new': typeof TenantDispatchesNewRoute
   '/_tenant/guides/$slug': typeof TenantGuidesSlugRoute
+  '/_tenant/masters/dies': typeof TenantMastersDiesRoute
+  '/_tenant/masters/locations': typeof TenantMastersLocationsRoute
+  '/_tenant/masters/scrap': typeof TenantMastersScrapRoute
   '/_tenant/pack/$id': typeof TenantPackIdRoute
   '/_tenant/pack/new': typeof TenantPackNewRoute
   '/_tenant/packing-lists/$id': typeof TenantPackingListsIdRoute
@@ -470,6 +521,7 @@ export interface FileRoutesById {
   '/_tenant/settings/members': typeof TenantSettingsMembersRoute
   '/_tenant/stock/$dieId': typeof TenantStockDieIdRoute
   '/_tenant/stock/bundles': typeof TenantStockBundlesRoute
+  '/_tenant/vendors/$id': typeof TenantVendorsIdRoute
   '/_platform/admin/': typeof PlatformAdminIndexRoute
   '/_tenant/bundles/': typeof TenantBundlesIndexRoute
   '/_tenant/customers/': typeof TenantCustomersIndexRoute
@@ -477,10 +529,12 @@ export interface FileRoutesById {
   '/_tenant/dispatch/': typeof TenantDispatchIndexRoute
   '/_tenant/dispatches/': typeof TenantDispatchesIndexRoute
   '/_tenant/guides/': typeof TenantGuidesIndexRoute
+  '/_tenant/masters/': typeof TenantMastersIndexRoute
   '/_tenant/pack/': typeof TenantPackIndexRoute
   '/_tenant/receipts/': typeof TenantReceiptsIndexRoute
   '/_tenant/spool/': typeof TenantSpoolIndexRoute
   '/_tenant/stock/': typeof TenantStockIndexRoute
+  '/_tenant/vendors/': typeof TenantVendorsIndexRoute
   '/_platform/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
   '/_platform/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
   '/_platform/admin/spool/': typeof PlatformAdminSpoolIndexRoute
@@ -515,6 +569,9 @@ export interface FileRouteTypes {
     | '/dispatches/$id'
     | '/dispatches/new'
     | '/guides/$slug'
+    | '/masters/dies'
+    | '/masters/locations'
+    | '/masters/scrap'
     | '/pack/$id'
     | '/pack/new'
     | '/packing-lists/$id'
@@ -523,6 +580,7 @@ export interface FileRouteTypes {
     | '/settings/members'
     | '/stock/$dieId'
     | '/stock/bundles'
+    | '/vendors/$id'
     | '/admin/'
     | '/bundles/'
     | '/customers/'
@@ -530,10 +588,12 @@ export interface FileRouteTypes {
     | '/dispatch/'
     | '/dispatches/'
     | '/guides/'
+    | '/masters/'
     | '/pack/'
     | '/receipts/'
     | '/spool/'
     | '/stock/'
+    | '/vendors/'
     | '/admin/companies/$id'
     | '/admin/companies/'
     | '/admin/spool/'
@@ -566,6 +626,9 @@ export interface FileRouteTypes {
     | '/dispatches/$id'
     | '/dispatches/new'
     | '/guides/$slug'
+    | '/masters/dies'
+    | '/masters/locations'
+    | '/masters/scrap'
     | '/pack/$id'
     | '/pack/new'
     | '/packing-lists/$id'
@@ -574,6 +637,7 @@ export interface FileRouteTypes {
     | '/settings/members'
     | '/stock/$dieId'
     | '/stock/bundles'
+    | '/vendors/$id'
     | '/admin'
     | '/bundles'
     | '/customers'
@@ -581,10 +645,12 @@ export interface FileRouteTypes {
     | '/dispatch'
     | '/dispatches'
     | '/guides'
+    | '/masters'
     | '/pack'
     | '/receipts'
     | '/spool'
     | '/stock'
+    | '/vendors'
     | '/admin/companies/$id'
     | '/admin/companies'
     | '/admin/spool'
@@ -621,6 +687,9 @@ export interface FileRouteTypes {
     | '/_tenant/dispatches/$id'
     | '/_tenant/dispatches/new'
     | '/_tenant/guides/$slug'
+    | '/_tenant/masters/dies'
+    | '/_tenant/masters/locations'
+    | '/_tenant/masters/scrap'
     | '/_tenant/pack/$id'
     | '/_tenant/pack/new'
     | '/_tenant/packing-lists/$id'
@@ -629,6 +698,7 @@ export interface FileRouteTypes {
     | '/_tenant/settings/members'
     | '/_tenant/stock/$dieId'
     | '/_tenant/stock/bundles'
+    | '/_tenant/vendors/$id'
     | '/_platform/admin/'
     | '/_tenant/bundles/'
     | '/_tenant/customers/'
@@ -636,10 +706,12 @@ export interface FileRouteTypes {
     | '/_tenant/dispatch/'
     | '/_tenant/dispatches/'
     | '/_tenant/guides/'
+    | '/_tenant/masters/'
     | '/_tenant/pack/'
     | '/_tenant/receipts/'
     | '/_tenant/spool/'
     | '/_tenant/stock/'
+    | '/_tenant/vendors/'
     | '/_platform/admin/companies/$id'
     | '/_platform/admin/companies/'
     | '/_platform/admin/spool/'
@@ -789,6 +861,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedChangePasswordRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_tenant/vendors/': {
+      id: '/_tenant/vendors/'
+      path: '/vendors'
+      fullPath: '/vendors/'
+      preLoaderRoute: typeof TenantVendorsIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/stock/': {
       id: '/_tenant/stock/'
       path: '/stock'
@@ -815,6 +894,13 @@ declare module '@tanstack/react-router' {
       path: '/pack'
       fullPath: '/pack/'
       preLoaderRoute: typeof TenantPackIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/': {
+      id: '/_tenant/masters/'
+      path: '/masters'
+      fullPath: '/masters/'
+      preLoaderRoute: typeof TenantMastersIndexRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/guides/': {
@@ -865,6 +951,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof PlatformAdminIndexRouteImport
       parentRoute: typeof PlatformRoute
+    }
+    '/_tenant/vendors/$id': {
+      id: '/_tenant/vendors/$id'
+      path: '/vendors/$id'
+      fullPath: '/vendors/$id'
+      preLoaderRoute: typeof TenantVendorsIdRouteImport
+      parentRoute: typeof TenantRoute
     }
     '/_tenant/stock/bundles': {
       id: '/_tenant/stock/bundles'
@@ -920,6 +1013,27 @@ declare module '@tanstack/react-router' {
       path: '/pack/$id'
       fullPath: '/pack/$id'
       preLoaderRoute: typeof TenantPackIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/scrap': {
+      id: '/_tenant/masters/scrap'
+      path: '/masters/scrap'
+      fullPath: '/masters/scrap'
+      preLoaderRoute: typeof TenantMastersScrapRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/locations': {
+      id: '/_tenant/masters/locations'
+      path: '/masters/locations'
+      fullPath: '/masters/locations'
+      preLoaderRoute: typeof TenantMastersLocationsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/dies': {
+      id: '/_tenant/masters/dies'
+      path: '/masters/dies'
+      fullPath: '/masters/dies'
+      preLoaderRoute: typeof TenantMastersDiesRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/guides/$slug': {
@@ -1117,6 +1231,9 @@ interface TenantRouteChildren {
   TenantDispatchesIdRoute: typeof TenantDispatchesIdRoute
   TenantDispatchesNewRoute: typeof TenantDispatchesNewRoute
   TenantGuidesSlugRoute: typeof TenantGuidesSlugRoute
+  TenantMastersDiesRoute: typeof TenantMastersDiesRoute
+  TenantMastersLocationsRoute: typeof TenantMastersLocationsRoute
+  TenantMastersScrapRoute: typeof TenantMastersScrapRoute
   TenantPackIdRoute: typeof TenantPackIdRoute
   TenantPackNewRoute: typeof TenantPackNewRoute
   TenantPackingListsIdRoute: typeof TenantPackingListsIdRoute
@@ -1124,16 +1241,19 @@ interface TenantRouteChildren {
   TenantReceiptsNewRoute: typeof TenantReceiptsNewRoute
   TenantStockDieIdRoute: typeof TenantStockDieIdRoute
   TenantStockBundlesRoute: typeof TenantStockBundlesRoute
+  TenantVendorsIdRoute: typeof TenantVendorsIdRoute
   TenantBundlesIndexRoute: typeof TenantBundlesIndexRoute
   TenantCustomersIndexRoute: typeof TenantCustomersIndexRoute
   TenantDiesIndexRoute: typeof TenantDiesIndexRoute
   TenantDispatchIndexRoute: typeof TenantDispatchIndexRoute
   TenantDispatchesIndexRoute: typeof TenantDispatchesIndexRoute
   TenantGuidesIndexRoute: typeof TenantGuidesIndexRoute
+  TenantMastersIndexRoute: typeof TenantMastersIndexRoute
   TenantPackIndexRoute: typeof TenantPackIndexRoute
   TenantReceiptsIndexRoute: typeof TenantReceiptsIndexRoute
   TenantSpoolIndexRoute: typeof TenantSpoolIndexRoute
   TenantStockIndexRoute: typeof TenantStockIndexRoute
+  TenantVendorsIndexRoute: typeof TenantVendorsIndexRoute
 }
 
 const TenantRouteChildren: TenantRouteChildren = {
@@ -1149,6 +1269,9 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantDispatchesIdRoute: TenantDispatchesIdRoute,
   TenantDispatchesNewRoute: TenantDispatchesNewRoute,
   TenantGuidesSlugRoute: TenantGuidesSlugRoute,
+  TenantMastersDiesRoute: TenantMastersDiesRoute,
+  TenantMastersLocationsRoute: TenantMastersLocationsRoute,
+  TenantMastersScrapRoute: TenantMastersScrapRoute,
   TenantPackIdRoute: TenantPackIdRoute,
   TenantPackNewRoute: TenantPackNewRoute,
   TenantPackingListsIdRoute: TenantPackingListsIdRoute,
@@ -1156,16 +1279,19 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantReceiptsNewRoute: TenantReceiptsNewRoute,
   TenantStockDieIdRoute: TenantStockDieIdRoute,
   TenantStockBundlesRoute: TenantStockBundlesRoute,
+  TenantVendorsIdRoute: TenantVendorsIdRoute,
   TenantBundlesIndexRoute: TenantBundlesIndexRoute,
   TenantCustomersIndexRoute: TenantCustomersIndexRoute,
   TenantDiesIndexRoute: TenantDiesIndexRoute,
   TenantDispatchIndexRoute: TenantDispatchIndexRoute,
   TenantDispatchesIndexRoute: TenantDispatchesIndexRoute,
   TenantGuidesIndexRoute: TenantGuidesIndexRoute,
+  TenantMastersIndexRoute: TenantMastersIndexRoute,
   TenantPackIndexRoute: TenantPackIndexRoute,
   TenantReceiptsIndexRoute: TenantReceiptsIndexRoute,
   TenantSpoolIndexRoute: TenantSpoolIndexRoute,
   TenantStockIndexRoute: TenantStockIndexRoute,
+  TenantVendorsIndexRoute: TenantVendorsIndexRoute,
 }
 
 const TenantRouteWithChildren =
