@@ -13,6 +13,7 @@ import {
   ErpTextInput,
 } from "@/components/erp";
 import { authClient } from "../../lib/auth-client";
+import { afterSignIn } from "../../lib/sign-out";
 import { trpc } from "../../utils/trpc";
 
 export default function InviteScreen() {
@@ -26,7 +27,9 @@ export default function InviteScreen() {
 
   const acceptInviteMutation = useMutation({
     ...trpc.invite.acceptByToken.mutationOptions(),
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Let the root gate see the new session before leaving (Task 29 rebuilds this screen, N4).
+      await afterSignIn();
       Alert.alert("Success", "Successfully joined the company!");
       router.replace("/");
     },
