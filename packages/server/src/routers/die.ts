@@ -6,6 +6,7 @@ import { die, dieStatuses } from "@orrn/db/schema/catalog";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { likeContains } from "../lib/search";
 import { nextCompanySeq } from "../lib/sequence";
 
 export const dimensionsSchema = z.object({
@@ -73,9 +74,12 @@ export const dieRouter = router({
         isNull(die.deletedAt)
       ];
 
-      if (input.search) {
+      const search = input.search?.trim();
+      if (search) {
+        // Name, series, section code, or the code as the floor writes it ("PATTI 14701", series and
+        // section together). % and _ in the term are matched literally.
         conditions.push(
-          sql`(${die.name} LIKE ${`%${input.search}%`} OR ${die.series} LIKE ${`%${input.search}%`} OR ${die.sectionCode} LIKE ${`%${input.search}%`})`
+          sql`(${likeContains(die.name, search)} OR ${likeContains(die.series, search)} OR ${likeContains(die.sectionCode, search)} OR ${likeContains(sql`${die.series} || ' ' || ${die.sectionCode}`, search)})`
         );
       }
 

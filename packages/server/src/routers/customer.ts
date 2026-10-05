@@ -6,6 +6,7 @@ import { customer } from "@orrn/db/schema/customers";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { paginatedList, scopedFindOrThrow, withAudit } from "../lib/helpers";
+import { digitsOnly, likeContains, phoneDigits } from "../lib/search";
 
 const customerBaseSchema = z.object({
   name: z.string().min(1, "Name is required").max(500),
@@ -21,11 +22,6 @@ const customerBaseSchema = z.object({
 const MAX_IMPORT_ROWS = 2000;
 
 type Customer = typeof customer.$inferSelect;
-
-/** Escape LIKE wildcards so a search term is matched literally (paired with `ESCAPE '\\'`). */
-function escapeLike(term: string): string {
-  return term.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
 
 export const customerRouter = router({
   list: companyProcedure
@@ -45,11 +41,12 @@ export const customerRouter = router({
       if (search) {
         // Name, phone or GSTIN (what the list and the add-customer guide promise). LIKE is
         // case-insensitive for ASCII, so a GSTIN typed in lower case still matches; % and _ in
-        // the term are matched literally.
-        const pattern = `%${escapeLike(search)}%`;
-        conditions.push(
-          sql`(${customer.name} LIKE ${pattern} ESCAPE '\\' OR ${customer.phone} LIKE ${pattern} ESCAPE '\\' OR ${customer.taxId} LIKE ${pattern} ESCAPE '\\')`,
-        );
+        // the term are matched literally. A term that looks like a phone number is also compared
+        // digits to digits, so "9825011234" finds "+91 98250 11234".
+        const digits = phoneDigits(search);
+        const matches = [likeContains(customer.name, search), likeContains(customer.phone, search), likeContains(customer.taxId, search)];
+        if (digits) matches.push(sql`${digitsOnly(customer.phone)} LIKE ${`%${digits}%`}`);
+        conditions.push(sql`(${sql.join(matches, sql` OR `)})`);
       }
 
       const result = await paginatedList<Customer>(ctx.db, {

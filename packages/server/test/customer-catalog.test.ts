@@ -115,6 +115,53 @@ describe("customer.list search", () => {
     expect((await a.owner.customer.list({ search: "%" })).items).toEqual([]);
     expect((await a.owner.customer.list({ search: "_" })).items).toEqual([]);
   });
+
+  test("a phone number matches however it is spaced or prefixed", async () => {
+    const a = await plant();
+    const b = await plant();
+    const kd = await namedCustomer(a.companyId, { name: "KD Extrusion", phone: "+91 98250 11234" });
+    const royal = await namedCustomer(a.companyId, { name: "Royal Aluminium", phone: "(0261) 245-7781" });
+    await namedCustomer(b.companyId, { name: "Other plant buyer", phone: "9825011234" });
+
+    const ids = async (search: string) =>
+      (await a.owner.customer.list({ search })).items.map((c) => c.id).sort();
+
+    // Dialled, pasted from WhatsApp, or typed with other spacing than the stored number.
+    expect(await ids("9825011234")).toEqual([kd]);
+    expect(await ids("+919825011234")).toEqual([kd]);
+    expect(await ids("98250-11234")).toEqual([kd]);
+    expect(await ids("0261 2457781")).toEqual([royal]);
+    expect(await ids("2457781")).toEqual([royal]);
+  });
+
+  test("the digits search binds a constant handful of parameters", async () => {
+    const a = await plant();
+    env.resetPeakParams();
+    const res = await a.owner.customer.list({ search: "+91 98250 11234 (0) - 77", limit: 100 });
+    expect(res.items).toEqual([]);
+    expect(env.peakParams()).toBeLessThanOrEqual(10);
+  });
+});
+
+describe("die.list search", () => {
+  test("matches the code as the floor writes it, series and section together", async () => {
+    const p = await plant();
+    const patti = await env.seedDie(p.companyId, { series: "PATTI", sectionCode: "14701" });
+    await env.seedDie(p.companyId, { series: "DOMAL", sectionCode: "12170" });
+
+    const ids = async (search: string) => (await p.owner.die.list({ search })).items.map((d) => d.id);
+
+    expect(await ids("PATTI 14701")).toEqual([patti]);
+    expect(await ids("patti 147")).toEqual([patti]);
+    expect(await ids("14701")).toEqual([patti]);
+  });
+
+  test("a die search term with LIKE wildcards is taken literally", async () => {
+    const p = await plant();
+    await env.seedDie(p.companyId, { series: "PATTI", sectionCode: "14702" });
+    expect((await p.owner.die.list({ search: "%" })).items).toEqual([]);
+    expect((await p.owner.die.list({ search: "_" })).items).toEqual([]);
+  });
 });
 
 describe("analytics.customerKg", () => {
