@@ -62,6 +62,11 @@ export const countSession = sqliteTable(
     movedCount: integer("moved_count"),
     /** In stock at the counted locations, changed after the count began and not scanned. */
     changedCount: integer("changed_count"),
+    /**
+     * In stock at the counted locations, unchanged and not scanned here, but scanned in ANOTHER
+     * count after this one began (misplaced into another yard, not missing): never a phantom.
+     */
+    seenElsewhereCount: integer("seen_elsewhere_count"),
     cancelledAt: integer("cancelled_at", { mode: "timestamp_ms" }),
     cancelledBy: text("cancelled_by").references(() => user.id, { onDelete: "set null" }),
     cancelReason: text("cancel_reason"),

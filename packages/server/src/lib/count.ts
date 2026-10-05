@@ -12,13 +12,19 @@
  * A count over every active yard also expects in-stock bundles with no location
  * (`include_unplaced`, legacy stock taken on "place unknown"): unseen, they are phantoms with no
  * system location; seen, they are found (move_found places them).
+ * A bundle at a counted location that ANOTHER count scanned after this one began is not missing
+ * either (digest §12: a phantom is not in the yard at a count): it is `seenElsewhere`, never a
+ * phantom. An older sighting that is still to be acted on (its count is open, or its found / moved
+ * line is open) does not change the frozen report, but flags the phantom (`seenElsewhere` on the
+ * report bundle), blocks its void request, and keeps it out of "still missing"
+ * (`stillPhantomOfLine`, shared by the void hook and the 7 am number).
  * A scan is superseded (reported as matched) when the bundle has ledger rows newer than the scan:
  * the system then knows something the scan did not (it was moved or dispatched after being seen).
  * "Newer" compares company sequences (`server_seq`), which only ever go up.
  *
  * Close writes no kg rows (§5): the closed session is the checkpoint ("balance restarts here").
  */
-import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, sql, type SQL } from "drizzle-orm";
 
 import { approval } from "@orrn/db/schema/approval";
 import { die } from "@orrn/db/schema/catalog";
@@ -35,8 +41,8 @@ import { bundle, type BundleStatus } from "@orrn/db/schema/inventory";
 import { location } from "@orrn/db/schema/stock";
 import { company } from "@orrn/db/schema/tenant";
 
-import type { OrrnDb, SqliteBatchItem } from "./atomic";
-import { companyTimezone } from "./dayWindow";
+import { chunk, type OrrnDb, type SqliteBatchItem } from "./atomic";
+import { companyTimezone, dayWindow } from "./dayWindow";
 import { sqlUuid } from "./ledger";
 import { daysBetween, localDate } from "./zonedBuckets";
 
@@ -68,6 +74,39 @@ function seenInSession(companyId: string, sessionId: string): SQL {
   return sql`exists (select 1 from ${countSeen} s where s.company_id = ${companyId} and s.session_id = ${sessionId} and s.bundle_id = ${B("id")})`;
 }
 
+/** Over the outer `bundle`: scanned in any count of the company (cancelled ones too) after company sequence `seq`. */
+function seenInAnyCountAfter(companyId: string, seq: number): SQL {
+  return sql`exists (select 1 from ${countSeen} s where s.company_id = ${companyId} and s.bundle_id = ${B("id")} and s.server_seq > ${seq})`;
+}
+
+/**
+ * Over `sg` (a count_seen row of the bundle) joined to `sgc` (its count_session): the sighting is
+ * still to be acted on in its own count: that count is open, or its found / moved line is open;
+ * and the system has written no ledger row for the bundle since (no move, void or dispatch).
+ */
+function sightingPending(companyId: string): SQL {
+  return sql`(sgc.status = 'open' or exists (
+      select 1 from count_line sgl where sgl.company_id = ${companyId} and sgl.seen_id = sg.id
+        and sgl.kind in ('found', 'moved') and sgl.resolution = 'open'
+    ))
+    and not exists (
+      select 1 from stock_ledger sgx where sgx.company_id = ${companyId} and sgx.item_kind = 'bundle'
+        and sgx.item_ref = sg.bundle_id and sgx.server_seq > sg.server_seq
+    )`;
+}
+
+/**
+ * Over `sg` joined to `sgc`: a sighting in ANOTHER count that says the bundle is not missing from
+ * the count (`sessionId`, `startSeq`): made after that count began, or older but still pending.
+ * The caller adds `sg.bundle_id = …`.
+ */
+function sightingClears(companyId: string, sessionId: SQL, startSeq: SQL): SQL {
+  return sql`sg.company_id = ${companyId} and sg.session_id <> ${sessionId}
+    and (sg.server_seq > ${startSeq} or (${sightingPending(companyId)}))`;
+}
+
+const SIGHTINGS = sql`count_seen sg inner join count_session sgc on sgc.id = sg.session_id and sgc.company_id = sg.company_id`;
+
 /** What the classification needs from a count session (`include_unplaced` never changes after start). */
 export type CountScope = { id: string; startSeq: number; includeUnplaced: boolean };
 
@@ -82,9 +121,20 @@ function atCountedLocation(companyId: string, scope: Pick<CountScope, "id" | "in
   return sql`${B("company_id")} = ${companyId} and ${B("status")} in ('available', 'reserved') and ${where}`;
 }
 
-/** Over the outer `bundle`: a phantom of the count (see the module comment). */
+/**
+ * Over the outer `bundle`: a phantom of the count (see the module comment): at a counted location,
+ * not scanned here, unchanged since the count began, and not scanned by any other count since.
+ */
 export function phantomWhere(companyId: string, scope: CountScope): SQL {
-  return sql`(${atCountedLocation(companyId, scope)} and not ${seenInSession(companyId, scope.id)} and not ${bundleChangedAfter(companyId, scope.startSeq)})`;
+  return sql`(${atCountedLocation(companyId, scope)} and not ${seenInSession(companyId, scope.id)} and not ${bundleChangedAfter(companyId, scope.startSeq)} and not ${seenInAnyCountAfter(companyId, scope.startSeq)})`;
+}
+
+/**
+ * Over the outer `bundle`: at a counted location, not scanned here and unchanged, but scanned by
+ * another count after this one began (misplaced, not missing).
+ */
+export function seenElsewhereWhere(companyId: string, scope: CountScope): SQL {
+  return sql`(${atCountedLocation(companyId, scope)} and not ${seenInSession(companyId, scope.id)} and not ${bundleChangedAfter(companyId, scope.startSeq)} and ${seenInAnyCountAfter(companyId, scope.startSeq)})`;
 }
 
 /** Over the outer `bundle`: at a counted location, not scanned, but changed after the count began. */
@@ -96,9 +146,12 @@ export function changedWhere(companyId: string, scope: CountScope): SQL {
  * Over `cl` (a phantom count_line), `cs` (its closed count_session) and a bundle's id and
  * location columns: the bundle is STILL a phantom of that count. It sits where the count expected
  * it (NULL = place unknown), has no ledger row since the close (not moved, voided, restored or
- * dispatched) and no count has scanned it since. The phantom_void hook and the 7 am "phantoms
- * still missing" number share this one rule so they cannot disagree. The caller adds the line
- * filters (approval, resolution) and the bundle status it needs.
+ * dispatched), no other count has scanned it since that count BEGAN (a scan that landed after the
+ * close but took its sequence before it, ruling 169, included), and no older sighting in another
+ * count is still pending there (open count, or open found / moved line: move it from that count
+ * instead). The phantom_void hook and the 7 am "phantoms still missing" number share this one rule
+ * so they cannot disagree. The caller adds the line filters (approval, resolution) and the bundle
+ * status it needs.
  */
 export function stillPhantomOfLine(companyId: string, bundleId: SQL, bundleLocationId: SQL): SQL {
   return sql`${bundleLocationId} is cl.system_location_id
@@ -107,9 +160,73 @@ export function stillPhantomOfLine(companyId: string, bundleId: SQL, bundleLocat
         and l.item_ref = ${bundleId} and l.server_seq > cs.close_seq
     )
     and not exists (
-      select 1 from count_seen s where s.company_id = ${companyId} and s.bundle_id = ${bundleId}
-        and s.server_seq > cs.close_seq
+      select 1 from ${SIGHTINGS}
+      where sg.bundle_id = ${bundleId} and ${sightingClears(companyId, sql`cl.session_id`, sql`cs.start_seq`)}
     )`;
+}
+
+/** Where another count saw a phantom of this count (the latest sighting that clears it). */
+export type CountSighting = {
+  sessionId: string;
+  number: string;
+  locationId: string;
+  locationCode: string | null;
+  /** That count is still open. */
+  countOpen: boolean;
+  /**
+   * The sighting is still to be acted on in that count (it is open, or its found / moved line is
+   * open): `void_phantom` refuses the bundle; close that count and move it from there instead.
+   */
+  resolveThere: boolean;
+};
+
+/**
+ * Sightings in other counts that clear phantoms of `scope` (see `sightingClears`), latest first per
+ * bundle. `bundles` is either an id list (chunked here) or a subquery of bundle ids.
+ */
+export async function sightingsOf(
+  db: OrrnDb,
+  companyId: string,
+  scope: Pick<CountScope, "id" | "startSeq">,
+  bundles: string[] | SQL,
+): Promise<Map<string, CountSighting>> {
+  const run = (where: SQL) =>
+    db.all<{
+      bundleId: string;
+      sessionId: string;
+      number: string;
+      status: CountStatus;
+      locationId: string;
+      locationCode: string | null;
+      serverSeq: number;
+      resolveThere: number;
+    }>(sql`select sg.bundle_id as bundleId, sg.session_id as sessionId, sgc.number as number,
+        sgc.status as status, sg.location_id as locationId, loc.code as locationCode,
+        sg.server_seq as serverSeq, (case when ${sightingPending(companyId)} then 1 else 0 end) as resolveThere
+      from ${SIGHTINGS}
+      left join ${location} loc on loc.id = sg.location_id and loc.company_id = sg.company_id
+      where ${where} and ${sightingClears(companyId, sql`${scope.id}`, sql`${scope.startSeq}`)}`);
+  const rows = Array.isArray(bundles)
+    ? (await Promise.all(chunk(bundles, 60).map((ids) => run(sql`sg.bundle_id in ${ids}`)))).flat()
+    : await run(sql`sg.bundle_id in ${bundles}`);
+  const out = new Map<string, CountSighting & { serverSeq: number }>();
+  for (const r of rows) {
+    const seq = Number(r.serverSeq);
+    const prev = out.get(r.bundleId);
+    // The latest sighting, but one still to be acted on wins over a settled one.
+    const pending = Number(r.resolveThere) === 1;
+    if (prev && ((prev.resolveThere && !pending) || (prev.resolveThere === pending && prev.serverSeq >= seq))) continue;
+    out.set(r.bundleId, {
+      sessionId: r.sessionId,
+      number: r.number,
+      locationId: r.locationId,
+      locationCode: r.locationCode,
+      countOpen: r.status === "open",
+      resolveThere: pending,
+      serverSeq: seq,
+    });
+  }
+  return new Map([...out].map(([k, { serverSeq: _seq, ...v }]) => [k, v]));
 }
 
 /**
@@ -235,6 +352,7 @@ export function closeStatements(ctx: CloseCtx, session: CountScope): SqliteBatch
           changedWhere(companyId, session),
         )}`,
         changedCount: bundleCount(changedWhere(companyId, session)),
+        seenElsewhereCount: bundleCount(seenElsewhereWhere(companyId, session)),
         seenCount: sql<number>`(select count(*) from ${countSeen} s where s.company_id = ${companyId} and s.session_id = ${sessionId})`,
         phantomCount: lineCount("phantom"),
         phantomG: sql<number>`(select coalesce(sum(x.weight_g), 0) from ${countLine} x where x.company_id = ${companyId} and x.session_id = ${sessionId} and x.kind = 'phantom')`,
@@ -304,6 +422,11 @@ export type CountReportBundle = {
   packedAt: Date | null;
   resolution: CountLineResolution;
   approvalId: string | null;
+  /**
+   * Phantoms only (open or awaiting approval): another count saw the bundle, so it is not missing
+   * (see `CountSighting`); null otherwise.
+   */
+  seenElsewhere: CountSighting | null;
 };
 
 export type FoundReason = "unknown" | "ambiguous" | "not_in_stock" | "elsewhere";
@@ -336,6 +459,11 @@ export type CountSummary = {
   moved: number;
   /** At a counted location, changed after the count began and not scanned: not called phantom. */
   changed: number;
+  /**
+   * At a counted location, unchanged and not scanned here, but scanned by another count after this
+   * one began (misplaced, not missing): not called phantom. Part of `expected`.
+   */
+  seenElsewhere: number;
   /** phantom ÷ expected in basis points (owner measure M1: < 100 bp). */
   phantomBp: number;
 };
@@ -383,6 +511,7 @@ type SessionLike = {
   closedAt: Date | null;
   expectedCount: number | null;
   seenCount: number | null;
+  seenElsewhereCount: number | null;
   phantomCount: number | null;
   phantomG: number | null;
   foundCount: number | null;
@@ -481,16 +610,22 @@ async function previewLines(db: OrrnDb, companyId: string, session: SessionLike)
 /** Live totals of an open count (same definitions as close). */
 async function previewTotals(db: OrrnDb, companyId: string, session: SessionLike) {
   const count = (where: SQL) => db.select({ n: sql<number>`count(*)` }).from(bundle).where(where);
-  const [[atLoc], [changed], [seen]] = await Promise.all([
+  const [[atLoc], [changed], [elsewhere], [seen]] = await Promise.all([
     count(sql`(${atCountedLocation(companyId, session)})`),
     count(changedWhere(companyId, session)),
+    count(seenElsewhereWhere(companyId, session)),
     db
       .select({ n: sql<number>`count(*)` })
       .from(countSeen)
       .where(and(eq(countSeen.companyId, companyId), eq(countSeen.sessionId, session.id))),
   ]);
   const changedN = Number(changed?.n ?? 0);
-  return { expected: Number(atLoc?.n ?? 0) - changedN, changed: changedN, seen: Number(seen?.n ?? 0) };
+  return {
+    expected: Number(atLoc?.n ?? 0) - changedN,
+    changed: changedN,
+    seenElsewhere: Number(elsewhere?.n ?? 0),
+    seen: Number(seen?.n ?? 0),
+  };
 }
 
 function bp(part: number, whole: number): number {
@@ -541,6 +676,19 @@ export async function countReport(
       : frozen
         ? await frozenLines(db, companyId, session.id)
         : await previewLines(db, companyId, session);
+  // Sightings in other counts of this count's phantoms that are still open or awaiting approval.
+  const sightings =
+    session.status === "cancelled"
+      ? new Map<string, CountSighting>()
+      : await sightingsOf(
+          db,
+          companyId,
+          session,
+          frozen
+            ? sql`(select x.bundle_id from ${countLine} x where x.company_id = ${companyId} and x.session_id = ${session.id}
+                and x.kind = 'phantom' and x.resolution in ('open', 'void_requested') and x.bundle_id is not null)`
+            : sql`(select ${bundle.id} from ${bundle} where ${phantomWhere(companyId, session)})`,
+        );
 
   const toBundle = (r: RawLine): CountReportBundle => ({
     lineId: r.lineId,
@@ -557,6 +705,10 @@ export async function countReport(
     packedAt: r.packedAt,
     resolution: r.resolution,
     approvalId: r.approvalId,
+    seenElsewhere:
+      r.kind === "phantom" && (r.resolution === "open" || r.resolution === "void_requested")
+        ? (sightings.get(r.bundleId!) ?? null)
+        : null,
   });
 
   const phantom = raw.filter((r) => r.kind === "phantom" && r.bundleId).map(toBundle);
@@ -598,6 +750,7 @@ export async function countReport(
       found: f,
       moved: m,
       changed: session.changedCount ?? 0,
+      seenElsewhere: session.seenElsewhereCount ?? 0,
       phantomBp: bp(ph, expected),
     };
   } else if (session.status === "open") {
@@ -611,10 +764,13 @@ export async function countReport(
       found: found.length,
       moved: moved.length,
       changed: t.changed,
+      seenElsewhere: t.seenElsewhere,
       phantomBp: bp(phantom.length, t.expected),
     };
   } else {
-    summary = { expected: 0, seen: 0, matched: 0, phantom: 0, phantomG: 0, found: 0, moved: 0, changed: 0, phantomBp: 0 };
+    summary = {
+      expected: 0, seen: 0, matched: 0, phantom: 0, phantomG: 0, found: 0, moved: 0, changed: 0, seenElsewhere: 0, phantomBp: 0,
+    };
   }
 
   // By cast (most kg first, unknown cast last) and by age at the close.
@@ -662,11 +818,29 @@ export async function countReport(
 // ---------------------------------------------------------------------------
 
 export type PhantomSummary = {
-  /** The most recently closed count and its phantom share. */
+  /** The most recently closed count, its yards and its phantom share. */
   lastCount: {
     sessionId: string;
     number: string;
     closedAt: Date;
+    /** The yards it covered (label the share with them: one yard's count is not a full count). */
+    locationCodes: string[];
+    expected: number;
+    phantom: number;
+    phantomG: number;
+    phantomBp: number;
+  } | null;
+  /**
+   * Every count closed on the company calendar day of the last count, together (sum phantom ÷ sum
+   * expected): yards counted as separate counts on one evening read as one count (owner measure
+   * M1 is defined over a full count).
+   */
+  lastDay: {
+    /** Company-local date, YYYY-MM-DD. */
+    date: string;
+    counts: number;
+    /** Their numbers, oldest close first. */
+    numbers: string[];
     expected: number;
     phantom: number;
     phantomG: number;
@@ -680,8 +854,11 @@ export type PhantomSummary = {
   open: { bundles: number; weightG: number };
 };
 
+/** Counts closed on one company calendar day (a plant counts a handful a day at most). */
+const MAX_DAY_COUNTS = 100;
+
 export async function phantomSummary(db: OrrnDb, companyId: string): Promise<PhantomSummary> {
-  const [[last], [open]] = await Promise.all([
+  const [[last], [open], [co]] = await Promise.all([
     db
       .select({
         sessionId: countSession.id,
@@ -712,20 +889,60 @@ export async function phantomSummary(db: OrrnDb, companyId: string): Promise<Pha
           )`,
         ),
       ),
+    db.select({ settings: company.settings }).from(company).where(eq(company.id, companyId)).limit(1),
   ]);
+  const openOut = { bundles: Number(open?.n ?? 0), weightG: Number(open?.g ?? 0) };
+  if (!last || !last.closedAt) return { lastCount: null, lastDay: null, open: openOut };
+
+  const timezone = companyTimezone(co?.settings);
+  const { startMs, endMs } = dayWindow(timezone, last.closedAt.getTime());
+  const [codes, day] = await Promise.all([
+    db
+      .select({ code: location.code })
+      .from(countLocation)
+      .innerJoin(location, and(eq(location.id, countLocation.locationId), eq(location.companyId, countLocation.companyId)))
+      .where(and(eq(countLocation.companyId, companyId), eq(countLocation.sessionId, last.sessionId)))
+      .orderBy(asc(location.sortOrder), asc(location.code)),
+    db
+      .select({
+        number: countSession.number,
+        expected: countSession.expectedCount,
+        phantom: countSession.phantomCount,
+        phantomG: countSession.phantomG,
+      })
+      .from(countSession)
+      .where(
+        and(
+          eq(countSession.companyId, companyId),
+          eq(countSession.status, "closed"),
+          gte(countSession.closedAt, new Date(startMs)),
+          lt(countSession.closedAt, new Date(endMs)),
+        ),
+      )
+      .orderBy(asc(countSession.closedAt), asc(countSession.serverSeq))
+      .limit(MAX_DAY_COUNTS),
+  ]);
+  const sum = (k: "expected" | "phantom" | "phantomG") => day.reduce((t, r) => t + (r[k] ?? 0), 0);
   return {
-    lastCount:
-      last && last.closedAt
-        ? {
-            sessionId: last.sessionId,
-            number: last.number,
-            closedAt: last.closedAt,
-            expected: last.expected ?? 0,
-            phantom: last.phantom ?? 0,
-            phantomG: last.phantomG ?? 0,
-            phantomBp: bp(last.phantom ?? 0, last.expected ?? 0),
-          }
-        : null,
-    open: { bundles: Number(open?.n ?? 0), weightG: Number(open?.g ?? 0) },
+    lastCount: {
+      sessionId: last.sessionId,
+      number: last.number,
+      closedAt: last.closedAt,
+      locationCodes: codes.map((c) => c.code),
+      expected: last.expected ?? 0,
+      phantom: last.phantom ?? 0,
+      phantomG: last.phantomG ?? 0,
+      phantomBp: bp(last.phantom ?? 0, last.expected ?? 0),
+    },
+    lastDay: {
+      date: localDate(timezone, last.closedAt.getTime()),
+      counts: day.length,
+      numbers: day.map((r) => r.number),
+      expected: sum("expected"),
+      phantom: sum("phantom"),
+      phantomG: sum("phantomG"),
+      phantomBp: bp(sum("phantom"), sum("expected")),
+    },
+    open: openOut,
   };
 }

@@ -43,7 +43,7 @@ import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { now as clockNow } from "../lib/clock";
 import { resolveCode } from "../lib/codeResolver";
-import { closeStatements, countReport, phantomSummary, unscannedPhantoms } from "../lib/count";
+import { closeStatements, countReport, phantomSummary, sightingsOf, unscannedPhantoms } from "../lib/count";
 import { nextDocNumber } from "../lib/docNumber";
 import { LEDGER_IN_CHUNK, moveRows, type PostingCtx } from "../lib/ledger";
 import { can } from "../lib/permissions";
@@ -794,6 +794,19 @@ export const countRouter = router({
               .slice(0, 5)
               .map((b) => `${b.serial}: ${bundleBlockReason(b, codes).toLowerCase()}`)
               .join("; ")}`,
+          });
+        }
+        // Another count saw it and that sighting is still to be acted on there (its count is open,
+        // or its found / moved line is open): it is misplaced, not missing (spec r0 I-1). The hook
+        // re-checks the same rule at decision time (stillPhantomOfLine).
+        const seenThere = [...(await sightingsOf(ctx.db, ctx.companyId, s, wanted))].filter(([, v]) => v.resolveThere);
+        if (seenThere.length > 0) {
+          const parts = seenThere
+            .slice(0, 5)
+            .map(([b, v]) => `${bundleOf.get(b)!.serial} seen at ${v.locationCode ?? "an unknown place"} in ${v.number}${v.countOpen ? " (still open)" : ""}`);
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Not missing: ${parts.join("; ")}${seenThere.length > 5 ? ` and ${seenThere.length - 5} more` : ""}. Move it from that count's report (close that count first if it is still open) instead of voiding it.`,
           });
         }
         const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);

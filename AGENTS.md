@@ -183,7 +183,7 @@ bun run deploy
   A correction is a new opposite-sign row with `reversal_of` = the row it cancels.
 - Every stock-affecting submit writes its document rows, its ledger rows and an audit row in ONE
   `atomicBatch`. Use the builders in `packages/server/src/lib/ledger.ts` (`packRows`, `moveRows`,
-  `voidRows`, `restoreRows`, `dispatchRows`, `openingRows`). For existing bundles they are
+  `voidRows`, `restoreRows`, `dispatchRows`, `openingRows`, `phantomVoidRows`). For existing bundles they are
   INSERT … SELECT statements that read location and weight at write time and land only if the
   bundle write beside them landed (the bundle carries this request's `server_seq`).
 - Invariant (Review Focus 1): for every bundle, ledger balance = projection (available/reserved →
@@ -302,14 +302,40 @@ bun run deploy
   never phantom); moved = seen at a counted yard, system has it at another counted yard; found =
   seen but unknown/ambiguous code, not in stock, or in stock outside the count (or place unknown).
   A scan with a newer ledger row than the scan (`server_seq` compare) is superseded (matched).
+- A bundle is a phantom only if NO count saw it: one scanned by another count (any company count,
+  cancelled ones too) after this count's `start_seq` is `seenElsewhere` (summary total, column
+  `seen_elsewhere_count`), never a phantom. An older sighting in another count that is still
+  pending there (its count is open, or its found/moved line is open, and no ledger row since the
+  scan) does not change the frozen report but flags the phantom (`CountReportBundle.seenElsewhere`:
+  count, yard, `countOpen`, `resolveThere`), makes `void_phantom` refuse it ("Not missing: … seen at
+  Y1 in CNT-1 …": move it from that count instead) and keeps it out of "still missing". Yards
+  counted as separate counts (at once or one after another) therefore never void real stock that
+  another yard's count saw. `sightingsOf` / `sightingClears` in `lib/count.ts` hold the rule.
+- Bundles with no location (legacy stock taken on by `stock.openingBalance`) are expected only by a
+  count with `include_unplaced` (start input `includeUnplaced`; default on when the count covers
+  every active yard, refused otherwise): unseen they are phantoms with `system_location_id` NULL,
+  seen they are found (move_found places them). Pass the session's `CountScope`
+  (`{ id, startSeq, includeUnplaced }`) to `phantomWhere` / `changedWhere` / `closeStatements`.
 - Close posts NO kg rows (spec §5); the closed session is the checkpoint. Close is idempotent and
-  every statement after the session UPDATE is guarded by `close_seq`.
+  every statement after the session UPDATE is guarded by `close_seq`. A counted yard with no scan
+  that would report phantoms (or a count with no scan and unplaced phantoms) makes close answer
+  PRECONDITION_FAILED until the caller sends `confirmUnscanned: true` (close is final).
 - `count.resolve` `void_phantom` stamps the lines `void_requested` and opens ONE `phantom_void`
   approval per count (subject = session id). On approval the hook voids only bundles still
   available at the expected location, with no ledger row since close and no later scan; it posts
   `void` reversal rows (voucher = the count line, `reversal_of` = pack/opening/restore row) and
-  status events; the rest become `cleared`. `move_found` moves moved/found bundles to the seen yard
+  status events; the rest become `cleared`. That "still a phantom" rule is ONE SQL fragment,
+  `stillPhantomOfLine` in `lib/count.ts`, shared by the hook and `phantomSummary().open` (the 7 am
+  "phantoms still missing" number); change it there, never in one caller. It compares other
+  counts' scans with the line's count `start_seq` (not its close) and includes pending older
+  sightings, so the hook clears what the void request would now refuse. `move_found` moves moved/found bundles to the seen yard
   with ordinary `move` rows, guarded by "still where the count saw the system have it".
+- `phantomSummary()` = `{ lastCount (with its `locationCodes`), lastDay, open }`: `lastDay` sums
+  every count closed on the last count's company calendar day (yards counted one by one in an
+  evening read as one full count, owner measure M1).
+- The dev-seed reset (`apps/server/src/dev-seed.ts`) deletes the demo company's count tables before
+  `bundle` and `location` (RESTRICT keys) and `doc_series` (CNT-n restarts); a new table with a
+  RESTRICT key to location/bundle/purchase_lot must be added to that reset too.
 
 ## Analytics (charts and customer numbers)
 

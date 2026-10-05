@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ec7fba99-d832-4ced-accf-8965a959a4fd",
+  "id": "d29561f0-dde7-4c70-8c7b-3257f638ff16",
   "prevId": "534f3620-d51f-4469-bb76-e08964320a43",
   "tables": {
     "approval": {
@@ -1771,6 +1771,13 @@
         },
         "changed_count": {
           "name": "changed_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "seen_elsewhere_count": {
+          "name": "seen_elsewhere_count",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,

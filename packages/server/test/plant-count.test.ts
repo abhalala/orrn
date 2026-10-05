@@ -16,14 +16,19 @@ import {
   auditLog,
   bundle,
   bundleStatusEvent,
+  company,
   countLine,
+  countLocation,
   countSeen,
   countSession,
   legacyBundleMap,
   stockLedger,
+  user,
 } from "@orrn/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 
+import { APPROVAL_APPLIERS } from "../src/lib/approvalApply";
+import { atomicBatch } from "../src/lib/atomic";
 import { can as canMe, type Action } from "../src/lib/permissions";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
@@ -515,6 +520,7 @@ describe("count.close classification", () => {
       found: 6,
       moved: 1,
       changed: 0,
+      seenElsewhere: 0,
       phantomBp: 2_500,
     });
     expect(report.status).toBe("closed");
@@ -1126,7 +1132,7 @@ describe("D1 limits and ledger = projection", () => {
 
   test("phantomSummary: the last count's phantom share and the phantoms still open (each bundle once)", async () => {
     const p = await plant();
-    expect(await p.viewer.count.phantomSummary()).toEqual({ lastCount: null, open: { bundles: 0, weightG: 0 } });
+    expect(await p.viewer.count.phantomSummary()).toEqual({ lastCount: null, lastDay: null, open: { bundles: 0, weightG: 0 } });
     const { p: q, s, phantoms } = await closedWithPhantoms(3);
     const sum = await q.viewer.count.phantomSummary();
     expect(sum.lastCount).toMatchObject({ sessionId: s.id, number: "CNT-1", expected: 4, phantom: 3, phantomBp: 7_500 });
@@ -1185,7 +1191,7 @@ describe("fix r1: bundles with no place (legacy stock taken on at location unkno
     expect(report.found).toHaveLength(1);
     expect(report.found[0]).toMatchObject({ reason: "elsewhere", resolvedBundle: { bundleId: legacy[0]!.id, systemLocationId: null } });
     expect(report.summary).toEqual({
-      expected: 5, seen: 3, matched: 2, phantom: 2, phantomG: 50_000, found: 1, moved: 0, changed: 0, phantomBp: 4_000,
+      expected: 5, seen: 3, matched: 2, phantom: 2, phantomG: 50_000, found: 1, moved: 0, changed: 0, seenElsewhere: 0, phantomBp: 4_000,
     });
     expect(preview.summary).toEqual(report.summary);
     expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 2, weightG: 50_000 });
@@ -1438,7 +1444,7 @@ describe("review pins: report numbers", () => {
     await p.owner.stock.move({ bundleIds: [b!.id], toLocationId: p.loc("Y1") });
     const report = await p.supervisor.count.close({ sessionId: s.id });
     expect(report.summary).toEqual({
-      expected: 2, seen: 2, matched: 2, phantom: 0, phantomG: 0, found: 0, moved: 0, changed: 0, phantomBp: 0,
+      expected: 2, seen: 2, matched: 2, phantom: 0, phantomG: 0, found: 0, moved: 0, changed: 0, seenElsewhere: 0, phantomBp: 0,
     });
   });
 
@@ -1447,7 +1453,7 @@ describe("review pins: report numbers", () => {
     const s = await p.supervisor.count.start({ locationIds: [p.loc("Y6")] });
     const report = await p.supervisor.count.close({ sessionId: s.id });
     expect(report.summary).toEqual({
-      expected: 0, seen: 0, matched: 0, phantom: 0, phantomG: 0, found: 0, moved: 0, changed: 0, phantomBp: 0,
+      expected: 0, seen: 0, matched: 0, phantom: 0, phantomG: 0, found: 0, moved: 0, changed: 0, seenElsewhere: 0, phantomBp: 0,
     });
     expect((await p.viewer.count.phantomSummary()).lastCount).toMatchObject({ expected: 0, phantom: 0, phantomBp: 0 });
   });
@@ -1993,5 +1999,621 @@ describe("review pins: cross-wired rows (a foreign key does not check the compan
       requestedBy: attacker.users.supervisor.id,
     });
     expect((await p.viewer.count.get({ sessionId: s.id })).report.pendingApprovalId).toBeNull();
+  });
+});
+
+// ===========================================================================
+// Review round 1, second pass (reviews/PL10-*-r0.md re-run on 8491dd1): a bundle another count
+// saw is not "missing", the demo-seed reset with counts, and the second mutation wave's pins.
+// ===========================================================================
+
+describe("cross-count sightings (spec r0 I-1, correctness r0 I-1: digest §12 phantom = not in the yard)", () => {
+  test("two counts open at once: x is packed at Y2 but sits in Y1; CNT-1 scans it at Y1, so CNT-2 does not call it a phantom", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [x, y] = await p.pack("Y2", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [a!.serial, x!.serial] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [y!.serial] });
+    // The missing list before close already agrees.
+    const preview = (await p.viewer.count.get({ sessionId: c2.id })).report;
+    expect(preview.phantom).toEqual([]);
+    expect(preview.summary).toMatchObject({ expected: 2, seen: 1, matched: 1, phantom: 0, seenElsewhere: 1, phantomBp: 0 });
+    const r2 = await p.supervisor.count.close({ sessionId: c2.id });
+    expect(ids(r2.phantom)).not.toContain(x!.id);
+    expect(r2.summary).toEqual(preview.summary);
+    const r1 = await p.supervisor.count.close({ sessionId: c1.id });
+    expect(r1.found.map((f) => [f.reason, f.resolvedBundle?.bundleId])).toEqual([["elsewhere", x!.id]]);
+    expect((await p.supervisor.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+    // CNT-1's found line puts x where it was seen; nothing else is owed.
+    expect(movedFound(await p.supervisor.count.resolve({ sessionId: c1.id, action: "move_found", bundleIds: [x!.id] })).moved).toBe(1);
+    expect((await bundleRow(x!.id)).locationId).toBe(p.loc("Y1"));
+    await expectConsistent(p.owner, p.companyId, "two counts at once");
+  });
+
+  test("yards counted one after the other: CNT-2 lists x flagged 'seen at Y1 in CNT-1', refuses its void naming CNT-1, and x is not 'still missing'", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [x, y] = await p.pack("Y2", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [a!.serial, x!.serial] });
+    await p.supervisor.count.close({ sessionId: c1.id });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [y!.serial] });
+    const r2 = await p.supervisor.count.close({ sessionId: c2.id });
+    // CNT-2 did not see x where the system has it, so it stays on CNT-2's report, flagged.
+    expect(ids(r2.phantom)).toEqual([x!.id]);
+    expect(r2.phantom[0]!.seenElsewhere).toEqual({
+      sessionId: c1.id, number: "CNT-1", locationId: p.loc("Y1"), locationCode: "Y1", countOpen: false, resolveThere: true,
+    });
+    await expect(
+      p.supervisor.count.resolve({ sessionId: c2.id, action: "void_phantom", bundleIds: [x!.id] }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("seen at Y1 in CNT-1") });
+    expect((await linesOf(c2.id)).find((l) => l.bundleId === x!.id)!.resolution).toBe("open");
+    expect(await env.db.select().from(approval).where(eq(approval.companyId, p.companyId))).toEqual([]);
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+    // Moving it to where CNT-1 saw it settles both counts.
+    expect(movedFound(await p.supervisor.count.resolve({ sessionId: c1.id, action: "move_found", bundleIds: [x!.id] })).moved).toBe(1);
+    expect((await p.viewer.count.get({ sessionId: c2.id })).report.phantom[0]!.seenElsewhere).toBeNull();
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+    await expectConsistent(p.owner, p.companyId, "found line moved, phantom of the later count settled");
+  });
+
+  test("a sighting in a count still open: CNT-1 scanned x before CNT-2 began; CNT-2 flags it and refuses its void until the scan is taken back", async () => {
+    const p = await plant();
+    const [x, y] = await p.pack("Y2", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const scan = await p.supervisor.count.scan({ sessionId: c1.id, codes: [x!.serial] });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [y!.serial] });
+    const r2 = await p.supervisor.count.close({ sessionId: c2.id });
+    expect(ids(r2.phantom)).toEqual([x!.id]);
+    expect(r2.phantom[0]!.seenElsewhere).toMatchObject({ number: "CNT-1", locationCode: "Y1", countOpen: true, resolveThere: true });
+    await expect(
+      p.supervisor.count.resolve({ sessionId: c2.id, action: "void_phantom", bundleIds: [x!.id] }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("CNT-1") });
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+    // The scan was a misread label: taken back, x is missing again and can be voided.
+    await p.supervisor.count.removeScans({ sessionId: c1.id, seenIds: [scan.results[0]!.seenId!] });
+    expect((await p.viewer.count.get({ sessionId: c2.id })).report.phantom[0]!.seenElsewhere).toBeNull();
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 1, weightG: 25_000 });
+    expect(voided(await p.supervisor.count.resolve({ sessionId: c2.id, action: "void_phantom", bundleIds: [x!.id] })).requested).toBe(1);
+  });
+
+  test("RACE: another count's scan took its sequence before this count's close but landed after it: not still missing, void refused", async () => {
+    const p = await plant();
+    const [x, y] = await p.pack("Y2", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [y!.serial] });
+    env.beforeNextBatch(() => p.office.count.close({ sessionId: c2.id }));
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [x!.serial] });
+    const r2 = (await p.viewer.count.get({ sessionId: c2.id })).report;
+    expect(r2.status).toBe("closed");
+    // Close could not see the scan (seq order is not commit order, ruling 169)...
+    expect(ids(r2.phantom)).toEqual([x!.id]);
+    // ...but it was made after CNT-2 began: x is not missing.
+    expect(r2.phantom[0]!.seenElsewhere).toMatchObject({ number: "CNT-1", countOpen: true, resolveThere: true });
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+    await expect(
+      p.supervisor.count.resolve({ sessionId: c2.id, action: "void_phantom", bundleIds: [x!.id] }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("CNT-1") });
+  });
+
+  test("the hook re-checks at decision: a phantom with a live sighting in another count from before this count began is cleared, not voided", async () => {
+    // CNT-1 (Y1) is open and has scanned x; CNT-2 (Y2) closes with x a phantom. The request refuses
+    // it up front, so the sighting is hidden from that read (parked on CNT-2 itself) and put back
+    // just before the request's batch: the hook's copy of the rule (stillPhantomOfLine) must catch it.
+    const p = await plant();
+    const [x, y] = await p.pack("Y2", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [x!.serial] });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [y!.serial] });
+    await p.supervisor.count.close({ sessionId: c2.id });
+    const sighting = await env.db.select().from(countSeen).where(eq(countSeen.sessionId, c1.id));
+    // Hide the sighting from the up-front check only: move it to a session id nobody reads, then back.
+    env.beforeNextBatch(async () => {
+      await env.db.update(countSeen).set({ sessionId: c1.id }).where(eq(countSeen.id, sighting[0]!.id));
+    });
+    await env.db.update(countSeen).set({ sessionId: c2.id }).where(eq(countSeen.id, sighting[0]!.id));
+    const res = voided(await p.supervisor.count.resolve({ sessionId: c2.id, action: "void_phantom", bundleIds: [x!.id] }));
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    expect((await bundleRow(x!.id)).status).toBe("available");
+    expect((await linesOf(c2.id)).find((l) => l.bundleId === x!.id)!.resolution).toBe("cleared");
+    await expectConsistent(p.owner, p.companyId, "hook cleared a phantom seen in an open count");
+  });
+});
+
+describe("cross-count sightings: settled ones", () => {
+  test("a sighting the system has since overtaken (the bundle was moved after it) no longer blocks the void", async () => {
+    const p = await plant();
+    const [x] = await p.pack("Y2", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [x!.serial] });
+    // Moved to Y3 after CNT-1 saw it at Y1; then CNT-2 does not find it at Y3.
+    await p.owner.stock.move({ bundleIds: [x!.id], toLocationId: p.loc("Y3") });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y3")] });
+    const r2 = await p.supervisor.count.close({ sessionId: c2.id, confirmUnscanned: true });
+    expect(ids(r2.phantom)).toEqual([x!.id]);
+    expect(r2.phantom[0]!.seenElsewhere).toBeNull();
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 1, weightG: 25_000 });
+    expect(voided(await p.supervisor.count.resolve({ sessionId: c2.id, action: "void_phantom", bundleIds: [x!.id] })).requested).toBe(1);
+  });
+
+  test("a later count that matched the bundle in place: the earlier phantom line is flagged but not blocked, and the approval clears it", async () => {
+    const p = await plant();
+    const [a, x] = await p.pack("Y1", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: c1.id });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [a!.serial, x!.serial] });
+    await p.supervisor.count.close({ sessionId: c2.id });
+    const flag = (await p.viewer.count.get({ sessionId: c1.id })).report.phantom[0]!.seenElsewhere;
+    expect(flag).toMatchObject({ number: "CNT-2", locationCode: "Y1", countOpen: false, resolveThere: false });
+    const res = voided(await p.supervisor.count.resolve({ sessionId: c1.id, action: "void_phantom", bundleIds: [x!.id] }));
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    expect((await bundleRow(x!.id)).status).toBe("available");
+    expect((await linesOf(c1.id)).find((l) => l.bundleId === x!.id)!.resolution).toBe("cleared");
+    // A settled line carries no flag.
+    expect((await p.viewer.count.get({ sessionId: c1.id })).report.phantom[0]!.seenElsewhere).toBeNull();
+  });
+});
+
+describe("phantomSummary over an evening of yard counts (correctness r0 M-2)", () => {
+  test("lastDay adds up every count closed on the last count's company calendar day (IST, not UTC); lastCount names its yards", async () => {
+    const p = await plant();
+    // 1 Jul 09:30 IST: Y3 counted, its one bundle missing (a different local day).
+    setClock(new Date(Date.UTC(2026, 6, 1, 4, 0, 0)));
+    await p.pack("Y3", 1);
+    const y3 = await p.supervisor.count.start({ locationIds: [p.loc("Y3")] });
+    await p.supervisor.count.close({ sessionId: y3.id, confirmUnscanned: true });
+    // 2 Jul 00:30 and 01:30 IST (still 1 Jul in UTC): Y1 one of two missing, then Y2 all there.
+    setClock(new Date(Date.UTC(2026, 6, 1, 19, 0, 0)));
+    const [a1] = await p.pack("Y1", 2);
+    const y1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: y1.id, codes: [a1!.serial] });
+    await p.supervisor.count.close({ sessionId: y1.id });
+    setClock(new Date(Date.UTC(2026, 6, 1, 20, 0, 0)));
+    const y2b = await p.pack("Y2", 2);
+    const y2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: y2.id, codes: y2b.map((b) => b.serial) });
+    await p.supervisor.count.close({ sessionId: y2.id });
+    const sum = await p.viewer.count.phantomSummary();
+    expect(sum.lastCount).toMatchObject({ number: "CNT-3", locationCodes: ["Y2"], expected: 2, phantom: 0, phantomBp: 0 });
+    expect(sum.lastDay).toEqual({
+      date: "2026-07-02", counts: 2, numbers: ["CNT-2", "CNT-3"], expected: 4, phantom: 1, phantomG: 25_000, phantomBp: 2_500,
+    });
+  });
+});
+
+describe("dev seed reset with counts (spec r0 I-2)", () => {
+  test("the demo reset clears the demo company's counts (RESTRICT keys to location), runs again, and numbering restarts at CNT-1", async () => {
+    for (const key of ["owner", "operator", "viewer", "office", "staff"]) {
+      await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
+    }
+    // Non-literal specifier: apps/server is not part of this package's TypeScript project.
+    const seedPath = "../../../apps/server/src/dev-seed";
+    const { seedDevData } = (await import(seedPath)) as {
+      seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean }>;
+    };
+    const companyId = "dev-company-orrn";
+    expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
+    const owner = env.caller({ role: "owner", companyId });
+    const [first] = await env.db
+      .select()
+      .from(bundle)
+      .where(and(eq(bundle.companyId, companyId), eq(bundle.status, "available")))
+      .orderBy(asc(bundle.serial))
+      .limit(1);
+    const yard = first!.locationId!;
+    const otherYard = (await owner.stock.locations.list()).items.find((l) => l.kind === "yard" && l.id !== yard)!.id;
+    // A closed count with found and phantom lines and a waiting void request, plus an open count.
+    const closed = await owner.count.start({ locationIds: [yard] });
+    expect(closed.number).toBe("CNT-1");
+    await owner.count.scan({ sessionId: closed.id, codes: [first!.serial, "NOT-A-BUNDLE"] });
+    const report = await owner.count.close({ sessionId: closed.id, confirmUnscanned: true });
+    if (report.phantom.length > 0) {
+      await owner.count.resolve({ sessionId: closed.id, action: "void_phantom", bundleIds: [report.phantom[0]!.bundleId] });
+    }
+    const open = await owner.count.start({ locationIds: [otherYard] });
+    await owner.count.scan({ sessionId: open.id, codes: [first!.serial] });
+
+    expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
+    for (const t of [countSession, countLocation, countSeen, countLine]) {
+      expect(await env.db.select().from(t).where(eq(t.companyId, companyId))).toHaveLength(0);
+    }
+    expect((await owner.count.start({ locationIds: [yard] })).number).toBe("CNT-1");
+    await expectConsistent(owner, companyId, "dev seed rerun after counts");
+  }, 180_000);
+});
+
+// Second mutation wave (reviews/PL10-tests-r0.md on 8491dd1): each bracketed id is a mutant the
+// suite left alive and the test kills (reviews/PL10-tests-r0-proposed-gaps-8491dd1.test.ts).
+
+describe("review pins (wave 2): start and close with bundles that have no place", () => {
+  test("[N19] a second count of a yard that an EARLIER count scanned still asks before closing with no scan at all", async () => {
+    const p = await plant();
+    const [a, b] = await p.pack("Y1", 2);
+    const one = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: one.id, codes: [a!.serial, b!.serial] });
+    await p.supervisor.count.close({ sessionId: one.id });
+    const two = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await expect(p.supervisor.count.close({ sessionId: two.id })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: expect.stringContaining("Y1 (2 bundles)"),
+    });
+    expect((await p.viewer.count.get({ sessionId: two.id })).session.status).toBe("open");
+    const report = await p.supervisor.count.close({ sessionId: two.id, confirmUnscanned: true });
+    expect(report.summary).toMatchObject({ expected: 2, seen: 0, phantom: 2, phantomBp: 10_000 });
+  });
+
+
+  test("[N08] a retired yard does not make a full count partial: every ACTIVE yard still expects bundles with no place", async () => {
+    const p = await plant();
+    await p.owner.stock.locations.update({ id: p.loc("Y6"), active: false });
+    const [legacy] = await env.seedBundles(p.companyId, p.dieId, 1);
+    await p.owner.stock.openingBalance();
+    const active = allYards(p).filter((y) => y !== p.loc("Y6"));
+    const s = await p.supervisor.count.start({ locationIds: active });
+    expect((await p.viewer.count.get({ sessionId: s.id })).session.includeUnplaced).toBe(true);
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: ["NOT-A-BUNDLE"] });
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(ids(report.phantom)).toEqual([legacy!.id]);
+    expect(report.summary).toMatchObject({ expected: 1, phantom: 1, phantomBp: 10_000 });
+  });
+
+  test("[N17,N21] close of a full count with no scan at all asks first when only bundles with no place would go missing, and names them", async () => {
+    const p = await plant();
+    await env.seedBundles(p.companyId, p.dieId, 2);
+    await p.owner.stock.openingBalance();
+    const s = await p.supervisor.count.start({ locationIds: allYards(p) });
+    await expect(p.supervisor.count.close({ sessionId: s.id })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: expect.stringContaining("2 bundles with no place"),
+    });
+    expect((await p.viewer.count.get({ sessionId: s.id })).session.status).toBe("open");
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(report.summary).toMatchObject({ expected: 2, seen: 0, phantom: 2 });
+  });
+});
+
+describe("review pins (wave 2): void hook scope", () => {
+  test("[K28] a bundle listed twice in one void request counts once (requested, bundles and kg in the approval)", async () => {
+    const p = await plant();
+    const [a, b] = await p.pack("Y1", 2);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: s.id });
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [b!.id, b!.id] }));
+    expect(res.requested).toBe(1);
+    const [ap] = await env.db.select().from(approval).where(eq(approval.id, res.approvalId));
+    expect(ap!.meta).toMatchObject({ bundles: 1, weightG: 25_000 });
+  });
+
+  test("[K31] approving one count's void request voids only that approval's phantoms, never another count's pending ones", async () => {
+    const p = await plant();
+    const [a1, b1] = await p.pack("Y1", 2);
+    const [a2, b2] = await p.pack("Y2", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [a1!.serial] });
+    await p.supervisor.count.close({ sessionId: c1.id });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [a2!.serial] });
+    await p.supervisor.count.close({ sessionId: c2.id });
+    const r1 = voided(await p.supervisor.count.resolve({ sessionId: c1.id, action: "void_phantom", bundleIds: [b1!.id] }));
+    const r2 = voided(await p.office.count.resolve({ sessionId: c2.id, action: "void_phantom", bundleIds: [b2!.id] }));
+    expect(r1.approvalId).not.toBe(r2.approvalId);
+    await p.manager.approval.decide({ id: r1.approvalId, decision: "approved" });
+    expect((await bundleRow(b1!.id)).status).toBe("void");
+    // Count 2's phantom waits for its own approval: still in stock, line still requested, ledger = projection.
+    expect((await bundleRow(b2!.id)).status).toBe("available");
+    expect((await linesOf(c2.id)).find((l) => l.bundleId === b2!.id)).toMatchObject({ resolution: "void_requested", approvalId: r2.approvalId });
+    await expectConsistent(p.owner, p.companyId, "one of two approvals decided");
+    await p.manager.approval.decide({ id: r2.approvalId, decision: "approved" });
+    expect((await bundleRow(b2!.id)).status).toBe("void");
+    await expectConsistent(p.owner, p.companyId, "both approvals decided");
+  });
+});
+
+describe("review pins (wave 2): report scope", () => {
+  test("[K09] phantom ages follow THIS company's time zone, not another company's", async () => {
+    await plant(); // an older company on the default (IST) clock
+    const p = await plant();
+    await env.db.update(company).set({ settings: { timezone: "America/New_York" } }).where(eq(company.id, p.companyId));
+    setClock(new Date(Date.UTC(2026, 6, 1, 6, 0, 0)));
+    const [a] = await p.pack("Y1", 1);
+    // Packed 15 Jun 16:00 in New York (16 Jun 01:30 IST); closed 2 Jul 02:00 New York... 1 Jul 11:30 IST.
+    await env.db.update(bundle).set({ createdAt: new Date(Date.UTC(2026, 5, 15, 20, 0, 0)) }).where(eq(bundle.id, a!.id));
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    // New York: 15 Jun -> 1 Jul = 16 days (IST would say 15).
+    expect(report.byAge.map((x) => [x.bucket, x.bundles])).toEqual([
+      ["0-15", 0], ["16-30", 1], ["31-60", 0], ["60+", 0],
+    ]);
+  });
+
+  test("[K10] pendingApprovalId is the count's own: another count's waiting void request never shows on it", async () => {
+    const p = await plant();
+    const [a1, b1] = await p.pack("Y1", 2);
+    const [a2] = await p.pack("Y2", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [a1!.serial] });
+    await p.supervisor.count.close({ sessionId: c1.id });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [a2!.serial] });
+    await p.supervisor.count.close({ sessionId: c2.id });
+    const r1 = voided(await p.supervisor.count.resolve({ sessionId: c1.id, action: "void_phantom", bundleIds: [b1!.id] }));
+    expect((await p.viewer.count.get({ sessionId: c1.id })).report.pendingApprovalId).toBe(r1.approvalId);
+    expect((await p.viewer.count.get({ sessionId: c2.id })).report.pendingApprovalId).toBeNull();
+    // A closed count read again (idempotent close) reports the same.
+    expect((await p.supervisor.count.close({ sessionId: c2.id })).pendingApprovalId).toBeNull();
+  });
+});
+
+describe("review pins (wave 2): cross-wired rows and paging defaults", () => {
+  test("[N62] a bundle row that points at another company's die never shows that die's section code", async () => {
+    const p = await plant();
+    const other = await plant();
+    const [a] = await p.pack("Y1", 1);
+    await env.db.update(bundle).set({ dieId: other.dieId }).where(eq(bundle.id, a!.id));
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    expect((await p.viewer.count.get({ sessionId: s.id })).report.phantom[0]!.sectionCode).toBeNull();
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(report.phantom[0]!.sectionCode).toBeNull();
+  });
+
+  test("[N50,N51] another company's ledger rows or scans of this company's phantom never clear it (7 am number and void hook)", async () => {
+    const p = await plant();
+    const other = await plant();
+    const [a, x1, x2] = await p.pack("Y1", 3);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: s.id });
+    const theirs = await other.supervisor.count.start({ locationIds: [other.loc("Y1")] });
+    await env.db.insert(stockLedger).values({
+      id: crypto.randomUUID(),
+      companyId: other.companyId,
+      serverSeq: 9_000_000_000,
+      voucherType: "pack",
+      voucherId: crypto.randomUUID(),
+      line: 1,
+      itemKind: "bundle",
+      itemRef: x1!.id,
+      locationId: other.loc("Y1"),
+      qtyG: 1,
+      postedAt: new Date(),
+    });
+    await env.db.insert(countSeen).values({
+      id: crypto.randomUUID(),
+      companyId: other.companyId,
+      serverSeq: 9_000_000_000,
+      sessionId: theirs.id,
+      locationId: other.loc("Y1"),
+      code: "CROSS-1",
+      resolveKind: "bundle",
+      bundleId: x2!.id,
+      scannedAt: new Date(),
+    });
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 2, weightG: 50_000 });
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [x1!.id, x2!.id] }));
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    expect((await bundleRow(x1!.id)).status).toBe("void");
+    expect((await bundleRow(x2!.id)).status).toBe("void");
+  });
+
+  test("[N48] count.get returns 100 scans by default, newest first, and says where the next page starts", async () => {
+    const p = await plant();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    for (const from of [0, 100, 200]) {
+      await p.supervisor.count.scan({
+        sessionId: s.id,
+        codes: Array.from({ length: from === 200 ? 1 : 100 }, (_, i) => `U-${String(from + i).padStart(3, "0")}`),
+      });
+    }
+    const page = await p.viewer.count.get({ sessionId: s.id });
+    expect(page.scans).toHaveLength(100);
+    expect(page).toMatchObject({ scanTotal: 201, scanNextOffset: 100 });
+    expect(page.scans[0]!.code).toBe("U-200");
+    // The page size is capped at 500.
+    await expect(p.viewer.count.get({ sessionId: s.id, scanLimit: 501 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  }, 120_000);
+
+  test("[C57] a count line of this company that points at another company's bundle never counts as a missing phantom", async () => {
+    const p = await plant();
+    const other = await plant();
+    const [theirs] = await env.seedBundles(other.companyId, other.dieId, 1);
+    await env.db.update(bundle).set({ locationId: other.loc("Y1") }).where(eq(bundle.id, theirs!.id));
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.close({ sessionId: s.id });
+    await env.db.insert(countLine).values({
+      id: crypto.randomUUID(),
+      companyId: p.companyId,
+      sessionId: s.id,
+      kind: "phantom",
+      bundleId: theirs!.id,
+      systemLocationId: other.loc("Y1"),
+      weightG: 25_000,
+    });
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+  });
+});
+
+describe("review pins (wave 2): closed totals are per count", () => {
+  test("[K14] two counts closed in the same millisecond: the later one is the last count (ties break on server_seq)", async () => {
+    const p = await plant();
+    setClock(new Date(Date.UTC(2026, 6, 1, 6, 0, 0)));
+    const [a] = await p.pack("Y1", 1);
+    for (const n of ["CNT-1", "CNT-2"]) {
+      const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+      expect(s.number).toBe(n);
+      await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+      await p.supervisor.count.close({ sessionId: s.id });
+    }
+    expect((await p.viewer.count.phantomSummary()).lastCount).toMatchObject({ number: "CNT-2" });
+    expect((await p.viewer.count.list({})).items.map((r) => r.number)).toEqual(["CNT-2", "CNT-1"]);
+  });
+
+  test("[K04,K07] a closed count's totals are its own: seen, matched and phantom kg never include another count's scans or phantoms", async () => {
+    const p = await plant();
+    const [a1] = await p.pack("Y1", 2, 25_000);
+    const [a2] = await p.pack("Y2", 3, 10_000);
+    const one = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: one.id, codes: [a1!.serial, "ZZ-UNKNOWN"] });
+    const r1 = await p.supervisor.count.close({ sessionId: one.id });
+    expect(r1.summary).toEqual({ expected: 2, seen: 2, matched: 1, phantom: 1, phantomG: 25_000, found: 1, moved: 0, changed: 0, seenElsewhere: 0, phantomBp: 5_000 });
+    const two = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: two.id, codes: [a2!.serial] });
+    const r2 = await p.supervisor.count.close({ sessionId: two.id });
+    expect(r2.summary).toEqual({ expected: 3, seen: 1, matched: 1, phantom: 2, phantomG: 20_000, found: 0, moved: 0, changed: 0, seenElsewhere: 0, phantomBp: 6_667 });
+    // Count 1 read again after count 2 closed, and the list rows, still carry count 1's own numbers.
+    expect((await p.viewer.count.get({ sessionId: one.id })).report.summary).toEqual(r1.summary);
+    const rows = (await p.viewer.count.list({})).items;
+    expect(rows.map((r) => [r.number, r.seen, r.phantom, r.phantomG, r.found])).toEqual([
+      ["CNT-2", 1, 2, 20_000, 0],
+      ["CNT-1", 2, 1, 25_000, 1],
+    ]);
+  });
+});
+
+describe("review pins (wave 2): scan races", () => {
+  test("[N27,N28,N32] RACE: the other scan landed at another yard first, under the same unknown code or under another form of the same bundle: the duplicate names that yard", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const cuid = "ckz3p1x9q0000abcd1234efgh";
+    await env.db.insert(legacyBundleMap).values({ id: crypto.randomUUID(), companyId: p.companyId, legacyId: cuid, bundleId: a!.id });
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
+    env.beforeNextBatch(() => p.packer.count.scan({ sessionId: s.id, locationId: p.loc("Y2"), codes: ["LOT/9"] }));
+    const sameCode = await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: ["LOT/9"] });
+    expect(sameCode.results[0]).toMatchObject({ outcome: "duplicate", firstLocationId: p.loc("Y2"), seenId: null });
+    env.beforeNextBatch(() => p.packer.count.scan({ sessionId: s.id, locationId: p.loc("Y2"), codes: [cuid] }));
+    const otherForm = await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a!.serial] });
+    expect(otherForm.results[0]).toMatchObject({ outcome: "duplicate", firstLocationId: p.loc("Y2"), seenId: null });
+  });
+});
+
+describe("review pins (wave 2): move_found and resolve", () => {
+  test("[R77] a bundle that is a found line in one count and a phantom of a later count resolves per count", async () => {
+    const p = await plant();
+    const [b, x] = await p.pack("Y2", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [b!.serial] });
+    const r1 = await p.supervisor.count.close({ sessionId: c1.id });
+    expect(r1.found).toHaveLength(1);
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [x!.serial] });
+    const r2 = await p.supervisor.count.close({ sessionId: c2.id });
+    expect(ids(r2.phantom)).toEqual([b!.id]);
+    // Count 1's line says "seen at Y1": move it there. Count 2's line (a phantom) must not be consulted.
+    const res = movedFound(await p.supervisor.count.resolve({ sessionId: c1.id, action: "move_found", bundleIds: [b!.id] }));
+    expect(res.moved).toBe(1);
+    expect((await bundleRow(b!.id)).locationId).toBe(p.loc("Y1"));
+    await expectConsistent(p.owner, p.companyId, "found line moved, phantom line of another count");
+  });
+
+  test("[R13,R34] scanning or removing scans on a closed count is refused even when nothing new would be written", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: s.id });
+    await expect(p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.supervisor.count.removeScans({ sessionId: s.id, seenIds: [crypto.randomUUID()] })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  test("[K29] RACE: someone moves the bundle to the very yard it was seen at before move_found lands — nothing is posted for it, the line stays open", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y2", 1);
+    const [x] = await p.pack("Y1", 1);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a!.serial, x!.serial] });
+    await p.supervisor.count.close({ sessionId: s.id });
+    env.beforeNextBatch(() => p.owner.stock.move({ bundleIds: [a!.id], toLocationId: p.loc("Y1") }));
+    const res = movedFound(await p.supervisor.count.resolve({ sessionId: s.id, action: "move_found", bundleIds: [a!.id] }));
+    expect(res).toMatchObject({ moved: 0, skipped: [a!.id], voucherIds: [] });
+    const line = (await linesOf(s.id)).find((l) => l.bundleId === a!.id)!;
+    expect(line).toMatchObject({ resolution: "open", resolutionVoucherId: null });
+    // Only the other request's own move rows (one pair) exist for the bundle.
+    expect((await ledgerRows(p.companyId)).filter((r) => r.itemRef === a!.id && r.voucherType === "move")).toHaveLength(2);
+    await expectConsistent(p.owner, p.companyId, "after race to the seen yard");
+  });
+
+  test("[K27] resolve on an open count says to close it first (not 'not on the report')", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    for (const action of ["void_phantom", "move_found"] as const) {
+      await expect(p.supervisor.count.resolve({ sessionId: s.id, action, bundleIds: [a!.id] })).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("Close CNT-1 first"),
+      });
+    }
+    await p.supervisor.count.cancel({ sessionId: s.id, reason: "test" });
+    await expect(p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [a!.id] })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("Close CNT-1 first"),
+    });
+  });
+});
+
+describe("review pins (wave 2): permission pins", () => {
+  test("[R70] move_found also needs stock.move; today both actions have the same holders, so the extra check cannot fail: pin it", () => {
+    expect([...COUNTERS].sort()).toEqual(ROLES.filter((r) => can(r, "stock.move")).sort());
+  });
+});
+
+describe("review pins (wave 2): small contracts", () => {
+  test("[K37] byCast breaks a tie between casts of equal kg by cast id, so the report is stable", async () => {
+    const p = await plant();
+    const [a, b] = await p.pack("Y1", 2, 10_000);
+    await env.db.update(bundle).set({ castId: "cast-b" }).where(eq(bundle.id, a!.id));
+    await env.db.update(bundle).set({ castId: "cast-a" }).where(eq(bundle.id, b!.id));
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(report.byCast.map((c) => c.castId)).toEqual(["cast-a", "cast-b"]);
+  });
+
+  test("[N20] the close warning says '1 bundle' for one bundle and '2 bundles' for two", async () => {
+    const p = await plant();
+    await p.pack("Y1", 1);
+    await p.pack("Y2", 2);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
+    await expect(p.supervisor.count.close({ sessionId: s.id })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: expect.stringContaining("Y1 (1 bundle), Y2 (2 bundles)"),
+    });
+  });
+
+  test("[K23] removeScans with ids that are not in the count removes 0 and writes no audit row", async () => {
+    const p = await plant();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    expect(await p.supervisor.count.removeScans({ sessionId: s.id, seenIds: [crypto.randomUUID()] })).toEqual({ removed: 0 });
+    expect(await auditActions(p.companyId)).not.toContain("count.removeScans");
+  });
+});
+
+describe("review pins (wave 2): hook guards", () => {
+  test("[A01,A07,A11] the phantom_void hook changes nothing for a decision that did not land (decided row with another sequence)", async () => {
+    const { p, s, phantoms } = await closedWithPhantoms(2);
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: phantoms.map((b) => b.id) }));
+    const before = await ledgerRows(p.companyId);
+    const events = () => env.db.select().from(bundleStatusEvent).where(eq(bundleStatusEvent.companyId, p.companyId));
+    const eventsBefore = await events();
+    // The approval row is still pending: no decision carries this sequence, so nothing may land.
+    const ctx = { db: env.db, companyId: p.companyId, userId: p.users.manager.id, seq: 9_000_000_001, decidedAt: new Date() };
+    for (const decision of ["approved", "rejected"] as const) {
+      await atomicBatch(env.db, APPROVAL_APPLIERS.phantom_void!(ctx, { id: res.approvalId, subjectId: s.id }, decision));
+    }
+    for (const b of phantoms) expect((await bundleRow(b.id)).status).toBe("available");
+    expect((await linesOf(s.id)).filter((l) => l.kind === "phantom").map((l) => l.resolution)).toEqual(["void_requested", "void_requested"]);
+    expect(await ledgerRows(p.companyId)).toEqual(before);
+    expect(await events()).toEqual(eventsBefore);
+    await expectConsistent(p.owner, p.companyId, "forged decision");
+    // The real decision still applies.
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    for (const b of phantoms) expect((await bundleRow(b.id)).status).toBe("void");
+    await expectConsistent(p.owner, p.companyId, "real decision");
   });
 });

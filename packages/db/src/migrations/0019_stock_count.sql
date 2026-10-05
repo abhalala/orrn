@@ -98,6 +98,7 @@ CREATE TABLE `count_session` (
 	`found_count` integer,
 	`moved_count` integer,
 	`changed_count` integer,
+	`seen_elsewhere_count` integer,
 	`cancelled_at` integer,
 	`cancelled_by` text,
 	`cancel_reason` text,
