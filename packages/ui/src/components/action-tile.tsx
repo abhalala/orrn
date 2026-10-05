@@ -42,9 +42,14 @@ const ICON_WELL: Record<ActionTileProps["tone"], string> = {
   neutral: "bg-surface-sunken",
 };
 
-/** Icon wells for quiet tiles that keep an area colour (`accent`): the chip tint/ink pairs. */
+/**
+ * Icon wells for quiet tiles that keep an area colour (`accent`): the chip
+ * tint/ink pairs. Ink is a black disc in light mode; in dark mode a
+ * near-white disc would outshine the other wells, so it takes the neutral
+ * tint pair like them.
+ */
 const ACCENT_WELL: Record<NonNullable<ActionTileProps["accent"]>, string> = {
-  ink: "bg-foreground text-background",
+  ink: "bg-foreground text-background dark:bg-tone-neutral-tint dark:text-foreground",
   green: PALETTE_CLASSES.green,
   blue: PALETTE_CLASSES.blue,
   amber: PALETTE_CLASSES.amber,
