@@ -1,22 +1,16 @@
-import { Button } from "@orrn/ui/components/button";
-import { NotFoundPage } from "@orrn/ui/components/not-found";
-import { Link, Stack } from "expo-router";
+import { useT } from "@orrn/i18n";
+import { useRouter } from "expo-router";
 
-import { Container } from "@/components/container";
+import { MessageScreen } from "@/components/message-screen";
+import { Button } from "@/components/ui/button";
 
+/** Unknown deep link. One way out: Today (the gate sends signed-out people to sign-in). */
 export default function NotFoundScreen() {
+  const { t } = useT();
+  const router = useRouter();
   return (
-    <>
-      <Stack.Screen options={{ title: "Page not found" }} />
-      <Container isScrollable={false}>
-        <NotFoundPage
-          primaryAction={
-            <Link href="/" asChild>
-              <Button size="lg">Go to ORRN home</Button>
-            </Link>
-          }
-        />
-      </Container>
-    </>
+    <MessageScreen title={t("errors.pageNotFound")}>
+      <Button size="lg" label={t("errors.goToday")} onPress={() => router.replace("/")} />
+    </MessageScreen>
   );
 }
