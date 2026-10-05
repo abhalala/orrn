@@ -580,7 +580,8 @@ function MaterialStep({
       />
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field label={t("purchase.new.rate")} error={errors.rate ? t(errors.rate) : undefined}>
-          <NumberInput value={draft.rateText} onValueChange={(rateText) => set({ rateText })} suffix="₹" />
+          {/* The label carries the unit (₹ per kg); a trailing "₹" read as "200 ₹". */}
+          <NumberInput value={draft.rateText} onValueChange={(rateText) => set({ rateText })} />
         </Field>
         <Field label={`${t("purchase.new.dross")} (${t("common.optional").toLowerCase()})`} error={errors.dross ? t(errors.dross) : undefined}>
           <NumberInput value={draft.drossText} onValueChange={(drossText) => set({ drossText })} suffix="%" />

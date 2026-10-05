@@ -303,7 +303,7 @@ export function NoteSheet({
           </Field>
         ) : null}
         <Field label={t("purchase.detail.amountOptional")} hint={t("purchase.detail.amountHint")} error={submitted ? errors.amount : undefined}>
-          <NumberInput value={amount} onValueChange={setAmount} suffix="₹" />
+          <NumberInput value={amount} onValueChange={setAmount} />
         </Field>
         <Field label={t("purchase.new.noteText")}>
           <TextInput value={note} onChangeText={setNote} maxLength={500} />

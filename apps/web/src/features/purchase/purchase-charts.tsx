@@ -64,57 +64,57 @@ export default function PurchaseCharts() {
           {t("purchase.charts.truncated")}
         </p>
       ) : null}
-    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-      <ChartCard
-        data-testid="purchase-chart-rate"
-        level={2}
-        title={t("purchase.charts.rateTitle")}
-        subtitle={t("purchase.charts.rateSubtitle")}
-        state={state ?? (rateSeries.length === 0 ? "empty" : undefined)}
-        onRetry={() => register.refetch()}
-        refreshing={register.isFetching && !register.isLoading}
-        legend={rateSeries.length > 1 ? { series: rateSeries, shape: "line" } : undefined}
-        table={timeSeriesTable(rateSeries, {
-          t,
-          format: rate,
-          formatDate: monthDates.long,
-          dateHeader: t("purchase.charts.month"),
-        })}
-      >
-        <TimeSeriesChart
-          series={rateSeries}
-          kind={rateSeries.length > 1 ? "line" : "area"}
-          format={rate}
-          formatDate={monthDates}
-          label={t("purchase.charts.rateLabel")}
-        />
-      </ChartCard>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <ChartCard
+          data-testid="purchase-chart-rate"
+          level={2}
+          title={t("purchase.charts.rateTitle")}
+          subtitle={t("purchase.charts.rateSubtitle")}
+          state={state ?? (rateSeries.length === 0 ? "empty" : undefined)}
+          onRetry={() => register.refetch()}
+          refreshing={register.isFetching && !register.isLoading}
+          legend={rateSeries.length > 1 ? { series: rateSeries, shape: "line" } : undefined}
+          table={timeSeriesTable(rateSeries, {
+            t,
+            format: rate,
+            formatDate: monthDates.long,
+            dateHeader: t("purchase.charts.month"),
+          })}
+        >
+          <TimeSeriesChart
+            series={rateSeries}
+            kind={rateSeries.length > 1 ? "line" : "area"}
+            format={rate}
+            formatDate={monthDates}
+            label={t("purchase.charts.rateLabel")}
+          />
+        </ChartCard>
 
-      <ChartCard
-        data-testid="purchase-chart-vendors"
-        level={2}
-        title={t("purchase.charts.vendorTitle")}
-        subtitle={t("purchase.charts.vendorSubtitle")}
-        state={state ?? (vendors.rows.length === 0 ? "empty" : undefined)}
-        onRetry={() => register.refetch()}
-        refreshing={register.isFetching && !register.isLoading}
-        table={rankedTable(vendors.rows, {
-          t,
-          format: kg,
-          valueHeader: t("purchase.charts.bought"),
-          other: vendors.other,
-          otherLabel: t("purchase.charts.otherVendors"),
-        })}
-      >
-        <RankedBars
-          rows={vendors.rows}
-          other={vendors.other}
-          otherLabel={t("purchase.charts.otherVendors")}
-          format={kg}
-          label={t("purchase.charts.vendorLabel")}
-        />
-      </ChartCard>
-    </div>
+        <ChartCard
+          data-testid="purchase-chart-vendors"
+          level={2}
+          title={t("purchase.charts.vendorTitle")}
+          subtitle={t("purchase.charts.vendorSubtitle")}
+          state={state ?? (vendors.rows.length === 0 ? "empty" : undefined)}
+          onRetry={() => register.refetch()}
+          refreshing={register.isFetching && !register.isLoading}
+          table={rankedTable(vendors.rows, {
+            t,
+            format: kg,
+            valueHeader: t("purchase.charts.bought"),
+            other: vendors.other,
+            otherLabel: t("purchase.charts.otherVendors"),
+          })}
+        >
+          <RankedBars
+            rows={vendors.rows}
+            other={vendors.other}
+            otherLabel={t("purchase.charts.otherVendors")}
+            format={kg}
+            label={t("purchase.charts.vendorLabel")}
+          />
+        </ChartCard>
+      </div>
     </div>
   );
 }
