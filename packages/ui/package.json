@@ -26,14 +26,6 @@
       "react-native": "./src/components/badge.native.tsx",
       "default": "./src/components/badge.tsx"
     },
-    "./components/impersonation-banner": {
-      "react-native": "./src/components/impersonation-banner.native.tsx",
-      "default": "./src/components/impersonation-banner.tsx"
-    },
-    "./components/not-found": {
-      "react-native": "./src/components/not-found.native.tsx",
-      "default": "./src/components/not-found.tsx"
-    },
     "./components/motion": "./src/components/motion.ts",
     "./components/*": "./src/components/*.tsx",
     "./hooks/*": "./src/hooks/*.ts",
