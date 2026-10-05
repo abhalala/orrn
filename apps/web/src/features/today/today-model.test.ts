@@ -5,15 +5,21 @@ import type { Me } from "@orrn/server/lib/permissions";
 
 import {
   ageingBars,
+  clockTime,
   companyClock,
   formatCount,
   greetingKey,
   inStock,
   needsStartHere,
+  sessionSummary,
+  startHereIntroKey,
   startHereSteps,
   tileHint,
+  tileLayout,
+  todaySections,
   todayTiles,
   trendSeries,
+  withLiveToday,
   type TodayData,
 } from "./today-model";
 
@@ -146,8 +152,9 @@ describe("start here", () => {
   test("four steps in order, each linked only for people who can do it", () => {
     const setup = { dies: true, customers: false, bundles: false, printers: false };
     const owner = startHereSteps(setup, me("owner"));
+    // A done step has nothing left to open.
     expect(owner.map((s) => [s.key, s.done, s.to])).toEqual([
-      ["die", true, "/dies"],
+      ["die", true, null],
       ["customer", false, "/customers"],
       ["pack", false, "/pack/new"],
       ["printer", false, "/printing"],
@@ -161,6 +168,113 @@ describe("start here", () => {
     ]);
     // An operator packs but can't add dies, customers or printers.
     expect(startHereSteps(setup, me("operator")).map((s) => s.to)).toEqual([null, null, "/pack/new", null]);
+  });
+
+  test("packing waits for a die: no link to Pack while no die exists, for anyone", () => {
+    const noDie = { dies: false, customers: false, bundles: false, printers: false };
+    const owner = startHereSteps(noDie, me("owner"));
+    const pack = owner.find((s) => s.key === "pack")!;
+    expect(pack).toMatchObject({ to: null, waiting: true, allowed: true });
+    // The die step itself is open and linked.
+    expect(owner.find((s) => s.key === "die")).toMatchObject({ to: "/dies", waiting: false });
+    const operator = startHereSteps(noDie, me("operator")).find((s) => s.key === "pack")!;
+    expect(operator).toMatchObject({ to: null, waiting: true });
+    // Someone who can't pack anyway reads "An admin sets this up", not "after a die".
+    expect(startHereSteps(noDie, me("viewer")).find((s) => s.key === "pack")).toMatchObject({ waiting: false, allowed: false });
+  });
+
+  test("steps for switched-off areas are left out, so the plant can still finish", () => {
+    const setup = { dies: true, customers: false, bundles: false, printers: false };
+    const keys = startHereSteps(setup, me("owner", ["bundles", "dies", "dispatches"])).map((s) => s.key);
+    expect(keys).toEqual(["die", "pack", "printer"]);
+    // No modules set means every area is on.
+    expect(startHereSteps(setup, me("owner", [])).map((s) => s.key)).toEqual(["die", "customer", "pack", "printer"]);
+  });
+
+  test("the intro speaks to people who set orrn up, and to those who wait for them", () => {
+    const setup = { dies: false, customers: false, bundles: false, printers: false };
+    expect(startHereIntroKey(startHereSteps(setup, me("owner")))).toBe("today.startHere.body");
+    expect(startHereIntroKey(startHereSteps(setup, me("admin")))).toBe("today.startHere.body");
+    // An operator can do one of the steps, a viewer none.
+    expect(startHereIntroKey(startHereSteps(setup, me("operator")))).toBe("today.startHere.bodyWaiting");
+    expect(startHereIntroKey(startHereSteps(setup, me("viewer")))).toBe("today.startHere.bodyWaiting");
+    // An owner with only the printer left still sets things up.
+    const almost = { dies: true, customers: true, bundles: false, printers: false };
+    expect(startHereIntroKey(startHereSteps(almost, me("owner")))).toBe("today.startHere.body");
+  });
+});
+
+describe("withLiveToday", () => {
+  const days = [
+    { date: "2026-10-02", packedKgG: 1_000, dispatchedKgG: 2_000 },
+    { date: "2026-10-03", packedKgG: 3_000, dispatchedKgG: 4_000 },
+    { date: "2026-10-04", packedKgG: 5_000, dispatchedKgG: 0 },
+  ];
+  const live = (date: string, packedG: number, dispatchedG: number) => ({ date, packedG, dispatchedG });
+
+  test("today's point follows the live numbers, so the chart's so far equals the KPI blocks", () => {
+    expect(withLiveToday(days, live("2026-10-04", 809_800, 1_554_300))).toEqual([
+      days[0],
+      days[1],
+      { date: "2026-10-04", packedKgG: 809_800, dispatchedKgG: 1_554_300 },
+    ]);
+  });
+
+  test("after midnight the chart moves on a day: oldest out, the new day in, same length", () => {
+    const next = withLiveToday(days, live("2026-10-05", 0, 0));
+    expect(next.map((d) => d.date)).toEqual(["2026-10-03", "2026-10-04", "2026-10-05"]);
+    expect(next.at(-1)).toEqual({ date: "2026-10-05", packedKgG: 0, dispatchedKgG: 0 });
+    // Month and year ends roll the same way.
+    const dec = [{ date: "2026-12-31", packedKgG: 1, dispatchedKgG: 1 }];
+    expect(withLiveToday(dec, live("2027-01-01", 7, 0)).map((d) => d.date)).toEqual(["2027-01-01"]);
+  });
+
+  test("older live numbers, a gap of days, or no live numbers leave the chart as it is", () => {
+    expect(withLiveToday(days, live("2026-10-03", 9, 9))).toEqual(days);
+    expect(withLiveToday(days, live("2026-10-09", 9, 9))).toEqual(days);
+    expect(withLiveToday(days, undefined)).toEqual(days);
+    expect(withLiveToday([], live("2026-10-04", 9, 9))).toEqual([]);
+  });
+});
+
+describe("todaySections", () => {
+  test("lists follow the company's modules, like the nav", () => {
+    expect(todaySections(me("owner"))).toEqual({ dispatches: true, sessions: true });
+    expect(todaySections(me("owner", ["bundles", "dies"]))).toEqual({ dispatches: false, sessions: true });
+    expect(todaySections(me("owner", ["dispatches", "customers"]))).toEqual({ dispatches: true, sessions: false });
+    expect(todaySections(me("viewer", []))).toEqual({ dispatches: true, sessions: true });
+  });
+});
+
+describe("clockTime", () => {
+  test("session times read on the plant's clock, not the device's", () => {
+    // 2026-10-04T08:35Z is 14:05 in India and 04:35 in New York (EDT).
+    expect(clockTime("Asia/Kolkata")("2026-10-04T08:35:00.000Z")).toBe("14:05");
+    expect(clockTime("America/New_York")("2026-10-04T08:35:00.000Z")).toBe("04:35");
+    expect(clockTime("UTC")(Date.parse("2026-10-04T23:59:00Z"))).toBe("23:59");
+  });
+
+  test("a broken time zone falls back to India", () => {
+    expect(clockTime("Not/AZone")("2026-10-04T08:35:00.000Z")).toBe("14:05");
+  });
+});
+
+describe("sessionSummary", () => {
+  test("bundles and kg, or 'all void' when every bundle of the session was voided", () => {
+    expect(sessionSummary({ bundles: 14, weightG: 682_400 })).toEqual({
+      key: "units.bundlesKg",
+      vars: { bundles: "14", kg: "682.4" },
+    });
+    expect(sessionSummary({ bundles: 0, weightG: 0 })).toEqual({ key: "today.sessionVoided" });
+  });
+});
+
+describe("tileLayout", () => {
+  test("columns follow the number of tiles, and an odd last tile fills its phone row", () => {
+    expect(tileLayout(4)).toEqual({ grid: "grid-cols-2 md:grid-cols-4", spanLast: false });
+    expect(tileLayout(3)).toEqual({ grid: "grid-cols-2 md:grid-cols-3", spanLast: true });
+    expect(tileLayout(2)).toEqual({ grid: "grid-cols-2", spanLast: false });
+    expect(tileLayout(1)).toEqual({ grid: "grid-cols-1", spanLast: false });
   });
 });
 

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 787 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 789 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -277,7 +277,7 @@ Counts: 787 screen strings in 25 groups, 10 guides with 182 strings.
 | `done.body` | Your account is ready. | आपका अकाउंट तैयार है। |
 | `done.go` | Go to Today | आज का पेज खोलें |
 
-### today (75)
+### today (77)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -287,9 +287,6 @@ Counts: 787 screen strings in 25 groups, 10 guides with 182 strings.
 | `greetingEvening` | Good evening, {name} | नमस्ते, {name} |
 | `numbersHeading` | Today so far | आज अब तक |
 | `shortcutsHeading` | Shortcuts | शॉर्टकट |
-| `kgPacked` | kg packed today | आज पैक हुआ kg |
-| `bundlesPacked` | Bundles packed today | आज पैक हुए bundle |
-| `kgDispatched` | kg dispatched today | आज dispatch हुआ kg |
 | `inStock` | In stock | स्टॉक में |
 | `packed` | Packed today | आज पैक हुआ |
 | `dispatched` | Dispatched today | आज dispatch हुआ |
@@ -303,26 +300,29 @@ Counts: 787 screen strings in 25 groups, 10 guides with 182 strings.
 | `tiles.dispatch` | Dispatch | Dispatch |
 | `tiles.dispatchHint` | {count} open | {count} {count:खुला\|खुले} |
 | `tiles.dispatchHintNone` | None open | कोई खुला नहीं |
-| `tiles.dispatchHintAny` | Load and send a truck | गाड़ी लोड करके भेजें |
+| `tiles.dispatchHintAny` | Load a truck | गाड़ी लोड करें |
 | `tiles.stock` | Stock | स्टॉक |
 | `tiles.stockHint` | Bundles by section | सेक्शन के हिसाब से bundle |
 | `tiles.guides` | Guides | गाइड |
 | `tiles.guidesHint` | How each job is done | हर काम कैसे करें |
 | `openDispatches` | Open dispatches | खुले dispatch |
-| `noOpenDispatches` | No open dispatches. | कोई dispatch खुला नहीं है। |
+| `noOpenDispatches` | No open dispatches | कोई dispatch खुला नहीं है |
 | `noOpenDispatchesBody` | Dispatches being built or held show up here. | जो dispatch बन रहे हैं या होल्ड पर हैं, वे यहां दिखेंगे। |
 | `allDispatches` | All dispatches | सभी dispatch |
-| `sessionsToday` | Packed today | आज की पैकिंग |
 | `sessionsTodayHeading` | Packing sessions today | आज के पैकिंग सेशन |
-| `noSessionsToday` | Nothing packed yet today. | आज अभी कुछ पैक नहीं हुआ। |
+| `noSessionsToday` | Nothing packed yet today | आज अभी कुछ पैक नहीं हुआ |
+| `sessionVoided` | All bundles void | सारे bundle रद्द |
 | `noSessionsTodayBody` | Each packing session shows up here as it is saved. | हर पैकिंग सेशन सेव होते ही यहां दिखेगा। |
 | `allSessions` | All sessions | सभी सेशन |
-| `printProblems` | Print problems | प्रिंट की दिक्कतें |
 | `printProblemsCount` | {count} {count:label\|labels} didn't print | {count} लेबल प्रिंट नहीं {count:हुआ\|हुए} |
 | `printProblemsBody` | Check the printer, then print them again from Printing. | प्रिंटर देखें, फिर प्रिंटिंग से दोबारा प्रिंट करें। |
 | `openPrinting` | Open printing | प्रिंटिंग खोलें |
 | `loadErrorTitle` | Today's numbers didn't load | आज के आंकड़े लोड नहीं हुए |
 | `loadErrorBody` | Check the connection and try again. | इंटरनेट देखें और फिर से कोशिश करें। |
+| `refreshFailed` | Couldn't refresh. Showing the numbers from {time}. | रीफ़्रेश नहीं हुआ। {time} तक के आंकड़े दिख रहे हैं। |
+| `chartsErrorTitle` | Charts didn't load | चार्ट लोड नहीं हुए |
+| `chartsErrorBody` | Reload the page to load them again. | चार्ट फिर से लाने के लिए पेज दोबारा लोड करें। |
+| `reloadPage` | Reload page | पेज दोबारा लोड करें |
 | `trendsHeading` | Trends | रुझान |
 | `trend.title` | Packed and dispatched | पैक और dispatch |
 | `trend.subtitle` | kg per day, last 90 days, today so far | रोज़ का kg, पिछले 90 दिन, आज अब तक |
@@ -348,7 +348,8 @@ Counts: 787 screen strings in 25 groups, 10 guides with 182 strings.
 | `ageing.emptyTitle` | Nothing in stock | स्टॉक में कुछ नहीं |
 | `ageing.emptyBody` | Packed bundles show up here by how long they have been waiting. | पैक हुए bundle यहां दिखेंगे, कितने दिन से रखे हैं उसके हिसाब से। |
 | `startHere.title` | Start here | यहां से शुरू करें |
-| `startHere.body` | Four things to set up before the floor starts using orrn. | फ़्लोर पर orrn चलाने से पहले ये चार काम कर लें। |
+| `startHere.body` | A few things to set up before the floor starts using orrn. | फ़्लोर पर orrn चलाने से पहले ये कुछ काम कर लें। |
+| `startHere.bodyWaiting` | Your admin is setting orrn up. Today's numbers show here once the first bundles are packed. | एडमिन orrn सेट कर रहे हैं। पहले bundle पैक होते ही आज के आंकड़े यहां दिखेंगे। |
 | `startHere.addDie` | Add a die | Die जोड़ें |
 | `startHere.addCustomer` | Add a customer | ग्राहक जोड़ें |
 | `startHere.packFirst` | Pack your first bundles | पहले bundle पैक करें |
@@ -356,6 +357,7 @@ Counts: 787 screen strings in 25 groups, 10 guides with 182 strings.
 | `startHere.progress` | {done} of {total} done | {total} में से {done} हो गए |
 | `startHere.done` | Done | हो गया |
 | `startHere.askAdmin` | An admin sets this up | यह एडमिन सेट करेंगे |
+| `startHere.afterDie` | After a die is added | Die जुड़ने के बाद |
 
 ### pack (52)
 

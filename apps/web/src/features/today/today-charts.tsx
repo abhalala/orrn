@@ -4,10 +4,14 @@
  * "so far") and stock age (kg by days since packing, ordinal ramp). Loaded
  * with `lazy()` from today-screen.tsx inside `<Can do="analytics.view">`, so
  * the chart kit and d3 never reach floor roles or the entry chunk.
+ *
+ * Kept in step with the KPI row above (`live`, from the polled
+ * `dashboard.today`): today's trend point is the KPI figures themselves, and
+ * whenever those figures change (a bundle packed, a dispatch done, midnight)
+ * both charts refetch, so stock age follows "In stock" too.
  */
 import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
-import { EmptyState } from "@orrn/ui/components/empty-state";
 import {
   BarChart,
   ChartCard,
@@ -17,12 +21,12 @@ import {
   timeSeriesTable,
 } from "@orrn/ui/charts";
 import { useQuery } from "@tanstack/react-query";
-import { useId, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { ageingBars, trendSeries, type AgeBucket } from "./today-model";
+import { ageingBars, formatCount, trendSeries, withLiveToday, type AgeBucket, type LiveToday } from "./today-model";
 
 const TREND_DAYS = 90;
 const FIVE_MINUTES = 5 * 60_000;
@@ -34,9 +38,19 @@ const AGE_NAMES = {
   "60+": ["today.ageing.over60", "today.ageing.over60Short"],
 } as const satisfies Record<AgeBucket["key"], readonly [string, string]>;
 
-export default function TodayCharts() {
+/** Card state from a query: data on screen wins; the error card only when there is nothing to show. */
+function cardState(q: { data: unknown; isError: boolean }, empty: boolean): "loading" | "error" | "empty" | undefined {
+  if (q.data === undefined) return q.isError ? "error" : "loading";
+  return empty ? "empty" : undefined;
+}
+
+export type TodayChartsProps = {
+  /** Today's figures from the KPI query, plus in-stock totals: a change refetches both charts. */
+  live: LiveToday & { stockBundles: number; stockKg: number };
+};
+
+export default function TodayCharts({ live }: TodayChartsProps) {
   const { t, locale } = useT();
-  const headingId = useId();
   // Each ChartCard shows its own error with Try again, so no global toast.
   const trends = useQuery({
     ...trpc.analytics.trends.queryOptions({ days: TREND_DAYS }),
@@ -49,16 +63,33 @@ export default function TodayCharts() {
     meta: INLINE_ERROR_META,
   });
 
+  // The KPI figures moved on (polled every minute): refresh the charts behind them once.
+  const signature = `${live.date}|${live.packedG}|${live.dispatchedG}|${live.stockBundles}|${live.stockKg}`;
+  const lastSignature = useRef(signature);
+  const { refetch: refetchTrends } = trends;
+  const { refetch: refetchAgeing } = ageing;
+  useEffect(() => {
+    if (lastSignature.current === signature) return;
+    lastSignature.current = signature;
+    void refetchTrends();
+    void refetchAgeing();
+  }, [signature, refetchTrends, refetchAgeing]);
+
   const kg = useMemo(() => (v: number) => `${formatKgTotal(v)} ${t("units.kg")}`, [t]);
   // Days arrive as calendar dates; UTC midnight formatted in UTC keeps each label on its day.
   const dates = useMemo(() => chartDateFormat("day", locale, "UTC"), [locale]);
+  const { date, packedG, dispatchedG } = live;
+  const days = useMemo(
+    () => (trends.data ? withLiveToday(trends.data, { date, packedG, dispatchedG }) : []),
+    [trends.data, date, packedG, dispatchedG],
+  );
   const series = useMemo(
     () =>
-      trendSeries(trends.data ?? [], {
+      trendSeries(days, {
         packed: t("today.trend.packed"),
         dispatched: t("today.trend.dispatched"),
       }),
-    [trends.data, t],
+    [days, t],
   );
   const bars = useMemo(
     () =>
@@ -68,19 +99,32 @@ export default function TodayCharts() {
       })),
     [ageing.data, t],
   );
+  const ageingTable = useMemo(() => {
+    const table = barTable(bars, {
+      t,
+      format: kg,
+      labelHeader: t("today.ageing.ageHeader"),
+      valueHeader: t("today.ageing.valueHeader"),
+    });
+    // The yard counts bundles: each age row also says how many.
+    const buckets = ageing.data?.buckets ?? [];
+    return {
+      columns: [...table.columns, { key: "bundles", header: t("pack.columns.bundles"), numeric: true }],
+      rows: table.rows.map((row, i) => ({ ...row, bundles: formatCount(buckets[i]?.bundles ?? 0) })),
+    };
+  }, [bars, ageing.data, kg, t]);
 
-  const trendQuiet = trends.data?.every((d) => d.packedKgG === 0 && d.dispatchedKgG === 0) ?? false;
+  const trendQuiet = days.every((d) => d.packedKgG === 0 && d.dispatchedKgG === 0);
   const nothingInStock = (ageing.data?.totals.bundles ?? 0) === 0;
 
   return (
-    <section aria-labelledby={headingId} className="flex min-w-0 flex-col gap-3">
-      <h2 id={headingId} className="m-0 text-[17px] leading-6 font-semibold tracking-[-0.01em]">
-        {t("today.trendsHeading")}
-      </h2>
-      <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-3">
+    // The cards title themselves (h2, peers of the list sections); the region is named for landmarks.
+    <section aria-label={t("today.trendsHeading")} className="@container min-w-0">
+      <div className="grid min-w-0 grid-cols-1 gap-4 @[56rem]:grid-cols-3">
         <ChartCard
           data-testid="today-trend"
-          className="lg:col-span-2"
+          className="@[56rem]:col-span-2"
+          level={2}
           title={t("today.trend.title")}
           subtitle={t("today.trend.subtitle")}
           legend={{ series, shape: "line" }}
@@ -90,48 +134,37 @@ export default function TodayCharts() {
             formatDate: dates.long,
             dateHeader: t("today.trend.dateHeader"),
           })}
-          state={trends.isPending ? "loading" : trends.isError ? "error" : undefined}
+          state={cardState(trends, trendQuiet)}
+          emptyTitle={t("today.trend.emptyTitle")}
+          emptyBody={t("today.trend.emptyBody")}
           onRetry={() => void trends.refetch()}
-          refreshing={trends.isFetching && !trends.isPending}
           plotHeight={260}
         >
-          {trendQuiet ? (
-            <EmptyState className="py-8" title={t("today.trend.emptyTitle")} body={t("today.trend.emptyBody")} />
-          ) : (
-            <TimeSeriesChart
-              series={series}
-              kind="line"
-              format={kg}
-              formatDate={dates}
-              height={260}
-              label={t("today.trend.label")}
-            />
-          )}
+          <TimeSeriesChart
+            series={series}
+            kind="line"
+            format={kg}
+            formatDate={dates}
+            height={260}
+            label={t("today.trend.label")}
+          />
         </ChartCard>
 
         <ChartCard
           data-testid="today-ageing"
+          level={2}
           title={t("today.ageing.title")}
           subtitle={t("today.ageing.subtitle")}
-          table={barTable(bars, {
-            t,
-            format: kg,
-            labelHeader: t("today.ageing.ageHeader"),
-            valueHeader: t("today.ageing.valueHeader"),
-          })}
-          state={ageing.isPending ? "loading" : ageing.isError ? "error" : undefined}
+          table={ageingTable}
+          state={cardState(ageing, nothingInStock)}
+          emptyTitle={t("today.ageing.emptyTitle")}
+          emptyBody={t("today.ageing.emptyBody")}
           onRetry={() => void ageing.refetch()}
-          refreshing={ageing.isFetching && !ageing.isPending}
           plotHeight={260}
         >
-          {nothingInStock ? (
-            <EmptyState className="py-8" title={t("today.ageing.emptyTitle")} body={t("today.ageing.emptyBody")} />
-          ) : (
-            <BarChart data={bars} format={kg} ordinal height={260} label={t("today.ageing.label")} />
-          )}
+          <BarChart data={bars} format={kg} ordinal height={260} label={t("today.ageing.label")} />
         </ChartCard>
       </div>
     </section>
   );
 }
-

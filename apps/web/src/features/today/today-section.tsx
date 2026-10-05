@@ -45,15 +45,32 @@ export function TodayRows({ children }: { children: ReactNode }) {
   return <ul className="m-0 list-none divide-y divide-border border-t border-border p-0">{children}</ul>;
 }
 
-/** Empty list: one plain sentence and why it will fill up. */
-export function TodayEmptyRows({ title, body }: { title: string; body: string }) {
+/**
+ * Empty list: one plain sentence, why it will fill up, and the next step
+ * for people who can take it (`action`, usually inside a `<Can>`, renders
+ * nothing for everyone else).
+ */
+export function TodayEmptyRows({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 border-t border-border px-4 py-6 sm:px-5">
+    <div className="flex flex-col items-start gap-1 border-t border-border px-4 py-6 sm:px-5">
       <p className="m-0 text-[15px] leading-6 font-semibold">{title}</p>
       <p className="m-0 text-[14px] leading-5 text-muted-foreground">{body}</p>
+      {action}
     </div>
   );
 }
+
+/** The one button under an empty list (a link styled as a secondary pill). */
+export function TodayEmptyAction({ to, label }: { to: string; label: string }) {
+  return (
+    <Button asChild variant="secondary" className="mt-3">
+      <UiLink to={to}>{label}</UiLink>
+    </Button>
+  );
+}
+
+/** A name under a row's code: up to two lines, so long firm names stay readable on touch (no hover title there). */
+export const rowNameClass = "line-clamp-2 text-[13px] leading-5 text-muted-foreground [overflow-wrap:anywhere]";
 
 /** Row hit area: the whole row is the link, at least 64px tall for thumbs. */
 export const rowLinkClass =

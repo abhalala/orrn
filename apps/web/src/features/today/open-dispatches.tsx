@@ -3,8 +3,10 @@ import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { UiLink } from "@orrn/ui/components/link";
 
+import { Can } from "@/shared/components/can";
+
 import { formatCount, type TodayData } from "./today-model";
-import { TodayEmptyRows, TodayRows, TodaySection, rowLinkClass } from "./today-section";
+import { TodayEmptyAction, TodayEmptyRows, TodayRows, TodaySection, rowLinkClass, rowNameClass } from "./today-section";
 
 /**
  * Dispatches being built or held (newest first, up to 10): code, customer,
@@ -21,7 +23,15 @@ export function OpenDispatches({ data }: { data: TodayData }) {
       more={{ to: "/dispatch", label: t("today.allDispatches") }}
     >
       {rows.length === 0 ? (
-        <TodayEmptyRows title={t("today.noOpenDispatches")} body={t("today.noOpenDispatchesBody")} />
+        <TodayEmptyRows
+          title={t("today.noOpenDispatches")}
+          body={t("today.noOpenDispatchesBody")}
+          action={
+            <Can do="dispatch.create">
+              <TodayEmptyAction to="/dispatch/new" label={t("dispatch.newDispatch")} />
+            </Can>
+          }
+        />
       ) : (
         <TodayRows>
           {rows.map((d) => (
@@ -31,7 +41,7 @@ export function OpenDispatches({ data }: { data: TodayData }) {
                   <span className="font-mono text-[15px] leading-6 font-semibold tabular-nums [overflow-wrap:anywhere]">
                     {d.code}
                   </span>
-                  <span title={d.customerName} className="truncate text-[13px] leading-5 text-muted-foreground">
+                  <span title={d.customerName} className={rowNameClass}>
                     {d.customerName}
                   </span>
                 </span>

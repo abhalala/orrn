@@ -3,13 +3,14 @@
  * clock, the in-stock total, the chart series and the role-aware tiles and
  * "Start here" steps. No React here, so it is unit-tested directly.
  */
+import { formatKgTotal } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { can, type Me } from "@orrn/server/lib/permissions";
 import type { inferRouterOutputs } from "@trpc/server";
 import { BookOpen, PackagePlus, Truck, Warehouse } from "lucide-react";
 
-import { visibleItems, type NavItem } from "@/shell/nav-items";
+import { visibleItems, type NavItem, type NavModule } from "@/shell/nav-items";
 
 type Outputs = inferRouterOutputs<AppRouter>;
 export type TodayData = Outputs["dashboard"]["today"];
@@ -56,6 +57,17 @@ export function companyClock(timezone: string, nowMs: number, locale: string): {
   return { hour, date };
 }
 
+/** 24 h time on the plant's wall clock ("14:05"), for session times and "Showing the numbers from 14:05". */
+export function clockTime(timezone: string): (at: string | number) => string {
+  const format = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: validZone(timezone),
+  });
+  return (at) => format.format(new Date(at));
+}
+
 /**
  * A count with Indian grouping ("1,284", "1,00,000") for display and for
  * `t()` plural variables: `{count:one|other}` still picks "one" only for "1".
@@ -93,6 +105,32 @@ export function trendSeries(days: readonly TrendDay[], labels: { packed: string;
   ];
 }
 
+/** Today's figures from `dashboard.today` (the live KPI query), for the trend's last day. */
+export type LiveToday = { date: string; packedG: number; dispatchedG: number };
+
+function nextDay(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The trend's days with today's point taken from the live KPI query, so the
+ * chart's "so far" can never disagree with the blocks above it (the trend
+ * itself refreshes less often). When the KPI query has already moved to the
+ * next day (after midnight), the chart moves with it: the oldest day drops
+ * and the new day is appended, keeping its length. Older live figures, or a
+ * gap of more than a day, leave the days as they are until the trend refetches.
+ */
+export function withLiveToday(days: readonly TrendDay[], live: LiveToday | undefined): TrendDay[] {
+  const last = days.at(-1);
+  if (!live || !last) return [...days];
+  const today: TrendDay = { date: live.date, packedKgG: live.packedG, dispatchedKgG: live.dispatchedG };
+  if (last.date === live.date) return [...days.slice(0, -1), today];
+  if (nextDay(last.date) === live.date) return [...days.slice(1), today];
+  return [...days];
+}
+
 export type AgeBar = { key: string; label: string; short: string; value: number };
 
 /** One bar per age bucket (youngest first), kg from grams. */
@@ -114,10 +152,29 @@ export type StartHereStep = {
   key: "die" | "customer" | "pack" | "printer";
   labelKey: MessageKey;
   done: boolean;
-  /** Where to do it, or null when this person's role can't. */
+  /** This person's role can do the step. */
+  allowed: boolean;
+  /** Allowed, but an earlier step it needs is still open (packing needs a die). */
+  waiting: boolean;
+  /** Where to do it: null when done, not allowed, or waiting. */
   to: string | null;
 };
 
+/**
+ * Company modules as the nav reads them (`visibleItems`): an empty or missing
+ * list means every module is on (companies created before modules existed).
+ */
+function moduleOn(me: Me | null | undefined, module: NavModule): boolean {
+  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
+  return modules.length === 0 || modules.includes(module);
+}
+
+/**
+ * The first steps for an empty plant, in order. Each links only for people
+ * whose role can do it; packing also waits until a die exists (the pack
+ * screen starts by picking one). Steps for areas the plant switched off are
+ * left out, so "n of n done" can always be reached.
+ */
 export function startHereSteps(setup: Setup, me: Me | null | undefined): StartHereStep[] {
   const step = (
     key: StartHereStep["key"],
@@ -125,13 +182,36 @@ export function startHereSteps(setup: Setup, me: Me | null | undefined): StartHe
     done: boolean,
     to: string,
     allowed: boolean,
-  ): StartHereStep => ({ key, labelKey, done, to: allowed ? to : null });
-  return [
-    step("die", "today.startHere.addDie", setup.dies, "/dies", can(me, "die.create")),
-    step("customer", "today.startHere.addCustomer", setup.customers, "/customers", can(me, "customer.create")),
-    step("pack", "today.startHere.packFirst", setup.bundles, "/pack/new", can(me, "bundle.create")),
+    needs = true,
+  ): StartHereStep => {
+    const waiting = !done && allowed && !needs;
+    return { key, labelKey, done, allowed, waiting, to: !done && allowed && !waiting ? to : null };
+  };
+  const steps: (StartHereStep | null)[] = [
+    moduleOn(me, "dies") ? step("die", "today.startHere.addDie", setup.dies, "/dies", can(me, "die.create")) : null,
+    moduleOn(me, "customers")
+      ? step("customer", "today.startHere.addCustomer", setup.customers, "/customers", can(me, "customer.create"))
+      : null,
+    moduleOn(me, "bundles")
+      ? step("pack", "today.startHere.packFirst", setup.bundles, "/pack/new", can(me, "bundle.create"), setup.dies)
+      : null,
     step("printer", "today.startHere.connectPrinter", setup.printers, "/printing", can(me, "spool.manage_printers")),
   ];
+  return steps.filter((s): s is StartHereStep => s !== null);
+}
+
+/**
+ * The line under "Start here": people who can do most of the steps set orrn
+ * up; everyone else (an operator who can only pack, a viewer) is told what
+ * they are waiting for.
+ */
+export function startHereIntroKey(steps: readonly StartHereStep[]): MessageKey {
+  return steps.filter((s) => s.allowed).length >= 2 ? "today.startHere.body" : "today.startHere.bodyWaiting";
+}
+
+/** Today's lists follow the company modules, as the nav does. */
+export function todaySections(me: Me | null | undefined): { dispatches: boolean; sessions: boolean } {
+  return { dispatches: moduleOn(me, "dispatches"), sessions: moduleOn(me, "bundles") };
 }
 
 export type TodayTile = NavItem & { key: "pack" | "dispatch" | "stock" | "guides"; hintKey: MessageKey };
@@ -198,4 +278,28 @@ export function tileHint(tile: TodayTile, openCount: number | undefined): TileHi
   if (openCount === undefined) return { key: "today.tiles.dispatchHintAny" };
   if (openCount > 0) return { key: "today.tiles.dispatchHint", vars: { count: formatCount(openCount) } };
   return { key: "today.tiles.dispatchHintNone" };
+}
+
+/**
+ * A packing session's line: bundles and kg (void left out, RP11), or "All
+ * bundles void" when nothing of it is left, instead of "0 bundles · 0.0 kg".
+ */
+export function sessionSummary(totals: { bundles: number; weightG: number }): TileHint {
+  if (totals.bundles <= 0) return { key: "today.sessionVoided" };
+  return {
+    key: "units.bundlesKg",
+    vars: { bundles: formatCount(totals.bundles), kg: formatKgTotal(totals.weightG / 1000) },
+  };
+}
+
+/**
+ * Tile grid by tile count: one row of 3 or 4 from iPad up (no empty fourth
+ * column for office's three tiles), two per row on a phone, with an odd last
+ * tile taking its whole row instead of sitting alone in half of it.
+ */
+export function tileLayout(count: number): { grid: string; spanLast: boolean } {
+  if (count >= 4) return { grid: "grid-cols-2 md:grid-cols-4", spanLast: false };
+  if (count === 3) return { grid: "grid-cols-2 md:grid-cols-3", spanLast: true };
+  if (count === 2) return { grid: "grid-cols-2", spanLast: false };
+  return { grid: "grid-cols-1", spanLast: false };
 }

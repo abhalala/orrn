@@ -3,27 +3,43 @@ import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Skeleton } from "@orrn/ui/components/skeleton";
+import { cn } from "@orrn/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import { Suspense, lazy, useEffect, useState } from "react";
+import { CloudOff } from "lucide-react";
+import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 
 import { Can } from "@/shared/components/can";
 import { useMe } from "@/shared/lib/me";
-import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
+import { INLINE_ERROR_META, refreshFailed, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { TodayTiles } from "./action-tiles";
+import { TodayTiles, TodayTilesSkeleton } from "./action-tiles";
+import { ChartsBoundary } from "./charts-boundary";
 import { TodayKpis, TodayKpisSkeleton } from "./kpis";
 import { OpenDispatches } from "./open-dispatches";
 import { PrintProblems } from "./print-problems";
 import { RecentSessions } from "./recent-sessions";
 import { StartHere } from "./start-here";
-import { DEFAULT_TIMEZONE, companyClock, greetingKey, needsStartHere, todayTiles } from "./today-model";
+import {
+  DEFAULT_TIMEZONE,
+  clockTime,
+  companyClock,
+  greetingKey,
+  inStock,
+  needsStartHere,
+  todaySections,
+  todayTiles,
+} from "./today-model";
 import { TodaySectionSkeleton } from "./today-section";
 
 /** The chart kit (and d3) loads only for analytics.view roles, never in the entry chunk. */
 const TodayCharts = lazy(() => import("./today-charts"));
 
-/** A floor screen stays current: the numbers refresh every minute and on focus. */
+/**
+ * A floor screen stays current: the numbers refresh every minute and on focus
+ * (ruling T19: a Today left open on the office monitor must not show the
+ * morning's numbers at 4 pm; one 8-statement read per open screen a minute).
+ */
 const REFRESH_MS = 60_000;
 
 /** Wall-clock time that ticks each minute, so the greeting and date roll over on an open screen. */
@@ -36,11 +52,23 @@ function useMinuteClock() {
   return now;
 }
 
+/** Charts' loading shape: same columns as TodayCharts and roughly the cards' real heights. */
 function ChartsSkeleton() {
   return (
-    <div aria-hidden="true" className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <Skeleton className="h-[372px] rounded-card lg:col-span-2" />
-      <Skeleton className="h-[372px] rounded-card" />
+    <div aria-hidden="true" className="@container min-w-0">
+      <div className="grid grid-cols-1 gap-4 @[56rem]:grid-cols-3">
+        <Skeleton className="h-[398px] rounded-card @[56rem]:col-span-2" />
+        <Skeleton className="h-[398px] rounded-card" />
+      </div>
+    </div>
+  );
+}
+
+/** The two lists: one column until the content column is wide enough for two (not the viewport: the sidebar takes 272 px from 1024). */
+function ListsGrid({ pair, children }: { pair: boolean; children: ReactNode }) {
+  return (
+    <div className="@container min-w-0">
+      <div className={cn("grid min-w-0 grid-cols-1 items-start gap-4", pair && "@[56rem]:grid-cols-2")}>{children}</div>
     </div>
   );
 }
@@ -66,35 +94,42 @@ export function TodayScreen() {
   const timezone = today.data?.timezone ?? (typeof configured === "string" && configured ? configured : DEFAULT_TIMEZONE);
   const clock = companyClock(timezone, now, locale);
   const name = me?.user.name?.trim() || me?.user.email || "";
+  const sections = todaySections(me);
 
   // Same number of tile placeholders as real tiles (none for viewers), so nothing jumps on load.
   const tileCount = todayTiles(me).length;
-  const header = <PageHeader title={t(greetingKey(clock.hour), { name })} subtitle={clock.date} />;
-
-  if (today.isPending) {
-    return (
-      <>
-        {header}
-        <div aria-busy="true" className="flex flex-col gap-5">
-          <span className="sr-only">{t("common.loading")}</span>
-          <TodayKpisSkeleton />
-          {tileCount > 0 ? (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {Array.from({ length: tileCount }, (_, i) => (
-                <Skeleton key={i} className="min-h-[128px] rounded-block" />
-              ))}
-            </div>
-          ) : null}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <TodaySectionSkeleton />
-            <TodaySectionSkeleton />
+  // A failed background refresh keeps the last numbers (React Query v5 keeps data on a failed
+  // refetch) and says so in one quiet line. The status region is always mounted so the change
+  // is announced.
+  const header = (
+    <div className="flex min-w-0 flex-col">
+      <PageHeader title={t(greetingKey(clock.hour), { name })} subtitle={clock.date} />
+      <div role="status">
+        {refreshFailed(today) ? (
+          <div
+            data-testid="today-refresh-failed"
+            className="mt-4 flex min-w-0 items-center gap-3 rounded-card border border-border bg-card py-1 pr-1 pl-4"
+          >
+            <CloudOff aria-hidden="true" className="size-[18px] shrink-0 text-muted-foreground" strokeWidth={2} />
+            <p className="m-0 min-w-0 flex-1 py-2 text-[14px] leading-5 text-muted-foreground break-words">
+              {t("today.refreshFailed", { time: clockTime(timezone)(today.dataUpdatedAt) })}
+            </p>
+            <Button
+              variant="ghost"
+              className="shrink-0 px-3.5 text-[14px]"
+              disabled={today.isFetching}
+              onClick={() => void today.refetch()}
+            >
+              {t("common.retry")}
+            </Button>
           </div>
-        </div>
-      </>
-    );
-  }
+        ) : null}
+      </div>
+    </div>
+  );
 
-  if (today.isError) {
+  // The error card only when there is nothing to show; a failed refresh keeps the screen.
+  if (showsQueryError(today)) {
     return (
       <>
         {header}
@@ -116,6 +151,23 @@ export function TodayScreen() {
 
   const data = today.data;
 
+  if (data === undefined) {
+    return (
+      <>
+        {header}
+        <div aria-busy="true" className="flex flex-col gap-5">
+          <span className="sr-only">{t("common.loading")}</span>
+          <TodayKpisSkeleton />
+          {tileCount > 0 ? <TodayTilesSkeleton count={tileCount} /> : null}
+          <ListsGrid pair={sections.dispatches && sections.sessions}>
+            {sections.dispatches ? <TodaySectionSkeleton /> : null}
+            {sections.sessions ? <TodaySectionSkeleton /> : null}
+          </ListsGrid>
+        </div>
+      </>
+    );
+  }
+
   if (needsStartHere(data.setup)) {
     return (
       <>
@@ -125,20 +177,34 @@ export function TodayScreen() {
     );
   }
 
+  const stock = inStock(data.stock);
+
   return (
     <>
       {header}
       <TodayKpis data={data} />
       <TodayTiles openCount={data.openDispatchCount} startIndex={3} />
       <PrintProblems failed={data.failedPrintJobs} />
-      <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        <OpenDispatches data={data} />
-        <RecentSessions data={data} />
-      </div>
+      {sections.dispatches || sections.sessions ? (
+        <ListsGrid pair={sections.dispatches && sections.sessions}>
+          {sections.dispatches ? <OpenDispatches data={data} /> : null}
+          {sections.sessions ? <RecentSessions data={data} /> : null}
+        </ListsGrid>
+      ) : null}
       <Can do="analytics.view">
-        <Suspense fallback={<ChartsSkeleton />}>
-          <TodayCharts />
-        </Suspense>
+        <ChartsBoundary>
+          <Suspense fallback={<ChartsSkeleton />}>
+            <TodayCharts
+              live={{
+                date: data.date,
+                packedG: data.packedToday.weightG,
+                dispatchedG: data.dispatchedToday.weightG,
+                stockBundles: stock.bundles,
+                stockKg: stock.kg,
+              }}
+            />
+          </Suspense>
+        </ChartsBoundary>
       </Can>
     </>
   );

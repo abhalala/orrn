@@ -7,7 +7,7 @@ import { useId } from "react";
 
 import { useMe } from "@/shared/lib/me";
 
-import { startHereSteps, type Setup, type StartHereStep } from "./today-model";
+import { startHereIntroKey, startHereSteps, type Setup, type StartHereStep } from "./today-model";
 
 /** Step marker: its number while open, a check when done (the word "Done" sits beside it too). */
 function Marker({ step, n }: { step: StartHereStep; n: number }) {
@@ -26,9 +26,12 @@ function Marker({ step, n }: { step: StartHereStep; n: number }) {
 
 /**
  * "Start here" for a plant with no die or no bundle yet (spec §3 Today):
- * four first steps in order, each a link for people whose role can do it,
- * a plain "An admin sets this up" for everyone else, and how many are done.
- * It replaces the KPI blocks, lists and charts, which would all be empty.
+ * the first steps in order (areas the plant switched off left out), each a
+ * link for people whose role can do it, "After a die is added" for packing
+ * while no die exists, a plain "An admin sets this up" for everyone else,
+ * and how many are done. The line under the title speaks to whoever reads
+ * it: the people setting orrn up, or those waiting for them. It replaces
+ * the KPI blocks, lists and charts, which would all be empty.
  */
 export function StartHere({ setup }: { setup: Setup }) {
   const { t } = useT();
@@ -51,7 +54,7 @@ export function StartHere({ setup }: { setup: Setup }) {
           {t("today.startHere.title")}
         </h2>
         <p className="m-0 max-w-[60ch] text-[15px] leading-6 text-muted-foreground break-words">
-          {t("today.startHere.body")}
+          {t(startHereIntroKey(steps))}
         </p>
         <p className="m-0 text-[14px] leading-5 font-semibold">
           {t("today.startHere.progress", { done, total: steps.length })}
@@ -84,7 +87,7 @@ export function StartHere({ setup }: { setup: Setup }) {
                   <Chip tone="green">{t("today.startHere.done")}</Chip>
                 ) : (
                   <span className="max-w-[45%] text-right text-[13px] leading-5 text-muted-foreground break-words">
-                    {t("today.startHere.askAdmin")}
+                    {t(step.waiting ? "today.startHere.afterDie" : "today.startHere.askAdmin")}
                   </span>
                 )}
               </div>

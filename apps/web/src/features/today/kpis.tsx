@@ -26,7 +26,8 @@ type KpiBlockProps = {
  * One KPI as a C2 status block: title, a big Bricolage number that counts up
  * once (off under reduced motion), its unit, and one supporting fact. The
  * number is sized by the block's own width (container query units), so a
- * five-figure kg never spills out of a narrow block on a phone or iPad.
+ * five-figure kg never spills out of a narrow block: the pair blocks on a
+ * phone (about 165 px wide) go down to 26 px, the hero up to 52 px.
  * Text uses the tone's `on` colour at full strength (>= 4.5:1 against the
  * lighter gradient stop, tokens.test.ts).
  */
@@ -37,22 +38,31 @@ function KpiBlock({ testId, tone, title, value, format, unit, meta, hero = false
       data-tone={tone}
       style={riseDelay(index)}
       className={cn(
-        "orrn-block orrn-block-sheen animate-rise @container flex min-w-0 flex-col p-[18px] sm:p-5",
+        "orrn-block orrn-block-sheen animate-rise @container flex min-w-0 flex-col sm:min-h-[188px] sm:p-5",
         `orrn-block-${tone}`,
-        hero ? "orrn-block-hero min-h-[176px] sm:col-span-2 sm:min-h-[188px]" : "min-h-[136px] sm:min-h-[188px]",
+        hero ? "orrn-block-hero col-span-2 min-h-[168px] p-[18px]" : "min-h-[132px] p-4",
       )}
     >
       <p className="relative m-0 font-display text-[17px] leading-tight font-bold tracking-[-0.02em] break-words">
         {title}
       </p>
-      <p className="relative m-0 mt-auto flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 pt-5">
-        <BigNumber value={value} format={format} countUp className="text-[clamp(32px,15cqi,52px)]" />
+      <p className="relative m-0 mt-auto flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 pt-4 sm:pt-5">
+        <BigNumber value={value} format={format} countUp className="text-[clamp(26px,17cqi,52px)]" />
         <span className="text-[15px] leading-5 font-semibold break-words">{unit}</span>
       </p>
       <p className="relative m-0 mt-1.5 text-[15px] leading-5 font-semibold break-words">{meta}</p>
     </li>
   );
 }
+
+/**
+ * KPI grid: the hero (packed today) always takes a full row of two, with
+ * dispatched and in stock side by side under it, on a phone too. Four
+ * columns (hero spans two) only once the CONTENT column is about 900 px
+ * wide: the sidebar takes 272 px from a 1024 px viewport, so viewport
+ * breakpoints squeezed the row at 1024-1279.
+ */
+const KPI_GRID = "m-0 grid list-none grid-cols-2 gap-3 p-0 @[56rem]:grid-cols-4";
 
 /**
  * Today's numbers (spec §3 Today): kg and bundles packed today (one block),
@@ -67,11 +77,11 @@ export function TodayKpis({ data }: { data: TodayData }) {
   const dispatches = data.dispatchedToday.dispatches;
 
   return (
-    <section aria-labelledby={headingId} data-testid="today-numbers">
+    <section aria-labelledby={headingId} data-testid="today-numbers" className="@container min-w-0">
       <h2 id={headingId} className="sr-only">
         {t("today.numbersHeading")}
       </h2>
-      <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 lg:grid-cols-4">
+      <ul className={KPI_GRID}>
         <KpiBlock
           testId="kpi-packed"
           tone="blue"
@@ -111,10 +121,12 @@ export function TodayKpis({ data }: { data: TodayData }) {
 /** Loading shape of the KPI row: same grid, same block sizes and radii. */
 export function TodayKpisSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Skeleton className="min-h-[176px] rounded-hero sm:col-span-2 sm:min-h-[188px]" />
-      <Skeleton className="min-h-[136px] rounded-block sm:min-h-[188px]" />
-      <Skeleton className="min-h-[136px] rounded-block sm:min-h-[188px]" />
+    <div className="@container min-w-0">
+      <div className={KPI_GRID}>
+        <Skeleton className="col-span-2 min-h-[168px] rounded-hero sm:min-h-[188px]" />
+        <Skeleton className="min-h-[150px] rounded-block sm:min-h-[188px]" />
+        <Skeleton className="min-h-[150px] rounded-block sm:min-h-[188px]" />
+      </div>
     </div>
   );
 }
