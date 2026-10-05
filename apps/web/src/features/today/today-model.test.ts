@@ -11,6 +11,7 @@ import {
   greetingKey,
   inStock,
   needsStartHere,
+  newestFirst,
   sessionSummary,
   startHereIntroKey,
   startHereSteps,
@@ -266,6 +267,19 @@ describe("sessionSummary", () => {
       vars: { bundles: "14", kg: "682.4" },
     });
     expect(sessionSummary({ bundles: 0, weightG: 0 })).toEqual({ key: "today.sessionVoided" });
+  });
+});
+
+describe("newestFirst", () => {
+  test("the trend's table starts with today so far, then yesterday, back to 90 days ago", () => {
+    const table = {
+      columns: [{ key: "date", header: "Day" }],
+      rows: [{ date: "2 Oct" }, { date: "3 Oct" }, { date: "4 Oct, so far" }],
+    };
+    expect(newestFirst(table).rows).toEqual([{ date: "4 Oct, so far" }, { date: "3 Oct" }, { date: "2 Oct" }]);
+    expect(newestFirst(table).columns).toBe(table.columns);
+    // The kit's own table is left as it was (it is memoised by the chart).
+    expect(table.rows[0]).toEqual({ date: "2 Oct" });
   });
 });
 

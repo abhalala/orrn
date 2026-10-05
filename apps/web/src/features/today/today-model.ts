@@ -131,6 +131,15 @@ export function withLiveToday(days: readonly TrendDay[], live: LiveToday | undef
   return [...days];
 }
 
+/**
+ * The trend's table, newest first: the owner reads it for today so far,
+ * yesterday and last week, so 90 days of rows must not put today at the
+ * bottom of a 3,000 px table (the kit lists oldest first).
+ */
+export function newestFirst<T extends { rows: readonly unknown[] }>(table: T): T {
+  return { ...table, rows: [...table.rows].reverse() };
+}
+
 export type AgeBar = { key: string; label: string; short: string; value: number };
 
 /** One bar per age bucket (youngest first), kg from grams. */

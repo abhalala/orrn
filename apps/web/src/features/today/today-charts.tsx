@@ -26,7 +26,15 @@ import { useEffect, useMemo, useRef } from "react";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { ageingBars, formatCount, trendSeries, withLiveToday, type AgeBucket, type LiveToday } from "./today-model";
+import {
+  ageingBars,
+  formatCount,
+  newestFirst,
+  trendSeries,
+  withLiveToday,
+  type AgeBucket,
+  type LiveToday,
+} from "./today-model";
 
 const TREND_DAYS = 90;
 const FIVE_MINUTES = 5 * 60_000;
@@ -91,6 +99,14 @@ export default function TodayCharts({ live }: TodayChartsProps) {
       }),
     [days, t],
   );
+  // Newest first: today so far, then yesterday (the kit lists oldest first).
+  const trendTable = useMemo(
+    () =>
+      newestFirst(
+        timeSeriesTable(series, { t, format: kg, formatDate: dates.long, dateHeader: t("today.trend.dateHeader") }),
+      ),
+    [series, t, kg, dates],
+  );
   const bars = useMemo(
     () =>
       ageingBars(ageing.data?.buckets ?? [], (key) => ({
@@ -128,12 +144,7 @@ export default function TodayCharts({ live }: TodayChartsProps) {
           title={t("today.trend.title")}
           subtitle={t("today.trend.subtitle")}
           legend={{ series, shape: "line" }}
-          table={timeSeriesTable(series, {
-            t,
-            format: kg,
-            formatDate: dates.long,
-            dateHeader: t("today.trend.dateHeader"),
-          })}
+          table={trendTable}
           state={cardState(trends, trendQuiet)}
           emptyTitle={t("today.trend.emptyTitle")}
           emptyBody={t("today.trend.emptyBody")}

@@ -198,7 +198,9 @@ for (const width of [390, 1280]) {
       await trend.getByRole("button", { name: "Show table" }).click();
       const rows = trend.getByRole("table").locator("tbody tr");
       await expect(rows).toHaveCount(90);
-      await expect(rows.last()).toContainText("so far");
+      // Newest first: today so far sits right under Hide table.
+      await expect(rows.first()).toContainText("so far");
+      await expect(rows.nth(1)).not.toContainText("so far");
 
       const ageing = page.getByTestId("today-ageing");
       await expect(ageing.getByRole("heading", { name: "Stock age" })).toBeVisible();
@@ -394,7 +396,7 @@ test.describe("states", () => {
     await expect(numbers(page).getByTestId("kpi-packed")).toContainText("98,765.4");
     const trend = page.getByTestId("today-trend");
     await trend.getByRole("button", { name: "Show table" }).click();
-    const soFar = trend.getByRole("table").locator("tbody tr").last();
+    const soFar = trend.getByRole("table").locator("tbody tr").first();
     await expect(soFar).toContainText("so far");
     await expect(soFar).toContainText("98,765.4 kg");
 
