@@ -23,3 +23,6 @@ web-build/
 
 expo-env.d.ts
 # @end expo-cli
+# Continuous Native Generation: ios/ and android/ come from app.json (`expo prebuild`).
+/ios
+/android
