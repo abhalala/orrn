@@ -8,6 +8,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine } from "lucide-react";
 
 import { Can } from "@/shared/components/can";
+import { can, useMe } from "@/shared/lib/me";
 
 import { BalanceFilters, BalancesEmpty, BalancesList, useBalanceFilter } from "./balances-list";
 import { StoreEntries } from "./entries-list";
@@ -21,6 +22,7 @@ import { ITEM_EDITORS, useStoreAccess, useStoreBalances } from "./use-store";
  */
 export function StorePage() {
   const { t } = useT();
+  const { data: me } = useMe();
   const access = useStoreAccess();
   const balances = useStoreBalances(access.canRead);
   const rows = balances.data?.items ?? [];
@@ -91,7 +93,11 @@ export function StorePage() {
       </Can>
 
       {balances.data?.locationId === null ? (
-        <StoreNote tone="attention" title={t("store.noLocation")} body={t("store.noLocationBody")} />
+        <StoreNote
+          tone="attention"
+          title={t("store.noLocation")}
+          body={can(me, "masters.publish") ? t("store.noLocationBodyPublisher") : t("store.noLocationBody")}
+        />
       ) : null}
 
       <StoreSection id="store-in-store" title={t("store.inStore")}>

@@ -115,6 +115,17 @@ export function StoreItemsPage({ startAdding = false }: { startAdding?: boolean 
             empty={
               show === "retired" && rows.length > 0 && !filter.query ? (
                 <EmptyState title={t("store.itemsPage.noRetired")} />
+              ) : show === "active" && rows.length > 0 && shown.length === 0 ? (
+                // Items exist, all retired: not a first-run store.
+                <EmptyState
+                  title={t("store.itemsPage.noneInUse")}
+                  body={t("store.itemsPage.noneInUseBody")}
+                  action={
+                    <Button variant="secondary" onClick={() => setShow("retired")}>
+                      {t("store.itemsPage.showRetired")}
+                    </Button>
+                  }
+                />
               ) : (
                 <BalancesEmpty
                   hasAny={shown.length > 0}

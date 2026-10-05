@@ -1,4 +1,4 @@
-import { useT, type Locale, type Translate } from "@orrn/i18n";
+import { useT, type Translate } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -8,30 +8,32 @@ import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/r
 import { Sheet } from "@orrn/ui/components/sheet";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useId, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
-import { canCancelEntry, entrySource, entryState, entryTone, exchangePartner } from "./store-entries";
+import {
+  canCancelEntry,
+  entrySource,
+  entryState,
+  entryTone,
+  exchangePartner,
+  focusAfterPage,
+  showMore,
+} from "./store-entries";
+import { storeErrorText } from "./store-errors";
 import { purposeLabel, unitShort } from "./store-labels";
 import { formatQty } from "./store-qty";
 import { StoreLoadError } from "./store-ui";
-import { errorMessage, useInvalidateStore, useStoreAccess, useStoreEntries, type StoreEntry } from "./use-store";
+import { useFormatWhen } from "./use-format-when";
+import { useInvalidateStore, useStoreAccess, useStoreEntries, type StoreEntry } from "./use-store";
 
+/** The server's cap on store.txns (no cursor yet: a `before` cursor is a plant/core follow-up). */
 const MAX = 500;
-
-/** "3 Oct, 10:42 am" in the person's language, Latin digits. */
-export function formatWhen(value: Date | string | number, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-IN", {
-    day: "numeric",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit",
-    numberingSystem: "latn",
-  }).format(new Date(value));
-}
+const PAGE = 50;
 
 function stateWord(t: Translate, entry: StoreEntry): string {
   const state = entryState(entry);
@@ -64,7 +66,7 @@ function EntryChip({ entry }: { entry: StoreEntry }) {
 function entryDetail(t: Translate, entry: StoreEntry): string {
   if (entry.exchangeId) return t("store.purpose.exchange");
   if (entry.kind === "mrs") return entry.purpose ? purposeLabel(t, entry.purpose) : "";
-  return entry.grnRef ?? "";
+  return entry.grnRef ? t("store.entry.challanRef", { ref: entry.grnRef }) : "";
 }
 
 /**
@@ -81,12 +83,34 @@ export function StoreEntries({
   /** How many to show first (the store page shows the latest 10; an item page 20). */
   pageSize?: number;
 }) {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const when = useFormatWhen();
   const [limit, setLimit] = useState(pageSize);
   const [openId, setOpenId] = useState<string | null>(null);
   const query = useStoreEntries({ itemId, limit });
   const rows = query.data?.items ?? [];
   const open = rows.find((r) => r.id === openId) ?? null;
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const moreRef = useRef<HTMLButtonElement | null>(null);
+  // Rows on screen when "Show older entries" was pressed; focus moves to the first new one.
+  const focusFrom = useRef<number | null>(null);
+  const loadingMore = query.isFetching && query.isPlaceholderData;
+  const more = showMore({ shown: rows.length, limit, max: MAX, isPlaceholderData: query.isPlaceholderData });
+
+  useEffect(() => {
+    if (focusFrom.current === null || query.isPlaceholderData || query.isFetching) return;
+    const from = focusFrom.current;
+    focusFrom.current = null;
+    // Only when focus is still where the person left it (the button, or nowhere once it went).
+    const active = document.activeElement;
+    if (active !== moreRef.current && active !== document.body && active !== null) return;
+    const id = focusAfterPage(
+      from,
+      rows.map((r) => r.id),
+    );
+    if (!id) return;
+    listRef.current?.querySelector<HTMLElement>(`[data-entry-id="${CSS.escape(id)}"]`)?.focus();
+  }, [rows, query.isPlaceholderData, query.isFetching]);
 
   if (query.isError && rows.length === 0) return <StoreLoadError onRetry={() => void query.refetch()} />;
 
@@ -97,6 +121,7 @@ export function StoreEntries({
       cell: (r) => (
         <button
           type="button"
+          data-entry-id={r.id}
           aria-haspopup="dialog"
           aria-label={t("store.entry.open", { number: r.number })}
           onClick={() => setOpenId(r.id)}
@@ -119,23 +144,19 @@ export function StoreEntries({
     { key: "status", header: t("store.columns.status"), cell: (r) => <EntryChip entry={r} /> },
     {
       key: "detail",
-      header: t("store.entry.purpose"),
+      header: t("store.columns.details"),
       hideOnPhone: true,
       cell: (r) => <span className="break-words text-muted-foreground">{entryDetail(t, r) || "-"}</span>,
     },
     {
       key: "when",
       header: t("store.columns.when"),
-      cell: (r) => (
-        <span className="whitespace-nowrap text-muted-foreground tabular-nums">{formatWhen(r.createdAt, locale)}</span>
-      ),
+      cell: (r) => <span className="whitespace-nowrap text-muted-foreground tabular-nums">{when(r.createdAt)}</span>,
     },
   ];
 
-  const canShowMore = rows.length >= limit && limit < MAX;
-
   return (
-    <div className="flex min-w-0 flex-col gap-3">
+    <div ref={listRef} className="flex min-w-0 flex-col gap-3">
       <ResponsiveList
         rows={rows}
         columns={columns}
@@ -144,15 +165,26 @@ export function StoreEntries({
         label={label}
         empty={<EmptyState title={t("store.noEntries")} body={t("store.noEntriesBody")} />}
       />
-      {canShowMore ? (
+      {more.button ? (
+        // Not `loading`: that disables the button and drops keyboard focus to the page while the
+        // next page loads. It stays focusable, says it is busy, and ignores presses meanwhile.
         <Button
+          ref={moreRef}
           variant="secondary"
           className="self-center"
-          loading={query.isFetching}
-          onClick={() => setLimit((l) => Math.min(MAX, l + 50))}
+          aria-busy={loadingMore || undefined}
+          onClick={() => {
+            if (loadingMore) return;
+            focusFrom.current = rows.length;
+            setLimit((l) => Math.min(MAX, l + PAGE));
+          }}
         >
+          {loadingMore ? <Loader2 className="size-[18px] animate-spin" aria-hidden="true" /> : null}
           {t("store.showMore")}
         </Button>
+      ) : null}
+      {more.atCap ? (
+        <p className="m-0 self-center text-[14px] text-muted-foreground">{t("store.showingLatest", { max: MAX })}</p>
       ) : null}
       <EntrySheet
         entry={open}
@@ -187,7 +219,8 @@ function EntrySheet({
   linkItem: boolean;
   onOpenChange(open: boolean): void;
 }) {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const when = useFormatWhen();
   const { canEnter } = useStoreAccess();
   const invalidate = useInvalidateStore();
   const reasonId = `cancel-reason-${useId().replace(/:/g, "")}`;
@@ -223,7 +256,8 @@ function EntrySheet({
       onOpenChange(false);
       reset();
     } catch {
-      // Shown inline below (cancel.error).
+      // Shown inline below (cancel.error). The entry may have changed (cancelled by someone else).
+      void invalidate();
     }
   };
 
@@ -291,12 +325,15 @@ function EntrySheet({
               <SignedQty entry={e} />
             </Fact>
             <Fact label={t("store.entry.when")}>
-              <span className="tabular-nums">{formatWhen(e.createdAt, locale)}</span>
+              <span className="tabular-nums">{when(e.createdAt)}</span>
             </Fact>
+            {/* GRN and MRS numbers restart every financial year: the year tells two GRN-1s apart. */}
+            {e.period ? <Fact label={t("store.entry.period")}>{e.period}</Fact> : null}
             {e.kind === "mrs" && e.purpose ? (
               <Fact label={t("store.entry.purpose")}>{purposeLabel(t, e.purpose)}</Fact>
             ) : null}
-            {e.refId ? <Fact label={t("store.entry.ref")}>{e.refId}</Fact> : null}
+            {/* A draw's refId is the drawing record's id (a cast uuid), not something a person typed. */}
+            {e.refId && !e.sourceType ? <Fact label={t("store.entry.ref")}>{e.refId}</Fact> : null}
             {e.grnRef ? <Fact label={t("store.entry.challan")}>{e.grnRef}</Fact> : null}
           </dl>
           {e.note ? (
@@ -348,7 +385,7 @@ function EntrySheet({
               </p>
               {cancel.error ? (
                 <p role="alert" className="m-0 text-[14px] font-medium text-destructive break-words">
-                  {errorMessage(cancel.error)}
+                  {storeErrorText(t, cancel.error)}
                 </p>
               ) : null}
             </div>

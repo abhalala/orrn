@@ -22,6 +22,14 @@ describe("createRequestIds (RP18: double taps never double-post)", () => {
     expect(b).not.toBe(a);
   });
 
+  test("going back to values already sent reuses their key (an edit, then the retry after a lost response)", () => {
+    const ids = createRequestIds(counter());
+    const a = ids.idFor("issue|flux|8000|melt");
+    const b = ids.idFor("issue|flux|5000|melt");
+    expect(ids.idFor("issue|flux|8000|melt")).toBe(a);
+    expect(ids.idFor("issue|flux|5000|melt")).toBe(b);
+  });
+
   test("after a saved entry, the next one gets a fresh key even with the same values", () => {
     const ids = createRequestIds(counter());
     const a = ids.idFor("receive|ldo|200000|");

@@ -42,21 +42,20 @@ export function useStoreEntries(input: { itemId?: string; limit: number }, enabl
   return useQuery({
     ...trpc.store.txns.queryOptions({ itemId: input.itemId, limit: input.limit }),
     enabled,
-    // Paging by a bigger limit keeps the rows already shown while the next page loads.
-    placeholderData: (prev) => prev,
+    // Paging by a bigger limit keeps the rows already shown while the next page loads; another
+    // item's entries are never shown in their place.
+    placeholderData: (prev, prevQuery) => (sameItem(prevQuery?.queryKey, input.itemId) ? prev : undefined),
   });
+}
+
+/** Whether a cached store.txns query key is for this item (or the whole store when undefined). */
+function sameItem(queryKey: readonly unknown[] | undefined, itemId: string | undefined): boolean {
+  const opts = queryKey?.[1] as { input?: { itemId?: string } } | undefined;
+  return opts?.input?.itemId === itemId;
 }
 
 /** After any store write: balances, entries and items all refetch. */
 export function useInvalidateStore() {
   const queryClient = useQueryClient();
   return useCallback(() => queryClient.invalidateQueries(trpc.store.pathFilter()), [queryClient]);
-}
-
-/** The server's message for a failed call ("Only 2 kg of Cover flux in the store"). */
-export function errorMessage(error: unknown): string {
-  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
-    return error.message;
-  }
-  return String(error);
 }

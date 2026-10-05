@@ -22,6 +22,16 @@ describe("store labels resolve in both languages", () => {
   }
 });
 
+describe("units stay in Latin script in Hindi (C2 spec, Language)", () => {
+  test("litre, piece and metre read L, pcs and m in both languages", () => {
+    for (const locale of ["en", "hi"] as const) {
+      const { t } = createI18n(locale);
+      const units = ["kg", "litre", "piece", "metre"].map((u) => unitShort(t, u));
+      expect(units).toEqual(["kg", "L", "pcs", "m"]);
+    }
+  });
+});
+
 describe("quantity text", () => {
   const { t } = createI18n("en");
 

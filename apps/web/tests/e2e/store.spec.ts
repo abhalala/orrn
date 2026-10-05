@@ -205,6 +205,27 @@ test.describe("issue beyond balance is blocked", () => {
     await expect(error).toHaveCount(0);
   });
 
+  test("on a 375x812 phone, a refused Issue brings the reason clear of the sticky bar", async ({ page }) => {
+    await open(page, { width: 375, path: "/today" });
+    await page.setViewportSize({ width: 375, height: 812 });
+    const item = await newItem(page, { prefix: "E2E bar", receiveMilli: 5_000 });
+    await page.goto(`/store/issue?item=${item.id}`);
+    await page.getByLabel("Quantity").fill("7");
+    await page.locator("label", { hasText: "Melt" }).click();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.getByRole("button", { name: "Issue", exact: true }).click();
+    const error = page.getByText("Only 5 kg in the store. Issue less, or receive the delivery first.");
+    await expect(page.getByLabel("Quantity")).toBeFocused();
+    // toBeVisible ignores what covers an element: compare the boxes with the sticky bar instead.
+    await expect
+      .poll(async () => {
+        const e = await error.boundingBox();
+        const bar = await page.locator("[data-slot='form-actions']").boundingBox();
+        return Boolean(e && bar && e.y >= 56 && e.y + e.height <= bar.y);
+      })
+      .toBe(true);
+  });
+
   test("when the screen's balance is stale, the server refuses and the form says why", async ({ page }) => {
     await open(page, { path: "/today" });
     const item = await newItem(page, { prefix: "E2E stale", receiveMilli: 5_000 });
@@ -225,11 +246,18 @@ test.describe("issue beyond balance is blocked", () => {
     await page.getByLabel("Quantity").fill("7");
     await page.locator("label", { hasText: "Maintenance" }).click();
     await page.getByRole("button", { name: "Issue", exact: true }).click();
-    await expect(page.getByRole("alert").filter({ hasText: "Not saved" })).toContainText(
-      `Only 5 kg of ${item.name} in the store`,
+    const alert = page.getByRole("alert").filter({ hasText: "Not saved" });
+    // The screen's own words, never the server's English ("Only 5 kg of ... in the store").
+    await expect(alert).toHaveText(
+      "Not saved. The store has less than this now. Check what is in the store and change the quantity.",
     );
+    // Focus follows the failure (the submit button blurred while it loaded).
+    await expect(alert).toBeFocused();
     await expect(page.locator("[data-slot='status-block']")).toHaveCount(0);
     expect(await balanceOf(page, item.id)).toBe(5_000);
+    // A refusal is about the values sent: changing the quantity clears it.
+    await page.getByLabel("Quantity").fill("4");
+    await expect(alert).toHaveCount(0);
     // Background refetches may still be inside the route handler when the test ends.
     await page.unrouteAll({ behavior: "ignoreErrors" });
   });
@@ -244,12 +272,20 @@ test.describe("store entries", () => {
     await pickItem(page, item.name);
     await page.getByLabel("Quantity").fill("25.5");
     await page.getByLabel("Challan or bill number").fill("CH-77");
+    // The live region must exist before its text arrives, or screen readers stay silent: hold the
+    // node from before the submit and check it is the one that says "Received. GRN-n".
+    const live = await page.locator("main p[role='status']").elementHandle();
+    expect(live).not.toBeNull();
+    expect(await live!.textContent()).toBe("");
     await page.getByRole("button", { name: "Receive", exact: true }).click();
     const done = page.locator("[data-slot='status-block']");
     await expect(done).toContainText("Received");
     await expect(done).toContainText(/GRN-\d+/);
     await expect(done).toContainText(`25.5 kg of ${item.name}`);
+    expect(await live!.evaluate((el) => el.isConnected)).toBe(true);
+    expect(await live!.textContent()).toMatch(/^Received\. GRN-\d+\. 25\.5 kg of /);
     await expect(page.getByRole("status").filter({ hasText: /Received\. GRN-\d+/ })).toHaveCount(1);
+    await expect(page.getByRole("link", { name: "Back to store" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Receive another" })).toBeFocused();
     expect(await balanceOf(page, item.id)).toBe(25_500);
 
@@ -274,6 +310,9 @@ test.describe("store entries", () => {
     await expect(list.getByRole("listitem")).toHaveCount(2);
     await expect(list).toContainText("Issued");
     await expect(list).toContainText("Received");
+    // C2 formatting: d MMM and a 24-hour time in the plant's zone, never am/pm.
+    await expect(list.getByRole("listitem").first()).toContainText(/\d{1,2} \w{3}, \d{2}:\d{2}/);
+    await expect(list).not.toContainText(/\d (am|pm)\b/i);
   });
 
   test("purpose is required on an issue; countable items take whole numbers", async ({ page }) => {
@@ -318,7 +357,10 @@ test.describe("store entries", () => {
       await route.abort("internetdisconnected");
     });
     await page.getByRole("button", { name: "Receive", exact: true }).click();
-    await expect(page.getByRole("alert").filter({ hasText: "Not saved" })).toBeVisible();
+    // Not "Not saved": it was saved, only the answer was lost.
+    await expect(page.getByRole("alert")).toHaveText(
+      "No answer from the server, so it may have been saved. Tap Receive again to check: the same entry is never saved twice.",
+    );
     expect((await entriesOf(page, item.id)).filter((e) => e.kind === "grn")).toHaveLength(1);
 
     await page.getByRole("button", { name: "Receive", exact: true }).click();
@@ -328,6 +370,89 @@ test.describe("store entries", () => {
     expect(entries.filter((e) => e.kind === "grn")).toHaveLength(1);
     await expect(done).toContainText(entries[0]!.number);
     expect(await balanceOf(page, item.id)).toBe(12_000);
+  });
+
+  test("Issue: a retry after a lost response returns the first MRS, though the balance now looks short (RP18)", async ({
+    page,
+  }) => {
+    await open(page, { path: "/today" });
+    const item = await newItem(page, { prefix: "E2E lost issue", receiveMilli: 10_000 });
+    await page.goto(`/store/issue?item=${item.id}`);
+    await page.getByLabel("Quantity").fill("8");
+    await page.locator("label", { hasText: "Melt" }).click();
+    // The first submit is saved, but its answer never comes back.
+    let calls = 0;
+    await page.route("**/trpc/store.issue**", async (route) => {
+      calls += 1;
+      if (calls > 1) return route.continue();
+      await route.fetch();
+      await route.abort("internetdisconnected");
+    });
+    const issue = page.getByRole("button", { name: "Issue", exact: true });
+    await issue.click();
+    const alert = page.getByRole("alert");
+    await expect(alert).toHaveText(
+      "No answer from the server, so it may have been saved. Tap Issue again to check: the same entry is never saved twice.",
+    );
+    const [first] = (await entriesOf(page, item.id)).filter((e) => e.kind === "mrs");
+    expect(first, "the lost request was saved").toBeTruthy();
+    // The store refetched (2 kg left), but these values may be that very entry: no "Only 2 kg".
+    await expect(page.getByText("In store: 2 kg").first()).toBeVisible();
+    await expect(page.getByText(/^Only 2 kg in the store/)).toHaveCount(0);
+
+    await issue.click();
+    const done = page.locator("[data-slot='status-block']");
+    await expect(done).toContainText("Issued");
+    await expect(done).toContainText(first!.number);
+    expect(calls).toBe(2);
+    expect((await entriesOf(page, item.id)).filter((e) => e.kind === "mrs")).toHaveLength(1);
+    expect(await balanceOf(page, item.id)).toBe(2_000);
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  });
+
+  test("Exchange: a retry after a lost response returns the first exchange (RP18)", async ({ page }) => {
+    await open(page, { path: "/today" });
+    const item = await newItem(page, {
+      prefix: "E2E lost exchange",
+      unit: "piece",
+      category: "spare",
+      receiveMilli: 3_000,
+    });
+    await page.goto(`/store/exchange?item=${item.id}`);
+    await page.getByLabel("Old going out").fill("3");
+    await page.getByLabel("New coming in").fill("1");
+    let calls = 0;
+    await page.route("**/trpc/store.exchange**", async (route) => {
+      calls += 1;
+      if (calls > 1) return route.continue();
+      await route.fetch();
+      await route.abort("internetdisconnected");
+    });
+    const submit = page.getByRole("button", { name: "Exchange", exact: true });
+    await submit.click();
+    await expect(page.getByRole("alert")).toContainText("No answer from the server");
+    await expect(page.getByText("In store: 1 pcs").first()).toBeVisible();
+    await expect(page.getByText(/^Only 1 pcs in the store/)).toHaveCount(0);
+    await submit.click();
+    await expect(page.locator("[data-slot='status-block']")).toContainText("Exchanged");
+    expect(calls).toBe(2);
+    const entries = await entriesOf(page, item.id);
+    expect(entries.map((e) => e.kind).sort()).toEqual(["grn", "grn", "mrs"]);
+    expect(await balanceOf(page, item.id)).toBe(1_000);
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  });
+
+  test("a failed submit on an empty form focuses the item without opening its list", async ({ page }) => {
+    await open(page, { path: "/today" });
+    await newItem(page, { prefix: "E2E blank", receiveMilli: 1_000 });
+    await page.goto("/store/issue");
+    await page.getByRole("button", { name: "Issue", exact: true }).click();
+    const box = page.getByRole("combobox", { name: "Item" });
+    await expect(box).toBeFocused();
+    await expect(box).toHaveAttribute("aria-expanded", "false");
+    // The other problems stay readable.
+    await expect(page.getByText("Enter the quantity.")).toBeVisible();
+    await expect(page.getByText("Choose what it is for.")).toBeVisible();
   });
 
   test("exchange: old out under an MRS, new in under a GRN", async ({ page }) => {
@@ -402,6 +527,93 @@ test.describe("store entries", () => {
   });
 });
 
+test.describe("store items", () => {
+  test("rename, retire only when empty, bring back", async ({ page }) => {
+    await open(page, { width: 1280, path: "/today" });
+    const item = await newItem(page, { prefix: "E2E retire", receiveMilli: 2_000 });
+    await page.goto(`/store/items/${item.id}`);
+    await expect(page.locator("[data-slot='status-block']")).toContainText("In stock");
+
+    // With stock left, Retire is off and says why.
+    await page.getByRole("button", { name: "Edit item" }).click();
+    let sheet = page.getByRole("dialog", { name: "Edit store item" });
+    await expect(sheet.getByText("2 kg is still in the store. Issue it or cancel its entries before retiring the item.")).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Retire item" })).toBeDisabled();
+    const renamed = `${item.name} R`;
+    await sheet.getByLabel("Name").fill(renamed);
+    await sheet.getByRole("button", { name: "Save item" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(page.getByRole("heading", { level: 1, name: renamed })).toBeVisible();
+
+    // Empty: Retire works, then the item can be brought back.
+    await trpcMutate(page, "store.issue", {
+      itemId: item.id,
+      qtyMilli: 2_000,
+      purpose: "maintenance",
+      clientRequestId: `empty-${item.id}`,
+    });
+    await page.reload();
+    await expect(page.locator("[data-slot='status-block']")).toContainText("Empty");
+    await page.getByRole("button", { name: "Edit item" }).click();
+    sheet = page.getByRole("dialog", { name: "Edit store item" });
+    await sheet.getByRole("button", { name: "Retire item" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(page.getByText(`${renamed} retired`)).toBeVisible();
+    await expect(page.locator("[data-slot='status-block']")).toContainText("Retired");
+    await expect(page.getByRole("link", { name: "Receive", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Edit item" }).click();
+    sheet = page.getByRole("dialog", { name: "Edit store item" });
+    await sheet.getByRole("button", { name: "Bring back into use" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(page.locator("[data-slot='status-block']")).toContainText("Empty");
+  });
+
+  test("Hindi: a duplicate name is refused in Hindi, never in the server's English", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("orrn.locale", "hi"));
+    await open(page, { width: 390, path: "/today" });
+    const item = await newItem(page, { prefix: "E2E dup" });
+    await page.goto("/store/items?add=true");
+    const sheet = page.getByRole("dialog", { name: "स्टोर का सामान जोड़ें" });
+    await sheet.getByLabel("नाम").fill(item.name);
+    await sheet.getByRole("button", { name: "सामान सेव करें" }).click();
+    const alert = sheet.getByRole("alert");
+    await expect(alert).toHaveText("इस नाम का सामान पहले से चालू है। दूसरा नाम रखें, या वह सामान खोलें।");
+    await expect(alert).not.toContainText("already");
+    // A name with no letter or digit is stopped before it is sent.
+    await sheet.getByLabel("नाम").fill("--");
+    await sheet.getByRole("button", { name: "सामान सेव करें" }).click();
+    await expect(sheet.getByText("नाम में अक्षर या अंक लिखें।")).toBeVisible();
+  });
+
+  test("the register pages with the keyboard: focus moves to the first older entry", async ({ page }) => {
+    await open(page, { width: 1280, path: "/today" });
+    const item = await newItem(page, { prefix: "E2E paging" });
+    for (let i = 1; i <= 23; i++) {
+      await trpcMutate(page, "store.receive", { itemId: item.id, qtyMilli: 1_000, clientRequestId: `page-${item.id}-${i}` });
+    }
+    const all = await entriesOf(page, item.id);
+    expect(all).toHaveLength(23);
+    // Hold the next page a moment, so the "loading" state can be checked.
+    await page.route("**/trpc/store.txns**", async (route) => {
+      if (route.request().url().includes(encodeURIComponent('"limit":70'))) await page.waitForTimeout(800);
+      await route.continue();
+    });
+    await page.goto(`/store/items/${item.id}`);
+    const more = page.getByRole("button", { name: "Show older entries" });
+    await expect(page.getByRole("button", { name: /^Open GRN-/ })).toHaveCount(20);
+    await more.focus();
+    await page.keyboard.press("Enter");
+    // While it loads, the button stays and keeps focus.
+    await expect(more).toHaveAttribute("aria-busy", "true");
+    await expect(more).toBeFocused();
+    // Then focus lands on the first older entry (newest first: the 21st row).
+    await expect(page.getByRole("button", { name: `Open ${all[20]!.number}` })).toBeFocused();
+    await expect(page.getByRole("button", { name: /^Open GRN-/ })).toHaveCount(23);
+    await expect(more).toHaveCount(0);
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  });
+});
+
 test.describe("who sees the store", () => {
   test("office and viewer: no Store in the menu, and the page says who it is for", async ({ page }) => {
     for (const role of ["office", "viewer"] as const) {
@@ -410,6 +622,11 @@ test.describe("who sees the store", () => {
       await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Store" })).toHaveCount(0);
       await expect(page.getByText("The store is for the storekeeper")).toBeVisible();
       await expect(page.getByRole("link", { name: "Issue" })).toHaveCount(0);
+      // Entry pages do not promise them a view of the store, and offer no store guide.
+      await page.goto("/store/issue");
+      await expect(page.getByText("The store is for the storekeeper")).toBeVisible();
+      await expect(page.getByText("You can still see what is in the store.")).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /How to/ })).toHaveCount(0);
     }
   });
 
@@ -547,6 +764,18 @@ test.describe("layout and accessibility", () => {
     const block = page.locator("[data-slot='status-block']");
     await expect(block).toBeVisible();
     expect(await block.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
+  });
+
+  test("success block pops when motion is allowed", async ({ page }) => {
+    await open(page, { path: "/today" });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    const item = await newItem(page, { prefix: "E2E pop" });
+    await page.goto(`/store/receive?item=${item.id}`);
+    await page.getByLabel("Quantity").fill("1");
+    await page.getByRole("button", { name: "Receive", exact: true }).click();
+    const block = page.locator("[data-slot='status-block']");
+    await expect(block).toBeVisible();
+    expect(await block.evaluate((el) => getComputedStyle(el).animationName)).toBe("orrn-pop");
   });
 });
 

@@ -1,5 +1,7 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
+import { focusComboboxQuietly } from "@orrn/ui/components/combobox";
+import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { FormActions } from "@orrn/ui/components/form-actions";
 import { HowToButton } from "@orrn/ui/components/how-to-button";
@@ -14,30 +16,18 @@ import { Check } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { Can } from "@/shared/components/can";
+import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import { BigQty } from "./big-qty";
 import { useRequestIds } from "./request-id";
-import { recentItemIds, savedOutcome } from "./store-entries";
+import { entrySignature, recentItemIds, savedOutcome } from "./store-entries";
+import { isUnknownOutcome, storeErrorText } from "./store-errors";
 import { countedIn, purposeLabel, qtyProblemText, unitShort } from "./store-labels";
-import {
-  formatQty,
-  ISSUE_PURPOSES,
-  isShort,
-  parseQtyMilli,
-  type IssuePurpose,
-  type StoreUnit,
-} from "./store-qty";
+import { formatQty, ISSUE_PURPOSES, isShort, parseQtyMilli, type IssuePurpose, type StoreUnit } from "./store-qty";
 import { StoreItemPicker } from "./item-picker";
 import { StoreLoadError, StoreNoAccess, StoreNote } from "./store-ui";
-import {
-  errorMessage,
-  useInvalidateStore,
-  useStoreAccess,
-  useStoreBalances,
-  useStoreEntries,
-  type StoreBalance,
-} from "./use-store";
+import { useInvalidateStore, useStoreAccess, useStoreBalances, useStoreEntries, type StoreBalance } from "./use-store";
 
 export type EntryMode = "receive" | "issue" | "exchange";
 
@@ -84,6 +74,7 @@ const COPY = {
  */
 export function StoreEntryForm({ mode, initialItemId }: { mode: EntryMode; initialItemId?: string }) {
   const { t } = useT();
+  const { data: me } = useMe();
   const access = useStoreAccess();
   const balances = useStoreBalances(access.canEnter);
   const recentEntries = useStoreEntries({ limit: 30 }, access.canEnter);
@@ -94,7 +85,12 @@ export function StoreEntryForm({ mode, initialItemId }: { mode: EntryMode; initi
       back={{ to: "/store", label: t("store.backToStore") }}
       title={t(copy.title)}
       subtitle={t(copy.subtitle)}
-      actions={<HowToButton slug="store-entries" />}
+      actions={
+        // The guide is for the storekeeper (same gate as /store).
+        <Can do="store.txn">
+          <HowToButton slug="store-entries" />
+        </Can>
+      }
     />
   );
 
@@ -102,7 +98,8 @@ export function StoreEntryForm({ mode, initialItemId }: { mode: EntryMode; initi
     return (
       <>
         {header}
-        <StoreNoAccess entries />
+        {/* "You can still see what is in the store" only for those who can. */}
+        <StoreNoAccess entries={access.canRead} />
       </>
     );
   }
@@ -121,14 +118,33 @@ export function StoreEntryForm({ mode, initialItemId }: { mode: EntryMode; initi
       {header}
       {balances.data ? (
         balances.data.locationId === null ? (
-          <StoreNote tone="attention" title={t("store.noLocation")} body={t("store.noLocationBody")} />
-        ) : (
+          <StoreNote
+            tone="attention"
+            title={t("store.noLocation")}
+            body={can(me, "masters.publish") ? t("store.noLocationBodyPublisher") : t("store.noLocationBody")}
+          />
+        ) : balances.data.items.some((i) => i.active) ? (
           <EntryFormBody
             mode={mode}
             items={balances.data.items.filter((i) => i.active)}
             recentIds={recentItemIds(recentEntries.data?.items ?? [])}
             initialItemId={initialItemId}
           />
+        ) : (
+          // No items yet: an empty picker would lead nowhere.
+          <div className="rounded-card border border-border bg-card">
+            <EmptyState
+              title={t("store.noItems")}
+              body={t("store.noItemsBody")}
+              action={
+                <Button asChild>
+                  <Link to="/store/items" search={{ add: true }}>
+                    {t("store.addItem")}
+                  </Link>
+                </Button>
+              }
+            />
+          </div>
         )
       ) : (
         <FormSkeleton />
@@ -181,11 +197,17 @@ function EntryFormBody({
   const [attempted, setAttempted] = useState(false);
   const [saved, setSaved] = useState<Saved | null>(null);
   const [announce, setAnnounce] = useState("");
+  // The signature of a submit that got no answer (RP18): it may have been saved. The same values
+  // go out again with the same id and without the client's balance check; the server replays the
+  // first entry, or refuses with the real reason.
+  const [unsure, setUnsure] = useState<string | null>(null);
 
   const fieldRefs = useRef<Partial<Record<FieldKey, HTMLElement | null>>>({});
   // Set before the first await: a second tap in the same frame never starts a second request.
   const inFlight = useRef(false);
   const againRef = useRef<HTMLButtonElement | null>(null);
+  const alertRef = useRef<HTMLParagraphElement | null>(null);
+  const focusAlert = useRef(false);
 
   const item = items.find((i) => i.id === itemId) ?? null;
   const unit = (item?.unit ?? null) as StoreUnit | null;
@@ -200,18 +222,11 @@ function EntryFormBody({
     const out: Partial<Record<FieldKey, string>> = {};
     const short: FieldKey[] = [];
     if (!item) out.item = t("store.form.itemRequired");
-    const check = (text: string, key: FieldKey, takesFromStore: boolean) => {
+    const parse = (text: string, key: FieldKey) => {
       const parsed = parseQtyMilli(text, unit);
       if (!parsed.ok) {
         out[key] = qtyProblemText(t, parsed.problem);
         return null;
-      }
-      if (takesFromStore && item && isShort(parsed.milli, item.balanceMilli)) {
-        short.push(key);
-        out[key] = t("store.form.qty.short", {
-          qty: formatQty(Math.max(0, item.balanceMilli)),
-          unit: unitShort(t, item.unit, item.balanceMilli),
-        });
       }
       return parsed.milli;
     };
@@ -219,14 +234,35 @@ function EntryFormBody({
     let outMilli: number | null = null;
     let inMilli: number | null = null;
     if (mode === "exchange") {
-      outMilli = check(oldQty, "old", true);
-      inMilli = check(newQty, "new", false);
+      outMilli = parse(oldQty, "old");
+      inMilli = parse(newQty, "new");
     } else {
-      milli = check(qty, "qty", mode === "issue");
+      milli = parse(qty, "qty");
     }
     if (mode === "issue" && !purpose) out.purpose = t("store.form.purposeRequired");
-    return { errors: out, short, milli, outMilli, inMilli };
-  }, [item, unit, qty, oldQty, newQty, purpose, mode, t]);
+
+    let signature: string | null = null;
+    if (item && mode === "exchange" && outMilli !== null && inMilli !== null) {
+      signature = entrySignature({ mode, itemId: item.id, outMilli, inMilli, note });
+    } else if (item && mode !== "exchange" && milli !== null) {
+      signature = entrySignature({ mode, itemId: item.id, milli, purpose, ref, challan, note });
+    }
+
+    // Not enough in the store, against the balance last loaded. Skipped for a resend of a submit
+    // that got no answer: that balance may already include the entry itself.
+    const checkShort = (m: number | null, key: FieldKey) => {
+      if (m === null || !item || (signature !== null && signature === unsure)) return;
+      if (!isShort(m, item.balanceMilli)) return;
+      short.push(key);
+      out[key] = t("store.form.qty.short", {
+        qty: formatQty(Math.max(0, item.balanceMilli)),
+        unit: unitShort(t, item.unit, item.balanceMilli),
+      });
+    };
+    if (mode === "exchange") checkShort(outMilli, "old");
+    if (mode === "issue") checkShort(milli, "qty");
+    return { errors: out, short, milli, outMilli, inMilli, signature };
+  }, [item, unit, qty, oldQty, newQty, purpose, ref, challan, note, mode, unsure, t]);
 
   const shownError = (key: FieldKey) => {
     const e = problems.errors[key];
@@ -237,9 +273,35 @@ function EntryFormBody({
 
   const touch = (key: FieldKey) => setTouched((s) => ({ ...s, [key]: true }));
 
+  // A refusal is about the values sent: once they change it no longer applies. "No answer" stays
+  // until the next submit (it says the earlier values may already be saved).
+  const edited = () => {
+    if (mutation.error && !isUnknownOutcome(mutation.error)) mutation.reset();
+  };
+
   useEffect(() => {
     if (saved) againRef.current?.focus();
   }, [saved]);
+
+  // After a failed save, focus and show what went wrong (the submit button blurs while it loads,
+  // and on a phone the message can sit below the fold or under the sticky bar).
+  useEffect(() => {
+    if (!mutation.error || !focusAlert.current) return;
+    focusAlert.current = false;
+    const el = alertRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    el.scrollIntoView({ block: "center" });
+  }, [mutation.error]);
+
+  /** Focus a field without opening the item list over the others, and bring its error into view. */
+  const focusField = (key: FieldKey) => {
+    const el = fieldRefs.current[key];
+    if (!el) return;
+    if (key === "item") focusComboboxQuietly(el, { preventScroll: true });
+    else el.focus({ preventScroll: true });
+    (el.closest("[data-slot='field'], fieldset") ?? el).scrollIntoView({ block: "center" });
+  };
 
   const resetForAnother = () => {
     setQty("");
@@ -253,6 +315,7 @@ function EntryFormBody({
     setAttempted(false);
     setSaved(null);
     setAnnounce("");
+    setUnsure(null);
     mutation.reset();
     requestAnimationFrame(() => fieldRefs.current[mode === "exchange" ? "old" : "qty"]?.focus());
   };
@@ -263,15 +326,15 @@ function EntryFormBody({
     setAttempted(true);
     const order: FieldKey[] = ["item", "qty", "old", "new", "purpose"];
     const firstBad = order.find((k) => problems.errors[k]);
-    if (firstBad || !item) {
-      if (firstBad) fieldRefs.current[firstBad]?.focus();
+    const signature = problems.signature;
+    if (firstBad || !item || signature === null) {
+      if (firstBad) focusField(firstBad);
       return;
     }
     const note_ = note.trim() || null;
     inFlight.current = true;
     try {
       if (mode === "receive" && problems.milli !== null) {
-        const signature = ["receive", item.id, problems.milli, challan.trim(), note_ ?? ""].join("|");
         const res = await receive.mutateAsync({
           itemId: item.id,
           qtyMilli: problems.milli,
@@ -287,7 +350,6 @@ function EntryFormBody({
           cancelled: savedOutcome(res) === "cancelled",
         });
       } else if (mode === "issue" && problems.milli !== null && purpose) {
-        const signature = ["issue", item.id, problems.milli, purpose, ref.trim(), note_ ?? ""].join("|");
         const res = await issue.mutateAsync({
           itemId: item.id,
           qtyMilli: problems.milli,
@@ -304,7 +366,6 @@ function EntryFormBody({
           cancelled: savedOutcome(res) === "cancelled",
         });
       } else if (mode === "exchange" && problems.outMilli !== null && problems.inMilli !== null) {
-        const signature = ["exchange", item.id, problems.outMilli, problems.inMilli, note_ ?? ""].join("|");
         const res = await exchange.mutateAsync({
           itemId: item.id,
           qtyOutMilli: problems.outMilli,
@@ -320,8 +381,11 @@ function EntryFormBody({
           cancelled: savedOutcome(res) === "cancelled",
         });
       }
-    } catch {
+    } catch (error) {
       // The message shows above the submit (mutation.error); the balance may have changed meanwhile.
+      // No answer: remember these values as "may be saved"; any answer settles it.
+      setUnsure(isUnknownOutcome(error) ? signature : null);
+      focusAlert.current = true;
       void invalidate();
     } finally {
       inFlight.current = false;
@@ -330,6 +394,7 @@ function EntryFormBody({
 
   const done = (s: Saved) => {
     ids.reset();
+    setUnsure(null);
     setSaved(s);
     setAnnounce(
       s.cancelled
@@ -339,6 +404,8 @@ function EntryFormBody({
     void invalidate();
   };
 
+  // One live region for the life of the form, before the form/success switch: it must already be
+  // in the page when its text changes, or screen readers do not announce the GRN/MRS number.
   const live = (
     <p role="status" aria-live="polite" className="sr-only">
       {announce}
@@ -347,49 +414,51 @@ function EntryFormBody({
 
   if (saved) {
     return (
-      <div className="flex max-w-[640px] flex-col gap-4">
+      <>
         {live}
-        {saved.cancelled ? (
-          <StoreNote
-            tone="attention"
-            title={t("store.replayCancelled.title")}
-            body={t("store.replayCancelled.body", { number: saved.numbers[0] })}
-          />
-        ) : (
-          <StatusBlock
-            tone="green"
-            title={t(copy.done)}
-            meta={
-              mode === "exchange" && saved.numbers[1]
-                ? t("store.exchange.newInUnder", { number: saved.numbers[1] })
-                : t("store.qtyOf", {
-                    qty: formatQty(saved.milli),
-                    unit: unitShort(t, saved.unit, saved.milli),
-                    item: saved.itemName,
-                  })
-            }
-            value={saved.numbers[0]}
-            mono
-            countUp={false}
-            className="animate-pop orrn-block-hero"
-          />
-        )}
-        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
-          <Button ref={againRef} size="lg" onClick={resetForAnother}>
-            {t(copy.again)}
-          </Button>
-          <Button asChild variant="secondary" size="lg">
-            <Link to="/store">{t("store.backToStore")}</Link>
-          </Button>
-          {item ? (
-            <Button asChild variant="ghost" size="lg">
-              <Link to="/store/items/$id" params={{ id: item.id }}>
-                {t("store.openItem", { item: item.name })}
-              </Link>
+        <div className="flex max-w-[640px] flex-col gap-4">
+          {saved.cancelled ? (
+            <StoreNote
+              tone="attention"
+              title={t("store.replayCancelled.title")}
+              body={t("store.replayCancelled.body", { number: saved.numbers[0] })}
+            />
+          ) : (
+            <StatusBlock
+              tone="green"
+              title={t(copy.done)}
+              meta={
+                mode === "exchange" && saved.numbers[1]
+                  ? t("store.exchange.newInUnder", { number: saved.numbers[1] })
+                  : t("store.qtyOf", {
+                      qty: formatQty(saved.milli),
+                      unit: unitShort(t, saved.unit, saved.milli),
+                      item: saved.itemName,
+                    })
+              }
+              value={saved.numbers[0]}
+              mono
+              countUp={false}
+              className="animate-pop orrn-block-hero"
+            />
+          )}
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+            <Button ref={againRef} size="lg" onClick={resetForAnother}>
+              {t(copy.again)}
             </Button>
-          ) : null}
+            <Button asChild variant="secondary" size="lg">
+              <Link to="/store">{t("store.form.backToStore")}</Link>
+            </Button>
+            {item ? (
+              <Button asChild variant="ghost" size="lg">
+                <Link to="/store/items/$id" params={{ id: item.id }}>
+                  {t("store.openItem", { item: item.name })}
+                </Link>
+              </Button>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -398,159 +467,195 @@ function EntryFormBody({
   // "1.5" into 15. Countable items get "counted in whole numbers" instead (parseQtyMilli).
   const purposeErrorId = `purpose-error-${uid}`;
 
+  const bigQty = "h-14 text-[22px] pointer-coarse:h-14";
+
   return (
-    <form
-      noValidate
-      onSubmit={(e) => void submit(e)}
-      className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start"
-    >
+    <>
       {live}
-      <div className="flex min-w-0 flex-col gap-5">
-        <Field label={t("store.form.item")} error={shownError("item")}>
-          <div ref={(el) => void (fieldRefs.current.item = el?.querySelector("input") ?? null)}>
-            <StoreItemPicker
-              items={items}
-              recentIds={recentIds}
-              value={itemId}
-              onChange={(id) => {
-                setItemId(id);
-                touch("item");
-              }}
-            />
+      <form
+        noValidate
+        onSubmit={(e) => void submit(e)}
+        className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start"
+      >
+        <div className="flex min-w-0 flex-col gap-5">
+          <div className="flex min-w-0 flex-col gap-2">
+            <Field label={t("store.form.item")} error={shownError("item")}>
+              <div ref={(el) => void (fieldRefs.current.item = el?.querySelector("input") ?? null)}>
+                <StoreItemPicker
+                  items={items}
+                  recentIds={recentIds}
+                  value={itemId}
+                  takesStock={mode !== "receive"}
+                  onChange={(id) => {
+                    setItemId(id);
+                    touch("item");
+                    edited();
+                  }}
+                />
+              </div>
+            </Field>
+            <p className="m-0 text-[14px] leading-5 text-muted-foreground">
+              {t("store.form.notInList")}{" "}
+              <Link
+                to="/store/items"
+                search={{ add: true }}
+                className="font-semibold text-foreground underline decoration-1 underline-offset-4 hover:decoration-2"
+              >
+                {t("store.addItem")}
+              </Link>
+            </p>
           </div>
-        </Field>
 
-        {item ? <SelectedItem item={item} className="lg:hidden" /> : null}
+          {item ? <SelectedItem item={item} className="lg:hidden" /> : null}
 
-        {mode === "exchange" ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          {mode === "exchange" ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <Field
+                label={t("store.form.oldOut")}
+                error={shownError("old")}
+                hint={item ? inStoreHint(t, item) : undefined}
+              >
+                <NumberInput
+                  ref={(el) => void (fieldRefs.current.old = el)}
+                  value={oldQty}
+                  onValueChange={(v) => {
+                    setOldQty(v);
+                    edited();
+                  }}
+                  onBlur={() => touch("old")}
+                  suffix={suffix}
+                  aria-required="true"
+                  enterKeyHint="next"
+                  className={bigQty}
+                />
+              </Field>
+              <Field label={t("store.form.newIn")} error={shownError("new")}>
+                <NumberInput
+                  ref={(el) => void (fieldRefs.current.new = el)}
+                  value={newQty}
+                  onValueChange={(v) => {
+                    setNewQty(v);
+                    edited();
+                  }}
+                  onBlur={() => touch("new")}
+                  suffix={suffix}
+                  aria-required="true"
+                  className={bigQty}
+                />
+              </Field>
+            </div>
+          ) : (
             <Field
-              label={t("store.form.oldOut")}
-              error={shownError("old")}
-              hint={item ? inStoreHint(t, item) : undefined}
+              label={t("store.form.quantity")}
+              error={shownError("qty")}
+              hint={mode === "issue" && item ? inStoreHint(t, item) : undefined}
             >
               <NumberInput
-                ref={(el) => void (fieldRefs.current.old = el)}
-                value={oldQty}
-                onValueChange={setOldQty}
-                onBlur={() => touch("old")}
+                ref={(el) => void (fieldRefs.current.qty = el)}
+                value={qty}
+                onValueChange={(v) => {
+                  setQty(v);
+                  edited();
+                }}
+                onBlur={() => touch("qty")}
                 suffix={suffix}
                 aria-required="true"
-                enterKeyHint="next"
+                className={bigQty}
               />
             </Field>
-            <Field label={t("store.form.newIn")} error={shownError("new")}>
-              <NumberInput
-                ref={(el) => void (fieldRefs.current.new = el)}
-                value={newQty}
-                onValueChange={setNewQty}
-                onBlur={() => touch("new")}
-                suffix={suffix}
-                aria-required="true"
-              />
-            </Field>
-          </div>
-        ) : (
-          <Field
-            label={t("store.form.quantity")}
-            error={shownError("qty")}
-            hint={mode === "issue" && item ? inStoreHint(t, item) : undefined}
-          >
-            <NumberInput
-              ref={(el) => void (fieldRefs.current.qty = el)}
-              value={qty}
-              onValueChange={setQty}
-              onBlur={() => touch("qty")}
-              suffix={suffix}
-              aria-required="true"
-              className="h-14 text-[22px] pointer-coarse:h-14"
-            />
-          </Field>
-        )}
+          )}
 
-        {mode === "issue" ? (
-          <fieldset className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
-            <legend className="mb-1.5 p-0 text-[14px] font-semibold leading-5">{t("store.form.purpose")}</legend>
-            <div className="grid grid-cols-2 gap-2">
-              {ISSUE_PURPOSES.map((p, i) => {
-                const checked = purpose === p;
-                return (
-                  <label
-                    key={p}
-                    className={cn(
-                      "animate-press relative flex min-h-14 min-w-0 cursor-pointer items-center gap-3 rounded-input border bg-card px-4 py-2 text-[15px] font-semibold transition-[border-color,box-shadow] duration-[var(--dur-fast)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring",
-                      checked
-                        ? "border-foreground shadow-[inset_0_0_0_1px_var(--foreground)]"
-                        : "border-input hover:border-foreground/70",
-                    )}
-                  >
-                    <input
-                      ref={i === 0 ? (el) => void (fieldRefs.current.purpose = el) : undefined}
-                      type="radio"
-                      name={`purpose-${uid}`}
-                      value={p}
-                      checked={checked}
-                      onChange={() => setPurpose(p)}
-                      aria-describedby={shownError("purpose") ? purposeErrorId : undefined}
-                      aria-invalid={shownError("purpose") ? true : undefined}
-                      className="sr-only"
-                    />
-                    <span
-                      aria-hidden="true"
+          {mode === "issue" ? (
+            <fieldset className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
+              <legend className="mb-1.5 p-0 text-[14px] font-semibold leading-5">{t("store.form.purpose")}</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {ISSUE_PURPOSES.map((p, i) => {
+                  const checked = purpose === p;
+                  return (
+                    <label
+                      key={p}
                       className={cn(
-                        "flex size-5 shrink-0 items-center justify-center rounded-full border-2",
-                        checked ? "border-foreground bg-foreground text-background" : "border-control",
+                        "animate-press relative flex min-h-14 min-w-0 cursor-pointer items-center gap-3 rounded-input border bg-card px-4 py-2 text-[15px] font-semibold transition-[border-color,box-shadow] duration-[var(--dur-fast)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring",
+                        checked
+                          ? "border-foreground shadow-[inset_0_0_0_1px_var(--foreground)]"
+                          : "border-input hover:border-foreground/70",
                       )}
                     >
-                      {checked ? <Check className="size-3" strokeWidth={3} /> : null}
-                    </span>
-                    <span className="min-w-0 break-words">{purposeLabel(t, p)}</span>
-                  </label>
-                );
-              })}
-            </div>
-            {shownError("purpose") ? (
-              <p id={purposeErrorId} className="m-0 text-[13px] font-medium leading-5 text-destructive">
-                {shownError("purpose")}
-              </p>
-            ) : null}
-          </fieldset>
-        ) : null}
+                      <input
+                        ref={i === 0 ? (el) => void (fieldRefs.current.purpose = el) : undefined}
+                        type="radio"
+                        name={`purpose-${uid}`}
+                        value={p}
+                        checked={checked}
+                        onChange={() => {
+                          setPurpose(p);
+                          edited();
+                        }}
+                        aria-describedby={shownError("purpose") ? purposeErrorId : undefined}
+                        aria-invalid={shownError("purpose") ? true : undefined}
+                        className="sr-only"
+                      />
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "flex size-5 shrink-0 items-center justify-center rounded-full border-2",
+                          checked ? "border-foreground bg-foreground text-background" : "border-control",
+                        )}
+                      >
+                        {checked ? <Check className="size-3" strokeWidth={3} /> : null}
+                      </span>
+                      <span className="min-w-0 break-words">{purposeLabel(t, p)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {shownError("purpose") ? (
+                <p id={purposeErrorId} className="m-0 text-[13px] font-medium leading-5 text-destructive">
+                  {shownError("purpose")}
+                </p>
+              ) : null}
+            </fieldset>
+          ) : null}
 
-        {mode === "issue" ? (
-          <Field label={t("store.form.ref")} hint={t("store.form.refHint")}>
-            <TextInput value={ref} onChangeText={setRef} maxLength={64} autoComplete="off" />
-          </Field>
-        ) : null}
+          {mode === "issue" ? (
+            <Field label={t("store.form.ref")} hint={t("store.form.refHint")}>
+              <TextInput value={ref} onChangeText={setRef} maxLength={64} autoComplete="off" />
+            </Field>
+          ) : null}
 
-        {mode === "receive" ? (
-          <Field label={t("store.form.challan")} hint={t("store.form.challanHint")}>
-            <TextInput value={challan} onChangeText={setChallan} maxLength={60} autoComplete="off" />
-          </Field>
-        ) : null}
+          {mode === "receive" ? (
+            <Field label={t("store.form.challan")} hint={t("store.form.challanHint")}>
+              <TextInput value={challan} onChangeText={setChallan} maxLength={60} autoComplete="off" />
+            </Field>
+          ) : null}
 
-        <NoteField value={note} onChange={setNote} />
+          <NoteField value={note} onChange={setNote} />
 
-        {mutation.error ? (
-          <p
-            role="alert"
-            className="m-0 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink break-words"
-          >
-            {t("store.form.failed", { reason: errorMessage(mutation.error) })}
-          </p>
-        ) : null}
+          {mutation.error ? (
+            <p
+              ref={alertRef}
+              role="alert"
+              tabIndex={-1}
+              className="m-0 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink break-words outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              {isUnknownOutcome(mutation.error)
+                ? t("store.form.unknownOutcome", { action: t(copy.submit) })
+                : t("store.form.failed", { reason: storeErrorText(t, mutation.error) })}
+            </p>
+          ) : null}
 
-        <Can do="store.txn">
-          <FormActions className="max-sm:bottom-[calc(var(--shell-tabbar-offset)+12px)]">
-            <Button type="submit" size="lg" loading={mutation.isPending}>
-              {t(copy.submit)}
-            </Button>
-          </FormActions>
-        </Can>
-      </div>
+          <Can do="store.txn">
+            <FormActions className="max-sm:bottom-[calc(var(--shell-tabbar-offset)+12px)]">
+              <Button type="submit" size="lg" loading={mutation.isPending}>
+                {t(copy.submit)}
+              </Button>
+            </FormActions>
+          </Can>
+        </div>
 
-      {item ? <SelectedItem item={item} className="hidden lg:flex" /> : null}
-    </form>
+        {item ? <SelectedItem item={item} className="hidden lg:flex" /> : null}
+      </form>
+    </>
   );
 }
 

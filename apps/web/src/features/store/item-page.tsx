@@ -97,7 +97,7 @@ export function StoreItemPage({ id }: { id: string }) {
   const status = !item.active
     ? t("store.status.retired")
     : balanceMilli > 0
-      ? t("store.columns.inStore")
+      ? t("store.status.inStock")
       : t("store.status.empty");
 
   return (
@@ -144,7 +144,7 @@ export function StoreItemPage({ id }: { id: string }) {
         <StoreEntries itemId={item.id} label={t("store.entries")} />
       </StoreSection>
 
-      <StoreItemSheet open={editing} onOpenChange={setEditing} item={item} />
+      <StoreItemSheet open={editing} onOpenChange={setEditing} item={item} balanceMilli={balanceMilli} />
     </>
   );
 }

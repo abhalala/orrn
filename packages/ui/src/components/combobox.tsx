@@ -27,6 +27,8 @@ export type ComboboxProps<T> = {
   placeholder: string;
   /** Shown first, before anything is typed (recently used dies, customers). */
   recent?: ComboboxOption<T>[];
+  /** Heading over `recent` (default "Recent"), for a short list shown whole instead ("Items"). */
+  recentLabel?: string;
   /** Label for a `value` that isn't in `recent` or the results yet (a record loaded for editing). */
   valueLabel?: string;
   /** Accessible name when the combobox isn't inside a `Field`. */
@@ -41,6 +43,23 @@ const GAP = 6;
 const EDGE = 12;
 
 type Placement = { container: HTMLElement; style: CSSProperties };
+
+/** Inputs being focused by `focusComboboxQuietly`: that focus does not open the list. */
+const quietFocus = new WeakSet<HTMLElement>();
+
+/**
+ * Focus a combobox input without opening its list, e.g. a form moving focus to its first invalid
+ * field after a failed submit (the open list would cover the other fields' errors). A tap, a click
+ * or typing still opens it.
+ */
+export function focusComboboxQuietly(input: HTMLElement, options?: FocusOptions): void {
+  quietFocus.add(input);
+  try {
+    input.focus(options);
+  } finally {
+    quietFocus.delete(input);
+  }
+}
 
 /**
  * Where the list goes: into the nearest open dialog/sheet (so Radix's focus
@@ -92,6 +111,7 @@ export function Combobox<T>({
   search,
   placeholder,
   recent,
+  recentLabel,
   valueLabel,
   label,
   disabled,
@@ -257,7 +277,7 @@ export function Combobox<T>({
     >
       {showingRecent && options.length > 0 ? (
         <p aria-hidden="true" className="m-0 px-3 pt-1.5 pb-1 text-[13px] font-medium text-muted-foreground">
-          {t("ui.recent")}
+          {recentLabel ?? t("ui.recent")}
         </p>
       ) : null}
       <ul
@@ -340,7 +360,9 @@ export function Combobox<T>({
             setEditing(true);
             setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={(e) => {
+            if (!quietFocus.has(e.currentTarget)) setOpen(true);
+          }}
           onClick={() => setOpen(true)}
           onBlur={() => close()}
           onKeyDown={onKeyDown}

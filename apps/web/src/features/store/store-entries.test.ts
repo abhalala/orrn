@@ -2,13 +2,17 @@ import { describe, expect, test } from "bun:test";
 
 import {
   canCancelEntry,
+  entrySignature,
   entrySource,
   entryState,
   entryTone,
   exchangePartner,
+  focusAfterPage,
   itemActions,
+  pickerOrder,
   recentItemIds,
   savedOutcome,
+  showMore,
   signedQty,
   type EntryLike,
 } from "./store-entries";
@@ -124,5 +128,93 @@ describe("itemActions", () => {
       { kind: "exchange", primary: false },
     ]);
     expect(itemActions(-1)[0]).toEqual({ kind: "receive", primary: true });
+  });
+});
+
+describe("entrySignature (RP18: the values that decide the request id)", () => {
+  const issue = { mode: "issue" as const, itemId: "flux", milli: 8_000, purpose: "melt", ref: "K31", note: "" };
+
+  test("the same values give the same signature; spaces around text do not count", () => {
+    expect(entrySignature(issue)).toBe(entrySignature({ ...issue, ref: "  K31 ", note: " " }));
+  });
+
+  test("any value that changes the entry changes the signature", () => {
+    const a = entrySignature(issue);
+    expect(entrySignature({ ...issue, milli: 8_001 })).not.toBe(a);
+    expect(entrySignature({ ...issue, purpose: "other" })).not.toBe(a);
+    expect(entrySignature({ ...issue, itemId: "ldo" })).not.toBe(a);
+    expect(entrySignature({ ...issue, ref: "K32" })).not.toBe(a);
+    expect(entrySignature({ ...issue, note: "x" })).not.toBe(a);
+    expect(entrySignature({ ...issue, mode: "receive" })).not.toBe(a);
+  });
+
+  test("a separator inside a typed value cannot make two entries look alike", () => {
+    expect(entrySignature({ ...issue, ref: "a|b", note: "" })).not.toBe(
+      entrySignature({ ...issue, ref: "a", note: "b" }),
+    );
+  });
+
+  test("an exchange is keyed by both quantities", () => {
+    const x = { mode: "exchange" as const, itemId: "belt", outMilli: 1_000, inMilli: 1_000 };
+    expect(entrySignature(x)).not.toBe(entrySignature({ ...x, inMilli: 2_000 }));
+  });
+});
+
+describe("showMore (the register's 'Show older entries')", () => {
+  test("shown while a full page came back and the cap is not reached", () => {
+    expect(showMore({ shown: 10, limit: 10, max: 500, isPlaceholderData: false })).toEqual({
+      button: true,
+      atCap: false,
+    });
+    expect(showMore({ shown: 7, limit: 10, max: 500, isPlaceholderData: false })).toEqual({
+      button: false,
+      atCap: false,
+    });
+  });
+
+  test("stays while the next page loads, so keyboard focus is never dropped", () => {
+    // limit already 60, the 10 rows on screen are the previous page (placeholder).
+    expect(showMore({ shown: 10, limit: 60, max: 500, isPlaceholderData: true }).button).toBe(true);
+  });
+
+  test("at the cap it says the list is the latest entries only", () => {
+    expect(showMore({ shown: 500, limit: 500, max: 500, isPlaceholderData: false })).toEqual({
+      button: false,
+      atCap: true,
+    });
+    expect(showMore({ shown: 420, limit: 500, max: 500, isPlaceholderData: false })).toEqual({
+      button: false,
+      atCap: false,
+    });
+  });
+});
+
+describe("focusAfterPage", () => {
+  const ids = ["a", "b", "c", "d"];
+
+  test("focus goes to the first newly loaded row", () => {
+    expect(focusAfterPage(2, ids)).toBe("c");
+  });
+
+  test("no new rows: the last row, never nothing", () => {
+    expect(focusAfterPage(4, ids)).toBe("d");
+    expect(focusAfterPage(9, ids)).toBe("d");
+    expect(focusAfterPage(0, [])).toBeNull();
+  });
+});
+
+describe("pickerOrder (item picker for entries that take stock out)", () => {
+  const items = [
+    { id: "soda", name: "Caustic soda", balanceMilli: 0 },
+    { id: "flux", name: "Cover flux", balanceMilli: 207_500 },
+    { id: "ldo", name: "LDO", balanceMilli: 82_000 },
+  ];
+
+  test("Issue and Exchange put empty items last, keeping the order otherwise", () => {
+    expect(pickerOrder(items, true).map((i) => i.id)).toEqual(["flux", "ldo", "soda"]);
+  });
+
+  test("Receive keeps the order: an empty item is exactly what takes a delivery", () => {
+    expect(pickerOrder(items, false).map((i) => i.id)).toEqual(["soda", "flux", "ldo"]);
   });
 });

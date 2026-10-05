@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
+Counts: 931 screen strings in 26 groups, 11 guides with 200 strings.
 
 ## Screen strings
 
@@ -635,7 +635,7 @@ Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 | `dispatches` | Dispatches | Dispatch |
 | `noDispatches` | No dispatches for this customer yet. | इस ग्राहक का अभी कोई dispatch नहीं है। |
 
-### store (158)
+### store (189)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -647,7 +647,7 @@ Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 | `actions.receive` | Receive | माल लें |
 | `actions.receiveHint` | A delivery came in | डिलीवरी आई है |
 | `actions.exchange` | Exchange | पुराना देकर नया |
-| `actions.exchangeHint` | Old part out, new part in | पुराना पार्ट बाहर, नया अंदर |
+| `actions.exchangeHint` | Old out, new in | पुराना पार्ट बाहर, नया अंदर |
 | `readOnly` | Only the storekeeper makes store entries. You can see what is in the store. | स्टोर की एंट्री सिर्फ़ स्टोरकीपर करता है। स्टोर में क्या है, यह आप देख सकते हैं। |
 | `inStore` | In the store | स्टोर में |
 | `search` | Search items | सामान खोजें |
@@ -660,6 +660,7 @@ Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 | `columns.entry` | Entry | एंट्री |
 | `columns.quantity` | Quantity | मात्रा |
 | `columns.when` | When | कब |
+| `columns.details` | Details | ब्योरा |
 | `status.empty` | Empty | खाली |
 | `status.inStock` | In stock | मौजूद |
 | `status.retired` | Retired | बंद |
@@ -668,7 +669,8 @@ Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 | `noItemsInCategory` | No items in this category | इस किस्म का कोई सामान नहीं है |
 | `addItem` | Add item | सामान जोड़ें |
 | `noLocation` | Set up the central store first | पहले सेंट्रल स्टोर बनाएं |
-| `noLocationBody` | Add a location of the kind Store under Stock, Locations. Until then nothing can be received or issued. | स्टॉक, लोकेशन में Store किस्म की लोकेशन जोड़ें। तब तक न माल लिया जा सकता है, न दिया जा सकता है। |
+| `noLocationBody` | Ask your manager or admin to add a location of the kind Store in Masters, Locations. Until then nothing can be received or issued. | मैनेजर या एडमिन से कहें कि मास्टर, लोकेशन में Store किस्म की लोकेशन जोड़ें। तब तक न माल लिया जा सकता है, न दिया जा सकता है। |
+| `noLocationBodyPublisher` | Add a location of the kind Store in Masters, Locations. Until then nothing can be received or issued. | मास्टर, लोकेशन में Store किस्म की लोकेशन जोड़ें। तब तक न माल लिया जा सकता है, न दिया जा सकता है। |
 | `loadFailed` | The store did not load. Check the connection and try again. | स्टोर लोड नहीं हुआ। कनेक्शन देखें और फिर से कोशिश करें। |
 | `noAccess` | The store is for the storekeeper | स्टोर स्टोरकीपर के लिए है |
 | `noAccessBody` | Ask your plant admin if you need to see or change the store. | स्टोर देखना या बदलना हो तो प्लांट एडमिन से पूछें। |
@@ -680,6 +682,7 @@ Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 | `noEntries` | No entries yet | अभी कोई एंट्री नहीं है |
 | `noEntriesBody` | Deliveries received and items issued show here. | आई हुई डिलीवरी और दिया हुआ माल यहां दिखेगा। |
 | `showMore` | Show older entries | पुरानी एंट्री दिखाएं |
+| `showingLatest` | Showing the latest {max} entries. | सबसे नई {max} एंट्री दिख रही हैं। |
 | `kind.grn` | Received | माल आया |
 | `kind.mrs` | Issued | माल दिया |
 | `cancelled` | Cancelled | रद्द |
@@ -694,16 +697,16 @@ Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 | `categories.spare` | Spare | स्पेयर |
 | `categories.other` | Other | दूसरा |
 | `unitShort.kg` | kg | kg |
-| `unitShort.litre` | L | लीटर |
-| `unitShort.piece` | pcs | नग |
-| `unitShort.metre` | m | मीटर |
+| `unitShort.litre` | L | L |
+| `unitShort.piece` | pcs | pcs |
+| `unitShort.metre` | m | m |
 | `unitShort.set` | {count:set\|sets} | {count:सेट\|सेट} |
 | `unitShort.box` | {count:box\|boxes} | {count:डिब्बा\|डिब्बे} |
 | `unitShort.bag` | {count:bag\|bags} | {count:बोरी\|बोरी} |
 | `unitName.kg` | Kilogram (kg) | किलो (kg) |
-| `unitName.litre` | Litre (L) | लीटर |
-| `unitName.piece` | Piece (pcs) | नग |
-| `unitName.metre` | Metre (m) | मीटर |
+| `unitName.litre` | Litre (L) | लीटर (L) |
+| `unitName.piece` | Piece (pcs) | नग (pcs) |
+| `unitName.metre` | Metre (m) | मीटर (m) |
 | `unitName.set` | Set | सेट |
 | `unitName.box` | Box | डिब्बा |
 | `unitName.bag` | Bag | बोरी |
@@ -734,6 +737,29 @@ Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 | `form.qty.tooBig` | One entry can hold at most 1,00,000. Split it into two entries. | एक एंट्री में ज़्यादा से ज़्यादा 1,00,000 आ सकता है। इसे दो एंट्री में बांटें। |
 | `form.qty.short` | Only {qty} {unit} in the store. Issue less, or receive the delivery first. | स्टोर में सिर्फ़ {qty} {unit} है। कम दें, या पहले डिलीवरी लें। |
 | `form.failed` | Not saved. {reason} | सेव नहीं हुआ। {reason} |
+| `form.unknownOutcome` | No answer from the server, so it may have been saved. Tap {action} again to check: the same entry is never saved twice. | सर्वर से जवाब नहीं आया, हो सकता है यह सेव हो गया हो। जांचने के लिए फिर से {action} दबाएं, एक ही एंट्री दो बार सेव नहीं होती। |
+| `form.backToStore` | Back to store | स्टोर पर वापस |
+| `form.notInList` | Not in the list? | लिस्ट में नहीं है? |
+| `form.allItems` | Items | सामान |
+| `form.emptyHint` | Empty. Receive it first. | खाली है। पहले माल लें। |
+| `errors.duplicateName` | An item in use already has this name. Use another name, or open that item. | इस नाम का सामान पहले से चालू है। दूसरा नाम रखें, या वह सामान खोलें। |
+| `errors.requestReused` | This entry changed while it was being saved. Check the register, then enter it again. | सेव होते समय यह एंट्री बदल गई। रजिस्टर देखें, फिर से दर्ज करें। |
+| `errors.short` | The store has less than this now. Check what is in the store and change the quantity. | स्टोर में अब इससे कम है। स्टोर में कितना है देखें और मात्रा बदलें। |
+| `errors.retireWithStock` | Only an empty item can be retired. Issue what is left, or cancel its entries, first. | सिर्फ़ खाली सामान बंद हो सकता है। पहले बचा हुआ माल दें, या उसकी एंट्री रद्द करें। |
+| `errors.unitLocked` | The unit can't change: this item already has entries. | इकाई नहीं बदल सकती: इस सामान की एंट्री हो चुकी है। |
+| `errors.cancelDrawn` | This entry can't be cancelled: some of what it brought in has been issued since. Cancel those issues first. | यह एंट्री रद्द नहीं हो सकती: इससे आया माल बाद में दिया जा चुका है। पहले वे एंट्री रद्द करें। |
+| `errors.cancelItemRetired` | This item is retired. Bring it back into use first, then cancel the entry. | यह सामान बंद है। पहले इसे फिर से चालू करें, फिर एंट्री रद्द करें। |
+| `errors.cancelLocationRetired` | The store location of this entry is retired. Ask your manager or admin to bring it back, then cancel the entry. | इस एंट्री की स्टोर लोकेशन बंद है। मैनेजर या एडमिन से उसे चालू करवाएं, फिर एंट्री रद्द करें। |
+| `errors.alreadyCancelled` | This entry is already cancelled. | यह एंट्री पहले ही रद्द हो चुकी है। |
+| `errors.sourceLocked` | This entry belongs to another record, such as a melt. Cancel it there. | यह एंट्री दूसरे रिकॉर्ड की है, जैसे मेल्ट। उसे वहीं रद्द करें। |
+| `errors.itemRetired` | This item is retired. Bring it back into use in Store items first. | यह सामान बंद है। पहले स्टोर का सामान में इसे फिर से चालू करें। |
+| `errors.itemChanged` | This item was changed meanwhile. Open it again. | इस बीच यह सामान बदल गया। इसे फिर से खोलें। |
+| `errors.storeChanged` | The store changed while saving. Try again. | सेव होते समय स्टोर बदल गया। फिर से कोशिश करें। |
+| `errors.noLocation` | The central store is not set up yet. Ask your manager or admin to add a location of the kind Store. | सेंट्रल स्टोर अभी बना नहीं है। मैनेजर या एडमिन से Store किस्म की लोकेशन जुड़वाएं। |
+| `errors.manyStores` | There is more than one store location. Ask your manager or admin to retire the extra ones. | एक से ज़्यादा स्टोर लोकेशन हैं। मैनेजर या एडमिन से फालतू वाली बंद करवाएं। |
+| `errors.nameInvalid` | Use letters or digits in the name. | नाम में अक्षर या अंक लिखें। |
+| `errors.notFound` | This item or entry is not here any more. Go back to the store and pick it again. | यह सामान या एंट्री अब यहां नहीं है। स्टोर पर वापस जाकर फिर से चुनें। |
+| `errors.refused` | The store did not accept this. Check the entry and try again. | स्टोर ने यह नहीं लिया। एंट्री जांचें और फिर से कोशिश करें। |
 | `receive.title` | Receive into store | स्टोर में माल लें |
 | `receive.subtitle` | Record a delivery. It gets a GRN number. | डिलीवरी दर्ज करें। इसे GRN नंबर मिलेगा। |
 | `receive.submit` | Receive | माल लें |
@@ -771,6 +797,8 @@ Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 | `entry.cancelledToast` | {number} cancelled | {number} रद्द हो गया |
 | `entry.open` | Open {number} | {number} खोलें |
 | `entry.belongsTo` | This entry belongs to another record ({source}). Cancel that record to undo it. | यह एंट्री दूसरे रिकॉर्ड ({source}) की है। इसे वापस लेने के लिए वह रिकॉर्ड रद्द करें। |
+| `entry.challanRef` | Challan {ref} | चालान {ref} |
+| `entry.period` | Financial year | वित्त वर्ष |
 | `itemPage.notFound` | Store item not found | स्टोर का सामान नहीं मिला |
 | `itemPage.notFoundBody` | It may belong to another plant. Go back to the store and pick it again. | यह शायद किसी दूसरे प्लांट का है। स्टोर पर वापस जाकर फिर से चुनें। |
 | `itemPage.edit` | Edit item | सामान बदलें |
@@ -781,6 +809,8 @@ Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 | `itemsPage.showRetired` | Retired | बंद |
 | `itemsPage.showAll` | All | सब |
 | `itemsPage.noRetired` | No retired items | कोई बंद सामान नहीं है |
+| `itemsPage.noneInUse` | No items in use | कोई सामान चालू नहीं है |
+| `itemsPage.noneInUseBody` | Every item is retired. Choose Retired to see them and bring one back. | हर सामान बंद है। उन्हें देखने और फिर से चालू करने के लिए बंद चुनें। |
 | `itemForm.addTitle` | Add store item | स्टोर का सामान जोड़ें |
 | `itemForm.editTitle` | Edit store item | स्टोर का सामान बदलें |
 | `itemForm.name` | Name | नाम |
@@ -797,6 +827,7 @@ Counts: 900 screen strings in 26 groups, 11 guides with 200 strings.
 | `itemForm.retireHint` | Retired items can't be received or issued. Only an empty item can be retired. | बंद सामान न लिया जा सकता है, न दिया जा सकता है। सिर्फ़ खाली सामान बंद हो सकता है। |
 | `itemForm.retired` | {name} retired | {name} बंद हो गया |
 | `itemForm.restored` | {name} is back in use | {name} फिर से चालू है |
+| `itemForm.retireBlocked` | {qty} {unit} is still in the store. Issue it or cancel its entries before retiring the item. | स्टोर में अभी {qty} {unit} है। सामान बंद करने से पहले इसे दें या इसकी एंट्री रद्द करें। |
 
 ### printing (25)
 
