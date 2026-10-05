@@ -214,6 +214,172 @@ test.describe("purchase and approvals", () => {
     await expect(owner.getByTestId("approval-card").filter({ hasText: lot.number })).toContainText("Weigh it again on our kanta");
   });
 
+  test("weights typed key by key: the note is the whole short, the summary shows it, and the saved note debits exactly that", async ({ page }) => {
+    // Review round 1: a note latched on the first key of our kanta debited 991 kg for a 20 kg short.
+    test.setTimeout(120_000);
+    await open(page, { role: "office", width: 390, path: "/purchase/new" });
+    await toWeightsStep(page);
+    await page.getByLabel("Party kanta (kg)").pressSequentially("1000");
+    await page.getByLabel("Our kanta (kg)").pressSequentially("980");
+    await expect(page.getByTestId("kanta-difference")).toHaveAttribute("data-state", "short");
+    await expect(page.getByLabel("Kg to debit")).toHaveValue("20");
+    // A slip correction at the kanta (990, not 980): the note follows the new short.
+    await page.getByLabel("Our kanta (kg)").press("Backspace");
+    await page.getByLabel("Our kanta (kg)").press("Backspace");
+    await page.getByLabel("Our kanta (kg)").pressSequentially("90");
+    await expect(page.getByLabel("Kg to debit")).toHaveValue("10");
+    // Above the short is refused, with focus on the field to fix.
+    await page.getByLabel("Kg to debit").fill("900");
+    await page.getByRole("button", { name: "Next" }).click();
+    await expect(page.getByText("A weight debit can't be more than the short. Lower the kg.")).toBeVisible();
+    await expect(page.getByLabel("Kg to debit")).toBeFocused();
+    await page.getByLabel("Kg to debit").fill("10");
+    await page.getByRole("button", { name: "Next" }).click();
+    await expect(page.getByRole("heading", { name: "Book", level: 2 })).toBeFocused();
+    // Last look before Save: the note's kg is in the summary.
+    const summary = page.locator("section").filter({ has: page.getByRole("heading", { name: "This lot" }) }).first();
+    await expect(summary).toContainText("Debit note");
+    await expect(summary).toContainText("10 kg");
+    await page.getByRole("button", { name: "Save lot" }).click();
+    await expect(page).toHaveURL(/\/purchase\/(?!new)[\w-]+$/);
+    await expect(page.getByRole("region", { name: "Debit and credit notes" })).toContainText("10 kg");
+  });
+
+  test("the yard walks past the weights step after a correction makes the lot shorter", async ({ page }) => {
+    // Review round 1: a hidden note check (fields only the office sees) froze Next for the operator.
+    await open(page, { role: "operator", width: 390, path: "/purchase/new" });
+    await toWeightsStep(page);
+    await page.getByLabel("Party kanta (kg)").pressSequentially("10000");
+    await page.getByLabel("Our kanta (kg)").pressSequentially("9940");
+    for (let i = 0; i < 3; i++) await page.getByLabel("Our kanta (kg)").press("Backspace");
+    await page.getByLabel("Our kanta (kg)").pressSequentially("000");
+    await expect(page.getByTestId("kanta-difference")).toContainText("1,000");
+    await expect(page.getByText("The office raises the debit note before this lot can go OK.")).toBeVisible();
+    await expect(page.getByLabel("Kg to debit")).toHaveCount(0);
+    await page.getByRole("button", { name: "Next" }).click();
+    await expect(page.getByRole("heading", { name: "Book", level: 2 })).toBeFocused();
+  });
+
+  test("an OK lot whose covering note is rejected says so in red, and the list flags it", async ({ browser }) => {
+    test.setTimeout(120_000);
+    const office = await newPage(browser);
+    await open(office, { role: "office", width: 1280, path: "/purchase" });
+    const lot = await apiLot(office, { partyKg: 2000, fcKg: 1900 });
+    const note = await trpcMutation<{ approvalId: string; number: string }>(office, "purchase.dcNotes.create", {
+      lotId: lot.id,
+      type: "debit",
+      reason: "weight",
+      kgDiffG: 100_000,
+      boriDeductionG: 0,
+    });
+    // The pending note covers the short, so the lot goes OK before anyone decides.
+    await trpcMutation(office, "purchase.lots.advance", { id: lot.id, to: "ok" });
+    const owner = await newPage(browser);
+    await open(owner, { role: "owner", width: 1280, path: "/approvals" });
+    await trpcMutation(owner, "approval.decide", { id: note.approvalId, decision: "rejected", note: "Weigh again" });
+
+    await office.goto(`/purchase/${lot.id}`);
+    await expect(office.getByTestId("kanta-hero")).toHaveAttribute("data-tone", "green");
+    const message = office.getByTestId("lot-message");
+    await expect(message).toHaveAttribute("data-tone", "warn");
+    await expect(message).toContainText("In stock, but 100 kg short, beyond 0.5%, and no live debit note covers it. Raise one for at least 90 kg.");
+    // Raising the note is now the office's main step.
+    await expect(office.getByRole("button", { name: "Raise D/C note" }).locator("visible=true")).toHaveCount(1);
+
+    // The yard sees the same red message, worded for someone who doesn't raise notes, and nothing to press for it.
+    const operator = await newPage(browser);
+    await open(operator, { role: "operator", width: 390, path: `/purchase/${lot.id}` });
+    await expect(operator.getByTestId("lot-message")).toContainText("Ask the office to raise one for at least 90 kg.");
+    await expect(operator.getByRole("button", { name: "Raise D/C note" })).toHaveCount(0);
+
+    // The list names it with a chip; the difference words stay quiet.
+    await office.goto("/purchase?status=ok");
+    const row = office.getByRole("row").filter({ hasText: lot.number });
+    await expect(row).toContainText("Short, needs note");
+  });
+
+  test("the approver is warned when a note is bigger than the short", async ({ browser }) => {
+    test.setTimeout(120_000);
+    const office = await newPage(browser);
+    await open(office, { role: "office", width: 390, path: "/purchase" });
+    const lot = await apiLot(office, { partyKg: 10_000, fcKg: 9_800 });
+    await trpcMutation(office, "purchase.dcNotes.create", {
+      lotId: lot.id,
+      type: "debit",
+      reason: "weight",
+      kgDiffG: 9_991_000,
+      boriDeductionG: 0,
+    });
+    const owner = await newPage(browser);
+    await open(owner, { role: "owner", width: 390, path: "/approvals" });
+    await owner.getByTestId("approval-card").filter({ hasText: lot.number }).getByRole("button", { name: /^Review/ }).click();
+    const sheet = owner.getByRole("dialog");
+    await expect(sheet.getByTestId("note-over-short")).toContainText("This note is 9,791 kg more than the short. Check it before approving.");
+    await expect(sheet).not.toContainText("Covers the short");
+    await expect(await blockingAxeViolations(owner)).toEqual([]);
+  });
+
+  test("mark unloading, then cancel the lot with a reason", async ({ page }) => {
+    test.setTimeout(120_000);
+    await open(page, { role: "office", width: 390, path: "/purchase" });
+    const lot = await apiLot(page, { partyKg: 4000, fcKg: null });
+    await page.goto(`/purchase/${lot.id}`);
+    // Not weighed yet is the normal next step: said plainly, not as an alarm.
+    await expect(page.getByTestId("lot-message")).toHaveAttribute("data-tone", "info");
+    await page.getByRole("button", { name: "Mark unloading" }).click();
+    await expect(toast(page, "Marked unloading")).toBeVisible();
+    await expect(page.getByTestId("kanta-hero")).toHaveAttribute("data-tone", "amber");
+    await page.getByRole("button", { name: "Cancel lot" }).click();
+    const dialog = page.getByRole("dialog", { name: "Cancel this lot?" });
+    await dialog.getByRole("button", { name: "Cancel lot" }).click();
+    await expect(dialog.getByText("Write why the lot is cancelled.")).toBeVisible();
+    await dialog.getByLabel("Reason").fill("Party sent the wrong truck");
+    await dialog.getByRole("button", { name: "Cancel lot" }).click();
+    await expect(toast(page, "Lot cancelled")).toBeVisible();
+    await expect(page.getByTestId("kanta-hero")).toHaveAttribute("data-tone", "red");
+    await expect(page.getByText("Cancelled: Party sent the wrong truck")).toBeVisible();
+  });
+
+  test("Hindi: layout guards on the four screens and the URL filters", async ({ page }) => {
+    // Devanagari strings run longer; the floor works in Hindi.
+    test.setTimeout(240_000);
+    await page.addInitScript(() => localStorage.setItem("orrn.locale", "hi"));
+    await open(page, { role: "office", width: 375, path: "/purchase" });
+    const lot = await apiLot(page, { partyKg: 6540, fcKg: 6320 });
+    for (const width of [375, 820, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const path of ["/purchase?status=booking", "/purchase/new", `/purchase/${lot.id}`, "/approvals?status=rejected&kind=dc_note"]) {
+        await page.goto(path);
+        await expect(page.locator("main#main h1").first()).toBeVisible();
+        await expect(page.locator("html")).toHaveAttribute("lang", "hi");
+        await settled(page);
+        await expectNoHorizontalScroll(page);
+        await expectNoClippedText(page, "main#main");
+      }
+    }
+    // The URL filters land on their segment.
+    await page.goto("/purchase?status=booking");
+    await expect(page.getByRole("radio", { name: "बुक हुए" })).toBeChecked();
+    await page.goto("/approvals?status=rejected&kind=dc_note");
+    await expect(page.getByRole("radio", { name: /नामंज़ूर|रिजेक्ट/ })).toBeChecked();
+    // The weights step with the inline note open, in Hindi at phone width.
+    await page.setViewportSize({ width: 375, height: 900 });
+    await page.goto("/purchase/new");
+    await page.getByRole("combobox").first().fill("K.D");
+    await page.getByRole("option", { name: /K\.D\. Metals/ }).click();
+    await page.locator("form button[type=submit]").click();
+    await page.getByRole("radio", { name: "IMP BELLING" }).check();
+    await page.getByRole("radio", { name: "A", exact: true }).check();
+    await page.locator("form input[inputmode=decimal]").first().fill("200");
+    await page.locator("form button[type=submit]").click();
+    const weights = page.locator("form input[inputmode=decimal]");
+    await weights.nth(0).pressSequentially("6540");
+    await weights.nth(1).pressSequentially("6320");
+    await expect(page.getByTestId("kanta-difference")).toHaveAttribute("data-state", "short");
+    await expectNoHorizontalScroll(page);
+    await expectNoClippedText(page, "main#main");
+  });
+
   test("charts only for analytics roles", async ({ browser }) => {
     // Two people, several screens and server round trips: more than the default 30 s under load.
     test.setTimeout(120_000);

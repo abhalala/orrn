@@ -80,8 +80,9 @@ function NewLotForm() {
   const [stepIndex, setStepIndex] = useState(0);
   const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Bumped on every refused Next/Save, so focus moves to the first field to fix and the count is announced.
+  // Bumped on every refused Next/Save, so focus moves to the first field to fix; the count is said once, politely.
   const [refused, setRefused] = useState(0);
+  const [announce, setAnnounce] = useState("");
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
 
@@ -89,7 +90,6 @@ function NewLotForm() {
   const last = stepIndex === LOT_STEPS.length - 1;
   const opts = { toleranceBp: tolBp, canNote: perms.dcnote };
   const errors = showErrors ? stepErrors(draft, step, opts) : {};
-  const errorCount = Object.keys(errors).length;
   const set = useCallback((patch: Partial<LotDraft>) => setDraft((d) => patchDraft(d, patch)), []);
   const reading = readKanta(draft.partyText, draft.fcText, tolBp);
 
@@ -120,9 +120,8 @@ function NewLotForm() {
   const save = async () => {
     const bad = firstStepWithErrors(draft, opts);
     if (bad) {
-      setShowErrors(true);
+      refuse(Object.keys(stepErrors(draft, bad, opts)).length);
       setStepIndex(LOT_STEPS.indexOf(bad));
-      setRefused((n) => n + 1);
       return;
     }
     setSaving(true);
@@ -155,18 +154,26 @@ function NewLotForm() {
     }
   };
 
+  function refuse(count: number) {
+    setShowErrors(true);
+    setRefused((n) => n + 1);
+    setAnnounce(t("purchase.new.fixCount", { count }));
+  }
+
   const next = () => {
-    if (Object.keys(stepErrors(draft, step, opts)).length > 0) {
-      setShowErrors(true);
-      setRefused((n) => n + 1);
+    const count = Object.keys(stepErrors(draft, step, opts)).length;
+    if (count > 0) {
+      refuse(count);
       return;
     }
     setShowErrors(false);
+    setAnnounce("");
     if (last) void save();
     else setStepIndex((i) => i + 1);
   };
   const back = () => {
     setShowErrors(false);
+    setAnnounce("");
     setStepIndex((i) => Math.max(0, i - 1));
   };
 
@@ -203,7 +210,7 @@ function NewLotForm() {
           </h2>
           {/* Polite: the count of things to fix after a refused Next or Save (focus also moves to the first). */}
           <p aria-live="polite" className="sr-only">
-            {refused > 0 && errorCount > 0 ? t("purchase.new.fixCount", { count: errorCount }) : ""}
+            {announce}
           </p>
 
           {step === "vendor" ? (

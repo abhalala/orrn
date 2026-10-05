@@ -71,7 +71,12 @@ export function ApprovalsPage({
     placeholderData: keepPreviousData,
   });
   const waiting = useQuery(trpc.approval.list.queryOptions({ status: "pending", kind, limit: 1, offset: 0 }));
-  const items = useMemo(() => (list.data?.pages ?? []).flatMap((p) => p.items) as ApprovalItem[], [list.data]);
+  // One row per request even if a page boundary shifted while the pages were refetched.
+  const items = useMemo(() => {
+    const byId = new Map<string, ApprovalItem>();
+    for (const page of list.data?.pages ?? []) for (const item of page.items as ApprovalItem[]) if (!byId.has(item.id)) byId.set(item.id, item);
+    return [...byId.values()];
+  }, [list.data]);
   const waitingCount = waiting.data?.total ?? null;
 
   return (
