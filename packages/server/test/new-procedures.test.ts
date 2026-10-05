@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { auditLog, bundle, bundleGroup, company, dispatch, dispatchItem, printLog } from "@orrn/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 
+import { setClockForTests } from "../src/lib/clock";
 import { dayWindow } from "../src/lib/dayWindow";
 import { createTestEnv, type TestEnv } from "./harness";
 
@@ -292,12 +293,57 @@ describe("dashboard.today", () => {
         createdAt: new Date(base + i * 1000),
       });
     }
+    // Neither a cancelled dispatch nor a deleted draft is open, even when it is the newest.
+    await env.db.insert(dispatch).values([
+      { id: uid(), companyId, code: "D-X1", customerId, status: "cancelled", createdAt: new Date(base + 60_000) },
+      {
+        id: uid(),
+        companyId,
+        code: "D-X2",
+        customerId,
+        status: "draft",
+        createdAt: new Date(base + 61_000),
+        deletedAt: new Date(base + 62_000),
+      },
+      { id: uid(), companyId, code: "D-X3", customerId, status: "completed", createdAt: new Date(base + 63_000) },
+    ]);
     const res = await env.caller({ role: "viewer", companyId }).dashboard.today();
     expect(res.openDispatches.length).toBe(10);
     // The list is capped; the count is not (Today's Dispatch tile shows "12 open").
     expect(res.openDispatchCount).toBe(12);
+    expect(res.openDispatches.map((d) => d.code)).not.toContain("D-X1");
+    expect(res.openDispatches.map((d) => d.code)).not.toContain("D-X2");
     expect(res.openDispatches[0]!.code).toBe("D-11");
     expect(res.openDispatches[0]).toMatchObject({ bundles: 0, weightG: 0 });
+  });
+});
+
+describe("dashboard.today date", () => {
+  test("names the plant's calendar day it counted, so Today can line its numbers up with the trend's last day", async () => {
+    const india = await env.seedCompany();
+    const utc = await env.seedCompany({ settings: { timezone: "UTC" } });
+    // 2025-01-15T20:00Z is 01:30 on 16 Jan in India, still 15 Jan in UTC (far from the real date).
+    setClockForTests(new Date("2025-01-15T20:00:00Z"));
+    try {
+      expect((await env.caller({ role: "viewer", companyId: india.companyId }).dashboard.today()).date).toBe("2025-01-16");
+      expect((await env.caller({ role: "viewer", companyId: utc.companyId }).dashboard.today()).date).toBe("2025-01-15");
+    } finally {
+      setClockForTests(null);
+    }
+  });
+
+  test("the packed window follows the same clock as the date", async () => {
+    const { companyId } = await env.seedCompany();
+    const dieId = await env.seedDie(companyId);
+    const [b] = await env.seedBundles(companyId, dieId, 1);
+    // Packed at 01:00 IST on 16 Jan 2025; the pinned clock reads 01:30 IST that day.
+    await env.db.update(bundle).set({ createdAt: new Date("2025-01-15T19:30:00Z") }).where(eq(bundle.id, b!.id));
+    setClockForTests(new Date("2025-01-15T20:00:00Z"));
+    try {
+      expect((await env.caller({ role: "viewer", companyId }).dashboard.today()).packedToday.bundles).toBe(1);
+    } finally {
+      setClockForTests(null);
+    }
   });
 });
 

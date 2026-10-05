@@ -9,7 +9,9 @@ import { company } from "@orrn/db/schema/tenant";
 
 import { companyProcedure, router } from "../index";
 import { mapInChunks } from "../lib/atomic";
+import { now } from "../lib/clock";
 import { DEFAULT_TIMEZONE, dayWindow } from "../lib/dayWindow";
+import { localDate } from "../lib/zonedBuckets";
 
 const LIST_LIMIT = 10;
 
@@ -32,7 +34,9 @@ export const dashboardRouter = router({
       .limit(1);
     const configured = (companyRow?.settings ?? {}).timezone;
     const timezone = typeof configured === "string" && configured ? configured : DEFAULT_TIMEZONE;
-    const { startMs, endMs } = dayWindow(timezone);
+    // One clock for the window and its date, the same one analytics.trends reads.
+    const nowMs = now().getTime();
+    const { startMs, endMs } = dayWindow(timezone, nowMs);
     const start = new Date(startMs);
     const end = new Date(endMs);
 
@@ -176,6 +180,8 @@ export const dashboardRouter = router({
     const none = { bundles: 0, weightG: 0 };
     return {
       timezone,
+      /** The plant's calendar day these figures cover (YYYY-MM-DD), as in analytics.trends' last day. */
+      date: localDate(timezone, nowMs),
       packedToday: { bundles: num(packedRows[0]?.n), weightG: num(packedRows[0]?.w) },
       dispatchedToday: { dispatches: num(dispatchedRows[0]?.dispatches), weightG: num(dispatchedRows[0]?.w) },
       stock,
