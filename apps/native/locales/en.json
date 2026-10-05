@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "orrn",
+    "NSCameraUsageDescription": "orrn uses the camera to scan bundle labels."
+  }
+}
