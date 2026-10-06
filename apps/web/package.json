@@ -5,12 +5,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && bun scripts/check-modulepreload.ts",
+    "build": "vite build && bun scripts/check-modulepreload.ts && bun scripts/check-route-budget.ts",
     "serve": "vite preview",
     "start": "vite",
     "check-types": "vite build && tsc --noEmit",
     "dev:bare": "vite dev",
-    "test": "bun test src",
+    "test": "bun test src scripts",
     "test:e2e": "playwright test --project=e2e",
     "test:visual": "playwright test --project=desktop-dark --project=mobile-dark --project=desktop-light --project=mobile-light",
     "test:visual:update": "playwright test --project=desktop-dark --project=mobile-dark --project=desktop-light --project=mobile-light --update-snapshots"
