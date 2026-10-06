@@ -966,7 +966,7 @@ export const hi = {
       cancelled: "कैंसल",
     },
     flag: {
-      shortWithoutNote: "कम है, नोट चाहिए",
+      shortWithoutNote: "नोट चाहिए",
       notePending: "नोट इंतज़ार में",
     },
     filter: {

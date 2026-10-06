@@ -901,7 +901,7 @@ Please check, Lalubhai:
 | `lotStatus.unload` | Unloading | उतराई में |
 | `lotStatus.ok` | OK | OK |
 | `lotStatus.cancelled` | Cancelled | कैंसल |
-| `flag.shortWithoutNote` | Short, needs note | कम है, नोट चाहिए |
+| `flag.shortWithoutNote` | Needs a note | नोट चाहिए |
 | `flag.notePending` | Note waiting | नोट इंतज़ार में |
 | `filter.label` | Show | दिखाएं |
 | `filter.all` | All | सभी |

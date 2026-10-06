@@ -802,7 +802,17 @@ function Summary({
   const rows: [string, ReactNode][] = [
     [t("purchase.new.vendor"), draft.vendorLabel || none],
     [t("purchase.new.item"), itemName ? (draft.grade ? t("purchase.material", { item: itemName, grade: draft.grade }) : itemName) : none],
-    [t("purchase.new.rate"), rate !== null && rate > 0 ? <span className="font-mono">{formatRate(Math.round(rate * 100))}</span> : none],
+    // Read like the lot page ("₹200.00 per kg"); the input's label "Rate (₹ per kg)" would say the unit twice.
+    [
+      t("purchase.detail.rate"),
+      rate !== null && rate > 0 ? (
+        <>
+          <span className="font-mono">{formatRate(Math.round(rate * 100))}</span> {t("purchase.detail.perKgUnit")}
+        </>
+      ) : (
+        none
+      ),
+    ],
     [t("purchase.detail.party"), reading.partyG !== null ? <span className="font-mono">{kgText(reading.partyG)} kg</span> : none],
     [t("purchase.detail.ours"), reading.fcG !== null ? <span className="font-mono">{kgText(reading.fcG)} kg</span> : none],
     // The note goes with the lot: its kg is the last look before Save (and the approver's first).
@@ -835,7 +845,7 @@ function Summary({
         ))}
       </dl>
       {reading.state === "short" && !withNote ? (
-        <Chip tone="red" className="self-start">
+        <Chip tone="red" truncate={false} className="self-start">
           {t("purchase.flag.shortWithoutNote")}
         </Chip>
       ) : reading.state !== "incomplete" ? (

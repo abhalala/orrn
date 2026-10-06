@@ -136,10 +136,15 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
         return (
           <span className="flex flex-wrap items-center gap-1.5">
             <LotStatusChip status={l.status} />
+            {/* The flag is what needs doing: always in full (touch users can't hover for a title). */}
             {chip === "shortWithoutNote" ? (
-              <Chip tone="red">{t("purchase.flag.shortWithoutNote")}</Chip>
+              <Chip tone="red" truncate={false}>
+                {t("purchase.flag.shortWithoutNote")}
+              </Chip>
             ) : chip === "notePending" ? (
-              <Chip tone="amber">{t("purchase.flag.notePending")}</Chip>
+              <Chip tone="amber" truncate={false}>
+                {t("purchase.flag.notePending")}
+              </Chip>
             ) : null}
           </span>
         );

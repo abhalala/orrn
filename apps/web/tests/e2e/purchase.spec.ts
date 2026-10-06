@@ -37,6 +37,24 @@ async function settled(page: Page) {
   await expect(page.locator("main#main [aria-busy='true']")).toHaveCount(0, { timeout: 15_000 });
 }
 
+/** A lot number as a whole code: "LOT-11" must not match "LOT-110". */
+function wholeCode(code: string) {
+  return new RegExp(`${code.replace(/[-]/g, "\\-")}(?!\\d)`);
+}
+
+/**
+ * Chips that must read in full (`data-no-truncate`) fit inside their own pill. The shared guard
+ * checks ellipses and clipping boxes, not a nowrap chip whose words spill past its edge.
+ */
+async function expectFullChipsFit(page: Page) {
+  const spills = await page.locator("main#main [data-slot='chip'][data-no-truncate]").evaluateAll((chips) =>
+    chips
+      .filter((c) => c.getBoundingClientRect().width > 0 && c.scrollWidth > c.clientWidth + 1)
+      .map((c) => `${c.textContent?.trim()} (${c.scrollWidth} > ${c.clientWidth})`),
+  );
+  expect(spills).toEqual([]);
+}
+
 /** A sonner toast with this text (the screen's own words, like the "Rejected" filter, don't count). */
 function toast(page: Page, text: string) {
   return page.locator("[data-sonner-toast]").filter({ hasText: text });
@@ -91,8 +109,17 @@ async function apiLot(page: Page, weights: { partyKg: number; fcKg: number | nul
   });
 }
 
-async function scrapStockG(page: Page) {
-  return (await trpcQuery<{ totalG: number }>(page, "purchase.scrapStock", undefined)).totalG;
+/**
+ * Scrap stock of one item and grade, in grams. Other tests in this file mark SOFT CABLE lots OK
+ * in parallel workers, so the key flow (IMP BELLING, grade A, made only there) reads its own row.
+ */
+async function scrapStockG(page: Page, item: string, grade: string) {
+  const stock = await trpcQuery<{ items: { itemName: string | null; gradeCode: string | null; qtyG: number }[] }>(
+    page,
+    "purchase.scrapStock",
+    undefined,
+  );
+  return stock.items.filter((r) => r.itemName === item && r.gradeCode === grade).reduce((sum, r) => sum + r.qtyG, 0);
 }
 
 /** Fill the first two steps of the new-lot stepper and land on Weights. */
@@ -113,7 +140,7 @@ test.describe("purchase and approvals", () => {
     test.setTimeout(120_000);
     const office = await newPage(browser);
     await open(office, { role: "office", width: 390, path: "/purchase/new" });
-    const before = await scrapStockG(office);
+    const before = await scrapStockG(office, "IMP BELLING", "A");
 
     await toWeightsStep(office);
     await office.getByLabel("Party kanta (kg)").fill("1000");
@@ -169,7 +196,7 @@ test.describe("purchase and approvals", () => {
     await expect(office.getByText(/Marked OK\. 980 kg in scrap stock at /)).toBeVisible();
     await expect(office.getByTestId("kanta-hero")).toHaveAttribute("data-tone", "green");
     await expect(office.getByText(/980 kg in at /)).toBeVisible();
-    expect(await scrapStockG(office)).toBe(before + 980_000);
+    expect(await scrapStockG(office, "IMP BELLING", "A")).toBe(before + 980_000);
   });
 
   test("a short lot without a covering note can't be marked OK, and the yard is told who raises it", async ({ page }) => {
@@ -201,7 +228,7 @@ test.describe("purchase and approvals", () => {
 
     const owner = await newPage(browser);
     await open(owner, { role: "owner", width: 390, path: "/approvals" });
-    const card = owner.getByTestId("approval-card").filter({ hasText: lot.number });
+    const card = owner.getByTestId("approval-card").filter({ hasText: wholeCode(lot.number) });
     await card.getByRole("button", { name: /^Review/ }).click();
     const review = owner.getByRole("dialog");
     await review.getByRole("button", { name: "Reject" }).click();
@@ -211,7 +238,7 @@ test.describe("purchase and approvals", () => {
     await expect(toast(owner, "Rejected")).toBeVisible();
     await expect(review).toBeHidden();
     await owner.goto("/approvals?status=rejected");
-    await expect(owner.getByTestId("approval-card").filter({ hasText: lot.number })).toContainText("Weigh it again on our kanta");
+    await expect(owner.getByTestId("approval-card").filter({ hasText: wholeCode(lot.number) })).toContainText("Weigh it again on our kanta");
   });
 
   test("weights typed key by key: the note is the whole short, the summary shows it, and the saved note debits exactly that", async ({ page }) => {
@@ -240,6 +267,9 @@ test.describe("purchase and approvals", () => {
     const summary = page.locator("section").filter({ has: page.getByRole("heading", { name: "This lot" }) }).first();
     await expect(summary).toContainText("Debit note");
     await expect(summary).toContainText("10 kg");
+    // The rate reads like the lot page: "Rate  ₹200.00 per kg", not the input's "Rate (₹ per kg)  ₹200.00".
+    await expect(summary).toContainText("₹200.00 per kg");
+    await expect(summary).not.toContainText("Rate (₹ per kg)");
     await page.getByRole("button", { name: "Save lot" }).click();
     await expect(page).toHaveURL(/\/purchase\/(?!new)[\w-]+$/);
     await expect(page.getByRole("region", { name: "Debit and credit notes" })).toContainText("10 kg");
@@ -294,8 +324,17 @@ test.describe("purchase and approvals", () => {
 
     // The list names it with a chip; the difference words stay quiet.
     await office.goto("/purchase?status=ok");
-    const row = office.getByRole("row").filter({ hasText: lot.number });
-    await expect(row).toContainText("Short, needs note");
+    // By the exact lot cell: a row's text runs "LOT-1" into "19 Sept", which a plain hasText "LOT-11" also matches.
+    const row = office.getByRole("row").filter({ has: office.getByText(lot.number, { exact: true }) });
+    // The flag comes from a second read (the register), so it may land after the row.
+    await expect(row).toContainText("Needs a note", { timeout: 15_000 });
+    // On a phone card the flag reads in full (it was cut to "Short, needs no..." at 375).
+    await office.setViewportSize({ width: 375, height: 900 });
+    await office.goto("/purchase?status=ok");
+    await expect(office.locator("main#main [data-slot='chip']").filter({ hasText: "Needs a note" }).first()).toBeVisible({ timeout: 15_000 });
+    await settled(office);
+    await expectNoClippedText(office, "main#main");
+    await expectFullChipsFit(office);
   });
 
   test("the approver is warned when a note is bigger than the short", async ({ browser }) => {
@@ -312,7 +351,7 @@ test.describe("purchase and approvals", () => {
     });
     const owner = await newPage(browser);
     await open(owner, { role: "owner", width: 390, path: "/approvals" });
-    await owner.getByTestId("approval-card").filter({ hasText: lot.number }).getByRole("button", { name: /^Review/ }).click();
+    await owner.getByTestId("approval-card").filter({ hasText: wholeCode(lot.number) }).getByRole("button", { name: /^Review/ }).click();
     const sheet = owner.getByRole("dialog");
     await expect(sheet.getByTestId("note-over-short")).toContainText("This note is 9,791 kg more than the short. Check it before approving.");
     await expect(sheet).not.toContainText("Covers the short");
@@ -355,6 +394,7 @@ test.describe("purchase and approvals", () => {
         await settled(page);
         await expectNoHorizontalScroll(page);
         await expectNoClippedText(page, "main#main");
+        await expectFullChipsFit(page);
       }
     }
     // The URL filters land on their segment.
@@ -410,6 +450,7 @@ test.describe("purchase and approvals", () => {
           await settled(page);
           await expectNoHorizontalScroll(page);
           await expectNoClippedText(page, "main#main");
+          await expectFullChipsFit(page);
           if (width === 390 || width === 1280) {
             expect(await blockingAxeViolations(page), `${path} ${scheme}`).toEqual([]);
           }
@@ -462,8 +503,19 @@ test.describe("purchase and approvals", () => {
       boriDeductionG: 12_000,
       note: "25 bori on the truck",
     });
+    // In stock, then its covering note rejected: the red "no live debit note" state.
+    const uncoveredLot = await apiLot(office, { partyKg: 2000, fcKg: 1900 });
+    const uncoveredNote = await trpcMutation<{ approvalId: string }>(office, "purchase.dcNotes.create", {
+      lotId: uncoveredLot.id,
+      type: "debit",
+      reason: "weight",
+      kgDiffG: 100_000,
+      boriDeductionG: 0,
+    });
+    await trpcMutation(office, "purchase.lots.advance", { id: uncoveredLot.id, to: "ok" });
     const owner = await newPage(browser);
     await open(owner, { role: "owner", width: 1280, path: "/purchase" });
+    await trpcMutation(owner, "approval.decide", { id: uncoveredNote.approvalId, decision: "rejected", note: "Weigh again" });
     for (const width of [375, 1280]) {
       for (const scheme of ["light", "dark"] as const) {
         await owner.setViewportSize({ width, height: 900 });
@@ -491,10 +543,13 @@ test.describe("purchase and approvals", () => {
         await owner.goto(`/purchase/${okLot.id}`);
         await expect(owner.getByTestId("kanta-hero")).toHaveAttribute("data-tone", "green");
         await shot("lot-ok");
+        await owner.goto(`/purchase/${uncoveredLot.id}`);
+        await expect(owner.getByTestId("lot-message")).toHaveAttribute("data-tone", "warn");
+        await shot("lot-ok-uncovered");
         await owner.goto("/approvals");
         await expect(owner.getByTestId("approval-card").first()).toBeVisible();
         await shot("approvals");
-        await owner.getByTestId("approval-card").filter({ hasText: shortLot.number }).getByRole("button", { name: /^Review/ }).click();
+        await owner.getByTestId("approval-card").filter({ hasText: wholeCode(shortLot.number) }).getByRole("button", { name: /^Review/ }).click();
         await expect(owner.getByRole("dialog")).toContainText("Party kanta");
         await shot("approval-review");
         await owner.keyboard.press("Escape");
@@ -504,6 +559,9 @@ test.describe("purchase and approvals", () => {
         await owner.getByLabel("Our kanta (kg)").fill("6320");
         await expect(owner.getByTestId("kanta-difference")).toHaveAttribute("data-state", "short");
         await shot("new-lot-weights");
+        await owner.getByRole("button", { name: "Next" }).click();
+        await expect(owner.getByRole("heading", { name: "Book", level: 2 })).toBeFocused();
+        await shot("new-lot-book");
         await owner.goto("/purchase/new");
         await shot("new-lot-vendor");
         await owner.getByRole("combobox", { name: "Vendor" }).fill("K.D");

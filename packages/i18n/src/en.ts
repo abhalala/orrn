@@ -976,7 +976,7 @@ export const en = {
       cancelled: "Cancelled",
     },
     flag: {
-      shortWithoutNote: "Short, needs note",
+      shortWithoutNote: "Needs a note",
       notePending: "Note waiting",
     },
     filter: {
