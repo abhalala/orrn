@@ -225,6 +225,218 @@ test.describe("dispatch: build, hold, dispatch, packing list", () => {
   });
 });
 
+test.describe("dispatch: review fixes (round 1)", () => {
+  test("Dispatch straight from Build holds and dispatches in one confirmation", async ({ page }) => {
+    await start(page, "owner");
+    const bundles = await packFresh(page, 2);
+    const totalKg = bundles.reduce((s, b) => s + b.weightG, 0) / 1000;
+    const d = await newDispatch(page);
+    await trpcMutation(page, "dispatch.addBundlesBySerial", { id: d.id, serials: bundles.map((b) => b.serial) });
+    await visit(page, `/dispatch/${d.id}`);
+    await expect(hero(page)).toHaveAttribute("data-status", "draft");
+
+    await page.getByRole("button", { name: "Dispatch", exact: true }).click();
+    const confirm = page.getByRole("dialog", { name: `Dispatch ${d.code}` });
+    await expect(confirm).toContainText(`2 bundles · ${kgText(totalKg, 1)} kg`);
+    await confirm.getByTestId("confirm-dispatch").click();
+
+    await expect(hero(page)).toHaveAttribute("data-status", "completed");
+    await expect(page.getByTestId("packing-list-row")).toHaveCount(2);
+    // The Dispatch button is gone: focus lands on the packing list, the next job.
+    await expect(page.getByRole("heading", { level: 2, name: "Packing list" })).toBeFocused();
+  });
+
+  test("a bundle another dispatch held meanwhile is marked in Build and stops Hold stock until removed", async ({ page }) => {
+    await start(page, "owner", { width: 390, height: 844 });
+    const [shared, own] = await packFresh(page, 2);
+    const other = await newDispatch(page);
+    const d = await newDispatch(page);
+    // Both drafts list the shared bundle; this page loads before the other dispatch holds it.
+    await trpcMutation(page, "dispatch.addBundlesBySerial", { id: other.id, serials: [shared!.serial] });
+    await trpcMutation(page, "dispatch.addBundlesBySerial", { id: d.id, serials: [shared!.serial, own!.serial] });
+    await visit(page, `/dispatch/${d.id}`);
+    await expect(page.getByTestId("dispatch-bundles")).toHaveText("2");
+    await expect(page.locator("[data-blocked]")).toHaveCount(0);
+    await trpcMutation(page, "dispatch.reserve", { id: other.id });
+
+    await page.getByRole("button", { name: "Hold stock" }).click();
+    await expect(page.locator("[data-sonner-toast]").filter({ hasText: "The ones that can't go are marked in the list." })).toBeVisible();
+    const row = page.locator(`[data-serial='${shared!.serial}']`);
+    await expect(row).toHaveAttribute("data-blocked", "heldElsewhere");
+    await expect(row).toContainText(`Held for ${other.code}`);
+    await expect(page.locator(`[data-serial='${own!.serial}']`)).not.toHaveAttribute("data-blocked", /.+/);
+    await expect(page.getByText("1 bundle can't be held. Remove it to go on.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hold stock" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Dispatch", exact: true })).toBeDisabled();
+
+    await page.getByRole("button", { name: `Remove ${shared!.serial}` }).click();
+    await expect(page.getByTestId("dispatch-bundles")).toHaveText("1");
+    await expect(page.getByRole("button", { name: "Hold stock" })).toBeEnabled();
+    await page.getByRole("button", { name: "Hold stock" }).click();
+    await expect(hero(page)).toHaveAttribute("data-status", "reserved");
+  });
+
+  test("adding a new customer on New dispatch picks it and stays on the form", async ({ page }) => {
+    await start(page, "owner");
+    const existing = await firstCustomer(page);
+    await visit(page, "/dispatch/new");
+    const combo = page.getByRole("combobox", { name: "Customer" });
+    await combo.fill(existing.name.slice(0, 6));
+    await page.getByRole("option", { name: existing.name }).first().click();
+
+    await page.getByRole("button", { name: "New customer" }).click();
+    const sheet = page.getByRole("dialog", { name: "New customer" });
+    const name = `Patel Metals ${Date.now() % 1_000_000}`;
+    await sheet.getByLabel("Customer name").fill(name);
+    await sheet.getByRole("button", { name: "Add customer" }).click();
+    await expect(sheet).toBeHidden();
+    // Adding the customer never creates the dispatch (the sheet's form is not the page's form).
+    await expect(page).toHaveURL(/\/dispatch\/new$/);
+    await expect(combo).toHaveValue(name);
+
+    await page.getByRole("button", { name: "Create dispatch" }).click();
+    await expect(hero(page)).toHaveAttribute("data-status", "draft");
+    await expect(hero(page)).toContainText(name);
+  });
+
+  test("Remove moves focus to the next bundle, and Undo brings the bundle back with its label", async ({ page }) => {
+    await start(page, "owner");
+    const bundles = await packFresh(page, 3);
+    const d = await newDispatch(page);
+    await trpcMutation(page, "dispatch.addBundlesBySerial", { id: d.id, serials: bundles.map((b) => b.serial) });
+    const detail = await trpcQuery<{ items: { bundleId: string; serial: string }[] }>(page, "dispatch.getDispatch", { id: d.id });
+    for (const it of detail.items) {
+      await trpcMutation(page, "dispatch.setItemGroupLabel", { id: d.id, bundleId: it.bundleId, groupLabel: "B1" });
+    }
+    await visit(page, `/dispatch/${d.id}`);
+    await expect(page.getByRole("heading", { level: 3, name: "Group B1" })).toBeVisible();
+    const removes = page.getByRole("button", { name: /^Remove / });
+    await expect(removes).toHaveCount(3);
+    const first = (await removes.first().getAttribute("data-remove-serial"))!;
+    const second = (await removes.nth(1).getAttribute("data-remove-serial"))!;
+    await removes.first().focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("dispatch-bundles")).toHaveText("2");
+    await expect(page.getByRole("button", { name: `Remove ${second}` })).toBeFocused();
+
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(page.getByTestId("dispatch-bundles")).toHaveText("3");
+    await expect(page.getByRole("heading", { level: 3, name: "Group B1" })).toBeVisible();
+    await expect(page.locator("[data-slot='bundle-group']")).toHaveCount(1);
+    await expect(page.locator("[data-slot='bundle-group']").locator(`[data-serial='${first}']`)).toHaveCount(1);
+  });
+
+  test("Edit details forgets what Cancel left behind", async ({ page }) => {
+    await start(page, "owner");
+    const d = await newDispatch(page);
+    await visit(page, `/dispatch/${d.id}`);
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Edit details" }).click();
+    let sheet = page.getByRole("dialog", { name: "Edit details" });
+    await sheet.getByLabel(/^Notes/).fill("Load after lunch");
+    await sheet.getByRole("button", { name: "Cancel" }).click();
+    await expect(sheet).toBeHidden();
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Edit details" }).click();
+    sheet = page.getByRole("dialog", { name: "Edit details" });
+    await expect(sheet.getByLabel(/^Notes/)).toHaveValue("");
+  });
+
+  test("the paste sheet and the search sheet open empty again after Cancel and Done", async ({ page }) => {
+    await start(page, "owner");
+    const [b] = await packFresh(page, 1);
+    const d = await newDispatch(page);
+    await visit(page, `/dispatch/${d.id}`);
+    await page.getByRole("button", { name: "Paste serials" }).click();
+    let paste = page.getByRole("dialog", { name: "Paste serials" });
+    await paste.getByLabel("Serials").fill("26I0001\n26I0002");
+    await paste.getByRole("button", { name: "Cancel" }).click();
+    await expect(paste).toBeHidden();
+    await page.getByRole("button", { name: "Paste serials" }).click();
+    paste = page.getByRole("dialog", { name: "Paste serials" });
+    await expect(paste.getByLabel("Serials")).toHaveValue("");
+    await page.keyboard.press("Escape");
+
+    await page.getByRole("button", { name: "Search to add" }).click();
+    let search = page.getByRole("dialog", { name: "Search to add" });
+    await search.getByRole("searchbox").fill(b!.serial);
+    await expect(search.getByRole("list")).toContainText(b!.serial);
+    await search.getByRole("button", { name: "Done" }).click();
+    await expect(search).toBeHidden();
+    await page.getByRole("button", { name: "Search to add" }).click();
+    search = page.getByRole("dialog", { name: "Search to add" });
+    await expect(search.getByRole("searchbox")).toHaveValue("");
+    await expect(search.getByRole("list")).toHaveCount(0);
+  });
+
+  test("the list search box follows Back and Forward", async ({ page }) => {
+    await start(page, "owner");
+    await visit(page, "/dispatch?status=completed");
+    const box = page.getByRole("searchbox", { name: "Search dispatches" });
+    await box.fill("Shiv");
+    await expect(page).toHaveURL(/status=completed&q=Shiv|q=Shiv&status=completed/);
+    // A tab is a new history entry and keeps the search; typing replaces the entry.
+    await page.getByRole("radio", { name: "Held" }).click();
+    await expect(page).toHaveURL(/status=reserved/);
+    await box.fill("Patel");
+    await expect(page).toHaveURL(/q=Patel/);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/status=completed/);
+    await expect(box).toHaveValue("Shiv");
+    // Long after the typing debounce, the URL still holds the entry Back landed on.
+    await page.waitForTimeout(800);
+    await expect(page).toHaveURL(/q=Shiv/);
+    await page.goForward();
+    await expect(box).toHaveValue("Patel");
+  });
+
+  test("keyboard only: paste serials, hold the stock, dispatch", async ({ page }) => {
+    await start(page, "owner");
+    const bundles = await packFresh(page, 2);
+    const d = await newDispatch(page);
+    await visit(page, `/dispatch/${d.id}`);
+    await expect(hero(page)).toHaveAttribute("data-status", "draft");
+
+    /** Presses Tab until `target` has focus (a keyboard user's walk), at most `max` times. */
+    const tabTo = async (target: ReturnType<Page["getByRole"]>, max = 40) => {
+      for (let i = 0; i < max; i++) {
+        if (await target.evaluate((el) => el === document.activeElement)) return;
+        await page.keyboard.press("Tab");
+      }
+      await expect(target).toBeFocused();
+    };
+
+    await page.locator("main").focus().catch(() => {});
+    await tabTo(page.getByRole("button", { name: "Paste serials" }));
+    await page.keyboard.press("Enter");
+    const sheet = page.getByRole("dialog", { name: "Paste serials" });
+    await expect(sheet.getByLabel("Serials")).toBeFocused();
+    await page.keyboard.type(bundles.map((b) => b.serial).join(" "));
+    await tabTo(sheet.getByRole("button", { name: "Add bundles" }));
+    await page.keyboard.press("Enter");
+    await expect(sheet.getByRole("heading", { name: "What happened" })).toBeFocused();
+    await expect(sheet).toContainText("2 added");
+    await tabTo(sheet.getByRole("button", { name: "Done" }));
+    await page.keyboard.press("Enter");
+    await expect(sheet).toBeHidden();
+    await expect(page.getByTestId("dispatch-bundles")).toHaveText("2");
+
+    await tabTo(page.getByRole("button", { name: "Hold stock" }));
+    await page.keyboard.press("Enter");
+    await expect(hero(page)).toHaveAttribute("data-status", "reserved");
+    // Hold stock is gone (Release took its place): focus moves on to Dispatch, the next step.
+    await expect(page.getByRole("button", { name: "Dispatch", exact: true })).toBeFocused();
+    await page.keyboard.press("Enter");
+    const confirm = page.getByRole("dialog", { name: `Dispatch ${d.code}` });
+    await tabTo(confirm.getByTestId("confirm-dispatch"));
+    await page.keyboard.press("Enter");
+    await expect(hero(page)).toHaveAttribute("data-status", "completed");
+    await expect(page.getByRole("heading", { level: 2, name: "Packing list" })).toBeFocused();
+    await expect(page.getByTestId("packing-list-row")).toHaveCount(2);
+  });
+});
+
 test.describe("dispatch: roles", () => {
   test("a viewer sees dispatches but no button that changes them", async ({ page }) => {
     await start(page, "viewer");
@@ -376,8 +588,12 @@ async function seriousViolations(page: Page, name: string) {
 }
 
 test.describe("dispatch: accessibility and layout", () => {
-  for (const width of [390, 1280]) {
-    for (const scheme of ["light", "dark"] as const) {
+  for (const [width, schemes] of [
+    [390, ["light", "dark"]],
+    [820, ["light"]],
+    [1280, ["light", "dark"]],
+  ] as const) {
+    for (const scheme of schemes) {
       test(`no serious axe violations, no sideways scroll, nothing clipped at ${width} ${scheme}`, async ({ page }) => {
         await start(page, "owner", { width, height: width < 768 ? 844 : 900, scheme });
         for (const s of SCREENS) {
