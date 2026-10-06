@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 852 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 859 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -564,7 +564,7 @@ Counts: 852 screen strings in 26 groups, 10 guides with 182 strings.
 | `regenerateBody` | orrn builds it again from the bundles in this dispatch as they are now. | orrn इस dispatch के bundle की अभी की जानकारी से इसे फिर से बनाएगा। |
 | `regenerated` | Packing list regenerated | पैकिंग लिस्ट फिर से बन गई |
 
-### dies (58)
+### dies (59)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -626,8 +626,9 @@ Counts: 852 screen strings in 26 groups, 10 guides with 182 strings.
 | `form.codeTaken` | This code belongs to a deleted die. Use a different code. | यह कोड एक डिलीट हुए die का है। दूसरा कोड डालें। |
 | `form.duplicate` | A die with this series and section code already exists. | इस सीरीज़ और सेक्शन कोड का die पहले से है। |
 | `form.fixErrors` | Check the fields marked in red. | लाल निशान वाले खाने जांचें। |
+| `form.cantAdd` | Your role can't add dies. Ask an admin if you need it. | आपका रोल die नहीं जोड़ सकता। ज़रूरत हो तो एडमिन से कहें। |
 
-### customers (95)
+### customers (101)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -646,6 +647,7 @@ Counts: 852 screen strings in 26 groups, 10 guides with 182 strings.
 | `emptyBody` | Add a customer before their first dispatch. | पहले dispatch से पहले ग्राहक जोड़ें। |
 | `emptyAction` | Add a customer | ग्राहक जोड़ें |
 | `importCsv` | Import CSV | CSV इम्पोर्ट करें |
+| `kgFailed` | The dispatched kg didn't load. | Dispatch हुआ kg लोड नहीं हुआ। |
 | `period.label` | Period | समय |
 | `period.month` | This month | इस महीने |
 | `period.quarter` | This quarter | इस तिमाही |
@@ -653,6 +655,7 @@ Counts: 852 screen strings in 26 groups, 10 guides with 182 strings.
 | `period.range` | {from} to {to} | {from} से {to} |
 | `leaderboard.title` | Who is leading | सबसे आगे कौन |
 | `leaderboard.subtitle` | kg dispatched per customer. {total} kg in all. | हर ग्राहक को dispatch हुआ kg। कुल {total} kg। |
+| `leaderboard.subtitleShort` | kg dispatched per customer. | हर ग्राहक को dispatch हुआ kg। |
 | `leaderboard.label` | Customers by kg dispatched | dispatch हुए kg के हिसाब से ग्राहक |
 | `leaderboard.otherShare` | Other customers ({share}) | बाकी ग्राहक ({share}) |
 | `leaderboard.valueHeader` | Dispatched | Dispatch हुआ |
@@ -664,6 +667,7 @@ Counts: 852 screen strings in 26 groups, 10 guides with 182 strings.
 | `form.gstin` | GSTIN | GSTIN |
 | `form.gstinHint` | 15 characters, from the customer's GST certificate. | 15 अक्षर, ग्राहक के GST सर्टिफ़िकेट से। |
 | `form.gstinInvalid` | A GSTIN has 15 letters and numbers. Check it and try again. | GSTIN में 15 अक्षर और अंक होते हैं। जांच कर फिर से डालें। |
+| `form.gstinLegacy` | This GSTIN isn't 15 letters and numbers. Check it against the GST certificate when you can. | यह GSTIN 15 अक्षर और अंक का नहीं है। समय मिलने पर GST सर्टिफ़िकेट से मिलाएं। |
 | `form.notes` | Notes | नोट |
 | `form.billingAddress` | Billing address | बिलिंग का पता |
 | `form.shippingAddress` | Shipping address | डिलीवरी का पता |
@@ -676,12 +680,13 @@ Counts: 852 screen strings in 26 groups, 10 guides with 182 strings.
 | `form.submit` | Save customer | ग्राहक सेव करें |
 | `form.saved` | Customer saved | ग्राहक सेव हो गया |
 | `form.fixErrors` | Check the fields marked in red. | लाल निशान वाले खाने जांचें। |
+| `form.cantAdd` | Your role can't add customers. Ask an admin if you need it. | आपका रोल ग्राहक नहीं जोड़ सकता। ज़रूरत हो तो एडमिन से कहें। |
 | `detail.gstin` | GSTIN {gstin} | GSTIN {gstin} |
 | `detail.lastToday` | Last dispatch today | आखिरी dispatch आज |
 | `detail.lastYesterday` | Last dispatch yesterday | आखिरी dispatch कल |
 | `detail.lastDaysAgo` | Last dispatch {count} {count:day\|days} ago | आखिरी dispatch {count} दिन पहले |
 | `detail.lastNever` | No dispatches yet | अभी कोई dispatch नहीं |
-| `detail.cadence` | Every ~{count} {count:day\|days} | हर ~{count} दिन में |
+| `detail.cadence` | every ~{count} {count:day\|days} | हर ~{count} दिन में |
 | `detail.edit` | Edit customer | ग्राहक बदलें |
 | `detail.editTitle` | Edit {name} | {name} बदलें |
 | `detail.contact` | Contact | संपर्क |
@@ -702,6 +707,7 @@ Counts: 852 screen strings in 26 groups, 10 guides with 182 strings.
 | `detail.kpi.shareOf` | of {total} kg in all | कुल {total} kg में से |
 | `detail.kpi.perDispatch` | kg per dispatch | kg हर dispatch |
 | `detail.kpi.analyticsFailed` | These numbers didn't load. | ये आंकड़े लोड नहीं हुए। |
+| `detail.kpi.shareFailed` | The total didn't load. | कुल आंकड़ा लोड नहीं हुआ। |
 | `detail.volume.title` | Monthly volume | हर महीने का माल |
 | `detail.volume.subtitle` | kg dispatched per month, last 12 months | हर महीने dispatch हुआ kg, पिछले 12 महीने |
 | `detail.volume.label` | kg dispatched per month | हर महीने dispatch हुआ kg |
@@ -711,6 +717,7 @@ Counts: 852 screen strings in 26 groups, 10 guides with 182 strings.
 | `detail.sections.subtitle` | Top sections by kg dispatched in this period | इस समय में kg के हिसाब से टॉप सेक्शन |
 | `detail.sections.label` | Sections by kg dispatched | dispatch हुए kg के हिसाब से सेक्शन |
 | `detail.sections.other` | Other sections | बाकी सेक्शन |
+| `detail.sections.otherShare` | Other sections ({share}) | बाकी सेक्शन ({share}) |
 | `detail.sections.valueHeader` | Dispatched | Dispatch हुआ |
 | `detail.recent.title` | Recent dispatches | हाल के dispatch |
 | `detail.recent.label` | Recent dispatches | हाल के dispatch |
@@ -1149,7 +1156,7 @@ Please check, Lalubhai:
 | Title | Add or edit a die | Die जोड़ें या बदलें |
 | When | Use this when a new die arrives or a die's details change. | जब नया die आए या किसी die की जानकारी बदले। |
 | Step 1 | Open Dies | Die खोलें |
-| Step 1 text | Open "More", then "Dies". Tap "New die", or tap an existing die to edit it. | "और" खोलें, फिर "Die"। "नया die" दबाएं, या बदलने के लिए किसी die पर दबाएं। |
+| Step 1 text | Open "More", then "Dies". Tap "New die". To change a die, open it and tap "Edit die". | "और" खोलें, फिर "Die"। "नया die" दबाएं। किसी die को बदलने के लिए उसे खोलें और "Die बदलें" दबाएं। |
 | Step 2 | Enter the code | कोड डालें |
 | Step 2 text | Fill in the series, section code and name. The floor sees the section code when picking a die in Pack. | सीरीज़, सेक्शन कोड और नाम भरें। पैकिंग में die चुनते समय फ़्लोर को सेक्शन कोड ही दिखता है। |
 | Step 3 | Set the weight range | वज़न रेंज डालें |
@@ -1159,7 +1166,7 @@ Please check, Lalubhai:
 | Step 5 | Add measurements if you have them | नाप हों तो डालें |
 | Step 5 text | Width, thickness, oblique and leg are under "Advanced". They are optional. | चौड़ाई, मोटाई, oblique और लेग "एडवांस" में हैं। ये ज़रूरी नहीं हैं। |
 | Step 6 | Save | सेव करें |
-| Step 6 text | Tap "Save die". | "Die सेव करें" दबाएं। |
+| Step 6 text | Tap "Save die". The die's page opens with its weight band and measurements. | "Die सेव करें" दबाएं। Die का पेज खुलेगा, उस पर वज़न की रेंज और नाप दिखते हैं। |
 | Problem 1 | It says the code belongs to a deleted die | लिखा आया कि कोड एक डिलीट हुए die का है |
 | Fix 1 | That code was used by a die that was deleted. Use a different code. | यह कोड पहले एक die का था जो डिलीट हो चुका है। दूसरा कोड डालें। |
 | Problem 2 | I have many dies to add | बहुत सारे die जोड़ने हैं |
@@ -1182,7 +1189,7 @@ Please check, Lalubhai:
 | Step 4 | Addresses | पता |
 | Step 4 text | Enter the billing address. If goods go to the same place, tick "Same as billing address". If not, fill in the shipping address. | बिलिंग का पता डालें। अगर माल उसी जगह जाता है, तो "बिलिंग वाला पता ही" पर टिक करें। नहीं तो डिलीवरी का पता भरें। |
 | Step 5 | Save | सेव करें |
-| Step 5 text | Tap "Save customer". Later, this page also lists every dispatch to the customer. | "ग्राहक सेव करें" दबाएं। बाद में इसी पेज पर इस ग्राहक के सारे dispatch भी दिखेंगे। |
+| Step 5 text | Tap "Save customer". The customer's page opens; it lists every dispatch to them, and "Edit customer" changes the details later. | "ग्राहक सेव करें" दबाएं। ग्राहक का पेज खुलेगा; उस पर इस ग्राहक के सारे dispatch दिखते हैं, और बाद में "ग्राहक बदलें" से जानकारी बदल सकते हैं। |
 | Problem 1 | The customer may already exist | शायद ग्राहक पहले से है |
 | Fix 1 | Search the list by name, phone or GSTIN before adding, so the same customer isn't added twice. | जोड़ने से पहले लिस्ट में नाम, फ़ोन या GSTIN से खोज लें, ताकि एक ही ग्राहक दो बार न जुड़े। |
 | Problem 2 | I can't add customers | ग्राहक नहीं जोड़ पा रहे |

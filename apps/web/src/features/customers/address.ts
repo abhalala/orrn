@@ -65,3 +65,22 @@ export function normalizeGstin(value: string): string {
 export function isValidGstin(value: string): boolean {
   return /^[0-9A-Z]{15}$/.test(value);
 }
+
+/**
+ * What the form saves for the GSTIN field and what it says about it. A new or changed GSTIN must be
+ * 15 letters and numbers (stored upper case, no spaces). A stored one the person did not touch is
+ * sent back exactly and only flagged when it is malformed: imports keep legacy partial GSTINs
+ * (T25 ruling), and fixing a customer's phone must not wait on their GST certificate.
+ */
+export function gstinField(
+  text: string,
+  stored: string | null,
+): { value: string | null; error?: "customers.form.gstinInvalid"; warning?: "customers.form.gstinLegacy" } {
+  if (stored !== null && text === stored) {
+    if (!stored.trim()) return { value: null };
+    return isValidGstin(normalizeGstin(stored)) ? { value: stored } : { value: stored, warning: "customers.form.gstinLegacy" };
+  }
+  const gstin = normalizeGstin(text);
+  if (!gstin) return { value: null };
+  return isValidGstin(gstin) ? { value: gstin } : { value: null, error: "customers.form.gstinInvalid" };
+}

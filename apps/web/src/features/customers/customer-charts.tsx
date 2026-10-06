@@ -22,6 +22,8 @@ import { useMemo } from "react";
 
 import { trpc } from "@/shared/utils/trpc";
 
+import { leaderboardRows } from "./leaderboard";
+
 const kgText = (v: number) => `${formatKgTotal(v)} kg`;
 
 /** Who is leading over the page's period: top 10 by kg, the rest folded into Other. */
@@ -32,27 +34,22 @@ export function LeaderboardCard({ range }: { range: { from: string; to: string }
     placeholderData: keepPreviousData,
   });
   const data = query.data;
-  const rows: RankedRow[] = useMemo(
-    () =>
-      (data?.rows ?? []).map((r) => ({
-        key: r.customerId,
-        label: r.name,
-        value: r.kgG / 1000,
-        share: r.sharePct,
-        movement: r.previousRank === null ? null : r.previousRank - r.rank,
-      })),
-    [data],
-  );
+  const rows: RankedRow[] = useMemo(() => leaderboardRows(data?.rows ?? []), [data]);
   const other = (data?.otherKgG ?? 0) / 1000;
   const otherLabel = t("customers.leaderboard.otherShare", { share: formatShare(data?.otherSharePct ?? 0) });
   const state = query.isPending ? "loading" : query.isError && !data ? "error" : rows.length === 0 ? "empty" : undefined;
+  // The total is said only once it is known: "0.0 kg in all" beside a skeleton or an error is a
+  // wrong number, not a placeholder.
+  const subtitle = data
+    ? t("customers.leaderboard.subtitle", { total: formatKgTotal(data.totalKgG / 1000) })
+    : t("customers.leaderboard.subtitleShort");
 
   return (
     <ChartCard
       data-testid="customer-leaderboard"
       level={2}
       title={t("customers.leaderboard.title")}
-      subtitle={t("customers.leaderboard.subtitle", { total: formatKgTotal((data?.totalKgG ?? 0) / 1000) })}
+      subtitle={subtitle}
       state={state}
       refreshing={query.isFetching && !query.isPending}
       onRetry={() => query.refetch()}
@@ -148,7 +145,10 @@ export function SectionsCard({
   );
   const otherRow = sections.find((s) => s.sectionId === null);
   const other = otherRow ? otherRow.kgG / 1000 : 0;
-  const otherLabel = t("customers.detail.sections.other");
+  // Same as the leaderboard's Other row: its share rides in the label (RankedBars has no share cell for Other).
+  const otherLabel = otherRow
+    ? t("customers.detail.sections.otherShare", { share: formatShare(otherRow.sharePct) })
+    : t("customers.detail.sections.other");
   const empty = !state && rows.length === 0 && other === 0;
 
   return (

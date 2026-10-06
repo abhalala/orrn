@@ -5,6 +5,7 @@ import { EmptyState } from "@orrn/ui/components/empty-state";
 import { HowToButton } from "@orrn/ui/components/how-to-button";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
+import { cn } from "@orrn/ui/lib/utils";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { FileUp, Plus } from "lucide-react";
@@ -102,19 +103,31 @@ function CustomersList() {
         ) : null,
     },
   ];
+  // The kg column is known only when customerKg has answered: pending or failed reads leave the
+  // cells empty (never "0.0", which would say the customer took nothing), and a previous period's
+  // figures stay dimmed while the new period loads.
+  const kgKnown = kg.data !== undefined;
+  const kgFailed = kg.isError && !kgKnown;
+  const kgStale = kg.isPlaceholderData;
   if (analytics) {
     columns.push({
       key: "kg",
       header: t("customers.columns.kg"),
       align: "end",
       cell: (c) => {
+        if (!kgKnown) return null;
         const g = kgById.get(c.id) ?? 0;
         return (
           <span
             data-no-truncate=""
-            className={g > 0 ? "font-mono font-semibold whitespace-nowrap" : "font-mono whitespace-nowrap text-muted-foreground"}
+            aria-busy={kgStale || undefined}
+            className={cn(
+              "font-mono whitespace-nowrap transition-opacity",
+              g > 0 ? "font-semibold" : "text-muted-foreground",
+              kgStale && "opacity-60",
+            )}
           >
-            {kg.isPending ? "" : formatKgTotal(g / 1000)}
+            {formatKgTotal(g / 1000)}
           </span>
         );
       },
@@ -171,6 +184,15 @@ function CustomersList() {
         onSearch={(term) => navigate({ search: (prev: CustomersSearch) => ({ ...prev, q: term || undefined, offset: undefined }), replace: true })}
         className="sm:max-w-[420px]"
       />
+
+      {analytics && kgFailed ? (
+        <div role="status" className="flex flex-wrap items-center gap-3 rounded-card border border-border bg-card p-4">
+          <p className="m-0 flex-1 text-[15px] font-medium">{t("customers.kgFailed")}</p>
+          <Button variant="secondary" onClick={() => kg.refetch()}>
+            {t("common.retry")}
+          </Button>
+        </div>
+      ) : null}
 
       <ResponsiveList
         label={t("customers.listLabel")}

@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
+import { createI18n } from "@orrn/i18n";
+
 import {
   DEFAULT_PERIOD,
   cadenceDays,
   companyTimeZone,
+  customerFactsLine,
   lastDispatchPhrase,
   parsePeriod,
   periodRange,
@@ -95,5 +98,29 @@ describe("cadenceDays", () => {
     expect(cadenceDays(8.5)).toBe(9);
     expect(cadenceDays(0.2)).toBe(1);
     expect(cadenceDays(null)).toBeNull();
+  });
+});
+
+describe("customerFactsLine (the header line under a customer's name)", () => {
+  const { t } = createI18n("en");
+
+  test("last dispatch and cadence, cadence in lower case after the dot (addendum: \"every ~9 days\")", () => {
+    expect(customerFactsLine(t, { daysSinceLast: 12, cadenceDays: 9.4 })).toBe("Last dispatch 12 days ago · every ~9 days");
+    expect(customerFactsLine(t, { daysSinceLast: 1, cadenceDays: 1 })).toBe("Last dispatch yesterday · every ~1 day");
+  });
+
+  test("one dispatch has no cadence: the last dispatch alone", () => {
+    expect(customerFactsLine(t, { daysSinceLast: 0, cadenceDays: null })).toBe("Last dispatch today");
+  });
+
+  test("never dispatched", () => {
+    expect(customerFactsLine(t, { daysSinceLast: null, cadenceDays: null })).toBe("No dispatches yet");
+  });
+
+  test("Hindi reads the same parts", () => {
+    const hi = createI18n("hi").t;
+    expect(customerFactsLine(hi, { daysSinceLast: 12, cadenceDays: 9 })).toBe(
+      `${hi("customers.detail.lastDaysAgo", { count: 12 })} · ${hi("customers.detail.cadence", { count: 9 })}`,
+    );
   });
 });

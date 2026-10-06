@@ -665,6 +665,7 @@ export const hi = {
       codeTaken: "यह कोड एक डिलीट हुए die का है। दूसरा कोड डालें।",
       duplicate: "इस सीरीज़ और सेक्शन कोड का die पहले से है।",
       fixErrors: "लाल निशान वाले खाने जांचें।",
+      cantAdd: "आपका रोल die नहीं जोड़ सकता। ज़रूरत हो तो एडमिन से कहें।",
     },
   },
 
@@ -686,6 +687,7 @@ export const hi = {
     emptyBody: "पहले dispatch से पहले ग्राहक जोड़ें।",
     emptyAction: "ग्राहक जोड़ें",
     importCsv: "CSV इम्पोर्ट करें",
+    kgFailed: "Dispatch हुआ kg लोड नहीं हुआ।",
     period: {
       label: "समय",
       month: "इस महीने",
@@ -696,6 +698,7 @@ export const hi = {
     leaderboard: {
       title: "सबसे आगे कौन",
       subtitle: "हर ग्राहक को dispatch हुआ kg। कुल {total} kg।",
+      subtitleShort: "हर ग्राहक को dispatch हुआ kg।",
       label: "dispatch हुए kg के हिसाब से ग्राहक",
       otherShare: "बाकी ग्राहक ({share})",
       valueHeader: "Dispatch हुआ",
@@ -709,6 +712,7 @@ export const hi = {
       gstin: "GSTIN",
       gstinHint: "15 अक्षर, ग्राहक के GST सर्टिफ़िकेट से।",
       gstinInvalid: "GSTIN में 15 अक्षर और अंक होते हैं। जांच कर फिर से डालें।",
+      gstinLegacy: "यह GSTIN 15 अक्षर और अंक का नहीं है। समय मिलने पर GST सर्टिफ़िकेट से मिलाएं।",
       notes: "नोट",
       billingAddress: "बिलिंग का पता",
       shippingAddress: "डिलीवरी का पता",
@@ -721,6 +725,7 @@ export const hi = {
       submit: "ग्राहक सेव करें",
       saved: "ग्राहक सेव हो गया",
       fixErrors: "लाल निशान वाले खाने जांचें।",
+      cantAdd: "आपका रोल ग्राहक नहीं जोड़ सकता। ज़रूरत हो तो एडमिन से कहें।",
     },
     detail: {
       gstin: "GSTIN {gstin}",
@@ -750,6 +755,7 @@ export const hi = {
         shareOf: "कुल {total} kg में से",
         perDispatch: "kg हर dispatch",
         analyticsFailed: "ये आंकड़े लोड नहीं हुए।",
+        shareFailed: "कुल आंकड़ा लोड नहीं हुआ।",
       },
       volume: {
         title: "हर महीने का माल",
@@ -763,6 +769,7 @@ export const hi = {
         subtitle: "इस समय में kg के हिसाब से टॉप सेक्शन",
         label: "dispatch हुए kg के हिसाब से सेक्शन",
         other: "बाकी सेक्शन",
+        otherShare: "बाकी सेक्शन ({share})",
         valueHeader: "Dispatch हुआ",
       },
       recent: {

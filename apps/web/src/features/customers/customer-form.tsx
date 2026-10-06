@@ -13,15 +13,7 @@ import { toast } from "sonner";
 import { FieldTextArea } from "@/features/catalog/field-text-area";
 import { trpc } from "@/shared/utils/trpc";
 
-import {
-  addressToDraft,
-  draftToAddress,
-  EMPTY_ADDRESS,
-  isValidGstin,
-  normalizeGstin,
-  sameDraft,
-  type AddressDraft,
-} from "./address";
+import { addressToDraft, draftToAddress, EMPTY_ADDRESS, gstinField, sameDraft, type AddressDraft } from "./address";
 
 export type StoredCustomer = {
   id: string;
@@ -65,12 +57,12 @@ function toDraft(c?: StoredCustomer): Draft {
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function validate(d: Draft): Errors {
+function validate(d: Draft, storedGstin: string | null): Errors {
   const errors: Errors = {};
   if (!d.name.trim()) errors.name = "errors.required";
   if (d.email.trim() && !EMAIL.test(d.email.trim())) errors.email = "errors.invalidEmail";
-  const gstin = normalizeGstin(d.gstin);
-  if (gstin && !isValidGstin(gstin)) errors.gstin = "customers.form.gstinInvalid";
+  const gstin = gstinField(d.gstin, storedGstin);
+  if (gstin.error) errors.gstin = gstin.error;
   return errors;
 }
 
@@ -87,6 +79,9 @@ export function CustomerForm({ formId, customer, onSaved, onPendingChange }: Cus
   const [draft, setDraft] = useState<Draft>(() => toDraft(customer));
   const [errors, setErrors] = useState<Errors>({});
   const [announce, setAnnounce] = useState("");
+  const storedGstin = customer?.taxId ?? null;
+  // An imported partial GSTIN the person has not touched is flagged, never a reason to refuse the save.
+  const gstinWarning = gstinField(draft.gstin, storedGstin).warning;
 
   const onSuccess = async (id: string) => {
     await Promise.all([
@@ -114,7 +109,7 @@ export function CustomerForm({ formId, customer, onSaved, onPendingChange }: Cus
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (pending) return;
-    const found = validate(draft);
+    const found = validate(draft, storedGstin);
     setErrors(found);
     const first = (["name", "email", "gstin"] as const).find((k) => found[k]);
     if (first) {
@@ -131,7 +126,7 @@ export function CustomerForm({ formId, customer, onSaved, onPendingChange }: Cus
       name: draft.name.trim(),
       phone: draft.phone.trim() || null,
       email: draft.email.trim() || null,
-      taxId: normalizeGstin(draft.gstin) || null,
+      taxId: gstinField(draft.gstin, storedGstin).value,
       notes: draft.notes.trim() || null,
       billingAddress,
       shippingAddress,
@@ -166,7 +161,12 @@ export function CustomerForm({ formId, customer, onSaved, onPendingChange }: Cus
             />
           </Field>
         </div>
-        <Field label={t("customers.form.gstin")} hint={t("customers.form.gstinHint")} error={err("gstin")} id={`${formId}-gstin`}>
+        <Field
+          label={t("customers.form.gstin")}
+          hint={t(gstinWarning ?? "customers.form.gstinHint")}
+          error={err("gstin")}
+          id={`${formId}-gstin`}
+        >
           <TextInput
             value={draft.gstin}
             onChangeText={setText("gstin")}

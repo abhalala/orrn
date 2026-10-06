@@ -7,7 +7,7 @@
  * their edges with calendar quarters; the financial year starts on 1 April. The default period is
  * this financial year to date (Q-A2 default).
  */
-import type { MessageKey } from "@orrn/i18n";
+import type { MessageKey, Translate } from "@orrn/i18n";
 
 export const PERIODS = ["month", "quarter", "fy"] as const;
 export type Period = (typeof PERIODS)[number];
@@ -83,4 +83,15 @@ export function lastDispatchPhrase(daysSinceLast: number | null): { key: Message
 export function cadenceDays(median: number | null): number | null {
   if (median === null) return null;
   return Math.max(1, Math.round(median));
+}
+
+/**
+ * The facts line under a customer's name: "Last dispatch 12 days ago · every ~9 days". The cadence
+ * needs two dispatches, so with one the last dispatch stands alone.
+ */
+export function customerFactsLine(t: Translate, facts: { daysSinceLast: number | null; cadenceDays: number | null }): string {
+  const last = lastDispatchPhrase(facts.daysSinceLast);
+  const lastText = t(last.key, last.count === undefined ? undefined : { count: last.count });
+  const cadence = facts.daysSinceLast === null ? null : cadenceDays(facts.cadenceDays);
+  return cadence === null ? lastText : `${lastText} · ${t("customers.detail.cadence", { count: cadence })}`;
 }

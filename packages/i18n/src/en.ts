@@ -671,6 +671,7 @@ export const en = {
       codeTaken: "This code belongs to a deleted die. Use a different code.",
       duplicate: "A die with this series and section code already exists.",
       fixErrors: "Check the fields marked in red.",
+      cantAdd: "Your role can't add dies. Ask an admin if you need it.",
     },
   },
 
@@ -692,6 +693,7 @@ export const en = {
     emptyBody: "Add a customer before their first dispatch.",
     emptyAction: "Add a customer",
     importCsv: "Import CSV",
+    kgFailed: "The dispatched kg didn't load.",
     period: {
       label: "Period",
       month: "This month",
@@ -702,6 +704,7 @@ export const en = {
     leaderboard: {
       title: "Who is leading",
       subtitle: "kg dispatched per customer. {total} kg in all.",
+      subtitleShort: "kg dispatched per customer.",
       label: "Customers by kg dispatched",
       otherShare: "Other customers ({share})",
       valueHeader: "Dispatched",
@@ -715,6 +718,7 @@ export const en = {
       gstin: "GSTIN",
       gstinHint: "15 characters, from the customer's GST certificate.",
       gstinInvalid: "A GSTIN has 15 letters and numbers. Check it and try again.",
+      gstinLegacy: "This GSTIN isn't 15 letters and numbers. Check it against the GST certificate when you can.",
       notes: "Notes",
       billingAddress: "Billing address",
       shippingAddress: "Shipping address",
@@ -727,6 +731,7 @@ export const en = {
       submit: "Save customer",
       saved: "Customer saved",
       fixErrors: "Check the fields marked in red.",
+      cantAdd: "Your role can't add customers. Ask an admin if you need it.",
     },
     detail: {
       gstin: "GSTIN {gstin}",
@@ -734,7 +739,7 @@ export const en = {
       lastYesterday: "Last dispatch yesterday",
       lastDaysAgo: "Last dispatch {count} {count:day|days} ago",
       lastNever: "No dispatches yet",
-      cadence: "Every ~{count} {count:day|days}",
+      cadence: "every ~{count} {count:day|days}",
       edit: "Edit customer",
       editTitle: "Edit {name}",
       contact: "Contact",
@@ -756,6 +761,7 @@ export const en = {
         shareOf: "of {total} kg in all",
         perDispatch: "kg per dispatch",
         analyticsFailed: "These numbers didn't load.",
+        shareFailed: "The total didn't load.",
       },
       volume: {
         title: "Monthly volume",
@@ -769,6 +775,7 @@ export const en = {
         subtitle: "Top sections by kg dispatched in this period",
         label: "Sections by kg dispatched",
         other: "Other sections",
+        otherShare: "Other sections ({share})",
         valueHeader: "Dispatched",
       },
       recent: {

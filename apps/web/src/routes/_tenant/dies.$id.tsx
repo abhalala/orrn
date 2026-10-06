@@ -30,7 +30,9 @@ export const Route = createFileRoute("/_tenant/dies/$id")({
 
 function DieRoute() {
   const { id } = Route.useParams();
-  return id === "new" ? <NewDie /> : <DieDetail id={id} />;
+  // Keyed by id: the router reuses this component when only $id changes, and one die's open sheet
+  // or dialog must not carry over to the next.
+  return id === "new" ? <NewDie /> : <DieDetail key={id} id={id} />;
 }
 
 function NewDie() {
@@ -39,14 +41,28 @@ function NewDie() {
   const { unit } = useLengthUnit();
   const formId = useId();
   const [pending, setPending] = useState(false);
+  const back = { to: "/dies", label: t("nav.dies") };
 
+  // Reachable by URL or a shared link even when the list hides "New die": a role that can't add
+  // dies gets an explanation, not a form whose Save would be refused.
   return (
-    <>
-      <PageHeader
-        back={{ to: "/dies", label: t("nav.dies") }}
-        title={t("dies.form.titleNew")}
-        actions={<HowToButton slug="edit-die" />}
-      />
+    <Can
+      do="die.create"
+      fallback={
+        <>
+          <PageHeader back={back} title={t("dies.form.titleNew")} />
+          <EmptyState
+            title={t("dies.form.cantAdd")}
+            action={
+              <Button asChild variant="secondary">
+                <Link to="/dies">{t("dies.detail.backToList")}</Link>
+              </Button>
+            }
+          />
+        </>
+      }
+    >
+      <PageHeader back={back} title={t("dies.form.titleNew")} actions={<HowToButton slug="edit-die" />} />
       <div className="flex w-full max-w-[720px] flex-col gap-5 rounded-card border border-border bg-card p-4 sm:p-6">
         <DieForm
           formId={formId}
@@ -63,7 +79,7 @@ function NewDie() {
           </Button>
         </FormActions>
       </div>
-    </>
+    </Can>
   );
 }
 

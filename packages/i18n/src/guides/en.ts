@@ -284,7 +284,7 @@ export const guidesEn: GuideBook = {
     steps: [
       {
         title: "Open Dies",
-        body: "Open \"More\", then \"Dies\". Tap \"New die\", or tap an existing die to edit it.",
+        body: "Open \"More\", then \"Dies\". Tap \"New die\". To change a die, open it and tap \"Edit die\".",
       },
       {
         title: "Enter the code",
@@ -305,7 +305,7 @@ export const guidesEn: GuideBook = {
       },
       {
         title: "Save",
-        body: "Tap \"Save die\".",
+        body: "Tap \"Save die\". The die's page opens with its weight band and measurements.",
       },
     ],
     problems: [
@@ -348,7 +348,7 @@ export const guidesEn: GuideBook = {
       },
       {
         title: "Save",
-        body: "Tap \"Save customer\". Later, this page also lists every dispatch to the customer.",
+        body: "Tap \"Save customer\". The customer's page opens; it lists every dispatch to them, and \"Edit customer\" changes the details later.",
       },
     ],
     problems: [

@@ -23,7 +23,8 @@ import { ChartCardSkeleton } from "@/features/customers/chart-card-skeleton";
 import { CustomerForm, type StoredCustomer } from "@/features/customers/customer-form";
 import { formatDay, formatInstantDay } from "@/features/customers/dates";
 import { KpiTile, KpiTileSkeleton } from "@/features/customers/kpi-tile";
-import { cadenceDays, lastDispatchPhrase, type Period } from "@/features/customers/period";
+import { customerShare, formatSharePct } from "@/features/customers/leaderboard";
+import { customerFactsLine, type Period } from "@/features/customers/period";
 import { PeriodRow } from "@/features/customers/period-row";
 import { periodSearch, rememberPeriod, usePeriod, type PeriodState } from "@/features/customers/use-period";
 import { Can } from "@/shared/components/can";
@@ -44,7 +45,9 @@ export const Route = createFileRoute("/_tenant/customers/$id")({
 
 function CustomerRoute() {
   const { id } = Route.useParams();
-  return id === "new" ? <NewCustomer /> : <CustomerDetail id={id} />;
+  // Keyed by id: the router reuses this component when only $id changes, and a customer's pager
+  // offset or open sheet must not carry over to the next customer.
+  return id === "new" ? <NewCustomer /> : <CustomerDetail key={id} id={id} />;
 }
 
 function NewCustomer() {
@@ -52,13 +55,25 @@ function NewCustomer() {
   const navigate = useNavigate();
   const formId = useId();
   const [pending, setPending] = useState(false);
+  const back = { to: "/customers", label: t("nav.customers") };
   return (
-    <>
-      <PageHeader
-        back={{ to: "/customers", label: t("nav.customers") }}
-        title={t("customers.form.titleNew")}
-        actions={<HowToButton slug="add-customer" />}
-      />
+    <Can
+      do="customer.create"
+      fallback={
+        <>
+          <PageHeader back={back} title={t("customers.form.titleNew")} />
+          <EmptyState
+            title={t("customers.form.cantAdd")}
+            action={
+              <Button asChild variant="secondary">
+                <Link to="/customers">{t("customers.detail.backToList")}</Link>
+              </Button>
+            }
+          />
+        </>
+      }
+    >
+      <PageHeader back={back} title={t("customers.form.titleNew")} actions={<HowToButton slug="add-customer" />} />
       <div className="flex w-full max-w-[720px] flex-col gap-6 rounded-card border border-border bg-card p-4 sm:p-6">
         <CustomerForm
           formId={formId}
@@ -74,7 +89,7 @@ function NewCustomer() {
           </Button>
         </FormActions>
       </div>
-    </>
+    </Can>
   );
 }
 
@@ -181,9 +196,10 @@ function CustomerDetail({ id }: { id: string }) {
         />
       ) : null}
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <ContactCard customer={customer} className="lg:col-start-2 lg:row-start-1" />
-        <RecentDispatches customerId={customer.id} today={periodState.today} timeZone={periodState.timeZone} className="lg:col-start-1 lg:row-start-1" />
+      {/* Contact first in the DOM and on the left at laptop width, so keyboard order follows the page. */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
+        <ContactCard customer={customer} />
+        <RecentDispatches customerId={customer.id} today={periodState.today} timeZone={periodState.timeZone} />
       </div>
 
       <Sheet
@@ -266,27 +282,28 @@ function CustomerAnalytics({
     ...trpc.analytics.customerSummary.queryOptions({ customerId, from: range.from, to: range.to, bucket: "month" }),
     placeholderData: keepPreviousData,
   });
+  // The same query as the /customers leaderboard card (same input, one cache entry): the share
+  // tile reads a listed customer's share from it, so the two screens never disagree.
   const board = useQuery({
-    ...trpc.analytics.customerLeaderboard.queryOptions({ from: range.from, to: range.to, limit: 1 }),
+    ...trpc.analytics.customerLeaderboard.queryOptions({ from: range.from, to: range.to, limit: 10 }),
     placeholderData: keepPreviousData,
   });
 
-  const last = year.data ? lastDispatchPhrase(year.data.daysSinceLast) : null;
-  const cadence = year.data ? cadenceDays(year.data.cadenceDays) : null;
   const totals = current.data?.totals;
-  const totalKgG = board.data?.totalKgG ?? 0;
-  const share = totals && totalKgG > 0 ? (totals.kgG / totalKgG) * 100 : 0;
+  // A previous period's figures stay on screen, dimmed, while the new period loads; a share is
+  // only worked out when both reads are for the period on screen. Unknown is never drawn as 0.
+  const stale = current.isPlaceholderData;
+  const boardReady = board.data !== undefined && !board.isPlaceholderData;
+  const boardFailed = board.isError && board.data === undefined;
+  const share = totals && !stale && boardReady ? customerShare(customerId, totals.kgG, board.data) : null;
   const caption = t("customers.period.range", { from: formatDay(range.from, locale, today), to: formatDay(range.to, locale, today) });
   const openOrders = current.data?.openOrders ?? null;
 
   return (
     <>
       <div data-slot="customer-facts" className="-mt-2 min-h-6 text-[15px] leading-6 font-medium break-words text-muted-foreground">
-        {last ? (
-          <>
-            {t(last.key, last.count === undefined ? undefined : { count: last.count })}
-            {cadence !== null ? ` · ${t("customers.detail.cadence", { count: cadence })}` : null}
-          </>
+        {year.data ? (
+          customerFactsLine(t, year.data)
         ) : year.isPending ? (
           <Skeleton className="inline-block h-4 w-60 align-middle" />
         ) : null}
@@ -302,7 +319,11 @@ function CustomerAnalytics({
           </Button>
         </div>
       ) : totals ? (
-        <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 lg:grid-cols-4" aria-busy={current.isFetching || undefined}>
+        <div
+          data-slot="customer-kpis"
+          aria-busy={stale || undefined}
+          className={`grid grid-cols-2 items-stretch gap-3 transition-opacity sm:gap-4 lg:grid-cols-4 ${stale ? "opacity-60" : ""}`}
+        >
           <StatusBlock
             tone="neutral"
             title={t("customers.detail.kpi.kg")}
@@ -329,9 +350,22 @@ function CustomerAnalytics({
           />
           <KpiTile
             label={t("customers.detail.kpi.share")}
-            meta={t("customers.detail.kpi.shareOf", { total: formatKgTotal(totalKgG / 1000) })}
+            meta={
+              boardReady
+                ? t("customers.detail.kpi.shareOf", { total: formatKgTotal(board.data.totalKgG / 1000) })
+                : boardFailed
+                  ? t("customers.detail.kpi.shareFailed")
+                  : undefined
+            }
             value={share}
-            format={(n) => `${new Intl.NumberFormat("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n)}%`}
+            format={formatSharePct}
+            fallback={
+              boardFailed ? (
+                <Button variant="secondary" className="self-start" onClick={() => board.refetch()}>
+                  {t("common.retry")}
+                </Button>
+              ) : undefined
+            }
             className="animate-rise col-span-2 md:col-span-1"
             style={riseDelay(3)}
           />
@@ -493,6 +527,7 @@ type DispatchRow = {
   status: DispatchStatus;
   shipDate: string | Date | null;
   createdAt: string | Date;
+  completedAt: string | Date | null;
   itemCount: number;
   totalWeightG: number;
 };
@@ -532,7 +567,13 @@ function RecentDispatches({
     {
       key: "date",
       header: t("customers.detail.recent.date"),
-      cell: (d) => <span className="whitespace-nowrap">{formatInstantDay(d.shipDate ?? d.createdAt, locale, timeZone, today)}</span>,
+      // A completed load reads the day it left (what "Last dispatch N days ago" counts from);
+      // one still being built reads its ship date, else the day it was started.
+      cell: (d) => (
+        <span className="whitespace-nowrap">
+          {formatInstantDay(d.status === "completed" && d.completedAt ? d.completedAt : (d.shipDate ?? d.createdAt), locale, timeZone, today)}
+        </span>
+      ),
     },
     {
       key: "status",
