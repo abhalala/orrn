@@ -24,7 +24,7 @@ import {
   type OrrnDb,
   type SqliteBatchItem,
 } from "../lib/atomic";
-import { bundleBlock, bundleBlockReason, holdingDispatchCodes, type BundleBlock } from "../lib/bundleHold";
+import { bundleBlock, bundleBlockReason, heldElsewhere, holdingDispatchCodes, type BundleBlock } from "../lib/bundleHold";
 import { now as clockNow } from "../lib/clock";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { dispatchRows } from "../lib/ledger";
@@ -351,7 +351,7 @@ export const dispatchRouter = router({
         where: and(eq(customer.id, row.customerId), eq(customer.companyId, ctx.companyId)),
       });
 
-      const items = await ctx.db
+      const itemRows = await ctx.db
         .select({
           itemId: dispatchItem.id,
           bundleId: bundle.id,
@@ -382,6 +382,18 @@ export const dispatchRouter = router({
         )
         .orderBy(desc(dispatchItem.addedAt))
         .limit(500);
+      // While the dispatch can still change, name any other dispatch holding one of its bundles
+      // (both drafts listed it; the other was held first), so Build can mark the row.
+      const holders =
+        row.status === "draft" || row.status === "reserved"
+          ? await heldElsewhere(
+              ctx.db,
+              ctx.companyId,
+              row.id,
+              itemRows.filter((it) => it.status === "reserved").map((it) => it.bundleId),
+            )
+          : new Map<string, string>();
+      const items = itemRows.map((it) => ({ ...it, heldBy: holders.get(it.bundleId) ?? null }));
 
       const events = await ctx.db
         .select()

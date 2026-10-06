@@ -1,7 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 
 import { dispatch } from "@orrn/db/schema/dispatch";
-import type { BundleStatus } from "@orrn/db/schema/inventory";
+import { bundle, type BundleStatus } from "@orrn/db/schema/inventory";
 
 import { mapInChunks, type OrrnDb } from "./atomic";
 
@@ -26,6 +26,39 @@ export async function holdingDispatchCodes(
       .where(and(eq(dispatch.companyId, companyId), inArray(dispatch.id, chunkIds))),
   );
   return new Map(rows.map((r) => [r.id, r.code]));
+}
+
+/**
+ * For bundles listed on `dispatchId`: the code of ANOTHER dispatch of the same
+ * company that holds each one, keyed by bundle id. A bundle can sit on two
+ * drafts until one of them holds it; Build marks it so Hold stock is not a
+ * guess (T22). Company scoped on both sides, chunked under the D1 limit.
+ */
+export async function heldElsewhere(
+  db: OrrnDb,
+  companyId: string,
+  dispatchId: string,
+  bundleIds: readonly string[],
+): Promise<Map<string, string>> {
+  if (bundleIds.length === 0) return new Map();
+  const rows = await mapInChunks([...new Set(bundleIds)], (ids) =>
+    db
+      .select({ bundleId: bundle.id, code: dispatch.code })
+      .from(bundle)
+      .innerJoin(
+        dispatch,
+        and(eq(dispatch.id, bundle.currentDispatchId), eq(dispatch.companyId, bundle.companyId)),
+      )
+      .where(
+        and(
+          eq(bundle.companyId, companyId),
+          inArray(bundle.id, ids),
+          eq(bundle.status, "reserved"),
+          ne(bundle.currentDispatchId, dispatchId),
+        ),
+      ),
+  );
+  return new Map(rows.map((r) => [r.bundleId, r.code]));
 }
 
 /** Short, user-facing reason a bundle can't be added to a dispatch or changed by hand. */

@@ -201,6 +201,44 @@ describe("dispatch and bundle state predicates", () => {
     expect(res.items[0]).toMatchObject({ serial: b!.serial, dieName: 'Patti 1" x 1/8"' });
   });
 
+  test("getDispatch names the other dispatch holding a bundle (Hold stock would be refused)", async () => {
+    const { api, customerId, bundles } = await setup(2);
+    const [x, y] = bundles;
+    const a = await api.dispatch.create({ customerId });
+    const b = await api.dispatch.create({ customerId });
+    // Both drafts list X while it is still in stock; then A holds it.
+    await api.dispatch.addBundle({ id: a.id, bundleId: x!.id });
+    await api.dispatch.addBundle({ id: b.id, bundleId: x!.id });
+    await api.dispatch.addBundle({ id: b.id, bundleId: y!.id });
+    await api.dispatch.reserve({ id: a.id });
+
+    const onB = await api.dispatch.getDispatch({ id: b.id });
+    const bySerial = new Map(onB.items.map((i) => [i.serial, i]));
+    expect(bySerial.get(x!.serial)).toMatchObject({ status: "reserved", heldBy: a.code });
+    expect(bySerial.get(y!.serial)).toMatchObject({ status: "available", heldBy: null });
+
+    // The dispatch holding it never names itself.
+    const onA = await api.dispatch.getDispatch({ id: a.id });
+    expect(onA.items[0]).toMatchObject({ serial: x!.serial, status: "reserved", heldBy: null });
+  });
+
+  test("getDispatch never names another company's dispatch as the holder", async () => {
+    const { companyId, api, customerId, bundles } = await setup(1);
+    const d = await api.dispatch.create({ customerId });
+    await api.dispatch.addBundle({ id: d.id, bundleId: bundles[0]!.id });
+    // A foreign dispatch id written onto our bundle (cross-wired data): never resolved.
+    const other = await env.seedCompany();
+    const otherApi = env.caller({ role: "owner", companyId: other.companyId });
+    const foreign = await otherApi.dispatch.create({ customerId: await env.seedCustomer(other.companyId) });
+    await env.db
+      .update(bundle)
+      .set({ status: "reserved", currentDispatchId: foreign.id })
+      .where(and(eq(bundle.companyId, companyId), eq(bundle.id, bundles[0]!.id)));
+
+    const res = await api.dispatch.getDispatch({ id: d.id });
+    expect(res.items[0]).toMatchObject({ status: "reserved", heldBy: null });
+  });
+
   test("addBundlesBySerial with nothing addable writes nothing and does not throw", async () => {
     const { api, customerId } = await setup(0);
     const d = await api.dispatch.create({ customerId });
