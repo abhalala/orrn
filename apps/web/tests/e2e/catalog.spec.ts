@@ -606,6 +606,8 @@ test.describe("customers", () => {
     await expect(list.getByRole("cell", { name: "0.0", exact: true })).toHaveCount(0);
     // The leaderboard card has its own read and keeps its numbers.
     await expect(page.getByRole("group", { name: "Who is leading" }).getByRole("list", { name: "Customers by kg dispatched" })).toBeVisible();
+    await expectCleanLayout(page);
+    if (SHOTS) await shoot(page, `${SHOTS}/customers-kg-failed-1280-light.png`);
 
     fail = false;
     await notice.getByRole("button", { name: "Try again" }).click();
@@ -781,6 +783,8 @@ test.describe("customers", () => {
     await expect(page.getByText("0.0%")).toHaveCount(0);
     // The other tiles come from their own read and keep their numbers.
     await expect(kpiTile(page, "Dispatches").locator("[data-slot='big-number']")).toBeVisible();
+    await expectCleanLayout(page);
+    if (SHOTS) await shoot(page, `${SHOTS}/customer-share-failed-390-light.png`);
 
     fail = false;
     await share.getByRole("button", { name: "Try again" }).click();
@@ -943,6 +947,10 @@ test.describe("screenshots", () => {
         await expect(page.locator("main#main h1").first()).toBeVisible();
         await settled(page);
         await shoot(page, `${SHOTS}/customer-detail-operator-${width}-${scheme}.png`);
+        // A role without die.create opening a shared "new die" link.
+        await page.goto("/dies/new");
+        await expect(page.getByText("Your role can't add dies. Ask an admin if you need it.")).toBeVisible();
+        await shoot(page, `${SHOTS}/die-new-operator-${width}-${scheme}.png`);
       }
     }
   });
