@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray, isNull, like, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, like, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { normalizeSerial } from "@orrn/domain";
@@ -23,6 +23,7 @@ import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
 import { kgPer12ftMilli } from "../lib/bundleWeight";
 import { now as clockNow } from "../lib/clock";
 import { allocateDocNumbers } from "../lib/docNumber";
+import { clientRequestIdSchema, replayProbe, replayState, REQUEST_ID_CONFLICT, requestRowIds } from "../lib/importReplay";
 import { packRows, restoreRows, voidRows, type PostingCtx } from "../lib/ledger";
 import { nextCompanySeq } from "../lib/sequence";
 
@@ -620,9 +621,40 @@ export const bundleRouter = router({
           .array(bundleImportRowSchema)
           .min(1, "At least one row is required")
           .max(2000, "Max 2000 bundles per import — split larger files into batches"),
+        /** Same id, same rows: a resend answers `replayed` instead of adding the bundles twice (lib/importReplay). */
+        clientRequestId: clientRequestIdSchema.optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // 0. A chunk sent again (lost reply, same sheet picked again) must never add its bundles twice.
+      const rowIds = input.clientRequestId
+        ? await requestRowIds(ctx.companyId, "bundle.import", input.clientRequestId, input.rows.length)
+        : null;
+      const landed = async (ids: string[]) =>
+        replayState(
+          ids,
+          (
+            await ctx.db
+              .select({ id: bundle.id })
+              .from(bundle)
+              .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, replayProbe(ids))))
+          ).map((r) => r.id),
+        );
+      const replayed = {
+        success: true,
+        replayed: true,
+        bundleCount: input.rows.length,
+        dieCount: 0,
+        newDies: 0,
+        newGroups: 0,
+        reusedGroups: 0,
+      } as const;
+      if (rowIds) {
+        const state = await landed(rowIds);
+        if (state === "replayed") return replayed;
+        if (state === "conflict") throw new TRPCError(REQUEST_ID_CONFLICT);
+      }
+
       // 1. Resolve every (series, sectionCode) in the file to a die id.
       //    Build a Set of unique keys first so a 2000-row file with 5 distinct
       //    dies hits the DB once per die rather than once per row. While
@@ -822,13 +854,13 @@ export const bundleRouter = router({
       const bundleRows: Array<typeof bundle.$inferInsert> = [];
       const eventRows: Array<typeof bundleStatusEvent.$inferInsert> = [];
 
-      for (const row of input.rows) {
+      for (const [rowIndex, row] of input.rows.entries()) {
         const dieRow = dieKeyToId.get(`${row.dieSeries}::${row.dieSectionCode}`)!;
         const group = dieIdToGroup.get(dieRow.id)!;
         const idx = groupIdToNextIdx.get(group.id)!;
         groupIdToNextIdx.set(group.id, idx + 1);
 
-        const bundleId = crypto.randomUUID();
+        const bundleId = rowIds?.[rowIndex] ?? crypto.randomUUID();
         bundleRows.push({
           id: bundleId,
           companyId: ctx.companyId,
@@ -888,15 +920,51 @@ export const bundleRouter = router({
         ),
       );
 
-      await atomicBatch(ctx.db, statements);
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (error) {
+        // An identical request that landed a moment earlier: its bundle ids are taken, so this
+        // whole batch rolled back. Answer as a replay; anything else is a real failure.
+        if (rowIds && (await landed(rowIds)) === "replayed") return replayed;
+        throw error;
+      }
 
       return {
         success: true,
+        replayed: false,
         bundleCount: bundleRows.length,
         dieCount: dieKeyToId.size,
         newDies: newDieIds.length,
         newGroups: newGroups.length,
         reusedGroups: existingDieIdsAppendedTo.length,
       };
+    }),
+
+  /**
+   * Read-only check before an old-bundles sheet is saved: which of its dies
+   * (series, section code) were deleted. `bulkImport` refuses a whole chunk
+   * that names one, so the sheet turns those rows into problem rows first
+   * instead of stopping part-way (T25 fix round 1).
+   */
+  importCheck: actionProcedure("bundle.import")
+    .input(
+      z.object({
+        dies: z
+          .array(z.object({ series: z.string().min(1).max(500), sectionCode: z.string().min(1).max(500) }))
+          .min(1, "At least one die is required")
+          .max(2000, "Max 2000 dies per check"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const key = (d: { series: string; sectionCode: string }) => `${d.series}\u0000${d.sectionCode}`;
+      const codes = [...new Set(input.dies.map((d) => d.sectionCode))];
+      const deleted = await mapInChunks(codes, (slice) =>
+        ctx.db
+          .select({ series: die.series, sectionCode: die.sectionCode })
+          .from(die)
+          .where(and(eq(die.companyId, ctx.companyId), isNotNull(die.deletedAt), inArray(die.sectionCode, slice))),
+      );
+      const asked = new Set(input.dies.map(key));
+      return { deleted: deleted.filter((d) => asked.has(key(d))) };
     }),
 });

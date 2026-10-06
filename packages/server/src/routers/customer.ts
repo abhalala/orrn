@@ -1,10 +1,11 @@
-import { and, desc, eq, isNull, like } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, like } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { customer } from "@orrn/db/schema/customers";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { clientRequestIdSchema, replayProbe, replayState, REQUEST_ID_CONFLICT, requestRowIds } from "../lib/importReplay";
 import { paginatedList, scopedFindOrThrow, withAudit } from "../lib/helpers";
 
 const customerBaseSchema = z.object({
@@ -19,6 +20,10 @@ const customerBaseSchema = z.object({
 
 /** Same cap as bundle.bulkImport: a larger import must be split into batches (D1 + Worker CPU). */
 const MAX_IMPORT_ROWS = 2000;
+
+const customerImportRows = z
+  .array(customerBaseSchema)
+  .max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches");
 
 type Customer = typeof customer.$inferSelect;
 
@@ -168,13 +173,39 @@ export const customerRouter = router({
     }),
 
   importCsv: actionProcedure("customer.import")
-    .input(z.array(customerBaseSchema).max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"))
-    .mutation(async ({ ctx, input }) => {
+    .input(
+      z.union([
+        customerImportRows,
+        // Same id, same rows: a resend answers `replayed` instead of adding the customers twice (lib/importReplay).
+        z.object({ rows: customerImportRows, clientRequestId: clientRequestIdSchema.optional() }),
+      ]),
+    )
+    .mutation(async ({ ctx, input: raw }) => {
+      const { rows: input, clientRequestId } = Array.isArray(raw) ? { rows: raw, clientRequestId: undefined } : raw;
       if (input.length === 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "No rows provided" });
       }
 
-      await withAudit(
+      const rowIds = clientRequestId
+        ? await requestRowIds(ctx.companyId, "customer.import", clientRequestId, input.length)
+        : null;
+      const landed = async (ids: string[]) =>
+        replayState(
+          ids,
+          (
+            await ctx.db
+              .select({ id: customer.id })
+              .from(customer)
+              .where(and(eq(customer.companyId, ctx.companyId), inArray(customer.id, replayProbe(ids))))
+          ).map((r) => r.id),
+        );
+      if (rowIds) {
+        const state = await landed(rowIds);
+        if (state === "replayed") return { success: true, count: input.length, replayed: true };
+        if (state === "conflict") throw new TRPCError(REQUEST_ID_CONFLICT);
+      }
+
+      const racedReplay = await withAudit(
         ctx,
         {
           action: "customer.import",
@@ -182,8 +213,8 @@ export const customerRouter = router({
           meta: { count: input.length },
         },
         ({ serverSeq }) => {
-          const values = input.map((row) => ({
-            id: crypto.randomUUID(),
+          const values = input.map((row, i) => ({
+            id: rowIds?.[i] ?? crypto.randomUUID(),
             companyId: ctx.companyId,
             serverSeq,
             name: row.name,
@@ -199,8 +230,16 @@ export const customerRouter = router({
           pushChunkedInserts(statements, (rows) => ctx.db.insert(customer).values(rows), values);
           return statements;
         },
+      ).then(
+        () => false,
+        // An identical request landed a moment earlier: its ids are taken, so this batch rolled back.
+        async (error: unknown) => {
+          if (rowIds && (await landed(rowIds)) === "replayed") return true;
+          throw error;
+        },
       );
+      if (racedReplay) return { success: true, count: input.length, replayed: true };
 
-      return { success: true, count: input.length };
+      return { success: true, count: input.length, replayed: false };
     }),
 });

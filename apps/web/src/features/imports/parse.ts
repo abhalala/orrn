@@ -8,18 +8,20 @@
  * nothing is ever 25.4 times off.
  *
  * Every number goes through `parseDecimal`: no exponent (`1e3`), no sign, no
- * junk, no `parseInt` truncation. A bad row is rejected with its sheet row
- * number and a reason (an i18n key under `imports.reason`); it is never coerced
- * to 0 and never dropped silently. Fully blank rows are skipped and counted.
+ * junk, no `parseInt` truncation, and a comma only where it groups thousands
+ * (`1,234.5` or `1,23,456.5`; `45,5` is refused, never read as 455). A bad row
+ * is rejected with its sheet row number and a reason (an i18n key under
+ * `imports.reason`); it is never coerced to 0 and never dropped silently.
+ * Fully blank rows are skipped and counted.
  */
-import { MM_PER_FOOT, MM_PER_INCH, parseDecimal, type LengthUnit } from "@orrn/domain";
+import { formatLength, MM_PER_FOOT, MM_PER_INCH, parseDecimal, type LengthUnit } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import { z } from "zod";
 
 export type ImportKind = "bundles" | "dies" | "customers";
 
-/** Unit read from a column name. */
-export type HeaderUnit = "mm" | "in" | "ft" | "kg" | "g";
+/** Unit read from a column name. `m` (metres) is recognised only so such a column is never used as mm or inches. */
+export type HeaderUnit = "mm" | "in" | "ft" | "kg" | "g" | "m";
 
 export type BundleImportRow = {
   dieSeries: string;
@@ -30,10 +32,16 @@ export type BundleImportRow = {
   poNumber: string | null;
 };
 
+/**
+ * Optional die fields are present only when the sheet has a filled cell for
+ * them. "Update from this sheet" sends just those, so a column the sheet lacks
+ * (or an empty cell) never clears what orrn has, and a sheet without a Status
+ * column never re-activates an archived die. New dies get the server defaults.
+ */
 export type DieImportRow = {
   series: string;
   sectionCode: string;
-  name: string | null;
+  name?: string;
   weightMinG: number;
   weightMaxG: number;
   widthMm?: number;
@@ -41,8 +49,8 @@ export type DieImportRow = {
   obliqueMm?: number;
   legMm?: number;
   dimensions: { heightMm?: number };
-  status: "active" | "archived";
-  notes: string | null;
+  status?: "active" | "archived";
+  notes?: string;
 };
 
 export type CustomerImportRow = {
@@ -71,8 +79,10 @@ export const REJECT_REASONS = [
   "badStatus",
   "rangeOrder",
   "duplicate",
-  // Not produced by the parser: the dies sheet adds it after the server check.
+  "lengthRange",
+  // Not produced by the parser: the dies and bundles sheets add them after the server check.
   "deletedDie",
+  "dieDeleted",
 ] as const;
 export type RejectReason = (typeof REJECT_REASONS)[number];
 export type RejectReasonKey = `imports.reason.${RejectReason}` & MessageKey;
@@ -132,6 +142,13 @@ const UNIT_WORDS: Record<string, HeaderUnit> = {
   gms: "g",
   gram: "g",
   grams: "g",
+  m: "m",
+  mtr: "m",
+  mtrs: "m",
+  metre: "m",
+  metres: "m",
+  meter: "m",
+  meters: "m",
 };
 
 function unitOf(text: string): HeaderUnit | null {
@@ -150,7 +167,8 @@ export function readHeader(raw: string): { name: string; unit: HeaderUnit | null
   let unit: HeaderUnit | null = null;
 
   text = text.replace(/[([]([^)\]]*)[)\]]/g, (_whole, inner: string) => {
-    unit ??= unitOf(inner);
+    // "(in mm)", "(in grams)", "(per kg)": the usual Indian office style names the unit after in/per.
+    unit ??= unitOf(inner.replace(/^\s*(?:in|per)\s+/i, ""));
     return " ";
   });
 
@@ -244,6 +262,13 @@ export const IMPORT_FIELDS: Record<ImportKind, readonly FieldDef[]> = {
 /** Server text limit for every imported string. */
 const MAX_TEXT = 500;
 
+/**
+ * A bundle shorter than 1 ft or longer than 30 ft is not a real bundle: the
+ * column almost certainly carries the wrong unit (a mm sheet with no unit in an
+ * inch company reads 3658 as 304 ft). Q-OWNER (T25), default 1 ft to 30 ft.
+ */
+export const BUNDLE_LENGTH_MM = { min: Math.round(MM_PER_FOOT), max: Math.round(30 * MM_PER_FOOT) } as const;
+
 function matchColumns(kind: ImportKind, headers: readonly string[]) {
   const fields = IMPORT_FIELDS[kind];
   const used = new Map<string, MatchedColumn>();
@@ -271,8 +296,15 @@ class Reject {
   ) {}
 }
 
+/** Thousands grouping: western `1,234,567.5` or Indian `12,34,567.5`. Any other comma is a typo or a decimal comma. */
+const WESTERN_GROUPS = /^\d{1,3}(?:,\d{3})+(?:\.\d*)?$/;
+const INDIAN_GROUPS = /^\d{1,2}(?:,\d{2})*,\d{3}(?:\.\d*)?$/;
+
 function number(text: string): number {
-  const n = parseDecimal(text);
+  const t = text.trim();
+  // `parseDecimal` drops every comma, which would read `45,5` kg as 455 kg: only real grouping passes.
+  if (t.includes(",") && !WESTERN_GROUPS.test(t) && !INDIAN_GROUPS.test(t)) throw new Reject("notNumber");
+  const n = parseDecimal(t);
   if (n === null) throw new Reject("notNumber");
   return n;
 }
@@ -289,6 +321,8 @@ function feetAndInches(text: string, plain: "in" | "ft"): number {
 }
 
 function toMm(text: string, unit: HeaderUnit | null, companyUnit: LengthUnit): number {
+  // Never reached for metres (the column is not used), but never guess either.
+  if (unit === "m") throw new Reject("notNumber");
   const effective = unit ?? (companyUnit === "mm" ? "mm" : "in");
   if (effective === "mm") return number(text);
   const inches = feetAndInches(text, effective === "ft" ? "ft" : "in");
@@ -344,11 +378,14 @@ function readField(def: FieldDef, cell: Cell | undefined, companyUnit: LengthUni
 
 type Values = Record<string, unknown>;
 
-function buildRow(kind: ImportKind, v: Values): ParsedRow {
+function buildRow(kind: ImportKind, v: Values, companyUnit: LengthUnit): ParsedRow {
   const text = (k: string) => (v[k] as string | undefined) ?? null;
   if (kind === "bundles") {
     const lengthMm = Math.round(v.length as number);
     if (lengthMm <= 0) throw new FieldReject("length", new Reject("notPositive"));
+    if (lengthMm < BUNDLE_LENGTH_MM.min || lengthMm > BUNDLE_LENGTH_MM.max) {
+      throw new FieldReject("length", new Reject("lengthRange", { length: formatLength(lengthMm, companyUnit) }));
+    }
     return {
       dieSeries: v.dieSeries as string,
       dieSectionCode: v.dieSectionCode as string,
@@ -367,13 +404,14 @@ function buildRow(kind: ImportKind, v: Values): ParsedRow {
     const row: DieImportRow = {
       series: v.series as string,
       sectionCode: v.sectionCode as string,
-      name: text("name"),
       weightMinG: min,
       weightMaxG: max,
       dimensions: {},
-      status: (v.status as "active" | "archived" | undefined) ?? "active",
-      notes: text("notes"),
     };
+    // Only filled cells: an absent or empty column must not clear the die on update (see DieImportRow).
+    if (typeof v.name === "string") row.name = v.name;
+    if (v.status === "active" || v.status === "archived") row.status = v.status;
+    if (typeof v.notes === "string") row.notes = v.notes;
     const width = geo("width");
     const thickness = geo("thickness");
     const oblique = geo("oblique");
@@ -467,7 +505,7 @@ export function parseImport<K extends ImportKind>(
 
     let parsed: ParsedRow;
     try {
-      parsed = buildRow(kind, values);
+      parsed = buildRow(kind, values, ctx.companyUnit);
     } catch (error) {
       if (!(error instanceof FieldReject)) throw error;
       reject(error.field, error.reject);

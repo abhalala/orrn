@@ -25,6 +25,23 @@ describe("readHeader: the unit comes from the column name", () => {
     expect(readHeader("Weight in kg")).toEqual({ name: "weight", unit: "kg" });
   });
 
+  test("\"(in mm)\" style brackets keep their unit (Indian office headers)", () => {
+    expect(readHeader("Length (in mm)")).toEqual({ name: "length", unit: "mm" });
+    expect(readHeader("Length (in inches)")).toEqual({ name: "length", unit: "in" });
+    expect(readHeader("Length (in ft)")).toEqual({ name: "length", unit: "ft" });
+    expect(readHeader("Weight (in kg)")).toEqual({ name: "weight", unit: "kg" });
+    expect(readHeader("Weight (in grams)")).toEqual({ name: "weight", unit: "g" });
+    expect(readHeader("Weight (per kg)")).toEqual({ name: "weight", unit: "kg" });
+    // A bracket holding only "in" is still inches.
+    expect(readHeader("Length (in)")).toEqual({ name: "length", unit: "in" });
+  });
+
+  test("metres are a unit orrn does not take, so the column is not used", () => {
+    expect(readHeader("Length (m)").unit).toBe("m");
+    expect(readHeader("Length (in mtr)").unit).toBe("m");
+    expect(readHeader("Length metres").unit).toBe("m");
+  });
+
   test("old camelCase sample headers keep working", () => {
     expect(readHeader("lengthMm")).toEqual({ name: "length", unit: "mm" });
     expect(readHeader("weightG")).toEqual({ name: "weight", unit: "g" });
@@ -68,6 +85,84 @@ describe("parseImport bundles: lengths never 25.4x off (Review Focus 4)", () => 
     expect(parseImport("bundles", [row("11 ft 6 in")], inch).ok[0]!.lengthMm).toBe(3505);
     expect(parseImport("bundles", [row(`11' 6"`)], inch).ok[0]!.lengthMm).toBe(3505);
     expect(parseImport("bundles", [row("12 ft")], inch).ok[0]!.lengthMm).toBe(3658);
+  });
+
+  test("Length (in mm) 3658 stays 3658 mm in the inch company; (in grams) and (in inches) follow their header", () => {
+    const row = (header: string, value: string) => {
+      const r = { ...bundle(), [header]: value } as Record<string, string>;
+      if (header.startsWith("Length")) delete r["Length (mm)"];
+      if (header.startsWith("Weight")) delete r["Weight (kg)"];
+      return r;
+    };
+    const inMm = parseImport("bundles", [row("Length (in mm)", "3658")], inch);
+    expect(inMm.rejected).toEqual([]);
+    expect(inMm.ok[0]!.lengthMm).toBe(3658);
+    expect(inMm.columns.find((c) => c.field === "length")).toEqual({ field: "length", header: "Length (in mm)", unit: "mm" });
+    expect(parseImport("bundles", [row("Weight (in grams)", "58400")], inch).ok[0]!.weightG).toBe(58400);
+    expect(parseImport("bundles", [row("Weight (in kg)", "58.4")], inch).ok[0]!.weightG).toBe(58400);
+    expect(parseImport("bundles", [row("Length (in inches)", "144")], mm).ok[0]!.lengthMm).toBe(3658);
+    expect(parseImport("bundles", [row("Length (in ft)", "12")], mm).ok[0]!.lengthMm).toBe(3658);
+  });
+
+  test("a metres length column is not used, so the sheet asks for a length column", () => {
+    const r = { ...bundle(), "Length (m)": "3.658" } as Record<string, string>;
+    delete r["Length (mm)"];
+    const res = parseImport("bundles", [r], inch);
+    expect(res.missingColumns).toEqual(["length"]);
+    expect(res.ignoredColumns).toEqual(["Length (m)"]);
+  });
+
+  test("a bundle under 1 ft or over 30 ft is a problem row: the unit in the column name is probably wrong", () => {
+    const row = (length: string) => ({ "Die series": "1", "Section code": "A", Pieces: "1", "Weight (kg)": "1", Length: length });
+    // A unit-less mm sheet in an inch company reads 3658 inches (304 ft): caught, never saved.
+    const mmInInch = parseImport("bundles", [row("3658")], inch);
+    expect(mmInInch.ok).toEqual([]);
+    expect(mmInInch.rejected).toEqual([
+      { row: 2, reason: "imports.reason.lengthRange", column: "Length", vars: { length: "304 ft 10 in" } },
+    ]);
+    // A unit-less inch sheet in a mm company reads 144 mm: caught too.
+    expect(parseImport("bundles", [row("144")], mm).rejected[0]).toMatchObject({
+      reason: "imports.reason.lengthRange",
+      vars: { length: "144 mm" },
+    });
+    // The bounds themselves are fine.
+    expect(parseImport("bundles", [row("1 ft")], inch).ok).toHaveLength(1);
+    expect(parseImport("bundles", [row("30 ft")], inch).ok).toHaveLength(1);
+    expect(parseImport("bundles", [row("30 ft 1 in")], inch).rejected[0]!.reason).toBe("imports.reason.lengthRange");
+    expect(parseImport("bundles", [row("11 in")], inch).rejected[0]!.reason).toBe("imports.reason.lengthRange");
+  });
+
+  test("a decimal comma or a stray comma is rejected, never read as a thousands comma", () => {
+    const bad = ["45,5", "58,4", "12,5.3", "4,5,5", "1,2,3", ",5", "5,", "0,5", "1,2345", "12,34"];
+    for (const weight of bad) {
+      const res = parseImport("bundles", [bundle({ "Weight (kg)": weight })], mm);
+      expect({ weight, ok: res.ok.length, reason: res.rejected[0]?.reason }).toEqual({
+        weight,
+        ok: 0,
+        reason: "imports.reason.notNumber",
+      });
+    }
+    expect(parseImport("bundles", [bundle({ Pieces: "1,2" })], mm).rejected[0]).toMatchObject({
+      reason: "imports.reason.notNumber",
+      column: "Pieces",
+    });
+    // Feet and inches are checked the same way.
+    const ft = { "Die series": "1", "Section code": "A", Pieces: "1", "Weight (kg)": "1", "Length (ft)": "11,5" };
+    expect(parseImport("bundles", [ft], mm).rejected[0]!.reason).toBe("imports.reason.notNumber");
+  });
+
+  test("western and Indian thousands grouping both read correctly", () => {
+    const weight = (w: string) => parseImport("bundles", [bundle({ "Weight (g)": w, "Weight (kg)": "" })].map((r) => {
+      const c = { ...r } as Record<string, string>;
+      delete c["Weight (kg)"];
+      return c;
+    }), mm).ok[0]?.weightG;
+    expect(weight("1,23,456.5")).toBe(123457);
+    expect(weight("1,234,567")).toBe(1234567);
+    expect(weight("12,34,567")).toBe(1234567);
+    expect(weight("1,00,000")).toBe(100000);
+    expect(weight("100,000")).toBe(100000);
+    expect(weight("1,234.")).toBe(1234);
   });
 
   test("a mm column never reads feet notation as mm", () => {
@@ -205,9 +300,34 @@ describe("parseImport dies", () => {
       // Unit-less in an inch company: 40 in.
       obliqueMm: 1016,
       dimensions: {},
-      status: "active",
-      notes: null,
     });
+  });
+
+  test("a four-column sheet leaves name, notes, status and geometry out, so an update keeps them", () => {
+    const res = parseImport(
+      "dies",
+      [{ Series: "PATTI", "Section code": "14701", "Min weight (kg/12ft)": "2.4", "Max weight (kg/12ft)": "2.6" }],
+      inch,
+    );
+    expect(res.rejected).toEqual([]);
+    expect(res.ok[0]).toEqual({ series: "PATTI", sectionCode: "14701", weightMinG: 2400, weightMaxG: 2600, dimensions: {} });
+  });
+
+  test("empty optional cells are left out too (only filled cells change a die)", () => {
+    const res = parseImport("dies", [die({ Name: "", Notes: "", Status: "", "Oblique (mm)": "" })], mm);
+    expect(res.ok[0]).toEqual({ series: "1000", sectionCode: "A101", weightMinG: 1200, weightMaxG: 1400, dimensions: {} });
+  });
+
+  test("the same section code under two series is two dies, not a repeat", () => {
+    const res = parseImport("dies", [die(), die({ Series: "2000" })], mm);
+    expect(res.rejected).toEqual([]);
+    expect(res.ok).toHaveLength(2);
+  });
+
+  test("min weight equal to max weight is a valid band", () => {
+    const res = parseImport("dies", [die({ "Max weight (kg/12ft)": "1.2" })], mm);
+    expect(res.rejected).toEqual([]);
+    expect(res.ok[0]).toMatchObject({ weightMinG: 1200, weightMaxG: 1200 });
   });
 
   test("old sample headers (weightMinG, dimensionsWidthMm) still work", () => {
@@ -264,6 +384,12 @@ describe("parseImport customers", () => {
     ]);
   });
 
+  test("an email over 500 characters is too long, before the format check", () => {
+    const long = `${"a".repeat(496)}@x.in`;
+    const res = parseImport("customers", [{ Name: "A", Email: long }], mm);
+    expect(res.rejected).toEqual([{ row: 2, reason: "imports.reason.tooLong", column: "Email", vars: { max: 500 } }]);
+  });
+
   test("old sample headers (taxId) still work", () => {
     const res = parseImport("customers", [{ name: "Acme", email: "", phone: "", taxId: "X1", notes: "Net 30" }], mm);
     expect(res.ok[0]).toEqual({ name: "Acme", email: null, phone: null, taxId: "X1", notes: "Net 30" });
@@ -281,5 +407,9 @@ describe("toCsv", () => {
     expect(toCsv(["A"], [["=1+1"], ["@x"], ["+cmd|' /C calc'!A0"], ["+91 98250 11111"], ["-4"]])).toBe(
       "A\r\n'=1+1\r\n'@x\r\n'+cmd|' /C calc'!A0\r\n+91 98250 11111\r\n-4\r\n",
     );
+  });
+
+  test("a cell starting with a tab or a carriage return is neutralised too", () => {
+    expect(toCsv(["A"], [["\t=1+1"], ["\r=1+1"]])).toBe("A\r\n'\t=1+1\r\n\"'\r=1+1\"\r\n");
   });
 });
