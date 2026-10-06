@@ -1,6 +1,8 @@
 /**
  * T23 server touch points for the Customers screens:
  * - `customer.list` search matches name, phone and GSTIN (the list and the guide promise all three).
+ * - `dispatch.listDispatches` rows carry `completedAt`, so a customer's recent dispatches show the
+ *   day a load left (the day the header's "Last dispatch N days ago" counts from).
  * - `analytics.customerKg` gives the kg column of the customers list: completed dispatch kg per
  *   customer over an inclusive company-day range (ruling RP10), gated by analytics.view,
  *   tenant-scoped, aggregated with GROUP BY and binding no id list (AGENTS.md analytics rules).
@@ -8,6 +10,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
 import { bundle, bundleGroup, customer, dispatch, dispatchItem } from "@orrn/db/schema";
+import { eq } from "drizzle-orm";
 import type { DispatchStatus } from "@orrn/db/schema/dispatch";
 
 import { createTestEnv, D1_MAX_PARAMS, type CompanyRole, type TestEnv } from "./harness";
@@ -161,6 +164,24 @@ describe("die.list search", () => {
     await env.seedDie(p.companyId, { series: "PATTI", sectionCode: "14702" });
     expect((await p.owner.die.list({ search: "%" })).items).toEqual([]);
     expect((await p.owner.die.list({ search: "_" })).items).toEqual([]);
+  });
+});
+
+describe("dispatch.listDispatches for a customer", () => {
+  test("rows carry completedAt: the day a load left, not the day it was started", async () => {
+    const p = await plant();
+    const kd = await namedCustomer(p.companyId, { name: "KD Extrusion" });
+    setClock(ist("2026-10-03T12:00:00"));
+    const done = await seedDispatch(p.companyId, kd, p.dieId, ist("2026-09-22T16:00:00"), [kg(10)]);
+    // Started a week before it was completed.
+    await env.db.update(dispatch).set({ createdAt: ist("2026-09-15T09:00:00") }).where(eq(dispatch.id, done));
+    const open = await seedDispatch(p.companyId, kd, p.dieId, ist("2026-10-01T10:00:00"), [kg(5)], "reserved");
+
+    const res = await p.owner.dispatch.listDispatches({ customerId: kd, limit: 10, offset: 0 });
+    const byId = new Map(res.items.map((d) => [d.id, d]));
+    expect(new Date(byId.get(done)!.completedAt!).getTime()).toBe(ist("2026-09-22T16:00:00").getTime());
+    expect(new Date(byId.get(done)!.createdAt).getTime()).toBe(ist("2026-09-15T09:00:00").getTime());
+    expect(byId.get(open)!.completedAt).toBeNull();
   });
 });
 
