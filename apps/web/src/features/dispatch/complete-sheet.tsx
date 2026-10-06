@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { trpcClient } from "@/shared/utils/trpc";
 
+import { dispatchNow } from "./dispatch-now";
 import { dispatchErrorText } from "./errors";
 import { groupItems, type DispatchItem } from "./group-items";
 
@@ -31,9 +32,9 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
   const [error, setError] = useState<string | undefined>();
   // Held by this sheet a moment ago: a retry after a failed complete must not hold twice
   // (the refreshed status may not be back yet).
-  const heldHere = useRef(false);
+  const heldHere = useRef({ held: false });
   useEffect(() => {
-    if (open) heldHere.current = false;
+    if (open) heldHere.current = { held: false };
   }, [open]);
   const groups = groupItems(items);
   const weightG = items.reduce((s, i) => s + i.weightG, 0);
@@ -43,11 +44,10 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
     setBusy(true);
     setError(undefined);
     try {
-      if (dispatch.status === "draft" && !heldHere.current) {
-        await trpcClient.dispatch.reserve.mutate({ id: dispatch.id });
-        heldHere.current = true;
-      }
-      await trpcClient.dispatch.complete.mutate({ id: dispatch.id });
+      await dispatchNow(dispatch.status, heldHere.current, {
+        reserve: () => trpcClient.dispatch.reserve.mutate({ id: dispatch.id }),
+        complete: () => trpcClient.dispatch.complete.mutate({ id: dispatch.id }),
+      });
       onOpenChange(false);
       onDispatched();
     } catch (err) {

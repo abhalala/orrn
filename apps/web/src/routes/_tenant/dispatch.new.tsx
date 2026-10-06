@@ -76,6 +76,8 @@ function NewDispatchForm() {
         onSuccess: (res) => {
           toast.success(t("dispatch.new.created", { code: res.code }));
           void queryClient.invalidateQueries({ queryKey: trpc.dispatch.listDispatches.pathKey() });
+          // Today counts open dispatches.
+          void queryClient.invalidateQueries({ queryKey: trpc.dashboard.pathKey() });
           // Straight into Build.
           void navigate({ to: "/dispatch/$id", params: { id: res.id }, replace: true });
         },

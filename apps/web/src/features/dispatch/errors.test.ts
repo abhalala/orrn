@@ -1,7 +1,7 @@
 import { createI18n } from "@orrn/i18n";
 import { describe, expect, test } from "bun:test";
 
-import { dispatchErrorText, failedFirstLoad } from "./errors";
+import { actionErrorText, dispatchErrorText, failedFirstLoad, isConflict } from "./errors";
 
 const { t } = createI18n("en");
 const err = (code: string, message = "") => ({ message, data: { code } });
@@ -9,7 +9,7 @@ const err = (code: string, message = "") => ({ message, data: { code } });
 describe("dispatchErrorText", () => {
   test("says what happened and what to do, never the server's English", () => {
     expect(dispatchErrorText(t, err("CONFLICT", "Cannot reserve: 2 bundle(s)"))).toBe(
-      "Some bundles changed since this page loaded. Check the list and try again.",
+      "Some bundles changed since this page loaded. The ones that can't go are marked in the list.",
     );
     expect(dispatchErrorText(t, err("BAD_REQUEST", "Cannot reserve an empty dispatch"))).toBe("Add at least one bundle first.");
     expect(dispatchErrorText(t, err("BAD_REQUEST", "Cannot complete an empty dispatch"))).toBe("Add at least one bundle first.");
@@ -20,6 +20,26 @@ describe("dispatchErrorText", () => {
     expect(dispatchErrorText(t, err("NOT_FOUND"))).toBe("Not found in this company");
     expect(dispatchErrorText(t, new TypeError("Failed to fetch"))).toBe("No internet connection. Check it and try again.");
     expect(dispatchErrorText(t, err("INTERNAL_SERVER_ERROR"))).toBe("Something went wrong. Try again.");
+  });
+});
+
+describe("actionErrorText", () => {
+  test("words the shared codes for any write (a new customer), never the server's text", () => {
+    const zod = err("BAD_REQUEST", '[{"code":"too_big","maximum":500,"path":["name"]}]');
+    expect(actionErrorText(t, zod)).toBe("Something went wrong. Try again.");
+    expect(actionErrorText(t, err("CONFLICT", "Customer already exists"))).toBe("Someone else changed this. Reload to see the latest.");
+    expect(actionErrorText(t, err("FORBIDDEN", "Missing customer.create"))).toBe("Your role can't do this. Ask an admin if you need it.");
+    expect(actionErrorText(t, err("UNAUTHORIZED"))).toBe("Your session ended. Sign in again.");
+    expect(actionErrorText(t, new TypeError("Failed to fetch"))).toBe("No internet connection. Check it and try again.");
+  });
+});
+
+describe("isConflict", () => {
+  test("only a CONFLICT from the server", () => {
+    expect(isConflict(err("CONFLICT", "Packing list already exists for this dispatch"))).toBe(true);
+    expect(isConflict(err("BAD_REQUEST"))).toBe(false);
+    expect(isConflict(new TypeError("Failed to fetch"))).toBe(false);
+    expect(isConflict(null)).toBe(false);
   });
 });
 

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 843 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 845 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -476,7 +476,7 @@ Counts: 843 screen strings in 26 groups, 10 guides with 182 strings.
 | `ambiguousTitle` | Which bundle? | कौन सा bundle? |
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 
-### dispatch (126)
+### dispatch (129)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -566,8 +566,11 @@ Counts: 843 screen strings in 26 groups, 10 guides with 182 strings.
 | `build.searchStart` | Type part of a serial or PO number. | Serial या PO नंबर का कुछ हिस्सा टाइप करें। |
 | `build.searchEmpty` | No bundle in stock matches "{query}". | "{query}" से स्टॉक में कोई bundle नहीं मिला। |
 | `build.add` | Add | जोड़ें |
-| `build.addSerial` | Add {serial} | {serial} जोड़ें |
 | `build.inDispatch` | Added | जुड़ गया |
+| `build.notHeld` | Not held | होल्ड नहीं |
+| `build.labelNotBack` | {serial} is back without its label {label}. Set the label again. | {serial} वापस आ गया, पर लेबल {label} के बिना। लेबल फिर से लगाएं। |
+| `build.blockedBuild` | {count} {count:bundle\|bundles} can't be held. Remove {count:it\|them} to go on. | {count} bundle होल्ड नहीं हो {count:सकता\|सकते}। आगे बढ़ने के लिए {count:इसे\|इन्हें} हटाएं। |
+| `build.blockedHeld` | {count} {count:bundle\|bundles} can't go out. Release the stock, remove {count:it\|them}, then hold again. | {count} bundle नहीं जा {count:सकता\|सकते}। होल्ड हटाएं, {count:इसे\|इन्हें} हटाएं, फिर से होल्ड करें। |
 | `paste.title` | Paste serials | Serial पेस्ट करें |
 | `paste.label` | Serials | Serial |
 | `paste.hint` | One per line, or separated by commas or spaces. | हर लाइन में एक, या कॉमा या स्पेस से अलग करके। |
@@ -604,10 +607,10 @@ Counts: 843 screen strings in 26 groups, 10 guides with 182 strings.
 | `releaseTitle` | Release the held stock? | होल्ड हटाएं? |
 | `releaseBody` | The bundles go back to stock and this dispatch goes back to Building. | Bundle वापस स्टॉक में जाएंगे और यह dispatch फिर से बनने लगेगा। |
 | `errors.empty` | Add at least one bundle first. | पहले कम से कम एक bundle जोड़ें। |
-| `errors.conflict` | Some bundles changed since this page loaded. Check the list and try again. | पेज खुलने के बाद कुछ bundle बदल गए। लिस्ट देखें और फिर से कोशिश करें। |
+| `errors.conflict` | Some bundles changed since this page loaded. The ones that can't go are marked in the list. | पेज खुलने के बाद कुछ bundle बदल गए। जो नहीं जा सकते, उन पर लिस्ट में निशान है। |
 | `errors.moved` | This dispatch has moved on. Reload to see where it is now. | यह dispatch आगे बढ़ चुका है। ताज़ा स्थिति के लिए पेज रीलोड करें। |
 
-### packingList (36)
+### packingList (35)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -638,7 +641,6 @@ Counts: 843 screen strings in 26 groups, 10 guides with 182 strings.
 | `dispatch` | Dispatch | Dispatch |
 | `gstin` | GSTIN | GSTIN |
 | `notSet` | Not set | तय नहीं |
-| `notes` | Notes | नोट |
 | `rowsLabel` | Packing list rows | पैकिंग लिस्ट की लाइनें |
 | `groupNamed` | Group {label} | ग्रुप {label} |
 | `groupTotalOf` | Total {label} | {label} का कुल |

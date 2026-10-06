@@ -1,4 +1,4 @@
-import { formatKgTotal, type LengthUnit } from "@orrn/domain";
+import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -9,8 +9,7 @@ import { useRef, type ReactNode } from "react";
 
 import { Can } from "@/shared/components/can";
 
-import { BundleGroups } from "./bundle-groups";
-import type { DispatchItem, ItemGroup } from "./group-items";
+import { BundleGroups, type BundleGroupsProps } from "./bundle-groups";
 
 export type AddActionsProps = {
   onScan(): void;
@@ -49,16 +48,7 @@ export function AddActions({ onScan, onPaste, onSearch, emphasis }: AddActionsPr
   );
 }
 
-export type ItemsSectionProps = {
-  items: DispatchItem[];
-  unit: LengthUnit;
-  fresh: ReadonlySet<string>;
-  canRemove: boolean;
-  canLabel: boolean;
-  removing?: string | null;
-  onRemove?(item: DispatchItem): void;
-  onEditLabel?(group: ItemGroup): void;
-};
+export type ItemsSectionProps = BundleGroupsProps;
 
 /**
  * "Bundles in this dispatch": the grouped list, or an empty state that points
@@ -68,7 +58,7 @@ export function ItemsSection(props: ItemsSectionProps) {
   const { t } = useT();
   return (
     <section aria-labelledby="dispatch-items" className="flex min-w-0 flex-col gap-3">
-      <h2 id="dispatch-items" className="m-0 text-[17px] font-semibold tracking-[-0.01em]">
+      <h2 id="dispatch-items" tabIndex={-1} className="m-0 text-[17px] font-semibold tracking-[-0.01em] focus:outline-none">
         {t("dispatch.build.bundlesIn")}
       </h2>
       {props.items.length === 0 ? (

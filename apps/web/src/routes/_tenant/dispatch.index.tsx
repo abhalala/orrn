@@ -11,7 +11,7 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus, Search } from "lucide-react";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import { formatShipDate } from "@/features/dispatch/format";
 import { Can } from "@/shared/components/can";
@@ -53,15 +53,23 @@ function DispatchListPage() {
   const status = search.status ?? "draft";
   const offset = ((search.page ?? 1) - 1) * PAGE;
   const [text, setText] = useState(search.q ?? "");
+  // The last search this box put in the URL: any other change of `q` came from Back,
+  // Forward or a link, and the box follows it instead of writing its old text back.
+  const sent = useRef(search.q);
+  useEffect(() => {
+    if (search.q === sent.current) return;
+    sent.current = search.q;
+    setText(search.q ?? "");
+  }, [search.q]);
 
   // Typing settles for 250 ms before it reaches the URL (and the server).
   useEffect(() => {
     const next = text.trim() || undefined;
     if (next === search.q) return;
-    const timer = setTimeout(
-      () => void navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }), replace: true }),
-      250,
-    );
+    const timer = setTimeout(() => {
+      sent.current = next;
+      void navigate({ search: (prev) => ({ ...prev, q: next, page: undefined }), replace: true });
+    }, 250);
     return () => clearTimeout(timer);
   }, [text, search.q, navigate]);
 

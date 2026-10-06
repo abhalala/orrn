@@ -65,19 +65,24 @@ export function SearchAddSheet({ open, onOpenChange, dispatchId, inDispatch, onA
     }
   };
 
+  // However it closes (Done, Escape, outside): the next open starts with an empty search,
+  // no old results and no old "Added" line.
+  const changeOpen = (next: boolean) => {
+    onOpenChange(next);
+    if (!next) {
+      setText("");
+      setQuery("");
+      setMessage("");
+    }
+  };
+
   const items = results.data?.items ?? [];
   return (
     <Sheet
       open={open}
-      onOpenChange={(next) => {
-        onOpenChange(next);
-        if (!next) {
-          setText("");
-          setMessage("");
-        }
-      }}
+      onOpenChange={changeOpen}
       title={t("dispatch.build.searchTitle")}
-      footer={<Button onClick={() => onOpenChange(false)}>{t("common.done")}</Button>}
+      footer={<Button onClick={() => changeOpen(false)}>{t("common.done")}</Button>}
     >
       <div className="flex flex-col gap-4 pt-1">
         <Field label={t("dispatch.build.searchLabel")} hint={t("dispatch.build.searchHint")}>

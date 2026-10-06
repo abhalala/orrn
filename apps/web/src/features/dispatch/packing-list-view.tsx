@@ -14,14 +14,14 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileDown, FileSpreadsheet, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
 import { downloadPackingListPdf, downloadPackingListXlsx } from "@/shared/lib/exports";
 import { trpc } from "@/shared/utils/trpc";
 
-import { dispatchErrorText, failedFirstLoad } from "./errors";
+import { dispatchErrorText, failedFirstLoad, isConflict } from "./errors";
 import { formatShipDate } from "./format";
 import { useCompanyTimeZone } from "./hooks";
 
@@ -35,8 +35,17 @@ const bundleWord = (t: ReturnType<typeof useT>["t"], n: number) => t("units.bund
  * once (W17). PDF and Excel are made on click (W3); Regenerate rebuilds it
  * from the bundles as they are now.
  */
-export function PackingListView({ dispatchId }: { dispatchId: string }) {
+export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId: string; focusTitle?: boolean }) {
   const { t } = useT();
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  // Just dispatched: the confirm sheet and the Dispatch button are gone, so focus lands on the
+  // packing list (the next job) and the page returns to the top, where the hero says Dispatched.
+  useEffect(() => {
+    if (!focusTitle) return;
+    titleRef.current?.focus({ preventScroll: true });
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
+  }, [focusTitle]);
   const queryClient = useQueryClient();
   const timeZone = useCompanyTimeZone();
   const pl = useQuery(trpc.packingList.byDispatch.queryOptions({ dispatchId }));
@@ -112,7 +121,11 @@ export function PackingListView({ dispatchId }: { dispatchId: string }) {
                         toast.success(t("packingList.made"));
                         void refresh();
                       },
-                      onError: (err) => toast.error(dispatchErrorText(t, err)),
+                      onError: (err) => {
+                        // CONFLICT: someone made it a moment ago. Show that one, no error.
+                        if (isConflict(err)) void refresh();
+                        else toast.error(dispatchErrorText(t, err));
+                      },
                     },
                   )
                 }
@@ -137,7 +150,7 @@ export function PackingListView({ dispatchId }: { dispatchId: string }) {
   return (
     <section aria-labelledby="packing-list-title" data-slot="packing-list" className="flex min-w-0 flex-col gap-4">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <h2 id="packing-list-title" className="m-0 font-display text-[22px] font-bold tracking-[-0.025em]">
+        <h2 id="packing-list-title" ref={titleRef} tabIndex={-1} className="m-0 font-display text-[22px] font-bold tracking-[-0.025em] focus:outline-none">
           {t("packingList.title")}
         </h2>
         {model ? (
@@ -205,16 +218,16 @@ function PackingListBody({ model, code }: { model: PackingListModel; code: strin
   return (
     <>
       <div className="flex min-w-0 flex-col gap-5 rounded-card border border-border bg-card p-4 sm:p-6">
-        <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="flex min-w-0 flex-col gap-0.5">
             <p className="m-0 font-display text-[20px] leading-tight font-bold tracking-[-0.02em] break-words">{header.companyName}</p>
             <p className="m-0 text-[14px] text-muted-foreground">{t("packingList.title")}</p>
           </div>
-          <dl className="m-0 grid min-w-0 grid-cols-2 gap-x-6 gap-y-2 md:grid-cols-4">
+          <dl className="m-0 grid min-w-0 grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
             {facts.map((f) => (
               <div key={f.label} className="flex min-w-0 flex-col">
                 <dt className="text-[13px] text-muted-foreground">{f.label}</dt>
-                <dd className={f.mono ? "m-0 font-mono text-[15px] font-semibold [overflow-wrap:anywhere]" : "m-0 text-[15px] font-semibold"}>
+                <dd className={f.mono ? "m-0 font-mono text-[15px] font-semibold break-words" : "m-0 text-[15px] font-semibold"}>
                   {f.value}
                 </dd>
               </div>

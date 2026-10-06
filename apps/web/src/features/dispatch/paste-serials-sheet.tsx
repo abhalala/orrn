@@ -1,12 +1,12 @@
 import { splitPastedSerials } from "@orrn/domain";
-import { useT } from "@orrn/i18n";
+import { useT, type Translate } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { Field } from "@orrn/ui/components/field";
 import { TextArea } from "@orrn/ui/components/input";
 import { Sheet } from "@orrn/ui/components/sheet";
 import type { StatusTone } from "@orrn/domain";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { blockMessage, renderScanMessage, scanErrorKey, type AddBundlesReport } from "@/features/scan/scan-outcome";
 import { trpcClient } from "@/shared/utils/trpc";
@@ -60,6 +60,27 @@ export function PasteSerialsSheet({ open, onOpenChange, dispatchId, onAdded }: P
   };
 
   const sending = phase.kind === "sending";
+  const close = () => {
+    onOpenChange(false);
+    reset();
+  };
+  // The report replaces the form (and the focused Add bundles button): focus its heading so a
+  // keyboard or screen reader user lands on what happened.
+  const reportHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (phase.kind === "report") reportHeading.current?.focus();
+  }, [phase.kind]);
+  // One live region stays mounted through edit, sending and report: a region inserted together
+  // with its text is often not announced (WCAG 4.1.3).
+  const announcement =
+    phase.kind === "sending"
+      ? t("dispatch.paste.adding", { done: phase.done, total: phase.total })
+      : phase.kind === "report"
+        ? reportSummary(t, phase.result)
+        : serials.length > 0
+          ? t("dispatch.paste.found", { count: serials.length })
+          : "";
+
   return (
     <Sheet
       open={open}
@@ -75,18 +96,11 @@ export function PasteSerialsSheet({ open, onOpenChange, dispatchId, onAdded }: P
             <Button variant="secondary" onClick={reset}>
               {t("dispatch.paste.pasteMore")}
             </Button>
-            <Button
-              onClick={() => {
-                onOpenChange(false);
-                reset();
-              }}
-            >
-              {t("common.done")}
-            </Button>
+            <Button onClick={close}>{t("common.done")}</Button>
           </>
         ) : (
           <>
-            <Button variant="secondary" disabled={sending} onClick={() => onOpenChange(false)}>
+            <Button variant="secondary" disabled={sending} onClick={close}>
               {t("common.cancel")}
             </Button>
             <Button type="submit" form="paste-serials-form" loading={sending} disabled={serials.length === 0}>
@@ -96,8 +110,11 @@ export function PasteSerialsSheet({ open, onOpenChange, dispatchId, onAdded }: P
         )
       }
     >
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
       {phase.kind === "report" ? (
-        <PasteReport result={phase.result} total={phase.total} />
+        <PasteReport result={phase.result} total={phase.total} headingRef={reportHeading} />
       ) : (
         <form id="paste-serials-form" onSubmit={(e) => void submit(e)} className="flex flex-col gap-3 pt-1" noValidate>
           <Field id="paste-serials" label={t("dispatch.paste.label")} hint={t("dispatch.paste.hint")} error={error}>
@@ -119,7 +136,7 @@ export function PasteSerialsSheet({ open, onOpenChange, dispatchId, onAdded }: P
               aria-invalid={error ? true : undefined}
             />
           </Field>
-          <p role="status" aria-live="polite" className="m-0 min-h-6 text-[14px] font-medium text-muted-foreground tabular-nums">
+          <p aria-hidden="true" className="m-0 min-h-6 text-[14px] font-medium text-muted-foreground tabular-nums">
             {phase.kind === "sending"
               ? t("dispatch.paste.adding", { done: phase.done, total: phase.total })
               : serials.length > 0
@@ -135,10 +152,10 @@ export function PasteSerialsSheet({ open, onOpenChange, dispatchId, onAdded }: P
 type LineKind = "added" | "already" | "notFound" | "unavailable";
 const TONE: Record<LineKind, StatusTone> = { added: "green", already: "neutral", notFound: "amber", unavailable: "red" };
 
-function PasteReport({ result, total }: { result: ChunkedAddResult; total: number }) {
-  const { t } = useT();
-  const { report } = result;
-  const lines: { kind: LineKind; count: number; text: string; serials: { serial: string; why?: string }[] }[] = [
+type ReportLine = { kind: LineKind; count: number; text: string; serials: { serial: string; why?: string }[] };
+
+function reportLines(t: Translate, report: AddBundlesReport): ReportLine[] {
+  return [
     { kind: "added" as const, count: report.added.length, text: t("dispatch.paste.added", { count: report.added.length }), serials: report.added.map((serial) => ({ serial })) },
     {
       kind: "already" as const,
@@ -154,12 +171,34 @@ function PasteReport({ result, total }: { result: ChunkedAddResult; total: numbe
       serials: report.unavailable.map((u) => ({ serial: u.serial, why: renderScanMessage(t, blockMessage(u)) })),
     },
   ].filter((l) => l.count > 0);
+}
+
+/** The report in one sentence, for the sheet's live region. */
+function reportSummary(t: Translate, result: ChunkedAddResult): string {
+  const lines = reportLines(t, result.report).map((l) => l.text);
+  if (result.error) lines.push(t(scanErrorKey(result.error, "dispatch")));
+  return lines.join(". ");
+}
+
+function PasteReport({
+  result,
+  total,
+  headingRef,
+}: {
+  result: ChunkedAddResult;
+  total: number;
+  headingRef: React.Ref<HTMLHeadingElement>;
+}) {
+  const { t } = useT();
+  const lines = reportLines(t, result.report);
   const done = total - result.unsent.length;
 
   return (
     <div className="flex flex-col gap-4 pt-1">
-      <div role="status" aria-live="polite" className="flex flex-col gap-1">
-        <h3 className="m-0 text-[15px] font-semibold">{t("dispatch.paste.reportTitle")}</h3>
+      <div className="flex flex-col gap-1">
+        <h3 ref={headingRef} tabIndex={-1} className="m-0 text-[15px] font-semibold focus:outline-none">
+          {t("dispatch.paste.reportTitle")}
+        </h3>
         <p className="m-0 text-[15px] leading-6">{lines.map((l) => l.text).join(". ")}</p>
         {result.error ? (
           <p className="m-0 text-[14px] font-medium text-destructive">

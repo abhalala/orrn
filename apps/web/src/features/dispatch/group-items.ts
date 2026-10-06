@@ -16,6 +16,8 @@ export type DispatchItem = {
   dieSeries: string;
   dieSectionCode: string;
   dieName?: string | null;
+  /** Another dispatch holding this bundle (both listed it; that one held it first). */
+  heldBy?: string | null;
 };
 
 export type ItemGroup<T extends DispatchItem = DispatchItem> = {

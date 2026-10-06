@@ -15,14 +15,16 @@ import { Sheet } from "@orrn/ui/components/sheet";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { MoreHorizontal, Pencil, Trash2, XCircle } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
-import { CustomerPicker, type PickedCustomer } from "./customer-picker";
+import { CustomerPicker } from "./customer-picker";
+import { changedDetails, type DetailsFields as Fields } from "./edit-details";
 import { dispatchErrorText } from "./errors";
-import { isoDayInput, parseDayInput } from "./format";
+import { isoDayInput } from "./format";
 import { useCan } from "./hooks";
 
 type Props = {
@@ -43,7 +45,8 @@ type Pending = "cancel" | "delete" | "edit" | null;
 /**
  * The dispatch's overflow ("More actions"): Edit details (Building), Cancel
  * dispatch and Delete dispatch, each offered only in states the server allows
- * (`dispatchActions`) and to roles that hold the action. Cancel and Delete
+ * (`dispatchActions`) and to roles that hold the action (each item sits in
+ * `<Can>`; `useCan` only decides whether the menu exists). Cancel and Delete
  * ask first. Renders nothing when there is nothing to offer.
  */
 export function DispatchMenu({ dispatch, customerName, onChanged }: Props) {
@@ -69,24 +72,30 @@ export function DispatchMenu({ dispatch, customerName, onChanged }: Props) {
           <IconButton variant="secondary" label={t("common.moreActions")} icon={<MoreHorizontal strokeWidth={2} />} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {offerEdit ? (
-            <DropdownMenuItem onSelect={() => setPending("edit")}>
-              <Pencil aria-hidden="true" strokeWidth={2} />
-              {t("dispatch.detail.editDetails")}
-            </DropdownMenuItem>
+          {actions.canEdit ? (
+            <Can do="dispatch.update">
+              <DropdownMenuItem onSelect={() => setPending("edit")}>
+                <Pencil aria-hidden="true" strokeWidth={2} />
+                {t("dispatch.detail.editDetails")}
+              </DropdownMenuItem>
+            </Can>
           ) : null}
           {offerEdit && (offerCancel || offerDelete) ? <DropdownMenuSeparator /> : null}
-          {offerCancel ? (
-            <DropdownMenuItem variant="destructive" onSelect={() => setPending("cancel")}>
-              <XCircle aria-hidden="true" strokeWidth={2} />
-              {t("dispatch.cancel")}
-            </DropdownMenuItem>
+          {actions.canCancel ? (
+            <Can do="dispatch.cancel">
+              <DropdownMenuItem variant="destructive" onSelect={() => setPending("cancel")}>
+                <XCircle aria-hidden="true" strokeWidth={2} />
+                {t("dispatch.cancel")}
+              </DropdownMenuItem>
+            </Can>
           ) : null}
-          {offerDelete ? (
-            <DropdownMenuItem variant="destructive" onSelect={() => setPending("delete")}>
-              <Trash2 aria-hidden="true" strokeWidth={2} />
-              {t("dispatch.delete")}
-            </DropdownMenuItem>
+          {actions.canDelete ? (
+            <Can do="dispatch.delete">
+              <DropdownMenuItem variant="destructive" onSelect={() => setPending("delete")}>
+                <Trash2 aria-hidden="true" strokeWidth={2} />
+                {t("dispatch.delete")}
+              </DropdownMenuItem>
+            </Can>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -158,20 +167,23 @@ export function DispatchMenu({ dispatch, customerName, onChanged }: Props) {
         }
       />
 
-      {offerEdit ? (
-        <EditDetailsSheet
-          open={pending === "edit"}
-          onOpenChange={(open) => setPending(open ? "edit" : null)}
-          dispatch={dispatch}
-          customerName={customerName}
-          onSaved={onChanged}
-        />
+      {actions.canEdit ? (
+        <Can do="dispatch.update">
+          <EditDetailsSheet
+            open={pending === "edit"}
+            onOpenChange={(open) => setPending(open ? "edit" : null)}
+            dispatch={dispatch}
+            customerName={customerName}
+            onSaved={onChanged}
+          />
+        </Can>
       ) : null}
     </>
   );
 }
 
 const NOTES_MAX = 500;
+
 
 function EditDetailsSheet({
   open,
@@ -187,16 +199,38 @@ function EditDetailsSheet({
   onSaved(): void;
 }) {
   const { t } = useT();
-  const [customer, setCustomer] = useState<PickedCustomer>({ id: dispatch.customerId, name: customerName });
-  const [shipDate, setShipDate] = useState(dispatch.shipDate ? isoDayInput(dispatch.shipDate) : "");
-  const [notes, setNotes] = useState(dispatch.notes ?? "");
+  const fromDispatch = (): Fields => ({
+    customer: { id: dispatch.customerId, name: customerName },
+    shipDate: dispatch.shipDate ? isoDayInput(dispatch.shipDate) : "",
+    notes: dispatch.notes ?? "",
+  });
+  const [fields, setFields] = useState<Fields>(fromDispatch);
   const [error, setError] = useState<string | undefined>();
   const update = useMutation(trpc.dispatch.update.mutationOptions());
+  // What the sheet showed when it opened: Save sends only what the person changed, so it
+  // never puts back a value someone else changed meanwhile.
+  const opened = useRef<Fields>(fields);
+
+  // Every open starts from the dispatch as it is now (Cancel discards edits and old errors).
+  useEffect(() => {
+    if (!open) return;
+    const now = fromDispatch();
+    opened.current = now;
+    setFields(now);
+    setError(undefined);
+    // Only on opening: a refetch while the sheet is open must not wipe what is being typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    const changes = changedDetails(opened.current, fields);
+    if (Object.keys(changes).length === 0) {
+      onOpenChange(false);
+      return;
+    }
     update.mutate(
-      { id: dispatch.id, customerId: customer.id, shipDate: parseDayInput(shipDate), notes: notes.trim() || null },
+      { id: dispatch.id, ...changes },
       {
         onSuccess: () => {
           toast.success(t("dispatch.detail.detailsSaved"));
@@ -225,12 +259,18 @@ function EditDetailsSheet({
       }
     >
       <form id="edit-dispatch-form" onSubmit={submit} className="flex flex-col gap-5 pt-1" noValidate>
-        <CustomerPicker value={customer} onChange={setCustomer} allowNew={false} />
+        <CustomerPicker value={fields.customer} onChange={(customer) => setFields((f) => ({ ...f, customer }))} allowNew={false} />
         <Field label={`${t("dispatch.new.shipDate")} (${t("common.optional").toLowerCase()})`} hint={t("dispatch.new.shipDateHint")}>
-          <TextInput type="date" value={shipDate} onChangeText={setShipDate} />
+          <TextInput type="date" value={fields.shipDate} onChangeText={(shipDate) => setFields((f) => ({ ...f, shipDate }))} />
         </Field>
         <Field id="edit-dispatch-notes" label={`${t("dispatch.new.notes")} (${t("common.optional").toLowerCase()})`}>
-          <TextArea id="edit-dispatch-notes" value={notes} onChangeText={setNotes} rows={3} maxLength={NOTES_MAX} />
+          <TextArea
+            id="edit-dispatch-notes"
+            value={fields.notes}
+            onChangeText={(notes) => setFields((f) => ({ ...f, notes }))}
+            rows={3}
+            maxLength={NOTES_MAX}
+          />
         </Field>
         {error ? (
           <p role="alert" className="m-0 text-[14px] font-medium text-destructive">
