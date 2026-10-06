@@ -85,6 +85,20 @@ describe("draftToDieInput (N6: untouched fields keep the stored value exactly)",
     expect(input.dimensions).toEqual({ widthMm: 25, thicknessMm: 10, heightMm: 4 });
   });
 
+  test("a stored value off the 0.1 mm grid goes back exactly when untouched", () => {
+    // A legacy 1.27 mm (0.05 in) thickness shows as "0.05" in an inch plant and as "1.3" in a mm
+    // plant; parsing either back would store 1.3 mm. Untouched must send 1.27.
+    const legacy: StoredDie = { ...DIE, thicknessMm: null, dimensions: { thicknessMm: 1.27, widthMm: 25 } };
+    for (const unit of ["inch", "mm"] as const) {
+      const input = draftToDieInput(dieToDraft(legacy, unit), unit, legacy);
+      expect(input.thicknessMm).toBe(1.27);
+      expect(input.dimensions).toEqual({ thicknessMm: 1.27, widthMm: 25 });
+    }
+    // A stored weight in grams that kg text would round (2455.4 is not whole grams) is not rewritten either.
+    const grams: StoredDie = { ...DIE, weightMinG: 2400.4 };
+    expect(draftToDieInput(dieToDraft(grams, "mm"), "mm", grams).weightMinG).toBe(2400.4);
+  });
+
   test("a changed field is converted from the company unit; other fields stay as stored", () => {
     const draft = { ...dieToDraft(DIE, "inch"), thickness: "0.125" };
     const input = draftToDieInput(draft, "inch", DIE);
@@ -154,6 +168,18 @@ describe("validateDieDraft", () => {
     expect(validateDieDraft({ ...ok, weightMin: "0" }, "mm")).toEqual({ weightMin: "errors.notPositive" });
     expect(validateDieDraft({ ...ok, weightMin: "3", weightMax: "2.9" }, "mm")).toEqual({ weightMax: "dies.form.rangeOrder" });
     expect(validateDieDraft({ ...ok, weightMin: "2.9", weightMax: "2.9" }, "mm")).toEqual({});
+  });
+
+  test("a comma is digit grouping only, never a decimal point (2,65 is not 265)", () => {
+    expect(validateDieDraft({ ...ok, weightMin: "2,65" }, "mm")).toEqual({ weightMin: "errors.invalidNumber" });
+    expect(validateDieDraft({ ...ok, weightMax: "2,9" }, "mm")).toEqual({ weightMax: "errors.invalidNumber" });
+    expect(validateDieDraft({ ...ok, thickness: "0,125" }, "inch")).toEqual({ thickness: "errors.invalidNumber" });
+    expect(validateDieDraft({ ...ok, width: "1,2,3" }, "mm")).toEqual({ width: "errors.invalidNumber" });
+    // Real grouping still reads: 1,250.5 mm and the Indian 1,25,000.
+    expect(validateDieDraft({ ...ok, width: "1,250.5" }, "mm")).toEqual({});
+    expect(parseGeometry("1,250.5", "mm")).toBe(1250.5);
+    expect(parseGeometry("1,25,000", "mm")).toBe(125000);
+    expect(parseGeometry("0,125", "inch")).toBe("invalid");
   });
 
   test("measurements are optional but must be numbers", () => {

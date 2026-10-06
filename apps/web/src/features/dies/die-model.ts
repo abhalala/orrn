@@ -101,12 +101,26 @@ export function geometryText(mm: number | null | undefined, unit: LengthUnit): s
   return unit === "mm" ? trimNumber(mm, 1) : trimNumber(mm / MM_PER_INCH, 3);
 }
 
+/** Commas only as digit grouping: 1,250.5 and the Indian 1,25,000, never a leading 0 group. */
+const DIGIT_GROUPING = /^(?:[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d?(?:,\d{2})*,\d{3})(?:\.\d*)?$/;
+
+/**
+ * A typed number, or null. `parseDecimal` drops every comma, so "2,65" (a decimal comma) would read
+ * as 265; a comma is accepted only as digit grouping here.
+ */
+export function readDecimal(text: string): number | null {
+  const s = text.trim();
+  if (s.includes(",") && !DIGIT_GROUPING.test(s)) return null;
+  return parseDecimal(s);
+}
+
 /** Text in the company unit to mm at 0.1 mm; null when empty, "invalid" when not a number. */
 export function parseGeometry(text: string, unit: LengthUnit): number | null | "invalid" {
   if (text.trim() === "") return null;
-  const n = parseDecimal(text);
+  const n = readDecimal(text);
   if (n === null) return "invalid";
-  // Inches x 254 is tenths of a mm, exact for the fractions the floor uses (1/8 in = 31.75).
+  // Inches x 254 is tenths of a mm, rounded to the 0.1 mm the server keeps (R16): 1/8 in is
+  // 31.75 tenths, so it is stored as 3.2 mm and reads back as 0.126 in.
   return unit === "mm" ? Math.round(n * 10) / 10 : Math.round(n * TENTHS_MM_PER_INCH) / 10;
 }
 
@@ -138,7 +152,7 @@ export function dieToDraft(die: StoredDie, unit: LengthUnit): DieDraft {
 }
 
 function kgToGrams(text: string): number {
-  return kgToG(parseDecimal(text) ?? 0);
+  return kgToG(readDecimal(text) ?? 0);
 }
 
 /**
@@ -198,7 +212,7 @@ export function validateDieDraft(draft: DieDraft, unit: LengthUnit): DieDraftErr
       errors[field] = "errors.required";
       return null;
     }
-    const n = parseDecimal(text);
+    const n = readDecimal(text);
     if (n === null) {
       errors[field] = "errors.invalidNumber";
       return null;
