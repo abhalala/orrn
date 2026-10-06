@@ -44,17 +44,18 @@ export function isRequestTimeout(error: unknown): boolean {
 }
 
 /**
- * What a failed save means to the person. "unsure": orrn never gave its own
- * answer (a timeout, a dropped connection, a reply that is not orrn's), so the
- * save may have landed; the screen says "Not sure it saved" and re-reads (or
- * resends the same client request id) before it offers to try again.
- * "failed": orrn answered with an error, so nothing was saved and trying again
- * is safe.
+ * What a failed save means to the person. "unsure": orrn never confirmed the
+ * save (a timeout, a dropped connection, a reply that is not orrn's, or orrn's
+ * own 5xx: the handler threw, and a D1 error can come back after the batch
+ * committed), so it may have landed; the screen says "Not sure it saved" and
+ * re-reads (or resends the same client request id) before it offers to try
+ * again. "failed": orrn refused with a 4xx before writing anything, so trying
+ * again is safe.
  */
 export function writeFailureKind(error: unknown): "unsure" | "failed" {
   if (isRequestTimeout(error)) return "unsure";
   const status = (error as { data?: { httpStatus?: unknown } | null } | null | undefined)?.data?.httpStatus;
-  return typeof status === "number" ? "failed" : "unsure";
+  return typeof status === "number" && status < 500 ? "failed" : "unsure";
 }
 
 export type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;

@@ -1006,7 +1006,7 @@ export const en = {
     serverTitle: "orrn ran into a problem",
     serverBody: "The problem is on orrn's side, not this phone. Try again in a minute.",
     saveUnsureTitle: "Not sure it saved",
-    saveUnsureBody: "orrn didn't answer in time, so this may have saved. Check before you try again.",
+    saveUnsureBody: "orrn didn't confirm this save, so it may have gone through. Check before you try again.",
   },
 
   /** Component library chrome (@orrn/ui): screen-reader and helper text. */
