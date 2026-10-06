@@ -22,7 +22,7 @@ const STATUS_FILTERS = ["all", "active", "suspended", "pending"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 const PAGE_SIZE = 50;
 
-type CompaniesSearch = { status: StatusFilter; printing?: boolean; offset?: number };
+type CompaniesSearch = { status: StatusFilter; printing?: boolean; offset?: number; q?: string };
 
 /** `?printing=1` is the old /admin/spool list (spec §3: "with a Printing filter"). */
 function parsePrinting(value: unknown): boolean | undefined {
@@ -34,10 +34,13 @@ export const Route = createFileRoute("/_platform/admin/companies/")({
   validateSearch: (search: Record<string, unknown>): CompaniesSearch => {
     const status = STATUS_FILTERS.includes(search.status as StatusFilter) ? (search.status as StatusFilter) : "all";
     const offset = Number(search.offset);
+    const q = typeof search.q === "string" ? search.q.trim().slice(0, 200) : "";
     return {
       status,
       printing: parsePrinting(search.printing),
       offset: Number.isInteger(offset) && offset > 0 ? offset : undefined,
+      // The search lives in the URL, so Back from a company comes back to the same list.
+      q: q || undefined,
     };
   },
 });
@@ -57,17 +60,17 @@ function AdminCompanies() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const printingId = useId();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(search.q ?? "");
   const debounced = useDebounced(query.trim(), 250);
   const offset = search.offset ?? 0;
 
-  // A new search starts on the first page (not on mount: a link to page 2 stays on page 2).
+  // A new search goes into the URL and starts on the first page (not on mount: a link to page 2 stays on page 2).
   const lastSearch = useRef(debounced);
   useEffect(() => {
     if (lastSearch.current === debounced) return;
     lastSearch.current = debounced;
-    if (offset > 0) void navigate({ search: (s) => ({ ...s, offset: undefined }), replace: true });
-  }, [debounced, offset, navigate]);
+    void navigate({ search: (s) => ({ ...s, q: debounced || undefined, offset: undefined }), replace: true });
+  }, [debounced, navigate]);
 
   const list = useQuery({
     ...trpc.platform.companiesList.queryOptions({
@@ -90,6 +93,8 @@ function AdminCompanies() {
       cell: (row) => (
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="font-semibold text-foreground break-words">{row.name}</span>
+          {/* Keeps the link's name "Name, slug" instead of running the two together. */}
+          <span className="sr-only">, </span>
           <span className="font-mono text-[12px] font-normal text-muted-foreground [overflow-wrap:anywhere]">{row.slug}</span>
         </span>
       ),
@@ -131,7 +136,11 @@ function AdminCompanies() {
     <div className="flex min-w-0 flex-col gap-5">
       <PageHeader
         title={t("admin.companies.title")}
-        subtitle={list.data ? t("admin.companies.subtitle", { count: list.data.total }) : undefined}
+        subtitle={
+          list.data
+            ? t(filtered ? "admin.companies.subtitleFiltered" : "admin.companies.subtitle", { count: list.data.total })
+            : undefined
+        }
       />
 
       <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end">

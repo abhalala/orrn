@@ -35,8 +35,10 @@ describe("resolveRedirect: static rows", () => {
     });
   }
 
-  test("old print station filters carry over next to the Printing filter", () => {
-    expect(resolveRedirect("/admin/spool", "?status=active")).toBe("/admin/companies?printing=1&status=active");
+  test("old print station queries carry over next to the Printing filter, except its status", () => {
+    // A print station status is not a company status: the old filter is dropped, not carried over.
+    expect(resolveRedirect("/admin/spool", "?status=active")).toBe("/admin/companies?printing=1");
+    expect(resolveRedirect("/admin/spool", "?status=revoked&q=ram")).toBe("/admin/companies?printing=1&q=ram");
     expect(resolveRedirect("/admin/spool/", "printing=0")).toBe("/admin/companies?printing=1");
   });
 

@@ -9,6 +9,7 @@ import {
   companyStatus,
   impersonationGrant,
   membership,
+  waitlistRequest,
 } from "@orrn/db/schema/tenant";
 import { COMPANY_MODULES } from "../../lib/modules";
 import { platformGuard } from "../../index";
@@ -33,6 +34,19 @@ const printingStatus = sql<"pending" | "active" | "offline" | null>`(
   order by ${spoolDeployment.createdAt} desc limit 1
 )`;
 
+/**
+ * A company that `waitlist.submit` created for a request that was then
+ * rejected. Reject now removes it (waitlistReject); this hides the ones
+ * rejected before that, which are still `pending` with no members. Not a
+ * company: never listed, counted or opened.
+ */
+export const notRejectedRequest = sql`not (${company.status} = 'pending' and exists (
+  select 1 from ${waitlistRequest}
+  where ${waitlistRequest.companyId} = ${outerCompanyId} and ${waitlistRequest.status} = 'rejected'
+) and not exists (
+  select 1 from ${membership} where ${membership.companyId} = ${outerCompanyId}
+))`;
+
 const hasPrinting = sql`exists (
   select 1 from ${spoolDeployment}
   where ${spoolDeployment.companyId} = ${outerCompanyId} and ${spoolDeployment.status} != 'revoked'
@@ -51,7 +65,7 @@ export const companiesProcedures = {
       }),
     )
     .query(async ({ ctx, input }) => {
-      const filters = [];
+      const filters = [notRejectedRequest];
       if (input.status) {
         filters.push(eq(company.status, input.status));
       }
@@ -62,7 +76,7 @@ export const companiesProcedures = {
       if (input.printing) {
         filters.push(hasPrinting);
       }
-      const whereClause = filters.length ? and(...filters) : undefined;
+      const whereClause = and(...filters);
 
       const [totalRow] = await ctx.db
         .select({ count: count() })
@@ -110,7 +124,7 @@ export const companiesProcedures = {
           memberCount,
         })
         .from(company)
-        .where(eq(company.id, input.id))
+        .where(and(eq(company.id, input.id), notRejectedRequest))
         .get();
 
       if (!row) {
@@ -147,6 +161,10 @@ export const companiesProcedures = {
       if (!row) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
       }
+      if (row.status === "pending") {
+        // Never approved: it has no owner yet. Approve or reject its access request instead.
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This company is waiting for approval" });
+      }
       if (row.status === "suspended") {
         return { success: true };
       }
@@ -167,6 +185,11 @@ export const companiesProcedures = {
         .get();
       if (!row) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+      }
+      if (row.status === "pending") {
+        // Reactivating would make an active company with no owner and no
+        // sign-in email; only approving its access request may activate it.
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This company is waiting for approval" });
       }
       if (row.status === "active") {
         return { success: true };

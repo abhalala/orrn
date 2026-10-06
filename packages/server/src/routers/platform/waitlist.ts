@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { company, membership, waitlistRequest } from "@orrn/db/schema/tenant";
@@ -155,14 +155,45 @@ export const waitlistProcedures = {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Request is already processed" });
       }
 
-      await ctx.db
-        .update(waitlistRequest)
-        .set({
-          status: "rejected",
-          reviewedBy: ctx.session.user.id,
-          reviewedAt: new Date(),
-        })
-        .where(and(eq(waitlistRequest.id, input.id), eq(waitlistRequest.status, "pending")));
+      const statements: SqliteBatchItem[] = [
+        ctx.db
+          .update(waitlistRequest)
+          .set({
+            status: "rejected",
+            reviewedBy: ctx.session.user.id,
+            reviewedAt: new Date(),
+          })
+          .where(and(eq(waitlistRequest.id, input.id), eq(waitlistRequest.status, "pending"))),
+      ];
+      if (request.companyId) {
+        // `waitlist.submit` created a `pending` company for the request. It was
+        // never approved, so it has no members and no data: remove it, or it
+        // reads as "Waiting for approval" in Godseye forever and counts as a
+        // company. Only while it is still pending with no members, and only
+        // once this request really is rejected (a concurrent approve wins).
+        // The request row stays on record. Its company_id is cleared first:
+        // the live column (migration 0004) has no ON DELETE action.
+        const shellId = request.companyId;
+        const removable = sql`exists (select 1 from "company" c where c."id" = ${shellId} and c."status" = 'pending')
+          and not exists (select 1 from "membership" m where m."company_id" = ${shellId})`;
+        statements.push(
+          ctx.db
+            .update(waitlistRequest)
+            .set({ companyId: null })
+            .where(and(eq(waitlistRequest.id, input.id), eq(waitlistRequest.status, "rejected"), removable)),
+          ctx.db
+            .delete(company)
+            .where(
+              and(
+                eq(company.id, shellId),
+                removable,
+                sql`exists (select 1 from "waitlist_request" w where w."id" = ${input.id} and w."status" = 'rejected' and w."company_id" is null)`,
+                sql`not exists (select 1 from "waitlist_request" w where w."company_id" = ${shellId})`,
+              ),
+            ),
+        );
+      }
+      await atomicBatch(ctx.db, statements);
 
       return { success: true };
     }),

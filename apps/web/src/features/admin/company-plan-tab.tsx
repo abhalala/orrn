@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
-import { initialPlan as startingPlan, planForm } from "./plan";
+import { initialPlan as startingPlan, modulesOn, modulesToSave, planForm } from "./plan";
 import type { CompanyDetail } from "./types";
 import { errorText, Panel } from "./ui";
 
@@ -23,18 +23,18 @@ const PLAN_KEYS: Record<(typeof COMPANY_PLANS)[number], MessageKey> = {
 
 /**
  * Plan and modules (spec §3, Godseye company tab). Modules gate the
- * company's navigation (`visibleItems`); none ticked means all on. A plan
- * value Godseye doesn't offer (older companies, the `dev` demo) is kept as
- * its own option so saving never silently changes it.
+ * company's navigation (`visibleItems`). A ticked box is a module that is
+ * on: nothing saved means every module is on, so every box starts ticked,
+ * and all four ticked saves as "all on" (an empty list). A plan value
+ * Godseye doesn't offer (older companies, the `dev` demo) is kept as its own
+ * option so saving never silently changes it.
  */
 export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] }) {
   const { t } = useT();
   const qc = useQueryClient();
   const groupId = useId();
   const initialPlan = startingPlan(company.plan);
-  const initialModules = (company.modules ?? []).filter((m): m is CompanyModule =>
-    (COMPANY_MODULES as readonly string[]).includes(m),
-  );
+  const initialModules = modulesOn(company.modules ?? [], COMPANY_MODULES);
   const [plan, setPlan] = useState(initialPlan);
   const [modules, setModules] = useState<CompanyModule[]>(initialModules);
 
@@ -45,7 +45,7 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company.plan, (company.modules ?? []).join(",")]);
 
-  const { dirty, noPlanYet } = planForm({ plan: company.plan, modules: initialModules }, { plan, modules });
+  const { dirty, noPlanYet, noneOn } = planForm({ plan: company.plan, modules: initialModules }, { plan, modules });
 
   const save = useMutation({
     ...trpc.platform.updatePlanAndModules.mutationOptions(),
@@ -79,8 +79,11 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
 
       <fieldset className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0" aria-describedby={`${groupId}-hint`}>
         <legend className="mb-1 p-0 text-[14px] font-semibold text-foreground">{t("admin.plan.modules")}</legend>
-        <p id={`${groupId}-hint`} className="m-0 -mt-1 text-[13px] text-muted-foreground">
-          {t("admin.plan.modulesHint")}
+        <p
+          id={`${groupId}-hint`}
+          className={cn("m-0 -mt-1 text-[13px]", noneOn ? "font-medium text-destructive" : "text-muted-foreground")}
+        >
+          {noneOn ? t("admin.plan.modulesNone") : t("admin.plan.modulesHint")}
         </p>
         <ul className="m-0 grid list-none grid-cols-1 gap-2 p-0 md:grid-cols-2">
           {COMPANY_MODULES.map((id) => {
@@ -120,10 +123,10 @@ export function CompanyPlanTab({ company }: { company: CompanyDetail["company"] 
             </p>
           ) : null}
           <Button
-            disabled={!dirty}
+            disabled={!dirty || noneOn}
             loading={save.isPending}
             className="w-full sm:w-auto pointer-coarse:h-14"
-            onPress={() => save.mutate({ companyId: company.id, plan, modules })}
+            onPress={() => save.mutate({ companyId: company.id, plan, modules: modulesToSave(modules, COMPANY_MODULES) })}
           >
             {t("admin.plan.save")}
           </Button>

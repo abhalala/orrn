@@ -2,9 +2,11 @@ import { useT } from "@orrn/i18n";
 import { ImpersonationBanner as SharedImpersonationBanner } from "@orrn/ui/components/impersonation-banner";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { formatTime } from "@/features/admin/format";
-import { accessTabPath, impersonationEndsSoon } from "@/features/admin/impersonate";
+import { accessTabPath, afterStopFailure, impersonationEndsSoon } from "@/features/admin/impersonate";
+import { errorCode } from "@/features/admin/error-code";
 
 import { clearImpersonation } from "../lib/impersonation";
 import { useMe } from "../lib/me";
@@ -20,9 +22,11 @@ function leaveTo(path: string) {
 /**
  * Shown on every signed-in web screen while orrn staff are inside a company.
  * "Stop impersonating" revokes the grant, clears sessionStorage and the
- * query cache, and returns to that company's Access tab in Godseye. When the
- * grant's end time passes it does the same on its own (no request needed:
- * the server already refuses an expired grant).
+ * query cache, and returns to that company's Access tab in Godseye. If the
+ * revoke fails without an answer, the banner stays and says so (a second
+ * failure leaves anyway, see afterStopFailure). When the grant's end time
+ * passes it leaves on its own (no request needed: the server already
+ * refuses an expired grant).
  */
 export function ImpersonationBanner() {
   const { t, locale } = useT();
@@ -33,6 +37,8 @@ export function ImpersonationBanner() {
   const revokeMutation = useMutation({
     ...trpc.platform.impersonationRevokeGrant.mutationOptions(),
   });
+  // Failed Stops in a row: the first keeps the banner (the grant may still be live), the second leaves anyway.
+  const [stopFailures, setStopFailures] = useState(0);
 
   const companyId = impersonation?.companyId;
   const expiresAt = impersonation?.expiresAt;
@@ -69,7 +75,18 @@ export function ImpersonationBanner() {
       stopping={revokeMutation.isPending}
       onStop={() => {
         const finish = () => leaveTo(accessTabPath(impersonation.companyId));
-        revokeMutation.mutate({ id: impersonation.grantId }, { onSettled: finish });
+        revokeMutation.mutate(
+          { id: impersonation.grantId },
+          {
+            onSuccess: finish,
+            onError: (err) => {
+              const failures = stopFailures + 1;
+              setStopFailures(failures);
+              if (afterStopFailure(errorCode(err), failures) === "leave") finish();
+              else toast.error(t("admin.access.stopFailed"));
+            },
+          },
+        );
       }}
     />
   );

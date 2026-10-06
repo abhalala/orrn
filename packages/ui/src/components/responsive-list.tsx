@@ -26,6 +26,12 @@ export type ResponsiveListColumn<T> = {
    * with a long word, "Waiting for approval"), so it never has to be cut.
    */
   phoneWide?: boolean;
+  /**
+   * The header is for screen readers only (an actions column of buttons):
+   * visually hidden in the table head, no visible label in the phone row,
+   * and a row whose cell is empty (null) leaves the pair out on a phone.
+   */
+  headerHidden?: boolean;
 };
 
 export type ResponsiveListPage = { offset: number; limit: number; onChange(offset: number): void };
@@ -115,7 +121,7 @@ export function ResponsiveList<T>({
                       col.align === "end" ? "text-right" : "text-left",
                     )}
                   >
-                    {col.header}
+                    {col.headerHidden ? <span className="sr-only">{col.header}</span> : col.header}
                   </th>
                 ))}
               </tr>
@@ -207,16 +213,25 @@ export function ResponsiveList<T>({
                     </div>
                     {phoneColumns.length ? (
                       <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3 md:grid-cols-4">
-                        {phoneColumns.map((col) => (
-                          <div key={col.key} className={cn("flex min-w-0 flex-col", col.phoneWide && "col-span-2")}>
-                            <dt className="truncate text-[12px] font-medium text-muted-foreground" title={col.header}>
-                              {col.header}
-                            </dt>
-                            <dd className="m-0 min-w-0 text-[14px] text-foreground tabular-nums break-words">
-                              {col.cell(row)}
-                            </dd>
-                          </div>
-                        ))}
+                        {phoneColumns.map((col) => {
+                          const content = col.cell(row);
+                          // An actions column with nothing for this row: no empty, label-only pair.
+                          if (col.headerHidden && (content === null || content === undefined || content === false)) return null;
+                          return (
+                            <div
+                              key={col.key}
+                              className={cn("flex min-w-0 flex-col", (col.phoneWide || col.headerHidden) && "col-span-2")}
+                            >
+                              <dt
+                                className={cn("truncate text-[12px] font-medium text-muted-foreground", col.headerHidden && "sr-only")}
+                                title={col.headerHidden ? undefined : col.header}
+                              >
+                                {col.header}
+                              </dt>
+                              <dd className="m-0 min-w-0 text-[14px] text-foreground tabular-nums break-words">{content}</dd>
+                            </div>
+                          );
+                        })}
                       </dl>
                     ) : null}
                   </div>

@@ -74,14 +74,14 @@ function AdminStaff() {
     ...trpc.platform.staffRemove.mutationOptions(),
     onSuccess: async () => {
       toast.success(t("admin.staff.removed"));
-      setRemoving(null);
+      // Close once the row is gone, so focus goes to the page heading, not to a removed button.
       await refresh();
+      setRemoving(null);
     },
     onError: (err) => toast.error(errorText(t, err)),
   });
 
   const roles = (assignable.data ?? []) as PlatformStaffRole[];
-  const canEditRoles = can(me, "platform.staff.updateRole");
   const canRemove = can(me, "platform.staff.remove");
   const roleOptions = roles.map((role) => ({ value: role, label: t(ROLE_KEYS[role]) }));
 
@@ -103,18 +103,20 @@ function AdminStaff() {
       header: t("admin.staff.role"),
       cell: (row) => {
         const role = row.role as PlatformStaffRole;
-        const editable = canEditRoles && row.userId !== me?.user.id && roles.includes(role);
-        return editable ? (
-          <Select
-            aria-label={t("admin.staff.roleFor", { name: row.name })}
-            value={role}
-            onValueChange={(next) => updateRole.mutate({ userId: row.userId, role: next as PlatformStaffRole })}
-            options={roleOptions}
-            disabled={updateRole.isPending}
-            className="w-full min-w-40 lg:w-44"
-          />
-        ) : (
-          <Chip tone="violet" truncate={false}>{t(ROLE_KEYS[role])}</Chip>
+        const chip = <Chip tone="violet" truncate={false}>{t(ROLE_KEYS[role])}</Chip>;
+        // Not your own role, and only roles you may hand out; the permission itself is <Can>'s call.
+        if (row.userId === me?.user.id || !roles.includes(role)) return chip;
+        return (
+          <Can do="platform.staff.updateRole" fallback={chip}>
+            <Select
+              aria-label={t("admin.staff.roleFor", { name: row.name })}
+              value={role}
+              onValueChange={(next) => updateRole.mutate({ userId: row.userId, role: next as PlatformStaffRole })}
+              options={roleOptions}
+              disabled={updateRole.isPending}
+              className="w-full min-w-40 lg:w-44"
+            />
+          </Can>
         );
       },
     },
@@ -125,19 +127,22 @@ function AdminStaff() {
     },
     {
       key: "actions",
-      header: "",
+      header: t("admin.staff.actions"),
+      headerHidden: true,
       align: "end",
       cell: (row) =>
+        // Nobody removes themselves. `canRemove` only drops the empty pair on a phone; <Can> gates the button.
         canRemove && row.userId !== me?.user.id ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-destructive"
-            aria-label={t("admin.staff.removeLabel", { name: row.name })}
-            onPress={() => setRemoving(row)}
-          >
-            {t("admin.staff.remove")}
-          </Button>
+          <Can do="platform.staff.remove">
+            <Button
+              variant="ghost"
+              className="text-destructive"
+              aria-label={t("admin.staff.removeLabel", { name: row.name })}
+              onPress={() => setRemoving(row)}
+            >
+              {t("admin.staff.remove")}
+            </Button>
+          </Can>
         ) : null,
     },
   ];

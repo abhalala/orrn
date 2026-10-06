@@ -14,6 +14,22 @@ export function companyStatusTone(status: string): ToneName {
   return "amber";
 }
 
+/**
+ * The company page's header action. A company waiting for approval was never
+ * approved: it has no owner, so it is reviewed through its access request
+ * (approve or reject), never suspended or reactivated (the server refuses both).
+ */
+export function companyAction(status: string): "review" | "suspend" | "reactivate" {
+  if (status === "pending") return "review";
+  return status === "active" ? "suspend" : "reactivate";
+}
+
+/** Why a company can't print labels or be opened as support, or null when it can. */
+export function inactiveReason(status: string): "waiting" | "suspended" | null {
+  if (status === "active") return null;
+  return status === "pending" ? "waiting" : "suspended";
+}
+
 /** Connected is green, waiting or offline needs attention (amber), turned off is red, none is neutral. */
 export function printingTone(status: PrintStationStatus | string | null | undefined): ToneName {
   if (status === "active") return "green";
@@ -56,6 +72,22 @@ export function suggestStationName(slug: string): string {
   name = name.slice(0, 63).replace(/-+$/, "");
   if (name.length < 3) name = `${name || "plant"}-print`;
   return name;
+}
+
+/**
+ * The suggested name for a new station: the slug-based name, or with -2, -3
+ * and so on when a station (turned off ones included: the server counts
+ * them) already has it.
+ */
+export function freeStationName(slug: string, taken: readonly string[]): string {
+  const base = suggestStationName(slug);
+  const used = new Set(taken);
+  if (!used.has(base)) return base;
+  for (let n = 2; ; n++) {
+    const suffix = `-${n}`;
+    const name = `${base.slice(0, 63 - suffix.length).replace(/-+$/, "")}${suffix}`;
+    if (!used.has(name)) return name;
+  }
 }
 
 /** Why a station name is not usable, or null. Mirrors the server's DNS label rule. */

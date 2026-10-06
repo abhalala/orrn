@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 936 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 945 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -745,7 +745,7 @@ Counts: 936 screen strings in 26 groups, 10 guides with 182 strings.
 | `all` | All guides | सारी गाइड |
 | `empty` | No guides for your role yet. | आपके रोल के लिए अभी कोई गाइड नहीं है। |
 
-### admin (210)
+### admin (219)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -767,11 +767,12 @@ Counts: 936 screen strings in 26 groups, 10 guides with 182 strings.
 | `overview.recent` | Recent companies | हाल की कंपनियां |
 | `overview.recentEmpty` | Approved requests become companies here. | मंज़ूर रिक्वेस्ट यहां कंपनी बनकर दिखती हैं। |
 | `overview.viewAll` | View all | सब देखें |
-| `overview.viewAllRequests` | View all access requests | सभी एक्सेस रिक्वेस्ट देखें |
-| `overview.viewAllCompanies` | View all companies | सभी कंपनियां देखें |
+| `overview.viewAllRequests` | View all access requests | सब देखें: एक्सेस रिक्वेस्ट |
+| `overview.viewAllCompanies` | View all companies | सब देखें: कंपनियां |
 | `overview.loadError` | The overview didn't load. Check the connection and try again. | सारांश लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `companies.title` | Companies | कंपनियां |
 | `companies.subtitle` | {count} {count:company\|companies} on orrn | orrn पर {count} {count:कंपनी\|कंपनियां} |
+| `companies.subtitleFiltered` | {count} {count:company matches\|companies match} | {count} {count:कंपनी मिली\|कंपनियां मिलीं} |
 | `companies.search` | Search companies | कंपनी खोजें |
 | `companies.searchHint` | Name or short name | नाम या छोटा नाम |
 | `companies.status` | Status | स्थिति |
@@ -804,6 +805,7 @@ Counts: 936 screen strings in 26 groups, 10 guides with 182 strings.
 | `company.reactivateTitle` | Reactivate {company}? | {company} को फिर से चालू करें? |
 | `company.reactivateBody` | Everyone at {company} can sign in again. | {company} के सभी लोग फिर से साइन इन कर सकेंगे। |
 | `company.reactivated` | Company reactivated | कंपनी फिर से चालू हो गई |
+| `company.reviewRequest` | Review the request | रिक्वेस्ट देखें |
 | `company.sections` | Company sections | कंपनी के हिस्से |
 | `company.tabs.plan` | Plan and modules | प्लान और मॉड्यूल |
 | `company.tabs.printing` | Printing | प्रिंटिंग |
@@ -813,7 +815,8 @@ Counts: 936 screen strings in 26 groups, 10 guides with 182 strings.
 | `plan.plans.growth` | Growth | ग्रोथ |
 | `plan.plans.enterprise` | Enterprise | एंटरप्राइज़ |
 | `plan.modules` | Modules | मॉड्यूल |
-| `plan.modulesHint` | With none ticked, every module is on. | कोई भी न चुना हो तो सभी मॉड्यूल चालू रहते हैं। |
+| `plan.modulesHint` | Untick a module to hide it from the company's menus. | किसी मॉड्यूल का टिक हटाएं तो वह कंपनी के मेन्यू से छिप जाएगा। |
+| `plan.modulesNone` | Keep at least one module on. | कम से कम एक मॉड्यूल चालू रखें। |
 | `plan.moduleNames.customers` | Customers | कस्टमर |
 | `plan.moduleNames.dies` | Dies | डाई |
 | `plan.moduleNames.bundles` | Packing and stock | पैकिंग और स्टॉक |
@@ -830,8 +833,8 @@ Counts: 936 screen strings in 26 groups, 10 guides with 182 strings.
 | `printing.noneBody` | Set up a print station so {company} can print bundle labels on their own printers. | प्रिंट स्टेशन सेट करें ताकि {company} अपने प्रिंटर पर बंडल लेबल छाप सके। |
 | `printing.setUp` | Set up label printing | लेबल प्रिंटिंग सेट करें |
 | `printing.inactive` | Only active companies can print labels. Reactivate {company} first. | सिर्फ़ चालू कंपनियां लेबल छाप सकती हैं। पहले {company} को फिर से चालू करें। |
+| `printing.waiting` | Only active companies can print labels. Approve the access request for {company} first. | सिर्फ़ चालू कंपनियां लेबल छाप सकती हैं। पहले {company} की एक्सेस रिक्वेस्ट मंज़ूर करें। |
 | `printing.addAnother` | Add a print station | एक और प्रिंट स्टेशन जोड़ें |
-| `printing.restricted` | Your role can't manage label printing. Ask a Godseye admin. | आपका रोल लेबल प्रिंटिंग नहीं संभाल सकता। किसी Godseye एडमिन से कहें। |
 | `printing.station` | Print station | प्रिंट स्टेशन |
 | `printing.address` | Address | पता |
 | `printing.version` | Version | वर्ज़न |
@@ -839,6 +842,7 @@ Counts: 936 screen strings in 26 groups, 10 guides with 182 strings.
 | `printing.lastSeen` | Last seen | आखिरी बार दिखा |
 | `printing.never` | Never | कभी नहीं |
 | `printing.setUpOn` | Set up | सेट किया |
+| `printing.setUpDay` | Set up {date} | {date} को सेट किया |
 | `printing.nameLabel` | Station name | स्टेशन का नाम |
 | `printing.nameHint` | 3 to 63 lowercase letters, numbers or hyphens. | 3 से 63 छोटे अंग्रेज़ी अक्षर, अंक या हाइफ़न। |
 | `printing.namePreview` | Address: {address} | पता: {address} |
@@ -850,17 +854,17 @@ Counts: 936 screen strings in 26 groups, 10 guides with 182 strings.
 | `printing.created` | Print station set up | प्रिंट स्टेशन सेट हो गया |
 | `printing.secretsTitle` | Copy these now | इन्हें अभी कॉपी करें |
 | `printing.secretsBody` | They are shown only once. The print station needs them to connect. | ये सिर्फ़ एक बार दिखेंगे। प्रिंट स्टेशन को जुड़ने के लिए इनकी ज़रूरत है। |
-| `printing.instanceId` | Instance ID | Instance ID |
-| `printing.sharedSecret` | Shared secret | Shared secret |
-| `printing.tunnelToken` | Tunnel token | Tunnel token |
+| `printing.instanceId` | Instance ID | इंस्टेंस ID |
+| `printing.sharedSecret` | Shared secret | शेयर्ड सीक्रेट |
+| `printing.tunnelToken` | Tunnel token | टनल टोकन |
 | `printing.copyValue` | Copy {label} | {label} कॉपी करें |
 | `printing.copied` | {label} copied | {label} कॉपी हो गया |
 | `printing.copyFailed` | Couldn't copy. Select the text and copy it. | कॉपी नहीं हुआ। टेक्स्ट चुनकर कॉपी करें। |
-| `printing.rotateSecret` | Rotate secret | Secret बदलें |
-| `printing.rotateTitle` | Rotate the secret for {address}? | {address} का secret बदलें? |
-| `printing.rotateBody` | The current secret stops working right away. The print station needs the new one to keep printing. | अभी वाला secret तुरंत काम करना बंद कर देगा। प्रिंटिंग चालू रखने के लिए प्रिंट स्टेशन को नया secret चाहिए। |
-| `printing.rotated` | Secret rotated | Secret बदल गया |
-| `printing.newSecret` | New shared secret | नया shared secret |
+| `printing.rotateSecret` | Rotate secret | सीक्रेट बदलें |
+| `printing.rotateTitle` | Rotate the secret for {address}? | {address} का सीक्रेट बदलें? |
+| `printing.rotateBody` | The current secret stops working right away. The print station needs the new one to keep printing. | अभी वाला सीक्रेट तुरंत काम करना बंद कर देगा। प्रिंटिंग चालू रखने के लिए प्रिंट स्टेशन को नया सीक्रेट चाहिए। |
+| `printing.rotated` | Secret rotated | सीक्रेट बदल गया |
+| `printing.newSecret` | New shared secret | नया शेयर्ड सीक्रेट |
 | `printing.installScript` | Install script | इंस्टॉल स्क्रिप्ट |
 | `printing.installTitle` | Download the install script | इंस्टॉल स्क्रिप्ट डाउनलोड करें |
 | `printing.installBody` | A shell script for a Linux or macOS computer with Docker. It sets up the print station for {address}. | Docker वाले Linux या macOS कंप्यूटर के लिए शेल स्क्रिप्ट। यह {address} के लिए प्रिंट स्टेशन सेट करती है। |
@@ -889,13 +893,15 @@ Counts: 936 screen strings in 26 groups, 10 guides with 182 strings.
 | `access.body` | You see orrn as their owner would. Every change is recorded with your name. | आप orrn को उनके मालिक की तरह देखेंगे। हर बदलाव आपके नाम से दर्ज होगा। |
 | `access.reasonLabel` | Reason (optional) | वजह (ज़रूरी नहीं) |
 | `access.reasonHint` | Shown in the session list below. | नीचे सेशन लिस्ट में दिखेगी। |
-| `access.durationLabel` | Session length | सेशन कितनी देर |
-| `access.minutes` | {count} min | {count} मिनट |
+| `access.durationLabel` | Session length (minutes) | सेशन कितनी देर (मिनट) |
 | `access.started` | Support session started | सपोर्ट सेशन शुरू हुआ |
 | `access.inactive` | Only active companies can be opened. Reactivate {company} first. | सिर्फ़ चालू कंपनियां खोली जा सकती हैं। पहले {company} को फिर से चालू करें। |
+| `access.waiting` | Only active companies can be opened. Approve the access request for {company} first. | सिर्फ़ चालू कंपनियां खोली जा सकती हैं। पहले {company} की एक्सेस रिक्वेस्ट मंज़ूर करें। |
+| `access.inside` | You are inside {company} as support. Stop that session first. | आप सपोर्ट के रूप में {company} के अंदर हैं। पहले वह सेशन बंद करें। |
 | `access.restricted` | Your role can't open companies as support. | आपका रोल कंपनियों को सपोर्ट के रूप में नहीं खोल सकता। |
 | `access.banner` | Viewing {company} as orrn support | {company} को orrn सपोर्ट के रूप में देख रहे हैं |
 | `access.stop` | Stop impersonating | सपोर्ट व्यू बंद करें |
+| `access.stopFailed` | Couldn't stop the support session. Check the connection and try again. | सपोर्ट सेशन बंद नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `access.expires` | Ends at {time} | {time} पर खत्म होगा |
 | `access.endsSoon` | Ends at {time}, in under 5 minutes | {time} पर खत्म होगा, 5 मिनट से कम बचे |
 | `access.sessions` | Support sessions | सपोर्ट सेशन |
@@ -910,6 +916,7 @@ Counts: 936 screen strings in 26 groups, 10 guides with 182 strings.
 | `access.noReason` | No reason given | कोई वजह नहीं दी |
 | `access.resume` | Resume | फिर से खोलें |
 | `access.stopSession` | Stop | बंद करें |
+| `access.actions` | Actions | कार्रवाई |
 | `access.stopped` | Support session stopped | सपोर्ट सेशन बंद हुआ |
 | `access.unknownStaff` | Former staff | पुराना स्टाफ़ |
 | `access.staffYou` | {name} (you) | {name} (आप) |
@@ -929,6 +936,7 @@ Counts: 936 screen strings in 26 groups, 10 guides with 182 strings.
 | `requests.rejectTitle` | Reject {company}? | {company} को नामंज़ूर करें? |
 | `requests.rejectBody` | The request is closed. {email} is not emailed. | रिक्वेस्ट बंद हो जाएगी। {email} को ईमेल नहीं जाएगा। |
 | `requests.rejected` | Request rejected | रिक्वेस्ट नामंज़ूर हो गई |
+| `requests.alreadyHandled` | Someone already handled this request. The list is up to date now. | यह रिक्वेस्ट पहले ही निपटा दी गई है। लिस्ट अब ताज़ा है। |
 | `requests.loadError` | Requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर कोशिश करें। |
 | `requests.listLabel` | Waiting requests | बाकी रिक्वेस्ट |
 | `staff.title` | Staff | स्टाफ़ |
@@ -956,6 +964,7 @@ Counts: 936 screen strings in 26 groups, 10 guides with 182 strings.
 | `staff.removeTitle` | Remove {name}? | {name} को हटाएं? |
 | `staff.removeBody` | {email} can no longer sign in to Godseye. | {email} अब Godseye में साइन इन नहीं कर पाएगा। |
 | `staff.removed` | Staff access removed | स्टाफ़ एक्सेस हटा दिया गया |
+| `staff.actions` | Actions | कार्रवाई |
 | `staff.empty` | No staff yet. | अभी कोई स्टाफ़ नहीं। |
 | `staff.loadError` | Staff didn't load. Check the connection and try again. | स्टाफ़ लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `staff.listLabel` | Staff accounts | स्टाफ़ अकाउंट |

@@ -1,23 +1,19 @@
 import { useT, type Translate } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Dialog, DialogCloseButton } from "@orrn/ui/components/dialog";
+import { Dialog } from "@orrn/ui/components/dialog";
 import { cn } from "@orrn/ui/lib/utils";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import { toast } from "sonner";
+
+import { errorCode } from "./error-code";
 
 /**
  * Small pieces shared by the Godseye screens. Kept here (not in @orrn/ui)
  * until a second area needs them.
  */
 
-type TrpcLike = { data?: { code?: unknown } | null };
-
-/** tRPC error code, or null. */
-export function errorCode(error: unknown): string | null {
-  const code = error && typeof error === "object" ? (error as TrpcLike).data?.code : null;
-  return typeof code === "string" ? code : null;
-}
+export { errorCode };
 
 /**
  * A translated sentence for a failed mutation. Server messages are English
@@ -85,8 +81,9 @@ export function useLastValue<T>(value: T | null): T | null {
 export type ConfirmDialogProps = {
   open: boolean;
   onOpenChange(open: boolean): void;
-  title: string;
-  body: string;
+  title: ReactNode;
+  /** The question's detail. An email or address in it wraps anywhere (the Dialog's description does). */
+  body: ReactNode;
   confirmLabel: string;
   /** `danger` for destructive actions (suspend, turn off, remove). */
   tone?: "primary" | "danger";
@@ -107,17 +104,22 @@ export function ConfirmDialog({
   onConfirm,
   children,
 }: ConfirmDialogProps) {
+  const { t } = useT();
+  // Every way out (Cancel, Escape, the X, the backdrop) waits while the action runs.
+  const close = (next: boolean) => {
+    if (!pending) onOpenChange(next);
+  };
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => {
-        if (!pending) onOpenChange(next);
-      }}
+      onOpenChange={close}
       title={title}
       description={body}
       actions={
         <>
-          <DialogCloseButton onPress={() => onOpenChange(false)} />
+          <Button variant="secondary" disabled={pending} onPress={() => close(false)}>
+            {t("common.cancel")}
+          </Button>
           <Button
             variant={tone === "danger" ? "danger" : "primary"}
             loading={pending}

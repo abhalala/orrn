@@ -198,3 +198,117 @@ describe("print station on the local stack", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
+
+/** Files an access request the way the website does: a `pending` company plus the request. */
+async function fileRequest(name = `Pending ${crypto.randomUUID().slice(0, 8)}`) {
+  const { company, waitlistRequest } = await import("@orrn/db/schema/tenant");
+  const { eq } = await import("drizzle-orm");
+  const { id } = await env.caller(null).waitlist.submit({
+    companyName: name,
+    requesterName: "Requester",
+    requesterEmail: `req.${crypto.randomUUID().slice(0, 8)}@test.orrn`,
+  });
+  const request = await env.db.select().from(waitlistRequest).where(eq(waitlistRequest.id, id)).get();
+  const shell = await env.db.select().from(company).where(eq(company.id, request!.companyId!)).get();
+  expect(shell?.status).toBe("pending");
+  return { requestId: id, companyId: request!.companyId!, name };
+}
+
+describe("a company whose request is not approved (pending)", () => {
+  test("rejecting the request removes its never-approved company; the request stays on record", async () => {
+    const { requestId, companyId, name } = await fileRequest();
+    const staff = env.caller({ platformRole: "support" });
+    await staff.platform.waitlistReject({ id: requestId });
+
+    const waiting = await staff.platform.companiesList({ status: "pending", search: name });
+    expect(waiting.items.map((r) => r.id)).not.toContain(companyId);
+    const all = await staff.platform.companiesList({ search: name });
+    expect(all.total).toBe(0);
+    await expect(staff.platform.companiesGet({ id: companyId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    const { waitlistRequest } = await import("@orrn/db/schema/tenant");
+    const { eq } = await import("drizzle-orm");
+    const request = await env.db.select().from(waitlistRequest).where(eq(waitlistRequest.id, requestId)).get();
+    expect(request?.status).toBe("rejected");
+    expect(request?.companyName).toBe(name);
+  });
+
+  test("rejecting never removes a company that has members", async () => {
+    const { requestId, companyId } = await fileRequest();
+    const userId = await env.seedUser("member");
+    await env.addMembership(userId, companyId, "owner");
+    const staff = env.caller({ platformRole: "admin" });
+    await staff.platform.waitlistReject({ id: requestId });
+    const got = await staff.platform.companiesGet({ id: companyId });
+    expect(got.company.memberCount).toBe(1);
+  });
+
+  test("the overview leaves rejected requests out of the company totals and recent companies", async () => {
+    const staff = env.caller({ platformRole: "super_admin" });
+    const before = await staff.platform.overview();
+    const { requestId, companyId } = await fileRequest();
+    const filed = await staff.platform.overview();
+    expect(filed.companies?.total).toBe((before.companies?.total ?? 0) + 1);
+    await staff.platform.waitlistReject({ id: requestId });
+    const after = await staff.platform.overview();
+    expect(after.companies?.total).toBe(before.companies?.total);
+    expect(after.companies?.recent.map((r) => r.id)).not.toContain(companyId);
+  });
+
+  test("a request rejected before this fix (company still pending) is not listed as a company", async () => {
+    const { requestId, companyId, name } = await fileRequest();
+    const { waitlistRequest } = await import("@orrn/db/schema/tenant");
+    const { eq } = await import("drizzle-orm");
+    // The old reject only closed the request and left the company pending.
+    await env.db.update(waitlistRequest).set({ status: "rejected" }).where(eq(waitlistRequest.id, requestId));
+
+    const staff = env.caller({ platformRole: "super_admin" });
+    const waiting = await staff.platform.companiesList({ status: "pending", search: name });
+    expect(waiting.total).toBe(0);
+    expect(waiting.items).toHaveLength(0);
+    const overview = await staff.platform.overview();
+    expect(overview.companies?.recent.map((r) => r.id)).not.toContain(companyId);
+    await expect(staff.platform.companiesGet({ id: companyId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  test("Reactivate and Suspend refuse a company that was never approved", async () => {
+    const { companyId } = await fileRequest();
+    const staff = env.caller({ platformRole: "super_admin" });
+    await expect(staff.platform.companiesReactivate({ id: companyId })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(staff.platform.companiesSuspend({ id: companyId })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const got = await staff.platform.companiesGet({ id: companyId });
+    expect(got.company.status).toBe("pending");
+    expect(got.company.memberCount).toBe(0);
+  });
+
+  test("approving still turns the waiting company into an active one with its owner", async () => {
+    const { requestId, companyId } = await fileRequest();
+    const staff = env.caller({ platformRole: "super_admin" });
+    try {
+      await staff.platform.waitlistApprove({ id: requestId });
+    } catch {
+      // The sign-in email needs Better Auth, which the test env does not run; the batch has committed by then.
+    }
+    const got = await staff.platform.companiesGet({ id: companyId });
+    expect(got.company.status).toBe("active");
+    expect(got.company.memberCount).toBe(1);
+  });
+});
+
+describe("printing status with several stations", () => {
+  test("the newest station that is not turned off decides the company's printing status", async () => {
+    const { companyId } = await env.seedCompany();
+    const tag = crypto.randomUUID().slice(0, 6);
+    await insertDeployment(companyId, "active", `old-${tag}`);
+    await new Promise((r) => setTimeout(r, 5));
+    await insertDeployment(companyId, "pending", `new-${tag}`);
+    await new Promise((r) => setTimeout(r, 5));
+    await insertDeployment(companyId, "revoked", `gone-${tag}`);
+
+    const staff = env.caller({ platformRole: "super_admin" });
+    const all = await staff.platform.companiesList({ limit: 100 });
+    expect(all.items.find((r) => r.id === companyId)?.printing).toBe("pending");
+    const filtered = await staff.platform.companiesList({ limit: 100, printing: true });
+    expect(filtered.items.filter((r) => r.id === companyId)).toHaveLength(1);
+  });
+});

@@ -2,16 +2,19 @@ import { describe, expect, test } from "bun:test";
 
 import { formatAgo, formatDay, formatTime } from "./format";
 import {
+  companyAction,
   companyStatusTone,
+  freeStationName,
   grantEndsAt,
+  inactiveReason,
   grantState,
   grantTone,
   printingTone,
   suggestStationName,
   validateStationName,
 } from "./status";
-import { accessTabPath, impersonationEndsSoon } from "./impersonate";
-import { initialPlan, planForm } from "./plan";
+import { accessTabPath, afterStopFailure, impersonationEndsSoon } from "./impersonate";
+import { initialPlan, modulesOn, modulesToSave, planForm } from "./plan";
 import { showsLoadError } from "./query-state";
 
 const NOW = new Date(2026, 9, 3, 15, 0, 0);
@@ -70,6 +73,20 @@ describe("status tones", () => {
   });
 });
 
+describe("company actions", () => {
+  test("a company waiting for approval is reviewed through its request, never suspended or reactivated", () => {
+    expect(companyAction("pending")).toBe("review");
+    expect(companyAction("active")).toBe("suspend");
+    expect(companyAction("suspended")).toBe("reactivate");
+  });
+
+  test("why a company cannot print or be opened: waiting for approval, or suspended", () => {
+    expect(inactiveReason("pending")).toBe("waiting");
+    expect(inactiveReason("suspended")).toBe("suspended");
+    expect(inactiveReason("active")).toBeNull();
+  });
+});
+
 describe("grantState", () => {
   const base = { expiresAt: new Date(NOW.getTime() + 10 * 60_000), revokedAt: null };
   test("active until it ends or is stopped", () => {
@@ -106,6 +123,17 @@ describe("station name", () => {
     expect(suggestStationName("x".repeat(80)).length).toBeLessThanOrEqual(63);
   });
 
+  test("a second station (or one after Turn off) gets a name no station has used yet", () => {
+    expect(freeStationName("shree-ram-1a2b3c4d", [])).toBe("shree-ram");
+    expect(freeStationName("shree-ram-1a2b3c4d", ["shree-ram"])).toBe("shree-ram-2");
+    expect(freeStationName("shree-ram", ["shree-ram", "shree-ram-2", "other"])).toBe("shree-ram-3");
+    const long = "x".repeat(80);
+    const taken = [freeStationName(long, [])];
+    const next = freeStationName(long, taken);
+    expect(next).not.toBe(taken[0]);
+    expect(validateStationName(next)).toBeNull();
+  });
+
   test("validation returns the problem, or null", () => {
     expect(validateStationName("fourcubes")).toBeNull();
     expect(validateStationName("")).toBe("required");
@@ -123,6 +151,17 @@ describe("impersonation", () => {
     expect(accessTabPath("a/b")).toBe("/admin/companies/a%2Fb?tab=access");
   });
 
+  test("a failed Stop keeps the banner the first time unless the server says the grant is gone", () => {
+    // No answer (network) or a server fault: the grant may still be live, so stay and offer a retry.
+    expect(afterStopFailure(null, 1)).toBe("retry");
+    expect(afterStopFailure("INTERNAL_SERVER_ERROR", 1)).toBe("retry");
+    // A second failure leaves anyway (the grant still ends on its own; the Access tab can stop it).
+    expect(afterStopFailure(null, 2)).toBe("leave");
+    // The server answered that the grant is not this person's or does not exist: nothing to stop.
+    expect(afterStopFailure("NOT_FOUND", 1)).toBe("leave");
+    expect(afterStopFailure("FORBIDDEN", 1)).toBe("leave");
+  });
+
   test("ends soon inside the last five minutes", () => {
     expect(impersonationEndsSoon(new Date(NOW.getTime() + 4 * 60_000).toISOString(), NOW)).toBe(true);
     expect(impersonationEndsSoon(new Date(NOW.getTime() + 20 * 60_000).toISOString(), NOW)).toBe(false);
@@ -130,14 +169,33 @@ describe("impersonation", () => {
 });
 
 describe("plan form", () => {
+  const ALL = ["customers", "dies", "bundles", "dispatches"] as const;
+
   test("a company with no plan yet starts on Starter and can be saved as is", () => {
-    expect(planForm({ plan: null, modules: [] }, { plan: "starter", modules: [] })).toEqual({ dirty: true, noPlanYet: true });
+    expect(planForm({ plan: null, modules: [] }, { plan: "starter", modules: [...ALL] })).toEqual({
+      dirty: true,
+      noPlanYet: true,
+      noneOn: false,
+    });
   });
   test("unchanged plan and modules (any order) are not dirty", () => {
     expect(planForm({ plan: "growth", modules: ["dies", "customers"] }, { plan: "growth", modules: ["customers", "dies"] })).toEqual({
       dirty: false,
       noPlanYet: false,
+      noneOn: false,
     });
+  });
+  test("nothing saved means every module is on, so every box starts ticked", () => {
+    expect(modulesOn([], ALL)).toEqual([...ALL]);
+    expect(modulesOn(["dies", "bundles"], ALL)).toEqual(["dies", "bundles"]);
+    expect(modulesOn(["payroll"], ALL)).toEqual([...ALL]);
+  });
+  test("every box ticked saves as all on (empty); unticking one keeps the rest on", () => {
+    expect(modulesToSave([...ALL], ALL)).toEqual([]);
+    expect(modulesToSave(["dispatches", "customers", "dies"], ALL)).toEqual(["customers", "dies", "dispatches"]);
+  });
+  test("no box ticked cannot be saved (it would mean every module on)", () => {
+    expect(planForm({ plan: "growth", modules: ["dies"] }, { plan: "growth", modules: [] }).noneOn).toBe(true);
   });
   test("a changed plan or module is dirty", () => {
     expect(planForm({ plan: "growth", modules: [] }, { plan: "enterprise", modules: [] }).dirty).toBe(true);

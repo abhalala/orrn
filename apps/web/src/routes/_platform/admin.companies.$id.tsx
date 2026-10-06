@@ -15,7 +15,7 @@ import { CompanyAccessTab } from "@/features/admin/company-access-tab";
 import { CompanyPlanTab } from "@/features/admin/company-plan-tab";
 import { CompanyPrintingTab } from "@/features/admin/company-printing-tab";
 import { formatDay } from "@/features/admin/format";
-import { companyStatusKey, companyStatusTone } from "@/features/admin/status";
+import { companyAction, companyStatusKey, companyStatusTone } from "@/features/admin/status";
 import type { CompanyDetail } from "@/features/admin/types";
 import { ConfirmDialog, errorCode, errorText, Fact, LoadError, Panel } from "@/features/admin/ui";
 import { Can } from "@/shared/components/can";
@@ -94,9 +94,18 @@ function AdminCompany() {
         back={{ to: "/admin/companies", label: t("admin.company.back") }}
         title={company.name}
         actions={
-          <Can do="platform.company.manage">
-            <StatusAction company={company} />
-          </Can>
+          companyAction(company.status) === "review" ? (
+            // Never approved: it has no owner yet, so its request decides (approve or reject), not Reactivate.
+            <Can do="platform.waitlist.review">
+              <Button asChild variant="secondary">
+                <UiLink to="/admin/requests">{t("admin.company.reviewRequest")}</UiLink>
+              </Button>
+            </Can>
+          ) : (
+            <Can do="platform.company.manage">
+              <StatusAction company={company} />
+            </Can>
+          )
         }
       />
 
@@ -145,7 +154,8 @@ function StatusAction({ company }: { company: CompanyDetail["company"] }) {
   const { t } = useT();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const suspending = company.status === "active";
+  // Only for approved companies (the page shows "Review the request" for one that is waiting).
+  const suspending = companyAction(company.status) === "suspend";
 
   const refresh = () =>
     Promise.all([

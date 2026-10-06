@@ -40,23 +40,29 @@ function AdminRequests() {
       qc.invalidateQueries({ queryKey: trpc.platform.companiesList.queryKey() }),
     ]);
 
+  // The dialog closes after the list is fresh, so the card it acted on is already gone and focus
+  // moves to the page heading (never to a removed button, then <body>).
+  const done = async (message: string) => {
+    toast.success(message);
+    await refresh();
+    setDecision(null);
+  };
+  // A failure can still have changed the request: approve commits before it emails the sign-in
+  // link, and someone else may have decided it first (BAD_REQUEST). Refresh and close either way.
+  const failed = async (err: unknown) => {
+    toast.error(errorText(t, err, { BAD_REQUEST: t("admin.requests.alreadyHandled") }));
+    await refresh();
+    setDecision(null);
+  };
   const approve = useMutation({
     ...trpc.platform.waitlistApprove.mutationOptions(),
-    onSuccess: async () => {
-      toast.success(t("admin.requests.approved"));
-      setDecision(null);
-      await refresh();
-    },
-    onError: (err) => toast.error(errorText(t, err)),
+    onSuccess: () => done(t("admin.requests.approved")),
+    onError: failed,
   });
   const reject = useMutation({
     ...trpc.platform.waitlistReject.mutationOptions(),
-    onSuccess: async () => {
-      toast.success(t("admin.requests.rejected"));
-      setDecision(null);
-      await refresh();
-    },
-    onError: (err) => toast.error(errorText(t, err)),
+    onSuccess: () => done(t("admin.requests.rejected")),
+    onError: failed,
   });
 
   const rows = [...(list.data ?? [])].sort(
@@ -159,7 +165,7 @@ function RequestCard({ row, onDecide }: { row: WaitlistRow; onDecide(decision: D
       )}
       <Can do="platform.waitlist.review">
         <div className="grid grid-cols-2 gap-2 border-t border-border pt-4 sm:flex sm:justify-end">
-          <Button variant="secondary" onPress={() => onDecide({ kind: "reject", row })}>
+          <Button variant="secondary" onPress={() => onDecide({ kind: "reject", row })} className="pointer-coarse:h-14">
             {t("admin.requests.reject")}
           </Button>
           <Button onPress={() => onDecide({ kind: "approve", row })} className="pointer-coarse:h-14">

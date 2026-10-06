@@ -15,11 +15,12 @@ import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import { formatDay, formatTime } from "./format";
-import { grantEndsAt, grantState, grantStateKey, grantTone } from "./status";
+import { grantEndsAt, grantState, grantStateKey, grantTone, inactiveReason } from "./status";
 import type { CompanyDetail, GrantRow } from "./types";
 import { errorText, Panel } from "./ui";
 import { useEnterCompany } from "./use-impersonate";
 
+/** Minutes. The unit is in the control's label, so each segment is just a number (Hindi "मिनट" did not fit four times at 375px). */
 const DURATIONS = ["15", "30", "60", "120"] as const;
 type Duration = (typeof DURATIONS)[number];
 
@@ -57,10 +58,14 @@ export function CompanyAccessTab({ detail }: { detail: CompanyDetail }) {
     onError: (err) => toast.error(errorText(t, err)),
   });
 
-  const active = company.status === "active";
+  const blocked = inactiveReason(company.status);
+  // Already inside a company as support (Back from it, or a second tab): one session at a time.
+  const inside = me?.impersonation ?? null;
+  const insideName = me?.company?.name ?? inside?.companyId ?? "";
+  const canStart = blocked === null && !inside;
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!active) return;
+    if (!canStart) return;
     start.mutate({ companyId: company.id, ttlMinutes: Number(duration), reason: reason.trim() || undefined });
   };
 
@@ -112,24 +117,25 @@ export function CompanyAccessTab({ detail }: { detail: CompanyDetail }) {
     },
     {
       key: "actions",
-      header: "",
+      header: t("admin.access.actions"),
+      headerHidden: true,
       align: "end",
-      hideOnPhone: false,
       cell: (row) =>
         row.platformAdminId === me?.user.id && grantState(row, now) === "active" ? (
-          <span className="flex flex-wrap justify-end gap-2">
-            <Button size="sm" variant="secondary" onPress={() => void enter(company.id, row.expiresAt)}>
-              {t("admin.access.resume")}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              loading={stop.isPending && stop.variables?.id === row.id}
-              onPress={() => stop.mutate({ id: row.id })}
-            >
-              {t("admin.access.stopSession")}
-            </Button>
-          </span>
+          <Can do="platform.impersonate">
+            <span className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" onPress={() => void enter(company.id, row.expiresAt)}>
+                {t("admin.access.resume")}
+              </Button>
+              <Button
+                variant="ghost"
+                loading={stop.isPending && stop.variables?.id === row.id}
+                onPress={() => stop.mutate({ id: row.id })}
+              >
+                {t("admin.access.stopSession")}
+              </Button>
+            </span>
+          </Can>
         ) : null,
     },
   ];
@@ -160,7 +166,13 @@ export function CompanyAccessTab({ detail }: { detail: CompanyDetail }) {
                 {t("admin.access.title", { company: company.name })}
               </h2>
               <p className="m-0 max-w-[60ch] text-[15px] leading-6 text-muted-foreground">
-                {active ? t("admin.access.body") : t("admin.access.inactive", { company: company.name })}
+                {blocked === "waiting"
+                  ? t("admin.access.waiting", { company: company.name })
+                  : blocked === "suspended"
+                    ? t("admin.access.inactive", { company: company.name })
+                    : inside
+                      ? t("admin.access.inside", { company: insideName })
+                      : t("admin.access.body")}
               </p>
             </div>
           </div>
@@ -168,7 +180,7 @@ export function CompanyAccessTab({ detail }: { detail: CompanyDetail }) {
           <form id={formId} onSubmit={submit} className="flex flex-col gap-5">
             <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_auto]">
               <Field label={t("admin.access.reasonLabel")} hint={t("admin.access.reasonHint")}>
-                <TextInput value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} disabled={!active} />
+                <TextInput value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} disabled={!canStart} />
               </Field>
               <div className="flex min-w-0 flex-col gap-1.5">
                 <p className="m-0 text-[14px] font-semibold leading-5 text-foreground">{t("admin.access.durationLabel")}</p>
@@ -176,7 +188,7 @@ export function CompanyAccessTab({ detail }: { detail: CompanyDetail }) {
                   label={t("admin.access.durationLabel")}
                   value={duration}
                   onChange={setDuration}
-                  options={DURATIONS.map((d) => ({ value: d, label: t("admin.access.minutes", { count: d }) }))}
+                  options={DURATIONS.map((d) => ({ value: d, label: d }))}
                   className="max-w-full self-start"
                 />
               </div>
@@ -184,7 +196,7 @@ export function CompanyAccessTab({ detail }: { detail: CompanyDetail }) {
             <div className="flex">
               <Button
                 type="submit"
-                disabled={!active}
+                disabled={!canStart}
                 loading={start.isPending}
                 className="w-full sm:w-auto pointer-coarse:h-14"
               >

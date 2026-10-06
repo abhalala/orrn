@@ -26,6 +26,15 @@ export const STATIC_REDIRECTS: Record<string, string> = {
   "/admin/spool": "/admin/companies?printing=1",
 };
 
+/**
+ * Query names an old URL used for something else, dropped on the way: the
+ * old print station list's `status` (active, revoked...) would turn into the
+ * companies list's company status filter.
+ */
+const DROPPED_PARAMS: Record<string, readonly string[]> = {
+  "/admin/spool": ["status"],
+};
+
 /** Old parent path to its new parent: `/receipts/abc` becomes `/pack/abc`. */
 const PARAM_REDIRECTS: Record<string, string> = {
   "/receipts": "/pack",
@@ -50,11 +59,11 @@ function paramName(pair: string): string {
  * target already sets keeps the target's value: `/settings/members?tab=x` is
  * still the Team tab.
  */
-function withSearch(target: string, search: string): string {
+function withSearch(target: string, search: string, dropped: readonly string[] = []): string {
   const incoming = search.replace(/^\?/, "");
   if (!incoming) return target;
   const [path = "", own = ""] = target.split("?", 2) as [string, string?];
-  const ownNames = new Set(own ? own.split("&").map(paramName) : []);
+  const ownNames = new Set([...(own ? own.split("&").map(paramName) : []), ...dropped]);
   const extra = incoming.split("&").filter((pair) => pair && !ownNames.has(paramName(pair)));
   const query = [own, ...extra].filter(Boolean).join("&");
   return query ? `${path}?${query}` : path;
@@ -69,7 +78,7 @@ export function resolveRedirect(pathname: string, search: string): string | null
   const path = trimTrailingSlash(pathname);
 
   const direct = Object.hasOwn(STATIC_REDIRECTS, path) ? STATIC_REDIRECTS[path] : undefined;
-  if (direct) return withSearch(direct, search);
+  if (direct) return withSearch(direct, search, DROPPED_PARAMS[path]);
 
   const [, parent, id, ...rest] = path.split("/") as [string, string?, string?, ...string[]];
   const next = parent ? PARAM_REDIRECTS[`/${parent}`] : undefined;

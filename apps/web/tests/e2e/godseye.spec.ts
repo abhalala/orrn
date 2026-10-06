@@ -20,9 +20,9 @@ function uniq() {
 }
 
 /** Files an access request the way the public form does (`waitlist.submit`). */
-async function fileRequest(page: Page, tag: string) {
+async function fileRequest(page: Page, tag: string, opts: { email?: string } = {}) {
   const company = `E2E Godseye ${tag}`;
-  const email = `godseye.${tag}@e2e.orrn.local`;
+  const email = opts.email ?? `godseye.${tag}@e2e.orrn.local`;
   const res = await page.context().request.post(`${API_URL}/trpc/waitlist.submit`, {
     headers: { origin: WEB_ORIGIN, "content-type": "application/json" },
     data: { companyName: company, requesterName: `Requester ${tag}`, requesterEmail: email, notes: "Two presses, one packing line." },
@@ -84,11 +84,19 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   const facts = page.getByRole("region", { name: "Company facts" });
   await expect(facts).toContainText("No plan");
   await expect(page.getByText("No plan saved yet.")).toBeVisible();
-  await page.getByRole("checkbox", { name: /Dies/ }).check();
+  // Nothing saved means every module is on, and every box says so. Untick one to hide it.
+  for (const name of [/Customers/, /Dies/, /Packing and stock/, /Dispatch and packing lists/]) {
+    await expect(page.getByRole("checkbox", { name })).toBeChecked();
+  }
+  await page.getByRole("checkbox", { name: /Customers/ }).uncheck();
   await page.getByRole("button", { name: "Save plan" }).click();
   await expect(page.getByText("Plan saved", { exact: true })).toBeVisible();
   await expect(facts).toContainText("Starter");
   await expect(page.getByRole("button", { name: "Save plan" })).toBeDisabled();
+  // What the server kept, not what the form remembers.
+  await page.reload();
+  await expect(page.getByRole("checkbox", { name: /Dies/ })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: /Customers/ })).not.toBeChecked();
   const companyUrl = new URL(page.url());
   const companyPath = companyUrl.pathname;
 
@@ -98,8 +106,9 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   await expect(page.getByText("Label printing isn't set up")).toBeVisible();
   await page.getByRole("button", { name: "Set up label printing" }).click();
   const sheet = page.getByRole("dialog", { name: "Set up label printing" });
-  const station = `e2e-${tag}`;
-  await sheet.getByLabel("Station name").fill(station);
+  // The suggested name comes from the company's short name (unique per run: it carries the tag).
+  const station = await sheet.getByLabel("Station name").inputValue();
+  expect(station).toBe(`e2e-godseye-${tag}`);
   await expect(sheet).toContainText(`${station}.spool.orrn.in`);
   await sheet.getByRole("button", { name: "Set up print station" }).click();
   const secrets = page.getByRole("dialog", { name: "Copy these now" });
@@ -113,6 +122,33 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   await expect(stationCard.getByText("Waiting to connect")).toBeVisible();
   await expectNoClippedText(page, page.locator("main#main"));
   expect(await blockingAxeViolations(page), "printing tab with a station").toEqual([]);
+
+  // Rotate the secret: confirm first, then the new one shows once, in a sheet.
+  await stationCard.getByRole("button", { name: "Rotate secret" }).click();
+  const rotateDialog = page.getByRole("dialog", { name: `Rotate the secret for ${station}.spool.orrn.in?` });
+  await rotateDialog.getByRole("button", { name: "Rotate secret" }).click();
+  const rotated = page.getByRole("dialog", { name: "Secret rotated" });
+  await expect(rotated.getByRole("button", { name: "Copy New shared secret" })).toBeVisible();
+  await rotated.getByRole("button", { name: "Done" }).click();
+  await expect(rotated).toHaveCount(0);
+  // Install script: confirm, and the file downloads.
+  await stationCard.getByRole("button", { name: "Install script" }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("dialog", { name: "Download the install script" }).getByRole("button", { name: "Download script" }).click();
+  expect((await download).suggestedFilename()).toBe(`install-${station}-docker.sh`);
+  await expect(page.getByText("Install script downloaded")).toBeVisible();
+  // App downloads: a sheet with the computer picker.
+  await stationCard.getByRole("button", { name: "Downloads" }).click();
+  const downloads = page.getByRole("dialog", { name: "Download the print station app" });
+  await expect(downloads.getByRole("radio", { name: "Mac with Apple chip" })).toBeChecked();
+  await downloads.getByRole("button", { name: "Cancel" }).click();
+  await expect(downloads).toHaveCount(0);
+  // A second station is offered a name no station has used yet.
+  await page.getByRole("button", { name: "Add a print station" }).click();
+  const second = page.getByRole("dialog", { name: "Set up label printing" });
+  await expect(second.getByLabel("Station name")).toHaveValue(`${station}-2`);
+  await second.getByRole("button", { name: "Cancel" }).click();
+  await expect(second).toHaveCount(0);
 
   // 4. Access tab: impersonate, land on Today with the violet banner.
   await page.getByRole("tab", { name: "Access" }).click();
@@ -132,7 +168,21 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   const stored = await page.evaluate(() => sessionStorage.getItem("orrn:impersonate-company-id"));
   expect(stored && JSON.parse(stored).expiresAt).toBeGreaterThan(Date.now());
 
-  // 5. Stop: the grant is revoked, storage cleared, back on the company's Access tab.
+  // Back to Godseye while still inside: no second session on top of this one.
+  await page.goBack();
+  await expect(page).toHaveURL(/tab=access/);
+  await expect(page.getByText(`You are inside ${company} as support. Stop that session first.`)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Impersonate" })).toBeDisabled();
+  await page.goto("/today");
+  await expect(banner).toBeVisible();
+
+  // 5. Stop. If the revoke never reaches the server, the banner stays and says so.
+  await page.route("**/trpc/platform.impersonationRevokeGrant*", (route) => route.abort(), { times: 1 });
+  await banner.getByRole("button", { name: "Stop impersonating" }).click();
+  await expect(page.getByText("Couldn't stop the support session. Check the connection and try again.")).toBeVisible();
+  await expect(banner).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem("orrn:impersonate-company-id"))).not.toBeNull();
+  // Then it works: the grant is revoked, storage cleared, back on the company's Access tab.
   await banner.getByRole("button", { name: "Stop impersonating" }).click();
   await expect(page).toHaveURL(new RegExp(`${companyPath}\\?tab=access$`));
   await expect(page.locator("[data-slot='impersonation-banner']")).toHaveCount(0);
@@ -161,6 +211,37 @@ test("rejecting asks first and closes the request", async ({ page }) => {
   await card.getByRole("button", { name: "Reject" }).click();
   await dialog.getByRole("button", { name: "Reject" }).click();
   await expect(page.getByText("Request rejected")).toBeVisible();
+  await expect(card).toHaveCount(0);
+  // Focus lands on the page heading, not on <body> (the card that opened the dialog is gone).
+  await expect(page.getByRole("heading", { level: 1, name: "Access requests" })).toBeFocused();
+
+  // A rejected request leaves no company behind: nothing waits for approval under its name.
+  await page.goto("/admin/companies?status=pending");
+  await page.getByLabel("Search companies").fill(company);
+  await expect(page.getByText("No companies match. Try another search or filter.")).toBeVisible();
+  await expect(page.getByRole("link", { name: new RegExp(company) })).toHaveCount(0);
+});
+
+test("approve and reject dialogs show a long email in full on a phone", async ({ page }) => {
+  const tag = uniq();
+  const email = `rameshbhai.patel.accounts.${tag}@shreeganeshjialuminium.co.in`;
+  expect(email.length).toBeGreaterThan(50);
+  const { company } = await fileRequest(page, tag, { email });
+  await signInViaApi(page, "staff");
+  await open(page, "/admin/requests", { width: 375 });
+  const card = page.getByRole("article", { name: company });
+  for (const action of ["Approve", "Reject"] as const) {
+    await card.getByRole("button", { name: action }).click();
+    const dialog = page.getByRole("dialog", { name: `${action} ${company}?` });
+    await expect(dialog).toContainText(email);
+    await expectNoClippedText(page, dialog);
+    await expectNoHorizontalScroll(page);
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+  }
+  // Tidy up: reject it.
+  await card.getByRole("button", { name: "Reject" }).click();
+  await page.getByRole("dialog", { name: `Reject ${company}?` }).getByRole("button", { name: "Reject" }).click();
   await expect(card).toHaveCount(0);
 });
 
@@ -244,6 +325,83 @@ test("a company waiting for approval reads in full on a phone", async ({ page })
   await expect(page.getByRole("region", { name: "Company facts" })).toContainText("Waiting for approval");
   await expectNoHorizontalScroll(page);
   await expectNoClippedText(page, page.locator("main#main"));
+
+  // Never approved: no owner yet, so it is reviewed through its request, never suspended or reactivated.
+  const main = page.locator("main#main");
+  await expect(main.getByRole("button", { name: "Reactivate" })).toHaveCount(0);
+  await expect(main.getByRole("button", { name: "Suspend" })).toHaveCount(0);
+  await expect(main.getByRole("link", { name: "Review the request" })).toHaveAttribute("href", "/admin/requests");
+  await page.getByRole("tab", { name: "Access" }).click();
+  await expect(main.getByText(`Only active companies can be opened. Approve the access request for ${company} first.`)).toBeVisible();
+  await page.getByRole("tab", { name: "Printing" }).click();
+  await expect(main.getByText(`Only active companies can print labels. Approve the access request for ${company} first.`)).toBeVisible();
+  await main.getByRole("link", { name: "Review the request" }).click();
+  await expect(page.getByRole("article", { name: company })).toBeVisible();
+});
+
+/**
+ * The support session's end, on a fake clock: the banner switches to "in
+ * under 5 minutes", then leaves the company on its own (no request needed:
+ * the server already refuses an expired grant).
+ */
+test("the banner leaves the company on its own when the support session ends", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signInViaApi(page, "staff");
+  await page.clock.install();
+  await open(page, "/admin/companies/dev-company-orrn?tab=access");
+  await page.getByRole("radiogroup", { name: "Session length (minutes)" }).getByRole("radio", { name: "15", exact: true }).click();
+  await page.getByLabel("Reason (optional)").fill("E2E timer check");
+  await page.getByRole("button", { name: "Impersonate" }).click();
+  await expect(page).toHaveURL(/\/today$/);
+  const banner = page.locator("[data-slot='impersonation-banner']");
+  await expect(banner).toContainText(/Ends at \d{2}:\d{2}/);
+  await expect(banner).not.toContainText("in under 5 minutes");
+  try {
+    await page.clock.fastForward("11:00");
+    await expect(banner).toContainText("in under 5 minutes");
+    await page.clock.fastForward("05:00");
+    await expect(page).toHaveURL(/\/admin\/companies\/dev-company-orrn\?tab=access$/);
+    await expect(page.locator("[data-slot='impersonation-banner']")).toHaveCount(0);
+    expect(await page.evaluate(() => sessionStorage.getItem("orrn:impersonate-company-id"))).toBeNull();
+  } finally {
+    // The server's clock did not move: stop the grant so it doesn't stay live for 15 minutes.
+    const live = await page.context().request.get(`${API_URL}/trpc/platform.impersonationListActive`, {
+      headers: { origin: WEB_ORIGIN },
+    });
+    const rows = ((await live.json()) as { result?: { data?: { id: string; companyId: string }[] } }).result?.data ?? [];
+    for (const row of rows.filter((r) => r.companyId === "dev-company-orrn")) {
+      await page.context().request.post(`${API_URL}/trpc/platform.impersonationRevokeGrant`, {
+        headers: { origin: WEB_ORIGIN, "content-type": "application/json" },
+        data: { id: row.id },
+      });
+    }
+  }
+});
+
+/** Text inside main that is shortened with an ellipsis (wider than its box). */
+async function shortenedText(page: Page) {
+  return page.locator("main#main").evaluate((main) =>
+    Array.from(main.querySelectorAll<HTMLElement>("*"))
+      .filter((el) => {
+        const cs = getComputedStyle(el);
+        return cs.textOverflow === "ellipsis" && cs.display !== "none" && el.scrollWidth > el.clientWidth;
+      })
+      .map((el) => `${el.textContent?.trim()} (${el.scrollWidth} > ${el.clientWidth})`),
+  );
+}
+
+test("Godseye screens in Hindi on a phone: nothing cut off, no label shortened", async ({ page }) => {
+  test.setTimeout(90_000);
+  await signInViaApi(page, "staff");
+  await page.addInitScript(() => localStorage.setItem("orrn.locale", "hi"));
+  for (const screen of SCREENS) {
+    await open(page, screen.path, { width: 375 });
+    await expect(page.locator("html")).toHaveAttribute("lang", "hi");
+    await expect(page.locator("[aria-busy='true']")).toHaveCount(0);
+    await expectNoHorizontalScroll(page);
+    await expectNoClippedText(page, page.locator("main#main"));
+    expect(await shortenedText(page), `${screen.name} in Hindi at 375px`).toEqual([]);
+  }
 });
 
 const SCREENS = [
