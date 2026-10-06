@@ -113,8 +113,9 @@ export type SectionHeadline = {
   tone: "green" | "blue" | "neutral";
   bundles: number;
   weightG: number;
-  /** Held bundles, shown beside the in-stock count. */
+  /** Held bundles and their kg, shown beside the in-stock count. */
   held: number;
+  heldWeightG: number;
 };
 
 /**
@@ -125,10 +126,24 @@ export type SectionHeadline = {
  */
 export function sectionHeadline(s: SectionStock | undefined): SectionHeadline {
   if (s && s.available.bundles > 0) {
-    return { state: "inStock", tone: "green", bundles: s.available.bundles, weightG: s.available.weightG, held: s.held.bundles };
+    return {
+      state: "inStock",
+      tone: "green",
+      bundles: s.available.bundles,
+      weightG: s.available.weightG,
+      held: s.held.bundles,
+      heldWeightG: s.held.weightG,
+    };
   }
   if (s && s.held.bundles > 0) {
-    return { state: "held", tone: "blue", bundles: s.held.bundles, weightG: s.held.weightG, held: s.held.bundles };
+    return {
+      state: "held",
+      tone: "blue",
+      bundles: s.held.bundles,
+      weightG: s.held.weightG,
+      held: s.held.bundles,
+      heldWeightG: s.held.weightG,
+    };
   }
-  return { state: "none", tone: "neutral", bundles: 0, weightG: 0, held: 0 };
+  return { state: "none", tone: "neutral", bundles: 0, weightG: 0, held: 0, heldWeightG: 0 };
 }

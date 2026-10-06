@@ -442,6 +442,7 @@ export const hi = {
     searchSections: "Die या सेक्शन खोजें",
     totals: "स्टॉक में {bundles} bundle · {kg} kg",
     heldChip: "{count} होल्ड पर",
+    heldKg: "{count} होल्ड पर, {kg} kg",
     empty: "अभी स्टॉक नहीं है। पैकिंग के बाद bundle यहां दिखेंगे।",
     emptyAction: "पैकिंग सेशन शुरू करें",
     view: "स्टॉक व्यू",

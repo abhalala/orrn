@@ -448,6 +448,7 @@ export const en = {
     searchSections: "Search die or section",
     totals: "{bundles} {bundles:bundle|bundles} · {kg} kg in stock",
     heldChip: "{count} held",
+    heldKg: "{count} held, {kg} kg",
     empty: "No stock yet. Bundles show up here after packing.",
     emptyAction: "Start a packing session",
     view: "Stock view",

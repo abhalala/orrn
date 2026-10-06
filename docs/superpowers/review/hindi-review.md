@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 817 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 818 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -410,7 +410,7 @@ Counts: 817 screen strings in 26 groups, 10 guides with 182 strings.
 | `continuous.result.notFound` | Not found | नहीं मिला |
 | `continuous.done` | Done scanning | स्कैन बंद करें |
 
-### stock (60)
+### stock (61)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -420,6 +420,7 @@ Counts: 817 screen strings in 26 groups, 10 guides with 182 strings.
 | `searchSections` | Search die or section | Die या सेक्शन खोजें |
 | `totals` | {bundles} {bundles:bundle\|bundles} · {kg} kg in stock | स्टॉक में {bundles} bundle · {kg} kg |
 | `heldChip` | {count} held | {count} होल्ड पर |
+| `heldKg` | {count} held, {kg} kg | {count} होल्ड पर, {kg} kg |
 | `empty` | No stock yet. Bundles show up here after packing. | अभी स्टॉक नहीं है। पैकिंग के बाद bundle यहां दिखेंगे। |
 | `emptyAction` | Start a packing session | पैकिंग सेशन शुरू करें |
 | `view` | Stock view | स्टॉक व्यू |

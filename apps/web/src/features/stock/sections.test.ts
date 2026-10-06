@@ -122,13 +122,34 @@ describe("sectionHeadline (the block on Sections and the hero on a section page 
   );
   const [allHeld] = mergeSections([], [row({ dieId: "h", bundleCount: 3, totalWeightG: 150_000 })]);
 
-  test("bundles in stock: green, the in-stock count and kg, held as a side note", () => {
-    expect(sectionHeadline(mixed)).toEqual({ state: "inStock", tone: "green", bundles: 4, weightG: 200_000, held: 2 });
+  test("bundles in stock: green, the in-stock count and kg, held count and kg as a side note", () => {
+    expect(sectionHeadline(mixed)).toEqual({
+      state: "inStock",
+      tone: "green",
+      bundles: 4,
+      weightG: 200_000,
+      held: 2,
+      heldWeightG: 90_000,
+    });
   });
   test("every bundle held: blue, the held count and kg (a green 0 would mislead)", () => {
-    expect(sectionHeadline(allHeld)).toEqual({ state: "held", tone: "blue", bundles: 3, weightG: 150_000, held: 3 });
+    expect(sectionHeadline(allHeld)).toEqual({
+      state: "held",
+      tone: "blue",
+      bundles: 3,
+      weightG: 150_000,
+      held: 3,
+      heldWeightG: 150_000,
+    });
   });
   test("nothing on the floor (a die opened from its own page): neutral, not green", () => {
-    expect(sectionHeadline(undefined)).toEqual({ state: "none", tone: "neutral", bundles: 0, weightG: 0, held: 0 });
+    expect(sectionHeadline(undefined)).toEqual({
+      state: "none",
+      tone: "neutral",
+      bundles: 0,
+      weightG: 0,
+      held: 0,
+      heldWeightG: 0,
+    });
   });
 });

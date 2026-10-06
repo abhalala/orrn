@@ -188,7 +188,9 @@ function SectionPage() {
                 ? undefined
                 : [
                     t("stock.block.kg", { kg: formatKgTotal(gToKg(head.weightG)) }),
-                    head.state === "inStock" && head.held > 0 ? t("stock.heldChip", { count: head.held }) : null,
+                    head.state === "inStock" && head.held > 0
+                      ? t("stock.heldKg", { count: head.held, kg: formatKgTotal(gToKg(head.heldWeightG)) })
+                      : null,
                   ]
                     .filter(Boolean)
                     .join(" · ")

@@ -247,7 +247,26 @@ test.describe("Stock numbers and changes", () => {
     await expect(page.getByTestId("stock-totals")).toContainText(
       `${totalBundles.toLocaleString("en-IN")} bundles · ${kgTotal(totalG)} in stock`,
     );
+    // Held kg is on screen too, so in stock + held reconciles with the charts (which count both).
+    const heldBundles = reserved.items.reduce((t, r) => t + Number(r.bundleCount), 0);
+    const heldG = reserved.items.reduce((t, r) => t + Number(r.totalWeightG), 0);
+    if (heldBundles > 0) {
+      await expect(page.getByTestId("stock-totals").locator("[data-slot='chip'][data-tone='blue']")).toHaveText(
+        `${heldBundles.toLocaleString("en-IN")} held, ${kgTotal(heldG)}`,
+      );
+    }
     await expectNoGrams(page);
+
+    // A section with stock and held bundles: its hero names the held kg beside the in-stock kg.
+    const mixed = reserved.items.find((r) => available.items.some((a) => a.dieId === r.dieId));
+    if (mixed) {
+      const free = available.items.find((a) => a.dieId === mixed.dieId)!;
+      await page.goto(`/stock/${mixed.dieId}`);
+      await expect(page.getByTestId("section-hero")).toContainText(
+        `${kgTotal(free.totalWeightG)} · ${Number(mixed.bundleCount)} held, ${kgTotal(mixed.totalWeightG)}`,
+      );
+      await expectNoGrams(page);
+    }
   });
 
   test("chart tables show the server's stock age and top sections", async ({ page }) => {

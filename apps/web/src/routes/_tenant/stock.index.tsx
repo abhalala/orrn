@@ -104,7 +104,13 @@ function StockSections() {
               })}
             </p>
             {totals.held.bundles > 0 ? (
-              <Chip tone="blue">{t("stock.heldChip", { count: totals.held.bundles.toLocaleString("en-IN") })}</Chip>
+              // Held kg beside the count: in stock + held is what the charts count, so the two reconcile.
+              <Chip tone="blue">
+                {t("stock.heldKg", {
+                  count: totals.held.bundles.toLocaleString("en-IN"),
+                  kg: formatKgTotal(gToKg(totals.held.weightG)),
+                })}
+              </Chip>
             ) : null}
           </>
         ) : null}
