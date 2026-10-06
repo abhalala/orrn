@@ -933,7 +933,7 @@ Counts: 859 screen strings in 26 groups, 10 guides with 182 strings.
 | `serverTitle` | orrn ran into a problem | orrn में कोई दिक्कत आई |
 | `serverBody` | The problem is on orrn's side, not this phone. Try again in a minute. | दिक्कत orrn की तरफ़ से है, इस फ़ोन में नहीं। एक मिनट बाद फिर से कोशिश करें। |
 | `saveUnsureTitle` | Not sure it saved | पता नहीं सेव हुआ या नहीं |
-| `saveUnsureBody` | orrn didn't answer in time, so this may have saved. Check before you try again. | orrn ने समय पर जवाब नहीं दिया, इसलिए हो सकता है यह सेव हो गया हो। दोबारा कोशिश करने से पहले जांच लें। |
+| `saveUnsureBody` | orrn didn't confirm this save, so it may have gone through. Check before you try again. | orrn से सेव होने का जवाब नहीं आया, इसलिए हो सकता है यह सेव हो गया हो। दोबारा कोशिश करने से पहले जांच लें। |
 
 ### ui (9)
 
