@@ -7,7 +7,7 @@
  * Errors are inline under each field (aria-invalid + aria-describedby via Field) and announced in
  * a polite live region; a code taken by a deleted die (S16) or by another die lands on Section code.
  */
-import type { LengthUnit } from "@orrn/domain";
+import { DELETED_DIE_CODE_MESSAGE, type LengthUnit } from "@orrn/domain";
 import { useT, type MessageKey } from "@orrn/i18n";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
@@ -42,9 +42,6 @@ export type DieFormProps = {
 
 type ServerError = { data?: { code?: string } | null; message?: string };
 
-/** S16: the server's message for a code held by a soft-deleted die. */
-const DELETED_CODE_MESSAGE = "A deleted die uses this code";
-
 export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieFormProps) {
   const { t } = useT();
   const queryClient = useQueryClient();
@@ -67,7 +64,7 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
   const onError = (error: ServerError) => {
     const code = error.data?.code;
     if (code === "CONFLICT") {
-      const key: MessageKey = error.message === DELETED_CODE_MESSAGE ? "dies.form.codeTaken" : "dies.form.duplicate";
+      const key: MessageKey = error.message === DELETED_DIE_CODE_MESSAGE ? "dies.form.codeTaken" : "dies.form.duplicate";
       setErrors({ sectionCode: key });
       setAnnounce(t(key));
       focusField(formId, "sectionCode");

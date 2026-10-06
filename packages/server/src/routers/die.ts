@@ -3,6 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { die, dieStatuses } from "@orrn/db/schema/catalog";
+import { DELETED_DIE_CODE_MESSAGE } from "@orrn/domain";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
@@ -58,7 +59,7 @@ export const dieBaseSchema = z.object({
  */
 const DELETED_DIE_CONFLICT = {
   code: "CONFLICT",
-  message: "A deleted die uses this code",
+  message: DELETED_DIE_CODE_MESSAGE,
 } as const;
 
 export const dieRouter = router({
