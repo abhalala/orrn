@@ -135,6 +135,10 @@ describe("customer.list search", () => {
     expect(await ids("98250-11234")).toEqual([kd]);
     expect(await ids("0261 2457781")).toEqual([royal]);
     expect(await ids("2457781")).toEqual([royal]);
+    // A trunk 0 or the 91 country code on either side: the last ten digits decide.
+    expect(await ids("09825011234")).toEqual([kd]);
+    expect(await ids("+91 261 245 7781")).toEqual([royal]);
+    expect(await ids("0091 98250 11234")).toEqual([kd]);
   });
 
   test("the digits search binds a constant handful of parameters", async () => {
