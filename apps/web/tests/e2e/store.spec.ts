@@ -226,6 +226,41 @@ test.describe("issue beyond balance is blocked", () => {
       .toBe(true);
   });
 
+  test("on a 375x812 phone, the Exchange quantities sit level and a focused one scrolls clear of the sticky bar, also in Hindi", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000); // two languages, four page loads
+    await open(page, { width: 375, path: "/today" });
+    await page.setViewportSize({ width: 375, height: 812 });
+    const item = await newItem(page, { prefix: "E2E pair", unit: "piece", receiveMilli: 4_000 });
+    const bar = page.locator("[data-slot='form-actions']");
+    for (const lang of ["en", "hi"] as const) {
+      await page.evaluate((l) => localStorage.setItem("orrn.locale", l), lang);
+      await page.goto(`/store/exchange?item=${item.id}`);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(lang === "hi" ? /[ऀ-ॿ]/ : "Exchange old for new");
+      const inputs = page.locator("form input[inputmode='decimal']");
+      await expect(inputs).toHaveCount(2);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const [oldBox, newBox] = [await inputs.nth(0).boundingBox(), await inputs.nth(1).boundingBox()];
+      expect(Math.abs(oldBox!.y - newBox!.y), `${lang}: the two fields are level`).toBeLessThan(1);
+      await expectNoClippedText(page, "main#main");
+      // Focus moves by keyboard from the old to the new quantity: each lands clear of the bar.
+      for (const i of [0, 1]) {
+        if (i === 0) await inputs.nth(0).focus();
+        else await page.keyboard.press("Tab");
+        await expect(inputs.nth(i)).toBeFocused();
+        await expect
+          .poll(async () => {
+            const box = await inputs.nth(i).boundingBox();
+            const b = await bar.boundingBox();
+            return Boolean(box && b && box.y >= 56 && box.y + box.height <= b.y);
+          }, `${lang}: field ${i} clear of the sticky bar`)
+          .toBe(true);
+      }
+    }
+    await page.evaluate(() => localStorage.setItem("orrn.locale", "en"));
+  });
+
   test("when the screen's balance is stale, the server refuses and the form says why", async ({ page }) => {
     await open(page, { path: "/today" });
     const item = await newItem(page, { prefix: "E2E stale", receiveMilli: 5_000 });
@@ -718,6 +753,9 @@ test.describe("keyboard and language", () => {
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await expect(box).toHaveValue(item.name);
+    // Visual order: the "Not in the list? Add item" link sits under the picker.
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: "Add item" })).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(page.getByLabel("Quantity")).toBeFocused();
     await page.keyboard.type("2.5");

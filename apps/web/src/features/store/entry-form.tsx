@@ -475,7 +475,15 @@ function EntryFormBody({
       <form
         noValidate
         onSubmit={(e) => void submit(e)}
-        className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start"
+        className={cn(
+          "grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start",
+          // Phones: a focused field (tap or Tab) scrolls clear of the sticky submit bar and the tab
+          // bar instead of sitting under them (WCAG 2.4.11). Bar: 12px gap + 74px tall + 12px air;
+          // a purpose tile's radio sits at the top of its 56px tile.
+          "max-sm:[&_input]:scroll-mb-[calc(var(--shell-tabbar-offset)+98px)]",
+          "max-sm:[&_textarea]:scroll-mb-[calc(var(--shell-tabbar-offset)+98px)]",
+          "max-sm:[&_input[type=radio]]:scroll-mb-[calc(var(--shell-tabbar-offset)+154px)]",
+        )}
       >
         <div className="flex min-w-0 flex-col gap-5">
           <div className="flex min-w-0 flex-col gap-2">
@@ -509,8 +517,12 @@ function EntryFormBody({
           {item ? <SelectedItem item={item} className="lg:hidden" /> : null}
 
           {mode === "exchange" ? (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            // Old and new side by side at every width: they are one pair, and on a phone they take
+            // one row, not two, above the sticky Exchange bar. Subgrid rows keep the two inputs
+            // level when one label wraps (Hindi).
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 sm:gap-x-5">
               <Field
+                className="row-span-4 grid grid-rows-subgrid"
                 label={t("store.form.oldOut")}
                 error={shownError("old")}
                 hint={item ? inStoreHint(t, item) : undefined}
@@ -529,7 +541,11 @@ function EntryFormBody({
                   className={bigQty}
                 />
               </Field>
-              <Field label={t("store.form.newIn")} error={shownError("new")}>
+              <Field
+                className="row-span-4 grid grid-rows-subgrid"
+                label={t("store.form.newIn")}
+                error={shownError("new")}
+              >
                 <NumberInput
                   ref={(el) => void (fieldRefs.current.new = el)}
                   value={newQty}
