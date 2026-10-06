@@ -187,6 +187,41 @@ describe("writeFailureKind: what a failed save means to the person", () => {
       .catch((e: unknown) => e);
     expect(writeFailureKind(error)).toBe("failed");
   });
+
+  /** A tRPC error reply from orrn with the given HTTP status. */
+  async function answeredWith(httpStatus: number, code: string) {
+    const reply = () =>
+      new Response(
+        JSON.stringify([{ error: { message: "x", code: -32603, data: { code, httpStatus, path: "bundle.createReceipt" } } }]),
+        { status: httpStatus, headers: { "content-type": "application/json" } },
+      );
+    const { impl } = fakeFetch(0, reply);
+    return client(impl)
+      .mutation("bundle.createReceipt", {})
+      .catch((e: unknown) => e);
+  }
+
+  test("orrn refused before writing (4xx): 'failed', trying again is safe", async () => {
+    for (const [status, code] of [
+      [400, "BAD_REQUEST"],
+      [401, "UNAUTHORIZED"],
+      [403, "FORBIDDEN"],
+      [404, "NOT_FOUND"],
+      [409, "CONFLICT"],
+      [429, "TOO_MANY_REQUESTS"],
+    ] as const) {
+      expect(writeFailureKind(await answeredWith(status, code))).toBe("failed");
+    }
+  });
+
+  test("orrn's handler threw (5xx): the write may have committed first, 'unsure'", async () => {
+    // A D1 error such as a lost connection can come back after the batch
+    // committed; tRPC wraps it as a 500 with data.httpStatus. Calling that
+    // "failed" invites a second pack session (createReceipt takes no request id).
+    expect(writeFailureKind(await answeredWith(500, "INTERNAL_SERVER_ERROR"))).toBe("unsure");
+    expect(writeFailureKind(await answeredWith(503, "SERVICE_UNAVAILABLE"))).toBe("unsure");
+    expect(writeFailureKind(await answeredWith(504, "GATEWAY_TIMEOUT"))).toBe("unsure");
+  });
 });
 
 describe("wiring", () => {
