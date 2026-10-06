@@ -66,7 +66,18 @@ const CASES: [ReturnType<typeof server>, MessageKey][] = [
   [server("NOT_FOUND", "Store entry not found"), "store.errors.notFound"],
   [server("FORBIDDEN", "You don't have permission"), "errors.forbidden"],
   [server("UNAUTHORIZED", "UNAUTHORIZED"), "errors.sessionExpired"],
-  [server("INTERNAL_SERVER_ERROR", "The exchange was only half saved"), "errors.generic"],
+];
+
+/** The server answered, but with a 5xx: the handler threw after (or while) writing, or a gateway gave up. */
+const serverFault = [
+  {
+    name: "TRPCClientError",
+    message: "The exchange was only half saved",
+    data: { code: "INTERNAL_SERVER_ERROR", httpStatus: 500 },
+  },
+  { name: "TRPCClientError", message: "Gateway timeout", data: { code: "GATEWAY_TIMEOUT", httpStatus: 504 } },
+  // No httpStatus, but a code that is a server fault.
+  { name: "TRPCClientError", message: "boom", data: { code: "INTERNAL_SERVER_ERROR" } },
 ];
 
 describe("storeErrorKey: server English becomes an i18n key", () => {
@@ -81,6 +92,13 @@ describe("storeErrorKey: server English becomes an i18n key", () => {
     for (const error of offline) {
       expect(isUnknownOutcome(error)).toBe(true);
       expect(storeErrorKey(error)).toBe("errors.network");
+    }
+  });
+
+  test("a 5xx answer may have saved the entry (RP18, as T28): unknown outcome, generic text", () => {
+    for (const error of serverFault) {
+      expect(isUnknownOutcome(error)).toBe(true);
+      expect(storeErrorKey(error)).toBe("errors.generic");
     }
   });
 

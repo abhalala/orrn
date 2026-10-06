@@ -803,7 +803,7 @@ export const en = {
       },
       failed: "Not saved. {reason}",
       unknownOutcome:
-        "No answer from the server, so it may have been saved. Tap {action} again to check: the same entry is never saved twice.",
+        "orrn didn't confirm this save, so it may have gone through. Tap {action} again to check: the same entry is never saved twice.",
       backToStore: "Back to store",
       notInList: "Not in the list?",
       allItems: "Items",

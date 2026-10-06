@@ -359,7 +359,7 @@ test.describe("store entries", () => {
     await page.getByRole("button", { name: "Receive", exact: true }).click();
     // Not "Not saved": it was saved, only the answer was lost.
     await expect(page.getByRole("alert")).toHaveText(
-      "No answer from the server, so it may have been saved. Tap Receive again to check: the same entry is never saved twice.",
+      "orrn didn't confirm this save, so it may have gone through. Tap Receive again to check: the same entry is never saved twice.",
     );
     expect((await entriesOf(page, item.id)).filter((e) => e.kind === "grn")).toHaveLength(1);
 
@@ -370,6 +370,48 @@ test.describe("store entries", () => {
     expect(entries.filter((e) => e.kind === "grn")).toHaveLength(1);
     await expect(done).toContainText(entries[0]!.number);
     expect(await balanceOf(page, item.id)).toBe(12_000);
+  });
+
+  test("a server fault (5xx) after the save is not 'Not saved': the retry returns the first GRN (RP18)", async ({
+    page,
+  }) => {
+    await open(page, { path: "/today" });
+    const item = await newItem(page, { prefix: "E2E fault" });
+    await page.goto(`/store/receive?item=${item.id}`);
+    await page.getByLabel("Quantity").fill("7");
+    // The entry is written, then the answer is a tRPC 500 (a handler that threw after its batch).
+    let calls = 0;
+    await page.route("**/trpc/store.receive**", async (route) => {
+      calls += 1;
+      if (calls > 1) return route.continue();
+      await route.fetch();
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            error: {
+              message: "Something broke after the write",
+              code: -32603,
+              data: { code: "INTERNAL_SERVER_ERROR", httpStatus: 500, path: "store.receive" },
+            },
+          },
+        ]),
+      });
+    });
+    const receive = page.getByRole("button", { name: "Receive", exact: true });
+    await receive.click();
+    await expect(page.getByRole("alert")).toContainText("orrn didn't confirm this save");
+    await expect(page.getByRole("alert")).not.toContainText("Something broke");
+    await receive.click();
+    const done = page.locator("[data-slot='status-block']");
+    await expect(done).toContainText("Received");
+    expect(calls).toBe(2);
+    const entries = await entriesOf(page, item.id);
+    expect(entries.filter((e) => e.kind === "grn")).toHaveLength(1);
+    await expect(done).toContainText(entries[0]!.number);
+    expect(await balanceOf(page, item.id)).toBe(7_000);
+    await page.unrouteAll({ behavior: "ignoreErrors" });
   });
 
   test("Issue: a retry after a lost response returns the first MRS, though the balance now looks short (RP18)", async ({
@@ -392,7 +434,7 @@ test.describe("store entries", () => {
     await issue.click();
     const alert = page.getByRole("alert");
     await expect(alert).toHaveText(
-      "No answer from the server, so it may have been saved. Tap Issue again to check: the same entry is never saved twice.",
+      "orrn didn't confirm this save, so it may have gone through. Tap Issue again to check: the same entry is never saved twice.",
     );
     const [first] = (await entriesOf(page, item.id)).filter((e) => e.kind === "mrs");
     expect(first, "the lost request was saved").toBeTruthy();
@@ -430,7 +472,7 @@ test.describe("store entries", () => {
     });
     const submit = page.getByRole("button", { name: "Exchange", exact: true });
     await submit.click();
-    await expect(page.getByRole("alert")).toContainText("No answer from the server");
+    await expect(page.getByRole("alert")).toContainText("orrn didn't confirm this save");
     await expect(page.getByText("In store: 1 pcs").first()).toBeVisible();
     await expect(page.getByText(/^Only 1 pcs in the store/)).toHaveCount(0);
     await submit.click();

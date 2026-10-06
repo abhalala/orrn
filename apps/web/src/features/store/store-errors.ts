@@ -1,23 +1,37 @@
 import type { MessageKey, Translate } from "@orrn/i18n";
 
-type TrpcLike = { message?: unknown; data?: { code?: unknown } | null };
+type TrpcLike = { message?: unknown; data?: { code?: unknown; httpStatus?: unknown } | null };
 
-function parts(error: unknown): { code: unknown; message: string } {
+function parts(error: unknown): { code: unknown; status: unknown; message: string } {
   const e = (error && typeof error === "object" ? error : {}) as TrpcLike;
   return {
     code: e.data?.code,
+    status: e.data?.httpStatus,
     message: typeof e.message === "string" ? e.message : "",
   };
 }
 
+/** tRPC codes that mean the server failed, not that it refused (httpStatus 5xx). */
+const SERVER_FAULTS = new Set([
+  "INTERNAL_SERVER_ERROR",
+  "NOT_IMPLEMENTED",
+  "BAD_GATEWAY",
+  "SERVICE_UNAVAILABLE",
+  "GATEWAY_TIMEOUT",
+]);
+
 /**
- * The request may or may not have reached the server: no answer came back (network drop, Wi-Fi
- * gone, aborted). With a client request id (RP18) the same values are safe to send again: the
- * server returns the first entry if it was saved.
+ * The entry may or may not have been saved: no answer came back (network drop, Wi-Fi gone,
+ * aborted), or the server answered with a fault (5xx: the handler threw after its batch, a gateway
+ * gave up). Only a refusal (4xx) proves nothing was written. With a client request id (RP18) the
+ * same values are safe to send again: the server returns the first entry if it was saved. Same rule
+ * as the native writeFailureKind (T28).
  */
 export function isUnknownOutcome(error: unknown): boolean {
-  const { code } = parts(error);
-  return code === undefined || code === null;
+  const { code, status } = parts(error);
+  if (code === undefined || code === null) return true;
+  if (typeof status === "number") return status >= 500;
+  return typeof code === "string" && SERVER_FAULTS.has(code);
 }
 
 /**

@@ -737,7 +737,7 @@ Counts: 949 screen strings in 27 groups, 11 guides with 200 strings.
 | `form.qty.tooBig` | One entry can hold at most 1,00,000. Split it into two entries. | एक एंट्री में ज़्यादा से ज़्यादा 1,00,000 आ सकता है। इसे दो एंट्री में बांटें। |
 | `form.qty.short` | Only {qty} {unit} in the store. Issue less, or receive the delivery first. | स्टोर में सिर्फ़ {qty} {unit} है। कम दें, या पहले डिलीवरी लें। |
 | `form.failed` | Not saved. {reason} | सेव नहीं हुआ। {reason} |
-| `form.unknownOutcome` | No answer from the server, so it may have been saved. Tap {action} again to check: the same entry is never saved twice. | सर्वर से जवाब नहीं आया, हो सकता है यह सेव हो गया हो। जांचने के लिए फिर से {action} दबाएं, एक ही एंट्री दो बार सेव नहीं होती। |
+| `form.unknownOutcome` | orrn didn't confirm this save, so it may have gone through. Tap {action} again to check: the same entry is never saved twice. | orrn ने इस सेव की पुष्टि नहीं की, हो सकता है यह सेव हो गया हो। जांचने के लिए फिर से {action} दबाएं, एक ही एंट्री दो बार सेव नहीं होती। |
 | `form.backToStore` | Back to store | स्टोर पर वापस |
 | `form.notInList` | Not in the list? | लिस्ट में नहीं है? |
 | `form.allItems` | Items | सामान |
