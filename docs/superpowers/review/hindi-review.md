@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 863 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 873 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -887,7 +887,7 @@ Counts: 863 screen strings in 26 groups, 10 guides with 182 strings.
 | `staff.email` | Email | ईमेल |
 | `staff.role` | Role | रोल |
 
-### marketing (24)
+### marketing (34)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -895,6 +895,11 @@ Counts: 863 screen strings in 26 groups, 10 guides with 182 strings.
 | `sub` | orrn tracks each bundle from packing to dispatch, so the floor and the office see the same stock. | orrn हर bundle को पैकिंग से dispatch तक ट्रैक करता है, ताकि फ़्लोर और ऑफ़िस एक ही स्टॉक देखें। |
 | `requestAccess` | Request access | एक्सेस मांगें |
 | `signIn` | Sign in | साइन इन करें |
+| `homeLabel` | orrn home | orrn होम |
+| `metaTitle` | orrn: every bundle, accounted for | orrn: हर bundle का पूरा हिसाब |
+| `visual.bundles` | {count:bundle\|bundles} | {count:bundle\|bundle} |
+| `visual.pieces` | {count} pcs | {count} पीस |
+| `visual.packingListReady` | Packing list ready | पैकिंग लिस्ट तैयार |
 | `flow.title` | Pack. Stock. Dispatch. | पैकिंग। स्टॉक। Dispatch। |
 | `flow.pack` | Enter each bundle's weight and pieces, and print its label. | हर bundle का वज़न और पीस डालें, और उसका लेबल प्रिंट करें। |
 | `flow.stock` | See what's in stock by section, in bundles and kg. | सेक्शन के हिसाब से स्टॉक देखें, bundle और kg में। |
@@ -904,17 +909,22 @@ Counts: 863 screen strings in 26 groups, 10 guides with 182 strings.
 | `floor.hindi` | Hindi and English, one tap apart. | हिंदी और English, एक टैप पर। |
 | `floor.camera` | Scan labels with the phone camera. | फ़ोन के कैमरे से लेबल स्कैन करें। |
 | `floor.devices` | Runs on a phone, a tablet or a laptop. | फ़ोन, टैबलेट या लैपटॉप पर चलता है। |
+| `floor.tryIt` | Try it on this page | इसी पेज पर आज़माएं |
 | `office.title` | For the office | ऑफ़िस के लिए |
 | `office.stock` | Stock by section, up to date as bundles are packed and dispatched. | सेक्शन के हिसाब से स्टॉक, हर पैकिंग और dispatch के साथ अपडेट। |
 | `office.packingList` | Packing lists with your company header, ready to print or send. | आपकी कंपनी के हेडर वाली पैकिंग लिस्ट, प्रिंट करने या भेजने के लिए तैयार। |
 | `office.labels` | Labels print on your own printers over the plant network. | प्लांट के नेटवर्क पर आपके अपने प्रिंटर से लेबल प्रिंट होते हैं। |
+| `office.demoCompany` | Your company name | आपकी कंपनी का नाम |
+| `office.demoCustomer` | Demo customer | डेमो ग्राहक |
 | `trust.title` | Your data stays yours | आपका डेटा आपका ही रहता है |
 | `trust.separate` | Each company's data is kept apart from every other company. | हर कंपनी का डेटा बाकी कंपनियों से अलग रखा जाता है। |
 | `trust.audit` | Every change is logged with who made it and when. | हर बदलाव का रिकॉर्ड रहता है, किसने किया और कब। |
 | `trust.roles` | Roles decide who can pack, dispatch or change settings. | रोल तय करते हैं कि कौन पैकिंग, dispatch या सेटिंग्स बदल सकता है। |
 | `cta.title` | Try it on your floor | अपने फ़्लोर पर आज़माएं |
 | `cta.body` | Tell us about your plant and we'll get in touch. | अपने प्लांट के बारे में बताएं, हम संपर्क करेंगे। |
-| `footer` | orrn, for aluminium extrusion plants | orrn, एल्युमिनियम एक्सट्रूज़न प्लांट के लिए |
+| `footer` | For aluminium extrusion plants | एल्युमिनियम एक्सट्रूज़न प्लांट के लिए |
+| `footerNav` | Footer | फ़ुटर |
+| `copyright` | © {year} orrn | © {year} orrn |
 
 ### native (18)
 
