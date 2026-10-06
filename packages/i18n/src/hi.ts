@@ -622,6 +622,8 @@ export const hi = {
     emptyBody: "Die जोड़ें, या CSV फ़ाइल से कैटलॉग इम्पोर्ट करें।",
     emptyAction: "Die जोड़ें",
     importCsv: "CSV इम्पोर्ट करें",
+    pageEmpty: "इस पेज पर कुछ नहीं है।",
+    firstPage: "पहले पेज पर जाएं",
     detail: {
       band: "12 ft का वज़न",
       bandValue: "{min} से {max}",
@@ -687,6 +689,8 @@ export const hi = {
     emptyBody: "पहले dispatch से पहले ग्राहक जोड़ें।",
     emptyAction: "ग्राहक जोड़ें",
     importCsv: "CSV इम्पोर्ट करें",
+    pageEmpty: "इस पेज पर कुछ नहीं है।",
+    firstPage: "पहले पेज पर जाएं",
     kgFailed: "Dispatch हुआ kg लोड नहीं हुआ।",
     period: {
       label: "समय",

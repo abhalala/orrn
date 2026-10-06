@@ -155,6 +155,18 @@ function DiesList() {
                 </Button>
               }
             />
+          ) : offset > 0 ? (
+            // A link or Back past the last page: there may be dies on page one.
+            <EmptyState
+              title={t("dies.pageEmpty")}
+              action={
+                <Button asChild variant="secondary">
+                  <Link to="/dies" search={{ q: q || undefined }}>
+                    {t("dies.firstPage")}
+                  </Link>
+                </Button>
+              }
+            />
           ) : searching ? (
             <EmptyState title={t("common.noResults", { query: q })} />
           ) : (

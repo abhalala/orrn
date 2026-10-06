@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 859 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 863 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -564,7 +564,7 @@ Counts: 859 screen strings in 26 groups, 10 guides with 182 strings.
 | `regenerateBody` | orrn builds it again from the bundles in this dispatch as they are now. | orrn इस dispatch के bundle की अभी की जानकारी से इसे फिर से बनाएगा। |
 | `regenerated` | Packing list regenerated | पैकिंग लिस्ट फिर से बन गई |
 
-### dies (59)
+### dies (61)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -586,6 +586,8 @@ Counts: 859 screen strings in 26 groups, 10 guides with 182 strings.
 | `emptyBody` | Add a die, or import the catalogue from a CSV file. | Die जोड़ें, या CSV फ़ाइल से कैटलॉग इम्पोर्ट करें। |
 | `emptyAction` | Add a die | Die जोड़ें |
 | `importCsv` | Import CSV | CSV इम्पोर्ट करें |
+| `pageEmpty` | Nothing on this page. | इस पेज पर कुछ नहीं है। |
+| `firstPage` | Go to the first page | पहले पेज पर जाएं |
 | `detail.band` | Weight per 12 ft | 12 ft का वज़न |
 | `detail.bandValue` | {min} to {max} | {min} से {max} |
 | `detail.measurements` | Measurements | नाप |
@@ -628,7 +630,7 @@ Counts: 859 screen strings in 26 groups, 10 guides with 182 strings.
 | `form.fixErrors` | Check the fields marked in red. | लाल निशान वाले खाने जांचें। |
 | `form.cantAdd` | Your role can't add dies. Ask an admin if you need it. | आपका रोल die नहीं जोड़ सकता। ज़रूरत हो तो एडमिन से कहें। |
 
-### customers (101)
+### customers (103)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -647,6 +649,8 @@ Counts: 859 screen strings in 26 groups, 10 guides with 182 strings.
 | `emptyBody` | Add a customer before their first dispatch. | पहले dispatch से पहले ग्राहक जोड़ें। |
 | `emptyAction` | Add a customer | ग्राहक जोड़ें |
 | `importCsv` | Import CSV | CSV इम्पोर्ट करें |
+| `pageEmpty` | Nothing on this page. | इस पेज पर कुछ नहीं है। |
+| `firstPage` | Go to the first page | पहले पेज पर जाएं |
 | `kgFailed` | The dispatched kg didn't load. | Dispatch हुआ kg लोड नहीं हुआ। |
 | `period.label` | Period | समय |
 | `period.month` | This month | इस महीने |

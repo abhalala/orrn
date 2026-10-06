@@ -628,6 +628,8 @@ export const en = {
     emptyBody: "Add a die, or import the catalogue from a CSV file.",
     emptyAction: "Add a die",
     importCsv: "Import CSV",
+    pageEmpty: "Nothing on this page.",
+    firstPage: "Go to the first page",
     detail: {
       band: "Weight per 12 ft",
       bandValue: "{min} to {max}",
@@ -693,6 +695,8 @@ export const en = {
     emptyBody: "Add a customer before their first dispatch.",
     emptyAction: "Add a customer",
     importCsv: "Import CSV",
+    pageEmpty: "Nothing on this page.",
+    firstPage: "Go to the first page",
     kgFailed: "The dispatched kg didn't load.",
     period: {
       label: "Period",

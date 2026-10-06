@@ -217,6 +217,18 @@ function CustomersList() {
                 </Button>
               }
             />
+          ) : offset > 0 ? (
+            // A link or Back past the last page: there may be customers on page one.
+            <EmptyState
+              title={t("customers.pageEmpty")}
+              action={
+                <Button asChild variant="secondary">
+                  <Link to="/customers" search={(prev: CustomersSearch) => ({ ...prev, offset: undefined })}>
+                    {t("customers.firstPage")}
+                  </Link>
+                </Button>
+              }
+            />
           ) : q ? (
             <EmptyState title={t("common.noResults", { query: q })} />
           ) : (
