@@ -191,7 +191,9 @@ export function packingListModel(pl: PackingListSnapshot, opts: PackingListModel
       customerPhone: pl.dispatch.customer.phone?.trim() || null,
       dispatchCode: pl.dispatch.code,
       date: isoDay(completed, timeZone),
-      shipDate: isoDay(pl.dispatch.shipDate, timeZone),
+      // The ship date is a picked calendar day stored as UTC midnight (ruling T22): read it in UTC,
+      // so a company west of UTC never prints the day before. `date` is a real instant.
+      shipDate: isoDay(pl.dispatch.shipDate, "UTC"),
       notes: pl.dispatch.notes?.trim() || null,
     },
     groups,

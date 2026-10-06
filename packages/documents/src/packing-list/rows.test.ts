@@ -84,6 +84,13 @@ describe("packingListModel", () => {
     expect(packingListModel(late).header.shipDate).toBe("2026-10-04");
   });
 
+  test("the ship date is the picked calendar day in every time zone (stored as UTC midnight)", () => {
+    const pl = parsePackingListSnapshot(unlabelled); // shipDate 2026-10-04T00:00:00.000Z
+    for (const timeZone of ["America/New_York", "Pacific/Honolulu", "UTC", "Asia/Kolkata", "Pacific/Kiritimati"]) {
+      expect(packingListModel(pl, { timeZone }).header.shipDate).toBe("2026-10-04");
+    }
+  });
+
   test("a bundle with no pieces or length has no kg/12ft rather than a wrong one", () => {
     const pl = parsePackingListSnapshot(
       v1Snapshot([{ bundleSerial: "Z1", die: { series: "FLAT", sectionCode: "14730" }, groupId: "", quantity: 0, weightG: 10_000, lengthMm: 3658 }]),

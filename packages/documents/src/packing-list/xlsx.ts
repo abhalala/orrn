@@ -53,7 +53,6 @@ function buildWorkbook(pl: PackingListSnapshot, code: string, opts: PackingListM
   ];
 
   const body: Cell[][] = [];
-  const kind: ("row" | "total")[] = [];
   for (const g of groups) {
     for (const r of g.rows) {
       body.push([
@@ -68,13 +67,10 @@ function buildWorkbook(pl: PackingListSnapshot, code: string, opts: PackingListM
         r.kgPer12ft,
         r.weightRange12ft,
       ]);
-      kind.push("row");
     }
     body.push([null, bundlesText(g.bundles), `Total ${g.label}`, null, g.weightKg, null, null, g.pieces, null, null]);
-    kind.push("total");
   }
   body.push([null, bundlesText(totals.bundles), "Total", null, totals.weightKg, null, null, totals.pieces, null, null]);
-  kind.push("total");
 
   const ws = XLSX.utils.aoa_to_sheet([...meta, [...XLSX_COLUMNS], ...body]);
 

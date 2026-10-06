@@ -208,7 +208,6 @@ export function placeCapLabel({
   return { x: center, anchor: "middle", left, right: left + width };
 }
 
-/** A y scale from 0 to a nice maximum (magnitudes always start at zero). */
 /**
  * Bars that carry a value label: every complete bar when all the labels fit,
  * else only the tallest complete one. An open (partial) bucket is never a
@@ -222,6 +221,7 @@ export function capLabelIndices(bars: readonly { value: number; partial?: boolea
   return bars.flatMap((d, i) => (!d.partial && d.value !== 0 && (allFit || i === peakIndex) ? [i] : []));
 }
 
+/** A y scale from 0 to a nice maximum (magnitudes always start at zero). */
 export function valueScale(maxValue: number, height: number, ticks = 4) {
   const top = maxValue > 0 ? maxValue : 1;
   const scale = scaleLinear().domain([0, top]).range([height, 0]).nice(ticks);
