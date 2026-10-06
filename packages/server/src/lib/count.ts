@@ -833,14 +833,18 @@ export type PhantomSummary = {
   /**
    * Every count closed on the company calendar day of the last count, together (sum phantom ÷ sum
    * expected): yards counted as separate counts on one evening read as one count (owner measure
-   * M1 is defined over a full count).
+   * M1 is defined over a full count). A count whose yards were ALL counted again by a later count
+   * closed that day is left out (the recount is the newer truth); one recounted only in part stays.
    */
   lastDay: {
     /** Company-local date, YYYY-MM-DD. */
     date: string;
+    /** Counts in the sums. */
     counts: number;
     /** Their numbers, oldest close first. */
     numbers: string[];
+    /** Counts of that day left out because later counts that day covered every yard of theirs, oldest first. */
+    recounted: string[];
     expected: number;
     phantom: number;
     phantomG: number;
@@ -896,7 +900,13 @@ export async function phantomSummary(db: OrrnDb, companyId: string): Promise<Pha
 
   const timezone = companyTimezone(co?.settings);
   const { startMs, endMs } = dayWindow(timezone, last.closedAt.getTime());
-  const [codes, day] = await Promise.all([
+  const closedThatDay = and(
+    eq(countSession.companyId, companyId),
+    eq(countSession.status, "closed"),
+    gte(countSession.closedAt, new Date(startMs)),
+    lt(countSession.closedAt, new Date(endMs)),
+  );
+  const [codes, newestFirst, dayYards] = await Promise.all([
     db
       .select({ code: location.code })
       .from(countLocation)
@@ -905,23 +915,39 @@ export async function phantomSummary(db: OrrnDb, companyId: string): Promise<Pha
       .orderBy(asc(location.sortOrder), asc(location.code)),
     db
       .select({
+        sessionId: countSession.id,
         number: countSession.number,
         expected: countSession.expectedCount,
         phantom: countSession.phantomCount,
         phantomG: countSession.phantomG,
       })
       .from(countSession)
-      .where(
-        and(
-          eq(countSession.companyId, companyId),
-          eq(countSession.status, "closed"),
-          gte(countSession.closedAt, new Date(startMs)),
-          lt(countSession.closedAt, new Date(endMs)),
-        ),
-      )
-      .orderBy(asc(countSession.closedAt), asc(countSession.serverSeq))
+      .where(closedThatDay)
+      .orderBy(desc(countSession.closedAt), desc(countSession.closeSeq))
       .limit(MAX_DAY_COUNTS),
+    // The yards of that day's counts (≤ 100 counts × 20 yards).
+    db
+      .select({ sessionId: countLocation.sessionId, locationId: countLocation.locationId })
+      .from(countLocation)
+      .innerJoin(
+        countSession,
+        and(eq(countSession.id, countLocation.sessionId), eq(countSession.companyId, countLocation.companyId)),
+      )
+      .where(and(eq(countLocation.companyId, companyId), closedThatDay)),
   ]);
+  // Newest first: a count whose every yard a later count of the day already covered is a recount's
+  // predecessor and leaves the sums.
+  const yardsOf = new Map<string, string[]>();
+  for (const r of dayYards) yardsOf.set(r.sessionId, [...(yardsOf.get(r.sessionId) ?? []), r.locationId]);
+  const covered = new Set<string>();
+  const day: typeof newestFirst = [];
+  const recounted: string[] = [];
+  for (const r of newestFirst) {
+    const yards = yardsOf.get(r.sessionId) ?? [];
+    if (yards.length > 0 && yards.every((y) => covered.has(y))) recounted.unshift(r.number);
+    else day.unshift(r);
+    for (const y of yards) covered.add(y);
+  }
   const sum = (k: "expected" | "phantom" | "phantomG") => day.reduce((t, r) => t + (r[k] ?? 0), 0);
   return {
     lastCount: {
@@ -938,6 +964,7 @@ export async function phantomSummary(db: OrrnDb, companyId: string): Promise<Pha
       date: localDate(timezone, last.closedAt.getTime()),
       counts: day.length,
       numbers: day.map((r) => r.number),
+      recounted,
       expected: sum("expected"),
       phantom: sum("phantom"),
       phantomG: sum("phantomG"),

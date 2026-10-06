@@ -332,7 +332,9 @@ bun run deploy
   with ordinary `move` rows, guarded by "still where the count saw the system have it".
 - `phantomSummary()` = `{ lastCount (with its `locationCodes`), lastDay, open }`: `lastDay` sums
   every count closed on the last count's company calendar day (yards counted one by one in an
-  evening read as one full count, owner measure M1).
+  evening read as one full count, owner measure M1); a count whose yards a later count that day
+  ALL counted again is left out of the sums and listed in `lastDay.recounted` (a partial overlap
+  stays in, so its shared yard counts twice).
 - The dev-seed reset (`apps/server/src/dev-seed.ts`) deletes the demo company's count tables before
   `bundle` and `location` (RESTRICT keys) and `doc_series` (CNT-n restarts); a new table with a
   RESTRICT key to location/bundle/purchase_lot must be added to that reset too.

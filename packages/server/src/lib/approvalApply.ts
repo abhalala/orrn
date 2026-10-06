@@ -122,7 +122,8 @@ const dcNoteDecision: ApprovalApplier = (ctx, row, decision) => {
  * Phantom void (PL-10, spec §5 "phantom list → void as phantom (manager)"): the request put the
  * count's phantom lines in `void_requested` under this approval. Approved: each bundle that is
  * STILL a phantom is voided: available, at the location the count expected it, with no ledger row
- * since that close and not scanned by any later count. Its pack / opening / restore row is
+ * since that close, not scanned by another count since that count began and with no older
+ * sighting still pending in another count (`stillPhantomOfLine`). Its pack / opening / restore row is
  * reversed (voucher = the count line), a status event is written and the line becomes `voided`.
  * Lines whose bundle turned up meanwhile become `cleared` (nothing voided). Rejected: lines go
  * back to `open`. Everything is scoped to the approval's company and guarded by "this decision

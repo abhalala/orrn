@@ -2184,7 +2184,45 @@ describe("phantomSummary over an evening of yard counts (correctness r0 M-2)", (
     const sum = await p.viewer.count.phantomSummary();
     expect(sum.lastCount).toMatchObject({ number: "CNT-3", locationCodes: ["Y2"], expected: 2, phantom: 0, phantomBp: 0 });
     expect(sum.lastDay).toEqual({
-      date: "2026-07-02", counts: 2, numbers: ["CNT-2", "CNT-3"], expected: 4, phantom: 1, phantomG: 25_000, phantomBp: 2_500,
+      date: "2026-07-02", counts: 2, numbers: ["CNT-2", "CNT-3"], recounted: [], expected: 4, phantom: 1, phantomG: 25_000, phantomBp: 2_500,
+    });
+  });
+
+  test("a yard recounted the same evening counts once: the later count replaces an earlier one whose yards it all covered", async () => {
+    const p = await plant();
+    setClock(new Date(Date.UTC(2026, 6, 1, 13, 0, 0))); // 1 Jul 18:30 IST
+    const [a, x] = await p.pack("Y1", 2);
+    const [b] = await p.pack("Y2", 1);
+    const [c] = await p.pack("Y3", 1);
+    // CNT-1 (Y1): x not found. CNT-2 (Y1 again): x was there after all. CNT-3 (Y2): all there.
+    const one = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: one.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: one.id });
+    setClock(new Date(Date.UTC(2026, 6, 1, 14, 0, 0)));
+    const two = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: two.id, codes: [a!.serial, x!.serial] });
+    await p.supervisor.count.close({ sessionId: two.id });
+    // CNT-3 covers Y2 + Y3 and misses c; CNT-4 recounts only Y3 (a partial overlap keeps CNT-3).
+    setClock(new Date(Date.UTC(2026, 6, 1, 15, 0, 0)));
+    const three = await p.supervisor.count.start({ locationIds: [p.loc("Y2"), p.loc("Y3")] });
+    await p.supervisor.count.scan({ sessionId: three.id, locationId: p.loc("Y2"), codes: [b!.serial] });
+    await p.supervisor.count.close({ sessionId: three.id, confirmUnscanned: true });
+    setClock(new Date(Date.UTC(2026, 6, 1, 16, 0, 0)));
+    const four = await p.supervisor.count.start({ locationIds: [p.loc("Y3")] });
+    await p.supervisor.count.scan({ sessionId: four.id, codes: [c!.serial] });
+    await p.supervisor.count.close({ sessionId: four.id });
+    const sum = await p.viewer.count.phantomSummary();
+    expect(sum.lastCount).toMatchObject({ number: "CNT-4", locationCodes: ["Y3"], expected: 1, phantom: 0 });
+    // CNT-1 is left out (CNT-2 counted all of Y1 again); CNT-3 stays (CNT-4 recounted only Y3 of it).
+    expect(sum.lastDay).toEqual({
+      date: "2026-07-01",
+      counts: 3,
+      numbers: ["CNT-2", "CNT-3", "CNT-4"],
+      recounted: ["CNT-1"],
+      expected: 5,
+      phantom: 1,
+      phantomG: 25_000,
+      phantomBp: 2_000,
     });
   });
 });
