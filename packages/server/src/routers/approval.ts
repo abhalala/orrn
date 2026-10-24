@@ -6,7 +6,7 @@ import { z } from "zod";
 import { user } from "@orrn/db/schema/auth";
 import { approval, approvalKinds, approvalStatuses } from "@orrn/db/schema/approval";
 
-import { APPROVAL_APPLIERS } from "../lib/approvalApply";
+import { APPROVAL_APPLIERS, explainApplyAbort } from "../lib/approvalApply";
 import { atomicBatch } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { canAny, canApprove, type Action } from "../lib/permissions";
@@ -142,25 +142,31 @@ export const approvalRouter = router({
         input.decision,
       ) ?? [];
 
-      await atomicBatch(ctx.db, [
-        ctx.db
-          .update(approval)
-          .set({ status: input.decision, decidedBy: userId, decidedAt, note, serverSeq })
-          .where(
-            and(eq(approval.id, row.id), eq(approval.companyId, ctx.companyId), eq(approval.status, "pending")),
+      try {
+        await atomicBatch(ctx.db, [
+          ctx.db
+            .update(approval)
+            .set({ status: input.decision, decidedBy: userId, decidedAt, note, serverSeq })
+            .where(
+              and(eq(approval.id, row.id), eq(approval.companyId, ctx.companyId), eq(approval.status, "pending")),
+            ),
+          ...apply,
+          auditInsertGuarded(
+            ctx,
+            {
+              action: `approval.${input.decision}`,
+              subjectType: "approval",
+              subjectId: row.id,
+              meta: { kind: row.kind, subjectId: row.subjectId, decision: input.decision, note },
+            },
+            { from: approval, where: mine },
           ),
-        ...apply,
-        auditInsertGuarded(
-          ctx,
-          {
-            action: `approval.${input.decision}`,
-            subjectType: "approval",
-            subjectId: row.id,
-            meta: { kind: row.kind, subjectId: row.subjectId, decision: input.decision, note },
-          },
-          { from: approval, where: mine },
-        ),
-      ]);
+        ]);
+      } catch (e) {
+        // An apply hook refused the effect at write time (e.g. a bori the foundry already melted).
+        await explainApplyAbort(ctx.db, ctx.companyId, row, e);
+        throw e;
+      }
 
       const [landed] = await ctx.db
         .select({ id: approval.id })

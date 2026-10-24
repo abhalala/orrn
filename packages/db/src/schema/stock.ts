@@ -66,6 +66,10 @@ export type LedgerItemKind = (typeof ledgerItemKinds)[number];
  * - store_grn: + store item at the STORE location (voucher = the GRN; qty in milli-units)
  * - store_mrs: − store item at the STORE location (voucher = the MRS; qty in milli-units)
  * - store_grn_cancel / store_mrs_cancel: reversal of a cancelled GRN / MRS (voucher = the same txn id)
+ * - melt: a melt's postings (voucher = melt id): − scrap per lot line at the lot's scrap store, − return
+ *   streams at plant scrap, + billets of the cast (item_ref = cast id) at the billet store, + dross / Fe /
+ *   returned metal at plant scrap. Lines = melt_input / melt_output lines.
+ * - melt_cancel: reversal of every posting of a cancelled melt (voucher = the same melt id)
  */
 export const ledgerVoucherTypes = [
   "opening",
@@ -81,6 +85,8 @@ export const ledgerVoucherTypes = [
   "store_mrs",
   "store_grn_cancel",
   "store_mrs_cancel",
+  "melt",
+  "melt_cancel",
 ] as const;
 export type LedgerVoucherType = (typeof ledgerVoucherTypes)[number];
 

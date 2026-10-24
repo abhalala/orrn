@@ -13,6 +13,7 @@ import {
 import { packingList, packingListLine } from "@orrn/db/schema/packing";
 import { auditLog } from "@orrn/db/schema/audit";
 import { approval } from "@orrn/db/schema/approval";
+import { cast, melt, meltChemical, meltInput, meltOutput, returnStream, spectroResult } from "@orrn/db/schema/foundry";
 import {
   dcNote,
   purchaseLot,
@@ -26,6 +27,7 @@ import {
 } from "@orrn/db/schema/purchase";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
+import { storeItem, storeTxn } from "@orrn/db/schema/store";
 import { companySequence } from "@orrn/db/schema/sync";
 import { company, membership, platformAdmin } from "@orrn/db/schema/tenant";
 import { packingListWriteBatch } from "@orrn/server/routers/packingList";
@@ -906,6 +908,18 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     // append-only grep test in plant-ledger.test.ts allows exactly this file).
     db.delete(stockLedger).where(eq(stockLedger.companyId, COMPANY_ID)),
     db.delete(approval).where(eq(approval.companyId, COMPANY_ID)),
+    // Foundry and store rows hold RESTRICT FKs to lots, locations, store items and casts: delete
+    // them child-to-parent before those (else the batch fails once the demo has one melt). Casts go
+    // with doc_series, or the next casts.open reuses J1 and hits cast_company_period_seq_unique.
+    db.delete(spectroResult).where(eq(spectroResult.companyId, COMPANY_ID)),
+    db.delete(meltChemical).where(eq(meltChemical.companyId, COMPANY_ID)),
+    db.delete(meltOutput).where(eq(meltOutput.companyId, COMPANY_ID)),
+    db.delete(meltInput).where(eq(meltInput.companyId, COMPANY_ID)),
+    db.delete(melt).where(eq(melt.companyId, COMPANY_ID)),
+    db.delete(cast).where(eq(cast.companyId, COMPANY_ID)),
+    db.delete(returnStream).where(eq(returnStream.companyId, COMPANY_ID)),
+    db.delete(storeTxn).where(eq(storeTxn.companyId, COMPANY_ID)),
+    db.delete(storeItem).where(eq(storeItem.companyId, COMPANY_ID)),
     db.delete(dcNote).where(eq(dcNote.companyId, COMPANY_ID)),
     db.delete(purchaseLot).where(eq(purchaseLot.companyId, COMPANY_ID)),
     db.delete(vendorAlias).where(eq(vendorAlias.companyId, COMPANY_ID)),
