@@ -36,6 +36,36 @@ describe("readHeader: the unit comes from the column name", () => {
     expect(readHeader("Length (in)")).toEqual({ name: "length", unit: "in" });
   });
 
+  test("unit spelling is tolerant: no space, snake_case, word suffix, square brackets, capitals", () => {
+    const mmVariants = [
+      "Length (in mm)",
+      "Length(mm)",
+      "Length(in mm)",
+      "length_mm",
+      "length_in_mm",
+      "Length in mm",
+      "Length [mm]",
+      "LENGTH (IN MM)",
+      "Length (mm.)",
+      "Length - mm",
+      "lengthInMm",
+      "Length\n(in mm)",
+    ];
+    for (const h of mmVariants) expect([h, readHeader(h)]).toEqual([h, { name: "length", unit: "mm" }]);
+    for (const h of ["Length(in)", "length_in", "length_inches", "Length (in inches)", "Length(inch)"]) {
+      expect([h, readHeader(h)]).toEqual([h, { name: "length", unit: "in" }]);
+    }
+    for (const h of ["Length(ft)", "length_ft", "Length (in feet)"]) {
+      expect([h, readHeader(h)]).toEqual([h, { name: "length", unit: "ft" }]);
+    }
+    for (const h of ["Weight(kg)", "weight_kg", "Weight (in kgs)", "weight_in_kg"]) {
+      expect([h, readHeader(h)]).toEqual([h, { name: "weight", unit: "kg" }]);
+    }
+    for (const h of ["Min weight (in kg/12ft)", "min_weight_kg", "Min weight(kg per 12 ft)"]) {
+      expect([h, readHeader(h)]).toEqual([h, { name: "min weight", unit: "kg" }]);
+    }
+  });
+
   test("metres are a unit orrn does not take, so the column is not used", () => {
     expect(readHeader("Length (m)").unit).toBe("m");
     expect(readHeader("Length (in mtr)").unit).toBe("m");
@@ -111,6 +141,23 @@ describe("parseImport bundles: lengths never 25.4x off (Review Focus 4)", () => 
     expect(parseImport("bundles", [row("Weight (in kg)", "58.4")], inch).ok[0]!.weightG).toBe(58400);
     expect(parseImport("bundles", [row("Length (in inches)", "144")], mm).ok[0]!.lengthMm).toBe(3658);
     expect(parseImport("bundles", [row("Length (in ft)", "12")], mm).ok[0]!.lengthMm).toBe(3658);
+  });
+
+  test("every spelling of a mm length header stores 3658 mm in the inch company (never 25.4x)", () => {
+    for (const header of ["Length (in mm)", "Length(mm)", "length_mm", "Length(in mm)", "length_in_mm", "LENGTH (IN MM)"]) {
+      const r = { ...bundle(), [header]: "3658" } as Record<string, string>;
+      delete r["Length (mm)"];
+      const res = parseImport("bundles", [r], inch);
+      expect([header, res.rejected]).toEqual([header, []]);
+      expect([header, res.ok[0]!.lengthMm]).toEqual([header, 3658]);
+      expect([header, res.columns.find((c) => c.field === "length")?.unit]).toEqual([header, "mm"]);
+    }
+    // And an inch sheet in a mm company is 144 in, not 144 mm.
+    for (const header of ["Length (in inches)", "Length(in)", "length_in"]) {
+      const r = { ...bundle(), [header]: "144" } as Record<string, string>;
+      delete r["Length (mm)"];
+      expect([header, parseImport("bundles", [r], mm).ok[0]!.lengthMm]).toEqual([header, 3658]);
+    }
   });
 
   test("a metres length column is not used, so the sheet asks for a length column", () => {
@@ -341,6 +388,44 @@ describe("parseImport dies", () => {
     );
     expect(res.rejected).toEqual([]);
     expect(res.ok[0]).toEqual({ series: "PATTI", sectionCode: "14701", weightMinG: 2400, weightMaxG: 2600, dimensions: {} });
+  });
+
+  test("die weight bands are stored as g per 12 ft whatever the kg header spelling; geometry (in mm) stays mm", () => {
+    const res = parseImport(
+      "dies",
+      [
+        {
+          Series: "DOMAL",
+          "Section code": "12170",
+          "Min weight (in kg/12ft)": "1.3",
+          "max_weight_kg": "1.5",
+          "Width (in mm)": "25.4",
+        },
+      ],
+      inch,
+    );
+    expect(res.rejected).toEqual([]);
+    expect(res.ok[0]).toEqual({
+      series: "DOMAL",
+      sectionCode: "12170",
+      weightMinG: 1300,
+      weightMaxG: 1500,
+      widthMm: 25.4,
+      dimensions: {},
+    });
+    // Grams per 12 ft in the header are taken as grams.
+    const g = parseImport("dies", [{ Series: "D", "Section code": "1", "Min weight (g)": "1300", "Max weight(g/12ft)": "1500" }], inch);
+    expect([g.ok[0]!.weightMinG, g.ok[0]!.weightMaxG]).toEqual([1300, 1500]);
+  });
+
+  test("a die copy code like 12170-1 is its own section code text, next to 12170 (never read as a number)", () => {
+    const res = parseImport(
+      "dies",
+      [die({ "Section code": "12170" }), die({ "Section code": "12170-1" }), die({ "Section code": "016200" })],
+      mm,
+    );
+    expect(res.rejected).toEqual([]);
+    expect(res.ok.map((d) => d.sectionCode)).toEqual(["12170", "12170-1", "016200"]);
   });
 
   test("empty optional cells are left out too (only filled cells change a die)", () => {
