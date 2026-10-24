@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 2930 screen strings in 42 groups, 16 guides with 292 strings.
+Counts: 2942 screen strings in 42 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -1994,7 +1994,7 @@ Counts: 2930 screen strings in 42 groups, 16 guides with 292 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (240)
+### admin (252)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2070,10 +2070,22 @@ Counts: 2930 screen strings in 42 groups, 16 guides with 292 strings.
 | `plan.moduleNames.dies` | Dies | डाई |
 | `plan.moduleNames.bundles` | Packing and stock | पैकिंग और स्टॉक |
 | `plan.moduleNames.dispatches` | Dispatch and packing lists | डिस्पैच और पैकिंग लिस्ट |
+| `plan.moduleNames.orders` | Orders and planning | ऑर्डर और प्लानिंग |
+| `plan.moduleNames.foundry` | Foundry | फ़ाउंड्री |
+| `plan.moduleNames.press` | Press | प्रेस |
+| `plan.moduleNames.ageing` | Ageing | एजिंग |
+| `plan.moduleNames.store` | Store | स्टोर |
+| `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
 | `plan.moduleHints.dispatches` | Dispatches and printed packing lists | डिस्पैच और छपी पैकिंग लिस्ट |
+| `plan.moduleHints.orders` | Sales orders, baki and press plans | सेल्स ऑर्डर, बाकी और प्रेस प्लान |
+| `plan.moduleHints.foundry` | Casts, melts and spectro | कास्ट, मेल्ट और स्पेक्ट्रो |
+| `plan.moduleHints.press` | Press runs and the press console | प्रेस रन और प्रेस कंसोल |
+| `plan.moduleHints.ageing` | Ageing batches and readings | एजिंग बैच और रीडिंग |
+| `plan.moduleHints.store` | Store items, GRN and issues | स्टोर आइटम, GRN और इशू |
+| `plan.moduleHints.purchase` | Scrap vendors, lots and D/C notes | स्क्रैप वेंडर, लॉट और D/C नोट |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
