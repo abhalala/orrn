@@ -224,7 +224,7 @@ function SaveErrorNotice({ kind }: { kind: SaveErrorKind }) {
       {kind === "unsure" ? (
         <UiLink
           to="/pack"
-          className="inline-flex min-h-6 items-center font-semibold text-tone-red-ink underline underline-offset-2"
+          className="inline-flex min-h-11 items-center font-semibold text-tone-red-ink underline underline-offset-2"
         >
           {t("pack.new.openPack")}
         </UiLink>

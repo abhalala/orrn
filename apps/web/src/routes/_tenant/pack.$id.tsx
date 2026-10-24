@@ -15,6 +15,7 @@ import { Printer } from "lucide-react";
 import { useMemo } from "react";
 
 import { packedWhen } from "@/features/pack/format";
+import { countOutsideRange } from "@/features/pack/pack-math";
 import { bundleRange, formatK12, lengthUnitOf, RangeChip, timezoneOf } from "@/features/pack/pack-ui";
 import { PrintPanel } from "@/features/pack/print-panel";
 import { useCanPrintLabels, usePrintQueue } from "@/features/pack/use-print-labels";
@@ -187,11 +188,7 @@ function PackSession() {
   // Packed figures leave void bundles out (RP11); the status chips below still show them.
   const { bundles: totalBundles, pieces: totalPieces, weightG: totalWeightG } = data.totals;
   const lengths = new Set(bundles.map((b) => b.lengthMm));
-  const outsideRange = bundles.filter((b) => {
-    if (b.status === "void") return false;
-    const { verdict } = bundleRange({ weightG: b.weightG, pieces: b.quantity, lengthMm: b.lengthMm }, die);
-    return verdict === "below" || verdict === "above";
-  }).length;
+  const outsideRange = countOutsideRange(bundles, die);
   // Where the bundles are now (packed into one yard; a later move can split them).
   const yards = new Set(bundles.flatMap((b) => (b.locationId ? [b.locationId] : [])));
   const when = packedWhen(group.createdAt, { timeZone, locale });

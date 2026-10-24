@@ -16,7 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { packedWhen } from "@/features/pack/format";
 import { timezoneOf } from "@/features/pack/pack-ui";
-import { readDraft } from "@/features/pack/use-pack-draft";
+import { readDraftFor } from "@/features/pack/use-pack-draft";
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
@@ -80,8 +80,8 @@ function PackList() {
   });
 
   const draft = useMemo(
-    () => (me?.company && canPack ? readDraft(sessionStore(), me.company.id) : null),
-    [me?.company, canPack],
+    () => (me?.company && canPack && me.user ? readDraftFor(sessionStore(), me.company.id, me.user.id) : null),
+    [me?.company, me?.user, canPack],
   );
 
   const when = (at: SessionRow["createdAt"]) => {

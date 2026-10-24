@@ -8,6 +8,7 @@ import {
   emptyDraft,
   reachableStep,
   readDraft,
+  readDraftFor,
   removeBundle,
   replaceBundle,
   toReceiptInput,
@@ -107,6 +108,32 @@ describe("draft persistence (sessionStorage key orrn.packDraft)", () => {
     const s = memoryStorage();
     writeDraft(s, draftWith());
     writeDraft(s, emptyDraft("co-1"));
+    expect(s.map.has(PACK_DRAFT_KEY)).toBe(false);
+  });
+
+  test("the /pack list reads the draft by company and person, like the write", () => {
+    const s = memoryStorage();
+    const mine = addBundle(emptyDraft("co-1", "u-a"), { weightG: 47_900, pieces: 20 });
+    writeDraft(s, mine);
+    expect(readDraftFor(s, "co-1", "u-a")).toEqual(mine);
+    expect(readDraftFor(s, "co-1", "u-b")).toBeNull();
+    expect(readDraftFor(s, "co-2", "u-a")).toBeNull();
+  });
+
+  test("a draft from before drafts carried the packer shows on the list for whoever is signed in", () => {
+    const s = memoryStorage();
+    writeDraft(s, addBundle(draftWith(), { weightG: 47_900, pieces: 20 }));
+    expect(readDraftFor(s, "co-1", "u-a")?.bundles).toHaveLength(1);
+  });
+
+  test("an empty draft for one person never removes another person's stored draft", () => {
+    const s = memoryStorage();
+    const mine = addBundle(emptyDraft("co-1", "u-a"), { weightG: 47_900, pieces: 20 });
+    writeDraft(s, mine);
+    writeDraft(s, emptyDraft("co-1", "u-b"));
+    expect(readDraftFor(s, "co-1", "u-a")).toEqual(mine);
+    // The owner emptying their own draft still removes it.
+    writeDraft(s, emptyDraft("co-1", "u-a"));
     expect(s.map.has(PACK_DRAFT_KEY)).toBe(false);
   });
 

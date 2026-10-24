@@ -115,12 +115,27 @@ export function readDraft(storage: Storage | null, companyId: string, userId?: s
   }
 }
 
-/** Stores the draft (an empty one is removed instead). Never throws: storage is a convenience. */
+/**
+ * The draft shown on the Pack list: keyed by company AND person, exactly like
+ * the write, so a shared tab never offers someone else's bundles.
+ */
+export function readDraftFor(storage: Storage | null, companyId: string, userId: string): PackDraft | null {
+  return readDraft(storage, companyId, userId);
+}
+
+/**
+ * Stores the draft (an empty one is removed instead, unless the stored one
+ * belongs to another person on this tab). Never throws: storage is a convenience.
+ */
 export function writeDraft(storage: Storage | null, draft: PackDraft): void {
   if (!storage) return;
   try {
-    if (isDraftEmpty(draft)) storage.removeItem(PACK_DRAFT_KEY);
-    else storage.setItem(PACK_DRAFT_KEY, JSON.stringify(draft));
+    if (isDraftEmpty(draft)) {
+      const raw = storage.getItem(PACK_DRAFT_KEY);
+      const stored = raw ? parseDraft(raw) : null;
+      const theirs = stored && stored.userId && draft.userId && stored.userId !== draft.userId;
+      if (!theirs) storage.removeItem(PACK_DRAFT_KEY);
+    } else storage.setItem(PACK_DRAFT_KEY, JSON.stringify(draft));
   } catch {
     // Private mode or quota: the draft still lives in memory for this visit.
   }
