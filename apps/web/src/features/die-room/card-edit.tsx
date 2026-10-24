@@ -38,6 +38,8 @@ function EditForm({ open, onOpenChange, card }: { open: boolean; onOpenChange(op
   const [rack, setRack] = useState(text(instance.rackNo));
   const [hardness, setHardness] = useState(text(instance.hardness == null ? null : String(instance.hardness)));
   const [life, setLife] = useState(gramsToWholeKg(instance.lifeG));
+  const [makerDie, setMakerDie] = useState(text(instance.makerDieNo));
+  const [makerProject, setMakerProject] = useState(text(instance.makerProjectNo));
   const [supplier, setSupplier] = useState(text(instance.supplier));
   const [ftr, setFtr] = useState(text(instance.ftr));
   const [notes, setNotes] = useState(text(instance.notes));
@@ -73,6 +75,8 @@ function EditForm({ open, onOpenChange, card }: { open: boolean; onOpenChange(op
       rackNo: orNull(rack),
       hardness: hv,
       lifeG,
+      makerDieNo: orNull(makerDie),
+      makerProjectNo: orNull(makerProject),
       supplier: orNull(supplier),
       ftr: orNull(ftr),
       notes: orNull(notes),
@@ -125,6 +129,14 @@ function EditForm({ open, onOpenChange, card }: { open: boolean; onOpenChange(op
         <Field label={t("dieRoom.card.lifeKg")} hint={t("dieRoom.card.lifeHint")}>
           <NumberInput value={life} onValueChange={setLife} decimal={false} suffix={t("units.kg")} />
         </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t("dieRoom.card.makerDieNo")}>
+            <TextInput value={makerDie} onChangeText={setMakerDie} maxLength={60} />
+          </Field>
+          <Field label={t("dieRoom.card.makerProjectNo")}>
+            <TextInput value={makerProject} onChangeText={setMakerProject} maxLength={60} />
+          </Field>
+        </div>
         <Field label={t("dieRoom.card.supplier")}>
           <TextInput value={supplier} onChangeText={setSupplier} maxLength={200} />
         </Field>

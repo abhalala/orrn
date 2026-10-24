@@ -17,7 +17,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { loadImportedRows, rememberImportedRows, splitAlreadyImported } from "./imported-rows";
 import {
-  IMPORT_CHUNK_SIZE,
+  importChunkSize,
   IMPORT_FIELDS,
   parseImport,
   readHeader,
@@ -293,11 +293,15 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
       if (kind === "dies") {
         const duplicates: DieCheck["duplicates"][number][] = [];
         const errors: DieImportRow[] = [];
-        const run = await runChunks(parsed.ok as DieImportRow[], async (rows) => {
-          const res = await dieValidate.mutateAsync(rows);
-          duplicates.push(...(res.duplicates as DieCheck["duplicates"][number][]));
-          errors.push(...(res.errors as DieImportRow[]));
-        });
+        const run = await runChunks(
+          parsed.ok as DieImportRow[],
+          async (rows) => {
+            const res = await dieValidate.mutateAsync(rows);
+            duplicates.push(...(res.duplicates as DieCheck["duplicates"][number][]));
+            errors.push(...(res.errors as DieImportRow[]));
+          },
+          { size: DIE_CHECK_CHUNK },
+        );
         if (id !== runId.current) return;
         if (!run.ok) {
           setStage({ name: "pick", error: t(importFailure(run.error).message) });
@@ -337,7 +341,8 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
     const ops = plan.ops;
     const total = ops.length;
     const tally: Tally = { ...prev };
-    const from = Math.min(total, startChunk * IMPORT_CHUNK_SIZE);
+    const chunkSize = importChunkSize(kind);
+    const from = Math.min(total, startChunk * chunkSize);
     setStage({ name: "saving", ...loaded, ...checks, done: from, from, total, tally });
 
     const run = await runChunks(
@@ -374,6 +379,7 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
         }
       },
       {
+        size: chunkSize,
         startChunk,
         onProgress: (done) => {
           if (id === runId.current) setStage((s) => (s.name === "saving" ? { ...s, done, tally: { ...tally } } : s));
@@ -518,9 +524,10 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
               <FailedStage
                 stage={stage}
                 ops={plan?.ops ?? []}
+                chunkSize={importChunkSize(kind)}
                 problems={plan?.rejected.length ?? 0}
                 onDownloadUnsaved={() => {
-                  const rows = (plan?.ops ?? []).slice(stage.failedChunk * IMPORT_CHUNK_SIZE).map((o) => o.row);
+                  const rows = (plan?.ops ?? []).slice(stage.failedChunk * importChunkSize(kind)).map((o) => o.row);
                   downloadCsv(`orrn-${kind}-not-saved.csv`, rowsCsv(stage.sheet, rows));
                 }}
                 onDownloadProblems={() => downloadProblems(kind, stage.sheet, plan?.rejected ?? [], t)}
@@ -1127,26 +1134,28 @@ function SavingStage({ done, total }: Progress) {
 function FailedStage({
   stage,
   ops,
+  chunkSize,
   problems,
   onDownloadUnsaved,
   onDownloadProblems,
 }: {
   stage: Extract<Stage, { name: "failed" }>;
   ops: readonly Op[];
+  chunkSize: number;
   problems: number;
   onDownloadUnsaved(): void;
   onDownloadProblems(): void;
 }) {
   const { t } = useT();
   const { done, total, failure, failedChunk, confirmClose } = stage;
-  const first = failedChunk * IMPORT_CHUNK_SIZE;
+  const first = failedChunk * chunkSize;
   const fromRow = ops[first]?.row ?? 0;
-  const toRow = ops[Math.min(ops.length, first + IMPORT_CHUNK_SIZE) - 1]?.row ?? fromRow;
+  const toRow = ops[Math.min(ops.length, first + chunkSize) - 1]?.row ?? fromRow;
   const lastSavedRow = done > 0 ? ops[done - 1]?.row : undefined;
   const unsaved = total - done;
   const unknown = failure.outcome === "unknown";
 
-  const sentInCall = Math.min(ops.length, first + IMPORT_CHUNK_SIZE) - first;
+  const sentInCall = Math.min(ops.length, first + chunkSize) - first;
   // After a lost reply "no rows were saved" would contradict "can't tell yet if they were".
   const saved =
     lastSavedRow !== undefined

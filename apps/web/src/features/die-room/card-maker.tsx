@@ -21,7 +21,7 @@ import { trpc } from "@/shared/utils/trpc";
 import { ConfirmDialog } from "./confirm-dialog";
 import { milliKgText, parseKgToMilli, shortDate } from "./die-room-model";
 import type { CardData } from "./types";
-import { useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { useNewCopyOnTrial, useRefreshDieRoom, useRefusal } from "./use-die-room";
 
 const PURPOSES = ["trial", "correction", "repair"] as const;
 type Purpose = (typeof PURPOSES)[number];
@@ -56,6 +56,8 @@ export function MakerPanel({ card }: { card: CardData }) {
   });
 
   const current = jobs.data?.items.find((j) => j.status === "sent") ?? null;
+  // A copy on the rack, or one on trial that failed, can go to the maker.
+  const sendable = instance.status === "available" || instance.status === "on_trial";
 
   return (
     <div className="flex flex-col gap-4">
@@ -97,9 +99,9 @@ export function MakerPanel({ card }: { card: CardData }) {
       ) : (
         <EmptyState
           title={t("dieRoom.maker.none")}
-          body={instance.status === "available" ? t("dieRoom.maker.noneBody") : t("dieRoom.maker.notOnRack", { status: t(`dieRoom.status.${instance.status}`) })}
+          body={sendable ? t("dieRoom.maker.noneBody") : t("dieRoom.maker.notOnRack", { status: t(`dieRoom.status.${instance.status}`) })}
           action={
-            instance.status === "available" ? (
+            sendable ? (
               <Can do="die.maker">
                 <Button onClick={() => setSendOpen(true)}>{t("dieRoom.maker.send")}</Button>
               </Can>
@@ -257,12 +259,17 @@ function ReceiveSheet({
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const hasTrial = card.instance.trialKgPer12ftMilli != null;
+  const onTrial = useNewCopyOnTrial();
 
   const receive = useMutation({
     ...trpc.dieInstance.maker.jobs.receive.mutationOptions(),
-    onSuccess: async () => {
+    onSuccess: async (r) => {
       await refresh();
-      toast.success(t("dieRoom.maker.receivedToast", { number, code: card.instance.code }));
+      toast.success(
+        r.status === "on_trial"
+          ? t("dieRoom.maker.receivedTrialToast", { number, code: card.instance.code })
+          : t("dieRoom.maker.receivedToast", { number, code: card.instance.code }),
+      );
       setTrial("");
       setNote("");
       setError(null);
@@ -299,6 +306,11 @@ function ReceiveSheet({
       }
     >
       <div className="flex flex-col gap-4">
+        {onTrial ? (
+          <p className="m-0 text-[14px] leading-6 text-muted-foreground" data-testid="receive-trial-note">
+            {t("dieRoom.maker.comesBackOnTrial")}
+          </p>
+        ) : null}
         {hasTrial ? (
           <p className="m-0 text-[14px] leading-6 text-muted-foreground">
             {t("dieRoom.maker.trialSet", { kg: milliKgText(card.instance.trialKgPer12ftMilli!) })}

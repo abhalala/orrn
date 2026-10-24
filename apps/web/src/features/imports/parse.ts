@@ -655,6 +655,14 @@ export function toCsv(headers: readonly string[], rows: readonly (readonly strin
 /** Rows per server call. The server takes up to 2000; 500 keeps each call well inside Worker CPU and D1 limits. */
 export const IMPORT_CHUNK_SIZE = 500;
 
+/** A die catalogue is one row per section, so a plant's whole book goes in as few calls as the server allows (it takes 2000). */
+export const DIE_IMPORT_CHUNK_SIZE = 2000;
+
+/** Rows per call for a kind of sheet (FP-DR-01: 3,000 dies go in two calls). */
+export function importChunkSize(kind: ImportKind): number {
+  return kind === "dies" ? DIE_IMPORT_CHUNK_SIZE : IMPORT_CHUNK_SIZE;
+}
+
 export function chunk<T>(items: readonly T[], size = IMPORT_CHUNK_SIZE): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));

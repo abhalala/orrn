@@ -319,5 +319,5 @@ async function closeJob(
     if (isDieRoomAbort(e)) throw new TRPCError({ code: "CONFLICT", message: `${job.number} changed meanwhile; nothing was changed` });
     throw e;
   }
-  return { success: true };
+  return { success: true, status: back };
 }

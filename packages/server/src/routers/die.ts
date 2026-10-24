@@ -307,7 +307,7 @@ export const dieRouter = router({
       ctx.db
         .select({
           total: sql<number>`count(*)`,
-          withoutCopies: sql<number>`coalesce(sum(case when not exists (select 1 from die_instance lc where lc.company_id = ${die.companyId} and lc.section_id = ${die.id} and lc.status <> 'retired') then 1 else 0 end), 0)`,
+          withoutCopies: sql<number>`coalesce(sum(case when not exists (select 1 from die_instance lc where lc.company_id = ${sql.identifier("die")}.${sql.identifier("company_id")} and lc.section_id = ${sql.identifier("die")}.${sql.identifier("id")} and lc.status <> 'retired') then 1 else 0 end), 0)`,
         })
         .from(die)
         .where(and(eq(die.companyId, ctx.companyId), isNull(die.deletedAt))),

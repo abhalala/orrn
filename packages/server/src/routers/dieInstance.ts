@@ -229,6 +229,8 @@ export const dieInstanceRouter = router({
         .object({
           sectionId: z.string().min(1).optional(),
           status: z.enum(dieInstanceStatuses).optional(),
+          /** Any of these statuses (the issue form lists copies on the rack and on trial). */
+          statuses: z.array(z.enum(dieInstanceStatuses)).min(1).max(6).optional(),
           /** A copy code as the floor writes it: `12170-2`, or `12170/2`. Matches anywhere in the code. */
           search: z.string().trim().max(40).optional(),
           limit: z.number().int().min(1).max(200).default(50),
@@ -241,6 +243,7 @@ export const dieInstanceRouter = router({
         eq(dieInstance.companyId, ctx.companyId),
         input.sectionId ? eq(dieInstance.sectionId, input.sectionId) : undefined,
         input.status ? eq(dieInstance.status, input.status) : undefined,
+        input.statuses ? inArray(dieInstance.status, input.statuses) : undefined,
         input.search ? likeContains(dieInstance.code, normalizeDieCopySearch(input.search)) : undefined,
       );
       const [items, [totalRow]] = await Promise.all([
