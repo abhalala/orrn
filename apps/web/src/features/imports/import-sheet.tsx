@@ -964,7 +964,7 @@ function ReviewStage({
   );
 }
 
-const LENGTH_FIELDS = new Set(["length", "width", "height", "thickness", "oblique", "leg"]);
+const LENGTH_FIELDS = new Set(["length", "width", "height", "thickness", "leg"]);
 const PER_12FT_FIELDS = new Set(["weightMin", "weightMax"]);
 
 function ColumnsRead({

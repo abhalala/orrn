@@ -317,14 +317,14 @@ describe("input bounds (S15)", () => {
     const { id } = await owner.die.create({
       series: "S",
       sectionCode: "F1",
-      obliqueMm: 38.1,
+      thicknessMm: 38.1,
       legMm: 12.34,
       widthMm: 20,
       weightMinG: 2400.4,
       weightMaxG: 2600.6,
     });
     const [row] = await env.db.select().from(die).where(eq(die.id, id));
-    expect(row!.obliqueMm).toBe(38.1);
+    expect(row!.thicknessMm).toBe(38.1);
     expect(row!.legMm).toBe(12.3); // finer than 0.1 mm is rounded away
     expect(row!.widthMm).toBe(20);
     expect(row!.weightMinG).toBe(2400);
@@ -332,7 +332,7 @@ describe("input bounds (S15)", () => {
 
     // An existing die with decimal geometry can be re-saved (update path).
     await expect(
-      owner.die.update({ id, series: "S", sectionCode: "F1", obliqueMm: 38.1, weightMinG: 2400.4, weightMaxG: 2600 }),
+      owner.die.update({ id, series: "S", sectionCode: "F1", thicknessMm: 38.1, weightMinG: 2400.4, weightMaxG: 2600 }),
     ).resolves.toBeDefined();
   });
 
@@ -341,8 +341,8 @@ describe("input bounds (S15)", () => {
     const owner = env.caller({ role: "owner", companyId });
     const base = { series: "S", sectionCode: "F2", weightMinG: 100, weightMaxG: 200 };
     for (const bad of [
-      { obliqueMm: -1 },
-      { obliqueMm: Number.NaN },
+      { legMm: -1 },
+      { legMm: Number.NaN },
       { weightMinG: 0 },
       { weightMinG: 0.3 },
       { weightMaxG: -5 },

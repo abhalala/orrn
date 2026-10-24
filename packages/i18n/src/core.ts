@@ -1,12 +1,12 @@
 import { DICTIONARIES } from "./dictionaries";
 import type { MessageKey } from "./en";
 
-export const LOCALES = ["en", "hi"] as const;
+export const LOCALES = ["en", "hi", "gu"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 
 /** Each language's name in its own script, for the language toggle. */
-export const LOCALE_NAMES: Record<Locale, string> = { en: "English", hi: "हिंदी" };
+export const LOCALE_NAMES: Record<Locale, string> = { en: "English", hi: "हिंदी", gu: "ગુજરાતી" };
 
 export type TranslateVars = Record<string, string | number>;
 export type Translate = (key: MessageKey, vars?: TranslateVars) => string;

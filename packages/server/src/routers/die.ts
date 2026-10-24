@@ -44,7 +44,6 @@ export const dieBaseSchema = z.object({
   series: z.string().min(1, "Series is required").max(500),
   sectionCode: z.string().min(1, "Section Code is required").max(500),
   name: z.string().max(500).nullable().optional(),
-  obliqueMm: optionalDieLength,
   legMm: optionalDieLength,
   widthMm: optionalDieLength,
   thicknessMm: optionalDieLength,
@@ -65,7 +64,6 @@ export const dieImportUpdateSchema = z.object({
   series: z.string().min(1, "Series is required").max(500),
   sectionCode: z.string().min(1, "Section Code is required").max(500),
   name: z.string().max(500).nullable().optional(),
-  obliqueMm: optionalDieLength,
   legMm: optionalDieLength,
   widthMm: optionalDieLength,
   thicknessMm: optionalDieLength,
@@ -84,7 +82,6 @@ function dieImportUpdateSet(row: z.infer<typeof dieImportUpdateSchema>, serverSe
     serverSeq,
   };
   if (row.name !== undefined) set.name = row.name;
-  if (row.obliqueMm !== undefined) set.obliqueMm = row.obliqueMm;
   if (row.legMm !== undefined) set.legMm = row.legMm;
   if (row.widthMm !== undefined) set.widthMm = row.widthMm;
   if (row.thicknessMm !== undefined) set.thicknessMm = row.thicknessMm;
@@ -211,7 +208,6 @@ export const dieRouter = router({
           series: input.series,
           sectionCode: input.sectionCode,
           name: input.name,
-          obliqueMm: input.obliqueMm ?? null,
           legMm: input.legMm ?? null,
           widthMm: input.widthMm ?? null,
           thicknessMm: input.thicknessMm ?? null,
@@ -282,7 +278,6 @@ export const dieRouter = router({
             series: input.series,
             sectionCode: input.sectionCode,
             name: input.name,
-            obliqueMm: input.obliqueMm ?? null,
             legMm: input.legMm ?? null,
             widthMm: input.widthMm ?? null,
             thicknessMm: input.thicknessMm ?? null,
@@ -448,7 +443,6 @@ export const dieRouter = router({
           series: row.series,
           sectionCode: row.sectionCode,
           name: row.name,
-          obliqueMm: row.obliqueMm ?? null,
           legMm: row.legMm ?? null,
           widthMm: row.widthMm ?? null,
           thicknessMm: row.thicknessMm ?? null,

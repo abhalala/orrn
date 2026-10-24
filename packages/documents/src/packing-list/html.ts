@@ -1,7 +1,19 @@
 import type { LengthUnit } from "@orrn/server/lib/length";
 
 import { packingListModel, type PackingListModelOptions } from "./rows";
+import {
+  formatPlKg,
+  isPlSnapshotV2,
+  PL_COLUMN_HEADINGS,
+  plGroupTitle,
+  plRowCells,
+  plShipDateText,
+  type PlSnapshotV2,
+} from "./snapshot";
 import type { PackingListSnapshot } from "./types";
+
+/** A parsed snapshot that also carries the PL-8 v2 blocks (header, groups, summary). */
+type V2Snapshot = PackingListSnapshot & { header: PlSnapshotV2["header"]; groups: PlSnapshotV2["groups"]; summary: PlSnapshotV2["summary"] };
 
 function escapeHtml(value: string): string {
   return value
@@ -17,6 +29,117 @@ const num = (v: number | null, digits?: number) =>
   v === null ? "" : digits === undefined ? String(v) : v.toFixed(digits);
 const bundlesText = (n: number) => `${n} ${n === 1 ? "bundle" : "bundles"}`;
 
+function ddMmmYyyy(ymd: string | null | undefined): string {
+  if (!ymd) return "—";
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d!)).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+const NUMERIC_COLUMNS = new Set([0, 4, 5, 6, 7, 8, 9]);
+
+/** v2: the plant's PL — letterhead, bill-to / ship-to, transport, refs, 11 columns grouped by order line. */
+function buildPackingListHtmlV2(pl: V2Snapshot): string {
+  const h = pl.header;
+  const e = (v: string | null | undefined) => escapeHtml(v ?? "");
+  const party = (label: string, p: { name: string; gstin: string | null; address: string | null }) => `
+    <div class="box">
+      <div class="label">${label}</div>
+      <div><strong>${e(p.name)}</strong></div>
+      ${p.address ? `<div>${e(p.address)}</div>` : ""}
+      ${p.gstin ? `<div>GSTIN ${e(p.gstin)}</div>` : ""}
+    </div>`;
+  const shipDate = plShipDateText(pl.dispatch.shipDate, pl.header?.shipDate);
+  const head = PL_COLUMN_HEADINGS.map((c, i) => `<th${NUMERIC_COLUMNS.has(i) ? ' class="num"' : ""}>${escapeHtml(c)}</th>`).join("");
+  const body = pl.groups
+    .map((g) => {
+      const rows = g.rows
+        .map(
+          (r) =>
+            `<tr>${plRowCells(r)
+              .map((c, i) => `<td${NUMERIC_COLUMNS.has(i) ? ' class="num"' : ""}>${escapeHtml(c)}</td>`)
+              .join("")}</tr>`,
+        )
+        .join("");
+      return `
+      <tr class="group"><td colspan="11">${escapeHtml(plGroupTitle(g, pl.groups))}</td></tr>
+      ${rows}
+      <tr class="sub"><td colspan="4">${bundlesText(g.subtotal.bundles)}</td><td class="num">${formatPlKg(g.subtotal.weightG)}</td><td></td><td></td><td class="num">${g.subtotal.pcs}</td><td colspan="3"></td></tr>`;
+    })
+    .join("");
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${e(h.plNumber)}</title>
+  <style>
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10px; color: #111; padding: 24px; }
+    h1 { font-size: 16px; margin: 0; }
+    .muted { color: #555; }
+    .top { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid #111; padding-bottom: 8px; }
+    .doc { text-align: right; }
+    .doc .title { font-size: 14px; font-weight: bold; letter-spacing: 1px; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; }
+    .box { border: 1px solid #ddd; padding: 6px; }
+    .label { font-size: 8px; color: #666; text-transform: uppercase; margin-bottom: 2px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f3f4f6; text-align: left; font-size: 8px; color: #333; padding: 4px; border: 1px solid #ddd; }
+    td { padding: 3px 4px; border-bottom: 1px solid #eee; font-size: 9px; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    tr.group td { background: #fafafa; font-weight: bold; border-top: 1px solid #ccc; }
+    tr.sub td { font-weight: bold; border-bottom: 1px solid #ccc; }
+    .notes { border: 1px solid #ddd; padding: 6px; margin-bottom: 10px; white-space: pre-wrap; }
+    .total { margin-top: 10px; text-align: right; font-size: 13px; font-weight: bold; }
+    .footer { margin-top: 18px; font-size: 8px; color: #999; display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h1>${e(h.company.legalName ?? h.company.name)}</h1>
+      ${h.company.address ? `<div>${e(h.company.address)}</div>` : ""}
+      ${h.company.gstin ? `<div>GSTIN ${e(h.company.gstin)}</div>` : ""}
+      ${h.company.phone ? `<div class="muted">${e(h.company.phone)}</div>` : ""}
+    </div>
+    <div class="doc">
+      <div class="title">PACKING LIST</div>
+      <div><strong>${e(h.plNumber)}</strong></div>
+      <div>${escapeHtml(ddMmmYyyy(h.date))}</div>
+      <div class="muted">Dispatch ${e(h.dispatchCode)}</div>
+    </div>
+  </div>
+  <div class="grid">
+    ${party("Bill to", h.billTo)}
+    ${party("Ship to", h.shipTo)}
+    <div class="box">
+      <div class="label">Transport</div>
+      <div>Vehicle <strong>${e(h.vehicleNo ?? "—")}</strong></div>
+      ${h.driverName || h.driverPhone ? `<div>Driver ${e([h.driverName, h.driverPhone].filter(Boolean).join(" · "))}</div>` : ""}
+      ${h.transporter ? `<div>${e(h.transporter)}</div>` : ""}
+    </div>
+    <div class="box">
+      <div class="label">References</div>
+      <div>PO ${e(h.poNumbers.length ? h.poNumbers.join(", ") : "—")}</div>
+      <div>Invoice ${e(h.invoiceNumber ?? "—")}${h.invoiceDate ? ` · ${escapeHtml(ddMmmYyyy(h.invoiceDate))}` : ""}</div>
+      ${shipDate ? `<div>Ship date ${e(shipDate)}</div>` : ""}
+    </div>
+  </div>
+  ${pl.dispatch.notes ? `<div class="notes"><span class="label">Notes</span> ${e(pl.dispatch.notes)}</div>` : ""}
+  <table>
+    <thead><tr>${head}</tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+  <div class="total">${escapeHtml(pl.summary.text)}</div>
+  <div class="footer"><span>${e(h.company.name)} · ${e(h.plNumber)}</span><span>Receiver's signature ____________________</span></div>
+</body>
+</html>`;
+}
+
 /**
  * The packing list as an HTML page for expo-print on native: the same header,
  * columns, groups and totals as the web view, the PDF and the Excel sheet
@@ -29,6 +152,7 @@ export function buildPackingListHtml(
   _lengthUnit?: LengthUnit,
   opts: PackingListModelOptions = {},
 ): string {
+  if (isPlSnapshotV2(pl)) return buildPackingListHtmlV2(pl);
   const { header, groups, totals } = packingListModel(pl, opts);
   const meta = [
     ["PL no", code],

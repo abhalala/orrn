@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { approval, auditLog, customer, membership } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
-import { ACTIONS, APPROVER_ROLES, can, type Action } from "../src/lib/permissions";
+import { ACTIONS, APPROVER_ROLES, PLANT_ACTIONS, can, type Action } from "../src/lib/permissions";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
 let env: TestEnv;
@@ -78,6 +78,18 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "ageing.enter": ["press", "supervisor"],
   // Analytics addendum A1: charts for owner/manager and the office roles, not the floor or viewer.
   "analytics.view": ["admin", "manager", "office", "accountant"],
+  // Wave 1 contracts (FP). Moving bundles between orders is order.reallocate (D6), never bundle.transfer.
+  "die.issue": ["die_room"],
+  "die.maker": ["die_room"],
+  "order.plan": ["office", "manager"],
+  "order.price": ["office", "manager", "accountant"],
+  "order.reallocate": ["supervisor", "office", "manager", "admin"],
+  "press.close": ["supervisor", "manager", "admin"],
+  "ageing.view": ["press", "supervisor", "office", "manager", "admin"],
+  "packingList.combine": ["supervisor", "office", "manager", "admin"],
+  "portal.manage": ["office", "manager", "admin"],
+  "audit.read": ["admin", "manager"],
+  "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 
 /** The pre-PL-1 permission matrix for the five original roles; must not move. */
@@ -122,6 +134,15 @@ describe("role list", () => {
 });
 
 describe("permission matrix (digest §4.2)", () => {
+  test("every plant action has at least one role besides owner, and there is no bundle.transfer", () => {
+    for (const action of PLANT_ACTIONS) {
+      const holders = ALL_ROLES.filter((role) => role !== "owner" && can(meOf(role), action));
+      expect({ action, held: holders.length > 0 }).toEqual({ action, held: true });
+      expect(MATRIX).toHaveProperty([action]);
+    }
+    expect(ACTIONS as readonly string[]).not.toContain("bundle.transfer");
+  });
+
   test("every new action is registered", () => {
     for (const action of Object.keys(MATRIX)) {
       expect(ACTIONS as readonly string[]).toContain(action);
@@ -288,6 +309,11 @@ describe("approvals", () => {
       die_rerank: ["owner", "admin", "manager"],
       dispatch_overdraw: ["owner", "admin", "manager"],
       phantom_void: ["owner", "admin", "manager"],
+      die_owner_override: ["owner", "admin", "manager"],
+      order_reallocate: ["owner", "admin", "manager"],
+      press_time: ["owner", "supervisor", "manager"],
+      press_reopen: ["owner", "admin", "manager"],
+      ageing_override: ["owner", "admin", "manager"],
     });
   });
 

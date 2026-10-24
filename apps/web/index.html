@@ -15,7 +15,7 @@
       (function () {
         try {
           var l = localStorage.getItem("orrn.locale");
-          if (l === "en" || l === "hi") document.documentElement.lang = l;
+          if (l === "en" || l === "hi" || l === "gu") document.documentElement.lang = l;
           var t = localStorage.getItem("orrn.theme");
           var legacy = localStorage.getItem("vite-ui-theme");
           if (!t && legacy) {

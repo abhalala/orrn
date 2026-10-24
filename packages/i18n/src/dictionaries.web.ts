@@ -10,26 +10,28 @@ import { enPublic } from "./en-public.gen";
  * provider fetches a language when it is chosen. Until a dictionary lands, `createI18n`
  * answers with what is here (English, then the key itself).
  *
- * A new locale (gu) gets a line in LOADERS (the Record fails to type-check until it does).
+ * A new locale gets a line in LOADERS (the Record fails to type-check until it does).
  */
-export const DICTIONARIES: Partial<Record<"en" | "hi", Messages>> = { en: enPublic as unknown as Messages };
+export const DICTIONARIES: Partial<Record<"en" | "hi" | "gu", Messages>> = { en: enPublic as unknown as Messages };
 
-const complete = new Set<"en" | "hi">();
+const complete = new Set<"en" | "hi" | "gu">();
 
 /** Whether a language's FULL messages are here (English starts with the public subset only). */
-export function hasMessages(locale: "en" | "hi"): boolean {
+export function hasMessages(locale: "en" | "hi" | "gu"): boolean {
   return complete.has(locale);
 }
 
-const LOADERS: Record<"en" | "hi", () => Promise<Messages>> = {
+const LOADERS: Record<"en" | "hi" | "gu", () => Promise<Messages>> = {
   en: () => import("./en").then((m) => m.en),
   hi: () => import("./hi").then((m) => m.hi),
+  // Partial: missing keys fall back to English in createI18n.
+  gu: () => import("./gu").then((m) => m.gu as unknown as Messages),
 };
 
-const pending: Partial<Record<"en" | "hi", Promise<void>>> = {};
+const pending: Partial<Record<"en" | "hi" | "gu", Promise<void>>> = {};
 
 /** Fetches a language's messages once (concurrent callers share the request; a failure can be retried). */
-export function loadMessages(locale: "en" | "hi"): Promise<void> {
+export function loadMessages(locale: "en" | "hi" | "gu"): Promise<void> {
   if (hasMessages(locale)) return Promise.resolve();
   pending[locale] ??= LOADERS[locale]().then(
     (messages) => {

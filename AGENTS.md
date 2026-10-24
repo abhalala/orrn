@@ -137,9 +137,10 @@ bun run deploy
   pending request per (company, kind, subject). Kinds with an effect apply it in
   the decision's batch through `APPROVAL_APPLIERS` (`lib/approvalApply.ts`):
   `die_rerank` (tier), `dc_note` (note status, bori deduction posting; refused at write time when
-  the bori would take an OK lot below what the foundry melted) and `cast_close` (closes the cast,
-  or re-opens it with the close-out cleared). A hook that can refuse adds its own batch abort and
-  an explanation in `explainApplyAbort`, which `approval.decide` calls when the batch fails.
+  the bori would take an OK lot below what the foundry melted), `phantom_void` (voids a count's
+  still-missing phantoms, reversal rows) and `cast_close` (closes the cast, or re-opens it with the
+  close-out cleared). A hook that can refuse adds its own batch abort and an explanation in
+  `explainApplyAbort`, which `approval.decide` calls when the batch fails.
 - Platform impersonation is web-only/support-only, time-boxed, bannered, and audited.
 
 ## Native sync rules
@@ -186,7 +187,7 @@ bun run deploy
   A correction is a new opposite-sign row with `reversal_of` = the row it cancels.
 - Every stock-affecting submit writes its document rows, its ledger rows and an audit row in ONE
   `atomicBatch`. Use the builders in `packages/server/src/lib/ledger.ts` (`packRows`, `moveRows`,
-  `voidRows`, `restoreRows`, `dispatchRows`, `openingRows`). For existing bundles they are
+  `voidRows`, `restoreRows`, `dispatchRows`, `openingRows`, `phantomVoidRows`). For existing bundles they are
   INSERT … SELECT statements that read location and weight at write time and land only if the
   bundle write beside them landed (the bundle carries this request's `server_seq`).
 - Invariant (Review Focus 1): for every bundle, ledger balance = projection (available/reserved →
@@ -375,6 +376,74 @@ bun run deploy
 - `clientRequestId` on `casts.open` and `melts.create`: a repeat returns the first; the same id for
   another cast (or alloy) is a CONFLICT.
 
+## Stock count (phantom report)
+
+- Tables in `packages/db/src/schema/count.ts`: `count_session` (`CNT-{n}` per financial year,
+  open → closed | cancelled), `count_location` (the yards a count covers; partial unique index = one
+  open count per location), `count_seen` (scans; repeat code or bundle ignored, unknown codes kept),
+  `count_line` (the report frozen at close), `count_tally` (variance per yard and section, frozen at
+  close; unique per (count, yard, section) with NULL yard / NULL section as keys). Router `count` (`routers/count.ts`), SQL in `lib/count.ts`. Mutations need `stock.count`; `list`, `get`, `phantomSummary` are open to members.
+- Replay-safe (review round 1 m-3): `count.start` takes an optional `clientRequestId` (unique per
+  company, `count_session.client_request_id`); a retry returns the first count (`replayed: true`),
+  the same key for other yards is a CONFLICT. `count.cancel` repeated by the same user with the same
+  reason on the count it cancelled answers success again (no second audit row); anyone else's cancel
+  of a cancelled count stays BAD_REQUEST.
+- One classification for the open-count preview (`count.get`, the "missing list before close") and
+  the frozen close: phantom = in stock at a counted yard, not seen, and no ledger row after the
+  count's `start_seq` (bundles packed or moved in during the count and not scanned are `changed`,
+  never phantom; a bundle with no ledger rows at all, legacy stock not yet taken on, counts as
+  changed when its own `server_seq` is past `start_seq`, since its moves post no row); moved =
+  seen at a counted yard, system has it at another counted yard; found = seen but unknown/ambiguous
+  code, not in stock, or in stock outside the count (or place unknown).
+  A scan with a newer ledger row than the scan (`server_seq` compare) is superseded (matched).
+- A bundle is a phantom only if NO count saw it: one scanned by another count (any company count,
+  cancelled ones too) after this count's `start_seq` is `seenElsewhere` (summary total, column
+  `seen_elsewhere_count`), never a phantom. An older sighting in another count that is still
+  pending there (its count is open, or its found/moved line is open, and no ledger row since the
+  scan) does not change the frozen report but flags the phantom (`CountReportBundle.seenElsewhere`:
+  count, yard, `countOpen`, `resolveThere`), makes `void_phantom` refuse it ("Not missing: … seen at
+  Y1 in CNT-1 …": move it from that count instead) and keeps it out of "still missing". Yards
+  counted as separate counts (at once or one after another) therefore never void real stock that
+  another yard's count saw. `sightingsOf` / `sightingClears` in `lib/count.ts` hold the rule.
+- Bundles with no location (legacy stock taken on by `stock.openingBalance`) are expected only by a
+  count with `include_unplaced` (start input `includeUnplaced`; default on when the count covers
+  every active yard, refused otherwise): unseen they are phantoms with `system_location_id` NULL,
+  seen they are found (move_found places them). Pass the session's `CountScope`
+  (`{ id, startSeq, includeUnplaced }`) to `phantomWhere` / `changedWhere` / `closeStatements`.
+- Close posts NO kg rows (spec §5); the closed session is the checkpoint. Close is idempotent and
+  every statement after the session UPDATE is guarded by `close_seq`. A counted yard with no scan
+  that would report phantoms (or a count with no scan and unplaced phantoms) makes close answer
+  PRECONDITION_FAILED until the caller sends `confirmUnscanned: true` (close is final).
+- `count.resolve` `void_phantom` stamps the lines `void_requested` and opens ONE `phantom_void`
+  approval per count (subject = session id). On approval the hook voids only bundles still
+  available at the expected location, with no ledger row since close and no later scan; it posts
+  `void` reversal rows (voucher = the count line, `reversal_of` = pack/opening/restore row) and
+  status events; the rest become `cleared`. That "still a phantom" rule is ONE SQL fragment,
+  `stillPhantomOfLine` in `lib/count.ts`, shared by the hook and `phantomSummary().open` (the 7 am
+  "phantoms still missing" number); change it there, never in one caller. It compares other
+  counts' scans with the line's count `start_seq` (not its close) and includes pending older
+  sightings, so the hook clears what the void request would now refuse. `move_found` moves moved/found bundles to the seen yard
+  with ordinary `move` rows, guarded by "still where the count saw the system have it".
+- Variance per yard and per section = expected − counted (bundles and kg; positive short, negative
+  extra): `count_tally`, one row per (yard, section), written by the close batch from `tallySource`
+  (the live tally of an open count is the same SQL), never updated. Expected = the summary's
+  expected set at its system location; counted = this count's scans at the scanned yard, except a
+  scan superseded by a later ledger row: counted where the system now has the bundle if it is still
+  expected, else nowhere (moved out of the count or dispatched). Unknown codes count with die NULL
+  and 0 kg; `location_id` NULL = unplaced bundles. Read as `report.variance.{ byLocation, bySection }`;
+  "section" is `bundle.die_id` (the `die` catalogue row), not a physical die copy (`die_instance`).
+  The adjustments themselves stay ledger rows: phantom void = `void` reversal rows (reason
+  "Phantom at count CNT-n", voucher = the count line), move_found = `move` rows (reason "Found at
+  count CNT-n"); nothing on the ledger is ever edited.
+- `phantomSummary()` = `{ lastCount (with its `locationCodes`), lastDay, open }`: `lastDay` sums
+  every count closed on the last count's company calendar day (yards counted one by one in an
+  evening read as one full count, owner measure M1); a count whose yards a later count that day
+  ALL counted again is left out of the sums and listed in `lastDay.recounted` (a partial overlap
+  stays in, so its shared yard counts twice).
+- The dev-seed reset (`apps/server/src/dev-seed.ts`) deletes the demo company's count tables (with
+  `count_tally`) before `bundle` and `location` (RESTRICT keys) and `doc_series` (CNT-n restarts); a new table with a
+  RESTRICT key to location/bundle/purchase_lot must be added to that reset too.
+
 ## Analytics (charts and customer numbers)
 
 - Router `analytics` (`routers/analytics.ts`, spec
@@ -399,9 +468,94 @@ bun run deploy
   in `otherKgG`/`totalKgG`. Shares use the largest-remainder method (rows + Other = 100.0).
 - Stock ageing counts available + reserved bundles by company calendar days from the pack date
   (`bundle.created_at`) to today. Section breakdowns are the top 8 plus an `Other` row
-  (`sectionId: null`). `openOrders` stays null until sales orders exist (PL-8).
+  (`sectionId: null`). `openOrders` sums the customer's open order lines (`lib/orders.ts`); null when
+  the customer has no open order line.
 - Indexes `dispatch(company_id, completed_at)` and `bundle(company_id, created_at)` (migration 0016)
   serve the range filters.
+
+## Sales orders, baki and dispatch header (PL-8)
+
+- Tables `sales_order` + `sales_order_line` (`packages/db/src/schema/sales.ts`); router `orders`
+  (`routers/salesOrder.ts`): `create` / `update` need `order.manage` (office, manager, owner); `get`,
+  `list`, `balance`, `openLines` are open to every member (lines carry no prices; Pack and Dispatch
+  need them, ruling PL8-R1). Numbers `SO-{n}` per FY from `nextDocNumber(.., "so", ..)`; the order stores
+  that `period` and the unique key is (company, period, number), so a number repeats every FY: show the
+  order date or period beside it. A line's
+  section is a `die` row (`sectionId` in the API, `die_id` in SQL); weights are grams (`kgG`),
+  `kgPer12ftMilli` = grams per 12 ft, cut length mm, `finish` free text (OI-09).
+- Baki maths live only in `lib/orders.ts` (`lineBalances`, `lineBalancePage`, `lineTotals`,
+  `orderTotals`, `sumBalances`): ordered = line kg/pcs;
+  produced = non-void bundles whose `sales_order_line_id` is the line (set by `createReceipt`; completion
+  sets it to the line the dispatch item was linked to, NULL when it left unlinked); dispatched = bundles of
+  completed, live dispatches whose `dispatch_item.sales_order_line_id` is the line; baki = ordered −
+  dispatched floored at 0, the excess is `overG`. Every subquery is scoped by the outer line's
+  company (a forged cross-company id adds nothing); never compute baki anywhere else.
+- Rows are never cut silently: `lineBalances` throws `LineLimitError` past 1,000 lines; screens page
+  with `lineBalancePage` (`orders.balance` takes `limit`/`offset`, returns `nextOffset`), and report
+  totals come from SQL (`lineTotals`, `orderTotals`), never from summing a page. `withBaki` filters
+  baki > 0 in SQL before any limit (`openLines`).
+- `orders.create` takes an optional `clientRequestId` (unique per company): a retry with the same key
+  returns the first order (`replayed: true`) and burns no second SO number; the same key with another
+  order (fingerprint of customer, PO, date, status, note and lines in the `order.create` audit meta)
+  is a CONFLICT. `orders.update` REQUIRES `serverSeq` (from `orders.get`): a save over a newer
+  version answers CONFLICT, read and write time (review round 3).
+- Order status: booking ⇄ confirmed → dispatching (set by the first completed dispatch) → closed
+  (reopen to confirmed). Cancel only while no live dispatch carries its lines. A line that has bundles
+  or dispatch items cannot be removed or change section, and the order's customer cannot change once
+  any line has links; these checks also sit in the UPDATE/DELETE WHERE with a `batchAbortUnless`
+  statement, so an edit that loses a race fails whole (CONFLICT), never half-applies.
+- `dispatch_item.sales_order_line_id` and `bundle.sales_order_line_id` have no foreign key (SQLite
+  cannot add one to an existing table): every writer checks company + open order + same section +
+  same customer at write time (`dispatch.linkItem`, `bundle.createReceipt`, `addBundles*`).
+- Scanning a bundle onto a dispatch links it (`lib/orders.ts suggestLines`): the line it was packed
+  for if that line is open for this customer and section, else the oldest open line of this customer
+  and section with baki left after what is already on this dispatch, else the NEWEST open line of that
+  customer and section (so kg beyond the order meets the overdraw rule), else (no open line for the
+  section) unlinked. The add reports return `linked[]`. Unlinking (`linkItem` null) a bundle whose
+  section has an open line of the dispatch's customer needs `order.manage` (read and write time):
+  the floor cannot take kg off the order to skip the override (ruling PL8-R15).
+- The link is decided again where its premise changes (fix round 2, spec S-2): a customer change in
+  `dispatch.update` clears every unlink mark and re-suggests every item for the new customer in the
+  same batch; `dispatch.complete` re-suggests every item left unlinked by nobody before the overdraw
+  read (`relinkOpen`, audited `dispatch.relink`), and its completing UPDATE also requires that no
+  such item has an open line of the customer for its section (`noUnlinkedWithOpenLine`; an order
+  saved in between answers CONFLICT, and the message says an order for this customer was saved).
+  `linkItem(null)` stores the user in `dispatch_item.unlinked_by` (unlinked on purpose, never
+  re-suggested) only when an `order.manage` holder unlinks an item that was linked at write time; a
+  no-op unlink of a never-linked item and any floor unlink leave the mark as it was, so completion
+  still relinks it (review round 3 I-1). A link clears it. `dispatch.relink` audit rows list only the
+  links that landed (read back after the batch).
+- Review Focus 5: `dispatch.complete` refuses (PRECONDITION_FAILED) when a linked line's dispatched
+  total would pass ordered + tolerance (`customer.kg_tolerance_bp`, else `settings.orderToleranceBp`,
+  else 500 bp = 5 %) and opens one `dispatch_overdraw` approval (meta = per-line kg, no money);
+  nothing moves and no PL number is taken. An approval covers only the line totals it was asked for.
+  A pending request is never rewritten: the same figures leave it as it is; new figures withdraw it
+  ("Withdrawn: asked again with new figures.") and open a new one requested by whoever pressed
+  Complete (an approver approves only what they saw; nobody approves their own figures). The same rule is in the completing UPDATE's WHERE (`overdrawGuard`), followed by a
+  `batchAbortUnless`, so a concurrent completion or a late link cannot slip through. A request left
+  open becomes `rejected` with note "Withdrawn: …" when the dispatch completes within limits, is
+  cancelled or is deleted (ruling PL8-R6).
+- Dispatch header: `vehicleNo` (normalised GJ05AB1234), `driverName`, `driverPhone`, `transporter`
+  via `dispatch.update` until cancelled (after completion only `dispatch.complete` holders, and the
+  stored v2 PL header follows with `json_set`, same number and rows); `invoiceNumber`, `invoiceDate`
+  (Tally, P12) need `invoice.link`. `dispatch.update` answers CONFLICT when its write lost a race.
+- `dispatch.pl_number` is taken from the PL book series (`settings.plSeries`) at completion, once;
+  `packingList.regenerate` and a manual `packingList.create` reuse it. The snapshot is v2
+  (`lib/packingListSnapshot.ts`, zod `plSnapshotV2Schema`): `header` (letterhead from
+  `settings.letterhead`, bill-to/ship-to, PL no, date, vehicle, driver, PO and invoice numbers),
+  `columns` (11), `groups` by order line else section with subtotals, `summary.text` "N bundles ·
+  X kg", plus every v1 key with its old meaning so v1 renderers keep working. Range /12' is the
+  plant's Excel formula `floor((kg12 + 0.01) × 10) / 10` on the RAW kg/12ft (weight, pcs, length;
+  what the customer is billed on), evaluated exactly on integers (`weightRange12ftOf`): raw 2.0895 →
+  2.0 although the kg/12ft column prints 2.090; raw 2.090 → 2.1. Only a bundle without pcs or length
+  uses the stored thousandths (`weightRange12ftFromMilli`). `header.shipDate` is the ship date as the
+  company's calendar day (`settings.timezone`), printed by hand (`plShipDateText`). A group carries
+  `orderPeriod`; `plGroupTitle(g, groups)` prints it when two groups share an SO number. The v2 print
+  and xlsx carry the dispatch notes and ship date; "1 bundle" everywhere (`bundlesText`). The overdraw
+  approval meta names each line's `orderPeriod`; a repeat Complete with the same figures leaves the
+  request alone and writes a `dispatch.overdraw.request` audit row (`repeat: true`, with its note).
+- `reports.salesRegisterCsv({ month })` (reports.read or export.accounts): one CSV row per completed
+  dispatch in the company calendar month, cells guarded against spreadsheet formulas.
 
 ## Worker performance rules
 

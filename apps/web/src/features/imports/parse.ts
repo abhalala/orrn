@@ -46,7 +46,6 @@ export type DieImportRow = {
   weightMaxG: number;
   widthMm?: number;
   thicknessMm?: number;
-  obliqueMm?: number;
   legMm?: number;
   dimensions: { heightMm?: number };
   status?: "active" | "archived";
@@ -280,7 +279,6 @@ export const IMPORT_FIELDS: Record<ImportKind, readonly FieldDef[]> = {
     { id: "width", type: "length", aliases: ["width", "dimensions width"] },
     { id: "height", type: "length", aliases: ["height", "dimensions height"] },
     { id: "thickness", type: "length", aliases: ["thickness", "dimensions thickness", "thk"] },
-    { id: "oblique", type: "length", aliases: ["oblique"] },
     { id: "leg", type: "length", aliases: ["leg"] },
     { id: "status", type: "status", aliases: ["status"] },
     { id: "notes", type: "text", aliases: ["notes", "note", "remarks"] },
@@ -494,12 +492,10 @@ function buildRow(kind: ImportKind, v: Values, companyUnit: LengthUnit): ParsedR
     if (typeof v.notes === "string") row.notes = v.notes;
     const width = geo("width");
     const thickness = geo("thickness");
-    const oblique = geo("oblique");
     const leg = geo("leg");
     const height = geo("height");
     if (width !== undefined) row.widthMm = width;
     if (thickness !== undefined) row.thicknessMm = thickness;
-    if (oblique !== undefined) row.obliqueMm = oblique;
     if (leg !== undefined) row.legMm = leg;
     if (height !== undefined) row.dimensions.heightMm = height;
     return row;

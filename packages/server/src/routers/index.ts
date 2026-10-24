@@ -5,6 +5,7 @@ import { authRouter } from "./auth";
 import { waitlistRouter } from "./waitlist";
 import { platformRouter } from "./platform";
 import { companyRouter } from "./company";
+import { countRouter } from "./count";
 import { inviteRouter } from "./invite";
 import { customerRouter } from "./customer";
 import { dieRouter } from "./die";
@@ -20,6 +21,8 @@ import { resolveRouter } from "./resolve";
 import { stockRouter } from "./stock";
 import { storeRouter } from "./store";
 import { purchaseRouter } from "./purchase";
+import { reportsRouter } from "./reports";
+import { salesOrderRouter } from "./salesOrder";
 import { vendorRouter } from "./vendor";
 
 export const appRouter = router({
@@ -49,10 +52,13 @@ export const appRouter = router({
   approval: approvalRouter,
   resolve: resolveRouter,
   stock: stockRouter,
+  count: countRouter,
   store: storeRouter,
   vendor: vendorRouter,
   purchase: purchaseRouter,
   analytics: analyticsRouter,
+  orders: salesOrderRouter,
+  reports: reportsRouter,
   foundry: foundryRouter,
 });
 export type AppRouter = typeof appRouter;

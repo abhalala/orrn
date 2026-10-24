@@ -207,7 +207,6 @@ const FIELD_ORDER: (keyof DieDraft)[] = [
   "weightMax",
   "width",
   "thickness",
-  "oblique",
   "leg",
 ];
 

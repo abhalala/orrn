@@ -6,7 +6,7 @@
  * running summary beside the form; phones see it on the last step.
  */
 import { parseDecimal } from "@orrn/domain";
-import { useT } from "@orrn/i18n";
+import { useT, type Locale } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Checkbox } from "@orrn/ui/components/checkbox";
 import { Chip } from "@orrn/ui/components/chip";
@@ -790,7 +790,7 @@ function Summary({
   reading: KantaReading;
   toleranceBp: number;
   itemName: string;
-  locale: "en" | "hi";
+  locale: Locale;
   canNote: boolean;
 }) {
   const { t } = useT();

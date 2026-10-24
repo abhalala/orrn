@@ -147,7 +147,6 @@ describe("die.processImport", () => {
       series: "PATTI",
       sectionCode: "14701",
       name: "Patti 1 x 1/8",
-      obliqueMm: 40.5,
       legMm: 12.5,
       widthMm: 25.4,
       thicknessMm: 3.2,
@@ -166,7 +165,6 @@ describe("die.processImport", () => {
     const row = await env.db.query.die.findFirst({ where: eq(die.id, created.id) });
     expect(row).toMatchObject({
       name: "Patti 1 x 1/8",
-      obliqueMm: 40.5,
       legMm: 12.5,
       widthMm: 25.4,
       thicknessMm: 3.2,
@@ -199,7 +197,7 @@ describe("die.processImport", () => {
           sectionCode: "13090",
           name: "Tee 20 x 15",
           widthMm: 22.2,
-          obliqueMm: 31.75,
+          legMm: 31.75,
           status: "archived",
           dimensions: {},
           weightMinG: 1_050,
@@ -209,7 +207,7 @@ describe("die.processImport", () => {
     });
     const row = await env.db.query.die.findFirst({ where: eq(die.id, created.id) });
     // Geometry keeps 0.1 mm (ruling R16): 31.75 is stored as 31.8.
-    expect(row).toMatchObject({ name: "Tee 20 x 15", widthMm: 22.2, obliqueMm: 31.8, status: "archived", notes: "keep me" });
+    expect(row).toMatchObject({ name: "Tee 20 x 15", widthMm: 22.2, legMm: 31.8, status: "archived", notes: "keep me" });
     expect(row!.dimensions).toMatchObject({ heightMm: 15, widthMm: 22.2 });
   });
 

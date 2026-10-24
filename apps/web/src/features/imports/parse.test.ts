@@ -462,10 +462,10 @@ describe("parseImport dies", () => {
       weightMaxG: 1400,
       widthMm: 25.4,
       thicknessMm: 2.5,
-      // Unit-less in an inch company: 40 in.
-      obliqueMm: 1016,
       dimensions: {},
     });
+    // Oblique is the die-copy suffix, not a die length (ledger D7): the column is ignored.
+    expect(res.ignoredColumns).toContain("Oblique");
   });
 
   test("a four-column sheet leaves name, notes, status and geometry out, so an update keeps them", () => {

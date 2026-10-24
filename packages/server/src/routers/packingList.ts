@@ -2,167 +2,28 @@ import { TRPCError } from "@trpc/server";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { bundle } from "@orrn/db/schema/inventory";
-import { company } from "@orrn/db/schema/tenant";
-import { customer } from "@orrn/db/schema/customers";
-import {
-  dispatch,
-  dispatchItem,
-  type DispatchStatus,
-} from "@orrn/db/schema/dispatch";
 import { die } from "@orrn/db/schema/catalog";
+import { customer } from "@orrn/db/schema/customers";
+import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
+import { bundle } from "@orrn/db/schema/inventory";
 import { packingList, packingListLine } from "@orrn/db/schema/packing";
+import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
+import { company } from "@orrn/db/schema/tenant";
 
 import type { BatchItem } from "drizzle-orm/batch";
 
 import type { Context } from "../context";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, pushChunkedInserts, type OrrnDb } from "../lib/atomic";
+import { now as clockNow } from "../lib/clock";
+import { companyTimezone, zonedYmd } from "../lib/dayWindow";
+import { nextDocNumber } from "../lib/docNumber";
+import { buildPlSnapshotV2, type PlBuildInput, type PlSnapshotV2 } from "../lib/packingListSnapshot";
 import { nextCompanySeq } from "../lib/sequence";
 import { actionProcedure, companyProcedure, router } from "../index";
 
-// ---------------------------------------------------------------------------
-// Local types
-// ---------------------------------------------------------------------------
-type PackingLineItem = {
-  itemId: string;
-  bundleId: string;
-  bundleSerial: string;
-  bundleQuantity: number;
-  bundleWeightG: number;
-  bundleLengthMm: number;
-  dieId: string;
-  dieSeries: string;
-  dieSectionCode: string;
-  groupId: string | null;
-  groupLabel: string | null;
-};
-
-// ---------------------------------------------------------------------------
-// Shared helper: gather all data needed for a snapshot and build it.
-// Used by both create (on first generate) and regenerate.
-// ---------------------------------------------------------------------------
-async function buildSnapshot(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db: any,
-  companyId: string,
-  dispatchRow: {
-    id: string;
-    code: string;
-    customerId: string;
-    shipDate: Date | null;
-    notes: string | null;
-    status: string;
-    completedAt: Date | null;
-  },
-  actorId: string,
-): Promise<{ snapshot: Record<string, unknown>; items: PackingLineItem[] }> {
-  const customerRow = await db.query.customer.findFirst({
-    where: and(
-      eq(customer.id, dispatchRow.customerId),
-      eq(customer.companyId, companyId),
-      isNull(customer.deletedAt),
-    ),
-  });
-
-  const companyRow = await db.query.company.findFirst({
-    where: eq(company.id, companyId),
-  });
-
-  const items = await db
-    .select({
-      itemId: dispatchItem.id,
-      bundleId: bundle.id,
-      bundleSerial: bundle.serial,
-      bundleQuantity: bundle.quantity,
-      bundleWeightG: bundle.weightG,
-      bundleLengthMm: bundle.lengthMm,
-      dieId: die.id,
-      dieSeries: die.series,
-      dieSectionCode: die.sectionCode,
-      groupLabel: dispatchItem.groupLabel,
-      groupId: bundle.groupId,
-    })
-    .from(dispatchItem)
-    .innerJoin(
-      bundle,
-      and(
-        eq(bundle.id, dispatchItem.bundleId),
-        eq(bundle.companyId, dispatchItem.companyId),
-      ),
-    )
-    .innerJoin(
-      die,
-      and(
-        eq(die.id, bundle.dieId),
-        eq(die.companyId, bundle.companyId),
-      ),
-    )
-    .where(
-      and(
-        eq(dispatchItem.dispatchId, dispatchRow.id),
-        eq(dispatchItem.companyId, companyId),
-      ),
-    ) as PackingLineItem[];
-
-  const totalQuantity = items.reduce((s: number, i: PackingLineItem) => s + Number(i.bundleQuantity), 0);
-  const totalWeightG = items.reduce((s: number, i: PackingLineItem) => s + Number(i.bundleWeightG), 0);
-  const totalLengthMm = items.reduce((s: number, i: PackingLineItem) => s + Number(i.bundleLengthMm), 0);
-
-  const snapshot: Record<string, unknown> = {
-    dispatch: {
-      code: dispatchRow.code,
-      customer: {
-        id: customerRow?.id ?? "",
-        name: customerRow?.name ?? "",
-        phone: customerRow?.phone ?? null,
-        email: customerRow?.email ?? null,
-        billingAddress: customerRow?.billingAddress ?? null,
-        shippingAddress: customerRow?.shippingAddress ?? null,
-        taxId: customerRow?.taxId ?? null,
-      },
-      shipDate: dispatchRow.shipDate
-        ? new Date(dispatchRow.shipDate).toISOString()
-        : null,
-      notes: dispatchRow.notes ?? "",
-      status: dispatchRow.status as DispatchStatus,
-      completedAt: dispatchRow.completedAt
-        ? new Date(dispatchRow.completedAt).toISOString()
-        : null,
-    },
-    company: {
-      id: companyRow?.id ?? "",
-      name: companyRow?.name ?? "",
-    },
-    items: items.map((item: PackingLineItem) => ({
-      bundleSerial: item.bundleSerial,
-      die: {
-        series: item.dieSeries,
-        sectionCode: item.dieSectionCode,
-      },
-      groupId: item.groupLabel ?? item.groupId ?? "",
-      quantity: Number(item.bundleQuantity),
-      weightG: Number(item.bundleWeightG),
-      lengthMm: Number(item.bundleLengthMm),
-    })),
-    totals: {
-      totalBundles: items.length,
-      totalQuantity,
-      totalWeightKg: Number((totalWeightG / 1000).toFixed(3)),
-      totalLengthM: Number((totalLengthMm / 1000).toFixed(3)),
-    },
-    generatedAt: new Date().toISOString(),
-    generatedBy: actorId,
-  };
-
-  return { snapshot, items };
-}
-
-// ---------------------------------------------------------------------------
-// Exported helper — called from dispatch.complete inside the same D1 batch so
-// a packing list is always atomically present when a dispatch completes.
-// ---------------------------------------------------------------------------
-type DispatchRowForPL = {
+/** The dispatch fields a packing list snapshot reads (a full `dispatch` row satisfies it). */
+export type DispatchRowForPL = {
   id: string;
   code: string;
   customerId: string;
@@ -170,11 +31,124 @@ type DispatchRowForPL = {
   notes: string | null;
   status: string;
   completedAt: Date | null;
+  vehicleNo: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
+  transporter: string | null;
+  invoiceNumber: string | null;
+  invoiceDate: string | null;
 };
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * Read everything a v2 snapshot needs (company letterhead, customer, items with their section and
+ * order line), every join scoped by company. Reads only; the caller writes in its own batch.
+ */
+export async function loadPlInput(
+  db: OrrnDb,
+  companyId: string,
+  dispatchRow: DispatchRowForPL,
+  opts: { plNumber: string; actorId: string; at: Date },
+): Promise<PlBuildInput> {
+  const [[co], [cust], items] = await Promise.all([
+    db.select({ id: company.id, name: company.name, settings: company.settings }).from(company).where(eq(company.id, companyId)).limit(1),
+    db
+      .select({
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        billingAddress: customer.billingAddress,
+        shippingAddress: customer.shippingAddress,
+        taxId: customer.taxId,
+      })
+      .from(customer)
+      .where(and(eq(customer.id, dispatchRow.customerId), eq(customer.companyId, companyId)))
+      .limit(1),
+    db
+      .select({
+        bundleId: bundle.id,
+        serial: bundle.serial,
+        quantity: bundle.quantity,
+        weightG: bundle.weightG,
+        lengthMm: bundle.lengthMm,
+        kgPer12ftMilli: bundle.kgPer12ftMilli,
+        bundlePo: bundle.poNumber,
+        bundleGroupId: bundle.groupId,
+        groupLabel: dispatchItem.groupLabel,
+        dieId: die.id,
+        series: die.series,
+        sectionCode: die.sectionCode,
+        sectionName: die.name,
+        lineId: salesOrderLine.id,
+        lineNo: salesOrderLine.lineNo,
+        finish: salesOrderLine.finish,
+        orderNumber: salesOrder.number,
+        orderPeriod: salesOrder.period,
+        orderPo: salesOrder.poNumber,
+      })
+      .from(dispatchItem)
+      .innerJoin(bundle, and(eq(bundle.id, dispatchItem.bundleId), eq(bundle.companyId, companyId)))
+      .innerJoin(die, and(eq(die.id, bundle.dieId), eq(die.companyId, companyId)))
+      .leftJoin(
+        salesOrderLine,
+        and(eq(salesOrderLine.id, dispatchItem.salesOrderLineId), eq(salesOrderLine.companyId, companyId)),
+      )
+      .leftJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, companyId)))
+      .where(and(eq(dispatchItem.dispatchId, dispatchRow.id), eq(dispatchItem.companyId, companyId))),
+  ]);
+
+  const tz = companyTimezone(co?.settings);
+  const dateMs = (dispatchRow.completedAt ?? opts.at).getTime();
+  const d = zonedYmd(tz, dateMs);
+  return {
+    plNumber: opts.plNumber,
+    date: `${d.year}-${pad2(d.month)}-${pad2(d.day)}`,
+    generatedAt: opts.at,
+    generatedBy: opts.actorId,
+    company: { id: co?.id ?? companyId, name: co?.name ?? "", settings: co?.settings ?? null },
+    dispatch: {
+      code: dispatchRow.code,
+      status: dispatchRow.status,
+      shipDate: dispatchRow.shipDate,
+      notes: dispatchRow.notes,
+      completedAt: dispatchRow.completedAt,
+      vehicleNo: dispatchRow.vehicleNo,
+      driverName: dispatchRow.driverName,
+      driverPhone: dispatchRow.driverPhone,
+      transporter: dispatchRow.transporter,
+      invoiceNumber: dispatchRow.invoiceNumber,
+      invoiceDate: dispatchRow.invoiceDate,
+    },
+    customer: cust ?? null,
+    items: items.map((i) => ({
+      bundleId: i.bundleId,
+      serial: i.serial,
+      quantity: Number(i.quantity),
+      weightG: Number(i.weightG),
+      lengthMm: Number(i.lengthMm),
+      kgPer12ftMilli: i.kgPer12ftMilli == null ? null : Number(i.kgPer12ftMilli),
+      bundlePo: i.bundlePo,
+      bundleGroupId: i.bundleGroupId,
+      groupLabel: i.groupLabel,
+      dieId: i.dieId,
+      series: i.series,
+      sectionCode: i.sectionCode,
+      sectionName: i.sectionName,
+      line:
+        i.lineId && i.orderNumber
+          ? { id: i.lineId, orderNumber: i.orderNumber, orderPeriod: i.orderPeriod, lineNo: Number(i.lineNo), finish: i.finish, poNumber: i.orderPo }
+          : null,
+    })),
+  };
+}
 
 type PackingListWriteOpts = {
   companyId: string;
   dispatchRow: DispatchRowForPL;
+  /** The PL book number (dispatch.pl_number); it is also the packing list's code. */
+  plNumber: string;
   session: NonNullable<Context["session"]>;
   impersonation?: Context["impersonation"];
   plId?: string;
@@ -186,17 +160,16 @@ type PackingListWriteOpts = {
 export async function packingListWriteBatch(
   db: OrrnDb,
   opts: PackingListWriteOpts,
-): Promise<{ plId: string; code: string; statements: BatchItem<"sqlite">[] }> {
+): Promise<{ plId: string; code: string; snapshot: PlSnapshotV2; statements: BatchItem<"sqlite">[] }> {
   const plId = opts.plId ?? crypto.randomUUID();
   const seq = await nextCompanySeq({ db }, opts.companyId);
-  const code = `PL-${seq.toString().padStart(6, "0")}`;
-
-  const { snapshot, items } = await buildSnapshot(
-    db,
-    opts.companyId,
-    opts.dispatchRow,
-    opts.session.user.id,
-  );
+  const input = await loadPlInput(db, opts.companyId, opts.dispatchRow, {
+    plNumber: opts.plNumber,
+    actorId: opts.session.user.id,
+    at: clockNow(),
+  });
+  const snapshot = buildPlSnapshotV2(input);
+  const code = opts.plNumber;
 
   const statements: BatchItem<"sqlite">[] = [
     db.insert(packingList).values({
@@ -205,25 +178,30 @@ export async function packingListWriteBatch(
       serverSeq: seq,
       dispatchId: opts.dispatchRow.id,
       code,
-      snapshot,
+      snapshot: snapshot as unknown as Record<string, unknown>,
       createdBy: opts.session.user.id,
     }),
   ];
 
-  if (items.length > 0) {
-    const lineValues = items.map((item, index) => ({
-      id: crypto.randomUUID(),
-      companyId: opts.companyId,
-      packingListId: plId,
-      bundleId: item.bundleId,
-      dieId: item.dieId,
-      quantity: Number(item.bundleQuantity),
-      weightG: Number(item.bundleWeightG),
-      lengthMm: Number(item.bundleLengthMm),
-      groupLabel: item.groupLabel ?? item.groupId ?? `GROUP-${index + 1}`,
-    }));
-    pushChunkedInserts(statements, (rows) => db.insert(packingListLine).values(rows), lineValues);
-  }
+  // One line per bundle, in printed order; group label = the order line / section group.
+  const bySerial = new Map(input.items.map((i) => [i.serial, i]));
+  const lineValues = snapshot.groups.flatMap((g) =>
+    g.rows.map((r) => {
+      const item = bySerial.get(r.bundleNo)!;
+      return {
+        id: crypto.randomUUID(),
+        companyId: opts.companyId,
+        packingListId: plId,
+        bundleId: item.bundleId,
+        dieId: item.dieId,
+        quantity: item.quantity,
+        weightG: item.weightG,
+        lengthMm: item.lengthMm,
+        groupLabel: g.orderNumber ? `${g.orderNumber}/${g.lineNo}` : g.sectionCode,
+      };
+    }),
+  );
+  pushChunkedInserts(statements, (rows) => db.insert(packingListLine).values(rows), lineValues);
 
   statements.push(
     auditInsert(
@@ -235,13 +213,13 @@ export async function packingListWriteBatch(
         meta: opts.auditMeta ?? {
           dispatchId: opts.dispatchRow.id,
           code,
-          bundleCount: items.length,
+          bundleCount: lineValues.length,
         },
       },
     ),
   );
 
-  return { plId, code, statements };
+  return { plId, code, snapshot, statements };
 }
 
 /** Auto-create packing list during dispatch.complete (append to a larger atomic batch). */
@@ -258,9 +236,9 @@ export async function appendPackingListWrites(
 // ---------------------------------------------------------------------------
 export const packingListRouter = router({
   /**
-   * Manually generate a packing list for a completed dispatch.
-   * Auto-creation is handled inside dispatch.complete; this endpoint is for
-   * the rare case where auto-creation was missed or for future re-trigger.
+   * Manually generate a packing list for a completed dispatch that has none (auto-creation runs
+   * inside dispatch.complete). Uses the dispatch's PL number; a dispatch completed before PL
+   * numbers existed gets its number now, once.
    */
   create: actionProcedure("dispatch.complete")
     .input(z.object({ dispatchId: z.string() }))
@@ -282,7 +260,7 @@ export const packingListRouter = router({
       }
 
       const existing = await ctx.db.query.packingList.findFirst({
-        where: eq(packingList.dispatchId, input.dispatchId),
+        where: and(eq(packingList.dispatchId, input.dispatchId), eq(packingList.companyId, ctx.companyId)),
       });
 
       if (existing) {
@@ -292,12 +270,24 @@ export const packingListRouter = router({
         });
       }
 
+      const plNumber =
+        dispatchRow.plNumber ??
+        (await nextDocNumber(ctx.db, ctx.companyId, "pl", dispatchRow.completedAt ?? clockNow(), ctx.session.user.id)).number;
       const { plId, statements } = await packingListWriteBatch(ctx.db, {
         companyId: ctx.companyId,
         dispatchRow,
+        plNumber,
         session: ctx.session,
         impersonation: ctx.impersonation,
       });
+      if (!dispatchRow.plNumber) {
+        statements.unshift(
+          ctx.db
+            .update(dispatch)
+            .set({ plNumber })
+            .where(and(eq(dispatch.id, dispatchRow.id), eq(dispatch.companyId, ctx.companyId), isNull(dispatch.plNumber))),
+        );
+      }
       await atomicBatch(ctx.db, statements);
 
       const pl = await ctx.db.query.packingList.findFirst({
@@ -375,8 +365,9 @@ export const packingListRouter = router({
     }),
 
   /**
-   * Regenerate: delete the existing packing list and create a fresh one.
-   * New code + sequence number; snapshot is rebuilt from live data.
+   * Regenerate: rebuild the snapshot from live data (header corrections, a v1 snapshot brought to
+   * v2). The PL number never changes: it is the dispatch's `pl_number` (or the old code for a
+   * dispatch completed before PL numbers existed).
    */
   regenerate: actionProcedure("packingList.regenerate")
     .input(z.object({ id: z.string() }))
@@ -412,6 +403,7 @@ export const packingListRouter = router({
       const { statements: createStatements } = await packingListWriteBatch(ctx.db, {
         companyId: ctx.companyId,
         dispatchRow,
+        plNumber: dispatchRow.plNumber ?? existing.code,
         session: ctx.session,
         impersonation: ctx.impersonation,
         plId: newPlId,
@@ -419,12 +411,15 @@ export const packingListRouter = router({
         auditMeta: {
           dispatchId: dispatchRow.id,
           previousId: existing.id,
+          code: dispatchRow.plNumber ?? existing.code,
         },
       });
 
       await atomicBatch(ctx.db, [
-        ctx.db.delete(packingListLine).where(eq(packingListLine.packingListId, existing.id)),
-        ctx.db.delete(packingList).where(eq(packingList.id, existing.id)),
+        ctx.db
+          .delete(packingListLine)
+          .where(and(eq(packingListLine.packingListId, existing.id), eq(packingListLine.companyId, ctx.companyId))),
+        ctx.db.delete(packingList).where(and(eq(packingList.id, existing.id), eq(packingList.companyId, ctx.companyId))),
         ...createStatements,
       ]);
 

@@ -148,6 +148,27 @@
       "when": 1791071722994,
       "tag": "0020_foundry",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1792848740999,
+      "tag": "0021_sales_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1792849079078,
+      "tag": "0022_stock_count",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1792855111515,
+      "tag": "0023_fp_wave1",
+      "breakpoints": true
     }
   ]
 }
