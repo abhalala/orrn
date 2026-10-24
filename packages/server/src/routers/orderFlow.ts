@@ -41,7 +41,7 @@ import {
 } from "../lib/orderLines";
 import { batchAbortUnless, isBatchAbort, kgText, lineBalancePage, lineTotals } from "../lib/orders";
 import { holdsOf, releaseOrderHoldsStatements } from "../lib/orderHold";
-import { daysBetween, LATE_AFTER_DAYS, lineStrips, suggestedLine, ymdMinusDays } from "../lib/orderStrip";
+import { daysBetween, LATE_AFTER_DAYS, lateOf, lineStrips, suggestedLine, ymdMinusDays } from "../lib/orderStrip";
 import {
   bundlesPendingReallocation,
   isPlantStockSql,
@@ -1656,7 +1656,10 @@ export const orderFlowProcedures = {
       }),
   }),
 
-  /** Orders running late (FP-OP-18 data): confirmed / dispatching, baki left, ordered more than 15 days ago. */
+  /**
+   * Orders running late (FP-OP-18, Q7 A): confirmed / dispatching with baki left whose expected date
+   * passed, or, with no expected date, that were ordered more than 15 days ago. `lateRule` says which.
+   */
   late: companyProcedure
     .input(z.object({ customerId: id.optional(), limit: z.number().int().min(1).max(500).default(100), offset: z.number().int().min(0).default(0) }))
     .query(async ({ ctx, input }) => {
@@ -1667,7 +1670,7 @@ export const orderFlowProcedures = {
         customerId: input.customerId,
         statuses: ["confirmed", "dispatching"] as const,
         withBaki: true,
-        orderDateBefore: ymdMinusDays(today, LATE_AFTER_DAYS),
+        late: { today, cutoff: ymdMinusDays(today, LATE_AFTER_DAYS) },
       };
       const [page, totals] = await Promise.all([
         lineBalancePage(ctx.db, ctx.companyId, filter, { limit: input.limit, offset: input.offset }),
@@ -1675,7 +1678,10 @@ export const orderFlowProcedures = {
       ]);
       return {
         today,
-        lines: page.lines.map((l) => ({ ...l, daysOpen: daysBetween(l.orderDate, today) })),
+        lines: page.lines.map((l) => {
+          const late = lateOf({ status: l.orderStatus, orderDate: l.orderDate, expectedDate: l.expectedDate, bakiG: l.bakiG }, today);
+          return { ...l, daysOpen: daysBetween(l.orderDate, today), lateDays: late?.days ?? null, lateRule: late?.rule ?? null };
+        }),
         totals,
         nextOffset: page.nextOffset,
       };

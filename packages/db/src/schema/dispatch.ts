@@ -67,6 +67,12 @@ export const dispatch = sqliteTable(
     transporterName: text("transporter_name"),
     vehicleCapacityG: integer("vehicle_capacity_g"),
     capacityOverrideReason: text("capacity_override_reason"),
+    /**
+     * FP-PK-17 (Wave 2): the sales order this dispatch was opened from. It fixes the party and makes
+     * the scan screen show that order's live baki; bundles still link to lines by the usual rule.
+     * Null = an ordinary dispatch. No FK (sales.ts imports this file); same company is enforced in code.
+     */
+    salesOrderId: text("sales_order_id"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
@@ -74,6 +80,7 @@ export const dispatch = sqliteTable(
   (table) => [
     uniqueIndex("dispatch_company_code_unique").on(table.companyId, table.code),
     index("dispatch_company_status_idx").on(table.companyId, table.status),
+    index("dispatch_company_sales_order_idx").on(table.companyId, table.salesOrderId),
     index("dispatch_company_server_seq_idx").on(table.companyId, table.serverSeq),
     // Analytics ranges and buckets by completion time (PL-A1, ruling RP13).
     index("dispatch_company_completed_idx").on(table.companyId, table.completedAt),

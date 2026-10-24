@@ -60,6 +60,8 @@ export type LineBalance = {
   orderNumber: string;
   orderStatus: SalesOrderStatus;
   orderDate: string;
+  /** The date the order is due (FP-OP-01); null on orders made without one. */
+  expectedDate: string | null;
   poNumber: string | null;
   customerId: string;
   customerName: string;
@@ -124,6 +126,12 @@ export type LineFilter = {
   orderDateBefore?: string;
   /** Only lines of this cut length (suggested line, FP-OP). */
   cutLengthMm?: number;
+  /**
+   * Only lines of late orders (FP-OP-18, Q7 A): the expected date passed (`< today`), or with no
+   * expected date, the order date before `cutoff` (today minus the late window). Pair with
+   * `statuses` confirmed / dispatching and `withBaki`.
+   */
+  late?: { today: string; cutoff: string };
 };
 
 /** Most lines one `lineBalances` call returns. Past it the call throws (page with `lineBalancePage`). */
@@ -162,6 +170,11 @@ function lineWhere(companyId: string, filter: LineFilter, ids: IdList): SQL | un
   if (filter.withBaki) conditions.push(sql`${salesOrderLine.kgG} > ${dispatchedExpr("g")}`);
   if (filter.orderDateBefore) conditions.push(sql`${salesOrder.orderDate} < ${filter.orderDateBefore}`);
   if (filter.cutLengthMm != null) conditions.push(eq(salesOrderLine.cutLengthMm, filter.cutLengthMm));
+  if (filter.late) {
+    conditions.push(
+      sql`((${salesOrder.expectedDate} is not null and ${salesOrder.expectedDate} < ${filter.late.today}) or (${salesOrder.expectedDate} is null and ${salesOrder.orderDate} < ${filter.late.cutoff}))`,
+    );
+  }
   return and(...conditions);
 }
 
@@ -194,6 +207,7 @@ function lineSelect(db: OrrnDb) {
       orderNumber: salesOrder.number,
       orderStatus: salesOrder.status,
       orderDate: salesOrder.orderDate,
+      expectedDate: salesOrder.expectedDate,
       poNumber: salesOrder.poNumber,
       orderCreatedAt: salesOrder.createdAt,
       customerId: salesOrder.customerId,
@@ -422,7 +436,16 @@ type SuggestBundle = { id: string; dieId: string; weightG: number; salesOrderLin
 export async function suggestLines(
   db: OrrnDb,
   companyId: string,
-  input: { customerId: string; dispatchId: string; bundles: readonly SuggestBundle[] },
+  input: {
+    customerId: string;
+    dispatchId: string;
+    bundles: readonly SuggestBundle[];
+    /**
+     * FP-PK-17: a dispatch opened from a sales order. A bundle with no line of its own goes to that
+     * order's line for the section first (while it has baki), before the oldest line of any order.
+     */
+    preferOrderId?: string | null;
+  },
 ): Promise<Map<string, LineBalance>> {
   const out = new Map<string, LineBalance>();
   if (input.bundles.length === 0) return out;
@@ -479,9 +502,26 @@ export async function suggestLines(
     list.push(l);
     byDie.set(l.sectionId, list);
   }
+  const prefer = input.preferOrderId ?? null;
+  if (prefer) {
+    // Stable: the preferred order's lines first, each group keeping its oldest-first order.
+    for (const list of byDie.values()) list.sort((a, b) => Number(b.orderId === prefer) - Number(a.orderId === prefer));
+  }
   const fallback = new Map<string, LineBalance | null>();
   const fallbackFor = async (dieId: string) => {
     if (!fallback.has(dieId)) {
+      if (prefer) {
+        const mine = await lineBalancePage(
+          db,
+          companyId,
+          { customerId: input.customerId, dieIds: [dieId], orderId: prefer, openOnly: true },
+          { limit: 1, newestFirst: true },
+        );
+        if (mine.lines[0]) {
+          fallback.set(dieId, mine.lines[0]);
+          return mine.lines[0];
+        }
+      }
       const page = await lineBalancePage(
         db,
         companyId,

@@ -149,6 +149,10 @@ export const companyRouter = router({
         requireCastOnBundle: z.boolean().nullable().optional(),
         /** Die room (FP-DR-17): new copies and copies back from the maker start on trial. */
         dieRoom: z.object({ newCopyOnTrial: z.boolean() }).optional(),
+        /** Days from the order date to a new order's expected date (FP-OP-01, Q8). */
+        orderLeadDays: z.number().int().min(0).max(120).optional(),
+        /** The packing list's optional kg-per-piece column (FP-PK-13): off by default. */
+        packingList: z.object({ kgPerPiece: z.boolean() }).optional(),
         /** Continue the cast book (FP-FD-02): only for a month with no cast yet. */
         castSeriesStart: z
           .object({
@@ -219,6 +223,10 @@ export const companyRouter = router({
       if (input.requireCastOnBundle !== undefined) patch.requireCastOnBundle = input.requireCastOnBundle;
       if (input.dieRoom !== undefined) {
         patch.dieRoom = { ...((row.settings?.dieRoom ?? {}) as Record<string, unknown>), newCopyOnTrial: input.dieRoom.newCopyOnTrial };
+      }
+      if (input.orderLeadDays !== undefined) patch.orderLeadDays = input.orderLeadDays;
+      if (input.packingList !== undefined) {
+        patch.packingList = { ...((row.settings?.packingList ?? {}) as Record<string, unknown>), kgPerPiece: input.packingList.kgPerPiece };
       }
       if (input.standards !== undefined) {
         const current = readFloorSettings(row.settings).standards;

@@ -44,6 +44,7 @@ import {
   kgText,
   overdrawGuard,
   suggestLines,
+  lineBalances,
   type LineBalance,
   type OverdrawLine,
 } from "../lib/orders";
@@ -55,6 +56,7 @@ import {
   linkLineFor,
   releaseOnDispatchStatements,
 } from "../lib/orderHold";
+import { orderProgress, suggestBundlesFor, SUGGEST_MAX } from "../lib/dispatchOrder";
 import { can } from "../lib/permissions";
 import { bundlesPendingReallocation, pendingReallocationOf } from "../lib/reallocate";
 import {
@@ -280,7 +282,10 @@ export type ScanReport = AddBundlesReport & {
 const capacityG = z.number().int().positive().max(100_000_000).nullable().optional();
 
 const createInput = z.object({
-  customerId: z.string().min(1, "Customer is required"),
+  /** Required unless `salesOrderId` is given: the order's party is the dispatch's party. */
+  customerId: z.string().min(1, "Customer is required").optional(),
+  /** FP-PK-17: open the dispatch from this sales order (it fixes the party). */
+  salesOrderId: z.string().min(1).max(64).optional(),
   shipDate: z.number().int().nullable().optional(),
   notes: z.string().max(500).nullable().optional(),
   /** Transporter master (FP-PK-11); its name is snapshotted on the dispatch. */
@@ -629,7 +634,7 @@ async function relinkLanded(db: OrrnDb, companyId: string, dispatchId: string, p
 async function relinkOpen(
   db: OrrnDb,
   companyId: string,
-  d: { id: string; customerId: string },
+  d: { id: string; customerId: string; salesOrderId?: string | null },
   opts: { ignoreMarkers?: boolean } = {},
 ): Promise<RelinkPlan> {
   const rows = await db
@@ -655,6 +660,7 @@ async function relinkOpen(
   const picks = await suggestLines(db, companyId, {
     customerId: d.customerId,
     dispatchId: d.id,
+    preferOrderId: d.salesOrderId ?? null,
     bundles: rows.map((r) => ({ id: r.bundleId, dieId: r.dieId, weightG: r.weightG, salesOrderLineId: r.packedFor })),
   });
   const serialOf = new Map(rows.map((r) => [r.bundleId, r.serial]));
@@ -821,6 +827,7 @@ async function addByCodes(
     const picks = await suggestLines(ctx.db, ctx.companyId, {
       customerId: d.customerId,
       dispatchId: d.id,
+      preferOrderId: d.salesOrderId,
       bundles: toAdd.map((b) => ({ id: b.id, dieId: b.dieId, weightG: b.weightG, salesOrderLineId: linkLineFor(b, holds, d.customerId) })),
     });
     const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
@@ -915,9 +922,28 @@ export const dispatchRouter = router({
   create: actionProcedure("dispatch.create")
     .input(createInput)
     .mutation(async ({ ctx, input }) => {
+      // FP-PK-17: from a sales order the party is the order's; a different customerId is refused.
+      let order: { id: string; number: string; customerId: string } | null = null;
+      if (input.salesOrderId) {
+        const [row] = await ctx.db
+          .select({ id: salesOrder.id, number: salesOrder.number, customerId: salesOrder.customerId, status: salesOrder.status })
+          .from(salesOrder)
+          .where(and(eq(salesOrder.id, input.salesOrderId), eq(salesOrder.companyId, ctx.companyId)))
+          .limit(1);
+        if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+        if (!(openSalesOrderStatuses as readonly string[]).includes(row.status)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `${row.number} is ${row.status}; open orders only` });
+        }
+        if (input.customerId && input.customerId !== row.customerId) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `${row.number} belongs to another customer` });
+        }
+        order = row;
+      }
+      const customerId = order?.customerId ?? input.customerId;
+      if (!customerId) throw new TRPCError({ code: "BAD_REQUEST", message: "Customer is required" });
       const customerRow = await ctx.db.query.customer.findFirst({
         where: and(
-          eq(customer.id, input.customerId),
+          eq(customer.id, customerId),
           eq(customer.companyId, ctx.companyId),
           isNull(customer.deletedAt),
         ),
@@ -939,7 +965,8 @@ export const dispatchRouter = router({
           companyId: ctx.companyId,
           serverSeq: seq,
           code,
-          customerId: input.customerId,
+          customerId,
+          salesOrderId: order?.id ?? null,
           status: "draft",
           shipDate: input.shipDate ? new Date(input.shipDate) : null,
           notes: input.notes ?? null,
@@ -954,7 +981,7 @@ export const dispatchRouter = router({
             action: "dispatch.create",
             subjectType: "dispatch",
             subjectId: id,
-            meta: { code, customerId: input.customerId },
+            meta: { code, customerId, ...(order ? { salesOrderId: order.id, orderNumber: order.number } : {}) },
           },
         ),
       ]);
@@ -1004,6 +1031,8 @@ export const dispatchRouter = router({
           invoiceNumber: dispatch.invoiceNumber,
           customerId: dispatch.customerId,
           customerName: customer.name,
+          salesOrderId: dispatch.salesOrderId,
+          salesOrderNumber: salesOrder.number,
           itemCount: sql<number>`count(${dispatchItem.id})`.as("item_count"),
           totalQuantity: sql<number>`coalesce(sum(${bundle.quantity}), 0)`.as("total_quantity"),
           totalWeightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`.as("total_weight_g"),
@@ -1013,6 +1042,7 @@ export const dispatchRouter = router({
           customer,
           and(eq(customer.id, dispatch.customerId), eq(customer.companyId, dispatch.companyId)),
         )
+        .leftJoin(salesOrder, and(eq(salesOrder.id, dispatch.salesOrderId), eq(salesOrder.companyId, dispatch.companyId)))
         .leftJoin(
           dispatchItem,
           and(
@@ -1025,7 +1055,7 @@ export const dispatchRouter = router({
           and(eq(bundle.id, dispatchItem.bundleId), eq(bundle.companyId, dispatchItem.companyId)),
         )
         .where(and(...conditions))
-        .groupBy(dispatch.id, customer.name)
+        .groupBy(dispatch.id, customer.name, salesOrder.number)
         .orderBy(desc(dispatch.createdAt))
         .limit(input.limit)
         .offset(input.offset);
@@ -1156,7 +1186,70 @@ export const dispatchRouter = router({
         row.vehicleCapacityG,
       );
 
-      return { dispatch: row, customer: customerRow ?? null, items, events, overdraw, capacity };
+      // FP-PK-17: a dispatch opened from a sales order shows that order's live baki.
+      let salesOrderInfo: {
+        id: string;
+        number: string;
+        period: string;
+        poNumber: string | null;
+        status: string;
+        expectedDate: string | null;
+        progress: ReturnType<typeof orderProgress>;
+      } | null = null;
+      if (row.salesOrderId) {
+        const [so] = await ctx.db
+          .select({
+            id: salesOrder.id,
+            number: salesOrder.number,
+            period: salesOrder.period,
+            poNumber: salesOrder.poNumber,
+            status: salesOrder.status,
+            expectedDate: salesOrder.expectedDate,
+          })
+          .from(salesOrder)
+          .where(and(eq(salesOrder.id, row.salesOrderId), eq(salesOrder.companyId, ctx.companyId)))
+          .limit(1);
+        if (so) {
+          const lines = await lineBalances(ctx.db, ctx.companyId, { orderId: so.id });
+          // A completed dispatch's own kg are already in the order's dispatched figure: nothing on it.
+          const onThis = row.status === "draft" || row.status === "reserved" ? items : [];
+          salesOrderInfo = {
+            ...so,
+            progress: orderProgress(
+              lines,
+              onThis.map((it) => ({ salesOrderLineId: it.salesOrderLineId, weightG: Number(it.weightG), quantity: Number(it.quantity) })),
+            ),
+          };
+        }
+      }
+
+      return { dispatch: row, customer: customerRow ?? null, items, events, overdraw, capacity, salesOrder: salesOrderInfo };
+    }),
+
+  /**
+   * Bundles worth adding to a dispatch opened from a sales order (FP-PK-17): the order's own in the
+   * yard first (on its lines, or held for them), then plant stock of the same die and cut length.
+   * Anything a scan would refuse (held, owned die, another customer's, pending reallocation) or that
+   * is held for another order's line is left out. `fits` marks what stays within the order's baki,
+   * in the order listed. Add them with `addBundlesBySerial` (office: `allowUnassigned`).
+   */
+  suggestBundles: actionProcedure("dispatch.addBundle")
+    .input(z.object({ id: z.string().min(1).max(64), limit: z.number().int().min(1).max(SUGGEST_MAX).default(200) }))
+    .query(async ({ ctx, input }) => {
+      const d = await ctx.db.query.dispatch.findFirst({
+        where: and(eq(dispatch.id, input.id), eq(dispatch.companyId, ctx.companyId), isNull(dispatch.deletedAt)),
+      });
+      if (!d) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+      if (!d.salesOrderId) throw new TRPCError({ code: "BAD_REQUEST", message: "This dispatch was not opened from a sales order" });
+      if (d.status !== "draft" && d.status !== "reserved") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Bundles can only be added in draft or reserved status" });
+      }
+      return suggestBundlesFor(
+        ctx.db,
+        ctx.companyId,
+        { id: d.id, customerId: d.customerId, salesOrderId: d.salesOrderId },
+        { limit: input.limit, allowUnassigned: can({ company: { role: ctx.role }, isPlatformAdmin: ctx.isPlatformAdmin ?? false, platformRole: null }, "order.manage") },
+      );
     }),
 
   update: actionProcedure("dispatch.update")
@@ -1211,6 +1304,12 @@ export const dispatchRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "The vehicle capacity can't change after the dispatch is completed" });
       }
 
+      if (input.customerId && input.customerId !== existing.customerId && existing.salesOrderId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This dispatch was opened from a sales order, so its customer is fixed. Start a new dispatch for another customer.",
+        });
+      }
       if (input.customerId && input.customerId !== existing.customerId) {
         const newCustomer = await ctx.db.query.customer.findFirst({
           where: and(
@@ -1601,6 +1700,7 @@ export const dispatchRouter = router({
         const picks = await suggestLines(ctx.db, ctx.companyId, {
           customerId: d.customerId,
           dispatchId: d.id,
+          preferOrderId: d.salesOrderId,
           bundles: [{ id: b.id, dieId: b.dieId, weightG: b.weightG, salesOrderLineId: linkLineFor(b, holds, d.customerId) }],
         });
         const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
