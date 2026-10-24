@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   END_LABEL_MARGIN,
   END_LABEL_REACH,
+  capLabelIndices,
   chartDateFormat,
   dateTickTexts,
   placeCapLabel,
@@ -122,6 +123,25 @@ describe("placeCapLabel: a value label never enters the y-tick gutter", () => {
 
   test("a label wider than the plot starts at the plot's left edge", () => {
     expect(placeCapLabel({ center: 20, width: 120, barLeft: 10, barRight: 30, plotRight: 80 }).left).toBe(0);
+  });
+});
+
+describe("capLabelIndices: which bars carry a value label", () => {
+  const bars = (values: number[], partialLast = true) =>
+    values.map((value, i) => ({ value, partial: partialLast && i === values.length - 1 }));
+
+  test("every complete bar when all labels fit; never the open bucket", () => {
+    expect(capLabelIndices(bars([3, 5, 2, 9]), true)).toEqual([0, 1, 2]);
+  });
+
+  test("only the tallest complete bar when they do not all fit", () => {
+    expect(capLabelIndices(bars([3, 5, 2, 9]), false)).toEqual([1]);
+  });
+
+  test("an empty month carries no label: the axis already says 0 (no '0.0 kg' row along the baseline)", () => {
+    expect(capLabelIndices(bars([0, 0, 0, 995, 1300]), true)).toEqual([3]);
+    expect(capLabelIndices(bars([0, 0, 0, 0]), true)).toEqual([]);
+    expect(capLabelIndices(bars([0, 0, 0, 0]), false)).toEqual([]);
   });
 });
 

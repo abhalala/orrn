@@ -4,6 +4,7 @@ import { scaleBand } from "d3-scale";
 import { TICK_FONT, XTicks, YAxis, useRovingMarks, useYAxis } from "./chart-internals";
 import { ChartTooltip } from "./chart-tooltip";
 import {
+  capLabelIndices,
   chartDateFormat,
   dateTickTexts,
   detectGranularity,
@@ -97,7 +98,8 @@ function columnPath(x: number, y: number, w: number, h: number): string {
  * tooltip and the table. A value label stays inside the plot (never over
  * the y-axis ticks): at the first and last bars it lines up with the bar's
  * outer edge. A partial last bucket is a light fill with a 2px outline, at
- * least a sliver tall, and reads "so far"; it never carries a value label.
+ * least a sliver tall, and reads "so far"; it never carries a value label,
+ * and neither does an empty (0) bar (the axis already says 0).
  * Each bar is its own hit target (the full band, full height) with its own
  * tooltip; keyboard focus draws a rounded ring inside the plot that starts
  * below any value label it would cross. One tab stop, starting on the
@@ -139,14 +141,12 @@ export function BarChart({
   const topOf = (d: BarDatum) => (d.value > 0 ? Math.min(y(d.value), plotH - (d.partial ? MIN_PARTIAL : MIN_BAR)) : y(d.value));
 
   const capLabels = data.map((d) => format(d.value));
-  // Value labels go on complete bars only: an open bucket is never a headline.
-  const complete = data.filter((d) => !d.partial);
-  const allCapsFit = complete.every((d) => estimateTextWidth(format(d.value), TICK_FONT, true) + 6 <= step);
-  const completePeak = maxOf(complete.map((d) => d.value));
-  const peakIndex = data.findIndex((d) => !d.partial && d.value === completePeak);
+  // Value labels go on complete, non-empty bars only: an open bucket is never a headline.
+  const allCapsFit = data.every((d, i) => d.partial || d.value === 0 || estimateTextWidth(capLabels[i]!, TICK_FONT, true) + 6 <= step);
+  const capped = new Set(capLabelIndices(data, allCapsFit));
   const caps = data
     .map((d, i) => {
-      if (d.partial || !(allCapsFit || i === peakIndex)) return null;
+      if (!capped.has(i)) return null;
       const w = estimateTextWidth(capLabels[i]!, TICK_FONT, true);
       const spot = placeCapLabel({
         center: center(d.key),

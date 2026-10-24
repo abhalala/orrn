@@ -209,6 +209,19 @@ export function placeCapLabel({
 }
 
 /** A y scale from 0 to a nice maximum (magnitudes always start at zero). */
+/**
+ * Bars that carry a value label: every complete bar when all the labels fit,
+ * else only the tallest complete one. An open (partial) bucket is never a
+ * headline, and an empty bar never gets one: "0.0 kg" along the baseline is
+ * noise the axis already says (a new company's year of empty months).
+ */
+export function capLabelIndices(bars: readonly { value: number; partial?: boolean }[], allFit: boolean): number[] {
+  const complete = bars.filter((d) => !d.partial);
+  const peak = maxOf(complete.map((d) => d.value));
+  const peakIndex = bars.findIndex((d) => !d.partial && d.value === peak);
+  return bars.flatMap((d, i) => (!d.partial && d.value !== 0 && (allFit || i === peakIndex) ? [i] : []));
+}
+
 export function valueScale(maxValue: number, height: number, ticks = 4) {
   const top = maxValue > 0 ? maxValue : 1;
   const scale = scaleLinear().domain([0, top]).range([height, 0]).nice(ticks);

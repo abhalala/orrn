@@ -297,6 +297,7 @@ export const dispatchRouter = router({
           shipDate: dispatch.shipDate,
           notes: dispatch.notes,
           createdAt: dispatch.createdAt,
+          completedAt: dispatch.completedAt,
           customerId: dispatch.customerId,
           customerName: customer.name,
           itemCount: sql<number>`count(${dispatchItem.id})`.as("item_count"),
