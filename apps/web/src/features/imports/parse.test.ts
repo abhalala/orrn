@@ -42,6 +42,15 @@ describe("readHeader: the unit comes from the column name", () => {
     expect(readHeader("Length metres").unit).toBe("m");
   });
 
+  test("a bracket that names no unit is kept as unknownUnit, never dropped silently", () => {
+    expect(readHeader("Length (approx)")).toEqual({ name: "length", unit: null, unknownUnit: "approx" });
+    expect(readHeader("Length (milimeters)")).toEqual({ name: "length", unit: null, unknownUnit: "milimeters" });
+    expect(readHeader("Section code (die)")).toEqual({ name: "section code", unit: null, unknownUnit: "die" });
+    // A unit in one bracket wins over a note in another.
+    expect(readHeader("Weight (kg) (net)")).toEqual({ name: "weight", unit: "kg" });
+    expect(readHeader("Min weight (kg/12ft)")).toEqual({ name: "min weight", unit: "kg" });
+  });
+
   test("old camelCase sample headers keep working", () => {
     expect(readHeader("lengthMm")).toEqual({ name: "length", unit: "mm" });
     expect(readHeader("weightG")).toEqual({ name: "weight", unit: "g" });
@@ -49,9 +58,9 @@ describe("readHeader: the unit comes from the column name", () => {
     expect(readHeader("dieSectionCode")).toEqual({ name: "die section code", unit: null });
   });
 
-  test("unit-less headers carry no unit; non-unit brackets are dropped", () => {
+  test("unit-less headers carry no unit; a non-unit bracket leaves the name alone", () => {
     expect(readHeader("Length")).toEqual({ name: "length", unit: null });
-    expect(readHeader("Pieces (nos)")).toEqual({ name: "pieces", unit: null });
+    expect(readHeader("Pieces (nos)")).toEqual({ name: "pieces", unit: null, unknownUnit: "nos" });
     expect(readHeader("  PO no. ")).toEqual({ name: "po no", unit: null });
   });
 });
@@ -109,7 +118,27 @@ describe("parseImport bundles: lengths never 25.4x off (Review Focus 4)", () => 
     delete r["Length (mm)"];
     const res = parseImport("bundles", [r], inch);
     expect(res.missingColumns).toEqual(["length"]);
-    expect(res.ignoredColumns).toEqual(["Length (m)"]);
+    expect(res.badUnitColumns).toEqual(["Length (m)"]);
+    expect(res.ignoredColumns).toEqual([]);
+  });
+
+  test("a length or weight column whose bracket is not a unit is not used: the company unit is never guessed", () => {
+    const r = { ...bundle(), "Length (approx)": "3658", "Weight (net)": "45" } as Record<string, string>;
+    delete r["Length (mm)"];
+    delete r["Weight (kg)"];
+    const res = parseImport("bundles", [r], inch);
+    expect(res.missingColumns).toEqual(["weight", "length"]);
+    // In sheet column order.
+    expect(res.badUnitColumns).toEqual(["Length (approx)", "Weight (net)"]);
+    expect(res.ok).toEqual([]);
+  });
+
+  test("a note in brackets on a text column is fine", () => {
+    const r = { ...bundle(), "Section code (die)": "A101" } as Record<string, string>;
+    delete r["Section code"];
+    const res = parseImport("bundles", [r], mm);
+    expect(res.badUnitColumns).toEqual([]);
+    expect(res.ok[0]!.dieSectionCode).toBe("A101");
   });
 
   test("a bundle under 1 ft or over 30 ft is a problem row: the unit in the column name is probably wrong", () => {
@@ -260,7 +289,8 @@ describe("parseImport bundles: lengths never 25.4x off (Review Focus 4)", () => 
     delete row["Weight (kg)"];
     const res = parseImport("bundles", [row], mm);
     expect(res.missingColumns).toEqual(["weight"]);
-    expect(res.ignoredColumns).toEqual(["Weight (mm)"]);
+    expect(res.badUnitColumns).toEqual(["Weight (mm)"]);
+    expect(res.ignoredColumns).toEqual([]);
   });
 
   test("the first matching column wins; a second one for the same field is ignored", () => {

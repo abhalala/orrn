@@ -110,6 +110,12 @@ export type ParseResult<R> = {
   missingColumns: string[];
   /** Headers orrn does not use. */
   ignoredColumns: string[];
+  /**
+   * Length or weight columns not used because their unit is not one orrn reads
+   * (`Length (m)`, `Weight (mm)`, `Length (approx)`). Listed apart so the person
+   * learns why a column that looks right was skipped.
+   */
+  badUnitColumns: string[];
   blankRows: number;
 };
 
@@ -156,19 +162,31 @@ function unitOf(text: string): HeaderUnit | null {
   return UNIT_WORDS[word] ?? null;
 }
 
+export type HeaderRead = {
+  name: string;
+  unit: HeaderUnit | null;
+  /** Bracket text that is not a unit (`Length (approx)`): a length or weight column with it is not used. */
+  unknownUnit?: string;
+};
+
 /**
  * Splits a header into a plain lowercase name and the unit it declares:
  * `"Length (mm)"` → `{ name: "length", unit: "mm" }`, `"weightG"` → `{ name: "weight", unit: "g" }`.
- * `kg/12ft` is kg (die weights are per 12 ft piece). Brackets that hold no unit are dropped.
+ * `kg/12ft` is kg (die weights are per 12 ft piece). A bracket that names no
+ * unit comes back as `unknownUnit`, so a typo (`(milimeters)`) or a note never
+ * makes a length or weight fall back to the company unit.
  */
-export function readHeader(raw: string): { name: string; unit: HeaderUnit | null } {
+export function readHeader(raw: string): HeaderRead {
   // "kg/12ft", "kg per 12 ft", "kg/12'" all mean kg.
   let text = raw.replace(/\s*(?:\/|per)\s*12\s*(?:ft|feet|foot|')/gi, "");
   let unit: HeaderUnit | null = null;
+  let unknownUnit: string | undefined;
 
   text = text.replace(/[([]([^)\]]*)[)\]]/g, (_whole, inner: string) => {
     // "(in mm)", "(in grams)", "(per kg)": the usual Indian office style names the unit after in/per.
-    unit ??= unitOf(inner.replace(/^\s*(?:in|per)\s+/i, ""));
+    const found = unitOf(inner.replace(/^\s*(?:in|per)\s+/i, ""));
+    if (found) unit ??= found;
+    else if (inner.trim() !== "") unknownUnit ??= inner.trim();
     return " ";
   });
 
@@ -189,7 +207,9 @@ export function readHeader(raw: string): { name: string; unit: HeaderUnit | null
       while (words.length > 1 && (words[words.length - 1] === "in" || words[words.length - 1] === "per")) words.pop();
     }
   }
-  return { name: words.join(" "), unit };
+  const read: HeaderRead = { name: words.join(" "), unit };
+  if (unit === null && unknownUnit !== undefined) read.unknownUnit = unknownUnit;
+  return read;
 }
 
 // ---------------------------------------------------------------- fields
@@ -273,18 +293,29 @@ function matchColumns(kind: ImportKind, headers: readonly string[]) {
   const fields = IMPORT_FIELDS[kind];
   const used = new Map<string, MatchedColumn>();
   const ignored: string[] = [];
+  const badUnit: string[] = [];
   for (const header of headers) {
-    const { name, unit } = readHeader(header);
+    if (header.trim() === "") continue;
+    const { name, unit, unknownUnit } = readHeader(header);
     const field = fields.find((f) => f.aliases.includes(name));
-    const unitFits = field && (unit === null || UNITS_FOR[field.type].includes(unit));
-    if (!field || !unitFits || used.has(field.id)) {
-      if (header.trim() !== "") ignored.push(header);
+    if (!field) {
+      ignored.push(header);
+      continue;
+    }
+    const measured = field.type === "weight" || field.type === "length";
+    const unitFits = unit === null ? !(measured && unknownUnit !== undefined) : UNITS_FOR[field.type].includes(unit);
+    if (!unitFits) {
+      (measured ? badUnit : ignored).push(header);
+      continue;
+    }
+    if (used.has(field.id)) {
+      ignored.push(header);
       continue;
     }
     used.set(field.id, { field: field.id, header, unit });
   }
   const missing = fields.filter((f) => f.required && !used.has(f.id)).map((f) => f.id);
-  return { used, ignored, missing };
+  return { used, ignored, badUnit, missing };
 }
 
 // ---------------------------------------------------------------- values
@@ -459,7 +490,7 @@ export function parseImport<K extends ImportKind>(
   const headers: string[] = [];
   for (const row of rows) for (const h of Object.keys(row)) if (!headers.includes(h)) headers.push(h);
 
-  const { used, ignored, missing } = matchColumns(kind, headers);
+  const { used, ignored, badUnit, missing } = matchColumns(kind, headers);
   const result: ParseResult<ParsedRowByKind[K]> = {
     ok: [],
     okRows: [],
@@ -467,6 +498,7 @@ export function parseImport<K extends ImportKind>(
     columns: [...used.values()],
     missingColumns: missing,
     ignoredColumns: ignored,
+    badUnitColumns: badUnit,
     blankRows: 0,
   };
   if (missing.length > 0) return result;

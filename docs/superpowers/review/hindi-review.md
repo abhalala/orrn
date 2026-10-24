@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 839 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 861 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -732,7 +732,7 @@ Counts: 839 screen strings in 26 groups, 10 guides with 182 strings.
 | `data.customersBody` | Names, phone numbers, email and GSTIN. | नाम, फ़ोन नंबर, ईमेल और GSTIN। |
 | `data.noAccess` | Your role can't import data. Ask an owner or admin if you need it. | आपके रोल से डेटा इम्पोर्ट नहीं होता। ज़रूरत हो तो owner या admin से कहें। |
 
-### imports (94)
+### imports (116)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -776,11 +776,14 @@ Counts: 839 screen strings in 26 groups, 10 guides with 182 strings.
 | `readAs.unit` | {field} in {unit} | {field}, {unit} में |
 | `readAs.fallback` | {field} in {unit}, from your company setting | {field}, {unit} में, आपकी कंपनी की सेटिंग से |
 | `readAs.notUsed` | Not used: {columns} | इस्तेमाल नहीं हुए: {columns} |
+| `readAs.badUnit` | Not used, the unit is not clear: {columns}. Name the unit, like Length (mm) or Weight (kg). | इस्तेमाल नहीं हुए, यूनिट साफ़ नहीं है: {columns}। यूनिट लिखें, जैसे Length (mm) या Weight (kg)। |
+| `readAs.perTwelve` | {field} in kg per 12 ft | {field}, kg प्रति 12 ft में |
 | `unit.mm` | mm | mm |
 | `unit.in` | inches | इंच |
 | `unit.ft` | feet | फ़ुट |
 | `unit.kg` | kg | kg |
 | `unit.g` | grams | ग्राम |
+| `unit.m` | metres | मीटर |
 | `preview.heading` | First rows, as orrn will save them | पहली लाइनें, जैसे orrn सेव करेगा |
 | `preview.row` | Row | लाइन |
 | `problemList` | Rows with problems | दिक्कत वाली लाइनें |
@@ -791,12 +794,29 @@ Counts: 839 screen strings in 26 groups, 10 guides with 182 strings.
 | `existing.label` | Dies already in orrn | जो die पहले से orrn में हैं |
 | `existing.skip` | Leave as they are | जैसे हैं वैसे रहने दें |
 | `existing.update` | Update from this sheet | इस शीट से अपडेट करें |
+| `existing.help` | Only the columns in this sheet change. Empty cells, and columns the sheet doesn't have, keep what orrn has. | सिर्फ़ इस शीट के कॉलम बदलते हैं। खाली सेल और जो कॉलम शीट में नहीं हैं, उनमें orrn का डेटा वैसा ही रहता है। |
 | `nothingReady` | No rows are ready to import. Fix the rows with problems and choose the file again. | कोई लाइन इम्पोर्ट के लिए तैयार नहीं है। दिक्कत वाली लाइनें ठीक करके फ़ाइल फिर चुनें। |
 | `saving` | Saving {done} of {total} rows | {total} में से {done} लाइन सेव हुईं |
 | `keepOpen` | Keep this open until it finishes. | पूरा होने तक इसे खुला रखें। |
 | `done` | Imported | इम्पोर्ट हो गया |
 | `newDies` | {count} new {count:die\|dies} added, marked legacy. Check {count:its\|their} weight range on the Dies page. | {count} नई die legacy निशान के साथ {count:जुड़ी\|जुड़ीं}। Dies पेज पर वज़न रेंज जांच लें। |
-| `partial` | Saved {done} of {total} rows. The rest were not saved. | {total} में से {done} लाइन सेव हुईं। बाकी सेव नहीं हुईं। |
+| `failed.server` | orrn's server ran into a problem. | orrn के सर्वर में दिक्कत आई। |
+| `failed.busy` | orrn is busy right now. Wait a moment, then try again. | orrn अभी व्यस्त है। थोड़ी देर रुककर फिर कोशिश करें। |
+| `failed.refused` | orrn did not accept these rows. | orrn ने ये लाइनें नहीं लीं। |
+| `failed.savedUpTo` | Saved {done} of {total} rows, up to row {row}. | {total} में से {done} लाइन सेव हुईं, लाइन {row} तक। |
+| `failed.nothingSaved` | No rows were saved. | कोई लाइन सेव नहीं हुई। |
+| `failed.unknown` | orrn can't tell yet if rows {from} to {to} were saved. | orrn अभी पक्का नहीं बता सकता कि लाइन {from} से {to} सेव हुईं या नहीं। |
+| `failed.unknownHelp` | Try again: rows that were already saved are not added twice. | फिर कोशिश करें: जो लाइनें सेव हो चुकी हैं, वे दोबारा नहीं जुड़ेंगी। |
+| `failed.refusedRows` | Nothing from row {from} on was saved. | लाइन {from} से आगे कुछ सेव नहीं हुआ। |
+| `failed.refusedHelp` | Download the rows not saved, fix them and import that file. Don't import this whole file again. | जो लाइनें सेव नहीं हुईं, उन्हें डाउनलोड करें, ठीक करें और वही फ़ाइल इम्पोर्ट करें। यह पूरी फ़ाइल दोबारा इम्पोर्ट न करें। |
+| `confirmClose.title` | Close this import? | यह इम्पोर्ट बंद करें? |
+| `confirmClose.unknown` | {count} {count:row is\|rows are} not saved for sure. To finish later, choose this same file again without changing it: rows already saved are skipped. | {count} लाइन पक्का सेव नहीं {count:हुई\|हुईं}। बाद में पूरा करने के लिए यही फ़ाइल बिना बदले फिर चुनें: जो लाइनें सेव हो चुकी हैं, वे छोड़ दी जाएंगी। |
+| `confirmClose.refused` | {count} {count:row was\|rows were} not saved. Download {count:it\|them} first, so you can fix {count:it\|them} and import only {count:that row\|those rows}. | {count} लाइन सेव नहीं {count:हुई\|हुईं}। पहले {count:उसे\|उन्हें} डाउनलोड करें, ताकि ठीक करके सिर्फ़ {count:वही लाइन\|वही लाइनें} इम्पोर्ट कर सकें। |
+| `confirmClose.keepOpen` | Keep open | खुला रखें |
+| `confirmClose.close` | Close anyway | फिर भी बंद करें |
+| `already` | {count} {count:row was\|rows were} already in orrn from an earlier import of this sheet, so {count:it was\|they were} not added again. | {count} लाइन इसी शीट के पिछले इम्पोर्ट से पहले से orrn में {count:थी\|थीं}, इसलिए दोबारा नहीं जोड़ी {count:गई\|गईं}। |
+| `alreadyTitle` | Already imported | पहले से इम्पोर्ट है |
+| `diesDone` | {created} new {created:die\|dies}, {updated} updated. | {created} नई die, {updated} अपडेट हुईं। |
 | `retry` | Try the rest again | बाकी फिर से भेजें |
 | `downloadUnsaved` | Download rows not saved | जो लाइनें सेव नहीं हुईं, डाउनलोड करें |
 | `field.dieSeries` | Die series | Die series |
@@ -808,8 +828,8 @@ Counts: 839 screen strings in 26 groups, 10 guides with 182 strings.
 | `field.series` | Series | Series |
 | `field.sectionCode` | Section code | Section code |
 | `field.name` | Name | नाम |
-| `field.weightMin` | Min weight (kg/12ft) | कम से कम वज़न (kg/12ft) |
-| `field.weightMax` | Max weight (kg/12ft) | ज़्यादा से ज़्यादा वज़न (kg/12ft) |
+| `field.weightMin` | Min weight | कम से कम वज़न |
+| `field.weightMax` | Max weight | ज़्यादा से ज़्यादा वज़न |
 | `field.width` | Width | चौड़ाई |
 | `field.height` | Height | ऊंचाई |
 | `field.thickness` | Thickness | मोटाई |
@@ -821,7 +841,7 @@ Counts: 839 screen strings in 26 groups, 10 guides with 182 strings.
 | `field.email` | Email | ईमेल |
 | `field.taxId` | GSTIN | GSTIN |
 | `reason.blank` | {column} is empty. | {column} खाली है। |
-| `reason.notNumber` | {column} is not a plain number. Use digits only, like 45.5. | {column} सादा नंबर नहीं है। सिर्फ़ अंक लिखें, जैसे 45.5। |
+| `reason.notNumber` | {column} is not a plain number. Use a point for decimals, like 45.5. | {column} सादा नंबर नहीं है। दशमलव के लिए पॉइंट लिखें, जैसे 45.5। |
 | `reason.notWhole` | {column} must be a whole number. | {column} पूरा नंबर होना चाहिए। |
 | `reason.notPositive` | {column} must be more than 0. | {column} 0 से ज़्यादा होना चाहिए। |
 | `reason.tooLong` | {column} is longer than {max} characters. | {column} {max} अक्षरों से लंबा है। |
@@ -830,6 +850,8 @@ Counts: 839 screen strings in 26 groups, 10 guides with 182 strings.
 | `reason.rangeOrder` | Max weight is less than min weight. | ज़्यादा से ज़्यादा वज़न, कम से कम वज़न से कम है। |
 | `reason.duplicate` | Same die as row {other}. | लाइन {other} वाली die ही है। |
 | `reason.deletedDie` | A deleted die already uses this section code. Use a different code for this die. | यह section code एक डिलीट की गई die का है। इस die के लिए दूसरा कोड लिखें। |
+| `reason.dieDeleted` | This die was deleted in orrn, so bundles can't be added to it. | यह die orrn में डिलीट हो चुकी है, इसलिए इसमें bundle नहीं जुड़ सकते। |
+| `reason.lengthRange` | {column} reads as {length}, too long or too short for a bundle. Check the unit in the column name. | {column} {length} पढ़ा गया, जो bundle के लिए बहुत लंबा या बहुत छोटा है। कॉलम के नाम में यूनिट जांचें। |
 
 ### guides (11)
 

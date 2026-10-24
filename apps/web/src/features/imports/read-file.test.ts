@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { fileKind, readCsvText, rowsFromMatrix } from "./read-file";
+import { fileKind, fileProblem, formatBytes, MAX_FILE_BYTES, MAX_FILE_ROWS, readCsvText, rowsFromMatrix, rowsProblem } from "./read-file";
 
 describe("fileKind", () => {
   test("by extension, case-insensitive", () => {
@@ -57,5 +57,26 @@ describe("readCsvText", () => {
       { "Die series": "", "Weight (kg)": "" },
       { "Die series": "2000", "Weight (kg)": "1,234.5" },
     ]);
+  });
+});
+
+describe("one file is bounded (AGENTS.md: large imports are bounded)", () => {
+  test("only CSV or Excel, at most 10 MB", () => {
+    expect(fileProblem({ name: "notes.json", size: 10 })).toEqual({ key: "imports.wrongType" });
+    expect(fileProblem({ name: "stock.csv", size: MAX_FILE_BYTES })).toBeNull();
+    expect(fileProblem({ name: "stock.xlsx", size: MAX_FILE_BYTES + 1 })).toEqual({ key: "imports.tooBig", vars: { size: "10 MB" } });
+  });
+
+  test("at least one row and at most 20,000", () => {
+    expect(rowsProblem(0)).toEqual({ key: "imports.noRows" });
+    expect(rowsProblem(1)).toBeNull();
+    expect(rowsProblem(MAX_FILE_ROWS)).toBeNull();
+    expect(rowsProblem(MAX_FILE_ROWS + 1)).toEqual({ key: "imports.tooManyRows", vars: { count: "20,001", max: "20,000" } });
+  });
+
+  test("sizes read like a person would say them", () => {
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(1536)).toBe("1.5 KB");
+    expect(formatBytes(10 * 1024 * 1024)).toBe("10 MB");
   });
 });

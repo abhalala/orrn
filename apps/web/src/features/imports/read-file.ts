@@ -96,3 +96,41 @@ export async function readSheetFile(file: File): Promise<SheetRows> {
   if (kind === "excel") return readExcel(await file.arrayBuffer());
   throw new UnsupportedFileError(file.name);
 }
+
+/**
+ * Bounds on one file (AGENTS.md: large imports are bounded). 20,000 rows is
+ * 40 calls of 500; a bigger file should be split. 10 MB keeps Excel parsing
+ * in the browser quick on an office PC.
+ */
+export const MAX_FILE_ROWS = 20_000;
+export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+export type FileProblem = {
+  key: "imports.wrongType" | "imports.tooBig" | "imports.noRows" | "imports.tooManyRows";
+  vars?: Record<string, string>;
+};
+
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Number((bytes / 1024).toFixed(1))} KB`;
+  return `${Number((bytes / (1024 * 1024)).toFixed(1))} MB`;
+}
+
+/** Why a picked file is refused before it is read, or null. */
+export function fileProblem(file: { name: string; size: number }): FileProblem | null {
+  if (!fileKind(file.name)) return { key: "imports.wrongType" };
+  if (file.size > MAX_FILE_BYTES) return { key: "imports.tooBig", vars: { size: formatBytes(MAX_FILE_BYTES) } };
+  return null;
+}
+
+/** Why a read sheet is refused before it is parsed, or null. */
+export function rowsProblem(count: number): FileProblem | null {
+  if (count === 0) return { key: "imports.noRows" };
+  if (count > MAX_FILE_ROWS) {
+    return {
+      key: "imports.tooManyRows",
+      vars: { count: count.toLocaleString("en-IN"), max: MAX_FILE_ROWS.toLocaleString("en-IN") },
+    };
+  }
+  return null;
+}

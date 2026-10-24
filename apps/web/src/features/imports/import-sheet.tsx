@@ -18,6 +18,7 @@ import {
   IMPORT_CHUNK_SIZE,
   IMPORT_FIELDS,
   parseImport,
+  readHeader,
   type BundleImportRow,
   type CustomerImportRow,
   type DieImportRow,
@@ -27,8 +28,23 @@ import {
   type ParseResult,
   type RejectedRow,
 } from "./parse";
-import { ACCEPT, fileKind, readSheetFile, type SheetRows } from "./read-file";
-import { dieChunkInput, planDies, runChunks, type DieCheck, type DieOp } from "./submit";
+import { ACCEPT, fileProblem, formatBytes, readSheetFile, rowsProblem, type SheetRows } from "./read-file";
+import {
+  chunkRequestId,
+  dieChunkInput,
+  IMPORT_INVALIDATES,
+  importFailure,
+  planBundles,
+  planDies,
+  runChunks,
+  uniqueDies,
+  type BundleCheck,
+  type DieCheck,
+  type DieOp,
+  type DieRef,
+  type ImportFailure,
+  type ImportOp,
+} from "./submit";
 import { columnGuide, downloadCsv, problemsCsv, rowsCsv, sampleCsv } from "./templates";
 
 export type ImportSheetProps = {
@@ -42,44 +58,50 @@ export type ImportSheetProps = {
 type FileMeta = { name: string; size: number };
 type Loaded = { file: FileMeta; sheet: SheetRows; parsed: ParseResult<ParsedRow> };
 type Progress = { done: number; total: number };
+/** What the server said about the sheet before saving (dies already in orrn, deleted dies). */
+type Checks = { dieCheck?: DieCheck; bundleCheck?: BundleCheck };
+/**
+ * What a run has done so far, carried across "Try the rest again" so the done
+ * screen counts every call, not only the resumed ones.
+ * `already`: rows the server had from an earlier import of this same sheet.
+ */
+type Tally = { saved: number; already: number; newDies: number; created: number; updated: number };
+const NO_TALLY: Tally = { saved: 0, already: 0, newDies: 0, created: 0, updated: 0 };
 
 type Stage =
   | { name: "pick"; error?: string }
   | { name: "reading"; file: FileMeta }
   | ({ name: "checking" } & Loaded)
-  | ({ name: "review"; dieCheck?: DieCheck } & Loaded)
-  | ({ name: "saving"; dieCheck?: DieCheck } & Loaded & Progress)
-  | ({ name: "failed"; dieCheck?: DieCheck; failedChunk: number; message: string } & Loaded & Progress)
-  | { name: "done"; count: number; newDies: number; sheet: SheetRows; rejected: readonly RejectedRow[] };
+  | ({ name: "review" } & Loaded & Checks)
+  | ({ name: "saving"; from: number; tally: Tally } & Loaded & Checks & Progress)
+  | ({
+      name: "failed";
+      failedChunk: number;
+      failure: ImportFailure;
+      tally: Tally;
+      /** The person asked to close: show what closing means first. */
+      confirmClose: boolean;
+    } & Loaded &
+      Checks &
+      Progress)
+  | { name: "done"; tally: Tally; sheet: SheetRows; rejected: readonly RejectedRow[] };
 
-type Op = { row: number; data: ParsedRow; existingId?: string };
+type Op = ImportOp;
 
 /** Footer: 56px on touch, 44px with a mouse; the secondary matches the primary's height. */
 const PRIMARY_FOOTER = "pointer-fine:h-11 pointer-fine:px-5 pointer-fine:text-[15px]";
 const SECONDARY_FOOTER = "pointer-coarse:h-14 pointer-coarse:text-[17px]";
 
-/**
- * Bounds on one file (AGENTS.md: large imports are bounded). 20,000 rows is
- * 40 calls of 500; a bigger file should be split. 10 MB keeps Excel parsing
- * in the browser quick on an office PC.
- */
-export const MAX_FILE_ROWS = 20_000;
-export const MAX_FILE_BYTES = 10 * 1024 * 1024;
-
 /** Rows shown in the problem list; the download has every one. */
 const PROBLEMS_SHOWN = 50;
 const PREVIEW_ROWS = 3;
+/** `bundle.importCheck` takes up to 2000 dies per call. */
+const DIE_CHECK_CHUNK = 2000;
 
-function errorMessage(error: unknown, t: Translate): string {
-  const e = error as { message?: unknown; data?: { code?: unknown } | null } | null;
-  const code = e?.data?.code;
-  if (code === "FORBIDDEN") return t("errors.forbidden");
-  if (code === "UNAUTHORIZED") return t("errors.sessionExpired");
-  if (!e?.data) return t("errors.network");
-  const message = typeof e.message === "string" ? e.message : "";
-  // A raw validation dump is no use to a person; the parser should have caught it anyway.
-  return message && !message.trimStart().startsWith("[") ? message : t("errors.generic");
-}
+/** The element a stage puts focus on when it appears (its status, error or result). */
+const STAGE_FOCUS = "[data-stage-focus]";
+
+const fmt = (n: number) => n.toLocaleString("en-IN");
 
 function describeRejected(r: RejectedRow, t: Translate) {
   return t(r.reason, { column: r.column, ...r.vars });
@@ -94,12 +116,30 @@ function downloadProblems(kind: ImportKind, sheet: SheetRows, rejected: readonly
   );
 }
 
+function invalidateAfterImport(kind: ImportKind, queryClient: ReturnType<typeof useQueryClient>) {
+  const filters = {
+    bundle: () => trpc.bundle.pathFilter(),
+    die: () => trpc.die.pathFilter(),
+    dashboard: () => trpc.dashboard.pathFilter(),
+    stock: () => trpc.stock.pathFilter(),
+    analytics: () => trpc.analytics.pathFilter(),
+    customer: () => trpc.customer.pathFilter(),
+  } as const;
+  for (const name of IMPORT_INVALIDATES[kind]) void queryClient.invalidateQueries(filters[name]());
+}
+
 /**
  * Import a sheet (CSV or Excel) of old bundles, dies or customers. Drop or
- * choose a file; orrn reads it in the browser and shows how many rows are
- * ready and which rows need fixing (with the reason) before anything is
- * saved. Saving goes 500 rows per call; if a call fails, the rows already
- * saved stay saved and "Try the rest again" continues from there.
+ * choose a file; orrn reads it in the browser, asks the server about dies
+ * that already exist or were deleted, and shows how many rows are ready and
+ * which rows need fixing (with the reason) before anything is saved.
+ *
+ * Saving goes 500 rows per call, each with a request id derived from its
+ * rows, so a call sent twice (a reply lost on plant Wi-Fi, or the same sheet
+ * chosen again later) never saves its rows twice. If a call fails, the rows
+ * already saved stay saved; the sheet says which rows, and "Try the rest
+ * again" continues from the failed call. Nothing in the failed state starts
+ * the file over.
  */
 export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportSheetProps) {
   const { t } = useT();
@@ -108,39 +148,86 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
   const [stage, setStage] = useState<Stage>({ name: "pick" });
   const [dieMode, setDieMode] = useState<"skip" | "update">("skip");
   const runId = useRef(0);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   const bundleImport = useMutation(trpc.bundle.bulkImport.mutationOptions());
+  const bundleCheck = useMutation(trpc.bundle.importCheck.mutationOptions());
   const customerImport = useMutation(trpc.customer.importCsv.mutationOptions());
   const dieValidate = useMutation(trpc.die.validateImport.mutationOptions());
   const dieProcess = useMutation(trpc.die.processImport.mutationOptions());
 
-  // A fresh sheet every time it opens.
+  // A fresh sheet every time it opens. Radix puts the first focus; stage focus starts after that.
+  const focusKey = useRef<string | null>(null);
   useEffect(() => {
     if (!open) return;
     runId.current += 1;
+    focusKey.current = null;
     setStage({ name: "pick" });
     setDieMode("skip");
   }, [open]);
 
+  // Each new stage puts focus on its own status, error or result, so keyboard and
+  // screen-reader users land on what changed instead of the top of the dialog.
+  const stageKey = `${stage.name}|${stage.name === "pick" ? (stage.error ?? "") : ""}|${stage.name === "failed" && stage.confirmClose ? "confirm" : ""}`;
+  useEffect(() => {
+    if (!open) return;
+    if (focusKey.current === null) {
+      // Just opened: wait for the fresh pick stage, and leave the first focus to the dialog.
+      if (stageKey === "pick||") focusKey.current = stageKey;
+      return;
+    }
+    if (focusKey.current === stageKey) return;
+    focusKey.current = stageKey;
+    bodyRef.current?.closest("[role='dialog']")?.querySelector<HTMLElement>(STAGE_FOCUS)?.focus();
+  }, [open, stageKey]);
+
+  // A file dropped anywhere outside the drop zone must not make the browser open it (and leave orrn).
+  useEffect(() => {
+    if (!open) return;
+    const stop = (e: globalThis.DragEvent) => {
+      if (e.dataTransfer?.types.includes("Files")) e.preventDefault();
+    };
+    window.addEventListener("dragover", stop);
+    window.addEventListener("drop", stop);
+    return () => {
+      window.removeEventListener("dragover", stop);
+      window.removeEventListener("drop", stop);
+    };
+  }, [open]);
+
   const busy = stage.name === "saving" || stage.name === "reading" || stage.name === "checking";
   const handleOpenChange = (next: boolean) => {
+    if (next) {
+      onOpenChange(true);
+      return;
+    }
     // Closing mid-save would leave the person unsure what was saved.
-    if (!next && stage.name === "saving") return;
-    onOpenChange(next);
+    if (stage.name === "saving") return;
+    // After a failed save, say what closing leaves behind before closing.
+    if (stage.name === "failed" && !stage.confirmClose) {
+      setStage({ ...stage, confirmClose: true });
+      return;
+    }
+    onOpenChange(false);
   };
 
   const sectionColumn = (parsed: ParseResult<ParsedRow>) =>
-    parsed.columns.find((c) => c.field === "sectionCode")?.header ?? "Section code";
+    parsed.columns.find((c) => c.field === "sectionCode" || c.field === "dieSectionCode")?.header ?? "Section code";
 
   const plan = useMemo(() => {
     if (!("parsed" in stage)) return null;
     const { parsed } = stage;
+    const byRow = (a: RejectedRow, b: RejectedRow) => a.row - b.row;
     if (kind === "dies" && "dieCheck" in stage && stage.dieCheck) {
       const p = planDies(parsed.ok as DieImportRow[], parsed.okRows, stage.dieCheck, dieMode, sectionColumn(parsed));
-      return { ops: p.ops as Op[], rejected: [...parsed.rejected, ...p.blocked].sort((a, b) => a.row - b.row), existing: p.existing };
+      return { ops: p.ops as Op[], rejected: [...parsed.rejected, ...p.blocked].sort(byRow), existing: p.existing };
+    }
+    if (kind === "bundles" && "bundleCheck" in stage && stage.bundleCheck) {
+      const p = planBundles(parsed.ok as BundleImportRow[], parsed.okRows, stage.bundleCheck, sectionColumn(parsed));
+      return { ops: p.ops as Op[], rejected: [...parsed.rejected, ...p.blocked].sort(byRow), existing: 0 };
     }
     return {
-      ops: parsed.ok.map((data, i) => ({ row: parsed.okRows[i]!, data })),
+      ops: parsed.ok.map((data, i) => ({ row: parsed.okRows[i]!, data })) as Op[],
       rejected: parsed.rejected,
       existing: 0,
     };
@@ -150,12 +237,11 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
     async (file: File) => {
       const id = runId.current;
       const meta = { name: file.name, size: file.size };
-      if (!fileKind(file.name)) {
-        setStage({ name: "pick", error: t("imports.wrongType") });
-        return;
-      }
-      if (file.size > MAX_FILE_BYTES) {
-        setStage({ name: "pick", error: t("imports.tooBig", { size: formatBytes(MAX_FILE_BYTES) }) });
+      // Every file starts from the safe choice for dies already in orrn.
+      setDieMode("skip");
+      const refused = fileProblem(meta);
+      if (refused) {
+        setStage({ name: "pick", error: t(refused.key, refused.vars) });
         return;
       }
       setStage({ name: "reading", file: meta });
@@ -167,126 +253,137 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
         return;
       }
       if (id !== runId.current) return;
-      if (sheet.rows.length === 0) {
-        setStage({ name: "pick", error: t("imports.noRows") });
-        return;
-      }
-      if (sheet.rows.length > MAX_FILE_ROWS) {
-        setStage({
-          name: "pick",
-          error: t("imports.tooManyRows", {
-            count: sheet.rows.length.toLocaleString("en-IN"),
-            max: MAX_FILE_ROWS.toLocaleString("en-IN"),
-          }),
-        });
+      const tooMany = rowsProblem(sheet.rows.length);
+      if (tooMany) {
+        setStage({ name: "pick", error: t(tooMany.key, tooMany.vars) });
         return;
       }
       const parsed = parseImport(kind, sheet.rows, { companyUnit: unit, firstDataRow: sheet.firstDataRow });
       const loaded: Loaded = { file: meta, sheet, parsed };
-      if (kind !== "dies" || parsed.missingColumns.length > 0 || parsed.ok.length === 0) {
+      if (kind === "customers" || parsed.missingColumns.length > 0 || parsed.ok.length === 0) {
         setStage({ name: "review", ...loaded });
         return;
       }
-      // Dies: ask the server which codes already exist (or belong to a deleted die) before showing counts.
+      // Ask the server before showing counts: dies already in orrn, and dies that were deleted
+      // (the server refuses a whole call that names one, so those rows become problem rows now).
       setStage({ name: "checking", ...loaded });
-      const duplicates: DieCheck["duplicates"][number][] = [];
-      const errors: DieImportRow[] = [];
-      const run = await runChunks(parsed.ok as DieImportRow[], async (rows) => {
-        const res = await dieValidate.mutateAsync(rows);
-        duplicates.push(...(res.duplicates as DieCheck["duplicates"][number][]));
-        errors.push(...(res.errors as DieImportRow[]));
-      });
-      if (id !== runId.current) return;
-      if (!run.ok) {
-        setStage({ name: "pick", error: errorMessage(run.error, t) });
+      if (kind === "dies") {
+        const duplicates: DieCheck["duplicates"][number][] = [];
+        const errors: DieImportRow[] = [];
+        const run = await runChunks(parsed.ok as DieImportRow[], async (rows) => {
+          const res = await dieValidate.mutateAsync(rows);
+          duplicates.push(...(res.duplicates as DieCheck["duplicates"][number][]));
+          errors.push(...(res.errors as DieImportRow[]));
+        });
+        if (id !== runId.current) return;
+        if (!run.ok) {
+          setStage({ name: "pick", error: t(importFailure(run.error).message) });
+          return;
+        }
+        setStage({ name: "review", ...loaded, dieCheck: { duplicates, errors } });
         return;
       }
-      setStage({ name: "review", ...loaded, dieCheck: { duplicates, errors } });
+      const deleted: DieRef[] = [];
+      const run = await runChunks(
+        uniqueDies(parsed.ok as BundleImportRow[]),
+        async (dies) => {
+          const res = await bundleCheck.mutateAsync({ dies });
+          deleted.push(...res.deleted);
+        },
+        { size: DIE_CHECK_CHUNK },
+      );
+      if (id !== runId.current) return;
+      if (!run.ok) {
+        setStage({ name: "pick", error: t(importFailure(run.error).message) });
+        return;
+      }
+      setStage({ name: "review", ...loaded, bundleCheck: { deleted } });
     },
-    [kind, unit, t, dieValidate],
+    [kind, unit, t, dieValidate, bundleCheck],
   );
 
-  const save = async (startChunk = 0) => {
+  /** Sends the plan from `startChunk`. `resume` is set by "Try the rest again" after a failed call. */
+  const save = async (startChunk: number, prev: Tally, resume: boolean) => {
     if (!plan || !("parsed" in stage) || stage.name === "checking") return;
     const id = runId.current;
     const loaded: Loaded = { file: stage.file, sheet: stage.sheet, parsed: stage.parsed };
-    const dieCheck = "dieCheck" in stage ? stage.dieCheck : undefined;
+    const checks: Checks = {
+      ...("dieCheck" in stage ? { dieCheck: stage.dieCheck } : {}),
+      ...("bundleCheck" in stage ? { bundleCheck: stage.bundleCheck } : {}),
+    };
     const ops = plan.ops;
     const total = ops.length;
-    let newDies = 0;
-    setStage({ name: "saving", ...loaded, dieCheck, done: Math.min(total, startChunk * IMPORT_CHUNK_SIZE), total });
+    const tally: Tally = { ...prev };
+    const from = Math.min(total, startChunk * IMPORT_CHUNK_SIZE);
+    setStage({ name: "saving", ...loaded, ...checks, done: from, from, total, tally });
 
     const run = await runChunks(
       ops,
-      async (chunkOps) => {
+      async (chunkOps, index) => {
+        const clientRequestId = await chunkRequestId(kind, chunkOps);
+        let replayed: boolean;
+        let created = 0;
+        let updated = 0;
         if (kind === "bundles") {
-          const res = await bundleImport.mutateAsync({ rows: chunkOps.map((o) => o.data as BundleImportRow) });
-          newDies += res.newDies;
+          const res = await bundleImport.mutateAsync({ rows: chunkOps.map((o) => o.data as BundleImportRow), clientRequestId });
+          replayed = res.replayed;
+          tally.newDies += res.newDies;
         } else if (kind === "customers") {
-          await customerImport.mutateAsync(chunkOps.map((o) => o.data as CustomerImportRow));
+          const res = await customerImport.mutateAsync({ rows: chunkOps.map((o) => o.data as CustomerImportRow), clientRequestId });
+          replayed = res.replayed;
         } else {
-          await dieProcess.mutateAsync(dieChunkInput(chunkOps as DieOp[]));
+          const input = dieChunkInput(chunkOps as DieOp[]);
+          const res = await dieProcess.mutateAsync({ ...input, clientRequestId });
+          replayed = res.replayed;
+          created = input.newRows.length;
+          updated = input.updatedRows.length;
+        }
+        // A replay of the call this resume starts with is that call's own lost reply: saved by
+        // this run. Any other replay means the rows came in from an earlier import of this sheet.
+        if (replayed && !(resume && index === startChunk)) {
+          tally.already += chunkOps.length;
+        } else {
+          tally.saved += chunkOps.length;
+          tally.created += created;
+          tally.updated += updated;
         }
       },
       {
         startChunk,
         onProgress: (done) => {
-          if (id === runId.current) setStage((s) => (s.name === "saving" ? { ...s, done } : s));
+          if (id === runId.current) setStage((s) => (s.name === "saving" ? { ...s, done, tally: { ...tally } } : s));
         },
       },
     );
 
     // Whatever was saved is real: refresh the lists behind the sheet either way.
-    const filters =
-      kind === "bundles"
-        ? [trpc.bundle.pathFilter(), trpc.die.pathFilter(), trpc.dashboard.pathFilter()]
-        : kind === "dies"
-          ? [trpc.die.pathFilter()]
-          : [trpc.customer.pathFilter()];
-    for (const f of filters) void queryClient.invalidateQueries(f);
+    invalidateAfterImport(kind, queryClient);
     if (id !== runId.current) return;
 
     if (!run.ok) {
       setStage({
         name: "failed",
         ...loaded,
-        dieCheck,
+        ...checks,
         done: run.done,
         total,
         failedChunk: run.failedChunk,
-        message: errorMessage(run.error, t),
+        failure: importFailure(run.error),
+        tally: { ...tally },
+        confirmClose: false,
       });
       return;
     }
-    setStage({ name: "done", count: run.done, newDies, sheet: loaded.sheet, rejected: plan.rejected });
-    onImported?.(run.done);
+    setStage({ name: "done", tally: { ...tally }, sheet: loaded.sheet, rejected: plan.rejected });
+    onImported?.(tally.saved);
   };
 
-  // One live region that stays mounted for the whole sheet, so every stage change is read out
-  // (a region inserted together with its text is often skipped by screen readers).
-  const announcement = (() => {
-    switch (stage.name) {
-      case "reading":
-        return t("imports.reading", { name: stage.file.name });
-      case "checking":
-        return t("imports.checking");
-      case "review": {
-        if (stage.parsed.missingColumns.length > 0) return t("imports.missingTitle");
-        const ready = plan?.ops.length ?? 0;
-        const problems = plan?.rejected.length ?? 0;
-        return problems > 0
-          ? `${t("settings.data.rowsOk", { count: ready })}. ${t("settings.data.rowsRejected", { count: problems })}.`
-          : t("settings.data.rowsOk", { count: ready });
-      }
-      case "saving":
-        return t("imports.saving", { done: stage.done.toLocaleString("en-IN"), total: stage.total.toLocaleString("en-IN") });
-      case "done":
-        return t("settings.data.imported", { count: stage.count });
-      default:
-        // Pick errors and a failed save use role="alert" in place.
-        return "";
-    }
-  })();
+  // Stage changes are read out by moving focus to the new stage (see STAGE_FOCUS). The live
+  // region only carries saving progress, which changes while focus stays put.
+  const announcement =
+    stage.name === "saving" && stage.done > stage.from
+      ? t("imports.saving", { done: fmt(stage.done), total: fmt(stage.total) })
+      : "";
 
   const footer = (() => {
     switch (stage.name) {
@@ -304,8 +401,8 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
             <Button variant="secondary" className={SECONDARY_FOOTER} onClick={() => handleOpenChange(false)}>
               {t("common.cancel")}
             </Button>
-            <Button size="lg" className={PRIMARY_FOOTER} onClick={() => void save(0)}>
-              {t("settings.data.submit", { count: ready.toLocaleString("en-IN") })}
+            <Button size="lg" className={PRIMARY_FOOTER} onClick={() => void save(0, NO_TALLY, false)}>
+              {t("settings.data.submit", { count: fmt(ready) })}
             </Button>
           </>
         );
@@ -317,14 +414,28 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
           </Button>
         );
       case "failed":
+        if (stage.confirmClose) {
+          return (
+            <>
+              <Button variant="secondary" className={SECONDARY_FOOTER} onClick={() => onOpenChange(false)}>
+                {t("imports.confirmClose.close")}
+              </Button>
+              <Button size="lg" className={PRIMARY_FOOTER} onClick={() => setStage({ ...stage, confirmClose: false })}>
+                {t("imports.confirmClose.keepOpen")}
+              </Button>
+            </>
+          );
+        }
         return (
           <>
             <Button variant="secondary" className={SECONDARY_FOOTER} onClick={() => handleOpenChange(false)}>
               {t("common.close")}
             </Button>
-            <Button size="lg" className={PRIMARY_FOOTER} onClick={() => void save(stage.failedChunk)}>
-              {t("imports.retry")}
-            </Button>
+            {stage.failure.retry ? (
+              <Button size="lg" className={PRIMARY_FOOTER} onClick={() => void save(stage.failedChunk, stage.tally, true)}>
+                {t("imports.retry")}
+              </Button>
+            ) : null}
           </>
         );
       case "done":
@@ -345,20 +456,27 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
       title={t(`imports.title.${kind}`)}
       description={t(`imports.about.${kind}`)}
       footer={footer}
+      dismissible={stage.name !== "saving"}
       className="lg:w-[520px]"
     >
       <p role="status" data-slot="import-announce" className="sr-only">
         {announcement}
       </p>
-      <div data-slot="import-sheet" data-stage={stage.name} aria-busy={busy || undefined} className="flex flex-col gap-6 pt-1">
+      <div
+        ref={bodyRef}
+        data-slot="import-sheet"
+        data-stage={stage.name}
+        aria-busy={busy || undefined}
+        className="flex flex-col gap-6 pt-1"
+      >
         {stage.name === "pick" ? (
           <PickStage kind={kind} unit={unit} error={stage.error} onFile={(f) => void readFile(f)} />
         ) : stage.name === "reading" || stage.name === "checking" ? (
           <ReadingStage name={stage.file.name} checking={stage.name === "checking"} />
         ) : stage.name === "done" ? (
           <DoneStage
-            count={stage.count}
-            newDies={stage.newDies}
+            kind={kind}
+            tally={stage.tally}
             problems={stage.rejected.length}
             onDownloadProblems={() => downloadProblems(kind, stage.sheet, stage.rejected, t)}
           />
@@ -366,22 +484,29 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
           <>
             <FileRow
               file={stage.file}
-              onChooseAnother={stage.name === "saving" ? undefined : () => setStage({ name: "pick" })}
+              // Only before saving: after a failed save, starting the file over is never offered.
+              onChooseAnother={stage.name === "review" ? () => setStage({ name: "pick" }) : undefined}
             />
             {stage.name === "saving" ? (
               <SavingStage done={stage.done} total={stage.total} />
             ) : stage.name === "failed" ? (
               <FailedStage
-                done={stage.done}
-                total={stage.total}
-                message={stage.message}
-                onDownload={() => {
+                stage={stage}
+                ops={plan?.ops ?? []}
+                problems={plan?.rejected.length ?? 0}
+                onDownloadUnsaved={() => {
                   const rows = (plan?.ops ?? []).slice(stage.failedChunk * IMPORT_CHUNK_SIZE).map((o) => o.row);
                   downloadCsv(`orrn-${kind}-not-saved.csv`, rowsCsv(stage.sheet, rows));
                 }}
+                onDownloadProblems={() => downloadProblems(kind, stage.sheet, plan?.rejected ?? [], t)}
               />
             ) : stage.parsed.missingColumns.length > 0 ? (
-              <MissingColumns kind={kind} unit={unit} missing={stage.parsed.missingColumns} />
+              <MissingColumns
+                kind={kind}
+                unit={unit}
+                missing={stage.parsed.missingColumns}
+                badUnit={stage.parsed.badUnitColumns}
+              />
             ) : plan ? (
               <ReviewStage
                 kind={kind}
@@ -478,6 +603,7 @@ function PickStage({
           </p>
           <p className="m-0 text-[14px] text-muted-foreground pointer-coarse:hidden">{t("imports.drop.or")}</p>
           <Button
+            data-stage-focus
             className="pointer-coarse:h-14 pointer-coarse:px-7 pointer-coarse:text-[17px]"
             onClick={() => inputRef.current?.click()}
             aria-describedby={error ? `${errorId} ${guideId}` : guideId}
@@ -504,7 +630,8 @@ function PickStage({
           />
         </div>
         {error ? (
-          <p id={errorId} role="alert" className="m-0 flex items-start gap-2 text-[14px] font-medium leading-5 text-destructive">
+          // Focus returns to "Choose file", which this error describes: read once, with the way out.
+          <p id={errorId} data-slot="import-error" className="m-0 flex items-start gap-2 text-[14px] font-medium leading-5 text-destructive">
             <AlertCircle aria-hidden="true" strokeWidth={2} className="mt-0.5 size-[18px] shrink-0" />
             <span className="min-w-0 break-words">{error}</span>
           </p>
@@ -566,27 +693,24 @@ function PickStage({
 /* Reading / file row                                                          */
 /* -------------------------------------------------------------------------- */
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Number((bytes / 1024).toFixed(1))} KB`;
-  return `${Number((bytes / (1024 * 1024)).toFixed(1))} MB`;
-}
-
 function FileRow({ file, onChooseAnother }: { file: FileMeta; onChooseAnother?: () => void }) {
   const { t } = useT();
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <span aria-hidden="true" className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface-sunken">
         <FileSpreadsheet className="size-5" strokeWidth={2} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="m-0 text-[15px] font-semibold leading-5 break-all text-foreground">{file.name}</p>
+        <p className="m-0 text-[15px] font-semibold leading-5 [overflow-wrap:anywhere] text-foreground">{file.name}</p>
         <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">{formatBytes(file.size)}</p>
       </div>
       {onChooseAnother ? (
-        <Button variant="ghost" size="sm" onClick={onChooseAnother}>
-          {t("imports.chooseAnother")}
-        </Button>
+        // Phones: under the name, so a long file name keeps the full width.
+        <div className="max-sm:basis-full max-sm:pl-11">
+          <Button variant="ghost" onClick={onChooseAnother}>
+            {t("imports.chooseAnother")}
+          </Button>
+        </div>
       ) : null}
     </div>
   );
@@ -594,11 +718,16 @@ function FileRow({ file, onChooseAnother }: { file: FileMeta; onChooseAnother?: 
 
 function ReadingStage({ name, checking }: { name: string; checking: boolean }) {
   const { t } = useT();
+  const label = checking ? t("imports.checking") : t("imports.reading", { name });
   return (
     <div className="flex flex-col gap-4">
-      <p className="m-0 flex items-start gap-2 text-[15px] font-semibold leading-6 text-muted-foreground">
+      <p
+        data-stage-focus
+        tabIndex={-1}
+        className="m-0 flex items-start gap-2 text-[15px] font-semibold leading-6 text-muted-foreground"
+      >
         <Loader2 aria-hidden="true" className="mt-0.5 size-[18px] shrink-0 animate-spin motion-reduce:animate-none" />
-        <span className="min-w-0 break-all">{checking ? t("imports.checking") : t("imports.reading", { name })}</span>
+        <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
       </p>
       <div className="grid grid-cols-2 gap-3">
         <Skeleton className="h-[168px] rounded-block" />
@@ -613,21 +742,44 @@ function ReadingStage({ name, checking }: { name: string; checking: boolean }) {
 /* Review                                                                      */
 /* -------------------------------------------------------------------------- */
 
-function MissingColumns({ kind, unit, missing }: { kind: ImportKind; unit: LengthUnit; missing: readonly string[] }) {
+function MissingColumns({
+  kind,
+  unit,
+  missing,
+  badUnit,
+}: {
+  kind: ImportKind;
+  unit: LengthUnit;
+  missing: readonly string[];
+  badUnit: readonly string[];
+}) {
   const { t } = useT();
   const guide = columnGuide(kind, unit);
+  const headers = missing.map((field) => guide.find((c) => c.field === field)?.header ?? field);
+  const badUnitText = badUnit.length > 0 ? t("imports.readAs.badUnit", { columns: badUnit.join(", ") }) : null;
+  const label = [t("imports.missingTitle"), `${t("imports.missingBody", { count: missing.length })} ${headers.join(", ")}`, badUnitText]
+    .filter(Boolean)
+    .join(". ");
   return (
-    <div role="alert" className="flex flex-col gap-3 rounded-card border border-destructive/40 bg-tone-red-tint p-4">
+    <div
+      data-stage-focus
+      data-slot="import-missing"
+      tabIndex={-1}
+      role="group"
+      aria-label={label}
+      className="flex flex-col gap-3 rounded-card border border-destructive/40 bg-tone-red-tint p-4"
+    >
       <p className="m-0 flex items-center gap-2 font-display text-[17px] font-bold leading-tight text-tone-red-ink">
         <AlertCircle aria-hidden="true" strokeWidth={2} className="size-5 shrink-0" />
         {t("imports.missingTitle")}
       </p>
       <p className="m-0 text-[15px] leading-6 text-foreground">{t("imports.missingBody", { count: missing.length })}</p>
       <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-[15px] font-semibold text-foreground">
-        {missing.map((field) => (
-          <li key={field}>{guide.find((c) => c.field === field)?.header ?? field}</li>
+        {headers.map((header) => (
+          <li key={header}>{header}</li>
         ))}
       </ul>
+      {badUnitText ? <p className="m-0 text-[14px] leading-5 break-words text-foreground">{badUnitText}</p> : null}
     </div>
   );
 }
@@ -656,10 +808,21 @@ function ReviewStage({
   const ready = ops.length;
   const problems = rejected.length;
   const problemsId = useId();
+  const summary =
+    problems > 0
+      ? `${t("settings.data.rowsOk", { count: ready })}. ${t("settings.data.rowsRejected", { count: problems })}.`
+      : t("settings.data.rowsOk", { count: ready });
 
   return (
     <>
-      <div className={cn("grid gap-3", problems > 0 ? "grid-cols-2" : "grid-cols-1")}>
+      <div
+        data-stage-focus
+        data-slot="import-counts"
+        tabIndex={-1}
+        role="group"
+        aria-label={summary}
+        className={cn("grid gap-3 rounded-block", problems > 0 ? "grid-cols-2" : "grid-cols-1")}
+      >
         <StatusBlock
           tone="green"
           title={t("imports.ready")}
@@ -668,12 +831,13 @@ function ReviewStage({
           className={cn(motionClass.pop, "min-h-[148px]")}
         />
         {problems > 0 ? (
+          // Problems are not a success: no pop.
           <StatusBlock
             tone="amber"
             title={t("imports.problems")}
             value={problems}
             unit={t("imports.rows", { count: problems })}
-            className={cn(motionClass.pop, "min-h-[148px]")}
+            className="min-h-[148px]"
           />
         ) : null}
       </div>
@@ -696,10 +860,17 @@ function ReviewStage({
               { value: "update", label: t("imports.existing.update") },
             ]}
           />
+          <p className="m-0 text-[14px] leading-5 text-muted-foreground">{t("imports.existing.help")}</p>
         </section>
       ) : null}
 
-      <ColumnsRead columns={parsed.columns} ignored={parsed.ignoredColumns} unit={unit} />
+      <ColumnsRead
+        kind={kind}
+        columns={parsed.columns}
+        ignored={parsed.ignoredColumns}
+        badUnit={parsed.badUnitColumns}
+        unit={unit}
+      />
 
       {ready > 0 ? <Preview kind={kind} unit={unit} ops={ops.slice(0, PREVIEW_ROWS)} /> : null}
 
@@ -723,14 +894,11 @@ function ReviewStage({
           </ul>
           {problems > PROBLEMS_SHOWN ? (
             <p className="m-0 text-[14px] text-muted-foreground">
-              {t("imports.problemMore", { count: (problems - PROBLEMS_SHOWN).toLocaleString("en-IN") })}
+              {t("imports.problemMore", { count: fmt(problems - PROBLEMS_SHOWN) })}
             </p>
           ) : null}
           <div>
-            <Button
-              variant="secondary"
-              onClick={() => downloadProblems(kind, sheet, rejected, t)}
-            >
+            <Button variant="secondary" onClick={() => downloadProblems(kind, sheet, rejected, t)}>
               <Download aria-hidden="true" strokeWidth={2} />
               {t("imports.downloadProblems")}
             </Button>
@@ -741,27 +909,38 @@ function ReviewStage({
   );
 }
 
+const LENGTH_FIELDS = new Set(["length", "width", "height", "thickness", "oblique", "leg"]);
+const PER_12FT_FIELDS = new Set(["weightMin", "weightMax"]);
+
 function ColumnsRead({
+  kind,
   columns,
   ignored,
+  badUnit,
   unit,
 }: {
+  kind: ImportKind;
   columns: readonly MatchedColumn[];
   ignored: readonly string[];
+  badUnit: readonly string[];
   unit: LengthUnit;
 }) {
   const { t } = useT();
   const headingId = useId();
+  const guide = columnGuide(kind, unit);
   const describe = (c: MatchedColumn) => {
     const field = t(`imports.field.${c.field}` as Parameters<Translate>[0]);
+    // Die weight bands are per 12 ft piece; say so once.
+    if (PER_12FT_FIELDS.has(c.field) && c.unit !== "g") return t("imports.readAs.perTwelve", { field });
     if (c.unit) return t("imports.readAs.unit", { field, unit: t(`imports.unit.${c.unit}`) });
-    const isLength = ["length", "width", "height", "thickness", "oblique", "leg"].includes(c.field);
-    const isWeight = ["weight", "weightMin", "weightMax"].includes(c.field);
-    if (isLength) return t("imports.readAs.fallback", { field, unit: t(unit === "mm" ? "imports.unit.mm" : "imports.unit.in") });
-    if (isWeight) return t("imports.readAs.unit", { field, unit: t("imports.unit.kg") });
-    // "Die series" read as Die series says nothing; only a renamed column ("Qty" as Pieces) needs its field named.
-    const same = (text: string) => text.trim().toLowerCase().replace(/\s+/g, " ");
-    if (same(c.header) === same(field)) return t("imports.readAs.same");
+    if (LENGTH_FIELDS.has(c.field)) {
+      return t("imports.readAs.fallback", { field, unit: t(unit === "mm" ? "imports.unit.mm" : "imports.unit.in") });
+    }
+    if (c.field === "weight") return t("imports.readAs.unit", { field, unit: t("imports.unit.kg") });
+    // A column named like the guide's own header was used as it is, in any language; only a
+    // renamed column ("Qty" for Pieces) needs its field named.
+    const guideHeader = guide.find((g) => g.field === c.field)?.header;
+    if (guideHeader && readHeader(guideHeader).name === readHeader(c.header).name) return t("imports.readAs.same");
     return t("imports.readAs.plain", { field });
   };
   return (
@@ -779,6 +958,12 @@ function ColumnsRead({
           </div>
         ))}
       </dl>
+      {badUnit.length > 0 ? (
+        <p className="m-0 flex items-start gap-2 text-[14px] leading-5 text-foreground">
+          <AlertCircle aria-hidden="true" strokeWidth={2} className="mt-0.5 size-[18px] shrink-0 text-tone-amber-ink" />
+          <span className="min-w-0 break-words">{t("imports.readAs.badUnit", { columns: badUnit.join(", ") })}</span>
+        </p>
+      ) : null}
       {ignored.length > 0 ? (
         <p className="m-0 text-[14px] leading-5 break-words text-muted-foreground">
           {t("imports.readAs.notUsed", { columns: ignored.join(", ") })}
@@ -801,11 +986,7 @@ function Preview({ kind, unit, ops }: { kind: ImportKind; unit: LengthUnit; ops:
           {b.dieSeries} / {b.dieSectionCode}
         </span>
       );
-      facts = [
-        `${b.quantity.toLocaleString("en-IN")} ${t("units.pcs")}`,
-        `${formatKg(b.weightG / 1000)} ${t("units.kg")}`,
-        formatLength(b.lengthMm, unit),
-      ];
+      facts = [`${fmt(b.quantity)} ${t("units.pcs")}`, `${formatKg(b.weightG / 1000)} ${t("units.kg")}`, formatLength(b.lengthMm, unit)];
     } else if (kind === "dies") {
       const d = op.data as DieImportRow;
       title = (
@@ -860,10 +1041,14 @@ function Preview({ kind, unit, ops }: { kind: ImportKind; unit: LengthUnit; ops:
 function SavingStage({ done, total }: Progress) {
   const { t } = useT();
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
-  const label = t("imports.saving", { done: done.toLocaleString("en-IN"), total: total.toLocaleString("en-IN") });
+  const label = t("imports.saving", { done: fmt(done), total: fmt(total) });
   return (
     <div className="flex flex-col gap-3">
-      <p className="m-0 font-display text-[28px] font-extrabold leading-tight tracking-[-0.03em] tabular-nums text-foreground break-words">
+      <p
+        data-stage-focus
+        tabIndex={-1}
+        className="m-0 font-display text-[28px] font-extrabold leading-tight tracking-[-0.03em] tabular-nums text-foreground break-words"
+      >
         {label}
       </p>
       <div
@@ -885,60 +1070,136 @@ function SavingStage({ done, total }: Progress) {
 }
 
 function FailedStage({
-  done,
-  total,
-  message,
-  onDownload,
-}: Progress & { message: string; onDownload(): void }) {
+  stage,
+  ops,
+  problems,
+  onDownloadUnsaved,
+  onDownloadProblems,
+}: {
+  stage: Extract<Stage, { name: "failed" }>;
+  ops: readonly Op[];
+  problems: number;
+  onDownloadUnsaved(): void;
+  onDownloadProblems(): void;
+}) {
   const { t } = useT();
+  const { done, total, failure, failedChunk, confirmClose } = stage;
+  const first = failedChunk * IMPORT_CHUNK_SIZE;
+  const fromRow = ops[first]?.row ?? 0;
+  const toRow = ops[Math.min(ops.length, first + IMPORT_CHUNK_SIZE) - 1]?.row ?? fromRow;
+  const lastSavedRow = done > 0 ? ops[done - 1]?.row : undefined;
+  const unsaved = total - done;
+  const unknown = failure.outcome === "unknown";
+
+  const saved =
+    lastSavedRow === undefined
+      ? t("imports.failed.nothingSaved")
+      : t("imports.failed.savedUpTo", { done: fmt(done), total: fmt(total), row: lastSavedRow });
+  const what = unknown
+    ? t("imports.failed.unknown", { from: fromRow, to: toRow })
+    : t("imports.failed.refusedRows", { from: fromRow });
+  const why = t(failure.message);
+  const help = unknown ? t("imports.failed.unknownHelp") : t("imports.failed.refusedHelp");
+  const confirmText = unknown
+    ? t("imports.confirmClose.unknown", { count: unsaved })
+    : t("imports.confirmClose.refused", { count: unsaved });
+
   return (
     <div className="flex flex-col gap-4">
-      <div role="alert" className="flex flex-col gap-2 rounded-card border border-destructive/40 bg-tone-red-tint p-4">
+      {confirmClose ? (
+        <div
+          data-stage-focus
+          data-slot="import-confirm-close"
+          tabIndex={-1}
+          role="group"
+          aria-label={`${t("imports.confirmClose.title")} ${confirmText}`}
+          className="flex flex-col gap-2 rounded-card border border-border bg-card p-4"
+        >
+          <p className="m-0 font-display text-[17px] font-bold leading-tight tracking-[-0.02em] text-foreground">
+            {t("imports.confirmClose.title")}
+          </p>
+          <p className="m-0 text-[15px] leading-6 text-foreground">{confirmText}</p>
+        </div>
+      ) : null}
+      <div
+        data-stage-focus={confirmClose ? undefined : true}
+        data-slot="import-failed"
+        tabIndex={-1}
+        role="group"
+        aria-label={[saved, what, why, help].join(" ")}
+        className="flex flex-col gap-2 rounded-card border border-destructive/40 bg-tone-red-tint p-4"
+      >
         <p className="m-0 flex items-start gap-2 text-[15px] font-semibold leading-6 text-foreground">
           <AlertCircle aria-hidden="true" strokeWidth={2} className="mt-1 size-[18px] shrink-0 text-tone-red-ink" />
           <span className="min-w-0 break-words">
-            {t("imports.partial", { done: done.toLocaleString("en-IN"), total: total.toLocaleString("en-IN") })}
+            {saved} {what}
           </span>
         </p>
-        <p className="m-0 pl-[26px] text-[15px] leading-6 break-words text-tone-red-ink">{message}</p>
+        <p className="m-0 pl-[26px] text-[15px] leading-6 break-words text-tone-red-ink">{why}</p>
+        <p className="m-0 pl-[26px] text-[15px] leading-6 break-words text-foreground">{help}</p>
       </div>
-      <div>
-        <Button variant="secondary" onClick={onDownload}>
-          <Download aria-hidden="true" strokeWidth={2} />
-          {t("imports.downloadUnsaved")}
-        </Button>
-      </div>
+      {/* After an unknown outcome the next rows may be saved already: no "not saved" file to re-import. */}
+      {!unknown || problems > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {!unknown ? (
+            <Button variant="secondary" onClick={onDownloadUnsaved}>
+              <Download aria-hidden="true" strokeWidth={2} />
+              {t("imports.downloadUnsaved")}
+            </Button>
+          ) : null}
+          {problems > 0 ? (
+            <Button variant="secondary" onClick={onDownloadProblems}>
+              <Download aria-hidden="true" strokeWidth={2} />
+              {t("imports.downloadProblems")}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
 
 function DoneStage({
-  count,
-  newDies,
+  kind,
+  tally,
   problems,
   onDownloadProblems,
 }: {
-  count: number;
-  newDies: number;
+  kind: ImportKind;
+  tally: Tally;
   problems: number;
   onDownloadProblems(): void;
 }) {
   const { t } = useT();
+  const notes: string[] = [];
+  if (tally.already > 0) notes.push(t("imports.already", { count: tally.already }));
+  if (kind === "dies" && tally.updated > 0) notes.push(t("imports.diesDone", { created: tally.created, updated: tally.updated }));
+  if (tally.newDies > 0) notes.push(t("imports.newDies", { count: tally.newDies }));
+  const nothingNew = tally.saved === 0 && tally.already > 0;
+  const label = [nothingNew ? t("imports.alreadyTitle") : t("settings.data.imported", { count: tally.saved }), ...notes].join(". ");
   return (
     <div className="flex flex-col gap-4">
-      <StatusBlock
-        tone="green"
-        title={t("imports.done")}
-        value={count}
-        unit={t("imports.rows", { count })}
-        className={motionClass.pop}
-      />
-      {newDies > 0 ? (
-        <p className="m-0 flex items-start gap-2 text-[15px] leading-6 text-foreground">
-          <Info aria-hidden="true" strokeWidth={2} className="mt-1 size-[18px] shrink-0 text-muted-foreground" />
-          <span className="min-w-0 break-words">{t("imports.newDies", { count: newDies })}</span>
-        </p>
-      ) : null}
+      <div data-stage-focus data-slot="import-result" tabIndex={-1} role="group" aria-label={label} className="flex flex-col gap-4 rounded-block">
+        {nothingNew ? (
+          <p className="m-0 font-display text-[22px] font-bold leading-tight tracking-[-0.025em] text-foreground">
+            {t("imports.alreadyTitle")}
+          </p>
+        ) : (
+          <StatusBlock
+            tone="green"
+            title={t("imports.done")}
+            value={tally.saved}
+            unit={t("imports.rows", { count: tally.saved })}
+            className={motionClass.pop}
+          />
+        )}
+        {notes.map((note) => (
+          <p key={note} className="m-0 flex items-start gap-2 text-[15px] leading-6 text-foreground">
+            <Info aria-hidden="true" strokeWidth={2} className="mt-1 size-[18px] shrink-0 text-muted-foreground" />
+            <span className="min-w-0 break-words">{note}</span>
+          </p>
+        ))}
+      </div>
       {problems > 0 ? (
         <div className="flex flex-col items-start gap-2">
           <p className="m-0 text-[15px] leading-6 text-foreground">{t("settings.data.rowsRejected", { count: problems })}</p>

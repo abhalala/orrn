@@ -715,7 +715,7 @@ export const bundleRouter = router({
           code: "BAD_REQUEST",
           message: `Die${archivedKeys.length === 1 ? "" : "s"} previously deleted: ${archivedKeys
             .slice(0, 5)
-            .join(", ")}${archivedKeys.length > 5 ? ` (+${archivedKeys.length - 5} more)` : ""}. Restore them from the dies page before importing bundles.`,
+            .join(", ")}${archivedKeys.length > 5 ? ` (+${archivedKeys.length - 5} more)` : ""}. Bundles can't be imported into a deleted die; remove those rows (bundle.importCheck lists them).`,
         });
       }
 

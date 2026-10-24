@@ -31,7 +31,7 @@ const ROWS: readonly ImportRow[] = [
  */
 export function DataTab() {
   const { t } = useT();
-  const { data: me, isPending } = useMe();
+  const { data: me, isPending, isError, refetch, isRefetching } = useMe();
   // The kind stays set after closing so the sheet keeps its title while it slides away.
   const [kind, setKind] = useState<ImportKind>("bundles");
   const [open, setOpen] = useState(false);
@@ -42,6 +42,20 @@ export function DataTab() {
       <div data-slot="data-tab" aria-busy="true" className="flex flex-col gap-4">
         <Skeleton className="h-6 w-full max-w-[520px]" />
         <Skeleton className="h-[244px] rounded-card" />
+      </div>
+    );
+  }
+
+  // Without `me` the role is unknown: say it did not load, not that the role can't import.
+  if (isError && !me) {
+    return (
+      <div data-slot="data-tab" className="flex flex-col items-start gap-3">
+        <p role="alert" className="m-0 text-[15px] leading-6 text-foreground">
+          {t("errors.generic")}
+        </p>
+        <Button variant="secondary" loading={isRefetching} onClick={() => void refetch()}>
+          {t("common.retry")}
+        </Button>
       </div>
     );
   }
