@@ -3,14 +3,15 @@ import { atomicBatch, type createDb } from "@orrn/db";
 import { user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
-import { dispatch, dispatchItem, type DispatchStatus } from "@orrn/db/schema/dispatch";
+import { dispatch, dispatchItem, transporter, type DispatchStatus } from "@orrn/db/schema/dispatch";
 import {
   bundle,
   bundleGroup,
   bundleStatusEvent,
+  packReject,
   type BundleStatus,
 } from "@orrn/db/schema/inventory";
-import { packingList, packingListLine } from "@orrn/db/schema/packing";
+import { packingList, packingListDispatch, packingListLine } from "@orrn/db/schema/packing";
 import { auditLog } from "@orrn/db/schema/audit";
 import { approval } from "@orrn/db/schema/approval";
 import { countLine, countLocation, countSeen, countSession, countTally } from "@orrn/db/schema/count";
@@ -26,7 +27,20 @@ import {
   type PurchaseLotStatus,
   type VendorStatus,
 } from "@orrn/db/schema/purchase";
-import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
+import { bundleTransfer, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
+import {
+  dieBand,
+  dieFile,
+  dieInstance,
+  dieMaker,
+  dieMakerJob,
+  dieTierChange,
+  dieWeightReading,
+  nitridingLog,
+} from "@orrn/db/schema/dies";
+import { dieIssue, pressLine, pressPlan, pressPlanDie, pressPlanLine, pressRun } from "@orrn/db/schema/press";
+import { reasonCode } from "@orrn/db/schema/reasons";
+import { COMPANY_MODULES, defaultReasonCodeRows, SUGGESTED_SHIFTS } from "@orrn/domain";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
@@ -63,11 +77,22 @@ const IST_OFFSET_MS = 330 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 
-/** Demo plant numbers new bundles like the real plant (26I4086); seeded history keeps its BG serials. */
-const DEMO_SETTINGS = { lengthUnit: "inch", timezone: "Asia/Kolkata", bundleNumbering: "plant", dcTolerancePct: 50 };
+/**
+ * Demo plant numbers new bundles like the real plant (26I4086); seeded history keeps its BG serials.
+ * FP Wave 1 masters live in settings too: Day / Night shifts (C14, written here as the plant would
+ * by pressing Save on the suggestion) and the BIS pairs with the CM/L left blank for the plant.
+ */
+const DEMO_SETTINGS = {
+  lengthUnit: "inch",
+  timezone: "Asia/Kolkata",
+  bundleNumbering: "plant",
+  dcTolerancePct: 50,
+  shifts: SUGGESTED_SHIFTS.map((s) => ({ ...s, id: `dev-shift-${s.seq}` })),
+  standards: { solid: { standard: "IS 733", cml: "" }, hollow: { standard: "IS 1285", cml: "" } },
+};
 
-/** "All modules on" (see `visibleItems` in the nav spec). */
-const ALL_MODULES = ["customers", "dies", "bundles", "dispatches"];
+/** Every module on, Wave 1 floor modules included (FP-PF-07). */
+const ALL_MODULES: string[] = [...COMPANY_MODULES];
 
 // ---------------------------------------------------------------------------
 // Static catalogue
@@ -903,7 +928,19 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
   const statements: Statement[] = [
     // Reset: children before parents (several FKs are RESTRICT).
     db.delete(packingListLine).where(eq(packingListLine.companyId, COMPANY_ID)),
+    db.delete(packingListDispatch).where(eq(packingListDispatch.companyId, COMPANY_ID)),
     db.delete(packingList).where(eq(packingList.companyId, COMPANY_ID)),
+    // FP Wave 1 rows made in the app since the last seed: press runs and plans hold keys to order
+    // lines, copies, casts and reason codes; transfers and pack rejects to bundles and groups.
+    db.delete(dieIssue).where(eq(dieIssue.companyId, COMPANY_ID)),
+    db.delete(pressRun).where(eq(pressRun.companyId, COMPANY_ID)),
+    db.delete(pressPlanLine).where(eq(pressPlanLine.companyId, COMPANY_ID)),
+    db.delete(pressPlanDie).where(eq(pressPlanDie.companyId, COMPANY_ID)),
+    db.delete(pressPlan).where(eq(pressPlan.companyId, COMPANY_ID)),
+    db.delete(pressLine).where(eq(pressLine.companyId, COMPANY_ID)),
+    db.delete(reasonCode).where(eq(reasonCode.companyId, COMPANY_ID)),
+    db.delete(bundleTransfer).where(eq(bundleTransfer.companyId, COMPANY_ID)),
+    db.delete(packReject).where(eq(packReject.companyId, COMPANY_ID)),
     db.delete(dispatchItem).where(eq(dispatchItem.companyId, COMPANY_ID)),
     db.delete(bundleStatusEvent).where(eq(bundleStatusEvent.companyId, COMPANY_ID)),
     // Dev reset of the demo company only: the one place ledger rows are ever deleted (the
@@ -941,9 +978,19 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     db.delete(location).where(eq(location.companyId, COMPANY_ID)),
     db.delete(bundleGroup).where(eq(bundleGroup.companyId, COMPANY_ID)),
     db.delete(dispatch).where(eq(dispatch.companyId, COMPANY_ID)),
+    db.delete(transporter).where(eq(transporter.companyId, COMPANY_ID)),
     // Order lines and orders reference die and customer (RESTRICT): they go first (PL-8 spec S-3).
     db.delete(salesOrderLine).where(eq(salesOrderLine.companyId, COMPANY_ID)),
     db.delete(salesOrder).where(eq(salesOrder.companyId, COMPANY_ID)),
+    // Die room rows hold keys to the section (and copies to bands and makers): children first.
+    db.delete(dieMakerJob).where(eq(dieMakerJob.companyId, COMPANY_ID)),
+    db.delete(dieFile).where(eq(dieFile.companyId, COMPANY_ID)),
+    db.delete(nitridingLog).where(eq(nitridingLog.companyId, COMPANY_ID)),
+    db.delete(dieWeightReading).where(eq(dieWeightReading.companyId, COMPANY_ID)),
+    db.delete(dieTierChange).where(eq(dieTierChange.companyId, COMPANY_ID)),
+    db.delete(dieInstance).where(eq(dieInstance.companyId, COMPANY_ID)),
+    db.delete(dieBand).where(eq(dieBand.companyId, COMPANY_ID)),
+    db.delete(dieMaker).where(eq(dieMaker.companyId, COMPANY_ID)),
     db.delete(die).where(eq(die.companyId, COMPANY_ID)),
     db.delete(customer).where(eq(customer.companyId, COMPANY_ID)),
     db.delete(auditLog).where(eq(auditLog.companyId, COMPANY_ID)),
@@ -1003,6 +1050,24 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     ...insertChunks(db, approval, approvalRows),
     ...insertChunks(db, stockLedger, scrapLedgerRows),
     ...insertChunks(db, docSeries, purchaseSeriesRows),
+    // FP Wave 1 masters: one press (tonnage left for the plant), the demo transporter, every
+    // default reason code.
+    ...insertChunks(db, pressLine, [
+      { id: "dev-press-line-1", companyId: COMPANY_ID, code: "P1", name: "Press 1", sortOrder: 1, createdBy: ownerId },
+    ]),
+    ...insertChunks(db, transporter, [
+      { id: "dev-transporter-1", companyId: COMPANY_ID, name: "Shree Logistics", createdBy: ownerId },
+    ]),
+    ...insertChunks(
+      db,
+      reasonCode,
+      defaultReasonCodeRows().map((row) => ({
+        ...row,
+        id: `dev-reason-${row.kind}-${row.code}`,
+        companyId: COMPANY_ID,
+        createdBy: ownerId,
+      })),
+    ),
   ];
   await atomicBatch(db, statements);
 

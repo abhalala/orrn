@@ -15,6 +15,7 @@
     "@orrn/auth": "workspace:*",
     "@orrn/crypto": "workspace:*",
     "@orrn/db": "workspace:*",
+    "@orrn/domain": "workspace:*",
     "@orrn/env": "workspace:*",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",

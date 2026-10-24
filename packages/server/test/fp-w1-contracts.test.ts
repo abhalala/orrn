@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 import { Miniflare } from "miniflare";
 
-import { approval, dieInstance, docSeries } from "@orrn/db/schema";
+import { approval, die, dieInstance, docSeries } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { can, type Action } from "../src/lib/permissions";
@@ -236,4 +236,40 @@ describe("platform actions (Wave 1)", () => {
       expect(can({ company: { role: "owner" }, isPlatformAdmin: false }, action)).toBe(false);
     });
   }
+});
+
+describe("dev seed: Wave 1 masters (idempotent)", () => {
+  test("shifts, standards, all modules, press line, transporter and reason codes survive a re-seed", async () => {
+    const { user, company, pressLine, reasonCode, transporter, dieInstance: copies, dieBand } = await import("@orrn/db/schema");
+    const { defaultReasonCodeRows, COMPANY_MODULES, readFloorSettings } = await import("@orrn/domain");
+    for (const key of ["owner", "operator", "viewer", "office", "staff"]) {
+      await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
+    }
+    const seedPath = "../../../apps/server/src/dev-seed";
+    const { seedDevData } = (await import(seedPath)) as {
+      seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean }>;
+    };
+    const companyId = "dev-company-orrn";
+    expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
+
+    // App rows made between seeds (a die copy with a band) must not block the reset.
+    const [someDie] = await env.db.select({ id: die.id }).from(die).where(eq(die.companyId, companyId)).limit(1);
+    const bandId = crypto.randomUUID();
+    await env.db.insert(dieBand).values({ id: bandId, companyId, sectionId: someDie!.id, wallTenthMm: 12, weightMinG: 1, weightMaxG: 2 });
+    await env.db.insert(copies).values({ id: crypto.randomUUID(), companyId, sectionId: someDie!.id, seqNo: 1, code: "SEED-1", bandId });
+
+    expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
+    const [co] = await env.db.select().from(company).where(eq(company.id, companyId));
+    const floor = readFloorSettings(co!.settings);
+    expect(floor.shifts.map((s) => [s.name, s.seq, s.startMin, s.endMin])).toEqual([
+      ["Day", 1, 480, 1200],
+      ["Night", 2, 1200, 480],
+    ]);
+    expect(floor.standards).toEqual({ solid: { standard: "IS 733", cml: "" }, hollow: { standard: "IS 1285", cml: "" } });
+    expect(co!.modules).toEqual([...COMPANY_MODULES]);
+    expect(await env.db.select({ code: pressLine.code }).from(pressLine).where(eq(pressLine.companyId, companyId))).toEqual([{ code: "P1" }]);
+    expect(await env.db.select().from(transporter).where(eq(transporter.companyId, companyId))).toHaveLength(1);
+    expect(await env.db.select().from(reasonCode).where(eq(reasonCode.companyId, companyId))).toHaveLength(defaultReasonCodeRows().length);
+    expect(await env.db.select().from(copies).where(eq(copies.companyId, companyId))).toHaveLength(0);
+  });
 });
