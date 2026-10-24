@@ -2162,6 +2162,128 @@ describe("cross-count sightings: settled ones", () => {
   });
 });
 
+// Fix round 1 pins: each [XCn] kills a mutant of the cross-count rule that the tests above leave alive.
+describe("cross-count sightings: fix r1 pins", () => {
+  test("[XC1] a sighting made after this count began clears it even once that count is cancelled (start_seq, not close_seq)", async () => {
+    const p = await plant();
+    const [x, y] = await p.pack("Y2", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [y!.serial] });
+    // CNT-1's scan takes its sequence before CNT-2's close but lands after it (ruling 169).
+    env.beforeNextBatch(() => p.office.count.close({ sessionId: c2.id }));
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [x!.serial] });
+    expect(ids((await p.viewer.count.get({ sessionId: c2.id })).report.phantom)).toEqual([x!.id]);
+    await p.supervisor.count.cancel({ sessionId: c1.id, reason: "Started over" });
+    // Nothing is pending in CNT-1 any more, but x was in Y1 after CNT-2 began: not missing.
+    const flag = (await p.viewer.count.get({ sessionId: c2.id })).report.phantom[0]!.seenElsewhere;
+    expect(flag).toMatchObject({ number: "CNT-1", locationCode: "Y1", countOpen: false, resolveThere: false });
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+    const res = voided(await p.supervisor.count.resolve({ sessionId: c2.id, action: "void_phantom", bundleIds: [x!.id] }));
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    expect((await bundleRow(x!.id)).status).toBe("available");
+    expect((await linesOf(c2.id)).find((l) => l.bundleId === x!.id)!.resolution).toBe("cleared");
+    await expectConsistent(p.owner, p.companyId, "sighting of a cancelled count cleared the phantom");
+  });
+
+  test("[XC2] a sighting still to be moved wins over a newer settled one: the void names the count where x waits", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [x, y] = await p.pack("Y2", 2);
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [a!.serial, x!.serial] });
+    await p.supervisor.count.close({ sessionId: c1.id });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [y!.serial] });
+    await p.supervisor.count.close({ sessionId: c2.id });
+    // A later count of Y3 also scans x, then is cancelled: newer, but nothing to act on there.
+    const c3 = await p.supervisor.count.start({ locationIds: [p.loc("Y3")] });
+    await p.supervisor.count.scan({ sessionId: c3.id, codes: [x!.serial] });
+    await p.supervisor.count.cancel({ sessionId: c3.id, reason: "Wrong yard" });
+    const flag = (await p.viewer.count.get({ sessionId: c2.id })).report.phantom[0]!.seenElsewhere;
+    expect(flag).toMatchObject({ number: "CNT-1", locationCode: "Y1", countOpen: false, resolveThere: true });
+    await expect(
+      p.supervisor.count.resolve({ sessionId: c2.id, action: "void_phantom", bundleIds: [x!.id] }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("seen at Y1 in CNT-1") });
+  });
+
+  test("[XC3] an off-ledger bundle moved from the count that found it no longer flags the other count's phantom", async () => {
+    // move_found posts no ledger row for an off-ledger bundle, so only the line's resolution says it was acted on.
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [y] = await p.pack("Y2", 1);
+    const [x] = await legacyAt(p, "Y2");
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c1.id, codes: [a!.serial, x!.serial] });
+    await p.supervisor.count.close({ sessionId: c1.id });
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [y!.serial] });
+    const r2 = await p.supervisor.count.close({ sessionId: c2.id });
+    expect(r2.phantom.map((b) => [b.bundleId, b.seenElsewhere?.resolveThere])).toEqual([[x!.id, true]]);
+    expect(movedFound(await p.supervisor.count.resolve({ sessionId: c1.id, action: "move_found", bundleIds: [x!.id] })).moved).toBe(1);
+    expect((await bundleRow(x!.id)).locationId).toBe(p.loc("Y1"));
+    expect((await p.viewer.count.get({ sessionId: c2.id })).report.phantom[0]!.seenElsewhere).toBeNull();
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 0, weightG: 0 });
+    // (No ledger check: an off-ledger bundle has no rows until stock.openingBalance takes it on.)
+  });
+
+  test("[XC4] another company's count line or ledger row never makes this company's sighting pending or settled", async () => {
+    const p = await plant();
+    const other = await plant();
+    const [a, m] = await p.pack("Y1", 2);
+    const [x, y] = await p.pack("Y2", 2);
+    // CNT-1 (Y1) matches m in place (a settled sighting) and finds x 'elsewhere' (an open line: pending).
+    const c1 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const scan = await p.supervisor.count.scan({ sessionId: c1.id, codes: [a!.serial, m!.serial, x!.serial] });
+    await p.supervisor.count.close({ sessionId: c1.id });
+    // CNT-2 (Y1 again) misses m; CNT-3 (Y2) misses x.
+    const c2 = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: c2.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: c2.id });
+    const c3 = await p.supervisor.count.start({ locationIds: [p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: c3.id, codes: [y!.serial] });
+    await p.supervisor.count.close({ sessionId: c3.id });
+    const theirs = await other.supervisor.count.start({ locationIds: [other.loc("Y1")] });
+    // Cross-wired: their open 'found' line pointing at our matched scan of m, and their ledger row on x.
+    const mSeen = scan.results.find((r) => r.bundle?.id === m!.id)!.seenId!;
+    await env.db.insert(countLine).values({
+      id: crypto.randomUUID(),
+      companyId: other.companyId,
+      serverSeq: 1,
+      sessionId: theirs.id,
+      kind: "found",
+      seenId: mSeen,
+      code: "CROSS-M",
+      resolution: "open",
+    });
+    await env.db.insert(stockLedger).values({
+      id: crypto.randomUUID(),
+      companyId: other.companyId,
+      serverSeq: 9_000_000_000,
+      voucherType: "pack",
+      voucherId: crypto.randomUUID(),
+      line: 1,
+      itemKind: "bundle",
+      itemRef: x!.id,
+      locationId: other.loc("Y1"),
+      qtyG: 1,
+      postedAt: new Date(),
+    });
+    // m stays a plain phantom of CNT-2 (its only sighting is settled); x stays held by CNT-1's open line.
+    expect((await p.viewer.count.get({ sessionId: c2.id })).report.phantom[0]!.seenElsewhere).toBeNull();
+    expect((await p.viewer.count.get({ sessionId: c3.id })).report.phantom[0]!.seenElsewhere).toMatchObject({
+      number: "CNT-1", resolveThere: true,
+    });
+    expect((await p.viewer.count.phantomSummary()).open).toEqual({ bundles: 1, weightG: 25_000 });
+    await expect(
+      p.supervisor.count.resolve({ sessionId: c3.id, action: "void_phantom", bundleIds: [x!.id] }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("CNT-1") });
+    const res = voided(await p.supervisor.count.resolve({ sessionId: c2.id, action: "void_phantom", bundleIds: [m!.id] }));
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    expect((await bundleRow(m!.id)).status).toBe("void");
+  });
+});
+
 describe("phantomSummary over an evening of yard counts (correctness r0 M-2)", () => {
   test("lastDay adds up every count closed on the last count's company calendar day (IST, not UTC); lastCount names its yards", async () => {
     const p = await plant();
