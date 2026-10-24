@@ -25,6 +25,7 @@ import {
   type PurchaseLotStatus,
   type VendorStatus,
 } from "@orrn/db/schema/purchase";
+import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
@@ -930,6 +931,9 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     db.delete(location).where(eq(location.companyId, COMPANY_ID)),
     db.delete(bundleGroup).where(eq(bundleGroup.companyId, COMPANY_ID)),
     db.delete(dispatch).where(eq(dispatch.companyId, COMPANY_ID)),
+    // Order lines and orders reference die and customer (RESTRICT): they go first (PL-8 spec S-3).
+    db.delete(salesOrderLine).where(eq(salesOrderLine.companyId, COMPANY_ID)),
+    db.delete(salesOrder).where(eq(salesOrder.companyId, COMPANY_ID)),
     db.delete(die).where(eq(die.companyId, COMPANY_ID)),
     db.delete(customer).where(eq(customer.companyId, COMPANY_ID)),
     db.delete(auditLog).where(eq(auditLog.companyId, COMPANY_ID)),
