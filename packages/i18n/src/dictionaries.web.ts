@@ -33,7 +33,10 @@ const pending: Partial<Record<"en" | "hi" | "gu", Promise<void>>> = {};
 /** Fetches a language's messages once (concurrent callers share the request; a failure can be retried). */
 export function loadMessages(locale: "en" | "hi" | "gu"): Promise<void> {
   if (hasMessages(locale)) return Promise.resolve();
-  pending[locale] ??= LOADERS[locale]().then(
+  // Gujarati is partial: the keys it lacks answer in English, so the full English comes with it
+  // (without it a Gujarati screen outside the floor namespaces would show raw keys).
+  const load = locale === "gu" ? loadMessages("en").then(() => LOADERS.gu()) : LOADERS[locale]();
+  pending[locale] ??= load.then(
     (messages) => {
       DICTIONARIES[locale] = messages;
       complete.add(locale);
