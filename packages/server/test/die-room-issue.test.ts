@@ -38,7 +38,7 @@ const ROLES: CompanyRole[] = [
 let runNo = 0;
 
 async function plant() {
-  const { companyId, users } = await env.seedCompany();
+  const { companyId, users } = await env.seedCompany({ settings: { dieRoom: { newCopyOnTrial: false } } }); // these tests are about the rack; the trial flow has its own file
   const sectionId = await env.seedDie(companyId, { series: "Domal", sectionCode: "12170", weightMinG: 5_900, weightMaxG: 6_200 });
   const lineId = crypto.randomUUID();
   await env.db.insert(pressLine).values({ id: lineId, companyId, code: "P1", name: "Press 1" });

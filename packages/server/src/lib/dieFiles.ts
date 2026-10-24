@@ -156,6 +156,8 @@ export type DieUploadTicket = {
   size: number;
   contentType: string;
   pressDrawing: boolean;
+  /** Bulk attach (FP-DR-19): the PDF becomes the press drawing only if the section has none at commit. */
+  drawingIfNone?: boolean;
   exp: number;
 };
 
@@ -240,4 +242,26 @@ export async function handleDieFileUpload(
     customMetadata: { companyId: ticket.companyId, sectionId: ticket.sectionId, fileId: ticket.fileId, uploadedBy: ticket.userId },
   });
   return new Response(JSON.stringify({ ok: true, bytes: length }), { status: 200, headers: { "content-type": "application/json" } });
+}
+
+// ---------------------------------------------------------------------------
+// Bulk attach by file name (FP-DR-19)
+// ---------------------------------------------------------------------------
+
+/** The die file kind a file extension means, or null when orrn does not keep that file. */
+export function dieFileKindOfName(name: string): DieFileKind | null {
+  const ext = name.toLowerCase().split(".").pop() ?? "";
+  if (["jpg", "jpeg", "png", "webp"].includes(ext)) return "image";
+  if (ext === "pdf" || ext === "cdr" || ext === "dwg") return ext;
+  return null;
+}
+
+/**
+ * The die name in a file name: `12170.pdf` -> `12170`, `12170-1.cdr` -> `12170-1`. A typed slash
+ * (`12170/1`) reads as the hyphen the copy code uses. Lower-cased for matching.
+ */
+export function dieNameOfFile(name: string): string {
+  const dot = name.lastIndexOf(".");
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  return stem.trim().replace(/\//g, "-").toLowerCase();
 }

@@ -9,13 +9,14 @@ import { and, asc, desc, eq, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { dieInstance, dieMaker, dieMakerJob, dieMakerJobPurposes, dieMakerJobStatuses } from "@orrn/db/schema/dies";
-import { dieCopyNext } from "@orrn/domain";
+import { dieCopyNext, newCopyStatus } from "@orrn/domain";
 
 import { actionProcedure, anyActionProcedure, companyProcedure, router } from "../index";
 import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
-import { audit, auditCtx, decodeListCursor, dieRoomAbortUnless, encodeListCursor, errorText, isDieRoomAbort, listCursorInput } from "../lib/dieRoom";
+import { audit, auditCtx, decodeListCursor, dieRoomAbortUnless, encodeListCursor, errorText, isDieRoomAbort, listCursorInput, loadFloorSettings } from "../lib/dieRoom";
+import { sentFromStatus } from "../lib/dieTrial";
 import { nextDocNumber } from "../lib/docNumber";
 import { nameKey } from "../lib/purchase";
 import { nextCompanySeq } from "../lib/sequence";
@@ -183,7 +184,8 @@ export const dieMakerRouter = router({
         if (!copy) throw new TRPCError({ code: "NOT_FOUND", message: "Die not found" });
         const maker = await loadMaker(ctx.db, ctx.companyId, input.dieMakerId);
         if (maker.status !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: `${maker.name} is archived` });
-        if (dieCopyNext(copy.status, "makerSend") === null) {
+        // A copy on trial that failed goes back to the maker too (FP-DR-17, event trialToMaker).
+        if ((dieCopyNext(copy.status, "makerSend") ?? dieCopyNext(copy.status, "trialToMaker")) === null) {
           const where: Record<string, string> = { in_use: "is issued to a press", at_nitriding: "is out at nitriding", at_maker: "is already at the die maker", retired: "is retired" };
           throw new TRPCError({ code: "BAD_REQUEST", message: `${copy.code} ${where[copy.status] ?? `is ${copy.status}`}` });
         }
@@ -215,7 +217,7 @@ export const dieMakerRouter = router({
                 updatedAt: sql<number>`${at.getTime()}`.as("updated_at"),
               })
               .from(dieInstance)
-              .where(and(eq(dieInstance.id, copy.id), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.status, "available"))),
+              .where(and(eq(dieInstance.id, copy.id), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.status, copy.status))),
           ),
           ctx.db
             .update(dieInstance)
@@ -224,14 +226,14 @@ export const dieMakerRouter = router({
               and(
                 eq(dieInstance.id, copy.id),
                 eq(dieInstance.companyId, ctx.companyId),
-                eq(dieInstance.status, "available"),
+                eq(dieInstance.status, copy.status),
                 sql`exists (select 1 from die_maker_job j where j.id = ${id} and j.server_seq = ${seq})`,
               ),
             ),
           dieRoomAbortUnless(ctx.db, sql`exists (select 1 from die_instance i where i.id = ${copy.id} and i.status = 'at_maker' and i.server_seq = ${seq})`),
           auditInsertGuarded(
             auditCtx(ctx),
-            { action: "die_maker_job.send", subjectType: "die_instance", subjectId: copy.id, meta: { jobId: id, number: doc.number, dieMakerId: maker.id, purpose: input.purpose } },
+            { action: "die_maker_job.send", subjectType: "die_instance", subjectId: copy.id, meta: { jobId: id, number: doc.number, dieMakerId: maker.id, purpose: input.purpose, fromStatus: copy.status } },
             { from: dieMakerJob, where: eq(dieMakerJob.id, id) },
           ),
         ];
@@ -270,6 +272,12 @@ async function closeJob(
 ) {
   if (job.status !== "sent") throw new TRPCError({ code: "BAD_REQUEST", message: `${job.number} is already ${job.status}` });
   const at = clockNow();
+  // FP-DR-17: a copy back from the maker is on trial while the plant setting is on; a cancelled job
+  // puts the copy back as it went (the rack, or on trial).
+  const back: "available" | "on_trial" =
+    to === "received"
+      ? newCopyStatus(await loadFloorSettings(ctx.db, ctx.companyId))
+      : await sentFromStatus(ctx.db, ctx.companyId, job.dieInstanceId, job.id);
   const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
   const jobLanded = sql`exists (select 1 from die_maker_job j where j.id = ${job.id} and j.server_seq = ${seq} and j.status = ${to})`;
   const statements: SqliteBatchItem[] = [
@@ -285,7 +293,7 @@ async function closeJob(
     ctx.db
       .update(dieInstance)
       .set({
-        status: "available",
+        status: back,
         serverSeq: seq,
         // A trial weight fills the card only when it is empty; it is not the current weight.
         ...(to === "received" && input.trialKgPer12ftMilli !== undefined
@@ -293,14 +301,14 @@ async function closeJob(
           : {}),
       })
       .where(and(eq(dieInstance.id, job.dieInstanceId), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.status, "at_maker"), jobLanded)),
-    dieRoomAbortUnless(ctx.db, sql`${jobLanded} and exists (select 1 from die_instance i where i.id = ${job.dieInstanceId} and i.status = 'available' and i.server_seq = ${seq})`),
+    dieRoomAbortUnless(ctx.db, sql`${jobLanded} and exists (select 1 from die_instance i where i.id = ${job.dieInstanceId} and i.status = ${back} and i.server_seq = ${seq})`),
     auditInsertGuarded(
       auditCtx(ctx),
       {
         action: to === "received" ? "die_maker_job.receive" : "die_maker_job.cancel",
         subjectType: "die_instance",
         subjectId: job.dieInstanceId,
-        meta: { jobId: job.id, number: job.number, trialKgPer12ftMilli: input.trialKgPer12ftMilli ?? null },
+        meta: { jobId: job.id, number: job.number, trialKgPer12ftMilli: input.trialKgPer12ftMilli ?? null, copyTo: back },
       },
       { from: dieMakerJob, where: and(eq(dieMakerJob.id, job.id), eq(dieMakerJob.serverSeq, seq)) },
     ),

@@ -58,7 +58,7 @@ const ROLES: CompanyRole[] = [
 async function plant(settings: Record<string, unknown> = {}) {
   r2 ??= new FakeR2();
   workersEnv.DIE_FILES = r2;
-  const { companyId, users } = await env.seedCompany({ settings });
+  const { companyId, users } = await env.seedCompany({ settings: { dieRoom: { newCopyOnTrial: false }, ...settings } }); // the trial flow has its own file
   const sectionId = await env.seedDie(companyId, { series: "Domal", sectionCode: "12170", weightMinG: 5_900, weightMaxG: 6_200, wallTenthMm: 12 });
   const as = (role: CompanyRole) => env.caller({ role, companyId });
   return { companyId, users, sectionId, as, manager: as("manager"), dieRoom: as("die_room"), viewer: as("viewer") };
@@ -219,7 +219,7 @@ describe("die files: signed PUT upload, commit, signed GET, press drawing (FP-DR
     expect(r2.objects.get(begun.key)!.body.byteLength).toBe(1024);
     expect(r2.objects.get(begun.key)!.httpMetadata).toMatchObject({ contentType: "image/jpeg" });
     const photo = await p.dieRoom.dieInstance.files.commit({ uploadId: begun.uploadId });
-    expect(photo).toEqual({ id: begun.fileId, key: begun.key, bytes: 1024 });
+    expect(photo).toEqual({ id: begun.fileId, key: begun.key, bytes: 1024, pressDrawing: false });
     const [row] = await env.db.select().from(dieFile).where(eq(dieFile.id, photo.id));
     expect(row).toMatchObject({ kind: "image", bytes: 1024, dieInstanceId: copy.id, pressDrawing: false, r2Key: photo.key, filename: "12170-1.jpg" });
     expect(await p.viewer.dieInstance.files.list({ sectionId: p.sectionId })).toHaveLength(1);
