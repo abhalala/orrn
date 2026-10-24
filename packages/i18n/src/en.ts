@@ -288,7 +288,6 @@ export const en = {
     },
     noAccess: {
       title: "Your account isn't in a company yet",
-      body: "You're signed in as {email}.",
       signedInLabel: "Signed in as",
       ask: "Ask your admin to invite this email.",
       copyEmail: "Copy email",
