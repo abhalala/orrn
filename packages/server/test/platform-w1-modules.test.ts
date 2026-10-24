@@ -4,9 +4,14 @@
  * empty list = all on; reads stay open (the die pick inside pack); Godseye validates + audits.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { auditLog, company } from "@orrn/db/schema";
-import { COMPANY_MODULES, type CompanyModule } from "@orrn/domain";
+import { Miniflare } from "miniflare";
+
+import { approval, auditLog, company } from "@orrn/db/schema";
+import { COMPANY_MODULES, isModuleOn, type CompanyModule } from "@orrn/domain";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -39,6 +44,10 @@ const MUTATIONS: { module: CompanyModule; path: string; call: (c: Caller) => Pro
   { module: "foundry", path: "foundry.returnStreams.seedDefaults", call: (c) => c.foundry.returnStreams.seedDefaults() },
   { module: "store", path: "store.receive", call: (c) => c.store.receive({} as never) },
   { module: "purchase", path: "purchase.scrapItems.create", call: (c) => c.purchase.scrapItems.create({} as never) },
+  { module: "purchase", path: "vendor.create", call: (c) => c.vendor.create({} as never) },
+  { module: "purchase", path: "vendor.merge", call: (c) => c.vendor.merge({} as never) },
+  { module: "bundles", path: "stock.move", call: (c) => c.stock.move({} as never) },
+  { module: "bundles", path: "stock.openingBalance", call: (c) => c.stock.openingBalance() },
 ];
 
 async function failure(p: Promise<unknown>): Promise<{ code?: string; message: string } | null> {
@@ -96,6 +105,15 @@ describe("assertModule at the router level", () => {
     await expect(owner.customer.create({ name: "Second" } as never)).rejects.toMatchObject({ message: MSG });
   });
 
+  test("stock masters (locations) stay ungated: a store-only plant still keeps its yard list", async () => {
+    const { companyId } = await env.seedCompany({ modules: ["store"] });
+    const e = await failure(env.caller({ role: "owner", companyId }).stock.seedDefaults());
+    expect(e?.message ?? "").not.toBe(MSG);
+    expect(gate.moduleForPath("stock.seedDefaults")).toBeNull();
+    expect(gate.moduleForPath("stock.move")).toBe("bundles");
+    expect(gate.moduleForPath("stock.balance")).toBeNull();
+  });
+
   test("the router map covers every gated module and later routers (press, ageing, plans)", () => {
     expect(gate.moduleForPath("press.runs.start")).toBe("press");
     expect(gate.moduleForPath("ageing.batches.load")).toBe("ageing");
@@ -117,6 +135,39 @@ describe("assertModule at the router level", () => {
       message: MSG,
     });
   });
+});
+
+describe("approval.decide checks the module of the request's kind", () => {
+  test("every approval kind maps to a module", async () => {
+    const { approvalKinds } = await import("@orrn/db/schema");
+    for (const k of approvalKinds) expect({ k, known: COMPANY_MODULES.includes(gate.APPROVAL_KIND_MODULE[k]) }).toEqual({ k, known: true });
+    expect(gate.APPROVAL_KIND_MODULE.cast_close).toBe("foundry");
+    expect(gate.APPROVAL_KIND_MODULE.dc_note).toBe("purchase");
+    expect(gate.APPROVAL_KIND_MODULE.die_rerank).toBe("dies");
+  });
+
+  for (const [kind, module] of [
+    ["cast_close", "foundry"],
+    ["dc_note", "purchase"],
+    ["die_rerank", "dies"],
+  ] as const) {
+    test(`${kind}: FORBIDDEN with ${module} off; the request stays pending; with it on the module is not the refusal`, async () => {
+      const others = COMPANY_MODULES.filter((x) => x !== module);
+      const off = await env.seedCompany({ modules: [...others] });
+      const id = crypto.randomUUID();
+      const requester = await env.seedUser("Requester");
+      await env.db.insert(approval).values({ id, companyId: off.companyId, kind, subjectId: crypto.randomUUID(), requestedBy: requester } as never);
+      const e = await failure(env.caller({ role: "owner", companyId: off.companyId }).approval.decide({ id, decision: "rejected" }));
+      expect(e).toMatchObject({ code: "FORBIDDEN", message: MSG });
+      expect((await env.db.select({ status: approval.status }).from(approval).where(eq(approval.id, id)).get())!.status).toBe("pending");
+
+      const on = await env.seedCompany({ modules: [module] });
+      const id2 = crypto.randomUUID();
+      await env.db.insert(approval).values({ id: id2, companyId: on.companyId, kind, subjectId: crypto.randomUUID(), requestedBy: requester } as never);
+      const e2 = await failure(env.caller({ role: "owner", companyId: on.companyId }).approval.decide({ id: id2, decision: "rejected" }));
+      expect(e2?.message ?? "").not.toBe(MSG);
+    });
+  }
 });
 
 describe("platform.updatePlanAndModules (platform.companies.update)", () => {
@@ -155,5 +206,76 @@ describe("platform.updatePlanAndModules (platform.companies.update)", () => {
     await expect(
       env.caller({ role: "owner", companyId }).platform.updatePlanAndModules({ companyId, plan: "x", modules: [] }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
+const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../db/src/migrations");
+const LEGACY_MODULES = ["customers", "dies", "bundles", "dispatches"];
+
+describe("migration 0026_modules_all (D14): the old 4-key module list becomes [] (all on)", () => {
+  test("0001-0026 on plants saved by the old Godseye form: legacy list -> []; real choices kept", async () => {
+    const mf = new Miniflare({ modules: true, script: "export default { fetch() { return new Response('ok'); } }", d1Databases: ["DB"] });
+    try {
+      const d1 = await mf.getD1Database("DB");
+      const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
+      expect(files).toContain("0026_modules_all.sql");
+      const apply = async (file: string) => {
+        const statements = readFileSync(join(MIGRATIONS_DIR, file), "utf8")
+          .split("--> statement-breakpoint")
+          .map((x) => x.trim())
+          .filter(Boolean);
+        await d1.batch(statements.map((x) => d1.prepare(x)));
+      };
+      for (const f of files.filter((f) => f < "0026")) await apply(f);
+      const plants: [string, string[]][] = [
+        ["legacy", LEGACY_MODULES],
+        ["legacy-shuffled", ["dispatches", "bundles", "dies", "customers"]],
+        ["all", []],
+        ["subset", ["dies", "bundles"]],
+        ["legacy-plus-orders", [...LEGACY_MODULES, "orders"]],
+        ["legacy-with-duplicate", ["customers", "dies", "bundles", "bundles"]],
+      ];
+      await d1.batch(
+        plants.map(([id, modules]) =>
+          d1.prepare("insert into company (id, name, slug, modules) values (?, ?, ?, ?)").bind(id, id, id, JSON.stringify(modules)),
+        ),
+      );
+      for (const f of files.filter((f) => f >= "0026")) await apply(f);
+
+      const { results } = await d1.prepare("select id, modules from company").all<{ id: string; modules: string }>();
+      const after = Object.fromEntries(results.map((r) => [r.id, JSON.parse(r.modules) as string[]]));
+      expect(after).toEqual({
+        legacy: [],
+        "legacy-shuffled": [],
+        all: [],
+        subset: ["dies", "bundles"],
+        "legacy-plus-orders": [...LEGACY_MODULES, "orders"],
+        "legacy-with-duplicate": ["customers", "dies", "bundles", "bundles"],
+      });
+      // A migrated plant passes the gate for every module the new router gate checks.
+      for (const m of COMPANY_MODULES) expect({ m, on: isModuleOn(after.legacy!, m) }).toEqual({ m, on: true });
+
+      // The release.check index exists and device carries session_id.
+      const idx = await d1.prepare("select name from sqlite_master where type = 'index' and name = 'device_install_idx'").all();
+      expect(idx.results).toHaveLength(1);
+      const cols = await d1.prepare("select name from pragma_table_info('device')").all<{ name: string }>();
+      expect(cols.results.map((c) => c.name)).toContain("session_id");
+    } finally {
+      await mf.dispose();
+    }
+  });
+
+  test("0026 only adds (columns, an index) and runs the one module UPDATE", () => {
+    const text = readFileSync(join(MIGRATIONS_DIR, "0026_modules_all.sql"), "utf8");
+    const statements = text.split("--> statement-breakpoint").map((x) => x.trim()).filter(Boolean);
+    for (const st of statements) {
+      expect(st).toMatch(/^(ALTER TABLE `[a-z_]+` ADD `[a-z_]+`|CREATE INDEX `[a-z_]+` ON |UPDATE `company` SET `modules` = '\[\]')/);
+    }
+    expect(statements.filter((st) => st.startsWith("UPDATE"))).toHaveLength(1);
+    const journal = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/_journal.json"), "utf8")) as { entries: { idx: number; tag: string }[] };
+    expect(journal.entries.find((e) => e.tag === "0026_modules_all")?.idx).toBe(26);
+    const s26 = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/0026_snapshot.json"), "utf8")) as { prevId: string };
+    const s25 = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/0025_snapshot.json"), "utf8")) as { id: string };
+    expect(s26.prevId).toBe(s25.id);
   });
 });

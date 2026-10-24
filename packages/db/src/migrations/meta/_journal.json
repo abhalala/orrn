@@ -176,6 +176,13 @@
       "when": 1792857085053,
       "tag": "0025_platform_wave1",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1792860687566,
+      "tag": "0026_modules_all",
+      "breakpoints": true
     }
   ]
 }

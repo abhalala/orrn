@@ -1,0 +1,3 @@
+ALTER TABLE `device` ADD `session_id` text;--> statement-breakpoint
+CREATE INDEX `device_install_idx` ON `device` (`install_id`);--> statement-breakpoint
+UPDATE `company` SET `modules` = '[]' WHERE json_valid(`modules`) AND json_array_length(`modules`) = 4 AND (SELECT count(DISTINCT `value`) FROM json_each(`company`.`modules`) WHERE `value` IN ('customers', 'dies', 'bundles', 'dispatches')) = 4;

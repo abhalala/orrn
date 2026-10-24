@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 
+import type { ApprovalKind } from "@orrn/db/schema/approval";
 import { company } from "@orrn/db/schema/tenant";
 import { isModuleOn, type CompanyModule } from "@orrn/domain";
 
@@ -35,12 +36,45 @@ export const ROUTER_MODULE: Readonly<Record<string, CompanyModule>> = {
   ageing: "ageing",
   store: "store",
   purchase: "purchase",
+  // Scrap vendors are purchase masters (routers/vendor.ts).
+  vendor: "purchase",
 };
+
+/**
+ * Single procedures of an otherwise ungated router. `stock` keeps its location masters open (a
+ * store-only plant still lists its yard), but moving bundles and taking legacy bundles onto the
+ * ledger are bundle work.
+ */
+export const PROCEDURE_MODULE: Readonly<Record<string, CompanyModule>> = {
+  "stock.move": "bundles",
+  "stock.openingBalance": "bundles",
+};
+
+/**
+ * The module whose rows an approval kind's decision writes (lib/approvalApply.ts). `approval.decide`
+ * checks it per request, since one router serves every kind. Typed over every kind, so a new kind
+ * does not compile until it is registered here.
+ */
+export const APPROVAL_KIND_MODULE: Readonly<Record<ApprovalKind, CompanyModule>> = {
+  dc_note: "purchase",
+  cast_close: "foundry",
+  die_rerank: "dies",
+  dispatch_overdraw: "dispatches",
+  phantom_void: "bundles",
+  die_owner_override: "dies",
+  order_reallocate: "orders",
+  press_time: "press",
+  press_reopen: "press",
+  ageing_override: "ageing",
+};
+
+const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
 
 /** The module a procedure path (`die.create`, `orders.lines.add`) belongs to, or null (ungated). */
 export function moduleForPath(path: string): CompanyModule | null {
+  if (own(PROCEDURE_MODULE, path)) return PROCEDURE_MODULE[path]!;
   const top = path.split(".")[0] ?? "";
-  return Object.prototype.hasOwnProperty.call(ROUTER_MODULE, top) ? ROUTER_MODULE[top]! : null;
+  return own(ROUTER_MODULE, top) ? ROUTER_MODULE[top]! : null;
 }
 
 /** The company's module list as stored (empty = every module on). */
