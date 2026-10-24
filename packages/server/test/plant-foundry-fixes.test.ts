@@ -170,7 +170,8 @@ describe("dev seed: the reset knows the foundry tables", () => {
 
     // The reset must delete the foundry rows before the lots, locations and store items they point at.
     expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
-    expect(await env.db.select().from(cast).where(eq(cast.companyId, companyId))).toEqual([]);
+    // Only the seed's own cast (W2-PR-S press demo, billets on hand) comes back; the app-made one is gone.
+    expect((await env.db.select({ id: cast.id }).from(cast).where(eq(cast.companyId, companyId))).map((c) => c.id)).toEqual(["dev-cast-1"]);
     expect(await env.db.select().from(melt).where(eq(melt.companyId, companyId))).toEqual([]);
     // Wave 2 contracts: the seed puts back the foundry sheet's 11 streams (fresh rows, none the app made).
     const streams = await env.db.select().from(returnStream).where(eq(returnStream.companyId, companyId));

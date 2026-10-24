@@ -451,7 +451,8 @@ describe("dev seed: die room demo (idempotent)", () => {
     // D13: the open issue targets a run on P1 that was queued for the Patti section.
     const issued = await caller.dieInstance.issues.list({ status: "issued" });
     expect(issued.items.map((i) => [i.code, i.pressLineCode, i.pressRunStatus])).toEqual([["14701-1", "P1", "die_issued"]]);
-    const runs = await env.db.select().from(pressRun).where(eq(pressRun.companyId, companyId));
+    // W2-PR-S also seeds a logged run (PR-2) and a late entry (PR-3); the issued one is PR-1.
+    const runs = await env.db.select().from(pressRun).where(and(eq(pressRun.companyId, companyId), eq(pressRun.status, "die_issued")));
     expect(runs).toHaveLength(1);
     expect(runs[0]).toMatchObject({ id: issued.items[0]!.pressRunId, status: "die_issued", dieInstanceId: "dev-copy-14701-1", pressLineId: "dev-press-line-1" });
     const [patti] = await env.db.select().from(dieInstance).where(eq(dieInstance.id, "dev-copy-14701-1"));
