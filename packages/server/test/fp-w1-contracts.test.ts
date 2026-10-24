@@ -56,9 +56,12 @@ const WAVE1_TABLES = [
 ];
 
 describe("migration 0023_fp_wave1", () => {
-  test("is the last migration and creates every Wave 1 table", async () => {
+  test("is the Wave 1 contracts migration (later ones only add) and creates every Wave 1 table", async () => {
     const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-    expect(files.at(-1)).toBe("0023_fp_wave1.sql");
+    // 0023 stays the contracts file; 0024 (W1-SPOOL) and 0025+ (module agents) come after it and
+    // are purely additive (each asserts that in its own test, e.g. platform-w1-settings.test.ts).
+    expect(files).toContain("0023_fp_wave1.sql");
+    expect(files.filter((f) => f > "0023_fp_wave1.sql").every((f) => Number(f.slice(0, 4)) >= 24)).toBe(true);
     const rows = (await env.db.all<{ name: string }>(
       // biome-ignore lint: raw sqlite_master read
       (await import("drizzle-orm")).sql`select name from sqlite_master where type = 'table'`,
