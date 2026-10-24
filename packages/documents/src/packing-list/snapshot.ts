@@ -115,10 +115,24 @@ export function bundlesText(n: number): string {
   return `${n} ${n === 1 ? "bundle" : "bundles"}`;
 }
 
-/** The dispatch's ship date as printed ("05 Oct 2026"), or null when none was set. */
-export function plShipDateText(shipDate: string | null | undefined): string | null {
-  if (!shipDate) return null;
-  const at = new Date(shipDate);
-  if (Number.isNaN(at.getTime())) return null;
-  return at.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+/** IST is UTC+05:30 all year (no DST): the plant's clock for snapshots made before `header.shipDate`. */
+const IST_OFFSET_MS = 330 * 60_000;
+
+/**
+ * The dispatch's ship date as printed ("05 Oct 2026"), or null when none was set. `shipYmd` is the
+ * snapshot's `header.shipDate` (the company's calendar day, review round 3 m-5); without it the
+ * instant is read on the plant's clock (IST). Formatted by hand, so neither the reader's timezone nor
+ * the runtime's Intl support (Hermes on native) can move the day.
+ */
+export function plShipDateText(shipDate: string | null | undefined, shipYmd?: string | null): string | null {
+  let ymd = shipYmd && /^\d{4}-\d{2}-\d{2}$/.test(shipYmd) ? shipYmd : null;
+  if (!ymd) {
+    if (!shipDate) return null;
+    const at = new Date(shipDate).getTime();
+    if (Number.isNaN(at)) return null;
+    ymd = new Date(at + IST_OFFSET_MS).toISOString().slice(0, 10);
+  }
+  const [y, m, d] = ymd.split("-");
+  return `${d} ${MONTHS[Number(m) - 1]} ${y}`;
 }

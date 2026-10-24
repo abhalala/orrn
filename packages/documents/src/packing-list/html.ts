@@ -44,7 +44,7 @@ function buildPackingListHtmlV2(pl: PLSnapshot & { header: NonNullable<PLSnapsho
       ${p.address ? `<div>${e(p.address)}</div>` : ""}
       ${p.gstin ? `<div>GSTIN ${e(p.gstin)}</div>` : ""}
     </div>`;
-  const shipDate = plShipDateText(pl.dispatch.shipDate);
+  const shipDate = plShipDateText(pl.dispatch.shipDate, pl.header?.shipDate);
   const head = PL_COLUMN_HEADINGS.map((c, i) => `<th${NUMERIC_COLUMNS.has(i) ? ' class="num"' : ""}>${escapeHtml(c)}</th>`).join("");
   const body = pl.groups
     .map((g) => {

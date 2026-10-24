@@ -13,6 +13,7 @@ import {
   parseDecimal,
   weightRange12ft,
   weightRange12ftFromMilli,
+  weightRange12ftOf,
 } from "./units";
 
 describe("constants and weight conversion", () => {
@@ -145,5 +146,33 @@ describe("formatLength", () => {
   test("inches round to the nearest 0.25", () => {
     // 11 ft 6.25 in = 138.25 in = 3511.55 mm
     expect(formatLength(3512, "inch")).toBe("11 ft 6.25 in");
+  });
+});
+
+describe("weightRange12ftOf (Range /12' from the raw bundle, PL-8 review round 3)", () => {
+  // 12 pcs of 10 ft (3,048 mm): raw kg/12ft = weightG / 10,000 exactly.
+  const tenFt = (weightG: number) => weightRange12ftOf({ weightG, pieces: 12, lengthMm: 3_048 });
+
+  test("the Excel formula on the raw value: 2.0895 -> 2.0 (its printed 2.090 would say 2.1), 2.090 -> 2.1", () => {
+    expect(tenFt(20_895)).toBe(2.0);
+    expect(tenFt(20_899)).toBe(2.0);
+    expect(tenFt(20_900)).toBe(2.1);
+    expect(tenFt(25_220)).toBe(2.5);
+    expect(tenFt(23_880)).toBe(2.3);
+    // 20.9 kg of 10 pcs at 3,658 mm is raw 2.08977 kg/12ft (printed 2.090): band 2.0.
+    expect(weightRange12ftOf({ weightG: 20_900, pieces: 10, lengthMm: 3_658 })).toBe(2.0);
+  });
+
+  test("equals floor((weightG + 100) / 1000) / 10 for every weight 5,000..90,000 g at 12 pcs × 3,048 mm", () => {
+    const wrong: number[] = [];
+    for (let w = 5_000; w <= 90_000; w += 1) if (tenFt(w) !== Math.floor((w + 100) / 1000) / 10) wrong.push(w);
+    expect(wrong).toEqual([]);
+  });
+
+  test("away from a band edge it agrees with weightRange12ft(kgPer12ft(...)); null without pieces or length", () => {
+    expect(weightRange12ftOf({ weightG: 52_400, pieces: 21, lengthMm: 3_658 })).toBe(weightRange12ft(kgPer12ft({ weightG: 52_400, pieces: 21, lengthMm: 3_658 })!));
+    expect(weightRange12ftOf({ weightG: 3_000, pieces: 1, lengthMm: 3_657.6 })).toBe(3.0);
+    expect(weightRange12ftOf({ weightG: 1_000, pieces: 0, lengthMm: 3_000 })).toBeNull();
+    expect(weightRange12ftOf({ weightG: 1_000, pieces: 5, lengthMm: 0 })).toBeNull();
   });
 });

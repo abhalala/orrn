@@ -9,7 +9,7 @@ import { approval, auditLog, customer, die, dispatchItem, salesOrder, user } fro
 import { and, asc, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { kg, NOON, salesHelpers, SLOW } from "./sales-fixture";
+import { kg, NOON, salesHelpers, SLOW, saveOrder } from "./sales-fixture";
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
@@ -47,32 +47,39 @@ async function sheetRows(buf: Uint8Array): Promise<unknown[][]> {
 
 const refused = (e: { code?: string }) => `refused:${e.code}`;
 
-describe("S-1 Range /12' on stored thousandths", () => {
-  test("Range /12' is exact on stored thousandths (2.090 -> 2.1), for every kg/12ft from 0.5 to 9.0", () => {
-    const item = (milli: number, i: number) => ({
-      bundleId: `b${i}`, serial: `26I${1000 + i}`, quantity: 10, weightG: 25_000, lengthMm: 3_658, kgPer12ftMilli: milli,
+describe("S-1 Range /12' from the raw kg/12ft (review round 3: the plant's Excel formula on the raw value)", () => {
+  test("Range /12' is floor((raw kg/12ft + 0.01) × 10) / 10 for every raw kg/12ft near each band edge from 0.5 to 9.0", () => {
+    // 12 pcs of 10 ft (3,048 mm): raw kg/12ft = weightG / 10,000 exactly, so the truth is integer:
+    // band tenths = floor((weightG + 100) / 1000).
+    const item = (weightG: number, i: number) => ({
+      bundleId: `b${i}`, serial: `26I${100000 + i}`, quantity: 12, weightG, lengthMm: 3_048,
+      kgPer12ftMilli: Math.round(weightG / 10),
       bundlePo: null, bundleGroupId: "g", groupLabel: null, dieId: "d", series: "12170", sectionCode: "12170", sectionName: "Domal", line: null,
     });
-    const milliValues = Array.from({ length: 8_501 }, (_, i) => 500 + i);
+    const weights = new Set<number>();
+    for (let tenths = 5; tenths <= 90; tenths += 1) {
+      for (let off = -12; off <= 12; off += 1) weights.add(tenths * 1000 - 100 + off);
+    }
+    for (let w = 5_000; w <= 90_000; w += 37) weights.add(w);
     const snap = buildPlSnapshotV2({
       plNumber: "PL/2026-27/1", date: "2026-10-03", generatedAt: new Date(), generatedBy: "u",
       company: { id: "c", name: "FC", settings: null },
       dispatch: { code: "D1", status: "completed", shipDate: null, notes: null, completedAt: new Date(), vehicleNo: null, driverName: null, driverPhone: null, transporter: null, invoiceNumber: null, invoiceDate: null },
       customer: null,
-      items: milliValues.map(item),
+      items: [...weights].map(item),
     });
     const wrong = snap.groups
       .flatMap((g) => g.rows)
-      .filter((r) => r.range12ft !== Math.floor((r.kgPer12ftMilli! + 10) / 100) / 10)
-      .map((r) => [r.kgPer12ftMilli, r.range12ft]);
+      .filter((r) => r.range12ft !== Math.floor((r.weightG + 100) / 1000) / 10)
+      .map((r) => [r.weightG, r.range12ft]);
     expect(wrong).toEqual([]);
   });
 
-  test("a bundle stored at 2.090 kg/12ft prints band 2.1 on the completed PL", async () => {
+  test("a bundle at exactly 2.090 kg/12ft prints band 2.1 on the completed PL", async () => {
     setClock(NOON);
     const p = await plant();
-    // 10 pcs, 20.9 kg, 3,658 mm (12 ft): 2.090 kg/12ft.
-    const d = await p.held(await p.pack(p.dieA, [{ kg: 20.9, pcs: 10, mm: 3_658 }]));
+    // 12 pcs, 20.9 kg, 3,048 mm (10 ft): exactly 2.090 kg/12ft.
+    const d = await p.held(await p.pack(p.dieA, [{ kg: 20.9, pcs: 12, mm: 3_048 }]));
     await p.owner.dispatch.complete({ id: d });
     const snap = (await plRow(d))!.snapshot as { groups: { rows: { kgPer12ftMilli: number; range12ft: number }[] }[] };
     expect(snap.groups[0]!.rows[0]).toMatchObject({ kgPer12ftMilli: 2090, range12ft: 2.1 });
@@ -332,17 +339,22 @@ describe("minor findings", () => {
     const office = p.as("office");
     const read = (await office.orders.get({ id: o.id })).order.serverSeq;
     const line = (kgG: number) => ({ id: o.lineIds[0]!, sectionId: p.dieA, cutLengthMm: 3_658, kgG });
-    await office.orders.update({ id: o.id, serverSeq: read, lines: [line(kg(150))] });
+    await saveOrder(office, { id: o.id, serverSeq: read, lines: [line(kg(150))] });
     // The second editor read the same version and saves over the first one's change.
-    expect(await office.orders.update({ id: o.id, serverSeq: read, lines: [line(kg(120))] }).then(() => "saved", refused)).toBe("refused:CONFLICT");
+    expect(await saveOrder(office, { id: o.id, serverSeq: read, lines: [line(kg(120))] }).then(() => "saved", refused)).toBe("refused:CONFLICT");
     expect((await p.lineOf(o.lineIds[0]!)).orderedG).toBe(kg(150));
     // Write time: a save that read the current version but loses to another save meanwhile.
     const now = (await office.orders.get({ id: o.id })).order.serverSeq;
-    env.beforeNextBatch(() => office.orders.update({ id: o.id, note: "other save" }));
-    expect(await office.orders.update({ id: o.id, serverSeq: now, lines: [line(kg(130))] }).then(() => "saved", refused)).toBe("refused:CONFLICT");
+    env.beforeNextBatch(() => saveOrder(office, { id: o.id, note: "other save" }));
+    expect(await saveOrder(office, { id: o.id, serverSeq: now, lines: [line(kg(130))] }).then(() => "saved", refused)).toBe("refused:CONFLICT");
     expect((await p.lineOf(o.lineIds[0]!)).orderedG).toBe(kg(150));
-    // Without a serverSeq the old behaviour stands (last save wins).
-    await office.orders.update({ id: o.id, lines: [line(kg(140))] });
+    // Without a serverSeq the save is refused (review round 3 m-6: the version is required).
+    expect(
+      await office.orders.update({ id: o.id, lines: [line(kg(140))] } as never).then(() => "saved", refused),
+    ).toBe("refused:BAD_REQUEST");
+    expect((await p.lineOf(o.lineIds[0]!)).orderedG).toBe(kg(150));
+    // With the version it read, the editor's save lands.
+    await saveOrder(office, { id: o.id, lines: [line(kg(140))] });
     expect((await p.lineOf(o.lineIds[0]!)).orderedG).toBe(kg(140));
   }, SLOW);
 });

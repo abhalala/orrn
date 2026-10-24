@@ -25,7 +25,7 @@ function buildWorkbookV2(pl: PLSnapshot & { header: NonNullable<PLSnapshot["head
     ["PO numbers", h.poNumbers.join(", ")],
     ["Invoice", [h.invoiceNumber, h.invoiceDate].filter(Boolean).join(" · ")],
     ["Dispatch", h.dispatchCode],
-    ["Ship date", plShipDateText(pl.dispatch.shipDate) ?? ""],
+    ["Ship date", plShipDateText(pl.dispatch.shipDate, pl.header?.shipDate) ?? ""],
     ["Notes", pl.dispatch.notes ?? ""],
     [],
     [...PL_COLUMN_HEADINGS],

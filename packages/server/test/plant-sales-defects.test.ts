@@ -9,7 +9,7 @@ import { approval, dispatch, packingList } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { ist, kg, NOON, salesHelpers, SLOW } from "./sales-fixture";
+import { ist, kg, NOON, salesHelpers, SLOW, saveOrder } from "./sales-fixture";
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
@@ -199,7 +199,7 @@ describe("PL8 r0 defects", () => {
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
     env.beforeNextBatch(() =>
-      p.owner.orders.update({ id: o.id, lines: [{ id: o.lineIds[0]!, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(1000) }] }),
+      saveOrder(p.owner, { id: o.id, lines: [{ id: o.lineIds[0]!, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(1000) }] }),
     );
     await expect(p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: o.lineIds[0]! })).rejects.toMatchObject({
       code: "CONFLICT",
@@ -213,9 +213,9 @@ describe("PL8 r0 defects", () => {
     const o = await p.order([{ dieId: p.dieA, kg: 100 }, { dieId: p.dieA, kg: 200 }]);
     const [l1, l2] = o.lineIds as [string, string];
     const line = { sectionId: p.dieA, cutLengthMm: 3_658 };
-    env.beforeNextBatch(() => p.owner.orders.update({ id: o.id, lines: [{ id: l1, ...line, kgG: kg(100) }] })); // removes line 2
+    env.beforeNextBatch(() => saveOrder(p.owner, { id: o.id, lines: [{ id: l1, ...line, kgG: kg(100) }] })); // removes line 2
     await expect(
-      p.owner.orders.update({ id: o.id, lines: [{ id: l1, ...line, kgG: kg(100) }, { id: l2, ...line, kgG: kg(250) }] }),
+      saveOrder(p.owner, { id: o.id, lines: [{ id: l1, ...line, kgG: kg(100) }, { id: l2, ...line, kgG: kg(250) }] }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
     expect((await p.owner.orders.get({ id: o.id })).lines.map((l) => l.lineId)).toEqual([l1]);
   }, SLOW);

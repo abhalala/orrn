@@ -27,6 +27,18 @@ export const ist = (local: string) => new Date(`${local}+05:30`);
 
 export type Api = ReturnType<typeof appRouter.createCaller>;
 
+/**
+ * `orders.update` as the order screen sends it: with the `serverSeq` the editor read (required since
+ * PL-8 review round 3). An explicit `serverSeq` in `input` is sent as given (stale-save tests).
+ */
+export async function saveOrder(
+  api: Api,
+  input: Omit<Parameters<Api["orders"]["update"]>[0], "serverSeq"> & { serverSeq?: number },
+) {
+  const serverSeq = input.serverSeq ?? (await api.orders.get({ id: input.id })).order.serverSeq;
+  return api.orders.update({ ...input, serverSeq });
+}
+
 type PackRow = { kg: number; pcs?: number; mm?: number; po?: string };
 type OrderLineSpec = { dieId: string; kg: number; pcs?: number; finish?: string; mm?: number };
 

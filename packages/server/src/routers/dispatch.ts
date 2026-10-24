@@ -520,7 +520,21 @@ function noUnlinkedWithOpenLine(companyId: string, dispatchId: string): SQL {
   return sql`not exists (select 1 from dispatch_item y join bundle bb on bb.id = y.bundle_id and bb.company_id = ${companyId} join dispatch dd on dd.id = y.dispatch_id and dd.company_id = ${companyId} where y.company_id = ${companyId} and y.dispatch_id = ${dispatchId} and y.sales_order_line_id is null and y.unlinked_by is null and exists (select 1 from sales_order_line l join sales_order o on o.id = l.sales_order_id and o.company_id = ${companyId} where l.company_id = ${companyId} and l.die_id = bb.die_id and o.customer_id = dd.customer_id and o.status in ('booking', 'confirmed', 'dispatching')))`;
 }
 
-type RelinkPlan = { statements: SqliteBatchItem[]; links: { serial: string; salesOrderLineId: string }[] };
+type RelinkPlan = {
+  statements: SqliteBatchItem[];
+  /** The read-time picks (bundle id → line) and serials, for `relinkLanded` after the batch. */
+  picks: Map<string, LineBalance>;
+  serialOf: Map<string, string>;
+};
+
+/**
+ * The relink links that actually landed, read after the batch (review round 3 m-3): a pick dropped
+ * by `dropStaleSuggestions`, or a relink UPDATE that lost to a completion or cancel, is not listed.
+ */
+async function relinkLanded(db: OrrnDb, companyId: string, dispatchId: string, plan: RelinkPlan) {
+  const landed = await landedLinks(db, companyId, dispatchId, plan.serialOf, plan.picks);
+  return landed.map((l) => ({ serial: l.serial, salesOrderLineId: l.salesOrderLineId }));
+}
 
 /**
  * Decide the order link again where its premise can change after the scan (spec S-2, correctness
@@ -556,13 +570,14 @@ async function relinkOpen(
       ),
     )
     .orderBy(bundle.serial);
-  if (rows.length === 0) return { statements: [], links: [] };
+  if (rows.length === 0) return { statements: [], picks: new Map(), serialOf: new Map() };
   const picks = await suggestLines(db, companyId, {
     customerId: d.customerId,
     dispatchId: d.id,
     bundles: rows.map((r) => ({ id: r.bundleId, dieId: r.dieId, weightG: r.weightG, salesOrderLineId: r.packedFor })),
   });
-  if (picks.size === 0) return { statements: [], links: [] };
+  const serialOf = new Map(rows.map((r) => [r.bundleId, r.serial]));
+  if (picks.size === 0) return { statements: [], picks, serialOf };
   const byLine = new Map<string, string[]>();
   for (const [bundleId, l] of picks) byLine.set(l.lineId, [...(byLine.get(l.lineId) ?? []), bundleId]);
   const statements: SqliteBatchItem[] = [];
@@ -586,11 +601,23 @@ async function relinkOpen(
     }
   }
   statements.push(...dropStaleSuggestions(db, companyId, d.id, [...picks.keys()]));
-  const serialOf = new Map(rows.map((r) => [r.bundleId, r.serial]));
-  return {
-    statements,
-    links: [...picks].map(([bundleId, l]) => ({ serial: serialOf.get(bundleId) ?? "", salesOrderLineId: l.lineId })),
-  };
+  return { statements, picks, serialOf };
+}
+
+/** One `dispatch.relink` audit row for the links that landed (none landed: no row). */
+async function auditRelink(
+  ctx: Pick<Context, "db" | "companyId" | "session" | "impersonation"> & { companyId: string },
+  dispatchId: string,
+  reason: "complete" | "customer",
+  links: { serial: string; salesOrderLineId: string }[],
+) {
+  if (links.length === 0) return;
+  await atomicBatch(ctx.db, [
+    auditInsert(
+      { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+      { action: "dispatch.relink", subjectType: "dispatch", subjectId: dispatchId, meta: { reason, links } },
+    ),
+  ]);
 }
 
 export const dispatchRouter = router({
@@ -891,7 +918,7 @@ export const dispatchRouter = router({
       const customerChange = Boolean(input.customerId && input.customerId !== existing.customerId);
       const relink = customerChange
         ? await relinkOpen(ctx.db, ctx.companyId, { id: existing.id, customerId: input.customerId! }, { ignoreMarkers: true })
-        : { statements: [], links: [] };
+        : { statements: [], picks: new Map<string, LineBalance>(), serialOf: new Map<string, string>() };
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       // Write-time: the edit lands only in the state it was checked for. A header edit read on a
@@ -988,7 +1015,6 @@ export const dispatchRouter = router({
               ...(baseChange
                 ? { customerId: input.customerId ?? existing.customerId, shipDate: input.shipDate ?? null }
                 : {}),
-              ...(relink.links.length ? { relinked: relink.links } : {}),
               ...(headerKeys.length
                 ? {
                     header: Object.fromEntries(headerKeys.map((k) => [k, { from: existing[k] ?? null, to: header[k] ?? null }])),
@@ -1003,6 +1029,9 @@ export const dispatchRouter = router({
       } catch (e) {
         if (!isBatchAbort(e, "packing_list_line")) throw e;
         throw new TRPCError({ code: "CONFLICT", message: "This dispatch changed meanwhile. Reload and try again." });
+      }
+      if (relink.picks.size > 0) {
+        await auditRelink(ctx, existing.id, "customer", await relinkLanded(ctx.db, ctx.companyId, existing.id, relink));
       }
       return { success: true };
     }),
@@ -1079,8 +1108,20 @@ export const dispatchRouter = router({
       await atomicBatch(ctx.db, [
         ctx.db
           .update(dispatchItem)
-          // An unlink is on purpose (completion and a customer change do not re-suggest it); a link clears it.
-          .set({ salesOrderLineId: input.salesOrderLineId, unlinkedBy: input.salesOrderLineId ? null : ctx.session.user.id })
+          // A link clears the mark. An unlink marks the item "unlinked on purpose" (completion and a
+          // customer change do not re-suggest it) only when it is a deliberate office decision: the
+          // caller holds order.manage AND the item was linked at write time (SQLite evaluates SET on
+          // the old row). A no-op unlink of a never-linked item, or any floor unlink, leaves the mark
+          // as it was, so completion's relink and `noUnlinkedWithOpenLine` still cover the bundle
+          // (review round 3 I-1, ruling PL8-R15).
+          .set({
+            salesOrderLineId: input.salesOrderLineId,
+            unlinkedBy: input.salesOrderLineId
+              ? null
+              : guardedUnlink
+                ? sql`${sql.identifier("unlinked_by")}`
+                : sql`case when ${sql.identifier("sales_order_line_id")} is not null then ${ctx.session.user.id} else ${sql.identifier("unlinked_by")} end`,
+          })
           .where(
             and(
               eq(dispatchItem.id, item.id),
@@ -1765,11 +1806,8 @@ export const dispatchRouter = router({
             .update(dispatch)
             .set({ serverSeq: relinkSeq })
             .where(dispatchInStatus(ctx.companyId, d.id, EDITABLE_DISPATCH)),
-          auditInsert(
-            { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
-            { action: "dispatch.relink", subjectType: "dispatch", subjectId: d.id, meta: { reason: "complete", links: relink.links } },
-          ),
         ]);
+        await auditRelink(ctx, d.id, "complete", await relinkLanded(ctx.db, ctx.companyId, d.id, relink));
       }
 
       // Review Focus 5: order lines past ordered + tolerance need an approved override.
@@ -1937,6 +1975,19 @@ export const dispatchRouter = router({
         const again = await dispatchOverdraw(ctx.db, ctx.companyId, d.id, toleranceBp);
         if (again.some((l) => !l.covered)) {
           await refuseOverdraw(ctx, d, again, toleranceBp, input.overdrawNote);
+        }
+        // Review round 3 m-4: an order saved for this customer while completing (the write-time
+        // `noUnlinkedWithOpenLine` guard) is said as such; Complete again links the bundles to it.
+        const [{ clear } = { clear: 1 }] = await ctx.db
+          .select({ clear: sql<number>`${noUnlinkedWithOpenLine(ctx.companyId, d.id)}` })
+          .from(company)
+          .where(eq(company.id, ctx.companyId));
+        if (!Number(clear)) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "An order for this customer was saved while completing. Open the dispatch again and press Complete to link the bundles to it.",
+          });
         }
         throw new TRPCError({ code: "CONFLICT", message: "Bundles on this dispatch changed. Reload and try again." });
       }

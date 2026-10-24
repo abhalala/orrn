@@ -425,9 +425,10 @@ bun run deploy
   totals come from SQL (`lineTotals`, `orderTotals`), never from summing a page. `withBaki` filters
   baki > 0 in SQL before any limit (`openLines`).
 - `orders.create` takes an optional `clientRequestId` (unique per company): a retry with the same key
-  returns the first order (`replayed: true`) and burns no second SO number. `orders.update` takes an
-  optional `serverSeq` (from `orders.get`): a save over a newer version answers CONFLICT, read and
-  write time.
+  returns the first order (`replayed: true`) and burns no second SO number; the same key with another
+  order (fingerprint of customer, PO, date, status, note and lines in the `order.create` audit meta)
+  is a CONFLICT. `orders.update` REQUIRES `serverSeq` (from `orders.get`): a save over a newer
+  version answers CONFLICT, read and write time (review round 3).
 - Order status: booking ⇄ confirmed → dispatching (set by the first completed dispatch) → closed
   (reopen to confirmed). Cancel only while no live dispatch carries its lines. A line that has bundles
   or dispatch items cannot be removed or change section, and the order's customer cannot change once
@@ -448,8 +449,12 @@ bun run deploy
   same batch; `dispatch.complete` re-suggests every item left unlinked by nobody before the overdraw
   read (`relinkOpen`, audited `dispatch.relink`), and its completing UPDATE also requires that no
   such item has an open line of the customer for its section (`noUnlinkedWithOpenLine`; an order
-  saved in between answers CONFLICT). `linkItem(null)` stores the user in
-  `dispatch_item.unlinked_by` (unlinked on purpose, never re-suggested); a link clears it.
+  saved in between answers CONFLICT, and the message says an order for this customer was saved).
+  `linkItem(null)` stores the user in `dispatch_item.unlinked_by` (unlinked on purpose, never
+  re-suggested) only when an `order.manage` holder unlinks an item that was linked at write time; a
+  no-op unlink of a never-linked item and any floor unlink leave the mark as it was, so completion
+  still relinks it (review round 3 I-1). A link clears it. `dispatch.relink` audit rows list only the
+  links that landed (read back after the batch).
 - Review Focus 5: `dispatch.complete` refuses (PRECONDITION_FAILED) when a linked line's dispatched
   total would pass ordered + tolerance (`customer.kg_tolerance_bp`, else `settings.orderToleranceBp`,
   else 500 bp = 5 %) and opens one `dispatch_overdraw` approval (meta = per-line kg, no money);
@@ -469,8 +474,12 @@ bun run deploy
   (`lib/packingListSnapshot.ts`, zod `plSnapshotV2Schema`): `header` (letterhead from
   `settings.letterhead`, bill-to/ship-to, PL no, date, vehicle, driver, PO and invoice numbers),
   `columns` (11), `groups` by order line else section with subtotals, `summary.text` "N bundles ·
-  X kg", plus every v1 key with its old meaning so v1 renderers keep working. Range /12' is computed
-  from the stored thousandths in integers (`weightRange12ftFromMilli`: 2.090 → 2.1). A group carries
+  X kg", plus every v1 key with its old meaning so v1 renderers keep working. Range /12' is the
+  plant's Excel formula `floor((kg12 + 0.01) × 10) / 10` on the RAW kg/12ft (weight, pcs, length;
+  what the customer is billed on), evaluated exactly on integers (`weightRange12ftOf`): raw 2.0895 →
+  2.0 although the kg/12ft column prints 2.090; raw 2.090 → 2.1. Only a bundle without pcs or length
+  uses the stored thousandths (`weightRange12ftFromMilli`). `header.shipDate` is the ship date as the
+  company's calendar day (`settings.timezone`), printed by hand (`plShipDateText`). A group carries
   `orderPeriod`; `plGroupTitle(g, groups)` prints it when two groups share an SO number. The v2 print
   and xlsx carry the dispatch notes and ship date; "1 bundle" everywhere (`bundlesText`). The overdraw
   approval meta names each line's `orderPeriod`; a repeat Complete with the same figures leaves the

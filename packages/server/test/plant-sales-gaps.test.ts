@@ -11,7 +11,7 @@ import { approval, auditLog, bundle, company, customer, die, dispatch, dispatchI
 import { and, asc, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { ist, kg, NOON, salesHelpers, SLOW, type SalesPlant as Plant } from "./sales-fixture";
+import { ist, kg, NOON, salesHelpers, SLOW, type SalesPlant as Plant, saveOrder } from "./sales-fixture";
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
@@ -95,7 +95,7 @@ describe("complete: effects stay inside this dispatch", () => {
     const d = await p.held(s);
     const items = await itemsOf(d);
     await p.owner.dispatch.linkItem({ itemId: items[1]!.id, salesOrderLineId: closedMeanwhile.lineIds[0]! });
-    await p.owner.orders.update({ id: closedMeanwhile.id, status: "closed" });
+    await saveOrder(p.owner, { id: closedMeanwhile.id, status: "closed" });
     await p.owner.dispatch.complete({ id: d });
     expect(await orderStatus(p, fulfilled.id)).toBe("dispatching");
     expect(await orderStatus(p, closedMeanwhile.id)).toBe("closed");
@@ -258,7 +258,7 @@ describe("scan suggestion and links, single-scan path", () => {
   test("[O28 O29] older closed, other-customer and other-section lines are never picked", async () => {
     const p = await plant();
     const closed = await p.order([{ dieId: p.dieA, kg: 500 }]);
-    await p.owner.orders.update({ id: closed.id, status: "closed" });
+    await saveOrder(p.owner, { id: closed.id, status: "closed" });
     const theirs = await p.order([{ dieId: p.dieA, kg: 500 }], { customerId: p.otherCustomer });
     const otherSection = await p.order([{ dieId: p.dieB, kg: 500 }]);
     const target = await p.order([{ dieId: p.dieA, kg: 500 }]);
@@ -272,7 +272,7 @@ describe("scan suggestion and links, single-scan path", () => {
   test("[R43 R44 Z20 Z21 D49 D48 D50] orders, links and refusals leave audit rows", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 100 }]);
-    await p.owner.orders.update({ id: o.id, poNumber: "PO-1" });
+    await saveOrder(p.owner, { id: o.id, poNumber: "PO-1" });
     const d = await p.held(await p.pack(p.dieA, [{ kg: 80 }, { kg: 80 }], o.lineIds[0]));
     const [item] = await itemsOf(d);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
@@ -298,10 +298,10 @@ describe("orders.update: tenant isolation and write-time guards", () => {
     const o = await p.order([{ dieId: p.dieA, kg: 100 }]);
     const line = { sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(100) };
     await expect(
-      p.owner.orders.update({ id: o.id, lines: [{ id: o.lineIds[0]!, ...line, sectionId: other.dieA }] }),
+      saveOrder(p.owner, { id: o.id, lines: [{ id: o.lineIds[0]!, ...line, sectionId: other.dieA }] }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(
-      p.owner.orders.update({ id: o.id, lines: [{ id: o.lineIds[0]!, ...line }, { ...line, sectionId: other.dieA }] }),
+      saveOrder(p.owner, { id: o.id, lines: [{ id: o.lineIds[0]!, ...line }, { ...line, sectionId: other.dieA }] }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     const got = await p.owner.orders.get({ id: o.id });
     expect(got.lines.map((l) => l.sectionId)).toEqual([p.dieA]);
@@ -313,10 +313,10 @@ describe("orders.update: tenant isolation and write-time guards", () => {
     const o = await p.order([{ dieId: p.dieA, kg: 100 }]);
     const theirs = await other.order([{ dieId: other.dieA, kg: 100 }]);
     const line = { sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(100) };
-    await expect(p.owner.orders.update({ id: o.id, lines: [{ id: theirs.lineIds[0]!, ...line }] })).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(p.owner.orders.update({ id: o.id, lines: [{ id: "nope", ...line }] })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(saveOrder(p.owner, { id: o.id, lines: [{ id: theirs.lineIds[0]!, ...line }] })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(saveOrder(p.owner, { id: o.id, lines: [{ id: "nope", ...line }] })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(
-      p.owner.orders.update({ id: o.id, lines: [{ id: o.lineIds[0]!, ...line }, { id: o.lineIds[0]!, ...line }] }),
+      saveOrder(p.owner, { id: o.id, lines: [{ id: o.lineIds[0]!, ...line }, { id: o.lineIds[0]!, ...line }] }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect((await other.owner.orders.get({ id: theirs.id })).lines[0]!.orderedG).toBe(kg(100));
   }, SLOW);
@@ -329,10 +329,10 @@ describe("orders.update: tenant isolation and write-time guards", () => {
       { id: l1, sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(100) },
       { id: l2, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(100) },
     ];
-    await p.owner.orders.update({ id: o.id, lines: [...keep, { sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(5) }] });
+    await saveOrder(p.owner, { id: o.id, lines: [...keep, { sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(5) }] });
     const three = (await p.owner.orders.get({ id: o.id })).lines.find((l) => l.lineNo === 3)!;
-    await p.owner.orders.update({ id: o.id, lines: keep }); // line 3 goes
-    await p.owner.orders.update({ id: o.id, lines: [...keep, { sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(7) }] });
+    await saveOrder(p.owner, { id: o.id, lines: keep }); // line 3 goes
+    await saveOrder(p.owner, { id: o.id, lines: [...keep, { sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(7) }] });
     const lines = (await p.owner.orders.get({ id: o.id })).lines;
     expect(lines.map((l) => l.lineNo)).toEqual([1, 2, 4]);
     expect(lines.find((l) => l.lineId === three.lineId)).toBeUndefined();
@@ -342,7 +342,7 @@ describe("orders.update: tenant isolation and write-time guards", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const d = await p.held(await p.pack(p.dieA, [{ kg: 10 }], o.lineIds[0]));
-    await expect(p.owner.orders.update({ id: o.id, status: "cancelled" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(saveOrder(p.owner, { id: o.id, status: "cancelled" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(await orderStatus(p, o.id)).toBe("booking");
     // Once the dispatch is cancelled the order may be cancelled.
     await p.owner.dispatch.cancel({ id: d });
@@ -354,7 +354,7 @@ describe("orders.update: tenant isolation and write-time guards", () => {
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
     env.beforeNextBatch(() => p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: o2.lineIds[0]! }));
-    await expect(p.owner.orders.update({ id: o2.id, status: "cancelled" })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(saveOrder(p.owner, { id: o2.id, status: "cancelled" })).rejects.toMatchObject({ code: "CONFLICT" });
     expect(await orderStatus(p, o2.id)).toBe("booking");
   }, SLOW);
 
@@ -367,12 +367,12 @@ describe("orders.update: tenant isolation and write-time guards", () => {
     expect(report.linked[0]!.salesOrderLineId).toBe(o.lineIds[0]!);
     const [l1, l2] = o.lineIds as [string, string];
     await expect(
-      p.owner.orders.update({ id: o.id, lines: [{ id: l2, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(500) }] }),
+      saveOrder(p.owner, { id: o.id, lines: [{ id: l2, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(500) }] }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(
-      p.owner.orders.update({ id: o.id, lines: [{ id: l1, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(1000) }, { id: l2, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(500) }] }),
+      saveOrder(p.owner, { id: o.id, lines: [{ id: l1, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(1000) }, { id: l2, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(500) }] }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(p.owner.orders.update({ id: o.id, customerId: p.otherCustomer })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(saveOrder(p.owner, { id: o.id, customerId: p.otherCustomer })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect((await p.owner.orders.get({ id: o.id })).lines).toHaveLength(2);
   }, SLOW);
 
@@ -382,7 +382,7 @@ describe("orders.update: tenant isolation and write-time guards", () => {
     const [l1, l2] = o.lineIds as [string, string];
     env.beforeNextBatch(() => p.pack(p.dieA, [{ kg: 100 }], l2));
     await expect(
-      p.owner.orders.update({ id: o.id, note: "trim", lines: [{ id: l1, sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(1000) }] }),
+      saveOrder(p.owner, { id: o.id, note: "trim", lines: [{ id: l1, sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(1000) }] }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
     const got = await p.owner.orders.get({ id: o.id });
     expect(got.order.note).toBeNull();
@@ -396,7 +396,7 @@ describe("orders.update: tenant isolation and write-time guards", () => {
     const [l1] = o.lineIds as [string];
     env.beforeNextBatch(() => p.pack(p.dieA, [{ kg: 100 }], l1));
     await expect(
-      p.owner.orders.update({ id: o.id, lines: [{ id: l1, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(1000) }] }),
+      saveOrder(p.owner, { id: o.id, lines: [{ id: l1, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(1000) }] }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
     expect((await p.owner.orders.get({ id: o.id })).lines[0]!.sectionId).toBe(p.dieA);
   }, SLOW);
@@ -441,7 +441,7 @@ describe("orders reads: list, balance and openLines", () => {
     const a = await p.order([{ dieId: p.dieA, kg: 10 }], { poNumber: "ALPHA-1" });
     const b = await p.order([{ dieId: p.dieA, kg: 10 }], { poNumber: "BETA-2" });
     const c = await p.order([{ dieId: p.dieA, kg: 10 }], { poNumber: "GAMMA-3" });
-    await p.owner.orders.update({ id: c.id, status: "closed" });
+    await saveOrder(p.owner, { id: c.id, status: "closed" });
     expect((await p.owner.orders.list({ openOnly: true })).items.map((o) => o.id)).toEqual([b.id, a.id]);
     expect((await p.owner.orders.list({ search: "ALPHA" })).items.map((o) => o.id)).toEqual([a.id]);
     expect((await p.owner.orders.list({ search: b.number })).items.map((o) => o.id)).toEqual([b.id]);
@@ -458,9 +458,9 @@ describe("orders reads: list, balance and openLines", () => {
     const p = await plant();
     const open = await p.order([{ dieId: p.dieA, kg: 100 }]);
     const cancelled = await p.order([{ dieId: p.dieA, kg: 70 }]);
-    await p.owner.orders.update({ id: cancelled.id, status: "cancelled" });
+    await saveOrder(p.owner, { id: cancelled.id, status: "cancelled" });
     const closed = await p.order([{ dieId: p.dieA, kg: 30 }]);
-    await p.owner.orders.update({ id: closed.id, status: "closed" });
+    await saveOrder(p.owner, { id: closed.id, status: "closed" });
     expect((await p.owner.orders.balance({})).lines.map((l) => l.orderId)).toEqual([open.id]);
     expect(new Set((await p.owner.orders.balance({ includeClosed: true })).lines.map((l) => l.orderId))).toEqual(new Set([open.id, closed.id]));
     expect((await p.owner.orders.openLines({ dieId: p.dieA })).map((l) => l.orderId)).toEqual([open.id]);
@@ -474,7 +474,7 @@ describe("orders reads: list, balance and openLines", () => {
     await p.order([{ dieId: p.dieA, kg: 1000 }]);
     await p.order([{ dieId: p.dieA, kg: 500 }], { customerId: p.otherCustomer });
     const closed = await p.order([{ dieId: p.dieA, kg: 300 }]);
-    await p.owner.orders.update({ id: closed.id, status: "closed" });
+    await saveOrder(p.owner, { id: closed.id, status: "closed" });
     const sum = await p.owner.analytics.customerSummary({ customerId: p.customerId, from: "2026-09-01", to: "2026-10-03" });
     expect(sum.openOrders).toEqual({ orderedG: kg(1000), dispatchedG: 0, bakiG: kg(1000), lines: 1 });
   }, SLOW);
@@ -770,8 +770,8 @@ describe("order status table and company scope of reads", () => {
   test("[O36] an order moves booking -> confirmed -> booking by hand", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 100 }]);
-    await p.owner.orders.update({ id: o.id, status: "confirmed" });
-    await p.owner.orders.update({ id: o.id, status: "booking" });
+    await saveOrder(p.owner, { id: o.id, status: "confirmed" });
+    await saveOrder(p.owner, { id: o.id, status: "booking" });
     expect(await orderStatus(p, o.id)).toBe("booking");
   }, SLOW);
 
@@ -790,13 +790,13 @@ describe("orders.update: an edit that loses a race to a status move fails whole"
   test("[R20] a plain edit that loses to a cancel, and a status move from a stale status, both answer CONFLICT and change nothing", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 100 }]);
-    env.beforeNextBatch(() => p.owner.orders.update({ id: o.id, status: "cancelled" }));
-    await expect(p.owner.orders.update({ id: o.id, poNumber: "LATE" })).rejects.toMatchObject({ code: "CONFLICT" });
+    env.beforeNextBatch(() => saveOrder(p.owner, { id: o.id, status: "cancelled" }));
+    await expect(saveOrder(p.owner, { id: o.id, poNumber: "LATE" })).rejects.toMatchObject({ code: "CONFLICT" });
     expect((await p.owner.orders.get({ id: o.id })).order).toMatchObject({ status: "cancelled", poNumber: null });
     const o2 = await p.order([{ dieId: p.dieA, kg: 100 }]);
     // The status move was checked against "booking"; the order is "confirmed" by the time it lands.
-    env.beforeNextBatch(() => p.owner.orders.update({ id: o2.id, status: "confirmed" }));
-    await expect(p.owner.orders.update({ id: o2.id, status: "cancelled", note: "stale" })).rejects.toMatchObject({ code: "CONFLICT" });
+    env.beforeNextBatch(() => saveOrder(p.owner, { id: o2.id, status: "confirmed" }));
+    await expect(saveOrder(p.owner, { id: o2.id, status: "cancelled", note: "stale" })).rejects.toMatchObject({ code: "CONFLICT" });
     expect((await p.owner.orders.get({ id: o2.id })).order).toMatchObject({ status: "confirmed", note: null });
   }, SLOW);
 });
@@ -970,14 +970,14 @@ describe("orders.update changes every field it is given", () => {
   test("[E15 E16 E17 E18] customer, order date, note and PO number changes are stored", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 100 }], { poNumber: "PO-OLD" });
-    await p.owner.orders.update({ id: o.id, customerId: p.otherCustomer, orderDate: "2026-08-15", note: "rush", poNumber: "PO-NEW" });
+    await saveOrder(p.owner, { id: o.id, customerId: p.otherCustomer, orderDate: "2026-08-15", note: "rush", poNumber: "PO-NEW" });
     expect((await p.owner.orders.get({ id: o.id })).order).toMatchObject({
       customerId: p.otherCustomer,
       orderDate: "2026-08-15",
       note: "rush",
       poNumber: "PO-NEW",
     });
-    await p.owner.orders.update({ id: o.id, note: null, poNumber: "  " });
+    await saveOrder(p.owner, { id: o.id, note: null, poNumber: "  " });
     expect((await p.owner.orders.get({ id: o.id })).order).toMatchObject({ note: null, poNumber: null, customerId: p.otherCustomer });
   }, SLOW);
 
@@ -989,7 +989,7 @@ describe("orders.update changes every field it is given", () => {
     });
     const created = (await p.owner.orders.get({ id: res.id })).lines[0]!;
     expect(created).toMatchObject({ cutLengthMm: 3_700, kgPer12ftMilli: 2_450, orderedPcs: 40, orderedG: kg(100), finish: "Mill", note: "first" });
-    await p.owner.orders.update({
+    await saveOrder(p.owner, {
       id: res.id,
       lines: [{ id: created.lineId, sectionId: p.dieA, cutLengthMm: 4_100, kgPer12ftMilli: 2_600, pcs: 55, kgG: kg(120), finish: "Anodise", note: "second" }],
     });
@@ -1013,7 +1013,7 @@ describe("orders.update changes every field it is given", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const o = await p.order([{ dieId: p.dieA, kg: 10 }]);
     await expect(
-      p.owner.orders.update({ id: o.id, lines: Array.from({ length: 101 }, () => line) }),
+      saveOrder(p.owner, { id: o.id, lines: Array.from({ length: 101 }, () => line) }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   }, SLOW);
 
@@ -1048,7 +1048,7 @@ describe("bound parameters on the order edit and list paths (D1 allows 100 per s
     const res = await p.owner.orders.create({ customerId: p.customerId, lines: hundred(p) });
     const got = await p.owner.orders.get({ id: res.id });
     env.resetPeakParams();
-    await p.owner.orders.update({
+    await saveOrder(p.owner, {
       id: res.id,
       lines: got.lines.map((l) => ({ id: l.lineId, sectionId: l.sectionId, cutLengthMm: l.cutLengthMm, kgG: l.orderedG + 1_000 })),
     });
@@ -1060,7 +1060,7 @@ describe("bound parameters on the order edit and list paths (D1 allows 100 per s
     const p = await plant();
     const res = await p.owner.orders.create({ customerId: p.customerId, lines: hundred(p) });
     env.resetPeakParams();
-    await p.owner.orders.update({ id: res.id, lines: [{ sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(5) }] });
+    await saveOrder(p.owner, { id: res.id, lines: [{ sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(5) }] });
     expect(env.peakParams()).toBeLessThanOrEqual(100);
     const got = await p.owner.orders.get({ id: res.id });
     expect(got.lines.map((l) => [l.lineNo, l.orderedG])).toEqual([[101, kg(5)]]);
@@ -1119,7 +1119,7 @@ describe("write-time guards that need a race to show", () => {
     const serials = await p.pack(p.dieA, [{ kg: 10 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
     env.beforeNextBatch(() =>
-      p.owner.orders.update({ id: o.id, lines: [{ id: o.lineIds[0]!, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(1000) }] }),
+      saveOrder(p.owner, { id: o.id, lines: [{ id: o.lineIds[0]!, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(1000) }] }),
     );
     const report = await p.owner.dispatch.addBundlesBySerial({ id, serials });
     expect(report.added).toEqual(serials);
@@ -1144,7 +1144,7 @@ describe("write-time guards that need a race to show", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     env.beforeNextBatch(() =>
-      p.owner.orders.update({ id: o.id, lines: [{ id: o.lineIds[0]!, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(1000) }] }),
+      saveOrder(p.owner, { id: o.id, lines: [{ id: o.lineIds[0]!, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(1000) }] }),
     );
     await expect(p.pack(p.dieA, [{ kg: 10 }], o.lineIds[0])).rejects.toMatchObject({ code: "CONFLICT" });
     expect(await env.db.select({ id: bundle.id }).from(bundle).where(eq(bundle.companyId, p.companyId))).toHaveLength(0);
@@ -1205,10 +1205,10 @@ describe("migration 0020 unique indexes", () => {
     const o = await p.order([{ dieId: p.dieA, kg: 100 }]);
     const keep = { id: o.lineIds[0]!, sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(100) };
     env.beforeNextBatch(() =>
-      p.owner.orders.update({ id: o.id, lines: [keep, { sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(1) }] }),
+      saveOrder(p.owner, { id: o.id, lines: [keep, { sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(1) }] }),
     );
     await expect(
-      p.owner.orders.update({ id: o.id, lines: [keep, { sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(2) }] }),
+      saveOrder(p.owner, { id: o.id, lines: [keep, { sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(2) }] }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
     const lines = (await p.owner.orders.get({ id: o.id })).lines;
     expect(lines.map((l) => l.lineNo)).toEqual([1, 2]);
@@ -1286,12 +1286,12 @@ describe("order status table, ordering and the line filter", () => {
   test("[O32 O34] a confirmed order can be cancelled; a closed one cannot", async () => {
     const p = await plant();
     const a = await p.order([{ dieId: p.dieA, kg: 100 }]);
-    await p.owner.orders.update({ id: a.id, status: "confirmed" });
-    await p.owner.orders.update({ id: a.id, status: "cancelled" });
+    await saveOrder(p.owner, { id: a.id, status: "confirmed" });
+    await saveOrder(p.owner, { id: a.id, status: "cancelled" });
     expect(await orderStatus(p, a.id)).toBe("cancelled");
     const b = await p.order([{ dieId: p.dieA, kg: 100 }]);
-    await p.owner.orders.update({ id: b.id, status: "closed" });
-    await expect(p.owner.orders.update({ id: b.id, status: "cancelled" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await saveOrder(p.owner, { id: b.id, status: "closed" });
+    await expect(saveOrder(p.owner, { id: b.id, status: "cancelled" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(await orderStatus(p, b.id)).toBe("closed");
   }, SLOW);
 
@@ -1300,8 +1300,8 @@ describe("order status table, ordering and the line filter", () => {
     const o = await p.order([{ dieId: p.dieA, kg: 100 }, { dieId: p.dieB, kg: 100 }]);
     const [l1] = o.lineIds as [string, string];
     const keep = { id: l1, sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(100) };
-    await p.owner.orders.update({ id: o.id, lines: [keep] }); // line 2 goes
-    await p.owner.orders.update({ id: o.id, lines: [keep, { sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(5) }] });
+    await saveOrder(p.owner, { id: o.id, lines: [keep] }); // line 2 goes
+    await saveOrder(p.owner, { id: o.id, lines: [keep, { sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(5) }] });
     expect((await p.owner.orders.get({ id: o.id })).lines.map((l) => l.lineNo)).toEqual([1, 3]);
   }, SLOW);
 

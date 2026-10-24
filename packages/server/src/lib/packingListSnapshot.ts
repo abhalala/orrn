@@ -11,8 +11,10 @@
  * Snapshots are stored once and never rebuilt from live data except by packingList.regenerate,
  * which keeps the PL number.
  */
-import { kgPer12ft, MM_PER_INCH, weightRange12ftFromMilli } from "@orrn/domain";
+import { kgPer12ft, MM_PER_INCH, weightRange12ftFromMilli, weightRange12ftOf } from "@orrn/domain";
 import { z } from "zod";
+
+import { companyTimezone, zonedYmd } from "./dayWindow";
 
 /** The 11 printed columns, in order. */
 export const PL_COLUMNS = [
@@ -117,6 +119,11 @@ export const plSnapshotV2Schema = z.object({
     poNumbers: z.array(z.string()),
     invoiceNumber: z.string().nullable(),
     invoiceDate: ymd.nullable(),
+    /**
+     * The ship date as the company's calendar day (`settings.timezone`, else IST), so the printed
+     * date never depends on the reader's timezone (review round 3 m-5). Absent on older snapshots.
+     */
+    shipDate: ymd.nullable().optional(),
   }),
   columns: z.tuple([
     z.literal("sr"),
@@ -268,6 +275,10 @@ export type PlBuildInput = {
   items: readonly PlItemInput[];
 };
 
+function ymdText(d: { year: number; month: number; day: number }): string {
+  return `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+}
+
 /** Company letterhead from `settings.letterhead` ({ legalName, gstin, address, phone }). */
 export function letterhead(settings: Record<string, unknown> | null): {
   legalName: string | null;
@@ -351,8 +362,12 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
           cutIn: inch,
           pcs: item.quantity,
           kgPer12ftMilli: milli,
-          // From the printed thousandths, in integers, so the band always matches the kg/12ft column.
-          range12ft: milli == null ? null : weightRange12ftFromMilli(milli),
+          // From the RAW kg/12ft with the plant's Excel formula floor((kg12 + 0.01) × 10) / 10, exact
+          // in integers (review round 3; AGENTS.md "Range /12'"): raw 2.0895 is 2.0 though it prints
+          // 2.090. Only a bundle without pieces or length falls back to the stored thousandths.
+          range12ft:
+            weightRange12ftOf({ weightG: item.weightG, pieces: item.quantity, lengthMm: item.lengthMm }) ??
+            (milli == null ? null : weightRange12ftFromMilli(milli)),
           po: item.line?.poNumber?.trim() || item.bundlePo?.trim() || null,
         };
       });
@@ -397,6 +412,7 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
       poNumbers,
       invoiceNumber: input.dispatch.invoiceNumber,
       invoiceDate: input.dispatch.invoiceDate,
+      shipDate: input.dispatch.shipDate ? ymdText(zonedYmd(companyTimezone(input.company.settings), new Date(input.dispatch.shipDate).getTime())) : null,
     },
     columns: [...PL_COLUMNS],
     groups: outGroups,

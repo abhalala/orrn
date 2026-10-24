@@ -9,6 +9,7 @@ import { TRPCError } from "@trpc/server";
 import { and, count, desc, eq, inArray, isNull, like, notExists, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
+import { auditLog } from "@orrn/db/schema/audit";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
@@ -85,11 +86,11 @@ const createInput = z.object({
 const updateInput = z.object({
   id: z.string().min(1).max(64),
   /**
-   * The order's `serverSeq` as the editor read it (`orders.get`). When given, a save over a newer
-   * version (another user's save, a dispatch completing against it) answers CONFLICT instead of
-   * silently overwriting it.
+   * The order's `serverSeq` as the editor read it (`orders.get`), required (review round 3 m-6): a
+   * save over a newer version (another user's save, a status move, a dispatch completing moves it
+   * to dispatching) answers CONFLICT instead of silently overwriting it.
    */
-  serverSeq: z.number().int().nonnegative().optional(),
+  serverSeq: z.number().int().nonnegative(),
   customerId: z.string().min(1).max(64).optional(),
   poNumber: text(100).nullable().optional(),
   orderDate: ymd.optional(),
@@ -113,6 +114,32 @@ function errorText(e: unknown): string {
 }
 
 const blank = (v: string | null | undefined) => (v == null || v.trim() === "" ? null : v.trim());
+
+/**
+ * The order a create request asked for, as a SHA-256 hex (review round 3 m-2). Kept in the
+ * `order.create` audit meta so a replay with the same `clientRequestId` but another order (customer,
+ * PO, date, status, note or any line field) is a CONFLICT (AGENTS.md RP18), even after later edits.
+ */
+async function createFingerprint(input: z.infer<typeof createInput>): Promise<string> {
+  const order = {
+    customerId: input.customerId,
+    poNumber: blank(input.poNumber),
+    orderDate: input.orderDate ?? null,
+    status: input.status ?? "booking",
+    note: blank(input.note),
+    lines: input.lines.map((l) => [
+      l.sectionId,
+      l.kgPer12ftMilli ?? null,
+      l.cutLengthMm,
+      l.pcs ?? null,
+      l.kgG,
+      blank(l.finish),
+      blank(l.note),
+    ]),
+  };
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(order)));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 async function loadOrder(db: OrrnDb, companyId: string, id: string) {
   const [row] = await db
@@ -175,14 +202,37 @@ export const salesOrderRouter = router({
   create: actionProcedure("order.manage")
     .input(createInput)
     .mutation(async ({ ctx, input }) => {
+      const fingerprint = await createFingerprint(input);
+      /** The order this key already made, if any; CONFLICT when it was made from another request. */
       const byRequest = async () => {
         if (!input.clientRequestId) return null;
         const [row] = await ctx.db
-          .select({ id: salesOrder.id, number: salesOrder.number })
+          .select({ id: salesOrder.id, number: salesOrder.number, customerId: salesOrder.customerId })
           .from(salesOrder)
           .where(and(eq(salesOrder.companyId, ctx.companyId), eq(salesOrder.clientRequestId, input.clientRequestId)))
           .limit(1);
-        return row ?? null;
+        if (!row) return null;
+        const [made] = await ctx.db
+          .select({ fingerprint: sql<string | null>`json_extract(${auditLog.meta}, '$.fingerprint')` })
+          .from(auditLog)
+          .where(
+            and(
+              eq(auditLog.companyId, ctx.companyId),
+              eq(auditLog.action, "order.create"),
+              eq(auditLog.subjectType, "sales_order"),
+              eq(auditLog.subjectId, row.id),
+            ),
+          )
+          .limit(1);
+        // Orders made before the fingerprint was kept compare on the customer only.
+        const same = made?.fingerprint ? made.fingerprint === fingerprint : row.customerId === input.customerId;
+        if (!same) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `This save was already used for another order (${row.number}). Reload the order screen and save again.`,
+          });
+        }
+        return row;
       };
       const prior = await byRequest();
       if (prior) return { id: prior.id, number: prior.number, replayed: true as const };
@@ -240,6 +290,7 @@ export const salesOrderRouter = router({
             customerId: input.customerId,
             lines: input.lines.length,
             kgG: input.lines.reduce((s, l) => s + l.kgG, 0),
+            ...(input.clientRequestId ? { fingerprint } : {}),
           },
         }),
       );
@@ -263,7 +314,7 @@ export const salesOrderRouter = router({
       if (order.status === "cancelled") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A cancelled order can't be changed" });
       }
-      if (input.serverSeq !== undefined && input.serverSeq !== order.serverSeq) {
+      if (input.serverSeq !== order.serverSeq) {
         throw new TRPCError({ code: "CONFLICT", message: "This order changed while you were editing it. Reload and try again." });
       }
       const userId = ctx.session.user.id;
@@ -372,7 +423,7 @@ export const salesOrderRouter = router({
               eq(salesOrder.id, order.id),
               eq(salesOrder.companyId, ctx.companyId),
               // Write-time optimistic version (correctness m-3): only over the version the editor read.
-              input.serverSeq !== undefined ? eq(salesOrder.serverSeq, input.serverSeq) : undefined,
+              eq(salesOrder.serverSeq, input.serverSeq),
               // Write-time: a status move lands only from the status we checked, and a cancel only while
               // no live dispatch carries its lines. Plain edits never touch the status.
               nextStatus ? eq(salesOrder.status, order.status) : sql`${salesOrder.status} <> 'cancelled'`,
