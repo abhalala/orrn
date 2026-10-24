@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
+Counts: 1393 screen strings in 28 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -152,7 +152,7 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (37)
+### nav (38)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -169,6 +169,7 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `masters` | Masters | मास्टर |
 | `guides` | Guides | गाइड |
 | `settings` | Settings | सेटिंग्स |
+| `preview` | Preview | प्रीव्यू |
 | `account` | Account | अकाउंट |
 | `signOut` | Sign out | साइन आउट |
 | `skipToContent` | Skip to content | मुख्य हिस्से पर जाएं |
@@ -278,7 +279,7 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `done.body` | Your account is ready. | आपका अकाउंट तैयार है। |
 | `done.go` | Go to Today | आज का पेज खोलें |
 
-### today (29)
+### today (77)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -286,31 +287,79 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `greetingMorning` | Good morning, {name} | नमस्ते, {name} |
 | `greetingAfternoon` | Good afternoon, {name} | नमस्ते, {name} |
 | `greetingEvening` | Good evening, {name} | नमस्ते, {name} |
-| `kgPacked` | kg packed today | आज पैक हुआ kg |
-| `bundlesPacked` | Bundles packed today | आज पैक हुए bundle |
-| `kgDispatched` | kg dispatched today | आज dispatch हुआ kg |
+| `numbersHeading` | Today so far | आज अब तक |
+| `shortcutsHeading` | Shortcuts | शॉर्टकट |
 | `inStock` | In stock | स्टॉक में |
+| `packed` | Packed today | आज पैक हुआ |
+| `dispatched` | Dispatched today | आज dispatch हुआ |
+| `dispatchesDone` | {count} {count:dispatch\|dispatches} done | {count} dispatch {count:हुआ\|हुए} |
+| `noDispatchYet` | No dispatch done yet | अभी कोई dispatch नहीं हुआ |
+| `bundleUnit` | {count:bundle\|bundles} | {count:bundle\|bundle} |
+| `inStockKg` | {kg} kg | {kg} kg |
+| `nothingPackedYet` | No bundles yet | अभी कोई bundle नहीं |
 | `tiles.pack` | Pack | पैकिंग |
 | `tiles.packHint` | Start a packing session | पैकिंग सेशन शुरू करें |
 | `tiles.dispatch` | Dispatch | Dispatch |
 | `tiles.dispatchHint` | {count} open | {count} {count:खुला\|खुले} |
+| `tiles.dispatchHintNone` | None open | कोई खुला नहीं |
+| `tiles.dispatchHintAny` | Load a truck | गाड़ी लोड करें |
 | `tiles.stock` | Stock | स्टॉक |
 | `tiles.stockHint` | Bundles by section | सेक्शन के हिसाब से bundle |
 | `tiles.guides` | Guides | गाइड |
 | `tiles.guidesHint` | How each job is done | हर काम कैसे करें |
 | `openDispatches` | Open dispatches | खुले dispatch |
-| `noOpenDispatches` | No open dispatches. | कोई dispatch खुला नहीं है। |
-| `sessionsToday` | Packed today | आज की पैकिंग |
-| `noSessionsToday` | Nothing packed yet today. | आज अभी कुछ पैक नहीं हुआ। |
-| `printProblems` | Print problems | प्रिंट की दिक्कतें |
+| `noOpenDispatches` | No open dispatches | कोई dispatch खुला नहीं है |
+| `noOpenDispatchesBody` | Dispatches being built or held show up here. | जो dispatch बन रहे हैं या होल्ड पर हैं, वे यहां दिखेंगे। |
+| `allDispatches` | All dispatches | सभी dispatch |
+| `sessionsTodayHeading` | Packing sessions today | आज के पैकिंग सेशन |
+| `noSessionsToday` | Nothing packed yet today | आज अभी कुछ पैक नहीं हुआ |
+| `sessionVoided` | All bundles void | सारे bundle रद्द |
+| `noSessionsTodayBody` | Each packing session shows up here as it is saved. | हर पैकिंग सेशन सेव होते ही यहां दिखेगा। |
+| `allSessions` | All sessions | सभी सेशन |
 | `printProblemsCount` | {count} {count:label\|labels} didn't print | {count} लेबल प्रिंट नहीं {count:हुआ\|हुए} |
+| `printProblemsBody` | Check the printer, then print them again from Printing. | प्रिंटर देखें, फिर प्रिंटिंग से दोबारा प्रिंट करें। |
 | `openPrinting` | Open printing | प्रिंटिंग खोलें |
+| `loadErrorTitle` | Today's numbers didn't load | आज के आंकड़े लोड नहीं हुए |
+| `loadErrorBody` | Check the connection and try again. | इंटरनेट देखें और फिर से कोशिश करें। |
+| `refreshFailed` | Couldn't refresh. Showing the numbers from {time}. | रीफ़्रेश नहीं हुआ। {time} तक के आंकड़े दिख रहे हैं। |
+| `chartsErrorTitle` | Charts didn't load | चार्ट लोड नहीं हुए |
+| `chartsErrorBody` | Reload the page to load them again. | चार्ट फिर से लाने के लिए पेज दोबारा लोड करें। |
+| `reloadPage` | Reload page | पेज दोबारा लोड करें |
+| `trendsHeading` | Trends | रुझान |
+| `trend.title` | Packed and dispatched | पैक और dispatch |
+| `trend.subtitle` | kg per day, last 90 days, today so far | रोज़ का kg, पिछले 90 दिन, आज अब तक |
+| `trend.label` | Packed and dispatched, kg per day | पैक और dispatch, रोज़ का kg |
+| `trend.packed` | Packed | पैक हुआ |
+| `trend.dispatched` | Dispatched | Dispatch हुआ |
+| `trend.dateHeader` | Date | तारीख |
+| `trend.emptyTitle` | Nothing packed or dispatched in 90 days | 90 दिन में कुछ पैक या dispatch नहीं हुआ |
+| `trend.emptyBody` | Each day's kg shows up here once bundles are packed or dispatched. | Bundle पैक या dispatch होते ही हर दिन का kg यहां दिखेगा। |
+| `ageing.title` | Stock age | स्टॉक की उम्र |
+| `ageing.subtitle` | kg in stock by days since packing | पैकिंग से अब तक के दिनों के हिसाब से स्टॉक का kg |
+| `ageing.label` | Stock age, kg by days since packing | स्टॉक की उम्र, पैकिंग से दिनों के हिसाब से kg |
+| `ageing.ageHeader` | Age | उम्र |
+| `ageing.valueHeader` | In stock | स्टॉक में |
+| `ageing.upTo15` | 0-15 days | 0-15 दिन |
+| `ageing.upTo15Short` | 0-15 | 0-15 |
+| `ageing.upTo30` | 16-30 days | 16-30 दिन |
+| `ageing.upTo30Short` | 16-30 | 16-30 |
+| `ageing.upTo60` | 31-60 days | 31-60 दिन |
+| `ageing.upTo60Short` | 31-60 | 31-60 |
+| `ageing.over60` | Over 60 days | 60 दिन से ज़्यादा |
+| `ageing.over60Short` | 60+ | 60+ |
+| `ageing.emptyTitle` | Nothing in stock | स्टॉक में कुछ नहीं |
+| `ageing.emptyBody` | Packed bundles show up here by how long they have been waiting. | पैक हुए bundle यहां दिखेंगे, कितने दिन से रखे हैं उसके हिसाब से। |
 | `startHere.title` | Start here | यहां से शुरू करें |
-| `startHere.body` | Four things to set up before the floor starts using orrn. | फ़्लोर पर orrn चलाने से पहले ये चार काम कर लें। |
+| `startHere.body` | A few things to set up before the floor starts using orrn. | फ़्लोर पर orrn चलाने से पहले ये कुछ काम कर लें। |
+| `startHere.bodyWaiting` | Your admin is setting orrn up. Today's numbers show here once the first bundles are packed. | एडमिन orrn सेट कर रहे हैं। पहले bundle पैक होते ही आज के आंकड़े यहां दिखेंगे। |
 | `startHere.addDie` | Add a die | Die जोड़ें |
 | `startHere.addCustomer` | Add a customer | ग्राहक जोड़ें |
 | `startHere.packFirst` | Pack your first bundles | पहले bundle पैक करें |
 | `startHere.connectPrinter` | Connect a label printer | लेबल प्रिंटर जोड़ें |
+| `startHere.progress` | {done} of {total} done | {total} में से {done} हो गए |
+| `startHere.done` | Done | हो गया |
+| `startHere.askAdmin` | An admin sets this up | यह एडमिन सेट करेंगे |
+| `startHere.afterDie` | After a die is added | Die जुड़ने के बाद |
 
 ### pack (52)
 
@@ -411,7 +460,7 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `continuous.result.notFound` | Not found | नहीं मिला |
 | `continuous.done` | Done scanning | स्कैन बंद करें |
 
-### stock (23)
+### stock (61)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -421,25 +470,63 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `searchSections` | Search die or section | Die या सेक्शन खोजें |
 | `totals` | {bundles} {bundles:bundle\|bundles} · {kg} kg in stock | स्टॉक में {bundles} bundle · {kg} kg |
 | `heldChip` | {count} held | {count} होल्ड पर |
+| `heldKg` | {count} held, {kg} kg | {count} होल्ड पर, {kg} kg |
 | `empty` | No stock yet. Bundles show up here after packing. | अभी स्टॉक नहीं है। पैकिंग के बाद bundle यहां दिखेंगे। |
 | `emptyAction` | Start a packing session | पैकिंग सेशन शुरू करें |
+| `view` | Stock view | स्टॉक व्यू |
+| `filterStatus` | Status | स्टेटस |
+| `clearSearch` | Clear search | खोज हटाएं |
+| `sectionsFound` | {count} {count:section\|sections} found | {count} सेक्शन {count:मिला\|मिले} |
+| `loadError` | Stock didn't load. Check the connection, then try again. | स्टॉक लोड नहीं हुआ। इंटरनेट देखें, फिर दोबारा कोशिश करें। |
+| `noPermission` | Your role can't do this. Ask your admin. | आपके रोल को यह करने की अनुमति नहीं है। अपने एडमिन से पूछें। |
+| `reprintSent` | Label sent to printer | लेबल प्रिंटर को भेजा |
+| `reprintNoPrinter` | No label printer is set up. Ask your admin to connect one in Printing. | कोई लेबल प्रिंटर सेट नहीं है। एडमिन से Printing में प्रिंटर जोड़ने को कहें। |
+| `reprintFailed` | The label didn't print. Check that the print station is on, then try again. | लेबल प्रिंट नहीं हुआ। देखें कि प्रिंट स्टेशन चालू है, फिर दोबारा कोशिश करें। |
+| `block.unitInStock` | {count:bundle\|bundles} in stock | {count:bundle\|bundle} स्टॉक में |
+| `block.unitHeld` | {count:bundle\|bundles} held | {count:bundle\|bundle} होल्ड पर |
+| `block.band` | {band} kg/12ft | {band} kg/12ft |
+| `block.kg` | {kg} kg | {kg} kg |
+| `charts.ageTitle` | Stock age | स्टॉक कितना पुराना |
+| `charts.ageSubtitle` | kg on the floor, in stock and held, by days since packing | फ़्लोर पर kg, स्टॉक और होल्ड, पैकिंग के बाद के दिनों के हिसाब से |
+| `charts.ageLabel` | Stock age, kg by days since packing | स्टॉक की उम्र, पैकिंग के बाद के दिनों के हिसाब से kg |
+| `charts.ageHeader` | Age | उम्र |
+| `charts.kgHeader` | kg | kg |
+| `charts.bucket` | {range} days | {range} दिन |
+| `charts.topTitle` | Top sections | सबसे ज़्यादा स्टॉक वाले सेक्शन |
+| `charts.topSubtitle` | kg in stock and held per section, top 8 and the rest | हर सेक्शन का स्टॉक और होल्ड का kg, टॉप 8 और बाकी |
+| `charts.topLabel` | Sections by kg on the floor | फ़्लोर पर kg के हिसाब से सेक्शन |
+| `charts.otherSections` | Other sections | बाकी सेक्शन |
+| `charts.loadFailed` | Charts didn't load. Check the connection, then try again. | चार्ट लोड नहीं हुए। इंटरनेट देखें, फिर दोबारा कोशिश करें। |
 | `section.title` | Section {code} | सेक्शन {code} |
 | `section.empty` | No bundles with this status. | इस स्टेटस का कोई bundle नहीं है। |
+| `section.emptyAll` | No bundles packed for this section yet. | इस सेक्शन का अभी कोई bundle पैक नहीं हुआ। |
+| `section.nothingOnFloor` | Nothing on the floor | फ़्लोर पर कुछ नहीं |
+| `section.heroUnit` | {count:bundle\|bundles} | {count:bundle\|bundle} |
+| `section.band` | Weight range {band} kg/12ft | वज़न रेंज {band} kg/12ft |
+| `section.dieDetails` | Die details | Die की जानकारी |
+| `section.bundlesLabel` | Bundles of {section} | {section} के bundle |
 | `list.title` | All bundles | सारे bundle |
 | `list.search` | Search serial or PO | Serial या PO खोजें |
 | `list.empty` | No bundles match this filter. | इस फ़िल्टर में कोई bundle नहीं है। |
+| `list.bundlesLabel` | Bundles | Bundle |
+| `list.filterDie` | Showing one section | एक सेक्शन दिख रहा है |
+| `list.filterGroup` | Showing one packing session | एक पैकिंग सेशन दिख रहा है |
+| `list.filterDieNamed` | Showing {section} | {section} दिख रहा है |
+| `list.filterGroupNamed` | Showing packing session {code} | पैकिंग सेशन {code} दिख रहा है |
+| `list.clearFilter` | Show all bundles | सारे bundle दिखाएं |
 | `columns.serial` | Serial | Serial |
 | `columns.die` | Die | Die |
 | `columns.section` | Section | सेक्शन |
 | `columns.weight` | Weight (kg) | वज़न (kg) |
 | `columns.pieces` | Pcs | पीस |
 | `columns.cutLength` | Cut length | कट लंबाई |
+| `columns.piecesLength` | Pcs × cut length | पीस × कट लंबाई |
 | `columns.kgPer12ft` | kg/12ft | kg/12ft |
 | `columns.status` | Status | स्टेटस |
 | `columns.po` | PO | PO |
 | `columns.packed` | Packed | पैक हुआ |
 
-### bundle (33)
+### bundle (54)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -453,8 +540,29 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `facts.section` | Section | सेक्शन |
 | `facts.po` | PO | PO |
 | `facts.session` | Packing session | पैकिंग सेशन |
+| `facts.dieBand` | Die range /12' | Die रेंज /12' |
+| `facts.packed` | Packed | पैक हुआ |
 | `history` | History | इतिहास |
 | `historyPacked` | Packed | पैक हुआ |
+| `historyImported` | Imported | इम्पोर्ट हुआ |
+| `historyHeld` | Held for a dispatch | Dispatch के लिए होल्ड हुआ |
+| `historyReleased` | Released from a dispatch | Dispatch से हटा |
+| `historyDispatched` | Dispatched | Dispatch हो गया |
+| `historyVoided` | Voided | रद्द हुआ |
+| `historyRestored` | Restored | वापस आया |
+| `openDispatch` | Open dispatch {code} | Dispatch {code} खोलें |
+| `openDispatchPlain` | Open the dispatch | Dispatch खोलें |
+| `alreadyInDispatch` | Already in {code} | पहले से {code} में है |
+| `addNotFound` | This bundle isn't in this company. | यह bundle इस कंपनी में नहीं है। |
+| `addFailed` | The bundle wasn't added. Try again. | Bundle नहीं जुड़ा। दोबारा कोशिश करें। |
+| `newDispatch` | New dispatch | नया dispatch |
+| `dispatchesLoadError` | Dispatches didn't load. Try again. | Dispatch लोड नहीं हुए। दोबारा कोशिश करें। |
+| `reasonRequired` | Write why this bundle is void. | लिखें कि यह bundle क्यों रद्द है। |
+| `howToReprint` | How to reprint | दोबारा प्रिंट कैसे करें |
+| `howToVoid` | How to void or restore | रद्द या वापस कैसे करें |
+| `actionsLabel` | Bundle actions | Bundle के काम |
+| `transitionFailed` | The bundle didn't change. Try again. | Bundle नहीं बदला। दोबारा कोशिश करें। |
+| `changedElsewhere` | This bundle changed since you opened it. The page now shows where it is. | आपके खोलने के बाद यह bundle बदल गया। पेज अब इसकी अभी की हालत दिखा रहा है। |
 | `historyChanged` | Changed to {status} | स्टेटस बदला: {status} |
 | `reasonLine` | Reason: {reason} | कारण: {reason} |
 | `inDispatch` | In dispatch {code} | Dispatch {code} में |
@@ -477,7 +585,7 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `ambiguousTitle` | Which bundle? | कौन सा bundle? |
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 
-### dispatch (54)
+### dispatch (129)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -491,6 +599,21 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `columns.status` | Status | स्टेटस |
 | `empty` | No dispatches here. | यहां कोई dispatch नहीं है। |
 | `emptyBuilding` | Nothing is being built. Start a new dispatch. | अभी कुछ नहीं बन रहा। नया dispatch शुरू करें। |
+| `emptyHeld` | Nothing is held right now. | अभी कुछ होल्ड पर नहीं है। |
+| `emptyDispatched` | Nothing has been dispatched yet. | अभी तक कोई dispatch नहीं हुआ। |
+| `emptyCancelled` | No cancelled dispatches. | कोई कैंसल dispatch नहीं है। |
+| `emptySearch` | No dispatch matches "{query}". | "{query}" से कोई dispatch नहीं मिला। |
+| `showBuilding` | Show building | बन रहे दिखाएं |
+| `show` | Show | दिखाएं |
+| `search` | Search dispatches | Dispatch खोजें |
+| `searchHint` | Code or notes | कोड या नोट |
+| `listLabel` | Dispatches | Dispatch |
+| `loadError` | Dispatches didn't load. Check the connection and try again. | Dispatch लोड नहीं हुए। इंटरनेट देखें और फिर से कोशिश करें। |
+| `volume.title` | Dispatch volume | Dispatch मात्रा |
+| `volume.subtitle` | kg dispatched per month, last 12 months | हर महीने dispatch हुआ kg, पिछले 12 महीने |
+| `volume.label` | Dispatch volume, kg per month | Dispatch मात्रा, हर महीने kg |
+| `volume.month` | Month | महीना |
+| `volume.kg` | Dispatched | Dispatch हुआ |
 | `new.title` | New dispatch | नया dispatch |
 | `new.customer` | Customer | ग्राहक |
 | `new.customerSearch` | Search customers | ग्राहक खोजें |
@@ -498,6 +621,24 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `new.shipDate` | Ship date | भेजने की तारीख |
 | `new.notes` | Notes | नोट |
 | `new.submit` | Create dispatch | Dispatch बनाएं |
+| `new.customerHint` | Recent customers first. Type to search. | हाल के ग्राहक पहले। खोजने के लिए टाइप करें। |
+| `new.customerRequired` | Pick a customer. | ग्राहक चुनें। |
+| `new.customerName` | Customer name | ग्राहक का नाम |
+| `new.customerPhone` | Phone | फ़ोन |
+| `new.addCustomer` | Add customer | ग्राहक जोड़ें |
+| `new.customerAdded` | Added {name} | {name} जोड़ा गया |
+| `new.created` | Created {code} | {code} बन गया |
+| `new.shipDateHint` | Leave it blank if the date isn't fixed yet. | तारीख तय न हो तो खाली छोड़ दें। |
+| `new.noAccess` | Your role can't start a dispatch. Ask the office to create one. | आपका रोल dispatch शुरू नहीं कर सकता। ऑफ़िस से बनवाएं। |
+| `detail.loadError` | This dispatch didn't load. Check the connection and try again. | यह dispatch लोड नहीं हुआ। इंटरनेट देखें और फिर से कोशिश करें। |
+| `detail.shipOn` | Ship {date} | {date} को भेजना है |
+| `detail.noShipDate` | No ship date | भेजने की तारीख तय नहीं |
+| `detail.dispatchedOn` | Dispatched {date} | {date} को dispatch हुआ |
+| `detail.editDetails` | Edit details | जानकारी बदलें |
+| `detail.saveDetails` | Save details | जानकारी सेव करें |
+| `detail.detailsSaved` | Details saved | जानकारी सेव हो गई |
+| `detail.viewOnly` | You can see this dispatch. Changes are made by the office. | आप यह dispatch देख सकते हैं। बदलाव ऑफ़िस करता है। |
+| `detail.justDispatched` | {code} dispatched | {code} dispatch हो गया |
 | `steps.build` | Build | बनाएं |
 | `steps.hold` | Hold | होल्ड |
 | `steps.dispatch` | Dispatch | Dispatch |
@@ -509,6 +650,36 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `build.groupLabel` | Packing group label | पैकिंग ग्रुप लेबल |
 | `build.removeBundle` | Remove {serial} | {serial} हटाएं |
 | `build.removed` | Removed {serial} | {serial} हटा दिया |
+| `build.undo` | Undo | वापस लाएं |
+| `build.added` | Added {serial} | {serial} जुड़ा |
+| `build.bundlesIn` | Bundles in this dispatch | इस dispatch के bundle |
+| `build.colBundle` | Bundle no | Bundle नंबर |
+| `build.colWeight` | Weight kg | वज़न kg |
+| `build.colPcs` | Pcs | पीस |
+| `build.colLength` | Cut length | कट लंबाई |
+| `build.colKg12` | kg/12ft | kg/12ft |
+| `build.colActions` | Actions | काम |
+| `build.setLabel` | Set label | लेबल लगाएं |
+| `build.changeLabel` | Change label | लेबल बदलें |
+| `build.labelFor` | Packing group label for {group} | {group} का पैकिंग ग्रुप लेबल |
+| `build.labelHint` | A short mark like A or B. It groups these bundles on the packing list. | A या B जैसा छोटा निशान। पैकिंग लिस्ट में ये bundle एक साथ आएंगे। |
+| `build.saveLabel` | Save label | लेबल सेव करें |
+| `build.clearLabel` | Remove label | लेबल हटाएं |
+| `build.labelSaved` | Label saved | लेबल सेव हो गया |
+| `build.labelCleared` | Label removed | लेबल हट गया |
+| `build.labelPartial` | Saved on {done} of {total} bundles. Save again for the rest. | {total} में से {done} bundle पर सेव हुआ। बाकी के लिए फिर से सेव करें। |
+| `build.groupNamed` | Group {label} | ग्रुप {label} |
+| `build.searchTitle` | Search to add | खोज कर जोड़ें |
+| `build.searchLabel` | Serial or PO | Serial या PO |
+| `build.searchHint` | Only bundles in stock are listed. | सिर्फ़ स्टॉक वाले bundle दिखते हैं। |
+| `build.searchStart` | Type part of a serial or PO number. | Serial या PO नंबर का कुछ हिस्सा टाइप करें। |
+| `build.searchEmpty` | No bundle in stock matches "{query}". | "{query}" से स्टॉक में कोई bundle नहीं मिला। |
+| `build.add` | Add | जोड़ें |
+| `build.inDispatch` | Added | जुड़ गया |
+| `build.notHeld` | Not held | होल्ड नहीं |
+| `build.labelNotBack` | {serial} is back without its label {label}. Set the label again. | {serial} वापस आ गया, पर लेबल {label} के बिना। लेबल फिर से लगाएं। |
+| `build.blockedBuild` | {count} {count:bundle\|bundles} can't be held. Remove {count:it\|them} to go on. | {count} bundle होल्ड नहीं हो {count:सकता\|सकते}। आगे बढ़ने के लिए {count:इसे\|इन्हें} हटाएं। |
+| `build.blockedHeld` | {count} {count:bundle\|bundles} can't go out. Release the stock, remove {count:it\|them}, then hold again. | {count} bundle नहीं जा {count:सकता\|सकते}। होल्ड हटाएं, {count:इसे\|इन्हें} हटाएं, फिर से होल्ड करें। |
 | `paste.title` | Paste serials | Serial पेस्ट करें |
 | `paste.label` | Serials | Serial |
 | `paste.hint` | One per line, or separated by commas or spaces. | हर लाइन में एक, या कॉमा या स्पेस से अलग करके। |
@@ -517,6 +688,12 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `paste.already` | {count} already in this dispatch | {count} इस dispatch में पहले से {count:है\|हैं} |
 | `paste.notFound` | {count} not found | {count} नहीं {count:मिला\|मिले} |
 | `paste.unavailable` | {count} not available | {count} उपलब्ध नहीं {count:है\|हैं} |
+| `paste.found` | {count} {count:serial\|serials} to add | जोड़ने के लिए {count} serial |
+| `paste.adding` | Adding {done} of {total} | {total} में से {done} जोड़ रहे हैं |
+| `paste.nothingFound` | No serials found. Paste one per line. | कोई serial नहीं मिला। हर लाइन में एक पेस्ट करें। |
+| `paste.reportTitle` | What happened | क्या हुआ |
+| `paste.pasteMore` | Paste more | और पेस्ट करें |
+| `paste.stopped` | Stopped after {done} of {total}. The rest weren't sent. | {total} में से {done} के बाद रुक गया। बाकी नहीं भेजे गए। |
 | `holdStock` | Hold stock | स्टॉक होल्ड करें |
 | `held` | Stock held | स्टॉक होल्ड हो गया |
 | `heldNote` | Bundles you add now are held straight away. | अब जो bundle जोड़ेंगे, वो तुरंत होल्ड हो जाएंगे। |
@@ -535,8 +712,14 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `deleteTitle` | Delete this dispatch? | यह dispatch डिलीट करें? |
 | `deleteBody` | The dispatch is removed. Its bundles stay in stock. | Dispatch हट जाएगा। इसके bundle स्टॉक में ही रहेंगे। |
 | `deleted` | Dispatch deleted | Dispatch डिलीट हो गया |
+| `holdHint` | Holding keeps these bundles for {customer}. Nobody can add them to another dispatch. | होल्ड करने से ये bundle {customer} के लिए रुक जाते हैं। कोई इन्हें दूसरे dispatch में नहीं जोड़ सकता। |
+| `releaseTitle` | Release the held stock? | होल्ड हटाएं? |
+| `releaseBody` | The bundles go back to stock and this dispatch goes back to Building. | Bundle वापस स्टॉक में जाएंगे और यह dispatch फिर से बनने लगेगा। |
+| `errors.empty` | Add at least one bundle first. | पहले कम से कम एक bundle जोड़ें। |
+| `errors.conflict` | Some bundles changed since this page loaded. The ones that can't go are marked in the list. | पेज खुलने के बाद कुछ bundle बदल गए। जो नहीं जा सकते, उन पर लिस्ट में निशान है। |
+| `errors.moved` | This dispatch has moved on. Reload to see where it is now. | यह dispatch आगे बढ़ चुका है। ताज़ा स्थिति के लिए पेज रीलोड करें। |
 
-### packingList (24)
+### packingList (35)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -564,23 +747,57 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `regenerateTitle` | Regenerate the packing list? | पैकिंग लिस्ट फिर से बनाएं? |
 | `regenerateBody` | orrn builds it again from the bundles in this dispatch as they are now. | orrn इस dispatch के bundle की अभी की जानकारी से इसे फिर से बनाएगा। |
 | `regenerated` | Packing list regenerated | पैकिंग लिस्ट फिर से बन गई |
+| `dispatch` | Dispatch | Dispatch |
+| `gstin` | GSTIN | GSTIN |
+| `notSet` | Not set | तय नहीं |
+| `rowsLabel` | Packing list rows | पैकिंग लिस्ट की लाइनें |
+| `groupNamed` | Group {label} | ग्रुप {label} |
+| `groupTotalOf` | Total {label} | {label} का कुल |
+| `loadError` | This packing list couldn't be read. Regenerate it to build it again. | यह पैकिंग लिस्ट पढ़ी नहीं जा सकी। इसे फिर से बनाएं। |
+| `missing` | This dispatch has no packing list yet. | इस dispatch की पैकिंग लिस्ट अभी नहीं बनी। |
+| `make` | Make packing list | पैकिंग लिस्ट बनाएं |
+| `made` | Packing list made | पैकिंग लिस्ट बन गई |
+| `downloadFailed` | The file couldn't be made. Try again. | फ़ाइल नहीं बन पाई। फिर से कोशिश करें। |
 
-### dies (32)
+### dies (61)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Dies | Die |
+| `subtitle` | Weight bands and measurements for every die. | हर die का वज़न रेंज और नाप। |
 | `newDie` | New die | नया die |
 | `search` | Search code, series or section | कोड, सीरीज़ या सेक्शन खोजें |
+| `searchLabel` | Search dies | Die खोजें |
+| `listLabel` | Dies | Die |
 | `columns.code` | Die | Die |
 | `columns.series` | Series | सीरीज़ |
 | `columns.section` | Section | सेक्शन |
 | `columns.name` | Name | नाम |
 | `columns.range` | Range (kg/12ft) | रेंज (kg/12ft) |
 | `columns.status` | Status | स्टेटस |
+| `rangeValue` | {min}-{max} | {min}-{max} |
+| `unnamed` | No name | कोई नाम नहीं |
 | `empty` | No dies yet. | अभी कोई die नहीं है। |
+| `emptyBody` | Add a die, or import the catalogue from a CSV file. | Die जोड़ें, या CSV फ़ाइल से कैटलॉग इम्पोर्ट करें। |
 | `emptyAction` | Add a die | Die जोड़ें |
 | `importCsv` | Import CSV | CSV इम्पोर्ट करें |
+| `pageEmpty` | Nothing on this page. | इस पेज पर कुछ नहीं है। |
+| `firstPage` | Go to the first page | पहले पेज पर जाएं |
+| `detail.band` | Weight per 12 ft | 12 ft का वज़न |
+| `detail.bandValue` | {min} to {max} | {min} से {max} |
+| `detail.measurements` | Measurements | नाप |
+| `detail.noMeasurements` | No measurements yet. | अभी कोई नाप नहीं है। |
+| `detail.code` | Code | कोड |
+| `detail.seeStock` | See stock | स्टॉक देखें |
+| `detail.edit` | Edit die | Die बदलें |
+| `detail.editTitle` | Edit die {code} | Die {code} बदलें |
+| `detail.notFound` | This die doesn't exist or was deleted. | यह die नहीं मिला या डिलीट हो गया है। |
+| `detail.backToList` | Back to dies | Die की लिस्ट पर वापस |
+| `detail.delete` | Delete die | Die डिलीट करें |
+| `detail.deleteTitle` | Delete die {code}? | Die {code} डिलीट करें? |
+| `detail.deleteBody` | It leaves this list and Pack. Bundles already packed keep it. | यह इस लिस्ट और पैकिंग से हट जाएगा। जो bundle पैक हो चुके हैं, उनमें यह रहेगा। |
+| `detail.deleted` | Die deleted | Die डिलीट हो गया |
+| `detail.loadFailed` | This die didn't load. Check the connection and try again. | यह die लोड नहीं हुआ। इंटरनेट जांच कर फिर से कोशिश करें। |
 | `form.titleNew` | New die | नया die |
 | `form.titleEdit` | Die {code} | Die {code} |
 | `form.series` | Series | सीरीज़ |
@@ -589,11 +806,14 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `form.weightMin` | Min weight (kg/12ft) | कम से कम वज़न (kg/12ft) |
 | `form.weightMax` | Max weight (kg/12ft) | ज़्यादा से ज़्यादा वज़न (kg/12ft) |
 | `form.rangeHint` | Weight of one 12 ft length, in kg. | 12 ft लंबाई का वज़न, kg में। |
-| `form.rangeOrder` | Max weight must be more than min weight. | ज़्यादा से ज़्यादा वज़न, कम से कम वज़न से बड़ा होना चाहिए। |
+| `form.rangeOrder` | Max weight can't be less than min weight. | ज़्यादा से ज़्यादा वज़न, कम से कम वज़न से कम नहीं हो सकता। |
 | `form.status` | Status | स्टेटस |
 | `form.statusHint` | Archived dies don't show in Pack. | बंद die पैकिंग में नहीं दिखते। |
 | `form.notes` | Notes | नोट |
 | `form.advanced` | Advanced | एडवांस |
+| `form.advancedHint` | Width, thickness, oblique and leg. All optional. | चौड़ाई, मोटाई, oblique और लेग। सब ज़रूरी नहीं। |
+| `form.measureHintMm` | In mm. | mm में। |
+| `form.measureHintInch` | In inches, like 0.125 for 1/8 in. | इंच में, जैसे 1/8 in के लिए 0.125। |
 | `form.width` | Width | चौड़ाई |
 | `form.thickness` | Thickness | मोटाई |
 | `form.oblique` | Oblique | Oblique |
@@ -601,19 +821,43 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `form.submit` | Save die | Die सेव करें |
 | `form.saved` | Die saved | Die सेव हो गया |
 | `form.codeTaken` | This code belongs to a deleted die. Use a different code. | यह कोड एक डिलीट हुए die का है। दूसरा कोड डालें। |
+| `form.duplicate` | A die with this series and section code already exists. | इस सीरीज़ और सेक्शन कोड का die पहले से है। |
+| `form.fixErrors` | Check the fields marked in red. | लाल निशान वाले खाने जांचें। |
+| `form.cantAdd` | Your role can't add dies. Ask an admin if you need it. | आपका रोल die नहीं जोड़ सकता। ज़रूरत हो तो एडमिन से कहें। |
 
-### customers (28)
+### customers (103)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Customers | ग्राहक |
+| `subtitle` | Who buys from the plant, and how much. | प्लांट से कौन खरीदता है, और कितना। |
 | `newCustomer` | New customer | नया ग्राहक |
 | `search` | Search name, phone or GSTIN | नाम, फ़ोन या GSTIN खोजें |
+| `searchLabel` | Search customers | ग्राहक खोजें |
+| `listLabel` | Customers | ग्राहक |
 | `columns.name` | Name | नाम |
 | `columns.phone` | Phone | फ़ोन |
 | `columns.gstin` | GSTIN | GSTIN |
+| `columns.city` | City | शहर |
+| `columns.kg` | Dispatched (kg) | Dispatch हुआ (kg) |
 | `empty` | No customers yet. | अभी कोई ग्राहक नहीं है। |
+| `emptyBody` | Add a customer before their first dispatch. | पहले dispatch से पहले ग्राहक जोड़ें। |
 | `emptyAction` | Add a customer | ग्राहक जोड़ें |
+| `importCsv` | Import CSV | CSV इम्पोर्ट करें |
+| `pageEmpty` | Nothing on this page. | इस पेज पर कुछ नहीं है। |
+| `firstPage` | Go to the first page | पहले पेज पर जाएं |
+| `kgFailed` | The dispatched kg didn't load. | Dispatch हुआ kg लोड नहीं हुआ। |
+| `period.label` | Period | समय |
+| `period.month` | This month | इस महीने |
+| `period.quarter` | This quarter | इस तिमाही |
+| `period.fy` | This year | इस साल |
+| `period.range` | {from} to {to} | {from} से {to} |
+| `leaderboard.title` | Who is leading | सबसे आगे कौन |
+| `leaderboard.subtitle` | kg dispatched per customer. {total} kg in all. | हर ग्राहक को dispatch हुआ kg। कुल {total} kg। |
+| `leaderboard.subtitleShort` | kg dispatched per customer. | हर ग्राहक को dispatch हुआ kg। |
+| `leaderboard.label` | Customers by kg dispatched | dispatch हुए kg के हिसाब से ग्राहक |
+| `leaderboard.otherShare` | Other customers ({share}) | बाकी ग्राहक ({share}) |
+| `leaderboard.valueHeader` | Dispatched | Dispatch हुआ |
 | `form.titleNew` | New customer | नया ग्राहक |
 | `form.name` | Name | नाम |
 | `form.nameHint` | As it should print on the packing list. | जैसा पैकिंग लिस्ट पर छपना चाहिए। |
@@ -622,16 +866,70 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `form.gstin` | GSTIN | GSTIN |
 | `form.gstinHint` | 15 characters, from the customer's GST certificate. | 15 अक्षर, ग्राहक के GST सर्टिफ़िकेट से। |
 | `form.gstinInvalid` | A GSTIN has 15 letters and numbers. Check it and try again. | GSTIN में 15 अक्षर और अंक होते हैं। जांच कर फिर से डालें। |
+| `form.gstinLegacy` | This GSTIN isn't 15 letters and numbers. Check it against the GST certificate when you can. | यह GSTIN 15 अक्षर और अंक का नहीं है। समय मिलने पर GST सर्टिफ़िकेट से मिलाएं। |
 | `form.notes` | Notes | नोट |
 | `form.billingAddress` | Billing address | बिलिंग का पता |
 | `form.shippingAddress` | Shipping address | डिलीवरी का पता |
 | `form.sameAsBilling` | Same as billing address | बिलिंग वाला पता ही |
 | `form.addressLine` | Address | पता |
+| `form.addressLine2` | Address line 2 | पता, दूसरी लाइन |
 | `form.city` | City | शहर |
 | `form.state` | State | राज्य |
 | `form.pincode` | PIN code | पिन कोड |
 | `form.submit` | Save customer | ग्राहक सेव करें |
 | `form.saved` | Customer saved | ग्राहक सेव हो गया |
+| `form.fixErrors` | Check the fields marked in red. | लाल निशान वाले खाने जांचें। |
+| `form.cantAdd` | Your role can't add customers. Ask an admin if you need it. | आपका रोल ग्राहक नहीं जोड़ सकता। ज़रूरत हो तो एडमिन से कहें। |
+| `detail.gstin` | GSTIN {gstin} | GSTIN {gstin} |
+| `detail.lastToday` | Last dispatch today | आखिरी dispatch आज |
+| `detail.lastYesterday` | Last dispatch yesterday | आखिरी dispatch कल |
+| `detail.lastDaysAgo` | Last dispatch {count} {count:day\|days} ago | आखिरी dispatch {count} दिन पहले |
+| `detail.lastNever` | No dispatches yet | अभी कोई dispatch नहीं |
+| `detail.cadence` | every ~{count} {count:day\|days} | हर ~{count} दिन में |
+| `detail.edit` | Edit customer | ग्राहक बदलें |
+| `detail.editTitle` | Edit {name} | {name} बदलें |
+| `detail.contact` | Contact | संपर्क |
+| `detail.noContact` | No phone or email yet. | अभी कोई फ़ोन या ईमेल नहीं है। |
+| `detail.noAddress` | No address yet. | अभी कोई पता नहीं है। |
+| `detail.sameAsBilling` | Same as billing address | बिलिंग वाला पता ही |
+| `detail.notFound` | This customer doesn't exist or was deleted. | यह ग्राहक नहीं मिला या डिलीट हो गया है। |
+| `detail.backToList` | Back to customers | ग्राहकों की लिस्ट पर वापस |
+| `detail.loadFailed` | This customer didn't load. Check the connection and try again. | यह ग्राहक लोड नहीं हुआ। इंटरनेट जांच कर फिर से कोशिश करें। |
+| `detail.delete` | Delete customer | ग्राहक डिलीट करें |
+| `detail.deleteTitle` | Delete {name}? | {name} को डिलीट करें? |
+| `detail.deleteBody` | They leave this list and the dispatch picker. Past dispatches and packing lists keep their name. | यह इस लिस्ट और dispatch चुनने की लिस्ट से हट जाएगा। पुराने dispatch और पैकिंग लिस्ट में नाम रहेगा। |
+| `detail.deleted` | Customer deleted | ग्राहक डिलीट हो गया |
+| `detail.kpi.kg` | Dispatched | Dispatch हुआ |
+| `detail.kpi.dispatches` | Dispatches | Dispatch |
+| `detail.kpi.avgLoad` | Average load | औसत लोड |
+| `detail.kpi.share` | Share of all dispatches | सभी dispatch में हिस्सा |
+| `detail.kpi.shareOf` | of {total} kg in all | कुल {total} kg में से |
+| `detail.kpi.perDispatch` | kg per dispatch | kg हर dispatch |
+| `detail.kpi.analyticsFailed` | These numbers didn't load. | ये आंकड़े लोड नहीं हुए। |
+| `detail.kpi.shareFailed` | The total didn't load. | कुल आंकड़ा लोड नहीं हुआ। |
+| `detail.volume.title` | Monthly volume | हर महीने का माल |
+| `detail.volume.subtitle` | kg dispatched per month, last 12 months | हर महीने dispatch हुआ kg, पिछले 12 महीने |
+| `detail.volume.label` | kg dispatched per month | हर महीने dispatch हुआ kg |
+| `detail.volume.month` | Month | महीना |
+| `detail.volume.value` | Dispatched | Dispatch हुआ |
+| `detail.sections.title` | What they buy | क्या खरीदते हैं |
+| `detail.sections.subtitle` | Top sections by kg dispatched in this period | इस समय में kg के हिसाब से टॉप सेक्शन |
+| `detail.sections.label` | Sections by kg dispatched | dispatch हुए kg के हिसाब से सेक्शन |
+| `detail.sections.other` | Other sections | बाकी सेक्शन |
+| `detail.sections.otherShare` | Other sections ({share}) | बाकी सेक्शन ({share}) |
+| `detail.sections.valueHeader` | Dispatched | Dispatch हुआ |
+| `detail.recent.title` | Recent dispatches | हाल के dispatch |
+| `detail.recent.label` | Recent dispatches | हाल के dispatch |
+| `detail.recent.code` | Dispatch | Dispatch |
+| `detail.recent.date` | Date | तारीख |
+| `detail.recent.status` | Status | स्टेटस |
+| `detail.recent.bundles` | Bundles | Bundle |
+| `detail.recent.kg` | kg | kg |
+| `detail.openOrders.title` | Open orders | बाकी ऑर्डर |
+| `detail.openOrders.ordered` | Ordered | ऑर्डर हुआ |
+| `detail.openOrders.dispatched` | Dispatched | Dispatch हुआ |
+| `detail.openOrders.baki` | Baki | बाकी |
+| `detail.openOrders.lines` | {count} {count:line\|lines} | {count} लाइन |
 | `dispatches` | Dispatches | Dispatch |
 | `noDispatches` | No dispatches for this customer yet. | इस ग्राहक का अभी कोई dispatch नहीं है। |
 
@@ -1119,7 +1417,7 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `staff.email` | Email | ईमेल |
 | `staff.role` | Role | रोल |
 
-### marketing (24)
+### marketing (34)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1127,6 +1425,11 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `sub` | orrn tracks each bundle from packing to dispatch, so the floor and the office see the same stock. | orrn हर bundle को पैकिंग से dispatch तक ट्रैक करता है, ताकि फ़्लोर और ऑफ़िस एक ही स्टॉक देखें। |
 | `requestAccess` | Request access | एक्सेस मांगें |
 | `signIn` | Sign in | साइन इन करें |
+| `homeLabel` | orrn home | orrn होम |
+| `metaTitle` | orrn: every bundle, accounted for | orrn: हर bundle का पूरा हिसाब |
+| `visual.bundles` | {count:bundle\|bundles} | {count:bundle\|bundle} |
+| `visual.pieces` | {count} pcs | {count} पीस |
+| `visual.packingListReady` | Packing list ready | पैकिंग लिस्ट तैयार |
 | `flow.title` | Pack. Stock. Dispatch. | पैकिंग। स्टॉक। Dispatch। |
 | `flow.pack` | Enter each bundle's weight and pieces, and print its label. | हर bundle का वज़न और पीस डालें, और उसका लेबल प्रिंट करें। |
 | `flow.stock` | See what's in stock by section, in bundles and kg. | सेक्शन के हिसाब से स्टॉक देखें, bundle और kg में। |
@@ -1136,17 +1439,22 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `floor.hindi` | Hindi and English, one tap apart. | हिंदी और English, एक टैप पर। |
 | `floor.camera` | Scan labels with the phone camera. | फ़ोन के कैमरे से लेबल स्कैन करें। |
 | `floor.devices` | Runs on a phone, a tablet or a laptop. | फ़ोन, टैबलेट या लैपटॉप पर चलता है। |
+| `floor.tryIt` | Try it on this page | इसी पेज पर आज़माएं |
 | `office.title` | For the office | ऑफ़िस के लिए |
 | `office.stock` | Stock by section, up to date as bundles are packed and dispatched. | सेक्शन के हिसाब से स्टॉक, हर पैकिंग और dispatch के साथ अपडेट। |
 | `office.packingList` | Packing lists with your company header, ready to print or send. | आपकी कंपनी के हेडर वाली पैकिंग लिस्ट, प्रिंट करने या भेजने के लिए तैयार। |
 | `office.labels` | Labels print on your own printers over the plant network. | प्लांट के नेटवर्क पर आपके अपने प्रिंटर से लेबल प्रिंट होते हैं। |
+| `office.demoCompany` | Your company name | आपकी कंपनी का नाम |
+| `office.demoCustomer` | Demo customer | डेमो ग्राहक |
 | `trust.title` | Your data stays yours | आपका डेटा आपका ही रहता है |
 | `trust.separate` | Each company's data is kept apart from every other company. | हर कंपनी का डेटा बाकी कंपनियों से अलग रखा जाता है। |
 | `trust.audit` | Every change is logged with who made it and when. | हर बदलाव का रिकॉर्ड रहता है, किसने किया और कब। |
 | `trust.roles` | Roles decide who can pack, dispatch or change settings. | रोल तय करते हैं कि कौन पैकिंग, dispatch या सेटिंग्स बदल सकता है। |
 | `cta.title` | Try it on your floor | अपने फ़्लोर पर आज़माएं |
 | `cta.body` | Tell us about your plant and we'll get in touch. | अपने प्लांट के बारे में बताएं, हम संपर्क करेंगे। |
-| `footer` | orrn, for aluminium extrusion plants | orrn, एल्युमिनियम एक्सट्रूज़न प्लांट के लिए |
+| `footer` | For aluminium extrusion plants | एल्युमिनियम एक्सट्रूज़न प्लांट के लिए |
+| `footerNav` | Footer | फ़ुटर |
+| `copyright` | © {year} orrn | © {year} orrn |
 
 ### native (18)
 
@@ -1169,7 +1477,7 @@ Counts: 1085 screen strings in 28 groups, 10 guides with 182 strings.
 | `serverTitle` | orrn ran into a problem | orrn में कोई दिक्कत आई |
 | `serverBody` | The problem is on orrn's side, not this phone. Try again in a minute. | दिक्कत orrn की तरफ़ से है, इस फ़ोन में नहीं। एक मिनट बाद फिर से कोशिश करें। |
 | `saveUnsureTitle` | Not sure it saved | पता नहीं सेव हुआ या नहीं |
-| `saveUnsureBody` | orrn didn't answer in time, so this may have saved. Check before you try again. | orrn ने समय पर जवाब नहीं दिया, इसलिए हो सकता है यह सेव हो गया हो। दोबारा कोशिश करने से पहले जांच लें। |
+| `saveUnsureBody` | orrn didn't confirm this save, so it may have gone through. Check before you try again. | orrn से सेव होने का जवाब नहीं आया, इसलिए हो सकता है यह सेव हो गया हो। दोबारा कोशिश करने से पहले जांच लें। |
 
 ### ui (9)
 
@@ -1392,7 +1700,7 @@ Please check, Lalubhai:
 | Title | Add or edit a die | Die जोड़ें या बदलें |
 | When | Use this when a new die arrives or a die's details change. | जब नया die आए या किसी die की जानकारी बदले। |
 | Step 1 | Open Dies | Die खोलें |
-| Step 1 text | Open "More", then "Dies". Tap "New die", or tap an existing die to edit it. | "और" खोलें, फिर "Die"। "नया die" दबाएं, या बदलने के लिए किसी die पर दबाएं। |
+| Step 1 text | Open "More", then "Dies". Tap "New die". To change a die, open it and tap "Edit die". | "और" खोलें, फिर "Die"। "नया die" दबाएं। किसी die को बदलने के लिए उसे खोलें और "Die बदलें" दबाएं। |
 | Step 2 | Enter the code | कोड डालें |
 | Step 2 text | Fill in the series, section code and name. The floor sees the section code when picking a die in Pack. | सीरीज़, सेक्शन कोड और नाम भरें। पैकिंग में die चुनते समय फ़्लोर को सेक्शन कोड ही दिखता है। |
 | Step 3 | Set the weight range | वज़न रेंज डालें |
@@ -1402,7 +1710,7 @@ Please check, Lalubhai:
 | Step 5 | Add measurements if you have them | नाप हों तो डालें |
 | Step 5 text | Width, thickness, oblique and leg are under "Advanced". They are optional. | चौड़ाई, मोटाई, oblique और लेग "एडवांस" में हैं। ये ज़रूरी नहीं हैं। |
 | Step 6 | Save | सेव करें |
-| Step 6 text | Tap "Save die". | "Die सेव करें" दबाएं। |
+| Step 6 text | Tap "Save die". The die's page opens with its weight band and measurements. | "Die सेव करें" दबाएं। Die का पेज खुलेगा, उस पर वज़न की रेंज और नाप दिखते हैं। |
 | Problem 1 | It says the code belongs to a deleted die | लिखा आया कि कोड एक डिलीट हुए die का है |
 | Fix 1 | That code was used by a die that was deleted. Use a different code. | यह कोड पहले एक die का था जो डिलीट हो चुका है। दूसरा कोड डालें। |
 | Problem 2 | I have many dies to add | बहुत सारे die जोड़ने हैं |
@@ -1425,7 +1733,7 @@ Please check, Lalubhai:
 | Step 4 | Addresses | पता |
 | Step 4 text | Enter the billing address. If goods go to the same place, tick "Same as billing address". If not, fill in the shipping address. | बिलिंग का पता डालें। अगर माल उसी जगह जाता है, तो "बिलिंग वाला पता ही" पर टिक करें। नहीं तो डिलीवरी का पता भरें। |
 | Step 5 | Save | सेव करें |
-| Step 5 text | Tap "Save customer". Later, this page also lists every dispatch to the customer. | "ग्राहक सेव करें" दबाएं। बाद में इसी पेज पर इस ग्राहक के सारे dispatch भी दिखेंगे। |
+| Step 5 text | Tap "Save customer". The customer's page opens; it lists every dispatch to them, and "Edit customer" changes the details later. | "ग्राहक सेव करें" दबाएं। ग्राहक का पेज खुलेगा; उस पर इस ग्राहक के सारे dispatch दिखते हैं, और बाद में "ग्राहक बदलें" से जानकारी बदल सकते हैं। |
 | Problem 1 | The customer may already exist | शायद ग्राहक पहले से है |
 | Fix 1 | Search the list by name, phone or GSTIN before adding, so the same customer isn't added twice. | जोड़ने से पहले लिस्ट में नाम, फ़ोन या GSTIN से खोज लें, ताकि एक ही ग्राहक दो बार न जुड़े। |
 | Problem 2 | I can't add customers | ग्राहक नहीं जोड़ पा रहे |

@@ -1,78 +1,97 @@
 /**
- * GSAP bootstrap for the marketing surface.
+ * GSAP for the marketing page, and only there (GSAP stays out of the app
+ * chunks). Core only: scroll moments use IntersectionObserver, not
+ * ScrollTrigger, which keeps `/` inside its JS budget
+ * (scripts/check-route-budget.ts).
  *
- * ScrollTrigger is registered exactly once at module scope; all section
- * animations run inside a `gsap.context()` scoped to a container ref so
- * unmounting the route reverts every tween/trigger it created. Marketing is
- * the only chunk that imports GSAP — keep it out of the app shell.
+ * Every animation is a `from` tween towards the layout the markup already
+ * has, so the page is complete without GSAP. Under `prefers-reduced-motion`
+ * nothing runs at all: the static final state is the page. Setup runs in a
+ * layout effect (before paint, so there is no flash of the final state before
+ * the tween) inside a `gsap.context`, and everything reverts on unmount or
+ * when reduced motion is switched on.
  */
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
-gsap.registerPlugin(ScrollTrigger);
+export { gsap };
 
-export { gsap, ScrollTrigger };
-
-/** Shared easing names matching the motion tokens in @orrn/ui/tokens. */
+/** C2 motion tokens as GSAP eases. */
 export const EASE = {
-  outExpo: "expo.out",
-  outQuart: "power4.out",
-  inOut: "power2.inOut",
-  /** C2 `pop`: overshoot then settle. */
-  pop: "back.out(2.2)",
-  /** C2 `rise`: slight overshoot on the slide-up. */
+  /** `rise`: 14px slide-up with a little overshoot. */
   rise: "back.out(1.4)",
+  /** `pop`: 0.6 to 1.08 to 1, for a success moment. */
+  pop: "back.out(2.2)",
+  out: "expo.out",
 } as const;
 
-export function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
+/** Phone layouts stack the sections; tablets and up lay them out side by side. */
+export const MQ = {
+  wide: "(min-width: 768px)",
+  narrow: "(max-width: 767px)",
+} as const;
 
+const REDUCED = "(prefers-reduced-motion: reduce)";
+
+export function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(() => typeof window !== "undefined" && window.matchMedia(REDUCED).matches);
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mq = window.matchMedia(REDUCED);
     const onChange = () => setReduced(mq.matches);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
-
   return reduced;
 }
 
+export type MarketingGsapSetup = (args: { scope: HTMLElement; mm: gsap.MatchMedia }) => void | (() => void);
+
 /**
- * Run a GSAP setup function inside a context scoped to `scopeRef`. The setup
- * receives a `gsap.matchMedia()` instance so callers can split desktop
- * (pinning/scrub) vs mobile (lighter enter animations) behaviors. Everything
- * reverts on unmount. Skipped entirely when reduced motion is preferred —
- * content must be fully visible without animation.
+ * Runs `setup` for the element in `scopeRef` unless reduced motion is on.
+ * `mm` is a `gsap.matchMedia()` scoped to it, for phone vs wide splits.
+ * Returns whether reduced motion is on.
  */
-export function useMarketingGsap(
-  scopeRef: React.RefObject<HTMLElement | null>,
-  setup: (mm: gsap.MatchMedia, ctx: gsap.Context) => void,
-) {
+export function useMarketingGsap(scopeRef: RefObject<HTMLElement | null>, setup: MarketingGsapSetup): boolean {
   const reduced = usePrefersReducedMotion();
   const setupRef = useRef(setup);
   setupRef.current = setup;
 
-  useEffect(() => {
-    if (reduced || !scopeRef.current) return;
-    // gsap.context() invokes its callback synchronously, so use the `self`
-    // argument rather than the (not-yet-assigned) `ctx` binding.
-    const ctx = gsap.context((self) => {
-      const mm = gsap.matchMedia(scopeRef.current ?? undefined);
-      setupRef.current(mm, self as gsap.Context);
-    }, scopeRef);
-    return () => ctx.revert();
+  useLayoutEffect(() => {
+    const scope = scopeRef.current;
+    if (reduced || !scope) return;
+    let cleanup: void | (() => void);
+    let mm: gsap.MatchMedia | undefined;
+    const ctx = gsap.context(() => {
+      mm = gsap.matchMedia(scope);
+      cleanup = setupRef.current({ scope, mm });
+    }, scope);
+    return () => {
+      cleanup?.();
+      mm?.revert();
+      ctx.revert();
+    };
   }, [reduced, scopeRef]);
 
   return reduced;
 }
 
-/** Breakpoints shared by all marketing matchMedia splits. */
-export const MQ = {
-  desktop: "(min-width: 768px)",
-  mobile: "(max-width: 767px)",
-} as const;
+/**
+ * Calls `onEnter` once, the first time `el` reaches the lower-middle of the
+ * viewport. Returns a cleanup. Without IntersectionObserver it fires at once.
+ */
+export function onceInView(el: Element, onEnter: () => void, rootMargin = "0px 0px -30% 0px"): () => void {
+  if (typeof IntersectionObserver === "undefined") {
+    onEnter();
+    return () => {};
+  }
+  const io = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      onEnter();
+    },
+    { rootMargin },
+  );
+  io.observe(el);
+  return () => io.disconnect();
+}

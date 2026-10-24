@@ -3,3 +3,4 @@ export * from "./status";
 export * from "./units";
 export * from "./qr";
 export * from "./foundry";
+export * from "./errors";

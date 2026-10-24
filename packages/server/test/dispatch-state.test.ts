@@ -158,8 +158,9 @@ describe("dispatch and bundle state predicates", () => {
       alreadyInDispatch: [already!.serial],
       notFound: ["NOPE-0001"],
       unavailable: [
-        { serial: heldElsewhere!.serial, reason: `Bundle is held by ${other.code}` },
-        { serial: voided!.serial, reason: "Bundle is void" },
+        // Structured reasons (T22): the UI words them in the reader's language; `reason` stays for old clients.
+        { serial: heldElsewhere!.serial, reason: `Bundle is held by ${other.code}`, code: "held", status: "reserved", heldBy: other.code },
+        { serial: voided!.serial, reason: "Bundle is void", code: "void", status: "void", heldBy: null },
       ],
     });
     expect(await itemCount(d.id)).toBe(4);
@@ -170,6 +171,72 @@ describe("dispatch and bundle state predicates", () => {
     }
     expect((await bundleRow(heldElsewhere!.id)).currentDispatchId).toBe(other.id);
     expect((await bundleRow(voided!.id)).status).toBe("void");
+  });
+
+  test("addBundlesBySerial reports a dispatched bundle with a structured reason", async () => {
+    const { api, customerId, bundles } = await setup(2);
+    const [shipped, other] = bundles;
+    const done = await api.dispatch.create({ customerId });
+    await api.dispatch.addBundle({ id: done.id, bundleId: shipped!.id });
+    await api.dispatch.reserve({ id: done.id });
+    await api.dispatch.complete({ id: done.id });
+
+    const d = await api.dispatch.create({ customerId });
+    const res = await api.dispatch.addBundlesBySerial({ id: d.id, serials: [shipped!.serial, other!.serial] });
+    expect(res.added).toEqual([other!.serial]);
+    expect(res.unavailable).toEqual([
+      { serial: shipped!.serial, reason: "Bundle is already dispatched", code: "dispatched", status: "dispatched", heldBy: null },
+    ]);
+  });
+
+  test("getDispatch names each item's die (the floor knows sections by name)", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = env.caller({ role: "owner", companyId });
+    const dieId = await env.seedDie(companyId, { name: 'Patti 1" x 1/8"' });
+    const customerId = await env.seedCustomer(companyId);
+    const [b] = await env.seedBundles(companyId, dieId, 1);
+    const d = await api.dispatch.create({ customerId });
+    await api.dispatch.addBundle({ id: d.id, bundleId: b!.id });
+    const res = await api.dispatch.getDispatch({ id: d.id });
+    expect(res.items[0]).toMatchObject({ serial: b!.serial, dieName: 'Patti 1" x 1/8"' });
+  });
+
+  test("getDispatch names the other dispatch holding a bundle (Hold stock would be refused)", async () => {
+    const { api, customerId, bundles } = await setup(2);
+    const [x, y] = bundles;
+    const a = await api.dispatch.create({ customerId });
+    const b = await api.dispatch.create({ customerId });
+    // Both drafts list X while it is still in stock; then A holds it.
+    await api.dispatch.addBundle({ id: a.id, bundleId: x!.id });
+    await api.dispatch.addBundle({ id: b.id, bundleId: x!.id });
+    await api.dispatch.addBundle({ id: b.id, bundleId: y!.id });
+    await api.dispatch.reserve({ id: a.id });
+
+    const onB = await api.dispatch.getDispatch({ id: b.id });
+    const bySerial = new Map(onB.items.map((i) => [i.serial, i]));
+    expect(bySerial.get(x!.serial)).toMatchObject({ status: "reserved", heldBy: a.code });
+    expect(bySerial.get(y!.serial)).toMatchObject({ status: "available", heldBy: null });
+
+    // The dispatch holding it never names itself.
+    const onA = await api.dispatch.getDispatch({ id: a.id });
+    expect(onA.items[0]).toMatchObject({ serial: x!.serial, status: "reserved", heldBy: null });
+  });
+
+  test("getDispatch never names another company's dispatch as the holder", async () => {
+    const { companyId, api, customerId, bundles } = await setup(1);
+    const d = await api.dispatch.create({ customerId });
+    await api.dispatch.addBundle({ id: d.id, bundleId: bundles[0]!.id });
+    // A foreign dispatch id written onto our bundle (cross-wired data): never resolved.
+    const other = await env.seedCompany();
+    const otherApi = env.caller({ role: "owner", companyId: other.companyId });
+    const foreign = await otherApi.dispatch.create({ customerId: await env.seedCustomer(other.companyId) });
+    await env.db
+      .update(bundle)
+      .set({ status: "reserved", currentDispatchId: foreign.id })
+      .where(and(eq(bundle.companyId, companyId), eq(bundle.id, bundles[0]!.id)));
+
+    const res = await api.dispatch.getDispatch({ id: d.id });
+    expect(res.items[0]).toMatchObject({ status: "reserved", heldBy: null });
   });
 
   test("addBundlesBySerial with nothing addable writes nothing and does not throw", async () => {

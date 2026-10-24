@@ -5,6 +5,7 @@ import {
   BookMarked,
   Building2,
   Cylinder,
+  FlaskConical,
   House,
   Inbox,
   LayoutDashboard,
@@ -59,6 +60,7 @@ export const TENANT_MORE: readonly NavItem[] = [
     // Ruling R24: people who can change company settings or the team.
     requires: ["settings.update", "member.invite", "member.updateRole", "member.remove", "users.manage"],
   },
+  { key: "preview", to: "/preview", labelKey: "nav.preview", icon: FlaskConical },
 ];
 
 export const GODSEYE_NAV: readonly NavItem[] = [

@@ -78,6 +78,8 @@ const leaderboardInput = z
   .object({ from: isoDate, to: isoDate, limit: z.number().int().min(1).max(25).default(10) })
   .superRefine(checkRange);
 
+const customerKgInput = z.object({ from: isoDate, to: isoDate }).superRefine(checkRange);
+
 const trendsInput = z.object({ days: z.number().int().min(1).max(366).default(90) });
 const volumeInput = z.object({ months: z.number().int().min(1).max(36).default(12) });
 
@@ -132,6 +134,12 @@ export type CustomerLeaderboard = {
   /** Share of `otherKgG`; with the rows' shares it sums to exactly 100.0 when `totalKgG` > 0. */
   otherSharePct: number;
   totalKgG: number;
+};
+
+/** kg column of the customers list: customers with completed dispatches in the period, most kg first. */
+export type CustomerKg = {
+  period: { from: string; to: string };
+  rows: { customerId: string; kgG: number; dispatches: number }[];
 };
 
 export type TrendDay = { date: string; packedKgG: number; dispatchedKgG: number };
@@ -443,6 +451,45 @@ export const analyticsRouter = router({
         totalKgG,
       };
     }),
+
+  /**
+   * Completed-dispatch kg and count per customer over the days from..to (inclusive): the kg column
+   * of the customers list, which follows the leaderboard's period (task T23, ruling R33). Same join
+   * rule as everywhere here; one GROUP BY, no id list bound (constant parameter count). Customers
+   * with nothing in the period are absent, so the client reads them as 0. Soft-deleted customers'
+   * rows are returned too (the client only looks up ids it lists).
+   */
+  customerKg: analyticsProcedure.input(customerKgInput).query(async ({ ctx, input }): Promise<CustomerKg> => {
+    const companyId = ctx.companyId;
+    const timezone = await timezoneOf(ctx.db, companyId);
+    const fromMs = localMidnight(timezone, input.from);
+    const endMs = localMidnight(timezone, addDays(input.to, 1));
+    const kgG = sql<number>`coalesce(sum(${bundle.weightG}), 0)`;
+
+    const rows = await ctx.db
+      .select({
+        customerId: dispatch.customerId,
+        kgG,
+        dispatches: sql<number>`count(distinct ${dispatch.id})`,
+      })
+      .from(dispatch)
+      .leftJoin(dispatchItem, itemsOfDispatch(companyId))
+      .leftJoin(bundle, bundleOfItem(companyId))
+      .where(
+        and(
+          completedDispatches(companyId),
+          gte(dispatch.completedAt, new Date(fromMs)),
+          lt(dispatch.completedAt, new Date(endMs)),
+        ),
+      )
+      .groupBy(dispatch.customerId)
+      .orderBy(desc(kgG), asc(dispatch.customerId));
+
+    return {
+      period: { from: input.from, to: input.to },
+      rows: rows.map((r) => ({ customerId: r.customerId, kgG: num(r.kgG), dispatches: num(r.dispatches) })),
+    };
+  }),
 
   /**
    * Daily packed vs dispatched kg for the last `days` company days, today last (Today chart).

@@ -21,9 +21,15 @@ test.beforeEach(async ({ page }, testInfo) => {
 
 test.describe("public marketing", () => {
   test("landing page layout", async ({ page }) => {
+    // Two page loads plus a ~4-6k px full-page capture with stability shots:
+    // the default 30 s runs out on a busy machine before any comparison fails.
+    test.slow();
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1, name: /Inventory truth/ })).toBeVisible();
-    await expect(page).toHaveScreenshot("landing.png", { fullPage: true });
+    await expect(page.getByRole("heading", { level: 1, name: "Every bundle, accounted for." })).toBeVisible();
+    // A long page: on touch projects the first full-page capture can still
+    // carry the coarse-pointer control heights (Playwright resizes the page to
+    // capture it), so give the stability check room for a third shot under load.
+    await expect(page).toHaveScreenshot("landing.png", { fullPage: true, timeout: 20_000 });
   });
 });
 
