@@ -20,6 +20,12 @@ export type SheetProps = {
   /** One line under the title, read with it. */
   description?: string;
   className?: string;
+  /**
+   * False while the sheet must stay open (a save in progress): the close
+   * button is hidden so it never looks live. Escape and the overlay still call
+   * `onOpenChange(false)`; the owner ignores it.
+   */
+  dismissible?: boolean;
 };
 
 /**
@@ -29,7 +35,7 @@ export type SheetProps = {
  * that slides in from the right, full height, 440px wide. The body scrolls;
  * the header and footer stay put.
  */
-export function Sheet({ open, onOpenChange, title, children, footer, description, className }: SheetProps) {
+export function Sheet({ open, onOpenChange, title, children, footer, description, className, dismissible = true }: SheetProps) {
   const { t } = useT();
   const returnFocus = useReturnFocus();
   return (
@@ -70,7 +76,11 @@ export function Sheet({ open, onOpenChange, title, children, footer, description
             </div>
             <DialogPrimitive.Close
               data-slot="sheet-close"
-              className="-mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--dur-fast)] hover:bg-accent hover:text-foreground"
+              // `invisible`: not focusable and not read, but it keeps its place so the title does not reflow.
+              className={cn(
+                "-mr-2 flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--dur-fast)] hover:bg-accent hover:text-foreground",
+                !dismissible && "invisible",
+              )}
             >
               <X aria-hidden="true" className="size-5" strokeWidth={2} />
               <span className="sr-only">{t("common.close")}</span>
