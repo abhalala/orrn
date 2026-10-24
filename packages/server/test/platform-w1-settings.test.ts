@@ -222,6 +222,21 @@ describe("production day (C15) in Asia/Kolkata", () => {
     expect(today.productionDay.shift?.name).toBe("Night");
     expect(today.packedToday.bundles).toBe(1);
   });
+
+  test("the Today trend ends on the production day, so its so-far day is the KPI blocks' day", async () => {
+    const { companyId } = await env.seedCompany({ settings: { timezone: "Asia/Kolkata" } });
+    const owner = env.caller({ role: "owner", companyId });
+    await owner.company.updateSettings({ shifts: [DAY, NIGHT] });
+    // 03:00 on the 25th: still production day 24 Oct (Night shift past midnight).
+    clock.setClockForTests(ist("2026-10-25T03:00:00"));
+    const [today, days] = await Promise.all([owner.dashboard.today(), owner.analytics.trends({ days: 7 })]);
+    expect(today.date).toBe("2026-10-24");
+    expect(days.at(-1)?.date).toBe(today.date);
+    expect(days).toHaveLength(7);
+    // After the day shift starts the production day and the calendar day agree again.
+    clock.setClockForTests(ist("2026-10-25T08:30:00"));
+    expect((await owner.analytics.trends({ days: 7 })).at(-1)?.date).toBe("2026-10-25");
+  });
 });
 
 describe("commercial switches, standards, locale, cast series (FP-PF-06/09/13)", () => {
