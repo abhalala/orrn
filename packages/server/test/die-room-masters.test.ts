@@ -415,7 +415,7 @@ describe("owner names and imports (FP-DR-12/14)", () => {
 describe("dev seed: die room demo (idempotent)", () => {
   test("bands, copies with readings (one amber, one red), an owned section and one open issue survive a re-seed", async () => {
     const { user } = await import("@orrn/db/schema");
-    for (const key of ["owner", "operator", "viewer", "office", "staff"]) {
+    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "staff"]) {
       await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
     }
     const seedPath = "../../../apps/server/src/dev-seed";
@@ -433,7 +433,8 @@ describe("dev seed: die room demo (idempotent)", () => {
     const first = await counts();
     expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
     expect(await counts()).toEqual(first);
-    expect(first).toEqual({ bands: 1, copies: 5, readings: 8, openIssues: 1 });
+    // Five demo copies, plus 13090-4..10 that the e2e mutates one per width.
+    expect(first).toEqual({ bands: 1, copies: 12, readings: 16, openIssues: 1 });
 
     const { membership } = await import("@orrn/db/schema");
     const [m] = await env.db.select().from(membership).where(and(eq(membership.companyId, companyId), eq(membership.role, "owner")));
@@ -445,6 +446,8 @@ describe("dev seed: die room demo (idempotent)", () => {
       ["13090-1", "green", "in"],
       ["13090-2", "amber", "above"],
       ["13090-3", "red", "above"],
+      ...["13090-4", "13090-5", "13090-6", "13090-7", "13090-8", "13090-9"].map((code) => [code, "green", "in"]),
+      ["13090-10", "amber", "above"],
     ]);
     const owned = (await caller.die.list({ search: "12230" })).items[0]!;
     expect(owned.ownerName).toBeString();
@@ -452,13 +455,26 @@ describe("dev seed: die room demo (idempotent)", () => {
     const issued = await caller.dieInstance.issues.list({ status: "issued" });
     expect(issued.items.map((i) => [i.code, i.pressLineCode, i.pressRunStatus])).toEqual([["14701-1", "P1", "die_issued"]]);
     const runs = await env.db.select().from(pressRun).where(eq(pressRun.companyId, companyId));
-    expect(runs).toHaveLength(1);
-    expect(runs[0]).toMatchObject({ id: issued.items[0]!.pressRunId, status: "die_issued", dieInstanceId: "dev-copy-14701-1", pressLineId: "dev-press-line-1" });
+    // PR-1 carries the open issue; PR-2, PR-3 and PR-4 are the Tee runs that wait for a die (the e2e issues one per width).
+    expect(runs.map((r) => [r.number, r.status]).sort()).toEqual([["PR-1", "die_issued"], ["PR-2", "queued"], ["PR-3", "queued"], ["PR-4", "queued"]]);
+    expect(await caller.dieInstance.issues.queuedRuns()).toMatchObject([
+      { number: "PR-2", pressLineCode: "P1", sectionCode: "13090" },
+      { number: "PR-3", pressLineCode: "P1", sectionCode: "13090" },
+      { number: "PR-4", pressLineCode: "P1", sectionCode: "13090" },
+    ]);
+    // One approved exception: Tejura & Sons may pack on KD Extrusion's 12230-1 until a manager closes it.
+    const channelCopy = (await caller.die.get({ id: owned.id })).copies[0]!;
+    const tejura = (await caller.customer.list({ search: "Tejura" })).items[0]!;
+    expect(await caller.dieInstance.ownerCheck({ dieInstanceId: channelCopy.id, customerId: tejura.id, purpose: "pack" })).toMatchObject({ ok: true, viaGrant: true });
+    const live = await caller.approval.list({ kind: "die_owner_override", status: "approved" });
+    expect(live.items.map((a) => [a.subjectId, (a.meta as Record<string, unknown>).closedAt])).toEqual([[channelCopy.id, null]]);
+    const pr1 = runs.filter((r) => r.number === "PR-1");
+    expect(pr1[0]).toMatchObject({ id: issued.items[0]!.pressRunId, status: "die_issued", dieInstanceId: "dev-copy-14701-1", pressLineId: "dev-press-line-1" });
     const [patti] = await env.db.select().from(dieInstance).where(eq(dieInstance.id, "dev-copy-14701-1"));
-    expect(runs[0]!.sectionId).toBe(patti!.sectionId);
+    expect(pr1[0]!.sectionId).toBe(patti!.sectionId);
     // Cancel puts that run back in the queue, as plans.release would have left it.
     const dieRoomCaller = env.callerForUser(m!.userId);
     await dieRoomCaller.dieInstance.issues.cancel({ id: issued.items[0]!.id });
-    expect((await env.db.select().from(pressRun).where(eq(pressRun.id, runs[0]!.id)))[0]).toMatchObject({ status: "queued", dieInstanceId: null });
+    expect((await env.db.select().from(pressRun).where(eq(pressRun.id, pr1[0]!.id)))[0]).toMatchObject({ status: "queued", dieInstanceId: null });
   });
 });

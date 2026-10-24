@@ -36,6 +36,7 @@ import {
   driftPercentTenths,
   effectiveDieOwner,
   kgPerMetre,
+  normalizeDieCopySearch,
   planTierChange,
   recoveryBp,
   suggestFirstCopy,
@@ -62,6 +63,7 @@ import {
 import { signDieFileUrl } from "../lib/dieFiles";
 import { checkDieAllowed } from "../lib/dieOwner";
 import { can, canApprove, type CompanyRole } from "../lib/permissions";
+import { likeContains } from "../lib/search";
 import { nextCompanySeq } from "../lib/sequence";
 import { isStoreDrawAbort, loadStoreItem, prepareStoreDraws } from "../lib/store";
 import { dieFileRouter } from "./dieFile";
@@ -212,6 +214,8 @@ export const dieInstanceRouter = router({
         .object({
           sectionId: z.string().min(1).optional(),
           status: z.enum(dieInstanceStatuses).optional(),
+          /** A copy code as the floor writes it: `12170-2`, or `12170/2`. Matches anywhere in the code. */
+          search: z.string().trim().max(40).optional(),
           limit: z.number().int().min(1).max(200).default(50),
           offset: z.number().int().min(0).default(0),
         })
@@ -222,6 +226,7 @@ export const dieInstanceRouter = router({
         eq(dieInstance.companyId, ctx.companyId),
         input.sectionId ? eq(dieInstance.sectionId, input.sectionId) : undefined,
         input.status ? eq(dieInstance.status, input.status) : undefined,
+        input.search ? likeContains(dieInstance.code, normalizeDieCopySearch(input.search)) : undefined,
       );
       const [items, [totalRow]] = await Promise.all([
         ctx.db
@@ -379,6 +384,22 @@ export const dieInstanceRouter = router({
     const ownerId = effectiveDieOwner(instance.ownerCustomerId, sectionRow?.ownerCustomerId);
     const names = await customerNames(ctx.db, ctx.companyId, [ownerId]);
     const pendingTierChange = tierChanges.find((t) => t.status === "pending") ?? null;
+    // Each reading against the copy's band now, so the card can chip every row (never stored).
+    const readingRunIds = [...new Set(readings.map((r) => r.pressRunId).filter((id): id is string => Boolean(id)))];
+    const runNumbers = new Map(
+      readingRunIds.length
+        ? (
+            await ctx.db
+              .select({ id: pressRun.id, number: pressRun.number })
+              .from(pressRun)
+              .where(and(eq(pressRun.companyId, ctx.companyId), inArray(pressRun.id, readingRunIds)))
+          ).map((r) => [r.id, r.number] as const)
+        : [],
+    );
+    const readingRows = readings.map((r) => {
+      const f = band ? copyFigures(r.kgPer12ftMilli, band, driftBands) : null;
+      return { ...r, pressRunNumber: r.pressRunId ? (runNumbers.get(r.pressRunId) ?? null) : null, pctTenth: f?.pctTenth ?? null, tone: f?.tone ?? ("none" as const), position: f?.position ?? null };
+    });
     const lifeRemainingG = instance.lifeG == null ? null : instance.lifeG - produced;
     return {
       instance,
@@ -397,7 +418,7 @@ export const dieInstanceRouter = router({
       openMakerJob: openMakerJob[0] ?? null,
       pendingTierChange,
       files,
-      readings,
+      readings: readingRows,
       nitriding,
       tierChanges,
     };

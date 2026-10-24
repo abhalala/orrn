@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { dieToDraft, draftToDieInput, EMPTY_DIE_DRAFT, geometryText, kgText, parseGeometry, validateDieDraft, type StoredDie } from "./die-model";
+import { dieToDraft, draftToDieInput, draftToExtrasInput, EMPTY_DIE_DRAFT, geometryText, kgText, parseGeometry, validateDieDraft, type StoredDie } from "./die-model";
 
 const DIE: StoredDie = {
   series: "PATTI",
@@ -60,6 +60,12 @@ describe("dieToDraft", () => {
       width: "0.984",
       thickness: "0.394",
       leg: "",
+      profileKind: "",
+      alloy: "",
+      temper: "",
+      wall: "",
+      ownerId: "",
+      ownerName: "",
     });
   });
 
@@ -182,5 +188,39 @@ describe("validateDieDraft", () => {
   test("measurements are optional but must be numbers", () => {
     expect(validateDieDraft({ ...ok, thickness: "1.2.3" }, "mm")).toEqual({ thickness: "errors.invalidNumber" });
     expect(validateDieDraft({ ...ok, thickness: "" }, "inch")).toEqual({});
+  });
+});
+
+describe("draftToExtrasInput (D16: shape, alloy, temper, wall, owner)", () => {
+  const SHAPED: StoredDie = { ...DIE, profileKind: "hollow", alloy: "6063", temper: "T6", wallTenthMm: 12, ownerCustomerId: "cust-1", ownerName: "KD Extrusion" };
+
+  test("an edit that touches none of them sends none of them", () => {
+    expect(draftToExtrasInput(dieToDraft(SHAPED, "mm"), "mm", SHAPED, true)).toEqual({});
+  });
+
+  test("a changed field is sent; the wall is typed in mm and stored in tenths", () => {
+    const draft = { ...dieToDraft(SHAPED, "mm"), profileKind: "solid" as const, alloy: " 6061 ", temper: "T5", wall: "1.4" };
+    expect(draftToExtrasInput(draft, "mm", SHAPED, true)).toEqual({ profileKind: "solid", alloy: "6061", temper: "T5", wallTenthMm: 14 });
+  });
+
+  test("an emptied field is sent as null so the server clears it", () => {
+    const draft = { ...dieToDraft(SHAPED, "mm"), alloy: "", wall: "", profileKind: "" as const, ownerId: "", ownerName: "" };
+    expect(draftToExtrasInput(draft, "mm", SHAPED, true)).toEqual({ profileKind: null, alloy: null, wallTenthMm: null, ownerCustomerId: null });
+  });
+
+  test("the owner is never sent by a role that cannot publish masters", () => {
+    const draft = { ...dieToDraft(SHAPED, "mm"), ownerId: "cust-2", ownerName: "Other" };
+    expect(draftToExtrasInput(draft, "mm", SHAPED, false)).toEqual({});
+    expect(draftToExtrasInput(draft, "mm", SHAPED, true)).toEqual({ ownerCustomerId: "cust-2" });
+  });
+
+  test("a new die sends only what was filled, so a blank alloy takes the plant default", () => {
+    const draft = { ...EMPTY_DIE_DRAFT, series: "TEE", sectionCode: "1", profileKind: "semi" as const, wall: "2" };
+    expect(draftToExtrasInput(draft, "mm", undefined, true)).toEqual({ profileKind: "semi", wallTenthMm: 20 });
+  });
+
+  test("a wall that is not a number of mm is a field error", () => {
+    const bad = { ...EMPTY_DIE_DRAFT, series: "TEE", sectionCode: "1", weightMin: "2.7", weightMax: "2.9", wall: "abc" };
+    expect(validateDieDraft(bad, "mm")).toEqual({ wall: "dieRoom.band.wallInvalid" });
   });
 });

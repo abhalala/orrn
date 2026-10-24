@@ -9,7 +9,7 @@
  * batch. `die.issue` is the die room's alone.
  */
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { die } from "@orrn/db/schema/catalog";
@@ -119,6 +119,8 @@ export const dieIssueRouter = router({
           pressRunId: dieIssue.pressRunId,
           pressRunNumber: pressRun.number,
           pressRunStatus: pressRun.status,
+          pressRunDieInAt: pressRun.dieInAt,
+          pressRunDieOutAt: pressRun.dieOutAt,
           issuedAt: dieIssue.issuedAt,
           issuedBy: dieIssue.issuedBy,
           returnedAt: dieIssue.returnedAt,
@@ -146,6 +148,47 @@ export const dieIssueRouter = router({
       const last = items[items.length - 1];
       return { items, nextCursor: rows.length > input.limit && last ? encodeListCursor(last.issuedAt, last.id) : null };
     }),
+
+  /** Active press lines, for the issue form's line picker. Any member. */
+  pressLines: companyProcedure.query(({ ctx }) =>
+    ctx.db
+      .select({ id: pressLine.id, code: pressLine.code, name: pressLine.name })
+      .from(pressLine)
+      .where(and(eq(pressLine.companyId, ctx.companyId), eq(pressLine.status, "active")))
+      .orderBy(asc(pressLine.sortOrder), asc(pressLine.code)),
+  ),
+
+  /**
+   * Released runs waiting for a die (`queued`, no copy): the runs a copy can be issued to. With
+   * `sectionId` only runs of that section (a copy goes to a run of its own section). Any member.
+   */
+  queuedRuns: companyProcedure
+    .input(z.object({ sectionId: z.string().min(1).optional() }).default({}))
+    .query(({ ctx, input }) =>
+      ctx.db
+        .select({
+          id: pressRun.id,
+          number: pressRun.number,
+          sectionId: pressRun.sectionId,
+          sectionSeries: die.series,
+          sectionCode: die.sectionCode,
+          pressLineId: pressRun.pressLineId,
+          pressLineCode: pressLine.code,
+        })
+        .from(pressRun)
+        .innerJoin(die, and(eq(die.id, pressRun.sectionId), eq(die.companyId, pressRun.companyId)))
+        .leftJoin(pressLine, and(eq(pressLine.id, pressRun.pressLineId), eq(pressLine.companyId, pressRun.companyId)))
+        .where(
+          and(
+            eq(pressRun.companyId, ctx.companyId),
+            eq(pressRun.status, "queued"),
+            sql`${pressRun.dieInstanceId} is null`,
+            input.sectionId ? eq(pressRun.sectionId, input.sectionId) : undefined,
+          ),
+        )
+        .orderBy(asc(pressRun.number))
+        .limit(100),
+    ),
 
   issue: actionProcedure("die.issue")
     .input(
