@@ -493,3 +493,38 @@ test.describe("widths", () => {
     }
   });
 });
+
+test.describe("owner sign-in link page", () => {
+  test("the token is spent only when Continue is tapped", async ({ page, browser }) => {
+    const { email, url } = await approvedOwnerMagicLink(browser, `Shree Hari Alloys ${Math.random().toString(36).slice(2, 6)}`);
+    const token = new URL(url).searchParams.get("token");
+    expect(token).toBeTruthy();
+
+    // A link preview opens the page: nothing is spent, so the real tap still works.
+    await page.goto(`/continue?token=${token}`);
+    await expect(h1(page, "Your workspace is ready")).toBeVisible();
+    await page.reload();
+    await expect(h1(page, "Your workspace is ready")).toBeVisible();
+    await expectNoSeriousAxe(page);
+
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(h1(page, "Set your password")).toBeVisible();
+
+    // The link works once: a second visit gets the failure sent back to this page.
+    await page.context().clearCookies();
+    await page.goto(`/continue?token=${token}`);
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(h1(page, "This link no longer works")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Go to sign in" })).toBeVisible();
+    expect(email).toContain("@");
+  });
+
+  test("a link without a token, and an old /welcome?token= link, are handled", async ({ page }) => {
+    await page.goto("/continue");
+    await expect(h1(page, "This link no longer works")).toBeVisible();
+    await page.goto("/welcome?token=abc123");
+    await expect(page).toHaveURL(/\/continue\?token=abc123$/);
+    await expect(h1(page, "Your workspace is ready")).toBeVisible();
+  });
+});

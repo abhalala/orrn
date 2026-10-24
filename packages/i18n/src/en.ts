@@ -286,6 +286,14 @@ export const en = {
       wrongEmail: "Sign out, then open the link again and use the email the invite was sent to.",
       goSignIn: "Go to sign in",
     },
+    continue: {
+      title: "Your workspace is ready",
+      body: "Tap Continue to sign in and set your password.",
+      button: "Continue",
+      brokenTitle: "This link no longer works",
+      brokenBody: "It was already used or has expired. Ask the person who sent it for a new sign-in link.",
+      goSignIn: "Go to sign in",
+    },
     noAccess: {
       title: "Your account isn't in a company yet",
       signedInLabel: "Signed in as",

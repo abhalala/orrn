@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 806 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 812 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -193,7 +193,7 @@ Counts: 806 screen strings in 25 groups, 10 guides with 182 strings.
 | `paletteMove` | Move | ऊपर-नीचे जाएं |
 | `paletteOpen` | Open | खोलें |
 
-### auth (81)
+### auth (87)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -270,6 +270,12 @@ Counts: 806 screen strings in 25 groups, 10 guides with 182 strings.
 | `invite.wrongEmailTitle` | This invite is for a different email | यह इनवाइट किसी दूसरे ईमेल के लिए है |
 | `invite.wrongEmail` | Sign out, then open the link again and use the email the invite was sent to. | साइन आउट करें, फिर लिंक दोबारा खोलें और वही ईमेल डालें जिस पर इनवाइट आया था। |
 | `invite.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `continue.title` | Your workspace is ready | आपका वर्कस्पेस तैयार है |
+| `continue.body` | Tap Continue to sign in and set your password. | साइन इन करके पासवर्ड बनाने के लिए आगे बढ़ें दबाएं। |
+| `continue.button` | Continue | आगे बढ़ें |
+| `continue.brokenTitle` | This link no longer works | यह लिंक अब काम नहीं करता |
+| `continue.brokenBody` | It was already used or has expired. Ask the person who sent it for a new sign-in link. | यह पहले ही इस्तेमाल हो चुका है या खत्म हो गया है। जिसने भेजा था उनसे नया साइन इन लिंक मांगें। |
+| `continue.goSignIn` | Go to sign in | साइन इन पर जाएं |
 | `noAccess.title` | Your account isn't in a company yet | आपका अकाउंट अभी किसी कंपनी में नहीं है |
 | `noAccess.signedInLabel` | Signed in as | इस ईमेल से साइन इन हैं |
 | `noAccess.ask` | Ask your admin to invite this email. | अपने एडमिन से इस ईमेल को इनवाइट करने के लिए कहें। |
