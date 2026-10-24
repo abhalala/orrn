@@ -24,9 +24,18 @@ export function kgPer12ft(input: { weightG: number; pieces: number; lengthMm: nu
   return (gToKg(weightG) / pieces / (lengthMm / MM_PER_FOOT)) * 12;
 }
 
-/** Catalogue weight band /12': floor to 0.1 kg with a 0.01 tolerance. */
+/**
+ * Catalogue weight band /12': floor to 0.1 kg with a 0.01 tolerance, `floor((kg/12ft + 0.01) × 10) / 10`.
+ * The 1e-9 keeps binary floating point from dropping an exact boundary one band low
+ * (2.09 + 0.01 is 2.0999999999999996 in IEEE doubles; the band is 2.1).
+ */
 export function weightRange12ft(kg12ft: number): number {
-  return Math.floor((kg12ft + 0.01) * 10) / 10;
+  return Math.floor((kg12ft + 0.01) * 10 + 1e-9) / 10;
+}
+
+/** The same band from stored thousandths (grams per 12 ft), in exact integer arithmetic: 2090 → 2.1. */
+export function weightRange12ftFromMilli(kgPer12ftMilli: number): number {
+  return Math.floor((Math.round(kgPer12ftMilli) + 10) / 100) / 10;
 }
 
 function fixedIN(value: number, digits: number): string {

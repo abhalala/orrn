@@ -12,6 +12,7 @@ import {
   lengthFromInput,
   parseDecimal,
   weightRange12ft,
+  weightRange12ftFromMilli,
 } from "./units";
 
 describe("constants and weight conversion", () => {
@@ -50,6 +51,25 @@ describe("weightRange12ft", () => {
     expect(weightRange12ft(1.786)).toBe(1.7);
     expect(weightRange12ft(1.813)).toBe(1.8);
     expect(weightRange12ft(2.499)).toBe(2.5);
+  });
+
+  test("exact boundaries x.x90 land in the upper band (float drift, PL-8 spec S-1)", () => {
+    for (const [kg12, band] of [[2.09, 2.1], [2.19, 2.2], [2.59, 2.6], [8.79, 8.8], [2.089, 2.0], [0.99, 1.0]] as const) {
+      expect(weightRange12ft(kg12)).toBe(band);
+    }
+  });
+
+  test("from stored thousandths equals the decimal formula for every value 0.500 to 9.000", () => {
+    expect(weightRange12ftFromMilli(2090)).toBe(2.1);
+    expect(weightRange12ftFromMilli(2089)).toBe(2);
+    expect(weightRange12ftFromMilli(2522)).toBe(2.5);
+    const wrong: number[] = [];
+    for (let milli = 500; milli <= 9000; milli += 1) {
+      // Decimal truth: band tenths = floor((milli + 10) / 100), done on integers.
+      const tenths = Math.floor((milli + 10) / 100);
+      if (weightRange12ftFromMilli(milli) !== tenths / 10 || weightRange12ft(milli / 1000) !== tenths / 10) wrong.push(milli);
+    }
+    expect(wrong).toEqual([]);
   });
 });
 
