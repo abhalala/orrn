@@ -17,6 +17,12 @@ const BUNDLES: RelatedScreen = { to: "/stock/bundles", labelKey: "stock.list.tit
 const DISPATCH: RelatedScreen = { to: "/dispatch", labelKey: "nav.dispatch" };
 const PRINTING: RelatedScreen = { to: "/printing", labelKey: "nav.printing", requires: ["spool.view_queue"] };
 const TODAY: RelatedScreen = { to: "/today", labelKey: "nav.today" };
+const PURCHASE: RelatedScreen = {
+  to: "/purchase",
+  labelKey: "nav.purchase",
+  requires: ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"],
+};
+const STORE: RelatedScreen = { to: "/store", labelKey: "nav.store", requires: ["store.txn", "masters.publish"] };
 
 export const RELATED_SCREENS: Record<GuideSlug, readonly RelatedScreen[]> = {
   "pack-session": [PACK, BUNDLES],
@@ -35,6 +41,8 @@ export const RELATED_SCREENS: Record<GuideSlug, readonly RelatedScreen[]> = {
     },
   ],
   "printer-trouble": [PRINTING],
+  "weigh-scrap-lot": [PURCHASE],
+  "store-entries": [STORE],
   "stock-by-die": [STOCK, BUNDLES],
   "stock-count": [STOCK, BUNDLES],
   "approve-access-request": [{ to: "/admin/requests", labelKey: "nav.adminRequests", requires: ["platform.waitlist.review"] }],
