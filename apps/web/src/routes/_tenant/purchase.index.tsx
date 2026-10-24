@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { LotsPage, isLotFilter, type LotFilter } from "@/features/purchase/lots-page";
+import { isLotFilter, type LotFilter } from "@/features/purchase/lot-filter";
+import { LotsPage } from "@/features/purchase/lots-page";
 
 type PurchaseSearch = { status?: Exclude<LotFilter, "all"> };
 

@@ -1,8 +1,9 @@
 import type { ApprovalKind } from "@orrn/server/lib/permissions";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { ApprovalsPage, isApprovalKind, isApprovalStatus } from "@/features/approvals/approvals-page";
-import type { ApprovalStatus } from "@/features/approvals/approval-view";
+import { isApprovalStatus } from "@/features/approvals/approval-filter";
+import { ApprovalsPage } from "@/features/approvals/approvals-page";
+import { isApprovalKind, type ApprovalStatus } from "@/features/approvals/approval-view";
 
 type ApprovalsSearch = { status?: Exclude<ApprovalStatus, "pending">; kind?: ApprovalKind };
 

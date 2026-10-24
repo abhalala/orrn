@@ -40,13 +40,10 @@ import {
   type ApprovalForView,
   type ApprovalStatus,
 } from "./approval-view";
+import { APPROVAL_FILTERS, isApprovalStatus } from "./approval-filter";
 import { ReviewSheet, type ApprovalItem } from "./review-sheet";
 
-export const APPROVAL_FILTERS = ["pending", "approved", "rejected"] as const;
-export function isApprovalStatus(v: unknown): v is ApprovalStatus {
-  return typeof v === "string" && (APPROVAL_FILTERS as readonly string[]).includes(v);
-}
-export { isApprovalKind };
+export { APPROVAL_FILTERS, isApprovalKind, isApprovalStatus };
 
 export function ApprovalsPage({
   status,

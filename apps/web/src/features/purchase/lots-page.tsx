@@ -26,17 +26,13 @@ import { isForbidden } from "./errors";
 import { bookDayText, kgText, slashBreaks } from "./format";
 import { readKantaG } from "./kanta";
 import { DiffText, LotStatusChip, useCompanyToday, useToleranceBp } from "./lot-ui";
+import { LOT_FILTERS, isLotFilter, type LotFilter } from "./lot-filter";
 import { lotListChip, type LotFlag, type LotStatus } from "./lot-view";
 import { showsQueryError } from "./query-state";
 
 const PurchaseCharts = lazy(() => import("./purchase-charts"));
 
-export const LOT_FILTERS = ["all", "booking", "unload", "ok"] as const;
-export type LotFilter = (typeof LOT_FILTERS)[number];
-
-export function isLotFilter(v: unknown): v is LotFilter {
-  return typeof v === "string" && (LOT_FILTERS as readonly string[]).includes(v);
-}
+export { LOT_FILTERS, isLotFilter, type LotFilter };
 
 const PAGE = 25;
 
