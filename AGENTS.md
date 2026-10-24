@@ -380,8 +380,8 @@ bun run deploy
 - Tables in `packages/db/src/schema/count.ts`: `count_session` (`CNT-{n}` per financial year,
   open → closed | cancelled), `count_location` (the yards a count covers; partial unique index = one
   open count per location), `count_seen` (scans; repeat code or bundle ignored, unknown codes kept),
-  `count_line` (the report frozen at close). Router `count` (`routers/count.ts`), SQL in
-  `lib/count.ts`. Mutations need `stock.count`; `list`, `get`, `phantomSummary` are open to members.
+  `count_line` (the report frozen at close), `count_tally` (variance per yard and die, frozen at
+  close). Router `count` (`routers/count.ts`), SQL in `lib/count.ts`. Mutations need `stock.count`; `list`, `get`, `phantomSummary` are open to members.
 - One classification for the open-count preview (`count.get`, the "missing list before close") and
   the frozen close: phantom = in stock at a counted yard, not seen, and no ledger row after the
   count's `start_seq` (bundles packed or moved in during the count and not scanned are `changed`,
@@ -418,13 +418,23 @@ bun run deploy
   counts' scans with the line's count `start_seq` (not its close) and includes pending older
   sightings, so the hook clears what the void request would now refuse. `move_found` moves moved/found bundles to the seen yard
   with ordinary `move` rows, guarded by "still where the count saw the system have it".
+- Variance per yard and per die = expected − counted (bundles and kg; positive short, negative
+  extra): `count_tally`, one row per (yard, die), written by the close batch from `tallySource`
+  (the live tally of an open count is the same SQL), never updated. Expected = the summary's
+  expected set at its system location; counted = this count's scans at the scanned yard, except a
+  scan superseded by a later ledger row: counted where the system now has the bundle if it is still
+  expected, else nowhere (moved out of the count or dispatched). Unknown codes count with die NULL
+  and 0 kg; `location_id` NULL = unplaced bundles. Read as `report.variance.{ byLocation, byDie }`.
+  The adjustments themselves stay ledger rows: phantom void = `void` reversal rows (reason
+  "Phantom at count CNT-n", voucher = the count line), move_found = `move` rows (reason "Found at
+  count CNT-n"); nothing on the ledger is ever edited.
 - `phantomSummary()` = `{ lastCount (with its `locationCodes`), lastDay, open }`: `lastDay` sums
   every count closed on the last count's company calendar day (yards counted one by one in an
   evening read as one full count, owner measure M1); a count whose yards a later count that day
   ALL counted again is left out of the sums and listed in `lastDay.recounted` (a partial overlap
   stays in, so its shared yard counts twice).
-- The dev-seed reset (`apps/server/src/dev-seed.ts`) deletes the demo company's count tables before
-  `bundle` and `location` (RESTRICT keys) and `doc_series` (CNT-n restarts); a new table with a
+- The dev-seed reset (`apps/server/src/dev-seed.ts`) deletes the demo company's count tables (with
+  `count_tally`) before `bundle` and `location` (RESTRICT keys) and `doc_series` (CNT-n restarts); a new table with a
   RESTRICT key to location/bundle/purchase_lot must be added to that reset too.
 
 ## Analytics (charts and customer numbers)

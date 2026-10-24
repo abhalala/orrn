@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7d7a7377-f3e2-40eb-9beb-29143ab32abc",
+  "id": "ad69b12d-95a2-4a2e-a1c3-75678304feb2",
   "prevId": "8382c91b-a641-4039-8ad1-8cbbef6ac179",
   "tables": {
     "approval": {
@@ -1899,6 +1899,185 @@
         "count_session_created_by_user_id_fk": {
           "name": "count_session_created_by_user_id_fk",
           "tableFrom": "count_session",
+          "tableTo": "user",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "count_tally": {
+      "name": "count_tally",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "server_seq": {
+          "name": "server_seq",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "die_id": {
+          "name": "die_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "expected_count": {
+          "name": "expected_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expected_g": {
+          "name": "expected_g",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "counted_count": {
+          "name": "counted_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "counted_g": {
+          "name": "counted_g",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "count_tally_company_session_idx": {
+          "name": "count_tally_company_session_idx",
+          "columns": [
+            "company_id",
+            "session_id"
+          ],
+          "isUnique": false
+        },
+        "count_tally_company_server_seq_idx": {
+          "name": "count_tally_company_server_seq_idx",
+          "columns": [
+            "company_id",
+            "server_seq"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "count_tally_company_id_company_id_fk": {
+          "name": "count_tally_company_id_company_id_fk",
+          "tableFrom": "count_tally",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "count_tally_session_id_count_session_id_fk": {
+          "name": "count_tally_session_id_count_session_id_fk",
+          "tableFrom": "count_tally",
+          "tableTo": "count_session",
+          "columnsFrom": [
+            "session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "count_tally_location_id_location_id_fk": {
+          "name": "count_tally_location_id_location_id_fk",
+          "tableFrom": "count_tally",
+          "tableTo": "location",
+          "columnsFrom": [
+            "location_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "count_tally_die_id_die_id_fk": {
+          "name": "count_tally_die_id_die_id_fk",
+          "tableFrom": "count_tally",
+          "tableTo": "die",
+          "columnsFrom": [
+            "die_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "count_tally_created_by_user_id_fk": {
+          "name": "count_tally_created_by_user_id_fk",
+          "tableFrom": "count_tally",
           "tableTo": "user",
           "columnsFrom": [
             "created_by"

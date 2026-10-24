@@ -13,7 +13,7 @@ import {
 import { packingList, packingListLine } from "@orrn/db/schema/packing";
 import { auditLog } from "@orrn/db/schema/audit";
 import { approval } from "@orrn/db/schema/approval";
-import { countLine, countLocation, countSeen, countSession } from "@orrn/db/schema/count";
+import { countLine, countLocation, countSeen, countSession, countTally } from "@orrn/db/schema/count";
 import { cast, melt, meltChemical, meltInput, meltOutput, returnStream, spectroResult } from "@orrn/db/schema/foundry";
 import {
   dcNote,
@@ -927,8 +927,9 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     db.delete(vendor).where(eq(vendor.companyId, COMPANY_ID)),
     db.delete(scrapItem).where(eq(scrapItem.companyId, COMPANY_ID)),
     db.delete(scrapGrade).where(eq(scrapGrade.companyId, COMPANY_ID)),
-    // Stock counts (PL-10): count_location / count_seen / count_line hold RESTRICT keys to
+    // Stock counts (PL-10): count_tally / count_location / count_seen / count_line hold RESTRICT keys to
     // location, and doc_series below restarts CNT-1 (the number is unique per company + period).
+    db.delete(countTally).where(eq(countTally.companyId, COMPANY_ID)),
     db.delete(countLine).where(eq(countLine.companyId, COMPANY_ID)),
     db.delete(countSeen).where(eq(countSeen.companyId, COMPANY_ID)),
     db.delete(countLocation).where(eq(countLocation.companyId, COMPANY_ID)),

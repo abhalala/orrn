@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 import { user } from "./auth";
+import { die } from "./catalog";
 import { bundle } from "./inventory";
 import { location } from "./stock";
 import { company } from "./tenant";
@@ -240,7 +241,45 @@ export const countLine = sqliteTable(
   ],
 );
 
+/**
+ * Variance tally frozen at close: one row per (counted yard, die) with what the count expected
+ * there and what it counted there; variance = expected − counted (positive: short, negative:
+ * extra). Expected = the summary's `expected` set (in stock at the yard, unscanned bundles that
+ * changed during the count left out). Counted = this count's scans at the yard: a scan of an
+ * expected bundle that the system moved after the scan counts where the system now has it; a
+ * scan superseded by a move out of the count or a dispatch counts nowhere; unknown codes count
+ * with no die and 0 kg. `location_id` NULL = bundles with no place (a count with
+ * `include_unplaced`). Written once by the close batch; never updated.
+ */
+export const countTally = sqliteTable(
+  "count_tally",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    serverSeq: integer("server_seq").notNull().default(0),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => countSession.id, { onDelete: "cascade" }),
+    locationId: text("location_id").references(() => location.id, { onDelete: "restrict" }),
+    /** NULL for codes that resolved to no bundle. */
+    dieId: text("die_id").references(() => die.id, { onDelete: "set null" }),
+    expectedCount: integer("expected_count").notNull(),
+    expectedG: integer("expected_g").notNull(),
+    countedCount: integer("counted_count").notNull(),
+    countedG: integer("counted_g").notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+  },
+  (table) => [
+    index("count_tally_company_session_idx").on(table.companyId, table.sessionId),
+    index("count_tally_company_server_seq_idx").on(table.companyId, table.serverSeq),
+  ],
+);
+
 export type CountSessionRow = typeof countSession.$inferSelect;
 export type CountLocationRow = typeof countLocation.$inferSelect;
 export type CountSeenRow = typeof countSeen.$inferSelect;
 export type CountLineRow = typeof countLine.$inferSelect;
+export type CountTallyRow = typeof countTally.$inferSelect;

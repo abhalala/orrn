@@ -113,4 +113,26 @@ CREATE TABLE `count_session` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `count_session_company_number_unique` ON `count_session` (`company_id`,`period`,`number`);--> statement-breakpoint
 CREATE INDEX `count_session_company_status_idx` ON `count_session` (`company_id`,`status`,`created_at`);--> statement-breakpoint
-CREATE INDEX `count_session_company_server_seq_idx` ON `count_session` (`company_id`,`server_seq`);
+CREATE INDEX `count_session_company_server_seq_idx` ON `count_session` (`company_id`,`server_seq`);--> statement-breakpoint
+CREATE TABLE `count_tally` (
+	`id` text PRIMARY KEY NOT NULL,
+	`company_id` text NOT NULL,
+	`server_seq` integer DEFAULT 0 NOT NULL,
+	`session_id` text NOT NULL,
+	`location_id` text,
+	`die_id` text,
+	`expected_count` integer NOT NULL,
+	`expected_g` integer NOT NULL,
+	`counted_count` integer NOT NULL,
+	`counted_g` integer NOT NULL,
+	`created_by` text,
+	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`session_id`) REFERENCES `count_session`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`location_id`) REFERENCES `location`(`id`) ON UPDATE no action ON DELETE restrict,
+	FOREIGN KEY (`die_id`) REFERENCES `die`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`created_by`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE INDEX `count_tally_company_session_idx` ON `count_tally` (`company_id`,`session_id`);--> statement-breakpoint
+CREATE INDEX `count_tally_company_server_seq_idx` ON `count_tally` (`company_id`,`server_seq`);

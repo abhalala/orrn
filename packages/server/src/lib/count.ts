@@ -33,6 +33,7 @@ import {
   countLocation,
   countSeen,
   countSession,
+  countTally,
   type CountLineKind,
   type CountLineResolution,
   type CountStatus,
@@ -146,6 +147,47 @@ export function seenElsewhereWhere(companyId: string, scope: CountScope): SQL {
 /** Over the outer `bundle`: at a counted location, not scanned, but changed after the count began. */
 export function changedWhere(companyId: string, scope: CountScope): SQL {
   return sql`(${atCountedLocation(companyId, scope)} and not ${seenInSession(companyId, scope.id)} and ${bundleChangedAfter(companyId, scope.startSeq)})`;
+}
+
+/**
+ * Over the outer `bundle`: in the count's expected set (the summary's `expected`): at a counted
+ * location, minus the unscanned bundles that changed during the count.
+ */
+function expectedWhere(companyId: string, scope: CountScope): SQL {
+  return sql`(${atCountedLocation(companyId, scope)} and (${seenInSession(companyId, scope.id)} or not ${bundleChangedAfter(companyId, scope.startSeq)}))`;
+}
+
+/**
+ * Variance source rows (see `count_tally`): one row per expected bundle at its location, one per
+ * scan of the count at the yard it counts for. Over `count_seen` left-joined to `bundle`: a scan
+ * of an expected bundle that a newer ledger row superseded counts where the system now has it; a
+ * superseded scan of a bundle that left the count (moved out, dispatched) counts nowhere.
+ */
+function tallySource(companyId: string, scope: CountScope): SQL {
+  const superseded = sql`exists (select 1 from stock_ledger l where l.company_id = ${companyId} and l.item_kind = 'bundle' and l.item_ref = ${S("bundle_id")} and l.server_seq > ${S("server_seq")})`;
+  const expected = expectedWhere(companyId, scope);
+  return sql`(
+    select ${B("location_id")} as loc, ${B("die_id")} as die, 1 as e, ${B("weight_g")} as eg, 0 as c, 0 as cg
+      from ${bundle} where ${expected}
+    union all
+    select case when ${B("id")} is not null and ${expected} and ${superseded} then ${B("location_id")} else ${S("location_id")} end as loc,
+        ${B("die_id")} as die, 0 as e, 0 as eg, 1 as c, coalesce(${B("weight_g")}, 0) as cg
+      from ${countSeen} left join ${bundle} on ${B("id")} = ${S("bundle_id")} and ${B("company_id")} = ${S("company_id")}
+      where ${S("company_id")} = ${companyId} and ${S("session_id")} = ${scope.id}
+        and ((${B("id")} is not null and ${expected}) or not ${superseded})
+  ) t`;
+}
+
+/** The grouped variance columns over `tallySource` (aliases = count_tally column names). */
+function tallyFields() {
+  return {
+    locationId: sql<string | null>`t.loc`.as("location_id"),
+    dieId: sql<string | null>`t.die`.as("die_id"),
+    expectedCount: sql<number>`sum(t.e)`.as("expected_count"),
+    expectedG: sql<number>`sum(t.eg)`.as("expected_g"),
+    countedCount: sql<number>`sum(t.c)`.as("counted_count"),
+    countedG: sql<number>`sum(t.cg)`.as("counted_g"),
+  };
 }
 
 /**
@@ -351,6 +393,22 @@ export function closeStatements(ctx: CloseCtx, session: CountScope): SqliteBatch
           ),
         ),
     ),
+    // Variance per (yard, die), frozen (keys follow count_tally's column order).
+    db.insert(countTally).select(
+      db
+        .select({
+          id: sqlUuid.as("id"),
+          companyId: sql<string>`${companyId}`.as("company_id"),
+          serverSeq: sql<number>`${seq}`.as("server_seq"),
+          sessionId: sql<string>`${sessionId}`.as("session_id"),
+          ...tallyFields(),
+          createdBy: sql<string | null>`${ctx.userId}`.as("created_by"),
+          createdAt: sql<number>`${now}`.as("created_at"),
+        })
+        .from(tallySource(companyId, session))
+        .where(landed)
+        .groupBy(sql`t.loc`, sql`t.die`),
+    ),
     db
       .update(countSession)
       .set({
@@ -474,6 +532,28 @@ export type CountSummary = {
   phantomBp: number;
 };
 
+/** Expected − counted, bundles and kg (positive: short, negative: extra). */
+type VarianceFigures = {
+  expected: number;
+  expectedG: number;
+  counted: number;
+  countedG: number;
+  variance: number;
+  varianceG: number;
+};
+
+/** Per counted yard; `locationId` NULL = bundles with no place (a count with `include_unplaced`). */
+export type CountVarianceLocation = { locationId: string | null; locationCode: string | null } & VarianceFigures;
+/** Per die (section); `dieId` NULL = codes that resolved to no bundle. */
+export type CountVarianceDie = { dieId: string | null; sectionCode: string | null } & VarianceFigures;
+
+/**
+ * Variance per yard and per die (`count_tally`): frozen at close, live for an open count, empty
+ * for a cancelled one. Σ expected = `summary.expected`; Σ counted = `summary.seen` minus scans
+ * superseded by a move out of the count or a dispatch.
+ */
+export type CountVariance = { byLocation: CountVarianceLocation[]; byDie: CountVarianceDie[] };
+
 export type CountReport = {
   sessionId: string;
   number: string;
@@ -487,6 +567,7 @@ export type CountReport = {
   found: CountFoundLine[];
   byCast: { castId: string | null; bundles: number; weightG: number }[];
   byAge: { bucket: AgeBucket; bundles: number; weightG: number }[];
+  variance: CountVariance;
   pendingApprovalId: string | null;
 };
 
@@ -632,6 +713,82 @@ async function previewTotals(db: OrrnDb, companyId: string, session: SessionLike
     seenElsewhere: Number(elsewhere?.n ?? 0),
     seen: Number(seen?.n ?? 0),
   };
+}
+
+type TallyRow = {
+  locationId: string | null;
+  dieId: string | null;
+  sectionCode: string | null;
+  expectedCount: number;
+  expectedG: number;
+  countedCount: number;
+  countedG: number;
+};
+
+/** The count's variance tally rows: frozen ones once closed, the live tally while open. */
+async function tallyRows(db: OrrnDb, companyId: string, session: SessionLike): Promise<TallyRow[]> {
+  if (session.status === "cancelled") return [];
+  if (session.status === "closed") {
+    return db
+      .select({
+        locationId: countTally.locationId,
+        dieId: countTally.dieId,
+        sectionCode: die.sectionCode,
+        expectedCount: countTally.expectedCount,
+        expectedG: countTally.expectedG,
+        countedCount: countTally.countedCount,
+        countedG: countTally.countedG,
+      })
+      .from(countTally)
+      .leftJoin(die, and(eq(die.id, countTally.dieId), eq(die.companyId, countTally.companyId)))
+      .where(and(eq(countTally.companyId, companyId), eq(countTally.sessionId, session.id)));
+  }
+  const v = db.select(tallyFields()).from(tallySource(companyId, session)).groupBy(sql`t.loc`, sql`t.die`).as("v");
+  return db
+    .select({
+      locationId: v.locationId,
+      dieId: v.dieId,
+      sectionCode: die.sectionCode,
+      expectedCount: v.expectedCount,
+      expectedG: v.expectedG,
+      countedCount: v.countedCount,
+      countedG: v.countedG,
+    })
+    .from(v)
+    .leftJoin(die, and(eq(die.id, v.dieId), eq(die.companyId, companyId)));
+}
+
+/** Sum tally rows by `keyOf`; nulls sort last, then by label, then by key. */
+function rollUp<K extends string | null, X>(
+  rows: TallyRow[],
+  keyOf: (r: TallyRow) => K,
+  labelOf: (r: TallyRow) => string | null,
+  make: (key: K, label: string | null, f: VarianceFigures) => X,
+): X[] {
+  const acc = new Map<K, { label: string | null; e: number; eg: number; c: number; cg: number }>();
+  for (const r of rows) {
+    const k = keyOf(r);
+    const a = acc.get(k) ?? { label: labelOf(r), e: 0, eg: 0, c: 0, cg: 0 };
+    a.e += Number(r.expectedCount);
+    a.eg += Number(r.expectedG);
+    a.c += Number(r.countedCount);
+    a.cg += Number(r.countedG);
+    acc.set(k, a);
+  }
+  return [...acc.entries()]
+    .sort(([ka, a], [kb, b]) =>
+      ka === null ? 1 : kb === null ? -1 : (a.label ?? "").localeCompare(b.label ?? "") || ka.localeCompare(kb),
+    )
+    .map(([k, a]) =>
+      make(k, a.label, {
+        expected: a.e,
+        expectedG: a.eg,
+        counted: a.c,
+        countedG: a.cg,
+        variance: a.e - a.c,
+        varianceG: a.eg - a.cg,
+      }),
+    );
 }
 
 function bp(part: number, whole: number): number {
@@ -803,6 +960,22 @@ export async function countReport(
     slot.weightG += b.weightG ?? 0;
   }
 
+  const tally = await tallyRows(db, companyId, session);
+  const variance: CountVariance = {
+    byLocation: rollUp(
+      tally,
+      (r) => r.locationId,
+      (r) => (r.locationId ? (codeOf.get(r.locationId) ?? null) : null),
+      (locationId, locationCode, f) => ({ locationId, locationCode, ...f }),
+    ),
+    byDie: rollUp(
+      tally,
+      (r) => r.dieId,
+      (r) => r.sectionCode,
+      (dieId, sectionCode, f) => ({ dieId, sectionCode, ...f }),
+    ),
+  };
+
   return {
     sessionId: session.id,
     number: session.number,
@@ -815,6 +988,7 @@ export async function countReport(
     found,
     byCast,
     byAge,
+    variance,
     pendingApprovalId: pending?.id ?? null,
   };
 }

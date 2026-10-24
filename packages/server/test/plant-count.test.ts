@@ -21,6 +21,7 @@ import {
   countLocation,
   countSeen,
   countSession,
+  countTally,
   legacyBundleMap,
   stockLedger,
   user,
@@ -2382,7 +2383,7 @@ describe("dev seed reset with counts (spec r0 I-2)", () => {
     await owner.count.scan({ sessionId: open.id, codes: [first!.serial] });
 
     expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
-    for (const t of [countSession, countLocation, countSeen, countLine]) {
+    for (const t of [countSession, countLocation, countSeen, countLine, countTally]) {
       expect(await env.db.select().from(t).where(eq(t.companyId, companyId))).toHaveLength(0);
     }
     expect((await owner.count.start({ locationIds: [yard] })).number).toBe("CNT-1");
@@ -2837,5 +2838,128 @@ describe("fix r2: the void is a ledger row with its reason, never an edit", () =
     const line = (await linesOf(s.id)).find((l) => l.bundleId === b!.id)!;
     expect(added[0]!.voucherId).toBe(line.id);
     await expectConsistent(p.owner, p.companyId, "phantom void posted");
+  });
+});
+
+describe("fix r2: variance per yard and per die (expected − counted)", () => {
+  /** Y1: a, b, c of die A; Y2: d, e of die B; Y3 (outside the count): f of die A. */
+  async function fixture() {
+    const p = await plant();
+    const dieB = await env.seedDie(p.companyId, { sectionCode: "B-200" });
+    const [a, b, c] = await p.pack("Y1", 3, 10_000);
+    const res = await p.owner.bundle.createReceipt({
+      dieId: dieB,
+      unit: "pcs",
+      locationId: p.loc("Y2"),
+      rows: [row(20_000), row(20_000)],
+    });
+    const [d, e] = await env.db
+      .select({ id: bundle.id, serial: bundle.serial })
+      .from(bundle)
+      .where(eq(bundle.groupId, res.groupId))
+      .orderBy(asc(bundle.serial));
+    const [f] = await p.pack("Y3", 1, 10_000);
+    const [sectionA] = await env.db.select({ code: bundle.dieId }).from(bundle).where(eq(bundle.id, a!.id));
+    return { p, dieA: sectionA!.code!, dieB, a: a!, b: b!, c: c!, d: d!, e: e!, f: f! };
+  }
+
+  test("misplaced, missing, extra and unknown bundles land on the right yard and die; preview equals the frozen report", async () => {
+    const { p, dieA, dieB, a, b, d, e, f } = await fixture();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
+    // At Y1: a, b, d (packed at Y2), f (system has it at Y3) and an unknown label. At Y2: e. c is missing.
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a.serial, b.serial, d.serial, f.serial, "NOPE-77"] });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y2"), codes: [e.serial] });
+    const preview = (await p.viewer.count.get({ sessionId: s.id })).report.variance;
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.variance).toEqual(preview);
+    expect(report.variance.byLocation).toEqual([
+      { locationId: p.loc("Y1"), locationCode: "Y1", expected: 3, expectedG: 30_000, counted: 5, countedG: 50_000, variance: -2, varianceG: -20_000 },
+      { locationId: p.loc("Y2"), locationCode: "Y2", expected: 2, expectedG: 40_000, counted: 1, countedG: 20_000, variance: 1, varianceG: 20_000 },
+    ]);
+    const byDie = new Map(report.variance.byDie.map((r) => [r.dieId, r]));
+    expect(byDie.get(dieA)).toMatchObject({ expected: 3, expectedG: 30_000, counted: 3, countedG: 30_000, variance: 0, varianceG: 0 });
+    expect(byDie.get(dieB)).toMatchObject({ sectionCode: "B-200", expected: 2, counted: 2, variance: 0, varianceG: 0 });
+    expect(byDie.get(null)).toMatchObject({ sectionCode: null, expected: 0, counted: 1, countedG: 0, variance: -1, varianceG: 0 });
+    expect(report.variance.byDie.at(-1)!.dieId).toBeNull();
+    // Totals agree with the summary: Σ expected = expected, Σ counted = seen.
+    const sum = (k: "expected" | "counted") => report.variance.byLocation.reduce((t, r) => t + r[k], 0);
+    expect(sum("expected")).toBe(report.summary.expected);
+    expect(sum("counted")).toBe(report.summary.seen);
+  });
+
+  test("the frozen variance does not move when stock moves after the close", async () => {
+    const { p, a, b, c, d, e } = await fixture();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a.serial, b.serial] });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y2"), codes: [d.serial, e.serial] });
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.variance.byLocation.map((r) => [r.locationCode, r.variance])).toEqual([["Y1", 1], ["Y2", 0]]);
+    await p.owner.stock.move({ bundleIds: [c.id, d.id], toLocationId: p.loc("Y4") });
+    await p.dispatchOut([a.id]);
+    expect((await p.viewer.count.get({ sessionId: s.id })).report.variance).toEqual(report.variance);
+  });
+
+  test("a bundle scanned then moved inside the count counts where the system now has it; scanned then dispatched counts nowhere", async () => {
+    const { p, a, b, c, d, e } = await fixture();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1"), p.loc("Y2")] });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a.serial, b.serial, c.serial] });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y2"), codes: [d.serial, e.serial] });
+    // After its scan, c is moved to Y2 and a leaves on a truck.
+    await p.owner.stock.move({ bundleIds: [c.id], toLocationId: p.loc("Y2") });
+    await p.dispatchOut([a.id]);
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.phantom).toEqual([]);
+    expect(report.variance.byLocation.map((r) => [r.locationCode, r.expected, r.counted, r.variance])).toEqual([
+      ["Y1", 1, 1, 0],
+      ["Y2", 3, 3, 0],
+    ]);
+  });
+
+  test("a full count puts bundles with no place on their own row (location null, last)", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const legacy = await env.seedBundles(p.companyId, p.dieId, 2);
+    await p.owner.stock.openingBalance();
+    const s = await p.supervisor.count.start({ locationIds: allYards(p) });
+    await p.supervisor.count.scan({ sessionId: s.id, locationId: p.loc("Y1"), codes: [a!.serial, legacy[0]!.serial] });
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(report.variance.byLocation.map((r) => [r.locationCode, r.expected, r.counted, r.variance])).toEqual([
+      ["Y1", 1, 2, -1],
+      [null, 2, 0, 2],
+    ]);
+  });
+
+  test("tally rows belong to the count's company; another company's rows never show", async () => {
+    const p = await plant();
+    const other = await plant();
+    const [a, b] = await p.pack("Y1", 2);
+    await other.pack("Y1", 3);
+    const theirs = await other.supervisor.count.start({ locationIds: [other.loc("Y1")] });
+    await other.supervisor.count.close({ sessionId: theirs.id, confirmUnscanned: true });
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.variance.byLocation).toEqual([
+      { locationId: p.loc("Y1"), locationCode: "Y1", expected: 2, expectedG: 50_000, counted: 1, countedG: 25_000, variance: 1, varianceG: 25_000 },
+    ]);
+    const rows = await env.db.select().from(countTally).where(eq(countTally.sessionId, s.id));
+    expect(rows.every((r) => r.companyId === p.companyId)).toBe(true);
+    // Cross-wired: a row of the other company that names this count is ignored.
+    await env.db.insert(countTally).values({
+      id: crypto.randomUUID(), companyId: other.companyId, sessionId: s.id, locationId: other.loc("Y1"),
+      dieId: null, expectedCount: 9, expectedG: 9, countedCount: 0, countedG: 0,
+    });
+    expect((await p.viewer.count.get({ sessionId: s.id })).report.variance).toEqual(report.variance);
+    void b;
+  });
+
+  test("a cancelled count has no variance; an open count with nothing scanned shows every expected bundle as variance", async () => {
+    const p = await plant();
+    await p.pack("Y1", 2);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const live = (await p.viewer.count.get({ sessionId: s.id })).report.variance;
+    expect(live.byLocation.map((r) => [r.locationCode, r.expected, r.counted, r.variance])).toEqual([["Y1", 2, 0, 2]]);
+    await p.supervisor.count.cancel({ sessionId: s.id, reason: "Wrong day" });
+    expect((await p.viewer.count.get({ sessionId: s.id })).report.variance).toEqual({ byLocation: [], byDie: [] });
   });
 });
