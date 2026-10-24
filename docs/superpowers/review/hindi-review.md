@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 2008 screen strings in 30 groups, 12 guides with 220 strings.
+Counts: 2068 screen strings in 30 groups, 12 guides with 220 strings.
 
 ## Screen strings
 
@@ -1281,7 +1281,7 @@ Counts: 2008 screen strings in 30 groups, 12 guides with 220 strings.
 | `itemForm.restored` | {name} is back in use | {name} फिर से चालू है |
 | `itemForm.retireBlocked` | {qty} {unit} is still in the store. Issue it or cancel its entries before retiring the item. | स्टोर में अभी {qty} {unit} है। सामान बंद करने से पहले इसे दें या इसकी एंट्री रद्द करें। |
 
-### printing (25)
+### printing (57)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1310,12 +1310,46 @@ Counts: 2008 screen strings in 30 groups, 12 guides with 220 strings.
 | `notSetUpTitle` | Label printing isn't set up | लेबल प्रिंटिंग सेट नहीं है |
 | `notSetUpBody` | Ask the orrn team to set up label printing for your plant. | अपने प्लांट के लिए लेबल प्रिंटिंग सेट करवाने के लिए orrn टीम से कहें। |
 | `restricted` | You can see the queue. Ask a manager to change printers or labels. | आप कतार देख सकते हैं। प्रिंटर या लेबल बदलने के लिए मैनेजर से कहें। |
+| `subtitle` | Labels waiting to print, and the print computers at your plant. | प्रिंट होने के लिए रुके लेबल और आपके प्लांट के प्रिंट कंप्यूटर। |
+| `loadFailed` | Couldn't load printing. Check your connection and try again. | प्रिंटिंग लोड नहीं हुई। कनेक्शन देखकर फिर कोशिश करें। |
+| `queueExtra.all` | All | सभी |
+| `queueExtra.emptyFiltered` | No jobs with this status. | इस स्टेटस का कोई जॉब नहीं है। |
+| `queueExtra.noReason` | No reason was recorded. | कोई वजह दर्ज नहीं हुई। |
+| `queueExtra.attempt` | Attempt {n} | कोशिश {n} |
+| `queueExtra.retryFor` | Send label {label} again | लेबल {label} फिर से भेजें |
+| `queueExtra.retryFailed` | Couldn't send it again. Try once more, or see how to fix the printer. | फिर से नहीं भेज सके। एक बार और कोशिश करें, या प्रिंटर ठीक करने का तरीका देखें। |
+| `queueExtra.noBundle` | No bundle | कोई bundle नहीं |
+| `queueExtra.summary` | {failed} failed, {waiting} waiting | {failed} फ़ेल, {waiting} इंतज़ार में |
+| `queueExtra.summaryClear` | Nothing failed or waiting. | कुछ भी फ़ेल या इंतज़ार में नहीं है। |
+| `queueExtra.filterLabel` | Show jobs | जॉब दिखाएं |
+| `nodes.title` | Print computers | प्रिंट कंप्यूटर |
+| `nodes.hint` | Shows when each print computer last reported in. Whether a printer has paper or ribbon is not reported here. | हर प्रिंट कंप्यूटर ने आखिरी बार कब रिपोर्ट किया, यह दिखता है। प्रिंटर में कागज़ या रिबन है या नहीं, यह यहाँ नहीं बताया जाता। |
+| `nodes.neverSeen` | Has not reported in yet | अभी तक रिपोर्ट नहीं आई |
+| `nodes.version` | Version {version} | वर्ज़न {version} |
+| `nodes.lastError` | Last error: {message} | आखिरी गड़बड़ी: {message} |
+| `nodes.site` | Site: {site} | जगह: {site} |
+| `nodes.profiles` | Label printers | लेबल प्रिंटर |
+| `nodes.profilesEmpty` | No label printer is set up yet. | अभी कोई लेबल प्रिंटर सेट नहीं है। |
+| `nodes.copies` | {count} {count:copy\|copies} per label | हर लेबल की {count} {count:कॉपी\|कॉपियाँ} |
+| `nodes.template` | Label design: {name} | लेबल डिज़ाइन: {name} |
+| `reprint.title` | Reprint a label | लेबल दोबारा प्रिंट करें |
+| `reprint.body` | Enter the bundle number. orrn opens the bundle, where Reprint label sends the label to the printer. | Bundle नंबर लिखें। orrn bundle खोलता है, वहाँ "लेबल दोबारा प्रिंट" से लेबल प्रिंटर को जाता है। |
+| `reprint.field` | Bundle number | Bundle नंबर |
+| `reprint.open` | Open bundle | Bundle खोलें |
+| `reprint.required` | Enter a bundle number. | Bundle नंबर लिखें। |
+| `designs.title` | Label designs | लेबल डिज़ाइन |
+| `designs.empty` | No label design yet. | अभी कोई लेबल डिज़ाइन नहीं है। |
+| `designs.sent` | Sent {time} | {time} पर भेजा |
+| `designs.notSent` | Not sent to the print computer yet | प्रिंट कंप्यूटर को अभी नहीं भेजा |
+| `designs.pushFailed` | Couldn't send the label design. Check that the print computer is connected. | लेबल डिज़ाइन नहीं भेज सके। देखें कि प्रिंट कंप्यूटर जुड़ा है। |
 
-### settings (63)
+### settings (91)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Settings | सेटिंग्स |
+| `subtitle` | Company, team and label printing for your plant. | आपके प्लांट की कंपनी, टीम और लेबल प्रिंटिंग। |
+| `loadFailed` | Couldn't load settings. Check your connection and try again. | सेटिंग्स लोड नहीं हुईं। कनेक्शन देखकर फिर कोशिश करें। |
 | `tabs.company` | Company | कंपनी |
 | `tabs.team` | Team | टीम |
 | `tabs.printing` | Printing | प्रिंटिंग |
@@ -1329,6 +1363,15 @@ Counts: 2008 screen strings in 30 groups, 12 guides with 220 strings.
 | `company.submit` | Save settings | सेटिंग्स सेव करें |
 | `company.saved` | Settings saved | सेटिंग्स सेव हो गईं |
 | `company.readOnly` | Only owners and admins can change these. | इन्हें सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
+| `company.profile` | Company | कंपनी |
+| `company.slug` | Short name | छोटा नाम |
+| `company.units` | Units | इकाइयाँ |
+| `company.unitsHint` | Pack and stock screens show lengths in this unit. Weights are always in kg. | Pack और स्टॉक स्क्रीन पर लंबाई इसी इकाई में दिखती है। वज़न हमेशा kg में रहता है। |
+| `company.timezoneHint` | Days and shifts follow this time zone. | दिन और शिफ़्ट इसी टाइम ज़ोन से चलते हैं। |
+| `company.language` | Language | भाषा |
+| `company.languageHint` | English and हिंदी are available. The choice is kept on this device. | English और हिंदी उपलब्ध हैं। चुनी हुई भाषा इसी डिवाइस पर रहती है। |
+| `company.saveFailed` | Couldn't save the settings. Try again. | सेटिंग्स सेव नहीं हुईं। फिर कोशिश करें। |
+| `company.notStored` | GSTIN and address are not stored for the company yet. | कंपनी का GSTIN और पता अभी सेव नहीं किया जाता। |
 | `team.members` | Members | सदस्य |
 | `team.invite` | Invite member | सदस्य को इनवाइट करें |
 | `team.inviteTitle` | Invite a team member | टीम में किसी को इनवाइट करें |
@@ -1361,8 +1404,25 @@ Counts: 2008 screen strings in 30 groups, 12 guides with 220 strings.
 | `team.removed` | {name} removed | {name} को हटा दिया |
 | `team.ownerLocked` | Only an owner can change another owner. | मालिक का रोल सिर्फ़ दूसरा मालिक बदल सकता है। |
 | `team.you` | You | आप |
+| `team.name` | Name | नाम |
+| `team.joined` | Joined | कब जुड़े |
+| `team.empty` | No members yet. | अभी कोई सदस्य नहीं है। |
+| `team.pendingEmpty` | No invites waiting. | कोई इनवाइट बाकी नहीं है। |
+| `team.expired` | Expired | खत्म हो गया |
+| `team.inviteFailed` | Couldn't send the invite. Check the email and try again. | इनवाइट नहीं भेज सके। ईमेल देखकर फिर कोशिश करें। |
+| `team.loadFailed` | Couldn't load the team. Try again. | टीम लोड नहीं हुई। फिर कोशिश करें। |
+| `team.readOnly` | Only owners and admins can invite people. | इनवाइट सिर्फ़ मालिक और एडमिन भेज सकते हैं। |
+| `team.linkColumn` | Invite link | इनवाइट लिंक |
 | `printing.status` | Label printing | लेबल प्रिंटिंग |
 | `printing.printers` | Printers | प्रिंटर |
+| `printing.lastSeen` | Last report from the print computer: {time} | प्रिंट कंप्यूटर की आखिरी रिपोर्ट: {time} |
+| `printing.neverSeen` | The print computer has not reported in yet. | प्रिंट कंप्यूटर ने अभी तक रिपोर्ट नहीं की। |
+| `printing.defaults` | Label defaults | लेबल की डिफ़ॉल्ट सेटिंग |
+| `printing.defaultsEmpty` | No label printer is set up yet. | अभी कोई लेबल प्रिंटर सेट नहीं है। |
+| `printing.copies` | {count} {count:copy\|copies} per label | हर लेबल की {count} {count:कॉपी\|कॉपियाँ} |
+| `printing.template` | Label design: {name} | लेबल डिज़ाइन: {name} |
+| `printing.open` | Open printing | प्रिंटिंग खोलें |
+| `printing.hint` | Printers and label designs are set up by the orrn team. | प्रिंटर और लेबल डिज़ाइन orrn टीम सेट करती है। |
 | `data.title` | Data | डेटा |
 | `data.importBundles` | Import old bundles | पुराने bundle इम्पोर्ट करें |
 | `data.importDies` | Import dies | Die इम्पोर्ट करें |
