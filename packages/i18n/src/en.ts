@@ -3319,7 +3319,7 @@ export const en = {
     kind: "Kind",
     anyKind: "Everything",
     subject: "Subject",
-    subjectHint: "A serial, code or id",
+    subjectHint: "The id in an entry's Subject column",
     from: "From",
     to: "To",
     clear: "Clear filters",

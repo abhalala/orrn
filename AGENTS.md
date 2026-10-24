@@ -597,6 +597,18 @@ bun run deploy
   (`30 21 * * *` UTC) exports each active plant once per IST day, then removes drill scratch
   companies older than `DRILL_SCRATCH_KEEP_DAYS` (7), children first, and logs
   `backup.drill.discard`. Runbook: `docs/RESTORE_DRILL.md`.
+- **Settings tabs, Today, audit, forgot password (W1-PF-W).** `/settings` tabs live in
+  `features/settings/sections.tsx` (`requires` hides a tab from roles without the action; the
+  server still judges). Shifts, standards, letterhead and the commercial switches all save through
+  `company.updateSettings`; a refused shift save shows the server's message. `/today` reads
+  `dashboard.today.kpis` and shows the rate slice only when `value` is non-null; a viewer's
+  `scope: "kpis"` answer hides the lists. `/audit` is `audit.list` (cursor paging, filters in the
+  URL); Godseye's company Audit tab uses `platform.companiesAudit`. Forgot password is Better Auth's
+  `requestPasswordReset` / `resetPassword` (`sendResetPassword` in packages/auth: the email body is
+  logged only on a development stack, like magic links). The magic-link guard redirects a refused
+  link to `errorCallbackURL?error=ACCOUNT_USES_PASSWORD` when that URL is on a trusted origin
+  (/continue shows the password message), else it answers 403. `gu` loads English with it, so a
+  key gu lacks falls back to English instead of printing the key.
 - **Support (FP-PF-14).** Status goes Open → Answered → Closed, or Open → Closed. A staff reply or
   close lands only if the request is unchanged since it was read; otherwise it is a CONFLICT and no
   audit row is written.

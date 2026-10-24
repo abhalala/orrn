@@ -3307,7 +3307,7 @@ export const hi = {
     kind: "प्रकार",
     anyKind: "सब कुछ",
     subject: "विषय",
-    subjectHint: "सीरियल, कोड या आईडी",
+    subjectHint: "एंट्री के विषय कॉलम की आईडी",
     from: "से",
     to: "तक",
     clear: "फ़िल्टर हटाएं",

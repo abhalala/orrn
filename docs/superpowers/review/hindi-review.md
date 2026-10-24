@@ -2991,7 +2991,7 @@ Please check, Lalubhai:
 | `kind` | Kind | प्रकार |
 | `anyKind` | Everything | सब कुछ |
 | `subject` | Subject | विषय |
-| `subjectHint` | A serial, code or id | सीरियल, कोड या आईडी |
+| `subjectHint` | The id in an entry's Subject column | एंट्री के विषय कॉलम की आईडी |
 | `from` | From | से |
 | `to` | To | तक |
 | `clear` | Clear filters | फ़िल्टर हटाएं |
