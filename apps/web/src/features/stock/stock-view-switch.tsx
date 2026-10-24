@@ -26,7 +26,7 @@ export function StockViewSwitch({ current }: { current: "sections" | "lengths" |
                 to={item.to}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "animate-press inline-flex h-11 w-full min-w-0 items-center justify-center rounded-full px-3 sm:px-5 text-[15px] font-semibold whitespace-nowrap no-underline transition-[color,background-color,scale] duration-[var(--dur-fast)]",
+                  "animate-press inline-flex h-11 w-full min-w-0 items-center justify-center rounded-full px-1 max-sm:overflow-hidden max-sm:text-ellipsis max-sm:text-[13px] sm:px-5 sm:text-[15px] text-[15px] font-semibold whitespace-nowrap no-underline transition-[color,background-color,scale] duration-[var(--dur-fast)]",
                   active
                     ? "bg-card text-foreground shadow-sm dark:bg-surface-sunken dark:ring-1 dark:ring-control/40"
                     : "text-muted-foreground hover:text-foreground",

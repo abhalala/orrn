@@ -9,6 +9,7 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { BundleList } from "@/features/stock/bundle-list";
+import { sectionLabel } from "@/features/stock/sections";
 import { PAGE_SIZE, offsetOf, pageWithinTotal, validateBundlesSearch } from "@/features/stock/bundle-search";
 import { failedWithoutData } from "@/features/stock/section-page";
 import { StatusFilter, type StatusFilterValue } from "@/features/stock/status-filter";
@@ -85,14 +86,18 @@ function AllBundles() {
     const page = offset / PAGE_SIZE + 1;
     navigate({ search: (prev) => ({ ...prev, page: page > 1 ? page : undefined }) });
   };
-  const clearScope = () => navigate({ search: (prev) => ({ ...prev, groupId: undefined, page: undefined }) });
+  const clearScope = () => navigate({ search: (prev) => ({ ...prev, dieId: undefined, groupId: undefined, page: undefined }) });
   // Name what an old /bundles?dieId=|groupId= link shows; every row shares it. No rows: the plain wording.
   const first = bundles.isPlaceholderData ? undefined : bundles.data?.items[0];
   const scope = search.groupId
     ? first
       ? t("stock.list.filterGroupNamed", { code: first.groupCode })
       : t("stock.list.filterGroup")
-    : null;
+    : search.dieId
+      ? first
+        ? t("stock.list.filterDieNamed", { section: sectionLabel({ series: first.dieSeries, sectionCode: first.dieSectionCode }) })
+        : t("stock.list.filterDie")
+      : null;
 
   return (
     <>

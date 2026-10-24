@@ -1201,9 +1201,12 @@ export const bundleRouter = router({
     .input(
       z.object({
         status: z.enum(bundleStatuses).default("available"),
+        // The same filters as the Lengths, Yards and Bundles tabs (FP-PK-08).
+        ...stockFilterShape,
       }),
     )
     .query(async ({ ctx, input }) => {
+      const filters = await stockFilterConditions(ctx.db, ctx.companyId, input);
       const rows = await ctx.db
         .select({
           dieId: bundle.dieId,
@@ -1220,7 +1223,7 @@ export const bundleRouter = router({
         })
         .from(bundle)
         .innerJoin(die, and(eq(die.id, bundle.dieId), eq(die.companyId, bundle.companyId)))
-        .where(and(eq(bundle.companyId, ctx.companyId), eq(bundle.status, input.status)))
+        .where(and(eq(bundle.companyId, ctx.companyId), eq(bundle.status, input.status), ...filters))
         .groupBy(bundle.dieId, die.series, die.sectionCode, die.name, die.weightMinG, die.weightMaxG)
         .orderBy(asc(die.series), asc(die.sectionCode));
 

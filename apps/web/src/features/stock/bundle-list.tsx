@@ -77,7 +77,7 @@ export function BundleList({
           header: t("stock.columns.serial"),
           cell: (r) => (
             <span className="flex flex-col">
-              <span className="font-mono whitespace-nowrap">{r.serial}</span>
+              <span className="font-mono whitespace-nowrap" data-serial={r.serial}>{r.serial}</span>
               {partyNoLabel({ serial: r.serial, partyNo: r.partyNo ?? null }) ? (
                 <span className="font-mono text-[12px] text-muted-foreground">{t("packingList.v2.partyShort", { number: r.partyNo! })}</span>
               ) : null}
@@ -89,7 +89,7 @@ export function BundleList({
           header: t("stock.columns.serial"),
           cell: (r) => (
             <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="font-mono whitespace-nowrap">{r.serial}</span>
+              <span className="font-mono whitespace-nowrap" data-serial={r.serial}>{r.serial}</span>
               {chip(r)}
             </span>
           ),

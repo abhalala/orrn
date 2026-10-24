@@ -479,8 +479,9 @@ function CancelDialog({ open, onOpenChange, sessionId, number, onDone }: { open:
         </>
       }
     >
-      <Field label={t("stock.count.cancelReason")} error={error ? t("stock.count.cancelReasonRequired") : undefined}>
+      <Field label={t("stock.count.cancelReason")} id="cancel-reason" error={error ? t("stock.count.cancelReasonRequired") : undefined}>
         <TextArea
+          id="cancel-reason"
           value={reason}
           onChangeText={(v) => {
             setReason(v);

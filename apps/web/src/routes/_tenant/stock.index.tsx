@@ -22,6 +22,8 @@ import {
   sortSections,
   type SectionSort,
 } from "@/features/stock/sections";
+import { StockFilterBar } from "@/features/stock/stock-filter-bar";
+import { stockFilterInput, validateStockFilter, withoutFilters } from "@/features/stock/stock-filters";
 import { StockViewSwitch } from "@/features/stock/stock-view-switch";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
@@ -40,6 +42,7 @@ function readSort(): SectionSort {
 }
 
 export const Route = createFileRoute("/_tenant/stock/")({
+  validateSearch: (raw: Record<string, unknown>) => validateStockFilter(raw),
   loader: ({ context }) => {
     // Start both summaries while the route chunk loads; the screen shows its skeleton meanwhile.
     void context.queryClient.prefetchQuery(trpc.bundle.stockSummary.queryOptions({ status: "available" }));
@@ -57,8 +60,11 @@ export const Route = createFileRoute("/_tenant/stock/")({
  */
 function StockSections() {
   const { t } = useT();
-  const available = useQuery(trpc.bundle.stockSummary.queryOptions({ status: "available" }));
-  const reserved = useQuery(trpc.bundle.stockSummary.queryOptions({ status: "reserved" }));
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const filterInput = stockFilterInput(search);
+  const available = useQuery(trpc.bundle.stockSummary.queryOptions({ status: "available", ...filterInput }));
+  const reserved = useQuery(trpc.bundle.stockSummary.queryOptions({ status: "reserved", ...filterInput }));
   const [query, setQuery] = useState("");
   const [sort, setSortState] = useState<SectionSort>(readSort);
 
@@ -117,6 +123,11 @@ function StockSections() {
       </div>
 
       <StockViewSwitch current="sections" />
+      <StockFilterBar
+        filter={search}
+        onChange={(patch) => void navigate({ search: (prev) => ({ ...prev, ...patch }) })}
+        onClear={() => void navigate({ search: (prev) => withoutFilters(prev) })}
+      />
 
       <section aria-labelledby="stock-sections-heading" className="flex min-w-0 flex-col gap-4">
         <h2 id="stock-sections-heading" className="sr-only">
