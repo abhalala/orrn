@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 1729 screen strings in 30 groups, 12 guides with 220 strings.
+Counts: 2008 screen strings in 30 groups, 12 guides with 220 strings.
 
 ## Screen strings
 
@@ -91,7 +91,7 @@ Counts: 1729 screen strings in 30 groups, 12 guides with 220 strings.
 | `bundlesKg` | {bundles} {bundles:bundle\|bundles} · {kg} kg | {bundles} bundle · {kg} kg |
 | `feetInches` | {ft} ft {in} in | {ft} ft {in} in |
 
-### status (30)
+### status (31)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -125,6 +125,7 @@ Counts: 1729 screen strings in 30 groups, 12 guides with 220 strings.
 | `request.rejected` | Rejected | नामंज़ूर |
 | `company.active` | Active | चालू |
 | `company.suspended` | Suspended | रोकी गई |
+| `company.pending` | Waiting for approval | मंज़ूरी बाकी |
 
 ### roles (13)
 
@@ -197,7 +198,7 @@ Counts: 1729 screen strings in 30 groups, 12 guides with 220 strings.
 | `purchase` | Purchase | खरीद |
 | `approvals` | Approvals | मंज़ूरी |
 
-### auth (43)
+### auth (88)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -210,76 +211,148 @@ Counts: 1729 screen strings in 30 groups, 12 guides with 220 strings.
 | `login.wrongCredentials` | Email or password is wrong. Check both and try again. | ईमेल या पासवर्ड गलत है। दोनों जांचें और फिर से कोशिश करें। |
 | `login.newHere` | New to orrn? | orrn पर नए हैं? |
 | `login.requestAccess` | Request access | एक्सेस मांगें |
+| `login.showPassword` | Show password | पासवर्ड दिखाएं |
 | `totp.title` | Enter your code | अपना कोड डालें |
 | `totp.body` | Open your authenticator app and type the 6-digit code for orrn. | अपना authenticator ऐप खोलें और orrn वाला 6 अंकों का कोड लिखें। |
 | `totp.code` | 6-digit code | 6 अंकों का कोड |
 | `totp.submit` | Verify | जांचें |
+| `totp.verifying` | Checking | जांच हो रही है |
 | `totp.wrongCode` | That code didn't work. Codes change every 30 seconds, so type the newest one. | यह कोड नहीं चला। कोड हर 30 सेकंड में बदलता है, इसलिए सबसे नया कोड डालें। |
+| `totp.codeRequired` | Type all 6 digits. | पूरे 6 अंक लिखें। |
+| `totp.trust` | Trust this device for 30 days | इस डिवाइस पर 30 दिन तक भरोसा रखें |
+| `totp.useBackup` | Use a backup code instead | इसकी जगह बैकअप कोड इस्तेमाल करें |
+| `totp.useApp` | Use the authenticator app instead | इसकी जगह authenticator ऐप इस्तेमाल करें |
+| `totp.backupTitle` | Enter a backup code | बैकअप कोड डालें |
+| `totp.backupBody` | Type one of the backup codes you saved when you turned on two-factor. Each one works once. | टू-फ़ैक्टर चालू करते समय जो बैकअप कोड सेव किए थे, उनमें से एक लिखें। हर कोड एक बार ही चलता है। |
+| `totp.backupCode` | Backup code | बैकअप कोड |
+| `totp.backupRequired` | Type a backup code. | बैकअप कोड लिखें। |
+| `totp.wrongBackup` | That backup code didn't work. Check it, or use one you haven't used yet. | यह बैकअप कोड नहीं चला। इसे जांचें, या कोई ऐसा कोड डालें जो पहले इस्तेमाल नहीं हुआ। |
+| `totp.back` | Back to password | पासवर्ड पर वापस |
+| `validation.email` | Enter your email. | अपना ईमेल डालें। |
+| `validation.password` | Enter your password. | अपना पासवर्ड डालें। |
+| `validation.passwordShort` | Use at least 8 characters. | कम से कम 8 अक्षर रखें। |
+| `validation.name` | Enter your name. | अपना नाम डालें। |
+| `validation.company` | Enter your company's name. | अपनी कंपनी का नाम डालें। |
+| `errors.tooMany` | Too many tries. Wait a minute, then try again. | बहुत बार कोशिश हो गई। एक मिनट रुकें, फिर कोशिश करें। |
+| `errors.twoFactorExpired` | That took too long. Sign in again with your password. | बहुत देर हो गई। अपने पासवर्ड से फिर से साइन इन करें। |
+| `brand.label` | How orrn works | orrn कैसे काम करता है |
+| `brand.holdStep` | Hold | होल्ड |
+| `brand.pack` | Weight and pieces in, label out. | वज़न और पीस डालें, लेबल निकालें। |
 | `requestAccess.title` | Request access | एक्सेस मांगें |
 | `requestAccess.subtitle` | Tell us about your plant and we'll get in touch to set up your company. | अपने प्लांट के बारे में बताएं। आपकी कंपनी सेट करने के लिए हम संपर्क करेंगे। |
 | `requestAccess.company` | Company name | कंपनी का नाम |
 | `requestAccess.name` | Your name | आपका नाम |
 | `requestAccess.workEmail` | Work email | काम का ईमेल |
 | `requestAccess.lines` | Extrusion lines | एक्सट्रूज़न लाइनें |
+| `requestAccess.slotTitle` | When could we show you orrn? | हम आपको orrn कब दिखा सकते हैं? |
+| `requestAccess.slotHint` | Optional. We'll confirm the time by email. | ज़रूरी नहीं। समय हम ईमेल से पक्का करेंगे। |
 | `requestAccess.preferredDate` | Preferred date | पसंद की तारीख |
 | `requestAccess.preferredTime` | Preferred time | पसंद का समय |
 | `requestAccess.notes` | Anything else we should know | और कुछ जो हमें पता होना चाहिए |
+| `requestAccess.notesHint` | Optional. Up to {max} characters. | ज़रूरी नहीं। ज़्यादा से ज़्यादा {max} अक्षर। |
 | `requestAccess.submit` | Send request | रिक्वेस्ट भेजें |
+| `requestAccess.submitting` | Sending | भेज रहे हैं |
+| `requestAccess.failed` | The request didn't send. Check the fields and try again. | रिक्वेस्ट नहीं गई। जानकारी जांचें और फिर से कोशिश करें। |
 | `requestAccess.successTitle` | Request sent | रिक्वेस्ट भेज दी |
 | `requestAccess.successBody` | We have your request. We'll reply to {email}. | आपकी रिक्वेस्ट मिल गई। हम {email} पर जवाब देंगे। |
 | `requestAccess.backHome` | Back to home | होम पर वापस |
-| `invite.title` | Join {company} | {company} से जुड़ें |
-| `invite.subtitle` | You're joining as {role}. | आप {role} के रूप में जुड़ रहे हैं। |
 | `invite.genericTitle` | Join your team on orrn | orrn पर अपनी टीम से जुड़ें |
+| `invite.genericBody` | Use the email address your invite was sent to. | वही ईमेल डालें जिस पर आपका इनवाइट आया है। |
 | `invite.name` | Your name | आपका नाम |
 | `invite.email` | Email | ईमेल |
 | `invite.password` | Password | पासवर्ड |
 | `invite.passwordHint` | At least 8 characters. | कम से कम 8 अक्षर। |
 | `invite.submit` | Create account and join | अकाउंट बनाएं और जुड़ें |
+| `invite.submitting` | Joining | जुड़ रहे हैं |
+| `invite.signInSubmit` | Sign in and join | साइन इन करें और जुड़ें |
 | `invite.existingAccount` | This email already has an account. Sign in to join. | इस ईमेल का अकाउंट पहले से है। जुड़ने के लिए साइन इन करें। |
+| `invite.signedInAs` | You're signed in as {email}. | आप {email} से साइन इन हैं। |
+| `invite.joinAsMe` | Join with this account | इसी अकाउंट से जुड़ें |
+| `invite.otherAccount` | Use another account | दूसरा अकाउंट इस्तेमाल करें |
+| `invite.joined` | Joined | जुड़ गए |
+| `invite.expiredTitle` | This invite link doesn't work | यह इनवाइट लिंक काम नहीं कर रहा |
 | `invite.expired` | This invite link has expired or was already used. Ask your admin for a new one. | यह इनवाइट लिंक पुराना हो गया है या पहले ही इस्तेमाल हो चुका है। अपने एडमिन से नया लिंक मांगें। |
+| `invite.wrongEmailTitle` | This invite is for a different email | यह इनवाइट किसी दूसरे ईमेल के लिए है |
+| `invite.wrongEmail` | Sign out, then open the link again and use the email the invite was sent to. | साइन आउट करें, फिर लिंक दोबारा खोलें और वही ईमेल डालें जिस पर इनवाइट आया था। |
+| `invite.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `continue.title` | Your workspace is ready | आपका वर्कस्पेस तैयार है |
+| `continue.body` | Tap Continue to sign in and set your password. | साइन इन करके पासवर्ड बनाने के लिए आगे बढ़ें दबाएं। |
+| `continue.button` | Continue | आगे बढ़ें |
+| `continue.brokenTitle` | This link no longer works | यह लिंक अब काम नहीं करता |
+| `continue.brokenBody` | It was already used or has expired. Ask the person who sent it for a new sign-in link. | यह पहले ही इस्तेमाल हो चुका है या खत्म हो गया है। जिसने भेजा था उनसे नया साइन इन लिंक मांगें। |
+| `continue.goSignIn` | Go to sign in | साइन इन पर जाएं |
 | `noAccess.title` | Your account isn't in a company yet | आपका अकाउंट अभी किसी कंपनी में नहीं है |
 | `noAccess.body` | You're signed in as {email}. | आप {email} से साइन इन हैं। |
+| `noAccess.signedInLabel` | Signed in as | इस ईमेल से साइन इन हैं |
 | `noAccess.ask` | Ask your admin to invite this email. | अपने एडमिन से इस ईमेल को इनवाइट करने के लिए कहें। |
+| `noAccess.copyEmail` | Copy email | ईमेल कॉपी करें |
 | `noAccess.switchAccount` | Sign out and use another account | साइन आउट करें और दूसरा अकाउंट इस्तेमाल करें |
+| `noAccess.ownPlant` | Setting up orrn for your own plant? | अपने प्लांट के लिए orrn शुरू करना है? |
 | `sessionExpired` | Your session ended. Sign in again. | आपका सेशन खत्म हो गया। फिर से साइन इन करें। |
 | `signOut` | Sign out | साइन आउट |
 
-### welcome (31)
+### welcome (58)
 
 | Key | English | हिंदी |
 |---|---|---|
-| `title` | Welcome to orrn | orrn में आपका स्वागत है |
-| `subtitle` | A few steps before you start. | शुरू करने से पहले कुछ कदम। |
 | `steps.password` | Password | पासवर्ड |
 | `steps.twoFactor` | Two-factor | टू-फ़ैक्टर |
 | `steps.company` | Company details | कंपनी की जानकारी |
 | `steps.done` | Done | हो गया |
 | `password.title` | Set your password | अपना पासवर्ड बनाएं |
 | `password.body` | You'll use this with your email to sign in. | साइन इन करने के लिए आप ईमेल के साथ यही पासवर्ड डालेंगे। |
+| `password.forcedBody` | Your admin gave you a temporary password. Choose your own to continue. | आपके एडमिन ने आपको कुछ समय का पासवर्ड दिया था। आगे बढ़ने के लिए अपना पासवर्ड बनाएं। |
 | `password.newPassword` | New password | नया पासवर्ड |
 | `password.confirmPassword` | Type it again | फिर से लिखें |
 | `password.hint` | At least 8 characters. | कम से कम 8 अक्षर। |
 | `password.mismatch` | The two passwords don't match. | दोनों पासवर्ड एक जैसे नहीं हैं। |
 | `password.submit` | Save password | पासवर्ड सेव करें |
+| `password.submitting` | Saving | सेव हो रहा है |
+| `password.alreadySet` | This account already has a password, so we kept it. Use that one to sign in. | इस अकाउंट का पासवर्ड पहले से है, इसलिए वही रखा है। साइन इन के लिए वही डालें। |
 | `twoFactor.title` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
 | `twoFactor.body` | Scan this QR code with an authenticator app, then type the 6-digit code it shows. | इस QR कोड को authenticator ऐप से स्कैन करें, फिर ऐप में दिख रहा 6 अंकों का कोड लिखें। |
+| `twoFactor.confirmBody` | Type your password to get your QR code. | QR कोड पाने के लिए अपना पासवर्ड लिखें। |
+| `twoFactor.confirmPassword` | Your password | आपका पासवर्ड |
+| `twoFactor.showQr` | Show QR code | QR कोड दिखाएं |
+| `twoFactor.wrongPassword` | That password is wrong. Type the password you sign in with. | यह पासवर्ड गलत है। वही पासवर्ड लिखें जिससे आप साइन इन करते हैं। |
+| `twoFactor.loading` | Getting your QR code | आपका QR कोड आ रहा है |
+| `twoFactor.qrAlt` | QR code for your authenticator app | आपके authenticator ऐप के लिए QR कोड |
+| `twoFactor.newQr` | This is a new QR code. A code you added to your app before won't work, so scan this one. | यह नया QR कोड है। ऐप में पहले जोड़ा गया कोड अब काम नहीं करेगा, इसलिए इसे स्कैन करें। |
 | `twoFactor.manualKey` | Can't scan it? Type this key in the app instead. | स्कैन नहीं हो रहा? यह key ऐप में लिख दें। |
+| `twoFactor.copyKey` | Copy key | key कॉपी करें |
 | `twoFactor.code` | 6-digit code | 6 अंकों का कोड |
+| `twoFactor.submit` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
+| `twoFactor.verifying` | Checking | जांच हो रही है |
 | `twoFactor.backupTitle` | Backup codes | बैकअप कोड |
 | `twoFactor.backupBody` | Keep these somewhere safe. Each one works once if you lose your phone. | इन्हें संभाल कर रखें। फ़ोन खो जाए तो हर कोड एक बार काम करेगा। |
-| `twoFactor.submit` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
+| `twoFactor.copyCodes` | Copy codes | कोड कॉपी करें |
+| `twoFactor.continue` | I saved them, continue | सेव कर लिए, आगे बढ़ें |
 | `company.title` | Company details | कंपनी की जानकारी |
 | `company.body` | Tell us where your plant is and how to reach you. | बताएं कि आपका प्लांट कहां है और आपसे कैसे संपर्क करें। |
 | `company.location` | Location | जगह |
+| `company.locationHint` | Town or industrial area, like Pandesara, Surat. | शहर या इंडस्ट्रियल एरिया, जैसे पांडेसरा, सूरत। |
 | `company.contact` | Contact phone | संपर्क फ़ोन |
 | `company.timezone` | Time zone | टाइम ज़ोन |
+| `company.thisDevice` | {zone} (this device) | {zone} (यह डिवाइस) |
 | `company.presses` | Number of presses | प्रेस की संख्या |
+| `company.pressesMax` | Up to {max} presses. | ज़्यादा से ज़्यादा {max} प्रेस। |
+| `company.termsTitle` | The short version of the terms | शर्तें, छोटे में |
+| `company.termsUse` | Use orrn for your company's work, in the role you were given. | orrn को अपनी कंपनी के काम के लिए, अपने दिए गए रोल में इस्तेमाल करें। |
+| `company.termsPasswords` | Keep your password and authenticator to yourself. | अपना पासवर्ड और authenticator किसी से शेयर न करें। |
+| `company.termsData` | Your company's data stays in your company, and every change is logged. | आपकी कंपनी का डेटा आपकी कंपनी में ही रहता है, और हर बदलाव का रिकॉर्ड रहता है। |
 | `company.terms` | I agree to the orrn terms of service | मुझे orrn की सेवा शर्तें मंज़ूर हैं |
+| `company.termsRequired` | Tick the box to agree before you continue. | आगे बढ़ने से पहले बॉक्स पर टिक करके मंज़ूरी दें। |
 | `company.submit` | Save and continue | सेव करें और आगे बढ़ें |
+| `company.submitting` | Saving | सेव हो रहा है |
 | `done.title` | You're set up | सब तैयार है |
 | `done.body` | Your account is ready. | आपका अकाउंट तैयार है। |
+| `done.as` | You're in {company} as {role}. | आप {company} में {role} के रूप में हैं। |
+| `done.joinedTitle` | Welcome to {company} | {company} में आपका स्वागत है |
+| `done.joinedAs` | You're in as {role}. | आप {role} के रूप में जुड़ गए हैं। |
 | `done.go` | Go to Today | आज का पेज खोलें |
+| `done.goAdmin` | Open Godseye | Godseye खोलें |
+| `done.goOther` | Continue | आगे बढ़ें |
+| `done.opening` | Opening | खुल रहा है |
 
 ### today (77)
 
@@ -1449,44 +1522,250 @@ Counts: 1729 screen strings in 30 groups, 12 guides with 220 strings.
 | `all` | All guides | सारी गाइड |
 | `empty` | No guides for your role yet. | आपके रोल के लिए अभी कोई गाइड नहीं है। |
 
-### admin (34)
+### admin (240)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Godseye | Godseye |
-| `kpis.active` | Active companies | चालू कंपनियां |
-| `kpis.suspended` | Suspended | रोकी गई |
-| `kpis.pendingRequests` | Pending requests | बाकी रिक्वेस्ट |
-| `kpis.staff` | Staff | स्टाफ़ |
-| `recentCompanies` | Recent companies | हाल की कंपनियां |
+| `overview.title` | Overview | सारांश |
+| `overview.subtitle` | Companies, access requests and staff on orrn. | orrn पर कंपनियां, एक्सेस रिक्वेस्ट और स्टाफ़। |
+| `overview.kpis` | At a glance | एक नज़र में |
+| `overview.active` | Active companies | चालू कंपनियां |
+| `overview.activeMeta` | {count} in total | कुल {count} |
+| `overview.suspended` | Suspended | रोकी गई |
+| `overview.suspendedMeta` | Access paused | एक्सेस रुका हुआ |
+| `overview.pending` | Access requests | एक्सेस रिक्वेस्ट |
+| `overview.pendingMeta` | Waiting for review | जांच बाकी है |
+| `overview.pendingNone` | All reviewed | सब जांच ली गईं |
+| `overview.staff` | Staff | स्टाफ़ |
+| `overview.staffMeta` | Godseye logins | Godseye लॉगिन |
+| `overview.waiting` | Waiting for review | जांच बाकी |
+| `overview.waitingEmpty` | No requests waiting. | कोई रिक्वेस्ट बाकी नहीं है। |
+| `overview.recent` | Recent companies | हाल की कंपनियां |
+| `overview.recentEmpty` | Approved requests become companies here. | मंज़ूर रिक्वेस्ट यहां कंपनी बनकर दिखती हैं। |
+| `overview.viewAll` | View all | सब देखें |
+| `overview.viewAllRequests` | View all access requests | सब देखें: एक्सेस रिक्वेस्ट |
+| `overview.viewAllCompanies` | View all companies | सब देखें: कंपनियां |
+| `overview.loadError` | The overview didn't load. Check the connection and try again. | सारांश लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `companies.title` | Companies | कंपनियां |
+| `companies.subtitle` | {count} {count:company\|companies} on orrn | orrn पर {count} {count:कंपनी\|कंपनियां} |
+| `companies.subtitleFiltered` | {count} {count:company matches\|companies match} | {count} {count:कंपनी मिली\|कंपनियां मिलीं} |
 | `companies.search` | Search companies | कंपनी खोजें |
-| `companies.empty` | No companies yet. | अभी कोई कंपनी नहीं है। |
-| `companies.tabs.plan` | Plan and modules | प्लान और मॉड्यूल |
-| `companies.tabs.printing` | Printing | प्रिंटिंग |
-| `companies.tabs.access` | Access | एक्सेस |
-| `companies.suspend` | Suspend company | कंपनी रोकें |
-| `companies.reactivate` | Reactivate company | कंपनी फिर से चालू करें |
+| `companies.searchHint` | Name or short name | नाम या छोटा नाम |
+| `companies.status` | Status | स्थिति |
+| `companies.printingOnly` | Only with label printing | सिर्फ़ लेबल प्रिंटिंग वाली |
+| `companies.filterPending` | Waiting | बाकी |
+| `companies.columns.company` | Company | कंपनी |
+| `companies.columns.status` | Status | स्थिति |
+| `companies.columns.printing` | Label printing | लेबल प्रिंटिंग |
+| `companies.columns.members` | Members | सदस्य |
+| `companies.columns.joined` | Joined | जुड़ी |
+| `companies.empty` | No companies yet. Approved access requests show up here. | अभी कोई कंपनी नहीं है। मंज़ूर एक्सेस रिक्वेस्ट यहां दिखती हैं। |
+| `companies.emptyFiltered` | No companies match. Try another search or filter. | कोई कंपनी मेल नहीं खाती। दूसरी खोज या फ़िल्टर आज़माएं। |
+| `companies.clearFilters` | Clear filters | फ़िल्टर हटाएं |
+| `companies.loadError` | Companies didn't load. Check the connection and try again. | कंपनियां लोड नहीं हुईं। कनेक्शन देखें और फिर कोशिश करें। |
+| `companies.listLabel` | Companies | कंपनियां |
+| `company.back` | Companies | कंपनियां |
+| `company.facts` | Company facts | कंपनी की जानकारी |
+| `company.status` | Status | स्थिति |
+| `company.plan` | Plan | प्लान |
+| `company.members` | Members | सदस्य |
+| `company.joined` | Joined | जुड़ी |
+| `company.noPlan` | No plan | कोई प्लान नहीं |
+| `company.notFound` | This company doesn't exist, or it was removed. | यह कंपनी मौजूद नहीं है, या हटा दी गई है। |
+| `company.loadError` | This company didn't load. Check the connection and try again. | यह कंपनी लोड नहीं हुई। कनेक्शन देखें और फिर कोशिश करें। |
+| `company.suspend` | Suspend | रोकें |
+| `company.suspendTitle` | Suspend {company}? | {company} को रोकें? |
+| `company.suspendBody` | Everyone at {company} loses access until you reactivate it. Their data stays. | {company} के सभी लोगों का एक्सेस तब तक बंद रहेगा जब तक आप इसे फिर से चालू नहीं करते। उनका डेटा बना रहेगा। |
+| `company.suspended` | Company suspended | कंपनी रोक दी गई |
+| `company.reactivate` | Reactivate | फिर से चालू करें |
+| `company.reactivateTitle` | Reactivate {company}? | {company} को फिर से चालू करें? |
+| `company.reactivateBody` | Everyone at {company} can sign in again. | {company} के सभी लोग फिर से साइन इन कर सकेंगे। |
+| `company.reactivated` | Company reactivated | कंपनी फिर से चालू हो गई |
+| `company.reviewRequest` | Review the request | रिक्वेस्ट देखें |
+| `company.sections` | Company sections | कंपनी के हिस्से |
+| `company.tabs.plan` | Plan and modules | प्लान और मॉड्यूल |
+| `company.tabs.printing` | Printing | प्रिंटिंग |
+| `company.tabs.access` | Access | एक्सेस |
+| `plan.plan` | Plan | प्लान |
+| `plan.plans.starter` | Starter | स्टार्टर |
+| `plan.plans.growth` | Growth | ग्रोथ |
+| `plan.plans.enterprise` | Enterprise | एंटरप्राइज़ |
+| `plan.modules` | Modules | मॉड्यूल |
+| `plan.modulesHint` | Untick a module to hide it from the company's menus. | किसी मॉड्यूल का टिक हटाएं तो वह कंपनी के मेन्यू से छिप जाएगा। |
+| `plan.modulesNone` | Keep at least one module on. | कम से कम एक मॉड्यूल चालू रखें। |
+| `plan.moduleNames.customers` | Customers | कस्टमर |
+| `plan.moduleNames.dies` | Dies | डाई |
+| `plan.moduleNames.bundles` | Packing and stock | पैकिंग और स्टॉक |
+| `plan.moduleNames.dispatches` | Dispatch and packing lists | डिस्पैच और पैकिंग लिस्ट |
+| `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
+| `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
+| `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
+| `plan.moduleHints.dispatches` | Dispatches and printed packing lists | डिस्पैच और छपी पैकिंग लिस्ट |
+| `plan.save` | Save plan | प्लान सेव करें |
+| `plan.saved` | Plan saved | प्लान सेव हो गया |
+| `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
+| `plan.noPlanYet` | No plan saved yet. | अभी कोई प्लान सेव नहीं है। |
+| `printing.noneTitle` | Label printing isn't set up | लेबल प्रिंटिंग सेट नहीं है |
+| `printing.noneBody` | Set up a print station so {company} can print bundle labels on their own printers. | प्रिंट स्टेशन सेट करें ताकि {company} अपने प्रिंटर पर बंडल लेबल छाप सके। |
 | `printing.setUp` | Set up label printing | लेबल प्रिंटिंग सेट करें |
-| `printing.turnOff` | Turn off label printing | लेबल प्रिंटिंग बंद करें |
-| `printing.rotateSecret` | Rotate secret | Secret बदलें |
+| `printing.inactive` | Only active companies can print labels. Reactivate {company} first. | सिर्फ़ चालू कंपनियां लेबल छाप सकती हैं। पहले {company} को फिर से चालू करें। |
+| `printing.waiting` | Only active companies can print labels. Approve the access request for {company} first. | सिर्फ़ चालू कंपनियां लेबल छाप सकती हैं। पहले {company} की एक्सेस रिक्वेस्ट मंज़ूर करें। |
+| `printing.addAnother` | Add a print station | एक और प्रिंट स्टेशन जोड़ें |
+| `printing.station` | Print station | प्रिंट स्टेशन |
+| `printing.address` | Address | पता |
+| `printing.version` | Version | वर्ज़न |
+| `printing.versionUnknown` | Not reported yet | अभी नहीं बताया |
+| `printing.lastSeen` | Last seen | आखिरी बार दिखा |
+| `printing.never` | Never | कभी नहीं |
+| `printing.setUpOn` | Set up | सेट किया |
+| `printing.setUpDay` | Set up {date} | {date} को सेट किया |
+| `printing.nameLabel` | Station name | स्टेशन का नाम |
+| `printing.nameHint` | 3 to 63 lowercase letters, numbers or hyphens. | 3 से 63 छोटे अंग्रेज़ी अक्षर, अंक या हाइफ़न। |
+| `printing.namePreview` | Address: {address} | पता: {address} |
+| `printing.nameRequired` | Enter a station name. | स्टेशन का नाम लिखें। |
+| `printing.nameLength` | Use 3 to 63 characters. | 3 से 63 अक्षर रखें। |
+| `printing.nameFormat` | Use lowercase letters, numbers and hyphens. Start and end with a letter or number. | छोटे अंग्रेज़ी अक्षर, अंक और हाइफ़न लिखें। शुरू और अंत अक्षर या अंक से हो। |
+| `printing.nameTaken` | That station name is taken. Try another. | यह स्टेशन नाम पहले से लिया हुआ है। कोई दूसरा आज़माएं। |
+| `printing.create` | Set up print station | प्रिंट स्टेशन सेट करें |
+| `printing.created` | Print station set up | प्रिंट स्टेशन सेट हो गया |
+| `printing.secretsTitle` | Copy these now | इन्हें अभी कॉपी करें |
+| `printing.secretsBody` | They are shown only once. The print station needs them to connect. | ये सिर्फ़ एक बार दिखेंगे। प्रिंट स्टेशन को जुड़ने के लिए इनकी ज़रूरत है। |
+| `printing.instanceId` | Instance ID | इंस्टेंस ID |
+| `printing.sharedSecret` | Shared secret | शेयर्ड सीक्रेट |
+| `printing.tunnelToken` | Tunnel token | टनल टोकन |
+| `printing.copyValue` | Copy {label} | {label} कॉपी करें |
+| `printing.copied` | {label} copied | {label} कॉपी हो गया |
+| `printing.copyFailed` | Couldn't copy. Select the text and copy it. | कॉपी नहीं हुआ। टेक्स्ट चुनकर कॉपी करें। |
+| `printing.rotateSecret` | Rotate secret | सीक्रेट बदलें |
+| `printing.rotateTitle` | Rotate the secret for {address}? | {address} का सीक्रेट बदलें? |
+| `printing.rotateBody` | The current secret stops working right away. The print station needs the new one to keep printing. | अभी वाला सीक्रेट तुरंत काम करना बंद कर देगा। प्रिंटिंग चालू रखने के लिए प्रिंट स्टेशन को नया सीक्रेट चाहिए। |
+| `printing.rotated` | Secret rotated | सीक्रेट बदल गया |
+| `printing.newSecret` | New shared secret | नया शेयर्ड सीक्रेट |
 | `printing.installScript` | Install script | इंस्टॉल स्क्रिप्ट |
+| `printing.installTitle` | Download the install script | इंस्टॉल स्क्रिप्ट डाउनलोड करें |
+| `printing.installBody` | A shell script for a Linux or macOS computer with Docker. It sets up the print station for {address}. | Docker वाले Linux या macOS कंप्यूटर के लिए शेल स्क्रिप्ट। यह {address} के लिए प्रिंट स्टेशन सेट करती है। |
+| `printing.installDownload` | Download script | स्क्रिप्ट डाउनलोड करें |
+| `printing.installed` | Install script downloaded | इंस्टॉल स्क्रिप्ट डाउनलोड हो गई |
 | `printing.downloads` | Downloads | डाउनलोड |
+| `printing.downloadsTitle` | Download the print station app | प्रिंट स्टेशन ऐप डाउनलोड करें |
+| `printing.downloadsBody` | The app comes set up for {address}. Run it on a computer on the plant network. | ऐप {address} के लिए पहले से सेट है। इसे प्लांट नेटवर्क के किसी कंप्यूटर पर चलाएं। |
+| `printing.computer` | Computer | कंप्यूटर |
+| `printing.platforms.darwinArm64` | Mac with Apple chip | Apple चिप वाला Mac |
+| `printing.platforms.darwinAmd64` | Mac with Intel chip | Intel चिप वाला Mac |
+| `printing.platforms.linuxAmd64` | Linux | Linux |
+| `printing.platforms.windowsAmd64` | Windows | Windows |
+| `printing.download` | Download app | ऐप डाउनलोड करें |
+| `printing.downloadStarted` | Download started | डाउनलोड शुरू हो गया |
+| `printing.turnOff` | Turn off label printing | लेबल प्रिंटिंग बंद करें |
+| `printing.turnOffShort` | Turn off | बंद करें |
+| `printing.turnOffTitle` | Turn off {address}? | {address} बंद करें? |
+| `printing.turnOffBody` | Labels stop printing at {company} until you set up a new print station. | नया प्रिंट स्टेशन सेट होने तक {company} में लेबल नहीं छपेंगे। |
+| `printing.turnedOff` | Label printing turned off | लेबल प्रिंटिंग बंद हो गई |
+| `printing.history` | Turned off earlier | पहले बंद किए गए |
+| `printing.loadError` | Print stations didn't load. Check the connection and try again. | प्रिंट स्टेशन लोड नहीं हुए। कनेक्शन देखें और फिर कोशिश करें। |
+| `printing.stationsLabel` | Print stations | प्रिंट स्टेशन |
 | `access.impersonate` | Impersonate | कंपनी के रूप में खोलें |
+| `access.title` | Open {company} as support | {company} को सपोर्ट के रूप में खोलें |
+| `access.body` | You see orrn as their owner would. Every change is recorded with your name. | आप orrn को उनके मालिक की तरह देखेंगे। हर बदलाव आपके नाम से दर्ज होगा। |
+| `access.reasonLabel` | Reason (optional) | वजह (ज़रूरी नहीं) |
+| `access.reasonHint` | Shown in the session list below. | नीचे सेशन लिस्ट में दिखेगी। |
+| `access.durationLabel` | Session length (minutes) | सेशन कितनी देर (मिनट) |
+| `access.started` | Support session started | सपोर्ट सेशन शुरू हुआ |
+| `access.inactive` | Only active companies can be opened. Reactivate {company} first. | सिर्फ़ चालू कंपनियां खोली जा सकती हैं। पहले {company} को फिर से चालू करें। |
+| `access.waiting` | Only active companies can be opened. Approve the access request for {company} first. | सिर्फ़ चालू कंपनियां खोली जा सकती हैं। पहले {company} की एक्सेस रिक्वेस्ट मंज़ूर करें। |
+| `access.inside` | You are inside {company} as support. Stop that session first. | आप सपोर्ट के रूप में {company} के अंदर हैं। पहले वह सेशन बंद करें। |
+| `access.restricted` | Your role can't open companies as support. | आपका रोल कंपनियों को सपोर्ट के रूप में नहीं खोल सकता। |
 | `access.banner` | Viewing {company} as orrn support | {company} को orrn सपोर्ट के रूप में देख रहे हैं |
 | `access.stop` | Stop impersonating | सपोर्ट व्यू बंद करें |
+| `access.stopFailed` | Couldn't stop the support session. Check the connection and try again. | सपोर्ट सेशन बंद नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `access.expires` | Ends at {time} | {time} पर खत्म होगा |
+| `access.endsSoon` | Ends at {time}, in under 5 minutes | {time} पर खत्म होगा, 5 मिनट से कम बचे |
+| `access.sessions` | Support sessions | सपोर्ट सेशन |
+| `access.sessionsEmpty` | No support sessions yet. | अभी कोई सपोर्ट सेशन नहीं। |
+| `access.staff` | Staff | स्टाफ़ |
+| `access.reason` | Reason | वजह |
+| `access.startedAt` | Started | शुरू हुआ |
+| `access.ends` | Ends | खत्म |
+| `access.state.active` | Active | चालू |
+| `access.state.ended` | Ended | खत्म |
+| `access.state.stopped` | Stopped | बंद किया |
+| `access.noReason` | No reason given | कोई वजह नहीं दी |
+| `access.resume` | Resume | फिर से खोलें |
+| `access.stopSession` | Stop | बंद करें |
+| `access.actions` | Actions | कार्रवाई |
+| `access.stopped` | Support session stopped | सपोर्ट सेशन बंद हुआ |
+| `access.unknownStaff` | Former staff | पुराना स्टाफ़ |
+| `access.staffYou` | {name} (you) | {name} (आप) |
 | `requests.title` | Access requests | एक्सेस रिक्वेस्ट |
+| `requests.waiting` | {count} waiting | {count} बाकी |
+| `requests.none` | Nothing waiting | कुछ बाकी नहीं |
 | `requests.empty` | No requests waiting. | कोई रिक्वेस्ट बाकी नहीं है। |
+| `requests.emptyBody` | New requests from the website show up here. | वेबसाइट से आई नई रिक्वेस्ट यहां दिखेंगी। |
+| `requests.from` | From {name} | {name} की ओर से |
+| `requests.received` | Received {date} | आई: {date} |
+| `requests.noNotes` | No notes | कोई नोट नहीं |
 | `requests.approve` | Approve | मंज़ूर करें |
-| `requests.reject` | Reject | नामंज़ूर करें |
+| `requests.approveTitle` | Approve {company}? | {company} को मंज़ूर करें? |
+| `requests.approveBody` | This creates the company and emails a sign-in link to {email}. If the email can't be sent, you get the details to send yourself. | इससे कंपनी बनेगी और {email} पर साइन इन लिंक ईमेल होगा। ईमेल न जा पाए तो खुद भेजने के लिए डिटेल मिल जाएंगी। |
 | `requests.approved` | Request approved | रिक्वेस्ट मंज़ूर हो गई |
+| `requests.reject` | Reject | नामंज़ूर करें |
+| `requests.rejectTitle` | Reject {company}? | {company} को नामंज़ूर करें? |
+| `requests.rejectBody` | The request is closed. {email} is not emailed. | रिक्वेस्ट बंद हो जाएगी। {email} को ईमेल नहीं जाएगा। |
 | `requests.rejected` | Request rejected | रिक्वेस्ट नामंज़ूर हो गई |
+| `requests.alreadyHandled` | Someone already handled this request. The list is up to date now. | यह रिक्वेस्ट पहले ही निपटा दी गई है। लिस्ट अब ताज़ा है। |
+| `requests.loadError` | Requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर कोशिश करें। |
+| `requests.listLabel` | Waiting requests | बाकी रिक्वेस्ट |
+| `requests.approvedSent` | Approved. Sign-in email sent to {email}. | मंज़ूर हो गई। साइन इन ईमेल {email} पर गया। |
+| `requests.approvedNoLink` | Approved, but no sign-in link was made. Use Get sign-in details below to try again. | मंज़ूर हो गई, पर साइन इन लिंक नहीं बना। नीचे "साइन इन डिटेल लें" से फिर कोशिश करें। |
+| `requests.showEmail` | Show email | ईमेल देखें |
+| `requests.awaitingTitle` | Approved, password not set yet | मंज़ूर, पासवर्ड अभी नहीं बना |
+| `requests.awaitingBody` | If the email did not arrive or the link stopped working, get a fresh sign-in link and send it yourself. | ईमेल न पहुंचा हो या लिंक काम न कर रहा हो, तो नया साइन इन लिंक लेकर खुद भेजें। |
+| `requests.awaitingLabel` | Approved owners without a password | बिना पासवर्ड वाले मंज़ूर मालिक |
+| `requests.getDetails` | Get sign-in details | साइन इन डिटेल लें |
+| `requests.hasPassword` | This owner already signs in with a password; ask them to use Forgot password. | यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
+| `requests.approvedHasPassword` | Approved. This owner already signs in with a password; ask them to use Forgot password. | मंज़ूर हो गई। यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
+| `requests.approvedAskAdmin` | Approved. Your role cannot send sign-in links: ask an admin to get the sign-in details below. | मंज़ूर हो गई। आपका रोल साइन इन लिंक नहीं भेज सकता: किसी एडमिन से नीचे की साइन इन डिटेल लेने को कहें। |
+| `requests.details.sentTitle` | Sign-in email sent | साइन इन ईमेल चला गया |
+| `requests.details.notSentTitle` | Email could not be sent | ईमेल नहीं जा सका |
+| `requests.details.body` | Send this to {name} on WhatsApp or from your own email. The link works once and expires {date}. | यह {name} को WhatsApp पर या अपने ईमेल से भेजें। लिंक एक बार चलता है और {date} को खत्म हो जाएगा। |
+| `requests.details.sent` | The email went to {email}. | ईमेल {email} पर गया। |
+| `requests.details.notSent` | The email did not go out. Send the details below yourself. | ईमेल नहीं गया। नीचे की डिटेल खुद भेजें। |
+| `requests.details.reason` | Reason: {reason} | वजह: {reason} |
+| `requests.details.to` | To | किसको |
+| `requests.details.subject` | Subject | विषय |
+| `requests.details.link` | Sign-in link | साइन इन लिंक |
+| `requests.details.message` | Message | संदेश |
+| `requests.details.copyMessage` | Copy message | संदेश कॉपी करें |
 | `staff.title` | Staff | स्टाफ़ |
+| `staff.subtitle` | People who can sign in to Godseye. There is no public sign-up. | जो लोग Godseye में साइन इन कर सकते हैं। यहां कोई खुला साइन अप नहीं है। |
 | `staff.add` | Add staff | स्टाफ़ जोड़ें |
+| `staff.addTitle` | Add a staff account | स्टाफ़ अकाउंट जोड़ें |
 | `staff.name` | Name | नाम |
 | `staff.email` | Email | ईमेल |
+| `staff.password` | Temporary password | अस्थायी पासवर्ड |
+| `staff.passwordHint` | At least 12 characters. Share it in person or on a call. | कम से कम 12 अक्षर। इसे मिलकर या कॉल पर बताएं। |
+| `staff.passwordShort` | Use at least 12 characters. | कम से कम 12 अक्षर रखें। |
+| `staff.emailTaken` | An account with this email already exists. | इस ईमेल से पहले से एक अकाउंट है। |
 | `staff.role` | Role | रोल |
+| `staff.roleHints.super_admin` | Everything, including removing staff. | सब कुछ, स्टाफ़ हटाना भी। |
+| `staff.roleHints.admin` | Companies, requests, printing, support sessions and adding staff. | कंपनियां, रिक्वेस्ट, प्रिंटिंग, सपोर्ट सेशन और स्टाफ़ जोड़ना। |
+| `staff.roleHints.support` | Companies and requests. No support sessions or printing. | कंपनियां और रिक्वेस्ट। सपोर्ट सेशन या प्रिंटिंग नहीं। |
+| `staff.create` | Add account | अकाउंट जोड़ें |
+| `staff.created` | Staff account added | स्टाफ़ अकाउंट जुड़ गया |
+| `staff.you` | You | आप |
+| `staff.added` | Added | जोड़ा गया |
+| `staff.roleFor` | Role for {name} | {name} का रोल |
+| `staff.roleChanged` | Role changed | रोल बदल गया |
+| `staff.remove` | Remove | हटाएं |
+| `staff.removeLabel` | Remove {name} | {name} को हटाएं |
+| `staff.removeTitle` | Remove {name}? | {name} को हटाएं? |
+| `staff.removeBody` | {email} can no longer sign in to Godseye. | {email} अब Godseye में साइन इन नहीं कर पाएगा। |
+| `staff.removed` | Staff access removed | स्टाफ़ एक्सेस हटा दिया गया |
+| `staff.actions` | Actions | कार्रवाई |
+| `staff.empty` | No staff yet. | अभी कोई स्टाफ़ नहीं। |
+| `staff.loadError` | Staff didn't load. Check the connection and try again. | स्टाफ़ लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
+| `staff.listLabel` | Staff accounts | स्टाफ़ अकाउंट |
 
 ### marketing (34)
 

@@ -11,6 +11,7 @@ import { logger } from "hono/logger";
 import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
 
+import { createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput } from "./dev-front-door";
 import { seedDevData } from "./dev-seed";
 import { spoolRoutes } from "./spool-routes";
 
@@ -62,6 +63,22 @@ if (env.NODE_ENV === "development") {
         500,
       );
     }
+  });
+
+  // Front-door e2e only (Task 17): an invite token and a magic link, which
+  // otherwise leave the server only by email. Same gate as /dev/seed.
+  app.post("/dev/invite", async (c) => {
+    if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const input = devInviteInput.safeParse(await c.req.json().catch(() => null));
+    if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
+    return c.json(await createDevInvite(createDb(), input.data));
+  });
+
+  app.post("/dev/magic-link", async (c) => {
+    if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const input = devMagicLinkInput.safeParse(await c.req.json().catch(() => null));
+    if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
+    return c.json(await createDevMagicLink(input.data));
   });
 }
 

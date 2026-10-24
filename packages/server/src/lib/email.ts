@@ -1,3 +1,4 @@
+import { unsentEmailLog } from "@orrn/auth/unsent-email";
 import { env } from "@orrn/env/server";
 
 export interface SendEmailOptions {
@@ -68,11 +69,8 @@ export function renderOrrnEmailHtml(options: {
 
 export async function sendEmail(options: SendEmailOptions) {
   if (env.NODE_ENV === "development" || !env.RESEND_API_KEY) {
-    console.log("----------------------------------------");
-    console.log(`Mock Email sent to: ${options.to}`);
-    console.log(`Subject: ${options.subject}`);
-    console.log(`Body:\n${options.html}`);
-    console.log("----------------------------------------");
+    // Never the body outside development: approval emails hold a live sign-in link.
+    console.log(unsentEmailLog(env.NODE_ENV, options));
     return { success: true, messageId: "mock-message-id" };
   }
 

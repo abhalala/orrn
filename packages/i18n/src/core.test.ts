@@ -9,7 +9,7 @@ describe("createI18n", () => {
   });
 
   test("fills variables", () => {
-    expect(createI18n("en").t("auth.invite.title", { company: "Fourcubes" })).toBe("Join Fourcubes");
+    expect(createI18n("en").t("welcome.done.joinedTitle", { company: "Fourcubes" })).toBe("Welcome to Fourcubes");
   });
 
   test("picks the singular or plural word from count", () => {

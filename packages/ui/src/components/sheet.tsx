@@ -69,7 +69,7 @@ export function Sheet({ open, onOpenChange, title, children, footer, description
                 {title}
               </DialogPrimitive.Title>
               {description ? (
-                <DialogPrimitive.Description className="m-0 text-[14px] leading-5 text-muted-foreground">
+                <DialogPrimitive.Description className="m-0 text-[14px] leading-5 text-muted-foreground [overflow-wrap:anywhere]">
                   {description}
                 </DialogPrimitive.Description>
               ) : null}
