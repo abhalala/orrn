@@ -103,6 +103,19 @@ function renderOrrnEmailHtml(options: {
   `;
 }
 
+/**
+ * Magic links requested with `metadata.captureKey` are not emailed here: the
+ * caller takes the link with `takeCapturedMagicLink` and delivers it itself
+ * (Godseye approvals email it and also show it, so it can be shared by hand).
+ */
+const capturedMagicLinks = new Map<string, { url: string; token: string }>();
+
+export function takeCapturedMagicLink(captureKey: string) {
+  const link = capturedMagicLinks.get(captureKey);
+  capturedMagicLinks.delete(captureKey);
+  return link;
+}
+
 let authSingleton: ReturnType<typeof buildAuth> | undefined;
 
 function buildAuth() {
@@ -155,7 +168,11 @@ function buildAuth() {
       expo(),
       twoFactor(),
       magicLink({
-        sendMagicLink: async ({ email, url }) => {
+        sendMagicLink: async ({ email, url, token, metadata }) => {
+          if (typeof metadata?.captureKey === "string") {
+            capturedMagicLinks.set(metadata.captureKey, { url, token });
+            return;
+          }
           await sendAuthEmail({
             to: email,
             subject: "Your ORRN Magic Sign-In Link",
