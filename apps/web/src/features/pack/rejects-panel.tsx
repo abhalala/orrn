@@ -113,10 +113,11 @@ export function RejectsPanel({
         </ul>
       ) : null}
 
-      <div id={`${id}-form`} hidden={!open} className="flex flex-col gap-3 rounded-input bg-surface-sunken p-3 sm:p-4">
+      {open ? (
+      <div id={`${id}-form`} className="flex flex-col gap-3 rounded-input bg-surface-sunken p-3 sm:p-4">
         <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("pack.reject.hint")}</p>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label={t("pack.reject.pcs")} error={errors.pcs ? t("pack.new.piecesRequired") : undefined}>
+          <Field label={t("pack.reject.piecesLabel")} error={errors.pcs ? t("pack.new.piecesRequired") : undefined}>
             <NumberInput value={form.pcs} onValueChange={(pcs) => setForm((f) => ({ ...f, pcs }))} suffix={t("units.pcs")} />
           </Field>
           <Field label={t("pack.reject.kg")} hint={t("pack.reject.kgHint")} error={errors.kg ? t("pack.new.weightRequired") : undefined}>
@@ -142,6 +143,7 @@ export function RejectsPanel({
           <Button onClick={add}>{t("pack.reject.addLine")}</Button>
         </div>
       </div>
+      ) : null}
     </section>
   );
 }

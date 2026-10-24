@@ -10,9 +10,10 @@ import { ChevronRight, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { addOutcome, renderScanMessage } from "@/features/scan/scan-outcome";
+import { addOutcome, renderScanMessage, resultOutcome, type AddBundlesReport } from "@/features/scan/scan-outcome";
 import { Can } from "@/shared/components/can";
-import { trpc } from "@/shared/utils/trpc";
+import { can, useMe } from "@/shared/lib/me";
+import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 
 /**
@@ -44,11 +45,16 @@ export function AddToDispatchSheet({
     enabled: open,
   });
 
-  const add = useMutation(
-    trpc.dispatch.addBundlesBySerial.mutationOptions({
-      onSettled: () => setPendingId(null),
-    }),
-  );
+  const { data: me } = useMe();
+  const canAddAnyway = can(me, "order.manage");
+  // The floor scan path (D12): every refusal arrives with its code and the customer's or owner's name.
+  const add = useMutation({
+    mutationFn: (input: { id: string; serials: string[]; allowUnassigned?: boolean }) =>
+      (input.allowUnassigned
+        ? trpcClient.dispatch.addBundlesBySerial.mutate(input)
+        : trpcClient.dispatch.scan.mutate({ id: input.id, serials: input.serials })) as Promise<AddBundlesReport>,
+    onSettled: () => setPendingId(null),
+  });
 
   const choose = (d: { id: string; code: string }) => {
     if (add.isPending) return;
@@ -57,7 +63,7 @@ export function AddToDispatchSheet({
       { id: d.id, serials: [serial] },
       {
         onSuccess: (report) => {
-          const outcome = addOutcome(report, serial);
+          const outcome = report.results?.[0] ? resultOutcome(report.results[0]) : addOutcome(report, serial);
           void queryClient.invalidateQueries({ queryKey: trpc.dispatch.listDispatches.queryKey() });
           void queryClient.invalidateQueries({ queryKey: trpc.bundle.getBySerial.queryKey() });
           const openAction = { label: t("bundle.openDispatchPlain"), onClick: () => navigate({ to: "/dispatch/$id", params: { id: d.id } }) };
@@ -68,15 +74,30 @@ export function AddToDispatchSheet({
             toast(t("bundle.alreadyInDispatch", { code: d.code }), { action: openAction });
             onOpenChange(false);
           } else if (outcome.kind === "rejected") {
-            // Held, dispatched or voided since the page loaded: the page refreshes to show it.
-            toast.error(renderScanMessage(t, outcome.message));
+            // Held, dispatched, voided or not on an order: the page refreshes to show it. The office can
+            // add a bundle that is on no order anyway (D12).
+            toast.error(renderScanMessage(t, outcome.message), {
+              ...(outcome.code === "unassigned" && canAddAnyway
+                ? {
+                    action: {
+                      label: t("scan.continuous.addAnyway"),
+                      onClick: () =>
+                        add.mutate(
+                          { id: d.id, serials: [serial], allowUnassigned: true },
+                          { onSuccess: () => toast.success(t("bundle.addedToDispatch", { code: d.code }), { action: openAction }) },
+                        ),
+                    },
+                  }
+                : {}),
+            });
             onOpenChange(false);
           } else {
             toast.error(t("bundle.addNotFound"));
           }
         },
         onError: (error) => {
-          toast.error(error.data?.code === "FORBIDDEN" ? t("stock.noPermission") : t("bundle.addFailed"));
+          const code = (error as { data?: { code?: string } }).data?.code;
+          toast.error(code === "FORBIDDEN" ? t("stock.noPermission") : t("bundle.addFailed"));
         },
       },
     );

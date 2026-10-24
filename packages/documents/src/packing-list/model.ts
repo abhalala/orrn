@@ -22,3 +22,24 @@ export {
   type PackingListModelOptions,
   type PackingListRow,
 } from "./rows";
+/**
+ * The v2 snapshot helpers screens need (no export library): the stored PL's header, groups, extras.
+ * `./index.ts` re-exports the same names next to the xlsx and HTML builders.
+ */
+export type { PLSnapshot, PlGroup, PlRow, PlSnapshotV2 } from "./snapshot";
+export {
+  bundlesText,
+  formatPlKg,
+  isPlSnapshotV2,
+  PL_COLUMN_HEADINGS,
+  plDispatchCodesText,
+  plExtraColumns,
+  plFileName,
+  plGroupTitle,
+  plProfileLines,
+  plRevisionText,
+  plRowCells,
+  plRowExtras,
+  plSectionSubtotalAfter,
+  plShipDateText,
+} from "./snapshot";

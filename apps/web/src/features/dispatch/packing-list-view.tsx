@@ -1,41 +1,49 @@
-import {
-  packingListModel,
-  safeParsePackingListSnapshot,
-  type PackingListGroup,
-  type PackingListModel,
-  type PackingListRow,
-} from "@orrn/documents/packing-list/model";
-import { formatKg } from "@orrn/domain";
+import { packingListModel, safeParsePackingListSnapshot } from "@orrn/documents/packing-list/model";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Dialog } from "@orrn/ui/components/dialog";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { UiLink } from "@orrn/ui/components/link";
 import { Skeleton } from "@orrn/ui/components/skeleton";
-import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileDown, FileSpreadsheet, RefreshCw } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { FileDown, FileSpreadsheet, Layers, Pencil, Printer, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
-import { downloadPackingListPdf, downloadPackingListXlsx } from "@/shared/lib/exports";
+import { downloadPackingListPdf, downloadPackingListXlsx, printPackingList } from "@/shared/lib/exports";
 import { trpc } from "@/shared/utils/trpc";
 
+import { EditDetailsSheet, type EditableDispatch } from "./dispatch-menu";
 import { dispatchErrorText, failedFirstLoad, isConflict } from "./errors";
-import { formatShipDate } from "./format";
 import { useCompanyTimeZone } from "./hooks";
-
-const num = (v: number | null, digits: number) => (v === null ? "-" : v.toFixed(digits));
-const bundleWord = (t: ReturnType<typeof useT>["t"], n: number) => t("units.bundles", { count: n });
+import { LegacyBody } from "./packing-list-v1";
+import { PlV2Body } from "./packing-list-v2";
+import { CombineSheet, RegenerateDialog, RevisionsPanel } from "./packing-list-revisions";
+import { plViewOf } from "./pl-model";
 
 /**
- * The packing list, the dispatch's final state. Header (company, customer, PL
- * no, dispatch, date, ship date, totals "N bundles · X kg") and the plant's
- * columns, grouped by packing group label, from the stored snapshot parsed
- * once (W17). PDF and Excel are made on click (W3); Regenerate rebuilds it
- * from the bundles as they are now.
+ * The packing list, the dispatch's final state (FP-PK-13). On `/dispatch/$id` it is the dispatch's
+ * current revision (`dispatchId`); `/packing-lists/$id` opens any revision by its own id (`listId`),
+ * which is how a combined list or a sent revision is reached. Header, groups with subtotals, the
+ * profile summary and the extra columns come from the stored snapshot; PDF, Excel and print are made
+ * on click from the same snapshot. Regenerate adds a NEW revision (the sent one is kept), and lists
+ * of one customer can be combined.
  */
-export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId: string; focusTitle?: boolean }) {
+export function PackingListView({
+  dispatchId,
+  listId,
+  dispatch,
+  customerName,
+  focusTitle = false,
+}: {
+  dispatchId?: string;
+  listId?: string;
+  /** The dispatch row, for "Edit header" (vehicle, transporter, invoice) on the dispatch page. */
+  dispatch?: EditableDispatch;
+  customerName?: string;
+  focusTitle?: boolean;
+}) {
   const { t } = useT();
   const titleRef = useRef<HTMLHeadingElement>(null);
   // Just dispatched: the confirm sheet and the Dispatch button are gone, so focus lands on the
@@ -47,25 +55,28 @@ export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId
     window.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
   }, [focusTitle]);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const timeZone = useCompanyTimeZone();
-  const pl = useQuery(trpc.packingList.byDispatch.queryOptions({ dispatchId }));
+  const byDispatch = useQuery({ ...trpc.packingList.byDispatch.queryOptions({ dispatchId: dispatchId ?? "" }), enabled: Boolean(dispatchId) });
+  const byId = useQuery({ ...trpc.packingList.get.queryOptions({ id: listId ?? "" }), enabled: Boolean(listId) });
+  const pl = listId ? byId : byDispatch;
   const parsed = useMemo(() => (pl.data ? safeParsePackingListSnapshot(pl.data.snapshot) : null), [pl.data]);
-  const model = useMemo(
-    () => (parsed?.success ? packingListModel(parsed.data, { timeZone }) : null),
-    [parsed, timeZone],
-  );
-  const [downloading, setDownloading] = useState<"pdf" | "xlsx" | null>(null);
-  const [confirmRegen, setConfirmRegen] = useState(false);
-  const regenerate = useMutation(trpc.packingList.regenerate.mutationOptions());
+  const v2 = useMemo(() => (parsed?.success ? plViewOf(parsed.data) : null), [parsed]);
+  const model = useMemo(() => (parsed?.success ? packingListModel(parsed.data, { timeZone }) : null), [parsed, timeZone]);
+  const [downloading, setDownloading] = useState<"pdf" | "xlsx" | "print" | null>(null);
+  const [dialog, setDialog] = useState<"regenerate" | "combine" | "header" | null>(null);
   const make = useMutation(trpc.packingList.create.mutationOptions());
-  const refresh = () => queryClient.invalidateQueries({ queryKey: trpc.packingList.byDispatch.queryKey({ dispatchId }) });
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: trpc.packingList.pathKey() });
+  };
 
-  const download = async (kind: "pdf" | "xlsx") => {
+  const download = async (kind: "pdf" | "xlsx" | "print") => {
     if (!pl.data || !parsed?.success) return;
     setDownloading(kind);
     try {
       if (kind === "pdf") await downloadPackingListPdf(parsed.data, pl.data.code, { timeZone });
-      else await downloadPackingListXlsx(parsed.data, pl.data.code, { timeZone });
+      else if (kind === "xlsx") await downloadPackingListXlsx(parsed.data, pl.data.code, { timeZone });
+      else await printPackingList(parsed.data, pl.data.code, { timeZone });
     } catch (err) {
       console.error("packing list export failed", err);
       toast.error(t("packingList.downloadFailed"));
@@ -74,17 +85,21 @@ export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId
     }
   };
 
-  const regenButton = (
+  const data = pl.data;
+  const revision = data?.revision ?? 1;
+  // Only the current, not combined revision can be regenerated or combined (the server checks too).
+  const folded = Boolean(data?.combinedIntoId);
+  const regenButton = data ? (
     <Can do="packingList.regenerate">
-      <Button variant="ghost" onClick={() => setConfirmRegen(true)} aria-haspopup="dialog">
+      <Button variant="ghost" onClick={() => setDialog("regenerate")} aria-haspopup="dialog" disabled={folded} data-testid="regenerate">
         <RefreshCw aria-hidden="true" strokeWidth={2} />
-        {t("packingList.regenerate")}
+        {t("packingList.v2.regenerate")}
       </Button>
     </Can>
-  );
+  ) : null;
 
   let body;
-  if (pl.isPending) {
+  if (pl.isPending && (dispatchId || listId)) {
     body = (
       <div aria-hidden="true" className="flex flex-col gap-3">
         <Skeleton className="h-[180px] w-full rounded-card" />
@@ -104,35 +119,37 @@ export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId
         />
       </div>
     );
-  } else if (!pl.data) {
+  } else if (!data) {
     body = (
       <div className="rounded-card border border-border bg-card">
         <EmptyState
           title={t("packingList.missing")}
           action={
-            <Can do="dispatch.complete">
-              <Button
-                loading={make.isPending}
-                onClick={() =>
-                  make.mutate(
-                    { dispatchId },
-                    {
-                      onSuccess: () => {
-                        toast.success(t("packingList.made"));
-                        void refresh();
+            dispatchId ? (
+              <Can do="dispatch.complete">
+                <Button
+                  loading={make.isPending}
+                  onClick={() =>
+                    make.mutate(
+                      { dispatchId },
+                      {
+                        onSuccess: () => {
+                          toast.success(t("packingList.made"));
+                          refresh();
+                        },
+                        onError: (err) => {
+                          // CONFLICT: someone made it a moment ago. Show that one, no error.
+                          if (isConflict(err)) refresh();
+                          else toast.error(dispatchErrorText(t, err));
+                        },
                       },
-                      onError: (err) => {
-                        // CONFLICT: someone made it a moment ago. Show that one, no error.
-                        if (isConflict(err)) void refresh();
-                        else toast.error(dispatchErrorText(t, err));
-                      },
-                    },
-                  )
-                }
-              >
-                {t("packingList.make")}
-              </Button>
-            </Can>
+                    )
+                  }
+                >
+                  {t("packingList.make")}
+                </Button>
+              </Can>
+            ) : undefined
           }
         />
       </div>
@@ -140,18 +157,28 @@ export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId
   } else if (!model) {
     body = (
       <div className="rounded-card border border-border bg-card">
-        <EmptyState title={t("packingList.loadError")} action={regenButton} />
+        <EmptyState title={t("packingList.loadError")} action={regenButton ?? undefined} />
       </div>
     );
   } else {
-    body = <PackingListBody model={model} code={pl.data.code} />;
+    body = (
+      <>
+        {folded ? (
+          <FoldedNote code={data.code} combinedIntoId={data.combinedIntoId!} />
+        ) : null}
+        {v2 ? <PlV2Body view={v2} code={data.code} /> : <LegacyBody model={model} code={data.code} />}
+        <RevisionsPanel listId={data.id} currentId={data.id} />
+      </>
+    );
   }
 
+  const customerId = parsed?.success ? (parsed.data.dispatch.customer.id ?? undefined) : undefined;
   return (
     <section aria-labelledby="packing-list-title" data-slot="packing-list" className="flex min-w-0 flex-col gap-4">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <h2 id="packing-list-title" ref={titleRef} tabIndex={-1} className="m-0 font-display text-[22px] font-bold tracking-[-0.025em] focus:outline-none">
           {t("packingList.title")}
+          {data && revision > 1 ? <span className="ml-3 text-[15px] font-semibold text-muted-foreground">{t("packingList.v2.revision", { n: revision })}</span> : null}
         </h2>
         {model ? (
           <div className="grid min-w-0 grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
@@ -163,247 +190,79 @@ export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId
               <FileSpreadsheet aria-hidden="true" strokeWidth={2} />
               {t("packingList.downloadExcel")}
             </Button>
-            <div className="col-span-2 sm:col-auto">{regenButton}</div>
+            <Button variant="secondary" className="max-sm:h-14 max-sm:px-3" loading={downloading === "print"} disabled={downloading !== null} onClick={() => void download("print")}>
+              <Printer aria-hidden="true" strokeWidth={2} />
+              {t("packingList.print")}
+            </Button>
+            <div className="col-span-2 flex flex-wrap items-center gap-1 sm:col-auto">
+              {regenButton}
+              {data && customerId && !folded ? (
+                <Can do="packingList.combine">
+                  <Button variant="ghost" onClick={() => setDialog("combine")} aria-haspopup="dialog" data-testid="combine">
+                    <Layers aria-hidden="true" strokeWidth={2} />
+                    {t("packingList.v2.combine")}
+                  </Button>
+                </Can>
+              ) : null}
+              {dispatch && dispatchId ? (
+                <Can do="dispatch.complete">
+                  <Button variant="ghost" onClick={() => setDialog("header")} aria-haspopup="dialog" data-testid="edit-header">
+                    <Pencil aria-hidden="true" strokeWidth={2} />
+                    {t("packingList.v2.editHeader")}
+                  </Button>
+                </Can>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </div>
       {body}
-      <Dialog
-        open={confirmRegen}
-        onOpenChange={(open) => !regenerate.isPending && setConfirmRegen(open)}
-        title={t("packingList.regenerateTitle")}
-        description={t("packingList.regenerateBody")}
-        actions={
-          <>
-            <Button variant="secondary" disabled={regenerate.isPending} onClick={() => setConfirmRegen(false)}>
-              {t("common.back")}
-            </Button>
-            <Button
-              loading={regenerate.isPending}
-              disabled={!pl.data}
-              onClick={() =>
-                pl.data &&
-                regenerate.mutate(
-                  { id: pl.data.id },
-                  {
-                    onSuccess: () => {
-                      toast.success(t("packingList.regenerated"));
-                      setConfirmRegen(false);
-                      void refresh();
-                    },
-                    onError: (err) => toast.error(dispatchErrorText(t, err)),
-                  },
-                )
-              }
-            >
-              {t("packingList.regenerate")}
-            </Button>
-          </>
-        }
-      />
+      {data ? (
+        <RegenerateDialog
+          open={dialog === "regenerate"}
+          onOpenChange={(o) => setDialog(o ? "regenerate" : null)}
+          list={{ id: data.id, code: data.code, showBranding: data.showBranding, showOriginalSo: data.showOriginalSo }}
+          next={revision + 1}
+          onDone={(newId) => {
+            refresh();
+            // A list opened by id moves to the new revision; on the dispatch page the current one shows itself.
+            if (listId) void navigate({ to: "/packing-lists/$id", params: { id: newId } });
+          }}
+        />
+      ) : null}
+      {data && customerId ? (
+        <CombineSheet
+          open={dialog === "combine"}
+          onOpenChange={(o) => setDialog(o ? "combine" : null)}
+          list={{ id: data.id, code: data.code }}
+          customerId={customerId}
+          customerName={parsed?.success ? parsed.data.dispatch.customer.name : ""}
+        />
+      ) : null}
+      {dispatch && dispatchId ? (
+        <EditDetailsSheet
+          open={dialog === "header"}
+          onOpenChange={(o) => setDialog(o ? "header" : null)}
+          dispatch={dispatch}
+          customerName={customerName ?? ""}
+          onSaved={refresh}
+        />
+      ) : null}
     </section>
   );
 }
 
-function PackingListBody({ model, code }: { model: PackingListModel; code: string }) {
-  const { t, locale } = useT();
-  const wide = useMediaQuery(breakpoints.desktop);
-  const { header, groups, totals } = model;
-  const facts: { label: string; value: string; mono?: boolean }[] = [
-    { label: t("packingList.plNo"), value: code, mono: true },
-    { label: t("packingList.dispatch"), value: header.dispatchCode, mono: true },
-    { label: t("packingList.date"), value: formatShipDate(header.date, { locale }) ?? t("packingList.notSet") },
-    { label: t("packingList.shipDate"), value: formatShipDate(header.shipDate, { locale }) ?? t("packingList.notSet") },
-  ];
-  return (
-    <>
-      <div className="flex min-w-0 flex-col gap-5 rounded-card border border-border bg-card p-4 sm:p-6">
-        <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <p className="m-0 font-display text-[20px] leading-tight font-bold tracking-[-0.02em] break-words">{header.companyName}</p>
-            <p className="m-0 text-[14px] text-muted-foreground">{t("packingList.title")}</p>
-          </div>
-          <dl className="m-0 grid min-w-0 grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
-            {facts.map((f) => (
-              <div key={f.label} className="flex min-w-0 flex-col">
-                <dt className="text-[13px] text-muted-foreground">{f.label}</dt>
-                <dd className={f.mono ? "m-0 font-mono text-[15px] font-semibold break-words" : "m-0 text-[15px] font-semibold"}>
-                  {f.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <p className="m-0 text-[13px] text-muted-foreground">{t("packingList.customer")}</p>
-          <p className="m-0 font-display text-[19px] leading-snug font-bold tracking-[-0.015em] break-words">{header.customerName}</p>
-          {header.customerTaxId ? (
-            <p className="m-0 text-[14px] text-muted-foreground">
-              {t("packingList.gstin")} <span className="font-mono">{header.customerTaxId}</span>
-            </p>
-          ) : null}
-          {header.notes ? <p className="m-0 mt-1 text-[14px] break-words">{header.notes}</p> : null}
-        </div>
-        <p data-testid="packing-list-totals" data-no-truncate="" className="m-0 font-display text-[28px] leading-[1.1] font-extrabold tracking-[-0.03em] tabular-nums sm:text-[34px]">
-          {t("packingList.totals", { bundles: totals.bundles, kg: formatKg(totals.weightKg) })}
-        </p>
-      </div>
-      {wide ? <PackingListTable groups={groups} totals={totals} /> : <PackingListStack groups={groups} totals={totals} />}
-    </>
-  );
-}
-
-function groupTitle(t: ReturnType<typeof useT>["t"], g: PackingListGroup) {
-  return g.labelled ? `${t("packingList.groupNamed", { label: g.label })}: ${g.dieLabel}` : g.label;
-}
-
-function PackingListTable({ groups, totals }: Pick<PackingListModel, "groups" | "totals">) {
+/** "Combined into PL/2026-27/9": this list was folded into another (shown at its own address). */
+function FoldedNote({ code, combinedIntoId }: { code: string; combinedIntoId: string }) {
   const { t } = useT();
-  const cols = [
-    { key: "sr", label: t("packingList.columns.sr"), end: false },
-    { key: "bundle", label: t("packingList.columns.bundleNo"), end: false },
-    { key: "item", label: t("packingList.columns.item"), end: false },
-    { key: "kg", label: t("packingList.columns.weightKg"), end: true },
-    { key: "ft", label: t("packingList.columns.cutLengthFt"), end: true },
-    { key: "in", label: t("packingList.columns.cutLengthIn"), end: true },
-    { key: "pcs", label: t("packingList.columns.pcs"), end: true },
-    { key: "k12", label: t("packingList.columns.kgPer12ft"), end: true },
-    { key: "range", label: t("packingList.columns.weightRange"), end: true },
-  ];
-  const cell = "px-3 py-2 first:pl-5 last:pr-5";
+  const into = useQuery(trpc.packingList.get.queryOptions({ id: combinedIntoId }));
   return (
-    <div className="min-w-0 overflow-hidden rounded-card border border-border bg-card">
-      <div className="overflow-x-auto">
-        <table data-testid="packing-list-table" aria-label={t("packingList.rowsLabel")} className="w-full border-collapse text-[14px]">
-          <thead>
-            <tr className="border-b border-border">
-              {cols.map((c) => (
-                <th
-                  key={c.key}
-                  scope="col"
-                  className={`h-11 ${cell} text-[13px] font-semibold text-muted-foreground ${c.end ? "text-right" : "text-left"}`}
-                >
-                  {c.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          {groups.map((g) => (
-            <tbody key={g.key}>
-              <tr className="border-b border-border bg-surface-sunken/60">
-                <th scope="rowgroup" colSpan={cols.length} className={`${cell} text-left text-[14px] font-semibold`}>
-                  {groupTitle(t, g)}
-                </th>
-              </tr>
-              {g.rows.map((r) => (
-                <PlTableRow key={r.sr} row={r} cell={cell} />
-              ))}
-              <tr className="border-b border-border font-semibold">
-                <td className={cell} />
-                <td className={`${cell} whitespace-nowrap`}>{bundleWord(t, g.bundles)}</td>
-                <td className={cell}>{t("packingList.groupTotalOf", { label: g.label })}</td>
-                <td className={`${cell} text-right font-mono tabular-nums`}>{formatKg(g.weightKg)}</td>
-                <td className={cell} />
-                <td className={cell} />
-                <td className={`${cell} text-right font-mono tabular-nums`}>{g.pieces}</td>
-                <td className={cell} />
-                <td className={cell} />
-              </tr>
-            </tbody>
-          ))}
-          <tfoot>
-            <tr className="border-t-2 border-foreground text-[15px] font-bold">
-              <td className={cell} />
-              <td className={`${cell} whitespace-nowrap`}>{bundleWord(t, totals.bundles)}</td>
-              <td className={cell}>{t("packingList.grandTotal")}</td>
-              <td className={`${cell} text-right font-mono tabular-nums`} data-testid="packing-list-total-kg">
-                {formatKg(totals.weightKg)}
-              </td>
-              <td className={cell} />
-              <td className={cell} />
-              <td className={`${cell} text-right font-mono tabular-nums`}>{totals.pieces}</td>
-              <td className={cell} />
-              <td className={cell} />
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function PlTableRow({ row: r, cell }: { row: PackingListRow; cell: string }) {
-  return (
-    <tr data-testid="packing-list-row" className="border-b border-border">
-      <td className={`${cell} font-mono text-muted-foreground tabular-nums`}>{r.sr}</td>
-      <td className={`${cell} font-mono font-semibold whitespace-nowrap`}>{r.bundleNo}</td>
-      <td className={`${cell} break-words`}>{r.item}</td>
-      <td className={`${cell} text-right font-mono tabular-nums`}>{formatKg(r.weightKg)}</td>
-      <td className={`${cell} text-right font-mono tabular-nums`}>{r.cutLengthFt}</td>
-      <td className={`${cell} text-right font-mono tabular-nums`}>{r.cutLengthIn}</td>
-      <td className={`${cell} text-right font-mono tabular-nums`}>{r.pcs}</td>
-      <td className={`${cell} text-right font-mono tabular-nums`}>{num(r.kgPer12ft, 3)}</td>
-      <td className={`${cell} text-right font-mono font-semibold tabular-nums`}>{num(r.weightRange12ft, 1)}</td>
-    </tr>
-  );
-}
-
-function PackingListStack({ groups, totals }: Pick<PackingListModel, "groups" | "totals">) {
-  const { t } = useT();
-  return (
-    <div className="flex min-w-0 flex-col gap-4">
-      {groups.map((g) => {
-        // The group title already names the item; a row repeats it only when one label spans several sections.
-        const mixed = new Set(g.rows.map((r) => r.item)).size > 1;
-        return (
-          <section key={g.key} aria-label={groupTitle(t, g)} className="min-w-0 overflow-hidden rounded-card border border-border bg-card">
-            <div className="flex min-w-0 flex-col gap-0.5 border-b border-border px-4 py-3">
-              <h3 className="m-0 text-[15px] font-semibold break-words">{groupTitle(t, g)}</h3>
-              <p className="m-0 text-[13px] text-muted-foreground tabular-nums">
-                {t("packingList.totals", { bundles: g.bundles, kg: formatKg(g.weightKg) })}
-              </p>
-            </div>
-            <ul aria-label={t("packingList.rowsLabel")} className="m-0 list-none divide-y divide-border p-0">
-              {g.rows.map((r) => (
-                <li key={r.sr} data-testid="packing-list-row" className="flex min-w-0 flex-col gap-2 px-4 py-3">
-                  <div className="flex min-w-0 items-baseline justify-between gap-3">
-                    <span className="min-w-0 [overflow-wrap:anywhere]">
-                      <span className="mr-2 font-mono text-[13px] text-muted-foreground">{r.sr}</span>
-                      <span className="font-mono text-[16px] font-semibold">{r.bundleNo}</span>
-                    </span>
-                    <span data-no-truncate="" className="shrink-0 font-mono text-[15px] font-semibold tabular-nums">
-                      {formatKg(r.weightKg)} {t("units.kg")}
-                    </span>
-                  </div>
-                  {mixed ? <p className="m-0 text-[13px] text-muted-foreground break-words">{r.item}</p> : null}
-                  <dl className="m-0 grid grid-cols-3 gap-x-3 gap-y-1.5">
-                    <Fact label={t("packingList.columns.cutLengthFt")} value={String(r.cutLengthFt)} />
-                    <Fact label={t("packingList.columns.cutLengthIn")} value={String(r.cutLengthIn)} />
-                    <Fact label={t("packingList.columns.pcs")} value={String(r.pcs)} />
-                    <Fact label={t("packingList.columns.kgPer12ft")} value={num(r.kgPer12ft, 3)} />
-                    <Fact label={t("packingList.columns.weightRange")} value={num(r.weightRange12ft, 1)} strong />
-                  </dl>
-                </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
-      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-card border-2 border-foreground bg-card px-4 py-3">
-        <span className="text-[15px] font-bold">{t("packingList.grandTotal")}</span>
-        <span data-testid="packing-list-total-kg" data-no-truncate="" className="font-mono text-[17px] font-bold tabular-nums">
-          {t("packingList.totals", { bundles: totals.bundles, kg: formatKg(totals.weightKg) })}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function Fact({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className="flex min-w-0 flex-col">
-      <dt className="text-[12px] leading-4 text-muted-foreground break-words">{label}</dt>
-      <dd className={`m-0 font-mono text-[14px] tabular-nums ${strong ? "font-semibold" : ""}`}>{value}</dd>
-    </div>
+    <p role="status" className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-card bg-tone-blue-tint px-4 py-3 text-[14px] font-medium text-tone-blue-ink">
+      <span>{t("packingList.v2.combinedInto", { code: into.data?.code ?? "" })}</span>
+      <UiLink to={`/packing-lists/${encodeURIComponent(combinedIntoId)}`} className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">
+        {t("packingList.v2.open")}
+      </UiLink>
+      <span className="sr-only">{code}</span>
+    </p>
   );
 }

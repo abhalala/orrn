@@ -41,6 +41,9 @@ export async function addInChunks(
       report.alreadyInDispatch.push(...r.alreadyInDispatch);
       report.notFound.push(...r.notFound);
       report.unavailable.push(...r.unavailable);
+      if (r.refused?.length) (report.refused ??= []).push(...r.refused);
+      // The last chunk's capacity is the dispatch's load after everything that went in.
+      if (r.capacity) report.capacity = r.capacity;
     } catch (error) {
       return { report, error, unsent: serials.slice(start) };
     }

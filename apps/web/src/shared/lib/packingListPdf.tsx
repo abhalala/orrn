@@ -10,6 +10,8 @@
 import { packingListModel, type PackingListModel, type PackingListSnapshot } from "@orrn/documents/packing-list/model";
 import { Document, Font, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 
+import { plViewOf, type PlGroupView, type PlView } from "@/features/dispatch/pl-model";
+
 Font.registerHyphenationCallback((word) => [word]);
 
 const INK = "#111111";
@@ -38,8 +40,8 @@ const s = StyleSheet.create({
   grand: { flexDirection: "row", paddingVertical: 5, borderTopWidth: 1.5, borderColor: INK, marginTop: 6, fontFamily: "Helvetica-Bold", fontSize: 10 },
   footer: { position: "absolute", bottom: 20, left: 32, right: 32, flexDirection: "row", justifyContent: "space-between", fontSize: 7, color: MUTED },
   cSr: { width: "5%" },
-  cBundle: { width: "12%" },
-  cItem: { width: "27%", paddingRight: 4 },
+  cBundle: { width: "15%" },
+  cItem: { width: "24%", paddingRight: 4 },
   cKg: { width: "10%", textAlign: "right" },
   cFt: { width: "8%", textAlign: "right" },
   cIn: { width: "8%", textAlign: "right" },
@@ -165,10 +167,194 @@ function PackingListDoc({ model, code }: { model: PackingListModel; code: string
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* v2: the plant's packing list on A4 landscape (FP-PK-13)                      */
+/* -------------------------------------------------------------------------- */
+
+const v2s = StyleSheet.create({
+  page: { paddingTop: 28, paddingBottom: 40, paddingHorizontal: 28, fontSize: 8, fontFamily: "Helvetica", color: INK },
+  top: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10, gap: 16 },
+  company: { fontSize: 15, fontFamily: "Helvetica-Bold" },
+  small: { color: MUTED, marginTop: 1 },
+  meta: { flexDirection: "row", flexWrap: "wrap", width: "52%", gap: 0 },
+  metaCell: { width: "33.33%", marginBottom: 4, paddingRight: 6 },
+  metaLabel: { color: MUTED, fontSize: 7 },
+  metaValue: { fontFamily: "Helvetica-Bold" },
+  parties: { flexDirection: "row", gap: 12, marginBottom: 8 },
+  party: { flexGrow: 1, flexBasis: 0, borderWidth: 0.5, borderColor: RULE, padding: 5 },
+  partyName: { fontFamily: "Helvetica-Bold", fontSize: 9.5 },
+  headline: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
+  totals: { fontSize: 11, fontFamily: "Helvetica-Bold" },
+  profile: { color: MUTED },
+  th: { fontFamily: "Helvetica-Bold", fontSize: 7 },
+  head: { flexDirection: "row", borderBottomWidth: 1, borderColor: INK, paddingBottom: 3, marginBottom: 1 },
+  row: { flexDirection: "row", paddingVertical: 2, borderBottomWidth: 0.5, borderColor: RULE },
+  groupRow: { flexDirection: "row", paddingTop: 6, paddingBottom: 2 },
+  groupText: { fontFamily: "Helvetica-Bold", fontSize: 8.5 },
+  sub: { flexDirection: "row", paddingVertical: 2, backgroundColor: BAND, fontFamily: "Helvetica-Bold" },
+  grand: { flexDirection: "row", paddingVertical: 4, borderTopWidth: 1.5, borderColor: INK, marginTop: 4, fontFamily: "Helvetica-Bold", fontSize: 9.5 },
+  footer: { position: "absolute", bottom: 16, left: 28, right: 28, flexDirection: "row", justifyContent: "space-between", fontSize: 7, color: MUTED },
+});
+
+const kg3 = (g: number) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(g / 1000);
+
+type Col = { key: string; label: string; w: number; end?: boolean };
+
+/** Column weights (not percentages): the optional columns join only when they have something to say. */
+function columnsOf(view: PlView): Col[] {
+  return [
+    { key: "sr", label: "Sr", w: 4 },
+    { key: "bundle", label: "Bundle no", w: 13 },
+    ...(view.columns.partyNo ? [{ key: "party", label: "Party no", w: 9 }] : []),
+    { key: "section", label: "Section", w: 7 },
+    { key: "item", label: "Item", w: 13 },
+    { key: "kg", label: "Weight kg", w: 8, end: true },
+    { key: "ft", label: "Cut ft", w: 5, end: true },
+    { key: "in", label: "Cut in", w: 5, end: true },
+    { key: "pcs", label: "Pcs", w: 5, end: true },
+    { key: "k12", label: "kg/12ft", w: 7, end: true },
+    { key: "range", label: "Range /12'", w: 7, end: true },
+    { key: "po", label: "PO", w: 8 },
+    ...(view.columns.originalSo ? [{ key: "so", label: "Original SO", w: 9 }] : []),
+  ];
+}
+
+function PackingListDocV2({ view, code }: { view: PlView; code: string }) {
+  const cols = columnsOf(view);
+  const total = cols.reduce((n, c) => n + c.w, 0);
+  const cell = (c: Col) => ({ width: `${(c.w / total) * 100}%`, textAlign: c.end ? ("right" as const) : ("left" as const), paddingRight: 3 });
+  const cells = (g: PlGroupView, r: PlGroupView["rows"][number]) => ({
+    sr: String(r.sr),
+    bundle: r.bundleNo,
+    party: r.partyNo ?? "",
+    section: r.section,
+    item: r.item,
+    kg: kg3(r.weightG),
+    ft: String(r.cutFt),
+    in: String(r.cutIn),
+    pcs: String(r.pcs),
+    k12: r.kgPer12ftMilli === null ? "" : (r.kgPer12ftMilli / 1000).toFixed(3),
+    range: r.range12ft === null ? "" : r.range12ft.toFixed(1),
+    po: r.po ?? "",
+    so: r.originalSo ?? "",
+    _g: g.key,
+  });
+  const totalRow = (label: string, n: number, pcs: number, weightG: number, style: React.ComponentProps<typeof View>["style"], bold = false) => (
+    <View style={style} wrap={false}>
+      {cols.map((c) => (
+        <Text key={c.key} style={[cell(c), bold ? { fontFamily: "Helvetica-Bold" } : {}]}>
+          {c.key === "bundle" ? bundlesText(n) : c.key === "item" ? label : c.key === "kg" ? kg3(weightG) : c.key === "pcs" ? String(pcs) : ""}
+        </Text>
+      ))}
+    </View>
+  );
+  const meta: [string, string | null][] = [
+    ["PL no", view.revision > 1 ? `${view.plNumber} (Rev ${view.revision})` : view.plNumber],
+    ["Date", view.date],
+    ["Dispatch", view.dispatchCodes],
+    ["Ship date", view.shipDate],
+    ["Vehicle", view.vehicleNo],
+    ["Driver", [view.driverName, view.driverPhone].filter(Boolean).join(" ") || null],
+    ["Transporter", view.transporter],
+    ["PO", view.poNumbers.length ? view.poNumbers.join(", ") : null],
+    ["Invoice", view.invoiceNumber ? [view.invoiceNumber, view.invoiceDate].filter(Boolean).join(" ") : null],
+  ];
+  const kindWord = { hollow: "Hollow", solid: "Solid", semi: "Semi-hollow" } as const;
+  return (
+    <Document title={`${code} packing list`} author={view.company.name}>
+      <Page size="A4" orientation="landscape" style={v2s.page}>
+        <View style={v2s.top}>
+          <View style={{ width: "44%" }}>
+            {/* Branding off hides the tagline; the legal name always prints. */}
+            <Text style={v2s.company}>{view.branding.show ? view.company.name : (view.company.legalName ?? view.company.name)}</Text>
+            {view.branding.show && view.branding.tagline ? <Text style={v2s.small}>{view.branding.tagline}</Text> : null}
+            {view.branding.show && view.company.legalName ? <Text style={v2s.small}>{view.company.legalName}</Text> : null}
+            {view.company.address ? <Text style={v2s.small}>{view.company.address}</Text> : null}
+            {view.company.gstin || view.company.phone ? (
+              <Text style={v2s.small}>{[view.company.gstin ? `GSTIN ${view.company.gstin}` : null, view.company.phone].filter(Boolean).join("  ")}</Text>
+            ) : null}
+            <Text style={[v2s.small, { marginTop: 3 }]}>Packing list</Text>
+          </View>
+          <View style={v2s.meta}>
+            {meta.map(([k, v]) => (
+              <View key={k} style={v2s.metaCell}>
+                <Text style={v2s.metaLabel}>{k}</Text>
+                <Text style={v2s.metaValue}>{v || " "}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={v2s.parties}>
+          {([["Bill to", view.billTo], ["Ship to", view.shipTo]] as const).map(([label, p]) => (
+            <View key={label} style={v2s.party}>
+              <Text style={v2s.metaLabel}>{label}</Text>
+              <Text style={v2s.partyName}>{p.name}</Text>
+              {p.address ? <Text>{p.address}</Text> : null}
+              {p.gstin ? <Text>GSTIN {p.gstin}</Text> : null}
+            </View>
+          ))}
+        </View>
+
+        <View style={v2s.headline}>
+          <Text style={v2s.totals}>
+            {bundlesText(view.total.bundles)} · {kg3(view.total.weightG)} kg
+          </Text>
+          <Text style={v2s.profile}>
+            {view.profile.map((k) => `${kindWord[k.kind]} ${bundlesText(k.bundles)} · ${kg3(k.weightG)} kg`).join("    ")}
+          </Text>
+        </View>
+
+        <View style={v2s.head} fixed>
+          {cols.map((c) => (
+            <Text key={c.key} style={[v2s.th, cell(c)]}>
+              {c.label}
+            </Text>
+          ))}
+        </View>
+        {view.groups.map((g) => (
+          <View key={g.key}>
+            <View style={v2s.groupRow} wrap={false} minPresenceAhead={30}>
+              <Text style={v2s.groupText}>{g.title}</Text>
+            </View>
+            {g.rows.map((r) => {
+              const v = cells(g, r) as Record<string, string>;
+              return (
+                <View key={r.sr} style={v2s.row} wrap={false}>
+                  {cols.map((c) => (
+                    <Text key={c.key} style={cell(c)}>
+                      {v[c.key]}
+                    </Text>
+                  ))}
+                </View>
+              );
+            })}
+            {totalRow(`Total ${g.title.split(" · ")[0] ?? ""}`, g.subtotal.bundles, g.subtotal.pcs, g.subtotal.weightG, v2s.sub, true)}
+            {g.sectionAfter
+              ? totalRow(`Total section ${g.sectionAfter.sectionCode}`, g.sectionAfter.bundles, g.sectionAfter.pcs, g.sectionAfter.weightG, v2s.sub, true)
+              : null}
+          </View>
+        ))}
+        {totalRow("Total", view.total.bundles, view.total.pcs, view.total.weightG, v2s.grand, true)}
+
+        <View style={v2s.footer} fixed>
+          <Text>
+            {view.company.legalName ?? view.company.name}, {code}
+            {view.revision > 1 ? ` (Rev ${view.revision})` : ""}
+          </Text>
+          <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
+        </View>
+      </Page>
+    </Document>
+  );
+}
+
 /** Render and save the packing list as `<code>.pdf`. */
 export async function downloadPackingListPdf(pl: PackingListSnapshot, code: string, opts: { timeZone?: string } = {}) {
-  const model = packingListModel(pl, opts);
-  const blob = await pdf(<PackingListDoc model={model} code={code} />).toBlob();
+  const view = plViewOf(pl);
+  const blob = await pdf(
+    view ? <PackingListDocV2 view={view} code={code} /> : <PackingListDoc model={packingListModel(pl, opts)} code={code} />,
+  ).toBlob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

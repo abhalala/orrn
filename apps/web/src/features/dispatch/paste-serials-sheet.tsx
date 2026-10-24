@@ -8,9 +8,11 @@ import { Sheet } from "@orrn/ui/components/sheet";
 import type { StatusTone } from "@orrn/domain";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
-import { blockMessage, renderScanMessage, scanErrorKey, type AddBundlesReport } from "@/features/scan/scan-outcome";
+import { blockMessage, blocksOf, renderScanMessage, scanErrorKey, type AddBundlesReport } from "@/features/scan/scan-outcome";
+import { Can } from "@/shared/components/can";
 import { trpcClient } from "@/shared/utils/trpc";
 
+import { CapacityBanner } from "./capacity-banner";
 import { addInChunks, type ChunkedAddResult } from "./paste";
 
 type Props = {
@@ -52,11 +54,35 @@ export function PasteSerialsSheet({ open, onOpenChange, dispatchId, onAdded }: P
     const total = serials.length;
     const result = await addInChunks(
       serials,
-      (chunk) => trpcClient.dispatch.addBundlesBySerial.mutate({ id: dispatchId, serials: chunk }),
+      (chunk) => trpcClient.dispatch.scan.mutate({ id: dispatchId, serials: chunk }) as Promise<AddBundlesReport>,
       (done) => setPhase({ kind: "sending", done, total }),
     );
     if (result.report.added.length > 0) onAdded(result.report);
     setPhase({ kind: "report", result, total });
+  };
+
+  // The office adds the refused "not on a sales order" bundles anyway (D12, order.manage): the report
+  // moves them from refused to added and the screen behind refreshes.
+  const [addingAnyway, setAddingAnyway] = useState(false);
+  const addAnyway = async (serials: string[]) => {
+    if (phase.kind !== "report" || serials.length === 0) return;
+    setAddingAnyway(true);
+    try {
+      const r = (await trpcClient.dispatch.addBundlesBySerial.mutate({ id: dispatchId, serials, allowUnassigned: true })) as AddBundlesReport;
+      const done = new Set(r.added);
+      const next: AddBundlesReport = {
+        ...phase.result.report,
+        added: [...phase.result.report.added, ...r.added],
+        unavailable: phase.result.report.unavailable.filter((u) => !done.has(u.serial)),
+        refused: (phase.result.report.refused ?? []).filter((x) => !done.has(x.serial)),
+      };
+      if (r.added.length > 0) onAdded(r);
+      setPhase({ kind: "report", result: { ...phase.result, report: next }, total: phase.total });
+    } catch (e) {
+      setPhase({ kind: "report", result: { ...phase.result, error: e }, total: phase.total });
+    } finally {
+      setAddingAnyway(false);
+    }
   };
 
   const sending = phase.kind === "sending";
@@ -114,7 +140,13 @@ export function PasteSerialsSheet({ open, onOpenChange, dispatchId, onAdded }: P
         {announcement}
       </p>
       {phase.kind === "report" ? (
-        <PasteReport result={phase.result} total={phase.total} headingRef={reportHeading} />
+        <PasteReport
+          result={phase.result}
+          total={phase.total}
+          headingRef={reportHeading}
+          onAddAnyway={(serials) => void addAnyway(serials)}
+          addingAnyway={addingAnyway}
+        />
       ) : (
         <form id="paste-serials-form" onSubmit={(e) => void submit(e)} className="flex flex-col gap-3 pt-1" noValidate>
           <Field id="paste-serials" label={t("dispatch.paste.label")} hint={t("dispatch.paste.hint")} error={error}>
@@ -152,7 +184,7 @@ export function PasteSerialsSheet({ open, onOpenChange, dispatchId, onAdded }: P
 type LineKind = "added" | "already" | "notFound" | "unavailable";
 const TONE: Record<LineKind, StatusTone> = { added: "green", already: "neutral", notFound: "amber", unavailable: "red" };
 
-type ReportLine = { kind: LineKind; count: number; text: string; serials: { serial: string; why?: string }[] };
+type ReportLine = { kind: LineKind; count: number; text: string; serials: { serial: string; why?: string; code?: string }[] };
 
 function reportLines(t: Translate, report: AddBundlesReport): ReportLine[] {
   return [
@@ -166,9 +198,10 @@ function reportLines(t: Translate, report: AddBundlesReport): ReportLine[] {
     { kind: "notFound" as const, count: report.notFound.length, text: t("dispatch.paste.notFound", { count: report.notFound.length }), serials: report.notFound.map((serial) => ({ serial })) },
     {
       kind: "unavailable" as const,
-      count: report.unavailable.length,
-      text: t("dispatch.paste.unavailable", { count: report.unavailable.length }),
-      serials: report.unavailable.map((u) => ({ serial: u.serial, why: renderScanMessage(t, blockMessage(u)) })),
+      count: blocksOf(report).length,
+      text: t("dispatch.paste.unavailable", { count: blocksOf(report).length }),
+      serials: blocksOf(report).map((u) => ({ serial: u.serial, why: renderScanMessage(t, blockMessage(u)), code: u.code })),
+      
     },
   ].filter((l) => l.count > 0);
 }
@@ -184,14 +217,19 @@ function PasteReport({
   result,
   total,
   headingRef,
+  onAddAnyway,
+  addingAnyway,
 }: {
   result: ChunkedAddResult;
   total: number;
   headingRef: React.Ref<HTMLHeadingElement>;
+  onAddAnyway(serials: string[]): void;
+  addingAnyway: boolean;
 }) {
   const { t } = useT();
   const lines = reportLines(t, result.report);
   const done = total - result.unsent.length;
+  const noOrder = blocksOf(result.report).filter((b) => b.code === "unassigned").map((b) => b.serial);
 
   return (
     <div className="flex flex-col gap-4 pt-1">
@@ -206,6 +244,17 @@ function PasteReport({
           </p>
         ) : null}
       </div>
+      <CapacityBanner capacity={result.report.capacity} compact />
+      {noOrder.length > 0 ? (
+        <Can do="order.manage">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Button variant="secondary" size="lg" loading={addingAnyway} onClick={() => onAddAnyway(noOrder)} data-testid="add-anyway">
+              {t("scan.continuous.addAnyway")} ({noOrder.length})
+            </Button>
+            <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("scan.continuous.addAnywayHint")}</p>
+          </div>
+        </Can>
+      ) : null}
       {lines.map((l) => (
         <section key={l.kind} aria-label={l.text} className="flex flex-col gap-2">
           <div className="flex items-center gap-2">

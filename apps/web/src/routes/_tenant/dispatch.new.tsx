@@ -13,6 +13,8 @@ import { toast } from "sonner";
 
 import { CustomerPicker, type PickedCustomer } from "@/features/dispatch/customer-picker";
 import { dispatchErrorText } from "@/features/dispatch/errors";
+import { capacityErrorText, TransportFieldset } from "@/features/dispatch/transport-fields";
+import { EMPTY_TRANSPORT, parseCapacityKg, type TransportFields } from "@/features/dispatch/transport";
 import { parseDayInput } from "@/features/dispatch/format";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
@@ -60,7 +62,8 @@ function NewDispatchForm() {
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);
   const [shipDate, setShipDate] = useState("");
   const [notes, setNotes] = useState("");
-  const [errors, setErrors] = useState<{ customer?: string; notes?: string; form?: string }>({});
+  const [transport, setTransport] = useState<TransportFields>(EMPTY_TRANSPORT);
+  const [errors, setErrors] = useState<{ customer?: string; notes?: string; capacity?: string; form?: string }>({});
   const create = useMutation(trpc.dispatch.create.mutationOptions());
 
   const submit = (e: FormEvent) => {
@@ -68,10 +71,18 @@ function NewDispatchForm() {
     const next: typeof errors = {};
     if (!customer) next.customer = t("dispatch.new.customerRequired");
     if (notes.length > NOTES_MAX) next.notes = t("errors.tooLong", { max: NOTES_MAX });
+    const capacityG = parseCapacityKg(transport.capacityKg);
+    if (capacityG === undefined) next.capacity = capacityErrorText(t, transport.capacityKg);
     setErrors(next);
-    if (!customer || next.notes) return;
+    if (!customer || next.notes || next.capacity) return;
     create.mutate(
-      { customerId: customer.id, shipDate: parseDayInput(shipDate), notes: notes.trim() || null },
+      {
+        customerId: customer.id,
+        shipDate: parseDayInput(shipDate),
+        notes: notes.trim() || null,
+        ...(transport.transporterId ? { transporterId: transport.transporterId } : {}),
+        ...(capacityG ? { vehicleCapacityG: capacityG } : {}),
+      },
       {
         onSuccess: (res) => {
           toast.success(t("dispatch.new.created", { code: res.code }));
@@ -119,6 +130,7 @@ function NewDispatchForm() {
             aria-describedby={errors.notes ? "dispatch-notes-error" : undefined}
           />
         </Field>
+        <TransportFieldset value={transport} onChange={setTransport} show={{ capacity: true }} capacityError={errors.capacity} />
         {errors.form ? (
           <p role="alert" className="m-0 text-[14px] font-medium text-destructive">
             {errors.form}

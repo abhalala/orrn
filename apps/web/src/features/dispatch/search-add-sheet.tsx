@@ -10,7 +10,8 @@ import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { addOutcome, renderScanMessage, scanErrorKey, type AddBundlesReport } from "@/features/scan/scan-outcome";
+import { addOutcome, renderScanMessage, resultOutcome, scanErrorKey, type AddBundlesReport } from "@/features/scan/scan-outcome";
+import { can, useMe } from "@/shared/lib/me";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 type Props = {
@@ -44,8 +45,8 @@ export function SearchAddSheet({ open, onOpenChange, dispatchId, inDispatch, onA
   const add = async (serial: string) => {
     setBusy(serial);
     try {
-      const report = await trpcClient.dispatch.addBundlesBySerial.mutate({ id: dispatchId, serials: [serial] });
-      const outcome = addOutcome(report, normalizeSerial(serial));
+      const report = (await trpcClient.dispatch.scan.mutate({ id: dispatchId, serials: [serial] })) as AddBundlesReport;
+      const outcome = report.results?.[0] ? resultOutcome(report.results[0]) : addOutcome(report, normalizeSerial(serial));
       if (outcome.kind === "added") {
         setMessage(t("dispatch.build.added", { serial }));
         onAdded(report);
@@ -54,7 +55,13 @@ export function SearchAddSheet({ open, onOpenChange, dispatchId, inDispatch, onA
       } else if (outcome.kind === "rejected") {
         const why = renderScanMessage(t, outcome.message);
         setMessage(`${serial}: ${why}`);
-        toast.error(why, { description: serial });
+        toast.error(why, {
+          description: serial,
+          // The office may put a bundle that is not on any order on the load anyway (D12).
+          ...(outcome.code === "unassigned" && canAddAnyway
+            ? { action: { label: t("scan.continuous.addAnyway"), onClick: () => void addAnyway(outcome.serial) } }
+            : {}),
+        });
       } else {
         setMessage(`${serial}: ${t("scan.notFound")}`);
       }
@@ -62,6 +69,20 @@ export function SearchAddSheet({ open, onOpenChange, dispatchId, inDispatch, onA
       toast.error(t(scanErrorKey(error, "dispatch")));
     } finally {
       setBusy(null);
+    }
+  };
+
+  const { data: me } = useMe();
+  const canAddAnyway = can(me, "order.manage");
+  const addAnyway = async (bundleSerial: string) => {
+    try {
+      const r = (await trpcClient.dispatch.addBundlesBySerial.mutate({ id: dispatchId, serials: [bundleSerial], allowUnassigned: true })) as AddBundlesReport;
+      if (r.added.length > 0) {
+        setMessage(t("scan.continuous.addedNoOrder", { serial: bundleSerial }));
+        onAdded(r);
+      }
+    } catch (error) {
+      toast.error(t(scanErrorKey(error, "dispatch")));
     }
   };
 
