@@ -8,6 +8,9 @@ import {
   impersonationGrant,
   membership,
 } from "@orrn/db/schema/tenant";
+import { normalizeModules } from "@orrn/domain";
+import { atomicBatch } from "../../lib/atomic";
+import { auditInsert } from "../../lib/audit";
 import { platformProcedure } from "../../index";
 
 export const companiesProcedures = {
@@ -167,14 +170,37 @@ export const companiesProcedures = {
         throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
       }
 
-      await ctx.db
-        .update(company)
-        .set({
-          plan: input.plan,
-          modules: input.modules,
-        })
-        .where(eq(company.id, input.companyId));
+      // FP-PF-07: only known module keys, lower-cased and de-duplicated; empty = every module on.
+      const { modules, unknown } = normalizeModules(input.modules);
+      if (unknown.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Unknown module: ${unknown.join(", ")}` });
+      }
+      const previous = Array.isArray(target.modules) ? target.modules : [];
+      const modulesChanged = previous.length !== modules.length || previous.some((m, i) => m !== modules[i]);
 
-      return { success: true };
+      await atomicBatch(ctx.db, [
+        ctx.db
+          .update(company)
+          .set({
+            plan: input.plan,
+            modules,
+          })
+          .where(eq(company.id, input.companyId)),
+        ...(modulesChanged || target.plan !== input.plan
+          ? [
+              auditInsert(
+                { ...ctx, companyId: input.companyId },
+                {
+                  action: "platform.company.modules.update",
+                  subjectType: "company",
+                  subjectId: input.companyId,
+                  meta: { from: previous, to: modules, planFrom: target.plan, planTo: input.plan },
+                },
+              ),
+            ]
+          : []),
+      ]);
+
+      return { success: true, modules };
     }),
 };

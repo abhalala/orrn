@@ -1,15 +1,32 @@
-import { and, count, eq, gte, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { bundle } from "@orrn/db/schema/inventory";
+import { cast } from "@orrn/db/schema/foundry";
+import { pressRun } from "@orrn/db/schema/press";
 import { company, companyRoles, membership } from "@orrn/db/schema/tenant";
+import {
+  MAX_SHIFT_NAME,
+  MAX_SHIFTS,
+  MAX_STANDARD_TEXT,
+  SETTINGS_LOCALES,
+  readFloorSettings,
+  validateShifts,
+  type Shift,
+} from "@orrn/domain";
 import { atomicBatch, type OrrnDb } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { now } from "../lib/clock";
-import { DEFAULT_TIMEZONE, isValidTimezone, monthStartMs } from "../lib/dayWindow";
+import { DEFAULT_TIMEZONE, isValidTimezone, monthStartMs, productionDayWindow } from "../lib/dayWindow";
+import { companyStandards, shiftErrorMessage, shiftGapMinutes } from "../lib/companySettings";
 import { listActiveMemberships } from "../lib/tenantContext";
 import { actionProcedure, authedProcedure, companyProcedure, router } from "../index";
+
+const standardPair = z.object({
+  standard: z.string().trim().max(MAX_STANDARD_TEXT),
+  cml: z.string().trim().max(MAX_STANDARD_TEXT),
+});
 
 export const companyRouter = router({
   /**
@@ -107,6 +124,46 @@ export const companyRouter = router({
             phone: z.string().trim().max(40).nullable().optional(),
           })
           .optional(),
+        /**
+         * Named shifts (FP-PF-05; C14). Replaces the whole list. A shift without an id is new and
+         * gets one here; ids never change on rename or reorder (press runs keep `shift_id`).
+         */
+        shifts: z
+          .array(
+            z.object({
+              id: z.string().trim().min(1).max(64).optional(),
+              name: z.string().trim().min(1).max(MAX_SHIFT_NAME),
+              seq: z.number().int().min(1).max(MAX_SHIFTS * 2),
+              startMin: z.number().int().min(0).max(1439),
+              endMin: z.number().int().min(0).max(1439),
+            }),
+          )
+          .max(MAX_SHIFTS * 2)
+          .optional(),
+        /** Commercial switches (FP-PF-06). Applied on the next request. */
+        dieBands: z.boolean().optional(),
+        priceOnSalesOrder: z.boolean().optional(),
+        dieRequiredOnSalesOrder: z.boolean().optional(),
+        portalEnabled: z.boolean().optional(),
+        /** null = automatic (on after the first locked melt, FP-FD-16). */
+        requireCastOnBundle: z.boolean().nullable().optional(),
+        /** Continue the cast book (FP-FD-02): only for a month with no cast yet. */
+        castSeriesStart: z
+          .object({
+            period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Month is YYYY-MM"),
+            start: z.number().int().min(1).max(99_999),
+          })
+          .nullable()
+          .optional(),
+        /**
+         * BIS designation and CM/L per profile kind (FP-PF-09). Partial: omitted kinds stay; a kind
+         * sent as `{ standard: "", cml: "" }` clears it. Blank CM/L prints no licence line.
+         */
+        standards: z
+          .object({ solid: standardPair.optional(), hollow: standardPair.optional(), semi: standardPair.optional() })
+          .optional(),
+        /** Company default language (FP-PF-13); the device's `orrn.locale` wins when set. */
+        locale: z.enum(SETTINGS_LOCALES).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -154,6 +211,41 @@ export const companyRouter = router({
           }
         }
       }
+      for (const key of ["dieBands", "priceOnSalesOrder", "dieRequiredOnSalesOrder", "portalEnabled", "locale"] as const) {
+        if (input[key] !== undefined) patch[key] = input[key];
+      }
+      if (input.requireCastOnBundle !== undefined) patch.requireCastOnBundle = input.requireCastOnBundle;
+      if (input.standards !== undefined) {
+        const current = readFloorSettings(row.settings).standards;
+        const next: Record<string, { standard: string; cml: string }> = { ...current };
+        for (const [kind, pair] of Object.entries(input.standards)) {
+          if (!pair) continue;
+          if (pair.standard === "" && pair.cml === "") delete next[kind];
+          else next[kind] = { standard: pair.standard, cml: pair.cml };
+        }
+        patch.standards = next;
+      }
+      if (input.castSeriesStart !== undefined) {
+        if (input.castSeriesStart !== null) {
+          const [year, month] = input.castSeriesStart.period.split("-").map(Number) as [number, number];
+          const used = await ctx.db
+            .select({ id: cast.id })
+            .from(cast)
+            .where(and(eq(cast.companyId, ctx.companyId), eq(cast.year, year), eq(cast.month, month)))
+            .limit(1)
+            .get();
+          if (used) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "That month already has a cast; the book can only be continued before the first cast",
+            });
+          }
+        }
+        patch.castSeriesStart = input.castSeriesStart;
+      }
+      if (input.shifts !== undefined) {
+        patch.shifts = await checkedShifts(ctx.db, ctx.companyId, input.shifts, readFloorSettings(row.settings).shifts);
+      }
       const settings = { ...(row.settings ?? {}), ...patch };
 
       await atomicBatch(ctx.db, [
@@ -168,6 +260,53 @@ export const companyRouter = router({
 
       return { settings };
     }),
+
+  /**
+   * The plant's settings for screens and clients (FP-PF-05/06/09/13): the floor settings (tolerant
+   * reader, defaults filled), the as-built keys, modules and today's production day. Not secret:
+   * no spool keys (columns, not settings) and no backup keys.
+   */
+  getSettings: companyProcedure.query(async ({ ctx }) => {
+    const row = await ctx.db
+      .select({ settings: company.settings, modules: company.modules })
+      .from(company)
+      .where(eq(company.id, ctx.companyId))
+      .get();
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+    const raw = row.settings ?? {};
+    const floor = readFloorSettings(raw);
+    const day = productionDayWindow(raw, now().getTime());
+    const castSeriesStart = raw.castSeriesStart;
+    return {
+      ...floor,
+      lengthUnit: raw.lengthUnit === "inch" ? ("inch" as const) : ("mm" as const),
+      timezone: day.timezone,
+      bundleNumbering: raw.bundleNumbering === "plant" ? ("plant" as const) : ("legacy" as const),
+      plSeries: (raw.plSeries ?? null) as { prefix: string; start: number } | null,
+      dcTolerancePct: typeof raw.dcTolerancePct === "number" ? raw.dcTolerancePct : null,
+      orderToleranceBp: typeof raw.orderToleranceBp === "number" ? raw.orderToleranceBp : null,
+      castSeriesStart:
+        castSeriesStart && typeof castSeriesStart === "object"
+          ? (castSeriesStart as { period: string; start: number })
+          : null,
+      modules: Array.isArray(row.modules) ? row.modules : [],
+      productionDay: {
+        day: day.productionDay,
+        startMs: day.startMs,
+        endMs: day.endMs,
+        shiftsSet: day.shiftsSet,
+        shift: day.shift,
+      },
+    };
+  }),
+
+  /**
+   * BIS designation and CM/L per profile kind, resolved for pack labels and certificates
+   * (FP-PF-09): semi falls back to solid, a null kind uses solid, blank CM/L = no licence line.
+   */
+  standards: companyProcedure.query(async ({ ctx }) => {
+    return companyStandards(ctx.db, ctx.companyId);
+  }),
 
   membersUpdateRole: actionProcedure("member.updateRole")
     .input(z.object({ membershipId: z.string(), role: z.enum(companyRoles) }))
@@ -268,6 +407,45 @@ export const companyRouter = router({
       return { success: true };
     }),
 });
+
+type ShiftInput = { id?: string; name: string; seq: number; startMin: number; endMin: number };
+
+/**
+ * FP-PF-05 rules on a submitted shift list: ids for new shifts, every validateShifts rule (a gap
+ * names the missing minutes), and a shift any press run cites cannot be deleted.
+ */
+async function checkedShifts(db: OrrnDb, companyId: string, input: ShiftInput[], stored: Shift[]): Promise<Shift[]> {
+  const shifts: Shift[] = input.map((s) => ({
+    id: s.id ?? crypto.randomUUID(),
+    name: s.name.trim(),
+    seq: s.seq,
+    startMin: s.startMin,
+    endMin: s.endMin,
+  }));
+  const errors = validateShifts(shifts);
+  if (errors.length > 0) {
+    const gap = errors.includes("gap_or_overlap") ? shiftGapMinutes(shifts) : null;
+    throw new TRPCError({ code: "BAD_REQUEST", message: shiftErrorMessage(errors[0]!, gap) });
+  }
+  const kept = new Set(shifts.map((s) => s.id));
+  const removed = stored.filter((s) => !kept.has(s.id));
+  if (removed.length > 0) {
+    const cited = await db
+      .select({ shiftId: pressRun.shiftId })
+      .from(pressRun)
+      .where(and(eq(pressRun.companyId, companyId), inArray(pressRun.shiftId, removed.map((s) => s.id))))
+      .limit(1)
+      .get();
+    if (cited) {
+      const name = removed.find((s) => s.id === cited.shiftId)?.name ?? "";
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `Shift ${name} has press runs; rename it instead of deleting it`,
+      });
+    }
+  }
+  return shifts;
+}
 
 /** A company must always keep at least one owner besides the one being changed. */
 async function assertAnotherOwnerExists(db: OrrnDb, companyId: string) {

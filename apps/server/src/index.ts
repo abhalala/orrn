@@ -10,6 +10,7 @@ import { logger } from "hono/logger";
 
 import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
+import { runScheduledBackups } from "@orrn/server/lib/backup";
 
 import { seedDevData } from "./dev-seed";
 import { spoolRoutes } from "./spool-routes";
@@ -79,4 +80,14 @@ app.get("/", (c) => {
   return c.text("OK");
 });
 
-export default app;
+/** Cron (alchemy.run.ts `crons`): the daily per-company backup to R2 (FP-PF-12). */
+async function scheduled(_controller: ScheduledController, _env: unknown, ctx: ExecutionContext) {
+  ctx.waitUntil(
+    runScheduledBackups(createDb(), new Date()).then(
+      (results) => console.log("backups", JSON.stringify(results)),
+      (error) => console.error("backups failed", error instanceof Error ? error.message : String(error)),
+    ),
+  );
+}
+
+export default { fetch: app.fetch, scheduled };

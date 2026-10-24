@@ -6,6 +6,7 @@ import { platformProcedure, router } from "../../index";
 
 import { companiesProcedures } from "./companies";
 import { impersonationProcedures } from "./impersonation";
+import { platformBackupRouter, platformReleaseRouter, platformSupportRouter } from "./ops";
 import { spoolProcedures } from "./spool";
 import { staffProcedures } from "./staff";
 import { waitlistProcedures } from "./waitlist";
@@ -134,4 +135,7 @@ export const platformRouter = router({
   ...impersonationProcedures,
   ...staffProcedures,
   ...spoolProcedures,
+  release: platformReleaseRouter,
+  backup: platformBackupRouter,
+  support: platformSupportRouter,
 });

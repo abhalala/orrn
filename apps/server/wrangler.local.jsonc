@@ -11,6 +11,7 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "orrn-local", "database_id": "local", "migrations_dir": "../../packages/db/src/migrations" }
   ],
+  "r2_buckets": [{ "binding": "BACKUPS", "bucket_name": "orrn-backups-local" }],
   "vars": {
     "NODE_ENV": "development",
     "CORS_ORIGIN": "http://localhost:3002",

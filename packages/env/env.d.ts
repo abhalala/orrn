@@ -23,6 +23,8 @@ export interface CloudflareEnv {
   CF_ZONE_ID_IN: string;
   /** Local wrangler only: password for the seeded dev accounts. Never set in deployed stages. */
   ORRN_LOCAL_PASSWORD?: string;
+  /** Daily per-company exports and restore drills (FP-PF-12). Optional: no binding = backups report failed. */
+  BACKUPS?: R2Bucket;
 }
 
 declare global {

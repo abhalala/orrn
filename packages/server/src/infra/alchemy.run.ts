@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import alchemy, { Resource } from "alchemy";
-import { D1Database, Vite, Worker } from "alchemy/cloudflare";
+import { D1Database, R2Bucket, Vite, Worker } from "alchemy/cloudflare";
 import { CloudflareStateStore } from "alchemy/state";
 import type { Scope } from "alchemy";
 import { config } from "dotenv";
@@ -134,6 +134,12 @@ const db = await D1Database("database", {
   migrationsDir: "../db/src/migrations",
 });
 
+/**
+ * FP-PF-12: daily per-company exports and restore drills (lib/backup.ts). Private: no public
+ * access, no custom domain; the plant never downloads it. Runbook: docs/RESTORE_DRILL.md.
+ */
+const backups = await R2Bucket("backups", { adopt: true });
+
 
 const LegacySpoolReleasesBucket = Resource(
   "internal::LegacySpoolReleasesState",
@@ -177,8 +183,11 @@ export const server = await Worker("server", {
   entrypoint: "src/index.ts",
   compatibility: "node",
   adopt: true,
+  // 21:30 UTC = 03:00 IST, after the night shift's last pack: one backup per active company.
+  crons: ["30 21 * * *"],
   bindings: {
     DB: db,
+    BACKUPS: backups,
     NODE_ENV: isDevStage ? (process.env.NODE_ENV ?? "development") : "production",
     CORS_ORIGIN: corsOrigin,
     CORS_ALLOWED_ORIGINS: corsAllowedOrigins,

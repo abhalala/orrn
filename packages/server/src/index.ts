@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 
 import type { Context } from "./context";
+import { assertModule, moduleForPath } from "./lib/moduleGate";
 import { can, canAny, type Action } from "./lib/permissions";
 
 export const t = initTRPC.context<Context>().create();
@@ -39,12 +40,19 @@ export const authedProcedure = t.procedure.use(({ ctx, next }) => {
 
 export const protectedProcedure = authedProcedure;
 
-export const companyProcedure = authedProcedure.use(({ ctx, next }) => {
+export const companyProcedure = authedProcedure.use(async ({ ctx, next, path, type }) => {
   if (!ctx.companyId || !ctx.membership || !ctx.role) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Company access required",
     });
+  }
+
+  // FP-PF-07: a mutation of a module that is off for this plant is refused at the router level
+  // (lib/moduleGate ROUTER_MODULE), whatever the role allows. Reads are not gated.
+  if (type === "mutation") {
+    const module = moduleForPath(path);
+    if (module) await assertModule({ db: ctx.db, companyId: ctx.companyId }, module);
   }
 
   return next({

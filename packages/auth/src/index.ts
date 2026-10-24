@@ -3,6 +3,7 @@ import { createDb } from "@orrn/db";
 import * as schema from "@orrn/db/schema/auth";
 import { env } from "@orrn/env/server";
 import { trustedOriginsFor } from "./origins";
+import { magicLinkSecondFactorGuard } from "./magic-link-guard";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins/two-factor";
@@ -116,6 +117,9 @@ function buildAuth() {
     }),
     // Tested in packages/server/test/authTrustedOrigins.test.ts (production never trusts localhost).
     trustedOrigins: trustedOriginsFor(env),
+    // FP-PF-08: a magic link never signs in an account that has a password or a second factor
+    // (tested in packages/server/test/platform-w1-auth.test.ts).
+    hooks: { before: magicLinkSecondFactorGuard(db) },
     emailAndPassword: {
       enabled: true,
       password: {
@@ -172,3 +176,10 @@ export function createAuth() {
   return authSingleton;
 }
 
+/**
+ * Test hook: drop the cached instance so the next `createAuth()` binds the current `env.DB`
+ * (each server test file runs its own Miniflare D1 in one bun process).
+ */
+export function resetAuthForTests(): void {
+  authSingleton = undefined;
+}

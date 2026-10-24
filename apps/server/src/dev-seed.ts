@@ -65,6 +65,7 @@ import type { BatchItem } from "drizzle-orm/batch";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 
 import { DEV_ACCOUNTS, type DevAccountKey } from "./dev-accounts";
+import { seedPlatformRows } from "./dev-seed-platform";
 
 type Db = ReturnType<typeof createDb>;
 type Statement = BatchItem<"sqlite">;
@@ -1112,6 +1113,9 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       { voucherId: "dev-opening-balance" },
     ),
   ]);
+
+  // 6. FP-PF rows: a build per native platform, the pack tablet, one support request.
+  await seedPlatformRows(db, { companyId: COMPANY_ID, ownerId, operatorId, staffId: users.staff.id, now });
 
   const bundlesByStatus: Record<string, number> = {};
   for (const member of bundles) bundlesByStatus[member.status] = (bundlesByStatus[member.status] ?? 0) + 1;

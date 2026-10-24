@@ -24,6 +24,10 @@ import { purchaseRouter } from "./purchase";
 import { reportsRouter } from "./reports";
 import { salesOrderRouter } from "./salesOrder";
 import { vendorRouter } from "./vendor";
+import { auditRouter } from "./audit";
+import { backupRouter } from "./backup";
+import { deviceRouter, releaseRouter } from "./release";
+import { supportRouter } from "./support";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -60,5 +64,10 @@ export const appRouter = router({
   orders: salesOrderRouter,
   reports: reportsRouter,
   foundry: foundryRouter,
+  release: releaseRouter,
+  device: deviceRouter,
+  support: supportRouter,
+  audit: auditRouter,
+  backup: backupRouter,
 });
 export type AppRouter = typeof appRouter;
