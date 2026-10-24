@@ -5,9 +5,10 @@ import { device } from "@orrn/db/schema/sync";
 type Db = ReturnType<typeof createDb>;
 
 /**
- * FP-PF dev rows (idempotent: fixed ids, upserts): one published build per native platform (so the
- * floor gate is Open for build 12 and Blocked below 10), the owner's pack tablet on the Devices tab,
- * and one open support request for Godseye's support inbox.
+ * FP-PF dev rows (idempotent: fixed ids, upserts): one published build per native platform (build
+ * 12, minBuild 1: apps/native sets no versionCode / buildNumber, so a local build reports 1 and must
+ * stay Open), the owner's pack tablet on the Devices tab, and one open support request for
+ * Godseye's support inbox.
  */
 export async function seedPlatformRows(
   db: Db,
@@ -21,7 +22,7 @@ export async function seedPlatformRows(
       channel: "floor" as const,
       version: "1.2.0",
       buildNumber: 12,
-      minBuild: 10,
+      minBuild: 1,
       apkUrl: "https://example.invalid/orrn/floor/orrn-1.2.0-12.apk",
     },
     {
@@ -30,7 +31,7 @@ export async function seedPlatformRows(
       channel: "production" as const,
       version: "1.2.0",
       buildNumber: 12,
-      minBuild: 10,
+      minBuild: 1,
       apkUrl: null,
     },
   ];

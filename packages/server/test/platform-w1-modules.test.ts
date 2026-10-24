@@ -107,9 +107,9 @@ describe("assertModule at the router level", () => {
 
   test("stock masters (locations) stay ungated: a store-only plant still keeps its yard list", async () => {
     const { companyId } = await env.seedCompany({ modules: ["store"] });
-    const e = await failure(env.caller({ role: "owner", companyId }).stock.seedDefaults());
-    expect(e?.message ?? "").not.toBe(MSG);
-    expect(gate.moduleForPath("stock.seedDefaults")).toBeNull();
+    const e = await failure(env.caller({ role: "owner", companyId }).stock.locations.seedDefaults());
+    expect(e).toBeNull();
+    expect(gate.moduleForPath("stock.locations.seedDefaults")).toBeNull();
     expect(gate.moduleForPath("stock.move")).toBe("bundles");
     expect(gate.moduleForPath("stock.balance")).toBeNull();
   });
@@ -255,11 +255,11 @@ describe("migration 0026_modules_all (D14): the old 4-key module list becomes []
       // A migrated plant passes the gate for every module the new router gate checks.
       for (const m of COMPANY_MODULES) expect({ m, on: isModuleOn(after.legacy!, m) }).toEqual({ m, on: true });
 
-      // The release.check index exists and device carries session_id.
+      // The release.check index exists and device carries auth_session_id.
       const idx = await d1.prepare("select name from sqlite_master where type = 'index' and name = 'device_install_idx'").all();
       expect(idx.results).toHaveLength(1);
       const cols = await d1.prepare("select name from pragma_table_info('device')").all<{ name: string }>();
-      expect(cols.results.map((c) => c.name)).toContain("session_id");
+      expect(cols.results.map((c) => c.name)).toContain("auth_session_id");
     } finally {
       await mf.dispose();
     }

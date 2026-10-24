@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9ad38c82-0494-41fd-89e4-809fe2a8e8d7",
+  "id": "3bf4e953-7cb1-4d75-bfcb-4cba7cfe7be1",
   "prevId": "dc366499-967c-4a41-a4a7-94ba231bfced",
   "tables": {
     "approval": {
@@ -13501,8 +13501,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "session_id": {
-          "name": "session_id",
+        "auth_session_id": {
+          "name": "auth_session_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

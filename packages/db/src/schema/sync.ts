@@ -33,7 +33,7 @@ export const device = sqliteTable(
     lastSeenAt: integer("last_seen_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     /**
      * Devices screen (FP-PF-11): revoking ends the session the device last registered with
-     * (`session_id`), its next `device.register` is refused (and ends the session that asked), and
+     * (`auth_session_id`), its next `device.register` is refused (and ends the session that asked), and
      * `release.check` with its install id answers Blocked. Restore lets it register again.
      */
     revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
@@ -44,7 +44,7 @@ export const device = sqliteTable(
      * Better Auth `session.id` of the last `device.register` (0026). Not a bearer token (the
      * session token is separate); used only so a revoke can end that session.
      */
-    sessionId: text("session_id"),
+    authSessionId: text("auth_session_id"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
   },
   (table) => [

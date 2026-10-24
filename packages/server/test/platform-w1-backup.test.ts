@@ -172,6 +172,109 @@ describe("export", () => {
   });
 });
 
+describe("failures leave an audit row too (runbook step 3)", () => {
+  test("a failed export writes backup.export with ok false and the note; Ok exports say ok true", async () => {
+    const bucket = bindBucket();
+    const { companyId } = await seedPlant();
+    const ok = await staff().platform.backup.run({ companyId });
+    bucket.failPut = true;
+    const failed = await staff().platform.backup.run({ companyId });
+    expect(failed.status).toBe("failed");
+    const rows = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, companyId), eq(auditLog.action, "backup.export")));
+    const byRun = Object.fromEntries(rows.map((r) => [r.subjectId, r.meta]));
+    expect(byRun[ok.id]).toMatchObject({ ok: true });
+    expect(byRun[failed.id]).toMatchObject({ ok: false, error: "R2 put failed: 503", kind: "manual" });
+  });
+
+  test("a failed drill writes backup.drill with ok false and the note", async () => {
+    bindBucket();
+    const { companyId } = await seedPlant();
+    const none = await staff().platform.backup.drill({ companyId });
+    expect(none.status).toBe("failed");
+    const row = await env.db.select().from(auditLog).where(and(eq(auditLog.action, "backup.drill"), eq(auditLog.subjectId, none.id))).get();
+    expect(row!.companyId).toBe(companyId);
+    expect(row!.meta).toMatchObject({ ok: false, error: "No successful export to restore" });
+  });
+
+  test("auth_session_id (device) is never exported; a stock count's session_id is", async () => {
+    const { isSecretColumn } = await import("../src/lib/backup");
+    expect(isSecretColumn("auth_session_id")).toBe(true);
+    expect(isSecretColumn("session_id")).toBe(false);
+  });
+});
+
+describe("drill scratch companies are discarded after 7 days (daily job)", () => {
+  test("older than 7 days: the scratch company and its rows go; newer ones and the live plant stay", async () => {
+    const bucket = bindBucket();
+    const { companyId } = await seedPlant();
+    const { runDrill, runScheduledBackups, DRILL_SCRATCH_KEEP_DAYS } = await import("../src/lib/backup");
+    expect(DRILL_SCRATCH_KEEP_DAYS).toBe(7);
+    const exportRun = await staff().platform.backup.run({ companyId });
+    const day = 86_400_000;
+    const now = Date.now();
+    const actor = { db: env.db, session: null };
+    const old = await runDrill(actor, { companyId, at: new Date(now - 8 * day) });
+    const young = await runDrill(actor, { companyId, at: new Date(now - 6 * day) });
+    expect(old.status).toBe("succeeded");
+    expect(young.status).toBe("succeeded");
+    // A failed drill's partial scratch company is discarded the same way.
+    const key = [...bucket.objects.keys()].find((k) => k.includes(exportRun.id))!;
+    const payload = JSON.parse(bucket.objects.get(key)!);
+    const customers = payload.tables.customer as { columns: string[]; rows: unknown[][] };
+    customers.rows[0]![customers.columns.indexOf("name")] = null; // NOT NULL
+    bucket.objects.set(key, JSON.stringify(payload));
+    const partial = await runDrill(actor, { companyId, at: new Date(now - 9 * day), sourceRunId: exportRun.id });
+    expect(partial.status).toBe("failed");
+    expect(partial.scratchCompanyId).toBeTruthy();
+    const live = {
+      customer: await tally(customer, companyId),
+      die: await tally(die, companyId),
+      bundle: await tally(bundle, companyId),
+      dispatch: await tally(dispatch, companyId),
+    };
+
+    await runScheduledBackups(env.db, new Date(now));
+
+    const exists = async (id: string) => Boolean(await env.db.select({ id: company.id }).from(company).where(eq(company.id, id)).get());
+    expect(await exists(old.scratchCompanyId!)).toBe(false);
+    expect(await exists(partial.scratchCompanyId!)).toBe(false);
+    expect(await tally(bundle, old.scratchCompanyId!)).toBe(0);
+    expect(await tally(die, old.scratchCompanyId!)).toBe(0);
+    expect(await exists(young.scratchCompanyId!)).toBe(true);
+    expect(await tally(bundle, young.scratchCompanyId!)).toBe(5);
+    expect(await exists(companyId)).toBe(true);
+    expect({
+      customer: await tally(customer, companyId),
+      die: await tally(die, companyId),
+      bundle: await tally(bundle, companyId),
+      dispatch: await tally(dispatch, companyId),
+    }).toEqual(live);
+    // The drill runs stay as history; the live plant's log says the scratch copy was discarded.
+    expect((await env.db.select().from(backupRun).where(eq(backupRun.id, old.id)).get())!.status).toBe("succeeded");
+    const discards = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, companyId), eq(auditLog.action, "backup.drill.discard")));
+    expect(discards.map((d) => d.subjectId).sort()).toEqual([old.id, partial.id].sort());
+
+    // A second run finds nothing more to discard.
+    await runScheduledBackups(env.db, new Date(now));
+    expect(
+      await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, companyId), eq(auditLog.action, "backup.drill.discard"))),
+    ).toHaveLength(2);
+  });
+
+  test("only suspended restore-drill-* companies named by a drill run are touched", async () => {
+    bindBucket();
+    const { companyId } = await seedPlant();
+    const { runDrill, runScheduledBackups } = await import("../src/lib/backup");
+    await staff().platform.backup.run({ companyId });
+    const now = Date.now();
+    const old = await runDrill({ db: env.db, session: null }, { companyId, at: new Date(now - 10 * 86_400_000) });
+    // Someone reactivated it: it is no longer a scratch copy to throw away.
+    await env.db.update(company).set({ status: "active" }).where(eq(company.id, old.scratchCompanyId!));
+    await runScheduledBackups(env.db, new Date(now));
+    expect(await env.db.select({ id: company.id }).from(company).where(eq(company.id, old.scratchCompanyId!)).get()).toBeTruthy();
+  });
+});
+
 describe("restore drill", () => {
   test("restores into a suspended restore-drill-{date} company; customer/die/bundle/dispatch counts match; live rows untouched", async () => {
     bindBucket();

@@ -1,4 +1,4 @@
-import { and, desc, eq, getTableName, is, sql } from "drizzle-orm";
+import { and, desc, eq, getTableName, is, like, lt, sql } from "drizzle-orm";
 import { getTableConfig, SQLiteTable } from "drizzle-orm/sqlite-core";
 
 import * as schema from "@orrn/db/schema";
@@ -47,9 +47,14 @@ export const EXCLUDED_TABLES: ReadonlySet<string> = new Set([
   "backup_run",
 ]);
 
-/** Columns never exported (e.g. company.spool_api_key_wrapped, device.push_token). */
+/**
+ * Columns never exported (e.g. company.spool_api_key_wrapped, device.push_token). A new column that
+ * holds a credential must match this (name it `*_wrapped`, `*_hash`, `*token*`, `*secret*` or
+ * `*password*`), or be listed here. `device.auth_session_id` points at a sign-in session that means
+ * nothing in a restore.
+ */
 export function isSecretColumn(name: string): boolean {
-  return /(_wrapped$|_hash$|token|secret|password)/.test(name);
+  return /(_wrapped$|_hash$|token|secret|password|^auth_session_id$)/.test(name);
 }
 
 /** Restored by an export but not by a drill: a drill must not give real users a second plant. */
@@ -203,14 +208,18 @@ export async function runExport(
         .where(eq(backupRun.id, id)),
       auditInsert(
         { ...actor, companyId: opts.companyId },
-        { action: "backup.export", subjectType: "backup_run", subjectId: id, meta: { companyId: opts.companyId, kind: opts.kind, rowCount } },
+        { action: "backup.export", subjectType: "backup_run", subjectId: id, meta: { companyId: opts.companyId, kind: opts.kind, ok: true, rowCount } },
       ),
     ]);
   } catch (error) {
-    await db
-      .update(backupRun)
-      .set({ status: "failed", error: failureNote(error), finishedAt: new Date() })
-      .where(eq(backupRun.id, id));
+    const note = failureNote(error);
+    await atomicBatch(db, [
+      db.update(backupRun).set({ status: "failed", error: note, finishedAt: new Date() }).where(eq(backupRun.id, id)),
+      auditInsert(
+        { ...actor, companyId: opts.companyId },
+        { action: "backup.export", subjectType: "backup_run", subjectId: id, meta: { companyId: opts.companyId, kind: opts.kind, ok: false, error: note } },
+      ),
+    ]);
   }
   return finish(db, id);
 }
@@ -366,14 +375,19 @@ export async function runDrill(
       ),
     ]);
   } catch (error) {
-    await db
-      .update(backupRun)
-      .set({
-        status: "failed",
-        error: `${stage === "read" || stage === "company" || stage === "compare" ? "" : `Restore of ${stage} failed: `}${failureNote(error)}`.slice(0, 400),
-        finishedAt: new Date(),
-      })
-      .where(eq(backupRun.id, id));
+    const note = `${stage === "read" || stage === "company" || stage === "compare" ? "" : `Restore of ${stage} failed: `}${failureNote(error)}`.slice(0, 400);
+    await atomicBatch(db, [
+      db.update(backupRun).set({ status: "failed", error: note, finishedAt: new Date() }).where(eq(backupRun.id, id)),
+      auditInsert(
+        { ...actor, companyId: opts.companyId },
+        {
+          action: "backup.drill",
+          subjectType: "backup_run",
+          subjectId: id,
+          meta: { companyId: opts.companyId, scratchCompanyId: scratchId, sourceRunId: source?.id ?? null, ok: false, error: note },
+        },
+      ),
+    ]);
   }
   return finish(db, id);
 }
@@ -396,9 +410,62 @@ function parseJsonObject(v: unknown): Record<string, unknown> {
   }
 }
 
+/** A drill's scratch company is kept this long for staff to look at, then the daily job drops it. */
+export const DRILL_SCRATCH_KEEP_DAYS = 7;
+const DRILL_NAME_PREFIX = "restore-drill-";
+
+/**
+ * Delete the scratch companies of drills that started more than DRILL_SCRATCH_KEEP_DAYS before
+ * `at`. Only a company a drill run names, still suspended and still named `restore-drill-*`, is
+ * touched, so a scratch copy someone reactivated is left alone. Rows go children first (some
+ * foreign keys are RESTRICT, so the company cascade alone could refuse), then the company, in one
+ * batch per company. The drill's backup_run row stays as history; the live plant's log gets a
+ * `backup.drill.discard` row.
+ */
+export async function discardOldDrillScratch(db: OrrnDb, at: Date): Promise<string[]> {
+  const cutoff = new Date(at.getTime() - DRILL_SCRATCH_KEEP_DAYS * 86_400_000);
+  const candidates = await db
+    .select({ runId: backupRun.id, liveCompanyId: backupRun.companyId, scratchId: company.id })
+    .from(backupRun)
+    .innerJoin(company, eq(company.id, backupRun.scratchCompanyId))
+    .where(
+      and(
+        eq(backupRun.purpose, "drill"),
+        lt(backupRun.startedAt, cutoff),
+        eq(company.status, "suspended"),
+        like(company.name, `${DRILL_NAME_PREFIX}%`),
+      ),
+    )
+    .limit(50);
+  const d1 = (env as unknown as { DB: D1Database }).DB;
+  const quote = (id: string) => `"${id.replace(/"/g, '""')}"`;
+  const childrenFirst = companyTables()
+    .map((t) => t.name)
+    .reverse();
+  const discarded: string[] = [];
+  for (const c of candidates) {
+    // The audit row rides in the same batch (raw D1 like the deletes), so both land or neither.
+    const audit = (
+      auditInsert(
+        { db, session: null, companyId: c.liveCompanyId },
+        { action: "backup.drill.discard", subjectType: "backup_run", subjectId: c.runId, meta: { scratchCompanyId: c.scratchId } },
+      ) as unknown as { toSQL(): { sql: string; params: unknown[] } }
+    ).toSQL();
+    await d1.batch([
+      d1.prepare("PRAGMA defer_foreign_keys = on"),
+      ...childrenFirst.map((name) => d1.prepare(`delete from ${quote(name)} where "company_id" = ?`).bind(c.scratchId)),
+      d1.prepare(`delete from "company" where "id" = ? and "status" = 'suspended'`).bind(c.scratchId),
+      d1.prepare(audit.sql).bind(...audit.params),
+    ]);
+    discarded.push(c.scratchId);
+  }
+  return discarded;
+}
+
 /**
  * The daily job (worker `scheduled`): one export per active company per IST day. A company that
  * already has a successful export for the day is skipped, so a retried cron does not double up.
+ * Then drill scratch companies older than DRILL_SCRATCH_KEEP_DAYS are discarded.
  */
 export async function runScheduledBackups(db: OrrnDb, at: Date, bucket?: BackupBucket | null) {
   const companies = await db.select({ id: company.id }).from(company).where(eq(company.status, "active"));
@@ -412,6 +479,9 @@ export async function runScheduledBackups(db: OrrnDb, at: Date, bucket?: BackupB
     }
     const run = await runExport({ db, session: null }, { companyId: id, kind: "scheduled", at, bucket });
     results.push({ companyId: id, status: run.status });
+  }
+  for (const scratchId of await discardOldDrillScratch(db, at)) {
+    results.push({ companyId: scratchId, status: "discarded" });
   }
   return results;
 }

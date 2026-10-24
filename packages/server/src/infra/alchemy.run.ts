@@ -137,8 +137,14 @@ const db = await D1Database("database", {
 /**
  * FP-PF-12: daily per-company exports and restore drills (lib/backup.ts). Private: no public
  * access, no custom domain; the plant never downloads it. Runbook: docs/RESTORE_DRILL.md.
+ *
+ * Delete protection: `delete: false` keeps the bucket and its objects if this resource is renamed,
+ * removed from this file or the stage is destroyed (alchemy only drops it from state). Never set
+ * `empty: true` here. Removing an old bucket is a manual step in the Cloudflare dashboard after
+ * the backups in it have been copied. The bucket and the `30 21 * * *` cron are config only until
+ * the next deploy from `main` (deploy-dev).
  */
-const backups = await R2Bucket("backups", { adopt: true });
+const backups = await R2Bucket("backups", { adopt: true, delete: false });
 
 
 const LegacySpoolReleasesBucket = Resource(

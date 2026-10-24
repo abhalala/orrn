@@ -7,11 +7,12 @@ import { company } from "@orrn/db/schema/tenant";
 import { MAX_RELEASE_NOTES, RELEASE_CHANNELS, RELEASE_PLATFORMS, releasePublishErrors } from "@orrn/domain";
 
 import { platformGuard, router } from "../../index";
-import { atomicBatch } from "../../lib/atomic";
-import { auditInsert } from "../../lib/audit";
+import { atomicBatch, atomicBatchLast } from "../../lib/atomic";
+import { auditInsert, auditInsertGuarded } from "../../lib/audit";
 import { runDrill, runExport } from "../../lib/backup";
 import { now } from "../../lib/clock";
 import { createId } from "../../lib/id";
+import { nextCompanySeq } from "../../lib/sequence";
 import { supportNext } from "../../lib/support";
 
 /** `platform.release.*` (FP-PF-11): publish a native build; super_admin and admin, not support. */
@@ -220,16 +221,22 @@ export const platformSupportRouter = router({
         });
       }
       const at = now();
-      await atomicBatch(ctx.db, [
+      // Lands only if nobody answered or closed it since the read (status and seq unchanged); the
+      // fresh company seq marks this write, so the audit row and the read-back see only our own.
+      const seq = await nextCompanySeq(ctx, row.companyId);
+      const mine = and(eq(supportRequest.id, row.id), eq(supportRequest.serverSeq, seq));
+      const landed = await atomicBatchLast<{ id: string }>(ctx.db, [
         ctx.db
           .update(supportRequest)
           .set({
             status: next,
             ...(input.reply !== undefined ? { reply: input.reply, repliedAt: at, repliedBy: ctx.session.user.id } : {}),
-            serverSeq: row.serverSeq + 1,
+            serverSeq: seq,
           })
-          .where(and(eq(supportRequest.id, row.id), eq(supportRequest.status, row.status))),
-        auditInsert(
+          .where(
+            and(eq(supportRequest.id, row.id), eq(supportRequest.status, row.status), eq(supportRequest.serverSeq, row.serverSeq)),
+          ),
+        auditInsertGuarded(
           { ...ctx, companyId: row.companyId },
           {
             action: input.reply !== undefined ? "support_request.reply" : "support_request.close",
@@ -237,8 +244,13 @@ export const platformSupportRouter = router({
             subjectId: row.id,
             meta: { from: row.status, to: next },
           },
+          { from: supportRequest, where: mine },
         ),
+        ctx.db.select({ id: supportRequest.id }).from(supportRequest).where(mine),
       ]);
+      if (landed.length === 0) {
+        throw new TRPCError({ code: "CONFLICT", message: "Someone else answered or closed this request. Reload it." });
+      }
       return { id: row.id, status: next };
     }),
 });

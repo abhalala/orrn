@@ -5,8 +5,8 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { appRelease, auditLog, device } from "@orrn/db/schema";
-import { offlineGate } from "@orrn/domain";
+import { appRelease, auditLog, device, session } from "@orrn/db/schema";
+import { effectiveMinBuild, offlineGate } from "@orrn/domain";
 import { and, eq, isNull } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -137,10 +137,16 @@ describe("release.check gate matrix (public, no company data)", () => {
   });
 
   test("nothing published on a channel: nothing to gate (open)", async () => {
-    const res = await anon().release.check({ platform: "ios", channel: "production", buildNumber: 1 });
-    // ios/production rows may exist from other tests: only check the shape when none are below.
-    expect(["open", "blocked"]).toContain(res.state);
-    expect(typeof res.minBuild).toBe("number");
+    expect(effectiveMinBuild([])).toBe(0);
+    // This file's own D1: clear the one pair so nothing is published on it (the publish test above
+    // wrote ios + production; nothing after this test reads that pair).
+    const pair = and(eq(appRelease.platform, "ios"), eq(appRelease.channel, "production"));
+    await env.db.delete(appRelease).where(pair);
+    expect(await env.db.select({ id: appRelease.id }).from(appRelease).where(pair)).toHaveLength(0);
+    for (const buildNumber of [0, 1, 999]) {
+      const res = await anon().release.check({ platform: "ios", channel: "production", buildNumber });
+      expect(res).toMatchObject({ state: "open", blocked: false, minBuild: 0, latest: null, notes: null, apkUrl: null });
+    }
   });
 });
 
@@ -168,6 +174,65 @@ describe("devices", () => {
     const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.action, "device.revoke"), eq(auditLog.subjectId, first.id)));
     expect(audits).toHaveLength(1);
     expect(audits[0]!.companyId).toBe(companyId);
+  });
+
+  test("revoke ends the session the device registered with; a revoked install's register ends the asking session", async () => {
+    const { companyId, users } = await env.seedCompany();
+    const addSession = async (userId: string) => {
+      const id = crypto.randomUUID();
+      await env.db.insert(session).values({
+        id,
+        userId,
+        token: `tok-${id}`,
+        expiresAt: new Date(Date.now() + 86_400_000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as never);
+      return id;
+    };
+    const live = async (id: string) => (await env.db.select({ id: session.id }).from(session).where(eq(session.id, id))).length === 1;
+
+    const tablet = await addSession(users.packer.id);
+    const phone = await addSession(users.packer.id);
+    const installId = `install-${crypto.randomUUID()}`;
+    const { id } = await env.caller({ role: "packer", companyId, sessionId: tablet }).device.register({ installId, platform: "android" });
+    expect((await env.db.select().from(device).where(eq(device.id, id)).get())!.authSessionId).toBe(tablet);
+
+    await env.caller({ role: "owner", companyId }).device.revoke({ id });
+    expect(await live(tablet)).toBe(false);
+    // The packer's other device keeps its session.
+    expect(await live(phone)).toBe(true);
+    const audit = await env.db.select().from(auditLog).where(and(eq(auditLog.action, "device.revoke"), eq(auditLog.subjectId, id))).get();
+    expect(audit!.meta).toMatchObject({ sessionEnded: true });
+
+    // Signing in again on that tablet: the register is refused and ends that new session too.
+    const again = await addSession(users.packer.id);
+    await expect(
+      env.caller({ role: "packer", companyId, sessionId: again }).device.register({ installId, platform: "android" }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await live(again)).toBe(false);
+    expect(await live(phone)).toBe(true);
+
+    // Restore: it registers again and records the new session.
+    await env.caller({ role: "owner", companyId }).device.restore({ id });
+    const fresh = await addSession(users.packer.id);
+    await env.caller({ role: "packer", companyId, sessionId: fresh }).device.register({ installId, platform: "android" });
+    expect((await env.db.select().from(device).where(eq(device.id, id)).get())!.authSessionId).toBe(fresh);
+  });
+
+  test("register race: a racing insert of the same install returns the row that landed, created false", async () => {
+    const { companyId } = await env.seedCompany();
+    const installId = `install-${crypto.randomUUID()}`;
+    let winner: { id: string; created: boolean } | null = null;
+    env.beforeNextBatch(async () => {
+      winner = await env.caller({ role: "admin", companyId }).device.register({ installId, platform: "web", label: "Office" });
+    });
+    const loser = await env.caller({ role: "packer", companyId }).device.register({ installId, platform: "android" });
+    expect(winner).toMatchObject({ created: true });
+    expect(loser).toEqual({ id: winner!.id, created: false });
+    const rows = await env.db.select().from(device).where(and(eq(device.companyId, companyId), eq(device.installId, installId)));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.id).toBe(winner!.id);
   });
 
   test("another plant's device is Not found", async () => {

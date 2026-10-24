@@ -2,13 +2,13 @@ import { TRPCError } from "@trpc/server";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 
-import { user } from "@orrn/db/schema/auth";
+import { session, user } from "@orrn/db/schema/auth";
 import { appRelease } from "@orrn/db/schema/platform";
 import { device } from "@orrn/db/schema/sync";
 import { effectiveMinBuild, OFFLINE_GRACE_MS, RELEASE_CHANNELS, RELEASE_PLATFORMS, releaseGate } from "@orrn/domain";
 
 import { actionProcedure, companyProcedure, publicProcedure, router } from "../index";
-import { atomicBatch } from "../lib/atomic";
+import { atomicBatch, atomicBatchLast } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { now } from "../lib/clock";
 import { createId } from "../lib/id";
@@ -82,7 +82,11 @@ export const releaseRouter = router({
 const DEVICE_PLATFORMS = ["android", "ios", "web"] as const;
 
 export const deviceRouter = router({
-  /** Native launch / web session start. Upserts on (company, install). A revoked install is FORBIDDEN. */
+  /**
+   * Native launch / web session start. Upserts on (company, install) and records the session that
+   * registered, so a revoke can end it. A revoked install is FORBIDDEN, and the session that asked
+   * is ended too (signing in again on a revoked tablet does not give it the API back).
+   */
   register: companyProcedure
     .input(
       z.object({
@@ -95,46 +99,66 @@ export const deviceRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db
-        .select({ id: device.id, revokedAt: device.revokedAt })
-        .from(device)
-        .where(and(eq(device.companyId, ctx.companyId), eq(device.installId, input.installId)))
-        .get();
-      if (existing?.revokedAt) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "This device has been turned off for this plant" });
-      }
+      const userId = ctx.session.user.id;
+      const sessionId = ctx.session.session?.id ?? null;
+      const findInstall = () =>
+        ctx.db
+          .select({ id: device.id, revokedAt: device.revokedAt })
+          .from(device)
+          .where(and(eq(device.companyId, ctx.companyId), eq(device.installId, input.installId)));
       const at = now();
-      if (existing) {
+
+      /** Refuse a revoked install, else refresh the row that is there. */
+      const touch = async (existing: { id: string; revokedAt: Date | null }) => {
+        if (existing.revokedAt) {
+          if (sessionId) {
+            await ctx.db.delete(session).where(and(eq(session.id, sessionId), eq(session.userId, userId)));
+          }
+          throw new TRPCError({ code: "FORBIDDEN", message: "This device has been turned off for this plant" });
+        }
         await ctx.db
           .update(device)
           .set({
-            userId: ctx.session.user.id,
+            userId,
             platform: input.platform,
             osVersion: input.osVersion ?? null,
             appVersion: input.appVersion ?? null,
             ...(input.pushToken !== undefined ? { pushToken: input.pushToken } : {}),
+            authSessionId: sessionId,
             lastSeenAt: at,
           })
           .where(and(eq(device.id, existing.id), eq(device.companyId, ctx.companyId)));
         return { id: existing.id, created: false };
-      }
+      };
+
+      const existing = await findInstall().get();
+      if (existing) return touch(existing);
+
       const id = createId(at.getTime());
-      await ctx.db
-        .insert(device)
-        .values({
-          id,
-          companyId: ctx.companyId,
-          userId: ctx.session.user.id,
-          platform: input.platform,
-          osVersion: input.osVersion ?? null,
-          appVersion: input.appVersion ?? null,
-          installId: input.installId,
-          pushToken: input.pushToken ?? null,
-          label: input.label ?? null,
-          lastSeenAt: at,
-        })
-        .onConflictDoNothing();
-      return { id, created: true };
+      // Insert-or-nothing and read back in one batch: a racing register of the same install may
+      // have landed first, and then its row (not ours) is the device.
+      const [landed] = await atomicBatchLast<{ id: string; revokedAt: Date | null }>(ctx.db, [
+        ctx.db
+          .insert(device)
+          .values({
+            id,
+            companyId: ctx.companyId,
+            userId,
+            platform: input.platform,
+            osVersion: input.osVersion ?? null,
+            appVersion: input.appVersion ?? null,
+            installId: input.installId,
+            pushToken: input.pushToken ?? null,
+            label: input.label ?? null,
+            authSessionId: sessionId,
+            lastSeenAt: at,
+          })
+          .onConflictDoNothing(),
+        findInstall().limit(1),
+      ]);
+      if (!landed) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not register this device" });
+      if (landed.id === id) return { id, created: true };
+      return touch(landed);
     }),
 
   /** Devices tab (`users.manage`). Push tokens are never returned. */
@@ -166,23 +190,31 @@ export const deviceRouter = router({
     }));
   }),
 
-  /** Turn a device off: its next register and release check are refused. Never deletes the row. */
+  /**
+   * Turn a device off: the session it registered with ends now, its next register is refused and
+   * its release check answers Blocked. Never deletes the row.
+   */
   revoke: actionProcedure("users.manage")
     .input(z.object({ id: z.string().min(1).max(64) }))
     .mutation(async ({ ctx, input }) => {
       const row = await ctx.db
-        .select({ id: device.id, revokedAt: device.revokedAt, installId: device.installId })
+        .select({ id: device.id, revokedAt: device.revokedAt, userId: device.userId, authSessionId: device.authSessionId })
         .from(device)
         .where(and(eq(device.id, input.id), eq(device.companyId, ctx.companyId)))
         .get();
       if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
       if (row.revokedAt) return { success: true, changed: false };
+      // The session it last registered with (only that one: the person's other devices stay
+      // signed in). Scoped to the device's user so a stale id can never end someone else's.
+      const ownSession = row.authSessionId ? and(eq(session.id, row.authSessionId), eq(session.userId, row.userId)) : null;
+      const sessionEnded = ownSession ? Boolean(await ctx.db.select({ id: session.id }).from(session).where(ownSession).get()) : false;
       await atomicBatch(ctx.db, [
         ctx.db
           .update(device)
-          .set({ revokedAt: now(), revokedBy: ctx.session.user.id })
+          .set({ revokedAt: now(), revokedBy: ctx.session.user.id, authSessionId: null })
           .where(and(eq(device.id, row.id), eq(device.companyId, ctx.companyId))),
-        auditInsert(ctx, { action: "device.revoke", subjectType: "device", subjectId: row.id, meta: {} }),
+        ...(ownSession ? [ctx.db.delete(session).where(ownSession)] : []),
+        auditInsert(ctx, { action: "device.revoke", subjectType: "device", subjectId: row.id, meta: { sessionEnded } }),
       ]);
       return { success: true, changed: true };
     }),

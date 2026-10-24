@@ -557,6 +557,50 @@ bun run deploy
 - `reports.salesRegisterCsv({ month })` (reports.read or export.accounts): one CSV row per completed
   dispatch in the company calendar month, cells guarded against spreadsheet formulas.
 
+## Platform: modules, shifts, releases, backups
+
+- **Modules (FP-PF-07, D14).** `company.modules` is the bought-module list; `[]` means every module
+  is on. Migration 0026 turned the old Godseye default `[customers, dies, bundles, dispatches]` into
+  `[]`. The gate is in `companyProcedure` (`packages/server/src/index.ts`) and covers mutations
+  only: reads stay open (a packer picks a die inside pack with `dies` off) and the nav hides what is
+  off. Register every new router in `ROUTER_MODULE` (`lib/moduleGate.ts`), for example press,
+  ageing, plans and dieRoom, in the same change that adds the router. A single procedure of an
+  ungated router goes in `PROCEDURE_MODULE` (`stock.move`, `stock.openingBalance`). A new approval
+  kind goes in `APPROVAL_KIND_MODULE`; it is typed over every kind, so it will not compile until
+  you add it. When a mutation writes another module's rows, also call `assertModule(ctx, module)`
+  inside it. Godseye `platform.updatePlanAndModules` refuses unknown keys and writes the audit row.
+- **Shifts and the production day (FP-PF-05).** Shifts live in `company.settings.shifts` (1 to 4
+  of them, they cover 24 h with no gap or overlap, and ids stay the same on rename). Never compute
+  "today" for the floor by calendar date. Use `productionDayWindowFor(db, companyId, at?)`
+  (`lib/productionDay.ts`): before shift 1 starts, the time belongs to the previous day. It reads
+  the settings fresh and never rewrites past rows (`press_run.shift_id` keeps its old id; you
+  cannot delete a shift that a press run cites).
+- **Releases and devices (FP-PF-11, D8).** `release.check` is public and returns no company data,
+  only the gate, the latest version and the APK url. Lookups by install use `device_install_idx`.
+  A build is Blocked below the effective `minBuild` (mandatory floors raise it) or when every plant
+  that knows the install has revoked it. Offline, the last Open answer holds for 24 h, and an OTA
+  update cannot clear a block. `device.register` stores the session that registered
+  (`device.auth_session_id`). `device.revoke` ends that session (and only that one), a revoked
+  install's register is refused and ends the session that asked, and restore lets it register
+  again. Dev seed floors are `minBuild: 1` because apps/native sets no versionCode or buildNumber.
+- **Magic links (FP-PF-08, D14).** `disableSignUp: true`. Accounts come only from an approved
+  access request or an invite. The public `POST /sign-in/magic-link` is refused. Godseye writes
+  owner links straight into `verification`. A link never signs in an account that has a password
+  or 2FA (`packages/auth/src/magic-link-guard.ts`). The guard finds tokens stored plain or hashed;
+  never configure a custom token hasher.
+- **Backups (FP-PF-12).** Every table that has `company_id` is exported unless it is in
+  `EXCLUDED_TABLES`, and any column matching `isSecretColumn` is dropped (`lib/backup.ts`). Give a
+  new credential column a name ending `*_wrapped` or `*_hash`, or one containing token, secret or
+  password, or list it there; the backup test checks every schema table against this.
+  Export and drill write an audit row (`backup.export` / `backup.drill`, `meta.ok`) whether they
+  succeed or fail. A drill restores into a suspended `restore-drill-{date}` company. The daily cron
+  (`30 21 * * *` UTC) exports each active plant once per IST day, then removes drill scratch
+  companies older than `DRILL_SCRATCH_KEEP_DAYS` (7), children first, and logs
+  `backup.drill.discard`. Runbook: `docs/RESTORE_DRILL.md`.
+- **Support (FP-PF-14).** Status goes Open → Answered → Closed, or Open → Closed. A staff reply or
+  close lands only if the request is unchanged since it was read; otherwise it is a CONFLICT and no
+  audit row is written.
+
 ## Worker performance rules
 
 - Minimize Worker CPU and wall time.

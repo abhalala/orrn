@@ -78,6 +78,26 @@ describe("support requests (FP-PF-14)", () => {
     expect(actions).toEqual(["support_request.close", "support_request.create", "support_request.reply"]);
   });
 
+  for (const other of ["reply", "close"] as const) {
+    test(`race: another staff member's ${other} lands after this reply read the request: CONFLICT, no second audit row`, async () => {
+      const { companyId } = await env.seedCompany();
+      const { id } = await env.caller({ role: "packer", companyId }).support.request({ body: "Scale drifts" });
+      env.beforeNextBatch(() =>
+        env.caller({ platformRole: "admin" }).platform.support.reply(other === "reply" ? { id, reply: "First answer" } : { id, close: true }),
+      );
+      await expect(env.caller({ platformRole: "support" }).platform.support.reply({ id, reply: "Second answer" })).rejects.toMatchObject({
+        code: "CONFLICT",
+      });
+      const row = await env.db.select().from(supportRequest).where(eq(supportRequest.id, id)).get();
+      expect(row!.status).toBe(other === "reply" ? "answered" : "closed");
+      expect(row!.reply).toBe(other === "reply" ? "First answer" : null);
+      const audits = (await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, companyId), eq(auditLog.subjectId, id)))).map(
+        (r) => r.action,
+      );
+      expect(audits.sort()).toEqual(["support_request.create", other === "reply" ? "support_request.reply" : "support_request.close"].sort());
+    });
+  }
+
   test("Open -> Closed without a reply", async () => {
     const { companyId } = await env.seedCompany();
     const { id } = await env.caller({ role: "office", companyId }).support.request({ body: "Never mind" });
@@ -298,9 +318,16 @@ describe("dev seed platform rows (idempotent)", () => {
       expect(await env.db.select().from(device).where(eq(device.companyId, "dev-company-orrn"))).toHaveLength(1);
       expect(await env.db.select().from(supportRequest).where(eq(supportRequest.companyId, "dev-company-orrn"))).toHaveLength(1);
     }
-    // The seeded floor build passes the gate; an older one is blocked.
-    expect((await env.caller(null).release.check({ platform: "android", channel: "floor", buildNumber: 12 })).state).toBe("open");
-    expect((await env.caller(null).release.check({ platform: "android", channel: "floor", buildNumber: 9 })).state).toBe("blocked");
+    // The seeded floor build passes the gate, and so does a local native build (apps/native has no
+    // versionCode / buildNumber, so it reports 1): the seed floor is minBuild 1.
+    for (const buildNumber of [12, 9, 1]) {
+      expect({ buildNumber, state: (await env.caller(null).release.check({ platform: "android", channel: "floor", buildNumber })).state }).toEqual({
+        buildNumber,
+        state: "open",
+      });
+    }
+    expect((await env.caller(null).release.check({ platform: "ios", channel: "production", buildNumber: 1 })).state).toBe("open");
+    expect((await env.caller(null).release.check({ platform: "android", channel: "floor", buildNumber: 0 })).state).toBe("blocked");
   });
 });
 
