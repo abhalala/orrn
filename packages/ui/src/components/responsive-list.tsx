@@ -223,7 +223,8 @@ export function ResponsiveList<T>({
                               className={cn("flex min-w-0 flex-col", (col.phoneWide || col.headerHidden) && "col-span-2")}
                             >
                               <dt
-                                className={cn("truncate text-[12px] font-medium text-muted-foreground", col.headerHidden && "sr-only")}
+                                // A hidden label is sr-only, never `truncate` too: its 1 px box would read as shortened text.
+                                className={col.headerHidden ? "sr-only" : "truncate text-[12px] font-medium text-muted-foreground"}
                                 title={col.headerHidden ? undefined : col.header}
                               >
                                 {col.header}
