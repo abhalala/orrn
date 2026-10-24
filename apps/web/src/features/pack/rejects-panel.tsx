@@ -124,7 +124,14 @@ export function RejectsPanel({
             <NumberInput value={form.kg} onValueChange={(kg) => setForm((f) => ({ ...f, kg }))} suffix={t("units.kg")} />
           </Field>
           <Field label={t("pack.reject.reason")} id="reject-reason" error={errors.reason ? t("pack.reject.reasonRequired") : undefined}>
-            <NativeSelect id="reject-reason" value={form.reasonCode} onChange={(e) => setForm((f) => ({ ...f, reasonCode: e.currentTarget.value }))}>
+            <NativeSelect
+              id="reject-reason"
+              value={form.reasonCode}
+              onChange={(e) => {
+                const reasonCode = e.currentTarget.value;
+                setForm((f) => ({ ...f, reasonCode }));
+              }}
+            >
               <option value="">{t("pack.reject.pickReason")}</option>
               {REJECT_CODES.map((c) => (
                 <option key={c} value={c}>

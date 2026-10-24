@@ -5,13 +5,6 @@ import { useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 
 /** Small shared pieces of the Pack screens. */
 
-export type DieRange = { weightMinG: number; weightMaxG: number };
-
-/** kg/12ft as the floor reads it: two decimals, en-IN. */
-export function formatK12(k: number): string {
-  return formatKg(k, 2);
-}
-
 /** Range limits for copy ("2.4"): one decimal unless the die stores finer. */
 export function formatRangeKg(g: number): string {
   const kg = g / 1000;
