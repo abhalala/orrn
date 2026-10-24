@@ -67,6 +67,7 @@ export function BundleTimeline({
                 </p>
                 <p className="m-0 text-[13px] leading-5 text-muted-foreground tabular-nums">
                   <time dateTime={e.at.toISOString()}>{when(e.at)}</time>
+                  {e.actorName ? <span data-slot="actor">{` · ${t("bundle.byActor", { name: e.actorName })}`}</span> : null}
                 </p>
                 {e.note ? (
                   <p className="m-0 text-[14px] leading-5 break-words">{t("bundle.reasonLine", { reason: e.note })}</p>

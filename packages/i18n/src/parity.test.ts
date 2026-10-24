@@ -134,8 +134,8 @@ describe("copy rules", () => {
 
   // GRN and MRS are the store's own paper forms (digest Stage 18); the floor knows them by those names.
   test("no ALL-CAPS words except known acronyms (English, and Latin text inside Hindi)", () => {
-    // CM (BIS CM/L licence) and PVD (a finish) are what the plant writes on paper (FP Wave 1).
-    const allowed = new Set(["PO", "PDF", "GSTIN", "GST", "CSV", "QR", "PL", "JSON", "PIN", "OK", "ID", "BG", "B001", "WB", "UB", "GRN", "MRS", "CM", "PVD", "FTR"]);
+    // CM (BIS CM/L licence) and PVD (a finish) are what the plant writes on paper (FP Wave 1); A4 is the sticker sheet's paper.
+    const allowed = new Set(["A4", "PO", "PDF", "GSTIN", "GST", "CSV", "QR", "PL", "JSON", "PIN", "OK", "ID", "BG", "B001", "WB", "UB", "GRN", "MRS", "CM", "PVD", "FTR"]);
     const offenders = all.flatMap((s) =>
       [...s.matchAll(/\b[A-Z][A-Z0-9]+\b/g)].map((m) => m[0]).filter((w) => !allowed.has(w)),
     );

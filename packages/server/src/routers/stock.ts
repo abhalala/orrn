@@ -34,6 +34,7 @@ import {
   type PostingCtx,
 } from "../lib/ledger";
 import { nextCompanySeq } from "../lib/sequence";
+import { foldKindTotals, stockFilterConditions, stockFilterShape } from "../lib/stockFilters";
 
 const locationCode = z
   .string()
@@ -377,7 +378,8 @@ export const stockRouter = router({
       z
         .object({
           dieId: z.string().min(1).optional(),
-          locationId: z.string().min(1).optional(),
+          // locationId, customerId, salesOrderId, plantStock, profileKind, packedFrom/To (lib/stockFilters.ts)
+          ...stockFilterShape,
           includeReserved: z.boolean().default(true),
           limit: z.number().int().min(1).max(500).default(200),
           offset: z.number().int().min(0).default(0),
@@ -390,7 +392,7 @@ export const stockRouter = router({
         eq(bundle.companyId, ctx.companyId),
         inArray(bundle.status, statuses),
         input.dieId ? eq(bundle.dieId, input.dieId) : undefined,
-        input.locationId ? eq(bundle.locationId, input.locationId) : undefined,
+        ...(await stockFilterConditions(ctx.db, ctx.companyId, input)),
       );
       const rows = await ctx.db
         .select({
@@ -425,6 +427,18 @@ export const stockRouter = router({
         })
         .from(bundle)
         .where(where);
+      // Hollow / solid / semi from the server over the same filter (BACKLOG 36).
+      const kindRows = await ctx.db
+        .select({
+          kind: die.profileKind,
+          bundles: sql<number>`count(*)`,
+          pcs: sql<number>`coalesce(sum(${bundle.quantity}), 0)`,
+          weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+        })
+        .from(bundle)
+        .innerJoin(die, and(eq(die.id, bundle.dieId), eq(die.companyId, bundle.companyId)))
+        .where(where)
+        .groupBy(die.profileKind);
       const more = rows.length > input.limit;
       const page = rows.slice(0, input.limit);
       const bands = await bundleBandTones(
@@ -448,7 +462,101 @@ export const stockRouter = router({
           oldestAt: new Date(Number(r.oldestAt)),
         })),
         totals: { bundles: Number(totals?.bundles ?? 0), pcs: Number(totals?.pcs ?? 0), weightG: Number(totals?.weightG ?? 0) },
+        kindTotals: foldKindTotals(kindRows),
         nextOffset: more ? input.offset + input.limit : null,
+      };
+    }),
+
+  /**
+   * FP-PK-08 / explorer High 14: stock by yard (the Yards tab). In-stock bundles (available, or
+   * reserved = still in the yard) per yard location, plus a row for bundles with no yard
+   * (`locationId: null`, legacy stock). Same filters as the Lengths and Bundles tabs. Yards with no
+   * stock are listed too, so a packer sees every yard they can put a bundle in.
+   */
+  byYard: companyProcedure
+    .input(
+      z
+        .object({
+          dieId: z.string().min(1).optional(),
+          ...stockFilterShape,
+          includeReserved: z.boolean().default(true),
+        })
+        .default({ includeReserved: true }),
+    )
+    .query(async ({ ctx, input }) => {
+      const statuses = input.includeReserved ? [...IN_STOCK_STATUSES] : ["available" as const];
+      const { locationId: _yard, ...rest } = input;
+      const where = and(
+        eq(bundle.companyId, ctx.companyId),
+        inArray(bundle.status, statuses),
+        input.dieId ? eq(bundle.dieId, input.dieId) : undefined,
+        ...(await stockFilterConditions(ctx.db, ctx.companyId, rest)),
+      );
+      const [perYard, locations, sections] = await Promise.all([
+        ctx.db
+          .select({
+            locationId: bundle.locationId,
+            bundles: sql<number>`count(*)`,
+            pcs: sql<number>`coalesce(sum(${bundle.quantity}), 0)`,
+            weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+            reserved: sql<number>`coalesce(sum(case when ${bundle.status} = 'reserved' then 1 else 0 end), 0)`,
+            sections: sql<number>`count(distinct ${bundle.dieId})`,
+            oldestAt: sql<number>`min(${bundle.createdAt})`,
+          })
+          .from(bundle)
+          .where(where)
+          .groupBy(bundle.locationId),
+        ctx.db
+          .select({ id: location.id, code: location.code, name: location.name, kind: location.kind, active: location.active })
+          .from(location)
+          .where(and(eq(location.companyId, ctx.companyId), eq(location.kind, "yard")))
+          .orderBy(asc(location.sortOrder), asc(location.code)),
+        // The biggest sections in each yard (a yard card shows its top three).
+        ctx.db
+          .select({
+            locationId: bundle.locationId,
+            dieId: bundle.dieId,
+            sectionCode: die.sectionCode,
+            series: die.series,
+            bundles: sql<number>`count(*)`,
+            weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+          })
+          .from(bundle)
+          .innerJoin(die, and(eq(die.id, bundle.dieId), eq(die.companyId, bundle.companyId)))
+          .where(where)
+          .groupBy(bundle.locationId, bundle.dieId, die.sectionCode, die.series)
+          .orderBy(desc(sql`sum(${bundle.weightG})`))
+          .limit(500),
+      ]);
+      const stats = new Map(perYard.map((r) => [r.locationId ?? null, r]));
+      const top = (id: string | null) =>
+        sections
+          .filter((s) => (s.locationId ?? null) === id)
+          .slice(0, 3)
+          .map((s) => ({ dieId: s.dieId, sectionCode: s.sectionCode, series: s.series, bundles: Number(s.bundles), weightG: Number(s.weightG) }));
+      const row = (id: string | null) => {
+        const r = stats.get(id);
+        return {
+          bundles: Number(r?.bundles ?? 0),
+          pcs: Number(r?.pcs ?? 0),
+          weightG: Number(r?.weightG ?? 0),
+          reserved: Number(r?.reserved ?? 0),
+          sections: Number(r?.sections ?? 0),
+          oldestAt: r?.oldestAt == null ? null : new Date(Number(r.oldestAt)),
+          top: top(id),
+        };
+      };
+      const yards = locations.map((l) => ({ locationId: l.id as string | null, code: l.code, name: l.name, active: l.active, ...row(l.id) }));
+      const unplaced = row(null);
+      return {
+        // Retired yards still holding stock stay in the list; empty retired ones leave it.
+        yards: yards.filter((y) => y.active || y.bundles > 0),
+        unplaced: unplaced.bundles > 0 ? { locationId: null as string | null, code: null, name: null, active: true, ...unplaced } : null,
+        totals: {
+          bundles: yards.reduce((s, y) => s + y.bundles, 0) + unplaced.bundles,
+          pcs: yards.reduce((s, y) => s + y.pcs, 0) + unplaced.pcs,
+          weightG: yards.reduce((s, y) => s + y.weightG, 0) + unplaced.weightG,
+        },
       };
     }),
 

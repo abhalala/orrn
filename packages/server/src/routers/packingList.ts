@@ -430,30 +430,48 @@ export const packingListRouter = router({
       return pl ?? null;
     }),
 
-  /** Packing lists, newest first; the current revision of each number unless `allRevisions`. */
+  /**
+   * Packing lists, newest first; the current revision of each number unless `allRevisions`. With
+   * `customerId` only that customer's lists, and `combinable` leaves out lists already folded into
+   * another (the combine picker). Each row carries its dispatch, customer, bundle count and kg.
+   */
   list: companyProcedure
     .input(
       z.object({
         limit: z.number().min(1).max(100).default(50),
         offset: z.number().default(0),
         allRevisions: z.boolean().default(false),
+        customerId: z.string().min(1).max(64).optional(),
+        combinable: z.boolean().default(false),
       }),
     )
     .query(async ({ ctx, input }) => {
-      const where = and(eq(packingList.companyId, ctx.companyId), input.allRevisions ? undefined : isCurrentRevision(ctx.companyId));
+      const where = and(
+        eq(packingList.companyId, ctx.companyId),
+        input.allRevisions ? undefined : isCurrentRevision(ctx.companyId),
+        input.customerId ? eq(dispatch.customerId, input.customerId) : undefined,
+        input.combinable ? isNull(packingList.combinedIntoId) : undefined,
+      );
 
       const items = await ctx.db
         .select({
           id: packingList.id,
           code: packingList.code,
           dispatchId: packingList.dispatchId,
+          dispatchCode: dispatch.code,
+          customerId: dispatch.customerId,
+          customerName: customer.name,
           revision: packingList.revision,
           combinedIntoId: packingList.combinedIntoId,
           serverSeq: packingList.serverSeq,
           createdAt: packingList.createdAt,
           createdBy: packingList.createdBy,
+          bundleCount: sql<number>`(select count(*) from packing_list_line pl2 where pl2.packing_list_id = ${packingList.id} and pl2.company_id = ${ctx.companyId})`,
+          weightG: sql<number>`(select coalesce(sum(pl2.weight_g), 0) from packing_list_line pl2 where pl2.packing_list_id = ${packingList.id} and pl2.company_id = ${ctx.companyId})`,
         })
         .from(packingList)
+        .innerJoin(dispatch, and(eq(dispatch.id, packingList.dispatchId), eq(dispatch.companyId, packingList.companyId)))
+        .innerJoin(customer, and(eq(customer.id, dispatch.customerId), eq(customer.companyId, dispatch.companyId)))
         .where(where)
         .orderBy(desc(packingList.createdAt))
         .limit(input.limit)
@@ -462,9 +480,13 @@ export const packingListRouter = router({
       const [countRow] = await ctx.db
         .select({ count: sql<number>`count(*)` })
         .from(packingList)
+        .innerJoin(dispatch, and(eq(dispatch.id, packingList.dispatchId), eq(dispatch.companyId, packingList.companyId)))
         .where(where);
 
-      return { items, total: countRow?.count ?? 0 };
+      return {
+        items: items.map((i) => ({ ...i, bundleCount: Number(i.bundleCount), weightG: Number(i.weightG) })),
+        total: countRow?.count ?? 0,
+      };
     }),
 
   /**
