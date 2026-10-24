@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 1034 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 1038 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -194,7 +194,7 @@ Counts: 1034 screen strings in 26 groups, 10 guides with 182 strings.
 | `paletteMove` | Move | ऊपर-नीचे जाएं |
 | `paletteOpen` | Open | खोलें |
 
-### auth (87)
+### auth (88)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -278,6 +278,7 @@ Counts: 1034 screen strings in 26 groups, 10 guides with 182 strings.
 | `continue.brokenBody` | It was already used or has expired. Ask the person who sent it for a new sign-in link. | यह पहले ही इस्तेमाल हो चुका है या खत्म हो गया है। जिसने भेजा था उनसे नया साइन इन लिंक मांगें। |
 | `continue.goSignIn` | Go to sign in | साइन इन पर जाएं |
 | `noAccess.title` | Your account isn't in a company yet | आपका अकाउंट अभी किसी कंपनी में नहीं है |
+| `noAccess.body` | You're signed in as {email}. | आप {email} से साइन इन हैं। |
 | `noAccess.signedInLabel` | Signed in as | इस ईमेल से साइन इन हैं |
 | `noAccess.ask` | Ask your admin to invite this email. | अपने एडमिन से इस ईमेल को इनवाइट करने के लिए कहें। |
 | `noAccess.copyEmail` | Copy email | ईमेल कॉपी करें |
@@ -816,7 +817,7 @@ Counts: 1034 screen strings in 26 groups, 10 guides with 182 strings.
 | `all` | All guides | सारी गाइड |
 | `empty` | No guides for your role yet. | आपके रोल के लिए अभी कोई गाइड नहीं है। |
 
-### admin (237)
+### admin (240)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1017,6 +1018,9 @@ Counts: 1034 screen strings in 26 groups, 10 guides with 182 strings.
 | `requests.awaitingBody` | If the email did not arrive or the link stopped working, get a fresh sign-in link and send it yourself. | ईमेल न पहुंचा हो या लिंक काम न कर रहा हो, तो नया साइन इन लिंक लेकर खुद भेजें। |
 | `requests.awaitingLabel` | Approved owners without a password | बिना पासवर्ड वाले मंज़ूर मालिक |
 | `requests.getDetails` | Get sign-in details | साइन इन डिटेल लें |
+| `requests.hasPassword` | This owner already signs in with a password; ask them to use Forgot password. | यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
+| `requests.approvedHasPassword` | Approved. This owner already signs in with a password; ask them to use Forgot password. | मंज़ूर हो गई। यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
+| `requests.approvedAskAdmin` | Approved. Your role cannot send sign-in links: ask an admin to get the sign-in details below. | मंज़ूर हो गई। आपका रोल साइन इन लिंक नहीं भेज सकता: किसी एडमिन से नीचे की साइन इन डिटेल लेने को कहें। |
 | `requests.details.sentTitle` | Sign-in email sent | साइन इन ईमेल चला गया |
 | `requests.details.notSentTitle` | Email could not be sent | ईमेल नहीं जा सका |
 | `requests.details.body` | Send this to {name} on WhatsApp or from your own email. The link works once and expires {date}. | यह {name} को WhatsApp पर या अपने ईमेल से भेजें। लिंक एक बार चलता है और {date} को खत्म हो जाएगा। |

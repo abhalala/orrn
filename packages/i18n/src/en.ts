@@ -297,6 +297,8 @@ export const en = {
     },
     noAccess: {
       title: "Your account isn't in a company yet",
+      // The native no-access screen (apps/native/app/no-access.tsx) still reads this.
+      body: "You're signed in as {email}.",
       signedInLabel: "Signed in as",
       ask: "Ask your admin to invite this email.",
       copyEmail: "Copy email",
@@ -1112,6 +1114,9 @@ export const en = {
       awaitingBody: "If the email did not arrive or the link stopped working, get a fresh sign-in link and send it yourself.",
       awaitingLabel: "Approved owners without a password",
       getDetails: "Get sign-in details",
+      hasPassword: "This owner already signs in with a password; ask them to use Forgot password.",
+      approvedHasPassword: "Approved. This owner already signs in with a password; ask them to use Forgot password.",
+      approvedAskAdmin: "Approved. Your role cannot send sign-in links: ask an admin to get the sign-in details below.",
       details: {
         sentTitle: "Sign-in email sent",
         notSentTitle: "Email could not be sent",

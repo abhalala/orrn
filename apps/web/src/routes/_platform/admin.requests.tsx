@@ -32,7 +32,8 @@ type Decision = { kind: "approve" | "reject"; row: WaitlistRow };
  * server always answers with the email it built, and when it was not sent the
  * details open in a sheet to copy and send by hand. Approved owners who have
  * not set a password yet stay listed below with "Get sign-in details", which
- * issues a fresh link.
+ * issues a fresh link. Only roles holding `platform.waitlist.signInLink` (not
+ * support) get a link, and never for an owner who already has a password.
  */
 function AdminRequests() {
   const { t } = useT();
@@ -68,7 +69,15 @@ function AdminRequests() {
     ...trpc.platform.waitlistApprove.mutationOptions(),
     onSuccess: async (result) => {
       const signIn = result.signIn;
-      if (!signIn) {
+      if (result.signInRefused) {
+        // No link by design: the owner has a password (a link would skip it and 2FA), or this
+        // staffer's role may not issue links (support).
+        toast.warning(
+          t(result.signInRefused === "has_password" ? "admin.requests.approvedHasPassword" : "admin.requests.approvedAskAdmin"),
+        );
+        await refresh();
+        setDecision(null);
+      } else if (!signIn) {
         // Approved, but no link could be made: say so and point at the retry below.
         toast.warning(t("admin.requests.approvedNoLink"));
         await refresh();
@@ -92,7 +101,16 @@ function AdminRequests() {
   const getDetails = useMutation({
     ...trpc.platform.waitlistSignInDetails.mutationOptions(),
     onSuccess: setDetails,
-    onError: (err) => toast.error(errorText(t, err, { BAD_REQUEST: t("admin.requests.alreadyHandled") })),
+    onError: async (err) => {
+      toast.error(
+        errorText(t, err, {
+          BAD_REQUEST: t("admin.requests.alreadyHandled"),
+          CONFLICT: t("admin.requests.hasPassword"),
+        }),
+      );
+      // A CONFLICT means the owner has a password now: they leave the list.
+      await qc.invalidateQueries({ queryKey: trpc.platform.waitlistAwaitingSignIn.queryKey() });
+    },
   });
   const reject = useMutation({
     ...trpc.platform.waitlistReject.mutationOptions(),
@@ -218,7 +236,7 @@ function AwaitingCard({
         <p className="m-0 text-[15px] text-foreground break-words">{row.requesterName}</p>
         <p className="m-0 text-[15px] text-muted-foreground [overflow-wrap:anywhere]">{row.requesterEmail}</p>
       </div>
-      <Can do="platform.waitlist.review">
+      <Can do="platform.waitlist.signInLink">
         <Button
           variant="secondary"
           loading={busy}

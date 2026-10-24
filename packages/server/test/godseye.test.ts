@@ -295,7 +295,7 @@ describe("a company whose request is not approved (pending)", () => {
 });
 
 describe("sign-in details for an approved owner", () => {
-  test("a link that cannot be made is reported, not thrown, and the owner is listed as awaiting", async () => {
+  test("an approved owner is listed as awaiting until a password is set", async () => {
     const { requestId } = await fileRequest();
     const staff = env.caller({ platformRole: "super_admin" });
     const approved = await staff.platform.waitlistApprove({ id: requestId });
@@ -336,6 +336,192 @@ describe("sign-in details for an approved owner", () => {
     const anon = env.caller(null);
     await expect(anon.platform.waitlistAwaitingSignIn()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     await expect(anon.platform.waitlistSignInDetails({ id: "x" })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+});
+
+/** The requester's user row after approval. */
+async function ownerOf(requestId: string) {
+  const { waitlistRequest } = await import("@orrn/db/schema/tenant");
+  const { user } = await import("@orrn/db/schema/auth");
+  const { eq } = await import("drizzle-orm");
+  const request = await env.db.select().from(waitlistRequest).where(eq(waitlistRequest.id, requestId)).get();
+  const owner = await env.db.select().from(user).where(eq(user.email, request!.requesterEmail)).get();
+  return { request: request!, owner: owner! };
+}
+
+async function givePassword(userId: string) {
+  const { account } = await import("@orrn/db/schema/auth");
+  await env.db.insert(account).values({
+    id: crypto.randomUUID(),
+    accountId: userId,
+    providerId: "credential",
+    userId,
+    password: "hashed",
+  });
+}
+
+async function linkAudits(userId: string) {
+  const { auditLog } = await import("@orrn/db/schema/audit");
+  const { and, eq } = await import("drizzle-orm");
+  return env.db
+    .select()
+    .from(auditLog)
+    .where(and(eq(auditLog.action, "platform.waitlist.signInLink"), eq(auditLog.subjectId, userId)))
+    .all();
+}
+
+/** Magic-link rows (the plugin's format) for an email. */
+async function linkRows(email: string) {
+  const { verification } = await import("@orrn/db/schema/auth");
+  const rows = await env.db.select().from(verification).all();
+  return rows.filter((r) => {
+    try {
+      return (JSON.parse(r.value) as { email?: string }).email === email.toLowerCase();
+    } catch {
+      return false;
+    }
+  });
+}
+
+function tokenOf(link: string) {
+  return new URL(link).searchParams.get("token")!;
+}
+
+describe("owner sign-in links (review T27 C-1, I-1)", () => {
+  test("approving a new owner issues a 3-day /continue link and audits it (actor, owner, reason)", async () => {
+    const { requestId, companyId } = await fileRequest();
+    const staff = env.caller({ platformRole: "super_admin" });
+    const result = await staff.platform.waitlistApprove({ id: requestId });
+    expect(result.signInRefused).toBeNull();
+    expect(result.signIn).not.toBeNull();
+    const link = result.signIn!.link;
+    expect(link).toContain("/continue?token=");
+
+    const { owner, request } = await ownerOf(requestId);
+    const rows = await linkRows(request.requesterEmail);
+    expect(rows.map((r) => r.identifier)).toEqual([tokenOf(link)]);
+    const ttlHours = (rows[0]!.expiresAt.getTime() - Date.now()) / 3_600_000;
+    expect(ttlHours).toBeGreaterThan(71);
+    expect(ttlHours).toBeLessThanOrEqual(72);
+
+    const audits = await linkAudits(owner.id);
+    expect(audits).toHaveLength(1);
+    expect(audits[0]!.actorId).toBeTruthy();
+    expect(audits[0]!.actorId).not.toBe(owner.id);
+    expect(audits[0]!.subjectType).toBe("user");
+    expect(audits[0]!.companyId).toBe(companyId);
+    expect(audits[0]!.meta).toMatchObject({ reason: "approve", requestId });
+  });
+
+  test("fresh details for an approved owner with no password: a new link, earlier ones revoked, one audit row each", async () => {
+    const { requestId } = await fileRequest();
+    const staff = env.caller({ platformRole: "admin" });
+    const first = await staff.platform.waitlistApprove({ id: requestId });
+    const fresh = await staff.platform.waitlistSignInDetails({ id: requestId });
+    expect(fresh.link).toContain("/continue?token=");
+    expect(tokenOf(fresh.link)).not.toBe(tokenOf(first.signIn!.link));
+
+    const { owner, request } = await ownerOf(requestId);
+    expect((await linkRows(request.requesterEmail)).map((r) => r.identifier)).toEqual([tokenOf(fresh.link)]);
+    const audits = await linkAudits(owner.id);
+    expect(audits.map((a) => (a.meta as { reason?: string }).reason).sort()).toEqual(["approve", "fresh_link"]);
+  });
+
+  test("an owner who already has a password is refused a link (CONFLICT), and nothing is issued or audited", async () => {
+    const { requestId } = await fileRequest();
+    const staff = env.caller({ platformRole: "super_admin" });
+    await staff.platform.waitlistApprove({ id: requestId });
+    const { owner, request } = await ownerOf(requestId);
+    await givePassword(owner.id);
+    const before = await linkRows(request.requesterEmail);
+
+    await expect(staff.platform.waitlistSignInDetails({ id: requestId })).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "This owner already signs in with a password; ask them to use Forgot password.",
+    });
+    expect(await linkRows(request.requesterEmail)).toEqual(before);
+    expect(await linkAudits(owner.id)).toHaveLength(1); // the approval's link only
+  });
+
+  test("approving a request whose email already has an account with a password returns no link", async () => {
+    const { requestId } = await fileRequest();
+    const { request } = await ownerOf(requestId);
+    const { user } = await import("@orrn/db/schema/auth");
+    const existingId = crypto.randomUUID();
+    await env.db.insert(user).values({ id: existingId, name: "Owner elsewhere", email: request.requesterEmail, emailVerified: true });
+    await givePassword(existingId);
+
+    const staff = env.caller({ platformRole: "super_admin" });
+    const result = await staff.platform.waitlistApprove({ id: requestId });
+    expect(result.success).toBe(true);
+    expect(result.signIn).toBeNull();
+    expect(result.signInRefused).toBe("has_password");
+    expect(await linkRows(request.requesterEmail)).toHaveLength(0);
+    expect(await linkAudits(existingId)).toHaveLength(0);
+  });
+
+  test("support may approve but may not issue a link: approval returns none, fresh details are FORBIDDEN", async () => {
+    const { requestId } = await fileRequest();
+    const support = env.caller({ platformRole: "support" });
+    const result = await support.platform.waitlistApprove({ id: requestId });
+    expect(result.success).toBe(true);
+    expect(result.signIn).toBeNull();
+    expect(result.signInRefused).toBe("not_allowed");
+    await expect(support.platform.waitlistSignInDetails({ id: requestId })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    const { owner, request } = await ownerOf(requestId);
+    expect(await linkRows(request.requesterEmail)).toHaveLength(0);
+    expect(await linkAudits(owner.id)).toHaveLength(0);
+    // The owner waits for someone who may issue the link.
+    expect((await support.platform.waitlistAwaitingSignIn()).map((r) => r.id)).toContain(requestId);
+  });
+
+  test("the matrix grants signInLink to super_admin and admin only", async () => {
+    const { can } = await import("../src/lib/permissions");
+    const me = (platformRole: PlatformStaffRole) => ({ company: null, isPlatformAdmin: true, platformRole });
+    expect(can(me("super_admin"), "platform.waitlist.signInLink")).toBe(true);
+    expect(can(me("admin"), "platform.waitlist.signInLink")).toBe(true);
+    expect(can(me("support"), "platform.waitlist.signInLink")).toBe(false);
+    expect(can(me("support"), "platform.waitlist.review")).toBe(true);
+  });
+
+  test("an anonymous request to the public magic-link endpoint fills nothing the admin procedure reads", async () => {
+    const authModule = (await import("@orrn/auth")) as Record<string, unknown>;
+    expect(authModule.takeCapturedMagicLink).toBeUndefined();
+
+    const { requestId } = await fileRequest();
+    const staff = env.caller({ platformRole: "super_admin" });
+    await staff.platform.waitlistApprove({ id: requestId });
+    const { request } = await ownerOf(requestId);
+
+    // The old capture hack read `metadata.captureKey` from this public body.
+    const log = spyOn(console, "log").mockImplementation(() => {});
+    let anonToken: string | undefined;
+    try {
+      const res = await (authModule.createAuth as () => { handler(r: Request): Promise<Response> })().handler(
+        new Request("https://api.test/api/auth/sign-in/magic-link", {
+          method: "POST",
+          headers: { "content-type": "application/json", origin: "https://app.test" },
+          body: JSON.stringify({ email: request.requesterEmail, metadata: { captureKey: "anon-key" } }),
+        }),
+      );
+      expect(res.status).toBe(200);
+      // It took the normal path: the email (here: not sent, no provider), never a side map.
+      const printed = log.mock.calls.flat().map(String).join("\n");
+      expect(printed).toContain("not sent: no provider");
+      expect(printed).not.toContain("anon-key");
+      const rows = await linkRows(request.requesterEmail);
+      anonToken = rows.map((r) => r.identifier).find((id) => id.length !== 64);
+      expect(anonToken).toBeDefined();
+    } finally {
+      log.mockRestore();
+    }
+
+    const fresh = await staff.platform.waitlistSignInDetails({ id: requestId });
+    expect(tokenOf(fresh.link)).not.toBe(anonToken);
+    expect(tokenOf(fresh.link)).toHaveLength(64);
+    // The fresh link revoked every earlier one, the anonymous request's included.
+    expect((await linkRows(request.requesterEmail)).map((r) => r.identifier)).toEqual([tokenOf(fresh.link)]);
   });
 });
 

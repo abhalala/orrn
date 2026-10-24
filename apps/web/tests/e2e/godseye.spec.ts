@@ -53,7 +53,7 @@ async function blockingAxeViolations(page: Page, include?: string) {
     .map((v) => ({ id: v.id, help: v.help, targets: v.nodes.slice(0, 5).map((n) => n.target.join(" ")) }));
 }
 
-test("approve a request, set up label printing, impersonate and stop", async ({ page }) => {
+test("approve a request, set up label printing, impersonate and stop", async ({ page, browser }) => {
   test.setTimeout(120_000);
   const tag = uniq();
   const { company, email } = await fileRequest(page, tag);
@@ -97,6 +97,26 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   const secondLink = (await fresh.locator("code").filter({ hasText: "/continue?token=" }).innerText()).trim();
   expect(secondLink).not.toBe(firstLink);
   await fresh.getByRole("button", { name: "Done" }).click();
+
+  // The owner's side (review T27 I-3), in a browser of their own: the newest link opens
+  // /continue, Continue signs them in and lands on "Set your password". The fresh link
+  // revoked the first one, so that one no longer works.
+  const ownerContext = await browser.newContext({ baseURL: WEB_ORIGIN });
+  const ownerPage = await ownerContext.newPage();
+  const pathOf = (link: string) => {
+    const url = new URL(link);
+    return `${url.pathname}${url.search}`;
+  };
+  await ownerPage.goto(pathOf(secondLink));
+  await expect(ownerPage.getByRole("heading", { level: 1, name: "Your workspace is ready" })).toBeVisible();
+  await ownerPage.getByRole("button", { name: "Continue" }).click();
+  await expect(ownerPage).toHaveURL(/\/welcome$/);
+  await expect(ownerPage.getByRole("heading", { level: 1, name: "Set your password" })).toBeVisible();
+  await ownerContext.clearCookies();
+  await ownerPage.goto(pathOf(firstLink));
+  await ownerPage.getByRole("button", { name: "Continue" }).click();
+  await expect(ownerPage.getByRole("heading", { level: 1, name: "This link no longer works" })).toBeVisible();
+  await ownerContext.close();
 
   // 2. Find the new company and open it.
   await page.goto("/admin/companies");
