@@ -59,7 +59,8 @@ describe("isLocale", () => {
   test("accepts only en and hi", () => {
     expect(isLocale("en")).toBe(true);
     expect(isLocale("hi")).toBe(true);
-    expect(isLocale("gu")).toBe(false);
+    expect(isLocale("gu")).toBe(true);
+    expect(isLocale("fr")).toBe(false);
     expect(isLocale(undefined)).toBe(false);
   });
 });

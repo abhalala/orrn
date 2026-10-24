@@ -8,6 +8,7 @@
     "./en": "./src/en.ts",
     "./en-public": "./src/en-public.gen.ts",
     "./hi": "./src/hi.ts",
+    "./gu": "./src/gu.ts",
     "./guides": "./src/guides/index.ts"
   },
   "scripts": {

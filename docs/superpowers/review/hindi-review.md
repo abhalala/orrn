@@ -10,11 +10,11 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
+Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 
 ## Screen strings
 
-### common (57)
+### common (67)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -75,8 +75,18 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `demoData` | Demo data | डेमो डेटा |
 | `noResults` | Nothing matches "{query}" | "{query}" से कुछ नहीं मिला |
 | `by` | by {name} | {name} द्वारा |
+| `gujarati` | ગુજરાતી | ગુજરાતી |
+| `reason` | Reason | कारण |
+| `note` | Note | नोट |
+| `noteRequired` | Write a note when you pick Other. | अन्य चुनें तो नोट लिखें। |
+| `other` | Other | अन्य |
+| `shift` | Shift | शिफ्ट |
+| `productionDay` | Production day | प्रोडक्शन का दिन |
+| `askApproval` | Ask for approval | मंज़ूरी मांगें |
+| `waitingApproval` | Waiting for approval | मंज़ूरी का इंतज़ार |
+| `plant` | Plant | प्लांट |
 
-### units (10)
+### units (12)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -90,6 +100,8 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `pieces` | {count} {count:piece\|pieces} | {count} पीस |
 | `bundlesKg` | {bundles} {bundles:bundle\|bundles} · {kg} kg | {bundles} bundle · {kg} kg |
 | `feetInches` | {ft} ft {in} in | {ft} ft {in} in |
+| `kgPerM` | kg/m | kg/m |
+| `percent` | {value}% | {value}% |
 
 ### status (30)
 
@@ -281,7 +293,7 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `done.body` | Your account is ready. | आपका अकाउंट तैयार है। |
 | `done.go` | Go to Today | आज का पेज खोलें |
 
-### today (77)
+### today (87)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -362,8 +374,18 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `startHere.done` | Done | हो गया |
 | `startHere.askAdmin` | An admin sets this up | यह एडमिन सेट करेंगे |
 | `startHere.afterDie` | After a die is added | Die जुड़ने के बाद |
+| `shiftNow` | {shift} shift, {day} | {shift} शिफ्ट, {day} |
+| `floor.heading` | Floor | फ़्लोर |
+| `floor.press` | Press | प्रेस |
+| `floor.pressHint` | {count} queued | {count} कतार में |
+| `floor.dieRoom` | Die room | Die रूम |
+| `floor.dieRoomHint` | {count} to issue | {count} देनी हैं |
+| `floor.orders` | Orders | ऑर्डर |
+| `floor.ordersHint` | {count} open | {count} {count:खुला\|खुले} |
+| `floor.ageing` | Ageing | एजिंग |
+| `floor.ageingHint` | {count} in the oven | {count} ओवन में |
 
-### pack (52)
+### pack (72)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -419,8 +441,28 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `detail.labelsSent` | Labels sent to printer | लेबल प्रिंटर को भेज दिए |
 | `detail.labelSent` | Label sent to printer | लेबल प्रिंटर को भेज दिया |
 | `detail.viewBundle` | Open bundle {serial} | Bundle {serial} खोलें |
+| `partyNo` | Party no. | पार्टी नंबर |
+| `forOrder` | For order | किस ऑर्डर के लिए |
+| `plantStock` | Plant stock | प्लांट स्टॉक |
+| `ageingRow` | From ageing | एजिंग से |
+| `recut` | Cut shorter | छोटा काटा |
+| `standard` | Standard | स्टैंडर्ड |
+| `showLogo` | Print logo | लोगो प्रिंट करें |
+| `dieOwned` | This die belongs to {name} | यह die {name} की है |
+| `scale.title` | Scale | कांटा |
+| `scale.stable` | Steady | स्थिर |
+| `scale.waiting` | Waiting for a steady weight | स्थिर वज़न का इंतज़ार |
+| `scale.stale` | The scale stopped sending | कांटे से वज़न नहीं आ रहा |
+| `scale.useScale` | Use scale weight | कांटे का वज़न लें |
+| `scale.typed` | Typed | हाथ से लिखा |
+| `scale.typedReason` | Why type the weight | वज़न हाथ से क्यों लिखा |
+| `reject.title` | Rejects | रिजेक्ट |
+| `reject.add` | Add reject | रिजेक्ट जोड़ें |
+| `reject.pcs` | Pieces | पीस |
+| `reject.kg` | kg | kg |
+| `reject.saved` | {count} {count:piece\|pieces} rejected | {count} पीस रिजेक्ट |
 
-### scan (37)
+### scan (40)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -461,6 +503,9 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `continuous.result.rejected` | Not added | नहीं जुड़ा |
 | `continuous.result.notFound` | Not found | नहीं मिला |
 | `continuous.done` | Done scanning | स्कैन बंद करें |
+| `continuous.dieOwned` | Die belongs to {name} | Die {name} की है |
+| `continuous.otherOrder` | On another customer's order | दूसरे ग्राहक के ऑर्डर पर |
+| `continuous.overCapacity` | {kg} kg over the truck's capacity | गाड़ी की क्षमता से {kg} kg ज़्यादा |
 
 ### stock (61)
 
@@ -587,7 +632,7 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `ambiguousTitle` | Which bundle? | कौन सा bundle? |
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 
-### dispatch (129)
+### dispatch (137)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -720,8 +765,16 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `errors.empty` | Add at least one bundle first. | पहले कम से कम एक bundle जोड़ें। |
 | `errors.conflict` | Some bundles changed since this page loaded. The ones that can't go are marked in the list. | पेज खुलने के बाद कुछ bundle बदल गए। जो नहीं जा सकते, उन पर लिस्ट में निशान है। |
 | `errors.moved` | This dispatch has moved on. Reload to see where it is now. | यह dispatch आगे बढ़ चुका है। ताज़ा स्थिति के लिए पेज रीलोड करें। |
+| `capacity.label` | Truck capacity (kg) | गाड़ी की क्षमता (kg) |
+| `capacity.fill` | {pct}% full | {pct}% भरी |
+| `capacity.near` | Nearly full | लगभग भरी |
+| `capacity.over` | {kg} kg over capacity | क्षमता से {kg} kg ज़्यादा |
+| `capacity.overReason` | Why load over capacity | क्षमता से ज़्यादा क्यों लोड किया |
+| `transporter.label` | Transporter | ट्रांसपोर्टर |
+| `transporter.add` | Add transporter | ट्रांसपोर्टर जोड़ें |
+| `transporter.none` | No transporter | कोई ट्रांसपोर्टर नहीं |
 
-### packingList (35)
+### packingList (50)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -760,8 +813,23 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `make` | Make packing list | पैकिंग लिस्ट बनाएं |
 | `made` | Packing list made | पैकिंग लिस्ट बन गई |
 | `downloadFailed` | The file couldn't be made. Try again. | फ़ाइल नहीं बन पाई। फिर से कोशिश करें। |
+| `v2.revision` | Revision {n} | संशोधन {n} |
+| `v2.regenerate` | Make a new revision | नया संशोधन बनाएं |
+| `v2.changes` | Changes from revision {n} | संशोधन {n} से बदलाव |
+| `v2.added` | {count} added | {count} {count:जुड़ा\|जुड़े} |
+| `v2.removed` | {count} removed | {count} हटे |
+| `v2.changed` | {count} changed | {count} बदले |
+| `v2.same` | No changes | कोई बदलाव नहीं |
+| `v2.combine` | Combine lists | लिस्ट मिलाएं |
+| `v2.combinedInto` | Combined into {code} | {code} में मिलाई गई |
+| `v2.showBranding` | Show company name | कंपनी का नाम दिखाएं |
+| `v2.showOriginalSo` | Show original order | पहला ऑर्डर दिखाएं |
+| `v2.partyNo` | Party no. | पार्टी नंबर |
+| `v2.summary.hollow` | Hollow | हॉलो |
+| `v2.summary.solid` | Solid | सॉलिड |
+| `v2.summary.semi` | Semi hollow | सेमी हॉलो |
 
-### dies (61)
+### dies (60)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -813,12 +881,11 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `form.statusHint` | Archived dies don't show in Pack. | बंद die पैकिंग में नहीं दिखते। |
 | `form.notes` | Notes | नोट |
 | `form.advanced` | Advanced | एडवांस |
-| `form.advancedHint` | Width, thickness, oblique and leg. All optional. | चौड़ाई, मोटाई, oblique और लेग। सब ज़रूरी नहीं। |
+| `form.advancedHint` | Width, thickness and leg. All optional. | चौड़ाई, मोटाई और लेग। सब ज़रूरी नहीं। |
 | `form.measureHintMm` | In mm. | mm में। |
 | `form.measureHintInch` | In inches, like 0.125 for 1/8 in. | इंच में, जैसे 1/8 in के लिए 0.125। |
 | `form.width` | Width | चौड़ाई |
 | `form.thickness` | Thickness | मोटाई |
-| `form.oblique` | Oblique | Oblique |
 | `form.leg` | Leg | लेग |
 | `form.submit` | Save die | Die सेव करें |
 | `form.saved` | Die saved | Die सेव हो गया |
@@ -827,7 +894,7 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `form.fixErrors` | Check the fields marked in red. | लाल निशान वाले खाने जांचें। |
 | `form.cantAdd` | Your role can't add dies. Ask an admin if you need it. | आपका रोल die नहीं जोड़ सकता। ज़रूरत हो तो एडमिन से कहें। |
 
-### customers (103)
+### customers (109)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -934,6 +1001,12 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `detail.openOrders.lines` | {count} {count:line\|lines} | {count} लाइन |
 | `dispatches` | Dispatches | Dispatch |
 | `noDispatches` | No dispatches for this customer yet. | इस ग्राहक का अभी कोई dispatch नहीं है। |
+| `bundleNumbers.title` | Party bundle numbers | पार्टी bundle नंबर |
+| `bundleNumbers.none` | Same as our serial | हमारे serial जैसा |
+| `bundleNumbers.monthly` | Monthly, like 26J12 | हर महीने, जैसे 26J12 |
+| `bundleNumbers.fy` | Each financial year, like 2026-27/12 | हर वित्त वर्ष, जैसे 2026-27/12 |
+| `bundleNumbers.lifelong` | Never reset, like 4086 | कभी शून्य नहीं, जैसे 4086 |
+| `bundleNumbers.changeHint` | Old bundles keep their numbers. | पुराने bundle के नंबर नहीं बदलते। |
 
 ### store (189)
 
@@ -1604,7 +1677,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (59)
+### approvals (64)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1623,6 +1696,11 @@ Please check, Lalubhai:
 | `kind.die_rerank` | Die tier change | Die का टियर बदलना |
 | `kind.dispatch_overdraw` | Dispatch over the order | ऑर्डर से ज़्यादा dispatch |
 | `kind.phantom_void` | Void after a count | गिनती के बाद void |
+| `kind.die_owner_override` | Use another customer's die | दूसरे ग्राहक की die चलाना |
+| `kind.order_reallocate` | Move bundles to another customer | Bundle दूसरे ग्राहक को देना |
+| `kind.press_time` | Press run times | प्रेस रन का समय |
+| `kind.press_reopen` | Reopen a press run | प्रेस रन फिर खोलना |
+| `kind.ageing_override` | Ageing override | एजिंग की छूट |
 | `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
 | `subject.dieRerank` | Copy {code}, tier {from} to {to} | कॉपी {code}, टियर {from} से {to} |
@@ -1667,6 +1745,400 @@ Please check, Lalubhai:
 | `emptyTitle` | No requests here | यहां कोई रिक्वेस्ट नहीं |
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
+
+### dieRoom (80)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Die room | Die रूम |
+| `copies.title` | Copies | कॉपी |
+| `copies.copy` | Copy | कॉपी |
+| `copies.tier` | Tier {rank} | टियर {rank} |
+| `copies.untiered` | No tier | कोई टियर नहीं |
+| `copies.latestWeight` | Latest kg/12ft | ताज़ा kg/12ft |
+| `copies.drift` | Drift | बढ़त |
+| `copies.band` | Band | बैंड |
+| `copies.primaryBand` | Main band | मुख्य बैंड |
+| `copies.owner` | Owner | मालिक |
+| `copies.rack` | Rack | रैक |
+| `copies.empty` | No copies of this die yet. | इस die की अभी कोई कॉपी नहीं। |
+| `copies.add` | Add copy | कॉपी जोड़ें |
+| `copies.suggestFirst` | Use first | पहले इसे चलाएं |
+| `status.available` | In rack | रैक में |
+| `status.in_use` | On press | प्रेस पर |
+| `status.at_nitriding` | At nitriding | नाइट्राइडिंग पर |
+| `status.at_maker` | At die maker | Die मेकर के पास |
+| `status.retired` | Retired | बंद |
+| `bands.title` | Bands | बैंड |
+| `bands.add` | Add band | बैंड जोड़ें |
+| `bands.wall` | Wall (mm) | दीवार (mm) |
+| `bands.range` | {min} to {max} kg/12ft | {min} से {max} kg/12ft |
+| `bands.label` | Label | नाम |
+| `bands.retire` | Retire band | बैंड बंद करें |
+| `bands.duplicate` | This band already exists for this die. | इस die का यह बैंड पहले से है। |
+| `card.title` | Die card | Die कार्ड |
+| `card.alloy` | Alloy | अलॉय |
+| `card.temper` | Temper | टेम्पर |
+| `card.profileKind` | Shape | आकार |
+| `card.hollow` | Hollow | हॉलो |
+| `card.solid` | Solid | सॉलिड |
+| `card.semi` | Semi hollow | सेमी हॉलो |
+| `card.cavities` | Cavities | कैविटी |
+| `card.bolster` | Bolster | बोल्स्टर |
+| `card.backer` | Backer | बैकर |
+| `card.subBolster` | Sub bolster | सब बोल्स्टर |
+| `card.received` | Received | मिली |
+| `card.drawing` | Press drawing | प्रेस ड्रॉइंग |
+| `card.files` | Files | फ़ाइलें |
+| `card.addFile` | Add file | फ़ाइल जोड़ें |
+| `tier.propose` | Change tier | टियर बदलें |
+| `tier.lift` | Move to band | बैंड में ले जाएं |
+| `tier.pending` | Waiting for approval | मंज़ूरी का इंतज़ार |
+| `tier.nothingChanges` | Pick a different tier or band. | दूसरा टियर या बैंड चुनें। |
+| `tier.pendingExists` | A change for this copy is already waiting. | इस कॉपी का एक बदलाव पहले से इंतज़ार में है। |
+| `drift.under` | Under band | बैंड से कम |
+| `drift.green` | In band | बैंड में |
+| `drift.amber` | Near the edge | किनारे के पास |
+| `drift.red` | Over band | बैंड से ज़्यादा |
+| `drift.value` | {pct}% over band start | बैंड शुरू से {pct}% ज़्यादा |
+| `issue.title` | Issue to press | प्रेस को दें |
+| `issue.issue` | Issue | दें |
+| `issue.return` | Take back | वापस लें |
+| `issue.cancel` | Cancel issue | देना रद्द करें |
+| `issue.line` | Press line | प्रेस लाइन |
+| `issue.issued` | Issued to {line} | {line} को दी |
+| `issue.returned` | Back in rack | रैक में वापस |
+| `issue.notAvailable` | This copy is not in the rack. | यह कॉपी रैक में नहीं है। |
+| `issue.openIssue` | This copy is already issued. | यह कॉपी पहले से दी हुई है। |
+| `issue.dieOnPress` | The die is still on the press. Log the run first. | Die अभी प्रेस पर है। पहले रन दर्ज करें। |
+| `maker.title` | Die maker | Die मेकर |
+| `maker.makers` | Die makers | Die मेकर |
+| `maker.addMaker` | Add die maker | Die मेकर जोड़ें |
+| `maker.send` | Send to maker | मेकर को भेजें |
+| `maker.receive` | Received back | वापस मिली |
+| `maker.purpose` | Why | क्यों |
+| `maker.trial` | Trial | ट्रायल |
+| `maker.correction` | Correction | सुधार |
+| `maker.repair` | Repair | मरम्मत |
+| `maker.job` | Job {number} | जॉब {number} |
+| `owner.title` | Owner | मालिक |
+| `owner.belongsTo` | This die belongs to {name} | यह die {name} की है |
+| `owner.pickCopy` | Pick the die copy | Die की कॉपी चुनें |
+| `owner.noCopies` | This section has no copies | इस सेक्शन की कोई कॉपी नहीं है |
+| `owner.requestOverride` | Ask to use it for {name} | {name} के लिए चलाने की मंज़ूरी मांगें |
+| `owner.purpose.plan` | Plan | प्लान |
+| `owner.purpose.press` | Press | प्रेस |
+| `owner.purpose.pack` | Pack | पैकिंग |
+| `owner.purpose.dispatch` | Dispatch | Dispatch |
+
+### orders (50)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Orders | ऑर्डर |
+| `new` | New order | नया ऑर्डर |
+| `number` | Order | ऑर्डर |
+| `poNumber` | PO number | PO नंबर |
+| `orderDate` | Order date | ऑर्डर की तारीख |
+| `expectedDate` | Expected by | कब तक चाहिए |
+| `source.office` | Office | ऑफ़िस |
+| `source.portal` | Portal | पोर्टल |
+| `status.booking` | Booking | बुकिंग |
+| `status.confirmed` | Confirmed | पक्का |
+| `status.dispatching` | Dispatching | Dispatch चालू |
+| `status.closed` | Closed | बंद |
+| `status.cancelled` | Cancelled | रद्द |
+| `line.copy` | Die copy | Die कॉपी |
+| `line.tierOrBetter` | Tier {rank} or better | टियर {rank} या बेहतर |
+| `line.cutLength` | Cut length | कट लंबाई |
+| `line.pcs` | Pieces | पीस |
+| `line.kg` | kg | kg |
+| `line.basis` | kg/12ft | kg/12ft |
+| `line.finish` | Finish | फ़िनिश |
+| `line.alloy` | Alloy | अलॉय |
+| `line.temper` | Temper | टेम्पर |
+| `line.rate` | Rate (Rs/kg) | रेट (Rs/kg) |
+| `finish.none` | Mill finish | मिल फ़िनिश |
+| `finish.anodise` | Anodise | एनोडाइज़ |
+| `finish.pvd` | PVD | PVD |
+| `weightBasis.copy_current` | Copy's latest weight | कॉपी का ताज़ा वज़न |
+| `weightBasis.band_start` | Band start | बैंड की शुरुआत |
+| `qtyBasis.pcs` | By pieces | पीस से |
+| `qtyBasis.kg` | By kg | kg से |
+| `ordered` | Ordered | ऑर्डर |
+| `dispatched` | Dispatched | Dispatch हुआ |
+| `baki` | Baki | बाकी |
+| `planable` | Can still plan | अभी प्लान हो सकता है |
+| `over` | Over by {kg} kg | {kg} kg ज़्यादा |
+| `confirm` | Confirm order | ऑर्डर पक्का करें |
+| `close` | Close order | ऑर्डर बंद करें |
+| `cancel` | Cancel order | ऑर्डर रद्द करें |
+| `closeReason` | Why close with baki left | बाकी रहते हुए क्यों बंद कर रहे हैं |
+| `cancelReason` | Why cancel | क्यों रद्द कर रहे हैं |
+| `poRepeat` | PO {po} is already on order {code}. | PO {po} पहले से ऑर्डर {code} पर है। |
+| `blockers.po_number` | Add the PO number. | PO नंबर डालें। |
+| `blockers.no_lines` | Add at least one line. | कम से कम एक लाइन जोड़ें। |
+| `blockers.line` | Line {n}: {problem} | लाइन {n}: {problem} |
+| `blockers.pcs` | add pieces | पीस डालें |
+| `blockers.kg` | add kg | kg डालें |
+| `blockers.length` | add the cut length | कट लंबाई डालें |
+| `blockers.alloy` | add the alloy | अलॉय डालें |
+| `blockers.temper` | add the temper | टेम्पर डालें |
+| `blockers.die_or_tier` | pick a copy or a tier | कॉपी या टियर चुनें |
+
+### reallocate (13)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Move to another order | दूसरे ऑर्डर में डालें |
+| `toLine` | Move to | कहां डालें |
+| `toPlant` | Plant stock | प्लांट स्टॉक |
+| `unassigned` | Not on an order | किसी ऑर्डर पर नहीं |
+| `reasonCode` | Reason | कारण |
+| `lengthMismatch` | The cut length differs from the order line. Pick a reason. | कट लंबाई ऑर्डर लाइन से अलग है। कारण चुनें। |
+| `needsApproval` | This is another customer's order. A manager approves the move. | यह दूसरे ग्राहक का ऑर्डर है। मैनेजर मंज़ूरी देंगे। |
+| `moved` | {count} {count:bundle\|bundles} moved | {count} bundle डाले गए |
+| `tooMany` | Move at most {max} bundles at a time. | एक बार में ज़्यादा से ज़्यादा {max} bundle डालें। |
+| `refused.dispatched` | Already dispatched | पहले ही dispatch हो चुका |
+| `refused.void` | Void | रद्द |
+| `refused.held` | Held on {code} | {code} पर होल्ड |
+| `refused.die_mismatch` | Different die | दूसरी die |
+
+### press (63)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Press | प्रेस |
+| `lines.title` | Press lines | प्रेस लाइन |
+| `lines.add` | Add press | प्रेस जोड़ें |
+| `lines.code` | Code | कोड |
+| `lines.name` | Name | नाम |
+| `lines.tonnage` | Tonnes | टन |
+| `lines.retire` | Retire | बंद करें |
+| `plan.title` | Press plan | प्रेस प्लान |
+| `plan.new` | New plan | नया प्लान |
+| `plan.number` | Plan {number} | प्लान {number} |
+| `plan.window` | From {from} to {to} | {from} से {to} तक |
+| `plan.addDie` | Add die | Die जोड़ें |
+| `plan.addLine` | Add order line | ऑर्डर लाइन जोड़ें |
+| `plan.urgent` | Urgent | जल्दी |
+| `plan.release` | Release to press | प्रेस को भेजें |
+| `plan.cancel` | Cancel plan | प्लान रद्द करें |
+| `plan.close` | Close plan | प्लान बंद करें |
+| `plan.overPlanable` | More than the order can still take. | ऑर्डर में जितना बाकी है उससे ज़्यादा। |
+| `plan.status.draft` | Draft | ड्राफ़्ट |
+| `plan.status.released` | Released | भेजा गया |
+| `plan.status.closed` | Closed | बंद |
+| `plan.status.cancelled` | Cancelled | रद्द |
+| `console.title` | Press console | प्रेस कंसोल |
+| `console.queue` | Queue | कतार |
+| `console.noRuns` | Nothing queued for this press. | इस प्रेस के लिए कतार में कुछ नहीं। |
+| `console.run` | Run {number} | रन {number} |
+| `console.status.queued` | Queued | कतार में |
+| `console.status.die_issued` | Die issued | Die मिल गई |
+| `console.status.running` | Running | चल रहा है |
+| `console.status.stopped` | Stopped | रुका है |
+| `console.status.counting` | Counting | गिनती |
+| `console.status.logged` | Logged | दर्ज |
+| `console.status.voided` | Void | रद्द |
+| `console.start` | Start | शुरू करें |
+| `console.stop` | Stop | रोकें |
+| `console.resume` | Resume | फिर चालू करें |
+| `console.undoStart` | Undo start | शुरू करना वापस लें |
+| `console.count` | Count | गिनती करें |
+| `console.close` | Close run | रन बंद करें |
+| `console.reopen` | Reopen | फिर खोलें |
+| `console.voidRun` | Void run | रन रद्द करें |
+| `console.dieIn` | Die in | Die लगी |
+| `console.dieOut` | Die out | Die उतरी |
+| `console.waitingDie` | Waiting for the die room | Die रूम का इंतज़ार |
+| `console.lineBusy` | Another run is on this press. | इस प्रेस पर दूसरा रन चल रहा है। |
+| `console.stopReason` | Why stopped | क्यों रुका |
+| `console.operator` | Operator | ऑपरेटर |
+| `console.relief` | Relief operator | रिलीफ़ ऑपरेटर |
+| `console.supervisor` | Supervisor | सुपरवाइज़र |
+| `console.cast` | Cast | कास्ट |
+| `console.shift` | Shift | शिफ्ट |
+| `console.productionDay` | Day | दिन |
+| `console.good` | Good kg | अच्छा kg |
+| `console.reject` | Reject kg | रिजेक्ट kg |
+| `console.ends` | Ends kg | टुकड़े kg |
+| `console.discard` | Butt kg | बट kg |
+| `console.input` | Billet kg | बिलेट kg |
+| `console.recovery` | Recovery | रिकवरी |
+| `console.balance` | Balance {kg} kg | बाकी {kg} kg |
+| `console.balanceWarn` | Billets and output differ by more than {pct}%. | बिलेट और माल में {pct}% से ज़्यादा फ़र्क है। |
+| `console.pressRemark` | Press remark | प्रेस टिप्पणी |
+| `console.dieRemark` | Die remark | Die टिप्पणी |
+| `console.timeUnconfirmed` | Time not confirmed | समय पक्का नहीं |
+
+### ageing (20)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Ageing | एजिंग |
+| `board` | Ageing board | एजिंग बोर्ड |
+| `readings.title` | Readings | रीडिंग |
+| `readings.batch` | Batch {number} | बैच {number} |
+| `readings.oven` | Oven | ओवन |
+| `readings.temperature` | Temperature (°C) | तापमान (°C) |
+| `readings.soak` | Soak time | सोक समय |
+| `readings.start` | Start | शुरू |
+| `readings.end` | End | खत्म |
+| `readings.hardness` | Hardness | हार्डनेस |
+| `readings.addReading` | Add reading | रीडिंग जोड़ें |
+| `readings.saved` | Reading saved | रीडिंग सेव हुई |
+| `readings.pass` | Pass | पास |
+| `readings.fail` | Fail | फ़ेल |
+| `readings.hold` | Hold | होल्ड |
+| `readings.release` | Release | छोड़ें |
+| `readings.rework` | Age again | फिर से एजिंग |
+| `readings.scrap` | Scrap | स्क्रैप |
+| `readings.empty` | No readings yet. | अभी कोई रीडिंग नहीं। |
+| `readings.outOfRange` | Outside {min} to {max}. | {min} से {max} के बाहर। |
+
+### reasons (48)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `kinds.downtime` | Downtime | रुकावट |
+| `kinds.qc_reject` | Rejects | रिजेक्ट |
+| `kinds.void` | Void | रद्द |
+| `kinds.reprint` | Reprint | फिर से प्रिंट |
+| `kinds.ageing_hold` | Ageing hold | एजिंग होल्ड |
+| `kinds.ageing_rework` | Age again | फिर से एजिंग |
+| `kinds.ageing_scrap` | Ageing scrap | एजिंग स्क्रैप |
+| `kinds.reallocate` | Move to another order | दूसरे ऑर्डर में डालना |
+| `downtime.die_change` | Die change | Die बदली |
+| `downtime.billet_wait` | Waiting for billets | बिलेट का इंतज़ार |
+| `downtime.breakdown` | Breakdown | ब्रेकडाउन |
+| `downtime.power` | Power cut | बिजली गई |
+| `downtime.no_order` | No order | ऑर्डर नहीं |
+| `downtime.die_correction` | Die correction | Die सुधार |
+| `downtime.quality_hold` | Quality hold | क्वालिटी होल्ड |
+| `downtime.other` | Other | अन्य |
+| `qc_reject.dimension` | Dimension | नाप |
+| `qc_reject.surface` | Surface | सतह |
+| `qc_reject.bend` | Bend | टेढ़ा |
+| `qc_reject.crack` | Crack | दरार |
+| `qc_reject.short_length` | Short length | छोटी लंबाई |
+| `qc_reject.other` | Other | अन्य |
+| `void.wrong_entry` | Wrong entry | गलत एंट्री |
+| `void.damaged` | Damaged | खराब |
+| `void.repacked` | Packed again | फिर से पैक |
+| `void.other` | Other | अन्य |
+| `reprint.label_damaged` | Label damaged | लेबल खराब |
+| `reprint.printer_fault` | Printer fault | प्रिंटर खराब |
+| `reprint.wrong_label` | Wrong label | गलत लेबल |
+| `reprint.other` | Other | अन्य |
+| `ageing_hold.hardness_low` | Hardness low | हार्डनेस कम |
+| `ageing_hold.hardness_high` | Hardness high | हार्डनेस ज़्यादा |
+| `ageing_hold.under_soak` | Under soak | सोक कम |
+| `ageing_hold.surface` | Surface | सतह |
+| `ageing_hold.bend` | Bend | टेढ़ा |
+| `ageing_hold.customer` | Customer hold | ग्राहक का होल्ड |
+| `ageing_hold.other` | Other | अन्य |
+| `ageing_rework.hardness_low` | Hardness low | हार्डनेस कम |
+| `ageing_rework.under_soak` | Under soak | सोक कम |
+| `ageing_rework.other` | Other | अन्य |
+| `ageing_scrap.bend` | Bend | टेढ़ा |
+| `ageing_scrap.surface` | Surface | सतह |
+| `ageing_scrap.short_length` | Short length | छोटी लंबाई |
+| `ageing_scrap.other` | Other | अन्य |
+| `reallocate.length_mismatch` | Different cut length | अलग कट लंबाई |
+| `reallocate.customer_request` | Customer asked | ग्राहक ने कहा |
+| `reallocate.packed_wrong_order` | Packed on the wrong order | गलत ऑर्डर पर पैक हुआ |
+| `reallocate.other` | Other | अन्य |
+
+### plantSettings (50)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Plant settings | प्लांट सेटिंग |
+| `shifts.title` | Shifts | शिफ्ट |
+| `shifts.name` | Name | नाम |
+| `shifts.start` | Starts | शुरू |
+| `shifts.end` | Ends | खत्म |
+| `shifts.add` | Add shift | शिफ्ट जोड़ें |
+| `shifts.suggest` | Use Day and Night | दिन और रात लें |
+| `shifts.none` | No shifts. Days start at midnight. | कोई शिफ्ट नहीं। दिन रात 12 बजे शुरू होता है। |
+| `shifts.errors.count` | Keep 1 to 4 shifts. | 1 से 4 शिफ्ट रखें। |
+| `shifts.errors.id` | Reload and try again. | पेज दोबारा लोड करके फिर कोशिश करें। |
+| `shifts.errors.name_empty` | Give each shift a name. | हर शिफ्ट का नाम लिखें। |
+| `shifts.errors.name_long` | Keep names under 40 characters. | नाम 40 अक्षर से छोटा रखें। |
+| `shifts.errors.name_duplicate` | Two shifts have the same name. | दो शिफ्ट का एक ही नाम है। |
+| `shifts.errors.minute_range` | Pick a time in the day. | दिन का कोई समय चुनें। |
+| `shifts.errors.seq` | Reload and try again. | पेज दोबारा लोड करके फिर कोशिश करें। |
+| `shifts.errors.zero_length` | A shift can't start and end at the same time. | शिफ्ट एक ही समय पर शुरू और खत्म नहीं हो सकती। |
+| `shifts.errors.gap_or_overlap` | Shifts must cover the whole day with no gap or overlap. | शिफ्ट पूरा दिन ढकें, बीच में खाली या दोहरा समय न हो। |
+| `standards.title` | Standards | स्टैंडर्ड |
+| `standards.standard` | Standard | स्टैंडर्ड |
+| `standards.cml` | Licence (CM/L) | लाइसेंस (CM/L) |
+| `standards.solid` | Solid | सॉलिड |
+| `standards.hollow` | Hollow | हॉलो |
+| `standards.semi` | Semi hollow | सेमी हॉलो |
+| `standards.semiFallback` | Left blank, semi hollow uses the solid one. | खाली छोड़ें तो सेमी हॉलो में सॉलिड वाला लगेगा। |
+| `modules.title` | Modules | मॉड्यूल |
+| `modules.hint` | Turn off what the plant doesn't use. | जो प्लांट में नहीं चलता उसे बंद करें। |
+| `modules.names.customers` | Customers | ग्राहक |
+| `modules.names.dies` | Dies | Die |
+| `modules.names.bundles` | Bundles | Bundle |
+| `modules.names.dispatches` | Dispatches | Dispatch |
+| `modules.names.orders` | Orders | ऑर्डर |
+| `modules.names.foundry` | Foundry | फ़ाउंड्री |
+| `modules.names.press` | Press | प्रेस |
+| `modules.names.ageing` | Ageing | एजिंग |
+| `modules.names.store` | Store | स्टोर |
+| `modules.names.purchase` | Scrap purchase | स्क्रैप खरीद |
+| `letterhead.title` | Letterhead | लेटरहेड |
+| `letterhead.legalName` | Legal name | कानूनी नाम |
+| `letterhead.gstin` | GSTIN | GSTIN |
+| `letterhead.address` | Address | पता |
+| `letterhead.phone` | Phone | फ़ोन |
+| `drift.title` | Die weight colours | Die वज़न के रंग |
+| `drift.green` | In band up to (%) | बैंड में (%) तक |
+| `drift.amber` | Near the edge up to (%) | किनारे के पास (%) तक |
+| `recovery.title` | Recovery colours | रिकवरी के रंग |
+| `recovery.green` | Good from (%) | अच्छी (%) से |
+| `recovery.amber` | Watch from (%) | ध्यान दें (%) से |
+| `orders.dieBands` | Use die bands | Die बैंड इस्तेमाल करें |
+| `orders.priceOnSalesOrder` | Rates on orders | ऑर्डर पर रेट |
+| `orders.dieRequired` | Order lines need a die copy or tier | ऑर्डर लाइन पर die कॉपी या टियर ज़रूरी |
+
+### devices (5)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Devices | डिवाइस |
+| `label` | Name | नाम |
+| `lastSeen` | Last seen {time} | आखिरी बार {time} |
+| `revoke` | Sign out this device | इस डिवाइस से साइन आउट करें |
+| `revoked` | Signed out | साइन आउट हो गया |
+
+### backups (6)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Backups | बैकअप |
+| `run` | Back up now | अभी बैकअप लें |
+| `last` | Last backup {time} | आखिरी बैकअप {time} |
+| `status.running` | Running | चल रहा है |
+| `status.succeeded` | Done | हो गया |
+| `status.failed` | Failed | नहीं हुआ |
+
+### support (9)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Help | मदद |
+| `ask` | Ask for help | मदद मांगें |
+| `subject` | Subject | विषय |
+| `body` | What happened | क्या हुआ |
+| `sent` | Sent. The reply shows up here. | भेज दिया। जवाब यहां दिखेगा। |
+| `reply` | Reply | जवाब |
+| `status.open` | Open | खुला |
+| `status.answered` | Answered | जवाब मिला |
+| `status.closed` | Closed | बंद |
 
 ### errors (16)
 

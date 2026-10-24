@@ -12,7 +12,19 @@ import { canAny, canApprove, type Action, type ApprovalKind, type Me } from "@or
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 /** The approval kinds (mirror of `approvalKinds` in @orrn/db/schema/approval; the db package stays out of the web bundle). */
-export const APPROVAL_KINDS = ["dc_note", "cast_close", "die_rerank", "dispatch_overdraw", "phantom_void"] as const satisfies readonly ApprovalKind[];
+export const APPROVAL_KINDS = [
+  "dc_note",
+  "cast_close",
+  "die_rerank",
+  "dispatch_overdraw",
+  "phantom_void",
+  // FP Wave 1: generic subject until their module adds one.
+  "die_owner_override",
+  "order_reallocate",
+  "press_time",
+  "press_reopen",
+  "ageing_override",
+] as const satisfies readonly ApprovalKind[];
 
 // Compile-time: every server kind is listed (a new kind fails check-types here until it is added).
 type MissingKind = Exclude<ApprovalKind, (typeof APPROVAL_KINDS)[number]>;
