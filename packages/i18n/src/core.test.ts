@@ -71,9 +71,15 @@ describe("guides", () => {
   });
 
   test("listGuides filters by role", () => {
-    expect(listGuides("en")).toHaveLength(10);
+    expect(listGuides("en")).toHaveLength(14);
     const viewer = listGuides("en", "viewer").map((g) => g.slug);
-    expect(viewer).toEqual(["scan-bundle", "printer-trouble"]);
-    expect(listGuides("en", "owner")).toHaveLength(10);
+    expect(viewer).toEqual(["scan-bundle", "printer-trouble", "stock-by-die"]);
+    expect(listGuides("en", "owner")).toHaveLength(13);
+  });
+
+  test("guides for orrn support staff are listed only for platform admins", () => {
+    expect(listGuides("en", "owner").map((g) => g.slug)).not.toContain("approve-access-request");
+    expect(listGuides("en", undefined, true).map((g) => g.slug)).toEqual(["approve-access-request"]);
+    expect(listGuides("en", "owner", true)).toHaveLength(14);
   });
 });

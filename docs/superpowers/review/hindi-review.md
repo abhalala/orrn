@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 1067 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 1071 screen strings in 26 groups, 14 guides with 254 strings.
 
 ## Screen strings
 
@@ -1026,7 +1026,7 @@ Counts: 1067 screen strings in 26 groups, 10 guides with 182 strings.
 | `data.submit` | Import {count} {count:row\|rows} | {count} लाइन इम्पोर्ट करें |
 | `data.imported` | {count} {count:row\|rows} imported | {count} लाइन इम्पोर्ट हो {count:गई\|गईं} |
 
-### guides (11)
+### guides (15)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1041,6 +1041,10 @@ Counts: 1067 screen strings in 26 groups, 10 guides with 182 strings.
 | `open` | Open guide | गाइड खोलें |
 | `all` | All guides | सारी गाइड |
 | `empty` | No guides for your role yet. | आपके रोल के लिए अभी कोई गाइड नहीं है। |
+| `related` | Related screens | जुड़ी स्क्रीन |
+| `platformRole` | orrn support staff | orrn सपोर्ट स्टाफ़ |
+| `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
+| `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
 ### admin (34)
 
@@ -1450,3 +1454,95 @@ Please check, Lalubhai:
 | Fix 2 | Label printing hasn't been set up for your company yet. Ask the orrn team. | आपकी कंपनी के लिए लेबल प्रिंटिंग अभी सेट नहीं हुई है। orrn टीम से कहें। |
 | Problem 3 | There's no "Retry" button | "फिर से भेजें" का बटन नहीं है |
 | Fix 3 | Only managers, admins and owners can retry or cancel jobs. Ask one of them. | जॉब फिर से भेजना या कैंसल करना सिर्फ़ मैनेजर, एडमिन और मालिक कर सकते हैं। उनमें से किसी से कहें। |
+
+### Check stock by die (`stock-by-die`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Check stock by die | Die के हिसाब से स्टॉक देखें |
+| When | Use this to see how many bundles and how many kg of one die are in stock or held. | जब आपको देखना हो कि एक die के कितने bundle और कितने kg स्टॉक में या होल्ड पर हैं। |
+| Step 1 | Open Stock | स्टॉक खोलें |
+| Step 1 text | Open "Stock". The "Sections" view lists one block for each die section that has bundles on the floor. | "स्टॉक" खोलें। "सेक्शन" व्यू में हर उस die सेक्शन का एक ब्लॉक दिखता है जिसके bundle फ़्लोर पर हैं। |
+| Step 2 | Find the die | Die खोजें |
+| Step 2 text | Type the die or section code in "Search die or section". The list narrows as you type. | "Die या सेक्शन खोजें" में die या सेक्शन का कोड लिखें। लिखते-लिखते लिस्ट छोटी होती जाती है। |
+| Step 3 | Read the block | ब्लॉक पढ़ें |
+| Step 3 text | Each block shows the bundles in stock, the bundles held for a dispatch, the kg and the kg/12ft weight range. Held bundles are counted apart from the ones in stock. | हर ब्लॉक में स्टॉक वाले bundle, dispatch के लिए होल्ड वाले bundle, kg और kg/12ft की वज़न रेंज दिखती है। होल्ड वाले bundle स्टॉक वालों से अलग गिने जाते हैं। |
+| Step 4 | Open the section | सेक्शन खोलें |
+| Step 4 text | Tap the block to see its bundles. Use "Status" to show "In stock", "Held" or "Dispatched" bundles. | उसके bundle देखने के लिए ब्लॉक दबाएं। "स्टेटस" से "स्टॉक में", "होल्ड पर" या "Dispatch हो गया" वाले bundle छांटें। |
+| Step 5 | Open one bundle | एक bundle खोलें |
+| Step 5 text | Tap a bundle to see its weight, pieces, cut length and history. For the die's own details, tap "Die details". | किसी bundle को दबाकर उसका वज़न, पीस, कट लंबाई और इतिहास देखें। Die की अपनी जानकारी के लिए "Die की जानकारी" दबाएं। |
+| Problem 1 | The die isn't in the list | Die लिस्ट में नहीं है |
+| Fix 1 | Only sections with bundles on the floor show here. If the die was packed recently, tap "Clear search" and check the spelling of the code. Dispatched or void bundles are not counted as stock. | यहां सिर्फ़ वही सेक्शन दिखते हैं जिनके bundle फ़्लोर पर हैं। Die हाल में पैक हुआ हो तो "खोज हटाएं" दबाएं और कोड की स्पेलिंग जांचें। Dispatch हो चुके या रद्द bundle स्टॉक में नहीं गिने जाते। |
+| Problem 2 | The count doesn't match the yard | गिनती यार्ड से नहीं मिलती |
+| Fix 2 | The screen shows what orrn has recorded, so unrecorded packing and dispatch change it. Do a count before you adjust anything. See "Count the stock". | स्क्रीन वही दिखाती है जो orrn में दर्ज है, इसलिए दर्ज न हुई पैकिंग या dispatch से फ़र्क आता है। कुछ बदलने से पहले गिनती करें। "स्टॉक की गिनती करें" देखें। |
+
+### Count the stock (`stock-count`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Count the stock | स्टॉक की गिनती करें |
+| When | Use this for the quarterly physical count, when every bundle in the yard is checked against what orrn holds. | तिमाही की असली गिनती के लिए, जब यार्ड का हर bundle orrn में दर्ज स्टॉक से मिलाया जाता है। |
+| Step 1 | Stop packing and dispatch | पैकिंग और dispatch रोकें |
+| Step 1 text | Tell the packers and the dispatch team to stop before the count starts. A bundle packed or sent out during the count will show as a mistake. | गिनती शुरू होने से पहले पैकर और dispatch वालों को काम रोकने को कहें। गिनती के दौरान पैक हुआ या बाहर गया bundle गलती की तरह दिखेगा। |
+| Step 2 | Take a fresh stock list | ताज़ा स्टॉक लिस्ट लें |
+| Step 2 text | Ask the office to load today's stock list into the Stock Count tool on the office computer. orrn has no count screen yet, so the count runs in that tool and it never changes your stock. | ऑफ़िस से कहें कि आज की स्टॉक लिस्ट ऑफ़िस के कंप्यूटर पर Stock Count टूल में डाल दें। orrn में अभी गिनती की स्क्रीन नहीं है, इसलिए गिनती उसी टूल में होती है और वो आपका स्टॉक कभी नहीं बदलता। |
+| Step 3 | Scan every bundle | हर bundle स्कैन करें |
+| Step 3 text | Walk the yard location by location. Scan each bundle's QR label. You can also type the printed bundle number. The tool tells you the result with a colour and a beep. | यार्ड में एक-एक लोकेशन पर चलें। हर bundle का QR लेबल स्कैन करें। छपा हुआ bundle नंबर भी लिख सकते हैं। टूल रंग और बीप से नतीजा बताता है। |
+| Step 4 | Read the colours | रंग पढ़ें |
+| Step 4 text | Green means counted. Amber means you already scanned it. Red means the bundle is not in the stock list. Leave red and amber bundles where they are and note them. | हरा मतलब गिन लिया। पीला मतलब आप उसे पहले स्कैन कर चुके हैं। लाल मतलब bundle स्टॉक लिस्ट में नहीं है। लाल और पीले bundle को वहीं रहने दें और उनका नोट बनाएं। |
+| Step 5 | Chase what's missing | जो नहीं मिला उसे ढूंढें |
+| Step 5 text | When the yard is done, open the list of bundles not found yet. Look again in the nearby locations before you give up on a bundle. | यार्ड पूरा होने पर अभी तक न मिले bundle की लिस्ट खोलें। किसी bundle को छोड़ने से पहले आसपास की लोकेशन में दोबारा देखें। |
+| Step 6 | Save the result | नतीजा सेव करें |
+| Step 6 text | Export the result as a CSV file and give it to the manager. Fix the differences in orrn only after the manager has agreed them. Then restart packing and dispatch. | नतीजा CSV फ़ाइल में निकालें और मैनेजर को दें। फ़र्क orrn में तभी ठीक करें जब मैनेजर उन्हें मान ले। फिर पैकिंग और dispatch दोबारा शुरू करें। |
+| Problem 1 | A bundle has no QR label | Bundle पर QR लेबल नहीं है |
+| Fix 1 | Type the bundle number printed on it. If the number is unreadable too, put the bundle aside and give it to the manager. | उस पर छपा bundle नंबर लिखें। नंबर भी पढ़ा न जाए तो bundle को अलग रखें और मैनेजर को दें। |
+| Problem 2 | Many bundles are not found | बहुत सारे bundle नहीं मिल रहे |
+| Fix 2 | Do not adjust anything yet. Check that the count did not start before the last dispatch was recorded. Most gaps come from the tail of a production run that was never marked as sent. | अभी कुछ न बदलें। देखें कि गिनती आखिरी dispatch दर्ज होने से पहले तो शुरू नहीं हो गई। ज़्यादातर कमी उस प्रोडक्शन रन की बची हुई पूंछ से आती है जिसे कभी भेजा हुआ दर्ज नहीं किया गया। |
+| Problem 3 | The count was interrupted | गिनती बीच में रुक गई |
+| Fix 3 | The tool keeps your scans on that computer for the same stock list. Open it again on the same browser and carry on. | टूल उसी स्टॉक लिस्ट के लिए आपके स्कैन उसी कंप्यूटर पर रखता है। उसी ब्राउज़र में दोबारा खोलें और आगे बढ़ें। |
+
+### Approve an access request (`approve-access-request`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Approve an access request | एक्सेस रिक्वेस्ट मंज़ूर करें |
+| When | Use this when a plant has asked for access on the website and orrn support has to set up its company. | जब किसी प्लांट ने वेबसाइट पर एक्सेस मांगा हो और orrn सपोर्ट को उसकी कंपनी सेट करनी हो। |
+| Step 1 | Open the requests | रिक्वेस्ट खोलें |
+| Step 1 text | Sign in to Godseye and open "Access requests". Requests that are waiting are at the top. | Godseye में साइन इन करें और "एक्सेस रिक्वेस्ट" खोलें। जो रिक्वेस्ट बाकी हैं वो सबसे ऊपर होती हैं। |
+| Step 2 | Read the request | रिक्वेस्ट पढ़ें |
+| Step 2 text | Check the company name, the contact's name and work email, the number of extrusion lines and the notes. If anything looks wrong, call the contact before you approve. | कंपनी का नाम, संपर्क का नाम और काम का ईमेल, एक्सट्रूज़न लाइनों की गिनती और नोट्स जांचें। कुछ ठीक न लगे तो मंज़ूर करने से पहले संपर्क को फ़ोन करें। |
+| Step 3 | Approve or reject | मंज़ूर या नामंज़ूर करें |
+| Step 3 text | Tap "Approve" to set up the company and its first owner. Tap "Reject" if the request is a duplicate or not a real plant. orrn shows "Request approved" when it is done. | कंपनी और उसका पहला मालिक बनाने के लिए "मंज़ूर करें" दबाएं। रिक्वेस्ट दोबारा आई हो या असली प्लांट की न हो तो "नामंज़ूर करें" दबाएं। काम हो जाने पर orrn "रिक्वेस्ट मंज़ूर हो गई" दिखाता है। |
+| Step 4 | Send the sign-in details | साइन इन की जानकारी भेजें |
+| Step 4 text | orrn emails the new owner. If the email doesn't arrive, copy the sign-in details shown after approval and send them yourself. | orrn नए मालिक को ईमेल भेजता है। ईमेल न पहुंचे तो मंज़ूरी के बाद दिखने वाली साइन इन की जानकारी कॉपी करें और खुद भेजें। |
+| Step 5 | Check the new company | नई कंपनी जांचें |
+| Step 5 text | Open the company under "Companies". Check the plan and modules, and that label printing is set up if the plant needs it. | "कंपनियां" में जाकर वो कंपनी खोलें। प्लान और मॉड्यूल जांचें, और प्लांट को ज़रूरत हो तो देखें कि लेबल प्रिंटिंग सेट है। |
+| Problem 1 | The owner says no email came | मालिक कहता है ईमेल नहीं आया |
+| Fix 1 | Look in their spam folder first. Then send the copied sign-in details by WhatsApp or phone. Ask them to change the password when they first sign in. | पहले उनका स्पैम फ़ोल्डर देखें। फिर कॉपी की हुई साइन इन की जानकारी WhatsApp या फ़ोन से भेजें। उनसे कहें कि पहली बार साइन इन करते ही पासवर्ड बदल लें। |
+| Problem 2 | I approved the wrong request | गलत रिक्वेस्ट मंज़ूर हो गई |
+| Fix 2 | Open the company under "Companies" and use "Suspend company" until the mistake is sorted out. Do not delete anything. | "कंपनियां" में वो कंपनी खोलें और गलती सुलझने तक "कंपनी रोकें" दबाएं। कुछ भी डिलीट न करें। |
+
+### Sign in on the floor tablet (`floor-tablet-signin`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Sign in on the floor tablet | फ़्लोर टैबलेट पर साइन इन करें |
+| When | Use this at the start of a shift, when you pick up the tablet at the packing or dispatch table. | शिफ़्ट की शुरुआत में, जब आप पैकिंग या dispatch टेबल का टैबलेट उठाते हैं। |
+| Step 1 | Open orrn | orrn खोलें |
+| Step 1 text | Open orrn from the icon on the tablet's home screen. If you see the page for another person, sign them out first. | टैबलेट की होम स्क्रीन के आइकन से orrn खोलें। अगर किसी और का पेज खुला दिखे तो पहले उन्हें साइन आउट करें। |
+| Step 2 | Enter your email and password | ईमेल और पासवर्ड डालें |
+| Step 2 text | Type your own work email and password and tap "Sign in". Do not use someone else's account, because every bundle and dispatch is recorded against the person who signed in. | अपना काम का ईमेल और पासवर्ड लिखें और "साइन इन करें" दबाएं। किसी और का अकाउंट इस्तेमाल न करें, क्योंकि हर bundle और dispatch उसी के नाम दर्ज होता है जिसने साइन इन किया। |
+| Step 3 | Enter the code | कोड डालें |
+| Step 3 text | If your account has two-factor on, open your authenticator app, type the 6-digit code and tap "Verify". Codes change every 30 seconds, so type the newest one. | अगर आपके अकाउंट पर two-factor चालू है, तो authenticator ऐप खोलें, 6 अंकों का कोड लिखें और "जांचें" दबाएं। कोड हर 30 सेकंड में बदलता है, इसलिए सबसे नया कोड डालें। |
+| Step 4 | Check you are in the right plant | देखें कि सही प्लांट है |
+| Step 4 text | You land on "Today". Check the company name at the top before you pack or dispatch. | आप "आज" पर पहुंचेंगे। पैक या dispatch करने से पहले ऊपर कंपनी का नाम जांचें। |
+| Step 5 | Choose your language | अपनी भाषा चुनें |
+| Step 5 text | Open "Account and more" and choose English or हिंदी under "Language". The tablet remembers it. | "अकाउंट और बाकी पेज" खोलें और "भाषा" में English या हिंदी चुनें। टैबलेट इसे याद रखता है। |
+| Step 6 | Sign out at the end | आखिर में साइन आउट करें |
+| Step 6 text | When you hand the tablet over or finish your shift, open "Account and more" and tap "Sign out". | टैबलेट किसी और को देते समय या शिफ़्ट खत्म होने पर "अकाउंट और बाकी पेज" खोलें और "साइन आउट" दबाएं। |
+| Problem 1 | "Email or password is wrong. Check both and try again." | "ईमेल या पासवर्ड गलत है। दोनों जांचें और फिर से कोशिश करें।" |
+| Fix 1 | Check for a capital letter or an extra space. If it still fails, ask your admin to reset your password. | कैपिटल अक्षर या बीच में खाली जगह जांचें। फिर भी न चले तो अपने एडमिन से पासवर्ड रीसेट करने को कहें। |
+| Problem 2 | "Your session ended. Sign in again." | "आपका सेशन खत्म हो गया। फिर से साइन इन करें।" |
+| Fix 2 | Sign in again. Anything you had not saved on the screen may need to be entered again. | दोबारा साइन इन करें। स्क्रीन पर जो सेव नहीं हुआ था उसे दोबारा डालना पड़ सकता है। |
+| Problem 3 | "Your account isn't in a company yet" | "आपका अकाउंट अभी किसी कंपनी में नहीं है" |
+| Fix 3 | You are signed in, but your admin has not added your email to the plant. Ask them to invite you. | आप साइन इन हैं, लेकिन आपके एडमिन ने आपका ईमेल प्लांट में नहीं जोड़ा है। उनसे इनवाइट भेजने को कहें। |

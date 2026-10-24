@@ -1135,6 +1135,10 @@ export const en = {
     open: "Open guide",
     all: "All guides",
     empty: "No guides for your role yet.",
+    related: "Related screens",
+    platformRole: "orrn support staff",
+    notFoundTitle: "We don't have that guide",
+    notFoundBody: "The link may be old or mistyped. Pick a guide from the list.",
   },
 
   admin: {
