@@ -56,6 +56,13 @@ async function newCopy(p: Plant, over: Record<string, unknown> = {}) {
   return p.dieRoom.dieInstance.create({ sectionId: p.sectionId, ...over });
 }
 
+/** `in_use` is written only by a die issue (FP-DR-16); tests that need an issued copy set it directly. */
+async function newCopyInUse(p: Plant, over: Record<string, unknown> = {}) {
+  const made = await newCopy(p, over);
+  await env.db.update(dieInstance).set({ status: "in_use" }).where(eq(dieInstance.id, made.id));
+  return made;
+}
+
 async function instanceRow(id: string) {
   const [row] = await env.db.select().from(dieInstance).where(eq(dieInstance.id, id));
   return row!;
@@ -146,7 +153,7 @@ describe("oblique codes", () => {
       hardness: 1_050,
       lifeG: 30_000_000,
       ftr: "ok",
-      status: "in_use",
+      status: "available",
       notes: "first copy",
     });
     expect(await instanceRow(a.id)).toMatchObject({
@@ -155,7 +162,7 @@ describe("oblique codes", () => {
       hardness: 1_050,
       lifeG: 30_000_000,
       ftr: "ok",
-      status: "in_use",
+      status: "available",
       tierRank: null,
       createdBy: p.users.die_room.id,
     });
@@ -185,7 +192,7 @@ describe("oblique codes", () => {
   test("list filters by section and status, pages, and is tenant scoped", async () => {
     const p = await plant();
     const other = await env.seedDie(p.companyId);
-    const a = await newCopy(p, { status: "in_use" });
+    const a = await newCopyInUse(p);
     await newCopy(p);
     await p.dieRoom.dieInstance.create({ sectionId: other });
     const x = await plant();
@@ -534,7 +541,7 @@ describe("drift", () => {
 
   test("per copy: latest, band position, trend over the last N readings; lightest first", async () => {
     const p = await plant({ min: 1_600, max: 1_700 });
-    const a = await newCopy(p, { status: "in_use", tierRank: 2 }); // heavy, rising, above band
+    const a = await newCopyInUse(p, { tierRank: 2 }); // heavy, rising, above band
     const b = await newCopy(p, { status: "available", tierRank: 1 }); // in band, steady
     const c = await newCopy(p, { status: "available", tierRank: 3 }); // below band, falling
     const d = await newCopy(p); // no readings
@@ -566,8 +573,9 @@ describe("drift", () => {
     const p = await plant({ min: 1_600, max: 1_700 });
     const below = await newCopy(p, { status: "available" });
     const lightInBand = await newCopy(p, { status: "available" });
-    const away = await newCopy(p, { status: "at_nitriding" });
-    const heavier = await newCopy(p, { status: "in_use" });
+    const away = await newCopy(p);
+    await p.dieRoom.dieInstance.update({ id: away.id, status: "at_nitriding" });
+    const heavier = await newCopyInUse(p);
     const retired = await newCopy(p, { status: "retired" });
     await seedReadings(p, below.id, [1_500]);
     await seedReadings(p, away.id, [1_610]); // would win, but is out at nitriding

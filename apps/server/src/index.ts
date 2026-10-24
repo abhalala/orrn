@@ -10,6 +10,7 @@ import { logger } from "hono/logger";
 
 import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
+import { verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
 
 import { seedDevData } from "./dev-seed";
 import { spoolRoutes } from "./spool-routes";
@@ -64,6 +65,25 @@ if (env.NODE_ENV === "development") {
     }
   });
 }
+
+// Die files (FP-DR-07/13): a signed GET from `dieInstance.files.url` / `dieInstance.drawing`, valid
+// 10 minutes, bound to one object key (which starts with the company id). No session needed.
+app.get("/files/dies", async (c) => {
+  const key = c.req.query("key") ?? "";
+  const exp = Number(c.req.query("exp"));
+  const sig = c.req.query("sig") ?? "";
+  if (!(await verifyDieFileUrl(key, exp, sig))) return c.text("Link expired or not valid", 403);
+  const bucket = (env as unknown as { DIE_FILES?: R2Bucket }).DIE_FILES;
+  if (!bucket) return c.text("File storage is not set up", 503);
+  const object = await bucket.get(key);
+  if (!object) return c.notFound();
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("etag", object.httpEtag);
+  headers.set("cache-control", "private, max-age=600");
+  headers.set("x-content-type-options", "nosniff");
+  return new Response(object.body, { headers });
+});
 
 app.use(
   "/trpc/*",

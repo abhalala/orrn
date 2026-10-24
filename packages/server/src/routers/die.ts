@@ -1,12 +1,34 @@
-import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
-import { die, dieStatuses } from "@orrn/db/schema/catalog";
-import { DELETED_DIE_CODE_MESSAGE } from "@orrn/domain";
+import { die, dieProfileKinds, dieStatuses } from "@orrn/db/schema/catalog";
+import { dieBand, dieFile, dieInstance, dieTierChange } from "@orrn/db/schema/dies";
+import {
+  DELETED_DIE_CODE_MESSAGE,
+  effectiveDieOwner,
+  kgPerMetre,
+  kgPerMetreToG12ft,
+  normalizeDieCopySearch,
+  type DriftTone,
+} from "@orrn/domain";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
-import { atomicBatch, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
+import {
+  bandText,
+  copyFigures,
+  customerNames,
+  effectiveBand,
+  latestReadingSql,
+  loadDriftBands,
+  loadFloorSettings,
+  primaryBand,
+  requireLiveCustomer,
+  sectionWallTenth,
+  worstTone,
+} from "../lib/dieRoom";
+import { dieBandRouter, duplicateBandError, findDuplicateBand } from "./dieBand";
 import { likeContains } from "../lib/search";
 import { nextCompanySeq } from "../lib/sequence";
 
@@ -53,6 +75,26 @@ export const dieBaseSchema = z.object({
 });
 
 /**
+ * Import of a kg/m catalogue (FP-DR-02 rule 4): a row may give `weightMinKgPerM` /
+ * `weightMaxKgPerM` instead of grams; they become grams per 12 ft (x 12 x 0.3048, nearest gram)
+ * before anything else runs, so a kg/m figure and the same weight per 12 ft are one band.
+ */
+function kgPerMetreRow(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const row = { ...(raw as Record<string, unknown>) };
+  for (const [g, m] of [["weightMinG", "weightMinKgPerM"], ["weightMaxG", "weightMaxKgPerM"]] as const) {
+    const perMetre = row[m];
+    if (row[g] === undefined && typeof perMetre === "number" && Number.isFinite(perMetre) && perMetre > 0) {
+      row[g] = kgPerMetreToG12ft(perMetre);
+    }
+    delete row[m];
+  }
+  return row;
+}
+const dieImportRow = z.preprocess(kgPerMetreRow, dieBaseSchema);
+const dieImportUpdateRow = z.preprocess(kgPerMetreRow, dieBaseSchema.extend({ existingId: z.string() }));
+
+/**
  * The unique index on (company, series, section code) also covers soft-deleted dies, so reusing a
  * deleted die's code used to fail the insert with a 500 (audit S16). Say so instead.
  */
@@ -61,7 +103,32 @@ const DELETED_DIE_CONFLICT = {
   message: DELETED_DIE_CODE_MESSAGE,
 } as const;
 
+/** Die room columns on the section (FP-DR-12/13/14). Undefined = leave as is; null clears. */
+const dieExtraFields = {
+  alloy: z.string().trim().max(16).nullable().optional(),
+  temper: z.string().trim().max(8).nullable().optional(),
+  profileKind: z.enum(dieProfileKinds).nullable().optional(),
+  /** Section owner (customer). `masters.publish` only (die_room cannot set an owner). */
+  ownerCustomerId: z.string().min(1).nullable().optional(),
+  cavityCount: z.number().int().min(1).max(32).nullable().optional(),
+  wallTenthMm: z.number().int().min(1).max(10_000).nullable().optional(),
+};
+
+const auditOf = (ctx: { db: OrrnDb; companyId: string; session: Parameters<typeof auditInsert>[0]["session"]; impersonation?: Parameters<typeof auditInsert>[0]["impersonation"] }) => ({
+  db: ctx.db,
+  companyId: ctx.companyId,
+  session: ctx.session,
+  impersonation: ctx.impersonation,
+});
+
 export const dieRouter = router({
+  bands: dieBandRouter,
+
+  /**
+   * Sections. Search matches series, section code, name, "SERIES CODE", and a copy code
+   * (`12170-2`; a typed slash `12170/2` matches too). Each row carries its copy count, owner and
+   * the worst drift tone among its available copies (server-computed, never stored).
+   */
   list: companyProcedure
     .input(z.object({
       search: z.string().optional(),
@@ -77,9 +144,10 @@ export const dieRouter = router({
       const search = input.search?.trim();
       if (search) {
         // Name, series, section code, or the code as the floor writes it ("PATTI 14701", series and
-        // section together). % and _ in the term are matched literally.
+        // section together), or a copy code. % and _ in the term are matched literally.
+        const copySearch = normalizeDieCopySearch(search);
         conditions.push(
-          sql`(${likeContains(die.name, search)} OR ${likeContains(die.series, search)} OR ${likeContains(die.sectionCode, search)} OR ${likeContains(sql`${die.series} || ' ' || ${die.sectionCode}`, search)})`
+          sql`(${likeContains(die.name, search)} OR ${likeContains(die.series, search)} OR ${likeContains(die.sectionCode, search)} OR ${likeContains(sql`${die.series} || ' ' || ${die.sectionCode}`, search)} OR exists (select 1 from die_instance ci where ci.company_id = ${sql.identifier("die")}.${sql.identifier("company_id")} and ci.section_id = ${sql.identifier("die")}.${sql.identifier("id")} and ${likeContains(sql`ci.code`, copySearch)}))`
         );
       }
 
@@ -95,12 +163,55 @@ export const dieRouter = router({
         .from(die)
         .where(and(...conditions));
 
+      // Copies of the listed sections (one chunked read, no N+1): count, worst tone of available ones.
+      const sectionIds = items.map((d) => d.id);
+      const copies = sectionIds.length
+        ? await mapInChunks(sectionIds, (slice) =>
+            ctx.db
+              .select({
+                sectionId: dieInstance.sectionId,
+                status: dieInstance.status,
+                latest: latestReadingSql(),
+                bandMinG: dieBand.weightMinG,
+                bandMaxG: dieBand.weightMaxG,
+                bandActive: dieBand.active,
+              })
+              .from(dieInstance)
+              .leftJoin(dieBand, and(eq(dieBand.id, dieInstance.bandId), eq(dieBand.companyId, dieInstance.companyId)))
+              .where(and(eq(dieInstance.companyId, ctx.companyId), inArray(dieInstance.sectionId, slice))),
+          )
+        : [];
+      const bands = await loadDriftBands(ctx.db, ctx.companyId);
+      const names = await customerNames(ctx.db, ctx.companyId, items.map((d) => d.ownerCustomerId));
+      const bySection = new Map<string, { count: number; tones: DriftTone[] }>();
+      const byId = new Map(items.map((d) => [d.id, d]));
+      for (const c of copies) {
+        const entry = bySection.get(c.sectionId) ?? { count: 0, tones: [] };
+        if (c.status !== "retired") entry.count += 1;
+        if (c.status === "available") {
+          const section = byId.get(c.sectionId)!;
+          const start = c.bandActive && c.bandMinG != null ? c.bandMinG : section.weightMinG;
+          entry.tones.push(copyFigures(c.latest, { weightMinG: start, weightMaxG: c.bandMaxG ?? section.weightMaxG }, bands).tone);
+        }
+        bySection.set(c.sectionId, entry);
+      }
+
       return {
-        items,
+        items: items.map((d) => ({
+          ...d,
+          copyCount: bySection.get(d.id)?.count ?? 0,
+          ownerName: d.ownerCustomerId ? (names.get(d.ownerCustomerId) ?? null) : null,
+          worstTone: worstTone(bySection.get(d.id)?.tones ?? []),
+        })),
         total: result[0]?.count ?? 0,
       };
     }),
 
+  /**
+   * The section with its bands (primary first), copies (with current weight, percent, tone, band
+   * position, kg/m), files and owner. Each band lists copies lifted off it ("Lifted to {band} on
+   * {date}") from the applied lift rows, so the empty slot shows.
+   */
   get: companyProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -116,11 +227,105 @@ export const dieRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Die not found" });
       }
 
-      return item;
+      const [bandRows, copyRows, files, lifts, driftBands] = await Promise.all([
+        ctx.db
+          .select()
+          .from(dieBand)
+          .where(and(eq(dieBand.companyId, ctx.companyId), eq(dieBand.sectionId, item.id)))
+          .orderBy(asc(dieBand.weightMinG), asc(dieBand.weightMaxG)),
+        ctx.db
+          .select({
+            id: dieInstance.id,
+            code: dieInstance.code,
+            seqNo: dieInstance.seqNo,
+            status: dieInstance.status,
+            tierRank: dieInstance.tierRank,
+            bandId: dieInstance.bandId,
+            ownerCustomerId: dieInstance.ownerCustomerId,
+            cavityCount: dieInstance.cavityCount,
+            rackNo: dieInstance.rackNo,
+            latest: latestReadingSql(),
+          })
+          .from(dieInstance)
+          .where(and(eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.sectionId, item.id)))
+          .orderBy(asc(dieInstance.seqNo)),
+        ctx.db
+          .select()
+          .from(dieFile)
+          .where(and(eq(dieFile.companyId, ctx.companyId), eq(dieFile.sectionId, item.id)))
+          .orderBy(desc(dieFile.createdAt)),
+        ctx.db
+          .select({
+            dieInstanceId: dieTierChange.dieInstanceId,
+            code: dieInstance.code,
+            fromBandId: dieTierChange.fromBandId,
+            toBandId: dieTierChange.toBandId,
+            effectiveAt: dieTierChange.effectiveAt,
+          })
+          .from(dieTierChange)
+          .innerJoin(dieInstance, and(eq(dieInstance.id, dieTierChange.dieInstanceId), eq(dieInstance.companyId, dieTierChange.companyId)))
+          .where(
+            and(
+              eq(dieTierChange.companyId, ctx.companyId),
+              eq(dieInstance.sectionId, item.id),
+              eq(dieTierChange.isLift, true),
+              eq(dieTierChange.status, "applied"),
+            ),
+          )
+          .orderBy(desc(dieTierChange.effectiveAt)),
+        loadDriftBands(ctx.db, ctx.companyId),
+      ]);
+
+      const primary = primaryBand(item);
+      const bandById = new Map(bandRows.map((b) => [b.id, b]));
+      const names = await customerNames(ctx.db, ctx.companyId, [item.ownerCustomerId, ...copyRows.map((c) => c.ownerCustomerId)]);
+      const copies = copyRows.map((c) => {
+        const band = effectiveBand(item, c.bandId ? bandById.get(c.bandId) : null);
+        const ownerId = effectiveDieOwner(c.ownerCustomerId, item.ownerCustomerId);
+        return {
+          ...c,
+          effectiveBandId: band.id,
+          ownerCustomerIdEffective: ownerId,
+          ownerName: ownerId ? (names.get(ownerId) ?? null) : null,
+          ...copyFigures(c.latest, band, driftBands),
+        };
+      });
+      const liftedOut = (bandId: string | null) =>
+        lifts
+          .filter((l) => (l.fromBandId ?? null) === bandId)
+          .map((l) => {
+            const to = l.toBandId ? bandById.get(l.toBandId) : null;
+            const toBand = to ? effectiveBand(item, { ...to, active: true }) : primary;
+            return { dieInstanceId: l.dieInstanceId, code: l.code, toBandId: l.toBandId, toBand: bandText(toBand), at: l.effectiveAt };
+          });
+      const bandsOut = [
+        { ...primary, active: true, primary: true, copyIds: copies.filter((c) => c.effectiveBandId === null).map((c) => c.id), liftedOut: liftedOut(null) },
+        ...bandRows.map((b) => ({
+          id: b.id,
+          wallTenthMm: b.wallTenthMm,
+          weightMinG: b.weightMinG,
+          weightMaxG: b.weightMaxG,
+          label: b.label,
+          active: b.active,
+          primary: false,
+          copyIds: copies.filter((c) => c.effectiveBandId === b.id).map((c) => c.id),
+          liftedOut: liftedOut(b.id),
+        })),
+      ];
+
+      return {
+        ...item,
+        ownerName: item.ownerCustomerId ? (names.get(item.ownerCustomerId) ?? null) : null,
+        wallTenthMmEffective: primary.wallTenthMm,
+        primaryKgPerMetre: { min: kgPerMetre(item.weightMinG), max: kgPerMetre(item.weightMaxG) },
+        bands: bandsOut,
+        copies,
+        files,
+      };
     }),
 
   create: actionProcedure("die.create")
-    .input(dieBaseSchema)
+    .input(dieBaseSchema.extend(dieExtraFields))
     .mutation(async ({ ctx, input }) => {
       if (input.weightMinG > input.weightMaxG) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Min weight cannot be greater than max weight" });
@@ -141,6 +346,11 @@ export const dieRouter = router({
       if (existing) {
         throw new TRPCError({ code: "CONFLICT", message: "A die with this series and section code already exists" });
       }
+
+      const ownerCustomerId = input.ownerCustomerId ?? null;
+      if (ownerCustomerId) await requireLiveCustomer(ctx.db, ctx.companyId, ownerCustomerId);
+      // FP-DR-14: alloy and temper default from the plant settings when the form leaves them out.
+      const settings = await loadFloorSettings(ctx.db, ctx.companyId);
 
       const id = crypto.randomUUID();
       const serverSeq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
@@ -165,9 +375,15 @@ export const dieRouter = router({
           weightMaxG: input.weightMaxG,
           status: input.status,
           notes: input.notes,
+          alloy: input.alloy === undefined ? settings.defaultAlloy : input.alloy,
+          temper: input.temper === undefined ? settings.defaultTemper : input.temper,
+          profileKind: input.profileKind ?? null,
+          ownerCustomerId,
+          cavityCount: input.cavityCount ?? null,
+          wallTenthMm: input.wallTenthMm ?? null,
         }),
         auditInsert(
-          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          auditOf(ctx),
           {
             action: "die.create",
             subjectType: "die",
@@ -175,13 +391,23 @@ export const dieRouter = router({
             meta: { series: input.series, sectionCode: input.sectionCode },
           },
         ),
+        ...(ownerCustomerId
+          ? [
+              auditInsert(auditOf(ctx), {
+                action: "die_owner.set",
+                subjectType: "die",
+                subjectId: id,
+                meta: { from: null, to: ownerCustomerId, sectionCode: input.sectionCode },
+              }),
+            ]
+          : []),
       ]);
 
       return { success: true, id };
     }),
 
   update: actionProcedure("die.update")
-    .input(dieBaseSchema.extend({ id: z.string() }))
+    .input(dieBaseSchema.extend({ id: z.string(), ...dieExtraFields }))
     .mutation(async ({ ctx, input }) => {
       if (input.weightMinG > input.weightMaxG) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Min weight cannot be greater than max weight" });
@@ -214,7 +440,50 @@ export const dieRouter = router({
         }
       }
 
+      // The primary band takes part in the band duplicate guard (FP-DR-02).
+      const next = {
+        ...existing,
+        series: input.series,
+        sectionCode: input.sectionCode,
+        thicknessMm: input.thicknessMm ?? null,
+        wallTenthMm: input.wallTenthMm === undefined ? existing.wallTenthMm : input.wallTenthMm,
+        weightMinG: input.weightMinG,
+        weightMaxG: input.weightMaxG,
+      };
+      const nextKey = { wallTenthMm: sectionWallTenth(next), weightMinG: next.weightMinG, weightMaxG: next.weightMaxG };
+      const primaryMoved =
+        nextKey.wallTenthMm !== sectionWallTenth(existing) || nextKey.weightMinG !== existing.weightMinG || nextKey.weightMaxG !== existing.weightMaxG;
+      if (primaryMoved) {
+        const clash = await findDuplicateBand(ctx.db, ctx.companyId, next, nextKey, { skipPrimary: true });
+        if (clash) throw duplicateBandError(clash);
+      }
+
+      const ownerChanged = input.ownerCustomerId !== undefined && (input.ownerCustomerId ?? null) !== existing.ownerCustomerId;
+      if (ownerChanged && input.ownerCustomerId) {
+        await requireLiveCustomer(ctx.db, ctx.companyId, input.ownerCustomerId);
+        // C2: a copy cannot belong to someone other than the section owner.
+        const [clash] = await ctx.db
+          .select({ code: dieInstance.code })
+          .from(dieInstance)
+          .where(
+            and(
+              eq(dieInstance.companyId, ctx.companyId),
+              eq(dieInstance.sectionId, existing.id),
+              isNotNull(dieInstance.ownerCustomerId),
+              ne(dieInstance.ownerCustomerId, input.ownerCustomerId),
+            ),
+          )
+          .limit(1);
+        if (clash) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `${clash.code} belongs to another customer; clear that copy's owner first`,
+          });
+        }
+      }
+
       const serverSeq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const pick = <K extends keyof typeof dieExtraFields>(k: K) => (input[k] === undefined ? existing[k] : input[k]);
 
       await atomicBatch(ctx.db, [
         ctx.db
@@ -235,11 +504,17 @@ export const dieRouter = router({
             weightMaxG: input.weightMaxG,
             status: input.status,
             notes: input.notes,
+            alloy: pick("alloy"),
+            temper: pick("temper"),
+            profileKind: pick("profileKind"),
+            ownerCustomerId: pick("ownerCustomerId"),
+            cavityCount: pick("cavityCount"),
+            wallTenthMm: pick("wallTenthMm"),
             serverSeq,
           })
-          .where(eq(die.id, input.id)),
+          .where(and(eq(die.id, input.id), eq(die.companyId, ctx.companyId))),
         auditInsert(
-          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          auditOf(ctx),
           {
             action: "die.update",
             subjectType: "die",
@@ -247,6 +522,16 @@ export const dieRouter = router({
             meta: { series: input.series, sectionCode: input.sectionCode },
           },
         ),
+        ...(ownerChanged
+          ? [
+              auditInsert(auditOf(ctx), {
+                action: "die_owner.set",
+                subjectType: "die",
+                subjectId: input.id,
+                meta: { from: existing.ownerCustomerId, to: input.ownerCustomerId ?? null, sectionCode: input.sectionCode },
+              }),
+            ]
+          : []),
       ]);
 
       return { success: true };
@@ -288,7 +573,7 @@ export const dieRouter = router({
     }),
 
   validateImport: actionProcedure("die.import")
-    .input(z.array(dieBaseSchema).max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"))
+    .input(z.array(dieImportRow).max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"))
     .mutation(async ({ ctx, input }) => {
       type Row = z.infer<typeof dieBaseSchema>;
       const validRows: Row[] = [];
@@ -322,9 +607,9 @@ export const dieRouter = router({
 
   processImport: actionProcedure("die.import")
     .input(z.object({
-      newRows: z.array(dieBaseSchema).max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"),
+      newRows: z.array(dieImportRow).max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"),
       updatedRows: z
-        .array(dieBaseSchema.extend({ existingId: z.string() }))
+        .array(dieImportUpdateRow)
         .max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"),
     }))
     .mutation(async ({ ctx, input }) => {

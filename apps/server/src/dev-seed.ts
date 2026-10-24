@@ -922,6 +922,90 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     })),
   ];
 
+  // Die room demo (FP-DR): Tee 13090 has its primary band 2.700-2.900 and a heavier band
+  // 2.900-3.100. 13090-1 is green, 13090-2 amber (above its band), 13090-3 on the heavy band red.
+  // Channel 12230 belongs to KD Extrusion (owned section, one copy). Patti 14701-1 is issued to
+  // Press 1 (one open issue, no run yet). Readings are history; percent and tone are computed.
+  const devCopyId = (code: string) => `dev-copy-${code}`;
+  const heavyBandId = "dev-band-13090-heavy";
+  const dieBandRows: (typeof dieBand.$inferInsert)[] = [
+    {
+      id: heavyBandId,
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      sectionId: dieId("tee125"),
+      wallTenthMm: 30,
+      weightMinG: 2_900,
+      weightMaxG: 3_100,
+      label: "2.9-3.1",
+      createdBy: ownerId,
+      createdAt: new Date(pastAt(9, 10)),
+      updatedAt: new Date(pastAt(9, 10)),
+    },
+  ];
+  type CopyDef = { section: string; code: string; seqNo: number; tier: number | null; status: "available" | "in_use"; bandId?: string; readings: number[]; lifeG?: number };
+  const COPIES: CopyDef[] = [
+    { section: "tee125", code: "13090-1", seqNo: 1, tier: 1, status: "available", readings: [2_740, 2_760], lifeG: 60_000_000 },
+    { section: "tee125", code: "13090-2", seqNo: 2, tier: 2, status: "available", readings: [2_910, 2_950] },
+    { section: "tee125", code: "13090-3", seqNo: 3, tier: 1, status: "available", bandId: heavyBandId, readings: [3_150, 3_200] },
+    { section: "chan1", code: "12230-1", seqNo: 1, tier: 1, status: "available", readings: [2_850] },
+    { section: "patti1", code: "14701-1", seqNo: 1, tier: 1, status: "in_use", readings: [2_480] },
+  ];
+  const copyRows: (typeof dieInstance.$inferInsert)[] = COPIES.map((c) => ({
+    id: devCopyId(c.code),
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    sectionId: dieId(c.section),
+    seqNo: c.seqNo,
+    code: c.code,
+    status: c.status,
+    tierRank: c.tier,
+    tierSince: c.tier === null ? null : new Date(pastAt(9, 11)),
+    lifeG: c.lifeG ?? null,
+    bandId: c.bandId ?? null,
+    createdBy: ownerId,
+    createdAt: new Date(pastAt(9, 11)),
+    updatedAt: new Date(pastAt(9, 11)),
+  }));
+  const copyTierRows: (typeof dieTierChange.$inferInsert)[] = COPIES.filter((c) => c.tier !== null).map((c) => ({
+    id: `dev-tier-${c.code}`,
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    dieInstanceId: devCopyId(c.code),
+    toRank: c.tier!,
+    reason: "initial",
+    status: "applied" as const,
+    effectiveAt: new Date(pastAt(9, 11)),
+    createdBy: ownerId,
+  }));
+  const readingRows: (typeof dieWeightReading.$inferInsert)[] = COPIES.flatMap((c) =>
+    c.readings.map((milli, i) => ({
+      id: `dev-reading-${c.code}-${i + 1}`,
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      dieInstanceId: devCopyId(c.code),
+      kgPer12ftMilli: milli,
+      lastKgPer12ftMilli: i === 0 ? null : c.readings[i - 1]!,
+      readAt: new Date(pastAt(c.readings.length - i + 1, 9)),
+      createdBy: ownerId,
+    })),
+  );
+  const dieIssueRows: (typeof dieIssue.$inferInsert)[] = [
+    {
+      id: "dev-issue-14701-1",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      dieInstanceId: devCopyId("14701-1"),
+      pressLineId: "dev-press-line-1",
+      status: "issued",
+      issuedAt: new Date(todayAt(0.1)),
+      issuedBy: ownerId,
+      note: "Day shift",
+    },
+  ];
+  const ownedSectionId = dieId("chan1");
+  const ownedBy = customerId(CUSTOMERS[0]!.key);
+
   // Sequence now covers everything allocated above; packing-list codes continue from it.
   const sequenceAfterData = seq;
 
@@ -1068,6 +1152,13 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         createdBy: ownerId,
       })),
     ),
+    // Die room demo (after the sections and the press line it points at).
+    db.update(die).set({ ownerCustomerId: ownedBy }).where(and(eq(die.id, ownedSectionId), eq(die.companyId, COMPANY_ID))),
+    ...insertChunks(db, dieBand, dieBandRows),
+    ...insertChunks(db, dieInstance, copyRows),
+    ...insertChunks(db, dieTierChange, copyTierRows),
+    ...insertChunks(db, dieWeightReading, readingRows),
+    ...insertChunks(db, dieIssue, dieIssueRows),
   ];
   await atomicBatch(db, statements);
 
@@ -1132,6 +1223,10 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     counts: {
       customers: customerRows.length,
       dies: dieRows.length,
+      dieCopies: copyRows.length,
+      dieBands: dieBandRows.length,
+      dieReadings: readingRows.length,
+      dieIssues: dieIssueRows.length,
       packingSessions: groups.length,
       bundles: bundleRows.length,
       dispatches: dispatchRows.length,

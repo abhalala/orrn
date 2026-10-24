@@ -1,9 +1,16 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 
 import type { Context } from "./context";
+import { errorMetaOf } from "./lib/errorMeta";
 import { can, canAny, type Action } from "./lib/permissions";
 
-export const t = initTRPC.context<Context>().create();
+export const t = initTRPC.context<Context>().create({
+  // `TRPCMetaError.meta` (e.g. a duplicate band's `existing`) reaches the client as `error.data.meta`.
+  errorFormatter({ shape, error }) {
+    const meta = errorMetaOf(error);
+    return meta ? { ...shape, data: { ...shape.data, meta } } : shape;
+  },
+});
 
 export const router = t.router;
 
