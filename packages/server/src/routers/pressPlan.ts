@@ -940,6 +940,16 @@ export const pressPlanRouter = router({
       return { id: plan.id, status: "draft" as const, added: lineRows.length, removed: removeIds.length };
     }),
 
+  /** Active press lines, for the plan's press pick (a plant with two needs one before release). */
+  pressLines: companyProcedure.query(async ({ ctx }) => {
+    return ctx.db
+      .select({ id: pressLine.id, code: pressLine.code, name: pressLine.name })
+      .from(pressLine)
+      .where(and(eq(pressLine.companyId, ctx.companyId), eq(pressLine.status, "active")))
+      .orderBy(asc(pressLine.code))
+      .limit(50);
+  }),
+
   /**
    * Every other open line on these dies (FP-OP-15, BACKLOG rank 30): confirmed / dispatching lines
    * with planable kg, with party, SO number and period, PO, cut length, planable kg and pieces and

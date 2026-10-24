@@ -30,8 +30,8 @@ export function rateText(paise: number): string {
   return (paise / 100).toFixed(2);
 }
 
-/** `Date` or ms as "24 Oct, 20:00" in the browser's zone (the plant's own clock). */
-export function dayTimeText(at: Date | number | string, locale: string): string {
+/** `Date` or ms as "24 Oct, 20:00" on the plant's clock (`settings.timezone`; review m-9). */
+export function dayTimeText(at: Date | number | string, locale: string, timeZone = "Asia/Kolkata"): string {
   const d = at instanceof Date ? at : new Date(at);
   if (Number.isNaN(d.getTime())) return "";
   return new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-IN", {
@@ -41,5 +41,6 @@ export function dayTimeText(at: Date | number | string, locale: string): string 
     minute: "2-digit",
     hour12: false,
     numberingSystem: "latn",
+    timeZone,
   }).format(d);
 }

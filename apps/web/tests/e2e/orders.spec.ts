@@ -84,6 +84,25 @@ async function apiBooking(page: Page, cutLengthMm: number, po: string) {
   });
 }
 
+type Line = { sectionId: string; cutLengthMm?: number; pcs: number };
+type GotOrder = {
+  order: { id: string; number: string; status: string; serverSeq: number };
+  lines: { lineId: string; lineNo: number; orderedPcs: number | null; orderedG: number }[];
+};
+
+/** A confirmed order made over the API (office): booked with a PO, then confirmed. */
+async function apiConfirmed(page: Page, customerId: string, lines: Line[]) {
+  const po = `E2E-${Math.random().toString(36).slice(2, 10)}`;
+  const made = await trpcMutation<OrderRow>(page, "orders.create", {
+    customerId,
+    poNumber: po,
+    lines: lines.map((l) => ({ sectionId: l.sectionId, cutLengthMm: l.cutLengthMm ?? 3658, qtyBasis: "pcs", pcs: l.pcs, tierRank: 1 })),
+  });
+  const got = await trpcQuery<GotOrder>(page, "orders.get", { id: made.id });
+  await trpcMutation(page, "orders.confirm", { id: made.id, serverSeq: got.order.serverSeq });
+  return { ...made, po, lines: got.lines };
+}
+
 test.describe("orders list and detail", () => {
   for (const width of WIDTHS) {
     test(`the list shows SO-1 (late), SO-2 and SO-3 (booking) at ${width}`, async ({ page }) => {
@@ -204,7 +223,7 @@ test.describe("book and confirm", () => {
 
     // Add the PO, then confirm.
     const po = `E2E-${Date.now()}`;
-    await page.getByRole("button", { name: "Edit" }).click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByRole("textbox", { name: "PO number" }).fill(po);
     await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
     await expect(page.getByText(po).first()).toBeVisible();
@@ -239,6 +258,17 @@ test.describe("book and confirm", () => {
     await expect(page.locator("[data-quote]")).toContainText(`${quote.pcs} pcs weigh ${kg3(quote.impliedG)} kg. You typed 100.000 kg.`);
     await page.getByRole("button", { name: "+1 piece" }).click();
     await expect(page.getByRole("textbox", { name: "Pieces" })).toHaveValue(String(quote.pcs + 1));
+    // Review I-5: the derived side follows the new pieces; the old 100 kg quote is never shown as current.
+    const next = await trpcQuery<{ kgG: number }>(page, "orders.quote", {
+      sectionId: "dev-die-14701",
+      cutLengthMm: 3658,
+      qtyBasis: "pcs",
+      pcs: quote.pcs + 1,
+      weightBasis: "copy_current",
+    });
+    await expect(page.locator("[data-quote]")).toContainText(`${quote.pcs + 1} pcs come to ${kg3(next.kgG)} kg`);
+    await expect(page.getByRole("textbox", { name: "kg", exact: true })).toHaveValue((next.kgG / 1000).toFixed(3));
+    await expect(page.locator("[data-quote]")).not.toContainText(`${quote.pcs} pcs weigh`);
     await shot(page, "new-1280");
   });
 
@@ -290,7 +320,9 @@ test.describe("reallocate", () => {
     const value = await dest.locator("option", { hasText: `${target.number} · Royal Aluminium` }).getAttribute("value");
     await dest.selectOption(value!);
     await expect(sheet.getByText("This is another customer's order. A manager approves the move.")).toBeVisible();
-    await expect(sheet.locator("[data-length-warning]")).toContainText("The cut length differs from this line's");
+    await expect(sheet.locator("[data-length-warning]")).toContainText(`The cut length differs from ${target.number} line 1 (18 ft)`);
+    // Review m-7: the PO is not cut by the select; it sits on its own line.
+    await expect(sheet.locator("[data-reallocate-target]")).toContainText("E2E-R-");
     // The length differs: a reason is needed before it can be asked.
     await expect(sheet.getByRole("button", { name: "Ask for approval" })).toBeDisabled();
     await sheet.getByLabel("Reason", { exact: true }).selectOption("length_mismatch");
@@ -334,6 +366,8 @@ test.describe("press plan", () => {
     await candidate.getByRole("button", { name: "Add" }).click();
     await expect(page.locator("[data-candidate='SO-2']")).toHaveCount(0);
     await expect(page.locator("[data-draft-die]")).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Save draft plan" })).toBeEnabled();
+    await expect(page.locator("[data-draft-footer]")).toHaveText(/1 die, \d+ lines?/);
     await shot(page, "plan-board-1280");
 
     // A window over 24 hours is refused before it is sent.
@@ -363,6 +397,69 @@ test.describe("press plan", () => {
     expect(plan.runs[0]!.number).toMatch(/^PR-\d+/);
   });
 
+  test("other open lines on the draft's dies, add all of an SO, the die count, and editing a draft (rank 30, I-2, I-3, I-6)", async ({ page }) => {
+    test.setTimeout(180_000);
+    await open(page, { role: "office", width: 1280, path: "/orders" });
+    const a = await apiConfirmed(page, "dev-customer-royal", [
+      { sectionId: "dev-die-14701", pcs: 20 },
+      { sectionId: "dev-die-14715", pcs: 8 },
+    ]);
+    const b = await apiConfirmed(page, "dev-customer-kd", [{ sectionId: "dev-die-14701", pcs: 6 }]);
+
+    await page.goto("/orders/plan");
+    await settled(page);
+    await page.getByRole("textbox", { name: "Search open lines" }).fill(a.po);
+    await page.locator(`[data-add-all='${a.number}']`).first().click();
+    await expect(page.locator("[data-draft-die]")).toHaveCount(2);
+    await expect(page.locator("[data-draft-footer]")).toHaveText("2 dies, 2 lines");
+
+    // The other open lines on those dies, from the server: KD's line on 14701 with SO, PO, length, kg and pcs.
+    const other = page.locator(`[data-other-line='${b.number}']`);
+    await expect(other).toContainText("KD Extrusion");
+    await expect(other).toContainText(b.po);
+    await expect(other).toContainText("12 ft");
+    await expect(other).toContainText(/kg, 6 pcs to plan/);
+    await other.getByRole("button", { name: "Add" }).click();
+    await expect(page.locator("[data-draft-footer]")).toHaveText("2 dies, 3 lines");
+    await expect(page.locator(`[data-draft-line='${b.number}']`)).toBeVisible();
+    await page.locator(`[data-draft-line='${b.number}']`).getByRole("button", { name: "Remove" }).click();
+    await expect(page.locator("[data-draft-footer]")).toHaveText("2 dies, 2 lines");
+    await expect(page.getByRole("button", { name: "Save draft plan" })).toBeEnabled();
+    expect(await blockingAxeViolations(page), "/orders/plan at 1280").toEqual([]);
+    await shot(page, "plan-board-other-1280");
+    await page.getByRole("button", { name: "Save draft plan" }).click();
+    await expect(page).toHaveURL(/\/orders\/plan\/[^/]+$/);
+    const id = new URL(page.url()).pathname.split("/").pop()!;
+    await expect(page.locator("[data-plan-status='draft']")).toBeVisible();
+
+    // On the draft's page: add KD's line in one tap, then take it off again.
+    const panel = page.locator("[data-other-lines]");
+    await panel.locator(`[data-other-line='${b.number}']`).getByRole("button", { name: "Add" }).click();
+    await expect(toast(page, "Added to the plan")).toBeVisible();
+    await expect(page.locator(`[data-plan-line='${b.number}']`)).toBeVisible();
+    await page.locator(`[data-plan-line='${b.number}']`).getByRole("button", { name: "Remove" }).click();
+    await expect(toast(page, "Taken off the plan")).toBeVisible();
+    await expect(page.locator(`[data-plan-line='${b.number}']`)).toHaveCount(0);
+
+    // I-3: the list shows this plan's own dies and kg.
+    const got = await trpcQuery<{ plan: { number: string }; lines: { kgG: number }[] }>(page, "plans.get", { id });
+    const kgG = got.lines.reduce((sum, l) => sum + l.kgG, 0);
+    expect(got.lines).toHaveLength(2);
+    await page.goto("/orders/plan");
+    await settled(page);
+    await expect(page.locator(`[data-plan='${got.plan.number}']`)).toContainText(`2 dies, ${kg3(kgG)} kg`);
+
+    // Release: KD's line is a warning with its SO number, length and party.
+    await page.goto(`/orders/plan/${id}`);
+    await settled(page);
+    await page.getByRole("button", { name: "Release to press" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Release to press" }).click();
+    await expect(page.locator("[data-plan-status='released']")).toBeVisible();
+    const warning = page.locator(`[data-plan-warning='${b.number}']`);
+    await expect(warning).toContainText(`14701 is also open for KD Extrusion on ${b.number} (12 ft)`);
+    await expect(page.locator("[data-other-lines]")).toHaveCount(0);
+  });
+
   test("the board works on a tablet", async ({ page }) => {
     await open(page, { role: "office", width: 820, path: "/orders/plan" });
     await settled(page);
@@ -370,6 +467,158 @@ test.describe("press plan", () => {
     await expect(page.locator("[data-bigger-screen]")).toHaveCount(0);
     await expectNoHorizontalScroll(page);
     await shot(page, "plan-820");
+  });
+});
+
+test.describe("edit lines (review I-1)", () => {
+  test("a confirmed order's pieces change and a line goes; a line on a released plan keeps its figures", async ({ page }) => {
+    test.setTimeout(150_000);
+    await open(page, { role: "office", width: 1280, path: "/orders" });
+    const made = await apiConfirmed(page, "dev-customer-royal", [
+      { sectionId: "dev-die-14701", pcs: 10 },
+      { sectionId: "dev-die-14715", pcs: 5 },
+    ]);
+    await page.goto(`/orders/${made.id}`);
+    await settled(page);
+    await page.getByRole("button", { name: "Edit lines" }).click();
+    const editor = page.locator("[data-lines-editor]");
+    await expect(editor.locator("[data-line]")).toHaveCount(2);
+    const line1 = editor.locator("[data-line='1']");
+    await expect(line1.getByRole("textbox", { name: "Pieces" })).toHaveValue("10");
+    await line1.getByRole("textbox", { name: "Pieces" }).fill("12");
+    // Quoted on the line's own locked basis (`lineId`), as the save keeps it.
+    const stored = await trpcQuery<{ lineDetails: { weightBasis: string }[] }>(page, "orders.get", { id: made.id });
+    const quote = await trpcQuery<{ kgG: number; locked: boolean }>(page, "orders.quote", {
+      lineId: made.lines[0]!.lineId,
+      sectionId: "dev-die-14701",
+      cutLengthMm: 3658,
+      qtyBasis: "pcs",
+      pcs: 12,
+      weightBasis: stored.lineDetails[0]!.weightBasis,
+      dieInstanceId: null,
+    });
+    expect(quote.locked).toBe(true);
+    await expect(line1.locator("[data-quote]")).toContainText(`12 pcs come to ${kg3(quote.kgG)} kg`);
+    await expect(line1.locator("[data-quote]")).toContainText("locked when this line was booked");
+    await editor.locator("[data-line='2']").getByRole("button", { name: "Remove" }).click();
+    await shot(page, "edit-lines-1280");
+    await editor.getByRole("button", { name: "Save lines" }).click();
+    await expect(toast(page, "Lines saved")).toBeVisible();
+    await expect(page.locator("[data-lines-editor]")).toHaveCount(0);
+
+    const after = await trpcQuery<GotOrder>(page, "orders.get", { id: made.id });
+    expect(after.lines).toHaveLength(1);
+    expect(after.lines[0]).toMatchObject({ lineId: made.lines[0]!.lineId, orderedPcs: 12, orderedG: quote.kgG });
+    await expect(page.locator("[data-order-line='1'] [data-strip='orderedG']")).toContainText(`${kg3(quote.kgG)} kg`);
+    await expect(page.locator("[data-order-line='1'] [data-strip='orderedG']")).toContainText("12 pcs");
+
+    // Released to the press: its figures are fixed, and the refusal reads as a sentence.
+    const now = Date.now();
+    const plan = await trpcMutation<{ id: string }>(page, "plans.create", {
+      windowStart: now,
+      windowEnd: now + 3_600_000,
+      dies: [{ sectionId: "dev-die-14701", lines: [{ salesOrderLineId: made.lines[0]!.lineId, pcs: 2 }] }],
+    });
+    await trpcMutation(page, "plans.release", { id: plan.id });
+    await page.reload();
+    await settled(page);
+    await page.getByRole("button", { name: "Edit lines" }).click();
+    await page.locator("[data-lines-editor] [data-line='1']").getByRole("textbox", { name: "Pieces" }).fill("15");
+    await expect(page.locator("[data-lines-editor] [data-line='1'] [data-quote]")).toContainText("15 pcs come to");
+    await page.getByRole("button", { name: "Save lines" }).click();
+    await expect(page.locator("[data-lines-error]")).toContainText(
+      "Line 1 is on a released press plan. Its kg, pieces, length and die can't change now.",
+    );
+    expect((await trpcQuery<GotOrder>(page, "orders.get", { id: made.id })).lines[0]).toMatchObject({ orderedPcs: 12 });
+  });
+});
+
+test.describe("take ready stock (review I-4)", () => {
+  test("stock on no order goes on the line at once; another customer's waits for a manager", async ({ page }) => {
+    test.setTimeout(150_000);
+    await open(page, { role: "office", width: 375, path: "/orders" });
+    const royal = await apiConfirmed(page, "dev-customer-royal", [{ sectionId: "dev-die-14715", pcs: 10 }]);
+    await page.goto(`/orders/${royal.id}`);
+    await settled(page);
+    await page.locator("[data-take-stock='1']").click();
+    const sheet = page.getByRole("dialog", { name: "Ready stock for line 1" });
+    await expect(sheet).toBeVisible();
+    // Stock on no order of die 14715 (the seed packs none of it for an order). SO-1's bundles (other
+    // tests move them to plant stock) would still remember KD Extrusion, so they are never picked.
+    const so1 = await trpcQuery<{ items: { serial: string }[] }>(page, "orders.lineBundles", { lineId: "dev-sol-1-1", limit: 50 });
+    const fromKd = new Set(so1.items.map((b) => b.serial));
+    const free = sheet.locator("[data-stock-group='plant'] [data-stock-bundle], [data-stock-group='unassigned'] [data-stock-bundle]");
+    await expect(free.first()).toBeVisible();
+    const serials = await free.evaluateAll((els) => els.map((e) => e.getAttribute("data-stock-bundle") ?? ""));
+    const pick = serials.find((x) => !fromKd.has(x));
+    expect(pick, "a bundle on no order").toBeTruthy();
+    await expect(sheet.getByRole("button", { name: "Put on this line" })).toBeDisabled();
+    await sheet.locator(`[data-stock-bundle='${pick}']`).getByRole("checkbox").click();
+    await sheet.getByLabel("Reason", { exact: true }).selectOption("customer_request");
+    await shot(page, "take-stock-375");
+    await sheet.getByRole("button", { name: "Put on this line" }).click();
+    await expect(sheet.locator("[data-take-result='applied']")).toContainText("1 bundle moved");
+    await sheet.getByRole("button", { name: "Done" }).click();
+    const bundles = await trpcQuery<{ items: { serial: string; movedAway: boolean }[] }>(page, "orders.lineBundles", {
+      lineId: royal.lines[0]!.lineId,
+      limit: 50,
+    });
+    const onLine = bundles.items.filter((b) => !b.movedAway);
+    expect(onLine).toHaveLength(1);
+    const strip = (await trpcQuery<{ lineDetails: { strip: { inStockG: number } }[] }>(page, "orders.get", { id: royal.id })).lineDetails[0]!.strip;
+    expect(strip.inStockG).toBeGreaterThan(0);
+    await expect(page.locator("[data-order-line='1'] [data-strip='inStockG']")).toContainText(`${kg3(strip.inStockG)} kg`);
+
+    // Another customer's order takes that bundle: a request, nothing moves yet.
+    const kd = await apiConfirmed(page, "dev-customer-kd", [{ sectionId: "dev-die-14715", pcs: 10 }]);
+    await page.goto(`/orders/${kd.id}`);
+    await settled(page);
+    await page.locator("[data-take-stock='1']").click();
+    const sheet2 = page.getByRole("dialog", { name: "Ready stock for line 1" });
+    const theirs = sheet2.locator(`[data-stock-bundle='${onLine[0]!.serial}']`);
+    await expect(theirs).toContainText("Needs a manager");
+    await theirs.getByRole("checkbox").click();
+    await sheet2.getByLabel("Reason", { exact: true }).selectOption("customer_request");
+    await sheet2.getByRole("button", { name: "Put on this line" }).click();
+    const result = sheet2.locator("[data-take-result='pending']");
+    await expect(result).toContainText("Waiting for a manager");
+    await expect(result.getByRole("link", { name: "See the request" })).toBeVisible();
+    await sheet2.getByRole("button", { name: "Done" }).click();
+    // The order that asked shows the request until a manager decides; the bundle stays where it was.
+    await expect(page.locator("[data-pending-request]")).toContainText("Waiting for a manager");
+    await expect(page.locator("[data-pending-request]")).toContainText(kd.number);
+    const still = await trpcQuery<{ items: { movedAway: boolean }[] }>(page, "orders.lineBundles", { lineId: royal.lines[0]!.lineId, limit: 50 });
+    expect(still.items.filter((b) => !b.movedAway)).toHaveLength(1);
+  });
+});
+
+test.describe("close and cancel (review m-11)", () => {
+  test("close asks why while baki is left; cancel always asks why", async ({ page }) => {
+    test.setTimeout(120_000);
+    await open(page, { role: "office", width: 375, path: "/orders" });
+    const toClose = await apiConfirmed(page, "dev-customer-royal", [{ sectionId: "dev-die-14701", pcs: 3 }]);
+    await page.goto(`/orders/${toClose.id}`);
+    await settled(page);
+    await page.getByRole("button", { name: "Close order" }).click();
+    const closeSheet = page.getByRole("dialog", { name: "Close order" });
+    await expect(closeSheet).toContainText("kg is still to dispatch");
+    await expect(closeSheet.getByRole("button", { name: "Close order" })).toBeDisabled();
+    await closeSheet.getByRole("textbox").fill("Customer took the rest from another plant");
+    await closeSheet.getByRole("button", { name: "Close order" }).click();
+    await expect(toast(page, "Order closed")).toBeVisible();
+    await expect(page.getByText("Closed", { exact: true }).first()).toBeVisible();
+
+    const toCancel = await apiBooking(page, 3658, `E2E-C-${Date.now()}`);
+    await page.goto(`/orders/${toCancel.id}`);
+    await settled(page);
+    await page.getByRole("button", { name: "Cancel order" }).click();
+    const cancelSheet = page.getByRole("dialog", { name: "Cancel order" });
+    await expect(cancelSheet.getByRole("button", { name: "Cancel order" })).toBeDisabled();
+    await cancelSheet.getByRole("textbox").fill("Booked twice");
+    await cancelSheet.getByRole("button", { name: "Cancel order" }).click();
+    await expect(toast(page, "Order cancelled")).toBeVisible();
+    const got = await trpcQuery<{ order: { status: string; cancelReason: string } }>(page, "orders.get", { id: toCancel.id });
+    expect(got.order).toMatchObject({ status: "cancelled", cancelReason: "Booked twice" });
   });
 });
 
@@ -385,7 +634,7 @@ test.describe("who sees what", () => {
     await page.goto("/orders/dev-so-3");
     await settled(page);
     await expect(page.getByRole("heading", { name: "SO-3", level: 1 })).toBeVisible();
-    for (const name of ["Confirm order", "Edit", "Close order", "Cancel order", "Move bundles"]) {
+    for (const name of ["Confirm order", "Edit", "Edit lines", "Close order", "Cancel order", "Move bundles", "Take ready stock", "Refresh weight"]) {
       await expect(page.getByRole("button", { name })).toHaveCount(0);
     }
     await page.goto("/orders/dev-so-1");

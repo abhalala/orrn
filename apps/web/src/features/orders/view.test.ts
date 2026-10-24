@@ -12,7 +12,9 @@ import {
   isMovable,
   lengthMismatches,
   movePlanDie,
-  otherPartyNotes,
+  addPlanLines,
+  draftCounts,
+  soLines,
   parseBlocker,
   poRepeatFromMessage,
   reallocateProblem,
@@ -73,6 +75,9 @@ describe("confirm blockers", () => {
     const hi = createI18n("hi").t;
     expect(blockerText("po_number", hi)).toBe("PO नंबर डालें।");
     expect(blockerText("line_1_kg", hi)).toContain("लाइन 1");
+    // A code this screen does not know is marked as the server's (review m-8).
+    expect(blockerText("line_1_weird", en)).toBe("line_1_weird");
+    expect(blockerText("line_1_weird", hi)).toBe("सर्वर का जवाब: line_1_weird");
   });
 
   test("the server refusal text yields its codes", () => {
@@ -143,6 +148,7 @@ describe("timelineLabel", () => {
 
   test("a plan names its number; an unknown action is shown as is", () => {
     expect(timelineLabel({ action: "plan.release", meta: { number: "PP-3" } })).toEqual({ key: "orders.timeline.planRelease", vars: { number: "PP-3" } });
+    expect(timelineLabel({ action: "plan.update", meta: { number: "PP-3" } })).toEqual({ key: "orders.timeline.planUpdate", vars: { number: "PP-3" } });
     expect(timelineLabel({ action: "mystery.thing", meta: null })).toEqual({ key: "orders.timeline.other", vars: { action: "mystery.thing" } });
   });
 });
@@ -178,21 +184,24 @@ describe("plan draft", () => {
     expect(draft.map((x) => [x.sectionId, x.urgent])).toEqual([["c", false], ["b", true], ["a", false]]);
   });
 
-  test("other parties' open lines on the same die are noted, not blocked", () => {
-    const candidates = [
-      {
-        sectionId: "s1",
-        sectionCode: "12170",
-        lines: [
-          { lineId: "l1", customerId: "c1", customerName: "Bhavesh", poNumber: "BH-1", orderNumber: "SO-18", planableG: 334_400 },
-          { lineId: "l2", customerId: "c2", customerName: "Anshu", poNumber: "AN-1", orderNumber: "SO-19", planableG: 156_053 },
-        ],
-      },
+  test("add all of one SO puts each of its lines under its own die (review I-6)", () => {
+    const open = [
+      { sectionId: "s1", lines: [{ lineId: "l1", orderId: "o1" }, { lineId: "l2", orderId: "o2" }] },
+      { sectionId: "s2", lines: [{ lineId: "l3", orderId: "o1" }] },
     ];
-    expect(otherPartyNotes([d("s1", "l1")], candidates)).toEqual([
-      { sectionId: "s1", sectionCode: "12170", customerName: "Anshu", poNumber: "AN-1", orderNumber: "SO-19", planableG: 156_053 },
+    expect(soLines(open, "o1")).toEqual([
+      { sectionId: "s1", lineId: "l1" },
+      { sectionId: "s2", lineId: "l3" },
     ]);
-    expect(otherPartyNotes([d("s1", "l1", "l2")], candidates)).toEqual([]);
+    const draft = addPlanLines([d("s1", "l9")], soLines(open, "o1"));
+    expect(draft).toEqual([d("s1", "l9", "l1"), d("s2", "l3")]);
+    // Adding again changes nothing.
+    expect(addPlanLines(draft, soLines(open, "o1"))).toEqual(draft);
+  });
+
+  test("the draft footer counts dies and lines", () => {
+    expect(draftCounts([])).toEqual({ dies: 0, lines: 0 });
+    expect(draftCounts([d("s1", "l1", "l2"), d("s2", "l3")])).toEqual({ dies: 2, lines: 3 });
   });
 });
 

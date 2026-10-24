@@ -21,17 +21,19 @@ import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
+import { OtherLines } from "./components/other-lines";
 import { ReasonSheet } from "./components/reason-sheet";
 import { orderErrorLines } from "./errors";
 import { dayTimeText, orderKgText } from "./format";
-import { useMinWidth } from "./hooks";
+import { useCompanyTimeZone, useMinWidth } from "./hooks";
 import { BiggerScreenNote, PLAN_STATUS_TONE } from "./plan-board-page";
 import { dieTitle } from "./view";
 
-type Warning = { sectionCode: string; customerName: string; orderNumber: string; planableG: number };
+type Warning = { lineId: string; sectionCode: string; customerName: string; orderNumber: string; cutLengthMm: number; planableG: number };
 
 export function PlanDetailPage({ id }: { id: string }) {
   const { t, locale } = useT();
+  const zone = useCompanyTimeZone();
   const queryClient = useQueryClient();
   const { unit } = useLengthUnit();
   const wide = useMinWidth(820);
@@ -41,6 +43,13 @@ export function PlanDetailPage({ id }: { id: string }) {
   const [warnings, setWarnings] = useState<Warning[]>([]);
 
   const plan = useQuery(trpc.plans.get.queryOptions({ id }));
+  const isDraft = plan.data?.plan.status === "draft";
+  const dieIds = (plan.data?.dies ?? []).map((d) => d.sectionId);
+  // FP-OP-15 / rank 30 on a draft: every other open line on its dies, added in one tap (plans.update).
+  const others = useQuery({
+    ...trpc.plans.openLinesForDies.queryOptions({ dieIds, planId: id }),
+    enabled: isDraft && dieIds.length > 0,
+  });
 
   const refresh = () =>
     Promise.all([
@@ -48,14 +57,38 @@ export function PlanDetailPage({ id }: { id: string }) {
       queryClient.invalidateQueries({ queryKey: trpc.plans.list.queryKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.plans.candidates.queryKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.orders.get.queryKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.plans.openLinesForDies.queryKey() }),
     ]);
+
+  const change = useMutation({
+    mutationFn: (input: { add?: { salesOrderLineId: string }[]; remove?: string[] }) =>
+      trpcClient.plans.update.mutate({ id, serverSeq: plan.data!.plan.serverSeq, ...input }),
+    onSuccess: async (_res, input) => {
+      setErrors([]);
+      toast.success(input.add?.length ? t("orders.plan.added") : t("orders.plan.removed"));
+      await refresh();
+    },
+    onError: async (error) => {
+      setErrors(orderErrorLines(t, error));
+      await refresh();
+    },
+  });
 
   const release = useMutation({
     mutationFn: () => trpcClient.plans.release.mutate({ id }),
     onSuccess: async (res) => {
       setErrors([]);
       setReleaseOpen(false);
-      setWarnings(res.warnings.map((w) => ({ sectionCode: w.sectionCode, customerName: w.customerName, orderNumber: w.orderNumber, planableG: w.planableG })));
+      setWarnings(
+        res.warnings.map((w) => ({
+          lineId: w.lineId,
+          sectionCode: w.sectionCode,
+          customerName: w.customerName,
+          orderNumber: w.orderNumber,
+          cutLengthMm: w.cutLengthMm,
+          planableG: w.planableG,
+        })),
+      );
       toast.success(t("orders.plan.released"));
       await refresh();
     },
@@ -120,7 +153,7 @@ export function PlanDetailPage({ id }: { id: string }) {
     <>
       <PageHeader
         title={p.number}
-        subtitle={t("press.plan.window", { from: dayTimeText(p.windowStart, locale), to: dayTimeText(p.windowEnd, locale) })}
+        subtitle={t("press.plan.window", { from: dayTimeText(p.windowStart, locale, zone), to: dayTimeText(p.windowEnd, locale, zone) })}
         back={back}
         actions={
           <Can do="order.plan">
@@ -164,8 +197,14 @@ export function PlanDetailPage({ id }: { id: string }) {
           <section data-plan-warnings="" className="flex flex-col gap-1 rounded-card border border-border bg-surface-sunken px-4 py-3">
             <h2 className="m-0 text-[14px] font-semibold">{t("orders.plan.warningsTitle")}</h2>
             {warnings.map((w) => (
-              <p key={`${w.sectionCode}-${w.orderNumber}`} className="m-0 text-[14px] leading-5">
-                {t("orders.plan.otherParty", { die: w.sectionCode, customer: w.customerName, po: w.orderNumber, kg: orderKgText(w.planableG) })}
+              <p key={w.lineId} data-plan-warning={w.orderNumber} className="m-0 text-[14px] leading-5">
+                {t("orders.plan.otherParty", {
+                  die: w.sectionCode,
+                  customer: w.customerName,
+                  order: w.orderNumber,
+                  length: label(w.cutLengthMm),
+                  kg: orderKgText(w.planableG),
+                })}
               </p>
             ))}
           </section>
@@ -198,14 +237,23 @@ export function PlanDetailPage({ id }: { id: string }) {
                     {lines
                       .filter((l) => l.pressPlanDieId === d.id)
                       .map((l) => (
-                        <li key={l.id} className="flex min-w-0 flex-col border-t border-border pt-2">
-                          <p className="m-0 text-[14px] leading-5 break-words">
-                            {l.customerName}
-                            {l.poNumber ? ` · ${l.poNumber}` : ""}
-                          </p>
-                          <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
-                            {l.orderNumber} · {label(l.cutLengthMm)} · {orderKgText(l.kgG)} {t("units.kg")}
-                          </p>
+                        <li key={l.id} data-plan-line={l.orderNumber} className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
+                          <div className="min-w-0">
+                            <p className="m-0 text-[14px] leading-5 break-words">
+                              {l.customerName}
+                              {l.poNumber ? ` · ${l.poNumber}` : ""}
+                            </p>
+                            <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
+                              {l.orderNumber} · {label(l.cutLengthMm)} · {orderKgText(l.kgG)} {t("units.kg")}
+                            </p>
+                          </div>
+                          {draft && lines.length > 1 ? (
+                            <Can do="order.plan">
+                              <Button variant="ghost" disabled={change.isPending} onClick={() => change.mutate({ remove: [l.salesOrderLineId] })}>
+                                {t("common.remove")}
+                              </Button>
+                            </Can>
+                          ) : null}
                         </li>
                       ))}
                   </ul>
@@ -214,6 +262,18 @@ export function PlanDetailPage({ id }: { id: string }) {
             );
           })}
         </ul>
+
+        {draft ? (
+          <OtherLines
+            rows={others.data?.lines ?? []}
+            loading={others.isPending}
+            failed={others.isError}
+            more={others.data?.more ?? false}
+            formatLength={label}
+            addingId={change.isPending ? (change.variables?.add?.[0]?.salesOrderLineId ?? null) : null}
+            onAdd={(row) => change.mutate({ add: [{ salesOrderLineId: row.lineId }] })}
+          />
+        ) : null}
       </div>
 
       <Sheet

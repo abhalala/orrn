@@ -76,6 +76,8 @@ export function ReallocateSheet({
   const target = destination === "plant" ? null : (otherLines.find((l) => l.lineId === destination) ?? null);
   const mismatched = lengthMismatches(movable, selected, target?.cutLengthMm ?? null);
   const otherCustomer = target != null && target.customerId !== source.customerId;
+  // Review m-5: "Select all" picks at most MAX_REALLOCATE_BUNDLES, so "all picked" is that many.
+  const allPicked = movable.length > 0 && selected.size >= Math.min(movable.length, MAX_REALLOCATE_BUNDLES);
 
   const problem = reallocateProblem({
     selected: selected.size,
@@ -172,11 +174,9 @@ export function ReallocateSheet({
               {movable.length > 0 ? (
                 <Button
                   variant="ghost"
-                  onClick={() =>
-                    setSelected(selected.size === movable.length ? new Set() : new Set(movable.slice(0, MAX_REALLOCATE_BUNDLES).map((b) => b.id)))
-                  }
+                  onClick={() => setSelected(allPicked ? new Set() : new Set(movable.slice(0, MAX_REALLOCATE_BUNDLES).map((b) => b.id)))}
                 >
-                  {selected.size === movable.length ? t("reallocate.clearAll") : t("reallocate.selectAll")}
+                  {allPicked ? t("reallocate.clearAll") : t("reallocate.selectAll")}
                 </Button>
               ) : null}
             </div>
@@ -218,12 +218,18 @@ export function ReallocateSheet({
               <option value="plant">{t("reallocate.toPlant")}</option>
               {otherLines.map((l) => (
                 <option key={l.lineId} value={l.lineId}>
-                  {l.orderNumber} · {l.customerName}
-                  {l.poNumber ? ` · ${l.poNumber}` : ""} · {t("orders.detail.lineShort", { n: l.lineNo })} · {formatLength(l.cutLengthMm)}
+                  {l.orderNumber} · {l.customerName} · {t("orders.detail.lineShort", { n: l.lineNo })}
                 </option>
               ))}
             </FieldSelect>
           </Field>
+          {target ? (
+            // Review m-7: a native select cuts long text, so the PO and length sit on their own line.
+            <p data-reallocate-target="" className="m-0 font-mono text-[13px] leading-5 break-words text-muted-foreground">
+              {target.poNumber ? `${target.poNumber} · ` : ""}
+              {formatLength(target.cutLengthMm)}
+            </p>
+          ) : null}
 
           {destination === "plant" ? (
             <p className="m-0 text-[14px] leading-5 text-muted-foreground">{t("reallocate.plantNote")}</p>
@@ -235,7 +241,12 @@ export function ReallocateSheet({
 
           {mismatched.length > 0 && target ? (
             <p role="status" data-length-warning="" className="m-0 text-[14px] font-medium leading-5 text-tone-amber-ink">
-              {t("reallocate.lengthWarning", { count: mismatched.length, length: formatLength(target.cutLengthMm) })}
+              {t("reallocate.lengthWarning", {
+                count: mismatched.length,
+                order: target.orderNumber,
+                line: target.lineNo,
+                length: formatLength(target.cutLengthMm),
+              })}
             </p>
           ) : null}
 

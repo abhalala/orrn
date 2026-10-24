@@ -5,15 +5,15 @@ import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Boxes, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { trpc } from "@/shared/utils/trpc";
 
 import { kgFieldText, milliText, orderKgText, pcsText } from "../format";
 import { useDebounced } from "../hooks";
-import { cutLengthMm, lineProblems, quoteArgs, type Finish, type LineDraft, type LineProblems, type WeightBasis } from "../line-model";
+import { cutLengthMm, lineProblems, quoteArgs, sameQuoteArgs, type Finish, type LineDraft, type LineProblems, type WeightBasis } from "../line-model";
 import { QUICK_FEET } from "../view";
 import { FieldSelect } from "./controls";
 import { DieField, useCopyChoices } from "./pickers";
@@ -35,6 +35,7 @@ export function LineEditor({
   problems,
   onChange,
   onRemove,
+  stockPrompt = true,
 }: {
   line: LineDraft;
   index: number;
@@ -46,6 +47,8 @@ export function LineEditor({
   problems: LineProblems | undefined;
   onChange(patch: Partial<LineDraft>): void;
   onRemove(): void;
+  /** The ready-stock prompt (new orders); a saved line takes stock from the order page instead. */
+  stockPrompt?: boolean;
 }) {
   const { t } = useT();
   const [stockOpen, setStockOpen] = useState(false);
@@ -57,11 +60,19 @@ export function LineEditor({
   const quote = useQuery({
     ...trpc.orders.quote.queryOptions(asked!),
     enabled: asked != null,
-    placeholderData: keepPreviousData,
     retry: false,
   });
-  const q = args && quote.data ? quote.data : undefined;
-  const stale = quote.isPlaceholderData || (args != null && quote.isFetching);
+  // Review I-5: a quote is shown only for exactly what is typed now. While the typing settles or
+  // the quote is on its way the derived side is blank and the line says "Working out…".
+  const current = args != null && asked != null && sameQuoteArgs(args, asked);
+  const q = current && quote.data ? quote.data : undefined;
+  const quoting = args != null && !q && !(current && quote.isError);
+  const stale = quoting;
+  // The die's alloy / temper defaults do not change with the quantity: keep the last ones shown
+  // for this die while a new quote is on its way (no flicker in those fields).
+  const defaults = useRef<{ sectionId: string; alloy: string | null; temper: string | null } | null>(null);
+  if (q && line.die) defaults.current = { sectionId: line.die.id, alloy: q.alloy ?? null, temper: q.temper ?? null };
+  const known = defaults.current && line.die && defaults.current.sectionId === line.die.id ? defaults.current : null;
 
   const stock = useQuery({
     ...trpc.orders.matchStock.queryOptions({
@@ -69,7 +80,7 @@ export function LineEditor({
       ...(mm != null ? { cutLengthMm: mm } : {}),
       ...(customerId ? { customerId } : {}),
     }),
-    enabled: line.die != null,
+    enabled: stockPrompt && line.die != null,
     staleTime: 15_000,
   });
 
@@ -177,10 +188,10 @@ export function LineEditor({
         </Field>
 
         <Field label={t("orders.line.alloy")}>
-          <TextInput value={line.alloy ?? q?.alloy ?? ""} onChangeText={(alloy) => onChange({ alloy })} autoComplete="off" />
+          <TextInput value={line.alloy ?? known?.alloy ?? ""} onChangeText={(alloy) => onChange({ alloy })} autoComplete="off" />
         </Field>
         <Field label={t("orders.line.temper")}>
-          <TextInput value={line.temper ?? q?.temper ?? ""} onChangeText={(temper) => onChange({ temper })} autoComplete="off" />
+          <TextInput value={line.temper ?? known?.temper ?? ""} onChangeText={(temper) => onChange({ temper })} autoComplete="off" />
         </Field>
         <Field label={t("orders.line.finish")}>
           <FieldSelect value={line.finish} onChange={(e) => onChange({ finish: e.target.value as Finish })}>
@@ -209,13 +220,19 @@ export function LineEditor({
           />
         ) : null}
 
-        {q ? (
+        {quoting ? (
+          <p role="status" data-quote-pending="" className="m-0 text-[14px] leading-5 text-muted-foreground">
+            {t("orders.form.quoting")}
+          </p>
+        ) : q ? (
           <div className="flex min-w-0 flex-col gap-2" data-quote="">
             <p className="m-0 text-[14px] leading-5 text-muted-foreground">
-              {q.weightBasis === "copy_current"
-                ? t("orders.form.basisUsingCopy", { milli: milliText(q.basisMilli), copy: q.copyCode ?? "" })
-                : t("orders.form.basisUsingBand", { milli: milliText(q.basisMilli) })}
-              {q.weightBasis === "band_start" && q.copyMilli == null ? ` ${t("orders.form.noReading")}` : ""}
+              {q.locked
+                ? t("orders.form.basisLocked", { milli: milliText(q.basisMilli) })
+                : q.weightBasis === "copy_current"
+                  ? t("orders.form.basisUsingCopy", { milli: milliText(q.basisMilli), copy: q.copyCode ?? "" })
+                  : t("orders.form.basisUsingBand", { milli: milliText(q.basisMilli) })}
+              {!q.locked && q.weightBasis === "band_start" && q.copyMilli == null ? ` ${t("orders.form.noReading")}` : ""}
             </p>
             {line.basis === "kg" ? (
               <>
@@ -241,13 +258,13 @@ export function LineEditor({
               </p>
             )}
           </div>
-        ) : args && quote.isError ? (
+        ) : args && current && quote.isError ? (
           <p role="alert" className="m-0 text-[14px] leading-5 text-destructive">
             {t("orders.form.quoteFailed")}
           </p>
         ) : null}
 
-        {line.die ? (
+        {stockPrompt && line.die ? (
           <div className="flex min-w-0 flex-col items-start gap-2 rounded-card border border-border bg-surface-sunken px-3 py-3">
             <p className="m-0 text-[14px] leading-5" data-stock-prompt="">
               {stock.data && stock.data.readyBundles > 0
@@ -262,6 +279,7 @@ export function LineEditor({
         ) : null}
       </div>
 
+      {stockPrompt ? (
       <StockSheet
         open={stockOpen}
         onOpenChange={setStockOpen}
@@ -270,6 +288,7 @@ export function LineEditor({
         failed={stock.isError}
         formatLength={label}
       />
+      ) : null}
     </Card>
   );
 }

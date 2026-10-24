@@ -40,3 +40,10 @@ export function useMinWidth(px: number): boolean {
   }, [query]);
   return wide;
 }
+
+/** The plant's time zone (`settings.timezone`), for times written on the plant's clock. */
+export function useCompanyTimeZone(): string {
+  const me = useMe();
+  const tz = (me.data?.company?.settings as { timezone?: unknown } | null | undefined)?.timezone;
+  return typeof tz === "string" && tz ? tz : "Asia/Kolkata";
+}

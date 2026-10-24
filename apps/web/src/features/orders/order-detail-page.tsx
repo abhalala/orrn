@@ -14,6 +14,7 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { Boxes, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -25,7 +26,9 @@ import { trpc, trpcClient } from "@/shared/utils/trpc";
 import { BakiStrip } from "./components/baki-strip";
 import { EditSheet } from "./components/edit-sheet";
 import { ReallocateSheet, type ReallocateSource } from "./components/reallocate-sheet";
+import { LinesEditor } from "./components/lines-editor";
 import { ReasonSheet } from "./components/reason-sheet";
+import { TakeStockSheet, type TakeStockTarget } from "./components/take-stock-sheet";
 import { Timeline } from "./components/timeline";
 import { orderErrorLines } from "./errors";
 import { milliText, orderKgText, pcsText, rateText } from "./format";
@@ -39,13 +42,14 @@ export function OrderDetailPage({ id }: { id: string }) {
   const [closeOpen, setCloseOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [moveLine, setMoveLine] = useState<ReallocateSource | null>(null);
+  const [takeLine, setTakeLine] = useState<TakeStockTarget | null>(null);
+  const [editing, setEditing] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [events, setEvents] = useState(50);
 
   const get = useQuery(trpc.orders.get.queryOptions({ id }));
   const timeline = useQuery({ ...trpc.orders.timeline.queryOptions({ id, limit: events }) });
   const pending = useQuery(trpc.orders.reallocations.list.queryOptions({ orderId: id, status: "pending" }));
-  const late = useQuery({ ...trpc.orders.late.queryOptions({ limit: 500 }), staleTime: 30_000 });
 
   const refresh = () =>
     Promise.all([
@@ -54,6 +58,16 @@ export function OrderDetailPage({ id }: { id: string }) {
       queryClient.invalidateQueries({ queryKey: trpc.orders.list.queryKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.orders.late.queryKey() }),
     ]);
+
+  const reprice = useMutation({
+    mutationFn: (line: { lineId: string; lineNo: number }) => trpcClient.orders.repriceWeight.mutate({ lineId: line.lineId }),
+    onSuccess: async (_res, line) => {
+      setErrors([]);
+      toast.success(t("orders.detail.weightRefreshed", { n: line.lineNo }));
+      await refresh();
+    },
+    onError: (error) => setErrors(orderErrorLines(t, error)),
+  });
 
   const confirm = useMutation({
     mutationFn: (serverSeq: number) => trpcClient.orders.confirm.mutate({ id, serverSeq }),
@@ -121,8 +135,9 @@ export function OrderDetailPage({ id }: { id: string }) {
   const status: OrderStatus = isOrderStatus(order.status) ? order.status : "booking";
   const can = statusActions(status);
   const details = new Map(lineDetails.map((d) => [d.lineId, d]));
-  const daysLate = Math.max(0, ...(late.data?.lines ?? []).filter((l) => l.orderId === order.id).map((l) => l.daysOpen));
-  const isLate = (late.data?.lines ?? []).some((l) => l.orderId === order.id);
+  // Review m-1: the late chip comes with the order (`lateDays`), never from a capped list.
+  const daysLate = get.data.lateDays;
+  const isLate = daysLate != null;
   const waiting = pending.data?.items ?? [];
 
   return (
@@ -141,6 +156,11 @@ export function OrderDetailPage({ id }: { id: string }) {
             {can.edit ? (
               <Button variant="secondary" onClick={() => setEditOpen(true)}>
                 {t("common.edit")}
+              </Button>
+            ) : null}
+            {can.edit && !editing ? (
+              <Button variant="secondary" onClick={() => (setErrors([]), setEditing(true))}>
+                {t("orders.detail.editLines")}
               </Button>
             ) : null}
             {can.close ? (
@@ -187,7 +207,7 @@ export function OrderDetailPage({ id }: { id: string }) {
           </section>
         ) : null}
 
-        {errors.length > 0 && !closeOpen && !cancelOpen ? (
+        {errors.length > 0 && !closeOpen && !cancelOpen && !editing ? (
           <div role="alert" data-order-error="" className="flex flex-col gap-1 rounded-card border border-destructive/40 px-4 py-3">
             {errors.map((e) => (
               <p key={e} className="m-0 text-[14px] font-medium leading-5 text-destructive">
@@ -268,6 +288,14 @@ export function OrderDetailPage({ id }: { id: string }) {
           <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("orders.bakiNote")}</p>
         </section>
 
+        {editing && can.edit ? (
+          <LinesEditor
+            order={{ id: order.id, serverSeq: order.serverSeq, customerId: order.customerId }}
+            lines={lines}
+            details={lineDetails}
+            onDone={() => setEditing(false)}
+          />
+        ) : (
         <section className="flex min-w-0 flex-col gap-3">
           <h2 className="m-0 text-[15px] font-semibold">{t("orders.detail.lines")}</h2>
           {lines.map((line) => {
@@ -314,21 +342,60 @@ export function OrderDetailPage({ id }: { id: string }) {
                 </p>
                 {d && line.kgPer12ftMilli != null ? (
                   <p className="m-0 text-[13px] leading-5 text-muted-foreground">
-                    {t("orders.detail.basisLine", {
-                      milli: milliText(line.kgPer12ftMilli),
-                      basis: d.weightBasis ? t(`orders.weightBasis.${d.weightBasis === "band_start" ? "band_start" : "copy_current"}`) : "",
-                    })}
-                    {d.weightBasis === "band_start" && d.copyMilli == null ? ` ${t("orders.form.noReading")}` : ""}
+                    {d.weightBasis === "band_start" && d.copyMilli == null
+                      ? // Review m-10: "no reading, band start used" already names the basis.
+                        `${t("orders.detail.basisLineBare", { milli: milliText(line.kgPer12ftMilli) })} ${t("orders.form.noReading")}`
+                      : t("orders.detail.basisLine", {
+                          milli: milliText(line.kgPer12ftMilli),
+                          basis: d.weightBasis ? t(`orders.weightBasis.${d.weightBasis === "band_start" ? "band_start" : "copy_current"}`) : "",
+                        })}
                     {d.qtyBasis === "kg" && d.impliedG != null && d.impliedG !== line.orderedG
                       ? ` ${t("orders.detail.implied", { pcs: pcsText(line.orderedPcs ?? 0), implied: orderKgText(d.impliedG) })}`
                       : ""}
                   </p>
                 ) : null}
                 {strip ? <BakiStrip strip={strip} label={`${order.number} ${t("orders.detail.lineShort", { n: line.lineNo })}`} /> : null}
+                {can.move ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Can do="order.reallocate">
+                      <Button
+                        variant="secondary"
+                        data-take-stock={line.lineNo}
+                        onClick={() =>
+                          setTakeLine({
+                            lineId: line.lineId,
+                            lineNo: line.lineNo,
+                            orderNumber: order.number,
+                            sectionId: line.sectionId,
+                            cutLengthMm: line.cutLengthMm,
+                            orderId: order.id,
+                            customerId: order.customerId,
+                          })
+                        }
+                      >
+                        <Boxes aria-hidden="true" strokeWidth={2} />
+                        {t("orders.detail.takeStock")}
+                      </Button>
+                    </Can>
+                    {d?.qtyBasis ? (
+                      <Can do="order.manage">
+                        <Button
+                          variant="ghost"
+                          disabled={reprice.isPending}
+                          onClick={() => reprice.mutate({ lineId: line.lineId, lineNo: line.lineNo })}
+                        >
+                          <RefreshCw aria-hidden="true" strokeWidth={2} />
+                          {t("orders.detail.refreshWeight")}
+                        </Button>
+                      </Can>
+                    ) : null}
+                  </div>
+                ) : null}
               </Card>
             );
           })}
         </section>
+        )}
 
         <Card>
           <CardHeader>
@@ -377,6 +444,16 @@ export function OrderDetailPage({ id }: { id: string }) {
         errors={cancelOpen ? errors : []}
         onSubmit={(reason) => cancel.mutate(reason)}
       />
+      {takeLine ? (
+        <TakeStockSheet
+          open
+          onOpenChange={(o) => {
+            if (!o) setTakeLine(null);
+          }}
+          target={takeLine}
+          formatLength={(mm) => formatLengthMm(mm, unit)}
+        />
+      ) : null}
       {moveLine ? (
         <ReallocateSheet
           open

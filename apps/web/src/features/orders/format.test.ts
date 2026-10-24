@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { kgFieldText, milliText, orderKgText, pcsText, rateText } from "./format";
+import { dayTimeText, kgFieldText, milliText, orderKgText, pcsText, rateText } from "./format";
 
 describe("orders number text", () => {
   test("kg to three decimals with Indian grouping", () => {
@@ -26,5 +26,14 @@ describe("orders number text", () => {
 
   test("rate from paise", () => {
     expect(rateText(20_150)).toBe("201.50");
+  });
+});
+
+describe("dayTimeText in the plant's zone (review m-9)", () => {
+  test("a time is written on the company's clock, not the browser's", () => {
+    const at = Date.UTC(2026, 9, 24, 19, 0); // 25 Oct 00:30 in India
+    // The joiner between day and time differs by ICU build ("," or "at"); the day and time are the point.
+    expect(dayTimeText(at, "en", "Asia/Kolkata")).toMatch(/^25 Oct\b.*\b00:30$/);
+    expect(dayTimeText(at, "en", "UTC")).toMatch(/^24 Oct\b.*\b19:00$/);
   });
 });

@@ -10,7 +10,7 @@ import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Field, TextInput } from "@orrn/ui/components/field";
+import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { Input } from "@orrn/ui/components/input";
 import { NativeSelect } from "@orrn/ui/components/native-select";
 import { PageHeader } from "@orrn/ui/components/page-header";
@@ -26,21 +26,37 @@ import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { orderErrorLines } from "./errors";
 import { dayTimeText, orderKgText } from "./format";
-import { useMinWidth } from "./hooks";
+import { useCompanyTimeZone, useMinWidth } from "./hooks";
 import {
   addPlanLine,
+  addPlanLines,
   defaultWindow,
   dieTitle,
+  draftCounts,
   fromLocalInput,
   movePlanDie,
-  otherPartyNotes,
   removePlanLine,
+  soLines,
   toggleUrgent,
   toLocalInput,
   windowState,
-  type CandidateDie,
   type DraftDie,
 } from "./view";
+import { OtherLines } from "./components/other-lines";
+import { parseKgG } from "./line-model";
+
+type DraftLineInfo = {
+  lineId: string;
+  sectionId: string;
+  sectionCode: string;
+  sectionName: string | null;
+  series: string;
+  customerName: string;
+  poNumber: string | null;
+  orderNumber: string;
+  cutLengthMm: number;
+  planableG: number;
+};
 
 export const PLAN_STATUS_TONE = { draft: "amber", released: "green", closed: "neutral", cancelled: "red" } as const;
 
@@ -73,12 +89,33 @@ export function BiggerScreenNote() {
   );
 }
 
+const PLAN_PAGE = 20;
+
 function PlanList() {
-  const { t, locale } = useT();
-  const plans = useQuery(trpc.plans.list.queryOptions({ limit: 20 }));
+  const { t } = useT();
+  // Review m-3: page through every plan (20 at a time), never stop silently at the first page.
+  const [pages, setPages] = useState<number[]>([0]);
   return (
     <section className="flex min-w-0 flex-col gap-3" aria-label={t("orders.plan.recent")}>
       <h2 className="m-0 text-[15px] font-semibold">{t("orders.plan.recent")}</h2>
+      {pages.map((offset, i) => (
+        <PlanListPage
+          key={offset}
+          offset={offset}
+          first={i === 0}
+          onMore={i === pages.length - 1 ? (next) => setPages((cur) => [...cur, next]) : undefined}
+        />
+      ))}
+    </section>
+  );
+}
+
+function PlanListPage({ offset, first, onMore }: { offset: number; first: boolean; onMore?: (next: number) => void }) {
+  const { t, locale } = useT();
+  const zone = useCompanyTimeZone();
+  const plans = useQuery(trpc.plans.list.queryOptions({ limit: PLAN_PAGE, offset }));
+  return (
+    <>
       {plans.isPending ? (
         <Skeleton className="h-16 w-full" />
       ) : plans.isError ? (
@@ -86,7 +123,7 @@ function PlanList() {
           {t("errors.generic")}
         </p>
       ) : plans.data.items.length === 0 ? (
-        <p className="m-0 text-[14px] text-muted-foreground">{t("orders.plan.noPlans")}</p>
+        first ? <p className="m-0 text-[14px] text-muted-foreground">{t("orders.plan.noPlans")}</p> : null
       ) : (
         <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 lg:grid-cols-2">
           {plans.data.items.map((p) => (
@@ -104,7 +141,7 @@ function PlanList() {
                   </Chip>
                 </span>
                 <span className="text-[13px] text-muted-foreground">
-                  {t("press.plan.window", { from: dayTimeText(p.windowStart, locale), to: dayTimeText(p.windowEnd, locale) })}
+                  {t("press.plan.window", { from: dayTimeText(p.windowStart, locale, zone), to: dayTimeText(p.windowEnd, locale, zone) })}
                 </span>
                 <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
                   {t("orders.plan.summary", { dies: p.dies, kg: orderKgText(p.kgG) })}
@@ -114,7 +151,12 @@ function PlanList() {
           ))}
         </ul>
       )}
-    </section>
+      {onMore && plans.data?.nextOffset != null ? (
+        <Button variant="ghost" className="self-start" onClick={() => onMore(plans.data!.nextOffset!)}>
+          {t("common.showMore")}
+        </Button>
+      ) : null}
+    </>
   );
 }
 
@@ -132,17 +174,61 @@ function PlanBuilder() {
   const [query, setQuery] = useState("");
   const [customerId, setCustomerId] = useState("all");
   const [errors, setErrors] = useState<string[]>([]);
+  // Review m-4: kg per draft line (blank = all that is left to plan) and the press when there are two.
+  const [lineKg, setLineKg] = useState<Record<string, string>>({});
+  const [pressLineId, setPressLineId] = useState("");
+  const pressLines = useQuery(trpc.plans.pressLines.queryOptions());
 
   const startMs = fromLocalInput(startText);
   const endMs = fromLocalInput(endText);
   const win = startMs == null || endMs == null ? "order" : windowState(startMs, endMs);
 
   const dies = candidates.data?.dies ?? [];
+  const draftSections = useMemo(() => draft.map((d) => d.sectionId), [draft]);
+  const draftLineIds = useMemo(() => draft.flatMap((d) => d.lineIds), [draft]);
+  // FP-OP-15 / rank 30 while drafting: every other open line on the draft's dies, from the server.
+  const others = useQuery({
+    ...trpc.plans.openLinesForDies.queryOptions({ dieIds: draftSections, excludeLineIds: draftLineIds }),
+    enabled: draftSections.length > 0,
+    placeholderData: (prev) => prev,
+  });
   const lineById = useMemo(() => {
-    const m = new Map<string, (typeof dies)[number]["lines"][number] & { sectionId: string }>();
-    for (const d of dies) for (const l of d.lines) m.set(l.lineId, { ...l, sectionId: d.sectionId });
+    const m = new Map<string, DraftLineInfo>();
+    for (const o of others.data?.lines ?? []) {
+      m.set(o.lineId, {
+        lineId: o.lineId,
+        sectionId: o.sectionId,
+        sectionCode: o.sectionCode,
+        sectionName: null,
+        series: "",
+        customerName: o.customerName,
+        poNumber: o.poNumber,
+        orderNumber: o.orderNumber,
+        cutLengthMm: o.cutLengthMm,
+        planableG: o.planableG,
+      });
+    }
+    for (const d of dies) {
+      for (const l of d.lines) {
+        m.set(l.lineId, {
+          lineId: l.lineId,
+          sectionId: d.sectionId,
+          sectionCode: d.sectionCode,
+          sectionName: l.sectionName,
+          series: l.series,
+          customerName: l.customerName,
+          poNumber: l.poNumber,
+          orderNumber: l.orderNumber,
+          cutLengthMm: l.cutLengthMm,
+          planableG: l.strip.planableG,
+        });
+      }
+    }
     return m;
-  }, [dies]);
+  }, [dies, others.data]);
+  // Lines added from the other-lines list stay known after that list stops naming them.
+  const [kept, setKept] = useState<Map<string, DraftLineInfo>>(new Map());
+  const infoOf = (lineId: string) => lineById.get(lineId) ?? kept.get(lineId);
   const sectionById = useMemo(() => new Map(dies.map((d) => [d.sectionId, d])), [dies]);
   const customers = useMemo(() => {
     const m = new Map<string, string>();
@@ -163,27 +249,27 @@ function PlanBuilder() {
       }),
     }))
     .filter((d) => d.lines.length > 0);
+  const soCount = new Map<string, number>();
+  for (const d of open) for (const l of d.lines) soCount.set(l.orderId, (soCount.get(l.orderId) ?? 0) + 1);
 
-  const asCandidates: CandidateDie[] = dies.map((d) => ({
-    sectionId: d.sectionId,
-    sectionCode: d.sectionCode,
-    lines: d.lines.map((l) => ({
-      lineId: l.lineId,
-      customerId: l.customerId,
-      customerName: l.customerName,
-      poNumber: l.poNumber,
-      orderNumber: l.orderNumber,
-      planableG: l.strip.planableG,
-    })),
-  }));
-  const notes = otherPartyNotes(draft, asCandidates);
+  const counts = draftCounts(draft);
+  const badKg = draftLineIds.filter((id) => (lineKg[id] ?? "").trim() !== "" && parseKgG(lineKg[id]!) == null);
+  const twoPresses = (pressLines.data?.length ?? 0) > 1;
 
   const create = useMutation({
     mutationFn: () =>
       trpcClient.plans.create.mutate({
         windowStart: startMs!,
         windowEnd: endMs!,
-        dies: draft.map((d) => ({ sectionId: d.sectionId, urgent: d.urgent, lines: d.lineIds.map((salesOrderLineId) => ({ salesOrderLineId })) })),
+        ...(pressLineId ? { pressLineId } : {}),
+        dies: draft.map((d) => ({
+          sectionId: d.sectionId,
+          urgent: d.urgent,
+          lines: d.lineIds.map((salesOrderLineId) => {
+            const kgG = parseKgG(lineKg[salesOrderLineId] ?? "");
+            return kgG != null ? { salesOrderLineId, kgG } : { salesOrderLineId };
+          }),
+        })),
       }),
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: trpc.plans.list.queryKey() });
@@ -194,7 +280,7 @@ function PlanBuilder() {
   });
 
   const label = (mm: number) => formatLengthMm(mm, unit);
-  const canCreate = draft.length > 0 && win === "ok" && !create.isPending;
+  const canCreate = draft.length > 0 && win === "ok" && badKg.length === 0 && (!twoPresses || pressLineId !== "") && !create.isPending;
 
   return (
     <section className="flex min-w-0 flex-col gap-4" aria-label={t("press.plan.new")}>
@@ -219,6 +305,18 @@ function PlanBuilder() {
           >
             <TextInput type="datetime-local" value={endText} onChangeText={setEndText} />
           </Field>
+          {twoPresses ? (
+            <Field label={t("orders.plan.pressLine")}>
+              <NativeSelect value={pressLineId} onChange={(e) => setPressLineId(e.target.value)} aria-label={t("orders.plan.pressLine")}>
+                <option value="">{t("orders.plan.pickPressLine")}</option>
+                {(pressLines.data ?? []).map((pl) => (
+                  <option key={pl.id} value={pl.id}>
+                    {pl.code} · {pl.name}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+          ) : null}
         </div>
       </Card>
 
@@ -256,6 +354,12 @@ function PlanBuilder() {
           ) : open.length === 0 ? (
             <EmptyState title={t("orders.plan.nothingLeft")} body={t("orders.plan.nothingLeftBody")} />
           ) : (
+            <>
+            {candidates.data?.more ? (
+              <p role="status" data-more-lines="" className="m-0 text-[13px] leading-5 text-muted-foreground">
+                {t("orders.plan.moreLines")}
+              </p>
+            ) : null}
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
               {open.flatMap((d) =>
                 d.lines.map((l) => (
@@ -274,15 +378,23 @@ function PlanBuilder() {
                             {label(l.cutLengthMm)} · {t("orders.plan.planable", { kg: orderKgText(l.strip.planableG) })}
                           </p>
                         </div>
-                        <Button variant="secondary" onClick={() => setDraft((cur) => addPlanLine(cur, d.sectionId, l.lineId))} aria-label={t("orders.plan.addLine", { order: l.orderNumber })}>
-                          {t("common.add")}
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="secondary" onClick={() => setDraft((cur) => addPlanLine(cur, d.sectionId, l.lineId))} aria-label={t("orders.plan.addLine", { order: l.orderNumber })}>
+                            {t("common.add")}
+                          </Button>
+                          {(soCount.get(l.orderId) ?? 0) > 1 ? (
+                            <Button variant="ghost" data-add-all={l.orderNumber} onClick={() => setDraft((cur) => addPlanLines(cur, soLines(open, l.orderId)))}>
+                              {t("orders.plan.addAllOfSo", { order: l.orderNumber })}
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                     </Card>
                   </li>
                 )),
               )}
             </ul>
+            </>
           )}
         </section>
 
@@ -293,16 +405,15 @@ function PlanBuilder() {
           ) : (
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
               {draft.map((d, index) => {
-                const sec = sectionById.get(d.sectionId);
+                const first = infoOf(d.lineIds[0]!);
+                const sectionCode = sectionById.get(d.sectionId)?.sectionCode ?? first?.sectionCode ?? "";
                 return (
-                  <li key={d.sectionId} data-draft-die={sec?.sectionCode}>
+                  <li key={d.sectionId} data-draft-die={sectionCode}>
                     <Card size="sm" className="min-w-0">
                       <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
                         <CardTitle className="font-mono tabular-nums">
                           {index + 1}.{" "}
-                          {sec
-                            ? dieTitle({ sectionCode: sec.sectionCode, sectionName: lineById.get(d.lineIds[0]!)?.sectionName, series: lineById.get(d.lineIds[0]!)?.series })
-                            : d.sectionId}
+                          {dieTitle({ sectionCode, sectionName: first?.sectionName, series: first?.series })}
                         </CardTitle>
                         <div className="flex flex-wrap gap-2">
                           <Button variant={d.urgent ? "primary" : "secondary"} aria-pressed={d.urgent} onClick={() => setDraft((cur) => toggleUrgent(cur, d.sectionId))}>
@@ -318,18 +429,31 @@ function PlanBuilder() {
                       </CardHeader>
                       <ul className="m-0 flex list-none flex-col gap-2 p-0">
                         {d.lineIds.map((lineId) => {
-                          const l = lineById.get(lineId);
+                          const l = infoOf(lineId);
                           if (!l) return null;
+                          const kgText = lineKg[lineId] ?? "";
+                          const bad = badKg.includes(lineId);
                           return (
-                            <li key={lineId} className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
-                              <div className="min-w-0">
+                            <li key={lineId} data-draft-line={l.orderNumber} className="flex min-w-0 flex-wrap items-end justify-between gap-2 border-t border-border pt-2">
+                              <div className="min-w-0 flex-1">
                                 <p className="m-0 text-[14px] leading-5 break-words">
                                   {l.customerName}
                                   {l.poNumber ? ` · ${l.poNumber}` : ""}
                                 </p>
                                 <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
-                                  {l.orderNumber} · {label(l.cutLengthMm)} · {orderKgText(l.strip.planableG)} {t("units.kg")}
+                                  {l.orderNumber} · {label(l.cutLengthMm)} · {t("orders.plan.planable", { kg: orderKgText(l.planableG) })}
                                 </p>
+                              </div>
+                              <div className="w-[9rem]">
+                                <Field label={t("orders.plan.lineKg", { order: l.orderNumber })} error={bad ? t("orders.form.errors.qty") : undefined}>
+                                  <NumberInput
+                                    value={kgText}
+                                    onValueChange={(v) => setLineKg((cur) => ({ ...cur, [lineId]: v }))}
+                                    suffix={t("units.kg")}
+                                    placeholder={orderKgText(l.planableG)}
+                                    aria-label={t("orders.plan.lineKg", { order: l.orderNumber })}
+                                  />
+                                </Field>
                               </div>
                               <Button variant="ghost" onClick={() => setDraft((cur) => removePlanLine(cur, d.sectionId, lineId))}>
                                 {t("common.remove")}
@@ -344,19 +468,24 @@ function PlanBuilder() {
               })}
             </ul>
           )}
-          {notes.length > 0 ? (
-            <div data-other-party="" className="flex flex-col gap-1 rounded-card border border-border bg-surface-sunken px-3 py-3">
-              {notes.map((n) => (
-                <p key={`${n.sectionId}-${n.orderNumber}`} className="m-0 text-[13px] leading-5">
-                  {t("orders.plan.otherParty", {
-                    die: n.sectionCode,
-                    customer: n.customerName,
-                    po: n.poNumber ?? n.orderNumber,
-                    kg: orderKgText(n.planableG),
-                  })}
-                </p>
-              ))}
-            </div>
+          {draft.length > 0 ? (
+            <p data-draft-footer="" className="m-0 font-mono text-[13px] font-semibold tabular-nums">
+              {t("orders.plan.draftFooter", { dies: counts.dies, lines: counts.lines })}
+            </p>
+          ) : null}
+          {draft.length > 0 ? (
+            <OtherLines
+              rows={others.data?.lines ?? []}
+              loading={others.isPending}
+              failed={others.isError}
+              more={others.data?.more ?? false}
+              formatLength={label}
+              onAdd={(row) => {
+                const info = lineById.get(row.lineId);
+                if (info) setKept((cur) => new Map(cur).set(row.lineId, info));
+                setDraft((cur) => addPlanLine(cur, row.sectionId, row.lineId));
+              }}
+            />
           ) : null}
           {errors.length > 0 ? (
             <div role="alert" className="flex flex-col gap-1">

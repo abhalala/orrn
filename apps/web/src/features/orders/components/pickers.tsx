@@ -6,6 +6,7 @@ import { useMemo, useRef } from "react";
 
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
+import { milliText } from "../format";
 import { dieTitle } from "../view";
 
 export type Picked = { id: string; label: string };
@@ -96,7 +97,7 @@ export function useCopyChoices(sectionId: string | null): { choices: CopyChoice[
         label: [
           t("orders.line.copyCode", { code: c.code }),
           c.tierRank != null ? t("orders.line.tierShort", { rank: c.tierRank }) : null,
-          milli != null ? `${(milli / 1000).toFixed(3)} ${t("units.kgPer12ft")}` : null,
+          milli != null ? `${milliText(milli)} ${t("units.kgPer12ft")}` : null,
         ]
           .filter(Boolean)
           .join(" · "),

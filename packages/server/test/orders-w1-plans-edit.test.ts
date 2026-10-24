@@ -131,6 +131,14 @@ describe("rank 30 / FP-OP-15: plans.openLinesForDies", () => {
   }, SLOW);
 });
 
+describe("plans.pressLines", () => {
+  test("active press lines of the plant, for the plan's press pick", async () => {
+    const p = await opPlant();
+    const lines = await p.as("viewer").plans.pressLines();
+    expect(lines).toEqual([{ id: p.pressLineId, code: "P1", name: "Press 1" }]);
+  }, SLOW);
+});
+
 describe("plans.update: add / remove lines on a draft plan", () => {
   test("adds a line under its die (a new die when the plan has none), removes a line, drops an emptied die; audited", async () => {
     const p = await opPlant();

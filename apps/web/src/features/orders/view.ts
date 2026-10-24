@@ -129,7 +129,7 @@ export function blockerText(code: string, t: Translate): string {
     case "line":
       return t("orders.blockers.line", { n: b.n, problem: t(`orders.blockers.${b.problem}`) });
     default:
-      return b.code;
+      return t("orders.serverSaid", { message: b.code });
   }
 }
 
@@ -231,6 +231,8 @@ export function timelineLabel(ev: Pick<TimelineEvent, "action" | "meta">): { key
       return { key: "orders.timeline.planCancel", vars: { number: str("number") } };
     case "plan.close":
       return { key: "orders.timeline.planClose", vars: { number: str("number") } };
+    case "plan.update":
+      return { key: "orders.timeline.planUpdate", vars: { number: str("number") } };
     case "bundle.receipt.create":
       return { key: "orders.timeline.packed", vars: {} };
     case "dispatch.complete":
@@ -316,45 +318,21 @@ export function fromLocalInput(text: string): number | null {
   return Number.isNaN(ms) ? null : ms;
 }
 
-export type CandidateDie = {
-  sectionId: string;
-  sectionCode: string;
-  lines: { lineId: string; customerId: string; customerName: string; poNumber: string | null; orderNumber: string; planableG: number }[];
-};
+/** Every line of one sales order among the open lines, with its die (review I-6 "add all of this SO"). */
+export function soLines(
+  open: readonly { sectionId: string; lines: readonly { lineId: string; orderId: string }[] }[],
+  orderId: string,
+): { sectionId: string; lineId: string }[] {
+  return open.flatMap((d) => d.lines.filter((l) => l.orderId === orderId).map((l) => ({ sectionId: d.sectionId, lineId: l.lineId })));
+}
 
-export type OtherPartyNote = {
-  sectionId: string;
-  sectionCode: string;
-  customerName: string;
-  poNumber: string | null;
-  orderNumber: string;
-  planableG: number;
-};
+export function addPlanLines(draft: readonly DraftDie[], items: readonly { sectionId: string; lineId: string }[]): DraftDie[] {
+  return items.reduce<DraftDie[]>((cur, i) => addPlanLine(cur, i.sectionId, i.lineId), [...draft]);
+}
 
-/**
- * FP-OP-15 while drafting: open lines of OTHER customers on a die that is on the draft and not
- * on it yet. A note, never a block (the release returns the server's own list).
- */
-export function otherPartyNotes(draft: readonly DraftDie[], candidates: readonly CandidateDie[]): OtherPartyNote[] {
-  const out: OtherPartyNote[] = [];
-  for (const d of draft) {
-    const cand = candidates.find((c) => c.sectionId === d.sectionId);
-    if (!cand) continue;
-    const onDraft = cand.lines.filter((l) => d.lineIds.includes(l.lineId));
-    const customers = new Set(onDraft.map((l) => l.customerId));
-    for (const l of cand.lines) {
-      if (d.lineIds.includes(l.lineId) || customers.has(l.customerId)) continue;
-      out.push({
-        sectionId: cand.sectionId,
-        sectionCode: cand.sectionCode,
-        customerName: l.customerName,
-        poNumber: l.poNumber,
-        orderNumber: l.orderNumber,
-        planableG: l.planableG,
-      });
-    }
-  }
-  return out;
+/** The draft footer: dies and lines (a count, never kg; the kg is the server's). */
+export function draftCounts(draft: readonly DraftDie[]): { dies: number; lines: number } {
+  return { dies: draft.length, lines: draft.reduce((n, d) => n + d.lineIds.length, 0) };
 }
 
 /** Quick lengths for the order line, in feet (inch companies). */

@@ -1,6 +1,6 @@
 /**
  * `/orders`: customer POs, open first, with what is still to dispatch. Figures are the server's
- * (`orders.list`); the Late chip comes from `orders.late`. A phone shows the same list as cards.
+ * (`orders.list`); the Late chip is the order's own `lateDays`. A phone shows the same list as cards.
  */
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
@@ -13,7 +13,7 @@ import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Toolbar } from "@orrn/ui/components/toolbar";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { bookDateText } from "@/features/purchase/format";
 import { Can } from "@/shared/components/can";
@@ -36,6 +36,7 @@ type Row = {
   status: OrderStatus;
   orderedG: number;
   bakiG: number;
+  lateDays: number | null;
 };
 
 export function OrdersPage() {
@@ -54,12 +55,6 @@ export function OrdersPage() {
     }),
     placeholderData: keepPreviousData,
   });
-  const late = useQuery({ ...trpc.orders.late.queryOptions({ limit: 500 }), staleTime: 30_000 });
-  const daysLate = useMemo(() => {
-    const byOrder = new Map<string, number>();
-    for (const l of late.data?.lines ?? []) byOrder.set(l.orderId, Math.max(byOrder.get(l.orderId) ?? 0, l.daysOpen));
-    return byOrder;
-  }, [late.data]);
 
   const rows = (list.data?.items ?? []) as Row[];
 
@@ -80,7 +75,8 @@ export function OrdersPage() {
       key: "status",
       header: t("orders.list.status"),
       cell: (o) => {
-        const days = daysLate.get(o.id);
+        // Review m-1: the server marks each order's late days (`lateDays`), never a capped list.
+        const days = o.lateDays;
         return (
           <span className="flex flex-wrap items-center gap-1.5">
             <Chip tone={STATUS_TONE[o.status]} truncate={false}>
