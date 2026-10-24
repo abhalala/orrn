@@ -9,22 +9,24 @@
  */
 import { confirmBlockers, MAX_REALLOCATE_BUNDLES, reallocationCheck } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gte, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 
+import { approval } from "@orrn/db/schema/approval";
 import { auditLog } from "@orrn/db/schema/audit";
 import { user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
+import { customer } from "@orrn/db/schema/customers";
 import { dispatch } from "@orrn/db/schema/dispatch";
 import { bundle } from "@orrn/db/schema/inventory";
 import { reasonCode } from "@orrn/db/schema/reasons";
-import { openSalesOrderStatuses, salesOrder, salesOrderLine, salesOrderWeightBases } from "@orrn/db/schema/sales";
+import { bundleTransfer, openSalesOrderStatuses, salesOrder, salesOrderLine, salesOrderWeightBases } from "@orrn/db/schema/sales";
 
-import { actionProcedure, companyProcedure } from "../index";
+import { actionProcedure, companyProcedure, router } from "../index";
 import { requestApprovalInsert } from "../lib/approval";
 import { auditInsert } from "../lib/audit";
-import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
+import { atomicBatch, chunk, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
 import { zonedYmd } from "../lib/dayWindow";
 import { assertDieAllowed } from "../lib/dieOwner";
@@ -41,6 +43,7 @@ import { daysBetween, LATE_AFTER_DAYS, lineStrips, suggestedLine, ymdMinusDays }
 import {
   bundlesPendingReallocation,
   isPlantStockSql,
+  plantOriginCustomerSql,
   moveStatements,
   pendingReallocationOf,
   type ReallocateMeta,
@@ -152,6 +155,12 @@ const reallocateInput = z.object({
   reason: text(500).optional(),
   /** `reason_code.code` of kind `reallocate`; required when the cut length differs. */
   reasonCode: text(40).optional(),
+  /**
+   * The approved `die_owner_override` that lets an owned die's bundles go to this customer (C47:
+   * the move then needs both that override and the `order_reallocate` approval). Re-checked when
+   * the reallocation is decided: an override closed meanwhile moves nothing.
+   */
+  dieOwnerApprovalId: id.optional(),
 });
 
 export const orderFlowProcedures = {
@@ -256,7 +265,14 @@ export const orderFlowProcedures = {
               serverSeq: seq,
             })
             .where(
-              and(eq(salesOrder.id, order.id), eq(salesOrder.companyId, ctx.companyId), eq(salesOrder.status, order.status)),
+              and(
+                eq(salesOrder.id, order.id),
+                eq(salesOrder.companyId, ctx.companyId),
+                eq(salesOrder.status, order.status),
+                // Review round 1 m-9: only over the version whose baki was read (a kg raise meanwhile
+                // could leave baki on an order closed without a reason).
+                eq(salesOrder.serverSeq, order.serverSeq),
+              ),
             ),
           batchAbortUnless(ctx.db, "sales_order_line", orderLanded(ctx.companyId, order.id, seq)),
           auditInsert(ctx, {
@@ -495,16 +511,25 @@ export const orderFlowProcedures = {
       };
     }),
 
-  /** Order timeline (FP-OP-06): audit rows about the order, its lines and its reallocations, oldest first. */
+  /**
+   * Order timeline (FP-OP-06): audit rows about the order, its lines, its plans and reallocations,
+   * the packs of bundles packed for its lines (`bundle.receipt.create`) and the completions of
+   * dispatches carrying them (`dispatch.complete`, `dispatch.overdraw.request`), oldest first.
+   */
   timeline: companyProcedure
     .input(z.object({ id, limit: z.number().int().min(1).max(200).default(100), offset: z.number().int().min(0).default(0) }))
     .query(async ({ ctx, input }) => {
       const order = await loadOrder(ctx.db, ctx.companyId, input.id);
       const actor = alias(user, "timeline_actor");
+      const lines = sql`(select tl.id from sales_order_line tl where tl.company_id = ${ctx.companyId} and tl.sales_order_id = ${order.id})`;
       const about = or(
         and(eq(auditLog.subjectType, "sales_order"), eq(auditLog.subjectId, order.id)),
         sql`json_extract(${auditLog.meta}, '$.orderId') = ${order.id}`,
         sql`exists (select 1 from json_each(${auditLog.meta}, '$.orderIds') j where j.value = ${order.id})`,
+        // Packs of bundles packed for the order's lines (moved-away bundles included) …
+        sql`(${auditLog.action} = 'bundle.receipt.create' and ${auditLog.subjectType} = 'bundle_group' and ${auditLog.subjectId} in (select tb.group_id from bundle tb where tb.company_id = ${ctx.companyId} and coalesce(tb.packed_sales_order_line_id, tb.sales_order_line_id) in ${lines}))`,
+        // … and completions (and overdraw asks) of dispatches that carry them.
+        sql`(${auditLog.subjectType} = 'dispatch' and ${auditLog.action} in ('dispatch.complete', 'dispatch.overdraw.request') and ${auditLog.subjectId} in (select tdi.dispatch_id from dispatch_item tdi where tdi.company_id = ${ctx.companyId} and tdi.sales_order_line_id in ${lines}))`,
       );
       const rows = await ctx.db
         .select({
@@ -605,6 +630,11 @@ export const orderFlowProcedures = {
           orderId: fromOrder.id,
           dispatchCode: dispatch.code,
           plant: sql<number>`${isPlantStockSql(ctx.companyId, { id: sql`${bundle.id}`, line: sql`${bundle.salesOrderLineId}` })}`,
+          // Review round 1 m-3: plant stock remembers the customer it came from (its latest transfer's
+          // from-line), so handing it to another customer still needs that customer's approval.
+          originCustomerId: sql<string | null>`${plantOriginCustomerSql(ctx.companyId, sql`${bundle.id}`)}`,
+          // A bundle on a live (draft or reserved) dispatch can't move.
+          onDispatchCode: sql<string | null>`(select d2.code from dispatch_item di2 join dispatch d2 on d2.id = di2.dispatch_id and d2.company_id = di2.company_id where di2.company_id = ${ctx.companyId} and di2.bundle_id = ${bundle.id} and d2.deleted_at is null and d2.status in ('draft', 'reserved') limit 1)`,
         })
         .from(bundle)
         .leftJoin(fromLine, and(eq(fromLine.id, bundle.salesOrderLineId), eq(fromLine.companyId, ctx.companyId)))
@@ -658,7 +688,7 @@ export const orderFlowProcedures = {
             dieId: b.dieId,
             lengthMm: b.lengthMm,
             heldOnDispatchCode: b.dispatchCode ?? null,
-            customerId: b.lineCustomerId ?? null,
+            customerId: b.lineCustomerId ?? (b.lineId ? null : (b.originCustomerId ?? null)),
           },
           target: target ? { dieId: target.dieId, cutLengthMm: target.cutLengthMm, customerId: target.customerId } : null,
         });
@@ -672,6 +702,9 @@ export const orderFlowProcedures = {
                   ? `is held on dispatch ${check.dispatchCode ?? ""}`.trim()
                   : "is a different die from that line";
           throw new TRPCError({ code: "BAD_REQUEST", message: `${b.serial} ${why}` });
+        }
+        if (b.onDispatchCode) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `${b.serial} is on dispatch ${b.onDispatchCode}; take it off the dispatch first` });
         }
         if (check.needsApproval) needsApproval = true;
         const mismatch = check.warnings.includes("length_mismatch");
@@ -722,6 +755,7 @@ export const orderFlowProcedures = {
             dieInstanceId: b.dieInstanceId,
             customerId: target.customerId,
             purpose: "dispatch",
+            approvalId: input.dieOwnerApprovalId ?? null,
           });
         }
       }
@@ -746,6 +780,7 @@ export const orderFlowProcedures = {
           items: transfers.map((t) => ({ bundleId: t.bundleId, fromLineId: t.fromLineId })),
           lengthMismatchBundleIds: warnings.map((w) => w.bundleId),
           orderIds,
+          dieOwnerApprovalId: input.dieOwnerApprovalId ?? null,
         };
         const req = requestApprovalInsert(ctx, {
           kind: "order_reallocate",
@@ -754,15 +789,34 @@ export const orderFlowProcedures = {
           requestNote: reason,
           meta: meta as unknown as Record<string, unknown>,
         });
-        await atomicBatch(ctx.db, [
-          req.statement,
-          auditInsert(ctx, {
-            action: "order.reallocate",
-            subjectType: "bundle_transfer",
-            subjectId: batchId,
-            meta: { status: "pending", approvalId: req.id, batchId, toLineId: target.lineId, orderIds, bundles: ids.length, kgG, reasonCode: reasonCodeValue },
-          }),
-        ]);
+        // Write time: none of the bundles went onto a dispatch or into another pending request
+        // after the read (a pending bundle can't be dispatched, and is asked for once).
+        const guards = chunk(ids, 80).map((part) => {
+          const list = sql.join(part.map((x) => sql`${x}`), sql`, `);
+          return batchAbortUnless(
+            ctx.db,
+            "sales_order_line",
+            sql`not exists (select 1 from dispatch_item di join dispatch d on d.id = di.dispatch_id and d.company_id = di.company_id where di.company_id = ${ctx.companyId} and d.deleted_at is null and d.status in ('draft', 'reserved') and di.bundle_id in (${list}))
+              and not exists (select 1 from approval a, json_each(a.meta, '$.bundleIds') j where a.company_id = ${ctx.companyId} and a.kind = 'order_reallocate' and a.status = 'pending' and j.value in (${list}))`,
+          );
+        });
+        try {
+          await atomicBatch(ctx.db, [
+            ...guards,
+            req.statement,
+            auditInsert(ctx, {
+              action: "order.reallocate",
+              subjectType: "bundle_transfer",
+              subjectId: batchId,
+              meta: { status: "pending", approvalId: req.id, batchId, toLineId: target.lineId, orderIds, bundles: ids.length, kgG, reasonCode: reasonCodeValue },
+            }),
+          ]);
+        } catch (e) {
+          if (isBatchAbort(e, "sales_order_line")) {
+            throw new TRPCError({ code: "CONFLICT", message: "A bundle went onto a dispatch or another request meanwhile. Reload and try again." });
+          }
+          throw e;
+        }
         return { status: "pending" as const, batchId, approvalId: req.id, moved: 0, kgG, warnings };
       }
 
@@ -952,6 +1006,254 @@ export const orderFlowProcedures = {
       return { items, readyG: ready.reduce((s, i) => s + i.weightG, 0), readyBundles: ready.length };
     }),
 
+  /**
+   * Reallocation requests (FP-OP-08) for the order screens and the approver's sheet: the
+   * cross-customer requests (`order_reallocate` approvals) as pending / applied / rejected, and
+   * `get` by approval or batch id (a batch applied at once, without an approval, too). Names,
+   * serials, kg, orders and POs only; never rates (C46).
+   */
+  reallocations: router({
+    list: companyProcedure
+      .input(
+        z.object({
+          status: z.enum(["pending", "applied", "rejected"]).optional(),
+          /** Requests that move bundles from or to this order. */
+          orderId: id.optional(),
+          limit: z.number().int().min(1).max(100).default(50),
+          offset: z.number().int().min(0).default(0),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const requester = alias(user, "realloc_requester");
+        const decider = alias(user, "realloc_decider");
+        const toLine = alias(salesOrderLine, "realloc_to_line");
+        const toOrder = alias(salesOrder, "realloc_to_order");
+        const where = and(
+          eq(approval.companyId, ctx.companyId),
+          eq(approval.kind, "order_reallocate"),
+          input.status ? eq(approval.status, REALLOCATION_STATUS_TO_APPROVAL[input.status]) : undefined,
+          input.orderId
+            ? sql`exists (select 1 from json_each(${approval.meta}, '$.orderIds') j where j.value = ${input.orderId})`
+            : undefined,
+        );
+        const rows = await ctx.db
+          .select({
+            approvalId: approval.id,
+            batchId: approval.subjectId,
+            status: approval.status,
+            meta: approval.meta,
+            requestedAt: approval.createdAt,
+            requestedById: approval.requestedBy,
+            requestedByName: requester.name,
+            decidedAt: approval.decidedAt,
+            decidedByName: decider.name,
+            decisionNote: approval.note,
+            toLineNo: toLine.lineNo,
+            toOrderId: toOrder.id,
+            toOrderNumber: toOrder.number,
+            toOrderPeriod: toOrder.period,
+            toPoNumber: toOrder.poNumber,
+            toCustomerId: toOrder.customerId,
+            toCustomerName: customer.name,
+          })
+          .from(approval)
+          .leftJoin(requester, eq(requester.id, approval.requestedBy))
+          .leftJoin(decider, eq(decider.id, approval.decidedBy))
+          .leftJoin(toLine, and(eq(toLine.id, sql`json_extract(${approval.meta}, '$.toLineId')`), eq(toLine.companyId, ctx.companyId)))
+          .leftJoin(toOrder, and(eq(toOrder.id, toLine.salesOrderId), eq(toOrder.companyId, ctx.companyId)))
+          .leftJoin(customer, and(eq(customer.id, toOrder.customerId), eq(customer.companyId, ctx.companyId)))
+          .where(where)
+          .orderBy(desc(approval.createdAt), desc(approval.id))
+          .limit(input.limit)
+          .offset(input.offset);
+        const [total] = await ctx.db.select({ n: count() }).from(approval).where(where);
+        const n = Number(total?.n ?? 0);
+        const next = input.offset + rows.length;
+        return {
+          items: rows.map((r) => {
+            const meta = r.meta as unknown as ReallocateMeta;
+            return {
+              approvalId: r.approvalId,
+              batchId: r.batchId,
+              status: APPROVAL_TO_REALLOCATION_STATUS[r.status],
+              bundles: meta.bundleIds?.length ?? 0,
+              kgG: meta.kgG ?? 0,
+              reason: meta.reason ?? null,
+              reasonCode: meta.reasonCode ?? null,
+              orderIds: meta.orderIds ?? [],
+              to: {
+                lineId: meta.toLineId,
+                lineNo: r.toLineNo,
+                orderId: r.toOrderId,
+                orderNumber: r.toOrderNumber,
+                orderPeriod: r.toOrderPeriod,
+                poNumber: r.toPoNumber,
+                customerId: r.toCustomerId,
+                customerName: r.toCustomerName,
+              },
+              requestedAt: r.requestedAt,
+              requestedById: r.requestedById,
+              requestedByName: r.requestedByName,
+              decidedAt: r.decidedAt,
+              decidedByName: r.decidedByName,
+              decisionNote: r.decisionNote,
+            };
+          }),
+          total: n,
+          nextOffset: next < n ? next : null,
+        };
+      }),
+
+    get: companyProcedure
+      .input(z.object({ approvalId: id.optional(), batchId: id.optional() }).refine((v) => Boolean(v.approvalId || v.batchId), "Give the approval or batch id"))
+      .query(async ({ ctx, input }) => {
+        const [req] = await ctx.db
+          .select()
+          .from(approval)
+          .where(
+            and(
+              eq(approval.companyId, ctx.companyId),
+              eq(approval.kind, "order_reallocate"),
+              input.approvalId ? eq(approval.id, input.approvalId) : eq(approval.subjectId, input.batchId!),
+            ),
+          )
+          .orderBy(desc(approval.createdAt))
+          .limit(1);
+        let head: {
+          approvalId: string | null;
+          batchId: string;
+          status: "pending" | "applied" | "rejected";
+          kgG: number | null;
+          reason: string | null;
+          reasonCode: string | null;
+          toLineId: string | null;
+          items: { bundleId: string; fromLineId: string | null; lengthMismatch: boolean }[];
+          requestedAt: Date;
+          requestedById: string | null;
+          decidedAt: Date | null;
+          decidedById: string | null;
+          decisionNote: string | null;
+        };
+        if (req) {
+          const meta = req.meta as unknown as ReallocateMeta;
+          const mismatch = new Set(meta.lengthMismatchBundleIds ?? []);
+          head = {
+            approvalId: req.id,
+            batchId: req.subjectId,
+            status: APPROVAL_TO_REALLOCATION_STATUS[req.status],
+            kgG: meta.kgG ?? null,
+            reason: meta.reason ?? null,
+            reasonCode: meta.reasonCode ?? null,
+            toLineId: meta.toLineId ?? null,
+            items: (meta.items ?? []).map((i) => ({ bundleId: i.bundleId, fromLineId: i.fromLineId, lengthMismatch: mismatch.has(i.bundleId) })),
+            requestedAt: req.createdAt,
+            requestedById: req.requestedBy,
+            decidedAt: req.decidedAt,
+            decidedById: req.decidedBy,
+            decisionNote: req.note,
+          };
+        } else {
+          if (!input.batchId) throw new TRPCError({ code: "NOT_FOUND", message: "Reallocation not found" });
+          // A batch applied at once (same customer, plant stock): its transfer rows.
+          const rows = await ctx.db
+            .select()
+            .from(bundleTransfer)
+            .where(and(eq(bundleTransfer.companyId, ctx.companyId), eq(bundleTransfer.batchId, input.batchId)))
+            .orderBy(asc(bundleTransfer.createdAt))
+            .limit(MAX_REALLOCATE_BUNDLES);
+          if (rows.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Reallocation not found" });
+          head = {
+            approvalId: null,
+            batchId: input.batchId,
+            status: "applied",
+            kgG: null,
+            reason: rows[0]!.reason,
+            reasonCode: rows[0]!.reasonCode,
+            toLineId: rows[0]!.toSalesOrderLineId,
+            items: rows.map((r) => ({ bundleId: r.bundleId, fromLineId: r.fromSalesOrderLineId, lengthMismatch: r.lengthMismatch })),
+            requestedAt: rows[0]!.createdAt,
+            requestedById: rows[0]!.createdBy,
+            decidedAt: null,
+            decidedById: null,
+            decisionNote: null,
+          };
+        }
+
+        const bundleIds = head.items.map((i) => i.bundleId);
+        const bundles = new Map<string, { serial: string; weightG: number; pcs: number; lengthMm: number; status: string; lineId: string | null }>();
+        for (const part of chunk(bundleIds, 80)) {
+          const rows = await ctx.db
+            .select({
+              id: bundle.id,
+              serial: bundle.serial,
+              weightG: bundle.weightG,
+              pcs: bundle.quantity,
+              lengthMm: bundle.lengthMm,
+              status: bundle.status,
+              lineId: bundle.salesOrderLineId,
+            })
+            .from(bundle)
+            .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, part)));
+          for (const r of rows) bundles.set(r.id, r);
+        }
+        const moved = new Set<string>();
+        for (const part of chunk(bundleIds, 80)) {
+          const rows = await ctx.db
+            .select({ bundleId: bundleTransfer.bundleId })
+            .from(bundleTransfer)
+            .where(
+              and(
+                eq(bundleTransfer.companyId, ctx.companyId),
+                eq(bundleTransfer.batchId, head.batchId),
+                inArray(bundleTransfer.bundleId, part),
+              ),
+            );
+          for (const r of rows) moved.add(r.bundleId);
+        }
+        const lineIds = [...new Set([head.toLineId, ...head.items.map((i) => i.fromLineId)].filter((x): x is string => Boolean(x)))];
+        const lines = new Map<string, Awaited<ReturnType<typeof reallocationLines>>[number]>();
+        for (const l of await reallocationLines(ctx.db, ctx.companyId, lineIds)) lines.set(l.lineId, l);
+        const users = new Map<string, string>();
+        const userIds = [head.requestedById, head.decidedById].filter((x): x is string => Boolean(x));
+        if (userIds.length > 0) {
+          for (const u of await ctx.db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, userIds))) users.set(u.id, u.name);
+        }
+        const items = head.items
+          .map((i) => {
+            const b = bundles.get(i.bundleId);
+            return {
+              bundleId: i.bundleId,
+              serial: b?.serial ?? "",
+              weightG: b?.weightG ?? 0,
+              pcs: b?.pcs ?? null,
+              lengthMm: b?.lengthMm ?? null,
+              status: b?.status ?? null,
+              lineIdNow: b?.lineId ?? null,
+              lengthMismatch: i.lengthMismatch,
+              from: i.fromLineId ? (lines.get(i.fromLineId) ?? null) : null,
+              moved: moved.has(i.bundleId),
+            };
+          })
+          .sort((a, b) => a.serial.localeCompare(b.serial));
+        return {
+          approvalId: head.approvalId,
+          batchId: head.batchId,
+          status: head.status,
+          kgG: head.kgG ?? items.reduce((sum, i) => sum + i.weightG, 0),
+          reason: head.reason,
+          reasonCode: head.reasonCode,
+          /** null = plant stock. */
+          to: head.toLineId ? (lines.get(head.toLineId) ?? null) : null,
+          bundles: items,
+          requestedAt: head.requestedAt,
+          requestedByName: head.requestedById ? (users.get(head.requestedById) ?? null) : null,
+          decidedAt: head.decidedAt,
+          decidedByName: head.decidedById ? (users.get(head.decidedById) ?? null) : null,
+          decisionNote: head.decisionNote,
+        };
+      }),
+  }),
+
   /** Orders running late (FP-OP-18 data): confirmed / dispatching, baki left, ordered more than 15 days ago. */
   late: companyProcedure
     .input(z.object({ customerId: id.optional(), limit: z.number().int().min(1).max(500).default(100), offset: z.number().int().min(0).default(0) }))
@@ -989,6 +1291,46 @@ export const orderFlowProcedures = {
       return got ? { ...got.line, match: got.match } : null;
     }),
 };
+
+const REALLOCATION_STATUS_TO_APPROVAL = { pending: "pending", applied: "approved", rejected: "rejected" } as const;
+const APPROVAL_TO_REALLOCATION_STATUS = { pending: "pending", approved: "applied", rejected: "rejected" } as const;
+
+/** Order line, order, PO and customer name of these lines (a reallocation's from / to). */
+async function reallocationLines(db: OrrnDb, companyId: string, lineIds: readonly string[]) {
+  const out: {
+    lineId: string;
+    lineNo: number;
+    cutLengthMm: number;
+    orderId: string;
+    orderNumber: string;
+    orderPeriod: string;
+    poNumber: string | null;
+    orderStatus: string;
+    customerId: string;
+    customerName: string;
+  }[] = [];
+  for (const part of chunk([...lineIds], 80)) {
+    const rows = await db
+      .select({
+        lineId: salesOrderLine.id,
+        lineNo: salesOrderLine.lineNo,
+        cutLengthMm: salesOrderLine.cutLengthMm,
+        orderId: salesOrder.id,
+        orderNumber: salesOrder.number,
+        orderPeriod: salesOrder.period,
+        poNumber: salesOrder.poNumber,
+        orderStatus: salesOrder.status,
+        customerId: salesOrder.customerId,
+        customerName: customer.name,
+      })
+      .from(salesOrderLine)
+      .innerJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, companyId)))
+      .innerJoin(customer, and(eq(customer.id, salesOrder.customerId), eq(customer.companyId, companyId)))
+      .where(and(eq(salesOrderLine.companyId, companyId), inArray(salesOrderLine.id, part)));
+    out.push(...rows);
+  }
+  return out;
+}
 
 /** Strip + confirm data for `orders.get` (kept here so the PL-8 router file stays small). */
 export async function orderDetailExtras(

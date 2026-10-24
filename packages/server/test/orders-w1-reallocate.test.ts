@@ -174,7 +174,7 @@ describe("FP-OP-08: orders.reallocate", () => {
     expect(events.map((e) => (e.meta as { status: string }).status)).toEqual(["pending", "applied"]);
   }, SLOW);
 
-  test("another customer, rejected: nothing moves; a bundle dispatched while pending is skipped on approval", async () => {
+  test("another customer, rejected: nothing moves; a pending bundle can't be dispatched; one voided while pending is skipped on approval", async () => {
     const p = await opPlant();
     const { s, a, b } = await twoOrders(p, { secondCustomer: p.otherCustomer });
     const serials = await p.pack(s, [{ kg: 100 }, { kg: 120 }], a.lineIds[0]);
@@ -185,12 +185,17 @@ describe("FP-OP-08: orders.reallocate", () => {
     expect(await transfersOf(p.companyId)).toHaveLength(0);
 
     const second = await p.owner.orders.reallocate({ bundleIds: ids, toLineId: b.lineIds[0]!, reason: "again" });
-    const d = await p.held([serials[0]!]);
-    await p.owner.dispatch.complete({ id: d });
+    // Review round 1 m-4: a bundle in a pending request can't go on a dispatch.
+    const { id: d } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const report = await p.owner.dispatch.addBundlesBySerial({ id: d, serials: [serials[0]!] });
+    expect(report.added).toEqual([]);
+    expect(report.unavailable.map((u) => u.code)).toEqual(["reallocation_pending"]);
+    // A bundle that stops being available while pending (here voided) is skipped when it is approved.
+    await env.db.update(bundle).set({ status: "void" }).where(eq(bundle.id, ids[0]!));
     await p.as("manager").approval.decide({ id: second.approvalId!, decision: "approved" });
     const after = await bundlesBySerial(p, serials);
     expect<unknown>(after.map((x) => [x.status, x.salesOrderLineId])).toEqual([
-      ["dispatched", a.lineIds[0]],
+      ["void", a.lineIds[0]],
       ["available", b.lineIds[0]],
     ]);
     expect(await transfersOf(p.companyId)).toHaveLength(1);
@@ -288,7 +293,7 @@ describe("FP-OP-08: orders.reallocate", () => {
 });
 
 describe("FP-OP-09/10: plant stock and the ready-stock prompt", () => {
-  test("plant stock = no line and latest transfer to none; unassigned legacy only on request; plant -> line needs no approval", async () => {
+  test("plant stock = no line and latest transfer to none; unassigned legacy only on request; plant stock keeps its customer", async () => {
     const p = await opPlant();
     const { s, a, b } = await twoOrders(p, { secondCustomer: p.otherCustomer });
     const onA = await p.pack(s, [{ kg: 40 }], a.lineIds[0]);
@@ -306,10 +311,14 @@ describe("FP-OP-09/10: plant stock and the ready-stock prompt", () => {
     await expect(p.owner.orders.reallocate({ bundleIds: [aId!], toLineId: null, reason: "again" })).rejects.toMatchObject({
       code: "BAD_REQUEST",
     });
-    // Plant stock to another customer's line applies at once (it belongs to no customer).
+    // Review round 1 m-3: plant stock that came from customer A still needs an approval to go to
+    // another customer (two applied moves must not skip order_reallocate) …
     const res = await p.owner.orders.reallocate({ bundleIds: [aId!], toLineId: b.lineIds[0]!, reason: "Ready stock" });
-    expect(res.status).toBe("applied");
-    expect((await p.owner.orders.plantStock({ sectionId: s })).items).toHaveLength(0);
+    expect(res.status).toBe("pending");
+    expect((await p.owner.orders.plantStock({ sectionId: s })).items).toHaveLength(1);
+    // … while unassigned legacy stock (no customer behind it) goes to any line at once.
+    const [looseId] = (await bundlesBySerial(p, loose)).map((r) => r.id);
+    expect((await p.owner.orders.reallocate({ bundleIds: [looseId!], toLineId: b.lineIds[0]!, reason: "Ready stock" })).status).toBe("applied");
   }, SLOW);
 
   test("matchStock: plant, unassigned, own leftovers, own open lines, then other customers; exact length first; oldest first", async () => {

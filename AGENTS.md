@@ -499,8 +499,10 @@ bun run deploy
   order (fingerprint of customer, PO, date, status, note and lines in the `order.create` audit meta)
   is a CONFLICT. `orders.update` REQUIRES `serverSeq` (from `orders.get`): a save over a newer
   version answers CONFLICT, read and write time (review round 3).
-- Order status: booking ⇄ confirmed → dispatching (set by the first completed dispatch) → closed
-  (reopen to confirmed). Cancel only while no live dispatch carries its lines. A line that has bundles
+- Order status: booking → confirmed (`orders.confirm`) → dispatching (set by the first completed
+  dispatch) → closed (`orders.close`); booking / confirmed → cancelled (`orders.cancel`). There is
+  no reopen. `orders.create` makes a booking and `orders.update` never moves a status (D11; a
+  `status` other than the current one is BAD_REQUEST). A line that has bundles
   or dispatch items cannot be removed or change section, and the order's customer cannot change once
   any line has links; these checks also sit in the UPDATE/DELETE WHERE with a `batchAbortUnless`
   statement, so an edit that loses a race fails whole (CONFLICT), never half-applies.
@@ -575,7 +577,16 @@ bun run deploy
   owner check on a pinned copy). PO is unique per company + customer among non-cancelled orders
   (`assertPoFree` read time + `poRepeatGuard` write time). `close` needs a reason while baki is left;
   `cancel` needs a reason and nothing packed / planned / dispatched (also in the UPDATE's WHERE).
-  PL-8's `orders.update({ status })` path still exists for its screens.
+  These three are the only status moves (D11): `create` is booking only, `update` refuses a
+  `status` other than the current one, and an edit of a confirmed / dispatching order must still
+  pass the confirm blockers and the owner check (purpose `plan`) on a changed pin. `close` is
+  guarded by the order's `server_seq` (a kg raise meanwhile fails it).
+- Line edits (`orders.update`, `lib/orderLines.ts resolveLineEdits`): a W1 line keeps the basis it
+  was locked with and recomputes the uncommitted side from it (typed kg on a pieces line is
+  ignored); a section, pin or basis-choice change re-bases it like `repriceWeight` and writes
+  `order.weight.refresh` (`via: "order.update"`). kg / pcs / length / section of a line on a
+  released plan are refused (read time and in the line UPDATE's WHERE); a W1 line can't go below
+  its dispatched kg. A line on any press plan can't be removed.
 - Balance strip (`lib/orderStrip.ts`, `orders.balance` and `orders.get` -> `strip` per line):
   planned = draft plans + released plans whose run is live; pressed = good kg of logged runs shared
   over the plan die's lines by kg, minus aged and produced (press_run_line arrives in Wave 2);
@@ -587,10 +598,25 @@ bun run deploy
   customer's bundles -> pending `order_reallocate` (subject = batch id, meta bundle + line ids and
   kg only) applied by its APPROVAL_APPLIERS entry. Bundles in a pending request can't be asked again
   and are not offered by `matchStock`. The first move sets `packed_sales_order_line_id` (original SO
-  / PO). The stock ledger is never touched. Owner gate (purpose `dispatch`) for a customer target only.
+  / PO). The stock ledger is never touched. Owner gate (purpose `dispatch`) for a customer target only;
+  `dieOwnerApprovalId` names the approved `die_owner_override` (C47) and the applier re-runs the
+  gate at the decision (an override closed meanwhile moves nothing). Plant stock remembers the
+  customer it came from (`plantOriginCustomerSql`: its latest transfer's from-line), so giving it to
+  another customer needs `order_reallocate`. A bundle on a live dispatch can't be reallocated, and a
+  bundle in a pending request can't be dispatched: `addBundlesBySerial` reports it
+  (`code: "reallocation_pending"`), `addBundle` refuses, `dispatch.complete` refuses (read time and
+  in the completing UPDATE). `orders.reallocations.list` / `get` (members) read the requests
+  (pending / applied / rejected) with serials, kg, from / to order, PO and customer names.
+- `orders.timeline` also lists `bundle.receipt.create` of bundles packed for the order's lines and
+  `dispatch.complete` / `dispatch.overdraw.request` of dispatches carrying them.
 - `plans.release`: window ≤ 24 h, each line ≤ planable without its own plan, owner check on the
   preferred copy (owned section without a pin -> "Pick the die copy"), one `queued` press run per plan
   die (`PR-n`), FP-OP-15 warnings returned. `cancel` voids queued runs (refused once one is issued).
+  Planable is checked again inside the batch of `plans.create` and `plans.release`
+  (`planOverPlannedSql`, CONFLICT when a pack, dispatch or another plan landed after the read).
+  Queued runs are inserted with `pressRunInserts` (every bound column explicit: drizzle binds a JS
+  default such as `time_unconfirmed` / `source` when a row leaves it out, which broke the 100-param
+  chunking at 7 dies).
 
 ## Worker performance rules
 

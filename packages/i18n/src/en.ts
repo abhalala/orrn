@@ -528,6 +528,7 @@ export const en = {
       count: "{count} added",
       already: "Already in this dispatch",
       heldElsewhere: "Held for another dispatch",
+      reallocationPending: "Waiting on a reallocation approval",
       void: "This bundle is void",
       dispatched: "Already dispatched",
       wrongStatus: "Can't add a bundle that is {status}",

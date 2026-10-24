@@ -32,7 +32,7 @@ import { allocateDocNumbers, nextDocNumber } from "../lib/docNumber";
 import { assertDieAllowed } from "../lib/dieOwner";
 import { companyFloor } from "../lib/orderLines";
 import { batchAbortUnless, isBatchAbort, kgText, lineBalancePage, lineBalances, type LineBalance } from "../lib/orders";
-import { lineStrips, type LineStrip } from "../lib/orderStrip";
+import { lineStrips, planOverPlannedSql, type LineStrip } from "../lib/orderStrip";
 import { nextCompanySeq } from "../lib/sequence";
 
 const id = z.string().min(1).max(64);
@@ -246,6 +246,24 @@ async function otherPartyWarnings(
     }));
 }
 
+type QueuedRunRow = Omit<typeof pressRun.$inferInsert, "timeUnconfirmed" | "source">;
+
+/**
+ * The INSERTs of a release's queued runs (review round 1 I-3). Drizzle binds a JS-side column
+ * default (`time_unconfirmed`, `source`) as a parameter when a row leaves it out, so the chunk size
+ * is computed from rows that carry every bound column explicitly: 15 per row, 6 rows (90
+ * parameters) per statement, under D1's 100.
+ */
+export function pressRunInserts(db: OrrnDb, runs: readonly QueuedRunRow[]): SqliteBatchItem[] {
+  const out: SqliteBatchItem[] = [];
+  pushChunkedInserts(
+    out,
+    (rows) => db.insert(pressRun).values(rows),
+    runs.map((r) => ({ ...r, timeUnconfirmed: false, source: "typed" as const })),
+  );
+  return out;
+}
+
 export const pressPlanRouter = router({
   create: actionProcedure("order.plan")
     .input(createInput)
@@ -332,6 +350,9 @@ export const pressPlanRouter = router({
       ];
       pushChunkedInserts(statements, (rows) => ctx.db.insert(pressPlanDie).values(rows), dieRows);
       pushChunkedInserts(statements, (rows) => ctx.db.insert(pressPlanLine).values(rows), lineRows);
+      // Write time (review round 1 I-2): another plan, a pack or a dispatch that landed after the
+      // read must not leave a line planned past what is left for it.
+      statements.push(batchAbortUnless(ctx.db, "sales_order_line", sql`not ${planOverPlannedSql(ctx.companyId, planId)}`));
       const orderIds = [...new Set([...lines.values()].map((l) => l.orderId))];
       statements.push(
         auditInsert(ctx, {
@@ -341,7 +362,17 @@ export const pressPlanRouter = router({
           meta: { number, period, dies: dieRows.length, lines: lineRows.length, kgG: lineRows.reduce((s, r) => s + r.kgG, 0), orderIds },
         }),
       );
-      await atomicBatch(ctx.db, statements);
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (e) {
+        if (isBatchAbort(e, "sales_order_line")) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "An order line on this plan was planned, packed or dispatched meanwhile. Reload and try again.",
+          });
+        }
+        throw e;
+      }
       return { id: planId, number, period, status: "draft" as const };
     }),
 
@@ -441,7 +472,9 @@ export const pressPlanRouter = router({
           sql`exists (select 1 from press_plan p where p.id = ${plan.id} and p.company_id = ${ctx.companyId} and p.status = 'released' and p.server_seq = ${seq})`,
         ),
       ];
-      pushChunkedInserts(statements, (rows) => ctx.db.insert(pressRun).values(rows), runs);
+      statements.push(...pressRunInserts(ctx.db, runs));
+      // Write time (I-2): every line of the plan still fits now that it counts as planned.
+      statements.push(batchAbortUnless(ctx.db, "sales_order_line", sql`not ${planOverPlannedSql(ctx.companyId, plan.id)}`));
       statements.push(
         auditInsert(ctx, {
           action: "plan.release",
@@ -460,7 +493,10 @@ export const pressPlanRouter = router({
         await atomicBatch(ctx.db, statements);
       } catch (e) {
         if (isBatchAbort(e, "sales_order_line")) {
-          throw new TRPCError({ code: "CONFLICT", message: "This plan changed meanwhile. Reload and try again." });
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This plan, or an order line on it (planned, packed or dispatched), changed meanwhile. Reload and try again.",
+          });
         }
         throw e;
       }

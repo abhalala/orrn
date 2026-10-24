@@ -307,3 +307,125 @@ export async function resolveLines(
   }
   return out;
 }
+
+/** The stored columns of a line an edit starts from (`sales_order_line` row). */
+export type StoredLine = {
+  dieId: string;
+  cutLengthMm: number;
+  kgG: number;
+  pcs: number | null;
+  kgPer12ftMilli: number | null;
+  dieInstanceId: string | null;
+  tierRank: number | null;
+  qtyBasis: QtyBasis | null;
+  impliedG: number | null;
+  weightBasis: WeightBasis | null;
+  bandStartMilli: number | null;
+  copyMilli: number | null;
+  readingId: string | null;
+  basisNote: string | null;
+};
+
+export type LineEdit = {
+  resolved: ResolvedLine;
+  /** The line takes the W1 path (server basis); PL-8 lines store what was typed. */
+  w1: boolean;
+  /** The weight basis was read again (section, pin or basis choice changed): `order.weight.refresh`. */
+  rebased: boolean;
+  /** kg, pcs, cut length or section differ from the stored line. */
+  figuresChanged: boolean;
+  /** The pinned copy after the edit, and whether it differs from the stored one. */
+  pin: string | null;
+  pinChanged: boolean;
+};
+
+/**
+ * Resolve the edit of stored lines (FP-OP-04, review round 1 I-4). A W1 line keeps the basis it
+ * was locked with (`kg_per_12ft_milli` and its snapshot) unless its section, pinned copy or basis
+ * choice changes; the side the clerk did not commit is recomputed from that basis, so a typed
+ * figure for the other side is ignored (a pieces line ignores kg, a kg line ignores pieces). A
+ * re-base reads the basis again exactly as `orders.repriceWeight` does. PL-8 lines (no
+ * `qtyBasis` stored or sent) keep the PL-8 rule: figures as typed.
+ */
+export async function resolveLineEdits(
+  db: OrrnDb,
+  companyId: string,
+  edits: readonly { input: LineEntry; stored: StoredLine }[],
+  opts: { canPrice: boolean; floor?: CompanyFloor },
+): Promise<LineEdit[]> {
+  const floor = opts.floor ?? (await companyFloor(db, companyId));
+  const out: LineEdit[] = [];
+  for (const { input, stored } of edits) {
+    const sectionChanged = input.sectionId !== stored.dieId;
+    const lengthChanged = input.cutLengthMm !== stored.cutLengthMm;
+    const w1 = input.qtyBasis != null || stored.qtyBasis != null;
+    if (!w1) {
+      const [r] = await resolveLines(db, companyId, [input], { canPrice: opts.canPrice, floor });
+      const pin = r!.dieInstanceId !== undefined ? r!.dieInstanceId : sectionChanged ? null : stored.dieInstanceId;
+      out.push({
+        resolved: r!,
+        w1: false,
+        rebased: false,
+        figuresChanged: r!.kgG !== stored.kgG || r!.pcs !== stored.pcs || sectionChanged || lengthChanged,
+        pin,
+        pinChanged: (pin ?? null) !== (stored.dieInstanceId ?? null),
+      });
+      continue;
+    }
+    const qtyBasis: QtyBasis = input.qtyBasis ?? stored.qtyBasis!;
+    const pin = input.dieInstanceId !== undefined ? input.dieInstanceId : sectionChanged ? null : stored.dieInstanceId;
+    const pinChanged = (pin ?? null) !== (stored.dieInstanceId ?? null);
+    const basisAsked = input.weightBasis !== undefined && input.weightBasis !== stored.weightBasis;
+    const rebased = sectionChanged || pinChanged || basisAsked || stored.qtyBasis == null || stored.kgPer12ftMilli == null;
+    const entry: LineEntry = {
+      ...input,
+      qtyBasis,
+      dieInstanceId: pin,
+      // The committed side only: the other side is always the server's.
+      pcs: qtyBasis === "pcs" ? (input.pcs ?? stored.pcs) : undefined,
+      kgG: qtyBasis === "kg" ? (input.kgG ?? stored.kgG) : undefined,
+    };
+    let resolved: ResolvedLine;
+    if (rebased) {
+      // A band start the clerk chose stays chosen; one that was only the no-reading fallback does not.
+      const keptChoice = stored.weightBasis === "band_start" && !stored.basisNote && !sectionChanged ? "band_start" : undefined;
+      [resolved] = (await resolveLines(db, companyId, [{ ...entry, weightBasis: input.weightBasis ?? keptChoice }], {
+        canPrice: opts.canPrice,
+        floor,
+      })) as [ResolvedLine];
+    } else {
+      // Same validation as a save (rate rules, alloy / temper defaults)
+      // (the pin is unchanged here, so a copy retired since is not asked about again) …
+      const [base] = (await resolveLines(db, companyId, [{ ...entry, qtyBasis: undefined, dieInstanceId: undefined, kgG: stored.kgG }], {
+        canPrice: opts.canPrice,
+        floor,
+      })) as [ResolvedLine];
+      // … and the figures from the basis the line was locked with.
+      const basisMilli = stored.kgPer12ftMilli!;
+      const qty = lineQty({ qtyBasis, pcs: entry.pcs, kgG: entry.kgG, cutLengthMm: input.cutLengthMm }, basisMilli, floor.unit);
+      resolved = {
+        ...base,
+        dieInstanceId: pin,
+        kgG: qty.kgG,
+        pcs: qty.pcs,
+        kgPer12ftMilli: basisMilli,
+        qtyBasis: qty.qtyBasis,
+        impliedG: qty.impliedG,
+        weightBasis: stored.weightBasis,
+        bandStartMilli: stored.bandStartMilli,
+        copyMilli: stored.copyMilli,
+        readingId: stored.readingId,
+        basisNote: stored.basisNote,
+      };
+    }
+    out.push({
+      resolved,
+      w1: true,
+      rebased,
+      figuresChanged: resolved.kgG !== stored.kgG || resolved.pcs !== stored.pcs || sectionChanged || lengthChanged,
+      pin: pin ?? null,
+      pinChanged,
+    });
+  }
+  return out;
+}

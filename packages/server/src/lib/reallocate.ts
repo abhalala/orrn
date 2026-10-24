@@ -54,6 +54,14 @@ export function isPlantStockSql(companyId: string, b: { id: SQL; line: SQL }): S
   return sql`(${b.line} is null and exists (select 1 from bundle_transfer t where t.company_id = ${companyId} and t.bundle_id = ${b.id}) and (select t.to_sales_order_line_id from bundle_transfer t where t.company_id = ${companyId} and t.bundle_id = ${b.id} order by t.server_seq desc, t.created_at desc limit 1) is null)`;
 }
 
+/**
+ * The customer a plant-stock bundle came from: the customer of the line its latest transfer moved
+ * it from (null for legacy stock, or when that transfer came from no line). Review round 1 m-3.
+ */
+export function plantOriginCustomerSql(companyId: string, bundleIdSql: SQL): SQL {
+  return sql`(select o2.customer_id from bundle_transfer t2 join sales_order_line l2 on l2.id = t2.from_sales_order_line_id and l2.company_id = t2.company_id join sales_order o2 on o2.id = l2.sales_order_id and o2.company_id = l2.company_id where t2.company_id = ${companyId} and t2.bundle_id = ${bundleIdSql} and not exists (select 1 from bundle_transfer t3 where t3.company_id = t2.company_id and t3.bundle_id = t2.bundle_id and (t3.server_seq > t2.server_seq or (t3.server_seq = t2.server_seq and t3.created_at > t2.created_at))) limit 1)`;
+}
+
 export type TransferRow = {
   bundleId: string;
   fromLineId: string | null;
@@ -146,6 +154,8 @@ export type ReallocateMeta = {
   lengthMismatchBundleIds: string[];
   /** Every order touched (from and to), for the order timeline. */
   orderIds: string[];
+  /** The `die_owner_override` the requester named (C47), re-checked when the request is decided. */
+  dieOwnerApprovalId?: string | null;
 };
 
 /**
@@ -161,6 +171,9 @@ export const reallocateDecision: ApprovalApplier = (ctx, row, decision) => {
   const meta = sql`(select a.meta from approval a where a.id = ${row.id} and a.company_id = ${companyId})`;
   const toLine = sql`json_extract(${meta}, '$.toLineId')`;
   const B = (c: string) => sql`${sql.identifier("bundle")}.${sql.identifier(c)}`;
+  /** The die's owner (copy owner, else section owner) and the target line's customer. */
+  const owner = sql`coalesce((select di.owner_customer_id from die_instance di where di.id = ${B("die_instance_id")} and di.company_id = ${companyId}), (select dd.owner_customer_id from die dd where dd.id = ${B("die_id")} and dd.company_id = ${companyId}))`;
+  const targetCustomer = sql`(select o.customer_id from sales_order o where o.id = l.sales_order_id and o.company_id = ${companyId})`;
   const statements: SqliteBatchItem[] = [];
   if (decision === "approved") {
     // Keys follow bundle_transfer's column order (insert-select rule).
@@ -193,6 +206,10 @@ export const reallocateDecision: ApprovalApplier = (ctx, row, decision) => {
               eq(bundle.companyId, companyId),
               eq(bundle.status, "available"),
               sql`coalesce(${B("sales_order_line_id")}, '') = coalesce(json_extract(j.value, '$.fromLineId'), '')`,
+              // Review round 1 m-2: the owner gate runs again at the decision. An owned die's bundle
+              // moves only to its owner, or under a live (not closed) die_owner_override for the target
+              // customer (the one the requester named, when named).
+              sql`(${owner} is null or ${owner} = ${targetCustomer} or exists (select 1 from approval g where g.company_id = ${companyId} and g.kind = 'die_owner_override' and g.status = 'approved' and g.subject_id = ${B("die_instance_id")} and json_extract(g.meta, '$.attemptedCustomerId') = ${targetCustomer} and json_extract(g.meta, '$.closedAt') is null and (json_extract(${meta}, '$.dieOwnerApprovalId') is null or g.id = json_extract(${meta}, '$.dieOwnerApprovalId'))))`,
               landed,
             ),
           ),

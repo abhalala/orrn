@@ -5,14 +5,14 @@
  * order lines carry no prices, and the floor needs them (Pack suggests the open line for a section,
  * Dispatch links bundles to lines; ruling PL8-R1).
  */
+import { confirmBlockers } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, count, desc, eq, inArray, isNull, like, notExists, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, like, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import { auditLog } from "@orrn/db/schema/audit";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
-import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
 import {
   openSalesOrderStatuses,
   salesOrder,
@@ -33,19 +33,19 @@ import { nextDocNumber } from "../lib/docNumber";
 import {
   batchAbortUnless,
   isBatchAbort,
+  kgText,
   lineBalancePage,
   lineBalances,
   lineTotals,
-  ORDER_STATUS_MOVES,
   orderTotals,
   sumBalances,
 } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
-import { resolveLines, type ResolvedLine } from "../lib/orderLines";
+import { assertDieAllowed } from "../lib/dieOwner";
+import { companyFloor, resolveLineEdits, resolveLines, type ResolvedLine } from "../lib/orderLines";
 import { can, type Action, type CompanyRole } from "../lib/permissions";
 import { assertPoFree, orderDetailExtras, orderFlowProcedures, poRepeatGuard } from "./orderFlow";
-import { lineStrips } from "../lib/orderStrip";
-import { companyFloor } from "../lib/orderLines";
+import { lineStrips, onReleasedPlan } from "../lib/orderStrip";
 
 const MAX_LINES = 100;
 
@@ -88,14 +88,13 @@ export const orderLineInput = z.object({
   ratePaise: z.number().int().min(0).max(100_000_000).nullable().optional(),
 });
 
-const editableStatuses = ["booking", "confirmed"] as const;
-
 const createInput = z.object({
   customerId: z.string().min(1).max(64),
   poNumber: text(100).nullable().optional(),
   /** Company calendar date; defaults to today on the company clock. */
   orderDate: ymd.optional(),
-  status: z.enum(editableStatuses).optional(),
+  /** Only `booking` (or omitted): confirm with `orders.confirm` (D11). */
+  status: z.enum(salesOrderStatuses).optional(),
   note: text(1000).nullable().optional(),
   lines: z.array(orderLineInput).min(1, "Add at least one line").max(MAX_LINES, `At most ${MAX_LINES} lines`),
   /**
@@ -117,6 +116,7 @@ const updateInput = z.object({
   poNumber: text(100).nullable().optional(),
   orderDate: ymd.optional(),
   note: text(1000).nullable().optional(),
+  /** Must equal the order's status when sent: an edit never moves it (D11; confirm / close / cancel do). */
   status: z.enum(salesOrderStatuses).optional(),
   /** The full set of lines: existing ones by id (changed in place), new ones without id; missing ones are removed. */
   lines: z
@@ -269,6 +269,13 @@ export const salesOrderRouter = router({
   create: actionProcedure("order.manage")
     .input(createInput)
     .mutation(async ({ ctx, input }) => {
+      // D11 / review round 1 I-1: a new order is a booking; confirming is `orders.confirm`.
+      if (input.status !== undefined && input.status !== "booking") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "A new order is saved as a booking. Confirm it with Confirm once it is complete.",
+        });
+      }
       const fingerprint = await createFingerprint(input);
       /** The order this key already made, if any; CONFLICT when it was made from another request. */
       const byRequest = async () => {
@@ -320,7 +327,7 @@ export const salesOrderRouter = router({
       const { number, period } = await nextDocNumber(ctx.db, ctx.companyId, "so", at, userId);
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const id = crypto.randomUUID();
-      const status: SalesOrderStatus = input.status ?? "booking";
+      const status: SalesOrderStatus = "booking";
 
       const statements: SqliteBatchItem[] = [
         ctx.db.insert(salesOrder).values({
@@ -333,7 +340,6 @@ export const salesOrderRouter = router({
           poNumber,
           orderDate,
           status,
-          ...(status === "confirmed" ? { confirmedAt: at, confirmedBy: userId } : {}),
           note: blank(input.note),
           lineSeq: input.lines.length,
           clientRequestId: input.clientRequestId ?? null,
@@ -397,57 +403,34 @@ export const salesOrderRouter = router({
       if (order.status === "cancelled") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A cancelled order can't be changed" });
       }
+      // D11 / review round 1 I-1: an edit never moves the status. booking -> confirmed is
+      // `orders.confirm` (blockers, PO, owner check), -> closed is `orders.close` (reason while baki
+      // is left), -> cancelled is `orders.cancel` (nothing packed / planned / pressed / dispatched);
+      // dispatching is set by the first completed dispatch.
+      if (input.status !== undefined && input.status !== order.status) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `An edit can't move the order from ${order.status} to ${input.status}. Use Confirm, Close or Cancel.`,
+        });
+      }
       if (input.serverSeq !== order.serverSeq) {
         throw new TRPCError({ code: "CONFLICT", message: "This order changed while you were editing it. Reload and try again." });
       }
       const userId = ctx.session.user.id;
-      const at = clockNow();
 
       const existing = await ctx.db
-        .select({
-          id: salesOrderLine.id,
-          lineNo: salesOrderLine.lineNo,
-          dieId: salesOrderLine.dieId,
-          kgG: salesOrderLine.kgG,
-          linked: lineHasLinks(ctx.companyId, sql`${salesOrderLine.id}`),
-        })
+        .select({ row: salesOrderLine, linked: lineHasLinks(ctx.companyId, sql`${salesOrderLine.id}`) })
         .from(salesOrderLine)
         .where(and(eq(salesOrderLine.companyId, ctx.companyId), eq(salesOrderLine.salesOrderId, order.id)));
-      const byId = new Map(existing.map((l) => [l.id, l]));
+      const byId = new Map(existing.map((l) => [l.row.id, { ...l.row, linked: l.linked }]));
       const anyLinked = existing.some((l) => Boolean(l.linked));
+      const customerChanged = Boolean(input.customerId && input.customerId !== order.customerId);
 
-      // Status move by hand (dispatching is set by dispatch.complete).
-      const nextStatus = input.status && input.status !== order.status ? input.status : null;
-      if (nextStatus && !ORDER_STATUS_MOVES[order.status].includes(nextStatus)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: `An order can't go from ${order.status} to ${nextStatus}` });
-      }
-      if (nextStatus === "cancelled") {
-        const [{ n } = { n: 0 }] = await ctx.db
-          .select({ n: count() })
-          .from(dispatchItem)
-          .innerJoin(dispatch, and(eq(dispatch.id, dispatchItem.dispatchId), eq(dispatch.companyId, ctx.companyId)))
-          .innerJoin(salesOrderLine, and(eq(salesOrderLine.id, dispatchItem.salesOrderLineId), eq(salesOrderLine.companyId, ctx.companyId)))
-          .where(
-            and(
-              eq(dispatchItem.companyId, ctx.companyId),
-              eq(salesOrderLine.salesOrderId, order.id),
-              isNull(dispatch.deletedAt),
-              sql`${dispatch.status} <> 'cancelled'`,
-            ),
-          );
-        if (n > 0) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Bundles are on a dispatch against this order. Close it instead of cancelling.",
-          });
-        }
-      }
-
-      if (input.customerId && input.customerId !== order.customerId) {
+      if (customerChanged) {
         if (anyLinked) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Bundles are linked to this order; the customer can't change" });
         }
-        await assertCustomer(ctx.db, ctx.companyId, input.customerId);
+        await assertCustomer(ctx.db, ctx.companyId, input.customerId!);
       }
 
       // Lines: diff the full set against what is stored.
@@ -475,40 +458,148 @@ export const salesOrderRouter = router({
           }
         }
         for (const cur of existing) {
-          if (keep.has(cur.id)) continue;
+          if (keep.has(cur.row.id)) continue;
           if (cur.linked) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: `Line ${cur.lineNo} has bundles or dispatches; change its kg instead of removing it`,
+              message: `Line ${cur.row.lineNo} has bundles or dispatches; change its kg instead of removing it`,
             });
           }
-          removals.push({ id: cur.id, lineNo: cur.lineNo });
+          removals.push({ id: cur.row.id, lineNo: cur.row.lineNo });
+        }
+        if (removals.length > 0) {
+          const planned = await mapInChunks(
+            removals.map((r) => r.id),
+            (part) =>
+              ctx.db
+                .select({ lineId: sql<string>`pl.sales_order_line_id` })
+                .from(sql`press_plan_line pl`)
+                .where(sql`pl.company_id = ${ctx.companyId} and pl.sales_order_line_id in (${sql.join(part.map((id) => sql`${id}`), sql`, `)})`),
+          );
+          if (planned.length > 0) {
+            const nos = removals.filter((r) => planned.some((x) => x.lineId === r.id)).map((r) => r.lineNo);
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Line ${nos.join(", ")} is on a press plan; change its kg instead of removing it`,
+            });
+          }
         }
         await assertSections(ctx.db, ctx.companyId, [...changes.filter((c) => c.sectionChanged), ...additions].map((l) => l.sectionId));
       }
+      const floor = await companyFloor(ctx.db, ctx.companyId);
       const priceOk = canPrice(ctx.role);
-      const resolvedChanges = await resolveLines(ctx.db, ctx.companyId, changes, { canPrice: priceOk });
-      const resolvedAdds = await resolveLines(ctx.db, ctx.companyId, additions, { canPrice: priceOk });
+      // Review round 1 I-4: an edit of a W1 line keeps its locked basis (or re-bases it, audited).
+      const edits = await resolveLineEdits(
+        ctx.db,
+        ctx.companyId,
+        changes.map((c) => ({ input: c, stored: byId.get(c.id)! })),
+        { canPrice: priceOk, floor },
+      );
+      const resolvedAdds = await resolveLines(ctx.db, ctx.companyId, additions, { canPrice: priceOk, floor });
+
+      // Figures of a line on a released press plan are fixed (the press has its quantity), and a
+      // W1 line can't go below what already left (as `orders.repriceWeight`).
+      const figureIds = changes.filter((_, i) => edits[i]!.figuresChanged).map((c) => c.id);
+      if (figureIds.length > 0) {
+        const released = await mapInChunks(figureIds, (part) =>
+          ctx.db
+            .select({ id: salesOrderLine.id, lineNo: salesOrderLine.lineNo })
+            .from(salesOrderLine)
+            .where(and(eq(salesOrderLine.companyId, ctx.companyId), inArray(salesOrderLine.id, part), onReleasedPlan(ctx.companyId, sql`${salesOrderLine.id}`))),
+        );
+        if (released.length > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Line ${released.map((r) => r.lineNo).sort((a, b) => a - b).join(", ")} is on a released press plan; its kg, pieces, length and section can't change now`,
+          });
+        }
+        const w1KgIds = changes.filter((c, i) => edits[i]!.w1 && edits[i]!.resolved.kgG !== byId.get(c.id)!.kgG).map((c) => c.id);
+        if (w1KgIds.length > 0) {
+          const strips = await lineStrips(ctx.db, ctx.companyId, w1KgIds);
+          for (const [i, c] of changes.entries()) {
+            const strip = strips.get(c.id);
+            const next = edits[i]!.resolved.kgG;
+            if (strip && strip.dispatchedG > next) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: `${kgText(strip.dispatchedG)} kg is already dispatched on line ${byId.get(c.id)!.lineNo}, more than the new ${kgText(next)} kg`,
+              });
+            }
+          }
+        }
+      }
+
       // FP-OP-01: the PO stays unique per customer among live orders.
       const nextCustomer = input.customerId ?? order.customerId;
       const nextPo = input.poNumber === undefined ? order.poNumber : blank(input.poNumber);
       const poCheck = nextPo && (nextPo !== order.poNumber || nextCustomer !== order.customerId);
       if (poCheck) await assertPoFree(ctx.db, ctx.companyId, { customerId: nextCustomer, poNumber: nextPo, exceptOrderId: order.id });
 
+      // D11: a confirmed (or dispatching) order stays what confirm checked: the confirm blockers on
+      // the order as it will be, and the owner check on every pinned copy that changes (or on all
+      // of them when the customer changes).
+      if (order.status === "confirmed" || order.status === "dispatching") {
+        const after = input.lines
+          ? input.lines.map((l) => {
+              if (l.id) {
+                const i = changes.findIndex((c) => c.id === l.id);
+                const e = edits[i]!;
+                const cur = byId.get(l.id)!;
+                return {
+                  pcs: e.resolved.pcs,
+                  kgG: e.resolved.kgG,
+                  cutLengthMm: l.cutLengthMm,
+                  alloy: e.resolved.alloy,
+                  temper: e.resolved.temper,
+                  dieInstanceId: e.pin,
+                  tierRank: e.resolved.tierRank !== undefined ? e.resolved.tierRank : cur.tierRank,
+                  sectionId: l.sectionId,
+                  pinCheck: e.pinChanged,
+                };
+              }
+              const r = resolvedAdds[additions.indexOf(l)]!;
+              return {
+                pcs: r.pcs,
+                kgG: r.kgG,
+                cutLengthMm: l.cutLengthMm,
+                alloy: r.alloy,
+                temper: r.temper,
+                dieInstanceId: r.dieInstanceId ?? null,
+                tierRank: r.tierRank ?? null,
+                sectionId: l.sectionId,
+                pinCheck: true,
+              };
+            })
+          : existing.map(({ row }) => ({ ...row, sectionId: row.dieId, pinCheck: false }));
+        const blockers = confirmBlockers({ poNumber: nextPo, dieRequired: floor.floor.dieRequiredOnSalesOrder, lines: after });
+        if (blockers.length > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `This order is ${order.status}; it still needs: ${blockers.join(", ")}`,
+          });
+        }
+        for (const l of after) {
+          if (l.dieInstanceId && (l.pinCheck || customerChanged)) {
+            await assertDieAllowed(ctx.db, ctx.companyId, {
+              dieId: l.sectionId,
+              dieInstanceId: l.dieInstanceId,
+              customerId: nextCustomer,
+              purpose: "plan",
+            });
+          }
+        }
+      }
+
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const lineSeq = Math.max(order.lineSeq, ...existing.map((l) => l.lineNo)) + additions.length;
+      const lineSeq = Math.max(order.lineSeq, ...existing.map((l) => l.row.lineNo)) + additions.length;
       const statements: SqliteBatchItem[] = [
         ctx.db
           .update(salesOrder)
           .set({
             customerId: input.customerId ?? order.customerId,
-            poNumber: input.poNumber === undefined ? order.poNumber : blank(input.poNumber),
+            poNumber: nextPo,
             orderDate: input.orderDate ?? order.orderDate,
             note: input.note === undefined ? order.note : blank(input.note),
-            ...(nextStatus ? { status: nextStatus, statusChangedAt: at, statusChangedBy: userId } : {}),
-            ...(nextStatus === "confirmed" ? { confirmedAt: at, confirmedBy: userId } : {}),
-            ...(nextStatus === "closed" ? { closedAt: at, closedBy: userId } : {}),
-            ...(nextStatus === "cancelled" ? { cancelledAt: at, cancelledBy: userId } : {}),
             lineSeq: sql`max(${salesOrder.lineSeq}, ${lineSeq})`,
             serverSeq: seq,
           })
@@ -516,33 +607,12 @@ export const salesOrderRouter = router({
             and(
               eq(salesOrder.id, order.id),
               eq(salesOrder.companyId, ctx.companyId),
-              // Write-time optimistic version (correctness m-3): only over the version the editor read.
+              // Write-time optimistic version (correctness m-3): only over the version the editor read,
+              // and in the status it was checked in.
               eq(salesOrder.serverSeq, input.serverSeq),
-              // Write-time: a status move lands only from the status we checked, and a cancel only while
-              // no live dispatch carries its lines. Plain edits never touch the status.
-              nextStatus ? eq(salesOrder.status, order.status) : sql`${salesOrder.status} <> 'cancelled'`,
-              input.customerId && input.customerId !== order.customerId
+              eq(salesOrder.status, order.status),
+              customerChanged
                 ? sql`not exists (select 1 from sales_order_line l where l.company_id = ${ctx.companyId} and l.sales_order_id = ${order.id} and ${lineHasLinks(ctx.companyId, sql`l.id`)})`
-                : undefined,
-              nextStatus === "cancelled"
-                ? notExists(
-                    ctx.db
-                      .select({ one: sql`1` })
-                      .from(dispatchItem)
-                      .innerJoin(dispatch, and(eq(dispatch.id, dispatchItem.dispatchId), eq(dispatch.companyId, ctx.companyId)))
-                      .innerJoin(
-                        salesOrderLine,
-                        and(eq(salesOrderLine.id, dispatchItem.salesOrderLineId), eq(salesOrderLine.companyId, ctx.companyId)),
-                      )
-                      .where(
-                        and(
-                          eq(dispatchItem.companyId, ctx.companyId),
-                          eq(salesOrderLine.salesOrderId, order.id),
-                          isNull(dispatch.deletedAt),
-                          sql`${dispatch.status} <> 'cancelled'`,
-                        ),
-                      ),
-                  )
                 : undefined,
             ),
           ),
@@ -563,17 +633,20 @@ export const salesOrderRouter = router({
                 eq(salesOrderLine.companyId, ctx.companyId),
                 eq(salesOrderLine.salesOrderId, order.id),
                 sql`not ${lineHasLinks(ctx.companyId, sql`${salesOrderLine.id}`)}`,
+                // A line put on a press plan meanwhile stays (its plan line points at it).
+                sql`not exists (select 1 from press_plan_line pl where pl.company_id = ${ctx.companyId} and pl.sales_order_line_id = ${salesOrderLine.id})`,
               ),
             ),
         );
       }
       for (const [ci, c] of changes.entries()) {
+        const e = edits[ci]!;
         statements.push(
           ctx.db
             .update(salesOrderLine)
             .set({
               dieId: c.sectionId,
-              ...resolvedColumns(resolvedChanges[ci]!),
+              ...resolvedColumns(e.resolved),
               // A pinned copy belongs to the old section: a section change drops it unless a new one is sent.
               ...(c.sectionChanged && c.dieInstanceId === undefined ? { dieInstanceId: null } : {}),
               cutLengthMm: c.cutLengthMm,
@@ -587,6 +660,8 @@ export const salesOrderRouter = router({
                 eq(salesOrderLine.companyId, ctx.companyId),
                 eq(salesOrderLine.salesOrderId, order.id),
                 c.sectionChanged ? sql`not ${lineHasLinks(ctx.companyId, sql`${salesOrderLine.id}`)}` : undefined,
+                // Write-time half of the released-plan rule (I-4): a release landing first fails the edit.
+                e.figuresChanged ? sql`not ${onReleasedPlan(ctx.companyId, sql`${salesOrderLine.id}`)}` : undefined,
               ),
             ),
         );
@@ -636,8 +711,7 @@ export const salesOrderRouter = router({
           subjectId: order.id,
           meta: {
             number: order.number,
-            ...(nextStatus ? { status: { from: order.status, to: nextStatus } } : {}),
-            ...(input.customerId && input.customerId !== order.customerId ? { customerId: { from: order.customerId, to: input.customerId } } : {}),
+            ...(customerChanged ? { customerId: { from: order.customerId, to: input.customerId } } : {}),
             ...(input.lines
               ? {
                   linesRemoved: removals.map((r) => r.lineNo),
@@ -647,7 +721,7 @@ export const salesOrderRouter = router({
                   // override, ruling PL8-R15), so the order history shows who changed what.
                   kgChanged: changes.flatMap((c, ci) => {
                     const cur = byId.get(c.id)!;
-                    const toG = resolvedChanges[ci]!.kgG;
+                    const toG = edits[ci]!.resolved.kgG;
                     return cur.kgG === toG ? [] : [{ lineNo: cur.lineNo, fromG: cur.kgG, toG }];
                   }),
                 }
@@ -655,6 +729,27 @@ export const salesOrderRouter = router({
           },
         }),
       );
+      // A re-based W1 line is a weight refresh like `orders.repriceWeight` (FP-OP-04 audit).
+      for (const [ci, c] of changes.entries()) {
+        const e = edits[ci]!;
+        if (!e.rebased) continue;
+        const cur = byId.get(c.id)!;
+        statements.push(
+          auditInsert(ctx, {
+            action: "order.weight.refresh",
+            subjectType: "sales_order_line",
+            subjectId: c.id,
+            meta: {
+              orderId: order.id,
+              number: order.number,
+              lineNo: cur.lineNo,
+              via: "order.update",
+              from: { basisMilli: cur.kgPer12ftMilli, weightBasis: cur.weightBasis, kgG: cur.kgG, pcs: cur.pcs },
+              to: { basisMilli: e.resolved.kgPer12ftMilli, weightBasis: e.resolved.weightBasis ?? null, kgG: e.resolved.kgG, pcs: e.resolved.pcs },
+            },
+          }),
+        );
+      }
       try {
         await atomicBatch(ctx.db, statements);
       } catch (e) {

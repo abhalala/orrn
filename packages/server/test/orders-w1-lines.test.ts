@@ -360,7 +360,7 @@ describe("over-dispatch beyond the customer's kg tolerance (OP §6, Q-OP-12)", (
 });
 
 describe("orders.update keeps W1 line fields it was not sent", () => {
-  test("a PL-8 style edit keeps the pin and basis; a section change drops the old section's pin", async () => {
+  test("a PL-8 style edit keeps the pin and basis (typed kg ignored on a pieces line); a section change re-bases and drops the old pin", async () => {
     const p = await opPlant();
     const s = await p.section();
     const c = await p.copy(s, { milli: 12_000 });
@@ -372,9 +372,13 @@ describe("orders.update keeps W1 line fields it was not sent", () => {
     const lineId = (await p.owner.orders.get({ id: o.id })).lines[0]!.lineId;
     await saveOrder(p.owner, { id: o.id, note: "x", lines: [{ id: lineId, sectionId: s, cutLengthMm: FT12, kgG: kg(130), pcs: 10 }] });
     const [kept] = await env.db.select().from(salesOrderLine).where(eq(salesOrderLine.id, lineId));
-    expect(kept).toMatchObject({ dieInstanceId: c, qtyBasis: "pcs", weightBasis: "copy_current", kgG: kg(130) });
+    // Review round 1 I-4: 10 pcs x 12 ft at the locked 12.000 stays 120 kg; the typed 130 kg is not stored.
+    expect(kept).toMatchObject({ dieInstanceId: c, qtyBasis: "pcs", weightBasis: "copy_current", kgPer12ftMilli: 12_000, pcs: 10, kgG: kg(120) });
+    expect(await audits(p.companyId, "order.weight.refresh")).toHaveLength(0);
     await saveOrder(p.owner, { id: o.id, lines: [{ id: lineId, sectionId: s2, cutLengthMm: FT12, kgG: kg(130) }] });
     const [moved] = await env.db.select().from(salesOrderLine).where(eq(salesOrderLine.id, lineId));
-    expect(moved).toMatchObject({ dieId: s2, dieInstanceId: null });
+    // The new section has no copy: band start 11.800, still 10 pcs -> 118 kg, audited as a weight refresh.
+    expect(moved).toMatchObject({ dieId: s2, dieInstanceId: null, qtyBasis: "pcs", pcs: 10, kgG: kg(118), weightBasis: "band_start" });
+    expect((await audits(p.companyId, "order.weight.refresh")).map((a) => a.subjectId)).toEqual([lineId]);
   }, SLOW);
 });

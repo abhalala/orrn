@@ -19,7 +19,7 @@
  * are chunked (≤ 80 ids per statement, D1's 100 bound parameters).
  */
 import { planableG as planableOf } from "@orrn/domain";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 
 import { salesOrderLine } from "@orrn/db/schema/sales";
 
@@ -76,6 +76,24 @@ const producedExpr = sql<number>`(select coalesce(sum(b.weight_g), 0) from bundl
 function dispatchedExpr(what: "g" | "pcs") {
   const agg = what === "g" ? sql`sum(b.weight_g)` : sql`sum(b.quantity)`;
   return sql<number>`(select coalesce(${agg}, 0) from dispatch_item di join dispatch d on d.id = di.dispatch_id and d.company_id = di.company_id join bundle b on b.id = di.bundle_id and b.company_id = di.company_id where di.company_id = ${LC} and di.sales_order_line_id = ${LI} and d.status = 'completed' and d.deleted_at is null)`;
+}
+
+/** EXISTS: the line (`lineIdSql`) is on a released press plan (its figures are fixed). */
+export function onReleasedPlan(companyId: string, lineIdSql: SQL): SQL {
+  return sql`exists (select 1 from press_plan_line rpl join press_plan rp on rp.id = rpl.press_plan_id and rp.company_id = rpl.company_id where rpl.company_id = ${companyId} and rpl.sales_order_line_id = ${lineIdSql} and rp.status = 'released')`;
+}
+
+/**
+ * Write-time twin of `planableG` for a plan's own lines (review round 1 I-2): EXISTS a line of
+ * plan `planId` that is planned past what it may take, i.e. ordered − dispatched − packed −
+ * planned (every live plan, this one included) − pressed − aged < 0. Put it in a
+ * `batchAbortUnless(not …)` right after the plan lines (create) or the queued runs (release) are
+ * written, so a pack, a dispatch or another plan landing after the read fails the batch whole.
+ * The figures are the strip's own subqueries (`plannedExpr`, `loggedExpr`, …) on the outer line.
+ */
+export function planOverPlannedSql(companyId: string, planId: string): SQL {
+  const pressed = sql`max(0, ${loggedExpr} - ${producedExpr})`;
+  return sql`exists (select 1 from sales_order_line where ${LC} = ${companyId} and ${LI} in (select xpl.sales_order_line_id from press_plan_line xpl where xpl.company_id = ${companyId} and xpl.press_plan_id = ${planId}) and ("sales_order_line"."kg_g" - ${dispatchedExpr("g")} - ${bundleSum(["available", "reserved"])} - ${plannedExpr()} - ${pressed}) < 0)`;
 }
 
 export function stripOf(r: {

@@ -522,6 +522,7 @@ export const hi = {
       count: "{count} {count:जुड़ा|जुड़े}",
       already: "इस dispatch में पहले से है",
       heldElsewhere: "किसी दूसरे dispatch के लिए होल्ड पर है",
+      reallocationPending: "reallocation की मंज़ूरी बाकी है",
       void: "यह bundle रद्द है",
       dispatched: "पहले ही dispatch हो चुका है",
       wrongStatus: "\"{status}\" वाला bundle नहीं जोड़ सकते",

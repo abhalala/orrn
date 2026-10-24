@@ -10,7 +10,7 @@ type BundleStatus = (typeof BUNDLE_STATUSES)[number];
  */
 export type BundleBlock = {
   reason: string;
-  code?: "held" | "dispatched" | "void" | "status";
+  code?: "held" | "dispatched" | "void" | "status" | "reallocation_pending";
   status?: BundleStatus;
   heldBy?: string | null;
 };
@@ -60,6 +60,8 @@ export function blockMessage(block: BundleBlock): ScanMessage {
       return { key: "scan.continuous.dispatched" };
     case "void":
       return { key: "scan.continuous.void" };
+    case "reallocation_pending":
+      return { key: "scan.continuous.reallocationPending" };
     case "status":
       if (block.status) return { key: "scan.continuous.wrongStatus", status: block.status };
       break;
