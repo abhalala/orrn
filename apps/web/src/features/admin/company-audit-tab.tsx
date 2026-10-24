@@ -46,8 +46,8 @@ export function CompanyAuditTab({ companyId }: { companyId: string }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-4" data-testid="company-audit">
-      <Field label={t("audit.kind")} className="sm:max-w-xs">
-        <NativeSelect value={kind} onChange={(e) => setKind(isAuditKind(e.target.value) ? e.target.value : "")} data-testid="company-audit-kind">
+      <Field id="company-audit-kind" label={t("audit.kind")} className="sm:max-w-xs">
+        <NativeSelect id="company-audit-kind" value={kind} onChange={(e) => setKind(isAuditKind(e.target.value) ? e.target.value : "")} data-testid="company-audit-kind">
           <option value="">{t("audit.anyKind")}</option>
           {AUDIT_KINDS.map((k) => (
             <option key={k} value={k}>

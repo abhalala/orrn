@@ -109,8 +109,8 @@ export function BackupsPage() {
     <div className="flex min-w-0 flex-col gap-5" data-testid="admin-backups">
       <PageHeader title={t("admin.backups.title")} subtitle={t("admin.backups.subtitle")} />
       <div className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 sm:flex-row sm:items-end sm:p-5">
-        <Field label={t("admin.backups.company")} className="sm:w-80">
-          <NativeSelect value={companyId} onChange={(e) => setCompanyId(e.target.value)} data-testid="backup-company">
+        <Field id="backup-company" label={t("admin.backups.company")} className="sm:w-80">
+          <NativeSelect id="backup-company" value={companyId} onChange={(e) => setCompanyId(e.target.value)} data-testid="backup-company">
             <option value="">{t("admin.backups.allCompanies")}</option>
             {(companies.data?.items ?? []).map((c) => (
               <option key={c.id} value={c.id}>

@@ -69,8 +69,8 @@ export function AuditScreen({ filters, onFilters }: { filters: AuditFilters; onF
             set({ subject: subject.trim() });
           }}
         >
-          <Field label={t("audit.actor")}>
-            <NativeSelect value={filters.actor ?? ""} onChange={(e) => set({ actor: e.target.value })} data-testid="audit-actor">
+          <Field id="audit-actor" label={t("audit.actor")}>
+            <NativeSelect id="audit-actor" value={filters.actor ?? ""} onChange={(e) => set({ actor: e.target.value })} data-testid="audit-actor">
               <option value="">{t("audit.anyone")}</option>
               {(members.data ?? []).map((m) => (
                 <option key={m.userId} value={m.userId}>
@@ -79,8 +79,9 @@ export function AuditScreen({ filters, onFilters }: { filters: AuditFilters; onF
               ))}
             </NativeSelect>
           </Field>
-          <Field label={t("audit.kind")}>
+          <Field id="audit-kind" label={t("audit.kind")}>
             <NativeSelect
+              id="audit-kind"
               value={filters.kind ?? ""}
               onChange={(e) => set({ kind: isAuditKind(e.target.value) ? e.target.value : undefined })}
               data-testid="audit-kind"
