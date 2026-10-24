@@ -324,6 +324,8 @@ export type Me = {
     onboardingCompleted?: boolean;
     twoFactorEnabled?: boolean;
     mustChangePassword?: boolean;
+    /** A credential (email + password) login exists. False for a magic-link account until it sets one. */
+    hasPassword?: boolean;
   };
   company: {
     id: string;

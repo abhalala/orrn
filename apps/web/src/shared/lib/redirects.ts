@@ -16,8 +16,9 @@ export const STATIC_REDIRECTS: Record<string, string> = {
   "/dispatches/new": "/dispatch/new",
   "/spool": "/printing",
   "/settings/members": "/settings?tab=team",
-  // Ruling R6: the emailed magic link lands in the welcome stepper's magic variant.
-  "/setup-credentials": "/welcome?magic=1",
+  // The emailed magic link (waitlist approval). Plain /welcome again: the steps
+  // come from auth.me, so the old ?magic=1 flag (ruling R6) is gone.
+  "/setup-credentials": "/welcome",
   "/onboarding": "/welcome",
   "/change-password": "/welcome",
   "/waitlist": "/request-access",
@@ -85,4 +86,21 @@ export function resolveRedirect(pathname: string, search: string): string | null
   if (next && id && rest.length === 0) return withSearch(`${next}/${id}`, search);
 
   return null;
+}
+
+/**
+ * A `/welcome?token=...` link sent before the front door was rebuilt (the
+ * owner's sign-in link used to open a public /welcome). /welcome is the
+ * signed-in stepper now, so such a link goes to `/continue`, which spends the
+ * token on a tap. Null for any other /welcome visit.
+ */
+export function legacyWelcomeLink(pathname: string, search: string): string | null {
+  if (trimTrailingSlash(pathname) !== "/welcome") return null;
+  const params = new URLSearchParams(search);
+  const token = params.get("token");
+  if (!token) return null;
+  const out = new URLSearchParams({ token });
+  const error = params.get("error");
+  if (error) out.set("error", error);
+  return `/continue?${out.toString()}`;
 }

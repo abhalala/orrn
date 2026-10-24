@@ -6,7 +6,7 @@ export const Route = createFileRoute("/_public")({
 
 function PublicLayout() {
   return (
-    <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-background text-foreground">
+    <div className="flex min-h-screen w-full flex-col overflow-x-clip bg-background text-foreground">
       <Outlet />
     </div>
   );

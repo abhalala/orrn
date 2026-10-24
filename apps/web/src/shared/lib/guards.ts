@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { redirect } from "@tanstack/react-router";
 
-import { homeTarget } from "./home";
+import { homeTarget, needsPassword } from "./home";
 import { clearImpersonation } from "./impersonation";
 import type { Me } from "./me";
 import { isImpersonationForbidden } from "./session-errors";
@@ -78,7 +78,7 @@ export async function requireSignedIn({ context, location }: GuardArgs) {
 export async function requireCompanyMe({ context, location }: GuardArgs) {
   const me = await loadMe(context.queryClient);
   if (!me) throw toLogin(location);
-  if (me.user.mustChangePassword) throw redirect({ to: "/welcome" });
+  if (needsPassword(me)) throw redirect({ to: "/welcome" });
   if (!me.company) {
     // Staff have no company of their own; their home is the console.
     throw redirect({ to: me.isPlatformAdmin && me.platformRole ? "/admin" : "/no-access" });
@@ -87,11 +87,11 @@ export async function requireCompanyMe({ context, location }: GuardArgs) {
   return { me };
 }
 
-/** Signed-in user who has finished the forced-password step (welcome). */
+/** Signed-in user with a password of their own (the welcome password step is done). */
 export async function requireSession({ context, location }: GuardArgs) {
   const me = await loadMe(context.queryClient);
   if (!me) throw toLogin(location);
-  if (me.user.mustChangePassword) throw redirect({ to: "/welcome" });
+  if (needsPassword(me)) throw redirect({ to: "/welcome" });
   return { me };
 }
 
@@ -99,7 +99,7 @@ export async function requireSession({ context, location }: GuardArgs) {
 export async function requirePlatformAdmin({ context, location }: GuardArgs) {
   const me = await loadMe(context.queryClient);
   if (!me) throw toLogin(location);
-  if (me.user.mustChangePassword) throw redirect({ to: "/welcome" });
+  if (needsPassword(me)) throw redirect({ to: "/welcome" });
   if (!me.isPlatformAdmin || !me.platformRole) throw redirect({ to: homeTarget(me) });
   return { me };
 }
