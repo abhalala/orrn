@@ -279,6 +279,10 @@ describe("import of 3,000 rows in two calls (2,000 + 1,000)", () => {
       status: "active" as const,
     }));
     env.resetPeakParams();
+    // The check the web runs before the save takes 2,000 rows at a time too.
+    const checked = await owner.die.validateImport(rows.slice(0, 2_000));
+    expect(checked.duplicates).toEqual([]);
+    expect(checked.errors).toEqual([]);
     const first = await owner.die.processImport({ newRows: rows.slice(0, 2_000), updatedRows: [], clientRequestId: "imp-chunk-0000000001" });
     const second = await owner.die.processImport({ newRows: rows.slice(2_000), updatedRows: [], clientRequestId: "imp-chunk-0000000002" });
     expect(first.success).toBe(true);
@@ -286,6 +290,8 @@ describe("import of 3,000 rows in two calls (2,000 + 1,000)", () => {
     expect(env.peakParams()).toBeLessThanOrEqual(100);
     const stored = await env.db.select({ id: die.id }).from(die).where(eq(die.companyId, companyId));
     expect(stored).toHaveLength(3_000);
+    const again2 = await owner.die.validateImport(rows.slice(2_000));
+    expect(again2.duplicates).toHaveLength(1_000);
     // The reply of chunk 1 was lost and the web sends it again: nothing is saved twice.
     await owner.die.processImport({ newRows: rows.slice(0, 2_000), updatedRows: [], clientRequestId: "imp-chunk-0000000001" });
     expect(await env.db.select({ id: die.id }).from(die).where(eq(die.companyId, companyId))).toHaveLength(3_000);
