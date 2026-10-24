@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi } from "./helpers/accounts";
+import { toPlantStock } from "./helpers/plant-stock";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
@@ -70,7 +71,10 @@ async function serials(page: Page, status: "available" | "dispatched", count: nu
   // Spread the picks so two tests running at once rarely pick the same bundle.
   const pool = list.items.map((b) => b.serial);
   const start = Math.floor(Math.random() * Math.max(1, pool.length - count));
-  return pool.slice(start, start + count);
+  const picked = pool.slice(start, start + count);
+  // Seeded stock is "not on a sales order" (D12), which the floor scan refuses: move these to plant stock.
+  if (status === "available") await toPlantStock(picked);
+  return picked;
 }
 
 async function openDispatchScan(page: Page, dispatch: { id: string; code: string }) {
