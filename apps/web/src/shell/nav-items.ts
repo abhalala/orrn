@@ -3,6 +3,7 @@ import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 import {
   BookOpen,
   Building2,
+  ClipboardCheck,
   Cylinder,
   FlaskConical,
   House,
@@ -10,6 +11,7 @@ import {
   LayoutDashboard,
   PackagePlus,
   Printer,
+  Scale,
   Settings,
   Truck,
   UserCog,
@@ -43,7 +45,19 @@ export const TENANT_PRIMARY: readonly NavItem[] = [
   { key: "dispatch", to: "/dispatch", labelKey: "nav.dispatch", icon: Truck, module: "dispatches" },
 ];
 
+/** Who may read scrap lots: the server's `purchaseReader` (routers/vendor.ts). */
+const PURCHASE_READERS: readonly Action[] = ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"];
+
+/**
+ * Approvals: approvers (manager/admin/owner via masters.publish, foundry for a cast close) and the
+ * roles that raise requests (office D/C notes, die room re-ranks, supervisor cast close).
+ * PL-W10 replaces this with the role-aware nav table.
+ */
+const APPROVAL_PEOPLE: readonly Action[] = ["masters.publish", "purchase.dcnote", "die.rerank", "cast.close", "cast.enter"];
+
 export const TENANT_MORE: readonly NavItem[] = [
+  { key: "purchase", to: "/purchase", labelKey: "nav.purchase", icon: Scale, requires: PURCHASE_READERS },
+  { key: "approvals", to: "/approvals", labelKey: "nav.approvals", icon: ClipboardCheck, requires: APPROVAL_PEOPLE },
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },
   { key: "customers", to: "/customers", labelKey: "nav.customers", icon: Users, module: "customers" },
   { key: "printing", to: "/printing", labelKey: "nav.printing", icon: Printer, requires: ["spool.view_queue"] },

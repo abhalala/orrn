@@ -20,6 +20,7 @@ import { Route as TenantTodayRouteImport } from './routes/_tenant/today'
 import { Route as TenantSettingsRouteImport } from './routes/_tenant/settings'
 import { Route as TenantPrintingRouteImport } from './routes/_tenant/printing'
 import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
+import { Route as TenantApprovalsRouteImport } from './routes/_tenant/approvals'
 import { Route as PublicWaitlistRouteImport } from './routes/_public/waitlist'
 import { Route as PublicRequestAccessRouteImport } from './routes/_public/request-access'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
@@ -31,6 +32,7 @@ import { Route as AuthedChangePasswordRouteImport } from './routes/_authed/chang
 import { Route as TenantStockIndexRouteImport } from './routes/_tenant/stock.index'
 import { Route as TenantSpoolIndexRouteImport } from './routes/_tenant/spool.index'
 import { Route as TenantReceiptsIndexRouteImport } from './routes/_tenant/receipts.index'
+import { Route as TenantPurchaseIndexRouteImport } from './routes/_tenant/purchase.index'
 import { Route as TenantPreviewIndexRouteImport } from './routes/_tenant/preview.index'
 import { Route as TenantPackIndexRouteImport } from './routes/_tenant/pack.index'
 import { Route as TenantGuidesIndexRouteImport } from './routes/_tenant/guides.index'
@@ -45,6 +47,8 @@ import { Route as TenantStockDieIdRouteImport } from './routes/_tenant/stock.$di
 import { Route as TenantSettingsMembersRouteImport } from './routes/_tenant/settings.members'
 import { Route as TenantReceiptsNewRouteImport } from './routes/_tenant/receipts.new'
 import { Route as TenantReceiptsIdRouteImport } from './routes/_tenant/receipts.$id'
+import { Route as TenantPurchaseNewRouteImport } from './routes/_tenant/purchase.new'
+import { Route as TenantPurchaseIdRouteImport } from './routes/_tenant/purchase.$id'
 import { Route as TenantPackingListsIdRouteImport } from './routes/_tenant/packing-lists.$id'
 import { Route as TenantPackNewRouteImport } from './routes/_tenant/pack.new'
 import { Route as TenantPackIdRouteImport } from './routes/_tenant/pack.$id'
@@ -142,6 +146,11 @@ const TenantDashboardRoute = TenantDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantApprovalsRoute = TenantApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
+  getParentRoute: () => TenantRoute,
+} as any)
 const PublicWaitlistRoute = PublicWaitlistRouteImport.update({
   id: '/waitlist',
   path: '/waitlist',
@@ -195,6 +204,11 @@ const TenantSpoolIndexRoute = TenantSpoolIndexRouteImport.update({
 const TenantReceiptsIndexRoute = TenantReceiptsIndexRouteImport.update({
   id: '/receipts/',
   path: '/receipts/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPurchaseIndexRoute = TenantPurchaseIndexRouteImport.update({
+  id: '/purchase/',
+  path: '/purchase/',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantPreviewIndexRoute = TenantPreviewIndexRouteImport.update({
@@ -265,6 +279,16 @@ const TenantReceiptsNewRoute = TenantReceiptsNewRouteImport.update({
 const TenantReceiptsIdRoute = TenantReceiptsIdRouteImport.update({
   id: '/receipts/$id',
   path: '/receipts/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPurchaseNewRoute = TenantPurchaseNewRouteImport.update({
+  id: '/purchase/new',
+  path: '/purchase/new',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPurchaseIdRoute = TenantPurchaseIdRouteImport.update({
+  id: '/purchase/$id',
+  path: '/purchase/$id',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantPackingListsIdRoute = TenantPackingListsIdRouteImport.update({
@@ -526,6 +550,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof PublicLoginRoute
   '/request-access': typeof PublicRequestAccessRoute
   '/waitlist': typeof PublicWaitlistRoute
+  '/approvals': typeof TenantApprovalsRoute
   '/dashboard': typeof TenantDashboardRoute
   '/printing': typeof TenantPrintingRoute
   '/settings': typeof TenantSettingsRouteWithChildren
@@ -546,6 +571,8 @@ export interface FileRoutesByFullPath {
   '/pack/$id': typeof TenantPackIdRoute
   '/pack/new': typeof TenantPackNewRoute
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/purchase/$id': typeof TenantPurchaseIdRoute
+  '/purchase/new': typeof TenantPurchaseNewRoute
   '/receipts/$id': typeof TenantReceiptsIdRoute
   '/receipts/new': typeof TenantReceiptsNewRoute
   '/settings/members': typeof TenantSettingsMembersRoute
@@ -560,6 +587,7 @@ export interface FileRoutesByFullPath {
   '/guides/': typeof TenantGuidesIndexRoute
   '/pack/': typeof TenantPackIndexRoute
   '/preview/': typeof TenantPreviewIndexRoute
+  '/purchase/': typeof TenantPurchaseIndexRoute
   '/receipts/': typeof TenantReceiptsIndexRoute
   '/spool/': typeof TenantSpoolIndexRoute
   '/stock/': typeof TenantStockIndexRoute
@@ -605,6 +633,7 @@ export interface FileRoutesByTo {
   '/login': typeof PublicLoginRoute
   '/request-access': typeof PublicRequestAccessRoute
   '/waitlist': typeof PublicWaitlistRoute
+  '/approvals': typeof TenantApprovalsRoute
   '/dashboard': typeof TenantDashboardRoute
   '/printing': typeof TenantPrintingRoute
   '/settings': typeof TenantSettingsRouteWithChildren
@@ -625,6 +654,8 @@ export interface FileRoutesByTo {
   '/pack/$id': typeof TenantPackIdRoute
   '/pack/new': typeof TenantPackNewRoute
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/purchase/$id': typeof TenantPurchaseIdRoute
+  '/purchase/new': typeof TenantPurchaseNewRoute
   '/receipts/$id': typeof TenantReceiptsIdRoute
   '/receipts/new': typeof TenantReceiptsNewRoute
   '/settings/members': typeof TenantSettingsMembersRoute
@@ -639,6 +670,7 @@ export interface FileRoutesByTo {
   '/guides': typeof TenantGuidesIndexRoute
   '/pack': typeof TenantPackIndexRoute
   '/preview': typeof TenantPreviewIndexRoute
+  '/purchase': typeof TenantPurchaseIndexRoute
   '/receipts': typeof TenantReceiptsIndexRoute
   '/spool': typeof TenantSpoolIndexRoute
   '/stock': typeof TenantStockIndexRoute
@@ -688,6 +720,7 @@ export interface FileRoutesById {
   '/_public/login': typeof PublicLoginRoute
   '/_public/request-access': typeof PublicRequestAccessRoute
   '/_public/waitlist': typeof PublicWaitlistRoute
+  '/_tenant/approvals': typeof TenantApprovalsRoute
   '/_tenant/dashboard': typeof TenantDashboardRoute
   '/_tenant/printing': typeof TenantPrintingRoute
   '/_tenant/settings': typeof TenantSettingsRouteWithChildren
@@ -709,6 +742,8 @@ export interface FileRoutesById {
   '/_tenant/pack/$id': typeof TenantPackIdRoute
   '/_tenant/pack/new': typeof TenantPackNewRoute
   '/_tenant/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/_tenant/purchase/$id': typeof TenantPurchaseIdRoute
+  '/_tenant/purchase/new': typeof TenantPurchaseNewRoute
   '/_tenant/receipts/$id': typeof TenantReceiptsIdRoute
   '/_tenant/receipts/new': typeof TenantReceiptsNewRoute
   '/_tenant/settings/members': typeof TenantSettingsMembersRoute
@@ -723,6 +758,7 @@ export interface FileRoutesById {
   '/_tenant/guides/': typeof TenantGuidesIndexRoute
   '/_tenant/pack/': typeof TenantPackIndexRoute
   '/_tenant/preview/': typeof TenantPreviewIndexRoute
+  '/_tenant/purchase/': typeof TenantPurchaseIndexRoute
   '/_tenant/receipts/': typeof TenantReceiptsIndexRoute
   '/_tenant/spool/': typeof TenantSpoolIndexRoute
   '/_tenant/stock/': typeof TenantStockIndexRoute
@@ -770,6 +806,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/request-access'
     | '/waitlist'
+    | '/approvals'
     | '/dashboard'
     | '/printing'
     | '/settings'
@@ -790,6 +827,8 @@ export interface FileRouteTypes {
     | '/pack/$id'
     | '/pack/new'
     | '/packing-lists/$id'
+    | '/purchase/$id'
+    | '/purchase/new'
     | '/receipts/$id'
     | '/receipts/new'
     | '/settings/members'
@@ -804,6 +843,7 @@ export interface FileRouteTypes {
     | '/guides/'
     | '/pack/'
     | '/preview/'
+    | '/purchase/'
     | '/receipts/'
     | '/spool/'
     | '/stock/'
@@ -849,6 +889,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/request-access'
     | '/waitlist'
+    | '/approvals'
     | '/dashboard'
     | '/printing'
     | '/settings'
@@ -869,6 +910,8 @@ export interface FileRouteTypes {
     | '/pack/$id'
     | '/pack/new'
     | '/packing-lists/$id'
+    | '/purchase/$id'
+    | '/purchase/new'
     | '/receipts/$id'
     | '/receipts/new'
     | '/settings/members'
@@ -883,6 +926,7 @@ export interface FileRouteTypes {
     | '/guides'
     | '/pack'
     | '/preview'
+    | '/purchase'
     | '/receipts'
     | '/spool'
     | '/stock'
@@ -931,6 +975,7 @@ export interface FileRouteTypes {
     | '/_public/login'
     | '/_public/request-access'
     | '/_public/waitlist'
+    | '/_tenant/approvals'
     | '/_tenant/dashboard'
     | '/_tenant/printing'
     | '/_tenant/settings'
@@ -952,6 +997,8 @@ export interface FileRouteTypes {
     | '/_tenant/pack/$id'
     | '/_tenant/pack/new'
     | '/_tenant/packing-lists/$id'
+    | '/_tenant/purchase/$id'
+    | '/_tenant/purchase/new'
     | '/_tenant/receipts/$id'
     | '/_tenant/receipts/new'
     | '/_tenant/settings/members'
@@ -966,6 +1013,7 @@ export interface FileRouteTypes {
     | '/_tenant/guides/'
     | '/_tenant/pack/'
     | '/_tenant/preview/'
+    | '/_tenant/purchase/'
     | '/_tenant/receipts/'
     | '/_tenant/spool/'
     | '/_tenant/stock/'
@@ -1089,6 +1137,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantDashboardRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/approvals': {
+      id: '/_tenant/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof TenantApprovalsRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_public/waitlist': {
       id: '/_public/waitlist'
       path: '/waitlist'
@@ -1164,6 +1219,13 @@ declare module '@tanstack/react-router' {
       path: '/receipts'
       fullPath: '/receipts/'
       preLoaderRoute: typeof TenantReceiptsIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/purchase/': {
+      id: '/_tenant/purchase/'
+      path: '/purchase'
+      fullPath: '/purchase/'
+      preLoaderRoute: typeof TenantPurchaseIndexRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/preview/': {
@@ -1262,6 +1324,20 @@ declare module '@tanstack/react-router' {
       path: '/receipts/$id'
       fullPath: '/receipts/$id'
       preLoaderRoute: typeof TenantReceiptsIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/purchase/new': {
+      id: '/_tenant/purchase/new'
+      path: '/purchase/new'
+      fullPath: '/purchase/new'
+      preLoaderRoute: typeof TenantPurchaseNewRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/purchase/$id': {
+      id: '/_tenant/purchase/$id'
+      path: '/purchase/$id'
+      fullPath: '/purchase/$id'
+      preLoaderRoute: typeof TenantPurchaseIdRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/packing-lists/$id': {
@@ -1657,6 +1733,7 @@ const TenantSettingsRouteWithChildren = TenantSettingsRoute._addFileChildren(
 )
 
 interface TenantRouteChildren {
+  TenantApprovalsRoute: typeof TenantApprovalsRoute
   TenantDashboardRoute: typeof TenantDashboardRoute
   TenantPrintingRoute: typeof TenantPrintingRoute
   TenantSettingsRoute: typeof TenantSettingsRouteWithChildren
@@ -1672,6 +1749,8 @@ interface TenantRouteChildren {
   TenantPackIdRoute: typeof TenantPackIdRoute
   TenantPackNewRoute: typeof TenantPackNewRoute
   TenantPackingListsIdRoute: typeof TenantPackingListsIdRoute
+  TenantPurchaseIdRoute: typeof TenantPurchaseIdRoute
+  TenantPurchaseNewRoute: typeof TenantPurchaseNewRoute
   TenantReceiptsIdRoute: typeof TenantReceiptsIdRoute
   TenantReceiptsNewRoute: typeof TenantReceiptsNewRoute
   TenantStockDieIdRoute: typeof TenantStockDieIdRoute
@@ -1684,6 +1763,7 @@ interface TenantRouteChildren {
   TenantGuidesIndexRoute: typeof TenantGuidesIndexRoute
   TenantPackIndexRoute: typeof TenantPackIndexRoute
   TenantPreviewIndexRoute: typeof TenantPreviewIndexRoute
+  TenantPurchaseIndexRoute: typeof TenantPurchaseIndexRoute
   TenantReceiptsIndexRoute: typeof TenantReceiptsIndexRoute
   TenantSpoolIndexRoute: typeof TenantSpoolIndexRoute
   TenantStockIndexRoute: typeof TenantStockIndexRoute
@@ -1717,6 +1797,7 @@ interface TenantRouteChildren {
 }
 
 const TenantRouteChildren: TenantRouteChildren = {
+  TenantApprovalsRoute: TenantApprovalsRoute,
   TenantDashboardRoute: TenantDashboardRoute,
   TenantPrintingRoute: TenantPrintingRoute,
   TenantSettingsRoute: TenantSettingsRouteWithChildren,
@@ -1732,6 +1813,8 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPackIdRoute: TenantPackIdRoute,
   TenantPackNewRoute: TenantPackNewRoute,
   TenantPackingListsIdRoute: TenantPackingListsIdRoute,
+  TenantPurchaseIdRoute: TenantPurchaseIdRoute,
+  TenantPurchaseNewRoute: TenantPurchaseNewRoute,
   TenantReceiptsIdRoute: TenantReceiptsIdRoute,
   TenantReceiptsNewRoute: TenantReceiptsNewRoute,
   TenantStockDieIdRoute: TenantStockDieIdRoute,
@@ -1744,6 +1827,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantGuidesIndexRoute: TenantGuidesIndexRoute,
   TenantPackIndexRoute: TenantPackIndexRoute,
   TenantPreviewIndexRoute: TenantPreviewIndexRoute,
+  TenantPurchaseIndexRoute: TenantPurchaseIndexRoute,
   TenantReceiptsIndexRoute: TenantReceiptsIndexRoute,
   TenantSpoolIndexRoute: TenantSpoolIndexRoute,
   TenantStockIndexRoute: TenantStockIndexRoute,

@@ -133,7 +133,7 @@ describe("copy rules", () => {
   });
 
   test("no ALL-CAPS words except known acronyms (English, and Latin text inside Hindi)", () => {
-    const allowed = new Set(["PO", "PDF", "GSTIN", "GST", "CSV", "QR", "PL", "JSON", "PIN", "OK", "ID", "BG", "B001"]);
+    const allowed = new Set(["PO", "PDF", "GSTIN", "GST", "CSV", "QR", "PL", "JSON", "PIN", "OK", "ID", "BG", "B001", "WB", "UB"]);
     const offenders = all.flatMap((s) =>
       [...s.matchAll(/\b[A-Z][A-Z0-9]+\b/g)].map((m) => m[0]).filter((w) => !allowed.has(w)),
     );

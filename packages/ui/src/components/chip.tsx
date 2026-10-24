@@ -3,12 +3,21 @@ import type { HTMLAttributes, ReactNode } from "react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
+import type { ToneName } from "../tokens";
 import { PALETTE_CLASSES } from "./badge";
 
 export type ChipProps = Omit<HTMLAttributes<HTMLSpanElement>, "children"> & {
-  tone: StatusTone;
+  /** A status tone; `violet` is for Godseye only (staff, support sessions). */
+  tone: StatusTone | Extract<ToneName, "violet">;
   /** The status word ("In stock", "Held", "Void"). Colour is never the only signal. */
   children: ReactNode;
+  /**
+   * `false` for a status that must always read in full (touch users cannot
+   * hover for the title): no ellipsis, marked `data-no-truncate` so the e2e
+   * layout guard checks it. The layout must give the chip room (for example
+   * `ResponsiveListColumn.phoneWide`).
+   */
+  truncate?: boolean;
 };
 
 /**
@@ -17,11 +26,12 @@ export type ChipProps = Omit<HTMLAttributes<HTMLSpanElement>, "children"> & {
  * still reads as a status in greyscale. It never shrinks next to text
  * (`shrink-0`); the text beside it takes `min-w-0 flex-1`.
  */
-export function Chip({ tone, children, className, title, ...rest }: ChipProps) {
+export function Chip({ tone, children, className, title, truncate = true, ...rest }: ChipProps) {
   return (
     <span
       data-slot="chip"
       data-tone={tone}
+      data-no-truncate={truncate ? undefined : ""}
       className={cn(
         "inline-flex min-h-6 max-w-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold leading-none",
         PALETTE_CLASSES[tone],
@@ -32,7 +42,7 @@ export function Chip({ tone, children, className, title, ...rest }: ChipProps) {
       {...rest}
     >
       <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-current" />
-      <span className="truncate">{children}</span>
+      <span className={truncate ? "truncate" : undefined}>{children}</span>
     </span>
   );
 }

@@ -453,4 +453,51 @@ export const guidesEn: GuideBook = {
       },
     ],
   },
+  "weigh-scrap-lot": {
+    slug: "weigh-scrap-lot",
+    roles: ["owner", "office", "storekeeper", "operator"],
+    title: "Weigh a scrap lot",
+    when: "Use this when a scrap truck comes to the kanta.",
+    steps: [
+      {
+        title: "Start the lot",
+        body: "Open \"Purchase\" and tap \"New lot\".",
+      },
+      {
+        title: "Pick the vendor",
+        body: "Search by the name on the slip. Any spelling the book uses finds the same vendor. For a new party, tap \"Add new vendor\". A manager confirms it later.",
+      },
+      {
+        title: "Material and rate",
+        body: "Choose the material and the grade, and type the rate per kg. The vendor's usual material and last rate are one tap away.",
+      },
+      {
+        title: "Enter both weights",
+        body: "Type the weight on the party's slip, then our kanta weight. The difference and the tolerance show straight away. If the truck is not weighed here yet, leave our kanta empty and add it later with \"Edit weights\".",
+      },
+      {
+        title: "Short beyond the tolerance",
+        // confirm: the debit note covers the whole difference by default (owner question in the PLW2 ledger).
+        body: "If the lot is short beyond the tolerance, the office raises the debit note on the same screen: keep \"Raise the debit note now\" on and check the kg. A manager approves it in \"Approvals\".",
+      },
+      {
+        title: "Save and mark OK",
+        body: "Tap \"Save lot\". When the truck is unloaded, open the lot and tap \"Mark OK\". The scrap goes into scrap stock.",
+      },
+    ],
+    problems: [
+      {
+        title: "There is no \"Mark OK\" button",
+        fix: "Either our kanta weight is missing, or the lot is short beyond the tolerance and no debit note covers it. The lot page says which.",
+      },
+      {
+        title: "I typed a wrong weight",
+        fix: "Open the lot and tap \"Edit weights\" before it is OK. Once a note on the weight is open the weights are locked, so ask the manager to reject that note first.",
+      },
+      {
+        title: "The same vendor shows up twice",
+        fix: "A manager merges the two vendors in Masters. Their lots move with the merge.",
+      },
+    ],
+  },
 };

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 1067 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 1334 screen strings in 28 groups, 11 guides with 202 strings.
 
 ## Screen strings
 
@@ -152,7 +152,7 @@ Counts: 1067 screen strings in 26 groups, 10 guides with 182 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (37)
+### nav (39)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -193,6 +193,8 @@ Counts: 1067 screen strings in 26 groups, 10 guides with 182 strings.
 | `paletteResults` | {count} {count:result\|results} | {count} {count:नतीजा\|नतीजे} |
 | `paletteMove` | Move | ऊपर-नीचे जाएं |
 | `paletteOpen` | Open | खोलें |
+| `purchase` | Purchase | खरीद |
+| `approvals` | Approvals | मंज़ूरी |
 
 ### auth (43)
 
@@ -1196,6 +1198,281 @@ Please check, Lalubhai:
 - `unitLakh`: Chart axis short form for lakh (1.5L). Kept as L for now. Should it be लाख?
 - `unitCrore`: Chart axis short form for crore (1.2Cr). Kept as Cr for now. Should it be करोड़?
 
+### purchase (206)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Purchase | खरीद |
+| `subtitle` | Scrap lots from the kanta to the scrap store | स्क्रैप के लॉट, कांटे से स्क्रैप स्टोर तक |
+| `newLot` | New lot | नया लॉट |
+| `lotStatus.booking` | Booked | बुक हुआ |
+| `lotStatus.unload` | Unloading | उतराई में |
+| `lotStatus.ok` | OK | OK |
+| `lotStatus.cancelled` | Cancelled | कैंसल |
+| `flag.shortWithoutNote` | Needs a note | नोट चाहिए |
+| `flag.notePending` | Note waiting | नोट इंतज़ार में |
+| `filter.label` | Show | दिखाएं |
+| `filter.all` | All | सभी |
+| `filter.booking` | Booked | बुक हुए |
+| `filter.unload` | Unloading | उतराई में |
+| `filter.ok` | OK | OK |
+| `kpi.atKanta` | At the kanta | कांटे पर |
+| `kpi.atKantaMeta` | Booked or unloading | बुक हुए या उतराई में |
+| `kpi.lots` | {count:lot\|lots} | {count:लॉट\|लॉट} |
+| `kpi.inStock` | Scrap in stock | स्टॉक में स्क्रैप |
+| `kpi.inStockMeta` | All scrap stores | सभी स्क्रैप स्टोर |
+| `kpi.error` | This figure didn't load. | यह आंकड़ा लोड नहीं हुआ। |
+| `list.label` | Scrap lots | स्क्रैप लॉट |
+| `list.lot` | Lot | लॉट |
+| `list.vendor` | Vendor | पार्टी |
+| `list.material` | Material | माल |
+| `list.party` | Party kg | पार्टी kg |
+| `list.ours` | Our kg | हमारा kg |
+| `list.difference` | Difference | फ़र्क |
+| `list.status` | Status | स्थिति |
+| `list.emptyTitle` | No lots yet | अभी कोई लॉट नहीं |
+| `list.emptyBody` | Weigh the first truck and its lot shows up here. | पहली गाड़ी तौलें, उसका लॉट यहां दिखेगा। |
+| `list.emptyFilteredTitle` | No lots here | यहां कोई लॉट नहीं |
+| `list.emptyFilteredBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
+| `list.showAll` | Show all lots | सभी लॉट दिखाएं |
+| `list.error` | The lots didn't load. Check the connection and try again. | लॉट लोड नहीं हुए। कनेक्शन देखें और फिर से कोशिश करें। |
+| `material` | {item}, grade {grade} | {item}, ग्रेड {grade} |
+| `diff.even` | Same weight | वज़न बराबर |
+| `diff.over` | {kg} kg over | {kg} kg ज़्यादा |
+| `diff.within` | {kg} kg short, within {pct} | {kg} kg कम, {pct} के अंदर |
+| `diff.short` | {kg} kg short, beyond {pct} | {kg} kg कम, {pct} से ज़्यादा |
+| `diff.incomplete` | Not weighed on our kanta | हमारे कांटे पर नहीं तौला |
+| `diffWord.even` | Same weight | वज़न बराबर |
+| `diffWord.over` | Over | ज़्यादा |
+| `diffWord.within` | Short, within {pct} | कम, {pct} के अंदर |
+| `diffWord.short` | Short, beyond {pct} | कम, {pct} से ज़्यादा |
+| `diffWord.incomplete` | Not weighed on our kanta | हमारे कांटे पर नहीं तौला |
+| `tolerance` | Tolerance {kg} kg ({pct}) | छूट {kg} kg ({pct}) |
+| `charts.rateTitle` | Rate paid | दिया गया रेट |
+| `charts.rateSubtitle` | Average ₹ per kg by month for the most bought items, this month so far | सबसे ज़्यादा खरीदे माल का महीने वार औसत ₹ प्रति kg, इस महीने अब तक |
+| `charts.rateLabel` | Rate paid, rupees per kg by month | दिया गया रेट, महीने वार रुपये प्रति kg |
+| `charts.month` | Month | महीना |
+| `charts.vendorTitle` | Kg bought by vendor | पार्टी वार खरीदा kg |
+| `charts.vendorSubtitle` | Party kg in the last 6 months, top 8 and the rest | पिछले 6 महीने का पार्टी kg, टॉप 8 और बाकी |
+| `charts.vendorLabel` | Vendors by kg bought | खरीदे kg के हिसाब से पार्टियां |
+| `charts.bought` | Bought | खरीदा |
+| `charts.otherVendors` | Other vendors | बाकी पार्टियां |
+| `charts.truncated` | These charts count only the first 2,000 lots of the 6 months, so the latest weeks are missing. | ये चार्ट 6 महीनों के पहले 2,000 लॉट ही गिनते हैं, इसलिए सबसे नए हफ़्ते छूट गए हैं। |
+| `new.title` | New lot | नया लॉट |
+| `new.subtitle` | A truck at the kanta | कांटे पर आई गाड़ी |
+| `new.steps.vendor` | Vendor | पार्टी |
+| `new.steps.material` | Material | माल |
+| `new.steps.weights` | Weights | वज़न |
+| `new.steps.book` | Book | बुक |
+| `new.vendor` | Vendor | पार्टी |
+| `new.vendorHint` | Search by name or any spelling the book uses. | नाम से या बुक में लिखे किसी भी नाम से खोजें। |
+| `new.vendorPlaceholder` | Search vendors | पार्टी खोजें |
+| `new.addVendor` | Add new vendor | नई पार्टी जोड़ें |
+| `new.addVendorTitle` | Add vendor | पार्टी जोड़ें |
+| `new.addVendorBody` | A manager confirms new vendors later. | नई पार्टी को बाद में मैनेजर पक्का करेंगे। |
+| `new.vendorName` | Vendor name | पार्टी का नाम |
+| `new.vendorCity` | City | शहर |
+| `new.vendorPhone` | Phone | फ़ोन |
+| `new.saveVendor` | Add vendor | पार्टी जोड़ें |
+| `new.vendorAdded` | Vendor added | पार्टी जुड़ गई |
+| `new.draftVendor` | New | नई |
+| `new.usual` | Usually sells | आम तौर पर बेचती है |
+| `new.usualPick` | {item} at {rate} per kg | {item}, {rate} प्रति kg |
+| `new.item` | Material | माल |
+| `new.grade` | Grade | ग्रेड |
+| `new.rate` | Rate (₹ per kg) | रेट (₹ प्रति kg) |
+| `new.origin` | Origin | कहां से |
+| `new.originHint` | Where the scrap comes from, like local or Dubai. | स्क्रैप कहां से आया, जैसे लोकल या दुबई। |
+| `new.dross` | Dross (%) | ड्रॉस (%) |
+| `new.party` | Party kanta (kg) | पार्टी का कांटा (kg) |
+| `new.partyHint` | The weight on the party's slip. | पार्टी की पर्ची पर लिखा वज़न। |
+| `new.fc` | Our kanta (kg) | हमारा कांटा (kg) |
+| `new.fcHint` | Leave it empty if the truck is not weighed here yet. | गाड़ी यहां अभी नहीं तौली तो खाली छोड़ें। |
+| `new.difference` | Difference | फ़र्क |
+| `new.noteTitle` | Debit note | डेबिट नोट |
+| `new.noteBody` | {kg} kg short, more than {pct}. The lot can't go OK until a debit note covers at least {min} kg. | {kg} kg कम, {pct} से ज़्यादा। जब तक डेबिट नोट कम से कम {min} kg नहीं ढकता, लॉट OK नहीं होगा। |
+| `new.raiseNote` | Raise the debit note now | डेबिट नोट अभी बनाएं |
+| `new.noteKg` | Kg to debit | डेबिट करने वाले kg |
+| `new.noteKgHint` | At least {min} kg. | कम से कम {min} kg। |
+| `new.noteKgRange` | From {min} kg up to the short, {max} kg. | {min} kg से कमी तक, {max} kg। |
+| `new.noteKgMax` | Up to the short still open, {max} kg. | बची हुई कमी तक, {max} kg। |
+| `new.summaryNote` | Debit note | डेबिट नोट |
+| `new.fixCount` | {count} {count:thing\|things} to fix on this step | इस कदम पर {count} {count:चीज़\|चीज़ें} ठीक करनी हैं |
+| `new.saveUnsure` | orrn didn't answer, so the lot may have saved. Check the lot list before you save it again. | orrn से जवाब नहीं आया, हो सकता है लॉट सेव हो गया हो। दोबारा सेव करने से पहले लॉट की सूची देखें। |
+| `new.openLots` | Open lots | लॉट देखें |
+| `new.mastersError` | The scrap items didn't load. Check the connection and try again. | स्क्रैप आइटम लोड नहीं हुए। कनेक्शन देखें और फिर से कोशिश करें। |
+| `new.bori` | Bori deduction (kg) | बोरी कटौती (kg) |
+| `new.boriHint` | Weight of the bags, when the party is charged for them. | बोरियों का वज़न, अगर पार्टी से काटना है। |
+| `new.noteText` | Note for the manager | मैनेजर के लिए नोट |
+| `new.noteOffice` | The office raises the debit note before this lot can go OK. | लॉट OK होने से पहले ऑफ़िस डेबिट नोट बनाएगा। |
+| `new.billBook` | Bill book | बिल बुक |
+| `new.billBookHint` | WB is the w-bill book. UB is a lot partly in the w-bill book. | WB यानी w-bill बुक। UB यानी लॉट का कुछ हिस्सा w-bill बुक में। |
+| `new.partyBillNo` | Party bill number | पार्टी का बिल नंबर |
+| `new.vehicleNo` | Vehicle number | गाड़ी नंबर |
+| `new.date` | Lot date | लॉट की तारीख |
+| `new.notes` | Notes | नोट |
+| `new.summary` | This lot | यह लॉट |
+| `new.notChosen` | Not chosen | चुना नहीं |
+| `new.save` | Save lot | लॉट सेव करें |
+| `new.saved` | Lot {number} saved | लॉट {number} सेव हो गया |
+| `new.savedWithNote` | Lot {number} saved. Note {note} sent for approval. | लॉट {number} सेव हो गया। नोट {note} मंज़ूरी के लिए भेजा। |
+| `new.noteFailed` | Lot {number} saved, but the debit note didn't go through: {error} | लॉट {number} सेव हो गया, पर डेबिट नोट नहीं बना: {error} |
+| `new.noItems` | No scrap items yet. A manager adds them in Masters. | अभी कोई स्क्रैप माल नहीं। मैनेजर इसे Masters में जोड़ेंगे। |
+| `billBooks.main` | Main | मुख्य |
+| `billBooks.wb` | WB | WB |
+| `billBooks.ub` | UB | UB |
+| `detail.party` | Party kanta | पार्टी का कांटा |
+| `detail.ours` | Our kanta | हमारा कांटा |
+| `detail.difference` | Difference | फ़र्क |
+| `detail.facts` | Lot details | लॉट की जानकारी |
+| `detail.nextStep` | Next step | अगला कदम |
+| `detail.vendor` | Vendor | पार्टी |
+| `detail.material` | Material | माल |
+| `detail.rate` | Rate | रेट |
+| `detail.amount` | Amount | रकम |
+| `detail.payable` | Payable | देय वज़न |
+| `detail.billBook` | Bill book | बिल बुक |
+| `detail.partyBillNo` | Party bill number | पार्टी का बिल नंबर |
+| `detail.vehicleNo` | Vehicle | गाड़ी |
+| `detail.origin` | Origin | कहां से |
+| `detail.dross` | Dross | ड्रॉस |
+| `detail.date` | Lot date | लॉट की तारीख |
+| `detail.notSet` | Not set | नहीं डाला |
+| `detail.perKg` | {rate} per kg | {rate} प्रति kg |
+| `detail.perKgUnit` | per kg | प्रति kg |
+| `detail.notesTitle` | Debit and credit notes | डेबिट और क्रेडिट नोट |
+| `detail.noNotes` | No notes on this lot. | इस लॉट पर कोई नोट नहीं। |
+| `detail.noteType.debit` | Debit note | डेबिट नोट |
+| `detail.noteType.credit` | Credit note | क्रेडिट नोट |
+| `detail.noteReason.weight` | Weight | वज़न |
+| `detail.noteReason.grade` | Grade | ग्रेड |
+| `detail.noteKg` | {kg} kg | {kg} kg |
+| `detail.noteBori` | Bori {kg} kg | बोरी {kg} kg |
+| `detail.stockTitle` | Scrap stock | स्क्रैप स्टॉक |
+| `detail.stockNone` | Goes into scrap stock when it is marked OK. | OK होने पर स्क्रैप स्टॉक में जाएगा। |
+| `detail.stockNever` | This lot never went into stock. | यह लॉट कभी स्टॉक में नहीं आया। |
+| `detail.stockIn` | {kg} kg in at {location} | {location} में {kg} kg आया |
+| `detail.stockOut` | {kg} kg out at {location} | {location} से {kg} kg गया |
+| `detail.markUnload` | Mark unloading | उतराई चालू करें |
+| `detail.markedUnload` | Marked unloading | उतराई चालू की |
+| `detail.markOk` | Mark OK | OK करें |
+| `detail.markedOk` | Marked OK. {kg} kg in scrap stock at {location}. | OK हो गया। {location} में {kg} kg स्क्रैप स्टॉक में। |
+| `detail.weigh` | Enter our kanta weight | हमारे कांटे का वज़न डालें |
+| `detail.editWeights` | Edit weights | वज़न बदलें |
+| `detail.weightsLocked` | A note on the weight is open, so the weights are locked. | वज़न पर नोट खुला है, इसलिए वज़न नहीं बदलेगा। |
+| `detail.saveWeights` | Save weights | वज़न सेव करें |
+| `detail.weightsSaved` | Weights saved | वज़न सेव हो गया |
+| `detail.raiseNote` | Raise D/C note | D/C नोट बनाएं |
+| `detail.noteSheetTitle` | Raise D/C note | D/C नोट बनाएं |
+| `detail.noteSheetBody` | A manager approves it before it counts. | मैनेजर की मंज़ूरी के बाद ही गिना जाएगा। |
+| `detail.type` | Type | किस्म |
+| `detail.reason` | Reason | वजह |
+| `detail.kgDiff` | Kg difference | kg का फ़र्क |
+| `detail.amountOptional` | Amount (₹) | रकम (₹) |
+| `detail.amountHint` | Leave it empty to use kg times the lot's rate. | खाली छोड़ें तो kg गुणा लॉट का रेट लगेगा। |
+| `detail.sendNote` | Send for approval | मंज़ूरी के लिए भेजें |
+| `detail.noteSent` | Note {number} sent for approval | नोट {number} मंज़ूरी के लिए भेजा |
+| `detail.blockedWeigh` | Weigh the truck on our kanta before marking it OK. | OK करने से पहले गाड़ी हमारे कांटे पर तौलें। |
+| `detail.blockedShort` | {kg} kg short, beyond {pct}. A debit note must cover at least {min} kg before OK. | {kg} kg कम, {pct} से ज़्यादा। OK से पहले डेबिट नोट कम से कम {min} kg ढके। |
+| `detail.blockedShortOffice` | {kg} kg short, beyond {pct}. Ask the office to raise a debit note for at least {min} kg. | {kg} kg कम, {pct} से ज़्यादा। ऑफ़िस से कम से कम {min} kg का डेबिट नोट बनवाएं। |
+| `detail.okShortWithoutNote` | In stock, but {kg} kg short, beyond {pct}, and no live debit note covers it. Raise one for at least {min} kg. | स्टॉक में है, पर {kg} kg कम है, {pct} से ज़्यादा, और कोई चालू डेबिट नोट इसे नहीं ढकता। कम से कम {min} kg का नोट बनाएं। |
+| `detail.okShortOffice` | In stock, but {kg} kg short, beyond {pct}, and no live debit note covers it. Ask the office to raise one for at least {min} kg. | स्टॉक में है, पर {kg} kg कम है, {pct} से ज़्यादा, और कोई चालू डेबिट नोट इसे नहीं ढकता। ऑफ़िस से कम से कम {min} kg का नोट बनवाएं। |
+| `detail.coveredBy` | The short is covered by {notes}. | कमी {notes} से ढकी है। |
+| `detail.noteCovers` | The debit notes cover the short. The lot can go OK. | डेबिट नोट कमी को ढकते हैं। लॉट OK हो सकता है। |
+| `detail.store` | Scrap store | स्क्रैप स्टोर |
+| `detail.cancel` | Cancel lot | लॉट कैंसल करें |
+| `detail.cancelTitle` | Cancel this lot? | यह लॉट कैंसल करें? |
+| `detail.cancelBody` | It stays in the book as cancelled. A lot in stock comes out of scrap stock. | बुक में कैंसल लिखा रहेगा। स्टॉक में आया लॉट स्क्रैप स्टॉक से निकल जाएगा। |
+| `detail.cancelReason` | Reason | वजह |
+| `detail.keep` | Keep lot | लॉट रखें |
+| `detail.cancelled` | Lot cancelled | लॉट कैंसल हो गया |
+| `detail.cancelledBecause` | Cancelled: {reason} | कैंसल: {reason} |
+| `detail.notFound` | This lot doesn't exist or was removed. | यह लॉट नहीं है या हटा दिया गया। |
+| `detail.error` | This lot didn't load. Check the connection and try again. | यह लॉट लोड नहीं हुआ। कनेक्शन देखें और फिर से कोशिश करें। |
+| `errors.vendor` | Choose the vendor, or add a new one. | पार्टी चुनें, या नई जोड़ें। |
+| `errors.item` | Choose the material. | माल चुनें। |
+| `errors.grade` | Choose the grade. | ग्रेड चुनें। |
+| `errors.rate` | Enter the rate in rupees per kg, like 198.50. | रेट रुपये प्रति kg में डालें, जैसे 198.50। |
+| `errors.rateHigh` | That rate is above ₹10,000 per kg. Check it. | यह रेट ₹10,000 प्रति kg से ज़्यादा है। जांच लें। |
+| `errors.dross` | Enter dross as a percent from 0 to 100. | ड्रॉस 0 से 100 के बीच प्रतिशत में डालें। |
+| `errors.origin` | Keep the origin under 80 characters. | कहां से 80 अक्षर से कम रखें। |
+| `errors.party` | Enter the weight on the party's slip in kg. | पार्टी की पर्ची का वज़न kg में डालें। |
+| `errors.fc` | Enter our kanta weight in kg, or leave it empty. | हमारे कांटे का वज़न kg में डालें, या खाली छोड़ें। |
+| `errors.tooHeavy` | That is more than 100 tonnes. Check the weight. | यह 100 टन से ज़्यादा है। वज़न जांच लें। |
+| `errors.noteTooSmall` | The note must cover at least the short beyond the tolerance. | नोट कम से कम छूट से ज़्यादा वाली कमी ढके। |
+| `errors.noteTooBig` | The note can't be more than the party weight. | नोट पार्टी के वज़न से ज़्यादा नहीं हो सकता। |
+| `errors.noteOverShort` | A weight debit can't be more than the short. Lower the kg. | वज़न का डेबिट कमी से ज़्यादा नहीं हो सकता। kg कम करें। |
+| `errors.bori` | The bori deduction must be less than our kanta weight. | बोरी कटौती हमारे कांटे के वज़न से कम हो। |
+| `errors.date` | Pick the lot date. | लॉट की तारीख चुनें। |
+| `errors.vehicle` | Keep the vehicle number under 20 characters. | गाड़ी नंबर 20 अक्षर से कम रखें। |
+| `errors.billNo` | Keep the bill number under 60 characters. | बिल नंबर 60 अक्षर से कम रखें। |
+| `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
+| `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
+
+### approvals (59)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Approvals | मंज़ूरी |
+| `subtitle` | Requests that need a second person | जिन कामों पर दूसरे व्यक्ति की मंज़ूरी चाहिए |
+| `waitingTitle` | Waiting for a decision | फ़ैसले के इंतज़ार में |
+| `waitingUnit` | {count:request\|requests} | {count:रिक्वेस्ट\|रिक्वेस्ट} |
+| `filter.label` | Show | दिखाएं |
+| `filter.pending` | Waiting | इंतज़ार में |
+| `filter.approved` | Approved | मंज़ूर |
+| `filter.rejected` | Rejected | नामंज़ूर |
+| `kindFilter` | Kind | किस्म |
+| `allKinds` | All kinds | सभी किस्म |
+| `kind.dc_note` | Debit or credit note | डेबिट या क्रेडिट नोट |
+| `kind.cast_close` | Cast close | कास्ट बंद करना |
+| `kind.die_rerank` | Die tier change | Die का टियर बदलना |
+| `kind.dispatch_overdraw` | Dispatch over the order | ऑर्डर से ज़्यादा dispatch |
+| `kind.phantom_void` | Void after a count | गिनती के बाद void |
+| `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
+| `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
+| `subject.dieRerank` | Copy {code}, tier {from} to {to} | कॉपी {code}, टियर {from} से {to} |
+| `subject.dieRerankNew` | Copy {code}, set tier {to} | कॉपी {code}, टियर {to} करें |
+| `subject.generic` | {ref} | {ref} |
+| `askedBy` | Asked by {name} | {name} ने मांगा |
+| `someone` | Someone | किसी ने |
+| `decidedBy` | {status} by {name} | {name} ने {status} किया |
+| `review` | Review | देखें और तय करें |
+| `view` | View | देखें |
+| `approve` | Approve | मंज़ूर करें |
+| `reject` | Reject | नामंज़ूर करें |
+| `approved` | Approved | मंज़ूर किया |
+| `rejected` | Rejected | नामंज़ूर किया |
+| `note` | Note | नोट |
+| `noteHint` | Say why when you reject, so it can be fixed. | नामंज़ूर करें तो वजह लिखें, ताकि ठीक हो सके। |
+| `rejectNeedsNote` | Write why you are rejecting it. | नामंज़ूर करने की वजह लिखें। |
+| `own` | Someone else has to approve your request. | आपकी रिक्वेस्ट कोई और मंज़ूर करेगा। |
+| `viewOnly` | A manager approves this. | इसे मैनेजर मंज़ूर करते हैं। |
+| `openLot` | Open lot | लॉट खोलें |
+| `openDie` | Open die | डाई खोलें |
+| `theirNote` | Their note | उनका नोट |
+| `decisionNote` | Decision note | फ़ैसले का नोट |
+| `figures` | Figures | आंकड़े |
+| `party` | Party kanta | पार्टी का कांटा |
+| `ours` | Our kanta | हमारा कांटा |
+| `short` | Short | कमी |
+| `tolerance` | Tolerance | छूट |
+| `kgDiff` | Kg in this note | इस नोट के kg |
+| `bori` | Bori deduction | बोरी कटौती |
+| `amount` | Amount | रकम |
+| `rate` | Rate | रेट |
+| `covers` | Covers the short beyond {pct} | {pct} से ज़्यादा वाली कमी ढकता है |
+| `notCovers` | Does not cover the short beyond {pct} | {pct} से ज़्यादा वाली कमी नहीं ढकता |
+| `overShort` | This note is {kg} kg more than the short. Check it before approving. | यह नोट कमी से {kg} kg ज़्यादा है। मंज़ूर करने से पहले जांचें। |
+| `overShortWithOthers` | With the lot's other weight notes, this comes to {kg} kg more than the short. Check it before approving. | लॉट के बाकी वज़न वाले नोट मिलाकर यह कमी से {kg} kg ज़्यादा है। मंज़ूर करने से पहले जांचें। |
+| `moreError` | More requests didn't load. Press Show more to try again. | और रिक्वेस्ट लोड नहीं हुईं। फिर से कोशिश के लिए और दिखाएं दबाएं। |
+| `otherNotes` | Other notes on this lot | इस लॉट के बाकी नोट |
+| `figuresHidden` | Your role can't see the purchase figures. | आपके रोल को खरीद के आंकड़े नहीं दिखते। |
+| `emptyPendingTitle` | Nothing waiting | कुछ इंतज़ार में नहीं |
+| `emptyPendingBody` | Requests for a second person show up here. | जिन पर दूसरे की मंज़ूरी चाहिए, वे यहां दिखेंगे। |
+| `emptyTitle` | No requests here | यहां कोई रिक्वेस्ट नहीं |
+| `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
+| `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
+
 ### errors (16)
 
 | Key | English | हिंदी |
@@ -1450,3 +1727,28 @@ Please check, Lalubhai:
 | Fix 2 | Label printing hasn't been set up for your company yet. Ask the orrn team. | आपकी कंपनी के लिए लेबल प्रिंटिंग अभी सेट नहीं हुई है। orrn टीम से कहें। |
 | Problem 3 | There's no "Retry" button | "फिर से भेजें" का बटन नहीं है |
 | Fix 3 | Only managers, admins and owners can retry or cancel jobs. Ask one of them. | जॉब फिर से भेजना या कैंसल करना सिर्फ़ मैनेजर, एडमिन और मालिक कर सकते हैं। उनमें से किसी से कहें। |
+
+### Weigh a scrap lot (`weigh-scrap-lot`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Weigh a scrap lot | स्क्रैप लॉट तौलें |
+| When | Use this when a scrap truck comes to the kanta. | जब स्क्रैप की गाड़ी कांटे पर आए। |
+| Step 1 | Start the lot | लॉट शुरू करें |
+| Step 1 text | Open "Purchase" and tap "New lot". | "खरीद" खोलें और "नया लॉट" दबाएं। |
+| Step 2 | Pick the vendor | पार्टी चुनें |
+| Step 2 text | Search by the name on the slip. Any spelling the book uses finds the same vendor. For a new party, tap "Add new vendor". A manager confirms it later. | पर्ची पर लिखे नाम से खोजें। बुक में लिखा कोई भी नाम उसी पार्टी को ढूंढ लेता है। नई पार्टी के लिए "नई पार्टी जोड़ें" दबाएं। मैनेजर उसे बाद में पक्का करेंगे। |
+| Step 3 | Material and rate | माल और रेट |
+| Step 3 text | Choose the material and the grade, and type the rate per kg. The vendor's usual material and last rate are one tap away. | माल और ग्रेड चुनें, और प्रति kg रेट लिखें। पार्टी का आम माल और पिछला रेट एक टैप पर मिलता है। |
+| Step 4 | Enter both weights | दोनों वज़न डालें |
+| Step 4 text | Type the weight on the party's slip, then our kanta weight. The difference and the tolerance show straight away. If the truck is not weighed here yet, leave our kanta empty and add it later with "Edit weights". | पार्टी की पर्ची का वज़न लिखें, फिर हमारे कांटे का वज़न। फ़र्क और छूट तुरंत दिखते हैं। गाड़ी यहां अभी नहीं तौली तो हमारा कांटा खाली छोड़ें और बाद में "वज़न बदलें" से डालें। |
+| Step 5 | Short beyond the tolerance | छूट से ज़्यादा कमी |
+| Step 5 text | If the lot is short beyond the tolerance, the office raises the debit note on the same screen: keep "Raise the debit note now" on and check the kg. A manager approves it in "Approvals". | अगर लॉट छूट से ज़्यादा कम है, तो ऑफ़िस उसी स्क्रीन पर डेबिट नोट बनाता है: "डेबिट नोट अभी बनाएं" चालू रखें और kg जांच लें। मैनेजर इसे "मंज़ूरी" में मंज़ूर करते हैं। |
+| Step 6 | Save and mark OK | सेव करें और OK करें |
+| Step 6 text | Tap "Save lot". When the truck is unloaded, open the lot and tap "Mark OK". The scrap goes into scrap stock. | "लॉट सेव करें" दबाएं। गाड़ी उतर जाए तो लॉट खोलें और "OK करें" दबाएं। स्क्रैप, स्क्रैप स्टॉक में चला जाता है। |
+| Problem 1 | There is no "Mark OK" button | "OK करें" का बटन नहीं है |
+| Fix 1 | Either our kanta weight is missing, or the lot is short beyond the tolerance and no debit note covers it. The lot page says which. | या तो हमारे कांटे का वज़न नहीं डाला, या लॉट छूट से ज़्यादा कम है और कोई डेबिट नोट उसे नहीं ढकता। लॉट के पेज पर वजह लिखी है। |
+| Problem 2 | I typed a wrong weight | गलत वज़न डल गया |
+| Fix 2 | Open the lot and tap "Edit weights" before it is OK. Once a note on the weight is open the weights are locked, so ask the manager to reject that note first. | OK होने से पहले लॉट खोलें और "वज़न बदलें" दबाएं। वज़न पर नोट खुला हो तो वज़न बंद रहता है, इसलिए पहले मैनेजर से वह नोट नामंज़ूर करवाएं। |
+| Problem 3 | The same vendor shows up twice | एक ही पार्टी दो बार दिखती है |
+| Fix 3 | A manager merges the two vendors in Masters. Their lots move with the merge. | मैनेजर Masters में दोनों पार्टियों को मिला देते हैं। उनके लॉट भी साथ चले जाते हैं। |
