@@ -25,9 +25,9 @@ import {
   stockLedger,
   storeTxn,
 } from "@orrn/db/schema";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
-import { lotDrawnSql, lotPostedSql, OUTER_LOT_ID } from "../src/lib/foundry";
+import { lotRemainingSql, OUTER_LOT_ID } from "../src/lib/foundry";
 import { can as canMe, type Action } from "../src/lib/permissions";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
@@ -1181,7 +1181,8 @@ describe("D1 limits and invariants", () => {
     const p = await plant();
     const lot = await okLot(p, 20_000);
     const c = await openCast(p);
-    const many = Array.from({ length: 61 }, () => ({ kind: "return_stream" as const, ref: p.stream("INGOT"), kgG: KG }));
+    // 61 DIFFERENT refs: only the cap refuses them as BAD_REQUEST (without it: "Lot not found", NOT_FOUND).
+    const many = Array.from({ length: 61 }, () => ({ kind: "lot" as const, ref: crypto.randomUUID(), kgG: KG }));
     await expect(p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p, { inputs: many }))).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const chems = Array.from({ length: 41 }, (_, i) => ({ name: `C${i}`, openMilli: 1, usedMilli: 1, closeMilli: 0 }));
     await expect(p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p, { chemicals: chems }))).rejects.toMatchObject({ code: "BAD_REQUEST" });
@@ -1208,11 +1209,12 @@ describe("D1 limits and invariants", () => {
   });
 
   test("a lot's remaining kg reads its own postings by voucher, never every scrap row of the plant", async () => {
-    // lots.available and every melt input line compute posted − drawn per lot. Through the item
-    // index that is a scan of all scrap rows (every OK, D/C note and melt line ever) per lot.
+    // lots.available and every melt input line compute posted − pending bori − drawn per lot.
+    // Through the item index that is a scan of all scrap rows (every OK, D/C note and melt line
+    // ever) per lot.
     const { companyId } = await env.seedCompany();
     const query = env.db
-      .select({ id: purchaseLot.id, left: sql`${lotPostedSql(companyId, OUTER_LOT_ID)} - ${lotDrawnSql(companyId, OUTER_LOT_ID)}` })
+      .select({ id: purchaseLot.id, left: lotRemainingSql(companyId, OUTER_LOT_ID) })
       .from(purchaseLot)
       .where(and(eq(purchaseLot.companyId, companyId), eq(purchaseLot.status, "ok")))
       .toSQL();

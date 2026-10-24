@@ -136,7 +136,10 @@ bun run deploy
   request (owner included); a decided request cannot be decided again. One
   pending request per (company, kind, subject). Kinds with an effect apply it in
   the decision's batch through `APPROVAL_APPLIERS` (`lib/approvalApply.ts`):
-  `die_rerank` (tier) and `dc_note` (note status, bori deduction posting).
+  `die_rerank` (tier), `dc_note` (note status, bori deduction posting; refused at write time when
+  the bori would take an OK lot below what the foundry melted) and `cast_close` (closes the cast,
+  or re-opens it with the close-out cleared). A hook that can refuse adds its own batch abort and
+  an explanation in `explainApplyAbort`, which `approval.decide` calls when the batch fails.
 - Platform impersonation is web-only/support-only, time-boxed, bannered, and audited.
 
 ## Native sync rules
@@ -245,7 +248,12 @@ bun run deploy
 - After OK the stock fields (item, grade, party/FC kg) are locked; rate, bill no, dross stay editable.
   Weights are locked while a weight note or any note with bori is pending or approved.
 - Bori is allowed only on debit notes and needs FC kg; Σ live bori (pending + approved + new) < FC kg
-  is checked inside the note INSERT, and OK also requires FC − Σ approved bori > 0. Caps: lot weights
+  is checked inside the note INSERT, and OK also requires FC − Σ approved bori > 0. On an OK lot the
+  bori may take at most the lot's remaining kg (`lotRemainingSql`: postings − pending bori − live
+  melt draws), on read and inside the note INSERT; the bori of a pending note is held back from the
+  foundry (lots.available and every melt line subtract it), and the `dc_note` approval aborts if
+  the deduction would still leave the lot below zero. A note without bori (kg diff, amount) is never
+  limited by melts. Caps: lot weights
   ≤ 100 t (1e8 g), rate ≤ ₹10,000/kg (1e6 paise), kg diff ≤ party kg.
 - `approval.list` is readable by every role, so a dc_note approval's `meta` carries only number, lot
   and type/reason — never weights or money (rate = amount ÷ kg); `approval.list` also strips other
@@ -321,8 +329,8 @@ bun run deploy
   `cast_close` approval; rejected → `open`). Never use `cast` unquoted in raw SQL (it is a keyword):
   interpolate `${cast}` or `sql.identifier("cast")`.
 - `melts.create` (cast.enter) is ONE batch: cast `melt_count + 1` (guarded: still open, billet store
-  and plant scrap still active) → melt row (INSERT … SELECT from that cast) → one guarded
-  INSERT … SELECT per input line (lot still OK with `posted − drawn ≥ kg`; stream still active and
+  and plant scrap still active, output streams still active) → melt row (INSERT … SELECT from that
+  cast) → one guarded INSERT … SELECT per input line (lot still OK with remaining ≥ kg; stream still active and
   `charge`) → `foundryAbort` (NOT NULL on `melt_input.id`) unless every line landed → outputs,
   ledger rows (VALUES; the abort makes them safe) → `prepareStoreDraws` statements for store chemicals
   (ruling RP17, purpose `melt`, refId = cast id, `source` = the melt; its own abort) → chemical
@@ -332,7 +340,7 @@ bun run deploy
   `{item}:{grade}` at the lot's scrap store per lot line, − `return_stream` at plant scrap, + `billet`
   item_ref = cast id at the billet store, + DROSS / FE / returned charge streams at plant scrap.
   A lot's remaining kg = its ledger postings (OK, D/C deductions, cancel) − Σ kg of live melt lines on
-  it (`lotPostedSql` − `lotDrawnSql`; the postings are read by voucher on the voucher-line unique
+  it − the bori of a pending D/C note (`lotRemainingSql`; the postings are read by voucher on the voucher-line unique
   index, never by item_kind, or every scrap row is scanned per lot); `lotCancelLeavesStockNonNegative`
   refuses cancelling an OK lot any live melt has drawn from.
 - Balance (spec P15): `meltBalance` — loss above 3 % of the input (`lossG × 10000 > inputG × 300`) or
@@ -342,16 +350,25 @@ bun run deploy
   (not void) with `cast_id` + press returns + billets of the cast on hand). `|tail| × 10000 >
   input × 100` needs a reason → `closing` + approval `cast_close` (foundry, manager, admin, owner;
   never the requester; applied by the `cast_close` hook in `lib/approvalApply.ts`). The close UPDATE
-  is guarded by `melt_count` unchanged and, for a no-reason close, `castTailWithinBand` at write time.
+  is guarded by the cast's `server_seq` unchanged (moved by every melt create AND cancel), `melt_count`
+  unchanged and, for a no-reason close, `castTailWithinBand` at write time.
   `castPressReturnsSql` returns 0 until PL-9 adds press-run / QC returns for the cast; PL-9 must also
   post − billets (item_ref = cast id) when a press run consumes them, or the tail double counts.
-- `melts.cancel` (cast.enter or cast.close, open casts only): marks the melt, reverses every melt
-  ledger row (`melt_cancel`, `reversal_of`), cancels its MRS draws through `storeCancelRows/Mark`;
+- `melts.cancel` (cast.enter or cast.close, open casts only): moves the cast's `server_seq` (so a close
+  that read the figures before refuses), marks the melt, reverses every melt ledger row
+  (`melt_cancel`, `reversal_of`), cancels its MRS draws through `storeCancelRows/Mark`;
   refused when the cast's billets on hand are below the melt's logs (the press used them), or while a
   drawn store item or the store location is retired (reactivate first; `storeCancelRows` holds the
   same rule at write time and the cancel's "every draw reversed" abort fails the batch).
 - `lots.available` (RP9) is the foundry's lot list: remaining kg by lot and by item + grade, never
-  rates, party kg, vendor, bill or D/C figures. Readable by cast.enter, cast.close and purchase readers.
+  rates, party kg, vendor, bill or D/C figures (a pending bori is folded into `stockG`, never shown on
+  its own). Readable by cast.enter, cast.close and purchase readers. `casts.list` `meltCount` = live
+  melts; `casts.get().cast.meltCount` = every melt ever added (cancelled included).
+- Melt inputs: output streams (returned charge streams, DROSS / FE) are re-checked active (and of
+  their kind) inside the melt's first UPDATE; melt times may start at most 7 days before the cast
+  was opened. The demo seed reset (`apps/server/src/dev-seed.ts`) deletes the foundry and store
+  rows before the lots and locations they point at; a new table with a RESTRICT FK to a demo row
+  must be added there too.
 - `spectro.attach` (cast.enter): file as base64 text ≤ 1 MB decoded (image/jpeg|png|webp, pdf, csv,
   text) and/or values in percent stored as integer ppm (`values_ppm`); `casts.get` lists results
   without the file, `spectro.file` returns it. Moves to R2 later.

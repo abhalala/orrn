@@ -18,7 +18,7 @@ import { and, asc, eq, sql, type SQL } from "drizzle-orm";
 
 import { melt, meltInput, returnStream, type ReturnStreamKind } from "@orrn/db/schema/foundry";
 import { bundle } from "@orrn/db/schema/inventory";
-import { dcNote } from "@orrn/db/schema/purchase";
+import { dcNote, purchaseLot } from "@orrn/db/schema/purchase";
 import { location, stockLedger, type LocationKind } from "@orrn/db/schema/stock";
 import { company } from "@orrn/db/schema/tenant";
 
@@ -154,6 +154,67 @@ export function lotDrawnSql(companyId: string, lotId: SQL): SQL<number> {
     join ${melt} dm on dm.id = di.melt_id and dm.company_id = di.company_id
     where di.company_id = ${companyId} and di.lot_id = ${lotId} and dm.cancelled_at is null
   ), 0)`;
+}
+
+/**
+ * Bori (bag weight) of the lot's PENDING D/C note (grams; at most one note per lot is pending).
+ * Bags are not metal: the foundry must not melt kg an open note is about to take off the lot, or
+ * approving the note later drives the lot and its scrap grade below zero (PL-5 review r0 I-1).
+ */
+export function lotPendingBoriSql(companyId: string, lotId: SQL): SQL<number> {
+  return sql<number>`coalesce((
+    select sum(pb.bori_deduction_g) from ${dcNote} pb
+    where pb.company_id = ${companyId} and pb.lot_id = ${lotId} and pb.status = 'pending'
+  ), 0)`;
+}
+
+/** What the lot holds for the furnace: its postings minus the bori of a pending note (grams). */
+export function lotStockSql(companyId: string, lotId: SQL): SQL<number> {
+  return sql<number>`(${lotPostedSql(companyId, lotId)} - ${lotPendingBoriSql(companyId, lotId)})`;
+}
+
+/**
+ * A lot's remaining kg for melts and bori notes = postings − pending bori − live melt draws.
+ * The one expression every read and write guard uses (lots.available, the melt check and its
+ * INSERT … SELECT guard, dcNotes.create, the dc_note approval), so they can never disagree.
+ * Approving a pending bori moves it from "pending" to "posted": the remaining kg does not change.
+ */
+export function lotRemainingSql(companyId: string, lotId: SQL): SQL<number> {
+  return sql<number>`(${lotStockSql(companyId, lotId)} - ${lotDrawnSql(companyId, lotId)})`;
+}
+
+/**
+ * Batch abort for a dc_note approval: fails the batch when the note carries bori, its lot is OK
+ * and the lot's remaining kg is below zero AFTER the deduction posted. Unreachable through the
+ * API (dcNotes.create and every melt hold the pending bori back); it guards rows that grew
+ * outside those checks. `approval.decide` explains it with `explainApplyAbort` (lib/approvalApply.ts).
+ */
+export function dcNoteOverdrawAbort(db: OrrnDb, companyId: string, noteId: string): SqliteBatchItem {
+  return foundryAbort(
+    db,
+    companyId,
+    sql`exists (
+      select 1 from ${dcNote} xn
+      join ${purchaseLot} on ${purchaseLot.id} = xn.lot_id and ${purchaseLot.companyId} = xn.company_id
+      where xn.id = ${noteId} and xn.company_id = ${companyId} and xn.bori_deduction_g > 0
+        and ${purchaseLot.status} = 'ok' and ${lotRemainingSql(companyId, OUTER_LOT_ID)} < 0
+    )`,
+  );
+}
+
+/** The message for a bori the foundry already melted (dcNotes.create and the dc_note approval). */
+export function boriMeltedMessage(lotNumber: string, drawnG: number, leftG: number, then = "Raise the note"): string {
+  return `The foundry has already melted ${fmtKg(drawnG)} kg of ${lotNumber}; only ${fmtKg(Math.max(leftG, 0))} kg is left for a bori deduction. ${then} without bori (or with less)`;
+}
+
+/** Remaining and drawn kg of one lot (company-scoped; zeros for an unknown id). */
+export async function lotRemaining(db: OrrnDb, companyId: string, lotId: string): Promise<{ remainingG: number; drawnG: number }> {
+  const [row] = await db
+    .select({ remainingG: lotRemainingSql(companyId, OUTER_LOT_ID), drawnG: lotDrawnSql(companyId, OUTER_LOT_ID) })
+    .from(purchaseLot)
+    .where(and(eq(purchaseLot.id, lotId), eq(purchaseLot.companyId, companyId)))
+    .limit(1);
+  return { remainingG: Number(row?.remainingG ?? 0), drawnG: Number(row?.drawnG ?? 0) };
 }
 
 /** NOT EXISTS: no live melt draws on the lot (an OK lot can then be cancelled). */
