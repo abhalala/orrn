@@ -42,6 +42,12 @@ export type ChartCardProps = Omit<HTMLAttributes<HTMLDivElement>, "title" | "chi
   refreshing?: boolean;
   /** One action for the empty state, e.g. a longer period. */
   emptyAction?: ReactNode;
+  /**
+   * The empty state's own words, for a card with no period control (the
+   * default copy says "Pick a longer period"). E.g. Today: "Nothing in stock".
+   */
+  emptyTitle?: string;
+  emptyBody?: string;
   onRetry?: () => void;
   /** Heading level of the title in the page outline. Default 3. */
   level?: 2 | 3 | 4;
@@ -70,6 +76,8 @@ export function ChartCard({
   state,
   refreshing = false,
   emptyAction,
+  emptyTitle,
+  emptyBody,
   onRetry,
   level = 3,
   plotHeight = 240,
@@ -147,8 +155,8 @@ export function ChartCard({
         ) : state === "empty" ? (
           <EmptyState
             className="py-8"
-            title={t("charts.emptyTitle")}
-            body={t("charts.emptyBody")}
+            title={emptyTitle ?? t("charts.emptyTitle")}
+            body={emptyBody ?? t("charts.emptyBody")}
             action={emptyAction}
           />
         ) : state === "error" ? (

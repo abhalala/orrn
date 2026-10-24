@@ -1,15 +1,17 @@
-import { and, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
 import { bundle, bundleGroup, bundleStatuses, type BundleStatus } from "@orrn/db/schema/inventory";
-import { printLog } from "@orrn/db/schema/printing";
+import { printLog, printerProfile } from "@orrn/db/schema/printing";
 import { company } from "@orrn/db/schema/tenant";
 
 import { companyProcedure, router } from "../index";
 import { mapInChunks } from "../lib/atomic";
+import { now } from "../lib/clock";
 import { DEFAULT_TIMEZONE, dayWindow } from "../lib/dayWindow";
+import { localDate } from "../lib/zonedBuckets";
 
 const LIST_LIMIT = 10;
 
@@ -19,23 +21,43 @@ export const dashboardRouter = router({
   today: companyProcedure.query(async ({ ctx }) => {
     const companyId = ctx.companyId;
 
+    // The company row plus the "Start here" facts in one statement (4 bound params).
     const [companyRow] = await ctx.db
-      .select({ settings: company.settings })
+      .select({
+        settings: company.settings,
+        hasDie: sql<number>`exists(select 1 from ${die} where ${die.companyId} = ${companyId} and ${die.deletedAt} is null)`,
+        hasCustomer: sql<number>`exists(select 1 from ${customer} where ${customer.companyId} = ${companyId} and ${customer.deletedAt} is null)`,
+        hasPrinter: sql<number>`exists(select 1 from ${printerProfile} where ${printerProfile.companyId} = ${companyId} and ${printerProfile.deletedAt} is null)`,
+      })
       .from(company)
       .where(eq(company.id, companyId))
       .limit(1);
     const configured = (companyRow?.settings ?? {}).timezone;
     const timezone = typeof configured === "string" && configured ? configured : DEFAULT_TIMEZONE;
-    const { startMs, endMs } = dayWindow(timezone);
+    // One clock for the window and its date, the same one analytics.trends reads.
+    const nowMs = now().getTime();
+    const { startMs, endMs } = dayWindow(timezone, nowMs);
     const start = new Date(startMs);
     const end = new Date(endMs);
 
-    const [packedRows, dispatchedRows, stockRows, openRows, sessionRows, failedRows] = await Promise.all([
+    const openDispatch = and(
+      eq(dispatch.companyId, companyId),
+      inArray(dispatch.status, ["draft", "reserved"]),
+      isNull(dispatch.deletedAt),
+    );
+
+    const [packedRows, dispatchedRows, stockRows, openRows, sessionRows, failedRows, openCountRows] = await Promise.all([
       ctx.db
         .select({ n: sql<number>`count(*)`, w: sql<number>`coalesce(sum(${bundle.weightG}), 0)` })
         .from(bundle)
         .where(
-          and(eq(bundle.companyId, companyId), gte(bundle.createdAt, start), lt(bundle.createdAt, end)),
+          and(
+            eq(bundle.companyId, companyId),
+            // RP11: a void bundle was never really packed; it stays out of every packed figure.
+            ne(bundle.status, "void"),
+            gte(bundle.createdAt, start),
+            lt(bundle.createdAt, end),
+          ),
         ),
       ctx.db
         .select({
@@ -75,13 +97,7 @@ export const dashboardRouter = router({
         })
         .from(dispatch)
         .innerJoin(customer, and(eq(customer.id, dispatch.customerId), eq(customer.companyId, dispatch.companyId)))
-        .where(
-          and(
-            eq(dispatch.companyId, companyId),
-            inArray(dispatch.status, ["draft", "reserved"]),
-            isNull(dispatch.deletedAt),
-          ),
-        )
+        .where(openDispatch)
         .orderBy(desc(dispatch.createdAt), desc(dispatch.id))
         .limit(LIST_LIMIT),
       ctx.db
@@ -115,6 +131,8 @@ export const dashboardRouter = router({
             lt(printLog.createdAt, end),
           ),
         ),
+      // The open list is capped at LIST_LIMIT; the count is not.
+      ctx.db.select({ n: sql<number>`count(*)` }).from(dispatch).where(openDispatch),
     ]);
 
     const stock = Object.fromEntries(bundleStatuses.map((s) => [s, { bundles: 0, weightG: 0 }])) as Record<
@@ -153,7 +171,7 @@ export const dashboardRouter = router({
             w: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
           })
           .from(bundle)
-          .where(and(eq(bundle.companyId, companyId), inArray(bundle.groupId, ids)))
+          .where(and(eq(bundle.companyId, companyId), ne(bundle.status, "void"), inArray(bundle.groupId, ids)))
           .groupBy(bundle.groupId),
       );
       for (const r of rows) groupTotals.set(r.groupId, { bundles: num(r.n), weightG: num(r.w) });
@@ -162,9 +180,12 @@ export const dashboardRouter = router({
     const none = { bundles: 0, weightG: 0 };
     return {
       timezone,
+      /** The plant's calendar day these figures cover (YYYY-MM-DD), as in analytics.trends' last day. */
+      date: localDate(timezone, nowMs),
       packedToday: { bundles: num(packedRows[0]?.n), weightG: num(packedRows[0]?.w) },
       dispatchedToday: { dispatches: num(dispatchedRows[0]?.dispatches), weightG: num(dispatchedRows[0]?.w) },
       stock,
+      openDispatchCount: num(openCountRows[0]?.n),
       openDispatches: openRows.map((r) => ({
         id: r.id,
         code: r.code,
@@ -180,6 +201,16 @@ export const dashboardRouter = router({
         createdAt: r.createdAt.toISOString(),
       })),
       failedPrintJobs: num(failedRows[0]?.n),
+      /**
+       * First steps for an empty plant (Today's "Start here"): a live die, a live customer, any
+       * bundle ever packed (void included: the step was done) and a live label printer.
+       */
+      setup: {
+        dies: num(companyRow?.hasDie) > 0,
+        customers: num(companyRow?.hasCustomer) > 0,
+        bundles: bundleStatuses.some((s) => stock[s].bundles > 0),
+        printers: num(companyRow?.hasPrinter) > 0,
+      },
     };
   }),
 });

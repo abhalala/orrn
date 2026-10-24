@@ -11,10 +11,18 @@ import {
   isUnauthorized,
   shouldRetryQuery,
 } from "../lib/session-errors";
+import { hasInlineError } from "../lib/query-errors";
 import { isAuthMeQueryKey } from "../lib/tenant-cache";
 
-function shouldToastQueryError(error: unknown, query: { queryKey: unknown }): boolean {
+function shouldToastQueryError(
+  error: unknown,
+  query: { queryKey: unknown; meta?: Record<string, unknown> },
+): boolean {
   if (isAuthMeQueryKey(query.queryKey)) {
+    return false;
+  }
+  // The screen says it in its own words (inline error with Try again).
+  if (hasInlineError(query)) {
     return false;
   }
   if (isUnauthorized(error) || isImpersonationForbidden(error)) {

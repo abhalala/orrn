@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { auditLog, bundle, bundleGroup, company, dispatch, dispatchItem, printLog } from "@orrn/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 
+import { setClockForTests } from "../src/lib/clock";
 import { dayWindow } from "../src/lib/dayWindow";
 import { createTestEnv, type TestEnv } from "./harness";
 
@@ -47,7 +48,7 @@ describe("dayWindow", () => {
 });
 
 describe("dashboard.today", () => {
-  test("packed counts respect the Asia/Kolkata day; stock covers every status", async () => {
+  test("packed counts respect the Asia/Kolkata day and leave void bundles out (RP11); stock covers every status", async () => {
     const { companyId } = await env.seedCompany();
     const dieId = await env.seedDie(companyId);
     const { startMs } = dayWindow("Asia/Kolkata");
@@ -65,8 +66,8 @@ describe("dashboard.today", () => {
 
     const res = await env.caller({ role: "viewer", companyId }).dashboard.today();
     expect(res.timezone).toBe("Asia/Kolkata");
-    // 3 available + 1 void created inside today's window; 25 kg each.
-    expect(res.packedToday).toEqual({ bundles: 4, weightG: 100_000 });
+    // 3 available + 1 void created inside today's window; 25 kg each. Void is not packed (RP11).
+    expect(res.packedToday).toEqual({ bundles: 3, weightG: 75_000 });
     expect(res.stock.available).toEqual({ bundles: 5, weightG: 125_000 });
     expect(res.stock.void).toEqual({ bundles: 1, weightG: 25_000 });
     expect(res.stock.reserved).toEqual({ bundles: 0, weightG: 0 });
@@ -166,6 +167,8 @@ describe("dashboard.today", () => {
     const res = await env.caller({ role: "viewer", companyId: a.companyId }).dashboard.today();
 
     expect(res.dispatchedToday).toEqual({ dispatches: 1, weightG: 50_000 });
+    // Completed dispatches are not open; the other plant's are never counted.
+    expect(res.openDispatchCount).toBe(1);
     expect(res.openDispatches).toEqual([
       {
         id: openId,
@@ -192,6 +195,90 @@ describe("dashboard.today", () => {
     expect(otherView.recentSessions.length).toBe(1);
   });
 
+  test("today's sessions count only bundles that are not void (RP11)", async () => {
+    const { companyId } = await env.seedCompany();
+    const dieId = await env.seedDie(companyId);
+    const { startMs } = dayWindow("Asia/Kolkata");
+    const rows = await env.seedBundles(companyId, dieId, 3);
+    await env.db.update(bundle).set({ status: "void" }).where(eq(bundle.id, rows[0]!.id));
+    await env.db.update(bundle).set({ createdAt: new Date(startMs + MIN) }).where(eq(bundle.companyId, companyId));
+    await env.db
+      .update(bundleGroup)
+      .set({ createdAt: new Date(startMs + MIN) })
+      .where(eq(bundleGroup.companyId, companyId));
+
+    const res = await env.caller({ role: "viewer", companyId }).dashboard.today();
+    expect(res.recentSessions).toHaveLength(1);
+    expect(res.recentSessions[0]).toMatchObject({ bundles: 2, weightG: 50_000 });
+    expect(res.packedToday).toEqual({ bundles: 2, weightG: 50_000 });
+  });
+
+  test("setup says which first steps are done: dies, customers, bundles, printers", async () => {
+    const { labelTemplate, printerProfile, die, customer } = await import("@orrn/db/schema");
+    const empty = await env.seedCompany();
+    const caller = env.caller({ role: "viewer", companyId: empty.companyId });
+    expect((await caller.dashboard.today()).setup).toEqual({
+      dies: false,
+      customers: false,
+      bundles: false,
+      printers: false,
+    });
+
+    // Another plant's rows never count.
+    const other = await env.seedCompany();
+    const otherDie = await env.seedDie(other.companyId);
+    await env.seedCustomer(other.companyId);
+    await env.seedBundles(other.companyId, otherDie, 1);
+    const otherTemplate = uid();
+    await env.db.insert(labelTemplate).values({ id: otherTemplate, companyId: other.companyId, name: "T", schema: {} });
+    await env.db
+      .insert(printerProfile)
+      .values({ id: uid(), companyId: other.companyId, name: "P", spoolPrinterId: "sp", templateId: otherTemplate });
+    expect((await caller.dashboard.today()).setup).toEqual({
+      dies: false,
+      customers: false,
+      bundles: false,
+      printers: false,
+    });
+
+    // Deleted dies, customers and printers are not a finished step.
+    const goneDie = await env.seedDie(empty.companyId);
+    await env.db.update(die).set({ deletedAt: new Date() }).where(eq(die.id, goneDie));
+    const goneCustomer = await env.seedCustomer(empty.companyId);
+    await env.db.update(customer).set({ deletedAt: new Date() }).where(eq(customer.id, goneCustomer));
+    const template = uid();
+    await env.db.insert(labelTemplate).values({ id: template, companyId: empty.companyId, name: "T", schema: {} });
+    const goneProfile = uid();
+    await env.db.insert(printerProfile).values({
+      id: goneProfile,
+      companyId: empty.companyId,
+      name: "Gone",
+      spoolPrinterId: "sp",
+      templateId: template,
+      deletedAt: new Date(),
+    });
+    expect((await caller.dashboard.today()).setup).toEqual({
+      dies: false,
+      customers: false,
+      bundles: false,
+      printers: false,
+    });
+
+    const dieId = await env.seedDie(empty.companyId);
+    await env.seedCustomer(empty.companyId);
+    await env.seedBundles(empty.companyId, dieId, 1, "void");
+    await env.db
+      .insert(printerProfile)
+      .values({ id: uid(), companyId: empty.companyId, name: "Live", spoolPrinterId: "sp", templateId: template });
+    // A void bundle still means the first bundles were packed.
+    expect((await caller.dashboard.today()).setup).toEqual({
+      dies: true,
+      customers: true,
+      bundles: true,
+      printers: true,
+    });
+  });
+
   test("open dispatches are capped at 10, newest first", async () => {
     const { companyId } = await env.seedCompany();
     const customerId = await env.seedCustomer(companyId);
@@ -206,10 +293,57 @@ describe("dashboard.today", () => {
         createdAt: new Date(base + i * 1000),
       });
     }
+    // Neither a cancelled dispatch nor a deleted draft is open, even when it is the newest.
+    await env.db.insert(dispatch).values([
+      { id: uid(), companyId, code: "D-X1", customerId, status: "cancelled", createdAt: new Date(base + 60_000) },
+      {
+        id: uid(),
+        companyId,
+        code: "D-X2",
+        customerId,
+        status: "draft",
+        createdAt: new Date(base + 61_000),
+        deletedAt: new Date(base + 62_000),
+      },
+      { id: uid(), companyId, code: "D-X3", customerId, status: "completed", createdAt: new Date(base + 63_000) },
+    ]);
     const res = await env.caller({ role: "viewer", companyId }).dashboard.today();
     expect(res.openDispatches.length).toBe(10);
+    // The list is capped; the count is not (Today's Dispatch tile shows "12 open").
+    expect(res.openDispatchCount).toBe(12);
+    expect(res.openDispatches.map((d) => d.code)).not.toContain("D-X1");
+    expect(res.openDispatches.map((d) => d.code)).not.toContain("D-X2");
     expect(res.openDispatches[0]!.code).toBe("D-11");
     expect(res.openDispatches[0]).toMatchObject({ bundles: 0, weightG: 0 });
+  });
+});
+
+describe("dashboard.today date", () => {
+  test("names the plant's calendar day it counted, so Today can line its numbers up with the trend's last day", async () => {
+    const india = await env.seedCompany();
+    const utc = await env.seedCompany({ settings: { timezone: "UTC" } });
+    // 2025-01-15T20:00Z is 01:30 on 16 Jan in India, still 15 Jan in UTC (far from the real date).
+    setClockForTests(new Date("2025-01-15T20:00:00Z"));
+    try {
+      expect((await env.caller({ role: "viewer", companyId: india.companyId }).dashboard.today()).date).toBe("2025-01-16");
+      expect((await env.caller({ role: "viewer", companyId: utc.companyId }).dashboard.today()).date).toBe("2025-01-15");
+    } finally {
+      setClockForTests(null);
+    }
+  });
+
+  test("the packed window follows the same clock as the date", async () => {
+    const { companyId } = await env.seedCompany();
+    const dieId = await env.seedDie(companyId);
+    const [b] = await env.seedBundles(companyId, dieId, 1);
+    // Packed at 01:00 IST on 16 Jan 2025; the pinned clock reads 01:30 IST that day.
+    await env.db.update(bundle).set({ createdAt: new Date("2025-01-15T19:30:00Z") }).where(eq(bundle.id, b!.id));
+    setClockForTests(new Date("2025-01-15T20:00:00Z"));
+    try {
+      expect((await env.caller({ role: "viewer", companyId }).dashboard.today()).packedToday.bundles).toBe(1);
+    } finally {
+      setClockForTests(null);
+    }
   });
 });
 
