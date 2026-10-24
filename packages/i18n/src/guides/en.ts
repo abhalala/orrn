@@ -542,4 +542,177 @@ export const guidesEn: GuideBook = {
       },
     ],
   },
+
+  "stock-by-die": {
+    slug: "stock-by-die",
+    roles: EVERYONE,
+    title: "Check stock by die",
+    when: "Use this to see how many bundles and how many kg of one die are in stock or held.",
+    steps: [
+      {
+        title: "Open Stock",
+        body: "Open \"Stock\". The \"Sections\" view lists one block for each die section that has bundles on the floor.",
+      },
+      {
+        title: "Find the die",
+        body: "Type the die or section code in \"Search die or section\". The list narrows as you type.",
+      },
+      {
+        title: "Read the block",
+        body: "Each block shows the bundles in stock, the bundles held for a dispatch, the kg and the kg/12ft weight range. Held bundles are counted apart from the ones in stock.",
+      },
+      {
+        title: "Open the section",
+        body: "Tap the block to see its bundles. Use \"Status\" to show \"In stock\", \"Held\" or \"Dispatched\" bundles.",
+      },
+      {
+        title: "Open one bundle",
+        body: "Tap a bundle to see its weight, pieces, cut length and history. For the die's own details, tap \"Die details\".",
+      },
+    ],
+    problems: [
+      {
+        title: "The die isn't in the list",
+        fix: "Only sections with bundles on the floor show here. If the die was packed recently, tap \"Clear search\" and check the spelling of the code. Dispatched or void bundles are not counted as stock.",
+      },
+      {
+        title: "The count doesn't match the yard",
+        fix: "The screen shows what orrn has recorded, so unrecorded packing and dispatch change it. Do a count before you adjust anything. See \"Count the stock\".",
+      },
+    ],
+  },
+
+  "stock-count": {
+    slug: "stock-count",
+    roles: ["owner", "admin", "manager", "supervisor"],
+    title: "Count the stock",
+    when: "Use this for the quarterly physical count, when every bundle in the yard is checked against what orrn holds.",
+    steps: [
+      {
+        title: "Stop packing and dispatch",
+        // confirm: who stops the lines and for how long (owner question).
+        body: "Tell the packers and the dispatch team to stop before the count starts. A bundle packed or sent out during the count will show as a mistake.",
+      },
+      {
+        title: "Take a fresh stock list",
+        body: "Ask the office to load today's stock list into the Stock Count tool on the office computer. orrn has no count screen yet, so the count runs in that tool and it never changes your stock.",
+      },
+      {
+        title: "Scan every bundle",
+        body: "Walk the yard location by location. Scan each bundle's QR label. You can also type the printed bundle number. The tool tells you the result with a colour and a beep.",
+      },
+      {
+        title: "Read the colours",
+        body: "Green means counted. Amber means you already scanned it. Red means the bundle is not in the stock list. Leave red and amber bundles where they are and note them.",
+      },
+      {
+        title: "Chase what's missing",
+        body: "When the yard is done, open the list of bundles not found yet. Look again in the nearby locations before you give up on a bundle.",
+      },
+      {
+        title: "Save the result",
+        body: "Export the result as a CSV file and give it to the manager. Fix the differences in orrn only after the manager has agreed them. Then restart packing and dispatch.",
+      },
+    ],
+    problems: [
+      {
+        title: "A bundle has no QR label",
+        fix: "Type the bundle number printed on it. If the number is unreadable too, put the bundle aside and give it to the manager.",
+      },
+      {
+        title: "Many bundles are not found",
+        fix: "Do not adjust anything yet. Check that the count did not start before the last dispatch was recorded. Most gaps come from the tail of a production run that was never marked as sent.",
+      },
+      {
+        title: "The count was interrupted",
+        fix: "The tool keeps your scans on that computer for the same stock list. Open it again on the same browser and carry on.",
+      },
+    ],
+  },
+
+  "approve-access-request": {
+    slug: "approve-access-request",
+    roles: ["platform_admin"],
+    title: "Approve an access request",
+    when: "Use this when a plant has asked for access on the website and orrn support has to set up its company.",
+    steps: [
+      {
+        title: "Open the requests",
+        body: "Sign in to Godseye and open \"Access requests\". Requests that are waiting are at the top.",
+      },
+      {
+        title: "Read the request",
+        body: "Check the company name, the contact's name and work email, the number of extrusion lines and the notes. If anything looks wrong, call the contact before you approve.",
+      },
+      {
+        title: "Approve or reject",
+        body: "Tap \"Approve\" to set up the company and its first owner. Tap \"Reject\" if the request is a duplicate or not a real plant. orrn shows \"Request approved\" when it is done.",
+      },
+      {
+        title: "Send the sign-in details",
+        body: "orrn emails the new owner. If the email doesn't arrive, copy the sign-in details shown after approval and send them yourself.",
+      },
+      {
+        title: "Check the new company",
+        body: "Open the company under \"Companies\". Check the plan and modules, and that label printing is set up if the plant needs it.",
+      },
+    ],
+    problems: [
+      {
+        title: "The owner says no email came",
+        fix: "Look in their spam folder first. Then send the copied sign-in details by WhatsApp or phone. Ask them to change the password when they first sign in.",
+      },
+      {
+        title: "I approved the wrong request",
+        fix: "Open the company under \"Companies\" and use \"Suspend\" until the mistake is sorted out. Do not delete anything.",
+      },
+    ],
+  },
+
+  "floor-tablet-signin": {
+    slug: "floor-tablet-signin",
+    roles: FLOOR,
+    title: "Sign in on the floor tablet",
+    when: "Use this at the start of a shift, when you pick up the tablet at the packing or dispatch table.",
+    steps: [
+      {
+        title: "Open orrn",
+        body: "Open orrn from the icon on the tablet's home screen. If you see the page for another person, sign them out first.",
+      },
+      {
+        title: "Enter your email and password",
+        body: "Type your own work email and password and tap \"Sign in\". Do not use someone else's account, because every bundle and dispatch is recorded against the person who signed in.",
+      },
+      {
+        title: "Enter the code",
+        body: "If your account has two-factor on, open your authenticator app, type the 6-digit code and tap \"Verify\". Codes change every 30 seconds, so type the newest one.",
+      },
+      {
+        title: "Check you are in the right plant",
+        body: "You land on \"Today\". Check the company name at the top before you pack or dispatch.",
+      },
+      {
+        title: "Choose your language",
+        body: "Open \"Account and more\" and choose English or हिंदी under \"Language\". The tablet remembers it.",
+      },
+      {
+        title: "Sign out at the end",
+        body: "When you hand the tablet over or finish your shift, open \"Account and more\" and tap \"Sign out\".",
+      },
+    ],
+    problems: [
+      {
+        title: "\"Email or password is wrong. Check both and try again.\"",
+        fix: "Check for a capital letter or an extra space. If it still fails, ask your admin to reset your password.",
+      },
+      {
+        title: "\"Your session ended. Sign in again.\"",
+        fix: "Sign in again. Anything you had not saved on the screen may need to be entered again.",
+      },
+      {
+        title: "\"Your account isn't in a company yet\"",
+        fix: "You are signed in, but your admin has not added your email to the plant. Ask them to invite you.",
+      },
+    ],
+  },
 };
