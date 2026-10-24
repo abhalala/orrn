@@ -52,7 +52,7 @@ import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
 import { DEFAULT_LOCATIONS, defaultLocationStatements, openingRows } from "@orrn/server/lib/ledger";
 import { nextCompanySeq } from "@orrn/server/lib/sequence";
 import { kgPer12ftMilli } from "@orrn/server/lib/bundleWeight";
-import { docPeriod, nextDocNumber } from "@orrn/server/lib/docNumber";
+import { allocatePartyBundleNumbers, docPeriod, nextDocNumber } from "@orrn/server/lib/docNumber";
 import {
   bookDateInstant,
   DEFAULT_SCRAP_GRADES,
@@ -147,6 +147,9 @@ type CustomerDef = {
 };
 
 const IN = "India";
+/** Customers with their own bundle number series (FP-PK-07); the rest use the plant serial. */
+const PARTY_POLICIES: Record<string, "monthly" | "fy" | "lifelong"> = { kd: "monthly", royal: "fy" };
+
 const CUSTOMERS: CustomerDef[] = [
   {
     key: "kd",
@@ -510,6 +513,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     notes: def.notes,
     billingAddress: def.billing,
     shippingAddress: def.shipping,
+    // FP-PK-07: two customers keep their own bundle numbers (monthly 26J12 / fy 2026-27/12).
+    bundleNumberPolicy: PARTY_POLICIES[def.key] ?? null,
     createdAt: new Date(pastAt(10, 11)),
     updatedAt: new Date(pastAt(10, 11)),
   }));
@@ -1080,9 +1085,31 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
   for (const [i, plan] of [c1, c2].entries()) {
     const found = await db.query.dispatch.findFirst({ where: eq(dispatch.id, plan.id) });
     if (!found) throw new Error(`dev-seed: dispatch ${plan.id} missing after insert`);
+    // FP-PK-07: party numbers from the customer's own series, as pack allocates them.
+    const policy = PARTY_POLICIES[plan.customerKey];
+    if (policy) {
+      const members = [...plan.members].sort((a, b) => a.serial.localeCompare(b.serial, "en", { numeric: true }));
+      const { numbers } = await allocatePartyBundleNumbers(
+        db,
+        COMPANY_ID,
+        customerId(plan.customerKey),
+        policy,
+        new Date(Math.min(...members.map((m) => m.createdAt))),
+        members.length,
+        ownerId,
+      );
+      await atomicBatch(
+        db,
+        members.map((m, k) => db.update(bundle).set({ partyNo: numbers[k]! }).where(eq(bundle.id, m.id))),
+      );
+    }
     // PL numbers come from the PL book series, as dispatch.complete assigns them (PL-8).
     const { number: plNumber } = await nextDocNumber(db, COMPANY_ID, "pl", new Date(plan.completedAt ?? now), ownerId);
-    const header = demoHeaders[i] ?? demoHeaders[0]!;
+    const header = {
+      ...(demoHeaders[i] ?? demoHeaders[0]!),
+      // FP-PK-12: the first one went with the transporter master and a 9 t truck.
+      ...(i === 0 ? { transporterId: "dev-transporter-1", transporterName: "Shree Logistics", vehicleCapacityG: 9_000_000 } : {}),
+    };
     await db.update(dispatch).set({ plNumber, ...header }).where(eq(dispatch.id, plan.id));
     const dispatchRow = { ...found, plNumber, ...header };
     const { plId, statements: plStatements } = await packingListWriteBatch(db, {
@@ -1100,6 +1127,31 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         .update(packingList)
         .set({ createdAt: plAt, snapshot: { ...plRow.snapshot, generatedAt: plAt.toISOString() } })
         .where(eq(packingList.id, plId));
+    }
+
+    // FP-PK-13: the first list was regenerated once (branding off): rev 2 under the same number,
+    // rev 1 kept as sent.
+    if (i === 0) {
+      const { plId: rev2Id, statements: rev2Statements } = await packingListWriteBatch(db, {
+        companyId: COMPANY_ID,
+        dispatchRow,
+        plNumber,
+        session: { user: { id: ownerId } } as never,
+        revision: 2,
+        supersedesId: plId,
+        showBranding: false,
+        auditAction: "packingList.regenerate",
+        auditMeta: { dispatchId: plan.id, previousId: plId, code: plNumber, revision: 2 },
+      });
+      await atomicBatch(db, rev2Statements);
+      const rev2At = new Date(plAt.getTime() + 3_600_000);
+      const rev2Row = await db.query.packingList.findFirst({ where: eq(packingList.id, rev2Id) });
+      if (rev2Row) {
+        await db
+          .update(packingList)
+          .set({ createdAt: rev2At, snapshot: { ...rev2Row.snapshot, generatedAt: rev2At.toISOString() } })
+          .where(eq(packingList.id, rev2Id));
+      }
     }
   }
 
@@ -1135,7 +1187,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       packingSessions: groups.length,
       bundles: bundleRows.length,
       dispatches: dispatchRows.length,
-      packingLists: 2,
+      packingLists: 3,
       locations: DEFAULT_LOCATIONS.length,
       vendors: vendorRows.length,
       vendorAliases: vendorAliasRows.length,

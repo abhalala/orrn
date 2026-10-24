@@ -150,3 +150,61 @@ export function plShipDateText(shipDate: string | null | undefined, shipYmd?: st
   const [y, m, d] = ymd.split("-");
   return `${d} ${MONTHS[Number(m) - 1]} ${y}`;
 }
+
+/** FP-PK-13 extras a v2 snapshot may carry (absent on lists stored before them). */
+type V2Extras = {
+  header: PlSnapshotV2["header"];
+  groups: PlSnapshotV2["groups"];
+  print?: PlSnapshotV2["print"];
+  issue?: PlSnapshotV2["issue"];
+  rowInfo?: PlSnapshotV2["rowInfo"];
+  sections?: PlSnapshotV2["sections"];
+  profileSummary?: PlSnapshotV2["profileSummary"];
+};
+
+/** The party number and packed-for order line of a printed row ("" when the list predates them). */
+export function plRowExtras(pl: V2Extras, r: PlRow): { partyNo: string; originalSo: string } {
+  const info = pl.rowInfo?.[r.bundleNo];
+  return { partyNo: info?.partyNo ?? r.bundleNo, originalSo: info?.originalSo ?? "" };
+}
+
+/**
+ * The optional columns after the 11 printed ones: "Party no" when any row's party number differs
+ * from its bundle number, "Original SO" when the list shows it and any row has one.
+ */
+export function plExtraColumns(pl: V2Extras): { partyNo: boolean; originalSo: boolean } {
+  const rows = pl.groups.flatMap((g) => g.rows);
+  return {
+    partyNo: rows.some((r) => plRowExtras(pl, r).partyNo !== r.bundleNo),
+    originalSo: (pl.print?.showOriginalSo ?? true) && rows.some((r) => Boolean(plRowExtras(pl, r).originalSo)),
+  };
+}
+
+const KIND_LABEL = { hollow: "Hollow", solid: "Solid", semi: "Semi-hollow" } as const;
+
+/** "Hollow 3 bundles · 75.000 kg" per profile kind with weight (zero kinds are not stored). */
+export function plProfileLines(pl: V2Extras): string[] {
+  return (pl.profileSummary ?? []).map((k) => `${KIND_LABEL[k.kind]} ${bundlesText(k.bundles)} · ${formatPlKg(k.weightG)} kg`);
+}
+
+/** Sections that span more than one group get their own subtotal line, keyed by the last group. */
+export function plSectionSubtotalAfter(pl: V2Extras): Map<number, NonNullable<PlSnapshotV2["sections"]>[number]> {
+  const out = new Map<number, NonNullable<PlSnapshotV2["sections"]>[number]>();
+  for (const sec of pl.sections ?? []) {
+    const idx = pl.groups.map((g, i) => (g.sectionCode === sec.sectionCode ? i : -1)).filter((i) => i >= 0);
+    if (idx.length > 1) out.set(idx[idx.length - 1]!, sec);
+  }
+  return out;
+}
+
+/** "Rev 2" for a regenerated list, "" for the first issue. */
+export function plRevisionText(pl: V2Extras): string {
+  const rev = pl.issue?.revision ?? 1;
+  return rev > 1 ? `Rev ${rev}` : "";
+}
+
+/** Every dispatch the list covers, joined ("DSP-000006, DSP-000007"). */
+export function plDispatchCodesText(pl: V2Extras): string {
+  const codes = pl.issue?.dispatchCodes;
+  return codes && codes.length > 0 ? codes.join(", ") : pl.header.dispatchCode;
+}

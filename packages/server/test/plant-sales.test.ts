@@ -847,7 +847,9 @@ describe("packing list v2: snapshot shape and number assigned once", () => {
     expect(regen.code).toBe(done.plNumber);
     expect(regen.id).not.toBe(first.id);
     plSchema.parse(regen.snapshot);
-    await env.db.delete(packingList).where(eq(packingList.id, regen.id));
+    // FP-PK-13: regenerate keeps the sent revision (C24), so both rows are dropped for create().
+    expect(regen.revision).toBe(2);
+    await env.db.delete(packingList).where(eq(packingList.dispatchId, d));
     const again = await p.owner.packingList.create({ dispatchId: d });
     expect(again.code).toBe(done.plNumber);
     const series = await env.db.select().from(docSeries).where(and(eq(docSeries.companyId, p.companyId), eq(docSeries.docType, "pl")));

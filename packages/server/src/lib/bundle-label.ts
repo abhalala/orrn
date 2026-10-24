@@ -32,6 +32,43 @@ function formatUnit(value: number, unit: string): string {
   return unit ? `${formatted} ${unit}` : formatted;
 }
 
+/**
+ * Pack label variables (FP-PK-04/05), merged over `buildBundleLabelVariables` by the print call.
+ * Names are the template placeholders: `{{qr}}` the label QR address (`/b/{serial}?c={slug}`),
+ * `{{cast}}` the cast number (same name and meaning as W1-SPOOL's), `{{salesOrder}}` the order the
+ * bundle was packed for (`SO-12/1`), `{{standard}}` / `{{cml}}` the BIS pair snapshotted at pack,
+ * `{{partyNo}}` the customer's own bundle number (else the serial), `{{showLogo}}` "1"/"0" (a
+ * template hides its logo block on "0"). Every value is a string, "" when absent, never undefined.
+ */
+export type PackLabelVariables = {
+  qr: string;
+  cast: string;
+  salesOrder: string;
+  standard: string;
+  cml: string;
+  partyNo: string;
+  showLogo: string;
+};
+
+export function buildPackLabelVariables(input: {
+  bundleRow: Pick<BundleRow, "serial" | "partyNo" | "bisStandard" | "cmlNo" | "showLogo">;
+  qrUrl: string;
+  castNumber?: string | null;
+  /** The packed-for order line as printed: `SO-12/1`. */
+  salesOrderCode?: string | null;
+}): PackLabelVariables {
+  const b = input.bundleRow;
+  return {
+    qr: input.qrUrl,
+    cast: input.castNumber ?? "",
+    salesOrder: input.salesOrderCode ?? "",
+    standard: b.bisStandard ?? "",
+    cml: b.cmlNo ?? "",
+    partyNo: b.partyNo ?? b.serial,
+    showLogo: b.showLogo === false ? "0" : "1",
+  };
+}
+
 function mmToInches(mm: number): number {
   return mm / 25.4;
 }
