@@ -57,7 +57,9 @@ function EditForm({ open, onOpenChange, card }: { open: boolean; onOpenChange(op
     const cav = intOrNull(cavities);
     const hv = intOrNull(hardness);
     const lifeG = life.trim() === "" ? null : parseWholeKgToGrams(life);
-    if (cav === undefined || hv === undefined || lifeG === undefined) {
+    // An empty life clears it; text that is not a whole number of kg is a mistake, never a clear.
+    const lifeBad = life.trim() !== "" && lifeG === null;
+    if (cav === undefined || hv === undefined || lifeBad) {
       setError(t("dieRoom.card.fieldsInvalid"));
       return;
     }

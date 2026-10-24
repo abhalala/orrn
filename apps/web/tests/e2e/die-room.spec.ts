@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
@@ -11,18 +11,21 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
  * (percent, tone, band position, kg/m) comes from the server; these tests add readings and check
  * what the server answers.
  *
- * Mutations are spread over the three widths so a rerun on one seeded plant never meets its own
- * leftovers: reading values differ per width and so do the copies that get a tier proposal.
+ * Tests run in parallel (fullyParallel), so every mutating test owns what it touches: each width has
+ * its own copy for a tier proposal (13090-1/2/3), for a reading (13090-4/5/6) and for an issue
+ * (13090-7/8/9, onto its own queued run PR-2/3/4); the 375 lift page has 13090-10; the section and
+ * band edits use sections nothing else reads (Angle 11250, Flat 14730). The seed is reset at the
+ * start of each run, so two runs in a row meet the same plant.
  */
 
 const WIDTHS = [375, 820, 1280] as const;
 type Width = (typeof WIDTHS)[number];
 
-/** Per width: the Tee copy that gets a tier proposal, and the reading added to 13090-1 (kg/12ft -> percent). */
-const PLAN: Record<Width, { tierCopy: string; reading: string; pct: string }> = {
-  375: { tierCopy: "13090-1", reading: "2.790", pct: "+3.3%" },
-  820: { tierCopy: "13090-2", reading: "2.795", pct: "+3.5%" },
-  1280: { tierCopy: "13090-3", reading: "2.800", pct: "+3.7%" },
+/** Per width: the Tee copies it changes, the reading it adds (kg/12ft -> percent) and the run it issues to. */
+const PLAN: Record<Width, { tierCopy: string; readCopy: string; reading: string; pct: string; issueCopy: string; run: string }> = {
+  375: { tierCopy: "13090-1", readCopy: "13090-4", reading: "2.790", pct: "+3.3%", issueCopy: "13090-7", run: "PR-2" },
+  820: { tierCopy: "13090-2", readCopy: "13090-5", reading: "2.795", pct: "+3.5%", issueCopy: "13090-8", run: "PR-3" },
+  1280: { tierCopy: "13090-3", readCopy: "13090-6", reading: "2.800", pct: "+3.7%", issueCopy: "13090-9", run: "PR-4" },
 };
 
 async function open(page: Page, path: string, opts: { role: LocalRole; width: number; locale?: "hi" }) {
@@ -47,15 +50,24 @@ async function blockingAxeViolations(page: Page) {
     .map((v) => ({ id: v.id, help: v.help, targets: v.nodes.slice(0, 5).map((n) => n.target.join(" ")) }));
 }
 
+/** Wait for the page and tab crossfades to finish (finite animations only), so a capture or an axe run never sees one mid-way. */
+async function settle(page: Page) {
+  await page.evaluate(async () => {
+    const finite = document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity);
+    await Promise.all(finite.map((a) => a.finished.catch(() => undefined)));
+  });
+}
+
 /** DR_SHOTS=<dir> keeps a full-page capture of every screen the checks visit. */
-async function shot(page: Page) {
+async function shot(page: Page, tag = "") {
   const dir = process.env.DR_SHOTS;
   if (!dir) return;
-  const name = `${page.viewportSize()?.width ?? 0}${await page.locator("html").getAttribute("lang") === "hi" ? "-hi" : ""}__${new URL(page.url()).pathname.replace(/\W+/g, "_")}${new URL(page.url()).search.replace(/\W+/g, "_")}`;
-  await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true });
+  const name = `${tag ? `${tag}__` : ""}${page.viewportSize()?.width ?? 0}${await page.locator("html").getAttribute("lang") === "hi" ? "-hi" : ""}__${new URL(page.url()).pathname.replace(/\W+/g, "_")}${new URL(page.url()).search.replace(/\W+/g, "_")}`;
+  await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true, animations: "disabled" });
 }
 
 async function expectClean(page: Page) {
+  await settle(page);
   await shot(page);
   await expectNoHorizontalScroll(page);
   await expectNoClippedText(page, "main#main");
@@ -73,8 +85,11 @@ async function openTee(page: Page) {
   await expect(page.locator("main#main h1")).toContainText("13090");
 }
 
-async function pickOption(page: Page, trigger: string | RegExp, option: string | RegExp) {
-  await page.getByRole("combobox", { name: trigger }).click();
+/** A searchable picker: type what the floor writes, then take the option. */
+async function pickFromSearch(page: Page, scope: Locator, name: string, text: string, option: string | RegExp = text) {
+  const box = scope.getByRole("combobox", { name, exact: true });
+  await box.click();
+  await box.fill(text);
   await page.getByRole("option", { name: option }).click();
 }
 
@@ -120,7 +135,7 @@ for (const width of WIDTHS) {
     test("the die room adds a reading and the server answers with the percent and tone", async ({ page }) => {
       await open(page, "/dies", { role: "dieroom", width });
       await openTee(page);
-      await openCopy(page, "13090-1");
+      await openCopy(page, plan.readCopy);
       await expect(page.getByTestId("current-weight")).toContainText("kg/12ft");
 
       await page.getByRole("button", { name: "Add reading" }).first().click();
@@ -161,28 +176,43 @@ for (const width of WIDTHS) {
 
 test.describe("issue to a press and take it back", () => {
   for (const width of WIDTHS) {
-    test(`${width}: a copy goes to the queued run on P1 and comes back`, async ({ page }) => {
+    const plan = PLAN[width];
+    test(`${width}: ${plan.issueCopy} goes to run ${plan.run} on P1 and comes back`, async ({ page }) => {
       await open(page, "/dies/issues", { role: "dieroom", width });
-      // The seeded open issue: 14701-1 on P1 for run PR-1.
+      // The seeded open issue: 14701-1 on P1 for run PR-1, with the die not yet in the press.
       const openIssues = page.getByTestId("open-issues");
       await expect(openIssues.getByTestId("issue-14701-1")).toContainText("Issued to P1");
       await expect(openIssues.getByTestId("issue-14701-1")).toContainText("PR-1");
 
       const form = page.getByTestId("issue-form");
-      await form.getByRole("combobox", { name: "Copy" }).click();
-      await page.getByRole("option", { name: "13090-1" }).click();
-      // The only run waiting for a Tee die is PR-2 on P1: picked, with its line.
-      await expect(form.getByRole("combobox", { name: "Press run" })).toContainText("PR-2");
+      await pickFromSearch(page, form, "Copy", plan.issueCopy);
+      // Three Tee runs wait on P1 (PR-2, PR-3, PR-4): each width takes its own.
+      await form.getByRole("combobox", { name: "Press run" }).click();
+      await page.getByRole("option", { name: plan.run }).click();
+      await expect(form.getByRole("combobox", { name: "Press run" })).toContainText(plan.run);
+      // The run sets the line: P1, and the person cannot pick another.
       await expect(form.getByRole("combobox", { name: "Press line" })).toContainText("P1");
+      await expect(form.getByRole("combobox", { name: "Press line" })).toBeDisabled();
       await form.getByRole("button", { name: "Issue", exact: true }).click();
 
-      const mine = openIssues.getByTestId("issue-13090-1");
+      const mine = openIssues.getByTestId(`issue-${plan.issueCopy}`);
       await expect(mine).toContainText("Issued to P1");
-      await expect(mine).toContainText("PR-2");
+      await expect(mine).toContainText(plan.run);
       await expectClean(page);
 
-      await mine.getByRole("button", { name: "Take back" }).click();
-      await expect(openIssues.getByTestId("issue-13090-1")).toHaveCount(0);
+      if (width === 820) {
+        // Cancelling asks first; saying no keeps the issue.
+        await mine.getByRole("button", { name: "Cancel issue" }).click();
+        const dialog = page.getByRole("dialog");
+        await expect(dialog).toContainText(`Cancel the issue of ${plan.issueCopy}?`);
+        await dialog.getByRole("button", { name: "Keep it issued" }).click();
+        await expect(mine).toBeVisible();
+        await mine.getByRole("button", { name: "Cancel issue" }).click();
+        await page.getByRole("dialog").getByRole("button", { name: "Cancel issue" }).click();
+      } else {
+        await mine.getByRole("button", { name: "Take back" }).click();
+      }
+      await expect(openIssues.getByTestId(`issue-${plan.issueCopy}`)).toHaveCount(0);
       await expect(openIssues.getByTestId("issue-14701-1")).toBeVisible();
     });
   }
@@ -250,20 +280,17 @@ test.describe("the lift page on a phone keeps its action above the tab bar", () 
   test("375: Ask for approval sits above the tab bar", async ({ page }) => {
     await open(page, "/dies", { role: "dieroom", width: 375 });
     await openTee(page);
-    // 13090-2 reads above its band: the lift page says by how many grams.
-    await openCopy(page, "13090-2");
+    // 13090-10 reads above its band and no other test proposes on it: the lift page says by how many grams.
+    await openCopy(page, "13090-10");
     await page.getByRole("tab", { name: "Tier" }).click();
     await page.getByRole("link", { name: "Move to band" }).click();
     await expect(page.getByTestId("off-band")).toContainText("above by 50 g");
     const action = page.getByRole("button", { name: "Ask for approval" });
-    // Tier 13090-2 may already carry a proposal from the tier test; then the form is replaced by the waiting note.
-    if (await action.isVisible()) {
-      const bar = await page.locator("[data-slot='form-actions']").boundingBox();
-      const tabs = await page.locator("[data-slot='tab-bar']").boundingBox();
-      expect(bar && tabs && bar.y + bar.height <= tabs.y + 1, `bar ${JSON.stringify(bar)} tabs ${JSON.stringify(tabs)}`).toBe(true);
-    } else {
-      await expect(page.getByTestId("lift-pending")).toBeVisible();
-    }
+    await expect(action).toBeVisible();
+    await settle(page);
+    const bar = await page.locator("[data-slot='form-actions']").boundingBox();
+    const tabs = await page.locator("[data-slot='tab-bar']").boundingBox();
+    expect(bar && tabs && bar.y + bar.height <= tabs.y + 1, `bar ${JSON.stringify(bar)} tabs ${JSON.stringify(tabs)}`).toBe(true);
     await expectClean(page);
   });
 
@@ -284,10 +311,8 @@ test.describe("owner block", () => {
     test(`${width}: pack for another customer on KD Extrusion's die is refused, naming the owner`, async ({ page }) => {
       await open(page, "/dies/issues", { role: "dieroom", width });
       const panel = page.getByTestId("owner-check");
-      await panel.getByRole("combobox", { name: "Copy" }).click();
-      await page.getByRole("option", { name: "12230-1" }).click();
-      await panel.getByRole("combobox", { name: "For customer" }).click();
-      await page.getByRole("option", { name: "Royal Aluminium" }).click();
+      await pickFromSearch(page, panel, "Copy", "12230-1");
+      await pickFromSearch(page, panel, "For customer", "Royal", "Royal Aluminium");
       await panel.getByRole("radio", { name: "Pack" }).click();
 
       const result = page.getByTestId("owner-result");
@@ -296,8 +321,7 @@ test.describe("owner block", () => {
       await expect(result.getByRole("button")).toHaveCount(0);
 
       // The owner themselves is allowed.
-      await panel.getByRole("combobox", { name: "For customer" }).click();
-      await page.getByRole("option", { name: "KD Extrusion" }).click();
+      await pickFromSearch(page, panel, "For customer", "KD Extrusion");
       await expect(result).toContainText("Allowed. This die belongs to KD Extrusion.");
       await expectClean(page);
     });
@@ -306,14 +330,178 @@ test.describe("owner block", () => {
   test("375: a role that packs asks for an exception and it waits for a manager", async ({ page }) => {
     await open(page, "/dies/issues", { role: "owner", width: 375 });
     const panel = page.getByTestId("owner-check");
-    await panel.getByRole("combobox", { name: "Copy" }).click();
-    await page.getByRole("option", { name: "12230-1" }).click();
-    await panel.getByRole("combobox", { name: "For customer" }).click();
-    await page.getByRole("option", { name: "Royal Aluminium" }).click();
+    await pickFromSearch(page, panel, "Copy", "12230-1");
+    await pickFromSearch(page, panel, "For customer", "Royal", "Royal Aluminium");
     await panel.getByLabel("Why is it needed").fill("KD asked us to cover the Royal order");
     await panel.getByRole("button", { name: /Ask to use it for Royal Aluminium/ }).click();
     await expect(page.getByTestId("owner-waiting")).toContainText("Waiting for a manager");
     await expect(page.getByRole("button", { name: /approve/i })).toHaveCount(0);
+  });
+});
+
+test.describe("section edit: shape, alloy, temper, wall and owner (D16)", () => {
+  test("1280: a manager sets all five on Angle 11250 and the board and section show them", async ({ page }) => {
+    await open(page, "/dies", { role: "owner", width: 1280 });
+    await page.getByRole("link", { name: /11250/ }).first().click();
+    await expect(page.locator("main#main h1")).toContainText("11250");
+    await page.getByRole("button", { name: "Edit die" }).click();
+    const sheet = page.getByRole("dialog");
+    await sheet.getByRole("radio", { name: "Solid" }).click();
+    await sheet.getByLabel("Alloy").fill("6061");
+    await sheet.getByLabel("Temper").fill("T5");
+    await sheet.getByLabel("Wall (mm)").fill("2");
+    await pickFromSearch(page, sheet, "Owner", "Apex", "Apex Fabricators");
+    await settle(page);
+    await shot(page, "section-edit");
+    await sheet.getByRole("button", { name: "Save die" }).click();
+    await expect(sheet).toHaveCount(0);
+
+    const facts = page.locator("main#main p").filter({ hasText: "6061 T5" });
+    await expect(facts).toContainText("Solid");
+    await expect(facts).toContainText("Apex Fabricators");
+
+    // The board's Shape column reads it too.
+    await page.goto("/dies");
+    const row = page.getByRole("row", { name: /11250/ });
+    await expect(row).toContainText("Solid");
+    await expect(row).toContainText("6061 T5");
+    await expect(row).toContainText("Apex Fabricators");
+    await expectClean(page);
+  });
+
+  test("1280: the die room cannot edit a section, so it cannot set an owner either", async ({ page }) => {
+    await open(page, "/dies", { role: "dieroom", width: 1280 });
+    await openTee(page);
+    await expect(page.getByRole("button", { name: "Edit die" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add copy" }).first()).toBeVisible();
+  });
+});
+
+test.describe("band retire (owner)", () => {
+  test("1280: an empty band on Flat 14730 is added, then retired after one question", async ({ page }) => {
+    await open(page, "/dies", { role: "owner", width: 1280 });
+    await page.getByRole("link", { name: /14730/ }).first().click();
+    await page.getByRole("link", { name: "Add band" }).click();
+    await page.getByLabel("Wall").fill("2");
+    await page.getByLabel("Min").fill("3.2");
+    await page.getByLabel("Max").fill("3.4");
+    await page.getByRole("button", { name: "Save band" }).click();
+    await expect(page.locator("main#main h1")).toContainText("14730");
+    const band = page.locator("[data-testid^='band-']").filter({ hasText: "3.200–3.400 kg/12ft" });
+    await expect(band).toHaveCount(1);
+    await band.getByRole("button", { name: "Retire band" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("Retire this band?");
+    await dialog.getByRole("button", { name: "Retire band" }).click();
+    await expect(band.getByText("Retired")).toBeVisible();
+    await expect(band.getByRole("button", { name: "Retire band" })).toHaveCount(0);
+  });
+});
+
+test.describe("an approved exception is listed and a manager closes it", () => {
+  // The seed holds one approved exception: Tejura & Sons may use KD Extrusion's 12230-1. The die room
+  // reads it first; the manager then closes it. One serial block, so the read always comes first.
+  test.describe.configure({ mode: "serial" });
+
+  async function checkTejura(page: Page, role: LocalRole) {
+    await open(page, "/dies/issues", { role, width: 1280 });
+    const panel = page.getByTestId("owner-check");
+    await pickFromSearch(page, panel, "Copy", "12230-1");
+    await pickFromSearch(page, panel, "For customer", "Tejura", "Tejura & Sons");
+    await panel.getByRole("radio", { name: "Pack" }).click();
+    return panel;
+  }
+
+  test("the die room sees the exception and the gate allowing it, with no way to close it", async ({ page }) => {
+    const panel = await checkTejura(page, "dieroom");
+    await expect(page.getByTestId("owner-result")).toContainText("Allowed for Tejura & Sons by an approved exception.");
+    const list = page.getByTestId("open-exceptions");
+    await expect(list).toContainText("Tejura & Sons");
+    await expect(list).toContainText("Pack");
+    await expect(list).toContainText("Approved");
+    await expect(panel.getByRole("button", { name: "Close exception" })).toHaveCount(0);
+  });
+
+  test("the owner closes it, and the next check says the die belongs to KD Extrusion again", async ({ page }) => {
+    const panel = await checkTejura(page, "owner");
+    await expect(page.getByTestId("owner-result")).toContainText("Allowed for Tejura & Sons by an approved exception.");
+    await settle(page);
+    await shot(page, "exceptions");
+    await panel.getByRole("button", { name: "Close exception" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("Close the exception on 12230-1?");
+    await dialog.getByRole("button", { name: "Close exception" }).click();
+
+    await expect(page.getByTestId("owner-result")).toContainText("This die belongs to KD Extrusion");
+    await expect(page.getByTestId("open-exceptions")).toContainText("No open exception on this copy.");
+    await expectClean(page);
+  });
+});
+
+test.describe("copy and customer pickers ask the server", () => {
+  test("375: the list says how many it shows; typing finds a copy and a customer past it", async ({ page }) => {
+    await open(page, "/dies/issues", { role: "dieroom", width: 375 });
+    const panel = page.getByTestId("owner-check");
+    const copy = panel.getByRole("combobox", { name: "Copy", exact: true });
+    await copy.click();
+    // 12 copies, 10 on the first page.
+    await expect(panel.getByText(/Showing 10 of 1\d, type to find/).first()).toBeVisible();
+    await expect(page.getByRole("option")).toHaveCount(10);
+    await settle(page);
+    await shot(page, "pickers");
+    await copy.fill("13090/10");
+    await expect(page.getByRole("option", { name: "13090-10" })).toBeVisible();
+    await expect(page.getByRole("option")).toHaveCount(1);
+    await page.getByRole("option", { name: "13090-10" }).click();
+    await expect(copy).toHaveValue("13090-10");
+
+    await pickFromSearch(page, panel, "For customer", "Shivam", "Shivam Bhavnagar");
+    await expect(panel.getByRole("combobox", { name: "For customer" })).toHaveValue("Shivam Bhavnagar");
+    await expectClean(page);
+  });
+});
+
+test.describe("A4 copy card", () => {
+  test("1280: Print card shows the one-page sheet in print and hides the screen", async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __printed: number }).__printed = 0;
+      window.print = () => {
+        (window as unknown as { __printed: number }).__printed += 1;
+      };
+    });
+    await open(page, "/dies", { role: "dieroom", width: 1280 });
+    await openTee(page);
+    await openCopy(page, "13090-2");
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Print card" }).click();
+    expect(await page.evaluate(() => (window as unknown as { __printed: number }).__printed)).toBe(1);
+
+    await page.emulateMedia({ media: "print" });
+    const sheet = page.getByTestId("print-card");
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText("13090-2");
+    await expect(sheet).toContainText("2.700–2.900 kg/12ft");
+    await expect(sheet).toContainText("2.950");
+    await expect(page.locator(".die-screen")).toBeHidden();
+    const dir = process.env.DR_SHOTS;
+    if (dir) await page.screenshot({ path: `${dir}/print__a4_copy_card.png`, fullPage: true, animations: "disabled" });
+  });
+});
+
+test.describe("files refuse what the server refuses", () => {
+  test("375: a 9 MB photo shows the server's size message and nothing is added", async ({ page }) => {
+    await open(page, "/dies", { role: "dieroom", width: 375 });
+    await openTee(page);
+    await openCopy(page, "13090-1");
+    await page.getByRole("tab", { name: "Files" }).click();
+    await page.getByLabel("Add file").setInputFiles({
+      name: "too-big.png",
+      mimeType: "image/png",
+      buffer: Buffer.alloc(9 * 1024 * 1024, 1),
+    });
+    await expect(page.getByRole("alert").filter({ hasText: "larger than 8 MB" })).toBeVisible();
+    await expect(page.locator("li").filter({ hasText: "too-big.png" })).toHaveCount(0);
+    await expectClean(page);
   });
 });
 

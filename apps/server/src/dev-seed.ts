@@ -951,6 +951,15 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     { section: "tee125", code: "13090-1", seqNo: 1, tier: 1, status: "available", readings: [2_740, 2_760], lifeG: 60_000_000 },
     { section: "tee125", code: "13090-2", seqNo: 2, tier: 2, status: "available", readings: [2_910, 2_950] },
     { section: "tee125", code: "13090-3", seqNo: 3, tier: 1, status: "available", bandId: heavyBandId, readings: [3_150, 3_200] },
+    // One copy per width for the e2e mutations (readings 4-6, issue to a run 7-9, the 375 lift page 10),
+    // so parallel workers never touch the same copy.
+    { section: "tee125", code: "13090-4", seqNo: 4, tier: 1, status: "available", readings: [2_760] },
+    { section: "tee125", code: "13090-5", seqNo: 5, tier: 1, status: "available", readings: [2_760] },
+    { section: "tee125", code: "13090-6", seqNo: 6, tier: 1, status: "available", readings: [2_760] },
+    { section: "tee125", code: "13090-7", seqNo: 7, tier: 1, status: "available", readings: [2_760] },
+    { section: "tee125", code: "13090-8", seqNo: 8, tier: 1, status: "available", readings: [2_760] },
+    { section: "tee125", code: "13090-9", seqNo: 9, tier: 1, status: "available", readings: [2_760] },
+    { section: "tee125", code: "13090-10", seqNo: 10, tier: 2, status: "available", readings: [2_910, 2_950] },
     { section: "chan1", code: "12230-1", seqNo: 1, tier: 1, status: "available", readings: [2_850] },
     { section: "patti1", code: "14701-1", seqNo: 1, tier: 1, status: "in_use", readings: [2_480] },
   ];
@@ -1009,7 +1018,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       createdAt: new Date(todayAt(0.05)),
       updatedAt: new Date(todayAt(0.1)),
     },
-    // Released and waiting for a die: Tee 13090 on Press 1. The die room issues a copy to it.
+    // Released and waiting for a die: Tee 13090 on Press 1 (PR-2, PR-3, PR-4). The die room issues a copy to each.
     {
       id: "dev-run-13090-queued",
       companyId: COMPANY_ID,
@@ -1023,8 +1032,22 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       createdAt: new Date(todayAt(0.06)),
       updatedAt: new Date(todayAt(0.06)),
     },
+    // Two more for Tee: with PR-2, one queued run per width of the e2e (each issues its own copy to its own run).
+    ...(["PR-3", "PR-4"] as const).map((number) => ({
+      id: `dev-run-13090-queued-${number}`,
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number,
+      period: pressRunPeriod,
+      status: "queued" as const,
+      pressLineId: "dev-press-line-1",
+      sectionId: dieId("tee125"),
+      createdBy: ownerId,
+      createdAt: new Date(todayAt(0.06)),
+      updatedAt: new Date(todayAt(0.06)),
+    })),
   ];
-  // The press run book continues after PR-2.
+  // The press run book continues after PR-4.
   const pressRunSeriesRows: (typeof docSeries.$inferInsert)[] = [
     { id: `dev-series-press_run-${pressRunPeriod}`, companyId: COMPANY_ID, docType: "press_run", period: pressRunPeriod, value: pressRunRows.length, createdBy: ownerId },
   ];
@@ -1042,6 +1065,29 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       note: "Day shift",
     },
   ];
+  // An approved exception: Tejura & Sons may use KD Extrusion's 12230-1 (a manager closes it from the issues page).
+  approvalRows.push({
+    id: "dev-approval-12230-1-tejura",
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    kind: "die_owner_override",
+    subjectId: devCopyId("12230-1"),
+    status: "approved",
+    requestNote: "KD asked us to cover the Tejura order",
+    meta: {
+      attemptedCustomerId: customerId("tejura"),
+      purpose: "pack",
+      closedAt: null,
+      code: "12230-1",
+      sectionId: dieId("chan1"),
+      ownerCustomerId: customerId(CUSTOMERS[0]!.key),
+    },
+    requestedBy: officeId,
+    decidedBy: ownerId,
+    decidedAt: new Date(pastAt(2, 10)),
+    createdAt: new Date(pastAt(2, 9)),
+    updatedAt: new Date(pastAt(2, 10)),
+  });
   const ownedSectionId = dieId("chan1");
   const ownedBy = customerId(CUSTOMERS[0]!.key);
 

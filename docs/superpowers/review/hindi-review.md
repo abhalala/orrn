@@ -10,11 +10,11 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 2178 screen strings in 39 groups, 12 guides with 220 strings.
+Counts: 2214 screen strings in 39 groups, 12 guides with 220 strings.
 
 ## Screen strings
 
-### common (67)
+### common (68)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -23,6 +23,7 @@ Counts: 2178 screen strings in 39 groups, 12 guides with 220 strings.
 | `saving` | Saving | सेव हो रहा है |
 | `saved` | Saved | सेव हो गया |
 | `cancel` | Cancel | रहने दें |
+| `showingOf` | Showing {shown} of {total}, type to find | {total} में से {shown} दिख रहे हैं, ढूंढने के लिए लिखें |
 | `close` | Close | बंद करें |
 | `back` | Back | वापस |
 | `next` | Next | आगे |
@@ -86,11 +87,12 @@ Counts: 2178 screen strings in 39 groups, 12 guides with 220 strings.
 | `waitingApproval` | Waiting for approval | मंज़ूरी का इंतज़ार |
 | `plant` | Plant | प्लांट |
 
-### units (13)
+### units (14)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `kg` | kg | kg |
+| `g` | g | g |
 | `kgPer12ft` | kg/12ft | kg/12ft |
 | `pcs` | pcs | pcs |
 | `mm` | mm | mm |
@@ -830,7 +832,7 @@ Counts: 2178 screen strings in 39 groups, 12 guides with 220 strings.
 | `v2.summary.solid` | Solid | सॉलिड |
 | `v2.summary.semi` | Semi hollow | सेमी हॉलो |
 
-### dies (60)
+### dies (67)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -894,6 +896,13 @@ Counts: 2178 screen strings in 39 groups, 12 guides with 220 strings.
 | `form.duplicate` | A die with this series and section code already exists. | इस सीरीज़ और सेक्शन कोड का die पहले से है। |
 | `form.fixErrors` | Check the fields marked in red. | लाल निशान वाले खाने जांचें। |
 | `form.cantAdd` | Your role can't add dies. Ask an admin if you need it. | आपका रोल die नहीं जोड़ सकता। ज़रूरत हो तो एडमिन से कहें। |
+| `form.shapeSection` | Shape and owner | आकार और मालिक |
+| `form.profileNone` | Not set | तय नहीं |
+| `form.alloyHint` | Pick one or type another. | एक चुनें या दूसरा लिखें। |
+| `form.wallHint` | Millimetres, like 1.2. Blank means not written. | मिलीमीटर में, जैसे 1.2। खाली मतलब लिखा नहीं है। |
+| `form.ownerSearch` | Search customers | ग्राहक खोजें |
+| `form.ownerHint` | Blank means the plant owns this die. | खाली मतलब यह die प्लांट की है। |
+| `form.ownerClear` | Make plant-owned | प्लांट की करें |
 
 ### customers (109)
 
@@ -1747,11 +1756,14 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (311)
+### dieRoom (338)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Die room | Die रूम |
+| `print.button` | Print card | कार्ड प्रिंट करें |
+| `print.date` | Date | तारीख |
+| `print.readings` | Last readings | पिछली रीडिंग |
 | `copies.title` | Copies | कॉपी |
 | `copies.copy` | Copy | कॉपी |
 | `copies.tier` | Tier {rank} | टियर {rank} |
@@ -1776,6 +1788,9 @@ Please check, Lalubhai:
 | `bands.range` | {min} to {max} kg/12ft | {min} से {max} kg/12ft |
 | `bands.label` | Label | नाम |
 | `bands.retire` | Retire band | बैंड बंद करें |
+| `bands.retireTitle` | Retire this band? | यह बैंड बंद करें? |
+| `bands.retireBody` | No copy can be put on it again. Its history stays. | इस पर दोबारा कोई कॉपी नहीं रखी जा सकेगी। इतिहास रहेगा। |
+| `bands.retiredToast` | Band retired | बैंड बंद हुआ |
 | `bands.duplicate` | This band already exists for this die. | इस die का यह बैंड पहले से है। |
 | `bands.primary` | Main band | मुख्य बैंड |
 | `bands.retired` | Retired | बंद |
@@ -1877,6 +1892,9 @@ Please check, Lalubhai:
 | `maker.statusSent` | Out with the maker | मेकर के पास |
 | `maker.cancel` | Cancel send | भेजना रद्द करें |
 | `maker.cancelled` | Send cancelled | भेजना रद्द हुआ |
+| `maker.cancelTitle` | Cancel the send {number}? | भेजना {number} रद्द करें? |
+| `maker.cancelBody` | {code} comes back to the rack. Nothing is kept as sent. | {code} रैक में लौट आती है। भेजा हुआ कुछ दर्ज नहीं रहता। |
+| `maker.keepJob` | Keep the send | भेजना रहने दें |
 | `maker.history` | Earlier jobs | पुराने जॉब |
 | `maker.status.sent` | Sent | भेजी |
 | `maker.status.received` | Received | मिल गई |
@@ -1912,6 +1930,15 @@ Please check, Lalubhai:
 | `owner.whyLabel` | Why is it needed | क्यों चाहिए |
 | `owner.whyRequired` | Say why. | कारण लिखें। |
 | `owner.requested` | Asked. Waiting for a manager. | मांग भेजी। मैनेजर का इंतज़ार। |
+| `owner.partySearch` | Search customers | ग्राहक खोजें |
+| `owner.exceptionsTitle` | Exceptions on {code} | {code} पर अपवाद |
+| `owner.exceptionsNone` | No open exception on this copy. | इस कॉपी पर कोई खुला अपवाद नहीं। |
+| `owner.exceptionsFailed` | The exceptions didn't load. | अपवाद नहीं खुले। |
+| `owner.approvedOn` | Approved {date} | {date} को मंज़ूर |
+| `owner.closeException` | Close exception | अपवाद बंद करें |
+| `owner.closeTitle` | Close the exception on {code}? | {code} का अपवाद बंद करें? |
+| `owner.closeBody` | {name} can no longer use {code}. The next check says who owns it. | {name} अब {code} नहीं चला सकता। अगली जांच बताएगी कि यह किसकी है। |
+| `owner.closedToast` | Exception closed | अपवाद बंद हुआ |
 | `position.in` | In band | बैंड में |
 | `position.above` | Above band | बैंड से ऊपर |
 | `position.below` | Below band | बैंड से नीचे |
@@ -1925,6 +1952,7 @@ Please check, Lalubhai:
 | `board.searchHint` | Search a section, a series or a copy like 12170-2 | सेक्शन, सीरीज़ या कॉपी खोजें, जैसे 12170-2 |
 | `board.slashHint` | A slash works too: 12170/2 finds 12170-2. | स्लैश भी चलता है: 12170/2 से 12170-2 मिलती है। |
 | `board.columns.shape` | Shape | आकार |
+| `board.columns.band` | Weight band | वज़न बैंड |
 | `board.columns.owner` | Owner | मालिक |
 | `board.columns.copies` | Copies | कॉपी |
 | `board.columns.drift` | Drift | बढ़त |
@@ -1960,7 +1988,7 @@ Please check, Lalubhai:
 | `reading.noneYet` | kg per 12 ft. No reading yet. | kg/12ft। अभी कोई रीडिंग नहीं। |
 | `reading.last` | kg per 12 ft. Last reading {kg}. | kg/12ft। पिछली रीडिंग {kg}। |
 | `reading.weight` | Weight of 12 ft | 12 ft का वज़न |
-| `reading.bandHint` | Band {band} kg/12ft. | बैंड {band} kg/12ft। |
+| `reading.bandHint` | Band {band}. | बैंड {band}। |
 | `reading.serverFigures` | The percent and colour are worked out when you save. | सेव करने पर प्रतिशत और रंग तय होते हैं। |
 | `reading.backspace` | Backspace | मिटाएं |
 | `reading.saved` | {code}: {kg} kg/12ft saved | {code}: {kg} kg/12ft सेव हुआ |
@@ -2049,11 +2077,19 @@ Please check, Lalubhai:
 | `issues.noneOpenBody` | Copies you issue show here until they come back. | जो कॉपी आप देते हैं वह लौटने तक यहां दिखती है। |
 | `issues.loadFailed` | The list didn't load. | सूची नहीं खुली। |
 | `issues.cancelledToast` | Issue cancelled | देना रद्द हुआ |
+| `issues.lineFromRun` | The run sets the press line. | प्रेस लाइन रन से तय होती है। |
+| `issues.returnBlocked` | {run} has the die in the press. Take it back after the die is out. | {run} में die प्रेस में लगा है। die निकलने के बाद वापस लें। |
+| `issues.cancelBlocked` | {run} has started. Take the die back when it is out. | {run} शुरू हो चुका है। die निकलने पर वापस लें। |
+| `issues.cancelTitle` | Cancel the issue of {code}? | {code} का देना रद्द करें? |
+| `issues.cancelBody` | {code} goes back to the rack and the press run waits for a copy again. | {code} रैक में लौट जाती है और प्रेस रन फिर कॉपी का इंतज़ार करता है। |
+| `issues.keepIssued` | Keep it issued | दिया हुआ रहने दें |
 | `makers.subtitle` | Who makes and corrects the dies, and what is with them now. | die कौन बनाता और सुधारता है, और अभी उनके पास क्या है। |
 | `makers.empty` | No die maker yet | अभी कोई die मेकर नहीं |
 | `makers.emptyBody` | Add the workshops you send dies to. | जिन वर्कशॉप में die भेजते हैं उन्हें जोड़ें। |
 | `makers.archive` | Archive | आर्काइव |
 | `makers.archived` | Die maker archived | Die मेकर आर्काइव हुआ |
+| `makers.archiveTitle` | Archive {name}? | {name} को आर्काइव करें? |
+| `makers.archiveBody` | The maker leaves the list for new sends. Past sends keep the name. | मेकर नए भेजने की सूची से हट जाता है। पुराने भेजने में नाम रहता है। |
 | `makers.withMakers` | With a die maker now | अभी मेकर के पास |
 | `makers.noJobs` | Nothing is out | कुछ भी बाहर नहीं |
 | `makers.noJobsBody` | A copy you send shows here until it is received. | भेजी हुई कॉपी वापस आने तक यहां दिखती है। |

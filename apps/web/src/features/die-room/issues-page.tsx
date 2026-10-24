@@ -1,3 +1,4 @@
+import { canCancelIssue, canReturnDie } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardTitle } from "@orrn/ui/components/card";
@@ -8,7 +9,7 @@ import { Field } from "@orrn/ui/components/field";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Select } from "@orrn/ui/components/select";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueries } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -18,7 +19,9 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { shortDateTime } from "./die-room-model";
+import { shortDate, shortDateTime } from "./die-room-model";
+import { ConfirmDialog } from "./confirm-dialog";
+import { CopyPicker, CustomerSearchPicker, type PickedCopy } from "./pickers";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
 
 const PURPOSES = ["plan", "press", "pack", "dispatch"] as const;
@@ -45,18 +48,20 @@ function IssueForm() {
   const { t } = useT();
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
-  const [copyId, setCopyId] = useState("");
+  const [copy, setCopy] = useState<PickedCopy | null>(null);
   const [runId, setRunId] = useState("");
   const [lineId, setLineId] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const copies = useQuery({
-    ...trpc.dieInstance.list.queryOptions({ status: "available", limit: 200 }),
+  // Only to say "nothing on the rack"; the picker itself searches the server.
+  const rack = useQuery({
+    ...trpc.dieInstance.list.queryOptions({ status: "available", limit: 1 }),
     meta: INLINE_ERROR_META,
   });
   const lines = useQuery({ ...trpc.dieInstance.issues.pressLines.queryOptions(), meta: INLINE_ERROR_META });
-  const sectionId = copies.data?.items.find((c) => c.id === copyId)?.sectionId;
+  const copyId = copy?.id ?? "";
+  const sectionId = copy?.sectionId;
   const runs = useQuery({
     ...trpc.dieInstance.issues.queuedRuns.queryOptions({ sectionId: sectionId ?? "" }),
     enabled: Boolean(sectionId),
@@ -69,7 +74,7 @@ function IssueForm() {
       await refresh();
       toast.success(t("dieRoom.issues.issuedToast"));
       if (r.warnings.some((w) => w.code === "life_reached")) toast.warning(t("dieRoom.issues.lifeReached"));
-      setCopyId("");
+      setCopy(null);
       setRunId("");
       setNote("");
       setError(null);
@@ -77,35 +82,37 @@ function IssueForm() {
     onError: (e) => setError(refusal(e)),
   });
 
-  const copyOptions = (copies.data?.items ?? []).map((c) => ({ value: c.id, label: c.code }));
   const runList = runs.data ?? [];
   const runOptions = runList.map((r) => ({ value: r.id, label: r.pressLineCode ? `${r.number} \u00b7 ${r.pressLineCode}` : r.number }));
   const chosenRun = runList.find((r) => r.id === (runId || runList[0]?.id));
   const lineOptions = (lines.data ?? []).map((l) => ({ value: l.id, label: l.code === l.name ? l.code : `${l.code} \u00b7 ${l.name}` }));
-  const chosenLine = lineId || chosenRun?.pressLineId || lineOptions[0]?.value || "";
+  // The run knows its line: the person cannot pick another one (the server would refuse it).
+  const lockedLine = chosenRun?.pressLineId ?? null;
+  const chosenLine = lockedLine ?? (lineId || lineOptions[0]?.value || "");
 
   return (
     <Card data-testid="issue-form">
       <CardTitle>{t("dieRoom.issue.title")}</CardTitle>
-      {copies.isSuccess && copyOptions.length === 0 ? (
+      {rack.isSuccess && rack.data.total === 0 ? (
         <EmptyState title={t("dieRoom.issues.noneOnRack")} body={t("dieRoom.issues.noneOnRackBody")} className="py-6" />
       ) : (
         <Can
           do="die.issue"
           fallback={<p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("dieRoom.issues.dieRoomOnly")}</p>}
         >
-          <Field label={t("dieRoom.copies.copy")}>
-            <Select
-              value={copyId}
-              onValueChange={(v) => {
-                setCopyId(v);
-                setRunId("");
-                setLineId("");
-              }}
-              options={copyOptions}
-              placeholder={t("dieRoom.issues.pickCopy")}
-            />
-          </Field>
+          <CopyPicker
+            label={t("dieRoom.copies.copy")}
+            value={copy?.id ?? null}
+            valueLabel={copy?.code}
+            status="available"
+            placeholder={t("dieRoom.issues.pickCopy")}
+            onChange={(c) => {
+              setCopy(c);
+              setRunId("");
+              setLineId("");
+              setError(null);
+            }}
+          />
           {copyId ? (
             runs.isSuccess && runList.length === 0 ? (
               <p role="status" className="m-0 text-[14px] leading-6 text-muted-foreground" data-testid="no-run">
@@ -125,8 +132,14 @@ function IssueForm() {
               </Field>
             )
           ) : null}
-          <Field label={t("dieRoom.issue.line")}>
-            <Select value={chosenLine} onValueChange={setLineId} options={lineOptions} placeholder={t("dieRoom.issues.pickLine")} />
+          <Field label={t("dieRoom.issue.line")} hint={lockedLine ? t("dieRoom.issues.lineFromRun") : undefined}>
+            <Select
+              value={chosenLine}
+              onValueChange={setLineId}
+              options={lineOptions}
+              placeholder={t("dieRoom.issues.pickLine")}
+              disabled={Boolean(lockedLine)}
+            />
           </Field>
           <Field label={t("common.note")} hint={t("common.optional")}>
             <FieldTextArea value={note} onChangeText={setNote} rows={2} maxLength={500} />
@@ -181,10 +194,15 @@ function OpenIssues() {
     ...trpc.dieInstance.issues.cancel.mutationOptions(),
     onSuccess: async () => {
       await refresh();
+      setConfirming(null);
       toast.success(t("dieRoom.issues.cancelledToast"));
     },
-    onError: (e) => toast.error(refusal(e)),
+    onError: (e) => {
+      setConfirming(null);
+      toast.error(refusal(e));
+    },
   });
+  const [confirming, setConfirming] = useState<{ id: string; code: string } | null>(null);
 
   return (
     <section className="flex min-w-0 flex-col gap-3" aria-labelledby="open-issues">
@@ -224,21 +242,66 @@ function OpenIssues() {
                 {i.note ? ` · ${i.note}` : ""}
               </p>
               <Can do="die.issue">
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" loading={giveBack.isPending && giveBack.variables?.id === i.id} onClick={() => giveBack.mutate({ id: i.id })}>
-                    {t("dieRoom.issue.return")}
-                  </Button>
-                  <Button variant="secondary" loading={cancel.isPending && cancel.variables?.id === i.id} onClick={() => cancel.mutate({ id: i.id })}>
-                    {t("dieRoom.issue.cancel")}
-                  </Button>
-                </div>
+                {(() => {
+                  const run = i.pressRunId ? { dieInAt: msOf(i.pressRunDieInAt), dieOutAt: msOf(i.pressRunDieOutAt), status: i.pressRunStatus ?? "" } : null;
+                  const canBack = canReturnDie({ issueStatus: "issued", run }).ok;
+                  const canUndo = canCancelIssue({ issueStatus: "issued", run });
+                  return (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="secondary"
+                          disabled={!canBack}
+                          loading={giveBack.isPending && giveBack.variables?.id === i.id}
+                          onClick={() => giveBack.mutate({ id: i.id })}
+                        >
+                          {t("dieRoom.issue.return")}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          disabled={!canUndo}
+                          loading={cancel.isPending && cancel.variables?.id === i.id}
+                          onClick={() => setConfirming({ id: i.id, code: i.code })}
+                        >
+                          {t("dieRoom.issue.cancel")}
+                        </Button>
+                      </div>
+                      {!canBack ? (
+                        <p className="m-0 text-[13px] leading-5 text-muted-foreground" data-testid="return-blocked">
+                          {t("dieRoom.issues.returnBlocked", { run: i.pressRunNumber ?? "" })}
+                        </p>
+                      ) : !canUndo ? (
+                        <p className="m-0 text-[13px] leading-5 text-muted-foreground" data-testid="cancel-blocked">
+                          {t("dieRoom.issues.cancelBlocked", { run: i.pressRunNumber ?? "" })}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })()}
               </Can>
             </li>
           ))}
         </ul>
       )}
+      <ConfirmDialog
+        open={confirming !== null}
+        title={t("dieRoom.issues.cancelTitle", { code: confirming?.code ?? "" })}
+        body={t("dieRoom.issues.cancelBody", { code: confirming?.code ?? "" })}
+        confirmLabel={t("dieRoom.issue.cancel")}
+        keepLabel={t("dieRoom.issues.keepIssued")}
+        loading={cancel.isPending}
+        onConfirm={() => confirming && cancel.mutate({ id: confirming.id })}
+        onClose={() => setConfirming(null)}
+      />
     </section>
   );
+}
+
+/** A date the API sent (Date, ISO text or epoch ms) as epoch ms; null when absent. */
+function msOf(value: unknown): number | null {
+  if (value == null) return null;
+  const n = new Date(value as string | number | Date).getTime();
+  return Number.isNaN(n) ? null : n;
 }
 
 /** Read-only check of the owner gate, then (for roles that plan, press, pack or dispatch) a request for an exception. */
@@ -246,15 +309,15 @@ function OwnerCheck() {
   const { t } = useT();
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
-  const [copyId, setCopyId] = useState("");
-  const [customerId, setCustomerId] = useState("plant");
+  const [copy, setCopy] = useState<PickedCopy | null>(null);
+  const [party, setParty] = useState<{ id: string; name: string }>({ id: "plant", name: "" });
+  const copyId = copy?.id ?? "";
+  const customerId = party.id;
   const [purpose, setPurpose] = useState<Purpose>("pack");
   const [note, setNote] = useState("");
   const [asked, setAsked] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const copies = useQuery({ ...trpc.dieInstance.list.queryOptions({ limit: 200 }), meta: INLINE_ERROR_META });
-  const customers = useQuery({ ...trpc.customer.list.queryOptions({ limit: 100 }), meta: INLINE_ERROR_META });
   const check = useQuery({
     ...trpc.dieInstance.ownerCheck.queryOptions({
       dieInstanceId: copyId,
@@ -276,43 +339,36 @@ function OwnerCheck() {
     onError: (e) => setError(refusal(e)),
   });
 
-  const copyOptions = (copies.data?.items ?? [])
-    .filter((c) => c.status !== "retired")
-    .map((c) => ({ value: c.id, label: c.code }));
-  const customerOptions = [
-    { value: "plant", label: t("dieRoom.owner.plantStock") },
-    ...(customers.data?.items ?? []).map((c) => ({ value: c.id, label: c.name })),
-  ];
   const result = check.data;
-  const customerName = customerOptions.find((c) => c.value === customerId)?.label ?? "";
+  const customerName = party.id === "plant" ? t("dieRoom.owner.plantStock") : party.name;
 
   return (
     <Card className="min-w-0 self-start" data-testid="owner-check">
       <CardTitle>{t("dieRoom.owner.checkTitle")}</CardTitle>
       <p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("dieRoom.owner.checkBody")}</p>
-      <Field label={t("dieRoom.copies.copy")}>
-        <Select
-          value={copyId}
-          onValueChange={(v) => {
-            setCopyId(v);
-            setAsked(false);
-            setError(null);
-          }}
-          options={copyOptions}
-          placeholder={t("dieRoom.issues.pickCopy")}
-        />
-      </Field>
-      <Field label={t("dieRoom.owner.forParty")}>
-        <Select
-          value={customerId}
-          onValueChange={(v) => {
-            setCustomerId(v);
-            setAsked(false);
-            setError(null);
-          }}
-          options={customerOptions}
-        />
-      </Field>
+      <CopyPicker
+        label={t("dieRoom.copies.copy")}
+        value={copy?.id ?? null}
+        valueLabel={copy?.code}
+        placeholder={t("dieRoom.issues.pickCopy")}
+        onChange={(c) => {
+          setCopy(c);
+          setAsked(false);
+          setError(null);
+        }}
+      />
+      <CustomerSearchPicker
+        label={t("dieRoom.owner.forParty")}
+        value={party.id}
+        valueLabel={party.id === "plant" ? t("dieRoom.owner.plantStock") : party.name}
+        plantOption={t("dieRoom.owner.plantStock")}
+        placeholder={t("dieRoom.owner.partySearch")}
+        onChange={(p) => {
+          setParty(p);
+          setAsked(false);
+          setError(null);
+        }}
+      />
       <div className="flex min-w-0 flex-col gap-1.5">
         <span className="text-[14px] font-semibold">{t("dieRoom.owner.purposeLabel")}</span>
         <SegmentedControl
@@ -386,6 +442,98 @@ function OwnerCheck() {
           )}
         </div>
       ) : null}
+      {copy ? <OpenExceptions copy={copy} /> : null}
     </Card>
+  );
+}
+
+/**
+ * The live exceptions on the picked copy (approved and not closed): party, what it was asked for,
+ * the day it was approved. A manager closes one here, after which the owner gate says "belongs to"
+ * again. Read-only for everyone else.
+ */
+function OpenExceptions({ copy }: { copy: PickedCopy }) {
+  const { t } = useT();
+  const refresh = useRefreshDieRoom();
+  const refusal = useRefusal();
+  const [closing, setClosing] = useState<{ id: string; name: string } | null>(null);
+  const approved = useQuery({
+    ...trpc.approval.list.queryOptions({ kind: "die_owner_override", status: "approved", limit: 200 }),
+    meta: INLINE_ERROR_META,
+  });
+  const live = (approved.data?.items ?? []).filter(
+    (a) => a.subjectId === copy.id && (a.meta as Record<string, unknown> | null)?.closedAt == null,
+  );
+  const partyIds = [...new Set(live.map((a) => String((a.meta as Record<string, unknown>).attemptedCustomerId ?? "")).filter(Boolean))];
+  const partyQueries = useQueries({
+    queries: partyIds.map((id) => ({ ...trpc.customer.get.queryOptions({ id }), meta: INLINE_ERROR_META, retry: false })),
+  });
+  const nameOf = (id: string) => {
+    const i = partyIds.indexOf(id);
+    return (partyQueries[i]?.data as { name?: string } | undefined)?.name ?? "\u2014";
+  };
+
+  const close = useMutation({
+    ...trpc.dieInstance.closeOwnerOverride.mutationOptions(),
+    onSuccess: async () => {
+      await refresh();
+      setClosing(null);
+      toast.success(t("dieRoom.owner.closedToast"));
+    },
+    onError: (e) => {
+      setClosing(null);
+      toast.error(refusal(e));
+    },
+  });
+
+  return (
+    <section className="flex min-w-0 flex-col gap-2 border-t border-border pt-4" aria-labelledby="open-exceptions" data-testid="open-exceptions">
+      <h3 id="open-exceptions" className="m-0 text-[15px] leading-6 font-semibold">
+        {t("dieRoom.owner.exceptionsTitle", { code: copy.code })}
+      </h3>
+      {approved.isError ? (
+        <p role="alert" className="m-0 text-[14px] font-medium text-destructive">
+          {t("dieRoom.owner.exceptionsFailed")}
+        </p>
+      ) : approved.isSuccess && live.length === 0 ? (
+        <p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("dieRoom.owner.exceptionsNone")}</p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {live.map((a) => {
+            const meta = a.meta as Record<string, unknown>;
+            const name = nameOf(String(meta.attemptedCustomerId ?? ""));
+            return (
+              <li key={a.id} className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-surface-sunken p-3" data-testid={`exception-${a.id}`}>
+                <p className="m-0 text-[15px] leading-6">
+                  <span className="font-semibold">{name}</span>
+                  {" \u00b7 "}
+                  {t(`dieRoom.owner.purpose.${String(meta.purpose) as "plan" | "press" | "pack" | "dispatch"}`)}
+                </p>
+                <p className="m-0 text-[13px] text-muted-foreground">
+                  {t("dieRoom.owner.approvedOn", { date: shortDate(a.decidedAt as string | number | Date | null) })}
+                  {a.requestNote ? ` \u00b7 ${a.requestNote}` : ""}
+                </p>
+                <Can do="masters.publish">
+                  <div>
+                    <Button variant="secondary" onClick={() => setClosing({ id: a.id, name })}>
+                      {t("dieRoom.owner.closeException")}
+                    </Button>
+                  </div>
+                </Can>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <ConfirmDialog
+        open={closing !== null}
+        title={t("dieRoom.owner.closeTitle", { code: copy.code })}
+        body={t("dieRoom.owner.closeBody", { name: closing?.name ?? "", code: copy.code })}
+        confirmLabel={t("dieRoom.owner.closeException")}
+        loading={close.isPending}
+        onConfirm={() => closing && close.mutate({ approvalId: closing.id })}
+        onClose={() => setClosing(null)}
+      />
+    </section>
   );
 }

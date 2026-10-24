@@ -10,7 +10,7 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { Tabs } from "@orrn/ui/components/tabs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Printer, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -38,6 +38,7 @@ import {
   wallMmText,
   type CardTab,
 } from "./die-room-model";
+import { PrintCard, printCard } from "./print-card";
 import { ReadingPad } from "./reading-pad";
 import type { CardData } from "./types";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
@@ -128,6 +129,12 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
 
   const tabItems = CARD_TABS.map((id) => ({ id, label: t(`dieRoom.tabs.${id}`) }));
   const overflow = [
+    {
+      key: "print",
+      label: t("dieRoom.print.button"),
+      icon: <Printer aria-hidden="true" strokeWidth={2} />,
+      onSelect: printCard,
+    },
     ...(can(me, "die.card") || can(me, "masters.publish")
       ? [
           {
@@ -153,122 +160,125 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
 
   return (
     <>
-      <PageHeader
-        back={sectionBack}
-        title={instance.code}
-        subtitle={shape.join(" · ")}
-        actions={
-          <>
-            <StatusChip status={instance.status} />
-            <OverflowMenu items={overflow} />
-            <Can do="die.reading">
-              <Button onClick={() => setPadOpen(true)} disabled={retired}>
-                <Plus aria-hidden="true" strokeWidth={2} />
-                {t("dieRoom.reading.add")}
-              </Button>
-            </Can>
-          </>
-        }
-      />
+      <div className="die-screen contents">
+        <PageHeader
+          back={sectionBack}
+          title={instance.code}
+          subtitle={shape.join(" · ")}
+          actions={
+            <>
+              <StatusChip status={instance.status} />
+              <OverflowMenu items={overflow} />
+              <Can do="die.reading">
+                <Button onClick={() => setPadOpen(true)} disabled={retired}>
+                  <Plus aria-hidden="true" strokeWidth={2} />
+                  {t("dieRoom.reading.add")}
+                </Button>
+              </Can>
+            </>
+          }
+        />
 
-      <div className="flex flex-col gap-2" aria-live="polite">
-        {latest == null ? (
-          <p className="m-0 text-[17px] font-semibold">{t("dieRoom.card.noReading")}</p>
-        ) : (
-          <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
-            <p data-no-truncate="" className="m-0 font-mono text-[40px] leading-none font-semibold tabular-nums" data-testid="current-weight">
-              {milliKgText(latest)}
-              <span className="ml-2 text-[15px] font-medium text-muted-foreground">{t("units.kgPer12ft")}</span>
-            </p>
-            <p data-no-truncate="" className="m-0 font-mono text-[20px] font-semibold tabular-nums" data-testid="current-kgm">
-              {kgPerMetreText(card.kgPerMetre)} {t("units.kgPerMetre")}
-            </p>
+        <div className="flex flex-col gap-2" aria-live="polite">
+          {latest == null ? (
+            <p className="m-0 text-[17px] font-semibold">{t("dieRoom.card.noReading")}</p>
+          ) : (
+            <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
+              <p data-no-truncate="" className="m-0 font-mono text-[40px] leading-none font-semibold tabular-nums" data-testid="current-weight">
+                {milliKgText(latest)}
+                <span className="ml-2 text-[15px] font-medium text-muted-foreground">{t("units.kgPer12ft")}</span>
+              </p>
+              <p data-no-truncate="" className="m-0 font-mono text-[20px] font-semibold tabular-nums" data-testid="current-kgm">
+                {kgPerMetreText(card.kgPerMetre)} {t("units.kgPerMetre")}
+              </p>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <span data-testid="current-chips" className="flex flex-wrap items-center gap-2">
+              <PercentChip tone={card.tone} pctTenth={card.pctTenth} />
+              <BandPositionChip position={card.position} />
+            </span>
+            {band ? (
+              <Badge tone="neutral" className="font-mono tabular-nums">
+                {bandTitle(band, t("units.mm"), t("units.kgPer12ft"))}
+              </Badge>
+            ) : null}
+            {card.pendingTierChange ? (
+              <Chip tone="amber" truncate={false}>
+                {t("dieRoom.tier.waitingManager")}
+              </Chip>
+            ) : null}
+            {card.lifeReached ? (
+              <Chip tone="red" truncate={false}>
+                {t("dieRoom.card.lifeReached")}
+              </Chip>
+            ) : null}
           </div>
-        )}
-        <div className="flex flex-wrap items-center gap-2">
-          <span data-testid="current-chips" className="flex flex-wrap items-center gap-2">
-            <PercentChip tone={card.tone} pctTenth={card.pctTenth} />
-            <BandPositionChip position={card.position} />
-          </span>
-          {band ? (
-            <Badge tone="neutral" className="font-mono tabular-nums">
-              {bandTitle(band, t("units.mm"))} {t("units.kgPer12ft")}
-            </Badge>
+          {instance.lifeG != null ? (
+            <p className="m-0 text-[15px] font-semibold tabular-nums">
+              {t("dieRoom.card.lifeLine", { produced: kgGroupedText(card.producedG), life: kgGroupedText(instance.lifeG) })}
+            </p>
           ) : null}
-          {card.pendingTierChange ? (
-            <Chip tone="amber" truncate={false}>
-              {t("dieRoom.tier.waitingManager")}
-            </Chip>
+          {instance.status === "in_use" ? (
+            <p className="m-0 text-[14px] text-muted-foreground">
+              {openLine ? t("dieRoom.issue.issued", { line: openLine }) : t("dieRoom.card.onPress")}{" "}
+              <Link to="/dies/issues" className="font-semibold text-foreground">
+                {t("dieRoom.board.issueLink")}
+              </Link>
+            </p>
           ) : null}
-          {card.lifeReached ? (
-            <Chip tone="red" truncate={false}>
-              {t("dieRoom.card.lifeReached")}
-            </Chip>
+          {card.owner ? (
+            <p className="m-0 text-[14px] text-muted-foreground">
+              {t("dieRoom.card.ownerLabel")} <span className="font-semibold text-foreground">{card.owner.name ?? ""}</span>
+            </p>
           ) : null}
         </div>
-        {instance.lifeG != null ? (
-          <p className="m-0 text-[15px] font-semibold tabular-nums">
-            {t("dieRoom.card.lifeLine", { produced: kgGroupedText(card.producedG), life: kgGroupedText(instance.lifeG) })}
-          </p>
-        ) : null}
-        {instance.status === "in_use" ? (
-          <p className="m-0 text-[14px] text-muted-foreground">
-            {openLine ? t("dieRoom.issue.issued", { line: openLine }) : t("dieRoom.card.onPress")}{" "}
-            <Link to="/dies/issues" className="font-semibold text-foreground">
-              {t("dieRoom.board.issueLink")}
-            </Link>
-          </p>
-        ) : null}
-        {card.owner ? (
-          <p className="m-0 text-[14px] text-muted-foreground">
-            {t("dieRoom.card.ownerLabel")} <span className="font-semibold text-foreground">{card.owner.name ?? ""}</span>
-          </p>
-        ) : null}
-      </div>
 
-      <Card className="min-w-0">
-        <CardTitle>{t("dieRoom.card.cardTitle")}</CardTitle>
-        <dl className="m-0 grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Fact label={t("dieRoom.card.cavities")} value={card.cavityCount == null ? null : String(card.cavityCount)} />
-          <Fact label={t("dieRoom.card.bolster")} value={instance.bolster} mono />
-          <Fact label={t("dieRoom.card.wall")} value={band && band.wallTenthMm > 0 ? `${wallMmText(band.wallTenthMm)} ${t("units.mm")}` : null} />
-          <Fact label={t("dieRoom.card.trial")} value={instance.trialKgPer12ftMilli == null ? null : `${milliKgText(instance.trialKgPer12ftMilli)} ${t("units.kgPer12ft")}`} mono />
-          <Fact label={t("dieRoom.card.hardness")} value={instance.hardness == null ? null : String(instance.hardness)} />
-          <Fact label={t("dieRoom.copies.rack")} value={instance.rackNo} mono />
-        </dl>
-        <details className="rounded-card border border-border p-3">
-          <summary className="min-h-11 cursor-pointer text-[15px] leading-[44px] font-semibold">{t("common.advanced")}</summary>
-          <dl className="m-0 mt-2 grid grid-cols-2 gap-3 md:grid-cols-3">
-            <Fact label={t("dieRoom.card.backer")} value={instance.backerNo} mono />
-            <Fact label={t("dieRoom.card.subBolster")} value={instance.subBolster} mono />
-            <Fact label={t("dieRoom.card.supplier")} value={instance.supplier} />
-            <Fact label={t("dieRoom.card.received")} value={instance.receivedAt ? new Date(instance.receivedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) : null} />
-            <Fact label={t("dieRoom.card.ftr")} value={instance.ftr} />
-            <Fact label={t("common.notes")} value={instance.notes} />
+        <Card className="min-w-0">
+          <CardTitle>{t("dieRoom.card.cardTitle")}</CardTitle>
+          <dl className="m-0 grid grid-cols-2 gap-3 md:grid-cols-3">
+            <Fact label={t("dieRoom.card.cavities")} value={card.cavityCount == null ? null : String(card.cavityCount)} />
+            <Fact label={t("dieRoom.card.bolster")} value={instance.bolster} mono />
+            <Fact label={t("dieRoom.card.wall")} value={band && band.wallTenthMm > 0 ? `${wallMmText(band.wallTenthMm)} ${t("units.mm")}` : null} />
+            <Fact label={t("dieRoom.card.trial")} value={instance.trialKgPer12ftMilli == null ? null : `${milliKgText(instance.trialKgPer12ftMilli)} ${t("units.kgPer12ft")}`} mono />
+            <Fact label={t("dieRoom.card.hardness")} value={instance.hardness == null ? null : String(instance.hardness)} />
+            <Fact label={t("dieRoom.copies.rack")} value={instance.rackNo} mono />
           </dl>
-        </details>
-      </Card>
+          <details className="rounded-card border border-border p-3">
+            <summary className="min-h-11 cursor-pointer text-[15px] leading-[44px] font-semibold">{t("common.advanced")}</summary>
+            <dl className="m-0 mt-2 grid grid-cols-2 gap-3 md:grid-cols-3">
+              <Fact label={t("dieRoom.card.backer")} value={instance.backerNo} mono />
+              <Fact label={t("dieRoom.card.subBolster")} value={instance.subBolster} mono />
+              <Fact label={t("dieRoom.card.supplier")} value={instance.supplier} />
+              <Fact label={t("dieRoom.card.received")} value={instance.receivedAt ? new Date(instance.receivedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) : null} />
+              <Fact label={t("dieRoom.card.ftr")} value={instance.ftr} />
+              <Fact label={t("common.notes")} value={instance.notes} />
+            </dl>
+          </details>
+        </Card>
 
-      <Tabs items={tabItems} value={tab} onValueChange={(id) => onTab(id as CardTab)} label={t("dieRoom.card.title")}>
-        {tab === "readings" ? <ReadingsPanel card={card} onAdd={() => setPadOpen(true)} /> : null}
-        {tab === "runs" ? <RunsPanel copyId={copyId} /> : null}
-        {tab === "nitriding" ? <NitridingPanel card={card} /> : null}
-        {tab === "tier" ? <TierPanel card={card} /> : null}
-        {tab === "maker" ? <MakerPanel card={card} /> : null}
-        {tab === "files" ? <FilesPanel card={card} /> : null}
-      </Tabs>
+        <Tabs items={tabItems} value={tab} onValueChange={(id) => onTab(id as CardTab)} label={t("dieRoom.card.title")}>
+          {tab === "readings" ? <ReadingsPanel card={card} onAdd={() => setPadOpen(true)} /> : null}
+          {tab === "runs" ? <RunsPanel copyId={copyId} /> : null}
+          {tab === "nitriding" ? <NitridingPanel card={card} /> : null}
+          {tab === "tier" ? <TierPanel card={card} /> : null}
+          {tab === "maker" ? <MakerPanel card={card} /> : null}
+          {tab === "files" ? <FilesPanel card={card} /> : null}
+        </Tabs>
 
-      <Can do="die.reading">
-        <ReadingPad
-          open={padOpen}
-          onOpenChange={setPadOpen}
-          dieInstanceId={instance.id}
-          code={instance.code}
-          lastMilli={latest}
-          band={band}
-        />
-      </Can>
-      <EditCardSheet open={editing} onOpenChange={setEditing} card={card} />
+        <Can do="die.reading">
+          <ReadingPad
+            open={padOpen}
+            onOpenChange={setPadOpen}
+            dieInstanceId={instance.id}
+            code={instance.code}
+            lastMilli={latest}
+            band={band}
+          />
+        </Can>
+        <EditCardSheet open={editing} onOpenChange={setEditing} card={card} />
+      </div>
+      <PrintCard card={card} />
       <Dialog
         open={retiring}
         onOpenChange={setRetiring}

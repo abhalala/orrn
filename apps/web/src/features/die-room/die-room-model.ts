@@ -71,11 +71,20 @@ export function bandRangeText(minG: number, maxG: number): string {
 }
 
 /**
- * A band for reading: "1.2 mm \u00b7 5.900\u20136.200", or just the range when the section has no
- * wall written (the server sends 0 then). `mm` is the translated unit.
+ * THE band format, used on the board, the section, the card, the lift and the forms:
+ * "5.900\u20136.200 kg/12ft" (kg per 12 ft to three decimals, an en dash, the translated unit).
  */
-export function bandTitle(band: { wallTenthMm: number; weightMinG: number; weightMaxG: number }, mm: string): string {
-  const range = bandRangeText(band.weightMinG, band.weightMaxG);
+export function formatBand(minG: number, maxG: number, unit: string): string {
+  return `${bandRangeText(minG, maxG)} ${unit}`;
+}
+
+/**
+ * A band for reading when bands of one section must be told apart: "1.2 mm \u00b7 5.900\u20136.200 kg/12ft",
+ * or just the band when the section has no wall written (the server sends 0 then). `mm` and
+ * `kg12` are the translated units.
+ */
+export function bandTitle(band: { wallTenthMm: number; weightMinG: number; weightMaxG: number }, mm: string, kg12: string): string {
+  const range = formatBand(band.weightMinG, band.weightMaxG, kg12);
   return band.wallTenthMm > 0 ? `${wallMmText(band.wallTenthMm)} ${mm} \u00b7 ${range}` : range;
 }
 

@@ -158,7 +158,7 @@ export function NewBandPage({ id }: { id: string }) {
           <p role="alert" className="m-0 rounded-card border border-border bg-tone-red-tint px-4 py-3 text-[15px] leading-6 text-tone-red-ink">
             <Link to="/dies/$id" params={{ id }} className="font-semibold text-tone-red-ink">
               {t("dieRoom.errors.exists", {
-                code: `${existing.sectionCode} · ${bandTitle(existing, t("units.mm"))}`,
+                code: `${existing.sectionCode} · ${bandTitle(existing, t("units.mm"), t("units.kgPer12ft"))}`,
               })}
             </Link>
             <br />

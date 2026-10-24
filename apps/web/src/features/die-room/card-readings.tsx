@@ -53,7 +53,7 @@ export function ReadingsPanel({ card, onAdd }: { card: CardData; onAdd(): void }
             <PercentChip tone={row.tone} pctTenth={row.pctTenth} />
             <span className="text-[13px] text-muted-foreground">
               {shortDateTime(row.readAt)}
-              {row.pressRunId ? ` · ${row.pressRunId}` : ` · ${t("dieRoom.reading.bench")}`}
+              {row.pressRunId ? ` · ${row.pressRunNumber ?? t("dieRoom.reading.bench")}` : ` · ${t("dieRoom.reading.bench")}`}
             </span>
           </li>
         ))}

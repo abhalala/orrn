@@ -115,7 +115,7 @@ export function ReadingPad({
         </Field>
         {band ? (
           <p className="m-0 text-[13px] leading-5 text-muted-foreground">
-            {t("dieRoom.reading.bandHint", { band: bandTitle(band, t("units.mm")) })}
+            {t("dieRoom.reading.bandHint", { band: bandTitle(band, t("units.mm"), t("units.kgPer12ft")) })}
           </p>
         ) : null}
         <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("dieRoom.reading.serverFigures")}</p>

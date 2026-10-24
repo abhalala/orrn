@@ -244,3 +244,18 @@ describe("dieInstance.list carries the drift figures (clients never recompute)",
     expect(byId.get(heavy.id)).toMatchObject({ latestMilli: 6_480, percentTenths: 29, tone: "green", position: "in", bandId: band.id });
   });
 });
+
+describe("dieInstance.list search (pickers query the server, never a truncated list)", () => {
+  test("a copy code typed with a dash or a slash finds the copy; total counts the matches", async () => {
+    const p = await plant({ min: 5_900, max: 6_200 });
+    const a = await copyWith(p, [5_940]);
+    await copyWith(p, []);
+    const dashed = await p.viewer.dieInstance.list({ search: a.code });
+    expect(dashed.items.map((i) => i.id)).toEqual([a.id]);
+    expect(dashed.total).toBe(1);
+    const slashed = await p.viewer.dieInstance.list({ search: a.code.replace("-", "/") });
+    expect(slashed.items.map((i) => i.id)).toEqual([a.id]);
+    expect((await p.viewer.dieInstance.list({ search: "no-such-copy" })).total).toBe(0);
+    expect((await p.viewer.dieInstance.list({})).total).toBe(2);
+  });
+});

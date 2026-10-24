@@ -18,6 +18,7 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
+import { ConfirmDialog } from "./confirm-dialog";
 import { milliKgText, parseKgToMilli, shortDate } from "./die-room-model";
 import type { CardData } from "./types";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
@@ -31,6 +32,7 @@ export function MakerPanel({ card }: { card: CardData }) {
   const { instance, openMakerJob } = card;
   const [sendOpen, setSendOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
 
@@ -44,9 +46,13 @@ export function MakerPanel({ card }: { card: CardData }) {
     onSuccess: async () => {
       await refresh();
       await jobs.refetch();
+      setCancelling(false);
       toast.success(t("dieRoom.maker.cancelled"));
     },
-    onError: (e) => toast.error(refusal(e)),
+    onError: (e) => {
+      setCancelling(false);
+      toast.error(refusal(e));
+    },
   });
 
   const current = jobs.data?.items.find((j) => j.status === "sent") ?? null;
@@ -82,7 +88,7 @@ export function MakerPanel({ card }: { card: CardData }) {
           <Can do="die.maker">
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => setReceiveOpen(true)}>{t("dieRoom.maker.receive")}</Button>
-              <Button variant="secondary" loading={cancel.isPending} onClick={() => cancel.mutate({ id: openMakerJob.id })}>
+              <Button variant="secondary" onClick={() => setCancelling(true)}>
                 {t("dieRoom.maker.cancel")}
               </Button>
             </div>
@@ -126,6 +132,18 @@ export function MakerPanel({ card }: { card: CardData }) {
         </section>
       ) : null}
 
+      {openMakerJob ? (
+        <ConfirmDialog
+          open={cancelling}
+          title={t("dieRoom.maker.cancelTitle", { number: openMakerJob.number })}
+          body={t("dieRoom.maker.cancelBody", { code: instance.code })}
+          confirmLabel={t("dieRoom.maker.cancel")}
+          keepLabel={t("dieRoom.maker.keepJob")}
+          loading={cancel.isPending}
+          onConfirm={() => cancel.mutate({ id: openMakerJob.id })}
+          onClose={() => setCancelling(false)}
+        />
+      ) : null}
       <SendSheet open={sendOpen} onOpenChange={setSendOpen} card={card} />
       {openMakerJob ? <ReceiveSheet open={receiveOpen} onOpenChange={setReceiveOpen} card={card} jobId={openMakerJob.id} number={openMakerJob.number} /> : null}
     </div>

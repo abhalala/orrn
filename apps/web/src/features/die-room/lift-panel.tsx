@@ -21,7 +21,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { BandPositionChip, PercentChip } from "./drift-chips";
 import {
-  bandRangeText,
+  formatBand,
   bandTitle,
   kgPerMetreText,
   milliKgText,
@@ -100,14 +100,14 @@ export function LiftPage({ copyId }: { copyId: string }) {
       : []),
   ].map((b) => ({
     value: b.id ?? "primary",
-    label: `${bandTitle(b, t("units.mm"))} ${t("units.kgPer12ft")}`,
+    label: bandTitle(b, t("units.mm"), t("units.kgPer12ft")),
   }));
   const chosen = target || targets[0]?.value || "";
   const rankText = rank ?? (instance.tierRank == null ? "" : String(instance.tierRank));
   const bandNameOf = (id: string | null) => {
-    if (id == null && bands.data) return bandRangeText(bands.data.primary.weightMinG, bands.data.primary.weightMaxG);
+    if (id == null && bands.data) return formatBand(bands.data.primary.weightMinG, bands.data.primary.weightMaxG, t("units.kgPer12ft"));
     const b = bands.data?.bands.find((x) => x.id === id);
-    return b ? bandRangeText(b.weightMinG, b.weightMaxG) : "";
+    return b ? formatBand(b.weightMinG, b.weightMaxG, t("units.kgPer12ft")) : "";
   };
 
   const submit = () => {
@@ -141,7 +141,7 @@ export function LiftPage({ copyId }: { copyId: string }) {
             <div>
               <dt className="text-[12px] font-medium text-muted-foreground">{t("dieRoom.lift.currentBand")}</dt>
               <dd className="m-0 font-mono text-[15px] font-semibold tabular-nums">
-                {band ? `${bandTitle(band, t("units.mm"))} ${t("units.kgPer12ft")}` : "—"}
+                {band ? bandTitle(band, t("units.mm"), t("units.kgPer12ft")) : "—"}
               </dd>
             </div>
             <div>

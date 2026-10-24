@@ -13,6 +13,7 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
+import { ConfirmDialog } from "./confirm-dialog";
 import { shortDate } from "./die-room-model";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
 
@@ -22,6 +23,7 @@ export function MakersPage() {
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
   const [adding, setAdding] = useState(false);
+  const [archiving, setArchiving] = useState<{ id: string; name: string } | null>(null);
 
   const makers = useQuery({ ...trpc.dieInstance.maker.list.queryOptions(), meta: INLINE_ERROR_META });
   const jobs = useQuery({
@@ -32,9 +34,13 @@ export function MakersPage() {
     ...trpc.dieInstance.maker.archive.mutationOptions(),
     onSuccess: async () => {
       await refresh();
+      setArchiving(null);
       toast.success(t("dieRoom.makers.archived"));
     },
-    onError: (e) => toast.error(refusal(e)),
+    onError: (e) => {
+      setArchiving(null);
+      toast.error(refusal(e));
+    },
   });
 
   return (
@@ -65,7 +71,7 @@ export function MakersPage() {
                     <p className="m-0 text-[13px] text-muted-foreground">{[m.city, m.phone].filter(Boolean).join(" · ")}</p>
                   </div>
                   <Can do={["die.maker", "masters.publish"]}>
-                    <Button variant="secondary" loading={archive.isPending && archive.variables?.id === m.id} onClick={() => archive.mutate({ id: m.id })}>
+                    <Button variant="secondary" onClick={() => setArchiving({ id: m.id, name: m.name })}>
                       {t("dieRoom.makers.archive")}
                     </Button>
                   </Can>
@@ -105,6 +111,15 @@ export function MakersPage() {
         </section>
       </div>
       <AddMakerSheet open={adding} onOpenChange={setAdding} />
+      <ConfirmDialog
+        open={archiving !== null}
+        title={t("dieRoom.makers.archiveTitle", { name: archiving?.name ?? "" })}
+        body={t("dieRoom.makers.archiveBody")}
+        confirmLabel={t("dieRoom.makers.archive")}
+        loading={archive.isPending}
+        onConfirm={() => archiving && archive.mutate({ id: archiving.id })}
+        onClose={() => setArchiving(null)}
+      />
     </>
   );
 }

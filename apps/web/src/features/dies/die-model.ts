@@ -11,6 +11,8 @@
 import { kgToG, MM_PER_INCH, parseDecimal, type LengthUnit } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 
+import { parseWallTenths, wallMmText } from "@/features/die-room/die-room-model";
+
 export type DieStatus = "active" | "archived";
 
 /** The fields of a stored die the form reads (die.get). */
@@ -26,7 +28,21 @@ export type StoredDie = {
   weightMaxG: number;
   status: DieStatus;
   notes: string | null;
+  /** Die room columns (D16). Absent on a die read from an older shape. */
+  profileKind?: DieProfileKind | null;
+  alloy?: string | null;
+  temper?: string | null;
+  wallTenthMm?: number | null;
+  ownerCustomerId?: string | null;
+  ownerName?: string | null;
 };
+
+export type DieProfileKind = "hollow" | "solid" | "semi";
+export const PROFILE_KINDS: readonly DieProfileKind[] = ["hollow", "solid", "semi"];
+
+/** Alloys and tempers the plant already runs; the form offers them and still takes any other text. */
+export const KNOWN_ALLOYS = ["6063", "6061", "6082", "6005A", "6060", "6101", "6351"] as const;
+export const KNOWN_TEMPERS = ["T5", "T6", "T4", "T52", "T66", "O"] as const;
 
 export type DieDraft = {
   series: string;
@@ -39,6 +55,15 @@ export type DieDraft = {
   width: string;
   thickness: string;
   leg: string;
+  /** "" = not set. */
+  profileKind: "" | DieProfileKind;
+  alloy: string;
+  temper: string;
+  /** Wall in mm as typed ("1.2"); "" = not set. */
+  wall: string;
+  /** Section owner customer id; "" = plant-owned. */
+  ownerId: string;
+  ownerName: string;
 };
 
 /** 25.4 mm as an exact integer number of tenths. */
@@ -64,6 +89,12 @@ export const EMPTY_DIE_DRAFT: DieDraft = {
   width: "",
   thickness: "",
   leg: "",
+  profileKind: "",
+  alloy: "",
+  temper: "",
+  wall: "",
+  ownerId: "",
+  ownerName: "",
 };
 
 /** What die.create / die.update take. */
@@ -142,7 +173,41 @@ export function dieToDraft(die: StoredDie, unit: LengthUnit): DieDraft {
     width: geometryText(storedGeometry(die, "width"), unit),
     thickness: geometryText(storedGeometry(die, "thickness"), unit),
     leg: geometryText(storedGeometry(die, "leg"), unit),
+    profileKind: die.profileKind ?? "",
+    alloy: die.alloy ?? "",
+    temper: die.temper ?? "",
+    wall: die.wallTenthMm ? wallMmText(die.wallTenthMm) : "",
+    ownerId: die.ownerCustomerId ?? "",
+    ownerName: die.ownerName ?? "",
   };
+}
+
+/** The die room columns die.create / die.update take (D16). Undefined = leave as is. */
+export type DieExtrasInput = {
+  profileKind?: DieProfileKind | null;
+  alloy?: string | null;
+  temper?: string | null;
+  wallTenthMm?: number | null;
+  ownerCustomerId?: string | null;
+};
+
+/**
+ * Shape, alloy, temper, wall and (only when `canSetOwner`) owner. On an edit a field the person did
+ * not touch is left out so the server keeps it; a field they emptied is sent as null (cleared). The
+ * owner is never sent without `canSetOwner`, so a role without masters.publish cannot change it.
+ */
+export function draftToExtrasInput(draft: DieDraft, unit: LengthUnit, original: StoredDie | undefined, canSetOwner: boolean): DieExtrasInput {
+  const opened = original ? dieToDraft(original, unit) : null;
+  // Edit: send what changed (an emptied field clears). New die: send only what was filled, so a blank
+  // alloy or temper still takes the plant default on the server.
+  const send = (field: keyof DieDraft) => (opened ? String(draft[field]).trim() !== String(opened[field]).trim() : String(draft[field]).trim() !== "");
+  const out: DieExtrasInput = {};
+  if (send("profileKind")) out.profileKind = draft.profileKind || null;
+  if (send("alloy")) out.alloy = draft.alloy.trim() || null;
+  if (send("temper")) out.temper = draft.temper.trim() || null;
+  if (send("wall")) out.wallTenthMm = parseWallTenths(draft.wall);
+  if (canSetOwner && send("ownerId")) out.ownerCustomerId = draft.ownerId || null;
+  return out;
 }
 
 function kgToGrams(text: string): number {
@@ -224,5 +289,6 @@ export function validateDieDraft(draft: DieDraft, unit: LengthUnit): DieDraftErr
   for (const field of GEOMETRY_FIELDS) {
     if (parseGeometry(draft[field], unit) === "invalid") errors[field] = "errors.invalidNumber";
   }
+  if (draft.wall.trim() !== "" && parseWallTenths(draft.wall) === null) errors.wall = "dieRoom.band.wallInvalid";
   return errors;
 }

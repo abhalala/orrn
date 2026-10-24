@@ -119,6 +119,8 @@ export const dieIssueRouter = router({
           pressRunId: dieIssue.pressRunId,
           pressRunNumber: pressRun.number,
           pressRunStatus: pressRun.status,
+          pressRunDieInAt: pressRun.dieInAt,
+          pressRunDieOutAt: pressRun.dieOutAt,
           issuedAt: dieIssue.issuedAt,
           issuedBy: dieIssue.issuedBy,
           returnedAt: dieIssue.returnedAt,

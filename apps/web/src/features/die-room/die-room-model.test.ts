@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   bandRangeText,
   bandTitle,
+  formatBand,
   bpText,
   gramsToWholeKg,
   parseGrams,
@@ -38,9 +39,18 @@ describe("formatting server numbers", () => {
     expect(bandRangeText(6_200, 6_600)).toBe("6.200–6.600");
   });
 
-  test("a band title leaves the wall out when the section has none written", () => {
-    expect(bandTitle({ wallTenthMm: 12, weightMinG: 5_900, weightMaxG: 6_200 }, "mm")).toBe("1.2 mm \u00b7 5.900\u20136.200");
-    expect(bandTitle({ wallTenthMm: 0, weightMinG: 2_700, weightMaxG: 2_900 }, "mm")).toBe("2.700\u20132.900");
+  test("formatBand is THE band format: x.xxx\u2013y.yyy kg/12ft, always three decimals", () => {
+    expect(formatBand(5_900, 6_200, "kg/12ft")).toBe("5.900\u20136.200 kg/12ft");
+    // The board used to print "2-2.2", "2.8-3" and "3-3.2" (qa_die-room #6).
+    expect(formatBand(2_000, 2_200, "kg/12ft")).toBe("2.000\u20132.200 kg/12ft");
+    expect(formatBand(2_800, 3_000, "kg/12ft")).toBe("2.800\u20133.000 kg/12ft");
+    expect(formatBand(3_000, 3_200, "kg/12ft")).toBe("3.000\u20133.200 kg/12ft");
+    expect(formatBand(12_180, 12_500, "kg/12ft")).toBe("12.180\u201312.500 kg/12ft");
+  });
+
+  test("a band title adds the wall and leaves it out when the section has none written", () => {
+    expect(bandTitle({ wallTenthMm: 12, weightMinG: 5_900, weightMaxG: 6_200 }, "mm", "kg/12ft")).toBe("1.2 mm \u00b7 5.900\u20136.200 kg/12ft");
+    expect(bandTitle({ wallTenthMm: 0, weightMinG: 2_700, weightMaxG: 2_900 }, "mm", "kg/12ft")).toBe("2.700\u20132.900 kg/12ft");
   });
 
   test("percent comes from tenths with a sign", () => {

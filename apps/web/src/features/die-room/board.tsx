@@ -11,7 +11,7 @@ import { useState } from "react";
 
 import { ListSearch } from "@/features/catalog/list-search";
 import { OverflowMenu } from "@/features/catalog/overflow-menu";
-import { dieCode, rangeText } from "@/features/dies/die-display";
+import { dieCode } from "@/features/dies/die-display";
 import { Can } from "@/shared/components/can";
 import { ImportDiesModal } from "@/shared/components/import-dies-modal";
 import { can, useMe } from "@/shared/lib/me";
@@ -19,7 +19,7 @@ import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { WorstToneChip } from "./drift-chips";
-import type { DriftTone } from "./die-room-model";
+import { formatBand, type DriftTone } from "./die-room-model";
 
 const PAGE = 50;
 
@@ -82,11 +82,11 @@ export function DieRoomBoard({ q, offset, onSearch, onPage }: BoardProps) {
     },
     {
       key: "range",
-      header: t("dies.columns.range"),
+      header: t("dieRoom.board.columns.band"),
       align: "end",
       cell: (d) => (
         <span data-no-truncate="" className="font-mono whitespace-nowrap tabular-nums">
-          {rangeText(t, d)}
+          {formatBand(d.weightMinG, d.weightMaxG, t("units.kgPer12ft"))}
         </span>
       ),
     },

@@ -151,10 +151,10 @@ function SendSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
               <legend className="mb-1 text-[14px] font-semibold">{t(`dieRoom.nitriding.chem.${c}`)}</legend>
               <div className="grid grid-cols-2 gap-3">
                 <Field label={t("dieRoom.nitriding.open")}>
-                  <NumberInput value={draft[c].open} onValueChange={(v) => setDraft((d) => ({ ...d, [c]: { ...d[c], open: v } }))} decimal={false} suffix="g" />
+                  <NumberInput value={draft[c].open} onValueChange={(v) => setDraft((d) => ({ ...d, [c]: { ...d[c], open: v } }))} decimal={false} suffix={t("units.g")} />
                 </Field>
                 <Field label={t("dieRoom.nitriding.used")}>
-                  <NumberInput value={draft[c].used} onValueChange={(v) => setDraft((d) => ({ ...d, [c]: { ...d[c], used: v } }))} decimal={false} suffix="g" />
+                  <NumberInput value={draft[c].used} onValueChange={(v) => setDraft((d) => ({ ...d, [c]: { ...d[c], used: v } }))} decimal={false} suffix={t("units.g")} />
                 </Field>
               </div>
               {o !== null && u !== null && u <= o ? (

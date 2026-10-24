@@ -76,23 +76,27 @@ export function FilesPanel({ card }: { card: CardData }) {
       ) : (
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
           {card.files.map((f) => (
-            <li key={f.id} className="flex min-w-0 flex-wrap items-center gap-3 rounded-card border border-border bg-card p-4">
-              <div className="min-w-0 flex-1">
-                <p className="m-0 font-mono text-[14px] font-semibold break-all">{f.filename}</p>
-                <p className="m-0 text-[13px] text-muted-foreground">
-                  {f.kind.toUpperCase()} · {bytesText(f.bytes)}
-                  {f.dieInstanceId ? "" : ` · ${t("dieRoom.files.wholeSection")}`}
-                </p>
+            <li key={f.id} className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 font-mono text-[14px] font-semibold break-all">{f.filename}</p>
+                  <p className="m-0 text-[13px] text-muted-foreground">
+                    {f.kind.toUpperCase()} · {bytesText(f.bytes)}
+                    {f.dieInstanceId ? "" : ` · ${t("dieRoom.files.wholeSection")}`}
+                  </p>
+                </div>
+                {f.pressDrawing ? <Badge tone="info">{t("dieRoom.card.drawing")}</Badge> : null}
               </div>
-              {f.pressDrawing ? <Badge tone="info">{t("dieRoom.card.drawing")}</Badge> : null}
-              <Button variant="secondary" onClick={() => open(f.id)}>
-                {f.pressDrawing ? t("dieRoom.files.openDrawing") : t("common.download")}
-              </Button>
-              <Can do={["die.card", "masters.publish"]}>
-                <Button variant="secondary" onClick={() => setRemoving({ id: f.id, filename: f.filename })}>
-                  {t("common.remove")}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => open(f.id)}>
+                  {f.pressDrawing ? t("dieRoom.files.openDrawing") : t("common.download")}
                 </Button>
-              </Can>
+                <Can do={["die.card", "masters.publish"]}>
+                  <Button variant="secondary" onClick={() => setRemoving({ id: f.id, filename: f.filename })}>
+                    {t("common.remove")}
+                  </Button>
+                </Can>
+              </div>
             </li>
           ))}
         </ul>

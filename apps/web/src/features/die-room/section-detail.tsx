@@ -10,7 +10,6 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { Select } from "@orrn/ui/components/select";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { Skeleton } from "@orrn/ui/components/skeleton";
-import { StatusBlock } from "@orrn/ui/components/status-block";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Boxes, Pencil, Plus, Trash2 } from "lucide-react";
@@ -20,7 +19,7 @@ import { toast } from "sonner";
 import { OverflowMenu } from "@/features/catalog/overflow-menu";
 import { dieCode, measurementText } from "@/features/dies/die-display";
 import { DieForm } from "@/features/dies/die-form";
-import { GEOMETRY_FIELDS, kgText, type StoredDie } from "@/features/dies/die-model";
+import { GEOMETRY_FIELDS, type StoredDie } from "@/features/dies/die-model";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { can, useMe } from "@/shared/lib/me";
@@ -28,9 +27,11 @@ import { isNotFound } from "@/shared/lib/session-errors";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
+import { ConfirmDialog } from "./confirm-dialog";
 import { BandPositionChip, PercentChip, StatusChip } from "./drift-chips";
 import {
   bandTitle,
+  formatBand,
   kgPerMetreText,
   milliKgText,
   parseRank,
@@ -50,7 +51,7 @@ type BandView = {
   active: boolean;
   primary: boolean;
   copyIds: string[];
-  liftedOut: { dieInstanceId: string; code: string; toBand: string; at: string | null }[];
+  liftedOut: { dieInstanceId: string; code: string; toBand: string; toWeightMinG: number; toWeightMaxG: number; at: string | null }[];
 };
 
 type CopyView = {
@@ -79,6 +80,7 @@ export function SectionDetail({ id }: { id: string }) {
   const [deleting, setDeleting] = useState(false);
   const [adding, setAdding] = useState(false);
   const [pending, setPending] = useState(false);
+  const [retiring, setRetiring] = useState<BandView | null>(null);
 
   const query = useQuery({ ...trpc.die.get.queryOptions({ id }), retry: false, meta: INLINE_ERROR_META });
   const hasCopies = (query.data?.copies.length ?? 0) > 0;
@@ -97,6 +99,22 @@ export function SectionDetail({ id }: { id: string }) {
     },
     onError: (error) => {
       toast.error(error.data?.code === "FORBIDDEN" ? t("errors.forbidden") : t("errors.generic"));
+    },
+  });
+
+  const retireBand = useMutation({
+    ...trpc.die.bands.retire.mutationOptions(),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: trpc.die.pathKey() }),
+        queryClient.invalidateQueries({ queryKey: trpc.dieInstance.pathKey() }),
+      ]);
+      setRetiring(null);
+      toast.success(t("dieRoom.bands.retiredToast"));
+    },
+    onError: (e) => {
+      setRetiring(null);
+      toast.error(refusalText(e, { forbidden: t("errors.forbidden"), generic: t("errors.generic") }));
     },
   });
 
@@ -260,9 +278,8 @@ export function SectionDetail({ id }: { id: string }) {
                 <div className="min-w-0">
                   <CardTitle>
                     <span className="font-mono tabular-nums">
-                      {bandTitle(band, t("units.mm"))}
-                    </span>{" "}
-                    <span className="text-[14px] font-medium text-muted-foreground">{t("units.kgPer12ft")}</span>
+                      {bandTitle(band, t("units.mm"), t("units.kgPer12ft"))}
+                    </span>
                   </CardTitle>
                   {band.label ? <p className="m-0 text-[13px] text-muted-foreground">{band.label}</p> : null}
                 </div>
@@ -283,26 +300,25 @@ export function SectionDetail({ id }: { id: string }) {
                 })}
                 {band.liftedOut.map((l) => (
                   <li key={l.dieInstanceId} className="text-[14px] leading-6 text-muted-foreground">
-                    {t("dieRoom.bands.liftedTo", { code: l.code, band: l.toBand, date: shortDate(l.at) })}
+                    {t("dieRoom.bands.liftedTo", { code: l.code, band: formatBand(l.toWeightMinG, l.toWeightMaxG, t("units.kgPer12ft")), date: shortDate(l.at) })}
                   </li>
                 ))}
               </ul>
+              {!band.primary && band.active && band.id ? (
+                <Can do="die.update">
+                  <div>
+                    <Button variant="ghost" className="px-3" onClick={() => setRetiring(band)}>
+                      {t("dieRoom.bands.retire")}
+                    </Button>
+                  </div>
+                </Can>
+              ) : null}
             </Card>
           ))}
         </div>
       </section>
 
-      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
-        <StatusBlock
-          tone={die.status === "active" ? "green" : "neutral"}
-          title={t("dies.detail.band")}
-          meta={t(`status.die.${die.status}`)}
-          value={t("dies.detail.bandValue", { min: kgText(die.weightMinG), max: kgText(die.weightMaxG) })}
-          mono={false}
-          unit={t("units.kgPer12ft")}
-          className="animate-rise"
-        />
-
+      <div className="grid grid-cols-1 items-stretch gap-4">
         <section
           aria-labelledby={`${formId}-measure`}
           className="flex min-w-0 flex-col gap-4 rounded-card border border-border bg-card p-5"
@@ -363,6 +379,16 @@ export function SectionDetail({ id }: { id: string }) {
           <DieForm formId={formId} unit={unit} die={die} onPendingChange={setPending} onSaved={() => setEditing(false)} />
         ) : null}
       </Sheet>
+
+      <ConfirmDialog
+        open={retiring !== null}
+        title={t("dieRoom.bands.retireTitle")}
+        body={retiring ? `${bandTitle(retiring, t("units.mm"), t("units.kgPer12ft"))}. ${t("dieRoom.bands.retireBody")}` : ""}
+        confirmLabel={t("dieRoom.bands.retire")}
+        loading={retireBand.isPending}
+        onConfirm={() => retiring?.id && retireBand.mutate({ id: retiring.id })}
+        onClose={() => setRetiring(null)}
+      />
 
       <AddCopySheet open={adding} onOpenChange={setAdding} sectionId={die.id} sectionCode={die.sectionCode} bands={die.bands} />
 
@@ -481,7 +507,7 @@ function AddCopySheet({
     .filter((b) => b.active)
     .map((b) => ({
       value: b.id ?? "primary",
-      label: `${bandTitle(b, t("units.mm"))} ${t("units.kgPer12ft")}`,
+      label: bandTitle(b, t("units.mm"), t("units.kgPer12ft")),
     }));
 
   return (

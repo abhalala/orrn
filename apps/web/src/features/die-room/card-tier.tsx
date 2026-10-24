@@ -15,7 +15,7 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { bandRangeText, parseRank, shortDate } from "./die-room-model";
+import { formatBand, parseRank, shortDate } from "./die-room-model";
 import type { CardData } from "./types";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
 
@@ -32,10 +32,10 @@ export function TierPanel({ card }: { card: CardData }) {
   const bandName = (id: string | null) => {
     if (id == null) {
       const p = bands.data?.primary;
-      return p ? bandRangeText(p.weightMinG, p.weightMaxG) : t("dieRoom.bands.primary");
+      return p ? formatBand(p.weightMinG, p.weightMaxG, t("units.kgPer12ft")) : t("dieRoom.bands.primary");
     }
     const b = bands.data?.bands.find((x) => x.id === id);
-    return b ? bandRangeText(b.weightMinG, b.weightMaxG) : "";
+    return b ? formatBand(b.weightMinG, b.weightMaxG, t("units.kgPer12ft")) : "";
   };
 
   return (
