@@ -158,7 +158,13 @@ describe("complete: produced follows this dispatch's item", () => {
     await p.owner.dispatch.cancel({ id: first });
     expect((await p.lineOf(o.lineIds[0]!)).producedG).toBe(kg(300));
     // The same bundle goes out for a customer with no order: its item on the new dispatch has no line.
-    const second = await p.held(serials, p.otherCustomer);
+    // D12: the scan refuses another customer's bundle, so it goes out for them by a customer change
+    // on the dispatch after the scan (unlinked first, as the office would).
+    const { id: second } = await p.owner.dispatch.create({ customerId: p.customerId });
+    await p.owner.dispatch.addBundlesBySerial({ id: second, serials });
+    await p.owner.dispatch.linkItem({ itemId: (await itemsOf(second))[0]!.id, salesOrderLineId: null });
+    await p.owner.dispatch.update({ id: second, customerId: p.otherCustomer });
+    await p.owner.dispatch.reserve({ id: second });
     expect((await itemsOf(second))[0]!.lineId).toBeNull();
     await p.owner.dispatch.complete({ id: second });
     expect(await p.lineOf(o.lineIds[0]!)).toMatchObject({ producedG: 0, dispatchedG: 0, bakiG: kg(1000) });

@@ -10,7 +10,8 @@ import type { MessageKey, Translate, TranslateVars } from "@orrn/i18n";
 export type UnavailableRow = {
   serial: string;
   reason: string;
-  code?: "held" | "dispatched" | "void" | "status" | "reallocation_pending";
+  /** D12 adds unassigned / wrong_customer / owned_die; until their floor keys exist they show `reason`. */
+  code?: "held" | "dispatched" | "void" | "status" | "reallocation_pending" | "unassigned" | "wrong_customer" | "owned_die";
   status?: string;
   heldBy?: string | null;
 };

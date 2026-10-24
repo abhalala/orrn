@@ -56,6 +56,8 @@ async function fixture(): Promise<Fx> {
   const dieId = await env.seedDie(companyId);
   const customerId = await env.seedCustomer(companyId);
   const bundles = await env.seedBundles(companyId, dieId, 3);
+  // D12: the floor dispatches plant stock; a bundle with no line and no transfer is refused.
+  await env.plantStock(companyId, bundles.map((b) => b.id));
   const draft = async () => {
     const { id } = await owner.dispatch.create({ customerId });
     await owner.dispatch.addBundle({ id, bundleId: bundles[0]!.id });

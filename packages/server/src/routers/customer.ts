@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
+import { BUNDLE_NUMBER_POLICIES } from "@orrn/domain";
 import { customer } from "@orrn/db/schema/customers";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
@@ -20,6 +21,13 @@ const customerBaseSchema = z.object({
   /** Order kg tolerance in basis points (500 = 5 %); null = company default (PL-8, Review Focus 5). */
   kgToleranceBp: z.number().int().min(0).max(10_000).nullable().optional(),
 });
+
+/**
+ * FP-PK-07 (C25): the customer's own bundle numbers. null = the company serial; monthly (26J12),
+ * fy (2026-27/12) or lifelong (4086). A change applies to bundles packed from then on; bundles
+ * already packed keep their party number (never renumbered).
+ */
+const bundleNumberPolicySchema = z.enum(BUNDLE_NUMBER_POLICIES).nullable().optional();
 
 /** Same cap as bundle.bulkImport: a larger import must be split into batches (D1 + Worker CPU). */
 const MAX_IMPORT_ROWS = 2000;
@@ -113,9 +121,9 @@ export const customerRouter = router({
     }),
 
   update: actionProcedure("customer.update")
-    .input(customerBaseSchema.extend({ id: z.string() }))
+    .input(customerBaseSchema.extend({ id: z.string(), bundleNumberPolicy: bundleNumberPolicySchema }))
     .mutation(async ({ ctx, input }) => {
-      await scopedFindOrThrow<Customer>(
+      const existing = await scopedFindOrThrow<Customer>(
         ctx.db,
         customer,
         input.id,
@@ -129,12 +137,19 @@ export const customerRouter = router({
           action: "customer.update",
           subjectType: "customer",
           subjectId: input.id,
-          meta: { name: input.name },
+          meta: {
+            name: input.name,
+            ...(input.bundleNumberPolicy !== undefined && input.bundleNumberPolicy !== existing.bundleNumberPolicy
+              ? { bundleNumberPolicy: { from: existing.bundleNumberPolicy ?? null, to: input.bundleNumberPolicy } }
+              : {}),
+          },
         },
         ({ serverSeq }) => [
           ctx.db
             .update(customer)
             .set({
+              // undefined leaves the policy as it is; null returns to the company serial.
+              bundleNumberPolicy: input.bundleNumberPolicy,
               name: input.name,
               phone: input.phone,
               email: input.email || null,

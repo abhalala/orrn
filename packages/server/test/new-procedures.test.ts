@@ -358,7 +358,7 @@ describe("bundle.getBySerial", () => {
     const byId = await caller.bundle.getBundle({ id: b!.id });
     expect(bySerial.bundle.id).toBe(b!.id);
     expect(bySerial).toEqual(byId);
-    expect(Object.keys(bySerial).sort()).toEqual(["activeDispatch", "bundle", "die", "events", "group"]);
+    expect(Object.keys(bySerial).sort()).toEqual(["activeDispatch", "band", "bundle", "die", "events", "group"]);
   });
 
   test("other company's serial and unknown serials are NOT_FOUND", async () => {

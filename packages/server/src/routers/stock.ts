@@ -7,10 +7,11 @@
  * - `openingBalance`: takes legacy in-stock bundles (no ledger rows yet) onto the ledger.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, inArray, isNull, ne, notExists, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, notExists, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { bundle } from "@orrn/db/schema/inventory";
+import { die } from "@orrn/db/schema/catalog";
+import { bundle, bundleGroup, packReject } from "@orrn/db/schema/inventory";
 import { ledgerItemKinds, location, locationKinds, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem } from "@orrn/db/schema/store";
 
@@ -19,6 +20,7 @@ import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import type { Context } from "../context";
 import { atomicBatch, atomicBatchLast, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
+import { bundleBandTones } from "../lib/bundleBand";
 import { resolveCode } from "../lib/codeResolver";
 import { canAny } from "../lib/permissions";
 import type { CompanyRole } from "@orrn/db/schema/tenant";
@@ -362,6 +364,154 @@ export const stockRouter = router({
         return { voucherId: null, moved: 0, unchanged: unchanged + toMove.length, toLocationCode: to.code };
       }
       return { voucherId, moved, unchanged: unchanged + (toMove.length - moved), toLocationCode: to.code };
+    }),
+
+  /**
+   * FP-PK-08: stock by section and cut length (the Lengths tab). In-stock bundles (available, or
+   * reserved = still in the yard) grouped by (section, length): bundles, pcs, kg, kg/12 ft weighted
+   * by pieces (grams per 12 ft), its band verdict (D15, `lib/bundleBand.ts`) and how many are held
+   * on a dispatch. Optional section and yard filters.
+   */
+  byDieLength: companyProcedure
+    .input(
+      z
+        .object({
+          dieId: z.string().min(1).optional(),
+          locationId: z.string().min(1).optional(),
+          includeReserved: z.boolean().default(true),
+          limit: z.number().int().min(1).max(500).default(200),
+          offset: z.number().int().min(0).default(0),
+        })
+        .default({ includeReserved: true, limit: 200, offset: 0 }),
+    )
+    .query(async ({ ctx, input }) => {
+      const statuses = input.includeReserved ? [...IN_STOCK_STATUSES] : ["available" as const];
+      const where = and(
+        eq(bundle.companyId, ctx.companyId),
+        inArray(bundle.status, statuses),
+        input.dieId ? eq(bundle.dieId, input.dieId) : undefined,
+        input.locationId ? eq(bundle.locationId, input.locationId) : undefined,
+      );
+      const rows = await ctx.db
+        .select({
+          dieId: bundle.dieId,
+          sectionCode: die.sectionCode,
+          series: die.series,
+          name: die.name,
+          profileKind: die.profileKind,
+          lengthMm: bundle.lengthMm,
+          bundles: sql<number>`count(*)`,
+          pcs: sql<number>`coalesce(sum(${bundle.quantity}), 0)`,
+          weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+          reserved: sql<number>`coalesce(sum(case when ${bundle.status} = 'reserved' then 1 else 0 end), 0)`,
+          // m-4: weighted by pieces (Σ grams × 3657.6 / (Σ pcs × length)), not a mean of ratios.
+          avgKgPer12ftMilli: sql<number | null>`cast(round(sum(${bundle.weightG}) * 3657.6 / nullif(sum(${bundle.quantity}) * ${bundle.lengthMm}, 0)) as integer)`,
+          // D15: one copy across the group → its band; mixed or no copy → the section's primary band.
+          copyId: sql<string | null>`case when count(distinct ${bundle.dieInstanceId}) = 1 and sum(case when ${bundle.dieInstanceId} is null then 1 else 0 end) = 0 then min(${bundle.dieInstanceId}) end`,
+          oldestAt: sql<number>`min(${bundle.createdAt})`,
+        })
+        .from(bundle)
+        .innerJoin(die, and(eq(die.id, bundle.dieId), eq(die.companyId, bundle.companyId)))
+        .where(where)
+        .groupBy(bundle.dieId, die.sectionCode, die.series, die.name, die.profileKind, bundle.lengthMm)
+        .orderBy(asc(die.sectionCode), asc(bundle.lengthMm))
+        .limit(input.limit + 1)
+        .offset(input.offset);
+      const [totals] = await ctx.db
+        .select({
+          bundles: sql<number>`count(*)`,
+          pcs: sql<number>`coalesce(sum(${bundle.quantity}), 0)`,
+          weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+        })
+        .from(bundle)
+        .where(where);
+      const more = rows.length > input.limit;
+      const page = rows.slice(0, input.limit);
+      const bands = await bundleBandTones(
+        ctx.db,
+        ctx.companyId,
+        page.map((r) => ({
+          dieId: r.dieId,
+          dieInstanceId: r.copyId,
+          kgPer12ftMilli: r.avgKgPer12ftMilli == null ? null : Number(r.avgKgPer12ftMilli),
+        })),
+      );
+      return {
+        items: page.map(({ copyId: _copyId, ...r }, i) => ({
+          ...r,
+          band: bands[i]!,
+          bundles: Number(r.bundles),
+          pcs: Number(r.pcs),
+          weightG: Number(r.weightG),
+          reserved: Number(r.reserved),
+          avgKgPer12ftMilli: r.avgKgPer12ftMilli == null ? null : Number(r.avgKgPer12ftMilli),
+          oldestAt: new Date(Number(r.oldestAt)),
+        })),
+        totals: { bundles: Number(totals?.bundles ?? 0), pcs: Number(totals?.pcs ?? 0), weightG: Number(totals?.weightG ?? 0) },
+        nextOffset: more ? input.offset + input.limit : null,
+      };
+    }),
+
+  /**
+   * FP-PK-14: pieces rejected at pack (newest first), with the section, the receipt and the reason;
+   * totals by reason over the same filter. Weighed kg went to plant scrap (`pack_reject` ledger rows).
+   */
+  rejections: companyProcedure
+    .input(
+      z
+        .object({
+          dieId: z.string().min(1).optional(),
+          from: z.number().int().optional(),
+          to: z.number().int().optional(),
+          limit: z.number().int().min(1).max(200).default(50),
+          offset: z.number().int().min(0).default(0),
+        })
+        .default({ limit: 50, offset: 0 }),
+    )
+    .query(async ({ ctx, input }) => {
+      const where = and(
+        eq(packReject.companyId, ctx.companyId),
+        input.dieId ? eq(packReject.dieId, input.dieId) : undefined,
+        input.from !== undefined ? sql`${packReject.createdAt} >= ${input.from}` : undefined,
+        input.to !== undefined ? sql`${packReject.createdAt} <= ${input.to}` : undefined,
+      );
+      const items = await ctx.db
+        .select({
+          id: packReject.id,
+          pcs: packReject.pcs,
+          weightG: packReject.weightG,
+          reason: packReject.reason,
+          createdAt: packReject.createdAt,
+          dieId: packReject.dieId,
+          sectionCode: die.sectionCode,
+          series: die.series,
+          groupId: packReject.groupId,
+          groupCode: bundleGroup.code,
+          ageingRowId: packReject.ageingRowId,
+        })
+        .from(packReject)
+        .innerJoin(die, and(eq(die.id, packReject.dieId), eq(die.companyId, packReject.companyId)))
+        .innerJoin(bundleGroup, and(eq(bundleGroup.id, packReject.groupId), eq(bundleGroup.companyId, packReject.companyId)))
+        .where(where)
+        .orderBy(desc(packReject.createdAt), asc(packReject.id))
+        .limit(input.limit)
+        .offset(input.offset);
+      // Reason code = the stored text up to ": " (the note follows it).
+      const byReason = await ctx.db
+        .select({
+          reasonCode: sql<string>`case when instr(${packReject.reason}, ': ') > 0 then substr(${packReject.reason}, 1, instr(${packReject.reason}, ': ') - 1) else ${packReject.reason} end`,
+          lines: sql<number>`count(*)`,
+          pcs: sql<number>`coalesce(sum(${packReject.pcs}), 0)`,
+          weightG: sql<number>`coalesce(sum(${packReject.weightG}), 0)`,
+        })
+        .from(packReject)
+        .where(where)
+        .groupBy(sql`1`)
+        .orderBy(sql`3 desc`);
+      return {
+        items,
+        byReason: byReason.map((r) => ({ reasonCode: r.reasonCode, lines: Number(r.lines), pcs: Number(r.pcs), weightG: Number(r.weightG) })),
+      };
     }),
 
   /**

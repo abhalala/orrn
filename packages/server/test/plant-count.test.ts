@@ -103,7 +103,7 @@ async function plant() {
 
   async function dispatchOut(bundleIds: string[]) {
     const { id } = await as.owner.dispatch.create({ customerId });
-    for (const bundleId of bundleIds) await as.owner.dispatch.addBundle({ id, bundleId });
+    for (const bundleId of bundleIds) await as.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId });
     await as.owner.dispatch.reserve({ id });
     await as.owner.dispatch.complete({ id });
     return id;
@@ -111,7 +111,7 @@ async function plant() {
 
   async function reserveOn(bundleIds: string[]) {
     const { id } = await as.owner.dispatch.create({ customerId });
-    for (const bundleId of bundleIds) await as.owner.dispatch.addBundle({ id, bundleId });
+    for (const bundleId of bundleIds) await as.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId });
     await as.owner.dispatch.reserve({ id });
     return id;
   }

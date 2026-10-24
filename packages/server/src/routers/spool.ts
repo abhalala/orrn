@@ -15,6 +15,7 @@ import { buildBundleLabelVariables } from "../lib/bundle-label";
 import { SpoolClient, spoolBaseUrl } from "../lib/spool-client";
 import { can } from "../lib/permissions";
 import { actionProcedure, companyProcedure, router } from "../index";
+import { loadPackLabelVariables } from "../lib/pack";
 
 /** Get the active spool deployment for the current company, or throw. */
 async function getActiveDeployment(ctx: { db: OrrnDb; companyId: string }) {
@@ -316,6 +317,8 @@ export const spoolRouter = router({
       const dieRow = await ctx.db.query.die.findFirst({
         where: and(eq(die.id, bundleRow.dieId), eq(die.companyId, ctx.companyId)),
       });
+      // FP-PK-04/05: QR, cast, sales order, standard, party number, logo flag.
+      const packVariables = await loadPackLabelVariables(ctx.db, ctx.companyId, bundleRow);
 
       const profile = input.profileId
         ? await ctx.db
@@ -371,6 +374,7 @@ export const spoolRouter = router({
       const client = await createSpoolClient(deployment);
       const printLogId = crypto.randomUUID();
       const copies = input.copies ?? profile.defaultCopies;
+      Object.assign(variables, packVariables);
 
       await ctx.db.insert(printLog).values({
         id: printLogId,

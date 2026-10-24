@@ -126,7 +126,7 @@ describe("PL8 r0 defects", () => {
     const [seen] = await pendingOverdraw(p.companyId, d);
     expect((seen!.meta as { lines: { totalG: number }[] }).lines[0]!.totalG).toBe(kg(120));
     // 1000 kg more is scanned and Complete is pressed again.
-    await p.owner.dispatch.addBundlesBySerial({ id: d, serials: [serials[2]!] });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: d, serials: [serials[2]!] });
     await expect(p.owner.dispatch.complete({ id: d })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     // The request the manager was looking at still says 120 kg (withdrawn), and a new one says 1120 kg.
     const all = await overdrawRequests(p.companyId, d);
@@ -151,7 +151,7 @@ describe("PL8 r0 defects", () => {
     const manager = p.as("manager");
     const d = await p.held(serials.slice(0, 2), p.customerId, office);
     await expect(office.dispatch.complete({ id: d })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-    await office.dispatch.addBundlesBySerial({ id: d, serials: [serials[2]!] });
+    await office.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: d, serials: [serials[2]!] });
     await expect(manager.dispatch.complete({ id: d })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     const pending = await pendingOverdraw(p.companyId, d);
     expect(pending).toHaveLength(1);
@@ -172,7 +172,13 @@ describe("PL8 r0 defects", () => {
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const s = await p.pack(p.dieA, [{ kg: 300 }], o.lineIds[0]);
     expect((await p.lineOf(o.lineIds[0]!)).producedG).toBe(kg(300));
-    const d = await p.held(s, p.otherCustomer); // the other customer has no open order: the item stays unlinked
+    // D12: the scan refuses another customer's bundle, so it leaves for them only by a customer
+    // change on the dispatch after the scan (the other customer has no open order: unlinked).
+    const { id: d } = await p.owner.dispatch.create({ customerId: p.customerId });
+    await p.owner.dispatch.addBundlesBySerial({ id: d, serials: s });
+    await p.owner.dispatch.linkItem({ itemId: (await itemsOf(d))[0]!.id, salesOrderLineId: null });
+    await p.owner.dispatch.update({ id: d, customerId: p.otherCustomer });
+    await p.owner.dispatch.reserve({ id: d });
     expect((await itemsOf(d))[0]!.lineId).toBeNull();
     await p.owner.dispatch.complete({ id: d });
     expect(await p.lineOf(o.lineIds[0]!)).toMatchObject({ producedG: 0, dispatchedG: 0, bakiG: kg(1000) });
@@ -195,7 +201,7 @@ describe("PL8 r0 defects", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials: await p.pack(p.dieA, [{ kg: 10 }]) });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: await p.pack(p.dieA, [{ kg: 10 }]) });
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
     env.beforeNextBatch(() =>

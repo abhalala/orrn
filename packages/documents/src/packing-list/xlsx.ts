@@ -2,7 +2,20 @@ import type { LengthUnit } from "@orrn/server/lib/length";
 import * as XLSX from "xlsx";
 
 import { packingListModel, type PackingListModelOptions } from "./rows";
-import { bundlesText as plBundlesText, isPlSnapshotV2, PL_COLUMN_HEADINGS, plGroupTitle, plShipDateText, type PlSnapshotV2 } from "./snapshot";
+import {
+  bundlesText as plBundlesText,
+  isPlSnapshotV2,
+  PL_COLUMN_HEADINGS,
+  plExtraColumns,
+  plGroupTitle,
+  plProfileLines,
+  plRevisionText,
+  plRowExtras,
+  plDispatchCodesText,
+  plSectionSubtotalAfter,
+  plShipDateText,
+  type PlSnapshotV2,
+} from "./snapshot";
 import type { PackingListSnapshot } from "./types";
 
 /** A parsed snapshot that also carries the PL-8 v2 blocks (header, groups, summary). */
@@ -43,7 +56,7 @@ const bundlesText = (n: number) => `${n} ${n === 1 ? "bundle" : "bundles"}`;
 function buildWorkbookV2(pl: V2Snapshot) {
   const h = pl.header;
   const aoa: (string | number | null)[][] = [
-    ["Packing list", h.plNumber],
+    ["Packing list", plRevisionText(pl) ? `${h.plNumber} (${plRevisionText(pl)})` : h.plNumber],
     ["Date", h.date],
     ["From", h.company.legalName ?? h.company.name],
     ["From GSTIN", h.company.gstin ?? ""],
@@ -59,13 +72,16 @@ function buildWorkbookV2(pl: V2Snapshot) {
     ["Transporter", h.transporter ?? ""],
     ["PO numbers", h.poNumbers.join(", ")],
     ["Invoice", [h.invoiceNumber, h.invoiceDate].filter(Boolean).join(" · ")],
-    ["Dispatch", h.dispatchCode],
+    ["Dispatch", plDispatchCodesText(pl)],
     ["Ship date", plShipDateText(pl.dispatch.shipDate, pl.header?.shipDate) ?? ""],
     ["Notes", pl.dispatch.notes ?? ""],
     [],
-    [...PL_COLUMN_HEADINGS],
   ];
-  for (const g of pl.groups) {
+  // FP-PK-13: optional Party no / Original SO columns after the 11, section subtotals, kinds.
+  const extra = plExtraColumns(pl);
+  aoa.push([...PL_COLUMN_HEADINGS, ...(extra.partyNo ? ["Party no"] : []), ...(extra.originalSo ? ["Original SO"] : [])]);
+  const sectionAfter = plSectionSubtotalAfter(pl);
+  pl.groups.forEach((g, gi) => {
     aoa.push([plGroupTitle(g, pl.groups)]);
     for (const r of g.rows) {
       aoa.push([
@@ -80,11 +96,16 @@ function buildWorkbookV2(pl: V2Snapshot) {
         r.kgPer12ftMilli == null ? null : +(r.kgPer12ftMilli / 1000).toFixed(3),
         r.range12ft,
         r.po ?? "",
+        ...(extra.partyNo ? [plRowExtras(pl, r).partyNo] : []),
+        ...(extra.originalSo ? [plRowExtras(pl, r).originalSo] : []),
       ]);
     }
     aoa.push([null, plBundlesText(g.subtotal.bundles), null, null, +(g.subtotal.weightG / 1000).toFixed(3), null, null, g.subtotal.pcs]);
-  }
+    const sec = sectionAfter.get(gi);
+    if (sec) aoa.push([null, plBundlesText(sec.bundles), `Section ${sec.sectionCode}`, null, +(sec.weightG / 1000).toFixed(3), null, null, sec.pcs]);
+  });
   aoa.push([]);
+  for (const line of plProfileLines(pl)) aoa.push([null, line]);
   aoa.push([null, plBundlesText(pl.summary.bundles), null, null, +(pl.summary.weightG / 1000).toFixed(3), null, null, pl.summary.pcs]);
   aoa.push([null, pl.summary.text]);
 
