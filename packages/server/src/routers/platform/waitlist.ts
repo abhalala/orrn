@@ -1,14 +1,102 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { company, membership, waitlistRequest } from "@orrn/db/schema/tenant";
-import { user } from "@orrn/db/schema/auth";
+import { session, user, verification } from "@orrn/db/schema/auth";
 import { env } from "@orrn/env/server";
-import { createAuth } from "@orrn/auth";
+import { createAuth, takeCapturedMagicLink } from "@orrn/auth";
+import type { createDb } from "@orrn/db";
 
 import { atomicBatch, type SqliteBatchItem } from "../../lib/atomic";
+import { renderOrrnEmailHtml, sendEmail } from "../../lib/email";
 import { platformGuard, platformProcedure } from "../../index";
+
+type Db = ReturnType<typeof createDb>;
+type WaitlistRequestRow = typeof waitlistRequest.$inferSelect;
+
+/** Long enough to pass the link on by WhatsApp when the email does not arrive. */
+const OWNER_LINK_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Issues a one-time sign-in link for an approved company's owner, tries to
+ * email it, and always returns the same message so Godseye can show it for
+ * copying when the email cannot be sent.
+ */
+async function issueOwnerSignIn(db: Db, headers: Headers, request: WaitlistRequestRow) {
+  const webBase = (env.WEB_PUBLIC_URL ?? env.CORS_ORIGIN).replace(/\/$/, "");
+  const captureKey = crypto.randomUUID();
+
+  const auth = createAuth();
+  await auth.api.signInMagicLink({
+    body: {
+      email: request.requesterEmail,
+      callbackURL: `${webBase}/setup-credentials`,
+      metadata: { captureKey },
+    },
+    headers,
+  });
+
+  const link = takeCapturedMagicLink(captureKey);
+  if (!link) {
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create a sign-in link" });
+  }
+
+  const expiresAt = new Date(Date.now() + OWNER_LINK_TTL_MS);
+  await db
+    .update(verification)
+    .set({ expiresAt })
+    .where(eq(verification.identifier, link.token));
+
+  const companyName = request.companyName.trim();
+  const subject = `Your ORRN workspace for ${companyName} is ready`;
+  const intro = `Your request for ORRN access for ${companyName} has been approved.`;
+  const action = "Open this link to sign in and set your password:";
+  const footer =
+    "The link works once and expires in 3 days. If you did not ask for ORRN access, you can ignore this message.";
+  const text = [`Hi ${request.requesterName},`, "", intro, "", action, link.url, "", footer, "", "ORRN"].join("\n");
+
+  let emailSent = false;
+  let emailError: string | null = null;
+  try {
+    const result = await sendEmail({
+      to: request.requesterEmail,
+      subject,
+      html: renderOrrnEmailHtml({
+        title: "Your workspace is ready",
+        description: `Hi ${escapeHtml(request.requesterName)}, ${escapeHtml(intro)} ${action}`,
+        buttonText: "Sign in to ORRN",
+        buttonUrl: link.url,
+        footerText: footer,
+      }),
+    });
+    // The mock sender (local dev, or no Resend key) logs instead of sending.
+    emailSent = result.messageId !== "mock-message-id";
+    if (!emailSent) emailError = "Email sending is not set up on this server";
+  } catch (error) {
+    emailError = error instanceof Error ? error.message : "Failed to send email";
+  }
+
+  return {
+    emailSent,
+    emailError,
+    to: request.requesterEmail,
+    requesterName: request.requesterName,
+    companyName,
+    subject,
+    text,
+    link: link.url,
+    expiresAt,
+  };
+}
 
 export const waitlistProcedures = {
   waitlistList: platformGuard("platform.waitlist.review").query(async ({ ctx }) => {
@@ -36,7 +124,6 @@ export const waitlistProcedures = {
       }
 
       const companyId = request.companyId ?? crypto.randomUUID();
-      const webBase = (env.WEB_PUBLIC_URL ?? env.CORS_ORIGIN).replace(/\/$/, "");
 
       const companyExists = await ctx.db
         .select()
@@ -125,16 +212,56 @@ export const waitlistProcedures = {
 
       await atomicBatch(ctx.db, batchStatements);
 
-      const auth = createAuth();
-      await auth.api.signInMagicLink({
-        body: {
-          email: request.requesterEmail,
-          callbackURL: `${webBase}/setup-credentials`,
-        },
-        headers: ctx.request.headers,
-      });
+      // The approval stands even if the email fails; the details come back for copying.
+      try {
+        const signIn = await issueOwnerSignIn(ctx.db, ctx.request.headers, request);
+        return { success: true, signIn, signInError: null };
+      } catch (error) {
+        console.error("Approved waitlist request but could not issue a sign-in link:", error);
+        const signInError = error instanceof Error ? error.message : "Could not create a sign-in link";
+        return { success: true, signIn: null, signInError };
+      }
+    }),
 
-      return { success: true };
+  /** Approved requests whose owner has never signed in (for example, the email never arrived). */
+  waitlistAwaitingSignIn: platformGuard("platform.waitlist.review").query(async ({ ctx }) => {
+    const approved = await ctx.db
+      .select()
+      .from(waitlistRequest)
+      .where(eq(waitlistRequest.status, "approved"))
+      .orderBy(desc(waitlistRequest.reviewedAt))
+      .all();
+    if (approved.length === 0) return [];
+
+    const signedIn = await ctx.db
+      .selectDistinct({ email: user.email })
+      .from(session)
+      .innerJoin(user, eq(user.id, session.userId))
+      .where(inArray(user.email, approved.map((r) => r.requesterEmail)))
+      .all();
+    const signedInEmails = new Set(signedIn.map((r) => r.email));
+
+    return approved.filter((r) => !signedInEmails.has(r.requesterEmail));
+  }),
+
+  /** Issues a fresh sign-in link for an approved request, emails it, and returns it for copying. */
+  waitlistSignInDetails: platformGuard("platform.waitlist.review")
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const request = await ctx.db
+        .select()
+        .from(waitlistRequest)
+        .where(eq(waitlistRequest.id, input.id))
+        .get();
+
+      if (!request) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Waitlist request not found" });
+      }
+      if (request.status !== "approved") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Request is not approved" });
+      }
+
+      return issueOwnerSignIn(ctx.db, ctx.request.headers, request);
     }),
 
   waitlistReject: platformProcedure
