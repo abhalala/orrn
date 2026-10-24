@@ -357,7 +357,7 @@ describe("reallocation: owner override, plant stock origin, pending bundles", ()
     const owned = await p.copy(s, { milli: 12_000, ownerCustomerId: p.customerId });
     const mine = await p.confirmedOrder([{ sectionId: s, kgG: kg(500), dieInstanceId: owned }]);
     const theirs = await p.confirmedOrder([{ sectionId: s, kgG: kg(500), tierRank: 1 }], { customerId: p.otherCustomer });
-    const serials = await p.pack(s, [{ kg: 100 }], mine.lineIds[0]);
+    const serials = await p.pack(s, [{ kg: 100 }], mine.lineIds[0], owned);
     await env.db.update(bundle).set({ dieInstanceId: owned }).where(and(eq(bundle.companyId, p.companyId), inArray(bundle.serial, serials)));
     const ids = await idsOf(p, serials);
     await expect(p.owner.orders.reallocate({ bundleIds: ids, toLineId: theirs.lineIds[0]!, reason: "x" })).rejects.toMatchObject({ code: "FORBIDDEN" });

@@ -48,6 +48,12 @@ export const location = sqliteTable(
  * cast (billets) or store item; it is deliberately not a foreign key so one table can carry
  * every stock kind.
  */
+/**
+ * Billet convention (FD/PR, Wave 2 contracts): billets are item_kind `billet`, item_ref = cast.id,
+ * at the active `billet_store` location (code BILLET). + at melt lock (logs), − at press close
+ * (billets used), reversals on melt cancel / press reopen. On hand for a cast =
+ * Σ qty_g where item_kind = 'billet' AND item_ref = cast id (any billet_store location).
+ */
 export const ledgerItemKinds = ["bundle", "scrap_grade", "return_stream", "billet", "store_item"] as const;
 export type LedgerItemKind = (typeof ledgerItemKinds)[number];
 
@@ -89,6 +95,15 @@ export const ledgerVoucherTypes = [
   "melt_cancel",
   /** Weighed pieces rejected at pack (FP-PK-14): +kg at PLANT-SCRAP, voucher = pack_reject.id. */
   "pack_reject",
+  /**
+   * Wave 2 (FP-PR, close only; voucher = press_run.id): −input_g of item `billet` (item_ref = cast id)
+   * at the BILLET location (kind billet_store), +discard_g to return stream DISCARD, +ends_g and
+   * +reject_g to PLANT-SCRAP (item `return_stream`, at the plant-scrap wip location). Good kg is not
+   * posted here (it enters stock as bundles at pack).
+   */
+  "press_run",
+  /** Reversal of a logged run's `press_run` rows when it is reopened (same voucher, `reversal_of`). */
+  "press_run_reopen",
 ] as const;
 export type LedgerVoucherType = (typeof ledgerVoucherTypes)[number];
 

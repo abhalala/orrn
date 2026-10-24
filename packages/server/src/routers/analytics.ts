@@ -31,6 +31,7 @@ import { actionProcedure, router } from "../index";
 import { now } from "../lib/clock";
 import { companyTimezone } from "../lib/dayWindow";
 import { lineTotals } from "../lib/orders";
+import { productionDayWindowFor } from "../lib/productionDay";
 import { isIsoDate } from "../lib/purchase";
 import {
   addDays,
@@ -509,7 +510,12 @@ export const analyticsRouter = router({
   trends: analyticsProcedure.input(trendsInput).query(async ({ ctx, input }): Promise<TrendDay[]> => {
     const companyId = ctx.companyId;
     const timezone = await timezoneOf(ctx.db, companyId);
-    const today = localDate(timezone, now().getTime());
+    const at = now();
+    const calendarToday = localDate(timezone, at.getTime());
+    // FP-PF-05: Today's KPI blocks cover the production day; a night shift past midnight is still
+    // yesterday's production day, so the trend ends there too and its "so far" day is the blocks'.
+    const { productionDay } = await productionDayWindowFor(ctx.db, companyId, at);
+    const today = productionDay < calendarToday ? productionDay : calendarToday;
     const from = addDays(today, -(input.days - 1));
     const to = addDays(today, 1);
     const { fromMs, toMs: endMs, segments } = zonedRange(timezone, from, to);

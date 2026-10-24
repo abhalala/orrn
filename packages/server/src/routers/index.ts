@@ -26,6 +26,10 @@ import { reportsRouter } from "./reports";
 import { salesOrderRouter } from "./salesOrder";
 import { pressPlanRouter } from "./pressPlan";
 import { vendorRouter } from "./vendor";
+import { auditRouter } from "./audit";
+import { backupRouter } from "./backup";
+import { deviceRouter, releaseRouter } from "./release";
+import { supportRouter } from "./support";
 import { transporterRouter } from "./transporter";
 
 export const appRouter = router({
@@ -65,6 +69,11 @@ export const appRouter = router({
   plans: pressPlanRouter,
   reports: reportsRouter,
   foundry: foundryRouter,
+  release: releaseRouter,
+  device: deviceRouter,
+  support: supportRouter,
+  audit: auditRouter,
+  backup: backupRouter,
   transporter: transporterRouter,
 });
 export type AppRouter = typeof appRouter;

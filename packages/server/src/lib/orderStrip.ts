@@ -12,8 +12,13 @@
  * - pressedG  = max(0, logged − aged − produced) (press log never reduces baki).
  * - agedG     = 0 until ageing rows exist (Wave 2/3, `ageing.forOrder`).
  * - packedG   = linked bundles available + reserved; inStockG = available only.
+ * - heldG     = bundles held for the line (FP-OP-17, `bundle.held_for_line_id`), available + reserved
+ *               ("held in yard"; heldPcs their pieces). Holding moves nothing: a held bundle still
+ *               counts in packedG / inStockG of the line it is ON (none, or this line).
  * - overG     = max(0, produced − ordered).
- * - planableG = max(0, ordered − dispatched − packed − planned − pressed − aged) (`@orrn/domain`).
+ * - planableG = max(0, ordered − dispatched − packed − heldYard − planned − pressed − aged)
+ *               (`@orrn/domain`), heldYard = the part of heldG NOT already in packedG (held bundles
+ *               on no line), so a held bundle on this line is never taken off twice.
  *
  * Every subquery is scoped by the outer line's company (no parameter per subquery), and id lists
  * are chunked (≤ 80 ids per statement, D1's 100 bound parameters).
@@ -38,6 +43,9 @@ export type LineStrip = {
   agedG: number;
   packedG: number;
   inStockG: number;
+  /** Held for this line in the yard (FP-OP-17), kg and pieces. */
+  heldG: number;
+  heldPcs: number;
   /** Produced beyond ordered (the strip's "over" chip). */
   overG: number;
   planableG: number;
@@ -60,6 +68,16 @@ function bundleSum(statuses: readonly string[]) {
     sql`, `,
   );
   return sql<number>`(select coalesce(sum(b.weight_g), 0) from bundle b where b.company_id = ${LC} and b.sales_order_line_id = ${LI} and b.status in (${list}))`;
+}
+
+/**
+ * Bundles held for the outer line (FP-OP-17): kg or pieces, available + reserved. `yardOnly` keeps
+ * the held bundles not ON this line (the part planableG still has to take off).
+ */
+function heldSum(what: "g" | "pcs", yardOnly = false) {
+  const agg = what === "g" ? sql`sum(hb.weight_g)` : sql`sum(hb.quantity)`;
+  const yard = yardOnly ? sql` and coalesce(hb.sales_order_line_id, '') <> ${LI}` : sql``;
+  return sql<number>`(select coalesce(${agg}, 0) from bundle hb where hb.company_id = ${LC} and hb.held_for_line_id = ${LI} and hb.status in ('available', 'reserved')${yard})`;
 }
 
 /** Plan kg still ahead of the press for the outer line (optionally leaving one plan out). */
@@ -86,14 +104,14 @@ export function onReleasedPlan(companyId: string, lineIdSql: SQL): SQL {
 /**
  * Write-time twin of `planableG` for a plan's own lines (review round 1 I-2): EXISTS a line of
  * plan `planId` that is planned past what it may take, i.e. ordered − dispatched − packed −
- * planned (every live plan, this one included) − pressed − aged < 0. Put it in a
+ * held in yard − planned (every live plan, this one included) − pressed − aged < 0. Put it in a
  * `batchAbortUnless(not …)` right after the plan lines (create) or the queued runs (release) are
  * written, so a pack, a dispatch or another plan landing after the read fails the batch whole.
  * The figures are the strip's own subqueries (`plannedExpr`, `loggedExpr`, …) on the outer line.
  */
 export function planOverPlannedSql(companyId: string, planId: string): SQL {
   const pressed = sql`max(0, ${loggedExpr} - ${producedExpr})`;
-  return sql`exists (select 1 from sales_order_line where ${LC} = ${companyId} and ${LI} in (select xpl.sales_order_line_id from press_plan_line xpl where xpl.company_id = ${companyId} and xpl.press_plan_id = ${planId}) and ("sales_order_line"."kg_g" - ${dispatchedExpr("g")} - ${bundleSum(["available", "reserved"])} - ${plannedExpr()} - ${pressed}) < 0)`;
+  return sql`exists (select 1 from sales_order_line where ${LC} = ${companyId} and ${LI} in (select xpl.sales_order_line_id from press_plan_line xpl where xpl.company_id = ${companyId} and xpl.press_plan_id = ${planId}) and ("sales_order_line"."kg_g" - ${dispatchedExpr("g")} - ${bundleSum(["available", "reserved"])} - ${heldSum("g", true)} - ${plannedExpr()} - ${pressed}) < 0)`;
 }
 
 export function stripOf(r: {
@@ -106,6 +124,9 @@ export function stripOf(r: {
   loggedG: number;
   packedG: number;
   inStockG: number;
+  heldG?: number;
+  heldPcs?: number;
+  heldYardG?: number;
 }): LineStrip {
   const agedG = 0;
   const pressedG = Math.max(0, r.loggedG - agedG - r.producedG);
@@ -121,11 +142,14 @@ export function stripOf(r: {
     agedG,
     packedG: r.packedG,
     inStockG: r.inStockG,
+    heldG: r.heldG ?? 0,
+    heldPcs: r.heldPcs ?? 0,
     overG: Math.max(0, r.producedG - r.orderedG),
     planableG: planableOf({
       orderedG: r.orderedG,
       dispatchedG: r.dispatchedG,
       packedG: r.packedG,
+      heldYardG: r.heldYardG ?? 0,
       plannedG: r.plannedG,
       pressedG,
       agedG,
@@ -157,6 +181,9 @@ export async function lineStrips(
         loggedG: loggedExpr,
         packedG: bundleSum(["available", "reserved"]),
         inStockG: bundleSum(["available"]),
+        heldG: heldSum("g"),
+        heldPcs: heldSum("pcs"),
+        heldYardG: heldSum("g", true),
       })
       .from(L)
       .where(and(eq(L.companyId, companyId), inArray(L.id, part)));
@@ -173,6 +200,9 @@ export async function lineStrips(
           loggedG: num(r.loggedG),
           packedG: num(r.packedG),
           inStockG: num(r.inStockG),
+          heldG: num(r.heldG),
+          heldPcs: num(r.heldPcs),
+          heldYardG: num(r.heldYardG),
         }),
       );
     }

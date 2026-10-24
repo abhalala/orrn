@@ -12,7 +12,13 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
  * `support_request` is a tenant row: a plant user asks, platform staff reply.
  */
 
-export const appReleaseChannels = ["stable", "beta"] as const;
+/**
+ * `production` = Play internal track / TestFlight, `floor` = the signed APK sideloaded from R2
+ * (FP-PF-11). `stable` / `beta` are the Wave 1 contract's first names: never written, kept so the
+ * column's SQL default stays valid.
+ */
+export const appReleaseChannels = ["production", "floor", "stable", "beta"] as const;
+export const appReleasePublishChannels = ["production", "floor"] as const;
 export const appReleasePlatforms = ["android", "ios", "web", "edge"] as const;
 
 /** A published app build (`platform.release.publish`). Devices compare `app_version` against it. */
@@ -27,6 +33,12 @@ export const appRelease = sqliteTable(
     minSupportedVersion: text("min_supported_version"),
     notes: text("notes"),
     url: text("url"),
+    /** Integer build, monotonic per platform (0025). The gate compares builds, never version text. */
+    buildNumber: integer("build_number"),
+    /** Installs below this build are blocked while this row is the newest (or `mandatory`). <= buildNumber. */
+    minBuild: integer("min_build"),
+    /** Blocks every install below `minBuild` even when a newer row has a lower floor. */
+    mandatory: integer("mandatory", { mode: "boolean" }).notNull().default(false),
     publishedAt: integer("published_at", { mode: "timestamp_ms" }).notNull(),
     publishedBy: text("published_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
@@ -39,6 +51,9 @@ export const appRelease = sqliteTable(
 
 export const backupRunStatuses = ["running", "succeeded", "failed"] as const;
 export const backupRunKinds = ["scheduled", "manual"] as const;
+/** What a run did (0025): `export` writes the company's rows to R2; `drill` restores one into a scratch company. */
+export const backupRunPurposes = ["export", "drill"] as const;
+export type BackupRunPurpose = (typeof backupRunPurposes)[number];
 
 /** Metadata of a D1 export to R2 (`platform.backup.run`); never the bytes. */
 export const backupRun = sqliteTable(
@@ -53,6 +68,13 @@ export const backupRun = sqliteTable(
     bytes: integer("bytes"),
     rowCount: integer("row_count"),
     error: text("error"),
+    purpose: text("purpose", { enum: backupRunPurposes }).notNull().default("export"),
+    /** Drill: the export it restored. */
+    sourceRunId: text("source_run_id"),
+    /** Drill: the suspended `restore-drill-{date}` company it created. */
+    scratchCompanyId: text("scratch_company_id"),
+    /** Per-table row counts (export) or `{ expected, restored }` (drill). No secrets. */
+    detail: text("detail", { mode: "json" }).$type<Record<string, unknown>>(),
     startedAt: integer("started_at", { mode: "timestamp_ms" }).notNull(),
     finishedAt: integer("finished_at", { mode: "timestamp_ms" }),
     startedBy: text("started_by").references(() => user.id, { onDelete: "set null" }),

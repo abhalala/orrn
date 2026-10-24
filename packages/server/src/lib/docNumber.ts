@@ -1,4 +1,13 @@
-import { formatBundleNo, formatCastCode, formatPartyBundleNo, partyBundlePeriod, type BundleNumberPolicy } from "@orrn/domain";
+import {
+  castSeriesFirstSeq,
+  formatBundleNo,
+  formatCastCode,
+  formatPartyBundleNo,
+  partyBundlePeriod,
+  readCastSeriesStart,
+  type BundleNumberPolicy,
+  type CastSeriesStart,
+} from "@orrn/domain";
 import { company, docSeries, type DocType } from "@orrn/db/schema";
 import { eq, sql } from "drizzle-orm";
 
@@ -27,7 +36,7 @@ const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl" | "cert" | "
 const DEFAULT_PL_PREFIX = "PL/";
 const MAX_PL_PREFIX_LENGTH = 20;
 
-type SeriesSettings = { timezone: string; plPrefix: string; plStart: number };
+type SeriesSettings = { timezone: string; plPrefix: string; plStart: number; castSeriesStart: CastSeriesStart | null };
 
 /** Read the tenant's numbering settings, falling back to defaults for anything malformed. */
 function readSettings(raw: Record<string, unknown> | null): SeriesSettings {
@@ -41,7 +50,7 @@ function readSettings(raw: Record<string, unknown> | null): SeriesSettings {
     if (typeof prefix === "string" && prefix.length <= MAX_PL_PREFIX_LENGTH) plPrefix = prefix;
     if (typeof start === "number" && Number.isInteger(start) && start >= 1) plStart = start;
   }
-  return { timezone, plPrefix, plStart };
+  return { timezone, plPrefix, plStart, castSeriesStart: readCastSeriesStart(raw?.castSeriesStart) };
 }
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -105,7 +114,10 @@ export async function allocateDocNumbers(
 
   if (docType === "party_bundle") throw new Error("party_bundle numbers come from allocatePartyBundleNumbers");
 
-  const start = docType === "pl" ? settings.plStart : 1;
+  // The cast book continues from paper in its go-live month (castSeriesStart, FP-FD-02); the
+  // start only matters for the series' first allocation in that period.
+  const start =
+    docType === "pl" ? settings.plStart : docType === "cast" ? castSeriesFirstSeq(settings.castSeriesStart, period) : 1;
   const seqs = await bumpSeries(db, { companyId, docType, period, scope: "", start, count, createdBy });
   return { period, seqs, numbers: seqs.map((seq) => formatNumber(docType, period, seq, settings)) };
 }

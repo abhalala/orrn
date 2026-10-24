@@ -7,7 +7,8 @@
  *   3 void                 the bundle is void
  *   4 dispatched           the bundle already left
  *   5 held                 another dispatch holds it ("Bundle is held by {code}")
- *   5b reallocation_pending  waiting in an open `order_reallocate` request (decide it first)
+ *   5a held_for_order      held for another customer's open line (FP-OP-17, "Held for SO-n (customer)")
+ *   5b reallocation_pending in an `order_reallocate` request still waiting on approval (W1-OP-S r1 m-4)
  *   6 unassigned           no sales order line and not moved to plant stock (C8)
  *   7 wrong_customer       packed for another customer's order (moving it is `orders.reallocate`)
  *   8 owned_die            made on a die owned by another customer, no live override (FP-PK-10)
@@ -31,8 +32,9 @@ import { bundleTransfer, salesOrder, salesOrderLine } from "@orrn/db/schema/sale
 
 import { mapInChunks, type OrrnDb } from "./atomic";
 import { checkDieAllowed } from "./dieOwner";
-import { bundlesPendingReallocation } from "./reallocate";
 import { resolveCode } from "./codeResolver";
+import { heldForOrderBlock, heldForOrderReason, holdsOf, linkLineFor, type BundleHold } from "./orderHold";
+import { bundlesPendingReallocation } from "./reallocate";
 import { isScanRefusal, type ScanRefusal } from "./scanRefusal";
 
 export { isScanRefusal, SCAN_REFUSALS, ScanRefusalError, type ScanRefusal, type ScanRefusalCode } from "./scanRefusal";
@@ -43,6 +45,7 @@ export const SCAN_OUTCOMES = [
   "void",
   "dispatched",
   "held",
+  "held_for_order",
   "reallocation_pending",
   "unassigned",
   "wrong_customer",
@@ -61,6 +64,7 @@ export function refusalOf(r: ScanResult): ScanRefusal | null {
     heldBy: r.heldBy,
     customerName: r.customerName,
     candidates: r.candidates,
+    ...(r.outcome === "held_for_order" ? { orderNumber: r.orderNumber } : {}),
   };
 }
 
@@ -74,8 +78,10 @@ export type ScanResult = {
   serial: string | null;
   /** `held`: the dispatch holding it. */
   heldBy: string | null;
-  /** `owned_die`: the owner; `wrong_customer`: the customer it was packed for. */
+  /** `owned_die`: the owner; `wrong_customer`: the customer it was packed for; `held_for_order`: the order's customer. */
   customerName: string | null;
+  /** `held_for_order`: the sales order it is held for. */
+  orderNumber: string | null;
   /** `ambiguous`: the bundle numbers it could be. */
   candidates: string[];
   /** Outcome 6 let through by the office (`allowUnassigned`), so the screen can still flag it. */
@@ -92,7 +98,8 @@ const MESSAGES: Record<ScanOutcome, (r: ScanResult) => string> = {
   void: () => "Bundle is void",
   dispatched: () => "Bundle is already dispatched",
   held: (r) => (r.heldBy ? `Bundle is held by ${r.heldBy}` : "Bundle is held by another dispatch"),
-  reallocation_pending: () => "Waiting on a reallocation approval",
+  held_for_order: (r) => heldForOrderReason(r.orderNumber ?? "", r.customerName ?? ""),
+  reallocation_pending: () => "Bundle is waiting on a reallocation approval",
   unassigned: () => "Not assigned to a sales order",
   wrong_customer: (r) => (r.customerName ? `Packed for ${r.customerName}` : "Packed for another customer"),
   owned_die: (r) => (r.customerName ? `This die belongs to ${r.customerName}` : "This die belongs to another customer"),
@@ -109,6 +116,7 @@ function result(code: string, outcome: ScanOutcome, extra: Partial<ScanResult> =
     serial: null,
     heldBy: null,
     customerName: null,
+    orderNumber: null,
     candidates: [],
     note: null,
     ...extra,
@@ -284,7 +292,7 @@ export async function classifyScan(
   d: { id: string; customerId: string },
   rawCodes: readonly string[],
   opts: ClassifyOpts,
-): Promise<{ results: ScanResult[]; toAdd: ScanBundle[] }> {
+): Promise<{ results: ScanResult[]; toAdd: ScanBundle[]; holds: ReadonlyMap<string, BundleHold> }> {
   const codes = Array.from(new Set(rawCodes.map(normalizeSerial).filter(Boolean)));
   const { found, ambiguous } = await lookupCodes(ctx, codes);
   return classifyBundles(ctx, d, codes, found, ambiguous, opts);
@@ -307,7 +315,7 @@ export async function classifyBundles(
   found: ReadonlyMap<string, ScanBundle>,
   ambiguous: ReadonlyMap<string, string[]>,
   opts: ClassifyOpts,
-): Promise<{ results: ScanResult[]; toAdd: ScanBundle[] }> {
+): Promise<{ results: ScanResult[]; toAdd: ScanBundle[]; holds: ReadonlyMap<string, BundleHold> }> {
   // One outcome per bundle: a bundle scanned twice (serial and party no) repeats its first outcome.
   const firstOutcome = new Map<string, ScanResult>();
   const bundles = [...new Map([...found.values()].map((b) => [b.id, b])).values()];
@@ -342,7 +350,18 @@ export async function classifyBundles(
   const live = bundles.filter((b) => b.status !== "void" && b.status !== "dispatched");
   const { lineCustomer, latestTransfer } = await allocations(ctx, live);
   const owned = await ownedDieBlocks(ctx.db, ctx.companyId, d.customerId, live, opts.approvalId);
-  const pendingRealloc = await bundlesPendingReallocation(ctx.db, ctx.companyId, live.map((b) => b.id));
+  // FP-OP-17: holds of the live bundles (held for another customer's open line = refused; for this
+  // customer = linked to the held line, so it counts as assigned).
+  const holds = await holdsOf(
+    ctx.db,
+    ctx.companyId,
+    live.map((b) => b.id),
+  );
+  const pendingReallocation = await bundlesPendingReallocation(
+    ctx.db,
+    ctx.companyId,
+    live.filter((b) => !onThisDispatch.has(b.id)).map((b) => b.id),
+  );
 
   const results: ScanResult[] = [];
   const toAdd: ScanBundle[] = [];
@@ -353,10 +372,14 @@ export async function classifyBundles(
     if (b.status === "reserved" && b.currentDispatchId !== d.id) {
       return result(code, "held", { ...base, heldBy: (b.currentDispatchId && holders.get(b.currentDispatchId)) || null });
     }
-    if (pendingRealloc.has(b.id)) return result(code, "reallocation_pending", base);
+    const heldFor = heldForOrderBlock(holds.get(b.id), d.customerId);
+    if (heldFor) {
+      return result(code, "held_for_order", { ...base, orderNumber: heldFor.orderNumber, customerName: heldFor.customerName });
+    }
+    if (pendingReallocation.has(b.id)) return result(code, "reallocation_pending", base);
     let note: ScanResult["note"] = null;
     const allocation = bundleAllocation({
-      salesOrderLineId: b.salesOrderLineId,
+      salesOrderLineId: linkLineFor(b, holds, d.customerId),
       latestTransfer: latestTransfer.get(b.id) ?? null,
     });
     if (allocation === "unassigned") {
@@ -395,7 +418,7 @@ export async function classifyBundles(
     results.push(r);
     if (r.outcome === "added") toAdd.push(b);
   }
-  return { results, toAdd };
+  return { results, toAdd, holds };
 }
 
 /** Grams on a dispatch right now (Σ bundle weight of its items). */

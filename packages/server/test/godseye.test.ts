@@ -494,7 +494,9 @@ describe("owner sign-in links (review T27 C-1, I-1)", () => {
     await staff.platform.waitlistApprove({ id: requestId });
     const { request } = await ownerOf(requestId);
 
-    // The old capture hack read `metadata.captureKey` from this public body.
+    // The old capture hack read `metadata.captureKey` from this public body. Since FP-PF-08 / D14
+    // (magic-link-guard.ts) the public request is refused outright: no email, no verification row.
+    const before = (await linkRows(request.requesterEmail)).map((r) => r.identifier).sort();
     const log = spyOn(console, "log").mockImplementation(() => {});
     let anonToken: string | undefined;
     try {
@@ -505,14 +507,14 @@ describe("owner sign-in links (review T27 C-1, I-1)", () => {
           body: JSON.stringify({ email: request.requesterEmail, metadata: { captureKey: "anon-key" } }),
         }),
       );
-      expect(res.status).toBe(200);
-      // It took the normal path: the email (here: not sent, no provider), never a side map.
+      expect(res.status).toBe(403);
       const printed = log.mock.calls.flat().map(String).join("\n");
-      expect(printed).toContain("not sent: no provider");
+      expect(printed).not.toContain("not sent: no provider");
       expect(printed).not.toContain("anon-key");
-      const rows = await linkRows(request.requesterEmail);
-      anonToken = rows.map((r) => r.identifier).find((id) => id.length !== 64);
-      expect(anonToken).toBeDefined();
+      const after = (await linkRows(request.requesterEmail)).map((r) => r.identifier).sort();
+      expect(after).toEqual(before);
+      anonToken = after.find((id) => !before.includes(id));
+      expect(anonToken).toBeUndefined();
     } finally {
       log.mockRestore();
     }

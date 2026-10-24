@@ -10,11 +10,11 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3196 screen strings in 43 groups, 16 guides with 292 strings.
+Counts: 3635 screen strings in 44 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
-### common (67)
+### common (68)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -23,6 +23,7 @@ Counts: 3196 screen strings in 43 groups, 16 guides with 292 strings.
 | `saving` | Saving | सेव हो रहा है |
 | `saved` | Saved | सेव हो गया |
 | `cancel` | Cancel | रहने दें |
+| `showingOf` | Showing {shown} of {total}, type to find | {total} में से {shown} दिख रहे हैं, ढूंढने के लिए लिखें |
 | `close` | Close | बंद करें |
 | `back` | Back | वापस |
 | `next` | Next | आगे |
@@ -86,11 +87,12 @@ Counts: 3196 screen strings in 43 groups, 16 guides with 292 strings.
 | `waitingApproval` | Waiting for approval | मंज़ूरी का इंतज़ार |
 | `plant` | Plant | प्लांट |
 
-### units (12)
+### units (14)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `kg` | kg | kg |
+| `g` | g | g |
 | `kgPer12ft` | kg/12ft | kg/12ft |
 | `pcs` | pcs | pcs |
 | `mm` | mm | mm |
@@ -102,6 +104,7 @@ Counts: 3196 screen strings in 43 groups, 16 guides with 292 strings.
 | `feetInches` | {ft} ft {in} in | {ft} ft {in} in |
 | `kgPerM` | kg/m | kg/m |
 | `percent` | {value}% | {value}% |
+| `kgPerMetre` | kg/m | kg/m |
 
 ### status (31)
 
@@ -670,7 +673,7 @@ Counts: 3196 screen strings in 43 groups, 16 guides with 292 strings.
 | `source.logoHint` | Off hides the logo on the label. The company name still prints. | बंद करने पर लेबल से लोगो हट जाता है। कंपनी का नाम फिर भी छपता है। |
 | `source.cannotContinue` | Fix the points above before you go on. | आगे जाने से पहले ऊपर की बातें ठीक करें। |
 
-### scan (53)
+### scan (54)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -727,6 +730,7 @@ Counts: 3196 screen strings in 43 groups, 16 guides with 292 strings.
 | `continuous.noOrderTag` | No order | ऑर्डर नहीं |
 | `continuous.pickOne` | Pick the bundle | Bundle चुनें |
 | `continuous.speak` | Speak refusals aloud | मना करने की वजह बोलकर बताएं |
+| `continuous.heldForOrder` | Held for {order} ({customer}) | {order} ({customer}) के लिए होल्ड पर है |
 
 ### stock (173)
 
@@ -1223,7 +1227,7 @@ Counts: 3196 screen strings in 43 groups, 16 guides with 292 strings.
 | `invoice` | Invoice | इनवॉइस |
 | `print` | Print | प्रिंट |
 
-### dies (60)
+### dies (67)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1287,6 +1291,13 @@ Counts: 3196 screen strings in 43 groups, 16 guides with 292 strings.
 | `form.duplicate` | A die with this series and section code already exists. | इस सीरीज़ और सेक्शन कोड का die पहले से है। |
 | `form.fixErrors` | Check the fields marked in red. | लाल निशान वाले खाने जांचें। |
 | `form.cantAdd` | Your role can't add dies. Ask an admin if you need it. | आपका रोल die नहीं जोड़ सकता। ज़रूरत हो तो एडमिन से कहें। |
+| `form.shapeSection` | Shape and owner | आकार और मालिक |
+| `form.profileNone` | Not set | तय नहीं |
+| `form.alloyHint` | Pick one or type another. | एक चुनें या दूसरा लिखें। |
+| `form.wallHint` | Millimetres, like 1.2. Blank means not written. | मिलीमीटर में, जैसे 1.2। खाली मतलब लिखा नहीं है। |
+| `form.ownerSearch` | Search customers | ग्राहक खोजें |
+| `form.ownerHint` | Blank means the plant owns this die. | खाली मतलब यह die प्लांट की है। |
+| `form.ownerClear` | Make plant-owned | प्लांट की करें |
 
 ### customers (111)
 
@@ -2247,7 +2258,7 @@ Counts: 3196 screen strings in 43 groups, 16 guides with 292 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (240)
+### admin (252)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2323,10 +2334,22 @@ Counts: 3196 screen strings in 43 groups, 16 guides with 292 strings.
 | `plan.moduleNames.dies` | Dies | डाई |
 | `plan.moduleNames.bundles` | Packing and stock | पैकिंग और स्टॉक |
 | `plan.moduleNames.dispatches` | Dispatch and packing lists | डिस्पैच और पैकिंग लिस्ट |
+| `plan.moduleNames.orders` | Orders and planning | ऑर्डर और प्लानिंग |
+| `plan.moduleNames.foundry` | Foundry | फ़ाउंड्री |
+| `plan.moduleNames.press` | Press | प्रेस |
+| `plan.moduleNames.ageing` | Ageing | एजिंग |
+| `plan.moduleNames.store` | Store | स्टोर |
+| `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
 | `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
 | `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
 | `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
 | `plan.moduleHints.dispatches` | Dispatches and printed packing lists | डिस्पैच और छपी पैकिंग लिस्ट |
+| `plan.moduleHints.orders` | Sales orders, baki and press plans | सेल्स ऑर्डर, बाकी और प्रेस प्लान |
+| `plan.moduleHints.foundry` | Casts, melts and spectro | कास्ट, मेल्ट और स्पेक्ट्रो |
+| `plan.moduleHints.press` | Press runs and the press console | प्रेस रन और प्रेस कंसोल |
+| `plan.moduleHints.ageing` | Ageing batches and readings | एजिंग बैच और रीडिंग |
+| `plan.moduleHints.store` | Store items, GRN and issues | स्टोर आइटम, GRN और इशू |
+| `plan.moduleHints.purchase` | Scrap vendors, lots and D/C notes | स्क्रैप वेंडर, लॉट और D/C नोट |
 | `plan.save` | Save plan | प्लान सेव करें |
 | `plan.saved` | Plan saved | प्लान सेव हो गया |
 | `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
@@ -2929,7 +2952,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (64)
+### approvals (65)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2953,6 +2976,7 @@ Please check, Lalubhai:
 | `kind.press_time` | Press run times | प्रेस रन का समय |
 | `kind.press_reopen` | Reopen a press run | प्रेस रन फिर खोलना |
 | `kind.ageing_override` | Ageing override | एजिंग की छूट |
+| `kind.press_late_entry` | Press run entered late | बाद में भरा गया प्रेस रन |
 | `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
 | `subject.dieRerank` | Copy {code}, tier {from} to {to} | कॉपी {code}, टियर {from} से {to} |
@@ -2998,11 +3022,14 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (80)
+### dieRoom (339)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Die room | Die रूम |
+| `print.button` | Print card | कार्ड प्रिंट करें |
+| `print.date` | Date | तारीख |
+| `print.readings` | Last readings | पिछली रीडिंग |
 | `copies.title` | Copies | कॉपी |
 | `copies.copy` | Copy | कॉपी |
 | `copies.tier` | Tier {rank} | टियर {rank} |
@@ -3021,13 +3048,21 @@ Please check, Lalubhai:
 | `status.at_nitriding` | At nitriding | नाइट्राइडिंग पर |
 | `status.at_maker` | At die maker | Die मेकर के पास |
 | `status.retired` | Retired | बंद |
+| `status.on_trial` | On trial | ट्रायल पर |
 | `bands.title` | Bands | बैंड |
 | `bands.add` | Add band | बैंड जोड़ें |
 | `bands.wall` | Wall (mm) | दीवार (mm) |
 | `bands.range` | {min} to {max} kg/12ft | {min} से {max} kg/12ft |
 | `bands.label` | Label | नाम |
 | `bands.retire` | Retire band | बैंड बंद करें |
+| `bands.retireTitle` | Retire this band? | यह बैंड बंद करें? |
+| `bands.retireBody` | No copy can be put on it again. Its history stays. | इस पर दोबारा कोई कॉपी नहीं रखी जा सकेगी। इतिहास रहेगा। |
+| `bands.retiredToast` | Band retired | बैंड बंद हुआ |
 | `bands.duplicate` | This band already exists for this die. | इस die का यह बैंड पहले से है। |
+| `bands.primary` | Main band | मुख्य बैंड |
+| `bands.retired` | Retired | बंद |
+| `bands.noCopies` | No copies on this band. | इस बैंड पर कोई कॉपी नहीं। |
+| `bands.liftedTo` | {code} lifted to {band} on {date} | {code} को {date} को {band} में ले गए |
 | `card.title` | Die card | Die कार्ड |
 | `card.alloy` | Alloy | अलॉय |
 | `card.temper` | Temper | टेम्पर |
@@ -3043,16 +3078,58 @@ Please check, Lalubhai:
 | `card.drawing` | Press drawing | प्रेस ड्रॉइंग |
 | `card.files` | Files | फ़ाइलें |
 | `card.addFile` | Add file | फ़ाइल जोड़ें |
+| `card.notFound` | This copy doesn't exist. | यह कॉपी नहीं मिली। |
+| `card.loadFailed` | This card didn't load. Check the connection and try again. | यह कार्ड नहीं खुला। कनेक्शन देखकर फिर कोशिश करें। |
+| `card.noReading` | No reading yet | अभी कोई रीडिंग नहीं |
+| `card.cardTitle` | Card | कार्ड |
+| `card.ownerLabel` | Owner: | मालिक: |
+| `card.wall` | Wall | दीवार |
+| `card.trial` | Trial weight | ट्रायल वज़न |
+| `card.hardness` | Hardness (HV) | कठोरता (HV) |
+| `card.supplier` | Supplier | सप्लायर |
+| `card.ftr` | FTR | FTR |
+| `card.lifeLine` | Life {produced} of {life} kg | लाइफ {produced} / {life} kg |
+| `card.lifeReached` | Life reached | लाइफ पूरी |
+| `card.onPress` | On a press. | प्रेस पर है। |
+| `card.edit` | Edit card | कार्ड बदलें |
+| `card.editTitle` | Edit card {code} | कार्ड {code} बदलें |
+| `card.saved` | Card saved | कार्ड सेव हुआ |
+| `card.fieldsInvalid` | Check the numbers: whole numbers from 1. | संख्याएं देखें: 1 से शुरू पूरी संख्या। |
+| `card.lifeKg` | Life | लाइफ |
+| `card.lifeHint` | Whole kg this copy should make. Reaching it warns; it never blocks. | इस कॉपी से कितने kg बनने चाहिए। पूरी होने पर चेतावनी आती है, रुकावट नहीं। |
+| `card.retire` | Retire copy | कॉपी बंद करें |
+| `card.retireTitle` | Retire {code}? | {code} बंद करें? |
+| `card.retireBody` | A retired copy takes no readings and keeps its number. | बंद कॉपी में रीडिंग नहीं चढ़ती, उसका नंबर वही रहता है। |
+| `card.retired` | Copy retired | कॉपी बंद हुई |
 | `tier.propose` | Change tier | टियर बदलें |
 | `tier.lift` | Move to band | बैंड में ले जाएं |
 | `tier.pending` | Waiting for approval | मंज़ूरी का इंतज़ार |
 | `tier.nothingChanges` | Pick a different tier or band. | दूसरा टियर या बैंड चुनें। |
 | `tier.pendingExists` | A change for this copy is already waiting. | इस कॉपी का एक बदलाव पहले से इंतज़ार में है। |
+| `tier.waitingManager` | Waiting for a manager | मैनेजर का इंतज़ार |
+| `tier.pendingLift` | Move to band {band} | बैंड {band} में ले जाना |
+| `tier.pendingRank` | Change to tier {rank} | टियर {rank} करना |
+| `tier.openApprovals` | Open approvals | मंज़ूरी खोलें |
+| `tier.noPending` | No change is waiting. A manager approves every tier change. | कोई बदलाव इंतज़ार में नहीं। हर टियर बदलाव मैनेजर मंज़ूर करता है। |
+| `tier.history` | History | पुराना रिकॉर्ड |
+| `tier.liftedTo` | Lifted to {band} | {band} में गई |
+| `tier.firstTier` | First tier {rank} | पहला टियर {rank} |
+| `tier.rankChange` | Tier {from} to {to} | टियर {from} से {to} |
+| `tier.status.pending` | Waiting | इंतज़ार में |
+| `tier.status.applied` | Done | हो गया |
+| `tier.status.rejected` | Rejected | नामंज़ूर |
+| `tier.proposeTitle` | Change tier of {code} | {code} का टियर बदलें |
+| `tier.proposeBody` | A manager decides. The copy keeps its tier until then. | मैनेजर तय करता है। तब तक कॉपी का टियर वही रहता है। |
+| `tier.rankLabel` | New tier | नया टियर |
+| `tier.rankInvalid` | Tier is a whole number from 1. | टियर 1 से शुरू पूरी संख्या है। |
+| `tier.reasonRequired` | Write a reason. | कारण लिखें। |
+| `tier.sent` | Sent. Waiting for a manager. | भेज दिया। मैनेजर का इंतज़ार। |
 | `drift.under` | Under band | बैंड से कम |
 | `drift.green` | In band | बैंड में |
 | `drift.amber` | Near the edge | किनारे के पास |
 | `drift.red` | Over band | बैंड से ज़्यादा |
 | `drift.value` | {pct}% over band start | बैंड शुरू से {pct}% ज़्यादा |
+| `drift.none` | No reading | कोई रीडिंग नहीं |
 | `issue.title` | Issue to press | प्रेस को दें |
 | `issue.issue` | Issue | दें |
 | `issue.return` | Take back | वापस लें |
@@ -3073,6 +3150,31 @@ Please check, Lalubhai:
 | `maker.correction` | Correction | सुधार |
 | `maker.repair` | Repair | मरम्मत |
 | `maker.job` | Job {number} | जॉब {number} |
+| `maker.none` | Not with a die maker | Die मेकर के पास नहीं है |
+| `maker.noneBody` | Send it for a trial, a correction or a repair. | ट्रायल, सुधार या मरम्मत के लिए भेजें। |
+| `maker.notOnRack` | It is {status}. Only a copy in the rack can be sent. | यह {status} है। सिर्फ़ रैक की कॉपी भेजी जा सकती है। |
+| `maker.makerName` | Die maker | Die मेकर |
+| `maker.sent` | Sent | भेजी |
+| `maker.statusLabel` | Status | स्थिति |
+| `maker.statusSent` | Out with the maker | मेकर के पास |
+| `maker.cancel` | Cancel send | भेजना रद्द करें |
+| `maker.cancelled` | Send cancelled | भेजना रद्द हुआ |
+| `maker.cancelTitle` | Cancel the send {number}? | भेजना {number} रद्द करें? |
+| `maker.cancelBody` | {code} comes back to the rack. Nothing is kept as sent. | {code} रैक में लौट आती है। भेजा हुआ कुछ दर्ज नहीं रहता। |
+| `maker.keepJob` | Keep the send | भेजना रहने दें |
+| `maker.history` | Earlier jobs | पुराने जॉब |
+| `maker.status.sent` | Sent | भेजी |
+| `maker.status.received` | Received | मिल गई |
+| `maker.status.cancelled` | Cancelled | रद्द |
+| `maker.sendTitle` | Send {code} to a die maker | {code} को die मेकर को भेजें |
+| `maker.pickMaker` | Pick a die maker | Die मेकर चुनें |
+| `maker.noMakers` | There is no die maker yet. | अभी कोई die मेकर नहीं है। |
+| `maker.addMakerLink` | Add one | एक जोड़ें |
+| `maker.sentToast` | {number}: {code} sent | {number}: {code} भेजी |
+| `maker.receiveTitle` | Receive {number} | {number} वापस लें |
+| `maker.trialSet` | Trial weight is already {kg} kg/12ft. It stays. | ट्रायल वज़न पहले से {kg} kg/12ft है। वही रहेगा। |
+| `maker.trialHint` | kg per 12 ft. This is not a drift reading. | kg/12ft। यह बढ़त की रीडिंग नहीं है। |
+| `maker.receivedToast` | {number}: {code} is back in the rack | {number}: {code} रैक में वापस |
 | `owner.title` | Owner | मालिक |
 | `owner.belongsTo` | This die belongs to {name} | यह die {name} की है |
 | `owner.pickCopy` | Pick the die copy | Die की कॉपी चुनें |
@@ -3082,8 +3184,189 @@ Please check, Lalubhai:
 | `owner.purpose.press` | Press | प्रेस |
 | `owner.purpose.pack` | Pack | पैकिंग |
 | `owner.purpose.dispatch` | Dispatch | Dispatch |
+| `owner.checkTitle` | Who may use this die | यह die कौन चला सकता है |
+| `owner.purposeLabel` | Check for | किसके लिए जांचें |
+| `owner.checkBody` | Check a copy for a customer before you plan, press, pack or dispatch it. | प्लान, प्रेस, पैक या dispatch से पहले कॉपी को ग्राहक के लिए जांचें। |
+| `owner.forParty` | For customer | ग्राहक |
+| `owner.plantStock` | Plant stock (no customer) | प्लांट स्टॉक (कोई ग्राहक नहीं) |
+| `owner.pickToCheck` | Pick a copy to check. | जांचने के लिए कॉपी चुनें। |
+| `owner.allowedPlant` | Allowed. This die belongs to the plant. | चल सकती है। यह die प्लांट की है। |
+| `owner.allowedOwner` | Allowed. This die belongs to {name}. | चल सकती है। यह die {name} की है। |
+| `owner.allowedByException` | Allowed for {name} by an approved exception. | {name} के लिए मंज़ूर अपवाद से चल सकती है। |
+| `owner.waitingManager` | Waiting for a manager. The exception is for {name} only. | मैनेजर का इंतज़ार। अपवाद सिर्फ़ {name} के लिए है। |
+| `owner.whyLabel` | Why is it needed | क्यों चाहिए |
+| `owner.whyRequired` | Say why. | कारण लिखें। |
+| `owner.requested` | Asked. Waiting for a manager. | मांग भेजी। मैनेजर का इंतज़ार। |
+| `owner.partySearch` | Search customers | ग्राहक खोजें |
+| `owner.exceptionsTitle` | Exceptions on {code} | {code} पर अपवाद |
+| `owner.exceptionsNone` | No open exception on this copy. | इस कॉपी पर कोई खुला अपवाद नहीं। |
+| `owner.exceptionsFailed` | The exceptions didn't load. | अपवाद नहीं खुले। |
+| `owner.approvedOn` | Approved {date} | {date} को मंज़ूर |
+| `owner.closeException` | Close exception | अपवाद बंद करें |
+| `owner.closeTitle` | Close the exception on {code}? | {code} का अपवाद बंद करें? |
+| `owner.closeBody` | {name} can no longer use {code}. The next check says who owns it. | {name} अब {code} नहीं चला सकता। अगली जांच बताएगी कि यह किसकी है। |
+| `owner.closedToast` | Exception closed | अपवाद बंद हुआ |
+| `position.in` | In band | बैंड में |
+| `position.above` | Above band | बैंड से ऊपर |
+| `position.below` | Below band | बैंड से नीचे |
+| `tabs.readings` | Readings | रीडिंग |
+| `tabs.runs` | Runs | रन |
+| `tabs.nitriding` | Nitriding | नाइट्राइडिंग |
+| `tabs.tier` | Tier | टियर |
+| `tabs.maker` | Maker | मेकर |
+| `tabs.files` | Files | फ़ाइलें |
+| `errors.exists` | Already exists: {code} | पहले से है: {code} |
+| `board.searchHint` | Search a section, a series or a copy like 12170-2 | सेक्शन, सीरीज़ या कॉपी खोजें, जैसे 12170-2 |
+| `board.slashHint` | A slash works too: 12170/2 finds 12170-2. | स्लैश भी चलता है: 12170/2 से 12170-2 मिलती है। |
+| `board.columns.shape` | Shape | आकार |
+| `board.columns.band` | Weight band | वज़न बैंड |
+| `board.columns.owner` | Owner | मालिक |
+| `board.columns.copies` | Copies | कॉपी |
+| `board.columns.drift` | Drift | बढ़त |
+| `board.plantOwned` | Plant-owned | प्लांट की अपनी |
+| `board.noCopies` | No copies | कोई कॉपी नहीं |
+| `board.issueLink` | Issue and return | प्रेस को दें और वापस लें |
+| `board.makersLink` | Die makers | Die मेकर |
+| `board.loadFailed` | The dies didn't load. Check the connection and try again. | Die की सूची नहीं खुली। कनेक्शन देखकर फिर कोशिश करें। |
+| `board.noMatchBody` | Try a section code, a series or a copy code. | सेक्शन कोड, सीरीज़ या कॉपी कोड आज़माएं। |
+| `section.useFirst` | Run {code} first: {kg} kg/12ft, in band. | पहले {code} चलाएं: {kg} kg/12ft, बैंड में। |
+| `section.bandsAndCopies` | Bands and copies | बैंड और कॉपी |
+| `section.emptyCopiesBody` | The copy number is given when you add one. | कॉपी जोड़ते समय उसका नंबर अपने आप मिलता है। |
+| `section.cavityCount` | {count} cavities | {count} कैविटी |
+| `section.addCopyTitle` | New copy of {code} | {code} की नई कॉपी |
+| `section.addCopyBody` | The copy number comes from the server and is never reused. | कॉपी का नंबर सर्वर देता है और दोबारा नहीं आता। |
+| `section.tierOptional` | Tier (optional) | टियर (ज़रूरी नहीं) |
+| `section.copyAdded` | {code} added | {code} जुड़ गई |
+| `band.title` | New band | नया बैंड |
+| `band.backToSection` | Back to this die | इस die पर वापस |
+| `band.intro` | A second copy on a band is always allowed. A second band with the same wall and weights is not. | एक बैंड पर दूसरी कॉपी हमेशा चलती है। उसी दीवार और वज़न का दूसरा बैंड नहीं बनता। |
+| `band.wallHint` | Millimetres. Blank means {wall}. | मिलीमीटर। खाली छोड़ें तो {wall}। |
+| `band.wallNone` | Millimetres. This die has no wall written; type it. | मिलीमीटर। इस die की दीवार लिखी नहीं है, खुद लिखें। |
+| `band.min` | Min | कम से कम |
+| `band.max` | Max | ज़्यादा से ज़्यादा |
+| `band.wallInvalid` | Enter the wall in millimetres, like 1.2. | दीवार मिलीमीटर में लिखें, जैसे 1.2। |
+| `band.kgInvalid` | Enter kg per 12 ft with up to three decimals, like 5.967. | kg/12ft तीन दशमलव तक लिखें, जैसे 5.967। |
+| `band.useExisting` | Add the copy to that band instead. | कॉपी को उसी बैंड में जोड़ें। |
+| `band.save` | Save band | बैंड सेव करें |
+| `band.saved` | Band saved | बैंड सेव हुआ |
+| `band.cantAdd` | Your role can't add bands. Ask a manager or admin. | आपका रोल बैंड नहीं जोड़ सकता। मैनेजर या एडमिन से कहें। |
+| `reading.add` | Add reading | रीडिंग जोड़ें |
+| `reading.title` | Reading for {code} | {code} की रीडिंग |
+| `reading.noneYet` | kg per 12 ft. No reading yet. | kg/12ft। अभी कोई रीडिंग नहीं। |
+| `reading.last` | kg per 12 ft. Last reading {kg}. | kg/12ft। पिछली रीडिंग {kg}। |
+| `reading.weight` | Weight of 12 ft | 12 ft का वज़न |
+| `reading.bandHint` | Band {band}. | बैंड {band}। |
+| `reading.serverFigures` | The percent and colour are worked out when you save. | सेव करने पर प्रतिशत और रंग तय होते हैं। |
+| `reading.backspace` | Backspace | मिटाएं |
+| `reading.saved` | {code}: {kg} kg/12ft saved | {code}: {kg} kg/12ft सेव हुआ |
+| `reading.empty` | No readings yet | अभी कोई रीडिंग नहीं |
+| `reading.emptyBody` | Weigh 12 ft off this die and add the weight. | इस die से 12 ft तौलकर वज़न जोड़ें। |
+| `reading.trendLabel` | Readings, kg per 12 ft | रीडिंग, kg/12ft |
+| `reading.bench` | Bench | बेंच |
+| `reading.trialNote` | Trial weight. Not a drift reading. | ट्रायल वज़न। बढ़त की रीडिंग नहीं। |
+| `runs.label` | Press runs | प्रेस रन |
+| `runs.empty` | No runs yet | अभी कोई रन नहीं |
+| `runs.emptyBody` | Press runs appear here once they are logged. | रन दर्ज होने पर यहां दिखेंगे। |
+| `runs.loadFailed` | The runs didn't load. | रन नहीं खुले। |
+| `runs.run` | Run | रन |
+| `runs.day` | Day | दिन |
+| `runs.shiftSeq` | shift {seq} | शिफ़्ट {seq} |
+| `runs.input` | In (kg) | अंदर (kg) |
+| `runs.output` | Out (kg) | बाहर (kg) |
+| `runs.recovery` | Recovery | रिकवरी |
+| `runs.reading` | Reading | रीडिंग |
+| `runs.accumulated` | Total made (kg) | अब तक बना (kg) |
+| `runs.remark` | Remark | टिप्पणी |
+| `nitriding.send` | Send to nitriding | नाइट्राइडिंग पर भेजें |
+| `nitriding.back` | Back from nitriding | नाइट्राइडिंग से वापस |
+| `nitriding.empty` | No nitriding yet | अभी कोई नाइट्राइडिंग नहीं |
+| `nitriding.emptyBody` | Each treatment is written here with its chemicals. | हर ट्रीटमेंट केमिकल के साथ यहां लिखा जाता है। |
+| `nitriding.hardness` | HV {hv} | HV {hv} |
+| `nitriding.noHardness` | No HV written | HV नहीं लिखी |
+| `nitriding.chem.cr4` | CR4 | CR4 |
+| `nitriding.chem.cr2` | CR2 | CR2 |
+| `nitriding.chem.k2s` | K2S | K2S |
+| `nitriding.chem.caustic` | Caustic | कॉस्टिक |
+| `nitriding.balance` | open {open} g, used {used} g, close {close} g | शुरू {open} g, लगा {used} g, बचा {close} g |
+| `nitriding.sendTitle` | Send {code} to nitriding | {code} को नाइट्राइडिंग पर भेजें |
+| `nitriding.sendBody` | Write what was used. Leave a chemical empty if it was not drawn. | जो लगा वह लिखें। जो नहीं निकला उसे खाली छोड़ें। |
+| `nitriding.hvLabel` | HV before | पहले की HV |
+| `nitriding.hvAfter` | HV after treatment | ट्रीटमेंट के बाद की HV |
+| `nitriding.hvInvalid` | HV is a whole number from 1. | HV 1 से शुरू पूरी संख्या है। |
+| `nitriding.open` | Open | शुरू |
+| `nitriding.used` | Used | लगा |
+| `nitriding.closeLine` | {open} - {used} = {close} g left | {open} - {used} = {close} g बचा |
+| `nitriding.chemInvalid` | {name}: write open and used in grams, used not above open. | {name}: शुरू और लगा ग्राम में लिखें, लगा शुरू से ज़्यादा नहीं। |
+| `nitriding.sent` | {code} is out at nitriding | {code} नाइट्राइडिंग पर है |
+| `nitriding.backTitle` | {code} back from nitriding | {code} नाइट्राइडिंग से वापस |
+| `nitriding.returned` | {code} is back in the rack | {code} रैक में वापस है |
+| `files.empty` | No files | कोई फ़ाइल नहीं |
+| `files.emptyBody` | Add the press drawing, a photo or a CDR or DWG file. | प्रेस ड्रॉइंग, फ़ोटो या CDR/DWG फ़ाइल जोड़ें। |
+| `files.wholeSection` | whole die | पूरी die |
+| `files.openDrawing` | Open drawing | ड्रॉइंग खोलें |
+| `files.asDrawing` | This is the press drawing (PDF) | यह प्रेस ड्रॉइंग है (PDF) |
+| `files.limits` | Images up to 8 MB, PDF up to 25 MB, CDR and DWG up to 40 MB. | फ़ोटो 8 MB तक, PDF 25 MB तक, CDR और DWG 40 MB तक। |
+| `files.badType` | Pick an image, a PDF, a CDR or a DWG file. | फ़ोटो, PDF, CDR या DWG फ़ाइल चुनें। |
+| `files.drawingPdf` | The press drawing must be a PDF. | प्रेस ड्रॉइंग PDF होनी चाहिए। |
+| `files.added` | File added | फ़ाइल जुड़ी |
+| `files.removed` | File removed | फ़ाइल हटी |
+| `files.removeTitle` | Remove {name}? | {name} हटाएं? |
+| `files.removeBody` | The file is deleted from the die. | फ़ाइल die से हट जाएगी। |
+| `lift.title` | Move to another band | दूसरे बैंड में ले जाएं |
+| `lift.backToCard` | Back to the card | कार्ड पर वापस |
+| `lift.codeStays` | This code will not change | यह कोड नहीं बदलेगा |
+| `lift.currentBand` | Current band | अभी का बैंड |
+| `lift.reading` | Reading | रीडिंग |
+| `lift.aboveBy` | above by {g} g | {g} g ऊपर |
+| `lift.belowBy` | below by {g} g | {g} g नीचे |
+| `lift.proposeTitle` | Ask for the move | बदलाव मांगें |
+| `lift.oldBandKeeps` | The old band keeps an empty slot for this copy. | पुराने बैंड में इस कॉपी की जगह खाली दिखती है। |
+| `lift.targetBand` | Move to band | इस बैंड में |
+| `lift.rankAfter` | Tier after the move | बदलाव के बाद टियर |
+| `lift.managerDecides` | A manager decides in Approvals. | मैनेजर मंज़ूरी में तय करता है। |
+| `lift.noOtherBand` | This die has no other band. Add one first. | इस die का कोई दूसरा बैंड नहीं है। पहले एक जोड़ें। |
+| `lift.dieRoomOnly` | Only the die room asks for a move. | बदलाव सिर्फ़ die रूम मांगता है। |
+| `lift.submit` | Ask for approval | मंज़ूरी मांगें |
+| `issues.pickRun` | Pick a press run | प्रेस रन चुनें |
+| `issues.noRun` | No press run is waiting for a die of this section. Release one in the plan first. | इस सेक्शन के किसी रन को die का इंतज़ार नहीं है। पहले प्लान में रन छोड़ें। |
+| `issues.run` | Press run | प्रेस रन |
+| `issues.lifeReached` | Life reached. The copy was issued anyway. | लाइफ पूरी हो चुकी है। फिर भी कॉपी दे दी गई। |
+| `issues.title` | Issue and return | प्रेस को दें और वापस लें |
+| `issues.subtitle` | Hand a copy to a press and take it back. | कॉपी प्रेस को दें और वापस लें। |
+| `issues.pickCopy` | Pick a copy | कॉपी चुनें |
+| `issues.pickLine` | Pick a press line | प्रेस लाइन चुनें |
+| `issues.noneOnRack` | No copy in the rack | रैक में कोई कॉपी नहीं |
+| `issues.noneOnRackBody` | Every copy is out, or the die has none yet. | सारी कॉपी बाहर हैं, या अभी किसी die की कॉपी नहीं है। |
+| `issues.dieRoomOnly` | Only the die room hands out dies. | Die सिर्फ़ die रूम देता है। |
+| `issues.issuedToast` | Copy issued | कॉपी दी गई |
+| `issues.open` | On a press now | अभी प्रेस पर |
+| `issues.noneOpen` | Nothing is out | कुछ भी बाहर नहीं |
+| `issues.noneOpenBody` | Copies you issue show here until they come back. | जो कॉपी आप देते हैं वह लौटने तक यहां दिखती है। |
+| `issues.loadFailed` | The list didn't load. | सूची नहीं खुली। |
+| `issues.cancelledToast` | Issue cancelled | देना रद्द हुआ |
+| `issues.lineFromRun` | The run sets the press line. | प्रेस लाइन रन से तय होती है। |
+| `issues.returnBlocked` | {run} has the die in the press. Take it back after the die is out. | {run} में die प्रेस में लगा है। die निकलने के बाद वापस लें। |
+| `issues.cancelBlocked` | {run} has started. Take the die back when it is out. | {run} शुरू हो चुका है। die निकलने पर वापस लें। |
+| `issues.cancelTitle` | Cancel the issue of {code}? | {code} का देना रद्द करें? |
+| `issues.cancelBody` | {code} goes back to the rack and the press run waits for a copy again. | {code} रैक में लौट जाती है और प्रेस रन फिर कॉपी का इंतज़ार करता है। |
+| `issues.keepIssued` | Keep it issued | दिया हुआ रहने दें |
+| `makers.subtitle` | Who makes and corrects the dies, and what is with them now. | die कौन बनाता और सुधारता है, और अभी उनके पास क्या है। |
+| `makers.empty` | No die maker yet | अभी कोई die मेकर नहीं |
+| `makers.emptyBody` | Add the workshops you send dies to. | जिन वर्कशॉप में die भेजते हैं उन्हें जोड़ें। |
+| `makers.archive` | Archive | आर्काइव |
+| `makers.archived` | Die maker archived | Die मेकर आर्काइव हुआ |
+| `makers.archiveTitle` | Archive {name}? | {name} को आर्काइव करें? |
+| `makers.archiveBody` | The maker leaves the list for new sends. Past sends keep the name. | मेकर नए भेजने की सूची से हट जाता है। पुराने भेजने में नाम रहता है। |
+| `makers.withMakers` | With a die maker now | अभी मेकर के पास |
+| `makers.noJobs` | Nothing is out | कुछ भी बाहर नहीं |
+| `makers.noJobsBody` | A copy you send shows here until it is received. | भेजी हुई कॉपी वापस आने तक यहां दिखती है। |
+| `makers.name` | Name | नाम |
+| `makers.city` | City | शहर |
+| `makers.phone` | Phone | फ़ोन |
+| `makers.nameRequired` | Write the name. | नाम लिखें। |
+| `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (50)
+### orders (72)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3137,6 +3420,28 @@ Please check, Lalubhai:
 | `blockers.alloy` | add the alloy | अलॉय डालें |
 | `blockers.temper` | add the temper | टेम्पर डालें |
 | `blockers.die_or_tier` | pick a copy or a tier | कॉपी या टियर चुनें |
+| `hold.title` | Put on sales order | सेल्स ऑर्डर पर रखें |
+| `hold.action` | Hold for this line | इस लाइन के लिए होल्ड करें |
+| `hold.pick` | Pick bundles in the yard | यार्ड से bundle चुनें |
+| `hold.heldInYard` | Held in yard | यार्ड में होल्ड |
+| `hold.heldKg` | {kg} kg held in yard | यार्ड में {kg} kg होल्ड |
+| `hold.heldFor` | Held for {order} | {order} के लिए होल्ड |
+| `hold.held` | {count} {count:bundle\|bundles} held | {count} bundle होल्ड किए |
+| `hold.already` | Already held for this line | इस लाइन के लिए पहले से होल्ड है |
+| `hold.lengthMismatch` | The cut length differs from the order line | कट लंबाई ऑर्डर लाइन से अलग है |
+| `hold.tooMany` | Hold at most {max} bundles at a time. | एक बार में ज़्यादा से ज़्यादा {max} bundle होल्ड करें। |
+| `hold.note` | Note | नोट |
+| `hold.empty` | Nothing is held for this line. | इस लाइन के लिए कुछ होल्ड नहीं है। |
+| `hold.release` | Release | होल्ड हटाएं |
+| `hold.releaseAll` | Release all | सब होल्ड हटाएं |
+| `hold.released` | {count} {count:bundle\|bundles} released | {count} bundle से होल्ड हटा |
+| `hold.refused.line_closed` | The order is not open | ऑर्डर खुला नहीं है |
+| `hold.refused.not_available` | Not in the yard | यार्ड में नहीं है |
+| `hold.refused.on_dispatch` | On a dispatch | dispatch पर है |
+| `hold.refused.pending_reallocation` | Waiting on a reallocation approval | reallocation की मंज़ूरी बाकी है |
+| `hold.refused.die_mismatch` | Different die | दूसरी die |
+| `hold.refused.other_line` | On another order line; move it instead | दूसरी ऑर्डर लाइन पर है; उसे वहां से डालें |
+| `hold.refused.held_elsewhere` | Held for another order line | दूसरी ऑर्डर लाइन के लिए होल्ड पर है |
 
 ### reallocate (13)
 
@@ -3156,7 +3461,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (63)
+### press (133)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3168,6 +3473,16 @@ Please check, Lalubhai:
 | `lines.tonnage` | Tonnes | टन |
 | `lines.retire` | Retire | बंद करें |
 | `plan.title` | Press plan | प्रेस प्लान |
+| `plan.purpose.label` | Purpose | किस लिए |
+| `plan.purpose.production` | Production | उत्पादन |
+| `plan.purpose.die_trial` | Die trial | Die ट्रायल |
+| `plan.purpose.sample` | Sample | सैंपल |
+| `plan.purpose.other` | Other | अन्य |
+| `plan.noOrderLine` | A trial or sample needs no order line. | ट्रायल या सैंपल के लिए ऑर्डर लाइन नहीं चाहिए। |
+| `plan.queueOrder` | Queue order | कतार का क्रम |
+| `plan.moveUp` | Move up | ऊपर करें |
+| `plan.moveDown` | Move down | नीचे करें |
+| `plan.pullBack` | Take back to planning | प्लानिंग में वापस लें |
 | `plan.new` | New plan | नया प्लान |
 | `plan.number` | Plan {number} | प्लान {number} |
 | `plan.window` | From {from} to {to} | {from} से {to} तक |
@@ -3223,6 +3538,135 @@ Please check, Lalubhai:
 | `console.pressRemark` | Press remark | प्रेस टिप्पणी |
 | `console.dieRemark` | Die remark | Die टिप्पणी |
 | `console.timeUnconfirmed` | Time not confirmed | समय पक्का नहीं |
+| `console.billets` | Billets | बिलेट |
+| `console.billetCount` | Billets | बिलेट |
+| `console.billetLength` | Billet length | बिलेट लंबाई |
+| `console.billetKg` | Billet kg | बिलेट kg |
+| `console.addBillet` | Add billets | बिलेट जोड़ें |
+| `console.tooManyBillets` | At most {max} billet rows. | ज़्यादा से ज़्यादा {max} बिलेट लाइनें। |
+| `console.billetCastMismatch` | Billets must be of this run's cast. | बिलेट इसी रन की cast के होने चाहिए। |
+| `console.billetShort` | Fewer billets in stock than typed | भरे गए से कम बिलेट स्टॉक में हैं |
+| `console.billetShortReason` | Why the billets are short | बिलेट कम क्यों हैं |
+| `console.pieces` | Pieces | पीस |
+| `console.cutLength` | Cut length | कट लंबाई |
+| `console.pcs` | Pcs | पीस |
+| `console.addLength` | Add cut length | कट लंबाई जोड़ें |
+| `console.hint` | About {kg} kg by the die weight | Die वज़न से लगभग {kg} kg |
+| `console.rejects` | Rejects | रिजेक्ट |
+| `console.noRejects` | No rejects | कोई रिजेक्ट नहीं |
+| `console.rejectReason` | Reject reason | रिजेक्ट का कारण |
+| `console.downtime` | Downtime | रुकावट |
+| `console.downtimeStart` | Press stopped | प्रेस रुकी |
+| `console.downtimeStop` | Press running again | प्रेस फिर चालू |
+| `console.downtimeOpen` | Close the downtime first. | पहले रुकावट बंद करें। |
+| `console.lateEntry` | Entered late | बाद में भरा |
+| `console.lateEntryAsk` | Ask approval for a late entry | बाद में भरने की मंज़ूरी मांगें |
+| `console.trialResult` | Trial result | ट्रायल का नतीजा |
+| `console.trialPass` | Trial passed | ट्रायल पास |
+| `console.trialFail` | Trial failed | ट्रायल फेल |
+| `console.notSaved` | Not saved yet | अभी सेव नहीं हुआ |
+| `console.logRun` | Log run | रन दर्ज करें |
+| `console.supervisorOnly` | Only this run's supervisor can log it. | सिर्फ़ इस रन का सुपरवाइज़र इसे दर्ज कर सकता है। |
+| `console.queuePosition` | Number {n} in queue | कतार में नंबर {n} |
+| `report.title` | Press report | प्रेस रिपोर्ट |
+| `report.runNo` | Run no | रन नंबर |
+| `report.productionDay` | Production day | उत्पादन दिन |
+| `report.shift` | Shift | शिफ्ट |
+| `report.line` | Press line | प्रेस लाइन |
+| `report.operator` | Operator | ऑपरेटर |
+| `report.section` | Section | सेक्शन |
+| `report.copy` | Die copy | Die कॉपी |
+| `report.orders` | Orders | ऑर्डर |
+| `report.cutLengths` | Cut lengths | कट लंबाई |
+| `report.cast` | Cast | Cast |
+| `report.billets` | Billets | बिलेट |
+| `report.startedStopped` | Started to stopped | शुरू से बंद तक |
+| `report.runningMin` | Running min | चलने के मिनट |
+| `report.downtimeMin` | Downtime min | रुकावट के मिनट |
+| `report.good` | Good kg and pcs | अच्छा kg और पीस |
+| `report.scrap` | Butt, ends and rejects kg | बट, एंड और रिजेक्ट kg |
+| `report.recovery` | Recovery % | रिकवरी % |
+| `report.csv` | Download CSV | CSV डाउनलोड करें |
+| `report.empty` | No logged runs in this period. | इस समय में कोई रन दर्ज नहीं। |
+| `report.lateShare` | Entered late: {pct}% | बाद में भरे: {pct}% |
+| `report.trial` | Trial | ट्रायल |
+| `summary.title` | Daily press summary | रोज़ का प्रेस सारांश |
+| `summary.pressedToday` | Pressed today | आज प्रेस हुआ |
+| `summary.recovery` | Recovery | रिकवरी |
+| `summary.downtime` | Downtime | रुकावट |
+| `summary.byLine` | By press | प्रेस के हिसाब से |
+| `summary.noRuns` | No runs logged today. | आज कोई रन दर्ज नहीं। |
+| `summary.kg` | {kg} kg | {kg} kg |
+| `summary.minutes` | {min} min | {min} मिनट |
+
+### foundry (64)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Foundry | फाउंड्री |
+| `casts.title` | Casts | Cast |
+| `casts.open` | Open cast | Cast खोलें |
+| `casts.number` | Cast {number} | Cast {number} |
+| `casts.alloy` | Alloy | एलॉय |
+| `casts.status.open` | Open | खुली |
+| `casts.status.closing` | Waiting for approval | मंज़ूरी बाकी |
+| `casts.status.closed` | Closed | बंद |
+| `casts.status.cancelled` | Cancelled | रद्द |
+| `casts.close` | Close cast | Cast बंद करें |
+| `casts.cancel` | Cancel cast | Cast रद्द करें |
+| `casts.tail` | Tail | टेल |
+| `casts.tailReason` | Why the tail | टेल का कारण |
+| `casts.empty` | No casts yet. | अभी कोई cast नहीं। |
+| `melt.title` | Melt | मेल्ट |
+| `melt.new` | New melt | नई मेल्ट |
+| `melt.number` | Melt {n} | मेल्ट {n} |
+| `melt.status.draft` | Draft | ड्राफ़्ट |
+| `melt.status.locked` | Locked | लॉक |
+| `melt.status.cancelled` | Cancelled | रद्द |
+| `melt.furnace` | Furnace | भट्टी |
+| `melt.chargingStart` | Charging start | चार्जिंग शुरू |
+| `melt.castingEnd` | Casting end | कास्टिंग खत्म |
+| `melt.charge` | Charge | चार्ज |
+| `melt.lots` | Scrap lots | स्क्रैप लॉट |
+| `melt.streams` | Return streams | वापसी माल |
+| `melt.logs` | Logs | लॉग |
+| `melt.dross` | Dross | ड्रॉस |
+| `melt.fe` | Iron (Fe) | लोहा (Fe) |
+| `melt.metalIn` | Metal in | डाला गया धातु |
+| `melt.burn` | Burn loss | जलन घटत |
+| `melt.balance` | Balance | बाकी |
+| `melt.yield` | Yield | यील्ड |
+| `melt.balanceReason` | Why the balance is off | बाकी में फर्क क्यों |
+| `melt.lock` | Lock melt | मेल्ट लॉक करें |
+| `melt.overCapacity` | More than the furnace holds. | भट्टी की क्षमता से ज़्यादा। |
+| `melt.nearCapacity` | Near the furnace limit. | भट्टी की सीमा के पास। |
+| `spectro.title` | Spectro | स्पेक्ट्रो |
+| `spectro.attach` | Add spectro | स्पेक्ट्रो जोड़ें |
+| `spectro.verdict.pass` | Pass | पास |
+| `spectro.verdict.fail` | Fail | फेल |
+| `spectro.verdict.incomplete` | Incomplete | अधूरा |
+| `spectro.element` | Element | तत्व |
+| `spectro.limit` | Limit | सीमा |
+| `spectro.reading` | Reading | रीडिंग |
+| `spectro.alBalance` | Al by balance | Al बाकी से |
+| `spectro.reason` | Why lock without a pass | बिना पास लॉक क्यों |
+| `spectro.overMillion` | The values add up to more than 100%. | कुल मान 100% से ज़्यादा है। |
+| `spectro.file` | Spectro file | स्पेक्ट्रो फ़ाइल |
+| `stock.title` | Billet stock | बिलेट स्टॉक |
+| `stock.byCast` | By cast | Cast के हिसाब से |
+| `stock.byAlloy` | By alloy | एलॉय के हिसाब से |
+| `stock.onHand` | On hand | हाथ में |
+| `stock.empty` | No billets in stock. | स्टॉक में कोई बिलेट नहीं। |
+| `masters.furnaces` | Furnaces | भट्टियां |
+| `masters.alloys` | Alloys | एलॉय |
+| `masters.addFurnace` | Add furnace | भट्टी जोड़ें |
+| `masters.addAlloy` | Add alloy | एलॉय जोड़ें |
+| `masters.capacity` | Capacity (kg) | क्षमता (kg) |
+| `masters.billetDia` | Billet size (mm) | बिलेट साइज़ (mm) |
+| `masters.limits` | Limits | सीमाएं |
+| `masters.min` | Min % | कम से कम % |
+| `masters.max` | Max % | ज़्यादा से ज़्यादा % |
+| `masters.noLimit` | No limit | कोई सीमा नहीं |
 
 ### ageing (20)
 

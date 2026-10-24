@@ -1,4 +1,5 @@
 import type { MessageKey, Translate, TranslateVars } from "@orrn/i18n";
+import type { ScanOutcome, ScanRefusalCode } from "@orrn/server/lib/scan";
 
 const BUNDLE_STATUSES = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof BUNDLE_STATUSES)[number];
@@ -8,16 +9,7 @@ type BundleStatus = (typeof BUNDLE_STATUSES)[number];
  * structured reason (T22); `reason` is the English sentence older servers
  * send alone, kept as a fallback.
  */
-export type BundleBlockCode =
-  | "held"
-  | "dispatched"
-  | "void"
-  | "status"
-  | "unassigned"
-  | "wrong_customer"
-  | "owned_die"
-  | "ambiguous"
-  | "reallocation_pending";
+export type BundleBlockCode = ScanRefusalCode | "status";
 
 export type BundleBlock = {
   reason: string;
@@ -29,6 +21,8 @@ export type BundleBlock = {
   customerName?: string | null;
   /** `ambiguous`: the bundle numbers the code could be. */
   candidates?: string[];
+  /** `held_for_order` (FP-OP-17): the sales order it is held for (`customerName` is its customer). */
+  orderNumber?: string | null;
 };
 
 /** One refused code as `dispatch.scan` / `addBundlesBySerial` report it (D12). */
@@ -39,6 +33,8 @@ export type RefusedRow = {
   heldBy: string | null;
   customerName: string | null;
   candidates: string[];
+  /** `held_for_order`: the sales order it is held for. */
+  orderNumber?: string | null;
 };
 
 /** Vehicle load against capacity as the server reports it (FP-PK-12; warn only). */
@@ -82,6 +78,7 @@ export function blockOf(report: AddBundlesReport, serial: string): ({ serial: st
           heldBy: refused.heldBy,
           customerName: refused.customerName,
           candidates: refused.candidates,
+          orderNumber: refused.orderNumber ?? null,
         }
       : {}),
     serial,
@@ -139,23 +136,15 @@ export function addOutcome(report: AddBundlesReport, serial: string): AddOutcome
  */
 export type ScanResultRow = {
   code: string;
-  outcome:
-    | "not_found"
-    | "ambiguous"
-    | "void"
-    | "dispatched"
-    | "held"
-    | "reallocation_pending"
-    | "unassigned"
-    | "wrong_customer"
-    | "owned_die"
-    | "already_on_dispatch"
-    | "added";
+  /** Every server outcome (`SCAN_OUTCOMES`); `blockMessage` maps each refusal to a floor key. */
+  outcome: ScanOutcome;
   message: string;
   bundleId: string | null;
   serial: string | null;
   heldBy: string | null;
   customerName: string | null;
+  /** `held_for_order`: the sales order it is held for. */
+  orderNumber?: string | null;
   candidates: string[];
   /** The office let a bundle with no order line through (`allowUnassigned`). */
   note: "unassigned" | null;
@@ -175,7 +164,14 @@ export function resultOutcome(r: ScanResultRow): AddOutcome {
       return {
         kind: "rejected",
         serial,
-        message: blockMessage({ reason: r.message, code: r.outcome, heldBy: r.heldBy, customerName: r.customerName, candidates: r.candidates }),
+        message: blockMessage({
+          reason: r.message,
+          code: r.outcome,
+          heldBy: r.heldBy,
+          customerName: r.customerName,
+          candidates: r.candidates,
+          orderNumber: r.orderNumber ?? null,
+        }),
         code: r.outcome,
         ...(r.outcome === "ambiguous" ? { candidates: r.candidates } : {}),
       };
@@ -207,9 +203,21 @@ export function blockMessage(block: BundleBlock): ScanMessage {
       return block.candidates && block.candidates.length > 0
         ? { key: "scan.continuous.ambiguous", vars: { numbers: block.candidates.join(", ") } }
         : { key: "scan.continuous.ambiguousPlain" };
+    case "held_for_order":
+      if (block.orderNumber) {
+        return { key: "scan.continuous.heldForOrder", vars: { order: block.orderNumber, customer: block.customerName ?? "" } };
+      }
+      break;
     case "status":
       if (block.status) return { key: "scan.continuous.wrongStatus", status: block.status };
       break;
+    case undefined:
+      break;
+    default: {
+      // A new server refusal code without a floor key fails the type check here (and scan-outcome.test.ts).
+      const unmapped: never = block.code;
+      return rejectionMessage(String(unmapped ?? block.reason));
+    }
   }
   return rejectionMessage(block.reason);
 }

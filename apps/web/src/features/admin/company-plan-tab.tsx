@@ -25,7 +25,7 @@ const PLAN_KEYS: Record<(typeof COMPANY_PLANS)[number], MessageKey> = {
  * Plan and modules (spec §3, Godseye company tab). Modules gate the
  * company's navigation (`visibleItems`). A ticked box is a module that is
  * on: nothing saved means every module is on, so every box starts ticked,
- * and all four ticked saves as "all on" (an empty list). A plan value
+ * and every box ticked saves as "all on" (an empty list). A plan value
  * Godseye doesn't offer (older companies, the `dev` demo) is kept as its own
  * option so saving never silently changes it.
  */

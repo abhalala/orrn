@@ -5,13 +5,15 @@ import { customer } from "@orrn/db/schema/customers";
 import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
 import { bundle, bundleGroup, bundleStatuses, type BundleStatus } from "@orrn/db/schema/inventory";
 import { printLog, printerProfile } from "@orrn/db/schema/printing";
+import { salesOrderLine } from "@orrn/db/schema/sales";
 import { company } from "@orrn/db/schema/tenant";
+import { readFloorSettings } from "@orrn/domain";
 
 import { companyProcedure, router } from "../index";
 import { mapInChunks } from "../lib/atomic";
 import { now } from "../lib/clock";
-import { DEFAULT_TIMEZONE, dayWindow } from "../lib/dayWindow";
-import { localDate } from "../lib/zonedBuckets";
+import { productionDayWindow } from "../lib/dayWindow";
+import { can } from "../lib/permissions";
 
 const LIST_LIMIT = 10;
 
@@ -32,13 +34,20 @@ export const dashboardRouter = router({
       .from(company)
       .where(eq(company.id, companyId))
       .limit(1);
-    const configured = (companyRow?.settings ?? {}).timezone;
-    const timezone = typeof configured === "string" && configured ? configured : DEFAULT_TIMEZONE;
-    // One clock for the window and its date, the same one analytics.trends reads.
+    const settings = companyRow?.settings ?? {};
+    // One clock for the window and its date, the same one analytics.trends reads. The window is
+    // the production day (FP-PF-05, C15/C16): shift 1's start to the next, or calendar midnight
+    // when no shifts are saved. Read fresh each call, so a shift change applies from the next read.
     const nowMs = now().getTime();
-    const { startMs, endMs } = dayWindow(timezone, nowMs);
-    const start = new Date(startMs);
-    const end = new Date(endMs);
+    const day = productionDayWindow(settings, nowMs);
+    const timezone = day.timezone;
+    const start = new Date(day.startMs);
+    const end = new Date(day.endMs);
+    // FP-PF-15: viewers get the four KPIs only (kg packed, bundles, kg dispatched, in stock).
+    const kpisOnly = ctx.role === "viewer";
+    const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+    // Rate slices need both the plant switch and order.price (C23; platform spec §6 Today).
+    const showValue = !kpisOnly && readFloorSettings(settings).priceOnSalesOrder && can(me, "order.price");
 
     const openDispatch = and(
       eq(dispatch.companyId, companyId),
@@ -46,7 +55,8 @@ export const dashboardRouter = router({
       isNull(dispatch.deletedAt),
     );
 
-    const [packedRows, dispatchedRows, stockRows, openRows, sessionRows, failedRows, openCountRows] = await Promise.all([
+    const skip = <T,>(rows: T[]) => Promise.resolve(rows);
+    const [packedRows, dispatchedRows, stockRows, openRows, sessionRows, failedRows, openCountRows, valueRows] = await Promise.all([
       ctx.db
         .select({ n: sql<number>`count(*)`, w: sql<number>`coalesce(sum(${bundle.weightG}), 0)` })
         .from(bundle)
@@ -88,7 +98,9 @@ export const dashboardRouter = router({
         .from(bundle)
         .where(eq(bundle.companyId, companyId))
         .groupBy(bundle.status),
-      ctx.db
+      kpisOnly
+        ? skip<{ id: string; code: string; status: string; customerName: string }>([])
+        : ctx.db
         .select({
           id: dispatch.id,
           code: dispatch.code,
@@ -100,7 +112,9 @@ export const dashboardRouter = router({
         .where(openDispatch)
         .orderBy(desc(dispatch.createdAt), desc(dispatch.id))
         .limit(LIST_LIMIT),
-      ctx.db
+      kpisOnly
+        ? skip<{ id: string; code: string; createdAt: Date; dieName: string | null; series: string; sectionCode: string }>([])
+        : ctx.db
         .select({
           id: bundleGroup.id,
           code: bundleGroup.code,
@@ -120,7 +134,9 @@ export const dashboardRouter = router({
         )
         .orderBy(desc(bundleGroup.createdAt), desc(bundleGroup.id))
         .limit(LIST_LIMIT),
-      ctx.db
+      kpisOnly
+        ? skip<{ n: number }>([])
+        : ctx.db
         .select({ n: sql<number>`count(*)` })
         .from(printLog)
         .where(
@@ -132,14 +148,43 @@ export const dashboardRouter = router({
           ),
         ),
       // The open list is capped at LIST_LIMIT; the count is not.
-      ctx.db.select({ n: sql<number>`count(*)` }).from(dispatch).where(openDispatch),
+      kpisOnly ? skip<{ n: number }>([]) : ctx.db.select({ n: sql<number>`count(*)` }).from(dispatch).where(openDispatch),
+      // Value dispatched in the window at each line's rate (Rs/kg in paise; grams / 1000 * rate).
+      showValue
+        ? ctx.db
+            .select({ paise: sql<number>`coalesce(sum(${bundle.weightG} * ${salesOrderLine.ratePaise} / 1000.0), 0)`, priced: sql<number>`count(${salesOrderLine.ratePaise})` })
+            .from(dispatch)
+            .innerJoin(dispatchItem, and(eq(dispatchItem.dispatchId, dispatch.id), eq(dispatchItem.companyId, dispatch.companyId)))
+            .innerJoin(bundle, and(eq(bundle.id, dispatchItem.bundleId), eq(bundle.companyId, dispatch.companyId)))
+            .leftJoin(
+              salesOrderLine,
+              and(
+                eq(salesOrderLine.id, sql`coalesce(${dispatchItem.salesOrderLineId}, ${bundle.salesOrderLineId})`),
+                eq(salesOrderLine.companyId, dispatch.companyId),
+              ),
+            )
+            .where(
+              and(
+                eq(dispatch.companyId, companyId),
+                eq(dispatch.status, "completed"),
+                isNull(dispatch.deletedAt),
+                gte(dispatch.completedAt, start),
+                lt(dispatch.completedAt, end),
+              ),
+            )
+        : skip<{ paise: number; priced: number }>([]),
     ]);
 
     const stock = Object.fromEntries(bundleStatuses.map((s) => [s, { bundles: 0, weightG: 0 }])) as Record<
       BundleStatus,
       { bundles: number; weightG: number }
     >;
-    for (const r of stockRows) stock[r.status] = { bundles: num(r.n), weightG: num(r.w) };
+    const anyBundleEver = stockRows.some((r) => num(r.n) > 0);
+    for (const r of stockRows) {
+      // Viewers see "in stock" (available + reserved) only, not void or dispatched totals.
+      if (kpisOnly && r.status !== "available" && r.status !== "reserved") continue;
+      stock[r.status] = { bundles: num(r.n), weightG: num(r.w) };
+    }
 
     // Per-row bundle count / weight for the (<= 10) listed dispatches and sessions.
     const dispatchIds = openRows.map((r) => r.id);
@@ -178,12 +223,40 @@ export const dashboardRouter = router({
     }
 
     const none = { bundles: 0, weightG: 0 };
+    const packedToday = { bundles: num(packedRows[0]?.n), weightG: num(packedRows[0]?.w) };
+    const dispatchedToday = { dispatches: num(dispatchedRows[0]?.dispatches), weightG: num(dispatchedRows[0]?.w) };
     return {
       timezone,
-      /** The plant's calendar day these figures cover (YYYY-MM-DD), as in analytics.trends' last day. */
-      date: localDate(timezone, nowMs),
-      packedToday: { bundles: num(packedRows[0]?.n), weightG: num(packedRows[0]?.w) },
-      dispatchedToday: { dispatches: num(dispatchedRows[0]?.dispatches), weightG: num(dispatchedRows[0]?.w) },
+      /** The production day these figures cover (YYYY-MM-DD); the calendar day with no shifts. */
+      date: day.productionDay,
+      /** "full" or "kpis" (viewer: the four KPIs only; lists come back empty). */
+      scope: kpisOnly ? ("kpis" as const) : ("full" as const),
+      /** Caption data: the window, whether shifts are saved, and the shift now. */
+      productionDay: {
+        day: day.productionDay,
+        startMs: day.startMs,
+        endMs: day.endMs,
+        shiftsSet: day.shiftsSet,
+        shift: day.shift,
+      },
+      /**
+       * The four KPIs every role sees (FP-PF-15). In stock = available bundles only, the same
+       * figure the Stock screen shows as "In stock" (`bundle.stockSummary`, status available):
+       * held (reserved), dispatched and void bundles are not counted.
+       */
+      kpis: {
+        packedG: packedToday.weightG,
+        packedBundles: packedToday.bundles,
+        dispatchedG: dispatchedToday.weightG,
+        inStockG: stock.available.weightG,
+        inStockBundles: stock.available.bundles,
+      },
+      /** Rate slice: only with priceOnSalesOrder on and order.price held; null otherwise. */
+      value: showValue
+        ? { dispatchedPaise: Math.round(num(valueRows[0]?.paise)), pricedBundles: num(valueRows[0]?.priced) }
+        : null,
+      packedToday,
+      dispatchedToday,
       stock,
       openDispatchCount: num(openCountRows[0]?.n),
       openDispatches: openRows.map((r) => ({
@@ -208,7 +281,7 @@ export const dashboardRouter = router({
       setup: {
         dies: num(companyRow?.hasDie) > 0,
         customers: num(companyRow?.hasCustomer) > 0,
-        bundles: bundleStatuses.some((s) => stock[s].bundles > 0),
+        bundles: anyBundleEver,
         printers: num(companyRow?.hasPrinter) > 0,
       },
     };

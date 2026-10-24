@@ -61,6 +61,15 @@ describe("dispatch mode outcome per scanned serial", () => {
     expect(addOutcome(voided, "S1")).toMatchObject({ message: { key: "scan.continuous.void" } });
     const pending = report({ unavailable: [{ serial: "S2", reason: "x", code: "reallocation_pending" }] });
     expect(addOutcome(pending, "S2")).toMatchObject({ message: { key: "scan.continuous.reallocationPending" } });
+    const held = report({
+      unavailable: [{ serial: "S3", reason: "Held for SO-7 (Shreeji)", code: "held_for_order", orderNumber: "SO-7", customerName: "Shreeji" }],
+    });
+    expect(addOutcome(held, "S3")).toMatchObject({
+      message: { key: "scan.continuous.heldForOrder", vars: { order: "SO-7", customer: "Shreeji" } },
+    });
+    // Without the order number the English sentence is shown as sent.
+    const bare = report({ unavailable: [{ serial: "S4", reason: "Held for SO-7 (Shreeji)", code: "held_for_order" }] });
+    expect(addOutcome(bare, "S4")).toMatchObject({ message: { text: "Held for SO-7 (Shreeji)" } });
   });
 
   test("older servers: the English reason is mapped to floor wording", () => {

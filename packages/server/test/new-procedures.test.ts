@@ -64,7 +64,7 @@ describe("dashboard.today", () => {
       .set({ createdAt: new Date(startMs + 10 * MIN) })
       .where(inArray(bundle.id, [...today, ...gone].map((b) => b.id)));
 
-    const res = await env.caller({ role: "viewer", companyId }).dashboard.today();
+    const res = await env.caller({ role: "manager", companyId }).dashboard.today();
     expect(res.timezone).toBe("Asia/Kolkata");
     // 3 available + 1 void created inside today's window; 25 kg each. Void is not packed (RP11).
     expect(res.packedToday).toEqual({ bundles: 3, weightG: 75_000 });
@@ -164,7 +164,7 @@ describe("dashboard.today", () => {
     await mkPrint(a.companyId, refsA, "success", inToday);
     await mkPrint(other.companyId, refsO, "failed", inToday);
 
-    const res = await env.caller({ role: "viewer", companyId: a.companyId }).dashboard.today();
+    const res = await env.caller({ role: "manager", companyId: a.companyId }).dashboard.today();
 
     expect(res.dispatchedToday).toEqual({ dispatches: 1, weightG: 50_000 });
     // Completed dispatches are not open; the other plant's are never counted.
@@ -188,7 +188,7 @@ describe("dashboard.today", () => {
     expect(res.failedPrintJobs).toBe(2);
     // a's own bundles (4 + 2 + 1) all sit in today's window; the other tenant's 5 are not counted.
     expect(res.packedToday.bundles).toBe(7);
-    const otherView = await env.caller({ role: "viewer", companyId: other.companyId }).dashboard.today();
+    const otherView = await env.caller({ role: "manager", companyId: other.companyId }).dashboard.today();
     expect(otherView.dispatchedToday.dispatches).toBe(1);
     expect(otherView.packedToday.bundles).toBe(5);
     expect(otherView.failedPrintJobs).toBe(1);
@@ -207,7 +207,7 @@ describe("dashboard.today", () => {
       .set({ createdAt: new Date(startMs + MIN) })
       .where(eq(bundleGroup.companyId, companyId));
 
-    const res = await env.caller({ role: "viewer", companyId }).dashboard.today();
+    const res = await env.caller({ role: "manager", companyId }).dashboard.today();
     expect(res.recentSessions).toHaveLength(1);
     expect(res.recentSessions[0]).toMatchObject({ bundles: 2, weightG: 50_000 });
     expect(res.packedToday).toEqual({ bundles: 2, weightG: 50_000 });
@@ -307,7 +307,7 @@ describe("dashboard.today", () => {
       },
       { id: uid(), companyId, code: "D-X3", customerId, status: "completed", createdAt: new Date(base + 63_000) },
     ]);
-    const res = await env.caller({ role: "viewer", companyId }).dashboard.today();
+    const res = await env.caller({ role: "manager", companyId }).dashboard.today();
     expect(res.openDispatches.length).toBe(10);
     // The list is capped; the count is not (Today's Dispatch tile shows "12 open").
     expect(res.openDispatchCount).toBe(12);

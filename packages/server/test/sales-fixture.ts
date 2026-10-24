@@ -108,7 +108,8 @@ export interface SalesPlant {
   dieB: string;
   customerId: string;
   otherCustomer: string;
-  pack(dieId: string, rows: PackRow[], salesOrderLineId?: string): Promise<string[]>;
+  /** `dieInstanceId`: the copy pressed on (a section with an owned copy must name it, FP-PK-10). */
+  pack(dieId: string, rows: PackRow[], salesOrderLineId?: string, dieInstanceId?: string): Promise<string[]>;
   order(
     lines: OrderLineSpec[],
     over?: { customerId?: string; poNumber?: string; status?: "booking" | "confirmed" },
@@ -163,12 +164,13 @@ export function salesHelpers(getEnv: () => TestEnv): SalesHelpers {
       .where(eq(customer.id, customerId));
 
     /** Pack bundles; rows are kg (and optional pcs / mm / po). Returns serials in row order. */
-    async function pack(dieId: string, rows: PackRow[], salesOrderLineId?: string) {
+    async function pack(dieId: string, rows: PackRow[], salesOrderLineId?: string, dieInstanceId?: string) {
       const res = await owner.bundle.createReceipt({
         dieId,
         unit: "pcs",
         locationId: yard,
         ...(salesOrderLineId ? { salesOrderLineId } : {}),
+        ...(dieInstanceId ? { dieInstanceId } : {}),
         rows: rows.map((r) => ({
           quantity: r.pcs ?? 10,
           weightG: kg(r.kg),

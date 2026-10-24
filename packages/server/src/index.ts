@@ -2,17 +2,16 @@ import { initTRPC, TRPCError } from "@trpc/server";
 
 import type { Context } from "./context";
 import { errorMetaOf } from "./lib/errorMeta";
+import { assertModule, moduleForPath } from "./lib/moduleGate";
 import { can, canAny, type Action } from "./lib/permissions";
 import { ScanRefusalError } from "./lib/scanRefusal";
 
 export const t = initTRPC.context<Context>().create({
-  /**
-   * A dispatch add refusal (D12) carries its machine `{code, reason}` as `data.refusal`;
-   * `TRPCMetaError.meta` (e.g. a duplicate band's `existing`) reaches the client as `error.data.meta`.
-   */
+  // `TRPCMetaError.meta` (e.g. a duplicate band's `existing`) reaches the client as `error.data.meta`.
+  /** A dispatch add refusal (D12) carries its machine `{code, reason}` to clients as `data.refusal`. */
   errorFormatter({ shape, error }) {
-    const refusal = error.cause instanceof ScanRefusalError ? error.cause.refusal : null;
     const meta = errorMetaOf(error);
+    const refusal = error.cause instanceof ScanRefusalError ? error.cause.refusal : null;
     return { ...shape, data: { ...shape.data, refusal, ...(meta ? { meta } : {}) } };
   },
 });
@@ -51,12 +50,19 @@ export const authedProcedure = t.procedure.use(({ ctx, next }) => {
 
 export const protectedProcedure = authedProcedure;
 
-export const companyProcedure = authedProcedure.use(({ ctx, next }) => {
+export const companyProcedure = authedProcedure.use(async ({ ctx, next, path, type }) => {
   if (!ctx.companyId || !ctx.membership || !ctx.role) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Company access required",
     });
+  }
+
+  // FP-PF-07: a mutation of a module that is off for this plant is refused at the router level
+  // (lib/moduleGate ROUTER_MODULE), whatever the role allows. Reads are not gated.
+  if (type === "mutation") {
+    const module = moduleForPath(path);
+    if (module) await assertModule({ db: ctx.db, companyId: ctx.companyId }, module);
   }
 
   return next({

@@ -35,6 +35,8 @@ describe("validateShifts (C14: 1-4, no gap or overlap, union 24 h, touching ok)"
 
   test("gaps, overlaps, counts, names, seq and minutes are refused", () => {
     expect(validateShifts([])).toEqual(["count"]);
+    // A lone shift must cover 24 h (start == end).
+    expect(validateShifts([{ ...dayNight[0]! }])).toEqual(["gap_or_overlap"]);
     expect(validateShifts([{ ...dayNight[0]!, endMin: 1140 }, dayNight[1]!])).toEqual(["gap_or_overlap"]);
     expect(validateShifts([{ ...dayNight[0]!, endMin: 1260 }, dayNight[1]!])).toEqual(["gap_or_overlap"]);
     expect(validateShifts([dayNight[0]!, { ...dayNight[1]!, name: "day" }])).toEqual(["name_duplicate"]);

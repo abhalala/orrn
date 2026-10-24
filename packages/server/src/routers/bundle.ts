@@ -2,7 +2,6 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, like, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { user } from "@orrn/db/schema/auth";
 import {
   castRequiredOnBundle,
   normalizeSerial,
@@ -12,6 +11,7 @@ import {
   weightRange12ftFromMilli,
   type BundleNumberPolicy,
 } from "@orrn/domain";
+import { user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dieInstance } from "@orrn/db/schema/dies";
@@ -58,6 +58,7 @@ import {
   scaleConfigured,
 } from "../lib/pack";
 import { packRows, restoreRows, voidRows, type PostingCtx } from "../lib/ledger";
+import { releaseOnVoidStatements } from "../lib/orderHold";
 import { batchAbortUnless, isBatchAbort } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
 import { foldKindTotals, stockFilterConditions, stockFilterShape } from "../lib/stockFilters";
@@ -903,6 +904,7 @@ export const bundleRouter = router({
         totals.weightG += b.weightG;
       }
 
+
       // D15: each bundle's band verdict, the same one `/b/$serial` shows.
       const bands = await bundleBandTones(
         ctx.db,
@@ -1157,10 +1159,20 @@ export const bundleRouter = router({
             })
           : [];
 
+      // D17: voiding a held bundle releases its hold (audited `order.release`, reason `voided`).
+      const voiding = input.toStatus === "void";
+      const holdRelease = voiding
+        ? await releaseOnVoidStatements(
+            { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+            existing.id,
+            and(eq(bundle.companyId, ctx.companyId), eq(bundle.id, existing.id), eq(bundle.status, "void"), eq(bundle.serverSeq, seq)),
+          )
+        : [];
+
       await atomicBatch(ctx.db, [
         ctx.db
           .update(bundle)
-          .set({ status: input.toStatus, serverSeq: seq })
+          .set({ status: input.toStatus, serverSeq: seq, ...(voiding ? { heldForLineId: null, heldAt: null } : {}) })
           // Status predicate (audit S6): a dispatch that reserved the bundle
           // after our read must not have its hold overwritten by a void.
           .where(
@@ -1172,6 +1184,7 @@ export const bundleRouter = router({
           ),
         ledgerPosting,
         ...ageingRestore,
+        ...holdRelease,
         ctx.db.insert(bundleStatusEvent).values({
           id: eventId,
           companyId: ctx.companyId,

@@ -2352,7 +2352,7 @@ describe("phantomSummary over an evening of yard counts (correctness r0 M-2)", (
 
 describe("dev seed reset with counts (spec r0 I-2)", () => {
   test("the demo reset clears the demo company's counts (RESTRICT keys to location), runs again, and numbering restarts at CNT-1", async () => {
-    for (const key of ["owner", "operator", "viewer", "office", "staff"]) {
+    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "staff"]) {
       await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
     }
     // Non-literal specifier: apps/server is not part of this package's TypeScript project.

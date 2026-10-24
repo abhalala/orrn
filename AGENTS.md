@@ -410,6 +410,44 @@ bun run deploy
 - `clientRequestId` on `casts.open` and `melts.create`: a repeat returns the first; the same id for
   another cast (or alloy) is a CONFLICT.
 
+## Press and foundry, Wave 2 contracts (migration 0028, FP-W2)
+
+- Press run children (`schema/press.ts`): `press_run_line` (cut length, pcs, good_g; optional plan /
+  order line), `press_billet_use` (cast, length, count, kg; at most `MAX_BILLET_ROWS` = 10),
+  `qc_entry` (reason_code kind `qc_reject`; a zero row = "no rejects"), `press_downtime` (reason_code
+  kind `downtime`, server start/stop; partial unique = one open downtime per line), `press_remark` /
+  `die_remark` (bound to run AND copy; `press_run.press_remark/die_remark` stay as the latest-text
+  snapshot). Run shift = `production_day` + `shift_seq` + `shift_id` (never letters; there is no
+  separate shift_date). Tap times = `tapped_start_at` / `tapped_stop_at`.
+- `press_run` adds `late_entry` + `late_entry_approval_id` (FP-PR-24, approval `press_late_entry`:
+  owner, supervisor, manager; never the requester), `client_mutation_id` (unique per company),
+  `queue_pos` (FP-PR-25; action `press.queue` = supervisor, office, manager), `trial_result`
+  (pass|fail). `press_plan.purpose` production|die_trial|sample|other (FP-PR-23; non-production
+  needs no order line, never moves baki).
+- Close arithmetic and gates live in `@orrn/domain` (`closeGates`, `closeFigures`, `recoveryBp`,
+  `balanceG`, `theoreticalHintG`, `skewUnconfirmed`, `bpPercent1`); the server never trusts a client
+  figure. Ledger on close only: voucher `press_run` (−input_g `billet` item_ref = cast id at the
+  BILLET `billet_store`; +discard to stream DISCARD, +ends/+rejects to PLANT-SCRAP), reopen posts
+  `press_run_reopen` reversals.
+- Foundry: `furnace`, `alloy`, `alloy_limit` (ppm min/max per element), cast `alloy_id` + cancel
+  columns (status +`cancelled`), melt `status` draft|locked|cancelled (SQL default `locked`: the PL5
+  create path posts on create), nullable times/dips for drafts, `furnace_id`, `alloy_id`, `yield_bp`,
+  `spectro_reason`, `locked_at/by`. Spec names map onto PL5 columns: metal_in_g = `input_g`, burn_g =
+  `loss_g`, balance_bp = `loss_bp`, balance_reason = `balance_note`. Spectro typed ppm columns +
+  `verdict` + `limits_snapshot` + `al_source` + `file_key` + void columns. Maths: `meltBalance`
+  (lock shape `{lotsG, streamsG, logsG, drossG, feG}`), `castTail({producedG, onHandG, creditedG})`
+  (3 %), `spectroCheck` / `spectroVerdict`, `meltLockGates`, `furnaceLoad`, `ALLOY_LIMIT_SEEDS`.
+  The PL5 shapes of `meltBalance` / `castTail` still answer as before until W2-FD-S moves to lock.
+- A draft melt must not count against a lot or post anything: readers that sum melt lines filter
+  `melt.status = 'locked'` (W2-FD-S). 0028 rebuilds `melt` and refuses to run (NOT NULL failure on
+  `__w2_melt_guard`) when melts already exist, rather than cascading their lines away.
+- Cast numbers: `castSeriesStart` {period, start} now feeds `allocateDocNumbers` for type `cast`
+  (the month's first seq); `castNumberParts`, `parseCastCode`, `isSeriesCastCode` in `@orrn/domain`.
+- Die copy status +`on_trial` (FP-DR-17): `newCopyStatus(settings)` from
+  `settings.dieRoom.newCopyOnTrial` (default on); trial events in `dieCopyNext`; `canIssueDie`
+  refuses an on_trial copy (`copy_on_trial`) unless `purpose: "die_trial"`. `maker_die_no`,
+  `maker_project_no` on `die_instance`.
+
 ## Stock count (phantom report)
 
 - Tables in `packages/db/src/schema/count.ts`: `count_session` (`CNT-{n}` per financial year,
@@ -651,6 +689,50 @@ bun run deploy
   Queued runs are inserted with `pressRunInserts` (every bound column explicit: drizzle binds a JS
   default such as `time_unconfirmed` / `source` when a row leaves it out, which broke the 100-param
   chunking at 7 dies).
+
+## Platform: modules, shifts, releases, backups
+
+- **Modules (FP-PF-07, D14).** `company.modules` is the bought-module list; `[]` means every module
+  is on. Migration 0026 turned the old Godseye default `[customers, dies, bundles, dispatches]` into
+  `[]`. The gate is in `companyProcedure` (`packages/server/src/index.ts`) and covers mutations
+  only: reads stay open (a packer picks a die inside pack with `dies` off) and the nav hides what is
+  off. Register every new router in `ROUTER_MODULE` (`lib/moduleGate.ts`), for example press,
+  ageing, plans and dieRoom, in the same change that adds the router. A single procedure of an
+  ungated router goes in `PROCEDURE_MODULE` (`stock.move`, `stock.openingBalance`). A new approval
+  kind goes in `APPROVAL_KIND_MODULE`; it is typed over every kind, so it will not compile until
+  you add it. When a mutation writes another module's rows, also call `assertModule(ctx, module)`
+  inside it. Godseye `platform.updatePlanAndModules` refuses unknown keys and writes the audit row.
+- **Shifts and the production day (FP-PF-05).** Shifts live in `company.settings.shifts` (1 to 4
+  of them, they cover 24 h with no gap or overlap, and ids stay the same on rename). Never compute
+  "today" for the floor by calendar date. Use `productionDayWindowFor(db, companyId, at?)`
+  (`lib/productionDay.ts`): before shift 1 starts, the time belongs to the previous day. It reads
+  the settings fresh and never rewrites past rows (`press_run.shift_id` keeps its old id; you
+  cannot delete a shift that a press run cites).
+- **Releases and devices (FP-PF-11, D8).** `release.check` is public and returns no company data,
+  only the gate, the latest version and the APK url. Lookups by install use `device_install_idx`.
+  A build is Blocked below the effective `minBuild` (mandatory floors raise it) or when every plant
+  that knows the install has revoked it. Offline, the last Open answer holds for 24 h, and an OTA
+  update cannot clear a block. `device.register` stores the session that registered
+  (`device.auth_session_id`). `device.revoke` ends that session (and only that one), a revoked
+  install's register is refused and ends the session that asked, and restore lets it register
+  again. Dev seed floors are `minBuild: 1` because apps/native sets no versionCode or buildNumber.
+- **Magic links (FP-PF-08, D14).** `disableSignUp: true`. Accounts come only from an approved
+  access request or an invite. The public `POST /sign-in/magic-link` is refused. Godseye writes
+  owner links straight into `verification`. A link never signs in an account that has a password
+  or 2FA (`packages/auth/src/magic-link-guard.ts`). The guard finds tokens stored plain or hashed;
+  never configure a custom token hasher.
+- **Backups (FP-PF-12).** Every table that has `company_id` is exported unless it is in
+  `EXCLUDED_TABLES`, and any column matching `isSecretColumn` is dropped (`lib/backup.ts`). Give a
+  new credential column a name ending `*_wrapped` or `*_hash`, or one containing token, secret or
+  password, or list it there; the backup test checks every schema table against this.
+  Export and drill write an audit row (`backup.export` / `backup.drill`, `meta.ok`) whether they
+  succeed or fail. A drill restores into a suspended `restore-drill-{date}` company. The daily cron
+  (`30 21 * * *` UTC) exports each active plant once per IST day, then removes drill scratch
+  companies older than `DRILL_SCRATCH_KEEP_DAYS` (7), children first, and logs
+  `backup.drill.discard`. Runbook: `docs/RESTORE_DRILL.md`.
+- **Support (FP-PF-14).** Status goes Open → Answered → Closed, or Open → Closed. A staff reply or
+  close lands only if the request is unchanged since it was read; otherwise it is a CONFLICT and no
+  audit row is written.
 
 ## Worker performance rules
 

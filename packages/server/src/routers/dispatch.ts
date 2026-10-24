@@ -47,7 +47,16 @@ import {
   type LineBalance,
   type OverdrawLine,
 } from "../lib/orders";
+import {
+  dispatchHasForeignHoldSql,
+  heldForOrderBlock,
+  heldForOtherCustomerSql,
+  holdsOf,
+  linkLineFor,
+  releaseOnDispatchStatements,
+} from "../lib/orderHold";
 import { can } from "../lib/permissions";
+import { bundlesPendingReallocation, pendingReallocationOf } from "../lib/reallocate";
 import {
   classifyBundles,
   classifyScan,
@@ -57,7 +66,6 @@ import {
   type ScanRefusal,
   type ScanResult,
 } from "../lib/scan";
-import { bundlesPendingReallocation, pendingReallocationOf } from "../lib/reallocate";
 import { nextCompanySeq } from "../lib/sequence";
 import { packingListWriteBatch } from "./packingList";
 
@@ -241,9 +249,19 @@ export type AddBundlesReport = {
   notFound: string[];
   /**
    * Refused bundles, every one with a `code` (D12: the same order and sentences as `dispatch.scan`):
-   * void / dispatched / held, and unassigned, wrong_customer, owned_die (status `available`).
+   * void / dispatched / held, and held_for_order, reallocation_pending, unassigned, wrong_customer,
+   * owned_die (status `available`).
    */
-  unavailable: { serial: string; reason: string; code: BundleBlock["code"] | "unassigned" | "wrong_customer" | "owned_die"; status: BundleBlock["status"]; heldBy: string | null }[];
+  unavailable: {
+    serial: string;
+    reason: string;
+    code: BundleBlock["code"] | "unassigned" | "wrong_customer" | "owned_die";
+    status: BundleBlock["status"];
+    heldBy: string | null;
+    /** `held_for_order` (FP-OP-17): the order it is held for and that order's customer. */
+    orderNumber?: string;
+    customerName?: string;
+  }[];
   /** Added bundles that were linked to an open order line of this customer (the rest are unlinked). */
   linked: LinkedBundle[];
 };
@@ -736,6 +754,8 @@ function reportLists(results: readonly ScanResult[]) {
       code: refusal.code,
       status: refusal.code === "held" ? "reserved" : refusal.code === "void" || refusal.code === "dispatched" ? refusal.code : "available",
       heldBy: refusal.heldBy,
+      // FP-OP-17: the order a `held_for_order` bundle is held for, and that order's customer.
+      ...(refusal.code === "held_for_order" ? { orderNumber: refusal.orderNumber ?? undefined, customerName: refusal.customerName ?? undefined } : {}),
     });
   }
   return out;
@@ -779,7 +799,7 @@ async function addByCodes(
       });
     }
 
-    const { results, toAdd } = await classifyScan({ db: ctx.db, companyId: ctx.companyId }, d, serials, {
+    const { results, toAdd, holds } = await classifyScan({ db: ctx.db, companyId: ctx.companyId }, d, serials, {
       approvalId: input.approvalId ?? null,
       allowUnassigned,
     });
@@ -797,13 +817,18 @@ async function addByCodes(
     const unassignedIds = new Set(results.filter((r) => r.outcome === "added" && r.note === "unassigned").map((r) => r.bundleId));
 
     // Order line suggested per bundle (spec P13): packed-for line, else oldest open line with baki.
+    // FP-OP-17: a bundle held for this customer's open line counts as packed for that line.
     const picks = await suggestLines(ctx.db, ctx.companyId, {
       customerId: d.customerId,
       dispatchId: d.id,
-      bundles: toAdd.map((b) => ({ id: b.id, dieId: b.dieId, weightG: b.weightG, salesOrderLineId: b.salesOrderLineId })),
+      bundles: toAdd.map((b) => ({ id: b.id, dieId: b.dieId, weightG: b.weightG, salesOrderLineId: linkLineFor(b, holds, d.customerId) })),
     });
     const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-    const statements: SqliteBatchItem[] = [];
+    // Write time (FP-OP-17): a hold for another customer landing after the read fails the add whole.
+    const statements: SqliteBatchItem[] = chunk(
+      toAdd.map((b) => b.id),
+      GUARDED_IN_CHUNK,
+    ).map((ids) => batchAbortUnless(ctx.db, "sales_order_line", sql`not ${heldForOtherCustomerSql(ctx.companyId, d.customerId, ids)}`));
     pushChunkedInserts(
       statements,
       (rows) => ctx.db.insert(dispatchItem).values(rows),
@@ -880,7 +905,8 @@ async function addByCodes(
   } catch (e) {
     // A concurrent scan inserted one of these first and the whole batch
     // rolled back; re-read once so it lands in alreadyInDispatch.
-    if (isDuplicateItemError(e)) return run();
+    // A hold that landed meanwhile (FP-OP-17): re-read once, it is refused by name.
+    if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line")) return run();
     throw e;
   }
 }
@@ -1549,8 +1575,8 @@ export const dispatchRouter = router({
           return { success: true, added: [] as string[], alreadyInDispatch: [b.serial], linked: [] as LinkedBundle[] };
         }
 
-        // The §E6 order, same as a scan: void, dispatched, held, unassigned, wrong customer, owned die.
-        const { results } = await classifyBundles(
+        // The §E6 order, same as a scan: void, dispatched, held, held for an order, unassigned, wrong customer, owned die.
+        const { results, holds } = await classifyBundles(
           { db: ctx.db, companyId: ctx.companyId },
           d,
           [b.serial],
@@ -1571,10 +1597,11 @@ export const dispatchRouter = router({
           return { success: true, added: [] as string[], alreadyInDispatch: [b.serial], linked: [] as LinkedBundle[] };
         }
 
+        // FP-OP-17: held for this customer, it is linked to the held line (the line the office put it on).
         const picks = await suggestLines(ctx.db, ctx.companyId, {
           customerId: d.customerId,
           dispatchId: d.id,
-          bundles: [{ id: b.id, dieId: b.dieId, weightG: b.weightG, salesOrderLineId: b.salesOrderLineId }],
+          bundles: [{ id: b.id, dieId: b.dieId, weightG: b.weightG, salesOrderLineId: linkLineFor(b, holds, d.customerId) }],
         });
         const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
         const statements: SqliteBatchItem[] = [
@@ -1586,6 +1613,8 @@ export const dispatchRouter = router({
             salesOrderLineId: picks.get(b.id)?.lineId ?? null,
           }),
           ...(picks.size > 0 ? dropStaleSuggestions(ctx.db, ctx.companyId, d.id, [b.id]) : []),
+          // Write time: a hold for another customer landing after the read fails the add whole.
+          batchAbortUnless(ctx.db, "sales_order_line", sql`not ${heldForOtherCustomerSql(ctx.companyId, d.customerId, [b.id])}`),
         ];
 
         if (d.status === "reserved") {
@@ -1641,7 +1670,8 @@ export const dispatchRouter = router({
       } catch (e) {
         // A concurrent scan of the same bundle inserted first; the batch rolled
         // back, so re-read: this time it reports "already in this dispatch".
-        if (isDuplicateItemError(e)) return run();
+        // A hold that landed meanwhile (FP-OP-17): re-read, this time it is refused by name.
+        if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line")) return run();
         throw e;
       }
     }),
@@ -2041,6 +2071,17 @@ export const dispatchRouter = router({
       }
       const capacityOverrideReason = capacity.state === "over" ? input.capacityOverrideReason! : null;
 
+      // FP-OP-17: a bundle held for another customer's open line can't leave on this dispatch (the
+      // dispatch's customer changed after the scan, or a hold slipped in). Read here and in the UPDATE.
+      const holdsHere = await holdsOf(ctx.db, ctx.companyId, bundleIds);
+      const foreign = [...holdsHere.values()].filter((h) => heldForOrderBlock(h, d.customerId));
+      if (foreign.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: foreign.map((h) => `${h.serial}: ${heldForOrderBlock(h, d.customerId)!.reason}`).join("; "),
+        });
+      }
+
       // Spec S-2: the link is decided again now, so kg that leave for a customer with an open line
       // for the section meet the order (an order entered after the scan, a reopened order).
       const relink = await relinkOpen(ctx.db, ctx.companyId, d);
@@ -2097,11 +2138,14 @@ export const dispatchRouter = router({
               dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("completed")),
               overdrawGuard(ctx.companyId, d.id, toleranceBp),
               noUnlinkedWithOpenLine(ctx.companyId, d.id),
-              withinCapacityOrReason(ctx.companyId, d.id, capacityOverrideReason),
               sql`not exists (select 1 from dispatch_item pdi where pdi.company_id = ${ctx.companyId} and pdi.dispatch_id = ${d.id} and ${pendingReallocationOf(ctx.companyId, sql`pdi.bundle_id`)})`,
+              withinCapacityOrReason(ctx.companyId, d.id, capacityOverrideReason),
+              sql`not ${dispatchHasForeignHoldSql(ctx.companyId, d.id, d.customerId)}`,
             ),
           ),
         batchAbortUnless(ctx.db, "packing_list_line", landed),
+        // FP-OP-17: the holds of the bundles leaving now end here (audited `order.release`, reason dispatched).
+        ...(await releaseOnDispatchStatements(ctx, { id: d.id, code: d.code }, bundleIds, seq)),
       ];
       for (const ids of chunk(bundleIds, GUARDED_IN_CHUNK)) {
         statements.push(

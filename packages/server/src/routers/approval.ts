@@ -7,6 +7,7 @@ import { user } from "@orrn/db/schema/auth";
 import { approval, approvalKinds, approvalStatuses } from "@orrn/db/schema/approval";
 
 import { APPROVAL_APPLIERS, explainApplyAbort } from "../lib/approvalApply";
+import { APPROVAL_KIND_MODULE, assertModule } from "../lib/moduleGate";
 import { atomicBatch } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { canAny, canApprove, type Action } from "../lib/permissions";
@@ -113,6 +114,9 @@ export const approvalRouter = router({
       if (!row) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
       }
+      // FP-PF-07: deciding writes the kind's module rows (a cast close, a D/C note), so that module
+      // must be on, as for the module's own mutations.
+      await assertModule(ctx, APPROVAL_KIND_MODULE[row.kind]);
       if (!canApprove(ctx.role, row.kind)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
       }

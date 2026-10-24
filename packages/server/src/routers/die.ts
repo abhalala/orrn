@@ -351,7 +351,7 @@ export const dieRouter = router({
           .map((l) => {
             const to = l.toBandId ? bandById.get(l.toBandId) : null;
             const toBand = to ? effectiveBand(item, { ...to, active: true }) : primary;
-            return { dieInstanceId: l.dieInstanceId, code: l.code, toBandId: l.toBandId, toBand: bandText(toBand), at: l.effectiveAt };
+            return { dieInstanceId: l.dieInstanceId, code: l.code, toBandId: l.toBandId, toBand: bandText(toBand), toWeightMinG: toBand.weightMinG, toWeightMaxG: toBand.weightMaxG, at: l.effectiveAt };
           });
       const bandsOut = [
         { ...primary, active: true, primary: true, copyIds: copies.filter((c) => c.effectiveBandId === null).map((c) => c.id), liftedOut: liftedOut(null) },

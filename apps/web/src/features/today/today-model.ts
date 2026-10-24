@@ -76,11 +76,12 @@ export function formatCount(n: number): string {
   return Math.round(n).toLocaleString("en-IN");
 }
 
-/** Bundles in stock right now: available plus held for a dispatch. */
+/**
+ * Bundles in stock right now: available only, the Stock screen's "In stock" (held bundles show
+ * there as Held). Same rule as the server's `dashboard.today` `kpis.inStock*`.
+ */
 export function inStock(stock: TodayData["stock"]): { bundles: number; kg: number } {
-  const bundles = stock.available.bundles + stock.reserved.bundles;
-  const grams = stock.available.weightG + stock.reserved.weightG;
-  return { bundles, kg: grams / 1000 };
+  return { bundles: stock.available.bundles, kg: stock.available.weightG / 1000 };
 }
 
 export type TrendPoint = { t: Date; v: number; partial?: boolean };
