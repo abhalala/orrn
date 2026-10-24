@@ -412,20 +412,56 @@ export const orderFlowProcedures = {
         pcs: z.number().int().min(1).max(10_000_000).optional(),
         kgG: z.number().int().min(1).max(1_000_000_000).optional(),
         weightBasis: z.enum(salesOrderWeightBases).optional(),
+        /**
+         * Editing a booked line: quote on the basis it was locked with, exactly as `orders.update`
+         * will save it, unless the section, the pin or the basis choice changed (that re-bases it,
+         * and the quote is the fresh one). `locked` says which.
+         */
+        lineId: id.optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
       const floor = await companyFloor(ctx.db, ctx.companyId);
+      let stored: typeof salesOrderLine.$inferSelect | null = null;
+      if (input.lineId) {
+        const [row] = await ctx.db
+          .select()
+          .from(salesOrderLine)
+          .where(and(eq(salesOrderLine.id, input.lineId), eq(salesOrderLine.companyId, ctx.companyId)))
+          .limit(1);
+        if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Order line not found" });
+        stored = row;
+      }
       const section = await loadSection(ctx.db, ctx.companyId, input.sectionId);
       const copies = await sectionCopies(ctx.db, ctx.companyId, section);
-      if (input.dieInstanceId && !copies.some((c) => c.id === input.dieInstanceId)) {
+      const keepsBasis =
+        stored != null &&
+        stored.qtyBasis != null &&
+        stored.kgPer12ftMilli != null &&
+        stored.dieId === input.sectionId &&
+        (input.dieInstanceId ?? null) === (stored.dieInstanceId ?? null) &&
+        (input.weightBasis === undefined || input.weightBasis === stored.weightBasis);
+      if (!keepsBasis && input.dieInstanceId && !copies.some((c) => c.id === input.dieInstanceId)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `That copy is not a live copy of ${section.sectionCode}` });
       }
-      const basis = chooseBasis(section, copies, { pinnedCopyId: input.dieInstanceId, weightBasis: input.weightBasis });
+      const basis =
+        keepsBasis && stored
+          ? {
+              weightBasis: stored.weightBasis ?? ("copy_current" as const),
+              basisMilli: stored.kgPer12ftMilli!,
+              bandStartMilli: stored.bandStartMilli ?? section.weightMinG,
+              copyMilli: stored.copyMilli,
+              readingId: stored.readingId,
+              basisNote: stored.basisNote,
+              copyId: stored.dieInstanceId,
+              copyCode: stored.dieInstanceId ? (copies.find((c) => c.id === stored.dieInstanceId)?.code ?? null) : null,
+            }
+          : chooseBasis(section, copies, { pinnedCopyId: input.dieInstanceId, weightBasis: input.weightBasis });
       const qty = lineQty(input, basis.basisMilli, floor.unit);
       return {
         ...basis,
         ...qty,
+        locked: keepsBasis,
         alloy: section.alloy ?? floor.floor.defaultAlloy,
         temper: section.temper ?? floor.floor.defaultTemper,
         lengthUnit: floor.unit,

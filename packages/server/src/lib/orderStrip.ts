@@ -246,3 +246,19 @@ export async function suggestedLine(
   const any = await lineBalancePage(db, companyId, base, { limit: 1 });
   return any.lines[0] ? { line: any.lines[0], match: "die" } : null;
 }
+
+/** `YYYY-MM-DD` of a zoned day. */
+export function ymdOf(d: { year: number; month: number; day: number }): string {
+  return `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+}
+
+/**
+ * Days an order has been running late (FP-OP-18, the `orders.late` rule): confirmed / dispatching,
+ * baki left, ordered more than LATE_AFTER_DAYS days before `today`; else null.
+ */
+export function lateDaysOf(o: { status: string; orderDate: string; bakiG: number }, today: string): number | null {
+  if (o.status !== "confirmed" && o.status !== "dispatching") return null;
+  if (!(o.bakiG > 0)) return null;
+  if (!(o.orderDate < ymdMinusDays(today, LATE_AFTER_DAYS))) return null;
+  return daysBetween(o.orderDate, today);
+}

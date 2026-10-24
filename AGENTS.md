@@ -686,6 +686,16 @@ bun run deploy
   die (`PR-n`), FP-OP-15 warnings returned. `cancel` voids queued runs (refused once one is issued).
   Planable is checked again inside the batch of `plans.create` and `plans.release`
   (`planOverPlannedSql`, CONFLICT when a pack, dispatch or another plan landed after the read).
+  `plans.update({ id, serverSeq?, add: [{ salesOrderLineId, kgG?, pcs? }], remove: [salesOrderLineId] })`
+  edits a DRAFT plan only (added lines go under their die, a new plan die when needed; an emptied
+  die goes; owner gate refuses another party's line on an owned die; planable re-checked in the
+  batch; audit `plan.update`). `plans.openLinesForDies({ dieIds, planId?, excludeLineIds? })` lists
+  every open line on those dies with planable kg (party, SO number + period, PO, length, planable
+  kg / pcs, `ownerBlocked` + `ownerName`); release warnings carry the same fields.
+  `plans.pressLines` (members) lists active press lines for the plan's press pick.
+  `plans.list` subqueries name the outer plan as `"press_plan"."id"` (a bare column binds inside).
+  `orders.quote({ …, lineId })` quotes a saved line on its locked basis (`locked: true`) unless the
+  section, pin or basis choice changed; `orders.get` / `orders.list` return `lateDays` (late rule).
   Queued runs are inserted with `pressRunInserts` (every bound column explicit: drizzle binds a JS
   default such as `time_unconfirmed` / `source` when a row leaves it out, which broke the 100-param
   chunking at 7 dies).

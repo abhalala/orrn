@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3369 screen strings in 43 groups, 16 guides with 292 strings.
+Counts: 3571 screen strings in 43 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -168,7 +168,7 @@ Counts: 3369 screen strings in 43 groups, 16 guides with 292 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (41)
+### nav (42)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -179,6 +179,7 @@ Counts: 3369 screen strings in 43 groups, 16 guides with 292 strings.
 | `stock` | Stock | स्टॉक |
 | `dispatch` | Dispatch | Dispatch |
 | `more` | More | और |
+| `orders` | Orders | ऑर्डर |
 | `dies` | Dies | Die |
 | `customers` | Customers | ग्राहक |
 | `store` | Store | स्टोर |
@@ -3113,7 +3114,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (72)
+### orders (258)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3125,6 +3126,7 @@ Please check, Lalubhai:
 | `expectedDate` | Expected by | कब तक चाहिए |
 | `source.office` | Office | ऑफ़िस |
 | `source.portal` | Portal | पोर्टल |
+| `source.label` | Booked from | कहां से बुक हुआ |
 | `status.booking` | Booking | बुकिंग |
 | `status.confirmed` | Confirmed | पक्का |
 | `status.dispatching` | Dispatching | Dispatch चालू |
@@ -3140,6 +3142,11 @@ Please check, Lalubhai:
 | `line.alloy` | Alloy | अलॉय |
 | `line.temper` | Temper | टेम्पर |
 | `line.rate` | Rate (Rs/kg) | रेट (Rs/kg) |
+| `line.die` | Die | Die |
+| `line.anyCopy` | The die room picks the copy | कॉपी die room चुनेगा |
+| `line.copyCode` | Copy {code} | कॉपी {code} |
+| `line.copyPinned` | Copy pinned | कॉपी तय है |
+| `line.tierShort` | tier {rank} | टियर {rank} |
 | `finish.none` | Mill finish | मिल फ़िनिश |
 | `finish.anodise` | Anodise | एनोडाइज़ |
 | `finish.pvd` | PVD | PVD |
@@ -3189,8 +3196,188 @@ Please check, Lalubhai:
 | `hold.refused.die_mismatch` | Different die | दूसरी die |
 | `hold.refused.other_line` | On another order line; move it instead | दूसरी ऑर्डर लाइन पर है; उसे वहां से डालें |
 | `hold.refused.held_elsewhere` | Held for another order line | दूसरी ऑर्डर लाइन के लिए होल्ड पर है |
+| `subtitle` | Customer POs and what is still to dispatch | ग्राहकों के PO और जो dispatch होना बाकी है |
+| `filter.label` | Show | दिखाएं |
+| `filter.open` | Open | खुले |
+| `filter.closed` | Closed | बंद |
+| `filter.cancelled` | Cancelled | रद्द |
+| `search` | Number, PO or customer | नंबर, PO या ग्राहक |
+| `searchLabel` | Search orders | ऑर्डर खोजें |
+| `customer` | Customer | ग्राहक |
+| `po` | PO | PO |
+| `noPo` | No PO yet | अभी PO नहीं |
+| `late` | Late, {days} days | लेट, {days} दिन |
+| `list.status` | Status | स्थिति |
+| `list.ordered` | Ordered kg | ऑर्डर kg |
+| `list.baki` | Baki kg | बाकी kg |
+| `empty.title` | No orders yet | अभी कोई ऑर्डर नहीं |
+| `empty.body` | Book a customer's PO to start an order. | ग्राहक का PO बुक करके ऑर्डर शुरू करें। |
+| `empty.noMatch` | No orders match | कोई ऑर्डर नहीं मिला |
+| `empty.noMatchBody` | Try another number, PO or customer. | दूसरा नंबर, PO या ग्राहक आज़माएं। |
+| `empty.filtered` | Nothing under {status} | {status} में कुछ नहीं |
+| `strip.label` | Balance figures | बाकी के आंकड़े |
+| `strip.ordered` | Ordered | ऑर्डर |
+| `strip.planned` | Planned | प्लान |
+| `strip.pressed` | Pressed | प्रेस हुआ |
+| `strip.aged` | Aged | एजिंग |
+| `strip.packed` | Packed | पैक |
+| `strip.inStock` | In stock | स्टॉक में |
+| `strip.dispatched` | Dispatched | Dispatch हुआ |
+| `strip.baki` | Baki | बाकी |
+| `totals.title` | Balance | हिसाब |
+| `totals.ordered` | Ordered | ऑर्डर |
+| `totals.produced` | Produced | बना |
+| `totals.dispatched` | Dispatched | Dispatch हुआ |
+| `totals.baki` | Baki | बाकी |
+| `bakiNote` | Baki is ordered minus dispatched. It does not go below zero. | बाकी = ऑर्डर घटा dispatch। यह शून्य से नीचे नहीं जाता। |
+| `confirmed` | Order confirmed | ऑर्डर पक्का हो गया |
+| `closed` | Order closed | ऑर्डर बंद हो गया |
+| `cancelled` | Order cancelled | ऑर्डर रद्द हो गया |
+| `toConfirm` | To confirm this order | ऑर्डर पक्का करने के लिए |
+| `closeBakiHint` | {kg} kg is still to dispatch. Say why you are closing it. | {kg} kg अभी dispatch होना बाकी है। बंद करने का कारण लिखें। |
+| `pending.title` | Waiting for a manager | मैनेजर का इंतज़ार |
+| `pending.line` | {count} {count:bundle\|bundles}, {kg} kg, to {order} {customer} | {count} bundle, {kg} kg, {order} {customer} को |
+| `detail.lines` | Lines | लाइनें |
+| `detail.lineShort` | Line {n} | लाइन {n} |
+| `detail.moveBundles` | Move bundles | Bundle डालें |
+| `detail.basisLineBare` | Weight basis {milli} kg/12ft. | वज़न आधार {milli} kg/12ft। |
+| `detail.basisLine` | Weight basis {milli} kg/12ft ({basis}). | वज़न आधार {milli} kg/12ft ({basis})। |
+| `detail.implied` | {pcs} pcs weigh {implied} kg at that basis. | इस आधार पर {pcs} पीस का वज़न {implied} kg। |
+| `detail.rate` | Rs {rate}/kg | Rs {rate}/kg |
+| `detail.timeline` | Timeline | टाइमलाइन |
+| `detail.timelineEmpty` | Nothing has happened yet. | अभी कुछ नहीं हुआ। |
+| `detail.notFound` | This order was not found | यह ऑर्डर नहीं मिला |
+| `detail.editLines` | Edit lines | लाइनें बदलें |
+| `detail.saveLines` | Save lines | लाइनें सेव करें |
+| `detail.refreshWeight` | Refresh weight | वज़न ताज़ा करें |
+| `detail.weightRefreshed` | Line {n}: weight basis refreshed | लाइन {n}: वज़न आधार ताज़ा किया |
+| `detail.takeStock` | Take ready stock | तैयार स्टॉक लें |
+| `edit.title` | Edit order | ऑर्डर बदलें |
+| `edit.saved` | Order saved | ऑर्डर सेव हुआ |
+| `edit.linesTitle` | Edit the lines | लाइनें बदलें |
+| `edit.linesHint` | Pieces or kg, length, die and copy. A line on a released press plan keeps its figures. | पीस या kg, लंबाई, die और कॉपी। प्रेस को भेजे गए प्लान की लाइन के आंकड़े नहीं बदलते। |
+| `edit.linesSaved` | Lines saved | लाइनें सेव हुईं |
+| `edit.releasedPlan` | Line {lines} is on a released press plan. Its kg, pieces, length and die can't change now. | लाइन {lines} प्रेस को भेजे गए प्लान पर है। इसके kg, पीस, लंबाई और die अभी नहीं बदल सकते। |
+| `edit.belowDispatched` | Line {line}: {dispatched} kg is already dispatched, more than the new {kg} kg. | लाइन {line}: {dispatched} kg पहले ही dispatch हो चुका है, नए {kg} kg से ज़्यादा। |
+| `serverSaid` | {message} | सर्वर का जवाब: {message} |
+| `ownedBy` | This die belongs to {name}. | यह die {name} की है। |
+| `form.subtitle` | Book a customer's PO. Confirm it on the order once the PO number and every line are complete. | ग्राहक का PO बुक करें। PO नंबर और हर लाइन पूरी होने पर ऑर्डर पर पक्का करें। |
+| `form.party` | Customer and PO | ग्राहक और PO |
+| `form.customerSearch` | Search customers | ग्राहक खोजें |
+| `form.dieSearch` | Search by die code or name | Die कोड या नाम से खोजें |
+| `form.poHint` | Needed to confirm. A PO number can be used once per customer. | पक्का करने के लिए ज़रूरी। एक ग्राहक का PO नंबर एक ही बार चलता है। |
+| `form.poPlaceholder` | Customer's PO number | ग्राहक का PO नंबर |
+| `form.lineTitle` | Line {n} | लाइन {n} |
+| `form.removeLine` | Remove line {n} | लाइन {n} हटाएं |
+| `form.addLine` | Add another line | एक और लाइन जोड़ें |
+| `form.book` | Book order | ऑर्डर बुक करें |
+| `form.saved` | Order {number} booked | ऑर्डर {number} बुक हुआ |
+| `form.feet` | Feet | फ़ीट |
+| `form.inches` | Inches | इंच |
+| `form.lengthHintInch` | Feet and inches | फ़ीट और इंच |
+| `form.lengthHintMm` | Millimetres | मिलीमीटर |
+| `form.quickLengths` | Common lengths | आम लंबाइयां |
+| `form.weightBasis` | Weight basis | वज़न आधार |
+| `form.basisCurrent` | Current | ताज़ा |
+| `form.basisBandStart` | Band start | बैंड की शुरुआत |
+| `form.basisUsingCopy` | Using {milli} kg/12ft, the latest weight of copy {copy}. | {milli} kg/12ft ले रहे हैं, कॉपी {copy} का ताज़ा वज़न। |
+| `form.basisUsingBand` | Using {milli} kg/12ft, the start of the die's band. | {milli} kg/12ft ले रहे हैं, die के बैंड की शुरुआत। |
+| `form.noReading` | No weight reading on the copy yet; band start used. | कॉपी का अभी कोई वज़न नहीं है; बैंड की शुरुआत ली गई। |
+| `form.quoteLine` | {pcs} pcs come to {kg} kg. | {pcs} पीस = {kg} kg। |
+| `form.impliedLine` | {pcs} pcs weigh {implied} kg. You typed {kg} kg. | {pcs} पीस का वज़न {implied} kg है। आपने {kg} kg डाला। |
+| `form.minusPiece` | -1 piece | -1 पीस |
+| `form.plusPiece` | +1 piece | +1 पीस |
+| `form.quoteFailed` | Could not work out the other side. Check the die and the length. | दूसरी तरफ़ का हिसाब नहीं निकला। Die और लंबाई देखें। |
+| `form.quoting` | Working out… | हिसाब लग रहा है… |
+| `form.basisLocked` | Using {milli} kg/12ft, locked when this line was booked. | {milli} kg/12ft ले रहे हैं, जो लाइन बुक होते समय तय हुआ। |
+| `form.errors.customer` | Pick the customer. | ग्राहक चुनें। |
+| `form.errors.die` | Pick the die. | Die चुनें। |
+| `form.errors.length` | Enter the cut length. | कट लंबाई डालें। |
+| `form.errors.qty` | Enter pieces or kg. | पीस या kg डालें। |
+| `stock.title` | Stock for this die and length | इस die और लंबाई का स्टॉक |
+| `stock.hint` | Bundles of this die that are already made. Book the order, then use Take ready stock on its line to put them on it. | इस die के बने हुए bundle। ऑर्डर बुक करें, फिर उसकी लाइन पर "तैयार स्टॉक लें" से इन्हें उस पर डालें। |
+| `stock.takeTitle` | Ready stock for line {n} | लाइन {n} के लिए तैयार स्टॉक |
+| `stock.takeHint` | Plant stock and bundles not on an order go on this line at once. Another customer's bundles wait for a manager. | प्लांट स्टॉक और बिना ऑर्डर के bundle तुरंत इस लाइन पर आते हैं। दूसरे ग्राहक के bundle मैनेजर की मंज़ूरी के बाद। |
+| `stock.putOnLine` | Put on this line | इस लाइन पर डालें |
+| `stock.noneToTake` | No ready stock of this die to take. | इस die का लेने लायक तैयार स्टॉक नहीं है। |
+| `stock.prompt` | Ready stock of this die: {count} {count:bundle\|bundles}, {kg} kg. | इस die का तैयार स्टॉक: {count} bundle, {kg} kg। |
+| `stock.promptNone` | No ready stock of this die. | इस die का तैयार स्टॉक नहीं है। |
+| `stock.open` | See stock | स्टॉक देखें |
+| `stock.none` | No ready stock for this die. | इस die का तैयार स्टॉक नहीं है। |
+| `stock.sameLength` | Same length | वही लंबाई |
+| `stock.needsApproval` | Needs a manager | मैनेजर की मंज़ूरी |
+| `stock.group.plant` | Plant stock | प्लांट स्टॉक |
+| `stock.group.unassigned` | Not on an order | किसी ऑर्डर पर नहीं |
+| `stock.group.same_customer` | This customer's orders | इसी ग्राहक के ऑर्डर |
+| `stock.group.other_customer` | Another customer's orders | दूसरे ग्राहक के ऑर्डर |
+| `timeline.create` | Order booked | ऑर्डर बुक हुआ |
+| `timeline.update` | Order edited | ऑर्डर बदला गया |
+| `timeline.confirm` | Order confirmed | ऑर्डर पक्का हुआ |
+| `timeline.close` | Order closed | ऑर्डर बंद हुआ |
+| `timeline.cancel` | Order cancelled | ऑर्डर रद्द हुआ |
+| `timeline.weightRefresh` | Weight basis refreshed | वज़न आधार ताज़ा किया |
+| `timeline.reallocatePending` | {count} {count:bundle\|bundles}, {kg} kg, asked to move. Waiting for a manager. | {count} bundle, {kg} kg डालने की मांग। मैनेजर का इंतज़ार। |
+| `timeline.reallocateApplied` | {count} {count:bundle\|bundles}, {kg} kg, moved | {count} bundle, {kg} kg डाले गए |
+| `timeline.reallocateRejected` | The move of {count} {count:bundle\|bundles} was refused | {count} bundle डालना मना किया गया |
+| `timeline.planCreate` | Press plan {number} drafted | प्रेस प्लान {number} बना |
+| `timeline.planRelease` | Press plan {number} released to the press | प्रेस प्लान {number} प्रेस को भेजा गया |
+| `timeline.planCancel` | Press plan {number} cancelled | प्रेस प्लान {number} रद्द हुआ |
+| `timeline.planClose` | Press plan {number} closed | प्रेस प्लान {number} बंद हुआ |
+| `timeline.planUpdate` | Press plan {number} changed | प्रेस प्लान {number} बदला गया |
+| `timeline.packed` | Bundles packed for this order | इस ऑर्डर के लिए bundle पैक हुए |
+| `timeline.dispatched` | Dispatch completed | Dispatch पूरा हुआ |
+| `timeline.overdraw` | More than ordered was asked for on a dispatch | Dispatch पर ऑर्डर से ज़्यादा मांगा गया |
+| `timeline.other` | {action} | {action} |
+| `plan.subtitle` | Group open lines by die, set the window, release to the press. | खुली लाइनें die के हिसाब से जोड़ें, समय तय करें, प्रेस को भेजें। |
+| `plan.biggerTitle` | Use a bigger screen | बड़ी स्क्रीन पर खोलें |
+| `plan.biggerBody` | The press plan needs a desktop or an 11-inch tablet. Open it there to plan. | प्रेस प्लान के लिए डेस्कटॉप या 11 इंच का टैबलेट चाहिए। प्लान वहीं खोलें। |
+| `plan.recent` | Plans | प्लान |
+| `plan.noPlans` | No press plans yet. | अभी कोई प्रेस प्लान नहीं। |
+| `plan.summary` | {dies} {dies:die\|dies}, {kg} kg | {dies} die, {kg} kg |
+| `plan.from` | Window starts | समय शुरू |
+| `plan.to` | Window ends | समय खत्म |
+| `plan.windowHint` | A window is at most 24 hours. | एक प्लान का समय ज़्यादा से ज़्यादा 24 घंटे। |
+| `plan.windowLong` | The window is longer than 24 hours. | समय 24 घंटे से ज़्यादा है। |
+| `plan.windowOrder` | The window must end after it starts. | खत्म होने का समय शुरू के बाद होना चाहिए। |
+| `plan.openLines` | Open lines | खुली लाइनें |
+| `plan.searchPlaceholder` | Die, customer or PO | Die, ग्राहक या PO |
+| `plan.searchLabel` | Search open lines | खुली लाइनें खोजें |
+| `plan.allCustomers` | All customers | सभी ग्राहक |
+| `plan.nothingLeft` | Nothing left to plan | प्लान करने को कुछ नहीं |
+| `plan.nothingLeftBody` | Open lines are in stock or already on a plan. | खुली लाइनें स्टॉक में हैं या पहले से किसी प्लान में हैं। |
+| `plan.planable` | {kg} kg to plan | {kg} kg प्लान हो सकता है |
+| `plan.addLine` | Add {order} to the plan | {order} को प्लान में जोड़ें |
+| `plan.draftDies` | Dies in run order | चलने के क्रम में die |
+| `plan.chooseLines` | Choose lines | लाइनें चुनें |
+| `plan.chooseLinesBody` | One die groups every customer that needs it. | एक die उसे चाहने वाले सब ग्राहकों को एक साथ रखता है। |
+| `plan.markUrgent` | Mark urgent | जल्दी करें |
+| `plan.moveEarlier` | Move earlier | पहले करें |
+| `plan.moveLater` | Move later | बाद में करें |
+| `plan.otherParty` | {die} is also open for {customer} on {order} ({length}): {kg} kg still to plan. | {die} पर {customer} का {order} ({length}) भी खुला है: {kg} kg प्लान होना बाकी। |
+| `plan.otherLinesTitle` | Other open lines on these dies | इन die पर दूसरी खुली लाइनें |
+| `plan.otherLinesBody` | Add them to press them in the same run. | इन्हें जोड़ें तो एक ही रन में दबेंगी। |
+| `plan.otherLinesNone` | No other open line on these dies. | इन die पर कोई और खुली लाइन नहीं। |
+| `plan.planableBoth` | {kg} kg, {pcs} pcs to plan | {kg} kg, {pcs} पीस प्लान होना बाकी |
+| `plan.addAllOfSo` | Add all of {order} | {order} की सब लाइनें जोड़ें |
+| `plan.draftFooter` | {dies} {dies:die\|dies}, {lines} {lines:line\|lines} | {dies} die, {lines} लाइन |
+| `plan.moreLines` | More open lines than shown. Narrow by customer or search. | दिखाई गई से ज़्यादा खुली लाइनें हैं। ग्राहक या खोज से छांटें। |
+| `plan.added` | Added to the plan | प्लान में जोड़ा |
+| `plan.removed` | Taken off the plan | प्लान से हटाया |
+| `plan.lineKg` | kg for {order} | {order} के लिए kg |
+| `plan.lineKgHint` | Blank = all that is left to plan | खाली = जितना प्लान होना बाकी है सब |
+| `plan.pressLine` | Press | प्रेस |
+| `plan.pickPressLine` | Pick the press | प्रेस चुनें |
+| `plan.saveDraft` | Save draft plan | ड्राफ़्ट प्लान सेव करें |
+| `plan.released` | Plan released to the press | प्लान प्रेस को भेजा गया |
+| `plan.cancelled` | Plan cancelled | प्लान रद्द हुआ |
+| `plan.closed` | Plan closed | प्लान बंद हुआ |
+| `plan.releaseTitle` | Release {number} | {number} भेजें |
+| `plan.releaseHint` | The die room picks the copy at issue. Each die becomes one queued run. | कॉपी die room निकालते समय चुनता है। हर die एक कतार का रन बनता है। |
+| `plan.releaseNow` | Release to press | प्रेस को भेजें |
+| `plan.warningsTitle` | Other customers are waiting on these dies too | इन die पर दूसरे ग्राहक भी इंतज़ार में हैं |
+| `plan.notFound` | This plan was not found | यह प्लान नहीं मिला |
 
-### reallocate (13)
+### reallocate (28)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3203,6 +3390,21 @@ Please check, Lalubhai:
 | `needsApproval` | This is another customer's order. A manager approves the move. | यह दूसरे ग्राहक का ऑर्डर है। मैनेजर मंज़ूरी देंगे। |
 | `moved` | {count} {count:bundle\|bundles} moved | {count} bundle डाले गए |
 | `tooMany` | Move at most {max} bundles at a time. | एक बार में ज़्यादा से ज़्यादा {max} bundle डालें। |
+| `from` | From {order}, line {line} | {order} लाइन {line} से |
+| `bundles` | Bundles | Bundle |
+| `selectAll` | Select all | सब चुनें |
+| `clearAll` | Clear | साफ़ करें |
+| `noneToMove` | No bundle on this line can move. Only available bundles move. | इस लाइन का कोई bundle नहीं डाला जा सकता। सिर्फ़ उपलब्ध bundle डलते हैं। |
+| `leave` | Leave them | रहने दें |
+| `move` | Move | डालें |
+| `plantNote` | Plant stock applies at once. It is not a customer. | प्लांट स्टॉक में तुरंत हो जाता है। यह ग्राहक नहीं है। |
+| `lengthWarning` | The cut length differs from {order} line {line} ({length}) for {count} {count:bundle\|bundles}. Pick a reason. | {count} bundle की लंबाई {order} लाइन {line} की कट लंबाई ({length}) से अलग है। कारण चुनें। |
+| `reasonNone` | Choose a reason | कारण चुनें |
+| `reasonNeeded` | Pick a reason or write a note. | कारण चुनें या नोट लिखें। |
+| `pickBundles` | Pick the bundles to move. | डालने के लिए bundle चुनें। |
+| `waiting` | Waiting for a manager | मैनेजर का इंतज़ार |
+| `waitingBody` | {count} {count:bundle\|bundles}, {kg} kg, stay where they are until a manager approves. | {count} bundle, {kg} kg मैनेजर की मंज़ूरी तक जहां हैं वहीं रहेंगे। |
+| `openRequest` | See the request | मांग देखें |
 | `refused.dispatched` | Already dispatched | पहले ही dispatch हो चुका |
 | `refused.void` | Void | रद्द |
 | `refused.held` | Held on {code} | {code} पर होल्ड |
