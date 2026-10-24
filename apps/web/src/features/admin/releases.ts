@@ -52,10 +52,12 @@ export function apkAllowed(form: Pick<ReleaseForm, "platform" | "channel">): boo
 }
 
 /**
- * The form to the server's input, or the message key for each field that is wrong. The minimum
- * build defaults to the build number when left blank (the usual case: the new build is the floor).
+ * The form to the server's input, or the message key for each field that is wrong. A blank minimum
+ * build keeps `currentMin`, the floor in force on this platform and channel today (never the new
+ * build number: that would block every older install the moment this is published). Raising the
+ * floor is an explicit number.
  */
-export function parseReleaseForm(form: ReleaseForm): { ok: true; input: ReleaseInput } | { ok: false; errors: Partial<Record<ReleaseField, MessageKey>> } {
+export function parseReleaseForm(form: ReleaseForm, currentMin = 0): { ok: true; input: ReleaseInput } | { ok: false; errors: Partial<Record<ReleaseField, MessageKey>> } {
   const errors: Partial<Record<ReleaseField, MessageKey>> = {};
   const version = form.version.trim();
   if (!version || version.length > 32) errors.version = "admin.releases.errors.generic";
@@ -64,7 +66,7 @@ export function parseReleaseForm(form: ReleaseForm): { ok: true; input: ReleaseI
   const minRaw = form.minBuild.trim();
   if (minRaw !== "" && !WHOLE.test(minRaw)) errors.minBuild = "admin.releases.errors.generic";
   const buildNumber = Number(build);
-  const minBuild = minRaw === "" ? buildNumber : Number(minRaw);
+  const minBuild = minRaw === "" ? Math.min(currentMin, buildNumber) : Number(minRaw);
   if (!errors.build && !errors.minBuild && minBuild > buildNumber) errors.minBuild = "admin.releases.errors.minAbove";
   const notes = form.notes.trim();
   if (!notes || notes.length > MAX_RELEASE_NOTES) errors.notes = "admin.releases.errors.generic";

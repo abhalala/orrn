@@ -104,6 +104,14 @@ export const gu = {
     kgPerM: "kg/m",
     percent: "{value}%",
   },
+  status: {
+    dispatch: {
+      draft: "બની રહ્યું છે",
+      reserved: "હોલ્ડ પર",
+      completed: "Dispatch થયું",
+      cancelled: "રદ",
+    },
+  },
   today: {
     title: "આજે",
     greetingMorning: "નમસ્તે, {name}",

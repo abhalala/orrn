@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 2820 screen strings in 41 groups, 16 guides with 292 strings.
+Counts: 2848 screen strings in 41 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -1461,7 +1461,7 @@ Counts: 2820 screen strings in 41 groups, 16 guides with 292 strings.
 | `designs.notSent` | Not sent to the print computer yet | प्रिंट कंप्यूटर को अभी नहीं भेजा |
 | `designs.pushFailed` | Couldn't send the label design. Check that the print computer is connected. | लेबल डिज़ाइन नहीं भेज सके। देखें कि प्रिंट कंप्यूटर जुड़ा है। |
 
-### settings (162)
+### settings (172)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1592,6 +1592,8 @@ Counts: 2820 screen strings in 41 groups, 16 guides with 292 strings.
 | `modules.saved` | Saved | सेव हो गया |
 | `modules.saveFailed` | Couldn't save the switch. Try again. | स्विच सेव नहीं हुआ। फिर कोशिश करें। |
 | `modules.readOnly` | Only owners and admins can change the switches. | स्विच सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
+| `modules.lastChange` | Last change: {who}, {when}. From {from} to {to}. | आखिरी बदलाव: {who}, {when}। {from} से {to}। |
+| `modules.noChange` | No change recorded yet. | अभी तक कोई बदलाव दर्ज नहीं। |
 | `about.app` | App | ऐप |
 | `about.version` | Web app version | वेब ऐप का वर्शन |
 | `about.plant` | Plant | प्लांट |
@@ -1600,6 +1602,14 @@ Counts: 2820 screen strings in 41 groups, 16 guides with 292 strings.
 | `about.support` | Support | सपोर्ट |
 | `about.supportNone` | No support contact is set for your plant. Use Help to reach the orrn team. | आपके प्लांट के लिए सपोर्ट संपर्क सेट नहीं है। orrn टीम तक पहुंचने के लिए मदद इस्तेमाल करें। |
 | `about.hoursLabel` | Hours | समय |
+| `about.supportEditTitle` | Your support contact | आपका सपोर्ट संपर्क |
+| `about.supportEditHint` | Everyone at your plant sees this. Put the person to call when something goes wrong. | प्लांट में सबको यह दिखता है। कुछ गड़बड़ हो तो जिसे फ़ोन करना है, उसका नाम लिखें। |
+| `about.supportName` | Contact name | संपर्क का नाम |
+| `about.supportPhone` | Phone | फ़ोन |
+| `about.supportHours` | Hours | समय |
+| `about.supportSave` | Save contact | संपर्क सेव करें |
+| `about.supportSaved` | Contact saved | संपर्क सेव हो गया |
+| `about.supportSaveFailed` | Couldn't save the contact. Try again. | संपर्क सेव नहीं हुआ। फिर कोशिश करें। |
 | `about.help` | Open Help | मदद खोलें |
 | `about.guides` | Guides | गाइड |
 | `printing.status` | Label printing | लेबल प्रिंटिंग |
@@ -1775,7 +1785,7 @@ Counts: 2820 screen strings in 41 groups, 16 guides with 292 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (343)
+### admin (351)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1860,8 +1870,14 @@ Counts: 2820 screen strings in 41 groups, 16 guides with 292 strings.
 | `releases.build` | Build number | बिल्ड नंबर |
 | `releases.buildHint` | Must be higher than the last build on this platform. | इस प्लेटफ़ॉर्म के पिछले बिल्ड से बड़ा होना चाहिए। |
 | `releases.minBuild` | Minimum build | न्यूनतम बिल्ड |
-| `releases.minBuildHint` | Builds below this are blocked. Not above the build number. | इससे नीचे के बिल्ड रुक जाते हैं। बिल्ड नंबर से ऊपर नहीं। |
+| `releases.minBuildHint` | Leave blank to keep the current minimum ({current}). Raising it blocks older builds. Not above the build number. | खाली छोड़ें तो मौजूदा न्यूनतम ({current}) बना रहता है। इसे बढ़ाने पर पुराने बिल्ड रुक जाते हैं। बिल्ड नंबर से ऊपर नहीं। |
 | `releases.mandatory` | Mandatory: raise the floor for older builds too | ज़रूरी: पुराने बिल्ड के लिए भी सीमा ऊपर करें |
+| `releases.mandatoryYes` | Mandatory | ज़रूरी |
+| `releases.mandatoryNo` | Optional | वैकल्पिक |
+| `releases.mandatorySwitch` | Mandatory: {version} | ज़रूरी: {version} |
+| `releases.mandatorySet` | Marked mandatory | ज़रूरी कर दिया |
+| `releases.mandatoryCleared` | No longer mandatory | अब ज़रूरी नहीं |
+| `releases.mandatoryFailed` | Couldn't change that build. Try again. | यह बिल्ड नहीं बदला। फिर कोशिश करें। |
 | `releases.notes` | Release notes | रिलीज़ नोट |
 | `releases.notesHint` | Up to {max} characters. Shown to people who need to update. | ज़्यादा से ज़्यादा {max} अक्षर। अपडेट करने वालों को दिखता है। |
 | `releases.apkUrl` | Download link for the floor app | फ़्लोर ऐप का डाउनलोड लिंक |
@@ -1875,6 +1891,8 @@ Counts: 2820 screen strings in 41 groups, 16 guides with 292 strings.
 | `releases.columns.platform` | Platform | प्लेटफ़ॉर्म |
 | `releases.columns.build` | Build | बिल्ड |
 | `releases.columns.minimum` | Minimum | न्यूनतम |
+| `releases.columns.mandatory` | Mandatory | ज़रूरी |
+| `releases.columns.notes` | Notes | नोट्स |
 | `releases.columns.published` | Published | प्रकाशित |
 | `releases.errors.minAbove` | The minimum build can't be above the build number. | न्यूनतम बिल्ड, बिल्ड नंबर से ऊपर नहीं हो सकता। |
 | `releases.errors.notAbove` | That build number is not above the last published build. | यह बिल्ड नंबर पिछले प्रकाशित बिल्ड से ऊपर नहीं है। |
@@ -2877,7 +2895,7 @@ Please check, Lalubhai:
 | `orders.priceOnSalesOrder` | Rates on orders | ऑर्डर पर रेट |
 | `orders.dieRequired` | Order lines need a die copy or tier | ऑर्डर लाइन पर die कॉपी या टियर ज़रूरी |
 
-### devices (41)
+### devices (42)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2908,6 +2926,7 @@ Please check, Lalubhai:
 | `status.blocked` | Below minimum build | न्यूनतम बिल्ड से नीचे |
 | `status.revoked` | Signed out | साइन आउट |
 | `status.web` | Web | वेब |
+| `status.unknown` | Build not reported | बिल्ड की जानकारी नहीं |
 | `rename` | Rename | नाम बदलें |
 | `renameTitle` | Name this device | इस डिवाइस को नाम दें |
 | `renamed` | Name saved | नाम सेव हो गया |
@@ -2942,7 +2961,7 @@ Please check, Lalubhai:
 | `drillNone` | No restore drill yet. orrn runs one every quarter. | अभी कोई रिस्टोर ड्रिल नहीं हुई। orrn हर तिमाही एक चलाता है। |
 | `drillBody` | A drill restores the latest backup into a scratch copy and compares the counts of customers, dies, bundles and dispatches. Your live data is not touched. | ड्रिल में ताज़ा बैकअप को एक अलग कॉपी में बहाल करके ग्राहक, die, bundle और dispatch की गिनती मिलाई जाती है। आपका असली डेटा नहीं छुआ जाता। |
 | `drillLast` | Last drill: {status}, {time} | आखिरी ड्रिल: {status}, {time} |
-| `runbook` | The steps are in docs/RESTORE_DRILL.md. | पूरे कदम docs/RESTORE_DRILL.md में हैं। |
+| `runbook` | Ask orrn support to run the restore drill. It is done every quarter. | रीस्टोर ड्रिल चलवाने के लिए orrn सपोर्ट से कहें। यह हर तिमाही होती है। |
 | `cardHint` | Status only. There is no download: the plant can't fetch or restore its own backup. | सिर्फ़ स्थिति दिखती है। डाउनलोड नहीं है: प्लांट अपना बैकअप खुद नहीं ले या बहाल कर सकता। |
 | `staffTitle` | For orrn staff | orrn स्टाफ़ के लिए |
 | `runNow` | Back up now | अभी बैकअप लें |
@@ -2979,7 +2998,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (40)
+### audit (49)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3007,6 +3026,15 @@ Please check, Lalubhai:
 | `kinds.count` | Stock counts | स्टॉक गिनती |
 | `kinds.support_request` | Help requests | मदद के अनुरोध |
 | `kinds.backup` | Backups | बैकअप |
+| `kinds.press` | Press | प्रेस |
+| `kinds.foundry` | Foundry | फाउंड्री |
+| `kinds.purchase` | Buying and stores | खरीद और स्टोर |
+| `kinds.approval` | Approvals | मंज़ूरियां |
+| `kinds.platform` | orrn support | orrn सपोर्ट |
+| `valueYes` | Yes | हां |
+| `valueNo` | No | नहीं |
+| `valueNone` | none | कुछ नहीं |
+| `change` | {from} to {to} | {from} से {to} |
 | `columns.when` | When | कब |
 | `columns.who` | Who | किसने |
 | `columns.what` | What | क्या |

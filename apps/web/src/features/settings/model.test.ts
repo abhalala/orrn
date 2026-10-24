@@ -3,8 +3,6 @@ import { describe, expect, test } from "bun:test";
 import { COMPANY_ROLES } from "@orrn/i18n";
 
 import {
-  buildNumberOf,
-  deviceGate,
   draftFromShifts,
   gstinValid,
   invitableRoles,
@@ -22,6 +20,8 @@ import {
   standardsDraft,
   standardsPatch,
   supportContactOf,
+  supportDraft,
+  supportPatch,
   timeToMinute,
   timezoneOf,
   timezoneOptions,
@@ -157,15 +157,13 @@ describe("modules, letterhead, devices, support contact", () => {
     expect(letterheadDirty(a, { ...a, phone: "98250 00000" })).toBe(true);
   });
 
-  test("a device is Blocked below the platform's minimum build; revoked wins; web has no gate", () => {
-    const min = (p: string) => (p === "android" ? 10 : 1);
-    expect(buildNumberOf("1.1 (11)")).toBe(11);
-    expect(buildNumberOf("1.1")).toBeNull();
-    expect(deviceGate({ platform: "android", appVersion: "1.0 (9)", revokedAt: null }, min)).toBe("blocked");
-    expect(deviceGate({ platform: "android", appVersion: "1.1 (10)", revokedAt: null }, min)).toBe("current");
-    expect(deviceGate({ platform: "android", appVersion: "1.0 (9)", revokedAt: "2026-10-01" }, min)).toBe("revoked");
-    expect(deviceGate({ platform: "web", appVersion: null, revokedAt: null }, min)).toBe("web");
-    expect(deviceGate({ platform: "ios", appVersion: null, revokedAt: null }, min)).toBe("current");
+  test("the support form starts from the stored contact and sends only the fields that changed (blank clears)", () => {
+    const saved = supportDraft({ support: { name: "Asha", phone: "98250 11111", hours: "9 to 6", email: "a@plant.test" } });
+    expect(saved).toEqual({ name: "Asha", phone: "98250 11111", hours: "9 to 6" });
+    expect(supportDraft(undefined)).toEqual({ name: "", phone: "", hours: "" });
+    expect(supportPatch(saved, saved)).toBeNull();
+    expect(supportPatch({ ...saved, phone: " 98250 22222 " }, saved)).toEqual({ phone: "98250 22222" });
+    expect(supportPatch({ ...saved, hours: "  " }, saved)).toEqual({ hours: "" });
   });
 
   test("the support contact is read from settings.support and ignored when empty or wrong", () => {

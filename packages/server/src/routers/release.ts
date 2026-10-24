@@ -81,6 +81,31 @@ export const releaseRouter = router({
 
 const DEVICE_PLATFORMS = ["android", "ios", "web"] as const;
 
+export type DeviceGateStatus = "revoked" | "blocked" | "current" | "web" | "unknown";
+
+/** The build number in an app version like `1.1 (11)`, or null when there is none. */
+export function buildNumberOf(appVersion: string | null | undefined): number | null {
+  const m = /\((\d+)\)\s*$/.exec(appVersion ?? "");
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * Where a device stands against the distribution gate (Settings > Devices), worked out here so
+ * the screen only shows it. A device's channel is not recorded, so it is Blocked only when below
+ * the LOWEST published floor for its platform. Revoked beats everything; the web app has no build
+ * gate; a device that never reported a build is Unknown, not Current.
+ */
+export function deviceGateStatus(
+  d: { platform: string; appVersion: string | null; revokedAt: Date | null },
+  floorOf: (platform: string) => number,
+): DeviceGateStatus {
+  if (d.revokedAt) return "revoked";
+  if (d.platform === "web") return "web";
+  const build = buildNumberOf(d.appVersion);
+  if (build === null) return "unknown";
+  return build < floorOf(d.platform) ? "blocked" : "current";
+}
+
 export const deviceRouter = router({
   /**
    * Native launch / web session start. Upserts on (company, install) and records the session that
@@ -182,8 +207,31 @@ export const deviceRouter = router({
       .where(eq(device.companyId, ctx.companyId))
       .orderBy(desc(device.lastSeenAt))
       .limit(500);
+    const releases = await ctx.db
+      .select({
+        platform: appRelease.platform,
+        channel: appRelease.channel,
+        buildNumber: appRelease.buildNumber,
+        minBuild: appRelease.minBuild,
+        mandatory: appRelease.mandatory,
+      })
+      .from(appRelease)
+      .where(isNotNull(appRelease.buildNumber))
+      .limit(1000);
+    const floors = new Map<string, number>();
+    for (const platform of ["android", "ios"]) {
+      const perChannel = RELEASE_CHANNELS.map((channel) =>
+        releases
+          .filter((r) => r.platform === platform && r.channel === channel)
+          .map((r) => ({ buildNumber: r.buildNumber ?? 0, minBuild: r.minBuild ?? 0, mandatory: r.mandatory })),
+      )
+        .filter((rs) => rs.length > 0)
+        .map((rs) => effectiveMinBuild(rs));
+      floors.set(platform, perChannel.length ? Math.min(...perChannel) : 0);
+    }
     return rows.map((r) => ({
       ...r,
+      gate: deviceGateStatus(r, (platform) => floors.get(platform) ?? 0),
       lastSeenAt: r.lastSeenAt.toISOString(),
       revokedAt: r.revokedAt ? r.revokedAt.toISOString() : null,
       createdAt: r.createdAt.toISOString(),

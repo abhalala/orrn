@@ -1,12 +1,19 @@
 import { useT } from "@orrn/i18n";
+import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
+import { Field, TextInput } from "@orrn/ui/components/field";
+import { FormActions } from "@orrn/ui/components/form-actions";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
+import { toast } from "sonner";
 
+import { Can } from "@/shared/components/can";
 import { useMe } from "@/shared/lib/me";
 import { WEB_BUILD } from "@/shared/lib/build-info";
+import { trpc } from "@/shared/utils/trpc";
 
-import { supportContactOf } from "./model";
+import { supportContactOf, supportDraft, supportPatch, type SupportDraft } from "./model";
 
 function Fact({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
   return (
@@ -20,6 +27,7 @@ function Fact({ label, value, mono }: { label: string; value: ReactNode; mono?: 
 /**
  * About: the web app's version and build day, who is signed in to which plant, and the plant's
  * support contact (`settings.support`, read as stored). With no contact set it points to Help.
+ * People with `settings.update` edit the contact here (name, phone, hours; FP-PF-14).
  */
 export function AboutTab() {
   const { t } = useT();
@@ -43,6 +51,10 @@ export function AboutTab() {
           </dl>
         </CardContent>
       </Card>
+
+      <Can do="settings.update">
+        <SupportEditor settings={company?.settings} />
+      </Can>
 
       <Card>
         <CardHeader>
@@ -72,5 +84,57 @@ export function AboutTab() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function SupportEditor({ settings }: { settings: Record<string, unknown> | undefined }) {
+  const { t } = useT();
+  const queryClient = useQueryClient();
+  const saved = supportDraft(settings);
+  const [draft, setDraft] = useState<SupportDraft>(saved);
+  const patch = supportPatch(draft, saved);
+
+  const save = useMutation(
+    trpc.company.updateSettings.mutationOptions({
+      onSuccess: () => {
+        toast.success(t("settings.about.supportSaved"));
+        void queryClient.invalidateQueries({ queryKey: trpc.auth.me.queryKey() });
+      },
+      onError: () => toast.error(t("settings.about.supportSaveFailed")),
+    }),
+  );
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (patch) save.mutate({ support: patch });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("settings.about.supportEditTitle")}</CardTitle>
+        <CardDescription>{t("settings.about.supportEditHint")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-4" data-testid="support-editor">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Field label={t("settings.about.supportName")}>
+              <TextInput value={draft.name} maxLength={100} autoComplete="off" data-testid="support-name" onChange={(e) => setDraft({ ...draft, name: e.currentTarget.value })} />
+            </Field>
+            <Field label={t("settings.about.supportPhone")}>
+              <TextInput value={draft.phone} maxLength={40} inputMode="tel" autoComplete="off" data-testid="support-phone" onChange={(e) => setDraft({ ...draft, phone: e.currentTarget.value })} />
+            </Field>
+            <Field label={t("settings.about.supportHours")}>
+              <TextInput value={draft.hours} maxLength={100} autoComplete="off" data-testid="support-hours" onChange={(e) => setDraft({ ...draft, hours: e.currentTarget.value })} />
+            </Field>
+          </div>
+          <FormActions sticky={false}>
+            <Button type="submit" disabled={!patch} loading={save.isPending} data-testid="support-save">
+              {t("settings.about.supportSave")}
+            </Button>
+          </FormActions>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

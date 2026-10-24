@@ -236,6 +236,20 @@ test.describe("standards", () => {
     expect(input.standards.hollow.cml).toBe("CM/L 7700123456");
   });
 
+  test("375: opening on a tab far along the strip scrolls it into view", async ({ page }) => {
+    await open(page, "/settings?tab=about", { width: 375 });
+    const tab = page.getByRole("tablist", { name: "Settings" }).getByRole("tab", { name: "About", exact: true });
+    await expect(tab).toHaveAttribute("aria-selected", "true");
+    // Inside the strip's visible box, not cut off at its edge.
+    await expect
+      .poll(async () => {
+        const t = await tab.boundingBox();
+        const strip = await page.getByRole("tablist", { name: "Settings" }).boundingBox();
+        return !!t && !!strip && t.x >= strip.x - 1 && t.x + t.width <= strip.x + strip.width + 1;
+      })
+      .toBe(true);
+  });
+
   test("viewer: the pairs are read as text", async ({ page }) => {
     await open(page, "/settings?tab=standards", { role: "viewer", width: 375 });
     const standards = page.getByTestId("settings-standards");
@@ -268,18 +282,62 @@ test.describe("modules", () => {
     });
   }
 
-  test("pressing a switch saves it at once; pressing it again puts it back", async ({ page }) => {
+  test("pressing a switch saves it at once with no Save step, and says so in a toast", async ({ page }) => {
+    // The save is answered in the browser: the shared seed's switches stay where they were.
+    const sent = await answer(page, "company.updateSettings", { settings: {} });
     await open(page, "/settings?tab=modules", { width: 1280 });
     const dieBands = page.getByTestId("switch-dieBands");
-    const before = await dieBands.getAttribute("aria-checked");
-    try {
-      await dieBands.click();
-      await expect(dieBands).not.toHaveAttribute("aria-checked", before!);
-    } finally {
-      // Settle on the stored value whatever happened above: the seed is shared with other specs.
-      if ((await dieBands.getAttribute("aria-checked")) !== before) await dieBands.click();
-      await expect(dieBands).toHaveAttribute("aria-checked", before!);
-    }
+    await expect(dieBands).toHaveAttribute("aria-checked", /true|false/);
+    const before = (await dieBands.getAttribute("aria-checked")) === "true";
+    await expect(page.getByTestId("settings-modules").getByRole("button", { name: /^save/i })).toHaveCount(0);
+    await dieBands.click();
+    await expect.poll(() => sent.length).toBe(1);
+    expect(inputOf(sent[0]!)).toEqual({ dieBands: !before });
+    await expect(page.getByText("Saved", { exact: true }).first()).toBeVisible();
+  });
+
+  test("under each switch: who flipped it last, when, and from what to what; a switch never flipped says so", async ({ page }) => {
+    await rewrite<{ items: unknown[]; nextCursor: unknown }>(page, "audit.list", (r) => {
+      r.items = [
+        {
+          id: "s2",
+          at: "2026-10-24T08:30:00.000Z",
+          action: "company.settings.update",
+          subjectType: "company",
+          subjectId: "c1",
+          actorId: "u1",
+          actorName: "Asha Patel",
+          byStaff: false,
+          meta: { changed: { portalEnabled: true }, previous: { portalEnabled: false } },
+        },
+        {
+          id: "s1",
+          at: "2026-10-20T08:30:00.000Z",
+          action: "company.settings.update",
+          subjectType: "company",
+          subjectId: "c1",
+          actorId: "u2",
+          actorName: "Ravi",
+          byStaff: false,
+          meta: { changed: { requireCastOnBundle: true }, previous: { requireCastOnBundle: null } },
+        },
+      ];
+      r.nextCursor = null;
+    });
+    await open(page, "/settings?tab=modules", { width: 375 });
+    await expect(page.getByTestId("audit-portalEnabled")).toContainText("Last change: Asha Patel");
+    await expect(page.getByTestId("audit-portalEnabled")).toContainText("From Off to On");
+    await expect(page.getByTestId("audit-requireCastOnBundle")).toContainText("Ravi");
+    await expect(page.getByTestId("audit-requireCastOnBundle")).toContainText("From Automatic to On");
+    await expect(page.getByTestId("audit-dieBands")).toHaveText("No change recorded yet.");
+    await shot(page, "settings-modules-audit", 375);
+    await expectContained(page);
+  });
+
+  test("a role that may not read the audit log still sees the switches, without the audit lines", async ({ page }) => {
+    await open(page, "/settings?tab=modules", { role: "viewer", width: 820 });
+    await expect(page.getByTestId("settings-modules")).toBeVisible();
+    await expect(page.getByTestId("audit-dieBands")).toHaveCount(0);
   });
 });
 
@@ -358,34 +416,58 @@ test.describe("devices", () => {
       await expect(devices.getByTestId("gate-row").first()).toContainText("Minimum build");
       const cards = devices.getByTestId("device-card");
       await expect(cards.first()).toBeVisible();
-      await expect(cards.first().getByText(/Current|Below minimum build|Signed out|Web/).first()).toBeVisible();
+      await expect(cards.first().getByText(/Current|Below minimum build|Signed out|Web|Build not reported/).first()).toBeVisible();
       await expect(cards.first().getByRole("button", { name: "Rename" })).toBeVisible();
       await shot(page, "settings-devices", width);
       await expectContained(page);
     });
   }
 
-  test("a device below the minimum build is flagged, and Sign out asks first", async ({ page }) => {
-    await rewrite<{ appVersion: string | null; platform: string; revokedAt: string | null }[]>(page, "device.list", (rows) => {
+  test("a device's gate status is the server's: below the minimum is flagged, no build is Build not reported; Sign out asks first", async ({ page }) => {
+    // The page shows `gate` as the server sent it; it works nothing out from the app version.
+    await rewrite<{ appVersion: string | null; platform: string; revokedAt: string | null; gate: string }[]>(page, "device.list", (rows) => {
       if (rows[0]) {
         rows[0].platform = "android";
         rows[0].appVersion = "0.1 (1)";
         rows[0].revokedAt = null;
+        rows[0].gate = "blocked";
       }
-    });
-    await rewrite<{ minBuild: number; latest: { version: string; buildNumber: number; publishedAt: string } | null }>(page, "release.check", (gate) => {
-      gate.minBuild = 50;
-      gate.latest = { version: "9.9.9", buildNumber: 60, publishedAt: "2026-10-20T10:00:00.000Z" };
+      if (rows[1]) {
+        rows[1].appVersion = null;
+        rows[1].revokedAt = null;
+        rows[1].platform = "ios";
+        rows[1].gate = "unknown";
+      }
     });
     await open(page, "/settings?tab=devices", { width: 820 });
     const card = page.getByTestId("device-card").first();
     await expect(card).toHaveAttribute("data-gate", "blocked");
     await expect(card).toContainText("Below minimum build");
+    if ((await page.getByTestId("device-card").count()) > 1) {
+      await expect(page.getByTestId("device-card").nth(1)).toHaveAttribute("data-gate", "unknown");
+      await expect(page.getByTestId("device-card").nth(1)).toContainText("Build not reported");
+    }
     await card.getByRole("button", { name: "Sign out this device" }).click();
     const dialog = page.getByRole("dialog", { name: "Sign out this device?" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toHaveCount(0);
+  });
+
+  test("a build that looks old but the server calls current stays Current (the page does not decide)", async ({ page }) => {
+    await rewrite<{ appVersion: string | null; platform: string; revokedAt: string | null; gate: string }[]>(page, "device.list", (rows) => {
+      if (rows[0]) {
+        rows[0].platform = "android";
+        rows[0].appVersion = "0.1 (1)";
+        rows[0].revokedAt = null;
+        rows[0].gate = "current";
+      }
+    });
+    await rewrite<{ minBuild: number }>(page, "release.check", (gate) => {
+      gate.minBuild = 500;
+    });
+    await open(page, "/settings?tab=devices", { width: 820 });
+    await expect(page.getByTestId("device-card").first()).toHaveAttribute("data-gate", "current");
   });
 
   test("rename sends the trimmed name", async ({ page }) => {
@@ -408,11 +490,13 @@ test.describe("devices", () => {
 
 test.describe("backup, help and about", () => {
   for (const width of WIDTHS) {
-    test(`owner ${width}: last backup, restore drill and the runbook; no run buttons for the plant`, async ({ page }) => {
+    test(`owner ${width}: last backup, restore drill in plain words; no run buttons for the plant`, async ({ page }) => {
       await open(page, "/settings?tab=backup", { width });
       const backup = page.getByTestId("settings-backup");
       await expect(backup.getByRole("heading", { name: "Restore drill" })).toBeVisible();
-      await expect(backup.getByText("docs/RESTORE_DRILL.md")).toBeVisible();
+      await expect(backup.getByText("Ask orrn support to run the restore drill. It is done every quarter.")).toBeVisible();
+      // No repo path or file name on a plant screen.
+      await expect(backup).not.toContainText(/docs\/|\.md\b/);
       await expect(backup.getByTestId("backup-last")).toBeVisible();
       await expect(backup.getByTestId("backup-staff")).toHaveCount(0);
       await shot(page, "settings-backup", width);
@@ -497,6 +581,30 @@ test.describe("backup, help and about", () => {
     await expect(mine).toContainText("Answered");
     await expect(mine).toContainText("Check the label design in Printing");
     await expectContained(page);
+  });
+
+  test("About: the owner edits the support contact (name, phone, hours); only the changed fields are sent", async ({ page }) => {
+    const sent = await answer(page, "company.updateSettings", { settings: {} });
+    await open(page, "/settings?tab=about", { width: 375 });
+    const editor = page.getByTestId("support-editor");
+    await expect(editor.getByLabel("Contact name")).toBeVisible();
+    await expect(editor.getByLabel("Phone")).toBeVisible();
+    await expect(editor.getByLabel("Hours")).toBeVisible();
+    await expect(page.getByTestId("support-save")).toBeDisabled();
+    await editor.getByTestId("support-name").fill("  Lalu uncle ");
+    await editor.getByTestId("support-hours").fill("Mon to Sat, 9 to 6");
+    await page.getByTestId("support-save").click();
+    await expect.poll(() => sent.length).toBe(1);
+    expect(inputOf(sent[0]!)).toEqual({ support: { name: "Lalu uncle", hours: "Mon to Sat, 9 to 6" } });
+    await expect(page.getByText("Contact saved")).toBeVisible();
+    await shot(page, "settings-about-support", 375);
+    await expectContained(page);
+  });
+
+  test("About: a role without settings.update reads the contact and has no editor", async ({ page }) => {
+    await open(page, "/settings?tab=about", { role: "viewer", width: 820 });
+    await expect(page.getByTestId("settings-about")).toBeVisible();
+    await expect(page.getByTestId("support-editor")).toHaveCount(0);
   });
 
   test("About shows the support contact from the settings when there is one", async ({ page }) => {
@@ -596,6 +704,9 @@ test.describe("Today", () => {
     await expect(page.getByTestId("production-day-caption")).toContainText(/\d{2}:\d{2}/);
     await expect(page.getByTestId("kpi-packed")).toContainText("પૅક થયું kg");
     await expect(page.getByTestId("kpi-stock")).toContainText("સ્ટોકમાં");
+    // The header date is in Gujarati too (it was English), and chips on the lists never show a raw key.
+    await expect(page.locator("main#main")).toContainText(/[\u0A80-\u0AFF]+, \d{1,2} [\u0A80-\u0AFF]+/);
+    await expect(page.locator("main#main")).not.toContainText(/Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday/);
     // Words gu does not have yet come from English, never as a raw key.
     await expect(page.locator("main#main")).not.toContainText(/status\.\w+\.\w+/);
     await shot(page, "today-gu", 375);
@@ -613,7 +724,7 @@ const AUDIT_ROWS = [
     actorId: "u1",
     actorName: "Owner",
     byStaff: false,
-    meta: { changed: { dieBands: true } },
+    meta: { changed: { dieBands: true }, previous: { dieBands: null } },
   },
   {
     id: "a1",
@@ -642,6 +753,11 @@ test.describe("audit viewer", () => {
       await expect(list).toContainText("device.revoke");
       await expect(list).toContainText("orrn support");
       await expect(list.getByText("Details").first()).toBeVisible();
+      // Details read as a label and a value, with old to new for a switch flip, never raw JSON.
+      await list.getByText("Details").first().click();
+      await expect(list.getByTestId("audit-meta").first()).toContainText("Die bands");
+      await expect(list.getByTestId("audit-meta").first()).toContainText("none to Yes");
+      await expect(list).not.toContainText('"changed"');
       // Nothing on the screen edits or removes an entry.
       await expect(page.getByRole("button", { name: /delete|remove|edit/i })).toHaveCount(0);
       await shot(page, "audit", width);
@@ -649,7 +765,21 @@ test.describe("audit viewer", () => {
     });
   }
 
-  test("filters reach the server: kind as a prefix, dates as the plant's day bounds, subject and person as typed", async ({ page }) => {
+  test("the Kind list covers every group and a Dies filter asks for all the die prefixes at once", async ({ page }) => {
+    const seen: string[] = [];
+    page.on("request", (r) => {
+      if (procedureOf(r.url()).includes("audit.list")) seen.push(decodeURIComponent(r.url()));
+    });
+    await open(page, "/audit", { width: 820 });
+    const kind = page.getByTestId("audit-kind");
+    for (const name of ["Press", "Foundry", "Buying and stores", "Approvals", "orrn support", "Dies"]) {
+      await expect(kind.locator("option", { hasText: name })).toHaveCount(1);
+    }
+    await kind.selectOption("die");
+    await expect.poll(() => seen.some((u) => ["die.", "die_instance.", "die_issue.", "die_band.", "die_owner.", "nitriding."].every((p) => u.includes(`"${p}"`)))).toBe(true);
+  });
+
+  test("filters reach the server: kind as a list of prefixes, dates as the plant's day bounds, subject and person as typed", async ({ page }) => {
     const seen: string[] = [];
     page.on("request", (r) => {
       if (procedureOf(r.url()).includes("audit.list")) seen.push(decodeURIComponent(r.url()));
@@ -657,7 +787,7 @@ test.describe("audit viewer", () => {
     await open(page, "/audit", { width: 1280 });
     await expect.poll(() => seen.length).toBeGreaterThan(0);
     await page.getByTestId("audit-kind").selectOption("dispatch");
-    await expect.poll(() => seen.some((u) => u.includes('"action":"dispatch."'))).toBe(true);
+    await expect.poll(() => seen.some((u) => u.includes('"actions":["dispatch.","packingList."]'))).toBe(true);
     await page.getByTestId("audit-from").fill("2026-10-24");
     // 24 Oct 00:00 in Kolkata is 23 Oct 18:30 UTC.
     await expect.poll(() => seen.some((u) => u.includes(`"from":${Date.UTC(2026, 9, 23, 18, 30)}`))).toBe(true);
@@ -737,24 +867,85 @@ test.describe("Godseye: app builds, backups, support, company", () => {
     });
   }
 
-  test("staff publish an iPhone build: the form checks first, then the build appears in the list", async ({ page }) => {
+  test("staff publish an iPhone build: the form checks first, a blank minimum keeps the floor, and the build appears in the list", async ({ page }) => {
+    // The publish is answered in the browser (and the list rewritten to show the build): the
+    // shared seed never gets a build, so the iOS minimum stays at the seeded 1.
+    const sent = await answer(page, "platform.release.publish", { id: "e2e-stub" });
+    const version = "e2e-stub-1.9.0";
+    await rewrite<Record<string, unknown>[]>(page, "platform.release.list", (rows) => {
+      if (sent.length === 0) return;
+      rows.unshift({
+        id: "e2e-stub",
+        platform: "ios",
+        channel: "production",
+        version,
+        buildNumber: 900,
+        minBuild: 1,
+        mandatory: false,
+        notes: "Platform e2e build",
+        apkUrl: null,
+        publishedAt: "2026-10-24T10:00:00.000Z",
+      });
+    });
     await open(page, "/admin/releases", { role: "staff", width: 1280 });
     const form = page.getByTestId("publish-form");
     await form.getByRole("radio", { name: "iPhone and iPad" }).click();
     // Empty form: every missing field is flagged, nothing is sent.
     await form.getByTestId("release-publish").click();
     await expect(form.getByText("Check the fields and try again.").first()).toBeVisible();
-    // Build numbers only go up per platform: use the seconds since a fixed day.
-    const build = Math.floor(Date.now() / 1000) - 1_700_000_000;
-    const version = `e2e-${build}`;
+    expect(sent).toHaveLength(0);
+    // The hint names the floor in force today (the seed's iOS production minimum is 1).
+    await expect(form.getByText("Leave blank to keep the current minimum (1).", { exact: false })).toBeVisible();
     await form.getByTestId("release-version").fill(version);
-    await form.getByTestId("release-build").fill(String(build));
-    // 0 keeps the shared seed's gate where it was.
-    await form.getByTestId("release-min-build").fill("0");
+    await form.getByTestId("release-build").fill("900");
     await form.getByTestId("release-notes").fill("Platform e2e build");
     await form.getByTestId("release-publish").click();
     await expect(page.getByText("Build published")).toBeVisible();
+    await expect.poll(() => sent.length).toBe(1);
+    // Blank minimum = the current floor (1), not the new build number.
+    expect(inputOf(sent[0]!)).toMatchObject({ platform: "ios", channel: "production", version, buildNumber: 900, minBuild: 1, mandatory: false });
     await expect(page.getByTestId("admin-releases")).toContainText(version);
+  });
+
+  test("the builds table shows Mandatory and Notes; staff flip Mandatory with a switch (answered in the browser)", async ({ page }) => {
+    const sent = await answer(page, "platform.release.setMandatory", { id: "r-stub", mandatory: true, changed: true });
+    await rewrite<Record<string, unknown>[]>(page, "platform.release.list", (rows) => {
+      rows.unshift({
+        id: "r-stub",
+        platform: "android",
+        channel: "floor",
+        version: "stub-2.0.0",
+        buildNumber: 2000,
+        minBuild: 1900,
+        mandatory: false,
+        notes: "Fixes the scale reading on the pack screen",
+        apkUrl: null,
+        publishedAt: "2026-10-24T10:00:00.000Z",
+      });
+    });
+    await open(page, "/admin/releases", { role: "staff", width: 1280 });
+    const list = page.getByTestId("admin-releases");
+    await expect(list.getByRole("columnheader", { name: "Mandatory" })).toBeVisible();
+    await expect(list.getByRole("columnheader", { name: "Notes" })).toBeVisible();
+    const row = list.getByRole("row", { name: /stub-2\.0\.0/ });
+    await expect(row).toContainText("Fixes the scale reading on the pack screen");
+    const flip = row.getByTestId("release-mandatory-switch");
+    await expect(flip).toHaveAttribute("aria-checked", "false");
+    await flip.click();
+    await expect.poll(() => sent.length).toBe(1);
+    expect(inputOf(sent[0]!)).toEqual({ id: "r-stub", mandatory: true });
+    await expect(page.getByText("Marked mandatory")).toBeVisible();
+  });
+
+  test("support staff read Mandatory as a label, with no switch", async ({ page }) => {
+    await rewrite<{ isPlatformAdmin: boolean; platformRole: string | null }>(page, "auth.me", (me) => {
+      me.isPlatformAdmin = true;
+      me.platformRole = "support";
+    });
+    await open(page, "/admin/releases", { role: "staff", width: 1280 });
+    await expect(page.getByTestId("admin-releases")).toBeVisible();
+    await expect(page.getByTestId("release-mandatory-switch")).toHaveCount(0);
+    await expect(page.getByTestId("publish-form")).toHaveCount(0);
   });
 
   test("a minimum build above the build number is refused before it is sent", async ({ page }) => {
@@ -780,8 +971,11 @@ test.describe("Godseye: app builds, backups, support, company", () => {
   });
 
   test("a plant user cannot open the staff pages", async ({ page }) => {
-    await open(page, "/admin/releases", { role: "owner", width: 1280 }).catch(() => undefined);
+    await open(page, "/admin/releases", { role: "owner", width: 1280 });
+    // The guard sends a plant user home; the staff page never renders for them.
+    await expect(page).not.toHaveURL(/\/admin/);
     await expect(page.getByTestId("publish-form")).toHaveCount(0);
+    await expect(page.getByTestId("admin-releases")).toHaveCount(0);
   });
 
   for (const width of WIDTHS) {
@@ -849,12 +1043,20 @@ test.describe("Godseye: app builds, backups, support, company", () => {
       });
     });
     const sent = await answer(page, "platform.support.reply", { error: { code: "CONFLICT", message: "Someone else answered or closed this request. Reload it.", status: 409 } });
+    let listReads = 0;
+    page.on("request", (r) => {
+      if (procedureOf(r.url()).includes("platform.support.list")) listReads += 1;
+    });
     await open(page, "/admin/support", { role: "staff", width: 1280 });
     await page.getByTestId("support-open").first().click();
     const detail = page.getByTestId("support-detail");
+    await expect.poll(() => listReads).toBeGreaterThan(0);
+    const readsBefore = listReads;
     await detail.getByTestId("support-reply").fill("Restart the scale reader");
     await detail.getByTestId("support-send").click();
     await expect.poll(() => sent.length).toBe(1);
+    // The conflict reloads the request: the list is read again.
+    await expect.poll(() => listReads).toBeGreaterThan(readsBefore);
     await expect(page.getByTestId("support-conflict")).toContainText("Someone else answered or closed this request.");
     // The reply box is still there for a request that is still open.
     await expect(detail.getByTestId("support-reply")).toBeVisible();
@@ -898,7 +1100,11 @@ test.describe("Godseye: app builds, backups, support, company", () => {
     });
     await page.getByRole("tab", { name: "Audit" }).click();
     await expect(page.getByTestId("company-audit")).toContainText("company.settings.update");
+    // Settled before the picture: no tab animation, nothing busy, nothing overlapping.
+    await expect(page.getByTestId("company-audit")).not.toHaveAttribute("aria-busy", "true");
+    await expect(page.getByText("Scrap purchase")).toHaveCount(0);
     await shot(page, "admin-company-audit", 1280);
+    await expectContained(page);
   });
 });
 

@@ -3,22 +3,35 @@
  * pick, and the conversion from a chosen date to the instant the server filters on. No React.
  */
 
-/** Action prefixes the Kind filter offers (`dispatch.complete` is kind `dispatch`). */
-export const AUDIT_KINDS = [
-  "company",
-  "member",
-  "device",
-  "dispatch",
-  "bundle",
-  "die",
-  "customer",
-  "stock",
-  "order",
-  "count",
-  "support_request",
-  "backup",
-] as const;
-export type AuditKind = (typeof AUDIT_KINDS)[number];
+/**
+ * What each Kind in the filter covers: action prefixes (ending in ".") and exact action codes.
+ * Every prefix the server writes belongs to exactly one Kind, so no entry is unreachable from the
+ * filter (`die.` alone missed `die_instance.`, `nitriding.` and the rest). An action not listed
+ * here still shows in "Everything".
+ */
+export const AUDIT_KIND_ACTIONS = {
+  company: ["company.", "settings."],
+  member: ["member.", "auth.", "invite."],
+  device: ["device."],
+  dispatch: ["dispatch.", "packingList."],
+  bundle: ["bundle.", "move_found", "void_phantom"],
+  die: ["die.", "die_instance.", "die_reading.", "die_tier.", "die_issue.", "die_band.", "die_owner.", "nitriding."],
+  customer: ["customer."],
+  stock: ["stock.", "location.", "return_stream."],
+  order: ["order."],
+  count: ["count."],
+  press: ["press_run.", "ageing.", "downtime."],
+  foundry: ["melt.", "cast.", "spectro."],
+  purchase: ["purchase_lot.", "dc_note.", "vendor.", "scrap_grade.", "scrap_item.", "store.", "store_item."],
+  approval: ["approval."],
+  support_request: ["support_request."],
+  backup: ["backup."],
+  platform: ["platform.", "app_release.", "impersonation."],
+} as const satisfies Record<string, readonly string[]>;
+
+export type AuditKind = keyof typeof AUDIT_KIND_ACTIONS;
+/** The order of the Kind list in the filter. */
+export const AUDIT_KINDS = Object.keys(AUDIT_KIND_ACTIONS) as AuditKind[];
 
 export function isAuditKind(value: unknown): value is AuditKind {
   return typeof value === "string" && (AUDIT_KINDS as readonly string[]).includes(value);
@@ -87,25 +100,99 @@ export function zonedDayEndMs(day: string, timeZone: string): number {
 export function auditInput(filters: AuditFilters, timeZone: string) {
   return {
     ...(filters.actor ? { actorId: filters.actor } : {}),
-    ...(filters.kind ? { action: `${filters.kind}.` } : {}),
+    ...(filters.kind ? { actions: [...AUDIT_KIND_ACTIONS[filters.kind]] } : {}),
     ...(filters.subject ? { subjectId: filters.subject } : {}),
     ...(filters.from ? { from: zonedDayStartMs(filters.from, timeZone) } : {}),
     ...(filters.to ? { to: zonedDayEndMs(filters.to, timeZone) } : {}),
   };
 }
 
-/** The kind of an action code: `dispatch.complete` is `dispatch`; null when it is not one the filter offers. */
+/** The Kind an action code belongs to; null when no Kind covers it. */
 export function kindOf(action: string): AuditKind | null {
-  const prefix = action.split(".")[0] ?? "";
-  return isAuditKind(prefix) ? prefix : null;
+  for (const kind of AUDIT_KINDS) {
+    for (const entry of AUDIT_KIND_ACTIONS[kind] as readonly string[]) {
+      if (entry.endsWith(".") ? action.startsWith(entry) : action === entry) return kind;
+    }
+  }
+  return null;
 }
 
 export function filtersActive(filters: AuditFilters): boolean {
   return Object.keys(filters).length > 0;
 }
 
-/** `{ a: 1, b: { c: 2 } }` as indented text for the details disclosure; empty meta prints nothing. */
-export function metaText(meta: Record<string, unknown> | null | undefined): string {
-  if (!meta || Object.keys(meta).length === 0) return "";
-  return JSON.stringify(meta, null, 2);
+// ---------------------------------------------------------------------------
+// Details: an entry's meta as readable key and value
+// ---------------------------------------------------------------------------
+
+export type MetaWords = { yes: string; no: string; none: string; change(from: string, to: string): string };
+export type MetaEntry = { key: string; label: string; value: string };
+
+/** `portalEnabled` and `session_ended` as "Portal enabled" and "Session ended". */
+export function humanKey(key: string): string {
+  const words = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_.]+/g, " ")
+    .trim()
+    .toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function isPlain(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** One value in words: booleans as Yes and No, nothing as "none", lists and objects on one line. */
+export function metaValue(value: unknown, words: MetaWords): string {
+  if (value === null || value === undefined || value === "") return words.none;
+  if (typeof value === "boolean") return value ? words.yes : words.no;
+  if (Array.isArray(value)) return value.map((v) => metaValue(v, words)).join(", ");
+  if (isPlain(value)) {
+    const parts = Object.entries(value).map(([k, v]) => `${k}: ${metaValue(v, words)}`);
+    return parts.length ? parts.join(", ") : words.none;
+  }
+  return String(value);
+}
+
+/**
+ * An entry's meta as rows a person can read. A settings update (`{ changed, previous }`) and a
+ * rename or release flip (`{ from, to }`) show "old → new" per field; everything else is a plain
+ * key and value. Empty meta gives no rows.
+ */
+export function metaEntries(meta: Record<string, unknown> | null | undefined, words: MetaWords): MetaEntry[] {
+  if (!meta) return [];
+  const out: MetaEntry[] = [];
+  const consumed = new Set<string>();
+  const change = (key: string, from: unknown, to: unknown, label = humanKey(key)) =>
+    out.push({ key, label, value: words.change(metaValue(from, words), metaValue(to, words)) });
+
+  if (isPlain(meta.changed)) {
+    const previous = isPlain(meta.previous) ? meta.previous : {};
+    for (const [key, to] of Object.entries(meta.changed)) change(key, previous[key], to);
+    consumed.add("changed").add("previous");
+  } else if ("from" in meta && "to" in meta) {
+    if (isPlain(meta.from) && isPlain(meta.to)) {
+      for (const key of new Set([...Object.keys(meta.from), ...Object.keys(meta.to)])) change(key, meta.from[key], meta.to[key]);
+    } else {
+      change("from", meta.from, meta.to, "Changed");
+    }
+    consumed.add("from").add("to");
+  }
+  for (const [key, value] of Object.entries(meta)) {
+    if (!consumed.has(key)) out.push({ key, label: humanKey(key), value: metaValue(value, words) });
+  }
+  return out;
+}
+
+type ChangeRow = { at: string; action: string; actorName: string | null; byStaff?: boolean; meta: Record<string, unknown> };
+export type SwitchChange = { at: string; actorName: string | null; byStaff: boolean; from: unknown; to: unknown };
+
+/** The newest settings update that touched `key` (rows come newest first), or null. */
+export function lastChangeOf(rows: readonly ChangeRow[], key: string): SwitchChange | null {
+  for (const r of rows) {
+    if (r.action !== "company.settings.update" || !isPlain(r.meta.changed) || !(key in r.meta.changed)) continue;
+    const previous = isPlain(r.meta.previous) ? r.meta.previous : {};
+    return { at: r.at, actorName: r.actorName, byStaff: r.byStaff ?? false, from: previous[key] ?? null, to: r.meta.changed[key] };
+  }
+  return null;
 }

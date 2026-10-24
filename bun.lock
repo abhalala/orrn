@@ -107,7 +107,7 @@
     },
     "apps/web": {
       "name": "web",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@fontsource-variable/bricolage-grotesque": "^5.3.0",
         "@fontsource-variable/geist": "^5.3.0",

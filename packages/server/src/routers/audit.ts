@@ -70,6 +70,11 @@ export const auditListInput = z.object({
   actorId: z.string().min(1).max(64).optional(),
   /** Exact action (`dispatch.complete`), or a kind prefix ending in "." (`dispatch.`). */
   action: z.string().trim().min(1).max(80).optional(),
+  /**
+   * Several exact actions and/or prefixes ending in "." at once (one Kind in the viewer covers
+   * `die.`, `die_instance.`, `nitriding.` …). Combined with `action` by OR.
+   */
+  actions: z.array(z.string().trim().min(1).max(80)).min(1).max(20).optional(),
   subjectType: z.string().trim().min(1).max(60).optional(),
   subjectId: z.string().min(1).max(64).optional(),
   /** Epoch ms, inclusive. Default: `auditRetentionDays` ago. */
@@ -92,14 +97,15 @@ export async function listAudit(
   const filters: SQL[] = [eq(auditLog.companyId, companyId), gte(auditLog.at, new Date(from))];
   if (input.to !== undefined) filters.push(lte(auditLog.at, new Date(input.to)));
   if (input.actorId) filters.push(eq(auditLog.actorId, input.actorId));
-  if (input.action) {
-    if (input.action.endsWith(".")) {
+  const wanted = [...(input.action ? [input.action] : []), ...(input.actions ?? [])];
+  if (wanted.length > 0) {
+    const matches = wanted.map((a) => {
+      if (!a.endsWith(".")) return eq(auditLog.action, a);
       // LIKE with the prefix escaped ('_' and '%' are literal in action names).
-      const escaped = input.action.replace(/[\\%_]/g, (c) => `\\${c}`);
-      filters.push(sql`${auditLog.action} like ${`${escaped}%`} escape '\\'`);
-    } else {
-      filters.push(eq(auditLog.action, input.action));
-    }
+      const escaped = a.replace(/[\\%_]/g, (c) => `\\${c}`);
+      return sql`${auditLog.action} like ${`${escaped}%`} escape '\\'`;
+    });
+    filters.push(or(...matches)!);
   }
   if (input.subjectType) filters.push(eq(auditLog.subjectType, input.subjectType));
   if (input.subjectId) filters.push(eq(auditLog.subjectId, input.subjectId));

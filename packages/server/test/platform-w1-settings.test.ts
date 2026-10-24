@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { auditLog, bundle, pressRun } from "@orrn/db/schema";
+import { auditLog, bundle, company, pressRun } from "@orrn/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -276,6 +276,36 @@ describe("commercial switches, standards, locale, cast series (FP-PF-06/09/13)",
       ["dieBands", "dieRequiredOnSalesOrder", "locale", "portalEnabled", "priceOnSalesOrder", "requireCastOnBundle"].sort(),
     );
     await expect(owner.company.updateSettings({ locale: "fr" as never })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  test("support contact (FP-PF-14): name, phone, hours merge into settings.support; blank clears one; the stored email stays; audited old -> new", async () => {
+    const { companyId } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    await owner.company.updateSettings({ support: { name: "  Lalu uncle ", phone: "+91 98250 00000", hours: "Mon-Sat, 9 to 6" } });
+    const stored = async () =>
+      ((await env.db.select({ s: company.settings }).from(company).where(eq(company.id, companyId)).get())!.s as Record<string, unknown>).support;
+    expect(await stored()).toEqual({ name: "Lalu uncle", phone: "+91 98250 00000", hours: "Mon-Sat, 9 to 6" });
+
+    // Staff-written email survives an edit; a blank field clears only that field.
+    await env.db
+      .update(company)
+      .set({ settings: { support: { name: "Lalu uncle", phone: "+91 98250 00000", hours: "Mon-Sat, 9 to 6", email: "help@plant.test" } } })
+      .where(eq(company.id, companyId));
+    await owner.company.updateSettings({ support: { hours: "" } });
+    expect(await stored()).toEqual({ name: "Lalu uncle", phone: "+91 98250 00000", hours: null, email: "help@plant.test" });
+
+    const rows = await env.db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.companyId, companyId), eq(auditLog.action, "company.settings.update")));
+    expect(rows).toHaveLength(2);
+    expect(rows.some((r) => "support" in (r.meta as { changed: object }).changed)).toBe(true);
+
+    await expect(owner.company.updateSettings({ support: { name: "x".repeat(101) } })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(owner.company.updateSettings({ support: { phone: "x".repeat(41) } })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(env.caller({ role: "manager", companyId }).company.updateSettings({ support: { name: "Me" } })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   });
 
   test("standards: partial update, a blank pair clears it, over 40 characters refused", async () => {

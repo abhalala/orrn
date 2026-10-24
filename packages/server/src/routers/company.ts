@@ -162,6 +162,17 @@ export const companyRouter = router({
         standards: z
           .object({ solid: standardPair.optional(), hollow: standardPair.optional(), semi: standardPair.optional() })
           .optional(),
+        /**
+         * The plant's own support contact shown on Settings > About (FP-PF-14). Partial: only the
+         * fields sent change, a blank field clears it, and a stored `email` is left alone.
+         */
+        support: z
+          .object({
+            name: z.string().trim().max(100).nullable().optional(),
+            phone: z.string().trim().max(40).nullable().optional(),
+            hours: z.string().trim().max(100).nullable().optional(),
+          })
+          .optional(),
         /** Company default language (FP-PF-13); the device's `orrn.locale` wins when set. */
         locale: z.enum(SETTINGS_LOCALES).optional(),
       }),
@@ -189,6 +200,14 @@ export const companyRouter = router({
           if (v !== undefined) next[k] = v === "" ? null : v;
         }
         patch.letterhead = next;
+      }
+      if (input.support !== undefined) {
+        const current = (row.settings?.support ?? {}) as Record<string, unknown>;
+        const next: Record<string, unknown> = { ...current };
+        for (const [k, v] of Object.entries(input.support)) {
+          if (v !== undefined) next[k] = v === "" ? null : v;
+        }
+        patch.support = next;
       }
       if (input.bundleNumbering !== undefined) {
         patch.bundleNumbering = input.bundleNumbering;

@@ -2,13 +2,16 @@ import { useT, type MessageKey } from "@orrn/i18n";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Chip } from "@orrn/ui/components/chip";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { lastChangeOf, type SwitchChange } from "@/features/audit/model";
+import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
+import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
-import { moduleStates } from "./model";
+import { moduleStates, SWITCH_DEFAULTS } from "./model";
 import { Note, SwitchRow, TabState, usePlantSettings, type PlantSettings } from "./ui";
 
 type SwitchKey = "dieBands" | "priceOnSalesOrder" | "dieRequiredOnSalesOrder" | "portalEnabled";
@@ -22,8 +25,10 @@ const SWITCHES: { key: SwitchKey; title: MessageKey; hint: MessageKey }[] = [
 /**
  * Modules (FP-PF-07, FP-PF-06): which modules the plant bought (read only: orrn staff turn them on
  * and off) and the commercial switches the plant owns. A switch is saved the moment it is
- * pressed (`company.updateSettings`, `settings.update`); the server applies it from the next
- * request. Roles without `settings.update` read the same values with no switch to press.
+ * pressed, with no Save step (`company.updateSettings`, `settings.update`); the server applies it
+ * from the next request and a toast says so. Under each switch a line says who flipped it last,
+ * when, and from what to what (from the audit log, for roles that may read it). Roles without
+ * `settings.update` read the same values with no switch to press.
  */
 export function ModulesTab() {
   const settings = usePlantSettings();
@@ -42,10 +47,24 @@ function ModulesPanel({ settings }: { settings: PlantSettings }) {
         toast.success(t("settings.modules.saved"));
         void queryClient.invalidateQueries({ queryKey: trpc.company.getSettings.queryKey() });
         void queryClient.invalidateQueries({ queryKey: trpc.auth.me.queryKey() });
+        void queryClient.invalidateQueries({ queryKey: trpc.audit.list.queryKey() });
       },
       onError: () => toast.error(t("settings.modules.saveFailed")),
     }),
   );
+
+  const { data: me } = useMe();
+  const audit = useQuery({
+    ...trpc.audit.list.queryOptions({ action: "company.settings.update", limit: 50 }),
+    enabled: can(me, "audit.read"),
+    meta: { inlineError: true },
+  });
+  const changes = audit.data?.items ?? [];
+  const lastLine = (key: string, labelOf: (v: unknown) => string) => (
+    <SwitchAudit change={lastChangeOf(changes, key)} ready={audit.isSuccess} labelOf={labelOf} testId={`audit-${key}`} />
+  );
+  const onOff = (v: unknown, key: SwitchKey) => ((v === null || v === undefined ? SWITCH_DEFAULTS[key] : v === true) ? t("settings.modules.on") : t("settings.modules.off"));
+  const castLabel = (v: unknown) => (v === true ? t("settings.modules.on") : v === false ? t("settings.modules.off") : t("settings.modules.castAuto"));
 
   const castValue = settings.requireCastOnBundle === null ? "auto" : settings.requireCastOnBundle ? "on" : "off";
 
@@ -94,15 +113,17 @@ function ModulesPanel({ settings }: { settings: PlantSettings }) {
           }
         >
           {SWITCHES.map((s) => (
-            <SwitchRow
-              key={s.key}
-              testId={`switch-${s.key}`}
-              label={t(s.title)}
-              hint={t(s.hint)}
-              on={settings[s.key]}
-              pending={save.isPending}
-              onToggle={() => save.mutate({ [s.key]: !settings[s.key] })}
-            />
+            <div key={s.key} className="flex min-w-0 flex-col gap-1.5">
+              <SwitchRow
+                testId={`switch-${s.key}`}
+                label={t(s.title)}
+                hint={t(s.hint)}
+                on={settings[s.key]}
+                pending={save.isPending}
+                onToggle={() => save.mutate({ [s.key]: !settings[s.key] })}
+              />
+              {lastLine(s.key, (v) => onOff(v, s.key))}
+            </div>
           ))}
         </Can>
         <Can do="settings.update">
@@ -122,8 +143,28 @@ function ModulesPanel({ settings }: { settings: PlantSettings }) {
               onChange={(next) => save.mutate({ requireCastOnBundle: next === "auto" ? null : next === "on" })}
             />
           </div>
+          {lastLine("requireCastOnBundle", castLabel)}
         </Can>
       </section>
     </div>
+  );
+}
+
+/** "Last change: Asha, 24 Oct, 14:05. Off → On", or that nothing was recorded. Quiet until the audit log has loaded. */
+function SwitchAudit({ change, ready, labelOf, testId }: { change: SwitchChange | null; ready: boolean; labelOf: (value: unknown) => string; testId: string }) {
+  const { t } = useT();
+  const when = useCompanyWhen();
+  if (!ready) return null;
+  if (!change) return <Note testId={testId}>{t("settings.modules.noChange")}</Note>;
+  const who = change.actorName ?? t("audit.unknownActor");
+  return (
+    <Note testId={testId}>
+      {t("settings.modules.lastChange", {
+        who: change.byStaff ? `${who} (${t("audit.byStaff")})` : who,
+        when: when(change.at),
+        from: labelOf(change.from),
+        to: labelOf(change.to),
+      })}
+    </Note>
   );
 }

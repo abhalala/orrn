@@ -99,6 +99,37 @@ describe("forgot password", () => {
     expect(logged).toContain("Reset your ORRN password");
   });
 
+  test("a failed send answers exactly like an unknown address: no 500, no link or address in the log", async () => {
+    workersEnv.NODE_ENV = "production";
+    workersEnv.RESEND_API_KEY = "re_test_key";
+    const realFetch = globalThis.fetch;
+    const fail = spyOn(globalThis, "fetch").mockImplementation(((input: unknown, init?: unknown) => {
+      if (String(input).includes("api.resend.com")) return Promise.resolve(new Response("down", { status: 500 }));
+      return realFetch(input as never, init as never);
+    }) as never);
+    const err = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const real = await makeUser();
+      const known = await request(real.email);
+      const unknown = await request(`ghost.${crypto.randomUUID().slice(0, 8)}@test.orrn`);
+      expect(known.res.status).toBe(200);
+      expect(unknown.res.status).toBe(200);
+      expect(await known.res.json()).toEqual(await unknown.res.json());
+      const logged = err.mock.calls.map((a) => a.map(String).join(" ")).join("\n");
+      expect(logged).toContain("reset email not sent");
+      expect(logged).toContain("test.orrn");
+      expect(logged).not.toContain(real.email);
+      expect(logged).not.toContain("reset-password");
+      const mine = (await resetTokens()).filter((t) => t.userId === real.id);
+      for (const t of mine) expect(logged).not.toContain(t.token);
+    } finally {
+      fail.mockRestore();
+      err.mockRestore();
+      delete workersEnv.RESEND_API_KEY;
+      workersEnv.NODE_ENV = "test";
+    }
+  });
+
   test("the link sets a new password once, ends old sessions, and the old password stops working", async () => {
     const u = await makeUser();
     await env.db.insert(session).values({

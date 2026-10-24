@@ -47,7 +47,7 @@ export function companyClock(timezone: string, nowMs: number, locale: string): {
   const hour = Number(
     new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone }).format(at),
   );
-  const date = new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-IN", {
+  const date = new Intl.DateTimeFormat(dateTag(locale), {
     weekday: "long",
     day: "numeric",
     month: "long",

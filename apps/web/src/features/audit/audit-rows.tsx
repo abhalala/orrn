@@ -3,7 +3,7 @@ import { Chip } from "@orrn/ui/components/chip";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import type { ReactNode } from "react";
 
-import { metaText } from "./model";
+import { metaEntries } from "./model";
 
 export type AuditRow = {
   id: string;
@@ -38,6 +38,7 @@ export function AuditRows({
   label: string;
 }) {
   const { t } = useT();
+  const words = { yes: t("audit.valueYes"), no: t("audit.valueNo"), none: t("audit.valueNone"), change: (from: string, to: string) => t("audit.change", { from, to }) };
   const columns: ResponsiveListColumn<AuditRow>[] = [
     { key: "when", header: t("audit.columns.when"), cell: (r) => <span className="whitespace-nowrap tabular-nums">{when(r.at)}</span> },
     {
@@ -80,13 +81,20 @@ export function AuditRows({
       header: t("audit.details"),
       hideOnPhone: false,
       cell: (r) => {
-        const text = metaText(r.meta);
-        return text ? (
+        const entries = metaEntries(r.meta, words);
+        return entries.length > 0 ? (
           <details className="min-w-0">
             <summary className="inline-flex min-h-11 cursor-pointer items-center text-[13px] font-semibold underline decoration-control underline-offset-4">
               {t("audit.details")}
             </summary>
-            <pre className="m-0 max-w-full overflow-x-auto rounded-input bg-surface-sunken p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap break-words">{text}</pre>
+            <dl className="m-0 grid max-w-full grid-cols-1 gap-x-4 gap-y-2 rounded-input bg-surface-sunken p-3 text-[13px] leading-5 sm:grid-cols-[max-content_1fr]" data-testid="audit-meta">
+              {entries.map((e) => (
+                <div key={e.key} className="contents">
+                  <dt className="font-semibold text-muted-foreground">{e.label}</dt>
+                  <dd className="m-0 min-w-0 break-words">{e.value}</dd>
+                </div>
+              ))}
+            </dl>
           </details>
         ) : null;
       },

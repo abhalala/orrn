@@ -92,6 +92,42 @@ export const platformReleaseRouter = router({
       return { id };
     }),
 
+  /**
+   * Flip "mandatory" on a published build (FP-PF-11, backlog 46). A mandatory build keeps its own
+   * `minBuild` as a floor even after newer builds are published (`effectiveMinBuild`). Audited
+   * old -> new; a flip to the same value writes nothing.
+   */
+  setMandatory: platformGuard("platform.release.publish")
+    .input(z.object({ id: z.string().min(1).max(64), mandatory: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const row = await ctx.db
+        .select({ id: appRelease.id, mandatory: appRelease.mandatory, platform: appRelease.platform, channel: appRelease.channel, version: appRelease.version })
+        .from(appRelease)
+        .where(eq(appRelease.id, input.id))
+        .get();
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+      if (row.mandatory === input.mandatory) return { id: row.id, mandatory: row.mandatory, changed: false };
+      await atomicBatch(ctx.db, [
+        ctx.db.update(appRelease).set({ mandatory: input.mandatory }).where(eq(appRelease.id, row.id)),
+        auditInsert(
+          { ...ctx, companyId: null },
+          {
+            action: "app_release.update",
+            subjectType: "app_release",
+            subjectId: row.id,
+            meta: {
+              platform: row.platform,
+              channel: row.channel,
+              version: row.version,
+              from: { mandatory: row.mandatory },
+              to: { mandatory: input.mandatory },
+            },
+          },
+        ),
+      ]);
+      return { id: row.id, mandatory: input.mandatory, changed: true };
+    }),
+
   list: platformGuard("platform.company.manage").query(async ({ ctx }) => {
     const rows = await ctx.db.select().from(appRelease).orderBy(desc(appRelease.publishedAt)).limit(200);
     return rows.map((r) => ({

@@ -1,12 +1,14 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Checkbox } from "@orrn/ui/components/checkbox";
+import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { FormActions } from "@orrn/ui/components/form-actions";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
+import { cn } from "@orrn/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AppRouter } from "@orrn/server/routers/index";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -48,6 +50,27 @@ export function ReleasesPage() {
     },
     { key: "build", header: t("admin.releases.columns.build"), align: "end", cell: (r) => <span className="font-mono tabular-nums">{r.buildNumber ?? "-"}</span> },
     { key: "min", header: t("admin.releases.columns.minimum"), align: "end", cell: (r) => <span className="font-mono tabular-nums">{r.minBuild ?? "-"}</span> },
+    {
+      key: "mandatory",
+      header: t("admin.releases.columns.mandatory"),
+      cell: (r) => (
+        <Can
+          do="platform.release.publish"
+          fallback={<Chip tone={r.mandatory ? "amber" : "neutral"}>{r.mandatory ? t("admin.releases.mandatoryYes") : t("admin.releases.mandatoryNo")}</Chip>}
+        >
+          <MandatorySwitch release={r} />
+        </Can>
+      ),
+    },
+    {
+      key: "notes",
+      header: t("admin.releases.columns.notes"),
+      cell: (r) => (
+        <span className="block max-w-[28ch] break-words md:line-clamp-2" title={r.notes ?? undefined} data-testid="release-notes-cell">
+          {r.notes}
+        </span>
+      ),
+    },
     { key: "published", header: t("admin.releases.columns.published"), hideOnPhone: true, cell: (r) => <span className="whitespace-nowrap">{formatDay(r.publishedAt, { locale })}</span> },
   ];
 
@@ -78,6 +101,40 @@ export function ReleasesPage() {
   );
 }
 
+/** Flips "mandatory" on a published build (`platform.release.setMandatory`, audited); refreshes the list. */
+function MandatorySwitch({ release }: { release: Release }) {
+  const { t } = useT();
+  const queryClient = useQueryClient();
+  const flip = useMutation(
+    trpc.platform.release.setMandatory.mutationOptions({
+      onSuccess: (res) => {
+        toast.success(res.mandatory ? t("admin.releases.mandatorySet") : t("admin.releases.mandatoryCleared"));
+        void queryClient.invalidateQueries({ queryKey: trpc.platform.release.list.queryKey() });
+      },
+      onError: () => toast.error(t("admin.releases.mandatoryFailed")),
+    }),
+  );
+  const on = release.mandatory;
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={t("admin.releases.mandatorySwitch", { version: release.version })}
+      data-testid="release-mandatory-switch"
+      disabled={flip.isPending}
+      onClick={() => flip.mutate({ id: release.id, mandatory: !on })}
+      className={cn(
+        "inline-flex min-h-11 min-w-[88px] items-center justify-center gap-2 rounded-full border px-3 text-[14px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        on ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:bg-surface-sunken",
+      )}
+    >
+      <span aria-hidden="true" className={cn("size-2.5 rounded-full", on ? "bg-primary-foreground" : "bg-muted-foreground")} />
+      {on ? t("admin.releases.mandatoryYes") : t("admin.releases.mandatoryNo")}
+    </button>
+  );
+}
+
 function PublishForm() {
   const { t } = useT();
   const queryClient = useQueryClient();
@@ -85,6 +142,12 @@ function PublishForm() {
   const [errors, setErrors] = useState<Partial<Record<ReleaseField, MessageKey>>>({});
   const [refused, setRefused] = useState<MessageKey | null>(null);
   const mandatoryId = useId();
+  // The floor in force on the chosen platform and channel: what a blank minimum build keeps.
+  const floor = useQuery({
+    ...trpc.release.check.queryOptions({ platform: form.platform, channel: form.channel, buildNumber: 0 }),
+    meta: { inlineError: true },
+  });
+  const currentMin = floor.data?.minBuild ?? 0;
   const set = (patch: Partial<ReleaseForm>) => {
     setForm((f) => ({ ...f, ...patch }));
     setRefused(null);
@@ -98,6 +161,7 @@ function PublishForm() {
         setErrors({});
         setRefused(null);
         void queryClient.invalidateQueries({ queryKey: trpc.platform.release.list.queryKey() });
+        void queryClient.invalidateQueries({ queryKey: trpc.release.check.queryKey() });
       },
       onError: (error) => setRefused(releaseErrorKey(error)),
     }),
@@ -105,7 +169,7 @@ function PublishForm() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const parsed = parseReleaseForm(form);
+    const parsed = parseReleaseForm(form, currentMin);
     if (!parsed.ok) {
       setErrors(parsed.errors);
       return;
@@ -150,7 +214,7 @@ function PublishForm() {
           <Field label={t("admin.releases.build")} hint={t("admin.releases.buildHint")} error={err("build")}>
             <TextInput value={form.build} inputMode="numeric" autoComplete="off" data-testid="release-build" onChange={(e) => set({ build: e.currentTarget.value })} />
           </Field>
-          <Field label={t("admin.releases.minBuild")} hint={t("admin.releases.minBuildHint")} error={err("minBuild")}>
+          <Field label={t("admin.releases.minBuild")} hint={t("admin.releases.minBuildHint", { current: currentMin })} error={err("minBuild")}>
             <TextInput value={form.minBuild} inputMode="numeric" autoComplete="off" data-testid="release-min-build" onChange={(e) => set({ minBuild: e.currentTarget.value })} />
           </Field>
           {apkAllowed(form) ? (

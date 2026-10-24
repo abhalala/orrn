@@ -62,6 +62,15 @@ describe("companyClock", () => {
     expect(utc.date).toBe("Saturday, 3 October");
   });
 
+  test("Gujarati reads the date in Gujarati script with Latin digits", () => {
+    const at = Date.parse("2026-10-03T06:00:00Z");
+    const gu = companyClock("Asia/Kolkata", at, "gu").date;
+    expect(gu).toMatch(/[\u0A80-\u0AFF]/);
+    expect(gu).toMatch(/3/);
+    expect(gu).not.toMatch(/[\u0AE6-\u0AEF]/);
+    expect(gu).not.toBe(companyClock("Asia/Kolkata", at, "en").date);
+  });
+
   test("Hindi keeps Latin digits; a broken time zone falls back to India", () => {
     const at = Date.parse("2026-10-03T06:00:00Z");
     expect(companyClock("Asia/Kolkata", at, "hi").date).toMatch(/3/);

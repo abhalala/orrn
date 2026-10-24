@@ -186,24 +186,8 @@ export function letterheadDirty(a: LetterheadDraft, b: LetterheadDraft): boolean
 // Devices (FP-PF-11)
 // ---------------------------------------------------------------------------
 
-/** The build number in an app version like `1.1 (11)`, or null when there is none. */
-export function buildNumberOf(appVersion: string | null | undefined): number | null {
-  const m = /\((\d+)\)\s*$/.exec(appVersion ?? "");
-  return m ? Number(m[1]) : null;
-}
-
-export type DeviceGate = "revoked" | "blocked" | "current" | "web";
-
-/** Revoked beats everything; below the platform's minimum build is blocked; the web app has no build gate. */
-export function deviceGate(
-  device: { platform: string; appVersion: string | null; revokedAt: string | null },
-  minBuild: (platform: string) => number,
-): DeviceGate {
-  if (device.revokedAt) return "revoked";
-  if (device.platform === "web") return "web";
-  const build = buildNumberOf(device.appVersion);
-  return build !== null && build < minBuild(device.platform) ? "blocked" : "current";
-}
+/** Where a device stands against the build gate: the server works it out (`device.list`), the screen only shows it. */
+export type DeviceGate = "revoked" | "blocked" | "current" | "web" | "unknown";
 
 // ---------------------------------------------------------------------------
 // About (support contact from the company settings JSON)
@@ -222,3 +206,27 @@ export function supportContactOf(settings: Record<string, unknown> | undefined):
   const contact = { name: pick("name"), phone: pick("phone"), email: pick("email"), hours: pick("hours") };
   return contact.name || contact.phone || contact.email ? contact : null;
 }
+
+export type SupportDraft = { name: string; phone: string; hours: string };
+
+/** The editor's fields from the stored `settings.support` (a stored email is not edited here). */
+export function supportDraft(settings: Record<string, unknown> | undefined): SupportDraft {
+  const raw = settings?.support;
+  const pick = (k: string) => {
+    const v = raw && typeof raw === "object" ? (raw as Record<string, unknown>)[k] : undefined;
+    return typeof v === "string" ? v : "";
+  };
+  return { name: pick("name"), phone: pick("phone"), hours: pick("hours") };
+}
+
+/** Only the fields that changed, trimmed (a blank clears it on the server); null when nothing changed. */
+export function supportPatch(draft: SupportDraft, saved: SupportDraft): Partial<SupportDraft> | null {
+  const patch: Partial<SupportDraft> = {};
+  for (const k of ["name", "phone", "hours"] as const) {
+    if (draft[k].trim() !== saved[k].trim()) patch[k] = draft[k].trim();
+  }
+  return Object.keys(patch).length > 0 ? patch : null;
+}
+
+/** What an unset commercial switch means (the server's defaults), for "was … now …" lines. */
+export const SWITCH_DEFAULTS = { dieBands: true, priceOnSalesOrder: false, dieRequiredOnSalesOrder: true, portalEnabled: false } as const;

@@ -17,7 +17,7 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { deviceGate, type DeviceGate } from "./model";
+import type { DeviceGate } from "./model";
 import { Note, usePlantSettings } from "./ui";
 
 type Device = inferRouterOutputs<AppRouter>["device"]["list"][number];
@@ -31,7 +31,7 @@ const GATE_CHANNELS = [
   { platform: "ios", channel: "production", title: "devices.platformIos" },
 ] as const;
 
-const GATE_TONE: Record<DeviceGate, "green" | "red" | "neutral"> = { current: "green", blocked: "red", revoked: "red", web: "neutral" };
+const GATE_TONE: Record<DeviceGate, "green" | "red" | "neutral"> = { current: "green", blocked: "red", revoked: "red", web: "neutral", unknown: "neutral" };
 
 /**
  * Devices (FP-PF-11): the published builds and their minimum, then every device that opened the
@@ -54,11 +54,6 @@ export function DevicesTab() {
   const [revoking, setRevoking] = useState<Device | null>(null);
 
   const published = GATE_CHANNELS.map((g, i) => ({ ...g, data: gates[i]?.data })).filter((g) => g.data?.latest);
-  // A device's channel is not recorded, so it is flagged only when below every published floor for its platform.
-  const minBuild = (platform: string) => {
-    const mins = published.filter((g) => g.platform === platform).map((g) => g.data!.minBuild);
-    return mins.length ? Math.min(...mins) : 0;
-  };
   const dayStart = settings.data?.productionDay.startMs ?? 0;
 
   return (
@@ -121,7 +116,7 @@ export function DevicesTab() {
         ) : (
           <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 md:grid-cols-2 xl:grid-cols-3" data-testid="device-list">
             {list.data.map((d) => {
-              const gate = deviceGate(d, minBuild);
+              const gate = d.gate;
               const thisDay = new Date(d.lastSeenAt).getTime() >= dayStart;
               const name = d.label?.trim() || t("devices.unnamed");
               return (
