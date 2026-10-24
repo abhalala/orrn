@@ -69,7 +69,12 @@ export function bakiOf(input: { orderedG: number; dispatchedG: number; orderedPc
   };
 }
 
-/** What a press plan may still take for a line: ordered minus everything already on its way, floored at 0. */
+/**
+ * What a press plan may still take for a line: ordered minus everything already on its way, floored
+ * at 0. `heldYardG` (FP-OP-17) is yard stock held for the line that is NOT already counted in
+ * `packedG` (held bundles on no line; a held bundle on this very line is in `packedG` already):
+ * `max(0, ordered − dispatched − packed − heldYard − planned − pressed − aged)`.
+ */
 export function planableG(input: {
   orderedG: number;
   dispatchedG: number;
@@ -77,8 +82,12 @@ export function planableG(input: {
   plannedG: number;
   pressedG: number;
   agedG: number;
+  heldYardG?: number;
 }): number {
-  return Math.max(0, input.orderedG - input.dispatchedG - input.packedG - input.plannedG - input.pressedG - input.agedG);
+  return Math.max(
+    0,
+    input.orderedG - input.dispatchedG - input.packedG - (input.heldYardG ?? 0) - input.plannedG - input.pressedG - input.agedG,
+  );
 }
 
 /** Dispatching past ordered + tolerance (bp of ordered) needs `dispatch_overdraw`. Exact integer compare. */
@@ -166,4 +175,68 @@ export function reallocationCheck(input: {
     warnings: lengthMismatch ? ["length_mismatch"] : [],
     reasonCodeKind: lengthMismatch ? "reallocate" : null,
   };
+}
+
+/** Most bundles one `orders.hold` call holds (one guarded batch). */
+export const MAX_HOLD_BUNDLES = 100;
+
+export type HoldRefusal =
+  | "line_closed"
+  | "not_available"
+  | "on_dispatch"
+  | "pending_reallocation"
+  | "die_mismatch"
+  | "other_line"
+  | "held_elsewhere";
+
+export type HoldResult =
+  | { ok: true; alreadyHeld: boolean; warnings: "length_mismatch"[] }
+  | { ok: false; refusal: HoldRefusal };
+
+/**
+ * `orders.hold` guard (FP-OP-17, "Put on sales order"; C9). A yard bundle may be held for an open
+ * line when it is `available`, on no live dispatch (draft or held), not waiting on a reallocation
+ * approval, of the line's die, and on no line or on this line already (a bundle on another line is
+ * moved with `orders.reallocate`, never held across). A bundle already held for another line must
+ * be released first; held for this line again is a calm no-op. A different cut length is allowed
+ * with a warning (as `reallocationCheck`). Checks run in this order; the first refusal wins.
+ */
+export function holdCheck(input: {
+  bundle: {
+    status: string;
+    dieId: string;
+    lengthMm: number;
+    salesOrderLineId: string | null;
+    heldForLineId: string | null;
+    onLiveDispatch: boolean;
+    pendingReallocation: boolean;
+  };
+  line: { id: string; dieId: string; cutLengthMm: number; open: boolean };
+}): HoldResult {
+  const { bundle, line } = input;
+  if (!line.open) return { ok: false, refusal: "line_closed" };
+  if (bundle.status !== "available") return { ok: false, refusal: "not_available" };
+  if (bundle.onLiveDispatch) return { ok: false, refusal: "on_dispatch" };
+  if (bundle.pendingReallocation) return { ok: false, refusal: "pending_reallocation" };
+  if (bundle.dieId !== line.dieId) return { ok: false, refusal: "die_mismatch" };
+  if (bundle.salesOrderLineId !== null && bundle.salesOrderLineId !== line.id) return { ok: false, refusal: "other_line" };
+  if (bundle.heldForLineId !== null && bundle.heldForLineId !== line.id) return { ok: false, refusal: "held_elsewhere" };
+  return {
+    ok: true,
+    alreadyHeld: bundle.heldForLineId === line.id,
+    warnings: bundle.lengthMm !== line.cutLengthMm ? ["length_mismatch"] : [],
+  };
+}
+
+/**
+ * Whether a hold keeps a bundle off a dispatch (FP-OP-17): a bundle held for an OPEN line of
+ * another customer is refused ("Held for SO-n (customer)"); held for this dispatch's customer it
+ * may go on (and the hold ends when that dispatch completes). A hold on a closed or cancelled
+ * order blocks nothing (close / cancel release holds anyway).
+ */
+export function holdBlocksDispatch(input: {
+  hold: { customerId: string; orderOpen: boolean } | null;
+  dispatchCustomerId: string;
+}): boolean {
+  return input.hold !== null && input.hold.orderOpen && input.hold.customerId !== input.dispatchCustomerId;
 }

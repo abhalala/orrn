@@ -103,6 +103,12 @@ export const bundle = sqliteTable(
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
+    // FP-OP-17 (migration 0027): "Put on sales order". The open line this yard bundle is held for;
+    // the bundle stays `available` and on its own line (null, or this line). App-enforced id like
+    // `sales_order_line_id`. Set by `orders.hold`, cleared by `orders.release`, by order close /
+    // cancel, and by the dispatch that takes it. History is the `order.hold` / `order.release` audit.
+    heldForLineId: text("held_for_line_id"),
+    heldAt: integer("held_at", { mode: "timestamp_ms" }),
   },
   (table) => [
     uniqueIndex("bundle_company_serial_unique").on(table.companyId, table.serial),
@@ -122,6 +128,8 @@ export const bundle = sqliteTable(
     index("bundle_company_party_no_idx").on(table.companyId, table.partyNo),
     index("bundle_company_instance_idx").on(table.companyId, table.dieInstanceId),
     index("bundle_company_ageing_row_idx").on(table.companyId, table.ageingRowId),
+    // Held kg per line (strip) and "held for SO-n" at scan.
+    index("bundle_company_held_line_idx").on(table.companyId, table.heldForLineId),
   ],
 );
 

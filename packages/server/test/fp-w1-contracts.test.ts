@@ -56,9 +56,10 @@ const WAVE1_TABLES = [
 ];
 
 describe("migration 0023_fp_wave1", () => {
-  test("is the last migration and creates every Wave 1 table", async () => {
+  test("is migration 23 (later waves append after it) and creates every Wave 1 table", async () => {
     const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-    expect(files.at(-1)).toBe("0023_fp_wave1.sql");
+    expect(files[23]).toBe("0023_fp_wave1.sql");
+    expect(files.slice(24).every((f) => f > "0023_fp_wave1.sql")).toBe(true);
     const rows = (await env.db.all<{ name: string }>(
       // biome-ignore lint: raw sqlite_master read
       (await import("drizzle-orm")).sql`select name from sqlite_master where type = 'table'`,

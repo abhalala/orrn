@@ -334,6 +334,7 @@ export const gu = {
       dieOwned: "Die {name} ની છે",
       otherOrder: "બીજા ગ્રાહકના ઓર્ડર પર",
       overCapacity: "ગાડીની ક્ષમતાથી {kg} kg વધુ",
+      heldForOrder: "{order} ({customer}) માટે હોલ્ડ પર છે",
     },
   },
   press: {
