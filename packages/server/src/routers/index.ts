@@ -12,6 +12,7 @@ import { dieRouter } from "./die";
 import { dieInstanceRouter } from "./dieInstance";
 import { bundleRouter } from "./bundle";
 import { dispatchRouter } from "./dispatch";
+import { foundryRouter } from "./foundry";
 import { packingListRouter } from "./packingList";
 import { spoolRouter } from "./spool";
 import { edgeRouter } from "./edge";
@@ -54,5 +55,6 @@ export const appRouter = router({
   vendor: vendorRouter,
   purchase: purchaseRouter,
   analytics: analyticsRouter,
+  foundry: foundryRouter,
 });
 export type AppRouter = typeof appRouter;

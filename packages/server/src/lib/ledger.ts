@@ -26,6 +26,7 @@ import { location, stockLedger, type LedgerVoucherType, type LocationKind } from
 import { alias } from "drizzle-orm/sqlite-core";
 
 import { chunk, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "./atomic";
+import { lotHasNoLiveDraws } from "./foundry";
 
 export type PostingCtx = {
   db: OrrnDb;
@@ -598,13 +599,12 @@ function lotPostingsWhere(l: string, companyId: string, lotId: string): SQL {
 }
 
 /**
- * Write-time guard for cancelling an OK lot: the lot's item+grade at its location still holds at
- * least what the lot put there, so the reversal cannot drive scrap stock negative. Melt draws
- * (PL-5) post − rows on the same item_ref; once they record the lot they draw from, tighten this
- * to "no draw references this lot".
+ * Write-time guard for cancelling an OK lot: no live melt has drawn from the lot (PL-5 records the
+ * lot on every melt line), and the lot's item+grade at its location still holds at least what the
+ * lot put there, so the reversal cannot drive scrap stock negative.
  */
 export function lotCancelLeavesStockNonNegative(companyId: string, lotId: string): SQL {
-  return sql`coalesce((
+  return sql`${lotHasNoLiveDraws(companyId, sql`${lotId}`)} and coalesce((
       select sum(b.qty_g) from ${stockLedger} b
       where b.company_id = ${companyId} and b.item_kind = 'scrap_grade'
         and b.item_ref = ${scrapRefOfLot} and b.location_id is ${lotCol("location_id")}
