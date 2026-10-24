@@ -15,10 +15,9 @@ import { trpc } from "@/shared/utils/trpc";
 import { percentText } from "./masters-model";
 import { ActiveStatus, filterByShow, MasterNote, MastersLoadError, RowEdit, SeedButton, ShowFilter, type Show } from "./masters-ui";
 import { GradeSheet, ScrapItemSheet, StreamSheet } from "./scrap-sheets";
+import { SCRAP_TABS, type ScrapTab } from "./search";
 import { useInvalidate, useMastersAccess, type ScrapGradeRow, type ScrapItemRow, type StreamRow } from "./use-masters";
 
-export type ScrapTab = "items" | "grades" | "streams";
-export const SCRAP_TABS: readonly ScrapTab[] = ["items", "grades", "streams"];
 
 /**
  * Scrap and returns (route /masters/scrap?tab=): the yard's scrap items and grade ladder, and the

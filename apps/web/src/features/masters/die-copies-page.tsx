@@ -15,11 +15,10 @@ import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
 import { DieCopySheet, SectionPicker } from "./die-copy-sheet";
-import { DIE_CARD_EDITORS, DIE_COPY_STATUSES, dieCopyStatusView, kgPer12ftInput, type DieCopyStatus } from "./masters-model";
+import { DIE_CARD_EDITORS, dieCopyStatusView, kgPer12ftInput } from "./masters-model";
 import { MastersLoadError, RowEdit } from "./masters-ui";
+import { DIE_COPY_STATUSES, type DieCopiesSearch, type DieCopyStatus } from "./search";
 import { useMastersAccess, type DieCopyRow } from "./use-masters";
-
-export type DieCopiesSearch = { section?: string; status?: DieCopyStatus; offset?: number };
 
 const PAGE = 50;
 

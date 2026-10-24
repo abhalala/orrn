@@ -1,13 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { SCRAP_TABS, ScrapPage, type ScrapTab } from "@/features/masters/scrap-page";
+import { ScrapPage } from "@/features/masters/scrap-page";
+import { parseScrapSearch } from "@/features/masters/search";
 
 /** `?tab=items|grades|streams` (items when missing or unknown). */
 export const Route = createFileRoute("/_tenant/masters/scrap")({
-  validateSearch: (search: Record<string, unknown>): { tab?: ScrapTab } =>
-    typeof search.tab === "string" && (SCRAP_TABS as readonly string[]).includes(search.tab) && search.tab !== "items"
-      ? { tab: search.tab as ScrapTab }
-      : {},
+  validateSearch: parseScrapSearch,
   component: ScrapRoute,
 });
 

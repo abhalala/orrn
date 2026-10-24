@@ -17,11 +17,10 @@ import { trpc } from "@/shared/utils/trpc";
 import { formatDay, vendorStatusView, type VendorStatus } from "./masters-model";
 import { companyToday, MasterNote, MastersLoadError, MastersNoAccess } from "./masters-ui";
 import { MergeVendorsSheet } from "./merge-vendors-sheet";
+import type { VendorFilter, VendorsSearch } from "./search";
 import { useMastersAccess, type VendorRow } from "./use-masters";
 import { VendorSheet } from "./vendor-sheet";
 
-export type VendorFilter = "all" | "draft" | "archived" | "merged";
-export type VendorsSearch = { q?: string; status?: Exclude<VendorFilter, "all">; offset?: number };
 
 const PAGE = 50;
 

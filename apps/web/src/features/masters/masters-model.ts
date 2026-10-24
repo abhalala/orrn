@@ -3,6 +3,10 @@ import { parseDecimal } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
 
+import type { DieCopyStatus } from "./search";
+
+export { DIE_COPY_STATUSES, type DieCopyStatus } from "./search";
+
 /**
  * Masters (PL-W1): pure helpers shared by the Masters screens. Numbers travel as integers
  * (percent in basis points, kg/12ft in thousandths of a kg); these turn them into what a person
@@ -195,9 +199,6 @@ export function vendorStatusView(status: VendorStatus): StatusView {
   }
 }
 
-export type DieCopyStatus = "in_use" | "available" | "at_nitriding" | "retired";
-
-export const DIE_COPY_STATUSES: readonly DieCopyStatus[] = ["available", "in_use", "at_nitriding", "retired"];
 
 /** Green = ready to run, blue = on the press, amber = away for nitriding, neutral = retired. */
 export function dieCopyStatusView(status: DieCopyStatus): StatusView {
