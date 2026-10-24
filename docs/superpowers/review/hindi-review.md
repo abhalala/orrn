@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 2965 screen strings in 42 groups, 16 guides with 292 strings.
+Counts: 3101 screen strings in 43 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -2689,7 +2689,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (64)
+### approvals (65)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2713,6 +2713,7 @@ Please check, Lalubhai:
 | `kind.press_time` | Press run times | प्रेस रन का समय |
 | `kind.press_reopen` | Reopen a press run | प्रेस रन फिर खोलना |
 | `kind.ageing_override` | Ageing override | एजिंग की छूट |
+| `kind.press_late_entry` | Press run entered late | बाद में भरा गया प्रेस रन |
 | `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
 | `subject.dieRerank` | Copy {code}, tier {from} to {to} | कॉपी {code}, टियर {from} से {to} |
@@ -2758,7 +2759,7 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (80)
+### dieRoom (81)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2781,6 +2782,7 @@ Please check, Lalubhai:
 | `status.at_nitriding` | At nitriding | नाइट्राइडिंग पर |
 | `status.at_maker` | At die maker | Die मेकर के पास |
 | `status.retired` | Retired | बंद |
+| `status.on_trial` | On trial | ट्रायल पर |
 | `bands.title` | Bands | बैंड |
 | `bands.add` | Add band | बैंड जोड़ें |
 | `bands.wall` | Wall (mm) | दीवार (mm) |
@@ -2938,7 +2940,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (63)
+### press (133)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2950,6 +2952,16 @@ Please check, Lalubhai:
 | `lines.tonnage` | Tonnes | टन |
 | `lines.retire` | Retire | बंद करें |
 | `plan.title` | Press plan | प्रेस प्लान |
+| `plan.purpose.label` | Purpose | किस लिए |
+| `plan.purpose.production` | Production | उत्पादन |
+| `plan.purpose.die_trial` | Die trial | Die ट्रायल |
+| `plan.purpose.sample` | Sample | सैंपल |
+| `plan.purpose.other` | Other | अन्य |
+| `plan.noOrderLine` | A trial or sample needs no order line. | ट्रायल या सैंपल के लिए ऑर्डर लाइन नहीं चाहिए। |
+| `plan.queueOrder` | Queue order | कतार का क्रम |
+| `plan.moveUp` | Move up | ऊपर करें |
+| `plan.moveDown` | Move down | नीचे करें |
+| `plan.pullBack` | Take back to planning | प्लानिंग में वापस लें |
 | `plan.new` | New plan | नया प्लान |
 | `plan.number` | Plan {number} | प्लान {number} |
 | `plan.window` | From {from} to {to} | {from} से {to} तक |
@@ -3005,6 +3017,135 @@ Please check, Lalubhai:
 | `console.pressRemark` | Press remark | प्रेस टिप्पणी |
 | `console.dieRemark` | Die remark | Die टिप्पणी |
 | `console.timeUnconfirmed` | Time not confirmed | समय पक्का नहीं |
+| `console.billets` | Billets | बिलेट |
+| `console.billetCount` | Billets | बिलेट |
+| `console.billetLength` | Billet length | बिलेट लंबाई |
+| `console.billetKg` | Billet kg | बिलेट kg |
+| `console.addBillet` | Add billets | बिलेट जोड़ें |
+| `console.tooManyBillets` | At most {max} billet rows. | ज़्यादा से ज़्यादा {max} बिलेट लाइनें। |
+| `console.billetCastMismatch` | Billets must be of this run's cast. | बिलेट इसी रन की cast के होने चाहिए। |
+| `console.billetShort` | Fewer billets in stock than typed | भरे गए से कम बिलेट स्टॉक में हैं |
+| `console.billetShortReason` | Why the billets are short | बिलेट कम क्यों हैं |
+| `console.pieces` | Pieces | पीस |
+| `console.cutLength` | Cut length | कट लंबाई |
+| `console.pcs` | Pcs | पीस |
+| `console.addLength` | Add cut length | कट लंबाई जोड़ें |
+| `console.hint` | About {kg} kg by the die weight | Die वज़न से लगभग {kg} kg |
+| `console.rejects` | Rejects | रिजेक्ट |
+| `console.noRejects` | No rejects | कोई रिजेक्ट नहीं |
+| `console.rejectReason` | Reject reason | रिजेक्ट का कारण |
+| `console.downtime` | Downtime | रुकावट |
+| `console.downtimeStart` | Press stopped | प्रेस रुकी |
+| `console.downtimeStop` | Press running again | प्रेस फिर चालू |
+| `console.downtimeOpen` | Close the downtime first. | पहले रुकावट बंद करें। |
+| `console.lateEntry` | Entered late | बाद में भरा |
+| `console.lateEntryAsk` | Ask approval for a late entry | बाद में भरने की मंज़ूरी मांगें |
+| `console.trialResult` | Trial result | ट्रायल का नतीजा |
+| `console.trialPass` | Trial passed | ट्रायल पास |
+| `console.trialFail` | Trial failed | ट्रायल फेल |
+| `console.notSaved` | Not saved yet | अभी सेव नहीं हुआ |
+| `console.logRun` | Log run | रन दर्ज करें |
+| `console.supervisorOnly` | Only this run's supervisor can log it. | सिर्फ़ इस रन का सुपरवाइज़र इसे दर्ज कर सकता है। |
+| `console.queuePosition` | Number {n} in queue | कतार में नंबर {n} |
+| `report.title` | Press report | प्रेस रिपोर्ट |
+| `report.runNo` | Run no | रन नंबर |
+| `report.productionDay` | Production day | उत्पादन दिन |
+| `report.shift` | Shift | शिफ्ट |
+| `report.line` | Press line | प्रेस लाइन |
+| `report.operator` | Operator | ऑपरेटर |
+| `report.section` | Section | सेक्शन |
+| `report.copy` | Die copy | Die कॉपी |
+| `report.orders` | Orders | ऑर्डर |
+| `report.cutLengths` | Cut lengths | कट लंबाई |
+| `report.cast` | Cast | Cast |
+| `report.billets` | Billets | बिलेट |
+| `report.startedStopped` | Started to stopped | शुरू से बंद तक |
+| `report.runningMin` | Running min | चलने के मिनट |
+| `report.downtimeMin` | Downtime min | रुकावट के मिनट |
+| `report.good` | Good kg and pcs | अच्छा kg और पीस |
+| `report.scrap` | Butt, ends and rejects kg | बट, एंड और रिजेक्ट kg |
+| `report.recovery` | Recovery % | रिकवरी % |
+| `report.csv` | Download CSV | CSV डाउनलोड करें |
+| `report.empty` | No logged runs in this period. | इस समय में कोई रन दर्ज नहीं। |
+| `report.lateShare` | Entered late: {pct}% | बाद में भरे: {pct}% |
+| `report.trial` | Trial | ट्रायल |
+| `summary.title` | Daily press summary | रोज़ का प्रेस सारांश |
+| `summary.pressedToday` | Pressed today | आज प्रेस हुआ |
+| `summary.recovery` | Recovery | रिकवरी |
+| `summary.downtime` | Downtime | रुकावट |
+| `summary.byLine` | By press | प्रेस के हिसाब से |
+| `summary.noRuns` | No runs logged today. | आज कोई रन दर्ज नहीं। |
+| `summary.kg` | {kg} kg | {kg} kg |
+| `summary.minutes` | {min} min | {min} मिनट |
+
+### foundry (64)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Foundry | फाउंड्री |
+| `casts.title` | Casts | Cast |
+| `casts.open` | Open cast | Cast खोलें |
+| `casts.number` | Cast {number} | Cast {number} |
+| `casts.alloy` | Alloy | एलॉय |
+| `casts.status.open` | Open | खुली |
+| `casts.status.closing` | Waiting for approval | मंज़ूरी बाकी |
+| `casts.status.closed` | Closed | बंद |
+| `casts.status.cancelled` | Cancelled | रद्द |
+| `casts.close` | Close cast | Cast बंद करें |
+| `casts.cancel` | Cancel cast | Cast रद्द करें |
+| `casts.tail` | Tail | टेल |
+| `casts.tailReason` | Why the tail | टेल का कारण |
+| `casts.empty` | No casts yet. | अभी कोई cast नहीं। |
+| `melt.title` | Melt | मेल्ट |
+| `melt.new` | New melt | नई मेल्ट |
+| `melt.number` | Melt {n} | मेल्ट {n} |
+| `melt.status.draft` | Draft | ड्राफ़्ट |
+| `melt.status.locked` | Locked | लॉक |
+| `melt.status.cancelled` | Cancelled | रद्द |
+| `melt.furnace` | Furnace | भट्टी |
+| `melt.chargingStart` | Charging start | चार्जिंग शुरू |
+| `melt.castingEnd` | Casting end | कास्टिंग खत्म |
+| `melt.charge` | Charge | चार्ज |
+| `melt.lots` | Scrap lots | स्क्रैप लॉट |
+| `melt.streams` | Return streams | वापसी माल |
+| `melt.logs` | Logs | लॉग |
+| `melt.dross` | Dross | ड्रॉस |
+| `melt.fe` | Iron (Fe) | लोहा (Fe) |
+| `melt.metalIn` | Metal in | डाला गया धातु |
+| `melt.burn` | Burn loss | जलन घटत |
+| `melt.balance` | Balance | बाकी |
+| `melt.yield` | Yield | यील्ड |
+| `melt.balanceReason` | Why the balance is off | बाकी में फर्क क्यों |
+| `melt.lock` | Lock melt | मेल्ट लॉक करें |
+| `melt.overCapacity` | More than the furnace holds. | भट्टी की क्षमता से ज़्यादा। |
+| `melt.nearCapacity` | Near the furnace limit. | भट्टी की सीमा के पास। |
+| `spectro.title` | Spectro | स्पेक्ट्रो |
+| `spectro.attach` | Add spectro | स्पेक्ट्रो जोड़ें |
+| `spectro.verdict.pass` | Pass | पास |
+| `spectro.verdict.fail` | Fail | फेल |
+| `spectro.verdict.incomplete` | Incomplete | अधूरा |
+| `spectro.element` | Element | तत्व |
+| `spectro.limit` | Limit | सीमा |
+| `spectro.reading` | Reading | रीडिंग |
+| `spectro.alBalance` | Al by balance | Al बाकी से |
+| `spectro.reason` | Why lock without a pass | बिना पास लॉक क्यों |
+| `spectro.overMillion` | The values add up to more than 100%. | कुल मान 100% से ज़्यादा है। |
+| `spectro.file` | Spectro file | स्पेक्ट्रो फ़ाइल |
+| `stock.title` | Billet stock | बिलेट स्टॉक |
+| `stock.byCast` | By cast | Cast के हिसाब से |
+| `stock.byAlloy` | By alloy | एलॉय के हिसाब से |
+| `stock.onHand` | On hand | हाथ में |
+| `stock.empty` | No billets in stock. | स्टॉक में कोई बिलेट नहीं। |
+| `masters.furnaces` | Furnaces | भट्टियां |
+| `masters.alloys` | Alloys | एलॉय |
+| `masters.addFurnace` | Add furnace | भट्टी जोड़ें |
+| `masters.addAlloy` | Add alloy | एलॉय जोड़ें |
+| `masters.capacity` | Capacity (kg) | क्षमता (kg) |
+| `masters.billetDia` | Billet size (mm) | बिलेट साइज़ (mm) |
+| `masters.limits` | Limits | सीमाएं |
+| `masters.min` | Min % | कम से कम % |
+| `masters.max` | Max % | ज़्यादा से ज़्यादा % |
+| `masters.noLimit` | No limit | कोई सीमा नहीं |
 
 ### ageing (20)
 

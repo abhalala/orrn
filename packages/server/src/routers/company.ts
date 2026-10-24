@@ -147,6 +147,8 @@ export const companyRouter = router({
         portalEnabled: z.boolean().optional(),
         /** null = automatic (on after the first locked melt, FP-FD-16). */
         requireCastOnBundle: z.boolean().nullable().optional(),
+        /** Die room (FP-DR-17): new copies and copies back from the maker start on trial. */
+        dieRoom: z.object({ newCopyOnTrial: z.boolean() }).optional(),
         /** Continue the cast book (FP-FD-02): only for a month with no cast yet. */
         castSeriesStart: z
           .object({
@@ -215,6 +217,9 @@ export const companyRouter = router({
         if (input[key] !== undefined) patch[key] = input[key];
       }
       if (input.requireCastOnBundle !== undefined) patch.requireCastOnBundle = input.requireCastOnBundle;
+      if (input.dieRoom !== undefined) {
+        patch.dieRoom = { ...((row.settings?.dieRoom ?? {}) as Record<string, unknown>), newCopyOnTrial: input.dieRoom.newCopyOnTrial };
+      }
       if (input.standards !== undefined) {
         const current = readFloorSettings(row.settings).standards;
         const next: Record<string, { standard: string; cml: string }> = { ...current };
@@ -276,7 +281,6 @@ export const companyRouter = router({
     const raw = row.settings ?? {};
     const floor = readFloorSettings(raw);
     const day = productionDayWindow(raw, now().getTime());
-    const castSeriesStart = raw.castSeriesStart;
     return {
       ...floor,
       lengthUnit: raw.lengthUnit === "inch" ? ("inch" as const) : ("mm" as const),
@@ -285,10 +289,7 @@ export const companyRouter = router({
       plSeries: (raw.plSeries ?? null) as { prefix: string; start: number } | null,
       dcTolerancePct: typeof raw.dcTolerancePct === "number" ? raw.dcTolerancePct : null,
       orderToleranceBp: typeof raw.orderToleranceBp === "number" ? raw.orderToleranceBp : null,
-      castSeriesStart:
-        castSeriesStart && typeof castSeriesStart === "object"
-          ? (castSeriesStart as { period: string; start: number })
-          : null,
+      castSeriesStart: floor.castSeriesStart,
       modules: Array.isArray(row.modules) ? row.modules : [],
       productionDay: {
         day: day.productionDay,

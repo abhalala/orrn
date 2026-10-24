@@ -15,7 +15,18 @@ import { packingList, packingListDispatch, packingListLine } from "@orrn/db/sche
 import { auditLog } from "@orrn/db/schema/audit";
 import { approval } from "@orrn/db/schema/approval";
 import { countLine, countLocation, countSeen, countSession, countTally } from "@orrn/db/schema/count";
-import { cast, melt, meltChemical, meltInput, meltOutput, returnStream, spectroResult } from "@orrn/db/schema/foundry";
+import {
+  alloy,
+  alloyLimit,
+  cast,
+  furnace,
+  melt,
+  meltChemical,
+  meltInput,
+  meltOutput,
+  returnStream,
+  spectroResult,
+} from "@orrn/db/schema/foundry";
 import {
   dcNote,
   purchaseLot,
@@ -38,9 +49,22 @@ import {
   dieWeightReading,
   nitridingLog,
 } from "@orrn/db/schema/dies";
-import { dieIssue, pressLine, pressPlan, pressPlanDie, pressPlanLine, pressRun } from "@orrn/db/schema/press";
+import {
+  dieIssue,
+  dieRemark,
+  pressBilletUse,
+  pressDowntime,
+  pressLine,
+  pressPlan,
+  pressPlanDie,
+  pressPlanLine,
+  pressRemark,
+  pressRun,
+  pressRunLine,
+  qcEntry,
+} from "@orrn/db/schema/press";
 import { reasonCode } from "@orrn/db/schema/reasons";
-import { COMPANY_MODULES, defaultReasonCodeRows, SUGGESTED_SHIFTS } from "@orrn/domain";
+import { ALLOY_LIMIT_SEEDS, COMPANY_MODULES, defaultReasonCodeRows, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
@@ -51,6 +75,7 @@ import { formatBundleSerial, formatGroupCode } from "@orrn/server/lib/bundleSeri
 import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
 import { DEFAULT_LOCATIONS, defaultLocationStatements, openingRows } from "@orrn/server/lib/ledger";
 import { nextCompanySeq } from "@orrn/server/lib/sequence";
+import { defaultReturnStreamStatements } from "@orrn/server/lib/foundry";
 import { kgPer12ftMilli } from "@orrn/server/lib/bundleWeight";
 import { allocatePartyBundleNumbers, docPeriod, nextDocNumber } from "@orrn/server/lib/docNumber";
 import {
@@ -1051,6 +1076,57 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       note: "Day shift",
     },
   ];
+  // FP Wave 2 contracts: one draft die-trial plan (PP-1, FP-PR-23) on the second press, for the
+  // trial copy flow; no order line (a trial needs none). The plan book continues after PP-1.
+  const pressPlanPeriod = docPeriod("press_plan", new Date(now), DEMO_SETTINGS.timezone);
+  const trialPlanRows: (typeof pressPlan.$inferInsert)[] = [
+    {
+      id: "dev-plan-trial-1",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number: "PP-1",
+      period: pressPlanPeriod,
+      status: "draft",
+      purpose: "die_trial",
+      pressLineId: "dev-press-line-2",
+      windowStart: new Date(todayWindowStart),
+      windowEnd: new Date(todayWindowStart + 12 * 60 * 60 * 1000),
+      note: "Trial of a new copy",
+      createdBy: ownerId,
+    },
+  ];
+  const trialPlanDieRows: (typeof pressPlanDie.$inferInsert)[] = [
+    { id: "dev-plan-trial-1-die-1", companyId: COMPANY_ID, serverSeq: nextSeq(), pressPlanId: "dev-plan-trial-1", sectionId: dieId("patti1"), sortOrder: 1, createdBy: ownerId },
+  ];
+  const pressPlanSeriesRows: (typeof docSeries.$inferInsert)[] = [
+    { id: `dev-series-press_plan-${pressPlanPeriod}`, companyId: COMPANY_ID, docType: "press_plan", period: pressPlanPeriod, value: trialPlanRows.length, createdBy: ownerId },
+  ];
+  // Foundry masters (FP-FD-01/09; Q-FD-1, Q-FD-8): F1 6 t 127 mm; 6063 and 6061 with the spec's limits.
+  const furnaceRows: (typeof furnace.$inferInsert)[] = [
+    { id: "dev-furnace-f1", companyId: COMPANY_ID, serverSeq: nextSeq(), ...FURNACE_SEED, sortOrder: 1, createdBy: ownerId },
+  ];
+  const alloyRows: (typeof alloy.$inferInsert)[] = (["6063", "6061"] as const).map((code, i) => ({
+    id: `dev-alloy-${code}`,
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    code,
+    name: `AA ${code}`,
+    note: "Limits seeded from the spec; the owner confirms them (Q-FD-1).",
+    sortOrder: i + 1,
+    createdBy: ownerId,
+  }));
+  const alloyLimitRows: (typeof alloyLimit.$inferInsert)[] = (["6063", "6061"] as const).flatMap((code) =>
+    ALLOY_LIMIT_SEEDS[code].map((l) => ({
+      id: `dev-alloy-${code}-${l.element}`,
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      alloyId: `dev-alloy-${code}`,
+      element: l.element,
+      minPpm: l.minPpm,
+      maxPpm: l.maxPpm,
+      createdBy: ownerId,
+    })),
+  );
   const ownedSectionId = dieId("chan1");
   const ownedBy = customerId(CUSTOMERS[0]!.key);
 
@@ -1064,6 +1140,14 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     db.delete(packingList).where(eq(packingList.companyId, COMPANY_ID)),
     // FP Wave 1 rows made in the app since the last seed: press runs and plans hold keys to order
     // lines, copies, casts and reason codes; transfers and pack rejects to bundles and groups.
+    // Wave 2 run children (billets hold keys to casts, downtime to lines and reason codes, die
+    // remarks to copies): before the runs, casts, lines, reason codes and copies they point at.
+    db.delete(qcEntry).where(eq(qcEntry.companyId, COMPANY_ID)),
+    db.delete(pressRunLine).where(eq(pressRunLine.companyId, COMPANY_ID)),
+    db.delete(pressBilletUse).where(eq(pressBilletUse.companyId, COMPANY_ID)),
+    db.delete(pressDowntime).where(eq(pressDowntime.companyId, COMPANY_ID)),
+    db.delete(pressRemark).where(eq(pressRemark.companyId, COMPANY_ID)),
+    db.delete(dieRemark).where(eq(dieRemark.companyId, COMPANY_ID)),
     db.delete(dieIssue).where(eq(dieIssue.companyId, COMPANY_ID)),
     db.delete(pressRun).where(eq(pressRun.companyId, COMPANY_ID)),
     db.delete(pressPlanLine).where(eq(pressPlanLine.companyId, COMPANY_ID)),
@@ -1089,6 +1173,10 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     db.delete(melt).where(eq(melt.companyId, COMPANY_ID)),
     db.delete(cast).where(eq(cast.companyId, COMPANY_ID)),
     db.delete(returnStream).where(eq(returnStream.companyId, COMPANY_ID)),
+    // Wave 2 foundry masters, after the melts and casts that point at them.
+    db.delete(alloyLimit).where(eq(alloyLimit.companyId, COMPANY_ID)),
+    db.delete(alloy).where(eq(alloy.companyId, COMPANY_ID)),
+    db.delete(furnace).where(eq(furnace.companyId, COMPANY_ID)),
     // Store entries the app made since the last seed (RESTRICT on location and store_item; their
     // GRN/MRS numbers would also collide once doc_series restarts below). After the melts that draw on them.
     db.delete(storeTxn).where(eq(storeTxn.companyId, COMPANY_ID)),
@@ -1190,7 +1278,14 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     // default reason code.
     ...insertChunks(db, pressLine, [
       { id: "dev-press-line-1", companyId: COMPANY_ID, code: "P1", name: "Press 1", sortOrder: 1, createdBy: ownerId },
+      // Wave 2: a second press for the trial plan (tonnage left for the plant too).
+      { id: "dev-press-line-2", companyId: COMPANY_ID, code: "P2", name: "Press 2", sortOrder: 2, createdBy: ownerId },
     ]),
+    // FP Wave 2 foundry masters and the foundry sheet's return streams.
+    ...insertChunks(db, furnace, furnaceRows),
+    ...insertChunks(db, alloy, alloyRows),
+    ...insertChunks(db, alloyLimit, alloyLimitRows),
+    ...(defaultReturnStreamStatements(db as never, COMPANY_ID, { userId: ownerId, seq: 0 }) as Statement[]),
     ...insertChunks(db, transporter, [
       { id: "dev-transporter-1", companyId: COMPANY_ID, name: "Shree Logistics", createdBy: ownerId },
     ]),
@@ -1213,6 +1308,9 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     ...insertChunks(db, pressRun, pressRunRows),
     ...insertChunks(db, docSeries, pressRunSeriesRows),
     ...insertChunks(db, dieIssue, dieIssueRows),
+    ...insertChunks(db, pressPlan, trialPlanRows),
+    ...insertChunks(db, pressPlanDie, trialPlanDieRows),
+    ...insertChunks(db, docSeries, pressPlanSeriesRows),
   ];
   await atomicBatch(db, statements);
 
