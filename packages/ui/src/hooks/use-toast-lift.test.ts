@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { applyBarClearance, createToastLift, TOAST_LIFT_VAR, toastLiftFor } from "./use-toast-lift";
+import { applyBarClearance, createToastLift, TOAST_LIFT_VAR, toastLiftAt, toastLiftFor } from "./use-toast-lift";
 
 describe("createToastLift", () => {
   test("the highest bar on screen decides how far toasts lift; none left clears it", () => {
@@ -29,6 +29,22 @@ describe("toastLiftFor", () => {
 
   test("a bar that is not sticky (bottom auto) still clears its own height", () => {
     expect(toastLiftFor({ stickyBottom: Number.NaN, height: 70 })).toBe(78);
+  });
+});
+
+describe("toastLiftAt", () => {
+  test("a bar resting on its sticky bottom lifts by its resting clearance", () => {
+    // viewport 900, bar 68 tall stuck 12 px above the bottom: top = 900 - 12 - 68 = 820.
+    expect(toastLiftAt({ stickyBottom: 12, height: 68, top: 820, viewportHeight: 900 })).toBe(88);
+  });
+
+  test("scrolled to the page end the bar sits higher, and toasts clear its real top", () => {
+    expect(toastLiftAt({ stickyBottom: 12, height: 68, top: 783, viewportHeight: 900 })).toBe(125);
+  });
+
+  test("a bar off screen keeps the resting clearance", () => {
+    expect(toastLiftAt({ stickyBottom: 12, height: 68, top: -200, viewportHeight: 900 })).toBe(88);
+    expect(toastLiftAt({ stickyBottom: 12, height: 68, top: 1200, viewportHeight: 900 })).toBe(88);
   });
 });
 

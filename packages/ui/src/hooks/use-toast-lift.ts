@@ -18,6 +18,27 @@ export function toastLiftFor({ stickyBottom, height }: { stickyBottom: number; h
   return Math.ceil((Number.isFinite(stickyBottom) ? stickyBottom : 0) + height + GAP);
 }
 
+/**
+ * The lift for a bar where it is right now: at least its resting clearance, and
+ * more when the page is scrolled to its end and the bar sits above its sticky
+ * rest (the page's bottom padding is below it). A bar off screen needs only its rest.
+ */
+export function toastLiftAt({
+  stickyBottom,
+  height,
+  top,
+  viewportHeight,
+}: {
+  stickyBottom: number;
+  height: number;
+  top: number;
+  viewportHeight: number;
+}): number {
+  const resting = toastLiftFor({ stickyBottom, height });
+  const onScreen = top + height > 0 && top < viewportHeight;
+  return onScreen ? Math.max(resting, Math.ceil(viewportHeight - top + GAP)) : resting;
+}
+
 /** Several bars may be mounted at once (a sheet over a flow): the highest one wins. */
 export function createToastLift(apply: (px: number | null) => void) {
   const bars = new Map<string, number>();
@@ -65,19 +86,38 @@ export function useToastLift(ref: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof window === "undefined") return;
-    const measure = () =>
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
       shared.set(
         id,
-        toastLiftFor({ stickyBottom: parseFloat(getComputedStyle(el).bottom), height: el.getBoundingClientRect().height }),
+        toastLiftAt({
+          stickyBottom: parseFloat(getComputedStyle(el).bottom),
+          height: rect.height,
+          top: rect.top,
+          viewportHeight: window.innerHeight,
+        }),
       );
+    };
     measure();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
     observer?.observe(el);
+    // Scrolled to the page end, the bar rests above its sticky bottom: re-measure on scroll (one per frame).
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        measure();
+      });
+    };
     // The phone tab bar offset (and so the bar's resting bottom) changes at the 768px breakpoint.
     window.addEventListener("resize", measure);
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
     return () => {
       observer?.disconnect();
+      if (frame) cancelAnimationFrame(frame);
       window.removeEventListener("resize", measure);
+      document.removeEventListener("scroll", onScroll, { capture: true });
       shared.remove(id);
     };
   }, [ref, id]);
