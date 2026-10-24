@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { dispatchNow } from "../features/dispatch/dispatch-now";
 import { dispatchTotals, groupItems } from "../features/dispatch/group-items";
-import { currentStep, nextStep } from "../features/dispatch/next-step";
+import { barActions, currentStep, nextStep, showsActionBar, stepPerms } from "../features/dispatch/next-step";
 import { plTable, toPlSnapshot } from "../features/dispatch/packing-list";
 import { resolvePasted } from "../features/dispatch/paste";
 import { shipDateFromChoice } from "../features/dispatch/ship-date";
@@ -173,5 +173,53 @@ describe("the one next step in the bottom bar", () => {
 
   test("stepper position", () => {
     expect(["draft", "reserved", "completed", "cancelled"].map((s) => currentStep(s as never))).toEqual([0, 1, 3, -1]);
+  });
+});
+
+describe("bottom action bar visibility (role x status, mirrors the web dispatch screen)", () => {
+  const me = (role: string) =>
+    ({
+      user: { id: "u", name: "Asha", email: "a@x.in" },
+      company: { id: "c", name: "Fourcubes", slug: "fc", status: "active", plan: null, role, modules: [] },
+      isPlatformAdmin: false,
+    }) as never;
+  const bar = (role: string, status: "draft" | "reserved" | "completed" | "cancelled", bundles: number) =>
+    barActions(nextStep(status, bundles, stepPerms(me(role), status)));
+
+  test("a packer on a held dispatch still sees Release, with no primary button", () => {
+    const step = nextStep("reserved", 3, stepPerms(me("packer"), "reserved"));
+    expect(step).toEqual({ primary: null, secondary: ["release"] });
+    expect(showsActionBar(step)).toBe(true);
+    expect(bar("packer", "reserved", 3)).toEqual(["release"]);
+  });
+
+  test("a packer keeps Release on an empty held dispatch too (web only disables Dispatch there)", () => {
+    expect(bar("packer", "reserved", 0)).toEqual(["release", "scan"]);
+    expect(bar("viewer", "reserved", 0)).toEqual([]);
+  });
+
+  test("a viewer on a held dispatch gets no bar at all", () => {
+    const step = nextStep("reserved", 3, stepPerms(me("viewer"), "reserved"));
+    expect(showsActionBar(step)).toBe(false);
+    expect(bar("viewer", "reserved", 3)).toEqual([]);
+    expect(bar("viewer", "draft", 3)).toEqual([]);
+  });
+
+  test("a dispatcher on a held dispatch sees Release and Dispatch", () => {
+    expect(bar("supervisor", "reserved", 3)).toEqual(["release", "dispatch"]);
+    expect(bar("office", "reserved", 3)).toEqual(["release", "dispatch"]);
+  });
+
+  test("building: packer holds, dispatcher holds or dispatches, empty asks for bundles", () => {
+    expect(bar("packer", "draft", 3)).toEqual(["hold"]);
+    expect(bar("supervisor", "draft", 3)).toEqual(["hold", "dispatch"]);
+    expect(bar("packer", "draft", 0)).toEqual(["scan"]);
+  });
+
+  test("nothing in the bar once the dispatch is over", () => {
+    for (const role of ["packer", "supervisor", "viewer"]) {
+      expect(bar(role, "completed", 3)).toEqual([]);
+      expect(bar(role, "cancelled", 3)).toEqual([]);
+    }
   });
 });

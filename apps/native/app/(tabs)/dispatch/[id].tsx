@@ -30,7 +30,7 @@ import { kgTotal } from "@/features/dispatch/format";
 import { GroupCard } from "@/features/dispatch/group-card";
 import { dispatchTotals, groupItems, type ItemGroup } from "@/features/dispatch/group-items";
 import { LabelSheet } from "@/features/dispatch/label-sheet";
-import { nextStep } from "@/features/dispatch/next-step";
+import { nextStep, showsActionBar, stepPerms } from "@/features/dispatch/next-step";
 import { PackingListSection } from "@/features/dispatch/packing-list-section";
 import { PasteSheet } from "@/features/dispatch/paste-sheet";
 import { DispatchStepper } from "@/features/dispatch/stepper";
@@ -143,11 +143,7 @@ export default function DispatchDetailScreen() {
   const totals = dispatchTotals(items);
   const editable = (d.status === "draft" || d.status === "reserved") && can(me, "dispatch.addBundle");
   const shipDate = format.day(d.shipDate);
-  const step = nextStep(d.status, live.length, {
-    addBundle: can(me, "dispatch.addBundle"),
-    reserve: can(me, "dispatch.reserve") && (actions.canReserve || actions.canUnreserve),
-    complete: can(me, "dispatch.complete") && actions.canComplete,
-  });
+  const step = nextStep(d.status, live.length, stepPerms(me, d.status));
   const pl = plQuery.data ?? null;
 
   const scan = () => router.navigate({ pathname: "/scan", params: { dispatchId: d.id, code: d.code } });
@@ -383,7 +379,7 @@ export default function DispatchDetailScreen() {
           ) : null}
         </Screen>
 
-        {step.primary ? (
+        {showsActionBar(step) ? (
           <ActionBar>
             {step.secondary.length > 0 ? (
               <View className="flex-row gap-2">
@@ -399,17 +395,19 @@ export default function DispatchDetailScreen() {
                 ))}
               </View>
             ) : null}
-            <Button
-              size="lg"
-              label={step.primary === "scan" ? t("dispatch.build.scanBundles") : step.primary === "hold" ? t("dispatch.holdStock") : t("dispatch.dispatchAction")}
-              loading={busy && step.primary !== "scan" && sheet === null}
-              disabled={busy}
-              onPress={() => {
-                if (step.primary === "scan") scan();
-                else if (step.primary === "hold") void hold();
-                else openSheet("dispatch");
-              }}
-            />
+            {step.primary ? (
+              <Button
+                size="lg"
+                label={step.primary === "scan" ? t("dispatch.build.scanBundles") : step.primary === "hold" ? t("dispatch.holdStock") : t("dispatch.dispatchAction")}
+                loading={busy && step.primary !== "scan" && sheet === null}
+                disabled={busy}
+                onPress={() => {
+                  if (step.primary === "scan") scan();
+                  else if (step.primary === "hold") void hold();
+                  else openSheet("dispatch");
+                }}
+              />
+            ) : null}
           </ActionBar>
         ) : null}
       </View>
