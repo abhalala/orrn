@@ -1,0 +1,37 @@
+# Pack one bundle and open the saved session. Needs the seed data (a die whose code starts with ${DIE_QUERY}):
+#   maestro test -e MAESTRO_EMAIL=owner@orrn.local -e MAESTRO_PASSWORD=orrn-local-dev-only -e DIE_QUERY=147 .maestro/flows/pack.yaml
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 30000
+- tapOn: "Email"
+- inputText: ${MAESTRO_EMAIL}
+- tapOn: "Password"
+- inputText: ${MAESTRO_PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    visible: "Today"
+    timeout: 30000
+- tapOn: "Pack"
+- tapOn: "New packing session"
+- tapOn: "Search die code or section"
+- inputText: ${DIE_QUERY}
+- hideKeyboard
+- tapOn:
+    text: "Choose this die"
+    index: 0
+- tapOn: "Weight (kg)"
+- inputText: "45.5"
+- tapOn: "Pieces"
+- inputText: "12"
+- hideKeyboard
+- takeScreenshot: pack-bundle
+- tapOn: "Save bundle"
+- assertVisible: "Bundle 1"

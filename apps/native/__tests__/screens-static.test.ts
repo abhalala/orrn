@@ -41,7 +41,8 @@ function openingTag(src: string, start: number): string {
 /** Every `<Tag ...>` opening tag of the given component names in a file. */
 function tagsOf(src: string, names: string[]): string[] {
   const out: string[] = [];
-  const re = new RegExp(`<(${names.join("|")})\\b`, "g");
+  // Not a generic argument (`useRef<TextInput>`, `forwardRef<TextInput, P>`): a JSX tag never follows an identifier.
+  const re = new RegExp(`(?<![\\w$])<(${names.join("|")})\\b`, "g");
   for (const m of src.matchAll(re)) out.push(openingTag(src, m.index!));
   return out;
 }

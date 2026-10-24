@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 933 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 1044 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -986,7 +986,7 @@ Counts: 933 screen strings in 26 groups, 10 guides with 182 strings.
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
-### native (18)
+### native (129)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1008,6 +1008,117 @@ Counts: 933 screen strings in 26 groups, 10 guides with 182 strings.
 | `serverBody` | The problem is on orrn's side, not this phone. Try again in a minute. | दिक्कत orrn की तरफ़ से है, इस फ़ोन में नहीं। एक मिनट बाद फिर से कोशिश करें। |
 | `saveUnsureTitle` | Not sure it saved | पता नहीं सेव हुआ या नहीं |
 | `saveUnsureBody` | orrn didn't confirm this save, so it may have gone through. Check before you try again. | orrn से सेव होने का जवाब नहीं आया, इसलिए हो सकता है यह सेव हो गया हो। दोबारा कोशिश करने से पहले जांच लें। |
+| `monthsShort` | Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec | जन॰,फ़र॰,मार्च,अप्रै॰,मई,जून,जुला॰,अग॰,सित॰,अक्टू॰,नव॰,दिस॰ |
+| `pack.openSession` | Open session {code} | सेशन {code} खोलें |
+| `pack.sessionLine` | {bundles} {bundles:bundle\|bundles}, {kg} kg | {bundles} bundle, {kg} kg |
+| `pack.showMore` | Show more sessions | और सेशन दिखाएं |
+| `pack.notFound` | This session isn't in this company. | यह सेशन इस कंपनी में नहीं है। |
+| `pack.packedAt` | Packed {when} | पैक हुआ {when} |
+| `pack.voidNote` | Void bundles are shown here but not counted in the totals. | Void bundle यहां दिखते हैं, पर कुल में नहीं गिने जाते। |
+| `pack.bundlesTitle` | Bundles in this session | इस सेशन के bundle |
+| `pack.stepOf` | Step {n} of {total}: {name} | चरण {n} / {total}: {name} |
+| `pack.pickDie` | Choose a die | Die चुनें |
+| `pack.dieSheetTitle` | Choose a die | Die चुनें |
+| `pack.dieLoadError` | The dies didn't load. Try again. | Die लोड नहीं हुए। फिर कोशिश करें। |
+| `pack.cutLengthMm` | Cut length (mm) | कट लंबाई (mm) |
+| `pack.cutLengthError` | Enter a cut length above zero. | शून्य से ज़्यादा कट लंबाई लिखें। |
+| `pack.yard` | Yard location | यार्ड की जगह |
+| `pack.yardHint` | Where these bundles will be kept. | ये bundle कहां रखे जाएंगे। |
+| `pack.yardRequired` | Choose where these bundles go. | चुनें कि ये bundle कहां जाएंगे। |
+| `pack.weightError` | Enter the weight in kg, like 52.4 | वज़न kg में लिखें, जैसे 52.4 |
+| `pack.piecesError` | Enter whole pieces, like 21 | पूरे पीस लिखें, जैसे 21 |
+| `pack.overrideLength` | Cut length for this bundle | इस bundle की कट लंबाई |
+| `pack.overrideLengthHint` | Leave blank to use the session cut length. | खाली छोड़ें तो सेशन की कट लंबाई लगेगी। |
+| `pack.overridePo` | PO for this bundle | इस bundle का PO |
+| `pack.readout` | {value} kg/12ft | {value} kg/12ft |
+| `pack.readoutEmpty` | Enter weight and pieces to see kg/12ft. | kg/12ft देखने के लिए वज़न और पीस लिखें। |
+| `pack.noBundles` | No bundles yet. Type the first one above. | अभी कोई bundle नहीं। ऊपर पहला bundle लिखें। |
+| `pack.updateBundle` | Update bundle | Bundle अपडेट करें |
+| `pack.cancelEdit` | Stop editing | बदलना रोकें |
+| `pack.bundleLine` | {kg} kg, {pieces} {pieces:piece\|pieces} | {kg} kg, {pieces} पीस |
+| `pack.bundleLineOwn` | {kg} kg, {pieces} {pieces:piece\|pieces}, {length}, PO {po} | {kg} kg, {pieces} पीस, {length}, PO {po} |
+| `pack.removeTitle` | Remove this bundle? | यह bundle हटाएं? |
+| `pack.outOfRange` | {count} {count:bundle is\|bundles are} outside the die range. You can still save. | {count} bundle die की range के बाहर {count:है\|हैं}। फिर भी सेव कर सकते हैं। |
+| `pack.resume` | Continue with them | इन्हीं के साथ आगे बढ़ें |
+| `pack.resumeLine` | {die}, {count} {count:bundle\|bundles} | {die}, {count} bundle |
+| `pack.discardTitle` | Discard unsaved bundles? | बिना सेव किए bundle हटाएं? |
+| `pack.discardBody` | They can't be brought back. | ये वापस नहीं आ सकते। |
+| `pack.noBundlesToSave` | Add at least one bundle first. | पहले कम से कम एक bundle जोड़ें। |
+| `pack.checking` | Checking whether the session saved | देख रहे हैं कि सेशन सेव हुआ या नहीं |
+| `pack.checkAgain` | Check again | फिर जांचें |
+| `pack.checkFailed` | Couldn't check yet. Check again before you save. | अभी जांच नहीं हो पाई। सेव करने से पहले फिर जांचें। |
+| `pack.landed` | That session did save. | वह सेशन सेव हो गया था। |
+| `pack.notLanded` | That session did not save. It's safe to save it again. | वह सेशन सेव नहीं हुआ। दोबारा सेव करना सुरक्षित है। |
+| `pack.review` | Review | जांचें |
+| `pack.editBundles` | Back to bundles | Bundle पर वापस |
+| `scan.openSettings` | Open settings | सेटिंग्स खोलें |
+| `scan.cameraBlockedPhone` | The camera is blocked. Open settings and allow it, or type the serial below. | कैमरा बंद है। सेटिंग्स खोलकर इसे चालू करें, या नीचे serial लिखें। |
+| `scan.opened` | Opened | खुला |
+| `scan.failed` | Failed | नहीं हुआ |
+| `scan.cameraView` | Camera view for scanning bundle labels | bundle के लेबल स्कैन करने वाला कैमरा |
+| `dispatch.tabsLabel` | Dispatch status | Dispatch का स्टेटस |
+| `dispatch.noShipDate` | No ship date | भेजने की तारीख नहीं |
+| `dispatch.tomorrow` | Tomorrow | कल |
+| `dispatch.noDate` | No date | तारीख नहीं |
+| `dispatch.typedDate` | Type a date | तारीख लिखें |
+| `dispatch.dateHint` | Day, month, year, like 15-10-2026. | दिन, महीना, साल, जैसे 15-10-2026। |
+| `dispatch.dateInvalid` | That isn't a real date. Use day, month, year, like 15-10-2026. | यह सही तारीख नहीं है। दिन, महीना, साल लिखें, जैसे 15-10-2026। |
+| `dispatch.customerRequired` | Pick a customer first. | पहले ग्राहक चुनें। |
+| `dispatch.changeCustomer` | Change customer | ग्राहक बदलें |
+| `dispatch.customerPicked` | Customer {name} | ग्राहक {name} |
+| `dispatch.creating` | Creating | बन रहा है |
+| `dispatch.createdNote` | Dispatch created. Add bundles next. | Dispatch बन गया। अब bundle जोड़ें। |
+| `dispatch.notesHint` | Optional. Up to 500 letters. | ज़रूरी नहीं। 500 अक्षर तक। |
+| `dispatch.bundlesHeading` | Bundles | Bundle |
+| `dispatch.bundleMeta` | {pcs} pcs, {length}, {kg} kg | {pcs} पीस, {length}, {kg} kg |
+| `dispatch.removeTitle` | Remove {serial}? | {serial} हटाएं? |
+| `dispatch.removeBody` | The bundle goes back to stock. | Bundle वापस स्टॉक में चला जाएगा। |
+| `dispatch.keepIt` | Keep it | रहने दें |
+| `dispatch.addLabel` | Add label | लेबल जोड़ें |
+| `dispatch.editLabel` | Edit label | लेबल बदलें |
+| `dispatch.clearLabel` | Clear label | लेबल हटाएं |
+| `dispatch.groupLabelHint` | Bundles with the same label are listed together on the packing list. | एक ही लेबल वाले bundle पैकिंग लिस्ट में साथ दिखते हैं। |
+| `dispatch.stepsLabel` | Dispatch steps | Dispatch के कदम |
+| `dispatch.pasteReady` | {count} {count:serial\|serials} ready to add | {count} serial जोड़ने के लिए तैयार |
+| `dispatch.pasteChecking` | Checking | जांच हो रही है |
+| `dispatch.pastePartial` | {count} {count:serial\|serials} not sent. Check the dispatch, then paste them again. | {count} serial भेजे नहीं {count:गया\|गए}। Dispatch देखें, फिर इन्हें दोबारा पेस्ट करें। |
+| `dispatch.pasteAmbiguous` | {serials} match more than one bundle. Type the full number. | {serials} एक से ज़्यादा bundle से मिलते हैं। पूरा नंबर लिखें। |
+| `dispatch.pasteAgain` | Paste more | और पेस्ट करें |
+| `dispatch.doneMeta` | {customer} | {customer} |
+| `dispatch.noPackingList` | No packing list yet. | अभी पैकिंग लिस्ट नहीं है। |
+| `dispatch.shareFailed` | Couldn't open the share sheet. Try again. | शेयर नहीं खुला। फिर कोशिश करें। |
+| `dispatch.sharing` | Preparing the file | फ़ाइल बन रही है |
+| `dispatch.plSection` | {label} · {count} {count:bundle\|bundles} | {label} · {count} bundle |
+| `dispatch.plFacts` | {pcs} pcs, {length}, {kg12} kg/12ft | {pcs} पीस, {length}, {kg12} kg/12ft |
+| `dispatch.plBand` | Band {band} | बैंड {band} |
+| `more.diesCount` | {count} {count:die\|dies} | {count} die |
+| `more.customersCount` | {count} {count:customer\|customers} | {count} कस्टमर |
+| `more.typeToSearch` | Search by name or code | नाम या कोड से खोजें |
+| `more.call` | Call {phone} | {phone} पर कॉल करें |
+| `more.mail` | Write to {email} | {email} को लिखें |
+| `more.guideMissing` | This guide isn't available. | यह गाइड उपलब्ध नहीं है। |
+| `more.guideBack` | Back to guides | गाइड पर वापस जाएं |
+| `more.profile` | Your account | आपका अकाउंट |
+| `more.appearance` | Appearance | रंग रूप |
+| `more.changeOnWeb` | To change these, open orrn on a computer. | इन्हें बदलने के लिए कंप्यूटर पर orrn खोलें। |
+| `more.membersEmpty` | No one else is on the team yet. | टीम में अभी कोई और नहीं है। |
+| `more.pendingInvite` | {email} as {role} | {email}, {role} के रूप में |
+| `more.stockOfDie` | See stock | स्टॉक देखें |
+| `invite.subtitle` | Use the email this invite was sent to. | वही ईमेल इस्तेमाल करें जिस पर यह इनवाइट आया है। |
+| `invite.checking` | Checking your invite | आपका इनवाइट जांच रहे हैं |
+| `invite.wrongEmail` | This invite is for a different email. Sign out, then use the email the invite was sent to. | यह इनवाइट किसी और ईमेल के लिए है। साइन आउट करें, फिर वही ईमेल इस्तेमाल करें जिस पर इनवाइट आया है। |
+| `invite.signedOut` | Your session ended. Sign in again, then open the invite link. | आपका सेशन खत्म हो गया। फिर से साइन इन करें, फिर इनवाइट लिंक खोलें। |
+| `invite.failed` | orrn didn't answer. Check the connection and try again. | orrn से जवाब नहीं आया। कनेक्शन देखें और फिर कोशिश करें। |
+| `invite.twoFactor` | This account asks for a code at sign in. Sign in first, then open the invite link again. | इस अकाउंट में साइन इन पर कोड लगता है। पहले साइन इन करें, फिर इनवाइट लिंक दोबारा खोलें। |
+| `invite.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `invite.signedInTitle` | Join as {email} | {email} से जुड़ें |
+| `invite.signedInBody` | You are signed in. Accept the invite to join this team with this account. | आप साइन इन हैं। इस अकाउंट से टीम में जुड़ने के लिए इनवाइट स्वीकार करें। |
+| `invite.accept` | Join the team | टीम से जुड़ें |
+| `invite.joining` | Joining | जुड़ रहे हैं |
+| `invite.joined` | You joined the team. | आप टीम से जुड़ गए। |
+| `invite.checkAccount` | Check my account | मेरा अकाउंट जांचें |
+| `invite.tryAgain` | Try again | फिर कोशिश करें |
+| `invite.signOutOther` | Sign out and use another account | साइन आउट करें और दूसरा अकाउंट इस्तेमाल करें |
 
 ### ui (9)
 
