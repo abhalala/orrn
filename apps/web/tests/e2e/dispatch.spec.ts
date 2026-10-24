@@ -65,9 +65,18 @@ async function packFresh(page: Page, count: number) {
   return list.items;
 }
 
+/**
+ * The first customer with no open sales order. The dev seed books orders (SO-1/SO-3) for the first
+ * customer on the first die, and a dispatch for that customer links fresh bundles to those lines
+ * and is refused as an overdraw; these specs are about plain dispatches.
+ */
 async function firstCustomer(page: Page) {
-  const res = await trpcQuery<{ items: { id: string; name: string }[] }>(page, "customer.list", { limit: 1 });
-  return res.items[0]!;
+  const res = await trpcQuery<{ items: { id: string; name: string }[] }>(page, "customer.list", { limit: 50 });
+  const open = await trpcQuery<{ items: { customerId: string }[] }>(page, "orders.list", { openOnly: true, limit: 100 });
+  const busy = new Set(open.items.map((o) => o.customerId));
+  const free = res.items.find((c) => !busy.has(c.id));
+  expect(free, "a customer with no open sales order").toBeTruthy();
+  return free!;
 }
 
 async function newDispatch(page: Page) {
