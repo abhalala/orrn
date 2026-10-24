@@ -235,6 +235,28 @@ describe("devices", () => {
     expect(rows[0]!.id).toBe(winner!.id);
   });
 
+  test("rename: users.manage only, trims, blank clears, audits a real change only, another plant's device is Not found", async () => {
+    const a = await env.seedCompany();
+    const b = await env.seedCompany();
+    const packer = env.caller({ role: "packer", companyId: a.companyId });
+    const { id } = await packer.device.register({ installId: `install-${crypto.randomUUID()}`, platform: "android", label: "Tablet 1" });
+    const admin = env.caller({ role: "admin", companyId: a.companyId });
+    await expect(packer.device.rename({ id, label: "Packing bay" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await admin.device.rename({ id, label: "  Packing bay  " })).toEqual({ success: true, changed: true });
+    expect((await admin.device.list())[0]).toMatchObject({ id, label: "Packing bay" });
+    // Same name again: nothing written.
+    expect(await admin.device.rename({ id, label: "Packing bay" })).toEqual({ success: true, changed: false });
+    expect(await admin.device.rename({ id, label: "" })).toEqual({ success: true, changed: true });
+    expect((await admin.device.list())[0]!.label).toBeNull();
+    const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.action, "device.rename"), eq(auditLog.subjectId, id)));
+    expect(audits).toHaveLength(2);
+    expect(audits[0]!.companyId).toBe(a.companyId);
+    await expect(env.caller({ role: "admin", companyId: b.companyId }).device.rename({ id, label: "x" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(admin.device.rename({ id, label: "x".repeat(61) })).rejects.toBeTruthy();
+  });
+
   test("another plant's device is Not found", async () => {
     const a = await env.seedCompany();
     const b = await env.seedCompany();

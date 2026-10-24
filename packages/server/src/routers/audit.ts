@@ -6,6 +6,7 @@ import { user } from "@orrn/db/schema/auth";
 import { company } from "@orrn/db/schema/tenant";
 
 import { actionProcedure, router } from "../index";
+import type { OrrnDb } from "../lib/atomic";
 import { now } from "../lib/clock";
 import { canAny, type Action } from "../lib/permissions";
 
@@ -65,63 +66,69 @@ const select = {
   impersonatorId: auditLog.impersonatorId,
 };
 
+export const auditListInput = z.object({
+  actorId: z.string().min(1).max(64).optional(),
+  /** Exact action (`dispatch.complete`), or a kind prefix ending in "." (`dispatch.`). */
+  action: z.string().trim().min(1).max(80).optional(),
+  subjectType: z.string().trim().min(1).max(60).optional(),
+  subjectId: z.string().min(1).max(64).optional(),
+  /** Epoch ms, inclusive. Default: `auditRetentionDays` ago. */
+  from: z.number().int().min(0).optional(),
+  /** Epoch ms, inclusive. */
+  to: z.number().int().min(0).optional(),
+  limit: z.number().int().min(1).max(AUDIT_PAGE_MAX).default(50),
+  cursor: cursorSchema.optional(),
+});
+
+/** One page of a plant's audit log, newest first. `companyId` comes from the caller's context, never an input. */
+export async function listAudit(
+  db: OrrnDb,
+  companyId: string,
+  input: z.infer<typeof auditListInput>,
+  purchaseReader: boolean,
+) {
+  const co = await db.select({ days: company.auditRetentionDays }).from(company).where(eq(company.id, companyId)).get();
+  const from = input.from ?? now().getTime() - (co?.days ?? 180) * 86_400_000;
+  const filters: SQL[] = [eq(auditLog.companyId, companyId), gte(auditLog.at, new Date(from))];
+  if (input.to !== undefined) filters.push(lte(auditLog.at, new Date(input.to)));
+  if (input.actorId) filters.push(eq(auditLog.actorId, input.actorId));
+  if (input.action) {
+    if (input.action.endsWith(".")) {
+      // LIKE with the prefix escaped ('_' and '%' are literal in action names).
+      const escaped = input.action.replace(/[\\%_]/g, (c) => `\\${c}`);
+      filters.push(sql`${auditLog.action} like ${`${escaped}%`} escape '\\'`);
+    } else {
+      filters.push(eq(auditLog.action, input.action));
+    }
+  }
+  if (input.subjectType) filters.push(eq(auditLog.subjectType, input.subjectType));
+  if (input.subjectId) filters.push(eq(auditLog.subjectId, input.subjectId));
+  if (input.cursor) {
+    const at = new Date(input.cursor.at);
+    filters.push(or(lt(auditLog.at, at), and(eq(auditLog.at, at), lt(auditLog.id, input.cursor.id)))!);
+  }
+  const rows = await db
+    .select(select)
+    .from(auditLog)
+    .leftJoin(user, eq(user.id, auditLog.actorId))
+    .where(and(...filters))
+    .orderBy(desc(auditLog.at), desc(auditLog.id))
+    .limit(input.limit + 1);
+  const page = rows.slice(0, input.limit) as Row[];
+  const last = page[page.length - 1];
+  return {
+    items: view(page, purchaseReader),
+    nextCursor: rows.length > input.limit && last ? { at: last.at.getTime(), id: last.id } : null,
+    from,
+  };
+}
+
 export const auditRouter = router({
   list: actionProcedure("audit.read")
-    .input(
-      z.object({
-        actorId: z.string().min(1).max(64).optional(),
-        /** Exact action (`dispatch.complete`), or a kind prefix ending in "." (`dispatch.`). */
-        action: z.string().trim().min(1).max(80).optional(),
-        subjectType: z.string().trim().min(1).max(60).optional(),
-        subjectId: z.string().min(1).max(64).optional(),
-        /** Epoch ms, inclusive. Default: `auditRetentionDays` ago. */
-        from: z.number().int().min(0).optional(),
-        /** Epoch ms, inclusive. */
-        to: z.number().int().min(0).optional(),
-        limit: z.number().int().min(1).max(AUDIT_PAGE_MAX).default(50),
-        cursor: cursorSchema.optional(),
-      }),
-    )
+    .input(auditListInput)
     .query(async ({ ctx, input }) => {
-      const co = await ctx.db
-        .select({ days: company.auditRetentionDays })
-        .from(company)
-        .where(eq(company.id, ctx.companyId))
-        .get();
-      const from = input.from ?? now().getTime() - (co?.days ?? 180) * 86_400_000;
-      const filters: SQL[] = [eq(auditLog.companyId, ctx.companyId), gte(auditLog.at, new Date(from))];
-      if (input.to !== undefined) filters.push(lte(auditLog.at, new Date(input.to)));
-      if (input.actorId) filters.push(eq(auditLog.actorId, input.actorId));
-      if (input.action) {
-        if (input.action.endsWith(".")) {
-          // LIKE with the prefix escaped ('_' and '%' are literal in action names).
-          const escaped = input.action.replace(/[\\%_]/g, (c) => `\\${c}`);
-          filters.push(sql`${auditLog.action} like ${`${escaped}%`} escape '\\'`);
-        } else {
-          filters.push(eq(auditLog.action, input.action));
-        }
-      }
-      if (input.subjectType) filters.push(eq(auditLog.subjectType, input.subjectType));
-      if (input.subjectId) filters.push(eq(auditLog.subjectId, input.subjectId));
-      if (input.cursor) {
-        const at = new Date(input.cursor.at);
-        filters.push(or(lt(auditLog.at, at), and(eq(auditLog.at, at), lt(auditLog.id, input.cursor.id)))!);
-      }
-      const rows = await ctx.db
-        .select(select)
-        .from(auditLog)
-        .leftJoin(user, eq(user.id, auditLog.actorId))
-        .where(and(...filters))
-        .orderBy(desc(auditLog.at), desc(auditLog.id))
-        .limit(input.limit + 1);
-      const page = rows.slice(0, input.limit) as Row[];
-      const last = page[page.length - 1];
       const purchaseReader = canAny({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, PURCHASE_READ_ACTIONS);
-      return {
-        items: view(page, purchaseReader),
-        nextCursor: rows.length > input.limit && last ? { at: last.at.getTime(), id: last.id } : null,
-        from,
-      };
+      return listAudit(ctx.db, ctx.companyId, input, purchaseReader);
     }),
 
   /** One subject's history (bundle, dispatch screens): newest first, at most 50 rows. */

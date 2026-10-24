@@ -15,6 +15,7 @@ import { normalizeModules } from "@orrn/domain";
 import { atomicBatch } from "../../lib/atomic";
 import { auditInsert } from "../../lib/audit";
 import { platformGuard } from "../../index";
+import { auditListInput, listAudit } from "../audit";
 
 /**
  * The outer company row's id, table-qualified. Drizzle renders `${company.id}`
@@ -254,5 +255,19 @@ export const companiesProcedures = {
       ]);
 
       return { success: true, modules };
+    }),
+
+  /**
+   * One plant's audit trail for staff (the Audit tab of /admin/companies/$id): same filters and
+   * paging as the plant's own viewer, read-only. Purchase figures are hidden, as for a plant role
+   * without purchase access.
+   */
+  companiesAudit: platformGuard("platform.company.manage")
+    .input(auditListInput.extend({ companyId: z.string().min(1).max(64) }))
+    .query(async ({ ctx, input }) => {
+      const { companyId, ...rest } = input;
+      const target = await ctx.db.select({ id: company.id }).from(company).where(eq(company.id, companyId)).get();
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+      return listAudit(ctx.db, companyId, rest, false);
     }),
 };

@@ -219,6 +219,31 @@ export const deviceRouter = router({
       return { success: true, changed: true };
     }),
 
+  /**
+   * Name a device ("Packing bay tablet"). Blank clears the name. The register call only sets the
+   * label when the device is first seen, so the Devices tab is where staff fix it afterwards.
+   */
+  rename: actionProcedure("users.manage")
+    .input(z.object({ id: z.string().min(1).max(64), label: z.string().trim().max(60) }))
+    .mutation(async ({ ctx, input }) => {
+      const row = await ctx.db
+        .select({ id: device.id, label: device.label })
+        .from(device)
+        .where(and(eq(device.id, input.id), eq(device.companyId, ctx.companyId)))
+        .get();
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+      const label = input.label === "" ? null : input.label;
+      if ((row.label ?? null) === label) return { success: true, changed: false };
+      await atomicBatch(ctx.db, [
+        ctx.db
+          .update(device)
+          .set({ label })
+          .where(and(eq(device.id, row.id), eq(device.companyId, ctx.companyId))),
+        auditInsert(ctx, { action: "device.rename", subjectType: "device", subjectId: row.id, meta: { from: row.label, to: label } }),
+      ]);
+      return { success: true, changed: true };
+    }),
+
   /** Undo a revoke (the device registers again on its next launch). */
   restore: actionProcedure("users.manage")
     .input(z.object({ id: z.string().min(1).max(64) }))
