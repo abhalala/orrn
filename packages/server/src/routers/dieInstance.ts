@@ -469,6 +469,8 @@ export const dieInstanceRouter = router({
               rackNo: sql<string | null>`${input.rackNo ?? null}`.as("rack_no"),
               receivedAt: sql<number | null>`${input.receivedAt ?? null}`.as("received_at"),
               dieMakerId: sql<string | null>`${input.dieMakerId ?? null}`.as("die_maker_id"),
+              makerDieNo: sql<string | null>`null`.as("maker_die_no"),
+              makerProjectNo: sql<string | null>`null`.as("maker_project_no"),
               createdBy: sql<string>`${userId}`.as("created_by"),
               createdAt: sql<number>`${at.getTime()}`.as("created_at"),
               updatedAt: sql<number>`${at.getTime()}`.as("updated_at"),

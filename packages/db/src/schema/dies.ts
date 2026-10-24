@@ -22,8 +22,11 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
  * in_use = issued to a press line (`die_issue`, die room only); available = in the rack;
  * at_nitriding = out for treatment; at_maker = with the die maker (`die_maker_job`); retired.
  * `in_use` and `at_maker` are written only by issue and maker jobs (rules in `@orrn/domain` dieRoom).
+ * on_trial (Wave 2, FP-DR-17) = new or back from the maker, not yet passed a die trial; set by maker
+ * receive and copy create while `company.settings.dieRoom.newCopyOnTrial` is on (default on). Only a
+ * trial pass (or manager + reason) makes it available; production issue refuses it.
  */
-export const dieInstanceStatuses = ["in_use", "available", "at_nitriding", "at_maker", "retired"] as const;
+export const dieInstanceStatuses = ["in_use", "available", "at_nitriding", "at_maker", "retired", "on_trial"] as const;
 export type DieInstanceStatus = (typeof dieInstanceStatuses)[number];
 
 export const dieInstance = sqliteTable(
@@ -74,6 +77,9 @@ export const dieInstance = sqliteTable(
     receivedAt: integer("received_at", { mode: "timestamp_ms" }),
     /** The die maker (does not replace the free-text `supplier`). */
     dieMakerId: text("die_maker_id").references(() => dieMaker.id),
+    /** The maker's own die number and project / job number (backlog 21), free text ≤ 40. */
+    makerDieNo: text("maker_die_no"),
+    makerProjectNo: text("maker_project_no"),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })

@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 /** Die copy (`die_instance`) status. `in_use` and `at_maker` are written only by issue and maker jobs. */
-export const DIE_COPY_STATUSES = ["available", "in_use", "at_nitriding", "at_maker", "retired"] as const;
+export const DIE_COPY_STATUSES = ["available", "in_use", "at_nitriding", "at_maker", "retired", "on_trial"] as const;
 export type DieCopyStatus = (typeof DIE_COPY_STATUSES)[number];
 
 export const DIE_COPY_EVENTS = [
@@ -21,6 +21,14 @@ export const DIE_COPY_EVENTS = [
   "makerReceive",
   "makerCancel",
   "retire",
+  // Wave 2 (FP-DR-17, rank 42): a copy on trial until a die trial passes.
+  "makerReceiveTrial", // back from the maker while dieRoom.newCopyOnTrial is on
+  "trialIssue", // issued to a die_trial run (production issue refuses on_trial)
+  "trialReturn", // the trial run's issue comes back without a pass
+  "trialPass", // a logged die_trial run with trial_result pass
+  "trialRelease", // manager + reason: available without a trial
+  "trialToMaker", // failed trial: back to the maker
+  "trialRetire", // failed trial: retired
 ] as const;
 export type DieCopyEvent = (typeof DIE_COPY_EVENTS)[number];
 
@@ -35,7 +43,22 @@ const COPY_MOVES: Record<DieCopyEvent, { from: DieCopyStatus; to: DieCopyStatus 
   makerCancel: { from: "at_maker", to: "available" },
   // Retire only from the rack: never from in_use, at_nitriding or at_maker.
   retire: { from: "available", to: "retired" },
+  makerReceiveTrial: { from: "at_maker", to: "on_trial" },
+  trialIssue: { from: "on_trial", to: "in_use" },
+  trialReturn: { from: "in_use", to: "on_trial" },
+  trialPass: { from: "on_trial", to: "available" },
+  trialRelease: { from: "on_trial", to: "available" },
+  trialToMaker: { from: "on_trial", to: "at_maker" },
+  trialRetire: { from: "on_trial", to: "retired" },
 };
+
+/**
+ * Status of a copy the die room creates or receives back from the maker (FP-DR-17):
+ * `on_trial` while `company.settings.dieRoom.newCopyOnTrial` is on (default on), else `available`.
+ */
+export function newCopyStatus(settings: { dieRoom: { newCopyOnTrial: boolean } }): "on_trial" | "available" {
+  return settings.dieRoom.newCopyOnTrial ? "on_trial" : "available";
+}
 
 /** The status after `event`, or null when the copy is not in the status the event needs. */
 export function dieCopyNext(from: DieCopyStatus, event: DieCopyEvent): DieCopyStatus | null {
@@ -186,6 +209,7 @@ export type DieIssueStatus = (typeof DIE_ISSUE_STATUSES)[number];
 
 export type IssueRefusal =
   | "copy_not_available"
+  | "copy_on_trial"
   | "open_issue_exists"
   | "run_not_queued"
   | "section_mismatch"
@@ -200,9 +224,16 @@ export function canIssueDie(input: {
   openIssueForCopy: boolean;
   pressLineId: string;
   run?: { status: string; sectionId: string; pressLineId: string | null } | null;
+  /**
+   * Wave 2 (FP-DR-17 / PR-23): the plan purpose of the run. An `on_trial` copy issues only to a
+   * `die_trial` run (event `trialIssue`); every other purpose refuses it with `copy_on_trial`.
+   */
+  purpose?: "production" | "die_trial" | "sample" | "other";
 }): { ok: true } | { ok: false; refusal: IssueRefusal } {
   if (input.openIssueForCopy) return { ok: false, refusal: "open_issue_exists" };
-  if (input.copy.status !== "available") return { ok: false, refusal: "copy_not_available" };
+  if (input.copy.status === "on_trial") {
+    if (input.purpose !== "die_trial") return { ok: false, refusal: "copy_on_trial" };
+  } else if (input.copy.status !== "available") return { ok: false, refusal: "copy_not_available" };
   const run = input.run;
   if (run) {
     if (run.status !== "queued") return { ok: false, refusal: "run_not_queued" };

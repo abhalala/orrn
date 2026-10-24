@@ -111,7 +111,14 @@ export type FloorSettings = {
   press: { balanceWarnBp: number };
   ageing: { manualLoad: boolean; split: boolean; requireForPack: boolean };
   letterhead: Letterhead;
+  /** Wave 2 (FP-DR-17): new copies and copies back from the maker start `on_trial` (default on). */
+  dieRoom: { newCopyOnTrial: boolean };
+  /** Continue the paper cast book (FP-FD-02, Q-FD-2): the month's first seq. null = start at 1. */
+  castSeriesStart: CastSeriesStart | null;
 };
+
+/** `company.settings.castSeriesStart`: the month `YYYY-MM` whose first cast takes `start`. */
+export type CastSeriesStart = { period: string; start: number };
 
 export const FLOOR_SETTINGS_DEFAULTS: FloorSettings = {
   shifts: [],
@@ -129,7 +136,22 @@ export const FLOOR_SETTINGS_DEFAULTS: FloorSettings = {
   press: { balanceWarnBp: PRESS_BALANCE_WARN_BP },
   ageing: { manualLoad: true, split: false, requireForPack: false },
   letterhead: { legalName: null, gstin: null, address: null, phone: null },
+  dieRoom: { newCopyOnTrial: true },
+  castSeriesStart: null,
 };
+
+/** A valid `castSeriesStart` or null (month `YYYY-MM`, start 1 … 99,999). */
+export function readCastSeriesStart(v: unknown): CastSeriesStart | null {
+  const o = obj(v);
+  if (typeof o.period !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(o.period)) return null;
+  if (typeof o.start !== "number" || !Number.isInteger(o.start) || o.start < 1 || o.start > 99_999) return null;
+  return { period: o.period, start: o.start };
+}
+
+/** First sequence of the cast series for `period` (`YYYY-MM`): the book's start for that month, else 1. */
+export function castSeriesFirstSeq(start: CastSeriesStart | null | undefined, period: string): number {
+  return start && start.period === period ? start.start : 1;
+}
 
 const bool = (v: unknown, d: boolean) => (typeof v === "boolean" ? v : d);
 const bp = (v: unknown, d: number) => (typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 10_000 ? v : d);
@@ -200,6 +222,8 @@ export function readFloorSettings(raw: Record<string, unknown> | null | undefine
       requireForPack: bool(ageing.requireForPack, d.ageing.requireForPack),
     },
     letterhead: { legalName: nstr(lh.legalName), gstin: nstr(lh.gstin), address: nstr(lh.address), phone: nstr(lh.phone) },
+    dieRoom: { newCopyOnTrial: bool(obj(s.dieRoom).newCopyOnTrial, d.dieRoom.newCopyOnTrial) },
+    castSeriesStart: readCastSeriesStart(s.castSeriesStart),
   };
 }
 

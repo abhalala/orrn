@@ -114,6 +114,8 @@ export const PLANT_ACTIONS = [
   "portal.manage", // customer portal users and portal orders (Wave 3)
   "audit.read", // the company audit log
   "support.request", // ask platform support for help
+  // Wave 2 (FP). FP-PR-25 change the press queue after release (Q15 default: supervisor + planner).
+  "press.queue", // reorder queued / die_issued runs, pull a cut length back to planable
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -225,6 +227,8 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "packingList.combine": ["supervisor", "office", "manager", "admin"],
   "portal.manage": ["office", "manager", "admin"],
   "audit.read": ["admin", "manager"],
+  // Wave 2 (FP-PR-25, Q15 A): the supervisor and the planner (order.plan holders).
+  "press.queue": ["supervisor", "office", "manager"],
   "support.request": [
     "admin",
     "manager",
@@ -336,6 +340,7 @@ export const APPROVER_ROLES: Record<ApprovalKind, readonly CompanyRole[]> = {
   press_time: ["owner", "supervisor", "manager"],
   press_reopen: ["owner", "admin", "manager"],
   ageing_override: ["owner", "admin", "manager"],
+  press_late_entry: ["owner", "supervisor", "manager"],
 };
 
 export function canApprove(role: CompanyRole | null | undefined, kind: ApprovalKind): boolean {
