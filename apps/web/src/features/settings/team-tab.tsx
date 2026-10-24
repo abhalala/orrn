@@ -7,6 +7,7 @@ import { FormActions } from "@orrn/ui/components/form-actions";
 import { HowToButton } from "@orrn/ui/components/how-to-button";
 import { NativeSelect } from "@orrn/ui/components/native-select";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
+import { Dialog } from "@orrn/ui/components/dialog";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AppRouter } from "@orrn/server/routers/index";
@@ -27,9 +28,10 @@ type Member = Outputs["company"]["membersList"][number];
 type Invite = Outputs["invite"]["list"][number];
 
 /**
- * Team: members with their role (read), pending invites, and the invite
- * sheet (`invite.create`, `member.invite`). Role changes and removal are not
- * on this screen yet.
+ * Team: members with their role, pending invites, the invite sheet
+ * (`invite.create`, `member.invite`), and per member a role change
+ * (`member.updateRole`) and removal (`member.remove`). Only an owner may touch an owner row, and
+ * nobody changes or removes their own row. Party portal logins arrive with the portal (Wave 3).
  */
 export function TeamTab() {
   const { t } = useT();
@@ -38,6 +40,8 @@ export function TeamTab() {
   const members = useQuery(trpc.company.membersList.queryOptions());
   const invites = useQuery(trpc.invite.list.queryOptions());
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [roleFor, setRoleFor] = useState<Member | null>(null);
+  const [removing, setRemoving] = useState<Member | null>(null);
 
   const memberColumns: ResponsiveListColumn<Member>[] = [
     {
@@ -57,6 +61,12 @@ export function TeamTab() {
       cell: (m) => <Badge tone={m.role === "owner" || m.role === "admin" ? "brand" : "neutral"}>{t(`roles.${m.role}`)}</Badge>,
     },
     { key: "joined", header: t("settings.team.joined"), hideOnPhone: true, cell: (m) => <span className="whitespace-nowrap">{when(m.createdAt)}</span> },
+    {
+      key: "actions",
+      header: t("settings.team.actions"),
+      headerHidden: true,
+      cell: (m) => <MemberActions member={m} onChangeRole={() => setRoleFor(m)} onRemove={() => setRemoving(m)} />,
+    },
   ];
 
   const inviteColumns: ResponsiveListColumn<Invite>[] = [
@@ -129,8 +139,23 @@ export function TeamTab() {
         />
       </section>
 
+      <section aria-labelledby="portal-logins" className="flex min-w-0 flex-col gap-3" data-testid="team-portal">
+        <h2 id="portal-logins" className="m-0 text-[17px] font-semibold">
+          {t("settings.team.portalTitle")}
+        </h2>
+        <div className="rounded-card border border-border bg-card">
+          <EmptyState title={t("settings.team.portalBody")} />
+        </div>
+      </section>
+
       <Can do="member.invite">
         <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} />
+      </Can>
+      <Can do="member.updateRole">
+        <RoleSheet member={roleFor} onClose={() => setRoleFor(null)} />
+      </Can>
+      <Can do="member.remove">
+        <RemoveDialog member={removing} onClose={() => setRemoving(null)} />
       </Can>
     </div>
   );
@@ -236,5 +261,131 @@ function InviteSheet({ open, onOpenChange }: { open: boolean; onOpenChange(open:
         </Field>
       </form>
     </Sheet>
+  );
+}
+
+/** Role and Remove buttons for one member. Hidden on your own row, and on an owner's row unless you are an owner. */
+function MemberActions({ member, onChangeRole, onRemove }: { member: Member; onChangeRole(): void; onRemove(): void }) {
+  const { t } = useT();
+  const { data: me } = useMe();
+  if (member.userId === me?.user.id) return null;
+  const name = member.user.name || member.user.email;
+  if (member.role === "owner" && me?.company?.role !== "owner") {
+    return <span className="text-[13px] text-muted-foreground">{t("settings.team.ownerLocked")}</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Can do="member.updateRole">
+        <Button variant="secondary" size="sm" aria-label={`${t("settings.team.changeRole")}: ${name}`} onClick={onChangeRole} data-testid="member-change-role">
+          {t("settings.team.changeRole")}
+        </Button>
+      </Can>
+      <Can do="member.remove">
+        <Button variant="secondary" size="sm" aria-label={`${t("settings.team.remove")}: ${name}`} onClick={onRemove} data-testid="member-remove">
+          {t("settings.team.remove")}
+        </Button>
+      </Can>
+    </div>
+  );
+}
+
+function RoleSheet({ member, onClose }: { member: Member | null; onClose(): void }) {
+  const { t } = useT();
+  const { data: me } = useMe();
+  const queryClient = useQueryClient();
+  const roles = invitableRoles(me?.company?.role, COMPANY_ROLES);
+  const [role, setRole] = useState<CompanyRole>("viewer");
+  const [forId, setForId] = useState<string | null>(null);
+  // Start from the member's current role each time a different member opens.
+  if (member && member.id !== forId) {
+    setForId(member.id);
+    setRole(member.role as CompanyRole);
+  }
+  const update = useMutation(
+    trpc.company.membersUpdateRole.mutationOptions({
+      onSuccess: () => {
+        toast.success(t("settings.team.roleChanged"));
+        void queryClient.invalidateQueries({ queryKey: trpc.company.membersList.queryKey() });
+        onClose();
+      },
+      onError: () => toast.error(t("settings.team.roleFailed")),
+    }),
+  );
+  const name = member ? member.user.name || member.user.email : "";
+  return (
+    <Sheet
+      open={member !== null}
+      onOpenChange={(open) => !open && onClose()}
+      title={t("settings.team.changeRoleTitle", { name })}
+      footer={
+        <FormActions sticky={false}>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            type="button"
+            loading={update.isPending}
+            disabled={!member || role === member.role}
+            onClick={() => member && update.mutate({ membershipId: member.id, role })}
+            data-testid="member-save-role"
+          >
+            {t("settings.team.saveRole")}
+          </Button>
+        </FormActions>
+      }
+    >
+      <Field id="member-role-select" label={t("settings.team.role")} hint={t(`settings.team.roleHints.${role}`)}>
+        <NativeSelect id="member-role-select" value={role} onChange={(e) => setRole(e.target.value as CompanyRole)} data-testid="member-role">
+          {roles.map((r) => (
+            <option key={r} value={r}>
+              {t(`roles.${r}`)}
+            </option>
+          ))}
+        </NativeSelect>
+      </Field>
+    </Sheet>
+  );
+}
+
+function RemoveDialog({ member, onClose }: { member: Member | null; onClose(): void }) {
+  const { t } = useT();
+  const queryClient = useQueryClient();
+  const [last, setLast] = useState<Member | null>(member);
+  if (member && member !== last) setLast(member);
+  const shown = member ?? last;
+  const name = shown ? shown.user.name || shown.user.email : "";
+  const remove = useMutation(
+    trpc.company.membersRemove.mutationOptions({
+      onSuccess: () => {
+        toast.success(t("settings.team.removed", { name }));
+        void queryClient.invalidateQueries({ queryKey: trpc.company.membersList.queryKey() });
+        onClose();
+      },
+      onError: () => toast.error(t("settings.team.removeFailed")),
+    }),
+  );
+  return (
+    <Dialog
+      open={member !== null}
+      onOpenChange={(open) => !open && onClose()}
+      title={t("settings.team.removeTitle", { name })}
+      description={t("settings.team.removeBody")}
+      actions={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            loading={remove.isPending}
+            onClick={() => member && remove.mutate({ membershipId: member.id })}
+            data-testid="member-remove-confirm"
+          >
+            {t("settings.team.removeConfirm")}
+          </Button>
+        </>
+      }
+    />
   );
 }

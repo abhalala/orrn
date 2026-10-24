@@ -517,7 +517,6 @@ export const en = {
       afterDie: "After a die is added",
     },
     shiftNow: "{shift} shift, {day}",
-    shiftNow: "{shift} shift, {day}",
     productionDay: "Production day {date}, from {time}",
     productionDayMidnight: "Production day {date}, from midnight",
     calendarDate: "Calendar date {date}",
@@ -1635,7 +1634,7 @@ export const en = {
 
   settings: {
     title: "Settings",
-    subtitle: "Company, team and label printing for your plant.",
+    subtitle: "Company, shifts, team, devices and printing for your plant.",
     loadFailed: "Couldn't load settings. Check your connection and try again.",
     tabs: {
       company: "Company",
@@ -1783,7 +1782,7 @@ export const en = {
       role: "Your role",
       support: "Support",
       supportNone: "No support contact is set for your plant. Use Help to reach the orrn team.",
-      supportHours: "Hours: {hours}",
+      hoursLabel: "Hours",
       help: "Open Help",
       guides: "Guides",
     },
@@ -2065,8 +2064,8 @@ export const en = {
       publishTitle: "Publish a build",
       platform: "Platform",
       channel: "Channel",
-      channels: { production: "Production", floor: "Floor" },
-      platforms: { android: "Android", ios: "iPhone and iPad" },
+      channels: { production: "Production", floor: "Floor", stable: "Stable", beta: "Beta" },
+      platforms: { android: "Android", ios: "iPhone and iPad", web: "Web", edge: "Print station" },
       version: "Version",
       versionHint: "For example 1.4.0",
       build: "Build number",
@@ -3227,7 +3226,10 @@ export const en = {
     listTitle: "Devices that opened the app",
     unnamed: "Unnamed device",
     person: "Used by {name}",
-    app: "App {version}",
+    factPlatform: "Platform",
+    factApp: "App version",
+    factSeen: "Last seen",
+    factDay: "Production day",
     seenThisDay: "Seen this production day",
     seenEarlier: "Seen earlier",
     status: {

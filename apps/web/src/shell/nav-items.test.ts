@@ -4,7 +4,7 @@ import type { CompanyRole, Me } from "@orrn/server/lib/permissions";
 
 import { bundleDetailPath } from "../shared/lib/paths";
 
-import { GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, isItemActive, visibleItems, type NavItem } from "./nav-items";
+import { GODSEYE_MORE, GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, isItemActive, visibleItems, type NavItem } from "./nav-items";
 
 function me(role: CompanyRole, modules?: string[]): Me {
   return {
@@ -33,6 +33,7 @@ describe("visibleItems", () => {
       "printing",
       "guides",
       "settings",
+      "audit",
       "preview",
     ]);
   });
@@ -62,7 +63,7 @@ describe("visibleItems", () => {
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Plant screens (Store) are gated by role, not by the legacy SaaS modules.
-    expect(visible).toEqual(["today", "purchase", "approvals", "customers", "store", "printing", "guides", "settings", "preview"]);
+    expect(visible).toEqual(["today", "purchase", "approvals", "customers", "store", "printing", "guides", "settings", "audit", "preview"]);
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length);
   });
 
@@ -83,6 +84,18 @@ describe("visibleItems", () => {
     const support = { ...me("owner"), company: null, isPlatformAdmin: true, platformRole: "support" } as Me;
     expect(keys(visibleItems(GODSEYE_NAV, support))).toEqual(["overview", "companies", "requests", "staff"]);
     expect(keys(visibleItems(GODSEYE_NAV, me("owner")))).toEqual(["overview"]);
+  });
+
+  test("Audit log is for audit.read (owner, admin, manager); Godseye's extra pages follow the platform role", () => {
+    for (const role of ["owner", "admin", "manager"] as const) expect(keys(visibleItems(TENANT_MORE, me(role)))).toContain("audit");
+    for (const role of ["office", "supervisor", "packer", "viewer", "accountant"] as const) {
+      expect(keys(visibleItems(TENANT_MORE, me(role)))).not.toContain("audit");
+    }
+    const staff = (platformRole: string) => ({ ...me("owner"), company: null, isPlatformAdmin: true, platformRole }) as Me;
+    expect(keys(visibleItems(GODSEYE_MORE, staff("admin")))).toEqual(["releases", "backups", "support"]);
+    // Support can read releases and requests but not run backups.
+    expect(keys(visibleItems(GODSEYE_MORE, staff("support")))).toEqual(["releases", "support"]);
+    expect(keys(visibleItems(GODSEYE_MORE, me("owner")))).toEqual([]);
   });
 });
 

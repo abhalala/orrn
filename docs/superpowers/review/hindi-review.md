@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 2813 screen strings in 41 groups, 16 guides with 292 strings.
+Counts: 2820 screen strings in 41 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -1466,7 +1466,7 @@ Counts: 2813 screen strings in 41 groups, 16 guides with 292 strings.
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Settings | सेटिंग्स |
-| `subtitle` | Company, team and label printing for your plant. | आपके प्लांट की कंपनी, टीम और लेबल प्रिंटिंग। |
+| `subtitle` | Company, shifts, team, devices and printing for your plant. | आपके प्लांट की कंपनी, शिफ्ट, टीम, डिवाइस और प्रिंटिंग। |
 | `loadFailed` | Couldn't load settings. Check your connection and try again. | सेटिंग्स लोड नहीं हुईं। कनेक्शन देखकर फिर कोशिश करें। |
 | `tabs.company` | Company | कंपनी |
 | `tabs.team` | Team | टीम |
@@ -1599,7 +1599,7 @@ Counts: 2813 screen strings in 41 groups, 16 guides with 292 strings.
 | `about.role` | Your role | आपकी भूमिका |
 | `about.support` | Support | सपोर्ट |
 | `about.supportNone` | No support contact is set for your plant. Use Help to reach the orrn team. | आपके प्लांट के लिए सपोर्ट संपर्क सेट नहीं है। orrn टीम तक पहुंचने के लिए मदद इस्तेमाल करें। |
-| `about.supportHours` | Hours: {hours} | समय: {hours} |
+| `about.hoursLabel` | Hours | समय |
 | `about.help` | Open Help | मदद खोलें |
 | `about.guides` | Guides | गाइड |
 | `printing.status` | Label printing | लेबल प्रिंटिंग |
@@ -1775,7 +1775,7 @@ Counts: 2813 screen strings in 41 groups, 16 guides with 292 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (339)
+### admin (343)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1849,8 +1849,12 @@ Counts: 2813 screen strings in 41 groups, 16 guides with 292 strings.
 | `releases.channel` | Channel | चैनल |
 | `releases.channels.production` | Production | प्रोडक्शन |
 | `releases.channels.floor` | Floor | फ़्लोर |
+| `releases.channels.stable` | Stable | स्थिर |
+| `releases.channels.beta` | Beta | बीटा |
 | `releases.platforms.android` | Android | Android |
 | `releases.platforms.ios` | iPhone and iPad | iPhone और iPad |
+| `releases.platforms.web` | Web | वेब |
+| `releases.platforms.edge` | Print station | प्रिंट स्टेशन |
 | `releases.version` | Version | वर्शन |
 | `releases.versionHint` | For example 1.4.0 | जैसे 1.4.0 |
 | `releases.build` | Build number | बिल्ड नंबर |
@@ -2873,7 +2877,7 @@ Please check, Lalubhai:
 | `orders.priceOnSalesOrder` | Rates on orders | ऑर्डर पर रेट |
 | `orders.dieRequired` | Order lines need a die copy or tier | ऑर्डर लाइन पर die कॉपी या टियर ज़रूरी |
 
-### devices (38)
+### devices (41)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2894,7 +2898,10 @@ Please check, Lalubhai:
 | `listTitle` | Devices that opened the app | जिन डिवाइस पर ऐप खुला |
 | `unnamed` | Unnamed device | बिना नाम का डिवाइस |
 | `person` | Used by {name} | {name} इस्तेमाल करते हैं |
-| `app` | App {version} | ऐप {version} |
+| `factPlatform` | Platform | प्लेटफ़ॉर्म |
+| `factApp` | App version | ऐप वर्शन |
+| `factSeen` | Last seen | आखिरी बार |
+| `factDay` | Production day | प्रोडक्शन का दिन |
 | `seenThisDay` | Seen this production day | प्रोडक्शन के इस दिन दिखा |
 | `seenEarlier` | Seen earlier | पहले दिखा था |
 | `status.current` | Current | चालू बिल्ड |

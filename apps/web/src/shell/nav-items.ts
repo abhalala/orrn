@@ -12,8 +12,12 @@ import {
   LayoutDashboard,
   PackagePlus,
   Printer,
+  Rocket,
   Scale,
+  ScrollText,
   Settings,
+  DatabaseBackup,
+  LifeBuoy,
   Truck,
   UserCog,
   Users,
@@ -74,6 +78,8 @@ export const TENANT_MORE: readonly NavItem[] = [
     // Ruling R24: people who can change company settings or the team.
     requires: ["settings.update", "member.invite", "member.updateRole", "member.remove", "users.manage"],
   },
+  // FP-PF-16: the plant's audit log; owner, admin and manager hold audit.read.
+  { key: "audit", to: "/audit", labelKey: "nav.audit", icon: ScrollText, requires: ["audit.read"] },
   { key: "preview", to: "/preview", labelKey: "nav.preview", icon: FlaskConical },
 ];
 
@@ -95,6 +101,13 @@ export const GODSEYE_NAV: readonly NavItem[] = [
     requires: ["platform.waitlist.review"],
   },
   { key: "staff", to: "/admin/staff", labelKey: "nav.adminStaff", icon: UserCog, requires: ["platform.staff.list"] },
+];
+
+/** Godseye pages beyond the four tabs: on the rail under More, in the phone sheet. */
+export const GODSEYE_MORE: readonly NavItem[] = [
+  { key: "releases", to: "/admin/releases", labelKey: "nav.adminReleases", icon: Rocket, requires: ["platform.company.manage"] },
+  { key: "backups", to: "/admin/backups", labelKey: "nav.adminBackups", icon: DatabaseBackup, requires: ["platform.backup.run"] },
+  { key: "support", to: "/admin/support", labelKey: "nav.adminSupport", icon: LifeBuoy, requires: ["platform.company.manage"] },
 ];
 
 /**

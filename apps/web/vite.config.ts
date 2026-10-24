@@ -64,7 +64,14 @@ function lazyHindi(): Plugin {
   };
 }
 
+/** Shown on Settings > About: the web app's version and the day it was built. */
+const buildInfo = {
+  __ORRN_WEB_VERSION__: JSON.stringify(process.env.npm_package_version ?? "0.0.0"),
+  __ORRN_BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+};
+
 export default defineConfig(async ({ command, isPreview }): Promise<UserConfig> => ({
+  define: buildInfo,
   // `vite preview` is command "serve" too; it inherits server.strictPort, so it must not get the dev
   // server options (nor the worktree guard, nor the TypeScript resolver).
   server: command === "serve" && !isPreview ? await devServer() : undefined,

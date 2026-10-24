@@ -20,10 +20,13 @@ import { Route as TenantTodayRouteImport } from './routes/_tenant/today'
 import { Route as TenantSettingsRouteImport } from './routes/_tenant/settings'
 import { Route as TenantPrintingRouteImport } from './routes/_tenant/printing'
 import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
+import { Route as TenantAuditRouteImport } from './routes/_tenant/audit'
 import { Route as TenantApprovalsRouteImport } from './routes/_tenant/approvals'
 import { Route as PublicWaitlistRouteImport } from './routes/_public/waitlist'
+import { Route as PublicResetPasswordRouteImport } from './routes/_public/reset-password'
 import { Route as PublicRequestAccessRouteImport } from './routes/_public/request-access'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
+import { Route as PublicForgotPasswordRouteImport } from './routes/_public/forgot-password'
 import { Route as PublicContinueRouteImport } from './routes/_public/continue'
 import { Route as AuthedWelcomeRouteImport } from './routes/_authed/welcome'
 import { Route as AuthedSetupCredentialsRouteImport } from './routes/_authed/setup-credentials'
@@ -67,8 +70,11 @@ import { Route as TenantCustomersIdRouteImport } from './routes/_tenant/customer
 import { Route as TenantBundlesIdRouteImport } from './routes/_tenant/bundles.$id'
 import { Route as PublicInviteTokenRouteImport } from './routes/_public/invite.$token'
 import { Route as PlatformAdminWaitlistRouteImport } from './routes/_platform/admin.waitlist'
+import { Route as PlatformAdminSupportRouteImport } from './routes/_platform/admin.support'
 import { Route as PlatformAdminStaffRouteImport } from './routes/_platform/admin.staff'
 import { Route as PlatformAdminRequestsRouteImport } from './routes/_platform/admin.requests'
+import { Route as PlatformAdminReleasesRouteImport } from './routes/_platform/admin.releases'
+import { Route as PlatformAdminBackupsRouteImport } from './routes/_platform/admin.backups'
 import { Route as TenantStoreItemsIndexRouteImport } from './routes/_tenant/store.items.index'
 import { Route as TenantPreviewPressIndexRouteImport } from './routes/_tenant/preview.press.index'
 import { Route as TenantPreviewPlatformIndexRouteImport } from './routes/_tenant/preview.platform.index'
@@ -153,6 +159,11 @@ const TenantDashboardRoute = TenantDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantAuditRoute = TenantAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantApprovalsRoute = TenantApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
@@ -163,6 +174,11 @@ const PublicWaitlistRoute = PublicWaitlistRouteImport.update({
   path: '/waitlist',
   getParentRoute: () => PublicRoute,
 } as any)
+const PublicResetPasswordRoute = PublicResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => PublicRoute,
+} as any)
 const PublicRequestAccessRoute = PublicRequestAccessRouteImport.update({
   id: '/request-access',
   path: '/request-access',
@@ -171,6 +187,11 @@ const PublicRequestAccessRoute = PublicRequestAccessRouteImport.update({
 const PublicLoginRoute = PublicLoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicForgotPasswordRoute = PublicForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => PublicRoute,
 } as any)
 const PublicContinueRoute = PublicContinueRouteImport.update({
@@ -388,6 +409,11 @@ const PlatformAdminWaitlistRoute = PlatformAdminWaitlistRouteImport.update({
   path: '/admin/waitlist',
   getParentRoute: () => PlatformRoute,
 } as any)
+const PlatformAdminSupportRoute = PlatformAdminSupportRouteImport.update({
+  id: '/admin/support',
+  path: '/admin/support',
+  getParentRoute: () => PlatformRoute,
+} as any)
 const PlatformAdminStaffRoute = PlatformAdminStaffRouteImport.update({
   id: '/admin/staff',
   path: '/admin/staff',
@@ -396,6 +422,16 @@ const PlatformAdminStaffRoute = PlatformAdminStaffRouteImport.update({
 const PlatformAdminRequestsRoute = PlatformAdminRequestsRouteImport.update({
   id: '/admin/requests',
   path: '/admin/requests',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformAdminReleasesRoute = PlatformAdminReleasesRouteImport.update({
+  id: '/admin/releases',
+  path: '/admin/releases',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformAdminBackupsRoute = PlatformAdminBackupsRouteImport.update({
+  id: '/admin/backups',
+  path: '/admin/backups',
   getParentRoute: () => PlatformRoute,
 } as any)
 const TenantStoreItemsIndexRoute = TenantStoreItemsIndexRouteImport.update({
@@ -590,17 +626,23 @@ export interface FileRoutesByFullPath {
   '/setup-credentials': typeof AuthedSetupCredentialsRoute
   '/welcome': typeof AuthedWelcomeRoute
   '/continue': typeof PublicContinueRoute
+  '/forgot-password': typeof PublicForgotPasswordRoute
   '/login': typeof PublicLoginRoute
   '/request-access': typeof PublicRequestAccessRoute
+  '/reset-password': typeof PublicResetPasswordRoute
   '/waitlist': typeof PublicWaitlistRoute
   '/approvals': typeof TenantApprovalsRoute
+  '/audit': typeof TenantAuditRoute
   '/dashboard': typeof TenantDashboardRoute
   '/printing': typeof TenantPrintingRoute
   '/settings': typeof TenantSettingsRouteWithChildren
   '/today': typeof TenantTodayRoute
   '/b/$serial': typeof BSerialRoute
+  '/admin/backups': typeof PlatformAdminBackupsRoute
+  '/admin/releases': typeof PlatformAdminReleasesRoute
   '/admin/requests': typeof PlatformAdminRequestsRoute
   '/admin/staff': typeof PlatformAdminStaffRoute
+  '/admin/support': typeof PlatformAdminSupportRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/invite/$token': typeof PublicInviteTokenRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
@@ -680,17 +722,23 @@ export interface FileRoutesByTo {
   '/setup-credentials': typeof AuthedSetupCredentialsRoute
   '/welcome': typeof AuthedWelcomeRoute
   '/continue': typeof PublicContinueRoute
+  '/forgot-password': typeof PublicForgotPasswordRoute
   '/login': typeof PublicLoginRoute
   '/request-access': typeof PublicRequestAccessRoute
+  '/reset-password': typeof PublicResetPasswordRoute
   '/waitlist': typeof PublicWaitlistRoute
   '/approvals': typeof TenantApprovalsRoute
+  '/audit': typeof TenantAuditRoute
   '/dashboard': typeof TenantDashboardRoute
   '/printing': typeof TenantPrintingRoute
   '/settings': typeof TenantSettingsRouteWithChildren
   '/today': typeof TenantTodayRoute
   '/b/$serial': typeof BSerialRoute
+  '/admin/backups': typeof PlatformAdminBackupsRoute
+  '/admin/releases': typeof PlatformAdminReleasesRoute
   '/admin/requests': typeof PlatformAdminRequestsRoute
   '/admin/staff': typeof PlatformAdminStaffRoute
+  '/admin/support': typeof PlatformAdminSupportRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/invite/$token': typeof PublicInviteTokenRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
@@ -774,18 +822,24 @@ export interface FileRoutesById {
   '/_authed/setup-credentials': typeof AuthedSetupCredentialsRoute
   '/_authed/welcome': typeof AuthedWelcomeRoute
   '/_public/continue': typeof PublicContinueRoute
+  '/_public/forgot-password': typeof PublicForgotPasswordRoute
   '/_public/login': typeof PublicLoginRoute
   '/_public/request-access': typeof PublicRequestAccessRoute
+  '/_public/reset-password': typeof PublicResetPasswordRoute
   '/_public/waitlist': typeof PublicWaitlistRoute
   '/_tenant/approvals': typeof TenantApprovalsRoute
+  '/_tenant/audit': typeof TenantAuditRoute
   '/_tenant/dashboard': typeof TenantDashboardRoute
   '/_tenant/printing': typeof TenantPrintingRoute
   '/_tenant/settings': typeof TenantSettingsRouteWithChildren
   '/_tenant/today': typeof TenantTodayRoute
   '/b/$serial': typeof BSerialRoute
   '/_public/': typeof PublicIndexRoute
+  '/_platform/admin/backups': typeof PlatformAdminBackupsRoute
+  '/_platform/admin/releases': typeof PlatformAdminReleasesRoute
   '/_platform/admin/requests': typeof PlatformAdminRequestsRoute
   '/_platform/admin/staff': typeof PlatformAdminStaffRoute
+  '/_platform/admin/support': typeof PlatformAdminSupportRoute
   '/_platform/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/_public/invite/$token': typeof PublicInviteTokenRoute
   '/_tenant/bundles/$id': typeof TenantBundlesIdRoute
@@ -867,17 +921,23 @@ export interface FileRouteTypes {
     | '/setup-credentials'
     | '/welcome'
     | '/continue'
+    | '/forgot-password'
     | '/login'
     | '/request-access'
+    | '/reset-password'
     | '/waitlist'
     | '/approvals'
+    | '/audit'
     | '/dashboard'
     | '/printing'
     | '/settings'
     | '/today'
     | '/b/$serial'
+    | '/admin/backups'
+    | '/admin/releases'
     | '/admin/requests'
     | '/admin/staff'
+    | '/admin/support'
     | '/admin/waitlist'
     | '/invite/$token'
     | '/bundles/$id'
@@ -957,17 +1017,23 @@ export interface FileRouteTypes {
     | '/setup-credentials'
     | '/welcome'
     | '/continue'
+    | '/forgot-password'
     | '/login'
     | '/request-access'
+    | '/reset-password'
     | '/waitlist'
     | '/approvals'
+    | '/audit'
     | '/dashboard'
     | '/printing'
     | '/settings'
     | '/today'
     | '/b/$serial'
+    | '/admin/backups'
+    | '/admin/releases'
     | '/admin/requests'
     | '/admin/staff'
+    | '/admin/support'
     | '/admin/waitlist'
     | '/invite/$token'
     | '/bundles/$id'
@@ -1050,18 +1116,24 @@ export interface FileRouteTypes {
     | '/_authed/setup-credentials'
     | '/_authed/welcome'
     | '/_public/continue'
+    | '/_public/forgot-password'
     | '/_public/login'
     | '/_public/request-access'
+    | '/_public/reset-password'
     | '/_public/waitlist'
     | '/_tenant/approvals'
+    | '/_tenant/audit'
     | '/_tenant/dashboard'
     | '/_tenant/printing'
     | '/_tenant/settings'
     | '/_tenant/today'
     | '/b/$serial'
     | '/_public/'
+    | '/_platform/admin/backups'
+    | '/_platform/admin/releases'
     | '/_platform/admin/requests'
     | '/_platform/admin/staff'
+    | '/_platform/admin/support'
     | '/_platform/admin/waitlist'
     | '/_public/invite/$token'
     | '/_tenant/bundles/$id'
@@ -1221,6 +1293,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantDashboardRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/audit': {
+      id: '/_tenant/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof TenantAuditRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/approvals': {
       id: '/_tenant/approvals'
       path: '/approvals'
@@ -1235,6 +1314,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicWaitlistRouteImport
       parentRoute: typeof PublicRoute
     }
+    '/_public/reset-password': {
+      id: '/_public/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof PublicResetPasswordRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_public/request-access': {
       id: '/_public/request-access'
       path: '/request-access'
@@ -1247,6 +1333,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof PublicLoginRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/forgot-password': {
+      id: '/_public/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof PublicForgotPasswordRouteImport
       parentRoute: typeof PublicRoute
     }
     '/_public/continue': {
@@ -1550,6 +1643,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlatformAdminWaitlistRouteImport
       parentRoute: typeof PlatformRoute
     }
+    '/_platform/admin/support': {
+      id: '/_platform/admin/support'
+      path: '/admin/support'
+      fullPath: '/admin/support'
+      preLoaderRoute: typeof PlatformAdminSupportRouteImport
+      parentRoute: typeof PlatformRoute
+    }
     '/_platform/admin/staff': {
       id: '/_platform/admin/staff'
       path: '/admin/staff'
@@ -1562,6 +1662,20 @@ declare module '@tanstack/react-router' {
       path: '/admin/requests'
       fullPath: '/admin/requests'
       preLoaderRoute: typeof PlatformAdminRequestsRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/_platform/admin/releases': {
+      id: '/_platform/admin/releases'
+      path: '/admin/releases'
+      fullPath: '/admin/releases'
+      preLoaderRoute: typeof PlatformAdminReleasesRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/_platform/admin/backups': {
+      id: '/_platform/admin/backups'
+      path: '/admin/backups'
+      fullPath: '/admin/backups'
+      preLoaderRoute: typeof PlatformAdminBackupsRouteImport
       parentRoute: typeof PlatformRoute
     }
     '/_tenant/store/items/': {
@@ -1811,8 +1925,11 @@ const AuthedRouteWithChildren =
   AuthedRoute._addFileChildren(AuthedRouteChildren)
 
 interface PlatformRouteChildren {
+  PlatformAdminBackupsRoute: typeof PlatformAdminBackupsRoute
+  PlatformAdminReleasesRoute: typeof PlatformAdminReleasesRoute
   PlatformAdminRequestsRoute: typeof PlatformAdminRequestsRoute
   PlatformAdminStaffRoute: typeof PlatformAdminStaffRoute
+  PlatformAdminSupportRoute: typeof PlatformAdminSupportRoute
   PlatformAdminWaitlistRoute: typeof PlatformAdminWaitlistRoute
   PlatformAdminIndexRoute: typeof PlatformAdminIndexRoute
   PlatformAdminCompaniesIdRoute: typeof PlatformAdminCompaniesIdRoute
@@ -1821,8 +1938,11 @@ interface PlatformRouteChildren {
 }
 
 const PlatformRouteChildren: PlatformRouteChildren = {
+  PlatformAdminBackupsRoute: PlatformAdminBackupsRoute,
+  PlatformAdminReleasesRoute: PlatformAdminReleasesRoute,
   PlatformAdminRequestsRoute: PlatformAdminRequestsRoute,
   PlatformAdminStaffRoute: PlatformAdminStaffRoute,
+  PlatformAdminSupportRoute: PlatformAdminSupportRoute,
   PlatformAdminWaitlistRoute: PlatformAdminWaitlistRoute,
   PlatformAdminIndexRoute: PlatformAdminIndexRoute,
   PlatformAdminCompaniesIdRoute: PlatformAdminCompaniesIdRoute,
@@ -1836,8 +1956,10 @@ const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
 
 interface PublicRouteChildren {
   PublicContinueRoute: typeof PublicContinueRoute
+  PublicForgotPasswordRoute: typeof PublicForgotPasswordRoute
   PublicLoginRoute: typeof PublicLoginRoute
   PublicRequestAccessRoute: typeof PublicRequestAccessRoute
+  PublicResetPasswordRoute: typeof PublicResetPasswordRoute
   PublicWaitlistRoute: typeof PublicWaitlistRoute
   PublicIndexRoute: typeof PublicIndexRoute
   PublicInviteTokenRoute: typeof PublicInviteTokenRoute
@@ -1845,8 +1967,10 @@ interface PublicRouteChildren {
 
 const PublicRouteChildren: PublicRouteChildren = {
   PublicContinueRoute: PublicContinueRoute,
+  PublicForgotPasswordRoute: PublicForgotPasswordRoute,
   PublicLoginRoute: PublicLoginRoute,
   PublicRequestAccessRoute: PublicRequestAccessRoute,
+  PublicResetPasswordRoute: PublicResetPasswordRoute,
   PublicWaitlistRoute: PublicWaitlistRoute,
   PublicIndexRoute: PublicIndexRoute,
   PublicInviteTokenRoute: PublicInviteTokenRoute,
@@ -1869,6 +1993,7 @@ const TenantSettingsRouteWithChildren = TenantSettingsRoute._addFileChildren(
 
 interface TenantRouteChildren {
   TenantApprovalsRoute: typeof TenantApprovalsRoute
+  TenantAuditRoute: typeof TenantAuditRoute
   TenantDashboardRoute: typeof TenantDashboardRoute
   TenantPrintingRoute: typeof TenantPrintingRoute
   TenantSettingsRoute: typeof TenantSettingsRouteWithChildren
@@ -1939,6 +2064,7 @@ interface TenantRouteChildren {
 
 const TenantRouteChildren: TenantRouteChildren = {
   TenantApprovalsRoute: TenantApprovalsRoute,
+  TenantAuditRoute: TenantAuditRoute,
   TenantDashboardRoute: TenantDashboardRoute,
   TenantPrintingRoute: TenantPrintingRoute,
   TenantSettingsRoute: TenantSettingsRouteWithChildren,

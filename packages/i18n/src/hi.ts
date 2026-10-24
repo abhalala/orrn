@@ -511,7 +511,6 @@ export const hi = {
       afterDie: "Die जुड़ने के बाद",
     },
     shiftNow: "{shift} शिफ्ट, {day}",
-    shiftNow: "{shift} शिफ्ट, {day}",
     productionDay: "प्रोडक्शन का दिन {date}, {time} से",
     productionDayMidnight: "प्रोडक्शन का दिन {date}, रात 12 बजे से",
     calendarDate: "कैलेंडर की तारीख {date}",
@@ -1629,7 +1628,7 @@ export const hi = {
 
   settings: {
     title: "सेटिंग्स",
-    subtitle: "आपके प्लांट की कंपनी, टीम और लेबल प्रिंटिंग।",
+    subtitle: "आपके प्लांट की कंपनी, शिफ्ट, टीम, डिवाइस और प्रिंटिंग।",
     loadFailed: "सेटिंग्स लोड नहीं हुईं। कनेक्शन देखकर फिर कोशिश करें।",
     tabs: {
       company: "कंपनी",
@@ -1777,7 +1776,7 @@ export const hi = {
       role: "आपकी भूमिका",
       support: "सपोर्ट",
       supportNone: "आपके प्लांट के लिए सपोर्ट संपर्क सेट नहीं है। orrn टीम तक पहुंचने के लिए मदद इस्तेमाल करें।",
-      supportHours: "समय: {hours}",
+      hoursLabel: "समय",
       help: "मदद खोलें",
       guides: "गाइड",
     },
@@ -2059,8 +2058,8 @@ export const hi = {
       publishTitle: "बिल्ड प्रकाशित करें",
       platform: "प्लेटफ़ॉर्म",
       channel: "चैनल",
-      channels: { production: "प्रोडक्शन", floor: "फ़्लोर" },
-      platforms: { android: "Android", ios: "iPhone और iPad" },
+      channels: { production: "प्रोडक्शन", floor: "फ़्लोर", stable: "स्थिर", beta: "बीटा" },
+      platforms: { android: "Android", ios: "iPhone और iPad", web: "वेब", edge: "प्रिंट स्टेशन" },
       version: "वर्शन",
       versionHint: "जैसे 1.4.0",
       build: "बिल्ड नंबर",
@@ -3215,7 +3214,10 @@ export const hi = {
     listTitle: "जिन डिवाइस पर ऐप खुला",
     unnamed: "बिना नाम का डिवाइस",
     person: "{name} इस्तेमाल करते हैं",
-    app: "ऐप {version}",
+    factPlatform: "प्लेटफ़ॉर्म",
+    factApp: "ऐप वर्शन",
+    factSeen: "आखिरी बार",
+    factDay: "प्रोडक्शन का दिन",
     seenThisDay: "प्रोडक्शन के इस दिन दिखा",
     seenEarlier: "पहले दिखा था",
     status: {

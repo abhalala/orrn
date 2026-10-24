@@ -8,10 +8,12 @@ import {
   clockTime,
   companyClock,
   formatCount,
+  formatRupees,
   greetingKey,
   inStock,
   needsStartHere,
   newestFirst,
+  productionDayCaption,
   sessionSummary,
   startHereIntroKey,
   startHereSteps,
@@ -355,5 +357,57 @@ describe("TodayData shape", () => {
       packedToday: none,
     };
     expect(needsStartHere(sample.setup)).toBe(true);
+  });
+});
+
+describe("productionDayCaption", () => {
+  const shift = { id: "s1", name: "Day", seq: 1 };
+  const afternoon = Date.UTC(2026, 9, 24, 8, 52); // 14:22 IST on 24 Oct
+  const earlyMorning = Date.UTC(2026, 9, 24, 2, 0); // 07:30 IST on 24 Oct
+
+  test("14:22 with Day from 08:00: the production day is the calendar day, no 'before start' note", () => {
+    const pd = { day: "2026-10-24", startMs: Date.UTC(2026, 9, 24, 2, 30), shiftsSet: true, shift };
+    expect(productionDayCaption(pd, "Asia/Kolkata", "en", afternoon)).toEqual({
+      day: "24 Oct",
+      from: "08:00",
+      calendar: "24 Oct",
+      beforeStart: false,
+      shiftName: "Day",
+    });
+  });
+
+  test("07:30 before shift 1 starts: still 23 Oct's production day, and the caption says why", () => {
+    const pd = { day: "2026-10-23", startMs: Date.UTC(2026, 9, 23, 2, 30), shiftsSet: true, shift: { id: "s2", name: "Night", seq: 2 } };
+    const caption = productionDayCaption(pd, "Asia/Kolkata", "en", earlyMorning);
+    expect(caption).toMatchObject({ day: "23 Oct", from: "08:00", calendar: "24 Oct", beforeStart: true, shiftName: "Night" });
+  });
+
+  test("no shifts saved: the day starts at midnight, so there is no start time to print", () => {
+    const pd = { day: "2026-10-24", startMs: Date.UTC(2026, 9, 23, 18, 30), shiftsSet: false, shift: null };
+    const caption = productionDayCaption(pd, "Asia/Kolkata", "en", afternoon);
+    expect(caption.from).toBeNull();
+    expect(caption.beforeStart).toBe(false);
+    expect(caption.shiftName).toBeNull();
+  });
+
+  test("Hindi and Gujarati dates keep Latin digits", () => {
+    const pd = { day: "2026-10-24", startMs: Date.UTC(2026, 9, 24, 2, 30), shiftsSet: true, shift };
+    for (const locale of ["hi", "gu"]) {
+      const caption = productionDayCaption(pd, "Asia/Kolkata", locale, afternoon);
+      expect(caption.day).toMatch(/^24 /);
+      expect(caption.from).toBe("08:00");
+    }
+  });
+});
+
+describe("Today for a viewer and the rate slice", () => {
+  test("the KPI-only scope leaves both lists out; the full scope follows the modules", () => {
+    expect(todaySections(me("viewer"), "kpis")).toEqual({ dispatches: false, sessions: false });
+    expect(todaySections(me("owner"), "full")).toEqual({ dispatches: true, sessions: true });
+  });
+
+  test("rupees come from paise with Indian grouping and two decimals", () => {
+    expect(formatRupees(12_345_678)).toBe("\u20B91,23,456.78");
+    expect(formatRupees(0)).toBe("\u20B90.00");
   });
 });
