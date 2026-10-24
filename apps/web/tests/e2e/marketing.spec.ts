@@ -158,6 +158,38 @@ test.describe("marketing page", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(HEADLINE);
   });
 
+  test("English / renders whole from the entry's public strings, never a raw key", async ({ page }) => {
+    // The full English dictionary is a lazy chunk `/` does not wait for (AGENTS.md, dictionaries are
+    // lazy). Block it: every string on the page must still come from en-public.gen.ts.
+    let blocked = 0;
+    await page.route(/\/packages\/i18n\/src\/en\.ts|\/assets\/en-[\w-]+\.js/, (route) => {
+      blocked += 1;
+      return route.abort();
+    });
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(HEADLINE);
+    // The idle prefetch asks for it (and is refused): proof the block matched and the page did not wait.
+    await expect.poll(() => blocked, { timeout: 8000 }).toBe(1);
+    const rawKeys = await page.evaluate(() => {
+      const text = `${document.body.innerText} ${document.title}`;
+      return text.match(/\b(?:common|marketing|nav|pack|packingList|scan|status|units)\.[a-z]\w*(?:\.\w+)*/g) ?? [];
+    });
+    expect(rawKeys).toEqual([]);
+  });
+
+  test("Hindi loads on demand: the toggle fetches it, then the page switches", async ({ page }) => {
+    const hindi: string[] = [];
+    page.on("request", (req) => {
+      if (/\/packages\/i18n\/src\/hi\.ts|\/assets\/hi-[\w-]+\.js/.test(req.url())) hindi.push(req.url());
+    });
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(HEADLINE);
+    expect(hindi).toEqual([]);
+    await page.getByRole("banner").getByRole("radio", { name: "हिंदी" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(HEADLINE_HI);
+    expect(hindi.length).toBeGreaterThan(0);
+  });
+
   test("the tab title and description follow the language toggle", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveTitle(TITLE);

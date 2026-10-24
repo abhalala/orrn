@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 
-import { htmlRoots, measureRoute, staticImports } from "./route-budget";
+import { dictionarySignatures, filesWithSignatures, htmlRoots, measureRoute, staticImports } from "./route-budget";
 
 describe("staticImports", () => {
   test("finds static imports and re-exports, never dynamic import()", () => {
@@ -75,5 +75,38 @@ describe("measureRoute", () => {
 
   test("reports no route chunks when the marker is missing", () => {
     expect(measureRoute(dist, "data-not-there").routeChunks).toEqual([]);
+  });
+});
+
+describe("dictionary signatures", () => {
+  const dict = {
+    a: { short: "Too short", long: "A sentence long enough to sign with", longer: "An even longer sentence that signs this namespace" },
+    b: { quoted: "A sentence with a `backtick` that could be escaped", plain: "Another namespace with a long sentence" },
+    c: { only: "tiny" },
+  };
+
+  test("takes each namespace's longest safe string, skipping allowed ones", () => {
+    expect(dictionarySignatures(dict)).toEqual([
+      "An even longer sentence that signs this namespace",
+      "Another namespace with a long sentence",
+    ]);
+    expect(dictionarySignatures(dict, new Set(["An even longer sentence that signs this namespace"]))).toEqual([
+      "A sentence long enough to sign with",
+      "Another namespace with a long sentence",
+    ]);
+  });
+
+  test("finds the chunks that carry one", () => {
+    const dist = mkdtempSync(join(tmpdir(), "dict-sig-"));
+    try {
+      mkdirSync(join(dist, "assets"));
+      writeFileSync(join(dist, "assets/entry.js"), "const a=`Another namespace with a long sentence`;");
+      writeFileSync(join(dist, "assets/clean.js"), "const a=`nothing here`;");
+      expect(filesWithSignatures(dist, ["assets/entry.js", "assets/clean.js"], dictionarySignatures(dict))).toEqual([
+        ["assets/entry.js", "Another namespace with a long sentence"],
+      ]);
+    } finally {
+      rmSync(dist, { recursive: true, force: true });
+    }
   });
 });
