@@ -1,5 +1,7 @@
 export { en, type DeepStringRecord, type MessageKey, type Messages } from "./en";
-export { hi } from "./hi";
+// Hindi messages: `@orrn/i18n/hi`. Re-exporting them here would pin them into the web entry
+// chunk, which fetches them on demand (dictionaries.web.ts).
+export { hasMessages, loadMessages } from "./dictionaries";
 export {
   createI18n,
   DEFAULT_LOCALE,

@@ -1,5 +1,5 @@
+import { DICTIONARIES } from "./dictionaries";
 import { en, type MessageKey, type Messages } from "./en";
-import { hi } from "./hi";
 
 export const LOCALES = ["en", "hi"] as const;
 export type Locale = (typeof LOCALES)[number];
@@ -12,8 +12,6 @@ export type TranslateVars = Record<string, string | number>;
 export type Translate = (key: MessageKey, vars?: TranslateVars) => string;
 
 export type I18n = { locale: Locale; t: Translate };
-
-const DICTIONARIES: Record<Locale, Messages> = { en, hi };
 
 export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
@@ -44,7 +42,8 @@ export function interpolate(template: string, vars: TranslateVars = {}): string 
 
 /** A translator for one locale. Falls back to English, then to the key itself. */
 export function createI18n(locale: Locale): I18n {
-  const dict = DICTIONARIES[locale];
+  // On web, Hindi may not have arrived yet (dictionaries.web.ts): English until it does.
+  const dict = DICTIONARIES[locale] ?? en;
   const t: Translate = (key, vars) => interpolate(lookup(dict, key) ?? lookup(en, key) ?? key, vars);
   return { locale, t };
 }

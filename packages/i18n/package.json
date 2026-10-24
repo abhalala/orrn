@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./hi": "./src/hi.ts",
     "./guides": "./src/guides/index.ts"
   },
   "scripts": {

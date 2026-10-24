@@ -1,7 +1,8 @@
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, type ServerOptions, type UserConfig } from "vite";
+import { fileURLToPath } from "node:url";
+import { defineConfig, type Plugin, type ServerOptions, type UserConfig } from "vite";
 
 // Relative TypeScript is bundled into the config by Vite (unlike workspace packages, see below).
 import { manualChunk } from "./scripts/manual-chunks";
@@ -44,6 +45,25 @@ async function devServer(): Promise<ServerOptions> {
   return { port: resolveDevPorts(process.env).webPort, strictPort: true };
 }
 
+/**
+ * The web build keeps only English messages in the entry chunk: `@orrn/i18n`'s `./dictionaries`
+ * (every language, loaded up front for Bun tests and native) becomes `./dictionaries.web.ts`, which
+ * fetches Hindi when it is chosen. Keeps a first visit to `/` inside its JS budget
+ * (scripts/check-route-budget.ts) as the Hindi dictionary grows with every screen.
+ */
+const i18nDir = fileURLToPath(new URL("../../packages/i18n/src/", import.meta.url));
+function lazyHindi(): Plugin {
+  return {
+    name: "orrn-lazy-hindi",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (source !== "./dictionaries" || !importer) return null;
+      if (!importer.replaceAll("\\", "/").startsWith(i18nDir.replaceAll("\\", "/"))) return null;
+      return `${i18nDir}dictionaries.web.ts`;
+    },
+  };
+}
+
 export default defineConfig(async ({ command, isPreview }): Promise<UserConfig> => ({
   // `vite preview` is command "serve" too; it inherits server.strictPort, so it must not get the dev
   // server options (nor the worktree guard, nor the TypeScript resolver).
@@ -62,6 +82,7 @@ export default defineConfig(async ({ command, isPreview }): Promise<UserConfig> 
     dedupe: ["react", "react-dom"],
   },
   plugins: [
+    lazyHindi(),
     tailwindcss(),
     tanstackRouter({
       target: "react",

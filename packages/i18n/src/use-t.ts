@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { createI18n, DEFAULT_LOCALE, type Locale, type Translate } from "./core";
+import { hasMessages, loadMessages } from "./dictionaries";
 
 /**
  * React binding shared by web and React Native: no DOM or platform APIs here.
@@ -55,10 +56,29 @@ export function I18nProvider({ locale: initial, onLocaleChange, children }: I18n
     onLocaleChangeRef.current?.(next);
   }, []);
 
+  // On web Hindi is fetched on demand (dictionaries.web.ts): until it lands `t` answers in
+  // English, then this re-renders once with the real messages. Elsewhere it is always here.
+  const ready = hasMessages(locale);
+  const [, setLoaded] = useState(0);
+  useEffect(() => {
+    if (ready) return;
+    let live = true;
+    loadMessages(locale).then(
+      () => {
+        if (live) setLoaded((n) => n + 1);
+      },
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [locale, ready]);
+
   const value = useMemo<I18nContextValue>(() => {
     const { t } = createI18n(locale);
     return { t, locale, setLocale };
-  }, [locale, setLocale]);
+    // `ready` turns true when the messages arrive: rebuild `t` then.
+  }, [locale, setLocale, ready]);
 
   return createElement(I18nContext.Provider, { value }, children);
 }

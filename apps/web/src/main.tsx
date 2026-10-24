@@ -3,6 +3,7 @@
 import "@fontsource-variable/bricolage-grotesque/opsz.css";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
+import { loadMessages } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { NotFoundPage } from "@orrn/ui/components/not-found";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -11,6 +12,7 @@ import type { ReactNode } from "react";
 import ReactDOM from "react-dom/client";
 
 import Loader from "@/shared/components/loader";
+import { readStoredLocale } from "@/shared/lib/locale";
 import { routeTree } from "./routeTree.gen";
 import { queryClient, registerSessionEndedHandler, trpc } from "@/shared/utils/trpc";
 
@@ -105,5 +107,9 @@ if (!rootElement) {
 
 if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
-  root.render(<RouterProvider router={router} />);
+  // Hindi is its own chunk on web (vite.config.ts lazyHindi): fetch it before the first paint so a
+  // Hindi reader never sees English first. If it fails, the app renders in English and retries on use.
+  void loadMessages(readStoredLocale())
+    .catch(() => {})
+    .finally(() => root.render(<RouterProvider router={router} />));
 }

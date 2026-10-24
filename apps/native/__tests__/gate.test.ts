@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { en, hi } from "@orrn/i18n";
+import { en } from "@orrn/i18n";
+import { hi } from "@orrn/i18n/hi";
 import type { Me } from "@orrn/server/lib/permissions";
 
 import { noAccessReason, offlineKind, resolveGate, routeForMe } from "../lib/gate";
