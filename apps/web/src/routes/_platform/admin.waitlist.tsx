@@ -247,9 +247,9 @@ function AdminWaitlistComponent() {
       {awaiting.data && awaiting.data.length > 0 ? (
         <section className="space-y-3">
           <div className="space-y-1">
-            <h2 className="m-0 text-lg font-semibold">Approved, not signed in yet</h2>
+            <h2 className="m-0 text-lg font-semibold">Approved, password not set yet</h2>
             <p className="m-0 text-sm text-muted-foreground">
-              If the email did not arrive, get a fresh sign-in link and send it yourself.
+              If the email did not arrive or the link stopped working, get a fresh sign-in link and send it yourself.
             </p>
           </div>
           <DataTable

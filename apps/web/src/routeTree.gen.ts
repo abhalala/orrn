@@ -15,6 +15,7 @@ import { Route as PlatformRouteImport } from './routes/_platform'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
+import { Route as PublicWelcomeRouteImport } from './routes/_public/welcome'
 import { Route as PublicWaitlistRouteImport } from './routes/_public/waitlist'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
 import { Route as AuthedSetupCredentialsRouteImport } from './routes/_authed/setup-credentials'
@@ -70,6 +71,11 @@ const TenantDashboardRoute = TenantDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => TenantRoute,
+} as any)
+const PublicWelcomeRoute = PublicWelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => PublicRoute,
 } as any)
 const PublicWaitlistRoute = PublicWaitlistRouteImport.update({
   id: '/waitlist',
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/setup-credentials': typeof AuthedSetupCredentialsRoute
   '/login': typeof PublicLoginRoute
   '/waitlist': typeof PublicWaitlistRoute
+  '/welcome': typeof PublicWelcomeRoute
   '/dashboard': typeof TenantDashboardRoute
   '/admin/staff': typeof PlatformAdminStaffRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
@@ -260,6 +267,7 @@ export interface FileRoutesByTo {
   '/setup-credentials': typeof AuthedSetupCredentialsRoute
   '/login': typeof PublicLoginRoute
   '/waitlist': typeof PublicWaitlistRoute
+  '/welcome': typeof PublicWelcomeRoute
   '/dashboard': typeof TenantDashboardRoute
   '/admin/staff': typeof PlatformAdminStaffRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
@@ -297,6 +305,7 @@ export interface FileRoutesById {
   '/_authed/setup-credentials': typeof AuthedSetupCredentialsRoute
   '/_public/login': typeof PublicLoginRoute
   '/_public/waitlist': typeof PublicWaitlistRoute
+  '/_public/welcome': typeof PublicWelcomeRoute
   '/_tenant/dashboard': typeof TenantDashboardRoute
   '/_public/': typeof PublicIndexRoute
   '/_platform/admin/staff': typeof PlatformAdminStaffRoute
@@ -333,6 +342,7 @@ export interface FileRouteTypes {
     | '/setup-credentials'
     | '/login'
     | '/waitlist'
+    | '/welcome'
     | '/dashboard'
     | '/admin/staff'
     | '/admin/waitlist'
@@ -366,6 +376,7 @@ export interface FileRouteTypes {
     | '/setup-credentials'
     | '/login'
     | '/waitlist'
+    | '/welcome'
     | '/dashboard'
     | '/admin/staff'
     | '/admin/waitlist'
@@ -402,6 +413,7 @@ export interface FileRouteTypes {
     | '/_authed/setup-credentials'
     | '/_public/login'
     | '/_public/waitlist'
+    | '/_public/welcome'
     | '/_tenant/dashboard'
     | '/_public/'
     | '/_platform/admin/staff'
@@ -479,6 +491,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard'
       preLoaderRoute: typeof TenantDashboardRouteImport
       parentRoute: typeof TenantRoute
+    }
+    '/_public/welcome': {
+      id: '/_public/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof PublicWelcomeRouteImport
+      parentRoute: typeof PublicRoute
     }
     '/_public/waitlist': {
       id: '/_public/waitlist'
@@ -728,6 +747,7 @@ const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
 interface PublicRouteChildren {
   PublicLoginRoute: typeof PublicLoginRoute
   PublicWaitlistRoute: typeof PublicWaitlistRoute
+  PublicWelcomeRoute: typeof PublicWelcomeRoute
   PublicIndexRoute: typeof PublicIndexRoute
   PublicInviteTokenRoute: typeof PublicInviteTokenRoute
 }
@@ -735,6 +755,7 @@ interface PublicRouteChildren {
 const PublicRouteChildren: PublicRouteChildren = {
   PublicLoginRoute: PublicLoginRoute,
   PublicWaitlistRoute: PublicWaitlistRoute,
+  PublicWelcomeRoute: PublicWelcomeRoute,
   PublicIndexRoute: PublicIndexRoute,
   PublicInviteTokenRoute: PublicInviteTokenRoute,
 }

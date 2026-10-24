@@ -3,7 +3,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { company, membership, waitlistRequest } from "@orrn/db/schema/tenant";
-import { session, user, verification } from "@orrn/db/schema/auth";
+import { account, user, verification } from "@orrn/db/schema/auth";
 import { env } from "@orrn/env/server";
 import { createAuth, takeCapturedMagicLink } from "@orrn/auth";
 import type { createDb } from "@orrn/db";
@@ -50,6 +50,11 @@ async function issueOwnerSignIn(db: Db, headers: Headers, request: WaitlistReque
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create a sign-in link" });
   }
 
+  // Link to a web page with a Continue button, not straight to the one-time
+  // verify URL: WhatsApp and mail scanners open links to build previews, which
+  // used up the token before the owner tapped it.
+  const signInUrl = `${webBase}/welcome?token=${encodeURIComponent(link.token)}`;
+
   const expiresAt = new Date(Date.now() + OWNER_LINK_TTL_MS);
   await db
     .update(verification)
@@ -62,7 +67,7 @@ async function issueOwnerSignIn(db: Db, headers: Headers, request: WaitlistReque
   const action = "Open this link to sign in and set your password:";
   const footer =
     "The link works once and expires in 3 days. If you did not ask for ORRN access, you can ignore this message.";
-  const text = [`Hi ${request.requesterName},`, "", intro, "", action, link.url, "", footer, "", "ORRN"].join("\n");
+  const text = [`Hi ${request.requesterName},`, "", intro, "", action, signInUrl, "", footer, "", "ORRN"].join("\n");
 
   let emailSent = false;
   let emailError: string | null = null;
@@ -74,7 +79,7 @@ async function issueOwnerSignIn(db: Db, headers: Headers, request: WaitlistReque
         title: "Your workspace is ready",
         description: `Hi ${escapeHtml(request.requesterName)}, ${escapeHtml(intro)} ${action}`,
         buttonText: "Sign in to ORRN",
-        buttonUrl: link.url,
+        buttonUrl: signInUrl,
         footerText: footer,
       }),
     });
@@ -93,7 +98,7 @@ async function issueOwnerSignIn(db: Db, headers: Headers, request: WaitlistReque
     companyName,
     subject,
     text,
-    link: link.url,
+    link: signInUrl,
     expiresAt,
   };
 }
@@ -223,7 +228,7 @@ export const waitlistProcedures = {
       }
     }),
 
-  /** Approved requests whose owner has never signed in (for example, the email never arrived). */
+  /** Approved requests whose owner has not set a password yet (for example, the email never arrived). */
   waitlistAwaitingSignIn: platformGuard("platform.waitlist.review").query(async ({ ctx }) => {
     const approved = await ctx.db
       .select()
@@ -233,15 +238,20 @@ export const waitlistProcedures = {
       .all();
     if (approved.length === 0) return [];
 
-    const signedIn = await ctx.db
+    const withPassword = await ctx.db
       .selectDistinct({ email: user.email })
-      .from(session)
-      .innerJoin(user, eq(user.id, session.userId))
-      .where(inArray(user.email, approved.map((r) => r.requesterEmail)))
+      .from(account)
+      .innerJoin(user, eq(user.id, account.userId))
+      .where(
+        and(
+          eq(account.providerId, "credential"),
+          inArray(user.email, approved.map((r) => r.requesterEmail)),
+        ),
+      )
       .all();
-    const signedInEmails = new Set(signedIn.map((r) => r.email));
+    const setUpEmails = new Set(withPassword.map((r) => r.email));
 
-    return approved.filter((r) => !signedInEmails.has(r.requesterEmail));
+    return approved.filter((r) => !setUpEmails.has(r.requesterEmail));
   }),
 
   /** Issues a fresh sign-in link for an approved request, emails it, and returns it for copying. */
