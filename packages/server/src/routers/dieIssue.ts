@@ -1,13 +1,15 @@
 /**
- * Die issue (FP-DR-16, C6, C43), mounted as `dieInstance.issues`. The die room hands a copy to a
- * press line, usually for a released press run that waits `queued` with no copy. One batch: the
- * `die_issue` row, the copy `available -> in_use`, `press_run.die_instance_id` and the run
- * `queued -> die_issued`; all or nothing. One open issue per copy (partial unique). Return is
- * refused while the die is in the press (die-in set, die-out unset); cancel only before die-in,
- * and it puts the run back to `queued`. `die.issue` is the die room's alone.
+ * Die issue (FP-DR-16, C6, C43, LEDGER D13), mounted as `dieInstance.issues`. The die room hands a
+ * copy to a press line for a released press run that waits `queued` with no copy: `pressRunId` is
+ * required, the run must be of the copy's section and (when it has one) on the same line. One
+ * batch: the `die_issue` row, the copy `available -> in_use`, `press_run.die_instance_id`, the run
+ * `queued -> die_issued` (and its line when it had none); all or nothing. One open issue per copy
+ * (partial unique). Return is refused while the die is in the press (die-in set, die-out unset); a
+ * return before die-in and a cancel both put the run back to `queued` with no copy in the same
+ * batch. `die.issue` is the die room's alone.
  */
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { die } from "@orrn/db/schema/catalog";
@@ -20,7 +22,7 @@ import { actionProcedure, companyProcedure, router } from "../index";
 import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
-import { auditCtx, dieRoomAbortUnless, errorText, isDieRoomAbort } from "../lib/dieRoom";
+import { auditCtx, decodeListCursor, dieRoomAbortUnless, encodeListCursor, errorText, isDieRoomAbort, listCursorInput } from "../lib/dieRoom";
 import { assertDieAllowed } from "../lib/dieOwner";
 import { nextCompanySeq } from "../lib/sequence";
 
@@ -88,7 +90,10 @@ async function runCustomers(db: OrrnDb, companyId: string, pressPlanDieId: strin
 const ms = (d: Date | null | undefined) => (d ? d.getTime() : null);
 
 export const dieIssueRouter = router({
-  /** Issues, newest first; filter by line, copy, status. Any member (press start reads it). */
+  /**
+   * Issues, newest first; filter by line, copy, status. Any member (press start reads it). Paged:
+   * pass the previous page's `nextCursor` as `cursor`; `nextCursor` is null on the last page.
+   */
   list: companyProcedure
     .input(
       z
@@ -97,11 +102,13 @@ export const dieIssueRouter = router({
           dieInstanceId: z.string().min(1).optional(),
           status: z.enum(dieIssueStatuses).optional(),
           limit: z.number().int().min(1).max(200).default(50),
+          cursor: listCursorInput,
         })
         .default({ limit: 50 }),
     )
-    .query(async ({ ctx, input }) =>
-      ctx.db
+    .query(async ({ ctx, input }) => {
+      const after = decodeListCursor(input.cursor);
+      const rows = await ctx.db
         .select({
           id: dieIssue.id,
           status: dieIssue.status,
@@ -128,18 +135,25 @@ export const dieIssueRouter = router({
             input.pressLineId ? eq(dieIssue.pressLineId, input.pressLineId) : undefined,
             input.dieInstanceId ? eq(dieIssue.dieInstanceId, input.dieInstanceId) : undefined,
             input.status ? eq(dieIssue.status, input.status) : undefined,
+            after
+              ? or(lt(dieIssue.issuedAt, new Date(after.at)), and(eq(dieIssue.issuedAt, new Date(after.at)), lt(dieIssue.id, after.id)))
+              : undefined,
           ),
         )
-        .orderBy(desc(dieIssue.issuedAt))
-        .limit(input.limit),
-    ),
+        .orderBy(desc(dieIssue.issuedAt), desc(dieIssue.id))
+        .limit(input.limit + 1);
+      const items = rows.slice(0, input.limit);
+      const last = items[items.length - 1];
+      return { items, nextCursor: rows.length > input.limit && last ? encodeListCursor(last.issuedAt, last.id) : null };
+    }),
 
   issue: actionProcedure("die.issue")
     .input(
       z.object({
         dieInstanceId: z.string().min(1),
         pressLineId: z.string().min(1),
-        pressRunId: z.string().min(1).optional(),
+        /** Required (D13): the queued press run of this copy's section the die goes to. */
+        pressRunId: z.string().min(1),
         note: z.string().trim().max(500).optional(),
       }),
     )
@@ -156,36 +170,32 @@ export const dieIssueRouter = router({
       if (!line) throw new TRPCError({ code: "NOT_FOUND", message: "Press line not found" });
       if (line.status !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: `${line.code} is retired` });
 
-      let run: { id: string; number: string; status: string; sectionId: string; pressLineId: string | null; dieInstanceId: string | null; pressPlanDieId: string | null } | null = null;
-      if (input.pressRunId) {
-        const [r] = await ctx.db
-          .select({
-            id: pressRun.id,
-            number: pressRun.number,
-            status: pressRun.status,
-            sectionId: pressRun.sectionId,
-            pressLineId: pressRun.pressLineId,
-            dieInstanceId: pressRun.dieInstanceId,
-            pressPlanDieId: pressRun.pressPlanDieId,
-          })
-          .from(pressRun)
-          .where(and(eq(pressRun.id, input.pressRunId), eq(pressRun.companyId, ctx.companyId)))
-          .limit(1);
-        if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Press run not found" });
-        run = r;
-      }
+      const [run] = await ctx.db
+        .select({
+          id: pressRun.id,
+          number: pressRun.number,
+          status: pressRun.status,
+          sectionId: pressRun.sectionId,
+          pressLineId: pressRun.pressLineId,
+          dieInstanceId: pressRun.dieInstanceId,
+          pressPlanDieId: pressRun.pressPlanDieId,
+        })
+        .from(pressRun)
+        .where(and(eq(pressRun.id, input.pressRunId), eq(pressRun.companyId, ctx.companyId)))
+        .limit(1);
+      if (!run) throw new TRPCError({ code: "NOT_FOUND", message: "Press run not found" });
 
       const [open] = await ctx.db
         .select({ id: dieIssue.id, lineCode: pressLine.code })
         .from(dieIssue)
-        .innerJoin(pressLine, eq(pressLine.id, dieIssue.pressLineId))
+        .innerJoin(pressLine, and(eq(pressLine.id, dieIssue.pressLineId), eq(pressLine.companyId, dieIssue.companyId)))
         .where(and(eq(dieIssue.companyId, ctx.companyId), eq(dieIssue.dieInstanceId, copy.id), eq(dieIssue.status, "issued")))
         .limit(1);
       const verdict = canIssueDie({
         copy: { status: copy.status, sectionId: copy.sectionId },
         openIssueForCopy: Boolean(open),
         pressLineId: line.id,
-        run: run ? { status: run.dieInstanceId ? "die_issued" : run.status, sectionId: run.sectionId, pressLineId: run.pressLineId } : null,
+        run: { status: run.dieInstanceId ? "die_issued" : run.status, sectionId: run.sectionId, pressLineId: run.pressLineId },
       });
       if (!verdict.ok) {
         switch (verdict.refusal) {
@@ -194,18 +204,16 @@ export const dieIssueRouter = router({
           case "copy_not_available":
             throw new TRPCError({ code: "BAD_REQUEST", message: `${copy.code} ${STATUS_WORDS[copy.status] ?? `is ${copy.status}`}` });
           case "run_not_queued":
-            throw new TRPCError({ code: "BAD_REQUEST", message: `${run!.number} already has a die or has started; only a queued run takes a die` });
+            throw new TRPCError({ code: "BAD_REQUEST", message: `${run.number} already has a die or has started; only a queued run takes a die` });
           case "section_mismatch":
-            throw new TRPCError({ code: "BAD_REQUEST", message: `${copy.code} is not a copy of the die ${run!.number} needs` });
+            throw new TRPCError({ code: "BAD_REQUEST", message: `${copy.code} is not a copy of the die ${run.number} needs` });
           case "line_mismatch":
-            throw new TRPCError({ code: "BAD_REQUEST", message: `${run!.number} is planned on another press line` });
+            throw new TRPCError({ code: "BAD_REQUEST", message: `${run.number} is planned on another press line` });
         }
       }
       // Customer-owned die (FP-DR-12): every party this run presses for must be allowed on this copy.
-      if (run) {
-        for (const customerId of await runCustomers(ctx.db, ctx.companyId, run.pressPlanDieId)) {
-          await assertDieAllowed(ctx.db, ctx.companyId, { dieInstanceId: copy.id, customerId, purpose: "press" });
-        }
+      for (const customerId of await runCustomers(ctx.db, ctx.companyId, run.pressPlanDieId)) {
+        await assertDieAllowed(ctx.db, ctx.companyId, { dieInstanceId: copy.id, customerId, purpose: "press" });
       }
 
       // Life (FP-DR-07): a warning only; issue is never blocked by it.
@@ -232,7 +240,7 @@ export const dieIssueRouter = router({
               serverSeq: sql<number>`${seq}`.as("server_seq"),
               dieInstanceId: sql<string>`${I("id")}`.as("die_instance_id"),
               pressLineId: sql<string>`${line.id}`.as("press_line_id"),
-              pressRunId: sql<string | null>`${run?.id ?? null}`.as("press_run_id"),
+              pressRunId: sql<string>`${run.id}`.as("press_run_id"),
               status: sql<string>`'issued'`.as("status"),
               issuedAt: sql<number>`${at.getTime()}`.as("issued_at"),
               issuedBy: sql<string>`${userId}`.as("issued_by"),
@@ -257,24 +265,23 @@ export const dieIssueRouter = router({
             ),
           ),
       ];
-      let landed = sql`exists (select 1 from die_instance i where i.id = ${copy.id} and i.status = 'in_use' and i.server_seq = ${seq})`;
-      if (run) {
-        statements.push(
-          ctx.db
-            .update(pressRun)
-            .set({ dieInstanceId: copy.id, status: "die_issued", serverSeq: seq })
-            .where(
-              and(
-                eq(pressRun.id, run.id),
-                eq(pressRun.companyId, ctx.companyId),
-                eq(pressRun.status, "queued"),
-                sql`${pressRun.dieInstanceId} is null`,
-                sql`exists (select 1 from die_issue x where x.id = ${id} and x.server_seq = ${seq})`,
-              ),
+      statements.push(
+        ctx.db
+          .update(pressRun)
+          // A run released without a line takes the issue's line (§E1 "press_line_id = run line").
+          .set({ dieInstanceId: copy.id, status: "die_issued", pressLineId: sql`coalesce(${pressRun.pressLineId}, ${line.id})`, serverSeq: seq })
+          .where(
+            and(
+              eq(pressRun.id, run.id),
+              eq(pressRun.companyId, ctx.companyId),
+              eq(pressRun.status, "queued"),
+              sql`${pressRun.dieInstanceId} is null`,
+              sql`exists (select 1 from die_issue x where x.id = ${id} and x.server_seq = ${seq})`,
             ),
-        );
-        landed = sql`${landed} and exists (select 1 from press_run r where r.id = ${run.id} and r.status = 'die_issued' and r.die_instance_id = ${copy.id} and r.server_seq = ${seq})`;
-      }
+          ),
+      );
+      const landed = sql`exists (select 1 from die_instance i where i.id = ${copy.id} and i.status = 'in_use' and i.server_seq = ${seq})
+        and exists (select 1 from press_run r where r.id = ${run.id} and r.status = 'die_issued' and r.die_instance_id = ${copy.id} and r.press_line_id = ${line.id} and r.server_seq = ${seq})`;
       statements.push(
         dieRoomAbortUnless(ctx.db, landed),
         auditInsertGuarded(
@@ -283,7 +290,7 @@ export const dieIssueRouter = router({
             action: "die_issue.issue",
             subjectType: "die_instance",
             subjectId: copy.id,
-            meta: { issueId: id, code: copy.code, pressLineId: line.id, pressRunId: run?.id ?? null, pressRunNumber: run?.number ?? null, warnings },
+            meta: { issueId: id, code: copy.code, pressLineId: line.id, pressRunId: run.id, pressRunNumber: run.number, warnings },
           },
           { from: dieIssue, where: and(eq(dieIssue.id, id), eq(dieIssue.serverSeq, seq)) },
         ),
@@ -292,17 +299,18 @@ export const dieIssueRouter = router({
         await atomicBatch(ctx.db, statements);
       } catch (e) {
         if (isDieRoomAbort(e) || errorText(e).includes("die_issue.die_instance_id")) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: run ? `${copy.code} or ${run.number} changed meanwhile; nothing was issued` : `${copy.code} changed meanwhile; nothing was issued`,
-          });
+          throw new TRPCError({ code: "CONFLICT", message: `${copy.code} or ${run.number} changed meanwhile; nothing was issued` });
         }
         throw e;
       }
       return { id, warnings };
     }),
 
-  /** Back to the rack. Refused while the die is in the press; a finished run keeps its copy and status. */
+  /**
+   * Back to the rack. Refused while the die is in the press. Before die-in (D13) the run goes back
+   * to `queued` with no copy in the same batch, exactly as `cancel` does; a finished run keeps its
+   * copy and status.
+   */
   return: actionProcedure("die.issue")
     .input(z.object({ id: z.string().min(1), note: z.string().trim().max(500).optional() }))
     .mutation(async ({ ctx, input }) => {
@@ -322,7 +330,7 @@ export const dieIssueRouter = router({
       }
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const at = clockNow();
-      await runIssueClose(ctx, issue, seq, [
+      const statements: SqliteBatchItem[] = [
         ctx.db
           .update(dieIssue)
           .set({
@@ -341,7 +349,9 @@ export const dieIssueRouter = router({
               sql`not exists (select 1 from press_run r where r.id = ${sql.identifier("die_issue")}.${sql.identifier("press_run_id")} and r.die_in_at is not null and r.die_out_at is null)`,
             ),
           ),
-      ], "returned");
+      ];
+      if (issue.run) statements.push(requeueRun(ctx, issue, seq, "returned"));
+      await runIssueClose(ctx, issue, seq, statements, "returned");
       return { success: true };
     }),
 
@@ -367,31 +377,41 @@ export const dieIssueRouter = router({
           .set({ status: "cancelled", serverSeq: seq })
           .where(and(eq(dieIssue.id, issue.id), eq(dieIssue.companyId, ctx.companyId), eq(dieIssue.status, "issued"))),
       ];
-      if (issue.run) {
-        statements.push(
-          ctx.db
-            .update(pressRun)
-            .set({ dieInstanceId: null, status: "queued", serverSeq: seq })
-            .where(
-              and(
-                eq(pressRun.id, issue.run.id),
-                eq(pressRun.companyId, ctx.companyId),
-                eq(pressRun.status, "die_issued"),
-                eq(pressRun.dieInstanceId, issue.dieInstanceId),
-                sql`${pressRun.dieInAt} is null`,
-                sql`exists (select 1 from die_issue x where x.id = ${issue.id} and x.server_seq = ${seq} and x.status = 'cancelled')`,
-              ),
-            ),
-        );
-      }
+      if (issue.run) statements.push(requeueRun(ctx, issue, seq, "cancelled"));
       await runIssueClose(ctx, issue, seq, statements, "cancelled");
       return { success: true };
     }),
 });
 
 /**
+ * The run back to `queued` with no copy, when it still waits for this copy before die-in (cancel,
+ * and return before die-in). Runs only after the issue row moved to `to` in the same batch.
+ */
+function requeueRun(
+  ctx: { db: OrrnDb; companyId: string },
+  issue: Awaited<ReturnType<typeof loadIssue>>,
+  seq: number,
+  to: "returned" | "cancelled",
+): SqliteBatchItem {
+  return ctx.db
+    .update(pressRun)
+    .set({ dieInstanceId: null, status: "queued", serverSeq: seq })
+    .where(
+      and(
+        eq(pressRun.id, issue.run!.id),
+        eq(pressRun.companyId, ctx.companyId),
+        eq(pressRun.status, "die_issued"),
+        eq(pressRun.dieInstanceId, issue.dieInstanceId),
+        sql`${pressRun.dieInAt} is null`,
+        sql`exists (select 1 from die_issue x where x.id = ${issue.id} and x.server_seq = ${seq} and x.status = ${to})`,
+      ),
+    );
+}
+
+/**
  * The shared tail of return and cancel: the issue row change(s) given, then the copy back to
- * `available`, all-or-nothing (and the run back to `queued` on cancel), with the audit row.
+ * `available`, all-or-nothing, with the audit row. Whatever the path, no run may be left
+ * `die_issued` on the copy that went back to the rack (D13).
  */
 async function runIssueClose(
   ctx: Parameters<typeof auditCtx>[0] & { db: OrrnDb },
@@ -402,9 +422,13 @@ async function runIssueClose(
 ): Promise<void> {
   const issueLanded = sql`exists (select 1 from die_issue x where x.id = ${issue.id} and x.server_seq = ${seq} and x.status = ${to})`;
   let landed = sql`${issueLanded} and exists (select 1 from die_instance i where i.id = ${issue.dieInstanceId} and i.status = 'available' and i.server_seq = ${seq})`;
+  if (issue.run) {
+    landed = sql`${landed} and not exists (select 1 from press_run r where r.id = ${issue.run.id} and r.status = 'die_issued' and r.die_instance_id = ${issue.dieInstanceId})`;
+  }
   if (to === "cancelled" && issue.run) {
     landed = sql`${landed} and exists (select 1 from press_run r where r.id = ${issue.run.id} and r.status = 'queued' and r.die_instance_id is null and r.server_seq = ${seq})`;
   }
+  const runRequeued = Boolean(issue.run && issue.run.status === "die_issued" && issue.run.dieInAt == null);
   const statements: SqliteBatchItem[] = [
     ...head,
     ctx.db
@@ -418,7 +442,7 @@ async function runIssueClose(
         action: to === "returned" ? "die_issue.return" : "die_issue.cancel",
         subjectType: "die_instance",
         subjectId: issue.dieInstanceId,
-        meta: { issueId: issue.id, code: issue.code, pressLineId: issue.pressLineId, pressRunId: issue.pressRunId },
+        meta: { issueId: issue.id, code: issue.code, pressLineId: issue.pressLineId, pressRunId: issue.pressRunId, runRequeued },
       },
       { from: dieIssue, where: and(eq(dieIssue.id, issue.id), eq(dieIssue.serverSeq, seq)) },
     ),

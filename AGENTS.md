@@ -225,6 +225,40 @@ bun run deploy
 - `kg_per_12ft_milli` is thousandths of a kg, which equals grams per 12 ft, the unit of the section
   band (`die.weight_min_g` / `weight_max_g`). `drift` compares them directly.
 
+### Die room conventions (W1-DR-S, LEDGER D13)
+
+- An issue ALWAYS targets a run: `dieInstance.issues.issue({ dieInstanceId, pressLineId, pressRunId,
+  note? })`, `pressRunId` required. The run must be `queued` with no copy, of the copy's section, and
+  on the same line when it has one (a run with no line takes the issue's line). One batch: issue row,
+  copy `in_use`, `press_run.die_instance_id`, run `die_issued`. There is no issue without a run and
+  no "attach later".
+- `issues.cancel` (before die-in) and `issues.return` before die-in both put the run back to
+  `queued` with `die_instance_id` null in the same batch; return is refused while die-in is set and
+  die-out is not; after die-out a finished run keeps its copy. No path may leave a run `die_issued`
+  on a copy that is back on the rack (`runIssueClose` asserts it).
+- Multi-row die room writes use `dieRoomAbortUnless(db, landedSql)` as the last guard of the batch
+  (D1 has no transactions); catch with `isDieRoomAbort` and re-read to give the precise refusal.
+- Copy status by hand: the card (`dieInstance.update`) can only retire a copy from the rack. Nitriding
+  moves only through `nitridingOut` / `nitridingBack`, issue through `issues.*`, maker through
+  `maker.jobs.*`.
+- Files go through a signed PUT, never base64 in a tRPC body: `files.beginUpload({ sectionId? |
+  copyId?, kind, name, size, mime, pressDrawing? })` checks limits (image 8 MB, PDF 25 MB, CDR/DWG
+  40 MB) and returns `{ uploadId, uploadUrl, method: "PUT", headers, key, fileId, expiresAt }`; the
+  client PUTs the raw bytes to `uploadUrl` (Worker route `PUT /files/dies/upload`, streamed into R2,
+  Content-Length must equal `size`); then `files.commit({ uploadId })` checks the object and writes
+  the row. Reads are `GET /files/dies?key&exp&sig` (10 minutes). Both are HMAC-signed with a key
+  derived from `ORRN_MASTER_KEY`; a stage without it refuses (PRECONDITION_FAILED / 503), never an
+  empty secret.
+- Drift is never stored. Percent, tone, band position and kg/m come from `copyFigures` in
+  `lib/dieRoom.ts` on every read (`die.list`, `die.get`, `dieInstance.list`, `dieInstance.get`);
+  clients show `latestMilli`, `percentTenths`, `tone`, `position`, `kgPerMetre` as given.
+- Owner gate: `assertDieAllowed` (purpose `press`) on issue for every customer of the run; FORBIDDEN
+  carries `meta`, read as `error.data.meta` (`TRPCMetaError`). An approved owner override lasts until
+  its `meta.closedAt`.
+- Newest-first die room lists (`issues.list`, `maker.jobs.list`) page by `limit` + opaque `cursor`
+  and return `{ items, nextCursor }` (null on the last page); `dieInstance.list` and `die.list` page
+  by `limit`/`offset` with `total`/`nextOffset`.
+
 ## Scrap purchase (vendors, lots, D/C notes)
 
 - Tables in `packages/db/src/schema/purchase.ts`; routers `vendor` (`routers/vendor.ts`) and

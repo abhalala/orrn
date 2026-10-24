@@ -201,7 +201,11 @@ export type DieRunRow = {
 const dieCardEditor = anyActionProcedure("die.card", "masters.publish");
 
 export const dieInstanceRouter = router({
-  /** Copies, lightest section code first; filter by section and status. Any member may read. */
+  /**
+   * Copies, lightest section code first; filter by section and status. Any member may read. Each
+   * row carries the server-computed drift against the copy's own band (`latestMilli`,
+   * `percentTenths`, `tone`, `position`, `kgPerMetre`, `bandId`, `bandText`): clients never recompute.
+   */
   list: companyProcedure
     .input(
       z
@@ -241,18 +245,52 @@ export const dieInstanceRouter = router({
               where r.die_instance_id = ${dieInstance.id} and r.company_id = ${dieInstance.companyId}
               order by r.read_at desc limit 1
             )`,
+            sectionWeightMinG: die.weightMinG,
+            sectionWeightMaxG: die.weightMaxG,
+            band: {
+              id: dieBand.id,
+              wallTenthMm: dieBand.wallTenthMm,
+              weightMinG: dieBand.weightMinG,
+              weightMaxG: dieBand.weightMaxG,
+              label: dieBand.label,
+              active: dieBand.active,
+            },
           })
           .from(dieInstance)
           .innerJoin(die, and(eq(die.id, dieInstance.sectionId), eq(die.companyId, dieInstance.companyId)))
+          .leftJoin(dieBand, and(eq(dieBand.id, dieInstance.bandId), eq(dieBand.companyId, dieInstance.companyId)))
           .where(where)
           .orderBy(asc(die.sectionCode), asc(dieInstance.seqNo))
           .limit(input.limit)
           .offset(input.offset),
         ctx.db.select({ n: sql<number>`count(*)` }).from(dieInstance).where(where),
       ]);
+      const driftBands = await loadDriftBands(ctx.db, ctx.companyId);
       const total = Number(totalRow?.n ?? 0);
       const next = input.offset + items.length;
-      return { items, total, limit: input.limit, offset: input.offset, nextOffset: next < total ? next : null };
+      return {
+        items: items.map(({ sectionWeightMinG, sectionWeightMaxG, band: joined, ...item }) => {
+          const band = effectiveBand(
+            { wallTenthMm: null, thicknessMm: null, weightMinG: sectionWeightMinG, weightMaxG: sectionWeightMaxG },
+            joined?.id ? joined : null,
+          );
+          const f = copyFigures(item.latestKgPer12ftMilli, band, driftBands);
+          return {
+            ...item,
+            latestMilli: f.currentMilli,
+            percentTenths: f.pctTenth,
+            tone: f.tone,
+            position: f.position,
+            kgPerMetre: f.kgPerMetre,
+            bandId: band.id,
+            bandText: bandText(band),
+          };
+        }),
+        total,
+        limit: input.limit,
+        offset: input.offset,
+        nextOffset: next < total ? next : null,
+      };
     }),
 
   /**
@@ -526,8 +564,17 @@ export const dieInstanceRouter = router({
         });
       }
       if (input.status !== undefined && input.status !== existing.status) {
-        const event = input.status === "retired" ? "retire" : input.status === "at_nitriding" ? "nitridingOut" : "nitridingBack";
-        if (dieCopyNext(existing.status, event) !== input.status) {
+        // Nitriding moves only through nitridingOut / nitridingBack (their log and audit, §E1).
+        if (input.status === "at_nitriding" || existing.status === "at_nitriding") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              input.status === "at_nitriding"
+                ? `Send ${existing.code} to nitriding from its card's nitriding step, not by editing its status`
+                : `${existing.code} is out at nitriding; record it back from nitriding first`,
+          });
+        }
+        if (dieCopyNext(existing.status, "retire") !== input.status) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message:
@@ -611,8 +658,8 @@ export const dieInstanceRouter = router({
       const nowMs = clockNow().getTime();
       const userId = ctx.session.user.id;
       // The copy's previous reading and the instant to stay after, both read at write time.
-      const lastValue = sql`select r.kg_per_12ft_milli from die_weight_reading r where r.die_instance_id = ${outer("id")} order by r.read_at desc limit 1`;
-      const afterLast = sql`select max(r.read_at) + 1 from die_weight_reading r where r.die_instance_id = ${outer("id")}`;
+      const lastValue = sql`select r.kg_per_12ft_milli from die_weight_reading r where r.company_id = ${outer("company_id")} and r.die_instance_id = ${outer("id")} order by r.read_at desc limit 1`;
+      const afterLast = sql`select max(r.read_at) + 1 from die_weight_reading r where r.company_id = ${outer("company_id")} and r.die_instance_id = ${outer("id")}`;
       await atomicBatch(ctx.db, [
         ctx.db.insert(dieWeightReading).select(
           ctx.db
@@ -789,7 +836,7 @@ export const dieInstanceRouter = router({
       const [open] = await ctx.db
         .select({ id: dieTierChange.id })
         .from(dieTierChange)
-        .where(and(eq(dieTierChange.dieInstanceId, instance.id), eq(dieTierChange.status, "pending")))
+        .where(and(eq(dieTierChange.companyId, ctx.companyId), eq(dieTierChange.dieInstanceId, instance.id), eq(dieTierChange.status, "pending")))
         .limit(1);
       const planned = planTierChange({
         copy: { tierRank: instance.tierRank, bandId: instance.bandId },
@@ -964,7 +1011,7 @@ export const dieInstanceRouter = router({
         eq(dieInstance.id, instance.id),
         eq(dieInstance.companyId, ctx.companyId),
         eq(dieInstance.status, "available"),
-        sql`not exists (select 1 from die_issue di where di.die_instance_id = ${instance.id} and di.status = 'issued')`,
+        sql`not exists (select 1 from die_issue di where di.company_id = ${ctx.companyId} and di.die_instance_id = ${instance.id} and di.status = 'issued')`,
       );
       const statements: SqliteBatchItem[] = [
         ctx.db.insert(nitridingLog).select(

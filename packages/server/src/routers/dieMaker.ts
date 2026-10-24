@@ -5,7 +5,7 @@
  * fills `trial_kg_per_12ft_milli` only when it is empty; it is never a drift reading.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { dieInstance, dieMaker, dieMakerJob, dieMakerJobPurposes, dieMakerJobStatuses } from "@orrn/db/schema/dies";
@@ -15,7 +15,7 @@ import { actionProcedure, anyActionProcedure, companyProcedure, router } from ".
 import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
-import { audit, auditCtx, dieRoomAbortUnless, errorText, isDieRoomAbort } from "../lib/dieRoom";
+import { audit, auditCtx, decodeListCursor, dieRoomAbortUnless, encodeListCursor, errorText, isDieRoomAbort, listCursorInput } from "../lib/dieRoom";
 import { nextDocNumber } from "../lib/docNumber";
 import { nameKey } from "../lib/purchase";
 import { nextCompanySeq } from "../lib/sequence";
@@ -117,6 +117,7 @@ export const dieMakerRouter = router({
   }),
 
   jobs: router({
+    /** Jobs, newest first. Paged: pass `nextCursor` back as `cursor`; null on the last page. */
     list: companyProcedure
       .input(
         z
@@ -124,11 +125,13 @@ export const dieMakerRouter = router({
             dieInstanceId: z.string().min(1).optional(),
             status: z.enum(dieMakerJobStatuses).optional(),
             limit: z.number().int().min(1).max(200).default(50),
+            cursor: listCursorInput,
           })
           .default({ limit: 50 }),
       )
-      .query(({ ctx, input }) =>
-        ctx.db
+      .query(async ({ ctx, input }) => {
+        const after = decodeListCursor(input.cursor);
+        const rows = await ctx.db
           .select({
             id: dieMakerJob.id,
             number: dieMakerJob.number,
@@ -150,11 +153,17 @@ export const dieMakerRouter = router({
               eq(dieMakerJob.companyId, ctx.companyId),
               input.dieInstanceId ? eq(dieMakerJob.dieInstanceId, input.dieInstanceId) : undefined,
               input.status ? eq(dieMakerJob.status, input.status) : undefined,
+              after
+                ? or(lt(dieMakerJob.sentAt, new Date(after.at)), and(eq(dieMakerJob.sentAt, new Date(after.at)), lt(dieMakerJob.id, after.id)))
+                : undefined,
             ),
           )
-          .orderBy(desc(dieMakerJob.sentAt))
-          .limit(input.limit),
-      ),
+          .orderBy(desc(dieMakerJob.sentAt), desc(dieMakerJob.id))
+          .limit(input.limit + 1);
+        const items = rows.slice(0, input.limit);
+        const last = items[items.length - 1];
+        return { items, nextCursor: rows.length > input.limit && last ? encodeListCursor(last.sentAt, last.id) : null };
+      }),
 
     send: actionProcedure("die.maker")
       .input(

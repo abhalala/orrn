@@ -641,10 +641,14 @@ export const dieRouter = router({
       const statements: SqliteBatchItem[] = [];
 
       if (input.newRows.length > 0) {
+        // New sections take the plant's default alloy / temper, as `die.create` does (FP-DR-14).
+        const settings = await loadFloorSettings(ctx.db, ctx.companyId);
         const values = input.newRows.map((row) => ({
           id: crypto.randomUUID(),
           companyId: ctx.companyId,
           serverSeq,
+          alloy: settings.defaultAlloy,
+          temper: settings.defaultTemper,
           series: row.series,
           sectionCode: row.sectionCode,
           name: row.name,

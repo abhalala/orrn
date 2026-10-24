@@ -167,9 +167,9 @@ describe("oblique codes", () => {
       createdBy: p.users.die_room.id,
     });
     const before = await instanceRow(a.id);
-    await p.dieRoom.dieInstance.update({ id: a.id, hardness: 1_100, ftr: null, status: "at_nitriding" });
+    await p.dieRoom.dieInstance.update({ id: a.id, hardness: 1_100, ftr: null, status: "available" });
     const after = await instanceRow(a.id);
-    expect(after).toMatchObject({ hardness: 1_100, ftr: null, status: "at_nitriding", supplier: "Hindalco Tools" });
+    expect(after).toMatchObject({ hardness: 1_100, ftr: null, status: "available", supplier: "Hindalco Tools" });
     expect(after.serverSeq).toBeGreaterThan(before.serverSeq);
 
     const audits = await env.db.select().from(auditLog).where(eq(auditLog.subjectId, a.id));
@@ -574,7 +574,7 @@ describe("drift", () => {
     const below = await newCopy(p, { status: "available" });
     const lightInBand = await newCopy(p, { status: "available" });
     const away = await newCopy(p);
-    await p.dieRoom.dieInstance.update({ id: away.id, status: "at_nitriding" });
+    await p.dieRoom.dieInstance.nitridingOut({ dieInstanceId: away.id });
     const heavier = await newCopyInUse(p);
     const retired = await newCopy(p, { status: "retired" });
     await seedReadings(p, below.id, [1_500]);
