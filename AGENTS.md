@@ -557,6 +557,41 @@ bun run deploy
 - `reports.salesRegisterCsv({ month })` (reports.read or export.accounts): one CSV row per completed
   dispatch in the company calendar month, cells guarded against spreadsheet formulas.
 
+## Orders and planning, Wave 1 (FP-OP, W1-OP-S)
+
+- Procedures live beside PL-8's on `orders` (`routers/orderFlow.ts`, spread into `salesOrder.ts`)
+  and on `plans` (`routers/pressPlan.ts`). Writes: `orders.confirm|close|cancel|repriceWeight`
+  need `order.manage`; `orders.reallocate` needs `order.reallocate`; `plans.create|release|cancel|close`
+  need `order.plan`. Reads (`get`, `balance`, `quote`, `timeline`, `lineBundles`, `plantStock`,
+  `matchStock`, `late`, `suggestLine`, `plans.get|list|candidates`) are open to members; no prices
+  in them (`orders.get` adds `ratePaise` only for `order.price` holders with `priceOnSalesOrder`).
+- Line maths only on the server (`lib/orderLines.ts`): a line with `qtyBasis` takes the W1 path:
+  basis = the pinned copy's latest reading, else the copy `suggestFirstCopy` picks, else band start
+  (`die.weight_min_g`) with `basis_note`; `pcs` -> kg via `orderGrams`, kg -> pcs via `orderPieces`
+  (`implied_g`), on the company's `lengthUnit` (inch companies use quarter-inch lengths, so 18 ft
+  is exactly 18 ft). Without `qtyBasis` PL-8 figures are stored as typed. Alloy / temper default
+  from the die, else `defaultAlloy` / `defaultTemper`.
+- Status: `orders.confirm` is the checked booking -> confirmed move (`confirmBlockers`, PO free,
+  owner check on a pinned copy). PO is unique per company + customer among non-cancelled orders
+  (`assertPoFree` read time + `poRepeatGuard` write time). `close` needs a reason while baki is left;
+  `cancel` needs a reason and nothing packed / planned / dispatched (also in the UPDATE's WHERE).
+  PL-8's `orders.update({ status })` path still exists for its screens.
+- Balance strip (`lib/orderStrip.ts`, `orders.balance` and `orders.get` -> `strip` per line):
+  planned = draft plans + released plans whose run is live; pressed = good kg of logged runs shared
+  over the plan die's lines by kg, minus aged and produced (press_run_line arrives in Wave 2);
+  aged = 0 until ageing rows exist; planable = ordered − dispatched − packed − planned − pressed − aged.
+  Correlated subqueries name the outer line as `"sales_order_line"."company_id"` explicitly (a bare
+  column in a single-table select would bind to the inner table).
+- Reallocation (`lib/reallocate.ts`): same customer / plant / unassigned -> applied in one batch
+  (bundle UPDATE per from-line, append-only `bundle_transfer` rows, a count abort); another
+  customer's bundles -> pending `order_reallocate` (subject = batch id, meta bundle + line ids and
+  kg only) applied by its APPROVAL_APPLIERS entry. Bundles in a pending request can't be asked again
+  and are not offered by `matchStock`. The first move sets `packed_sales_order_line_id` (original SO
+  / PO). The stock ledger is never touched. Owner gate (purpose `dispatch`) for a customer target only.
+- `plans.release`: window ≤ 24 h, each line ≤ planable without its own plan, owner check on the
+  preferred copy (owned section without a pin -> "Pick the die copy"), one `queued` press run per plan
+  die (`PR-n`), FP-OP-15 warnings returned. `cancel` voids queued runs (refused once one is issued).
+
 ## Worker performance rules
 
 - Minimize Worker CPU and wall time.

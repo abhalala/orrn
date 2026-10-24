@@ -17,7 +17,9 @@ import {
   openSalesOrderStatuses,
   salesOrder,
   salesOrderLine,
+  salesOrderQtyBases,
   salesOrderStatuses,
+  salesOrderWeightBases,
   type SalesOrderStatus,
 } from "@orrn/db/schema/sales";
 import { company } from "@orrn/db/schema/tenant";
@@ -39,6 +41,11 @@ import {
   sumBalances,
 } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
+import { resolveLines, type ResolvedLine } from "../lib/orderLines";
+import { can, type Action, type CompanyRole } from "../lib/permissions";
+import { assertPoFree, orderDetailExtras, orderFlowProcedures, poRepeatGuard } from "./orderFlow";
+import { lineStrips } from "../lib/orderStrip";
+import { companyFloor } from "../lib/orderLines";
 
 const MAX_LINES = 100;
 
@@ -60,10 +67,25 @@ export const orderLineInput = z.object({
   kgPer12ftMilli: z.number().int().min(1).max(500_000).nullable().optional(),
   cutLengthMm: z.number().int().min(1).max(30_000),
   pcs: z.number().int().min(1).max(10_000_000).nullable().optional(),
-  /** Ordered weight in grams (≤ 1,000 t). */
-  kgG: z.number().int().min(1, "Weight must be more than 0").max(1_000_000_000),
+  /**
+   * Ordered weight in grams (≤ 1,000 t). Required unless `qtyBasis` is `pcs` (the server then
+   * computes it from the pieces and the weight basis, FP-OP-03).
+   */
+  kgG: z.number().int().min(1, "Weight must be more than 0").max(1_000_000_000).optional(),
   finish: text(40).nullable().optional(),
   note: text(500).nullable().optional(),
+  // FP-OP-02/03/04 (Wave 1). All optional so PL-8 screens keep working; `qtyBasis` switches the
+  // line to the server-computed path (basis snapshot, pcs <-> kg, implied kg).
+  /** Pin one copy of the section (else the die room picks at issue). */
+  dieInstanceId: z.string().min(1).max(64).nullable().optional(),
+  /** "This tier or better" instead of a copy. */
+  tierRank: z.number().int().min(1).max(99).nullable().optional(),
+  qtyBasis: z.enum(salesOrderQtyBases).optional(),
+  weightBasis: z.enum(salesOrderWeightBases).optional(),
+  alloy: text(16).nullable().optional(),
+  temper: text(8).nullable().optional(),
+  /** Rs/kg in paise; needs `priceOnSalesOrder` and `order.price` (C23). */
+  ratePaise: z.number().int().min(0).max(100_000_000).nullable().optional(),
 });
 
 const editableStatuses = ["booking", "confirmed"] as const;
@@ -132,9 +154,16 @@ async function createFingerprint(input: z.infer<typeof createInput>): Promise<st
       l.kgPer12ftMilli ?? null,
       l.cutLengthMm,
       l.pcs ?? null,
-      l.kgG,
+      l.kgG ?? null,
       blank(l.finish),
       blank(l.note),
+      l.dieInstanceId ?? null,
+      l.tierRank ?? null,
+      l.qtyBasis ?? null,
+      l.weightBasis ?? null,
+      blank(l.alloy),
+      blank(l.temper),
+      l.ratePaise ?? null,
     ]),
   };
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(order)));
@@ -177,10 +206,33 @@ function lineHasLinks(companyId: string, lineId: SQL | string): SQL {
   return sql`(exists (select 1 from bundle b where b.company_id = ${companyId} and b.sales_order_line_id = ${lineId}) or exists (select 1 from dispatch_item di where di.company_id = ${companyId} and di.sales_order_line_id = ${lineId}))`;
 }
 
+/** The stored line columns of a resolved line (`undefined` W1 fields stay as they are on update). */
+function resolvedColumns(r: ResolvedLine) {
+  return {
+    kgPer12ftMilli: r.kgPer12ftMilli,
+    pcs: r.pcs,
+    kgG: r.kgG,
+    alloy: r.alloy,
+    temper: r.temper,
+    dieInstanceId: r.dieInstanceId,
+    tierRank: r.tierRank,
+    qtyBasis: r.qtyBasis,
+    impliedG: r.impliedG,
+    weightBasis: r.weightBasis,
+    bandStartMilli: r.bandStartMilli,
+    copyMilli: r.copyMilli,
+    readingId: r.readingId,
+    basisNote: r.basisNote,
+    ratePaise: r.ratePaise,
+  };
+}
+
 function lineRow(
   input: z.infer<typeof orderLineInput>,
+  resolved: ResolvedLine,
   extra: { id: string; companyId: string; serverSeq: number; salesOrderId: string; lineNo: number; createdBy: string },
 ) {
+  const cols = resolvedColumns(resolved);
   return {
     id: extra.id,
     companyId: extra.companyId,
@@ -188,17 +240,32 @@ function lineRow(
     salesOrderId: extra.salesOrderId,
     lineNo: extra.lineNo,
     dieId: input.sectionId,
-    kgPer12ftMilli: input.kgPer12ftMilli ?? null,
     cutLengthMm: input.cutLengthMm,
-    pcs: input.pcs ?? null,
-    kgG: input.kgG,
     finish: blank(input.finish),
     note: blank(input.note),
     createdBy: extra.createdBy,
+    ...cols,
+    // Inserts bind every key (JS undefined -> NULL); keep the parameter count fixed per row.
+    dieInstanceId: cols.dieInstanceId ?? null,
+    tierRank: cols.tierRank ?? null,
+    qtyBasis: cols.qtyBasis ?? null,
+    impliedG: cols.impliedG ?? null,
+    weightBasis: cols.weightBasis ?? null,
+    bandStartMilli: cols.bandStartMilli ?? null,
+    copyMilli: cols.copyMilli ?? null,
+    readingId: cols.readingId ?? null,
+    basisNote: cols.basisNote ?? null,
+    ratePaise: cols.ratePaise ?? null,
   };
 }
 
+export const roleCan = (role: CompanyRole, action: Action) => can({ company: { role }, isPlatformAdmin: false, platformRole: null }, action);
+const canPrice = (role: CompanyRole) => roleCan(role, "order.price");
+
 export const salesOrderRouter = router({
+  // Wave 1 (FP-OP, W1-OP-S): confirm / close / cancel, quote, repriceWeight, timeline, lineBundles,
+  // reallocate, plantStock, matchStock, late, suggestLine.
+  ...orderFlowProcedures,
   create: actionProcedure("order.manage")
     .input(createInput)
     .mutation(async ({ ctx, input }) => {
@@ -238,6 +305,9 @@ export const salesOrderRouter = router({
       if (prior) return { id: prior.id, number: prior.number, replayed: true as const };
       await assertCustomer(ctx.db, ctx.companyId, input.customerId);
       await assertSections(ctx.db, ctx.companyId, input.lines.map((l) => l.sectionId));
+      const resolved = await resolveLines(ctx.db, ctx.companyId, input.lines, { canPrice: canPrice(ctx.role) });
+      const poNumber = blank(input.poNumber);
+      if (poNumber) await assertPoFree(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber });
 
       const at = clockNow();
       const userId = ctx.session.user.id;
@@ -260,9 +330,10 @@ export const salesOrderRouter = router({
           period,
           number,
           customerId: input.customerId,
-          poNumber: blank(input.poNumber),
+          poNumber,
           orderDate,
           status,
+          ...(status === "confirmed" ? { confirmedAt: at, confirmedBy: userId } : {}),
           note: blank(input.note),
           lineSeq: input.lines.length,
           clientRequestId: input.clientRequestId ?? null,
@@ -276,9 +347,18 @@ export const salesOrderRouter = router({
         statements,
         (rows) => ctx.db.insert(salesOrderLine).values(rows),
         input.lines.map((l, i) =>
-          lineRow(l, { id: crypto.randomUUID(), companyId: ctx.companyId, serverSeq: seq, salesOrderId: id, lineNo: i + 1, createdBy: userId }),
+          lineRow(l, resolved[i]!, {
+            id: crypto.randomUUID(),
+            companyId: ctx.companyId,
+            serverSeq: seq,
+            salesOrderId: id,
+            lineNo: i + 1,
+            createdBy: userId,
+          }),
         ),
       );
+      // Write-time PO repeat check (FP-OP-01): a second order with this PO saved meanwhile fails the batch.
+      if (poNumber) statements.push(poRepeatGuard(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber }));
       statements.push(
         auditInsert(ctx, {
           action: "order.create",
@@ -289,7 +369,7 @@ export const salesOrderRouter = router({
             period,
             customerId: input.customerId,
             lines: input.lines.length,
-            kgG: input.lines.reduce((s, l) => s + l.kgG, 0),
+            kgG: resolved.reduce((s, l) => s + l.kgG, 0),
             ...(input.clientRequestId ? { fingerprint } : {}),
           },
         }),
@@ -297,6 +377,9 @@ export const salesOrderRouter = router({
       try {
         await atomicBatch(ctx.db, statements);
       } catch (e) {
+        if (isBatchAbort(e, "sales_order_line")) {
+          throw new TRPCError({ code: "CONFLICT", message: `PO ${poNumber} is already on another order of this customer` });
+        }
         // The same key raced in from a retry: the first one's order stands (this number is a gap, R5).
         const won = /UNIQUE constraint failed: sales_order\.company_id, sales_order\.client_request_id/.test(errorText(e))
           ? await byRequest()
@@ -403,6 +486,14 @@ export const salesOrderRouter = router({
         }
         await assertSections(ctx.db, ctx.companyId, [...changes.filter((c) => c.sectionChanged), ...additions].map((l) => l.sectionId));
       }
+      const priceOk = canPrice(ctx.role);
+      const resolvedChanges = await resolveLines(ctx.db, ctx.companyId, changes, { canPrice: priceOk });
+      const resolvedAdds = await resolveLines(ctx.db, ctx.companyId, additions, { canPrice: priceOk });
+      // FP-OP-01: the PO stays unique per customer among live orders.
+      const nextCustomer = input.customerId ?? order.customerId;
+      const nextPo = input.poNumber === undefined ? order.poNumber : blank(input.poNumber);
+      const poCheck = nextPo && (nextPo !== order.poNumber || nextCustomer !== order.customerId);
+      if (poCheck) await assertPoFree(ctx.db, ctx.companyId, { customerId: nextCustomer, poNumber: nextPo, exceptOrderId: order.id });
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const lineSeq = Math.max(order.lineSeq, ...existing.map((l) => l.lineNo)) + additions.length;
@@ -415,6 +506,9 @@ export const salesOrderRouter = router({
             orderDate: input.orderDate ?? order.orderDate,
             note: input.note === undefined ? order.note : blank(input.note),
             ...(nextStatus ? { status: nextStatus, statusChangedAt: at, statusChangedBy: userId } : {}),
+            ...(nextStatus === "confirmed" ? { confirmedAt: at, confirmedBy: userId } : {}),
+            ...(nextStatus === "closed" ? { closedAt: at, closedBy: userId } : {}),
+            ...(nextStatus === "cancelled" ? { cancelledAt: at, cancelledBy: userId } : {}),
             lineSeq: sql`max(${salesOrder.lineSeq}, ${lineSeq})`,
             serverSeq: seq,
           })
@@ -473,16 +567,16 @@ export const salesOrderRouter = router({
             ),
         );
       }
-      for (const c of changes) {
+      for (const [ci, c] of changes.entries()) {
         statements.push(
           ctx.db
             .update(salesOrderLine)
             .set({
               dieId: c.sectionId,
-              kgPer12ftMilli: c.kgPer12ftMilli ?? null,
+              ...resolvedColumns(resolvedChanges[ci]!),
+              // A pinned copy belongs to the old section: a section change drops it unless a new one is sent.
+              ...(c.sectionChanged && c.dieInstanceId === undefined ? { dieInstanceId: null } : {}),
               cutLengthMm: c.cutLengthMm,
-              pcs: c.pcs ?? null,
-              kgG: c.kgG,
               finish: blank(c.finish),
               note: blank(c.note),
               serverSeq: seq,
@@ -519,12 +613,13 @@ export const salesOrderRouter = router({
           ),
         );
       }
+      if (poCheck) statements.push(poRepeatGuard(ctx.db, ctx.companyId, { customerId: nextCustomer, poNumber: nextPo }));
       const firstNew = lineSeq - additions.length + 1;
       pushChunkedInserts(
         statements,
         (rows) => ctx.db.insert(salesOrderLine).values(rows),
         additions.map((l, i) =>
-          lineRow(l, {
+          lineRow(l, resolvedAdds[i]!, {
             id: crypto.randomUUID(),
             companyId: ctx.companyId,
             serverSeq: seq,
@@ -550,9 +645,10 @@ export const salesOrderRouter = router({
                   linesAdded: additions.length,
                   // Ordered kg changes line by line (raising a line's kg lets more leave without an
                   // override, ruling PL8-R15), so the order history shows who changed what.
-                  kgChanged: changes.flatMap((c) => {
+                  kgChanged: changes.flatMap((c, ci) => {
                     const cur = byId.get(c.id)!;
-                    return cur.kgG === c.kgG ? [] : [{ lineNo: cur.lineNo, fromG: cur.kgG, toG: c.kgG }];
+                    const toG = resolvedChanges[ci]!.kgG;
+                    return cur.kgG === toG ? [] : [{ lineNo: cur.lineNo, fromG: cur.kgG, toG }];
                   }),
                 }
               : {}),
@@ -581,10 +677,14 @@ export const salesOrderRouter = router({
         .where(and(eq(customer.id, order.customerId), eq(customer.companyId, ctx.companyId)))
         .limit(1);
       const lines = await lineBalances(ctx.db, ctx.companyId, { orderId: order.id });
+      // Rates only for `order.price` holders while the plant shows prices on orders (C23).
+      const showRates = canPrice(ctx.role) && (await companyFloor(ctx.db, ctx.companyId)).floor.priceOnSalesOrder;
+      const extras = await orderDetailExtras(ctx.db, ctx.companyId, order, { showRates });
       return {
         order: { ...order, customerName: cust?.name ?? "", customerGstin: cust?.taxId ?? null },
         lines,
         totals: sumBalances(lines),
+        ...extras,
       };
     }),
 
@@ -671,7 +771,10 @@ export const salesOrderRouter = router({
         lineBalancePage(ctx.db, ctx.companyId, filter, { limit: input.limit, offset: input.offset }),
         lineTotals(ctx.db, ctx.companyId, filter),
       ]);
-      return { lines: page.lines, totals, total: totals.lines, nextOffset: page.nextOffset };
+      // FP-OP-05: the balance strip per line (planned, pressed, aged, packed, in stock, over, planable).
+      const strips = await lineStrips(ctx.db, ctx.companyId, page.lines.map((l) => l.lineId));
+      const lines = page.lines.map((l) => ({ ...l, strip: strips.get(l.lineId)! }));
+      return { lines, totals, total: totals.lines, nextOffset: page.nextOffset };
     }),
 
   /**
