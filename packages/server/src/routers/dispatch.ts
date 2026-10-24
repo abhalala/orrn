@@ -53,6 +53,14 @@ import {
   type LineBalance,
   type OverdrawLine,
 } from "../lib/orders";
+import {
+  dispatchHasForeignHoldSql,
+  heldForOrderBlock,
+  heldForOtherCustomerSql,
+  holdsOf,
+  linkLineFor,
+  releaseOnDispatchStatements,
+} from "../lib/orderHold";
 import { can } from "../lib/permissions";
 import { bundlesPendingReallocation, pendingReallocationOf } from "../lib/reallocate";
 import { nextCompanySeq } from "../lib/sequence";
@@ -1242,15 +1250,20 @@ export const dispatchRouter = router({
           const codes = await holdingDispatchCodes(ctx.db, ctx.companyId, [b]);
           throw new TRPCError({ code: "BAD_REQUEST", message: bundleBlockReason(b, codes) });
         }
+        // FP-OP-17: held for another customer's open line ("Held for SO-n (customer)").
+        const holds = await holdsOf(ctx.db, ctx.companyId, [b.id]);
+        const heldBlock = heldForOrderBlock(holds.get(b.id), d.customerId);
+        if (heldBlock) throw new TRPCError({ code: "BAD_REQUEST", message: heldBlock.reason });
         // A bundle waiting on a reallocation approval stays put until it is decided.
         if ((await bundlesPendingReallocation(ctx.db, ctx.companyId, [b.id])).size > 0) {
           throw new TRPCError({ code: "BAD_REQUEST", message: `${b.serial} is waiting on a reallocation approval` });
         }
 
+        // Held for this customer: linked to the held line (the line the office put it on).
         const picks = await suggestLines(ctx.db, ctx.companyId, {
           customerId: d.customerId,
           dispatchId: d.id,
-          bundles: [{ id: b.id, dieId: b.dieId, weightG: b.weightG, salesOrderLineId: b.salesOrderLineId }],
+          bundles: [{ id: b.id, dieId: b.dieId, weightG: b.weightG, salesOrderLineId: linkLineFor(b, holds, d.customerId) }],
         });
         const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
         const statements: SqliteBatchItem[] = [
@@ -1262,6 +1275,8 @@ export const dispatchRouter = router({
             salesOrderLineId: picks.get(b.id)?.lineId ?? null,
           }),
           ...(picks.size > 0 ? dropStaleSuggestions(ctx.db, ctx.companyId, d.id, [b.id]) : []),
+          // Write time: a hold for another customer landing after the read fails the add whole.
+          batchAbortUnless(ctx.db, "sales_order_line", sql`not ${heldForOtherCustomerSql(ctx.companyId, d.customerId, [b.id])}`),
         ];
 
         if (d.status === "reserved") {
@@ -1316,7 +1331,8 @@ export const dispatchRouter = router({
       } catch (e) {
         // A concurrent scan of the same bundle inserted first; the batch rolled
         // back, so re-read: this time it reports "already in this dispatch".
-        if (isDuplicateItemError(e)) return run();
+        // A hold that landed meanwhile (FP-OP-17): re-read, this time it is refused by name.
+        if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line")) return run();
         throw e;
       }
     }),
@@ -1381,14 +1397,32 @@ export const dispatchRouter = router({
           bundles.filter((b) => !inThisDispatch.has(b.id)),
         );
 
+        // FP-OP-17: holds of the bundles that could go on (refused for another customer's open line).
+        const holds = await holdsOf(
+          ctx.db,
+          ctx.companyId,
+          bundles.filter((b) => !inThisDispatch.has(b.id) && b.status === "available").map((b) => b.id),
+        );
+
         const report: AddBundlesReport = { added: [], alreadyInDispatch: [], notFound: [], unavailable: [], linked: [] };
         const toAdd: typeof bundles = [];
         for (const serial of serials) {
           const b = bySerial.get(serial);
+          const heldBlock = b ? heldForOrderBlock(holds.get(b.id), d.customerId) : null;
           if (!b) report.notFound.push(serial);
           else if (inThisDispatch.has(b.id)) report.alreadyInDispatch.push(serial);
           else if (b.status !== "available") report.unavailable.push({ serial, ...bundleBlock(b, codes) });
-          else toAdd.push(b);
+          else if (heldBlock) {
+            report.unavailable.push({
+              serial,
+              reason: heldBlock.reason,
+              code: heldBlock.code,
+              status: b.status,
+              heldBy: null,
+              orderNumber: heldBlock.orderNumber,
+              customerName: heldBlock.customerName,
+            });
+          } else toAdd.push(b);
         }
         // Bundles waiting on a reallocation approval are reported, not added (W1-OP-S r1 m-4).
         const pending = await bundlesPendingReallocation(ctx.db, ctx.companyId, toAdd.map((b) => b.id));
@@ -1404,10 +1438,14 @@ export const dispatchRouter = router({
         const picks = await suggestLines(ctx.db, ctx.companyId, {
           customerId: d.customerId,
           dispatchId: d.id,
-          bundles: toAdd.map((b) => ({ id: b.id, dieId: b.dieId, weightG: b.weightG, salesOrderLineId: b.salesOrderLineId })),
+          bundles: toAdd.map((b) => ({ id: b.id, dieId: b.dieId, weightG: b.weightG, salesOrderLineId: linkLineFor(b, holds, d.customerId) })),
         });
         const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-        const statements: SqliteBatchItem[] = [];
+        // Write time: a hold for another customer landing after the read fails the add whole.
+        const statements: SqliteBatchItem[] = chunk(
+          toAdd.map((b) => b.id),
+          GUARDED_IN_CHUNK,
+        ).map((ids) => batchAbortUnless(ctx.db, "sales_order_line", sql`not ${heldForOtherCustomerSql(ctx.companyId, d.customerId, ids)}`));
         pushChunkedInserts(
           statements,
           (rows) => ctx.db.insert(dispatchItem).values(rows),
@@ -1481,7 +1519,8 @@ export const dispatchRouter = router({
       } catch (e) {
         // A concurrent scan inserted one of these first and the whole batch
         // rolled back; re-read once so it lands in alreadyInDispatch.
-        if (isDuplicateItemError(e)) return run();
+        // A hold that landed meanwhile (FP-OP-17): re-read once, it is refused by name.
+        if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line")) return run();
         throw e;
       }
     }),
@@ -1839,6 +1878,17 @@ export const dispatchRouter = router({
         });
       }
 
+      // FP-OP-17: a bundle held for another customer's open line can't leave on this dispatch (the
+      // dispatch's customer changed after the scan, or a hold slipped in). Read here and in the UPDATE.
+      const holdsHere = await holdsOf(ctx.db, ctx.companyId, bundleIds);
+      const foreign = [...holdsHere.values()].filter((h) => heldForOrderBlock(h, d.customerId));
+      if (foreign.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: foreign.map((h) => `${h.serial}: ${heldForOrderBlock(h, d.customerId)!.reason}`).join("; "),
+        });
+      }
+
       // Spec S-2: the link is decided again now, so kg that leave for a customer with an open line
       // for the section meet the order (an order entered after the scan, a reopened order).
       const relink = await relinkOpen(ctx.db, ctx.companyId, d);
@@ -1895,9 +1945,12 @@ export const dispatchRouter = router({
               overdrawGuard(ctx.companyId, d.id, toleranceBp),
               noUnlinkedWithOpenLine(ctx.companyId, d.id),
               sql`not exists (select 1 from dispatch_item pdi where pdi.company_id = ${ctx.companyId} and pdi.dispatch_id = ${d.id} and ${pendingReallocationOf(ctx.companyId, sql`pdi.bundle_id`)})`,
+              sql`not ${dispatchHasForeignHoldSql(ctx.companyId, d.id, d.customerId)}`,
             ),
           ),
         batchAbortUnless(ctx.db, "packing_list_line", landed),
+        // FP-OP-17: the holds of the bundles leaving now end here (audited `order.release`, reason dispatched).
+        ...(await releaseOnDispatchStatements(ctx, { id: d.id, code: d.code }, bundleIds, seq)),
       ];
       for (const ids of chunk(bundleIds, GUARDED_IN_CHUNK)) {
         statements.push(
