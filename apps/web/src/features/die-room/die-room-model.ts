@@ -7,9 +7,9 @@ import type { StatusTone } from "@orrn/domain";
 
 export type DriftTone = "none" | "under" | "green" | "amber" | "red";
 export type BandPosition = "in" | "above" | "below";
-export type CopyStatus = "available" | "in_use" | "at_nitriding" | "at_maker" | "retired";
+export type CopyStatus = "available" | "in_use" | "at_nitriding" | "at_maker" | "on_trial" | "retired";
 
-export const COPY_STATUSES: readonly CopyStatus[] = ["available", "in_use", "at_nitriding", "at_maker", "retired"];
+export const COPY_STATUSES: readonly CopyStatus[] = ["available", "in_use", "at_nitriding", "at_maker", "on_trial", "retired"];
 
 /** Tabs of the die card, in the order the spec lists them. */
 export const CARD_TABS = ["readings", "runs", "nitriding", "tier", "maker", "files"] as const;
@@ -43,6 +43,7 @@ export function statusTone(status: CopyStatus): StatusTone {
       return "blue";
     case "at_nitriding":
     case "at_maker":
+    case "on_trial":
       return "amber";
     case "retired":
       return "neutral";

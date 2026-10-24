@@ -130,6 +130,7 @@ describe("tones and tabs", () => {
     expect(statusTone("available")).toBe("green");
     expect(statusTone("in_use")).toBe("blue");
     expect(statusTone("at_maker")).toBe("amber");
+    expect(statusTone("on_trial")).toBe("amber");
     expect(statusTone("retired")).toBe("neutral");
   });
 
