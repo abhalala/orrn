@@ -113,6 +113,23 @@ async function answer(page: Page, procedure: string, reply: (input: unknown, cal
   return inputs;
 }
 
+/**
+ * Backlog 25 at 375: on every board row the weight band's box never meets the owner's box (the band
+ * takes the whole phone row, the owner sits below it).
+ */
+async function expectBandClearOfOwner(page: Page) {
+  const rows = page.locator("[data-slot='responsive-list'] li").filter({ has: page.getByTestId("board-band") });
+  const n = Math.min(await rows.count(), 8);
+  expect(n).toBeGreaterThan(0);
+  for (let i = 0; i < n; i += 1) {
+    const band = await rows.nth(i).getByTestId("board-band").boundingBox();
+    const owner = await rows.nth(i).getByTestId("board-owner").boundingBox();
+    expect(band && owner, `row ${i} band and owner are on screen`).toBeTruthy();
+    const overlap = band!.x < owner!.x + owner!.width && owner!.x < band!.x + band!.width && band!.y < owner!.y + owner!.height && owner!.y < band!.y + band!.height;
+    expect(overlap, `row ${i}: band ${JSON.stringify(band)} meets owner ${JSON.stringify(owner)}`).toBe(false);
+  }
+}
+
 /** A tiny but real file: the bytes are what the PUT carries, the name is what matters. */
 const file = (name: string, mimeType: string, size = 4096) => ({ name, mimeType, buffer: Buffer.alloc(size, 7) });
 
@@ -136,11 +153,16 @@ for (const width of WIDTHS) {
       const trialTile = page.getByTestId("tile-on_trial");
       await expect(trialTile).toContainText(/^\d+/);
       await expectClean(page, "board");
+      if (width === 375) await expectBandClearOfOwner(page);
 
       await trialTile.click();
       await expect(trialTile).toHaveAttribute("aria-pressed", "true");
       await expect(page).toHaveURL(/tile=on_trial/);
-      await expect(page.getByRole("link", { name: /13090/ }).first()).toBeVisible();
+      // The tile counts copies, so the list it opens is those copies (each opens its card), not sections.
+      await expect(page.getByTestId("board-copies-note")).toBeVisible();
+      const firstCopy = page.getByRole("link", { name: /13090-1\d/ }).first();
+      await expect(firstCopy).toBeVisible();
+      await expect(firstCopy).toHaveAttribute("href", /\/dies\/copies\/dev-copy-13090-1\d/);
       // Channel 12230 has no copy on trial.
       await expect(page.getByText("12230")).toHaveCount(0);
       await expectClean(page, "board_trial_tile");
@@ -202,9 +224,12 @@ for (const width of WIDTHS) {
       await pickFromSearch(page, form, "Copy", plan.a);
       await expect(page.getByTestId("trial-note")).toContainText("goes only to a die trial run");
       await form.getByRole("combobox", { name: "Press run" }).click();
-      const options = page.getByRole("option");
-      await expect(options).toHaveCount(3);
+      // Only die trial runs are offered. The other widths issue their own trial runs in parallel (an
+      // issued run leaves the queue), so the count moves; this width's run and the purpose do not.
       await expect(page.getByRole("option", { name: new RegExp(`${plan.run} .* Die trial`) })).toBeVisible();
+      const offered = await page.getByRole("option").allTextContents();
+      expect(offered.length).toBeGreaterThan(0);
+      for (const text of offered) expect(text).toMatch(/Die trial/);
       await expect(page.getByRole("option", { name: /PR-2/ })).toHaveCount(0);
       await page.getByRole("option", { name: new RegExp(plan.run) }).click();
       await expectClean(page, `${plan.a}_issue_form`);

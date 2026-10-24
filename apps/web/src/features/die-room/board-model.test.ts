@@ -6,6 +6,7 @@ import {
   boardOwnerParam,
   boardSortParam,
   boardTileParam,
+  copyListInput,
   hasBoardFilters,
   tileCount,
   tilePatch,
@@ -47,6 +48,32 @@ describe("board list input", () => {
       limit: 50,
       offset: 100,
     });
+  });
+});
+
+describe("a copy-status tile lists copies, so the list total is the tile's count", () => {
+  test("a status tile asks dieInstance.list for the copies in that status, with the search and page", () => {
+    expect(copyListInput({ q: "13090", tile: "on_trial", sort: "newest" }, { limit: 50, offset: 50 })).toEqual({
+      status: "on_trial",
+      search: "13090",
+      limit: 50,
+      offset: 50,
+    });
+    expect(copyListInput({ q: "", tile: "at_maker", kind: "hollow", owner: "plant", sort: "band" }, { limit: 50, offset: 0 })).toEqual({
+      status: "at_maker",
+      limit: 50,
+      offset: 0,
+    });
+  });
+
+  test("no tile, or the dies-without-copies tile, lists sections (null here)", () => {
+    expect(copyListInput({ q: "", sort: "newest" }, { limit: 50, offset: 0 })).toBeNull();
+    expect(copyListInput({ q: "", tile: "none", sort: "newest" }, { limit: 50, offset: 0 })).toBeNull();
+  });
+
+  test("a copy search longer than the server takes is cut, never refused", () => {
+    const input = copyListInput({ q: "x".repeat(60), tile: "available", sort: "newest" }, { limit: 50, offset: 0 });
+    expect(input?.search).toHaveLength(40);
   });
 });
 

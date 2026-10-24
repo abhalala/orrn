@@ -299,6 +299,11 @@ export const dieIssue = sqliteTable(
       .default(nowMs)
       .$onUpdate(() => new Date())
       .notNull(),
+    /**
+     * 1 when the copy was `on_trial` as it went out (FP-DR-17, migration 0029). Return and cancel read
+     * it: a trial issue comes back `on_trial` unless its run is logged with a passed trial.
+     */
+    trial: integer("trial").notNull().default(0),
   },
   (table) => [
     uniqueIndex("die_issue_open_unique")

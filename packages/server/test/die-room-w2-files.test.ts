@@ -195,6 +195,42 @@ describe("bulk attach end to end: three files, one unmatched", () => {
     expect(rows.filter((r) => r.pressDrawing)).toHaveLength(1);
   });
 
+  test("a real race: the other commit lands between this one's read and its batch; no error, both files kept", async () => {
+    const p = await plant();
+    const a = await p.dieRoom.dieInstance.files.beginUpload({ sectionId: p.s12170, kind: "pdf", name: "a.pdf", size: 512, mime: "application/pdf", pressDrawingIfNone: true });
+    const b = await p.dieRoom.dieInstance.files.beginUpload({ sectionId: p.s12170, kind: "pdf", name: "b.pdf", size: 512, mime: "application/pdf", pressDrawingIfNone: true });
+    await put(a.uploadUrl, 512);
+    await put(b.uploadUrl, 512);
+    // A has read the section (no drawing yet); B commits in full before A's batch runs.
+    let cb: { pressDrawing: boolean; key: string } | undefined;
+    env.beforeNextBatch(async () => {
+      cb = await p.dieRoom.dieInstance.files.commit({ uploadId: b.uploadId });
+    });
+    const ca = await p.dieRoom.dieInstance.files.commit({ uploadId: a.uploadId });
+    expect(cb!.pressDrawing).toBe(true);
+    expect(ca.pressDrawing).toBe(false);
+    const [section] = await env.db.select().from(die).where(eq(die.id, p.s12170));
+    expect(section!.drawingKey).toBe(cb!.key);
+    const rows = await env.db.select().from(dieFile).where(eq(dieFile.sectionId, p.s12170));
+    expect(rows.map((r) => [r.filename, r.pressDrawing]).sort()).toEqual([["a.pdf", false], ["b.pdf", true]]);
+    // Neither upload was deleted.
+    expect(r2.objects.has(ca.key)).toBe(true);
+    expect(r2.objects.has(cb!.key)).toBe(true);
+  });
+
+  test("a press-drawing row left without the section key never collides: the new PDF stays a plain file", async () => {
+    const p = await plant();
+    const first = await attach(p, { name: "12170.pdf", kind: "pdf", sectionId: p.s12170, dieInstanceId: null, pressDrawing: true });
+    expect(first.pressDrawing).toBe(true);
+    // A hand fix cleared die.drawing_key but left the file flagged.
+    await env.db.update(die).set({ drawingKey: null }).where(eq(die.id, p.s12170));
+    const second = await attach(p, { name: "12170-b.pdf", kind: "pdf", sectionId: p.s12170, dieInstanceId: null, pressDrawing: true });
+    expect(second.pressDrawing).toBe(false);
+    expect(r2.objects.has(second.key)).toBe(true);
+    const rows = await env.db.select().from(dieFile).where(eq(dieFile.sectionId, p.s12170));
+    expect(rows.filter((r) => r.pressDrawing).map((r) => r.filename)).toEqual(["12170.pdf"]);
+  });
+
   test("pressDrawingIfNone is for a section's PDF only", async () => {
     const p = await plant();
     await expect(

@@ -1,7 +1,8 @@
 /**
  * Die maker (FP-DR-11, Next; table-backed slice): the maker master and the send / receive /
- * cancel of a copy. `DM-{seq}` per FY. One open (`sent`) job per copy (partial unique). Send only
- * from `available` -> `at_maker`; receive or cancel -> `available`. A trial weight on receive
+ * cancel of a copy. `DM-{seq}` per FY. One open (`sent`) job per copy (partial unique). Send from
+ * `available` or `on_trial` -> `at_maker` (the job keeps `from_status`); receive -> `on_trial` while
+ * `dieRoom.newCopyOnTrial` is on, else `available`; cancel -> `from_status`. A trial weight on receive
  * fills `trial_kg_per_12ft_milli` only when it is empty; it is never a drift reading.
  */
 import { TRPCError } from "@trpc/server";
@@ -16,7 +17,7 @@ import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { audit, auditCtx, decodeListCursor, dieRoomAbortUnless, encodeListCursor, errorText, isDieRoomAbort, listCursorInput, loadFloorSettings } from "../lib/dieRoom";
-import { sentFromStatus } from "../lib/dieTrial";
+import { makerCancelStatus } from "../lib/dieTrial";
 import { nextDocNumber } from "../lib/docNumber";
 import { nameKey } from "../lib/purchase";
 import { nextCompanySeq } from "../lib/sequence";
@@ -215,6 +216,8 @@ export const dieMakerRouter = router({
                 receivedBy: sql<string | null>`null`.as("received_by"),
                 createdAt: sql<number>`${at.getTime()}`.as("created_at"),
                 updatedAt: sql<number>`${at.getTime()}`.as("updated_at"),
+                // 0029: where the copy was (the rack or on trial); a cancel puts it back there.
+                fromStatus: sql<string>`${I("status")}`.as("from_status"),
               })
               .from(dieInstance)
               .where(and(eq(dieInstance.id, copy.id), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.status, copy.status))),
@@ -277,7 +280,7 @@ async function closeJob(
   const back: "available" | "on_trial" =
     to === "received"
       ? newCopyStatus(await loadFloorSettings(ctx.db, ctx.companyId))
-      : await sentFromStatus(ctx.db, ctx.companyId, job.dieInstanceId, job.id);
+      : makerCancelStatus(job.fromStatus);
   const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
   const jobLanded = sql`exists (select 1 from die_maker_job j where j.id = ${job.id} and j.server_seq = ${seq} and j.status = ${to})`;
   const statements: SqliteBatchItem[] = [

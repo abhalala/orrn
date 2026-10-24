@@ -204,6 +204,13 @@
       "when": 1792877266469,
       "tag": "0028_fp_wave2",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1792882666833,
+      "tag": "0029_die_trial",
+      "breakpoints": true
     }
   ]
 }

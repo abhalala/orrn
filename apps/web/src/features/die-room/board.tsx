@@ -24,6 +24,7 @@ import {
   BOARD_SORTS,
   BOARD_TILES,
   boardListInput,
+  copyListInput,
   hasBoardFilters,
   tileCount,
   tilePatch,
@@ -39,6 +40,14 @@ import { WorstToneChip } from "./drift-chips";
 import { formatBand, type DriftTone } from "./die-room-model";
 
 const PAGE = 50;
+
+type CopyRow = {
+  id: string;
+  code: string;
+  sectionSeries: string;
+  sectionWeightMinG: number;
+  sectionWeightMaxG: number;
+};
 
 type Row = {
   id: string;
@@ -70,7 +79,10 @@ export type BoardProps = {
   onClear(): void;
 };
 
-/** `/dies`: every section with its copies counted and the worst drift among the copies on the rack. */
+/**
+ * `/dies`: every section with its copies counted and the worst drift among the copies on the rack. A
+ * copy-status tile counts copies, so pressing it lists those copies (each opens its card).
+ */
 export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onPage, onFilter, onClear }: BoardProps) {
   const { t } = useT();
   const { data: me } = useMe();
@@ -78,8 +90,16 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
   const [attaching, setAttaching] = useState(false);
   const filters: BoardFilters = { q, tile, kind, owner, sort };
 
-  const list = useQuery({
+  const copyInput = copyListInput(filters, { limit: PAGE, offset });
+  const sectionList = useQuery({
     ...trpc.die.list.queryOptions(boardListInput(filters, { limit: PAGE, offset })),
+    enabled: copyInput === null,
+    placeholderData: keepPreviousData,
+    meta: INLINE_ERROR_META,
+  });
+  const copyList = useQuery({
+    ...trpc.dieInstance.list.queryOptions(copyInput ?? { limit: PAGE, offset }),
+    enabled: copyInput !== null,
     placeholderData: keepPreviousData,
     meta: INLINE_ERROR_META,
   });
@@ -111,8 +131,10 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
       key: "range",
       header: t("dieRoom.board.columns.band"),
       align: "end",
+      // On a phone the band takes the whole row, so it never runs into the owner beside it.
+      phoneWide: true,
       cell: (d) => (
-        <span data-no-truncate="" className="font-mono whitespace-nowrap tabular-nums">
+        <span data-no-truncate="" data-testid="board-band" className="font-mono whitespace-nowrap tabular-nums">
           {formatBand(d.weightMinG, d.weightMaxG, t("units.kgPer12ft"))}
         </span>
       ),
@@ -120,7 +142,11 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
     {
       key: "owner",
       header: t("dieRoom.board.columns.owner"),
-      cell: (d) => (d.ownerName ? <span className="font-semibold">{d.ownerName}</span> : <span className="text-muted-foreground">{t("dieRoom.board.plantOwned")}</span>),
+      cell: (d) => (
+        <span data-testid="board-owner" className={d.ownerName ? "font-semibold" : "text-muted-foreground"}>
+          {d.ownerName ?? t("dieRoom.board.plantOwned")}
+        </span>
+      ),
     },
     {
       key: "copies",
@@ -139,7 +165,32 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
     },
   ];
 
-  const rows = (list.data?.items ?? []) as unknown as Row[];
+  const copyColumns: ResponsiveListColumn<CopyRow>[] = [
+    {
+      key: "copy",
+      header: t("dieRoom.board.columns.copy"),
+      cell: (c) => (
+        <span data-no-truncate="" className="font-mono whitespace-nowrap">
+          {c.code}
+        </span>
+      ),
+    },
+    { key: "series", header: t("dieRoom.board.columns.series"), cell: (c) => c.sectionSeries },
+    {
+      key: "range",
+      header: t("dieRoom.board.columns.band"),
+      align: "end",
+      phoneWide: true,
+      cell: (c) => (
+        <span data-no-truncate="" className="font-mono whitespace-nowrap tabular-nums">
+          {formatBand(c.sectionWeightMinG, c.sectionWeightMaxG, t("units.kgPer12ft"))}
+        </span>
+      ),
+    },
+  ];
+
+  const rows = (sectionList.data?.items ?? []) as unknown as Row[];
+  const copyRows = (copyList.data?.items ?? []) as unknown as CopyRow[];
   const searching = q !== "";
   const filtered = hasBoardFilters(filters);
   const menu = [
@@ -223,108 +274,163 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-end gap-3" role="group" aria-label={t("dieRoom.board.filtersLabel")}>
-        <label className="flex min-w-0 flex-col gap-1 text-[13px] font-medium text-muted-foreground">
-          {t("dieRoom.card.profileKind")}
-          <Select
-            aria-label={t("dieRoom.card.profileKind")}
-            value={kind ?? "all"}
-            onValueChange={(v) => onFilter({ kind: v === "all" ? undefined : (v as BoardKind), offset: undefined })}
-            options={[
-              { value: "all", label: t("dieRoom.board.filter.all") },
-              ...BOARD_KINDS.map((k) => ({ value: k, label: t(`dieRoom.card.${k}`) })),
-            ]}
-            width={170}
-          />
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-[13px] font-medium text-muted-foreground">
-          {t("dieRoom.board.columns.owner")}
-          <Select
-            aria-label={t("dieRoom.board.columns.owner")}
-            value={owner ?? "all"}
-            onValueChange={(v) => onFilter({ owner: v === "all" ? undefined : (v as BoardOwner), offset: undefined })}
-            options={[
-              { value: "all", label: t("dieRoom.board.filter.all") },
-              { value: "plant", label: t("dieRoom.board.plantOwned") },
-              { value: "customer", label: t("dieRoom.board.filter.customerOwned") },
-            ]}
-            width={190}
-          />
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-[13px] font-medium text-muted-foreground">
-          {t("dieRoom.board.sortLabel")}
-          <Select
-            aria-label={t("dieRoom.board.sortLabel")}
-            value={sort}
-            onValueChange={(v) => onFilter({ sort: v === "newest" ? undefined : (v as BoardSort), offset: undefined })}
-            options={BOARD_SORTS.map((s) => ({ value: s, label: t(`dieRoom.board.sort.${s}`) }))}
-            width={190}
-          />
-        </label>
-        {filtered ? (
+      {copyInput ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="m-0 min-w-0 flex-1 text-[14px] leading-5 text-muted-foreground" data-testid="board-copies-note">
+            {t("dieRoom.board.copiesNote")}
+          </p>
           <Button variant="secondary" onClick={onClear}>
             {t("dieRoom.board.clearFilters")}
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-end gap-3" role="group" aria-label={t("dieRoom.board.filtersLabel")}>
+          <label className="flex min-w-0 flex-col gap-1 text-[13px] font-medium text-muted-foreground">
+            {t("dieRoom.card.profileKind")}
+            <Select
+              aria-label={t("dieRoom.card.profileKind")}
+              value={kind ?? "all"}
+              onValueChange={(v) => onFilter({ kind: v === "all" ? undefined : (v as BoardKind), offset: undefined })}
+              options={[
+                { value: "all", label: t("dieRoom.board.filter.all") },
+                ...BOARD_KINDS.map((k) => ({ value: k, label: t(`dieRoom.card.${k}`) })),
+              ]}
+              width={170}
+            />
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-[13px] font-medium text-muted-foreground">
+            {t("dieRoom.board.columns.owner")}
+            <Select
+              aria-label={t("dieRoom.board.columns.owner")}
+              value={owner ?? "all"}
+              onValueChange={(v) => onFilter({ owner: v === "all" ? undefined : (v as BoardOwner), offset: undefined })}
+              options={[
+                { value: "all", label: t("dieRoom.board.filter.all") },
+                { value: "plant", label: t("dieRoom.board.plantOwned") },
+                { value: "customer", label: t("dieRoom.board.filter.customerOwned") },
+              ]}
+              width={190}
+            />
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-[13px] font-medium text-muted-foreground">
+            {t("dieRoom.board.sortLabel")}
+            <Select
+              aria-label={t("dieRoom.board.sortLabel")}
+              value={sort}
+              onValueChange={(v) => onFilter({ sort: v === "newest" ? undefined : (v as BoardSort), offset: undefined })}
+              options={BOARD_SORTS.map((s) => ({ value: s, label: t(`dieRoom.board.sort.${s}`) }))}
+              width={190}
+            />
+          </label>
+          {filtered ? (
+            <Button variant="secondary" onClick={onClear}>
+              {t("dieRoom.board.clearFilters")}
+            </Button>
+          ) : null}
+        </div>
+      )}
 
-      <ResponsiveList
-        label={t("dies.listLabel")}
-        rows={rows}
-        columns={columns}
-        rowKey={(d) => d.id}
-        rowHref={(d) => `/dies/${d.id}`}
-        total={list.data?.total}
-        loading={list.isFetching}
-        page={{ offset, limit: PAGE, onChange: onPage }}
-        empty={
-          list.isError ? (
-            <EmptyState
-              title={t("dieRoom.board.loadFailed")}
-              action={
-                <Button variant="secondary" onClick={() => list.refetch()}>
-                  {t("common.retry")}
-                </Button>
-              }
-            />
-          ) : offset > 0 ? (
-            <EmptyState
-              title={t("dies.pageEmpty")}
-              action={
-                <Button variant="secondary" onClick={() => onPage(0)}>
-                  {t("dies.firstPage")}
-                </Button>
-              }
-            />
-          ) : filtered && !searching ? (
-            <EmptyState
-              title={t("dieRoom.board.noFilterMatch")}
-              body={t("dieRoom.board.noFilterMatchBody")}
-              action={
-                <Button variant="secondary" onClick={onClear}>
-                  {t("dieRoom.board.clearFilters")}
-                </Button>
-              }
-            />
-          ) : searching ? (
-            <EmptyState title={t("common.noResults", { query: q })} body={t("dieRoom.board.noMatchBody")} />
-          ) : (
-            <EmptyState
-              title={t("dies.empty")}
-              body={t("dies.emptyBody")}
-              action={
-                <Can do="die.create">
-                  <Button asChild>
-                    <Link to="/dies/$id" params={{ id: "new" }}>
-                      {t("dies.emptyAction")}
-                    </Link>
+      {copyInput ? (
+        <ResponsiveList
+          label={t("dieRoom.board.copiesLabel")}
+          rows={copyRows}
+          columns={copyColumns}
+          rowKey={(c) => c.id}
+          rowHref={(c) => `/dies/copies/${c.id}`}
+          total={copyList.data?.total}
+          loading={copyList.isFetching}
+          page={{ offset, limit: PAGE, onChange: onPage }}
+          empty={
+            copyList.isError ? (
+              <EmptyState
+                title={t("dieRoom.board.loadFailed")}
+                action={
+                  <Button variant="secondary" onClick={() => copyList.refetch()}>
+                    {t("common.retry")}
                   </Button>
-                </Can>
-              }
-            />
-          )
-        }
-      />
+                }
+              />
+            ) : offset > 0 ? (
+              <EmptyState
+                title={t("dies.pageEmpty")}
+                action={
+                  <Button variant="secondary" onClick={() => onPage(0)}>
+                    {t("dies.firstPage")}
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                title={t("dieRoom.board.noCopiesInState")}
+                body={t("dieRoom.board.noCopiesInStateBody")}
+                action={
+                  <Button variant="secondary" onClick={onClear}>
+                    {t("dieRoom.board.clearFilters")}
+                  </Button>
+                }
+              />
+            )
+          }
+        />
+      ) : (
+        <ResponsiveList
+          label={t("dies.listLabel")}
+          rows={rows}
+          columns={columns}
+          rowKey={(d) => d.id}
+          rowHref={(d) => `/dies/${d.id}`}
+          total={sectionList.data?.total}
+          loading={sectionList.isFetching}
+          page={{ offset, limit: PAGE, onChange: onPage }}
+          empty={
+            sectionList.isError ? (
+              <EmptyState
+                title={t("dieRoom.board.loadFailed")}
+                action={
+                  <Button variant="secondary" onClick={() => sectionList.refetch()}>
+                    {t("common.retry")}
+                  </Button>
+                }
+              />
+            ) : offset > 0 ? (
+              <EmptyState
+                title={t("dies.pageEmpty")}
+                action={
+                  <Button variant="secondary" onClick={() => onPage(0)}>
+                    {t("dies.firstPage")}
+                  </Button>
+                }
+              />
+            ) : filtered && !searching ? (
+              <EmptyState
+                title={t("dieRoom.board.noFilterMatch")}
+                body={t("dieRoom.board.noFilterMatchBody")}
+                action={
+                  <Button variant="secondary" onClick={onClear}>
+                    {t("dieRoom.board.clearFilters")}
+                  </Button>
+                }
+              />
+            ) : searching ? (
+              <EmptyState title={t("common.noResults", { query: q })} body={t("dieRoom.board.noMatchBody")} />
+            ) : (
+              <EmptyState
+                title={t("dies.empty")}
+                body={t("dies.emptyBody")}
+                action={
+                  <Can do="die.create">
+                    <Button asChild>
+                      <Link to="/dies/$id" params={{ id: "new" }}>
+                        {t("dies.emptyAction")}
+                      </Link>
+                    </Button>
+                  </Can>
+                }
+              />
+            )
+          }
+        />
+      )}
 
       <TrialSetting />
 
@@ -333,7 +439,8 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
         open={importing}
         onOpenChange={setImporting}
         onImported={() => {
-          void list.refetch();
+          void sectionList.refetch();
+          void copyList.refetch();
           void counts.refetch();
         }}
       />
