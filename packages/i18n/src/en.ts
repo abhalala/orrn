@@ -1114,6 +1114,7 @@ export const en = {
     serverBody: "The problem is on orrn's side, not this phone. Try again in a minute.",
     saveUnsureTitle: "Not sure it saved",
     saveUnsureBody: "orrn didn't confirm this save, so it may have gone through. Check before you try again.",
+    monthsShort: "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
   },
 
   /** Component library chrome (@orrn/ui): screen-reader and helper text. */

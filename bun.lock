@@ -28,6 +28,7 @@
         "@expo/metro-runtime": "~55.0.10",
         "@expo/vector-icons": "^15.1.1",
         "@orrn/documents": "workspace:*",
+        "@orrn/domain": "workspace:*",
         "@orrn/env": "workspace:*",
         "@orrn/i18n": "workspace:*",
         "@orrn/server": "workspace:*",
