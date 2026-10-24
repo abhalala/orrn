@@ -11,8 +11,10 @@ import { useEffect, useRef, useState } from "react";
 import { BundleList } from "@/features/stock/bundle-list";
 import { PAGE_SIZE, offsetOf, pageWithinTotal, validateBundlesSearch } from "@/features/stock/bundle-search";
 import { failedWithoutData } from "@/features/stock/section-page";
-import { sectionLabel } from "@/features/stock/sections";
 import { StatusFilter, type StatusFilterValue } from "@/features/stock/status-filter";
+import { StockFilterBar } from "@/features/stock/stock-filter-bar";
+import { stockFilterInput, withoutFilters } from "@/features/stock/stock-filters";
+import { StockTotals } from "@/features/stock/stock-totals";
 import { StockViewSwitch } from "@/features/stock/stock-view-switch";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -60,8 +62,9 @@ function AllBundles() {
     ...trpc.bundle.listBundles.queryOptions({
       status: status === "all" ? undefined : status,
       search: search.q,
-      dieId: search.dieId,
       groupId: search.groupId,
+      // yard, customer, order, plant stock, kind, packed date and section (dieId), as the URL holds them
+      ...stockFilterInput(search),
       limit: PAGE_SIZE,
       offset: offsetOf(search.page),
     }),
@@ -82,23 +85,24 @@ function AllBundles() {
     const page = offset / PAGE_SIZE + 1;
     navigate({ search: (prev) => ({ ...prev, page: page > 1 ? page : undefined }) });
   };
-  const clearScope = () => navigate({ search: (prev) => ({ ...prev, dieId: undefined, groupId: undefined, page: undefined }) });
+  const clearScope = () => navigate({ search: (prev) => ({ ...prev, groupId: undefined, page: undefined }) });
   // Name what an old /bundles?dieId=|groupId= link shows; every row shares it. No rows: the plain wording.
   const first = bundles.isPlaceholderData ? undefined : bundles.data?.items[0];
   const scope = search.groupId
     ? first
       ? t("stock.list.filterGroupNamed", { code: first.groupCode })
       : t("stock.list.filterGroup")
-    : search.dieId
-      ? first
-        ? t("stock.list.filterDieNamed", { section: sectionLabel({ series: first.dieSeries, sectionCode: first.dieSectionCode }) })
-        : t("stock.list.filterDie")
-      : null;
+    : null;
 
   return (
     <>
       <PageHeader title={t("stock.list.title")} />
       <StockViewSwitch current="bundles" />
+      <StockFilterBar
+        filter={search}
+        onChange={(patch) => void navigate({ search: (prev) => ({ ...prev, ...patch, page: undefined }) })}
+        onClear={() => void navigate({ search: (prev) => withoutFilters({ ...prev, page: undefined }) })}
+      />
 
       <div className="flex flex-col gap-3">
         <Field label={t("stock.list.search")} className="md:max-w-sm">
@@ -124,6 +128,12 @@ function AllBundles() {
           </div>
         ) : null}
       </div>
+
+      <StockTotals
+        totals={bundles.data ? { bundles: Number(bundles.data.total), weightG: sumKinds(bundles.data.kindTotals) } : undefined}
+        kinds={bundles.data?.kindTotals}
+        loading={bundles.isPending}
+      />
 
       <BundleList
         rows={bundles.data?.items ?? []}
@@ -157,4 +167,9 @@ function AllBundles() {
       />
     </>
   );
+}
+
+/** Σ kg over the four kind buckets (the server counted them over the whole filter). */
+function sumKinds(k: Record<"hollow" | "solid" | "semi" | "none", { weightG: number }>): number {
+  return k.hollow.weightG + k.solid.weightG + k.semi.weightG + k.none.weightG;
 }

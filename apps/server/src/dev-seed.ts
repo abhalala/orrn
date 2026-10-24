@@ -1248,10 +1248,11 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         const source = bundleRows.find((r) => r.status === "available" && !r.currentDispatchId);
         if (source) {
           const clashId = "dev-bundle-party-clash";
-          // The plant series must already be past that serial, or the first bundle packed in the month
-          // is given "26J1" and collides with the clash bundle (the seed owns numbers up to it).
+          // The plant series must be past the party numbers (26J1..26J20): the first bundle packed in the
+          // month would otherwise be given "26J1" and collide with the clash bundle, and every bundle after
+          // it with a party number of the monthly customer. The demo plant is at about 4,000 a month.
           const clashPeriod = docPeriod("bundle", new Date(source.createdAt as Date), DEMO_SETTINGS.timezone);
-          const clashSeq = Number(/(\d+)$/.exec(numbers[0]!)?.[1] ?? 0);
+          const clashSeq = Math.max(4_000, Number(/(\d+)$/.exec(numbers[0]!)?.[1] ?? 0));
           await atomicBatch(db, [
             db
               .delete(docSeries)

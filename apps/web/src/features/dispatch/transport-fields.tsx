@@ -144,8 +144,8 @@ function TransporterPicker({ value, onChange }: { value: string; onChange(id: st
 
   return (
     <div className="flex min-w-0 flex-col gap-2 sm:max-w-[360px]">
-      <Field label={t("dispatch.transporter.label")}>
-        <NativeSelect value={value} onChange={(e) => onChange(e.currentTarget.value)} data-testid="transporter-select">
+      <Field label={t("dispatch.transporter.label")} id="transporter-select">
+        <NativeSelect id="transporter-select" value={value} onChange={(e) => onChange(e.currentTarget.value)} data-testid="transporter-select">
           <option value="">{t("dispatch.transporter.none")}</option>
           {items.map((tr) => (
             <option key={tr.id} value={tr.id}>

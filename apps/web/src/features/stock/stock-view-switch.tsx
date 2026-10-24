@@ -3,15 +3,17 @@ import { cn } from "@orrn/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
 
 /**
- * Sections | Bundles: the two Stock views (spec §3 Stock). They are two
- * pages, so this is a pair of links with `aria-current`, drawn like the C2
+ * Sections | Lengths | Bundles | Yards: the Stock views (spec §3 Stock). They are two
+ * pages, so this is a row of links with `aria-current`, drawn like the C2
  * segmented control. Links, not a radio group: switching loads a page.
  */
-export function StockViewSwitch({ current }: { current: "sections" | "bundles" }) {
+export function StockViewSwitch({ current }: { current: "sections" | "lengths" | "bundles" | "yards" }) {
   const { t } = useT();
   const items = [
     { key: "sections", to: "/stock", label: t("stock.sections") },
+    { key: "lengths", to: "/stock/lengths", label: t("stock.lengths") },
     { key: "bundles", to: "/stock/bundles", label: t("stock.bundles") },
+    { key: "yards", to: "/stock/yards", label: t("stock.yards") },
   ] as const;
   return (
     <nav aria-label={t("stock.view")} className="flex">
@@ -24,7 +26,7 @@ export function StockViewSwitch({ current }: { current: "sections" | "bundles" }
                 to={item.to}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "animate-press inline-flex h-11 w-full min-w-0 items-center justify-center rounded-full px-5 text-[15px] font-semibold whitespace-nowrap no-underline transition-[color,background-color,scale] duration-[var(--dur-fast)]",
+                  "animate-press inline-flex h-11 w-full min-w-0 items-center justify-center rounded-full px-3 sm:px-5 text-[15px] font-semibold whitespace-nowrap no-underline transition-[color,background-color,scale] duration-[var(--dur-fast)]",
                   active
                     ? "bg-card text-foreground shadow-sm dark:bg-surface-sunken dark:ring-1 dark:ring-control/40"
                     : "text-muted-foreground hover:text-foreground",

@@ -72,3 +72,34 @@ export function reprintTarget(input: string): string | null {
   const serial = input.trim();
   return serial.length > 0 && serial.length <= 64 ? serial : null;
 }
+
+/** A frame newer than this at the time the node reported counts as "the scale is talking". */
+export const SCALE_FRAME_FRESH_MS = 10_000;
+
+export type ScaleRow =
+  | { kind: "unknown" }
+  | { kind: "none" }
+  | { kind: "idle"; simulated: boolean; reportedAt: Date }
+  | { kind: "connected"; simulated: boolean; lastFrameAt: Date; reportedAt: Date };
+
+/**
+ * The scale row of a print computer (FP-PK-02), from what the node last reported in its signed heartbeat:
+ * never reported, no scale, a scale that has not sent a recent frame, or one that is talking. Said as of
+ * that report, not now: the page never claims a live connection.
+ */
+export function scaleRowOf(node: {
+  scaleConfigured: boolean | null;
+  scaleSimulated: boolean | null;
+  scaleLastFrameAt: Date | string | number | null;
+  scaleReportedAt: Date | string | number | null;
+}): ScaleRow {
+  const reported = node.scaleReportedAt == null ? null : new Date(node.scaleReportedAt);
+  if (node.scaleConfigured == null || !reported || Number.isNaN(reported.getTime())) return { kind: "unknown" };
+  if (!node.scaleConfigured) return { kind: "none" };
+  const simulated = node.scaleSimulated === true;
+  const frame = node.scaleLastFrameAt == null ? null : new Date(node.scaleLastFrameAt);
+  if (frame && !Number.isNaN(frame.getTime()) && reported.getTime() - frame.getTime() <= SCALE_FRAME_FRESH_MS) {
+    return { kind: "connected", simulated, lastFrameAt: frame, reportedAt: reported };
+  }
+  return { kind: "idle", simulated, reportedAt: reported };
+}

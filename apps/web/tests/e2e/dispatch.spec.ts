@@ -4,6 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
+import { toPlantStock } from "./helpers/plant-stock";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
@@ -62,6 +63,8 @@ async function packFresh(page: Page, count: number) {
     limit: 100,
   });
   expect(list.items).toHaveLength(count);
+  // Bundles packed for no order are "not on a sales order" (D12): the floor scan refuses them, so they go to plant stock first.
+  await toPlantStock(list.items.map((b) => b.serial));
   return list.items;
 }
 
