@@ -1,3 +1,5 @@
+import { productionDayStartMin, readFloorSettings, resolveShift } from "@orrn/domain";
+
 export const DEFAULT_TIMEZONE = "Asia/Kolkata";
 
 export type Ymd = { year: number; month: number; day: number };
@@ -114,4 +116,62 @@ export function isValidTimezone(timezone: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** UTC instant at which the wall clock in `timezone` reads `ymd` + `minuteOfDay` (day may overflow). */
+export function zonedWallMs(timezone: string, ymd: Ymd, minuteOfDay: number): number {
+  const fmt = formatterFor(timezone);
+  const guess = Date.UTC(ymd.year, ymd.month - 1, ymd.day, 0, minuteOfDay);
+  let at = guess - offsetMs(fmt, guess);
+  // Re-evaluate at the candidate so a DST change between guess and answer settles.
+  at = guess - offsetMs(fmt, at);
+  return at;
+}
+
+export type ProductionDayWindow = {
+  /** [startMs, endMs): shift 1's start to the next shift 1 start; local midnight with no shifts. */
+  startMs: number;
+  endMs: number;
+  /** `YYYY-MM-DD`; before shift 1 starts it is the previous calendar day (C15). */
+  productionDay: string;
+  timezone: string;
+  /** False = no shifts saved: the window is the calendar day (Today caption says "since midnight"). */
+  shiftsSet: boolean;
+  /** Shift 1's start, minutes from local midnight (0 with no shifts). */
+  startMin: number;
+  /** The shift the instant falls in, or null with no shifts. */
+  shift: { id: string; name: string; seq: number } | null;
+};
+
+/**
+ * The production day containing `nowMs` for a company's settings (FP-PF-05; platform spec §4
+ * Shifts helper). Used by Today, pack's packed-today and the press daily summary. A changed shift
+ * 1 start moves the window from the next read on; nothing already counted is rewritten.
+ * `monthStartMs`, FY rollover and bundle month letters stay on calendar midnight.
+ */
+export function productionDayWindow(
+  settings: Record<string, unknown> | null | undefined,
+  nowMs: number = Date.now(),
+): ProductionDayWindow {
+  const timezone = companyTimezone(settings);
+  const { shifts } = readFloorSettings(settings);
+  const { utc, ymd } = wallClockAsUtc(formatterFor(timezone), nowMs);
+  const minuteOfDay = Math.floor((utc - Date.UTC(ymd.year, ymd.month - 1, ymd.day)) / 60_000);
+  const resolved = resolveShift(shifts, { ...ymd, minuteOfDay });
+  const [year, month, day] = resolved.productionDay.split("-").map(Number) as [number, number, number];
+  const startMin = productionDayStartMin(shifts);
+  const startMs = zonedWallMs(timezone, { year, month, day }, startMin);
+  const endMs = zonedWallMs(timezone, { year, month, day: day + 1 }, startMin);
+  return {
+    startMs,
+    endMs,
+    productionDay: resolved.productionDay,
+    timezone,
+    shiftsSet: shifts.length > 0,
+    startMin,
+    shift:
+      resolved.shiftId && resolved.shiftName && resolved.shiftSeq
+        ? { id: resolved.shiftId, name: resolved.shiftName, seq: resolved.shiftSeq }
+        : null,
+  };
 }

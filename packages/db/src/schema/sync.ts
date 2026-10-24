@@ -31,16 +31,27 @@ export const device = sqliteTable(
     installId: text("install_id").notNull(),
     pushToken: text("push_token"),
     lastSeenAt: integer("last_seen_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
-    /** Devices screen (FP-PF): a revoked device's next sync is refused until it signs in again. */
+    /**
+     * Devices screen (FP-PF-11): revoking ends the session the device last registered with
+     * (`auth_session_id`), its next `device.register` is refused (and ends the session that asked), and
+     * `release.check` with its install id answers Blocked. Restore lets it register again.
+     */
     revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
     revokedBy: text("revoked_by").references(() => user.id, { onDelete: "set null" }),
     /** Display name the plant gives it ("Pack tablet 1"). */
     label: text("label"),
+    /**
+     * Better Auth `session.id` of the last `device.register` (0026). Not a bearer token (the
+     * session token is separate); used only so a revoke can end that session.
+     */
+    authSessionId: text("auth_session_id"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
   },
   (table) => [
     uniqueIndex("device_company_install_unique").on(table.companyId, table.installId),
     index("device_company_user_idx").on(table.companyId, table.userId),
+    // Public `release.check` looks an install up across plants (0026).
+    index("device_install_idx").on(table.installId),
   ],
 );
 

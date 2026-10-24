@@ -107,10 +107,18 @@ export const inviteRouter = router({
          throw new TRPCError({ code: "BAD_REQUEST", message: "Invite is no longer pending" });
       }
 
-      await ctx.db
-        .update(invite)
-        .set({ revokedAt: new Date() })
-        .where(eq(invite.id, input.inviteId));
+      await atomicBatch(ctx.db, [
+        ctx.db
+          .update(invite)
+          .set({ revokedAt: new Date() })
+          .where(and(eq(invite.id, input.inviteId), eq(invite.companyId, ctx.companyId))),
+        auditInsert(ctx, {
+          action: "member.invite.revoke",
+          subjectType: "invite",
+          subjectId: input.inviteId,
+          meta: { email: targetInvite.email, role: targetInvite.role },
+        }),
+      ]);
 
       return { success: true };
     }),
@@ -158,6 +166,15 @@ export const inviteRouter = router({
           .update(invite)
           .set({ acceptedAt: new Date() })
           .where(eq(invite.id, targetInvite.id)),
+        auditInsert(
+          { ...ctx, companyId: targetInvite.companyId },
+          {
+            action: "member.invite.accept",
+            subjectType: "membership",
+            subjectId: membershipId,
+            meta: { inviteId: targetInvite.id, role: targetInvite.role },
+          },
+        ),
       ]);
 
       return { success: true };

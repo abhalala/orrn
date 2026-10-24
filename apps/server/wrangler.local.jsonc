@@ -11,8 +11,11 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "orrn-local", "database_id": "local", "migrations_dir": "../../packages/db/src/migrations" }
   ],
-  // Die files (FP-DR-07/13); local wrangler simulates the bucket on disk.
-  "r2_buckets": [{ "binding": "DIE_FILES", "bucket_name": "orrn-die-files-local" }],
+  // Die files (FP-DR-07/13) and daily backups (FP-PF-12); local wrangler simulates the buckets on disk.
+  "r2_buckets": [
+    { "binding": "DIE_FILES", "bucket_name": "orrn-die-files-local" },
+    { "binding": "BACKUPS", "bucket_name": "orrn-backups-local" }
+  ],
   "vars": {
     "NODE_ENV": "development",
     "CORS_ORIGIN": "http://localhost:3002",

@@ -58,7 +58,11 @@ export function validateShifts(shifts: readonly Shift[]): ShiftError[] {
   if (!seqs.every((v, i) => v === i + 1)) errors.add("seq");
   if (errors.has("minute_range") || errors.has("count")) return [...errors];
 
-  if (shifts.length === 1) return [...errors];
+  // One shift must be the whole day (start == end); 08:00-20:00 alone leaves 12 h uncovered.
+  if (shifts.length === 1) {
+    if (shifts[0]!.startMin !== shifts[0]!.endMin) errors.add("gap_or_overlap");
+    return [...errors];
+  }
   if (shifts.some((s) => s.startMin === s.endMin)) {
     errors.add("zero_length");
     return [...errors];
