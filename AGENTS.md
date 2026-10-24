@@ -620,6 +620,7 @@ bun run deploy
   batch; audit `plan.update`). `plans.openLinesForDies({ dieIds, planId?, excludeLineIds? })` lists
   every open line on those dies with planable kg (party, SO number + period, PO, length, planable
   kg / pcs, `ownerBlocked` + `ownerName`); release warnings carry the same fields.
+  `plans.pressLines` (members) lists active press lines for the plan's press pick.
   `plans.list` subqueries name the outer plan as `"press_plan"."id"` (a bare column binds inside).
   `orders.quote({ …, lineId })` quotes a saved line on its locked basis (`locked: true`) unless the
   section, pin or basis choice changed; `orders.get` / `orders.list` return `lateDays` (late rule).
