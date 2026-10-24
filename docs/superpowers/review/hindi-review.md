@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3435 screen strings in 43 groups, 16 guides with 292 strings.
+Counts: 3436 screen strings in 43 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -2769,7 +2769,7 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (405)
+### dieRoom (406)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2879,6 +2879,7 @@ Please check, Lalubhai:
 | `drift.red` | Over band | बैंड से ज़्यादा |
 | `drift.value` | {pct}% over band start | बैंड शुरू से {pct}% ज़्यादा |
 | `drift.none` | No reading | कोई रीडिंग नहीं |
+| `issue.returnedTrial` | Back on trial | ट्रायल पर लौटी |
 | `issue.title` | Issue to press | प्रेस को दें |
 | `issue.issue` | Issue | दें |
 | `issue.return` | Take back | वापस लें |

@@ -194,9 +194,9 @@ function OpenIssues() {
   });
   const giveBack = useMutation({
     ...trpc.dieInstance.issues.return.mutationOptions(),
-    onSuccess: async () => {
+    onSuccess: async (r) => {
       await refresh();
-      toast.success(t("dieRoom.issue.returned"));
+      toast.success(r.status === "on_trial" ? t("dieRoom.issue.returnedTrial") : t("dieRoom.issue.returned"));
     },
     onError: (e) => toast.error(refusal(e)),
   });

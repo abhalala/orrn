@@ -417,8 +417,9 @@ export const dieIssueRouter = router({
           ),
       ];
       if (issue.run) statements.push(requeueRun(ctx, issue, seq, "returned"));
-      await runIssueClose(ctx, issue, seq, statements, "returned", await statusAfterReturn(ctx.db, ctx.companyId, issue.dieInstanceId, issue.id, issue.run?.id));
-      return { success: true };
+      const status = await statusAfterReturn(ctx.db, ctx.companyId, issue.dieInstanceId, issue.id, issue.run?.id);
+      await runIssueClose(ctx, issue, seq, statements, "returned", status);
+      return { success: true, status };
     }),
 
   /** Undo an issue before die-in: copy back to the rack, the run back to `queued` with no copy. */
@@ -444,8 +445,9 @@ export const dieIssueRouter = router({
           .where(and(eq(dieIssue.id, issue.id), eq(dieIssue.companyId, ctx.companyId), eq(dieIssue.status, "issued"))),
       ];
       if (issue.run) statements.push(requeueRun(ctx, issue, seq, "cancelled"));
-      await runIssueClose(ctx, issue, seq, statements, "cancelled", await statusAfterReturn(ctx.db, ctx.companyId, issue.dieInstanceId, issue.id, issue.run?.id));
-      return { success: true };
+      const status = await statusAfterReturn(ctx.db, ctx.companyId, issue.dieInstanceId, issue.id, issue.run?.id);
+      await runIssueClose(ctx, issue, seq, statements, "cancelled", status);
+      return { success: true, status };
     }),
 });
 

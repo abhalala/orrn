@@ -990,7 +990,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       updatedAt: new Date(pastAt(9, 10)),
     },
   ];
-  type CopyDef = { section: string; code: string; seqNo: number; tier: number | null; status: "available" | "in_use"; bandId?: string; readings: number[]; lifeG?: number };
+  type CopyDef = { section: string; code: string; seqNo: number; tier: number | null; status: "available" | "in_use" | "on_trial"; bandId?: string; readings: number[]; lifeG?: number };
   const COPIES: CopyDef[] = [
     { section: "tee125", code: "13090-1", seqNo: 1, tier: 1, status: "available", readings: [2_740, 2_760], lifeG: 60_000_000 },
     { section: "tee125", code: "13090-2", seqNo: 2, tier: 2, status: "available", readings: [2_910, 2_950] },
@@ -1004,6 +1004,9 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     { section: "tee125", code: "13090-8", seqNo: 8, tier: 1, status: "available", readings: [2_760] },
     { section: "tee125", code: "13090-9", seqNo: 9, tier: 1, status: "available", readings: [2_760] },
     { section: "tee125", code: "13090-10", seqNo: 10, tier: 2, status: "available", readings: [2_910, 2_950] },
+    // FP-DR-17 (W2-DR2 e2e): three copies on trial per width. A: issued to the width's own trial run and taken
+    // back; B: released by the owner with a reason; C: maker numbers, bulk file. Parallel workers never share one.
+    ...Array.from({ length: 9 }, (_, i): CopyDef => ({ section: "tee125", code: `13090-${11 + i}`, seqNo: 11 + i, tier: 1, status: "on_trial", readings: [] })),
     { section: "chan1", code: "12230-1", seqNo: 1, tier: 1, status: "available", readings: [2_850] },
     { section: "patti1", code: "14701-1", seqNo: 1, tier: 1, status: "in_use", readings: [2_480] },
   ];
@@ -1090,8 +1093,24 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       createdAt: new Date(todayAt(0.06)),
       updatedAt: new Date(todayAt(0.06)),
     })),
+    // Die trial runs for Tee (plan PP-2, purpose die_trial): the only runs a copy on trial may be issued to.
+    // One per width of the die room e2e (PR-5, PR-6, PR-7).
+    ...(["PR-5", "PR-6", "PR-7"] as const).map((number) => ({
+      id: `dev-run-13090-trial-${number}`,
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number,
+      period: pressRunPeriod,
+      status: "queued" as const,
+      planId: "dev-plan-trial-2",
+      pressLineId: "dev-press-line-1",
+      sectionId: dieId("tee125"),
+      createdBy: ownerId,
+      createdAt: new Date(todayAt(0.07)),
+      updatedAt: new Date(todayAt(0.07)),
+    })),
   ];
-  // The press run book continues after PR-4.
+  // The press run book continues after PR-7.
   const pressRunSeriesRows: (typeof docSeries.$inferInsert)[] = [
     { id: `dev-series-press_run-${pressRunPeriod}`, companyId: COMPANY_ID, docType: "press_run", period: pressRunPeriod, value: pressRunRows.length, createdBy: ownerId },
   ];
@@ -1128,6 +1147,23 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       createdBy: ownerId,
     },
   ];
+  // A released die trial plan (PP-2) holding the trial runs PR-5..PR-7 of Tee.
+  trialPlanRows.push({
+    id: "dev-plan-trial-2",
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    number: "PP-2",
+    period: pressPlanPeriod,
+    status: "released",
+    purpose: "die_trial",
+    pressLineId: "dev-press-line-1",
+    windowStart: new Date(todayWindowStart),
+    windowEnd: new Date(todayWindowStart + 12 * 60 * 60 * 1000),
+    note: "Trial of the new Tee copies",
+    releasedAt: new Date(todayAt(0.07)),
+    releasedBy: ownerId,
+    createdBy: ownerId,
+  });
   const trialPlanDieRows: (typeof pressPlanDie.$inferInsert)[] = [
     { id: "dev-plan-trial-1-die-1", companyId: COMPANY_ID, serverSeq: nextSeq(), pressPlanId: "dev-plan-trial-1", sectionId: dieId("patti1"), sortOrder: 1, createdBy: ownerId },
   ];
@@ -1362,10 +1398,11 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     ...insertChunks(db, dieInstance, copyRows),
     ...insertChunks(db, dieTierChange, copyTierRows),
     ...insertChunks(db, dieWeightReading, readingRows),
+    // Plans before the runs that point at them (PP-2 holds the die trial runs).
+    ...insertChunks(db, pressPlan, trialPlanRows),
     ...insertChunks(db, pressRun, pressRunRows),
     ...insertChunks(db, docSeries, pressRunSeriesRows),
     ...insertChunks(db, dieIssue, dieIssueRows),
-    ...insertChunks(db, pressPlan, trialPlanRows),
     ...insertChunks(db, pressPlanDie, trialPlanDieRows),
     ...insertChunks(db, docSeries, pressPlanSeriesRows),
   ];

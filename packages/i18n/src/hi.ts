@@ -3108,6 +3108,7 @@ export const hi = {
       none: "कोई रीडिंग नहीं",
     },
     issue: {
+      returnedTrial: "ट्रायल पर लौटी",
       title: "प्रेस को दें",
       issue: "दें",
       return: "वापस लें",

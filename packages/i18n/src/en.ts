@@ -3121,6 +3121,7 @@ export const en = {
       none: "No reading",
     },
     issue: {
+      returnedTrial: "Back on trial",
       title: "Issue to press",
       issue: "Issue",
       return: "Take back",
