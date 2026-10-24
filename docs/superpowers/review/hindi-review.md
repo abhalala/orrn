@@ -2930,7 +2930,7 @@ Please check, Lalubhai:
 | `lastOk` | Last good backup | आखिरी सही बैकअप |
 | `none` | No backup yet. The first one runs overnight. | अभी कोई बैकअप नहीं। पहला रात में चलेगा। |
 | `lastAttempt` | Last try: {status}, {time} | आखिरी कोशिश: {status}, {time} |
-| `size` | {mb} MB | {mb} MB |
+| `size` | {mb} megabytes | {mb} मेगाबाइट |
 | `drillTitle` | Restore drill | रिस्टोर ड्रिल |
 | `drillNone` | No restore drill yet. orrn runs one every quarter. | अभी कोई रिस्टोर ड्रिल नहीं हुई। orrn हर तिमाही एक चलाता है। |
 | `drillBody` | A drill restores the latest backup into a scratch copy and compares the counts of customers, dies, bundles and dispatches. Your live data is not touched. | ड्रिल में ताज़ा बैकअप को एक अलग कॉपी में बहाल करके ग्राहक, die, bundle और dispatch की गिनती मिलाई जाती है। आपका असली डेटा नहीं छुआ जाता। |

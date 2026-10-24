@@ -3265,7 +3265,7 @@ export const en = {
     lastOk: "Last good backup",
     none: "No backup yet. The first one runs overnight.",
     lastAttempt: "Last try: {status}, {time}",
-    size: "{mb} MB",
+    size: "{mb} megabytes",
     drillTitle: "Restore drill",
     drillNone: "No restore drill yet. orrn runs one every quarter.",
     drillBody: "A drill restores the latest backup into a scratch copy and compares the counts of customers, dies, bundles and dispatches. Your live data is not touched.",
