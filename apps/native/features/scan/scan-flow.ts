@@ -1,4 +1,4 @@
-import { classifyCode } from "@orrn/domain";
+import { classifyCode, parseScan } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 
 /**
@@ -40,3 +40,39 @@ export function scanLogEntry(input: { serial: string; kind: ScanLogKind; text?: 
 
 /** The list keeps this many lines, newest first. */
 export const SCAN_LOG_SIZE = 8;
+
+/** Adds a line to the recent-scans list: newest first, capped at `SCAN_LOG_SIZE`. */
+export function pushScanLog(log: readonly ScanLogEntry[], entry: ScanLogEntry): ScanLogEntry[] {
+  return [entry, ...log].slice(0, SCAN_LOG_SIZE);
+}
+
+/**
+ * The key a camera read is de-duplicated by. A label read as a link and as a
+ * bare number (or in another case) counts once, so the key is the parsed
+ * serial; text that is not a serial is keyed by itself.
+ */
+export function dedupeKey(raw: string): string {
+  const value = raw.trim();
+  const parsed = parseScan(value);
+  return parsed.kind === "serial" ? parsed.serial : value;
+}
+
+/** What a raw read is, before any request: a serial to look up, or nothing we know. */
+export function readSerial(raw: string): { kind: "serial"; serial: string } | { kind: "unrecognised" } {
+  const parsed = parseScan(raw);
+  return parsed.kind === "serial" ? { kind: "serial", serial: parsed.serial } : { kind: "unrecognised" };
+}
+
+/** The Scan tab's route params: with a dispatch it scans into it, without one it only looks bundles up. */
+export type ScanMode = { kind: "lookup" } | { kind: "dispatch"; dispatchId: string; code: string | null };
+
+function firstParam(v: string | string[] | undefined): string | undefined {
+  const x = Array.isArray(v) ? v[0] : v;
+  return x && x.length > 0 ? x : undefined;
+}
+
+export function scanMode(params: { dispatchId?: string | string[]; code?: string | string[] }): ScanMode {
+  const dispatchId = firstParam(params.dispatchId);
+  if (!dispatchId) return { kind: "lookup" };
+  return { kind: "dispatch", dispatchId, code: firstParam(params.code) ?? null };
+}
