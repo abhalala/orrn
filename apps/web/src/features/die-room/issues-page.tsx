@@ -4,7 +4,7 @@ import { Card, CardTitle } from "@orrn/ui/components/card";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Field } from "@orrn/ui/components/field";
-import { TextArea } from "@orrn/ui/components/input";
+
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Select } from "@orrn/ui/components/select";
@@ -13,6 +13,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { FieldTextArea } from "@/features/catalog/field-text-area";
 import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
@@ -72,7 +73,7 @@ function IssueForm() {
   const chosenLine = lineId || lineOptions[0]?.value || "";
 
   return (
-    <Card>
+    <Card data-testid="issue-form">
       <CardTitle>{t("dieRoom.issue.title")}</CardTitle>
       {copies.isSuccess && copyOptions.length === 0 ? (
         <EmptyState title={t("dieRoom.issues.noneOnRack")} body={t("dieRoom.issues.noneOnRackBody")} className="py-6" />
@@ -88,7 +89,7 @@ function IssueForm() {
             <Select value={chosenLine} onValueChange={setLineId} options={lineOptions} placeholder={t("dieRoom.issues.pickLine")} />
           </Field>
           <Field label={t("common.note")} hint={t("common.optional")}>
-            <TextArea value={note} onChangeText={setNote} rows={2} maxLength={500} />
+            <FieldTextArea value={note} onChangeText={setNote} rows={2} maxLength={500} />
           </Field>
           {error ? (
             <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
@@ -240,7 +241,7 @@ function OwnerCheck() {
   const customerName = customerOptions.find((c) => c.value === customerId)?.label ?? "";
 
   return (
-    <Card className="min-w-0 self-start">
+    <Card className="min-w-0 self-start" data-testid="owner-check">
       <CardTitle>{t("dieRoom.owner.checkTitle")}</CardTitle>
       <p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("dieRoom.owner.checkBody")}</p>
       <Field label={t("dieRoom.copies.copy")}>
@@ -312,7 +313,7 @@ function OwnerCheck() {
                 ) : (
                   <Can do={["order.manage", "order.plan", "press.run", "bundle.pack", "dispatch.create"]}>
                     <Field label={t("dieRoom.owner.whyLabel")}>
-                      <TextArea value={note} onChangeText={setNote} rows={2} maxLength={500} />
+                      <FieldTextArea value={note} onChangeText={setNote} rows={2} maxLength={500} />
                     </Field>
                     {error ? (
                       <p role="alert" className="m-0 text-[14px] font-medium">

@@ -4,7 +4,7 @@ import { Card, CardTitle } from "@orrn/ui/components/card";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Field, NumberInput } from "@orrn/ui/components/field";
-import { TextArea } from "@orrn/ui/components/input";
+
 import { Select } from "@orrn/ui/components/select";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Sheet } from "@orrn/ui/components/sheet";
@@ -13,6 +13,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { FieldTextArea } from "@/features/catalog/field-text-area";
 import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
@@ -206,7 +207,7 @@ function SendSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
           />
         </div>
         <Field label={t("common.note")} hint={t("common.optional")}>
-          <TextArea value={note} onChangeText={setNote} rows={2} maxLength={500} />
+          <FieldTextArea value={note} onChangeText={setNote} rows={2} maxLength={500} />
         </Field>
         {error ? (
           <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
@@ -290,7 +291,7 @@ function ReceiveSheet({
           </Field>
         )}
         <Field label={t("common.note")} hint={t("common.optional")}>
-          <TextArea value={note} onChangeText={setNote} rows={2} maxLength={500} />
+          <FieldTextArea value={note} onChangeText={setNote} rows={2} maxLength={500} />
         </Field>
         {error ? (
           <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
