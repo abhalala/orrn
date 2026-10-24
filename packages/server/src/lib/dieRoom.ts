@@ -20,8 +20,9 @@ import { dieIssue } from "@orrn/db/schema/press";
 import { company } from "@orrn/db/schema/tenant";
 import { TRPCError } from "@trpc/server";
 import { and, eq, getTableColumns, inArray, isNull, sql, type SQL } from "drizzle-orm";
+import { z } from "zod";
 
-import type { OrrnDb, SqliteBatchItem } from "./atomic";
+import { mapInChunks, type OrrnDb, type SqliteBatchItem } from "./atomic";
 import { auditInsert } from "./audit";
 import type { Context } from "../context";
 
@@ -161,11 +162,30 @@ export async function requireLiveCustomer(db: OrrnDb, companyId: string, custome
 export async function customerNames(db: OrrnDb, companyId: string, ids: (string | null | undefined)[]): Promise<Map<string, string>> {
   const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))];
   if (unique.length === 0) return new Map();
-  const rows = await db
-    .select({ id: customer.id, name: customer.name })
-    .from(customer)
-    .where(and(eq(customer.companyId, companyId), inArray(customer.id, unique.slice(0, 90))));
+  const rows = await mapInChunks(unique, (slice) =>
+    db
+      .select({ id: customer.id, name: customer.name })
+      .from(customer)
+      .where(and(eq(customer.companyId, companyId), inArray(customer.id, slice))),
+  );
   return new Map(rows.map((r) => [r.id, r.name]));
+}
+
+/**
+ * Keyset paging for newest-first die room lists (`issues.list`, `maker.jobs.list`): the cursor is
+ * the last row's `(time, id)`; the next page is strictly older, ties broken by id. Opaque to clients.
+ */
+export const listCursorInput = z.string().min(1).max(200).optional();
+
+export function encodeListCursor(at: Date | number, id: string): string {
+  return `${typeof at === "number" ? at : at.getTime()}~${id}`;
+}
+
+export function decodeListCursor(cursor: string | undefined): { at: number; id: string } | null {
+  if (!cursor) return null;
+  const m = /^(\d{1,15})~([^~]{1,128})$/.exec(cursor);
+  if (!m) throw new TRPCError({ code: "BAD_REQUEST", message: "This list page is out of date; reload the list" });
+  return { at: Number(m[1]), id: m[2]! };
 }
 
 /** The section row (live, this company) or NOT_FOUND. */

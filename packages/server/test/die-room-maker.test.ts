@@ -100,7 +100,7 @@ describe("die maker (FP-DR-11 slice)", () => {
       const create = c.dieInstance.maker.create({ name: `Maker ${role}` });
       if (["owner", "die_room", "manager", "admin"].includes(role)) await create;
       else await expect(create).rejects.toMatchObject({ code: "FORBIDDEN" });
-      await expect(c.dieInstance.maker.jobs.list()).resolves.toBeArray();
+      expect((await c.dieInstance.maker.jobs.list()).items).toBeArray();
     }
     const x = await plant();
     const xCopy = await x.dieRoom.dieInstance.create({ sectionId: x.sectionId });
@@ -109,5 +109,22 @@ describe("die maker (FP-DR-11 slice)", () => {
     await expect(p.dieRoom.dieInstance.maker.jobs.send({ dieInstanceId: a.id, dieMakerId: x.makerId, purpose: "trial" })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(p.dieRoom.dieInstance.maker.jobs.send({ dieInstanceId: xCopy.id, dieMakerId: p.makerId, purpose: "trial" })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(p.dieRoom.dieInstance.maker.archive({ id: x.makerId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect((await p.dieRoom.dieInstance.maker.jobs.list({ dieInstanceId: xCopy.id })).items).toEqual([]);
+  });
+
+  test("jobs list pages newest first with limit and cursor", async () => {
+    const p = await plant();
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      const a = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
+      ids.push((await p.dieRoom.dieInstance.maker.jobs.send({ dieInstanceId: a.id, dieMakerId: p.makerId, purpose: "trial" })).id);
+    }
+    const first = await p.dieRoom.dieInstance.maker.jobs.list({ limit: 2 });
+    expect(first.items).toHaveLength(2);
+    expect(first.nextCursor).toBeString();
+    const second = await p.dieRoom.dieInstance.maker.jobs.list({ limit: 2, cursor: first.nextCursor! });
+    expect(second.items).toHaveLength(1);
+    expect(second.nextCursor).toBeNull();
+    expect([...first.items, ...second.items].map((j) => j.id).sort()).toEqual([...ids].sort());
   });
 });

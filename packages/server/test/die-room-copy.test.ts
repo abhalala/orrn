@@ -90,10 +90,30 @@ describe("copy status (spec §E1 state machine)", () => {
     }
     await setStatus(a.id, "at_nitriding");
     await expect(p.dieRoom.dieInstance.update({ id: a.id, status: "retired" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await p.dieRoom.dieInstance.update({ id: a.id, status: "available" });
+    await setStatus(a.id, "available");
     await p.dieRoom.dieInstance.update({ id: a.id, status: "retired" });
     expect((await row(a.id)).status).toBe("retired");
     await expect(p.dieRoom.dieInstance.update({ id: a.id, status: "available" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  test("the card never moves a copy to or from nitriding: only nitridingOut / nitridingBack do, with their own audit", async () => {
+    const p = await plant();
+    const a = await copy(p);
+    await expect(p.dieRoom.dieInstance.update({ id: a.id, status: "at_nitriding" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("nitriding"),
+    });
+    expect((await row(a.id)).status).toBe("available");
+    await p.dieRoom.dieInstance.nitridingOut({ dieInstanceId: a.id });
+    expect((await row(a.id)).status).toBe("at_nitriding");
+    await expect(p.dieRoom.dieInstance.update({ id: a.id, status: "available" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    // Other card fields still save while it is away, and an unchanged status is no change.
+    await p.dieRoom.dieInstance.update({ id: a.id, rackNo: "R-9", status: "at_nitriding" });
+    expect(await row(a.id)).toMatchObject({ status: "at_nitriding", rackNo: "R-9" });
+    await p.dieRoom.dieInstance.nitridingBack({ dieInstanceId: a.id });
+    expect((await row(a.id)).status).toBe("available");
+    expect(await audits(a.id, "nitriding.out")).toHaveLength(1);
+    expect(await audits(a.id, "nitriding.back")).toHaveLength(1);
   });
 
   test("an issue that lands between read and write wins over a card edit", async () => {

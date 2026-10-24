@@ -98,15 +98,50 @@ describe("issue", () => {
     const seqs = new Set([row!.serverSeq, (await copyRow(c.id)).serverSeq, (await runRow(runId)).serverSeq]);
     expect(seqs.size).toBe(1);
     const list = await p.owner.dieInstance.issues.list({ pressLineId: p.lineId, status: "issued" });
-    expect(list.map((i) => [i.code, i.pressLineCode, i.pressRunNumber, i.pressRunStatus])).toEqual([[c.code, "P1", (await runRow(runId)).number, "die_issued"]]);
+    expect(list.items.map((i) => [i.code, i.pressLineCode, i.pressRunNumber, i.pressRunStatus])).toEqual([[c.code, "P1", (await runRow(runId)).number, "die_issued"]]);
+    expect(list.nextCursor).toBeNull();
   });
 
-  test("an issue without a run moves only the copy", async () => {
+  test("D13: an issue always targets a queued run of the copy's section; without one, or another section's, it is BAD_REQUEST", async () => {
     const p = await plant();
     const c = await copy(p);
-    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId });
-    expect((await copyRow(c.id)).status).toBe("in_use");
-    expect((await issues(c.id))[0]).toMatchObject({ status: "issued", pressRunId: null });
+    await expect(
+      p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId } as never),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const otherSection = await env.seedDie(p.companyId, { sectionCode: "4521" });
+    const wrongDie = await queuedRun(p, { sectionId: otherSection });
+    await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: wrongDie })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("is not a copy of the die"),
+    });
+    expect((await copyRow(c.id)).status).toBe("available");
+    expect(await issues(c.id)).toEqual([]);
+    expect(await runRow(wrongDie)).toMatchObject({ status: "queued", dieInstanceId: null });
+  });
+
+  test("a run with no press line yet takes the issue's line", async () => {
+    const p = await plant();
+    const c = await copy(p);
+    const runId = await queuedRun(p, { pressLineId: null });
+    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: runId });
+    expect(await runRow(runId)).toMatchObject({ status: "die_issued", dieInstanceId: c.id, pressLineId: p.lineId });
+  });
+
+  test("list pages newest first with limit and cursor", async () => {
+    const p = await plant();
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      const c = await copy(p);
+      ids.push((await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: await queuedRun(p) })).id);
+    }
+    const first = await p.owner.dieInstance.issues.list({ limit: 2 });
+    expect(first.items).toHaveLength(2);
+    expect(first.nextCursor).toBeString();
+    const second = await p.owner.dieInstance.issues.list({ limit: 2, cursor: first.nextCursor! });
+    expect(second.items).toHaveLength(1);
+    expect(second.nextCursor).toBeNull();
+    expect([...first.items, ...second.items].map((i) => i.id).sort()).toEqual([...ids].sort());
+    await expect(p.owner.dieInstance.issues.list({ cursor: "not-a-cursor" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   test("atomic: a run taken between read and write leaves no issue row and the copy on the rack", async () => {
@@ -139,21 +174,25 @@ describe("issue", () => {
   test("refusals: only from available; one open issue per copy; run must be queued, same section, same line", async () => {
     const p = await plant();
     const c = await copy(p);
-    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId });
+    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: await queuedRun(p) });
     // Second issue of the same copy (two lines cannot hold one copy).
     const line2 = crypto.randomUUID();
     await env.db.insert(pressLine).values({ id: line2, companyId: p.companyId, code: "P2", name: "Press 2" });
-    await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: line2 })).rejects.toMatchObject({
+    await expect(
+      p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: line2, pressRunId: await queuedRun(p, { pressLineId: line2 }) }),
+    ).rejects.toMatchObject({
       code: "CONFLICT",
       message: `${c.code} is already issued to P1`,
     });
 
+    const spare = await queuedRun(p);
     for (const status of ["at_nitriding", "at_maker", "retired"] as const) {
       const d = await copy(p);
       await env.db.update(dieInstance).set({ status }).where(eq(dieInstance.id, d.id));
-      await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: d.id, pressLineId: p.lineId })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: d.id, pressLineId: p.lineId, pressRunId: spare })).rejects.toMatchObject({ code: "BAD_REQUEST" });
       expect(await issues(d.id)).toEqual([]);
     }
+    expect(await runRow(spare)).toMatchObject({ status: "queued", dieInstanceId: null });
 
     const d = await copy(p);
     const started = await queuedRun(p, { status: "running" });
@@ -171,21 +210,22 @@ describe("issue", () => {
 
     // A retired press line takes no die.
     await env.db.update(pressLine).set({ status: "retired" }).where(eq(pressLine.id, line2));
-    await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: d.id, pressLineId: line2 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: d.id, pressLineId: line2, pressRunId: onLine2 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   test("a deleted section's copy cannot be issued", async () => {
     const p = await plant();
     const c = await copy(p);
+    const runId = await queuedRun(p);
     await p.owner.die.delete({ id: p.sectionId });
-    await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: runId })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   test("life reached is a warning, never a block", async () => {
     const p = await plant();
     const c = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId, lifeG: 1_000_000 });
     await queuedRun(p, { status: "logged", dieInstanceId: c.id, goodG: 1_200_000, inputG: 1_500_000 });
-    const out = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId });
+    const out = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: await queuedRun(p) });
     expect(out.warnings).toEqual([{ code: "life_reached", lifeG: 1_000_000, producedG: 1_200_000 }]);
     const card = await p.owner.dieInstance.get({ id: c.id });
     expect(card).toMatchObject({ producedG: 1_200_000, lifeRemainingG: -200_000, lifeReached: true });
@@ -215,6 +255,29 @@ describe("return", () => {
     await expect(p.dieRoom.dieInstance.issues.return({ id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.subjectId, c.id), eq(auditLog.action, "die_issue.return")));
     expect(audits).toHaveLength(1);
+  });
+
+  test("D13: return before die-in puts the run back to queued with no copy, in the same batch", async () => {
+    const p = await plant();
+    const c = await copy(p);
+    const runId = await queuedRun(p);
+    const { id } = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: runId });
+    await p.dieRoom.dieInstance.issues.return({ id, note: "wrong die" });
+    expect((await issues(c.id))[0]).toMatchObject({ status: "returned", note: "wrong die" });
+    const copyAfter = await copyRow(c.id);
+    expect(copyAfter.status).toBe("available");
+    const run = await runRow(runId);
+    expect(run).toMatchObject({ status: "queued", dieInstanceId: null });
+    expect(run.serverSeq).toBe(copyAfter.serverSeq);
+    const [audit] = await env.db.select().from(auditLog).where(and(eq(auditLog.subjectId, c.id), eq(auditLog.action, "die_issue.return")));
+    expect(audit!.meta).toMatchObject({ pressRunId: runId, runRequeued: true });
+    // The run takes another copy, and the returned copy can go to another run.
+    const d = await copy(p);
+    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: d.id, pressLineId: p.lineId, pressRunId: runId });
+    expect(await runRow(runId)).toMatchObject({ status: "die_issued", dieInstanceId: d.id });
+    const other = await queuedRun(p);
+    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: other });
+    expect(await runRow(other)).toMatchObject({ status: "die_issued", dieInstanceId: c.id });
   });
 
   test("write-time guard: die-in recorded between read and write refuses and changes nothing", async () => {
@@ -254,7 +317,7 @@ describe("cancel", () => {
     expect(await runRow(runId)).toMatchObject({ status: "running", dieInstanceId: c.id });
 
     const d = await copy(p);
-    const plain = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: d.id, pressLineId: p.lineId });
+    const plain = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: d.id, pressLineId: p.lineId, pressRunId: await queuedRun(p) });
     await p.dieRoom.dieInstance.issues.cancel({ id: plain.id });
     await expect(p.dieRoom.dieInstance.issues.cancel({ id: plain.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(p.dieRoom.dieInstance.issues.return({ id: plain.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
@@ -317,14 +380,14 @@ describe("permissions and tenancy", () => {
       const c = await copy(p);
       const caller = env.caller({ role, companyId: p.companyId });
       const allowed = role === "die_room" || role === "owner";
-      const attempt = caller.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId });
+      const attempt = caller.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: await queuedRun(p) });
       if (allowed) {
         const { id } = await attempt;
         await caller.dieInstance.issues.cancel({ id });
       } else {
         await expect(attempt).rejects.toMatchObject({ code: "FORBIDDEN" });
       }
-      await expect(caller.dieInstance.issues.list({})).resolves.toBeArray();
+      expect((await caller.dieInstance.issues.list({})).items).toBeArray();
     }
   });
 
@@ -334,13 +397,14 @@ describe("permissions and tenancy", () => {
     const c = await copy(p);
     const xc = await copy(x);
     const xRun = await queuedRun(x);
-    await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: xc.id, pressLineId: p.lineId })).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: x.lineId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    const pRun = await queuedRun(p);
+    await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: xc.id, pressLineId: p.lineId, pressRunId: pRun })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: x.lineId, pressRunId: pRun })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: xRun })).rejects.toMatchObject({ code: "NOT_FOUND" });
-    const xIssue = await x.dieRoom.dieInstance.issues.issue({ dieInstanceId: xc.id, pressLineId: x.lineId });
+    const xIssue = await x.dieRoom.dieInstance.issues.issue({ dieInstanceId: xc.id, pressLineId: x.lineId, pressRunId: await queuedRun(x) });
     await expect(p.dieRoom.dieInstance.issues.return({ id: xIssue.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(p.dieRoom.dieInstance.issues.cancel({ id: xIssue.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
-    expect(await p.owner.dieInstance.issues.list({})).toEqual([]);
+    expect((await p.owner.dieInstance.issues.list({})).items).toEqual([]);
     expect((await copyRow(c.id)).status).toBe("available");
     expect(await runRow(xRun)).toMatchObject({ status: "queued", dieInstanceId: null });
   });

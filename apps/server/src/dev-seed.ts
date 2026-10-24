@@ -926,7 +926,9 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
   // Die room demo (FP-DR): Tee 13090 has its primary band 2.700-2.900 and a heavier band
   // 2.900-3.100. 13090-1 is green, 13090-2 amber (above its band), 13090-3 on the heavy band red.
   // Channel 12230 belongs to KD Extrusion (owned section, one copy). Patti 14701-1 is issued to
-  // Press 1 (one open issue, no run yet). Readings are history; percent and tone are computed.
+  // Press 1 for run PR-1 (D13: an issue always targets a run that was queued on that section; the
+  // run is now `die_issued`, so cancel puts it back in the queue). Readings are history; percent
+  // and tone are computed.
   const devCopyId = (code: string) => `dev-copy-${code}`;
   const heavyBandId = "dev-band-13090-heavy";
   const dieBandRows: (typeof dieBand.$inferInsert)[] = [
@@ -991,6 +993,41 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       createdBy: ownerId,
     })),
   );
+  const pressRunPeriod = docPeriod("press_run", new Date(now), DEMO_SETTINGS.timezone);
+  const pressRunRows: (typeof pressRun.$inferInsert)[] = [
+    {
+      id: "dev-run-14701-1",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number: "PR-1",
+      period: pressRunPeriod,
+      status: "die_issued",
+      pressLineId: "dev-press-line-1",
+      sectionId: dieId("patti1"),
+      dieInstanceId: devCopyId("14701-1"),
+      createdBy: ownerId,
+      createdAt: new Date(todayAt(0.05)),
+      updatedAt: new Date(todayAt(0.1)),
+    },
+    // Released and waiting for a die: Tee 13090 on Press 1. The die room issues a copy to it.
+    {
+      id: "dev-run-13090-queued",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number: "PR-2",
+      period: pressRunPeriod,
+      status: "queued",
+      pressLineId: "dev-press-line-1",
+      sectionId: dieId("tee125"),
+      createdBy: ownerId,
+      createdAt: new Date(todayAt(0.06)),
+      updatedAt: new Date(todayAt(0.06)),
+    },
+  ];
+  // The press run book continues after PR-2.
+  const pressRunSeriesRows: (typeof docSeries.$inferInsert)[] = [
+    { id: `dev-series-press_run-${pressRunPeriod}`, companyId: COMPANY_ID, docType: "press_run", period: pressRunPeriod, value: pressRunRows.length, createdBy: ownerId },
+  ];
   const dieIssueRows: (typeof dieIssue.$inferInsert)[] = [
     {
       id: "dev-issue-14701-1",
@@ -998,6 +1035,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       serverSeq: nextSeq(),
       dieInstanceId: devCopyId("14701-1"),
       pressLineId: "dev-press-line-1",
+      pressRunId: "dev-run-14701-1",
       status: "issued",
       issuedAt: new Date(todayAt(0.1)),
       issuedBy: ownerId,
@@ -1160,6 +1198,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     ...insertChunks(db, dieInstance, copyRows),
     ...insertChunks(db, dieTierChange, copyTierRows),
     ...insertChunks(db, dieWeightReading, readingRows),
+    ...insertChunks(db, pressRun, pressRunRows),
+    ...insertChunks(db, docSeries, pressRunSeriesRows),
     ...insertChunks(db, dieIssue, dieIssueRows),
   ];
   await atomicBatch(db, statements);

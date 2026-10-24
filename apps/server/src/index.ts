@@ -10,7 +10,7 @@ import { logger } from "hono/logger";
 
 import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
-import { verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
+import { dieFileSigningReady, handleDieFileUpload, verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
 
 import { seedDevData } from "./dev-seed";
 import { spoolRoutes } from "./spool-routes";
@@ -37,7 +37,8 @@ app.use(
   "/*",
   cors({
     origin: (origin) => resolveCorsOrigin(env, origin),
-    allowMethods: ["GET", "POST", "OPTIONS"],
+    // PUT: the signed die-file upload (`/files/dies/upload`), straight from the browser.
+    allowMethods: ["GET", "POST", "PUT", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "x-orrn-impersonate-company", "x-orrn-company"],
     credentials: true,
   }),
@@ -72,6 +73,8 @@ app.get("/files/dies", async (c) => {
   const key = c.req.query("key") ?? "";
   const exp = Number(c.req.query("exp"));
   const sig = c.req.query("sig") ?? "";
+  // No master key on this stage: never sign or verify with an empty secret.
+  if (!dieFileSigningReady()) return c.text("File storage is not set up", 503);
   if (!(await verifyDieFileUrl(key, exp, sig))) return c.text("Link expired or not valid", 403);
   const bucket = (env as unknown as { DIE_FILES?: R2Bucket }).DIE_FILES;
   if (!bucket) return c.text("File storage is not set up", 503);
@@ -84,6 +87,11 @@ app.get("/files/dies", async (c) => {
   headers.set("x-content-type-options", "nosniff");
   return new Response(object.body, { headers });
 });
+
+// Die file upload (LEDGER D13): the signed PUT from `dieInstance.files.beginUpload`, valid 10
+// minutes, bound to one object key and its declared size. The body streams into R2; the client then
+// calls `dieInstance.files.commit`. No session needed: the signed ticket is the authority.
+app.put("/files/dies/upload", (c) => handleDieFileUpload(c.req.raw));
 
 app.use(
   "/trpc/*",

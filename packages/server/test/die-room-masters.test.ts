@@ -5,7 +5,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
-import { auditLog, die, dieBand, dieFile, dieInstance, dieIssue, dieTierChange, dieWeightReading } from "@orrn/db/schema";
+import { auditLog, die, dieBand, dieFile, dieInstance, dieIssue, dieTierChange, dieWeightReading, pressRun } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { workersEnv } from "./env-mock";
@@ -14,12 +14,17 @@ import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 let env: TestEnv;
 let files: typeof import("../src/lib/dieFiles");
 
-/** In-memory stand-in for the R2 binding (put / get / delete). */
+/** In-memory stand-in for the R2 binding (put from bytes or a stream / head / get / delete). */
 class FakeR2 {
   objects = new Map<string, { body: Uint8Array; httpMetadata?: Record<string, string> }>();
-  async put(key: string, value: Uint8Array, opts?: { httpMetadata?: Record<string, string> }) {
-    this.objects.set(key, { body: value, httpMetadata: opts?.httpMetadata });
-    return { key };
+  async put(key: string, value: Uint8Array | ReadableStream, opts?: { httpMetadata?: Record<string, string> }) {
+    const body = value instanceof Uint8Array ? value : new Uint8Array(await new Response(value).arrayBuffer());
+    this.objects.set(key, { body, httpMetadata: opts?.httpMetadata });
+    return { key, size: body.byteLength };
+  }
+  async head(key: string) {
+    const o = this.objects.get(key);
+    return o ? { key, size: o.body.byteLength, httpMetadata: o.httpMetadata } : null;
   }
   async get(key: string) {
     return this.objects.get(key) ?? null;
@@ -60,7 +65,6 @@ async function plant(settings: Record<string, unknown> = {}) {
 }
 
 const base = { series: "Domal", dimensions: {}, weightMinG: 5_900, weightMaxG: 6_200 };
-const b64 = (bytes: number, fill = 7) => Buffer.from(new Uint8Array(bytes).fill(fill)).toString("base64");
 
 describe("sections (FP-DR-01/12/14)", () => {
   test("alloy and temper default from the plant settings; explicit values and null are kept", async () => {
@@ -180,16 +184,49 @@ describe("kg/m import (FP-DR-02 rule 4)", () => {
   });
 });
 
-describe("die files and the press drawing (FP-DR-07/13)", () => {
-  test("upload to R2 then the row; list; signed GET for 10 minutes; remove deletes both", async () => {
+describe("die files: signed PUT upload, commit, signed GET, press drawing (FP-DR-07/13, D13)", () => {
+  const MB = 1024 * 1024;
+  /** A browser PUT of `bytes` bytes to the signed URL; `contentLength: null` sends no length. */
+  function putRequest(url: string, bytes: number, contentLength: number | null = bytes) {
+    const headers = new Headers({ "content-type": "application/octet-stream" });
+    if (contentLength !== null) headers.set("content-length", String(contentLength));
+    return new Request(new URL(url, "https://api.test"), { method: "PUT", body: new Uint8Array(bytes).fill(7), headers });
+  }
+  const put = (url: string, bytes: number, opts: { contentLength?: number | null; now?: number } = {}) =>
+    files.handleDieFileUpload(putRequest(url, bytes, opts.contentLength === undefined ? bytes : opts.contentLength), { bucket: r2 as never, now: opts.now });
+  type Caller = ReturnType<TestEnv["caller"]>;
+  type Begin = Parameters<Caller["dieInstance"]["files"]["beginUpload"]>[0];
+  async function upload(caller: Caller, input: Begin) {
+    const begun = await caller.dieInstance.files.beginUpload(input);
+    const res = await put(begun.uploadUrl, input.size);
+    expect(res.status).toBe(200);
+    return caller.dieInstance.files.commit({ uploadId: begun.uploadId });
+  }
+
+  test("beginUpload -> PUT streams to R2 -> commit writes the row; list; signed GET for 10 minutes; remove deletes both", async () => {
     const p = await plant();
     const copy = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
-    const photo = await p.dieRoom.dieInstance.files.add({ sectionId: p.sectionId, dieInstanceId: copy.id, kind: "image", filename: "12170-1.jpg", contentType: "image/jpeg", body: b64(1024) });
-    expect(photo.key).toBe(`${p.companyId}/dies/${p.sectionId}/${photo.id}`);
-    expect(r2.objects.get(photo.key)!.body.byteLength).toBe(1024);
+    const begun = await p.dieRoom.dieInstance.files.beginUpload({ copyId: copy.id, kind: "image", name: "12170-1.jpg", size: 1024, mime: "image/jpeg" });
+    expect(begun).toMatchObject({ method: "PUT", key: `${p.companyId}/dies/${p.sectionId}/${begun.fileId}`, headers: { "content-type": "image/jpeg" } });
+    expect(begun.expiresAt - Date.now()).toBeGreaterThan(9 * 60 * 1000);
+    expect(begun.expiresAt - Date.now()).toBeLessThanOrEqual(10 * 60 * 1000);
+    expect(new URL(begun.uploadUrl, "https://api.test").pathname).toBe("/files/dies/upload");
+    // Nothing is stored before the bytes arrive and the commit lands.
+    expect(r2.objects.size).toBe(0);
+    expect(await env.db.select().from(dieFile).where(eq(dieFile.sectionId, p.sectionId))).toEqual([]);
+
+    expect((await put(begun.uploadUrl, 1024)).status).toBe(200);
+    expect(r2.objects.get(begun.key)!.body.byteLength).toBe(1024);
+    expect(r2.objects.get(begun.key)!.httpMetadata).toMatchObject({ contentType: "image/jpeg" });
+    const photo = await p.dieRoom.dieInstance.files.commit({ uploadId: begun.uploadId });
+    expect(photo).toEqual({ id: begun.fileId, key: begun.key, bytes: 1024 });
     const [row] = await env.db.select().from(dieFile).where(eq(dieFile.id, photo.id));
-    expect(row).toMatchObject({ kind: "image", bytes: 1024, dieInstanceId: copy.id, pressDrawing: false, r2Key: photo.key });
+    expect(row).toMatchObject({ kind: "image", bytes: 1024, dieInstanceId: copy.id, pressDrawing: false, r2Key: photo.key, filename: "12170-1.jpg" });
     expect(await p.viewer.dieInstance.files.list({ sectionId: p.sectionId })).toHaveLength(1);
+    // The same upload cannot be committed twice or its object overwritten.
+    await expect(p.dieRoom.dieInstance.files.commit({ uploadId: begun.uploadId })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect((await put(begun.uploadUrl, 1024)).status).toBe(409);
+    expect(r2.objects.has(begun.key)).toBe(true);
 
     const signed = await p.viewer.dieInstance.files.url({ id: photo.id });
     const url = new URL(signed.url, "https://api.test");
@@ -215,9 +252,10 @@ describe("die files and the press drawing (FP-DR-07/13)", () => {
   test("one press drawing PDF per section: its key goes to die.drawing_key; a new one replaces it; removing clears it", async () => {
     const p = await plant();
     expect(await p.as("press").dieInstance.drawing({ sectionId: p.sectionId })).toEqual({ key: null, url: null, expiresAt: null });
-    const first = await p.dieRoom.dieInstance.files.add({ sectionId: p.sectionId, kind: "pdf", filename: "12170.pdf", contentType: "application/pdf", body: b64(2048), pressDrawing: true });
+    const pdf = (name: string) => ({ sectionId: p.sectionId, kind: "pdf" as const, name, size: 2048, mime: "application/pdf", pressDrawing: true });
+    const first = await upload(p.dieRoom, pdf("12170.pdf"));
     expect((await env.db.select().from(die).where(eq(die.id, p.sectionId)))[0]!.drawingKey).toBe(first.key);
-    const second = await p.dieRoom.dieInstance.files.add({ sectionId: p.sectionId, kind: "pdf", filename: "12170-v2.pdf", contentType: "application/pdf", body: b64(2048), pressDrawing: true });
+    const second = await upload(p.dieRoom, pdf("12170-v2.pdf"));
     expect((await env.db.select().from(die).where(eq(die.id, p.sectionId)))[0]!.drawingKey).toBe(second.key);
     const flags = await env.db.select({ id: dieFile.id, pd: dieFile.pressDrawing }).from(dieFile).where(eq(dieFile.sectionId, p.sectionId));
     expect(flags.filter((f) => f.pd).map((f) => f.id)).toEqual([second.id]);
@@ -233,51 +271,144 @@ describe("die files and the press drawing (FP-DR-07/13)", () => {
     expect((await env.db.select().from(die).where(eq(die.id, p.sectionId)))[0]!.drawingKey).toBeNull();
   });
 
-  test("limits and types: image 8 MB, PDF 25 MB; JPEG/PNG/WebP; CDR/DWG by extension; press drawing must be a PDF", async () => {
+  test("limits checked before any byte moves: image 8 MB, PDF 25 MB, CDR/DWG 40 MB; types; press drawing must be a PDF", async () => {
     const p = await plant();
-    const add = (o: Record<string, unknown>) => p.dieRoom.dieInstance.files.add({ sectionId: p.sectionId, kind: "image", filename: "a.png", contentType: "image/png", body: b64(10), ...o } as never);
-    await expect(add({ body: b64(8 * 1024 * 1024 + 1) })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(add({ contentType: "image/gif" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(add({ kind: "pdf", contentType: "image/png" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(add({ kind: "pdf", contentType: "application/pdf", filename: "a.pdf", body: b64(25 * 1024 * 1024 + 1) })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(add({ kind: "dwg", filename: "a.cdr", contentType: "" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(add({ pressDrawing: true })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await add({ kind: "dwg", filename: "Hollow view.DWG", contentType: "application/octet-stream" });
-    await add({ kind: "cdr", filename: "1x4.cdr", contentType: "" });
-    expect(r2.objects.size).toBe(2);
+    const begin = (o: Record<string, unknown>) =>
+      p.dieRoom.dieInstance.files.beginUpload({ sectionId: p.sectionId, kind: "image", name: "a.png", size: 10, mime: "image/png", ...o } as never);
+    await expect(begin({ size: 8 * MB + 1 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await begin({ size: 8 * MB });
+    await expect(begin({ size: 0 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(begin({ mime: "image/gif" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(begin({ kind: "pdf", mime: "image/png" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(begin({ kind: "pdf", mime: "application/pdf", name: "a.pdf", size: 25 * MB + 1 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await begin({ kind: "pdf", mime: "application/pdf", name: "a.pdf", size: 25 * MB });
+    await expect(begin({ kind: "cdr", name: "1x4.cdr", mime: "", size: 40 * MB + 1 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await begin({ kind: "cdr", name: "1x4.cdr", mime: "", size: 40 * MB });
+    await begin({ kind: "dwg", name: "Hollow view.DWG", mime: "application/octet-stream", size: 40 * MB });
+    await expect(begin({ kind: "dwg", name: "a.cdr", mime: "" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(begin({ pressDrawing: true })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    // A section or a copy is required; a copy of another section is refused.
+    await expect(begin({ sectionId: undefined })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const other = await env.seedDie(p.companyId, { sectionCode: "OTHER" });
+    const copy = await p.dieRoom.dieInstance.create({ sectionId: other });
+    await expect(begin({ copyId: copy.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    // The press drawing belongs to the section, not one copy.
+    await expect(begin({ sectionId: undefined, copyId: copy.id, kind: "pdf", name: "a.pdf", mime: "application/pdf", pressDrawing: true })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(r2.objects.size).toBe(0);
+  });
+
+  test("the PUT checks signature, expiry and the declared size; commit checks the object is there with that size", async () => {
+    const p = await plant();
+    const a = await p.dieRoom.dieInstance.files.beginUpload({ sectionId: p.sectionId, kind: "pdf", name: "a.pdf", size: 4096, mime: "application/pdf" });
+    const ticket = new URL(a.uploadUrl, "https://api.test").searchParams.get("u")!;
+    const tampered = ticket.slice(0, -1) + (ticket.endsWith("0") ? "1" : "0");
+    expect((await put(`/files/dies/upload?u=${encodeURIComponent(tampered)}`, 4096)).status).toBe(403);
+    expect((await put("/files/dies/upload", 4096)).status).toBe(403);
+    expect((await put(a.uploadUrl, 4096, { now: a.expiresAt + 1 })).status).toBe(403);
+    expect((await put(a.uploadUrl, 4096, { contentLength: null })).status).toBe(411);
+    expect((await put(a.uploadUrl, 4097)).status).toBe(413);
+    expect((await put(a.uploadUrl, 4095)).status).toBe(400);
+    expect(r2.objects.size).toBe(0);
+
+    // Commit before the bytes arrive.
+    await expect(p.dieRoom.dieInstance.files.commit({ uploadId: a.uploadId })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    // Bytes that do not match the declared size are deleted on commit and no row is written.
+    await r2.put(a.key, new Uint8Array(10));
+    await expect(p.dieRoom.dieInstance.files.commit({ uploadId: a.uploadId })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(r2.objects.has(a.key)).toBe(false);
+    expect(await env.db.select().from(dieFile).where(eq(dieFile.id, a.fileId))).toEqual([]);
+    await expect(p.dieRoom.dieInstance.files.commit({ uploadId: "junk" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.dieRoom.dieInstance.files.commit({ uploadId: tampered })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    // Someone else's upload (another member, or another company) is not this caller's to commit.
+    const b = await p.dieRoom.dieInstance.files.beginUpload({ sectionId: p.sectionId, kind: "pdf", name: "b.pdf", size: 4096, mime: "application/pdf" });
+    expect((await put(b.uploadUrl, 4096)).status).toBe(200);
+    await expect(p.manager.dieInstance.files.commit({ uploadId: b.uploadId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    const x = await plant();
+    await expect(x.dieRoom.dieInstance.files.commit({ uploadId: b.uploadId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await env.db.select().from(dieFile).where(eq(dieFile.id, b.fileId))).toEqual([]);
+    await p.dieRoom.dieInstance.files.commit({ uploadId: b.uploadId });
   });
 
   test("a failed row write removes the uploaded object (no orphan bytes)", async () => {
     const p = await plant();
     const lonely = await env.seedDie(p.companyId, { sectionCode: "LONELY" });
+    const begun = await p.dieRoom.dieInstance.files.beginUpload({ sectionId: lonely, kind: "image", name: "b.png", size: 10, mime: "image/png" });
+    expect((await put(begun.uploadUrl, 10)).status).toBe(200);
     // The section disappears after the upload and before the row: the FK fails the batch.
     env.beforeNextBatch(() => env.db.delete(die).where(eq(die.id, lonely)));
-    await expect(
-      p.dieRoom.dieInstance.files.add({ sectionId: lonely, kind: "image", filename: "b.png", contentType: "image/png", body: b64(10) }),
-    ).rejects.toThrow();
+    await expect(p.dieRoom.dieInstance.files.commit({ uploadId: begun.uploadId })).rejects.toThrow();
     expect([...r2.objects.keys()]).toEqual([]);
     expect(await env.db.select().from(dieFile).where(eq(dieFile.sectionId, lonely))).toEqual([]);
   });
 
-  test("permissions, tenancy, and a stage without the bucket", async () => {
+  test("permissions, tenancy, and a stage without the bucket or the signing key", async () => {
     const p = await plant();
     const x = await plant();
+    const img = (sectionId: string) => ({ sectionId, kind: "image" as const, name: "a.png", size: 10, mime: "image/png" });
     for (const role of ROLES) {
-      const attempt = p.as(role).dieInstance.files.add({ sectionId: p.sectionId, kind: "image", filename: "a.png", contentType: "image/png", body: b64(10) });
+      const attempt = p.as(role).dieInstance.files.beginUpload(img(p.sectionId));
       if (["owner", "die_room", "manager", "admin"].includes(role)) await attempt;
       else await expect(attempt).rejects.toMatchObject({ code: "FORBIDDEN" });
+      if (!["owner", "die_room", "manager", "admin"].includes(role)) {
+        await expect(p.as(role).dieInstance.files.commit({ uploadId: "junk" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      }
       await expect(p.as(role).dieInstance.files.list({ sectionId: p.sectionId })).resolves.toBeArray();
     }
-    const xf = await x.dieRoom.dieInstance.files.add({ sectionId: x.sectionId, kind: "image", filename: "a.png", contentType: "image/png", body: b64(10) });
+    const xf = await upload(x.dieRoom, img(x.sectionId));
     await expect(p.viewer.dieInstance.files.url({ id: xf.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(p.dieRoom.dieInstance.files.remove({ id: xf.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(p.dieRoom.dieInstance.files.add({ sectionId: x.sectionId, kind: "image", filename: "a.png", contentType: "image/png", body: b64(10) })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(p.dieRoom.dieInstance.files.beginUpload(img(x.sectionId))).rejects.toMatchObject({ code: "NOT_FOUND" });
+    const xCopy = await x.dieRoom.dieInstance.create({ sectionId: x.sectionId });
+    await expect(p.dieRoom.dieInstance.files.beginUpload({ ...img(x.sectionId), sectionId: undefined, copyId: xCopy.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(p.viewer.dieInstance.drawing({ sectionId: x.sectionId })).rejects.toMatchObject({ code: "NOT_FOUND" });
     // A key of another company can never be signed.
     await expect(files.signDieFileUrl({}, p.companyId, xf.key)).rejects.toMatchObject({ code: "NOT_FOUND" });
 
+    // No bucket on this stage.
+    const pending = await p.dieRoom.dieInstance.files.beginUpload(img(p.sectionId));
     delete workersEnv.DIE_FILES;
-    await expect(p.dieRoom.dieInstance.files.add({ sectionId: p.sectionId, kind: "image", filename: "a.png", contentType: "image/png", body: b64(10) })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(p.dieRoom.dieInstance.files.beginUpload(img(p.sectionId))).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect((await files.handleDieFileUpload(putRequest(pending.uploadUrl, 10))).status).toBe(503);
+    workersEnv.DIE_FILES = r2;
+
+    // No signing key: never an empty secret. Signing and uploads refuse; links stop working.
+    const master = workersEnv.ORRN_MASTER_KEY;
+    workersEnv.ORRN_MASTER_KEY = "";
+    try {
+      await expect(files.signDieFileUrl({}, p.companyId, `${p.companyId}/dies/${p.sectionId}/f`)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      await expect(p.dieRoom.dieInstance.files.beginUpload(img(p.sectionId))).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      await expect(p.dieRoom.dieInstance.files.commit({ uploadId: pending.uploadId })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      expect((await put(pending.uploadUrl, 10)).status).toBe(503);
+      expect(files.dieFileSigningReady()).toBe(false);
+    } finally {
+      workersEnv.ORRN_MASTER_KEY = master;
+    }
+    expect(files.dieFileSigningReady()).toBe(true);
+  });
+});
+
+describe("owner names and imports (FP-DR-12/14)", () => {
+  test("customerNames resolves more than one IN chunk of ids", async () => {
+    const p = await plant();
+    const ids: string[] = [];
+    for (let i = 0; i < 95; i += 1) ids.push(await env.seedCustomer(p.companyId));
+    const { customerNames } = await import("../src/lib/dieRoom");
+    const names = await customerNames(env.db as never, p.companyId, [...ids, null, ids[0]]);
+    expect(names.size).toBe(95);
+    expect(ids.every((id) => names.get(id))).toBe(true);
+  });
+
+  test("imported sections take the plant's default alloy and temper", async () => {
+    const p = await plant({ defaultAlloy: "6005", defaultTemper: "T5" });
+    const q = await plant();
+    const rows = [{ series: "SLIDING", sectionCode: "31221", dimensions: {}, weightMinG: 1_800, weightMaxG: 2_000 }];
+    await p.manager.die.processImport({ newRows: rows as never, updatedRows: [] });
+    await q.manager.die.processImport({ newRows: rows as never, updatedRows: [] });
+    const [a] = await env.db.select().from(die).where(and(eq(die.companyId, p.companyId), eq(die.sectionCode, "31221")));
+    const [b] = await env.db.select().from(die).where(and(eq(die.companyId, q.companyId), eq(die.sectionCode, "31221")));
+    expect(a).toMatchObject({ alloy: "6005", temper: "T5" });
+    expect(b).toMatchObject({ alloy: "6063", temper: "T6" });
   });
 });
 
@@ -317,7 +448,17 @@ describe("dev seed: die room demo (idempotent)", () => {
     ]);
     const owned = (await caller.die.list({ search: "12230" })).items[0]!;
     expect(owned.ownerName).toBeString();
+    // D13: the open issue targets a run on P1 that was queued for the Patti section.
     const issued = await caller.dieInstance.issues.list({ status: "issued" });
-    expect(issued.map((i) => [i.code, i.pressLineCode])).toEqual([["14701-1", "P1"]]);
+    expect(issued.items.map((i) => [i.code, i.pressLineCode, i.pressRunStatus])).toEqual([["14701-1", "P1", "die_issued"]]);
+    const runs = await env.db.select().from(pressRun).where(eq(pressRun.companyId, companyId));
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toMatchObject({ id: issued.items[0]!.pressRunId, status: "die_issued", dieInstanceId: "dev-copy-14701-1", pressLineId: "dev-press-line-1" });
+    const [patti] = await env.db.select().from(dieInstance).where(eq(dieInstance.id, "dev-copy-14701-1"));
+    expect(runs[0]!.sectionId).toBe(patti!.sectionId);
+    // Cancel puts that run back in the queue, as plans.release would have left it.
+    const dieRoomCaller = env.callerForUser(m!.userId);
+    await dieRoomCaller.dieInstance.issues.cancel({ id: issued.items[0]!.id });
+    expect((await env.db.select().from(pressRun).where(eq(pressRun.id, runs[0]!.id)))[0]).toMatchObject({ status: "queued", dieInstanceId: null });
   });
 });

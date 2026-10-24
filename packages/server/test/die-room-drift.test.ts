@@ -227,3 +227,20 @@ describe("tenancy", () => {
     expect((await p.viewer.die.bands.list({ sectionId: p.sectionId })).bands).toEqual([]);
   });
 });
+
+describe("dieInstance.list carries the drift figures (clients never recompute)", () => {
+  test("latestMilli, percentTenths, tone, position and kg/m per copy, each against its own band", async () => {
+    const p = await plant({ min: 5_900, max: 6_200 });
+    const a = await copyWith(p, [5_940, 5_967]);
+    const b = await copyWith(p, [6_480]);
+    const none = await copyWith(p, []);
+    const band = await p.owner.die.bands.create({ sectionId: p.sectionId, wallTenthMm: 14, weightMinG: 6_300, weightMaxG: 6_600 });
+    const heavy = await copyWith(p, [6_480], { bandId: band.id });
+    const list = await p.viewer.dieInstance.list({ sectionId: p.sectionId });
+    const byId = new Map(list.items.map((i) => [i.id, i]));
+    expect(byId.get(a.id)).toMatchObject({ latestMilli: 5_967, percentTenths: 11, tone: "green", position: "in", kgPerMetre: 1.631, bandId: null, bandText: "5.900-6.200" });
+    expect(byId.get(b.id)).toMatchObject({ latestMilli: 6_480, percentTenths: 98, tone: "amber", position: "above" });
+    expect(byId.get(none.id)).toMatchObject({ latestMilli: null, percentTenths: null, tone: "none", position: null, kgPerMetre: null });
+    expect(byId.get(heavy.id)).toMatchObject({ latestMilli: 6_480, percentTenths: 29, tone: "green", position: "in", bandId: band.id });
+  });
+});

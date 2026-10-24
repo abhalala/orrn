@@ -7,6 +7,12 @@
  * - Reads go through a worker URL signed with HMAC-SHA256 (key derived from ORRN_MASTER_KEY),
  *   valid 10 minutes, bound to the exact object key, which always starts with the company id:
  *   `GET /files/dies?key=…&exp=…&sig=…` (apps/server). Nobody can ask for an arbitrary key.
+ * - Uploads never travel as base64 in a tRPC body (LEDGER D13). `files.beginUpload` checks kind,
+ *   size and type and returns an upload ticket (HMAC-signed, 10 minutes) and its URL
+ *   `PUT /files/dies/upload?u=<ticket>`; `handleDieFileUpload` streams that body into R2 under the
+ *   ticket's key after checking Content-Length equals the declared size; `files.commit` checks the
+ *   object exists with that size and writes the `die_file` row.
+ * - No ORRN_MASTER_KEY = no signing at all (PRECONDITION_FAILED / 503), never an empty secret.
  */
 import { env } from "@orrn/env/server";
 import { TRPCError } from "@trpc/server";
@@ -64,8 +70,18 @@ export function checkDieFile(kind: DieFileKind, input: { filename: string; conte
   }
 }
 
-async function hmacKey(): Promise<CryptoKey> {
-  const secret = `orrn-die-files:${env.ORRN_MASTER_KEY ?? ""}`;
+/** True when this stage has the master key the file links are signed with. */
+export function dieFileSigningReady(): boolean {
+  const master = (env as unknown as { ORRN_MASTER_KEY?: string }).ORRN_MASTER_KEY;
+  return typeof master === "string" && master.length > 0;
+}
+
+/** HMAC key for one purpose. Throws PRECONDITION_FAILED when ORRN_MASTER_KEY is missing. */
+async function hmacKey(purpose: "orrn-die-files" | "orrn-die-upload" = "orrn-die-files"): Promise<CryptoKey> {
+  if (!dieFileSigningReady()) {
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: "File links are not set up for this plant yet" });
+  }
+  const secret = `${purpose}:${(env as unknown as { ORRN_MASTER_KEY: string }).ORRN_MASTER_KEY}`;
   return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
 
@@ -118,15 +134,110 @@ export async function verifyDieFileUrl(key: string, exp: number, sig: string, no
   return crypto.subtle.verify("HMAC", await hmacKey(), bytes, new TextEncoder().encode(`die-file:${key}:${exp}`));
 }
 
-/** Decode a base64 upload body (data: URL prefix allowed). */
-export function decodeBase64(body: string): Uint8Array {
-  const raw = body.includes(",") && body.startsWith("data:") ? body.slice(body.indexOf(",") + 1) : body;
+// ---------------------------------------------------------------------------
+// Upload: ticket -> signed PUT (streamed to R2) -> commit
+// ---------------------------------------------------------------------------
+
+/** Signed PUT lifetime: the bytes must arrive within 10 minutes of `beginUpload`. */
+export const DIE_FILE_UPLOAD_TTL_MS = 10 * 60 * 1000;
+/** `commit` is accepted until this long after the PUT link expired (a slow 40 MB PUT on site Wi-Fi). */
+export const DIE_FILE_COMMIT_GRACE_MS = 10 * 60 * 1000;
+
+/** What `beginUpload` decided, carried (signed) through the PUT and the commit. Never trusted unsigned. */
+export type DieUploadTicket = {
+  v: 1;
+  companyId: string;
+  userId: string;
+  sectionId: string;
+  dieInstanceId: string | null;
+  fileId: string;
+  kind: DieFileKind;
+  name: string;
+  size: number;
+  contentType: string;
+  pressDrawing: boolean;
+  exp: number;
+};
+
+function base64url(bytes: Uint8Array): string {
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function fromBase64url(text: string): Uint8Array {
+  const bin = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+
+export function ticketKey(t: Pick<DieUploadTicket, "companyId" | "sectionId" | "fileId">): string {
+  return dieFileKey(t.companyId, t.sectionId, t.fileId);
+}
+
+/** `{payload}.{hex HMAC}`: the upload id handed to the client and put in the PUT URL. */
+export async function signUploadTicket(ticket: DieUploadTicket): Promise<string> {
+  const payload = base64url(new TextEncoder().encode(JSON.stringify(ticket)));
+  const sig = await crypto.subtle.sign("HMAC", await hmacKey("orrn-die-upload"), new TextEncoder().encode(`die-upload:${payload}`));
+  return `${payload}.${hex(sig)}`;
+}
+
+/**
+ * The ticket when `uploadId` carries a valid signature and has not expired (`exp + graceMs`), else
+ * null. Throws PRECONDITION_FAILED when the stage has no signing key.
+ */
+export async function readUploadTicket(uploadId: string, now: number = Date.now(), graceMs = 0): Promise<DieUploadTicket | null> {
+  const key = await hmacKey("orrn-die-upload");
+  const m = /^([A-Za-z0-9_-]{1,4000})\.([0-9a-f]{64})$/.exec(uploadId);
+  if (!m) return null;
+  const [, payload, sigHex] = m as unknown as [string, string, string];
+  const sig = new Uint8Array(sigHex.match(/.{2}/g)!.map((b) => parseInt(b, 16)));
+  if (!(await crypto.subtle.verify("HMAC", key, sig, new TextEncoder().encode(`die-upload:${payload}`)))) return null;
+  let ticket: DieUploadTicket;
   try {
-    const bin = atob(raw.replace(/\s+/g, ""));
-    const out = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
-    return out;
+    ticket = JSON.parse(new TextDecoder().decode(fromBase64url(payload))) as DieUploadTicket;
   } catch {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "The upload is not readable; pick the file again" });
+    return null;
   }
+  if (ticket.v !== 1 || !Number.isFinite(ticket.exp) || ticket.exp + graceMs < now) return null;
+  return ticket;
+}
+
+/** The PUT URL for a ticket, on this API's origin. */
+export function dieFileUploadUrl(ctx: { request?: Request | null }, uploadId: string): string {
+  return `${apiOrigin(ctx)}/files/dies/upload?${new URLSearchParams({ u: uploadId }).toString()}`;
+}
+
+function inlineDisposition(name: string): string {
+  return `inline; filename="${name.replace(/["\\\r\n]/g, "_")}"`;
+}
+
+/**
+ * Worker route `PUT /files/dies/upload?u=<ticket>` (no session: the ticket is the authority). O(1):
+ * verify the ticket, check Content-Length equals the declared size, refuse an existing object, and
+ * stream the body into R2. The bytes are never buffered in the Worker.
+ */
+export async function handleDieFileUpload(
+  request: Request,
+  opts: { bucket?: R2Bucket | null; now?: number } = {},
+): Promise<Response> {
+  const text = (body: string, status: number) =>
+    new Response(body, { status, headers: { "content-type": "text/plain; charset=utf-8", "x-content-type-options": "nosniff" } });
+  if (!dieFileSigningReady()) return text("File storage is not set up", 503);
+  const bucket = opts.bucket === undefined ? (env as unknown as { DIE_FILES?: R2Bucket }).DIE_FILES : opts.bucket;
+  if (!bucket) return text("File storage is not set up", 503);
+  const uploadId = new URL(request.url).searchParams.get("u") ?? "";
+  const ticket = await readUploadTicket(uploadId, opts.now ?? Date.now());
+  if (!ticket) return text("Link expired or not valid", 403);
+  const declared = request.headers.get("content-length");
+  if (declared === null || !/^\d+$/.test(declared)) return text("Send the file with its length", 411);
+  const length = Number(declared);
+  if (length > ticket.size) return text("The file is larger than declared", 413);
+  if (length !== ticket.size || !request.body) return text("The file size does not match", 400);
+  const key = ticketKey(ticket);
+  if (await bucket.head(key)) return text("This upload is already done", 409);
+  await bucket.put(key, request.body, {
+    httpMetadata: { contentType: ticket.contentType, contentDisposition: inlineDisposition(ticket.name) },
+    customMetadata: { companyId: ticket.companyId, sectionId: ticket.sectionId, fileId: ticket.fileId, uploadedBy: ticket.userId },
+  });
+  return new Response(JSON.stringify({ ok: true, bytes: length }), { status: 200, headers: { "content-type": "application/json" } });
 }
