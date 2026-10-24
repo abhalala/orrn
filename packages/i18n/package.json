@@ -5,13 +5,16 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./en": "./src/en.ts",
+    "./en-public": "./src/en-public.gen.ts",
     "./hi": "./src/hi.ts",
     "./guides": "./src/guides/index.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",
     "test": "bun test",
-    "export-review": "bun scripts/export-review.ts"
+    "export-review": "bun scripts/export-review.ts",
+    "gen:public": "bun scripts/gen-public.ts"
   },
   "devDependencies": {
     "@orrn/config": "workspace:*",

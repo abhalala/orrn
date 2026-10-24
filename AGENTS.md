@@ -413,6 +413,28 @@ bun run deploy
 - Keep webhook handlers O(1): verify signature, update one row, return.
 - Large imports must be bounded by row/file limits and validated in manageable batches.
 
+## Web bundle: dictionaries and the `/` budget
+
+- Dictionaries are lazy on web. `@orrn/i18n` (the index) exports no dictionary values (raw
+  messages: `@orrn/i18n/en`, `@orrn/i18n/hi`, for tests and native only). The web build swaps the
+  package's `./dictionaries` for `dictionaries.web.ts` (vite plugin in `apps/web/vite.config.ts`):
+  the entry carries only the English the public `/` page renders (`en-public.gen.ts`, picked by
+  `packages/i18n/src/public-keys.ts`); full English and Hindi are chunks fetched by `loadMessages`.
+  The root route's `beforeLoad` (`ensureLocale`, `shared/lib/locale.ts`) awaits the saved language
+  before any page but English `/` renders; `t()` stays synchronous. A new locale (gu) goes in
+  `LOCALES` (core.ts), `dictionaries.ts` and the `LOADERS` of `dictionaries.web.ts`. Never import a
+  locale file, `@orrn/i18n/en`, `@orrn/i18n/hi` or `@orrn/i18n/guides` from a route or shared web
+  code. A new `t()` on the marketing page needs its key in `public-keys.ts` plus
+  `bun run --cwd packages/i18n gen:public` (tests fail until then).
+  `apps/web/scripts/check-route-budget.ts` fails the build when Hindi, the full English or guide
+  text reaches the `/` closure.
+- Route files: `validateSearch`, `beforeLoad`, `loader` and `head` stay in the entry chunk
+  (`autoCodeSplitting` splits only the component). Their helpers (search parsers, filter lists,
+  `isX` guards) live in pure modules; never import them from a component/page module (that drags
+  the page into every first load: `/purchase` once put `/` at 306.8 kB) and never use a zod
+  schema there (zod is ~18 kB gzip: `/login` parses `?next` with a plain function). The same holds
+  for anything the entry imports (`@orrn/env/web` validates with a Standard Schema check, no zod).
+
 ## Spool integration (orrn-spool)
 
 - Each tenant gets a `spool_deployment` row in D1 with a shared secret (HMAC-SHA256), Cloudflare Tunnel token, and subdomain.

@@ -106,3 +106,38 @@ export function measureRoute(dist: string, marker: string): RouteBudget {
 export const MARKETING_MARKER = "data-orrn-marketing";
 /** `/` JS budget from the C2 plan, Task 18: under 250 kB gzip, fonts excluded. */
 export const MARKETING_BUDGET_GZIP = 250_000;
+
+type StringTree = { readonly [key: string]: string | StringTree };
+
+function leaves(tree: StringTree): string[] {
+  return Object.values(tree).flatMap((v) => (typeof v === "string" ? [v] : leaves(v)));
+}
+
+/**
+ * A few strings that prove a dictionary is in a chunk: the longest value of
+ * each top-level namespace, among those at least 24 characters long, free of
+ * characters a bundler might escape (backtick, backslash, quotes, `${`), and
+ * not in `allowed` (the strings the entry carries on purpose). Any one of
+ * them in the `/` closure means the whole dictionary was imported statically.
+ */
+export function dictionarySignatures(tree: StringTree, allowed: ReadonlySet<string> = new Set()): string[] {
+  const out: string[] = [];
+  for (const ns of Object.values(tree)) {
+    const candidates = (typeof ns === "string" ? [ns] : leaves(ns))
+      .filter((s) => s.length >= 24 && !/[`\\"'$]/.test(s) && !allowed.has(s))
+      .sort((a, b) => b.length - a.length);
+    if (candidates[0]) out.push(candidates[0]);
+  }
+  return out;
+}
+
+/** The `[file, signature]` pairs where a counted chunk carries one of `signatures`. */
+export function filesWithSignatures(dist: string, files: readonly string[], signatures: readonly string[]): [string, string][] {
+  const hits: [string, string][] = [];
+  for (const file of files) {
+    const code = readFileSync(join(dist, file), "utf8");
+    const hit = signatures.find((s) => code.includes(s));
+    if (hit) hits.push([file, hit]);
+  }
+  return hits;
+}
