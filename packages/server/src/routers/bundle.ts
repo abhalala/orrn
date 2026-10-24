@@ -579,6 +579,9 @@ export const bundleRouter = router({
           dieSeries: die.series,
           dieSectionCode: die.sectionCode,
           dieName: die.name,
+          // The die's weight band (grams per 12 ft): the Stock section block shows it (Task 21).
+          dieWeightMinG: die.weightMinG,
+          dieWeightMaxG: die.weightMaxG,
           bundleCount: sql<number>`count(*)`.as("bundle_count"),
           totalQuantity: sql<number>`coalesce(sum(${bundle.quantity}), 0)`.as("total_quantity"),
           totalWeightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`.as("total_weight_g"),
@@ -587,7 +590,7 @@ export const bundleRouter = router({
         .from(bundle)
         .innerJoin(die, and(eq(die.id, bundle.dieId), eq(die.companyId, bundle.companyId)))
         .where(and(eq(bundle.companyId, ctx.companyId), eq(bundle.status, input.status)))
-        .groupBy(bundle.dieId, die.series, die.sectionCode, die.name)
+        .groupBy(bundle.dieId, die.series, die.sectionCode, die.name, die.weightMinG, die.weightMaxG)
         .orderBy(asc(die.series), asc(die.sectionCode));
 
       const totals = rows.reduce(
