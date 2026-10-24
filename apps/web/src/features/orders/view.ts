@@ -51,6 +51,9 @@ export type Strip = {
   agedG: number;
   packedG: number;
   inStockG: number;
+  /** FP-OP-05: the bundles and pieces that make up "in stock" (absent on an older server answer). */
+  inStockBundles?: number;
+  inStockPcs?: number;
   dispatchedG: number;
   bakiG: number;
   bakiPcs: number | null;
@@ -75,8 +78,10 @@ export type StripCell = {
   key: StripGramKey;
   labelKey: MessageKey;
   kg: string;
-  /** Only where the server gives pieces (ordered, baki); the other figures are kg. */
+  /** Only where the server gives pieces (ordered, baki, in stock); the other figures are kg. */
   pcs: string | null;
+  /** In stock only: how many bundles those kg are (FP-OP-05: "100 kg, 50 pcs, 1 bundle"). */
+  bundles: number | null;
   /** The baki cell while kg are still to dispatch. */
   open: boolean;
 };
@@ -84,12 +89,14 @@ export type StripCell = {
 export function stripCells(strip: Strip): StripCell[] {
   return STRIP_CELLS.map((cell) => {
     const grams = strip[cell.key];
-    const pcs = cell.pcs ? strip[cell.pcs] : null;
+    const inStock = cell.key === "inStockG";
+    const pcs = inStock ? (strip.inStockPcs ?? null) : cell.pcs ? strip[cell.pcs] : null;
     return {
       key: cell.key,
       labelKey: cell.labelKey,
       kg: orderKgText(grams),
       pcs: pcs == null ? null : pcsText(pcs),
+      bundles: inStock ? (strip.inStockBundles ?? null) : null,
       open: Boolean(cell.balance) && grams > 0,
     };
   });
@@ -333,6 +340,38 @@ export function addPlanLines(draft: readonly DraftDie[], items: readonly { secti
 /** The draft footer: dies and lines (a count, never kg; the kg is the server's). */
 export function draftCounts(draft: readonly DraftDie[]): { dies: number; lines: number } {
   return { dies: draft.length, lines: draft.reduce((n, d) => n + d.lineIds.length, 0) };
+}
+
+// ---------------------------------------------------------------------------
+// The draft's three views (FP-OP-11): by die (the run order), by sales order, flat.
+// ---------------------------------------------------------------------------
+
+export const PLAN_VIEWS = ["die", "order", "flat"] as const;
+export type PlanView = (typeof PLAN_VIEWS)[number];
+
+export type DraftLineRef = { sectionId: string; lineId: string };
+export type DraftGroup = { key: string; kind: PlanView; sectionId?: string; orderNumber?: string; lines: DraftLineRef[] };
+
+/**
+ * The draft's lines grouped for the view picked. By die keeps the dies in run order (they can be
+ * moved and marked urgent there); by sales order groups every line of an order together, orders in
+ * the order their first line appears; flat is one list in run order.
+ */
+export function draftGroups(draft: readonly DraftDie[], view: PlanView, orderOf: (lineId: string) => string | undefined): DraftGroup[] {
+  const lines = draft.flatMap((d) => d.lineIds.map((lineId) => ({ sectionId: d.sectionId, lineId })));
+  if (view === "die") return draft.map((d) => ({ key: d.sectionId, kind: "die", sectionId: d.sectionId, lines: d.lineIds.map((lineId) => ({ sectionId: d.sectionId, lineId })) }));
+  if (view === "flat") return lines.length > 0 ? [{ key: "flat", kind: "flat", lines }] : [];
+  const byOrder = new Map<string, DraftLineRef[]>();
+  for (const l of lines) {
+    const order = orderOf(l.lineId) ?? "";
+    byOrder.set(order, [...(byOrder.get(order) ?? []), l]);
+  }
+  return [...byOrder].map(([orderNumber, grouped]) => ({ key: `order:${orderNumber}`, kind: "order", orderNumber, lines: grouped }));
+}
+
+/** Distinct sales orders on the draft. */
+export function draftOrderCount(draft: readonly DraftDie[], orderOf: (lineId: string) => string | undefined): number {
+  return new Set(draft.flatMap((d) => d.lineIds.map((id) => orderOf(id) ?? ""))).size;
 }
 
 /** Quick lengths for the order line, in feet (inch companies). */

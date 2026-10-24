@@ -46,7 +46,7 @@ import { can, type Action, type CompanyRole } from "../lib/permissions";
 import { assertPoFree, orderDetailExtras, orderFlowProcedures, poRepeatGuard } from "./orderFlow";
 import { stockOnOrder } from "../lib/orderStock";
 import { BOOK_STAGES, bookCities, bookTotals, orderBook, type BookFilter } from "../lib/orderBook";
-import { LATE_AFTER_DAYS, lateDaysOf, lateOf, lineStrips, onReleasedPlan, ymdMinusDays, ymdOf } from "../lib/orderStrip";
+import { LATE_AFTER_DAYS, lateOf, lineStrips, onReleasedPlan, ymdMinusDays, ymdOf } from "../lib/orderStrip";
 
 const MAX_LINES = 100;
 
@@ -833,8 +833,9 @@ export const salesOrderRouter = router({
         order: { ...order, customerName: cust?.name ?? "", customerGstin: cust?.taxId ?? null },
         lines,
         totals,
-        /** Days running late (FP-OP-18 rule, review m-1), else null. */
-        lateDays: lateDaysOf({ status: order.status, orderDate: order.orderDate, expectedDate: order.expectedDate, bakiG: totals.bakiG }, today),
+        /** Days running late (FP-OP-18 rule, review m-1), else null; `lateRule` says which date fired. */
+        lateDays: lateOf({ status: order.status, orderDate: order.orderDate, expectedDate: order.expectedDate, bakiG: totals.bakiG }, today)?.days ?? null,
+        lateRule: lateOf({ status: order.status, orderDate: order.orderDate, expectedDate: order.expectedDate, bakiG: totals.bakiG }, today)?.rule ?? null,
         ...extras,
       };
     }),

@@ -8,6 +8,7 @@ import {
   plGroupTitle,
   plRowCells,
   plExtraColumns,
+  plKgPerPiece,
   plProfileLines,
   plRevisionText,
   plRowExtras,
@@ -49,7 +50,7 @@ function ddMmmYyyy(ymd: string | null | undefined): string {
 const NUMERIC_COLUMNS = new Set([0, 4, 5, 6, 7, 8, 9]);
 
 /** v2: the plant's PL — letterhead, bill-to / ship-to, transport, refs, 11 columns grouped by order line. */
-function buildPackingListHtmlV2(pl: V2Snapshot): string {
+function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = {}): string {
   const h = pl.header;
   const e = (v: string | null | undefined) => escapeHtml(v ?? "");
   const party = (label: string, p: { name: string; gstin: string | null; address: string | null }) => `
@@ -62,7 +63,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot): string {
   const shipDate = plShipDateText(pl.dispatch.shipDate, pl.header?.shipDate);
   // FP-PK-13: optional Party no / Original SO columns, section subtotals, profile-kind summary.
   const extra = plExtraColumns(pl);
-  const extraHeads = [...(extra.partyNo ? ["Party no"] : []), ...(extra.originalSo ? ["Original SO"] : [])];
+  const extraHeads = [...(extra.partyNo ? ["Party no"] : []), ...(extra.originalSo ? ["Original SO"] : []), ...(opts.kgPerPiece ? ["kg/pc"] : [])];
   const span = 11 + extraHeads.length;
   const tail = span - 8;
   const head = [
@@ -78,6 +79,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot): string {
             ...plRowCells(r),
             ...(extra.partyNo ? [plRowExtras(pl, r).partyNo] : []),
             ...(extra.originalSo ? [plRowExtras(pl, r).originalSo] : []),
+            ...(opts.kgPerPiece ? [plKgPerPiece(r)] : []),
           ];
           return `<tr>${cells.map((c, i) => `<td${NUMERIC_COLUMNS.has(i) ? ' class="num"' : ""}>${escapeHtml(c)}</td>`).join("")}</tr>`;
         })
@@ -183,7 +185,7 @@ export function buildPackingListHtml(
   _lengthUnit?: LengthUnit,
   opts: PackingListModelOptions = {},
 ): string {
-  if (isPlSnapshotV2(pl)) return buildPackingListHtmlV2(pl);
+  if (isPlSnapshotV2(pl)) return buildPackingListHtmlV2(pl, opts);
   const { header, groups, totals } = packingListModel(pl, opts);
   const meta = [
     ["PL no", code],

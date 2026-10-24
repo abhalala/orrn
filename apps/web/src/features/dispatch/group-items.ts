@@ -18,6 +18,9 @@ export type DispatchItem = {
   dieName?: string | null;
   /** Another dispatch holding this bundle (both listed it; that one held it first). */
   heldBy?: string | null;
+  /** The sales order of the line it is linked to (FP-PK-17 names other orders on an order's load). */
+  orderId?: string | null;
+  orderNumber?: string | null;
 };
 
 export type ItemGroup<T extends DispatchItem = DispatchItem> = {

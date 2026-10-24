@@ -13,6 +13,7 @@ export {
   plSectionSubtotalAfter,
   plRevisionText,
   plRowExtras,
+  plKgPerPiece,
   plDispatchCodesText,
 } from "./snapshot";
 export * from "./model";

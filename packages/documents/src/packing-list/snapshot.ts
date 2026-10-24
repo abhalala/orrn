@@ -168,6 +168,11 @@ export function plRowExtras(pl: V2Extras, r: PlRow): { partyNo: string; original
   return { partyNo: info?.partyNo ?? r.bundleNo, originalSo: info?.originalSo ?? "" };
 }
 
+/** FP-PK-13: kg per piece of a printed row, "2.500", or "" without pieces. Optional column, off by default. */
+export function plKgPerPiece(r: Pick<PlRow, "weightG" | "pcs">): string {
+  return r.pcs > 0 ? (r.weightG / 1000 / r.pcs).toFixed(3) : "";
+}
+
 /**
  * The optional columns after the 11 printed ones: "Party no" when any row's party number differs
  * from its bundle number, "Original SO" when the list shows it and any row has one.

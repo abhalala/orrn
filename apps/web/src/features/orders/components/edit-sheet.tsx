@@ -11,7 +11,7 @@ import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { orderErrorLines } from "../errors";
 
-/** Edit the PO number and note of an order (`orders.update`; an edit never moves the status). */
+/** Edit the PO number, expected date and note of an order (`orders.update`; an edit never moves the status). */
 export function EditSheet({
   open,
   onOpenChange,
@@ -19,20 +19,22 @@ export function EditSheet({
 }: {
   open: boolean;
   onOpenChange(open: boolean): void;
-  order: { id: string; serverSeq: number; poNumber: string | null; note: string | null };
+  order: { id: string; serverSeq: number; poNumber: string | null; expectedDate?: string | null; note: string | null };
 }) {
   const { t } = useT();
   const queryClient = useQueryClient();
   const [po, setPo] = useState("");
   const [note, setNote] = useState("");
+  const [expected, setExpected] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   useEffect(() => {
     if (open) {
       setPo(order.poNumber ?? "");
       setNote(order.note ?? "");
+      setExpected(order.expectedDate ?? "");
       setErrors([]);
     }
-  }, [open, order.poNumber, order.note]);
+  }, [open, order.poNumber, order.note, order.expectedDate]);
 
   const save = useMutation({
     mutationFn: () =>
@@ -40,6 +42,7 @@ export function EditSheet({
         id: order.id,
         serverSeq: order.serverSeq,
         poNumber: po.trim() || null,
+        expectedDate: expected || null,
         note: note.trim() || null,
       }),
     onSuccess: async () => {
@@ -79,6 +82,9 @@ export function EditSheet({
       <div className="flex flex-col gap-3">
         <Field label={t("orders.poNumber")}>
           <TextInput value={po} onChangeText={setPo} autoComplete="off" />
+        </Field>
+        <Field label={t("orders.expectedDate")}>
+          <TextInput type="date" value={expected} onChangeText={setExpected} />
         </Field>
         <Field label={t("common.note")}>
           <FieldTextArea value={note} onChangeText={setNote} rows={3} />

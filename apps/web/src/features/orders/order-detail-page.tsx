@@ -14,8 +14,8 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Boxes, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { Boxes, FileText, RefreshCw, Truck } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { bookDateText } from "@/features/purchase/format";
@@ -24,13 +24,17 @@ import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { BakiStrip } from "./components/baki-strip";
+import { LineFilters } from "./components/line-filters";
+import { StockOnSheet } from "./components/stock-on-sheet";
 import { EditSheet } from "./components/edit-sheet";
 import { ReallocateSheet, type ReallocateSource } from "./components/reallocate-sheet";
 import { LinesEditor } from "./components/lines-editor";
 import { ReasonSheet } from "./components/reason-sheet";
 import { TakeStockSheet, type TakeStockTarget } from "./components/take-stock-sheet";
 import { Timeline } from "./components/timeline";
+import { lateRuleKey } from "./book-view";
 import { orderErrorLines } from "./errors";
+import { filterLines, filterOptions, NO_LINE_FILTER, shownTotals, showLineFilters, type FilterableStrip, type LineFilterState } from "./line-filter";
 import { milliText, orderKgText, pcsText, rateText } from "./format";
 import { blockerText, dieTitle, isOrderStatus, STATUS_TONE, statusActions, type OrderStatus, type Strip } from "./view";
 
@@ -46,10 +50,20 @@ export function OrderDetailPage({ id }: { id: string }) {
   const [editing, setEditing] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [events, setEvents] = useState(50);
+  const [stockOpen, setStockOpen] = useState(false);
+  const [lineFilter, setLineFilter] = useState<LineFilterState>(NO_LINE_FILTER);
 
   const get = useQuery(trpc.orders.get.queryOptions({ id }));
   const timeline = useQuery({ ...trpc.orders.timeline.queryOptions({ id, limit: events }) });
   const pending = useQuery(trpc.orders.reallocations.list.queryOptions({ orderId: id, status: "pending" }));
+
+  // FP-OP-05: from 20 lines on the lines can be narrowed; the strips are the server's.
+  const stripsById = useMemo(() => new Map((get.data?.lineDetails ?? []).map((d) => [d.lineId, d.strip as FilterableStrip])), [get.data]);
+  const longOrder = showLineFilters(get.data?.lines.length ?? 0);
+  const shownLines = useMemo(
+    () => (get.data && longOrder ? filterLines(get.data.lines, stripsById, lineFilter) : (get.data?.lines ?? [])),
+    [get.data, longOrder, stripsById, lineFilter],
+  );
 
   const refresh = () =>
     Promise.all([
@@ -147,6 +161,21 @@ export function OrderDetailPage({ id }: { id: string }) {
         subtitle={[order.customerName, order.poNumber || t("orders.noPo")].join(" · ")}
         back={{ to: "/orders", label: t("orders.title") }}
         actions={
+          <>
+            <Button variant="secondary" onClick={() => setStockOpen(true)} data-stock-on-open="" aria-haspopup="dialog">
+              <FileText aria-hidden="true" strokeWidth={2} />
+              {t("orders.stockOn.button")}
+            </Button>
+            {status === "confirmed" || status === "dispatching" ? (
+              <Can do="dispatch.create">
+                <Button variant="secondary" asChild>
+                  <Link to="/dispatch/new" search={{ salesOrderId: order.id }} data-dispatch-from-order="">
+                    <Truck aria-hidden="true" strokeWidth={2} />
+                    {t("orders.detail.dispatch")}
+                  </Link>
+                </Button>
+              </Can>
+            ) : null}
           <Can do="order.manage">
             {can.confirm ? (
               <Button size="lg" onClick={() => confirm.mutate(order.serverSeq)} disabled={confirm.isPending}>
@@ -174,6 +203,7 @@ export function OrderDetailPage({ id }: { id: string }) {
               </Button>
             ) : null}
           </Can>
+          </>
         }
       />
 
@@ -183,7 +213,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             {t(`orders.status.${status}`)}
           </Chip>
           {isLate ? (
-            <Chip tone="red" truncate={false}>
+            <Chip tone="red" truncate={false} title={t(lateRuleKey(get.data.lateRule))}>
               {t("orders.late", { days: daysLate })}
             </Chip>
           ) : null}
@@ -298,7 +328,18 @@ export function OrderDetailPage({ id }: { id: string }) {
         ) : (
         <section className="flex min-w-0 flex-col gap-3">
           <h2 className="m-0 text-[15px] font-semibold">{t("orders.detail.lines")}</h2>
-          {lines.map((line) => {
+          {longOrder ? (
+            <LineFilters
+              value={lineFilter}
+              onChange={setLineFilter}
+              options={filterOptions(lines)}
+              unit={unit}
+              shown={shownTotals(shownLines)}
+              total={lines.length}
+            />
+          ) : null}
+          {shownLines.length === 0 ? <p className="m-0 text-[14px] text-muted-foreground">{t("orders.detail.filter.none")}</p> : null}
+          {shownLines.map((line) => {
             const d = details.get(line.lineId);
             const strip = d?.strip as Strip | undefined;
             const rate = d && "ratePaise" in d && typeof d.ratePaise === "number" ? d.ratePaise : null;
@@ -419,8 +460,9 @@ export function OrderDetailPage({ id }: { id: string }) {
       <EditSheet
         open={editOpen}
         onOpenChange={setEditOpen}
-        order={{ id: order.id, serverSeq: order.serverSeq, poNumber: order.poNumber, note: order.note }}
+        order={{ id: order.id, serverSeq: order.serverSeq, poNumber: order.poNumber, expectedDate: order.expectedDate, note: order.note }}
       />
+      <StockOnSheet open={stockOpen} onOpenChange={setStockOpen} orderId={order.id} orderNumber={order.number} />
       <ReasonSheet
         open={closeOpen}
         onOpenChange={setCloseOpen}

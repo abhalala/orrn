@@ -14,6 +14,8 @@ import {
   movePlanDie,
   addPlanLines,
   draftCounts,
+  draftGroups,
+  draftOrderCount,
   soLines,
   parseBlocker,
   poRepeatFromMessage,
@@ -245,5 +247,52 @@ describe("copyChoiceInput", () => {
     expect(copyChoiceInput("copy:abc")).toEqual({ dieInstanceId: "abc", tierRank: null });
     expect(copyChoiceInput("tier:2")).toEqual({ dieInstanceId: null, tierRank: 2 });
     expect(copyChoiceInput("tier:x")).toEqual({ dieInstanceId: null, tierRank: null });
+  });
+});
+
+describe("the draft in three views (FP-OP-11)", () => {
+  const draft: DraftDie[] = [
+    { sectionId: "d1", urgent: false, lineIds: ["l1", "l3"] },
+    { sectionId: "d2", urgent: true, lineIds: ["l2"] },
+  ];
+  const order: Record<string, string> = { l1: "SO-1", l2: "SO-2", l3: "SO-2" };
+  const orderOf = (id: string) => order[id];
+
+  test("by die keeps the run order of the dies", () => {
+    const g = draftGroups(draft, "die", orderOf);
+    expect(g.map((x) => [x.key, x.lines.map((l) => l.lineId)])).toEqual([
+      ["d1", ["l1", "l3"]],
+      ["d2", ["l2"]],
+    ]);
+  });
+
+  test("by order groups every line of a sales order together, orders in the order they first appear", () => {
+    const g = draftGroups(draft, "order", orderOf);
+    expect(g.map((x) => [x.orderNumber, x.lines.map((l) => `${l.sectionId}:${l.lineId}`)])).toEqual([
+      ["SO-1", ["d1:l1"]],
+      ["SO-2", ["d1:l3", "d2:l2"]],
+    ]);
+  });
+
+  test("flat is one list in run order, and an empty draft has no groups", () => {
+    const g = draftGroups(draft, "flat", orderOf);
+    expect(g).toHaveLength(1);
+    expect(g[0]!.lines.map((l) => l.lineId)).toEqual(["l1", "l3", "l2"]);
+    expect(draftGroups([], "flat", orderOf)).toEqual([]);
+    expect(draftGroups([], "order", orderOf)).toEqual([]);
+  });
+
+  test("the footer counts orders, dies and lines", () => {
+    expect(draftOrderCount(draft, orderOf)).toBe(2);
+    expect(draftCounts(draft)).toEqual({ dies: 2, lines: 3 });
+  });
+});
+
+describe("in stock with its bundle count (FP-OP-05)", () => {
+  test("the in-stock cell carries the pieces and bundles; other cells do not", () => {
+    const cells = stripCells({ ...strip, inStockG: 100_000, inStockPcs: 50, inStockBundles: 1 });
+    expect(cells[5]).toMatchObject({ key: "inStockG", kg: "100.000", pcs: "50", bundles: 1 });
+    expect(cells[4]).toMatchObject({ bundles: null });
+    expect(stripCells(strip)[5]).toMatchObject({ pcs: null, bundles: null });
   });
 });

@@ -5,9 +5,10 @@ import {
   type PackingListModel,
   type PackingListRow,
 } from "@orrn/documents/packing-list/model";
-import { formatKg } from "@orrn/domain";
+import { formatKg, readFloorSettings } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
+import { Checkbox } from "@orrn/ui/components/checkbox";
 import { Dialog } from "@orrn/ui/components/dialog";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Skeleton } from "@orrn/ui/components/skeleton";
@@ -19,6 +20,7 @@ import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
 import { downloadPackingListPdf, downloadPackingListXlsx } from "@/shared/lib/exports";
+import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import { dispatchErrorText, failedFirstLoad, isConflict } from "./errors";
@@ -48,6 +50,15 @@ export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId
   }, [focusTitle]);
   const queryClient = useQueryClient();
   const timeZone = useCompanyTimeZone();
+  // FP-PK-13: the optional kg-per-piece column is the plant's setting (off by default).
+  const { data: me } = useMe();
+  const showKgPerPiece = readFloorSettings(me?.company?.settings).packingList.kgPerPiece;
+  const setKgPerPiece = useMutation(
+    trpc.company.updateSettings.mutationOptions({
+      onSuccess: () => void queryClient.invalidateQueries({ queryKey: trpc.auth.me.queryKey() }),
+      onError: () => toast.error(t("packingList.kgPerPieceFailed")),
+    }),
+  );
   const pl = useQuery(trpc.packingList.byDispatch.queryOptions({ dispatchId }));
   const parsed = useMemo(() => (pl.data ? safeParsePackingListSnapshot(pl.data.snapshot) : null), [pl.data]);
   const model = useMemo(
@@ -64,8 +75,8 @@ export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId
     if (!pl.data || !parsed?.success) return;
     setDownloading(kind);
     try {
-      if (kind === "pdf") await downloadPackingListPdf(parsed.data, pl.data.code, { timeZone });
-      else await downloadPackingListXlsx(parsed.data, pl.data.code, { timeZone });
+      if (kind === "pdf") await downloadPackingListPdf(parsed.data, pl.data.code, { timeZone, kgPerPiece: showKgPerPiece });
+      else await downloadPackingListXlsx(parsed.data, pl.data.code, { timeZone, kgPerPiece: showKgPerPiece });
     } catch (err) {
       console.error("packing list export failed", err);
       toast.error(t("packingList.downloadFailed"));
@@ -144,7 +155,7 @@ export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId
       </div>
     );
   } else {
-    body = <PackingListBody model={model} code={pl.data.code} />;
+    body = <PackingListBody model={model} code={pl.data.code} kgPerPiece={showKgPerPiece} />;
   }
 
   return (
@@ -167,6 +178,21 @@ export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId
           </div>
         ) : null}
       </div>
+      {model ? (
+        <Can
+          do="settings.update"
+          fallback={showKgPerPiece ? <p className="m-0 text-[13px] text-muted-foreground">{t("packingList.kgPerPieceOn")}</p> : null}
+        >
+          <label className="inline-flex min-h-11 items-center gap-2 self-start text-[14px] font-medium" data-testid="kg-per-piece-toggle">
+            <Checkbox
+              checked={showKgPerPiece}
+              disabled={setKgPerPiece.isPending}
+              onCheckedChange={(on) => setKgPerPiece.mutate({ packingList: { kgPerPiece: on === true } })}
+            />
+            {t("packingList.kgPerPiece")}
+          </label>
+        </Can>
+      ) : null}
       {body}
       <Dialog
         open={confirmRegen}
@@ -205,7 +231,7 @@ export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId
   );
 }
 
-function PackingListBody({ model, code }: { model: PackingListModel; code: string }) {
+function PackingListBody({ model, code, kgPerPiece }: { model: PackingListModel; code: string; kgPerPiece: boolean }) {
   const { t, locale } = useT();
   const wide = useMediaQuery(breakpoints.desktop);
   const { header, groups, totals } = model;
@@ -248,7 +274,7 @@ function PackingListBody({ model, code }: { model: PackingListModel; code: strin
           {t("packingList.totals", { bundles: totals.bundles, kg: formatKg(totals.weightKg) })}
         </p>
       </div>
-      {wide ? <PackingListTable groups={groups} totals={totals} /> : <PackingListStack groups={groups} totals={totals} />}
+      {wide ? <PackingListTable groups={groups} totals={totals} kgPerPiece={kgPerPiece} /> : <PackingListStack groups={groups} totals={totals} kgPerPiece={kgPerPiece} />}
     </>
   );
 }
@@ -257,7 +283,7 @@ function groupTitle(t: ReturnType<typeof useT>["t"], g: PackingListGroup) {
   return g.labelled ? `${t("packingList.groupNamed", { label: g.label })}: ${g.dieLabel}` : g.label;
 }
 
-function PackingListTable({ groups, totals }: Pick<PackingListModel, "groups" | "totals">) {
+function PackingListTable({ groups, totals, kgPerPiece }: Pick<PackingListModel, "groups" | "totals"> & { kgPerPiece: boolean }) {
   const { t } = useT();
   const cols = [
     { key: "sr", label: t("packingList.columns.sr"), end: false },
@@ -269,6 +295,7 @@ function PackingListTable({ groups, totals }: Pick<PackingListModel, "groups" | 
     { key: "pcs", label: t("packingList.columns.pcs"), end: true },
     { key: "k12", label: t("packingList.columns.kgPer12ft"), end: true },
     { key: "range", label: t("packingList.columns.weightRange"), end: true },
+    ...(kgPerPiece ? [{ key: "kgpc", label: t("packingList.columns.kgPerPiece"), end: true }] : []),
   ];
   const cell = "px-3 py-2 first:pl-5 last:pr-5";
   return (
@@ -296,7 +323,7 @@ function PackingListTable({ groups, totals }: Pick<PackingListModel, "groups" | 
                 </th>
               </tr>
               {g.rows.map((r) => (
-                <PlTableRow key={r.sr} row={r} cell={cell} />
+                <PlTableRow key={r.sr} row={r} cell={cell} kgPerPiece={kgPerPiece} />
               ))}
               <tr className="border-b border-border font-semibold">
                 <td className={cell} />
@@ -308,6 +335,7 @@ function PackingListTable({ groups, totals }: Pick<PackingListModel, "groups" | 
                 <td className={`${cell} text-right font-mono tabular-nums`}>{g.pieces}</td>
                 <td className={cell} />
                 <td className={cell} />
+                {kgPerPiece ? <td className={cell} /> : null}
               </tr>
             </tbody>
           ))}
@@ -324,6 +352,7 @@ function PackingListTable({ groups, totals }: Pick<PackingListModel, "groups" | 
               <td className={`${cell} text-right font-mono tabular-nums`}>{totals.pieces}</td>
               <td className={cell} />
               <td className={cell} />
+              {kgPerPiece ? <td className={cell} /> : null}
             </tr>
           </tfoot>
         </table>
@@ -332,7 +361,7 @@ function PackingListTable({ groups, totals }: Pick<PackingListModel, "groups" | 
   );
 }
 
-function PlTableRow({ row: r, cell }: { row: PackingListRow; cell: string }) {
+function PlTableRow({ row: r, cell, kgPerPiece }: { row: PackingListRow; cell: string; kgPerPiece: boolean }) {
   return (
     <tr data-testid="packing-list-row" className="border-b border-border">
       <td className={`${cell} font-mono text-muted-foreground tabular-nums`}>{r.sr}</td>
@@ -344,11 +373,12 @@ function PlTableRow({ row: r, cell }: { row: PackingListRow; cell: string }) {
       <td className={`${cell} text-right font-mono tabular-nums`}>{r.pcs}</td>
       <td className={`${cell} text-right font-mono tabular-nums`}>{num(r.kgPer12ft, 3)}</td>
       <td className={`${cell} text-right font-mono font-semibold tabular-nums`}>{num(r.weightRange12ft, 1)}</td>
+      {kgPerPiece ? <td className={`${cell} text-right font-mono tabular-nums`} data-testid="packing-list-kg-per-piece">{num(r.kgPerPiece, 3)}</td> : null}
     </tr>
   );
 }
 
-function PackingListStack({ groups, totals }: Pick<PackingListModel, "groups" | "totals">) {
+function PackingListStack({ groups, totals, kgPerPiece }: Pick<PackingListModel, "groups" | "totals"> & { kgPerPiece: boolean }) {
   const { t } = useT();
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -382,6 +412,7 @@ function PackingListStack({ groups, totals }: Pick<PackingListModel, "groups" | 
                     <Fact label={t("packingList.columns.pcs")} value={String(r.pcs)} />
                     <Fact label={t("packingList.columns.kgPer12ft")} value={num(r.kgPer12ft, 3)} />
                     <Fact label={t("packingList.columns.weightRange")} value={num(r.weightRange12ft, 1)} strong />
+                    {kgPerPiece ? <Fact label={t("packingList.columns.kgPerPiece")} value={num(r.kgPerPiece, 3)} /> : null}
                   </dl>
                 </li>
               ))}

@@ -5,6 +5,7 @@ import { Field, TextInput } from "@orrn/ui/components/field";
 import { FormActions } from "@orrn/ui/components/form-actions";
 import { HowToButton } from "@orrn/ui/components/how-to-button";
 import { TextArea } from "@orrn/ui/components/input";
+import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -12,12 +13,16 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { CustomerPicker, type PickedCustomer } from "@/features/dispatch/customer-picker";
+import { OrderPicker, type PickedOrder } from "@/features/dispatch/order-picker";
 import { dispatchErrorText } from "@/features/dispatch/errors";
 import { parseDayInput } from "@/features/dispatch/format";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
+/** `?salesOrderId=…` opens the form on "From sales order" with that order picked (FP-PK-17). */
 export const Route = createFileRoute("/_tenant/dispatch/new")({
+  validateSearch: (search: Record<string, unknown>): { salesOrderId?: string } =>
+    typeof search.salesOrderId === "string" && search.salesOrderId && search.salesOrderId.length <= 64 ? { salesOrderId: search.salesOrderId } : {},
   component: NewDispatchPage,
 });
 
@@ -57,21 +62,30 @@ function NewDispatchForm() {
   const { t } = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { salesOrderId } = Route.useSearch();
+  const [mode, setMode] = useState<"customer" | "order">(salesOrderId ? "order" : "customer");
+  const [order, setOrder] = useState<PickedOrder | null>(salesOrderId ? { id: salesOrderId, number: "", customerName: "" } : null);
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);
   const [shipDate, setShipDate] = useState("");
   const [notes, setNotes] = useState("");
-  const [errors, setErrors] = useState<{ customer?: string; notes?: string; form?: string }>({});
+  const [errors, setErrors] = useState<{ customer?: string; order?: string; notes?: string; form?: string }>({});
   const create = useMutation(trpc.dispatch.create.mutationOptions());
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const next: typeof errors = {};
-    if (!customer) next.customer = t("dispatch.new.customerRequired");
+    if (mode === "customer" && !customer) next.customer = t("dispatch.new.customerRequired");
+    if (mode === "order" && !order) next.order = t("dispatch.fromOrder.required");
     if (notes.length > NOTES_MAX) next.notes = t("errors.tooLong", { max: NOTES_MAX });
     setErrors(next);
-    if (!customer || next.notes) return;
+    if ((mode === "customer" && !customer) || (mode === "order" && !order) || next.notes) return;
     create.mutate(
-      { customerId: customer.id, shipDate: parseDayInput(shipDate), notes: notes.trim() || null },
+      {
+        // From a sales order the party is the order's: only the order is sent (FP-PK-17).
+        ...(mode === "order" ? { salesOrderId: order!.id } : { customerId: customer!.id }),
+        shipDate: parseDayInput(shipDate),
+        notes: notes.trim() || null,
+      },
       {
         onSuccess: (res) => {
           toast.success(t("dispatch.new.created", { code: res.code }));
@@ -90,14 +104,37 @@ function NewDispatchForm() {
   return (
     <form onSubmit={submit} noValidate className="flex max-w-[560px] min-w-0 flex-col gap-5">
       <div className="flex min-w-0 flex-col gap-5 rounded-card border border-border bg-card p-4 sm:p-6">
-        <CustomerPicker
-          value={customer}
-          onChange={(c) => {
-            setCustomer(c);
-            setErrors((x) => ({ ...x, customer: undefined }));
+        <SegmentedControl<"customer" | "order">
+          label={t("dispatch.fromOrder.start")}
+          value={mode}
+          onChange={(m) => {
+            setMode(m);
+            setErrors({});
           }}
-          error={errors.customer}
+          options={[
+            { value: "customer", label: t("dispatch.fromOrder.byCustomer") },
+            { value: "order", label: t("dispatch.fromOrder.tab") },
+          ]}
         />
+        {mode === "customer" ? (
+          <CustomerPicker
+            value={customer}
+            onChange={(c) => {
+              setCustomer(c);
+              setErrors((x) => ({ ...x, customer: undefined }));
+            }}
+            error={errors.customer}
+          />
+        ) : (
+          <OrderPicker
+            value={order}
+            onChange={(o) => {
+              setOrder(o);
+              setErrors((x) => ({ ...x, order: undefined }));
+            }}
+            error={errors.order}
+          />
+        )}
         <Field
           label={`${t("dispatch.new.shipDate")} (${t("common.optional").toLowerCase()})`}
           hint={t("dispatch.new.shipDateHint")}

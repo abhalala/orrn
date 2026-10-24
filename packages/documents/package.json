@@ -9,6 +9,12 @@
     },
     "./packing-list/model": {
       "default": "./src/packing-list/model.ts"
+    },
+    "./stock-on-order": {
+      "default": "./src/stock-on-order/index.ts"
+    },
+    "./stock-on-order/model": {
+      "default": "./src/stock-on-order/model-entry.ts"
     }
   },
   "scripts": {

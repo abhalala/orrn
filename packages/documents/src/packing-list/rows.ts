@@ -29,6 +29,8 @@ export type PackingListRow = {
   kgPer12ft: number | null;
   /** The billed weight band, floor to 0.1 with 0.01 grace; null without kg/12ft. */
   weightRange12ft: number | null;
+  /** FP-PK-13: kg per piece, 3 decimals; null without pieces. Shown only when the plant switches it on. */
+  kgPerPiece: number | null;
 };
 
 export type PackingListGroup = {
@@ -65,6 +67,11 @@ export type PackingListModel = {
 export type PackingListModelOptions = {
   /** Company time zone for header dates. Default Asia/Kolkata (spec §5). */
   timeZone?: string;
+  /**
+   * FP-PK-13: print the optional kg-per-piece column after the plant's columns (company setting
+   * `packingList.kgPerPiece`, off by default). Range/12' stays the plant column (Q3).
+   */
+  kgPerPiece?: boolean;
 };
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
@@ -166,6 +173,7 @@ export function packingListModel(pl: PackingListSnapshot, opts: PackingListModel
         pcs: item.quantity,
         kgPer12ft: kg12 === null ? null : round(kg12, 3),
         weightRange12ft: kg12 === null ? null : weightRange12ft(kg12),
+        kgPerPiece: item.quantity > 0 ? round(item.weightG / 1000 / item.quantity, 3) : null,
       };
     });
     totalG += groupG;
