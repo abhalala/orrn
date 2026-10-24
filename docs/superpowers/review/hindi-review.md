@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 2942 screen strings in 42 groups, 16 guides with 292 strings.
+Counts: 2965 screen strings in 42 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -615,7 +615,7 @@ Counts: 2942 screen strings in 42 groups, 16 guides with 292 strings.
 | `reject.kg` | kg | kg |
 | `reject.saved` | {count} {count:piece\|pieces} rejected | {count} पीस रिजेक्ट |
 
-### scan (41)
+### scan (42)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -660,6 +660,7 @@ Counts: 2942 screen strings in 42 groups, 16 guides with 292 strings.
 | `continuous.dieOwned` | Die belongs to {name} | Die {name} की है |
 | `continuous.otherOrder` | On another customer's order | दूसरे ग्राहक के ऑर्डर पर |
 | `continuous.overCapacity` | {kg} kg over the truck's capacity | गाड़ी की क्षमता से {kg} kg ज़्यादा |
+| `continuous.heldForOrder` | Held for {order} ({customer}) | {order} ({customer}) के लिए होल्ड पर है |
 
 ### stock (61)
 
@@ -2842,7 +2843,7 @@ Please check, Lalubhai:
 | `owner.purpose.pack` | Pack | पैकिंग |
 | `owner.purpose.dispatch` | Dispatch | Dispatch |
 
-### orders (50)
+### orders (72)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2896,6 +2897,28 @@ Please check, Lalubhai:
 | `blockers.alloy` | add the alloy | अलॉय डालें |
 | `blockers.temper` | add the temper | टेम्पर डालें |
 | `blockers.die_or_tier` | pick a copy or a tier | कॉपी या टियर चुनें |
+| `hold.title` | Put on sales order | सेल्स ऑर्डर पर रखें |
+| `hold.action` | Hold for this line | इस लाइन के लिए होल्ड करें |
+| `hold.pick` | Pick bundles in the yard | यार्ड से bundle चुनें |
+| `hold.heldInYard` | Held in yard | यार्ड में होल्ड |
+| `hold.heldKg` | {kg} kg held in yard | यार्ड में {kg} kg होल्ड |
+| `hold.heldFor` | Held for {order} | {order} के लिए होल्ड |
+| `hold.held` | {count} {count:bundle\|bundles} held | {count} bundle होल्ड किए |
+| `hold.already` | Already held for this line | इस लाइन के लिए पहले से होल्ड है |
+| `hold.lengthMismatch` | The cut length differs from the order line | कट लंबाई ऑर्डर लाइन से अलग है |
+| `hold.tooMany` | Hold at most {max} bundles at a time. | एक बार में ज़्यादा से ज़्यादा {max} bundle होल्ड करें। |
+| `hold.note` | Note | नोट |
+| `hold.empty` | Nothing is held for this line. | इस लाइन के लिए कुछ होल्ड नहीं है। |
+| `hold.release` | Release | होल्ड हटाएं |
+| `hold.releaseAll` | Release all | सब होल्ड हटाएं |
+| `hold.released` | {count} {count:bundle\|bundles} released | {count} bundle से होल्ड हटा |
+| `hold.refused.line_closed` | The order is not open | ऑर्डर खुला नहीं है |
+| `hold.refused.not_available` | Not in the yard | यार्ड में नहीं है |
+| `hold.refused.on_dispatch` | On a dispatch | dispatch पर है |
+| `hold.refused.pending_reallocation` | Waiting on a reallocation approval | reallocation की मंज़ूरी बाकी है |
+| `hold.refused.die_mismatch` | Different die | दूसरी die |
+| `hold.refused.other_line` | On another order line; move it instead | दूसरी ऑर्डर लाइन पर है; उसे वहां से डालें |
+| `hold.refused.held_elsewhere` | Held for another order line | दूसरी ऑर्डर लाइन के लिए होल्ड पर है |
 
 ### reallocate (13)
 

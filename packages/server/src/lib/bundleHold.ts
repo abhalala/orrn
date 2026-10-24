@@ -81,7 +81,7 @@ export function bundleBlockReason(
 }
 
 /** Why a bundle can't be added, in a form a client can word in its own language. */
-export type BundleBlockCode = "held" | "dispatched" | "void" | "status" | "reallocation_pending";
+export type BundleBlockCode = "held" | "dispatched" | "void" | "status" | "reallocation_pending" | "held_for_order";
 
 /** An available bundle waiting on an `order_reallocate` approval can't go on a dispatch (W1-OP-S r1 m-4). */
 export const REALLOCATION_PENDING_BLOCK: Omit<BundleBlock, "status"> = {
@@ -98,6 +98,9 @@ export type BundleBlock = {
   status: BundleStatus;
   /** Code of the dispatch holding it (`held` only, when known). */
   heldBy: string | null;
+  /** `held_for_order` (FP-OP-17): the order it is held for and that order's customer. */
+  orderNumber?: string;
+  customerName?: string;
 };
 
 /** Structured twin of `bundleBlockReason` for per-serial reports (T22). */

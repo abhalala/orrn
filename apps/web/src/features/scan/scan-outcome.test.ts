@@ -43,6 +43,13 @@ describe("blockMessage (structured reasons, T22)", () => {
   test("an older server without a code falls back to its sentence", () => {
     expect(sayBlock({ reason: "Bundle is held by D-0007" })).toBe("Held for D-0007");
   });
+  test("held for a sales order (FP-OP-17) names the order and its customer", () => {
+    const block = { reason: "Held for SO-12 (Anshu Traders)", code: "held_for_order" as const, status: "available" as const, heldBy: null, orderNumber: "SO-12", customerName: "Anshu Traders" };
+    expect(sayBlock(block)).toBe("Held for SO-12 (Anshu Traders)");
+    expect(sayBlock(block, createI18n("hi").t)).toBe("SO-12 (Anshu Traders) के लिए होल्ड पर है");
+    // Without the order (a trimmed report): the server's sentence.
+    expect(sayBlock({ reason: "Held for SO-12 (Anshu Traders)", code: "held_for_order" })).toBe("Held for SO-12 (Anshu Traders)");
+  });
 });
 
 describe("addOutcome", () => {

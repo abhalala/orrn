@@ -11,9 +11,12 @@ export type UnavailableRow = {
   serial: string;
   reason: string;
   /** D12 adds unassigned / wrong_customer / owned_die; until their floor keys exist they show `reason`. */
-  code?: "held" | "dispatched" | "void" | "status" | "reallocation_pending" | "unassigned" | "wrong_customer" | "owned_die";
+  code?: "held" | "dispatched" | "void" | "status" | "reallocation_pending" | "unassigned" | "wrong_customer" | "owned_die" | "held_for_order";
   status?: string;
   heldBy?: string | null;
+  /** `held_for_order` (FP-OP-17): the sales order it is held for and its customer. */
+  orderNumber?: string;
+  customerName?: string;
 };
 
 export type AddBundlesReport = {
@@ -51,6 +54,11 @@ export function unavailableMessage(row: UnavailableRow): ScanMessage {
       return { key: "scan.continuous.void" };
     case "reallocation_pending":
       return { key: "scan.continuous.reallocationPending" };
+    case "held_for_order":
+      if (row.orderNumber) {
+        return { key: "scan.continuous.heldForOrder", vars: { order: row.orderNumber, customer: row.customerName ?? "" } };
+      }
+      break;
     case "status":
       if (isBundleStatus(row.status)) return { key: "scan.continuous.wrongStatus", status: row.status };
       break;
