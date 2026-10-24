@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
+Counts: 2813 screen strings in 41 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -103,7 +103,7 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `kgPerM` | kg/m | kg/m |
 | `percent` | {value}% | {value}% |
 
-### status (30)
+### status (31)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -137,6 +137,7 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `request.rejected` | Rejected | नामंज़ूर |
 | `company.active` | Active | चालू |
 | `company.suspended` | Suspended | रोकी गई |
+| `company.pending` | Waiting for approval | मंज़ूरी बाकी |
 
 ### roles (13)
 
@@ -164,7 +165,7 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (40)
+### nav (44)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -208,8 +209,12 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `paletteOpen` | Open | खोलें |
 | `purchase` | Purchase | खरीद |
 | `approvals` | Approvals | मंज़ूरी |
+| `audit` | Audit log | ऑडिट लॉग |
+| `adminReleases` | App builds | ऐप बिल्ड |
+| `adminBackups` | Backups | बैकअप |
+| `adminSupport` | Support | सपोर्ट |
 
-### auth (43)
+### auth (114)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -222,78 +227,176 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `login.wrongCredentials` | Email or password is wrong. Check both and try again. | ईमेल या पासवर्ड गलत है। दोनों जांचें और फिर से कोशिश करें। |
 | `login.newHere` | New to orrn? | orrn पर नए हैं? |
 | `login.requestAccess` | Request access | एक्सेस मांगें |
+| `login.showPassword` | Show password | पासवर्ड दिखाएं |
+| `login.forgot` | Forgot password? | पासवर्ड भूल गए? |
 | `totp.title` | Enter your code | अपना कोड डालें |
 | `totp.body` | Open your authenticator app and type the 6-digit code for orrn. | अपना authenticator ऐप खोलें और orrn वाला 6 अंकों का कोड लिखें। |
 | `totp.code` | 6-digit code | 6 अंकों का कोड |
 | `totp.submit` | Verify | जांचें |
+| `totp.verifying` | Checking | जांच हो रही है |
 | `totp.wrongCode` | That code didn't work. Codes change every 30 seconds, so type the newest one. | यह कोड नहीं चला। कोड हर 30 सेकंड में बदलता है, इसलिए सबसे नया कोड डालें। |
+| `totp.codeRequired` | Type all 6 digits. | पूरे 6 अंक लिखें। |
+| `totp.trust` | Trust this device for 30 days | इस डिवाइस पर 30 दिन तक भरोसा रखें |
+| `totp.useBackup` | Use a backup code instead | इसकी जगह बैकअप कोड इस्तेमाल करें |
+| `totp.useApp` | Use the authenticator app instead | इसकी जगह authenticator ऐप इस्तेमाल करें |
+| `totp.backupTitle` | Enter a backup code | बैकअप कोड डालें |
+| `totp.backupBody` | Type one of the backup codes you saved when you turned on two-factor. Each one works once. | टू-फ़ैक्टर चालू करते समय जो बैकअप कोड सेव किए थे, उनमें से एक लिखें। हर कोड एक बार ही चलता है। |
+| `totp.backupCode` | Backup code | बैकअप कोड |
+| `totp.backupRequired` | Type a backup code. | बैकअप कोड लिखें। |
+| `totp.wrongBackup` | That backup code didn't work. Check it, or use one you haven't used yet. | यह बैकअप कोड नहीं चला। इसे जांचें, या कोई ऐसा कोड डालें जो पहले इस्तेमाल नहीं हुआ। |
+| `totp.back` | Back to password | पासवर्ड पर वापस |
+| `validation.email` | Enter your email. | अपना ईमेल डालें। |
+| `validation.password` | Enter your password. | अपना पासवर्ड डालें। |
+| `validation.passwordShort` | Use at least 8 characters. | कम से कम 8 अक्षर रखें। |
+| `validation.name` | Enter your name. | अपना नाम डालें। |
+| `validation.company` | Enter your company's name. | अपनी कंपनी का नाम डालें। |
+| `errors.tooMany` | Too many tries. Wait a minute, then try again. | बहुत बार कोशिश हो गई। एक मिनट रुकें, फिर कोशिश करें। |
+| `errors.twoFactorExpired` | That took too long. Sign in again with your password. | बहुत देर हो गई। अपने पासवर्ड से फिर से साइन इन करें। |
+| `brand.label` | How orrn works | orrn कैसे काम करता है |
+| `brand.holdStep` | Hold | होल्ड |
+| `brand.pack` | Weight and pieces in, label out. | वज़न और पीस डालें, लेबल निकालें। |
 | `requestAccess.title` | Request access | एक्सेस मांगें |
 | `requestAccess.subtitle` | Tell us about your plant and we'll get in touch to set up your company. | अपने प्लांट के बारे में बताएं। आपकी कंपनी सेट करने के लिए हम संपर्क करेंगे। |
 | `requestAccess.company` | Company name | कंपनी का नाम |
 | `requestAccess.name` | Your name | आपका नाम |
 | `requestAccess.workEmail` | Work email | काम का ईमेल |
 | `requestAccess.lines` | Extrusion lines | एक्सट्रूज़न लाइनें |
+| `requestAccess.slotTitle` | When could we show you orrn? | हम आपको orrn कब दिखा सकते हैं? |
+| `requestAccess.slotHint` | Optional. We'll confirm the time by email. | ज़रूरी नहीं। समय हम ईमेल से पक्का करेंगे। |
 | `requestAccess.preferredDate` | Preferred date | पसंद की तारीख |
 | `requestAccess.preferredTime` | Preferred time | पसंद का समय |
 | `requestAccess.notes` | Anything else we should know | और कुछ जो हमें पता होना चाहिए |
+| `requestAccess.notesHint` | Optional. Up to {max} characters. | ज़रूरी नहीं। ज़्यादा से ज़्यादा {max} अक्षर। |
 | `requestAccess.submit` | Send request | रिक्वेस्ट भेजें |
+| `requestAccess.submitting` | Sending | भेज रहे हैं |
+| `requestAccess.failed` | The request didn't send. Check the fields and try again. | रिक्वेस्ट नहीं गई। जानकारी जांचें और फिर से कोशिश करें। |
 | `requestAccess.successTitle` | Request sent | रिक्वेस्ट भेज दी |
 | `requestAccess.successBody` | We have your request. We'll reply to {email}. | आपकी रिक्वेस्ट मिल गई। हम {email} पर जवाब देंगे। |
 | `requestAccess.backHome` | Back to home | होम पर वापस |
-| `invite.title` | Join {company} | {company} से जुड़ें |
-| `invite.subtitle` | You're joining as {role}. | आप {role} के रूप में जुड़ रहे हैं। |
 | `invite.genericTitle` | Join your team on orrn | orrn पर अपनी टीम से जुड़ें |
+| `invite.genericBody` | Use the email address your invite was sent to. | वही ईमेल डालें जिस पर आपका इनवाइट आया है। |
 | `invite.name` | Your name | आपका नाम |
 | `invite.email` | Email | ईमेल |
 | `invite.password` | Password | पासवर्ड |
 | `invite.passwordHint` | At least 8 characters. | कम से कम 8 अक्षर। |
 | `invite.submit` | Create account and join | अकाउंट बनाएं और जुड़ें |
+| `invite.submitting` | Joining | जुड़ रहे हैं |
+| `invite.signInSubmit` | Sign in and join | साइन इन करें और जुड़ें |
 | `invite.existingAccount` | This email already has an account. Sign in to join. | इस ईमेल का अकाउंट पहले से है। जुड़ने के लिए साइन इन करें। |
+| `invite.signedInAs` | You're signed in as {email}. | आप {email} से साइन इन हैं। |
+| `invite.joinAsMe` | Join with this account | इसी अकाउंट से जुड़ें |
+| `invite.otherAccount` | Use another account | दूसरा अकाउंट इस्तेमाल करें |
+| `invite.joined` | Joined | जुड़ गए |
+| `invite.expiredTitle` | This invite link doesn't work | यह इनवाइट लिंक काम नहीं कर रहा |
 | `invite.expired` | This invite link has expired or was already used. Ask your admin for a new one. | यह इनवाइट लिंक पुराना हो गया है या पहले ही इस्तेमाल हो चुका है। अपने एडमिन से नया लिंक मांगें। |
+| `invite.wrongEmailTitle` | This invite is for a different email | यह इनवाइट किसी दूसरे ईमेल के लिए है |
+| `invite.wrongEmail` | Sign out, then open the link again and use the email the invite was sent to. | साइन आउट करें, फिर लिंक दोबारा खोलें और वही ईमेल डालें जिस पर इनवाइट आया था। |
+| `invite.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `continue.title` | Your workspace is ready | आपका वर्कस्पेस तैयार है |
+| `continue.body` | Tap Continue to sign in and set your password. | साइन इन करके पासवर्ड बनाने के लिए आगे बढ़ें दबाएं। |
+| `continue.button` | Continue | आगे बढ़ें |
+| `continue.brokenTitle` | This link no longer works | यह लिंक अब काम नहीं करता |
+| `continue.brokenBody` | It was already used or has expired. Ask the person who sent it for a new sign-in link. | यह पहले ही इस्तेमाल हो चुका है या खत्म हो गया है। जिसने भेजा था उनसे नया साइन इन लिंक मांगें। |
+| `continue.goSignIn` | Go to sign in | साइन इन पर जाएं |
+| `continue.refusedTitle` | Sign in with your password | अपने पासवर्ड से साइन इन करें |
+| `continue.refusedBody` | This account already has a password and an authenticator code, so a sign-in link can't open it. Sign in with your password. If you forgot it, choose a new one. | इस अकाउंट में पासवर्ड और ऑथेंटिकेटर कोड है, इसलिए साइन इन लिंक से यह नहीं खुलेगा। पासवर्ड से साइन इन करें। भूल गए हों तो नया पासवर्ड चुनें। |
+| `continue.forgotLink` | Forgot password | पासवर्ड भूल गए |
+| `forgot.title` | Forgot your password? | पासवर्ड भूल गए? |
+| `forgot.body` | Enter your work email. If an account exists, we'll send a link to choose a new password. | अपना वर्क ईमेल लिखें। अकाउंट होगा तो नया पासवर्ड चुनने का लिंक भेज देंगे। |
+| `forgot.submit` | Send reset link | रीसेट लिंक भेजें |
+| `forgot.submitting` | Sending | भेज रहे हैं |
+| `forgot.sentTitle` | Check your email | अपना ईमेल देखें |
+| `forgot.sentBody` | If an account exists for {email}, a link to choose a new password is on its way. It works for one hour. | {email} का अकाउंट होगा तो नया पासवर्ड चुनने का लिंक भेजा जा रहा है। यह एक घंटे तक चलता है। |
+| `forgot.failed` | The request didn't send. Check your connection and try again. | अनुरोध नहीं गया। कनेक्शन देखकर फिर कोशिश करें। |
+| `forgot.back` | Back to sign in | साइन इन पर वापस |
+| `reset.title` | Choose a new password | नया पासवर्ड चुनें |
+| `reset.body` | Use at least 8 characters. You will be signed out on every device. | कम से कम 8 अक्षर रखें। हर डिवाइस से साइन आउट हो जाएगा। |
+| `reset.password` | New password | नया पासवर्ड |
+| `reset.confirm` | Type it again | दोबारा लिखें |
+| `reset.mismatch` | The two passwords don't match. | दोनों पासवर्ड एक जैसे नहीं हैं। |
+| `reset.submit` | Save password | पासवर्ड सेव करें |
+| `reset.saving` | Saving | सेव हो रहा है |
+| `reset.doneTitle` | Password changed | पासवर्ड बदल गया |
+| `reset.doneBody` | Sign in with your new password. If you use an authenticator app, you will still need its code. | नए पासवर्ड से साइन इन करें। ऑथेंटिकेटर ऐप है तो उसका कोड भी लगेगा। |
+| `reset.badTitle` | This link no longer works | यह लिंक अब नहीं चलता |
+| `reset.badBody` | It was already used or has expired. Ask for a new reset link. | यह पहले ही इस्तेमाल हो चुका है या खत्म हो गया है। नया रीसेट लिंक मांगें। |
+| `reset.askAgain` | Send a new link | नया लिंक भेजें |
+| `reset.failed` | The password didn't change. Try again, or ask for a new link. | पासवर्ड नहीं बदला। फिर कोशिश करें या नया लिंक मांगें। |
+| `reset.goSignIn` | Go to sign in | साइन इन पर जाएं |
 | `noAccess.title` | Your account isn't in a company yet | आपका अकाउंट अभी किसी कंपनी में नहीं है |
 | `noAccess.body` | You're signed in as {email}. | आप {email} से साइन इन हैं। |
+| `noAccess.signedInLabel` | Signed in as | इस ईमेल से साइन इन हैं |
 | `noAccess.ask` | Ask your admin to invite this email. | अपने एडमिन से इस ईमेल को इनवाइट करने के लिए कहें। |
+| `noAccess.copyEmail` | Copy email | ईमेल कॉपी करें |
 | `noAccess.switchAccount` | Sign out and use another account | साइन आउट करें और दूसरा अकाउंट इस्तेमाल करें |
+| `noAccess.ownPlant` | Setting up orrn for your own plant? | अपने प्लांट के लिए orrn शुरू करना है? |
 | `sessionExpired` | Your session ended. Sign in again. | आपका सेशन खत्म हो गया। फिर से साइन इन करें। |
 | `signOut` | Sign out | साइन आउट |
 
-### welcome (31)
+### welcome (58)
 
 | Key | English | हिंदी |
 |---|---|---|
-| `title` | Welcome to orrn | orrn में आपका स्वागत है |
-| `subtitle` | A few steps before you start. | शुरू करने से पहले कुछ कदम। |
 | `steps.password` | Password | पासवर्ड |
 | `steps.twoFactor` | Two-factor | टू-फ़ैक्टर |
 | `steps.company` | Company details | कंपनी की जानकारी |
 | `steps.done` | Done | हो गया |
 | `password.title` | Set your password | अपना पासवर्ड बनाएं |
 | `password.body` | You'll use this with your email to sign in. | साइन इन करने के लिए आप ईमेल के साथ यही पासवर्ड डालेंगे। |
+| `password.forcedBody` | Your admin gave you a temporary password. Choose your own to continue. | आपके एडमिन ने आपको कुछ समय का पासवर्ड दिया था। आगे बढ़ने के लिए अपना पासवर्ड बनाएं। |
 | `password.newPassword` | New password | नया पासवर्ड |
 | `password.confirmPassword` | Type it again | फिर से लिखें |
 | `password.hint` | At least 8 characters. | कम से कम 8 अक्षर। |
 | `password.mismatch` | The two passwords don't match. | दोनों पासवर्ड एक जैसे नहीं हैं। |
 | `password.submit` | Save password | पासवर्ड सेव करें |
+| `password.submitting` | Saving | सेव हो रहा है |
+| `password.alreadySet` | This account already has a password, so we kept it. Use that one to sign in. | इस अकाउंट का पासवर्ड पहले से है, इसलिए वही रखा है। साइन इन के लिए वही डालें। |
 | `twoFactor.title` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
 | `twoFactor.body` | Scan this QR code with an authenticator app, then type the 6-digit code it shows. | इस QR कोड को authenticator ऐप से स्कैन करें, फिर ऐप में दिख रहा 6 अंकों का कोड लिखें। |
+| `twoFactor.confirmBody` | Type your password to get your QR code. | QR कोड पाने के लिए अपना पासवर्ड लिखें। |
+| `twoFactor.confirmPassword` | Your password | आपका पासवर्ड |
+| `twoFactor.showQr` | Show QR code | QR कोड दिखाएं |
+| `twoFactor.wrongPassword` | That password is wrong. Type the password you sign in with. | यह पासवर्ड गलत है। वही पासवर्ड लिखें जिससे आप साइन इन करते हैं। |
+| `twoFactor.loading` | Getting your QR code | आपका QR कोड आ रहा है |
+| `twoFactor.qrAlt` | QR code for your authenticator app | आपके authenticator ऐप के लिए QR कोड |
+| `twoFactor.newQr` | This is a new QR code. A code you added to your app before won't work, so scan this one. | यह नया QR कोड है। ऐप में पहले जोड़ा गया कोड अब काम नहीं करेगा, इसलिए इसे स्कैन करें। |
 | `twoFactor.manualKey` | Can't scan it? Type this key in the app instead. | स्कैन नहीं हो रहा? यह key ऐप में लिख दें। |
+| `twoFactor.copyKey` | Copy key | key कॉपी करें |
 | `twoFactor.code` | 6-digit code | 6 अंकों का कोड |
+| `twoFactor.submit` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
+| `twoFactor.verifying` | Checking | जांच हो रही है |
 | `twoFactor.backupTitle` | Backup codes | बैकअप कोड |
 | `twoFactor.backupBody` | Keep these somewhere safe. Each one works once if you lose your phone. | इन्हें संभाल कर रखें। फ़ोन खो जाए तो हर कोड एक बार काम करेगा। |
-| `twoFactor.submit` | Turn on two-factor | टू-फ़ैक्टर चालू करें |
+| `twoFactor.copyCodes` | Copy codes | कोड कॉपी करें |
+| `twoFactor.continue` | I saved them, continue | सेव कर लिए, आगे बढ़ें |
 | `company.title` | Company details | कंपनी की जानकारी |
 | `company.body` | Tell us where your plant is and how to reach you. | बताएं कि आपका प्लांट कहां है और आपसे कैसे संपर्क करें। |
 | `company.location` | Location | जगह |
+| `company.locationHint` | Town or industrial area, like Pandesara, Surat. | शहर या इंडस्ट्रियल एरिया, जैसे पांडेसरा, सूरत। |
 | `company.contact` | Contact phone | संपर्क फ़ोन |
 | `company.timezone` | Time zone | टाइम ज़ोन |
+| `company.thisDevice` | {zone} (this device) | {zone} (यह डिवाइस) |
 | `company.presses` | Number of presses | प्रेस की संख्या |
+| `company.pressesMax` | Up to {max} presses. | ज़्यादा से ज़्यादा {max} प्रेस। |
+| `company.termsTitle` | The short version of the terms | शर्तें, छोटे में |
+| `company.termsUse` | Use orrn for your company's work, in the role you were given. | orrn को अपनी कंपनी के काम के लिए, अपने दिए गए रोल में इस्तेमाल करें। |
+| `company.termsPasswords` | Keep your password and authenticator to yourself. | अपना पासवर्ड और authenticator किसी से शेयर न करें। |
+| `company.termsData` | Your company's data stays in your company, and every change is logged. | आपकी कंपनी का डेटा आपकी कंपनी में ही रहता है, और हर बदलाव का रिकॉर्ड रहता है। |
 | `company.terms` | I agree to the orrn terms of service | मुझे orrn की सेवा शर्तें मंज़ूर हैं |
+| `company.termsRequired` | Tick the box to agree before you continue. | आगे बढ़ने से पहले बॉक्स पर टिक करके मंज़ूरी दें। |
 | `company.submit` | Save and continue | सेव करें और आगे बढ़ें |
+| `company.submitting` | Saving | सेव हो रहा है |
 | `done.title` | You're set up | सब तैयार है |
 | `done.body` | Your account is ready. | आपका अकाउंट तैयार है। |
+| `done.as` | You're in {company} as {role}. | आप {company} में {role} के रूप में हैं। |
+| `done.joinedTitle` | Welcome to {company} | {company} में आपका स्वागत है |
+| `done.joinedAs` | You're in as {role}. | आप {role} के रूप में जुड़ गए हैं। |
 | `done.go` | Go to Today | आज का पेज खोलें |
+| `done.goAdmin` | Open Godseye | Godseye खोलें |
+| `done.goOther` | Continue | आगे बढ़ें |
+| `done.opening` | Opening | खुल रहा है |
 
-### today (87)
+### today (102)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -375,6 +478,21 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `startHere.askAdmin` | An admin sets this up | यह एडमिन सेट करेंगे |
 | `startHere.afterDie` | After a die is added | Die जुड़ने के बाद |
 | `shiftNow` | {shift} shift, {day} | {shift} शिफ्ट, {day} |
+| `productionDay` | Production day {date}, from {time} | प्रोडक्शन का दिन {date}, {time} से |
+| `productionDayMidnight` | Production day {date}, from midnight | प्रोडक्शन का दिन {date}, रात 12 बजे से |
+| `calendarDate` | Calendar date {date} | कैलेंडर की तारीख {date} |
+| `beforeStart` | Before {time} still counts for the day before. | {time} से पहले का समय पिछले दिन में गिना जाता है। |
+| `clockNow` | Clock {time} | घड़ी {time} |
+| `kpi.packed` | kg packed | पैक हुआ kg |
+| `kpi.packedMeta` | This production day | प्रोडक्शन का यह दिन |
+| `kpi.bundles` | Bundles | Bundle |
+| `kpi.bundlesMeta` | Packed this production day | प्रोडक्शन के इस दिन पैक हुए |
+| `kpi.dispatched` | kg dispatched | Dispatch हुआ kg |
+| `kpi.dispatchedMeta` | Left stock this production day | प्रोडक्शन के इस दिन स्टॉक से गया |
+| `kpi.stock` | In stock | स्टॉक में |
+| `kpi.stockMeta` | {count} {count:bundle\|bundles} now | अभी {count} bundle |
+| `kpi.value` | Dispatched value | Dispatch की कीमत |
+| `kpi.valueMeta` | {count} {count:bundle\|bundles} with a rate | {count} bundle पर रेट है |
 | `floor.heading` | Floor | फ़्लोर |
 | `floor.press` | Press | प्रेस |
 | `floor.pressHint` | {count} queued | {count} कतार में |
@@ -385,12 +503,25 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `floor.ageing` | Ageing | एजिंग |
 | `floor.ageingHint` | {count} in the oven | {count} ओवन में |
 
-### pack (72)
+### pack (151)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Pack | पैकिंग |
 | `newSession` | New packing session | नया पैकिंग सेशन |
+| `newSessionHint` | Choose the die, then enter each bundle's weight and pieces. | Die चुनें, फिर हर bundle का वज़न और पीस डालें। |
+| `search` | Search session code or PO | सेशन कोड या PO से खोजें |
+| `clearSearch` | Clear search | खोज हटाएं |
+| `noMatch` | No sessions match "{query}". Check the code or PO. | "{query}" से कोई सेशन नहीं मिला। कोड या PO जांचें। |
+| `listLabel` | Packing sessions | पैकिंग सेशन |
+| `loadFailed` | Packing sessions didn't load. Check the connection and try again. | पैकिंग सेशन लोड नहीं हुए। कनेक्शन जांचें और फिर से कोशिश करें। |
+| `whenToday` | Today, {time} | आज, {time} |
+| `whenYesterday` | Yesterday, {time} | कल, {time} |
+| `whenDate` | {date}, {time} | {date}, {time} |
+| `unknownPacker` | Not known | पता नहीं |
+| `draft.chip` | Not saved | सेव नहीं हुआ |
+| `draft.body` | {count} {count:bundle\|bundles} entered in this tab and not saved yet. | इस टैब में डाले गए {count} bundle अभी सेव नहीं {count:हुआ\|हुए}। |
+| `draft.resume` | Continue session | सेशन जारी रखें |
 | `columns.session` | Session | सेशन |
 | `columns.die` | Die | Die |
 | `columns.section` | Section | सेक्शन |
@@ -398,6 +529,7 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `columns.kg` | kg | kg |
 | `columns.packedBy` | Packed by | किसने पैक किया |
 | `columns.when` | When | कब |
+| `columns.po` | PO | PO |
 | `empty` | No packing sessions yet. | अभी कोई पैकिंग सेशन नहीं है। |
 | `emptyAction` | Start a packing session | पैकिंग सेशन शुरू करें |
 | `new.title` | New packing session | नया पैकिंग सेशन |
@@ -406,41 +538,106 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `new.steps.review` | Review and save | जांचें और सेव करें |
 | `new.dieSearch` | Search die code or section | Die कोड या सेक्शन से खोजें |
 | `new.recentDies` | Recent | हाल के |
+| `new.allDies` | All dies | सारे die |
+| `new.diesShowing` | Showing {shown} of {total} dies. Type a code to find the rest. | {total} में से {shown} die दिख रहे हैं। बाकी के लिए कोड टाइप करें। |
 | `new.dieRange` | Range {min} to {max} kg/12ft | रेंज {min} से {max} kg/12ft |
 | `new.noDies` | No dies match. Check the code, or add the die first. | कोई die नहीं मिला। कोड जांचें, या पहले die जोड़ें। |
+| `new.noDiesYet` | No dies yet. Add the die before packing. | अभी कोई die नहीं है। पैकिंग से पहले die जोड़ें। |
+| `new.addDie` | Add a die | Die जोड़ें |
+| `new.diesFailed` | Dies didn't load. Check the connection and try again. | Die लोड नहीं हुए। कनेक्शन जांचें और फिर से कोशिश करें। |
 | `new.chooseDie` | Choose this die | यह die चुनें |
 | `new.changeDie` | Change die | Die बदलें |
+| `new.chosenDie` | Die | Die |
+| `new.dieRequired` | Choose the die for this session. | इस सेशन का die चुनें। |
 | `new.cutLength` | Cut length | कट लंबाई |
 | `new.cutLengthFeet` | Feet | फ़ुट |
 | `new.cutLengthInches` | Inches | इंच |
+| `new.cutLengthMm` | Cut length (mm) | कट लंबाई (mm) |
+| `new.cutLengthHintInch` | Feet and inches, for example 11 ft 6 in. | फ़ुट और इंच, जैसे 11 ft 6 in. |
+| `new.cutLengthHintMm` | In millimetres, for example 3658. | मिलीमीटर में, जैसे 3658. |
+| `new.cutLengthRequired` | Enter the cut length. | कट लंबाई डालें। |
+| `new.yard` | Yard | यार्ड |
+| `new.yardHint` | Where these bundles will be stacked. | ये bundle किस यार्ड में रखे जाएंगे। |
+| `new.yardRequired` | Choose the yard these bundles go to. | ये bundle किस यार्ड में जाएंगे, वह चुनें। |
+| `new.yardsFailed` | Yards didn't load. Check the connection and try again. | यार्ड लोड नहीं हुए। कनेक्शन जांचें और फिर से कोशिश करें। |
 | `new.po` | PO | PO |
+| `new.noPo` | No PO | PO नहीं |
+| `new.poValue` | PO {po} | PO {po} |
+| `new.change` | Change | बदलें |
 | `new.defaultsHint` | Every bundle in this session uses this cut length and PO unless you change it on that bundle. | इस सेशन के हर bundle में यही कट लंबाई और PO लगेगा, जब तक आप उस bundle पर इसे न बदलें। |
 | `new.weight` | Weight (kg) | वज़न (kg) |
 | `new.pieces` | Pieces | पीस |
+| `new.weightRequired` | Enter the weight in kg, for example 52.40. | वज़न kg में डालें, जैसे 52.40. |
+| `new.piecesRequired` | Enter the pieces as a whole number. | पीस पूरे नंबर में डालें। |
 | `new.saveBundle` | Save bundle | Bundle सेव करें |
 | `new.differentLengthPo` | Different length or PO | अलग लंबाई या PO |
+| `new.lengthForBundle` | Cut length for this bundle | इस bundle की कट लंबाई |
+| `new.poForBundle` | PO for this bundle | इस bundle का PO |
 | `new.editBundle` | Edit bundle | Bundle बदलें |
+| `new.editBundleN` | Edit bundle {n} | Bundle {n} बदलें |
+| `new.editingBundle` | Editing bundle {n} | Bundle {n} बदल रहे हैं |
 | `new.removeBundle` | Remove bundle | Bundle हटाएं |
 | `new.bundleNumber` | Bundle {n} | Bundle {n} |
+| `new.liveIncomplete` | Enter weight and pieces to see kg/12ft. | kg/12ft देखने के लिए वज़न और पीस डालें। |
+| `new.liveRange` | Die range {min} to {max} | Die रेंज {min} से {max} |
+| `new.bundleSaved` | Bundle {n} saved: {kg} kg, {pieces} {pieces:piece\|pieces}, {status}. | Bundle {n} सेव हुआ: {kg} kg, {pieces} पीस, {status}। |
+| `new.bundleUpdated` | Bundle {n} updated. | Bundle {n} बदल गया। |
+| `new.bundleRemoved` | Bundle {n} removed. | Bundle {n} हट गया। |
+| `new.savedBundles` | Bundles in this session | इस सेशन के bundle |
+| `new.noBundlesYet` | No bundles yet. Enter the first bundle's weight and pieces. | अभी कोई bundle नहीं है। पहले bundle का वज़न और पीस डालें। |
+| `new.maxReached` | This session has {max} bundles, the most one session can hold. Review and save it, then start another. | इस सेशन में {max} bundle हैं, एक सेशन में इससे ज़्यादा नहीं आ सकते। इसे जांचकर सेव करें, फिर नया सेशन शुरू करें। |
+| `new.runningTotal` | Running total | अब तक का कुल |
 | `new.review` | Review | जांचें |
 | `new.totalBundles` | Bundles | Bundle |
 | `new.totalPieces` | Pieces | पीस |
 | `new.totalKg` | kg | kg |
+| `new.outOfRange` | {count} {count:bundle is\|bundles are} outside the die's range. Check {count:it\|them} before saving. | {count} bundle die की रेंज से बाहर {count:है\|हैं}। सेव करने से पहले {count:इसे\|इन्हें} जांचें। |
+| `new.backToBundles` | Back to bundles | Bundle पर वापस |
 | `new.saveAndPrint` | Save and print labels | सेव करें और लेबल प्रिंट करें |
 | `new.saveOnly` | Save session | सेशन सेव करें |
 | `new.saved` | Session saved | सेशन सेव हो गया |
+| `new.saveFailed` | The session didn't save. Your bundles are still here, so try again. | सेशन सेव नहीं हुआ। आपके bundle अभी भी यहां हैं, फिर से कोशिश करें। |
+| `new.saveUnsure` | We couldn't tell if the session saved. Look for it on the Pack page before you try again. | पता नहीं चला कि सेशन सेव हुआ या नहीं। फिर से कोशिश करने से पहले पैकिंग पेज पर उसे देखें। |
+| `new.openPack` | Open Pack | पैकिंग खोलें |
+| `new.rangeUnknown` | Range not loaded | रेंज लोड नहीं हुई |
+| `new.rangeFailed` | The die's range didn't load, so bundles can't be checked against it. | Die की रेंज लोड नहीं हुई, इसलिए bundle की जांच रेंज से नहीं हो सकती। |
 | `new.printingProgress` | Printing {done} of {total} | प्रिंट: {total} में से {done} |
 | `new.printFailed` | {count} {count:label\|labels} didn't print | {count} लेबल प्रिंट नहीं {count:हुआ\|हुए} |
 | `new.retryFailed` | Retry failed labels | फ़ेल हुए लेबल फिर से प्रिंट करें |
 | `new.draftKept` | Your unsaved bundles are still here. | आपके बिना सेव किए bundle अभी भी यहां हैं। |
 | `new.discardDraft` | Discard unsaved bundles | बिना सेव किए bundle हटा दें |
+| `new.discardTitle` | Discard unsaved bundles? | बिना सेव किए bundle हटा दें? |
+| `new.discardBody` | The {count} {count:bundle\|bundles} you entered will be cleared. This can't be undone. | आपके डाले {count} bundle हट जाएंगे। यह वापस नहीं होगा। |
+| `new.discard` | Discard | हटा दें |
+| `new.forbidden` | Your role can't pack bundles. Ask an admin if you need it. | आपका रोल bundle पैक नहीं कर सकता। ज़रूरत हो तो एडमिन से कहें। |
 | `detail.title` | Session {code} | सेशन {code} |
 | `detail.packedBy` | Packed by {name} | {name} ने पैक किया |
 | `detail.printAll` | Print all labels | सारे लेबल प्रिंट करें |
 | `detail.reprint` | Reprint | फिर से प्रिंट करें |
+| `detail.reprintSerial` | Reprint label for {serial} | {serial} का लेबल फिर से प्रिंट करें |
 | `detail.labelsSent` | Labels sent to printer | लेबल प्रिंटर को भेज दिए |
 | `detail.labelSent` | Label sent to printer | लेबल प्रिंटर को भेज दिया |
 | `detail.viewBundle` | Open bundle {serial} | Bundle {serial} खोलें |
+| `detail.facts` | Session details | सेशन की जानकारी |
+| `detail.unit` | Length unit | लंबाई की इकाई |
+| `detail.unitInch` | Feet and inches | फ़ुट और इंच |
+| `detail.unitMm` | Millimetres | मिलीमीटर |
+| `detail.packedAt` | Packed | पैक हुआ |
+| `detail.mixed` | Mixed | अलग-अलग |
+| `detail.rangeColumn` | Die range | Die रेंज |
+| `detail.outsideRange` | {count} outside range | {count} रेंज से बाहर |
+| `detail.bundlesTitle` | Bundles | Bundle |
+| `detail.loadFailed` | This session didn't load. Check the connection and try again. | यह सेशन लोड नहीं हुआ। कनेक्शन जांचें और फिर से कोशिश करें। |
+| `detail.notFound` | No packing session at this link. Open it from the Pack list. | इस लिंक पर कोई पैकिंग सेशन नहीं है। पैकिंग सेशन की सूची से खोलें। |
+| `print.title` | Labels | लेबल |
+| `print.allSent` | {count} {count:label\|labels} sent to printer | {count} लेबल प्रिंटर को भेज {count:दिया\|दिए} |
+| `print.errors.notSetUp` | Label printing isn't set up for your company. | आपकी कंपनी के लिए लेबल प्रिंटिंग सेट नहीं है। |
+| `print.errors.noPrinter` | No label printer is set up for bundles. Ask a manager. | Bundle के लिए कोई लेबल प्रिंटर सेट नहीं है। मैनेजर से कहें। |
+| `print.errors.noTemplate` | The bundle label isn't ready on the printer yet. Ask a manager. | Bundle का लेबल अभी प्रिंटर पर तैयार नहीं है। मैनेजर से कहें। |
+| `print.errors.offline` | The printer didn't take the label. Check it is on and connected. | प्रिंटर ने लेबल नहीं लिया। जांचें कि प्रिंटर चालू है और जुड़ा है। |
+| `print.errors.forbidden` | Your role can't print labels. | आपका रोल लेबल प्रिंट नहीं कर सकता। |
+| `print.errors.network` | No internet connection. Check it and try again. | इंटरनेट नहीं है। कनेक्शन जांचें और फिर से कोशिश करें। |
+| `print.errors.generic` | The label didn't print. Try again, or reprint it from the bundle's row. | लेबल प्रिंट नहीं हुआ। फिर से कोशिश करें, या bundle की लाइन से दोबारा प्रिंट करें। |
 | `partyNo` | Party no. | पार्टी नंबर |
 | `forOrder` | For order | किस ऑर्डर के लिए |
 | `plantStock` | Plant stock | प्लांट स्टॉक |
@@ -1202,7 +1399,7 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `itemForm.restored` | {name} is back in use | {name} फिर से चालू है |
 | `itemForm.retireBlocked` | {qty} {unit} is still in the store. Issue it or cancel its entries before retiring the item. | स्टोर में अभी {qty} {unit} है। सामान बंद करने से पहले इसे दें या इसकी एंट्री रद्द करें। |
 
-### printing (25)
+### printing (57)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1231,14 +1428,55 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `notSetUpTitle` | Label printing isn't set up | लेबल प्रिंटिंग सेट नहीं है |
 | `notSetUpBody` | Ask the orrn team to set up label printing for your plant. | अपने प्लांट के लिए लेबल प्रिंटिंग सेट करवाने के लिए orrn टीम से कहें। |
 | `restricted` | You can see the queue. Ask a manager to change printers or labels. | आप कतार देख सकते हैं। प्रिंटर या लेबल बदलने के लिए मैनेजर से कहें। |
+| `subtitle` | Labels waiting to print, and the print computers at your plant. | प्रिंट होने के लिए रुके लेबल और आपके प्लांट के प्रिंट कंप्यूटर। |
+| `loadFailed` | Couldn't load printing. Check your connection and try again. | प्रिंटिंग लोड नहीं हुई। कनेक्शन देखकर फिर कोशिश करें। |
+| `queueExtra.all` | All | सभी |
+| `queueExtra.emptyFiltered` | No jobs with this status. | इस स्टेटस का कोई जॉब नहीं है। |
+| `queueExtra.noReason` | No reason was recorded. | कोई वजह दर्ज नहीं हुई। |
+| `queueExtra.attempt` | Attempt {n} | कोशिश {n} |
+| `queueExtra.retryFor` | Send label {label} again | लेबल {label} फिर से भेजें |
+| `queueExtra.retryFailed` | Couldn't send it again. Try once more, or see how to fix the printer. | फिर से नहीं भेज सके। एक बार और कोशिश करें, या प्रिंटर ठीक करने का तरीका देखें। |
+| `queueExtra.noBundle` | No bundle | कोई bundle नहीं |
+| `queueExtra.summary` | {failed} failed, {waiting} waiting | {failed} फ़ेल, {waiting} इंतज़ार में |
+| `queueExtra.summaryClear` | Nothing failed or waiting. | कुछ भी फ़ेल या इंतज़ार में नहीं है। |
+| `queueExtra.filterLabel` | Show jobs | जॉब दिखाएं |
+| `nodes.title` | Print computers | प्रिंट कंप्यूटर |
+| `nodes.hint` | Shows when each print computer last reported in. Whether a printer has paper or ribbon is not reported here. | हर प्रिंट कंप्यूटर ने आखिरी बार कब रिपोर्ट किया, यह दिखता है। प्रिंटर में कागज़ या रिबन है या नहीं, यह यहाँ नहीं बताया जाता। |
+| `nodes.neverSeen` | Has not reported in yet | अभी तक रिपोर्ट नहीं आई |
+| `nodes.version` | Version {version} | वर्ज़न {version} |
+| `nodes.lastError` | Last error: {message} | आखिरी गड़बड़ी: {message} |
+| `nodes.site` | Site: {site} | जगह: {site} |
+| `nodes.profiles` | Label printers | लेबल प्रिंटर |
+| `nodes.profilesEmpty` | No label printer is set up yet. | अभी कोई लेबल प्रिंटर सेट नहीं है। |
+| `nodes.copies` | {count} {count:copy\|copies} per label | हर लेबल की {count} {count:कॉपी\|कॉपियाँ} |
+| `nodes.template` | Label design: {name} | लेबल डिज़ाइन: {name} |
+| `reprint.title` | Reprint a label | लेबल दोबारा प्रिंट करें |
+| `reprint.body` | Enter the bundle number. orrn opens the bundle, where Reprint label sends the label to the printer. | Bundle नंबर लिखें। orrn bundle खोलता है, वहाँ "लेबल दोबारा प्रिंट" से लेबल प्रिंटर को जाता है। |
+| `reprint.field` | Bundle number | Bundle नंबर |
+| `reprint.open` | Open bundle | Bundle खोलें |
+| `reprint.required` | Enter a bundle number. | Bundle नंबर लिखें। |
+| `designs.title` | Label designs | लेबल डिज़ाइन |
+| `designs.empty` | No label design yet. | अभी कोई लेबल डिज़ाइन नहीं है। |
+| `designs.sent` | Sent {time} | {time} पर भेजा |
+| `designs.notSent` | Not sent to the print computer yet | प्रिंट कंप्यूटर को अभी नहीं भेजा |
+| `designs.pushFailed` | Couldn't send the label design. Check that the print computer is connected. | लेबल डिज़ाइन नहीं भेज सके। देखें कि प्रिंट कंप्यूटर जुड़ा है। |
 
-### settings (59)
+### settings (162)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Settings | सेटिंग्स |
+| `subtitle` | Company, team and label printing for your plant. | आपके प्लांट की कंपनी, टीम और लेबल प्रिंटिंग। |
+| `loadFailed` | Couldn't load settings. Check your connection and try again. | सेटिंग्स लोड नहीं हुईं। कनेक्शन देखकर फिर कोशिश करें। |
 | `tabs.company` | Company | कंपनी |
 | `tabs.team` | Team | टीम |
+| `tabs.shifts` | Shifts | शिफ्ट |
+| `tabs.standards` | Standards | स्टैंडर्ड |
+| `tabs.modules` | Modules | मॉड्यूल |
+| `tabs.devices` | Devices | डिवाइस |
+| `tabs.backup` | Backup | बैकअप |
+| `tabs.support` | Help | मदद |
+| `tabs.about` | About | जानकारी |
 | `tabs.printing` | Printing | प्रिंटिंग |
 | `tabs.data` | Data | डेटा |
 | `company.name` | Company name | कंपनी का नाम |
@@ -1250,6 +1488,18 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `company.submit` | Save settings | सेटिंग्स सेव करें |
 | `company.saved` | Settings saved | सेटिंग्स सेव हो गईं |
 | `company.readOnly` | Only owners and admins can change these. | इन्हें सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
+| `company.profile` | Company | कंपनी |
+| `company.slug` | Short name | छोटा नाम |
+| `company.units` | Units | इकाइयाँ |
+| `company.unitsHint` | Pack and stock screens show lengths in this unit. Weights are always in kg. | Pack और स्टॉक स्क्रीन पर लंबाई इसी इकाई में दिखती है। वज़न हमेशा kg में रहता है। |
+| `company.timezoneHint` | Days and shifts follow this time zone. | दिन और शिफ़्ट इसी टाइम ज़ोन से चलते हैं। |
+| `company.language` | Language | भाषा |
+| `company.languageHint` | English and हिंदी are available. The choice is kept on this device. | English और हिंदी उपलब्ध हैं। चुनी हुई भाषा इसी डिवाइस पर रहती है। |
+| `company.saveFailed` | Couldn't save the settings. Try again. | सेटिंग्स सेव नहीं हुईं। फिर कोशिश करें। |
+| `company.letterheadHint` | Printed at the top of packing lists and test certificates. | पैकिंग लिस्ट और टेस्ट सर्टिफिकेट के ऊपर छपता है। |
+| `company.letterheadSubmit` | Save letterhead | लेटरहेड सेव करें |
+| `company.letterheadSaved` | Letterhead saved | लेटरहेड सेव हो गया |
+| `company.gstinInvalid` | GSTIN is 15 letters and digits. | GSTIN में 15 अक्षर और अंक होते हैं। |
 | `team.members` | Members | सदस्य |
 | `team.invite` | Invite member | सदस्य को इनवाइट करें |
 | `team.inviteTitle` | Invite a team member | टीम में किसी को इनवाइट करें |
@@ -1282,8 +1532,86 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `team.removed` | {name} removed | {name} को हटा दिया |
 | `team.ownerLocked` | Only an owner can change another owner. | मालिक का रोल सिर्फ़ दूसरा मालिक बदल सकता है। |
 | `team.you` | You | आप |
+| `team.name` | Name | नाम |
+| `team.joined` | Joined | कब जुड़े |
+| `team.empty` | No members yet. | अभी कोई सदस्य नहीं है। |
+| `team.pendingEmpty` | No invites waiting. | कोई इनवाइट बाकी नहीं है। |
+| `team.expired` | Expired | खत्म हो गया |
+| `team.inviteFailed` | Couldn't send the invite. Check the email and try again. | इनवाइट नहीं भेज सके। ईमेल देखकर फिर कोशिश करें। |
+| `team.loadFailed` | Couldn't load the team. Try again. | टीम लोड नहीं हुई। फिर कोशिश करें। |
+| `team.readOnly` | Only owners and admins can invite people. | इनवाइट सिर्फ़ मालिक और एडमिन भेज सकते हैं। |
+| `team.linkColumn` | Invite link | इनवाइट लिंक |
+| `team.actions` | Actions | कार्रवाई |
+| `team.changeRoleTitle` | Change role for {name} | {name} की भूमिका बदलें |
+| `team.saveRole` | Save role | भूमिका सेव करें |
+| `team.roleFailed` | Couldn't change the role. Try again. | भूमिका नहीं बदली। फिर कोशिश करें। |
+| `team.removeFailed` | Couldn't remove this person. Try again. | इन्हें हटाया नहीं जा सका। फिर कोशिश करें। |
+| `team.removeConfirm` | Remove | हटाएं |
+| `team.portalTitle` | Party portal logins | पार्टी पोर्टल लॉगिन |
+| `team.portalBody` | Logins for your parties will be listed here once the party portal opens. | पार्टी पोर्टल खुलने पर आपकी पार्टियों के लॉगिन यहां दिखेंगे। |
+| `shifts.intro` | Shift 1 starts the production day. A bundle packed before that time counts for the day before. | शिफ्ट 1 से प्रोडक्शन का दिन शुरू होता है। उस समय से पहले पैक हुआ bundle पिछले दिन का गिना जाता है। |
+| `shifts.startsDay` | Shift 1, {name}, starts the production day at {time}. | शिफ्ट 1, {name}, {time} पर प्रोडक्शन का दिन शुरू करती है। |
+| `shifts.position` | Shift {seq} | शिफ्ट {seq} |
+| `shifts.remove` | Remove shift {name} | शिफ्ट {name} हटाएं |
+| `shifts.applies` | A change applies from the next read. A press run that is open keeps the shift it started in. | बदलाव अगली बार पढ़ने से लागू होता है। चल रहा प्रेस रन अपनी शुरू वाली शिफ्ट में ही रहता है। |
+| `shifts.covered` | The shifts cover 24 hours with no overlap. Touching ends are fine. | शिफ्ट पूरे 24 घंटे ढकती हैं, दोहरा समय नहीं है। जुड़े हुए सिरे ठीक हैं। |
+| `shifts.save` | Save shifts | शिफ्ट सेव करें |
+| `shifts.saved` | Shifts saved | शिफ्ट सेव हो गईं |
+| `shifts.saveFailed` | Couldn't save the shifts. Try again. | शिफ्ट सेव नहीं हुईं। फिर कोशिश करें। |
+| `shifts.notSaved` | Not saved | सेव नहीं हुआ |
+| `shifts.undo` | Undo changes | बदलाव वापस लें |
+| `shifts.readOnly` | Only owners and admins can change shifts. | शिफ्ट सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
+| `shifts.nowIn` | Now: {name} | अभी: {name} |
+| `standards.intro` | Printed on the label and the test certificate for the die's profile kind. A blank CM/L prints no licence line. | डाई के प्रोफ़ाइल प्रकार के हिसाब से लेबल और टेस्ट सर्टिफिकेट पर छपता है। CM/L खाली हो तो लाइसेंस की लाइन नहीं छपती। |
+| `standards.designationHint` | Up to 40 characters. | ज़्यादा से ज़्यादा 40 अक्षर। |
+| `standards.cmlHint` | Blank prints no licence line. | खाली हो तो लाइसेंस की लाइन नहीं छपती। |
+| `standards.semiSolid` | Left blank, semi hollow prints the solid designation and licence. | खाली छोड़ें तो सेमी हॉलो पर सॉलिड वाला स्टैंडर्ड और लाइसेंस छपेगा। |
+| `standards.save` | Save standards | स्टैंडर्ड सेव करें |
+| `standards.saved` | Standards saved | स्टैंडर्ड सेव हो गए |
+| `standards.saveFailed` | Couldn't save the standards. Try again. | स्टैंडर्ड सेव नहीं हुए। फिर कोशिश करें। |
+| `standards.readOnly` | Only owners and admins can change standards. | स्टैंडर्ड सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
+| `modules.bought` | Bought modules | खरीदे हुए मॉड्यूल |
+| `modules.boughtHint` | orrn support turns modules on or off. Ask them to add or remove one. | मॉड्यूल orrn सपोर्ट चालू या बंद करता है। जोड़ने या हटाने के लिए उन्हें कहें। |
+| `modules.allOn` | Every module is on. | सभी मॉड्यूल चालू हैं। |
+| `modules.moduleOff` | {name}, off | {name}, बंद |
+| `modules.switches` | Switches | स्विच |
+| `modules.switchesHint` | A switch applies from the next request. | स्विच अगले अनुरोध से लागू होता है। |
+| `modules.on` | On | चालू |
+| `modules.off` | Off | बंद |
+| `modules.dieBands` | Die bands | Die बैंड |
+| `modules.dieBandsHint` | Off hides the band and the band-start basis. The stored grams are not rewritten. | बंद करने पर बैंड और बैंड-शुरुआत वाला आधार छिप जाता है। सेव ग्राम नहीं बदलते। |
+| `modules.priceOnSalesOrder` | Price on the sales order | सेल्स ऑर्डर पर कीमत |
+| `modules.priceOnSalesOrderHint` | On shows the rate per kg to staff who hold the price action. The party portal never shows a rate. | चालू हो तो कीमत वाली कार्रवाई वाले स्टाफ़ को प्रति kg रेट दिखता है। पार्टी पोर्टल पर रेट कभी नहीं दिखता। |
+| `modules.dieRequired` | Die required on order lines | ऑर्डर लाइन पर die ज़रूरी |
+| `modules.dieRequiredHint` | On: confirming an order needs a die copy or a tier. Off: it may go ahead on the section alone. | चालू: ऑर्डर पक्का करने के लिए die कॉपी या टियर चाहिए। बंद: सिर्फ़ सेक्शन पर भी आगे बढ़ सकता है। |
+| `modules.portalEnabled` | Party portal | पार्टी पोर्टल |
+| `modules.portalEnabledHint` | Lets your parties sign in to see their dies and orders. The portal opens in a later release. | आपकी पार्टियां साइन इन करके अपने die और ऑर्डर देख सकेंगी। पोर्टल अगले रिलीज़ में खुलेगा। |
+| `modules.requireCast` | Cast number on bundles | Bundle पर कास्ट नंबर |
+| `modules.requireCastHint` | Automatic turns it on after the first locked melt. | ऑटोमैटिक में पहली लॉक हुई मेल्ट के बाद चालू हो जाता है। |
+| `modules.castAuto` | Automatic | ऑटोमैटिक |
+| `modules.saved` | Saved | सेव हो गया |
+| `modules.saveFailed` | Couldn't save the switch. Try again. | स्विच सेव नहीं हुआ। फिर कोशिश करें। |
+| `modules.readOnly` | Only owners and admins can change the switches. | स्विच सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
+| `about.app` | App | ऐप |
+| `about.version` | Web app version | वेब ऐप का वर्शन |
+| `about.plant` | Plant | प्लांट |
+| `about.signedIn` | Signed in as | साइन इन |
+| `about.role` | Your role | आपकी भूमिका |
+| `about.support` | Support | सपोर्ट |
+| `about.supportNone` | No support contact is set for your plant. Use Help to reach the orrn team. | आपके प्लांट के लिए सपोर्ट संपर्क सेट नहीं है। orrn टीम तक पहुंचने के लिए मदद इस्तेमाल करें। |
+| `about.supportHours` | Hours: {hours} | समय: {hours} |
+| `about.help` | Open Help | मदद खोलें |
+| `about.guides` | Guides | गाइड |
 | `printing.status` | Label printing | लेबल प्रिंटिंग |
 | `printing.printers` | Printers | प्रिंटर |
+| `printing.lastSeen` | Last report from the print computer: {time} | प्रिंट कंप्यूटर की आखिरी रिपोर्ट: {time} |
+| `printing.neverSeen` | The print computer has not reported in yet. | प्रिंट कंप्यूटर ने अभी तक रिपोर्ट नहीं की। |
+| `printing.defaults` | Label defaults | लेबल की डिफ़ॉल्ट सेटिंग |
+| `printing.defaultsEmpty` | No label printer is set up yet. | अभी कोई लेबल प्रिंटर सेट नहीं है। |
+| `printing.copies` | {count} {count:copy\|copies} per label | हर लेबल की {count} {count:कॉपी\|कॉपियाँ} |
+| `printing.template` | Label design: {name} | लेबल डिज़ाइन: {name} |
+| `printing.open` | Open printing | प्रिंटिंग खोलें |
+| `printing.hint` | Printers and label designs are set up by the orrn team. | प्रिंटर और लेबल डिज़ाइन orrn टीम सेट करती है। |
 | `data.title` | Data | डेटा |
 | `data.importBundles` | Import old bundles | पुराने bundle इम्पोर्ट करें |
 | `data.importDies` | Import dies | Die इम्पोर्ट करें |
@@ -1295,8 +1623,139 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `data.rowProblem` | Row {row}: {reason} | लाइन {row}: {reason} |
 | `data.submit` | Import {count} {count:row\|rows} | {count} लाइन इम्पोर्ट करें |
 | `data.imported` | {count} {count:row\|rows} imported | {count} लाइन इम्पोर्ट हो {count:गई\|गईं} |
+| `data.bundlesBody` | Stock on your shelves from before orrn. Dies not in orrn yet are added for you. | orrn से पहले से रैक पर रखा स्टॉक। जो die orrn में नहीं हैं, वे अपने आप जुड़ जाते हैं। |
+| `data.diesBody` | Series, section code and the weight range per 12 ft. | Series, section code और 12 ft का वज़न रेंज। |
+| `data.customersBody` | Names, phone numbers, email and GSTIN. | नाम, फ़ोन नंबर, ईमेल और GSTIN। |
+| `data.noAccess` | Your role can't import data. Ask an owner or admin if you need it. | आपके रोल से डेटा इम्पोर्ट नहीं होता। ज़रूरत हो तो owner या admin से कहें। |
 
-### guides (11)
+### imports (122)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title.bundles` | Import old bundles | पुराने bundle इम्पोर्ट करें |
+| `title.dies` | Import dies | Die इम्पोर्ट करें |
+| `title.customers` | Import customers | ग्राहक इम्पोर्ट करें |
+| `about.bundles` | Bundles already on your shelves from before orrn. | orrn से पहले से रैक पर रखे bundle। |
+| `about.dies` | Your die list, with the weight range per 12 ft. | आपकी die लिस्ट, 12 ft के वज़न रेंज के साथ। |
+| `about.customers` | Customer names, phone numbers, email and GSTIN. | ग्राहकों के नाम, फ़ोन नंबर, ईमेल और GSTIN। |
+| `drop.title` | Drop a CSV or Excel file here | CSV या Excel फ़ाइल यहां छोड़ें |
+| `drop.or` | or | या |
+| `drop.choose` | Choose file | फ़ाइल चुनें |
+| `drop.types` | CSV or Excel (.csv, .xlsx, .xls) | CSV या Excel (.csv, .xlsx, .xls) |
+| `drop.dragging` | Drop to read this file | यह फ़ाइल पढ़ने के लिए छोड़ें |
+| `drop.titleTouch` | Choose a CSV or Excel file | CSV या Excel फ़ाइल चुनें |
+| `columns.heading` | Columns orrn reads | orrn ये कॉलम पढ़ता है |
+| `columns.required` | Needed | ज़रूरी |
+| `columns.optional` | Optional | चाहें तो |
+| `columns.unitRule` | Put the unit in the column name: Length (mm), Length (in), Length (ft), Weight (kg) or Weight (g). | कॉलम के नाम में यूनिट लिखें: Length (mm), Length (in), Length (ft), Weight (kg) या Weight (g)। |
+| `columns.lengthFallbackMm` | A length column with no unit is read in mm, your company setting. | बिना यूनिट वाला length कॉलम mm में पढ़ा जाता है, जो आपकी कंपनी की सेटिंग है। |
+| `columns.lengthFallbackInch` | A length column with no unit is read in inches, your company setting. 11 ft 6 in also works. | बिना यूनिट वाला length कॉलम इंच में पढ़ा जाता है, जो आपकी कंपनी की सेटिंग है। 11 ft 6 in भी चलता है। |
+| `columns.weightFallback` | A weight column with no unit is read in kg. | बिना यूनिट वाला weight कॉलम kg में पढ़ा जाता है। |
+| `columns.sample` | Download sample sheet | सैंपल शीट डाउनलोड करें |
+| `legacyDies` | Dies not in orrn yet are added for you, marked legacy. Check their weight range on the Dies page afterwards. | जो die orrn में नहीं हैं, वे legacy निशान के साथ अपने आप जुड़ते हैं। बाद में Dies पेज पर उनका वज़न रेंज जांच लें। |
+| `reading` | Reading {name} | {name} पढ़ रहे हैं |
+| `checking` | Checking these dies against orrn | ये die orrn से मिला रहे हैं |
+| `readFailed` | orrn couldn't read this file. Save it as CSV or Excel (.xlsx) and choose it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे CSV या Excel (.xlsx) में सेव करके फिर चुनें। |
+| `wrongType` | This is not a CSV or Excel file. Choose a .csv, .xlsx or .xls file. | यह CSV या Excel फ़ाइल नहीं है। .csv, .xlsx या .xls फ़ाइल चुनें। |
+| `noRows` | This file has no rows under the header row. Add rows and choose it again. | इस फ़ाइल में हेडर के नीचे कोई लाइन नहीं है। लाइनें जोड़कर फिर चुनें। |
+| `tooManyRows` | This file has {count} rows. orrn takes up to {max} at a time. Split it into smaller files. | इस फ़ाइल में {count} लाइनें हैं। orrn एक बार में {max} तक लेता है। इसे छोटी फ़ाइलों में बांटें। |
+| `tooBig` | This file is larger than {size}. Split it into smaller files. | यह फ़ाइल {size} से बड़ी है। इसे छोटी फ़ाइलों में बांटें। |
+| `missingTitle` | Columns missing | कॉलम नहीं मिले |
+| `missingBody` | Add {count:this column\|these columns} to the sheet and choose it again: | शीट में {count:यह कॉलम\|ये कॉलम} जोड़ें और फिर चुनें: |
+| `conflictTitle` | Two columns fill the same field | दो कॉलम एक ही चीज़ भरते हैं |
+| `conflictBody` | orrn can't tell which one is right. Remove one column from each pair and choose the file again: | orrn नहीं बता सकता कि कौन सा सही है। हर जोड़ी में से एक कॉलम हटाएं और फ़ाइल फिर चुनें: |
+| `conflictItem` | {field}: {columns} | {field}: {columns} |
+| `chooseAnother` | Choose another file | दूसरी फ़ाइल चुनें |
+| `ready` | Ready to import | इम्पोर्ट के लिए तैयार |
+| `problems` | Need fixing | ठीक करनी हैं |
+| `rows` | {count:row\|rows} | {count:लाइन\|लाइन} |
+| `readAs.heading` | How orrn read your columns | orrn ने आपके कॉलम ऐसे पढ़े |
+| `readAs.plain` | {field} | {field} |
+| `readAs.same` | Used as it is | जैसा है वैसा लिया |
+| `readAs.unit` | {field} in {unit} | {field}, {unit} में |
+| `readAs.fallback` | {field} in {unit}, from your company setting | {field}, {unit} में, आपकी कंपनी की सेटिंग से |
+| `readAs.notUsed` | Not used: {columns} | इस्तेमाल नहीं हुए: {columns} |
+| `readAs.badUnit` | Not used, the unit is not clear: {columns}. Name the unit, like Length (mm) or Weight (kg). | इस्तेमाल नहीं हुए, यूनिट साफ़ नहीं है: {columns}। यूनिट लिखें, जैसे Length (mm) या Weight (kg)। |
+| `readAs.perTwelve` | {field} in kg per 12 ft | {field}, kg प्रति 12 ft में |
+| `unit.mm` | mm | mm |
+| `unit.in` | inches | इंच |
+| `unit.ft` | feet | फ़ुट |
+| `unit.kg` | kg | kg |
+| `unit.g` | grams | ग्राम |
+| `unit.m` | metres | मीटर |
+| `preview.heading` | First rows, as orrn will save them | पहली लाइनें, जैसे orrn सेव करेगा |
+| `preview.row` | Row | लाइन |
+| `problemList` | Rows with problems | दिक्कत वाली लाइनें |
+| `problemMore` | {count} more. Download the rows to see them all. | {count} और। सब देखने के लिए लाइनें डाउनलोड करें। |
+| `downloadProblems` | Download rows with problems | दिक्कत वाली लाइनें डाउनलोड करें |
+| `problemColumn` | Problem | दिक्कत |
+| `existing.title` | {count} {count:die is\|dies are} already in orrn | {count} die पहले से orrn में {count:है\|हैं} |
+| `existing.label` | Dies already in orrn | जो die पहले से orrn में हैं |
+| `existing.skip` | Leave as they are | जैसे हैं वैसे रहने दें |
+| `existing.update` | Update from this sheet | इस शीट से अपडेट करें |
+| `existing.help` | Only the columns in this sheet change. Empty cells, and columns the sheet doesn't have, keep what orrn has. | सिर्फ़ इस शीट के कॉलम बदलते हैं। खाली सेल और जो कॉलम शीट में नहीं हैं, उनमें orrn का डेटा वैसा ही रहता है। |
+| `nothingReady` | No rows are ready to import. Fix the rows with problems and choose the file again. | कोई लाइन इम्पोर्ट के लिए तैयार नहीं है। दिक्कत वाली लाइनें ठीक करके फ़ाइल फिर चुनें। |
+| `saving` | Saving {done} of {total} rows | {total} में से {done} लाइन सेव हुईं |
+| `keepOpen` | Keep this open until it finishes. | पूरा होने तक इसे खुला रखें। |
+| `done` | Imported | इम्पोर्ट हो गया |
+| `newDies` | {count} new {count:die\|dies} added, marked legacy. Check {count:its\|their} weight range on the Dies page. | {count} नई die legacy निशान के साथ {count:जुड़ी\|जुड़ीं}। Dies पेज पर वज़न रेंज जांच लें। |
+| `failed.server` | orrn's server ran into a problem. | orrn के सर्वर में दिक्कत आई। |
+| `failed.busy` | orrn is busy right now. Wait a moment, then try again. | orrn अभी व्यस्त है। थोड़ी देर रुककर फिर कोशिश करें। |
+| `failed.refused` | orrn did not accept these rows. | orrn ने ये लाइनें नहीं लीं। |
+| `failed.savedUpTo` | Saved {done} of {total} rows, up to row {row}. | {total} में से {done} लाइन सेव हुईं, लाइन {row} तक। |
+| `failed.nothingSaved` | No rows were saved. | कोई लाइन सेव नहीं हुई। |
+| `failed.unknown` | orrn can't tell yet if {count} {count:row\|rows} from row {from} to row {to} {count:was\|were} saved. | orrn अभी पक्का नहीं बता सकता कि लाइन {from} से लाइन {to} तक की {count} लाइन सेव हुईं या नहीं। |
+| `failed.unknownHelp` | Try again: rows that were already saved are not added twice. | फिर कोशिश करें: जो लाइनें सेव हो चुकी हैं, वे दोबारा नहीं जुड़ेंगी। |
+| `failed.refusedRows` | Nothing from row {from} on was saved. | लाइन {from} से आगे कुछ सेव नहीं हुआ। |
+| `failed.refusedHelp` | Download the rows not saved, fix them and import that file. Don't import this whole file again. | जो लाइनें सेव नहीं हुईं, उन्हें डाउनलोड करें, ठीक करें और वही फ़ाइल इम्पोर्ट करें। यह पूरी फ़ाइल दोबारा इम्पोर्ट न करें। |
+| `confirmClose.title` | Close this import? | यह इम्पोर्ट बंद करें? |
+| `confirmClose.unknown` | {count} {count:row is\|rows are} not saved for sure. To finish later, choose this same file again without changing it: rows already saved are skipped. | {count} लाइन पक्का सेव नहीं {count:हुई\|हुईं}। बाद में पूरा करने के लिए यही फ़ाइल बिना बदले फिर चुनें: जो लाइनें सेव हो चुकी हैं, वे छोड़ दी जाएंगी। |
+| `confirmClose.refused` | {count} {count:row was\|rows were} not saved. Download {count:it\|them} first, so you can fix {count:it\|them} and import only {count:that row\|those rows}. | {count} लाइन सेव नहीं {count:हुई\|हुईं}। पहले {count:उसे\|उन्हें} डाउनलोड करें, ताकि ठीक करके सिर्फ़ {count:वही लाइन\|वही लाइनें} इम्पोर्ट कर सकें। |
+| `confirmClose.keepOpen` | Keep open | खुला रखें |
+| `confirmClose.close` | Close anyway | फिर भी बंद करें |
+| `already` | {count} {count:row was\|rows were} already in orrn from an earlier import of this sheet, so {count:it was\|they were} not added again. To add {count:it\|them} again after deleting {count:it\|them} in orrn, change a value in the sheet. | {count} लाइन इसी शीट के पिछले इम्पोर्ट से पहले से orrn में {count:थी\|थीं}, इसलिए दोबारा नहीं जोड़ी {count:गई\|गईं}। orrn में डिलीट करने के बाद {count:उसे\|उन्हें} फिर जोड़ना हो तो शीट में कोई एक वैल्यू बदल दें। |
+| `doneProblemsHelp` | Fix the downloaded rows and import only that file. Don't import this whole file again. | डाउनलोड की गई लाइनें ठीक करें और सिर्फ़ वही फ़ाइल इम्पोर्ट करें। यह पूरी फ़ाइल दोबारा इम्पोर्ट न करें। |
+| `alreadyTitle` | Already imported | पहले से इम्पोर्ट है |
+| `diesDone` | {created} new {created:die\|dies}, {updated} updated. | {created} नई die, {updated} अपडेट हुईं। |
+| `retry` | Try the rest again | बाकी फिर से भेजें |
+| `downloadUnsaved` | Download rows not saved | जो लाइनें सेव नहीं हुईं, डाउनलोड करें |
+| `field.dieSeries` | Die series | Die series |
+| `field.dieSectionCode` | Section code | Section code |
+| `field.quantity` | Pieces | पीस |
+| `field.weight` | Weight | वज़न |
+| `field.length` | Length | लंबाई |
+| `field.poNumber` | PO number | PO नंबर |
+| `field.series` | Series | Series |
+| `field.sectionCode` | Section code | Section code |
+| `field.name` | Name | नाम |
+| `field.weightMin` | Min weight | कम से कम वज़न |
+| `field.weightMax` | Max weight | ज़्यादा से ज़्यादा वज़न |
+| `field.width` | Width | चौड़ाई |
+| `field.height` | Height | ऊंचाई |
+| `field.thickness` | Thickness | मोटाई |
+| `field.oblique` | Oblique | Oblique |
+| `field.leg` | Leg | Leg |
+| `field.status` | Status | स्टेटस |
+| `field.notes` | Notes | नोट |
+| `field.phone` | Phone | फ़ोन |
+| `field.email` | Email | ईमेल |
+| `field.taxId` | GSTIN | GSTIN |
+| `reason.blank` | {column} is empty. | {column} खाली है। |
+| `reason.notNumber` | {column} is not a plain number. Use a point for decimals, like 45.5. | {column} सादा नंबर नहीं है। दशमलव के लिए पॉइंट लिखें, जैसे 45.5। |
+| `reason.notWhole` | {column} must be a whole number. | {column} पूरा नंबर होना चाहिए। |
+| `reason.notPositive` | {column} must be more than 0. | {column} 0 से ज़्यादा होना चाहिए। |
+| `reason.tooLong` | {column} is longer than {max} characters. | {column} {max} अक्षरों से लंबा है। |
+| `reason.badEmail` | {column} is not an email address. | {column} ईमेल पता नहीं है। |
+| `reason.badStatus` | {column} must be active or archived. | {column} active या archived होना चाहिए। |
+| `reason.rangeOrder` | Max weight is less than min weight. | ज़्यादा से ज़्यादा वज़न, कम से कम वज़न से कम है। |
+| `reason.duplicate` | Same die as row {other}. | लाइन {other} वाली die ही है। |
+| `reason.deletedDie` | A deleted die already uses this section code. Use a different code for this die. | यह section code एक डिलीट की गई die का है। इस die के लिए दूसरा कोड लिखें। |
+| `reason.dieDeleted` | This die was deleted in orrn, so bundles can't be added to it. | यह die orrn में डिलीट हो चुकी है, इसलिए इसमें bundle नहीं जुड़ सकते। |
+| `reason.lengthRange` | {column} reads as {length}, too long or too short for a bundle. Check the unit in the column name. | {column} {length} पढ़ा गया, जो bundle के लिए बहुत लंबा या बहुत छोटा है। कॉलम के नाम में यूनिट जांचें। |
+| `reason.weightRange` | {column} reads as {weight}, too heavy to be right. Check the unit in the column name. | {column} {weight} पढ़ा गया, जो सही होने के लिए बहुत ज़्यादा है। कॉलम के नाम में यूनिट जांचें। |
+| `reason.alreadyImported` | This row (same row number, same values) was already imported from an earlier copy of this file, so it is not added again. | यह लाइन (वही लाइन नंबर, वही वैल्यू) इस फ़ाइल की पहले की कॉपी से इम्पोर्ट हो चुकी है, इसलिए दोबारा नहीं जोड़ी गई। |
+
+### guides (15)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1311,45 +1770,354 @@ Counts: 1946 screen strings in 39 groups, 12 guides with 220 strings.
 | `open` | Open guide | गाइड खोलें |
 | `all` | All guides | सारी गाइड |
 | `empty` | No guides for your role yet. | आपके रोल के लिए अभी कोई गाइड नहीं है। |
+| `related` | Related screens | जुड़ी स्क्रीन |
+| `platformRole` | orrn support staff | orrn सपोर्ट स्टाफ़ |
+| `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
+| `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (34)
+### admin (339)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Godseye | Godseye |
-| `kpis.active` | Active companies | चालू कंपनियां |
-| `kpis.suspended` | Suspended | रोकी गई |
-| `kpis.pendingRequests` | Pending requests | बाकी रिक्वेस्ट |
-| `kpis.staff` | Staff | स्टाफ़ |
-| `recentCompanies` | Recent companies | हाल की कंपनियां |
+| `overview.title` | Overview | सारांश |
+| `overview.subtitle` | Companies, access requests and staff on orrn. | orrn पर कंपनियां, एक्सेस रिक्वेस्ट और स्टाफ़। |
+| `overview.kpis` | At a glance | एक नज़र में |
+| `overview.active` | Active companies | चालू कंपनियां |
+| `overview.activeMeta` | {count} in total | कुल {count} |
+| `overview.suspended` | Suspended | रोकी गई |
+| `overview.suspendedMeta` | Access paused | एक्सेस रुका हुआ |
+| `overview.pending` | Access requests | एक्सेस रिक्वेस्ट |
+| `overview.pendingMeta` | Waiting for review | जांच बाकी है |
+| `overview.pendingNone` | All reviewed | सब जांच ली गईं |
+| `overview.staff` | Staff | स्टाफ़ |
+| `overview.staffMeta` | Godseye logins | Godseye लॉगिन |
+| `overview.waiting` | Waiting for review | जांच बाकी |
+| `overview.waitingEmpty` | No requests waiting. | कोई रिक्वेस्ट बाकी नहीं है। |
+| `overview.recent` | Recent companies | हाल की कंपनियां |
+| `overview.recentEmpty` | Approved requests become companies here. | मंज़ूर रिक्वेस्ट यहां कंपनी बनकर दिखती हैं। |
+| `overview.viewAll` | View all | सब देखें |
+| `overview.viewAllRequests` | View all access requests | सब देखें: एक्सेस रिक्वेस्ट |
+| `overview.viewAllCompanies` | View all companies | सब देखें: कंपनियां |
+| `overview.loadError` | The overview didn't load. Check the connection and try again. | सारांश लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `companies.title` | Companies | कंपनियां |
+| `companies.subtitle` | {count} {count:company\|companies} on orrn | orrn पर {count} {count:कंपनी\|कंपनियां} |
+| `companies.subtitleFiltered` | {count} {count:company matches\|companies match} | {count} {count:कंपनी मिली\|कंपनियां मिलीं} |
 | `companies.search` | Search companies | कंपनी खोजें |
-| `companies.empty` | No companies yet. | अभी कोई कंपनी नहीं है। |
-| `companies.tabs.plan` | Plan and modules | प्लान और मॉड्यूल |
-| `companies.tabs.printing` | Printing | प्रिंटिंग |
-| `companies.tabs.access` | Access | एक्सेस |
-| `companies.suspend` | Suspend company | कंपनी रोकें |
-| `companies.reactivate` | Reactivate company | कंपनी फिर से चालू करें |
+| `companies.searchHint` | Name or short name | नाम या छोटा नाम |
+| `companies.status` | Status | स्थिति |
+| `companies.printingOnly` | Only with label printing | सिर्फ़ लेबल प्रिंटिंग वाली |
+| `companies.filterPending` | Waiting | बाकी |
+| `companies.columns.company` | Company | कंपनी |
+| `companies.columns.status` | Status | स्थिति |
+| `companies.columns.printing` | Label printing | लेबल प्रिंटिंग |
+| `companies.columns.members` | Members | सदस्य |
+| `companies.columns.joined` | Joined | जुड़ी |
+| `companies.empty` | No companies yet. Approved access requests show up here. | अभी कोई कंपनी नहीं है। मंज़ूर एक्सेस रिक्वेस्ट यहां दिखती हैं। |
+| `companies.emptyFiltered` | No companies match. Try another search or filter. | कोई कंपनी मेल नहीं खाती। दूसरी खोज या फ़िल्टर आज़माएं। |
+| `companies.clearFilters` | Clear filters | फ़िल्टर हटाएं |
+| `companies.loadError` | Companies didn't load. Check the connection and try again. | कंपनियां लोड नहीं हुईं। कनेक्शन देखें और फिर कोशिश करें। |
+| `companies.listLabel` | Companies | कंपनियां |
+| `company.back` | Companies | कंपनियां |
+| `company.facts` | Company facts | कंपनी की जानकारी |
+| `company.status` | Status | स्थिति |
+| `company.plan` | Plan | प्लान |
+| `company.members` | Members | सदस्य |
+| `company.joined` | Joined | जुड़ी |
+| `company.noPlan` | No plan | कोई प्लान नहीं |
+| `company.notFound` | This company doesn't exist, or it was removed. | यह कंपनी मौजूद नहीं है, या हटा दी गई है। |
+| `company.loadError` | This company didn't load. Check the connection and try again. | यह कंपनी लोड नहीं हुई। कनेक्शन देखें और फिर कोशिश करें। |
+| `company.suspend` | Suspend | रोकें |
+| `company.suspendTitle` | Suspend {company}? | {company} को रोकें? |
+| `company.suspendBody` | Everyone at {company} loses access until you reactivate it. Their data stays. | {company} के सभी लोगों का एक्सेस तब तक बंद रहेगा जब तक आप इसे फिर से चालू नहीं करते। उनका डेटा बना रहेगा। |
+| `company.suspended` | Company suspended | कंपनी रोक दी गई |
+| `company.reactivate` | Reactivate | फिर से चालू करें |
+| `company.reactivateTitle` | Reactivate {company}? | {company} को फिर से चालू करें? |
+| `company.reactivateBody` | Everyone at {company} can sign in again. | {company} के सभी लोग फिर से साइन इन कर सकेंगे। |
+| `company.reactivated` | Company reactivated | कंपनी फिर से चालू हो गई |
+| `company.reviewRequest` | Review the request | रिक्वेस्ट देखें |
+| `company.sections` | Company sections | कंपनी के हिस्से |
+| `company.tabs.plan` | Plan and modules | प्लान और मॉड्यूल |
+| `company.tabs.printing` | Printing | प्रिंटिंग |
+| `company.tabs.access` | Access | एक्सेस |
+| `company.tabs.audit` | Audit | ऑडिट |
+| `company.auditEmpty` | Nothing has been recorded for this company yet. | इस कंपनी के लिए अभी कुछ दर्ज नहीं हुआ। |
+| `releases.title` | App builds | ऐप बिल्ड |
+| `releases.subtitle` | Publish a build of the floor app. Phones and tablets below the minimum build cannot open the app. | फ़्लोर ऐप का बिल्ड प्रकाशित करें। न्यूनतम बिल्ड से नीचे के फ़ोन और टैबलेट पर ऐप नहीं खुलेगा। |
+| `releases.publishTitle` | Publish a build | बिल्ड प्रकाशित करें |
+| `releases.platform` | Platform | प्लेटफ़ॉर्म |
+| `releases.channel` | Channel | चैनल |
+| `releases.channels.production` | Production | प्रोडक्शन |
+| `releases.channels.floor` | Floor | फ़्लोर |
+| `releases.platforms.android` | Android | Android |
+| `releases.platforms.ios` | iPhone and iPad | iPhone और iPad |
+| `releases.version` | Version | वर्शन |
+| `releases.versionHint` | For example 1.4.0 | जैसे 1.4.0 |
+| `releases.build` | Build number | बिल्ड नंबर |
+| `releases.buildHint` | Must be higher than the last build on this platform. | इस प्लेटफ़ॉर्म के पिछले बिल्ड से बड़ा होना चाहिए। |
+| `releases.minBuild` | Minimum build | न्यूनतम बिल्ड |
+| `releases.minBuildHint` | Builds below this are blocked. Not above the build number. | इससे नीचे के बिल्ड रुक जाते हैं। बिल्ड नंबर से ऊपर नहीं। |
+| `releases.mandatory` | Mandatory: raise the floor for older builds too | ज़रूरी: पुराने बिल्ड के लिए भी सीमा ऊपर करें |
+| `releases.notes` | Release notes | रिलीज़ नोट |
+| `releases.notesHint` | Up to {max} characters. Shown to people who need to update. | ज़्यादा से ज़्यादा {max} अक्षर। अपडेट करने वालों को दिखता है। |
+| `releases.apkUrl` | Download link for the floor app | फ़्लोर ऐप का डाउनलोड लिंक |
+| `releases.apkHint` | Android floor builds only. | सिर्फ़ Android फ़्लोर बिल्ड के लिए। |
+| `releases.publish` | Publish build | बिल्ड प्रकाशित करें |
+| `releases.published` | Build published | बिल्ड प्रकाशित हो गया |
+| `releases.listTitle` | Published builds | प्रकाशित बिल्ड |
+| `releases.empty` | No build has been published yet. | अभी कोई बिल्ड प्रकाशित नहीं हुआ। |
+| `releases.loadError` | Builds didn't load. Check the connection and try again. | बिल्ड लोड नहीं हुए। कनेक्शन देखकर फिर कोशिश करें। |
+| `releases.columns.version` | Version | वर्शन |
+| `releases.columns.platform` | Platform | प्लेटफ़ॉर्म |
+| `releases.columns.build` | Build | बिल्ड |
+| `releases.columns.minimum` | Minimum | न्यूनतम |
+| `releases.columns.published` | Published | प्रकाशित |
+| `releases.errors.minAbove` | The minimum build can't be above the build number. | न्यूनतम बिल्ड, बिल्ड नंबर से ऊपर नहीं हो सकता। |
+| `releases.errors.notAbove` | That build number is not above the last published build. | यह बिल्ड नंबर पिछले प्रकाशित बिल्ड से ऊपर नहीं है। |
+| `releases.errors.exists` | That version is already published on this channel. | यह वर्शन इस चैनल पर पहले से प्रकाशित है। |
+| `releases.errors.generic` | The build didn't publish. Check the fields and try again. | बिल्ड प्रकाशित नहीं हुआ। खाने जांचकर फिर कोशिश करें। |
+| `releases.errors.android` | A download link is for Android only. | डाउनलोड लिंक सिर्फ़ Android के लिए है। |
+| `backups.title` | Backups | बैकअप |
+| `backups.subtitle` | Daily exports and restore drills for every plant. | हर प्लांट के रोज़ के बैकअप और रिस्टोर ड्रिल। |
+| `backups.company` | Plant | प्लांट |
+| `backups.allCompanies` | All plants | सभी प्लांट |
+| `backups.runNow` | Back up now | अभी बैकअप लें |
+| `backups.runDrill` | Run restore drill | रिस्टोर ड्रिल चलाएं |
+| `backups.ran` | Backup finished | बैकअप पूरा हुआ |
+| `backups.drilled` | Restore drill finished | रिस्टोर ड्रिल पूरी हुई |
+| `backups.kind.scheduled` | Daily | रोज़ का |
+| `backups.kind.manual` | By hand | हाथ से |
+| `backups.purpose.export` | Backup | बैकअप |
+| `backups.purpose.drill` | Restore drill | रिस्टोर ड्रिल |
+| `backups.status.ok` | Done | हो गया |
+| `backups.status.running` | Running | चल रहा है |
+| `backups.status.failed` | Failed | नहीं हुआ |
+| `backups.status.succeeded` | Done | हो गया |
+| `backups.columns.plant` | Plant | प्लांट |
+| `backups.columns.what` | What | क्या |
+| `backups.columns.status` | Status | स्थिति |
+| `backups.columns.started` | Started | शुरू |
+| `backups.columns.size` | Size | आकार |
+| `backups.columns.rows` | Rows | पंक्तियां |
+| `backups.columns.detail` | Detail | ब्योरा |
+| `backups.empty` | No backup has run yet. | अभी कोई बैकअप नहीं चला। |
+| `backups.loadError` | Backups didn't load. Check the connection and try again. | बैकअप लोड नहीं हुए। कनेक्शन देखकर फिर कोशिश करें। |
+| `backups.actionFailed` | That didn't finish. Check the list for the reason. | यह पूरा नहीं हुआ। कारण के लिए सूची देखें। |
+| `backups.pickPlant` | Pick a plant first. | पहले प्लांट चुनें। |
+| `backups.matches` | Counts match | गिनती मिलती है |
+| `backups.mismatch` | Counts differ | गिनती अलग है |
+| `support.title` | Support requests | सपोर्ट अनुरोध |
+| `support.subtitle` | Questions from plants. Answer or close each one. | प्लांट के सवाल। हर एक का जवाब दें या उसे बंद करें। |
+| `support.status` | Status | स्थिति |
+| `support.allStatuses` | All | सभी |
+| `support.columns.plant` | Plant | प्लांट |
+| `support.columns.subject` | Subject | विषय |
+| `support.columns.status` | Status | स्थिति |
+| `support.columns.asked` | Asked | कब पूछा |
+| `support.empty` | No requests here. | यहां कोई अनुरोध नहीं। |
+| `support.loadError` | Requests didn't load. Check the connection and try again. | अनुरोध लोड नहीं हुए। कनेक्शन देखकर फिर कोशिश करें। |
+| `support.from` | From {screen} | {screen} से |
+| `support.yourReply` | Your reply | आपका जवाब |
+| `support.send` | Send reply | जवाब भेजें |
+| `support.sendClose` | Send and close | भेजें और बंद करें |
+| `support.close` | Close without a reply | बिना जवाब बंद करें |
+| `support.replied` | Reply sent | जवाब भेज दिया |
+| `support.closed` | Request closed | अनुरोध बंद हो गया |
+| `support.conflict` | Someone else answered or closed this request. It has been reloaded. | किसी और ने इसका जवाब दे दिया या इसे बंद कर दिया। इसे फिर लोड किया गया है। |
+| `support.failed` | That didn't send. Try again. | यह नहीं गया। फिर कोशिश करें। |
+| `support.earlierReply` | Reply sent {time} | जवाब {time} को भेजा गया |
+| `support.readOnly` | Your role can read requests but not answer them. | आपकी भूमिका अनुरोध पढ़ सकती है, जवाब नहीं दे सकती। |
+| `plan.plan` | Plan | प्लान |
+| `plan.plans.starter` | Starter | स्टार्टर |
+| `plan.plans.growth` | Growth | ग्रोथ |
+| `plan.plans.enterprise` | Enterprise | एंटरप्राइज़ |
+| `plan.modules` | Modules | मॉड्यूल |
+| `plan.modulesHint` | Untick a module to hide it from the company's menus. | किसी मॉड्यूल का टिक हटाएं तो वह कंपनी के मेन्यू से छिप जाएगा। |
+| `plan.modulesNone` | Keep at least one module on. | कम से कम एक मॉड्यूल चालू रखें। |
+| `plan.moduleNames.customers` | Customers | कस्टमर |
+| `plan.moduleNames.dies` | Dies | डाई |
+| `plan.moduleNames.bundles` | Packing and stock | पैकिंग और स्टॉक |
+| `plan.moduleNames.dispatches` | Dispatch and packing lists | डिस्पैच और पैकिंग लिस्ट |
+| `plan.moduleNames.orders` | Sales orders | सेल्स ऑर्डर |
+| `plan.moduleNames.press` | Press | प्रेस |
+| `plan.moduleNames.foundry` | Foundry | फाउंड्री |
+| `plan.moduleNames.ageing` | Ageing | एजिंग |
+| `plan.moduleNames.store` | Store | स्टोर |
+| `plan.moduleNames.purchase` | Scrap purchase | स्क्रैप खरीद |
+| `plan.moduleHints.customers` | Customer list and addresses | कस्टमर लिस्ट और पते |
+| `plan.moduleHints.dies` | Die list and weight ranges | डाई लिस्ट और वज़न रेंज |
+| `plan.moduleHints.bundles` | Pack, scan, stock and labels | पैक, स्कैन, स्टॉक और लेबल |
+| `plan.moduleHints.dispatches` | Dispatches and printed packing lists | डिस्पैच और छपी पैकिंग लिस्ट |
+| `plan.moduleHints.orders` | Orders, planning and packing-list orders | ऑर्डर और प्लानिंग |
+| `plan.moduleHints.press` | Press queue, runs and counts | प्रेस कतार, रन और गिनती |
+| `plan.moduleHints.foundry` | Casts, melts and certificates | कास्ट, मेल्ट और सर्टिफिकेट |
+| `plan.moduleHints.ageing` | Ageing ovens and batches | एजिंग ओवन और बैच |
+| `plan.moduleHints.store` | Store items, issue and receive | स्टोर आइटम, इश्यू और रिसीव |
+| `plan.moduleHints.purchase` | Scrap lots, D/C notes and approvals | स्क्रैप लॉट, D/C नोट और अप्रूवल |
+| `plan.save` | Save plan | प्लान सेव करें |
+| `plan.saved` | Plan saved | प्लान सेव हो गया |
+| `plan.unsaved` | Unsaved changes | बदलाव सेव नहीं हुए |
+| `plan.noPlanYet` | No plan saved yet. | अभी कोई प्लान सेव नहीं है। |
+| `printing.noneTitle` | Label printing isn't set up | लेबल प्रिंटिंग सेट नहीं है |
+| `printing.noneBody` | Set up a print station so {company} can print bundle labels on their own printers. | प्रिंट स्टेशन सेट करें ताकि {company} अपने प्रिंटर पर बंडल लेबल छाप सके। |
 | `printing.setUp` | Set up label printing | लेबल प्रिंटिंग सेट करें |
-| `printing.turnOff` | Turn off label printing | लेबल प्रिंटिंग बंद करें |
-| `printing.rotateSecret` | Rotate secret | Secret बदलें |
+| `printing.inactive` | Only active companies can print labels. Reactivate {company} first. | सिर्फ़ चालू कंपनियां लेबल छाप सकती हैं। पहले {company} को फिर से चालू करें। |
+| `printing.waiting` | Only active companies can print labels. Approve the access request for {company} first. | सिर्फ़ चालू कंपनियां लेबल छाप सकती हैं। पहले {company} की एक्सेस रिक्वेस्ट मंज़ूर करें। |
+| `printing.addAnother` | Add a print station | एक और प्रिंट स्टेशन जोड़ें |
+| `printing.station` | Print station | प्रिंट स्टेशन |
+| `printing.address` | Address | पता |
+| `printing.version` | Version | वर्ज़न |
+| `printing.versionUnknown` | Not reported yet | अभी नहीं बताया |
+| `printing.lastSeen` | Last seen | आखिरी बार दिखा |
+| `printing.never` | Never | कभी नहीं |
+| `printing.setUpOn` | Set up | सेट किया |
+| `printing.setUpDay` | Set up {date} | {date} को सेट किया |
+| `printing.nameLabel` | Station name | स्टेशन का नाम |
+| `printing.nameHint` | 3 to 63 lowercase letters, numbers or hyphens. | 3 से 63 छोटे अंग्रेज़ी अक्षर, अंक या हाइफ़न। |
+| `printing.namePreview` | Address: {address} | पता: {address} |
+| `printing.nameRequired` | Enter a station name. | स्टेशन का नाम लिखें। |
+| `printing.nameLength` | Use 3 to 63 characters. | 3 से 63 अक्षर रखें। |
+| `printing.nameFormat` | Use lowercase letters, numbers and hyphens. Start and end with a letter or number. | छोटे अंग्रेज़ी अक्षर, अंक और हाइफ़न लिखें। शुरू और अंत अक्षर या अंक से हो। |
+| `printing.nameTaken` | That station name is taken. Try another. | यह स्टेशन नाम पहले से लिया हुआ है। कोई दूसरा आज़माएं। |
+| `printing.create` | Set up print station | प्रिंट स्टेशन सेट करें |
+| `printing.created` | Print station set up | प्रिंट स्टेशन सेट हो गया |
+| `printing.secretsTitle` | Copy these now | इन्हें अभी कॉपी करें |
+| `printing.secretsBody` | They are shown only once. The print station needs them to connect. | ये सिर्फ़ एक बार दिखेंगे। प्रिंट स्टेशन को जुड़ने के लिए इनकी ज़रूरत है। |
+| `printing.instanceId` | Instance ID | इंस्टेंस ID |
+| `printing.sharedSecret` | Shared secret | शेयर्ड सीक्रेट |
+| `printing.tunnelToken` | Tunnel token | टनल टोकन |
+| `printing.copyValue` | Copy {label} | {label} कॉपी करें |
+| `printing.copied` | {label} copied | {label} कॉपी हो गया |
+| `printing.copyFailed` | Couldn't copy. Select the text and copy it. | कॉपी नहीं हुआ। टेक्स्ट चुनकर कॉपी करें। |
+| `printing.rotateSecret` | Rotate secret | सीक्रेट बदलें |
+| `printing.rotateTitle` | Rotate the secret for {address}? | {address} का सीक्रेट बदलें? |
+| `printing.rotateBody` | The current secret stops working right away. The print station needs the new one to keep printing. | अभी वाला सीक्रेट तुरंत काम करना बंद कर देगा। प्रिंटिंग चालू रखने के लिए प्रिंट स्टेशन को नया सीक्रेट चाहिए। |
+| `printing.rotated` | Secret rotated | सीक्रेट बदल गया |
+| `printing.newSecret` | New shared secret | नया शेयर्ड सीक्रेट |
 | `printing.installScript` | Install script | इंस्टॉल स्क्रिप्ट |
+| `printing.installTitle` | Download the install script | इंस्टॉल स्क्रिप्ट डाउनलोड करें |
+| `printing.installBody` | A shell script for a Linux or macOS computer with Docker. It sets up the print station for {address}. | Docker वाले Linux या macOS कंप्यूटर के लिए शेल स्क्रिप्ट। यह {address} के लिए प्रिंट स्टेशन सेट करती है। |
+| `printing.installDownload` | Download script | स्क्रिप्ट डाउनलोड करें |
+| `printing.installed` | Install script downloaded | इंस्टॉल स्क्रिप्ट डाउनलोड हो गई |
 | `printing.downloads` | Downloads | डाउनलोड |
+| `printing.downloadsTitle` | Download the print station app | प्रिंट स्टेशन ऐप डाउनलोड करें |
+| `printing.downloadsBody` | The app comes set up for {address}. Run it on a computer on the plant network. | ऐप {address} के लिए पहले से सेट है। इसे प्लांट नेटवर्क के किसी कंप्यूटर पर चलाएं। |
+| `printing.computer` | Computer | कंप्यूटर |
+| `printing.platforms.darwinArm64` | Mac with Apple chip | Apple चिप वाला Mac |
+| `printing.platforms.darwinAmd64` | Mac with Intel chip | Intel चिप वाला Mac |
+| `printing.platforms.linuxAmd64` | Linux | Linux |
+| `printing.platforms.windowsAmd64` | Windows | Windows |
+| `printing.download` | Download app | ऐप डाउनलोड करें |
+| `printing.downloadStarted` | Download started | डाउनलोड शुरू हो गया |
+| `printing.turnOff` | Turn off label printing | लेबल प्रिंटिंग बंद करें |
+| `printing.turnOffShort` | Turn off | बंद करें |
+| `printing.turnOffTitle` | Turn off {address}? | {address} बंद करें? |
+| `printing.turnOffBody` | Labels stop printing at {company} until you set up a new print station. | नया प्रिंट स्टेशन सेट होने तक {company} में लेबल नहीं छपेंगे। |
+| `printing.turnedOff` | Label printing turned off | लेबल प्रिंटिंग बंद हो गई |
+| `printing.history` | Turned off earlier | पहले बंद किए गए |
+| `printing.loadError` | Print stations didn't load. Check the connection and try again. | प्रिंट स्टेशन लोड नहीं हुए। कनेक्शन देखें और फिर कोशिश करें। |
+| `printing.stationsLabel` | Print stations | प्रिंट स्टेशन |
 | `access.impersonate` | Impersonate | कंपनी के रूप में खोलें |
+| `access.title` | Open {company} as support | {company} को सपोर्ट के रूप में खोलें |
+| `access.body` | You see orrn as their owner would. Every change is recorded with your name. | आप orrn को उनके मालिक की तरह देखेंगे। हर बदलाव आपके नाम से दर्ज होगा। |
+| `access.reasonLabel` | Reason (optional) | वजह (ज़रूरी नहीं) |
+| `access.reasonHint` | Shown in the session list below. | नीचे सेशन लिस्ट में दिखेगी। |
+| `access.durationLabel` | Session length (minutes) | सेशन कितनी देर (मिनट) |
+| `access.started` | Support session started | सपोर्ट सेशन शुरू हुआ |
+| `access.inactive` | Only active companies can be opened. Reactivate {company} first. | सिर्फ़ चालू कंपनियां खोली जा सकती हैं। पहले {company} को फिर से चालू करें। |
+| `access.waiting` | Only active companies can be opened. Approve the access request for {company} first. | सिर्फ़ चालू कंपनियां खोली जा सकती हैं। पहले {company} की एक्सेस रिक्वेस्ट मंज़ूर करें। |
+| `access.inside` | You are inside {company} as support. Stop that session first. | आप सपोर्ट के रूप में {company} के अंदर हैं। पहले वह सेशन बंद करें। |
+| `access.restricted` | Your role can't open companies as support. | आपका रोल कंपनियों को सपोर्ट के रूप में नहीं खोल सकता। |
 | `access.banner` | Viewing {company} as orrn support | {company} को orrn सपोर्ट के रूप में देख रहे हैं |
 | `access.stop` | Stop impersonating | सपोर्ट व्यू बंद करें |
+| `access.stopFailed` | Couldn't stop the support session. Check the connection and try again. | सपोर्ट सेशन बंद नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `access.expires` | Ends at {time} | {time} पर खत्म होगा |
+| `access.endsSoon` | Ends at {time}, in under 5 minutes | {time} पर खत्म होगा, 5 मिनट से कम बचे |
+| `access.sessions` | Support sessions | सपोर्ट सेशन |
+| `access.sessionsEmpty` | No support sessions yet. | अभी कोई सपोर्ट सेशन नहीं। |
+| `access.staff` | Staff | स्टाफ़ |
+| `access.reason` | Reason | वजह |
+| `access.startedAt` | Started | शुरू हुआ |
+| `access.ends` | Ends | खत्म |
+| `access.state.active` | Active | चालू |
+| `access.state.ended` | Ended | खत्म |
+| `access.state.stopped` | Stopped | बंद किया |
+| `access.noReason` | No reason given | कोई वजह नहीं दी |
+| `access.resume` | Resume | फिर से खोलें |
+| `access.stopSession` | Stop | बंद करें |
+| `access.actions` | Actions | कार्रवाई |
+| `access.stopped` | Support session stopped | सपोर्ट सेशन बंद हुआ |
+| `access.unknownStaff` | Former staff | पुराना स्टाफ़ |
+| `access.staffYou` | {name} (you) | {name} (आप) |
 | `requests.title` | Access requests | एक्सेस रिक्वेस्ट |
+| `requests.waiting` | {count} waiting | {count} बाकी |
+| `requests.none` | Nothing waiting | कुछ बाकी नहीं |
 | `requests.empty` | No requests waiting. | कोई रिक्वेस्ट बाकी नहीं है। |
+| `requests.emptyBody` | New requests from the website show up here. | वेबसाइट से आई नई रिक्वेस्ट यहां दिखेंगी। |
+| `requests.from` | From {name} | {name} की ओर से |
+| `requests.received` | Received {date} | आई: {date} |
+| `requests.noNotes` | No notes | कोई नोट नहीं |
 | `requests.approve` | Approve | मंज़ूर करें |
-| `requests.reject` | Reject | नामंज़ूर करें |
+| `requests.approveTitle` | Approve {company}? | {company} को मंज़ूर करें? |
+| `requests.approveBody` | This creates the company and emails a sign-in link to {email}. If the email can't be sent, you get the details to send yourself. | इससे कंपनी बनेगी और {email} पर साइन इन लिंक ईमेल होगा। ईमेल न जा पाए तो खुद भेजने के लिए डिटेल मिल जाएंगी। |
 | `requests.approved` | Request approved | रिक्वेस्ट मंज़ूर हो गई |
+| `requests.reject` | Reject | नामंज़ूर करें |
+| `requests.rejectTitle` | Reject {company}? | {company} को नामंज़ूर करें? |
+| `requests.rejectBody` | The request is closed. {email} is not emailed. | रिक्वेस्ट बंद हो जाएगी। {email} को ईमेल नहीं जाएगा। |
 | `requests.rejected` | Request rejected | रिक्वेस्ट नामंज़ूर हो गई |
+| `requests.alreadyHandled` | Someone already handled this request. The list is up to date now. | यह रिक्वेस्ट पहले ही निपटा दी गई है। लिस्ट अब ताज़ा है। |
+| `requests.loadError` | Requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर कोशिश करें। |
+| `requests.listLabel` | Waiting requests | बाकी रिक्वेस्ट |
+| `requests.approvedSent` | Approved. Sign-in email sent to {email}. | मंज़ूर हो गई। साइन इन ईमेल {email} पर गया। |
+| `requests.approvedNoLink` | Approved, but no sign-in link was made. Use Get sign-in details below to try again. | मंज़ूर हो गई, पर साइन इन लिंक नहीं बना। नीचे "साइन इन डिटेल लें" से फिर कोशिश करें। |
+| `requests.showEmail` | Show email | ईमेल देखें |
+| `requests.awaitingTitle` | Approved, password not set yet | मंज़ूर, पासवर्ड अभी नहीं बना |
+| `requests.awaitingBody` | If the email did not arrive or the link stopped working, get a fresh sign-in link and send it yourself. | ईमेल न पहुंचा हो या लिंक काम न कर रहा हो, तो नया साइन इन लिंक लेकर खुद भेजें। |
+| `requests.awaitingLabel` | Approved owners without a password | बिना पासवर्ड वाले मंज़ूर मालिक |
+| `requests.getDetails` | Get sign-in details | साइन इन डिटेल लें |
+| `requests.hasPassword` | This owner already signs in with a password; ask them to use Forgot password. | यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
+| `requests.approvedHasPassword` | Approved. This owner already signs in with a password; ask them to use Forgot password. | मंज़ूर हो गई। यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
+| `requests.approvedAskAdmin` | Approved. Your role cannot send sign-in links: ask an admin to get the sign-in details below. | मंज़ूर हो गई। आपका रोल साइन इन लिंक नहीं भेज सकता: किसी एडमिन से नीचे की साइन इन डिटेल लेने को कहें। |
+| `requests.details.sentTitle` | Sign-in email sent | साइन इन ईमेल चला गया |
+| `requests.details.notSentTitle` | Email could not be sent | ईमेल नहीं जा सका |
+| `requests.details.body` | Send this to {name} on WhatsApp or from your own email. The link works once and expires {date}. | यह {name} को WhatsApp पर या अपने ईमेल से भेजें। लिंक एक बार चलता है और {date} को खत्म हो जाएगा। |
+| `requests.details.sent` | The email went to {email}. | ईमेल {email} पर गया। |
+| `requests.details.notSent` | The email did not go out. Send the details below yourself. | ईमेल नहीं गया। नीचे की डिटेल खुद भेजें। |
+| `requests.details.reason` | Reason: {reason} | वजह: {reason} |
+| `requests.details.to` | To | किसको |
+| `requests.details.subject` | Subject | विषय |
+| `requests.details.link` | Sign-in link | साइन इन लिंक |
+| `requests.details.message` | Message | संदेश |
+| `requests.details.copyMessage` | Copy message | संदेश कॉपी करें |
 | `staff.title` | Staff | स्टाफ़ |
+| `staff.subtitle` | People who can sign in to Godseye. There is no public sign-up. | जो लोग Godseye में साइन इन कर सकते हैं। यहां कोई खुला साइन अप नहीं है। |
 | `staff.add` | Add staff | स्टाफ़ जोड़ें |
+| `staff.addTitle` | Add a staff account | स्टाफ़ अकाउंट जोड़ें |
 | `staff.name` | Name | नाम |
 | `staff.email` | Email | ईमेल |
+| `staff.password` | Temporary password | अस्थायी पासवर्ड |
+| `staff.passwordHint` | At least 12 characters. Share it in person or on a call. | कम से कम 12 अक्षर। इसे मिलकर या कॉल पर बताएं। |
+| `staff.passwordShort` | Use at least 12 characters. | कम से कम 12 अक्षर रखें। |
+| `staff.emailTaken` | An account with this email already exists. | इस ईमेल से पहले से एक अकाउंट है। |
 | `staff.role` | Role | रोल |
+| `staff.roleHints.super_admin` | Everything, including removing staff. | सब कुछ, स्टाफ़ हटाना भी। |
+| `staff.roleHints.admin` | Companies, requests, printing, support sessions and adding staff. | कंपनियां, रिक्वेस्ट, प्रिंटिंग, सपोर्ट सेशन और स्टाफ़ जोड़ना। |
+| `staff.roleHints.support` | Companies and requests. No support sessions or printing. | कंपनियां और रिक्वेस्ट। सपोर्ट सेशन या प्रिंटिंग नहीं। |
+| `staff.create` | Add account | अकाउंट जोड़ें |
+| `staff.created` | Staff account added | स्टाफ़ अकाउंट जुड़ गया |
+| `staff.you` | You | आप |
+| `staff.added` | Added | जोड़ा गया |
+| `staff.roleFor` | Role for {name} | {name} का रोल |
+| `staff.roleChanged` | Role changed | रोल बदल गया |
+| `staff.remove` | Remove | हटाएं |
+| `staff.removeLabel` | Remove {name} | {name} को हटाएं |
+| `staff.removeTitle` | Remove {name}? | {name} को हटाएं? |
+| `staff.removeBody` | {email} can no longer sign in to Godseye. | {email} अब Godseye में साइन इन नहीं कर पाएगा। |
+| `staff.removed` | Staff access removed | स्टाफ़ एक्सेस हटा दिया गया |
+| `staff.actions` | Actions | कार्रवाई |
+| `staff.empty` | No staff yet. | अभी कोई स्टाफ़ नहीं। |
+| `staff.loadError` | Staff didn't load. Check the connection and try again. | स्टाफ़ लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
+| `staff.listLabel` | Staff accounts | स्टाफ़ अकाउंट |
 
 ### marketing (34)
 
@@ -2105,7 +2873,7 @@ Please check, Lalubhai:
 | `orders.priceOnSalesOrder` | Rates on orders | ऑर्डर पर रेट |
 | `orders.dieRequired` | Order lines need a die copy or tier | ऑर्डर लाइन पर die कॉपी या टियर ज़रूरी |
 
-### devices (5)
+### devices (38)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2114,8 +2882,41 @@ Please check, Lalubhai:
 | `lastSeen` | Last seen {time} | आखिरी बार {time} |
 | `revoke` | Sign out this device | इस डिवाइस से साइन आउट करें |
 | `revoked` | Signed out | साइन आउट हो गया |
+| `gateTitle` | App builds | ऐप बिल्ड |
+| `gateHint` | One app, {app}, runs on every tablet and phone. A build below the minimum cannot open the floor. | हर टैबलेट और फ़ोन पर एक ही ऐप, {app}, चलता है। न्यूनतम बिल्ड से नीचे का बिल्ड फ़्लोर नहीं खोल सकता। |
+| `latest` | Latest {version}, build {build} | नवीनतम {version}, बिल्ड {build} |
+| `minimum` | Minimum build {build} | न्यूनतम बिल्ड {build} |
+| `nothing` | Nothing published yet | अभी कुछ प्रकाशित नहीं हुआ |
+| `notesLabel` | What changed | क्या बदला |
+| `platformAndroid` | Android floor app | Android फ़्लोर ऐप |
+| `platformAndroidProduction` | Android | Android |
+| `platformIos` | iPhone and iPad | iPhone और iPad |
+| `listTitle` | Devices that opened the app | जिन डिवाइस पर ऐप खुला |
+| `unnamed` | Unnamed device | बिना नाम का डिवाइस |
+| `person` | Used by {name} | {name} इस्तेमाल करते हैं |
+| `app` | App {version} | ऐप {version} |
+| `seenThisDay` | Seen this production day | प्रोडक्शन के इस दिन दिखा |
+| `seenEarlier` | Seen earlier | पहले दिखा था |
+| `status.current` | Current | चालू बिल्ड |
+| `status.blocked` | Below minimum build | न्यूनतम बिल्ड से नीचे |
+| `status.revoked` | Signed out | साइन आउट |
+| `status.web` | Web | वेब |
+| `rename` | Rename | नाम बदलें |
+| `renameTitle` | Name this device | इस डिवाइस को नाम दें |
+| `renamed` | Name saved | नाम सेव हो गया |
+| `renameFailed` | Couldn't save the name. Try again. | नाम सेव नहीं हुआ। फिर कोशिश करें। |
+| `revokeTitle` | Sign out this device? | इस डिवाइस से साइन आउट करें? |
+| `revokeBody` | {name} stops working until you allow it again. Its record stays. | {name} तब तक नहीं चलेगा जब तक आप फिर इजाज़त न दें। इसका रिकॉर्ड रहेगा। |
+| `revokeConfirm` | Sign out device | डिवाइस साइन आउट करें |
+| `revokedDone` | Device signed out | डिवाइस साइन आउट हो गया |
+| `restore` | Allow again | फिर इजाज़त दें |
+| `restored` | Device allowed again | डिवाइस को फिर इजाज़त मिल गई |
+| `empty` | No device has opened the app yet. | अभी किसी डिवाइस पर ऐप नहीं खुला। |
+| `loadFailed` | Couldn't load the devices. Try again. | डिवाइस लोड नहीं हुए। फिर कोशिश करें। |
+| `actionFailed` | That didn't work. Try again. | यह नहीं हुआ। फिर कोशिश करें। |
+| `readOnly` | Only owners and admins can manage devices. | डिवाइस सिर्फ़ मालिक और एडमिन संभाल सकते हैं। |
 
-### backups (6)
+### backups (25)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2125,8 +2926,27 @@ Please check, Lalubhai:
 | `status.running` | Running | चल रहा है |
 | `status.succeeded` | Done | हो गया |
 | `status.failed` | Failed | नहीं हुआ |
+| `status.ok` | Done | हो गया |
+| `lastOk` | Last good backup | आखिरी सही बैकअप |
+| `none` | No backup yet. The first one runs overnight. | अभी कोई बैकअप नहीं। पहला रात में चलेगा। |
+| `lastAttempt` | Last try: {status}, {time} | आखिरी कोशिश: {status}, {time} |
+| `size` | {mb} MB | {mb} MB |
+| `drillTitle` | Restore drill | रिस्टोर ड्रिल |
+| `drillNone` | No restore drill yet. orrn runs one every quarter. | अभी कोई रिस्टोर ड्रिल नहीं हुई। orrn हर तिमाही एक चलाता है। |
+| `drillBody` | A drill restores the latest backup into a scratch copy and compares the counts of customers, dies, bundles and dispatches. Your live data is not touched. | ड्रिल में ताज़ा बैकअप को एक अलग कॉपी में बहाल करके ग्राहक, die, bundle और dispatch की गिनती मिलाई जाती है। आपका असली डेटा नहीं छुआ जाता। |
+| `drillLast` | Last drill: {status}, {time} | आखिरी ड्रिल: {status}, {time} |
+| `runbook` | The steps are in docs/RESTORE_DRILL.md. | पूरे कदम docs/RESTORE_DRILL.md में हैं। |
+| `cardHint` | Status only. There is no download: the plant can't fetch or restore its own backup. | सिर्फ़ स्थिति दिखती है। डाउनलोड नहीं है: प्लांट अपना बैकअप खुद नहीं ले या बहाल कर सकता। |
+| `staffTitle` | For orrn staff | orrn स्टाफ़ के लिए |
+| `runNow` | Back up now | अभी बैकअप लें |
+| `runDrill` | Run restore drill | रिस्टोर ड्रिल चलाएं |
+| `started` | Backup finished | बैकअप पूरा हुआ |
+| `drillStarted` | Restore drill finished | रिस्टोर ड्रिल पूरी हुई |
+| `failedToRun` | That didn't finish. See the status above. | यह पूरा नहीं हुआ। ऊपर स्थिति देखें। |
+| `loadFailed` | Couldn't load the backup status. Try again. | बैकअप की स्थिति लोड नहीं हुई। फिर कोशिश करें। |
+| `readOnly` | Only owners and admins can see backups. | बैकअप सिर्फ़ मालिक और एडमिन देख सकते हैं। |
 
-### support (9)
+### support (21)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2139,6 +2959,63 @@ Please check, Lalubhai:
 | `status.open` | Open | खुला |
 | `status.answered` | Answered | जवाब मिला |
 | `status.closed` | Closed | बंद |
+| `subjectHint` | Optional. A few words. | वैकल्पिक। कुछ शब्द। |
+| `bodyHint` | Say what you were doing and what you saw. Up to 2000 characters. | बताएं कि आप क्या कर रहे थे और क्या दिखा। ज़्यादा से ज़्यादा 2000 अक्षर। |
+| `bodyRequired` | Write a few words about what happened. | क्या हुआ, इसके कुछ शब्द लिखें। |
+| `submit` | Send | भेजें |
+| `sendFailed` | The request didn't send. Try again. | अनुरोध नहीं गया। फिर कोशिश करें। |
+| `mine` | Your requests | आपके अनुरोध |
+| `empty` | You haven't asked for help yet. | आपने अभी तक मदद नहीं मांगी। |
+| `waiting` | Waiting for a reply. | जवाब का इंतज़ार है। |
+| `fromScreen` | From {screen} | {screen} से |
+| `replyFrom` | Reply from orrn | orrn का जवाब |
+| `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
+| `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
+
+### audit (40)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Audit log | ऑडिट लॉग |
+| `subtitle` | Who changed what in your plant. You can read it, not edit or remove it. | आपके प्लांट में किसने क्या बदला। इसे पढ़ सकते हैं, बदल या हटा नहीं सकते। |
+| `filters` | Filters | फ़िल्टर |
+| `actor` | Person | व्यक्ति |
+| `anyone` | Everyone | सभी |
+| `kind` | Kind | प्रकार |
+| `anyKind` | Everything | सब कुछ |
+| `subject` | Subject | विषय |
+| `subjectHint` | A serial, code or id | सीरियल, कोड या आईडी |
+| `from` | From | से |
+| `to` | To | तक |
+| `clear` | Clear filters | फ़िल्टर हटाएं |
+| `kinds.company` | Settings | सेटिंग्स |
+| `kinds.member` | Team | टीम |
+| `kinds.device` | Devices | डिवाइस |
+| `kinds.dispatch` | Dispatches | Dispatch |
+| `kinds.bundle` | Bundles | Bundle |
+| `kinds.die` | Dies | Die |
+| `kinds.customer` | Customers | ग्राहक |
+| `kinds.stock` | Stock | स्टॉक |
+| `kinds.order` | Orders | ऑर्डर |
+| `kinds.count` | Stock counts | स्टॉक गिनती |
+| `kinds.support_request` | Help requests | मदद के अनुरोध |
+| `kinds.backup` | Backups | बैकअप |
+| `columns.when` | When | कब |
+| `columns.who` | Who | किसने |
+| `columns.what` | What | क्या |
+| `columns.subject` | Subject | विषय |
+| `byStaff` | orrn support | orrn सपोर्ट |
+| `unknownActor` | System | सिस्टम |
+| `details` | Details | जानकारी |
+| `showMore` | Show older entries | पुरानी एंट्री दिखाएं |
+| `loadingMore` | Loading | लोड हो रहा है |
+| `since` | Showing entries since {date}. Older ones are kept. | {date} से एंट्री दिख रही हैं। पुरानी रखी हुई हैं। |
+| `empty` | Nothing matches these filters | इन फ़िल्टर से कुछ नहीं मिला |
+| `emptyBody` | Try a wider range of dates or clear a filter. | तारीखों की सीमा बढ़ाएं या कोई फ़िल्टर हटाएं। |
+| `emptyNone` | Nothing has been recorded yet | अभी कुछ दर्ज नहीं हुआ |
+| `loadFailed` | Couldn't load the audit log. Try again. | ऑडिट लॉग लोड नहीं हुआ। फिर कोशिश करें। |
+| `listLabel` | Audit entries | ऑडिट एंट्री |
+| `noAccess` | Your role can't read the audit log. Ask an owner, admin or manager. | आपकी भूमिका ऑडिट लॉग नहीं पढ़ सकती। मालिक, एडमिन या मैनेजर से कहें। |
 
 ### errors (16)
 
@@ -2442,3 +3319,95 @@ Please check, Lalubhai:
 | Fix 2 | Open the entry, tap "Cancel entry" and write why. Then make the entry again with the right quantity. | एंट्री खोलें, "एंट्री रद्द करें" दबाएं और वजह लिखें। फिर सही मात्रा से नई एंट्री करें। |
 | Problem 3 | The item is not in the list | सामान लिस्ट में नहीं है |
 | Fix 3 | Open "Store items" and tap "Add item". Choose its unit carefully: it can't change after the first entry. | "स्टोर का सामान" खोलें और "सामान जोड़ें" दबाएं। इकाई ध्यान से चुनें: पहली एंट्री के बाद यह नहीं बदल सकती। |
+
+### Check stock by die (`stock-by-die`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Check stock by die | Die के हिसाब से स्टॉक देखें |
+| When | Use this to see how many bundles and how many kg of one die are in stock or held. | जब आपको देखना हो कि एक die के कितने bundle और कितने kg स्टॉक में या होल्ड पर हैं। |
+| Step 1 | Open Stock | स्टॉक खोलें |
+| Step 1 text | Open "Stock". The "Sections" view lists one block for each die section that has bundles on the floor. | "स्टॉक" खोलें। "सेक्शन" व्यू में हर उस die सेक्शन का एक ब्लॉक दिखता है जिसके bundle फ़्लोर पर हैं। |
+| Step 2 | Find the die | Die खोजें |
+| Step 2 text | Type the die or section code in "Search die or section". The list narrows as you type. | "Die या सेक्शन खोजें" में die या सेक्शन का कोड लिखें। लिखते-लिखते लिस्ट छोटी होती जाती है। |
+| Step 3 | Read the block | ब्लॉक पढ़ें |
+| Step 3 text | Each block shows the bundles in stock, the bundles held for a dispatch, the kg and the kg/12ft weight range. Held bundles are counted apart from the ones in stock. | हर ब्लॉक में स्टॉक वाले bundle, dispatch के लिए होल्ड वाले bundle, kg और kg/12ft की वज़न रेंज दिखती है। होल्ड वाले bundle स्टॉक वालों से अलग गिने जाते हैं। |
+| Step 4 | Open the section | सेक्शन खोलें |
+| Step 4 text | Tap the block to see its bundles. Use "Status" to show "In stock", "Held" or "Dispatched" bundles. | उसके bundle देखने के लिए ब्लॉक दबाएं। "स्टेटस" से "स्टॉक में", "होल्ड पर" या "Dispatch हो गया" वाले bundle छांटें। |
+| Step 5 | Open one bundle | एक bundle खोलें |
+| Step 5 text | Tap a bundle to see its weight, pieces, cut length and history. For the die's own details, tap "Die details". | किसी bundle को दबाकर उसका वज़न, पीस, कट लंबाई और इतिहास देखें। Die की अपनी जानकारी के लिए "Die की जानकारी" दबाएं। |
+| Problem 1 | The die isn't in the list | Die लिस्ट में नहीं है |
+| Fix 1 | Only sections with bundles on the floor show here. If the die was packed recently, tap "Clear search" and check the spelling of the code. Dispatched or void bundles are not counted as stock. | यहां सिर्फ़ वही सेक्शन दिखते हैं जिनके bundle फ़्लोर पर हैं। Die हाल में पैक हुआ हो तो "खोज हटाएं" दबाएं और कोड की स्पेलिंग जांचें। Dispatch हो चुके या रद्द bundle स्टॉक में नहीं गिने जाते। |
+| Problem 2 | The count doesn't match the yard | गिनती यार्ड से नहीं मिलती |
+| Fix 2 | The screen shows what orrn has recorded, so unrecorded packing and dispatch change it. Do a count before you adjust anything. See "Count the stock". | स्क्रीन वही दिखाती है जो orrn में दर्ज है, इसलिए दर्ज न हुई पैकिंग या dispatch से फ़र्क आता है। कुछ बदलने से पहले गिनती करें। "स्टॉक की गिनती करें" देखें। |
+
+### Count the stock (`stock-count`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Count the stock | स्टॉक की गिनती करें |
+| When | Use this for the quarterly physical count, when every bundle in the yard is checked against what orrn holds. | तिमाही की असली गिनती के लिए, जब यार्ड का हर bundle orrn में दर्ज स्टॉक से मिलाया जाता है। |
+| Step 1 | Stop packing and dispatch | पैकिंग और dispatch रोकें |
+| Step 1 text | Tell the packers and the dispatch team to stop before the count starts. A bundle packed or sent out during the count will show as a mistake. | गिनती शुरू होने से पहले पैकर और dispatch वालों को काम रोकने को कहें। गिनती के दौरान पैक हुआ या बाहर गया bundle गलती की तरह दिखेगा। |
+| Step 2 | Take a fresh stock list | ताज़ा स्टॉक लिस्ट लें |
+| Step 2 text | Ask the office to load today's stock list into the Stock Count tool on the office computer. orrn has no count screen yet, so the count runs in that tool and it never changes your stock. | ऑफ़िस से कहें कि आज की स्टॉक लिस्ट ऑफ़िस के कंप्यूटर पर Stock Count टूल में डाल दें। orrn में अभी गिनती की स्क्रीन नहीं है, इसलिए गिनती उसी टूल में होती है और वो आपका स्टॉक कभी नहीं बदलता। |
+| Step 3 | Scan every bundle | हर bundle स्कैन करें |
+| Step 3 text | Walk the yard location by location. Scan each bundle's QR label. You can also type the printed bundle number. The tool tells you the result with a colour and a beep. | यार्ड में एक-एक लोकेशन पर चलें। हर bundle का QR लेबल स्कैन करें। छपा हुआ bundle नंबर भी लिख सकते हैं। टूल रंग और बीप से नतीजा बताता है। |
+| Step 4 | Read the colours | रंग पढ़ें |
+| Step 4 text | Green means counted. Amber means you already scanned it. Red means the bundle is not in the stock list. Leave red and amber bundles where they are and note them. | हरा मतलब गिन लिया। पीला मतलब आप उसे पहले स्कैन कर चुके हैं। लाल मतलब bundle स्टॉक लिस्ट में नहीं है। लाल और पीले bundle को वहीं रहने दें और उनका नोट बनाएं। |
+| Step 5 | Chase what's missing | जो नहीं मिला उसे ढूंढें |
+| Step 5 text | When the yard is done, open the list of bundles not found yet. Look again in the nearby locations before you give up on a bundle. | यार्ड पूरा होने पर अभी तक न मिले bundle की लिस्ट खोलें। किसी bundle को छोड़ने से पहले आसपास की लोकेशन में दोबारा देखें। |
+| Step 6 | Save the result | नतीजा सेव करें |
+| Step 6 text | Export the result as a CSV file and give it to the manager. Fix the differences in orrn only after the manager has agreed them. Then restart packing and dispatch. | नतीजा CSV फ़ाइल में निकालें और मैनेजर को दें। फ़र्क orrn में तभी ठीक करें जब मैनेजर उन्हें मान ले। फिर पैकिंग और dispatch दोबारा शुरू करें। |
+| Problem 1 | A bundle has no QR label | Bundle पर QR लेबल नहीं है |
+| Fix 1 | Type the bundle number printed on it. If the number is unreadable too, put the bundle aside and give it to the manager. | उस पर छपा bundle नंबर लिखें। नंबर भी पढ़ा न जाए तो bundle को अलग रखें और मैनेजर को दें। |
+| Problem 2 | Many bundles are not found | बहुत सारे bundle नहीं मिल रहे |
+| Fix 2 | Do not adjust anything yet. Check that the count did not start before the last dispatch was recorded. Most gaps come from the tail of a production run that was never marked as sent. | अभी कुछ न बदलें। देखें कि गिनती आखिरी dispatch दर्ज होने से पहले तो शुरू नहीं हो गई। ज़्यादातर कमी उस प्रोडक्शन रन की बची हुई पूंछ से आती है जिसे कभी भेजा हुआ दर्ज नहीं किया गया। |
+| Problem 3 | The count was interrupted | गिनती बीच में रुक गई |
+| Fix 3 | The tool keeps your scans on that computer for the same stock list. Open it again on the same browser and carry on. | टूल उसी स्टॉक लिस्ट के लिए आपके स्कैन उसी कंप्यूटर पर रखता है। उसी ब्राउज़र में दोबारा खोलें और आगे बढ़ें। |
+
+### Approve an access request (`approve-access-request`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Approve an access request | एक्सेस रिक्वेस्ट मंज़ूर करें |
+| When | Use this when a plant has asked for access on the website and orrn support has to set up its company. | जब किसी प्लांट ने वेबसाइट पर एक्सेस मांगा हो और orrn सपोर्ट को उसकी कंपनी सेट करनी हो। |
+| Step 1 | Open the requests | रिक्वेस्ट खोलें |
+| Step 1 text | Sign in to Godseye and open "Access requests". Requests that are waiting are at the top. | Godseye में साइन इन करें और "एक्सेस रिक्वेस्ट" खोलें। जो रिक्वेस्ट बाकी हैं वो सबसे ऊपर होती हैं। |
+| Step 2 | Read the request | रिक्वेस्ट पढ़ें |
+| Step 2 text | Check the company name, the contact's name and work email, the number of extrusion lines and the notes. If anything looks wrong, call the contact before you approve. | कंपनी का नाम, संपर्क का नाम और काम का ईमेल, एक्सट्रूज़न लाइनों की गिनती और नोट्स जांचें। कुछ ठीक न लगे तो मंज़ूर करने से पहले संपर्क को फ़ोन करें। |
+| Step 3 | Approve or reject | मंज़ूर या नामंज़ूर करें |
+| Step 3 text | Tap "Approve" to set up the company and its first owner. Tap "Reject" if the request is a duplicate or not a real plant. orrn shows "Request approved" when it is done. | कंपनी और उसका पहला मालिक बनाने के लिए "मंज़ूर करें" दबाएं। रिक्वेस्ट दोबारा आई हो या असली प्लांट की न हो तो "नामंज़ूर करें" दबाएं। काम हो जाने पर orrn "रिक्वेस्ट मंज़ूर हो गई" दिखाता है। |
+| Step 4 | Send the sign-in details | साइन इन की जानकारी भेजें |
+| Step 4 text | orrn emails the new owner. If the email doesn't arrive, copy the sign-in details shown after approval and send them yourself. | orrn नए मालिक को ईमेल भेजता है। ईमेल न पहुंचे तो मंज़ूरी के बाद दिखने वाली साइन इन की जानकारी कॉपी करें और खुद भेजें। |
+| Step 5 | Check the new company | नई कंपनी जांचें |
+| Step 5 text | Open the company under "Companies". Check the plan and modules, and that label printing is set up if the plant needs it. | "कंपनियां" में जाकर वो कंपनी खोलें। प्लान और मॉड्यूल जांचें, और प्लांट को ज़रूरत हो तो देखें कि लेबल प्रिंटिंग सेट है। |
+| Problem 1 | The owner says no email came | मालिक कहता है ईमेल नहीं आया |
+| Fix 1 | Look in their spam folder first. Then send the copied sign-in details by WhatsApp or phone. Ask them to change the password when they first sign in. | पहले उनका स्पैम फ़ोल्डर देखें। फिर कॉपी की हुई साइन इन की जानकारी WhatsApp या फ़ोन से भेजें। उनसे कहें कि पहली बार साइन इन करते ही पासवर्ड बदल लें। |
+| Problem 2 | I approved the wrong request | गलत रिक्वेस्ट मंज़ूर हो गई |
+| Fix 2 | Open the company under "Companies" and use "Suspend" until the mistake is sorted out. Do not delete anything. | "कंपनियां" में वो कंपनी खोलें और गलती सुलझने तक "रोकें" दबाएं। कुछ भी डिलीट न करें। |
+
+### Sign in on the floor tablet (`floor-tablet-signin`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Sign in on the floor tablet | फ़्लोर टैबलेट पर साइन इन करें |
+| When | Use this at the start of a shift, when you pick up the tablet at the packing or dispatch table. | शिफ़्ट की शुरुआत में, जब आप पैकिंग या dispatch टेबल का टैबलेट उठाते हैं। |
+| Step 1 | Open orrn | orrn खोलें |
+| Step 1 text | Open orrn from the icon on the tablet's home screen. If you see the page for another person, sign them out first. | टैबलेट की होम स्क्रीन के आइकन से orrn खोलें। अगर किसी और का पेज खुला दिखे तो पहले उन्हें साइन आउट करें। |
+| Step 2 | Enter your email and password | ईमेल और पासवर्ड डालें |
+| Step 2 text | Type your own work email and password and tap "Sign in". Do not use someone else's account, because every bundle and dispatch is recorded against the person who signed in. | अपना काम का ईमेल और पासवर्ड लिखें और "साइन इन करें" दबाएं। किसी और का अकाउंट इस्तेमाल न करें, क्योंकि हर bundle और dispatch उसी के नाम दर्ज होता है जिसने साइन इन किया। |
+| Step 3 | Enter the code | कोड डालें |
+| Step 3 text | If your account has two-factor on, open your authenticator app, type the 6-digit code and tap "Verify". Codes change every 30 seconds, so type the newest one. | अगर आपके अकाउंट पर two-factor चालू है, तो authenticator ऐप खोलें, 6 अंकों का कोड लिखें और "जांचें" दबाएं। कोड हर 30 सेकंड में बदलता है, इसलिए सबसे नया कोड डालें। |
+| Step 4 | Check you are in the right plant | देखें कि सही प्लांट है |
+| Step 4 text | You land on "Today". Check the company name at the top before you pack or dispatch. | आप "आज" पर पहुंचेंगे। पैक या dispatch करने से पहले ऊपर कंपनी का नाम जांचें। |
+| Step 5 | Choose your language | अपनी भाषा चुनें |
+| Step 5 text | Open "Account and more" and choose English or हिंदी under "Language". The tablet remembers it. | "अकाउंट और बाकी पेज" खोलें और "भाषा" में English या हिंदी चुनें। टैबलेट इसे याद रखता है। |
+| Step 6 | Sign out at the end | आखिर में साइन आउट करें |
+| Step 6 text | When you hand the tablet over or finish your shift, open "Account and more" and tap "Sign out". | टैबलेट किसी और को देते समय या शिफ़्ट खत्म होने पर "अकाउंट और बाकी पेज" खोलें और "साइन आउट" दबाएं। |
+| Problem 1 | "Email or password is wrong. Check both and try again." | "ईमेल या पासवर्ड गलत है। दोनों जांचें और फिर से कोशिश करें।" |
+| Fix 1 | Check for a capital letter or an extra space. If it still fails, ask your admin to reset your password. | कैपिटल अक्षर या बीच में खाली जगह जांचें। फिर भी न चले तो अपने एडमिन से पासवर्ड रीसेट करने को कहें। |
+| Problem 2 | "Your session ended. Sign in again." | "आपका सेशन खत्म हो गया। फिर से साइन इन करें।" |
+| Fix 2 | Sign in again. Anything you had not saved on the screen may need to be entered again. | दोबारा साइन इन करें। स्क्रीन पर जो सेव नहीं हुआ था उसे दोबारा डालना पड़ सकता है। |
+| Problem 3 | "Your account isn't in a company yet" | "आपका अकाउंट अभी किसी कंपनी में नहीं है" |
+| Fix 3 | You are signed in, but your admin has not added your email to the plant. Ask them to invite you. | आप साइन इन हैं, लेकिन आपके एडमिन ने आपका ईमेल प्लांट में नहीं जोड़ा है। उनसे इनवाइट भेजने को कहें। |
