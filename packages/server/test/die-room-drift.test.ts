@@ -64,6 +64,12 @@ describe("worked examples (spec §E1)", () => {
     expect(cardA.band).toMatchObject({ id: null, weightMinG: 5_900, weightMaxG: 6_200, wallTenthMm: 12, kgPerMetreMin: 1.613, kgPerMetreMax: 1.695 });
     expect(await p.viewer.dieInstance.get({ id: b.id })).toMatchObject({ pctTenth: 98, tone: "amber", position: "above", kgPerMetre: 1.772 });
 
+    // Every reading on the card carries its own server-computed percent and tone (newest first).
+    expect(cardA.readings.map((r) => [r.kgPer12ftMilli, r.pctTenth, r.tone, r.position])).toEqual([
+      [5_967, 11, "green", "in"],
+      [5_940, 7, "green", "in"],
+    ]);
+
     const drift = await p.viewer.dieInstance.drift({ sectionId: p.sectionId });
     const byCode = new Map(drift.items.map((i) => [i.code, i]));
     expect(byCode.get(a.code)).toMatchObject({ pctTenth: 11, tone: "green", band: "in", kgPerMetre: 1.631 });
@@ -236,5 +242,20 @@ describe("dieInstance.list carries the drift figures (clients never recompute)",
     expect(byId.get(b.id)).toMatchObject({ latestMilli: 6_480, percentTenths: 98, tone: "amber", position: "above" });
     expect(byId.get(none.id)).toMatchObject({ latestMilli: null, percentTenths: null, tone: "none", position: null, kgPerMetre: null });
     expect(byId.get(heavy.id)).toMatchObject({ latestMilli: 6_480, percentTenths: 29, tone: "green", position: "in", bandId: band.id });
+  });
+});
+
+describe("dieInstance.list search (pickers query the server, never a truncated list)", () => {
+  test("a copy code typed with a dash or a slash finds the copy; total counts the matches", async () => {
+    const p = await plant({ min: 5_900, max: 6_200 });
+    const a = await copyWith(p, [5_940]);
+    await copyWith(p, []);
+    const dashed = await p.viewer.dieInstance.list({ search: a.code });
+    expect(dashed.items.map((i) => i.id)).toEqual([a.id]);
+    expect(dashed.total).toBe(1);
+    const slashed = await p.viewer.dieInstance.list({ search: a.code.replace("-", "/") });
+    expect(slashed.items.map((i) => i.id)).toEqual([a.id]);
+    expect((await p.viewer.dieInstance.list({ search: "no-such-copy" })).total).toBe(0);
+    expect((await p.viewer.dieInstance.list({})).total).toBe(2);
   });
 });
