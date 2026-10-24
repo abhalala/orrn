@@ -147,12 +147,13 @@ async function receiptOrderLine(
   companyId: string,
   lineId: string | undefined,
   dieId: string,
-): Promise<{ id: string; customerId: string; policy: BundleNumberPolicy | null; number: string; lineNo: number } | null> {
+): Promise<{ id: string; customerId: string; policy: BundleNumberPolicy | null; number: string; lineNo: number; dieInstanceId: string | null } | null> {
   if (!lineId) return null;
   const [line] = await db
     .select({
       id: salesOrderLine.id,
       dieId: salesOrderLine.dieId,
+      lineCopyId: salesOrderLine.dieInstanceId,
       lineNo: salesOrderLine.lineNo,
       status: salesOrder.status,
       number: salesOrder.number,
@@ -171,7 +172,7 @@ async function receiptOrderLine(
   if (line.dieId !== dieId) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "That order line is for another section" });
   }
-  return { id: line.id, customerId: line.customerId, policy: line.policy ?? null, number: line.number, lineNo: Number(line.lineNo) };
+  return { id: line.id, customerId: line.customerId, policy: line.policy ?? null, number: line.number, lineNo: Number(line.lineNo), dieInstanceId: line.lineCopyId ?? null };
 }
 
 /**
@@ -465,7 +466,8 @@ export const bundleRouter = router({
       // FP-PK-10: an owned die makes only its owner's material; plant stock (no line) is blocked.
       const owner = await assertDieAllowed(ctx.db, ctx.companyId, {
         dieId: input.dieId,
-        dieInstanceId: input.dieInstanceId ?? null,
+        // An order line that pins a copy packs on that copy unless the screen names another.
+        dieInstanceId: input.dieInstanceId ?? line?.dieInstanceId ?? null,
         customerId: line?.customerId ?? null,
         purpose: "pack",
         approvalId: input.approvalId ?? null,
@@ -528,7 +530,7 @@ export const bundleRouter = router({
       // Snapshot the BIS pair for the section's profile kind (semi falls back to solid).
       const standard = resolveStandard(floor.standards, dieRow.profileKind ?? null);
       const showLogo = input.showLogo ?? true;
-      const dieInstanceId = owner.dieInstanceId ?? input.dieInstanceId ?? null;
+      const dieInstanceId = owner.dieInstanceId ?? input.dieInstanceId ?? line?.dieInstanceId ?? null;
 
       const bundleRows = input.rows.map((row, idx) => ({
         id: crypto.randomUUID(),
