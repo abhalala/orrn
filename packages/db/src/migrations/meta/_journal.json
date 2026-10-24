@@ -155,6 +155,13 @@
       "when": 1792848740999,
       "tag": "0021_sales_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1792849079078,
+      "tag": "0022_stock_count",
+      "breakpoints": true
     }
   ]
 }
