@@ -14,7 +14,7 @@ import { RootNotFound } from "@/shared/components/not-found";
 import { RouterLink } from "@/shared/components/router-link";
 import { TenantCacheGuard } from "@/shared/components/tenant-cache-guard";
 import { THEME_STORAGE_KEY, ThemeColorSync, ThemeProvider } from "@/shared/components/theme-provider";
-import { readStoredLocale, storeLocale } from "@/shared/lib/locale";
+import { ensureLocale, readStoredLocale, storeLocale } from "@/shared/lib/locale";
 import type { trpc } from "@/shared/utils/trpc";
 import "../index.css";
 
@@ -36,6 +36,12 @@ export interface RouterAppContext {
 }
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
+  /**
+   * Dictionaries are fetched on demand on web (@orrn/i18n dictionaries.web.ts). The saved
+   * language loads here, before any page but English `/` renders, on every navigation (a no-op
+   * once loaded), so a Hindi reader never sees English first and no page shows a raw key.
+   */
+  beforeLoad: ({ location }) => ensureLocale(location.pathname),
   component: RootComponent,
   notFoundComponent: RootNotFound,
   head: () => ({

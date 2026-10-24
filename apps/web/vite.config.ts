@@ -46,10 +46,10 @@ async function devServer(): Promise<ServerOptions> {
 }
 
 /**
- * The web build keeps only English messages in the entry chunk: `@orrn/i18n`'s `./dictionaries`
+ * The web build keeps only the public `/` English in the entry chunk: `@orrn/i18n`'s `./dictionaries`
  * (every language, loaded up front for Bun tests and native) becomes `./dictionaries.web.ts`, which
- * fetches Hindi when it is chosen. Keeps a first visit to `/` inside its JS budget
- * (scripts/check-route-budget.ts) as the Hindi dictionary grows with every screen.
+ * fetches the full English and Hindi on demand. Keeps a first visit to `/` inside its JS budget
+ * (scripts/check-route-budget.ts) as the dictionaries grow with every screen.
  */
 const i18nDir = fileURLToPath(new URL("../../packages/i18n/src/", import.meta.url));
 function lazyHindi(): Plugin {

@@ -1,6 +1,8 @@
-export { en, type DeepStringRecord, type MessageKey, type Messages } from "./en";
-// Hindi messages: `@orrn/i18n/hi`. Re-exporting them here would pin them into the web entry
-// chunk, which fetches them on demand (dictionaries.web.ts).
+export type { DeepStringRecord, MessageKey, Messages } from "./en";
+// No dictionary VALUES here: this index is in the web entry chunk, and re-exporting a dictionary
+// pins it there. Raw messages: `@orrn/i18n/en`, `@orrn/i18n/hi` (tests, native). On web the entry
+// carries only the public `/` English (en-public.gen.ts); full English and Hindi are fetched on
+// demand (dictionaries.web.ts) and `t()` stays synchronous.
 export { hasMessages, loadMessages } from "./dictionaries";
 export {
   createI18n,

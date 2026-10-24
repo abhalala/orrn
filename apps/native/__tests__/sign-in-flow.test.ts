@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { en } from "@orrn/i18n";
+import { en } from "@orrn/i18n/en";
 
 import { afterPassword, afterTotp, cleanTotp, totpInputError } from "../lib/sign-in-flow";
 

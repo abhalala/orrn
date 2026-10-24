@@ -1,5 +1,5 @@
 import { DICTIONARIES } from "./dictionaries";
-import { en, type MessageKey, type Messages } from "./en";
+import type { MessageKey } from "./en";
 
 export const LOCALES = ["en", "hi"] as const;
 export type Locale = (typeof LOCALES)[number];
@@ -17,7 +17,7 @@ export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
 }
 
-function lookup(dict: Messages, key: string): string | undefined {
+function lookup(dict: unknown, key: string): string | undefined {
   let node: unknown = dict;
   for (const part of key.split(".")) {
     if (node === null || typeof node !== "object") return undefined;
@@ -40,10 +40,13 @@ export function interpolate(template: string, vars: TranslateVars = {}): string 
   });
 }
 
-/** A translator for one locale. Falls back to English, then to the key itself. */
+/**
+ * A translator for one locale. Falls back to English, then to the key itself. On web a dictionary
+ * may not have arrived yet (dictionaries.web.ts: the entry holds only the public `/` English), so
+ * this reads the loaded dictionaries on every call: a `t` made before a load sees it afterwards.
+ */
 export function createI18n(locale: Locale): I18n {
-  // On web, Hindi may not have arrived yet (dictionaries.web.ts): English until it does.
-  const dict = DICTIONARIES[locale] ?? en;
-  const t: Translate = (key, vars) => interpolate(lookup(dict, key) ?? lookup(en, key) ?? key, vars);
+  const t: Translate = (key, vars) =>
+    interpolate(lookup(DICTIONARIES[locale], key) ?? lookup(DICTIONARIES.en, key) ?? key, vars);
   return { locale, t };
 }
