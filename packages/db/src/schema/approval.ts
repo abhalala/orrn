@@ -29,6 +29,9 @@ export const approvalKinds = [
   "press_time",
   "press_reopen",
   "ageing_override",
+  // Wave 2 (FP-PR-24): a press run entered after the fact; subject = run id; meta { reason,
+  // productionDay, shiftSeq }. Approvers owner, supervisor, manager; never the requester.
+  "press_late_entry",
 ] as const;
 export const approvalStatuses = ["pending", "approved", "rejected"] as const;
 

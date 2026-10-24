@@ -89,6 +89,37 @@ export function formatCastCode(month: number, seq: number): string {
   return `${monthLetter(month)}${seq}`;
 }
 
+const CAST_CODE = /^([A-L])(\d{1,5})$/;
+
+/**
+ * Cast number parts from the doc series (memory: cast no = month letter + seq; the year is stored,
+ * never printed). `period` is the series period `YYYY-MM`. `castNumberParts("2026-11", 31)` →
+ * `{ year: 2026, month: 11, seq: 31, number: "K31" }`. The seq comes from `allocateDocNumbers`
+ * (type `cast`), which starts the month at `castSeriesStart.start` when that month is the book's
+ * go-live month (`castSeriesFirstSeq`).
+ */
+export function castNumberParts(period: string, seq: number): { year: number; month: number; seq: number; number: string } {
+  const m = /^(\d{4})-(\d{2})$/.exec(period);
+  if (!m) throw new RangeError(`Cast period must be YYYY-MM, got ${period}`);
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  return { year, month, seq, number: formatCastCode(month, seq) };
+}
+
+/** `K31` → `{ month: 11, seq: 31 }` (normalised: case and spaces); null when it is not a series code. */
+export function parseCastCode(raw: string): { month: number; seq: number } | null {
+  const m = CAST_CODE.exec(raw.trim().toUpperCase().replace(/\s+/g, ""));
+  if (!m) return null;
+  const seq = Number(m[2]);
+  if (seq < 1) return null;
+  return { month: monthFromLetter(m[1]!)!, seq };
+}
+
+/** A manual (legacy) cast code must not look like a series code (`^[A-L][0-9]+$`, spec §B doc series). */
+export function isSeriesCastCode(raw: string): boolean {
+  return parseCastCode(raw) !== null;
+}
+
 const PLANT_NO = /^(\d{2})([A-L])(\d{1,5})$/;
 const OLD_NO = /^([A-L])(\d{1,5})$/;
 

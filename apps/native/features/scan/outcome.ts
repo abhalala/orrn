@@ -10,7 +10,7 @@ import type { MessageKey, Translate, TranslateVars } from "@orrn/i18n";
 export type UnavailableRow = {
   serial: string;
   reason: string;
-  code?: "held" | "dispatched" | "void" | "status" | "reallocation_pending";
+  code?: "held" | "dispatched" | "void" | "status" | "reallocation_pending" | "held_for_order";
   status?: string;
   heldBy?: string | null;
 };

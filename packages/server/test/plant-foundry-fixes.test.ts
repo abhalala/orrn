@@ -172,7 +172,12 @@ describe("dev seed: the reset knows the foundry tables", () => {
     expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
     expect(await env.db.select().from(cast).where(eq(cast.companyId, companyId))).toEqual([]);
     expect(await env.db.select().from(melt).where(eq(melt.companyId, companyId))).toEqual([]);
-    expect(await env.db.select().from(returnStream).where(eq(returnStream.companyId, companyId))).toEqual([]);
+    // Wave 2 contracts: the seed puts back the foundry sheet's 11 streams (fresh rows, none the app made).
+    const streams = await env.db.select().from(returnStream).where(eq(returnStream.companyId, companyId));
+    expect(streams.map((r) => r.code).sort()).toEqual(
+      ["BEND-LOG", "DISCARD", "DROSS", "DROSS-INGOT", "DROSS-METAL", "FE", "HILL-METAL", "INGOT", "PIT-METAL", "PLANT-SCRAP", "TENDIS"],
+    );
+    expect(streams.every((r) => r.createdBy === "dev-user-owner")).toBe(true);
     // doc_series restarted, and so did the casts: the same number again, no UNIQUE collision.
     const again = await owner.foundry.casts.open({ alloy: "6063" });
     expect(again.number).toBe(first.number);

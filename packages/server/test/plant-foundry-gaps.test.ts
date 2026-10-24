@@ -410,7 +410,7 @@ describe("melts.create stores what the foundry sheet recorded", () => {
     );
     const [m] = await env.db.select().from(melt).where(eq(melt.id, r.id));
     // bun's toMatchObject treats two different Dates as a match, so compare the instants themselves
-    expect([m!.preheatStartAt, m!.chargingStartAt, m!.chargingEndAt, m!.castingStartAt, m!.castingEndAt].map((d) => d.getTime())).toEqual([
+    expect([m!.preheatStartAt, m!.chargingStartAt, m!.chargingEndAt, m!.castingStartAt, m!.castingEndAt].map((d) => d!.getTime())).toEqual([
       t.preheatStart, t.chargingStart, t.chargingEnd, t.castingStart, t.castingEnd,
     ]);
     expect(m).toMatchObject({

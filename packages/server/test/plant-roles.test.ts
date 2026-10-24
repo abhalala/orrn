@@ -89,6 +89,8 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "packingList.combine": ["supervisor", "office", "manager", "admin"],
   "portal.manage": ["office", "manager", "admin"],
   "audit.read": ["admin", "manager"],
+  // Wave 2 contracts (FP-PR-25, Q15 A).
+  "press.queue": ["supervisor", "office", "manager"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 
@@ -314,6 +316,7 @@ describe("approvals", () => {
       press_time: ["owner", "supervisor", "manager"],
       press_reopen: ["owner", "admin", "manager"],
       ageing_override: ["owner", "admin", "manager"],
+      press_late_entry: ["owner", "supervisor", "manager"],
     });
   });
 

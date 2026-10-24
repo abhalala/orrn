@@ -410,6 +410,44 @@ bun run deploy
 - `clientRequestId` on `casts.open` and `melts.create`: a repeat returns the first; the same id for
   another cast (or alloy) is a CONFLICT.
 
+## Press and foundry, Wave 2 contracts (migration 0028, FP-W2)
+
+- Press run children (`schema/press.ts`): `press_run_line` (cut length, pcs, good_g; optional plan /
+  order line), `press_billet_use` (cast, length, count, kg; at most `MAX_BILLET_ROWS` = 10),
+  `qc_entry` (reason_code kind `qc_reject`; a zero row = "no rejects"), `press_downtime` (reason_code
+  kind `downtime`, server start/stop; partial unique = one open downtime per line), `press_remark` /
+  `die_remark` (bound to run AND copy; `press_run.press_remark/die_remark` stay as the latest-text
+  snapshot). Run shift = `production_day` + `shift_seq` + `shift_id` (never letters; there is no
+  separate shift_date). Tap times = `tapped_start_at` / `tapped_stop_at`.
+- `press_run` adds `late_entry` + `late_entry_approval_id` (FP-PR-24, approval `press_late_entry`:
+  owner, supervisor, manager; never the requester), `client_mutation_id` (unique per company),
+  `queue_pos` (FP-PR-25; action `press.queue` = supervisor, office, manager), `trial_result`
+  (pass|fail). `press_plan.purpose` production|die_trial|sample|other (FP-PR-23; non-production
+  needs no order line, never moves baki).
+- Close arithmetic and gates live in `@orrn/domain` (`closeGates`, `closeFigures`, `recoveryBp`,
+  `balanceG`, `theoreticalHintG`, `skewUnconfirmed`, `bpPercent1`); the server never trusts a client
+  figure. Ledger on close only: voucher `press_run` (−input_g `billet` item_ref = cast id at the
+  BILLET `billet_store`; +discard to stream DISCARD, +ends/+rejects to PLANT-SCRAP), reopen posts
+  `press_run_reopen` reversals.
+- Foundry: `furnace`, `alloy`, `alloy_limit` (ppm min/max per element), cast `alloy_id` + cancel
+  columns (status +`cancelled`), melt `status` draft|locked|cancelled (SQL default `locked`: the PL5
+  create path posts on create), nullable times/dips for drafts, `furnace_id`, `alloy_id`, `yield_bp`,
+  `spectro_reason`, `locked_at/by`. Spec names map onto PL5 columns: metal_in_g = `input_g`, burn_g =
+  `loss_g`, balance_bp = `loss_bp`, balance_reason = `balance_note`. Spectro typed ppm columns +
+  `verdict` + `limits_snapshot` + `al_source` + `file_key` + void columns. Maths: `meltBalance`
+  (lock shape `{lotsG, streamsG, logsG, drossG, feG}`), `castTail({producedG, onHandG, creditedG})`
+  (3 %), `spectroCheck` / `spectroVerdict`, `meltLockGates`, `furnaceLoad`, `ALLOY_LIMIT_SEEDS`.
+  The PL5 shapes of `meltBalance` / `castTail` still answer as before until W2-FD-S moves to lock.
+- A draft melt must not count against a lot or post anything: readers that sum melt lines filter
+  `melt.status = 'locked'` (W2-FD-S). 0028 rebuilds `melt` and refuses to run (NOT NULL failure on
+  `__w2_melt_guard`) when melts already exist, rather than cascading their lines away.
+- Cast numbers: `castSeriesStart` {period, start} now feeds `allocateDocNumbers` for type `cast`
+  (the month's first seq); `castNumberParts`, `parseCastCode`, `isSeriesCastCode` in `@orrn/domain`.
+- Die copy status +`on_trial` (FP-DR-17): `newCopyStatus(settings)` from
+  `settings.dieRoom.newCopyOnTrial` (default on); trial events in `dieCopyNext`; `canIssueDie`
+  refuses an on_trial copy (`copy_on_trial`) unless `purpose: "die_trial"`. `maker_die_no`,
+  `maker_project_no` on `die_instance`.
+
 ## Stock count (phantom report)
 
 - Tables in `packages/db/src/schema/count.ts`: `count_session` (`CNT-{n}` per financial year,

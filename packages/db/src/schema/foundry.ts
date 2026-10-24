@@ -57,13 +57,111 @@ export const returnStream = sqliteTable(
   ],
 );
 
+// ---------------------------------------------------------------------------
+// Wave 2 masters (FP-FD-01, FP-FD-09; migration 0028). Published with masters.publish (C40).
+// ---------------------------------------------------------------------------
+
+export const foundryMasterStatuses = ["active", "retired"] as const;
+
+/** A furnace (FourCubes: one, F1, 6 t, 127 mm billets, Q-FD-8). A melt refuses metal_in > capacity. */
+export const furnace = sqliteTable(
+  "furnace",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    serverSeq: integer("server_seq").notNull().default(0),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    capacityG: integer("capacity_g").notNull(),
+    /** Billet (log) diameter cast here, mm (127 = 5 inch). */
+    billetDiaMm: integer("billet_dia_mm"),
+    status: text("status", { enum: foundryMasterStatuses }).notNull().default("active"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .default(nowMs)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("furnace_company_code_unique").on(table.companyId, table.code),
+    index("furnace_company_server_seq_idx").on(table.companyId, table.serverSeq),
+  ],
+);
+
+/**
+ * The chemistry master (C20: not the commercial `die.alloy` text). `code` = `6063`; casts and
+ * melts point here; ageing recipes match on `alloy.code`.
+ */
+export const alloy = sqliteTable(
+  "alloy",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    serverSeq: integer("server_seq").notNull().default(0),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    status: text("status", { enum: foundryMasterStatuses }).notNull().default("active"),
+    note: text("note"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .default(nowMs)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("alloy_company_code_unique").on(table.companyId, table.code),
+    index("alloy_company_server_seq_idx").on(table.companyId, table.serverSeq),
+  ],
+);
+
+/** Spectro elements, ppm integers (0.45 % = 4500). `al` is optional (remainder). */
+export const spectroElements = ["si", "fe", "cu", "mn", "mg", "zn", "ti", "cr", "al"] as const;
+export type SpectroElement = (typeof spectroElements)[number];
+
+/** One element's limits for an alloy (FP-FD-09). Null min / max = no bound on that side. */
+export const alloyLimit = sqliteTable(
+  "alloy_limit",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    serverSeq: integer("server_seq").notNull().default(0),
+    alloyId: text("alloy_id")
+      .notNull()
+      .references(() => alloy.id, { onDelete: "cascade" }),
+    element: text("element", { enum: spectroElements }).notNull(),
+    minPpm: integer("min_ppm"),
+    maxPpm: integer("max_ppm"),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .default(nowMs)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("alloy_limit_alloy_element_unique").on(table.alloyId, table.element),
+    index("alloy_limit_company_alloy_idx").on(table.companyId, table.alloyId),
+  ],
+);
+
 /**
  * open    = melts can be added.
  * closing = close-out asked with an unexplained tail; waiting on the cast_close approval
  *           (no melts meanwhile). Approved → closed; rejected → open again.
  * closed  = sealed. Bundles and press runs may still reference it (billets on hand get pressed).
+ * cancelled = opened by mistake; only while it has no locked melt (Wave 2, FP-FD-02).
  */
-export const castStatuses = ["open", "closing", "closed"] as const;
+export const castStatuses = ["open", "closing", "closed", "cancelled"] as const;
 export type CastStatus = (typeof castStatuses)[number];
 
 /** Figures behind a close-out, frozen on the cast when it was asked (grams). */
@@ -116,6 +214,11 @@ export const cast = sqliteTable(
     closedBy: text("closed_by").references(() => user.id, { onDelete: "set null" }),
     /** Client idempotency key: a double tap on "Open cast" returns the first cast. */
     clientRequestId: text("client_request_id"),
+    /** Wave 2: the chemistry master row (`alloy` text stays as the code snapshot). */
+    alloyId: text("alloy_id").references(() => alloy.id),
+    cancelledAt: integer("cancelled_at", { mode: "timestamp_ms" }),
+    cancelledBy: text("cancelled_by").references(() => user.id, { onDelete: "set null" }),
+    cancelReason: text("cancel_reason"),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
@@ -135,6 +238,14 @@ export const cast = sqliteTable(
   ],
 );
 
+/**
+ * Wave 2 (C18, FP-FD-13): draft → locked (posts ledger + store draws in one batch) | cancelled.
+ * A draft moves nothing; its times, LDO dips and figures may be empty until lock. Rows written by
+ * the PL5 create path are `locked` (the SQL default), since that path posts on create.
+ */
+export const meltStatuses = ["draft", "locked", "cancelled"] as const;
+export type MeltStatus = (typeof meltStatuses)[number];
+
 /** What a melt's balance check said, stored with the melt (spec P15: warns, never silently passes). */
 export type MeltWarning = { code: string; [key: string]: string | number | null };
 
@@ -152,39 +263,56 @@ export const melt = sqliteTable(
     /** 1, 2, 3 … within the cast (from `cast.melt_count`), never reused. */
     seq: integer("seq").notNull(),
     alloy: text("alloy").notNull(),
-    /** The five times on the foundry sheet (Q-P13). */
-    preheatStartAt: integer("preheat_start_at", { mode: "timestamp_ms" }).notNull(),
-    chargingStartAt: integer("charging_start_at", { mode: "timestamp_ms" }).notNull(),
-    chargingEndAt: integer("charging_end_at", { mode: "timestamp_ms" }).notNull(),
-    castingStartAt: integer("casting_start_at", { mode: "timestamp_ms" }).notNull(),
-    castingEndAt: integer("casting_end_at", { mode: "timestamp_ms" }).notNull(),
+    status: text("status", { enum: meltStatuses }).notNull().default(sql`'locked'`),
+    /** Wave 2: the furnace and the chemistry master (alloy ≠ cast alloy needs a reason at lock). */
+    furnaceId: text("furnace_id").references(() => furnace.id),
+    alloyId: text("alloy_id").references(() => alloy.id),
+    /**
+     * The five times on the foundry sheet (Q-P13). Nullable for drafts (Wave 2); lock needs
+     * charging start and casting end >= charging start.
+     */
+    preheatStartAt: integer("preheat_start_at", { mode: "timestamp_ms" }),
+    chargingStartAt: integer("charging_start_at", { mode: "timestamp_ms" }),
+    chargingEndAt: integer("charging_end_at", { mode: "timestamp_ms" }),
+    castingStartAt: integer("casting_start_at", { mode: "timestamp_ms" }),
+    castingEndAt: integer("casting_end_at", { mode: "timestamp_ms" }),
     /** LDO tank dip, tenths of an inch, at the five checkpoints (start = preheat start, end = casting end). */
-    ldoStartTenthIn: integer("ldo_start_tenth_in").notNull(),
+    ldoStartTenthIn: integer("ldo_start_tenth_in"),
     ldoChargingStartTenthIn: integer("ldo_charging_start_tenth_in"),
     ldoChargingEndTenthIn: integer("ldo_charging_end_tenth_in"),
     ldoCastingStartTenthIn: integer("ldo_casting_start_tenth_in"),
-    ldoEndTenthIn: integer("ldo_end_tenth_in").notNull(),
+    ldoEndTenthIn: integer("ldo_end_tenth_in"),
+    /**
+     * Figures (grams), server-computed from the lines; 0 on a draft until lock. Spec names:
+     * metal_in_g = `input_g`, burn_g = `loss_g`, balance_bp = `loss_bp` (`@orrn/domain` meltBalance).
+     */
     /** Σ inputs (lots + return streams), grams. */
-    inputG: integer("input_g").notNull(),
-    logsPcs: integer("logs_pcs").notNull(),
-    logsLengthMm: integer("logs_length_mm").notNull(),
-    logsG: integer("logs_g").notNull(),
+    inputG: integer("input_g").notNull().default(sql`0`),
+    logsPcs: integer("logs_pcs").notNull().default(sql`0`),
+    logsLengthMm: integer("logs_length_mm").notNull().default(sql`0`),
+    logsG: integer("logs_g").notNull().default(sql`0`),
     drossG: integer("dross_g").notNull().default(0),
     feG: integer("fe_g").notNull().default(0),
     /** Σ other by-products put back into charge streams (reusable metal, dross ingot), grams. */
     returnsG: integer("returns_g").notNull().default(0),
     /** logs + dross + Fe + returns, grams. */
-    outputG: integer("output_g").notNull(),
+    outputG: integer("output_g").notNull().default(sql`0`),
     /** input − output; burn loss when positive. */
-    lossG: integer("loss_g").notNull(),
-    lossBp: integer("loss_bp").notNull(),
+    lossG: integer("loss_g").notNull().default(sql`0`),
+    lossBp: integer("loss_bp").notNull().default(sql`0`),
     /** Loss accepted as burn loss (0 … 3 % of input). The excess is part of the cast's tail. */
-    allowedBurnG: integer("allowed_burn_g").notNull(),
+    allowedBurnG: integer("allowed_burn_g").notNull().default(sql`0`),
+    /** Wave 2: logs ÷ metal in, basis points (null until lock). */
+    yieldBp: integer("yield_bp"),
     warnings: text("warnings", { mode: "json" }).$type<MeltWarning[]>().notNull().default([]),
-    /** Why the balance is off, when the foundry knows (optional). */
+    /** Why the balance is off (spec `balance_reason`, 1–500): required at lock when |balance| > 3 %. */
     balanceNote: text("balance_note"),
+    /** Why the melt locks without a passing spectro (fail / incomplete / none), 1–500 (Q-FD-4). */
+    spectroReason: text("spectro_reason"),
     notes: text("notes"),
     clientRequestId: text("client_request_id"),
+    lockedAt: integer("locked_at", { mode: "timestamp_ms" }),
+    lockedBy: text("locked_by").references(() => user.id, { onDelete: "set null" }),
     /** A cancelled melt keeps its number; `melt_cancel` ledger rows reverse its postings. */
     cancelledAt: integer("cancelled_at", { mode: "timestamp_ms" }),
     cancelledBy: text("cancelled_by").references(() => user.id, { onDelete: "set null" }),
@@ -200,6 +328,7 @@ export const melt = sqliteTable(
       .on(table.companyId, table.clientRequestId)
       .where(sql`${table.clientRequestId} is not null`),
     index("melt_company_casting_end_idx").on(table.companyId, table.castingEndAt),
+    index("melt_company_cast_status_idx").on(table.companyId, table.castId, table.status),
     index("melt_company_server_seq_idx").on(table.companyId, table.serverSeq),
   ],
 );
@@ -312,6 +441,16 @@ export const meltChemical = sqliteTable(
   ],
 );
 
+export const spectroVerdicts = ["pass", "fail", "incomplete"] as const;
+export type SpectroVerdictColumn = (typeof spectroVerdicts)[number];
+export const spectroAlSources = ["measured", "balance"] as const;
+/** The alloy's limits at attach time (limits may change later; the verdict never re-reads). */
+export type SpectroLimitsSnapshot = {
+  alloyId: string | null;
+  alloyCode: string;
+  limits: { element: SpectroElement; minPpm: number | null; maxPpm: number | null }[];
+};
+
 /**
  * Spectro (chemistry) result of a melt (digest Stage 4, Q-P7): the uploaded printout / photo /
  * results file as base64 text (≤ 1 MB decoded; moves to R2 later) plus the parsed values, stored as
@@ -336,6 +475,28 @@ export const spectroResult = sqliteTable(
     sizeBytes: integer("size_bytes").notNull(),
     dataBase64: text("data_base64").notNull(),
     valuesPpm: text("values_ppm", { mode: "json" }).$type<Record<string, number>>().notNull().default({}),
+    /**
+     * Wave 2 (FP-FD-10/11): typed ppm per element (integers; 0.45 % = 4500). Al is optional; when
+     * not measured it is 1,000,000 − Σ eight (floor 0) with `al_source` = `balance`.
+     */
+    siPpm: integer("si_ppm"),
+    fePpm: integer("fe_ppm"),
+    cuPpm: integer("cu_ppm"),
+    mnPpm: integer("mn_ppm"),
+    mgPpm: integer("mg_ppm"),
+    znPpm: integer("zn_ppm"),
+    tiPpm: integer("ti_ppm"),
+    crPpm: integer("cr_ppm"),
+    alPpm: integer("al_ppm"),
+    alSource: text("al_source", { enum: spectroAlSources }),
+    /** `@orrn/domain` spectroVerdict against the limits snapshotted at attach. */
+    verdict: text("verdict", { enum: spectroVerdicts }),
+    limitsSnapshot: text("limits_snapshot", { mode: "json" }).$type<SpectroLimitsSnapshot>(),
+    /** R2 object key once the file moves out of D1 (C45); null while the file is base64 here. */
+    fileKey: text("file_key"),
+    voidedAt: integer("voided_at", { mode: "timestamp_ms" }),
+    voidedBy: text("voided_by").references(() => user.id, { onDelete: "set null" }),
+    voidReason: text("void_reason"),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
   },
@@ -347,6 +508,9 @@ export const spectroResult = sqliteTable(
 );
 
 export type ReturnStreamRow = typeof returnStream.$inferSelect;
+export type FurnaceRow = typeof furnace.$inferSelect;
+export type AlloyRow = typeof alloy.$inferSelect;
+export type AlloyLimitRow = typeof alloyLimit.$inferSelect;
 export type CastRow = typeof cast.$inferSelect;
 export type MeltRow = typeof melt.$inferSelect;
 export type MeltInputRow = typeof meltInput.$inferSelect;

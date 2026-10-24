@@ -268,7 +268,7 @@ describe("dev seed: Wave 1 masters (idempotent)", () => {
     ]);
     expect(floor.standards).toEqual({ solid: { standard: "IS 733", cml: "" }, hollow: { standard: "IS 1285", cml: "" } });
     expect(co!.modules).toEqual([...COMPANY_MODULES]);
-    expect(await env.db.select({ code: pressLine.code }).from(pressLine).where(eq(pressLine.companyId, companyId))).toEqual([{ code: "P1" }]);
+    expect((await env.db.select({ code: pressLine.code }).from(pressLine).where(eq(pressLine.companyId, companyId))).map((l) => l.code).sort()).toEqual(["P1", "P2"]);
     expect(await env.db.select().from(transporter).where(eq(transporter.companyId, companyId))).toHaveLength(1);
     expect(await env.db.select().from(reasonCode).where(eq(reasonCode.companyId, companyId))).toHaveLength(defaultReasonCodeRows().length);
     // The app-made copy is gone; only the die room demo copies (W1-DR-S) are back.

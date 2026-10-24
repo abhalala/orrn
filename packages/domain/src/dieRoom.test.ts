@@ -28,7 +28,7 @@ import {
 
 describe("die copy status machine (FP-DR §6)", () => {
   test("the shared enum, in order", () => {
-    expect([...DIE_COPY_STATUSES]).toEqual(["available", "in_use", "at_nitriding", "at_maker", "retired"]);
+    expect([...DIE_COPY_STATUSES]).toEqual(["available", "in_use", "at_nitriding", "at_maker", "retired", "on_trial"]);
   });
 
   test("every move starts from the rack or returns to it", () => {
