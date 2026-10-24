@@ -66,6 +66,8 @@ export const dieRouter = router({
   list: companyProcedure
     .input(z.object({
       search: z.string().optional(),
+      /** Only dies in this status (the Pack picker asks for active ones, so archived dies take no places). */
+      status: z.enum(dieStatuses).optional(),
       limit: z.number().min(1).max(100).default(50),
       offset: z.number().default(0),
     }))
@@ -82,6 +84,10 @@ export const dieRouter = router({
         conditions.push(
           sql`(${likeContains(die.name, search)} OR ${likeContains(die.series, search)} OR ${likeContains(die.sectionCode, search)} OR ${likeContains(sql`${die.series} || ' ' || ${die.sectionCode}`, search)})`
         );
+      }
+
+      if (input.status) {
+        conditions.push(eq(die.status, input.status));
       }
 
       const items = await ctx.db.query.die.findMany({

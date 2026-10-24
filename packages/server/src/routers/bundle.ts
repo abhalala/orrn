@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, isNull, like, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { normalizeSerial } from "@orrn/domain";
+import { user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
 import { location } from "@orrn/db/schema/stock";
 import { company } from "@orrn/db/schema/tenant";
@@ -351,10 +352,22 @@ export const bundleRouter = router({
           purchaseOrderRef: bundleGroup.purchaseOrderRef,
           notes: bundleGroup.notes,
           createdAt: bundleGroup.createdAt,
-          bundleCount: sql<number>`count(${bundle.id})`.as("bundle_count"),
-          totalQuantity: sql<number>`coalesce(sum(${bundle.quantity}), 0)`.as("total_quantity"),
-          totalWeightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`.as("total_weight_g"),
-          totalLengthMm: sql<number>`coalesce(sum(${bundle.lengthMm}), 0)`.as("total_length_mm"),
+          /** Who packed the session ("Packed by"); null once that user is deleted. */
+          createdByName: user.name,
+          // Void bundles are out of every packed figure (plant ruling RP11, as Today); the left join
+          // keeps a session whose bundles are all void in the list, at 0.
+          bundleCount: sql<number>`count(case when ${bundle.status} <> 'void' then ${bundle.id} end)`.as(
+            "bundle_count",
+          ),
+          totalQuantity: sql<number>`coalesce(sum(case when ${bundle.status} <> 'void' then ${bundle.quantity} end), 0)`.as(
+            "total_quantity",
+          ),
+          totalWeightG: sql<number>`coalesce(sum(case when ${bundle.status} <> 'void' then ${bundle.weightG} end), 0)`.as(
+            "total_weight_g",
+          ),
+          totalLengthMm: sql<number>`coalesce(sum(case when ${bundle.status} <> 'void' then ${bundle.lengthMm} end), 0)`.as(
+            "total_length_mm",
+          ),
         })
         .from(bundleGroup)
         .innerJoin(
@@ -365,8 +378,9 @@ export const bundleRouter = router({
           bundle,
           and(eq(bundle.groupId, bundleGroup.id), eq(bundle.companyId, bundleGroup.companyId)),
         )
+        .leftJoin(user, eq(user.id, bundleGroup.createdBy))
         .where(and(...conditions))
-        .groupBy(bundleGroup.id, die.series, die.sectionCode)
+        .groupBy(bundleGroup.id, die.series, die.sectionCode, user.name)
         .orderBy(desc(bundleGroup.createdAt))
         .limit(input.limit)
         .offset(input.offset);
@@ -406,7 +420,21 @@ export const bundleRouter = router({
         .orderBy(asc(bundle.serial))
         .limit(500);
 
-      return { group, die: dieRow ?? null, bundles };
+      // "Packed by" on the session page; null once that user is deleted.
+      const packer = group.createdBy
+        ? await ctx.db.select({ name: user.name }).from(user).where(eq(user.id, group.createdBy)).get()
+        : undefined;
+
+      // The session's packed figures leave void bundles out (RP11); the list above still has them.
+      const totals = { bundles: 0, pieces: 0, weightG: 0 };
+      for (const b of bundles) {
+        if (b.status === "void") continue;
+        totals.bundles += 1;
+        totals.pieces += b.quantity;
+        totals.weightG += b.weightG;
+      }
+
+      return { group, die: dieRow ?? null, bundles, totals, packedByName: packer?.name ?? null };
     }),
 
   listBundles: companyProcedure

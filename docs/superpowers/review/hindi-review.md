@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
+Counts: 1603 screen strings in 29 groups, 12 guides with 220 strings.
 
 ## Screen strings
 
@@ -363,12 +363,25 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `startHere.askAdmin` | An admin sets this up | यह एडमिन सेट करेंगे |
 | `startHere.afterDie` | After a die is added | Die जुड़ने के बाद |
 
-### pack (52)
+### pack (131)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Pack | पैकिंग |
 | `newSession` | New packing session | नया पैकिंग सेशन |
+| `newSessionHint` | Choose the die, then enter each bundle's weight and pieces. | Die चुनें, फिर हर bundle का वज़न और पीस डालें। |
+| `search` | Search session code or PO | सेशन कोड या PO से खोजें |
+| `clearSearch` | Clear search | खोज हटाएं |
+| `noMatch` | No sessions match "{query}". Check the code or PO. | "{query}" से कोई सेशन नहीं मिला। कोड या PO जांचें। |
+| `listLabel` | Packing sessions | पैकिंग सेशन |
+| `loadFailed` | Packing sessions didn't load. Check the connection and try again. | पैकिंग सेशन लोड नहीं हुए। कनेक्शन जांचें और फिर से कोशिश करें। |
+| `whenToday` | Today, {time} | आज, {time} |
+| `whenYesterday` | Yesterday, {time} | कल, {time} |
+| `whenDate` | {date}, {time} | {date}, {time} |
+| `unknownPacker` | Not known | पता नहीं |
+| `draft.chip` | Not saved | सेव नहीं हुआ |
+| `draft.body` | {count} {count:bundle\|bundles} entered in this tab and not saved yet. | इस टैब में डाले गए {count} bundle अभी सेव नहीं {count:हुआ\|हुए}। |
+| `draft.resume` | Continue session | सेशन जारी रखें |
 | `columns.session` | Session | सेशन |
 | `columns.die` | Die | Die |
 | `columns.section` | Section | सेक्शन |
@@ -376,6 +389,7 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `columns.kg` | kg | kg |
 | `columns.packedBy` | Packed by | किसने पैक किया |
 | `columns.when` | When | कब |
+| `columns.po` | PO | PO |
 | `empty` | No packing sessions yet. | अभी कोई पैकिंग सेशन नहीं है। |
 | `emptyAction` | Start a packing session | पैकिंग सेशन शुरू करें |
 | `new.title` | New packing session | नया पैकिंग सेशन |
@@ -384,41 +398,106 @@ Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 | `new.steps.review` | Review and save | जांचें और सेव करें |
 | `new.dieSearch` | Search die code or section | Die कोड या सेक्शन से खोजें |
 | `new.recentDies` | Recent | हाल के |
+| `new.allDies` | All dies | सारे die |
+| `new.diesShowing` | Showing {shown} of {total} dies. Type a code to find the rest. | {total} में से {shown} die दिख रहे हैं। बाकी के लिए कोड टाइप करें। |
 | `new.dieRange` | Range {min} to {max} kg/12ft | रेंज {min} से {max} kg/12ft |
 | `new.noDies` | No dies match. Check the code, or add the die first. | कोई die नहीं मिला। कोड जांचें, या पहले die जोड़ें। |
+| `new.noDiesYet` | No dies yet. Add the die before packing. | अभी कोई die नहीं है। पैकिंग से पहले die जोड़ें। |
+| `new.addDie` | Add a die | Die जोड़ें |
+| `new.diesFailed` | Dies didn't load. Check the connection and try again. | Die लोड नहीं हुए। कनेक्शन जांचें और फिर से कोशिश करें। |
 | `new.chooseDie` | Choose this die | यह die चुनें |
 | `new.changeDie` | Change die | Die बदलें |
+| `new.chosenDie` | Die | Die |
+| `new.dieRequired` | Choose the die for this session. | इस सेशन का die चुनें। |
 | `new.cutLength` | Cut length | कट लंबाई |
 | `new.cutLengthFeet` | Feet | फ़ुट |
 | `new.cutLengthInches` | Inches | इंच |
+| `new.cutLengthMm` | Cut length (mm) | कट लंबाई (mm) |
+| `new.cutLengthHintInch` | Feet and inches, for example 11 ft 6 in. | फ़ुट और इंच, जैसे 11 ft 6 in. |
+| `new.cutLengthHintMm` | In millimetres, for example 3658. | मिलीमीटर में, जैसे 3658. |
+| `new.cutLengthRequired` | Enter the cut length. | कट लंबाई डालें। |
+| `new.yard` | Yard | यार्ड |
+| `new.yardHint` | Where these bundles will be stacked. | ये bundle किस यार्ड में रखे जाएंगे। |
+| `new.yardRequired` | Choose the yard these bundles go to. | ये bundle किस यार्ड में जाएंगे, वह चुनें। |
+| `new.yardsFailed` | Yards didn't load. Check the connection and try again. | यार्ड लोड नहीं हुए। कनेक्शन जांचें और फिर से कोशिश करें। |
 | `new.po` | PO | PO |
+| `new.noPo` | No PO | PO नहीं |
+| `new.poValue` | PO {po} | PO {po} |
+| `new.change` | Change | बदलें |
 | `new.defaultsHint` | Every bundle in this session uses this cut length and PO unless you change it on that bundle. | इस सेशन के हर bundle में यही कट लंबाई और PO लगेगा, जब तक आप उस bundle पर इसे न बदलें। |
 | `new.weight` | Weight (kg) | वज़न (kg) |
 | `new.pieces` | Pieces | पीस |
+| `new.weightRequired` | Enter the weight in kg, for example 52.40. | वज़न kg में डालें, जैसे 52.40. |
+| `new.piecesRequired` | Enter the pieces as a whole number. | पीस पूरे नंबर में डालें। |
 | `new.saveBundle` | Save bundle | Bundle सेव करें |
 | `new.differentLengthPo` | Different length or PO | अलग लंबाई या PO |
+| `new.lengthForBundle` | Cut length for this bundle | इस bundle की कट लंबाई |
+| `new.poForBundle` | PO for this bundle | इस bundle का PO |
 | `new.editBundle` | Edit bundle | Bundle बदलें |
+| `new.editBundleN` | Edit bundle {n} | Bundle {n} बदलें |
+| `new.editingBundle` | Editing bundle {n} | Bundle {n} बदल रहे हैं |
 | `new.removeBundle` | Remove bundle | Bundle हटाएं |
 | `new.bundleNumber` | Bundle {n} | Bundle {n} |
+| `new.liveIncomplete` | Enter weight and pieces to see kg/12ft. | kg/12ft देखने के लिए वज़न और पीस डालें। |
+| `new.liveRange` | Die range {min} to {max} | Die रेंज {min} से {max} |
+| `new.bundleSaved` | Bundle {n} saved: {kg} kg, {pieces} {pieces:piece\|pieces}, {status}. | Bundle {n} सेव हुआ: {kg} kg, {pieces} पीस, {status}। |
+| `new.bundleUpdated` | Bundle {n} updated. | Bundle {n} बदल गया। |
+| `new.bundleRemoved` | Bundle {n} removed. | Bundle {n} हट गया। |
+| `new.savedBundles` | Bundles in this session | इस सेशन के bundle |
+| `new.noBundlesYet` | No bundles yet. Enter the first bundle's weight and pieces. | अभी कोई bundle नहीं है। पहले bundle का वज़न और पीस डालें। |
+| `new.maxReached` | This session has {max} bundles, the most one session can hold. Review and save it, then start another. | इस सेशन में {max} bundle हैं, एक सेशन में इससे ज़्यादा नहीं आ सकते। इसे जांचकर सेव करें, फिर नया सेशन शुरू करें। |
+| `new.runningTotal` | Running total | अब तक का कुल |
 | `new.review` | Review | जांचें |
 | `new.totalBundles` | Bundles | Bundle |
 | `new.totalPieces` | Pieces | पीस |
 | `new.totalKg` | kg | kg |
+| `new.outOfRange` | {count} {count:bundle is\|bundles are} outside the die's range. Check {count:it\|them} before saving. | {count} bundle die की रेंज से बाहर {count:है\|हैं}। सेव करने से पहले {count:इसे\|इन्हें} जांचें। |
+| `new.backToBundles` | Back to bundles | Bundle पर वापस |
 | `new.saveAndPrint` | Save and print labels | सेव करें और लेबल प्रिंट करें |
 | `new.saveOnly` | Save session | सेशन सेव करें |
 | `new.saved` | Session saved | सेशन सेव हो गया |
+| `new.saveFailed` | The session didn't save. Your bundles are still here, so try again. | सेशन सेव नहीं हुआ। आपके bundle अभी भी यहां हैं, फिर से कोशिश करें। |
+| `new.saveUnsure` | We couldn't tell if the session saved. Look for it on the Pack page before you try again. | पता नहीं चला कि सेशन सेव हुआ या नहीं। फिर से कोशिश करने से पहले पैकिंग पेज पर उसे देखें। |
+| `new.openPack` | Open Pack | पैकिंग खोलें |
+| `new.rangeUnknown` | Range not loaded | रेंज लोड नहीं हुई |
+| `new.rangeFailed` | The die's range didn't load, so bundles can't be checked against it. | Die की रेंज लोड नहीं हुई, इसलिए bundle की जांच रेंज से नहीं हो सकती। |
 | `new.printingProgress` | Printing {done} of {total} | प्रिंट: {total} में से {done} |
 | `new.printFailed` | {count} {count:label\|labels} didn't print | {count} लेबल प्रिंट नहीं {count:हुआ\|हुए} |
 | `new.retryFailed` | Retry failed labels | फ़ेल हुए लेबल फिर से प्रिंट करें |
 | `new.draftKept` | Your unsaved bundles are still here. | आपके बिना सेव किए bundle अभी भी यहां हैं। |
 | `new.discardDraft` | Discard unsaved bundles | बिना सेव किए bundle हटा दें |
+| `new.discardTitle` | Discard unsaved bundles? | बिना सेव किए bundle हटा दें? |
+| `new.discardBody` | The {count} {count:bundle\|bundles} you entered will be cleared. This can't be undone. | आपके डाले {count} bundle हट जाएंगे। यह वापस नहीं होगा। |
+| `new.discard` | Discard | हटा दें |
+| `new.forbidden` | Your role can't pack bundles. Ask an admin if you need it. | आपका रोल bundle पैक नहीं कर सकता। ज़रूरत हो तो एडमिन से कहें। |
 | `detail.title` | Session {code} | सेशन {code} |
 | `detail.packedBy` | Packed by {name} | {name} ने पैक किया |
 | `detail.printAll` | Print all labels | सारे लेबल प्रिंट करें |
 | `detail.reprint` | Reprint | फिर से प्रिंट करें |
+| `detail.reprintSerial` | Reprint label for {serial} | {serial} का लेबल फिर से प्रिंट करें |
 | `detail.labelsSent` | Labels sent to printer | लेबल प्रिंटर को भेज दिए |
 | `detail.labelSent` | Label sent to printer | लेबल प्रिंटर को भेज दिया |
 | `detail.viewBundle` | Open bundle {serial} | Bundle {serial} खोलें |
+| `detail.facts` | Session details | सेशन की जानकारी |
+| `detail.unit` | Length unit | लंबाई की इकाई |
+| `detail.unitInch` | Feet and inches | फ़ुट और इंच |
+| `detail.unitMm` | Millimetres | मिलीमीटर |
+| `detail.packedAt` | Packed | पैक हुआ |
+| `detail.mixed` | Mixed | अलग-अलग |
+| `detail.rangeColumn` | Die range | Die रेंज |
+| `detail.outsideRange` | {count} outside range | {count} रेंज से बाहर |
+| `detail.bundlesTitle` | Bundles | Bundle |
+| `detail.loadFailed` | This session didn't load. Check the connection and try again. | यह सेशन लोड नहीं हुआ। कनेक्शन जांचें और फिर से कोशिश करें। |
+| `detail.notFound` | No packing session at this link. Open it from the Pack list. | इस लिंक पर कोई पैकिंग सेशन नहीं है। पैकिंग सेशन की सूची से खोलें। |
+| `print.title` | Labels | लेबल |
+| `print.allSent` | {count} {count:label\|labels} sent to printer | {count} लेबल प्रिंटर को भेज {count:दिया\|दिए} |
+| `print.errors.notSetUp` | Label printing isn't set up for your company. | आपकी कंपनी के लिए लेबल प्रिंटिंग सेट नहीं है। |
+| `print.errors.noPrinter` | No label printer is set up for bundles. Ask a manager. | Bundle के लिए कोई लेबल प्रिंटर सेट नहीं है। मैनेजर से कहें। |
+| `print.errors.noTemplate` | The bundle label isn't ready on the printer yet. Ask a manager. | Bundle का लेबल अभी प्रिंटर पर तैयार नहीं है। मैनेजर से कहें। |
+| `print.errors.offline` | The printer didn't take the label. Check it is on and connected. | प्रिंटर ने लेबल नहीं लिया। जांचें कि प्रिंटर चालू है और जुड़ा है। |
+| `print.errors.forbidden` | Your role can't print labels. | आपका रोल लेबल प्रिंट नहीं कर सकता। |
+| `print.errors.network` | No internet connection. Check it and try again. | इंटरनेट नहीं है। कनेक्शन जांचें और फिर से कोशिश करें। |
+| `print.errors.generic` | The label didn't print. Try again, or reprint it from the bundle's row. | लेबल प्रिंट नहीं हुआ। फिर से कोशिश करें, या bundle की लाइन से दोबारा प्रिंट करें। |
 
 ### scan (37)
 
