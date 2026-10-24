@@ -54,6 +54,17 @@ export const edgeNodeDeployment = sqliteTable(
     lastSyncCursor: integer("last_sync_cursor"),
     lastErrorCode: text("last_error_code"),
     lastErrorMessage: text("last_error_message"),
+    /**
+     * Scale presence from the node's last signed heartbeat (null = never reported). True when the
+     * node has a scale configured (real or simulated); ORRN never infers it.
+     */
+    scaleConfigured: integer("scale_configured", { mode: "boolean" }),
+    /** Whether that scale is simulated (orrn-spool --scale-sim). */
+    scaleSimulated: integer("scale_simulated", { mode: "boolean" }),
+    /** Newest frame the node had received from the indicator, as of the last heartbeat. */
+    scaleLastFrameAt: integer("scale_last_frame_at", { mode: "timestamp_ms" }),
+    /** When the scale fields above were last written (a signed heartbeat). */
+    scaleReportedAt: integer("scale_reported_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .default(nowMs)

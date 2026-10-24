@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import type { OrrnDb } from "@orrn/db";
 import { die } from "@orrn/db/schema/catalog";
+import { cast } from "@orrn/db/schema/foundry";
 import { bundle, bundleGroup } from "@orrn/db/schema/inventory";
 import { labelTemplate, printLog, printerProfile, printStatuses } from "@orrn/db/schema/printing";
 import { spoolDeployment } from "@orrn/db/schema/spool";
@@ -11,7 +12,7 @@ import { unwrapSecret } from "@orrn/crypto";
 import { env } from "@orrn/env/server";
 
 import { buildBundleLabelVariables } from "../lib/bundle-label";
-import { SpoolClient } from "../lib/spool-client";
+import { SpoolClient, spoolBaseUrl } from "../lib/spool-client";
 import { can } from "../lib/permissions";
 import { actionProcedure, companyProcedure, router } from "../index";
 
@@ -40,7 +41,7 @@ type ActiveSpoolDeployment = typeof spoolDeployment.$inferSelect;
 /** Create a SpoolClient from the deployment's wrapped secrets. */
 async function createSpoolClient(deployment: ActiveSpoolDeployment) {
   const sharedSecret = await unwrapSecret(deployment.sharedSecretWrapped, env.ORRN_MASTER_KEY);
-  return new SpoolClient(`https://${deployment.nodeDomain}`, sharedSecret);
+  return new SpoolClient(spoolBaseUrl(deployment.nodeDomain), sharedSecret);
 }
 
 export const spoolRouter = router({
@@ -352,7 +353,20 @@ export const spoolRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Bundle label template is not pushed to spool yet" });
       }
 
-      const variables = buildBundleLabelVariables({ bundleRow, groupRow, dieRow: dieRow ?? null, layout: input.layout });
+      const castRow = bundleRow.castId
+        ? await ctx.db
+            .select({ number: cast.number })
+            .from(cast)
+            .where(and(eq(cast.id, bundleRow.castId), eq(cast.companyId, ctx.companyId!)))
+            .get()
+        : null;
+      const variables = buildBundleLabelVariables({
+        bundleRow,
+        groupRow,
+        dieRow: dieRow ?? null,
+        layout: input.layout,
+        castRow: castRow ?? null,
+      });
       const deployment = await getActiveDeployment(ctx);
       const client = await createSpoolClient(deployment);
       const printLogId = crypto.randomUUID();
@@ -514,6 +528,10 @@ export const spoolRouter = router({
         spoolDomain: spoolDeployment.nodeDomain,
         spoolVersion: spoolDeployment.runtimeVersion,
         lastSeenAt: spoolDeployment.lastHeartbeatAt,
+        scaleConfigured: spoolDeployment.scaleConfigured,
+        scaleSimulated: spoolDeployment.scaleSimulated,
+        scaleLastFrameAt: spoolDeployment.scaleLastFrameAt,
+        scaleReportedAt: spoolDeployment.scaleReportedAt,
       })
       .from(spoolDeployment)
       .where(eq(spoolDeployment.companyId, ctx.companyId!))

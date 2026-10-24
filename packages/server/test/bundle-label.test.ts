@@ -46,3 +46,15 @@ describe("buildBundleLabelVariables", () => {
     expect(v.weight12ft).toBe("— kg/12ft");
   });
 });
+
+describe("cast placeholder", () => {
+  test("prints the cast number when the bundle has one", () => {
+    const v = buildBundleLabelVariables({ ...args({ castId: "c1" } as never), castRow: { number: "K31" } });
+    expect(v.cast).toBe("K31");
+  });
+
+  test("is empty, never undefined, when there is no cast", () => {
+    expect(buildBundleLabelVariables(args()).cast).toBe("");
+    expect(buildBundleLabelVariables({ ...args(), castRow: null }).cast).toBe("");
+  });
+});
