@@ -295,6 +295,8 @@ export const bundleRouter = router({
                   unit: sql<string>`${groupValues.unit}`.as("unit"),
                   purchaseOrderRef: sql<string | null>`${groupValues.purchaseOrderRef}`.as("purchase_order_ref"),
                   notes: sql<string | null>`${groupValues.notes}`.as("notes"),
+                  ageingBatchId: sql<string | null>`null`.as("ageing_batch_id"),
+                  dieInstanceId: sql<string | null>`null`.as("die_instance_id"),
                   createdBy: sql<string>`${groupValues.createdBy}`.as("created_by"),
                   createdAt: sql<number>`${now.getTime()}`.as("created_at"),
                   updatedAt: sql<number>`${now.getTime()}`.as("updated_at"),

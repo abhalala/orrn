@@ -15,7 +15,7 @@
  * `lineBalancePage`, and report totals come from SQL (`lineTotals`, `orderTotals`), never from a sum
  * over a page of rows.
  */
-import { and, asc, desc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 
 import { approval } from "@orrn/db/schema/approval";
 import { die } from "@orrn/db/schema/catalog";
@@ -638,49 +638,15 @@ export function batchAbortUnless(
   table: "sales_order_line" | "packing_list_line",
   landed: SQL,
 ): SqliteBatchItem {
-  const nul = <T>(name: string) => sql<T | null>`null`.as(name);
-  // Keys follow each table's column order (insert-select rule); every value is NULL.
-  const from = db.select({ one: sql`1` }).from(company).limit(1).as("abort_src");
-  if (table === "packing_list_line") {
-    return db.insert(packingListLine).select(
-      db
-        .select({
-          id: nul<string>("id"),
-          companyId: nul<string>("company_id"),
-          packingListId: nul<string>("packing_list_id"),
-          bundleId: nul<string>("bundle_id"),
-          dieId: nul<string>("die_id"),
-          quantity: nul<number>("quantity"),
-          weightG: nul<number>("weight_g"),
-          lengthMm: nul<number>("length_mm"),
-          groupLabel: nul<string>("group_label"),
-        })
-        .from(from)
-        .where(sql`not (${landed})`) as never,
-    );
-  }
-  return db.insert(salesOrderLine).select(
-    db
-      .select({
-        id: nul<string>("id"),
-        companyId: nul<string>("company_id"),
-        serverSeq: nul<number>("server_seq"),
-        salesOrderId: nul<string>("sales_order_id"),
-        lineNo: nul<number>("line_no"),
-        dieId: nul<string>("die_id"),
-        kgPer12ftMilli: nul<number>("kg_per_12ft_milli"),
-        cutLengthMm: nul<number>("cut_length_mm"),
-        pcs: nul<number>("pcs"),
-        kgG: nul<number>("kg_g"),
-        finish: nul<string>("finish"),
-        note: nul<string>("note"),
-        createdBy: nul<string>("created_by"),
-        createdAt: nul<number>("created_at"),
-        updatedAt: nul<number>("updated_at"),
-      })
-      .from(from)
-      .where(sql`not (${landed})`) as never,
+  // Every column of the table as NULL, in the table's column order (insert-select rule), so a
+  // column added later needs no change here.
+  const target = table === "packing_list_line" ? packingListLine : salesOrderLine;
+  const nulls = Object.fromEntries(
+    Object.entries(getTableColumns(target)).map(([key, column]) => [key, sql`null`.as(column.name)]),
   );
+  const from = db.select({ one: sql`1` }).from(company).limit(1).as("abort_src");
+  const select = db.select(nulls).from(from).where(sql`not (${landed})`) as never;
+  return table === "packing_list_line" ? db.insert(packingListLine).select(select) : db.insert(salesOrderLine).select(select);
 }
 
 export function isBatchAbort(e: unknown, table: "sales_order_line" | "packing_list_line"): boolean {

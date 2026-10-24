@@ -14,7 +14,22 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
  * - dispatch_overdraw: dispatching past an SO line's balance (manager override).
  * - phantom_void: voiding bundles not found at a stock count (manager approves).
  */
-export const approvalKinds = ["dc_note", "cast_close", "die_rerank", "dispatch_overdraw", "phantom_void"] as const;
+export const approvalKinds = [
+  "dc_note",
+  "cast_close",
+  "die_rerank",
+  "dispatch_overdraw",
+  "phantom_void",
+  // Wave 1 (FP). die_owner_override: subject = die copy id; meta { attemptedCustomerId, purpose:
+  // plan|press|pack|dispatch, closedAt }. order_reallocate: subject = request id; meta { bundleIds,
+  // fromLineIds, toLineId, kgG, reasonCode? } (no rates). press_time / press_reopen: subject = run id.
+  // ageing_override: subject = ageing batch id (Wave 3).
+  "die_owner_override",
+  "order_reallocate",
+  "press_time",
+  "press_reopen",
+  "ageing_override",
+] as const;
 export const approvalStatuses = ["pending", "approved", "rejected"] as const;
 
 export type ApprovalKind = (typeof approvalKinds)[number];

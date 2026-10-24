@@ -17,6 +17,13 @@ export const docTypes = [
   "press_run",
   "dc_note",
   "count",
+  // Wave 1 (FP): press plans PP-, ageing batches AG-, die maker jobs DM-, test certificates
+  // TC/{FY}/{seq}, and the party bundle series (scope = customer id, FP-PK-07).
+  "press_plan",
+  "ageing",
+  "die_maker_job",
+  "cert",
+  "party_bundle",
 ] as const;
 export type DocType = (typeof docTypes)[number];
 
@@ -37,6 +44,11 @@ export const docSeries = sqliteTable(
     serverSeq: integer("server_seq").notNull().default(0),
     docType: text("doc_type", { enum: docTypes }).notNull(),
     period: text("period").notNull(),
+    /**
+     * Sub-series key inside (company, doc_type, period): '' for company-wide series; the customer
+     * id for `party_bundle` (FP-PK-07). Part of the unique key since 0023.
+     */
+    scope: text("scope").notNull().default(""),
     value: integer("value").notNull().default(0),
     /** Whoever first used this series in this period. */
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
@@ -46,7 +58,9 @@ export const docSeries = sqliteTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [uniqueIndex("doc_series_company_type_period_unique").on(table.companyId, table.docType, table.period)],
+  (table) => [
+    uniqueIndex("doc_series_company_type_period_scope_unique").on(table.companyId, table.docType, table.period, table.scope),
+  ],
 );
 
 export type DocSeriesRow = typeof docSeries.$inferSelect;

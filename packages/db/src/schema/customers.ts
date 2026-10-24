@@ -5,6 +5,10 @@ import { company } from "./tenant";
 
 const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
+/** The party's own bundle numbers (FP-PK-07, C25); null = the company serial. */
+export const bundleNumberPolicies = ["monthly", "fy", "lifelong"] as const;
+export type BundleNumberPolicyColumn = (typeof bundleNumberPolicies)[number];
+
 export const customer = sqliteTable(
   "customer",
   {
@@ -26,6 +30,8 @@ export const customer = sqliteTable(
      * `dispatch_overdraw` approval (Review Focus 5).
      */
     kgToleranceBp: integer("kg_tolerance_bp"),
+    /** Changing it never renumbers existing bundles. */
+    bundleNumberPolicy: text("bundle_number_policy", { enum: bundleNumberPolicies }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),

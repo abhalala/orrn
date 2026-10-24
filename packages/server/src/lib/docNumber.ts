@@ -1,4 +1,4 @@
-import { formatBundleNo, formatCastCode } from "@orrn/domain";
+import { formatBundleNo, formatCastCode, formatPartyBundleNo, partyBundlePeriod, type BundleNumberPolicy } from "@orrn/domain";
 import { company, docSeries, type DocType } from "@orrn/db/schema";
 import { eq, sql } from "drizzle-orm";
 
@@ -11,7 +11,7 @@ export type DocNumber = { seq: number; number: string; period: string };
 export type DocNumberBlock = { period: string; seqs: number[]; numbers: string[] };
 
 /** Prefix for the `{TYPE}-{seq}` families (spec P7). */
-const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl">, string> = {
+const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl" | "cert" | "party_bundle">, string> = {
   lot: "LOT",
   mrs: "MRS",
   grn: "GRN",
@@ -19,6 +19,9 @@ const TYPE_PREFIX: Record<Exclude<DocType, "bundle" | "cast" | "pl">, string> = 
   press_run: "PR",
   dc_note: "DCN",
   count: "CNT",
+  press_plan: "PP",
+  ageing: "AG",
+  die_maker_job: "DM",
 };
 
 const DEFAULT_PL_PREFIX = "PL/";
@@ -68,6 +71,10 @@ function formatNumber(docType: DocType, period: string, seq: number, settings: S
       return formatCastCode(Number(period.slice(5)), seq);
     case "pl":
       return `${settings.plPrefix}${period}/${seq}`;
+    case "cert":
+      return `TC/${period}/${seq}`;
+    case "party_bundle":
+      throw new Error("party_bundle numbers come from allocatePartyBundleNumbers");
     default:
       return `${TYPE_PREFIX[docType]}-${seq}`;
   }
@@ -96,19 +103,55 @@ export async function allocateDocNumbers(
   const period = docPeriod(docType, at, settings.timezone);
   if (count === 0) return { period, seqs: [], numbers: [] };
 
+  if (docType === "party_bundle") throw new Error("party_bundle numbers come from allocatePartyBundleNumbers");
+
   const start = docType === "pl" ? settings.plStart : 1;
+  const seqs = await bumpSeries(db, { companyId, docType, period, scope: "", start, count, createdBy });
+  return { period, seqs, numbers: seqs.map((seq) => formatNumber(docType, period, seq, settings)) };
+}
+
+/** One atomic upsert on (company, doc_type, period, scope); returns the reserved sequence numbers. */
+async function bumpSeries(
+  db: OrrnDb,
+  input: { companyId: string; docType: DocType; period: string; scope: string; start: number; count: number; createdBy: string | null },
+): Promise<number[]> {
+  const { companyId, docType, period, scope, start, count, createdBy } = input;
   const [row] = await db
     .insert(docSeries)
-    .values({ id: crypto.randomUUID(), companyId, docType, period, value: start - 1 + count, createdBy })
+    .values({ id: crypto.randomUUID(), companyId, docType, period, scope, value: start - 1 + count, createdBy })
     .onConflictDoUpdate({
-      target: [docSeries.companyId, docSeries.docType, docSeries.period],
+      target: [docSeries.companyId, docSeries.docType, docSeries.period, docSeries.scope],
       set: { value: sql`${docSeries.value} + ${count}`, updatedAt: new Date() },
     })
     .returning({ value: docSeries.value });
   if (!row) throw new Error("Unable to allocate document number");
+  return Array.from({ length: count }, (_, i) => row.value - count + 1 + i);
+}
 
-  const seqs = Array.from({ length: count }, (_, i) => row.value - count + 1 + i);
-  return { period, seqs, numbers: seqs.map((seq) => formatNumber(docType, period, seq, settings)) };
+/**
+ * Reserve `count` of a customer's own bundle numbers (FP-PK-07, C25): doc_series type
+ * `party_bundle`, scope = customer id, period from the policy on the tenant's wall clock
+ * (monthly `2026-10` resets on the 1st, fy `2026-27` resets 1 April, lifelong `life`).
+ * Numbers: monthly `26J12`, fy `2026-27/12`, lifelong `4086`. A customer without a policy uses
+ * the company serial as its party number, so callers do not call this for it.
+ */
+export async function allocatePartyBundleNumbers(
+  db: OrrnDb,
+  companyId: string,
+  customerId: string,
+  policy: BundleNumberPolicy,
+  at: Date,
+  count: number,
+  createdBy: string | null = null,
+): Promise<DocNumberBlock> {
+  if (!Number.isInteger(count) || count < 0) throw new RangeError(`Invalid count ${count}`);
+  const [co] = await db.select({ settings: company.settings }).from(company).where(eq(company.id, companyId)).limit(1);
+  if (!co) throw new Error("Unable to allocate document number: unknown company");
+  const settings = readSettings(co.settings);
+  const period = partyBundlePeriod(policy, zonedYmd(settings.timezone, at.getTime()));
+  if (count === 0) return { period, seqs: [], numbers: [] };
+  const seqs = await bumpSeries(db, { companyId, docType: "party_bundle", period, scope: customerId, start: 1, count, createdBy });
+  return { period, seqs, numbers: seqs.map((seq) => formatPartyBundleNo(policy, period, seq)) };
 }
 
 /** The next number of a series. All plant documents get their number here, never client-side. */

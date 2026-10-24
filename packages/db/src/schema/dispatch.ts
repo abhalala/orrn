@@ -10,6 +10,28 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
 export const dispatchStatuses = ["draft", "reserved", "completed", "cancelled"] as const;
 
+/** Transporter master (FP-PK-11). A vehicle is not a master: number and capacity live on the dispatch. */
+export const transporter = sqliteTable(
+  "transporter",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    serverSeq: integer("server_seq").notNull().default(0),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
+  },
+  (table) => [
+    index("transporter_company_name_idx").on(table.companyId, table.name),
+    index("transporter_company_server_seq_idx").on(table.companyId, table.serverSeq),
+  ],
+);
+
 export const dispatch = sqliteTable(
   "dispatch",
   {
@@ -38,6 +60,13 @@ export const dispatch = sqliteTable(
     invoiceNumber: text("invoice_number"),
     /** Tally invoice date, company calendar date `YYYY-MM-DD`. */
     invoiceDate: text("invoice_date"),
+    // FP-PK-11/12 (Wave 1): transporter master + its name snapshotted (a rename never rewrites a
+    // sent PL; `transporter` above stays the free-text field), vehicle capacity (grams; null = no
+    // warning) and the reason given to complete over it.
+    transporterId: text("transporter_id").references(() => transporter.id),
+    transporterName: text("transporter_name"),
+    vehicleCapacityG: integer("vehicle_capacity_g"),
+    capacityOverrideReason: text("capacity_override_reason"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),

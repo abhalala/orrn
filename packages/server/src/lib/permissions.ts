@@ -102,6 +102,18 @@ export const PLANT_ACTIONS = [
   "qc.enter", // QC station (P9: press + supervisor)
   "ageing.enter", // ageing station (P9: press + supervisor)
   "analytics.view", // charts and customer analytics (analytics addendum A1)
+  // Wave 1 (FP). No `bundle.transfer`: moving a bundle between orders is `order.reallocate` (D6).
+  "die.issue", // issue / return a die copy to a press line (die room owns it, FP-DR-16)
+  "die.maker", // send a copy to the die maker, receive it back (FP-DR-15)
+  "order.plan", // press plans: build, release, cancel (FP-OP-10)
+  "order.price", // see and write rates on sales order lines (C23)
+  "order.reallocate", // orders.reallocate: bundles between lines or to plant stock (FP-OP-08/09)
+  "press.close", // close / reopen a logged press run, confirm times (FP-PR)
+  "ageing.view", // ageing board and readings, read only (FP-AG)
+  "packingList.combine", // one packing list over several dispatches of a customer (FP-PK-13)
+  "portal.manage", // customer portal users and portal orders (Wave 3)
+  "audit.read", // the company audit log
+  "support.request", // ask platform support for help
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -115,6 +127,9 @@ export const PLATFORM_ACTION_KEYS = [
   "platform.staff.remove",
   "platform.spool.manage",
   "platform.edge.manage",
+  "platform.release.publish",
+  "platform.backup.run",
+  "platform.support.reply",
 ] as const;
 
 export const ACTIONS = [...LEGACY_ACTIONS, ...PLANT_ACTIONS, ...PLATFORM_ACTION_KEYS] as const;
@@ -195,6 +210,31 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   // Analytics addendum A1: owner/manager get charts, not the floor; office (order desk) and the
   // accountant need customer numbers. Floor roles and viewer do not hold it.
   "analytics.view": ["admin", "manager", "office", "accountant"],
+  // Wave 1 (FP contracts).
+  "die.issue": ["die_room"],
+  "die.maker": ["die_room"],
+  "order.plan": ["office", "manager"],
+  "order.price": ["office", "manager", "accountant"],
+  "order.reallocate": ["supervisor", "office", "manager", "admin"],
+  "press.close": ["supervisor", "manager", "admin"],
+  "ageing.view": ["press", "supervisor", "office", "manager", "admin"],
+  "packingList.combine": ["supervisor", "office", "manager", "admin"],
+  "portal.manage": ["office", "manager", "admin"],
+  "audit.read": ["admin", "manager"],
+  "support.request": [
+    "admin",
+    "manager",
+    "office",
+    "accountant",
+    "supervisor",
+    "packer",
+    "foundry",
+    "press",
+    "storekeeper",
+    "die_room",
+    "operator",
+    "viewer",
+  ],
 };
 
 /**
@@ -287,6 +327,11 @@ export const APPROVER_ROLES: Record<ApprovalKind, readonly CompanyRole[]> = {
   die_rerank: ["owner", "admin", "manager"],
   dispatch_overdraw: ["owner", "admin", "manager"],
   phantom_void: ["owner", "admin", "manager"],
+  die_owner_override: ["owner", "admin", "manager"],
+  order_reallocate: ["owner", "admin", "manager"],
+  press_time: ["owner", "supervisor", "manager"],
+  press_reopen: ["owner", "admin", "manager"],
+  ageing_override: ["owner", "admin", "manager"],
 };
 
 export function canApprove(role: CompanyRole | null | undefined, kind: ApprovalKind): boolean {
@@ -305,8 +350,16 @@ const PLATFORM_ROLE_ACTIONS: Record<PlatformStaffRole, ReadonlySet<Action>> = {
     "platform.staff.updateRole",
     "platform.spool.manage",
     "platform.edge.manage",
+    "platform.release.publish",
+    "platform.backup.run",
+    "platform.support.reply",
   ]),
-  support: new Set<Action>(["platform.waitlist.review", "platform.company.manage", "platform.staff.list"]),
+  support: new Set<Action>([
+    "platform.waitlist.review",
+    "platform.company.manage",
+    "platform.staff.list",
+    "platform.support.reply",
+  ]),
 };
 
 export type MeLike = {

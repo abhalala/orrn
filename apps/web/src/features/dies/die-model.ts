@@ -2,7 +2,7 @@
  * Die form model (plan Task 23, audit N6/W9, spec Q1).
  *
  * - The weight range is edited in kg per 12 ft and stored as whole grams (`kgToG`).
- * - Width, thickness, oblique and leg are typed in the company's length unit and stored in mm at
+ * - Width, thickness and leg are typed in the company's length unit and stored in mm at
  *   0.1 mm precision (ruling R16).
  * - N6: a field the person didn't touch is sent with its stored value exactly, never re-derived
  *   from its display text. An inch company opening a die with a 10 mm thickness and saving it
@@ -18,7 +18,6 @@ export type StoredDie = {
   series: string;
   sectionCode: string;
   name: string | null;
-  obliqueMm: number | null;
   legMm: number | null;
   widthMm: number | null;
   thicknessMm: number | null;
@@ -39,20 +38,18 @@ export type DieDraft = {
   notes: string;
   width: string;
   thickness: string;
-  oblique: string;
   leg: string;
 };
 
 /** 25.4 mm as an exact integer number of tenths. */
 const TENTHS_MM_PER_INCH = MM_PER_INCH * 10;
 
-export const GEOMETRY_FIELDS = ["width", "thickness", "oblique", "leg"] as const;
+export const GEOMETRY_FIELDS = ["width", "thickness", "leg"] as const;
 export type GeometryField = (typeof GEOMETRY_FIELDS)[number];
 
 const GEOMETRY_COLUMN = {
   width: "widthMm",
   thickness: "thicknessMm",
-  oblique: "obliqueMm",
   leg: "legMm",
 } as const satisfies Record<GeometryField, keyof StoredDie>;
 
@@ -66,7 +63,6 @@ export const EMPTY_DIE_DRAFT: DieDraft = {
   notes: "",
   width: "",
   thickness: "",
-  oblique: "",
   leg: "",
 };
 
@@ -81,7 +77,6 @@ export type DieInput = {
   notes: string | null;
   widthMm: number | null;
   thicknessMm: number | null;
-  obliqueMm: number | null;
   legMm: number | null;
   dimensions: Record<string, unknown>;
 };
@@ -146,7 +141,6 @@ export function dieToDraft(die: StoredDie, unit: LengthUnit): DieDraft {
     notes: die.notes ?? "",
     width: geometryText(storedGeometry(die, "width"), unit),
     thickness: geometryText(storedGeometry(die, "thickness"), unit),
-    oblique: geometryText(storedGeometry(die, "oblique"), unit),
     leg: geometryText(storedGeometry(die, "leg"), unit),
   };
 }
@@ -192,7 +186,6 @@ export function draftToDieInput(draft: DieDraft, unit: LengthUnit, original?: St
     notes: notes || null,
     widthMm: geometry.width,
     thicknessMm: geometry.thickness,
-    obliqueMm: geometry.oblique,
     legMm: geometry.leg,
     dimensions,
   };

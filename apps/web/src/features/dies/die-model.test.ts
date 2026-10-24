@@ -6,7 +6,6 @@ const DIE: StoredDie = {
   series: "PATTI",
   sectionCode: "14701",
   name: 'Patti 1" x 1/8"',
-  obliqueMm: null,
   legMm: null,
   widthMm: 25,
   thicknessMm: 10,
@@ -60,7 +59,6 @@ describe("dieToDraft", () => {
       notes: "",
       width: "0.984",
       thickness: "0.394",
-      oblique: "",
       leg: "",
     });
   });
@@ -141,7 +139,6 @@ describe("draftToDieInput (N6: untouched fields keep the stored value exactly)",
       notes: null,
       widthMm: 31.8,
       thicknessMm: null,
-      obliqueMm: null,
       legMm: null,
       dimensions: { widthMm: 31.8 },
     });

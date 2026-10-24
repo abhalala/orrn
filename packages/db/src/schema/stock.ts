@@ -87,6 +87,8 @@ export const ledgerVoucherTypes = [
   "store_mrs_cancel",
   "melt",
   "melt_cancel",
+  /** Weighed pieces rejected at pack (FP-PK-14): +kg at PLANT-SCRAP, voucher = pack_reject.id. */
+  "pack_reject",
 ] as const;
 export type LedgerVoucherType = (typeof ledgerVoucherTypes)[number];
 

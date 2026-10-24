@@ -31,6 +31,11 @@ export const device = sqliteTable(
     installId: text("install_id").notNull(),
     pushToken: text("push_token"),
     lastSeenAt: integer("last_seen_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    /** Devices screen (FP-PF): a revoked device's next sync is refused until it signs in again. */
+    revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+    revokedBy: text("revoked_by").references(() => user.id, { onDelete: "set null" }),
+    /** Display name the plant gives it ("Pack tablet 1"). */
+    label: text("label"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
   },
   (table) => [

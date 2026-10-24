@@ -153,7 +153,7 @@ function DieDetail({ id }: { id: string }) {
   const code = dieCode(die);
   const units = { mm: t("units.mm"), inch: t("units.inch") };
   const measurements = GEOMETRY_FIELDS.map((field) => {
-    const column = ({ width: "widthMm", thickness: "thicknessMm", oblique: "obliqueMm", leg: "legMm" } as const)[field];
+    const column = ({ width: "widthMm", thickness: "thicknessMm", leg: "legMm" } as const)[field];
     const legacy = field === "width" || field === "thickness" ? die.dimensions?.[column] : undefined;
     const mm = die[column] ?? (typeof legacy === "number" ? legacy : null);
     return { field, mm };
