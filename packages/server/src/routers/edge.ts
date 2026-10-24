@@ -65,6 +65,10 @@ export const edgeRouter = router({
         lastSyncAt: edgeNodeDeployment.lastSyncAt,
         lastErrorCode: edgeNodeDeployment.lastErrorCode,
         lastErrorMessage: edgeNodeDeployment.lastErrorMessage,
+        scaleConfigured: edgeNodeDeployment.scaleConfigured,
+        scaleSimulated: edgeNodeDeployment.scaleSimulated,
+        scaleLastFrameAt: edgeNodeDeployment.scaleLastFrameAt,
+        scaleReportedAt: edgeNodeDeployment.scaleReportedAt,
         createdAt: edgeNodeDeployment.createdAt,
         updatedAt: edgeNodeDeployment.updatedAt,
       })

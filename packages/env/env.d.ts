@@ -23,6 +23,8 @@ export interface CloudflareEnv {
   CF_ZONE_ID_IN: string;
   /** Local wrangler only: password for the seeded dev accounts. Never set in deployed stages. */
   ORRN_LOCAL_PASSWORD?: string;
+  /** Local dev only: "1" makes scale.reading answer from a built-in simulator (never in production). */
+  SCALE_SIMULATOR?: string;
 }
 
 declare global {

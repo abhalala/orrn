@@ -15,6 +15,7 @@ import { dispatchRouter } from "./dispatch";
 import { foundryRouter } from "./foundry";
 import { packingListRouter } from "./packingList";
 import { spoolRouter } from "./spool";
+import { scaleRouter } from "./scale";
 import { edgeRouter } from "./edge";
 import { dashboardRouter } from "./dashboard";
 import { resolveRouter } from "./resolve";
@@ -47,6 +48,7 @@ export const appRouter = router({
   dispatch: dispatchRouter,
   packingList: packingListRouter,
   spool: spoolRouter,
+  scale: scaleRouter,
   edge: edgeRouter,
   dashboard: dashboardRouter,
   approval: approvalRouter,
