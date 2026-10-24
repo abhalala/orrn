@@ -415,7 +415,7 @@ describe("owner names and imports (FP-DR-12/14)", () => {
 describe("dev seed: die room demo (idempotent)", () => {
   test("bands, copies with readings (one amber, one red), an owned section and one open issue survive a re-seed", async () => {
     const { user } = await import("@orrn/db/schema");
-    for (const key of ["owner", "operator", "viewer", "office", "staff"]) {
+    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "staff"]) {
       await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
     }
     const seedPath = "../../../apps/server/src/dev-seed";
@@ -452,13 +452,16 @@ describe("dev seed: die room demo (idempotent)", () => {
     const issued = await caller.dieInstance.issues.list({ status: "issued" });
     expect(issued.items.map((i) => [i.code, i.pressLineCode, i.pressRunStatus])).toEqual([["14701-1", "P1", "die_issued"]]);
     const runs = await env.db.select().from(pressRun).where(eq(pressRun.companyId, companyId));
-    expect(runs).toHaveLength(1);
-    expect(runs[0]).toMatchObject({ id: issued.items[0]!.pressRunId, status: "die_issued", dieInstanceId: "dev-copy-14701-1", pressLineId: "dev-press-line-1" });
+    // PR-1 carries the open issue; PR-2 is the Tee run that waits for a die (the e2e issues to it).
+    expect(runs.map((r) => [r.number, r.status]).sort()).toEqual([["PR-1", "die_issued"], ["PR-2", "queued"]]);
+    expect(await caller.dieInstance.issues.queuedRuns()).toMatchObject([{ number: "PR-2", pressLineCode: "P1", sectionCode: "13090" }]);
+    const pr1 = runs.filter((r) => r.number === "PR-1");
+    expect(pr1[0]).toMatchObject({ id: issued.items[0]!.pressRunId, status: "die_issued", dieInstanceId: "dev-copy-14701-1", pressLineId: "dev-press-line-1" });
     const [patti] = await env.db.select().from(dieInstance).where(eq(dieInstance.id, "dev-copy-14701-1"));
-    expect(runs[0]!.sectionId).toBe(patti!.sectionId);
+    expect(pr1[0]!.sectionId).toBe(patti!.sectionId);
     // Cancel puts that run back in the queue, as plans.release would have left it.
     const dieRoomCaller = env.callerForUser(m!.userId);
     await dieRoomCaller.dieInstance.issues.cancel({ id: issued.items[0]!.id });
-    expect((await env.db.select().from(pressRun).where(eq(pressRun.id, runs[0]!.id)))[0]).toMatchObject({ status: "queued", dieInstanceId: null });
+    expect((await env.db.select().from(pressRun).where(eq(pressRun.id, pr1[0]!.id)))[0]).toMatchObject({ status: "queued", dieInstanceId: null });
   });
 });
