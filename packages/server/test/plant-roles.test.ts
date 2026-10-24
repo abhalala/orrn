@@ -273,6 +273,8 @@ describe("new roles through existing procedures", () => {
     const dieId = await env.seedDie(companyId);
     const customerId = await env.seedCustomer(companyId);
     const bundles = await env.seedBundles(companyId, dieId, 3);
+    // D12: the floor dispatches plant stock; a bundle with no line and no transfer is refused.
+    await env.plantStock(companyId, bundles.map((b) => b.id));
     const owner = env.caller({ role: "owner", companyId });
 
     for (const [i, role] of (["office", "supervisor"] as const).entries()) {

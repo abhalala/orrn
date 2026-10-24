@@ -3,11 +3,12 @@
  * the `orders` router beside the PL-8 ones (`salesOrder.ts` spreads `orderFlowProcedures`), so the
  * screens call `orders.confirm`, `orders.reallocate`, … Every number is computed here.
  *
- * Permissions: confirm / close / cancel / repriceWeight need `order.manage`; reallocate needs
- * `order.reallocate`; reads are open to members (no prices in them, ruling PL8-R1).
- * Audit: order.confirm / order.close / order.cancel / order.weight.refresh / order.reallocate.
+ * Permissions: confirm / close / cancel / repriceWeight / hold / release need `order.manage`;
+ * reallocate needs `order.reallocate`; reads are open to members (no prices in them, ruling PL8-R1).
+ * Audit: order.confirm / order.close / order.cancel / order.weight.refresh / order.reallocate /
+ * order.hold / order.release (FP-OP-17, `lib/orderHold.ts`).
  */
-import { confirmBlockers, MAX_REALLOCATE_BUNDLES, reallocationCheck } from "@orrn/domain";
+import { confirmBlockers, holdCheck, MAX_HOLD_BUNDLES, MAX_REALLOCATE_BUNDLES, reallocationCheck } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { and, asc, count, desc, eq, gte, inArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
@@ -26,7 +27,7 @@ import { bundleTransfer, openSalesOrderStatuses, salesOrder, salesOrderLine, sal
 import { actionProcedure, companyProcedure, router } from "../index";
 import { requestApprovalInsert } from "../lib/approval";
 import { auditInsert } from "../lib/audit";
-import { atomicBatch, chunk, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
+import { atomicBatch, chunk, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
 import { zonedYmd } from "../lib/dayWindow";
 import { assertDieAllowed } from "../lib/dieOwner";
@@ -39,6 +40,7 @@ import {
   sectionCopies,
 } from "../lib/orderLines";
 import { batchAbortUnless, isBatchAbort, kgText, lineBalancePage, lineTotals } from "../lib/orders";
+import { holdsOf, releaseOrderHoldsStatements } from "../lib/orderHold";
 import { daysBetween, LATE_AFTER_DAYS, lineStrips, suggestedLine, ymdMinusDays } from "../lib/orderStrip";
 import {
   bundlesPendingReallocation,
@@ -143,6 +145,49 @@ function orderHasWork(companyId: string, orderId: string): SQL {
     or exists (select 1 from press_plan_line pl join press_plan p on p.id = pl.press_plan_id and p.company_id = pl.company_id where pl.company_id = ${companyId} and p.status <> 'cancelled' and pl.sales_order_line_id in ${lines})
     or exists (select 1 from dispatch_item di join dispatch d on d.id = di.dispatch_id and d.company_id = di.company_id where di.company_id = ${companyId} and d.deleted_at is null and d.status <> 'cancelled' and di.sales_order_line_id in ${lines}))`;
 }
+
+const holdInput = z.object({
+  /** The open line the bundles are held for. */
+  lineId: id,
+  bundleIds: z
+    .array(id)
+    .min(1, "Pick at least one bundle")
+    .max(MAX_HOLD_BUNDLES, `At most ${MAX_HOLD_BUNDLES} bundles at a time`),
+  note: text(500).optional(),
+});
+
+const releaseInput = z.object({
+  lineId: id,
+  /** These held bundles only; omitted = every bundle held for the line. */
+  bundleIds: z.array(id).min(1).max(MAX_HOLD_BUNDLES, `At most ${MAX_HOLD_BUNDLES} bundles at a time`).optional(),
+  note: text(500).optional(),
+});
+
+/** The line with its order and customer (company scoped), or NOT_FOUND. */
+async function loadLineWithOrder(db: OrrnDb, companyId: string, lineId: string) {
+  const [row] = await db
+    .select({
+      lineId: salesOrderLine.id,
+      lineNo: salesOrderLine.lineNo,
+      dieId: salesOrderLine.dieId,
+      cutLengthMm: salesOrderLine.cutLengthMm,
+      orderId: salesOrder.id,
+      orderNumber: salesOrder.number,
+      status: salesOrder.status,
+      customerId: salesOrder.customerId,
+      customerName: customer.name,
+    })
+    .from(salesOrderLine)
+    .innerJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, companyId)))
+    .innerJoin(customer, and(eq(customer.id, salesOrder.customerId), eq(customer.companyId, companyId)))
+    .where(and(eq(salesOrderLine.id, lineId), eq(salesOrderLine.companyId, companyId)))
+    .limit(1);
+  if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Order line not found" });
+  return row;
+}
+
+/** SQL list of bound ids, for `in (…)` inside raw guards. */
+const idList = (ids: readonly string[]) => sql.join(ids.map((x) => sql`${x}`), sql`, `);
 
 const reallocateInput = z.object({
   bundleIds: z
@@ -275,6 +320,8 @@ export const orderFlowProcedures = {
               ),
             ),
           batchAbortUnless(ctx.db, "sales_order_line", orderLanded(ctx.companyId, order.id, seq)),
+          // FP-OP-17: a closed order holds no yard stock.
+          ...(await releaseOrderHoldsStatements(ctx, order.id, "order_closed", seq)),
           auditInsert(ctx, {
             action: "order.close",
             subjectType: "sales_order",
@@ -335,6 +382,8 @@ export const orderFlowProcedures = {
               ),
             ),
           batchAbortUnless(ctx.db, "sales_order_line", orderLanded(ctx.companyId, order.id, seq)),
+          // FP-OP-17: a cancelled order holds no yard stock.
+          ...(await releaseOrderHoldsStatements(ctx, order.id, "order_cancelled", seq)),
           auditInsert(ctx, {
             action: "order.cancel",
             subjectType: "sales_order",
@@ -705,6 +754,8 @@ export const orderFlowProcedures = {
       }
 
       const pending = await bundlesPendingReallocation(ctx.db, ctx.companyId, ids);
+      // FP-OP-17: a held bundle moves only to the line it is held for; anything else releases it first.
+      const holds = await holdsOf(ctx.db, ctx.companyId, ids);
       const transfers: TransferRow[] = [];
       const warnings: { bundleId: string; serial: string; kind: "length_mismatch"; bundleLengthMm: number; lineLengthMm: number }[] = [];
       let needsApproval = false;
@@ -714,6 +765,13 @@ export const orderFlowProcedures = {
         }
         if (target && b.lineId === target.lineId) {
           throw new TRPCError({ code: "BAD_REQUEST", message: `${b.serial} is already on ${target.orderNumber} line ${target.lineNo}` });
+        }
+        const hold = holds.get(b.id);
+        if (hold && hold.lineId !== target?.lineId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `${b.serial} is held for ${hold.orderNumber} line ${hold.lineNo} (${hold.customerName}). Release the hold first.`,
+          });
         }
         if (!target && !b.lineId && Number(b.plant)) {
           throw new TRPCError({ code: "BAD_REQUEST", message: `${b.serial} is already plant stock` });
@@ -833,7 +891,8 @@ export const orderFlowProcedures = {
             ctx.db,
             "sales_order_line",
             sql`not exists (select 1 from dispatch_item di join dispatch d on d.id = di.dispatch_id and d.company_id = di.company_id where di.company_id = ${ctx.companyId} and d.deleted_at is null and d.status in ('draft', 'reserved') and di.bundle_id in (${list}))
-              and not exists (select 1 from approval a, json_each(a.meta, '$.bundleIds') j where a.company_id = ${ctx.companyId} and a.kind = 'order_reallocate' and a.status = 'pending' and j.value in (${list}))`,
+              and not exists (select 1 from approval a, json_each(a.meta, '$.bundleIds') j where a.company_id = ${ctx.companyId} and a.kind = 'order_reallocate' and a.status = 'pending' and j.value in (${list}))
+              and not exists (select 1 from bundle hb where hb.company_id = ${ctx.companyId} and hb.id in (${list}) and hb.held_for_line_id is not null and hb.held_for_line_id <> ${target.lineId})`,
           );
         });
         try {
@@ -872,7 +931,7 @@ export const orderFlowProcedures = {
         batchAbortUnless(
           ctx.db,
           "sales_order_line",
-          sql`(select count(*) from bundle b where b.company_id = ${ctx.companyId} and b.server_seq = ${seq} and b.status = 'available' and ${target ? sql`b.sales_order_line_id = ${target.lineId}` : sql`b.sales_order_line_id is null`} and b.id in (select t.bundle_id from bundle_transfer t where t.company_id = ${ctx.companyId} and t.batch_id = ${batchId})) = ${ids.length}`,
+          sql`(select count(*) from bundle b where b.company_id = ${ctx.companyId} and b.server_seq = ${seq} and b.status = 'available' and ${target ? sql`b.sales_order_line_id = ${target.lineId} and (b.held_for_line_id is null or b.held_for_line_id = ${target.lineId})` : sql`b.sales_order_line_id is null and b.held_for_line_id is null`} and b.id in (select t.bundle_id from bundle_transfer t where t.company_id = ${ctx.companyId} and t.batch_id = ${batchId})) = ${ids.length}`,
         ),
         auditInsert(ctx, {
           action: "order.reallocate",
@@ -899,6 +958,300 @@ export const orderFlowProcedures = {
         throw e;
       }
       return { status: "applied" as const, batchId, approvalId: null, moved: ids.length, kgG, warnings };
+    }),
+
+  /**
+   * Hold yard bundles for an open line (FP-OP-17, C9 "Put on sales order"). Only `available` bundles
+   * of the line's die, on no live dispatch, not waiting on a reallocation approval, and on no line or
+   * on this line (a bundle on another line moves with `orders.reallocate`). A different cut length is
+   * allowed with a warning. Owned dies pass the owner gate for the line's customer (purpose
+   * dispatch). The bundles stay `available` where they are; the line's strip shows them as held.
+   * Audit `order.hold`; no ledger rows. Bundles already held for this line are reported, not re-held.
+   */
+  hold: actionProcedure("order.manage")
+    .input(holdInput)
+    .mutation(async ({ ctx, input }) => {
+      const ids = [...new Set(input.bundleIds)];
+      if (ids.length !== input.bundleIds.length) throw new TRPCError({ code: "BAD_REQUEST", message: "A bundle is listed twice" });
+      const line = await loadLineWithOrder(ctx.db, ctx.companyId, input.lineId);
+      const open = (openSalesOrderStatuses as readonly string[]).includes(line.status);
+      if (!open) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `${line.orderNumber} is ${line.status}; hold stock for an open order` });
+      }
+      const onLine = alias(salesOrderLine, "on_line");
+      const onOrder = alias(salesOrder, "on_order");
+      const rows = await mapInChunks(ids, (part) =>
+        ctx.db
+          .select({
+            id: bundle.id,
+            serial: bundle.serial,
+            status: bundle.status,
+            dieId: bundle.dieId,
+            dieInstanceId: bundle.dieInstanceId,
+            lengthMm: bundle.lengthMm,
+            weightG: bundle.weightG,
+            pcs: bundle.quantity,
+            lineId: bundle.salesOrderLineId,
+            lineNo: onLine.lineNo,
+            orderNumber: onOrder.number,
+            heldForLineId: bundle.heldForLineId,
+            onDispatchCode: sql<string | null>`(select d2.code from dispatch_item di2 join dispatch d2 on d2.id = di2.dispatch_id and d2.company_id = di2.company_id where di2.company_id = ${ctx.companyId} and di2.bundle_id = ${bundle.id} and d2.deleted_at is null and d2.status in ('draft', 'reserved') limit 1)`,
+          })
+          .from(bundle)
+          .leftJoin(onLine, and(eq(onLine.id, bundle.salesOrderLineId), eq(onLine.companyId, ctx.companyId)))
+          .leftJoin(onOrder, and(eq(onOrder.id, onLine.salesOrderId), eq(onOrder.companyId, ctx.companyId)))
+          .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, part))),
+      );
+      if (rows.length !== ids.length) throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      const pending = await bundlesPendingReallocation(ctx.db, ctx.companyId, ids);
+      const heldElsewhere = await holdsOf(
+        ctx.db,
+        ctx.companyId,
+        rows.filter((r) => r.heldForLineId && r.heldForLineId !== line.lineId).map((r) => r.id),
+      );
+
+      const toHold: typeof rows = [];
+      const alreadyHeld: string[] = [];
+      const warnings: { bundleId: string; serial: string; kind: "length_mismatch"; bundleLengthMm: number; lineLengthMm: number }[] = [];
+      for (const bid of ids) {
+        const b = byId.get(bid)!;
+        const check = holdCheck({
+          bundle: {
+            status: b.status,
+            dieId: b.dieId,
+            lengthMm: b.lengthMm,
+            salesOrderLineId: b.lineId,
+            heldForLineId: b.heldForLineId,
+            onLiveDispatch: b.onDispatchCode !== null,
+            pendingReallocation: pending.has(b.id),
+          },
+          line: { id: line.lineId, dieId: line.dieId, cutLengthMm: line.cutLengthMm, open },
+        });
+        if (!check.ok) {
+          const other = heldElsewhere.get(b.id);
+          const why: Record<typeof check.refusal, string> = {
+            line_closed: `${line.orderNumber} is ${line.status}; hold stock for an open order`,
+            not_available: `${b.serial} is ${b.status}; only bundles in the yard can be held`,
+            on_dispatch: `${b.serial} is on dispatch ${b.onDispatchCode ?? ""}; take it off the dispatch first`,
+            pending_reallocation: `${b.serial} is waiting on a reallocation approval`,
+            die_mismatch: `${b.serial} is a different die from that line`,
+            other_line: `${b.serial} is on ${b.orderNumber ?? "another order"} line ${b.lineNo ?? ""}; move it with Reallocate instead`,
+            held_elsewhere: other
+              ? `${b.serial} is already held for ${other.orderNumber} line ${other.lineNo} (${other.customerName}). Release it first.`
+              : `${b.serial} is already held for another order line. Release it first.`,
+          };
+          throw new TRPCError({ code: "BAD_REQUEST", message: why[check.refusal] });
+        }
+        if (check.alreadyHeld) {
+          alreadyHeld.push(b.serial);
+          continue;
+        }
+        if (check.warnings.includes("length_mismatch")) {
+          warnings.push({ bundleId: b.id, serial: b.serial, kind: "length_mismatch", bundleLengthMm: b.lengthMm, lineLengthMm: line.cutLengthMm });
+        }
+        toHold.push(b);
+      }
+
+      // Owner gate (C47) for the customer the stock is held for, once per die / copy.
+      const seen = new Set<string>();
+      for (const b of toHold) {
+        const key = `${b.dieId}|${b.dieInstanceId ?? ""}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        await assertDieAllowed(ctx.db, ctx.companyId, {
+          dieId: b.dieId,
+          dieInstanceId: b.dieInstanceId,
+          customerId: line.customerId,
+          purpose: "dispatch",
+        });
+      }
+
+      const kgG = toHold.reduce((sum, b) => sum + b.weightG, 0);
+      if (toHold.length > 0) {
+        const at = clockNow();
+        const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+        const statements: SqliteBatchItem[] = [];
+        for (const part of chunk(toHold.map((b) => b.id), 80)) {
+          statements.push(
+            ctx.db
+              .update(bundle)
+              .set({ heldForLineId: line.lineId, heldAt: at, serverSeq: seq })
+              .where(
+                and(
+                  eq(bundle.companyId, ctx.companyId),
+                  inArray(bundle.id, part),
+                  eq(bundle.status, "available"),
+                  sql`${bundle.heldForLineId} is null`,
+                  sql`(${bundle.salesOrderLineId} is null or ${bundle.salesOrderLineId} = ${line.lineId})`,
+                  sql`not exists (select 1 from dispatch_item hdi join dispatch hd on hd.id = hdi.dispatch_id and hd.company_id = hdi.company_id where hdi.company_id = ${ctx.companyId} and hdi.bundle_id = ${bundle.id} and hd.deleted_at is null and hd.status in ('draft', 'reserved'))`,
+                  sql`not ${pendingReallocationOf(ctx.companyId, sql`${bundle.id}`)}`,
+                ),
+              ),
+          );
+        }
+        // Write time: every bundle was held by THIS call, and the order is still open.
+        for (const part of chunk(toHold.map((b) => b.id), 80)) {
+          statements.push(
+            batchAbortUnless(
+              ctx.db,
+              "sales_order_line",
+              sql`(select count(*) from bundle hb where hb.company_id = ${ctx.companyId} and hb.server_seq = ${seq} and hb.held_for_line_id = ${line.lineId} and hb.id in (${idList(part)})) = ${part.length}`,
+            ),
+          );
+        }
+        statements.push(
+          batchAbortUnless(
+            ctx.db,
+            "sales_order_line",
+            sql`exists (select 1 from sales_order o where o.id = ${line.orderId} and o.company_id = ${ctx.companyId} and o.status in ('booking', 'confirmed', 'dispatching'))`,
+          ),
+          auditInsert(ctx, {
+            action: "order.hold",
+            subjectType: "sales_order_line",
+            subjectId: line.lineId,
+            meta: {
+              orderId: line.orderId,
+              orderNumber: line.orderNumber,
+              lineNo: line.lineNo,
+              customerId: line.customerId,
+              bundleIds: toHold.map((b) => b.id),
+              serials: toHold.map((b) => b.serial),
+              kgG,
+              pcs: toHold.reduce((sum, b) => sum + b.pcs, 0),
+              note: blank(input.note),
+              lengthMismatch: warnings.map((w) => w.serial),
+            },
+          }),
+        );
+        try {
+          await atomicBatch(ctx.db, statements);
+        } catch (e) {
+          if (isBatchAbort(e, "sales_order_line")) {
+            throw new TRPCError({ code: "CONFLICT", message: "A bundle or the order changed meanwhile. Reload and try again." });
+          }
+          throw e;
+        }
+      }
+      const strip = (await lineStrips(ctx.db, ctx.companyId, [line.lineId])).get(line.lineId)!;
+      return {
+        lineId: line.lineId,
+        orderId: line.orderId,
+        orderNumber: line.orderNumber,
+        held: toHold.map((b) => b.serial),
+        alreadyHeld,
+        kgG,
+        warnings,
+        strip,
+      };
+    }),
+
+  /**
+   * End holds on a line (FP-OP-17): the listed bundles (each must be held for this line), or every
+   * bundle held for it. The bundles stay where they are. Audit `order.release`; no ledger rows.
+   */
+  release: actionProcedure("order.manage")
+    .input(releaseInput)
+    .mutation(async ({ ctx, input }) => {
+      const line = await loadLineWithOrder(ctx.db, ctx.companyId, input.lineId);
+      const asked = input.bundleIds ? [...new Set(input.bundleIds)] : null;
+      const rows = asked
+        ? await mapInChunks(asked, (part) =>
+            ctx.db
+              .select({ id: bundle.id, serial: bundle.serial, weightG: bundle.weightG, heldForLineId: bundle.heldForLineId })
+              .from(bundle)
+              .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, part))),
+          )
+        : await ctx.db
+            .select({ id: bundle.id, serial: bundle.serial, weightG: bundle.weightG, heldForLineId: bundle.heldForLineId })
+            .from(bundle)
+            .where(and(eq(bundle.companyId, ctx.companyId), eq(bundle.heldForLineId, line.lineId)));
+      if (asked && rows.length !== asked.length) throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
+      const notHeld = rows.filter((r) => r.heldForLineId !== line.lineId);
+      if (notHeld.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${notHeld.map((r) => r.serial).join(", ")} ${notHeld.length === 1 ? "is" : "are"} not held for ${line.orderNumber} line ${line.lineNo}`,
+        });
+      }
+      const kgG = rows.reduce((sum, b) => sum + b.weightG, 0);
+      if (rows.length > 0) {
+        const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+        const statements: SqliteBatchItem[] = [];
+        for (const part of chunk(rows.map((r) => r.id), 80)) {
+          statements.push(
+            ctx.db
+              .update(bundle)
+              .set({ heldForLineId: null, heldAt: null, serverSeq: seq })
+              .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, part), eq(bundle.heldForLineId, line.lineId))),
+          );
+        }
+        statements.push(
+          auditInsert(ctx, {
+            action: "order.release",
+            subjectType: "sales_order_line",
+            subjectId: line.lineId,
+            meta: {
+              orderId: line.orderId,
+              orderNumber: line.orderNumber,
+              lineNo: line.lineNo,
+              reason: "released",
+              bundleIds: rows.map((r) => r.id),
+              serials: rows.map((r) => r.serial),
+              kgG,
+              note: blank(input.note),
+            },
+          }),
+        );
+        await atomicBatch(ctx.db, statements);
+      }
+      const strip = (await lineStrips(ctx.db, ctx.companyId, [line.lineId])).get(line.lineId)!;
+      return { lineId: line.lineId, released: rows.map((r) => r.serial), kgG, strip };
+    }),
+
+  /**
+   * Bundles held for a line (FP-OP-17), oldest hold first: where each sits now (its own line, the
+   * dispatch it is on) and the held total. No prices.
+   */
+  holds: companyProcedure
+    .input(z.object({ lineId: id, limit: z.number().int().min(1).max(200).default(100), offset: z.number().int().min(0).default(0) }))
+    .query(async ({ ctx, input }) => {
+      await loadLineWithOrder(ctx.db, ctx.companyId, input.lineId);
+      const where = and(eq(bundle.companyId, ctx.companyId), eq(bundle.heldForLineId, input.lineId));
+      const rows = await ctx.db
+        .select({
+          id: bundle.id,
+          serial: bundle.serial,
+          partyNo: bundle.partyNo,
+          status: bundle.status,
+          weightG: bundle.weightG,
+          pcs: bundle.quantity,
+          lengthMm: bundle.lengthMm,
+          locationId: bundle.locationId,
+          lineId: bundle.salesOrderLineId,
+          heldAt: bundle.heldAt,
+          // Table-qualified: a single-table select prints a bare "id", which the subquery would take as its own.
+          dispatchCode: sql<string | null>`(select d2.code from dispatch_item di2 join dispatch d2 on d2.id = di2.dispatch_id and d2.company_id = di2.company_id where di2.company_id = ${ctx.companyId} and di2.bundle_id = "bundle"."id" and d2.deleted_at is null and d2.status in ('draft', 'reserved') limit 1)`,
+        })
+        .from(bundle)
+        .where(where)
+        .orderBy(asc(bundle.heldAt), asc(bundle.serial))
+        .limit(input.limit + 1)
+        .offset(input.offset);
+      const [sum] = await ctx.db
+        .select({
+          n: sql<number>`count(*)`,
+          g: sql<number>`coalesce(sum(case when ${bundle.status} in ('available', 'reserved') then ${bundle.weightG} else 0 end), 0)`,
+        })
+        .from(bundle)
+        .where(where);
+      const more = rows.length > input.limit;
+      return {
+        items: more ? rows.slice(0, input.limit) : rows,
+        total: Number(sum?.n ?? 0),
+        heldG: Number(sum?.g ?? 0),
+        nextOffset: more ? input.offset + input.limit : null,
+      };
     }),
 
   /**
@@ -934,6 +1287,8 @@ export const orderFlowProcedures = {
           lengthMm: bundle.lengthMm,
           locationId: bundle.locationId,
           createdAt: bundle.createdAt,
+          /** FP-OP-17: the line this bundle is held for (null = free). */
+          heldForLineId: bundle.heldForLineId,
           plant: sql<number>`${plant}`,
         })
         .from(bundle)
@@ -977,6 +1332,8 @@ export const orderFlowProcedures = {
     .query(async ({ ctx, input }) => {
       const nowLine = alias(salesOrderLine, "match_line");
       const nowOrder = alias(salesOrder, "match_order");
+      const heldLine = alias(salesOrderLine, "match_held_line");
+      const heldOrder = alias(salesOrder, "match_held_order");
       const plant = isPlantStockSql(ctx.companyId, { id: sql`${bundle.id}`, line: sql`${bundle.salesOrderLineId}` });
       const cust = input.customerId ?? null;
       const rank = sql<number>`case
@@ -1008,12 +1365,16 @@ export const orderFlowProcedures = {
           orderStatus: nowOrder.status,
           poNumber: nowOrder.poNumber,
           customerId: nowOrder.customerId,
+          heldForLineId: bundle.heldForLineId,
+          heldForOrderNumber: heldOrder.number,
           rank,
           lengthMatch,
         })
         .from(bundle)
         .leftJoin(nowLine, and(eq(nowLine.id, bundle.salesOrderLineId), eq(nowLine.companyId, ctx.companyId)))
         .leftJoin(nowOrder, and(eq(nowOrder.id, nowLine.salesOrderId), eq(nowOrder.companyId, ctx.companyId)))
+        .leftJoin(heldLine, and(eq(heldLine.id, bundle.heldForLineId), eq(heldLine.companyId, ctx.companyId)))
+        .leftJoin(heldOrder, and(eq(heldOrder.id, heldLine.salesOrderId), eq(heldOrder.companyId, ctx.companyId)))
         .where(where)
         .orderBy(asc(rank), desc(lengthMatch), asc(bundle.createdAt), asc(bundle.serial))
         .limit(input.limit);
@@ -1036,9 +1397,14 @@ export const orderFlowProcedures = {
           lengthMatch: Boolean(Number(r.lengthMatch)),
           /** Another customer's bundle: moving it waits on an `order_reallocate` approval. */
           needsApproval: allocation === "other_customer" && cust !== null,
+          /** FP-OP-17: held for a line (spoken for; release it before moving it elsewhere). */
+          heldForLineId: r.heldForLineId,
+          heldForOrderNumber: r.heldForOrderNumber,
         };
       });
-      const ready = items.filter((i) => i.allocation === "plant" || i.allocation === "unassigned" || i.allocation === "same_customer");
+      const ready = items.filter(
+        (i) => !i.heldForLineId && (i.allocation === "plant" || i.allocation === "unassigned" || i.allocation === "same_customer"),
+      );
       return { items, readyG: ready.reduce((s, i) => s + i.weightG, 0), readyBundles: ready.length };
     }),
 

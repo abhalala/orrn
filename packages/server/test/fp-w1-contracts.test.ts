@@ -56,9 +56,10 @@ const WAVE1_TABLES = [
 ];
 
 describe("migration 0023_fp_wave1", () => {
-  test("is the last migration and creates every Wave 1 table", async () => {
+  test("is migration 23 (later waves append after it) and creates every Wave 1 table", async () => {
     const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-    expect(files.at(-1)).toBe("0023_fp_wave1.sql");
+    expect(files[23]).toBe("0023_fp_wave1.sql");
+    expect(files.slice(24).every((f) => f > "0023_fp_wave1.sql")).toBe(true);
     const rows = (await env.db.all<{ name: string }>(
       // biome-ignore lint: raw sqlite_master read
       (await import("drizzle-orm")).sql`select name from sqlite_master where type = 'table'`,
@@ -256,7 +257,7 @@ describe("dev seed: Wave 1 masters (idempotent)", () => {
     const [someDie] = await env.db.select({ id: die.id }).from(die).where(eq(die.companyId, companyId)).limit(1);
     const bandId = crypto.randomUUID();
     await env.db.insert(dieBand).values({ id: bandId, companyId, sectionId: someDie!.id, wallTenthMm: 12, weightMinG: 1, weightMaxG: 2 });
-    await env.db.insert(copies).values({ id: crypto.randomUUID(), companyId, sectionId: someDie!.id, seqNo: 1, code: "SEED-1", bandId });
+    await env.db.insert(copies).values({ id: crypto.randomUUID(), companyId, sectionId: someDie!.id, seqNo: 99, code: "SEED-99", bandId });
 
     expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
     const [co] = await env.db.select().from(company).where(eq(company.id, companyId));
@@ -270,6 +271,9 @@ describe("dev seed: Wave 1 masters (idempotent)", () => {
     expect(await env.db.select({ code: pressLine.code }).from(pressLine).where(eq(pressLine.companyId, companyId))).toEqual([{ code: "P1" }]);
     expect(await env.db.select().from(transporter).where(eq(transporter.companyId, companyId))).toHaveLength(1);
     expect(await env.db.select().from(reasonCode).where(eq(reasonCode.companyId, companyId))).toHaveLength(defaultReasonCodeRows().length);
-    expect(await env.db.select().from(copies).where(eq(copies.companyId, companyId))).toHaveLength(0);
+    // The app-made copy is gone; only the die room demo copies (W1-DR-S) are back.
+    const seeded = await env.db.select({ code: copies.code }).from(copies).where(eq(copies.companyId, companyId));
+    expect(seeded.map((c) => c.code)).not.toContain("SEED-99");
+    expect(seeded).toHaveLength(5);
   });
 });

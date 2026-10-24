@@ -63,7 +63,7 @@ describe("D1 100-bound-parameter limit", () => {
     const { companyId, api, customerId, bundles } = await setup(120);
     const { id } = await api.dispatch.create({ customerId });
     for (let i = 0; i < bundles.length; i += 50) {
-      await api.dispatch.addBundlesBySerial({
+      await api.dispatch.addBundlesBySerial({ allowUnassigned: true, 
         id,
         serials: bundles.slice(i, i + 50).map((b) => b.serial),
       });
@@ -86,7 +86,7 @@ describe("D1 100-bound-parameter limit", () => {
     const { companyId, api, customerId, bundles } = await setup(120);
     const { id } = await api.dispatch.create({ customerId });
     for (let i = 0; i < bundles.length; i += 50) {
-      await api.dispatch.addBundlesBySerial({
+      await api.dispatch.addBundlesBySerial({ allowUnassigned: true, 
         id,
         serials: bundles.slice(i, i + 50).map((b) => b.serial),
       });
@@ -99,14 +99,14 @@ describe("D1 100-bound-parameter limit", () => {
   test("addBundlesBySerial with 100 serials", async () => {
     const { companyId, api, customerId, bundles } = await setup(100);
     const { id } = await api.dispatch.create({ customerId });
-    const res = await api.dispatch.addBundlesBySerial({ id, serials: bundles.map((b) => b.serial) });
+    const res = await api.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: bundles.map((b) => b.serial) });
     expect(res.added).toHaveLength(100);
     expect(await countRows(dispatchItem, and(eq(dispatchItem.companyId, companyId), eq(dispatchItem.dispatchId, id)))).toBe(100);
 
     // Reserved dispatch: the bundle update + status events must chunk too.
     const more = await env.seedBundles(companyId, await env.seedDie(companyId), 100);
     await api.dispatch.reserve({ id });
-    const res2 = await api.dispatch.addBundlesBySerial({ id, serials: more.map((b) => b.serial) });
+    const res2 = await api.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: more.map((b) => b.serial) });
     expect(res2.added).toHaveLength(100);
     expect(await countRows(bundle, and(eq(bundle.companyId, companyId), eq(bundle.status, "reserved")))).toBe(200);
   });
@@ -115,7 +115,7 @@ describe("D1 100-bound-parameter limit", () => {
     const { api, customerId, bundles } = await setup(120);
     const { id } = await api.dispatch.create({ customerId });
     for (let i = 0; i < bundles.length; i += 50) {
-      await api.dispatch.addBundlesBySerial({
+      await api.dispatch.addBundlesBySerial({ allowUnassigned: true, 
         id,
         serials: bundles.slice(i, i + 50).map((b) => b.serial),
       });

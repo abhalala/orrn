@@ -9,7 +9,7 @@ describe("createI18n", () => {
   });
 
   test("fills variables", () => {
-    expect(createI18n("en").t("auth.invite.title", { company: "Fourcubes" })).toBe("Join Fourcubes");
+    expect(createI18n("en").t("welcome.done.joinedTitle", { company: "Fourcubes" })).toBe("Welcome to Fourcubes");
   });
 
   test("picks the singular or plural word from count", () => {
@@ -75,8 +75,15 @@ describe("guides", () => {
     // Counted from GUIDE_SLUGS so each screen task can add its guide without editing this line.
     expect(listGuides("en")).toHaveLength(GUIDE_SLUGS.length);
     const viewer = listGuides("en", "viewer").map((g) => g.slug);
-    expect(viewer).toEqual(["scan-bundle", "printer-trouble"]);
-    expect(listGuides("en", "owner")).toHaveLength(GUIDE_SLUGS.length);
+    expect(viewer).toEqual(["scan-bundle", "printer-trouble", "stock-by-die"]);
+    // Every guide but the one for orrn support staff.
+    expect(listGuides("en", "owner")).toHaveLength(GUIDE_SLUGS.length - 1);
     expect(listGuides("en", "storekeeper").map((g) => g.slug)).toContain("store-entries");
+  });
+
+  test("guides for orrn support staff are listed only for platform admins", () => {
+    expect(listGuides("en", "owner").map((g) => g.slug)).not.toContain("approve-access-request");
+    expect(listGuides("en", undefined, true).map((g) => g.slug)).toEqual(["approve-access-request"]);
+    expect(listGuides("en", "owner", true)).toHaveLength(GUIDE_SLUGS.length);
   });
 });

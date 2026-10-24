@@ -15,12 +15,17 @@ describe("pickLocale", () => {
 
   test("first run follows the device: Hindi phones open in Hindi", () => {
     expect(pickLocale(null, ["hi"])).toBe("hi");
-    expect(pickLocale(null, ["gu", "hi", "en"])).toBe("hi");
+    expect(pickLocale(null, ["mr", "hi", "en"])).toBe("hi");
     expect(pickLocale(null, ["en"])).toBe("en");
   });
 
+  test("Gujarati phones open in Gujarati (gu ships for the floor, FP Wave 1)", () => {
+    expect(pickLocale(null, ["gu-IN"])).toBe("gu");
+    expect(pickLocale(null, ["gu", "hi", "en"])).toBe("gu");
+  });
+
   test("anything else falls back to English", () => {
-    expect(pickLocale(null, ["gu", "mr"])).toBe("en");
+    expect(pickLocale(null, ["mr", "ta"])).toBe("en");
     expect(pickLocale("fr", [])).toBe("en");
     expect(pickLocale(undefined, [null, undefined])).toBe("en");
   });

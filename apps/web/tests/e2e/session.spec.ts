@@ -148,7 +148,8 @@ test.describe("auth.me failures during navigation (W11)", () => {
     await page.goto("/dies");
     await expect(page).toHaveURL(/\/dies$/);
     await page.goto("/today");
-    await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeVisible();
+    // Today's h1 is the greeting (T19): "Good evening, Local Owner" and so on.
+    await expect(page.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening), / })).toBeVisible();
     await page.waitForLoadState("networkidle");
     await page.clock.fastForward(45_000);
   }

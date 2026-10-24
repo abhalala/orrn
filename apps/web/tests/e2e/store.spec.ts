@@ -605,6 +605,20 @@ test.describe("store entries", () => {
 });
 
 test.describe("store items", () => {
+  test("a new item with no entries can still change its unit", async ({ page }) => {
+    await open(page, { width: 1280, path: "/today" });
+    const item = await newItem(page, { prefix: "E2E unit" });
+    await page.goto(`/store/items/${item.id}`);
+    await expect(page.locator("[data-slot='status-block']")).toContainText("Empty");
+    await page.getByRole("button", { name: "Edit item" }).click();
+    const sheet = page.getByRole("dialog", { name: "Edit store item" });
+    await expect(sheet.getByLabel("Unit")).toBeEnabled();
+    await sheet.getByLabel("Unit").selectOption("litre");
+    await sheet.getByRole("button", { name: "Save item" }).click();
+    await expect(sheet).toBeHidden();
+    await expect(page.getByText("counted in L")).toBeVisible();
+  });
+
   test("rename, retire only when empty, bring back", async ({ page }) => {
     await open(page, { width: 1280, path: "/today" });
     const item = await newItem(page, { prefix: "E2E retire", receiveMilli: 2_000 });
@@ -616,6 +630,9 @@ test.describe("store items", () => {
     let sheet = page.getByRole("dialog", { name: "Edit store item" });
     await expect(sheet.getByText("2 kg is still in the store. Issue it or cancel its entries before retiring the item.")).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Retire item" })).toBeDisabled();
+    // It has an entry, so the unit is locked (the server refuses a change) and the hint says why.
+    await expect(sheet.getByLabel("Unit")).toBeDisabled();
+    await expect(sheet.getByText("The unit can't change after the item's first entry.")).toBeVisible();
     const renamed = `${item.name} R`;
     await sheet.getByLabel("Name").fill(renamed);
     await sheet.getByRole("button", { name: "Save item" }).click();
@@ -951,5 +968,11 @@ test.describe("screenshots", () => {
     await expect(page.getByText("अभी स्टोर में").first()).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: join(dir!, "store-issue-hi-375-light.png"), fullPage: true });
+    await page.goto(`/store/exchange?item=${ids["Roller bearing 6205"]}`);
+    await expect(page.getByRole("heading", { level: 1, name: "पुराना देकर नया लें" })).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    // The viewport, not the full page: how the pair sits against the sticky bar on a real phone.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.screenshot({ path: join(dir!, "store-exchange-hi-375-light.png") });
   });
 });

@@ -92,7 +92,7 @@ describe("S-2 / correctness I-1: the order link is decided again when its premis
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 500 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     expect((await itemsOf(id)).map((i) => i.lineId)).toEqual([null]);
     const o = await p.order([{ dieId: p.dieA, kg: 100 }]); // entered AFTER the scan
     await p.owner.dispatch.reserve({ id });
@@ -120,7 +120,8 @@ describe("S-2 / correctness I-1: the order link is decided again when its premis
     const sup = p.as("supervisor");
     const serials = await p.pack(p.dieA, [{ kg: 1000 }, { kg: 1000 }]);
     const { id } = await sup.dispatch.create({ customerId: p.otherCustomer });
-    const scan = await sup.dispatch.addBundlesBySerial({ id, serials });
+    // D12: plant stock with no order line goes on only through the office (allowUnassigned).
+    const scan = await p.as("office").dispatch.addBundlesBySerial({ id, serials, allowUnassigned: true });
     expect(scan.linked).toEqual([]);
     await sup.dispatch.update({ id, customerId: p.customerId });
     // Both now meet the order: the first fills the line, the excess goes to the newest open line (R10).
@@ -138,8 +139,11 @@ describe("S-2 / correctness I-1: the order link is decided again when its premis
     const serials = await p.pack(p.dieA, [{ kg: 300 }, { kg: 300 }], o.lineIds[0]);
     const packer = p.as("packer");
     const { id } = await packer.dispatch.create({ customerId: p.otherCustomer });
-    await packer.dispatch.addBundlesBySerial({ id, serials });
+    // D12: under the wrong customer the scan refuses them; the packer corrects the customer and rescans.
+    const refusedReport = await packer.dispatch.addBundlesBySerial({ id, serials });
+    expect(refusedReport.unavailable.map((u) => u.code)).toEqual(["wrong_customer", "wrong_customer"]);
     await packer.dispatch.update({ id, customerId: p.customerId });
+    await packer.dispatch.addBundlesBySerial({ id, serials });
     await packer.dispatch.reserve({ id });
     await p.as("supervisor").dispatch.complete({ id });
     expect(await p.lineOf(o.lineIds[0]!)).toMatchObject({ producedG: kg(600), dispatchedG: kg(600), bakiG: 0 });
@@ -179,7 +183,7 @@ describe("S-2 / correctness I-1: the order link is decided again when its premis
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.otherCustomer });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     expect(item!.lineId).toBe(own.lineIds[0]!);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
@@ -256,7 +260,7 @@ describe("minor findings", () => {
       notes: "Deliver before 5 pm",
       shipDate: new Date("2026-10-05T06:30:00.000Z").getTime(),
     });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     await p.owner.dispatch.reserve({ id });
     const done = await p.owner.dispatch.complete({ id });
     const snapshot = (await plRow(id))!.snapshot as never;

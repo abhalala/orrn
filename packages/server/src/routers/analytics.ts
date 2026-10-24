@@ -31,6 +31,7 @@ import { actionProcedure, router } from "../index";
 import { now } from "../lib/clock";
 import { companyTimezone } from "../lib/dayWindow";
 import { lineTotals } from "../lib/orders";
+import { productionDayWindowFor } from "../lib/productionDay";
 import { isIsoDate } from "../lib/purchase";
 import {
   addDays,
@@ -262,7 +263,7 @@ export const analyticsRouter = router({
     const key = bucketKeyExpr(dispatch.completedAt, segments, unit);
 
     const recent = ctx.db
-      .select({ id: dispatch.id, code: dispatch.code, completedAt: dispatch.completedAt })
+      .select({ id: dispatch.id, code: dispatch.code, completedAt: dispatch.completedAt, plNumber: dispatch.plNumber })
       .from(dispatch)
       .where(mine)
       .orderBy(desc(dispatch.completedAt), desc(dispatch.id))
@@ -314,13 +315,15 @@ export const analyticsRouter = router({
           completedAt: recent.completedAt,
           bundles: sql<number>`count(${bundle.id})`,
           kgG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
-          plNumber: sql<string | null>`max(${packingList.code})`,
+          // A scalar, never a join: revisions and combined lists share a dispatch, and a join would
+          // count each bundle once per list. The dispatch's PL number, else the current revision
+          // (nothing supersedes it, not combined away) of a list covering it.
+          plNumber: sql<string | null>`coalesce(${recent.plNumber}, (select pl.code from ${packingList} pl where pl.company_id = ${companyId} and (pl.dispatch_id = ${recent.id} or exists (select 1 from packing_list_dispatch pd where pd.company_id = ${companyId} and pd.packing_list_id = pl.id and pd.dispatch_id = ${recent.id})) and pl.combined_into_id is null and not exists (select 1 from ${packingList} pn where pn.company_id = ${companyId} and pn.supersedes_id = pl.id) order by pl.created_at desc limit 1))`,
         })
         .from(recent)
         .leftJoin(dispatchItem, and(eq(dispatchItem.dispatchId, recent.id), eq(dispatchItem.companyId, companyId)))
         .leftJoin(bundle, bundleOfItem(companyId))
-        .leftJoin(packingList, and(eq(packingList.dispatchId, recent.id), eq(packingList.companyId, companyId)))
-        .groupBy(recent.id, recent.code, recent.completedAt)
+        .groupBy(recent.id, recent.code, recent.completedAt, recent.plNumber)
         .orderBy(desc(recent.completedAt), desc(recent.id)),
       ctx.db
         .select({ at: dispatch.completedAt })
@@ -507,7 +510,12 @@ export const analyticsRouter = router({
   trends: analyticsProcedure.input(trendsInput).query(async ({ ctx, input }): Promise<TrendDay[]> => {
     const companyId = ctx.companyId;
     const timezone = await timezoneOf(ctx.db, companyId);
-    const today = localDate(timezone, now().getTime());
+    const at = now();
+    const calendarToday = localDate(timezone, at.getTime());
+    // FP-PF-05: Today's KPI blocks cover the production day; a night shift past midnight is still
+    // yesterday's production day, so the trend ends there too and its "so far" day is the blocks'.
+    const { productionDay } = await productionDayWindowFor(ctx.db, companyId, at);
+    const today = productionDay < calendarToday ? productionDay : calendarToday;
     const from = addDays(today, -(input.days - 1));
     const to = addDays(today, 1);
     const { fromMs, toMs: endMs, segments } = zonedRange(timezone, from, to);

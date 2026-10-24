@@ -4,6 +4,7 @@ import { die, invite, user, waitlistRequest } from "@orrn/db/schema";
 import { eq } from "drizzle-orm";
 
 import { isDevLocalOrigin } from "../src/lib/devOrigins";
+import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
 
 let env: TestEnv;
@@ -18,15 +19,22 @@ afterAll(async () => {
 
 const uid = () => crypto.randomUUID();
 
-/** Capture the rendered email html (the mock mailer console.logs it) while `fn` runs. */
+/**
+ * Capture the rendered email html while `fn` runs. The mock mailer prints the
+ * body only on a development stack (it holds live links; review T27 I-2), so
+ * the capture runs as one.
+ */
 async function captureEmail(fn: () => Promise<unknown>) {
   const lines: string[] = [];
   const spy = spyOn(console, "log").mockImplementation((...args: unknown[]) => {
     lines.push(args.map(String).join(" "));
   });
+  const nodeEnv = workersEnv.NODE_ENV;
+  workersEnv.NODE_ENV = "development";
   try {
     await fn();
   } finally {
+    workersEnv.NODE_ENV = nodeEnv;
     spy.mockRestore();
   }
   return lines.join("\n");

@@ -9,6 +9,7 @@ import {
   driftPercentTenths,
   driftTone,
   kgPerMetre,
+  kgPerMetreToG12ft,
   recoveryTone,
   suggestFirstCopy,
 } from "./drift";
@@ -132,5 +133,15 @@ describe("suggestFirstCopy (FP-DR-15, C36: lightest in-band available copy, then
 
   test("nothing available: null", () => {
     expect(suggestFirstCopy([{ id: "a", seqNo: 1, status: "retired", tierRank: 1, latestMilli: 5_950, ...band }])).toBeNull();
+  });
+});
+
+describe("kgPerMetreToG12ft (import of a kg/m catalogue)", () => {
+  test("kg/m x 12 x 0.3048, nearest gram per 12 ft; round-trips with kgPerMetre at 3 dp", () => {
+    expect(kgPerMetreToG12ft(1)).toBe(3_658); // 3,657.6 g rounds up
+    expect(kgPerMetreToG12ft(0.5)).toBe(1_829); // 1,828.8
+    expect(kgPerMetreToG12ft(1.631)).toBe(5_966); // 5,965.5 rounds half up
+    expect(kgPerMetre(kgPerMetreToG12ft(1.631))).toBe(1.631);
+    expect(kgPerMetreToG12ft(3.281)).toBe(12_001);
   });
 });

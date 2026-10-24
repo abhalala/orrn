@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import alchemy, { Resource } from "alchemy";
-import { D1Database, Vite, Worker } from "alchemy/cloudflare";
+import { D1Database, R2Bucket, Vite, Worker } from "alchemy/cloudflare";
 import { CloudflareStateStore } from "alchemy/state";
 import type { Scope } from "alchemy";
 import { config } from "dotenv";
@@ -134,6 +134,21 @@ const db = await D1Database("database", {
   migrationsDir: "../db/src/migrations",
 });
 
+/** Die drawings, photos and trial sheets (FP-DR-09, LEDGER D10): uploaded by signed PUT, read by signed GET. */
+const dieFiles = await R2Bucket("die-files", { adopt: true });
+
+/**
+ * FP-PF-12: daily per-company exports and restore drills (lib/backup.ts). Private: no public
+ * access, no custom domain; the plant never downloads it. Runbook: docs/RESTORE_DRILL.md.
+ *
+ * Delete protection: `delete: false` keeps the bucket and its objects if this resource is renamed,
+ * removed from this file or the stage is destroyed (alchemy only drops it from state). Never set
+ * `empty: true` here. Removing an old bucket is a manual step in the Cloudflare dashboard after
+ * the backups in it have been copied. The bucket and the `30 21 * * *` cron are config only until
+ * the next deploy from `main` (deploy-dev).
+ */
+const backups = await R2Bucket("backups", { adopt: true, delete: false });
+
 
 const LegacySpoolReleasesBucket = Resource(
   "internal::LegacySpoolReleasesState",
@@ -177,8 +192,12 @@ export const server = await Worker("server", {
   entrypoint: "src/index.ts",
   compatibility: "node",
   adopt: true,
+  // 21:30 UTC = 03:00 IST, after the night shift's last pack: one backup per active company.
+  crons: ["30 21 * * *"],
   bindings: {
     DB: db,
+    DIE_FILES: dieFiles,
+    BACKUPS: backups,
     NODE_ENV: isDevStage ? (process.env.NODE_ENV ?? "development") : "production",
     CORS_ORIGIN: corsOrigin,
     CORS_ALLOWED_ORIGINS: corsAllowedOrigins,

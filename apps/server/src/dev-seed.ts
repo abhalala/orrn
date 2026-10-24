@@ -52,7 +52,7 @@ import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
 import { DEFAULT_LOCATIONS, defaultLocationStatements, openingRows } from "@orrn/server/lib/ledger";
 import { nextCompanySeq } from "@orrn/server/lib/sequence";
 import { kgPer12ftMilli } from "@orrn/server/lib/bundleWeight";
-import { docPeriod, nextDocNumber } from "@orrn/server/lib/docNumber";
+import { allocatePartyBundleNumbers, docPeriod, nextDocNumber } from "@orrn/server/lib/docNumber";
 import {
   bookDateInstant,
   DEFAULT_SCRAP_GRADES,
@@ -66,6 +66,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 
 import { DEV_ACCOUNTS, type DevAccountKey } from "./dev-accounts";
 import { demoOrderSeed } from "./dev-seed-orders";
+import { seedPlatformRows } from "./dev-seed-platform";
 
 type Db = ReturnType<typeof createDb>;
 type Statement = BatchItem<"sqlite">;
@@ -148,6 +149,9 @@ type CustomerDef = {
 };
 
 const IN = "India";
+/** Customers with their own bundle number series (FP-PK-07); the rest use the plant serial. */
+const PARTY_POLICIES: Record<string, "monthly" | "fy" | "lifelong"> = { kd: "monthly", royal: "fy" };
+
 const CUSTOMERS: CustomerDef[] = [
   {
     key: "kd",
@@ -511,6 +515,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     notes: def.notes,
     billingAddress: def.billing,
     shippingAddress: def.shipping,
+    // FP-PK-07: two customers keep their own bundle numbers (monthly 26J12 / fy 2026-27/12).
+    bundleNumberPolicy: PARTY_POLICIES[def.key] ?? null,
     createdAt: new Date(pastAt(10, 11)),
     updatedAt: new Date(pastAt(10, 11)),
   }));
@@ -940,6 +946,114 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     })),
   ];
 
+  // Die room demo (FP-DR): Tee 13090 has its primary band 2.700-2.900 and a heavier band
+  // 2.900-3.100. 13090-1 is green, 13090-2 amber (above its band), 13090-3 on the heavy band red.
+  // Channel 12230 belongs to KD Extrusion (owned section, one copy). Patti 14701-1 is issued to
+  // Press 1 for run PR-1 (D13: an issue always targets a run that was queued on that section; the
+  // run is now `die_issued`, so cancel puts it back in the queue). Readings are history; percent
+  // and tone are computed.
+  const devCopyId = (code: string) => `dev-copy-${code}`;
+  const heavyBandId = "dev-band-13090-heavy";
+  const dieBandRows: (typeof dieBand.$inferInsert)[] = [
+    {
+      id: heavyBandId,
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      sectionId: dieId("tee125"),
+      wallTenthMm: 30,
+      weightMinG: 2_900,
+      weightMaxG: 3_100,
+      label: "2.9-3.1",
+      createdBy: ownerId,
+      createdAt: new Date(pastAt(9, 10)),
+      updatedAt: new Date(pastAt(9, 10)),
+    },
+  ];
+  type CopyDef = { section: string; code: string; seqNo: number; tier: number | null; status: "available" | "in_use"; bandId?: string; readings: number[]; lifeG?: number };
+  const COPIES: CopyDef[] = [
+    { section: "tee125", code: "13090-1", seqNo: 1, tier: 1, status: "available", readings: [2_740, 2_760], lifeG: 60_000_000 },
+    { section: "tee125", code: "13090-2", seqNo: 2, tier: 2, status: "available", readings: [2_910, 2_950] },
+    { section: "tee125", code: "13090-3", seqNo: 3, tier: 1, status: "available", bandId: heavyBandId, readings: [3_150, 3_200] },
+    { section: "chan1", code: "12230-1", seqNo: 1, tier: 1, status: "available", readings: [2_850] },
+    { section: "patti1", code: "14701-1", seqNo: 1, tier: 1, status: "in_use", readings: [2_480] },
+  ];
+  const copyRows: (typeof dieInstance.$inferInsert)[] = COPIES.map((c) => ({
+    id: devCopyId(c.code),
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    sectionId: dieId(c.section),
+    seqNo: c.seqNo,
+    code: c.code,
+    status: c.status,
+    tierRank: c.tier,
+    tierSince: c.tier === null ? null : new Date(pastAt(9, 11)),
+    lifeG: c.lifeG ?? null,
+    bandId: c.bandId ?? null,
+    createdBy: ownerId,
+    createdAt: new Date(pastAt(9, 11)),
+    updatedAt: new Date(pastAt(9, 11)),
+  }));
+  const copyTierRows: (typeof dieTierChange.$inferInsert)[] = COPIES.filter((c) => c.tier !== null).map((c) => ({
+    id: `dev-tier-${c.code}`,
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    dieInstanceId: devCopyId(c.code),
+    toRank: c.tier!,
+    reason: "initial",
+    status: "applied" as const,
+    effectiveAt: new Date(pastAt(9, 11)),
+    createdBy: ownerId,
+  }));
+  const readingRows: (typeof dieWeightReading.$inferInsert)[] = COPIES.flatMap((c) =>
+    c.readings.map((milli, i) => ({
+      id: `dev-reading-${c.code}-${i + 1}`,
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      dieInstanceId: devCopyId(c.code),
+      kgPer12ftMilli: milli,
+      lastKgPer12ftMilli: i === 0 ? null : c.readings[i - 1]!,
+      readAt: new Date(pastAt(c.readings.length - i + 1, 9)),
+      createdBy: ownerId,
+    })),
+  );
+  const pressRunPeriod = docPeriod("press_run", new Date(now), DEMO_SETTINGS.timezone);
+  const pressRunRows: (typeof pressRun.$inferInsert)[] = [
+    {
+      id: "dev-run-14701-1",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number: "PR-1",
+      period: pressRunPeriod,
+      status: "die_issued",
+      pressLineId: "dev-press-line-1",
+      sectionId: dieId("patti1"),
+      dieInstanceId: devCopyId("14701-1"),
+      createdBy: ownerId,
+      createdAt: new Date(todayAt(0.05)),
+      updatedAt: new Date(todayAt(0.1)),
+    },
+  ];
+  // The press run book continues after PR-1.
+  const pressRunSeriesRows: (typeof docSeries.$inferInsert)[] = [
+    { id: `dev-series-press_run-${pressRunPeriod}`, companyId: COMPANY_ID, docType: "press_run", period: pressRunPeriod, value: pressRunRows.length, createdBy: ownerId },
+  ];
+  const dieIssueRows: (typeof dieIssue.$inferInsert)[] = [
+    {
+      id: "dev-issue-14701-1",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      dieInstanceId: devCopyId("14701-1"),
+      pressLineId: "dev-press-line-1",
+      pressRunId: "dev-run-14701-1",
+      status: "issued",
+      issuedAt: new Date(todayAt(0.1)),
+      issuedBy: ownerId,
+      note: "Day shift",
+    },
+  ];
+  const ownedSectionId = dieId("chan1");
+  const ownedBy = customerId(CUSTOMERS[0]!.key);
+
   // Sequence now covers everything allocated above; packing-list codes continue from it.
   const sequenceAfterData = seq;
 
@@ -1090,6 +1204,15 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         createdBy: ownerId,
       })),
     ),
+    // Die room demo (after the sections and the press line it points at).
+    db.update(die).set({ ownerCustomerId: ownedBy }).where(and(eq(die.id, ownedSectionId), eq(die.companyId, COMPANY_ID))),
+    ...insertChunks(db, dieBand, dieBandRows),
+    ...insertChunks(db, dieInstance, copyRows),
+    ...insertChunks(db, dieTierChange, copyTierRows),
+    ...insertChunks(db, dieWeightReading, readingRows),
+    ...insertChunks(db, pressRun, pressRunRows),
+    ...insertChunks(db, docSeries, pressRunSeriesRows),
+    ...insertChunks(db, dieIssue, dieIssueRows),
   ];
   await atomicBatch(db, statements);
 
@@ -1102,9 +1225,70 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
   for (const [i, plan] of [c1, c2].entries()) {
     const found = await db.query.dispatch.findFirst({ where: eq(dispatch.id, plan.id) });
     if (!found) throw new Error(`dev-seed: dispatch ${plan.id} missing after insert`);
+    // FP-PK-07: party numbers from the customer's own series, as pack allocates them.
+    const policy = PARTY_POLICIES[plan.customerKey];
+    if (policy) {
+      const members = [...plan.members].sort((a, b) => a.serial.localeCompare(b.serial, "en", { numeric: true }));
+      const { numbers } = await allocatePartyBundleNumbers(
+        db,
+        COMPANY_ID,
+        customerId(plan.customerKey),
+        policy,
+        new Date(Math.min(...members.map((m) => m.createdAt))),
+        members.length,
+        ownerId,
+      );
+      await atomicBatch(
+        db,
+        members.map((m, k) => db.update(bundle).set({ partyNo: numbers[k]! }).where(eq(bundle.id, m.id))),
+      );
+      // D15: kd's monthly party number reads like a plant serial. Keep the real collision in the
+      // demo: one plant-stock bundle whose plant number is kd's first party number, so a scan of
+      // that code is `ambiguous` (never a silent pick of either bundle).
+      if (policy === "monthly") {
+        const source = bundleRows.find((r) => r.status === "available" && !r.currentDispatchId);
+        if (source) {
+          const clashId = "dev-bundle-party-clash";
+          // The plant series must be past the party numbers (26J1..26J20): the first bundle packed in the
+          // month would otherwise be given "26J1" and collide with the clash bundle, and every bundle after
+          // it with a party number of the monthly customer. The demo plant is at about 4,000 a month.
+          const clashPeriod = docPeriod("bundle", new Date(source.createdAt as Date), DEMO_SETTINGS.timezone);
+          const clashSeq = Math.max(4_000, Number(/(\d+)$/.exec(numbers[0]!)?.[1] ?? 0));
+          await atomicBatch(db, [
+            db
+              .delete(docSeries)
+              .where(and(eq(docSeries.companyId, COMPANY_ID), eq(docSeries.docType, "bundle"), eq(docSeries.period, clashPeriod))),
+            db.insert(docSeries).values({
+              id: `dev-series-bundle-${clashPeriod}`,
+              companyId: COMPANY_ID,
+              docType: "bundle",
+              period: clashPeriod,
+              value: clashSeq,
+              createdBy: ownerId,
+            }),
+            db.insert(bundle).values({ ...source, id: clashId, serial: numbers[0]!, partyNo: numbers[0]!, numberStyle: "plant" }),
+            db.insert(bundleStatusEvent).values({
+              id: `${clashId}-evt-0`,
+              companyId: COMPANY_ID,
+              bundleId: clashId,
+              fromStatus: null,
+              toStatus: "available",
+              reason: "receipt",
+              actorId: operatorId,
+              dispatchId: null,
+              at: source.createdAt as Date,
+            }),
+          ]);
+        }
+      }
+    }
     // PL numbers come from the PL book series, as dispatch.complete assigns them (PL-8).
     const { number: plNumber } = await nextDocNumber(db, COMPANY_ID, "pl", new Date(plan.completedAt ?? now), ownerId);
-    const header = demoHeaders[i] ?? demoHeaders[0]!;
+    const header = {
+      ...(demoHeaders[i] ?? demoHeaders[0]!),
+      // FP-PK-12: the first one went with the transporter master and a 9 t truck.
+      ...(i === 0 ? { transporterId: "dev-transporter-1", transporterName: "Shree Logistics", vehicleCapacityG: 9_000_000 } : {}),
+    };
     await db.update(dispatch).set({ plNumber, ...header }).where(eq(dispatch.id, plan.id));
     const dispatchRow = { ...found, plNumber, ...header };
     const { plId, statements: plStatements } = await packingListWriteBatch(db, {
@@ -1123,6 +1307,31 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         .set({ createdAt: plAt, snapshot: { ...plRow.snapshot, generatedAt: plAt.toISOString() } })
         .where(eq(packingList.id, plId));
     }
+
+    // FP-PK-13: the first list was regenerated once (branding off): rev 2 under the same number,
+    // rev 1 kept as sent.
+    if (i === 0) {
+      const { plId: rev2Id, statements: rev2Statements } = await packingListWriteBatch(db, {
+        companyId: COMPANY_ID,
+        dispatchRow,
+        plNumber,
+        session: { user: { id: ownerId } } as never,
+        revision: 2,
+        supersedesId: plId,
+        showBranding: false,
+        auditAction: "packingList.regenerate",
+        auditMeta: { dispatchId: plan.id, previousId: plId, code: plNumber, revision: 2 },
+      });
+      await atomicBatch(db, rev2Statements);
+      const rev2At = new Date(plAt.getTime() + 3_600_000);
+      const rev2Row = await db.query.packingList.findFirst({ where: eq(packingList.id, rev2Id) });
+      if (rev2Row) {
+        await db
+          .update(packingList)
+          .set({ createdAt: rev2At, snapshot: { ...rev2Row.snapshot, generatedAt: rev2At.toISOString() } })
+          .where(eq(packingList.id, rev2Id));
+      }
+    }
   }
 
   // 5. Opening balance: the seeded in-stock bundles are taken onto the kg ledger at their yard,
@@ -1134,6 +1343,9 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       { voucherId: "dev-opening-balance" },
     ),
   ]);
+
+  // 6. FP-PF rows: a build per native platform, the pack tablet, one support request.
+  await seedPlatformRows(db, { companyId: COMPANY_ID, ownerId, operatorId, staffId: users.staff.id, now });
 
   const bundlesByStatus: Record<string, number> = {};
   for (const member of bundles) bundlesByStatus[member.status] = (bundlesByStatus[member.status] ?? 0) + 1;
@@ -1154,10 +1366,14 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     counts: {
       customers: customerRows.length,
       dies: dieRows.length,
+      dieCopies: copyRows.length,
+      dieBands: dieBandRows.length,
+      dieReadings: readingRows.length,
+      dieIssues: dieIssueRows.length,
       packingSessions: groups.length,
       bundles: bundleRows.length,
       dispatches: dispatchRows.length,
-      packingLists: 2,
+      packingLists: 3,
       locations: DEFAULT_LOCATIONS.length,
       vendors: vendorRows.length,
       vendorAliases: vendorAliasRows.length,

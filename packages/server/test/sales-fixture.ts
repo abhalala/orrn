@@ -108,7 +108,8 @@ export interface SalesPlant {
   dieB: string;
   customerId: string;
   otherCustomer: string;
-  pack(dieId: string, rows: PackRow[], salesOrderLineId?: string): Promise<string[]>;
+  /** `dieInstanceId`: the copy pressed on (a section with an owned copy must name it, FP-PK-10). */
+  pack(dieId: string, rows: PackRow[], salesOrderLineId?: string, dieInstanceId?: string): Promise<string[]>;
   order(
     lines: OrderLineSpec[],
     over?: { customerId?: string; poNumber?: string; status?: "booking" | "confirmed" },
@@ -163,12 +164,13 @@ export function salesHelpers(getEnv: () => TestEnv): SalesHelpers {
       .where(eq(customer.id, customerId));
 
     /** Pack bundles; rows are kg (and optional pcs / mm / po). Returns serials in row order. */
-    async function pack(dieId: string, rows: PackRow[], salesOrderLineId?: string) {
+    async function pack(dieId: string, rows: PackRow[], salesOrderLineId?: string, dieInstanceId?: string) {
       const res = await owner.bundle.createReceipt({
         dieId,
         unit: "pcs",
         locationId: yard,
         ...(salesOrderLineId ? { salesOrderLineId } : {}),
+        ...(dieInstanceId ? { dieInstanceId } : {}),
         rows: rows.map((r) => ({
           quantity: r.pcs ?? 10,
           weightG: kg(r.kg),
@@ -204,11 +206,14 @@ export function salesHelpers(getEnv: () => TestEnv): SalesHelpers {
       return { id: res.id, number: res.number, lineIds: got.lines.map((l) => l.lineId) };
     }
 
-    /** Create, scan and reserve a dispatch; returns its id. */
+    /**
+     * Create, scan and reserve a dispatch; returns its id. The owner builds it as the office does
+     * (D12 `allowUnassigned`, since most fixtures pack plant stock with no order line).
+     */
     async function held(serials: string[], cust = customerId, api: Api = owner) {
       const { id } = await api.dispatch.create({ customerId: cust });
       for (let i = 0; i < serials.length; i += 100) {
-        await api.dispatch.addBundlesBySerial({ id, serials: serials.slice(i, i + 100) });
+        await api.dispatch.addBundlesBySerial({ id, serials: serials.slice(i, i + 100), ...(api === owner ? { allowUnassigned: true } : {}) });
       }
       await api.dispatch.reserve({ id });
       return id;

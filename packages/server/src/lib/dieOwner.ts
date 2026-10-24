@@ -18,6 +18,17 @@ import { TRPCError } from "@trpc/server";
 import { and, eq, ne, sql } from "drizzle-orm";
 
 import type { OrrnDb } from "./atomic";
+import { TRPCMetaError } from "./errorMeta";
+
+async function copyCode(db: OrrnDb, companyId: string, id: string | null): Promise<string | null> {
+  if (!id) return null;
+  const [row] = await db
+    .select({ code: dieInstance.code })
+    .from(dieInstance)
+    .where(and(eq(dieInstance.id, id), eq(dieInstance.companyId, companyId)))
+    .limit(1);
+  return row?.code ?? null;
+}
 
 export type DieOwnerInput = {
   /** The section (catalogue die). Optional when `dieInstanceId` is given; must match it when both are. */
@@ -136,9 +147,16 @@ export async function assertDieAllowed(db: OrrnDb, companyId: string, input: Die
     case "no_copies":
       throw new TRPCError({ code: "BAD_REQUEST", message: "This section has no copies" });
     case "owned":
-      throw new TRPCError({
+      // `meta` lets the screen offer "Ask for an exception" on the right copy (FP-DR-12).
+      throw new TRPCMetaError({
         code: "FORBIDDEN",
         message: check.ownerName ? `This die belongs to ${check.ownerName}` : "This die belongs to another customer",
+        meta: {
+          ownerCustomerId: check.ownerCustomerId,
+          ownerName: check.ownerName,
+          dieInstanceId: check.dieInstanceId,
+          code: await copyCode(db, companyId, check.dieInstanceId),
+        },
       });
   }
 }

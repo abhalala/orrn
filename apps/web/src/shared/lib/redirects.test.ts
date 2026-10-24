@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import { STATIC_REDIRECTS, resolveRedirect } from "./redirects";
+import { STATIC_REDIRECTS, legacyWelcomeLink, resolveRedirect } from "./redirects";
 
-/** Spec §3.2, one row per old path. `/setup-credentials` is ruling R6, not the spec's `/welcome`. */
+/** Spec §3.2, one row per old path. */
 const SPEC_ROWS: readonly (readonly [old: string, next: string])[] = [
   ["/dashboard", "/today"],
   ["/receipts", "/pack"],
@@ -12,12 +12,13 @@ const SPEC_ROWS: readonly (readonly [old: string, next: string])[] = [
   ["/dispatches/new", "/dispatch/new"],
   ["/spool", "/printing"],
   ["/settings/members", "/settings?tab=team"],
-  ["/setup-credentials", "/welcome?magic=1"],
+  ["/setup-credentials", "/welcome"],
   ["/onboarding", "/welcome"],
   ["/change-password", "/welcome"],
   ["/waitlist", "/request-access"],
   ["/admin/waitlist", "/admin/requests"],
-  ["/admin/spool", "/admin/companies"],
+  // Spec §3.2/§3: "redirects to /admin/companies with a Printing filter".
+  ["/admin/spool", "/admin/companies?printing=1"],
 ];
 
 describe("STATIC_REDIRECTS", () => {
@@ -33,6 +34,13 @@ describe("resolveRedirect: static rows", () => {
       expect(resolveRedirect(old, "")).toBe(next);
     });
   }
+
+  test("old print station queries carry over next to the Printing filter, except its status", () => {
+    // A print station status is not a company status: the old filter is dropped, not carried over.
+    expect(resolveRedirect("/admin/spool", "?status=active")).toBe("/admin/companies?printing=1");
+    expect(resolveRedirect("/admin/spool", "?status=revoked&q=ram")).toBe("/admin/companies?printing=1&q=ram");
+    expect(resolveRedirect("/admin/spool/", "printing=0")).toBe("/admin/companies?printing=1");
+  });
 
   test("a trailing slash is the same path", () => {
     expect(resolveRedirect("/receipts/", "")).toBe("/pack");
@@ -84,7 +92,6 @@ describe("resolveRedirect: query preservation", () => {
 
   test("merges into a target that already has a query", () => {
     expect(resolveRedirect("/settings/members", "?invite=1")).toBe("/settings?tab=team&invite=1");
-    expect(resolveRedirect("/setup-credentials", "?token=t1")).toBe("/welcome?magic=1&token=t1");
   });
 
   test("the target's own params win over an incoming one of the same name", () => {
@@ -106,5 +113,22 @@ describe("resolveRedirect: paths that are not old URLs", () => {
   test("a deeper path under a static row is not swallowed", () => {
     expect(resolveRedirect("/dashboard/extra", "")).toBeNull();
     expect(resolveRedirect("/receipts/a/b", "")).toBeNull();
+  });
+});
+
+describe("legacyWelcomeLink", () => {
+  test("an old owner link (/welcome?token=) goes to /continue, token intact", () => {
+    expect(legacyWelcomeLink("/welcome", "?token=abc123")).toBe("/continue?token=abc123");
+    expect(legacyWelcomeLink("/welcome/", "token=a%2Bb")).toBe("/continue?token=a%2Bb");
+  });
+
+  test("the error the old page received is kept", () => {
+    expect(legacyWelcomeLink("/welcome", "?token=t&error=INVALID_TOKEN")).toBe("/continue?token=t&error=INVALID_TOKEN");
+  });
+
+  test("a plain /welcome visit, or another path, is not a legacy link", () => {
+    expect(legacyWelcomeLink("/welcome", "")).toBeNull();
+    expect(legacyWelcomeLink("/welcome", "?error=x")).toBeNull();
+    expect(legacyWelcomeLink("/today", "?token=abc")).toBeNull();
   });
 });

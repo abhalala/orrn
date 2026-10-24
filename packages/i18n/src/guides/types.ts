@@ -16,6 +16,12 @@ export const COMPANY_ROLES = [
 ] as const;
 export type CompanyRole = (typeof COMPANY_ROLES)[number];
 
+/**
+ * Who a guide is for. `platform_admin` is orrn support staff (Godseye), who have
+ * no company role; the guides index shows those guides to them only.
+ */
+export type GuideRole = CompanyRole | "platform_admin";
+
 export const GUIDE_SLUGS = [
   "pack-session",
   "reprint-label",
@@ -29,6 +35,10 @@ export const GUIDE_SLUGS = [
   "printer-trouble",
   "weigh-scrap-lot",
   "store-entries",
+  "stock-by-die",
+  "stock-count",
+  "approve-access-request",
+  "floor-tablet-signin",
 ] as const;
 
 export type GuideSlug = (typeof GUIDE_SLUGS)[number];
@@ -39,7 +49,7 @@ export type GuideProblem = { title: string; fix: string };
 export type Guide = {
   slug: GuideSlug;
   /** Roles that can do this job. The guides index shows a user only their role's guides. */
-  roles: CompanyRole[];
+  roles: GuideRole[];
   title: string;
   /** One sentence: when to use this guide. */
   when: string;

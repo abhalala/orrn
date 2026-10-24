@@ -159,8 +159,9 @@ for (const width of [390, 1280]) {
       const dispatched = numbers(page).getByTestId("kpi-dispatched");
       await expect(dispatched).toContainText(kgText(today.dispatchedToday.weightG));
 
-      const inStockBundles = today.stock.available.bundles + today.stock.reserved.bundles;
-      const inStockG = today.stock.available.weightG + today.stock.reserved.weightG;
+      // In stock = available only, the Stock screen's figure (held bundles are not counted).
+      const inStockBundles = today.stock.available.bundles;
+      const inStockG = today.stock.available.weightG;
       const stock = numbers(page).getByTestId("kpi-stock");
       await expect(stock).toContainText(countText(inStockBundles));
       await expect(stock).toContainText(kgText(inStockG));

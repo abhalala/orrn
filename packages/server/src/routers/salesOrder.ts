@@ -203,7 +203,8 @@ async function assertSections(db: OrrnDb, companyId: string, ids: string[]) {
 
 /** EXISTS: something points at the outer order line (a bundle packed for it or any dispatch item). */
 function lineHasLinks(companyId: string, lineId: SQL | string): SQL {
-  return sql`(exists (select 1 from bundle b where b.company_id = ${companyId} and b.sales_order_line_id = ${lineId}) or exists (select 1 from dispatch_item di where di.company_id = ${companyId} and di.sales_order_line_id = ${lineId}))`;
+  // FP-OP-17: bundles held for the line count too (its section, customer and existence stay put while held).
+  return sql`(exists (select 1 from bundle b where b.company_id = ${companyId} and (b.sales_order_line_id = ${lineId} or b.held_for_line_id = ${lineId})) or exists (select 1 from dispatch_item di where di.company_id = ${companyId} and di.sales_order_line_id = ${lineId}))`;
 }
 
 /** The stored line columns of a resolved line (`undefined` W1 fields stay as they are on update). */

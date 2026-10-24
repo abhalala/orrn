@@ -31,6 +31,7 @@ export function StoreItemSheet({
   onOpenChange,
   item,
   balanceMilli = 0,
+  unitLocked = false,
   onCreated,
 }: {
   open: boolean;
@@ -39,6 +40,8 @@ export function StoreItemSheet({
   item?: EditableItem;
   /** What is in the store for `item` now: Retire needs 0. */
   balanceMilli?: number;
+  /** `item` already has entries: the server refuses a unit change, so the select is off. */
+  unitLocked?: boolean;
   onCreated?(id: string): void;
 }) {
   const { t } = useT();
@@ -153,6 +156,7 @@ export function StoreItemSheet({
           <NativeSelect
             id={unitId}
             aria-describedby={`${unitId}-hint`}
+            disabled={Boolean(item) && unitLocked}
             value={unit}
             onChange={(e) => setUnit(e.currentTarget.value as StoreUnit)}
           >

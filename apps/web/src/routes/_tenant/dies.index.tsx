@@ -15,7 +15,7 @@ import { OverflowMenu } from "@/features/catalog/overflow-menu";
 import { offsetParam, searchTermParam } from "@/features/catalog/search-param";
 import { dieCode, rangeText } from "@/features/dies/die-display";
 import { Can } from "@/shared/components/can";
-import { ImportDiesModal } from "@/shared/components/import-dies-modal";
+import { ImportSheet } from "@/features/imports/import-sheet";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -187,15 +187,7 @@ function DiesList() {
         }
       />
 
-      {importing ? (
-        <ImportDiesModal
-          onClose={() => setImporting(false)}
-          onSuccess={() => {
-            setImporting(false);
-            list.refetch();
-          }}
-        />
-      ) : null}
+      <ImportSheet kind="dies" open={importing} onOpenChange={setImporting} onImported={() => void list.refetch()} />
     </>
   );
 }

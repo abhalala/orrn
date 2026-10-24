@@ -80,7 +80,7 @@ export function resolveGate({ hasSession, me, error, isPending, failedFetches = 
  */
 export const ROOT_ROUTES = {
   /** Signed in with a company. */
-  app: ["(tabs)", "more"],
+  app: ["(tabs)", "more", "b/[serial]"],
   /** Signed out. */
   auth: ["(auth)"],
   /** Signed in, but no company or a temporary password. */

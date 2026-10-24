@@ -1,9 +1,10 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import type { OrrnDb } from "@orrn/db";
 import { die } from "@orrn/db/schema/catalog";
+import { cast } from "@orrn/db/schema/foundry";
 import { bundle, bundleGroup } from "@orrn/db/schema/inventory";
 import { labelTemplate, printLog, printerProfile, printStatuses } from "@orrn/db/schema/printing";
 import { spoolDeployment } from "@orrn/db/schema/spool";
@@ -11,9 +12,10 @@ import { unwrapSecret } from "@orrn/crypto";
 import { env } from "@orrn/env/server";
 
 import { buildBundleLabelVariables } from "../lib/bundle-label";
-import { SpoolClient } from "../lib/spool-client";
+import { SpoolClient, spoolBaseUrl } from "../lib/spool-client";
 import { can } from "../lib/permissions";
 import { actionProcedure, companyProcedure, router } from "../index";
+import { loadPackLabelVariables } from "../lib/pack";
 
 /** Get the active spool deployment for the current company, or throw. */
 async function getActiveDeployment(ctx: { db: OrrnDb; companyId: string }) {
@@ -40,7 +42,7 @@ type ActiveSpoolDeployment = typeof spoolDeployment.$inferSelect;
 /** Create a SpoolClient from the deployment's wrapped secrets. */
 async function createSpoolClient(deployment: ActiveSpoolDeployment) {
   const sharedSecret = await unwrapSecret(deployment.sharedSecretWrapped, env.ORRN_MASTER_KEY);
-  return new SpoolClient(`https://${deployment.nodeDomain}`, sharedSecret);
+  return new SpoolClient(spoolBaseUrl(deployment.nodeDomain), sharedSecret);
 }
 
 export const spoolRouter = router({
@@ -315,6 +317,8 @@ export const spoolRouter = router({
       const dieRow = await ctx.db.query.die.findFirst({
         where: and(eq(die.id, bundleRow.dieId), eq(die.companyId, ctx.companyId)),
       });
+      // FP-PK-04/05: QR, cast, sales order, standard, party number, logo flag.
+      const packVariables = await loadPackLabelVariables(ctx.db, ctx.companyId, bundleRow);
 
       const profile = input.profileId
         ? await ctx.db
@@ -352,11 +356,25 @@ export const spoolRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Bundle label template is not pushed to spool yet" });
       }
 
-      const variables = buildBundleLabelVariables({ bundleRow, groupRow, dieRow: dieRow ?? null, layout: input.layout });
+      const castRow = bundleRow.castId
+        ? await ctx.db
+            .select({ number: cast.number })
+            .from(cast)
+            .where(and(eq(cast.id, bundleRow.castId), eq(cast.companyId, ctx.companyId!)))
+            .get()
+        : null;
+      const variables = buildBundleLabelVariables({
+        bundleRow,
+        groupRow,
+        dieRow: dieRow ?? null,
+        layout: input.layout,
+        castRow: castRow ?? null,
+      });
       const deployment = await getActiveDeployment(ctx);
       const client = await createSpoolClient(deployment);
       const printLogId = crypto.randomUUID();
       const copies = input.copies ?? profile.defaultCopies;
+      Object.assign(variables, packVariables);
 
       await ctx.db.insert(printLog).values({
         id: printLogId,
@@ -423,6 +441,61 @@ export const spoolRouter = router({
         .offset(input.offset);
 
       return rows;
+    }),
+
+  /**
+   * The print queue screen: one page of jobs (newest first) with the printer
+   * and bundle each belongs to, plus a count per status. Read-only, scoped to
+   * the company, and it leaves out the label variables and the spool job id
+   * (the screen only needs a reason, a time and what the job is for).
+   */
+  queue: actionProcedure("spool.view_queue")
+    .input(
+      z.object({
+        limit: z.number().int().min(1).max(100).default(50),
+        offset: z.number().int().min(0).default(0),
+        status: z.enum(printStatuses).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const scope = eq(printLog.companyId, ctx.companyId);
+      const filtered = input.status ? and(scope, eq(printLog.status, input.status)) : scope;
+
+      const [rows, grouped] = await Promise.all([
+        ctx.db
+          .select({
+            id: printLog.id,
+            status: printLog.status,
+            attempt: printLog.attempt,
+            responseText: printLog.responseText,
+            layout: printLog.layout,
+            createdAt: printLog.createdAt,
+            updatedAt: printLog.updatedAt,
+            profileName: printerProfile.name,
+            bundleSerial: bundle.serial,
+          })
+          .from(printLog)
+          .innerJoin(
+            printerProfile,
+            and(eq(printerProfile.id, printLog.profileId), eq(printerProfile.companyId, ctx.companyId)),
+          )
+          .leftJoin(bundle, and(eq(bundle.id, printLog.bundleId), eq(bundle.companyId, ctx.companyId)))
+          .where(filtered)
+          .orderBy(desc(printLog.createdAt), desc(printLog.id))
+          .limit(input.limit)
+          .offset(input.offset),
+        ctx.db
+          .select({ status: printLog.status, n: count() })
+          .from(printLog)
+          .where(scope)
+          .groupBy(printLog.status),
+      ]);
+
+      const counts: Record<(typeof printStatuses)[number], number> = { queued: 0, sent: 0, success: 0, failed: 0 };
+      for (const g of grouped) counts[g.status] = g.n;
+      const total = input.status ? counts[input.status] : counts.queued + counts.sent + counts.success + counts.failed;
+
+      return { rows, total, counts };
     }),
 
   getJobStatus: companyProcedure
@@ -514,6 +587,10 @@ export const spoolRouter = router({
         spoolDomain: spoolDeployment.nodeDomain,
         spoolVersion: spoolDeployment.runtimeVersion,
         lastSeenAt: spoolDeployment.lastHeartbeatAt,
+        scaleConfigured: spoolDeployment.scaleConfigured,
+        scaleSimulated: spoolDeployment.scaleSimulated,
+        scaleLastFrameAt: spoolDeployment.scaleLastFrameAt,
+        scaleReportedAt: spoolDeployment.scaleReportedAt,
       })
       .from(spoolDeployment)
       .where(eq(spoolDeployment.companyId, ctx.companyId!))

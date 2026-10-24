@@ -1,6 +1,6 @@
-import { classifyCode, monthLetter } from "@orrn/domain";
+import { classifyCode, monthLetter, parseBundleNo } from "@orrn/domain";
 import { bundle, legacyBundleMap } from "@orrn/db/schema";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 
 import type { OrrnDb } from "./atomic";
 
@@ -16,6 +16,14 @@ export type ResolveResult =
  */
 const FIRST_YY = 20;
 const LAST_YY = 49;
+/** Bundles one typed code can name directly (serial + party numbers of several customers). */
+const DIRECT_LIMIT = 20;
+
+/** Year of a candidate: from a plant number (`26J12` = 2026), else the year it was packed. */
+function numberYear(number: string, createdAt: Date): number {
+  const parsed = parseBundleNo(number);
+  return parsed?.year !== undefined ? parsed.year : createdAt.getFullYear();
+}
 
 /**
  * Resolve whatever a scanner, a typed entry or a pasted QR URL holds to a bundle of `companyId`:
@@ -36,13 +44,23 @@ export async function resolveCode(db: OrrnDb, companyId: string, code: string): 
     return hit ? { kind: "bundle", ...hit } : { kind: "not_found" };
   }
 
-  // Exact serial first: covers plant numbers, BG serials and companies whose own serials look like J540.
-  const [exact] = await db
-    .select({ bundleId: bundle.id, number: bundle.serial })
+  // Exact serial AND party number every time (D15): a monthly party number can read like a plant
+  // serial (`26J12`), so the code may name two different bundles. Then it is ambiguous, never a pick.
+  const direct = await db
+    .select({ bundleId: bundle.id, number: bundle.serial, createdAt: bundle.createdAt })
     .from(bundle)
-    .where(and(eq(bundle.companyId, companyId), eq(bundle.serial, parsed.serial)))
-    .limit(1);
-  if (exact) return { kind: "bundle", ...exact };
+    .where(
+      and(eq(bundle.companyId, companyId), or(eq(bundle.serial, parsed.serial), eq(bundle.partyNo, parsed.serial))),
+    )
+    .orderBy(asc(bundle.serial))
+    .limit(DIRECT_LIMIT);
+  if (direct.length === 1) return { kind: "bundle", bundleId: direct[0]!.bundleId, number: direct[0]!.number };
+  if (direct.length > 1) {
+    return {
+      kind: "ambiguous",
+      candidates: direct.map((r) => ({ bundleId: r.bundleId, number: r.number, year: numberYear(r.number, r.createdAt) })),
+    };
+  }
 
   if (parsed.kind !== "monthOnly") return { kind: "not_found" };
 

@@ -13,8 +13,14 @@ export function getGuide(slug: GuideSlug, locale: Locale): Guide {
   return BOOKS[locale][slug];
 }
 
-/** Every guide in display order, optionally only those a role can follow. */
-export function listGuides(locale: Locale, role?: CompanyRole): Guide[] {
+/**
+ * Every guide in display order, optionally only those a role can follow.
+ * `platformAdmin` also lists the guides written for orrn support staff.
+ */
+export function listGuides(locale: Locale, role?: CompanyRole, platformAdmin = false): Guide[] {
   const all = GUIDE_SLUGS.map((slug) => BOOKS[locale][slug]);
-  return role ? all.filter((g) => g.roles.includes(role)) : all;
+  if (!role && !platformAdmin) return all;
+  return all.filter(
+    (g) => (role !== undefined && g.roles.includes(role)) || (platformAdmin && g.roles.includes("platform_admin")),
+  );
 }

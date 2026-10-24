@@ -32,6 +32,7 @@ describe("visibleItems", () => {
       "customers",
       "store",
       "printing",
+      "masters",
       "guides",
       "settings",
       "preview",
@@ -63,7 +64,7 @@ describe("visibleItems", () => {
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Plant screens (Store) are gated by role, not by the legacy SaaS modules.
-    expect(visible).toEqual(["today", "orders", "purchase", "approvals", "customers", "store", "printing", "guides", "settings", "preview"]);
+    expect(visible).toEqual(["today", "orders", "purchase", "approvals", "customers", "store", "printing", "masters", "guides", "settings", "preview"]);
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length);
   });
 
@@ -78,6 +79,16 @@ describe("visibleItems", () => {
     expect(more("packer")).not.toContain("purchase");
     expect(more("packer")).not.toContain("approvals");
     expect(more("press")).not.toContain("purchase");
+  });
+
+  test("Masters for the people who publish or draft masters (PL-W1)", () => {
+    const more = (role: CompanyRole) => keys(visibleItems(TENANT_MORE, me(role)));
+    for (const role of ["owner", "admin", "manager", "office"] as const) {
+      expect({ role, masters: more(role).includes("masters") }).toEqual({ role, masters: true });
+    }
+    for (const role of ["operator", "viewer", "storekeeper", "packer", "die_room", "accountant"] as const) {
+      expect({ role, masters: more(role).includes("masters") }).toEqual({ role, masters: false });
+    }
   });
 
   test("Godseye items follow the platform role", () => {
@@ -98,6 +109,13 @@ describe("isItemActive", () => {
     expect(isItemActive(byKey("settings"), "/settings")).toBe(true);
     expect(isItemActive(byKey("store"), "/store/items/abc")).toBe(true);
     expect(isItemActive(byKey("store"), "/store/issue")).toBe(true);
+    expect(isItemActive(byKey("masters"), "/masters/scrap")).toBe(true);
+  });
+
+  test("vendor pages belong to Masters", () => {
+    expect(isItemActive(byKey("masters"), "/vendors")).toBe(true);
+    expect(isItemActive(byKey("masters"), "/vendors/abc")).toBe(true);
+    expect(isItemActive(byKey("masters"), "/vendorsx")).toBe(false);
   });
 
   test("a bundle page belongs to Stock", () => {

@@ -10,9 +10,13 @@ type BundleStatus = (typeof BUNDLE_STATUSES)[number];
  */
 export type BundleBlock = {
   reason: string;
-  code?: "held" | "dispatched" | "void" | "status" | "reallocation_pending";
+  /** D12 adds unassigned / wrong_customer / owned_die; until their floor keys exist they show `reason`. FP-OP-17 adds held_for_order. */
+  code?: "held" | "dispatched" | "void" | "status" | "reallocation_pending" | "unassigned" | "wrong_customer" | "owned_die" | "held_for_order";
   status?: BundleStatus;
   heldBy?: string | null;
+  /** `held_for_order` (FP-OP-17): the sales order it is held for and its customer. */
+  orderNumber?: string;
+  customerName?: string;
 };
 
 /** What `dispatch.addBundlesBySerial` reports (partial success per serial). */
@@ -62,6 +66,11 @@ export function blockMessage(block: BundleBlock): ScanMessage {
       return { key: "scan.continuous.void" };
     case "reallocation_pending":
       return { key: "scan.continuous.reallocationPending" };
+    case "held_for_order":
+      if (block.orderNumber) {
+        return { key: "scan.continuous.heldForOrder", vars: { order: block.orderNumber, customer: block.customerName ?? "" } };
+      }
+      break;
     case "status":
       if (block.status) return { key: "scan.continuous.wrongStatus", status: block.status };
       break;

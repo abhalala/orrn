@@ -7,6 +7,12 @@ import {
   PL_COLUMN_HEADINGS,
   plGroupTitle,
   plRowCells,
+  plExtraColumns,
+  plProfileLines,
+  plRevisionText,
+  plRowExtras,
+  plDispatchCodesText,
+  plSectionSubtotalAfter,
   plShipDateText,
   type PlSnapshotV2,
 } from "./snapshot";
@@ -54,23 +60,43 @@ function buildPackingListHtmlV2(pl: V2Snapshot): string {
       ${p.gstin ? `<div>GSTIN ${e(p.gstin)}</div>` : ""}
     </div>`;
   const shipDate = plShipDateText(pl.dispatch.shipDate, pl.header?.shipDate);
-  const head = PL_COLUMN_HEADINGS.map((c, i) => `<th${NUMERIC_COLUMNS.has(i) ? ' class="num"' : ""}>${escapeHtml(c)}</th>`).join("");
+  // FP-PK-13: optional Party no / Original SO columns, section subtotals, profile-kind summary.
+  const extra = plExtraColumns(pl);
+  const extraHeads = [...(extra.partyNo ? ["Party no"] : []), ...(extra.originalSo ? ["Original SO"] : [])];
+  const span = 11 + extraHeads.length;
+  const tail = span - 8;
+  const head = [
+    ...PL_COLUMN_HEADINGS.map((c, i) => `<th${NUMERIC_COLUMNS.has(i) ? ' class="num"' : ""}>${escapeHtml(c)}</th>`),
+    ...extraHeads.map((c) => `<th>${escapeHtml(c)}</th>`),
+  ].join("");
+  const sectionAfter = plSectionSubtotalAfter(pl);
   const body = pl.groups
-    .map((g) => {
+    .map((g, gi) => {
       const rows = g.rows
-        .map(
-          (r) =>
-            `<tr>${plRowCells(r)
-              .map((c, i) => `<td${NUMERIC_COLUMNS.has(i) ? ' class="num"' : ""}>${escapeHtml(c)}</td>`)
-              .join("")}</tr>`,
-        )
+        .map((r) => {
+          const cells = [
+            ...plRowCells(r),
+            ...(extra.partyNo ? [plRowExtras(pl, r).partyNo] : []),
+            ...(extra.originalSo ? [plRowExtras(pl, r).originalSo] : []),
+          ];
+          return `<tr>${cells.map((c, i) => `<td${NUMERIC_COLUMNS.has(i) ? ' class="num"' : ""}>${escapeHtml(c)}</td>`).join("")}</tr>`;
+        })
         .join("");
+      const sec = sectionAfter.get(gi);
       return `
-      <tr class="group"><td colspan="11">${escapeHtml(plGroupTitle(g, pl.groups))}</td></tr>
+      <tr class="group"><td colspan="${span}">${escapeHtml(plGroupTitle(g, pl.groups))}</td></tr>
       ${rows}
-      <tr class="sub"><td colspan="4">${bundlesText(g.subtotal.bundles)}</td><td class="num">${formatPlKg(g.subtotal.weightG)}</td><td></td><td></td><td class="num">${g.subtotal.pcs}</td><td colspan="3"></td></tr>`;
+      <tr class="sub"><td colspan="4">${bundlesText(g.subtotal.bundles)}</td><td class="num">${formatPlKg(g.subtotal.weightG)}</td><td></td><td></td><td class="num">${g.subtotal.pcs}</td><td colspan="${tail}"></td></tr>${
+        sec
+          ? `
+      <tr class="sub"><td colspan="4">${escapeHtml(`Section ${sec.sectionCode}`)} · ${bundlesText(sec.bundles)}</td><td class="num">${formatPlKg(sec.weightG)}</td><td></td><td></td><td class="num">${sec.pcs}</td><td colspan="${tail}"></td></tr>`
+          : ""
+      }`;
     })
     .join("");
+  const brand = pl.issue?.branding;
+  const profiles = plProfileLines(pl);
+  const revision = plRevisionText(pl);
 
   return `<!DOCTYPE html>
 <html>
@@ -95,22 +121,26 @@ function buildPackingListHtmlV2(pl: V2Snapshot): string {
     tr.sub td { font-weight: bold; border-bottom: 1px solid #ccc; }
     .notes { border: 1px solid #ddd; padding: 6px; margin-bottom: 10px; white-space: pre-wrap; }
     .total { margin-top: 10px; text-align: right; font-size: 13px; font-weight: bold; }
+    .kinds { margin-top: 8px; display: flex; gap: 16px; justify-content: flex-end; font-size: 10px; }
+    .logo { max-height: 36px; max-width: 160px; margin-bottom: 4px; }
     .footer { margin-top: 18px; font-size: 8px; color: #999; display: flex; justify-content: space-between; }
   </style>
 </head>
 <body>
   <div class="top">
     <div>
+      ${brand?.show && brand.logoUrl ? `<img class="logo" src="${e(brand.logoUrl)}" alt="" />` : ""}
       <h1>${e(h.company.legalName ?? h.company.name)}</h1>
+      ${brand?.show && brand.tagline ? `<div class="muted">${e(brand.tagline)}</div>` : ""}
       ${h.company.address ? `<div>${e(h.company.address)}</div>` : ""}
       ${h.company.gstin ? `<div>GSTIN ${e(h.company.gstin)}</div>` : ""}
       ${h.company.phone ? `<div class="muted">${e(h.company.phone)}</div>` : ""}
     </div>
     <div class="doc">
       <div class="title">PACKING LIST</div>
-      <div><strong>${e(h.plNumber)}</strong></div>
+      <div><strong>${e(h.plNumber)}</strong>${revision ? ` · ${escapeHtml(revision)}` : ""}</div>
       <div>${escapeHtml(ddMmmYyyy(h.date))}</div>
-      <div class="muted">Dispatch ${e(h.dispatchCode)}</div>
+      <div class="muted">Dispatch ${e(plDispatchCodesText(pl))}</div>
     </div>
   </div>
   <div class="grid">
@@ -134,6 +164,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot): string {
     <thead><tr>${head}</tr></thead>
     <tbody>${body}</tbody>
   </table>
+  ${profiles.length > 0 ? `<div class="kinds">${profiles.map((l) => `<span>${escapeHtml(l)}</span>`).join("")}</div>` : ""}
   <div class="total">${escapeHtml(pl.summary.text)}</div>
   <div class="footer"><span>${e(h.company.name)} · ${e(h.plNumber)}</span><span>Receiver's signature ____________________</span></div>
 </body>

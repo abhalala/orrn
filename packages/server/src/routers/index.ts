@@ -15,6 +15,7 @@ import { dispatchRouter } from "./dispatch";
 import { foundryRouter } from "./foundry";
 import { packingListRouter } from "./packingList";
 import { spoolRouter } from "./spool";
+import { scaleRouter } from "./scale";
 import { edgeRouter } from "./edge";
 import { dashboardRouter } from "./dashboard";
 import { resolveRouter } from "./resolve";
@@ -25,6 +26,11 @@ import { reportsRouter } from "./reports";
 import { salesOrderRouter } from "./salesOrder";
 import { pressPlanRouter } from "./pressPlan";
 import { vendorRouter } from "./vendor";
+import { auditRouter } from "./audit";
+import { backupRouter } from "./backup";
+import { deviceRouter, releaseRouter } from "./release";
+import { supportRouter } from "./support";
+import { transporterRouter } from "./transporter";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -48,6 +54,7 @@ export const appRouter = router({
   dispatch: dispatchRouter,
   packingList: packingListRouter,
   spool: spoolRouter,
+  scale: scaleRouter,
   edge: edgeRouter,
   dashboard: dashboardRouter,
   approval: approvalRouter,
@@ -62,5 +69,11 @@ export const appRouter = router({
   plans: pressPlanRouter,
   reports: reportsRouter,
   foundry: foundryRouter,
+  release: releaseRouter,
+  device: deviceRouter,
+  support: supportRouter,
+  audit: auditRouter,
+  backup: backupRouter,
+  transporter: transporterRouter,
 });
 export type AppRouter = typeof appRouter;

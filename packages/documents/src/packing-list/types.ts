@@ -56,6 +56,12 @@ export const packingListSnapshotSchema = z.object({
   columns: z.custom<PlSnapshotV2["columns"]>((v) => Array.isArray(v)).optional(),
   groups: z.custom<PlSnapshotV2["groups"]>((v) => Array.isArray(v)).optional(),
   summary: z.custom<PlSnapshotV2["summary"]>((v) => v != null && typeof v === "object").optional(),
+  /** FP-PK-13 blocks (absent on lists stored before them). */
+  print: z.custom<NonNullable<PlSnapshotV2["print"]>>((v) => v != null && typeof v === "object").optional(),
+  issue: z.custom<NonNullable<PlSnapshotV2["issue"]>>((v) => v != null && typeof v === "object").optional(),
+  rowInfo: z.custom<NonNullable<PlSnapshotV2["rowInfo"]>>((v) => v != null && typeof v === "object").optional(),
+  sections: z.custom<NonNullable<PlSnapshotV2["sections"]>>((v) => Array.isArray(v)).optional(),
+  profileSummary: z.custom<NonNullable<PlSnapshotV2["profileSummary"]>>((v) => Array.isArray(v)).optional(),
 });
 
 export type PackingListSnapshot = z.output<typeof packingListSnapshotSchema>;

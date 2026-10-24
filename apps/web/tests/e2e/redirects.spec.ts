@@ -34,9 +34,6 @@ test.describe("old URLs redirect", () => {
     ["/dispatches/xyz", /\/dispatch\/xyz$/],
     ["/spool", /\/printing$/],
     ["/settings/members", /\/settings\?tab=team$/],
-    ["/onboarding", /\/welcome$/],
-    ["/change-password", /\/welcome$/],
-    ["/setup-credentials", /\/welcome\?magic=1$/],
     ["/waitlist?mode=demo", /\/request-access\?mode=demo$/],
   ];
 
@@ -45,6 +42,24 @@ test.describe("old URLs redirect", () => {
       await page.goto(old);
       await expect(page).toHaveURL(next);
       await expect(page.locator("h1").first()).toBeVisible();
+    });
+  }
+
+  // The old setup URLs open the welcome stepper, which has nothing for this
+  // suite's fully set-up owner and sends them home. The stop at /welcome is
+  // checked here; front-door.spec.ts walks /setup-credentials (magic-link
+  // owner) and /change-password (temp password) with open steps.
+  for (const old of ["/onboarding", "/change-password", "/setup-credentials"]) {
+    test(`${old} goes through /welcome, which sends a set-up owner to /today`, async ({ page }) => {
+      const seen: string[] = [];
+      page.on("framenavigated", (frame) => {
+        if (frame === page.mainFrame()) seen.push(new URL(frame.url()).pathname);
+      });
+      await page.goto(`${old}?from=email`);
+      await expect(page).toHaveURL(/\/today$/);
+      await expect(page.locator("h1").first()).toBeVisible();
+      expect(seen, `navigations: ${seen.join(" -> ")}`).toContain("/welcome");
+      expect(seen.indexOf("/welcome")).toBeLessThan(seen.lastIndexOf("/today"));
     });
   }
 
@@ -208,10 +223,10 @@ test.describe("new routes exist", () => {
     });
   }
 
-  test("/welcome renders for a signed-in user", async ({ page }) => {
+  test("/welcome sends a fully set-up user home", async ({ page }) => {
     await page.goto("/welcome");
-    await expect(page).toHaveURL(/\/welcome$/);
-    await expect(page.locator("h1").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/today$/);
+    await expect(page.locator("main#main h1").first()).toBeVisible();
   });
 });
 
@@ -220,8 +235,9 @@ test("staff: /admin/waitlist and /admin/spool land on the new pages", async ({ p
   await page.goto("/admin/waitlist");
   await expect(page).toHaveURL(/\/admin\/requests$/);
   await page.goto("/admin/spool");
-  // The companies list adds its own default filter to the URL.
-  await expect(page).toHaveURL(/\/admin\/companies(\?|$)/);
+  // Spec §3: the companies list with the Printing filter on.
+  await expect(page).toHaveURL(/\/admin\/companies\?(.*&)?printing=(1|true)/);
+  await expect(page.getByRole("checkbox", { name: "Only with label printing" })).toBeChecked();
 });
 
 test("signed-out old URLs go to login and come back to the new page", async ({ page }) => {

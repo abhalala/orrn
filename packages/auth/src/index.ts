@@ -3,19 +3,19 @@ import { createDb } from "@orrn/db";
 import * as schema from "@orrn/db/schema/auth";
 import { env } from "@orrn/env/server";
 import { trustedOriginsFor } from "./origins";
+import { magicLinkSecondFactorGuard } from "./magic-link-guard";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { magicLink } from "better-auth/plugins";
 import { hashPassword, verifyPassword } from "./password";
+import { unsentEmailLog } from "./unsent-email";
 
-async function sendAuthEmail(options: { to: string; subject: string; html: string }) {
+/** Exported for tests (packages/server/test/auth-email-log.test.ts). */
+export async function sendAuthEmail(options: { to: string; subject: string; html: string }) {
   if (env.NODE_ENV === "development" || !env.RESEND_API_KEY) {
-    console.log("----------------------------------------");
-    console.log(`Mock Auth Email sent to: ${options.to}`);
-    console.log(`Subject: ${options.subject}`);
-    console.log(`Body:\n${options.html}`);
-    console.log("----------------------------------------");
+    // Never the body outside development: it holds a live sign-in link.
+    console.log(unsentEmailLog(env.NODE_ENV, options, "Auth email"));
     return { success: true, messageId: "mock-message-id" };
   }
 
@@ -105,7 +105,15 @@ function renderOrrnEmailHtml(options: {
 
 let authSingleton: ReturnType<typeof buildAuth> | undefined;
 
-function buildAuth() {
+/**
+ * How the magic-link plugin stores its token in `verification.identifier`. Production keeps the
+ * default `"plain"`: Godseye writes owner links straight into `verification` with the plain token
+ * (routers/platform/waitlist.ts). The guard looks a token up both ways, so switching to `"hashed"`
+ * cannot open a bypass (tested). Never use a custom hasher: the guard could not find its rows.
+ */
+type MagicLinkStoreToken = "plain" | "hashed";
+
+function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
   const db = createDb();
 
   return betterAuth({
@@ -116,6 +124,11 @@ function buildAuth() {
     }),
     // Tested in packages/server/test/authTrustedOrigins.test.ts (production never trusts localhost).
     trustedOrigins: trustedOriginsFor(env),
+    // FP-PF-08: a magic link never signs in an account that has a password or a second factor,
+    // and the public `/sign-in/magic-link` request is refused outright (D14; no client asks for a
+    // link, Godseye issues owner links server-side). Tested in
+    // packages/server/test/platform-w1-auth.test.ts.
+    hooks: { before: magicLinkSecondFactorGuard(db) },
     emailAndPassword: {
       enabled: true,
       password: {
@@ -147,6 +160,12 @@ function buildAuth() {
       expo(),
       twoFactor(),
       magicLink({
+        // Every link requested here (the public endpoint) goes to the address by email and
+        // nowhere else. Godseye's owner links are written server-side (platform/waitlist.ts).
+        // D14: a link never creates an account. Accounts come only from an approved access request
+        // (Godseye) or an invite; verify for an unknown email gives no session and no user row.
+        disableSignUp: true,
+        storeToken: opts.magicLinkStoreToken ?? "plain",
         sendMagicLink: async ({ email, url }) => {
           await sendAuthEmail({
             to: email,
@@ -172,3 +191,15 @@ export function createAuth() {
   return authSingleton;
 }
 
+/** Test hook: a separate instance (not the singleton) with a different magic-link token storage. */
+export function buildAuthForTests(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
+  return buildAuth(opts);
+}
+
+/**
+ * Test hook: drop the cached instance so the next `createAuth()` binds the current `env.DB`
+ * (each server test file runs its own Miniflare D1 in one bun process).
+ */
+export function resetAuthForTests(): void {
+  authSingleton = undefined;
+}

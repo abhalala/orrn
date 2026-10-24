@@ -12,7 +12,7 @@ import { API_URL, WEB_ORIGIN } from "./ports";
  * `apps/server/.dev.local-account.local` (written by
  * `bun apps/server/scripts/write-local-accounts.ts`). Local D1 only.
  */
-function localPassword(): string {
+export function localPassword(): string {
   if (process.env.ORRN_LOCAL_PASSWORD) return process.env.ORRN_LOCAL_PASSWORD;
   const file = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../../../server/.dev.local-account.local");
   const line = readFileSync(file, "utf8")
@@ -24,11 +24,15 @@ function localPassword(): string {
 
 export type LocalRole = "owner" | "operator" | "viewer" | "office" | "staff";
 
-/** Fill and submit the real sign-in form on the current /login page. */
+/**
+ * Fill and submit the real sign-in form on the current /login page. Labels
+ * are matched exactly: the password field's "Show password" toggle also
+ * contains the word.
+ */
 export async function signInViaForm(page: Page, role: LocalRole) {
-  await page.getByLabel("Email address").fill(`${role}@orrn.local`);
-  await page.getByLabel("Password").fill(localPassword());
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByLabel("Email", { exact: true }).fill(`${role}@orrn.local`);
+  await page.getByLabel("Password", { exact: true }).fill(localPassword());
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
 }
 
 /** Start a signed-in browser context cookie without the UI (tests that are not about the login screen). */

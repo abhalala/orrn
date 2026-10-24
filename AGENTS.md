@@ -225,6 +225,40 @@ bun run deploy
 - `kg_per_12ft_milli` is thousandths of a kg, which equals grams per 12 ft, the unit of the section
   band (`die.weight_min_g` / `weight_max_g`). `drift` compares them directly.
 
+### Die room conventions (W1-DR-S, LEDGER D13)
+
+- An issue ALWAYS targets a run: `dieInstance.issues.issue({ dieInstanceId, pressLineId, pressRunId,
+  note? })`, `pressRunId` required. The run must be `queued` with no copy, of the copy's section, and
+  on the same line when it has one (a run with no line takes the issue's line). One batch: issue row,
+  copy `in_use`, `press_run.die_instance_id`, run `die_issued`. There is no issue without a run and
+  no "attach later".
+- `issues.cancel` (before die-in) and `issues.return` before die-in both put the run back to
+  `queued` with `die_instance_id` null in the same batch; return is refused while die-in is set and
+  die-out is not; after die-out a finished run keeps its copy. No path may leave a run `die_issued`
+  on a copy that is back on the rack (`runIssueClose` asserts it).
+- Multi-row die room writes use `dieRoomAbortUnless(db, landedSql)` as the last guard of the batch
+  (D1 has no transactions); catch with `isDieRoomAbort` and re-read to give the precise refusal.
+- Copy status by hand: the card (`dieInstance.update`) can only retire a copy from the rack. Nitriding
+  moves only through `nitridingOut` / `nitridingBack`, issue through `issues.*`, maker through
+  `maker.jobs.*`.
+- Files go through a signed PUT, never base64 in a tRPC body: `files.beginUpload({ sectionId? |
+  copyId?, kind, name, size, mime, pressDrawing? })` checks limits (image 8 MB, PDF 25 MB, CDR/DWG
+  40 MB) and returns `{ uploadId, uploadUrl, method: "PUT", headers, key, fileId, expiresAt }`; the
+  client PUTs the raw bytes to `uploadUrl` (Worker route `PUT /files/dies/upload`, streamed into R2,
+  Content-Length must equal `size`); then `files.commit({ uploadId })` checks the object and writes
+  the row. Reads are `GET /files/dies?key&exp&sig` (10 minutes). Both are HMAC-signed with a key
+  derived from `ORRN_MASTER_KEY`; a stage without it refuses (PRECONDITION_FAILED / 503), never an
+  empty secret.
+- Drift is never stored. Percent, tone, band position and kg/m come from `copyFigures` in
+  `lib/dieRoom.ts` on every read (`die.list`, `die.get`, `dieInstance.list`, `dieInstance.get`);
+  clients show `latestMilli`, `percentTenths`, `tone`, `position`, `kgPerMetre` as given.
+- Owner gate: `assertDieAllowed` (purpose `press`) on issue for every customer of the run; FORBIDDEN
+  carries `meta`, read as `error.data.meta` (`TRPCMetaError`). An approved owner override lasts until
+  its `meta.closedAt`.
+- Newest-first die room lists (`issues.list`, `maker.jobs.list`) page by `limit` + opaque `cursor`
+  and return `{ items, nextCursor }` (null on the last page); `dieInstance.list` and `die.list` page
+  by `limit`/`offset` with `total`/`nextOffset`.
+
 ## Scrap purchase (vendors, lots, D/C notes)
 
 - Tables in `packages/db/src/schema/purchase.ts`; routers `vendor` (`routers/vendor.ts`) and
@@ -627,6 +661,50 @@ bun run deploy
   Queued runs are inserted with `pressRunInserts` (every bound column explicit: drizzle binds a JS
   default such as `time_unconfirmed` / `source` when a row leaves it out, which broke the 100-param
   chunking at 7 dies).
+
+## Platform: modules, shifts, releases, backups
+
+- **Modules (FP-PF-07, D14).** `company.modules` is the bought-module list; `[]` means every module
+  is on. Migration 0026 turned the old Godseye default `[customers, dies, bundles, dispatches]` into
+  `[]`. The gate is in `companyProcedure` (`packages/server/src/index.ts`) and covers mutations
+  only: reads stay open (a packer picks a die inside pack with `dies` off) and the nav hides what is
+  off. Register every new router in `ROUTER_MODULE` (`lib/moduleGate.ts`), for example press,
+  ageing, plans and dieRoom, in the same change that adds the router. A single procedure of an
+  ungated router goes in `PROCEDURE_MODULE` (`stock.move`, `stock.openingBalance`). A new approval
+  kind goes in `APPROVAL_KIND_MODULE`; it is typed over every kind, so it will not compile until
+  you add it. When a mutation writes another module's rows, also call `assertModule(ctx, module)`
+  inside it. Godseye `platform.updatePlanAndModules` refuses unknown keys and writes the audit row.
+- **Shifts and the production day (FP-PF-05).** Shifts live in `company.settings.shifts` (1 to 4
+  of them, they cover 24 h with no gap or overlap, and ids stay the same on rename). Never compute
+  "today" for the floor by calendar date. Use `productionDayWindowFor(db, companyId, at?)`
+  (`lib/productionDay.ts`): before shift 1 starts, the time belongs to the previous day. It reads
+  the settings fresh and never rewrites past rows (`press_run.shift_id` keeps its old id; you
+  cannot delete a shift that a press run cites).
+- **Releases and devices (FP-PF-11, D8).** `release.check` is public and returns no company data,
+  only the gate, the latest version and the APK url. Lookups by install use `device_install_idx`.
+  A build is Blocked below the effective `minBuild` (mandatory floors raise it) or when every plant
+  that knows the install has revoked it. Offline, the last Open answer holds for 24 h, and an OTA
+  update cannot clear a block. `device.register` stores the session that registered
+  (`device.auth_session_id`). `device.revoke` ends that session (and only that one), a revoked
+  install's register is refused and ends the session that asked, and restore lets it register
+  again. Dev seed floors are `minBuild: 1` because apps/native sets no versionCode or buildNumber.
+- **Magic links (FP-PF-08, D14).** `disableSignUp: true`. Accounts come only from an approved
+  access request or an invite. The public `POST /sign-in/magic-link` is refused. Godseye writes
+  owner links straight into `verification`. A link never signs in an account that has a password
+  or 2FA (`packages/auth/src/magic-link-guard.ts`). The guard finds tokens stored plain or hashed;
+  never configure a custom token hasher.
+- **Backups (FP-PF-12).** Every table that has `company_id` is exported unless it is in
+  `EXCLUDED_TABLES`, and any column matching `isSecretColumn` is dropped (`lib/backup.ts`). Give a
+  new credential column a name ending `*_wrapped` or `*_hash`, or one containing token, secret or
+  password, or list it there; the backup test checks every schema table against this.
+  Export and drill write an audit row (`backup.export` / `backup.drill`, `meta.ok`) whether they
+  succeed or fail. A drill restores into a suspended `restore-drill-{date}` company. The daily cron
+  (`30 21 * * *` UTC) exports each active plant once per IST day, then removes drill scratch
+  companies older than `DRILL_SCRATCH_KEEP_DAYS` (7), children first, and logs
+  `backup.drill.discard`. Runbook: `docs/RESTORE_DRILL.md`.
+- **Support (FP-PF-14).** Status goes Open → Answered → Closed, or Open → Closed. A staff reply or
+  close lands only if the request is unchanged since it was read; otherwise it is a CONFLICT and no
+  audit row is written.
 
 ## Worker performance rules
 

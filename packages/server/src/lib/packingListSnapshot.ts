@@ -11,7 +11,14 @@
  * Snapshots are stored once and never rebuilt from live data except by packingList.regenerate,
  * which keeps the PL number.
  */
-import { kgPer12ft, MM_PER_INCH, weightRange12ftFromMilli, weightRange12ftOf } from "@orrn/domain";
+import {
+  kgPer12ft,
+  MM_PER_INCH,
+  profileKindSummary,
+  weightRange12ftFromMilli,
+  weightRange12ftOf,
+  type ProfileKind,
+} from "@orrn/domain";
 import { z } from "zod";
 
 import { companyTimezone, zonedYmd } from "./dayWindow";
@@ -71,6 +78,18 @@ export const plRowSchema = z.object({
   range12ft: z.number().nullable(),
   po: z.string().nullable(),
 });
+
+/**
+ * FP-PK-13 per-row extras, keyed by bundle number (`rowInfo`), kept beside the 11 printed columns so
+ * a row keeps the PL-8 shape older readers and renderers rely on.
+ */
+export const plRowInfoSchema = z.object({
+  /** The customer's own bundle number (party series), else the serial. */
+  partyNo: z.string().nullable(),
+  /** The order line the bundle was packed for (`SO-12/1`), from packed_sales_order_line_id. */
+  originalSo: z.string().nullable(),
+  profileKind: z.enum(["hollow", "solid", "semi"]).nullable(),
+});
 export type PlRow = z.infer<typeof plRowSchema>;
 
 const subtotalSchema = z.object({
@@ -95,6 +114,11 @@ export const plGroupSchema = z.object({
   subtotal: subtotalSchema,
 });
 export type PlGroup = z.infer<typeof plGroupSchema>;
+
+/** Subtotal per section (FP-PK-13), in printed order. */
+export const plSectionSchema = subtotalSchema.extend({ sectionCode: z.string(), item: z.string() });
+/** Footer summary by profile kind, hollow / solid / semi, zero kinds omitted. */
+export const plProfileSchema = subtotalSchema.extend({ kind: z.enum(["hollow", "solid", "semi"]) });
 
 export const plSnapshotV2Schema = z.object({
   version: z.literal(2),
@@ -140,6 +164,21 @@ export const plSnapshotV2Schema = z.object({
   ]),
   groups: z.array(plGroupSchema),
   summary: subtotalSchema.extend({ text: z.string() }),
+  // ---- FP-PK-13 (absent on PLs stored before it) ----
+  issue: z
+    .object({
+      /** 1 for the first issue; regenerate keeps the PL number and adds 1. */
+      revision: z.number().int().positive(),
+      /** Every dispatch the list covers (a combined list covers several of one customer). */
+      dispatchCodes: z.array(z.string()),
+      /** Branding off hides logo and tagline; the legal name always prints. */
+      branding: z.object({ show: z.boolean(), tagline: z.string().nullable(), logoUrl: z.string().nullable() }),
+    })
+    .optional(),
+  rowInfo: z.record(z.string(), plRowInfoSchema).optional(),
+  sections: z.array(plSectionSchema).optional(),
+  profileSummary: z.array(plProfileSchema).optional(),
+  print: z.object({ showBranding: z.boolean(), showOriginalSo: z.boolean() }).optional(),
   // ---- v1 keys, unchanged meaning ----
   dispatch: z.object({
     code: z.string(),
@@ -234,6 +273,10 @@ export type PlItemInput = {
   series: string;
   sectionCode: string;
   sectionName: string | null;
+  /** FP-PK-13: party number (else serial), section profile kind, packed-for line code. */
+  partyNo?: string | null;
+  profileKind?: ProfileKind | null;
+  packedLineCode?: string | null;
   line: {
     id: string;
     orderNumber: string;
@@ -262,7 +305,14 @@ export type PlBuildInput = {
     transporter: string | null;
     invoiceNumber: string | null;
     invoiceDate: string | null;
+    /** Transporter master name snapshotted on the dispatch (wins over the free text). */
+    transporterName?: string | null;
   };
+  /** FP-PK-13: revision, combined dispatches and print choices. Defaults: 1, [code], on, on. */
+  revision?: number;
+  dispatchCodes?: string[];
+  showBranding?: boolean;
+  showOriginalSo?: boolean;
   customer: {
     id: string;
     name: string;
@@ -290,6 +340,15 @@ export function letterhead(settings: Record<string, unknown> | null): {
   const rec = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
   return { legalName: str(rec.legalName), gstin: str(rec.gstin), address: str(rec.address), phone: str(rec.phone) };
+}
+
+/** Logo and tagline from `settings.letterhead` ({ tagline, logoUrl }); hidden when branding is off. */
+export function branding(settings: Record<string, unknown> | null): { tagline: string | null; logoUrl: string | null } {
+  const raw = settings?.letterhead;
+  const rec = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const str = (v: unknown, max: number) => (typeof v === "string" && v.trim() && v.length <= max ? v.trim() : null);
+  const logo = str(rec.logoUrl, 2048);
+  return { tagline: str(rec.tagline, 200), logoUrl: logo && /^https:\/\//.test(logo) ? logo : null };
 }
 
 function itemText(item: PlItemInput): string {
@@ -342,8 +401,14 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
 
   let sr = 0;
   const outGroups: PlGroup[] = ordered.map(({ group, items }) => {
+    // FP-PK-13: section (groups) → cut length → party number (natural: 26J9 before 26J10).
     const rows = [...items]
-      .sort((a, b) => natural.compare(a.serial, b.serial))
+      .sort(
+        (a, b) =>
+          a.lengthMm - b.lengthMm ||
+          natural.compare(a.partyNo ?? a.serial, b.partyNo ?? b.serial) ||
+          natural.compare(a.serial, b.serial),
+      )
       .map((item): PlRow => {
         sr += 1;
         const { ft, inch } = cutFtIn(item.lengthMm);
@@ -391,6 +456,23 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
   );
   const head = letterhead(input.company.settings);
   const bySerial = new Map(input.items.map((i) => [i.serial, i]));
+  const showBranding = input.showBranding ?? true;
+  const brand = branding(input.company.settings);
+  // Subtotal per section, in printed order (groups are section-ordered).
+  const sections: z.infer<typeof plSectionSchema>[] = [];
+  for (const g of outGroups) {
+    let sec = sections[sections.length - 1];
+    if (!sec || sec.sectionCode !== g.sectionCode) {
+      sec = { sectionCode: g.sectionCode, item: g.item, bundles: 0, pcs: 0, weightG: 0 };
+      sections.push(sec);
+    }
+    sec.bundles += g.subtotal.bundles;
+    sec.pcs += g.subtotal.pcs;
+    sec.weightG += g.subtotal.weightG;
+  }
+  const profileSummary = profileKindSummary(
+    allRows.map((r) => ({ profileKind: bySerial.get(r.bundleNo)?.profileKind ?? null, weightG: r.weightG, pcs: r.pcs })),
+  ).map((t) => ({ kind: t.kind, bundles: t.bundles, pcs: t.pcs, weightG: t.weightG }));
 
   return {
     version: 2,
@@ -408,7 +490,7 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
       vehicleNo: input.dispatch.vehicleNo,
       driverName: input.dispatch.driverName,
       driverPhone: input.dispatch.driverPhone,
-      transporter: input.dispatch.transporter,
+      transporter: input.dispatch.transporterName ?? input.dispatch.transporter,
       poNumbers,
       invoiceNumber: input.dispatch.invoiceNumber,
       invoiceDate: input.dispatch.invoiceDate,
@@ -422,6 +504,20 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
       weightG: totalWeightG,
       text: `${allRows.length} ${allRows.length === 1 ? "bundle" : "bundles"} · ${kg} kg`,
     },
+    issue: {
+      revision: input.revision ?? 1,
+      dispatchCodes: input.dispatchCodes ?? [input.dispatch.code],
+      branding: showBranding ? { show: true, ...brand } : { show: false, tagline: null, logoUrl: null },
+    },
+    rowInfo: Object.fromEntries(
+      input.items.map((i) => [
+        i.serial,
+        { partyNo: i.partyNo ?? i.serial, originalSo: i.packedLineCode ?? null, profileKind: i.profileKind ?? null },
+      ]),
+    ),
+    sections,
+    profileSummary,
+    print: { showBranding, showOriginalSo: input.showOriginalSo ?? true },
     dispatch: {
       code: input.dispatch.code,
       customer: {
