@@ -30,6 +30,21 @@ async function trpcMutation<T>(page: Page, path: string, input: unknown): Promis
   return (await res.json()).result.data as T;
 }
 
+/**
+ * Retire a location this spec made. The e2e run shares one seeded database, and an active
+ * "E2E-…" yard sorts ahead of Y1 in Pack's yard picker, which pack.spec drives by keyboard.
+ */
+async function retireLocation(page: Page, code: string) {
+  const res = await page
+    .context()
+    .request.get(`${API_URL}/trpc/stock.locations.list?input=${encodeURIComponent(JSON.stringify({}))}`, { headers: { origin: WEB_ORIGIN } });
+  expect(res.ok(), `stock.locations.list returned ${res.status()}`).toBe(true);
+  const { items } = (await res.json()).result.data as { items: { id: string; code: string }[] };
+  const row = items.find((l) => l.code === code);
+  expect(row, `location ${code}`).toBeDefined();
+  await trpcMutation(page, "stock.locations.update", { id: row!.id, active: false });
+}
+
 async function expectCleanLayout(page: Page) {
   await expectNoHorizontalScroll(page);
   const axe = await new AxeBuilder({ page }).include("main#main").analyze();
@@ -79,6 +94,7 @@ for (const width of WIDTHS) {
       await expect(s).toBeHidden();
       await expect(rowWith(page, code)).toBeVisible();
       await expectNoHorizontalScroll(page);
+      await retireLocation(page, code);
     });
 
     test("vendors: list and add one", async ({ page }) => {
@@ -170,6 +186,7 @@ test.describe("masters at 1280px: archive, merge, roles", () => {
     await page.getByRole("button", { name: `Edit ${code}` }).click();
     await sheet(page).getByRole("button", { name: "Bring back" }).click();
     await expect(page.getByText(`${code} is back in use`)).toBeVisible();
+    await retireLocation(page, code);
   });
 
   test("a vendor is archived from its page and brought back", async ({ page }) => {
