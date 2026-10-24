@@ -5,7 +5,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
-import { bundle, customer, die, dieInstance, packReject, stockLedger } from "@orrn/db/schema";
+import { bundle, cast, customer, die, dieBand, dieInstance, melt, packReject, returnStream, stockLedger } from "@orrn/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -232,6 +232,7 @@ describe("createReceipt: weight source (FP-PK-02)", () => {
   test("a scale weight must equal the reading", async () => {
     setClock(NOON);
     const p = await plant();
+    await configureScale(p.companyId);
     await expect(
       p.owner.bundle.createReceipt({
         dieId: p.dieA,
@@ -308,6 +309,28 @@ describe("rejects at pack (FP-PK-14) and the ledger", () => {
     expect(bal.items.reduce((s, i) => s + (i.qtyG ?? 0), 0)).toBe(kg(4.5));
   }, SLOW);
 
+  test("a 'Plant scrap' stream under another code takes the reject kg; nothing is silently dropped (m-5)", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const streamId = crypto.randomUUID();
+    await env.db
+      .insert(returnStream)
+      .values({ id: streamId, companyId: p.companyId, code: "PS-OLD", name: "Plant Scrap", nameKey: "plantscrap", kind: "charge" });
+    await p.owner.bundle.createReceipt({
+      dieId: p.dieA,
+      unit: "pcs",
+      locationId: p.yard,
+      rows: [row(20)],
+      rejects: [{ pcs: 2, weightG: kg(3), reasonCode: "bend" }],
+    });
+    const scrap = await env.db
+      .select()
+      .from(stockLedger)
+      .where(and(eq(stockLedger.companyId, p.companyId), eq(stockLedger.voucherType, "pack_reject")));
+    expect(scrap.map((r) => [r.itemRef, r.qtyG])).toEqual([[streamId, kg(3)]]);
+    expect(await env.db.select().from(returnStream).where(and(eq(returnStream.companyId, p.companyId), eq(returnStream.code, "PLANT-SCRAP")))).toHaveLength(0);
+  }, SLOW);
+
   test("'other' needs a note; an unknown reason is refused", async () => {
     setClock(NOON);
     const p = await plant();
@@ -364,5 +387,172 @@ describe("stock.byDieLength and previewLine", () => {
     expect(Math.abs((prev.kgPer12ftMilli ?? 0) - 3_000)).toBeLessThanOrEqual(1);
     expect(prev.range12ft).toBe(3);
     expect(prev).toHaveProperty("driftTone");
+  }, SLOW);
+});
+
+describe("one band rule (D15): copy band when a copy is named, else the section's primary band", () => {
+  /** 10 pcs at 3,658 mm weighing 22.802 kg = 2.280 kg per 12 ft. */
+  const line228 = { lengthMm: 3_658, weightG: 22_802, pcs: 10 };
+
+  test("worked example: 2.28 kg/12 ft against a 2.00-2.20 section band is above, +14.0 %, red", async () => {
+    setClock(NOON);
+    const p = await plant();
+    await env.db.update(die).set({ weightMinG: 2_000, weightMaxG: 2_200 }).where(eq(die.id, p.dieA));
+    const prev = await p.owner.bundle.previewLine({ dieId: p.dieA, ...line228 });
+    expect(prev).toMatchObject({
+      kgPer12ftMilli: 2_280,
+      band: { bandId: null, minG: 2_000, maxG: 2_200, source: "section" },
+      position: "above",
+      driftTone: "red",
+      driftPercentTenths: 140,
+    });
+    // range12ft is display only (the billed text); the verdict never comes from it.
+    expect(prev.range12ft).not.toBeNull();
+  }, SLOW);
+
+  test("the same bundle gets the same verdict on the pack line, /b, the pack session and the stock views", async () => {
+    setClock(NOON);
+    const p = await plant();
+    await env.db.update(die).set({ weightMinG: 2_000, weightMaxG: 2_200 }).where(eq(die.id, p.dieA));
+    const bandId = crypto.randomUUID();
+    await env.db.insert(dieBand).values({ id: bandId, companyId: p.companyId, sectionId: p.dieA, wallTenthMm: 15, weightMinG: 2_250, weightMaxG: 2_400 });
+    const copyId = crypto.randomUUID();
+    const plainCopy = crypto.randomUUID();
+    await env.db.insert(dieInstance).values([
+      { id: copyId, companyId: p.companyId, sectionId: p.dieA, seqNo: 1, code: "A-1", bandId },
+      { id: plainCopy, companyId: p.companyId, sectionId: p.dieA, seqNo: 2, code: "A-2" },
+    ]);
+
+    // Copy named: the copy's band (2.25-2.40) wins over the section's (2.00-2.20).
+    const prev = await p.owner.bundle.previewLine({ dieId: p.dieA, dieInstanceId: copyId, ...line228 });
+    expect(prev).toMatchObject({ band: { bandId, minG: 2_250, maxG: 2_400, source: "copy" }, position: "in", driftTone: "green", driftPercentTenths: 13 });
+    // No copy, or a copy on the primary band: the section's band.
+    for (const dieInstanceId of [undefined, plainCopy]) {
+      const s = await p.owner.bundle.previewLine({ dieId: p.dieA, ...(dieInstanceId ? { dieInstanceId } : {}), ...line228 });
+      expect(s).toMatchObject({ band: { bandId: null, source: "section" }, position: "above", driftTone: "red" });
+    }
+
+    const res = await p.owner.bundle.createReceipt({
+      dieId: p.dieA,
+      unit: "pcs",
+      locationId: p.yard,
+      dieInstanceId: copyId,
+      rows: [{ quantity: line228.pcs, weightG: line228.weightG, lengthMm: line228.lengthMm }],
+    });
+    const serial = res.bundles[0]!.serial;
+    const expected = { bandId, source: "copy", minG: 2_250, maxG: 2_400, bandStartMilli: 2_250, position: "in", tone: "green", percentTenths: 13 } as const;
+
+    const onB = await p.owner.bundle.getBySerial({ serial });
+    expect(onB.band).toEqual(expected);
+    const session = await p.owner.bundle.getGroup({ id: res.groupId });
+    expect(session.bundles.map((b) => b.band)).toEqual([expected]);
+    const list = await p.owner.bundle.listBundles({ groupId: res.groupId });
+    expect(list.items.map((b) => b.band)).toEqual([expected]);
+    const lengths = await p.owner.stock.byDieLength({ dieId: p.dieA });
+    expect(lengths.items.map((i) => [i.avgKgPer12ftMilli, i.band])).toEqual([[2_280, expected]]);
+    expect([prev.driftTone, onB.band.tone, session.bundles[0]!.band.tone, list.items[0]!.band.tone, lengths.items[0]!.band.tone]).toEqual(
+      Array(5).fill("green"),
+    );
+  }, SLOW);
+});
+
+/** A cast (October 2026), with one live melt when `withMelt`. */
+async function seedCast(companyId: string, number: string, seq: number, withMelt: boolean) {
+  const id = crypto.randomUUID();
+  await env.db.insert(cast).values({ id, companyId, number, period: "2026-10", year: 2026, month: 10, seq, alloy: "6063", openedAt: NOON });
+  if (withMelt) {
+    await env.db.insert(melt).values({
+      id: crypto.randomUUID(),
+      companyId,
+      castId: id,
+      seq: 1,
+      alloy: "6063",
+      preheatStartAt: NOON,
+      chargingStartAt: NOON,
+      chargingEndAt: NOON,
+      castingStartAt: NOON,
+      castingEndAt: NOON,
+      ldoStartTenthIn: 0,
+      ldoEndTenthIn: 0,
+      inputG: kg(1000),
+      logsPcs: 10,
+      logsLengthMm: 6_000,
+      logsG: kg(950),
+      outputG: kg(950),
+      lossG: kg(50),
+      lossBp: 500,
+      allowedBurnG: kg(30),
+    });
+  }
+  return id;
+}
+
+describe("createReceipt: snapshots and cast (I-5)", () => {
+  test("BIS / CM-L pair is snapshotted per profile kind; semi falls back to solid; later settings changes do not touch it", async () => {
+    setClock(NOON);
+    const solid = { standard: "IS 733:2023", cml: "CM/L-1234567" };
+    const hollow = { standard: "IS 1285:2023", cml: "CM/L-7654321" };
+    const p = await plant({ settings: { standards: { solid, hollow } } });
+    const packKind = async (kind: "solid" | "hollow" | "semi" | null) => {
+      await env.db.update(die).set({ profileKind: kind }).where(eq(die.id, p.dieA));
+      const res = await p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, rows: [row(10)] });
+      const [b] = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId));
+      return { bisStandard: b!.bisStandard, cmlNo: b!.cmlNo, id: b!.id };
+    };
+    expect(await packKind("semi")).toMatchObject({ bisStandard: solid.standard, cmlNo: solid.cml });
+    expect(await packKind("hollow")).toMatchObject({ bisStandard: hollow.standard, cmlNo: hollow.cml });
+    const none = await packKind(null);
+    expect(none).toMatchObject({ bisStandard: solid.standard, cmlNo: solid.cml });
+
+    const q = await plant({ settings: { standards: { hollow } } });
+    await env.db.update(die).set({ profileKind: "semi" }).where(eq(die.id, q.dieA));
+    const res = await q.owner.bundle.createReceipt({ dieId: q.dieA, unit: "pcs", locationId: q.yard, rows: [row(10)] });
+    const [b] = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId));
+    expect([b!.bisStandard, b!.cmlNo]).toEqual([null, null]);
+  }, SLOW);
+
+  test("a cast with a live melt is stored and printed on the label; a cast with no melt is refused naming it", async () => {
+    setClock(NOON);
+    const p = await plant({ settings: { requireCastOnBundle: true } });
+    const empty = await seedCast(p.companyId, "J7", 7, false);
+    await expect(
+      p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, castId: empty, rows: [row(10)] }),
+    ).rejects.toThrow("Cast J7 has no melt yet; pick another cast");
+    const live = await seedCast(p.companyId, "J8", 8, true);
+    const res = await p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, castId: live, rows: [row(10)] });
+    const [b] = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId));
+    expect(b!.castId).toBe(live);
+    const { loadPackLabelVariables } = await import("../src/lib/pack");
+    const vars = await loadPackLabelVariables(env.db as never, p.companyId, b!);
+    expect(vars.cast).toBe("J8");
+    // Another plant's cast is not found.
+    const q = await plant();
+    await expect(
+      q.owner.bundle.createReceipt({ dieId: q.dieA, unit: "pcs", locationId: q.yard, castId: live, rows: [row(10)] }),
+    ).rejects.toThrow("Cast not found");
+  }, SLOW);
+});
+
+describe("createReceipt: minors (m-1, m-13)", () => {
+  test("a 'scale' weight is refused while the plant has no scale (m-1)", async () => {
+    setClock(NOON);
+    const p = await plant();
+    await expect(
+      p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, rows: [{ ...row(10), weightSource: "scale" }] }),
+    ).rejects.toThrow("Row 1: no scale is connected; type the weight and say why");
+    expect(await env.db.select().from(bundle).where(eq(bundle.companyId, p.companyId))).toHaveLength(0);
+  }, SLOW);
+
+  test("a retired or at-maker die copy cannot pack (m-13)", async () => {
+    setClock(NOON);
+    const p = await plant();
+    for (const [i, status] of (["retired", "at_maker"] as const).entries()) {
+      const copyId = crypto.randomUUID();
+      await env.db.insert(dieInstance).values({ id: copyId, companyId: p.companyId, sectionId: p.dieA, seqNo: i + 1, code: `R-${i}`, status });
+      await expect(
+        p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, dieInstanceId: copyId, rows: [row(10)] }),
+      ).rejects.toThrow(status === "retired" ? `Die copy R-${i} is retired` : `Die copy R-${i} is at the die maker`);
+    }
+    expect(await env.db.select().from(bundle).where(eq(bundle.companyId, p.companyId))).toHaveLength(0);
   }, SLOW);
 });

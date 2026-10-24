@@ -77,6 +77,11 @@ export type TestEnv = {
     status?: BundleStatus,
   ): Promise<{ id: string; serial: string }[]>;
   /**
+   * Move seeded bundles to plant stock (a `bundle_transfer` to no line), so the floor may dispatch
+   * them (D12: a bundle with no line and no transfer is `unassigned` and refused).
+   */
+  plantStock(companyId: string, bundleIds: readonly string[]): Promise<void>;
+  /**
    * Run `fn` once, right before the next D1 `batch()` (i.e. after a procedure's
    * reads, before its atomic write). Lets tests interleave another mutation
    * deterministically to simulate a race. `fn`'s own batches don't re-trigger it.
@@ -373,6 +378,15 @@ export async function createTestEnv(): Promise<TestEnv> {
     return rows.map(({ id, serial }) => ({ id, serial }));
   }
 
+  async function plantStock(companyId: string, bundleIds: readonly string[]) {
+    const { bundleTransfer } = await import("@orrn/db/schema/sales");
+    const batchId = createId();
+    const rows = bundleIds.map((bundleId) => ({ id: createId(), companyId, bundleId, batchId, reason: "test: plant stock" }));
+    for (let i = 0; i < rows.length; i += 15) {
+      await db.insert(bundleTransfer).values(rows.slice(i, i + 15));
+    }
+  }
+
   return {
     db,
     d1,
@@ -389,6 +403,7 @@ export async function createTestEnv(): Promise<TestEnv> {
     seedDie,
     seedCustomer,
     seedBundles,
+    plantStock,
     beforeNextBatch(fn) {
       batchHook.next = fn;
     },

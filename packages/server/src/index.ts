@@ -2,8 +2,15 @@ import { initTRPC, TRPCError } from "@trpc/server";
 
 import type { Context } from "./context";
 import { can, canAny, type Action } from "./lib/permissions";
+import { ScanRefusalError } from "./lib/scanRefusal";
 
-export const t = initTRPC.context<Context>().create();
+export const t = initTRPC.context<Context>().create({
+  /** A dispatch add refusal (D12) carries its machine `{code, reason}` to clients as `data.refusal`. */
+  errorFormatter({ shape, error }) {
+    const refusal = error.cause instanceof ScanRefusalError ? error.cause.refusal : null;
+    return { ...shape, data: { ...shape.data, refusal } };
+  },
+});
 
 export const router = t.router;
 

@@ -663,7 +663,7 @@ export const packingListRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Every dispatch must be completed" });
       }
       if (new Set(rows.map((r) => r.customerId)).size > 1) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Packing lists of one customer only can be combined" });
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only packing lists of one customer can be combined" });
       }
       rows.sort((a, b) => (a.completedAt?.getTime() ?? 0) - (b.completedAt?.getTime() ?? 0) || a.code.localeCompare(b.code));
       const primary = rows[0]!;

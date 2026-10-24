@@ -4,9 +4,6 @@ import { z } from "zod";
 
 import {
   castRequiredOnBundle,
-  driftPercentTenths,
-  driftTone,
-  bandPosition,
   normalizeSerial,
   readFloorSettings,
   resolveStandard,
@@ -16,7 +13,7 @@ import {
 } from "@orrn/domain";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
-import { dieBand, dieInstance } from "@orrn/db/schema/dies";
+import { dieInstance } from "@orrn/db/schema/dies";
 import { cast as castTable, melt } from "@orrn/db/schema/foundry";
 import { openSalesOrderStatuses, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { location } from "@orrn/db/schema/stock";
@@ -38,6 +35,7 @@ import { auditInsert } from "../lib/audit";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
+import { bundleBandTone, bundleBandTones } from "../lib/bundleBand";
 import { kgPer12ftMilli } from "../lib/bundleWeight";
 import { now as clockNow } from "../lib/clock";
 import { assertDieAllowed } from "../lib/dieOwner";
@@ -50,7 +48,8 @@ import {
   errorText,
   isPackAbort,
   packRejectLedgerRow,
-  plantScrapStreamStatement,
+  plantScrapStreamId,
+  plantScrapStreamStatements,
   readAgeingRow,
   rejectReasons,
   scaleConfigured,
@@ -287,12 +286,20 @@ async function loadBundleDetail(
     .orderBy(desc(bundleStatusEvent.at))
     .limit(20);
 
+  // D15: the same band verdict as the pack line and the stock views (`/b/$serial`).
+  const band = await bundleBandTone(db, companyId, {
+    dieId: row.dieId,
+    dieInstanceId: row.dieInstanceId,
+    kgPer12ftMilli: row.kgPer12ftMilli ?? kgPer12ftMilli(row),
+  });
+
   return {
     bundle: row,
     die: dieRow ?? null,
     group: groupRow ?? null,
     activeDispatch,
     events,
+    band,
   };
 }
 
@@ -334,6 +341,17 @@ export const bundleRouter = router({
       const line = await receiptOrderLine(ctx.db, ctx.companyId, input.salesOrderLineId, input.dieId);
       const salesOrderLineId = line?.id ?? null;
 
+      // m-13: a retired copy or one away at the die maker cannot have pressed these.
+      if (input.dieInstanceId) {
+        const [copy] = await ctx.db
+          .select({ code: dieInstance.code, status: dieInstance.status })
+          .from(dieInstance)
+          .where(and(eq(dieInstance.id, input.dieInstanceId), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.sectionId, input.dieId)))
+          .limit(1);
+        if (copy?.status === "retired") throw new TRPCError({ code: "BAD_REQUEST", message: `Die copy ${copy.code} is retired` });
+        if (copy?.status === "at_maker") throw new TRPCError({ code: "BAD_REQUEST", message: `Die copy ${copy.code} is at the die maker` });
+      }
+
       // FP-PK-10: an owned die makes only its owner's material; plant stock (no line) is blocked.
       const owner = await assertDieAllowed(ctx.db, ctx.companyId, {
         dieId: input.dieId,
@@ -356,6 +374,10 @@ export const bundleRouter = router({
       const weights = input.rows.map((row, idx) => {
         const source: BundleWeightSource = row.weightSource ?? "manual";
         if (source === "scale") {
+          // m-1: "scale" without a scale on the node would dodge the typed-weight reason.
+          if (!scaleOn) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: `Row ${idx + 1}: no scale is connected; type the weight and say why` });
+          }
           if (row.scaleReadingG != null && row.scaleReadingG !== row.weightG) {
             throw new TRPCError({ code: "BAD_REQUEST", message: `Row ${idx + 1}: a scale weight must be the reading` });
           }
@@ -370,6 +392,9 @@ export const bundleRouter = router({
 
       const rejectReasonTexts = await rejectReasons(ctx.db, ctx.companyId, rejects);
       const plantScrap = rejects.some((r) => r.weightG) ? await resolvePlantScrap(ctx.db, ctx.companyId) : null;
+      // m-5: the stream the reject kg posts to, resolved before the batch (created in it when new).
+      const existingStream = plantScrap ? await plantScrapStreamId(ctx.db, ctx.companyId) : null;
+      const scrapStreamId = existingStream ?? crypto.randomUUID();
 
       const groupId = crypto.randomUUID();
       const now = clockNow();
@@ -527,7 +552,9 @@ export const bundleRouter = router({
       if (rejectRows.length > 0) {
         pushChunkedInserts(statements, (rows) => ctx.db.insert(packReject).values(rows), rejectRows);
         if (plantScrap) {
-          statements.push(plantScrapStreamStatement(ctx.db, ctx.companyId, { userId, seq }));
+          statements.push(
+            ...plantScrapStreamStatements(ctx.db, ctx.companyId, { id: scrapStreamId, existing: existingStream !== null, userId, seq }),
+          );
           for (const r of rejectRows) {
             if (!r.weightG) continue;
             // C10: weighed reject kg = + at plant scrap (PLANT-SCRAP stream), voucher = the reject row.
@@ -538,6 +565,7 @@ export const bundleRouter = router({
                 rejectId: r.id,
                 weightG: r.weightG,
                 plantScrapId: plantScrap.id,
+                streamId: scrapStreamId,
                 userId,
                 postedAt: now,
               }),
@@ -605,7 +633,8 @@ export const bundleRouter = router({
 
   /**
    * FP-PK-03: live kg per 12 ft and drift for one line on the pack screen, computed on the server
-   * (clients never send derived numbers). Band = the copy's band when it has one, else the section's.
+   * (clients never send derived numbers). Band and tone come from the one band rule (D15,
+   * `lib/bundleBand.ts`): the copy's band when a copy is named, else the section's primary band.
    */
   previewLine: companyProcedure
     .input(
@@ -624,30 +653,25 @@ export const bundleRouter = router({
         .where(and(eq(die.id, input.dieId), eq(die.companyId, ctx.companyId), isNull(die.deletedAt)))
         .limit(1);
       if (!section) throw new TRPCError({ code: "NOT_FOUND", message: "Die not found" });
-      let band: { minG: number; maxG: number; source: "copy" | "section" } | null =
-        section.weightMinG > 0 && section.weightMaxG >= section.weightMinG
-          ? { minG: section.weightMinG, maxG: section.weightMaxG, source: "section" }
-          : null;
       if (input.dieInstanceId) {
         const [copy] = await ctx.db
-          .select({ sectionId: dieInstance.sectionId, minG: dieBand.weightMinG, maxG: dieBand.weightMaxG })
+          .select({ sectionId: dieInstance.sectionId })
           .from(dieInstance)
-          .leftJoin(dieBand, and(eq(dieBand.id, dieInstance.bandId), eq(dieBand.companyId, ctx.companyId)))
           .where(and(eq(dieInstance.id, input.dieInstanceId), eq(dieInstance.companyId, ctx.companyId)))
           .limit(1);
         if (!copy || copy.sectionId !== section.id) throw new TRPCError({ code: "NOT_FOUND", message: "Die copy not found" });
-        if (copy.minG != null && copy.maxG != null) band = { minG: copy.minG, maxG: copy.maxG, source: "copy" };
       }
-      const [co] = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)).limit(1);
-      const floor = readFloorSettings(co?.settings);
       const milli = kgPer12ftMilli({ weightG: input.weightG, quantity: input.pcs, lengthMm: input.lengthMm });
+      // D15: the one band rule (lib/bundleBand.ts), the same verdict `/b`, the pack session and stock show.
+      const v = await bundleBandTone(ctx.db, ctx.companyId, { dieId: section.id, dieInstanceId: input.dieInstanceId ?? null, kgPer12ftMilli: milli });
       return {
         kgPer12ftMilli: milli,
+        /** Display only (the billed range text). Never colour from it: use `position` / `driftTone`. */
         range12ft: milli == null ? null : weightRange12ftFromMilli(milli),
-        band,
-        position: band ? bandPosition(milli, band.minG, band.maxG) : null,
-        driftTone: driftTone({ latestMilli: milli, bandStartMilli: band?.minG ?? null, bands: floor.drift }),
-        driftPercentTenths: milli != null && band ? driftPercentTenths(milli, band.minG) : null,
+        band: v.source ? { bandId: v.bandId, minG: v.minG!, maxG: v.maxG!, source: v.source } : null,
+        position: v.position,
+        driftTone: v.tone,
+        driftPercentTenths: v.percentTenths,
       };
     }),
 
@@ -738,7 +762,13 @@ export const bundleRouter = router({
         .orderBy(asc(bundle.serial))
         .limit(500);
 
-      return { group, die: dieRow ?? null, bundles };
+      // D15: each bundle's band verdict, the same one `/b/$serial` shows.
+      const bands = await bundleBandTones(
+        ctx.db,
+        ctx.companyId,
+        bundles.map((b) => ({ dieId: b.dieId, dieInstanceId: b.dieInstanceId, kgPer12ftMilli: b.kgPer12ftMilli ?? kgPer12ftMilli(b) })),
+      );
+      return { group, die: dieRow ?? null, bundles: bundles.map((b, i) => ({ ...b, band: bands[i]! })) };
     }),
 
   listBundles: companyProcedure
@@ -772,6 +802,8 @@ export const bundleRouter = router({
           lengthMm: bundle.lengthMm,
           poNumber: bundle.poNumber,
           dieId: bundle.dieId,
+          dieInstanceId: bundle.dieInstanceId,
+          kgPer12ftMilli: bundle.kgPer12ftMilli,
           dieSeries: die.series,
           dieSectionCode: die.sectionCode,
           groupId: bundle.groupId,
@@ -794,7 +826,13 @@ export const bundleRouter = router({
         .from(bundle)
         .where(and(...conditions));
 
-      return { items, total: totalRow[0]?.count ?? 0 };
+      // D15: the stock Bundles list shows the same band verdict as `/b/$serial`.
+      const bands = await bundleBandTones(
+        ctx.db,
+        ctx.companyId,
+        items.map((b) => ({ dieId: b.dieId, dieInstanceId: b.dieInstanceId, kgPer12ftMilli: b.kgPer12ftMilli ?? kgPer12ftMilli(b) })),
+      );
+      return { items: items.map((b, i) => ({ ...b, band: bands[i]! })), total: totalRow[0]?.count ?? 0 };
     }),
 
   getBundle: companyProcedure

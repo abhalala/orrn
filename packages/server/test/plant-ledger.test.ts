@@ -235,7 +235,7 @@ describe("Review Focus 1: ledger balance equals the bundle projection", () => {
             case "reserve": {
               if (available.length === 0) break;
               const { id } = await api.dispatch.create({ customerId: p.customerId });
-              for (const b of pickSome(available, int(1, 4))) await api.dispatch.addBundle({ id, bundleId: b.id });
+              for (const b of pickSome(available, int(1, 4))) await api.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: b.id });
               await api.dispatch.reserve({ id });
               bump("reserve");
               break;
@@ -426,7 +426,7 @@ describe("stock.move", () => {
     const res = await p.owner.bundle.createReceipt({ dieId: p.dieId, unit: "pcs", locationId: p.loc("Y1"), rows: [row(), row()] });
     const bs = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId)).orderBy(asc(bundle.serial));
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundle({ id, bundleId: bs[0]!.id });
+    await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: bs[0]!.id });
     await p.owner.dispatch.reserve({ id });
 
     const moved = await p.owner.stock.move({ codes: [bs[0]!.serial.toLowerCase()], toLocationId: p.loc("Y2") });
@@ -444,7 +444,7 @@ describe("stock.move", () => {
     const res = await p.owner.bundle.createReceipt({ dieId: p.dieId, unit: "pcs", locationId: p.loc("Y1"), rows: [row(), row(), row()] });
     const bs = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId)).orderBy(asc(bundle.serial));
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundle({ id, bundleId: bs[0]!.id });
+    await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: bs[0]!.id });
     await p.owner.dispatch.reserve({ id });
     await p.owner.dispatch.complete({ id });
     await p.owner.bundle.transitionStatus({ id: bs[1]!.id, toStatus: "void" });
@@ -514,8 +514,8 @@ describe("dispatch complete (DN)", () => {
     await p.owner.stock.move({ bundleIds: bs.slice(0, 70).map((b) => b.id), toLocationId: p.loc("Y2") });
 
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials: bs.slice(0, 100).map((b) => b.serial) });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials: bs.slice(100).map((b) => b.serial) });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: bs.slice(0, 100).map((b) => b.serial) });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: bs.slice(100).map((b) => b.serial) });
     await p.owner.dispatch.reserve({ id });
     await expectConsistent(p.owner, p.companyId, "reserved is still in stock");
     await p.owner.dispatch.complete({ id });
@@ -537,7 +537,7 @@ describe("dispatch complete (DN)", () => {
     const res = await p.owner.bundle.createReceipt({ dieId: p.dieId, unit: "pcs", locationId: p.loc("Y1"), rows: [row(33_000)] });
     const [b] = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId));
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundle({ id, bundleId: b!.id });
+    await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: b!.id });
     await p.owner.dispatch.reserve({ id });
 
     env.beforeNextBatch(() => p.owner.stock.move({ bundleIds: [b!.id], toLocationId: p.loc("Y3") }));
@@ -553,7 +553,7 @@ describe("dispatch complete (DN)", () => {
     const res = await p.owner.bundle.createReceipt({ dieId: p.dieId, unit: "pcs", locationId: p.loc("Y1"), rows: [row()] });
     const [b] = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId));
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundle({ id, bundleId: b!.id });
+    await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: b!.id });
     await p.owner.dispatch.reserve({ id });
     await p.owner.dispatch.complete({ id });
     const before = await ledgerRows(p.companyId);
@@ -567,7 +567,7 @@ describe("dispatch complete (DN)", () => {
     const res = await p.owner.bundle.createReceipt({ dieId: p.dieId, unit: "pcs", locationId: p.loc("Y1"), rows: [row()] });
     const [b] = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId));
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundle({ id, bundleId: b!.id });
+    await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: b!.id });
     await p.owner.dispatch.reserve({ id });
 
     env.beforeNextBatch(() => p.owner.dispatch.cancel({ id }));
@@ -607,7 +607,7 @@ describe("legacy bundles and the opening balance", () => {
     await p.owner.bundle.transitionStatus({ id: legacy[2]!.id, toStatus: "void" });
     await p.owner.stock.move({ bundleIds: [legacy[3]!.id], toLocationId: p.loc("Y4") });
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundle({ id, bundleId: legacy[4]!.id });
+    await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: legacy[4]!.id });
     await p.owner.dispatch.reserve({ id });
     await p.owner.dispatch.complete({ id });
     await expectConsistent(p.owner, p.companyId, "legacy after ops");
@@ -848,8 +848,8 @@ describe("races: ledger equals projection after each interleaving", () => {
     const a = await plant();
     const [b1, b2] = await packInto(a, a.loc("Y1"), 2);
     const d1 = await a.owner.dispatch.create({ customerId: a.customerId });
-    await a.owner.dispatch.addBundle({ id: d1.id, bundleId: b1!.id });
-    await a.owner.dispatch.addBundle({ id: d1.id, bundleId: b2!.id });
+    await a.owner.dispatch.addBundle({ allowUnassigned: true,  id: d1.id, bundleId: b1!.id });
+    await a.owner.dispatch.addBundle({ allowUnassigned: true,  id: d1.id, bundleId: b2!.id });
     env.beforeNextBatch(() => a.owner.bundle.transitionStatus({ id: b1!.id, toStatus: "void", reason: "bent" }));
     await a.owner.dispatch.reserve({ id: d1.id }).catch(() => null);
     const [v1] = await env.db.select().from(bundle).where(eq(bundle.id, b1!.id));
@@ -860,7 +860,7 @@ describe("races: ledger equals projection after each interleaving", () => {
     const c = await plant();
     const [x] = await packInto(c, c.loc("Y1"), 1);
     const d2 = await c.owner.dispatch.create({ customerId: c.customerId });
-    await c.owner.dispatch.addBundle({ id: d2.id, bundleId: x!.id });
+    await c.owner.dispatch.addBundle({ allowUnassigned: true,  id: d2.id, bundleId: x!.id });
     env.beforeNextBatch(() => c.owner.dispatch.reserve({ id: d2.id }));
     await c.owner.bundle.transitionStatus({ id: x!.id, toStatus: "void", reason: "bent" }).catch(() => null);
     const [after] = await env.db.select().from(bundle).where(eq(bundle.id, x!.id));

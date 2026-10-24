@@ -1102,6 +1102,29 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         db,
         members.map((m, k) => db.update(bundle).set({ partyNo: numbers[k]! }).where(eq(bundle.id, m.id))),
       );
+      // D15: kd's monthly party number reads like a plant serial. Keep the real collision in the
+      // demo: one plant-stock bundle whose plant number is kd's first party number, so a scan of
+      // that code is `ambiguous` (never a silent pick of either bundle).
+      if (policy === "monthly") {
+        const source = bundleRows.find((r) => r.status === "available" && !r.currentDispatchId);
+        if (source) {
+          const clashId = "dev-bundle-party-clash";
+          await atomicBatch(db, [
+            db.insert(bundle).values({ ...source, id: clashId, serial: numbers[0]!, partyNo: numbers[0]!, numberStyle: "plant" }),
+            db.insert(bundleStatusEvent).values({
+              id: `${clashId}-evt-0`,
+              companyId: COMPANY_ID,
+              bundleId: clashId,
+              fromStatus: null,
+              toStatus: "available",
+              reason: "receipt",
+              actorId: operatorId,
+              dispatchId: null,
+              at: source.createdAt as Date,
+            }),
+          ]);
+        }
+      }
     }
     // PL numbers come from the PL book series, as dispatch.complete assigns them (PL-8).
     const { number: plNumber } = await nextDocNumber(db, COMPANY_ID, "pl", new Date(plan.completedAt ?? now), ownerId);

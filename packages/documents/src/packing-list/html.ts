@@ -164,7 +164,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot): string {
     <thead><tr>${head}</tr></thead>
     <tbody>${body}</tbody>
   </table>
-  ${profiles.length > 1 ? `<div class="kinds">${profiles.map((l) => `<span>${escapeHtml(l)}</span>`).join("")}</div>` : ""}
+  ${profiles.length > 0 ? `<div class="kinds">${profiles.map((l) => `<span>${escapeHtml(l)}</span>`).join("")}</div>` : ""}
   <div class="total">${escapeHtml(pl.summary.text)}</div>
   <div class="footer"><span>${e(h.company.name)} · ${e(h.plNumber)}</span><span>Receiver's signature ____________________</span></div>
 </body>

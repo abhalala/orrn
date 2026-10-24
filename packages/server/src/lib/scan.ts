@@ -13,9 +13,10 @@
  *   9 already_on_dispatch  listed on this dispatch already (a rescan is calm)
  *  10 added
  *
- * Outcomes 6 and 7 block only in `strict` mode (`dispatch.scan`, the floor gate). The office build
- * path (`addBundlesBySerial`) keeps the PL-8 rule: such bundles go on and the line is suggested
- * (`suggestLines`), so every existing plant keeps dispatching its unassigned legacy stock.
+ * Every add path classifies the same way (D12): `dispatch.scan`, `addBundlesBySerial` and
+ * `addBundle`. Only the office (`order.manage`) may lift outcome 6 with `allowUnassigned` on the
+ * two add procedures, because legacy stock has no order line; outcome 7 always blocks (moving a
+ * bundle to another customer is `orders.reallocate`).
  */
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
@@ -30,6 +31,9 @@ import { bundleTransfer, salesOrder, salesOrderLine } from "@orrn/db/schema/sale
 import { mapInChunks, type OrrnDb } from "./atomic";
 import { checkDieAllowed } from "./dieOwner";
 import { resolveCode } from "./codeResolver";
+import { isScanRefusal, type ScanRefusal } from "./scanRefusal";
+
+export { isScanRefusal, SCAN_REFUSALS, ScanRefusalError, type ScanRefusal, type ScanRefusalCode } from "./scanRefusal";
 
 export const SCAN_OUTCOMES = [
   "not_found",
@@ -45,6 +49,18 @@ export const SCAN_OUTCOMES = [
 ] as const;
 export type ScanOutcome = (typeof SCAN_OUTCOMES)[number];
 
+export function refusalOf(r: ScanResult): ScanRefusal | null {
+  if (!isScanRefusal(r.outcome)) return null;
+  return {
+    serial: r.serial ?? r.code,
+    code: r.outcome,
+    reason: r.message,
+    heldBy: r.heldBy,
+    customerName: r.customerName,
+    candidates: r.candidates,
+  };
+}
+
 export type ScanResult = {
   /** The code as scanned (normalised). */
   code: string;
@@ -59,8 +75,8 @@ export type ScanResult = {
   customerName: string | null;
   /** `ambiguous`: the bundle numbers it could be. */
   candidates: string[];
-  /** Outcome 6/7 let through in lenient mode (so the screen can still flag it). */
-  note: "unassigned" | "wrong_customer" | null;
+  /** Outcome 6 let through by the office (`allowUnassigned`), so the screen can still flag it. */
+  note: "unassigned" | null;
 };
 
 export type ScanBundle = typeof bundle.$inferSelect;
@@ -97,42 +113,45 @@ function result(code: string, outcome: ScanOutcome, extra: Partial<ScanResult> =
   return r;
 }
 
-/** Bundles by code: exact serial in bulk, then the resolver (month-only, legacy uid), then party no. */
+/**
+ * Bundles by code (D15): exact serial AND party number in bulk for every code, so a monthly party
+ * number that reads like a plant serial (`26J12`) is never silently taken for the other bundle.
+ * Both naming different bundles = ambiguous. A code neither names goes to the resolver
+ * (old month-only number, legacy uid).
+ */
 async function lookupCodes(ctx: Ctx, codes: readonly string[]) {
-  const exact = await mapInChunks([...codes], (part) =>
-    ctx.db
+  const direct = await mapInChunks([...codes], async (part) => [
+    ...(await ctx.db
       .select()
       .from(bundle)
-      .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.serial, part))),
-  );
-  const found = new Map<string, ScanBundle>(exact.map((b) => [b.serial, b]));
+      .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.serial, part)))),
+    ...(await ctx.db
+      .select()
+      .from(bundle)
+      .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.partyNo, part)))),
+  ]);
+  const hits = new Map<string, Map<string, ScanBundle>>();
+  const want = new Set(codes);
+  for (const b of direct) {
+    for (const key of new Set([b.serial, b.partyNo])) {
+      if (!key || !want.has(key)) continue;
+      const m = hits.get(key) ?? new Map<string, ScanBundle>();
+      m.set(b.id, b);
+      hits.set(key, m);
+    }
+  }
+  const found = new Map<string, ScanBundle>();
   const ambiguous = new Map<string, string[]>();
-  const misses = codes.filter((c) => !found.has(c));
+  for (const [code, m] of hits) {
+    if (m.size === 1) found.set(code, [...m.values()][0]!);
+    else ambiguous.set(code, [...m.values()].map((b) => b.serial).sort());
+  }
+  const misses = codes.filter((c) => !hits.has(c));
   const resolvedIds = new Map<string, string>();
   for (const code of misses) {
     const r = await resolveCode(ctx.db, ctx.companyId, code);
     if (r.kind === "bundle") resolvedIds.set(code, r.bundleId);
     else if (r.kind === "ambiguous") ambiguous.set(code, r.candidates.map((c) => c.number));
-  }
-  // Party numbers (a customer's own series) as a last resort: unique in the company or ambiguous.
-  const stillMissing = misses.filter((c) => !resolvedIds.has(c) && !ambiguous.has(c));
-  if (stillMissing.length > 0) {
-    const byParty = await mapInChunks(stillMissing, (part) =>
-      ctx.db
-        .select({ id: bundle.id, serial: bundle.serial, partyNo: bundle.partyNo })
-        .from(bundle)
-        .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.partyNo, part))),
-    );
-    const groups = new Map<string, { id: string; serial: string }[]>();
-    for (const b of byParty) {
-      const list = groups.get(b.partyNo!) ?? [];
-      list.push(b);
-      groups.set(b.partyNo!, list);
-    }
-    for (const [code, list] of groups) {
-      if (list.length === 1) resolvedIds.set(code, list[0]!.id);
-      else ambiguous.set(code, list.map((b) => b.serial).sort());
-    }
   }
   if (resolvedIds.size > 0) {
     const rows = await mapInChunks([...new Set(resolvedIds.values())], (ids) =>
@@ -260,12 +279,33 @@ export async function classifyScan(
   ctx: Ctx,
   d: { id: string; customerId: string },
   rawCodes: readonly string[],
-  opts: { strict: boolean; approvalId?: string | null },
+  opts: ClassifyOpts,
 ): Promise<{ results: ScanResult[]; toAdd: ScanBundle[] }> {
   const codes = Array.from(new Set(rawCodes.map(normalizeSerial).filter(Boolean)));
   const { found, ambiguous } = await lookupCodes(ctx, codes);
-  // One code per bundle: a bundle scanned twice (serial and party no) counts once.
-  const seen = new Set<string>();
+  return classifyBundles(ctx, d, codes, found, ambiguous, opts);
+}
+
+export type ClassifyOpts = {
+  approvalId?: string | null;
+  /**
+   * D12: the office may add bundles with no sales order line (legacy stock is unassigned). Lifts
+   * ONLY `unassigned`; the caller checks `order.manage`. Never set on the scan path.
+   */
+  allowUnassigned?: boolean;
+};
+
+/** The §E6 order for bundles already looked up (`dispatch.addBundle` passes its one bundle). */
+export async function classifyBundles(
+  ctx: Ctx,
+  d: { id: string; customerId: string },
+  codes: readonly string[],
+  found: ReadonlyMap<string, ScanBundle>,
+  ambiguous: ReadonlyMap<string, string[]>,
+  opts: ClassifyOpts,
+): Promise<{ results: ScanResult[]; toAdd: ScanBundle[] }> {
+  // One outcome per bundle: a bundle scanned twice (serial and party no) repeats its first outcome.
+  const firstOutcome = new Map<string, ScanResult>();
   const bundles = [...new Map([...found.values()].map((b) => [b.id, b])).values()];
 
   const onThisDispatch = new Set(
@@ -301,6 +341,30 @@ export async function classifyScan(
 
   const results: ScanResult[] = [];
   const toAdd: ScanBundle[] = [];
+  const decide = (code: string, b: ScanBundle): ScanResult => {
+    const base = { bundleId: b.id, serial: b.serial };
+    if (b.status === "void") return result(code, "void", base);
+    if (b.status === "dispatched") return result(code, "dispatched", base);
+    if (b.status === "reserved" && b.currentDispatchId !== d.id) {
+      return result(code, "held", { ...base, heldBy: (b.currentDispatchId && holders.get(b.currentDispatchId)) || null });
+    }
+    let note: ScanResult["note"] = null;
+    const allocation = bundleAllocation({
+      salesOrderLineId: b.salesOrderLineId,
+      latestTransfer: latestTransfer.get(b.id) ?? null,
+    });
+    if (allocation === "unassigned") {
+      if (!opts.allowUnassigned) return result(code, "unassigned", base);
+      note = "unassigned";
+    }
+    const lineOwner = b.salesOrderLineId ? lineCustomer.get(b.salesOrderLineId) : undefined;
+    if (lineOwner && lineOwner.customerId !== d.customerId) {
+      return result(code, "wrong_customer", { ...base, customerName: lineOwner.name });
+    }
+    if (owned.has(b.id)) return result(code, "owned_die", { ...base, customerName: owned.get(b.id) ?? null });
+    if (onThisDispatch.has(b.id)) return result(code, "already_on_dispatch", base);
+    return result(code, "added", { ...base, note });
+  };
   for (const code of codes) {
     const amb = ambiguous.get(code);
     const b = found.get(code);
@@ -312,54 +376,18 @@ export async function classifyScan(
       results.push(result(code, "ambiguous", { candidates: amb! }));
       continue;
     }
-    const base = { bundleId: b.id, serial: b.serial };
-    if (seen.has(b.id)) {
-      results.push(result(code, "already_on_dispatch", base));
+    const first = firstOutcome.get(b.id);
+    if (first) {
+      // The same bundle by its other number: a refusal repeats, an add is now "already on".
+      const { outcome: firstOutcomeName, message: _message, ...rest } = first;
+      const outcome = firstOutcomeName === "added" ? "already_on_dispatch" : firstOutcomeName;
+      results.push(result(code, outcome, { ...rest, code, note: outcome === "already_on_dispatch" ? null : rest.note }));
       continue;
     }
-    seen.add(b.id);
-    if (b.status === "void") {
-      results.push(result(code, "void", base));
-      continue;
-    }
-    if (b.status === "dispatched") {
-      results.push(result(code, "dispatched", base));
-      continue;
-    }
-    if (b.status === "reserved" && b.currentDispatchId !== d.id) {
-      results.push(result(code, "held", { ...base, heldBy: (b.currentDispatchId && holders.get(b.currentDispatchId)) || null }));
-      continue;
-    }
-    let note: ScanResult["note"] = null;
-    const allocation = bundleAllocation({
-      salesOrderLineId: b.salesOrderLineId,
-      latestTransfer: latestTransfer.get(b.id) ?? null,
-    });
-    if (allocation === "unassigned") {
-      if (opts.strict) {
-        results.push(result(code, "unassigned", base));
-        continue;
-      }
-      note = "unassigned";
-    }
-    const lineOwner = b.salesOrderLineId ? lineCustomer.get(b.salesOrderLineId) : undefined;
-    if (lineOwner && lineOwner.customerId !== d.customerId) {
-      if (opts.strict) {
-        results.push(result(code, "wrong_customer", { ...base, customerName: lineOwner.name }));
-        continue;
-      }
-      note = "wrong_customer";
-    }
-    if (owned.has(b.id)) {
-      results.push(result(code, "owned_die", { ...base, customerName: owned.get(b.id) ?? null }));
-      continue;
-    }
-    if (onThisDispatch.has(b.id)) {
-      results.push(result(code, "already_on_dispatch", base));
-      continue;
-    }
-    results.push(result(code, "added", { ...base, note }));
-    toAdd.push(b);
+    const r = decide(code, b);
+    firstOutcome.set(b.id, r);
+    results.push(r);
+    if (r.outcome === "added") toAdd.push(b);
   }
   return { results, toAdd };
 }

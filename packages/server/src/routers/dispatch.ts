@@ -31,7 +31,7 @@ import {
   type OrrnDb,
   type SqliteBatchItem,
 } from "../lib/atomic";
-import { bundleBlockReason, heldElsewhere, holdingDispatchCodes, type BundleBlock } from "../lib/bundleHold";
+import { heldElsewhere, type BundleBlock } from "../lib/bundleHold";
 import { now as clockNow } from "../lib/clock";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { nextDocNumber } from "../lib/docNumber";
@@ -48,7 +48,15 @@ import {
   type OverdrawLine,
 } from "../lib/orders";
 import { can } from "../lib/permissions";
-import { classifyScan, dispatchLoadG, ownedDieBlocks, type ScanOutcome, type ScanResult } from "../lib/scan";
+import {
+  classifyBundles,
+  classifyScan,
+  dispatchLoadG,
+  refusalOf,
+  ScanRefusalError,
+  type ScanRefusal,
+  type ScanResult,
+} from "../lib/scan";
 import { nextCompanySeq } from "../lib/sequence";
 import { packingListWriteBatch } from "./packingList";
 
@@ -228,20 +236,21 @@ export type LinkedBundle = { serial: string; salesOrderLineId: string; orderNumb
 export type AddBundlesReport = {
   added: string[];
   alreadyInDispatch: string[];
+  /** Codes no bundle has, plus ambiguous codes (PL-8 shape; `refused` names them `ambiguous`). */
   notFound: string[];
   /**
-   * Refused bundles. An owned-die refusal (FP-PK-10) carries no `code` (clients that know only the
-   * T22 codes show `reason`, "This die belongs to {owner}"); `dispatch.scan` results name it exactly.
+   * Refused bundles, every one with a `code` (D12: the same order and sentences as `dispatch.scan`):
+   * void / dispatched / held, and unassigned, wrong_customer, owned_die (status `available`).
    */
-  unavailable: (({ serial: string } & BundleBlock) | { serial: string; reason: string; status: BundleBlock["status"]; heldBy: null })[];
+  unavailable: { serial: string; reason: string; code: BundleBlock["code"] | "unassigned" | "wrong_customer" | "owned_die"; status: BundleBlock["status"]; heldBy: string | null }[];
   /** Added bundles that were linked to an open order line of this customer (the rest are unlinked). */
   linked: LinkedBundle[];
 };
 
 /** `dispatch.scan`: the add report plus one result per code and the vehicle capacity after it. */
 export type ScanReport = AddBundlesReport & {
-  /** Refused for a reason the add report has no list for: ambiguous, unassigned, wrong customer. */
-  refused: { serial: string; outcome: ScanOutcome; message: string }[];
+  /** Every refused code, `{serial, code, reason, …}`, in scan order (ambiguous included). */
+  refused: ScanRefusal[];
   /** One result per scanned code, in scan order, outcome per the §E6 order (FP-PK-11/15). */
   results: ScanResult[];
   /** Vehicle capacity after the add (FP-PK-12, warn only). */
@@ -560,6 +569,19 @@ function noUnlinkedWithOpenLine(companyId: string, dispatchId: string): SQL {
   return sql`not exists (select 1 from dispatch_item y join bundle bb on bb.id = y.bundle_id and bb.company_id = ${companyId} join dispatch dd on dd.id = y.dispatch_id and dd.company_id = ${companyId} where y.company_id = ${companyId} and y.dispatch_id = ${dispatchId} and y.sales_order_line_id is null and y.unlinked_by is null and exists (select 1 from sales_order_line l join sales_order o on o.id = l.sales_order_id and o.company_id = ${companyId} where l.company_id = ${companyId} and l.die_id = bb.die_id and o.customer_id = dd.customer_id and o.status in ('booking', 'confirmed', 'dispatching')))`;
 }
 
+/**
+ * m-2: write-time capacity guard on the completing UPDATE. Without a stored override reason the
+ * dispatch completes only while Σ bundle kg is within the vehicle (a capacity lowered between the
+ * read and the batch is caught here, not let through with no reason).
+ */
+function withinCapacityOrReason(companyId: string, dispatchId: string, reason: string | null): SQL {
+  if (reason) return sql`1 = 1`;
+  return sql`((select dc.vehicle_capacity_g from dispatch dc where dc.id = ${dispatchId} and dc.company_id = ${companyId}) is null
+    or (select coalesce(sum(bc.weight_g), 0) from dispatch_item ic join bundle bc on bc.id = ic.bundle_id and bc.company_id = ${companyId}
+        where ic.company_id = ${companyId} and ic.dispatch_id = ${dispatchId})
+      <= (select dc.vehicle_capacity_g from dispatch dc where dc.id = ${dispatchId} and dc.company_id = ${companyId}))`;
+}
+
 type RelinkPlan = {
   statements: SqliteBatchItem[];
   /** The read-time picks (bundle id → line) and serials, for `relinkLanded` after the batch. */
@@ -667,10 +689,56 @@ const scanInput = z.object({
   approvalId: z.string().min(1).max(64).optional(),
 });
 
+/** The office add paths (D12): `allowUnassigned` lifts only the unassigned block, for `order.manage`. */
+const addInput = scanInput.extend({ allowUnassigned: z.boolean().optional() });
+
 type ScanCtx = Pick<Context, "db" | "session" | "impersonation"> & {
   companyId: string;
+  role: NonNullable<Context["role"]>;
   session: NonNullable<Context["session"]>;
 };
+
+/** D12: only `order.manage` holders (the office) may add bundles with no sales order line. */
+function assertMayAddUnassigned(ctx: Pick<ScanCtx, "role">, allowUnassigned: boolean | undefined) {
+  if (!allowUnassigned) return;
+  if (!can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "order.manage")) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Only the office can add bundles that are not on a sales order" });
+  }
+}
+
+/** One `dispatch.add_unassigned` audit row per bundle the office let on without an order line. */
+function addUnassignedAudits(ctx: ScanCtx, dispatchId: string, bundles: readonly { id: string; serial: string }[]) {
+  return bundles.map((b) =>
+    auditInsert(
+      { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+      { action: "dispatch.add_unassigned", subjectType: "dispatch", subjectId: dispatchId, meta: { bundleId: b.id, serial: b.serial } },
+    ),
+  );
+}
+
+/** Fill the PL-8 lists of a report from the per-code results. */
+function reportLists(results: readonly ScanResult[]) {
+  const out = { notFound: [] as string[], alreadyInDispatch: [] as string[], unavailable: [] as AddBundlesReport["unavailable"], refused: [] as ScanRefusal[] };
+  for (const r of results) {
+    if (r.outcome === "not_found") out.notFound.push(r.code);
+    else if (r.outcome === "already_on_dispatch") out.alreadyInDispatch.push(r.serial ?? r.code);
+    const refusal = refusalOf(r);
+    if (!refusal) continue;
+    out.refused.push(refusal);
+    if (refusal.code === "ambiguous") {
+      out.notFound.push(r.code);
+      continue;
+    }
+    out.unavailable.push({
+      serial: refusal.serial,
+      reason: refusal.reason,
+      code: refusal.code,
+      status: refusal.code === "held" ? "reserved" : refusal.code === "void" || refusal.code === "dispatched" ? refusal.code : "available",
+      heldBy: refusal.heldBy,
+    });
+  }
+  return out;
+}
 
 /** Capacity state of a dispatch (FP-PK-12): loaded kg against the vehicle, warn only. */
 export function dispatchCapacity(loadedG: number, capacityG: number | null) {
@@ -678,15 +746,19 @@ export function dispatchCapacity(loadedG: number, capacityG: number | null) {
 }
 
 /**
- * Shared by `addBundlesBySerial` (office build, lenient) and `dispatch.scan` (floor, strict): one
- * outcome per code in the §E6 order, the `added` ones go on in one batch (reserved at once when the
- * dispatch is held), each linked to its suggested order line. Reports capacity after the add.
+ * Shared by `addBundlesBySerial` (office build) and `dispatch.scan` (floor): one outcome per code in
+ * the §E6 order with every block on (D12); the office alone may lift `unassigned` with
+ * `allowUnassigned` (`order.manage`, audited `dispatch.add_unassigned`). The `added` ones go on in
+ * one batch (reserved at once when the dispatch is held), each linked to its suggested order line.
+ * Reports capacity after the add.
  */
 async function addByCodes(
   ctx: ScanCtx,
-  input: z.infer<typeof scanInput>,
-  opts: { strict: boolean },
+  input: z.infer<typeof addInput>,
+  opts: { path: "scan" | "office" },
 ): Promise<ScanReport> {
+  const allowUnassigned = opts.path === "office" && input.allowUnassigned === true;
+  assertMayAddUnassigned(ctx, allowUnassigned);
   const serials = Array.from(new Set(input.serials.map(normalizeSerial).filter(Boolean)));
   if (serials.length === 0) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "No serials provided" });
@@ -707,54 +779,21 @@ async function addByCodes(
     }
 
     const { results, toAdd } = await classifyScan({ db: ctx.db, companyId: ctx.companyId }, d, serials, {
-      strict: opts.strict,
       approvalId: input.approvalId ?? null,
+      allowUnassigned,
     });
     const report: ScanReport = {
       added: [],
-      alreadyInDispatch: [],
-      notFound: [],
-      unavailable: [],
       linked: [],
-      refused: [],
+      ...reportLists(results),
       results,
       capacity: dispatchCapacity(0, d.vehicleCapacityG),
     };
-    for (const r of results) {
-      switch (r.outcome) {
-        case "not_found":
-          report.notFound.push(r.code);
-          break;
-        case "already_on_dispatch":
-          report.alreadyInDispatch.push(r.serial ?? r.code);
-          break;
-        case "void":
-        case "dispatched":
-        case "held": {
-          const code = r.outcome;
-          report.unavailable.push({
-            serial: r.serial ?? r.code,
-            reason: r.message,
-            code,
-            status: code === "held" ? "reserved" : code,
-            heldBy: r.heldBy,
-          });
-          break;
-        }
-        case "owned_die":
-          report.unavailable.push({ serial: r.serial ?? r.code, reason: r.message, status: "available", heldBy: null });
-          report.refused.push({ serial: r.serial ?? r.code, outcome: r.outcome, message: r.message });
-          break;
-        case "added":
-          break;
-        default:
-          report.refused.push({ serial: r.serial ?? r.code, outcome: r.outcome, message: r.message });
-      }
-    }
     if (toAdd.length === 0) {
       report.capacity = dispatchCapacity(await dispatchLoadG(ctx.db, ctx.companyId, d.id), d.vehicleCapacityG);
       return report;
     }
+    const unassignedIds = new Set(results.filter((r) => r.outcome === "added" && r.note === "unassigned").map((r) => r.bundleId));
 
     // Order line suggested per bundle (spec P13): packed-for line, else oldest open line with baki.
     const picks = await suggestLines(ctx.db, ctx.companyId, {
@@ -821,10 +860,11 @@ async function addByCodes(
             count: toAdd.length,
             serials: toAdd.map((b) => b.serial),
             dispatchStatus: d.status,
-            ...(opts.strict ? { scan: true } : {}),
+            ...(opts.path === "scan" ? { scan: true } : {}),
           },
         },
       ),
+      ...addUnassignedAudits(ctx, d.id, toAdd.filter((b) => unassignedIds.has(b.id))),
     );
 
     await atomicBatch(ctx.db, statements);
@@ -1139,6 +1179,10 @@ export const dispatchRouter = router({
       ) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
       }
+      // m-2: the capacity the dispatch completed against (and its override reason) stays as it was.
+      if (existing.status === "completed" && input.vehicleCapacityG !== undefined && input.vehicleCapacityG !== existing.vehicleCapacityG) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The vehicle capacity can't change after the dispatch is completed" });
+      }
 
       if (input.customerId && input.customerId !== existing.customerId) {
         const newCustomer = await ctx.db.query.customer.findFirst({
@@ -1450,9 +1494,22 @@ export const dispatchRouter = router({
       return { success: true };
     }),
 
+  /**
+   * One bundle by id. Refuses exactly like `dispatch.scan` (D12, §E6 order and sentences): the
+   * TRPCError's `cause` is a ScanRefusalError, sent to clients as `error.data.refusal` `{code, reason}`.
+   * `allowUnassigned` (office, `order.manage`) lifts only the unassigned block, audited.
+   */
   addBundle: actionProcedure("dispatch.addBundle")
-    .input(z.object({ id: z.string(), bundleId: z.string(), approvalId: z.string().min(1).max(64).optional() }))
+    .input(
+      z.object({
+        id: z.string(),
+        bundleId: z.string(),
+        approvalId: z.string().min(1).max(64).optional(),
+        allowUnassigned: z.boolean().optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
+      assertMayAddUnassigned(ctx, input.allowUnassigned);
       const run = async () => {
         const d = await ctx.db.query.dispatch.findFirst({
           where: and(
@@ -1491,15 +1548,26 @@ export const dispatchRouter = router({
           return { success: true, added: [] as string[], alreadyInDispatch: [b.serial], linked: [] as LinkedBundle[] };
         }
 
-        if (b.status !== "available") {
-          const codes = await holdingDispatchCodes(ctx.db, ctx.companyId, [b]);
-          throw new TRPCError({ code: "BAD_REQUEST", message: bundleBlockReason(b, codes) });
+        // The §E6 order, same as a scan: void, dispatched, held, unassigned, wrong customer, owned die.
+        const { results } = await classifyBundles(
+          { db: ctx.db, companyId: ctx.companyId },
+          d,
+          [b.serial],
+          new Map([[b.serial, b]]),
+          new Map(),
+          { approvalId: input.approvalId ?? null, allowUnassigned: input.allowUnassigned === true },
+        );
+        const verdict = results[0]!;
+        const refusal = refusalOf(verdict);
+        if (refusal) {
+          throw new TRPCError({
+            code: refusal.code === "owned_die" ? "FORBIDDEN" : "BAD_REQUEST",
+            message: refusal.reason,
+            cause: new ScanRefusalError(refusal),
+          });
         }
-        // FP-PK-10: a bundle made on another customer's die needs a live owner override.
-        const owned = await ownedDieBlocks(ctx.db, ctx.companyId, d.customerId, [b], input.approvalId ?? null);
-        if (owned.has(b.id)) {
-          const name = owned.get(b.id);
-          throw new TRPCError({ code: "FORBIDDEN", message: name ? `This die belongs to ${name}` : "This die belongs to another customer" });
+        if (verdict.outcome === "already_on_dispatch") {
+          return { success: true, added: [] as string[], alreadyInDispatch: [b.serial], linked: [] as LinkedBundle[] };
         }
 
         const picks = await suggestLines(ctx.db, ctx.companyId, {
@@ -1555,6 +1623,7 @@ export const dispatchRouter = router({
               meta: { bundleId: b.id, serial: b.serial, dispatchStatus: d.status },
             },
           ),
+          ...addUnassignedAudits(ctx, d.id, verdict.note === "unassigned" ? [b] : []),
         );
 
         await atomicBatch(ctx.db, statements);
@@ -1577,35 +1646,28 @@ export const dispatchRouter = router({
     }),
 
   /**
-   * Adds bundles by serial and reports per serial instead of all-or-nothing:
-   * already-in-this-dispatch is split out before availability (audit S13), so a
-   * rescan on a held dispatch is calm, and the valid serials still go in.
-   * `results` carries one outcome per code in the §E6 scan order (lib/scan.ts); this office path
-   * lets unassigned / other-customer bundles on (PL-8 line suggestion), `dispatch.scan` does not.
+   * Adds bundles by serial and reports per serial instead of all-or-nothing: the valid serials
+   * still go in. Same §E6 order and blocks as `dispatch.scan` (D12); every refusal is in
+   * `unavailable` with a `code` (an ambiguous code stays in `notFound`, PL-8 shape). The office (`order.manage`) may pass `allowUnassigned`
+   * for legacy stock with no order line (audited `dispatch.add_unassigned`); other customers'
+   * bundles stay refused (move them with `orders.reallocate`).
    */
   addBundlesBySerial: actionProcedure("dispatch.addBundle")
-    .input(scanInput)
+    .input(addInput)
     .mutation(async ({ ctx, input }): Promise<AddBundlesReport> => {
-      // The PL-8 report shape, unchanged for its clients: an ambiguous code is "not found" here.
-      const r = await addByCodes(ctx, input, { strict: false });
-      const ambiguous = r.refused.filter((x) => x.outcome === "ambiguous").map((x) => x.serial);
-      return {
-        added: r.added,
-        alreadyInDispatch: r.alreadyInDispatch,
-        notFound: [...r.notFound, ...ambiguous],
-        unavailable: r.unavailable,
-        linked: r.linked,
-      };
+      // The PL-8 report shape, unchanged for its clients: an ambiguous code is in `notFound`.
+      const r = await addByCodes(ctx, input, { path: "office" });
+      return { added: r.added, alreadyInDispatch: r.alreadyInDispatch, notFound: r.notFound, unavailable: r.unavailable, linked: r.linked };
     }),
 
   /**
-   * FP-PK-11/15: the floor scan. Same as `addBundlesBySerial` with every block of the §E6 order on:
-   * a bundle with no sales order line (not moved to plant stock) or packed for another customer
-   * is refused; moving it is `orders.reallocate`.
+   * FP-PK-11/15: the floor scan. Same as `addBundlesBySerial`, and `allowUnassigned` is never
+   * honoured here (D12): a bundle with no sales order line (not moved to plant stock) or packed
+   * for another customer is refused; moving it is `orders.reallocate`.
    */
   scan: actionProcedure("dispatch.scan")
     .input(scanInput)
-    .mutation(({ ctx, input }) => addByCodes(ctx, input, { strict: true })),
+    .mutation(({ ctx, input }) => addByCodes(ctx, input, { path: "scan" })),
 
   setItemGroupLabel: actionProcedure("dispatch.addBundle")
     .input(z.object({ id: z.string(), bundleId: z.string(), groupLabel: z.string().max(32).nullable() }))
@@ -2024,6 +2086,7 @@ export const dispatchRouter = router({
               dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("completed")),
               overdrawGuard(ctx.companyId, d.id, toleranceBp),
               noUnlinkedWithOpenLine(ctx.companyId, d.id),
+              withinCapacityOrReason(ctx.companyId, d.id, capacityOverrideReason),
             ),
           ),
         batchAbortUnless(ctx.db, "packing_list_line", landed),
@@ -2174,6 +2237,14 @@ export const dispatchRouter = router({
             code: "CONFLICT",
             message:
               "An order for this customer was saved while completing. Open the dispatch again and press Complete to link the bundles to it.",
+          });
+        }
+        // m-2: the vehicle capacity was lowered while completing; now it is over and needs a reason.
+        const nowCapacity = dispatchCapacity(await dispatchLoadG(ctx.db, ctx.companyId, d.id), now.vehicleCapacityG);
+        if (!capacityOverrideReason && nowCapacity.state === "over") {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: `Loaded ${kgText(nowCapacity.loadedG)} kg is ${kgText(nowCapacity.overG)} kg over the vehicle's ${kgText(nowCapacity.capacityG ?? 0)} kg. Give a reason to complete.`,
           });
         }
         throw new TRPCError({ code: "CONFLICT", message: "Bundles on this dispatch changed. Reload and try again." });

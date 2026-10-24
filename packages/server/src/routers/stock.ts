@@ -20,6 +20,7 @@ import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import type { Context } from "../context";
 import { atomicBatch, atomicBatchLast, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
+import { bundleBandTones } from "../lib/bundleBand";
 import { resolveCode } from "../lib/codeResolver";
 import { canAny } from "../lib/permissions";
 import type { CompanyRole } from "@orrn/db/schema/tenant";
@@ -366,18 +367,10 @@ export const stockRouter = router({
     }),
 
   /**
-   * Ledger balance per (item kind, item, location), non-zero only. `at` = as of that instant;
-   * `locationId: null` = stock whose place is unknown (legacy).
-   *
-   * Units: bundle, scrap and billet rows are grams in `qtyG`. A `store_item` row is in the item's
-   * own unit (kg, litre, piece, …), so it returns `qtyG: null` with `qtyMilli` (1000 = 1 unit) and
-   * `unit`; grams are never mixed with milli-units. Store rows are only returned to callers who
-   * hold store.txn, masters.publish or analytics.view.
-   */
-  /**
    * FP-PK-08: stock by section and cut length (the Lengths tab). In-stock bundles (available, or
-   * reserved = still in the yard) grouped by (section, length): bundles, pcs, kg, mean kg/12 ft
-   * (grams per 12 ft) and how many are held on a dispatch. Optional section and yard filters.
+   * reserved = still in the yard) grouped by (section, length): bundles, pcs, kg, kg/12 ft weighted
+   * by pieces (grams per 12 ft), its band verdict (D15, `lib/bundleBand.ts`) and how many are held
+   * on a dispatch. Optional section and yard filters.
    */
   byDieLength: companyProcedure
     .input(
@@ -411,7 +404,10 @@ export const stockRouter = router({
           pcs: sql<number>`coalesce(sum(${bundle.quantity}), 0)`,
           weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
           reserved: sql<number>`coalesce(sum(case when ${bundle.status} = 'reserved' then 1 else 0 end), 0)`,
-          avgKgPer12ftMilli: sql<number | null>`cast(round(avg(${bundle.kgPer12ftMilli})) as integer)`,
+          // m-4: weighted by pieces (Σ grams × 3657.6 / (Σ pcs × length)), not a mean of ratios.
+          avgKgPer12ftMilli: sql<number | null>`cast(round(sum(${bundle.weightG}) * 3657.6 / nullif(sum(${bundle.quantity}) * ${bundle.lengthMm}, 0)) as integer)`,
+          // D15: one copy across the group → its band; mixed or no copy → the section's primary band.
+          copyId: sql<string | null>`case when count(distinct ${bundle.dieInstanceId}) = 1 and sum(case when ${bundle.dieInstanceId} is null then 1 else 0 end) = 0 then min(${bundle.dieInstanceId}) end`,
           oldestAt: sql<number>`min(${bundle.createdAt})`,
         })
         .from(bundle)
@@ -430,9 +426,20 @@ export const stockRouter = router({
         .from(bundle)
         .where(where);
       const more = rows.length > input.limit;
+      const page = rows.slice(0, input.limit);
+      const bands = await bundleBandTones(
+        ctx.db,
+        ctx.companyId,
+        page.map((r) => ({
+          dieId: r.dieId,
+          dieInstanceId: r.copyId,
+          kgPer12ftMilli: r.avgKgPer12ftMilli == null ? null : Number(r.avgKgPer12ftMilli),
+        })),
+      );
       return {
-        items: rows.slice(0, input.limit).map((r) => ({
+        items: page.map(({ copyId: _copyId, ...r }, i) => ({
           ...r,
+          band: bands[i]!,
           bundles: Number(r.bundles),
           pcs: Number(r.pcs),
           weightG: Number(r.weightG),
@@ -507,6 +514,15 @@ export const stockRouter = router({
       };
     }),
 
+  /**
+   * Ledger balance per (item kind, item, location), non-zero only. `at` = as of that instant;
+   * `locationId: null` = stock whose place is unknown (legacy).
+   *
+   * Units: bundle, scrap and billet rows are grams in `qtyG`. A `store_item` row is in the item's
+   * own unit (kg, litre, piece, …), so it returns `qtyG: null` with `qtyMilli` (1000 = 1 unit) and
+   * `unit`; grams are never mixed with milli-units. Store rows are only returned to callers who
+   * hold store.txn, masters.publish or analytics.view.
+   */
   balance: companyProcedure
     .input(
       z

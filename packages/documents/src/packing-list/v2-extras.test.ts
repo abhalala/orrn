@@ -132,4 +132,12 @@ describe("packing list v2 extras (FP-PK-13)", () => {
     const first = grid.find((r) => r[1] === "BG-1-B001")!;
     expect(first.slice(-2)).toEqual(["26J9", "SO-4/1"]);
   });
+
+  test("one kind prints its summary line in both the print and the xlsx (m-7: one behaviour)", () => {
+    const pl = parsePackingListSnapshot({ ...v2(), profileSummary: [{ kind: "hollow", bundles: 3, pcs: 30, weightG: 75_000 }] });
+    expect(buildPackingListHtml(pl, "PL/2026-27/7")).toContain("Hollow 3 bundles · 75.000 kg");
+    const wb = XLSX.read(buildPackingListXlsxBuffer(pl, "PL/2026-27/7"), { type: "array" });
+    const flat = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]!]!, { header: 1, raw: true }).flat().map(String);
+    expect(flat).toContain("Hollow 3 bundles · 75.000 kg");
+  });
 });

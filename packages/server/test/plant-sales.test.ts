@@ -221,7 +221,7 @@ describe("baki math", () => {
 
     // Draft, reserved and cancelled dispatches do not count as dispatched.
     const draft = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundlesBySerial({ id: draft.id, serials: [forLine[2]!] });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: draft.id, serials: [forLine[2]!] });
     const d = await p.held([forLine[0]!, forLine[1]!]);
     expect((await p.lineOf(lineId)).dispatchedG).toBe(0);
     await p.owner.dispatch.complete({ id: d });
@@ -349,7 +349,7 @@ describe("Review Focus 5: dispatching past an order line's balance", () => {
     const [second] = await pendingOverdraw(p.companyId, d);
     await p.as("manager").approval.decide({ id: second!.id, decision: "approved" });
     // One more bundle after the approval: 1250 kg is more than the 1200 approved.
-    await p.owner.dispatch.addBundlesBySerial({ id: d, serials: [serials[2]!] });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: d, serials: [serials[2]!] });
     await expect(p.owner.dispatch.complete({ id: d })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     expect((await dispatchRow(d)).status).toBe("reserved");
     // Taking it off again brings the total back under what was approved.
@@ -477,7 +477,7 @@ describe("order line suggested per bundle, and links", () => {
     const a = await p.pack(p.dieA, [{ kg: 100 }, { kg: 100 }, { kg: 100 }]);
     const b = await p.pack(p.dieB, [{ kg: 100 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    const report = await p.owner.dispatch.addBundlesBySerial({ id, serials: [...packedForNewer, ...a, ...b] });
+    const report = await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: [...packedForNewer, ...a, ...b] });
     const byLine = new Map(report.linked.map((l) => [l.serial, l.salesOrderLineId]));
     expect(byLine.get(packedForNewer[0]!)).toBe(newer.lineIds[0]); // packed for it
     expect(byLine.get(a[0]!)).toBe(old.lineIds[0]); // oldest with baki (150)
@@ -512,7 +512,7 @@ describe("order line suggested per bundle, and links", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials: await p.pack(p.dieA, [{ kg: 100 }]) });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: await p.pack(p.dieA, [{ kg: 100 }]) });
     const [item] = await itemsOf(id);
     expect(item!.lineId).toBe(o.lineIds[0]!);
     // The order is closed: no open line for the section, so the packer may unlink…
@@ -533,7 +533,7 @@ describe("order line suggested per bundle, and links", () => {
     const serials = await p.pack(p.dieA, [{ kg: 100 }, { kg: 100 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
     env.beforeNextBatch(() => saveOrder(p.owner, { id: o.id, status: "closed" }));
-    const report = await p.owner.dispatch.addBundlesBySerial({ id, serials });
+    const report = await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     expect(report.added).toHaveLength(2);
     expect(report.linked).toEqual([]);
     expect((await itemsOf(id)).map((i) => i.lineId)).toEqual([null, null]);
@@ -542,7 +542,7 @@ describe("order line suggested per bundle, and links", () => {
     const [third] = await p.pack(p.dieA, [{ kg: 100 }]);
     const [b3] = await env.db.select({ id: bundle.id }).from(bundle).where(and(eq(bundle.companyId, p.companyId), eq(bundle.serial, third!)));
     env.beforeNextBatch(() => saveOrder(p.owner, { id: o.id, status: "closed" }));
-    const single = await p.owner.dispatch.addBundle({ id, bundleId: b3!.id });
+    const single = await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: b3!.id });
     expect(single.added).toEqual([third!]);
     expect(single.linked).toEqual([]);
     expect((await itemsOf(id)).map((i) => i.lineId)).toEqual([null, null, null]);
@@ -552,7 +552,7 @@ describe("order line suggested per bundle, and links", () => {
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    const report = await p.owner.dispatch.addBundlesBySerial({ id, serials });
+    const report = await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     expect(report.linked).toEqual([]);
     expect((await itemsOf(id))[0]!.lineId).toBeNull();
   }, SLOW);
@@ -567,7 +567,7 @@ describe("order line suggested per bundle, and links", () => {
     const foreign = await other.order([{ dieId: other.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     const packer = p.as("packer");
     await expect(packer.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: theirs.lineIds[0]! })).rejects.toMatchObject({ code: "BAD_REQUEST" });
@@ -591,7 +591,7 @@ describe("order line suggested per bundle, and links", () => {
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
     env.beforeNextBatch(() => p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: o.lineIds[0]! }));
@@ -604,7 +604,7 @@ describe("order line suggested per bundle, and links", () => {
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     env.beforeNextBatch(() => p.owner.dispatch.reserve({ id }));
     await expect(p.owner.dispatch.update({ id, notes: "late note" })).rejects.toMatchObject({ code: "CONFLICT" });
     const row = await dispatchRow(id);
@@ -617,7 +617,7 @@ describe("order line suggested per bundle, and links", () => {
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
     // The order closes between linkItem's read and its write.
@@ -638,7 +638,7 @@ describe("order line suggested per bundle, and links", () => {
     const b = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }], a.lineIds[0]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: b.lineIds[0]! });
     // Until it leaves, the bundle still counts for the line it was packed for.
@@ -764,7 +764,7 @@ describe("packing list v2: snapshot shape and number assigned once", () => {
     const loose = await p.pack(p.dieA, [{ kg: 30, pcs: 12, mm: 3_505, po: "OLD-PO-9" }]); // no line, kept unlinked below
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
     await p.owner.dispatch.update({ id, vehicleNo: "GJ05AB1234", driverName: "Ramesh", driverPhone: "9825011111", transporter: "Shree" });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials: [...forB, ...forA, ...loose] });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: [...forB, ...forA, ...loose] });
     const looseItem = (await itemsOf(id)).find((i) => i.serial === loose[0]);
     await p.owner.dispatch.linkItem({ itemId: looseItem!.id, salesOrderLineId: null });
     await p.owner.dispatch.reserve({ id });
@@ -913,7 +913,7 @@ describe("tenant isolation", () => {
     await expect(saveOrder(p.owner, { id: theirs.id, poNumber: "x" })).rejects.toMatchObject({ code: "NOT_FOUND" });
     const s = await other.pack(other.dieA, [{ kg: 10 }]);
     const { id } = await other.owner.dispatch.create({ customerId: other.customerId });
-    await other.owner.dispatch.addBundlesBySerial({ id, serials: s });
+    await other.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: s });
     const [item] = await itemsOf(id);
     await expect(p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null })).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect((await p.owner.orders.balance({ includeClosed: true })).lines).toEqual([]);
@@ -979,7 +979,7 @@ describe("permission matrix", () => {
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 10 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     for (const role of ROLES) {
       const api = p.as(role);

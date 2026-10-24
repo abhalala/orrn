@@ -12,12 +12,12 @@
  *   (+kg) at the plant-scrap location against the PLANT-SCRAP return stream (C10).
  */
 import { TRPCError } from "@trpc/server";
-import { and, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
+import { and, eq, or, sql, type SQL } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 import { bundleQrUrl, DEFAULT_REASON_CODES } from "@orrn/domain";
 import { cast as castTable, returnStream } from "@orrn/db/schema/foundry";
-import { bundle, packReject } from "@orrn/db/schema/inventory";
+import { bundle } from "@orrn/db/schema/inventory";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { reasonCode } from "@orrn/db/schema/reasons";
 import { stockLedger } from "@orrn/db/schema/stock";
@@ -26,6 +26,7 @@ import { company } from "@orrn/db/schema/tenant";
 import type { OrrnDb, SqliteBatchItem } from "./atomic";
 import { buildPackLabelVariables, type PackLabelVariables } from "./bundle-label";
 import { sqlUuid } from "./ledger";
+import { batchAbortUnless, isBatchAbort } from "./orders";
 import { nameKey } from "./purchase";
 import { webBaseUrl } from "./webUrl";
 
@@ -60,16 +61,12 @@ export async function scaleConfigured(db: OrrnDb, companyId: string): Promise<bo
 // ---------------------------------------------------------------------------
 
 /**
- * A statement that fails the whole batch (NOT NULL on `pack_reject.id`) when `failWhen` holds at
- * write time. Catch with `isPackAbort`.
+ * A statement that fails the whole batch when `failWhen` holds at write time: `batchAbortUnless`
+ * (lib/orders.ts) on `pack_reject`, so pack's aborts are told apart from the order-line one in the
+ * same batch. Catch with `isPackAbort`.
  */
-export function packAbort(db: OrrnDb, failWhen: SQL): SqliteBatchItem {
-  // Every column NULL (insert-select rule), from one company row, only when `failWhen` holds.
-  const nulls = Object.fromEntries(
-    Object.entries(getTableColumns(packReject)).map(([key, column]) => [key, sql`null`.as(column.name)]),
-  );
-  const from = db.select({ one: sql`1` }).from(company).limit(1).as("pack_abort_src");
-  return db.insert(packReject).select(db.select(nulls).from(from).where(failWhen) as never);
+function packAbort(db: OrrnDb, failWhen: SQL): SqliteBatchItem {
+  return batchAbortUnless(db, "pack_reject", sql`not (${failWhen})`);
 }
 
 /**
@@ -85,7 +82,7 @@ const ageingRowSeam = sqliteTable("ageing_row", {
 });
 
 export function isPackAbort(e: unknown): boolean {
-  return errorText(e).includes("NOT NULL constraint failed: pack_reject.id");
+  return isBatchAbort(e, "pack_reject");
 }
 
 // ---------------------------------------------------------------------------
@@ -173,33 +170,72 @@ export async function rejectReasons(db: OrrnDb, companyId: string, rejects: read
   });
 }
 
-/** Make sure the PLANT-SCRAP return stream exists (the foundry seeds the rest). */
-export function plantScrapStreamStatement(db: OrrnDb, companyId: string, opts: { userId: string | null; seq: number }): SqliteBatchItem {
-  return db
-    .insert(returnStream)
-    .values({
-      id: crypto.randomUUID(),
-      companyId,
-      serverSeq: opts.seq,
-      code: "PLANT-SCRAP",
-      name: "Plant scrap",
-      nameKey: nameKey("Plant scrap"),
-      kind: "charge",
-      active: true,
-      sortOrder: 2,
-      createdBy: opts.userId,
-    })
-    .onConflictDoNothing();
+/**
+ * The return stream weighed pack rejects post to (m-5), resolved BEFORE the batch: the PLANT-SCRAP
+ * stream, else a stream already named "Plant scrap" under another code (its name key is unique, so
+ * a new PLANT-SCRAP could never be inserted beside it). Null = none yet: the batch creates it.
+ */
+export async function plantScrapStreamId(db: OrrnDb, companyId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ id: returnStream.id })
+    .from(returnStream)
+    .where(and(eq(returnStream.companyId, companyId), or(eq(returnStream.code, "PLANT-SCRAP"), eq(returnStream.nameKey, nameKey("Plant scrap")))))
+    .orderBy(sql`${returnStream.code} = 'PLANT-SCRAP' desc`)
+    .limit(1);
+  return row?.id ?? null;
 }
 
 /**
- * `pack_reject` ledger row: + kg at the plant-scrap location, item = the PLANT-SCRAP stream
- * (looked up inside the statement by code), voucher = the reject row. Keys in stock_ledger column
+ * Statements that make sure the stream `id` exists (create PLANT-SCRAP when `existing` is null) and
+ * fail the whole batch if it does not after that (a concurrent create took the code or the name),
+ * so reject kg is never silently left off the ledger.
+ */
+export function plantScrapStreamStatements(
+  db: OrrnDb,
+  companyId: string,
+  opts: { id: string; existing: boolean; userId: string | null; seq: number },
+): SqliteBatchItem[] {
+  const out: SqliteBatchItem[] = [];
+  if (!opts.existing) {
+    out.push(
+      db
+        .insert(returnStream)
+        .values({
+          id: opts.id,
+          companyId,
+          serverSeq: opts.seq,
+          code: "PLANT-SCRAP",
+          name: "Plant scrap",
+          nameKey: nameKey("Plant scrap"),
+          kind: "charge",
+          active: true,
+          sortOrder: 2,
+          createdBy: opts.userId,
+        })
+        .onConflictDoNothing(),
+    );
+  }
+  out.push(packAbort(db, sql`not exists (select 1 from ${returnStream} rs where rs.company_id = ${companyId} and rs.id = ${opts.id})`));
+  return out;
+}
+
+/**
+ * `pack_reject` ledger row: + kg at the plant-scrap location, item = the plant scrap stream
+ * (`streamId`, resolved before the batch), voucher = the reject row. Keys in stock_ledger column
  * order (insert-select rule).
  */
 export function packRejectLedgerRow(
   db: OrrnDb,
-  input: { companyId: string; seq: number; rejectId: string; weightG: number; plantScrapId: string; userId: string | null; postedAt: Date },
+  input: {
+    companyId: string;
+    seq: number;
+    rejectId: string;
+    weightG: number;
+    plantScrapId: string;
+    streamId: string;
+    userId: string | null;
+    postedAt: Date;
+  },
 ): SqliteBatchItem {
   return db.insert(stockLedger).select(
     db
@@ -221,7 +257,7 @@ export function packRejectLedgerRow(
         createdAt: sql<number>`${Date.now()}`.as("created_at"),
       })
       .from(returnStream)
-      .where(and(eq(returnStream.companyId, input.companyId), eq(returnStream.code, "PLANT-SCRAP")))
+      .where(and(eq(returnStream.companyId, input.companyId), eq(returnStream.id, input.streamId)))
       .limit(1),
   );
 }

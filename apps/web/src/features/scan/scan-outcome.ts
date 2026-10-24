@@ -10,7 +10,8 @@ type BundleStatus = (typeof BUNDLE_STATUSES)[number];
  */
 export type BundleBlock = {
   reason: string;
-  code?: "held" | "dispatched" | "void" | "status";
+  /** D12 adds unassigned / wrong_customer / owned_die; until their floor keys exist they show `reason`. */
+  code?: "held" | "dispatched" | "void" | "status" | "unassigned" | "wrong_customer" | "owned_die";
   status?: BundleStatus;
   heldBy?: string | null;
 };

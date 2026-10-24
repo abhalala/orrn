@@ -21,7 +21,7 @@ import { approval } from "@orrn/db/schema/approval";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatchItem } from "@orrn/db/schema/dispatch";
-import { bundle } from "@orrn/db/schema/inventory";
+import { bundle, packReject } from "@orrn/db/schema/inventory";
 import { packingListLine } from "@orrn/db/schema/packing";
 import { company } from "@orrn/db/schema/tenant";
 import {
@@ -633,23 +633,24 @@ export const ORDER_STATUS_MOVES: Record<SalesOrderStatus, readonly SalesOrderSta
  * rolls a failed batch back, so the statements around it land all together or not at all. Catch the
  * error with `isBatchAbort(e, table)`.
  */
-export function batchAbortUnless(
-  db: OrrnDb,
-  table: "sales_order_line" | "packing_list_line",
-  landed: SQL,
-): SqliteBatchItem {
+/** Tables an abort can target; each caller picks one so `isBatchAbort` tells its aborts apart. */
+export type BatchAbortTable = "sales_order_line" | "packing_list_line" | "pack_reject";
+
+export function batchAbortUnless(db: OrrnDb, table: BatchAbortTable, landed: SQL): SqliteBatchItem {
   // Every column of the table as NULL, in the table's column order (insert-select rule), so a
   // column added later needs no change here.
-  const target = table === "packing_list_line" ? packingListLine : salesOrderLine;
+  const target = table === "packing_list_line" ? packingListLine : table === "pack_reject" ? packReject : salesOrderLine;
   const nulls = Object.fromEntries(
     Object.entries(getTableColumns(target)).map(([key, column]) => [key, sql`null`.as(column.name)]),
   );
   const from = db.select({ one: sql`1` }).from(company).limit(1).as("abort_src");
   const select = db.select(nulls).from(from).where(sql`not (${landed})`) as never;
-  return table === "packing_list_line" ? db.insert(packingListLine).select(select) : db.insert(salesOrderLine).select(select);
+  if (table === "packing_list_line") return db.insert(packingListLine).select(select);
+  if (table === "pack_reject") return db.insert(packReject).select(select);
+  return db.insert(salesOrderLine).select(select);
 }
 
-export function isBatchAbort(e: unknown, table: "sales_order_line" | "packing_list_line"): boolean {
+export function isBatchAbort(e: unknown, table: BatchAbortTable): boolean {
   const needle = `NOT NULL constraint failed: ${table}.id`;
   for (let cur: unknown = e, depth = 0; cur && depth < 6; depth += 1) {
     if ((cur instanceof Error ? cur.message : String(cur)).includes(needle)) return true;

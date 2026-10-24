@@ -7,7 +7,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
-import { customer, die, docSeries, packingList, packingListDispatch } from "@orrn/db/schema";
+import { bundle, customer, die, dispatchItem, docSeries, packingList, packingListDispatch } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -125,7 +125,7 @@ describe("PL v2 snapshot", () => {
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 10 }], o.lineIds[0]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId, transporterId: t.id });
-    await p.owner.dispatch.addBundlesBySerial({ id, serials });
+    await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     await p.owner.dispatch.reserve({ id });
     await p.owner.dispatch.complete({ id });
     expect(((await plRow(id))!.snapshot as Snap).header.transporter).toBe("Shree Roadlines");
@@ -228,9 +228,66 @@ describe("combine", () => {
     const one = await shipped(p, mine.lineIds[0]!, p.dieA, [{ kg: 10 }]);
     const two = await shipped(p, theirs.lineIds[0]!, p.dieA, [{ kg: 10 }], p.otherCustomer);
     const ids = [(await plRow(one.d))!.id, (await plRow(two.d))!.id];
-    await expect(p.owner.packingList.combine({ ids })).rejects.toThrow("one customer only");
+    await expect(p.owner.packingList.combine({ ids })).rejects.toThrow("Only packing lists of one customer can be combined");
     await expect(p.as("viewer").packingList.combine({ ids })).rejects.toThrow();
     expect(await plSeries(p.companyId)).toBe(2);
+  }, SLOW);
+});
+
+describe("revision diff and analytics over revisions (I-2, I-5)", () => {
+  test("the revisions list names the added, removed and changed bundles between revisions", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
+    const { d, serials } = await shipped(p, o.lineIds[0]!, p.dieA, [{ kg: 10 }, { kg: 11 }, { kg: 12 }]);
+    const rev1 = (await plRow(d))!;
+    const [extra] = await p.pack(p.dieA, [{ kg: 9 }], o.lineIds[0]);
+    const row = async (serial: string) =>
+      (await env.db.query.bundle.findFirst({ where: (x, { and: a, eq: e }) => a(e(x.companyId, p.companyId), e(x.serial, serial)) }))!;
+    const [gone, reweighed, added] = [await row(serials[0]!), await row(serials[1]!), await row(extra!)];
+    // A correction between revisions, made in the tables: one bundle came off, one went on, one was re-weighed.
+    await env.db.delete(dispatchItem).where(and(eq(dispatchItem.dispatchId, d), eq(dispatchItem.bundleId, gone.id)));
+    await env.db
+      .insert(dispatchItem)
+      .values({ id: crypto.randomUUID(), companyId: p.companyId, dispatchId: d, bundleId: added.id, salesOrderLineId: o.lineIds[0]! });
+    await env.db.update(bundle).set({ weightG: kg(11.5) }).where(eq(bundle.id, reweighed.id));
+
+    const rev2 = await p.owner.packingList.regenerate({ id: rev1.id });
+    const revs = await p.owner.packingList.revisions({ id: rev2.id });
+    expect(revs).toMatchObject({ code: rev1.code, currentId: rev2.id });
+    expect(revs.revisions.map((r) => [r.revision, r.bundleCount, r.supersedesId])).toEqual([
+      [1, 3, null],
+      [2, 3, rev1.id],
+    ]);
+    expect(revs.revisions[0]!.changes).toBeNull();
+    expect(revs.revisions[1]!.changes).toEqual({
+      added: [extra!],
+      removed: [serials[0]!],
+      changed: [{ serial: serials[1]!, fields: ["weightG"] }],
+      unchanged: 1,
+      weightDeltaG: kg(9) - kg(10) + kg(0.5),
+      same: false,
+    });
+  }, SLOW);
+
+  test("customer analytics counts each bundle once for a dispatch with two revisions folded into a combined list", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
+    const one = await shipped(p, o.lineIds[0]!, p.dieA, [{ kg: 10 }, { kg: 12 }]);
+    const two = await shipped(p, o.lineIds[0]!, p.dieA, [{ kg: 5 }]);
+    const summary = () => p.owner.analytics.customerSummary({ customerId: p.customerId, from: "2026-10-01", to: "2026-10-31" });
+    const before = await summary();
+    expect(before.recentDispatches.find((r) => r.id === one.d)).toMatchObject({ bundles: 2, kgG: kg(22), plNumber: one.done.plNumber });
+
+    const rev2 = await p.owner.packingList.regenerate({ id: (await plRow(one.d))!.id });
+    await p.owner.packingList.combine({ ids: [rev2.id, (await plRow(two.d))!.id] });
+    expect(await env.db.select().from(packingList).where(eq(packingList.companyId, p.companyId))).toHaveLength(4);
+
+    const after = await summary();
+    expect(after.recentDispatches).toEqual(before.recentDispatches);
+    expect(after.totals).toEqual(before.totals);
+    expect(after.topSections).toEqual(before.topSections);
   }, SLOW);
 });
 
@@ -261,6 +318,14 @@ describe("dev seed: W1-PK-S rows (idempotent)", () => {
       expect(own.some((n) => /^\d{2}[A-L]\d+$/.test(n))).toBe(true);
       expect(own.some((n) => /^\d{4}-\d{2}\/\d+$/.test(n))).toBe(true);
       expect(new Set(own).size).toBe(own.length);
+      // D15: the seed keeps a monthly party number that is also another bundle's plant serial, and
+      // scanning it is ambiguous (never a silent pick).
+      const serials = new Map(party.map((b) => [b.serial, b]));
+      const clash = own.find((n) => serials.has(n));
+      expect(clash).toBeDefined();
+      const { resolveCode } = await import("../src/lib/codeResolver");
+      const hit = await resolveCode(env.db as never, companyId, clash!);
+      expect(hit.kind).toBe("ambiguous");
     }
   }, SLOW);
 });

@@ -149,11 +149,14 @@ export function salesHelpers(getEnv: () => TestEnv): SalesHelpers {
       return { id: res.id, number: res.number, lineIds: got.lines.map((l) => l.lineId) };
     }
 
-    /** Create, scan and reserve a dispatch; returns its id. */
+    /**
+     * Create, scan and reserve a dispatch; returns its id. The owner builds it as the office does
+     * (D12 `allowUnassigned`, since most fixtures pack plant stock with no order line).
+     */
     async function held(serials: string[], cust = customerId, api: Api = owner) {
       const { id } = await api.dispatch.create({ customerId: cust });
       for (let i = 0; i < serials.length; i += 100) {
-        await api.dispatch.addBundlesBySerial({ id, serials: serials.slice(i, i + 100) });
+        await api.dispatch.addBundlesBySerial({ id, serials: serials.slice(i, i + 100), ...(api === owner ? { allowUnassigned: true } : {}) });
       }
       await api.dispatch.reserve({ id });
       return id;
