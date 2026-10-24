@@ -207,7 +207,7 @@ describe("FP-OP-08: orders.reallocate", () => {
     const owned = await p.copy(s, { milli: 12_000, ownerCustomerId: p.customerId });
     const mine = await p.confirmedOrder([{ sectionId: s, kgG: kg(500), dieInstanceId: owned }]);
     const theirs = await p.confirmedOrder([{ sectionId: s, kgG: kg(500), dieInstanceId: null, tierRank: 1 }], { customerId: p.otherCustomer });
-    const serials = await p.pack(s, [{ kg: 100 }], mine.lineIds[0]);
+    const serials = await p.pack(s, [{ kg: 100 }], mine.lineIds[0], owned);
     await env.db.update(bundle).set({ dieInstanceId: owned }).where(and(eq(bundle.companyId, p.companyId), inArray(bundle.serial, serials)));
     const ids = (await bundlesBySerial(p, serials)).map((x) => x.id);
     const [cust] = await env.db.query.customer.findMany({ where: (c, { eq: e }) => e(c.id, p.customerId) });
