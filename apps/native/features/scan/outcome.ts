@@ -10,7 +10,7 @@ import type { MessageKey, Translate, TranslateVars } from "@orrn/i18n";
 export type UnavailableRow = {
   serial: string;
   reason: string;
-  code?: "held" | "dispatched" | "void" | "status";
+  code?: "held" | "dispatched" | "void" | "status" | "reallocation_pending";
   status?: string;
   heldBy?: string | null;
 };
@@ -48,6 +48,8 @@ export function unavailableMessage(row: UnavailableRow): ScanMessage {
       return { key: "scan.continuous.dispatched" };
     case "void":
       return { key: "scan.continuous.void" };
+    case "reallocation_pending":
+      return { key: "scan.continuous.reallocationPending" };
     case "status":
       if (isBundleStatus(row.status)) return { key: "scan.continuous.wrongStatus", status: row.status };
       break;

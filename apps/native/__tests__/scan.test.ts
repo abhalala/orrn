@@ -59,6 +59,8 @@ describe("dispatch mode outcome per scanned serial", () => {
     });
     const voided = report({ unavailable: [{ serial: "S1", reason: "x", code: "void" } as never] });
     expect(addOutcome(voided, "S1")).toMatchObject({ message: { key: "scan.continuous.void" } });
+    const pending = report({ unavailable: [{ serial: "S2", reason: "x", code: "reallocation_pending" }] });
+    expect(addOutcome(pending, "S2")).toMatchObject({ message: { key: "scan.continuous.reallocationPending" } });
   });
 
   test("older servers: the English reason is mapped to floor wording", () => {
