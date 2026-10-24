@@ -75,10 +75,21 @@ const createInput = z.object({
   status: z.enum(editableStatuses).optional(),
   note: text(1000).nullable().optional(),
   lines: z.array(orderLineInput).min(1, "Add at least one line").max(MAX_LINES, `At most ${MAX_LINES} lines`),
+  /**
+   * Replay key (T28 rule for write screens): a retry after an unsure answer with the same key returns
+   * the order the first call made instead of making a second one with a new SO number.
+   */
+  clientRequestId: z.string().trim().min(1).max(64).optional(),
 });
 
 const updateInput = z.object({
   id: z.string().min(1).max(64),
+  /**
+   * The order's `serverSeq` as the editor read it (`orders.get`). When given, a save over a newer
+   * version (another user's save, a dispatch completing against it) answers CONFLICT instead of
+   * silently overwriting it.
+   */
+  serverSeq: z.number().int().nonnegative().optional(),
   customerId: z.string().min(1).max(64).optional(),
   poNumber: text(100).nullable().optional(),
   orderDate: ymd.optional(),
@@ -91,6 +102,15 @@ const updateInput = z.object({
     .max(MAX_LINES, `At most ${MAX_LINES} lines`)
     .optional(),
 });
+
+function errorText(e: unknown): string {
+  let text = "";
+  for (let cur: unknown = e, depth = 0; cur && depth < 6; depth += 1) {
+    text += ` ${cur instanceof Error ? cur.message : String(cur)}`;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return text;
+}
 
 const blank = (v: string | null | undefined) => (v == null || v.trim() === "" ? null : v.trim());
 
@@ -155,6 +175,17 @@ export const salesOrderRouter = router({
   create: actionProcedure("order.manage")
     .input(createInput)
     .mutation(async ({ ctx, input }) => {
+      const byRequest = async () => {
+        if (!input.clientRequestId) return null;
+        const [row] = await ctx.db
+          .select({ id: salesOrder.id, number: salesOrder.number })
+          .from(salesOrder)
+          .where(and(eq(salesOrder.companyId, ctx.companyId), eq(salesOrder.clientRequestId, input.clientRequestId)))
+          .limit(1);
+        return row ?? null;
+      };
+      const prior = await byRequest();
+      if (prior) return { id: prior.id, number: prior.number, replayed: true as const };
       await assertCustomer(ctx.db, ctx.companyId, input.customerId);
       await assertSections(ctx.db, ctx.companyId, input.lines.map((l) => l.sectionId));
 
@@ -184,6 +215,7 @@ export const salesOrderRouter = router({
           status,
           note: blank(input.note),
           lineSeq: input.lines.length,
+          clientRequestId: input.clientRequestId ?? null,
           statusChangedAt: at,
           statusChangedBy: userId,
           createdBy: userId,
@@ -211,8 +243,17 @@ export const salesOrderRouter = router({
           },
         }),
       );
-      await atomicBatch(ctx.db, statements);
-      return { id, number };
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (e) {
+        // The same key raced in from a retry: the first one's order stands (this number is a gap, R5).
+        const won = /UNIQUE constraint failed: sales_order\.company_id, sales_order\.client_request_id/.test(errorText(e))
+          ? await byRequest()
+          : null;
+        if (!won) throw e;
+        return { id: won.id, number: won.number, replayed: true as const };
+      }
+      return { id, number, replayed: false as const };
     }),
 
   update: actionProcedure("order.manage")
@@ -221,6 +262,9 @@ export const salesOrderRouter = router({
       const order = await loadOrder(ctx.db, ctx.companyId, input.id);
       if (order.status === "cancelled") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A cancelled order can't be changed" });
+      }
+      if (input.serverSeq !== undefined && input.serverSeq !== order.serverSeq) {
+        throw new TRPCError({ code: "CONFLICT", message: "This order changed while you were editing it. Reload and try again." });
       }
       const userId = ctx.session.user.id;
       const at = clockNow();
@@ -327,6 +371,8 @@ export const salesOrderRouter = router({
             and(
               eq(salesOrder.id, order.id),
               eq(salesOrder.companyId, ctx.companyId),
+              // Write-time optimistic version (correctness m-3): only over the version the editor read.
+              input.serverSeq !== undefined ? eq(salesOrder.serverSeq, input.serverSeq) : undefined,
               // Write-time: a status move lands only from the status we checked, and a cancel only while
               // no live dispatch carries its lines. Plain edits never touch the status.
               nextStatus ? eq(salesOrder.status, order.status) : sql`${salesOrder.status} <> 'cancelled'`,
@@ -465,7 +511,7 @@ export const salesOrderRouter = router({
       try {
         await atomicBatch(ctx.db, statements);
       } catch (e) {
-        if (isBatchAbort(e, "sales_order_line") || /UNIQUE constraint failed: sales_order_line\.sales_order_id/.test(String((e as { cause?: unknown })?.cause ?? e))) {
+        if (isBatchAbort(e, "sales_order_line") || /UNIQUE constraint failed: sales_order_line\.sales_order_id/.test(errorText(e))) {
           throw new TRPCError({ code: "CONFLICT", message: "This order changed while you were editing it. Reload and try again." });
         }
         throw e;

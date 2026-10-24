@@ -85,6 +85,7 @@ export async function loadPlInput(
         lineNo: salesOrderLine.lineNo,
         finish: salesOrderLine.finish,
         orderNumber: salesOrder.number,
+        orderPeriod: salesOrder.period,
         orderPo: salesOrder.poNumber,
       })
       .from(dispatchItem)
@@ -137,7 +138,7 @@ export async function loadPlInput(
       sectionName: i.sectionName,
       line:
         i.lineId && i.orderNumber
-          ? { id: i.lineId, orderNumber: i.orderNumber, lineNo: Number(i.lineNo), finish: i.finish, poNumber: i.orderPo }
+          ? { id: i.lineId, orderNumber: i.orderNumber, orderPeriod: i.orderPeriod, lineNo: Number(i.lineNo), finish: i.finish, poNumber: i.orderPo }
           : null,
     })),
   };

@@ -347,6 +347,7 @@ async function refuseOverdraw(
     lines: over.map((l) => ({
       lineId: l.lineId,
       orderNumber: l.orderNumber,
+      orderPeriod: l.orderPeriod,
       lineNo: l.lineNo,
       sectionCode: l.sectionCode,
       orderedG: l.orderedG,
@@ -403,6 +404,17 @@ async function refuseOverdraw(
       // stands, and the next Complete compares against it.
       if (!/UNIQUE constraint failed: approval\./.test(errorChain(e))) throw e;
     }
+  } else {
+    // Same figures: the pending request stays exactly as the approver sees it, but the history still
+    // shows who asked again and why (correctness m-2); the note is not added to the request.
+    await atomicBatch(ctx.db, [
+      auditInsert(ctx, {
+        action: "dispatch.overdraw.request",
+        subjectType: "dispatch",
+        subjectId: d.id,
+        meta: { repeat: true, requestId: pending.id, note: note ?? null },
+      }),
+    ]);
   }
   throw new TRPCError({ code: "PRECONDITION_FAILED", message: overdrawMessage(lines) });
 }
@@ -498,6 +510,89 @@ async function landedLinks(
   return linkedReport(serialOf, kept);
 }
 
+/**
+ * EXISTS-free guard for the completing UPDATE (spec S-2): no item on the dispatch is unlinked by
+ * nobody while the dispatch's customer (as it is now) has an open order line for that bundle's
+ * section. `relinkOpen` links those items right before completion; this keeps an order created (or
+ * reopened) after that read from letting kg leave past the order unseen.
+ */
+function noUnlinkedWithOpenLine(companyId: string, dispatchId: string): SQL {
+  return sql`not exists (select 1 from dispatch_item y join bundle bb on bb.id = y.bundle_id and bb.company_id = ${companyId} join dispatch dd on dd.id = y.dispatch_id and dd.company_id = ${companyId} where y.company_id = ${companyId} and y.dispatch_id = ${dispatchId} and y.sales_order_line_id is null and y.unlinked_by is null and exists (select 1 from sales_order_line l join sales_order o on o.id = l.sales_order_id and o.company_id = ${companyId} where l.company_id = ${companyId} and l.die_id = bb.die_id and o.customer_id = dd.customer_id and o.status in ('booking', 'confirmed', 'dispatching')))`;
+}
+
+type RelinkPlan = { statements: SqliteBatchItem[]; links: { serial: string; salesOrderLineId: string }[] };
+
+/**
+ * Decide the order link again where its premise can change after the scan (spec S-2, correctness
+ * I-1): the dispatch's customer was corrected, or an order was entered or reopened while the truck
+ * was loading. Every item that is unlinked, and was not unlinked on purpose (`unlinked_by`), gets the
+ * scan's suggestion (`suggestLines`, ruling PL8-R10) for `customerId`. The statements only link items
+ * still unlinked by nobody, only while the dispatch is draft or reserved, and the write-time half of
+ * the suggestion (`dropStaleSuggestions`) drops a link whose line stopped being open meanwhile.
+ * `ignoreMarkers` (customer change): an unlink was a decision about the old customer's orders.
+ */
+async function relinkOpen(
+  db: OrrnDb,
+  companyId: string,
+  d: { id: string; customerId: string },
+  opts: { ignoreMarkers?: boolean } = {},
+): Promise<RelinkPlan> {
+  const rows = await db
+    .select({
+      bundleId: dispatchItem.bundleId,
+      serial: bundle.serial,
+      dieId: bundle.dieId,
+      weightG: bundle.weightG,
+      packedFor: bundle.salesOrderLineId,
+    })
+    .from(dispatchItem)
+    .innerJoin(bundle, and(eq(bundle.id, dispatchItem.bundleId), eq(bundle.companyId, companyId)))
+    .where(
+      and(
+        eq(dispatchItem.companyId, companyId),
+        eq(dispatchItem.dispatchId, d.id),
+        isNull(dispatchItem.salesOrderLineId),
+        opts.ignoreMarkers ? undefined : isNull(dispatchItem.unlinkedBy),
+      ),
+    )
+    .orderBy(bundle.serial);
+  if (rows.length === 0) return { statements: [], links: [] };
+  const picks = await suggestLines(db, companyId, {
+    customerId: d.customerId,
+    dispatchId: d.id,
+    bundles: rows.map((r) => ({ id: r.bundleId, dieId: r.dieId, weightG: r.weightG, salesOrderLineId: r.packedFor })),
+  });
+  if (picks.size === 0) return { statements: [], links: [] };
+  const byLine = new Map<string, string[]>();
+  for (const [bundleId, l] of picks) byLine.set(l.lineId, [...(byLine.get(l.lineId) ?? []), bundleId]);
+  const statements: SqliteBatchItem[] = [];
+  for (const [lineId, ids] of byLine) {
+    for (const part of chunk(ids, GUARDED_IN_CHUNK)) {
+      statements.push(
+        db
+          .update(dispatchItem)
+          .set({ salesOrderLineId: lineId, unlinkedBy: null })
+          .where(
+            and(
+              eq(dispatchItem.companyId, companyId),
+              eq(dispatchItem.dispatchId, d.id),
+              inArray(dispatchItem.bundleId, part),
+              isNull(dispatchItem.salesOrderLineId),
+              opts.ignoreMarkers ? undefined : isNull(dispatchItem.unlinkedBy),
+              exists(db.select({ one: sql`1` }).from(dispatch).where(dispatchInStatus(companyId, d.id, EDITABLE_DISPATCH))),
+            ),
+          ),
+      );
+    }
+  }
+  statements.push(...dropStaleSuggestions(db, companyId, d.id, [...picks.keys()]));
+  const serialOf = new Map(rows.map((r) => [r.bundleId, r.serial]));
+  return {
+    statements,
+    links: [...picks].map(([bundleId, l]) => ({ serial: serialOf.get(bundleId) ?? "", salesOrderLineId: l.lineId })),
+  };
+}
+
 export const dispatchRouter = router({
   create: actionProcedure("dispatch.create")
     .input(createInput)
@@ -562,7 +657,14 @@ export const dispatchRouter = router({
       if (input.search) {
         const pattern = `%${input.search}%`;
         conditions.push(
-          or(like(dispatch.code, pattern), like(dispatch.notes, pattern))!,
+          // The plant finds a load by its PL number, vehicle or Tally invoice too (spec P7, PL-8 m-1).
+          or(
+            like(dispatch.code, pattern),
+            like(dispatch.notes, pattern),
+            like(dispatch.plNumber, pattern),
+            like(dispatch.vehicleNo, pattern),
+            like(dispatch.invoiceNumber, pattern),
+          )!,
         );
       }
 
@@ -574,6 +676,9 @@ export const dispatchRouter = router({
           shipDate: dispatch.shipDate,
           notes: dispatch.notes,
           createdAt: dispatch.createdAt,
+          plNumber: dispatch.plNumber,
+          vehicleNo: dispatch.vehicleNo,
+          invoiceNumber: dispatch.invoiceNumber,
           customerId: dispatch.customerId,
           customerName: customer.name,
           itemCount: sql<number>`count(${dispatchItem.id})`.as("item_count"),
@@ -781,6 +886,13 @@ export const dispatchRouter = router({
         }
       }
 
+      // A corrected customer gets the scan's suggestion for every bundle already on the dispatch
+      // (spec S-2): kg that leave for a customer with an open line for the section meet the order.
+      const customerChange = Boolean(input.customerId && input.customerId !== existing.customerId);
+      const relink = customerChange
+        ? await relinkOpen(ctx.db, ctx.companyId, { id: existing.id, customerId: input.customerId! }, { ignoreMarkers: true })
+        : { statements: [], links: [] };
+
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       // Write-time: the edit lands only in the state it was checked for. A header edit read on a
       // draft/reserved dispatch must not land on one that completed meanwhile (R7: after completion
@@ -833,6 +945,16 @@ export const dispatchRouter = router({
           ),
         ),
       ];
+      if (customerChange) {
+        // An unlink on purpose was a decision about the old customer's orders: it does not carry over.
+        statements.push(
+          ctx.db
+            .update(dispatchItem)
+            .set({ unlinkedBy: null })
+            .where(and(eq(dispatchItem.companyId, ctx.companyId), eq(dispatchItem.dispatchId, existing.id))),
+          ...relink.statements,
+        );
+      }
       if (existing.status === "completed" && headerKeys.length > 0) {
         // The stored PL follows a header correction (same PL number, same rows).
         const paths = headerKeys.flatMap((k) => [sql.raw(`'$.header.${k}'`), sql`${header[k] ?? null}`]);
@@ -866,6 +988,7 @@ export const dispatchRouter = router({
               ...(baseChange
                 ? { customerId: input.customerId ?? existing.customerId, shipDate: input.shipDate ?? null }
                 : {}),
+              ...(relink.links.length ? { relinked: relink.links } : {}),
               ...(headerKeys.length
                 ? {
                     header: Object.fromEntries(headerKeys.map((k) => [k, { from: existing[k] ?? null, to: header[k] ?? null }])),
@@ -956,7 +1079,8 @@ export const dispatchRouter = router({
       await atomicBatch(ctx.db, [
         ctx.db
           .update(dispatchItem)
-          .set({ salesOrderLineId: input.salesOrderLineId })
+          // An unlink is on purpose (completion and a customer change do not re-suggest it); a link clears it.
+          .set({ salesOrderLineId: input.salesOrderLineId, unlinkedBy: input.salesOrderLineId ? null : ctx.session.user.id })
           .where(
             and(
               eq(dispatchItem.id, item.id),
@@ -1630,6 +1754,24 @@ export const dispatchRouter = router({
         });
       }
 
+      // Spec S-2: the link is decided again now, so kg that leave for a customer with an open line
+      // for the section meet the order (an order entered after the scan, a reopened order).
+      const relink = await relinkOpen(ctx.db, ctx.companyId, d);
+      if (relink.statements.length > 0) {
+        const relinkSeq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+        await atomicBatch(ctx.db, [
+          ...relink.statements,
+          ctx.db
+            .update(dispatch)
+            .set({ serverSeq: relinkSeq })
+            .where(dispatchInStatus(ctx.companyId, d.id, EDITABLE_DISPATCH)),
+          auditInsert(
+            { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+            { action: "dispatch.relink", subjectType: "dispatch", subjectId: d.id, meta: { reason: "complete", links: relink.links } },
+          ),
+        ]);
+      }
+
       // Review Focus 5: order lines past ordered + tolerance need an approved override.
       const toleranceBp = await dispatchTolerance(ctx.db, ctx.companyId, d.customerId);
       const overdraw = await dispatchOverdraw(ctx.db, ctx.companyId, d.id, toleranceBp);
@@ -1669,6 +1811,7 @@ export const dispatchRouter = router({
             and(
               dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("completed")),
               overdrawGuard(ctx.companyId, d.id, toleranceBp),
+              noUnlinkedWithOpenLine(ctx.companyId, d.id),
             ),
           ),
         batchAbortUnless(ctx.db, "packing_list_line", landed),

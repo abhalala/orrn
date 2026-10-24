@@ -11,7 +11,7 @@
  * Snapshots are stored once and never rebuilt from live data except by packingList.regenerate,
  * which keeps the PL number.
  */
-import { kgPer12ft, MM_PER_INCH, weightRange12ft } from "@orrn/domain";
+import { kgPer12ft, MM_PER_INCH, weightRange12ftFromMilli } from "@orrn/domain";
 import { z } from "zod";
 
 /** The 11 printed columns, in order. */
@@ -82,6 +82,8 @@ export const plGroupSchema = z.object({
   key: z.string(),
   salesOrderLineId: z.string().nullable(),
   orderNumber: z.string().nullable(),
+  /** The order's FY period (`2026-27`): SO numbers repeat every FY. Absent on PLs stored before it. */
+  orderPeriod: z.string().nullable().optional(),
   lineNo: z.number().int().nullable(),
   sectionCode: z.string(),
   item: z.string(),
@@ -228,6 +230,7 @@ export type PlItemInput = {
   line: {
     id: string;
     orderNumber: string;
+    orderPeriod?: string | null;
     lineNo: number;
     finish: string | null;
     poNumber: string | null;
@@ -302,6 +305,7 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
           key,
           salesOrderLineId: item.line?.id ?? null,
           orderNumber: item.line?.orderNumber ?? null,
+          orderPeriod: item.line?.orderPeriod ?? null,
           lineNo: item.line?.lineNo ?? null,
           sectionCode: item.sectionCode,
           item: itemText(item),
@@ -319,6 +323,7 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
       natural.compare(a.group.sectionCode, b.group.sectionCode) ||
       // Unlinked bundles of a section print after its order lines.
       Number(a.group.orderNumber === null) - Number(b.group.orderNumber === null) ||
+      (a.group.orderPeriod ?? "").localeCompare(b.group.orderPeriod ?? "") ||
       natural.compare(a.group.orderNumber ?? "", b.group.orderNumber ?? "") ||
       (a.group.lineNo ?? 0) - (b.group.lineNo ?? 0) ||
       a.group.key.localeCompare(b.group.key),
@@ -335,6 +340,7 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
           item.kgPer12ftMilli != null
             ? item.kgPer12ftMilli / 1000
             : kgPer12ft({ weightG: item.weightG, pieces: item.quantity, lengthMm: item.lengthMm });
+        const milli = kg12 == null ? null : Math.round(kg12 * 1000);
         return {
           sr,
           bundleNo: item.serial,
@@ -344,8 +350,9 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
           cutFt: ft,
           cutIn: inch,
           pcs: item.quantity,
-          kgPer12ftMilli: kg12 == null ? null : Math.round(kg12 * 1000),
-          range12ft: kg12 == null ? null : weightRange12ft(kg12),
+          kgPer12ftMilli: milli,
+          // From the printed thousandths, in integers, so the band always matches the kg/12ft column.
+          range12ft: milli == null ? null : weightRange12ftFromMilli(milli),
           po: item.line?.poNumber?.trim() || item.bundlePo?.trim() || null,
         };
       });

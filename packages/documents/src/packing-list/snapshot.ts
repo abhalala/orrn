@@ -96,8 +96,29 @@ export function plRowCells(r: PlRow): string[] {
   ];
 }
 
-/** "SO-12 / 1 · 12170 · Domal (Anodise) · PO 778" or "12170 · Domal" for bundles without a line. */
-export function plGroupTitle(g: PlGroup): string {
-  const parts = [g.orderNumber ? `${g.orderNumber} / ${g.lineNo}` : null, g.sectionCode, g.item, g.poNumber ? `PO ${g.poNumber}` : null];
+/**
+ * "SO-12 / 1 · 12170 · Domal (Anodise) · PO 778" or "12170 · Domal" for bundles without a line. SO
+ * numbers repeat every FY: pass the PL's groups and a number that two periods share prints its
+ * period too ("SO-3 (2026-27) / 1").
+ */
+export function plGroupTitle(g: PlGroup, all: readonly PlGroup[] = []): string {
+  const shared =
+    g.orderNumber != null &&
+    all.some((o) => o.orderNumber === g.orderNumber && (o.orderPeriod ?? null) !== (g.orderPeriod ?? null));
+  const order = g.orderNumber ? `${g.orderNumber}${shared && g.orderPeriod ? ` (${g.orderPeriod})` : ""} / ${g.lineNo}` : null;
+  const parts = [order, g.sectionCode, g.item, g.poNumber ? `PO ${g.poNumber}` : null];
   return parts.filter(Boolean).join(" · ");
+}
+
+/** "1 bundle", "157 bundles" (ruling PL8-R19). */
+export function bundlesText(n: number): string {
+  return `${n} ${n === 1 ? "bundle" : "bundles"}`;
+}
+
+/** The dispatch's ship date as printed ("05 Oct 2026"), or null when none was set. */
+export function plShipDateText(shipDate: string | null | undefined): string | null {
+  if (!shipDate) return null;
+  const at = new Date(shipDate);
+  if (Number.isNaN(at.getTime())) return null;
+  return at.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }

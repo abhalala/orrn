@@ -424,6 +424,10 @@ bun run deploy
   with `lineBalancePage` (`orders.balance` takes `limit`/`offset`, returns `nextOffset`), and report
   totals come from SQL (`lineTotals`, `orderTotals`), never from summing a page. `withBaki` filters
   baki > 0 in SQL before any limit (`openLines`).
+- `orders.create` takes an optional `clientRequestId` (unique per company): a retry with the same key
+  returns the first order (`replayed: true`) and burns no second SO number. `orders.update` takes an
+  optional `serverSeq` (from `orders.get`): a save over a newer version answers CONFLICT, read and
+  write time.
 - Order status: booking ⇄ confirmed → dispatching (set by the first completed dispatch) → closed
   (reopen to confirmed). Cancel only while no live dispatch carries its lines. A line that has bundles
   or dispatch items cannot be removed or change section, and the order's customer cannot change once
@@ -439,6 +443,13 @@ bun run deploy
   section) unlinked. The add reports return `linked[]`. Unlinking (`linkItem` null) a bundle whose
   section has an open line of the dispatch's customer needs `order.manage` (read and write time):
   the floor cannot take kg off the order to skip the override (ruling PL8-R15).
+- The link is decided again where its premise changes (fix round 2, spec S-2): a customer change in
+  `dispatch.update` clears every unlink mark and re-suggests every item for the new customer in the
+  same batch; `dispatch.complete` re-suggests every item left unlinked by nobody before the overdraw
+  read (`relinkOpen`, audited `dispatch.relink`), and its completing UPDATE also requires that no
+  such item has an open line of the customer for its section (`noUnlinkedWithOpenLine`; an order
+  saved in between answers CONFLICT). `linkItem(null)` stores the user in
+  `dispatch_item.unlinked_by` (unlinked on purpose, never re-suggested); a link clears it.
 - Review Focus 5: `dispatch.complete` refuses (PRECONDITION_FAILED) when a linked line's dispatched
   total would pass ordered + tolerance (`customer.kg_tolerance_bp`, else `settings.orderToleranceBp`,
   else 500 bp = 5 %) and opens one `dispatch_overdraw` approval (meta = per-line kg, no money);
@@ -458,7 +469,12 @@ bun run deploy
   (`lib/packingListSnapshot.ts`, zod `plSnapshotV2Schema`): `header` (letterhead from
   `settings.letterhead`, bill-to/ship-to, PL no, date, vehicle, driver, PO and invoice numbers),
   `columns` (11), `groups` by order line else section with subtotals, `summary.text` "N bundles ·
-  X kg", plus every v1 key with its old meaning so v1 renderers keep working.
+  X kg", plus every v1 key with its old meaning so v1 renderers keep working. Range /12' is computed
+  from the stored thousandths in integers (`weightRange12ftFromMilli`: 2.090 → 2.1). A group carries
+  `orderPeriod`; `plGroupTitle(g, groups)` prints it when two groups share an SO number. The v2 print
+  and xlsx carry the dispatch notes and ship date; "1 bundle" everywhere (`bundlesText`). The overdraw
+  approval meta names each line's `orderPeriod`; a repeat Complete with the same figures leaves the
+  request alone and writes a `dispatch.overdraw.request` audit row (`repeat: true`, with its note).
 - `reports.salesRegisterCsv({ month })` (reports.read or export.accounts): one CSV row per completed
   dispatch in the company calendar month, cells guarded against spreadsheet formulas.
 

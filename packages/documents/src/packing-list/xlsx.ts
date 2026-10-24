@@ -2,7 +2,7 @@ import type { LengthUnit } from "@orrn/server/lib/length";
 import { formatLengthValue } from "@orrn/server/lib/length";
 import * as XLSX from "xlsx";
 
-import { isPlSnapshotV2, PL_COLUMN_HEADINGS, plGroupTitle, type PLSnapshot } from "./snapshot";
+import { bundlesText, isPlSnapshotV2, PL_COLUMN_HEADINGS, plGroupTitle, plShipDateText, type PLSnapshot } from "./snapshot";
 
 /** v2: one "Packing list" sheet — header block, the 11 columns, group titles, subtotals, total. */
 function buildWorkbookV2(pl: PLSnapshot & { header: NonNullable<PLSnapshot["header"]>; groups: NonNullable<PLSnapshot["groups"]>; summary: NonNullable<PLSnapshot["summary"]> }) {
@@ -25,11 +25,13 @@ function buildWorkbookV2(pl: PLSnapshot & { header: NonNullable<PLSnapshot["head
     ["PO numbers", h.poNumbers.join(", ")],
     ["Invoice", [h.invoiceNumber, h.invoiceDate].filter(Boolean).join(" · ")],
     ["Dispatch", h.dispatchCode],
+    ["Ship date", plShipDateText(pl.dispatch.shipDate) ?? ""],
+    ["Notes", pl.dispatch.notes ?? ""],
     [],
     [...PL_COLUMN_HEADINGS],
   ];
   for (const g of pl.groups) {
-    aoa.push([plGroupTitle(g)]);
+    aoa.push([plGroupTitle(g, pl.groups)]);
     for (const r of g.rows) {
       aoa.push([
         r.sr,
@@ -45,10 +47,10 @@ function buildWorkbookV2(pl: PLSnapshot & { header: NonNullable<PLSnapshot["head
         r.po ?? "",
       ]);
     }
-    aoa.push([null, `${g.subtotal.bundles} bundles`, null, null, +(g.subtotal.weightG / 1000).toFixed(3), null, null, g.subtotal.pcs]);
+    aoa.push([null, bundlesText(g.subtotal.bundles), null, null, +(g.subtotal.weightG / 1000).toFixed(3), null, null, g.subtotal.pcs]);
   }
   aoa.push([]);
-  aoa.push([null, `${pl.summary.bundles} bundles`, null, null, +(pl.summary.weightG / 1000).toFixed(3), null, null, pl.summary.pcs]);
+  aoa.push([null, bundlesText(pl.summary.bundles), null, null, +(pl.summary.weightG / 1000).toFixed(3), null, null, pl.summary.pcs]);
   aoa.push([null, pl.summary.text]);
 
   const wb = XLSX.utils.book_new();

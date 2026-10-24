@@ -1,7 +1,16 @@
 import type { LengthUnit } from "@orrn/server/lib/length";
 import { formatLengthValue } from "@orrn/server/lib/length";
 
-import { formatPlKg, isPlSnapshotV2, PL_COLUMN_HEADINGS, plGroupTitle, plRowCells, type PLSnapshot } from "./snapshot";
+import {
+  bundlesText,
+  formatPlKg,
+  isPlSnapshotV2,
+  PL_COLUMN_HEADINGS,
+  plGroupTitle,
+  plRowCells,
+  plShipDateText,
+  type PLSnapshot,
+} from "./snapshot";
 
 function escapeHtml(value: string): string {
   return value
@@ -35,6 +44,7 @@ function buildPackingListHtmlV2(pl: PLSnapshot & { header: NonNullable<PLSnapsho
       ${p.address ? `<div>${e(p.address)}</div>` : ""}
       ${p.gstin ? `<div>GSTIN ${e(p.gstin)}</div>` : ""}
     </div>`;
+  const shipDate = plShipDateText(pl.dispatch.shipDate);
   const head = PL_COLUMN_HEADINGS.map((c, i) => `<th${NUMERIC_COLUMNS.has(i) ? ' class="num"' : ""}>${escapeHtml(c)}</th>`).join("");
   const body = pl.groups
     .map((g) => {
@@ -47,9 +57,9 @@ function buildPackingListHtmlV2(pl: PLSnapshot & { header: NonNullable<PLSnapsho
         )
         .join("");
       return `
-      <tr class="group"><td colspan="11">${escapeHtml(plGroupTitle(g))}</td></tr>
+      <tr class="group"><td colspan="11">${escapeHtml(plGroupTitle(g, pl.groups))}</td></tr>
       ${rows}
-      <tr class="sub"><td colspan="4">${g.subtotal.bundles} ${g.subtotal.bundles === 1 ? "bundle" : "bundles"}</td><td class="num">${formatPlKg(g.subtotal.weightG)}</td><td></td><td></td><td class="num">${g.subtotal.pcs}</td><td colspan="3"></td></tr>`;
+      <tr class="sub"><td colspan="4">${bundlesText(g.subtotal.bundles)}</td><td class="num">${formatPlKg(g.subtotal.weightG)}</td><td></td><td></td><td class="num">${g.subtotal.pcs}</td><td colspan="3"></td></tr>`;
     })
     .join("");
 
@@ -74,6 +84,7 @@ function buildPackingListHtmlV2(pl: PLSnapshot & { header: NonNullable<PLSnapsho
     .num { text-align: right; font-variant-numeric: tabular-nums; }
     tr.group td { background: #fafafa; font-weight: bold; border-top: 1px solid #ccc; }
     tr.sub td { font-weight: bold; border-bottom: 1px solid #ccc; }
+    .notes { border: 1px solid #ddd; padding: 6px; margin-bottom: 10px; white-space: pre-wrap; }
     .total { margin-top: 10px; text-align: right; font-size: 13px; font-weight: bold; }
     .footer { margin-top: 18px; font-size: 8px; color: #999; display: flex; justify-content: space-between; }
   </style>
@@ -106,8 +117,10 @@ function buildPackingListHtmlV2(pl: PLSnapshot & { header: NonNullable<PLSnapsho
       <div class="label">References</div>
       <div>PO ${e(h.poNumbers.length ? h.poNumbers.join(", ") : "—")}</div>
       <div>Invoice ${e(h.invoiceNumber ?? "—")}${h.invoiceDate ? ` · ${escapeHtml(ddMmmYyyy(h.invoiceDate))}` : ""}</div>
+      ${shipDate ? `<div>Ship date ${e(shipDate)}</div>` : ""}
     </div>
   </div>
+  ${pl.dispatch.notes ? `<div class="notes"><span class="label">Notes</span> ${e(pl.dispatch.notes)}</div>` : ""}
   <table>
     <thead><tr>${head}</tr></thead>
     <tbody>${body}</tbody>

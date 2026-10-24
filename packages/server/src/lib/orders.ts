@@ -503,6 +503,8 @@ export async function suggestLines(
 export type OverdrawLine = {
   lineId: string;
   orderNumber: string;
+  /** FY period of the order (SO numbers repeat every FY). */
+  orderPeriod: string;
   lineNo: number;
   sectionCode: string;
   orderedG: number;
@@ -545,6 +547,7 @@ export async function dispatchOverdraw(
     .select({
       lineId: salesOrderLine.id,
       orderNumber: salesOrder.number,
+      orderPeriod: salesOrder.period,
       lineNo: salesOrderLine.lineNo,
       sectionCode: die.sectionCode,
       orderedG: salesOrderLine.kgG,
@@ -566,7 +569,7 @@ export async function dispatchOverdraw(
         ),
       ),
     )
-    .orderBy(asc(salesOrder.number), asc(salesOrderLine.lineNo));
+    .orderBy(asc(salesOrder.period), asc(salesOrder.number), asc(salesOrderLine.lineNo));
   if (rows.length === 0) return [];
 
   const approved = await db
@@ -601,6 +604,7 @@ export async function dispatchOverdraw(
     return {
       lineId: r.lineId,
       orderNumber: r.orderNumber,
+      orderPeriod: r.orderPeriod,
       lineNo: r.lineNo,
       sectionCode: r.sectionCode,
       orderedG,

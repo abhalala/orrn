@@ -46,6 +46,8 @@ export const salesOrder = sqliteTable(
     note: text("note"),
     /** Highest line number ever issued on this order, so a removed line's number is never reused. */
     lineSeq: integer("line_seq").notNull().default(0),
+    /** Replay key from the client: a retried `orders.create` with the same key returns this order. */
+    clientRequestId: text("client_request_id"),
     statusChangedAt: integer("status_changed_at", { mode: "timestamp_ms" }),
     statusChangedBy: text("status_changed_by").references(() => user.id, { onDelete: "set null" }),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
@@ -57,6 +59,7 @@ export const salesOrder = sqliteTable(
   },
   (table) => [
     uniqueIndex("sales_order_company_period_number_unique").on(table.companyId, table.period, table.number),
+    uniqueIndex("sales_order_company_request_unique").on(table.companyId, table.clientRequestId),
     index("sales_order_company_customer_status_idx").on(table.companyId, table.customerId, table.status),
     index("sales_order_company_status_date_idx").on(table.companyId, table.status, table.orderDate),
     index("sales_order_company_server_seq_idx").on(table.companyId, table.serverSeq),

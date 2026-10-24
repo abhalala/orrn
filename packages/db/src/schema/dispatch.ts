@@ -71,6 +71,12 @@ export const dispatchItem = sqliteTable(
      * foreign key to an existing table without rebuilding it); validated by dispatch.linkItem.
      */
     salesOrderLineId: text("sales_order_line_id"),
+    /**
+     * Set when someone unlinked this item on purpose (`dispatch.linkItem` with null): the user id.
+     * Completion and a customer change re-suggest a line only for items left unlinked by nobody
+     * (PL-8 fix round 2, spec S-2); linking the item again clears it.
+     */
+    unlinkedBy: text("unlinked_by"),
     addedAt: integer("added_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
   },
   (table) => [
