@@ -7,7 +7,7 @@
  * and it puts the run back to `queued`. `die.issue` is the die room's alone.
  */
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { die } from "@orrn/db/schema/catalog";
@@ -133,6 +133,15 @@ export const dieIssueRouter = router({
         .orderBy(desc(dieIssue.issuedAt))
         .limit(input.limit),
     ),
+
+  /** Active press lines, for the issue form's line picker. Any member. */
+  pressLines: companyProcedure.query(({ ctx }) =>
+    ctx.db
+      .select({ id: pressLine.id, code: pressLine.code, name: pressLine.name })
+      .from(pressLine)
+      .where(and(eq(pressLine.companyId, ctx.companyId), eq(pressLine.status, "active")))
+      .orderBy(asc(pressLine.sortOrder), asc(pressLine.code)),
+  ),
 
   issue: actionProcedure("die.issue")
     .input(

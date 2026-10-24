@@ -64,6 +64,12 @@ describe("worked examples (spec §E1)", () => {
     expect(cardA.band).toMatchObject({ id: null, weightMinG: 5_900, weightMaxG: 6_200, wallTenthMm: 12, kgPerMetreMin: 1.613, kgPerMetreMax: 1.695 });
     expect(await p.viewer.dieInstance.get({ id: b.id })).toMatchObject({ pctTenth: 98, tone: "amber", position: "above", kgPerMetre: 1.772 });
 
+    // Every reading on the card carries its own server-computed percent and tone (newest first).
+    expect(cardA.readings.map((r) => [r.kgPer12ftMilli, r.pctTenth, r.tone, r.position])).toEqual([
+      [5_967, 11, "green", "in"],
+      [5_940, 7, "green", "in"],
+    ]);
+
     const drift = await p.viewer.dieInstance.drift({ sectionId: p.sectionId });
     const byCode = new Map(drift.items.map((i) => [i.code, i]));
     expect(byCode.get(a.code)).toMatchObject({ pctTenth: 11, tone: "green", band: "in", kgPerMetre: 1.631 });

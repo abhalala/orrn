@@ -384,6 +384,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     operator: await ensureUser(db, "operator", password),
     viewer: await ensureUser(db, "viewer", password),
     office: await ensureUser(db, "office", password),
+    dieroom: await ensureUser(db, "dieroom", password),
     staff: await ensureUser(db, "staff", password),
   };
   const createdUsers = (Object.keys(users) as DevAccountKey[]).filter((key) => users[key].created);
@@ -397,7 +398,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     .from(membership)
     .where(
       and(
-        inArray(membership.userId, [ownerId, operatorId, users.viewer.id, officeId]),
+        inArray(membership.userId, [ownerId, operatorId, users.viewer.id, officeId, users.dieroom.id]),
         ne(membership.companyId, COMPANY_ID),
       ),
     );
@@ -1108,6 +1109,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       { id: "dev-membership-operator", userId: operatorId, companyId: COMPANY_ID, role: "operator" as const },
       { id: "dev-membership-viewer", userId: users.viewer.id, companyId: COMPANY_ID, role: "viewer" as const },
       { id: "dev-membership-office", userId: officeId, companyId: COMPANY_ID, role: "office" as const },
+      { id: "dev-membership-dieroom", userId: users.dieroom.id, companyId: COMPANY_ID, role: "die_room" as const },
     ]),
     db
       .insert(platformAdmin)
@@ -1217,6 +1219,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       operator: DEV_ACCOUNTS.operator.email,
       viewer: DEV_ACCOUNTS.viewer.email,
       office: DEV_ACCOUNTS.office.email,
+      dieroom: DEV_ACCOUNTS.dieroom.email,
       staff: DEV_ACCOUNTS.staff.email,
     },
     createdUsers,

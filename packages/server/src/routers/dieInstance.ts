@@ -341,6 +341,11 @@ export const dieInstanceRouter = router({
     const ownerId = effectiveDieOwner(instance.ownerCustomerId, sectionRow?.ownerCustomerId);
     const names = await customerNames(ctx.db, ctx.companyId, [ownerId]);
     const pendingTierChange = tierChanges.find((t) => t.status === "pending") ?? null;
+    // Each reading against the copy's band now, so the card can chip every row (never stored).
+    const readingRows = readings.map((r) => {
+      const f = band ? copyFigures(r.kgPer12ftMilli, band, driftBands) : null;
+      return { ...r, pctTenth: f?.pctTenth ?? null, tone: f?.tone ?? ("none" as const), position: f?.position ?? null };
+    });
     const lifeRemainingG = instance.lifeG == null ? null : instance.lifeG - produced;
     return {
       instance,
@@ -359,7 +364,7 @@ export const dieInstanceRouter = router({
       openMakerJob: openMakerJob[0] ?? null,
       pendingTierChange,
       files,
-      readings,
+      readings: readingRows,
       nitriding,
       tierChanges,
     };
