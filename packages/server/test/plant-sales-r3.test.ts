@@ -11,7 +11,7 @@ import { auditLog, dispatchItem, salesOrder } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { kg, NOON, salesHelpers, saveOrder, SLOW } from "./sales-fixture";
+import { kg, NOON, salesHelpers, saveOrder, SLOW, closeOrder, reopenOrder } from "./sales-fixture";
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
@@ -108,10 +108,10 @@ describe("I-1 only a deliberate unlink of a linked item marks it", () => {
     await p.owner.dispatch.addBundlesBySerial({ id, serials: await p.pack(p.dieA, [{ kg: 100 }]) });
     const [item] = await itemsOf(id);
     expect(item!.lineId).toBe(o.lineIds[0]!);
-    await saveOrder(p.owner, { id: o.id, status: "closed" });
+    await closeOrder(p.owner, o.id);
     await p.as("packer").dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
     expect(await markOf(item!.id)).toEqual({ line: null, by: null });
-    await saveOrder(p.owner, { id: o.id, status: "confirmed" });
+    await reopenOrder(env, o.id);
     await p.owner.dispatch.reserve({ id });
     await p.as("supervisor").dispatch.complete({ id });
     expect(await p.lineOf(o.lineIds[0]!)).toMatchObject({ dispatchedG: kg(100), bakiG: kg(900) });
@@ -176,7 +176,7 @@ describe("m-3 the relink audit lists only links that landed", () => {
     await p.owner.dispatch.addBundlesBySerial({ id, serials });
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     await p.owner.dispatch.reserve({ id });
-    env.beforeNextBatch(() => saveOrder(p.owner, { id: o.id, status: "closed" }));
+    env.beforeNextBatch(() => closeOrder(p.owner, o.id));
     await p.owner.dispatch.complete({ id });
     expect((await itemsOf(id)).map((i) => i.lineId)).toEqual([null]);
     const audits = await relinkAudits(p.companyId, id);
@@ -204,7 +204,7 @@ describe("m-3 the relink audit lists only links that landed", () => {
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.otherCustomer });
     await p.owner.dispatch.addBundlesBySerial({ id, serials });
-    env.beforeNextBatch(() => saveOrder(p.owner, { id: o.id, status: "closed" }));
+    env.beforeNextBatch(() => closeOrder(p.owner, o.id));
     await p.owner.dispatch.update({ id, customerId: p.customerId });
     expect((await itemsOf(id)).map((i) => i.lineId)).toEqual([null]);
     const dropped = await relinkAudits(p.companyId, id);
@@ -215,7 +215,7 @@ describe("m-3 the relink audit lists only links that landed", () => {
       .where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "dispatch.update"), eq(auditLog.subjectId, id)));
     expect(updates.some((u) => "relinked" in (u.meta as object))).toBe(false);
     // Reopened: changing the customer back and forth relinks, and the audit names the landed link.
-    await saveOrder(p.owner, { id: o.id, status: "confirmed" });
+    await reopenOrder(env, o.id);
     await p.owner.dispatch.update({ id, customerId: p.otherCustomer });
     await p.owner.dispatch.update({ id, customerId: p.customerId });
     expect((await itemsOf(id)).map((i) => i.lineId)).toEqual([o.lineIds[0]!]);

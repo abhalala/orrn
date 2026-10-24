@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 2929 screen strings in 42 groups, 16 guides with 292 strings.
+Counts: 2930 screen strings in 42 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -615,7 +615,7 @@ Counts: 2929 screen strings in 42 groups, 16 guides with 292 strings.
 | `reject.kg` | kg | kg |
 | `reject.saved` | {count} {count:piece\|pieces} rejected | {count} पीस रिजेक्ट |
 
-### scan (40)
+### scan (41)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -644,6 +644,7 @@ Counts: 2929 screen strings in 42 groups, 16 guides with 292 strings.
 | `continuous.count` | {count} added | {count} {count:जुड़ा\|जुड़े} |
 | `continuous.already` | Already in this dispatch | इस dispatch में पहले से है |
 | `continuous.heldElsewhere` | Held for another dispatch | किसी दूसरे dispatch के लिए होल्ड पर है |
+| `continuous.reallocationPending` | Waiting on a reallocation approval | reallocation की मंज़ूरी बाकी है |
 | `continuous.void` | This bundle is void | यह bundle रद्द है |
 | `continuous.dispatched` | Already dispatched | पहले ही dispatch हो चुका है |
 | `continuous.wrongStatus` | Can't add a bundle that is {status} | "{status}" वाला bundle नहीं जोड़ सकते |

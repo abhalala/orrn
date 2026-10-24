@@ -401,6 +401,7 @@ export const gu = {
       count: "{count} ઉમેરાયા",
       already: "આ dispatch માં પહેલેથી છે",
       heldElsewhere: "બીજા dispatch માટે હોલ્ડ પર છે",
+      reallocationPending: "reallocation ની મંજૂરી બાકી છે",
       void: "આ bundle રદ છે",
       dispatched: "પહેલેથી dispatch થઈ ગયું છે",
       wrongStatus: "\"{status}\" વાળું bundle ઉમેરી શકાતું નથી",

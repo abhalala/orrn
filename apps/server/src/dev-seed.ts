@@ -65,6 +65,7 @@ import type { BatchItem } from "drizzle-orm/batch";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 
 import { DEV_ACCOUNTS, type DevAccountKey } from "./dev-accounts";
+import { demoOrderSeed } from "./dev-seed-orders";
 
 type Db = ReturnType<typeof createDb>;
 type Statement = BatchItem<"sqlite">;
@@ -747,6 +748,23 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     });
   }
 
+  // Demo sales orders (W1-OP-S, FP-OP): three orders in different states, one late; a few in-stock
+  // bundles are packed for SO-1 line 1.
+  const orderSeed = demoOrderSeed({
+    companyId: COMPANY_ID,
+    now,
+    ownerId,
+    officeId,
+    customers: customerRows,
+    dies: dieRows,
+    bundles: bundleRows,
+    nextSeq,
+  });
+  for (const row of bundleRows) {
+    const lineId = row.id ? orderSeed.bundleLines.get(row.id) : undefined;
+    if (lineId) row.salesOrderLineId = lineId;
+  }
+
   // Scrap purchase: masters, vendors, lots, the approved D/C note and the OK lots' scrap postings.
   const grams = (kgValue: number) => Math.round(kgValue * 1000);
   const istDate = (ms: number) => new Date(ms + IST_OFFSET_MS).toISOString().slice(0, 10);
@@ -1143,6 +1161,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       .onConflictDoUpdate({ target: companySequence.companyId, set: { value: sequenceAfterData } }),
     ...insertChunks(db, customer, customerRows),
     ...insertChunks(db, die, dieRows),
+    ...insertChunks(db, salesOrder, orderSeed.orders),
+    ...insertChunks(db, salesOrderLine, orderSeed.lines),
     ...defaultLocationStatements(db, COMPANY_ID, { userId: ownerId, idFor: devLocationId }),
     ...insertChunks(db, bundleGroup, groups),
     ...insertChunks(db, bundle, bundleRows),
@@ -1158,6 +1178,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     ...insertChunks(db, approval, approvalRows),
     ...insertChunks(db, stockLedger, scrapLedgerRows),
     ...insertChunks(db, docSeries, purchaseSeriesRows),
+    ...insertChunks(db, docSeries, orderSeed.series),
+    ...insertChunks(db, auditLog, orderSeed.audits),
     // FP Wave 1 masters: one press (tonnage left for the plant), the demo transporter, every
     // default reason code.
     ...insertChunks(db, pressLine, [

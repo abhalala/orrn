@@ -12,7 +12,7 @@ import { and, eq } from "drizzle-orm";
 
 import { can, type Action } from "../src/lib/permissions";
 import { createTestEnv, type TestEnv } from "./harness";
-import { ist, kg, NOON, ROLES, salesHelpers, SLOW, saveOrder } from "./sales-fixture";
+import { ist, kg, NOON, ROLES, salesHelpers, SLOW, saveOrder, cancelOrder, closeOrder, confirmOrder, reopenOrder } from "./sales-fixture";
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
@@ -119,26 +119,29 @@ describe("orders: create, numbers and validation", () => {
 });
 
 describe("order status and line edits", () => {
-  test("hand moves follow the table; dispatching is set by the first completed dispatch", async () => {
+  test("moves go through confirm / close / cancel (D11); dispatching is set by the first completed dispatch", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
-    await saveOrder(p.owner, { id: o.id, status: "confirmed" });
+    // An edit never moves the status (W1-OP-S review round 1 I-1).
+    await expect(saveOrder(p.owner, { id: o.id, status: "confirmed" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await confirmOrder(p.owner, o.id);
     await expect(saveOrder(p.owner, { id: o.id, status: "dispatching" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const serials = await p.pack(p.dieA, [{ kg: 200 }], o.lineIds[0]);
     const d = await p.held(serials);
     await p.owner.dispatch.complete({ id: d });
     expect((await p.owner.orders.get({ id: o.id })).order.status).toBe("dispatching");
     // Cancel is for orders entered in error: refused once anything went out.
-    await expect(saveOrder(p.owner, { id: o.id, status: "cancelled" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await saveOrder(p.owner, { id: o.id, status: "closed" });
-    await saveOrder(p.owner, { id: o.id, status: "confirmed" });
-    expect((await p.owner.orders.get({ id: o.id })).order.status).toBe("confirmed");
+    await expect(cancelOrder(p.owner, o.id)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await closeOrder(p.owner, o.id);
+    // No reopen through an edit either.
+    await expect(saveOrder(p.owner, { id: o.id, status: "confirmed" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await p.owner.orders.get({ id: o.id })).order.status).toBe("closed");
   }, SLOW);
 
   test("a booking with nothing dispatched can be cancelled; cancelled orders take no edits", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 100 }]);
-    await saveOrder(p.owner, { id: o.id, status: "cancelled" });
+    await cancelOrder(p.owner, o.id);
     await expect(saveOrder(p.owner, { id: o.id, poNumber: "X" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   }, SLOW);
 
@@ -260,7 +263,7 @@ describe("baki math", () => {
     const mine = await p.order([{ dieId: p.dieA, kg: 100 }]);
     const theirs = await p.order([{ dieId: p.dieA, kg: 70 }], { customerId: p.otherCustomer });
     const closed = await p.order([{ dieId: p.dieB, kg: 30 }]);
-    await saveOrder(p.owner, { id: closed.id, status: "closed" });
+    await closeOrder(p.owner, closed.id);
     const byCustomer = await p.owner.orders.balance({ customerId: p.customerId });
     expect(byCustomer.lines.map((l) => l.orderId)).toEqual([mine.id]);
     expect(byCustomer.totals).toMatchObject({ lines: 1, orderedG: kg(100), bakiG: kg(100) });
@@ -471,7 +474,7 @@ describe("order line suggested per bundle, and links", () => {
     const old = await p.order([{ dieId: p.dieA, kg: 150 }]);
     const newer = await p.order([{ dieId: p.dieA, kg: 500 }, { dieId: p.dieB, kg: 500 }]);
     const closed = await p.order([{ dieId: p.dieA, kg: 900 }]);
-    await saveOrder(p.owner, { id: closed.id, status: "closed" });
+    await closeOrder(p.owner, closed.id);
     const theirs = await p.order([{ dieId: p.dieA, kg: 900 }], { customerId: p.otherCustomer });
     const packedForNewer = await p.pack(p.dieA, [{ kg: 100 }], newer.lineIds[0]);
     const a = await p.pack(p.dieA, [{ kg: 100 }, { kg: 100 }, { kg: 100 }]);
@@ -516,13 +519,13 @@ describe("order line suggested per bundle, and links", () => {
     const [item] = await itemsOf(id);
     expect(item!.lineId).toBe(o.lineIds[0]!);
     // The order is closed: no open line for the section, so the packer may unlink…
-    await saveOrder(p.owner, { id: o.id, status: "closed" });
+    await closeOrder(p.owner, o.id);
     // …but it is reopened between the unlink's read and its write.
-    env.beforeNextBatch(() => saveOrder(p.owner, { id: o.id, status: "confirmed" }));
+    env.beforeNextBatch(() => reopenOrder(env, o.id));
     await expect(p.as("packer").dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null })).rejects.toMatchObject({ code: "CONFLICT" });
     expect((await itemsOf(id))[0]!.lineId).toBe(o.lineIds[0]!);
     // With the order closed and staying closed the packer's unlink lands.
-    await saveOrder(p.owner, { id: o.id, status: "closed" });
+    await closeOrder(p.owner, o.id);
     await p.as("packer").dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
     expect((await itemsOf(id))[0]!.lineId).toBeNull();
   }, SLOW);
@@ -532,16 +535,16 @@ describe("order line suggested per bundle, and links", () => {
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }, { kg: 100 }]);
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
-    env.beforeNextBatch(() => saveOrder(p.owner, { id: o.id, status: "closed" }));
+    env.beforeNextBatch(() => closeOrder(p.owner, o.id));
     const report = await p.owner.dispatch.addBundlesBySerial({ id, serials });
     expect(report.added).toHaveLength(2);
     expect(report.linked).toEqual([]);
     expect((await itemsOf(id)).map((i) => i.lineId)).toEqual([null, null]);
     // Single-bundle add (the gate's one-at-a-time scan) behaves the same.
-    await saveOrder(p.owner, { id: o.id, status: "confirmed" });
+    await reopenOrder(env, o.id);
     const [third] = await p.pack(p.dieA, [{ kg: 100 }]);
     const [b3] = await env.db.select({ id: bundle.id }).from(bundle).where(and(eq(bundle.companyId, p.companyId), eq(bundle.serial, third!)));
-    env.beforeNextBatch(() => saveOrder(p.owner, { id: o.id, status: "closed" }));
+    env.beforeNextBatch(() => closeOrder(p.owner, o.id));
     const single = await p.owner.dispatch.addBundle({ id, bundleId: b3!.id });
     expect(single.added).toEqual([third!]);
     expect(single.linked).toEqual([]);
@@ -562,7 +565,7 @@ describe("order line suggested per bundle, and links", () => {
     const mine = await p.order([{ dieId: p.dieA, kg: 1000 }, { dieId: p.dieB, kg: 1000 }]);
     const theirs = await p.order([{ dieId: p.dieA, kg: 1000 }], { customerId: p.otherCustomer });
     const closed = await p.order([{ dieId: p.dieA, kg: 1000 }]);
-    await saveOrder(p.owner, { id: closed.id, status: "closed" });
+    await closeOrder(p.owner, closed.id);
     const other = await plant();
     const foreign = await other.order([{ dieId: other.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
@@ -621,11 +624,11 @@ describe("order line suggested per bundle, and links", () => {
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
     // The order closes between linkItem's read and its write.
-    env.beforeNextBatch(() => saveOrder(p.owner, { id: o.id, status: "closed" }));
+    env.beforeNextBatch(() => closeOrder(p.owner, o.id));
     await expect(p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: o.lineIds[0]! })).rejects.toMatchObject({ code: "CONFLICT" });
     expect((await itemsOf(id))[0]!.lineId).toBeNull();
     // The dispatch moves to another customer between linkItem's read and its write.
-    await saveOrder(p.owner, { id: o.id, status: "confirmed" });
+    await reopenOrder(env, o.id);
     env.beforeNextBatch(() => p.owner.dispatch.update({ id, customerId: p.otherCustomer }));
     await expect(p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: o.lineIds[0]! })).rejects.toMatchObject({ code: "CONFLICT" });
     expect((await itemsOf(id))[0]!.lineId).toBeNull();
@@ -656,7 +659,7 @@ describe("pack against an order line", () => {
     const other = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const closed = await p.order([{ dieId: p.dieA, kg: 1000 }]);
-    await saveOrder(p.owner, { id: closed.id, status: "closed" });
+    await closeOrder(p.owner, closed.id);
     const foreign = await other.order([{ dieId: other.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }, { kg: 120 }], o.lineIds[0]);
     const rows = await env.db.select({ line: bundle.salesOrderLineId }).from(bundle).where(and(eq(bundle.companyId, p.companyId), eq(bundle.serial, serials[1]!)));
@@ -670,11 +673,12 @@ describe("pack against an order line", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }, { dieId: p.dieA, kg: 500 }]);
     const before = (await p.owner.stock.balance({ itemKind: "bundle" })).items.length;
-    env.beforeNextBatch(() => saveOrder(p.owner, { id: o.id, status: "closed" }));
+    env.beforeNextBatch(() => closeOrder(p.owner, o.id));
     await expect(p.pack(p.dieA, [{ kg: 100 }], o.lineIds[0])).rejects.toMatchObject({ code: "CONFLICT" });
-    await saveOrder(p.owner, { id: o.id, status: "confirmed" });
+    await reopenOrder(env, o.id);
     env.beforeNextBatch(() =>
-      saveOrder(p.owner, { id: o.id, lines: [{ id: o.lineIds[0]!, sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(1000) }] }),
+      // The order is confirmed, so the kept line stays complete (pieces and a tier, D11).
+      saveOrder(p.owner, { id: o.id, lines: [{ id: o.lineIds[0]!, sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(1000), pcs: 1, tierRank: 1 }] }),
     );
     await expect(p.pack(p.dieA, [{ kg: 100 }], o.lineIds[1])).rejects.toMatchObject({ code: "CONFLICT" });
     const rows = await env.db.select({ id: bundle.id }).from(bundle).where(eq(bundle.companyId, p.companyId));

@@ -12,6 +12,7 @@ import type { OrrnDb, SqliteBatchItem } from "./atomic";
 import { stillPhantomOfLine } from "./count";
 import { boriMeltedMessage, dcNoteOverdrawAbort, isFoundryAbort, lotRemaining } from "./foundry";
 import { dcNoteDeductionRows, phantomVoidRows, sqlUuid } from "./ledger";
+import { reallocateDecision } from "./reallocate";
 
 /** What an approval's apply hook sees: this request, and the decision that is being written. */
 export type ApplyCtx = {
@@ -286,6 +287,8 @@ export const APPROVAL_APPLIERS: Partial<Record<ApprovalKind, ApprovalApplier>> =
   phantom_void: phantomVoidDecision,
   cast_close: castCloseDecision,
   die_owner_override: dieOwnerOverrideDecision,
+  // FP-OP-08 (W1-OP-S): cross-customer reallocation moves its bundles on approval.
+  order_reallocate: reallocateDecision,
 };
 
 /**

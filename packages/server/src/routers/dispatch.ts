@@ -30,7 +30,14 @@ import {
   type OrrnDb,
   type SqliteBatchItem,
 } from "../lib/atomic";
-import { bundleBlock, bundleBlockReason, heldElsewhere, holdingDispatchCodes, type BundleBlock } from "../lib/bundleHold";
+import {
+  bundleBlock,
+  bundleBlockReason,
+  heldElsewhere,
+  holdingDispatchCodes,
+  REALLOCATION_PENDING_BLOCK,
+  type BundleBlock,
+} from "../lib/bundleHold";
 import { now as clockNow } from "../lib/clock";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { nextDocNumber } from "../lib/docNumber";
@@ -47,6 +54,7 @@ import {
   type OverdrawLine,
 } from "../lib/orders";
 import { can } from "../lib/permissions";
+import { bundlesPendingReallocation, pendingReallocationOf } from "../lib/reallocate";
 import { nextCompanySeq } from "../lib/sequence";
 import { packingListWriteBatch } from "./packingList";
 
@@ -1234,6 +1242,10 @@ export const dispatchRouter = router({
           const codes = await holdingDispatchCodes(ctx.db, ctx.companyId, [b]);
           throw new TRPCError({ code: "BAD_REQUEST", message: bundleBlockReason(b, codes) });
         }
+        // A bundle waiting on a reallocation approval stays put until it is decided.
+        if ((await bundlesPendingReallocation(ctx.db, ctx.companyId, [b.id])).size > 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `${b.serial} is waiting on a reallocation approval` });
+        }
 
         const picks = await suggestLines(ctx.db, ctx.companyId, {
           customerId: d.customerId,
@@ -1377,6 +1389,14 @@ export const dispatchRouter = router({
           else if (inThisDispatch.has(b.id)) report.alreadyInDispatch.push(serial);
           else if (b.status !== "available") report.unavailable.push({ serial, ...bundleBlock(b, codes) });
           else toAdd.push(b);
+        }
+        // Bundles waiting on a reallocation approval are reported, not added (W1-OP-S r1 m-4).
+        const pending = await bundlesPendingReallocation(ctx.db, ctx.companyId, toAdd.map((b) => b.id));
+        if (pending.size > 0) {
+          for (const b of toAdd.filter((x) => pending.has(x.id))) {
+            report.unavailable.push({ serial: b.serial, ...REALLOCATION_PENDING_BLOCK, status: b.status });
+          }
+          toAdd.splice(0, toAdd.length, ...toAdd.filter((x) => !pending.has(x.id)));
         }
         if (toAdd.length === 0) return report;
 
@@ -1808,6 +1828,16 @@ export const dispatchRouter = router({
           message: "Cannot complete: one or more bundles are no longer reserved for this dispatch",
         });
       }
+      // A bundle that went into a reallocation request after it was scanned can't leave until the
+      // request is decided (read here, and in the completing UPDATE below).
+      const pendingHere = await bundlesPendingReallocation(ctx.db, ctx.companyId, bundleIds);
+      if (pendingHere.size > 0) {
+        const serials = bundles.filter((b) => pendingHere.has(b.id)).map((b) => b.serial);
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${serials.join(", ")} ${serials.length === 1 ? "is" : "are"} waiting on a reallocation approval. Decide it or take ${serials.length === 1 ? "it" : "them"} off the dispatch.`,
+        });
+      }
 
       // Spec S-2: the link is decided again now, so kg that leave for a customer with an open line
       // for the section meet the order (an order entered after the scan, a reopened order).
@@ -1864,6 +1894,7 @@ export const dispatchRouter = router({
               dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("completed")),
               overdrawGuard(ctx.companyId, d.id, toleranceBp),
               noUnlinkedWithOpenLine(ctx.companyId, d.id),
+              sql`not exists (select 1 from dispatch_item pdi where pdi.company_id = ${ctx.companyId} and pdi.dispatch_id = ${d.id} and ${pendingReallocationOf(ctx.companyId, sql`pdi.bundle_id`)})`,
             ),
           ),
         batchAbortUnless(ctx.db, "packing_list_line", landed),
