@@ -1,4 +1,8 @@
 import type { Messages } from "./en";
+import { packHi } from "./native/pack.hi";
+import { scanHi } from "./native/scan.hi";
+import { dispatchHi } from "./native/dispatch.hi";
+import { moreHi } from "./native/more.hi";
 
 /**
  * Hindi messages. Conversational Devanagari, matching the plant's own Hindi SOP.
@@ -2593,6 +2597,11 @@ export const hi = {
     serverBody: "दिक्कत orrn की तरफ़ से है, इस फ़ोन में नहीं। एक मिनट बाद फिर से कोशिश करें।",
     saveUnsureTitle: "पता नहीं सेव हुआ या नहीं",
     saveUnsureBody: "orrn से सेव होने का जवाब नहीं आया, इसलिए हो सकता है यह सेव हो गया हो। दोबारा कोशिश करने से पहले जांच लें।",
+    monthsShort: "जन॰,फ़र॰,मार्च,अप्रै॰,मई,जून,जुला॰,अग॰,सित॰,अक्टू॰,नव॰,दिस॰",
+    ...packHi,
+    ...scanHi,
+    ...dispatchHi,
+    ...moreHi,
   },
 
   ui: {
