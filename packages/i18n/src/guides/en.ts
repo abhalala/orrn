@@ -500,4 +500,46 @@ export const guidesEn: GuideBook = {
       },
     ],
   },
+  "store-entries": {
+    slug: "store-entries",
+    roles: ["owner", "storekeeper"],
+    title: "Issue and receive store items",
+    when: "Use this when chemicals, fuel, gas or spares leave the store or a delivery comes in.",
+    steps: [
+      {
+        title: "Open the store",
+        body: "Open \"Store\". Every item shows how much is in the store now.",
+      },
+      {
+        title: "Issue to the floor",
+        body: "Tap \"Issue\", pick the item, type the quantity and choose what it is for. Tap \"Issue\" again to save. The MRS number shows on screen.",
+      },
+      {
+        title: "Receive a delivery",
+        body: "Tap \"Receive\", pick the item, type the quantity from the challan and add the challan or bill number. Tap \"Receive\" again to save. The GRN number shows on screen.",
+      },
+      {
+        title: "Exchange old for new",
+        body: "When an old part leaves the store and a new one comes in, tap \"Exchange\". Type how many go out and how many come in.",
+      },
+      {
+        title: "Check an item",
+        body: "Tap an item in the list to see its balance and every entry for it.",
+      },
+    ],
+    problems: [
+      {
+        title: "It says there is not enough in the store",
+        fix: "You typed more than the store holds. Issue less, or receive the delivery first and then issue.",
+      },
+      {
+        title: "I saved a wrong quantity",
+        fix: "Open the entry, tap \"Cancel entry\" and write why. Then make the entry again with the right quantity.",
+      },
+      {
+        title: "The item is not in the list",
+        fix: "Open \"Store items\" and tap \"Add item\". Choose its unit carefully: it can't change after the first entry.",
+      },
+    ],
+  },
 };

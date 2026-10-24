@@ -15,10 +15,9 @@ export {
   type TranslateVars,
 } from "./core";
 export { I18nProvider, useT, type I18nContextValue, type I18nProviderProps } from "./use-t";
-// Guide CONTENT (getGuide, listGuides) is imported from "@orrn/i18n/guides",
-// never from here: this index is in the web entry chunk, and re-exporting the
-// guide books from it put ~45 kB of SOP text into every first load (the
-// entry is capped at 700 kB by apps/web/scripts/check-modulepreload.ts).
+// Guide metadata only. The guide text (getGuide, listGuides) lives at `@orrn/i18n/guides`: re-exporting
+// it here put ~50 kB of SOP text into the web entry chunk (over the 700 kB budget). Import it from the
+// subpath in the lazy screens that show guides.
 export {
   COMPANY_ROLES,
   GUIDE_SLUGS,

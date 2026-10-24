@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 1334 screen strings in 28 groups, 11 guides with 202 strings.
+Counts: 1524 screen strings in 29 groups, 12 guides with 220 strings.
 
 ## Screen strings
 
@@ -152,7 +152,7 @@ Counts: 1334 screen strings in 28 groups, 11 guides with 202 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (39)
+### nav (40)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -165,6 +165,7 @@ Counts: 1334 screen strings in 28 groups, 11 guides with 202 strings.
 | `more` | More | और |
 | `dies` | Dies | Die |
 | `customers` | Customers | ग्राहक |
+| `store` | Store | स्टोर |
 | `printing` | Printing | प्रिंटिंग |
 | `guides` | Guides | गाइड |
 | `settings` | Settings | सेटिंग्स |
@@ -933,6 +934,200 @@ Counts: 1334 screen strings in 28 groups, 11 guides with 202 strings.
 | `detail.openOrders.lines` | {count} {count:line\|lines} | {count} लाइन |
 | `dispatches` | Dispatches | Dispatch |
 | `noDispatches` | No dispatches for this customer yet. | इस ग्राहक का अभी कोई dispatch नहीं है। |
+
+### store (189)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Store | स्टोर |
+| `subtitle` | Chemicals, fuel, gas and spares in the central store. | सेंट्रल स्टोर में केमिकल, ईंधन, गैस और स्पेयर पार्ट। |
+| `items` | Store items | स्टोर का सामान |
+| `actions.issue` | Issue | माल दें |
+| `actions.issueHint` | Give items to the floor | फ़्लोर को सामान दें |
+| `actions.receive` | Receive | माल लें |
+| `actions.receiveHint` | A delivery came in | डिलीवरी आई है |
+| `actions.exchange` | Exchange | पुराना देकर नया |
+| `actions.exchangeHint` | Old out, new in | पुराना पार्ट बाहर, नया अंदर |
+| `readOnly` | Only the storekeeper makes store entries. You can see what is in the store. | स्टोर की एंट्री सिर्फ़ स्टोरकीपर करता है। स्टोर में क्या है, यह आप देख सकते हैं। |
+| `inStore` | In the store | स्टोर में |
+| `search` | Search items | सामान खोजें |
+| `category` | Category | किस्म |
+| `allCategories` | All categories | सारी किस्में |
+| `columns.item` | Item | सामान |
+| `columns.category` | Category | किस्म |
+| `columns.inStore` | In store | स्टोर में |
+| `columns.status` | Status | स्थिति |
+| `columns.entry` | Entry | एंट्री |
+| `columns.quantity` | Quantity | मात्रा |
+| `columns.when` | When | कब |
+| `columns.details` | Details | ब्योरा |
+| `status.empty` | Empty | खाली |
+| `status.inStock` | In stock | मौजूद |
+| `status.retired` | Retired | बंद |
+| `noItems` | No store items yet | स्टोर में अभी कोई सामान नहीं है |
+| `noItemsBody` | Add the chemicals, fuel and spares you keep, then receive the first delivery. | जो केमिकल, ईंधन और स्पेयर आप रखते हैं उन्हें जोड़ें, फिर पहली डिलीवरी लें। |
+| `noItemsInCategory` | No items in this category | इस किस्म का कोई सामान नहीं है |
+| `addItem` | Add item | सामान जोड़ें |
+| `noLocation` | Set up the central store first | पहले सेंट्रल स्टोर बनाएं |
+| `noLocationBody` | Ask your manager or admin to add a location of the kind Store in Masters, Locations. Until then nothing can be received or issued. | मैनेजर या एडमिन से कहें कि मास्टर, लोकेशन में Store किस्म की लोकेशन जोड़ें। तब तक न माल लिया जा सकता है, न दिया जा सकता है। |
+| `noLocationBodyPublisher` | Add a location of the kind Store in Masters, Locations. Until then nothing can be received or issued. | मास्टर, लोकेशन में Store किस्म की लोकेशन जोड़ें। तब तक न माल लिया जा सकता है, न दिया जा सकता है। |
+| `loadFailed` | The store did not load. Check the connection and try again. | स्टोर लोड नहीं हुआ। कनेक्शन देखें और फिर से कोशिश करें। |
+| `noAccess` | The store is for the storekeeper | स्टोर स्टोरकीपर के लिए है |
+| `noAccessBody` | Ask your plant admin if you need to see or change the store. | स्टोर देखना या बदलना हो तो प्लांट एडमिन से पूछें। |
+| `noEntryAccess` | Only the storekeeper makes store entries | स्टोर की एंट्री सिर्फ़ स्टोरकीपर करता है |
+| `noEntryAccessBody` | You can still see what is in the store. | स्टोर में क्या है, यह आप फिर भी देख सकते हैं। |
+| `backToStore` | Store | स्टोर |
+| `recent` | Recent entries | हाल की एंट्री |
+| `entries` | Entries | एंट्री |
+| `noEntries` | No entries yet | अभी कोई एंट्री नहीं है |
+| `noEntriesBody` | Deliveries received and items issued show here. | आई हुई डिलीवरी और दिया हुआ माल यहां दिखेगा। |
+| `showMore` | Show older entries | पुरानी एंट्री दिखाएं |
+| `showingLatest` | Showing the latest {max} entries. | सबसे नई {max} एंट्री दिख रही हैं। |
+| `kind.grn` | Received | माल आया |
+| `kind.mrs` | Issued | माल दिया |
+| `cancelled` | Cancelled | रद्द |
+| `purpose.melt` | Melt | मेल्ट |
+| `purpose.nitriding` | Nitriding | नाइट्राइडिंग |
+| `purpose.maintenance` | Maintenance | मेंटेनेंस |
+| `purpose.exchange` | Exchange | बदली |
+| `purpose.other` | Other | दूसरा काम |
+| `categories.chemical` | Chemical | केमिकल |
+| `categories.fuel` | Fuel | ईंधन |
+| `categories.gas` | Gas | गैस |
+| `categories.spare` | Spare | स्पेयर |
+| `categories.other` | Other | दूसरा |
+| `unitShort.kg` | kg | kg |
+| `unitShort.litre` | L | L |
+| `unitShort.piece` | pcs | pcs |
+| `unitShort.metre` | m | m |
+| `unitShort.set` | {count:set\|sets} | {count:सेट\|सेट} |
+| `unitShort.box` | {count:box\|boxes} | {count:डिब्बा\|डिब्बे} |
+| `unitShort.bag` | {count:bag\|bags} | {count:बोरी\|बोरी} |
+| `unitName.kg` | Kilogram (kg) | किलो (kg) |
+| `unitName.litre` | Litre (L) | लीटर (L) |
+| `unitName.piece` | Piece (pcs) | नग (pcs) |
+| `unitName.metre` | Metre (m) | मीटर (m) |
+| `unitName.set` | Set | सेट |
+| `unitName.box` | Box | डिब्बा |
+| `unitName.bag` | Bag | बोरी |
+| `countedIn` | {category}, counted in {unit} | {category}, {unit} में गिनती |
+| `openItem` | Open {item} | {item} खोलें |
+| `qtyOf` | {qty} {unit} of {item} | {item}: {qty} {unit} |
+| `form.item` | Item | सामान |
+| `form.itemPlaceholder` | Search store items | स्टोर का सामान खोजें |
+| `form.itemRequired` | Choose an item. | सामान चुनें। |
+| `form.inStoreNow` | In store now | अभी स्टोर में |
+| `form.quantity` | Quantity | मात्रा |
+| `form.quantityHint` | In store: {qty} {unit} | स्टोर में: {qty} {unit} |
+| `form.oldOut` | Old going out | पुराना जो बाहर जा रहा है |
+| `form.newIn` | New coming in | नया जो आ रहा है |
+| `form.purpose` | What is it for | किस काम के लिए |
+| `form.purposeRequired` | Choose what it is for. | किस काम के लिए है, चुनें। |
+| `form.ref` | Cast, die or job | कास्ट, die या जॉब |
+| `form.refHint` | Optional. A cast number, die or job card. | ज़रूरी नहीं। कास्ट नंबर, die या जॉब कार्ड। |
+| `form.challan` | Challan or bill number | चालान या बिल नंबर |
+| `form.challanHint` | Optional. From the vendor's paper. | ज़रूरी नहीं। वेंडर के कागज़ से। |
+| `form.note` | Note | नोट |
+| `form.noteHint` | Optional. | ज़रूरी नहीं। |
+| `form.qty.empty` | Enter the quantity. | मात्रा लिखें। |
+| `form.qty.invalid` | Enter a number like 12 or 12.5. | 12 या 12.5 जैसा नंबर लिखें। |
+| `form.qty.zero` | The quantity must be more than 0. | मात्रा 0 से ज़्यादा होनी चाहिए। |
+| `form.qty.decimals` | Use at most 3 digits after the point. | दशमलव के बाद ज़्यादा से ज़्यादा 3 अंक लिखें। |
+| `form.qty.whole` | This item is counted in whole numbers. | यह सामान पूरे नग में गिना जाता है। |
+| `form.qty.tooBig` | One entry can hold at most 1,00,000. Split it into two entries. | एक एंट्री में ज़्यादा से ज़्यादा 1,00,000 आ सकता है। इसे दो एंट्री में बांटें। |
+| `form.qty.short` | Only {qty} {unit} in the store. Issue less, or receive the delivery first. | स्टोर में सिर्फ़ {qty} {unit} है। कम दें, या पहले डिलीवरी लें। |
+| `form.failed` | Not saved. {reason} | सेव नहीं हुआ। {reason} |
+| `form.unknownOutcome` | orrn didn't confirm this save, so it may have gone through. Tap {action} again to check: the same entry is never saved twice. | orrn ने इस सेव की पुष्टि नहीं की, हो सकता है यह सेव हो गया हो। जांचने के लिए फिर से {action} दबाएं, एक ही एंट्री दो बार सेव नहीं होती। |
+| `form.backToStore` | Back to store | स्टोर पर वापस |
+| `form.notInList` | Not in the list? | लिस्ट में नहीं है? |
+| `form.allItems` | Items | सामान |
+| `form.emptyHint` | Empty. Receive it first. | खाली है। पहले माल लें। |
+| `errors.duplicateName` | An item in use already has this name. Use another name, or open that item. | इस नाम का सामान पहले से चालू है। दूसरा नाम रखें, या वह सामान खोलें। |
+| `errors.requestReused` | This entry changed while it was being saved. Check the register, then enter it again. | सेव होते समय यह एंट्री बदल गई। रजिस्टर देखें, फिर से दर्ज करें। |
+| `errors.short` | The store has less than this now. Check what is in the store and change the quantity. | स्टोर में अब इससे कम है। स्टोर में कितना है देखें और मात्रा बदलें। |
+| `errors.retireWithStock` | Only an empty item can be retired. Issue what is left, or cancel its entries, first. | सिर्फ़ खाली सामान बंद हो सकता है। पहले बचा हुआ माल दें, या उसकी एंट्री रद्द करें। |
+| `errors.unitLocked` | The unit can't change: this item already has entries. | इकाई नहीं बदल सकती: इस सामान की एंट्री हो चुकी है। |
+| `errors.cancelDrawn` | This entry can't be cancelled: some of what it brought in has been issued since. Cancel those issues first. | यह एंट्री रद्द नहीं हो सकती: इससे आया माल बाद में दिया जा चुका है। पहले वे एंट्री रद्द करें। |
+| `errors.cancelItemRetired` | This item is retired. Bring it back into use first, then cancel the entry. | यह सामान बंद है। पहले इसे फिर से चालू करें, फिर एंट्री रद्द करें। |
+| `errors.cancelLocationRetired` | The store location of this entry is retired. Ask your manager or admin to bring it back, then cancel the entry. | इस एंट्री की स्टोर लोकेशन बंद है। मैनेजर या एडमिन से उसे चालू करवाएं, फिर एंट्री रद्द करें। |
+| `errors.alreadyCancelled` | This entry is already cancelled. | यह एंट्री पहले ही रद्द हो चुकी है। |
+| `errors.sourceLocked` | This entry belongs to another record, such as a melt. Cancel it there. | यह एंट्री दूसरे रिकॉर्ड की है, जैसे मेल्ट। उसे वहीं रद्द करें। |
+| `errors.itemRetired` | This item is retired. Bring it back into use in Store items first. | यह सामान बंद है। पहले स्टोर का सामान में इसे फिर से चालू करें। |
+| `errors.itemChanged` | This item was changed meanwhile. Open it again. | इस बीच यह सामान बदल गया। इसे फिर से खोलें। |
+| `errors.storeChanged` | The store changed while saving. Try again. | सेव होते समय स्टोर बदल गया। फिर से कोशिश करें। |
+| `errors.noLocation` | The central store is not set up yet. Ask your manager or admin to add a location of the kind Store. | सेंट्रल स्टोर अभी बना नहीं है। मैनेजर या एडमिन से Store किस्म की लोकेशन जुड़वाएं। |
+| `errors.manyStores` | There is more than one store location. Ask your manager or admin to retire the extra ones. | एक से ज़्यादा स्टोर लोकेशन हैं। मैनेजर या एडमिन से फालतू वाली बंद करवाएं। |
+| `errors.nameInvalid` | Use letters or digits in the name. | नाम में अक्षर या अंक लिखें। |
+| `errors.notFound` | This item or entry is not here any more. Go back to the store and pick it again. | यह सामान या एंट्री अब यहां नहीं है। स्टोर पर वापस जाकर फिर से चुनें। |
+| `errors.refused` | The store did not accept this. Check the entry and try again. | स्टोर ने यह नहीं लिया। एंट्री जांचें और फिर से कोशिश करें। |
+| `receive.title` | Receive into store | स्टोर में माल लें |
+| `receive.subtitle` | Record a delivery. It gets a GRN number. | डिलीवरी दर्ज करें। इसे GRN नंबर मिलेगा। |
+| `receive.submit` | Receive | माल लें |
+| `receive.done` | Received | माल आ गया |
+| `receive.again` | Receive another | और माल लें |
+| `issue.title` | Issue from store | स्टोर से माल दें |
+| `issue.subtitle` | Give items to the floor. It gets an MRS number. | फ़्लोर को सामान दें। इसे MRS नंबर मिलेगा। |
+| `issue.submit` | Issue | माल दें |
+| `issue.done` | Issued | माल दे दिया |
+| `issue.again` | Issue another | और माल दें |
+| `exchange.title` | Exchange old for new | पुराना देकर नया लें |
+| `exchange.subtitle` | The old part leaves the store and the new one comes in. It gets an MRS and a GRN number. | पुराना पार्ट स्टोर से बाहर जाता है और नया अंदर आता है। इसे MRS और GRN नंबर मिलेंगे। |
+| `exchange.submit` | Exchange | बदलें |
+| `exchange.done` | Exchanged | बदल गया |
+| `exchange.again` | Exchange another | और बदलें |
+| `exchange.newInUnder` | New part in under {number} | नया पार्ट {number} से आया |
+| `replayCancelled.title` | Already cancelled | पहले ही रद्द |
+| `replayCancelled.body` | {number} was saved earlier and has since been cancelled, so nothing moved now. Enter it again if it is still needed. | {number} पहले सेव हुआ था और बाद में रद्द हो गया, इसलिए अभी कुछ नहीं बदला। ज़रूरत हो तो फिर से दर्ज करें। |
+| `entry.item` | Item | सामान |
+| `entry.quantity` | Quantity | मात्रा |
+| `entry.when` | When | कब |
+| `entry.purpose` | For | किसके लिए |
+| `entry.ref` | Cast, die or job | कास्ट, die या जॉब |
+| `entry.challan` | Challan or bill | चालान या बिल |
+| `entry.note` | Note | नोट |
+| `entry.exchangedWith` | Exchange, with {number} | बदली, {number} के साथ |
+| `entry.cancelledBecause` | Cancelled: {reason} | रद्द: {reason} |
+| `entry.cancel` | Cancel entry | एंट्री रद्द करें |
+| `entry.keep` | Keep entry | एंट्री रहने दें |
+| `entry.reason` | Why cancel it | क्यों रद्द कर रहे हैं |
+| `entry.reasonHint` | For example: wrong quantity typed. | जैसे: गलत मात्रा लिख दी। |
+| `entry.reasonRequired` | Write why you are cancelling it. | रद्द करने की वजह लिखें। |
+| `entry.cancelBoth` | Both sides of this exchange are cancelled together. | इस बदली की दोनों एंट्री एक साथ रद्द होंगी। |
+| `entry.cancelEffect` | The number stays in the register, marked cancelled, and the store goes back to what it was. | नंबर रजिस्टर में रद्द लिखकर रहेगा, और स्टोर पहले जैसा हो जाएगा। |
+| `entry.cancelledToast` | {number} cancelled | {number} रद्द हो गया |
+| `entry.open` | Open {number} | {number} खोलें |
+| `entry.belongsTo` | This entry belongs to another record ({source}). Cancel that record to undo it. | यह एंट्री दूसरे रिकॉर्ड ({source}) की है। इसे वापस लेने के लिए वह रिकॉर्ड रद्द करें। |
+| `entry.challanRef` | Challan {ref} | चालान {ref} |
+| `entry.period` | Financial year | वित्त वर्ष |
+| `itemPage.notFound` | Store item not found | स्टोर का सामान नहीं मिला |
+| `itemPage.notFoundBody` | It may belong to another plant. Go back to the store and pick it again. | यह शायद किसी दूसरे प्लांट का है। स्टोर पर वापस जाकर फिर से चुनें। |
+| `itemPage.edit` | Edit item | सामान बदलें |
+| `itemPage.retiredNote` | This item is retired. It can't be received or issued. | यह सामान बंद है। इसे न लिया जा सकता है, न दिया जा सकता है। |
+| `itemsPage.subtitle` | Everything the store keeps, with its unit and category. | स्टोर में रखा हर सामान, उसकी इकाई और किस्म के साथ। |
+| `itemsPage.show` | Show | दिखाएं |
+| `itemsPage.showInUse` | In use | चालू |
+| `itemsPage.showRetired` | Retired | बंद |
+| `itemsPage.showAll` | All | सब |
+| `itemsPage.noRetired` | No retired items | कोई बंद सामान नहीं है |
+| `itemsPage.noneInUse` | No items in use | कोई सामान चालू नहीं है |
+| `itemsPage.noneInUseBody` | Every item is retired. Choose Retired to see them and bring one back. | हर सामान बंद है। उन्हें देखने और फिर से चालू करने के लिए बंद चुनें। |
+| `itemForm.addTitle` | Add store item | स्टोर का सामान जोड़ें |
+| `itemForm.editTitle` | Edit store item | स्टोर का सामान बदलें |
+| `itemForm.name` | Name | नाम |
+| `itemForm.nameHint` | As the storekeeper calls it, for example Cover flux. | जैसा स्टोरकीपर बोलता है, जैसे Cover flux। |
+| `itemForm.nameRequired` | Enter the item name. | सामान का नाम लिखें। |
+| `itemForm.unit` | Unit | इकाई |
+| `itemForm.unitHint` | The unit can't change after the item's first entry. | पहली एंट्री के बाद इकाई नहीं बदल सकती। |
+| `itemForm.category` | Category | किस्म |
+| `itemForm.save` | Save item | सामान सेव करें |
+| `itemForm.added` | {name} added | {name} जुड़ गया |
+| `itemForm.saved` | {name} saved | {name} सेव हो गया |
+| `itemForm.retire` | Retire item | सामान बंद करें |
+| `itemForm.restore` | Bring back into use | फिर से चालू करें |
+| `itemForm.retireHint` | Retired items can't be received or issued. Only an empty item can be retired. | बंद सामान न लिया जा सकता है, न दिया जा सकता है। सिर्फ़ खाली सामान बंद हो सकता है। |
+| `itemForm.retired` | {name} retired | {name} बंद हो गया |
+| `itemForm.restored` | {name} is back in use | {name} फिर से चालू है |
+| `itemForm.retireBlocked` | {qty} {unit} is still in the store. Issue it or cancel its entries before retiring the item. | स्टोर में अभी {qty} {unit} है। सामान बंद करने से पहले इसे दें या इसकी एंट्री रद्द करें। |
 
 ### printing (25)
 
@@ -1752,3 +1947,26 @@ Please check, Lalubhai:
 | Fix 2 | Open the lot and tap "Edit weights" before it is OK. Once a note on the weight is open the weights are locked, so ask the manager to reject that note first. | OK होने से पहले लॉट खोलें और "वज़न बदलें" दबाएं। वज़न पर नोट खुला हो तो वज़न बंद रहता है, इसलिए पहले मैनेजर से वह नोट नामंज़ूर करवाएं। |
 | Problem 3 | The same vendor shows up twice | एक ही पार्टी दो बार दिखती है |
 | Fix 3 | A manager merges the two vendors in Masters. Their lots move with the merge. | मैनेजर Masters में दोनों पार्टियों को मिला देते हैं। उनके लॉट भी साथ चले जाते हैं। |
+
+### Issue and receive store items (`store-entries`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Issue and receive store items | स्टोर से माल दें और माल लें |
+| When | Use this when chemicals, fuel, gas or spares leave the store or a delivery comes in. | जब केमिकल, ईंधन, गैस या स्पेयर स्टोर से बाहर जाएं या कोई डिलीवरी आए। |
+| Step 1 | Open the store | स्टोर खोलें |
+| Step 1 text | Open "Store". Every item shows how much is in the store now. | "स्टोर" खोलें। हर सामान के आगे दिखता है कि अभी स्टोर में कितना है। |
+| Step 2 | Issue to the floor | फ़्लोर को माल दें |
+| Step 2 text | Tap "Issue", pick the item, type the quantity and choose what it is for. Tap "Issue" again to save. The MRS number shows on screen. | "माल दें" दबाएं, सामान चुनें, मात्रा लिखें और किस काम के लिए है वो चुनें। सेव करने के लिए फिर से "माल दें" दबाएं। स्क्रीन पर MRS नंबर दिखेगा। |
+| Step 3 | Receive a delivery | डिलीवरी लें |
+| Step 3 text | Tap "Receive", pick the item, type the quantity from the challan and add the challan or bill number. Tap "Receive" again to save. The GRN number shows on screen. | "माल लें" दबाएं, सामान चुनें, चालान से मात्रा लिखें और चालान या बिल नंबर डालें। सेव करने के लिए फिर से "माल लें" दबाएं। स्क्रीन पर GRN नंबर दिखेगा। |
+| Step 4 | Exchange old for new | पुराना देकर नया लें |
+| Step 4 text | When an old part leaves the store and a new one comes in, tap "Exchange". Type how many go out and how many come in. | जब पुराना पार्ट स्टोर से बाहर जाए और नया अंदर आए, तो "पुराना देकर नया" दबाएं। कितने बाहर गए और कितने अंदर आए, लिखें। |
+| Step 5 | Check an item | सामान देखें |
+| Step 5 text | Tap an item in the list to see its balance and every entry for it. | लिस्ट में किसी सामान पर दबाएं, उसका बैलेंस और उसकी हर एंट्री दिखेगी। |
+| Problem 1 | It says there is not enough in the store | लिखा आया कि स्टोर में इतना नहीं है |
+| Fix 1 | You typed more than the store holds. Issue less, or receive the delivery first and then issue. | आपने स्टोर में जितना है उससे ज़्यादा लिखा है। कम दें, या पहले डिलीवरी लें और फिर दें। |
+| Problem 2 | I saved a wrong quantity | गलत मात्रा सेव हो गई |
+| Fix 2 | Open the entry, tap "Cancel entry" and write why. Then make the entry again with the right quantity. | एंट्री खोलें, "एंट्री रद्द करें" दबाएं और वजह लिखें। फिर सही मात्रा से नई एंट्री करें। |
+| Problem 3 | The item is not in the list | सामान लिस्ट में नहीं है |
+| Fix 3 | Open "Store items" and tap "Add item". Choose its unit carefully: it can't change after the first entry. | "स्टोर का सामान" खोलें और "सामान जोड़ें" दबाएं। इकाई ध्यान से चुनें: पहली एंट्री के बाद यह नहीं बदल सकती। |

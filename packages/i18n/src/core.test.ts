@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createI18n, interpolate, isLocale } from "./core";
-import { getGuide, listGuides } from "./guides";
+import { GUIDE_SLUGS, getGuide, listGuides } from "./guides";
 
 describe("createI18n", () => {
   test("looks up dotted keys per locale", () => {
@@ -71,9 +71,11 @@ describe("guides", () => {
   });
 
   test("listGuides filters by role", () => {
-    expect(listGuides("en")).toHaveLength(11);
+    // Counted from GUIDE_SLUGS so each screen task can add its guide without editing this line.
+    expect(listGuides("en")).toHaveLength(GUIDE_SLUGS.length);
     const viewer = listGuides("en", "viewer").map((g) => g.slug);
     expect(viewer).toEqual(["scan-bundle", "printer-trouble"]);
-    expect(listGuides("en", "owner")).toHaveLength(11);
+    expect(listGuides("en", "owner")).toHaveLength(GUIDE_SLUGS.length);
+    expect(listGuides("en", "storekeeper").map((g) => g.slug)).toContain("store-entries");
   });
 });

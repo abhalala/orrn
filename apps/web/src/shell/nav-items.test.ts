@@ -29,6 +29,7 @@ describe("visibleItems", () => {
       "approvals",
       "dies",
       "customers",
+      "store",
       "printing",
       "guides",
       "settings",
@@ -49,9 +50,19 @@ describe("visibleItems", () => {
     expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["purchase", "dies", "customers", "printing", "guides", "preview"]);
   });
 
+  test("Store shows for the storekeeper and the roles that may read balances (store.txn | masters.publish)", () => {
+    for (const role of ["owner", "storekeeper", "manager", "admin"] as const) {
+      expect({ role, store: keys(visibleItems(TENANT_MORE, me(role))).includes("store") }).toEqual({ role, store: true });
+    }
+    for (const role of ["operator", "viewer", "office"] as const) {
+      expect({ role, store: keys(visibleItems(TENANT_MORE, me(role))).includes("store") }).toEqual({ role, store: false });
+    }
+  });
+
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
-    expect(visible).toEqual(["today", "purchase", "approvals", "customers", "printing", "guides", "settings", "preview"]);
+    // Plant screens (Store) are gated by role, not by the legacy SaaS modules.
+    expect(visible).toEqual(["today", "purchase", "approvals", "customers", "store", "printing", "guides", "settings", "preview"]);
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length);
   });
 
@@ -84,6 +95,8 @@ describe("isItemActive", () => {
     expect(isItemActive(byKey("stock"), "/stock/bundles")).toBe(true);
     expect(isItemActive(byKey("pack"), "/pack/new")).toBe(true);
     expect(isItemActive(byKey("settings"), "/settings")).toBe(true);
+    expect(isItemActive(byKey("store"), "/store/items/abc")).toBe(true);
+    expect(isItemActive(byKey("store"), "/store/issue")).toBe(true);
   });
 
   test("a bundle page belongs to Stock", () => {

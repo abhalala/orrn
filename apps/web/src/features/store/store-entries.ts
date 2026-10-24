@@ -1,0 +1,163 @@
+import type { StatusTone } from "@orrn/domain";
+
+/** The fields of a `store.txns` row these helpers read. */
+export type EntryLike = {
+  id: string;
+  kind: "grn" | "mrs";
+  number: string;
+  itemId: string;
+  qtyMilli: number;
+  exchangeId: string | null;
+  cancelledAt: Date | string | number | null;
+  /**
+   * Set when another record wrote this entry in its own batch (a melt's flux draw, PL-7 review):
+   * that record's cancel reverses it, and `store.cancel` refuses it (`store.txns` returns it).
+   */
+  sourceType?: string | null;
+};
+
+export type EntryState = "received" | "issued" | "cancelled";
+
+/** Received (GRN), issued (MRS) or cancelled (RP15: the entry keeps its number). */
+export function entryState(entry: EntryLike): EntryState {
+  if (entry.cancelledAt !== null && entry.cancelledAt !== undefined) return "cancelled";
+  return entry.kind === "grn" ? "received" : "issued";
+}
+
+const TONES: Record<EntryState, StatusTone> = {
+  received: "green",
+  issued: "neutral",
+  cancelled: "red",
+};
+
+/** Chip tone: green for stock in, quiet for stock out, red once cancelled. Always shown with its word. */
+export function entryTone(entry: EntryLike): StatusTone {
+  return TONES[entryState(entry)];
+}
+
+/** What the entry does to the store balance now: + for a GRN, - for an MRS, 0 once cancelled. */
+export function signedQty(entry: EntryLike): number {
+  const state = entryState(entry);
+  if (state === "cancelled") return 0;
+  return state === "received" ? entry.qtyMilli : -entry.qtyMilli;
+}
+
+/** The other leg of an old-for-new exchange, when it is among the loaded entries. */
+export function exchangePartner<T extends EntryLike>(entry: T, all: readonly T[]): T | undefined {
+  if (!entry.exchangeId) return undefined;
+  return all.find((e) => e.exchangeId === entry.exchangeId && e.id !== entry.id);
+}
+
+/** Items from the newest entries first, each once: the item picker's "Recent" list. */
+export function recentItemIds(entries: readonly Pick<EntryLike, "itemId">[], limit = 6): string[] {
+  const out: string[] = [];
+  for (const e of entries) {
+    if (!out.includes(e.itemId)) out.push(e.itemId);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** The kind of record that wrote this entry (a melt), or null for one the storekeeper typed. */
+export function entrySource(entry: EntryLike): string | null {
+  return entry.sourceType ?? null;
+}
+
+/**
+ * Whether the storekeeper may cancel this entry here (RP15): not already cancelled, and not drawn
+ * by another record (`sourceType`), which is undone by cancelling that record instead.
+ */
+export function canCancelEntry(entry: EntryLike): boolean {
+  return entryState(entry) !== "cancelled" && !entry.sourceType;
+}
+
+/**
+ * What a receive/issue/exchange answer means for the person (RP18). A replay of a saved entry is
+ * still "saved" (one entry, one number); a replay of an entry cancelled meanwhile moved no stock.
+ */
+export function savedOutcome(result: { replayed: boolean; cancelled?: boolean }): "saved" | "cancelled" {
+  return result.replayed && result.cancelled === true ? "cancelled" : "saved";
+}
+
+export type ItemAction = { kind: "issue" | "receive" | "exchange"; primary: boolean };
+
+/**
+ * The item page's entry buttons, the loud one first. With stock the everyday action is Issue; an
+ * empty item can only take a delivery (issue and the old leg of an exchange need stock), so
+ * Receive leads there instead of a black button that can only end in "not enough in the store".
+ */
+export function itemActions(balanceMilli: number): ItemAction[] {
+  return balanceMilli > 0
+    ? [
+        { kind: "issue", primary: true },
+        { kind: "receive", primary: false },
+        { kind: "exchange", primary: false },
+      ]
+    : [
+        { kind: "receive", primary: true },
+        { kind: "issue", primary: false },
+        { kind: "exchange", primary: false },
+      ];
+}
+
+export type EntryValues =
+  | {
+      mode: "receive" | "issue";
+      itemId: string;
+      milli: number;
+      purpose?: string | null;
+      ref?: string;
+      challan?: string;
+      note?: string;
+    }
+  | { mode: "exchange"; itemId: string; outMilli: number; inMilli: number; note?: string };
+
+/**
+ * The values that make an entry this entry (RP18): same signature, same client request id. Text is
+ * trimmed; JSON keeps a "|" typed in a field from making two different entries look alike.
+ */
+export function entrySignature(v: EntryValues): string {
+  const note = (v.note ?? "").trim();
+  return v.mode === "exchange"
+    ? JSON.stringify([v.mode, v.itemId, v.outMilli, v.inMilli, note])
+    : JSON.stringify([
+        v.mode,
+        v.itemId,
+        v.milli,
+        v.purpose ?? null,
+        (v.ref ?? "").trim(),
+        (v.challan ?? "").trim(),
+        note,
+      ]);
+}
+
+/**
+ * The register's "Show older entries": shown while the last page came back full and the server's
+ * cap is not reached, and kept while the next page loads (the rows on screen are then the previous
+ * page), so the focused button is never removed under the keyboard. At the cap the list says it
+ * holds only the latest entries.
+ */
+export function showMore(s: { shown: number; limit: number; max: number; isPlaceholderData: boolean }): {
+  button: boolean;
+  atCap: boolean;
+} {
+  return {
+    button: s.limit < s.max && (s.isPlaceholderData || s.shown >= s.limit),
+    atCap: s.limit >= s.max && s.shown >= s.max,
+  };
+}
+
+/** After a page of older entries arrives: the first new row gets focus, else the last row. */
+export function focusAfterPage(previousCount: number, ids: readonly string[]): string | null {
+  if (ids.length === 0) return null;
+  return ids[Math.min(previousCount, ids.length - 1)] ?? null;
+}
+
+/**
+ * Item picker order. When the entry takes stock out (Issue, Exchange), items with nothing in the
+ * store go last: they cannot be issued. Otherwise (Receive) the order stays as given.
+ */
+export function pickerOrder<T extends { balanceMilli: number }>(items: readonly T[], takesStock: boolean): T[] {
+  if (!takesStock) return [...items];
+  return [...items.filter((i) => i.balanceMilli > 0), ...items.filter((i) => i.balanceMilli <= 0)];
+}

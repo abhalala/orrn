@@ -28,6 +28,7 @@ export const GUIDE_SLUGS = [
   "invite-member",
   "printer-trouble",
   "weigh-scrap-lot",
+  "store-entries",
 ] as const;
 
 export type GuideSlug = (typeof GUIDE_SLUGS)[number];

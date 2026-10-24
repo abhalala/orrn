@@ -907,6 +907,10 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     // Dev reset of the demo company only: the one place ledger rows are ever deleted (the
     // append-only grep test in plant-ledger.test.ts allows exactly this file).
     db.delete(stockLedger).where(eq(stockLedger.companyId, COMPANY_ID)),
+    // Store entries the app made since the last seed (RESTRICT on location and store_item; their
+    // GRN/MRS numbers would also collide once doc_series restarts below).
+    db.delete(storeTxn).where(eq(storeTxn.companyId, COMPANY_ID)),
+    db.delete(storeItem).where(eq(storeItem.companyId, COMPANY_ID)),
     db.delete(approval).where(eq(approval.companyId, COMPANY_ID)),
     // Foundry and store rows hold RESTRICT FKs to lots, locations, store items and casts: delete
     // them child-to-parent before those (else the batch fails once the demo has one melt). Casts go
