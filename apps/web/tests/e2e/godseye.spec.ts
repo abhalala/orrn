@@ -69,8 +69,34 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   const approveDialog = page.getByRole("dialog", { name: `Approve ${company}?` });
   await expect(approveDialog).toContainText(email);
   await approveDialog.getByRole("button", { name: "Approve" }).click();
-  await expect(page.getByText("Request approved")).toBeVisible();
+
+  // The local server has no email service, so the details open to copy and send by hand.
+  const details = page.getByRole("dialog", { name: "Email could not be sent" });
+  await expect(details).toBeVisible();
+  await expect(details).toContainText("Send this to Requester");
+  await expect(details.getByText("Reason: Email sending is not set up on this server")).toBeVisible();
   await expect(card).toHaveCount(0);
+  const firstLink = (await details.locator("code").filter({ hasText: "/continue?token=" }).innerText()).trim();
+  expect(firstLink).toMatch(/\/continue\?token=[^\s]+$/);
+  await expect(details.locator("code").filter({ hasText: email })).toBeVisible();
+  expect(await details.getByLabel("Message").inputValue()).toContain(`set your password:\n${firstLink}`);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: WEB_ORIGIN });
+  await details.getByRole("button", { name: "Copy Sign-in link" }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(firstLink);
+  expect(await blockingAxeViolations(page, "[data-slot='sheet']")).toEqual([]);
+  await details.getByRole("button", { name: "Done" }).click();
+  await expect(details).toHaveCount(0);
+
+  // Still listed until the owner has a password, with a button for a fresh link.
+  const awaiting = page.getByRole("region", { name: "Approved, password not set yet" });
+  const owner = awaiting.getByRole("article", { name: company });
+  await expect(owner).toBeVisible();
+  await owner.getByRole("button", { name: "Get sign-in details" }).click();
+  const fresh = page.getByRole("dialog", { name: "Email could not be sent" });
+  await expect(fresh).toBeVisible();
+  const secondLink = (await fresh.locator("code").filter({ hasText: "/continue?token=" }).innerText()).trim();
+  expect(secondLink).not.toBe(firstLink);
+  await fresh.getByRole("button", { name: "Done" }).click();
 
   // 2. Find the new company and open it.
   await page.goto("/admin/companies");
@@ -243,6 +269,38 @@ test("approve and reject dialogs show a long email in full on a phone", async ({
   await card.getByRole("button", { name: "Reject" }).click();
   await page.getByRole("dialog", { name: `Reject ${company}?` }).getByRole("button", { name: "Reject" }).click();
   await expect(card).toHaveCount(0);
+});
+
+test("approved owners without a password stay listed; their sign-in details read in full at 375, 820 and 1280, in Hindi too", async ({ page }) => {
+  test.setTimeout(120_000);
+  const tag = uniq();
+  const email = `rameshbhai.patel.accounts.${tag}@shreeganeshjialuminium.co.in`;
+  const { company } = await fileRequest(page, tag, { email });
+  await signInViaApi(page, "staff");
+  await open(page, "/admin/requests");
+  await page.getByRole("article", { name: company }).getByRole("button", { name: "Approve" }).click();
+  await page.getByRole("dialog", { name: `Approve ${company}?` }).getByRole("button", { name: "Approve" }).click();
+  await expect(page.getByRole("dialog", { name: "Email could not be sent" })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
+
+  for (const lang of ["en", "hi"] as const) {
+    await page.evaluate((hi) => (hi ? localStorage.setItem("orrn.locale", "hi") : localStorage.removeItem("orrn.locale")), lang === "hi");
+    for (const width of [375, 820, 1280]) {
+      await open(page, "/admin/requests", { width, scheme: lang === "hi" ? "dark" : "light" });
+      const owner = page.getByRole("article", { name: company });
+      await expect(owner).toBeVisible();
+      await expectNoHorizontalScroll(page);
+      await owner.getByRole("button", { name: lang === "hi" ? "साइन इन डिटेल लें" : "Get sign-in details" }).click();
+      const sheet = page.locator("[data-slot='sheet']");
+      await expect(sheet).toBeVisible();
+      await expect(sheet.getByLabel(lang === "hi" ? "संदेश" : "Message")).toBeVisible();
+      await expectNoClippedText(page, sheet);
+      await expectNoHorizontalScroll(page);
+      await sheet.getByRole("button", { name: lang === "hi" ? "हो गया" : "Done" }).click();
+      await expect(sheet).toHaveCount(0);
+    }
+  }
+  await page.evaluate(() => localStorage.removeItem("orrn.locale"));
 });
 
 test("overview: KPI blocks link to their lists", async ({ page }) => {
@@ -472,7 +530,10 @@ test("screenshots", async ({ page }) => {
   await open(page, "/admin/requests");
   await page.getByRole("article", { name: approved.company }).getByRole("button", { name: "Approve" }).click();
   await page.getByRole("dialog", { name: `Approve ${approved.company}?` }).getByRole("button", { name: "Approve" }).click();
-  await expect(page.getByText("Request approved")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Email could not be sent" })).toBeVisible();
+  await page.waitForTimeout(400);
+  await view("fix1-signin-details-1280-light");
+  await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
   await page.goto("/admin/companies");
   await page.getByLabel("Search companies").fill(approved.company);
   await page.getByRole("link", { name: new RegExp(approved.company) }).click();
@@ -521,7 +582,7 @@ test("screenshots", async ({ page }) => {
       await shot(`fix1-waiting-${tab}-375-light-${lang}`);
     }
     await open(page, "/admin/requests", { width: 375, scheme: lang === "hi" ? "dark" : "light" });
-    await page.getByRole("article", { name: longEmail.company }).getByRole("button", { name: lang === "hi" ? "मंज़ूर करें" : "Approve" }).click();
+    await page.getByRole("article", { name: longEmail.company }).getByRole("button", { name: lang === "hi" ? "मंज़ूर करें" : "Approve", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await view(`fix1-approve-long-email-375-${lang}`);
     await page.keyboard.press("Escape");
