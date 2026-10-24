@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray, isNotNull, isNull, like, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, like, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -16,7 +16,7 @@ import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dieInstance } from "@orrn/db/schema/dies";
 import { cast as castTable, melt } from "@orrn/db/schema/foundry";
-import { openSalesOrderStatuses, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
+import { bundleTransfer, openSalesOrderStatuses, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { location } from "@orrn/db/schema/stock";
 import { company } from "@orrn/db/schema/tenant";
 import { dispatch } from "@orrn/db/schema/dispatch";
@@ -39,6 +39,7 @@ import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
 import { bundleBandTone, bundleBandTones } from "../lib/bundleBand";
 import { kgPer12ftMilli } from "../lib/bundleWeight";
 import { now as clockNow } from "../lib/clock";
+import { can } from "../lib/permissions";
 import { assertDieAllowed } from "../lib/dieOwner";
 import { allocateDocNumbers, allocatePartyBundleNumbers } from "../lib/docNumber";
 import { clientRequestIdSchema, replayProbe, replayState, REQUEST_ID_CONFLICT, requestRowIds } from "../lib/importReplay";
@@ -53,7 +54,7 @@ import {
   plantScrapStreamId,
   plantScrapStreamStatements,
   readAgeingRow,
-  loadPackLabelVariables,
+  loadPackLabelVariablesMany,
   rejectReasons,
   scaleConfigured,
 } from "../lib/pack";
@@ -61,7 +62,7 @@ import { packRows, restoreRows, voidRows, type PostingCtx } from "../lib/ledger"
 import { releaseOnVoidStatements } from "../lib/orderHold";
 import { batchAbortUnless, isBatchAbort } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
-import { foldKindTotals, stockFilterConditions, stockFilterShape } from "../lib/stockFilters";
+import { foldKindTotals, stockFilterConditions, stockFilterShape, stockPosition, type StockSum } from "../lib/stockFilters";
 import { isPlantStockSql } from "../lib/reallocate";
 
 /** Most bundles one receipt makes (spec §E6). */
@@ -98,8 +99,19 @@ const receiptInputSchema = z.object({
   locationId: z.string().min(1).optional(),
   /** Sales order line these bundles are packed for (spec P13; `orders.openLines` suggests one). */
   salesOrderLineId: z.string().min(1).max(64).optional(),
+  /**
+   * D20: what the bundles are packed for. `order` needs `salesOrderLineId`; `plant_stock` is the deliberate
+   * "Plant stock" choice (no line, written as plant stock: one `bundle_transfer` to no line per bundle).
+   * Omitted: a line given = order, no line = unassigned (old clients, legacy imports).
+   */
+  source: z.enum(["order", "plant_stock"]).optional(),
   /** The die copy that made them; required when the section or a copy is customer-owned (FP-PK-10). */
   dieInstanceId: z.string().min(1).max(64).optional(),
+  /**
+   * D15: an order line that pins a die copy packs on that copy. Another copy is refused unless an
+   * `order.manage` holder sends this (audited `bundle.receipt.pin_override`).
+   */
+  overridePin: z.boolean().optional(),
   /** An approved `die_owner_override` the screen just got (FP-DR-13). */
   approvalId: z.string().min(1).max(64).optional(),
   /** The cast the billets came from; required while `requireCastOnBundle` is in effect. */
@@ -449,16 +461,43 @@ export const bundleRouter = router({
         }
       }
 
+      // D20: "Plant stock" is a choice, never a line; "For an order" needs the line.
+      if (input.source === "plant_stock" && input.salesOrderLineId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Plant stock is not packed against an order line" });
+      }
+      if (input.source === "order" && !input.salesOrderLineId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Pick the order line" });
+      }
+      const plantStock = input.source === "plant_stock";
       const locationId = await receiptLocation(ctx.db, ctx.companyId, input.locationId);
       const line = await receiptOrderLine(ctx.db, ctx.companyId, input.salesOrderLineId, input.dieId);
       const salesOrderLineId = line?.id ?? null;
 
+      // D15: a line that pins a copy packs on that copy. Another copy only by the office, audited.
+      const pinnedCopyId = line?.dieInstanceId ?? null;
+      const pinOverridden = Boolean(pinnedCopyId && input.dieInstanceId && input.dieInstanceId !== pinnedCopyId);
+      if (pinOverridden) {
+        const officeMay = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "order.manage");
+        if (!input.overridePin) {
+          const [pin] = await ctx.db
+            .select({ code: dieInstance.code })
+            .from(dieInstance)
+            .where(and(eq(dieInstance.id, pinnedCopyId!), eq(dieInstance.companyId, ctx.companyId)))
+            .limit(1);
+          throw new TRPCError({ code: "BAD_REQUEST", message: `This line is pinned to ${pin?.code ?? "another die copy"}` });
+        }
+        if (!officeMay) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only the office can pack on another die copy than the order line's" });
+        }
+      }
+      const chosenCopyId = pinOverridden ? input.dieInstanceId! : (pinnedCopyId ?? input.dieInstanceId ?? null);
+
       // m-13: a retired copy or one away at the die maker cannot have pressed these.
-      if (input.dieInstanceId) {
+      if (chosenCopyId) {
         const [copy] = await ctx.db
           .select({ code: dieInstance.code, status: dieInstance.status })
           .from(dieInstance)
-          .where(and(eq(dieInstance.id, input.dieInstanceId), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.sectionId, input.dieId)))
+          .where(and(eq(dieInstance.id, chosenCopyId), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.sectionId, input.dieId)))
           .limit(1);
         if (copy?.status === "retired") throw new TRPCError({ code: "BAD_REQUEST", message: `Die copy ${copy.code} is retired` });
         if (copy?.status === "at_maker") throw new TRPCError({ code: "BAD_REQUEST", message: `Die copy ${copy.code} is at the die maker` });
@@ -467,8 +506,8 @@ export const bundleRouter = router({
       // FP-PK-10: an owned die makes only its owner's material; plant stock (no line) is blocked.
       const owner = await assertDieAllowed(ctx.db, ctx.companyId, {
         dieId: input.dieId,
-        // An order line that pins a copy packs on that copy unless the screen names another.
-        dieInstanceId: input.dieInstanceId ?? line?.dieInstanceId ?? null,
+        // The resolved copy: the line's pin, else the one the screen named (D15).
+        dieInstanceId: chosenCopyId,
         customerId: line?.customerId ?? null,
         purpose: "pack",
         approvalId: input.approvalId ?? null,
@@ -531,7 +570,7 @@ export const bundleRouter = router({
       // Snapshot the BIS pair for the section's profile kind (semi falls back to solid).
       const standard = resolveStandard(floor.standards, dieRow.profileKind ?? null);
       const showLogo = input.showLogo ?? true;
-      const dieInstanceId = owner.dieInstanceId ?? input.dieInstanceId ?? line?.dieInstanceId ?? null;
+      const dieInstanceId = owner.dieInstanceId ?? chosenCopyId;
 
       const bundleRows = input.rows.map((row, idx) => ({
         id: crypto.randomUUID(),
@@ -652,6 +691,25 @@ export const bundleRouter = router({
           ),
         );
       }
+      if (plantStock) {
+        // D20 / C8: plant stock = no line and the latest transfer went to no line. No ledger row.
+        pushChunkedInserts(
+          statements,
+          (rows) => ctx.db.insert(bundleTransfer).values(rows),
+          bundleRows.map((b) => ({
+            id: crypto.randomUUID(),
+            companyId: ctx.companyId,
+            serverSeq: seq,
+            bundleId: b.id,
+            fromSalesOrderLineId: null,
+            toSalesOrderLineId: null,
+            batchId: groupId,
+            reason: "Packed as plant stock",
+            createdBy: userId,
+            createdAt: now,
+          })),
+        );
+      }
       if (ageingRow) statements.push(...drawAgeingRowStatements(ctx.db, ctx.companyId, ageingRow.id, drawPcs));
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundleStatusEvent).values(rows), eventRows);
       // Pack = + bundle kg at its location, voucher = this receipt (spec §5).
@@ -699,6 +757,7 @@ export const bundleRouter = router({
               count: bundleRows.length,
               purchaseOrderRef: input.purchaseOrderRef ?? null,
               locationId,
+              source: plantStock ? "plant_stock" : salesOrderLineId ? "order" : "unassigned",
               salesOrderLineId,
               dieInstanceId,
               castId,
@@ -710,6 +769,20 @@ export const bundleRouter = router({
           },
         ),
       );
+
+      if (pinOverridden) {
+        statements.push(
+          auditInsert(
+            { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+            {
+              action: "bundle.receipt.pin_override",
+              subjectType: "bundle_group",
+              subjectId: groupId,
+              meta: { groupId, salesOrderLineId, pinnedCopyId, usedCopyId: dieInstanceId },
+            },
+          ),
+        );
+      }
 
       try {
         await atomicBatch(ctx.db, statements);
@@ -934,15 +1007,16 @@ export const bundleRouter = router({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const conditions = [eq(bundle.companyId, ctx.companyId)];
-      if (input.status) conditions.push(eq(bundle.status, input.status));
-      if (input.dieId) conditions.push(eq(bundle.dieId, input.dieId));
-      if (input.groupId) conditions.push(eq(bundle.groupId, input.groupId));
+      // Every filter but the status: the in-stock figure and the status breakdown use these (I-3).
+      const filters: SQL[] = [];
+      if (input.dieId) filters.push(eq(bundle.dieId, input.dieId));
+      if (input.groupId) filters.push(eq(bundle.groupId, input.groupId));
       if (input.search) {
         const pattern = `%${input.search}%`;
-        conditions.push(sql`(${bundle.serial} LIKE ${pattern} OR ${bundle.poNumber} LIKE ${pattern} OR ${bundle.partyNo} LIKE ${pattern})`);
+        filters.push(sql`(${bundle.serial} LIKE ${pattern} OR ${bundle.poNumber} LIKE ${pattern} OR ${bundle.partyNo} LIKE ${pattern})`);
       }
-      conditions.push(...(await stockFilterConditions(ctx.db, ctx.companyId, input)));
+      filters.push(...(await stockFilterConditions(ctx.db, ctx.companyId, input)));
+      const conditions = [eq(bundle.companyId, ctx.companyId), ...(input.status ? [eq(bundle.status, input.status)] : []), ...filters];
 
       const items = await ctx.db
         .select({
@@ -1007,10 +1081,35 @@ export const bundleRouter = router({
         ctx.companyId,
         items.map((b) => ({ dieId: b.dieId, dieInstanceId: b.dieInstanceId, kgPer12ftMilli: b.kgPer12ftMilli ?? kgPer12ftMilli(b) })),
       );
+      // The listed bundles per status (Bundles "All" shows the breakdown) and the one in-stock figure.
+      const statusRows = await ctx.db
+        .select({
+          status: bundle.status,
+          bundles: sql<number>`count(*)`,
+          pcs: sql<number>`coalesce(sum(${bundle.quantity}), 0)`,
+          weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+        })
+        .from(bundle)
+        .where(and(eq(bundle.companyId, ctx.companyId), ...filters))
+        .groupBy(bundle.status);
+      const byStatus = Object.fromEntries(
+        bundleStatuses.map((st) => {
+          const r = statusRows.find((x) => x.status === st);
+          return [st, { bundles: Number(r?.bundles ?? 0), pcs: Number(r?.pcs ?? 0), weightG: Number(r?.weightG ?? 0) }];
+        }),
+      ) as Record<(typeof bundleStatuses)[number], StockSum>;
+      const listed = (input.status ? [input.status] : [...bundleStatuses]).reduce<StockSum>(
+        (acc, st) => ({ bundles: acc.bundles + byStatus[st].bundles, pcs: acc.pcs + byStatus[st].pcs, weightG: acc.weightG + byStatus[st].weightG }),
+        { bundles: 0, pcs: 0, weightG: 0 },
+      );
       return {
         items: items.map((b, i) => ({ ...b, plantStock: Number(b.plantStock) === 1, band: bands[i]! })),
         total: totalRow[0]?.count ?? 0,
+        /** Σ of the listed bundles (every status the filter shows). */
+        totals: listed,
         kindTotals: foldKindTotals(kindRows),
+        byStatus,
+        stock: await stockPosition(ctx.db, ctx.companyId, filters),
       };
     }),
 
@@ -1059,11 +1158,13 @@ export const bundleRouter = router({
       const dieById = new Map(dies.map((d) => [d.id, d]));
       const [co] = await ctx.db.select({ name: company.name, settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)).limit(1);
       const letterhead = readFloorSettings(co?.settings).letterhead;
-      const labels = [];
-      for (const b of live.sort((a, c) => a.serial.localeCompare(c.serial, "en", { numeric: true }))) {
-        const vars = await loadPackLabelVariables(ctx.db, ctx.companyId, b);
+      const sorted = live.sort((a, c) => a.serial.localeCompare(c.serial, "en", { numeric: true }));
+      // m-4: every label's cast, order line and QR in a few batched reads, not ~4 queries per bundle.
+      const allVars = await loadPackLabelVariablesMany(ctx.db, ctx.companyId, sorted);
+      const labels = sorted.map((b, i) => {
+        const vars = allVars[i]!;
         const d = dieById.get(b.dieId);
-        labels.push({
+        return {
           bundleId: b.id,
           serial: b.serial,
           partyNo: vars.partyNo,
@@ -1082,8 +1183,8 @@ export const bundleRouter = router({
           kgPer12ftMilli: b.kgPer12ftMilli ?? kgPer12ftMilli(b),
           poNumber: b.poNumber,
           packedAt: b.createdAt,
-        });
-      }
+        };
+      });
       return { company: { name: letterhead.legalName || co?.name || "" }, labels };
     }),
 
@@ -1252,7 +1353,8 @@ export const bundleRouter = router({
         { bundleCount: 0, totalQuantity: 0, totalWeightG: 0, totalLengthMm: 0 },
       );
 
-      return { items: rows, totals };
+      // The Sections tab's figures (in stock = available, held, hollow / solid / semi) from the server (I-3).
+      return { items: rows, totals, stock: await stockPosition(ctx.db, ctx.companyId, filters) };
     }),
 
   /**

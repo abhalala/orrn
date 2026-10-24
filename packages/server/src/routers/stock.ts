@@ -34,7 +34,7 @@ import {
   type PostingCtx,
 } from "../lib/ledger";
 import { nextCompanySeq } from "../lib/sequence";
-import { foldKindTotals, stockFilterConditions, stockFilterShape } from "../lib/stockFilters";
+import { foldKindTotals, stockFilterConditions, stockFilterShape, stockPosition } from "../lib/stockFilters";
 
 const locationCode = z
   .string()
@@ -388,12 +388,8 @@ export const stockRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const statuses = input.includeReserved ? [...IN_STOCK_STATUSES] : ["available" as const];
-      const where = and(
-        eq(bundle.companyId, ctx.companyId),
-        inArray(bundle.status, statuses),
-        input.dieId ? eq(bundle.dieId, input.dieId) : undefined,
-        ...(await stockFilterConditions(ctx.db, ctx.companyId, input)),
-      );
+      const filters = [input.dieId ? eq(bundle.dieId, input.dieId) : undefined, ...(await stockFilterConditions(ctx.db, ctx.companyId, input))];
+      const where = and(eq(bundle.companyId, ctx.companyId), inArray(bundle.status, statuses), ...filters);
       const rows = await ctx.db
         .select({
           dieId: bundle.dieId,
@@ -463,6 +459,8 @@ export const stockRouter = router({
         })),
         totals: { bundles: Number(totals?.bundles ?? 0), pcs: Number(totals?.pcs ?? 0), weightG: Number(totals?.weightG ?? 0) },
         kindTotals: foldKindTotals(kindRows),
+        // The one in-stock / held figure every stock tab shows (I-3, BACKLOG 16).
+        stock: await stockPosition(ctx.db, ctx.companyId, filters),
         nextOffset: more ? input.offset + input.limit : null,
       };
     }),
@@ -486,13 +484,9 @@ export const stockRouter = router({
     .query(async ({ ctx, input }) => {
       const statuses = input.includeReserved ? [...IN_STOCK_STATUSES] : ["available" as const];
       const { locationId: _yard, ...rest } = input;
-      const where = and(
-        eq(bundle.companyId, ctx.companyId),
-        inArray(bundle.status, statuses),
-        input.dieId ? eq(bundle.dieId, input.dieId) : undefined,
-        ...(await stockFilterConditions(ctx.db, ctx.companyId, rest)),
-      );
-      const [perYard, locations, sections] = await Promise.all([
+      const filters = [input.dieId ? eq(bundle.dieId, input.dieId) : undefined, ...(await stockFilterConditions(ctx.db, ctx.companyId, rest))];
+      const where = and(eq(bundle.companyId, ctx.companyId), inArray(bundle.status, statuses), ...filters);
+      const [perYard, locations, sections, totalRow, stock] = await Promise.all([
         ctx.db
           .select({
             locationId: bundle.locationId,
@@ -527,6 +521,16 @@ export const stockRouter = router({
           .groupBy(bundle.locationId, bundle.dieId, die.sectionCode, die.series)
           .orderBy(desc(sql`sum(${bundle.weightG})`))
           .limit(500),
+        // m-3: one SQL total over the same filter (bundles at a non-yard location count too).
+        ctx.db
+          .select({
+            bundles: sql<number>`count(*)`,
+            pcs: sql<number>`coalesce(sum(${bundle.quantity}), 0)`,
+            weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+          })
+          .from(bundle)
+          .where(where),
+        stockPosition(ctx.db, ctx.companyId, filters),
       ]);
       const stats = new Map(perYard.map((r) => [r.locationId ?? null, r]));
       const top = (id: string | null) =>
@@ -553,10 +557,11 @@ export const stockRouter = router({
         yards: yards.filter((y) => y.active || y.bundles > 0),
         unplaced: unplaced.bundles > 0 ? { locationId: null as string | null, code: null, name: null, active: true, ...unplaced } : null,
         totals: {
-          bundles: yards.reduce((s, y) => s + y.bundles, 0) + unplaced.bundles,
-          pcs: yards.reduce((s, y) => s + y.pcs, 0) + unplaced.pcs,
-          weightG: yards.reduce((s, y) => s + y.weightG, 0) + unplaced.weightG,
+          bundles: Number(totalRow[0]?.bundles ?? 0),
+          pcs: Number(totalRow[0]?.pcs ?? 0),
+          weightG: Number(totalRow[0]?.weightG ?? 0),
         },
+        stock,
       };
     }),
 

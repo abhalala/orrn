@@ -7,10 +7,10 @@
  * - plant stock: no line and the latest transfer went to no line (C8), not legacy "unassigned".
  * - packed date: company calendar days (`settings.timezone`, else IST), both ends inclusive.
  */
-import { eq, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
-import { dieProfileKinds } from "@orrn/db/schema/catalog";
+import { die, dieProfileKinds } from "@orrn/db/schema/catalog";
 import { bundle } from "@orrn/db/schema/inventory";
 import { company } from "@orrn/db/schema/tenant";
 
@@ -83,4 +83,41 @@ export function foldKindTotals(
     out[key].weightG += Number(r.weightG);
   }
   return out;
+}
+
+export type StockSum = { bundles: number; pcs: number; weightG: number };
+
+/**
+ * BACKLOG 16 / D-3B: the one stock position every stock tab shows for its filter. "In stock" is
+ * `available` only; `held` (reserved on a dispatch, still in the yard) is its own figure; hollow / solid /
+ * semi are of what is in stock. `conditions` are the tab's filters WITHOUT a status condition.
+ */
+export type StockPosition = { inStock: StockSum; held: StockSum; kindTotals: KindTotals };
+
+export async function stockPosition(db: OrrnDb, companyId: string, conditions: readonly (SQL | undefined)[]): Promise<StockPosition> {
+  const rows = await db
+    .select({
+      kind: die.profileKind,
+      status: bundle.status,
+      bundles: sql<number>`count(*)`,
+      pcs: sql<number>`coalesce(sum(${bundle.quantity}), 0)`,
+      weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+    })
+    .from(bundle)
+    .innerJoin(die, and(eq(die.id, bundle.dieId), eq(die.companyId, bundle.companyId)))
+    .where(and(eq(bundle.companyId, companyId), inArray(bundle.status, ["available", "reserved"]), ...conditions))
+    .groupBy(die.profileKind, bundle.status);
+  const sum = (status: string): StockSum =>
+    rows
+      .filter((r) => r.status === status)
+      .reduce((acc, r) => ({ bundles: acc.bundles + Number(r.bundles), pcs: acc.pcs + Number(r.pcs), weightG: acc.weightG + Number(r.weightG) }), {
+        bundles: 0,
+        pcs: 0,
+        weightG: 0,
+      });
+  return {
+    inStock: sum("available"),
+    held: sum("reserved"),
+    kindTotals: foldKindTotals(rows.filter((r) => r.status === "available")),
+  };
 }
