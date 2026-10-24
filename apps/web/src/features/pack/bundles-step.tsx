@@ -9,7 +9,16 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, ty
 
 import type { DieOption } from "./die-step";
 import { lengthToInput, parsePieces, parseWeightG } from "./pack-math";
-import { Measure, PackBar, RangeChip, bundleRange, formatK12, formatRangeKg, useVerdictWord } from "./pack-ui";
+import {
+  Measure,
+  PackBar,
+  RangeChip,
+  bundleRange,
+  formatK12,
+  formatRangeKg,
+  useVerdictWord,
+  type RangeState,
+} from "./pack-ui";
 import {
   MAX_BUNDLES,
   addBundle,
@@ -25,6 +34,9 @@ type Props = {
   unit: LengthUnit;
   die: DieOption | null;
   dieLoading: boolean;
+  /** Whether the die's range is known yet; until then chips and announcements do not judge. */
+  rangeState: RangeState;
+  onRetryDie(): void;
   /** The session's yard code ("Y3"), or null when the company packs without yards. */
   yardCode: string | null;
   onChangeDefaults(): void;
@@ -48,6 +60,8 @@ export function BundlesStep({
   unit,
   die,
   dieLoading,
+  rangeState,
+  onRetryDie,
   yardCode,
   onChangeDefaults,
   onReview,
@@ -147,7 +161,7 @@ export function BundlesStep({
           n,
           kg: formatKg(gToKg(b.weightG)),
           pieces: b.pieces,
-          status: verdictWord(r.verdict),
+          status: verdictWord(r.verdict, rangeState),
         }),
       );
       setPopped(n - 1);
@@ -173,9 +187,29 @@ export function BundlesStep({
     piecesRef.current?.focus();
   };
 
+  /**
+   * True when the open card holds typing that is not saved: a new bundle with
+   * anything typed, or a saved bundle whose fields were changed.
+   */
+  const cardDirty = (): boolean => {
+    if (editIndex === null) return weight.trim() !== "" || pieces.trim() !== "";
+    const b = draft.bundles[editIndex];
+    if (!b) return false;
+    const was = lengthToInput(b.lengthMm ?? 0, unit);
+    return (
+      parseWeightG(weight) !== b.weightG ||
+      parsePieces(pieces) !== b.pieces ||
+      override !== (b.lengthMm !== undefined || b.po !== undefined) ||
+      (override &&
+        (len.mm.trim() !== was.mm || len.feet.trim() !== was.feet || len.inches.trim() !== was.inches || po !== (b.po ?? "")))
+    );
+  };
+
   const startEdit = (i: number) => {
     const b = draft.bundles[i];
-    if (!b) return;
+    if (!b || i === editIndex) return;
+    // Never drop typing silently: save the open card first (its field error shows if it can't be saved).
+    if (cardDirty() && !save()) return;
     setEditIndex(i);
     setWeight(weightText(b.weightG));
     setPieces(String(b.pieces));
@@ -198,10 +232,8 @@ export function BundlesStep({
   };
 
   const review = () => {
-    // A bundle typed but not saved yet is saved first, so Review never drops it.
-    if (editIndex === null && (weight.trim() || pieces.trim())) {
-      if (!save()) return;
-    }
+    // A bundle typed (or a correction made) but not saved yet is saved first, so Review never drops it.
+    if (cardDirty() && !save()) return;
     onReview();
   };
 
@@ -223,6 +255,18 @@ export function BundlesStep({
         onChange={onChangeDefaults}
       />
 
+      {rangeState === "failed" ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card bg-tone-red-tint px-4 py-2.5 text-tone-red-ink"
+        >
+          <p className="m-0 min-w-0 flex-1 basis-[14rem] text-[14px] font-medium">{t("pack.new.rangeFailed")}</p>
+          <Button variant="secondary" onClick={onRetryDie}>
+            {t("common.retry")}
+          </Button>
+        </div>
+      ) : null}
+
       <section aria-labelledby={`${uid}-saved`} className="flex flex-col gap-2">
         <h3 id={`${uid}-saved`} className="m-0 text-[15px] font-semibold">
           {t("pack.new.savedBundles")}
@@ -239,6 +283,7 @@ export function BundlesStep({
                   unit={unit}
                   defaultLength={defaultLength}
                   die={die}
+                  rangeState={rangeState}
                   editing={editIndex === i}
                   popped={popped === i}
                   onEdit={() => startEdit(i)}
@@ -313,6 +358,7 @@ export function BundlesStep({
             <LiveReadout
               k={live?.k ?? null}
               verdict={live?.verdict ?? null}
+              rangeState={rangeState}
               die={die}
               className="col-span-2 md:col-span-1"
             />
@@ -323,7 +369,11 @@ export function BundlesStep({
               type="button"
               aria-expanded={override}
               aria-controls={overrideId}
-              onClick={() => setOverride((o) => !o)}
+              onClick={() => {
+                // Opening the panel makes the card taller: bring Save bundle back above the bar.
+                if (!override) setRevealTick((n) => n + 1);
+                setOverride((o) => !o);
+              }}
               className="animate-press -ml-2 inline-flex min-h-11 items-center gap-1.5 self-start rounded-full px-2 text-[15px] font-semibold text-foreground transition-colors duration-[var(--dur-fast)] hover:bg-accent"
             >
               <ChevronDown
@@ -457,11 +507,13 @@ function BigNumberField({
 function LiveReadout({
   k,
   verdict,
+  rangeState,
   die,
   className,
 }: {
   k: number | null;
   verdict: "in" | "below" | "above" | null;
+  rangeState: RangeState;
   die: DieOption | null;
   className?: string;
 }) {
@@ -497,7 +549,7 @@ function LiveReadout({
             </span>
             <span className="inline-flex items-center gap-1.5 text-[14px] font-bold">
               {verdict ? <Icon aria-hidden="true" strokeWidth={2} className="size-[18px]" /> : null}
-              {verdictWord(verdict)}
+              {verdictWord(verdict, rangeState)}
             </span>
           </>
         )}
@@ -529,22 +581,32 @@ function OverrideLength({
       <legend className="mb-1.5 p-0 text-[14px] font-semibold leading-5">{t("pack.new.lengthForBundle")}</legend>
       {unit === "inch" ? (
         <div className="grid grid-cols-2 gap-2">
-          <NumberInput
-            aria-label={t("pack.new.cutLengthFeet")}
-            value={value.feet}
-            onValueChange={(feet) => onChange({ ...value, feet })}
-            suffix={t("units.ft")}
-            aria-invalid={error ? true : undefined}
-            className="h-12"
-          />
-          <NumberInput
-            aria-label={t("pack.new.cutLengthInches")}
-            value={value.inches}
-            onValueChange={(inches) => onChange({ ...value, inches })}
-            suffix={t("units.inch")}
-            aria-invalid={error ? true : undefined}
-            className="h-12"
-          />
+          <div className="flex min-w-0 flex-col gap-1">
+            <label htmlFor={`${uid}-len-ft`} className="text-[13px] font-medium text-muted-foreground">
+              {t("pack.new.cutLengthFeet")}
+            </label>
+            <NumberInput
+              id={`${uid}-len-ft`}
+              value={value.feet}
+              onValueChange={(feet) => onChange({ ...value, feet })}
+              suffix={t("units.ft")}
+              aria-invalid={error ? true : undefined}
+              className="h-12"
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1">
+            <label htmlFor={`${uid}-len-in`} className="text-[13px] font-medium text-muted-foreground">
+              {t("pack.new.cutLengthInches")}
+            </label>
+            <NumberInput
+              id={`${uid}-len-in`}
+              value={value.inches}
+              onValueChange={(inches) => onChange({ ...value, inches })}
+              suffix={t("units.inch")}
+              aria-invalid={error ? true : undefined}
+              className="h-12"
+            />
+          </div>
         </div>
       ) : (
         <NumberInput
@@ -572,6 +634,7 @@ function SavedRow({
   unit,
   defaultLength,
   die,
+  rangeState,
   editing,
   popped,
   onEdit,
@@ -581,6 +644,7 @@ function SavedRow({
   unit: LengthUnit;
   defaultLength: number;
   die: DieOption | null;
+  rangeState: RangeState;
   editing: boolean;
   popped: boolean;
   onEdit(): void;
@@ -610,9 +674,7 @@ function SavedRow({
       <span className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-0.5 text-[15px]">
         <Measure value={formatKg(gToKg(bundle.weightG))} unit={t("units.kg")} className="font-semibold" />
         <Measure value={String(bundle.pieces)} unit={t("units.pcs")} />
-        {bundle.lengthMm !== undefined ? (
-          <span className="font-mono text-[14px] whitespace-nowrap">{formatLength(lengthMm, unit)}</span>
-        ) : null}
+        <span className="font-mono text-[14px] whitespace-nowrap">{formatLength(lengthMm, unit)}</span>
         {bundle.po !== undefined ? (
           <span className="text-[13px] whitespace-nowrap text-muted-foreground">
             {t("pack.new.poValue", { po: bundle.po })}
@@ -621,7 +683,7 @@ function SavedRow({
         {k !== null ? <Measure value={formatK12(k)} unit={t("units.kgPer12ft")} className="text-[14px]" /> : null}
       </span>
       <span className="flex items-center gap-2">
-        <RangeChip verdict={verdict} />
+        <RangeChip verdict={verdict} state={rangeState} />
         <Pencil aria-hidden="true" strokeWidth={2} className="hidden size-4 text-muted-foreground sm:block" />
       </span>
     </button>

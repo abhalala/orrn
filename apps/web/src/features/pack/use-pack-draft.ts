@@ -30,6 +30,12 @@ export type PackDraft = {
   v: 1;
   /** Guards against a draft from another company in the same tab (impersonation, switching). */
   companyId: string;
+  /**
+   * The person who typed it. At a shared station another person signing in
+   * on the same tab must not see, continue or save it as theirs. Drafts from
+   * before this field have none and still open.
+   */
+  userId?: string;
   step: PackStep;
   dieId: string | null;
   /**
@@ -40,8 +46,8 @@ export type PackDraft = {
   bundles: DraftBundle[];
 };
 
-export function emptyDraft(companyId: string): PackDraft {
-  return { v: 1, companyId, step: 0, dieId: null, defaults: { lengthMm: 0 }, bundles: [] };
+export function emptyDraft(companyId: string, userId?: string): PackDraft {
+  return { v: 1, companyId, ...(userId ? { userId } : {}), step: 0, dieId: null, defaults: { lengthMm: 0 }, bundles: [] };
 }
 
 export function isDraftEmpty(d: PackDraft): boolean {
@@ -74,6 +80,7 @@ function parseDraft(raw: string): PackDraft | null {
   if (
     d.v !== 1 ||
     typeof d.companyId !== "string" ||
+    !(d.userId === undefined || typeof d.userId === "string") ||
     ![0, 1, 2].includes(d.step as number) ||
     !(d.dieId === null || typeof d.dieId === "string") ||
     !defaults ||
@@ -91,14 +98,18 @@ function parseDraft(raw: string): PackDraft | null {
   return data as PackDraft;
 }
 
-/** The stored draft for this company, or null (none, corrupt, another company, or storage blocked). */
-export function readDraft(storage: Storage | null, companyId: string): PackDraft | null {
+/**
+ * The stored draft for this company and person, or null (none, corrupt,
+ * another company, another person, or storage blocked).
+ */
+export function readDraft(storage: Storage | null, companyId: string, userId?: string): PackDraft | null {
   if (!storage) return null;
   try {
     const raw = storage.getItem(PACK_DRAFT_KEY);
     if (!raw) return null;
     const draft = parseDraft(raw);
-    return draft && draft.companyId === companyId ? draft : null;
+    if (!draft || draft.companyId !== companyId) return null;
+    return userId && draft.userId && draft.userId !== userId ? null : draft;
   } catch {
     return null;
   }
@@ -202,6 +213,11 @@ export function reachableStep(d: PackDraft, yards: YardContext): PackStep {
   return d.step;
 }
 
+/** A draft from before drafts carried the packer becomes this person's on its next write. */
+function owned(d: PackDraft | null, userId: string): PackDraft | null {
+  return d && !d.userId ? { ...d, userId } : d;
+}
+
 /** `window.sessionStorage`, or null where reading it throws (blocked site data). */
 function sessionStore(): Storage | null {
   try {
@@ -216,16 +232,20 @@ function sessionStore(): Storage | null {
  * `restored` is true when the screen opened onto bundles typed earlier (the
  * screen says so and offers to discard them).
  */
-export function usePackDraft(companyId: string) {
-  const [draft, setDraft] = useState<PackDraft>(() => readDraft(sessionStore(), companyId) ?? emptyDraft(companyId));
+export function usePackDraft(companyId: string, userId: string) {
+  const [draft, setDraft] = useState<PackDraft>(() => owned(readDraft(sessionStore(), companyId, userId), userId) ?? emptyDraft(companyId, userId));
   const restored = useRef(draft.bundles.length > 0);
   // Set once the session is saved: storage is cleared and stays cleared while the screen leaves.
   const finished = useRef(false);
 
-  // Another company in this tab (impersonation): start fresh for it.
+  // Another company (impersonation) or person in this tab: start fresh for them.
   useEffect(() => {
-    setDraft((d) => (d.companyId === companyId ? d : (readDraft(sessionStore(), companyId) ?? emptyDraft(companyId))));
-  }, [companyId]);
+    setDraft((d) =>
+      d.companyId === companyId && d.userId === userId
+        ? d
+        : (owned(readDraft(sessionStore(), companyId, userId), userId) ?? emptyDraft(companyId, userId)),
+    );
+  }, [companyId, userId]);
 
   useEffect(() => {
     if (!finished.current) writeDraft(sessionStore(), draft);
@@ -236,8 +256,8 @@ export function usePackDraft(companyId: string) {
   const discard = useCallback(() => {
     clearDraft(sessionStore());
     restored.current = false;
-    setDraft(emptyDraft(companyId));
-  }, [companyId]);
+    setDraft(emptyDraft(companyId, userId));
+  }, [companyId, userId]);
 
   /** After a successful save: forget the stored draft but keep the screen as it is while it navigates away. */
   const finish = useCallback(() => {

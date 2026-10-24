@@ -15,8 +15,10 @@ import { toast } from "sonner";
 
 import { BundlesStep } from "@/features/pack/bundles-step";
 import { DieStep, type DieOption } from "@/features/pack/die-step";
-import { lengthUnitOf } from "@/features/pack/pack-ui";
+import { lengthUnitOf, type RangeState } from "@/features/pack/pack-ui";
+import { labelRun } from "@/features/pack/print-labels";
 import { ReviewStep } from "@/features/pack/review-step";
+import { saveErrorKind, type SaveErrorKind } from "@/features/pack/save-error";
 import { reachableStep, toReceiptInput, usePackDraft, type PackStep } from "@/features/pack/use-pack-draft";
 import { sessionPrintQueue, useCanPrintLabels } from "@/features/pack/use-print-labels";
 import { useYards, writeLastYard } from "@/features/pack/use-yards";
@@ -51,16 +53,16 @@ function NewPackSession() {
       </>
     );
   }
-  return <PackFlow companyId={me.company.id} settings={me.company.settings} />;
+  return <PackFlow companyId={me.company.id} userId={me.user.id} settings={me.company.settings} />;
 }
 
-function PackFlow({ companyId, settings }: { companyId: string; settings: unknown }) {
+function PackFlow({ companyId, userId, settings }: { companyId: string; userId: string; settings: unknown }) {
   const { t } = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const reduced = usePrefersReducedMotion();
   const unit = lengthUnitOf(settings);
-  const { draft, update, discard, finish, restored } = usePackDraft(companyId);
+  const { draft, update, discard, finish, restored } = usePackDraft(companyId, userId);
   const { canPrint } = useCanPrintLabels();
   const yards = useYards();
   // While the yards load, a restored draft waits on its own step (no flash of step 1 then back to the yard).
@@ -68,7 +70,7 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
   const yardCode = yards.yards.find((y) => y.id === draft.defaults.locationId)?.code ?? null;
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<SaveErrorKind | null>(null);
   const [popped, setPopped] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [showRestored, setShowRestored] = useState(restored);
@@ -79,6 +81,14 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
     enabled: draft.dieId !== null,
   });
   const dieOption = (die.data as DieOption | undefined) ?? null;
+  // Chips and announcements wait for the die's range instead of saying "No range set".
+  const rangeState: RangeState = dieOption
+    ? "ready"
+    : draft.dieId === null
+      ? "ready"
+      : die.isError
+        ? "failed"
+        : "loading";
 
   const create = useMutation(trpc.bundle.createReceipt.mutationOptions());
 
@@ -108,6 +118,14 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
     requestAnimationFrame(() => setAnnouncement(message));
   };
 
+  // A restored draft opens on its next bundle (focus there, the notice above may be off screen): say it politely.
+  const restoredText = t("pack.new.draftKept");
+  useEffect(() => {
+    if (!restored) return;
+    const id = window.setTimeout(() => setAnnouncement(restoredText), 300);
+    return () => window.clearTimeout(id);
+  }, [restored, restoredText]);
+
   const save = async () => {
     const input = toReceiptInput(draft, unit, { yardIds: yards.yardIds });
     if (!input || create.isPending) return;
@@ -123,11 +141,10 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
       void queryClient.invalidateQueries({ queryKey: trpc.dashboard.pathKey() });
       if (canPrint) {
         // Labels print one by one in the background; the session page shows the progress.
+        // Labels come out in packing order (26J9 before 26J10), void bundles left out.
         void queryClient
           .fetchQuery(trpc.bundle.getGroup.queryOptions({ id: res.groupId }))
-          .then((group) =>
-            sessionPrintQueue(res.groupId).run(group.bundles.map((b) => ({ bundleId: b.id, serial: b.serial }))),
-          )
+          .then((group) => sessionPrintQueue(res.groupId).run(labelRun(group.bundles)))
           .catch(() => {
             // The session page still offers "Print all labels".
           });
@@ -137,19 +154,11 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
         reduced ? 0 : POP_MS,
       );
     } catch (error) {
-      const err = error as { data?: { code?: string }; message?: string } | null;
-      const code = err?.data?.code;
-      // A yard added or retired since the yards loaded.
-      const yardProblem = code === "BAD_REQUEST" && /yard/i.test(err?.message ?? "");
-      // Fresh yards move the packer back to step 1 by themselves when the chosen yard is gone.
-      if (yardProblem) yards.retry();
-      setSaveError(
-        code === "FORBIDDEN"
-          ? t("pack.new.forbidden")
-          : yardProblem
-            ? t("pack.new.yardRequired")
-            : t("pack.new.saveFailed"),
-      );
+      const kind = saveErrorKind(error);
+      // A yard retired or removed since the yards loaded: fresh yards move the packer back to step 1
+      // by themselves when the chosen yard is gone.
+      if (kind === "yard") yards.retry();
+      setSaveError(kind);
     }
   };
 
@@ -172,8 +181,9 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
           data-slot="draft-restored"
           className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-border bg-card px-4 py-2.5"
         >
-          <p className="m-0 min-w-0 flex-1 text-[14px] font-medium">{t("pack.new.draftKept")}</p>
-          <div className="flex gap-2">
+          {/* A real basis: the row wraps the buttons below before it squeezes the text (long Hindi labels). */}
+          <p className="m-0 min-w-0 flex-1 basis-[14rem] text-[14px] font-medium">{t("pack.new.draftKept")}</p>
+          <div className="flex flex-wrap gap-2">
             <Button variant="ghost" onClick={() => setDiscardOpen(true)}>
               {t("pack.new.discardDraft")}
             </Button>
@@ -210,6 +220,8 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
             unit={unit}
             die={dieOption}
             dieLoading={die.isPending && draft.dieId !== null}
+            rangeState={rangeState}
+            onRetryDie={() => void die.refetch()}
             yardCode={yardCode}
             onChangeDefaults={() => goTo(0)}
             onReview={() => goTo(2)}
@@ -220,6 +232,7 @@ function PackFlow({ companyId, settings }: { companyId: string; settings: unknow
             draft={draft}
             unit={unit}
             die={dieOption}
+            rangeState={rangeState}
             yardCode={yardCode}
             canPrint={canPrint}
             saving={create.isPending || popped}

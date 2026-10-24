@@ -1,6 +1,7 @@
+import { TRPCClientError } from "@trpc/client";
 import { describe, expect, test } from "bun:test";
 
-import { createPrintQueue, printErrorKey, type PrintItem } from "./print-labels";
+import { createPrintQueue, labelRun, printErrorKey, type PrintItem } from "./print-labels";
 
 const items = (n: number): PrintItem[] =>
   Array.from({ length: n }, (_, i) => ({ bundleId: `b${i + 1}`, serial: `26I40${String(i + 1).padStart(2, "0")}` }));
@@ -107,5 +108,47 @@ describe("printErrorKey (plain words, never the print service's internals)", () 
     expect(printErrorKey(err("FORBIDDEN", "Insufficient permissions"))).toBe("pack.print.errors.forbidden");
     expect(printErrorKey(new TypeError("Failed to fetch"))).toBe("pack.print.errors.network");
     expect(printErrorKey("weird")).toBe("pack.print.errors.generic");
+  });
+
+  test("a dropped connection reads as no internet, also when the tRPC client wraps the fetch error", () => {
+    // httpBatchLink turns a failed fetch into a TRPCClientError and keeps the TypeError as its cause.
+    expect(printErrorKey(TRPCClientError.from(new TypeError("Failed to fetch")))).toBe("pack.print.errors.network");
+  });
+});
+
+describe("labelRun (the labels a session prints, in packing order)", () => {
+  const bundle = (serial: string, status = "available") => ({ id: `id-${serial}`, serial, status });
+
+  test("counting order across a digit boundary, not the server's text order", () => {
+    // bundle.getGroup sorts serials as text: plant numbers are not zero-padded.
+    const fromServer = ["26J1", "26J10", "26J11", "26J12", "26J2", "26J3", "26J9"].map((s) => bundle(s));
+    expect(labelRun(fromServer).map((i) => i.serial)).toEqual([
+      "26J1",
+      "26J2",
+      "26J3",
+      "26J9",
+      "26J10",
+      "26J11",
+      "26J12",
+    ]);
+  });
+
+  test("crossing 99 to 100 too, and every label carries its bundle id", () => {
+    const run = labelRun([bundle("26J100"), bundle("26J99"), bundle("26J101")]);
+    expect(run).toEqual([
+      { bundleId: "id-26J99", serial: "26J99" },
+      { bundleId: "id-26J100", serial: "26J100" },
+      { bundleId: "id-26J101", serial: "26J101" },
+    ]);
+  });
+
+  test("a void bundle gets no label", () => {
+    const run = labelRun([bundle("26J2"), bundle("26J1", "void"), bundle("26J3", "dispatched")]);
+    expect(run.map((i) => i.serial)).toEqual(["26J2", "26J3"]);
+  });
+
+  test("legacy serials keep their order", () => {
+    const run = labelRun([bundle("BG-000012-B010"), bundle("BG-000012-B002"), bundle("BG-000012-B001")]);
+    expect(run.map((i) => i.serial)).toEqual(["BG-000012-B001", "BG-000012-B002", "BG-000012-B010"]);
   });
 });

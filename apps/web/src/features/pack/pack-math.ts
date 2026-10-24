@@ -49,6 +49,26 @@ export function rangeVerdict(kg12ft: number, die: { weightMinG: number; weightMa
   return "in";
 }
 
+/**
+ * Bundles of a saved session whose billed band falls outside the die's range
+ * (the session page's "N outside range" chip). Void bundles are out of the
+ * session's figures (RP11) and are not counted.
+ */
+export function countOutsideRange(
+  bundles: readonly { weightG: number; quantity: number; lengthMm: number; status: string }[],
+  die: { weightMinG: number; weightMaxG: number } | null | undefined,
+): number {
+  if (!die) return 0;
+  let n = 0;
+  for (const b of bundles) {
+    if (b.status === "void") continue;
+    const k = bundleKgPer12ft({ weightG: b.weightG, pieces: b.quantity, lengthMm: b.lengthMm });
+    const verdict = k === null ? null : rangeVerdict(k, die);
+    if (verdict === "below" || verdict === "above") n++;
+  }
+  return n;
+}
+
 export type LengthFields = { mm: string; feet: string; inches: string };
 
 /** Stored mm back into the length fields for the company's unit (inches to the nearest 0.25, zero inches left blank). */

@@ -354,10 +354,20 @@ export const bundleRouter = router({
           createdAt: bundleGroup.createdAt,
           /** Who packed the session ("Packed by"); null once that user is deleted. */
           createdByName: user.name,
-          bundleCount: sql<number>`count(${bundle.id})`.as("bundle_count"),
-          totalQuantity: sql<number>`coalesce(sum(${bundle.quantity}), 0)`.as("total_quantity"),
-          totalWeightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`.as("total_weight_g"),
-          totalLengthMm: sql<number>`coalesce(sum(${bundle.lengthMm}), 0)`.as("total_length_mm"),
+          // Void bundles are out of every packed figure (plant ruling RP11, as Today); the left join
+          // keeps a session whose bundles are all void in the list, at 0.
+          bundleCount: sql<number>`count(case when ${bundle.status} <> 'void' then ${bundle.id} end)`.as(
+            "bundle_count",
+          ),
+          totalQuantity: sql<number>`coalesce(sum(case when ${bundle.status} <> 'void' then ${bundle.quantity} end), 0)`.as(
+            "total_quantity",
+          ),
+          totalWeightG: sql<number>`coalesce(sum(case when ${bundle.status} <> 'void' then ${bundle.weightG} end), 0)`.as(
+            "total_weight_g",
+          ),
+          totalLengthMm: sql<number>`coalesce(sum(case when ${bundle.status} <> 'void' then ${bundle.lengthMm} end), 0)`.as(
+            "total_length_mm",
+          ),
         })
         .from(bundleGroup)
         .innerJoin(
@@ -415,7 +425,16 @@ export const bundleRouter = router({
         ? await ctx.db.select({ name: user.name }).from(user).where(eq(user.id, group.createdBy)).get()
         : undefined;
 
-      return { group, die: dieRow ?? null, bundles, packedByName: packer?.name ?? null };
+      // The session's packed figures leave void bundles out (RP11); the list above still has them.
+      const totals = { bundles: 0, pieces: 0, weightG: 0 };
+      for (const b of bundles) {
+        if (b.status === "void") continue;
+        totals.bundles += 1;
+        totals.pieces += b.quantity;
+        totals.weightG += b.weightG;
+      }
+
+      return { group, die: dieRow ?? null, bundles, totals, packedByName: packer?.name ?? null };
     }),
 
   listBundles: companyProcedure

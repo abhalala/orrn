@@ -11,6 +11,25 @@
  */
 
 export type PrintItem = { bundleId: string; serial: string };
+
+/**
+ * Bundle serials in counting order (26J9 before 26J10, 26J99 before 26J100).
+ * Plant numbers are not zero-padded and `bundle.getGroup` sorts them as text,
+ * so every list or label run "in packing order" sorts with this.
+ */
+export const compareSerials: (a: string, b: string) => number = new Intl.Collator("en", { numeric: true }).compare;
+
+/**
+ * The labels a session prints, in the order the bundles were packed: void
+ * bundles get none. Used by the post-save run and "Print all labels" alike,
+ * so the label stack always comes out in weighing order.
+ */
+export function labelRun(bundles: readonly { id: string; serial: string; status: string }[]): PrintItem[] {
+  return bundles
+    .filter((b) => b.status !== "void")
+    .sort((a, b) => compareSerials(a.serial, b.serial))
+    .map((b) => ({ bundleId: b.id, serial: b.serial }));
+}
 export type PrintFailure = PrintItem & { error: unknown };
 
 export type PrintState = {
@@ -120,7 +139,7 @@ export type PrintErrorKey =
  * messages name the print service, which the UI never does).
  */
 export function printErrorKey(error: unknown): PrintErrorKey {
-  if (error instanceof TypeError) return "pack.print.errors.network";
+  if (isConnectionError(error)) return "pack.print.errors.network";
   if (!error || typeof error !== "object") return "pack.print.errors.generic";
   const code = (error as { data?: { code?: string } }).data?.code;
   const message = String((error as { message?: unknown }).message ?? "").toLowerCase();
@@ -130,4 +149,14 @@ export function printErrorKey(error: unknown): PrintErrorKey {
   if (code === "BAD_REQUEST" && message.includes("template")) return "pack.print.errors.noTemplate";
   if (code === "BAD_GATEWAY") return "pack.print.errors.offline";
   return "pack.print.errors.generic";
+}
+
+/**
+ * No answer from orrn at all: the fetch itself failed. The tRPC client wraps
+ * that TypeError in a TRPCClientError and keeps it as `cause`.
+ */
+export function isConnectionError(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  const cause = error && typeof error === "object" ? (error as { cause?: unknown }).cause : undefined;
+  return cause instanceof TypeError;
 }

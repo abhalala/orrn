@@ -4,6 +4,7 @@ import {
   activeYards,
   bundleKgPer12ft,
   chooseYard,
+  countOutsideRange,
   draftTotals,
   lengthToInput,
   parsePieces,
@@ -140,5 +141,24 @@ describe("chooseYard (which yard tile starts selected)", () => {
   });
   test("no yards, no selection", () => {
     expect(chooseYard({ current: "y1", lastUsed: "y1", yards: [] })).toBeUndefined();
+  });
+});
+
+describe("countOutsideRange (the session page's 'outside range' chip)", () => {
+  const die = { weightMinG: 2400, weightMaxG: 2600 };
+  // 3505 mm, 20 pieces: 47.90 kg = 2.50 kg/12ft (in), 40.00 kg = 2.09 (below), 55.00 kg = 2.87 (above).
+  const b = (weightG: number, status = "available") => ({ weightG, quantity: 20, lengthMm: 3505, status });
+
+  test("counts bundles below and above the die's range", () => {
+    expect(countOutsideRange([b(47_900), b(40_000), b(55_000), b(47_900)], die)).toBe(2);
+  });
+
+  test("a void bundle is not counted (it is out of the session's figures)", () => {
+    expect(countOutsideRange([b(40_000, "void"), b(47_900)], die)).toBe(0);
+  });
+
+  test("no die or no range: nothing to count", () => {
+    expect(countOutsideRange([b(40_000)], null)).toBe(0);
+    expect(countOutsideRange([b(40_000)], { weightMinG: 0, weightMaxG: 0 })).toBe(0);
   });
 });

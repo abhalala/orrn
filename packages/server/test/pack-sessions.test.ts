@@ -78,3 +78,73 @@ describe("pack sessions carry the packer's name", () => {
     ).rejects.toThrow(/not found/i);
   });
 });
+
+/**
+ * Plant ruling RP11: a voided bundle is out of every packed figure. The Pack
+ * list row and the session page totals must agree with Today (T19), which
+ * already leaves void out.
+ */
+describe("pack session totals leave void bundles out (RP11)", () => {
+  const heavy = { quantity: 20, weightG: 47_900, lengthMm: 3505 };
+
+  test("voiding one bundle drops it from listGroups and getGroup totals", async () => {
+    const { companyId } = await env.seedCompany();
+    const dieId = await env.seedDie(companyId);
+    const operator = env.caller({ role: "operator", companyId });
+    const created = await operator.bundle.createReceipt({ dieId, unit: "inch", rows: [heavy, heavy, row] });
+    const before = await operator.bundle.getGroup({ id: created.groupId });
+    const voided = before.bundles.find((b) => b.weightG === 52_400)!;
+    await operator.bundle.transitionStatus({ id: voided.id, toStatus: "void", reason: "Weighed twice" });
+
+    const list = await operator.bundle.listGroups({ limit: 10, offset: 0 });
+    const item = list.items.find((i) => i.id === created.groupId)!;
+    expect(item.bundleCount).toBe(2);
+    expect(item.totalWeightG).toBe(95_800);
+    expect(item.totalQuantity).toBe(40);
+
+    const group = await operator.bundle.getGroup({ id: created.groupId });
+    // The session page still lists every bundle (the Void chip says what happened) ...
+    expect(group.bundles).toHaveLength(3);
+    // ... but its totals count only the bundles still in play.
+    expect(group.totals).toEqual({ bundles: 2, pieces: 40, weightG: 95_800 });
+  });
+
+  test("a session whose bundles are all void still lists, with 0 bundles and 0 kg", async () => {
+    const { companyId } = await env.seedCompany();
+    const dieId = await env.seedDie(companyId);
+    const owner = env.caller({ role: "owner", companyId });
+    const created = await owner.bundle.createReceipt({ dieId, unit: "mm", rows: [row] });
+    const [only] = (await owner.bundle.getGroup({ id: created.groupId })).bundles;
+    await owner.bundle.transitionStatus({ id: only!.id, toStatus: "void" });
+
+    const list = await owner.bundle.listGroups({ limit: 10, offset: 0 });
+    const item = list.items.find((i) => i.id === created.groupId);
+    expect(item).toBeDefined();
+    expect(item!.bundleCount).toBe(0);
+    expect(item!.totalWeightG).toBe(0);
+    expect(list.total).toBe(1);
+
+    const group = await owner.bundle.getGroup({ id: created.groupId });
+    expect(group.totals).toEqual({ bundles: 0, pieces: 0, weightG: 0 });
+  });
+});
+
+/**
+ * The Pack die picker lists active dies only; archived dies must not take
+ * places in its first page, and `total` must count what the picker can show.
+ */
+describe("die.list status filter", () => {
+  test("status 'active' leaves archived dies out of items and total", async () => {
+    const { companyId } = await env.seedCompany();
+    const kept = await env.seedDie(companyId, { sectionCode: "10001" });
+    await env.seedDie(companyId, { sectionCode: "10002", status: "archived" });
+    const viewer = env.caller({ role: "viewer", companyId });
+
+    const active = await viewer.die.list({ status: "active", limit: 100, offset: 0 });
+    expect(active.items.map((d) => d.id)).toEqual([kept]);
+    expect(active.total).toBe(1);
+
+    const all = await viewer.die.list({ limit: 100, offset: 0 });
+    expect(all.total).toBe(2);
+  });
+});

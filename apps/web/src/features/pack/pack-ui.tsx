@@ -1,6 +1,7 @@
 import { formatKg, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
+import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
 import { useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 
@@ -36,9 +37,38 @@ const VERDICT_KEY = {
   above: "status.range.above",
 } as const;
 
-/** "In range" (green) or "Below range" / "Above range" (amber); "No range set" when the die has none. */
-export function RangeChip({ verdict, className }: { verdict: RangeVerdict | null; className?: string }) {
+/**
+ * Whether the die's range is known: `loading` while `die.get` runs, `failed`
+ * when it did not load. Until it is `ready` a bundle cannot be judged, so the
+ * chips never claim "No range set" for a die that has one.
+ */
+export type RangeState = "ready" | "loading" | "failed";
+
+/**
+ * "In range" (green) or "Below range" / "Above range" (amber); "No range set"
+ * when the die has none; a placeholder while the range loads and "Range not
+ * loaded" when it failed.
+ */
+export function RangeChip({
+  verdict,
+  state = "ready",
+  className,
+}: {
+  verdict: RangeVerdict | null;
+  state?: RangeState;
+  className?: string;
+}) {
   const { t } = useT();
+  if (state === "loading") {
+    return <Skeleton aria-hidden="true" className={cn("inline-block h-6 w-20 rounded-full", className)} />;
+  }
+  if (state === "failed") {
+    return (
+      <Chip tone="neutral" className={className}>
+        {t("pack.new.rangeUnknown")}
+      </Chip>
+    );
+  }
   if (!verdict) {
     return (
       <Chip tone="neutral" className={className}>
@@ -55,7 +85,12 @@ export function RangeChip({ verdict, className }: { verdict: RangeVerdict | null
 
 export function useVerdictWord() {
   const { t } = useT();
-  return (verdict: RangeVerdict | null) => (verdict ? t(VERDICT_KEY[verdict]) : t("status.range.noRange"));
+  return (verdict: RangeVerdict | null, state: RangeState = "ready") =>
+    state !== "ready"
+      ? t("pack.new.rangeUnknown")
+      : verdict
+        ? t(VERDICT_KEY[verdict])
+        : t("status.range.noRange");
 }
 
 /**
@@ -68,10 +103,16 @@ export function useVerdictWord() {
  */
 export function PackBar({
   summary,
+  notice,
   children,
   className,
 }: {
   summary?: ReactNode;
+  /**
+   * A message that must be seen where the action is (a failed save): its own
+   * row at the top of the bar, so it is never under the bar or below the list.
+   */
+  notice?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
@@ -83,10 +124,11 @@ export function PackBar({
       data-slot="pack-bar"
       className={cn(
         "sticky bottom-[calc(var(--shell-tabbar-offset)+12px)] z-20 mt-2 flex items-center gap-x-4 gap-y-2 rounded-card border border-border bg-card/95 p-2 pl-4 shadow-md backdrop-blur-md supports-[backdrop-filter]:bg-card/85",
-        summary ? "flex-nowrap" : "flex-wrap",
+        summary && !notice ? "flex-nowrap" : "flex-wrap",
         className,
       )}
     >
+      {notice ? <div className="-ml-2 w-full min-w-0">{notice}</div> : null}
       {summary ? <div className="min-w-0 flex-1">{summary}</div> : <div className="flex-1 max-sm:hidden" />}
       <div
         className={cn(

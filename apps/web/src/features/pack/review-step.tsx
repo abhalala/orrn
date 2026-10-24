@@ -2,6 +2,7 @@ import { formatKg, formatKgTotal, formatLength, gToKg, type LengthUnit } from "@
 import { useT } from "@orrn/i18n";
 import { BigNumber } from "@orrn/ui/components/big-number";
 import { Button } from "@orrn/ui/components/button";
+import { UiLink } from "@orrn/ui/components/link";
 import { cn } from "@orrn/ui/lib/utils";
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import { forwardRef, useMemo } from "react";
@@ -10,18 +11,21 @@ import { Can } from "@/shared/components/can";
 
 import type { DieOption } from "./die-step";
 import { draftTotals } from "./pack-math";
-import { Measure, PackBar, RangeChip, bundleRange, formatK12 } from "./pack-ui";
+import { Measure, PackBar, RangeChip, bundleRange, formatK12, type RangeState } from "./pack-ui";
+import type { SaveErrorKind } from "./save-error";
 import type { PackDraft } from "./use-pack-draft";
 
 type Props = {
   draft: PackDraft;
   unit: LengthUnit;
   die: DieOption | null;
+  /** Whether the die's range is known yet (chips wait for it). */
+  rangeState: RangeState;
   /** The session's yard code, or null for a company without yards. */
   yardCode: string | null;
   canPrint: boolean;
   saving: boolean;
-  saveError: string | null;
+  saveError: SaveErrorKind | null;
   /** The success moment: the totals block pops before the session page opens. */
   popped: boolean;
   onBack(): void;
@@ -36,7 +40,7 @@ type Props = {
  * can print and label printing is connected.
  */
 export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
-  { draft, unit, die, yardCode, canPrint, saving, saveError, popped, onBack, onSave },
+  { draft, unit, die, rangeState, yardCode, canPrint, saving, saveError, popped, onBack, onSave },
   ref,
 ) {
   const { t } = useT();
@@ -118,14 +122,12 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
                 <span className="flex min-w-0 flex-wrap items-baseline gap-x-3.5 gap-y-0.5 text-[15px]">
                   <Measure value={formatKg(gToKg(r.b.weightG))} unit={t("units.kg")} className="font-semibold" />
                   <Measure value={String(r.b.pieces)} unit={t("units.pcs")} />
-                  {r.b.lengthMm !== undefined ? (
-                    <span className="font-mono text-[14px] whitespace-nowrap">{formatLength(r.lengthMm, unit)}</span>
-                  ) : null}
+                  <span className="font-mono text-[14px] whitespace-nowrap">{formatLength(r.lengthMm, unit)}</span>
                   {r.k !== null ? (
                     <Measure value={formatK12(r.k)} unit={t("units.kgPer12ft")} className="text-[14px]" />
                   ) : null}
                 </span>
-                <RangeChip verdict={r.verdict} />
+                <RangeChip verdict={r.verdict} state={rangeState} />
               </li>
             ))}
           </ol>
@@ -168,7 +170,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
                   <td className="px-3 font-mono break-all">{r.b.po ?? draft.defaults.po ?? ""}</td>
                   <td className="px-3 text-right font-mono tabular-nums">{r.k !== null ? formatK12(r.k) : ""}</td>
                   <td className="pr-5 pl-3">
-                    <RangeChip verdict={r.verdict} />
+                    <RangeChip verdict={r.verdict} state={rangeState} />
                   </td>
                 </tr>
               ))}
@@ -177,17 +179,8 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
         </div>
       </section>
 
-      {saveError ? (
-        <p
-          role="alert"
-          className="m-0 flex items-start gap-2 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink"
-        >
-          <AlertCircle aria-hidden="true" strokeWidth={2} className="mt-0.5 size-5 shrink-0" />
-          <span>{saveError}</span>
-        </p>
-      ) : null}
-
-      <PackBar>
+      {/* A failed save shows in the bar itself, right above Save: never under the bar or below a long list. */}
+      <PackBar notice={saveError ? <SaveErrorNotice kind={saveError} /> : null}>
         {/* Phones show "Back" so the bar stays one row; the name is still "Back to bundles". */}
         <Button
           variant="secondary"
@@ -209,6 +202,36 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
     </div>
   );
 });
+
+function SaveErrorNotice({ kind }: { kind: SaveErrorKind }) {
+  const { t } = useT();
+  const text =
+    kind === "forbidden"
+      ? t("pack.new.forbidden")
+      : kind === "yard"
+        ? t("pack.new.yardRequired")
+        : kind === "unsure"
+          ? t("pack.new.saveUnsure")
+          : t("pack.new.saveFailed");
+  return (
+    <div
+      role="alert"
+      data-slot="pack-save-error"
+      className="flex flex-wrap items-start gap-x-3 gap-y-1 rounded-input bg-tone-red-tint px-3 py-2.5 text-[14px] leading-5 font-medium text-tone-red-ink"
+    >
+      <AlertCircle aria-hidden="true" strokeWidth={2} className="mt-px size-5 shrink-0" />
+      <span className="min-w-0 flex-1 basis-[12rem]">{text}</span>
+      {kind === "unsure" ? (
+        <UiLink
+          to="/pack"
+          className="inline-flex min-h-6 items-center font-semibold text-tone-red-ink underline underline-offset-2"
+        >
+          {t("pack.new.openPack")}
+        </UiLink>
+      ) : null}
+    </div>
+  );
+}
 
 function Total({
   label,

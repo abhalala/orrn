@@ -54,6 +54,30 @@ describe("draft persistence (sessionStorage key orrn.packDraft)", () => {
     expect(readDraft(s, "co-2")).toBeNull();
   });
 
+  test("a draft typed by another person at this station is not theirs", () => {
+    // Shared packing station: A types bundles, B signs in on the same tab.
+    const s = memoryStorage();
+    const mine = addBundle({ ...emptyDraft("co-1", "u-a"), dieId: "die-1", defaults: { lengthMm: 3505 } }, {
+      weightG: 47_900,
+      pieces: 20,
+    });
+    writeDraft(s, mine);
+    expect(readDraft(s, "co-1", "u-b")).toBeNull();
+    expect(readDraft(s, "co-1", "u-a")).toEqual(mine);
+  });
+
+  test("a draft from before drafts carried the packer still opens", () => {
+    const s = memoryStorage();
+    writeDraft(s, draftWith());
+    expect(readDraft(s, "co-1", "u-a")?.dieId).toBe("die-1");
+  });
+
+  test("a non-string packer id is a corrupt draft", () => {
+    const s = memoryStorage();
+    s.setItem(PACK_DRAFT_KEY, JSON.stringify({ ...draftWith(), userId: 7 }));
+    expect(readDraft(s, "co-1")).toBeNull();
+  });
+
   test("corrupt or wrong-shaped JSON reads as no draft", () => {
     const s = memoryStorage();
     for (const junk of ["{", "null", "[]", '{"v":1}', '{"v":1,"companyId":"co-1","bundles":[{"weightG":"x"}]}']) {
