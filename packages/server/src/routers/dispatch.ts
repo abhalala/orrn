@@ -24,7 +24,7 @@ import {
   type OrrnDb,
   type SqliteBatchItem,
 } from "../lib/atomic";
-import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
+import { bundleBlock, bundleBlockReason, heldElsewhere, holdingDispatchCodes, type BundleBlock } from "../lib/bundleHold";
 import { now as clockNow } from "../lib/clock";
 import { formatDispatchCode } from "../lib/dispatchCode";
 import { dispatchRows } from "../lib/ledger";
@@ -205,7 +205,7 @@ export type AddBundlesReport = {
   added: string[];
   alreadyInDispatch: string[];
   notFound: string[];
-  unavailable: { serial: string; reason: string }[];
+  unavailable: ({ serial: string } & BundleBlock)[];
 };
 
 const createInput = z.object({
@@ -352,7 +352,7 @@ export const dispatchRouter = router({
         where: and(eq(customer.id, row.customerId), eq(customer.companyId, ctx.companyId)),
       });
 
-      const items = await ctx.db
+      const itemRows = await ctx.db
         .select({
           itemId: dispatchItem.id,
           bundleId: bundle.id,
@@ -366,6 +366,7 @@ export const dispatchRouter = router({
           dieId: bundle.dieId,
           dieSeries: die.series,
           dieSectionCode: die.sectionCode,
+          dieName: die.name,
           addedAt: dispatchItem.addedAt,
         })
         .from(dispatchItem)
@@ -382,6 +383,18 @@ export const dispatchRouter = router({
         )
         .orderBy(desc(dispatchItem.addedAt))
         .limit(500);
+      // While the dispatch can still change, name any other dispatch holding one of its bundles
+      // (both drafts listed it; the other was held first), so Build can mark the row.
+      const holders =
+        row.status === "draft" || row.status === "reserved"
+          ? await heldElsewhere(
+              ctx.db,
+              ctx.companyId,
+              row.id,
+              itemRows.filter((it) => it.status === "reserved").map((it) => it.bundleId),
+            )
+          : new Map<string, string>();
+      const items = itemRows.map((it) => ({ ...it, heldBy: holders.get(it.bundleId) ?? null }));
 
       const events = await ctx.db
         .select()
@@ -640,7 +653,7 @@ export const dispatchRouter = router({
           const b = bySerial.get(serial);
           if (!b) report.notFound.push(serial);
           else if (inThisDispatch.has(b.id)) report.alreadyInDispatch.push(serial);
-          else if (b.status !== "available") report.unavailable.push({ serial, reason: bundleBlockReason(b, codes) });
+          else if (b.status !== "available") report.unavailable.push({ serial, ...bundleBlock(b, codes) });
           else toAdd.push(b);
         }
         if (toAdd.length === 0) return report;

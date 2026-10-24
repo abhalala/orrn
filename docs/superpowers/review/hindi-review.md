@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 981 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 1067 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -584,7 +584,7 @@ Counts: 981 screen strings in 26 groups, 10 guides with 182 strings.
 | `ambiguousTitle` | Which bundle? | कौन सा bundle? |
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 
-### dispatch (54)
+### dispatch (129)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -598,6 +598,21 @@ Counts: 981 screen strings in 26 groups, 10 guides with 182 strings.
 | `columns.status` | Status | स्टेटस |
 | `empty` | No dispatches here. | यहां कोई dispatch नहीं है। |
 | `emptyBuilding` | Nothing is being built. Start a new dispatch. | अभी कुछ नहीं बन रहा। नया dispatch शुरू करें। |
+| `emptyHeld` | Nothing is held right now. | अभी कुछ होल्ड पर नहीं है। |
+| `emptyDispatched` | Nothing has been dispatched yet. | अभी तक कोई dispatch नहीं हुआ। |
+| `emptyCancelled` | No cancelled dispatches. | कोई कैंसल dispatch नहीं है। |
+| `emptySearch` | No dispatch matches "{query}". | "{query}" से कोई dispatch नहीं मिला। |
+| `showBuilding` | Show building | बन रहे दिखाएं |
+| `show` | Show | दिखाएं |
+| `search` | Search dispatches | Dispatch खोजें |
+| `searchHint` | Code or notes | कोड या नोट |
+| `listLabel` | Dispatches | Dispatch |
+| `loadError` | Dispatches didn't load. Check the connection and try again. | Dispatch लोड नहीं हुए। इंटरनेट देखें और फिर से कोशिश करें। |
+| `volume.title` | Dispatch volume | Dispatch मात्रा |
+| `volume.subtitle` | kg dispatched per month, last 12 months | हर महीने dispatch हुआ kg, पिछले 12 महीने |
+| `volume.label` | Dispatch volume, kg per month | Dispatch मात्रा, हर महीने kg |
+| `volume.month` | Month | महीना |
+| `volume.kg` | Dispatched | Dispatch हुआ |
 | `new.title` | New dispatch | नया dispatch |
 | `new.customer` | Customer | ग्राहक |
 | `new.customerSearch` | Search customers | ग्राहक खोजें |
@@ -605,6 +620,24 @@ Counts: 981 screen strings in 26 groups, 10 guides with 182 strings.
 | `new.shipDate` | Ship date | भेजने की तारीख |
 | `new.notes` | Notes | नोट |
 | `new.submit` | Create dispatch | Dispatch बनाएं |
+| `new.customerHint` | Recent customers first. Type to search. | हाल के ग्राहक पहले। खोजने के लिए टाइप करें। |
+| `new.customerRequired` | Pick a customer. | ग्राहक चुनें। |
+| `new.customerName` | Customer name | ग्राहक का नाम |
+| `new.customerPhone` | Phone | फ़ोन |
+| `new.addCustomer` | Add customer | ग्राहक जोड़ें |
+| `new.customerAdded` | Added {name} | {name} जोड़ा गया |
+| `new.created` | Created {code} | {code} बन गया |
+| `new.shipDateHint` | Leave it blank if the date isn't fixed yet. | तारीख तय न हो तो खाली छोड़ दें। |
+| `new.noAccess` | Your role can't start a dispatch. Ask the office to create one. | आपका रोल dispatch शुरू नहीं कर सकता। ऑफ़िस से बनवाएं। |
+| `detail.loadError` | This dispatch didn't load. Check the connection and try again. | यह dispatch लोड नहीं हुआ। इंटरनेट देखें और फिर से कोशिश करें। |
+| `detail.shipOn` | Ship {date} | {date} को भेजना है |
+| `detail.noShipDate` | No ship date | भेजने की तारीख तय नहीं |
+| `detail.dispatchedOn` | Dispatched {date} | {date} को dispatch हुआ |
+| `detail.editDetails` | Edit details | जानकारी बदलें |
+| `detail.saveDetails` | Save details | जानकारी सेव करें |
+| `detail.detailsSaved` | Details saved | जानकारी सेव हो गई |
+| `detail.viewOnly` | You can see this dispatch. Changes are made by the office. | आप यह dispatch देख सकते हैं। बदलाव ऑफ़िस करता है। |
+| `detail.justDispatched` | {code} dispatched | {code} dispatch हो गया |
 | `steps.build` | Build | बनाएं |
 | `steps.hold` | Hold | होल्ड |
 | `steps.dispatch` | Dispatch | Dispatch |
@@ -616,6 +649,36 @@ Counts: 981 screen strings in 26 groups, 10 guides with 182 strings.
 | `build.groupLabel` | Packing group label | पैकिंग ग्रुप लेबल |
 | `build.removeBundle` | Remove {serial} | {serial} हटाएं |
 | `build.removed` | Removed {serial} | {serial} हटा दिया |
+| `build.undo` | Undo | वापस लाएं |
+| `build.added` | Added {serial} | {serial} जुड़ा |
+| `build.bundlesIn` | Bundles in this dispatch | इस dispatch के bundle |
+| `build.colBundle` | Bundle no | Bundle नंबर |
+| `build.colWeight` | Weight kg | वज़न kg |
+| `build.colPcs` | Pcs | पीस |
+| `build.colLength` | Cut length | कट लंबाई |
+| `build.colKg12` | kg/12ft | kg/12ft |
+| `build.colActions` | Actions | काम |
+| `build.setLabel` | Set label | लेबल लगाएं |
+| `build.changeLabel` | Change label | लेबल बदलें |
+| `build.labelFor` | Packing group label for {group} | {group} का पैकिंग ग्रुप लेबल |
+| `build.labelHint` | A short mark like A or B. It groups these bundles on the packing list. | A या B जैसा छोटा निशान। पैकिंग लिस्ट में ये bundle एक साथ आएंगे। |
+| `build.saveLabel` | Save label | लेबल सेव करें |
+| `build.clearLabel` | Remove label | लेबल हटाएं |
+| `build.labelSaved` | Label saved | लेबल सेव हो गया |
+| `build.labelCleared` | Label removed | लेबल हट गया |
+| `build.labelPartial` | Saved on {done} of {total} bundles. Save again for the rest. | {total} में से {done} bundle पर सेव हुआ। बाकी के लिए फिर से सेव करें। |
+| `build.groupNamed` | Group {label} | ग्रुप {label} |
+| `build.searchTitle` | Search to add | खोज कर जोड़ें |
+| `build.searchLabel` | Serial or PO | Serial या PO |
+| `build.searchHint` | Only bundles in stock are listed. | सिर्फ़ स्टॉक वाले bundle दिखते हैं। |
+| `build.searchStart` | Type part of a serial or PO number. | Serial या PO नंबर का कुछ हिस्सा टाइप करें। |
+| `build.searchEmpty` | No bundle in stock matches "{query}". | "{query}" से स्टॉक में कोई bundle नहीं मिला। |
+| `build.add` | Add | जोड़ें |
+| `build.inDispatch` | Added | जुड़ गया |
+| `build.notHeld` | Not held | होल्ड नहीं |
+| `build.labelNotBack` | {serial} is back without its label {label}. Set the label again. | {serial} वापस आ गया, पर लेबल {label} के बिना। लेबल फिर से लगाएं। |
+| `build.blockedBuild` | {count} {count:bundle\|bundles} can't be held. Remove {count:it\|them} to go on. | {count} bundle होल्ड नहीं हो {count:सकता\|सकते}। आगे बढ़ने के लिए {count:इसे\|इन्हें} हटाएं। |
+| `build.blockedHeld` | {count} {count:bundle\|bundles} can't go out. Release the stock, remove {count:it\|them}, then hold again. | {count} bundle नहीं जा {count:सकता\|सकते}। होल्ड हटाएं, {count:इसे\|इन्हें} हटाएं, फिर से होल्ड करें। |
 | `paste.title` | Paste serials | Serial पेस्ट करें |
 | `paste.label` | Serials | Serial |
 | `paste.hint` | One per line, or separated by commas or spaces. | हर लाइन में एक, या कॉमा या स्पेस से अलग करके। |
@@ -624,6 +687,12 @@ Counts: 981 screen strings in 26 groups, 10 guides with 182 strings.
 | `paste.already` | {count} already in this dispatch | {count} इस dispatch में पहले से {count:है\|हैं} |
 | `paste.notFound` | {count} not found | {count} नहीं {count:मिला\|मिले} |
 | `paste.unavailable` | {count} not available | {count} उपलब्ध नहीं {count:है\|हैं} |
+| `paste.found` | {count} {count:serial\|serials} to add | जोड़ने के लिए {count} serial |
+| `paste.adding` | Adding {done} of {total} | {total} में से {done} जोड़ रहे हैं |
+| `paste.nothingFound` | No serials found. Paste one per line. | कोई serial नहीं मिला। हर लाइन में एक पेस्ट करें। |
+| `paste.reportTitle` | What happened | क्या हुआ |
+| `paste.pasteMore` | Paste more | और पेस्ट करें |
+| `paste.stopped` | Stopped after {done} of {total}. The rest weren't sent. | {total} में से {done} के बाद रुक गया। बाकी नहीं भेजे गए। |
 | `holdStock` | Hold stock | स्टॉक होल्ड करें |
 | `held` | Stock held | स्टॉक होल्ड हो गया |
 | `heldNote` | Bundles you add now are held straight away. | अब जो bundle जोड़ेंगे, वो तुरंत होल्ड हो जाएंगे। |
@@ -642,8 +711,14 @@ Counts: 981 screen strings in 26 groups, 10 guides with 182 strings.
 | `deleteTitle` | Delete this dispatch? | यह dispatch डिलीट करें? |
 | `deleteBody` | The dispatch is removed. Its bundles stay in stock. | Dispatch हट जाएगा। इसके bundle स्टॉक में ही रहेंगे। |
 | `deleted` | Dispatch deleted | Dispatch डिलीट हो गया |
+| `holdHint` | Holding keeps these bundles for {customer}. Nobody can add them to another dispatch. | होल्ड करने से ये bundle {customer} के लिए रुक जाते हैं। कोई इन्हें दूसरे dispatch में नहीं जोड़ सकता। |
+| `releaseTitle` | Release the held stock? | होल्ड हटाएं? |
+| `releaseBody` | The bundles go back to stock and this dispatch goes back to Building. | Bundle वापस स्टॉक में जाएंगे और यह dispatch फिर से बनने लगेगा। |
+| `errors.empty` | Add at least one bundle first. | पहले कम से कम एक bundle जोड़ें। |
+| `errors.conflict` | Some bundles changed since this page loaded. The ones that can't go are marked in the list. | पेज खुलने के बाद कुछ bundle बदल गए। जो नहीं जा सकते, उन पर लिस्ट में निशान है। |
+| `errors.moved` | This dispatch has moved on. Reload to see where it is now. | यह dispatch आगे बढ़ चुका है। ताज़ा स्थिति के लिए पेज रीलोड करें। |
 
-### packingList (24)
+### packingList (35)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -671,6 +746,17 @@ Counts: 981 screen strings in 26 groups, 10 guides with 182 strings.
 | `regenerateTitle` | Regenerate the packing list? | पैकिंग लिस्ट फिर से बनाएं? |
 | `regenerateBody` | orrn builds it again from the bundles in this dispatch as they are now. | orrn इस dispatch के bundle की अभी की जानकारी से इसे फिर से बनाएगा। |
 | `regenerated` | Packing list regenerated | पैकिंग लिस्ट फिर से बन गई |
+| `dispatch` | Dispatch | Dispatch |
+| `gstin` | GSTIN | GSTIN |
+| `notSet` | Not set | तय नहीं |
+| `rowsLabel` | Packing list rows | पैकिंग लिस्ट की लाइनें |
+| `groupNamed` | Group {label} | ग्रुप {label} |
+| `groupTotalOf` | Total {label} | {label} का कुल |
+| `loadError` | This packing list couldn't be read. Regenerate it to build it again. | यह पैकिंग लिस्ट पढ़ी नहीं जा सकी। इसे फिर से बनाएं। |
+| `missing` | This dispatch has no packing list yet. | इस dispatch की पैकिंग लिस्ट अभी नहीं बनी। |
+| `make` | Make packing list | पैकिंग लिस्ट बनाएं |
+| `made` | Packing list made | पैकिंग लिस्ट बन गई |
+| `downloadFailed` | The file couldn't be made. Try again. | फ़ाइल नहीं बन पाई। फिर से कोशिश करें। |
 
 ### dies (61)
 

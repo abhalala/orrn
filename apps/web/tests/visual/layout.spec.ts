@@ -73,8 +73,8 @@ const OWNER_ROUTES = [
   "/dies",
 ];
 /**
- * Detail routes discovered from the first list row. /pack/$id and
- * /dispatch/$id join once their C2 screens link from a list.
+ * Detail routes discovered from the first list row. /pack/$id joins once
+ * its C2 screen links from a list.
  */
 const OWNER_DETAILS: { list: string; pattern: RegExp }[] = [
   { list: "/customers", pattern: /^\/customers\/(?!new)[^/]+$/ },
@@ -83,6 +83,7 @@ const OWNER_DETAILS: { list: string; pattern: RegExp }[] = [
   { list: "/stock", pattern: /^\/stock\/(?!bundles$)[^/]+$/ },
   // A bundle row on All bundles.
   { list: "/stock/bundles", pattern: /^\/b\/[^/]+$/ },
+  { list: "/dispatch", pattern: /^\/dispatch\/(?!new)[^/]+$/ },
 ];
 
 const STAFF_ROUTES = ["/admin", "/admin/companies", "/admin/requests", "/admin/staff"];
