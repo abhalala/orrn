@@ -239,13 +239,17 @@ export const dashboardRouter = router({
         shiftsSet: day.shiftsSet,
         shift: day.shift,
       },
-      /** The four KPIs every role sees (FP-PF-15). In stock = available + reserved. */
+      /**
+       * The four KPIs every role sees (FP-PF-15). In stock = available bundles only, the same
+       * figure the Stock screen shows as "In stock" (`bundle.stockSummary`, status available):
+       * held (reserved), dispatched and void bundles are not counted.
+       */
       kpis: {
         packedG: packedToday.weightG,
         packedBundles: packedToday.bundles,
         dispatchedG: dispatchedToday.weightG,
-        inStockG: stock.available.weightG + stock.reserved.weightG,
-        inStockBundles: stock.available.bundles + stock.reserved.bundles,
+        inStockG: stock.available.weightG,
+        inStockBundles: stock.available.bundles,
       },
       /** Rate slice: only with priceOnSalesOrder on and order.price held; null otherwise. */
       value: showValue

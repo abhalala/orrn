@@ -80,7 +80,7 @@ describe("formatCount", () => {
 });
 
 describe("inStock", () => {
-  test("in stock is available plus held; dispatched and void are not stock", () => {
+  test("in stock is available only (as on Stock); held, dispatched and void are not counted", () => {
     expect(
       inStock({
         available: { bundles: 10, weightG: 250_000 },
@@ -88,7 +88,7 @@ describe("inStock", () => {
         dispatched: { bundles: 99, weightG: 9_999_000 },
         void: { bundles: 3, weightG: 75_000 },
       }),
-    ).toEqual({ bundles: 12, kg: 302.4 });
+    ).toEqual({ bundles: 10, kg: 250 });
   });
 });
 

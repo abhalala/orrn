@@ -262,6 +262,22 @@ describe("Today per role (FP-PF-15)", () => {
     const { companyId } = await plantWithActivity();
     expect((await env.caller({ role: "owner", companyId }).dashboard.today()).value).toBeNull();
   });
+
+  test("In stock on Today is the Stock screen's In stock: available only, not held, dispatched or void", async () => {
+    const { companyId } = await plantWithActivity();
+    const dieId = await env.seedDie(companyId);
+    await env.seedBundles(companyId, dieId, 2, "reserved");
+    await env.seedBundles(companyId, dieId, 1, "void");
+    for (const role of ["viewer", "owner"] as const) {
+      const caller = env.caller({ role, companyId });
+      const today = await caller.dashboard.today();
+      const stock = await caller.bundle.stockSummary({ status: "available" });
+      expect(today.kpis.inStockBundles).toBe(3);
+      expect(today.kpis.inStockBundles).toBe(stock.totals.bundleCount);
+      expect(today.kpis.inStockG).toBe(stock.totals.totalWeightG);
+      expect(today.stock.reserved.bundles).toBe(2);
+    }
+  });
 });
 
 describe("team: the 13 roles (FP-PF-10)", () => {
