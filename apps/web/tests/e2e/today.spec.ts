@@ -83,6 +83,17 @@ async function watchToday(page: Page) {
   return seen;
 }
 
+/**
+ * The payload the page rendered. The response handler reads the body
+ * asynchronously, so the blocks can be on screen a moment before it lands.
+ */
+async function receivedToday(seen: { last: TodayPayload | null }): Promise<TodayPayload> {
+  await expect
+    .poll(() => seen.last !== null, { message: "the page received dashboard.today", timeout: 10_000 })
+    .toBe(true);
+  return seen.last!;
+}
+
 /** Fires the browser's visibilitychange, which makes React Query refetch stale queries (as on returning to the tab). */
 const wakeQueries = (page: Page) => page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
 
@@ -132,8 +143,7 @@ for (const width of [390, 1280]) {
       const seen = await watchToday(page);
       await open(page, { width });
       await expect(numbers(page)).toBeVisible();
-      const today = seen.last!;
-      expect(today, "the page received dashboard.today").toBeTruthy();
+      const today = await receivedToday(seen);
       // The page's payload is the server's: same procedure, same session.
       const direct = await directToday(page);
       expect(today.setup).toEqual(direct.setup);
@@ -554,7 +564,7 @@ test.describe("accessibility", () => {
     const seen = await watchToday(page);
     await open(page, { width: 1280 });
     await expect(numbers(page)).toBeVisible();
-    const today = seen.last!;
+    const today = await receivedToday(seen);
     const tileLinks = tiles(page).getByRole("link");
     await tileLinks.first().focus();
     const ring = () =>
