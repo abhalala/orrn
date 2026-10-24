@@ -69,9 +69,11 @@ describe("rangeVerdict (billed band /12' vs the die's range)", () => {
   });
 
   test("uses the plant's billed band, floor((k + 0.01) * 10) / 10", () => {
-    // 2.395 bills as 2.4 (in), 2.69 bills as 2.6 (in), 2.70 bills as 2.7 (above).
+    // 2.395 bills as 2.4 (in), 2.689 bills as 2.6 (in), 2.69 and 2.70 bill as 2.7 (above):
+    // 2.69 + 0.01 is exactly the 2.7 boundary (domain weightRange12ft keeps it, PL-8 round 3).
     expect(rangeVerdict(2.395, die)).toBe("in");
-    expect(rangeVerdict(2.69, die)).toBe("in");
+    expect(rangeVerdict(2.689, die)).toBe("in");
+    expect(rangeVerdict(2.69, die)).toBe("above");
     expect(rangeVerdict(2.7, die)).toBe("above");
     expect(rangeVerdict(2.38, die)).toBe("below");
   });
