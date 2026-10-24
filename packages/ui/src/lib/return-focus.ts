@@ -23,8 +23,20 @@ export function useReturnFocus() {
         el.focus({ preventScroll: true });
         return;
       }
-      // The button that opened it is gone (the row it acted on was approved,
-      // removed or replaced): the page heading, never <body>.
+      // The button that opened it is gone. If the page already moved focus on
+      // purpose (the packing list after Dispatch), leave it there.
+      const active = document.activeElement;
+      const keep =
+        active instanceof HTMLElement &&
+        active !== document.body &&
+        active.isConnected &&
+        !active.closest("[role='dialog'], [role='alertdialog']");
+      if (el && keep) {
+        event.preventDefault();
+        return;
+      }
+      // Otherwise (the row it acted on was approved, removed or replaced): the
+      // page heading, never <body>.
       const heading = document.querySelector<HTMLElement>("main h1");
       if (el && heading) {
         event.preventDefault();
