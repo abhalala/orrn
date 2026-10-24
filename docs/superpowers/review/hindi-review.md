@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 945 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 963 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -745,7 +745,7 @@ Counts: 945 screen strings in 26 groups, 10 guides with 182 strings.
 | `all` | All guides | सारी गाइड |
 | `empty` | No guides for your role yet. | आपके रोल के लिए अभी कोई गाइड नहीं है। |
 
-### admin (219)
+### admin (237)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -930,7 +930,7 @@ Counts: 945 screen strings in 26 groups, 10 guides with 182 strings.
 | `requests.noNotes` | No notes | कोई नोट नहीं |
 | `requests.approve` | Approve | मंज़ूर करें |
 | `requests.approveTitle` | Approve {company}? | {company} को मंज़ूर करें? |
-| `requests.approveBody` | This creates the company and emails a sign-in link to {email}. | इससे कंपनी बनेगी और {email} पर साइन इन लिंक ईमेल होगा। |
+| `requests.approveBody` | This creates the company and emails a sign-in link to {email}. If the email can't be sent, you get the details to send yourself. | इससे कंपनी बनेगी और {email} पर साइन इन लिंक ईमेल होगा। ईमेल न जा पाए तो खुद भेजने के लिए डिटेल मिल जाएंगी। |
 | `requests.approved` | Request approved | रिक्वेस्ट मंज़ूर हो गई |
 | `requests.reject` | Reject | नामंज़ूर करें |
 | `requests.rejectTitle` | Reject {company}? | {company} को नामंज़ूर करें? |
@@ -939,6 +939,24 @@ Counts: 945 screen strings in 26 groups, 10 guides with 182 strings.
 | `requests.alreadyHandled` | Someone already handled this request. The list is up to date now. | यह रिक्वेस्ट पहले ही निपटा दी गई है। लिस्ट अब ताज़ा है। |
 | `requests.loadError` | Requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर कोशिश करें। |
 | `requests.listLabel` | Waiting requests | बाकी रिक्वेस्ट |
+| `requests.approvedSent` | Approved. Sign-in email sent to {email}. | मंज़ूर हो गई। साइन इन ईमेल {email} पर गया। |
+| `requests.approvedNoLink` | Approved, but no sign-in link was made. Use Get sign-in details below to try again. | मंज़ूर हो गई, पर साइन इन लिंक नहीं बना। नीचे "साइन इन डिटेल लें" से फिर कोशिश करें। |
+| `requests.showEmail` | Show email | ईमेल देखें |
+| `requests.awaitingTitle` | Approved, password not set yet | मंज़ूर, पासवर्ड अभी नहीं बना |
+| `requests.awaitingBody` | If the email did not arrive or the link stopped working, get a fresh sign-in link and send it yourself. | ईमेल न पहुंचा हो या लिंक काम न कर रहा हो, तो नया साइन इन लिंक लेकर खुद भेजें। |
+| `requests.awaitingLabel` | Approved owners without a password | बिना पासवर्ड वाले मंज़ूर मालिक |
+| `requests.getDetails` | Get sign-in details | साइन इन डिटेल लें |
+| `requests.details.sentTitle` | Sign-in email sent | साइन इन ईमेल चला गया |
+| `requests.details.notSentTitle` | Email could not be sent | ईमेल नहीं जा सका |
+| `requests.details.body` | Send this to {name} on WhatsApp or from your own email. The link works once and expires {date}. | यह {name} को WhatsApp पर या अपने ईमेल से भेजें। लिंक एक बार चलता है और {date} को खत्म हो जाएगा। |
+| `requests.details.sent` | The email went to {email}. | ईमेल {email} पर गया। |
+| `requests.details.notSent` | The email did not go out. Send the details below yourself. | ईमेल नहीं गया। नीचे की डिटेल खुद भेजें। |
+| `requests.details.reason` | Reason: {reason} | वजह: {reason} |
+| `requests.details.to` | To | किसको |
+| `requests.details.subject` | Subject | विषय |
+| `requests.details.link` | Sign-in link | साइन इन लिंक |
+| `requests.details.message` | Message | संदेश |
+| `requests.details.copyMessage` | Copy message | संदेश कॉपी करें |
 | `staff.title` | Staff | स्टाफ़ |
 | `staff.subtitle` | People who can sign in to Godseye. There is no public sign-up. | जो लोग Godseye में साइन इन कर सकते हैं। यहां कोई खुला साइन अप नहीं है। |
 | `staff.add` | Add staff | स्टाफ़ जोड़ें |

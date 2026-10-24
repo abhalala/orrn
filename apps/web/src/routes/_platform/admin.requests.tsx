@@ -10,7 +10,8 @@ import { toast } from "sonner";
 
 import { formatAgo, formatDay } from "@/features/admin/format";
 import { showsLoadError } from "@/features/admin/query-state";
-import type { WaitlistRow } from "@/features/admin/types";
+import { SignInDetailsSheet } from "@/features/admin/sign-in-details";
+import type { AwaitingRow, SignInDetails, WaitlistRow } from "@/features/admin/types";
 import { ConfirmDialog, errorText, LoadError, Panel, useLastValue } from "@/features/admin/ui";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
@@ -26,18 +27,27 @@ type Decision = { kind: "approve" | "reject"; row: WaitlistRow };
  * the company with the requester as owner and emails them a sign-in link;
  * rejecting closes the request. Both ask first. Oldest first, so nobody
  * waits behind newer requests.
+ *
+ * Email can fail (Resend, Oct 2026), so an approval never depends on it: the
+ * server always answers with the email it built, and when it was not sent the
+ * details open in a sheet to copy and send by hand. Approved owners who have
+ * not set a password yet stay listed below with "Get sign-in details", which
+ * issues a fresh link.
  */
 function AdminRequests() {
   const { t } = useT();
   const qc = useQueryClient();
   const list = useQuery(trpc.platform.waitlistList.queryOptions());
+  const awaiting = useQuery(trpc.platform.waitlistAwaitingSignIn.queryOptions());
   const [decision, setDecision] = useState<Decision | null>(null);
+  const [details, setDetails] = useState<SignInDetails | null>(null);
 
   const refresh = () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: trpc.platform.waitlistList.queryKey() }),
       qc.invalidateQueries({ queryKey: trpc.platform.overview.queryKey() }),
       qc.invalidateQueries({ queryKey: trpc.platform.companiesList.queryKey() }),
+      qc.invalidateQueries({ queryKey: trpc.platform.waitlistAwaitingSignIn.queryKey() }),
     ]);
 
   // The dialog closes after the list is fresh, so the card it acted on is already gone and focus
@@ -47,8 +57,8 @@ function AdminRequests() {
     await refresh();
     setDecision(null);
   };
-  // A failure can still have changed the request: approve commits before it emails the sign-in
-  // link, and someone else may have decided it first (BAD_REQUEST). Refresh and close either way.
+  // A failure can still have changed the request (someone else decided it first: BAD_REQUEST).
+  // Refresh and close either way.
   const failed = async (err: unknown) => {
     toast.error(errorText(t, err, { BAD_REQUEST: t("admin.requests.alreadyHandled") }));
     await refresh();
@@ -56,8 +66,33 @@ function AdminRequests() {
   };
   const approve = useMutation({
     ...trpc.platform.waitlistApprove.mutationOptions(),
-    onSuccess: () => done(t("admin.requests.approved")),
+    onSuccess: async (result) => {
+      const signIn = result.signIn;
+      if (!signIn) {
+        // Approved, but no link could be made: say so and point at the retry below.
+        toast.warning(t("admin.requests.approvedNoLink"));
+        await refresh();
+        setDecision(null);
+      } else if (signIn.emailSent) {
+        toast.success(t("admin.requests.approvedSent", { email: signIn.to }), {
+          action: { label: t("admin.requests.showEmail"), onClick: () => setDetails(signIn) },
+        });
+        await refresh();
+        setDecision(null);
+      } else {
+        // The email did not go: the details are the way the owner gets in. No toast: it would
+        // sit over the sheet's buttons, and the sheet says it.
+        await refresh();
+        setDecision(null);
+        setDetails(signIn);
+      }
+    },
     onError: failed,
+  });
+  const getDetails = useMutation({
+    ...trpc.platform.waitlistSignInDetails.mutationOptions(),
+    onSuccess: setDetails,
+    onError: (err) => toast.error(errorText(t, err, { BAD_REQUEST: t("admin.requests.alreadyHandled") })),
   });
   const reject = useMutation({
     ...trpc.platform.waitlistReject.mutationOptions(),
@@ -65,6 +100,7 @@ function AdminRequests() {
     onError: failed,
   });
 
+  const waitingOwners = awaiting.data ?? [];
   const rows = [...(list.data ?? [])].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
@@ -107,6 +143,36 @@ function AdminRequests() {
         </ul>
       )}
 
+      {waitingOwners.length > 0 ? (
+        <section aria-labelledby="awaiting-heading" className="flex min-w-0 flex-col gap-3 pt-2">
+          <div className="flex flex-col gap-1">
+            <h2
+              id="awaiting-heading"
+              className="m-0 font-display text-[19px] font-bold leading-tight tracking-[-0.02em] text-foreground"
+            >
+              {t("admin.requests.awaitingTitle")}
+            </h2>
+            <p className="m-0 max-w-[70ch] text-[15px] leading-6 text-muted-foreground">
+              {t("admin.requests.awaitingBody")}
+            </p>
+          </div>
+          <ul aria-label={t("admin.requests.awaitingLabel")} className="m-0 flex list-none flex-col gap-3 p-0">
+            {waitingOwners.map((row) => (
+              <li key={row.id} className="min-w-0">
+                <AwaitingCard
+                  row={row}
+                  busy={getDetails.isPending && getDetails.variables?.id === row.id}
+                  disabled={getDetails.isPending}
+                  onGet={() => getDetails.mutate({ id: row.id })}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <SignInDetailsSheet details={details} onClose={() => setDetails(null)} />
+
       <ConfirmDialog
         open={decision?.kind === "approve"}
         onOpenChange={(open) => (open ? undefined : setDecision(null))}
@@ -127,6 +193,43 @@ function AdminRequests() {
         onConfirm={() => decision && reject.mutate({ id: decision.row.id })}
       />
     </div>
+  );
+}
+
+function AwaitingCard({
+  row,
+  busy,
+  disabled,
+  onGet,
+}: {
+  row: AwaitingRow;
+  busy: boolean;
+  disabled: boolean;
+  onGet(): void;
+}) {
+  const { t } = useT();
+  const headingId = `awaiting-${row.id}`;
+  return (
+    <Panel as="article" aria-labelledby={headingId} className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <h3 id={headingId} className="m-0 text-[17px] font-bold leading-snug text-foreground break-words">
+          {row.companyName}
+        </h3>
+        <p className="m-0 text-[15px] text-foreground break-words">{row.requesterName}</p>
+        <p className="m-0 text-[15px] text-muted-foreground [overflow-wrap:anywhere]">{row.requesterEmail}</p>
+      </div>
+      <Can do="platform.waitlist.review">
+        <Button
+          variant="secondary"
+          loading={busy}
+          disabled={disabled}
+          onPress={onGet}
+          className="w-full shrink-0 sm:w-auto pointer-coarse:h-14"
+        >
+          {t("admin.requests.getDetails")}
+        </Button>
+      </Can>
+    </Panel>
   );
 }
 

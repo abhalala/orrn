@@ -11,3 +11,6 @@ export type DeploymentRow = Platform["spoolDeploymentsList"]["items"][number];
 export type CreatedDeployment = Platform["spoolDeploymentCreate"];
 export type WaitlistRow = Platform["waitlistList"][number];
 export type StaffRow = Platform["staffList"][number];
+/** The owner's approval email, returned for copying when it could not be sent. */
+export type SignInDetails = NonNullable<Platform["waitlistApprove"]["signIn"]>;
+export type AwaitingRow = Platform["waitlistAwaitingSignIn"][number];
