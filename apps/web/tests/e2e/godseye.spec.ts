@@ -209,7 +209,10 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   await expect(banner).toContainText(`Viewing ${company} as orrn support`);
   await expect(banner).toContainText(/Ends at \d{2}:\d{2}/);
   // Touch target: the brief asks for 44px everywhere, laptop included.
-  const stopBox = await banner.getByRole("button", { name: "Stop impersonating" }).boundingBox();
+  const stopButton = banner.getByRole("button", { name: "Stop impersonating" });
+  // boundingBox() does not wait: a banner still settling after the Today load gave null (0 px).
+  await expect(stopButton).toBeVisible();
+  const stopBox = await stopButton.boundingBox();
   expect(stopBox?.height ?? 0).toBeGreaterThanOrEqual(44);
   await expect(page.locator("[data-slot='app-shell']")).toHaveAttribute("data-variant", "tenant");
   expect(await blockingAxeViolations(page, "[data-slot='impersonation-banner']"), "impersonation banner").toEqual([]);
