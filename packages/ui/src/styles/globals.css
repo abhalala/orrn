@@ -500,8 +500,11 @@
       transition-duration: 0.01ms !important;
     }
 
+    /* `*` never matches view-transition pseudo-elements, so name them: the page-content fade must stop too. */
     ::view-transition-old(root),
-    ::view-transition-new(root) {
+    ::view-transition-new(root),
+    ::view-transition-old(page-content),
+    ::view-transition-new(page-content) {
       animation: none !important;
     }
   }

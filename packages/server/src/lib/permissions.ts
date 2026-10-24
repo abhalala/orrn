@@ -127,6 +127,10 @@ export const PLATFORM_ACTION_KEYS = [
   "platform.staff.remove",
   "platform.spool.manage",
   "platform.edge.manage",
+  // Issue (and see) a one-time sign-in link for an approved owner. Not support:
+  // a link is a full session without a password, so it sits with the roles that
+  // already hold platform.impersonate.
+  "platform.waitlist.signInLink",
   "platform.release.publish",
   "platform.backup.run",
   "platform.support.reply",
@@ -350,6 +354,7 @@ const PLATFORM_ROLE_ACTIONS: Record<PlatformStaffRole, ReadonlySet<Action>> = {
     "platform.staff.updateRole",
     "platform.spool.manage",
     "platform.edge.manage",
+    "platform.waitlist.signInLink",
     "platform.release.publish",
     "platform.backup.run",
     "platform.support.reply",
@@ -377,6 +382,8 @@ export type Me = {
     onboardingCompleted?: boolean;
     twoFactorEnabled?: boolean;
     mustChangePassword?: boolean;
+    /** A credential (email + password) login exists. False for a magic-link account until it sets one. */
+    hasPassword?: boolean;
   };
   company: {
     id: string;

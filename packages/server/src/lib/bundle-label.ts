@@ -15,6 +15,11 @@ export type BundleLabelVariables = {
   weight12ft: string;
   weight_each: string;
   layout: string;
+  /**
+   * Cast number the bundle was packed from (`K31`), "" when the bundle has no cast. Templates print
+   * it with the `{{cast}}` placeholder (FD hardware table: "spool template must print cast").
+   */
+  cast: string;
 };
 
 type BundleRow = typeof bundle.$inferSelect;
@@ -86,11 +91,14 @@ export function buildBundleLabelVariables({
   groupRow,
   dieRow,
   layout,
+  castRow = null,
 }: {
   bundleRow: BundleRow;
   groupRow: BundleGroupRow;
   dieRow: DieRow | null;
   layout: string;
+  /** The bundle's cast, looked up in the same company by the caller; null when none. */
+  castRow?: { number: string } | null;
 }): BundleLabelVariables {
   const { value: lengthValue, unit: lengthUnit } = labelLength(bundleRow, groupRow);
   const weightKg = bundleRow.weightG / 1000;
@@ -111,5 +119,6 @@ export function buildBundleLabelVariables({
     weight12ft: formatUnit(weight12ft, "kg/12ft"),
     weight_each: formatUnit(weightEach, ""),
     layout,
+    cast: castRow?.number ?? "",
   };
 }

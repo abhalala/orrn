@@ -5,8 +5,8 @@
  */
 import { expect } from "bun:test";
 
-import { approval, bundle, customer, dispatch, dispatchItem, packingList, stockLedger } from "@orrn/db/schema";
-import { and, asc, eq } from "drizzle-orm";
+import { approval, bundle, customer, dispatch, dispatchItem, packingList, salesOrder, stockLedger } from "@orrn/db/schema";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import type { LineBalance } from "../src/lib/orders";
 import type { appRouter } from "../src/routers";
@@ -37,6 +37,61 @@ export async function saveOrder(
 ) {
   const serverSeq = input.serverSeq ?? (await api.orders.get({ id: input.id })).order.serverSeq;
   return api.orders.update({ ...input, serverSeq });
+}
+
+/**
+ * D11 (W1-OP-S review round 1 I-1): an order is confirmed only through `orders.confirm`, which
+ * needs a PO and, on every line, pieces and a die copy or tier. PL-8 test orders are kg-only and
+ * PO-less, so this fills what is missing first (PO `PO-<SO number>`, 1 piece, tier 1) with an
+ * ordinary edit, then confirms. A non-booking order is left as it is.
+ */
+export async function confirmOrder(api: Api, id: string) {
+  const got = await api.orders.get({ id });
+  if (got.order.status !== "booking") return;
+  if (got.confirmBlockers.length > 0) {
+    const details = new Map(got.lineDetails.map((d) => [d.lineId, d]));
+    await saveOrder(api, {
+      id,
+      poNumber: got.order.poNumber ?? `PO-${got.order.number}-${got.order.period}`,
+      lines: got.lines.map((l) => {
+        const d = details.get(l.lineId);
+        return {
+          id: l.lineId,
+          sectionId: l.sectionId,
+          cutLengthMm: l.cutLengthMm,
+          kgPer12ftMilli: l.kgPer12ftMilli,
+          kgG: l.orderedG,
+          pcs: l.orderedPcs ?? 1,
+          finish: l.finish,
+          note: l.note,
+          ...(d?.dieInstanceId || d?.tierRank != null ? {} : { tierRank: 1 }),
+        };
+      }),
+    });
+  }
+  await api.orders.confirm({ id });
+}
+
+/** `orders.close` (a booking is confirmed first: §E2 closes only confirmed / dispatching orders). */
+export async function closeOrder(api: Api, id: string, reason = "Closed in a test") {
+  await confirmOrder(api, id);
+  return api.orders.close({ id, reason });
+}
+
+/** `orders.cancel` with a reason. */
+export async function cancelOrder(api: Api, id: string, reason = "Cancelled in a test") {
+  return api.orders.cancel({ id, reason });
+}
+
+/**
+ * §E2 has no "reopen" move (and an edit never moves a status, D11): tests that need a closed order
+ * open again (PL-8 races against an order coming back) set it in the database, as another writer would.
+ */
+export async function reopenOrder(env: TestEnv, id: string) {
+  await env.db
+    .update(salesOrder)
+    .set({ status: "confirmed", closedAt: null, closedBy: null, closeReason: null, serverSeq: sql`${salesOrder.serverSeq} + 1` })
+    .where(eq(salesOrder.id, id));
 }
 
 type PackRow = { kg: number; pcs?: number; mm?: number; po?: string };
@@ -136,7 +191,6 @@ export function salesHelpers(getEnv: () => TestEnv): SalesHelpers {
       const res = await owner.orders.create({
         customerId: over.customerId ?? customerId,
         poNumber: over.poNumber ?? null,
-        status: over.status,
         lines: lines.map((l) => ({
           sectionId: l.dieId,
           cutLengthMm: l.mm ?? 3_658,
@@ -145,6 +199,7 @@ export function salesHelpers(getEnv: () => TestEnv): SalesHelpers {
           finish: l.finish ?? null,
         })),
       });
+      if (over.status === "confirmed") await confirmOrder(owner, res.id);
       const got = await owner.orders.get({ id: res.id });
       return { id: res.id, number: res.number, lineIds: got.lines.map((l) => l.lineId) };
     }

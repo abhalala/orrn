@@ -26,6 +26,7 @@ import { gateQueryRetry } from "@/lib/session";
 import { sessionPresence } from "@/lib/session-presence";
 import { signOut } from "@/lib/sign-out";
 import { useThemeColor } from "@/lib/theme";
+import { readThemePref } from "@/lib/theme-store";
 import { meQueryOptions } from "@/utils/me";
 import { queryClient } from "@/utils/trpc";
 
@@ -35,8 +36,8 @@ export const unstable_settings = { initialRouteName: "index" };
 
 // Keep the splash up until the C2 typefaces are loaded and the gate has decided.
 void SplashScreen.preventAutoHideAsync();
-// The manual theme toggle is gone (audit N15): follow the device.
-colorScheme.set("system");
+// Colours follow the device unless Settings saved a choice (lib/theme-store.ts).
+colorScheme.set(readThemePref());
 // Coming back to the foreground refetches stale queries (auth.me included), as window focus does on web.
 focusManager.setEventListener(appStateFocus(AppState));
 

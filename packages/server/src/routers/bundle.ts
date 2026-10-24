@@ -1,7 +1,8 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray, isNull, like, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, like, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { user } from "@orrn/db/schema/auth";
 import {
   castRequiredOnBundle,
   normalizeSerial,
@@ -40,6 +41,7 @@ import { kgPer12ftMilli } from "../lib/bundleWeight";
 import { now as clockNow } from "../lib/clock";
 import { assertDieAllowed } from "../lib/dieOwner";
 import { allocateDocNumbers, allocatePartyBundleNumbers } from "../lib/docNumber";
+import { clientRequestIdSchema, replayProbe, replayState, REQUEST_ID_CONFLICT, requestRowIds } from "../lib/importReplay";
 import { resolvePlantScrap } from "../lib/foundry";
 import {
   ageingTablesExist,
@@ -707,10 +709,22 @@ export const bundleRouter = router({
           purchaseOrderRef: bundleGroup.purchaseOrderRef,
           notes: bundleGroup.notes,
           createdAt: bundleGroup.createdAt,
-          bundleCount: sql<number>`count(${bundle.id})`.as("bundle_count"),
-          totalQuantity: sql<number>`coalesce(sum(${bundle.quantity}), 0)`.as("total_quantity"),
-          totalWeightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`.as("total_weight_g"),
-          totalLengthMm: sql<number>`coalesce(sum(${bundle.lengthMm}), 0)`.as("total_length_mm"),
+          /** Who packed the session ("Packed by"); null once that user is deleted. */
+          createdByName: user.name,
+          // Void bundles are out of every packed figure (plant ruling RP11, as Today); the left join
+          // keeps a session whose bundles are all void in the list, at 0.
+          bundleCount: sql<number>`count(case when ${bundle.status} <> 'void' then ${bundle.id} end)`.as(
+            "bundle_count",
+          ),
+          totalQuantity: sql<number>`coalesce(sum(case when ${bundle.status} <> 'void' then ${bundle.quantity} end), 0)`.as(
+            "total_quantity",
+          ),
+          totalWeightG: sql<number>`coalesce(sum(case when ${bundle.status} <> 'void' then ${bundle.weightG} end), 0)`.as(
+            "total_weight_g",
+          ),
+          totalLengthMm: sql<number>`coalesce(sum(case when ${bundle.status} <> 'void' then ${bundle.lengthMm} end), 0)`.as(
+            "total_length_mm",
+          ),
         })
         .from(bundleGroup)
         .innerJoin(
@@ -721,8 +735,9 @@ export const bundleRouter = router({
           bundle,
           and(eq(bundle.groupId, bundleGroup.id), eq(bundle.companyId, bundleGroup.companyId)),
         )
+        .leftJoin(user, eq(user.id, bundleGroup.createdBy))
         .where(and(...conditions))
-        .groupBy(bundleGroup.id, die.series, die.sectionCode)
+        .groupBy(bundleGroup.id, die.series, die.sectionCode, user.name)
         .orderBy(desc(bundleGroup.createdAt))
         .limit(input.limit)
         .offset(input.offset);
@@ -762,13 +777,33 @@ export const bundleRouter = router({
         .orderBy(asc(bundle.serial))
         .limit(500);
 
+      // "Packed by" on the session page; null once that user is deleted.
+      const packer = group.createdBy
+        ? await ctx.db.select({ name: user.name }).from(user).where(eq(user.id, group.createdBy)).get()
+        : undefined;
+
+      // The session's packed figures leave void bundles out (RP11); the list above still has them.
+      const totals = { bundles: 0, pieces: 0, weightG: 0 };
+      for (const b of bundles) {
+        if (b.status === "void") continue;
+        totals.bundles += 1;
+        totals.pieces += b.quantity;
+        totals.weightG += b.weightG;
+      }
+
       // D15: each bundle's band verdict, the same one `/b/$serial` shows.
       const bands = await bundleBandTones(
         ctx.db,
         ctx.companyId,
         bundles.map((b) => ({ dieId: b.dieId, dieInstanceId: b.dieInstanceId, kgPer12ftMilli: b.kgPer12ftMilli ?? kgPer12ftMilli(b) })),
       );
-      return { group, die: dieRow ?? null, bundles: bundles.map((b, i) => ({ ...b, band: bands[i]! })) };
+      return {
+        group,
+        die: dieRow ?? null,
+        bundles: bundles.map((b, i) => ({ ...b, band: bands[i]! })),
+        totals,
+        packedByName: packer?.name ?? null,
+      };
     }),
 
   listBundles: companyProcedure
@@ -1006,9 +1041,40 @@ export const bundleRouter = router({
           .array(bundleImportRowSchema)
           .min(1, "At least one row is required")
           .max(2000, "Max 2000 bundles per import — split larger files into batches"),
+        /** Same id, same rows: a resend answers `replayed` instead of adding the bundles twice (lib/importReplay). */
+        clientRequestId: clientRequestIdSchema.optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // 0. A chunk sent again (lost reply, same sheet picked again) must never add its bundles twice.
+      const rowIds = input.clientRequestId
+        ? await requestRowIds(ctx.companyId, "bundle.import", input.clientRequestId, input.rows.length)
+        : null;
+      const landed = async (ids: string[]) =>
+        replayState(
+          ids,
+          (
+            await ctx.db
+              .select({ id: bundle.id })
+              .from(bundle)
+              .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, replayProbe(ids))))
+          ).map((r) => r.id),
+        );
+      const replayed = {
+        success: true,
+        replayed: true,
+        bundleCount: input.rows.length,
+        dieCount: 0,
+        newDies: 0,
+        newGroups: 0,
+        reusedGroups: 0,
+      } as const;
+      if (rowIds) {
+        const state = await landed(rowIds);
+        if (state === "replayed") return replayed;
+        if (state === "conflict") throw new TRPCError(REQUEST_ID_CONFLICT);
+      }
+
       // 1. Resolve every (series, sectionCode) in the file to a die id.
       //    Build a Set of unique keys first so a 2000-row file with 5 distinct
       //    dies hits the DB once per die rather than once per row. While
@@ -1069,7 +1135,7 @@ export const bundleRouter = router({
           code: "BAD_REQUEST",
           message: `Die${archivedKeys.length === 1 ? "" : "s"} previously deleted: ${archivedKeys
             .slice(0, 5)
-            .join(", ")}${archivedKeys.length > 5 ? ` (+${archivedKeys.length - 5} more)` : ""}. Restore them from the dies page before importing bundles.`,
+            .join(", ")}${archivedKeys.length > 5 ? ` (+${archivedKeys.length - 5} more)` : ""}. Bundles can't be imported into a deleted die; remove those rows (bundle.importCheck lists them).`,
         });
       }
 
@@ -1208,13 +1274,13 @@ export const bundleRouter = router({
       const bundleRows: Array<typeof bundle.$inferInsert> = [];
       const eventRows: Array<typeof bundleStatusEvent.$inferInsert> = [];
 
-      for (const row of input.rows) {
+      for (const [rowIndex, row] of input.rows.entries()) {
         const dieRow = dieKeyToId.get(`${row.dieSeries}::${row.dieSectionCode}`)!;
         const group = dieIdToGroup.get(dieRow.id)!;
         const idx = groupIdToNextIdx.get(group.id)!;
         groupIdToNextIdx.set(group.id, idx + 1);
 
-        const bundleId = crypto.randomUUID();
+        const bundleId = rowIds?.[rowIndex] ?? crypto.randomUUID();
         bundleRows.push({
           id: bundleId,
           companyId: ctx.companyId,
@@ -1274,15 +1340,51 @@ export const bundleRouter = router({
         ),
       );
 
-      await atomicBatch(ctx.db, statements);
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (error) {
+        // An identical request that landed a moment earlier: its bundle ids are taken, so this
+        // whole batch rolled back. Answer as a replay; anything else is a real failure.
+        if (rowIds && (await landed(rowIds)) === "replayed") return replayed;
+        throw error;
+      }
 
       return {
         success: true,
+        replayed: false,
         bundleCount: bundleRows.length,
         dieCount: dieKeyToId.size,
         newDies: newDieIds.length,
         newGroups: newGroups.length,
         reusedGroups: existingDieIdsAppendedTo.length,
       };
+    }),
+
+  /**
+   * Read-only check before an old-bundles sheet is saved: which of its dies
+   * (series, section code) were deleted. `bulkImport` refuses a whole chunk
+   * that names one, so the sheet turns those rows into problem rows first
+   * instead of stopping part-way (T25 fix round 1).
+   */
+  importCheck: actionProcedure("bundle.import")
+    .input(
+      z.object({
+        dies: z
+          .array(z.object({ series: z.string().min(1).max(500), sectionCode: z.string().min(1).max(500) }))
+          .min(1, "At least one die is required")
+          .max(2000, "Max 2000 dies per check"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const key = (d: { series: string; sectionCode: string }) => `${d.series}\u0000${d.sectionCode}`;
+      const codes = [...new Set(input.dies.map((d) => d.sectionCode))];
+      const deleted = await mapInChunks(codes, (slice) =>
+        ctx.db
+          .select({ series: die.series, sectionCode: die.sectionCode })
+          .from(die)
+          .where(and(eq(die.companyId, ctx.companyId), isNotNull(die.deletedAt), inArray(die.sectionCode, slice))),
+      );
+      const asked = new Set(input.dies.map(key));
+      return { deleted: deleted.filter((d) => asked.has(key(d))) };
     }),
 });

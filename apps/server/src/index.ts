@@ -10,7 +10,9 @@ import { logger } from "hono/logger";
 
 import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
+import { dieFileSigningReady, handleDieFileUpload, verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
 
+import { createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput } from "./dev-front-door";
 import { seedDevData } from "./dev-seed";
 import { spoolRoutes } from "./spool-routes";
 
@@ -36,7 +38,8 @@ app.use(
   "/*",
   cors({
     origin: (origin) => resolveCorsOrigin(env, origin),
-    allowMethods: ["GET", "POST", "OPTIONS"],
+    // PUT: the signed die-file upload (`/files/dies/upload`), straight from the browser.
+    allowMethods: ["GET", "POST", "PUT", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "x-orrn-impersonate-company", "x-orrn-company"],
     credentials: true,
   }),
@@ -63,7 +66,49 @@ if (env.NODE_ENV === "development") {
       );
     }
   });
+
+  // Front-door e2e only (Task 17): an invite token and a magic link, which
+  // otherwise leave the server only by email. Same gate as /dev/seed.
+  app.post("/dev/invite", async (c) => {
+    if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const input = devInviteInput.safeParse(await c.req.json().catch(() => null));
+    if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
+    return c.json(await createDevInvite(createDb(), input.data));
+  });
+
+  app.post("/dev/magic-link", async (c) => {
+    if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const input = devMagicLinkInput.safeParse(await c.req.json().catch(() => null));
+    if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
+    return c.json(await createDevMagicLink(input.data));
+  });
 }
+
+// Die files (FP-DR-07/13): a signed GET from `dieInstance.files.url` / `dieInstance.drawing`, valid
+// 10 minutes, bound to one object key (which starts with the company id). No session needed.
+app.get("/files/dies", async (c) => {
+  const key = c.req.query("key") ?? "";
+  const exp = Number(c.req.query("exp"));
+  const sig = c.req.query("sig") ?? "";
+  // No master key on this stage: never sign or verify with an empty secret.
+  if (!dieFileSigningReady()) return c.text("File storage is not set up", 503);
+  if (!(await verifyDieFileUrl(key, exp, sig))) return c.text("Link expired or not valid", 403);
+  const bucket = (env as unknown as { DIE_FILES?: R2Bucket }).DIE_FILES;
+  if (!bucket) return c.text("File storage is not set up", 503);
+  const object = await bucket.get(key);
+  if (!object) return c.notFound();
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("etag", object.httpEtag);
+  headers.set("cache-control", "private, max-age=600");
+  headers.set("x-content-type-options", "nosniff");
+  return new Response(object.body, { headers });
+});
+
+// Die file upload (LEDGER D13): the signed PUT from `dieInstance.files.beginUpload`, valid 10
+// minutes, bound to one object key and its declared size. The body streams into R2; the client then
+// calls `dieInstance.files.commit`. No session needed: the signed ticket is the authority.
+app.put("/files/dies/upload", (c) => handleDieFileUpload(c.req.raw));
 
 app.use(
   "/trpc/*",

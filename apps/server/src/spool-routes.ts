@@ -24,6 +24,7 @@ import {
   resolveSpoolRelease,
   type ResolvedSpoolRelease,
 } from "@orrn/server/lib/spool-release";
+import { handleNodeHeartbeat } from "@orrn/server/lib/edge-heartbeat";
 import { patchBinaryWithConfig, getDeliverableFilename, type Platform, type PackageConfig } from "@orrn/server/lib/spool-packager";
 
 const spoolRoutes = new Hono();
@@ -129,42 +130,13 @@ spoolRoutes.post("/webhooks/spool", async (c: HonoContext) => {
 // ─── Activation: Spool → ORRN (heartbeat + registration) ────────────────────
 
 spoolRoutes.post("/webhooks/spool/activate", async (c: HonoContext) => {
-  const body = await c.req.json<{
-    instance_id: string;
-    version?: string;
-  }>();
-
-  if (!body.instance_id) {
-    return c.json({ error: "Missing instance_id" }, 400);
-  }
-
-  const db = createDb();
-
-  const deployment = await db
-    .select()
-    .from(spoolDeployment)
-    .where(eq(spoolDeployment.instanceId, body.instance_id))
-    .get();
-
-  if (!deployment) {
-    return c.json({ error: "Unknown instance" }, 403);
-  }
-
-  if (deployment.status === "revoked") {
-    return c.json({ error: "Deployment revoked" }, 403);
-  }
-
-  // Update status and last seen
-  await db
-    .update(spoolDeployment)
-    .set({
-      status: "active",
-      lastHeartbeatAt: new Date(),
-      ...(body.version ? { runtimeVersion: body.version } : {}),
-    })
-    .where(eq(spoolDeployment.id, deployment.id));
-
-  return c.json({ status: "active", spool_domain: deployment.nodeDomain });
+  const rawBody = new Uint8Array(await c.req.raw.arrayBuffer());
+  const result = await handleNodeHeartbeat(createDb(), {
+    rawBody,
+    authorization: c.req.header("Authorization"),
+    masterKey: env.ORRN_MASTER_KEY,
+  });
+  return c.json(result.body, result.status);
 });
 
 // ─── Update Check: Spool → ORRN (auto-update) ──────────────────────────────

@@ -42,16 +42,22 @@ export function SegmentedControl<T extends string>({
   );
 
   // Measure the selected segment so the thumb can sit under it at any width.
+  // The segments are watched as well as the track: a full-width track on a
+  // phone keeps its size while new labels (a language switch) or a late web
+  // font resize the segments, and the thumb must follow them.
   useLayoutEffect(() => {
     const measure = () => {
       const el = refs.current[selected];
-      if (el) setThumb({ x: el.offsetLeft, width: el.offsetWidth });
+      if (!el) return;
+      const next = { x: el.offsetLeft, width: el.offsetWidth };
+      setThumb((prev) => (prev && prev.x === next.x && prev.width === next.width ? prev : next));
     };
     measure();
     const track = trackRef.current;
     if (!track || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(measure);
     ro.observe(track);
+    for (const el of refs.current.slice(0, options.length)) if (el) ro.observe(el);
     return () => ro.disconnect();
   }, [selected, options.length]);
 

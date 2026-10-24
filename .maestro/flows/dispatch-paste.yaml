@@ -1,0 +1,24 @@
+# Paste serials into a building dispatch (more than 12, the old limit). Needs seeded in-stock bundles:
+#   maestro test -e MAESTRO_EMAIL=... -e MAESTRO_PASSWORD=... -e SERIALS="26J1 26J2 26J3" .maestro/flows/dispatch-paste.yaml
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 30000
+- tapOn: "Email"
+- inputText: ${MAESTRO_EMAIL}
+- tapOn: "Password"
+- inputText: ${MAESTRO_PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    visible: "Today"
+    timeout: 30000
+- tapOn: "Dispatch"
+- tapOn: "New dispatch"
+- takeScreenshot: dispatch-new

@@ -1,5 +1,4 @@
 import { useT, type MessageKey } from "@orrn/i18n";
-import * as Haptics from "expo-haptics";
 import { useRef, useState } from "react";
 import { Text, View, type TextInput } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -9,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { BrandMark } from "@/components/brand-mark";
 import { LanguageSwitch } from "@/components/language-switch";
 import { Button } from "@/components/ui/button";
+import { feedback } from "@/lib/feedback";
 import { Field } from "@/components/ui/field";
 import { ScreenTitle } from "@/components/ui/screen-title";
 import { announce } from "@/lib/a11y";
@@ -24,9 +24,7 @@ function looksLikeEmail(value: string): boolean {
 }
 
 function haptic(kind: "success" | "error") {
-  void Haptics.notificationAsync(
-    kind === "success" ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error,
-  ).catch(() => {});
+  feedback[kind]();
 }
 
 /**

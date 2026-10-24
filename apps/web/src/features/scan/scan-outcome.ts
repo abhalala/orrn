@@ -10,8 +10,8 @@ type BundleStatus = (typeof BUNDLE_STATUSES)[number];
  */
 export type BundleBlock = {
   reason: string;
-  /** D12 adds unassigned / wrong_customer / owned_die; until their floor keys exist they show `reason`. */
-  code?: "held" | "dispatched" | "void" | "status" | "unassigned" | "wrong_customer" | "owned_die";
+  /** Refusal codes the server sends: dispatch add (D12) + reallocation. */
+  code?: "held" | "dispatched" | "void" | "status" | "unassigned" | "wrong_customer" | "owned_die" | "ambiguous" | "reallocation_pending";
   status?: BundleStatus;
   heldBy?: string | null;
 };
@@ -61,6 +61,8 @@ export function blockMessage(block: BundleBlock): ScanMessage {
       return { key: "scan.continuous.dispatched" };
     case "void":
       return { key: "scan.continuous.void" };
+    case "reallocation_pending":
+      return { key: "scan.continuous.reallocationPending" };
     case "status":
       if (block.status) return { key: "scan.continuous.wrongStatus", status: block.status };
       break;

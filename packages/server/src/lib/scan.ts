@@ -7,6 +7,7 @@
  *   3 void                 the bundle is void
  *   4 dispatched           the bundle already left
  *   5 held                 another dispatch holds it ("Bundle is held by {code}")
+ *   5b reallocation_pending  waiting in an open `order_reallocate` request (decide it first)
  *   6 unassigned           no sales order line and not moved to plant stock (C8)
  *   7 wrong_customer       packed for another customer's order (moving it is `orders.reallocate`)
  *   8 owned_die            made on a die owned by another customer, no live override (FP-PK-10)
@@ -30,6 +31,7 @@ import { bundleTransfer, salesOrder, salesOrderLine } from "@orrn/db/schema/sale
 
 import { mapInChunks, type OrrnDb } from "./atomic";
 import { checkDieAllowed } from "./dieOwner";
+import { bundlesPendingReallocation } from "./reallocate";
 import { resolveCode } from "./codeResolver";
 import { isScanRefusal, type ScanRefusal } from "./scanRefusal";
 
@@ -41,6 +43,7 @@ export const SCAN_OUTCOMES = [
   "void",
   "dispatched",
   "held",
+  "reallocation_pending",
   "unassigned",
   "wrong_customer",
   "owned_die",
@@ -89,6 +92,7 @@ const MESSAGES: Record<ScanOutcome, (r: ScanResult) => string> = {
   void: () => "Bundle is void",
   dispatched: () => "Bundle is already dispatched",
   held: (r) => (r.heldBy ? `Bundle is held by ${r.heldBy}` : "Bundle is held by another dispatch"),
+  reallocation_pending: () => "Waiting on a reallocation approval",
   unassigned: () => "Not assigned to a sales order",
   wrong_customer: (r) => (r.customerName ? `Packed for ${r.customerName}` : "Packed for another customer"),
   owned_die: (r) => (r.customerName ? `This die belongs to ${r.customerName}` : "This die belongs to another customer"),
@@ -338,6 +342,7 @@ export async function classifyBundles(
   const live = bundles.filter((b) => b.status !== "void" && b.status !== "dispatched");
   const { lineCustomer, latestTransfer } = await allocations(ctx, live);
   const owned = await ownedDieBlocks(ctx.db, ctx.companyId, d.customerId, live, opts.approvalId);
+  const pendingRealloc = await bundlesPendingReallocation(ctx.db, ctx.companyId, live.map((b) => b.id));
 
   const results: ScanResult[] = [];
   const toAdd: ScanBundle[] = [];
@@ -348,6 +353,7 @@ export async function classifyBundles(
     if (b.status === "reserved" && b.currentDispatchId !== d.id) {
       return result(code, "held", { ...base, heldBy: (b.currentDispatchId && holders.get(b.currentDispatchId)) || null });
     }
+    if (pendingRealloc.has(b.id)) return result(code, "reallocation_pending", base);
     let note: ScanResult["note"] = null;
     const allocation = bundleAllocation({
       salesOrderLineId: b.salesOrderLineId,

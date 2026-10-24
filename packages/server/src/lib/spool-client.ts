@@ -72,6 +72,35 @@ export interface SpoolPrinterStatus {
   is_online: boolean;
 }
 
+/**
+ * GET /scale/reading on orrn-spool (internal/scale). `grams` is absent when the reading is stale
+ * or there are no frames; `stable` is the spool's verdict under the spec rule (five frames within
+ * 20 g held 1 s, stale after 3 s, a steady 0 is not a weight).
+ */
+export interface SpoolScaleReading {
+  grams?: number;
+  stable: boolean;
+  ageMs?: number;
+  frames?: number;
+  reason?: string;
+  configured?: boolean;
+  simulated?: boolean;
+}
+
+/** Default budget for a scale poll: a pack screen polls often, so fail fast. */
+export const SCALE_READING_TIMEOUT_MS = 1500;
+
+/**
+ * Base URL for a node domain. Deployed nodes are reached over HTTPS through their tunnel; a
+ * loopback domain (a spool running on the developer's machine, or a test's fake spool) uses
+ * plain HTTP. A Worker cannot reach loopback in production, so this never downgrades a real node.
+ */
+export function spoolBaseUrl(nodeDomain: string): string {
+  const host = nodeDomain.replace(/:\d+$/, "").toLowerCase();
+  const loopback = host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+  return `${loopback ? "http" : "https"}://${nodeDomain}`;
+}
+
 export class SpoolClient {
   private baseUrl: string;
   private sharedSecret: string;
@@ -161,6 +190,16 @@ export class SpoolClient {
     await this.postRaw(`/api/jobs/${jobId}/retry`, {});
   }
 
+  // ─── Scale ─────────────────────────────────────────────────────────────────
+
+  /**
+   * One reading from the node's weighing scale. Throws on timeout, network error or a non-2xx
+   * answer; callers turn that into `{ stable: false }`.
+   */
+  async scaleReading(options: { timeoutMs?: number } = {}): Promise<SpoolScaleReading> {
+    return this.get<SpoolScaleReading>("/scale/reading", options.timeoutMs ?? SCALE_READING_TIMEOUT_MS);
+  }
+
   // ─── Health ────────────────────────────────────────────────────────────────
 
   async health(): Promise<{ status: string; version: string }> {
@@ -169,12 +208,13 @@ export class SpoolClient {
 
   // ─── Internal ──────────────────────────────────────────────────────────────
 
-  private async get<T>(path: string): Promise<T> {
+  private async get<T>(path: string, timeoutMs?: number): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const token = await signSpoolRequest("GET", path, null, this.sharedSecret);
     const res = await fetch(url, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
+      ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
     });
     if (!res.ok) {
       throw new Error(`Spool GET ${path} failed: ${res.status} ${await res.text()}`);

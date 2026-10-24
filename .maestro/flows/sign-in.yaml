@@ -1,0 +1,24 @@
+# A seeded account signs in and lands on Today. Needs a running API with seed data:
+#   maestro test -e MAESTRO_EMAIL=owner@orrn.local -e MAESTRO_PASSWORD=orrn-local-dev-only .maestro/flows/sign-in.yaml
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 30000
+- tapOn: "Email"
+- inputText: ${MAESTRO_EMAIL}
+- tapOn: "Password"
+- inputText: ${MAESTRO_PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    visible: "Today"
+    timeout: 30000
+- assertVisible: "Pack"
+- assertVisible: "Stock"
+- takeScreenshot: today

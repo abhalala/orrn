@@ -1,6 +1,5 @@
-import { RouteStub } from "@/components/route-stub";
+import { StockView } from "@/features/stock/stock-view";
 
-/** Placeholder until Task 29 builds the Stock screen. */
 export default function StockScreen() {
-  return <RouteStub titleKey="nav.stock" />;
+  return <StockView />;
 }

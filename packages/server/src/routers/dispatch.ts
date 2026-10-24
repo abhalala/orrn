@@ -57,6 +57,7 @@ import {
   type ScanRefusal,
   type ScanResult,
 } from "../lib/scan";
+import { bundlesPendingReallocation, pendingReallocationOf } from "../lib/reallocate";
 import { nextCompanySeq } from "../lib/sequence";
 import { packingListWriteBatch } from "./packingList";
 
@@ -2018,6 +2019,16 @@ export const dispatchRouter = router({
           message: "Cannot complete: one or more bundles are no longer reserved for this dispatch",
         });
       }
+      // A bundle that went into a reallocation request after it was scanned can't leave until the
+      // request is decided (read here, and in the completing UPDATE below).
+      const pendingHere = await bundlesPendingReallocation(ctx.db, ctx.companyId, bundleIds);
+      if (pendingHere.size > 0) {
+        const serials = bundles.filter((b) => pendingHere.has(b.id)).map((b) => b.serial);
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${serials.join(", ")} ${serials.length === 1 ? "is" : "are"} waiting on a reallocation approval. Decide it or take ${serials.length === 1 ? "it" : "them"} off the dispatch.`,
+        });
+      }
 
       // FP-PK-12: over the vehicle's capacity completes only with a reason (audited).
       const loadedG = bundles.reduce((sum, b) => sum + b.weightG, 0);
@@ -2087,6 +2098,7 @@ export const dispatchRouter = router({
               overdrawGuard(ctx.companyId, d.id, toleranceBp),
               noUnlinkedWithOpenLine(ctx.companyId, d.id),
               withinCapacityOrReason(ctx.companyId, d.id, capacityOverrideReason),
+              sql`not exists (select 1 from dispatch_item pdi where pdi.company_id = ${ctx.companyId} and pdi.dispatch_id = ${d.id} and ${pendingReallocationOf(ctx.companyId, sql`pdi.bundle_id`)})`,
             ),
           ),
         batchAbortUnless(ctx.db, "packing_list_line", landed),

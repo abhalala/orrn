@@ -19,7 +19,7 @@ import { PeriodRow } from "@/features/customers/period-row";
 import { periodSearch, rememberPeriod, usePeriod } from "@/features/customers/use-period";
 import type { Period } from "@/features/customers/period";
 import { Can } from "@/shared/components/can";
-import { ImportCustomersModal } from "@/shared/components/import-customers-modal";
+import { ImportSheet } from "@/features/imports/import-sheet";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -249,15 +249,7 @@ function CustomersList() {
         }
       />
 
-      {importing ? (
-        <ImportCustomersModal
-          onClose={() => setImporting(false)}
-          onSuccess={() => {
-            setImporting(false);
-            list.refetch();
-          }}
-        />
-      ) : null}
+      <ImportSheet kind="customers" open={importing} onOpenChange={setImporting} onImported={() => void list.refetch()} />
     </>
   );
 }

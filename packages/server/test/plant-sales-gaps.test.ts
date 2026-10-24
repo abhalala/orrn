@@ -11,7 +11,7 @@ import { approval, auditLog, bundle, company, customer, die, dispatch, dispatchI
 import { and, asc, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { ist, kg, NOON, salesHelpers, SLOW, type SalesPlant as Plant, saveOrder } from "./sales-fixture";
+import { ist, kg, NOON, salesHelpers, SLOW, type SalesPlant as Plant, saveOrder, cancelOrder, closeOrder, confirmOrder } from "./sales-fixture";
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
@@ -95,7 +95,7 @@ describe("complete: effects stay inside this dispatch", () => {
     const d = await p.held(s);
     const items = await itemsOf(d);
     await p.owner.dispatch.linkItem({ itemId: items[1]!.id, salesOrderLineId: closedMeanwhile.lineIds[0]! });
-    await saveOrder(p.owner, { id: closedMeanwhile.id, status: "closed" });
+    await closeOrder(p.owner, closedMeanwhile.id);
     await p.owner.dispatch.complete({ id: d });
     expect(await orderStatus(p, fulfilled.id)).toBe("dispatching");
     expect(await orderStatus(p, closedMeanwhile.id)).toBe("closed");
@@ -258,7 +258,7 @@ describe("scan suggestion and links, single-scan path", () => {
   test("[O28 O29] older closed, other-customer and other-section lines are never picked", async () => {
     const p = await plant();
     const closed = await p.order([{ dieId: p.dieA, kg: 500 }]);
-    await saveOrder(p.owner, { id: closed.id, status: "closed" });
+    await closeOrder(p.owner, closed.id);
     const theirs = await p.order([{ dieId: p.dieA, kg: 500 }], { customerId: p.otherCustomer });
     const otherSection = await p.order([{ dieId: p.dieB, kg: 500 }]);
     const target = await p.order([{ dieId: p.dieA, kg: 500 }]);
@@ -342,7 +342,7 @@ describe("orders.update: tenant isolation and write-time guards", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const d = await p.held(await p.pack(p.dieA, [{ kg: 10 }], o.lineIds[0]));
-    await expect(saveOrder(p.owner, { id: o.id, status: "cancelled" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(cancelOrder(p.owner, o.id)).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(await orderStatus(p, o.id)).toBe("booking");
     // Once the dispatch is cancelled the order may be cancelled.
     await p.owner.dispatch.cancel({ id: d });
@@ -354,7 +354,7 @@ describe("orders.update: tenant isolation and write-time guards", () => {
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
     env.beforeNextBatch(() => p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: o2.lineIds[0]! }));
-    await expect(saveOrder(p.owner, { id: o2.id, status: "cancelled" })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(cancelOrder(p.owner, o2.id)).rejects.toMatchObject({ code: "CONFLICT" });
     expect(await orderStatus(p, o2.id)).toBe("booking");
   }, SLOW);
 
@@ -441,7 +441,7 @@ describe("orders reads: list, balance and openLines", () => {
     const a = await p.order([{ dieId: p.dieA, kg: 10 }], { poNumber: "ALPHA-1" });
     const b = await p.order([{ dieId: p.dieA, kg: 10 }], { poNumber: "BETA-2" });
     const c = await p.order([{ dieId: p.dieA, kg: 10 }], { poNumber: "GAMMA-3" });
-    await saveOrder(p.owner, { id: c.id, status: "closed" });
+    await closeOrder(p.owner, c.id);
     expect((await p.owner.orders.list({ openOnly: true })).items.map((o) => o.id)).toEqual([b.id, a.id]);
     expect((await p.owner.orders.list({ search: "ALPHA" })).items.map((o) => o.id)).toEqual([a.id]);
     expect((await p.owner.orders.list({ search: b.number })).items.map((o) => o.id)).toEqual([b.id]);
@@ -458,9 +458,9 @@ describe("orders reads: list, balance and openLines", () => {
     const p = await plant();
     const open = await p.order([{ dieId: p.dieA, kg: 100 }]);
     const cancelled = await p.order([{ dieId: p.dieA, kg: 70 }]);
-    await saveOrder(p.owner, { id: cancelled.id, status: "cancelled" });
+    await cancelOrder(p.owner, cancelled.id);
     const closed = await p.order([{ dieId: p.dieA, kg: 30 }]);
-    await saveOrder(p.owner, { id: closed.id, status: "closed" });
+    await closeOrder(p.owner, closed.id);
     expect((await p.owner.orders.balance({})).lines.map((l) => l.orderId)).toEqual([open.id]);
     expect(new Set((await p.owner.orders.balance({ includeClosed: true })).lines.map((l) => l.orderId))).toEqual(new Set([open.id, closed.id]));
     expect((await p.owner.orders.openLines({ dieId: p.dieA })).map((l) => l.orderId)).toEqual([open.id]);
@@ -474,7 +474,7 @@ describe("orders reads: list, balance and openLines", () => {
     await p.order([{ dieId: p.dieA, kg: 1000 }]);
     await p.order([{ dieId: p.dieA, kg: 500 }], { customerId: p.otherCustomer });
     const closed = await p.order([{ dieId: p.dieA, kg: 300 }]);
-    await saveOrder(p.owner, { id: closed.id, status: "closed" });
+    await closeOrder(p.owner, closed.id);
     const sum = await p.owner.analytics.customerSummary({ customerId: p.customerId, from: "2026-09-01", to: "2026-10-03" });
     expect(sum.openOrders).toEqual({ orderedG: kg(1000), dispatchedG: 0, bakiG: kg(1000), lines: 1 });
   }, SLOW);
@@ -767,12 +767,13 @@ describe("sales register CSV details", () => {
 // ===========================================================================
 
 describe("order status table and company scope of reads", () => {
-  test("[O36] an order moves booking -> confirmed -> booking by hand", async () => {
+  test("[O36] booking -> confirmed only through orders.confirm, and an edit can't take it back to booking (D11)", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 100 }]);
-    await saveOrder(p.owner, { id: o.id, status: "confirmed" });
-    await saveOrder(p.owner, { id: o.id, status: "booking" });
-    expect(await orderStatus(p, o.id)).toBe("booking");
+    await confirmOrder(p.owner, o.id);
+    expect(await orderStatus(p, o.id)).toBe("confirmed");
+    await expect(saveOrder(p.owner, { id: o.id, status: "booking" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await orderStatus(p, o.id)).toBe("confirmed");
   }, SLOW);
 
   test("[R34] a forged order row (another company's order pointing at this company's customer) is not listed", async () => {
@@ -790,14 +791,19 @@ describe("orders.update: an edit that loses a race to a status move fails whole"
   test("[R20] a plain edit that loses to a cancel, and a status move from a stale status, both answer CONFLICT and change nothing", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 100 }]);
-    env.beforeNextBatch(() => saveOrder(p.owner, { id: o.id, status: "cancelled" }));
+    env.beforeNextBatch(() => cancelOrder(p.owner, o.id));
     await expect(saveOrder(p.owner, { id: o.id, poNumber: "LATE" })).rejects.toMatchObject({ code: "CONFLICT" });
     expect((await p.owner.orders.get({ id: o.id })).order).toMatchObject({ status: "cancelled", poNumber: null });
     const o2 = await p.order([{ dieId: p.dieA, kg: 100 }]);
-    // The status move was checked against "booking"; the order is "confirmed" by the time it lands.
-    env.beforeNextBatch(() => saveOrder(p.owner, { id: o2.id, status: "confirmed" }));
-    await expect(saveOrder(p.owner, { id: o2.id, status: "cancelled", note: "stale" })).rejects.toMatchObject({ code: "CONFLICT" });
-    expect((await p.owner.orders.get({ id: o2.id })).order).toMatchObject({ status: "confirmed", note: null });
+    // The cancel was checked against "booking"; the order is "confirmed" by the time it lands.
+    env.beforeNextBatch(() => confirmOrder(p.owner, o2.id));
+    await expect(p.owner.orders.cancel({ id: o2.id, reason: "stale" })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect((await p.owner.orders.get({ id: o2.id })).order).toMatchObject({ status: "confirmed", cancelReason: null });
+    // A plain edit read before a confirm landed fails whole too.
+    const o3 = await p.order([{ dieId: p.dieA, kg: 100 }]);
+    env.beforeNextBatch(() => confirmOrder(p.owner, o3.id));
+    await expect(saveOrder(p.owner, { id: o3.id, note: "stale" })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect((await p.owner.orders.get({ id: o3.id })).order).toMatchObject({ status: "confirmed", note: null });
   }, SLOW);
 });
 
@@ -1286,12 +1292,12 @@ describe("order status table, ordering and the line filter", () => {
   test("[O32 O34] a confirmed order can be cancelled; a closed one cannot", async () => {
     const p = await plant();
     const a = await p.order([{ dieId: p.dieA, kg: 100 }]);
-    await saveOrder(p.owner, { id: a.id, status: "confirmed" });
-    await saveOrder(p.owner, { id: a.id, status: "cancelled" });
+    await confirmOrder(p.owner, a.id);
+    await cancelOrder(p.owner, a.id);
     expect(await orderStatus(p, a.id)).toBe("cancelled");
     const b = await p.order([{ dieId: p.dieA, kg: 100 }]);
-    await saveOrder(p.owner, { id: b.id, status: "closed" });
-    await expect(saveOrder(p.owner, { id: b.id, status: "cancelled" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await closeOrder(p.owner, b.id);
+    await expect(cancelOrder(p.owner, b.id)).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(await orderStatus(p, b.id)).toBe("closed");
   }, SLOW);
 

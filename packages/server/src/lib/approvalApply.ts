@@ -12,6 +12,7 @@ import type { OrrnDb, SqliteBatchItem } from "./atomic";
 import { stillPhantomOfLine } from "./count";
 import { boriMeltedMessage, dcNoteOverdrawAbort, isFoundryAbort, lotRemaining } from "./foundry";
 import { dcNoteDeductionRows, phantomVoidRows, sqlUuid } from "./ledger";
+import { reallocateDecision } from "./reallocate";
 
 /** What an approval's apply hook sees: this request, and the decision that is being written. */
 export type ApplyCtx = {
@@ -43,8 +44,8 @@ export function decisionLanded(
 }
 
 /**
- * Die re-rank (spec P18): the approved tier change becomes `applied` and the copy's rank changes
- * in the same batch as the approval; a rejection only closes the proposal. Both statements are
+ * Die re-rank (spec P18) and band lift (FP-DR-10): the approved tier change becomes `applied` and
+ * the copy's rank (and band, on a lift) changes in the same batch as the approval; a rejection only closes the proposal. Both statements are
  * scoped to the approval's company, so a subject id that points at another company's row (or at
  * nothing) changes nothing.
  */
@@ -74,6 +75,11 @@ const dieRerank: ApprovalApplier = (ctx, row, decision) => {
       .update(dieInstance)
       .set({
         tierRank: sql<number>`(select t.to_rank from die_tier_change t where t.id = ${row.subjectId})`,
+        // FP-DR-10: a lift also moves the copy to its new band (null = back to the primary band).
+        // The code and seq never change; the old band shows "Lifted to …" from this row.
+        bandId: sql<string | null>`(case when (select t.is_lift from die_tier_change t where t.id = ${row.subjectId}) = 1
+          then (select t.to_band_id from die_tier_change t where t.id = ${row.subjectId})
+          else ${sql.identifier("die_instance")}.${sql.identifier("band_id")} end)`,
         tierSince: ctx.decidedAt,
         serverSeq: seq,
       })
@@ -245,6 +251,33 @@ const castCloseDecision: ApprovalApplier = (ctx, row, decision) => {
 };
 
 /**
+ * Customer-owned die exception (FP-DR-12, kind `die_owner_override`, subject = the copy id). The
+ * grant itself is the approved row: `assertDieAllowed` reads it until `meta.closedAt` is set by
+ * `dieInstance.closeOwnerOverride`. Approval stamps `meta.grantedAt` and makes sure the grant
+ * starts open (`closedAt` null), guarded by "this decision landed"; a rejection writes nothing.
+ */
+const dieOwnerOverrideDecision: ApprovalApplier = (ctx, row, decision) => {
+  if (decision === "rejected") return [];
+  const { db, companyId, seq } = ctx;
+  return [
+    db
+      .update(approval)
+      .set({
+        meta: sql`json_set(${approval.meta}, '$.grantedAt', ${ctx.decidedAt.getTime()}, '$.closedAt', json('null'))`,
+      })
+      .where(
+        and(
+          eq(approval.id, row.id),
+          eq(approval.companyId, companyId),
+          eq(approval.kind, "die_owner_override"),
+          eq(approval.serverSeq, seq),
+          decisionLanded(ctx, row.id, decision),
+        ),
+      ),
+  ];
+};
+
+/**
  * Per-kind apply hooks run by `approval.decide` inside the decision's own batch. A kind with no
  * hook is a pure sign-off (its module reads the approval's status itself).
  */
@@ -253,6 +286,9 @@ export const APPROVAL_APPLIERS: Partial<Record<ApprovalKind, ApprovalApplier>> =
   dc_note: dcNoteDecision,
   phantom_void: phantomVoidDecision,
   cast_close: castCloseDecision,
+  die_owner_override: dieOwnerOverrideDecision,
+  // FP-OP-08 (W1-OP-S): cross-customer reallocation moves its bundles on approval.
+  order_reallocate: reallocateDecision,
 };
 
 /**

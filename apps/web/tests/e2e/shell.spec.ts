@@ -424,8 +424,6 @@ test.describe("layout and accessibility", () => {
   test("Godseye is clean at 390 and 1280", async ({ page }) => {
     for (const width of [390, 1280]) {
       await open(page, { role: "staff", width, path: "/admin" });
-      // The overview's own loading skeleton has an axe finding (aria-label on a div); Task 27 rebuilds it.
-      await page.waitForLoadState("networkidle");
       await expectNoHorizontalScroll(page);
       expect(await blockingAxeViolations(page)).toEqual([]);
     }

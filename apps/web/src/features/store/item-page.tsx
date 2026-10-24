@@ -15,7 +15,7 @@ import { itemActions, type ItemAction } from "./store-entries";
 import { countedIn, unitShort } from "./store-labels";
 import { formatQty } from "./store-qty";
 import { StoreLoadError, StoreNoAccess, StoreNote, StoreSection } from "./store-ui";
-import { ITEM_EDITORS, useStoreAccess, useStoreBalances, useStoreItems } from "./use-store";
+import { ITEM_EDITORS, useStoreAccess, useStoreBalances, useStoreEntries, useStoreItems } from "./use-store";
 
 const ACTION_ROUTES = {
   issue: "/store/issue",
@@ -32,6 +32,9 @@ export function StoreItemPage({ id }: { id: string }) {
   const access = useStoreAccess();
   const items = useStoreItems(access.canRead);
   const balances = useStoreBalances(access.canRead);
+  // Same key as the entries list below (20 rows): any entry, cancelled too, locks the unit (store.items.update).
+  const entries = useStoreEntries({ itemId: id, limit: 20 }, access.canRead);
+  const unitLocked = (entries.data?.items.length ?? 0) > 0;
   const [editing, setEditing] = useState(false);
 
   const back = { to: "/store", label: t("store.backToStore") };
@@ -144,7 +147,7 @@ export function StoreItemPage({ id }: { id: string }) {
         <StoreEntries itemId={item.id} label={t("store.entries")} />
       </StoreSection>
 
-      <StoreItemSheet open={editing} onOpenChange={setEditing} item={item} balanceMilli={balanceMilli} />
+      <StoreItemSheet open={editing} onOpenChange={setEditing} item={item} balanceMilli={balanceMilli} unitLocked={unitLocked} />
     </>
   );
 }

@@ -225,6 +225,40 @@ bun run deploy
 - `kg_per_12ft_milli` is thousandths of a kg, which equals grams per 12 ft, the unit of the section
   band (`die.weight_min_g` / `weight_max_g`). `drift` compares them directly.
 
+### Die room conventions (W1-DR-S, LEDGER D13)
+
+- An issue ALWAYS targets a run: `dieInstance.issues.issue({ dieInstanceId, pressLineId, pressRunId,
+  note? })`, `pressRunId` required. The run must be `queued` with no copy, of the copy's section, and
+  on the same line when it has one (a run with no line takes the issue's line). One batch: issue row,
+  copy `in_use`, `press_run.die_instance_id`, run `die_issued`. There is no issue without a run and
+  no "attach later".
+- `issues.cancel` (before die-in) and `issues.return` before die-in both put the run back to
+  `queued` with `die_instance_id` null in the same batch; return is refused while die-in is set and
+  die-out is not; after die-out a finished run keeps its copy. No path may leave a run `die_issued`
+  on a copy that is back on the rack (`runIssueClose` asserts it).
+- Multi-row die room writes use `dieRoomAbortUnless(db, landedSql)` as the last guard of the batch
+  (D1 has no transactions); catch with `isDieRoomAbort` and re-read to give the precise refusal.
+- Copy status by hand: the card (`dieInstance.update`) can only retire a copy from the rack. Nitriding
+  moves only through `nitridingOut` / `nitridingBack`, issue through `issues.*`, maker through
+  `maker.jobs.*`.
+- Files go through a signed PUT, never base64 in a tRPC body: `files.beginUpload({ sectionId? |
+  copyId?, kind, name, size, mime, pressDrawing? })` checks limits (image 8 MB, PDF 25 MB, CDR/DWG
+  40 MB) and returns `{ uploadId, uploadUrl, method: "PUT", headers, key, fileId, expiresAt }`; the
+  client PUTs the raw bytes to `uploadUrl` (Worker route `PUT /files/dies/upload`, streamed into R2,
+  Content-Length must equal `size`); then `files.commit({ uploadId })` checks the object and writes
+  the row. Reads are `GET /files/dies?key&exp&sig` (10 minutes). Both are HMAC-signed with a key
+  derived from `ORRN_MASTER_KEY`; a stage without it refuses (PRECONDITION_FAILED / 503), never an
+  empty secret.
+- Drift is never stored. Percent, tone, band position and kg/m come from `copyFigures` in
+  `lib/dieRoom.ts` on every read (`die.list`, `die.get`, `dieInstance.list`, `dieInstance.get`);
+  clients show `latestMilli`, `percentTenths`, `tone`, `position`, `kgPerMetre` as given.
+- Owner gate: `assertDieAllowed` (purpose `press`) on issue for every customer of the run; FORBIDDEN
+  carries `meta`, read as `error.data.meta` (`TRPCMetaError`). An approved owner override lasts until
+  its `meta.closedAt`.
+- Newest-first die room lists (`issues.list`, `maker.jobs.list`) page by `limit` + opaque `cursor`
+  and return `{ items, nextCursor }` (null on the last page); `dieInstance.list` and `die.list` page
+  by `limit`/`offset` with `total`/`nextOffset`.
+
 ## Scrap purchase (vendors, lots, D/C notes)
 
 - Tables in `packages/db/src/schema/purchase.ts`; routers `vendor` (`routers/vendor.ts`) and
@@ -499,8 +533,10 @@ bun run deploy
   order (fingerprint of customer, PO, date, status, note and lines in the `order.create` audit meta)
   is a CONFLICT. `orders.update` REQUIRES `serverSeq` (from `orders.get`): a save over a newer
   version answers CONFLICT, read and write time (review round 3).
-- Order status: booking ⇄ confirmed → dispatching (set by the first completed dispatch) → closed
-  (reopen to confirmed). Cancel only while no live dispatch carries its lines. A line that has bundles
+- Order status: booking → confirmed (`orders.confirm`) → dispatching (set by the first completed
+  dispatch) → closed (`orders.close`); booking / confirmed → cancelled (`orders.cancel`). There is
+  no reopen. `orders.create` makes a booking and `orders.update` never moves a status (D11; a
+  `status` other than the current one is BAD_REQUEST). A line that has bundles
   or dispatch items cannot be removed or change section, and the order's customer cannot change once
   any line has links; these checks also sit in the UPDATE/DELETE WHERE with a `batchAbortUnless`
   statement, so an edit that loses a race fails whole (CONFLICT), never half-applies.
@@ -556,6 +592,65 @@ bun run deploy
   request alone and writes a `dispatch.overdraw.request` audit row (`repeat: true`, with its note).
 - `reports.salesRegisterCsv({ month })` (reports.read or export.accounts): one CSV row per completed
   dispatch in the company calendar month, cells guarded against spreadsheet formulas.
+
+## Orders and planning, Wave 1 (FP-OP, W1-OP-S)
+
+- Procedures live beside PL-8's on `orders` (`routers/orderFlow.ts`, spread into `salesOrder.ts`)
+  and on `plans` (`routers/pressPlan.ts`). Writes: `orders.confirm|close|cancel|repriceWeight`
+  need `order.manage`; `orders.reallocate` needs `order.reallocate`; `plans.create|release|cancel|close`
+  need `order.plan`. Reads (`get`, `balance`, `quote`, `timeline`, `lineBundles`, `plantStock`,
+  `matchStock`, `late`, `suggestLine`, `plans.get|list|candidates`) are open to members; no prices
+  in them (`orders.get` adds `ratePaise` only for `order.price` holders with `priceOnSalesOrder`).
+- Line maths only on the server (`lib/orderLines.ts`): a line with `qtyBasis` takes the W1 path:
+  basis = the pinned copy's latest reading, else the copy `suggestFirstCopy` picks, else band start
+  (`die.weight_min_g`) with `basis_note`; `pcs` -> kg via `orderGrams`, kg -> pcs via `orderPieces`
+  (`implied_g`), on the company's `lengthUnit` (inch companies use quarter-inch lengths, so 18 ft
+  is exactly 18 ft). Without `qtyBasis` PL-8 figures are stored as typed. Alloy / temper default
+  from the die, else `defaultAlloy` / `defaultTemper`.
+- Status: `orders.confirm` is the checked booking -> confirmed move (`confirmBlockers`, PO free,
+  owner check on a pinned copy). PO is unique per company + customer among non-cancelled orders
+  (`assertPoFree` read time + `poRepeatGuard` write time). `close` needs a reason while baki is left;
+  `cancel` needs a reason and nothing packed / planned / dispatched (also in the UPDATE's WHERE).
+  These three are the only status moves (D11): `create` is booking only, `update` refuses a
+  `status` other than the current one, and an edit of a confirmed / dispatching order must still
+  pass the confirm blockers and the owner check (purpose `plan`) on a changed pin. `close` is
+  guarded by the order's `server_seq` (a kg raise meanwhile fails it).
+- Line edits (`orders.update`, `lib/orderLines.ts resolveLineEdits`): a W1 line keeps the basis it
+  was locked with and recomputes the uncommitted side from it (typed kg on a pieces line is
+  ignored); a section, pin or basis-choice change re-bases it like `repriceWeight` and writes
+  `order.weight.refresh` (`via: "order.update"`). kg / pcs / length / section of a line on a
+  released plan are refused (read time and in the line UPDATE's WHERE); a W1 line can't go below
+  its dispatched kg. A line on any press plan can't be removed.
+- Balance strip (`lib/orderStrip.ts`, `orders.balance` and `orders.get` -> `strip` per line):
+  planned = draft plans + released plans whose run is live; pressed = good kg of logged runs shared
+  over the plan die's lines by kg, minus aged and produced (press_run_line arrives in Wave 2);
+  aged = 0 until ageing rows exist; planable = ordered − dispatched − packed − planned − pressed − aged.
+  Correlated subqueries name the outer line as `"sales_order_line"."company_id"` explicitly (a bare
+  column in a single-table select would bind to the inner table).
+- Reallocation (`lib/reallocate.ts`): same customer / plant / unassigned -> applied in one batch
+  (bundle UPDATE per from-line, append-only `bundle_transfer` rows, a count abort); another
+  customer's bundles -> pending `order_reallocate` (subject = batch id, meta bundle + line ids and
+  kg only) applied by its APPROVAL_APPLIERS entry. Bundles in a pending request can't be asked again
+  and are not offered by `matchStock`. The first move sets `packed_sales_order_line_id` (original SO
+  / PO). The stock ledger is never touched. Owner gate (purpose `dispatch`) for a customer target only;
+  `dieOwnerApprovalId` names the approved `die_owner_override` (C47) and the applier re-runs the
+  gate at the decision (an override closed meanwhile moves nothing). Plant stock remembers the
+  customer it came from (`plantOriginCustomerSql`: its latest transfer's from-line), so giving it to
+  another customer needs `order_reallocate`. A bundle on a live dispatch can't be reallocated, and a
+  bundle in a pending request can't be dispatched: `addBundlesBySerial` reports it
+  (`code: "reallocation_pending"`), `addBundle` refuses, `dispatch.complete` refuses (read time and
+  in the completing UPDATE). `orders.reallocations.list` / `get` (members) read the requests
+  (pending / applied / rejected) with serials, kg, from / to order, PO and customer names.
+- `orders.timeline` also lists `bundle.receipt.create` of bundles packed for the order's lines and
+  `dispatch.complete` / `dispatch.overdraw.request` of dispatches carrying them.
+- `plans.release`: window ≤ 24 h, each line ≤ planable without its own plan, owner check on the
+  preferred copy (owned section without a pin -> "Pick the die copy"), one `queued` press run per plan
+  die (`PR-n`), FP-OP-15 warnings returned. `cancel` voids queued runs (refused once one is issued).
+  Planable is checked again inside the batch of `plans.create` and `plans.release`
+  (`planOverPlannedSql`, CONFLICT when a pack, dispatch or another plan landed after the read).
+  Queued runs are inserted with `pressRunInserts` (every bound column explicit: drizzle binds a JS
+  default such as `time_unconfirmed` / `source` when a row leaves it out, which broke the 100-param
+  chunking at 7 dies).
 
 ## Worker performance rules
 

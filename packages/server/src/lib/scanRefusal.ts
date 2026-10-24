@@ -3,7 +3,7 @@
  * Kept free of imports so the tRPC error formatter (`src/index.ts`) can use the error class.
  */
 /** Outcomes that keep a bundle off the dispatch (everything but not found / already on / added). */
-export const SCAN_REFUSALS = ["ambiguous", "void", "dispatched", "held", "unassigned", "wrong_customer", "owned_die"] as const;
+export const SCAN_REFUSALS = ["ambiguous", "void", "dispatched", "held", "reallocation_pending", "unassigned", "wrong_customer", "owned_die"] as const;
 export type ScanRefusalCode = (typeof SCAN_REFUSALS)[number];
 
 export function isScanRefusal(outcome: string): outcome is ScanRefusalCode {

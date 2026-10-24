@@ -120,6 +120,10 @@ export type LineFilter = {
   statuses?: readonly SalesOrderStatus[];
   /** Only lines with baki left (ordered > dispatched), filtered in SQL before any limit or page. */
   withBaki?: boolean;
+  /** Only lines of orders dated before this company calendar day (`YYYY-MM-DD`, late orders). */
+  orderDateBefore?: string;
+  /** Only lines of this cut length (suggested line, FP-OP). */
+  cutLengthMm?: number;
 };
 
 /** Most lines one `lineBalances` call returns. Past it the call throws (page with `lineBalancePage`). */
@@ -156,6 +160,8 @@ function lineWhere(companyId: string, filter: LineFilter, ids: IdList): SQL | un
   if (ids.dieIds) conditions.push(inArray(salesOrderLine.dieId, ids.dieIds));
   if (ids.orderIds) conditions.push(inArray(salesOrderLine.salesOrderId, ids.orderIds));
   if (filter.withBaki) conditions.push(sql`${salesOrderLine.kgG} > ${dispatchedExpr("g")}`);
+  if (filter.orderDateBefore) conditions.push(sql`${salesOrder.orderDate} < ${filter.orderDateBefore}`);
+  if (filter.cutLengthMm != null) conditions.push(eq(salesOrderLine.cutLengthMm, filter.cutLengthMm));
   return and(...conditions);
 }
 

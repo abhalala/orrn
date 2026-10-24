@@ -169,6 +169,13 @@
       "when": 1792855111515,
       "tag": "0023_fp_wave1",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1792858521757,
+      "tag": "0024_edge_scale_presence",
+      "breakpoints": true
     }
   ]
 }

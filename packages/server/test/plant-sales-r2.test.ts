@@ -225,9 +225,12 @@ describe("S-3 dev seed", () => {
     const owner = env.caller({ role: "owner", companyId });
     const [c] = await env.db.select({ id: customer.id }).from(customer).where(eq(customer.companyId, companyId)).limit(1);
     const [d] = await env.db.select({ id: die.id }).from(die).where(eq(die.companyId, companyId)).limit(1);
-    await owner.orders.create({ customerId: c!.id, lines: [{ sectionId: d!.id, cutLengthMm: 3_658, kgG: 100_000 }] });
+    const made = await owner.orders.create({ customerId: c!.id, lines: [{ sectionId: d!.id, cutLengthMm: 3_658, kgG: 100_000 }] });
     expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
-    expect(await env.db.select({ id: salesOrder.id }).from(salesOrder).where(eq(salesOrder.companyId, companyId))).toEqual([]);
+    // The order made in the app is gone; only the seed's own demo orders (W1-OP-S, fixed ids) are back.
+    const ids = (await env.db.select({ id: salesOrder.id }).from(salesOrder).where(eq(salesOrder.companyId, companyId))).map((r) => r.id);
+    expect(ids).not.toContain(made.id);
+    expect(ids.sort()).toEqual(["dev-so-1", "dev-so-2", "dev-so-3"]);
   }, 120_000);
 });
 

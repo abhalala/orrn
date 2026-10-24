@@ -15,6 +15,7 @@ import { dispatchRouter } from "./dispatch";
 import { foundryRouter } from "./foundry";
 import { packingListRouter } from "./packingList";
 import { spoolRouter } from "./spool";
+import { scaleRouter } from "./scale";
 import { edgeRouter } from "./edge";
 import { dashboardRouter } from "./dashboard";
 import { resolveRouter } from "./resolve";
@@ -23,6 +24,7 @@ import { storeRouter } from "./store";
 import { purchaseRouter } from "./purchase";
 import { reportsRouter } from "./reports";
 import { salesOrderRouter } from "./salesOrder";
+import { pressPlanRouter } from "./pressPlan";
 import { vendorRouter } from "./vendor";
 import { transporterRouter } from "./transporter";
 
@@ -48,6 +50,7 @@ export const appRouter = router({
   dispatch: dispatchRouter,
   packingList: packingListRouter,
   spool: spoolRouter,
+  scale: scaleRouter,
   edge: edgeRouter,
   dashboard: dashboardRouter,
   approval: approvalRouter,
@@ -59,6 +62,7 @@ export const appRouter = router({
   purchase: purchaseRouter,
   analytics: analyticsRouter,
   orders: salesOrderRouter,
+  plans: pressPlanRouter,
   reports: reportsRouter,
   foundry: foundryRouter,
   transporter: transporterRouter,

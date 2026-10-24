@@ -1,14 +1,19 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 
 import type { Context } from "./context";
+import { errorMetaOf } from "./lib/errorMeta";
 import { can, canAny, type Action } from "./lib/permissions";
 import { ScanRefusalError } from "./lib/scanRefusal";
 
 export const t = initTRPC.context<Context>().create({
-  /** A dispatch add refusal (D12) carries its machine `{code, reason}` to clients as `data.refusal`. */
+  /**
+   * A dispatch add refusal (D12) carries its machine `{code, reason}` as `data.refusal`;
+   * `TRPCMetaError.meta` (e.g. a duplicate band's `existing`) reaches the client as `error.data.meta`.
+   */
   errorFormatter({ shape, error }) {
     const refusal = error.cause instanceof ScanRefusalError ? error.cause.refusal : null;
-    return { ...shape, data: { ...shape.data, refusal } };
+    const meta = errorMetaOf(error);
+    return { ...shape, data: { ...shape.data, refusal, ...(meta ? { meta } : {}) } };
   },
 });
 
