@@ -58,9 +58,9 @@ export function StatusBlock({ tone, title, meta, value, unit, progress, onPress,
       </View>
       <View className="mt-6 flex-row flex-wrap items-baseline gap-x-2 gap-y-1">
         {typeof value === "number" ? (
-          <BigNumber value={value} format={format} countUp={countUp} className={cn("text-[44px] leading-[48px]", c.on)} />
+          <BigNumber value={value} format={format} countUp={countUp} className={cn("text-[44px] leading-[58px]", c.on)} />
         ) : (
-          <Text className={cn("max-w-full font-mono-semibold text-[32px] leading-10", c.on)}>{value}</Text>
+          <Text className={cn("max-w-full font-mono-semibold text-[32px] leading-[42px]", c.on)}>{value}</Text>
         )}
         {unit ? <Text className={cn("font-sans-semibold text-[13px]", c.on)}>{unit}</Text> : null}
       </View>

@@ -1,2 +1,35 @@
 /** Native-only strings for this screen group (apps/native). Top-level keys become `native.<key>.*`. Keep en and hi identical in shape. */
-export const moreHi = {} as const;
+export const moreHi = {
+  more: {
+    diesCount: "{count} die",
+    customersCount: "{count} कस्टमर",
+    typeToSearch: "नाम या कोड से खोजें",
+    call: "{phone} पर कॉल करें",
+    mail: "{email} को लिखें",
+    guideMissing: "यह गाइड उपलब्ध नहीं है।",
+    guideBack: "गाइड पर वापस जाएं",
+    profile: "आपका अकाउंट",
+    appearance: "रंग रूप",
+    changeOnWeb: "इन्हें बदलने के लिए कंप्यूटर पर orrn खोलें।",
+    membersEmpty: "टीम में अभी कोई और नहीं है।",
+    pendingInvite: "{email}, {role} के रूप में",
+    stockOfDie: "स्टॉक देखें",
+  },
+  invite: {
+    subtitle: "वही ईमेल इस्तेमाल करें जिस पर यह इनवाइट आया है।",
+    checking: "आपका इनवाइट जांच रहे हैं",
+    wrongEmail: "यह इनवाइट किसी और ईमेल के लिए है। साइन आउट करें, फिर वही ईमेल इस्तेमाल करें जिस पर इनवाइट आया है।",
+    signedOut: "आपका सेशन खत्म हो गया। फिर से साइन इन करें, फिर इनवाइट लिंक खोलें।",
+    failed: "orrn से जवाब नहीं आया। कनेक्शन देखें और फिर कोशिश करें।",
+    twoFactor: "इस अकाउंट में साइन इन पर कोड लगता है। पहले साइन इन करें, फिर इनवाइट लिंक दोबारा खोलें।",
+    goSignIn: "साइन इन पर जाएं",
+    signedInTitle: "{email} से जुड़ें",
+    signedInBody: "आप साइन इन हैं। इस अकाउंट से टीम में जुड़ने के लिए इनवाइट स्वीकार करें।",
+    accept: "टीम से जुड़ें",
+    joining: "जुड़ रहे हैं",
+    joined: "आप टीम से जुड़ गए।",
+    checkAccount: "मेरा अकाउंट जांचें",
+    tryAgain: "फिर कोशिश करें",
+    signOutOther: "साइन आउट करें और दूसरा अकाउंट इस्तेमाल करें",
+  },
+} as const;

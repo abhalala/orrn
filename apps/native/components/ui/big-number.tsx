@@ -48,7 +48,6 @@ export function BigNumber({ value, format = defaultFormat, countUp = false, clas
   return (
     <Text
       accessibilityLabel={finalText}
-      maxFontSizeMultiplier={1.3}
       {...rest}
       className={cn("font-display-extrabold tracking-tighter text-ink", className)}
       style={{ fontVariant: ["tabular-nums"] }}

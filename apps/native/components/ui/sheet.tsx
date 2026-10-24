@@ -1,7 +1,7 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useT } from "@orrn/i18n";
 import type { ReactNode } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, Text, View } from "react-native";
 
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { useThemeColor } from "@/lib/theme";
@@ -24,8 +24,8 @@ export function Sheet({ visible, onClose, title, children }: SheetProps) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1 justify-end">
-        <Pressable accessibilityRole="button" accessibilityLabel={t("common.close")} onPress={onClose} className="absolute inset-0 bg-black/50" />
-        <View accessibilityViewIsModal className="max-h-[88%] rounded-t-hero bg-surface px-4 pb-8 pt-3">
+        <PressableScale scaleTo={1} accessibilityRole="button" accessibilityLabel={t("common.close")} onPress={onClose} className="absolute inset-0 bg-black/50" />
+        <View accessibilityViewIsModal className="max-h-[88%] rounded-hero bg-surface px-4 pb-8 pt-3">
           <View className="mb-2 flex-row items-center justify-between gap-3">
             <Text accessibilityRole="header" className="min-w-0 flex-1 font-display-bold text-xl text-ink">
               {title}
