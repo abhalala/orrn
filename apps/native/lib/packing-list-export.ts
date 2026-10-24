@@ -1,6 +1,7 @@
 import {
   buildPackingListHtml,
   buildPackingListXlsxBase64,
+  plFileName,
   type PLSnapshot,
 } from "@orrn/documents/packing-list";
 import type { LengthUnit } from "@orrn/server/lib/length";
@@ -31,7 +32,8 @@ export async function sharePackingListXlsx(
   lengthUnit: LengthUnit = "mm",
 ) {
   const base64 = buildPackingListXlsxBase64(pl, code, lengthUnit);
-  const uri = `${FileSystem.cacheDirectory}${code}.xlsx`;
+  // PL numbers carry slashes (PL/2026-27/14); a raw one would point into missing folders.
+  const uri = `${FileSystem.cacheDirectory}${plFileName(code)}.xlsx`;
   await FileSystem.writeAsStringAsync(uri, base64, {
     encoding: FileSystem.EncodingType.Base64,
   });

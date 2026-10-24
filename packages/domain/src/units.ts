@@ -24,9 +24,41 @@ export function kgPer12ft(input: { weightG: number; pieces: number; lengthMm: nu
   return (gToKg(weightG) / pieces / (lengthMm / MM_PER_FOOT)) * 12;
 }
 
-/** Catalogue weight band /12': floor to 0.1 kg with a 0.01 tolerance. */
+/**
+ * Catalogue weight band /12': floor to 0.1 kg with a 0.01 tolerance, `floor((kg/12ft + 0.01) × 10) / 10`.
+ * The 1e-9 keeps binary floating point from dropping an exact boundary one band low
+ * (2.09 + 0.01 is 2.0999999999999996 in IEEE doubles; the band is 2.1).
+ */
 export function weightRange12ft(kg12ft: number): number {
-  return Math.floor((kg12ft + 0.01) * 10) / 10;
+  return Math.floor((kg12ft + 0.01) * 10 + 1e-9) / 10;
+}
+
+/** The same band from stored thousandths (grams per 12 ft), in exact integer arithmetic: 2090 → 2.1. */
+export function weightRange12ftFromMilli(kgPer12ftMilli: number): number {
+  return Math.floor((Math.round(kgPer12ftMilli) + 10) / 100) / 10;
+}
+
+/**
+ * Range /12' of a bundle, from its RAW kg per 12 ft (PL-8 review round 3; rule in AGENTS.md under
+ * "dispatch.pl_number … Range /12'"). This is the plant's Excel formula
+ * `floor((kg12 + 0.01) × 10) / 10` on the unrounded value (the column the customer is billed on), not
+ * on the 3-decimal kg/12ft printed beside it: raw 2.0895 is band 2.0 although it prints as 2.090.
+ * With kg12 = weightG × 3657.6 / (1000 × pieces × lengthMm) the formula is evaluated exactly on
+ * integers: tenths = floor((weightG × 36576 + 100 × pieces × lengthMm) / (1000 × pieces × lengthMm)).
+ * Non-integer inputs fall back to `weightRange12ft(kgPer12ft(...))`. Null without pieces or length.
+ */
+export function weightRange12ftOf(input: { weightG: number; pieces: number; lengthMm: number }): number | null {
+  const { weightG, pieces, lengthMm } = input;
+  if (!(pieces > 0) || !(lengthMm > 0)) return null;
+  if (![weightG, pieces, lengthMm].every(Number.isSafeInteger)) {
+    const kg12 = kgPer12ft(input);
+    return kg12 === null ? null : weightRange12ft(kg12);
+  }
+  const den = 1000 * pieces * lengthMm;
+  const num = weightG * 36_576 + 100 * pieces * lengthMm;
+  if (!Number.isSafeInteger(num) || !Number.isSafeInteger(den)) return weightRange12ft(kgPer12ft(input)!);
+  const r = num % den;
+  return (num - (r < 0 ? r + den : r)) / den / 10;
 }
 
 function fixedIN(value: number, digits: number): string {

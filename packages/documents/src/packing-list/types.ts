@@ -1,3 +1,4 @@
+import type { PlSnapshotV2 } from "@orrn/server/lib/packingListSnapshot";
 import { z } from "zod";
 
 /**
@@ -49,6 +50,12 @@ export const packingListSnapshotSchema = z.object({
   company: z.object({ name: text.default("") }),
   items: z.array(itemSchema),
   generatedAt: text,
+  /** PL-8 v2 blocks, kept as stored (built and typed server-side); `isPlSnapshotV2` checks them. */
+  version: z.number().int().optional(),
+  header: z.custom<PlSnapshotV2["header"]>((v) => v != null && typeof v === "object").optional(),
+  columns: z.custom<PlSnapshotV2["columns"]>((v) => Array.isArray(v)).optional(),
+  groups: z.custom<PlSnapshotV2["groups"]>((v) => Array.isArray(v)).optional(),
+  summary: z.custom<PlSnapshotV2["summary"]>((v) => v != null && typeof v === "object").optional(),
 });
 
 export type PackingListSnapshot = z.output<typeof packingListSnapshotSchema>;

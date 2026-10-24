@@ -30,6 +30,7 @@ import type { OrrnDb } from "@orrn/db";
 import { actionProcedure, router } from "../index";
 import { now } from "../lib/clock";
 import { companyTimezone } from "../lib/dayWindow";
+import { lineTotals } from "../lib/orders";
 import { isIsoDate } from "../lib/purchase";
 import {
   addDays,
@@ -94,7 +95,7 @@ export type SectionShare = {
   sharePct: number;
 };
 
-/** Order book figures per customer; null until sales orders exist (plant PL-8). */
+/** Order book figures per customer (open orders' lines); null when the customer has no open order line. */
 export type OpenOrders = { orderedG: number; dispatchedG: number; bakiG: number; lines: number };
 
 export type CustomerSummary = {
@@ -328,6 +329,14 @@ export const analyticsRouter = router({
         .orderBy(asc(dispatch.completedAt)),
     ]);
 
+    // Order book (PL-8): open orders' lines for this customer; null when there are none.
+    // Sums in SQL over every open line (no row cap).
+    const book = await lineTotals(ctx.db, companyId, { customerId: cust.id, openOnly: true });
+    const openOrders: OpenOrders | null =
+      book.lines === 0
+        ? null
+        : { orderedG: book.orderedG, dispatchedG: book.dispatchedG, bakiG: book.bakiG, lines: book.lines };
+
     const byKey = new Map(seriesRows.map((r) => [r.key, r]));
     const series = bucketStarts(input.from, end, unit).map((bucketStart) => {
       const r = byKey.get(bucketStart);
@@ -365,7 +374,7 @@ export const analyticsRouter = router({
         plNumber: r.plNumber ?? null,
       })),
       cadenceDays: gaps.length > 0 ? round1(median(gaps)) : null,
-      openOrders: null,
+      openOrders,
     };
   }),
 

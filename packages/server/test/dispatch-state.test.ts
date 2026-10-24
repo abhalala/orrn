@@ -103,7 +103,7 @@ describe("dispatch and bundle state predicates", () => {
       if (held) await api.dispatch.reserve({ id: d.id });
 
       const res = await api.dispatch.addBundlesBySerial({ id: d.id, serials: [bundles[0]!.serial] });
-      expect(res).toEqual({ added: [], alreadyInDispatch: [bundles[0]!.serial], notFound: [], unavailable: [] });
+      expect(res).toEqual({ added: [], alreadyInDispatch: [bundles[0]!.serial], notFound: [], unavailable: [], linked: [] });
       expect(await itemCount(d.id)).toBe(1);
     });
   }
@@ -162,6 +162,7 @@ describe("dispatch and bundle state predicates", () => {
         { serial: heldElsewhere!.serial, reason: `Bundle is held by ${other.code}`, code: "held", status: "reserved", heldBy: other.code },
         { serial: voided!.serial, reason: "Bundle is void", code: "void", status: "void", heldBy: null },
       ],
+      linked: [],
     });
     expect(await itemCount(d.id)).toBe(4);
     for (const b of [fresh, quoted, lower]) {
@@ -244,7 +245,7 @@ describe("dispatch and bundle state predicates", () => {
     const d = await api.dispatch.create({ customerId });
     const before = await dispatchRow(d.id);
     const res = await api.dispatch.addBundlesBySerial({ id: d.id, serials: ["MISSING-1"] });
-    expect(res).toEqual({ added: [], alreadyInDispatch: [], notFound: ["MISSING-1"], unavailable: [] });
+    expect(res).toEqual({ added: [], alreadyInDispatch: [], notFound: ["MISSING-1"], unavailable: [], linked: [] });
     expect((await dispatchRow(d.id)).serverSeq).toBe(before.serverSeq);
   });
 

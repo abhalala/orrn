@@ -172,7 +172,7 @@ export async function downloadPackingListPdf(pl: PackingListSnapshot, code: stri
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${code}.pdf`;
+  a.download = `${code.replace(/[^A-Za-z0-9._-]+/g, "-")}.pdf`;
   document.body.appendChild(a);
   a.click();
   a.remove();

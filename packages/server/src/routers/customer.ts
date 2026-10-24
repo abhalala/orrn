@@ -16,6 +16,8 @@ const customerBaseSchema = z.object({
   shippingAddress: z.record(z.string(), z.unknown()).nullable().optional(),
   taxId: z.string().max(500).nullable().optional(),
   notes: z.string().max(500).nullable().optional(),
+  /** Order kg tolerance in basis points (500 = 5 %); null = company default (PL-8, Review Focus 5). */
+  kgToleranceBp: z.number().int().min(0).max(10_000).nullable().optional(),
 });
 
 /** Same cap as bundle.bulkImport: a larger import must be split into batches (D1 + Worker CPU). */
@@ -97,6 +99,7 @@ export const customerRouter = router({
             shippingAddress: input.shippingAddress,
             taxId: input.taxId,
             notes: input.notes,
+            kgToleranceBp: input.kgToleranceBp ?? null,
           }),
         ],
       );
@@ -134,6 +137,8 @@ export const customerRouter = router({
               shippingAddress: input.shippingAddress,
               taxId: input.taxId,
               notes: input.notes,
+              // undefined leaves the tolerance as it is; null returns to the company default.
+              kgToleranceBp: input.kgToleranceBp,
               serverSeq,
             })
             .where(and(eq(customer.id, input.id), eq(customer.companyId, ctx.companyId))),
@@ -202,6 +207,7 @@ export const customerRouter = router({
             shippingAddress: row.shippingAddress,
             taxId: row.taxId,
             notes: row.notes,
+            kgToleranceBp: row.kgToleranceBp ?? null,
           }));
 
           const statements: SqliteBatchItem[] = [];

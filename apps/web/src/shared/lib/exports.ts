@@ -17,7 +17,7 @@ export async function downloadPackingListPdf(pl: PackingListSnapshot, code: stri
 }
 
 export async function downloadPackingListXlsx(pl: PackingListSnapshot, code: string, opts: ExportOptions = {}) {
-  const { buildPackingListXlsxBuffer } = await import("@orrn/documents/packing-list");
+  const { buildPackingListXlsxBuffer, plFileName } = await import("@orrn/documents/packing-list");
   const buffer = buildPackingListXlsxBuffer(pl, code, undefined, opts);
   const blob = new Blob([new Uint8Array(buffer)], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -25,7 +25,7 @@ export async function downloadPackingListXlsx(pl: PackingListSnapshot, code: str
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${code}.xlsx`;
+  a.download = `${plFileName(code)}.xlsx`;
   document.body.appendChild(a);
   a.click();
   a.remove();

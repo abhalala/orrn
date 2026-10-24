@@ -87,6 +87,8 @@ export const bundle = sqliteTable(
     index("bundle_company_location_status_idx").on(table.companyId, table.locationId, table.status),
     // Packed-kg trends and stock ageing by pack time (PL-A1, ruling RP13).
     index("bundle_company_created_idx").on(table.companyId, table.createdAt),
+    // Produced kg per sales order line (PL-8 baki).
+    index("bundle_company_so_line_idx").on(table.companyId, table.salesOrderLineId),
     // Cast close-out sums the bundles packed from a cast (PL-5).
     index("bundle_company_cast_idx").on(table.companyId, table.castId),
   ],
