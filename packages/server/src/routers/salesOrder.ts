@@ -45,7 +45,7 @@ import { assertDieAllowed } from "../lib/dieOwner";
 import { companyFloor, resolveLineEdits, resolveLines, type ResolvedLine } from "../lib/orderLines";
 import { can, type Action, type CompanyRole } from "../lib/permissions";
 import { assertPoFree, orderDetailExtras, orderFlowProcedures, poRepeatGuard } from "./orderFlow";
-import { lineStrips, onReleasedPlan } from "../lib/orderStrip";
+import { lateDaysOf, lineStrips, onReleasedPlan, ymdOf } from "../lib/orderStrip";
 
 const MAX_LINES = 100;
 
@@ -772,13 +772,18 @@ export const salesOrderRouter = router({
         .where(and(eq(customer.id, order.customerId), eq(customer.companyId, ctx.companyId)))
         .limit(1);
       const lines = await lineBalances(ctx.db, ctx.companyId, { orderId: order.id });
+      const floor = await companyFloor(ctx.db, ctx.companyId);
       // Rates only for `order.price` holders while the plant shows prices on orders (C23).
-      const showRates = canPrice(ctx.role) && (await companyFloor(ctx.db, ctx.companyId)).floor.priceOnSalesOrder;
+      const showRates = canPrice(ctx.role) && floor.floor.priceOnSalesOrder;
       const extras = await orderDetailExtras(ctx.db, ctx.companyId, order, { showRates });
+      const totals = sumBalances(lines);
+      const today = ymdOf(zonedYmd(floor.timezone, clockNow().getTime()));
       return {
         order: { ...order, customerName: cust?.name ?? "", customerGstin: cust?.taxId ?? null },
         lines,
-        totals: sumBalances(lines),
+        totals,
+        /** Days running late (FP-OP-18 rule, review m-1), else null. */
+        lateDays: lateDaysOf({ status: order.status, orderDate: order.orderDate, bakiG: totals.bakiG }, today),
         ...extras,
       };
     }),
@@ -831,9 +836,21 @@ export const salesOrderRouter = router({
 
       // Per-order sums in SQL (GROUP BY order), never from a capped list of lines.
       const sums = await orderTotals(ctx.db, ctx.companyId, rows.map((r) => r.id));
+      const floor = await companyFloor(ctx.db, ctx.companyId);
+      const today = ymdOf(zonedYmd(floor.timezone, clockNow().getTime()));
       const items = rows.map((r) => {
         const t = sums.get(r.id) ?? sumBalances([]);
-        return { ...r, lines: t.lines, orderedG: t.orderedG, producedG: t.producedG, dispatchedG: t.dispatchedG, bakiG: t.bakiG, overG: t.overG };
+        return {
+          ...r,
+          lines: t.lines,
+          orderedG: t.orderedG,
+          producedG: t.producedG,
+          dispatchedG: t.dispatchedG,
+          bakiG: t.bakiG,
+          overG: t.overG,
+          /** Days running late (FP-OP-18 rule, review m-1), else null. */
+          lateDays: lateDaysOf({ status: r.status, orderDate: r.orderDate, bakiG: t.bakiG }, today),
+        };
       });
       const total = totalRow?.n ?? 0;
       const next = input.offset + rows.length;
