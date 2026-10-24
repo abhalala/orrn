@@ -454,8 +454,19 @@ test("screenshots", async ({ page }) => {
   };
   const tag = uniq();
   const approved = await fileRequest(page, `${tag}a`);
-  await fileRequest(page, `${tag}b`);
+  const waiting = await fileRequest(page, `${tag}b`);
+  const longEmail = await fileRequest(page, `${tag}c`, {
+    email: `rameshbhai.patel.accounts.${tag}@shreeganeshjialuminium.co.in`,
+  });
   await signInViaApi(page, "staff");
+  /** Viewport-only capture (dialogs and sheets are fixed to the screen). */
+  const view = async (name: string) => {
+    await settle();
+    await page.screenshot({ path: join(dir!, `${name}.png`) });
+  };
+  const setHindi = async (on: boolean) => {
+    await page.evaluate((hi) => (hi ? localStorage.setItem("orrn.locale", "hi") : localStorage.removeItem("orrn.locale")), on);
+  };
 
   // A fresh company with a print station.
   await open(page, "/admin/requests");
@@ -498,6 +509,40 @@ test("screenshots", async ({ page }) => {
     }
   }
 
+  // Fix round 1: a waiting company (Review the request), long email dialogs, Hindi durations, rotate and downloads sheets.
+  await open(page, `/admin/companies?status=pending&q=${encodeURIComponent(waiting.company)}`, { width: 375 });
+  await page.getByRole("link", { name: new RegExp(waiting.company) }).click();
+  await expect(page.getByRole("heading", { level: 1, name: waiting.company })).toBeVisible();
+  const waitingPath = new URL(page.url()).pathname;
+  for (const lang of ["en", "hi"] as const) {
+    await setHindi(lang === "hi");
+    for (const tab of ["plan", "access", "printing"] as const) {
+      await open(page, `${waitingPath}?tab=${tab}`, { width: 375 });
+      await shot(`fix1-waiting-${tab}-375-light-${lang}`);
+    }
+    await open(page, "/admin/requests", { width: 375, scheme: lang === "hi" ? "dark" : "light" });
+    await page.getByRole("article", { name: longEmail.company }).getByRole("button", { name: lang === "hi" ? "मंज़ूर करें" : "Approve" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await view(`fix1-approve-long-email-375-${lang}`);
+    await page.keyboard.press("Escape");
+    await open(page, `${companyPath}?tab=access`, { width: 375, scheme: lang === "hi" ? "dark" : "light" });
+    await shot(`fix1-access-375-${lang}`);
+    await open(page, `${companyPath}?tab=printing`, { width: 375 });
+    await page.getByRole("article").first().getByRole("button", { name: lang === "hi" ? "सीक्रेट बदलें" : "Rotate secret" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await view(`fix1-rotate-confirm-375-${lang}`);
+    await page.getByRole("dialog").getByRole("button", { name: lang === "hi" ? "सीक्रेट बदलें" : "Rotate secret" }).click();
+    await expect(page.getByRole("dialog", { name: lang === "hi" ? "सीक्रेट बदल गया" : "Secret rotated" })).toBeVisible();
+    await page.waitForTimeout(400);
+    await view(`fix1-rotated-sheet-375-${lang}`);
+    await page.getByRole("dialog").getByRole("button", { name: lang === "hi" ? "हो गया" : "Done" }).click();
+    await page.getByRole("article").first().getByRole("button", { name: lang === "hi" ? "डाउनलोड" : "Downloads" }).click();
+    await page.waitForTimeout(400);
+    await view(`fix1-downloads-sheet-375-${lang}`);
+    await page.keyboard.press("Escape");
+  }
+  await setHindi(false);
+
   // The impersonation banner on Today.
   await open(page, `${companyPath}?tab=access`);
   await page.getByLabel("Reason (optional)").fill("Screenshot run");
@@ -518,9 +563,17 @@ test("screenshots", async ({ page }) => {
   await expect(page.getByRole("table", { name: "Support sessions" })).toContainText("Stopped");
   await shot("company-access-after-stop-1280-light");
 
-  // Tidy up.
+  // Tidy up (and the turned-off history, opened).
   await page.getByRole("tab", { name: "Printing" }).click();
   await page.getByRole("button", { name: "Turn off label printing" }).first().click();
   await page.getByRole("dialog", { name: /^Turn off / }).getByRole("button", { name: "Turn off" }).click();
   await expect(page.getByText("Label printing turned off")).toBeVisible();
+  await page.getByText("Turned off earlier").click();
+  await shot("fix1-printing-history-1280-light");
+  await open(page, "/admin/requests");
+  for (const req of [waiting, longEmail]) {
+    await page.getByRole("article", { name: req.company }).getByRole("button", { name: "Reject" }).click();
+    await page.getByRole("dialog", { name: `Reject ${req.company}?` }).getByRole("button", { name: "Reject" }).click();
+    await expect(page.getByRole("article", { name: req.company })).toHaveCount(0);
+  }
 });
