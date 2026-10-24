@@ -78,11 +78,11 @@ export function MakersPage() {
           <h2 id="makers-jobs" className="m-0 text-[17px] leading-6 font-semibold">
             {t("dieRoom.makers.withMakers")}
           </h2>
-          {jobs.isSuccess && jobs.data.length === 0 ? (
+          {jobs.isSuccess && jobs.data.items.length === 0 ? (
             <EmptyState title={t("dieRoom.makers.noJobs")} body={t("dieRoom.makers.noJobsBody")} />
           ) : (
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
-              {(jobs.data ?? []).map((j) => (
+              {(jobs.data?.items ?? []).map((j) => (
                 <li key={j.id} className="flex min-w-0 flex-col gap-1 rounded-card border border-border bg-card p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-[15px] font-semibold tabular-nums">{j.number}</span>

@@ -2,33 +2,27 @@ import { trpcClient } from "@/shared/utils/trpc";
 
 import type { DieFileKind } from "./die-room-model";
 
-function toBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error);
-    reader.onload = () => {
-      const url = String(reader.result);
-      resolve(url.slice(url.indexOf(",") + 1));
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-/** Upload one file to a section (or one of its copies). */
+/**
+ * Upload one file (to a copy, or the section's press drawing) in three steps: the server
+ * checks it and signs a PUT, the browser sends the bytes straight to storage, the server records it.
+ */
 export async function uploadDieFile(input: {
+  /** The section, for its press drawing (which belongs to the section, never to one copy). */
   sectionId: string;
-  dieInstanceId?: string;
+  copyId: string;
   kind: DieFileKind;
   file: File;
   pressDrawing: boolean;
 }) {
-  return trpcClient.dieInstance.files.add.mutate({
-    sectionId: input.sectionId,
-    ...(input.dieInstanceId ? { dieInstanceId: input.dieInstanceId } : {}),
+  const begin = await trpcClient.dieInstance.files.beginUpload.mutate({
+    ...(input.pressDrawing ? { sectionId: input.sectionId } : { copyId: input.copyId }),
     kind: input.kind,
-    filename: input.file.name,
-    contentType: input.file.type || null,
-    body: await toBase64(input.file),
+    name: input.file.name,
+    size: input.file.size,
+    mime: input.file.type,
     pressDrawing: input.pressDrawing,
   });
+  const put = await fetch(begin.uploadUrl, { method: begin.method, headers: begin.headers, body: input.file });
+  if (!put.ok) throw new Error(`upload failed (${put.status})`);
+  return trpcClient.dieInstance.files.commit.mutate({ uploadId: begin.uploadId });
 }

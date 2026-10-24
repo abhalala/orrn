@@ -2278,6 +2278,10 @@ export const en = {
       submit: "Ask for approval",
     },
     issues: {
+      pickRun: "Pick a press run",
+      noRun: "No press run is waiting for a die of this section. Release one in the plan first.",
+      run: "Press run",
+      lifeReached: "Life reached. The copy was issued anyway.",
       title: "Issue and return",
       subtitle: "Hand a copy to a press and take it back.",
       pickCopy: "Pick a copy",

@@ -66,7 +66,7 @@ export function FilesPanel({ card }: { card: CardData }) {
     if (!kind) return setError(t("dieRoom.files.badType"));
     if (drawing && kind !== "pdf") return setError(t("dieRoom.files.drawingPdf"));
     setError(null);
-    upload.mutate({ sectionId: card.instance.sectionId, dieInstanceId: card.instance.id, kind, file, pressDrawing: drawing });
+    upload.mutate({ sectionId: card.instance.sectionId, copyId: card.instance.id, kind, file, pressDrawing: drawing });
   };
 
   return (

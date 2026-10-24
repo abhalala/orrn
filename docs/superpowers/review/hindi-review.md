@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 2174 screen strings in 39 groups, 12 guides with 220 strings.
+Counts: 2178 screen strings in 39 groups, 12 guides with 220 strings.
 
 ## Screen strings
 
@@ -1747,7 +1747,7 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (307)
+### dieRoom (311)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2032,6 +2032,10 @@ Please check, Lalubhai:
 | `lift.noOtherBand` | This die has no other band. Add one first. | इस die का कोई दूसरा बैंड नहीं है। पहले एक जोड़ें। |
 | `lift.dieRoomOnly` | Only the die room asks for a move. | बदलाव सिर्फ़ die रूम मांगता है। |
 | `lift.submit` | Ask for approval | मंज़ूरी मांगें |
+| `issues.pickRun` | Pick a press run | प्रेस रन चुनें |
+| `issues.noRun` | No press run is waiting for a die of this section. Release one in the plan first. | इस सेक्शन के किसी रन को die का इंतज़ार नहीं है। पहले प्लान में रन छोड़ें। |
+| `issues.run` | Press run | प्रेस रन |
+| `issues.lifeReached` | Life reached. The copy was issued anyway. | लाइफ पूरी हो चुकी है। फिर भी कॉपी दे दी गई। |
 | `issues.title` | Issue and return | प्रेस को दें और वापस लें |
 | `issues.subtitle` | Hand a copy to a press and take it back. | कॉपी प्रेस को दें और वापस लें। |
 | `issues.pickCopy` | Pick a copy | कॉपी चुनें |

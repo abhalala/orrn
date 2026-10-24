@@ -49,7 +49,7 @@ export function MakerPanel({ card }: { card: CardData }) {
     onError: (e) => toast.error(refusal(e)),
   });
 
-  const current = jobs.data?.find((j) => j.status === "sent") ?? null;
+  const current = jobs.data?.items.find((j) => j.status === "sent") ?? null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -102,11 +102,11 @@ export function MakerPanel({ card }: { card: CardData }) {
         />
       )}
 
-      {jobs.data && jobs.data.some((j) => j.status !== "sent") ? (
+      {jobs.data && jobs.data.items.some((j) => j.status !== "sent") ? (
         <section className="flex flex-col gap-2">
           <h3 className="m-0 text-[15px] font-semibold">{t("dieRoom.maker.history")}</h3>
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {jobs.data
+            {jobs.data.items
               .filter((j) => j.status !== "sent")
               .map((j) => (
                 <li key={j.id} className="flex flex-wrap items-center gap-2 rounded-card border border-border bg-card p-3 text-[14px]">

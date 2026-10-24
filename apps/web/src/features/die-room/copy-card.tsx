@@ -124,7 +124,7 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
     instance.tierRank == null ? t("dieRoom.copies.untiered") : t("dieRoom.copies.tier", { rank: instance.tierRank }),
   ].filter(Boolean);
   const latest = card.currentMilli;
-  const openLine = issue.data?.[0]?.pressLineCode ?? null;
+  const openLine = issue.data?.items[0]?.pressLineCode ?? null;
 
   const tabItems = CARD_TABS.map((id) => ({ id, label: t(`dieRoom.tabs.${id}`) }));
   const overflow = [

@@ -159,6 +159,52 @@ for (const width of WIDTHS) {
   });
 }
 
+test.describe("issue to a press and take it back", () => {
+  for (const width of WIDTHS) {
+    test(`${width}: a copy goes to the queued run on P1 and comes back`, async ({ page }) => {
+      await open(page, "/dies/issues", { role: "dieroom", width });
+      // The seeded open issue: 14701-1 on P1 for run PR-1.
+      const openIssues = page.getByTestId("open-issues");
+      await expect(openIssues.getByTestId("issue-14701-1")).toContainText("Issued to P1");
+      await expect(openIssues.getByTestId("issue-14701-1")).toContainText("PR-1");
+
+      const form = page.getByTestId("issue-form");
+      await form.getByRole("combobox", { name: "Copy" }).click();
+      await page.getByRole("option", { name: "13090-1" }).click();
+      // The only run waiting for a Tee die is PR-2 on P1: picked, with its line.
+      await expect(form.getByRole("combobox", { name: "Press run" })).toContainText("PR-2");
+      await expect(form.getByRole("combobox", { name: "Press line" })).toContainText("P1");
+      await form.getByRole("button", { name: "Issue", exact: true }).click();
+
+      const mine = openIssues.getByTestId("issue-13090-1");
+      await expect(mine).toContainText("Issued to P1");
+      await expect(mine).toContainText("PR-2");
+      await expectClean(page);
+
+      await mine.getByRole("button", { name: "Take back" }).click();
+      await expect(openIssues.getByTestId("issue-13090-1")).toHaveCount(0);
+      await expect(openIssues.getByTestId("issue-14701-1")).toBeVisible();
+    });
+  }
+});
+
+test.describe("files", () => {
+  test("1280: the press drawing goes up in three steps and shows on the card", async ({ page }) => {
+    await open(page, "/dies", { role: "dieroom", width: 1280 });
+    await openTee(page);
+    await openCopy(page, "13090-1");
+    await page.getByRole("tab", { name: "Files" }).click();
+    await page.getByRole("checkbox", { name: /press drawing/i }).click();
+    await page.getByLabel("Add file").setInputFiles({
+      name: "tee-1-25.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"),
+    });
+    const row = page.locator("li").filter({ hasText: "tee-1-25.pdf" });
+    await expect(row).toContainText("Press drawing");
+  });
+});
+
 test.describe("band, lift and the duplicate guard (owner)", () => {
   test("a duplicate band answers 'Already exists' with a link; a new band can take a lift that waits", async ({ page }) => {
     await open(page, "/dies", { role: "owner", width: 820 });

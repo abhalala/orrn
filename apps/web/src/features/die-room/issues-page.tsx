@@ -46,6 +46,7 @@ function IssueForm() {
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
   const [copyId, setCopyId] = useState("");
+  const [runId, setRunId] = useState("");
   const [lineId, setLineId] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -55,13 +56,21 @@ function IssueForm() {
     meta: INLINE_ERROR_META,
   });
   const lines = useQuery({ ...trpc.dieInstance.issues.pressLines.queryOptions(), meta: INLINE_ERROR_META });
+  const sectionId = copies.data?.items.find((c) => c.id === copyId)?.sectionId;
+  const runs = useQuery({
+    ...trpc.dieInstance.issues.queuedRuns.queryOptions({ sectionId: sectionId ?? "" }),
+    enabled: Boolean(sectionId),
+    meta: INLINE_ERROR_META,
+  });
 
   const issue = useMutation({
     ...trpc.dieInstance.issues.issue.mutationOptions(),
-    onSuccess: async () => {
+    onSuccess: async (r) => {
       await refresh();
       toast.success(t("dieRoom.issues.issuedToast"));
+      if (r.warnings.some((w) => w.code === "life_reached")) toast.warning(t("dieRoom.issues.lifeReached"));
       setCopyId("");
+      setRunId("");
       setNote("");
       setError(null);
     },
@@ -69,8 +78,11 @@ function IssueForm() {
   });
 
   const copyOptions = (copies.data?.items ?? []).map((c) => ({ value: c.id, label: c.code }));
-  const lineOptions = (lines.data ?? []).map((l) => ({ value: l.id, label: l.code === l.name ? l.code : `${l.code} · ${l.name}` }));
-  const chosenLine = lineId || lineOptions[0]?.value || "";
+  const runList = runs.data ?? [];
+  const runOptions = runList.map((r) => ({ value: r.id, label: r.pressLineCode ? `${r.number} \u00b7 ${r.pressLineCode}` : r.number }));
+  const chosenRun = runList.find((r) => r.id === (runId || runList[0]?.id));
+  const lineOptions = (lines.data ?? []).map((l) => ({ value: l.id, label: l.code === l.name ? l.code : `${l.code} \u00b7 ${l.name}` }));
+  const chosenLine = lineId || chosenRun?.pressLineId || lineOptions[0]?.value || "";
 
   return (
     <Card data-testid="issue-form">
@@ -83,8 +95,36 @@ function IssueForm() {
           fallback={<p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("dieRoom.issues.dieRoomOnly")}</p>}
         >
           <Field label={t("dieRoom.copies.copy")}>
-            <Select value={copyId} onValueChange={setCopyId} options={copyOptions} placeholder={t("dieRoom.issues.pickCopy")} />
+            <Select
+              value={copyId}
+              onValueChange={(v) => {
+                setCopyId(v);
+                setRunId("");
+                setLineId("");
+              }}
+              options={copyOptions}
+              placeholder={t("dieRoom.issues.pickCopy")}
+            />
           </Field>
+          {copyId ? (
+            runs.isSuccess && runList.length === 0 ? (
+              <p role="status" className="m-0 text-[14px] leading-6 text-muted-foreground" data-testid="no-run">
+                {t("dieRoom.issues.noRun")}
+              </p>
+            ) : (
+              <Field label={t("dieRoom.issues.run")}>
+                <Select
+                  value={chosenRun?.id ?? ""}
+                  onValueChange={(v) => {
+                    setRunId(v);
+                    setLineId("");
+                  }}
+                  options={runOptions}
+                  placeholder={t("dieRoom.issues.pickRun")}
+                />
+              </Field>
+            )
+          ) : null}
           <Field label={t("dieRoom.issue.line")}>
             <Select value={chosenLine} onValueChange={setLineId} options={lineOptions} placeholder={t("dieRoom.issues.pickLine")} />
           </Field>
@@ -101,9 +141,15 @@ function IssueForm() {
               loading={issue.isPending}
               onClick={() => {
                 if (!copyId) return setError(t("dieRoom.issues.pickCopy"));
+                if (!chosenRun) return setError(t("dieRoom.issues.pickRun"));
                 if (!chosenLine) return setError(t("dieRoom.issues.pickLine"));
                 setError(null);
-                issue.mutate({ dieInstanceId: copyId, pressLineId: chosenLine, ...(note.trim() ? { note: note.trim() } : {}) });
+                issue.mutate({
+                  dieInstanceId: copyId,
+                  pressLineId: chosenLine,
+                  pressRunId: chosenRun.id,
+                  ...(note.trim() ? { note: note.trim() } : {}),
+                });
               }}
             >
               {t("dieRoom.issue.issue")}
@@ -154,11 +200,11 @@ function OpenIssues() {
             </Button>
           }
         />
-      ) : open.isSuccess && open.data.length === 0 ? (
+      ) : open.isSuccess && open.data.items.length === 0 ? (
         <EmptyState title={t("dieRoom.issues.noneOpen")} body={t("dieRoom.issues.noneOpenBody")} />
       ) : (
         <ul className="m-0 flex list-none flex-col gap-3 p-0" data-testid="open-issues">
-          {(open.data ?? []).map((i) => (
+          {(open.data?.items ?? []).map((i) => (
             <li key={i.id} className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-card p-4" data-testid={`issue-${i.code}`}>
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Link
