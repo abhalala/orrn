@@ -135,6 +135,33 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
         hash: hashPassword,
         verify: verifyPassword,
       },
+      // Forgot password (backlog 9). `/request-password-reset` answers the same neutral message
+      // whether or not the address has an account, and this runs only for one that does. The
+      // email carries a live reset link (a credential): `sendAuthEmail` prints its body only on a
+      // development stack. The authenticator code is untouched: a reset sets the password, the next
+      // sign-in still asks for the code.
+      resetPasswordTokenExpiresIn: 60 * 60,
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, url }) => {
+        // The answer must be the same whether or not the address has an account, so a failed send
+        // (Resend down, bad key) is swallowed here: it must never turn into a 500 that only a real
+        // account gets. The log names the recipient domain only, never the link or the address.
+        try {
+          await sendAuthEmail({
+            to: user.email,
+            subject: "Reset your ORRN password",
+            html: renderOrrnEmailHtml({
+              title: "Reset your password",
+              description: "Someone asked to reset the password for your ORRN account. Click the button below to choose a new password.",
+              buttonText: "Choose a new password",
+              buttonUrl: url,
+              footerText: "If you did not ask for this, you can ignore this email; your password stays as it is. This link works for one hour.",
+            }),
+          });
+        } catch {
+          console.error(`reset email not sent (recipient domain ${user.email.split("@")[1] ?? "unknown"})`);
+        }
+      },
     },
     // uncomment cookieCache setting when ready to deploy to Cloudflare using *.workers.dev domains
     // session: {

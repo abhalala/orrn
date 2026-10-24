@@ -47,7 +47,7 @@ export function companyClock(timezone: string, nowMs: number, locale: string): {
   const hour = Number(
     new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone }).format(at),
   );
-  const date = new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-IN", {
+  const date = new Intl.DateTimeFormat(dateTag(locale), {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -219,9 +219,68 @@ export function startHereIntroKey(steps: readonly StartHereStep[]): MessageKey {
   return steps.filter((s) => s.allowed).length >= 2 ? "today.startHere.body" : "today.startHere.bodyWaiting";
 }
 
-/** Today's lists follow the company modules, as the nav does. */
-export function todaySections(me: Me | null | undefined): { dispatches: boolean; sessions: boolean } {
+/**
+ * Today's lists follow the company modules, as the nav does. A viewer gets the four KPIs only
+ * (`scope: "kpis"`): the server sends the lists empty, so the screen leaves them out instead of
+ * showing "nothing open" for something it was not allowed to read.
+ */
+export function todaySections(
+  me: Me | null | undefined,
+  scope: TodayData["scope"] = "full",
+): { dispatches: boolean; sessions: boolean } {
+  if (scope === "kpis") return { dispatches: false, sessions: false };
   return { dispatches: moduleOn(me, "dispatches"), sessions: moduleOn(me, "bundles") };
+}
+
+/** BCP 47 tag for the dates on Today; digits stay Latin in every language. */
+function dateTag(locale: string): string {
+  return locale === "hi" ? "hi-IN" : locale === "gu" ? "gu-IN" : "en-IN";
+}
+
+function dayText(day: string, locale: string): string {
+  // `day` is a plain calendar date (YYYY-MM-DD): read it as UTC so no zone can move it.
+  return new Intl.DateTimeFormat(dateTag(locale), { day: "numeric", month: "short", timeZone: "UTC", numberingSystem: "latn" }).format(
+    new Date(`${day}T00:00:00Z`),
+  );
+}
+
+export type ProductionDayCaption = {
+  /** "24 Oct": the production day the numbers cover. */
+  day: string;
+  /** "08:00": when it starts (shift 1), or null when no shifts are saved (it starts at midnight). */
+  from: string | null;
+  /** The calendar date now, in the plant's zone, as "24 Oct". */
+  calendar: string;
+  /** True when the calendar date is not the production day (before shift 1 starts): say why. */
+  beforeStart: boolean;
+  /** The shift running now, or null. */
+  shiftName: string | null;
+};
+
+/**
+ * What the Today caption says (FP-PF-05, FP-PF-15): the production day, when it starts, the
+ * calendar date, and the shift now. Before shift 1 starts the production day is yesterday's.
+ */
+export function productionDayCaption(
+  pd: Pick<TodayData["productionDay"], "day" | "startMs" | "shiftsSet" | "shift">,
+  timezone: string,
+  locale: string,
+  nowMs: number,
+): ProductionDayCaption {
+  const zone = validZone(timezone);
+  const calendarDay = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: zone }).format(new Date(nowMs));
+  return {
+    day: dayText(pd.day, locale),
+    from: pd.shiftsSet ? clockTime(zone)(pd.startMs) : null,
+    calendar: dayText(calendarDay, locale),
+    beforeStart: pd.shiftsSet && calendarDay !== pd.day,
+    shiftName: pd.shift?.name ?? null,
+  };
+}
+
+/** Rupees with Indian grouping and two decimals, from paise. */
+export function formatRupees(paise: number): string {
+  return `\u20B9${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export type TodayTile = NavItem & { key: "pack" | "dispatch" | "stock" | "guides"; hintKey: MessageKey };

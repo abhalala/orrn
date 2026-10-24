@@ -95,6 +95,49 @@ describe("magic links cannot stand in for the second factor (FP-PF-08)", () => {
     });
   }
 
+  describe("a browser that asked to be sent back on an error (errorCallbackURL on a trusted origin)", () => {
+    let trusted: ReturnType<AuthModule["createAuth"]>;
+    beforeAll(async () => {
+      const { workersEnv } = await import("./env-mock");
+      workersEnv.CORS_ORIGIN = "https://app.test";
+      trusted = (await import("@orrn/auth")).buildAuthForTests();
+    });
+    afterAll(async () => {
+      const { workersEnv } = await import("./env-mock");
+      delete workersEnv.CORS_ORIGIN;
+    });
+
+    const verifyBack = (instance: typeof trusted, token: string, errorCallbackURL: string) =>
+      instance.handler(
+        new Request(
+          `https://api.test/api/auth/magic-link/verify?token=${encodeURIComponent(token)}&callbackURL=${encodeURIComponent("https://app.test/setup-credentials")}&errorCallbackURL=${encodeURIComponent(errorCallbackURL)}`,
+          { method: "GET", headers: { origin: "https://app.test" }, redirect: "manual" },
+        ),
+      );
+
+    test("a refused link redirects to /continue with ?error=ACCOUNT_USES_PASSWORD; token gone, no session", async () => {
+      const u = await makeUser({ password: true, twoFactor: true });
+      const { token, identifier } = await issueLink(u.email);
+      const res = await verifyBack(trusted, token, "https://app.test/continue");
+      expect(res.status).toBe(302);
+      const location = new URL(res.headers.get("location")!);
+      expect(location.origin + location.pathname).toBe("https://app.test/continue");
+      expect(location.searchParams.get("error")).toBe("ACCOUNT_USES_PASSWORD");
+      expect(await sessionsOf(u.id)).toBe(0);
+      expect(await verificationRows(identifier)).toBe(0);
+    });
+
+    test("an errorCallbackURL on an untrusted origin, or a relative one, still gets the 403 (no open redirect)", async () => {
+      for (const back of ["https://evil.test/continue", "/continue", "javascript:alert(1)"]) {
+        const u = await makeUser({ password: true, twoFactor: false });
+        const { token } = await issueLink(u.email);
+        const res = await verifyBack(trusted, token, back);
+        expect({ back, status: res.status }).toEqual({ back, status: 403 });
+        expect(await sessionsOf(u.id)).toBe(0);
+      }
+    });
+  });
+
   test("a magic-link-only account (no password, no 2FA yet) still signs in by link", async () => {
     const u = await makeUser({ password: false, twoFactor: false });
     const { token } = await issueLink(u.email);

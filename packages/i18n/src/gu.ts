@@ -104,6 +104,14 @@ export const gu = {
     kgPerM: "kg/m",
     percent: "{value}%",
   },
+  status: {
+    dispatch: {
+      draft: "બની રહ્યું છે",
+      reserved: "હોલ્ડ પર",
+      completed: "Dispatch થયું",
+      cancelled: "રદ",
+    },
+  },
   today: {
     title: "આજે",
     greetingMorning: "નમસ્તે, {name}",
@@ -191,6 +199,23 @@ export const gu = {
       afterDie: "Die ઉમેરાયા પછી",
     },
     shiftNow: "{shift} શિફ્ટ, {day}",
+    productionDay: "પ્રોડક્શન દિવસ {date}, {time} થી",
+    productionDayMidnight: "પ્રોડક્શન દિવસ {date}, રાત્રે 12 વાગ્યાથી",
+    calendarDate: "કૅલેન્ડર તારીખ {date}",
+    beforeStart: "{time} પહેલાનો સમય આગલા દિવસમાં ગણાય છે.",
+    clockNow: "ઘડિયાળ {time}",
+    kpi: {
+      packed: "પૅક થયું kg",
+      packedMeta: "પ્રોડક્શનનો આ દિવસ",
+      bundles: "Bundle",
+      bundlesMeta: "આ પ્રોડક્શન દિવસે પૅક થયા",
+      dispatched: "Dispatch થયું kg",
+      dispatchedMeta: "આ પ્રોડક્શન દિવસે સ્ટોકમાંથી ગયું",
+      stock: "સ્ટોકમાં",
+      stockMeta: "હમણાં {count} bundle",
+      value: "Dispatchની કિંમત",
+      valueMeta: "{count} bundle પર રેટ છે",
+    },
     floor: {
       heading: "ફ્લોર",
       press: "પ્રેસ",

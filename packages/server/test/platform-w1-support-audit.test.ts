@@ -168,6 +168,22 @@ describe("audit viewer (FP-PF-16)", () => {
     expect(seen.length).toBe(10);
   });
 
+  test("actions takes several prefixes and exact codes at once (one Kind covers die_instance., nitriding. and the like)", async () => {
+    const { companyId, users } = await env.seedCompany();
+    await seedAudit(companyId, users.packer.id, 2, { action: "die.update", subjectType: "die" });
+    await seedAudit(companyId, users.packer.id, 2, { action: "die_instance.create", subjectType: "die_instance" });
+    await seedAudit(companyId, users.packer.id, 1, { action: "nitriding.add", subjectType: "die_instance" });
+    await seedAudit(companyId, users.packer.id, 3, { action: "dispatch.complete", subjectType: "dispatch" });
+    await seedAudit(companyId, users.packer.id, 1, { action: "move_found", subjectType: "bundle" });
+    const manager = env.caller({ role: "manager", companyId });
+    expect((await manager.audit.list({ actions: ["die.", "die_instance.", "nitriding."] })).items).toHaveLength(5);
+    expect((await manager.audit.list({ actions: ["die.", "move_found"] })).items).toHaveLength(3);
+    expect((await manager.audit.list({ actions: ["die"] })).items).toHaveLength(0);
+    // `_` in a prefix is literal: "die_" must not match "die.update".
+    expect((await manager.audit.list({ actions: ["die_instance."] })).items).toHaveLength(2);
+    await expect(manager.audit.list({ actions: [] })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
   test("default from = auditRetentionDays ago (a filter, not a delete); forSubject caps at 50", async () => {
     const { companyId, users } = await env.seedCompany();
     await seedAudit(companyId, users.owner.id, 2, { action: "old.thing", at: Date.now() - 400 * 86_400_000 });

@@ -24,8 +24,12 @@ export function hasMessages(locale: "en" | "hi" | "gu"): boolean {
 const LOADERS: Record<"en" | "hi" | "gu", () => Promise<Messages>> = {
   en: () => import("./en").then((m) => m.en),
   hi: () => import("./hi").then((m) => m.hi),
-  // Partial: missing keys fall back to English in createI18n.
-  gu: () => import("./gu").then((m) => m.gu as unknown as Messages),
+  // Partial: missing keys fall back to English in createI18n, so the full English comes with it
+  // (the entry only has the public subset: without it a gu page would print raw keys).
+  gu: async () => {
+    await loadMessages("en");
+    return import("./gu").then((m) => m.gu as unknown as Messages);
+  },
 };
 
 const pending: Partial<Record<"en" | "hi" | "gu", Promise<void>>> = {};

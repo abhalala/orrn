@@ -1,6 +1,7 @@
 import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, TextInput } from "@orrn/ui/components/field";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { authClient } from "@/shared/lib/auth-client";
@@ -200,6 +201,13 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
               invalid={credentialsWrong}
               error={fieldErrors.password && t(fieldErrors.password)}
             />
+            <Link
+              to="/forgot-password"
+              data-testid="forgot-link"
+              className="-mt-3 inline-flex min-h-11 w-fit items-center text-[15px] font-semibold text-foreground underline decoration-control underline-offset-4 hover:decoration-foreground"
+            >
+              {t("auth.login.forgot")}
+            </Link>
           </>
         ) : mode === "totp" ? (
           <CodeField

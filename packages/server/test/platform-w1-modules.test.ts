@@ -209,6 +209,37 @@ describe("platform.updatePlanAndModules (platform.companies.update)", () => {
   });
 });
 
+describe("platform.companiesAudit (Audit tab of /admin/companies/$id)", () => {
+  test("staff read one plant's trail, filtered and paged; plant roles cannot; unknown plant is Not found", async () => {
+    const a = await env.seedCompany();
+    const b = await env.seedCompany();
+    const staff = env.caller({ platformRole: "admin" });
+    await staff.platform.updatePlanAndModules({ companyId: a.companyId, plan: "growth", modules: ["dies"] });
+    await staff.platform.updatePlanAndModules({ companyId: a.companyId, plan: "growth", modules: ["dies", "bundles"] });
+    await staff.platform.updatePlanAndModules({ companyId: b.companyId, plan: "growth", modules: ["dies"] });
+
+    const page = await staff.platform.companiesAudit({ companyId: a.companyId, action: "platform.company.modules.update", limit: 1 });
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toMatchObject({ action: "platform.company.modules.update", subjectId: a.companyId });
+    expect(page.nextCursor).not.toBeNull();
+    const rest = await staff.platform.companiesAudit({
+      companyId: a.companyId,
+      action: "platform.company.modules.update",
+      cursor: page.nextCursor!,
+    });
+    expect(rest.items).toHaveLength(1);
+    expect(rest.items[0]!.id).not.toBe(page.items[0]!.id);
+    // Only that plant's rows.
+    const all = await staff.platform.companiesAudit({ companyId: a.companyId });
+    expect(all.items.every((r) => r.subjectId !== b.companyId)).toBe(true);
+
+    await expect(
+      env.caller({ role: "owner", companyId: a.companyId }).platform.companiesAudit({ companyId: a.companyId }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(staff.platform.companiesAudit({ companyId: "no-such-company" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../db/src/migrations");
 const LEGACY_MODULES = ["customers", "dies", "bundles", "dispatches"];
 

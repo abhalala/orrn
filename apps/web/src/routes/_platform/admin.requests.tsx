@@ -12,9 +12,14 @@ import { formatAgo, formatDay } from "@/features/admin/format";
 import { showsLoadError } from "@/features/admin/query-state";
 import { SignInDetailsSheet } from "@/features/admin/sign-in-details";
 import type { AwaitingRow, SignInDetails, WaitlistRow } from "@/features/admin/types";
-import { ConfirmDialog, errorText, LoadError, Panel, useLastValue } from "@/features/admin/ui";
+import { ConfirmDialog, errorCode, errorText, LoadError, Panel, useLastValue } from "@/features/admin/ui";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
+
+/** A toast action that opens the Forgot password page in a new tab. */
+function forgotPasswordAction(label: string) {
+  return { label, onClick: () => void window.open("/forgot-password", "_blank", "noopener") };
+}
 
 export const Route = createFileRoute("/_platform/admin/requests")({
   component: AdminRequests,
@@ -74,6 +79,8 @@ function AdminRequests() {
         // staffer's role may not issue links (support).
         toast.warning(
           t(result.signInRefused === "has_password" ? "admin.requests.approvedHasPassword" : "admin.requests.approvedAskAdmin"),
+          // The owner's way back in is the Forgot password page: open it so the address can be shared.
+          result.signInRefused === "has_password" ? { action: forgotPasswordAction(t("auth.continue.forgotLink")) } : undefined,
         );
         await refresh();
         setDecision(null);
@@ -107,6 +114,7 @@ function AdminRequests() {
           BAD_REQUEST: t("admin.requests.alreadyHandled"),
           CONFLICT: t("admin.requests.hasPassword"),
         }),
+        errorCode(err) === "CONFLICT" ? { action: forgotPasswordAction(t("auth.continue.forgotLink")) } : undefined,
       );
       // A CONFLICT means the owner has a password now: they leave the list.
       await qc.invalidateQueries({ queryKey: trpc.platform.waitlistAwaitingSignIn.queryKey() });

@@ -1,5 +1,6 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
+import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Skeleton } from "@orrn/ui/components/skeleton";
@@ -27,8 +28,10 @@ import {
   greetingKey,
   inStock,
   needsStartHere,
+  productionDayCaption,
   todaySections,
   todayTiles,
+  type TodayData,
 } from "./today-model";
 import { TodaySectionSkeleton } from "./today-section";
 
@@ -94,7 +97,8 @@ export function TodayScreen() {
   const timezone = today.data?.timezone ?? (typeof configured === "string" && configured ? configured : DEFAULT_TIMEZONE);
   const clock = companyClock(timezone, now, locale);
   const name = me?.user.name?.trim() || me?.user.email || "";
-  const sections = todaySections(me);
+  // Lists follow the modules, and a viewer's KPI-only answer has none (todaySections, scope).
+  const sections = todaySections(me, today.data?.scope);
 
   // Same number of tile placeholders as real tiles (none for viewers), so nothing jumps on load.
   const tileCount = todayTiles(me).length;
@@ -104,6 +108,7 @@ export function TodayScreen() {
   const header = (
     <div className="flex min-w-0 flex-col">
       <PageHeader title={t(greetingKey(clock.hour), { name })} subtitle={clock.date} />
+      {today.data ? <DayCaption data={today.data} timezone={timezone} now={now} /> : null}
       <div role="status">
         {refreshFailed(today) ? (
           <div
@@ -207,5 +212,34 @@ export function TodayScreen() {
         </ChartsBoundary>
       </Can>
     </>
+  );
+}
+
+/**
+ * The production day these numbers cover (FP-PF-05): "Production day 24 Oct, from 08:00" (or "from
+ * midnight" until shifts are saved), the calendar date and plant clock, the shift running now, and
+ * when the calendar date is a day ahead of the production day, why (before shift 1 starts).
+ */
+function DayCaption({ data, timezone, now }: { data: TodayData; timezone: string; now: number }) {
+  const { t, locale } = useT();
+  const caption = productionDayCaption(data.productionDay, timezone, locale, now);
+  return (
+    <div className="mt-3 flex min-w-0 flex-col gap-1" data-testid="production-day">
+      <p className="m-0 font-display text-[19px] leading-snug font-bold tracking-[-0.02em] break-words sm:text-[22px]" data-testid="production-day-caption">
+        {caption.from
+          ? t("today.productionDay", { date: caption.day, time: caption.from })
+          : t("today.productionDayMidnight", { date: caption.day })}
+      </p>
+      <p className="m-0 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-5 text-muted-foreground">
+        <span>{t("today.calendarDate", { date: caption.calendar })}</span>
+        <span className="tabular-nums">{t("today.clockNow", { time: clockTime(timezone)(now) })}</span>
+        {caption.shiftName ? <Chip tone="blue">{caption.shiftName}</Chip> : null}
+      </p>
+      {caption.beforeStart && caption.from ? (
+        <p className="m-0 text-[13px] leading-5 text-muted-foreground" data-testid="production-day-note">
+          {t("today.beforeStart", { time: caption.from })}
+        </p>
+      ) : null}
+    </div>
   );
 }
