@@ -1159,7 +1159,6 @@ export const en = {
       inUse: "In use",
       retired: "Retired",
     },
-    search: "Search",
     order: "Position in lists",
     orderHint: "Lower numbers come first.",
     orderInvalid: "Use a whole number from 0 to 10,000.",
@@ -1475,7 +1474,6 @@ export const en = {
         cancelled: "Cancelled",
       },
       notFound: "This vendor doesn't exist in this company.",
-      more: "More vendor actions",
     },
     form: {
       addTitle: "Add vendor",

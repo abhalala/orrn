@@ -1153,7 +1153,6 @@ export const hi = {
       inUse: "चालू",
       retired: "बंद",
     },
-    search: "खोजें",
     order: "लिस्ट में जगह",
     orderHint: "छोटा नंबर पहले आता है।",
     orderInvalid: "0 से 10,000 तक का पूरा नंबर डालें।",
@@ -1469,7 +1468,6 @@ export const hi = {
         cancelled: "रद्द",
       },
       notFound: "यह पार्टी इस कंपनी में नहीं है।",
-      more: "पार्टी के और काम",
     },
     form: {
       addTitle: "पार्टी जोड़ें",

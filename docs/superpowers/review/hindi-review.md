@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 1393 screen strings in 28 groups, 10 guides with 182 strings.
+Counts: 1391 screen strings in 28 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -1027,7 +1027,7 @@ Counts: 1393 screen strings in 28 groups, 10 guides with 182 strings.
 | `data.submit` | Import {count} {count:row\|rows} | {count} लाइन इम्पोर्ट करें |
 | `data.imported` | {count} {count:row\|rows} imported | {count} लाइन इम्पोर्ट हो {count:गई\|गईं} |
 
-### masters (208)
+### masters (207)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1061,7 +1061,6 @@ Counts: 1393 screen strings in 28 groups, 10 guides with 182 strings.
 | `showAll` | All | सभी |
 | `status.inUse` | In use | चालू |
 | `status.retired` | Retired | बंद |
-| `search` | Search | खोजें |
 | `order` | Position in lists | लिस्ट में जगह |
 | `orderHint` | Lower numbers come first. | छोटा नंबर पहले आता है। |
 | `orderInvalid` | Use a whole number from 0 to 10,000. | 0 से 10,000 तक का पूरा नंबर डालें। |
@@ -1240,7 +1239,7 @@ Counts: 1393 screen strings in 28 groups, 10 guides with 182 strings.
 | `dieCopies.form.added` | Die copy {code} added | Die कॉपी {code} जुड़ गई |
 | `dieCopies.errors.sectionArchived` | That section is archived. Bring it back before adding copies. | यह सेक्शन बंद है। कॉपी जोड़ने से पहले इसे फिर से चालू करें। |
 
-### vendors (117)
+### vendors (116)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1320,7 +1319,6 @@ Counts: 1393 screen strings in 28 groups, 10 guides with 182 strings.
 | `page.lotStatus.ok` | OK | OK |
 | `page.lotStatus.cancelled` | Cancelled | रद्द |
 | `page.notFound` | This vendor doesn't exist in this company. | यह पार्टी इस कंपनी में नहीं है। |
-| `page.more` | More vendor actions | पार्टी के और काम |
 | `form.addTitle` | Add vendor | पार्टी जोड़ें |
 | `form.editTitle` | Edit vendor | पार्टी बदलें |
 | `form.name` | Name | नाम |
