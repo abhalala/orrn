@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import alchemy, { Resource } from "alchemy";
-import { D1Database, Vite, Worker } from "alchemy/cloudflare";
+import { D1Database, R2Bucket, Vite, Worker } from "alchemy/cloudflare";
 import { CloudflareStateStore } from "alchemy/state";
 import type { Scope } from "alchemy";
 import { config } from "dotenv";
@@ -134,6 +134,9 @@ const db = await D1Database("database", {
   migrationsDir: "../db/src/migrations",
 });
 
+/** Die drawings, photos and trial sheets (FP-DR-09, LEDGER D10): uploaded by signed PUT, read by signed GET. */
+const dieFiles = await R2Bucket("die-files", { adopt: true });
+
 
 const LegacySpoolReleasesBucket = Resource(
   "internal::LegacySpoolReleasesState",
@@ -179,6 +182,7 @@ export const server = await Worker("server", {
   adopt: true,
   bindings: {
     DB: db,
+    DIE_FILES: dieFiles,
     NODE_ENV: isDevStage ? (process.env.NODE_ENV ?? "development") : "production",
     CORS_ORIGIN: corsOrigin,
     CORS_ALLOWED_ORIGINS: corsAllowedOrigins,
