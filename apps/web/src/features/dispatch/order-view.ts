@@ -43,7 +43,6 @@ export type Suggested = {
   weightG: number;
   pcs: number;
   fits: boolean;
-  unassigned: boolean;
 };
 
 /** The two groups in the order the sheet lists them: the order's own stock, then plant stock. */
@@ -54,10 +53,4 @@ export function suggestGroups<T extends Pick<Suggested, "group">>(items: readonl
 /** The serials "Add all" sends: everything that fits the baki, in the listed order. */
 export function addAllSerials(items: readonly Pick<Suggested, "serial" | "fits">[]): string[] {
   return items.filter((i) => i.fits).map((i) => i.serial);
-}
-
-/** Whether adding these needs the office's `allowUnassigned` (a bundle on no order line). */
-export function needsAllowUnassigned(items: readonly Pick<Suggested, "serial" | "fits" | "unassigned">[], serials: readonly string[]): boolean {
-  const set = new Set(serials);
-  return items.some((i) => set.has(i.serial) && i.unassigned);
 }

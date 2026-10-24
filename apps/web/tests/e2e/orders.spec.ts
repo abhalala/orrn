@@ -67,6 +67,18 @@ async function blockingAxeViolations(page: Page) {
     .map((v) => ({ id: v.id, help: v.help, targets: v.nodes.slice(0, 5).map((n) => n.target.join(" ")) }));
 }
 
+/** The plant has two presses (W2 seed): a plan needs one named. Picks the first on the board. */
+async function pickPress(page: Page) {
+  const select = page.getByLabel("Press", { exact: true });
+  if ((await select.count()) > 0) await select.selectOption({ index: 1 });
+}
+
+/** The first press line's id, for plans made over the API. */
+async function firstPressLine(page: Page) {
+  const lines = await trpcQuery<{ id: string }[]>(page, "plans.pressLines", {});
+  return lines[0]!.id;
+}
+
 function toast(page: Page, text: string) {
   return page.locator("[data-sonner-toast]").filter({ hasText: text });
 }
@@ -117,8 +129,9 @@ test.describe("orders list and detail", () => {
       // Only SO-1 is past 15 days.
       await expect(main.getByText(/Late, \d+ days/)).toHaveCount(1);
       // Other tests in this file book and confirm orders of their own, so these are "at least".
-      await expect(main.getByText("Booking", { exact: true }).first()).toBeVisible();
-      await expect(main.getByText("Confirmed", { exact: true }).first()).toBeVisible();
+      // (the Status filter's options say the same words: look at the chips)
+      await expect(main.locator("[data-slot='chip']").filter({ hasText: /^Booking$/ }).first()).toBeVisible();
+      await expect(main.locator("[data-slot='chip']").filter({ hasText: /^Confirmed$/ }).first()).toBeVisible();
       await expectNoHorizontalScroll(page);
       await expectNoClippedText(page, "main#main");
       await shot(page, `list-${width}`);
@@ -364,6 +377,7 @@ test.describe("press plan", () => {
     await expect(candidate).toContainText("PO-118");
     await expect(candidate).toContainText(/kg to plan/);
     await candidate.getByRole("button", { name: "Add" }).click();
+    await pickPress(page);
     await expect(page.locator("[data-candidate='SO-2']")).toHaveCount(0);
     await expect(page.locator("[data-draft-die]")).toHaveCount(1);
     await expect(page.getByRole("button", { name: "Save draft plan" })).toBeEnabled();
@@ -410,6 +424,7 @@ test.describe("press plan", () => {
     await settled(page);
     await page.getByRole("textbox", { name: "Search open lines" }).fill(a.po);
     await page.locator(`[data-add-all='${a.number}']`).first().click();
+    await pickPress(page);
     await expect(page.locator("[data-draft-die]")).toHaveCount(2);
     await expect(page.locator("[data-draft-footer]")).toHaveText("2 dies, 2 lines");
 
@@ -515,6 +530,7 @@ test.describe("edit lines (review I-1)", () => {
     // Released to the press: its figures are fixed, and the refusal reads as a sentence.
     const now = Date.now();
     const plan = await trpcMutation<{ id: string }>(page, "plans.create", {
+      pressLineId: await firstPressLine(page),
       windowStart: now,
       windowEnd: now + 3_600_000,
       dies: [{ sectionId: "dev-die-14701", lines: [{ salesOrderLineId: made.lines[0]!.lineId, pcs: 2 }] }],

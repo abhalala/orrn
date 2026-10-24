@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { addAllSerials, needsAllowUnassigned, orderState, otherOrderItems, suggestGroups } from "./order-view";
+import { addAllSerials, orderState, otherOrderItems, suggestGroups } from "./order-view";
 
 describe("orderState", () => {
   const base = { bakiG: 1_000_000, onDispatchG: 0, overG: 0 };
@@ -27,9 +27,9 @@ describe("otherOrderItems", () => {
 
 describe("suggestions", () => {
   const items = [
-    { id: "1", serial: "26J1", group: "order" as const, weightG: 120_000, pcs: 10, fits: true, unassigned: false },
-    { id: "2", serial: "26J2", group: "order" as const, weightG: 120_000, pcs: 10, fits: false, unassigned: false },
-    { id: "3", serial: "26J3", group: "plant" as const, weightG: 100_000, pcs: 8, fits: true, unassigned: true },
+    { id: "1", serial: "26J1", group: "order" as const, weightG: 120_000, pcs: 10, fits: true },
+    { id: "2", serial: "26J2", group: "order" as const, weightG: 120_000, pcs: 10, fits: false },
+    { id: "3", serial: "26J3", group: "plant" as const, weightG: 100_000, pcs: 8, fits: true },
   ];
   test("the order's stock first, plant stock second", () => {
     const g = suggestGroups(items);
@@ -39,9 +39,5 @@ describe("suggestions", () => {
   test("add all sends what fits, in the listed order", () => {
     expect(addAllSerials(items)).toEqual(["26J1", "26J3"]);
     expect(addAllSerials([])).toEqual([]);
-  });
-  test("a bundle on no order line needs the office's allowUnassigned", () => {
-    expect(needsAllowUnassigned(items, ["26J1"])).toBe(false);
-    expect(needsAllowUnassigned(items, ["26J1", "26J3"])).toBe(true);
   });
 });

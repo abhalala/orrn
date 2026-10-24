@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3424 screen strings in 43 groups, 16 guides with 292 strings.
+Counts: 3423 screen strings in 43 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -790,7 +790,7 @@ Counts: 3424 screen strings in 43 groups, 16 guides with 292 strings.
 | `ambiguousTitle` | Which bundle? | कौन सा bundle? |
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 
-### dispatch (170)
+### dispatch (169)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -824,7 +824,6 @@ Counts: 3424 screen strings in 43 groups, 16 guides with 292 strings.
 | `suggest.plant` | Plant stock, same die and length | प्लांट स्टॉक, वही die और लंबाई |
 | `suggest.forLine` | line {n} | लाइन {n} |
 | `suggest.held` | Held for this line | इस लाइन के लिए रोका हुआ |
-| `suggest.unassigned` | Not on an order | किसी ऑर्डर पर नहीं |
 | `suggest.pastBaki` | Past the baki | बाकी से ज़्यादा |
 | `suggest.cut` | The list is cut. Add these and ask again. | सूची कटी हुई है। इन्हें जोड़कर फिर देखें। |
 | `title` | Dispatch | Dispatch |
@@ -3157,7 +3156,7 @@ Please check, Lalubhai:
 | `plan.view.die` | By die | Die के हिसाब से |
 | `plan.view.order` | By order | ऑर्डर के हिसाब से |
 | `plan.view.flat` | All lines | सारी लाइनें |
-| `plan.draftFooterSo` | {orders} {orders:order\|orders}, {dies} {dies:die\|dies}, {lines} {lines:line\|lines} | {orders} ऑर्डर, {dies} die, {lines} लाइन |
+| `plan.draftOrders` | {orders} {orders:sales order\|sales orders} on the draft | ड्राफ़्ट में {orders} ऑर्डर |
 | `plan.openOrder` | Open the order | ऑर्डर खोलें |
 | `plan.subtitle` | Group open lines by die, set the window, release to the press. | खुली लाइनें die के हिसाब से जोड़ें, समय तय करें, प्रेस को भेजें। |
 | `plan.biggerTitle` | Use a bigger screen | बड़ी स्क्रीन पर खोलें |

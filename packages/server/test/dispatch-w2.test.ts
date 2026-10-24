@@ -207,24 +207,20 @@ describe("dispatch.suggestBundles", () => {
     expect((await p.owner.dispatch.getDispatch({ id })).salesOrder!.progress.lines[0]).toMatchObject({ onDispatchG: kg(240), leftG: kg(60) });
   }, SLOW);
 
-  test("unassigned stock is offered to the office only; the pick must be a dispatch of an order", async () => {
+  test("legacy stock on no order line is never suggested, even to the office; the dispatch must be an order's, still open", async () => {
     const p = await opPlant();
     const s = await p.section();
     await p.copy(s, { milli: 12_000 });
     const o = await p.confirmedOrder([{ sectionId: s, kgG: kg(1_000) }]);
-    const legacy = await p.pack(s, [{ kg: 120 }]); // on no line, never moved: legacy / unassigned
+    await p.pack(s, [{ kg: 120 }]); // on no line, never moved: legacy / unassigned
     const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
 
-    const office = await p.as("office").dispatch.suggestBundles({ id });
-    expect(office.items.map((i) => [i.serial, i.group, i.unassigned])).toEqual([[legacy[0]!, "plant", true]]);
-    // A packer scans; unassigned stock is not theirs to add, so it is not offered.
-    const packer = await p.as("packer").dispatch.suggestBundles({ id });
-    expect(packer.items).toEqual([]);
+    expect((await p.as("office").dispatch.suggestBundles({ id })).items).toEqual([]);
+    expect((await p.as("packer").dispatch.suggestBundles({ id })).items).toEqual([]);
 
     const plain = await p.owner.dispatch.create({ customerId: p.customerId });
     await expect(p.owner.dispatch.suggestBundles({ id: plain.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(p.as("viewer").dispatch.suggestBundles({ id })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await p.owner.dispatch.reserve({ id }).catch(() => undefined);
     await p.owner.dispatch.cancel({ id });
     await expect(p.owner.dispatch.suggestBundles({ id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   }, SLOW);

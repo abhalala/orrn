@@ -85,7 +85,7 @@ function Figure({ k, label, g, pcs, open }: { k: string; label: string; g: numbe
         {orderKgText(g)} {t("units.kg")}
       </dd>
       {pcs != null ? (
-        <dd className="m-0 text-[13px] tabular-nums opacity-80">
+        <dd className={open ? "m-0 text-[13px] tabular-nums" : "m-0 text-[13px] tabular-nums text-muted-foreground"}>
           {pcsText(pcs)} {t("units.pcs")}
         </dd>
       ) : null}

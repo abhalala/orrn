@@ -119,8 +119,6 @@ export type SuggestedBundle = {
   fits: boolean;
   /** Held for that line in the yard (FP-OP-17). */
   held: boolean;
-  /** On no order line and not moved to plant stock: only the office (order.manage) may add it. */
-  unassigned: boolean;
   packedAt: number;
 };
 
@@ -132,7 +130,7 @@ export async function suggestBundlesFor(
   db: OrrnDb,
   companyId: string,
   d: { id: string; customerId: string; salesOrderId: string },
-  opts: { limit: number; allowUnassigned: boolean },
+  opts: { limit: number },
 ): Promise<{
   items: SuggestedBundle[];
   progress: OrderProgress;
@@ -223,10 +221,11 @@ export async function suggestBundlesFor(
     [...found.keys()],
     found,
     new Map(),
-    { allowUnassigned: opts.allowUnassigned },
+    // Legacy stock on no order line (never moved to plant stock) is not offered: adding it is a
+    // deliberate act of the office (`allowUnassigned`), not a suggestion.
+    { allowUnassigned: false },
   );
   const ok = new Set(results.filter((r) => r.outcome === "added").map((r) => r.bundleId));
-  const unassigned = new Set(results.filter((r) => r.outcome === "added" && r.note === "unassigned").map((r) => r.bundleId));
 
   const sections = new Map(
     (
@@ -290,7 +289,6 @@ export async function suggestBundlesFor(
       lineNo: target.lineNo,
       fits,
       held: b.heldForLineId != null,
-      unassigned: unassigned.has(b.id),
       packedAt: b.createdAt.getTime(),
     });
   }

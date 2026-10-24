@@ -1231,7 +1231,7 @@ export const dispatchRouter = router({
    * yard first (on its lines, or held for them), then plant stock of the same die and cut length.
    * Anything a scan would refuse (held, owned die, another customer's, pending reallocation) or that
    * is held for another order's line is left out. `fits` marks what stays within the order's baki,
-   * in the order listed. Add them with `addBundlesBySerial` (office: `allowUnassigned`).
+   * in the order listed. Add them with `addBundlesBySerial`. Legacy stock on no order line is never suggested.
    */
   suggestBundles: actionProcedure("dispatch.addBundle")
     .input(z.object({ id: z.string().min(1).max(64), limit: z.number().int().min(1).max(SUGGEST_MAX).default(200) }))
@@ -1248,7 +1248,7 @@ export const dispatchRouter = router({
         ctx.db,
         ctx.companyId,
         { id: d.id, customerId: d.customerId, salesOrderId: d.salesOrderId },
-        { limit: input.limit, allowUnassigned: can({ company: { role: ctx.role }, isPlatformAdmin: ctx.isPlatformAdmin ?? false, platformRole: null }, "order.manage") },
+        { limit: input.limit },
       );
     }),
 

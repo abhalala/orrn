@@ -13,8 +13,7 @@ import { orderKgText, pcsText } from "@/features/orders/format";
 import { addOutcome, renderScanMessage, scanErrorKey, type AddBundlesReport } from "@/features/scan/scan-outcome";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { useCan } from "./hooks";
-import { addAllSerials, needsAllowUnassigned, suggestGroups } from "./order-view";
+import { addAllSerials, suggestGroups } from "./order-view";
 
 /**
  * "Suggest bundles" for a dispatch opened from a sales order (FP-PK-17): this order's stock in the
@@ -36,7 +35,6 @@ export function SuggestSheet({
   onAdded(report: AddBundlesReport): void;
 }) {
   const { t } = useT();
-  const can = useCan();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState<string | "all" | null>(null);
   const [message, setMessage] = useState("");
@@ -54,7 +52,6 @@ export function SuggestSheet({
       const report = await trpcClient.dispatch.addBundlesBySerial.mutate({
         id: dispatchId,
         serials,
-        ...(can("order.manage") && needsAllowUnassigned(items, serials) ? { allowUnassigned: true } : {}),
       });
       if (report.added.length > 0) setMessage(t("dispatch.suggest.added", { count: report.added.length }));
       else {
@@ -139,11 +136,6 @@ export function SuggestSheet({
                             {b.held ? (
                               <Chip tone="blue" truncate={false}>
                                 {t("dispatch.suggest.held")}
-                              </Chip>
-                            ) : null}
-                            {b.unassigned ? (
-                              <Chip tone="neutral" truncate={false}>
-                                {t("dispatch.suggest.unassigned")}
                               </Chip>
                             ) : null}
                             {!b.fits ? (

@@ -511,7 +511,12 @@ function PlanBuilder() {
           )}
           {draft.length > 0 ? (
             <p data-draft-footer="" className="m-0 font-mono text-[13px] font-semibold tabular-nums">
-              {t("orders.plan.draftFooterSo", { orders: orderCount, dies: counts.dies, lines: counts.lines })}
+              {t("orders.plan.draftFooter", { dies: counts.dies, lines: counts.lines })}
+            </p>
+          ) : null}
+          {draft.length > 0 ? (
+            <p data-draft-orders="" className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
+              {t("orders.plan.draftOrders", { orders: orderCount })}
             </p>
           ) : null}
           {draft.length > 0 ? (
