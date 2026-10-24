@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import type { OrrnDb } from "@orrn/db";
@@ -423,6 +423,61 @@ export const spoolRouter = router({
         .offset(input.offset);
 
       return rows;
+    }),
+
+  /**
+   * The print queue screen: one page of jobs (newest first) with the printer
+   * and bundle each belongs to, plus a count per status. Read-only, scoped to
+   * the company, and it leaves out the label variables and the spool job id
+   * (the screen only needs a reason, a time and what the job is for).
+   */
+  queue: actionProcedure("spool.view_queue")
+    .input(
+      z.object({
+        limit: z.number().int().min(1).max(100).default(50),
+        offset: z.number().int().min(0).default(0),
+        status: z.enum(printStatuses).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const scope = eq(printLog.companyId, ctx.companyId);
+      const filtered = input.status ? and(scope, eq(printLog.status, input.status)) : scope;
+
+      const [rows, grouped] = await Promise.all([
+        ctx.db
+          .select({
+            id: printLog.id,
+            status: printLog.status,
+            attempt: printLog.attempt,
+            responseText: printLog.responseText,
+            layout: printLog.layout,
+            createdAt: printLog.createdAt,
+            updatedAt: printLog.updatedAt,
+            profileName: printerProfile.name,
+            bundleSerial: bundle.serial,
+          })
+          .from(printLog)
+          .innerJoin(
+            printerProfile,
+            and(eq(printerProfile.id, printLog.profileId), eq(printerProfile.companyId, ctx.companyId)),
+          )
+          .leftJoin(bundle, and(eq(bundle.id, printLog.bundleId), eq(bundle.companyId, ctx.companyId)))
+          .where(filtered)
+          .orderBy(desc(printLog.createdAt), desc(printLog.id))
+          .limit(input.limit)
+          .offset(input.offset),
+        ctx.db
+          .select({ status: printLog.status, n: count() })
+          .from(printLog)
+          .where(scope)
+          .groupBy(printLog.status),
+      ]);
+
+      const counts: Record<(typeof printStatuses)[number], number> = { queued: 0, sent: 0, success: 0, failed: 0 };
+      for (const g of grouped) counts[g.status] = g.n;
+      const total = input.status ? counts[input.status] : counts.queued + counts.sent + counts.success + counts.failed;
+
+      return { rows, total, counts };
     }),
 
   getJobStatus: companyProcedure
