@@ -102,6 +102,7 @@ CREATE TABLE `count_session` (
 	`cancelled_at` integer,
 	`cancelled_by` text,
 	`cancel_reason` text,
+	`client_request_id` text,
 	`created_by` text,
 	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	`updated_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
@@ -112,6 +113,7 @@ CREATE TABLE `count_session` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `count_session_company_number_unique` ON `count_session` (`company_id`,`period`,`number`);--> statement-breakpoint
+CREATE UNIQUE INDEX `count_session_company_request_unique` ON `count_session` (`company_id`,`client_request_id`) WHERE "count_session"."client_request_id" is not null;--> statement-breakpoint
 CREATE INDEX `count_session_company_status_idx` ON `count_session` (`company_id`,`status`,`created_at`);--> statement-breakpoint
 CREATE INDEX `count_session_company_server_seq_idx` ON `count_session` (`company_id`,`server_seq`);--> statement-breakpoint
 CREATE TABLE `count_tally` (
@@ -135,4 +137,5 @@ CREATE TABLE `count_tally` (
 );
 --> statement-breakpoint
 CREATE INDEX `count_tally_company_session_idx` ON `count_tally` (`company_id`,`session_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `count_tally_session_location_die_unique` ON `count_tally` (`company_id`,`session_id`,(case when "location_id" is null then '' else "location_id" end),(case when "die_id" is null then '' else "die_id" end));--> statement-breakpoint
 CREATE INDEX `count_tally_company_server_seq_idx` ON `count_tally` (`company_id`,`server_seq`);

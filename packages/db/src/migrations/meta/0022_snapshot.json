@@ -1804,6 +1804,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "client_request_id": {
+          "name": "client_request_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_by": {
           "name": "created_by",
           "type": "text",
@@ -1837,6 +1844,15 @@
             "number"
           ],
           "isUnique": true
+        },
+        "count_session_company_request_unique": {
+          "name": "count_session_company_request_unique",
+          "columns": [
+            "company_id",
+            "client_request_id"
+          ],
+          "isUnique": true,
+          "where": "\"count_session\".\"client_request_id\" is not null"
         },
         "count_session_company_status_idx": {
           "name": "count_session_company_status_idx",
@@ -2012,6 +2028,16 @@
             "session_id"
           ],
           "isUnique": false
+        },
+        "count_tally_session_location_die_unique": {
+          "name": "count_tally_session_location_die_unique",
+          "columns": [
+            "company_id",
+            "session_id",
+            "(case when \"location_id\" is null then '' else \"location_id\" end)",
+            "(case when \"die_id\" is null then '' else \"die_id\" end)"
+          ],
+          "isUnique": true
         },
         "count_tally_company_server_seq_idx": {
           "name": "count_tally_company_server_seq_idx",
@@ -9607,6 +9633,17 @@
     "columns": {}
   },
   "internal": {
-    "indexes": {}
+    "indexes": {
+      "count_tally_session_location_die_unique": {
+        "columns": {
+          "(case when \"location_id\" is null then '' else \"location_id\" end)": {
+            "isExpression": true
+          },
+          "(case when \"die_id\" is null then '' else \"die_id\" end)": {
+            "isExpression": true
+          }
+        }
+      }
+    }
   }
 }

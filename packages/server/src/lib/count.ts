@@ -393,7 +393,7 @@ export function closeStatements(ctx: CloseCtx, session: CountScope): SqliteBatch
           ),
         ),
     ),
-    // Variance per (yard, die), frozen (keys follow count_tally's column order).
+    // Variance per (yard, section), frozen (keys follow count_tally's column order).
     db.insert(countTally).select(
       db
         .select({
@@ -544,15 +544,18 @@ type VarianceFigures = {
 
 /** Per counted yard; `locationId` NULL = bundles with no place (a count with `include_unplaced`). */
 export type CountVarianceLocation = { locationId: string | null; locationCode: string | null } & VarianceFigures;
-/** Per die (section); `dieId` NULL = codes that resolved to no bundle. */
-export type CountVarianceDie = { dieId: string | null; sectionCode: string | null } & VarianceFigures;
+/**
+ * Per section: `bundle.die_id`, the `die` catalogue row (12170 Domal), NOT a physical die copy
+ * (`die_instance`, the oblique code). `dieId` NULL = codes that resolved to no bundle.
+ */
+export type CountVarianceSection = { dieId: string | null; sectionCode: string | null } & VarianceFigures;
 
 /**
- * Variance per yard and per die (`count_tally`): frozen at close, live for an open count, empty
+ * Variance per yard and per section (`count_tally`): frozen at close, live for an open count, empty
  * for a cancelled one. Σ expected = `summary.expected`; Σ counted = `summary.seen` minus scans
  * superseded by a move out of the count or a dispatch.
  */
-export type CountVariance = { byLocation: CountVarianceLocation[]; byDie: CountVarianceDie[] };
+export type CountVariance = { byLocation: CountVarianceLocation[]; bySection: CountVarianceSection[] };
 
 export type CountReport = {
   sessionId: string;
@@ -968,7 +971,7 @@ export async function countReport(
       (r) => (r.locationId ? (codeOf.get(r.locationId) ?? null) : null),
       (locationId, locationCode, f) => ({ locationId, locationCode, ...f }),
     ),
-    byDie: rollUp(
+    bySection: rollUp(
       tally,
       (r) => r.dieId,
       (r) => r.sectionCode,

@@ -71,6 +71,11 @@ export const countSession = sqliteTable(
     cancelledAt: integer("cancelled_at", { mode: "timestamp_ms" }),
     cancelledBy: text("cancelled_by").references(() => user.id, { onDelete: "set null" }),
     cancelReason: text("cancel_reason"),
+    /**
+     * Replay key of the start request (RP18): a retry with the same key returns this count instead
+     * of answering "already being counted" for the caller's own count.
+     */
+    clientRequestId: text("client_request_id"),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
@@ -80,6 +85,9 @@ export const countSession = sqliteTable(
   },
   (table) => [
     uniqueIndex("count_session_company_number_unique").on(table.companyId, table.period, table.number),
+    uniqueIndex("count_session_company_request_unique")
+      .on(table.companyId, table.clientRequestId)
+      .where(sql`${table.clientRequestId} is not null`),
     index("count_session_company_status_idx").on(table.companyId, table.status, table.createdAt),
     index("count_session_company_server_seq_idx").on(table.companyId, table.serverSeq),
   ],
@@ -242,7 +250,7 @@ export const countLine = sqliteTable(
 );
 
 /**
- * Variance tally frozen at close: one row per (counted yard, die) with what the count expected
+ * Variance tally frozen at close: one row per (counted yard, section: `die_id`, the catalogue row) with what the count expected
  * there and what it counted there; variance = expected − counted (positive: short, negative:
  * extra). Expected = the summary's `expected` set (in stock at the yard, unscanned bundles that
  * changed during the count left out). Counted = this count's scans at the yard: a scan of an
@@ -274,6 +282,15 @@ export const countTally = sqliteTable(
   },
   (table) => [
     index("count_tally_company_session_idx").on(table.companyId, table.sessionId),
+    // One row per (count, yard, section): a backstop for the close batch's `close_seq` guard. NULL
+    // yard (unplaced) and NULL section (unknown codes) are keys too, hence the NULL → '' expressions
+    // (written without commas: drizzle-kit splits an index expression on commas).
+    uniqueIndex("count_tally_session_location_die_unique").on(
+      table.companyId,
+      table.sessionId,
+      sql`(case when "location_id" is null then '' else "location_id" end)`,
+      sql`(case when "die_id" is null then '' else "die_id" end)`,
+    ),
     index("count_tally_company_server_seq_idx").on(table.companyId, table.serverSeq),
   ],
 );

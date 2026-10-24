@@ -2841,7 +2841,7 @@ describe("fix r2: the void is a ledger row with its reason, never an edit", () =
   });
 });
 
-describe("fix r2: variance per yard and per die (expected − counted)", () => {
+describe("fix r2: variance per yard and per section (expected − counted)", () => {
   /** Y1: a, b, c of die A; Y2: d, e of die B; Y3 (outside the count): f of die A. */
   async function fixture() {
     const p = await plant();
@@ -2876,11 +2876,11 @@ describe("fix r2: variance per yard and per die (expected − counted)", () => {
       { locationId: p.loc("Y1"), locationCode: "Y1", expected: 3, expectedG: 30_000, counted: 5, countedG: 50_000, variance: -2, varianceG: -20_000 },
       { locationId: p.loc("Y2"), locationCode: "Y2", expected: 2, expectedG: 40_000, counted: 1, countedG: 20_000, variance: 1, varianceG: 20_000 },
     ]);
-    const byDie = new Map(report.variance.byDie.map((r) => [r.dieId, r]));
-    expect(byDie.get(dieA)).toMatchObject({ expected: 3, expectedG: 30_000, counted: 3, countedG: 30_000, variance: 0, varianceG: 0 });
-    expect(byDie.get(dieB)).toMatchObject({ sectionCode: "B-200", expected: 2, counted: 2, variance: 0, varianceG: 0 });
-    expect(byDie.get(null)).toMatchObject({ sectionCode: null, expected: 0, counted: 1, countedG: 0, variance: -1, varianceG: 0 });
-    expect(report.variance.byDie.at(-1)!.dieId).toBeNull();
+    const bySection = new Map(report.variance.bySection.map((r) => [r.dieId, r]));
+    expect(bySection.get(dieA)).toMatchObject({ expected: 3, expectedG: 30_000, counted: 3, countedG: 30_000, variance: 0, varianceG: 0 });
+    expect(bySection.get(dieB)).toMatchObject({ sectionCode: "B-200", expected: 2, counted: 2, variance: 0, varianceG: 0 });
+    expect(bySection.get(null)).toMatchObject({ sectionCode: null, expected: 0, counted: 1, countedG: 0, variance: -1, varianceG: 0 });
+    expect(report.variance.bySection.at(-1)!.dieId).toBeNull();
     // Totals agree with the summary: Σ expected = expected, Σ counted = seen.
     const sum = (k: "expected" | "counted") => report.variance.byLocation.reduce((t, r) => t + r[k], 0);
     expect(sum("expected")).toBe(report.summary.expected);
@@ -2960,6 +2960,93 @@ describe("fix r2: variance per yard and per die (expected − counted)", () => {
     const live = (await p.viewer.count.get({ sessionId: s.id })).report.variance;
     expect(live.byLocation.map((r) => [r.locationCode, r.expected, r.counted, r.variance])).toEqual([["Y1", 2, 0, 2]]);
     await p.supervisor.count.cancel({ sessionId: s.id, reason: "Wrong day" });
-    expect((await p.viewer.count.get({ sessionId: s.id })).report.variance).toEqual({ byLocation: [], byDie: [] });
+    expect((await p.viewer.count.get({ sessionId: s.id })).report.variance).toEqual({ byLocation: [], bySection: [] });
+  });
+});
+
+describe("review round 1 minors (reports/review-PL10.md m-2, m-3, m-4)", () => {
+  test("m-3 count.start with a clientRequestId: a retry returns the same count; the key for other yards is a CONFLICT", async () => {
+    const p = await plant();
+    await p.pack("Y1", 1);
+    const first = await p.supervisor.count.start({ locationIds: [p.loc("Y1")], clientRequestId: "cnt-req-1" });
+    expect(first.replayed).toBe(false);
+    // The answer was lost; the tablet sends the same start again.
+    expect(await p.supervisor.count.start({ locationIds: [p.loc("Y1")], clientRequestId: "cnt-req-1" })).toEqual({
+      id: first.id,
+      number: first.number,
+      replayed: true,
+    });
+    await expect(
+      p.supervisor.count.start({ locationIds: [p.loc("Y2")], clientRequestId: "cnt-req-1" }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    // Without the key the yard is still busy for anyone else.
+    await expect(p.office.count.start({ locationIds: [p.loc("Y1")] })).rejects.toMatchObject({ code: "CONFLICT" });
+    const sessions = await env.db.select({ id: countSession.id }).from(countSession).where(eq(countSession.companyId, p.companyId));
+    expect(sessions.map((s) => s.id)).toEqual([first.id]);
+    expect((await auditActions(p.companyId)).filter((a) => a === "count.start")).toHaveLength(1);
+    // The key is per company.
+    const other = await plant();
+    const theirs = await other.supervisor.count.start({ locationIds: [other.loc("Y1")], clientRequestId: "cnt-req-1" });
+    expect(theirs.id).not.toBe(first.id);
+  });
+
+  test("m-3 count.start replay that raced: the losing insert answers with the winner's count", async () => {
+    const p = await plant();
+    let raced: { id: string; number: string } | undefined;
+    env.beforeNextBatch(async () => {
+      raced = await p.supervisor.count.start({ locationIds: [p.loc("Y1")], clientRequestId: "cnt-race" });
+    });
+    const second = await p.supervisor.count.start({ locationIds: [p.loc("Y1")], clientRequestId: "cnt-race" });
+    expect(second).toMatchObject({ id: raced!.id, number: raced!.number, replayed: true });
+  });
+
+  test("m-3 count.cancel replay: the same user with the same reason gets success again; anyone else is refused", async () => {
+    const p = await plant();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.cancel({ sessionId: s.id, reason: "Rain stopped the count" });
+    expect(await p.supervisor.count.cancel({ sessionId: s.id, reason: "Rain stopped the count" })).toMatchObject({ success: true });
+    await expect(p.office.count.cancel({ sessionId: s.id, reason: "Rain stopped the count" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.supervisor.count.cancel({ sessionId: s.id, reason: "Another reason" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await auditActions(p.companyId)).filter((a) => a === "count.cancel")).toHaveLength(1);
+    expect((await p.viewer.count.get({ sessionId: s.id })).session).toMatchObject({ status: "cancelled", cancelReason: "Rain stopped the count" });
+  });
+
+  test("m-3 count.cancel whose write loses to the same user's own cancel (a double tap) answers success", async () => {
+    const p = await plant();
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    env.beforeNextBatch(() => p.supervisor.count.cancel({ sessionId: s.id, reason: "Wrong day" }));
+    expect(await p.supervisor.count.cancel({ sessionId: s.id, reason: "Wrong day" })).toMatchObject({ success: true });
+    expect((await auditActions(p.companyId)).filter((a) => a === "count.cancel")).toHaveLength(1);
+  });
+
+  test("m-2 count_tally holds one row per (count, yard, section), unplaced and unknown included", async () => {
+    const p = await plant();
+    await p.pack("Y1", 1);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: ["NO-SUCH-CODE"] });
+    await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    const rows = await env.db.select().from(countTally).where(eq(countTally.sessionId, s.id));
+    expect(rows.length).toBeGreaterThan(0);
+    const insert = (r: (typeof rows)[number]) =>
+      env.db.insert(countTally).values(r).then(
+        () => "inserted",
+        (e: unknown) => (/UNIQUE constraint failed/.test(String((e as { cause?: unknown }).cause ?? e)) ? "unique" : String(e)),
+      );
+    for (const r of rows) expect(await insert({ ...r, id: crypto.randomUUID() })).toBe("unique");
+    // NULL yard and NULL section are keys too (SQLite treats NULLs as distinct in a plain index).
+    const unplaced = { ...rows[0]!, id: crypto.randomUUID(), locationId: null, dieId: null };
+    expect(await insert(unplaced)).toBe("inserted");
+    expect(await insert({ ...unplaced, id: crypto.randomUUID() })).toBe("unique");
+  });
+
+  test("m-4 the variance is read per section (the die catalogue row), as report.variance.bySection", async () => {
+    const p = await plant();
+    await p.pack("Y1", 2);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    const report = await p.supervisor.count.close({ sessionId: s.id, confirmUnscanned: true });
+    expect(Object.keys(report.variance).sort()).toEqual(["byLocation", "bySection"]);
+    expect(report.variance.bySection).toEqual([
+      expect.objectContaining({ dieId: p.dieId, expected: 2, counted: 0, variance: 2 }),
+    ]);
   });
 });

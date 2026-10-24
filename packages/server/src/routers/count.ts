@@ -273,10 +273,43 @@ export const countRouter = router({
          */
         includeUnplaced: z.boolean().optional(),
         note: z.string().trim().max(500).optional(),
+        /**
+         * Replay key (RP18, review round 1 m-3): a retry with the same key returns the count the
+         * first call started, instead of "already being counted" for the caller's own count. The
+         * same key for other yards is a CONFLICT.
+         */
+        clientRequestId: z.string().trim().min(1).max(64).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const wanted = [...new Set(input.locationIds)];
+      /** The count this key already started, if any (CONFLICT when it was for other yards). */
+      const byRequest = async () => {
+        if (!input.clientRequestId) return null;
+        const [prior] = await ctx.db
+          .select({ id: countSession.id, number: countSession.number, includeUnplaced: countSession.includeUnplaced })
+          .from(countSession)
+          .where(and(eq(countSession.companyId, ctx.companyId), eq(countSession.clientRequestId, input.clientRequestId)))
+          .limit(1);
+        if (!prior) return null;
+        const covered = await ctx.db
+          .select({ locationId: countLocation.locationId })
+          .from(countLocation)
+          .where(and(eq(countLocation.companyId, ctx.companyId), eq(countLocation.sessionId, prior.id)));
+        const same =
+          covered.length === wanted.length &&
+          covered.every((c) => wanted.includes(c.locationId)) &&
+          (input.includeUnplaced === undefined || input.includeUnplaced === prior.includeUnplaced);
+        if (!same) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `This start was already used for ${prior.number} over other yards. Reload and start again.`,
+          });
+        }
+        return { id: prior.id, number: prior.number, replayed: true as const };
+      };
+      const replay = await byRequest();
+      if (replay) return replay;
       const locs = await ctx.db
         .select()
         .from(location)
@@ -320,6 +353,7 @@ export const countRouter = router({
           startSeq: seq,
           includeUnplaced,
           note: input.note ? input.note : null,
+          clientRequestId: input.clientRequestId ?? null,
           createdBy: userId,
           createdAt: startedAt,
           updatedAt: startedAt,
@@ -349,6 +383,11 @@ export const countRouter = router({
       try {
         await atomicBatch(ctx.db, statements);
       } catch (e) {
+        // The same key raced in from a retry: the first one's count stands (this CNT number is a gap).
+        if (input.clientRequestId && /UNIQUE constraint failed: count_session\.company_id, count_session\.client_request_id/.test(errorText(e))) {
+          const won = await byRequest();
+          if (won) return won;
+        }
         // Another start took one of these locations after our check (partial unique index).
         if (/UNIQUE constraint failed: count_location/.test(errorText(e))) {
           const msg = await openCountConflict(ctx.db, ctx.companyId, wanted);
@@ -356,7 +395,7 @@ export const countRouter = router({
         }
         throw e;
       }
-      return { id: sessionId, number: doc.number };
+      return { id: sessionId, number: doc.number, replayed: false as const };
     }),
 
   /**
@@ -672,7 +711,15 @@ export const countRouter = router({
   cancel: actionProcedure("stock.count")
     .input(z.object({ sessionId: id, reason: z.string().trim().min(1, "Say why the count is cancelled").max(500) }))
     .mutation(async ({ ctx, input }) => {
+      /**
+       * Replay-safe (review round 1 m-3): a retry of this user's own cancel, with the same reason,
+       * answers success again (no second audit row); anyone else's cancel of a cancelled count is
+       * still refused.
+       */
+      const ownCancel = (row: { status: string; cancelledBy: string | null; cancelReason: string | null }) =>
+        row.status === "cancelled" && row.cancelledBy === ctx.session.user.id && row.cancelReason === input.reason;
       const s = await loadSession(ctx.db, ctx.companyId, input.sessionId);
+      if (ownCancel(s)) return { success: true, replayed: true };
       if (s.status !== "open") {
         throw new TRPCError({ code: "BAD_REQUEST", message: `Only an open count can be cancelled; ${s.number} is ${s.status}` });
       }
@@ -709,9 +756,10 @@ export const countRouter = router({
       const [landed] = await ctx.db.select({ id: countSession.id }).from(countSession).where(mine).limit(1);
       if (!landed) {
         const now = await loadSession(ctx.db, ctx.companyId, s.id);
+        if (ownCancel(now)) return { success: true, replayed: true };
         throw new TRPCError({ code: "BAD_REQUEST", message: `Only an open count can be cancelled; ${now.number} is ${now.status}` });
       }
-      return { success: true };
+      return { success: true, replayed: false };
     }),
 
   /**
