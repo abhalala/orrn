@@ -121,6 +121,8 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   // 2. Find the new company and open it.
   await page.goto("/admin/companies");
   await page.getByLabel("Search companies").fill(company);
+  // The search writes ?q= 250 ms after typing; a click before that lands is replaced by it.
+  await expect(page).toHaveURL(/[?&]q=/);
   const link = page.getByRole("link", { name: new RegExp(company) });
   await expect(link).toHaveCount(1);
   await link.click();
@@ -394,6 +396,8 @@ test("a company waiting for approval reads in full on a phone", async ({ page })
   await signInViaApi(page, "staff");
   await open(page, "/admin/companies?status=pending", { width: 375 });
   await page.getByLabel("Search companies").fill(company);
+  // The search writes ?q= 250 ms after typing; a click before that lands is replaced by it.
+  await expect(page).toHaveURL(/[?&]q=/);
   const link = page.getByRole("link", { name: new RegExp(company) });
   await expect(link).toHaveCount(1);
   await expect(page.locator("main#main [data-slot='chip']", { hasText: "Waiting for approval" })).toHaveCount(1);
