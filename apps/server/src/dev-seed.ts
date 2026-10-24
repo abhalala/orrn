@@ -10,6 +10,7 @@ import {
   bundleStatusEvent,
   type BundleStatus,
 } from "@orrn/db/schema/inventory";
+import { dieInstance, dieTierChange, dieWeightReading, nitridingLog } from "@orrn/db/schema/dies";
 import { packingList, packingListLine } from "@orrn/db/schema/packing";
 import { auditLog } from "@orrn/db/schema/audit";
 import { approval } from "@orrn/db/schema/approval";
@@ -908,6 +909,12 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     // append-only grep test in plant-ledger.test.ts allows exactly this file).
     db.delete(stockLedger).where(eq(stockLedger.companyId, COMPANY_ID)),
     db.delete(approval).where(eq(approval.companyId, COMPANY_ID)),
+    // Die copies made on the masters or die-room screens (and their history) hold FKs to the
+    // sections deleted below; without these a reseed after adding one copy fails.
+    db.delete(nitridingLog).where(eq(nitridingLog.companyId, COMPANY_ID)),
+    db.delete(dieWeightReading).where(eq(dieWeightReading.companyId, COMPANY_ID)),
+    db.delete(dieTierChange).where(eq(dieTierChange.companyId, COMPANY_ID)),
+    db.delete(dieInstance).where(eq(dieInstance.companyId, COMPANY_ID)),
     // Foundry and store rows hold RESTRICT FKs to lots, locations, store items and casts: delete
     // them child-to-parent before those (else the batch fails once the demo has one melt). Casts go
     // with doc_series, or the next casts.open reuses J1 and hits cast_company_period_seq_unique.
