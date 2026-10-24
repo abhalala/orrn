@@ -66,6 +66,7 @@ import { nextCompanySeq } from "../lib/sequence";
 import { isStoreDrawAbort, loadStoreItem, prepareStoreDraws } from "../lib/store";
 import { dieFileRouter } from "./dieFile";
 import { dieIssueRouter } from "./dieIssue";
+import { dieMakerRouter } from "./dieMaker";
 
 /** kg/12ft in thousandths of a kg (= grams per 12 ft). 500 kg per 12 ft is far beyond any section. */
 const kgPer12ftMilli = z.number().int().min(1).max(500_000);
@@ -1302,6 +1303,7 @@ export const dieInstanceRouter = router({
   }),
 
   issues: dieIssueRouter,
+  maker: dieMakerRouter,
   files: dieFileRouter,
 });
 

@@ -58,7 +58,6 @@ async function plant(settings: Record<string, unknown> = {}) {
   const as = (role: CompanyRole) => env.caller({ role, companyId });
   return { companyId, users, sectionId, as, manager: as("manager"), dieRoom: as("die_room"), viewer: as("viewer") };
 }
-type Plant = Awaited<ReturnType<typeof plant>>;
 
 const base = { series: "Domal", dimensions: {}, weightMinG: 5_900, weightMaxG: 6_200 };
 const b64 = (bytes: number, fill = 7) => Buffer.from(new Uint8Array(bytes).fill(fill)).toString("base64");
@@ -102,14 +101,14 @@ describe("bands and the duplicate guard (FP-DR-02/03)", () => {
     const p = await plant();
     const primaryClash = await p.manager.die.bands
       .create({ sectionId: p.sectionId, wallTenthMm: 12, weightMinG: 5_900, weightMaxG: 6_200 })
-      .catch((e: unknown) => e as { code: string; meta: Record<string, unknown> });
+      .then(() => null, (e: unknown) => e as { code: string; meta: Record<string, unknown> });
     expect(primaryClash).toMatchObject({ code: "CONFLICT" });
-    expect(primaryClash.meta).toEqual({ existing: { sectionCode: "12170", series: "Domal", wallTenthMm: 12, weightMinG: 5_900, weightMaxG: 6_200, bandId: "primary" } });
+    expect(primaryClash!.meta).toEqual({ existing: { sectionCode: "12170", series: "Domal", wallTenthMm: 12, weightMinG: 5_900, weightMaxG: 6_200, bandId: "primary" } });
 
     const { id: heavy } = await p.manager.die.bands.create({ sectionId: p.sectionId, wallTenthMm: 14, weightMinG: 6_200, weightMaxG: 6_600, label: "6.2-6.6" });
     const dup = await p.manager.die.bands
       .create({ sectionId: p.sectionId, wallTenthMm: 14, weightMinG: 6_200, weightMaxG: 6_600 })
-      .catch((e: unknown) => e as { code: string; meta: { existing: Record<string, unknown> } });
+      .then(() => null, (e: unknown) => e as { code: string; meta: { existing: Record<string, unknown> } });
     expect(dup).toMatchObject({ code: "CONFLICT", meta: { existing: { bandId: heavy, wallTenthMm: 14 } } });
     // Another wall or another range is a different band.
     await p.manager.die.bands.create({ sectionId: p.sectionId, wallTenthMm: 15, weightMinG: 6_200, weightMaxG: 6_600 });
