@@ -259,6 +259,31 @@ bun run deploy
   and return `{ items, nextCursor }` (null on the last page); `dieInstance.list` and `die.list` page
   by `limit`/`offset` with `total`/`nextOffset`.
 
+### Die room conventions, Wave 2 (W2-DR2: copy on trial, bulk drawings)
+
+- Copy on trial (FP-DR-17): `dieInstance.create` and a maker receive put the copy `on_trial` while
+  `settings.dieRoom.newCopyOnTrial` is on (default; `company.updateSettings({ dieRoom })`, owner/admin).
+  Only a manager (`masters.publish`) may create a copy straight to `available`. `canIssueDie` refuses
+  an on_trial copy unless the run's plan purpose is `die_trial` (`lib/dieTrial.ts runPurpose`).
+  Nitriding and card status-by-hand refuse it; retire and "send to maker" accept it.
+- No trial flag column: the `die_issue.issue` audit row carries `trial: 1` when the copy was on_trial,
+  and `die_maker_job.send` carries `fromStatus`. Return and cancel read them (`issueWasTrial`,
+  `statusAfterReturn`, `sentFromStatus`) so a trial copy comes back `on_trial`, not to the rack; a trial
+  issue whose run is logged with `trial_result = pass` returns straight to `available`.
+- `dieInstance.trialPass({ id, pressRunId? , reason? })` (`press.close` or `masters.publish`): with a
+  logged `die_trial` run of this copy and result `pass` -> `die_trial.pass`; without a run, only
+  `masters.publish` with a reason -> `die_trial.release` (reason in the audit meta). `trialFail`
+  (`press.close`, `die.card`, `masters.publish`) writes `die_trial.fail`, optionally retires.
+  W2-PR-S's trial close can call `trialPassStatements` / `trialMoveStatements` from `lib/dieTrial.ts`
+  inside its own batch (the copy must already be back `on_trial`).
+- Bulk attach (FP-DR-19): `files.matchNames({ names })` reads file names (`12170.pdf` -> section by
+  section code, `12170-1.cdr` -> copy code, `/` reads as `-`), never writes; two sections with one code
+  are `ambiguous`, never guessed. The web then runs `beginUpload` (`pressDrawingIfNone` for a section
+  PDF) / PUT / `commit` per file, one at a time. `commit` makes the PDF the press drawing only when the
+  section has none at that moment (guarded in the batch).
+- Board: `die.list` takes `copyStatus`, `copies`, `profileKind`, `owner`, `sort`; `die.boardCounts`
+  feeds the tiles. A die import goes in calls of 2,000 rows (`importChunkSize("dies")`), other sheets 500.
+
 ## Scrap purchase (vendors, lots, D/C notes)
 
 - Tables in `packages/db/src/schema/purchase.ts`; routers `vendor` (`routers/vendor.ts`) and

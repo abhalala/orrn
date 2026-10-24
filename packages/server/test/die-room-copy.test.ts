@@ -37,7 +37,7 @@ const ROLES: CompanyRole[] = [
 ];
 
 async function plant() {
-  const { companyId, users } = await env.seedCompany();
+  const { companyId, users } = await env.seedCompany({ settings: { dieRoom: { newCopyOnTrial: false } } }); // these tests are about the rack; the trial flow has its own file
   const sectionId = await env.seedDie(companyId, { series: "Domal", sectionCode: "12170", weightMinG: 5_900, weightMaxG: 6_200, wallTenthMm: 12 });
   const as = (role: CompanyRole) => env.caller({ role, companyId });
   return { companyId, users, sectionId, as, dieRoom: as("die_room"), manager: as("manager"), owner: as("owner"), admin: as("admin") };
@@ -236,7 +236,7 @@ describe("tier change and band lift (FP-DR-10)", () => {
     const section = await p.manager.die.get({ id: p.sectionId });
     const primary = section.bands.find((b) => b.primary)!;
     expect(primary.copyIds).not.toContain(a.id);
-    expect(primary.liftedOut).toEqual([{ dieInstanceId: a.id, code: a.code, toBandId: heavy, toBand: "6.2-6.6", at: expect.any(Date) }]);
+    expect(primary.liftedOut).toEqual([{ dieInstanceId: a.id, code: a.code, toBandId: heavy, toBand: "6.2-6.6", toWeightMinG: 6_200, toWeightMaxG: 6_600, at: expect.any(Date) }]);
     expect(section.bands.find((b) => b.id === heavy)!.copyIds).toEqual([a.id]);
 
     // Back to primary is toBandId null with lift.

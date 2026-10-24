@@ -1,7 +1,8 @@
 /**
- * W2-PR-S dev seed (idempotent): P1 with a die_issued run (PR-1), a run logged today with its
- * lines / billets / QC / closed downtime and exact close ledger rows (PR-2, the worked example), a
- * late entry waiting for press_late_entry (PR-3), and a cast with billets on hand.
+ * W2-PR-S dev seed (idempotent): P1 with a die_issued run (PR-1), the die room's queued and trial
+ * runs (PR-2..PR-7, W2-DR2), a run logged today with its lines / billets / QC / closed downtime and
+ * exact close ledger rows (PR-8, the worked example), a late entry waiting for press_late_entry
+ * (PR-9), and a cast with billets on hand.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
@@ -21,7 +22,7 @@ afterAll(async () => {
 const companyId = "dev-company-orrn";
 
 describe("dev seed: Wave 2 press demo (idempotent)", () => {
-  test("PR-1 die_issued, PR-2 logged today with children + ledger, PR-3 late entry pending; the owner can decide it", async () => {
+  test("PR-1 die_issued, PR-8 logged today with children + ledger, PR-9 late entry pending; the owner can decide it", async () => {
     for (const key of ["owner", "operator", "viewer", "office", "staff"]) {
       await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
     }
@@ -32,14 +33,21 @@ describe("dev seed: Wave 2 press demo (idempotent)", () => {
     for (let i = 0; i < 2; i++) {
       const out = await seedDevData(env.db, { password: "dev-seed-test" });
       expect(out.ok).toBe(true);
-      expect(out.counts.pressRuns).toBe(3);
+      expect(out.counts.pressRuns).toBe(9);
       const runs = await env.db.select().from(pressRun).where(eq(pressRun.companyId, companyId)).orderBy(asc(pressRun.number));
       expect(runs.map((r) => [r.number, r.status, r.lateEntry])).toEqual([
         ["PR-1", "die_issued", false],
-        ["PR-2", "logged", false],
-        ["PR-3", "counting", true],
+        ["PR-2", "queued", false],
+        ["PR-3", "queued", false],
+        ["PR-4", "queued", false],
+        ["PR-5", "queued", false],
+        ["PR-6", "queued", false],
+        ["PR-7", "queued", false],
+        ["PR-8", "logged", false],
+        ["PR-9", "counting", true],
       ]);
-      const logged = runs[1]!;
+      const logged = runs.find((r) => r.number === "PR-8")!;
+      const late = runs.find((r) => r.number === "PR-9")!;
       expect(logged).toMatchObject({ inputG: 310_400, goodG: 234_200, recoveryBp: 7545, balanceG: 31_400 });
       expect(await env.db.select().from(pressRunLine).where(eq(pressRunLine.pressRunId, logged.id))).toHaveLength(1);
       expect(await env.db.select().from(pressBilletUse).where(eq(pressBilletUse.pressRunId, logged.id))).toHaveLength(2);
@@ -58,7 +66,7 @@ describe("dev seed: Wave 2 press demo (idempotent)", () => {
         ["press_run", 4, "return_stream", 7_000],
       ]);
       const pending = await env.db.select().from(approval).where(and(eq(approval.companyId, companyId), eq(approval.kind, "press_late_entry")));
-      expect(pending.map((a) => [a.subjectId, a.status])).toEqual([[runs[2]!.id, "pending"]]);
+      expect(pending.map((a) => [a.subjectId, a.status])).toEqual([[late.id, "pending"]]);
     }
 
     // The station reads it; Today shows it; the owner approves the late entry and logs it.
@@ -72,6 +80,6 @@ describe("dev seed: Wave 2 press demo (idempotent)", () => {
     expect(closed).toMatchObject({ status: "logged", inputG: 230_000 });
     // The next run number continues the book.
     const q = await owner.press.queue.list({ pressLineId: "dev-press-line-1" });
-    expect(q.cards.map((c) => c.number)).toEqual(["PR-1"]);
+    expect(q.cards.map((c) => c.number)).toEqual(["PR-1", "PR-2", "PR-3", "PR-4", "PR-5", "PR-6", "PR-7"]);
   });
 });
