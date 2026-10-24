@@ -12,14 +12,17 @@ import { AlertCircle, Download, FileSpreadsheet, Info, Loader2, UploadCloud } fr
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 
 import { useLengthUnit } from "@/shared/lib/length";
+import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
+import { loadImportedRows, rememberImportedRows, splitAlreadyImported } from "./imported-rows";
 import {
   IMPORT_CHUNK_SIZE,
   IMPORT_FIELDS,
   parseImport,
   readHeader,
   type BundleImportRow,
+  type ColumnConflict,
   type CustomerImportRow,
   type DieImportRow,
   type ImportKind,
@@ -103,6 +106,18 @@ const STAGE_FOCUS = "[data-stage-focus]";
 
 const fmt = (n: number) => n.toLocaleString("en-IN");
 
+/** `window.localStorage`, or null where reading it throws (blocked site data). */
+function localStore(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Nothing is read or saved while a field is filled by two columns or a required one is missing. */
+const isBlocked = (parsed: ParseResult<ParsedRow>) => parsed.missingColumns.length > 0 || parsed.conflictColumns.length > 0;
+
 function describeRejected(r: RejectedRow, t: Translate) {
   return t(r.reason, { column: r.column, ...r.vars });
 }
@@ -145,6 +160,10 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
   const { t } = useT();
   const { unit } = useLengthUnit();
   const queryClient = useQueryClient();
+  const { data: me } = useMe();
+  const companyId = me?.company?.id ?? "";
+  /** Rows this browser already saved for this company (see imported-rows.ts), read when a file is chosen. */
+  const importedRef = useRef<ReadonlySet<string>>(new Set());
   const [stage, setStage] = useState<Stage>({ name: "pick" });
   const [dieMode, setDieMode] = useState<"skip" | "update">("skip");
   const runId = useRef(0);
@@ -213,6 +232,7 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
 
   const sectionColumn = (parsed: ParseResult<ParsedRow>) =>
     parsed.columns.find((c) => c.field === "sectionCode" || c.field === "dieSectionCode")?.header ?? "Section code";
+  const nameColumn = (parsed: ParseResult<ParsedRow>) => parsed.columns.find((c) => c.field === "name")?.header ?? "Name";
 
   const plan = useMemo(() => {
     if (!("parsed" in stage)) return null;
@@ -224,13 +244,15 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
     }
     if (kind === "bundles" && "bundleCheck" in stage && stage.bundleCheck) {
       const p = planBundles(parsed.ok as BundleImportRow[], parsed.okRows, stage.bundleCheck, sectionColumn(parsed));
-      return { ops: p.ops as Op[], rejected: [...parsed.rejected, ...p.blocked].sort(byRow), existing: 0 };
+      const fresh = splitAlreadyImported(kind, p.ops, importedRef.current, sectionColumn(parsed));
+      return { ops: fresh.ops as Op[], rejected: [...parsed.rejected, ...p.blocked, ...fresh.blocked].sort(byRow), existing: 0 };
     }
-    return {
-      ops: parsed.ok.map((data, i) => ({ row: parsed.okRows[i]!, data })) as Op[],
-      rejected: parsed.rejected,
-      existing: 0,
-    };
+    const all = parsed.ok.map((data, i) => ({ row: parsed.okRows[i]!, data })) as Op[];
+    if (kind === "customers") {
+      const fresh = splitAlreadyImported(kind, all, importedRef.current, nameColumn(parsed));
+      return { ops: fresh.ops, rejected: [...parsed.rejected, ...fresh.blocked].sort(byRow), existing: 0 };
+    }
+    return { ops: all, rejected: parsed.rejected, existing: 0 };
   }, [stage, kind, dieMode]);
 
   const readFile = useCallback(
@@ -260,7 +282,8 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
       }
       const parsed = parseImport(kind, sheet.rows, { companyUnit: unit, firstDataRow: sheet.firstDataRow });
       const loaded: Loaded = { file: meta, sheet, parsed };
-      if (kind === "customers" || parsed.missingColumns.length > 0 || parsed.ok.length === 0) {
+      importedRef.current = loadImportedRows(localStore(), companyId, kind);
+      if (kind === "customers" || isBlocked(parsed) || parsed.ok.length === 0) {
         setStage({ name: "review", ...loaded });
         return;
       }
@@ -299,7 +322,7 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
       }
       setStage({ name: "review", ...loaded, bundleCheck: { deleted } });
     },
-    [kind, unit, t, dieValidate, bundleCheck],
+    [kind, unit, t, dieValidate, bundleCheck, companyId],
   );
 
   /** Sends the plan from `startChunk`. `resume` is set by "Try the rest again" after a failed call. */
@@ -338,6 +361,8 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
           created = input.newRows.length;
           updated = input.updatedRows.length;
         }
+        // These rows are in orrn now: a corrected copy of this sheet must not add them again.
+        if (kind !== "dies") rememberImportedRows(localStore(), companyId, kind, chunkOps);
         // A replay of the call this resume starts with is that call's own lost reply: saved by
         // this run. Any other replay means the rows came in from an earlier import of this sheet.
         if (replayed && !(resume && index === startChunk)) {
@@ -389,7 +414,7 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
     switch (stage.name) {
       case "review": {
         const ready = plan?.ops.length ?? 0;
-        if (stage.parsed.missingColumns.length > 0 || ready === 0) {
+        if (isBlocked(stage.parsed) || ready === 0) {
           return (
             <Button variant="secondary" className={SECONDARY_FOOTER} onClick={() => handleOpenChange(false)}>
               {t("common.close")}
@@ -500,12 +525,13 @@ export function ImportSheet({ kind, open, onOpenChange, onImported }: ImportShee
                 }}
                 onDownloadProblems={() => downloadProblems(kind, stage.sheet, plan?.rejected ?? [], t)}
               />
-            ) : stage.parsed.missingColumns.length > 0 ? (
+            ) : isBlocked(stage.parsed) ? (
               <MissingColumns
                 kind={kind}
                 unit={unit}
                 missing={stage.parsed.missingColumns}
                 badUnit={stage.parsed.badUnitColumns}
+                conflicts={stage.parsed.conflictColumns}
               />
             ) : plan ? (
               <ReviewStage
@@ -747,17 +773,31 @@ function MissingColumns({
   unit,
   missing,
   badUnit,
+  conflicts,
 }: {
   kind: ImportKind;
   unit: LengthUnit;
   missing: readonly string[];
   badUnit: readonly string[];
+  conflicts: readonly ColumnConflict[];
 }) {
   const { t } = useT();
   const guide = columnGuide(kind, unit);
   const headers = missing.map((field) => guide.find((c) => c.field === field)?.header ?? field);
+  const conflictLines = conflicts.map((c) =>
+    t("imports.conflictItem", {
+      field: guide.find((g) => g.field === c.field)?.header ?? c.field,
+      columns: c.headers.join(", "),
+    }),
+  );
   const badUnitText = badUnit.length > 0 ? t("imports.readAs.badUnit", { columns: badUnit.join(", ") }) : null;
-  const label = [t("imports.missingTitle"), `${t("imports.missingBody", { count: missing.length })} ${headers.join(", ")}`, badUnitText]
+  const title = missing.length > 0 ? t("imports.missingTitle") : t("imports.conflictTitle");
+  const label = [
+    title,
+    missing.length > 0 ? `${t("imports.missingBody", { count: missing.length })} ${headers.join(", ")}` : null,
+    conflictLines.length > 0 ? `${t("imports.conflictBody")} ${conflictLines.join(". ")}` : null,
+    badUnitText,
+  ]
     .filter(Boolean)
     .join(". ");
   return (
@@ -771,14 +811,29 @@ function MissingColumns({
     >
       <p className="m-0 flex items-center gap-2 font-display text-[17px] font-bold leading-tight text-tone-red-ink">
         <AlertCircle aria-hidden="true" strokeWidth={2} className="size-5 shrink-0" />
-        {t("imports.missingTitle")}
+        {title}
       </p>
-      <p className="m-0 text-[15px] leading-6 text-foreground">{t("imports.missingBody", { count: missing.length })}</p>
-      <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-[15px] font-semibold text-foreground">
-        {headers.map((header) => (
-          <li key={header}>{header}</li>
-        ))}
-      </ul>
+      {missing.length > 0 ? (
+        <>
+          <p className="m-0 text-[15px] leading-6 text-foreground">{t("imports.missingBody", { count: missing.length })}</p>
+          <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-[15px] font-semibold text-foreground">
+            {headers.map((header) => (
+              <li key={header}>{header}</li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+      {conflictLines.length > 0 ? (
+        <div data-slot="import-conflict" className="flex flex-col gap-3">
+          {missing.length > 0 ? <p className="m-0 font-semibold text-tone-red-ink">{t("imports.conflictTitle")}</p> : null}
+          <p className="m-0 text-[15px] leading-6 text-foreground">{t("imports.conflictBody")}</p>
+          <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-[15px] font-semibold break-words text-foreground">
+            {conflictLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {badUnitText ? <p className="m-0 text-[14px] leading-5 break-words text-foreground">{badUnitText}</p> : null}
     </div>
   );
@@ -950,7 +1005,7 @@ function ColumnsRead({
       </h3>
       <dl className="m-0 flex flex-col divide-y divide-border rounded-card border border-border bg-card">
         {columns.map((c) => (
-          <div key={c.field} className="grid gap-x-4 gap-y-0.5 px-4 py-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div key={c.header} className="grid gap-x-4 gap-y-0.5 px-4 py-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
             <dt className="min-w-0 text-[15px] font-semibold break-words text-foreground">{c.header}</dt>
             <dd className="m-0 min-w-0 text-[14px] leading-5 break-words text-muted-foreground sm:text-[15px] sm:leading-6">
               {describe(c)}
@@ -1091,12 +1146,16 @@ function FailedStage({
   const unsaved = total - done;
   const unknown = failure.outcome === "unknown";
 
+  const sentInCall = Math.min(ops.length, first + IMPORT_CHUNK_SIZE) - first;
+  // After a lost reply "no rows were saved" would contradict "can't tell yet if they were".
   const saved =
-    lastSavedRow === undefined
-      ? t("imports.failed.nothingSaved")
-      : t("imports.failed.savedUpTo", { done: fmt(done), total: fmt(total), row: lastSavedRow });
+    lastSavedRow !== undefined
+      ? t("imports.failed.savedUpTo", { done: fmt(done), total: fmt(total), row: lastSavedRow })
+      : unknown
+        ? ""
+        : t("imports.failed.nothingSaved");
   const what = unknown
-    ? t("imports.failed.unknown", { from: fromRow, to: toRow })
+    ? t("imports.failed.unknown", { count: sentInCall, from: fromRow, to: toRow })
     : t("imports.failed.refusedRows", { from: fromRow });
   const why = t(failure.message);
   const help = unknown ? t("imports.failed.unknownHelp") : t("imports.failed.refusedHelp");
@@ -1126,14 +1185,12 @@ function FailedStage({
         data-slot="import-failed"
         tabIndex={-1}
         role="group"
-        aria-label={[saved, what, why, help].join(" ")}
+        aria-label={[saved, what, why, help].filter(Boolean).join(" ")}
         className="flex flex-col gap-2 rounded-card border border-destructive/40 bg-tone-red-tint p-4"
       >
         <p className="m-0 flex items-start gap-2 text-[15px] font-semibold leading-6 text-foreground">
           <AlertCircle aria-hidden="true" strokeWidth={2} className="mt-1 size-[18px] shrink-0 text-tone-red-ink" />
-          <span className="min-w-0 break-words">
-            {saved} {what}
-          </span>
+          <span className="min-w-0 break-words">{[saved, what].filter(Boolean).join(" ")}</span>
         </p>
         <p className="m-0 pl-[26px] text-[15px] leading-6 break-words text-tone-red-ink">{why}</p>
         <p className="m-0 pl-[26px] text-[15px] leading-6 break-words text-foreground">{help}</p>
@@ -1203,6 +1260,9 @@ function DoneStage({
       {problems > 0 ? (
         <div className="flex flex-col items-start gap-2">
           <p className="m-0 text-[15px] leading-6 text-foreground">{t("settings.data.rowsRejected", { count: problems })}</p>
+          <p data-slot="import-done-help" className="m-0 text-[15px] leading-6 font-semibold text-foreground">
+            {t("imports.doneProblemsHelp")}
+          </p>
           <Button variant="secondary" onClick={onDownloadProblems}>
             <Download aria-hidden="true" strokeWidth={2} />
             {t("imports.downloadProblems")}

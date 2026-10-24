@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 861 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 867 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -732,7 +732,7 @@ Counts: 861 screen strings in 26 groups, 10 guides with 182 strings.
 | `data.customersBody` | Names, phone numbers, email and GSTIN. | नाम, फ़ोन नंबर, ईमेल और GSTIN। |
 | `data.noAccess` | Your role can't import data. Ask an owner or admin if you need it. | आपके रोल से डेटा इम्पोर्ट नहीं होता। ज़रूरत हो तो owner या admin से कहें। |
 
-### imports (116)
+### imports (122)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -766,6 +766,9 @@ Counts: 861 screen strings in 26 groups, 10 guides with 182 strings.
 | `tooBig` | This file is larger than {size}. Split it into smaller files. | यह फ़ाइल {size} से बड़ी है। इसे छोटी फ़ाइलों में बांटें। |
 | `missingTitle` | Columns missing | कॉलम नहीं मिले |
 | `missingBody` | Add {count:this column\|these columns} to the sheet and choose it again: | शीट में {count:यह कॉलम\|ये कॉलम} जोड़ें और फिर चुनें: |
+| `conflictTitle` | Two columns fill the same field | दो कॉलम एक ही चीज़ भरते हैं |
+| `conflictBody` | orrn can't tell which one is right. Remove one column from each pair and choose the file again: | orrn नहीं बता सकता कि कौन सा सही है। हर जोड़ी में से एक कॉलम हटाएं और फ़ाइल फिर चुनें: |
+| `conflictItem` | {field}: {columns} | {field}: {columns} |
 | `chooseAnother` | Choose another file | दूसरी फ़ाइल चुनें |
 | `ready` | Ready to import | इम्पोर्ट के लिए तैयार |
 | `problems` | Need fixing | ठीक करनी हैं |
@@ -805,7 +808,7 @@ Counts: 861 screen strings in 26 groups, 10 guides with 182 strings.
 | `failed.refused` | orrn did not accept these rows. | orrn ने ये लाइनें नहीं लीं। |
 | `failed.savedUpTo` | Saved {done} of {total} rows, up to row {row}. | {total} में से {done} लाइन सेव हुईं, लाइन {row} तक। |
 | `failed.nothingSaved` | No rows were saved. | कोई लाइन सेव नहीं हुई। |
-| `failed.unknown` | orrn can't tell yet if rows {from} to {to} were saved. | orrn अभी पक्का नहीं बता सकता कि लाइन {from} से {to} सेव हुईं या नहीं। |
+| `failed.unknown` | orrn can't tell yet if {count} {count:row\|rows} from row {from} to row {to} {count:was\|were} saved. | orrn अभी पक्का नहीं बता सकता कि लाइन {from} से लाइन {to} तक की {count} लाइन सेव हुईं या नहीं। |
 | `failed.unknownHelp` | Try again: rows that were already saved are not added twice. | फिर कोशिश करें: जो लाइनें सेव हो चुकी हैं, वे दोबारा नहीं जुड़ेंगी। |
 | `failed.refusedRows` | Nothing from row {from} on was saved. | लाइन {from} से आगे कुछ सेव नहीं हुआ। |
 | `failed.refusedHelp` | Download the rows not saved, fix them and import that file. Don't import this whole file again. | जो लाइनें सेव नहीं हुईं, उन्हें डाउनलोड करें, ठीक करें और वही फ़ाइल इम्पोर्ट करें। यह पूरी फ़ाइल दोबारा इम्पोर्ट न करें। |
@@ -814,7 +817,8 @@ Counts: 861 screen strings in 26 groups, 10 guides with 182 strings.
 | `confirmClose.refused` | {count} {count:row was\|rows were} not saved. Download {count:it\|them} first, so you can fix {count:it\|them} and import only {count:that row\|those rows}. | {count} लाइन सेव नहीं {count:हुई\|हुईं}। पहले {count:उसे\|उन्हें} डाउनलोड करें, ताकि ठीक करके सिर्फ़ {count:वही लाइन\|वही लाइनें} इम्पोर्ट कर सकें। |
 | `confirmClose.keepOpen` | Keep open | खुला रखें |
 | `confirmClose.close` | Close anyway | फिर भी बंद करें |
-| `already` | {count} {count:row was\|rows were} already in orrn from an earlier import of this sheet, so {count:it was\|they were} not added again. | {count} लाइन इसी शीट के पिछले इम्पोर्ट से पहले से orrn में {count:थी\|थीं}, इसलिए दोबारा नहीं जोड़ी {count:गई\|गईं}। |
+| `already` | {count} {count:row was\|rows were} already in orrn from an earlier import of this sheet, so {count:it was\|they were} not added again. To add {count:it\|them} again after deleting {count:it\|them} in orrn, change a value in the sheet. | {count} लाइन इसी शीट के पिछले इम्पोर्ट से पहले से orrn में {count:थी\|थीं}, इसलिए दोबारा नहीं जोड़ी {count:गई\|गईं}। orrn में डिलीट करने के बाद {count:उसे\|उन्हें} फिर जोड़ना हो तो शीट में कोई एक वैल्यू बदल दें। |
+| `doneProblemsHelp` | Fix the downloaded rows and import only that file. Don't import this whole file again. | डाउनलोड की गई लाइनें ठीक करें और सिर्फ़ वही फ़ाइल इम्पोर्ट करें। यह पूरी फ़ाइल दोबारा इम्पोर्ट न करें। |
 | `alreadyTitle` | Already imported | पहले से इम्पोर्ट है |
 | `diesDone` | {created} new {created:die\|dies}, {updated} updated. | {created} नई die, {updated} अपडेट हुईं। |
 | `retry` | Try the rest again | बाकी फिर से भेजें |
@@ -852,6 +856,8 @@ Counts: 861 screen strings in 26 groups, 10 guides with 182 strings.
 | `reason.deletedDie` | A deleted die already uses this section code. Use a different code for this die. | यह section code एक डिलीट की गई die का है। इस die के लिए दूसरा कोड लिखें। |
 | `reason.dieDeleted` | This die was deleted in orrn, so bundles can't be added to it. | यह die orrn में डिलीट हो चुकी है, इसलिए इसमें bundle नहीं जुड़ सकते। |
 | `reason.lengthRange` | {column} reads as {length}, too long or too short for a bundle. Check the unit in the column name. | {column} {length} पढ़ा गया, जो bundle के लिए बहुत लंबा या बहुत छोटा है। कॉलम के नाम में यूनिट जांचें। |
+| `reason.weightRange` | {column} reads as {weight}, too heavy to be right. Check the unit in the column name. | {column} {weight} पढ़ा गया, जो सही होने के लिए बहुत ज़्यादा है। कॉलम के नाम में यूनिट जांचें। |
+| `reason.alreadyImported` | This row (same row number, same values) was already imported from an earlier copy of this file, so it is not added again. | यह लाइन (वही लाइन नंबर, वही वैल्यू) इस फ़ाइल की पहले की कॉपी से इम्पोर्ट हो चुकी है, इसलिए दोबारा नहीं जोड़ी गई। |
 
 ### guides (11)
 

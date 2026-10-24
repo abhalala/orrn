@@ -33,7 +33,6 @@ export function columnGuide(kind: ImportKind, unit: LengthUnit): GuideColumn[] {
         { field: "name", header: "Name", required: false },
         { field: "width", header: "Width (mm)", required: false },
         { field: "thickness", header: "Thickness (mm)", required: false },
-        { field: "oblique", header: "Oblique (mm)", required: false },
         { field: "leg", header: "Leg (mm)", required: false },
         { field: "status", header: "Status", required: false },
         { field: "notes", header: "Notes", required: false },
@@ -59,7 +58,7 @@ function sampleValues(kind: ImportKind, unit: LengthUnit): Record<string, string
       ];
     case "dies":
       return [
-        { series: "40", sectionCode: "4012", weightMin: "2.2", weightMax: "2.5", name: "Window frame", width: "44.5", thickness: "1.2", oblique: "", leg: "", status: "active", notes: "" },
+        { series: "40", sectionCode: "4012", weightMin: "2.2", weightMax: "2.5", name: "Window frame", width: "44.5", thickness: "1.2", leg: "", status: "active", notes: "" },
       ];
     case "customers":
       return [{ name: "Shree Ganesh Aluminium", phone: "98250 12345", email: "accounts@example.in", taxId: "24AAACS1234A1Z5", notes: "" }];

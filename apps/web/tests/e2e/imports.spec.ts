@@ -174,7 +174,7 @@ test.describe("Data tab", () => {
     await expect(page.getByRole("button", { name: /Choose file/ })).toHaveCount(0);
   });
 
-  for (const width of [390, 1280]) {
+  for (const width of [390, 820, 1280]) {
     for (const scheme of ["light", "dark"] as const) {
       test(`no serious a11y issues and no clipping at ${width} ${scheme}`, async ({ page }) => {
         await open(page, { width, scheme });
@@ -264,13 +264,30 @@ test.describe("import sheet", () => {
     const result = page.locator("[data-slot='import-result']");
     await expect(result).toBeFocused();
     await expect(result).toHaveAttribute("aria-label", "1 row imported");
+    // The rows with problems come back as a file: say to import only that one.
+    await expect(page.locator("[data-slot='import-done-help']")).toHaveText(
+      "Fix the downloaded rows and import only that file. Don't import this whole file again.",
+    );
 
     type Listed = { items: { lengthMm: number; weightG: number; quantity: number }[] };
     const saved = await trpcQuery<Listed>(page, "bundle.listBundles", { search: po, limit: 10 });
     expect(saved.items).toEqual([expect.objectContaining({ lengthMm: 3658, weightG: 58400, quantity: 25 })]);
 
-    // The same sheet again (a person starting over after an error): the server knows these rows.
+    // The same sheet again (a corrected copy of a sheet that was already imported): the row this
+    // browser saved is a problem row, not a second bundle.
     await sheet.getByRole("button", { name: "Done" }).click();
+    sheet = await openImport(page, /Choose file Import old bundles/);
+    await chooseFile(page, file);
+    await expect(stage(page)).toHaveAttribute("data-stage", "review");
+    await expect(page.locator("[data-slot='import-counts']")).toHaveAttribute("aria-label", "0 rows ready. 4 rows with problems.");
+    await expect(
+      sheet.getByText("This row (same row number, same values) was already imported from an earlier copy of this file, so it is not added again."),
+    ).toBeVisible();
+    await expect(sheet.getByRole("button", { name: /^Import \d+ row/ })).toHaveCount(0);
+
+    // A browser that does not remember (another PC, cleared data): the server knows these rows.
+    await page.evaluate(() => window.localStorage.clear());
+    await sheet.getByRole("button", { name: "Close", exact: true }).last().click();
     sheet = await openImport(page, /Choose file Import old bundles/);
     await chooseFile(page, file);
     await sheet.getByRole("button", { name: "Import 1 row" }).click();
@@ -349,7 +366,7 @@ test.describe("import sheet", () => {
     await expect(stage(page)).toHaveAttribute("data-stage", "failed");
     const failed = page.locator("[data-slot='import-failed']");
     await expect(failed).toBeFocused();
-    await expect(failed).toContainText("Saved 500 of 1,200 rows, up to row 501. orrn can't tell yet if rows 502 to 1001 were saved.");
+    await expect(failed).toContainText("Saved 500 of 1,200 rows, up to row 501. orrn can't tell yet if 500 rows from row 502 to row 1001 were saved.");
     // Never the server's own text.
     await expect(failed).toContainText("orrn's server ran into a problem.");
     await expect(failed).not.toContainText("D1_ERROR");
@@ -394,7 +411,7 @@ test.describe("import sheet", () => {
 
     await expect(stage(page)).toHaveAttribute("data-stage", "failed");
     const failed = page.locator("[data-slot='import-failed']");
-    await expect(failed).toContainText("Saved 500 of 700 rows, up to row 501. orrn can't tell yet if rows 502 to 701 were saved.");
+    await expect(failed).toContainText("Saved 500 of 700 rows, up to row 501. orrn can't tell yet if 200 rows from row 502 to row 701 were saved.");
     await expect(failed).toContainText("No internet connection. Check it and try again.");
     await expect(failed).not.toContainText("were not saved");
     await expect(sheet.getByRole("button", { name: "Choose another file" })).toHaveCount(0);
@@ -564,7 +581,53 @@ test.describe("import sheet", () => {
     await expectNoHorizontalScroll(page);
   });
 
-  for (const width of [390, 1280]) {
+  test("two columns for one field are named, not guessed; feet and inches columns add up", async ({ page }) => {
+    await open(page, { width: 390 });
+    const sheet = await openImport(page, /Choose file Import old bundles/);
+    const sent = await answer(page, "bundle.bulkImport", (input) => bulkOk(input));
+    await chooseFile(page, {
+      name: "two-lengths.csv",
+      mimeType: "text/csv",
+      buffer: csv([
+        ["Die series", "Section code", "Pieces", "Weight (kg)", "Length (mm)", "Length (in)"],
+        ["PATTI", "14701", 3, 40, 3000, 144],
+      ]),
+    });
+    const conflict = page.locator("[data-slot='import-conflict']");
+    await expect(conflict).toBeVisible();
+    await expect(page.locator("[data-slot='import-missing']")).toContainText("Two columns fill the same field");
+    await expect(conflict).toContainText("Length (mm), Length (in)");
+    await expect(sheet.getByRole("button", { name: /^Import \d+ row/ })).toHaveCount(0);
+    await expectNoHorizontalScroll(page);
+
+    // A Weight Kg/12ft die band is never read as the bundle weight.
+    await sheet.getByRole("button", { name: "Choose another file" }).click();
+    await chooseFile(page, {
+      name: "band-only.csv",
+      mimeType: "text/csv",
+      buffer: csv([
+        ["Die series", "Section code", "Pieces", "Bundle Wt", "Weight Kg/12ft", "Length (mm)"],
+        ["PATTI", "14701", 3, 40, 2.5, 3658],
+      ]),
+    });
+    await expect(page.locator("[data-slot='import-missing']")).toContainText("Weight (kg)");
+    await expect(page.locator("[data-slot='import-missing']")).toContainText("Weight Kg/12ft");
+
+    await sheet.getByRole("button", { name: "Choose another file" }).click();
+    await chooseFile(page, {
+      name: "feet-and-inches.csv",
+      mimeType: "text/csv",
+      buffer: csv([
+        ["Die series", "Section code", "Pieces", "Weight (kg)", "Cut Length (ft)", "Cut Length (Inch)"],
+        ["PATTI", "14701", 3, 40, 11, 6],
+      ]),
+    });
+    await sheet.getByRole("button", { name: "Import 1 row" }).click();
+    await expect(stage(page)).toHaveAttribute("data-stage", "done");
+    expect((sent[0] as { rows: { lengthMm: number }[] }).rows[0]!.lengthMm).toBe(3505);
+  });
+
+  for (const width of [390, 820, 1280]) {
     for (const scheme of ["light", "dark"] as const) {
       test(`review stage: no serious a11y issues, no clipping at ${width} ${scheme}`, async ({ page }) => {
         await open(page, { width, scheme });

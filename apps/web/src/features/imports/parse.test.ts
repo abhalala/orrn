@@ -340,16 +340,104 @@ describe("parseImport bundles: lengths never 25.4x off (Review Focus 4)", () => 
     expect(res.ignoredColumns).toEqual([]);
   });
 
-  test("the first matching column wins; a second one for the same field is ignored", () => {
-    const res = parseImport("bundles", [{ ...bundle(), "Length (in)": "1" }], mm);
-    expect(res.ok[0]!.lengthMm).toBe(3658);
-    expect(res.ignoredColumns).toEqual(["Length (in)"]);
-    expect(res.columns.find((c) => c.field === "length")).toEqual({ field: "length", header: "Length (mm)", unit: "mm" });
+  test("a Kg/12ft die band is never the bundle weight, whatever the column order", () => {
+    // The bundle weight column is read; the per-12-ft band is listed as not used.
+    const row = { "Weight Kg/12ft": "2.5", "Die series": "1000", "Section code": "A101", Pieces: "12", "Bundle Weight KG": "47.9", "Length (mm)": "3658" };
+    const first = parseImport("bundles", [row], mm);
+    expect(first.rejected).toEqual([]);
+    expect(first.ok[0]!.weightG).toBe(47_900);
+    expect(first.conflictColumns).toEqual([]);
+    expect(first.badUnitColumns).toEqual(["Weight Kg/12ft"]);
+    expect(first.columns.find((c) => c.field === "weight")?.header).toBe("Bundle Weight KG");
+  });
+
+  test("a sheet whose only weight is a Kg/12ft band has no bundle weight: nothing is imported", () => {
+    const row = { "Die series": "1000", "Section code": "A101", Pieces: "12", "Bundle Wt": "47.9", "Weight Kg/12ft": "2.5", "Length (mm)": "3658" };
+    const res = parseImport("bundles", [row], mm);
+    expect(res.missingColumns).toEqual(["weight"]);
+    expect(res.badUnitColumns).toEqual(["Weight Kg/12ft"]);
+    expect(res.ok).toEqual([]);
+    expect(res.rejected).toEqual([]);
+    for (const spelling of ["Weight kg per 12 ft", "Weight (kg/12ft)", "Wt kg/12'"]) {
+      const r = parseImport("bundles", [{ ...row, "Weight Kg/12ft": undefined, [spelling]: "2.5" } as unknown as Record<string, string>], mm);
+      expect(r.ok).toEqual([]);
+    }
+  });
+
+  test("a die band column is still a die weight in a dies sheet", () => {
+    const res = parseImport("dies", [{ Series: "1000", "Section code": "A101", "Min weight (kg/12ft)": "1.2", "Max weight (kg/12ft)": "1.4" }], mm);
+    expect(res.ok[0]).toMatchObject({ weightMinG: 1200, weightMaxG: 1400 });
+    expect(res.badUnitColumns).toEqual([]);
+  });
+
+  test("Length (ft) and Length (Inch) columns are added: 11 ft + 6 in is 3505 mm", () => {
+    const row = {
+      "Die series": "1000",
+      "Section code": "A101",
+      Pieces: "12",
+      "Weight (kg)": "45.5",
+      "Cut Length (ft)": "11",
+      "Cut Length (Inch)": "6",
+    };
+    for (const company of [mm, inch]) {
+      const res = parseImport("bundles", [row, { ...row, "Cut Length (Inch)": "" }, { ...row, "Cut Length (ft)": "", "Cut Length (Inch)": "" }], company);
+      expect(res.conflictColumns).toEqual([]);
+      expect(res.ok.map((r) => r.lengthMm)).toEqual([3505, 3353]);
+      expect(res.rejected).toEqual([{ row: 4, reason: "imports.reason.blank", column: "Cut Length (ft)" }]);
+      expect(res.columns.filter((c) => c.field === "length").map((c) => c.header)).toEqual(["Cut Length (ft)", "Cut Length (Inch)"]);
+    }
+  });
+
+  test("the inches column may come before the feet column", () => {
+    const row = { "Die series": "1000", "Section code": "A101", Pieces: "12", "Weight (kg)": "45.5", "Length (in)": "6", "Length (ft)": "11" };
+    expect(parseImport("bundles", [row], mm).ok[0]!.lengthMm).toBe(3505);
+  });
+
+  test("two columns for one field that are not a unit pair are a conflict: nothing is parsed", () => {
+    const res = parseImport("bundles", [{ ...bundle(), "Length (in)": "144" }], mm);
+    expect(res.conflictColumns).toEqual([{ field: "length", headers: ["Length (mm)", "Length (in)"] }]);
+    expect(res.ok).toEqual([]);
+    expect(res.rejected).toEqual([]);
+    expect(res.ignoredColumns).toEqual([]);
+
+    const weights = parseImport("bundles", [{ ...bundle(), "Net weight (g)": "45500" }], mm);
+    expect(weights.conflictColumns).toEqual([{ field: "weight", headers: ["Weight (kg)", "Net weight (g)"] }]);
+
+    const twoFeet = parseImport("bundles", [{ ...bundle(), "Length (ft)": "11", "Cut length (ft)": "12", "Length (in)": "6" }], mm);
+    expect(twoFeet.conflictColumns).toHaveLength(1);
+
+    const unitless = parseImport("bundles", [{ ...bundle(), Length: "3658" }], mm);
+    expect(unitless.conflictColumns).toEqual([{ field: "length", headers: ["Length (mm)", "Length"] }]);
+
+    const customers = parseImport("customers", [{ Name: "Raj", Notes: "a", Remarks: "b" }], mm);
+    expect(customers.conflictColumns).toEqual([{ field: "notes", headers: ["Notes", "Remarks"] }]);
+    expect(customers.ok).toEqual([]);
   });
 
   test("the first data row number can be moved (Excel sheets that start lower)", () => {
     const res = parseImport("bundles", [bundle({ Pieces: "" })], { ...mm, firstDataRow: 5 });
     expect(res.rejected[0]!.row).toBe(5);
+  });
+});
+
+describe("weights are plausibility-checked like lengths (a wrong unit never becomes opening stock)", () => {
+  test("a bundle over 5 tonnes is a problem row asking to check the unit", () => {
+    const unitless = { "Die series": "1", "Section code": "A", Pieces: "1", Weight: "47900", "Length (mm)": "3658" };
+    const res = parseImport("bundles", [unitless, { ...unitless, Weight: "4999" }, { ...unitless, Weight: "5001" }], mm);
+    expect(res.rejected).toEqual([
+      { row: 2, reason: "imports.reason.weightRange", column: "Weight", vars: { weight: "47,900 kg" } },
+      { row: 4, reason: "imports.reason.weightRange", column: "Weight", vars: { weight: "5,001 kg" } },
+    ]);
+    expect(res.ok.map((r) => r.weightG)).toEqual([4_999_000]);
+  });
+
+  test("a die band over 50 kg per 12 ft is a problem row", () => {
+    const row = { Series: "1000", "Section code": "A101", Min: "2400", Max: "2600" };
+    const res = parseImport("dies", [row, { ...row, "Section code": "A102", Min: "2.4", Max: "2.6" }], mm);
+    expect(res.rejected).toEqual([
+      { row: 2, reason: "imports.reason.weightRange", column: "Min", vars: { weight: "2,400 kg per 12 ft" } },
+    ]);
+    expect(res.ok[0]).toMatchObject({ sectionCode: "A102", weightMinG: 2400, weightMaxG: 2600 });
   });
 });
 

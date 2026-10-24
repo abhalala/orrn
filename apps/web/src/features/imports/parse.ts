@@ -80,9 +80,11 @@ export const REJECT_REASONS = [
   "rangeOrder",
   "duplicate",
   "lengthRange",
-  // Not produced by the parser: the dies and bundles sheets add them after the server check.
+  "weightRange",
+  // Not produced by the parser: the sheets add them after the server check or the imported-rows check.
   "deletedDie",
   "dieDeleted",
+  "alreadyImported",
 ] as const;
 export type RejectReason = (typeof REJECT_REASONS)[number];
 export type RejectReasonKey = `imports.reason.${RejectReason}` & MessageKey;
@@ -116,8 +118,16 @@ export type ParseResult<R> = {
    * learns why a column that looks right was skipped.
    */
   badUnitColumns: string[];
+  /**
+   * Fields that more than one column fills and that are not a unit pair
+   * (feet + inches): `Length (mm)` with `Length (in)`, `Notes` with `Remarks`.
+   * orrn cannot tell which is right, so when this is non-empty nothing is parsed.
+   */
+  conflictColumns: ColumnConflict[];
   blankRows: number;
 };
+
+export type ColumnConflict = { field: string; headers: string[] };
 
 export type ParseContext = {
   companyUnit: LengthUnit;
@@ -160,6 +170,11 @@ const UNIT_WORDS: Record<string, HeaderUnit> = {
 function unitOf(text: string): HeaderUnit | null {
   const word = text.trim().toLowerCase().replace(/\.$/, "");
   return UNIT_WORDS[word] ?? null;
+}
+
+/** A header that names a die band: `Weight Kg/12ft`, `kg per 12 ft`, `Wt (kg/12')`. */
+export function isPerTwelveFoot(raw: string): boolean {
+  return /(?:\/|\bper)\s*12\s*(?:ft|feet|foot|')/i.test(raw);
 }
 
 export type HeaderRead = {
@@ -287,35 +302,63 @@ const MAX_TEXT = 500;
  * column almost certainly carries the wrong unit (a mm sheet with no unit in an
  * inch company reads 3658 as 304 ft). Q-OWNER (T25), default 1 ft to 30 ft.
  */
+export const BUNDLE_MAX_WEIGHT_G = 5_000_000;
+/** A die band above 50 kg per 12 ft is a unit slip (a 2.4 typed as 2400 g). */
+export const DIE_MAX_BAND_G = 50_000;
+
 export const BUNDLE_LENGTH_MM = { min: Math.round(MM_PER_FOOT), max: Math.round(30 * MM_PER_FOOT) } as const;
 
 function matchColumns(kind: ImportKind, headers: readonly string[]) {
   const fields = IMPORT_FIELDS[kind];
-  const used = new Map<string, MatchedColumn>();
+  const candidates = new Map<string, MatchedColumn[]>();
   const ignored: string[] = [];
   const badUnit: string[] = [];
   for (const header of headers) {
     if (header.trim() === "") continue;
     const { name, unit, unknownUnit } = readHeader(header);
+    // Whole-name match only (no "contains"), so `Weight Kg/12ft` is never a near-miss of `Bundle Weight`.
     const field = fields.find((f) => f.aliases.includes(name));
     if (!field) {
       ignored.push(header);
       continue;
     }
     const measured = field.type === "weight" || field.type === "length";
-    const unitFits = unit === null ? !(measured && unknownUnit !== undefined) : UNITS_FOR[field.type].includes(unit);
+    // A kg-per-12-ft column is a die band. On a bundles sheet it is never the weight of a bundle (W1/W10).
+    const dieBand = kind === "bundles" && isPerTwelveFoot(header);
+    const unitFits = dieBand
+      ? false
+      : unit === null
+        ? !(measured && unknownUnit !== undefined)
+        : UNITS_FOR[field.type].includes(unit);
     if (!unitFits) {
       (measured ? badUnit : ignored).push(header);
       continue;
     }
-    if (used.has(field.id)) {
-      ignored.push(header);
+    const list = candidates.get(field.id) ?? [];
+    list.push({ field: field.id, header, unit });
+    candidates.set(field.id, list);
+  }
+
+  const used = new Map<string, MatchedColumn>();
+  /** The inches column of a length given as feet + inches. */
+  const complements = new Map<string, MatchedColumn>();
+  const conflicts: ColumnConflict[] = [];
+  for (const [id, list] of candidates) {
+    if (list.length === 1) {
+      used.set(id, list[0]!);
       continue;
     }
-    used.set(field.id, { field: field.id, header, unit });
+    const ft = list.find((c) => c.unit === "ft");
+    const inch = list.find((c) => c.unit === "in");
+    if (list.length === 2 && ft && inch) {
+      used.set(id, ft);
+      complements.set(id, inch);
+    } else {
+      conflicts.push({ field: id, headers: list.map((c) => c.header) });
+    }
   }
-  const missing = fields.filter((f) => f.required && !used.has(f.id)).map((f) => f.id);
-  return { used, ignored, badUnit, missing };
+  const missing = fields.filter((f) => f.required && !used.has(f.id) && !candidates.has(f.id)).map((f) => f.id);
+  return { used, complements, ignored, badUnit, missing, conflicts };
 }
 
 // ---------------------------------------------------------------- values
@@ -417,6 +460,9 @@ function buildRow(kind: ImportKind, v: Values, companyUnit: LengthUnit): ParsedR
     if (lengthMm < BUNDLE_LENGTH_MM.min || lengthMm > BUNDLE_LENGTH_MM.max) {
       throw new FieldReject("length", new Reject("lengthRange", { length: formatLength(lengthMm, companyUnit) }));
     }
+    if ((v.weight as number) > BUNDLE_MAX_WEIGHT_G) {
+      throw new FieldReject("weight", new Reject("weightRange", { weight: `${kgText(v.weight as number)} kg` }));
+    }
     return {
       dieSeries: v.dieSeries as string,
       dieSectionCode: v.dieSectionCode as string,
@@ -429,8 +475,11 @@ function buildRow(kind: ImportKind, v: Values, companyUnit: LengthUnit): ParsedR
   if (kind === "dies") {
     const min = v.weightMin as number;
     const max = v.weightMax as number;
+    for (const [field, g] of [["weightMin", min], ["weightMax", max]] as const) {
+      if (g > DIE_MAX_BAND_G) throw new FieldReject(field, new Reject("weightRange", { weight: `${kgText(g)} kg per 12 ft` }));
+    }
     if (max < min) throw new FieldReject("weightMax", new Reject("rangeOrder"));
-    // Die geometry keeps 0.1 mm (the oblique sets the die tier, ruling R16).
+    // Die geometry keeps 0.1 mm (a die's tier changes only through a tier change, never from a sheet column).
     const geo = (k: string) => (typeof v[k] === "number" ? Math.round((v[k] as number) * 10) / 10 : undefined);
     const row: DieImportRow = {
       series: v.series as string,
@@ -464,6 +513,11 @@ function buildRow(kind: ImportKind, v: Values, companyUnit: LengthUnit): ParsedR
   };
 }
 
+/** Grams as kg with grouping, for a problem message (`47,900`). */
+function kgText(g: number): string {
+  return (g / 1000).toLocaleString("en-US", { maximumFractionDigits: 3 });
+}
+
 class FieldReject {
   constructor(
     readonly field: string,
@@ -490,18 +544,19 @@ export function parseImport<K extends ImportKind>(
   const headers: string[] = [];
   for (const row of rows) for (const h of Object.keys(row)) if (!headers.includes(h)) headers.push(h);
 
-  const { used, ignored, badUnit, missing } = matchColumns(kind, headers);
+  const { used, complements, ignored, badUnit, missing, conflicts } = matchColumns(kind, headers);
   const result: ParseResult<ParsedRowByKind[K]> = {
     ok: [],
     okRows: [],
     rejected: [],
-    columns: [...used.values()],
+    columns: [...used.values(), ...complements.values()],
     missingColumns: missing,
     ignoredColumns: ignored,
     badUnitColumns: badUnit,
+    conflictColumns: conflicts,
     blankRows: 0,
   };
-  if (missing.length > 0) return result;
+  if (missing.length > 0 || conflicts.length > 0) return result;
 
   const fields = IMPORT_FIELDS[kind];
   const seen = new Map<string, number>();
@@ -513,8 +568,8 @@ export function parseImport<K extends ImportKind>(
       return;
     }
     const values: Values = {};
-    const reject = (field: string, r: Reject) => {
-      const column = used.get(field)!.header;
+    const reject = (field: string, r: Reject, header?: string) => {
+      const column = header ?? used.get(field)!.header;
       result.rejected.push({
         row: rowNumber,
         reason: `imports.reason.${r.reason}` as RejectReasonKey,
@@ -526,6 +581,29 @@ export function parseImport<K extends ImportKind>(
     for (const def of fields) {
       const column = used.get(def.id);
       if (!column) continue;
+      const inchColumn = complements.get(def.id);
+      if (inchColumn) {
+        // Length as feet + inches in two columns: each in its own unit, then added.
+        let total: number | undefined;
+        let failedHeader = column.header;
+        try {
+          for (const c of [column, inchColumn]) {
+            failedHeader = c.header;
+            const part = readField({ ...def, required: false }, { text: String(raw[c.header] ?? ""), column: c }, ctx.companyUnit);
+            if (typeof part === "number") total = (total ?? 0) + part;
+          }
+          if (total === undefined) {
+            failedHeader = column.header;
+            throw new Reject("blank");
+          }
+          values[def.id] = total;
+        } catch (error) {
+          if (!(error instanceof Reject)) throw error;
+          reject(def.id, error, failedHeader);
+          return;
+        }
+        continue;
+      }
       try {
         values[def.id] = readField(def, { text: String(raw[column.header] ?? ""), column }, ctx.companyUnit);
       } catch (error) {
