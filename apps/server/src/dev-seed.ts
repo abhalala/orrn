@@ -64,7 +64,7 @@ import {
   qcEntry,
 } from "@orrn/db/schema/press";
 import { reasonCode } from "@orrn/db/schema/reasons";
-import { ALLOY_LIMIT_SEEDS, COMPANY_MODULES, defaultReasonCodeRows, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
+import { ALLOY_LIMIT_SEEDS, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
@@ -76,6 +76,7 @@ import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
 import { DEFAULT_LOCATIONS, defaultLocationStatements, openingRows } from "@orrn/server/lib/ledger";
 import { nextCompanySeq } from "@orrn/server/lib/sequence";
 import { defaultReturnStreamStatements } from "@orrn/server/lib/foundry";
+import { shiftAt } from "@orrn/server/lib/press";
 import { kgPer12ftMilli } from "@orrn/server/lib/bundleWeight";
 import { docPeriod, nextDocNumber } from "@orrn/server/lib/docNumber";
 import {
@@ -1055,7 +1056,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
   ];
   // The press run book continues after PR-1.
   const pressRunSeriesRows: (typeof docSeries.$inferInsert)[] = [
-    { id: `dev-series-press_run-${pressRunPeriod}`, companyId: COMPANY_ID, docType: "press_run", period: pressRunPeriod, value: pressRunRows.length, createdBy: ownerId },
+    // value is read when the batch is built (after the Wave 2 press runs below are pushed).
+    { id: `dev-series-press_run-${pressRunPeriod}`, companyId: COMPANY_ID, docType: "press_run", period: pressRunPeriod, value: 1, createdBy: ownerId },
   ];
   const dieIssueRows: (typeof dieIssue.$inferInsert)[] = [
     {
@@ -1071,6 +1073,158 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       note: "Day shift",
     },
   ];
+  // FP Wave 2 press (W2-PR-S): one cast with billets on hand (paper-era opening), a run logged
+  // today on P1 (the spec's worked example: 310.4 kg in, 234.2 kg good → 75.5 %, balance 31.4 kg)
+  // with its lines, billets, QC and a closed downtime row, and a late entry on P2 waiting for its
+  // press_late_entry approval (requested by the operator, so the owner can decide it).
+  const castPeriod = docPeriod("cast", new Date(now), DEMO_SETTINGS.timezone);
+  const castMonth = Number(castPeriod.slice(5));
+  const castRows: (typeof cast.$inferInsert)[] = [
+    {
+      id: "dev-cast-1",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number: formatCastCode(castMonth, 1),
+      period: castPeriod,
+      year: Number(castPeriod.slice(0, 4)),
+      month: castMonth,
+      seq: 1,
+      alloy: "6063",
+      alloyId: "dev-alloy-6063",
+      status: "closed",
+      notes: "Billets from the paper sheet (opening balance)",
+      openedAt: new Date(pastAt(2, 8)),
+      closedAt: new Date(pastAt(1, 18)),
+      closedBy: ownerId,
+      createdBy: ownerId,
+    },
+  ];
+  const castSeriesRows: (typeof docSeries.$inferInsert)[] = [
+    { id: `dev-series-cast-${castPeriod}`, companyId: COMPANY_ID, docType: "cast", period: castPeriod, value: 1, createdBy: ownerId },
+  ];
+  const billetOpeningG = 2_400_000;
+  const loggedStart = todayAt(0.15);
+  const loggedStop = todayAt(0.45);
+  const loggedAt = todayAt(0.5);
+  const loggedShift = shiftAt(DEMO_SETTINGS, loggedStart);
+  const lateStart = pastAt(1, 22);
+  const lateStop = pastAt(1, 23.5);
+  const lateShift = shiftAt(DEMO_SETTINGS, lateStart);
+  const loggedSeq = nextSeq();
+  pressRunRows.push(
+    {
+      id: "dev-run-12230-1",
+      companyId: COMPANY_ID,
+      serverSeq: loggedSeq,
+      number: "PR-2",
+      period: pressRunPeriod,
+      status: "logged",
+      pressLineId: "dev-press-line-1",
+      sectionId: dieId("chan1"),
+      dieInstanceId: devCopyId("12230-1"),
+      productionDay: loggedShift.productionDay,
+      shiftSeq: loggedShift.shiftSeq,
+      shiftId: loggedShift.shiftId,
+      operatorId,
+      supervisorId: ownerId,
+      castId: "dev-cast-1",
+      dieInAt: new Date(loggedStart),
+      dieOutAt: new Date(loggedStop),
+      startedAt: new Date(loggedStart),
+      stoppedAt: new Date(loggedStop),
+      discardG: 25_000,
+      endsG: 12_800,
+      rejectG: 7_000,
+      inputG: 310_400,
+      inputWeighedG: 310_400,
+      goodG: 234_200,
+      recoveryBp: 7545,
+      balanceG: 31_400,
+      pressRemark: "Ram slow on the third billet",
+      loggedAt: new Date(loggedAt),
+      createdBy: ownerId,
+      createdAt: new Date(loggedStart),
+      updatedAt: new Date(loggedAt),
+    },
+    {
+      id: "dev-run-13090-2-late",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number: "PR-3",
+      period: pressRunPeriod,
+      status: "counting",
+      pressLineId: "dev-press-line-2",
+      sectionId: dieId("tee125"),
+      dieInstanceId: devCopyId("13090-2"),
+      productionDay: lateShift.productionDay,
+      shiftSeq: lateShift.shiftSeq,
+      shiftId: lateShift.shiftId,
+      operatorId,
+      castId: "dev-cast-1",
+      dieInAt: new Date(lateStart),
+      dieOutAt: new Date(lateStop),
+      startedAt: new Date(lateStart),
+      stoppedAt: new Date(lateStop),
+      lateEntry: true,
+      createdBy: operatorId,
+      createdAt: new Date(todayAt(0.3)),
+      updatedAt: new Date(todayAt(0.3)),
+    },
+  );
+  dieIssueRows.push({
+    id: "dev-issue-12230-1",
+    companyId: COMPANY_ID,
+    serverSeq: loggedSeq,
+    dieInstanceId: devCopyId("12230-1"),
+    pressLineId: "dev-press-line-1",
+    pressRunId: "dev-run-12230-1",
+    status: "returned",
+    issuedAt: new Date(loggedStart - 20 * 60 * 1000),
+    issuedBy: ownerId,
+    returnedAt: new Date(loggedAt),
+    returnedBy: ownerId,
+  });
+  const runChild = { companyId: COMPANY_ID, createdBy: ownerId };
+  const pressRunLineRows: (typeof pressRunLine.$inferInsert)[] = [
+    { id: "dev-run-12230-1-line-1", ...runChild, serverSeq: loggedSeq, pressRunId: "dev-run-12230-1", line: 1, cutLengthMm: 3_658, pcs: 80, goodG: 234_200 },
+    { id: "dev-run-late-line-1", ...runChild, serverSeq: nextSeq(), pressRunId: "dev-run-13090-2-late", line: 1, cutLengthMm: 3_658, pcs: 60, goodG: 170_000 },
+  ];
+  const pressBilletRows: (typeof pressBilletUse.$inferInsert)[] = [
+    { id: "dev-run-12230-1-billet-1", ...runChild, serverSeq: loggedSeq, pressRunId: "dev-run-12230-1", line: 1, castId: "dev-cast-1", lengthMm: 600, count: 4, kgG: 155_200 },
+    { id: "dev-run-12230-1-billet-2", ...runChild, serverSeq: loggedSeq, pressRunId: "dev-run-12230-1", line: 2, castId: "dev-cast-1", lengthMm: 600, count: 4, kgG: 155_200 },
+    { id: "dev-run-late-billet-1", ...runChild, serverSeq: nextSeq(), pressRunId: "dev-run-13090-2-late", line: 1, castId: "dev-cast-1", lengthMm: 600, count: 4, kgG: 230_000 },
+  ];
+  const qcRows: (typeof qcEntry.$inferInsert)[] = [
+    { id: "dev-run-12230-1-qc-1", ...runChild, serverSeq: loggedSeq, pressRunId: "dev-run-12230-1", line: 1, pressRunLineId: "dev-run-12230-1-line-1", reasonCodeId: "dev-reason-qc_reject-bend", pcs: 3, kgG: 7_000 },
+    { id: "dev-run-late-qc-1", ...runChild, serverSeq: nextSeq(), pressRunId: "dev-run-13090-2-late", line: 1, pcs: 0, kgG: 0 },
+  ];
+  const downtimeRows: (typeof pressDowntime.$inferInsert)[] = [
+    {
+      id: "dev-downtime-1",
+      companyId: COMPANY_ID,
+      serverSeq: loggedSeq,
+      pressLineId: "dev-press-line-1",
+      pressRunId: "dev-run-12230-1",
+      reasonCodeId: "dev-reason-downtime-billet_wait",
+      startedAt: new Date(todayAt(0.25)),
+      stoppedAt: new Date(todayAt(0.25) + 18 * 60 * 1000),
+      startedBy: operatorId,
+      stoppedBy: operatorId,
+    },
+  ];
+  approvalRows.push({
+    id: "dev-approval-late-entry-1",
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    kind: "press_late_entry",
+    subjectId: "dev-run-13090-2-late",
+    status: "pending",
+    requestNote: "Tablet was down on the night shift",
+    meta: { reason: "Tablet was down on the night shift", productionDay: lateShift.productionDay, shiftSeq: lateShift.shiftSeq, runNumber: "PR-3" },
+    requestedBy: operatorId,
+    createdAt: new Date(todayAt(0.3)),
+  });
+
   // FP Wave 2 contracts: one draft die-trial plan (PP-1, FP-PR-23) on the second press, for the
   // trial copy flow; no order line (a trial needs none). The plan book continues after PP-1.
   const pressPlanPeriod = docPeriod("press_plan", new Date(now), DEMO_SETTINGS.timezone);
@@ -1300,14 +1454,71 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     ...insertChunks(db, dieInstance, copyRows),
     ...insertChunks(db, dieTierChange, copyTierRows),
     ...insertChunks(db, dieWeightReading, readingRows),
+    ...insertChunks(db, cast, castRows),
+    ...insertChunks(db, docSeries, castSeriesRows),
     ...insertChunks(db, pressRun, pressRunRows),
-    ...insertChunks(db, docSeries, pressRunSeriesRows),
+    ...insertChunks(db, docSeries, pressRunSeriesRows.map((r) => ({ ...r, value: pressRunRows.length }))),
     ...insertChunks(db, dieIssue, dieIssueRows),
+    ...insertChunks(db, pressRunLine, pressRunLineRows),
+    ...insertChunks(db, pressBilletUse, pressBilletRows),
+    ...insertChunks(db, qcEntry, qcRows),
+    ...insertChunks(db, pressDowntime, downtimeRows),
     ...insertChunks(db, pressPlan, trialPlanRows),
     ...insertChunks(db, pressPlanDie, trialPlanDieRows),
     ...insertChunks(db, docSeries, pressPlanSeriesRows),
   ];
   await atomicBatch(db, statements);
+
+  // 3b. Ledger of the Wave 2 press demo: the cast's billet opening, then the logged run's close
+  //     rows exactly as press.runs.close posts them (billet out; butt to DISCARD, ends and
+  //     rejects to PLANT-SCRAP). Stream ids are only known once the default streams exist.
+  const streams = await db
+    .select({ id: returnStream.id, code: returnStream.code })
+    .from(returnStream)
+    .where(eq(returnStream.companyId, COMPANY_ID));
+  const streamOf = (code: string) => {
+    const hit = streams.find((r) => r.code === code);
+    if (!hit) throw new Error(`dev-seed: return stream ${code} missing`);
+    return hit.id;
+  };
+  const pressLedger = (line: number, itemKind: "billet" | "return_stream", itemRef: string, locationCode: string, qtyG: number, reason: string) => ({
+    id: `dev-ledger-press-run-12230-1-${line}`,
+    companyId: COMPANY_ID,
+    serverSeq: loggedSeq,
+    voucherType: "press_run" as const,
+    voucherId: "dev-run-12230-1",
+    line,
+    itemKind,
+    itemRef,
+    locationId: devLocationId(locationCode),
+    qtyG,
+    postedAt: new Date(loggedAt),
+    reason,
+    createdBy: ownerId,
+  });
+  await atomicBatch(db, [
+    db.insert(stockLedger).values({
+      id: "dev-ledger-cast-1-opening",
+      companyId: COMPANY_ID,
+      serverSeq: castRows[0]!.serverSeq!,
+      voucherType: "opening",
+      voucherId: "dev-cast-1",
+      line: 1,
+      itemKind: "billet",
+      itemRef: "dev-cast-1",
+      locationId: devLocationId("BILLET"),
+      qtyG: billetOpeningG,
+      postedAt: new Date(pastAt(1, 18)),
+      reason: "Billets on hand from the paper cast sheet",
+      createdBy: ownerId,
+    }),
+    db.insert(stockLedger).values([
+      pressLedger(1, "billet", "dev-cast-1", "BILLET", -310_400, "PR-2 billets"),
+      pressLedger(2, "return_stream", streamOf("DISCARD"), "PLANT-SCRAP", 25_000, "PR-2 butt"),
+      pressLedger(3, "return_stream", streamOf("PLANT-SCRAP"), "PLANT-SCRAP", 12_800, "PR-2 ends"),
+      pressLedger(4, "return_stream", streamOf("PLANT-SCRAP"), "PLANT-SCRAP", 7_000, "PR-2 rejects"),
+    ]),
+  ] as Statement[]);
 
   // 4. Packing lists for completed dispatches, built by the router's own writer so the
   //    snapshot shape matches production. Then backdate them to the completion time.
@@ -1377,6 +1588,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       dieBands: dieBandRows.length,
       dieReadings: readingRows.length,
       dieIssues: dieIssueRows.length,
+      pressRuns: pressRunRows.length,
       packingSessions: groups.length,
       bundles: bundleRows.length,
       dispatches: dispatchRows.length,

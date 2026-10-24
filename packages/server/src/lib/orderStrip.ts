@@ -7,8 +7,8 @@
  * - plannedG  = kg on press plan lines of draft plans, and of released plans whose run for that
  *               die is still live (queued … counting). A logged run moves it to pressed; a voided
  *               run or a cancelled / closed plan drops it.
- * - loggedG   = good kg of LOGGED runs shared over the plan lines of that plan die by their kg
- *               (Wave 1: press_run_line, which carries the cut per line, lands in Wave 2).
+ * - loggedG   = good kg of LOGGED runs' run lines naming the order line (FP-PR-16); runs logged
+ *               without run lines share their good kg over the plan die's lines by kg.
  * - pressedG  = max(0, logged − aged − produced) (press log never reduces baki).
  * - agedG     = 0 until ageing rows exist (Wave 2/3, `ageing.forOrder`).
  * - packedG   = linked bundles available + reserved; inStockG = available only.
@@ -86,8 +86,12 @@ function plannedExpr(excludePlanId?: string) {
   return sql<number>`(select coalesce(sum(pl.kg_g), 0) from press_plan_line pl join press_plan p on p.id = pl.press_plan_id and p.company_id = pl.company_id where pl.company_id = ${LC} and pl.sales_order_line_id = ${LI}${exclude} and (p.status = 'draft' or (p.status = 'released' and exists (select 1 from press_run r where r.company_id = pl.company_id and r.press_plan_die_id = pl.press_plan_die_id and r.status not in ('logged', 'voided')))))`;
 }
 
-/** Good kg of logged runs, shared over the plan die's lines by their planned kg (floored). */
-const loggedExpr = sql<number>`(select coalesce(sum((r.good_g * pl.kg_g) / (select sum(x.kg_g) from press_plan_line x where x.company_id = pl.company_id and x.press_plan_die_id = pl.press_plan_die_id)), 0) from press_plan_line pl join press_run r on r.company_id = pl.company_id and r.press_plan_die_id = pl.press_plan_die_id where pl.company_id = ${LC} and pl.sales_order_line_id = ${LI} and r.status = 'logged' and r.good_g is not null)`;
+/**
+ * Good kg pressed for the line (FP-PR-16): the run lines of LOGGED runs that name this order line
+ * (Wave 2 station rows), plus, for logged runs with no run lines at all (Wave 1 data), the run's
+ * good kg shared over the plan die's lines by their planned kg (floored).
+ */
+const loggedExpr = sql<number>`((select coalesce(sum(rl.good_g), 0) from press_run_line rl join press_run rr on rr.id = rl.press_run_id and rr.company_id = rl.company_id where rl.company_id = ${LC} and rl.sales_order_line_id = ${LI} and rr.status = 'logged') + (select coalesce(sum((r.good_g * pl.kg_g) / (select sum(x.kg_g) from press_plan_line x where x.company_id = pl.company_id and x.press_plan_die_id = pl.press_plan_die_id)), 0) from press_plan_line pl join press_run r on r.company_id = pl.company_id and r.press_plan_die_id = pl.press_plan_die_id where pl.company_id = ${LC} and pl.sales_order_line_id = ${LI} and r.status = 'logged' and r.good_g is not null and not exists (select 1 from press_run_line q where q.company_id = r.company_id and q.press_run_id = r.id)))`;
 
 const producedExpr = sql<number>`(select coalesce(sum(b.weight_g), 0) from bundle b where b.company_id = ${LC} and b.sales_order_line_id = ${LI} and b.status <> 'void')`;
 
