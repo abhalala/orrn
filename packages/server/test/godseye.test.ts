@@ -284,14 +284,58 @@ describe("a company whose request is not approved (pending)", () => {
   test("approving still turns the waiting company into an active one with its owner", async () => {
     const { requestId, companyId } = await fileRequest();
     const staff = env.caller({ platformRole: "super_admin" });
-    try {
-      await staff.platform.waitlistApprove({ id: requestId });
-    } catch {
-      // The sign-in email needs Better Auth, which the test env does not run; the batch has committed by then.
-    }
+    // Approval never throws because of the sign-in email: the details (or the reason there are none) come back.
+    const result = await staff.platform.waitlistApprove({ id: requestId });
+    expect(result.success).toBe(true);
+    expect(result.signIn !== null || typeof result.signInError === "string").toBe(true);
     const got = await staff.platform.companiesGet({ id: companyId });
     expect(got.company.status).toBe("active");
     expect(got.company.memberCount).toBe(1);
+  });
+});
+
+describe("sign-in details for an approved owner", () => {
+  test("a link that cannot be made is reported, not thrown, and the owner is listed as awaiting", async () => {
+    const { requestId } = await fileRequest();
+    const staff = env.caller({ platformRole: "super_admin" });
+    const approved = await staff.platform.waitlistApprove({ id: requestId });
+    expect(approved.success).toBe(true);
+    const awaiting = await staff.platform.waitlistAwaitingSignIn();
+    expect(awaiting.map((r) => r.id)).toContain(requestId);
+  });
+
+  test("an owner who has set a password is no longer awaiting", async () => {
+    const { requestId } = await fileRequest();
+    const staff = env.caller({ platformRole: "super_admin" });
+    await staff.platform.waitlistApprove({ id: requestId });
+    const { waitlistRequest } = await import("@orrn/db/schema/tenant");
+    const { account, user } = await import("@orrn/db/schema/auth");
+    const { eq } = await import("drizzle-orm");
+    const request = await env.db.select().from(waitlistRequest).where(eq(waitlistRequest.id, requestId)).get();
+    const owner = await env.db.select().from(user).where(eq(user.email, request!.requesterEmail)).get();
+    expect(owner).toBeTruthy();
+    await env.db.insert(account).values({
+      id: crypto.randomUUID(),
+      accountId: owner!.id,
+      providerId: "credential",
+      userId: owner!.id,
+      password: "x",
+    });
+    const awaiting = await staff.platform.waitlistAwaitingSignIn();
+    expect(awaiting.map((r) => r.id)).not.toContain(requestId);
+  });
+
+  test("fresh details are only issued for an approved request", async () => {
+    const { requestId } = await fileRequest();
+    const staff = env.caller({ platformRole: "super_admin" });
+    await expect(staff.platform.waitlistSignInDetails({ id: requestId })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(staff.platform.waitlistSignInDetails({ id: "nope" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  test("both are closed to a caller who is not platform staff", async () => {
+    const anon = env.caller(null);
+    await expect(anon.platform.waitlistAwaitingSignIn()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(anon.platform.waitlistSignInDetails({ id: "x" })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 });
 
