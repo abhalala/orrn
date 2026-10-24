@@ -300,6 +300,9 @@ test.describe("welcome: waitlist-approved owner (magic link)", () => {
     await expect(page).toHaveURL(/\/welcome$/);
     await expect(h1(page, "Set your password")).toBeVisible();
     await expect(stepper.getByRole("listitem")).toHaveCount(4);
+    // No way to end the session while there is no password: the link was single-use.
+    await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+    await expectNoSeriousAxe(page);
 
     // Leaving before the password (typing /today) does not skip it: the steps come from the account.
     await page.goto("/today");
@@ -315,6 +318,9 @@ test.describe("welcome: waitlist-approved owner (magic link)", () => {
     await expect(key).toBeVisible();
     // The QR replaced the form: the keyboard goes to the code field.
     await expect(page.getByLabel("6-digit code")).toBeFocused();
+    // The password exists now, so Sign out is back.
+    await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+    await expectNoSeriousAxe(page);
     const firstKey = (await key.innerText()).replace(/\s/g, "");
 
     // The phone drops the tab while the owner copies the key into the authenticator app.
@@ -336,9 +342,12 @@ test.describe("welcome: waitlist-approved owner (magic link)", () => {
 
     await page.getByLabel("6-digit code").fill(totp(secret));
     await expect(h1(page, "Backup codes")).toBeVisible();
+    await expectNoSeriousAxe(page);
+    const backupCode = (await page.getByRole("list", { name: "Backup codes" }).getByRole("listitem").first().innerText()).trim();
     await page.getByRole("button", { name: "I saved them, continue" }).click();
 
     await expect(h1(page, "Company details")).toBeVisible();
+    await expectNoSeriousAxe(page);
     await page.getByLabel("Location").fill("Sachin GIDC, Surat");
     await page.getByLabel("Contact phone").fill("+91 98250 41177");
     await page.getByLabel("Number of presses").fill("4");
@@ -358,6 +367,19 @@ test.describe("welcome: waitlist-approved owner (magic link)", () => {
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(h1(page, "Enter your code")).toBeVisible();
     await page.getByLabel("6-digit code").fill(totp(secret));
+    await expect(page).toHaveURL(/\/today$/);
+
+    // Lost phone: a backup code gets in, once.
+    await page.context().clearCookies();
+    await page.goto("/login");
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(first);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(h1(page, "Enter your code")).toBeVisible();
+    await page.getByRole("button", { name: "Use a backup code instead" }).click();
+    await expect(h1(page, "Enter a backup code")).toBeVisible();
+    await page.getByLabel("Backup code").fill(backupCode);
+    await page.getByRole("button", { name: "Verify", exact: true }).click();
     await expect(page).toHaveURL(/\/today$/);
   });
 });
@@ -445,4 +467,29 @@ test.describe("accessibility", () => {
       });
     }
   }
+});
+
+test.describe("widths", () => {
+  test("login, request access, welcome and no-access fit at 375, 820 and 1280", async ({ page, browser }) => {
+    const { email, password } = await createTempPasswordStaff(browser);
+    for (const width of [375, 820, 1280]) {
+      await page.context().clearCookies();
+      await page.setViewportSize({ width, height: 800 });
+      for (const [path, name] of [
+        ["/login", "Sign in"],
+        ["/request-access", "Request access"],
+      ] as const) {
+        await page.goto(path);
+        await expect(h1(page, name)).toBeVisible();
+        await expectNoHorizontalScroll(page);
+      }
+      await page.goto("/login");
+      await page.getByLabel("Email", { exact: true }).fill(email);
+      await page.getByLabel("Password", { exact: true }).fill(password);
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      await expect(h1(page, "Set your password")).toBeVisible();
+      await expectNoHorizontalScroll(page);
+      await expect(page.getByRole("button", { name: "Save password" })).toBeVisible();
+    }
+  });
 });
