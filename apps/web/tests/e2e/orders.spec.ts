@@ -103,6 +103,12 @@ async function apiConfirmed(page: Page, customerId: string, lines: Line[]) {
   return { ...made, po, lines: got.lines };
 }
 
+
+/** Two presses in the seed (P1, and P2 for die trials): a plan drafted on the board names P1. */
+async function pickPress(page: Page) {
+  await page.getByRole("combobox", { name: "Press", exact: true }).selectOption({ label: "P1 · Press 1" });
+}
+
 test.describe("orders list and detail", () => {
   for (const width of WIDTHS) {
     test(`the list shows SO-1 (late), SO-2 and SO-3 (booking) at ${width}`, async ({ page }) => {
@@ -366,6 +372,9 @@ test.describe("press plan", () => {
     await candidate.getByRole("button", { name: "Add" }).click();
     await expect(page.locator("[data-candidate='SO-2']")).toHaveCount(0);
     await expect(page.locator("[data-draft-die]")).toHaveCount(1);
+    // The seed has two presses since Wave 2 (P2 for die trials): the plan names its press.
+    await expect(page.getByRole("button", { name: "Save draft plan" })).toBeDisabled();
+    await pickPress(page);
     await expect(page.getByRole("button", { name: "Save draft plan" })).toBeEnabled();
     await expect(page.locator("[data-draft-footer]")).toHaveText(/1 die, \d+ lines?/);
     await shot(page, "plan-board-1280");
@@ -424,6 +433,7 @@ test.describe("press plan", () => {
     await expect(page.locator(`[data-draft-line='${b.number}']`)).toBeVisible();
     await page.locator(`[data-draft-line='${b.number}']`).getByRole("button", { name: "Remove" }).click();
     await expect(page.locator("[data-draft-footer]")).toHaveText("2 dies, 2 lines");
+    await pickPress(page);
     await expect(page.getByRole("button", { name: "Save draft plan" })).toBeEnabled();
     expect(await blockingAxeViolations(page), "/orders/plan at 1280").toEqual([]);
     await shot(page, "plan-board-other-1280");
@@ -517,6 +527,7 @@ test.describe("edit lines (review I-1)", () => {
     const plan = await trpcMutation<{ id: string }>(page, "plans.create", {
       windowStart: now,
       windowEnd: now + 3_600_000,
+      pressLineId: "dev-press-line-1",
       dies: [{ sectionId: "dev-die-14701", lines: [{ salesOrderLineId: made.lines[0]!.lineId, pcs: 2 }] }],
     });
     await trpcMutation(page, "plans.release", { id: plan.id });
