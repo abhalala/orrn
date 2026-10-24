@@ -17,6 +17,7 @@ import { authClient } from "@/shared/lib/auth-client";
 import { homeTarget, type HomePath } from "@/shared/lib/home";
 import type { Me } from "@/shared/lib/me";
 import { signOutAndReset } from "@/shared/lib/sign-out";
+import { isUnauthorized } from "@/shared/lib/session-errors";
 import { queryClient, trpc, trpcClient } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_public/invite/$token")({
@@ -70,7 +71,10 @@ function InvitePage() {
   const { t } = useT();
   const { token } = Route.useParams();
   const me = useQuery({ ...trpc.auth.me.queryOptions(), retry: false });
-  const signedOut = me.isError && me.data === undefined;
+  // Only a real "not signed in" answer counts: a 5xx or a network blip must not
+  // run the probe (a real accept for a signed-in invitee) or show the sign-up form.
+  const signedOut = me.isError && me.data === undefined && isUnauthorized(me.error);
+  const meFailed = me.isError && me.data === undefined && !signedOut;
   const probe = useQuery({
     queryKey: ["invite", "probe", token],
     queryFn: () => probeInvite(token),
@@ -164,7 +168,14 @@ function InvitePage() {
           </p>
         </div>
 
-        {me.isPending || (signedOut && probe.isPending) ? (
+        {meFailed ? (
+          <div className="flex flex-col gap-3">
+            <FormAlert>{t("errors.generic")}</FormAlert>
+            <Button size="lg" className="w-full" onClick={() => void me.refetch()}>
+              {t("common.retry")}
+            </Button>
+          </div>
+        ) : me.isPending || (signedOut && probe.isPending) ? (
           <div role="status" aria-busy="true" className="flex flex-col gap-5">
             <span className="sr-only">{t("common.loading")}</span>
             {[0, 1, 2].map((i) => (

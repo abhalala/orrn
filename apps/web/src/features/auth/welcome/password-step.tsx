@@ -67,7 +67,10 @@ export function PasswordStep({
       if (forced) await change.mutateAsync({ newPassword: password });
       else await setFirst.mutateAsync({ password });
     } catch (error) {
-      if (!forced && trpcCode(error) === "CONFLICT") {
+      const code = trpcCode(error);
+      // CONFLICT: a password exists already (set in another tab). FORBIDDEN on
+      // the forced path: the forced change was finished elsewhere.
+      if ((!forced && code === "CONFLICT") || (forced && code === "FORBIDDEN")) {
         setKept(true);
         void queryClient.invalidateQueries(trpc.auth.me.queryFilter());
         return;

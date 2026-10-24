@@ -1,6 +1,7 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Stepper } from "@orrn/ui/components/stepper";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
@@ -12,6 +13,7 @@ import { TwoFactorStep } from "@/features/auth/welcome/two-factor-step";
 import { leaveWelcome, welcomeSteps, welcomeTimeline } from "@/features/auth/welcome-steps";
 import { homeTarget } from "@/shared/lib/home";
 import { signOutAndReset } from "@/shared/lib/sign-out";
+import { trpc } from "@/shared/utils/trpc";
 
 /**
  * One stepper for everything a person still owes before the app (spec
@@ -46,21 +48,28 @@ function WelcomePage() {
   }, [index]);
 
   const stage = stages[index] ?? "done";
+  // `hasPassword` is read live, so Sign out returns once the password step is done.
+  const live = useQuery(trpc.auth.me.queryOptions()).data;
+  const canSignOut = (live ?? me).user.hasPassword !== false;
   const advance = () => setIndex((i) => Math.min(i + 1, stages.length - 1));
 
   return (
     <AuthFrame
       width="wide"
       footer={
-        <div className="flex justify-center">
-          <Button
-            variant="ghost"
-            className="text-muted-foreground"
-            onClick={() => void signOutAndReset(() => void navigate({ to: "/login", replace: true }))}
-          >
-            {t("auth.signOut")}
-          </Button>
-        </div>
+        // No Sign out while there is no password: a magic-link owner who
+        // leaves has no way back in (no reset flow, the link was single-use).
+        canSignOut ? (
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              className="text-muted-foreground"
+              onClick={() => void signOutAndReset(() => void navigate({ to: "/login", replace: true }))}
+            >
+              {t("auth.signOut")}
+            </Button>
+          </div>
+        ) : undefined
       }
     >
       {stages.length > 1 ? (
@@ -70,7 +79,7 @@ function WelcomePage() {
       {stage === "password" ? (
         <PasswordStep
           headingRef={heading}
-          forced={Boolean(me.user.mustChangePassword)}
+          forced={Boolean(me.user.mustChangePassword) && me.user.hasPassword !== false}
           onDone={(pw) => {
             // Kept in memory only, and only when the two-factor step needs it next.
             password.current = stages[index + 1] === "twoFactor" ? pw : null;
