@@ -172,6 +172,7 @@ export const en = {
     printing: "Printing",
     guides: "Guides",
     settings: "Settings",
+    preview: "Preview",
     account: "Account",
     signOut: "Sign out",
     skipToContent: "Skip to content",

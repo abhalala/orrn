@@ -166,6 +166,7 @@ export const hi = {
     printing: "प्रिंटिंग",
     guides: "गाइड",
     settings: "सेटिंग्स",
+    preview: "प्रीव्यू",
     account: "अकाउंट",
     signOut: "साइन आउट",
     skipToContent: "मुख्य हिस्से पर जाएं",

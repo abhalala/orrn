@@ -30,6 +30,7 @@ describe("visibleItems", () => {
       "printing",
       "guides",
       "settings",
+      "preview",
     ]);
   });
 
@@ -43,12 +44,12 @@ describe("visibleItems", () => {
 
   test("operator packs but doesn't see Settings (R24)", () => {
     expect(keys(visibleItems(TENANT_PRIMARY, me("operator")))).toContain("pack");
-    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["dies", "customers", "printing", "guides"]);
+    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["dies", "customers", "printing", "guides", "preview"]);
   });
 
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
-    expect(visible).toEqual(["today", "customers", "printing", "guides", "settings"]);
+    expect(visible).toEqual(["today", "customers", "printing", "guides", "settings", "preview"]);
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length);
   });
 
