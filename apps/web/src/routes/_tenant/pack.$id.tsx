@@ -67,6 +67,9 @@ function PackSession() {
     [bundles],
   );
 
+  // The facts card already names the cut length; the column returns only when it differs between bundles.
+  const mixedLength = useMemo(() => new Set(bundles.map((b) => b.lengthMm)).size > 1, [bundles]);
+
   const columns = useMemo((): ResponsiveListColumn<SessionBundle>[] => {
     const cols: ResponsiveListColumn<SessionBundle>[] = [
       {
@@ -91,11 +94,17 @@ function PackSession() {
         align: "end",
         cell: (b) => <span className="font-mono tabular-nums">{b.quantity}</span>,
       },
-      {
-        key: "length",
-        header: t("stock.columns.cutLength"),
-        cell: (b) => <span className="font-mono whitespace-nowrap">{formatLength(b.lengthMm, unit)}</span>,
-      },
+      ...(mixedLength
+        ? [
+            {
+              key: "length",
+              header: t("stock.columns.cutLength"),
+              cell: (b: SessionBundle) => (
+                <span className="font-mono whitespace-nowrap">{formatLength(b.lengthMm, unit)}</span>
+              ),
+            },
+          ]
+        : []),
       {
         key: "k12",
         header: t("stock.columns.kgPer12ft"),
@@ -144,7 +153,7 @@ function PackSession() {
       });
     }
     return cols;
-  }, [t, unit, die, bundles, canPrint, queue.run]);
+  }, [t, unit, die, bundles, mixedLength, canPrint, queue.run]);
 
   // Only when there is nothing to show: a failed background refresh keeps the session on screen.
   if (session.isError && !data) {
@@ -175,9 +184,14 @@ function PackSession() {
   if (!data) return <SessionSkeleton />;
 
   const group = data.group;
-  const totalWeightG = bundles.reduce((s, b) => s + b.weightG, 0);
-  const totalPieces = bundles.reduce((s, b) => s + b.quantity, 0);
+  // Packed figures leave void bundles out (RP11); the status chips below still show them.
+  const { bundles: totalBundles, pieces: totalPieces, weightG: totalWeightG } = data.totals;
   const lengths = new Set(bundles.map((b) => b.lengthMm));
+  const outsideRange = bundles.filter((b) => {
+    if (b.status === "void") return false;
+    const { verdict } = bundleRange({ weightG: b.weightG, pieces: b.quantity, lengthMm: b.lengthMm }, die);
+    return verdict === "below" || verdict === "above";
+  }).length;
   // Where the bundles are now (packed into one yard; a later move can split them).
   const yards = new Set(bundles.flatMap((b) => (b.locationId ? [b.locationId] : [])));
   const when = packedWhen(group.createdAt, { timeZone, locale });
@@ -220,7 +234,7 @@ function PackSession() {
           <div className="relative flex flex-wrap items-end gap-x-6 gap-y-3 sm:gap-x-8">
             <div className="flex min-w-0 flex-col gap-1">
               <span className="text-[13px] font-semibold">{t("pack.columns.bundles")}</span>
-              <BigNumber value={bundles.length} className="text-[44px] sm:text-[52px]" />
+              <BigNumber value={totalBundles} className="text-[44px] sm:text-[52px]" />
             </div>
             <div className="flex min-w-0 flex-col gap-1">
               <span className="text-[13px] font-semibold">{t("pack.new.totalPieces")}</span>
@@ -240,6 +254,11 @@ function PackSession() {
                   </Chip>
                 </li>
               ))}
+              {outsideRange > 0 ? (
+                <li>
+                  <Chip tone="amber">{t("pack.detail.outsideRange", { count: outsideRange })}</Chip>
+                </li>
+              ) : null}
             </ul>
           ) : null}
         </div>

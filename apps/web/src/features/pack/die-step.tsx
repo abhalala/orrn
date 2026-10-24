@@ -7,31 +7,23 @@ import { UiLink } from "@orrn/ui/components/link";
 import { usePrefersReducedMotion } from "@orrn/ui/components/motion";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
-import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, Search } from "lucide-react";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import { AlertCircle, Search, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
+import { dieListView, recentDieIds, type DieOption } from "./die-options";
 import { chooseYard, lengthToInput } from "./pack-math";
 import { PackBar, formatRangeKg } from "./pack-ui";
 import type { PackDraft } from "./use-pack-draft";
 import { readLastYard, type YardState } from "./use-yards";
 import { YardPicker } from "./yard-picker";
 
-export type DieOption = {
-  id: string;
-  series: string;
-  sectionCode: string;
-  name: string | null;
-  weightMinG: number;
-  weightMaxG: number;
-  status: string;
-};
+export type { DieOption };
 
 const SEARCH_DEBOUNCE_MS = 200;
-const RECENT_MAX = 5;
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -41,9 +33,6 @@ function useDebounced<T>(value: T, ms: number): T {
   }, [value, ms]);
   return v;
 }
-
-const bySection = (a: DieOption, b: DieOption) =>
-  a.sectionCode.localeCompare(b.sectionCode, "en", { numeric: true }) || a.series.localeCompare(b.series);
 
 /**
  * Step 1: the session's die, then its defaults (cut length once for the whole
@@ -156,47 +145,66 @@ export function DieStep({
 function DiePicker({ onChoose, error }: { onChoose(die: DieOption): void; error?: string }) {
   const { t } = useT();
   const [text, setText] = useState("");
-  const query = useDebounced(text.trim(), SEARCH_DEBOUNCE_MS);
+  const typed = text.trim();
+  const debounced = useDebounced(typed, SEARCH_DEBOUNCE_MS);
+  // Enter does not wait for the debounce: the typed text becomes the query at once.
+  const [flushed, setFlushed] = useState<string | null>(null);
+  const [enterWanted, setEnterWanted] = useState(false);
+  const query = flushed !== null && flushed === typed ? flushed : debounced;
   const listRef = useRef<HTMLUListElement | null>(null);
   const inputId = useId();
   const errorId = `${inputId}-error`;
 
-  const all = useQuery(trpc.die.list.queryOptions({ limit: 100, offset: 0 }));
+  // Active dies only, so archived ones take no places in the 100.
+  const all = useQuery(trpc.die.list.queryOptions({ status: "active", limit: 100, offset: 0 }));
   const searched = useQuery({
-    ...trpc.die.list.queryOptions({ search: query, limit: 100, offset: 0 }),
+    ...trpc.die.list.queryOptions({ search: query, status: "active", limit: 100, offset: 0 }),
     enabled: query !== "",
   });
   const recentSessions = useQuery(trpc.bundle.listGroups.queryOptions({ limit: 30, offset: 0 }));
+  // Recent dies are looked up by id, so a die outside the first 100 still leads.
+  const recentLookups = useQueries({
+    queries: recentDieIds(recentSessions.data?.items).map((id) => trpc.die.get.queryOptions({ id })),
+  });
 
-  const active = (items: DieOption[] | undefined) => (items ?? []).filter((d) => d.status !== "archived");
-
-  const { recent, rest } = useMemo(() => {
-    if (query !== "") return { recent: [], rest: active(searched.data?.items).sort(bySection) };
-    const dies = active(all.data?.items);
-    const byId = new Map(dies.map((d) => [d.id, d]));
-    const recentIds: string[] = [];
-    for (const g of recentSessions.data?.items ?? []) {
-      if (!recentIds.includes(g.dieId) && byId.has(g.dieId)) recentIds.push(g.dieId);
-      if (recentIds.length >= RECENT_MAX) break;
-    }
-    const recentSet = new Set(recentIds);
-    return {
-      recent: recentIds.map((id) => byId.get(id)!),
-      rest: dies.filter((d) => !recentSet.has(d.id)).sort(bySection),
-    };
-  }, [query, all.data, searched.data, recentSessions.data]);
+  const view = useMemo(
+    () =>
+      dieListView({
+        query,
+        page: all.data,
+        searched: searched.data,
+        recent: recentLookups.map((q) => q.data as DieOption | undefined),
+      }),
+    [query, all.data, searched.data, recentLookups],
+  );
+  const { recent, rest, more } = view;
 
   const loading = query !== "" ? searched.isPending : all.isPending;
   // A failed background refresh keeps the dies already listed.
   const failed = query !== "" ? searched.isError && !searched.data : all.isError && !all.data;
+  const retry = () => void (query !== "" ? searched.refetch() : all.refetch());
   const options = [...recent, ...rest];
+
+  // Enter pressed inside the debounce: pick the single match once its results arrive.
+  const resultsReady = query !== "" && query === typed && searched.isSuccess && !searched.isPlaceholderData;
+  useEffect(() => {
+    if (!enterWanted || !resultsReady) return;
+    setEnterWanted(false);
+    if (options.length === 1) onChoose(options[0]!);
+  }, [enterWanted, resultsReady, options, onChoose]);
 
   const rows = () => Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("button[data-die]") ?? []);
 
   const onSearchKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (options.length === 1) onChoose(options[0]!);
+      if (typed === "") return;
+      if (resultsReady) {
+        if (options.length === 1) onChoose(options[0]!);
+      } else {
+        setFlushed(typed);
+        setEnterWanted(true);
+      }
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       rows()[0]?.focus();
@@ -236,8 +244,21 @@ function DiePicker({ onChoose, error }: { onChoose(die: DieOption): void; error?
           enterKeyHint="search"
           aria-describedby={error ? errorId : undefined}
           aria-invalid={error ? true : undefined}
-          className="h-12 pl-10 text-[16px]"
+          className="h-12 pr-11 pl-10 text-[16px] [&::-webkit-search-cancel-button]:appearance-none"
         />
+        {text ? (
+          <button
+            type="button"
+            aria-label={t("pack.clearSearch")}
+            onClick={() => {
+              setText("");
+              document.getElementById(inputId)?.focus();
+            }}
+            className="absolute top-1/2 right-0.5 flex size-11 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-foreground"
+          >
+            <X aria-hidden="true" className="size-4" strokeWidth={2} />
+          </button>
+        ) : null}
       </div>
       {error ? (
         <p id={errorId} className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
@@ -247,12 +268,15 @@ function DiePicker({ onChoose, error }: { onChoose(die: DieOption): void; error?
       ) : null}
 
       {failed ? (
-        <p
+        <div
           role="alert"
-          className="m-0 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink"
+          className="m-0 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink"
         >
-          {t("pack.new.diesFailed")}
-        </p>
+          <p className="m-0 min-w-0 flex-1 basis-[14rem]">{t("pack.new.diesFailed")}</p>
+          <Button variant="secondary" onClick={retry}>
+            {t("common.retry")}
+          </Button>
+        </div>
       ) : loading ? (
         <ul aria-hidden="true" className="m-0 flex list-none flex-col gap-2 p-0">
           {Array.from({ length: 4 }, (_, i) => (
@@ -290,6 +314,16 @@ function DiePicker({ onChoose, error }: { onChoose(die: DieOption): void; error?
               onChoose={onChoose}
               onKeyDown={onRowKey}
             />
+          ) : null}
+          {more ? (
+            <li>
+              <p role="status" className="m-0 text-[13px] font-medium text-muted-foreground">
+                {t("pack.new.diesShowing", {
+                  shown: more.shown.toLocaleString("en-IN"),
+                  total: more.total.toLocaleString("en-IN"),
+                })}
+              </p>
+            </li>
           ) : null}
         </ul>
       )}
@@ -348,16 +382,16 @@ function DieRow({
         "transition-[background-color,border-color,scale] duration-[var(--dur-fast)] hover:border-control/50 hover:bg-surface-sunken/60",
       )}
     >
-      <span className="flex min-w-0 flex-wrap items-baseline gap-x-2.5">
+      <span className="col-start-1 flex min-w-0 flex-wrap items-baseline gap-x-2.5">
         <span className="font-mono text-[17px] font-semibold tracking-[-0.01em] text-foreground">
           {die.sectionCode}
         </span>
         <span className="text-[13px] font-semibold text-muted-foreground">{die.series}</span>
       </span>
-      <span className="row-span-2 hidden text-right text-[13px] font-medium text-muted-foreground tabular-nums sm:block">
+      <span className="col-start-2 row-span-2 row-start-1 hidden text-right text-[13px] font-medium text-muted-foreground tabular-nums sm:block">
         {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG), max: formatRangeKg(die.weightMaxG) })}
       </span>
-      {die.name ? <span className="min-w-0 text-[14px] leading-5 break-words text-foreground">{die.name}</span> : null}
+      {die.name ? <span className="col-start-1 min-w-0 text-[14px] leading-5 break-words text-foreground">{die.name}</span> : null}
       <span className="col-span-2 text-[13px] font-medium text-muted-foreground tabular-nums sm:hidden">
         {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG), max: formatRangeKg(die.weightMaxG) })}
       </span>
@@ -439,6 +473,7 @@ function DefaultsForm({
   const [lastYard] = useState(() => readLastYard(draft.companyId));
   const [yardError, setYardError] = useState<string | undefined>();
   const yardRef = useRef<HTMLInputElement | null>(null);
+  const inchesRef = useRef<HTMLInputElement | null>(null);
   const yardId = chooseYard({
     current: pickedYard ?? draft.defaults.locationId,
     lastUsed: lastYard,
@@ -509,6 +544,12 @@ function DefaultsForm({
                   onValueChange={setFeet}
                   suffix={t("units.ft")}
                   enterKeyHint="next"
+                  onKeyDown={(e) => {
+                    // Enter moves on to Inches instead of saving the session at whole feet.
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    inchesRef.current?.focus();
+                  }}
                   aria-invalid={lengthError ? true : undefined}
                   aria-describedby={describedBy}
                   className="h-14 text-[22px]"
@@ -520,10 +561,11 @@ function DefaultsForm({
                 </label>
                 <NumberInput
                   id={`${legendId}-in`}
+                  ref={inchesRef}
                   value={inches}
                   onValueChange={setInches}
                   suffix={t("units.inch")}
-                  enterKeyHint="next"
+                  enterKeyHint="go"
                   aria-invalid={lengthError ? true : undefined}
                   aria-describedby={describedBy}
                   className="h-14 text-[22px]"
@@ -552,7 +594,7 @@ function DefaultsForm({
               value={mm}
               onValueChange={setMm}
               suffix={t("units.mm")}
-              enterKeyHint="next"
+              enterKeyHint="go"
               className="h-14 text-[22px]"
             />
           </Field>
@@ -586,7 +628,7 @@ function DefaultsForm({
             onChange={(e) => setPo(e.currentTarget.value)}
             maxLength={500}
             autoComplete="off"
-            enterKeyHint="next"
+            enterKeyHint="go"
             className="h-12 font-mono text-[16px]"
           />
         </Field>

@@ -400,15 +400,67 @@ test.describe("pack", () => {
     await expect(page.locator("[data-slot='session-totals']")).toBeVisible();
   });
 
+  test("Enter in Feet moves to Inches, so 11 ft 6 in is never stored as 11 ft", async ({ page }) => {
+    await open(page, "/pack/new");
+    // Enter right after typing the code, inside the search debounce, still picks the single match.
+    await tabTo(page, page.getByLabel("Search die code or section"));
+    await page.keyboard.type(DIE);
+    await page.keyboard.press("Enter");
+    await expect(page.getByLabel("Feet", { exact: true })).toBeFocused();
+    await page.keyboard.type("11");
+    await page.keyboard.press("Enter");
+    await expect(page.getByLabel("Inches", { exact: true })).toBeFocused();
+    await expect(page.getByRole("heading", { level: 2, name: "Die and defaults" })).toBeVisible();
+    await page.keyboard.type("6");
+    await page.keyboard.press("Tab");
+    await expect(yardTile(page, "Y1")).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { level: 2, name: "Bundles" })).toBeVisible();
+    await expect(page.getByText("11 ft 6 in").first()).toBeVisible();
+  });
+
+  test("a failed save shows its message above the action bar on a phone", async ({ page }) => {
+    test.setTimeout(90_000);
+    await open(page, "/pack/new", { width: 375 });
+    await chooseDieAndLength(page);
+    for (let i = 0; i < 15; i++) await typeBundle(page, "47.90", "20");
+    await page.getByRole("button", { name: "Review", exact: true }).click();
+    await expect(page.locator("[data-slot='pack-totals']")).toBeVisible();
+    await page.route("**/trpc/bundle.createReceipt*", (route) => route.abort("failed"));
+    await page.getByRole("button", { name: "Save session" }).click();
+    const alert = page.getByRole("alert").filter({ hasText: "couldn't tell if the session saved" });
+    await expect(alert).toBeInViewport({ ratio: 1 });
+    const bar = page.locator("[data-slot='pack-bar']");
+    const [a, b] = [await alert.boundingBox(), await bar.boundingBox()];
+    expect(a && b && a.y + a.height <= b.y + b.height).toBe(true);
+    await expect(page.getByRole("link", { name: "Open Pack" })).toBeVisible();
+  });
+
+  test("a restored draft in Hindi on a phone keeps its notice readable", async ({ page }) => {
+    await open(page, "/pack/new", { width: 375 });
+    await chooseDieAndLength(page);
+    await typeBundle(page, "47.90", "20");
+    await expect(savedRows(page)).toHaveCount(1);
+    await page.evaluate(() => localStorage.setItem("orrn.locale", "hi"));
+    await page.reload();
+    const notice = page.locator("[data-slot='draft-restored']");
+    await expect(notice).toBeVisible({ timeout: 20_000 });
+    const text = await notice.locator("p").first().boundingBox();
+    expect(text?.width ?? 0).toBeGreaterThan(120);
+    await expectNoHorizontalScroll(page);
+    await expectNoClippedText(page, "main");
+    await page.evaluate(() => localStorage.removeItem("orrn.locale"));
+  });
+
   test("a viewer sees sessions but can't start one", async ({ page }) => {
     await open(page, "/pack", { role: "viewer" });
     await expect(page.getByRole("link", { name: /New packing session/ })).toHaveCount(0);
-    await expect(page.locator("[data-slot='packed-today']")).toBeVisible();
+    await expect(page.locator("[data-slot='responsive-list']")).toBeVisible();
     await page.goto("/pack/new");
     await expect(page.getByText("Your role can't pack bundles. Ask an admin if you need it.")).toBeVisible();
   });
 
-  for (const width of [375, 1280]) {
+  for (const width of [375, 820, 1280]) {
     for (const scheme of ["light", "dark"] as const) {
       test(`layout and a11y at ${width} ${scheme}`, async ({ page }) => {
         test.setTimeout(90_000);

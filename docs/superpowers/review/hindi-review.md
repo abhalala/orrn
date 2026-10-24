@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 816 screen strings in 25 groups, 10 guides with 182 strings.
+Counts: 820 screen strings in 25 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -311,16 +311,15 @@ Counts: 816 screen strings in 25 groups, 10 guides with 182 strings.
 | `startHere.packFirst` | Pack your first bundles | पहले bundle पैक करें |
 | `startHere.connectPrinter` | Connect a label printer | लेबल प्रिंटर जोड़ें |
 
-### pack (127)
+### pack (131)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Pack | पैकिंग |
 | `newSession` | New packing session | नया पैकिंग सेशन |
 | `newSessionHint` | Choose the die, then enter each bundle's weight and pieces. | Die चुनें, फिर हर bundle का वज़न और पीस डालें। |
-| `bundlesWord` | {count:bundle\|bundles} | {count:bundle\|bundle} |
-| `packedToday` | Packed today | आज पैक हुआ |
 | `search` | Search session code or PO | सेशन कोड या PO से खोजें |
+| `clearSearch` | Clear search | खोज हटाएं |
 | `noMatch` | No sessions match "{query}". Check the code or PO. | "{query}" से कोई सेशन नहीं मिला। कोड या PO जांचें। |
 | `listLabel` | Packing sessions | पैकिंग सेशन |
 | `loadFailed` | Packing sessions didn't load. Check the connection and try again. | पैकिंग सेशन लोड नहीं हुए। कनेक्शन जांचें और फिर से कोशिश करें। |
@@ -348,13 +347,13 @@ Counts: 816 screen strings in 25 groups, 10 guides with 182 strings.
 | `new.dieSearch` | Search die code or section | Die कोड या सेक्शन से खोजें |
 | `new.recentDies` | Recent | हाल के |
 | `new.allDies` | All dies | सारे die |
+| `new.diesShowing` | Showing {shown} of {total} dies. Type a code to find the rest. | {total} में से {shown} die दिख रहे हैं। बाकी के लिए कोड टाइप करें। |
 | `new.dieRange` | Range {min} to {max} kg/12ft | रेंज {min} से {max} kg/12ft |
 | `new.noDies` | No dies match. Check the code, or add the die first. | कोई die नहीं मिला। कोड जांचें, या पहले die जोड़ें। |
 | `new.noDiesYet` | No dies yet. Add the die before packing. | अभी कोई die नहीं है। पैकिंग से पहले die जोड़ें। |
 | `new.addDie` | Add a die | Die जोड़ें |
 | `new.diesFailed` | Dies didn't load. Check the connection and try again. | Die लोड नहीं हुए। कनेक्शन जांचें और फिर से कोशिश करें। |
 | `new.chooseDie` | Choose this die | यह die चुनें |
-| `new.chooseDieNamed` | Choose die {code} | Die {code} चुनें |
 | `new.changeDie` | Change die | Die बदलें |
 | `new.chosenDie` | Die | Die |
 | `new.dieRequired` | Choose the die for this session. | इस सेशन का die चुनें। |
@@ -389,7 +388,7 @@ Counts: 816 screen strings in 25 groups, 10 guides with 182 strings.
 | `new.bundleNumber` | Bundle {n} | Bundle {n} |
 | `new.liveIncomplete` | Enter weight and pieces to see kg/12ft. | kg/12ft देखने के लिए वज़न और पीस डालें। |
 | `new.liveRange` | Die range {min} to {max} | Die रेंज {min} से {max} |
-| `new.bundleSaved` | Bundle {n} saved: {kg} kg, {pieces} pcs, {status}. | Bundle {n} सेव हुआ: {kg} kg, {pieces} pcs, {status}। |
+| `new.bundleSaved` | Bundle {n} saved: {kg} kg, {pieces} {pieces:piece\|pieces}, {status}. | Bundle {n} सेव हुआ: {kg} kg, {pieces} पीस, {status}। |
 | `new.bundleUpdated` | Bundle {n} updated. | Bundle {n} बदल गया। |
 | `new.bundleRemoved` | Bundle {n} removed. | Bundle {n} हट गया। |
 | `new.savedBundles` | Bundles in this session | इस सेशन के bundle |
@@ -406,6 +405,10 @@ Counts: 816 screen strings in 25 groups, 10 guides with 182 strings.
 | `new.saveOnly` | Save session | सेशन सेव करें |
 | `new.saved` | Session saved | सेशन सेव हो गया |
 | `new.saveFailed` | The session didn't save. Your bundles are still here, so try again. | सेशन सेव नहीं हुआ। आपके bundle अभी भी यहां हैं, फिर से कोशिश करें। |
+| `new.saveUnsure` | We couldn't tell if the session saved. Look for it on the Pack page before you try again. | पता नहीं चला कि सेशन सेव हुआ या नहीं। फिर से कोशिश करने से पहले पैकिंग पेज पर उसे देखें। |
+| `new.openPack` | Open Pack | पैकिंग खोलें |
+| `new.rangeUnknown` | Range not loaded | रेंज लोड नहीं हुई |
+| `new.rangeFailed` | The die's range didn't load, so bundles can't be checked against it. | Die की रेंज लोड नहीं हुई, इसलिए bundle की जांच रेंज से नहीं हो सकती। |
 | `new.printingProgress` | Printing {done} of {total} | प्रिंट: {total} में से {done} |
 | `new.printFailed` | {count} {count:label\|labels} didn't print | {count} लेबल प्रिंट नहीं {count:हुआ\|हुए} |
 | `new.retryFailed` | Retry failed labels | फ़ेल हुए लेबल फिर से प्रिंट करें |
@@ -430,6 +433,7 @@ Counts: 816 screen strings in 25 groups, 10 guides with 182 strings.
 | `detail.packedAt` | Packed | पैक हुआ |
 | `detail.mixed` | Mixed | अलग-अलग |
 | `detail.rangeColumn` | Die range | Die रेंज |
+| `detail.outsideRange` | {count} outside range | {count} रेंज से बाहर |
 | `detail.bundlesTitle` | Bundles | Bundle |
 | `detail.loadFailed` | This session didn't load. Check the connection and try again. | यह सेशन लोड नहीं हुआ। कनेक्शन जांचें और फिर से कोशिश करें। |
 | `detail.notFound` | No packing session at this link. Open it from the Pack list. | इस लिंक पर कोई पैकिंग सेशन नहीं है। पैकिंग सेशन की सूची से खोलें। |
@@ -441,7 +445,7 @@ Counts: 816 screen strings in 25 groups, 10 guides with 182 strings.
 | `print.errors.offline` | The printer didn't take the label. Check it is on and connected. | प्रिंटर ने लेबल नहीं लिया। जांचें कि प्रिंटर चालू है और जुड़ा है। |
 | `print.errors.forbidden` | Your role can't print labels. | आपका रोल लेबल प्रिंट नहीं कर सकता। |
 | `print.errors.network` | No internet connection. Check it and try again. | इंटरनेट नहीं है। कनेक्शन जांचें और फिर से कोशिश करें। |
-| `print.errors.generic` | The label didn't print. | लेबल प्रिंट नहीं हुआ। |
+| `print.errors.generic` | The label didn't print. Try again, or reprint it from the bundle's row. | लेबल प्रिंट नहीं हुआ। फिर से कोशिश करें, या bundle की लाइन से दोबारा प्रिंट करें। |
 
 ### scan (37)
 

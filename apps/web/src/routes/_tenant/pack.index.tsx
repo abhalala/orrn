@@ -1,7 +1,6 @@
 import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { ActionTile } from "@orrn/ui/components/action-tile";
-import { BigNumber } from "@orrn/ui/components/big-number";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -10,11 +9,9 @@ import { HowToButton } from "@orrn/ui/components/how-to-button";
 import { UiLink } from "@orrn/ui/components/link";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
-import { Skeleton } from "@orrn/ui/components/skeleton";
-import { cn } from "@orrn/ui/lib/utils";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { packedWhen } from "@/features/pack/format";
@@ -63,7 +60,7 @@ function sessionStore(): Storage | null {
 /**
  * `/pack`: packing sessions, newest first (so today's are on top). The one
  * loud element is the blue "New packing session" tile (Pack's colour on
- * Today); next to it a quiet count of what was packed today. An unsaved
+ * Today). An unsaved
  * session in this tab shows as an amber "Not saved" row to continue.
  */
 function PackList() {
@@ -81,7 +78,6 @@ function PackList() {
     ...trpc.bundle.listGroups.queryOptions({ search: search || undefined, limit: PAGE, offset }),
     placeholderData: keepPreviousData,
   });
-  const today = useQuery(trpc.dashboard.today.queryOptions());
 
   const draft = useMemo(
     () => (me?.company && canPack ? readDraft(sessionStore(), me.company.id) : null),
@@ -142,14 +138,13 @@ function PackList() {
   ];
 
   const rows = (sessions.data?.items ?? []) as SessionRow[];
-  const packedToday = today.data?.packedToday;
 
   return (
     <>
       <PageHeader title={t("pack.title")} actions={<HowToButton slug="pack-session" />} />
 
-      <div className={cn("grid gap-3", canPack && "md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]")}>
-        <Can do="bundle.pack">
+      <Can do="bundle.pack">
+        <div className="grid gap-3">
           <ActionTile
             tone="blue"
             title={t("pack.newSession")}
@@ -158,40 +153,8 @@ function PackList() {
             to="/pack/new"
             className="min-h-[152px] animate-rise"
           />
-        </Can>
-        <div
-          data-slot="packed-today"
-          className={cn(
-            "flex min-w-0 flex-col justify-between gap-3 rounded-block border border-border bg-card p-4 shadow-sm sm:p-5",
-            !canPack && "md:max-w-[420px]",
-          )}
-        >
-          <span className="text-[15px] font-semibold">{t("pack.packedToday")}</span>
-          {today.isPending ? (
-            <div className="flex flex-col gap-2" aria-hidden="true">
-              <Skeleton className="h-11 w-24" />
-              <Skeleton className="h-4 w-32" />
-            </div>
-          ) : !packedToday ? (
-            <span className="text-[14px] text-muted-foreground">{t("pack.loadFailed")}</span>
-          ) : (
-            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
-              <span className="flex items-baseline gap-2">
-                <BigNumber value={packedToday.bundles} className="text-[44px]" />
-                <span className="text-[14px] font-semibold text-muted-foreground">
-                  {t("pack.bundlesWord", { count: packedToday.bundles })}
-                </span>
-              </span>
-              <span className="flex items-baseline gap-1.5">
-                <span data-no-truncate="" className="font-mono text-[20px] font-semibold tabular-nums">
-                  {formatKgTotal(gToKg(packedToday.weightG))}
-                </span>
-                <span className="text-[14px] font-semibold text-muted-foreground">{t("units.kg")}</span>
-              </span>
-            </div>
-          )}
         </div>
-      </div>
+      </Can>
 
       {draft && draft.bundles.length > 0 ? (
         <div
@@ -230,8 +193,18 @@ function PackList() {
                 onChange={(e) => setText(e.currentTarget.value)}
                 autoComplete="off"
                 enterKeyHint="search"
-                className="pl-10"
+                className="pr-11 pl-10 [&::-webkit-search-cancel-button]:appearance-none"
               />
+              {text ? (
+                <button
+                  type="button"
+                  aria-label={t("pack.clearSearch")}
+                  onClick={() => setText("")}
+                  className="absolute top-1/2 right-1 flex size-11 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-foreground"
+                >
+                  <X aria-hidden="true" className="size-4" strokeWidth={2} />
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -255,7 +228,7 @@ function PackList() {
             rowKey={(r) => r.id}
             rowHref={(r) => `/pack/${r.id}`}
             label={t("pack.listLabel")}
-            loading={sessions.isFetching}
+            loading={sessions.isFetching && sessions.isPlaceholderData}
             total={sessions.data?.total}
             page={{ offset, limit: PAGE, onChange: setOffset }}
             empty={
