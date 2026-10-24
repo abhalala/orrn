@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 769 screen strings in 26 groups, 10 guides with 182 strings.
+Counts: 829 screen strings in 26 groups, 10 guides with 182 strings.
 
 ## Screen strings
 
@@ -152,7 +152,7 @@ Counts: 769 screen strings in 26 groups, 10 guides with 182 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (36)
+### nav (37)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -168,6 +168,7 @@ Counts: 769 screen strings in 26 groups, 10 guides with 182 strings.
 | `printing` | Printing | प्रिंटिंग |
 | `guides` | Guides | गाइड |
 | `settings` | Settings | सेटिंग्स |
+| `preview` | Preview | प्रीव्यू |
 | `account` | Account | अकाउंट |
 | `signOut` | Sign out | साइन आउट |
 | `skipToContent` | Skip to content | मुख्य हिस्से पर जाएं |
@@ -410,7 +411,7 @@ Counts: 769 screen strings in 26 groups, 10 guides with 182 strings.
 | `continuous.result.notFound` | Not found | नहीं मिला |
 | `continuous.done` | Done scanning | स्कैन बंद करें |
 
-### stock (23)
+### stock (61)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -420,25 +421,63 @@ Counts: 769 screen strings in 26 groups, 10 guides with 182 strings.
 | `searchSections` | Search die or section | Die या सेक्शन खोजें |
 | `totals` | {bundles} {bundles:bundle\|bundles} · {kg} kg in stock | स्टॉक में {bundles} bundle · {kg} kg |
 | `heldChip` | {count} held | {count} होल्ड पर |
+| `heldKg` | {count} held, {kg} kg | {count} होल्ड पर, {kg} kg |
 | `empty` | No stock yet. Bundles show up here after packing. | अभी स्टॉक नहीं है। पैकिंग के बाद bundle यहां दिखेंगे। |
 | `emptyAction` | Start a packing session | पैकिंग सेशन शुरू करें |
+| `view` | Stock view | स्टॉक व्यू |
+| `filterStatus` | Status | स्टेटस |
+| `clearSearch` | Clear search | खोज हटाएं |
+| `sectionsFound` | {count} {count:section\|sections} found | {count} सेक्शन {count:मिला\|मिले} |
+| `loadError` | Stock didn't load. Check the connection, then try again. | स्टॉक लोड नहीं हुआ। इंटरनेट देखें, फिर दोबारा कोशिश करें। |
+| `noPermission` | Your role can't do this. Ask your admin. | आपके रोल को यह करने की अनुमति नहीं है। अपने एडमिन से पूछें। |
+| `reprintSent` | Label sent to printer | लेबल प्रिंटर को भेजा |
+| `reprintNoPrinter` | No label printer is set up. Ask your admin to connect one in Printing. | कोई लेबल प्रिंटर सेट नहीं है। एडमिन से Printing में प्रिंटर जोड़ने को कहें। |
+| `reprintFailed` | The label didn't print. Check that the print station is on, then try again. | लेबल प्रिंट नहीं हुआ। देखें कि प्रिंट स्टेशन चालू है, फिर दोबारा कोशिश करें। |
+| `block.unitInStock` | {count:bundle\|bundles} in stock | {count:bundle\|bundle} स्टॉक में |
+| `block.unitHeld` | {count:bundle\|bundles} held | {count:bundle\|bundle} होल्ड पर |
+| `block.band` | {band} kg/12ft | {band} kg/12ft |
+| `block.kg` | {kg} kg | {kg} kg |
+| `charts.ageTitle` | Stock age | स्टॉक कितना पुराना |
+| `charts.ageSubtitle` | kg on the floor, in stock and held, by days since packing | फ़्लोर पर kg, स्टॉक और होल्ड, पैकिंग के बाद के दिनों के हिसाब से |
+| `charts.ageLabel` | Stock age, kg by days since packing | स्टॉक की उम्र, पैकिंग के बाद के दिनों के हिसाब से kg |
+| `charts.ageHeader` | Age | उम्र |
+| `charts.kgHeader` | kg | kg |
+| `charts.bucket` | {range} days | {range} दिन |
+| `charts.topTitle` | Top sections | सबसे ज़्यादा स्टॉक वाले सेक्शन |
+| `charts.topSubtitle` | kg in stock and held per section, top 8 and the rest | हर सेक्शन का स्टॉक और होल्ड का kg, टॉप 8 और बाकी |
+| `charts.topLabel` | Sections by kg on the floor | फ़्लोर पर kg के हिसाब से सेक्शन |
+| `charts.otherSections` | Other sections | बाकी सेक्शन |
+| `charts.loadFailed` | Charts didn't load. Check the connection, then try again. | चार्ट लोड नहीं हुए। इंटरनेट देखें, फिर दोबारा कोशिश करें। |
 | `section.title` | Section {code} | सेक्शन {code} |
 | `section.empty` | No bundles with this status. | इस स्टेटस का कोई bundle नहीं है। |
+| `section.emptyAll` | No bundles packed for this section yet. | इस सेक्शन का अभी कोई bundle पैक नहीं हुआ। |
+| `section.nothingOnFloor` | Nothing on the floor | फ़्लोर पर कुछ नहीं |
+| `section.heroUnit` | {count:bundle\|bundles} | {count:bundle\|bundle} |
+| `section.band` | Weight range {band} kg/12ft | वज़न रेंज {band} kg/12ft |
+| `section.dieDetails` | Die details | Die की जानकारी |
+| `section.bundlesLabel` | Bundles of {section} | {section} के bundle |
 | `list.title` | All bundles | सारे bundle |
 | `list.search` | Search serial or PO | Serial या PO खोजें |
 | `list.empty` | No bundles match this filter. | इस फ़िल्टर में कोई bundle नहीं है। |
+| `list.bundlesLabel` | Bundles | Bundle |
+| `list.filterDie` | Showing one section | एक सेक्शन दिख रहा है |
+| `list.filterGroup` | Showing one packing session | एक पैकिंग सेशन दिख रहा है |
+| `list.filterDieNamed` | Showing {section} | {section} दिख रहा है |
+| `list.filterGroupNamed` | Showing packing session {code} | पैकिंग सेशन {code} दिख रहा है |
+| `list.clearFilter` | Show all bundles | सारे bundle दिखाएं |
 | `columns.serial` | Serial | Serial |
 | `columns.die` | Die | Die |
 | `columns.section` | Section | सेक्शन |
 | `columns.weight` | Weight (kg) | वज़न (kg) |
 | `columns.pieces` | Pcs | पीस |
 | `columns.cutLength` | Cut length | कट लंबाई |
+| `columns.piecesLength` | Pcs × cut length | पीस × कट लंबाई |
 | `columns.kgPer12ft` | kg/12ft | kg/12ft |
 | `columns.status` | Status | स्टेटस |
 | `columns.po` | PO | PO |
 | `columns.packed` | Packed | पैक हुआ |
 
-### bundle (33)
+### bundle (54)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -452,8 +491,29 @@ Counts: 769 screen strings in 26 groups, 10 guides with 182 strings.
 | `facts.section` | Section | सेक्शन |
 | `facts.po` | PO | PO |
 | `facts.session` | Packing session | पैकिंग सेशन |
+| `facts.dieBand` | Die range /12' | Die रेंज /12' |
+| `facts.packed` | Packed | पैक हुआ |
 | `history` | History | इतिहास |
 | `historyPacked` | Packed | पैक हुआ |
+| `historyImported` | Imported | इम्पोर्ट हुआ |
+| `historyHeld` | Held for a dispatch | Dispatch के लिए होल्ड हुआ |
+| `historyReleased` | Released from a dispatch | Dispatch से हटा |
+| `historyDispatched` | Dispatched | Dispatch हो गया |
+| `historyVoided` | Voided | रद्द हुआ |
+| `historyRestored` | Restored | वापस आया |
+| `openDispatch` | Open dispatch {code} | Dispatch {code} खोलें |
+| `openDispatchPlain` | Open the dispatch | Dispatch खोलें |
+| `alreadyInDispatch` | Already in {code} | पहले से {code} में है |
+| `addNotFound` | This bundle isn't in this company. | यह bundle इस कंपनी में नहीं है। |
+| `addFailed` | The bundle wasn't added. Try again. | Bundle नहीं जुड़ा। दोबारा कोशिश करें। |
+| `newDispatch` | New dispatch | नया dispatch |
+| `dispatchesLoadError` | Dispatches didn't load. Try again. | Dispatch लोड नहीं हुए। दोबारा कोशिश करें। |
+| `reasonRequired` | Write why this bundle is void. | लिखें कि यह bundle क्यों रद्द है। |
+| `howToReprint` | How to reprint | दोबारा प्रिंट कैसे करें |
+| `howToVoid` | How to void or restore | रद्द या वापस कैसे करें |
+| `actionsLabel` | Bundle actions | Bundle के काम |
+| `transitionFailed` | The bundle didn't change. Try again. | Bundle नहीं बदला। दोबारा कोशिश करें। |
+| `changedElsewhere` | This bundle changed since you opened it. The page now shows where it is. | आपके खोलने के बाद यह bundle बदल गया। पेज अब इसकी अभी की हालत दिखा रहा है। |
 | `historyChanged` | Changed to {status} | स्टेटस बदला: {status} |
 | `reasonLine` | Reason: {reason} | कारण: {reason} |
 | `inDispatch` | In dispatch {code} | Dispatch {code} में |
