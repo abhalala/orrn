@@ -12,6 +12,11 @@
  * plain floor words. Never "spool", "receipt" or "tenant".
  * Later screen tasks add their keys here AND in hi.ts; parity.test.ts enforces it.
  */
+import { packEn } from "./native/pack.en";
+import { scanEn } from "./native/scan.en";
+import { dispatchEn } from "./native/dispatch.en";
+import { moreEn } from "./native/more.en";
+
 export const en = {
   common: {
     appName: "orrn",
@@ -1115,6 +1120,10 @@ export const en = {
     saveUnsureTitle: "Not sure it saved",
     saveUnsureBody: "orrn didn't confirm this save, so it may have gone through. Check before you try again.",
     monthsShort: "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
+    ...packEn,
+    ...scanEn,
+    ...dispatchEn,
+    ...moreEn,
   },
 
   /** Component library chrome (@orrn/ui): screen-reader and helper text. */
