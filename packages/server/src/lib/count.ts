@@ -64,9 +64,15 @@ function sessionLocations(companyId: string, sessionId: string): SQL {
   return sql`(select cl.location_id from ${countLocation} cl where cl.company_id = ${companyId} and cl.session_id = ${sessionId})`;
 }
 
-/** Over the outer `bundle`: it has ledger rows written after company sequence `seq`. */
+/**
+ * Over the outer `bundle`: it changed after company sequence `seq`: it has ledger rows written
+ * after it, or (a bundle with no ledger rows at all, legacy stock not yet taken on by
+ * `stock.openingBalance`) its own row was stamped after it, since moves and status changes of an
+ * off-ledger bundle post no ledger row (correctness r0 M-1).
+ */
 function bundleChangedAfter(companyId: string, seq: number): SQL {
-  return sql`exists (select 1 from stock_ledger l where l.company_id = ${companyId} and l.item_kind = 'bundle' and l.item_ref = ${B("id")} and l.server_seq > ${seq})`;
+  return sql`(exists (select 1 from stock_ledger l where l.company_id = ${companyId} and l.item_kind = 'bundle' and l.item_ref = ${B("id")} and l.server_seq > ${seq})
+    or (${B("server_seq")} > ${seq} and not exists (select 1 from stock_ledger l0 where l0.company_id = ${companyId} and l0.item_kind = 'bundle' and l0.item_ref = ${B("id")})))`;
 }
 
 /** Over the outer `bundle`: scanned in this count. */

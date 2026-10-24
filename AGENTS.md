@@ -385,8 +385,10 @@ bun run deploy
 - One classification for the open-count preview (`count.get`, the "missing list before close") and
   the frozen close: phantom = in stock at a counted yard, not seen, and no ledger row after the
   count's `start_seq` (bundles packed or moved in during the count and not scanned are `changed`,
-  never phantom); moved = seen at a counted yard, system has it at another counted yard; found =
-  seen but unknown/ambiguous code, not in stock, or in stock outside the count (or place unknown).
+  never phantom; a bundle with no ledger rows at all, legacy stock not yet taken on, counts as
+  changed when its own `server_seq` is past `start_seq`, since its moves post no row); moved =
+  seen at a counted yard, system has it at another counted yard; found = seen but unknown/ambiguous
+  code, not in stock, or in stock outside the count (or place unknown).
   A scan with a newer ledger row than the scan (`server_seq` compare) is superseded (matched).
 - A bundle is a phantom only if NO count saw it: one scanned by another count (any company count,
   cancelled ones too) after this count's `start_seq` is `seenElsewhere` (summary total, column

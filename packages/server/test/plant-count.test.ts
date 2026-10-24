@@ -2777,3 +2777,65 @@ describe("review pins (wave 2): hook guards", () => {
     await expectConsistent(p.owner, p.companyId, "real decision");
   });
 });
+
+// Fix round 2: correctness r0 M-1 (off-ledger bundle moved in during the count), the void row's
+// reason, and the per-yard / per-die variance (expected − counted) frozen at close.
+
+describe("fix r2: off-ledger bundles touched during the count (correctness r0 M-1)", () => {
+  test("[corr M-1] an off-ledger bundle moved into a counted yard during the count and not scanned is changed, not a phantom", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [legacy] = await legacyAt(p, "Y2");
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.owner.stock.move({ bundleIds: [legacy!.id], toLocationId: p.loc("Y1") });
+    expect((await bundleRow(legacy!.id)).locationId).toBe(p.loc("Y1"));
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    const preview = (await p.viewer.count.get({ sessionId: s.id })).report;
+    expect(preview.phantom).toEqual([]);
+    expect(preview.summary).toMatchObject({ expected: 1, changed: 1, phantom: 0 });
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(report.phantom).toEqual([]);
+    expect(report.summary).toEqual(preview.summary);
+  });
+
+  test("[corr M-1 control] an off-ledger bundle left alone in a counted yard is still a phantom", async () => {
+    const p = await plant();
+    const [a] = await p.pack("Y1", 1);
+    const [legacy] = await legacyAt(p, "Y1");
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    const report = await p.supervisor.count.close({ sessionId: s.id });
+    expect(ids(report.phantom)).toEqual([legacy!.id]);
+    expect(report.summary).toMatchObject({ expected: 2, changed: 0, phantom: 1 });
+  });
+});
+
+describe("fix r2: the void is a ledger row with its reason, never an edit", () => {
+  test("an approved phantom void appends a 'void' row reversing the pack row, reason 'Phantom at count CNT-n'; no row is changed", async () => {
+    const p = await plant();
+    const [a, b] = await p.pack("Y1", 2);
+    const before = await ledgerRows(p.companyId);
+    const s = await p.supervisor.count.start({ locationIds: [p.loc("Y1")] });
+    await p.supervisor.count.scan({ sessionId: s.id, codes: [a!.serial] });
+    await p.supervisor.count.close({ sessionId: s.id });
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [b!.id] }));
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+    const after = await ledgerRows(p.companyId);
+    // Every earlier row is still there, unchanged.
+    expect(after.filter((r) => before.some((x) => x.id === r.id))).toEqual(before);
+    const added = after.filter((r) => !before.some((x) => x.id === r.id));
+    const pack = before.find((r) => r.itemRef === b!.id)!;
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({
+      voucherType: "void",
+      itemRef: b!.id,
+      locationId: p.loc("Y1"),
+      qtyG: -pack.qtyG,
+      reversalOf: pack.id,
+      reason: "Phantom at count CNT-1",
+    });
+    const line = (await linesOf(s.id)).find((l) => l.bundleId === b!.id)!;
+    expect(added[0]!.voucherId).toBe(line.id);
+    await expectConsistent(p.owner, p.companyId, "phantom void posted");
+  });
+});
