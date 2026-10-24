@@ -84,7 +84,7 @@ describe("stock filters: the Lengths, Yards and Bundles tabs agree", () => {
     const yards = (await p.owner.stock.locations.list()).items.filter((l) => l.kind === "yard");
     const y2 = yards.find((y) => y.code === "Y2")!.id;
     const mineO = await p.order([{ dieId: p.dieA, kg: 1000 }]);
-    const a = await p.pack(p.dieA, [{ kg: 100 }, { kg: 100 }], mineO.lineIds[0]);
+    await p.pack(p.dieA, [{ kg: 100 }, { kg: 100 }], mineO.lineIds[0]);
     const b = await p.pack(p.dieB, [{ kg: 70 }]);
     await p.owner.stock.move({ bundleIds: await idsOf(p.companyId, [b[0]!]), toLocationId: y2 });
     // Legacy stock with no yard recorded.

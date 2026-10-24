@@ -1,4 +1,4 @@
-import { DEFAULT_REASON_CODES, formatKgTotal, gToKg } from "@orrn/domain";
+import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, NumberInput } from "@orrn/ui/components/field";
@@ -12,7 +12,11 @@ import { parsePieces, parseWeightG } from "./pack-math";
 import type { DraftReject } from "./use-pack-draft";
 
 /** The qc_reject codes a packer picks from (the plant's list; `other` needs a note). */
-export const REJECT_CODES = DEFAULT_REASON_CODES.qc_reject.map((r) => r.code);
+/**
+ * The seeded `qc_reject` reasons, by code (the labels come from i18n). Spelled out here: importing the
+ * domain's default table would carry its English strings into the shared chunk the `/` page loads.
+ */
+export const REJECT_CODES = ["dimension", "surface", "bend", "crack", "short_length", "other"] as const;
 
 export type RejectForm = { pcs: string; kg: string; reasonCode: string; note: string };
 export const EMPTY_REJECT: RejectForm = { pcs: "", kg: "", reasonCode: "", note: "" };
