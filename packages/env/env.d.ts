@@ -21,6 +21,8 @@ export interface CloudflareEnv {
   CF_API_TOKEN: string;
   CF_ACCOUNT_ID: string;
   CF_ZONE_ID_IN: string;
+  /** Die files (FP-DR-07/13): photos, PDFs, CDR/DWG under `{companyId}/dies/{sectionId}/{fileId}`. Optional until a stage binds it. */
+  DIE_FILES?: R2Bucket;
   /** Local wrangler only: password for the seeded dev accounts. Never set in deployed stages. */
   ORRN_LOCAL_PASSWORD?: string;
   /** Local dev only: "1" makes scale.reading answer from a built-in simulator (never in production). */

@@ -1,3 +1,4 @@
+import { DIE_COPY_HAND_STATUSES } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Combobox, type ComboboxOption } from "@orrn/ui/components/combobox";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
@@ -18,6 +19,9 @@ import {
 } from "./masters-model";
 import { MasterSheet } from "./masters-ui";
 import { useInvalidate, type DieCopyRow } from "./use-masters";
+
+type HandStatus = (typeof DIE_COPY_HAND_STATUSES)[number];
+const isHandStatus = (s: DieCopyStatus): s is HandStatus => (DIE_COPY_HAND_STATUSES as readonly string[]).includes(s);
 
 /**
  * Section picker (ARIA combobox) over `die.list` search: code, series and name. Server search, so
@@ -147,7 +151,8 @@ export function DieCopySheet({
       supplier: supplier.trim() || null,
       trialKgPer12ftMilli: trialP.value,
       hardness: hardP.value,
-      status,
+      // Only the statuses set by hand travel (W1-DR-S): in_use / at_maker move by issue and maker steps.
+      ...(isHandStatus(status) ? { status } : {}),
     };
     const text = (v: string) => v.trim() || null;
     // Send FTR/notes when they changed from the card (or, before it loads, when typed).
@@ -223,7 +228,7 @@ export function DieCopySheet({
       </Field>
       <Field label={t("masters.dieCopies.form.status")} id={statusId}>
         <NativeSelect id={statusId} value={status} onChange={(e) => setStatus(e.currentTarget.value as DieCopyStatus)}>
-          {DIE_COPY_STATUSES.map((s) => (
+          {DIE_COPY_STATUSES.filter((s) => isHandStatus(s) || s === status).map((s) => (
             <option key={s} value={s}>
               {t(`masters.dieCopies.status.${s}`)}
             </option>

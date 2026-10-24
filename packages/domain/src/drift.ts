@@ -76,6 +76,15 @@ export function kgPerMetre(kgPer12ftMilli: number): number {
   return Math.round((kgPer12ftMilli * 10_000) / 36_576) / 1000;
 }
 
+/**
+ * Import of a kg/m catalogue (FP-DR-02 rule 4): kg per metre x 12 x 0.3048 = kg per 12 ft, stored
+ * as grams per 12 ft, rounded to the nearest gram, before the band guard runs. 0.5 kg/m = 1,829 g.
+ */
+export function kgPerMetreToG12ft(kgPerMetre: number): number {
+  // kg/m x 3.6576 m x 1000 g = kg/m x 3657.6; x10 then /10 keeps the arithmetic exact for 3 dp input.
+  return Math.round((Math.round(kgPerMetre * 1000) * 36_576) / 10_000);
+}
+
 /** Tenant recovery bands (`settings.recoveryBands`); unset means the report shows no colour. */
 export type RecoveryBands = { greenMinBp: number; amberMinBp: number };
 export type RecoveryTone = "none" | "green" | "amber" | "red";
