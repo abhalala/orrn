@@ -25,6 +25,7 @@ describe("visibleItems", () => {
       "pack",
       "stock",
       "dispatch",
+      "orders",
       "purchase",
       "approvals",
       "dies",
@@ -62,7 +63,7 @@ describe("visibleItems", () => {
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Plant screens (Store) are gated by role, not by the legacy SaaS modules.
-    expect(visible).toEqual(["today", "purchase", "approvals", "customers", "store", "printing", "guides", "settings", "preview"]);
+    expect(visible).toEqual(["today", "orders", "purchase", "approvals", "customers", "store", "printing", "guides", "settings", "preview"]);
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length);
   });
 
@@ -123,5 +124,29 @@ describe("bundleDetailPath", () => {
     expect(bundleDetailPath({ serial: "26I4086" })).toBe("/b/26I4086");
     expect(bundleDetailPath({ serial: "BG-000001-B001" })).toBe("/b/BG-000001-B001");
     expect(bundleDetailPath({ serial: "a b/c" })).toBe("/b/a%20b%2Fc");
+  });
+});
+
+describe("Orders (FP-OP)", () => {
+  const more = (role: CompanyRole) => keys(visibleItems(TENANT_MORE, me(role)));
+
+  test("shown to the roles that book or plan orders", () => {
+    for (const role of ["owner", "manager", "office"] as const) {
+      expect({ role, orders: more(role).includes("orders") }).toEqual({ role, orders: true });
+    }
+  });
+
+  test("hidden from the floor and read-only roles", () => {
+    for (const role of ["viewer", "operator", "packer", "press", "foundry", "storekeeper", "die_room", "supervisor"] as const) {
+      expect({ role, orders: more(role).includes("orders") }).toEqual({ role, orders: false });
+    }
+  });
+
+  test("the Orders item covers /orders and the press plan under it", () => {
+    const item = TENANT_MORE.find((i) => i.key === "orders")!;
+    expect(isItemActive(item, "/orders")).toBe(true);
+    expect(isItemActive(item, "/orders/plan")).toBe(true);
+    expect(isItemActive(item, "/orders/dev-so-1")).toBe(true);
+    expect(isItemActive(item, "/dispatch")).toBe(false);
   });
 });

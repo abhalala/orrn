@@ -10,6 +10,7 @@ import {
   House,
   Inbox,
   LayoutDashboard,
+  ListChecks,
   PackagePlus,
   Printer,
   Scale,
@@ -57,6 +58,8 @@ const PURCHASE_READERS: readonly Action[] = ["purchase.receipt", "purchase.dcnot
 const APPROVAL_PEOPLE: readonly Action[] = ["masters.publish", "purchase.dcnote", "die.rerank", "cast.close", "cast.enter"];
 
 export const TENANT_MORE: readonly NavItem[] = [
+  // FP-OP: customer POs and what is still to dispatch. The press plan (/orders/plan) is reached from here.
+  { key: "orders", to: "/orders", labelKey: "nav.orders", icon: ListChecks, requires: ["order.manage", "order.plan"] },
   { key: "purchase", to: "/purchase", labelKey: "nav.purchase", icon: Scale, requires: PURCHASE_READERS },
   { key: "approvals", to: "/approvals", labelKey: "nav.approvals", icon: ClipboardCheck, requires: APPROVAL_PEOPLE },
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },
