@@ -4,11 +4,13 @@ import type { CSSProperties, ReactNode } from "react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
+import type { ToneName } from "../tokens";
 import { BigNumber } from "./big-number";
 import { UiLink } from "./link";
 
 export type StatusBlockProps = {
-  tone: StatusTone;
+  /** The status colour; `violet` is the Godseye block (platform console only). */
+  tone: StatusTone | Extract<ToneName, "violet">;
   title: string;
   /** One line under the title. Carry the status word here when the title doesn't ("In stock", "Held"). */
   meta?: string;

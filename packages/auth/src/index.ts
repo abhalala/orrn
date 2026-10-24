@@ -9,14 +9,13 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { magicLink } from "better-auth/plugins";
 import { hashPassword, verifyPassword } from "./password";
+import { unsentEmailLog } from "./unsent-email";
 
-async function sendAuthEmail(options: { to: string; subject: string; html: string }) {
+/** Exported for tests (packages/server/test/auth-email-log.test.ts). */
+export async function sendAuthEmail(options: { to: string; subject: string; html: string }) {
   if (env.NODE_ENV === "development" || !env.RESEND_API_KEY) {
-    console.log("----------------------------------------");
-    console.log(`Mock Auth Email sent to: ${options.to}`);
-    console.log(`Subject: ${options.subject}`);
-    console.log(`Body:\n${options.html}`);
-    console.log("----------------------------------------");
+    // Never the body outside development: it holds a live sign-in link.
+    console.log(unsentEmailLog(env.NODE_ENV, options, "Auth email"));
     return { success: true, messageId: "mock-message-id" };
   }
 
@@ -161,6 +160,8 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
       expo(),
       twoFactor(),
       magicLink({
+        // Every link requested here (the public endpoint) goes to the address by email and
+        // nowhere else. Godseye's owner links are written server-side (platform/waitlist.ts).
         // D14: a link never creates an account. Accounts come only from an approved access request
         // (Godseye) or an invite; verify for an unknown email gives no session and no user row.
         disableSignUp: true,

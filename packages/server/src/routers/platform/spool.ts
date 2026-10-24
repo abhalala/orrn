@@ -8,6 +8,7 @@ import { unwrapSecret, wrapSecret } from "@orrn/crypto";
 import { env } from "@orrn/env/server";
 
 import { createCnameRecord, createTunnel, deleteDnsRecord, deleteTunnel, findDnsRecord } from "../../lib/cloudflare";
+import { canRunDevSeed } from "../../lib/devSeedGate";
 import { buildDockerInstallScript } from "../../lib/spool-install-script";
 import { signDownloadToken } from "../../lib/spool-crypto";
 import { getDeliverableFilename } from "../../lib/spool-packager";
@@ -15,6 +16,21 @@ import { resolveSpoolReleaseTag } from "../../lib/spool-release";
 import { platformGuard } from "../../index";
 
 const SPOOL_DOMAIN_SUFFIX = ".spool.orrn.in";
+
+/** Tunnel ids made by the local-stack stub; never sent to Cloudflare. */
+const LOCAL_TUNNEL_PREFIX = "local-";
+
+/**
+ * The local worker (wrangler.local.jsonc: NODE_ENV=development, the
+ * ORRN_LOCAL_PASSWORD binding, a loopback request host) with no Cloudflare
+ * token gets a stub tunnel, so Godseye's Printing tab can be built and
+ * tested on a laptop. Same gate as POST /dev/seed; deployed stages always
+ * provision a real tunnel.
+ */
+function useLocalTunnelStub(requestUrl: string): boolean {
+  const vars = env as unknown as { NODE_ENV?: string; ORRN_LOCAL_PASSWORD?: string; CF_API_TOKEN?: string };
+  return canRunDevSeed(vars, requestUrl) && !(vars.CF_API_TOKEN ?? "").trim();
+}
 
 export const spoolProcedures = {
   /** List all spool deployments (paginated, filterable by company/status). */
@@ -71,7 +87,8 @@ export const spoolProcedures = {
   spoolDeploymentCreate: platformGuard("platform.spool.manage")
     .input(
       z.object({
-        companyId: z.uuid(),
+        // Company ids are not all UUIDs (createId, the demo company), so any id; the lookup below decides.
+        companyId: z.string().min(1).max(64),
         subdomain: z
           .string()
           .min(3)
@@ -112,31 +129,36 @@ export const spoolProcedures = {
       // Generate instance ID
       const instanceId = crypto.randomUUID();
 
-      // Create Cloudflare Tunnel
+      // Create Cloudflare Tunnel (a stub on the local worker, see useLocalTunnelStub)
       const tunnelName = `spool-${input.subdomain}`;
       let cfTunnelId: string;
       let cfTunnelToken: string;
-      try {
-        const tunnel = await createTunnel(tunnelName);
-        cfTunnelId = tunnel.id;
-        cfTunnelToken = tunnel.token;
-      } catch (err) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to create Cloudflare Tunnel: ${err instanceof Error ? err.message : String(err)}`,
-        });
-      }
+      if (useLocalTunnelStub(ctx.request.url)) {
+        cfTunnelId = `${LOCAL_TUNNEL_PREFIX}${crypto.randomUUID()}`;
+        cfTunnelToken = `${LOCAL_TUNNEL_PREFIX}token-${crypto.randomUUID()}`;
+      } else {
+        try {
+          const tunnel = await createTunnel(tunnelName);
+          cfTunnelId = tunnel.id;
+          cfTunnelToken = tunnel.token;
+        } catch (err) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to create Cloudflare Tunnel: ${err instanceof Error ? err.message : String(err)}`,
+          });
+        }
 
-      // Create DNS CNAME record
-      try {
-        await createCnameRecord(input.subdomain, cfTunnelId);
-      } catch (err) {
-        // Rollback tunnel creation
-        try { await deleteTunnel(cfTunnelId); } catch { /* best effort */ }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to create DNS record: ${err instanceof Error ? err.message : String(err)}`,
-        });
+        // Create DNS CNAME record
+        try {
+          await createCnameRecord(input.subdomain, cfTunnelId);
+        } catch (err) {
+          // Rollback tunnel creation
+          try { await deleteTunnel(cfTunnelId); } catch { /* best effort */ }
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to create DNS record: ${err instanceof Error ? err.message : String(err)}`,
+          });
+        }
       }
 
       // Wrap the CF tunnel token
@@ -217,8 +239,8 @@ export const spoolProcedures = {
         return { success: true };
       }
 
-      // Delete DNS record
-      if (row.cfTunnelId) {
+      // Delete DNS record (stub tunnels from the local worker have none)
+      if (row.cfTunnelId && !row.cfTunnelId.startsWith(LOCAL_TUNNEL_PREFIX)) {
         const dnsRecordId = await findDnsRecord(row.subdomain);
         if (dnsRecordId) {
           try { await deleteDnsRecord(dnsRecordId); } catch { /* best effort */ }

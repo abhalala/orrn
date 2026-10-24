@@ -4,7 +4,7 @@ import { company, platformAdmin, waitlistRequest } from "@orrn/db/schema/tenant"
 import { can } from "../../lib/permissions";
 import { platformProcedure, router } from "../../index";
 
-import { companiesProcedures } from "./companies";
+import { companiesProcedures, notRejectedRequest } from "./companies";
 import { impersonationProcedures } from "./impersonation";
 import { platformBackupRouter, platformReleaseRouter, platformSupportRouter } from "./ops";
 import { spoolProcedures } from "./spool";
@@ -40,6 +40,7 @@ export const platformRouter = router({
         ? ctx.db
             .select({ status: company.status, count: count() })
             .from(company)
+            .where(notRejectedRequest)
             .groupBy(company.status)
         : Promise.resolve([] as { status: string; count: number }[]),
       canWaitlist
@@ -63,6 +64,7 @@ export const platformRouter = router({
               createdAt: company.createdAt,
             })
             .from(company)
+            .where(notRejectedRequest)
             .orderBy(desc(company.createdAt))
             .limit(5)
         : Promise.resolve(

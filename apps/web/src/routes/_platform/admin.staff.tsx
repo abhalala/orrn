@@ -1,368 +1,311 @@
-import { Badge } from "@orrn/ui/components/badge";
+import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
-import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
-import { Dialog, DialogCloseButton } from "@orrn/ui/components/dialog";
+import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Input } from "@orrn/ui/components/input";
-import { Label } from "@orrn/ui/components/label";
+import { Field, TextInput } from "@orrn/ui/components/field";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import { Select } from "@orrn/ui/components/select";
+import { Sheet } from "@orrn/ui/components/sheet";
+import { cn } from "@orrn/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { format } from "date-fns";
-import { useState } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
 
+import { formatDay } from "@/features/admin/format";
+import { showsLoadError } from "@/features/admin/query-state";
+import type { StaffRow } from "@/features/admin/types";
+import { ConfirmDialog, errorCode, errorText, LoadError, useLastValue } from "@/features/admin/ui";
 import { Can } from "@/shared/components/can";
-import { useMe } from "@/shared/lib/me";
+import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 export const Route = createFileRoute("/_platform/admin/staff")({
-  component: StaffAdminPage,
+  component: AdminStaff,
 });
 
-type StaffRole = "super_admin" | "admin" | "support";
+type PlatformStaffRole = StaffRow["role"];
 
-type StaffRow = {
-  userId: string;
-  name: string;
-  email: string;
-  role: StaffRole;
-  createdAt: Date | string | number;
+const ROLE_KEYS: Record<PlatformStaffRole, MessageKey> = {
+  super_admin: "platformRoles.super_admin",
+  admin: "platformRoles.admin",
+  support: "platformRoles.support",
 };
 
-const createSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  email: z.string().email("Valid email required"),
-  password: z.string().min(12, "Password must be at least 12 characters"),
-  role: z.enum(["super_admin", "admin", "support"]),
-});
-
-const ROLE_TONE: Record<StaffRole, "warning" | "info" | "neutral"> = {
-  super_admin: "warning",
-  admin: "info",
-  support: "neutral",
+const ROLE_HINT_KEYS: Record<PlatformStaffRole, MessageKey> = {
+  super_admin: "admin.staff.roleHints.super_admin",
+  admin: "admin.staff.roleHints.admin",
+  support: "admin.staff.roleHints.support",
 };
 
-function formatRole(role: StaffRole): string {
-  return role.replace("_", " ");
-}
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function StaffAdminPage() {
-  const queryClient = useQueryClient();
+/**
+ * Godseye staff accounts (orrn's own people). Created here only; there is
+ * no public sign-up. A person can't change or remove their own account, and
+ * can only hand out roles their own role allows (`staffAssignableRoles`).
+ */
+function AdminStaff() {
+  const { t, locale } = useT();
+  const qc = useQueryClient();
   const { data: me } = useMe();
+  const staff = useQuery(trpc.platform.staffList.queryOptions());
+  const assignable = useQuery(trpc.platform.staffAssignableRoles.queryOptions());
+  const [addOpen, setAddOpen] = useState(false);
+  const [removing, setRemoving] = useState<StaffRow | null>(null);
+  const removingShown = useLastValue(removing);
 
-  const staffQuery = useQuery(trpc.platform.staffList.queryOptions());
-  const rolesQuery = useQuery(trpc.platform.staffAssignableRoles.queryOptions());
+  const refresh = () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: trpc.platform.staffList.queryKey() }),
+      qc.invalidateQueries({ queryKey: trpc.platform.overview.queryKey() }),
+    ]);
 
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-    role: "support" as StaffRole,
-  });
-
-  const [pendingRemove, setPendingRemove] = useState<StaffRow | null>(null);
-
-  const createMutation = useMutation({
-    ...trpc.platform.staffCreate.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Staff account created");
-      setForm({ name: "", email: "", password: "", role: "support" });
-      void queryClient.invalidateQueries(trpc.platform.staffList.queryFilter());
-    },
-    onError: (err) => toast.error(err.message),
-  });
-
-  const updateRoleMutation = useMutation({
+  const updateRole = useMutation({
     ...trpc.platform.staffUpdateRole.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Role updated");
-      void queryClient.invalidateQueries(trpc.platform.staffList.queryFilter());
+    onSuccess: async () => {
+      toast.success(t("admin.staff.roleChanged"));
+      await refresh();
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => toast.error(errorText(t, err)),
   });
-
-  const removeMutation = useMutation({
+  const remove = useMutation({
     ...trpc.platform.staffRemove.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Staff access removed");
-      setPendingRemove(null);
-      void queryClient.invalidateQueries(trpc.platform.staffList.queryFilter());
+    onSuccess: async () => {
+      toast.success(t("admin.staff.removed"));
+      // Close once the row is gone, so focus goes to the page heading, not to a removed button.
+      await refresh();
+      setRemoving(null);
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => toast.error(errorText(t, err)),
   });
 
-  const assignable = (rolesQuery.data ?? []) as StaffRole[];
-  const roleOptions = assignable.map((role) => ({
-    value: role,
-    label: formatRole(role),
-  }));
+  const roles = (assignable.data ?? []) as PlatformStaffRole[];
+  const canRemove = can(me, "platform.staff.remove");
+  const roleOptions = roles.map((role) => ({ value: role, label: t(ROLE_KEYS[role]) }));
 
-  const staff = (staffQuery.data ?? []) as StaffRow[];
-
-  const columns: DataTableColumn<StaffRow>[] = [
+  const columns: ResponsiveListColumn<StaffRow>[] = [
     {
-      id: "name",
-      header: "Name",
+      key: "name",
+      header: t("admin.staff.name"),
       cell: (row) => (
-        <div className="min-w-0">
-          <p className="font-medium text-foreground truncate">{row.name}</p>
-          <p className="text-xs text-muted-foreground truncate">{row.email}</p>
-        </div>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-semibold text-foreground break-words">
+            {row.userId === me?.user.id ? t("admin.access.staffYou", { name: row.name }) : row.name}
+          </span>
+          <span className="text-[13px] font-normal text-muted-foreground [overflow-wrap:anywhere]">{row.email}</span>
+        </span>
       ),
-      flex: 2,
-      sortable: true,
-      sortValue: (row) => row.name.toLowerCase(),
     },
     {
-      id: "role",
-      header: "Role",
+      key: "role",
+      header: t("admin.staff.role"),
       cell: (row) => {
-        const isSelf = row.userId === me?.user.id;
-        const canEdit = !isSelf && assignable.includes(row.role);
+        const role = row.role as PlatformStaffRole;
+        const chip = <Chip tone="violet" truncate={false}>{t(ROLE_KEYS[role])}</Chip>;
+        // Not your own role, and only roles you may hand out; the permission itself is <Can>'s call.
+        if (row.userId === me?.user.id || !roles.includes(role)) return chip;
         return (
-          <Can
-            do="platform.staff.updateRole"
-            fallback={
-              <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role)}</Badge>
-            }
-          >
-            {canEdit ? (
-              <Select
-                value={row.role}
-                onValueChange={(v) =>
-                  updateRoleMutation.mutate({ userId: row.userId, role: v as StaffRole })
-                }
-                options={roleOptions}
-                width={160}
-                disabled={updateRoleMutation.isPending}
-              />
-            ) : (
-              <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role)}</Badge>
-            )}
+          <Can do="platform.staff.updateRole" fallback={chip}>
+            <Select
+              aria-label={t("admin.staff.roleFor", { name: row.name })}
+              value={role}
+              onValueChange={(next) => updateRole.mutate({ userId: row.userId, role: next as PlatformStaffRole })}
+              options={roleOptions}
+              disabled={updateRole.isPending}
+              className="w-full min-w-40 lg:w-44"
+            />
           </Can>
         );
       },
-      flex: 1.2,
     },
     {
-      id: "created",
-      header: "Created",
-      cell: (row) => (
-        <span className="text-xs text-muted-foreground">
-          {format(new Date(row.createdAt), "PP")}
-        </span>
-      ),
-      flex: 1,
-      sortable: true,
-      sortValue: (row) => new Date(row.createdAt).getTime(),
+      key: "added",
+      header: t("admin.staff.added"),
+      cell: (row) => <span className="whitespace-nowrap">{formatDay(row.createdAt, { locale })}</span>,
     },
     {
-      id: "actions",
-      header: "",
-      align: "right",
-      cell: (row) => {
-        if (row.userId === me?.user.id) return null;
-        return (
+      key: "actions",
+      header: t("admin.staff.actions"),
+      headerHidden: true,
+      align: "end",
+      cell: (row) =>
+        // Nobody removes themselves. `canRemove` only drops the empty pair on a phone; <Can> gates the button.
+        canRemove && row.userId !== me?.user.id ? (
           <Can do="platform.staff.remove">
             <Button
               variant="ghost"
-              size="sm"
-              onClick={() => setPendingRemove(row)}
-              disabled={removeMutation.isPending}
+              className="text-destructive"
+              aria-label={t("admin.staff.removeLabel", { name: row.name })}
+              onPress={() => setRemoving(row)}
             >
-              Remove
+              {t("admin.staff.remove")}
             </Button>
           </Can>
-        );
-      },
-      flex: 0.6,
+        ) : null,
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-w-0 flex-col gap-5">
       <PageHeader
-        eyebrow="Godseye"
-        title="Staff accounts"
-        description="Internal orrn.app users. Accounts are created here; there is no public sign-up on orrn.app."
+        title={t("admin.staff.title")}
+        subtitle={t("admin.staff.subtitle")}
+        actions={
+          <Can do="platform.staff.create">
+            <Button onPress={() => setAddOpen(true)} className="pointer-coarse:h-14">
+              {t("admin.staff.add")}
+            </Button>
+          </Can>
+        }
       />
 
-      <Can do="platform.staff.create">
-        <Card>
-          <CardHeader>
-            <CardTitle>Create staff account</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2 max-w-2xl">
-              <div className="space-y-2">
-                <Label htmlFor="staff-name">Name</Label>
-                <Input
-                  id="staff-name"
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="staff-email">Email</Label>
-                <Input
-                  id="staff-email"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="staff-password">Temporary password</Label>
-                <Input
-                  id="staff-password"
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Minimum 12 characters. Share securely out of band.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="staff-role">Role</Label>
-                <Select
-                  id="staff-role"
-                  value={form.role}
-                  onValueChange={(v) => setForm((f) => ({ ...f, role: v as StaffRole }))}
-                  options={roleOptions}
-                  className="w-full sm:w-60"
-                />
-              </div>
-            </div>
-            <div className="mt-4">
-              <Button
-                className="w-full sm:w-auto"
-                disabled={createMutation.isPending}
-                onClick={() => {
-                  const parsed = createSchema.safeParse(form);
-                  if (!parsed.success) {
-                    toast.error(parsed.error.issues[0]?.message ?? "Invalid form");
-                    return;
-                  }
-                  createMutation.mutate(parsed.data);
-                }}
-              >
-                {createMutation.isPending ? "Creating…" : "Create account"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </Can>
+      {showsLoadError(staff) ? (
+        <LoadError message={t("admin.staff.loadError")} onRetry={() => void staff.refetch()} />
+      ) : (
+        <ResponsiveList
+          label={t("admin.staff.listLabel")}
+          rows={staff.data ?? []}
+          columns={columns}
+          rowKey={(row) => row.userId}
+          loading={staff.isPending}
+          empty={<EmptyState title={t("admin.staff.empty")} />}
+        />
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Active staff ({staff.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={columns}
-            rows={staff}
-            rowKey={(row) => row.userId}
-            renderCard={(row) => {
-              const isSelf = row.userId === me?.user.id;
-              const canEdit = !isSelf && assignable.includes(row.role);
-              return (
-                <div className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
-                  <div className="flex min-w-0 items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="m-0 truncate text-sm font-semibold text-foreground" title={row.name}>{row.name}</p>
-                      <p className="m-0 truncate text-xs text-muted-foreground" title={row.email}>{row.email}</p>
-                    </div>
-                    {!isSelf ? (
-                      <Can do="platform.staff.remove">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setPendingRemove(row)}
-                          disabled={removeMutation.isPending}
-                        >
-                          Remove
-                        </Button>
-                      </Can>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                      <p className="m-0 text-xs font-medium text-muted-foreground">Created</p>
-                      <p className="m-0 text-sm text-foreground">{format(new Date(row.createdAt), "PP")}</p>
-                    </div>
-                    <div className="w-full min-w-0 sm:w-40">
-                      <label htmlFor={`role-${row.userId}`} className="m-0 mb-1 block text-xs font-medium text-muted-foreground">
-                        Role
-                      </label>
-                      <Can
-                        do="platform.staff.updateRole"
-                        fallback={
-                          <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role)}</Badge>
-                        }
-                      >
-                        {canEdit ? (
-                          <Select
-                            id={`role-${row.userId}`}
-                            value={row.role}
-                            onValueChange={(v) =>
-                              updateRoleMutation.mutate({ userId: row.userId, role: v as StaffRole })
-                            }
-                            options={roleOptions}
-                            className="w-full"
-                            disabled={updateRoleMutation.isPending}
-                          />
-                        ) : (
-                          <Badge tone={ROLE_TONE[row.role]}>{formatRole(row.role)}</Badge>
-                        )}
-                      </Can>
-                    </div>
-                  </div>
-                </div>
-              );
-            }}
-            isLoading={staffQuery.isLoading}
-            emptyState={
-              <EmptyState
-                title="No staff yet"
-                description="Use the form above to create the first orrn.app staff account."
-              />
-            }
-          />
-        </CardContent>
-      </Card>
+      <AddStaffSheet open={addOpen} onOpenChange={setAddOpen} roles={roles} onAdded={refresh} />
 
-      <Dialog
-        open={!!pendingRemove}
-        onOpenChange={(open) => {
-          if (!open) setPendingRemove(null);
-        }}
-        title="Remove staff access"
-        description={
-          pendingRemove
-            ? `Revoke orrn.app access for ${pendingRemove.email}? They will no longer be able to sign in to the staff console.`
-            : undefined
-        }
-        actions={
-          <>
-            <DialogCloseButton onPress={() => setPendingRemove(null)} />
-            <Button
-              variant="destructive"
-              disabled={removeMutation.isPending}
-              onClick={() => {
-                if (!pendingRemove) return;
-                removeMutation.mutate({ userId: pendingRemove.userId });
-              }}
-            >
-              {removeMutation.isPending ? "Removing…" : "Remove access"}
-            </Button>
-          </>
-        }
+      <ConfirmDialog
+        open={removing !== null}
+        onOpenChange={(open) => (open ? undefined : setRemoving(null))}
+        title={removingShown ? t("admin.staff.removeTitle", { name: removingShown.name }) : ""}
+        body={removingShown ? t("admin.staff.removeBody", { email: removingShown.email }) : ""}
+        confirmLabel={t("admin.staff.remove")}
+        tone="danger"
+        pending={remove.isPending}
+        onConfirm={() => removing && remove.mutate({ userId: removing.userId })}
       />
     </div>
+  );
+}
+
+type FormErrors = Partial<Record<"name" | "email" | "password", string>>;
+
+function AddStaffSheet({
+  open,
+  onOpenChange,
+  roles,
+  onAdded,
+}: {
+  open: boolean;
+  onOpenChange(open: boolean): void;
+  roles: PlatformStaffRole[];
+  onAdded(): Promise<unknown>;
+}) {
+  const { t } = useT();
+  const formId = useId();
+  const empty = { name: "", email: "", password: "", role: "support" as PlatformStaffRole };
+  const [form, setForm] = useState(empty);
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  const create = useMutation({
+    ...trpc.platform.staffCreate.mutationOptions(),
+    onSuccess: async () => {
+      toast.success(t("admin.staff.created"));
+      setForm(empty);
+      setErrors({});
+      onOpenChange(false);
+      await onAdded();
+    },
+    onError: (err) => {
+      if (errorCode(err) === "CONFLICT") setErrors({ email: t("admin.staff.emailTaken") });
+      else toast.error(errorText(t, err));
+    },
+  });
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const next: FormErrors = {};
+    if (!form.name.trim()) next.name = t("errors.required");
+    if (!EMAIL.test(form.email.trim())) next.email = t("errors.invalidEmail");
+    if (form.password.length < 12) next.password = t("admin.staff.passwordShort");
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+    create.mutate({ name: form.name.trim(), email: form.email.trim().toLowerCase(), password: form.password, role: form.role });
+  };
+
+  const set = (key: keyof typeof form) => (e: { target: { value: string } }) => {
+    setForm((f) => ({ ...f, [key]: e.target.value }));
+    if (errors[key as keyof FormErrors]) setErrors((x) => ({ ...x, [key]: undefined }));
+  };
+
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={(next) => (create.isPending ? undefined : onOpenChange(next))}
+      title={t("admin.staff.addTitle")}
+      footer={
+        <>
+          <Button variant="secondary" disabled={create.isPending} onPress={() => onOpenChange(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button type="submit" form={formId} loading={create.isPending} className="pointer-coarse:h-14">
+            {t("admin.staff.create")}
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-5">
+        <Field label={t("admin.staff.name")} error={errors.name}>
+          <TextInput value={form.name} onChange={set("name")} autoComplete="off" maxLength={120} />
+        </Field>
+        <Field label={t("admin.staff.email")} error={errors.email}>
+          <TextInput
+            type="email"
+            value={form.email}
+            onChange={set("email")}
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            inputMode="email"
+          />
+        </Field>
+        <Field label={t("admin.staff.password")} hint={t("admin.staff.passwordHint")} error={errors.password}>
+          <TextInput type="password" value={form.password} onChange={set("password")} autoComplete="new-password" maxLength={128} />
+        </Field>
+        <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+          <legend className="mb-1.5 p-0 text-[14px] font-semibold text-foreground">{t("admin.staff.role")}</legend>
+          {roles.map((role) => {
+            const id = `${formId}-${role}`;
+            const checked = form.role === role;
+            return (
+              <label
+                key={role}
+                htmlFor={id}
+                className={cn(
+                  "flex min-h-14 cursor-pointer items-start gap-3 rounded-input border px-4 py-3 transition-colors duration-[var(--dur-fast)]",
+                  checked ? "border-primary bg-tone-violet-tint" : "border-border bg-card hover:bg-surface-sunken",
+                )}
+              >
+                <input
+                  id={id}
+                  type="radio"
+                  name={`${formId}-role`}
+                  value={role}
+                  checked={checked}
+                  onChange={() => setForm((f) => ({ ...f, role }))}
+                  className="mt-0.5 size-[18px] shrink-0 accent-[var(--primary)]"
+                />
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-[15px] font-semibold text-foreground">{t(ROLE_KEYS[role])}</span>
+                  <span className="text-[13px] text-muted-foreground">{t(ROLE_HINT_KEYS[role])}</span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+      </form>
+    </Sheet>
   );
 }

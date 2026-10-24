@@ -1,331 +1,224 @@
-import { Badge } from "@orrn/ui/components/badge";
+import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
+import { Checkbox } from "@orrn/ui/components/checkbox";
+import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Input } from "@orrn/ui/components/input";
+import { Field, TextInput } from "@orrn/ui/components/field";
 import { PageHeader } from "@orrn/ui/components/page-header";
-import { Tabs } from "@orrn/ui/components/tabs";
-import { Toolbar } from "@orrn/ui/components/toolbar";
-import { Truncate } from "@orrn/ui/components/truncate";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { format } from "date-fns";
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
+import { SegmentedControl } from "@orrn/ui/components/segmented-control";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useId, useRef, useState } from "react";
 
-import { Can } from "@/shared/components/can";
-import { setImpersonation } from "@/shared/lib/impersonation";
-import { queryClient, trpc } from "@/shared/utils/trpc";
+import { formatDay } from "@/features/admin/format";
+import { companyStatusKey, companyStatusTone, printingKey, printingTone } from "@/features/admin/status";
+import { showsLoadError } from "@/features/admin/query-state";
+import type { CompanyListRow } from "@/features/admin/types";
+import { LoadError } from "@/features/admin/ui";
+import { trpc } from "@/shared/utils/trpc";
 
-const COMPANY_STATUSES = ["pending", "active", "suspended"] as const;
-type CompanyStatus = (typeof COMPANY_STATUSES)[number];
-type StatusFilter = CompanyStatus | "all";
+const STATUS_FILTERS = ["all", "active", "suspended", "pending"] as const;
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+const PAGE_SIZE = 50;
 
-export const Route = createFileRoute("/_platform/admin/companies/")({
-  component: AdminCompaniesComponent,
-  validateSearch: (search: Record<string, unknown>) => ({
-    status: (search.status as StatusFilter | undefined) ?? "all",
-  }),
-});
+type CompaniesSearch = { status: StatusFilter; printing?: boolean; offset?: number; q?: string };
 
-type CompanyRow = {
-  id: string;
-  name: string;
-  slug: string;
-  status: string;
-  plan: string | null;
-  createdAt: Date | string | number;
-  memberCount: number;
-};
-
-function AdminCompaniesComponent() {
-  const search = Route.useSearch();
-  const navigate = Route.useNavigate();
-  const status = search.status ?? "all";
-  const qc = useQueryClient();
-  const [query, setQuery] = useState("");
-
-  const { data, isLoading } = useQuery({
-    ...trpc.platform.companiesList.queryOptions({
-      limit: 100,
-      offset: 0,
-      search: query || undefined,
-      status: status === "all" ? undefined : status,
-    }),
-  });
-
-  const suspendMutation = useMutation({
-    ...trpc.platform.companiesSuspend.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Company suspended");
-      qc.invalidateQueries({ queryKey: trpc.platform.companiesList.queryKey() });
-    },
-    onError: (e: any) => toast.error(e.message || "Failed to suspend"),
-  });
-
-  const reactivateMutation = useMutation({
-    ...trpc.platform.companiesReactivate.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Company reactivated");
-      qc.invalidateQueries({ queryKey: trpc.platform.companiesList.queryKey() });
-    },
-    onError: (e: any) => toast.error(e.message || "Failed to reactivate"),
-  });
-
-  const impersonateMutation = useMutation({
-    ...trpc.platform.impersonationCreateGrant.mutationOptions(),
-    onSuccess: (grant) => {
-      setImpersonation(grant.companyId, grant.expiresAt);
-      queryClient.clear();
-      toast.success("Support session started. Opening their workspace.");
-      window.location.href = "/today";
-    },
-    onError: (e: any) => toast.error(e.message || "Failed to start impersonation"),
-  });
-
-  const columns = useMemo((): DataTableColumn<CompanyRow>[] => {
-    return [
-      {
-        id: "name",
-        header: "Company",
-        flex: 1.2,
-        sortable: true,
-        sortValue: (row) => row.name.toLowerCase(),
-        cell: (row) => (
-          <Link
-            to="/admin/companies/$id"
-            params={{ id: row.id }}
-            className="font-medium hover:underline"
-          >
-            {row.name}
-          </Link>
-        ),
-      },
-      {
-        id: "slug",
-        header: "Slug",
-        flex: 1,
-        cell: (row) => (
-          <Truncate mono className="text-xs">
-            {row.slug}
-          </Truncate>
-        ),
-      },
-      {
-        id: "status",
-        header: "Status",
-        flex: 0.7,
-        sortable: true,
-        sortValue: (row) => row.status,
-        cell: (row) => (
-          <Badge
-            tone={
-              row.status === "active"
-                ? "success"
-                : row.status === "suspended"
-                  ? "danger"
-                  : "neutral"
-            }
-          >
-            {sentenceCase(row.status)}
-          </Badge>
-        ),
-      },
-      {
-        id: "members",
-        header: "Members",
-        flex: 0.5,
-        align: "right",
-        sortable: true,
-        sortValue: (row) => row.memberCount,
-        cell: (row) => row.memberCount,
-      },
-      {
-        id: "created",
-        header: "Created",
-        flex: 0.8,
-        sortable: true,
-        sortValue: (row) => new Date(row.createdAt).getTime(),
-        cell: (row) => format(new Date(row.createdAt), "PP"),
-      },
-      {
-        id: "actions",
-        header: "",
-        flex: 1.4,
-        align: "right",
-        cell: (row) => (
-          <div className="flex justify-end gap-2 flex-wrap">
-            <Can do="platform.impersonate">
-              <Button
-                size="sm"
-                disabled={row.status !== "active" || impersonateMutation.isPending}
-                onClick={() =>
-                  impersonateMutation.mutate({ companyId: row.id, ttlMinutes: 30 })
-                }
-              >
-                Impersonate
-              </Button>
-            </Can>
-            <Can do="platform.company.manage">
-              {row.status === "active" ? (
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  disabled={suspendMutation.isPending}
-                  onClick={() => suspendMutation.mutate({ id: row.id })}
-                >
-                  Suspend
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={reactivateMutation.isPending}
-                  onClick={() => reactivateMutation.mutate({ id: row.id })}
-                >
-                  Reactivate
-                </Button>
-              )}
-            </Can>
-          </div>
-        ),
-      },
-    ];
-  }, [
-    impersonateMutation,
-    reactivateMutation,
-    suspendMutation.isPending,
-    reactivateMutation.isPending,
-  ]);
-
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Godseye"
-        title="Companies"
-        description={`Every company on ORRN, for support and onboarding (${data?.total ?? 0} in total).`}
-        actions={
-          <Button asChild variant="outline">
-            <Link to="/admin">Back to console</Link>
-          </Button>
-        }
-      />
-      <Toolbar>
-        <Input
-          placeholder="Search name or slug…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          aria-label="Search companies"
-          className="sm:max-w-sm"
-        />
-        <Tabs
-          value={status}
-          onValueChange={(v) => navigate({ search: { status: v as StatusFilter } })}
-          items={(["all", ...COMPANY_STATUSES] as const).map((s) => ({
-            id: s,
-            label: s.charAt(0).toUpperCase() + s.slice(1),
-          }))}
-        />
-      </Toolbar>
-      <DataTable
-        columns={columns}
-        rows={(data?.items as CompanyRow[]) ?? []}
-        rowKey={(row) => row.id}
-        renderCard={(row) => (
-          <div className="flex h-full min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <Link
-                  to="/admin/companies/$id"
-                  params={{ id: row.id }}
-                  className="block min-w-0 text-base font-semibold text-foreground hover:underline"
-                >
-                  <Truncate lines={2}>{row.name}</Truncate>
-                </Link>
-                <Truncate as="p" mono className="m-0 mt-0.5 text-xs text-muted-foreground">
-                  {row.slug}
-                </Truncate>
-              </div>
-              <Badge
-                tone={
-                  row.status === "active"
-                    ? "success"
-                    : row.status === "suspended"
-                      ? "danger"
-                      : "neutral"
-                }
-              >
-                {sentenceCase(row.status)}
-              </Badge>
-            </div>
-            <div className="grid grid-cols-3 gap-3 text-sm">
-              <div className="min-w-0">
-                <p className="m-0 text-xs font-medium text-muted-foreground">Members</p>
-                <p className="m-0 text-foreground">{row.memberCount}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="m-0 text-xs font-medium text-muted-foreground">Plan</p>
-                <p className="m-0 truncate capitalize text-foreground">{row.plan ?? "None"}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="m-0 text-xs font-medium text-muted-foreground">Created</p>
-                <p className="m-0 text-foreground">{format(new Date(row.createdAt), "MMM d")}</p>
-              </div>
-            </div>
-            <div className="mt-auto grid grid-cols-2 gap-2 border-t border-border pt-3 sm:flex sm:flex-wrap sm:justify-end [&>*:nth-child(odd):last-child]:col-span-2">
-              <Can do="platform.impersonate">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={row.status !== "active" || impersonateMutation.isPending}
-                  onClick={() =>
-                    impersonateMutation.mutate({ companyId: row.id, ttlMinutes: 30 })
-                  }
-                >
-                  Impersonate
-                </Button>
-              </Can>
-              <Can do="platform.company.manage">
-                {row.status === "active" ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-destructive"
-                    disabled={suspendMutation.isPending}
-                    onClick={() => suspendMutation.mutate({ id: row.id })}
-                  >
-                    Suspend
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={reactivateMutation.isPending}
-                    onClick={() => reactivateMutation.mutate({ id: row.id })}
-                  >
-                    Reactivate
-                  </Button>
-                )}
-              </Can>
-            </div>
-          </div>
-        )}
-        isLoading={isLoading}
-        emptyState={
-          <EmptyState
-            title="No companies found"
-            description={
-              query
-                ? "Try a different search query or status filter."
-                : "Approved access requests show up here as new companies."
-            }
-          />
-        }
-      />
-    </div>
-  );
+/** `?printing=1` is the old /admin/spool list (spec §3: "with a Printing filter"). */
+function parsePrinting(value: unknown): boolean | undefined {
+  return value === true || value === 1 || value === "1" || value === "true" ? true : undefined;
 }
 
-function sentenceCase(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+export const Route = createFileRoute("/_platform/admin/companies/")({
+  component: AdminCompanies,
+  validateSearch: (search: Record<string, unknown>): CompaniesSearch => {
+    const status = STATUS_FILTERS.includes(search.status as StatusFilter) ? (search.status as StatusFilter) : "all";
+    const offset = Number(search.offset);
+    const q = typeof search.q === "string" ? search.q.trim().slice(0, 200) : "";
+    return {
+      status,
+      printing: parsePrinting(search.printing),
+      offset: Number.isInteger(offset) && offset > 0 ? offset : undefined,
+      // The search lives in the URL, so Back from a company comes back to the same list.
+      q: q || undefined,
+    };
+  },
+});
+
+/** Waits `ms` after the last keystroke before searching. */
+function useDebounced<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebounced(value), ms);
+    return () => window.clearTimeout(id);
+  }, [value, ms]);
+  return debounced;
+}
+
+function AdminCompanies() {
+  const { t, locale } = useT();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const printingId = useId();
+  const [query, setQuery] = useState(search.q ?? "");
+  const debounced = useDebounced(query.trim(), 250);
+  const offset = search.offset ?? 0;
+
+  // A new search goes into the URL and starts on the first page (not on mount: a link to page 2 stays on page 2).
+  const lastSearch = useRef(debounced);
+  useEffect(() => {
+    if (lastSearch.current === debounced) return;
+    lastSearch.current = debounced;
+    void navigate({ search: (s) => ({ ...s, q: debounced || undefined, offset: undefined }), replace: true });
+  }, [debounced, navigate]);
+
+  const list = useQuery({
+    ...trpc.platform.companiesList.queryOptions({
+      limit: PAGE_SIZE,
+      offset,
+      search: debounced || undefined,
+      status: search.status === "all" ? undefined : search.status,
+      printing: search.printing,
+    }),
+    placeholderData: keepPreviousData,
+  });
+
+  const filtered = Boolean(debounced) || search.status !== "all" || Boolean(search.printing);
+  const rows = list.data?.items ?? [];
+
+  const columns: ResponsiveListColumn<CompanyListRow>[] = [
+    {
+      key: "company",
+      header: t("admin.companies.columns.company"),
+      cell: (row) => (
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-semibold text-foreground break-words">{row.name}</span>
+          {/* Keeps the link's name "Name, slug" instead of running the two together. */}
+          <span className="sr-only">, </span>
+          <span className="font-mono text-[12px] font-normal text-muted-foreground [overflow-wrap:anywhere]">{row.slug}</span>
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: t("admin.companies.columns.status"),
+      phoneWide: true,
+      cell: (row) => (
+        <Chip tone={companyStatusTone(row.status)} truncate={false}>
+          {t(companyStatusKey(row.status))}
+        </Chip>
+      ),
+    },
+    {
+      key: "printing",
+      header: t("admin.companies.columns.printing"),
+      phoneWide: true,
+      cell: (row) => (
+        <Chip tone={printingTone(row.printing)} truncate={false}>
+          {t(printingKey(row.printing))}
+        </Chip>
+      ),
+    },
+    {
+      key: "members",
+      header: t("admin.companies.columns.members"),
+      align: "end",
+      cell: (row) => <span className="font-mono tabular-nums">{row.memberCount}</span>,
+    },
+    {
+      key: "joined",
+      header: t("admin.companies.columns.joined"),
+      cell: (row) => <span className="whitespace-nowrap">{formatDay(row.createdAt, { locale })}</span>,
+    },
+  ];
+
+  return (
+    <div className="flex min-w-0 flex-col gap-5">
+      <PageHeader
+        title={t("admin.companies.title")}
+        subtitle={
+          list.data
+            ? t(filtered ? "admin.companies.subtitleFiltered" : "admin.companies.subtitle", { count: list.data.total })
+            : undefined
+        }
+      />
+
+      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end">
+        <Field label={t("admin.companies.search")} className="lg:w-80">
+          <TextInput
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("admin.companies.searchHint")}
+            autoComplete="off"
+            enterKeyHint="search"
+          />
+        </Field>
+        <SegmentedControl
+          label={t("admin.companies.status")}
+          value={search.status}
+          onChange={(status) => void navigate({ search: (s) => ({ ...s, status, offset: undefined }) })}
+          options={[
+            { value: "all", label: t("common.all") },
+            { value: "active", label: t("status.company.active") },
+            { value: "suspended", label: t("status.company.suspended") },
+            { value: "pending", label: t("admin.companies.filterPending") },
+          ]}
+          className="max-w-full self-start lg:self-auto"
+        />
+        <label
+          htmlFor={printingId}
+          className="flex min-h-11 cursor-pointer items-center gap-3 self-start rounded-full pr-2 text-[15px] font-medium text-foreground lg:self-auto"
+        >
+          <Checkbox
+            id={printingId}
+            checked={Boolean(search.printing)}
+            onCheckedChange={(checked) =>
+              void navigate({ search: (s) => ({ ...s, printing: checked === true ? true : undefined, offset: undefined }) })
+            }
+          />
+          {t("admin.companies.printingOnly")}
+        </label>
+      </div>
+
+      {showsLoadError(list) ? (
+        <LoadError message={t("admin.companies.loadError")} onRetry={() => void list.refetch()} />
+      ) : (
+        <ResponsiveList
+          label={t("admin.companies.listLabel")}
+          rows={rows}
+          columns={columns}
+          rowKey={(row) => row.id}
+          rowHref={(row) => `/admin/companies/${encodeURIComponent(row.id)}`}
+          loading={list.isFetching}
+          total={list.data?.total}
+          page={{
+            offset,
+            limit: PAGE_SIZE,
+            onChange: (next) => void navigate({ search: (s) => ({ ...s, offset: next || undefined }) }),
+          }}
+          empty={
+            filtered ? (
+              <EmptyState
+                title={t("admin.companies.emptyFiltered")}
+                action={
+                  <Button
+                    variant="secondary"
+                    onPress={() => {
+                      setQuery("");
+                      void navigate({ search: { status: "all" } });
+                    }}
+                  >
+                    {t("admin.companies.clearFilters")}
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState title={t("admin.companies.empty")} />
+            )
+          }
+        />
+      )}
+    </div>
+  );
 }

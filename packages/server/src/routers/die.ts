@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import type { SQLiteUpdateSetSource } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
@@ -8,6 +9,7 @@ import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { likeContains } from "../lib/search";
+import { clientRequestIdSchema, replayProbe, replayState, REQUEST_ID_CONFLICT, requestRowIds } from "../lib/importReplay";
 import { nextCompanySeq } from "../lib/sequence";
 
 export const dimensionsSchema = z.object({
@@ -53,6 +55,53 @@ export const dieBaseSchema = z.object({
 });
 
 /**
+ * One die updated from an import sheet. Unlike the create schema nothing has a default: a field
+ * that is not sent keeps what orrn has (a weight-band sheet must not wipe geometry, name or notes,
+ * and a sheet without a Status column must not re-activate an archived die); `null` clears it.
+ */
+export const dieImportUpdateSchema = z.object({
+  existingId: z.string(),
+  series: z.string().min(1, "Series is required").max(500),
+  sectionCode: z.string().min(1, "Section Code is required").max(500),
+  name: z.string().max(500).nullable().optional(),
+  legMm: optionalDieLength,
+  widthMm: optionalDieLength,
+  thicknessMm: optionalDieLength,
+  dimensions: dimensionsSchema.optional(),
+  weightMinG: dieWeightG,
+  weightMaxG: dieWeightG,
+  status: z.enum(dieStatuses).optional(),
+  notes: z.string().max(500).nullable().optional(),
+});
+
+/** The `.set()` of an import update: only the keys that were sent; dimensions are merged, never replaced. */
+function dieImportUpdateSet(row: z.infer<typeof dieImportUpdateSchema>, serverSeq: number) {
+  const set: SQLiteUpdateSetSource<typeof die> = {
+    weightMinG: row.weightMinG,
+    weightMaxG: row.weightMaxG,
+    serverSeq,
+  };
+  if (row.name !== undefined) set.name = row.name;
+  if (row.legMm !== undefined) set.legMm = row.legMm;
+  if (row.widthMm !== undefined) set.widthMm = row.widthMm;
+  if (row.thicknessMm !== undefined) set.thicknessMm = row.thicknessMm;
+  if (row.status !== undefined) set.status = row.status;
+  if (row.notes !== undefined) set.notes = row.notes;
+
+  // dimensions mirrors width/thickness (see create); a null in a JSON merge patch removes the key.
+  const patch: Record<string, number | null> = {};
+  const width = row.widthMm !== undefined ? row.widthMm : row.dimensions?.widthMm;
+  const thickness = row.thicknessMm !== undefined ? row.thicknessMm : row.dimensions?.thicknessMm;
+  if (width !== undefined) patch.widthMm = width;
+  if (thickness !== undefined) patch.thicknessMm = thickness;
+  if (row.dimensions?.heightMm !== undefined) patch.heightMm = row.dimensions.heightMm;
+  if (Object.keys(patch).length > 0) {
+    set.dimensions = sql`json_patch(coalesce(${die.dimensions}, '{}'), ${JSON.stringify(patch)})`;
+  }
+  return set;
+}
+
+/**
  * The unique index on (company, series, section code) also covers soft-deleted dies, so reusing a
  * deleted die's code used to fail the insert with a 500 (audit S16). Say so instead.
  */
@@ -65,6 +114,8 @@ export const dieRouter = router({
   list: companyProcedure
     .input(z.object({
       search: z.string().optional(),
+      /** Only dies in this status (the Pack picker asks for active ones, so archived dies take no places). */
+      status: z.enum(dieStatuses).optional(),
       limit: z.number().min(1).max(100).default(50),
       offset: z.number().default(0),
     }))
@@ -81,6 +132,10 @@ export const dieRouter = router({
         conditions.push(
           sql`(${likeContains(die.name, search)} OR ${likeContains(die.series, search)} OR ${likeContains(die.sectionCode, search)} OR ${likeContains(sql`${die.series} || ' ' || ${die.sectionCode}`, search)})`
         );
+      }
+
+      if (input.status) {
+        conditions.push(eq(die.status, input.status));
       }
 
       const items = await ctx.db.query.die.findMany({
@@ -324,12 +379,37 @@ export const dieRouter = router({
     .input(z.object({
       newRows: z.array(dieBaseSchema).max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"),
       updatedRows: z
-        .array(dieBaseSchema.extend({ existingId: z.string() }))
+        .array(dieImportUpdateSchema)
         .max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches"),
+      /** Same id, same rows: a resend answers `replayed` instead of failing on the new dies' codes (lib/importReplay). */
+      clientRequestId: clientRequestIdSchema.optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       if (input.newRows.length === 0 && input.updatedRows.length === 0) {
-        return { success: true, count: 0 };
+        return { success: true, count: 0, replayed: false };
+      }
+
+      // New dies get request-derived ids, so a chunk that already landed is recognised; updates are
+      // idempotent on their own (same values again), so a chunk of updates only is simply re-applied.
+      const count = input.newRows.length + input.updatedRows.length;
+      const newIds =
+        input.clientRequestId && input.newRows.length > 0
+          ? await requestRowIds(ctx.companyId, "die.import", input.clientRequestId, input.newRows.length)
+          : null;
+      const landed = async (ids: string[]) =>
+        replayState(
+          ids,
+          (
+            await ctx.db
+              .select({ id: die.id })
+              .from(die)
+              .where(and(eq(die.companyId, ctx.companyId), inArray(die.id, replayProbe(ids))))
+          ).map((r) => r.id),
+        );
+      if (newIds) {
+        const state = await landed(newIds);
+        if (state === "replayed") return { success: true, count, replayed: true };
+        if (state === "conflict") throw new TRPCError(REQUEST_ID_CONFLICT);
       }
 
       if (input.newRows.length > 0) {
@@ -356,8 +436,8 @@ export const dieRouter = router({
       const statements: SqliteBatchItem[] = [];
 
       if (input.newRows.length > 0) {
-        const values = input.newRows.map((row) => ({
-          id: crypto.randomUUID(),
+        const values = input.newRows.map((row, i) => ({
+          id: newIds?.[i] ?? crypto.randomUUID(),
           companyId: ctx.companyId,
           serverSeq,
           series: row.series,
@@ -383,22 +463,7 @@ export const dieRouter = router({
         statements.push(
           ctx.db
             .update(die)
-            .set({
-              name: row.name,
-              legMm: row.legMm ?? null,
-              widthMm: row.widthMm ?? null,
-              thicknessMm: row.thicknessMm ?? null,
-              dimensions: {
-                ...row.dimensions,
-                widthMm: row.widthMm ?? row.dimensions.widthMm,
-                thicknessMm: row.thicknessMm ?? row.dimensions.thicknessMm,
-              },
-              weightMinG: row.weightMinG,
-              weightMaxG: row.weightMaxG,
-              status: row.status,
-              notes: row.notes,
-              serverSeq,
-            })
+            .set(dieImportUpdateSet(row, serverSeq))
             .where(and(eq(die.id, row.existingId), eq(die.companyId, ctx.companyId))),
         );
       }
@@ -414,8 +479,14 @@ export const dieRouter = router({
         ),
       );
 
-      await atomicBatch(ctx.db, statements);
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (error) {
+        // An identical request landed a moment earlier: its die ids are taken, so this batch rolled back.
+        if (newIds && (await landed(newIds)) === "replayed") return { success: true, count, replayed: true };
+        throw error;
+      }
 
-      return { success: true, count: input.newRows.length + input.updatedRows.length };
+      return { success: true, count, replayed: false };
     }),
 });

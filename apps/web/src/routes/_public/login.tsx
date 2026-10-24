@@ -1,28 +1,36 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useT } from "@orrn/i18n";
+import { Link, createFileRoute } from "@tanstack/react-router";
 
-import { AuthScreen } from "@/shared/components/auth-screen";
-import SignInForm from "@/shared/components/sign-in-form";
-
-/**
- * `?next=` is the page to return to after sign-in (checked by safe-next before use). A plain
- * function, not a zod schema: validateSearch runs in the entry chunk, and zod there cost every
- * first visit to `/` about 18 kB gzip (AGENTS.md, web bundle).
- */
-function loginSearch(search: Record<string, unknown>): { next?: string } {
-  return typeof search.next === "string" ? { next: search.next } : {};
-}
+import { AuthFrame } from "@/features/auth/auth-frame";
+import { SignInForm } from "@/features/auth/sign-in-form";
 
 export const Route = createFileRoute("/_public/login")({
-  component: RouteComponent,
-  validateSearch: loginSearch,
+  component: LoginPage,
+  // Plain check (no zod): route options sit in the entry chunk every page loads.
+  validateSearch: (search: Record<string, unknown>): { next?: string } =>
+    typeof search.next === "string" ? { next: search.next } : {},
 });
 
-function RouteComponent() {
+function LoginPage() {
+  const { t } = useT();
   const { next } = Route.useSearch();
 
   return (
-    <AuthScreen>
-      <SignInForm next={next} />
-    </AuthScreen>
+    <AuthFrame brand>
+      <SignInForm
+        next={next}
+        footer={
+          <p className="m-0 border-t border-border pt-5 text-[15px] leading-6 text-muted-foreground">
+            {t("auth.login.newHere")}{" "}
+            <Link
+              to="/request-access"
+              className="inline-flex min-h-11 items-center font-semibold text-foreground underline decoration-control underline-offset-4 hover:decoration-foreground"
+            >
+              {t("auth.login.requestAccess")}
+            </Link>
+          </p>
+        }
+      />
+    </AuthFrame>
   );
 }

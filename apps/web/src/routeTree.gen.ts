@@ -24,6 +24,7 @@ import { Route as TenantApprovalsRouteImport } from './routes/_tenant/approvals'
 import { Route as PublicWaitlistRouteImport } from './routes/_public/waitlist'
 import { Route as PublicRequestAccessRouteImport } from './routes/_public/request-access'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
+import { Route as PublicContinueRouteImport } from './routes/_public/continue'
 import { Route as AuthedWelcomeRouteImport } from './routes/_authed/welcome'
 import { Route as AuthedSetupCredentialsRouteImport } from './routes/_authed/setup-credentials'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
@@ -170,6 +171,11 @@ const PublicRequestAccessRoute = PublicRequestAccessRouteImport.update({
 const PublicLoginRoute = PublicLoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicContinueRoute = PublicContinueRouteImport.update({
+  id: '/continue',
+  path: '/continue',
   getParentRoute: () => PublicRoute,
 } as any)
 const AuthedWelcomeRoute = AuthedWelcomeRouteImport.update({
@@ -583,6 +589,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthedOnboardingRoute
   '/setup-credentials': typeof AuthedSetupCredentialsRoute
   '/welcome': typeof AuthedWelcomeRoute
+  '/continue': typeof PublicContinueRoute
   '/login': typeof PublicLoginRoute
   '/request-access': typeof PublicRequestAccessRoute
   '/waitlist': typeof PublicWaitlistRoute
@@ -672,6 +679,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthedOnboardingRoute
   '/setup-credentials': typeof AuthedSetupCredentialsRoute
   '/welcome': typeof AuthedWelcomeRoute
+  '/continue': typeof PublicContinueRoute
   '/login': typeof PublicLoginRoute
   '/request-access': typeof PublicRequestAccessRoute
   '/waitlist': typeof PublicWaitlistRoute
@@ -765,6 +773,7 @@ export interface FileRoutesById {
   '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/_authed/setup-credentials': typeof AuthedSetupCredentialsRoute
   '/_authed/welcome': typeof AuthedWelcomeRoute
+  '/_public/continue': typeof PublicContinueRoute
   '/_public/login': typeof PublicLoginRoute
   '/_public/request-access': typeof PublicRequestAccessRoute
   '/_public/waitlist': typeof PublicWaitlistRoute
@@ -857,6 +866,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/setup-credentials'
     | '/welcome'
+    | '/continue'
     | '/login'
     | '/request-access'
     | '/waitlist'
@@ -946,6 +956,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/setup-credentials'
     | '/welcome'
+    | '/continue'
     | '/login'
     | '/request-access'
     | '/waitlist'
@@ -1038,6 +1049,7 @@ export interface FileRouteTypes {
     | '/_authed/onboarding'
     | '/_authed/setup-credentials'
     | '/_authed/welcome'
+    | '/_public/continue'
     | '/_public/login'
     | '/_public/request-access'
     | '/_public/waitlist'
@@ -1235,6 +1247,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof PublicLoginRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/continue': {
+      id: '/_public/continue'
+      path: '/continue'
+      fullPath: '/continue'
+      preLoaderRoute: typeof PublicContinueRouteImport
       parentRoute: typeof PublicRoute
     }
     '/_authed/welcome': {
@@ -1816,6 +1835,7 @@ const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
 )
 
 interface PublicRouteChildren {
+  PublicContinueRoute: typeof PublicContinueRoute
   PublicLoginRoute: typeof PublicLoginRoute
   PublicRequestAccessRoute: typeof PublicRequestAccessRoute
   PublicWaitlistRoute: typeof PublicWaitlistRoute
@@ -1824,6 +1844,7 @@ interface PublicRouteChildren {
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
+  PublicContinueRoute: PublicContinueRoute,
   PublicLoginRoute: PublicLoginRoute,
   PublicRequestAccessRoute: PublicRequestAccessRoute,
   PublicWaitlistRoute: PublicWaitlistRoute,

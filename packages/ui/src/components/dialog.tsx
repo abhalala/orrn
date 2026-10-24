@@ -60,7 +60,8 @@ export function Dialog({
                   </DialogPrimitive.Title>
                 ) : null}
                 {description ? (
-                  <DialogPrimitive.Description className="m-0 text-[15px] leading-6 text-muted-foreground">
+                  // An email or an address has no spaces: let it wrap anywhere rather than run past the edge on a phone.
+                  <DialogPrimitive.Description className="m-0 text-[15px] leading-6 text-muted-foreground [overflow-wrap:anywhere]">
                     {description}
                   </DialogPrimitive.Description>
                 ) : null}
