@@ -24,3 +24,19 @@ export function findLandedSession<T extends SessionRow>(
   }
   return null;
 }
+
+export type CheckOutcome = { kind: "landed"; id: string } | { kind: "notLanded" } | { kind: "unknown" };
+
+/**
+ * What the re-read of the newest sessions says about an "unsure" save. `rows`
+ * is null when the re-read itself failed: then we still do not know, and Save
+ * stays hidden behind "Check again".
+ */
+export function decideAfterCheck(
+  rows: readonly SessionRow[] | null | undefined,
+  save: { dieId: string; bundleCount: number; startedAt: number },
+): CheckOutcome {
+  if (!rows) return { kind: "unknown" };
+  const landed = findLandedSession(rows, save);
+  return landed ? { kind: "landed", id: landed.id } : { kind: "notLanded" };
+}
