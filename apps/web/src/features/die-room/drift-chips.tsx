@@ -38,7 +38,8 @@ export function PercentChip({ tone, pctTenth }: { tone: DriftTone; pctTenth: num
 /** In, above or below the copy's band, by grams (the server's `position`). */
 export function BandPositionChip({ position }: { position: BandPosition | null | undefined }) {
   const { t } = useT();
-  if (!position) return null;
+  // In band is already said by the percent chip; only a copy off its band needs this one.
+  if (!position || position === "in") return null;
   return (
     <Chip tone={positionTone(position)} truncate={false}>
       {t(`dieRoom.position.${position}`)}

@@ -16,7 +16,7 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import {
-  bandRangeText,
+  bandTitle,
   conflictExisting,
   parseKgToMilli,
   parseWallTenths,
@@ -84,10 +84,11 @@ export function NewBandPage({ id }: { id: string }) {
   }
 
   const code = dieCode(section.data);
-  const defaultWall = wallMmText(section.data.wallTenthMmEffective);
+  const hasWall = section.data.wallTenthMmEffective > 0;
+  const defaultWall = hasWall ? wallMmText(section.data.wallTenthMmEffective) : "";
 
   const submit = () => {
-    const wallTenth = wall.trim() === "" ? section.data!.wallTenthMmEffective : parseWallTenths(wall);
+    const wallTenth = wall.trim() === "" ? (hasWall ? section.data!.wallTenthMmEffective : null) : parseWallTenths(wall);
     const minG = parseKgToMilli(minKg);
     const maxG = parseKgToMilli(maxKg);
     const found: typeof errors = {};
@@ -139,7 +140,7 @@ export function NewBandPage({ id }: { id: string }) {
       >
         <p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("dieRoom.band.intro")}</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label={t("dieRoom.bands.wall")} hint={t("dieRoom.band.wallHint", { wall: defaultWall })} error={errors.wall}>
+          <Field label={t("dieRoom.bands.wall")} hint={hasWall ? t("dieRoom.band.wallHint", { wall: defaultWall }) : t("dieRoom.band.wallNone")} error={errors.wall}>
             <NumberInput value={wall} onValueChange={setWall} suffix={t("units.mm")} placeholder={defaultWall} />
           </Field>
           <Field label={t("dieRoom.band.min")} hint={t("units.kgPer12ft")} error={errors.min}>
@@ -157,7 +158,7 @@ export function NewBandPage({ id }: { id: string }) {
           <p role="alert" className="m-0 rounded-card border border-border bg-tone-red-tint px-4 py-3 text-[15px] leading-6 text-tone-red-ink">
             <Link to="/dies/$id" params={{ id }} className="font-semibold text-tone-red-ink">
               {t("dieRoom.errors.exists", {
-                code: `${existing.sectionCode} · ${wallMmText(existing.wallTenthMm)} ${t("units.mm")} · ${bandRangeText(existing.weightMinG, existing.weightMaxG)}`,
+                code: `${existing.sectionCode} · ${bandTitle(existing, t("units.mm"))}`,
               })}
             </Link>
             <br />

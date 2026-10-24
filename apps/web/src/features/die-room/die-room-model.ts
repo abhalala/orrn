@@ -70,6 +70,15 @@ export function bandRangeText(minG: number, maxG: number): string {
   return `${milliKgText(minG)}–${milliKgText(maxG)}`;
 }
 
+/**
+ * A band for reading: "1.2 mm \u00b7 5.900\u20136.200", or just the range when the section has no
+ * wall written (the server sends 0 then). `mm` is the translated unit.
+ */
+export function bandTitle(band: { wallTenthMm: number; weightMinG: number; weightMaxG: number }, mm: string): string {
+  const range = bandRangeText(band.weightMinG, band.weightMaxG);
+  return band.wallTenthMm > 0 ? `${wallMmText(band.wallTenthMm)} ${mm} \u00b7 ${range}` : range;
+}
+
 /** Wall in tenths of a mm: 12 -> "1.2". */
 export function wallMmText(tenth: number): string {
   return (tenth / 10).toFixed(1);

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   bandRangeText,
+  bandTitle,
   bpText,
   gramsToWholeKg,
   parseGrams,
@@ -35,6 +36,11 @@ describe("formatting server numbers", () => {
   test("a band is one string: kg per 12 ft, three decimals, an en dash", () => {
     expect(bandRangeText(5_900, 6_200)).toBe("5.900–6.200");
     expect(bandRangeText(6_200, 6_600)).toBe("6.200–6.600");
+  });
+
+  test("a band title leaves the wall out when the section has none written", () => {
+    expect(bandTitle({ wallTenthMm: 12, weightMinG: 5_900, weightMaxG: 6_200 }, "mm")).toBe("1.2 mm \u00b7 5.900\u20136.200");
+    expect(bandTitle({ wallTenthMm: 0, weightMinG: 2_700, weightMaxG: 2_900 }, "mm")).toBe("2.700\u20132.900");
   });
 
   test("percent comes from tenths with a sign", () => {

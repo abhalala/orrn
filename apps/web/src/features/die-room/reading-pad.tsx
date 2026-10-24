@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { trpc } from "@/shared/utils/trpc";
 
-import { bandRangeText, milliKgText, parseKgToMilli, refusalText, wallMmText } from "./die-room-model";
+import { bandTitle, milliKgText, parseKgToMilli, refusalText } from "./die-room-model";
 
 const KEYS = ["7", "8", "9", "4", "5", "6", "1", "2", "3", ".", "0", "back"] as const;
 
@@ -115,10 +115,7 @@ export function ReadingPad({
         </Field>
         {band ? (
           <p className="m-0 text-[13px] leading-5 text-muted-foreground">
-            {t("dieRoom.reading.bandHint", {
-              wall: wallMmText(band.wallTenthMm),
-              range: bandRangeText(band.weightMinG, band.weightMaxG),
-            })}
+            {t("dieRoom.reading.bandHint", { band: bandTitle(band, t("units.mm")) })}
           </p>
         ) : null}
         <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("dieRoom.reading.serverFigures")}</p>

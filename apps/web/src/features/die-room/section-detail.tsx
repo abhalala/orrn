@@ -30,13 +30,12 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { BandPositionChip, PercentChip, StatusChip } from "./drift-chips";
 import {
-  bandRangeText,
+  bandTitle,
   kgPerMetreText,
   milliKgText,
   parseRank,
   refusalText,
   shortDate,
-  wallMmText,
   type BandPosition,
   type CopyStatus,
   type DriftTone,
@@ -261,7 +260,7 @@ export function SectionDetail({ id }: { id: string }) {
                 <div className="min-w-0">
                   <CardTitle>
                     <span className="font-mono tabular-nums">
-                      {wallMmText(band.wallTenthMm)} {t("units.mm")} · {bandRangeText(band.weightMinG, band.weightMaxG)}
+                      {bandTitle(band, t("units.mm"))}
                     </span>{" "}
                     <span className="text-[14px] font-medium text-muted-foreground">{t("units.kgPer12ft")}</span>
                   </CardTitle>
@@ -482,7 +481,7 @@ function AddCopySheet({
     .filter((b) => b.active)
     .map((b) => ({
       value: b.id ?? "primary",
-      label: `${wallMmText(b.wallTenthMm)} ${t("units.mm")} · ${bandRangeText(b.weightMinG, b.weightMaxG)} ${t("units.kgPer12ft")}`,
+      label: `${bandTitle(b, t("units.mm"))} ${t("units.kgPer12ft")}`,
     }));
 
   return (

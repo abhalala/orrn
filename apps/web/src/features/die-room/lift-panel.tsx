@@ -22,10 +22,10 @@ import { trpc } from "@/shared/utils/trpc";
 import { BandPositionChip, PercentChip } from "./drift-chips";
 import {
   bandRangeText,
+  bandTitle,
   kgPerMetreText,
   milliKgText,
   parseRank,
-  wallMmText,
 } from "./die-room-model";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
 
@@ -100,7 +100,7 @@ export function LiftPage({ copyId }: { copyId: string }) {
       : []),
   ].map((b) => ({
     value: b.id ?? "primary",
-    label: `${wallMmText(b.wallTenthMm)} ${t("units.mm")} · ${bandRangeText(b.weightMinG, b.weightMaxG)} ${t("units.kgPer12ft")}`,
+    label: `${bandTitle(b, t("units.mm"))} ${t("units.kgPer12ft")}`,
   }));
   const chosen = target || targets[0]?.value || "";
   const rankText = rank ?? (instance.tierRank == null ? "" : String(instance.tierRank));
@@ -141,7 +141,7 @@ export function LiftPage({ copyId }: { copyId: string }) {
             <div>
               <dt className="text-[12px] font-medium text-muted-foreground">{t("dieRoom.lift.currentBand")}</dt>
               <dd className="m-0 font-mono text-[15px] font-semibold tabular-nums">
-                {band ? `${wallMmText(band.wallTenthMm)} ${t("units.mm")} · ${bandRangeText(band.weightMinG, band.weightMaxG)} ${t("units.kgPer12ft")}` : "—"}
+                {band ? `${bandTitle(band, t("units.mm"))} ${t("units.kgPer12ft")}` : "—"}
               </dd>
             </div>
             <div>

@@ -268,9 +268,9 @@ function OwnerCheck() {
         />
       </Field>
       <div className="flex min-w-0 flex-col gap-1.5">
-        <span className="text-[14px] font-semibold">{t("dieRoom.maker.purpose")}</span>
+        <span className="text-[14px] font-semibold">{t("dieRoom.owner.purposeLabel")}</span>
         <SegmentedControl
-          label={t("dieRoom.maker.purpose")}
+          label={t("dieRoom.owner.purposeLabel")}
           value={purpose}
           onChange={(v) => {
             setPurpose(v);

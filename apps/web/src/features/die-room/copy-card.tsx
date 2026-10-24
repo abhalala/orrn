@@ -30,7 +30,7 @@ import { RunsPanel } from "./card-runs";
 import { TierPanel } from "./card-tier";
 import { BandPositionChip, PercentChip, StatusChip } from "./drift-chips";
 import {
-  bandRangeText,
+  bandTitle,
   CARD_TABS,
   kgGroupedText,
   kgPerMetreText,
@@ -192,12 +192,12 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
           </span>
           {band ? (
             <Badge tone="neutral" className="font-mono tabular-nums">
-              {wallMmText(band.wallTenthMm)} {t("units.mm")} · {bandRangeText(band.weightMinG, band.weightMaxG)} {t("units.kgPer12ft")}
+              {bandTitle(band, t("units.mm"))} {t("units.kgPer12ft")}
             </Badge>
           ) : null}
           {card.pendingTierChange ? (
             <Chip tone="amber" truncate={false}>
-              {t("dieRoom.tier.pending")}
+              {t("dieRoom.tier.waitingManager")}
             </Chip>
           ) : null}
           {card.lifeReached ? (
@@ -231,7 +231,7 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
         <dl className="m-0 grid grid-cols-2 gap-3 md:grid-cols-3">
           <Fact label={t("dieRoom.card.cavities")} value={card.cavityCount == null ? null : String(card.cavityCount)} />
           <Fact label={t("dieRoom.card.bolster")} value={instance.bolster} mono />
-          <Fact label={t("dieRoom.card.wall")} value={band ? `${wallMmText(band.wallTenthMm)} ${t("units.mm")}` : null} />
+          <Fact label={t("dieRoom.card.wall")} value={band && band.wallTenthMm > 0 ? `${wallMmText(band.wallTenthMm)} ${t("units.mm")}` : null} />
           <Fact label={t("dieRoom.card.trial")} value={instance.trialKgPer12ftMilli == null ? null : `${milliKgText(instance.trialKgPer12ftMilli)} ${t("units.kgPer12ft")}`} mono />
           <Fact label={t("dieRoom.card.hardness")} value={instance.hardness == null ? null : String(instance.hardness)} />
           <Fact label={t("dieRoom.copies.rack")} value={instance.rackNo} mono />

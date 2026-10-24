@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 2172 screen strings in 39 groups, 12 guides with 220 strings.
+Counts: 2174 screen strings in 39 groups, 12 guides with 220 strings.
 
 ## Screen strings
 
@@ -1747,7 +1747,7 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (305)
+### dieRoom (307)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1900,6 +1900,7 @@ Please check, Lalubhai:
 | `owner.purpose.pack` | Pack | पैकिंग |
 | `owner.purpose.dispatch` | Dispatch | Dispatch |
 | `owner.checkTitle` | Who may use this die | यह die कौन चला सकता है |
+| `owner.purposeLabel` | Check for | किसके लिए जांचें |
 | `owner.checkBody` | Check a copy for a customer before you plan, press, pack or dispatch it. | प्लान, प्रेस, पैक या dispatch से पहले कॉपी को ग्राहक के लिए जांचें। |
 | `owner.forParty` | For customer | ग्राहक |
 | `owner.plantStock` | Plant stock (no customer) | प्लांट स्टॉक (कोई ग्राहक नहीं) |
@@ -1945,6 +1946,7 @@ Please check, Lalubhai:
 | `band.backToSection` | Back to this die | इस die पर वापस |
 | `band.intro` | A second copy on a band is always allowed. A second band with the same wall and weights is not. | एक बैंड पर दूसरी कॉपी हमेशा चलती है। उसी दीवार और वज़न का दूसरा बैंड नहीं बनता। |
 | `band.wallHint` | Millimetres. Blank means {wall}. | मिलीमीटर। खाली छोड़ें तो {wall}। |
+| `band.wallNone` | Millimetres. This die has no wall written; type it. | मिलीमीटर। इस die की दीवार लिखी नहीं है, खुद लिखें। |
 | `band.min` | Min | कम से कम |
 | `band.max` | Max | ज़्यादा से ज़्यादा |
 | `band.wallInvalid` | Enter the wall in millimetres, like 1.2. | दीवार मिलीमीटर में लिखें, जैसे 1.2। |
@@ -1958,7 +1960,7 @@ Please check, Lalubhai:
 | `reading.noneYet` | kg per 12 ft. No reading yet. | kg/12ft। अभी कोई रीडिंग नहीं। |
 | `reading.last` | kg per 12 ft. Last reading {kg}. | kg/12ft। पिछली रीडिंग {kg}। |
 | `reading.weight` | Weight of 12 ft | 12 ft का वज़न |
-| `reading.bandHint` | Band {wall} mm, {range} kg/12ft. | बैंड {wall} mm, {range} kg/12ft। |
+| `reading.bandHint` | Band {band} kg/12ft. | बैंड {band} kg/12ft। |
 | `reading.serverFigures` | The percent and colour are worked out when you save. | सेव करने पर प्रतिशत और रंग तय होते हैं। |
 | `reading.backspace` | Backspace | मिटाएं |
 | `reading.saved` | {code}: {kg} kg/12ft saved | {code}: {kg} kg/12ft सेव हुआ |
