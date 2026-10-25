@@ -156,11 +156,12 @@ describe("bundle page", () => {
     expect(entries.map((e) => [e.kind, e.note])).toEqual([["restored", "Counted wrong"], ["packed", null]]);
   });
 
-  test("void and restore are behind bundle.void, add to dispatch behind dispatch.addBundle, and there is no reprint", () => {
+  test("void and restore are behind bundle.void, add to dispatch behind dispatch.addBundle, and reprint behind spool.create_jobs (BACKLOG 5, E6 Native)", () => {
     const screen = read("features/bundle/bundle-screen.tsx");
     expect(screen).toMatch(/can\(me, "bundle\.void"\)/);
     expect(screen).toMatch(/can\(me, "dispatch\.addBundle"\)/);
-    expect(screen).not.toMatch(/printBundleLabel|bundle\.reprint"/);
+    expect(screen).toMatch(/can\(me, "spool\.create_jobs"\)/);
+    expect(screen).toMatch(/printBundleLabel/);
     expect(read("features/bundle/transition-sheet.tsx")).toMatch(/writeFailureKind\(/);
     expect(read("features/bundle/add-to-dispatch-sheet.tsx")).toMatch(/addBundlesBySerial/);
   });

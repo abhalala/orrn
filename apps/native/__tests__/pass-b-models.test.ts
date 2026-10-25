@@ -300,3 +300,48 @@ describe("dates are the company's, not the phone's (BACKLOG 29, T29 m-5)", () =>
     expect(bad).toEqual([]);
   });
 });
+
+describe("reprint a label (E6 Native: reprint via the print service)", () => {
+  test("a failed print is said in plain words; no answer at all is the connection", async () => {
+    const { printErrorKey, canReprint, REPRINT_KEYS } = await import("../features/bundle/reprint");
+    const { en } = await import("@orrn/i18n/en");
+    const trpc = (code: string, message: string) => ({ data: { code }, message });
+    expect(printErrorKey(new TypeError("Network request failed"))).toBe("pack.print.errors.network");
+    expect(printErrorKey(trpc("FORBIDDEN", "x"))).toBe("pack.print.errors.forbidden");
+    expect(printErrorKey(trpc("NOT_FOUND", "No active spool deployment"))).toBe("pack.print.errors.notSetUp");
+    expect(printErrorKey(trpc("NOT_FOUND", "No label printer"))).toBe("pack.print.errors.noPrinter");
+    expect(printErrorKey(trpc("BAD_REQUEST", "No template"))).toBe("pack.print.errors.noTemplate");
+    expect(printErrorKey(trpc("BAD_GATEWAY", "x"))).toBe("pack.print.errors.offline");
+    expect(printErrorKey(trpc("BAD_REQUEST", "Something else"))).toBe("pack.print.errors.generic");
+    expect(canReprint("available")).toBe(true);
+    expect(canReprint("void")).toBe(false);
+    for (const k of REPRINT_KEYS) {
+      const v = k.split(".").reduce<unknown>((o, p) => (o as Record<string, unknown> | undefined)?.[p], en);
+      expect({ k, v: typeof v }).toEqual({ k, v: "string" });
+    }
+  });
+});
+
+describe("the press screens only read, and write downtime and handover (spec E3 Native)", () => {
+  test("no phone file starts, stops, counts, closes, reopens, voids or queues a run", async () => {
+    const { readFileSync, readdirSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const root = join(import.meta.dir, "..");
+    const walk = (dir: string): string[] => readdirSync(dir).flatMap((e) => (statSync(join(dir, e)).isDirectory() ? walk(join(dir, e)) : /\.tsx?$/.test(e) ? [join(dir, e)] : []));
+    const files = [...walk(join(root, "features/press")), ...walk(join(root, "app/(tabs)/press"))];
+    expect(files.length).toBeGreaterThan(5);
+    const writes = new Set<string>();
+    for (const f of files) {
+      for (const m of readFileSync(f, "utf8").matchAll(/trpc\.press\.([a-zA-Z.]+)\.mutationOptions/g)) writes.add(m[1]!);
+    }
+    expect([...writes].sort()).toEqual(["downtime.start", "downtime.stop", "runs.handover"]);
+  });
+
+  test("the scan tab never starts a run: it only lists the copy's runs", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const src = readFileSync(join(import.meta.dir, "..", "features/scan/scan-view.tsx"), "utf8");
+    expect(src).toMatch(/trpc\.press\.runs\.list\.queryOptions/);
+    expect(src).not.toMatch(/trpc\.press\.runs\.(start|stop|count|close)/);
+  });
+});
