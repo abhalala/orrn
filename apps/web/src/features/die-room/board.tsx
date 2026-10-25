@@ -354,8 +354,11 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
               <EmptyState
                 title={t("dies.pageEmpty")}
                 action={
-                  <Button variant="secondary" onClick={() => onPage(0)}>
-                    {t("dies.firstPage")}
+                  <Button asChild variant="secondary">
+                    {/* A link (not a button): the first page keeps the search and filters, drops the offset. */}
+                    <Link to="/dies" search={{ q: q || undefined, tile, kind, owner, sort: sort === "newest" ? undefined : sort }}>
+                      {t("dies.firstPage")}
+                    </Link>
                   </Button>
                 }
               />
@@ -396,8 +399,11 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
               <EmptyState
                 title={t("dies.pageEmpty")}
                 action={
-                  <Button variant="secondary" onClick={() => onPage(0)}>
-                    {t("dies.firstPage")}
+                  <Button asChild variant="secondary">
+                    {/* A link (not a button): the first page keeps the search and filters, drops the offset. */}
+                    <Link to="/dies" search={{ q: q || undefined, tile, kind, owner, sort: sort === "newest" ? undefined : sort }}>
+                      {t("dies.firstPage")}
+                    </Link>
                   </Button>
                 }
               />
