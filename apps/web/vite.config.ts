@@ -1,6 +1,7 @@
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin, type ServerOptions, type UserConfig } from "vite";
 
@@ -64,7 +65,18 @@ function lazyHindi(): Plugin {
   };
 }
 
+/**
+ * Shown on Settings > About: the web app's version (this package.json, not an env var that only
+ * exists under npm) and the day it was built.
+ */
+const packageVersion = (JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version?: string }).version;
+const buildInfo = {
+  __ORRN_WEB_VERSION__: JSON.stringify(packageVersion ?? "dev"),
+  __ORRN_BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+};
+
 export default defineConfig(async ({ command, isPreview }): Promise<UserConfig> => ({
+  define: buildInfo,
   // `vite preview` is command "serve" too; it inherits server.strictPort, so it must not get the dev
   // server options (nor the worktree guard, nor the TypeScript resolver).
   server: command === "serve" && !isPreview ? await devServer() : undefined,

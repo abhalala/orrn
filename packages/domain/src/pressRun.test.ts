@@ -151,12 +151,21 @@ describe("closeFigures (server-computed; client values ignored)", () => {
       endsG: 10 * KG,
       billetOnHandG: 1_000 * KG,
     });
-    expect(f).toEqual({ inputG: 310_400, inputWeighedG: 310_400, goodG: 234_200, rejectG: 4_800, recoveryBp: 7545, balanceG: 31_400, balanceWarn: true, short: false });
+    expect(f).toEqual({ inputG: 310_400, inputWeighedG: 310_400, goodG: 234_200, rejectG: 4_800, recoveryBp: 7545, balanceG: 31_400, balanceWarn: true, short: false, billetShortG: 0 });
   });
 
-  test("short billets: input = on hand, weighed kept", () => {
+  test("D22 short billets: input and recovery stay on the weighed kg; the shortfall is recorded", () => {
     const f = closeFigures({ billets: [{ kgG: 310_400 }], lines: [{ goodG: 234_200 }], qc: [], billetOnHandG: 300 * KG });
-    expect([f.inputG, f.inputWeighedG, f.short, f.recoveryBp]).toEqual([300 * KG, 310_400, true, 7807]);
+    expect([f.inputG, f.inputWeighedG, f.short, f.recoveryBp, f.billetShortG]).toEqual([310_400, 310_400, true, 7545, 10_400]);
+  });
+
+  test("D22 nothing or less than nothing on hand: the whole weighed kg is short, recovery unchanged", () => {
+    const none = closeFigures({ billets: [{ kgG: 310_400 }], lines: [{ goodG: 234_200 }], qc: [], billetOnHandG: 0 });
+    expect([none.inputG, none.recoveryBp, none.billetShortG]).toEqual([310_400, 7545, 310_400]);
+    const negative = closeFigures({ billets: [{ kgG: 310_400 }], lines: [{ goodG: 234_200 }], qc: [], billetOnHandG: -5 * KG });
+    expect([negative.inputG, negative.recoveryBp, negative.billetShortG, negative.short]).toEqual([310_400, 7545, 310_400, true]);
+    const unknown = closeFigures({ billets: [{ kgG: 310_400 }], lines: [{ goodG: 234_200 }], qc: [] });
+    expect([unknown.short, unknown.billetShortG]).toEqual([false, 0]);
   });
 });
 

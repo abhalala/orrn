@@ -11,7 +11,7 @@ import { useMe } from "@/shared/lib/me";
 
 import { CommandPaletteProvider } from "./command-palette";
 import { Avatar, MoreSheet, type ShellVariant } from "./more-menu";
-import { GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, visibleItems } from "./nav-items";
+import { GODSEYE_MORE, GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, visibleItems } from "./nav-items";
 import { SideNav } from "./side-nav";
 import { SkipLink } from "./skip-link";
 import { TabBar } from "./tab-bar";
@@ -51,7 +51,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
 
   const godseye = variant === "godseye";
   const primary = visibleItems(godseye ? GODSEYE_NAV : TENANT_PRIMARY, me);
-  const more = godseye ? [] : visibleItems(TENANT_MORE, me);
+  const more = visibleItems(godseye ? GODSEYE_MORE : TENANT_MORE, me);
   const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
   const scanOn = !godseye && scan.available && (modules.length === 0 || modules.includes("bundles"));
   const openScan = scanOn ? () => scan.open({ kind: "lookup" }) : undefined;

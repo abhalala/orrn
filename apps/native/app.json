@@ -21,7 +21,8 @@
       },
       "config": {
         "usesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "1"
     },
     "android": {
       "package": "in.orrn.app",
@@ -38,11 +39,13 @@
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png",
         "backgroundColor": "#0c0c0e"
-      }
+      },
+      "versionCode": 1
     },
     "locales": {
       "en": "./locales/en.json",
-      "hi": "./locales/hi.json"
+      "hi": "./locales/hi.json",
+      "gu": "./locales/gu.json"
     },
     "web": {
       "bundler": "metro"
@@ -54,7 +57,7 @@
       [
         "expo-localization",
         {
-          "supportedLocales": ["en", "hi"]
+          "supportedLocales": ["en", "hi", "gu"]
         }
       ],
       [
@@ -69,6 +72,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "releaseChannel": "production"
     }
   }
 }

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9c94279e-24c5-4b44-833a-bfe7ce69e48a",
+  "id": "9e9c0f3b-dfe1-42b1-8dbe-b3f6a13d57e9",
   "prevId": "9f95cdb6-f58c-4410-a85a-8c27b00a2162",
   "tables": {
     "approval": {
@@ -3282,6 +3282,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        },
+        "from_status": {
+          "name": "from_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
         }
       },
       "indexes": {
@@ -4152,20 +4160,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "sales_order_id": {
-          "name": "sales_order_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "truck_id": {
-          "name": "truck_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -4204,22 +4198,6 @@
           "columns": [
             "company_id",
             "status"
-          ],
-          "isUnique": false
-        },
-        "dispatch_company_sales_order_idx": {
-          "name": "dispatch_company_sales_order_idx",
-          "columns": [
-            "company_id",
-            "sales_order_id"
-          ],
-          "isUnique": false
-        },
-        "dispatch_company_truck_idx": {
-          "name": "dispatch_company_truck_idx",
-          "columns": [
-            "company_id",
-            "truck_id"
           ],
           "isUnique": false
         },
@@ -8890,6 +8868,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        },
+        "trial": {
+          "name": "trial",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         }
       },
       "indexes": {

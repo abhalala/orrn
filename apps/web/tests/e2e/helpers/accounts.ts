@@ -22,7 +22,7 @@ export function localPassword(): string {
   return line.slice("ORRN_LOCAL_PASSWORD=".length).trim();
 }
 
-export type LocalRole = "owner" | "operator" | "viewer" | "office" | "staff";
+export type LocalRole = "owner" | "operator" | "viewer" | "office" | "dieroom" | "staff";
 
 /**
  * Fill and submit the real sign-in form on the current /login page. Labels

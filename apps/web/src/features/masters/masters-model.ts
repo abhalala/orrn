@@ -200,12 +200,14 @@ export function vendorStatusView(status: VendorStatus): StatusView {
 }
 
 
-/** Green = ready to run, blue = on the press, amber = away for nitriding, neutral = retired. */
+/** Green = ready to run, blue = on the press, amber = away (nitriding, die maker) or on trial, neutral = retired. */
 export function dieCopyStatusView(status: DieCopyStatus): StatusView {
   const tone: Record<DieCopyStatus, StatusTone> = {
     available: "green",
     in_use: "blue",
     at_nitriding: "amber",
+    at_maker: "amber",
+    on_trial: "amber",
     retired: "neutral",
   };
   return { tone: tone[status], key: `masters.dieCopies.status.${status}` as MessageKey };

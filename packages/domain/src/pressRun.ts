@@ -313,7 +313,8 @@ export function closeGates(
     if (q.reasonCode && (q.reasonRequiresNote || q.reasonCode === "other") && !validReason(q.note)) add("qc_note_missing");
   }
 
-  // Billet balance: on hand must cover input, else a short reason (server sets input_g = on hand).
+  // Billet balance: on hand must cover input, else a short reason (D22: the full weighed kg is still
+  // debited and the shortfall is recorded on the run and shown on the cast).
   if (ctx?.billetOnHandG != null && inputG > 0 && ctx.billetOnHandG < inputG && !validReason(run.billetShortReason)) {
     add("billet_short_reason_missing");
   }
@@ -325,8 +326,11 @@ export function closeGates(
 }
 
 /**
- * The figures the close writes (server only; any client value is ignored). Input is Σ billet kg,
- * capped at the cast's on-hand when short (then `inputWeighedG` keeps the weighed figure).
+ * The figures the close writes (server only; any client value is ignored). D22: input is Σ billet
+ * kg as weighed at the press, and recovery and balance are computed on it (a physical fact). When
+ * the cast's billets on hand are less than that, `short` is set and `billetShortG` is the part the
+ * store cannot cover (on hand below zero counts as zero); the ledger still debits the full weighed
+ * kg and the run records the shortfall with its reason. `inputWeighedG` equals `inputG`.
  */
 export function closeFigures(input: {
   billets: readonly { kgG: number }[];
@@ -336,14 +340,24 @@ export function closeFigures(input: {
   endsG?: number | null;
   billetOnHandG?: number | null;
   balanceWarnBp?: number;
-}): { inputG: number; inputWeighedG: number; goodG: number; rejectG: number; recoveryBp: number | null; balanceG: number; balanceWarn: boolean; short: boolean } {
-  const weighed = input.billets.reduce((s, b) => s + b.kgG, 0);
-  const short = input.billetOnHandG != null && input.billetOnHandG < weighed;
-  const inputG = short ? Math.max(0, input.billetOnHandG!) : weighed;
+}): {
+  inputG: number;
+  inputWeighedG: number;
+  goodG: number;
+  rejectG: number;
+  recoveryBp: number | null;
+  balanceG: number;
+  balanceWarn: boolean;
+  short: boolean;
+  billetShortG: number;
+} {
+  const inputG = input.billets.reduce((s, b) => s + b.kgG, 0);
+  const short = input.billetOnHandG != null && input.billetOnHandG < inputG;
+  const billetShortG = short ? inputG - Math.max(0, input.billetOnHandG!) : 0;
   const goodG = input.lines.reduce((s, l) => s + l.goodG, 0);
   const rejectG = input.qc.reduce((s, q) => s + q.kgG, 0);
   const bal = balanceG({ inputG, goodG, discardG: input.discardG, endsG: input.endsG, rejectG, warnBp: input.balanceWarnBp });
-  return { inputG, inputWeighedG: weighed, goodG, rejectG, recoveryBp: recoveryBp(goodG, inputG), balanceG: bal.balanceG, balanceWarn: bal.warn, short };
+  return { inputG, inputWeighedG: inputG, goodG, rejectG, recoveryBp: recoveryBp(goodG, inputG), balanceG: bal.balanceG, balanceWarn: bal.warn, short, billetShortG };
 }
 
 /**

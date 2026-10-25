@@ -213,7 +213,7 @@ describe("S-2 / correctness I-1: the order link is decided again when its premis
 
 describe("S-3 dev seed", () => {
   test("the dev seed can be re-run after an order was entered on the demo company", async () => {
-    for (const key of ["owner", "operator", "viewer", "office", "staff"]) {
+    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "staff"]) {
       await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
     }
     const seedPath = "../../../apps/server/src/dev-seed";

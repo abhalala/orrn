@@ -363,6 +363,7 @@ const PLATFORM_ROLE_ACTIONS: Record<PlatformStaffRole, ReadonlySet<Action>> = {
     "platform.release.publish",
     "platform.backup.run",
     "platform.support.reply",
+    "platform.waitlist.signInLink",
   ]),
   support: new Set<Action>([
     "platform.waitlist.review",

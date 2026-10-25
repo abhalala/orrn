@@ -6,6 +6,9 @@ import { useState } from "react";
 
 import { AuthFrame } from "@/features/auth/auth-frame";
 
+/** `?error=` the API sends back when it refuses a link for an account that signs in with a password (packages/auth magic-link-guard). */
+const REFUSED_ERROR = "ACCOUNT_USES_PASSWORD";
+
 export const Route = createFileRoute("/_public/continue")({
   component: ContinuePage,
   // Plain check (no zod): route options sit in the entry chunk every page loads.
@@ -26,6 +29,9 @@ function ContinuePage() {
   const { t } = useT();
   const { token, error } = Route.useSearch();
   const [leaving, setLeaving] = useState(false);
+  // The server sends a refused link back here with this reason: the account has a password and an
+  // authenticator code, so a link can never sign it in (FP-PF-08).
+  const refused = error === REFUSED_ERROR;
   const broken = Boolean(error) || !token;
 
   const proceed = () => {
@@ -41,17 +47,26 @@ function ContinuePage() {
 
   return (
     <AuthFrame brand>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6" data-testid={refused ? "continue-refused" : undefined}>
         <div className="flex flex-col gap-2">
-          <h1 className="orrn-auth-title">{broken ? t("auth.continue.brokenTitle") : t("auth.continue.title")}</h1>
+          <h1 className="orrn-auth-title">
+            {refused ? t("auth.continue.refusedTitle") : broken ? t("auth.continue.brokenTitle") : t("auth.continue.title")}
+          </h1>
           <p className="m-0 text-[15px] leading-6 text-muted-foreground">
-            {broken ? t("auth.continue.brokenBody") : t("auth.continue.body")}
+            {refused ? t("auth.continue.refusedBody") : broken ? t("auth.continue.brokenBody") : t("auth.continue.body")}
           </p>
         </div>
         {broken ? (
-          <Button asChild size="lg" className="w-full">
-            <Link to="/login">{t("auth.continue.goSignIn")}</Link>
-          </Button>
+          <div className="flex flex-col gap-3">
+            <Button asChild size="lg" className="w-full">
+              <Link to="/login">{t("auth.continue.goSignIn")}</Link>
+            </Button>
+            {refused ? (
+              <Button asChild variant="secondary" size="lg" className="w-full">
+                <Link to="/forgot-password">{t("auth.continue.forgotLink")}</Link>
+              </Button>
+            ) : null}
+          </div>
         ) : (
           <Button size="lg" className="w-full" loading={leaving} onClick={proceed}>
             {t("auth.continue.button")}

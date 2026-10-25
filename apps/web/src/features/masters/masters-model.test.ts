@@ -127,6 +127,8 @@ describe("status views (colour is never the only signal)", () => {
     expect(dieCopyStatusView("available")).toEqual({ tone: "green", key: "masters.dieCopies.status.available" });
     expect(dieCopyStatusView("in_use")).toEqual({ tone: "blue", key: "masters.dieCopies.status.in_use" });
     expect(dieCopyStatusView("at_nitriding")).toEqual({ tone: "amber", key: "masters.dieCopies.status.at_nitriding" });
+    expect(dieCopyStatusView("at_maker")).toEqual({ tone: "amber", key: "masters.dieCopies.status.at_maker" });
+    expect(dieCopyStatusView("on_trial")).toEqual({ tone: "amber", key: "masters.dieCopies.status.on_trial" });
     expect(dieCopyStatusView("retired")).toEqual({ tone: "neutral", key: "masters.dieCopies.status.retired" });
   });
 });

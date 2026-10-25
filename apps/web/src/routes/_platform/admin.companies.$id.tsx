@@ -12,6 +12,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { CompanyAccessTab } from "@/features/admin/company-access-tab";
+import { CompanyAuditTab } from "@/features/admin/company-audit-tab";
 import { CompanyPlanTab } from "@/features/admin/company-plan-tab";
 import { CompanyPrintingTab } from "@/features/admin/company-printing-tab";
 import { formatDay } from "@/features/admin/format";
@@ -22,13 +23,14 @@ import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
-const TABS = ["plan", "printing", "access"] as const;
+const TABS = ["plan", "printing", "access", "audit"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_KEYS: Record<Tab, MessageKey> = {
   plan: "admin.company.tabs.plan",
   printing: "admin.company.tabs.printing",
   access: "admin.company.tabs.access",
+  audit: "admin.company.tabs.audit",
 };
 
 const PLAN_KEYS: Record<string, MessageKey> = {
@@ -120,6 +122,7 @@ function AdminCompany() {
         {tab === "plan" ? <CompanyPlanTab company={company} /> : null}
         {tab === "printing" ? <CompanyPrintingTab company={company} /> : null}
         {tab === "access" ? <CompanyAccessTab detail={detail.data} /> : null}
+        {tab === "audit" ? <CompanyAuditTab companyId={company.id} /> : null}
       </Tabs>
     </div>
   );

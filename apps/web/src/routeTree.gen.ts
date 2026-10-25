@@ -20,10 +20,13 @@ import { Route as TenantTodayRouteImport } from './routes/_tenant/today'
 import { Route as TenantSettingsRouteImport } from './routes/_tenant/settings'
 import { Route as TenantPrintingRouteImport } from './routes/_tenant/printing'
 import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
+import { Route as TenantAuditRouteImport } from './routes/_tenant/audit'
 import { Route as TenantApprovalsRouteImport } from './routes/_tenant/approvals'
 import { Route as PublicWaitlistRouteImport } from './routes/_public/waitlist'
+import { Route as PublicResetPasswordRouteImport } from './routes/_public/reset-password'
 import { Route as PublicRequestAccessRouteImport } from './routes/_public/request-access'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
+import { Route as PublicForgotPasswordRouteImport } from './routes/_public/forgot-password'
 import { Route as PublicContinueRouteImport } from './routes/_public/continue'
 import { Route as AuthedWelcomeRouteImport } from './routes/_authed/welcome'
 import { Route as AuthedSetupCredentialsRouteImport } from './routes/_authed/setup-credentials'
@@ -71,13 +74,18 @@ import { Route as TenantDispatchesNewRouteImport } from './routes/_tenant/dispat
 import { Route as TenantDispatchesIdRouteImport } from './routes/_tenant/dispatches.$id'
 import { Route as TenantDispatchNewRouteImport } from './routes/_tenant/dispatch.new'
 import { Route as TenantDispatchIdRouteImport } from './routes/_tenant/dispatch.$id'
+import { Route as TenantDiesMakersRouteImport } from './routes/_tenant/dies.makers'
+import { Route as TenantDiesIssuesRouteImport } from './routes/_tenant/dies.issues'
 import { Route as TenantDiesIdRouteImport } from './routes/_tenant/dies.$id'
 import { Route as TenantCustomersIdRouteImport } from './routes/_tenant/customers.$id'
 import { Route as TenantBundlesIdRouteImport } from './routes/_tenant/bundles.$id'
 import { Route as PublicInviteTokenRouteImport } from './routes/_public/invite.$token'
 import { Route as PlatformAdminWaitlistRouteImport } from './routes/_platform/admin.waitlist'
+import { Route as PlatformAdminSupportRouteImport } from './routes/_platform/admin.support'
 import { Route as PlatformAdminStaffRouteImport } from './routes/_platform/admin.staff'
 import { Route as PlatformAdminRequestsRouteImport } from './routes/_platform/admin.requests'
+import { Route as PlatformAdminReleasesRouteImport } from './routes/_platform/admin.releases'
+import { Route as PlatformAdminBackupsRouteImport } from './routes/_platform/admin.backups'
 import { Route as TenantStoreItemsIndexRouteImport } from './routes/_tenant/store.items.index'
 import { Route as TenantPreviewPressIndexRouteImport } from './routes/_tenant/preview.press.index'
 import { Route as TenantPreviewPlatformIndexRouteImport } from './routes/_tenant/preview.platform.index'
@@ -112,6 +120,9 @@ import { Route as TenantPreviewAgeingReportRouteImport } from './routes/_tenant/
 import { Route as TenantPreviewAgeingBatchRouteImport } from './routes/_tenant/preview.ageing.batch'
 import { Route as TenantOrdersPlanIdRouteImport } from './routes/_tenant/orders.plan.$id'
 import { Route as PlatformAdminCompaniesIdRouteImport } from './routes/_platform/admin.companies.$id'
+import { Route as TenantDiesCopiesCopyIdIndexRouteImport } from './routes/_tenant/dies.copies.$copyId.index'
+import { Route as TenantDiesIdBandsNewRouteImport } from './routes/_tenant/dies_.$id.bands.new'
+import { Route as TenantDiesCopiesCopyIdLiftRouteImport } from './routes/_tenant/dies.copies.$copyId.lift'
 
 const TenantRoute = TenantRouteImport.update({
   id: '/_tenant',
@@ -164,6 +175,11 @@ const TenantDashboardRoute = TenantDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantAuditRoute = TenantAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantApprovalsRoute = TenantApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
@@ -174,6 +190,11 @@ const PublicWaitlistRoute = PublicWaitlistRouteImport.update({
   path: '/waitlist',
   getParentRoute: () => PublicRoute,
 } as any)
+const PublicResetPasswordRoute = PublicResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => PublicRoute,
+} as any)
 const PublicRequestAccessRoute = PublicRequestAccessRouteImport.update({
   id: '/request-access',
   path: '/request-access',
@@ -182,6 +203,11 @@ const PublicRequestAccessRoute = PublicRequestAccessRouteImport.update({
 const PublicLoginRoute = PublicLoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicForgotPasswordRoute = PublicForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => PublicRoute,
 } as any)
 const PublicContinueRoute = PublicContinueRouteImport.update({
@@ -419,6 +445,16 @@ const TenantDispatchIdRoute = TenantDispatchIdRouteImport.update({
   path: '/dispatch/$id',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantDiesMakersRoute = TenantDiesMakersRouteImport.update({
+  id: '/dies/makers',
+  path: '/dies/makers',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDiesIssuesRoute = TenantDiesIssuesRouteImport.update({
+  id: '/dies/issues',
+  path: '/dies/issues',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantDiesIdRoute = TenantDiesIdRouteImport.update({
   id: '/dies/$id',
   path: '/dies/$id',
@@ -444,6 +480,11 @@ const PlatformAdminWaitlistRoute = PlatformAdminWaitlistRouteImport.update({
   path: '/admin/waitlist',
   getParentRoute: () => PlatformRoute,
 } as any)
+const PlatformAdminSupportRoute = PlatformAdminSupportRouteImport.update({
+  id: '/admin/support',
+  path: '/admin/support',
+  getParentRoute: () => PlatformRoute,
+} as any)
 const PlatformAdminStaffRoute = PlatformAdminStaffRouteImport.update({
   id: '/admin/staff',
   path: '/admin/staff',
@@ -452,6 +493,16 @@ const PlatformAdminStaffRoute = PlatformAdminStaffRouteImport.update({
 const PlatformAdminRequestsRoute = PlatformAdminRequestsRouteImport.update({
   id: '/admin/requests',
   path: '/admin/requests',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformAdminReleasesRoute = PlatformAdminReleasesRouteImport.update({
+  id: '/admin/releases',
+  path: '/admin/releases',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformAdminBackupsRoute = PlatformAdminBackupsRouteImport.update({
+  id: '/admin/backups',
+  path: '/admin/backups',
   getParentRoute: () => PlatformRoute,
 } as any)
 const TenantStoreItemsIndexRoute = TenantStoreItemsIndexRouteImport.update({
@@ -646,6 +697,23 @@ const PlatformAdminCompaniesIdRoute =
     path: '/admin/companies/$id',
     getParentRoute: () => PlatformRoute,
   } as any)
+const TenantDiesCopiesCopyIdIndexRoute =
+  TenantDiesCopiesCopyIdIndexRouteImport.update({
+    id: '/dies/copies/$copyId/',
+    path: '/dies/copies/$copyId/',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantDiesIdBandsNewRoute = TenantDiesIdBandsNewRouteImport.update({
+  id: '/dies_/$id/bands/new',
+  path: '/dies/$id/bands/new',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDiesCopiesCopyIdLiftRoute =
+  TenantDiesCopiesCopyIdLiftRouteImport.update({
+    id: '/dies/copies/$copyId/lift',
+    path: '/dies/copies/$copyId/lift',
+    getParentRoute: () => TenantRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/__ui': typeof Char91__uiChar93Route
@@ -656,22 +724,30 @@ export interface FileRoutesByFullPath {
   '/setup-credentials': typeof AuthedSetupCredentialsRoute
   '/welcome': typeof AuthedWelcomeRoute
   '/continue': typeof PublicContinueRoute
+  '/forgot-password': typeof PublicForgotPasswordRoute
   '/login': typeof PublicLoginRoute
   '/request-access': typeof PublicRequestAccessRoute
+  '/reset-password': typeof PublicResetPasswordRoute
   '/waitlist': typeof PublicWaitlistRoute
   '/approvals': typeof TenantApprovalsRoute
+  '/audit': typeof TenantAuditRoute
   '/dashboard': typeof TenantDashboardRoute
   '/printing': typeof TenantPrintingRoute
   '/settings': typeof TenantSettingsRouteWithChildren
   '/today': typeof TenantTodayRoute
   '/b/$serial': typeof BSerialRoute
+  '/admin/backups': typeof PlatformAdminBackupsRoute
+  '/admin/releases': typeof PlatformAdminReleasesRoute
   '/admin/requests': typeof PlatformAdminRequestsRoute
   '/admin/staff': typeof PlatformAdminStaffRoute
+  '/admin/support': typeof PlatformAdminSupportRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/invite/$token': typeof PublicInviteTokenRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
   '/customers/$id': typeof TenantCustomersIdRoute
   '/dies/$id': typeof TenantDiesIdRoute
+  '/dies/issues': typeof TenantDiesIssuesRoute
+  '/dies/makers': typeof TenantDiesMakersRoute
   '/dispatch/$id': typeof TenantDispatchIdRoute
   '/dispatch/new': typeof TenantDispatchNewRoute
   '/dispatches/$id': typeof TenantDispatchesIdRoute
@@ -747,6 +823,9 @@ export interface FileRoutesByFullPath {
   '/preview/platform/': typeof TenantPreviewPlatformIndexRoute
   '/preview/press/': typeof TenantPreviewPressIndexRoute
   '/store/items/': typeof TenantStoreItemsIndexRoute
+  '/dies/copies/$copyId/lift': typeof TenantDiesCopiesCopyIdLiftRoute
+  '/dies/$id/bands/new': typeof TenantDiesIdBandsNewRoute
+  '/dies/copies/$copyId/': typeof TenantDiesCopiesCopyIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/__ui': typeof Char91__uiChar93Route
@@ -757,22 +836,30 @@ export interface FileRoutesByTo {
   '/setup-credentials': typeof AuthedSetupCredentialsRoute
   '/welcome': typeof AuthedWelcomeRoute
   '/continue': typeof PublicContinueRoute
+  '/forgot-password': typeof PublicForgotPasswordRoute
   '/login': typeof PublicLoginRoute
   '/request-access': typeof PublicRequestAccessRoute
+  '/reset-password': typeof PublicResetPasswordRoute
   '/waitlist': typeof PublicWaitlistRoute
   '/approvals': typeof TenantApprovalsRoute
+  '/audit': typeof TenantAuditRoute
   '/dashboard': typeof TenantDashboardRoute
   '/printing': typeof TenantPrintingRoute
   '/settings': typeof TenantSettingsRouteWithChildren
   '/today': typeof TenantTodayRoute
   '/b/$serial': typeof BSerialRoute
+  '/admin/backups': typeof PlatformAdminBackupsRoute
+  '/admin/releases': typeof PlatformAdminReleasesRoute
   '/admin/requests': typeof PlatformAdminRequestsRoute
   '/admin/staff': typeof PlatformAdminStaffRoute
+  '/admin/support': typeof PlatformAdminSupportRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/invite/$token': typeof PublicInviteTokenRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
   '/customers/$id': typeof TenantCustomersIdRoute
   '/dies/$id': typeof TenantDiesIdRoute
+  '/dies/issues': typeof TenantDiesIssuesRoute
+  '/dies/makers': typeof TenantDiesMakersRoute
   '/dispatch/$id': typeof TenantDispatchIdRoute
   '/dispatch/new': typeof TenantDispatchNewRoute
   '/dispatches/$id': typeof TenantDispatchesIdRoute
@@ -848,6 +935,9 @@ export interface FileRoutesByTo {
   '/preview/platform': typeof TenantPreviewPlatformIndexRoute
   '/preview/press': typeof TenantPreviewPressIndexRoute
   '/store/items': typeof TenantStoreItemsIndexRoute
+  '/dies/copies/$copyId/lift': typeof TenantDiesCopiesCopyIdLiftRoute
+  '/dies/$id/bands/new': typeof TenantDiesIdBandsNewRoute
+  '/dies/copies/$copyId': typeof TenantDiesCopiesCopyIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -862,23 +952,31 @@ export interface FileRoutesById {
   '/_authed/setup-credentials': typeof AuthedSetupCredentialsRoute
   '/_authed/welcome': typeof AuthedWelcomeRoute
   '/_public/continue': typeof PublicContinueRoute
+  '/_public/forgot-password': typeof PublicForgotPasswordRoute
   '/_public/login': typeof PublicLoginRoute
   '/_public/request-access': typeof PublicRequestAccessRoute
+  '/_public/reset-password': typeof PublicResetPasswordRoute
   '/_public/waitlist': typeof PublicWaitlistRoute
   '/_tenant/approvals': typeof TenantApprovalsRoute
+  '/_tenant/audit': typeof TenantAuditRoute
   '/_tenant/dashboard': typeof TenantDashboardRoute
   '/_tenant/printing': typeof TenantPrintingRoute
   '/_tenant/settings': typeof TenantSettingsRouteWithChildren
   '/_tenant/today': typeof TenantTodayRoute
   '/b/$serial': typeof BSerialRoute
   '/_public/': typeof PublicIndexRoute
+  '/_platform/admin/backups': typeof PlatformAdminBackupsRoute
+  '/_platform/admin/releases': typeof PlatformAdminReleasesRoute
   '/_platform/admin/requests': typeof PlatformAdminRequestsRoute
   '/_platform/admin/staff': typeof PlatformAdminStaffRoute
+  '/_platform/admin/support': typeof PlatformAdminSupportRoute
   '/_platform/admin/waitlist': typeof PlatformAdminWaitlistRoute
   '/_public/invite/$token': typeof PublicInviteTokenRoute
   '/_tenant/bundles/$id': typeof TenantBundlesIdRoute
   '/_tenant/customers/$id': typeof TenantCustomersIdRoute
   '/_tenant/dies/$id': typeof TenantDiesIdRoute
+  '/_tenant/dies/issues': typeof TenantDiesIssuesRoute
+  '/_tenant/dies/makers': typeof TenantDiesMakersRoute
   '/_tenant/dispatch/$id': typeof TenantDispatchIdRoute
   '/_tenant/dispatch/new': typeof TenantDispatchNewRoute
   '/_tenant/dispatches/$id': typeof TenantDispatchesIdRoute
@@ -954,6 +1052,9 @@ export interface FileRoutesById {
   '/_tenant/preview/platform/': typeof TenantPreviewPlatformIndexRoute
   '/_tenant/preview/press/': typeof TenantPreviewPressIndexRoute
   '/_tenant/store/items/': typeof TenantStoreItemsIndexRoute
+  '/_tenant/dies/copies/$copyId/lift': typeof TenantDiesCopiesCopyIdLiftRoute
+  '/_tenant/dies_/$id/bands/new': typeof TenantDiesIdBandsNewRoute
+  '/_tenant/dies/copies/$copyId/': typeof TenantDiesCopiesCopyIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -966,22 +1067,30 @@ export interface FileRouteTypes {
     | '/setup-credentials'
     | '/welcome'
     | '/continue'
+    | '/forgot-password'
     | '/login'
     | '/request-access'
+    | '/reset-password'
     | '/waitlist'
     | '/approvals'
+    | '/audit'
     | '/dashboard'
     | '/printing'
     | '/settings'
     | '/today'
     | '/b/$serial'
+    | '/admin/backups'
+    | '/admin/releases'
     | '/admin/requests'
     | '/admin/staff'
+    | '/admin/support'
     | '/admin/waitlist'
     | '/invite/$token'
     | '/bundles/$id'
     | '/customers/$id'
     | '/dies/$id'
+    | '/dies/issues'
+    | '/dies/makers'
     | '/dispatch/$id'
     | '/dispatch/new'
     | '/dispatches/$id'
@@ -1057,6 +1166,9 @@ export interface FileRouteTypes {
     | '/preview/platform/'
     | '/preview/press/'
     | '/store/items/'
+    | '/dies/copies/$copyId/lift'
+    | '/dies/$id/bands/new'
+    | '/dies/copies/$copyId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/__ui'
@@ -1067,22 +1179,30 @@ export interface FileRouteTypes {
     | '/setup-credentials'
     | '/welcome'
     | '/continue'
+    | '/forgot-password'
     | '/login'
     | '/request-access'
+    | '/reset-password'
     | '/waitlist'
     | '/approvals'
+    | '/audit'
     | '/dashboard'
     | '/printing'
     | '/settings'
     | '/today'
     | '/b/$serial'
+    | '/admin/backups'
+    | '/admin/releases'
     | '/admin/requests'
     | '/admin/staff'
+    | '/admin/support'
     | '/admin/waitlist'
     | '/invite/$token'
     | '/bundles/$id'
     | '/customers/$id'
     | '/dies/$id'
+    | '/dies/issues'
+    | '/dies/makers'
     | '/dispatch/$id'
     | '/dispatch/new'
     | '/dispatches/$id'
@@ -1158,6 +1278,9 @@ export interface FileRouteTypes {
     | '/preview/platform'
     | '/preview/press'
     | '/store/items'
+    | '/dies/copies/$copyId/lift'
+    | '/dies/$id/bands/new'
+    | '/dies/copies/$copyId'
   id:
     | '__root__'
     | '/__ui'
@@ -1171,23 +1294,31 @@ export interface FileRouteTypes {
     | '/_authed/setup-credentials'
     | '/_authed/welcome'
     | '/_public/continue'
+    | '/_public/forgot-password'
     | '/_public/login'
     | '/_public/request-access'
+    | '/_public/reset-password'
     | '/_public/waitlist'
     | '/_tenant/approvals'
+    | '/_tenant/audit'
     | '/_tenant/dashboard'
     | '/_tenant/printing'
     | '/_tenant/settings'
     | '/_tenant/today'
     | '/b/$serial'
     | '/_public/'
+    | '/_platform/admin/backups'
+    | '/_platform/admin/releases'
     | '/_platform/admin/requests'
     | '/_platform/admin/staff'
+    | '/_platform/admin/support'
     | '/_platform/admin/waitlist'
     | '/_public/invite/$token'
     | '/_tenant/bundles/$id'
     | '/_tenant/customers/$id'
     | '/_tenant/dies/$id'
+    | '/_tenant/dies/issues'
+    | '/_tenant/dies/makers'
     | '/_tenant/dispatch/$id'
     | '/_tenant/dispatch/new'
     | '/_tenant/dispatches/$id'
@@ -1263,6 +1394,9 @@ export interface FileRouteTypes {
     | '/_tenant/preview/platform/'
     | '/_tenant/preview/press/'
     | '/_tenant/store/items/'
+    | '/_tenant/dies/copies/$copyId/lift'
+    | '/_tenant/dies_/$id/bands/new'
+    | '/_tenant/dies/copies/$copyId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1353,6 +1487,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantDashboardRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/audit': {
+      id: '/_tenant/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof TenantAuditRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/approvals': {
       id: '/_tenant/approvals'
       path: '/approvals'
@@ -1367,6 +1508,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicWaitlistRouteImport
       parentRoute: typeof PublicRoute
     }
+    '/_public/reset-password': {
+      id: '/_public/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof PublicResetPasswordRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_public/request-access': {
       id: '/_public/request-access'
       path: '/request-access'
@@ -1379,6 +1527,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof PublicLoginRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/forgot-password': {
+      id: '/_public/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof PublicForgotPasswordRouteImport
       parentRoute: typeof PublicRoute
     }
     '/_public/continue': {
@@ -1710,6 +1865,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantDispatchIdRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/dies/makers': {
+      id: '/_tenant/dies/makers'
+      path: '/dies/makers'
+      fullPath: '/dies/makers'
+      preLoaderRoute: typeof TenantDiesMakersRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dies/issues': {
+      id: '/_tenant/dies/issues'
+      path: '/dies/issues'
+      fullPath: '/dies/issues'
+      preLoaderRoute: typeof TenantDiesIssuesRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/dies/$id': {
       id: '/_tenant/dies/$id'
       path: '/dies/$id'
@@ -1745,6 +1914,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlatformAdminWaitlistRouteImport
       parentRoute: typeof PlatformRoute
     }
+    '/_platform/admin/support': {
+      id: '/_platform/admin/support'
+      path: '/admin/support'
+      fullPath: '/admin/support'
+      preLoaderRoute: typeof PlatformAdminSupportRouteImport
+      parentRoute: typeof PlatformRoute
+    }
     '/_platform/admin/staff': {
       id: '/_platform/admin/staff'
       path: '/admin/staff'
@@ -1757,6 +1933,20 @@ declare module '@tanstack/react-router' {
       path: '/admin/requests'
       fullPath: '/admin/requests'
       preLoaderRoute: typeof PlatformAdminRequestsRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/_platform/admin/releases': {
+      id: '/_platform/admin/releases'
+      path: '/admin/releases'
+      fullPath: '/admin/releases'
+      preLoaderRoute: typeof PlatformAdminReleasesRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/_platform/admin/backups': {
+      id: '/_platform/admin/backups'
+      path: '/admin/backups'
+      fullPath: '/admin/backups'
+      preLoaderRoute: typeof PlatformAdminBackupsRouteImport
       parentRoute: typeof PlatformRoute
     }
     '/_tenant/store/items/': {
@@ -1997,6 +2187,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlatformAdminCompaniesIdRouteImport
       parentRoute: typeof PlatformRoute
     }
+    '/_tenant/dies/copies/$copyId/': {
+      id: '/_tenant/dies/copies/$copyId/'
+      path: '/dies/copies/$copyId'
+      fullPath: '/dies/copies/$copyId/'
+      preLoaderRoute: typeof TenantDiesCopiesCopyIdIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dies_/$id/bands/new': {
+      id: '/_tenant/dies_/$id/bands/new'
+      path: '/dies/$id/bands/new'
+      fullPath: '/dies/$id/bands/new'
+      preLoaderRoute: typeof TenantDiesIdBandsNewRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dies/copies/$copyId/lift': {
+      id: '/_tenant/dies/copies/$copyId/lift'
+      path: '/dies/copies/$copyId/lift'
+      fullPath: '/dies/copies/$copyId/lift'
+      preLoaderRoute: typeof TenantDiesCopiesCopyIdLiftRouteImport
+      parentRoute: typeof TenantRoute
+    }
   }
 }
 
@@ -2020,8 +2231,11 @@ const AuthedRouteWithChildren =
   AuthedRoute._addFileChildren(AuthedRouteChildren)
 
 interface PlatformRouteChildren {
+  PlatformAdminBackupsRoute: typeof PlatformAdminBackupsRoute
+  PlatformAdminReleasesRoute: typeof PlatformAdminReleasesRoute
   PlatformAdminRequestsRoute: typeof PlatformAdminRequestsRoute
   PlatformAdminStaffRoute: typeof PlatformAdminStaffRoute
+  PlatformAdminSupportRoute: typeof PlatformAdminSupportRoute
   PlatformAdminWaitlistRoute: typeof PlatformAdminWaitlistRoute
   PlatformAdminIndexRoute: typeof PlatformAdminIndexRoute
   PlatformAdminCompaniesIdRoute: typeof PlatformAdminCompaniesIdRoute
@@ -2030,8 +2244,11 @@ interface PlatformRouteChildren {
 }
 
 const PlatformRouteChildren: PlatformRouteChildren = {
+  PlatformAdminBackupsRoute: PlatformAdminBackupsRoute,
+  PlatformAdminReleasesRoute: PlatformAdminReleasesRoute,
   PlatformAdminRequestsRoute: PlatformAdminRequestsRoute,
   PlatformAdminStaffRoute: PlatformAdminStaffRoute,
+  PlatformAdminSupportRoute: PlatformAdminSupportRoute,
   PlatformAdminWaitlistRoute: PlatformAdminWaitlistRoute,
   PlatformAdminIndexRoute: PlatformAdminIndexRoute,
   PlatformAdminCompaniesIdRoute: PlatformAdminCompaniesIdRoute,
@@ -2045,8 +2262,10 @@ const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
 
 interface PublicRouteChildren {
   PublicContinueRoute: typeof PublicContinueRoute
+  PublicForgotPasswordRoute: typeof PublicForgotPasswordRoute
   PublicLoginRoute: typeof PublicLoginRoute
   PublicRequestAccessRoute: typeof PublicRequestAccessRoute
+  PublicResetPasswordRoute: typeof PublicResetPasswordRoute
   PublicWaitlistRoute: typeof PublicWaitlistRoute
   PublicIndexRoute: typeof PublicIndexRoute
   PublicInviteTokenRoute: typeof PublicInviteTokenRoute
@@ -2054,8 +2273,10 @@ interface PublicRouteChildren {
 
 const PublicRouteChildren: PublicRouteChildren = {
   PublicContinueRoute: PublicContinueRoute,
+  PublicForgotPasswordRoute: PublicForgotPasswordRoute,
   PublicLoginRoute: PublicLoginRoute,
   PublicRequestAccessRoute: PublicRequestAccessRoute,
+  PublicResetPasswordRoute: PublicResetPasswordRoute,
   PublicWaitlistRoute: PublicWaitlistRoute,
   PublicIndexRoute: PublicIndexRoute,
   PublicInviteTokenRoute: PublicInviteTokenRoute,
@@ -2078,6 +2299,7 @@ const TenantSettingsRouteWithChildren = TenantSettingsRoute._addFileChildren(
 
 interface TenantRouteChildren {
   TenantApprovalsRoute: typeof TenantApprovalsRoute
+  TenantAuditRoute: typeof TenantAuditRoute
   TenantDashboardRoute: typeof TenantDashboardRoute
   TenantPrintingRoute: typeof TenantPrintingRoute
   TenantSettingsRoute: typeof TenantSettingsRouteWithChildren
@@ -2085,6 +2307,8 @@ interface TenantRouteChildren {
   TenantBundlesIdRoute: typeof TenantBundlesIdRoute
   TenantCustomersIdRoute: typeof TenantCustomersIdRoute
   TenantDiesIdRoute: typeof TenantDiesIdRoute
+  TenantDiesIssuesRoute: typeof TenantDiesIssuesRoute
+  TenantDiesMakersRoute: typeof TenantDiesMakersRoute
   TenantDispatchIdRoute: typeof TenantDispatchIdRoute
   TenantDispatchNewRoute: typeof TenantDispatchNewRoute
   TenantDispatchesIdRoute: typeof TenantDispatchesIdRoute
@@ -2155,10 +2379,14 @@ interface TenantRouteChildren {
   TenantPreviewPlatformIndexRoute: typeof TenantPreviewPlatformIndexRoute
   TenantPreviewPressIndexRoute: typeof TenantPreviewPressIndexRoute
   TenantStoreItemsIndexRoute: typeof TenantStoreItemsIndexRoute
+  TenantDiesCopiesCopyIdLiftRoute: typeof TenantDiesCopiesCopyIdLiftRoute
+  TenantDiesIdBandsNewRoute: typeof TenantDiesIdBandsNewRoute
+  TenantDiesCopiesCopyIdIndexRoute: typeof TenantDiesCopiesCopyIdIndexRoute
 }
 
 const TenantRouteChildren: TenantRouteChildren = {
   TenantApprovalsRoute: TenantApprovalsRoute,
+  TenantAuditRoute: TenantAuditRoute,
   TenantDashboardRoute: TenantDashboardRoute,
   TenantPrintingRoute: TenantPrintingRoute,
   TenantSettingsRoute: TenantSettingsRouteWithChildren,
@@ -2166,6 +2394,8 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantBundlesIdRoute: TenantBundlesIdRoute,
   TenantCustomersIdRoute: TenantCustomersIdRoute,
   TenantDiesIdRoute: TenantDiesIdRoute,
+  TenantDiesIssuesRoute: TenantDiesIssuesRoute,
+  TenantDiesMakersRoute: TenantDiesMakersRoute,
   TenantDispatchIdRoute: TenantDispatchIdRoute,
   TenantDispatchNewRoute: TenantDispatchNewRoute,
   TenantDispatchesIdRoute: TenantDispatchesIdRoute,
@@ -2236,6 +2466,9 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPreviewPlatformIndexRoute: TenantPreviewPlatformIndexRoute,
   TenantPreviewPressIndexRoute: TenantPreviewPressIndexRoute,
   TenantStoreItemsIndexRoute: TenantStoreItemsIndexRoute,
+  TenantDiesCopiesCopyIdLiftRoute: TenantDiesCopiesCopyIdLiftRoute,
+  TenantDiesIdBandsNewRoute: TenantDiesIdBandsNewRoute,
+  TenantDiesCopiesCopyIdIndexRoute: TenantDiesCopiesCopyIdIndexRoute,
 }
 
 const TenantRouteWithChildren =

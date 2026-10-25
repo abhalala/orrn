@@ -17,6 +17,35 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 export const MAGIC_LINK_REFUSED = "This account signs in with its password and authenticator code";
 export const MAGIC_LINK_REQUEST_REFUSED = "Sign-in links are sent by ORRN only. Sign in with your password and authenticator code";
 
+/** `?error=` the guard sends a refused link back with (when the caller gave a trusted `errorCallbackURL`). */
+export const MAGIC_LINK_REFUSED_ERROR = "ACCOUNT_USES_PASSWORD";
+
+/**
+ * A trusted-origin pattern against an origin: exact, or `scheme://host:*` for any port (the dev
+ * patterns in `origins.ts`). Relative addresses never match: a redirect from the API would land on
+ * the API's own host, not the web app.
+ */
+export function originMatches(origin: string, pattern: string): boolean {
+  if (pattern.endsWith(":*")) {
+    const prefix = pattern.slice(0, -1);
+    return origin.startsWith(prefix) && /^\d+$/.test(origin.slice(prefix.length));
+  }
+  return origin === pattern;
+}
+
+/** `errorCallbackURL` as an absolute URL on a trusted origin, or null. */
+export function trustedErrorUrl(raw: unknown, trustedOrigins: readonly string[]): URL | null {
+  if (typeof raw !== "string" || !raw) return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  return trustedOrigins.some((pattern) => originMatches(url.origin, pattern)) ? url : null;
+}
+
 /** The paths the guard acts on (Better Auth `ctx.path`: the endpoint path, no query). */
 export const MAGIC_LINK_REQUEST_PATH = "/sign-in/magic-link";
 export const MAGIC_LINK_VERIFY_PATH = "/magic-link/verify";
@@ -77,6 +106,14 @@ export function magicLinkSecondFactorGuard(db: Db) {
     }
     if (typeof email !== "string" || (await magicLinkAllowed(db, email))) return;
     await ctx.context.internalAdapter.deleteVerificationByIdentifier(identifier);
+    // A browser that came from /continue asked to be sent back there on an error: do that, with the
+    // reason, so the page can say "sign in with your password" instead of showing raw JSON. Anyone
+    // else (a script, an untrusted address) still gets the 403.
+    const back = trustedErrorUrl(ctx.query?.errorCallbackURL, ctx.context.trustedOrigins as string[]);
+    if (back) {
+      back.searchParams.set("error", MAGIC_LINK_REFUSED_ERROR);
+      throw ctx.redirect(back.toString());
+    }
     throw new APIError("FORBIDDEN", { message: MAGIC_LINK_REFUSED });
   });
 }

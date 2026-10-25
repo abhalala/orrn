@@ -306,7 +306,8 @@ test.describe("dies", () => {
     await page.getByLabel("Max weight (kg/12ft)").fill("2.95");
     await page.getByRole("button", { name: "Save die" }).click();
     await expect(page.getByRole("heading", { level: 1, name: `TEE ${code}` })).toBeVisible();
-    await expect(page.getByText("2.7 to 2.95")).toBeVisible();
+    // The die room shows every band one way (W1-DR-W formatBand): kg/12ft to three decimals.
+    await expect(page.getByRole("heading", { name: "2.700–2.950 kg/12ft" })).toBeVisible();
   });
 
   for (const width of [390, 1280]) {
@@ -317,7 +318,8 @@ test.describe("dies", () => {
       await expect(page).toHaveURL(/q=(%22)?14701/);
       const row = page.getByRole("link", { name: /PATTI 14701/ });
       await expect(row).toBeVisible();
-      await expect(page.getByText("Active").first()).toBeVisible();
+      // The die-room board lists each section with its weight band (no status chip since W1-DR-W).
+      await expect(page.getByText("2.400–2.600 kg/12ft").first()).toBeVisible();
       await expectCleanLayout(page);
       await row.click();
       await expect(page.getByRole("heading", { level: 1, name: "PATTI 14701" })).toBeVisible();
@@ -340,7 +342,7 @@ test.describe("dies", () => {
     await settled(page);
     await failBackgroundRefetch(page, ["die.get"]);
     await expect(page.getByRole("heading", { level: 1, name: new RegExp(sectionCode) })).toBeVisible();
-    await expect(page.getByText("Weight per 12 ft")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "2.400–2.600 kg/12ft" })).toBeVisible();
   });
 
   test("an operator can read a die but has no edit or delete", async ({ page }) => {
@@ -696,9 +698,16 @@ test.describe("customers", () => {
     const share = kpiTile(page, "Share of all dispatches");
     await expect(share.locator("[data-slot='big-number']")).toHaveText(shareText(kdRow.sharePct));
     await expect(share).toContainText(`of ${kgText(board.totalKgG)} kg in all`);
-    // No open orders yet (openOrders null until sales orders exist): no block at all.
-    expect(summary.openOrders).toBeNull();
-    await expect(page.getByRole("heading", { name: "Open orders" })).toHaveCount(0);
+    // Open orders: the seed books sales orders on KD (FP Wave 1), so the block shows the server's
+    // order book; with none (null) there is no block at all.
+    const book = summary.openOrders as { orderedG: number; dispatchedG: number; bakiG: number; lines: number } | null;
+    if (book) {
+      const orders = page.getByRole("region", { name: "Open orders" });
+      await expect(orders).toContainText(`${book.lines} ${book.lines === 1 ? "line" : "lines"}`);
+      for (const g of [book.orderedG, book.dispatchedG, book.bakiG]) await expect(orders).toContainText(`${kgText(g)} kg`);
+    } else {
+      await expect(page.getByRole("heading", { name: "Open orders" })).toHaveCount(0);
+    }
 
     const card = page.getByRole("group", { name: "Monthly volume" });
     await card.getByRole("button", { name: "Show table" }).click();

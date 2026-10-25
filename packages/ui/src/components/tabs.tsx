@@ -68,6 +68,18 @@ export function Tabs({ items, value, onValueChange, label, className, children }
       ? `linear-gradient(to right, ${edges.start ? "transparent" : "currentColor"} 0, currentColor ${edges.start ? FADE : "0"}, currentColor calc(100% - ${edges.end ? FADE : "0px"}), ${edges.end ? "transparent" : "currentColor"} 100%)`
       : undefined;
 
+  // Bring the selected tab into view inside the strip (a phone opens on `?tab=team` with Team
+  // scrolled off to the right). Moves the strip only, never the page.
+  useEffect(() => {
+    const strip = stripRef.current;
+    const tab = refs.current[selectedIndex];
+    if (!strip || !tab || strip.scrollWidth <= strip.clientWidth) return;
+    const tabLeft = tab.getBoundingClientRect().left - strip.getBoundingClientRect().left + strip.scrollLeft;
+    const target = tabLeft - (strip.clientWidth - tab.offsetWidth) / 2;
+    const left = Math.max(0, Math.min(target, strip.scrollWidth - strip.clientWidth));
+    if (Math.abs(strip.scrollLeft - left) > 1) strip.scrollTo?.({ left });
+  }, [selectedIndex, stripRef]);
+
   const move = (to: number) => {
     const i = (to + items.length) % items.length;
     const next = items[i];

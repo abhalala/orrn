@@ -19,6 +19,7 @@ type TodayPayload = {
   timezone: string;
   date: string;
   packedToday: Totals;
+  kpis: { packedG: number; packedBundles: number; dispatchedG: number; inStockG: number; inStockBundles: number };
   dispatchedToday: { dispatches: number; weightG: number };
   stock: Record<"available" | "reserved" | "dispatched" | "void", Totals>;
   openDispatchCount: number;
@@ -151,18 +152,21 @@ for (const width of [390, 1280]) {
       expect(today.setup.dies && today.setup.bundles, "the seeded plant is not empty").toBe(true);
 
       const packed = numbers(page).getByTestId("kpi-packed");
-      await expect(packed).toContainText(kgText(today.packedToday.weightG));
-      await expect(packed).toContainText(
-        today.packedToday.bundles > 0 ? `${countText(today.packedToday.bundles)} bundle` : "No bundles yet",
-      );
+      await expect(packed).toContainText(kgText(today.kpis.packedG));
+      const bundles = numbers(page).getByTestId("kpi-bundles");
+      if (today.kpis.packedBundles > 0) {
+        await expect(bundles).toContainText(countText(today.kpis.packedBundles));
+        await expect(bundles).toContainText("bundle");
+      } else await expect(bundles).toContainText("No bundles yet");
 
       const dispatched = numbers(page).getByTestId("kpi-dispatched");
-      await expect(dispatched).toContainText(kgText(today.dispatchedToday.weightG));
+      await expect(dispatched).toContainText(kgText(today.kpis.dispatchedG));
 
       // In stock = available only, the Stock screen's figure (held bundles are not counted).
       const inStockBundles = today.stock.available.bundles;
       const inStockG = today.stock.available.weightG;
       const stock = numbers(page).getByTestId("kpi-stock");
+      expect({ bundles: today.kpis.inStockBundles, grams: today.kpis.inStockG }).toEqual({ bundles: inStockBundles, grams: inStockG });
       await expect(stock).toContainText(countText(inStockBundles));
       await expect(stock).toContainText(kgText(inStockG));
 
@@ -234,7 +238,8 @@ test.describe("roles", () => {
     });
     await open(page, { role: "viewer", width: 390 });
     await expect(numbers(page).getByTestId("kpi-packed")).toBeVisible();
-    await expect(page.getByTestId("today-open-dispatches")).toBeVisible();
+    // The four numbers only: the lists are left out, not shown empty (FP-PF-15).
+    await expect(page.getByTestId("today-open-dispatches")).toHaveCount(0);
     // Spec section 3 Today: "Viewers see no action tiles, only numbers".
     await expect(tiles(page)).toHaveCount(0);
     await expect(page.locator("main#main [data-slot='action-tile']")).toHaveCount(0);
@@ -277,6 +282,8 @@ test.describe("empty plant", () => {
     await rewriteToday(page, (today) => {
       today.setup = { dies: false, customers: false, bundles: false, printers: false };
       today.packedToday = { bundles: 0, weightG: 0 };
+      today.kpis.packedG = 0;
+      today.kpis.packedBundles = 0;
       today.openDispatches = [];
       today.recentSessions = [];
     });
@@ -400,7 +407,14 @@ test.describe("states", () => {
       const body = await response.json();
       const entry = Array.isArray(body) ? body[index] : body;
       const data = entry?.result?.data;
-      if (data) ((data.json ?? data) as TodayPayload).packedToday.weightG = packedG;
+      if (data) {
+        const today = (data.json ?? data) as TodayPayload;
+        today.packedToday.weightG = packedG;
+        today.kpis.packedG = packedG;
+        // The trend's days are calendar days; the production day only equals today's from shift 1's
+        // start (08:00) to midnight. Pin it so the test also holds in the small hours.
+        today.date = new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10);
+      }
       await route.fulfill({ response, json: body });
     });
     await open(page, { width: 1280 });
@@ -438,13 +452,14 @@ test.describe("states", () => {
     await rewriteToday(page, (today) => {
       today.packedToday = { bundles: 0, weightG: 0 };
       today.dispatchedToday = { dispatches: 0, weightG: 0 };
+      today.kpis = { packedG: 0, packedBundles: 0, dispatchedG: 0, inStockG: today.kpis.inStockG, inStockBundles: today.kpis.inStockBundles };
     });
     await open(page, { width: 1280 });
     const trend = page.getByTestId("today-trend");
     await expect(trend).toContainText("Nothing packed or dispatched in 90 days");
     await expect(trend.locator("[data-slot='legend-swatch']")).toHaveCount(0);
     await expect(trend.getByRole("button", { name: "Show table" })).toHaveCount(0);
-    await expect(numbers(page).getByTestId("kpi-packed")).toContainText("No bundles yet");
+    await expect(numbers(page).getByTestId("kpi-bundles")).toContainText("No bundles yet");
   });
 
   test("a chart that fails to load says so on its card, with no global toast", async ({ page }) => {
@@ -612,7 +627,7 @@ test.describe("accessibility", () => {
     });
     await open(page, { width: 390 });
     await expect(page.locator("html")).toHaveAttribute("lang", "hi");
-    await expect(numbers(page)).toContainText("आज पैक हुआ");
+    await expect(numbers(page)).toContainText("पैक हुआ kg");
     await expectNoHorizontalScroll(page);
     await expectNoClippedText(page, "main#main");
   });

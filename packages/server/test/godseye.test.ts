@@ -485,7 +485,7 @@ describe("owner sign-in links (review T27 C-1, I-1)", () => {
     expect(can(me("support"), "platform.waitlist.review")).toBe(true);
   });
 
-  test("an anonymous request to the public magic-link endpoint fills nothing the admin procedure reads", async () => {
+  test("an anonymous request to the public magic-link endpoint is refused and fills nothing the admin procedure reads", async () => {
     const authModule = (await import("@orrn/auth")) as Record<string, unknown>;
     expect(authModule.takeCapturedMagicLink).toBeUndefined();
 
@@ -493,12 +493,11 @@ describe("owner sign-in links (review T27 C-1, I-1)", () => {
     const staff = env.caller({ platformRole: "super_admin" });
     await staff.platform.waitlistApprove({ id: requestId });
     const { request } = await ownerOf(requestId);
+    const before = await linkRows(request.requesterEmail);
 
-    // The old capture hack read `metadata.captureKey` from this public body. Since FP-PF-08 / D14
-    // (magic-link-guard.ts) the public request is refused outright: no email, no verification row.
-    const before = (await linkRows(request.requesterEmail)).map((r) => r.identifier).sort();
+    // D14 (FP-PF-08): the public endpoint is refused outright; the old capture hack read
+    // `metadata.captureKey` from this body and the endpoint used to send mail to any address.
     const log = spyOn(console, "log").mockImplementation(() => {});
-    let anonToken: string | undefined;
     try {
       const res = await (authModule.createAuth as () => { handler(r: Request): Promise<Response> })().handler(
         new Request("https://api.test/api/auth/sign-in/magic-link", {
@@ -509,20 +508,16 @@ describe("owner sign-in links (review T27 C-1, I-1)", () => {
       );
       expect(res.status).toBe(403);
       const printed = log.mock.calls.flat().map(String).join("\n");
-      expect(printed).not.toContain("not sent: no provider");
       expect(printed).not.toContain("anon-key");
-      const after = (await linkRows(request.requesterEmail)).map((r) => r.identifier).sort();
-      expect(after).toEqual(before);
-      anonToken = after.find((id) => !before.includes(id));
-      expect(anonToken).toBeUndefined();
+      expect(printed).not.toContain("not sent: no provider");
     } finally {
       log.mockRestore();
     }
+    // Nothing was stored for the anonymous request.
+    expect((await linkRows(request.requesterEmail)).map((r) => r.identifier)).toEqual(before.map((r) => r.identifier));
 
     const fresh = await staff.platform.waitlistSignInDetails({ id: requestId });
-    expect(tokenOf(fresh.link)).not.toBe(anonToken);
     expect(tokenOf(fresh.link)).toHaveLength(64);
-    // The fresh link revoked every earlier one, the anonymous request's included.
     expect((await linkRows(request.requesterEmail)).map((r) => r.identifier)).toEqual([tokenOf(fresh.link)]);
   });
 });

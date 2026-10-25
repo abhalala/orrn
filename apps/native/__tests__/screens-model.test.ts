@@ -62,8 +62,8 @@ describe("More rows (spec §4: Dies, Customers, Guides, Settings)", () => {
     expect(moreRows(me("manager", ["bundles"])).map((r) => r.key)).toEqual(["dies", "guides", "settings"]);
   });
 
-  test("rows navigate inside the More stack", () => {
-    expect(moreRows(me("owner")).map((r) => r.href)).toEqual(["/more/dies", "/more/customers", "/more/guides", "/more/settings"]);
+  test("rows navigate inside the More stack (Orders and the die room's Dies open their tab screens, see nav.test.ts)", () => {
+    expect(moreRows(me("packer")).map((r) => r.href)).toEqual(["/more/dies", "/more/customers", "/more/guides", "/more/settings"]);
   });
 });
 

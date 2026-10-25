@@ -7,7 +7,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { dieBand, dieInstance, dieWeightReading, nitridingLog, pressRun } from "@orrn/db/schema";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 
@@ -22,7 +22,7 @@ afterAll(async () => {
 });
 
 async function plant(band: { min: number; max: number }, settings: Record<string, unknown> = {}) {
-  const { companyId, users } = await env.seedCompany({ settings });
+  const { companyId, users } = await env.seedCompany({ settings: { dieRoom: { newCopyOnTrial: false }, ...settings } }); // the trial flow has its own file
   const sectionId = await env.seedDie(companyId, { series: "Domal", sectionCode: "12170", weightMinG: band.min, weightMaxG: band.max, wallTenthMm: 12 });
   return {
     companyId,
@@ -63,6 +63,12 @@ describe("worked examples (spec §E1)", () => {
     expect(cardA).toMatchObject({ currentMilli: 5_967, pctTenth: 11, tone: "green", position: "in", kgPerMetre: 1.631 });
     expect(cardA.band).toMatchObject({ id: null, weightMinG: 5_900, weightMaxG: 6_200, wallTenthMm: 12, kgPerMetreMin: 1.613, kgPerMetreMax: 1.695 });
     expect(await p.viewer.dieInstance.get({ id: b.id })).toMatchObject({ pctTenth: 98, tone: "amber", position: "above", kgPerMetre: 1.772 });
+
+    // Every reading on the card carries its own server-computed percent and tone (newest first).
+    expect(cardA.readings.map((r) => [r.kgPer12ftMilli, r.pctTenth, r.tone, r.position])).toEqual([
+      [5_967, 11, "green", "in"],
+      [5_940, 7, "green", "in"],
+    ]);
 
     const drift = await p.viewer.dieInstance.drift({ sectionId: p.sectionId });
     const byCode = new Map(drift.items.map((i) => [i.code, i]));
@@ -236,5 +242,40 @@ describe("dieInstance.list carries the drift figures (clients never recompute)",
     expect(byId.get(b.id)).toMatchObject({ latestMilli: 6_480, percentTenths: 98, tone: "amber", position: "above" });
     expect(byId.get(none.id)).toMatchObject({ latestMilli: null, percentTenths: null, tone: "none", position: null, kgPerMetre: null });
     expect(byId.get(heavy.id)).toMatchObject({ latestMilli: 6_480, percentTenths: 29, tone: "green", position: "in", bandId: band.id });
+  });
+});
+
+describe("dieInstance.list carries when the latest reading was taken", () => {
+  test("latestReadAt is the newest reading's time in ms, null for a copy never read", async () => {
+    const p = await plant({ min: 5_900, max: 6_200 });
+    const before = Date.now();
+    const read = await copyWith(p, [5_940, 5_967]);
+    const after = Date.now();
+    const none = await copyWith(p, []);
+    const list = await p.viewer.dieInstance.list({ sectionId: p.sectionId });
+    const byId = new Map(list.items.map((i) => [i.id, i]));
+    const at = byId.get(read.id)!.latestReadAt;
+    expect(typeof at).toBe("number");
+    expect(at!).toBeGreaterThanOrEqual(before);
+    // readAt is kept strictly after the previous reading, so it can run a millisecond past the clock.
+    expect(at!).toBeLessThanOrEqual(after + 5);
+    const [newest] = await env.db.select({ at: dieWeightReading.readAt }).from(dieWeightReading).where(eq(dieWeightReading.dieInstanceId, read.id)).orderBy(desc(dieWeightReading.readAt)).limit(1);
+    expect(at).toBe(newest!.at.getTime());
+    expect(byId.get(none.id)!.latestReadAt).toBeNull();
+  });
+});
+
+describe("dieInstance.list search (pickers query the server, never a truncated list)", () => {
+  test("a copy code typed with a dash or a slash finds the copy; total counts the matches", async () => {
+    const p = await plant({ min: 5_900, max: 6_200 });
+    const a = await copyWith(p, [5_940]);
+    await copyWith(p, []);
+    const dashed = await p.viewer.dieInstance.list({ search: a.code });
+    expect(dashed.items.map((i) => i.id)).toEqual([a.id]);
+    expect(dashed.total).toBe(1);
+    const slashed = await p.viewer.dieInstance.list({ search: a.code.replace("-", "/") });
+    expect(slashed.items.map((i) => i.id)).toEqual([a.id]);
+    expect((await p.viewer.dieInstance.list({ search: "no-such-copy" })).total).toBe(0);
+    expect((await p.viewer.dieInstance.list({})).total).toBe(2);
   });
 });

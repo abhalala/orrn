@@ -74,6 +74,50 @@ describe("platform.release.publish", () => {
   });
 });
 
+describe("platform.release.setMandatory (FP-PF-11 acceptance, backlog 46)", () => {
+  test("staff with publish rights flip the switch; support and plant roles cannot; the flip is audited old -> new, and a no-op writes nothing", async () => {
+    const b = nextBuilds();
+    const { id } = await staff().platform.release.publish({
+      platform: "android",
+      channel: "production",
+      version: `s.${b}`,
+      buildNumber: b,
+      minBuild: b,
+      notes: "Flip me",
+    });
+    await expect(staff("support").platform.release.setMandatory({ id, mandatory: true })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const { companyId } = await env.seedCompany();
+    await expect(env.caller({ role: "owner", companyId }).platform.release.setMandatory({ id, mandatory: true })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+
+    expect(await staff("admin").platform.release.setMandatory({ id, mandatory: true })).toEqual({ id, mandatory: true, changed: true });
+    expect((await staff().platform.release.list()).find((r) => r.id === id)!.mandatory).toBe(true);
+    expect(await staff("super_admin").platform.release.setMandatory({ id, mandatory: true })).toEqual({ id, mandatory: true, changed: false });
+    await staff().platform.release.setMandatory({ id, mandatory: false });
+
+    const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.action, "app_release.update"), eq(auditLog.subjectId, id)));
+    expect(audits).toHaveLength(2);
+    expect(audits.every((a) => a.companyId === null)).toBe(true);
+    expect(audits.map((a) => a.meta)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ from: { mandatory: false }, to: { mandatory: true } }),
+        expect.objectContaining({ from: { mandatory: true }, to: { mandatory: false } }),
+      ]),
+    );
+    await expect(staff().platform.release.setMandatory({ id: "no-such-release", mandatory: true })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  test("making an older release mandatory raises the floor release.check enforces (its higher minBuild wins)", async () => {
+    const b = nextBuilds();
+    const old = await staff().platform.release.publish({ platform: "ios", channel: "floor", version: `f.${b}`, buildNumber: b, minBuild: b, notes: "Old" });
+    await staff().platform.release.publish({ platform: "ios", channel: "floor", version: `f.${b + 1}`, buildNumber: b + 1, minBuild: 1, notes: "New" });
+    expect((await anon().release.check({ platform: "ios", channel: "floor", buildNumber: b - 1 })).blocked).toBe(false);
+    await staff().platform.release.setMandatory({ id: old.id, mandatory: true });
+    expect(await anon().release.check({ platform: "ios", channel: "floor", buildNumber: b - 1 })).toMatchObject({ blocked: true, minBuild: b });
+  });
+});
+
 describe("release.check gate matrix (public, no company data)", () => {
   test("min build: below blocked, at and above open; the floor APK link and notes come back", async () => {
     const b = nextBuilds();
@@ -116,7 +160,7 @@ describe("release.check gate matrix (public, no company data)", () => {
     await admin.device.revoke({ id });
     const blocked = await anon().release.check({ platform: "ios", channel: "floor", buildNumber: b + 50, installId });
     expect(blocked).toMatchObject({ state: "blocked", reason: "revoked" });
-    await expect(operator.device.register({ installId, platform: "ios" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(operator.device.register({ installId, platform: "ios" })).rejects.toMatchObject({ code: "FORBIDDEN", meta: { reason: "device_revoked" } });
 
     await admin.device.restore({ id });
     expect((await anon().release.check({ platform: "ios", channel: "floor", buildNumber: b, installId })).state).toBe("open");
@@ -233,6 +277,60 @@ describe("devices", () => {
     const rows = await env.db.select().from(device).where(and(eq(device.companyId, companyId), eq(device.installId, installId)));
     expect(rows).toHaveLength(1);
     expect(rows[0]!.id).toBe(winner!.id);
+  });
+
+  test("rename: users.manage only, trims, blank clears, audits a real change only, another plant's device is Not found", async () => {
+    const a = await env.seedCompany();
+    const b = await env.seedCompany();
+    const packer = env.caller({ role: "packer", companyId: a.companyId });
+    const { id } = await packer.device.register({ installId: `install-${crypto.randomUUID()}`, platform: "android", label: "Tablet 1" });
+    const admin = env.caller({ role: "admin", companyId: a.companyId });
+    await expect(packer.device.rename({ id, label: "Packing bay" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await admin.device.rename({ id, label: "  Packing bay  " })).toEqual({ success: true, changed: true });
+    expect((await admin.device.list())[0]).toMatchObject({ id, label: "Packing bay" });
+    // Same name again: nothing written.
+    expect(await admin.device.rename({ id, label: "Packing bay" })).toEqual({ success: true, changed: false });
+    expect(await admin.device.rename({ id, label: "" })).toEqual({ success: true, changed: true });
+    expect((await admin.device.list())[0]!.label).toBeNull();
+    const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.action, "device.rename"), eq(auditLog.subjectId, id)));
+    expect(audits).toHaveLength(2);
+    expect(audits[0]!.companyId).toBe(a.companyId);
+    await expect(env.caller({ role: "admin", companyId: b.companyId }).device.rename({ id, label: "x" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(admin.device.rename({ id, label: "x".repeat(61) })).rejects.toBeTruthy();
+  });
+
+  test("list carries the gate status from the server: blocked below the lowest published floor, current at it, unknown without a build, web, revoked", async () => {
+    const b = nextBuilds();
+    await staff().platform.release.publish({ platform: "android", channel: "floor", version: `g.${b}`, buildNumber: b, minBuild: b - 10, notes: "Gate" });
+    const floors = (
+      await Promise.all(
+        (["floor", "production"] as const).map(async (channel) => {
+          const r = await anon().release.check({ platform: "android", channel, buildNumber: 0 });
+          return r.latest ? r.minBuild : null;
+        }),
+      )
+    ).filter((n): n is number => n !== null);
+    const min = Math.min(...floors);
+    const { companyId } = await env.seedCompany();
+    const admin = env.caller({ role: "admin", companyId });
+    const reg = (platform: "android" | "web", appVersion?: string) =>
+      env.caller({ role: "packer", companyId }).device.register({ installId: `install-${crypto.randomUUID()}`, platform, appVersion });
+    const low = await reg("android", `1.0 (${min - 1})`);
+    const ok = await reg("android", `1.0 (${min})`);
+    const noBuild = await reg("android");
+    const web = await reg("web", "web");
+    const gone = await reg("android", `1.0 (${min - 1})`);
+    await admin.device.revoke({ id: gone.id });
+    const gates = Object.fromEntries((await admin.device.list()).map((d) => [d.id, d.gate]));
+    expect(gates).toEqual({
+      [low.id]: "blocked",
+      [ok.id]: "current",
+      [noBuild.id]: "unknown",
+      [web.id]: "web",
+      [gone.id]: "revoked",
+    });
   });
 
   test("another plant's device is Not found", async () => {

@@ -235,7 +235,7 @@ describe("dev seed: Wave 2 masters (idempotent)", () => {
   test("furnace F1, alloys 6063/6061 with limits, return streams, P1 + P2, a draft die-trial plan", async () => {
     const schema = await import("@orrn/db/schema");
     const { user } = schema;
-    for (const key of ["owner", "operator", "viewer", "office", "staff"]) {
+    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "staff"]) {
       await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
     }
     const seedPath = "../../../apps/server/src/dev-seed";
@@ -256,10 +256,14 @@ describe("dev seed: Wave 2 masters (idempotent)", () => {
       const lines = await env.db.select({ code: pressLine.code }).from(pressLine).where(eq(pressLine.companyId, companyId));
       expect(lines.map((l) => l.code).sort()).toEqual(["P1", "P2"]);
       const plans = await env.db.select().from(schema.pressPlan).where(eq(schema.pressPlan.companyId, companyId));
-      expect(plans.map((p) => [p.number, p.status, p.purpose])).toEqual([["PP-1", "draft", "die_trial"]]);
+      // PP-1 is the draft trial of the new copy; PP-2 is the released die trial plan holding the die room e2e's trial runs (W2-DR2).
+      expect(plans.map((p) => [p.number, p.status, p.purpose]).sort()).toEqual([
+        ["PP-1", "draft", "die_trial"],
+        ["PP-2", "released", "die_trial"],
+      ]);
     }
-    // The plan book continues after PP-1.
+    // The plan book continues after PP-2.
     const next = await dn.nextDocNumber(env.db, companyId, "press_plan", new Date());
-    expect(next.number).toBe("PP-2");
+    expect(next.number).toBe("PP-3");
   });
 });
