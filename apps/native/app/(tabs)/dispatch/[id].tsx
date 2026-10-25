@@ -1,4 +1,4 @@
-import { dispatchActions, dispatchTone } from "@orrn/domain";
+import { dispatchActions, dispatchTone, vehicleGate } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -74,6 +74,7 @@ export default function DispatchDetailScreen() {
   const reserve = useMutation(trpc.dispatch.reserve.mutationOptions());
   const unreserve = useMutation(trpc.dispatch.unreserve.mutationOptions());
   const complete = useMutation(trpc.dispatch.complete.mutationOptions());
+  const saveVehicle = useMutation(trpc.dispatch.update.mutationOptions());
   const cancel = useMutation(trpc.dispatch.cancel.mutationOptions());
   const softDelete = useMutation(trpc.dispatch.softDelete.mutationOptions());
   const removeBundle = useMutation(trpc.dispatch.removeBundle.mutationOptions());
@@ -88,6 +89,9 @@ export default function DispatchDetailScreen() {
   // Why the load goes over the truck's capacity: asked at Dispatch, kept with the dispatch (FP-PK-12).
   const [overReason, setOverReason] = useState("");
   const [overTried, setOverTried] = useState(false);
+  // BACKLOG 62: no vehicle in the header, so the Dispatch sheet asks for it and saves it first.
+  const [vehicle, setVehicle] = useState("");
+  const [vehicleError, setVehicleError] = useState<"missing" | "invalid" | null>(null);
   const [banner, setBanner] = useState<{ title: string; body: string } | null>(null);
   const [justDispatched, setJustDispatched] = useState(false);
   // Remembers that the hold went through, so a retry after a failed complete does not hold twice (ruling T22).
@@ -105,6 +109,8 @@ export default function DispatchDetailScreen() {
     if (next === "dispatch") {
       setOverReason("");
       setOverTried(false);
+      setVehicle("");
+      setVehicleError(null);
     }
     setSheet(next);
   };
@@ -191,6 +197,12 @@ export default function DispatchDetailScreen() {
   };
 
   const dispatchIt = async () => {
+    const gate = vehicleGate(d.vehicleNo, vehicle);
+    if (gate.kind === "missing" || gate.kind === "invalid") {
+      setVehicleError(gate.kind);
+      feedback.error();
+      return;
+    }
     // Over the truck's capacity needs a reason; the server refuses without it and audits it.
     if (overReasonError(capacity, overReason)) {
       setOverTried(true);
@@ -199,6 +211,7 @@ export default function DispatchDetailScreen() {
     setBusy(true);
     setSheetError(null);
     try {
+      if (gate.kind === "save") await saveVehicle.mutateAsync({ id: d.id, vehicleNo: gate.vehicleNo });
       await dispatchNow(d.status, held.current, {
         reserve: () => reserve.mutateAsync({ id: d.id }),
         complete: () => complete.mutateAsync({ id: d.id, ...completeExtras(capacity, overReason) }),
@@ -467,6 +480,23 @@ export default function DispatchDetailScreen() {
         onConfirm={() => void dispatchIt()}
         onClose={closeSheet}
       >
+        {d.vehicleNo?.trim() ? null : (
+          <Field
+            label={t("dispatch.header.vehicleNo")}
+            hint={t("dispatch.vehicleNeeded")}
+            error={vehicleError === "missing" ? t("dispatch.vehicleMissing") : vehicleError === "invalid" ? t("dispatch.header.vehicleHint") : null}
+            value={vehicle}
+            onChangeText={(v) => {
+              setVehicle(v);
+              setVehicleError(null);
+            }}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={30}
+            mono
+            testID="dispatch-vehicle"
+          />
+        )}
         <CapacityBanner capacity={detail.data.capacity} />
         {capacity?.needsReason ? (
           <Field

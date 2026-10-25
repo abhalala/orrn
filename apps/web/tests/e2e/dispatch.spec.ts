@@ -4,6 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
+import { fillVehicleIfAsked } from "./helpers/dispatch-vehicle";
 import { packPlantStock } from "./helpers/plant-stock";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
@@ -130,6 +131,11 @@ test.describe("dispatch: build, hold, dispatch, packing list", () => {
     await page.getByRole("button", { name: "Dispatch", exact: true }).click();
     const confirm = page.getByRole("dialog", { name: /^Dispatch DSP-/ });
     await expect(confirm).toContainText(`10 bundles · ${kgText(totalKg, 1)} kg`);
+    // BACKLOG 62: with no vehicle in the header the sheet asks for it; nothing leaves without one.
+    await confirm.getByTestId("confirm-dispatch").click();
+    await expect(confirm.getByText("Add the vehicle number before you dispatch.")).toBeVisible();
+    await expect(confirm).toBeVisible();
+    await confirm.getByTestId("dispatch-vehicle").fill("gj 05 ab 1234");
     await confirm.getByTestId("confirm-dispatch").click();
 
     await expect(hero(page)).toHaveAttribute("data-status", "completed");
@@ -234,6 +240,7 @@ test.describe("dispatch: review fixes (round 1)", () => {
     await page.getByRole("button", { name: "Dispatch", exact: true }).click();
     const confirm = page.getByRole("dialog", { name: `Dispatch ${d.code}` });
     await expect(confirm).toContainText(`2 bundles · ${kgText(totalKg, 1)} kg`);
+    await fillVehicleIfAsked(confirm);
     await confirm.getByTestId("confirm-dispatch").click();
 
     await expect(hero(page)).toHaveAttribute("data-status", "completed");
@@ -425,6 +432,7 @@ test.describe("dispatch: review fixes (round 1)", () => {
     await expect(page.getByRole("button", { name: "Dispatch", exact: true })).toBeFocused();
     await page.keyboard.press("Enter");
     const confirm = page.getByRole("dialog", { name: `Dispatch ${d.code}` });
+    await fillVehicleIfAsked(confirm);
     await tabTo(confirm.getByTestId("confirm-dispatch"));
     await page.keyboard.press("Enter");
     await expect(hero(page)).toHaveAttribute("data-status", "completed");

@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
+import { fillVehicleIfAsked } from "./helpers/dispatch-vehicle";
 import { dieId, newCustomer, newOrder, ownerApi, packBundles, type OwnerApi } from "./helpers/owner-api";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
@@ -283,6 +284,7 @@ test.describe("dispatch: truck capacity, transporter, completing over capacity",
       await page.getByRole("button", { name: "Dispatch", exact: true }).click();
       const confirm = page.getByRole("dialog", { name: /^Dispatch DSP-/ });
       await expect(confirm.getByTestId("capacity-banner")).toHaveAttribute("data-state", "over");
+      await fillVehicleIfAsked(confirm);
       await confirm.getByTestId("confirm-dispatch").click();
       await expect(confirm.getByText("Say why before you dispatch.")).toBeVisible();
       await confirm.getByLabel("Why load over capacity").fill("Customer pays for the extra trip");

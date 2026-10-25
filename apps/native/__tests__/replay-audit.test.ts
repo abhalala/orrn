@@ -60,6 +60,7 @@ const GUARDED: Record<string, Guarded> = {
   "dispatch.cancel": { how: "guarded", server: "dispatch.ts", leaf: "cancel", guard: "state move: a second call is refused by the status guard" },
   "dispatch.softDelete": { how: "guarded", server: "dispatch.ts", leaf: "softDelete", guard: "deleted_at set once; a second call finds it gone" },
   "dispatch.removeBundle": { how: "guarded", server: "dispatch.ts", leaf: "removeBundle", guard: "removes a row; a second call finds nothing to remove" },
+  "dispatch.update": { how: "guarded", server: "dispatch.ts", leaf: "update", guard: "BACKLOG 62: sets the vehicle number to an absolute value before Dispatch; the same value twice is the same state" },
   "dispatch.setItemGroupLabel": { how: "guarded", server: "dispatch.ts", leaf: "setItemGroupLabel", guard: "sets an absolute label; the same value twice is the same state" },
   "packingList.regenerate": { how: "guarded", server: "packingList.ts", leaf: "regenerate", guard: "builds a new revision from the dispatch; a repeat makes the next revision of the same content (a revision trail, no stock effect)" },
   "bundle.transitionStatus": { how: "guarded", server: "bundle.ts", leaf: "transitionStatus", guard: "available <-> void move: a second call is refused by the status guard" },

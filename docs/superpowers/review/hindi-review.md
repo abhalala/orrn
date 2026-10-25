@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5831 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 5834 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -1068,7 +1068,7 @@ Counts: 5831 screen strings in 49 groups, 35 guides with 646 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (206)
+### dispatch (209)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1233,6 +1233,9 @@ Counts: 5831 screen strings in 49 groups, 35 guides with 646 strings.
 | `dispatchAction` | Dispatch | Dispatch करें |
 | `confirmTitle` | Dispatch {code}? | {code} dispatch करें? |
 | `confirmBody` | {bundles} {bundles:bundle\|bundles} · {kg} kg for {customer}. You can't add or remove bundles after this. | {customer} के लिए {bundles} bundle · {kg} kg। इसके बाद bundle जोड़ या हटा नहीं सकेंगे। |
+| `vehicleNeeded` | The packing list and the e-way bill name the truck. It is saved on the dispatch. | पैकिंग लिस्ट और ई-वे बिल में गाड़ी का नंबर आता है। यह dispatch पर सेव होगा। |
+| `vehicleMissing` | Add the vehicle number before you dispatch. | Dispatch से पहले गाड़ी का नंबर डालें। |
+| `vehicleOn` | On vehicle {vehicle} | गाड़ी {vehicle} पर |
 | `confirm` | Dispatch | Dispatch करें |
 | `dispatched` | Dispatched | Dispatch हो गया |
 | `cancel` | Cancel dispatch | Dispatch कैंसल करें |

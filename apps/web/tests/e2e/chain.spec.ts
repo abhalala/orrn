@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { expect, request as pwRequest, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 import { localPassword, type LocalRole } from "./helpers/accounts";
+import { fillVehicleIfAsked } from "./helpers/dispatch-vehicle";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoHorizontalScroll } from "../helpers/layout-guards";
 
@@ -814,6 +815,7 @@ for (const width of WIDTHS) {
       const before = Date.now();
       await page.getByRole("button", { name: "Dispatch", exact: true }).click();
       const confirm = page.getByRole("dialog", { name: `Dispatch ${head.dispatch.code}?` });
+      await fillVehicleIfAsked(confirm);
       await confirm.getByTestId("confirm-dispatch").click();
       await expect(page.locator("[data-slot='dispatch-hero']")).toHaveAttribute("data-status", "completed", { timeout: 30_000 });
       const after = Date.now();
