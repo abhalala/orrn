@@ -460,9 +460,15 @@ test.describe("route cross-fade honours prefers-reduced-motion (BACKLOG 22)", ()
     await countTransitions(page);
     await open(page, { width: 1280 });
     await page.emulateMedia({ reducedMotion: "no-preference" });
-    await mainNav(page).getByRole("link", { name: "Stock" }).first().click();
-    await expect(page).toHaveURL(/\/stock/);
-    await expect(page.locator("main#main h1").first()).toBeVisible();
+    await page.waitForFunction(() => !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    // Let the router's change listener run before the first move.
+    await page.evaluate(() => new Promise((r) => setTimeout(r, 100)));
+    // A router invalidation can skip the fade for one move, so look at a few moves, not one.
+    for (const [name, url] of [["Stock", /\/stock/], ["Today", /\/today/], ["Stock", /\/stock/]] as const) {
+      await mainNav(page).getByRole("link", { name }).first().click();
+      await expect(page).toHaveURL(url);
+      await expect(page.locator("main#main h1").first()).toBeVisible();
+    }
     expect(await transitions(page)).toBeGreaterThan(0);
   });
 });
