@@ -46,7 +46,8 @@ describe("dev seed: Wave 2 press demo (idempotent)", () => {
       expect(alerts.every((a) => a.endedAt !== null)).toBe(true);
       expect(alerts.filter((a) => a.acknowledgedAt === null && !a.simulated)).toHaveLength(3);
       const files = await env.db.select().from(spectroInbox).where(eq(spectroInbox.companyId, companyId));
-      expect(files).toHaveLength(7);
+      // BACKLOG 97: the demo plant's inbox holds the simulator's file only; the collectors e2e adds (and removes) its own real files.
+      expect(files).toHaveLength(1);
       expect(files.filter((f) => f.simulated)).toHaveLength(1);
       // W2-FD-S: cast 1's locked melt (the billets the runs pressed) and cast 3's draft.
       expect((await env.db.select({ id: melt.id, status: melt.status }).from(melt).where(eq(melt.companyId, companyId))).sort((x, y) => x.id.localeCompare(y.id))).toEqual([

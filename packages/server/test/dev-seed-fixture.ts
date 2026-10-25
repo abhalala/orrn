@@ -47,5 +47,14 @@ export async function loadDevSeed(): Promise<(db: TestEnv["db"], opts: { passwor
   return mod.seedDevData;
 }
 
+/** The dev spectro-inbox hook (`apps/server/src/dev-spectro.ts`), imported by a variable path for the same reason. */
+export async function loadDevSpectro(): Promise<{
+  devSpectroInput: { parse: (v: unknown) => unknown; safeParse: (v: unknown) => { success: boolean } };
+  runDevSpectro: (db: TestEnv["db"], input: unknown) => Promise<{ ok: true }>;
+}> {
+  const path = `${SEED_DIR}/dev-spectro`;
+  return (await import(path)) as Awaited<ReturnType<typeof loadDevSpectro>>;
+}
+
 export const DEV_SEED_COMPANY = "dev-company-orrn";
 export const DEV_SEED_PASSWORD = "dev-seed-test";

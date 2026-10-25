@@ -9,6 +9,7 @@ import type { StatusTone } from "@orrn/domain";
 import type { Locale } from "@orrn/i18n";
 
 import { parseKgG, parsePieces } from "@/features/orders/line-model";
+import { intlTag } from "@/shared/lib/intl-tag";
 
 export const PORTAL_MAX_LINES = 20;
 
@@ -333,7 +334,7 @@ export function portalOrderErrorKey(error: unknown): PortalOrderErrorKey {
 /** A plain `YYYY-MM-DD` book date. */
 export function bookDate(value: string | null | undefined, locale: string): string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return value ?? "";
-  return new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-IN", { day: "numeric", month: "short", year: "numeric", numberingSystem: "latn", timeZone: "UTC" }).format(
+  return new Intl.DateTimeFormat(intlTag(locale), { day: "numeric", month: "short", year: "numeric", numberingSystem: "latn", timeZone: "UTC" }).format(
     new Date(`${value}T12:00:00Z`),
   );
 }

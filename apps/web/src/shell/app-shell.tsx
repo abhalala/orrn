@@ -148,7 +148,13 @@ function ShellFrame({ variant, children }: AppShellProps) {
         </main>
       </div>
 
-      <TabBar items={primary} pathname={pathname} variant={variant} onScan={openScan} />
+      <TabBar
+        items={primary}
+        pathname={pathname}
+        variant={variant}
+        onScan={openScan}
+        onMore={more.length ? () => setMoreOpen(true) : undefined}
+      />
 
       <MoreSheet
         open={moreOpen}

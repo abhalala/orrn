@@ -532,7 +532,7 @@ Counts: 7003 screen strings in 49 groups, 35 guides with 646 strings.
 | `press.lateShare` | {pct}% of runs | {pct}% रन |
 | `press.alertsOpen` | Press alerts open: {count} | प्रेस अलर्ट खुले: {count} |
 | `press.alertsToday` | Press alerts today: {count} | आज के प्रेस अलर्ट: {count} |
-| `press.alertsSimulated` | From the simulator | नकली डेटा से |
+| `press.alertsSimulated` | From the simulator | सिम्युलेटर से |
 | `floor.heading` | Floor | फ़्लोर |
 | `floor.press` | Press | प्रेस |
 | `floor.pressHint` | {count} queued | {count} कतार में |
@@ -721,7 +721,7 @@ Counts: 7003 screen strings in 49 groups, 35 guides with 646 strings.
 | `scale.typedReason` | Why type the weight | वज़न हाथ से क्यों लिखा |
 | `scale.fromScale` | From the scale | कांटे से |
 | `scale.reasonRequired` | Say why you typed the weight. | वज़न हाथ से क्यों डाला, यह लिखें। |
-| `scale.simulated` | (simulated) | (नकली) |
+| `scale.simulated` | (simulated) | (सिम्युलेटर) |
 | `scale.typedCount` | {count} {count:bundle was\|bundles were} typed, not weighed. The reasons are saved. | {count} bundle का वज़न हाथ से डाला गया, तौला नहीं गया। कारण सेव हैं। |
 | `scale.typedReasonHint` | For example: the scale was off, or the bundle was weighed elsewhere. | जैसे: कांटा बंद था, या bundle कहीं और तौला गया। |
 | `reject.title` | Rejects | रिजेक्ट |
@@ -1855,7 +1855,7 @@ Counts: 7003 screen strings in 49 groups, 35 guides with 646 strings.
 | `scale.none` | No scale | कांटा नहीं |
 | `scale.unknown` | Not reported | बताया नहीं गया |
 | `scale.configured` | Set up | लगा हुआ |
-| `scale.simulated` | Simulated | नकली |
+| `scale.simulated` | Simulated | सिम्युलेटर |
 | `scale.lastFrame` | Last weight read {time} | आखिरी वज़न {time} पर पढ़ा |
 | `scale.noFrame` | No recent reading when this computer last reported ({time}). | इस कंप्यूटर की आखिरी रिपोर्ट ({time}) पर कोई ताज़ा रीडिंग नहीं थी। |
 | `scale.noneHint` | This print computer has no scale connected. | इस प्रिंट कंप्यूटर पर कांटा नहीं जुड़ा है। |
@@ -1868,8 +1868,8 @@ Counts: 7003 screen strings in 49 groups, 35 guides with 646 strings.
 | `collectors.watching` | Watching the folder | फ़ोल्डर देख रहा है |
 | `collectors.quiet` | Nothing coming in | कुछ नहीं आ रहा |
 | `collectors.notConfigured` | Not set up | लगा नहीं |
-| `collectors.simulated` | Simulated | नकली |
-| `collectors.simulatedHint` | Simulated data: no press or spectrometer is connected to this computer. | नकली डेटा: इस कंप्यूटर से कोई प्रेस या स्पेक्ट्रोमीटर नहीं जुड़ा है। |
+| `collectors.simulated` | Simulated | सिम्युलेटर |
+| `collectors.simulatedHint` | Simulated data: no press or spectrometer is connected to this computer. | सिम्युलेटर का डेटा: इस कंप्यूटर से कोई प्रेस या स्पेक्ट्रोमीटर नहीं जुड़ा है। |
 | `collectors.lastFrame` | Last reading {time} | आखिरी रीडिंग {time} पर |
 | `collectors.noFrame` | No recent reading when this computer last reported ({time}). | इस कंप्यूटर की आखिरी रिपोर्ट ({time}) पर कोई ताज़ा रीडिंग नहीं थी। |
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
@@ -1917,7 +1917,7 @@ Counts: 7003 screen strings in 49 groups, 35 guides with 646 strings.
 | `company.unitsHint` | Pack and stock screens show lengths in this unit. Weights are always in kg. | Pack और स्टॉक स्क्रीन पर लंबाई इसी इकाई में दिखती है। वज़न हमेशा kg में रहता है। |
 | `company.timezoneHint` | Days and shifts follow this time zone. | दिन और शिफ़्ट इसी टाइम ज़ोन से चलते हैं। |
 | `company.language` | Language | भाषा |
-| `company.languageHint` | English and हिंदी are available. The choice is kept on this device. | English और हिंदी उपलब्ध हैं। चुनी हुई भाषा इसी डिवाइस पर रहती है। |
+| `company.languageHint` | English, हिंदी and ગુજરાતી are available. The choice is kept on this device. | English, हिंदी और ગુજરાતી उपलब्ध हैं। चुनी हुई भाषा इसी डिवाइस पर रहती है। |
 | `company.saveFailed` | Couldn't save the settings. Try again. | सेटिंग्स सेव नहीं हुईं। फिर कोशिश करें। |
 | `company.letterheadHint` | Printed at the top of packing lists and test certificates. | पैकिंग लिस्ट और टेस्ट सर्टिफिकेट के ऊपर छपता है। |
 | `company.letterheadSubmit` | Save letterhead | लेटरहेड सेव करें |
@@ -4055,7 +4055,7 @@ Please check, Lalubhai:
 | `drift.under` | Under band | बैंड से कम |
 | `drift.green` | In band | बैंड में |
 | `drift.amber` | Near the edge | किनारे के पास |
-| `drift.red` | Over band | बैंड से ज़्यादा |
+| `drift.red` | Above band | बैंड से ऊपर |
 | `drift.value` | {pct}% over band start | बैंड शुरू से {pct}% ज़्यादा |
 | `drift.none` | No reading | कोई रीडिंग नहीं |
 | `issue.returnedTrial` | Back on trial | ट्रायल पर लौटी |
@@ -5298,7 +5298,7 @@ Please check, Lalubhai:
 | `alerts.status.open` | Ongoing | चालू |
 | `alerts.status.ended` | Ended | खत्म |
 | `alerts.status.acknowledged` | Acknowledged | देख लिया |
-| `alerts.simulated` | From the simulator | सिमुलेटर से |
+| `alerts.simulated` | From the simulator | सिम्युलेटर से |
 | `alerts.frames` | {count} {count:reading\|readings} | {count} {count:रीडिंग\|रीडिंग} |
 | `alerts.acknowledge` | Acknowledge | देख लिया |
 | `alerts.acknowledged` | Alert acknowledged | अलर्ट देख लिया गया |
@@ -5433,8 +5433,8 @@ Please check, Lalubhai:
 | `inbox.sample` | Sample {ref} | सैंपल {ref} |
 | `inbox.instrument` | Instrument {name} | मशीन {name} |
 | `inbox.uploaded` | Received {time} | {time} पर मिली |
-| `inbox.simulated` | Simulated | सिमुलेटर |
-| `inbox.simulatedHint` | Demo data from the simulator. It can only be dismissed. | सिमुलेटर का डेमो डेटा। इसे सिर्फ़ हटाया जा सकता है। |
+| `inbox.simulated` | Simulated | सिम्युलेटर |
+| `inbox.simulatedHint` | Demo data from the simulator. It can only be dismissed. | सिम्युलेटर का डेमो डेटा। इसे सिर्फ़ हटाया जा सकता है। |
 | `inbox.status.uploading` | Arriving | आ रही है |
 | `inbox.status.pending_review` | Waiting | इंतज़ार में |
 | `inbox.status.attached` | Attached | जुड़ी |

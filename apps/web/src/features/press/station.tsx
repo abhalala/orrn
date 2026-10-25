@@ -19,6 +19,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
+import { ymdLabel } from "@/shared/lib/intl-tag";
 import { useLengthUnit } from "@/shared/lib/length";
 import { useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
@@ -333,7 +334,7 @@ function RunningClock({ data, tz }: { data: RunDetail; tz: string }) {
 // ---------------------------------------------------------------------------
 
 function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: string }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { data: me } = useMe();
   const qc = useQueryClient();
   const [drawingNote, setDrawingNote] = useState<string | null>(null);
@@ -403,7 +404,7 @@ function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: st
         <Fact label={t("press.console.operator")} value={run.operatorName} />
         <Fact label={t("press.console.relief")} value={run.reliefOperatorName} />
         <Fact label={t("press.console.supervisor")} value={run.supervisorName} />
-        {run.productionDay ? <Fact label={t("press.console.shift")} value={shiftName ? keepTogether(t("press.console.shiftLine", { shift: shiftName, day: run.productionDay }), run.productionDay) : keepTogether(run.productionDay, run.productionDay)} /> : null}
+        {run.productionDay ? <Fact label={t("press.console.shift")} value={shiftName ? keepTogether(t("press.console.shiftLine", { shift: shiftName, day: ymdLabel(run.productionDay, locale) }), ymdLabel(run.productionDay, locale)) : keepTogether(ymdLabel(run.productionDay, locale), ymdLabel(run.productionDay, locale))} /> : null}
         {run.castNumber ? <Fact label={t("press.console.cast")} value={run.castNumber} mono /> : null}
         {run.startedAt ? <Fact label={t("press.console.startedAt", { time: "" }).trim()} value={clockOf(run.startedAt, tz)} mono /> : null}
       </dl>

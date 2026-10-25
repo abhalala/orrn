@@ -16,6 +16,7 @@ import { purgeOrphanDieFiles } from "@orrn/server/lib/dieFilesPurge";
 import { dieFileSigningReady, handleDieFileUpload, verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
 
 import { createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput } from "./dev-front-door";
+import { devSpectroInput, runDevSpectro } from "./dev-spectro";
 import { seedDevData } from "./dev-seed";
 import { collectorRoutes } from "./collector-routes";
 import { spoolRoutes } from "./spool-routes";
@@ -80,6 +81,14 @@ if (env.NODE_ENV === "development") {
     const input = devInviteInput.safeParse(await c.req.json().catch(() => null));
     if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
     return c.json(await createDevInvite(createDb(), input.data));
+  });
+
+  // Collectors e2e (BACKLOG 97): add or remove a spectro inbox file of the demo plant.
+  app.post("/dev/spectro-file", async (c) => {
+    if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const input = devSpectroInput.safeParse(await c.req.json().catch(() => null));
+    if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
+    return c.json(await runDevSpectro(createDb(), input.data));
   });
 
   app.post("/dev/magic-link", async (c) => {

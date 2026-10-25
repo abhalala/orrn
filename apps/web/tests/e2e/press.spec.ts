@@ -487,9 +487,9 @@ for (const width of WIDTHS) {
       const row = page.locator('[data-slot="downtime"] li[data-open="true"]');
       await expect(row).toContainText("Waiting for billets");
       await expect(row).toContainText(/Stopped since \d{2}:\d{2}/);
-      // The shift fact keeps its date on one line ("2026-10-24" never breaks at a hyphen).
+      // The shift fact keeps its date on one line ("24 Oct 2026" in the user's language, BACKLOG 87; never an ISO date).
       const day = page.locator('[data-slot="run-card"] dd span.whitespace-nowrap').first();
-      await expect(day).toHaveText(/^\d{4}-\d{2}-\d{2}$/);
+      await expect(day).toHaveText(/^\d{1,2} \S+ \d{4}$/);
       expect((await day.boundingBox())!.height).toBeLessThan(30);
       await shot(page, width, "station-running");
       await page.getByRole("button", { name: "Press running again" }).click();

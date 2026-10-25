@@ -80,7 +80,6 @@ import { packingListWriteBatch } from "@orrn/server/routers/packingList";
 import { formatBundleSerial, formatGroupCode } from "@orrn/server/lib/bundleSerial";
 import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
 import { DEFAULT_LOCATIONS, defaultLocationStatements, openingRows } from "@orrn/server/lib/ledger";
-import { nextCompanySeq } from "@orrn/server/lib/sequence";
 import { castCloseout, defaultReturnStreamStatements } from "@orrn/server/lib/foundry";
 import { shiftAt } from "@orrn/server/lib/press";
 import { kgPer12ftMilli } from "@orrn/server/lib/bundleWeight";
@@ -133,7 +132,18 @@ const DEMO_SETTINGS = {
   bundleNumbering: "plant",
   dcTolerancePct: 50,
   shifts: SUGGESTED_SHIFTS.map((s) => ({ ...s, id: `dev-shift-${s.seq}` })),
-  standards: { solid: { standard: "IS 733", cml: "" }, hollow: { standard: "IS 1285", cml: "" } },
+  // Semi hollow sections are made to the hollow standard (IS 1285); the CM/L licence number stays blank for the plant.
+  standards: { solid: { standard: "IS 733", cml: "" }, hollow: { standard: "IS 1285", cml: "" }, semi: { standard: "IS 1285", cml: "" } },
+  // Owner walk-through (BACKLOG 86): a letterhead and a support contact, so the packing list header, the
+  // certificate and Settings > About are not empty. Dummy values: the GSTIN is format-valid (state 24,
+  // PAN-shaped, check character), the phones use the 555 range.
+  letterhead: {
+    legalName: "Fourcubes Extrusions Pvt. Ltd. (Demo)",
+    gstin: "24AAACF4821J1ZV",
+    address: "Plot 14, GIDC Industrial Estate, Rajkot, Gujarat 360003",
+    phone: "+91 281 555 0142",
+  },
+  support: { name: "Demo plant desk", phone: "+91 281 555 0199", hours: "Mon to Sat, 9:00 to 18:00" },
   // Wave 3: KD Extrusion's party login is seeded (dev-seed-portal.ts).
   portalEnabled: true,
   // The collector seed has a locked melt (dev-melt-1); left automatic, that would make every pack
@@ -509,6 +519,11 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     const members = pick(sessionBundles, sessionIdx, "session");
     return members.slice(from, to);
   };
+
+  // The opening balance (step 5) is the plant's go-live row: it comes before every count (all of which are
+  // numbered below), so a bundle the closed count called a phantom has no ledger row after the close and still
+  // reads as missing (BACKLOG 95). It is taken after the packing sessions so the first group stays BG-000001.
+  const openingSeq = nextSeq();
 
   // Customers and dies.
   const customerRows: (typeof customer.$inferInsert)[] = CUSTOMERS.map((def) => ({
@@ -1090,8 +1105,8 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
   type CopyDef = { section: string; code: string; seqNo: number; tier: number | null; status: "available" | "in_use" | "on_trial"; bandId?: string; readings: number[]; lifeG?: number };
   const COPIES: CopyDef[] = [
     { section: "tee125", code: "13090-1", seqNo: 1, tier: 1, status: "available", readings: [2_740, 2_760], lifeG: 60_000_000 },
-    { section: "tee125", code: "13090-2", seqNo: 2, tier: 2, status: "available", readings: [2_910, 2_950] },
-    { section: "tee125", code: "13090-3", seqNo: 3, tier: 1, status: "available", bandId: heavyBandId, readings: [3_150, 3_200] },
+    { section: "tee125", code: "13090-2", seqNo: 2, tier: 2, status: "available", readings: [2_910, 2_950], lifeG: 60_000_000 },
+    { section: "tee125", code: "13090-3", seqNo: 3, tier: 1, status: "available", bandId: heavyBandId, readings: [3_150, 3_200], lifeG: 45_000_000 },
     // One copy per width for the e2e mutations (readings 4-6, issue to a run 7-9, the 375 lift page 10),
     // so parallel workers never touch the same copy.
     { section: "tee125", code: "13090-4", seqNo: 4, tier: 1, status: "available", readings: [2_760] },
@@ -1104,8 +1119,8 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     // FP-DR-17 (W2-DR2 e2e): three copies on trial per width. A: issued to the width's own trial run and taken
     // back; B: released by the owner with a reason; C: maker numbers, bulk file. Parallel workers never share one.
     ...Array.from({ length: 9 }, (_, i): CopyDef => ({ section: "tee125", code: `13090-${11 + i}`, seqNo: 11 + i, tier: 1, status: "on_trial", readings: [] })),
-    { section: "chan1", code: "12230-1", seqNo: 1, tier: 1, status: "available", readings: [2_850] },
-    { section: "patti1", code: "14701-1", seqNo: 1, tier: 1, status: "in_use", readings: [2_480] },
+    { section: "chan1", code: "12230-1", seqNo: 1, tier: 1, status: "available", readings: [2_850], lifeG: 80_000_000 },
+    { section: "patti1", code: "14701-1", seqNo: 1, tier: 1, status: "in_use", readings: [2_480], lifeG: 70_000_000 },
   ];
   const copyRows: (typeof dieInstance.$inferInsert)[] = COPIES.map((c) => ({
     id: devCopyId(c.code),
@@ -1729,11 +1744,9 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     uploadedAt: alertAt(85),
     ...over,
   });
+  // The demo plant's inbox holds the simulator's file only (owner walk-through M6: test files never reach a
+  // plant). A spec that needs a real file adds its own through POST /dev/spectro-file and removes it after.
   const collectorInboxRows: (typeof spectroInbox.$inferInsert)[] = [
-    ...([375, 820, 1280] as const).flatMap((w) => [
-      inboxRow(`dev-inbox-${w}-attach`, `6063-${w}-attach.csv`),
-      inboxRow(`dev-inbox-${w}-dismiss`, `6063-${w}-dismiss.csv`),
-    ]),
     inboxRow("dev-inbox-sim", "simulated-6063.csv", { simulated: true }),
   ];
 
@@ -2293,7 +2306,6 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
 
   // 5. Opening balance: the seeded in-stock bundles are taken onto the kg ledger at their yard,
   //    exactly as stock.openingBalance does for a real plant's legacy stock.
-  const openingSeq = await nextCompanySeq({ db }, COMPANY_ID);
   await atomicBatch(db, [
     openingRows(
       { db, companyId: COMPANY_ID, userId: ownerId, seq: openingSeq, postedAt: new Date(now) },

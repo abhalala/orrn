@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { devInvite, uniqueEmail, type InviteRole } from "./helpers/front-door";
+import { API_URL } from "./helpers/ports";
 import { expectNoHorizontalScroll } from "../helpers/layout-guards";
 
 /**
@@ -10,7 +11,8 @@ import { expectNoHorizontalScroll } from "../helpers/layout-guards";
  * the limits editor in Settings -> Standards, and the spectro inbox (attach to a melt of an existing cast,
  * dismiss with a reason; a simulated file only dismisses). Review I-5: the limits editor lives in
  * Settings -> Standards (managers reach it), and foundry reaches the inbox from Today. The seed has five alerts (all ended; three
- * unacknowledged, one per width), and seven spectro files (two per width and a simulated one) on the
+ * unacknowledged, one per width), and simulated spectro file. A real file is added by the spec that needs it
+ * (POST /dev/spectro-file) and removed when it is done, so the demo plant's inbox never keeps test files (BACKLOG 97), on the
  * closed cast with one melt. Each width works its own alert, file and limit, so parallel widths never meet.
  */
 
@@ -54,6 +56,16 @@ async function joinAs(page: Page, role: InviteRole, width: number) {
   await page.getByRole("button", { name: "Go to Today" }).click();
   await expect(page).toHaveURL(/\/today$/);
   await expect(page.locator("main#main h1").first()).toBeVisible({ timeout: 30_000 });
+}
+
+/** A pending spectro file of the demo plant that this spec owns; `removeInboxFile` takes it away again. */
+async function addInboxFile(page: Page, id: string, fileName: string) {
+  const res = await page.context().request.post(`${API_URL}/dev/spectro-file`, { data: { action: "add", id, fileName } });
+  expect(res.ok(), `/dev/spectro-file add returned ${res.status()}: ${await res.text()}`).toBe(true);
+}
+async function removeInboxFile(page: Page, id: string) {
+  const res = await page.context().request.post(`${API_URL}/dev/spectro-file`, { data: { action: "remove", id } });
+  expect(res.ok(), `/dev/spectro-file remove returned ${res.status()}: ${await res.text()}`).toBe(true);
 }
 
 /** The row or card that mentions `text` (phone cards are list items, wide screens table rows). */
@@ -164,51 +176,61 @@ for (const width of WIDTHS) {
 
   test.describe(`spectro inbox at ${width}`, () => {
     test("a simulated file can only be dismissed; a real one is attached to a melt of an existing cast", async ({ page }) => {
-      await open(page, "/casts/inbox", width);
-      await expect(page.getByRole("heading", { level: 1, name: "Spectro inbox" })).toBeVisible();
-      await expect(page.getByRole("tab", { name: "Waiting", selected: true })).toBeVisible();
-      const sim = rowWith(page, "simulated-6063.csv");
-      await expect(sim).toBeVisible();
-      await expect(sim.getByText("Simulated").first()).toBeVisible();
-      await expect(sim.getByRole("button", { name: "Attach to a melt" })).toBeDisabled();
-      await expectClean(page);
-
       const file = `6063-${width}-attach.csv`;
-      const mine = rowWith(page, file);
-      await expect(mine).toBeVisible();
-      await mine.getByRole("button", { name: "Attach to a melt" }).click();
-      const sheet = page.getByRole("dialog");
-      await expect(sheet).toBeVisible();
-      // The melt picker waits for a cast.
-      await expect(sheet.getByTestId("inbox-melt")).toBeDisabled();
-      // The seed's cast with the locked melt dev-melt-1 (dev-seed.ts), never "the newest cast": chain.spec opens a
-      // cast of its own and pins its certificate to "Chemistry pending" (MERGER-11 found the two colliding).
-      await sheet.getByTestId("inbox-cast").selectOption("dev-press-cast-1");
-      await expect(sheet.getByTestId("inbox-melt")).toBeEnabled();
-      await sheet.getByTestId("inbox-melt").selectOption({ label: "Melt 1" });
-      await expect(sheet.getByText("si 4500, fe 2000, mg 5200")).toBeVisible();
-      await sheet.getByTestId("inbox-attach-confirm").click();
-      await expect(sheet).toBeHidden();
-      await expect(page.getByText(/File attached to melt 1 of cast/).first()).toBeVisible();
-      await expect(page.locator("main#main").getByText(file)).toHaveCount(0);
-      await page.getByRole("tab", { name: "Handled" }).click();
-      await expect(rowWith(page, file)).toContainText("Attached");
+      await addInboxFile(page, `e2e-attach-${width}`, file);
+      try {
+        await open(page, "/casts/inbox", width);
+        await expect(page.getByRole("heading", { level: 1, name: "Spectro inbox" })).toBeVisible();
+        await expect(page.getByRole("tab", { name: "Waiting", selected: true })).toBeVisible();
+        const sim = rowWith(page, "simulated-6063.csv");
+        await expect(sim).toBeVisible();
+        await expect(sim.getByText("Simulated").first()).toBeVisible();
+        await expect(sim.getByRole("button", { name: "Attach to a melt" })).toBeDisabled();
+        await expectClean(page);
+
+        const mine = rowWith(page, file);
+        await expect(mine).toBeVisible();
+        await mine.getByRole("button", { name: "Attach to a melt" }).click();
+        const sheet = page.getByRole("dialog");
+        await expect(sheet).toBeVisible();
+        // The melt picker waits for a cast.
+        await expect(sheet.getByTestId("inbox-melt")).toBeDisabled();
+        // The seed's cast with the locked melt dev-melt-1 (dev-seed.ts), never "the newest cast": chain.spec opens a
+        // cast of its own and pins its certificate to "Chemistry pending" (MERGER-11 found the two colliding).
+        await sheet.getByTestId("inbox-cast").selectOption("dev-press-cast-1");
+        await expect(sheet.getByTestId("inbox-melt")).toBeEnabled();
+        await sheet.getByTestId("inbox-melt").selectOption({ label: "Melt 1" });
+        await expect(sheet.getByText("si 4500, fe 2000, mg 5200")).toBeVisible();
+        await sheet.getByTestId("inbox-attach-confirm").click();
+        await expect(sheet).toBeHidden();
+        await expect(page.getByText(/File attached to melt 1 of cast/).first()).toBeVisible();
+        await expect(page.locator("main#main").getByText(file)).toHaveCount(0);
+        await page.getByRole("tab", { name: "Handled" }).click();
+        await expect(rowWith(page, file)).toContainText("Attached");
+      } finally {
+        await removeInboxFile(page, `e2e-attach-${width}`);
+      }
     });
 
     test("dismiss asks for a reason and moves the file to Handled", async ({ page }) => {
-      await open(page, "/casts/inbox", width);
       const file = `6063-${width}-dismiss.csv`;
-      await rowWith(page, file).getByRole("button", { name: "Dismiss" }).click();
-      const sheet = page.getByRole("dialog");
-      await sheet.getByTestId("inbox-dismiss-confirm").click();
-      await expect(sheet.getByText("Give a reason.")).toBeVisible();
-      await sheet.getByTestId("inbox-dismiss-reason").fill("Test piece, not a melt sample");
-      await sheet.getByTestId("inbox-dismiss-confirm").click();
-      await expect(sheet).toBeHidden();
-      await expect(page.getByText("File dismissed").first()).toBeVisible();
-      await page.getByRole("tab", { name: "Handled" }).click();
-      await expect(rowWith(page, file)).toContainText("Dismissed");
-      await expect(rowWith(page, file)).toContainText("Test piece, not a melt sample");
+      await addInboxFile(page, `e2e-dismiss-${width}`, file);
+      try {
+        await open(page, "/casts/inbox", width);
+        await rowWith(page, file).getByRole("button", { name: "Dismiss" }).click();
+        const sheet = page.getByRole("dialog");
+        await sheet.getByTestId("inbox-dismiss-confirm").click();
+        await expect(sheet.getByText("Give a reason.")).toBeVisible();
+        await sheet.getByTestId("inbox-dismiss-reason").fill("Test piece, not a melt sample");
+        await sheet.getByTestId("inbox-dismiss-confirm").click();
+        await expect(sheet).toBeHidden();
+        await expect(page.getByText("File dismissed").first()).toBeVisible();
+        await page.getByRole("tab", { name: "Handled" }).click();
+        await expect(rowWith(page, file)).toContainText("Dismissed");
+        await expect(rowWith(page, file)).toContainText("Test piece, not a melt sample");
+      } finally {
+        await removeInboxFile(page, `e2e-dismiss-${width}`);
+      }
     });
 
     test("a role that does not enter casts reads the list with no Attach or Dismiss", async ({ page }) => {
@@ -254,7 +276,10 @@ test.describe("collector screens reach the roles that use them (review I-5)", ()
 });
 
 test("the alerts list and the inbox read in Hindi and Gujarati", async ({ page }) => {
-  for (const [locale, title] of [["hi", "प्रेस अलर्ट"], ["gu", "પ્રેસ એલર્ટ"]] as const) {
+  for (const [locale, title] of [
+    ["hi", "प्रेस अलर्ट"],
+    ["gu", "પ્રેસ એલર્ટ"],
+  ] as const) {
     await page.addInitScript((l) => localStorage.setItem("orrn.locale", l), locale);
     await open(page, "/press/alerts?show=all", 375);
     await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();

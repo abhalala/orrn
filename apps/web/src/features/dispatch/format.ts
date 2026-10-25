@@ -1,4 +1,5 @@
 import { formatKg } from "@orrn/domain";
+import { dayMonth } from "@/shared/lib/intl-tag";
 
 /** Day formatting for dispatch screens (spec §2: `d MMM`, plus the year when it isn't this year). */
 
@@ -16,7 +17,7 @@ function yearIn(d: Date, timeZone: string): string {
 
 /**
  * "4 Oct", or "30 Dec 2025" outside the current year, as a calendar day in
- * `timeZone` (default Asia/Kolkata). Hindi gets Hindi month names with Latin
+ * `timeZone` (default Asia/Kolkata). Hindi and Gujarati get their own month names with Latin
  * digits (numbers stay Latin, spec §2).
  */
 export function formatDay(value: Date | string | number | null | undefined, opts: DayOptions = {}): string | null {
@@ -25,13 +26,7 @@ export function formatDay(value: Date | string | number | null | undefined, opts
   const timeZone = opts.timeZone ?? "Asia/Kolkata";
   const now = opts.now ?? new Date();
   const sameYear = yearIn(d, timeZone) === yearIn(now, timeZone);
-  return new Intl.DateTimeFormat(opts.locale === "hi" ? "hi-IN" : "en-IN", {
-    day: "numeric",
-    month: "short",
-    ...(sameYear ? {} : { year: "numeric" }),
-    timeZone,
-    numberingSystem: "latn",
-  }).format(d);
+  return dayMonth(d, opts.locale, timeZone, !sameYear);
 }
 
 /**
