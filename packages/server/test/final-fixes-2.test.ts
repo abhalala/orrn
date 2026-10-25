@@ -106,16 +106,17 @@ describe("BACKLOG 80: dispatch figures agree across the list, the detail and the
     }
   });
 
-  test("DSP-000029 (held) and DSP-000034 (completed today): the day is the plant's, not the UTC date of the instant", async () => {
+  test("the held load (dev-dispatch-held) and the load completed today (dev-dispatch-done-2): the day is the plant's, not the UTC date of the instant", async () => {
     const o = late.caller({ role: "owner", companyId: company });
     const list = await o.dispatch.listDispatches({ limit: 100 });
-    const byCode = (c: string) => list.items.find((r) => r.code === c)!;
-    const held = byCode("DSP-000029");
+    // By seed id: the DSP numbers move whenever another seed section takes a number first (MERGER-12).
+    const byId = (id: string) => list.items.find((r) => r.id === id)!;
+    const held = byId("dev-dispatch-held");
     const utcDay = new Date(held.shipDate!).toISOString().slice(0, 10);
     expect(held.shipDay!.kind).toBe("ship");
     expect(held.shipDay!.ymd).toBe(ist(new Date(held.shipDate!).getTime()));
     expect(held.shipDay!.ymd).not.toBe(utcDay);
-    const done = byCode("DSP-000034");
+    const done = byId("dev-dispatch-done-2");
     expect(Number(done.totalWeightG)).toBe(809_764);
     expect(done.shipDay!.ymd).toBe(ist(new Date(done.completedAt!).getTime()));
   });

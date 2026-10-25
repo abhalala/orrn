@@ -18,6 +18,8 @@ export const guPressBoard = {
     board: {
       subtitle: "દરેક પ્રેસ: શું ચાલે છે અને શું રાહ જુએ છે.",
       onLine: "લાઇન પર",
+      closing: "નોંધવાનું બાકી:",
+      closingChip: "નોંધવાનું બાકી",
       nothingRunning: "કંઈ ચાલતું નથી",
       waiting: "રાહમાં",
       todayLogged: "આજે, લૉગ થયેલું",
@@ -33,6 +35,7 @@ export const guPressBoard = {
       title: "{line} ની કતાર",
       subtitle: "આ પ્રેસના કામ, જે ક્રમમાં ચાલશે તે ક્રમમાં.",
       onLine: "લાઇન પર",
+      closing: "નોંધવાનું બાકી",
       waiting: "રાહમાં",
       empty: "આ પ્રેસ માટે કંઈ રિલીઝ થયું નથી.",
       emptyBody: "ઓર્ડર અને પ્લાનિંગમાંથી રિલીઝ થયેલા પ્લાન અહીં આવે છે.",
