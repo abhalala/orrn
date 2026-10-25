@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 4150 screen strings in 45 groups, 16 guides with 292 strings.
+Counts: 4237 screen strings in 45 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -1144,9 +1144,9 @@ Counts: 4150 screen strings in 45 groups, 16 guides with 292 strings.
 | `form.phone` | Phone | फ़ोन |
 | `form.email` | Email | ईमेल |
 | `form.gstin` | GSTIN | GSTIN |
-| `form.gstinHint` | 15 characters, from the customer's GST certificate. | 15 अक्षर, ग्राहक के GST सर्टिफ़िकेट से। |
+| `form.gstinHint` | 15 characters, from the customer's GST certificate. | 15 अक्षर, ग्राहक के GST सर्टिफिकेट से। |
 | `form.gstinInvalid` | A GSTIN has 15 letters and numbers. Check it and try again. | GSTIN में 15 अक्षर और अंक होते हैं। जांच कर फिर से डालें। |
-| `form.gstinLegacy` | This GSTIN isn't 15 letters and numbers. Check it against the GST certificate when you can. | यह GSTIN 15 अक्षर और अंक का नहीं है। समय मिलने पर GST सर्टिफ़िकेट से मिलाएं। |
+| `form.gstinLegacy` | This GSTIN isn't 15 letters and numbers. Check it against the GST certificate when you can. | यह GSTIN 15 अक्षर और अंक का नहीं है। समय मिलने पर GST सर्टिफिकेट से मिलाएं। |
 | `form.notes` | Notes | नोट |
 | `form.billingAddress` | Billing address | बिलिंग का पता |
 | `form.shippingAddress` | Shipping address | डिलीवरी का पता |
@@ -3466,7 +3466,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (258)
+### orders (259)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3662,6 +3662,7 @@ Please check, Lalubhai:
 | `stock.group.unassigned` | Not on an order | किसी ऑर्डर पर नहीं |
 | `stock.group.same_customer` | This customer's orders | इसी ग्राहक के ऑर्डर |
 | `stock.group.other_customer` | Another customer's orders | दूसरे ग्राहक के ऑर्डर |
+| `timeline.portalCreate` | Booked by the party from the portal | पार्टी ने पोर्टल से बुक किया |
 | `timeline.create` | Order booked | ऑर्डर बुक हुआ |
 | `timeline.update` | Order edited | ऑर्डर बदला गया |
 | `timeline.confirm` | Order confirmed | ऑर्डर पक्का हुआ |
@@ -4286,93 +4287,179 @@ Please check, Lalubhai:
 | `listLabel` | Audit entries | ऑडिट एंट्री |
 | `noAccess` | Your role can't read the audit log. Ask an owner, admin or manager. | आपकी भूमिका ऑडिट लॉग नहीं पढ़ सकती। मालिक, एडमिन या मैनेजर से कहें। |
 
-### portal (83)
+### portal (169)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Party portal | पार्टी पोर्टल |
 | `signedInAs` | Signed in for {party} | {party} के लिए साइन इन |
 | `switchPlant` | Plant | प्लांट |
+| `nav.label` | Portal | पोर्टल |
+| `nav.tabs` | Portal sections | पोर्टल के हिस्से |
 | `nav.today` | Today | आज |
 | `nav.orders` | Orders | ऑर्डर |
 | `nav.dies` | Dies | Die |
 | `nav.dispatches` | Dispatches | डिस्पैच |
+| `account.open` | Open account menu | खाता मेन्यू खोलें |
+| `account.title` | Your account | आपका खाता |
+| `invite.title` | Your party login | आपका पार्टी लॉगिन |
+| `invite.body` | Create your password to see your dies, orders and dispatches. | अपने die, ऑर्डर और डिस्पैच देखने के लिए पासवर्ड बनाएं। |
+| `invite.joined` | Your party login is ready | आपका पार्टी लॉगिन तैयार है |
 | `today.openOrders` | Open orders | खुले ऑर्डर |
 | `today.baki` | Baki | बाकी |
+| `today.bakiHint` | Still to dispatch on your open orders | आपके खुले ऑर्डर का अभी भेजना बाकी |
 | `today.lastDispatch` | Last dispatch | पिछला डिस्पैच |
 | `today.noDispatch` | No dispatch yet | अभी कोई डिस्पैच नहीं |
-| `today.noOrder` | No order yet | अभी कोई ऑर्डर नहीं |
-| `today.placeOrder` | Place order | ऑर्डर दें |
+| `today.noOrder` | No open order | कोई खुला ऑर्डर नहीं |
+| `today.placeOrder` | Place an order | ऑर्डर दें |
 | `dies.title` | Your dies | आपके die |
 | `dies.subtitle` | Dies the plant has opened for you, and the ones you own. | प्लांट ने जो die आपके लिए खोले हैं, और जो आपके अपने हैं। |
 | `dies.empty` | The plant has not opened any die for you yet. | प्लांट ने अभी आपके लिए कोई die नहीं खोला है। |
 | `dies.copy` | Copy | कॉपी |
 | `dies.latest` | Latest kg/12ft | ताज़ा kg/12ft |
 | `dies.noReading` | No reading yet | अभी कोई रीडिंग नहीं |
+| `dies.noCopies` | No copy of this die yet | इस die की अभी कोई कॉपी नहीं |
 | `dies.band` | Band | बैंड |
+| `dies.bandRange` | Band {min} to {max} kg/12ft | बैंड {min} से {max} kg/12ft |
+| `dies.inBand` | In band | बैंड में |
+| `dies.overBand` | Over band by {kg} kg/12ft | बैंड से {kg} kg/12ft ऊपर |
+| `dies.underBand` | Under band by {kg} kg/12ft | बैंड से {kg} kg/12ft नीचे |
 | `dies.owned` | Yours | आपका |
+| `dies.granted` | Opened for you | आपके लिए खुला |
 | `orders.title` | Orders | ऑर्डर |
 | `orders.empty` | No order yet | अभी कोई ऑर्डर नहीं |
 | `orders.new` | New order | नया ऑर्डर |
+| `orders.newSubtitle` | Book a die, a cut length and how many. The plant picks the die copy and sets the rate. | die, कट लंबाई और कितना चाहिए, बुक करें। die की कॉपी और रेट प्लांट तय करता है। |
 | `orders.number` | Order | ऑर्डर |
 | `orders.date` | Date | तारीख |
 | `orders.poNumber` | Your PO number | आपका PO नंबर |
+| `orders.poHint` | Optional. Your own reference. | वैकल्पिक। आपका अपना संदर्भ। |
 | `orders.section` | Die | Die |
+| `orders.pickSection` | Pick a die | Die चुनें |
 | `orders.cutLength` | Cut length | कट लंबाई |
+| `orders.lengthHintInch` | Feet and inches, like 12 ft or 11 ft 6 in. | फ़ुट और इंच में, जैसे 12 ft या 11 ft 6 in। |
+| `orders.lengthHintMm` | In millimetres, like 3658. | मिलीमीटर में, जैसे 3658। |
+| `orders.feet` | Feet | फ़ुट |
+| `orders.inches` | Inches | इंच |
 | `orders.pieces` | Pieces | पीस |
 | `orders.kg` | kg | kg |
-| `orders.piecesOrKg` | Enter pieces or kg | पीस या kg भरें |
+| `orders.piecesOrKg` | Order by | ऑर्डर का तरीका |
 | `orders.note` | Note | नोट |
+| `orders.lineNote` | Note for this line | इस लाइन का नोट |
 | `orders.addLine` | Add line | लाइन जोड़ें |
 | `orders.removeLine` | Remove line | लाइन हटाएं |
+| `orders.maxLines` | At most {count} lines on one order. | एक ऑर्डर में अधिकतम {count} लाइन। |
+| `orders.lineNo` | Line {n} | लाइन {n} |
+| `orders.lines` | Lines | लाइनें |
 | `orders.submit` | Place order | ऑर्डर दें |
-| `orders.placed` | Order {number} placed. The plant will confirm it. | ऑर्डर {number} दे दिया गया। प्लांट इसे पक्का करेगा। |
-| `orders.noRate` | The plant sets the rate. | रेट प्लांट तय करता है। |
-| `orders.ordered` | Ordered | ऑर्डर किया |
+| `orders.placed` | Order {number} is booked. The plant will confirm it. | ऑर्डर {number} बुक हो गया। प्लांट इसे कन्फ़र्म करेगा। |
+| `orders.confirmation` | Your booking is with the office | आपकी बुकिंग ऑफ़िस के पास है |
+| `orders.viewOrder` | View order | ऑर्डर देखें |
+| `orders.waiting` | Your booking is with the office. They will confirm it. | आपकी बुकिंग ऑफ़िस के पास है। वे इसे कन्फ़र्म करेंगे। |
+| `orders.noRate` | The plant sets the rate. You do not enter one. | रेट प्लांट तय करता है। आपको रेट नहीं भरना है। |
+| `orders.ordered` | Ordered | ऑर्डर |
 | `orders.dispatched` | Dispatched | भेजा गया |
 | `orders.baki` | Baki | बाकी |
-| `orders.status.booking` | Waiting for the plant | प्लांट की पुष्टि बाकी |
-| `orders.status.confirmed` | Confirmed | पक्का |
+| `orders.statusLabel` | Status | स्थिति |
+| `orders.filterLabel` | Show orders | ऑर्डर दिखाएं |
+| `orders.filterOpen` | Open | खुले |
+| `orders.filterAll` | All | सभी |
+| `orders.showMore` | Show more | और दिखाएं |
+| `orders.status.booking` | Booking | बुकिंग |
+| `orders.status.confirmed` | Confirmed | कन्फ़र्म |
 | `orders.status.dispatching` | Dispatching | भेजा जा रहा है |
 | `orders.status.closed` | Closed | बंद |
 | `orders.status.cancelled` | Cancelled | रद्द |
+| `orders.errors.section` | Pick a die. | Die चुनें। |
+| `orders.errors.length` | Enter the cut length. | कट लंबाई भरें। |
+| `orders.errors.qty` | Enter a whole number of pieces, or the kg. | पीस की पूरी संख्या या kg भरें। |
 | `dispatches.title` | Dispatches | डिस्पैच |
+| `dispatches.subtitle` | What the plant has sent you, with the packing list and test certificate. | प्लांट ने आपको जो भेजा, पैकिंग लिस्ट और टेस्ट सर्टिफिकेट के साथ। |
 | `dispatches.empty` | No dispatch yet | अभी कोई डिस्पैच नहीं |
-| `dispatches.bundles` | {count:one\|other} bundle\|bundles | {count:one\|other} बंडल\|बंडल |
-| `dispatches.bundleNo` | Bundle no | बंडल नंबर |
+| `dispatches.code` | Dispatch | डिस्पैच |
+| `dispatches.date` | Date | तारीख |
+| `dispatches.plNo` | PL no | PL नंबर |
+| `dispatches.vehicle` | Vehicle | गाड़ी |
+| `dispatches.bundlesLabel` | Bundles | बंडल |
+| `dispatches.weight` | kg | kg |
+| `dispatches.totals` | {bundles} bundles, {pcs} pcs, {kg} kg | {bundles} बंडल, {pcs} पीस, {kg} kg |
+| `dispatches.noPl` | The packing list is not ready yet. | पैकिंग लिस्ट अभी तैयार नहीं है। |
 | `dispatches.downloadPl` | Download packing list | पैकिंग लिस्ट डाउनलोड करें |
-| `dispatches.downloadCertificate` | Download test certificate | टेस्ट सर्टिफिकेट डाउनलोड करें |
+| `dispatches.print` | Print | प्रिंट |
+| `dispatches.viewCertificate` | Test certificate | टेस्ट सर्टिफिकेट |
 | `certificate.title` | Test certificate | टेस्ट सर्टिफिकेट |
 | `certificate.number` | Certificate no | सर्टिफिकेट नंबर |
-| `certificate.chemistryPending` | Chemistry pending: the plant has not tested these casts yet. | केमिस्ट्री बाकी: प्लांट ने इन cast की जांच अभी नहीं की है। |
+| `certificate.revision` | revision {n} | रिविज़न {n} |
+| `certificate.issuedOn` | Issued on | जारी तारीख |
+| `certificate.dispatch` | Dispatch | डिस्पैच |
+| `certificate.customer` | Supplied to | इन्हें भेजा गया |
+| `certificate.material` | Material | माल |
+| `certificate.chemistry` | Chemistry | केमिस्ट्री |
+| `certificate.cast` | Cast | कास्ट |
+| `certificate.castPending` | Chemistry pending | केमिस्ट्री बाकी |
+| `certificate.verdict.pass` | Passed | पास |
+| `certificate.verdict.fail` | Failed | फ़ेल |
+| `certificate.verdict.incomplete` | Incomplete | अधूरा |
+| `certificate.chemistryPending` | Chemistry pending: the plant has not tested these casts yet. | केमिस्ट्री बाकी: प्लांट ने इन कास्ट की जांच अभी नहीं की है। |
 | `certificate.chemistryPartial` | Chemistry for {tested} of {total} bundles. The rest are not tested yet. | {total} में से {tested} बंडल की केमिस्ट्री। बाकी की जांच अभी नहीं हुई। |
-| `certificate.chemistryReady` | Chemistry | केमिस्ट्री |
+| `certificate.chemistryReady` | Chemistry of each cast behind this dispatch, in percent. | इस डिस्पैच के हर कास्ट की केमिस्ट्री, प्रतिशत में। |
 | `certificate.standard` | Standard | स्टैंडर्ड |
 | `certificate.licence` | CM/L | CM/L |
-| `certificate.standardAsOfIssue` | Standard as of issue | जारी करते समय का स्टैंडर्ड |
-| `certificate.profileKindNotSet` | Profile kind not set: the solid standard is shown. | प्रोफ़ाइल प्रकार नहीं भरा: solid का स्टैंडर्ड दिखाया है। |
+| `certificate.standardAsOfIssue` | Standard as of the day this certificate was issued. | स्टैंडर्ड वही है जो सर्टिफिकेट जारी करने के दिन था। |
+| `certificate.profileKindNotSet` | Profile kind not set: the solid standard is shown. | प्रोफ़ाइल का प्रकार तय नहीं है: सॉलिड स्टैंडर्ड दिखाया गया है। |
 | `certificate.notTaxDocument` | Quality document. Not a tax invoice. | क्वालिटी दस्तावेज़। टैक्स इनवॉइस नहीं। |
 | `errors.notFound` | Not found | नहीं मिला |
-| `errors.revoked` | Your login was turned off by the plant. Ask them to turn it on again. | प्लांट ने आपका लॉगिन बंद कर दिया है। उनसे फिर से चालू करने को कहें। |
-| `errors.disabled` | The plant has turned the party portal off. | प्लांट ने पार्टी पोर्टल बंद कर दिया है। |
+| `errors.notFoundBody` | There is nothing here for you. Check the link, or go back to your plant screens. | यहां आपके लिए कुछ नहीं है। लिंक जांचें, या प्लांट की स्क्रीन पर लौटें। |
+| `errors.backToPlant` | Back to Today | आज पर लौटें |
+| `errors.revoked` | Your login was turned off by the plant. Ask them to turn it on again. | प्लांट ने आपका लॉगिन बंद कर दिया है। उनसे दोबारा चालू करने को कहें। |
+| `errors.disabled` | The plant has turned the party portal off. | प्लांट ने पार्टी पोर्टल बंद कर रखा है। |
 | `errors.noAccess` | This login has no party portal. | इस लॉगिन के लिए कोई पार्टी पोर्टल नहीं है। |
-| `staff.logins` | Party logins | पार्टी लॉगिन |
+| `errors.wrongPlant` | You do not have a login in that plant. | उस प्लांट में आपका लॉगिन नहीं है। |
+| `errors.member` | This login works in the plant. Use the plant screens. | यह लॉगिन प्लांट में चलता है। प्लांट की स्क्रीन इस्तेमाल करें। |
+| `staff.accessTitle` | Portal access | पोर्टल एक्सेस |
+| `staff.accessBody` | Logins for this party and the dies the party can see and book. The portal never shows a rate. | इस पार्टी के लॉगिन और वे die जो पार्टी देख और बुक कर सकती है। पोर्टल में रेट कभी नहीं दिखता। |
+| `staff.logins` | Logins | लॉगिन |
+| `staff.noLogins` | No login yet | अभी कोई लॉगिन नहीं |
 | `staff.grant` | Give a login | लॉगिन दें |
+| `staff.grantTitle` | Give a party a login | पार्टी को लॉगिन दें |
+| `staff.grantSubmit` | Give login | लॉगिन दें |
+| `staff.granted` | Login given to {email} | {email} को लॉगिन दिया गया |
+| `staff.regranted` | Login for {email} is on again | {email} का लॉगिन फिर चालू है |
 | `staff.revoke` | Turn off | बंद करें |
+| `staff.revokedToast` | Login turned off | लॉगिन बंद किया गया |
+| `staff.turnOn` | Turn on | चालू करें |
+| `staff.newLink` | New link | नया लिंक |
 | `staff.email` | Email | ईमेल |
 | `staff.party` | Party | पार्टी |
-| `staff.inviteLink` | Invite link | इनवाइट लिंक |
+| `staff.status` | Status | स्थिति |
+| `staff.since` | Since | तब से |
+| `staff.pickParty` | Pick the party. | पार्टी चुनें। |
+| `staff.status_invited` | Invited | न्योता भेजा |
+| `staff.status_active` | Active | चालू |
+| `staff.status_revoked` | Off | बंद |
+| `staff.inviteLink` | Invite link | न्योते का लिंक |
 | `staff.copyLink` | Copy link | लिंक कॉपी करें |
-| `staff.linkHint` | If the email does not arrive, send this link to the party. It works for 7 days. | अगर ईमेल न पहुंचे तो यह लिंक पार्टी को भेजें। यह 7 दिन चलता है। |
-| `staff.statusInvited` | Invited | इनवाइट भेजा |
-| `staff.statusActive` | Active | चालू |
-| `staff.statusRevoked` | Off | बंद |
+| `staff.linkTitle` | Invite link for {email} | {email} के लिए न्योते का लिंक |
+| `staff.linkHint` | If the email does not arrive, send this link to the party. It works for 7 days. | अगर ईमेल न पहुंचे तो यह लिंक पार्टी को भेज दें। यह 7 दिन चलता है। |
 | `staff.sections` | Dies the party sees | पार्टी को दिखने वाले die |
+| `staff.noSections` | No die opened yet | अभी कोई die नहीं खोला |
 | `staff.grantSection` | Open a die | Die खोलें |
 | `staff.revokeSection` | Close | बंद करें |
-| `staff.ownedByOther` | Another party owns this die. The party will not see it. | यह die किसी दूसरी पार्टी का है। पार्टी को यह नहीं दिखेगा। |
+| `staff.sectionGranted` | Die opened for the party | पार्टी के लिए die खोला गया |
+| `staff.sectionRevoked` | Die closed for the party | पार्टी के लिए die बंद किया गया |
+| `staff.ownedByOther` | Another party owns this die. The party will not see it. | इस die का मालिक दूसरी पार्टी है। यह पार्टी इसे नहीं देखेगी। |
+| `staff.portalOff` | Turn on the party portal in Settings first. | पहले सेटिंग में पार्टी पोर्टल चालू करें। |
+| `staff.alreadyActive` | This login is already active. | यह लॉगिन पहले से चालू है। |
+| `staff.plantLogin` | This email is a plant login. Use another email for the party. | यह ईमेल प्लांट का लॉगिन है। पार्टी के लिए दूसरा ईमेल इस्तेमाल करें। |
+| `staff.otherParty` | This email already signs in for another party. | यह ईमेल पहले से दूसरी पार्टी के लिए साइन इन करता है। |
+| `staff.alreadyGranted` | This party already sees this die. | यह पार्टी यह die पहले से देखती है। |
 | `staff.issueCertificate` | Issue test certificate | टेस्ट सर्टिफिकेट जारी करें |
 | `staff.reissueCertificate` | Issue again | फिर से जारी करें |
+| `staff.noCertificate` | Not issued yet | अभी जारी नहीं हुआ |
+| `staff.certificateIssued` | Certificate {number} revision {revision} issued | सर्टिफिकेट {number} रिविज़न {revision} जारी हुआ |
+| `staff.chemistry_pending` | Chemistry pending | केमिस्ट्री बाकी |
+| `staff.chemistry_partial` | Chemistry partly tested | केमिस्ट्री आंशिक जांची गई |
+| `staff.chemistry_ready` | Chemistry ready | केमिस्ट्री तैयार |
 
 ### errors (16)
 

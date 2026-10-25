@@ -6,6 +6,7 @@ import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 
 import { clearImpersonation, getImpersonation, hasStoredImpersonation } from "../lib/impersonation";
+import { isPartyRequest, readPortalPlant } from "../lib/portal-plant";
 import {
   isImpersonationForbidden,
   isUnauthorized,
@@ -97,6 +98,9 @@ export const trpcClient = createTRPCClient<AppRouter>({
         if (impersonation) {
           headers.set("x-orrn-impersonate-company", impersonation.companyId);
         }
+        // A party with logins in several plants names the one they read (portal procedures only).
+        const plant = readPortalPlant();
+        if (plant && isPartyRequest(String(url))) headers.set("x-orrn-company", plant);
         return fetch(url, {
           ...options,
           headers,

@@ -77,7 +77,10 @@ test("dev seed: KD's party login, two grants + owned 12230, SO-4 booking, a pend
   expect(dispatches.items.map((d) => d.id)).toEqual(["dev-dispatch-done-1"]);
   expect(dispatches.items[0]).toMatchObject({ hasPackingList: true, hasCertificate: true });
   const cert = await api.portal.certificate.get({ dispatchId: "dev-dispatch-done-1" });
-  expect(JSON.stringify(cert)).not.toMatch(/cast/i);
+  // D28: the certificate cites the casts behind the bundles; the demo casts have no spectro result yet.
+  const casts = (cert.snapshot as { casts?: { castNo: string; tested: boolean }[] }).casts ?? [];
+  expect(casts.every((c) => c.castNo && c.tested === false)).toBe(true);
+  expect(JSON.stringify(cert)).not.toMatch(/rate|paise/i);
   expect((await api.portal.orders.list()).items.map((o) => o.number)).toContain("SO-4");
   const office = env.caller({ role: "office", companyId });
   expect((await office.portal.users.list()).map((u) => u.email)).toEqual(["party@orrn.local"]);

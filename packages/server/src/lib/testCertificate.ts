@@ -7,14 +7,15 @@
  *
  * Honest gaps: while the foundry has no result for a cast (or a bundle names no cast), chemistry is
  * `pending` (nothing tested) or `partial` (some bundles untested) and the snapshot says how many.
- * The certificate never prints cast numbers (Q39 extended to the party's documents; MCQ raised),
- * never a rate, never party-vs-FC kg, and is not a tax document.
+ * The certificate CITES the casts behind the dispatched bundles with the chemistry of each (D28 /
+ * C30: Q39 "no cast numbers" binds the customer packing list only), never a rate, never
+ * party-vs-FC kg, and is not a tax document.
  */
 import { readFloorSettings, resolveStandard, type ProfileKind } from "@orrn/domain";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatchItem } from "@orrn/db/schema/dispatch";
-import { spectroResult } from "@orrn/db/schema/foundry";
+import { cast, spectroResult } from "@orrn/db/schema/foundry";
 import { bundle } from "@orrn/db/schema/inventory";
 import { salesOrderLine } from "@orrn/db/schema/sales";
 import { company } from "@orrn/db/schema/tenant";
@@ -59,8 +60,25 @@ export type CertChemistry = {
   untestedBundles: number;
 };
 
+/** One cast behind the dispatched bundles (D28): its number, how much of the dispatch, its latest result. */
+export type CertCast = {
+  /** Letter code as staff write it (`K31`). */
+  castNo: string;
+  bundles: number;
+  pcs: number;
+  weightG: number;
+  /** False while the foundry has no live result for the cast: print "pending", never invent numbers. */
+  tested: boolean;
+  verdict: "pass" | "fail" | "incomplete" | null;
+  /** Alloy code the result was judged against (the cast's own alloy while untested). */
+  alloy: string | null;
+  /** Latest result per element, parts per million; null where the result carries none. */
+  elements: { element: CertElement; ppm: number | null }[];
+};
+
 export type CertSnapshot = {
-  version: 1;
+  /** 1 = before D28 (no `casts`); 2 = cites casts. */
+  version: 1 | 2;
   number: string;
   revision: number;
   /** Issue date on the company calendar. */
@@ -71,6 +89,8 @@ export type CertSnapshot = {
   lines: CertLine[];
   totals: { bundles: number; pcs: number; weightG: number };
   chemistry: CertChemistry;
+  /** Casts behind the bundles with their own chemistry; absent on a version 1 certificate. */
+  casts?: CertCast[];
   /** Printed footer: a quality document, not a tax invoice. */
   notTaxDocument: true;
 };
@@ -199,6 +219,34 @@ export async function buildCertificateSnapshot(
     const prev = latestByCast.get(r.castId);
     if (!prev || r.createdAt.getTime() > prev.createdAt.getTime()) latestByCast.set(r.castId, r);
   }
+  const castRows = await mapInChunks(castIds, (part) =>
+    db.select({ id: cast.id, number: cast.number, alloy: cast.alloy }).from(cast).where(and(eq(cast.companyId, companyId), inArray(cast.id, part))),
+  );
+  const castInfo = new Map(castRows.map((c) => [c.id, c]));
+  const citedCasts = new Map<string, CertCast>();
+  for (const it of items) {
+    if (!it.castId) continue;
+    const info = castInfo.get(it.castId);
+    if (!info) continue;
+    const res = latestByCast.get(it.castId);
+    const row =
+      citedCasts.get(it.castId) ??
+      ({
+        castNo: info.number,
+        bundles: 0,
+        pcs: 0,
+        weightG: 0,
+        tested: Boolean(res),
+        verdict: res ? res.verdict : null,
+        alloy: res ? (res.limits?.alloyCode ?? info.alloy) : info.alloy,
+        elements: CERT_ELEMENTS.map((element) => ({ element, ppm: res ? (res[element] ?? null) : null })),
+      } satisfies CertCast);
+    row.bundles += 1;
+    row.pcs += it.quantity;
+    row.weightG += it.weightG;
+    citedCasts.set(it.castId, row);
+  }
+  const casts = [...citedCasts.values()].sort((a, b) => a.castNo.localeCompare(b.castNo, "en", { numeric: true }));
   const tested = [...latestByCast.values()];
   const testedBundles = items.filter((i) => i.castId && latestByCast.has(i.castId)).length;
   const untestedBundles = items.length - testedBundles;
@@ -218,7 +266,7 @@ export async function buildCertificateSnapshot(
     testedBundles === 0 ? "pending" : untestedBundles > 0 ? "partial" : "ready";
 
   return {
-    version: 1,
+    version: 2,
     number: opts.number,
     revision: opts.revision,
     issuedOn: ymdOf(tz, opts.at.getTime()),
@@ -250,6 +298,7 @@ export async function buildCertificateSnapshot(
       testedBundles,
       untestedBundles,
     },
+    casts,
     notTaxDocument: true,
   };
 }

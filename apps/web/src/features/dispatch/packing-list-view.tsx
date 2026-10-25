@@ -205,7 +205,7 @@ export function PackingListView({ dispatchId, focusTitle = false }: { dispatchId
   );
 }
 
-function PackingListBody({ model, code }: { model: PackingListModel; code: string }) {
+export function PackingListBody({ model, code }: { model: PackingListModel; code: string }) {
   const { t, locale } = useT();
   const wide = useMediaQuery(breakpoints.desktop);
   const { header, groups, totals } = model;

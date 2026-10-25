@@ -3,7 +3,8 @@
  * completed dispatches of the party's own customer only (draft and held hidden, other parties Not
  * found); the PL snapshot without cast numbers or the author id; the certificate (TC/{FY}/n, revisions
  * keep the number) with the BIS pair and an honest "chemistry pending" while the foundry has no
- * result, "ready" once every bundle's cast has one; no cast numbers on it either.
+ * result, "ready" once every bundle's cast has one. The certificate cites the casts and the chemistry of
+ * each (D28 / C30); the customer packing list never does (Q39).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
@@ -150,9 +151,13 @@ describe("test certificate", () => {
     // Bundles packed through the real pack path carry the pair as packed; legacy ones read it at issue.
     expect(snap.lines[0]).toMatchObject({ alloy: "6063", temper: "T6", standard: "IS 1285", bundles: 2, weightG: kg(22) });
     expect(snap.notTaxDocument).toBe(true);
+    // D28: the certificate cites the cast (untested: pending, no numbers); never an id, a rate or an author.
+    expect((cert.snapshot as { casts: unknown[] }).casts).toEqual([
+      expect.objectContaining({ castNo: "K40", bundles: 2, pcs: expect.any(Number), tested: false, verdict: null, alloy: "6063" }),
+    ]);
+    expect((snap as unknown as { casts: { elements: { ppm: number | null }[] }[] }).casts[0]!.elements.every((e) => e.ppm === null)).toBe(true);
     const text = JSON.stringify(cert);
-    expect(text).not.toMatch(/cast/i);
-    expect(text).not.toContain("K40");
+    expect(text).not.toContain(castId);
     expect(text).not.toMatch(/rate|paise/i);
     expect((await party.api.portal.dispatches.list()).items[0]!.hasCertificate).toBe(true);
     const a = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "portal.certificate.issue")));
@@ -210,6 +215,12 @@ describe("test certificate", () => {
     expect(chem.alloys).toEqual(["6063"]);
     expect(chem.elements.find((e) => e.element === "si")).toEqual({ element: "si", minPpm: 4_300, maxPpm: 4_500 });
     expect(chem.elements.find((e) => e.element === "mg")).toEqual({ element: "mg", minPpm: 5_000, maxPpm: 5_200 });
+    // D28: both casts are cited with their own chemistry; the first revision cited K52 as pending.
+    const casts = (cert.snapshot as { casts: { castNo: string; tested: boolean; verdict: string | null; elements: { element: string; ppm: number | null }[] }[] }).casts;
+    expect(casts.map((c) => [c.castNo, c.tested, c.verdict])).toEqual([["K51", true, "pass"], ["K52", true, "pass"]]);
+    expect(casts[0]!.elements.find((e) => e.element === "si")!.ppm).toBe(4_500);
+    expect(casts[1]!.elements.find((e) => e.element === "si")!.ppm).toBe(4_300);
+    expect(casts[1]!.elements.find((e) => e.element === "cu")!.ppm).toBeNull();
     expect(await env.db.select().from(testCertificate).where(eq(testCertificate.dispatchId, d))).toHaveLength(2);
   }, SLOW);
 

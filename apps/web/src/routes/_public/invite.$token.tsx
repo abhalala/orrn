@@ -3,7 +3,7 @@ import { Button } from "@orrn/ui/components/button";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -20,7 +20,12 @@ import { signOutAndReset } from "@/shared/lib/sign-out";
 import { isUnauthorized } from "@/shared/lib/session-errors";
 import { queryClient, trpc, trpcClient } from "@/shared/utils/trpc";
 
+type InviteSearch = { kind?: "portal" };
+
 export const Route = createFileRoute("/_public/invite/$token")({
+  // A party invite link ends in `?kind=portal`: only the words on the page change; the server
+  // decides what the token is when it is accepted.
+  validateSearch: (search: Record<string, unknown>): InviteSearch => (search.kind === "portal" ? { kind: "portal" } : {}),
   component: InvitePage,
 });
 
@@ -70,6 +75,7 @@ async function probeInvite(token: string): Promise<"live" | "dead"> {
 function InvitePage() {
   const { t } = useT();
   const { token } = Route.useParams();
+  const party = Route.useSearch().kind === "portal";
   const me = useQuery({ ...trpc.auth.me.queryOptions(), retry: false });
   // Only a real "not signed in" answer counts: a 5xx or a network blip must not
   // run the probe (a real accept for a signed-in invitee) or show the sign-up form.
@@ -86,6 +92,7 @@ function InvitePage() {
   const [signInEmail, setSignInEmail] = useState("");
   const [acceptError, setAcceptError] = useState<MessageKey | null>(null);
   const finishSignIn = useFinishSignIn();
+  const navigate = useNavigate();
   const accept = useMutation(trpc.invite.acceptByToken.mutationOptions());
   const heading = useRef<HTMLHeadingElement>(null);
   const viewChanged = useRef(false);
@@ -99,8 +106,9 @@ function InvitePage() {
   /** Never throws: failures switch the view or show an inline error. */
   async function acceptInvite(name?: string) {
     setAcceptError(null);
+    let accepted: { portal?: boolean } | undefined;
     try {
-      await accept.mutateAsync({ token, name });
+      accepted = (await accept.mutateAsync({ token, name })) as { portal?: boolean } | undefined;
     } catch (error) {
       const outcome = inviteAcceptOutcome(error);
       // They may have just signed in (the sign-in view): re-read who is
@@ -109,6 +117,13 @@ function InvitePage() {
       await queryClient.invalidateQueries(trpc.auth.me.queryFilter());
       if (outcome === "failed") setAcceptError("errors.generic");
       else setView(outcome);
+      return;
+    }
+    // A party invite (kind portal) makes a portal login, not a membership: the party lands on the portal.
+    if (accepted?.portal) {
+      toast.success(t("portal.invite.joined"));
+      queryClient.removeQueries();
+      await navigate({ to: "/portal" as never, replace: true });
       return;
     }
     toast.success(t("auth.invite.joined"));
@@ -161,10 +176,10 @@ function InvitePage() {
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-2">
           <h1 ref={heading} tabIndex={-1} className="orrn-auth-title">
-            {t("auth.invite.genericTitle")}
+            {party ? t("portal.invite.title") : t("auth.invite.genericTitle")}
           </h1>
           <p className="m-0 text-[15px] leading-6 text-muted-foreground">
-            {signedInEmail ? t("auth.invite.signedInAs", { email: signedInEmail }) : t("auth.invite.genericBody")}
+            {signedInEmail ? t("auth.invite.signedInAs", { email: signedInEmail }) : party ? t("portal.invite.body") : t("auth.invite.genericBody")}
           </p>
         </div>
 

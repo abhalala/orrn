@@ -26,6 +26,7 @@ import { dispatchTotals, type DispatchItem, type ItemGroup } from "@/features/di
 import { HoldNote, ReleaseButton } from "@/features/dispatch/hold-step";
 import { useCan, useCompanyTimeZone } from "@/features/dispatch/hooks";
 import { PackingListView } from "@/features/dispatch/packing-list-view";
+import { IssueCertificate } from "@/features/portal/issue-certificate";
 import { PasteSerialsSheet } from "@/features/dispatch/paste-serials-sheet";
 import { SearchAddSheet } from "@/features/dispatch/search-add-sheet";
 import { useFreshSerials } from "@/features/dispatch/use-fresh";
@@ -315,7 +316,10 @@ function DispatchDetail({ data }: { data: DetailData }) {
       ) : null}
 
       {status === "completed" ? (
-        <PackingListView dispatchId={d.id} focusTitle={celebrate > 0} />
+        <>
+          <PackingListView dispatchId={d.id} focusTitle={celebrate > 0} />
+          <IssueCertificate dispatchId={d.id} />
+        </>
       ) : (
         <ItemsSection
           items={items}

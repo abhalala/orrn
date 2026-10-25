@@ -695,6 +695,8 @@ export const portalRouter = router({
       locale: ctx.portal.floor.locale,
       dieBands: ctx.portal.floor.dieBands,
       lengthUnit: ctx.portal.settings.lengthUnit === "inch" ? ("inch" as const) : ("mm" as const),
+      /** Calendar zone for the dates a party reads (packing list date, order dates). */
+      timeZone: typeof ctx.portal.settings.timezone === "string" && ctx.portal.settings.timezone ? ctx.portal.settings.timezone : "Asia/Kolkata",
       sections: sections.map((s) => ({ id: s.id, series: s.series, sectionCode: s.sectionCode, name: s.name })),
       plants: plants.map((p) => ({ companyId: p.companyId, companyName: p.companyName, customerName: p.customerName })),
     };
@@ -909,7 +911,8 @@ export const portalRouter = router({
         revision: cert.revision,
         chemistry: cert.chemistry,
         createdAt: cert.createdAt,
-        snapshot: stripForParty(cert.snapshot) as Record<string, unknown>,
+        // The certificate cites casts and per-cast chemistry (D28); the packing list never does.
+        snapshot: stripForParty(cert.snapshot, { keepCasts: true }) as Record<string, unknown>,
       };
     }),
   }),

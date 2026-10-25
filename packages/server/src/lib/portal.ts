@@ -268,15 +268,17 @@ export async function assertSectionsVisible(
 
 /**
  * Remove every key that names a cast from a customer-facing snapshot (Q39: no cast numbers on the
- * customer PL) and the internal author id. Works on any JSON value; returns a copy.
+ * customer PL) and the internal author id. Works on any JSON value; returns a copy. The test
+ * certificate passes `keepCasts`: it cites casts and their chemistry (D28 / C30); rates and the
+ * author id still go.
  */
-export function stripForParty(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(stripForParty);
+export function stripForParty(value: unknown, opts: { keepCasts?: boolean } = {}): unknown {
+  if (Array.isArray(value)) return value.map((v) => stripForParty(v, opts));
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      if (/cast/i.test(k) || k === "generatedBy" || /^rate/i.test(k) || /paise$/i.test(k)) continue;
-      out[k] = stripForParty(v);
+      if ((!opts.keepCasts && /cast/i.test(k)) || k === "generatedBy" || /^rate/i.test(k) || /paise$/i.test(k)) continue;
+      out[k] = stripForParty(v, opts);
     }
     return out;
   }
