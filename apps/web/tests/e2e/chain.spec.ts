@@ -337,7 +337,18 @@ async function cleanup(created: Created) {
       const d = await owner.q<{ dispatch: { status: string } }>("dispatch.getDispatch", { id }).catch(() => null);
       if (d && d.dispatch.status !== "completed" && d.dispatch.status !== "cancelled") await attempt(`cancel dispatch ${id}`, () => owner.m("dispatch.cancel", { id }));
     }
-    for (const id of created.orders) await attempt(`close order ${id}`, () => owner.m("orders.close", { id, reason: "e2e cleanup" }).catch((e) => (String(e).includes("closed") ? null : Promise.reject(e))));
+    // Only a confirmed or dispatching order can be closed, and one that carries bundles can't be cancelled:
+    // a booking order (the other party's, with its bundle) is confirmed first, then closed.
+    for (const id of created.orders) {
+      await attempt(`close order ${id}`, async () => {
+        let got = await owner.q<{ order: { status: string; serverSeq: number } }>("orders.get", { id });
+        if (got.order.status === "booking") {
+          await owner.m("orders.confirm", { id, serverSeq: got.order.serverSeq });
+          got = await owner.q("orders.get", { id });
+        }
+        if (got.order.status === "confirmed" || got.order.status === "dispatching") await owner.m("orders.close", { id, reason: "e2e cleanup" });
+      });
+    }
     // Bundles the chain leaves in the yard (the held one, the other party's) are voided: no test stock stays behind.
     for (const b of created.bundles) {
       await attempt(`void bundle ${b.serial}`, async () => {
