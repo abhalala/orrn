@@ -1,7 +1,7 @@
 import { createI18n } from "@orrn/i18n";
 import { describe, expect, test } from "bun:test";
 
-import { addOutcome, blockMessage, rejectionMessage, renderScanMessage, scanErrorKey } from "./scan-outcome";
+import { addOutcome, blockMessage, offBandText, rejectionMessage, renderScanMessage, scanErrorKey } from "./scan-outcome";
 
 const { t } = createI18n("en");
 const say = (reason: string) => renderScanMessage(t, rejectionMessage(reason));
@@ -83,5 +83,30 @@ describe("scanErrorKey", () => {
     expect(scanErrorKey({ data: { code: "FORBIDDEN" } }, "dispatch")).toBe("errors.forbidden");
     expect(scanErrorKey({ data: { code: "UNAUTHORIZED" } }, "lookup")).toBe("errors.sessionExpired");
     expect(scanErrorKey({ data: { code: "INTERNAL_SERVER_ERROR" } }, "lookup")).toBe("errors.generic");
+  });
+});
+
+describe("one order per packing list and the weight warning (Q36, Q37)", () => {
+  test("a bundle outside the order is refused in the floor's words, in every language", () => {
+    const block = { reason: "This packing list is for SO-14 only", code: "outside_order" as const, orderNumber: "SO-14" };
+    expect(renderScanMessage(t, blockMessage(block))).toBe("This packing list is for SO-14 only");
+    expect(renderScanMessage(createI18n("hi").t, blockMessage(block))).toBe("यह packing list सिर्फ़ SO-14 की है");
+    expect(renderScanMessage(createI18n("gu").t, blockMessage(block))).toBe("આ packing list ફક્ત SO-14 ની છે");
+    // Without the order number the server's sentence is shown as it is.
+    expect(renderScanMessage(t, blockMessage({ reason: "This packing list is for one sales order only", code: "outside_order" }))).toBe("This packing list is for one sales order only");
+  });
+
+  test("an added bundle off its line's weight carries a warning with both figures; others carry none", () => {
+    const report = {
+      added: ["26J1", "26J2"],
+      alreadyInDispatch: [],
+      notFound: [],
+      unavailable: [],
+      warnings: [{ serial: "26J2", orderNumber: "SO-14", lineNo: 1, bundleMilli: 12_498, lineMilli: 12_000, diffMilli: 498 }],
+    };
+    expect(offBandText(t, report, "26J2")).toBe("12.498 kg/12ft, SO-14 says 12.000. Check the weight.");
+    expect(offBandText(t, report, "26J1")).toBeNull();
+    expect(offBandText(t, { warnings: undefined }, "26J2")).toBeNull();
+    expect(addOutcome(report, "26J2").kind).toBe("added");
   });
 });

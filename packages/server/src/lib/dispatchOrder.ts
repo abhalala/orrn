@@ -217,7 +217,7 @@ export async function suggestBundlesFor(
   const found = new Map([...candidates.values()].map(({ b }) => [b.serial, b]));
   const { results } = await classifyBundles(
     { db, companyId },
-    { id: d.id, customerId: d.customerId },
+    { id: d.id, customerId: d.customerId, salesOrderId: d.salesOrderId },
     [...found.keys()],
     found,
     new Map(),

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3423 screen strings in 43 groups, 16 guides with 292 strings.
+Counts: 3447 screen strings in 43 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -616,7 +616,7 @@ Counts: 3423 screen strings in 43 groups, 16 guides with 292 strings.
 | `reject.kg` | kg | kg |
 | `reject.saved` | {count} {count:piece\|pieces} rejected | {count} पीस रिजेक्ट |
 
-### scan (44)
+### scan (46)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -640,6 +640,8 @@ Counts: 3423 screen strings in 43 groups, 16 guides with 292 strings.
 | `torchOff` | Turn torch off | टॉर्च बंद करें |
 | `notFound` | Not found in this company | इस कंपनी में नहीं मिला |
 | `unrecognised` | That isn't a bundle serial or label link. Check it and try again. | यह bundle का serial या लेबल लिंक नहीं है। देखकर फिर से कोशिश करें। |
+| `continuous.offBand` | {kg} kg/12ft, {order} says {line}. Check the weight. | {kg} kg/12ft, {order} में {line}। वज़न जांचें। |
+| `continuous.outsideOrder` | This packing list is for {order} only | यह packing list सिर्फ़ {order} की है |
 | `continuous.orderBaki` | {order}: baki {baki} kg, {left} kg left after this load | {order}: बाकी {baki} kg, इस लोड के बाद {left} kg बचा |
 | `continuous.orderOver` | {kg} kg over the baki. | बाकी से {kg} kg ज़्यादा। |
 | `continuous.title` | Scanning into {code} | {code} में स्कैन हो रहा है |
@@ -790,10 +792,22 @@ Counts: 3423 screen strings in 43 groups, 16 guides with 292 strings.
 | `ambiguousTitle` | Which bundle? | कौन सा bundle? |
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 
-### dispatch (169)
+### dispatch (181)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `scope.one_so` | This plant sends one sales order per packing list. | यह प्लांट एक packing list में एक सेल्स ऑर्डर भेजता है। |
+| `scope.one_customer` | This plant sends one customer per packing list. | यह प्लांट एक packing list में एक ग्राहक भेजता है। |
+| `scope.per_truck` | This plant can put several customers on one truck, each with its own packing list. | यह प्लांट एक ट्रक में कई ग्राहक भेज सकता है, हर एक की अपनी packing list। |
+| `truck.title` | On this truck | इस ट्रक में |
+| `truck.hint` | Vehicle, driver and transporter are the truck's. Each customer keeps its own packing list. | गाड़ी, ड्राइवर और ट्रांसपोर्टर ट्रक के हैं। हर ग्राहक की अपनी packing list रहती है। |
+| `truck.pick` | Same truck as | इसी ट्रक में |
+| `truck.none` | A truck of its own | अलग ट्रक |
+| `truck.option` | {code}, {customer}, {vehicle} | {code}, {customer}, {vehicle} |
+| `truck.noVehicle` | no vehicle yet | गाड़ी अभी नहीं |
+| `truck.add` | Add another customer to this truck | इस ट्रक में एक और ग्राहक जोड़ें |
+| `truck.item` | {code}, {customer} | {code}, {customer} |
+| `offBand.chip` | {kg} kg/12ft, the order says {line} | {kg} kg/12ft, ऑर्डर में {line} |
 | `fromOrder.start` | Start from | शुरू करें |
 | `fromOrder.byCustomer` | Customer | ग्राहक से |
 | `fromOrder.tab` | From sales order | सेल्स ऑर्डर से |
@@ -1458,7 +1472,7 @@ Counts: 3423 screen strings in 43 groups, 16 guides with 292 strings.
 | `designs.notSent` | Not sent to the print computer yet | प्रिंट कंप्यूटर को अभी नहीं भेजा |
 | `designs.pushFailed` | Couldn't send the label design. Check that the print computer is connected. | लेबल डिज़ाइन नहीं भेज सके। देखें कि प्रिंट कंप्यूटर जुड़ा है। |
 
-### settings (91)
+### settings (101)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1528,6 +1542,16 @@ Counts: 3423 screen strings in 43 groups, 16 guides with 292 strings.
 | `team.loadFailed` | Couldn't load the team. Try again. | टीम लोड नहीं हुई। फिर कोशिश करें। |
 | `team.readOnly` | Only owners and admins can invite people. | इनवाइट सिर्फ़ मालिक और एडमिन भेज सकते हैं। |
 | `team.linkColumn` | Invite link | इनवाइट लिंक |
+| `printing.packingList.title` | What one packing list carries | एक packing list में क्या जाएगा |
+| `printing.packingList.hint` | How a dispatch is built. Changing it does not touch dispatches already started. | dispatch कैसे बनता है। बदलने से शुरू हो चुके dispatch पर असर नहीं पड़ता। |
+| `printing.packingList.failed` | Could not save the setting. Try again. | सेटिंग सेव नहीं हुई। फिर कोशिश करें। |
+| `printing.packingList.readOnly` | Set by the plant's owner or admin. | प्लांट के owner या admin तय करते हैं। |
+| `printing.packingList.scope.one_so.label` | One order | एक ऑर्डर |
+| `printing.packingList.scope.one_so.body` | Each packing list is for one sales order. A dispatch starts from the order and takes that order's bundles only. | हर packing list एक सेल्स ऑर्डर की होती है। dispatch ऑर्डर से शुरू होता है और उसी ऑर्डर के bundle लेता है। |
+| `printing.packingList.scope.one_customer.label` | One customer | एक ग्राहक |
+| `printing.packingList.scope.one_customer.body` | Each packing list is for one customer. Lines from several of that customer's orders can go on it. | हर packing list एक ग्राहक की होती है। उसमें उस ग्राहक के कई ऑर्डर की लाइनें आ सकती हैं। |
+| `printing.packingList.scope.per_truck.label` | Several per truck | ट्रक में कई |
+| `printing.packingList.scope.per_truck.body` | One truck can carry several customers. Each customer has its own packing list, all under the same vehicle. | एक ट्रक में कई ग्राहक जा सकते हैं। हर ग्राहक की अपनी packing list होती है, सब एक ही गाड़ी के नीचे। |
 | `printing.status` | Label printing | लेबल प्रिंटिंग |
 | `printing.printers` | Printers | प्रिंटर |
 | `printing.lastSeen` | Last report from the print computer: {time} | प्रिंट कंप्यूटर की आखिरी रिपोर्ट: {time} |

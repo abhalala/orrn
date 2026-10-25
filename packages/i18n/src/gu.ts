@@ -396,6 +396,8 @@ export const gu = {
     notFound: "આ કંપનીમાં મળ્યું નહીં",
     unrecognised: "આ bundle નો serial કે લેબલ લિંક નથી. જોઈને ફરી પ્રયત્ન કરો.",
     continuous: {
+      offBand: "{kg} kg/12ft, {order} માં {line}. વજન તપાસો.",
+      outsideOrder: "આ packing list ફક્ત {order} ની છે",
       orderBaki: "{order}: બાકી {baki} kg, આ લોડ પછી {left} kg બાકી",
       orderOver: "બાકીથી {kg} kg વધુ.",
       title: "{code} માં સ્કૅન થાય છે",

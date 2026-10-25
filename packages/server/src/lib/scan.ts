@@ -11,6 +11,8 @@
  *   5b reallocation_pending in an `order_reallocate` request still waiting on approval (W1-OP-S r1 m-4)
  *   6 unassigned           no sales order line and not moved to plant stock (C8)
  *   7 wrong_customer       packed for another customer's order (moving it is `orders.reallocate`)
+ *   7a outside_order       a plant that sends one sales order per packing list (`packingList.scope`
+ *                          one_so): the bundle is on another order, or the order has no line for its die
  *   8 owned_die            made on a die owned by another customer, no live override (FP-PK-10)
  *   9 already_on_dispatch  listed on this dispatch already (a rescan is calm)
  *  10 added
@@ -22,13 +24,14 @@
  */
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
-import { bundleAllocation, normalizeSerial } from "@orrn/domain";
+import { bundleAllocation, normalizeSerial, readFloorSettings } from "@orrn/domain";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dieInstance } from "@orrn/db/schema/dies";
 import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
 import { bundle } from "@orrn/db/schema/inventory";
 import { bundleTransfer, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
+import { company } from "@orrn/db/schema/tenant";
 
 import { mapInChunks, type OrrnDb } from "./atomic";
 import { checkDieAllowed } from "./dieOwner";
@@ -49,6 +52,7 @@ export const SCAN_OUTCOMES = [
   "reallocation_pending",
   "unassigned",
   "wrong_customer",
+  "outside_order",
   "owned_die",
   "already_on_dispatch",
   "added",
@@ -64,7 +68,7 @@ export function refusalOf(r: ScanResult): ScanRefusal | null {
     heldBy: r.heldBy,
     customerName: r.customerName,
     candidates: r.candidates,
-    ...(r.outcome === "held_for_order" ? { orderNumber: r.orderNumber } : {}),
+    ...(r.outcome === "held_for_order" || r.outcome === "outside_order" ? { orderNumber: r.orderNumber } : {}),
   };
 }
 
@@ -80,7 +84,7 @@ export type ScanResult = {
   heldBy: string | null;
   /** `owned_die`: the owner; `wrong_customer`: the customer it was packed for; `held_for_order`: the order's customer. */
   customerName: string | null;
-  /** `held_for_order`: the sales order it is held for. */
+  /** `held_for_order`: the sales order it is held for; `outside_order`: the order this packing list is for. */
   orderNumber: string | null;
   /** `ambiguous`: the bundle numbers it could be. */
   candidates: string[];
@@ -102,6 +106,7 @@ const MESSAGES: Record<ScanOutcome, (r: ScanResult) => string> = {
   reallocation_pending: () => "Bundle is waiting on a reallocation approval",
   unassigned: () => "Not assigned to a sales order",
   wrong_customer: (r) => (r.customerName ? `Packed for ${r.customerName}` : "Packed for another customer"),
+  outside_order: (r) => `This packing list is for ${r.orderNumber ?? "one sales order"} only`,
   owned_die: (r) => (r.customerName ? `This die belongs to ${r.customerName}` : "This die belongs to another customer"),
   already_on_dispatch: () => "Already on this dispatch",
   added: () => "Added",
@@ -289,7 +294,7 @@ export async function ownedDieBlocks(
  */
 export async function classifyScan(
   ctx: Ctx,
-  d: { id: string; customerId: string },
+  d: { id: string; customerId: string; salesOrderId?: string | null },
   rawCodes: readonly string[],
   opts: ClassifyOpts,
 ): Promise<{ results: ScanResult[]; toAdd: ScanBundle[]; holds: ReadonlyMap<string, BundleHold> }> {
@@ -310,7 +315,7 @@ export type ClassifyOpts = {
 /** The §E6 order for bundles already looked up (`dispatch.addBundle` passes its one bundle). */
 export async function classifyBundles(
   ctx: Ctx,
-  d: { id: string; customerId: string },
+  d: { id: string; customerId: string; salesOrderId?: string | null },
   codes: readonly string[],
   found: ReadonlyMap<string, ScanBundle>,
   ambiguous: ReadonlyMap<string, string[]>,
@@ -357,6 +362,8 @@ export async function classifyBundles(
     ctx.companyId,
     live.map((b) => b.id),
   );
+  // Q37 one_so: this packing list is for the dispatch's own sales order only.
+  const oneSo = await oneSoScope(ctx, d);
   const pendingReallocation = await bundlesPendingReallocation(
     ctx.db,
     ctx.companyId,
@@ -390,6 +397,11 @@ export async function classifyBundles(
     if (lineOwner && lineOwner.customerId !== d.customerId) {
       return result(code, "wrong_customer", { ...base, customerName: lineOwner.name });
     }
+    if (oneSo) {
+      const link = linkLineFor(b, holds, d.customerId);
+      const inside = link ? oneSo.lineIds.has(link) : oneSo.dieIds.has(b.dieId);
+      if (!inside) return result(code, "outside_order", { ...base, orderNumber: oneSo.number });
+    }
     if (owned.has(b.id)) return result(code, "owned_die", { ...base, customerName: owned.get(b.id) ?? null });
     if (onThisDispatch.has(b.id)) return result(code, "already_on_dispatch", base);
     return result(code, "added", { ...base, note });
@@ -421,12 +433,42 @@ export async function classifyBundles(
   return { results, toAdd, holds };
 }
 
-/** Grams on a dispatch right now (Σ bundle weight of its items). */
+/**
+ * The order a `one_so` plant's dispatch is limited to: its line ids and the dies it has lines for,
+ * and its number. Null for every other mode, and for a dispatch not opened from an order.
+ */
+async function oneSoScope(ctx: Ctx, d: { salesOrderId?: string | null }) {
+  if (!d.salesOrderId) return null;
+  const [co] = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)).limit(1);
+  if (readFloorSettings(co?.settings).packingList.scope !== "one_so") return null;
+  const [order] = await ctx.db
+    .select({ number: salesOrder.number })
+    .from(salesOrder)
+    .where(and(eq(salesOrder.id, d.salesOrderId), eq(salesOrder.companyId, ctx.companyId)))
+    .limit(1);
+  if (!order) return null;
+  const lines = await ctx.db
+    .select({ id: salesOrderLine.id, dieId: salesOrderLine.dieId })
+    .from(salesOrderLine)
+    .where(and(eq(salesOrderLine.companyId, ctx.companyId), eq(salesOrderLine.salesOrderId, d.salesOrderId)));
+  return { number: order.number, lineIds: new Set(lines.map((l) => l.id)), dieIds: new Set(lines.map((l) => l.dieId)) };
+}
+
+/**
+ * Grams on a dispatch right now (Σ bundle weight of its items). A dispatch on a shared truck (Q37
+ * `per_truck`, `dispatch.truck_id`) counts the whole truck: every live dispatch with the same
+ * truck id, since the vehicle's capacity is the truck's.
+ */
 export async function dispatchLoadG(db: OrrnDb, companyId: string, dispatchId: string): Promise<number> {
   const [row] = await db
     .select({ g: sql<number>`coalesce(sum(${bundle.weightG}), 0)` })
     .from(dispatchItem)
     .innerJoin(bundle, and(eq(bundle.id, dispatchItem.bundleId), eq(bundle.companyId, dispatchItem.companyId)))
-    .where(and(eq(dispatchItem.companyId, companyId), eq(dispatchItem.dispatchId, dispatchId)));
+    .where(and(eq(dispatchItem.companyId, companyId), inArray(dispatchItem.dispatchId, truckDispatchIds(companyId, dispatchId))));
   return Number(row?.g ?? 0);
+}
+
+/** The dispatch ids that share a truck with `dispatchId` (itself included; just itself without a truck). */
+export function truckDispatchIds(companyId: string, dispatchId: string) {
+  return sql`(select td.id from dispatch td where td.company_id = ${companyId} and (td.id = ${dispatchId} or (td.truck_id is not null and td.truck_id = (select tt.truck_id from dispatch tt where tt.id = ${dispatchId} and tt.company_id = ${companyId}) and td.status <> 'cancelled' and td.deleted_at is null)))`;
 }

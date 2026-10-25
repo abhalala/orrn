@@ -280,11 +280,11 @@ describe("FP-OP-18 + Q7: the late rule", () => {
     const p = await opPlant();
     const before = await p.owner.company.getSettings();
     expect(before.orderLeadDays).toBe(15);
-    expect(before.packingList).toEqual({ kgPerPiece: false });
+    expect(before.packingList).toEqual({ kgPerPiece: false, scope: "one_customer" });
     await p.owner.company.updateSettings({ orderLeadDays: 7, packingList: { kgPerPiece: true } });
     const after = await p.owner.company.getSettings();
     expect(after.orderLeadDays).toBe(7);
-    expect(after.packingList).toEqual({ kgPerPiece: true });
+    expect(after.packingList).toEqual({ kgPerPiece: true, scope: "one_customer" });
     await expect(p.as("office").company.updateSettings({ packingList: { kgPerPiece: false } })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(p.owner.company.updateSettings({ orderLeadDays: 400 })).rejects.toBeTruthy();
   }, SLOW);

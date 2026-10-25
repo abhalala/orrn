@@ -700,6 +700,39 @@ bun run deploy
   default such as `time_unconfirmed` / `source` when a row leaves it out, which broke the 100-param
   chunking at 7 dies).
 
+## Order book, dispatch from an order, Wave 2 (W2-OPPK-W)
+
+- The order book (`orders.list`, FP-OP-20) and its header strip (`totals` of the same answer,
+  `orders.bookTotals`) come from ONE SQL text (`lib/orderBook.ts`): per line, segments are taken in
+  order and capped so they add up to the ordered kg: dispatched, in stock (packed + held in the
+  yard), pressed not packed, planned, rest (not planned); `over` is its own figure. Every filter
+  (party, `city` = the customer's billing address city, status, `late`, order-date range, `stage`,
+  search) narrows rows and strip together. The strip is the sum of the grid by construction; a test
+  holds it. Never sum bars on a client. `orders.bookCities` lists the city options.
+- Late (FP-OP-18, Q7 A): confirmed / dispatching, baki left, and the expected date passed; with no
+  expected date, ordered more than 15 days ago (`lateOf` in `lib/orderStrip.ts`, the same rule in
+  SQL in `orderBook.ts` and `LineFilter.late`). `lateRule` says which date fired. `expectedDate`
+  is stored as typed (`orders.create|update`, null clears it); the server does not default it. The
+  new-order form starts it at order date + `settings.orderLeadDays` (default 15, Q8).
+- `orders.stockOn` (FP-OP-19) is the in-yard bundles of an order by line from
+  `bundle.sales_order_line_id`; the print, PDF and Excel are made on the client from it
+  (`@orrn/documents/stock-on-order`). No rate in it.
+- The strip also gives `inStockBundles` / `inStockPcs` (FP-OP-05).
+- Dispatch from a sales order (FP-PK-17, migration 0029 `dispatch.sales_order_id`):
+  `dispatch.create({ salesOrderId })` takes the order's customer (a different `customerId` is
+  refused; the order must be open); `dispatch.update` cannot move such a dispatch to another
+  customer. `getDispatch.salesOrder.progress` is the order's live baki against this load, per line
+  (`lib/dispatchOrder.ts orderProgress`). Scanning prefers the order's own line for a bundle on no
+  line (`suggestLines({ preferOrderId })`); a bundle packed for another order of the party keeps
+  that link. `dispatch.suggestBundles` (action `dispatch.addBundle`) lists the order's own yard
+  stock (on its lines or held for them) first, then plant stock (moved to plant stock; never
+  legacy stock on no line) of the same die and cut length; every candidate passes the scan's own
+  classifier, bundles held for another order's line are left out, and `fits` marks what stays
+  within the baki in the order listed.
+- Packing list: `settings.packingList.kgPerPiece` (default off, `company.updateSettings`,
+  `settings.update`) adds a "kg/pc" column to the screen, the PDF, the v2 print and the Excel
+  sheet (render-time option `kgPerPiece`; stored snapshots do not change).
+
 ## Platform: modules, shifts, releases, backups
 
 - **Modules (FP-PF-07, D14).** `company.modules` is the bought-module list; `[]` means every module

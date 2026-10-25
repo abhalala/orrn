@@ -17,7 +17,7 @@ import { bundle, bundleStatusEvent } from "@orrn/db/schema/inventory";
 import { packingList } from "@orrn/db/schema/packing";
 import { openSalesOrderStatuses, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { company } from "@orrn/db/schema/tenant";
-import { capacityCheck, DISPATCH_TRANSITIONS, normalizeSerial } from "@orrn/domain";
+import { bundleKgPer12ftMilli, capacityCheck, DISPATCH_TRANSITIONS, normalizeSerial, offLineBand } from "@orrn/domain";
 
 import type { Context } from "../context";
 import { actionProcedure, companyProcedure, router } from "../index";
@@ -57,12 +57,14 @@ import {
   releaseOnDispatchStatements,
 } from "../lib/orderHold";
 import { orderProgress, suggestBundlesFor, SUGGEST_MAX } from "../lib/dispatchOrder";
+import { companyFloor } from "../lib/orderLines";
 import { can } from "../lib/permissions";
 import { bundlesPendingReallocation, pendingReallocationOf } from "../lib/reallocate";
 import {
   classifyBundles,
   classifyScan,
   dispatchLoadG,
+  truckDispatchIds,
   refusalOf,
   ScanRefusalError,
   type ScanRefusal,
@@ -241,6 +243,38 @@ async function releaseStatements(ctx: ReleaseCtx, dispatchId: string, seq: numbe
   return { statements, releasedCount: held.length };
 }
 
+/**
+ * Q36: a bundle added to a dispatch whose kg/12ft is more than 0.1 off the order line it was linked
+ * to (the line's own basis, not the die band; pack keeps D15). A warning, never a refusal.
+ */
+export type OffBandWarning = {
+  serial: string;
+  orderNumber: string;
+  lineNo: number;
+  /** The bundle's kg/12ft and the line's, in milli (grams per 12 ft), and the difference. */
+  bundleMilli: number;
+  lineMilli: number;
+  diffMilli: number;
+};
+
+/** The off-band warnings of bundles just linked (`picks`: bundle id -> line). */
+function offBandWarnings(
+  bundles: readonly { id: string; serial: string; weightG: number; quantity: number; lengthMm: number; kgPer12ftMilli: number | null }[],
+  picks: ReadonlyMap<string, LineBalance>,
+): OffBandWarning[] {
+  const out: OffBandWarning[] = [];
+  for (const b of bundles) {
+    const line = picks.get(b.id);
+    if (!line) continue;
+    const bundleMilli = b.kgPer12ftMilli ?? bundleKgPer12ftMilli({ weightG: b.weightG, pieces: b.quantity, lengthMm: b.lengthMm });
+    const band = offLineBand(bundleMilli, line.kgPer12ftMilli);
+    if (band?.off && bundleMilli !== null && line.kgPer12ftMilli !== null) {
+      out.push({ serial: b.serial, orderNumber: line.orderNumber, lineNo: line.lineNo, bundleMilli, lineMilli: line.kgPer12ftMilli, diffMilli: band.diffMilli });
+    }
+  }
+  return out;
+}
+
 /** A bundle linked to an order line when it was scanned on (spec P13 "order line suggested per bundle"). */
 export type LinkedBundle = { serial: string; salesOrderLineId: string; orderNumber: string; lineNo: number };
 
@@ -257,7 +291,7 @@ export type AddBundlesReport = {
   unavailable: {
     serial: string;
     reason: string;
-    code: BundleBlock["code"] | "unassigned" | "wrong_customer" | "owned_die";
+    code: BundleBlock["code"] | "unassigned" | "wrong_customer" | "outside_order" | "owned_die";
     status: BundleBlock["status"];
     heldBy: string | null;
     /** `held_for_order` (FP-OP-17): the order it is held for and that order's customer. */
@@ -266,6 +300,8 @@ export type AddBundlesReport = {
   }[];
   /** Added bundles that were linked to an open order line of this customer (the rest are unlinked). */
   linked: LinkedBundle[];
+  /** Q36: added bundles more than 0.1 kg/12ft off the weight of the order line they were linked to. */
+  warnings?: OffBandWarning[];
 };
 
 /** `dispatch.scan`: the add report plus one result per code and the vehicle capacity after it. */
@@ -286,6 +322,11 @@ const createInput = z.object({
   customerId: z.string().min(1, "Customer is required").optional(),
   /** FP-PK-17: open the dispatch from this sales order (it fixes the party). */
   salesOrderId: z.string().min(1).max(64).optional(),
+  /**
+   * Q37 `per_truck`: put this dispatch (another customer's, with its own packing list) on the same
+   * truck as this one. The vehicle, driver, transporter and capacity are the truck's.
+   */
+  truckOf: z.string().min(1).max(64).optional(),
   shipDate: z.number().int().nullable().optional(),
   notes: z.string().max(500).nullable().optional(),
   /** Transporter master (FP-PK-11); its name is snapshotted on the dispatch. */
@@ -602,7 +643,7 @@ function withinCapacityOrReason(companyId: string, dispatchId: string, reason: s
   if (reason) return sql`1 = 1`;
   return sql`((select dc.vehicle_capacity_g from dispatch dc where dc.id = ${dispatchId} and dc.company_id = ${companyId}) is null
     or (select coalesce(sum(bc.weight_g), 0) from dispatch_item ic join bundle bc on bc.id = ic.bundle_id and bc.company_id = ${companyId}
-        where ic.company_id = ${companyId} and ic.dispatch_id = ${dispatchId})
+        where ic.company_id = ${companyId} and ic.dispatch_id in ${truckDispatchIds(companyId, dispatchId)})
       <= (select dc.vehicle_capacity_g from dispatch dc where dc.id = ${dispatchId} and dc.company_id = ${companyId}))`;
 }
 
@@ -761,7 +802,7 @@ function reportLists(results: readonly ScanResult[]) {
       status: refusal.code === "held" ? "reserved" : refusal.code === "void" || refusal.code === "dispatched" ? refusal.code : "available",
       heldBy: refusal.heldBy,
       // FP-OP-17: the order a `held_for_order` bundle is held for, and that order's customer.
-      ...(refusal.code === "held_for_order" ? { orderNumber: refusal.orderNumber ?? undefined, customerName: refusal.customerName ?? undefined } : {}),
+      ...(refusal.code === "held_for_order" || refusal.code === "outside_order" ? { orderNumber: refusal.orderNumber ?? undefined, customerName: refusal.customerName ?? undefined } : {}),
     });
   }
   return out;
@@ -812,6 +853,7 @@ async function addByCodes(
     const report: ScanReport = {
       added: [],
       linked: [],
+      warnings: [],
       ...reportLists(results),
       results,
       capacity: dispatchCapacity(0, d.vehicleCapacityG),
@@ -903,6 +945,7 @@ async function addByCodes(
     await atomicBatch(ctx.db, statements);
     report.added = toAdd.map((b) => b.serial);
     report.linked = await landedLinks(ctx.db, ctx.companyId, d.id, new Map(toAdd.map((b) => [b.id, b.serial])), picks);
+    report.warnings = offBandWarnings(toAdd, picks);
     report.capacity = dispatchCapacity(await dispatchLoadG(ctx.db, ctx.companyId, d.id), d.vehicleCapacityG);
     return report;
   };
@@ -941,6 +984,45 @@ export const dispatchRouter = router({
       }
       const customerId = order?.customerId ?? input.customerId;
       if (!customerId) throw new TRPCError({ code: "BAD_REQUEST", message: "Customer is required" });
+      // Q37: what one packing list may carry is the plant's setting.
+      const scope = (await companyFloor(ctx.db, ctx.companyId)).floor.packingList.scope;
+      if (scope === "one_so" && !order) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This plant sends one sales order per packing list. Start the dispatch from the sales order.",
+        });
+      }
+      let truck: typeof dispatch.$inferSelect | null = null;
+      if (input.truckOf) {
+        if (scope !== "per_truck") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This plant does not send several customers on one truck. Start a dispatch of its own.",
+          });
+        }
+        truck =
+          (await ctx.db.query.dispatch.findFirst({
+            where: and(eq(dispatch.id, input.truckOf), eq(dispatch.companyId, ctx.companyId), isNull(dispatch.deletedAt)),
+          })) ?? null;
+        if (!truck) throw new TRPCError({ code: "NOT_FOUND", message: "Dispatch not found" });
+        if (truck.status === "cancelled" || truck.status === "completed") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "That truck has already left or was cancelled" });
+        }
+        const onTruck = await ctx.db
+          .select({ customerId: dispatch.customerId })
+          .from(dispatch)
+          .where(
+            and(
+              eq(dispatch.companyId, ctx.companyId),
+              isNull(dispatch.deletedAt),
+              sql`${dispatch.status} <> 'cancelled'`,
+              or(eq(dispatch.id, truck.id), truck.truckId ? eq(dispatch.truckId, truck.truckId) : undefined),
+            ),
+          );
+        if (onTruck.some((r) => r.customerId === customerId)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This customer already has a packing list on that truck" });
+        }
+      }
       const customerRow = await ctx.db.query.customer.findFirst({
         where: and(
           eq(customer.id, customerId),
@@ -970,18 +1052,36 @@ export const dispatchRouter = router({
           status: "draft",
           shipDate: input.shipDate ? new Date(input.shipDate) : null,
           notes: input.notes ?? null,
-          transporterId: transporterRow?.id ?? null,
-          transporterName: transporterRow?.name ?? null,
-          vehicleCapacityG: input.vehicleCapacityG ?? null,
+          // A truck's other customers share its vehicle, driver, transporter and capacity.
+          ...(truck
+            ? {
+                truckId: truck.truckId ?? truck.id,
+                vehicleNo: truck.vehicleNo,
+                driverName: truck.driverName,
+                driverPhone: truck.driverPhone,
+                transporter: truck.transporter,
+                transporterId: truck.transporterId,
+                transporterName: truck.transporterName,
+                vehicleCapacityG: truck.vehicleCapacityG,
+              }
+            : {
+                transporterId: transporterRow?.id ?? null,
+                transporterName: transporterRow?.name ?? null,
+                vehicleCapacityG: input.vehicleCapacityG ?? null,
+              }),
           createdBy: userId,
         }),
+        // The first dispatch of a truck names it (its own id) the moment a second one joins.
+        ...(truck && !truck.truckId
+          ? [ctx.db.update(dispatch).set({ truckId: truck.id }).where(and(eq(dispatch.id, truck.id), eq(dispatch.companyId, ctx.companyId), isNull(dispatch.truckId)))]
+          : []),
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
             action: "dispatch.create",
             subjectType: "dispatch",
             subjectId: id,
-            meta: { code, customerId, ...(order ? { salesOrderId: order.id, orderNumber: order.number } : {}) },
+            meta: { code, customerId, ...(order ? { salesOrderId: order.id, orderNumber: order.number } : {}), ...(truck ? { truckId: truck.truckId ?? truck.id, truckOf: truck.code } : {}) },
           },
         ),
       ]);
@@ -1103,6 +1203,8 @@ export const dispatchRouter = router({
           dieName: die.name,
           addedAt: dispatchItem.addedAt,
           salesOrderLineId: dispatchItem.salesOrderLineId,
+          bundleMilli: bundle.kgPer12ftMilli,
+          lineMilli: salesOrderLine.kgPer12ftMilli,
           orderId: salesOrder.id,
           orderNumber: salesOrder.number,
           lineNo: salesOrderLine.lineNo,
@@ -1139,7 +1241,12 @@ export const dispatchRouter = router({
               itemRows.filter((it) => it.status === "reserved").map((it) => it.bundleId),
             )
           : new Map<string, string>();
-      const items = itemRows.map((it) => ({ ...it, heldBy: holders.get(it.bundleId) ?? null }));
+      // Q36: each item's kg/12ft against its order line's (0.1 either way); the draft shows the off ones.
+      const items = itemRows.map(({ bundleMilli, lineMilli, ...it }) => {
+        const own = bundleMilli ?? bundleKgPer12ftMilli({ weightG: Number(it.weightG), pieces: Number(it.quantity), lengthMm: Number(it.lengthMm) });
+        const band = offLineBand(own, lineMilli);
+        return { ...it, heldBy: holders.get(it.bundleId) ?? null, kgPer12ftMilli: own, lineKgPer12ftMilli: lineMilli, offBand: band?.off === true, offBandDiffMilli: band?.diffMilli ?? null };
+      });
 
       const events = await ctx.db
         .select()
@@ -1182,7 +1289,7 @@ export const dispatchRouter = router({
 
       // FP-PK-12: loaded kg against the vehicle (warn only; complete over it needs a reason).
       const capacity = dispatchCapacity(
-        items.reduce((sum, it) => sum + Number(it.weightG), 0),
+        row.truckId ? await dispatchLoadG(ctx.db, ctx.companyId, row.id) : items.reduce((sum, it) => sum + Number(it.weightG), 0),
         row.vehicleCapacityG,
       );
 
@@ -1223,7 +1330,26 @@ export const dispatchRouter = router({
         }
       }
 
-      return { dispatch: row, customer: customerRow ?? null, items, events, overdraw, capacity, salesOrder: salesOrderInfo };
+      // Q37 per_truck: the other packing lists on this truck.
+      const truck = row.truckId
+        ? await ctx.db
+            .select({
+              id: dispatch.id,
+              code: dispatch.code,
+              status: dispatch.status,
+              plNumber: dispatch.plNumber,
+              customerId: dispatch.customerId,
+              customerName: customer.name,
+              bundles: sql<number>`(select count(*) from dispatch_item ti where ti.company_id = ${dispatch.companyId} and ti.dispatch_id = ${dispatch.id})`,
+              weightG: sql<number>`(select coalesce(sum(tb.weight_g), 0) from dispatch_item ti join bundle tb on tb.id = ti.bundle_id and tb.company_id = ti.company_id where ti.company_id = ${dispatch.companyId} and ti.dispatch_id = ${dispatch.id})`,
+            })
+            .from(dispatch)
+            .innerJoin(customer, and(eq(customer.id, dispatch.customerId), eq(customer.companyId, dispatch.companyId)))
+            .where(and(eq(dispatch.companyId, ctx.companyId), eq(dispatch.truckId, row.truckId), isNull(dispatch.deletedAt), sql`${dispatch.status} <> 'cancelled'`))
+            .orderBy(dispatch.createdAt)
+        : [];
+
+      return { dispatch: row, customer: customerRow ?? null, items, events, overdraw, capacity, salesOrder: salesOrderInfo, truck: truck.length > 0 ? { id: row.truckId!, dispatches: truck } : null };
     }),
 
   /**
@@ -1441,6 +1567,33 @@ export const dispatchRouter = router({
               ),
             ),
         );
+      }
+      // Q37 per_truck: the vehicle, driver and transporter are the truck's; the other customers'
+      // packing lists still being built follow (a left or cancelled one keeps what it had).
+      if (existing.truckId) {
+        const shared = {
+          ...(header.vehicleNo !== undefined ? { vehicleNo: header.vehicleNo } : {}),
+          ...(header.driverName !== undefined ? { driverName: header.driverName } : {}),
+          ...(header.driverPhone !== undefined ? { driverPhone: header.driverPhone } : {}),
+          ...(header.transporter !== undefined ? { transporter: header.transporter } : {}),
+          ...transport,
+        };
+        if (Object.keys(shared).length > 0) {
+          statements.push(
+            ctx.db
+              .update(dispatch)
+              .set({ ...shared, serverSeq: seq })
+              .where(
+                and(
+                  eq(dispatch.companyId, ctx.companyId),
+                  eq(dispatch.truckId, existing.truckId),
+                  sql`${dispatch.id} <> ${existing.id}`,
+                  inArray(dispatch.status, ["draft", "reserved"]),
+                  isNull(dispatch.deletedAt),
+                ),
+              ),
+          );
+        }
       }
       statements.push(
         auditInsert(
@@ -1762,6 +1915,7 @@ export const dispatchRouter = router({
           added: [b.serial],
           alreadyInDispatch: [] as string[],
           linked: await landedLinks(ctx.db, ctx.companyId, d.id, new Map([[b.id, b.serial]]), picks),
+          warnings: offBandWarnings([b], picks),
         };
       };
 
@@ -1788,7 +1942,7 @@ export const dispatchRouter = router({
     .mutation(async ({ ctx, input }): Promise<AddBundlesReport> => {
       // The PL-8 report shape, unchanged for its clients: an ambiguous code is in `notFound`.
       const r = await addByCodes(ctx, input, { path: "office" });
-      return { added: r.added, alreadyInDispatch: r.alreadyInDispatch, notFound: r.notFound, unavailable: r.unavailable, linked: r.linked };
+      return { added: r.added, alreadyInDispatch: r.alreadyInDispatch, notFound: r.notFound, unavailable: r.unavailable, linked: r.linked, warnings: r.warnings };
     }),
 
   /**
@@ -2161,7 +2315,7 @@ export const dispatchRouter = router({
       }
 
       // FP-PK-12: over the vehicle's capacity completes only with a reason (audited).
-      const loadedG = bundles.reduce((sum, b) => sum + b.weightG, 0);
+      const loadedG = d.truckId ? await dispatchLoadG(ctx.db, ctx.companyId, d.id) : bundles.reduce((sum, b) => sum + b.weightG, 0);
       const capacity = dispatchCapacity(loadedG, d.vehicleCapacityG);
       if (capacity.state === "over" && !input.capacityOverrideReason) {
         throw new TRPCError({

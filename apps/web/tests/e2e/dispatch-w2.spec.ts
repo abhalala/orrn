@@ -154,7 +154,10 @@ test.describe("dispatch from a sales order", () => {
     await open(page, { width: 390, path: "/orders" });
     const party = await makeParty(page, "Scan");
     const o = await confirmedOrder(page, party.id, [{ pcs: 100 }]);
-    const serials = await packFor(page, o.lineIds[0]!, [30, 45]);
+    // The line's own kg/12ft (Q36): one bundle exactly on it, two a kg or more per piece heavier (off).
+    const basis = (await q<{ lines: { kgPer12ftMilli: number }[] }>(page, "orders.get", { id: o.id })).lines[0]!.kgPer12ftMilli;
+    const onKg = (basis * 10) / 1000;
+    const serials = await packFor(page, o.lineIds[0]!, [onKg, onKg + 10, onKg + 25]);
     const made = await m<{ id: string }>(page, "dispatch.create", { salesOrderId: o.id });
     try {
       await page.goto(`/dispatch/${made.id}`);
@@ -169,14 +172,26 @@ test.describe("dispatch from a sales order", () => {
       await field.fill(serials[0]!);
       await field.press("Enter");
       await expect(sheet.getByTestId("scan-count")).toHaveText("1 added");
-      await expect(line).toContainText(`${kg3(before.leftG - 30_000)} kg left after this load`);
+      await expect(line).toContainText(`${kg3(before.leftG - onKg * 1000)} kg left after this load`);
+      // On the line's weight: no warning.
+      await expect(sheet.locator("[data-scan-warning]")).toHaveCount(0);
+      // Off it (Q36): added all the same, with the warning in the scan result.
       await field.fill(serials[1]!);
       await field.press("Enter");
       await expect(sheet.getByTestId("scan-count")).toHaveText("2 added");
-      await expect(line).toContainText(`${kg3(before.leftG - 75_000)} kg left after this load`);
+      await expect(line).toContainText(`${kg3(before.leftG - (onKg * 2 + 10) * 1000)} kg left after this load`);
+      await expect(sheet.locator("[data-scan-warning]")).toContainText(`${o.number} says ${(basis / 1000).toFixed(3)}. Check the weight.`);
+      await expect(sheet.getByRole("status")).toContainText(`Added ${serials[1]}`);
       await expectNoHorizontalScroll(page);
       await expectNoClippedText(page, "[data-slot='sheet']");
       await sheet.getByRole("button", { name: "Done scanning" }).click();
+      // The draft marks the bundles off their line, never the one on it.
+      await page.getByRole("button", { name: "Suggest bundles" }).click();
+      await page.getByRole("dialog", { name: "Suggest bundles" }).getByRole("button", { name: "Done" }).click();
+      await expect(page.locator(`[data-serial='${serials[1]}'] [data-off-band]`).first()).toBeVisible();
+      await expect(page.locator(`[data-serial='${serials[0]}'] [data-off-band]`)).toHaveCount(0);
+      const got = await q<{ items: { serial: string; offBand: boolean }[] }>(page, "dispatch.getDispatch", { id: made.id });
+      expect(got.items.map((i) => [i.serial, i.offBand]).sort()).toEqual([[serials[0], false], [serials[1], true]].sort());
     } finally {
       await m(page, "dispatch.cancel", { id: made.id }).catch(() => undefined);
       await closeOrders(page, [o.id]);
@@ -269,5 +284,80 @@ test.describe("packing list: kg per piece", () => {
       await m(page, "company.updateSettings", { packingList: { kgPerPiece: false } });
       await closeOrders(page, [o.id]);
     }
+  });
+});
+
+test.describe("what one packing list carries (Q37)", () => {
+  test.describe.configure({ mode: "serial" });
+  for (const width of WIDTHS) {
+    test(`the owner sets the mode in Printing; several customers can share a truck at ${width}`, async ({ page }) => {
+      await open(page, { width, path: "/settings?tab=printing" });
+      const a = await makeParty(page, "TruckA");
+      const b = await makeParty(page, "TruckB");
+      let first: string | null = null;
+      let second: string | null = null;
+      try {
+        const card = page.getByTestId("packing-list-scope");
+        await expect(card.getByRole("radio", { name: "One customer" })).toBeChecked();
+        await expect(page.getByTestId("packing-list-scope-body")).toContainText("Each packing list is for one customer.");
+        // One order: set and put straight back (the setting is the whole plant's).
+        await card.getByRole("radio", { name: "One order" }).click();
+        await expect(card.getByRole("radio", { name: "One order" })).toBeChecked();
+        await expect(page.getByTestId("packing-list-scope-body")).toContainText("Each packing list is for one sales order.");
+        await card.getByRole("radio", { name: "One customer" }).click();
+        await expect(card.getByRole("radio", { name: "One customer" })).toBeChecked();
+        await expect.poll(async () => (await q<{ packingList: { scope: string } }>(page, "company.getSettings", {})).packingList.scope).toBe("one_customer");
+
+        await card.getByRole("radio", { name: "Several per truck" }).click();
+        await expect(card.getByRole("radio", { name: "Several per truck" })).toBeChecked();
+        await expect(page.getByTestId("packing-list-scope-body")).toContainText("Each customer has its own packing list");
+        await expectNoHorizontalScroll(page);
+        await expectNoClippedText(page, "main");
+        expect((await q<{ packingList: { scope: string } }>(page, "company.getSettings", {})).packingList.scope).toBe("per_truck");
+
+        // The dispatch form says the mode and offers a truck.
+        await page.goto("/dispatch/new");
+        await expect(page.locator("[data-dispatch-scope='per_truck']")).toBeVisible();
+        await expect(page.getByLabel("Same truck as")).toBeVisible();
+
+        // Customer A's dispatch, with a vehicle; then B joins its truck from A's page.
+        const one = await m<{ id: string; code: string }>(page, "dispatch.create", { customerId: a.id });
+        first = one.id;
+        await m(page, "dispatch.update", { id: one.id, vehicleNo: "GJ05TR0001", driverName: "Ramesh" });
+        await page.goto(`/dispatch/${one.id}`);
+        await expect(page.locator("[data-truck-panel]")).toBeVisible();
+        await page.locator("[data-truck-add]").click();
+        await expect(page).toHaveURL(new RegExp(`/dispatch/new\\?truckOf=${one.id}`));
+        await expect(page.getByLabel("Same truck as")).toHaveValue(one.id);
+        await page.getByRole("combobox", { name: "Customer" }).fill(b.name.slice(0, 10));
+        await page.getByRole("option", { name: new RegExp(b.name) }).click();
+        await page.getByRole("button", { name: "Create dispatch" }).click();
+        await page.waitForURL((u) => /^\/dispatch\/(?!new$)[^/]+$/.test(u.pathname));
+        second = new URL(page.url()).pathname.split("/").pop()!;
+        const panel = page.locator("[data-truck-panel]");
+        await expect(panel.locator("[data-truck-dispatch]")).toHaveCount(2);
+        await expect(panel).toContainText(a.name);
+        await expect(panel).toContainText(b.name);
+        const got = await q<{ dispatch: { vehicleNo: string; driverName: string; truckId: string; customerId: string } }>(page, "dispatch.getDispatch", { id: second });
+        expect(got.dispatch).toMatchObject({ vehicleNo: "GJ05TR0001", driverName: "Ramesh", truckId: one.id, customerId: b.id });
+        await expectNoHorizontalScroll(page);
+        await expectNoClippedText(page, "main");
+      } finally {
+        await m(page, "company.updateSettings", { packingList: { scope: "one_customer" } });
+        for (const id of [first, second]) if (id) await m(page, "dispatch.cancel", { id }).catch(() => undefined);
+      }
+    });
+  }
+
+  test("a plant on one customer per list shows no truck picker; the office sees the mode but cannot change it", async ({ page }) => {
+    await open(page, { width: 1280, path: "/dispatch/new" });
+    await expect(page.locator("[data-dispatch-scope='one_customer']")).toBeVisible();
+    await expect(page.getByLabel("Same truck as")).toHaveCount(0);
+    const office = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin });
+    const op = await office.newPage();
+    await open(op, { role: "office", width: 1280, path: "/settings?tab=printing" });
+    await expect(op.getByTestId("packing-list-scope")).toContainText("One customer");
+    await expect(op.getByTestId("packing-list-scope").getByRole("radio")).toHaveCount(0);
+    await office.close();
   });
 });

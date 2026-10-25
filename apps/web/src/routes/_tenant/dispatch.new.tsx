@@ -13,7 +13,9 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { CustomerPicker, type PickedCustomer } from "@/features/dispatch/customer-picker";
+import { usePackingListScope } from "@/features/dispatch/hooks";
 import { OrderPicker, type PickedOrder } from "@/features/dispatch/order-picker";
+import { TruckPicker } from "@/features/dispatch/truck-picker";
 import { dispatchErrorText } from "@/features/dispatch/errors";
 import { parseDayInput } from "@/features/dispatch/format";
 import { Can } from "@/shared/components/can";
@@ -21,8 +23,10 @@ import { trpc } from "@/shared/utils/trpc";
 
 /** `?salesOrderId=…` opens the form on "From sales order" with that order picked (FP-PK-17). */
 export const Route = createFileRoute("/_tenant/dispatch/new")({
-  validateSearch: (search: Record<string, unknown>): { salesOrderId?: string } =>
-    typeof search.salesOrderId === "string" && search.salesOrderId && search.salesOrderId.length <= 64 ? { salesOrderId: search.salesOrderId } : {},
+  validateSearch: (search: Record<string, unknown>): { salesOrderId?: string; truckOf?: string } => {
+    const id = (v: unknown) => (typeof v === "string" && v && v.length <= 64 ? v : undefined);
+    return { ...(id(search.salesOrderId) ? { salesOrderId: id(search.salesOrderId) } : {}), ...(id(search.truckOf) ? { truckOf: id(search.truckOf) } : {}) };
+  },
   component: NewDispatchPage,
 });
 
@@ -62,8 +66,11 @@ function NewDispatchForm() {
   const { t } = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { salesOrderId } = Route.useSearch();
-  const [mode, setMode] = useState<"customer" | "order">(salesOrderId ? "order" : "customer");
+  const { salesOrderId, truckOf: truckFromUrl } = Route.useSearch();
+  const scope = usePackingListScope();
+  // Q37: a plant that sends one sales order per packing list starts every dispatch from the order.
+  const [mode, setMode] = useState<"customer" | "order">(salesOrderId || scope === "one_so" ? "order" : "customer");
+  const [truckOf, setTruckOf] = useState(truckFromUrl ?? "");
   const [order, setOrder] = useState<PickedOrder | null>(salesOrderId ? { id: salesOrderId, number: "", customerName: "" } : null);
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);
   const [shipDate, setShipDate] = useState("");
@@ -83,6 +90,7 @@ function NewDispatchForm() {
       {
         // From a sales order the party is the order's: only the order is sent (FP-PK-17).
         ...(mode === "order" ? { salesOrderId: order!.id } : { customerId: customer!.id }),
+        ...(scope === "per_truck" && truckOf ? { truckOf } : {}),
         shipDate: parseDayInput(shipDate),
         notes: notes.trim() || null,
       },
@@ -104,6 +112,10 @@ function NewDispatchForm() {
   return (
     <form onSubmit={submit} noValidate className="flex max-w-[560px] min-w-0 flex-col gap-5">
       <div className="flex min-w-0 flex-col gap-5 rounded-card border border-border bg-card p-4 sm:p-6">
+        <p data-dispatch-scope={scope} className="m-0 text-[14px] leading-5 text-muted-foreground">
+          {t(`dispatch.scope.${scope}`)}
+        </p>
+        {scope === "one_so" ? null : (
         <SegmentedControl<"customer" | "order">
           label={t("dispatch.fromOrder.start")}
           value={mode}
@@ -116,6 +128,7 @@ function NewDispatchForm() {
             { value: "order", label: t("dispatch.fromOrder.tab") },
           ]}
         />
+        )}
         {mode === "customer" ? (
           <CustomerPicker
             value={customer}
@@ -135,6 +148,7 @@ function NewDispatchForm() {
             error={errors.order}
           />
         )}
+        {scope === "per_truck" ? <TruckPicker value={truckOf} onChange={setTruckOf} /> : null}
         <Field
           label={`${t("dispatch.new.shipDate")} (${t("common.optional").toLowerCase()})`}
           hint={t("dispatch.new.shipDateHint")}

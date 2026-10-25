@@ -7,8 +7,8 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { auditLog, bundle } from "@orrn/db/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { auditLog, bundle, printLog } from "@orrn/db/schema";
+import { and, count, eq, inArray } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { FT12, FT18, opHelpers, setSectionOwner, type OpPlant } from "./orders-w1-fixture";
@@ -242,5 +242,196 @@ describe("dispatch.suggestBundles", () => {
       [yard[0]!, "plant", false],
     ]);
     expect(FT12).toBe(3_658);
+  }, SLOW);
+});
+
+describe("Q36: the weight check at dispatch is the order line's kg/12ft, 0.1 either way; a warning, never a block", () => {
+  test("add reports the bundles off their line; the draft marks them; nothing is refused", async () => {
+    const p = await opPlant();
+    const s = await p.section();
+    await p.copy(s, { milli: 12_000 }); // the line's basis: 12.000 kg per 12 ft
+    const o = await p.confirmedOrder([{ sectionId: s, pcs: 100 }]);
+    // 10 pcs of 12 ft: 120 kg is 11.999 (on the line), 120.9 kg is +0.1 at most, 125 kg is 12.498 (off), 110 kg is 10.999 (off, light).
+    const [ok, edge, heavy, light] = [
+      ...(await p.pack(s, [{ kg: 120 }], o.lineIds[0])),
+      ...(await p.pack(s, [{ kg: 120.9 }], o.lineIds[0])),
+      ...(await p.pack(s, [{ kg: 125 }], o.lineIds[0])),
+      ...(await p.pack(s, [{ kg: 110 }], o.lineIds[0])),
+    ] as [string, string, string, string];
+    const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
+
+    const rep = await p.owner.dispatch.scan({ id, serials: [ok, edge, heavy, light] });
+    expect(rep.added.sort()).toEqual([ok, edge, heavy, light].sort());
+    expect(rep.refused).toEqual([]);
+    expect(rep.warnings!.map((w) => [w.serial, w.orderNumber, w.lineNo, w.lineMilli]).sort()).toEqual(
+      [
+        [heavy, o.number, 1, 12_000],
+        [light, o.number, 1, 12_000],
+      ].sort(),
+    );
+    const w = rep.warnings!.find((x) => x.serial === heavy)!;
+    expect(w.bundleMilli).toBeGreaterThan(12_100);
+    expect(w.diffMilli).toBe(w.bundleMilli - 12_000);
+    expect(rep.warnings!.find((x) => x.serial === light)!.diffMilli).toBeLessThan(-100);
+
+    // The scan alias says the same, and a repeat is calm (no second warning).
+    const again = await p.owner.dispatch.scan({ id, serials: [heavy] });
+    expect(again.warnings).toEqual([]);
+
+    // The draft: each item against its line.
+    const got = await p.owner.dispatch.getDispatch({ id });
+    const by = new Map(got.items.map((i) => [i.serial, i]));
+    expect([ok, edge, heavy, light].map((x) => by.get(x)!.offBand)).toEqual([false, false, true, true]);
+    expect(by.get(heavy)).toMatchObject({ lineKgPer12ftMilli: 12_000 });
+    expect(by.get(heavy)!.offBandDiffMilli).toBeGreaterThan(100);
+    // It never blocks: the dispatch holds and completes.
+    await p.owner.dispatch.reserve({ id });
+    await expect(p.owner.dispatch.complete({ id })).resolves.toBeTruthy();
+  }, SLOW);
+
+  test("a bundle with no line has nothing to compare with; the die band is not used here", async () => {
+    const p = await opPlant();
+    const s = await p.section({ weightMinG: 11_800, weightMaxG: 12_600 });
+    await p.copy(s, { milli: 12_000 });
+    const [far] = await p.pack(s, [{ kg: 150 }]); // 15 kg/12ft: far off any band, on no line
+    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const rep = await p.owner.dispatch.addBundlesBySerial({ id, serials: [far!], allowUnassigned: true });
+    expect(rep.added).toEqual([far!]);
+    expect(rep.warnings).toEqual([]);
+    expect((await p.owner.dispatch.getDispatch({ id })).items[0]).toMatchObject({ offBand: false, lineKgPer12ftMilli: null });
+  }, SLOW);
+});
+
+describe("Q37: what one packing list may carry (company setting packingList.scope)", () => {
+  const setScope = (p: OpPlant, scope: "one_so" | "one_customer" | "per_truck") => p.owner.company.updateSettings({ packingList: { scope } });
+
+  test("one_customer (the default): one customer's lines from several of their orders on one packing list; no cast on it (Q39); no labels printed (Q38)", async () => {
+    const p = await opPlant();
+    expect((await p.owner.company.getSettings()).packingList.scope).toBe("one_customer");
+    const s = await p.section();
+    await p.copy(s, { milli: 12_000 });
+    const a = await p.confirmedOrder([{ sectionId: s, pcs: 100 }]);
+    const b = await p.confirmedOrder([{ sectionId: s, pcs: 100 }]);
+    const [x] = await p.pack(s, [{ kg: 120 }], a.lineIds[0]);
+    const [y] = await p.pack(s, [{ kg: 120 }], b.lineIds[0]);
+    // A cast number on the bundles stays internal.
+    await env.db.update(bundle).set({ castId: "cast-secret-K31" }).where(and(eq(bundle.companyId, p.companyId), inArray(bundle.serial, [x!, y!])));
+    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const rep = await p.owner.dispatch.addBundlesBySerial({ id, serials: [x!, y!] });
+    expect(rep.added.sort()).toEqual([x!, y!].sort());
+    expect(new Set(rep.linked.map((l) => l.orderNumber))).toEqual(new Set([a.number, b.number]));
+    await p.owner.dispatch.reserve({ id });
+    const before = (await env.db.select({ n: count() }).from(printLog).where(eq(printLog.companyId, p.companyId)))[0]!.n;
+    await p.owner.dispatch.complete({ id });
+    const pl = await p.owner.packingList.byDispatch({ dispatchId: id });
+    const snapshot = JSON.stringify(pl!.snapshot);
+    for (const n of [a.number, b.number]) expect(snapshot).toContain(n);
+    expect(snapshot).not.toContain("cast-secret-K31");
+    expect(snapshot.toLowerCase()).not.toContain('"cast');
+    // Dispatch labels are an action on a completed dispatch, never printed by completing it.
+    expect((await env.db.select({ n: count() }).from(printLog).where(eq(printLog.companyId, p.companyId)))[0]!.n).toBe(before);
+    // Not a truck plant: a truck of several customers is refused.
+    const other = await p.owner.dispatch.create({ customerId: p.otherCustomer });
+    await expect(p.owner.dispatch.create({ customerId: p.customerId, truckOf: other.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  }, SLOW);
+
+  test("one_so: a dispatch starts from a sales order and carries that order only", async () => {
+    const p = await opPlant();
+    await setScope(p, "one_so");
+    const s = await p.section();
+    const t = await p.section();
+    await p.copy(s, { milli: 12_000 });
+    await p.copy(t, { milli: 12_000 });
+    const a = await p.confirmedOrder([{ sectionId: s, pcs: 100 }]);
+    const b = await p.confirmedOrder([{ sectionId: s, pcs: 100 }]);
+    const [mine] = await p.pack(s, [{ kg: 120 }], a.lineIds[0]);
+    const [theirs] = await p.pack(s, [{ kg: 120 }], b.lineIds[0]);
+    const [otherDie] = await p.pack(t, [{ kg: 120 }]); // on no line, a die the order has no line for
+    const [plain] = await p.pack(s, [{ kg: 120 }]); // on no line, a die the order does have a line for
+
+    await expect(p.owner.dispatch.create({ customerId: p.customerId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("one sales order per packing list"),
+    });
+    const { id } = await p.owner.dispatch.create({ salesOrderId: a.id });
+    const rep = await p.owner.dispatch.addBundlesBySerial({ id, serials: [mine!, theirs!, otherDie!, plain!], allowUnassigned: true });
+    expect(rep.added.sort()).toEqual([mine!, plain!].sort());
+    expect(rep.unavailable.map((r) => [r.serial, r.code]).sort()).toEqual(
+      [
+        [theirs!, "outside_order"],
+        [otherDie!, "outside_order"],
+      ].sort(),
+    );
+    expect(rep.unavailable[0]!.reason).toBe(`This packing list is for ${a.number} only`);
+    expect(rep.unavailable.every((r) => r.orderNumber === a.number)).toBe(true);
+    // The single-bundle path refuses the same way, with the same code.
+    const one = await p.pack(s, [{ kg: 120 }], b.lineIds[0]);
+    await expect(p.owner.dispatch.addBundle({ id, bundleId: (await idsOf(p, one))[0]! })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    // Every bundle on it is on the order's own line.
+    expect((await itemsOf(id)).map((i) => i.lineId)).toEqual([a.lineIds[0]!, a.lineIds[0]!]);
+    // The suggestions follow the same rule.
+    expect((await p.owner.dispatch.suggestBundles({ id })).items.every((i) => i.lineId === a.lineIds[0])).toBe(true);
+  }, SLOW);
+
+  test("per_truck: several customers on one truck, one packing list each, one vehicle", async () => {
+    const p = await opPlant();
+    await setScope(p, "per_truck");
+    const s = await p.section();
+    await p.copy(s, { milli: 12_000 });
+    const a = await p.confirmedOrder([{ sectionId: s, pcs: 100 }]);
+    const b = await p.confirmedOrder([{ sectionId: s, pcs: 100 }], { customerId: p.otherCustomer });
+    const [x] = await p.pack(s, [{ kg: 120 }], a.lineIds[0]);
+    const [y] = await p.pack(s, [{ kg: 120 }], b.lineIds[0]);
+
+    const first = await p.owner.dispatch.create({ customerId: p.customerId });
+    await p.owner.dispatch.update({ id: first.id, vehicleNo: "gj 05 ab 1234", driverName: "Ramesh", driverPhone: "+91 98250 00000", transporter: "Shree Roadlines", vehicleCapacityG: kg(200) });
+    // A second customer joins the truck: its own dispatch, the truck's vehicle.
+    const second = await p.owner.dispatch.create({ customerId: p.otherCustomer, truckOf: first.id });
+    const d2 = await p.owner.dispatch.getDispatch({ id: second.id });
+    expect(d2.dispatch).toMatchObject({ customerId: p.otherCustomer, vehicleNo: "GJ05AB1234", driverName: "Ramesh", transporter: "Shree Roadlines", vehicleCapacityG: kg(200), truckId: first.id });
+    expect((await p.owner.dispatch.getDispatch({ id: first.id })).dispatch.truckId).toBe(first.id);
+    expect(d2.truck!.dispatches.map((d) => d.id)).toEqual([first.id, second.id]);
+    // The same customer twice on one truck is refused; so is joining a truck that does not exist.
+    await expect(p.owner.dispatch.create({ customerId: p.customerId, truckOf: first.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.owner.dispatch.create({ customerId: p.otherCustomer, truckOf: "nope" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    // The driver changes once, for the truck.
+    await p.owner.dispatch.update({ id: second.id, driverName: "Mahesh", vehicleNo: "GJ05CD9999" });
+    for (const d of [first.id, second.id]) {
+      expect((await p.owner.dispatch.getDispatch({ id: d })).dispatch).toMatchObject({ driverName: "Mahesh", vehicleNo: "GJ05CD9999" });
+    }
+
+    // Each customer's own bundles on its own list; the vehicle's capacity is the truck's: 120 + 120 > 200 kg.
+    await p.owner.dispatch.addBundlesBySerial({ id: first.id, serials: [x!] });
+    expect((await p.owner.dispatch.getDispatch({ id: first.id })).capacity).toMatchObject({ loadedG: kg(120), state: expect.any(String) });
+    const rep = await p.owner.dispatch.scan({ id: second.id, serials: [y!] });
+    expect(rep.capacity).toMatchObject({ loadedG: kg(240), state: "over" });
+    expect((await p.owner.dispatch.getDispatch({ id: first.id })).capacity).toMatchObject({ loadedG: kg(240), state: "over" });
+    // A bundle packed for the other customer stays refused on this one.
+    expect((await p.owner.dispatch.scan({ id: first.id, serials: [y!] })).refused.map((r) => r.code)).toEqual(["wrong_customer"]);
+
+    await p.owner.dispatch.reserve({ id: first.id });
+    await p.owner.dispatch.reserve({ id: second.id });
+    // Over the truck's capacity needs a reason on either list; with one, each completes with its own PL number.
+    await expect(p.owner.dispatch.complete({ id: first.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await p.owner.dispatch.complete({ id: first.id, capacityOverrideReason: "Two small loads, one truck rated by the road" });
+    await p.owner.dispatch.complete({ id: second.id, capacityOverrideReason: "Same truck" });
+    const pl1 = await p.owner.packingList.byDispatch({ dispatchId: first.id });
+    const pl2 = await p.owner.packingList.byDispatch({ dispatchId: second.id });
+    expect(pl1!.code).not.toBe(pl2!.code);
+    const head = (pl: typeof pl1) => (pl!.snapshot as { header: { vehicleNo: string; driverName: string; billTo: { name: string } } }).header;
+    expect(head(pl1).vehicleNo).toBe(head(pl2).vehicleNo);
+    expect(head(pl1).billTo.name).not.toBe(head(pl2).billTo.name);
+    // A truck that has left takes no more customers.
+    await expect(p.owner.dispatch.create({ customerId: p.customerId, truckOf: first.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  }, SLOW);
+
+  test("the setting is changed by settings.update only, and an unknown mode is refused", async () => {
+    const p = await opPlant();
+    await expect(p.as("office").company.updateSettings({ packingList: { scope: "per_truck" } })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(p.owner.company.updateSettings({ packingList: { scope: "all" as never } })).rejects.toBeTruthy();
+    await p.owner.company.updateSettings({ packingList: { scope: "one_so" } });
+    await p.owner.company.updateSettings({ packingList: { kgPerPiece: true } }); // the other switch keeps it
+    expect((await p.owner.company.getSettings()).packingList).toEqual({ kgPerPiece: true, scope: "one_so" });
   }, SLOW);
 });

@@ -137,3 +137,19 @@ describe("packing list revision diff (C24: regenerate = new revision, same numbe
     expect(diffPackingListRevisions(prev, prev)).toEqual({ added: [], removed: [], changed: [], unchanged: 2, weightDeltaG: 0, same: true });
   });
 });
+
+describe("dispatch weight check against the order line (Q36)", () => {
+  test("0.1 kg/12ft either way is fine; past it is off; unknown figures never warn", async () => {
+    const { bundleKgPer12ftMilli, offLineBand, DISPATCH_LINE_BAND_MILLI } = await import("./packDispatch");
+    expect(DISPATCH_LINE_BAND_MILLI).toBe(100);
+    expect(offLineBand(2_600, 2_500)).toEqual({ off: false, diffMilli: 100 });
+    expect(offLineBand(2_401, 2_500)).toEqual({ off: false, diffMilli: -99 });
+    expect(offLineBand(2_601, 2_500)).toEqual({ off: true, diffMilli: 101 });
+    expect(offLineBand(2_399, 2_500)).toEqual({ off: true, diffMilli: -101 });
+    expect(offLineBand(null, 2_500)).toBeNull();
+    expect(offLineBand(2_500, null)).toBeNull();
+    // 25.2 kg over 10 pieces of 12 ft is 2.520 kg/12ft.
+    expect(bundleKgPer12ftMilli({ weightG: 25_200, pieces: 10, lengthMm: 3657.6 })).toBe(2_520);
+    expect(bundleKgPer12ftMilli({ weightG: 25_200, pieces: 0, lengthMm: 3657.6 })).toBeNull();
+  });
+});

@@ -697,6 +697,8 @@ export const en = {
     notFound: "Not found in this company",
     unrecognised: "That isn't a bundle serial or label link. Check it and try again.",
     continuous: {
+      offBand: "{kg} kg/12ft, {order} says {line}. Check the weight.",
+      outsideOrder: "This packing list is for {order} only",
       orderBaki: "{order}: baki {baki} kg, {left} kg left after this load",
       orderOver: "{kg} kg over the baki.",
       title: "Scanning into {code}",
@@ -860,6 +862,24 @@ export const en = {
   },
 
   dispatch: {
+    scope: {
+      one_so: "This plant sends one sales order per packing list.",
+      one_customer: "This plant sends one customer per packing list.",
+      per_truck: "This plant can put several customers on one truck, each with its own packing list.",
+    },
+    truck: {
+      title: "On this truck",
+      hint: "Vehicle, driver and transporter are the truck's. Each customer keeps its own packing list.",
+      pick: "Same truck as",
+      none: "A truck of its own",
+      option: "{code}, {customer}, {vehicle}",
+      noVehicle: "no vehicle yet",
+      add: "Add another customer to this truck",
+      item: "{code}, {customer}",
+    },
+    offBand: {
+      chip: "{kg} kg/12ft, the order says {line}",
+    },
     fromOrder: {
       start: "Start from",
       byCustomer: "Customer",
@@ -1710,6 +1730,26 @@ export const en = {
       linkColumn: "Invite link",
     },
     printing: {
+      packingList: {
+        title: "What one packing list carries",
+        hint: "How a dispatch is built. Changing it does not touch dispatches already started.",
+        failed: "Could not save the setting. Try again.",
+        readOnly: "Set by the plant's owner or admin.",
+        scope: {
+          one_so: {
+            label: "One order",
+            body: "Each packing list is for one sales order. A dispatch starts from the order and takes that order's bundles only.",
+          },
+          one_customer: {
+            label: "One customer",
+            body: "Each packing list is for one customer. Lines from several of that customer's orders can go on it.",
+          },
+          per_truck: {
+            label: "Several per truck",
+            body: "One truck can carry several customers. Each customer has its own packing list, all under the same vehicle.",
+          },
+        },
+      },
       status: "Label printing",
       printers: "Printers",
       lastSeen: "Last report from the print computer: {time}",

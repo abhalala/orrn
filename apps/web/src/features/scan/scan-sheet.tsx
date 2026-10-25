@@ -19,7 +19,7 @@ import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { CameraScanner } from "./camera-scanner";
 import { createDeduper } from "./dedupe";
-import { addOutcome, renderScanMessage, scanErrorKey, type AddBundlesReport } from "./scan-outcome";
+import { addOutcome, offBandText, renderScanMessage, scanErrorKey, type AddBundlesReport } from "./scan-outcome";
 import { isStoredNumber, resolveScan, useResolveScan, type ScanCandidate } from "./use-resolve-scan";
 
 export type { AddBundlesReport } from "./scan-outcome";
@@ -164,7 +164,7 @@ function ScanInputs({
 
 type LineTone = "progress" | "success" | "neutral" | "error";
 
-type Line = { id: number; tone: LineTone; message: string; serial?: string; extra?: string };
+type Line = { id: number; tone: LineTone; message: string; serial?: string; extra?: string; /** Q36: the bundle is off its order line's weight (a warning, it was added). */ warn?: string };
 
 const LINE_ICON: Record<LineTone, ReactNode> = {
   progress: <Loader2 aria-hidden="true" className="mt-0.5 size-[18px] shrink-0 animate-spin text-muted-foreground" />,
@@ -217,6 +217,11 @@ function StatusRegion({ line }: { line: Line | null }) {
               </>
             ) : null}
             {line.extra ? <span className="sr-only">. {line.extra}</span> : null}
+            {line.warn ? (
+              <span data-scan-warning="" className="mt-0.5 block text-[14px] font-semibold text-tone-amber-ink">
+                {line.warn}
+              </span>
+            ) : null}
           </span>
         </span>
       ) : null}
@@ -385,6 +390,7 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
             tone: "success",
             message: t("scan.continuous.added", { serial }),
             extra: t("scan.continuous.count", { count: countRef.current }),
+            warn: offBandText(t, report, serial) ?? undefined,
           });
           remember(serial, "added");
           addedReport = report;

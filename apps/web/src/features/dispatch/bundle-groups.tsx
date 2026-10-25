@@ -167,6 +167,7 @@ function GroupTable({ group, unit, fresh, removable, removing, onRemove, dispatc
                 <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                   <span className={cn("inline-block font-mono font-semibold whitespace-nowrap", isFresh && "animate-pop")}>{it.serial}</span>
                   {block ? <Chip tone="red">{blockText(t, block)}</Chip> : null}
+                  {it.offBand ? <OffBandChip item={it} /> : null}
                 </div>
               </td>
               <td className="px-4 text-right font-mono tabular-nums whitespace-nowrap">{formatKg(it.weightG / 1000)}</td>
@@ -185,6 +186,19 @@ function GroupTable({ group, unit, fresh, removable, removing, onRemove, dispatc
         })}
       </tbody>
     </table>
+  );
+}
+
+/** Q36: the bundle is more than 0.1 kg/12ft off the weight of its order line: a warning (amber), never a block. */
+function OffBandChip({ item }: { item: DispatchItem }) {
+  const { t } = useT();
+  return (
+    <Chip tone="amber" truncate={false} data-off-band="">
+      {t("dispatch.offBand.chip", {
+        kg: ((item.kgPer12ftMilli ?? 0) / 1000).toFixed(3),
+        line: ((item.lineKgPer12ftMilli ?? 0) / 1000).toFixed(3),
+      })}
+    </Chip>
   );
 }
 
@@ -218,6 +232,11 @@ function GroupRows({ group, unit, fresh, removable, removing, onRemove, dispatch
               {block ? (
                 <div className="flex min-w-0 py-0.5">
                   <Chip tone="red">{blockText(t, block)}</Chip>
+                </div>
+              ) : null}
+              {it.offBand ? (
+                <div className="flex min-w-0 py-0.5">
+                  <OffBandChip item={it} />
                 </div>
               ) : null}
               <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 text-[13px] text-muted-foreground">

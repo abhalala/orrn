@@ -73,6 +73,12 @@ export const dispatch = sqliteTable(
      * Null = an ordinary dispatch. No FK (sales.ts imports this file); same company is enforced in code.
      */
     salesOrderId: text("sales_order_id"),
+    /**
+     * Several customers on one truck (Q37 `per_truck`): the dispatches of one truck share this id (the
+     * first one's own id). Each keeps its own customer, bundles and packing list; the vehicle, driver,
+     * transporter and capacity are the truck's. Null = a truck of its own.
+     */
+    truckId: text("truck_id"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
@@ -81,6 +87,7 @@ export const dispatch = sqliteTable(
     uniqueIndex("dispatch_company_code_unique").on(table.companyId, table.code),
     index("dispatch_company_status_idx").on(table.companyId, table.status),
     index("dispatch_company_sales_order_idx").on(table.companyId, table.salesOrderId),
+    index("dispatch_company_truck_idx").on(table.companyId, table.truckId),
     index("dispatch_company_server_seq_idx").on(table.companyId, table.serverSeq),
     // Analytics ranges and buckets by completion time (PL-A1, ruling RP13).
     index("dispatch_company_completed_idx").on(table.companyId, table.completedAt),

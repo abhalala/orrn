@@ -161,21 +161,6 @@ export function OrderDetailPage({ id }: { id: string }) {
         subtitle={[order.customerName, order.poNumber || t("orders.noPo")].join(" · ")}
         back={{ to: "/orders", label: t("orders.title") }}
         actions={
-          <>
-            <Button variant="secondary" onClick={() => setStockOpen(true)} data-stock-on-open="" aria-haspopup="dialog">
-              <FileText aria-hidden="true" strokeWidth={2} />
-              {t("orders.stockOn.button")}
-            </Button>
-            {status === "confirmed" || status === "dispatching" ? (
-              <Can do="dispatch.create">
-                <Button variant="secondary" asChild>
-                  <Link to="/dispatch/new" search={{ salesOrderId: order.id }} data-dispatch-from-order="">
-                    <Truck aria-hidden="true" strokeWidth={2} />
-                    {t("orders.detail.dispatch")}
-                  </Link>
-                </Button>
-              </Can>
-            ) : null}
           <Can do="order.manage">
             {can.confirm ? (
               <Button size="lg" onClick={() => confirm.mutate(order.serverSeq)} disabled={confirm.isPending}>
@@ -203,7 +188,6 @@ export function OrderDetailPage({ id }: { id: string }) {
               </Button>
             ) : null}
           </Can>
-          </>
         }
       />
 
@@ -221,6 +205,23 @@ export function OrderDetailPage({ id }: { id: string }) {
             <Chip tone="red" truncate={false}>
               {t("orders.over", { kg: orderKgText(totals.overG) })}
             </Chip>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={() => setStockOpen(true)} data-stock-on-open="" aria-haspopup="dialog">
+            <FileText aria-hidden="true" strokeWidth={2} />
+            {t("orders.stockOn.button")}
+          </Button>
+          {status === "confirmed" || status === "dispatching" ? (
+            <Can do="dispatch.create">
+              <Button variant="secondary" asChild>
+                <Link to="/dispatch/new" search={{ salesOrderId: order.id }} data-dispatch-from-order="">
+                  <Truck aria-hidden="true" strokeWidth={2} />
+                  {t("orders.detail.dispatch")}
+                </Link>
+              </Button>
+            </Can>
           ) : null}
         </div>
 

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "90f2e4d1-f631-4a07-831f-8b29826a18c0",
+  "id": "9c94279e-24c5-4b44-833a-bfe7ce69e48a",
   "prevId": "9f95cdb6-f58c-4410-a85a-8c27b00a2162",
   "tables": {
     "approval": {
@@ -4159,6 +4159,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "truck_id": {
+          "name": "truck_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -4205,6 +4212,14 @@
           "columns": [
             "company_id",
             "sales_order_id"
+          ],
+          "isUnique": false
+        },
+        "dispatch_company_truck_idx": {
+          "name": "dispatch_company_truck_idx",
+          "columns": [
+            "company_id",
+            "truck_id"
           ],
           "isUnique": false
         },

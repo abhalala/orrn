@@ -690,6 +690,8 @@ export const hi = {
     notFound: "इस कंपनी में नहीं मिला",
     unrecognised: "यह bundle का serial या लेबल लिंक नहीं है। देखकर फिर से कोशिश करें।",
     continuous: {
+      offBand: "{kg} kg/12ft, {order} में {line}। वज़न जांचें।",
+      outsideOrder: "यह packing list सिर्फ़ {order} की है",
       orderBaki: "{order}: बाकी {baki} kg, इस लोड के बाद {left} kg बचा",
       orderOver: "बाकी से {kg} kg ज़्यादा।",
       title: "{code} में स्कैन हो रहा है",
@@ -853,6 +855,24 @@ export const hi = {
   },
 
   dispatch: {
+    scope: {
+      one_so: "यह प्लांट एक packing list में एक सेल्स ऑर्डर भेजता है।",
+      one_customer: "यह प्लांट एक packing list में एक ग्राहक भेजता है।",
+      per_truck: "यह प्लांट एक ट्रक में कई ग्राहक भेज सकता है, हर एक की अपनी packing list।",
+    },
+    truck: {
+      title: "इस ट्रक में",
+      hint: "गाड़ी, ड्राइवर और ट्रांसपोर्टर ट्रक के हैं। हर ग्राहक की अपनी packing list रहती है।",
+      pick: "इसी ट्रक में",
+      none: "अलग ट्रक",
+      option: "{code}, {customer}, {vehicle}",
+      noVehicle: "गाड़ी अभी नहीं",
+      add: "इस ट्रक में एक और ग्राहक जोड़ें",
+      item: "{code}, {customer}",
+    },
+    offBand: {
+      chip: "{kg} kg/12ft, ऑर्डर में {line}",
+    },
     fromOrder: {
       start: "शुरू करें",
       byCustomer: "ग्राहक से",
@@ -1703,6 +1723,26 @@ export const hi = {
       linkColumn: "इनवाइट लिंक",
     },
     printing: {
+      packingList: {
+        title: "एक packing list में क्या जाएगा",
+        hint: "dispatch कैसे बनता है। बदलने से शुरू हो चुके dispatch पर असर नहीं पड़ता।",
+        failed: "सेटिंग सेव नहीं हुई। फिर कोशिश करें।",
+        readOnly: "प्लांट के owner या admin तय करते हैं।",
+        scope: {
+          one_so: {
+            label: "एक ऑर्डर",
+            body: "हर packing list एक सेल्स ऑर्डर की होती है। dispatch ऑर्डर से शुरू होता है और उसी ऑर्डर के bundle लेता है।",
+          },
+          one_customer: {
+            label: "एक ग्राहक",
+            body: "हर packing list एक ग्राहक की होती है। उसमें उस ग्राहक के कई ऑर्डर की लाइनें आ सकती हैं।",
+          },
+          per_truck: {
+            label: "ट्रक में कई",
+            body: "एक ट्रक में कई ग्राहक जा सकते हैं। हर ग्राहक की अपनी packing list होती है, सब एक ही गाड़ी के नीचे।",
+          },
+        },
+      },
       status: "लेबल प्रिंटिंग",
       printers: "प्रिंटर",
       lastSeen: "प्रिंट कंप्यूटर की आखिरी रिपोर्ट: {time}",

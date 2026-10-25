@@ -21,6 +21,10 @@ export type DispatchItem = {
   /** The sales order of the line it is linked to (FP-PK-17 names other orders on an order's load). */
   orderId?: string | null;
   orderNumber?: string | null;
+  /** Q36: the bundle's kg/12ft in milli, its order line's, and whether it is more than 0.1 kg/12ft off. */
+  kgPer12ftMilli?: number | null;
+  lineKgPer12ftMilli?: number | null;
+  offBand?: boolean;
 };
 
 export type ItemGroup<T extends DispatchItem = DispatchItem> = {
