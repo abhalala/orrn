@@ -23,12 +23,11 @@ import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { DieBlockCard, rowQtyOf, useRowQuotes } from "./components/die-block";
+import { DieBlockCard, useOrderQuotes } from "./components/die-block";
 import { CustomerField, type Picked } from "./components/pickers";
 import {
   addRow,
   allLines,
-  blockLines,
   blockProblems,
   blocksComplete,
   defaultExpectedDate,
@@ -39,7 +38,7 @@ import {
   removeRow,
   setBlockDie,
   todayYmd,
-  totalsOf,
+  NO_TOTALS,
   type DieBlock,
 } from "./die-blocks";
 import { orderErrorLines } from "./errors";
@@ -99,9 +98,10 @@ function NewOrderForm() {
   const expectedValue = expected ?? expectedDefault;
 
   const lines = allLines(blocks);
-  const quotes = useRowQuotes(lines, unit);
-  const perBlock = blocks.map((b) => totalsOf(blockLines(b).map((l) => rowQtyOf(l, quotes.get(l.key)))));
-  const order = totalsOf(lines.map((l) => rowQtyOf(l, quotes.get(l.key))));
+  // Every figure below (row quotes, block and order totals, shares) is the server's (review r1 I-1).
+  const quoted = useOrderQuotes(blocks, unit);
+  const quotes = quoted.rows;
+  const order = quoted.order;
   const complete = customer != null && blocksComplete(blocks, unit);
 
   const create = useMutation({
@@ -168,8 +168,7 @@ function NewOrderForm() {
           showRates={showRates}
           problems={tried ? blockProblems(block, unit) : undefined}
           quotes={quotes}
-          orderKgG={order.kgG}
-          totals={perBlock[i]!}
+          totals={quoted.blocks.get(block.key) ?? NO_TOTALS}
           focusKey={focusKey}
           onFocused={onFocused}
           onDie={(die) => setBlock(block.key, (b) => setBlockDie(b, die))}

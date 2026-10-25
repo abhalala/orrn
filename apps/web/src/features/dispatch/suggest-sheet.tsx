@@ -13,13 +13,14 @@ import { orderKgText, pcsText } from "@/features/orders/format";
 import { addOutcome, renderScanMessage, scanErrorKey, type AddBundlesReport } from "@/features/scan/scan-outcome";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { addAllSerials, suggestGroups } from "./order-view";
+import { addAllSerials, addInChunks, suggestGroups } from "./order-view";
 
 /**
  * "Suggest bundles" for a dispatch opened from a sales order (FP-PK-17): this order's stock in the
  * yard first, then plant stock of the same die and cut length, from `dispatch.suggestBundles`. A
  * bundle a scan would refuse (held, owned die, another customer's) or one held for another order's
- * line is never listed. "Add all that fit" is one tap; each row can also be added alone.
+ * line is never listed. "Add all that fit" is one tap (sent 100 at a time); each row can also be
+ * added alone. Each bundle goes to the line the sheet names for it.
  */
 export function SuggestSheet({
   open,
@@ -42,28 +43,41 @@ export function SuggestSheet({
 
   const items = query.data?.items ?? [];
   const groups = suggestGroups(items);
-  const fitSerials = addAllSerials(items);
+  const fitRows = items.filter((i) => i.fits);
+  const fitCount = addAllSerials(items).length;
   const fitG = query.data?.fitsG ?? 0;
 
-  async function add(serials: string[], key: string | "all") {
-    if (serials.length === 0) return;
+  /**
+   * Add the chosen bundles, each to the line the sheet showed (`preferLineIds`, review r1 I-2), in
+   * calls of at most 100 one after the other (review r1 I-4), saying how far it got.
+   */
+  async function add(rows: { serial: string; lineId: string }[], key: string | "all") {
+    if (rows.length === 0) return;
     setBusy(key);
+    let added = 0;
     try {
-      const report = await trpcClient.dispatch.addBundlesBySerial.mutate({
-        id: dispatchId,
-        serials,
-      });
-      if (report.added.length > 0) setMessage(t("dispatch.suggest.added", { count: report.added.length }));
-      else {
-        const first = serials[0]!;
-        const outcome = addOutcome(report, first);
+      const run = await addInChunks(
+        rows,
+        (serials, preferLineIds) => trpcClient.dispatch.addBundlesBySerial.mutate({ id: dispatchId, serials, preferLineIds }),
+        (done, total, report) => {
+          added += report.added.length;
+          onAdded(report);
+          if (done < total) setMessage(t("dispatch.suggest.progress", { done, total }));
+        },
+      );
+      if (run.error) {
+        const reason = t(scanErrorKey(run.error, "dispatch"));
+        if (run.sent > 0) setMessage(t("dispatch.suggest.partial", { added, total: rows.length, reason }));
+        toast.error(reason);
+      } else if (added > 0) {
+        setMessage(t("dispatch.suggest.added", { count: added }));
+      } else {
+        const first = rows[0]!.serial;
+        const outcome = addOutcome(run.reports[0]!, first);
         setMessage(outcome.kind === "rejected" ? `${first}: ${renderScanMessage(t, outcome.message)}` : t("dispatch.suggest.nothingAdded"));
       }
-      onAdded(report);
-      await queryClient.invalidateQueries({ queryKey: trpc.dispatch.suggestBundles.queryKey({ id: dispatchId }) });
-    } catch (error) {
-      toast.error(t(scanErrorKey(error, "dispatch")));
     } finally {
+      await queryClient.invalidateQueries({ queryKey: trpc.dispatch.suggestBundles.queryKey({ id: dispatchId }) });
       setBusy(null);
     }
   }
@@ -109,9 +123,9 @@ export function SuggestSheet({
           </p>
         ) : (
           <>
-            <Button size="lg" loading={busy === "all"} disabled={busy !== null || fitSerials.length === 0} onClick={() => void add(fitSerials, "all")} data-suggest-add-all="">
+            <Button size="lg" loading={busy === "all"} disabled={busy !== null || fitCount === 0} onClick={() => void add(fitRows, "all")} data-suggest-add-all="">
               <Plus aria-hidden="true" strokeWidth={2} />
-              {t("dispatch.suggest.addAll", { count: fitSerials.length, kg: orderKgText(fitG) })}
+              {t("dispatch.suggest.addAll", { count: fitCount, kg: orderKgText(fitG) })}
             </Button>
             {([
               ["order", groups.order, t("dispatch.suggest.order")],
@@ -145,7 +159,7 @@ export function SuggestSheet({
                             ) : null}
                           </span>
                         </div>
-                        <Button variant="secondary" className="shrink-0 px-4" loading={busy === b.serial} disabled={busy !== null} onClick={() => void add([b.serial], b.serial)}>
+                        <Button variant="secondary" className="shrink-0 px-4" loading={busy === b.serial} disabled={busy !== null} onClick={() => void add([b], b.serial)}>
                           <Plus aria-hidden="true" strokeWidth={2} />
                           {t("dispatch.build.add")}
                           <span className="sr-only"> {b.serial}</span>

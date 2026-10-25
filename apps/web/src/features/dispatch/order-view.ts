@@ -54,3 +54,44 @@ export function suggestGroups<T extends Pick<Suggested, "group">>(items: readonl
 export function addAllSerials(items: readonly Pick<Suggested, "serial" | "fits">[]): string[] {
   return items.filter((i) => i.fits).map((i) => i.serial);
 }
+
+/** Most bundles one `addBundlesBySerial` call takes (the server refuses more). */
+export const ADD_CHUNK = 100;
+
+export type ChunkedAdd<R> = {
+  /** Every report that came back, in order. */
+  reports: R[];
+  /** Serials sent in calls that came back. */
+  sent: number;
+  /** The error that stopped the run (the calls after it were never sent), else null. */
+  error: unknown;
+};
+
+/**
+ * "Add all that fit" past 100 bundles (review r1 I-4): one call per ≤ 100 serials, one after the
+ * other, each naming the lines the sheet showed for its bundles (`preferLineIds`). Progress is
+ * reported after every call; an error stops the run and says how far it got.
+ */
+export async function addInChunks<R>(
+  items: readonly Pick<Suggested & { lineId: string }, "serial" | "lineId">[],
+  send: (serials: string[], preferLineIds: string[]) => Promise<R>,
+  onProgress?: (done: number, total: number, report: R) => void,
+): Promise<ChunkedAdd<R>> {
+  const out: ChunkedAdd<R> = { reports: [], sent: 0, error: null };
+  for (let i = 0; i < items.length; i += ADD_CHUNK) {
+    const part = items.slice(i, i + ADD_CHUNK);
+    try {
+      const report = await send(
+        part.map((p) => p.serial),
+        [...new Set(part.map((p) => p.lineId))],
+      );
+      out.reports.push(report);
+      out.sent += part.length;
+      onProgress?.(out.sent, items.length, report);
+    } catch (error) {
+      out.error = error;
+      break;
+    }
+  }
+  return out;
+}

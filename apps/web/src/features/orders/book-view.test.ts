@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
+import { bpPercent1 } from "@orrn/domain";
+
 import {
   activeBookFilters,
   barSegments,
   bookQueryInput,
-  dispatchedPct,
   lateRuleKey,
   nothingPlanned,
   parseBookSearch,
@@ -57,32 +58,31 @@ describe("the URL filters", () => {
 });
 
 describe("the bar", () => {
-  const bar: Bar = { dispatchedG: 120_000, inStockG: 240_000, pressedG: 0, plannedG: 240_000, restG: 1_200_000, overG: 0, dispatchedBp: 667 };
+  const bar: Bar = { dispatchedG: 120_000, inStockG: 240_000, heldG: 0, pressedG: 0, plannedG: 240_000, restG: 1_200_000, overG: 0, dispatchedBp: 667 };
 
-  test("segments in bar order with CSS widths that follow the server's kg", () => {
-    const segs = barSegments(bar, 1_800_000);
+  test("segments in bar order carry the server's kg (drawn as flex-grow, nothing divided here)", () => {
+    const segs = barSegments({ ...bar, heldG: 60_000, restG: 1_140_000 });
     expect(segs.map((s) => [s.key, s.grams])).toEqual([
       ["dispatched", 120_000],
       ["inStock", 240_000],
+      ["held", 60_000],
       ["pressed", 0],
       ["planned", 240_000],
-      ["rest", 1_200_000],
+      ["rest", 1_140_000],
     ]);
-    expect(segs.reduce((n, s) => n + s.width, 0)).toBeCloseTo(100, 6);
-    expect(segs[0]!.width).toBeCloseTo(6.667, 2);
+    expect(segs.map((s) => s.stage)).toEqual(["dispatched", "in_stock", "held", "pressed", "planned", "unplanned"]);
   });
 
-  test("an order with nothing ordered has no widths; an idle bar is a plain grey one", () => {
-    expect(barSegments({ ...bar, dispatchedG: 0, inStockG: 0, plannedG: 0, restG: 0 }, 0).every((s) => s.width === 0)).toBe(true);
+  test("an idle bar is a plain grey one; held stock is not idle", () => {
     expect(nothingPlanned({ ...bar, dispatchedG: 0, inStockG: 0, plannedG: 0 })).toBe(true);
+    expect(nothingPlanned({ ...bar, dispatchedG: 0, inStockG: 0, plannedG: 0, heldG: 1 })).toBe(false);
     expect(nothingPlanned(bar)).toBe(false);
   });
 
-  test("the dispatched share is written to one decimal, never a bare figure", () => {
-    expect(dispatchedPct(667)).toBe("6.7");
-    expect(dispatchedPct(10_000)).toBe("100");
-    expect(dispatchedPct(0)).toBe("0");
-    expect(dispatchedPct(5_050)).toBe("50.5");
+  test("the dispatched share is the server's basis points written to one decimal (bpPercent1)", () => {
+    expect(bpPercent1(667)).toBe("6.7");
+    expect(bpPercent1(10_000)).toBe("100.0");
+    expect(bpPercent1(0)).toBe("0.0");
   });
 
   test("which date made an order late", () => {

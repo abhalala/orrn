@@ -3,12 +3,14 @@ import { Chip } from "@orrn/ui/components/chip";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
 
-import { dispatchedPct, type BookTotals } from "../book-view";
+import { bpPercent1 } from "@orrn/domain";
+
+import { type BookTotals } from "../book-view";
 import { orderKgText } from "../format";
 
 /**
- * The header strip of the order book (FP-OP-20): open orders, ordered, in stock, dispatched and
- * baki over the whole filter. Every figure is `totals` of the same `orders.list` answer the grid
+ * The header strip of the order book (FP-OP-20): open orders, ordered, in stock (available only),
+ * held (on a truck or for an order), dispatched and baki over the whole filter. Every figure is `totals` of the same `orders.list` answer the grid
  * is drawn from, so the strip is the sum of the grid; nothing here adds anything up.
  */
 export function BookStrip({ totals, loading }: { totals: BookTotals | undefined; loading: boolean }) {
@@ -26,16 +28,22 @@ export function BookStrip({ totals, loading }: { totals: BookTotals | undefined;
       sub: t("units.bundles", { count: totals.inStockBundles }),
     },
     {
+      key: "held",
+      label: t("orders.book.strip.held"),
+      value: `${orderKgText(totals.heldG)} ${t("units.kg")}`,
+      sub: t("units.bundles", { count: totals.heldBundles }),
+    },
+    {
       key: "dispatched",
       label: t("orders.book.strip.dispatched"),
       value: `${orderKgText(totals.dispatchedG)} ${t("units.kg")}`,
-      sub: t("orders.book.bar.dispatchedPct", { pct: dispatchedPct(totals.dispatchedBp) }),
+      sub: t("orders.book.bar.dispatchedPct", { pct: bpPercent1(totals.dispatchedBp) }),
     },
     { key: "baki", label: t("orders.book.strip.baki"), value: `${orderKgText(totals.bakiG)} ${t("units.kg")}`, open: totals.bakiG > 0 },
   ];
   return (
     <section aria-label={t("orders.book.strip.label")} className="flex min-w-0 flex-col gap-2">
-      <dl data-book-strip="" className="m-0 grid grid-cols-2 gap-2 lg:grid-cols-5">
+      <dl data-book-strip="" className="m-0 grid grid-cols-2 gap-2 lg:grid-cols-6">
         {cells.map((c) => (
           <div
             key={c.key}

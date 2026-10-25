@@ -1,8 +1,8 @@
 /**
  * Line filters for a long order (FP-OP-05): from 20 lines on, the detail page can narrow its lines
- * by die, cut length, stage and "has baki", with the kg and pieces of the lines shown. Each line's
- * figures are the server's strip; this file only decides which lines are shown and adds up the
- * ordered kg / pieces of those lines (they are all on the page already).
+ * by die, cut length, stage and "has baki", with the kg and pieces of the lines shown. The server
+ * (`orders.get` `lineFilter` -> `shown`) picks the lines and totals them; this file only turns the
+ * choices into that input and offers the dies and lengths the order has.
  */
 import { dieTitle } from "./view";
 
@@ -23,15 +23,6 @@ export type FilterableLine = {
   bakiG: number;
 };
 
-export type FilterableStrip = {
-  dispatchedG: number;
-  inStockG: number;
-  pressedG: number;
-  plannedG: number;
-  planableG: number;
-  overG: number;
-};
-
 export type LineFilterState = { die: string; length: string; stage: LineStage | ""; hasBaki: boolean };
 
 export const NO_LINE_FILTER: LineFilterState = { die: "", length: "", stage: "", hasBaki: false };
@@ -45,35 +36,22 @@ export function showLineFilters(lineCount: number): boolean {
   return lineCount >= LINE_FILTER_FROM;
 }
 
-/** A line is in a stage when it has kg there (the server's strip: planable kg are the "not planned"). */
-export function inStage(strip: FilterableStrip | undefined, stage: LineStage): boolean {
-  if (!strip) return false;
-  switch (stage) {
-    case "dispatched":
-      return strip.dispatchedG > 0;
-    case "in_stock":
-      return strip.inStockG > 0;
-    case "pressed":
-      return strip.pressedG > 0;
-    case "planned":
-      return strip.plannedG > 0;
-    case "unplanned":
-      return strip.planableG > 0;
-    case "over":
-      return strip.overG > 0;
-  }
+/** The `orders.get` `lineFilter` for these choices: the server picks the lines and totals them (review r1 I-1). */
+export function serverLineFilter(f: LineFilterState): { dieId?: string; cutLengthMm?: number; stage?: LineStage; hasBaki?: boolean } {
+  const mm = Number(f.length);
+  return {
+    ...(f.die ? { dieId: f.die } : {}),
+    ...(f.length && Number.isInteger(mm) && mm > 0 ? { cutLengthMm: mm } : {}),
+    ...(f.stage ? { stage: f.stage } : {}),
+    ...(f.hasBaki ? { hasBaki: true } : {}),
+  };
 }
 
-export function matchesLine(line: FilterableLine, strip: FilterableStrip | undefined, f: LineFilterState): boolean {
-  if (f.die && line.sectionId !== f.die) return false;
-  if (f.length && String(line.cutLengthMm) !== f.length) return false;
-  if (f.hasBaki && !(line.bakiG > 0)) return false;
-  if (f.stage && !inStage(strip, f.stage)) return false;
-  return true;
-}
-
-export function filterLines<L extends FilterableLine>(lines: readonly L[], strips: ReadonlyMap<string, FilterableStrip>, f: LineFilterState): L[] {
-  return lines.filter((l) => matchesLine(l, strips.get(l.lineId), f));
+/** The lines to show: the server's `shown.lineIds`, in the order's line order. */
+export function shownOf<L extends { lineId: string }>(lines: readonly L[], shownIds: readonly string[] | undefined): L[] {
+  if (!shownIds) return [...lines];
+  const keep = new Set(shownIds);
+  return lines.filter((l) => keep.has(l.lineId));
 }
 
 /** The dies and cut lengths the order has, for the two selects (each once, in line order). */
@@ -85,9 +63,4 @@ export function filterOptions(lines: readonly FilterableLine[]): { dies: { id: s
     lengths.add(l.cutLengthMm);
   }
   return { dies: [...dies].map(([id, label]) => ({ id, label })), lengths: [...lengths].sort((a, b) => a - b) };
-}
-
-/** Pieces and kg of the lines shown (a line without a piece count adds none). */
-export function shownTotals(lines: readonly Pick<FilterableLine, "orderedG" | "orderedPcs">[]): { lines: number; pcs: number; orderedG: number } {
-  return lines.reduce((t, l) => ({ lines: t.lines + 1, pcs: t.pcs + (l.orderedPcs ?? 0), orderedG: t.orderedG + l.orderedG }), { lines: 0, pcs: 0, orderedG: 0 });
 }

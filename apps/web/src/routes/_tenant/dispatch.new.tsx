@@ -69,7 +69,9 @@ function NewDispatchForm() {
   const { salesOrderId, truckOf: truckFromUrl } = Route.useSearch();
   const scope = usePackingListScope();
   // Q37: a plant that sends one sales order per packing list starts every dispatch from the order.
-  const [mode, setMode] = useState<"customer" | "order">(salesOrderId || scope === "one_so" ? "order" : "customer");
+  // Derived (review m-3): the scope may arrive after the first render, and one_so always wins.
+  const [chosen, setMode] = useState<"customer" | "order" | null>(salesOrderId ? "order" : null);
+  const mode: "customer" | "order" = scope === "one_so" ? "order" : (chosen ?? "customer");
   const [truckOf, setTruckOf] = useState(truckFromUrl ?? "");
   const [order, setOrder] = useState<PickedOrder | null>(salesOrderId ? { id: salesOrderId, number: "", customerName: "" } : null);
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);

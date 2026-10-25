@@ -15,9 +15,9 @@ import {
   removeRow,
   rowHasQty,
   setBlockDie,
-  shareText,
   todayYmd,
-  totalsOf,
+  NO_TOTALS,
+  totalsView,
 } from "./die-blocks";
 
 const die = { id: "d1", label: "14701 Patti" };
@@ -85,22 +85,10 @@ describe("a die block", () => {
 });
 
 describe("live totals", () => {
-  test("add up the quotes on screen and say when some are still on their way", () => {
-    const t = totalsOf([
-      { qty: { pcs: 30, kgG: 553_500 }, typed: true },
-      { qty: { pcs: 10, kgG: 120_000 }, typed: true },
-      { qty: null, typed: true },
-      { qty: null, typed: false },
-    ]);
-    expect(t).toEqual({ lines: 2, pcs: 40, kgG: 673_500, pending: true });
-    expect(totalsOf([])).toEqual({ lines: 0, pcs: 0, kgG: 0, pending: false });
-  });
-
-  test("a row's share of the order to one decimal", () => {
-    expect(shareText(553_500, 673_500)).toBe("82.2");
-    expect(shareText(500_000, 1_000_000)).toBe("50");
-    expect(shareText(0, 1_000_000)).toBeNull();
-    expect(shareText(1, 0)).toBeNull();
+  test("are the server's figures, written down as they come (no sums on the screen)", () => {
+    expect(totalsView({ lines: 2, pcs: 40, kgG: 673_500 }, false)).toEqual({ lines: 2, pcs: 40, kgG: 673_500, pending: false });
+    expect(totalsView(undefined, true)).toEqual({ lines: 0, pcs: 0, kgG: 0, pending: true });
+    expect(totalsView(undefined, false)).toEqual(NO_TOTALS);
   });
 });
 

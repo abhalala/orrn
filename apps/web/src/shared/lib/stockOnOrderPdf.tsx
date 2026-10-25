@@ -90,7 +90,7 @@ function StockDoc({ model }: { model: StockOnOrderModel }) {
             </View>
           </View>
         ))}
-        <Text style={s.total}>{`${bundles(model.totals.bundles)} · ${model.totals.pcs} pcs · ${kg(model.totals.weightKg)} kg`}</Text>
+        <Text style={s.total}>{`${model.truncated ? "Partial total (bundles listed only): " : ""}${bundles(model.totals.bundles)} · ${model.totals.pcs} pcs · ${kg(model.totals.weightKg)} kg`}</Text>
         <View style={s.strip}>
           <Text>{`Ordered ${kg(model.strip.orderedKg)} kg`}</Text>
           <Text>{`Dispatched ${kg(model.strip.dispatchedKg)} kg`}</Text>

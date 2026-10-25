@@ -21,7 +21,8 @@ export function LineFilters({
   onChange(next: LineFilterState): void;
   options: { dies: { id: string; label: string }[]; lengths: number[] };
   unit: LengthUnit;
-  shown: { lines: number; pcs: number; orderedG: number };
+  /** The server's lines and totals for the filter (`orders.get` `shown`). */
+  shown: { lines: number; orderedPcs: number; orderedG: number; pcsMissing: number };
   total: number;
 }) {
   const { t } = useT();
@@ -67,7 +68,8 @@ export function LineFilters({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p data-line-filter-totals="" className="m-0 font-mono text-[13px] tabular-nums" aria-live="polite">
-          {t("orders.detail.filter.shown", { shown: shown.lines, total })} · {pcsText(shown.pcs)} {t("units.pcs")} · {orderKgText(shown.orderedG)} {t("units.kg")}
+          {t("orders.detail.filter.shown", { shown: shown.lines, total })} · {pcsText(shown.orderedPcs)} {t("units.pcs")} · {orderKgText(shown.orderedG)} {t("units.kg")}
+          {shown.pcsMissing > 0 ? ` · ${t("orders.detail.filter.pcsMissing", { n: shown.pcsMissing })}` : ""}
         </p>
         {lineFilterActive(value) ? (
           <Button variant="ghost" onClick={() => onChange(NO_LINE_FILTER)}>

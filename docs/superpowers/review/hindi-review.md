@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3447 screen strings in 43 groups, 16 guides with 292 strings.
+Counts: 3475 screen strings in 43 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -792,7 +792,7 @@ Counts: 3447 screen strings in 43 groups, 16 guides with 292 strings.
 | `ambiguousTitle` | Which bundle? | कौन सा bundle? |
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 
-### dispatch (181)
+### dispatch (183)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -840,6 +840,8 @@ Counts: 3447 screen strings in 43 groups, 16 guides with 292 strings.
 | `suggest.held` | Held for this line | इस लाइन के लिए रोका हुआ |
 | `suggest.pastBaki` | Past the baki | बाकी से ज़्यादा |
 | `suggest.cut` | The list is cut. Add these and ask again. | सूची कटी हुई है। इन्हें जोड़कर फिर देखें। |
+| `suggest.progress` | Adding {done} of {total}… | {total} में से {done} जुड़ रहे हैं… |
+| `suggest.partial` | Added {added} of {total}. The rest was not added: {reason} | {total} में से {added} जुड़े। बाकी नहीं जुड़े: {reason} |
 | `title` | Dispatch | Dispatch |
 | `newDispatch` | New dispatch | नया dispatch |
 | `columns.code` | Code | कोड |
@@ -2908,7 +2910,7 @@ Please check, Lalubhai:
 | `owner.purpose.pack` | Pack | पैकिंग |
 | `owner.purpose.dispatch` | Dispatch | Dispatch |
 
-### orders (340)
+### orders (366)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2924,6 +2926,7 @@ Please check, Lalubhai:
 | `book.strip.ofShown` | {count} in this view | इस सूची में {count} |
 | `book.strip.ordered` | Ordered | ऑर्डर |
 | `book.strip.inStock` | In stock | स्टॉक में |
+| `book.strip.held` | Held | होल्ड |
 | `book.strip.dispatched` | Dispatched | Dispatch हुआ |
 | `book.strip.baki` | Baki | बाकी |
 | `book.strip.late` | Late: {count} | लेट: {count} |
@@ -2948,6 +2951,7 @@ Please check, Lalubhai:
 | `book.show.cancelled` | Cancelled | रद्द |
 | `book.stage.dispatched` | Dispatched | Dispatch हुआ |
 | `book.stage.in_stock` | In stock | स्टॉक में |
+| `book.stage.held` | Held (on a truck or for the order) | होल्ड (ट्रक पर या ऑर्डर के लिए) |
 | `book.stage.pressed` | Pressed, not packed | प्रेस हुआ, पैक नहीं |
 | `book.stage.planned` | Planned, not pressed | प्लान हुआ, प्रेस नहीं |
 | `book.stage.unplanned` | Not planned | प्लान नहीं हुआ |
@@ -3069,6 +3073,7 @@ Please check, Lalubhai:
 | `detail.filter.stage` | Stage | स्टेज |
 | `detail.filter.hasBaki` | Has baki | बाकी है |
 | `detail.filter.shown` | {shown} of {total} lines | {total} में से {shown} लाइनें |
+| `detail.filter.pcsMissing` | {n} lines without pieces | {n} लाइनों में पीस नहीं |
 | `detail.filter.none` | No line matches these filters. | इन फ़िल्टर से कोई लाइन नहीं मिली। |
 | `detail.lines` | Lines | लाइनें |
 | `detail.lineShort` | Line {n} | लाइन {n} |
@@ -3245,6 +3250,29 @@ Please check, Lalubhai:
 | `hold.release` | Release | होल्ड हटाएं |
 | `hold.releaseAll` | Release all | सब होल्ड हटाएं |
 | `hold.released` | {count} {count:bundle\|bundles} released | {count} bundle से होल्ड हटा |
+| `hold.button` | Hold stock | स्टॉक होल्ड करें |
+| `hold.sheetTitle` | Hold stock for line {n} | लाइन {n} के लिए स्टॉक होल्ड करें |
+| `hold.hint` | Yard bundles of this die on no order, or on this line. They stay where they are; while held, no other customer's dispatch can take them. | इस die के यार्ड bundle जो किसी ऑर्डर पर नहीं हैं, या इसी लाइन पर हैं। वे जहां हैं वहीं रहते हैं; होल्ड रहने तक किसी और ग्राहक का dispatch उन्हें नहीं ले सकता। |
+| `hold.none` | No yard bundles of this die can be held for this line. | इस die का कोई यार्ड bundle इस लाइन के लिए होल्ड नहीं किया जा सकता। |
+| `hold.submit` | Hold {count} {count:bundle\|bundles} | {count} bundle होल्ड करें |
+| `hold.heldDone` | Held {count} {count:bundle\|bundles} ({kg} kg) | {count} bundle होल्ड किए ({kg} kg) |
+| `hold.alreadyList` | Already held: {serials} | पहले से होल्ड: {serials} |
+| `hold.lengthWarning` | {serial} is {length}; the line is {lineLength}. Held anyway. | {serial} की लंबाई {length} है; लाइन {lineLength} की है। फिर भी होल्ड किया। |
+| `hold.chip` | Held: {count} {count:bundle\|bundles} · {kg} kg | होल्ड: {count} bundle · {kg} kg |
+| `hold.list` | Held bundles | होल्ड bundle |
+| `hold.listTitle` | Held for line {n} | लाइन {n} के लिए होल्ड |
+| `hold.onDispatch` | On {code} | {code} पर |
+| `hold.releaseSelected` | Release {count} | {count} से होल्ड हटाएं |
+| `hold.refusal.on_dispatch` | {serial} is on dispatch {code}. Take it off the dispatch first. | {serial} dispatch {code} पर है। पहले उसे dispatch से हटाएं। |
+| `hold.refusal.held_elsewhere` | {serial} is already held for {order} line {line} ({customer}). Release it first. | {serial} पहले से {order} लाइन {line} ({customer}) के लिए होल्ड है। पहले होल्ड हटाएं। |
+| `hold.refusal.held_elsewhere_bare` | {serial} is already held for another order line. Release it first. | {serial} पहले से किसी और ऑर्डर लाइन के लिए होल्ड है। पहले होल्ड हटाएं। |
+| `hold.refusal.other_line` | {serial} is on {order} line {line}. Move it with Reallocate instead. | {serial} {order} लाइन {line} पर है। उसे Reallocate से ले जाएं। |
+| `hold.refusal.die_mismatch` | {serial} is a different die from that line. | {serial} उस लाइन की die का नहीं है। |
+| `hold.refusal.pending` | {serial} is waiting on a reallocation approval. | {serial} reallocation की मंज़ूरी की राह देख रहा है। |
+| `hold.refusal.not_available` | {serial} is not in the yard ({status}). Only bundles in the yard can be held. | {serial} यार्ड में नहीं है ({status})। सिर्फ यार्ड के bundle रोके जा सकते हैं। |
+| `hold.refusal.line_closed` | {order} is {status}. Hold stock for an open order. | {order} {status} है। खुले ऑर्डर के लिए स्टॉक होल्ड करें। |
+| `hold.refusal.not_held` | {serials} not held for {order} line {line}. | {serials} {order} लाइन {line} के लिए होल्ड नहीं हैं। |
+| `hold.refusal.changed` | A bundle or the order changed meanwhile. Reload and try again. | इस बीच कोई bundle या ऑर्डर बदल गया। फिर से लोड करके कोशिश करें। |
 | `hold.refused.line_closed` | The order is not open | ऑर्डर खुला नहीं है |
 | `hold.refused.not_available` | Not in the yard | यार्ड में नहीं है |
 | `hold.refused.on_dispatch` | On a dispatch | dispatch पर है |

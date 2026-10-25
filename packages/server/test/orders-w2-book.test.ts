@@ -417,7 +417,7 @@ describe("review r1 I-1: totals and shares come from the server", () => {
     const d1 = all.dieTotals.find((d) => d.dieId === s1)!;
     expect(d1).toMatchObject({ lines: 2, orderedG: l[0]!.orderedG + l[1]!.orderedG, orderedPcs: 130, pcsMissing: 0 });
     expect(all.dieTotals.find((d) => d.dieId === s2)).toMatchObject({ lines: 1, orderedPcs: 50 });
-    expect(all.shown).toBeNull();
+    expect(all.shown).toMatchObject({ lineIds: o.lineIds, lines: 3, orderedPcs: 180, pcsMissing: 0 });
 
     const byDie = await p.owner.orders.get({ id: o.id, lineFilter: { dieId: s1 } });
     expect(byDie.shown).toMatchObject({ lineIds: [o.lineIds[0], o.lineIds[1]], lines: 2, orderedG: d1.orderedG, orderedPcs: 130, pcsMissing: 0 });

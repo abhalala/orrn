@@ -42,7 +42,32 @@ const RELEASED_PLAN = /^Line ([\d, ]+) is on a released press plan/;
 const BELOW_DISPATCHED = /^([\d,.]+) kg is already dispatched on line (\d+), more than the new ([\d,.]+) kg/;
 const OWNED = /^This die belongs to (.+)$/;
 
+// FP-OP-17 hold / release refusals (orders.hold, orders.release), in the reader's language.
+const HOLD_REFUSALS: [RegExp, (t: Translate, m: RegExpExecArray) => string][] = [
+  [/^(\S+) is on dispatch (.*); take it off the dispatch first$/, (t, m) => t("orders.hold.refusal.on_dispatch", { serial: m[1]!, code: m[2]!.trim() })],
+  [/^(\S+) is already held for (\S+) line (\d+) \((.+)\)\. Release it first\.$/, (t, m) => t("orders.hold.refusal.held_elsewhere", { serial: m[1]!, order: m[2]!, line: m[3]!, customer: m[4]! })],
+  [/^(\S+) is already held for another order line\. Release it first\.$/, (t, m) => t("orders.hold.refusal.held_elsewhere_bare", { serial: m[1]! })],
+  [/^(\S+) is on (.+) line (\d*); move it with Reallocate instead$/, (t, m) => t("orders.hold.refusal.other_line", { serial: m[1]!, order: m[2]!, line: m[3]! })],
+  [/^(\S+) is a different die from that line$/, (t, m) => t("orders.hold.refusal.die_mismatch", { serial: m[1]! })],
+  [/^(\S+) is waiting on a reallocation approval$/, (t, m) => t("orders.hold.refusal.pending", { serial: m[1]! })],
+  [/^(\S+) is (\w+); only bundles in the yard can be held$/, (t, m) => t("orders.hold.refusal.not_available", { serial: m[1]!, status: m[2]! })],
+  [/^(\S+) is (\w+); hold stock for an open order$/, (t, m) => t("orders.hold.refusal.line_closed", { order: m[1]!, status: m[2]! })],
+  [/^(.+) (?:is|are) not held for (\S+) line (\d+)$/, (t, m) => t("orders.hold.refusal.not_held", { serials: m[1]!, order: m[2]!, line: m[3]! })],
+  [/^A bundle or the order changed meanwhile\. Reload and try again\.$/, (t) => t("orders.hold.refusal.changed")],
+];
+
+/** A hold or release refusal in the reader's language, or null when the sentence is not one of them. */
+export function holdRefusalText(t: Translate, message: string): string | null {
+  for (const [re, text] of HOLD_REFUSALS) {
+    const m = re.exec(message);
+    if (m) return text(t, m);
+  }
+  return null;
+}
+
 function knownRefusal(t: Translate, message: string): string | null {
+  const hold = holdRefusalText(t, message);
+  if (hold) return hold;
   const released = RELEASED_PLAN.exec(message);
   if (released) return t("orders.edit.releasedPlan", { lines: released[1]!.trim() });
   const below = BELOW_DISPATCHED.exec(message);

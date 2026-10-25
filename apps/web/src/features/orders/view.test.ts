@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createI18n } from "@orrn/i18n";
 
 import {
+  holdableItems,
   addPlanLine,
   blockerText,
   copyChoiceInput,
@@ -294,5 +295,17 @@ describe("in stock with its bundle count (FP-OP-05)", () => {
     expect(cells[5]).toMatchObject({ key: "inStockG", kg: "100.000", pcs: "50", bundles: 1 });
     expect(cells[4]).toMatchObject({ bundles: null });
     expect(stripCells(strip)[5]).toMatchObject({ pcs: null, bundles: null });
+  });
+});
+
+describe("holdableItems (FP-OP-17)", () => {
+  test("bundles on no line or this line, not held yet", () => {
+    const items = [
+      { id: "a", lineId: null, heldForLineId: null },
+      { id: "b", lineId: "l1", heldForLineId: null },
+      { id: "c", lineId: "l2", heldForLineId: null },
+      { id: "d", lineId: null, heldForLineId: "l9" },
+    ];
+    expect(holdableItems(items, "l1").map((i) => i.id)).toEqual(["a", "b"]);
   });
 });

@@ -1,8 +1,9 @@
+import { bpPercent1 } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { cn } from "@orrn/ui/lib/utils";
 
 import { orderKgText } from "../format";
-import { BAR_TONE, barSegments, dispatchedPct, nothingPlanned, type Bar } from "../book-view";
+import { BAR_TONE, barSegments, nothingPlanned, type Bar } from "../book-view";
 
 /**
  * One order's kg bar (FP-OP-20): dispatched, in stock, pressed not packed, planned not pressed and
@@ -13,10 +14,10 @@ import { BAR_TONE, barSegments, dispatchedPct, nothingPlanned, type Bar } from "
  */
 export function OrderBar({ number, bar, orderedG, bakiG, compact = false }: { number: string; bar: Bar; orderedG: number; bakiG: number; compact?: boolean }) {
   const { t } = useT();
-  const segments = barSegments(bar, orderedG);
+  const segments = barSegments(bar);
   const visible = segments.filter((s) => s.grams > 0);
   const idle = nothingPlanned(bar);
-  const pct = dispatchedPct(bar.dispatchedBp);
+  const pct = bpPercent1(bar.dispatchedBp);
   const summary = [
     t("orders.book.bar.label", { number }),
     t("orders.book.bar.dispatchedPct", { pct }),
@@ -30,7 +31,7 @@ export function OrderBar({ number, bar, orderedG, bakiG, compact = false }: { nu
         aria-label={summary}
         className={cn("flex w-full overflow-hidden rounded-full border border-border bg-surface-sunken", compact ? "h-2.5" : "h-3")}
       >
-        {idle ? null : segments.map((s) => (s.grams > 0 ? <span key={s.key} data-segment={s.key} data-kg={s.grams} className={cn("h-full", BAR_TONE[s.key])} style={{ width: `${s.width}%` }} /> : null))}
+        {idle || orderedG <= 0 ? null : segments.map((s) => (s.grams > 0 ? <span key={s.key} data-segment={s.key} data-kg={s.grams} className={cn("h-full", BAR_TONE[s.key])} style={{ flexGrow: s.grams, flexBasis: 0 }} /> : null))}
       </div>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
         <p className="m-0 text-[13px] font-semibold tabular-nums" data-bar-label="">

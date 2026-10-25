@@ -8,7 +8,7 @@ import type { MessageKey } from "@orrn/i18n";
 
 import type { OrderStatus } from "./view";
 
-export const BOOK_STAGES = ["dispatched", "in_stock", "pressed", "planned", "unplanned", "over"] as const;
+export const BOOK_STAGES = ["dispatched", "in_stock", "held", "pressed", "planned", "unplanned", "over"] as const;
 export type BookStage = (typeof BOOK_STAGES)[number];
 
 /** The status chips: open (default), one status, or late (open orders past their date). */
@@ -97,6 +97,8 @@ export function bookQueryInput(s: BookSearch) {
 export type Bar = {
   dispatchedG: number;
   inStockG: number;
+  /** On a truck being loaded, or held in the yard for the order (FP-OP-17). */
+  heldG: number;
   pressedG: number;
   plannedG: number;
   restG: number;
@@ -104,54 +106,44 @@ export type Bar = {
   dispatchedBp: number;
 };
 
-export type BarKey = "dispatched" | "inStock" | "pressed" | "planned" | "rest";
+export type BarKey = "dispatched" | "inStock" | "held" | "pressed" | "planned" | "rest";
 
 export type BarSegment = {
   key: BarKey;
   stage: BookStage;
   labelKey: MessageKey;
+  /** The server's kg; the segment's CSS flex-grow, so the browser shares out the bar (no sums here). */
   grams: number;
-  /** Width in percent of the bar (CSS only). */
-  width: number;
 };
 
 const SEGMENTS: readonly { key: BarKey; stage: BookStage; grams: keyof Bar; labelKey: MessageKey }[] = [
   { key: "dispatched", stage: "dispatched", grams: "dispatchedG", labelKey: "orders.book.stage.dispatched" },
   { key: "inStock", stage: "in_stock", grams: "inStockG", labelKey: "orders.book.stage.in_stock" },
+  { key: "held", stage: "held", grams: "heldG", labelKey: "orders.book.stage.held" },
   { key: "pressed", stage: "pressed", grams: "pressedG", labelKey: "orders.book.stage.pressed" },
   { key: "planned", stage: "planned", grams: "plannedG", labelKey: "orders.book.stage.planned" },
   { key: "rest", stage: "unplanned", grams: "restG", labelKey: "orders.book.stage.unplanned" },
 ];
 
 /**
- * The segments with kg, in bar order, each with its CSS width. The server's segments add up to the
- * ordered kg, so the widths add up to 100; an order with nothing ordered has no widths.
+ * The segments in bar order. The server's segments add up to the ordered kg, so drawing each with
+ * `flex-grow: grams` fills the bar in proportion without the page dividing anything.
  */
-export function barSegments(bar: Bar, orderedG: number): BarSegment[] {
-  return SEGMENTS.map((s) => ({
-    key: s.key,
-    stage: s.stage,
-    labelKey: s.labelKey,
-    grams: bar[s.grams] as number,
-    width: orderedG > 0 ? ((bar[s.grams] as number) * 100) / orderedG : 0,
-  }));
+export function barSegments(bar: Bar): BarSegment[] {
+  return SEGMENTS.map((s) => ({ key: s.key, stage: s.stage, labelKey: s.labelKey, grams: bar[s.grams] as number }));
 }
 
 /** "0 planned, nothing else": the bar is all "not planned" (a grey bar plus its baki). */
 export function nothingPlanned(bar: Bar): boolean {
-  return bar.dispatchedG === 0 && bar.inStockG === 0 && bar.pressedG === 0 && bar.plannedG === 0;
+  return bar.dispatchedG === 0 && bar.inStockG === 0 && bar.heldG === 0 && bar.pressedG === 0 && bar.plannedG === 0;
 }
 
-/** Basis points as the label's percent: 667 -> "6.7", 10000 -> "100", 0 -> "0". */
-export function dispatchedPct(bp: number): string {
-  const tenths = Math.round(bp / 10);
-  return tenths % 10 === 0 ? String(tenths / 10) : (tenths / 10).toFixed(1);
-}
 
 /** Tone class of one segment (colour is never the only signal: the legend names every segment). */
 export const BAR_TONE: Record<BarKey, string> = {
   dispatched: "bg-tone-green",
   inStock: "bg-tone-blue",
+  held: "bg-tone-blue/45",
   pressed: "bg-tone-amber",
   planned: "bg-tone-neutral-ink/55",
   rest: "bg-surface-sunken",
@@ -165,6 +157,8 @@ export type BookTotals = {
   dispatchedG: number;
   inStockG: number;
   inStockBundles: number;
+  heldG: number;
+  heldBundles: number;
   bakiG: number;
   dispatchedBp: number;
 };

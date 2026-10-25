@@ -489,10 +489,12 @@ export const orderFlowProcedures = {
    * The new-order form's quotes in one call (review r1 I-1, FP-OP-02): every row's quote (or why it
    * could not be quoted), the totals per die block and for the whole order, and each row's share
    * of the order's kg in basis points (rounded half up). The screen only writes these down.
+   * Nothing is saved: it is a read sent as POST (a mutation) only because a long order's rows do
+   * not fit in a GET URL.
    */
   quoteMany: companyProcedure
     .input(z.object({ rows: z.array(quoteInput.extend({ key: z.string().min(1).max(64), block: z.string().min(1).max(64) })).max(QUOTE_MANY_MAX) }))
-    .query(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const floor = await companyFloor(ctx.db, ctx.companyId);
       const quoted: { key: string; block: string; quote: Awaited<ReturnType<typeof quoteLine>> | null; error: string | null }[] = [];
       for (const { key, block, ...args } of input.rows) {

@@ -111,33 +111,22 @@ export function rowHasQty(row: LineDraft): boolean {
 export type RowQty = { pcs: number; kgG: number } | null;
 
 export type Totals = {
-  /** Rows with a quantity. */
+  /** Rows the server quoted. */
   lines: number;
   pcs: number;
   kgG: number;
-  /** Some row has a quantity typed but no quote yet: the totals are still moving. */
+  /** The server's answer is not for what is typed now yet: the totals are still moving. */
   pending: boolean;
 };
 
-export function totalsOf(qtys: readonly { qty: RowQty; typed: boolean }[]): Totals {
-  const out: Totals = { lines: 0, pcs: 0, kgG: 0, pending: false };
-  for (const q of qtys) {
-    if (q.qty) {
-      out.lines += 1;
-      out.pcs += q.qty.pcs;
-      out.kgG += q.qty.kgG;
-    } else if (q.typed) {
-      out.pending = true;
-    }
-  }
-  return out;
-}
+export const NO_TOTALS: Totals = { lines: 0, pcs: 0, kgG: 0, pending: false };
 
-/** A row's share of the whole order's kg as a percent with one decimal ("12.5"), or null without kg. */
-export function shareText(rowKgG: number, orderKgG: number): string | null {
-  if (!(orderKgG > 0) || !(rowKgG > 0)) return null;
-  const tenths = Math.round((rowKgG * 1000) / orderKgG);
-  return tenths % 10 === 0 ? String(tenths / 10) : (tenths / 10).toFixed(1);
+/**
+ * The server's totals (`orders.quoteMany`, review r1 I-1) as the screen shows them. Nothing is
+ * added up here: a block or the order with no answer yet shows zero and "quoting".
+ */
+export function totalsView(t: { lines: number; pcs: number; kgG: number } | undefined, pending: boolean): Totals {
+  return t ? { lines: t.lines, pcs: t.pcs, kgG: t.kgG, pending } : { ...NO_TOTALS, pending };
 }
 
 // ---------------------------------------------------------------------------

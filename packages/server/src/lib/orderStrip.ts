@@ -49,6 +49,8 @@ export type LineStrip = {
   /** Held for this line in the yard (FP-OP-17), kg and pieces. */
   heldG: number;
   heldPcs: number;
+  /** How many bundles are held for this line (the "Held" chip, FP-OP-17). */
+  heldBundles: number;
   /** Produced beyond ordered (the strip's "over" chip). */
   overG: number;
   planableG: number;
@@ -83,8 +85,8 @@ function availableCount(what: "n" | "pcs") {
  * Bundles held for the outer line (FP-OP-17): kg or pieces, available + reserved. `yardOnly` keeps
  * the held bundles not ON this line (the part planableG still has to take off).
  */
-export function heldSum(what: "g" | "pcs", yardOnly = false) {
-  const agg = what === "g" ? sql`sum(hb.weight_g)` : sql`sum(hb.quantity)`;
+export function heldSum(what: "g" | "pcs" | "n", yardOnly = false) {
+  const agg = what === "g" ? sql`sum(hb.weight_g)` : what === "pcs" ? sql`sum(hb.quantity)` : sql`count(*)`;
   const yard = yardOnly ? sql` and coalesce(hb.sales_order_line_id, '') <> ${LI}` : sql``;
   return sql<number>`(select coalesce(${agg}, 0) from bundle hb where hb.company_id = ${LC} and hb.held_for_line_id = ${LI} and hb.status in ('available', 'reserved')${yard})`;
 }
@@ -137,6 +139,7 @@ export function stripOf(r: {
   inStockPcs?: number;
   heldG?: number;
   heldPcs?: number;
+  heldBundles?: number;
   heldYardG?: number;
 }): LineStrip {
   const agedG = 0;
@@ -157,6 +160,7 @@ export function stripOf(r: {
     inStockPcs: r.inStockPcs ?? 0,
     heldG: r.heldG ?? 0,
     heldPcs: r.heldPcs ?? 0,
+    heldBundles: r.heldBundles ?? 0,
     overG: Math.max(0, r.producedG - r.orderedG),
     planableG: planableOf({
       orderedG: r.orderedG,
@@ -198,6 +202,7 @@ export async function lineStrips(
         inStockPcs: availableCount("pcs"),
         heldG: heldSum("g"),
         heldPcs: heldSum("pcs"),
+        heldBundles: heldSum("n"),
         heldYardG: heldSum("g", true),
       })
       .from(L)
@@ -219,6 +224,7 @@ export async function lineStrips(
           inStockPcs: num(r.inStockPcs),
           heldG: num(r.heldG),
           heldPcs: num(r.heldPcs),
+          heldBundles: num(r.heldBundles),
           heldYardG: num(r.heldYardG),
         }),
       );

@@ -1,17 +1,17 @@
 import type { LengthUnit } from "@orrn/domain";
-import { formatLength as formatLengthMm } from "@orrn/domain";
+import { bpPercent1, formatLength as formatLengthMm } from "@orrn/domain";
 import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Boxes, Copy, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
-import { trpc } from "@/shared/utils/trpc";
+import { trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { blockLines, rowHasQty, shareText, totalsOf, type BlockProblems, type DieBlock, type RowQty, type Totals } from "../die-blocks";
+import { blockLines, rowHasQty, totalsView, type BlockProblems, type DieBlock, type Totals } from "../die-blocks";
 import { kgFieldText, milliText, orderKgText, pcsText } from "../format";
 import { useDebounced } from "../hooks";
 import { cutLengthMm, quoteArgs, sameQuoteArgs, type Finish, type LineDraft, type QuoteArgs, type WeightBasis } from "../line-model";
@@ -34,39 +34,59 @@ type Quote = {
 };
 
 /** What one row's quote is doing: asked for exactly what is typed now, on its way, or failed. */
-export type RowQuote = { data: Quote | undefined; quoting: boolean; failed: boolean };
+export type RowQuote = {
+  data: Quote | undefined;
+  quoting: boolean;
+  failed: boolean;
+  /** The row's share of the order's kg in basis points (the server's), once every row is quoted. */
+  shareBp: number | null;
+};
+
+export type OrderQuotes = { rows: Map<string, RowQuote>; blocks: Map<string, Totals>; order: Totals };
+
+type QuoteManyResult = {
+  rows: { key: string; block: string; quote: Quote | null; error: string | null; shareBp: number | null }[];
+  blocks: { block: string; lines: number; pcs: number; kgG: number; failed: number }[];
+  order: { lines: number; pcs: number; kgG: number; failed: number };
+};
 
 /**
- * One `orders.quote` per row, asked once typing pauses (review I-5): a quote is shown only for
- * exactly what is typed now. The server's pieces and kg are what the form shows and totals.
+ * Every row's quote in one `orders.quoteMany` call, asked once typing pauses (review I-5, r1 I-1):
+ * a quote is shown only for exactly what is typed now. The server's pieces and kg are what the
+ * form shows, and the block and order totals and each row's share are the server's too.
  */
-export function useRowQuotes(lines: readonly LineDraft[], unit: LengthUnit): Map<string, RowQuote> {
-  const wanted = lines.map((l) => ({ key: l.key, args: quoteArgs(l, unit) }));
+export function useOrderQuotes(blocks: readonly DieBlock[], unit: LengthUnit): OrderQuotes {
+  const wanted = blocks.flatMap((b) => blockLines(b).map((l) => ({ key: l.key, block: b.key, args: quoteArgs(l, unit) })));
   const json = JSON.stringify(wanted);
   const debounced = useDebounced(json, 300);
-  const asked = useMemo(() => JSON.parse(debounced) as { key: string; args: QuoteArgs | null }[], [debounced]);
-  const results = useQueries({
-    queries: asked.map((a) => ({
-      ...trpc.orders.quote.queryOptions(a.args!),
-      enabled: a.args != null,
-      retry: false,
-    })),
+  const asked = useMemo(() => JSON.parse(debounced) as { key: string; block: string; args: QuoteArgs | null }[], [debounced]);
+  const rows = useMemo(() => asked.flatMap((a) => (a.args ? [{ key: a.key, block: a.block, ...a.args }] : [])), [asked]);
+  const q = useQuery({
+    queryKey: ["orders.quoteMany", rows],
+    // A read sent as POST: a long order's rows do not fit in a GET URL.
+    queryFn: () => trpcClient.orders.quoteMany.mutate({ rows }) as Promise<QuoteManyResult>,
+    enabled: rows.length > 0,
+    retry: false,
+    placeholderData: keepPreviousData,
   });
+  const fresh = q.data != null && !q.isPlaceholderData;
+  const settled = debounced === json && (rows.length === 0 || fresh);
+  const byKey = new Map((fresh ? q.data!.rows : []).map((r) => [r.key, r]));
   const out = new Map<string, RowQuote>();
   for (const w of wanted) {
     const i = asked.findIndex((a) => a.key === w.key);
-    const q = i >= 0 ? results[i] : undefined;
     const current = w.args != null && i >= 0 && asked[i]!.args != null && sameQuoteArgs(w.args, asked[i]!.args!);
-    const data = current && q?.data ? (q.data as Quote) : undefined;
-    out.set(w.key, { data, quoting: w.args != null && !data && !(current && q?.isError), failed: Boolean(w.args && current && q?.isError) });
+    const r = current ? byKey.get(w.key) : undefined;
+    const data = r?.quote ?? undefined;
+    const failed = Boolean(r && r.error != null) || Boolean(current && q.isError);
+    out.set(w.key, { data, quoting: w.args != null && !data && !failed, failed, shareBp: settled && data ? (r?.shareBp ?? null) : null });
   }
-  return out;
-}
-
-/** A row's quantity for the totals: the quote when there is one. */
-export function rowQtyOf(row: LineDraft, quote: RowQuote | undefined): { qty: RowQty; typed: boolean } {
-  const typed = rowHasQty(row);
-  return { qty: quote?.data ? { pcs: quote.data.pcs, kgG: quote.data.kgG } : null, typed };
+  const shown = rows.length > 0 ? q.data : undefined;
+  return {
+    rows: out,
+    blocks: new Map(blocks.map((b) => [b.key, totalsView(shown?.blocks.find((x) => x.block === b.key), !settled)])),
+    order: totalsView(shown?.order, !settled),
+  };
 }
 
 /**
@@ -85,7 +105,6 @@ export function DieBlockCard({
   showRates,
   problems,
   quotes,
-  orderKgG,
   totals,
   focusKey,
   onFocused,
@@ -108,7 +127,6 @@ export function DieBlockCard({
   showRates: boolean;
   problems: BlockProblems | undefined;
   quotes: Map<string, RowQuote>;
-  orderKgG: number;
   totals: Totals;
   focusKey: string | null;
   onFocused(): void;
@@ -174,7 +192,10 @@ export function DieBlockCard({
             quote={quotes.get(row.key)}
             showBasis={row.key === firstQuoted}
             problems={shown ? problems.rows[row.key] : undefined}
-            share={shareText(quotes.get(row.key)?.data?.kgG ?? 0, orderKgG)}
+            share={(() => {
+              const bp = quotes.get(row.key)?.shareBp;
+              return bp != null && bp > 0 ? bpPercent1(bp) : null;
+            })()}
             focus={focusKey === row.key}
             onFocused={onFocused}
             onChange={(patch) => onRow(row.key, patch)}

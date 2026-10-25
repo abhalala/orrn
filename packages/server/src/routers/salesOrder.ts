@@ -902,7 +902,8 @@ export const salesOrderRouter = router({
         ...extras,
         /** Ordered kg and pieces per die, in line order (the die blocks of the order). */
         dieTotals: orderedTotalsByDie(lines),
-        shown: input.lineFilter ? shownLines(lines, extras.lineDetails, input.lineFilter) : null,
+        /** The lines the filter keeps (every line without one) with their ordered kg and pieces (FP-OP-05). */
+        shown: shownLines(lines, extras.lineDetails, input.lineFilter ?? {}),
       };
     }),
 

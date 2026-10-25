@@ -54,6 +54,10 @@ export type Strip = {
   /** FP-OP-05: the bundles and pieces that make up "in stock" (absent on an older server answer). */
   inStockBundles?: number;
   inStockPcs?: number;
+  /** FP-OP-17: held for this line in the yard (absent on an older server answer). */
+  heldG?: number;
+  heldPcs?: number;
+  heldBundles?: number;
   dispatchedG: number;
   bakiG: number;
   bakiPcs: number | null;
@@ -391,4 +395,12 @@ export function copyChoiceInput(value: string): { dieInstanceId: string | null; 
     return { dieInstanceId: null, tierRank: Number.isInteger(rank) && rank > 0 ? rank : null };
   }
   return { dieInstanceId: null, tierRank: null };
+}
+
+/**
+ * FP-OP-17: the yard bundles that can be held for a line, from `orders.matchStock`: on no order
+ * line or on this one, and not held yet. (The server checks again and says why if not.)
+ */
+export function holdableItems<T extends { lineId: string | null; heldForLineId: string | null }>(items: readonly T[], lineId: string): T[] {
+  return items.filter((i) => (i.lineId == null || i.lineId === lineId) && i.heldForLineId == null);
 }
