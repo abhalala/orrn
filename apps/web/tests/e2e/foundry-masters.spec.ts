@@ -120,6 +120,36 @@ for (const width of WIDTHS) {
       await expectClean(page);
     });
 
+    test("a manager states the opening balance of a return stream once; the stream shows it", async ({ page }) => {
+      const api = await ownerApi();
+      const code = `E2E${tag}${Date.now().toString(36).slice(-4).toUpperCase()}`;
+      await api.mutate("foundry.returnStreams.create", { code, name: `Opening test ${code}`, kind: "charge" });
+      await api.dispose();
+      await open(page, "/foundry/stock", width, "manager");
+      const row = page.locator(`[data-stream='${code}']`);
+      await expect(row).toBeVisible();
+      await expect(row.getByTestId("stream-balance")).toContainText("0");
+      await row.getByTestId("stream-opening").click();
+      await page.getByTestId("opening-save").click();
+      await expect(page.getByText("Write the kg as a number above zero.")).toBeVisible();
+      await page.getByTestId("opening-kg").fill("1250");
+      await page.getByTestId("opening-save").click();
+      await expect(page.getByText("Opening balance posted").first()).toBeVisible();
+      await expect(row.getByTestId("stream-balance")).toContainText("1,250");
+      await expectClean(page);
+      // A second post for the same stream is refused in words.
+      await row.getByTestId("stream-opening").click();
+      await page.getByTestId("opening-kg").fill("5");
+      await page.getByTestId("opening-save").click();
+      await expect(page.getByTestId("foundry-error")).toContainText("already has an opening balance");
+    });
+
+    test("a foundry hand sees the streams but has no opening button", async ({ page }) => {
+      await open(page, "/foundry/stock", width, "foundry");
+      await expect(page.getByTestId("streams-panel")).toBeVisible();
+      await expect(page.getByTestId("stream-opening")).toHaveCount(0);
+    });
+
     test("the foundry yield report groups locked melts by day, alloy and furnace and prints", async ({ page }) => {
       const api = await ownerApi();
       const cast = await openOwnCast(api);

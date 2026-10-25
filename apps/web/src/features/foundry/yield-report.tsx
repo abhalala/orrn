@@ -125,6 +125,11 @@ export function FoundryYieldReport({ search, onSearch }: { search: YieldSearch; 
           </table>
         </ReportTableFrame>
       )}
+      {d && d.total.tailAdjustG !== 0 ? (
+        <p className="m-0 text-[13px] text-muted-foreground" data-testid="yield-tail-adjust">
+          {t("foundry.yield.tailAdjust", { kg: `${d.total.tailAdjustG < 0 ? "-" : "+"}${kgFromG(Math.abs(d.total.tailAdjustG))}`, pct: d.total.netYieldBp === null ? "-" : bpText(d.total.netYieldBp) })}
+        </p>
+      ) : null}
       <p className="m-0 text-[13px] text-muted-foreground">{t("foundry.yield.note")}</p>
     </ReportsGate>
   );

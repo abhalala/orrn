@@ -78,5 +78,6 @@ export const foundryRefusalGu = {
   castCountOver: "ગણતરીમાં {cast} ના બિલેટ લેજર કરતાં {kg} kg વધુ મળ્યા. કારણ પસંદ કરો.",
   countWithKg: "બિલેટ ગણો અને સાથે તોલો.",
   streamShort: "{stream} માં ફક્ત {kg} kg સ્ટોકમાં છે.",
+  openingExists: "{name} નું ઓપનિંગ બેલેન્સ પહેલેથી છે.",
   spectroNoFile: "કોઈ ફાઇલ જોડી નથી. આંકડા હાથે કેમ લખ્યા તે લખો.",
 };

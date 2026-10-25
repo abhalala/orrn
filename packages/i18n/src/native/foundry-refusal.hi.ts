@@ -78,5 +78,6 @@ export const foundryRefusalHi = {
   castCountOver: "गिनती में {cast} के बिलेट लेजर से {kg} kg ज़्यादा मिले। कारण चुनें।",
   countWithKg: "बिलेट गिनें और साथ में तौलें।",
   streamShort: "{stream} में सिर्फ़ {kg} kg स्टॉक में है।",
+  openingExists: "{name} का ओपनिंग बैलेंस पहले से है।",
   spectroNoFile: "कोई फ़ाइल नहीं जोड़ी। लिखें कि आंकड़े हाथ से क्यों लिखे।",
 };

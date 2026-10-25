@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 6111 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6127 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -5141,7 +5141,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (548)
+### foundry (564)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5223,6 +5223,7 @@ Please check, Lalubhai:
 | `refusal.castCountOver` | The count finds {kg} kg more billets of {cast} than the ledger. Pick a reason. | गिनती में {cast} के बिलेट लेजर से {kg} kg ज़्यादा मिले। कारण चुनें। |
 | `refusal.countWithKg` | Count the billets and weigh them together. | बिलेट गिनें और साथ में तौलें। |
 | `refusal.streamShort` | Only {kg} kg of {stream} is in stock. | {stream} में सिर्फ़ {kg} kg स्टॉक में है। |
+| `refusal.openingExists` | {name} already has an opening balance. | {name} का ओपनिंग बैलेंस पहले से है। |
 | `refusal.spectroNoFile` | No file is attached. Write why the numbers are typed. | कोई फ़ाइल नहीं जोड़ी। लिखें कि आंकड़े हाथ से क्यों लिखे। |
 | `inbox.columns.file` | File | फ़ाइल |
 | `inbox.columns.when` | When | कब |
@@ -5396,6 +5397,8 @@ Please check, Lalubhai:
 | `cast.trace.noLots` | No scrap lot has gone into this cast yet. | इस कास्ट में अभी कोई स्क्रैप लॉट नहीं गया। |
 | `cast.trace.melts` | Melts | मेल्ट |
 | `cast.trace.inLogs` | in {inKg} kg, logs {logs} kg | डाला {inKg} kg, लॉग {logs} kg |
+| `cast.trace.lockedWith` | locked with spectro {verdict} | स्पेक्ट्रो {verdict} के साथ लॉक हुई |
+| `cast.trace.adjusted` | count at close moved the ledger by {kg} kg | बंद करते समय की गिनती से खाता {kg} kg हिला |
 | `cast.trace.billets` | Billets | बिलेट |
 | `cast.trace.billetsLine` | made {produced} kg, used {pressed} kg, on hand {onHand} kg | बने {produced} kg, प्रेस ने लिए {pressed} kg, हाथ में {onHand} kg |
 | `cast.trace.runs` | Press runs | प्रेस रन |
@@ -5621,6 +5624,18 @@ Please check, Lalubhai:
 | `stock.alloyLine` | {kg} kg in {casts} {casts:cast\|casts} | {casts} कास्ट में {kg} kg |
 | `stock.onHand` | On hand | हाथ में |
 | `stock.loadFailed` | The billet stock did not load. Check the connection and try again. | बिलेट स्टॉक नहीं आया। कनेक्शन देखकर फिर कोशिश करें। |
+| `stock.streams.title` | Return streams | रिटर्न स्ट्रीम |
+| `stock.streams.hint` | Plant scrap, dross and the other streams a melt takes metal from. A melt cannot take more than the stream holds, so a new plant states what it holds now. | प्लांट स्क्रैप, ड्रॉस और बाकी स्ट्रीम जिनसे मेल्ट मेटल लेती है। मेल्ट स्ट्रीम में जितना है उससे ज़्यादा नहीं ले सकती, इसलिए नया प्लांट अभी का स्टॉक बताता है। |
+| `stock.streams.balance` | {kg} kg | {kg} kg |
+| `stock.streams.open` | Set opening balance | ओपनिंग बैलेंस डालें |
+| `stock.streams.sheetTitle` | Opening balance of {name} | {name} का ओपनिंग बैलेंस |
+| `stock.streams.kg` | Kg held now | अभी हाथ में kg |
+| `stock.streams.kgInvalid` | Write the kg as a number above zero. | kg अंक में, शून्य से ऊपर लिखें। |
+| `stock.streams.note` | Note (optional) | टिप्पणी (ज़रूरी नहीं) |
+| `stock.streams.once` | This is posted once for each stream. Later stock moves through melts and the press. | यह हर स्ट्रीम के लिए एक बार डलता है। इसके बाद स्टॉक मेल्ट और प्रेस से हिलता है। |
+| `stock.streams.save` | Post opening balance | ओपनिंग बैलेंस डालें |
+| `stock.streams.saved` | Opening balance posted | ओपनिंग बैलेंस डल गया |
+| `stock.streams.retired` | Retired | बंद |
 | `cert.title` | Test certificate | टेस्ट सर्टिफ़िकेट |
 | `cert.staffCopy` | Staff copy. Not a tax invoice. | स्टाफ़ कॉपी। टैक्स इनवॉइस नहीं। |
 | `cert.period` | Cast month | कास्ट का महीना |
@@ -5689,9 +5704,10 @@ Please check, Lalubhai:
 | `yield.fe` | Iron kg | आयरन kg |
 | `yield.burn` | Burn % | बर्न % |
 | `yield.yield` | Yield % | यील्ड % |
-| `yield.ldo` | LDO in per tonne | प्रति टन LDO |
+| `yield.ldo` | LDO in per tonne of logs | प्रति टन लॉग LDO |
 | `yield.empty` | No locked melts in these days. | इन दिनों में कोई लॉक मेल्ट नहीं। |
-| `yield.note` | LDO is inches of tank dip per tonne of metal charged, not litres. | LDO प्रति टन डाले गए मेटल पर टंकी की डिप के इंच हैं, लीटर नहीं। |
+| `yield.note` | LDO is inches of tank dip per tonne of logs made, not litres. | LDO प्रति टन बने लॉग पर टंकी की डिप के इंच हैं, लीटर नहीं। |
+| `yield.tailAdjust` | Billet count adjustments at cast close in these days: {kg} kg. Net yield after them: {pct}%. | इन दिनों कास्ट बंद करते समय बिलेट गिनती से हुए बदलाव: {kg} kg। उनके बाद नेट यील्ड: {pct}%। |
 | `yield.csvName` | foundry-yield | foundry-yield |
 
 ### ageing (20)

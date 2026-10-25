@@ -77,6 +77,7 @@ export const FOUNDRY_REFUSALS: readonly RefusalEntry[] = [
   { id: "fd_addStream", key: "foundry.refusal.addStream", re: /^Add the \S+ return stream first \(Masters → Return streams\)$/ },
   { id: "fd_streamReactivate", key: "foundry.refusal.streamReactivate", re: new RegExp(`^The \\S+ return stream \\((\\S+)\\) is retired; reactivate it first \\(Masters → Return streams\\)$`), vars: (m) => ({ code: m[1]! }) },
   { id: "fd_streamByproduct", key: "foundry.refusal.streamByproduct", re: new RegExp(`^The ${S} return stream must be a by-product stream to take \\S+$`), vars: (m) => ({ code: m[1]! }) },
+  { id: "fd_openingExists", key: "foundry.refusal.openingExists", re: /^(.+) already has an opening balance$/, vars: (m) => ({ name: m[1]! }) },
   { id: "fd_alreadyLocked", key: "foundry.refusal.alreadyLocked", re: /^This melt is already locked$/ },
   { id: "fd_addInput", key: "foundry.refusal.addInput", re: /^Add what went into the furnace$/ },
   { id: "fd_addLogs", key: "foundry.refusal.addLogs", re: /^Add the logs that came out$/ },

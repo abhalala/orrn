@@ -72,6 +72,11 @@ export function TraceTree({ castId, highlight }: { castId: string; highlight?: s
                   <Chip tone="neutral">{t("foundry.spectro.none")}</Chip>
                 )
               ) : null}
+              {m.status === "locked" && m.lockSpectroVerdict && m.lockSpectroVerdict !== m.spectroVerdict ? (
+                <span className="text-[13px] text-muted-foreground" data-testid="trace-locked-with">
+                  {t("foundry.cast.trace.lockedWith", { verdict: t(`foundry.spectro.verdict.${m.lockSpectroVerdict}`) })}
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -80,6 +85,7 @@ export function TraceTree({ castId, highlight }: { castId: string; highlight?: s
         <p className="m-0 border-l border-border pl-3 text-[14px] tabular-nums">
           {t("foundry.cast.trace.billetsLine", { produced: kgFromG(d.billets.producedG), pressed: kgFromG(d.billets.creditedG), onHand: kgFromG(d.billets.onHandG) })}
         </p>
+        {d.billets.adjustedG !== 0 ? <p className="m-0 border-l border-border pl-3 text-[13px] text-muted-foreground tabular-nums">{t("foundry.cast.trace.adjusted", { kg: `${d.billets.adjustedG < 0 ? "-" : "+"}${kgFromG(Math.abs(d.billets.adjustedG))}` })}</p> : null}
       </Branch>
       <Branch title={t("foundry.cast.trace.runs")} count={d.runs.length} testId="trace-runs">
         {d.runs.length === 0 ? (

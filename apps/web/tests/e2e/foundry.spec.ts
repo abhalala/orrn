@@ -334,7 +334,8 @@ for (const width of WIDTHS) {
       await expect(figures).toContainText("90");
       await expect(manager.getByRole("link", { name: "Open cast" })).toHaveAttribute("href", `/casts/${cast.id}`);
       await manager.getByRole("button", { name: "Approve" }).click();
-      await expect(manager.getByText("Approved").first()).toBeVisible();
+      // The request leaves the Waiting list once it is decided.
+      await expect(manager.locator("main#main").locator("li, tr").filter({ hasText: `Close cast ${cast.number}` })).toHaveCount(0);
       await ctx.close();
       await page.reload();
       await expect(page.getByTestId("cast-chips")).toContainText("Closed");

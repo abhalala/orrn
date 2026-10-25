@@ -249,6 +249,54 @@ const returnStreamsRouter = router({
     return { added: (await count()) - before };
   }),
 
+  /**
+   * Opening balance of a return stream (go-live, masters.publish): one `opening` ledger row of the kg
+   * the plant holds of this stream at PLANT-SCRAP, so a fresh plant can lock its first melt (a melt
+   * may not take more of a stream than the ledger holds). One per stream (voucher = the stream, line 1:
+   * a second post, or a race, is refused); any later stock moves through melts, the press and the
+   * count. Nothing is reversed by editing this: the ledger is append-only.
+   */
+  opening: actionProcedure("masters.publish")
+    .input(z.object({ streamId: id, kgG: positiveGrams, note: optText(200) }))
+    .mutation(async ({ ctx, input }) => {
+      const stream = (await streamsByIds(ctx, [input.streamId])).get(input.streamId);
+      if (!stream) throw new TRPCError({ code: "NOT_FOUND", message: "Return stream not found" });
+      if (!stream.active) bad(`${stream.name} is retired`);
+      const place = await resolvePlantScrap(ctx.db, ctx.companyId);
+      const already = await ctx.db
+        .select({ id: stockLedger.id })
+        .from(stockLedger)
+        .where(and(eq(stockLedger.companyId, ctx.companyId), eq(stockLedger.voucherType, "opening"), eq(stockLedger.itemKind, "return_stream"), eq(stockLedger.itemRef, stream.id)))
+        .limit(1);
+      if (already.length > 0) bad(`${stream.name} already has an opening balance`);
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const at = clockNow();
+      try {
+        await atomicBatch(ctx.db, [
+          ctx.db.insert(stockLedger).values({
+            id: crypto.randomUUID(),
+            companyId: ctx.companyId,
+            serverSeq: seq,
+            voucherType: "opening",
+            voucherId: stream.id,
+            line: 1,
+            itemKind: "return_stream",
+            itemRef: stream.id,
+            locationId: place.id,
+            qtyG: input.kgG,
+            postedAt: at,
+            reason: input.note ?? "Opening balance",
+            createdBy: ctx.session.user.id,
+          }),
+          auditInsert(ctx, { action: "return_stream.opening", subjectType: "return_stream", subjectId: stream.id, meta: { code: stream.code, kgG: input.kgG, note: input.note } }),
+        ]);
+      } catch (e) {
+        if (isUniqueViolation(e, "stock_ledger.company_id, stock_ledger.voucher_type, stock_ledger.voucher_id, stock_ledger.line")) bad(`${stream.name} already has an opening balance`);
+        throw e;
+      }
+      return { id: stream.id, code: stream.code, kgG: input.kgG };
+    }),
+
   create: actionProcedure("masters.publish")
     .input(
       z.object({

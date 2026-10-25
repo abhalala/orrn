@@ -78,5 +78,6 @@ export const foundryRefusalEn = {
   castCountOver: "The count finds {kg} kg more billets of {cast} than the ledger. Pick a reason.",
   countWithKg: "Count the billets and weigh them together.",
   streamShort: "Only {kg} kg of {stream} is in stock.",
+  openingExists: "{name} already has an opening balance.",
   spectroNoFile: "No file is attached. Write why the numbers are typed.",
 };

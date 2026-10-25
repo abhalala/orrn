@@ -662,7 +662,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   BEND-LOG, HILL-METAL, PIT-METAL, TENDIS, DROSS-METAL) plus 2 `byproduct` streams (DROSS, FE).
   Codes are stable keys other modules post to (press discard → DISCARD, ends / QC rejects →
   PLANT-SCRAP); code and kind never change after create. They sit at the plant-scrap (`wip`)
-  location. `seedDefaults` (masters.publish or cast.enter) and every `casts.open` add missing ones.
+  location. `seedDefaults` (masters.publish or cast.enter) and every `casts.open` add missing ones. `returnStreams.opening` (masters.publish, W2-FD-W) posts a stream's go-live balance once (an `opening` ledger row at plant scrap, voucher = the stream), from the Return streams panel on `/foundry/stock`; without it a fresh plant's first melt cannot take metal from a stream.
   Stream draws are not balance-guarded (no opening counts yet); negative balances show on
   `returnStreams.list`.
 - A cast is a campaign: `casts.open` (cast.enter) takes its number from the doc series (`K31`, month
