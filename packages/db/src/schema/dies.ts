@@ -362,6 +362,11 @@ export const dieMakerJob = sqliteTable(
       .default(nowMs)
       .$onUpdate(() => new Date())
       .notNull(),
+    /**
+     * The copy's status when it was sent (`available` or `on_trial`; '' on rows older than migration
+     * 0029, read as `available`). A cancelled job puts the copy back as it went (FP-DR-17).
+     */
+    fromStatus: text("from_status").notNull().default(""),
   },
   (table) => [
     uniqueIndex("die_maker_job_company_number_unique").on(table.companyId, table.period, table.number),

@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3a7b89b6-f73c-4f3f-b9c2-38425998b192",
-  "prevId": "9f95cdb6-f58c-4410-a85a-8c27b00a2162",
+  "id": "97a19ad2-0be9-4627-acfc-6efd9a9d8662",
+  "prevId": "9e9c0f3b-dfe1-42b1-8dbe-b3f6a13d57e9",
   "tables": {
     "approval": {
       "name": "approval",
@@ -3282,6 +3282,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        },
+        "from_status": {
+          "name": "from_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
         }
       },
       "indexes": {
@@ -8860,6 +8868,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        },
+        "trial": {
+          "name": "trial",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         }
       },
       "indexes": {

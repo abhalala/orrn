@@ -3302,6 +3302,8 @@ export const en = {
       searchHint: "Search a section, a series or a copy like 12170-2",
       slashHint: "A slash works too: 12170/2 finds 12170-2.",
       columns: {
+        copy: "Copy",
+        series: "Series",
         shape: "Shape",
         band: "Weight band",
         owner: "Owner",
@@ -3314,6 +3316,10 @@ export const en = {
       makersLink: "Die makers",
       loadFailed: "The dies didn't load. Check the connection and try again.",
       noMatchBody: "Try a section code, a series or a copy code.",
+      copiesNote: "These are the copies in this state. Each one opens its card.",
+      copiesLabel: "Copies in this state",
+      noCopiesInState: "No copy is in this state",
+      noCopiesInStateBody: "Clear the tile to see every die.",
     },
     section: {
       copyAddedTrial: "{code} added, on trial",

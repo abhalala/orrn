@@ -269,7 +269,8 @@ export const dieFileRouter = router({
     const id = ticket.fileId;
     const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
     const statements: SqliteBatchItem[] = [];
-    // Bulk attach: the first PDF of a section with no press drawing takes the place; later ones are plain files.
+    // Bulk attach: the first PDF of a section with no press drawing takes the place; later ones are plain
+    // files. The read below is only a shortcut: the batch decides (two commits may both read "none").
     const drawingIfNone = ticket.drawingIfNone === true && !ticket.pressDrawing && section.drawingKey == null;
     if (ticket.pressDrawing) {
       statements.push(
@@ -290,25 +291,35 @@ export const dieFileRouter = router({
         r2Key: key,
         filename: ticket.name,
         bytes: head.size,
-        pressDrawing: ticket.pressDrawing || drawingIfNone,
+        // An if-none PDF goes in as a plain file; it is flagged below only once it holds the key.
+        pressDrawing: ticket.pressDrawing,
         createdBy: ctx.session.user.id,
       }),
     );
     if (drawingIfNone) {
       statements.push(
+        // Take the place only if it is still free (no key, no flagged file) once this row is in.
         ctx.db
           .update(die)
           .set({ drawingKey: key, serverSeq: seq })
-          .where(and(eq(die.id, section.id), eq(die.companyId, ctx.companyId), isNull(die.drawingKey))),
-        // Another commit took the place meanwhile: this file stays a plain file.
+          .where(
+            and(
+              eq(die.id, section.id),
+              eq(die.companyId, ctx.companyId),
+              isNull(die.drawingKey),
+              sql`exists (select 1 from die_file f where f.id = ${id})`,
+              sql`not exists (select 1 from die_file f where f.company_id = ${ctx.companyId} and f.section_id = ${section.id} and f.press_drawing = 1)`,
+            ),
+          ),
+        // Flag the file only when the key is now its own; another commit that won keeps it a plain file.
         ctx.db
           .update(dieFile)
-          .set({ pressDrawing: false })
+          .set({ pressDrawing: true })
           .where(
             and(
               eq(dieFile.id, id),
               eq(dieFile.companyId, ctx.companyId),
-              sql`not exists (select 1 from die d where d.id = ${section.id} and d.company_id = ${ctx.companyId} and d.drawing_key = ${key})`,
+              sql`exists (select 1 from die d where d.id = ${section.id} and d.company_id = ${ctx.companyId} and d.drawing_key = ${key})`,
             ),
           ),
       );

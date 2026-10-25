@@ -24,7 +24,7 @@ import { auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { auditCtx, decodeListCursor, dieRoomAbortUnless, encodeListCursor, errorText, isDieRoomAbort, listCursorInput } from "../lib/dieRoom";
 import { assertDieAllowed } from "../lib/dieOwner";
-import { runPurpose, statusAfterReturn } from "../lib/dieTrial";
+import { issueReturnStatements, loggedVerdict, runPurpose } from "../lib/dieTrial";
 import { nextCompanySeq } from "../lib/sequence";
 
 const STATUS_WORDS: Record<string, string> = {
@@ -305,6 +305,8 @@ export const dieIssueRouter = router({
               note: sql<string | null>`${input.note ?? null}`.as("note"),
               createdAt: sql<number>`${at.getTime()}`.as("created_at"),
               updatedAt: sql<number>`${at.getTime()}`.as("updated_at"),
+              // 0029: the copy row itself says whether it goes out on trial (dieTrial.ts).
+              trial: sql<number>`case when ${I("status")} = 'on_trial' then 1 else 0 end`.as("trial"),
             })
             .from(dieInstance)
             .where(and(eq(dieInstance.id, copy.id), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.status, copy.status))),
@@ -353,7 +355,7 @@ export const dieIssueRouter = router({
               pressRunId: run.id,
               pressRunNumber: run.number,
               warnings,
-              // The copy was on trial when it went out: return and cancel send it back on trial (dieTrial.ts).
+              // A log of what die_issue.trial holds; return and cancel read the column, never this row.
               trial: copy.status === "on_trial" ? 1 : 0,
               purpose,
             },
@@ -417,8 +419,7 @@ export const dieIssueRouter = router({
           ),
       ];
       if (issue.run) statements.push(requeueRun(ctx, issue, seq, "returned"));
-      const status = await statusAfterReturn(ctx.db, ctx.companyId, issue.dieInstanceId, issue.id, issue.run?.id);
-      await runIssueClose(ctx, issue, seq, statements, "returned", status);
+      const status = await runIssueClose(ctx, issue, seq, statements, "returned");
       return { success: true, status };
     }),
 
@@ -445,8 +446,7 @@ export const dieIssueRouter = router({
           .where(and(eq(dieIssue.id, issue.id), eq(dieIssue.companyId, ctx.companyId), eq(dieIssue.status, "issued"))),
       ];
       if (issue.run) statements.push(requeueRun(ctx, issue, seq, "cancelled"));
-      const status = await statusAfterReturn(ctx.db, ctx.companyId, issue.dieInstanceId, issue.id, issue.run?.id);
-      await runIssueClose(ctx, issue, seq, statements, "cancelled", status);
+      const status = await runIssueClose(ctx, issue, seq, statements, "cancelled");
       return { success: true, status };
     }),
 });
@@ -477,9 +477,10 @@ function requeueRun(
 }
 
 /**
- * The shared tail of return and cancel: the issue row change(s) given, then the copy back to
- * `available`, all-or-nothing, with the audit row. Whatever the path, no run may be left
- * `die_issued` on the copy that went back to the rack (D13).
+ * The shared tail of return and cancel: the issue row change(s) given, then the copy back to the
+ * rack (or `on_trial` for a trial issue that has not passed, plus `die_trial.pass` for one that has:
+ * `issueReturnStatements`), all-or-nothing, with the audit row. Whatever the path, no run may be left
+ * `die_issued` on the copy that went back (D13). Returns where the copy landed.
  */
 async function runIssueClose(
   ctx: Parameters<typeof auditCtx>[0] & { db: OrrnDb },
@@ -487,11 +488,18 @@ async function runIssueClose(
   seq: number,
   head: SqliteBatchItem[],
   to: "returned" | "cancelled",
-  /** Where the copy lands: the rack, or `on_trial` when it went out as a trial copy (FP-DR-17). */
-  copyTo: "available" | "on_trial" = "available",
-): Promise<void> {
+): Promise<"available" | "on_trial"> {
   const issueLanded = sql`exists (select 1 from die_issue x where x.id = ${issue.id} and x.server_seq = ${seq} and x.status = ${to})`;
-  let landed = sql`${issueLanded} and exists (select 1 from die_instance i where i.id = ${issue.dieInstanceId} and i.status = ${copyTo} and i.server_seq = ${seq})`;
+  const back = issueReturnStatements(ctx, {
+    issue: { id: issue.id, trial: issue.trial === 1, to },
+    copy: { id: issue.dieInstanceId, code: issue.code },
+    run: issue.run ? { id: issue.run.id, number: issue.run.number } : null,
+    verdict: issue.trial === 1 && to === "returned" ? await loggedVerdict(ctx.db, ctx.companyId, issue.run?.id) : null,
+    seq,
+    via: to === "returned" ? "return" : "cancel",
+  });
+  const copyTo = back.copyTo;
+  let landed = sql`${issueLanded} and ${back.landed}`;
   if (issue.run) {
     landed = sql`${landed} and not exists (select 1 from press_run r where r.id = ${issue.run.id} and r.status = 'die_issued' and r.die_instance_id = ${issue.dieInstanceId})`;
   }
@@ -501,10 +509,7 @@ async function runIssueClose(
   const runRequeued = Boolean(issue.run && issue.run.status === "die_issued" && issue.run.dieInAt == null);
   const statements: SqliteBatchItem[] = [
     ...head,
-    ctx.db
-      .update(dieInstance)
-      .set({ status: copyTo, serverSeq: seq })
-      .where(and(eq(dieInstance.id, issue.dieInstanceId), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.status, "in_use"), issueLanded)),
+    ...back.statements,
     dieRoomAbortUnless(ctx.db, landed),
     auditInsertGuarded(
       auditCtx(ctx),
@@ -530,4 +535,5 @@ async function runIssueClose(
     }
     throw e;
   }
+  return copyTo;
 }

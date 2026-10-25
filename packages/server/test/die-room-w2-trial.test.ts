@@ -6,8 +6,12 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { auditLog, dieInstance, pressLine, pressPlan, pressRun } from "@orrn/db/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { auditLog, dieInstance, dieIssue, dieMakerJob, pressLine, pressPlan, pressRun } from "@orrn/db/schema";
+import { and, desc, eq, sql } from "drizzle-orm";
+
+import { atomicBatch } from "../src/lib/atomic";
+import type { DieRoomCtx } from "../src/lib/dieRoom";
+import { applyTrialVerdictOnReturn } from "../src/lib/dieTrial";
 
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
@@ -22,14 +26,20 @@ afterAll(async () => {
 let runNo = 0;
 
 async function plant(settings: Record<string, unknown> = {}) {
-  const { companyId } = await env.seedCompany({ settings });
+  const { companyId, users } = await env.seedCompany({ settings });
   const sectionId = await env.seedDie(companyId, { series: "Domal", sectionCode: "12170", weightMinG: 5_900, weightMaxG: 6_200 });
   const lineId = crypto.randomUUID();
   await env.db.insert(pressLine).values({ id: lineId, companyId, code: "P1", name: "Press 1" });
   const as = (role: CompanyRole) => env.caller({ role, companyId });
   const dieRoom = as("die_room");
   const { id: makerId } = await dieRoom.dieInstance.maker.create({ name: "Rajkot Dies" });
-  return { companyId, sectionId, lineId, makerId, as, dieRoom, manager: as("manager"), supervisor: as("supervisor"), owner: as("owner") };
+  /** What the press close runs as: a supervisor's server context (the seam takes a context, not a caller). */
+  const closeCtx: DieRoomCtx = {
+    db: env.db as never,
+    companyId,
+    session: { user: { id: users.supervisor.id, name: "Supervisor", email: users.supervisor.email }, session: { id: "test-session" } } as never,
+  };
+  return { companyId, sectionId, lineId, makerId, as, dieRoom, closeCtx, manager: as("manager"), supervisor: as("supervisor"), owner: as("owner") };
 }
 type Plant = Awaited<ReturnType<typeof plant>>;
 
@@ -337,6 +347,198 @@ describe("trial fail", () => {
     expect((await copyRow(a.id)).status).toBe("on_trial");
     const last = await env.db.select().from(auditLog).where(and(eq(auditLog.subjectId, a.id), eq(auditLog.action, "die_maker_job.receive"))).orderBy(desc(auditLog.at)).limit(1);
     expect(last[0]!.meta).toMatchObject({ copyTo: "on_trial" });
+  });
+});
+
+/** Audit rows are a log, not state: prune every row of this copy (a retention job, a restore, a hand fix). */
+async function pruneAudit(copyId: string) {
+  await env.db.delete(auditLog).where(eq(auditLog.subjectId, copyId));
+}
+
+/** The press close of a trial run, as W2-PR-S runs it: record the verdict on the run, then the seam, in one batch. */
+async function pressClose(p: Plant, runId: string, verdict: "pass" | "fail") {
+  const [run] = await env.db.select().from(pressRun).where(eq(pressRun.id, runId));
+  const seq = 900_000 + runNo++;
+  const runLogged = sql`exists (select 1 from press_run r where r.id = ${runId} and r.status = 'logged' and r.server_seq = ${seq})`;
+  const seam = await applyTrialVerdictOnReturn(p.closeCtx, {
+    run: { id: run!.id, number: run!.number, dieInstanceId: run!.dieInstanceId },
+    verdict,
+    seq,
+    at: new Date(),
+    after: runLogged,
+  });
+  await atomicBatch(env.db as never, [
+    env.db.update(pressRun).set({ status: "logged", trialResult: verdict, serverSeq: seq }).where(eq(pressRun.id, runId)),
+    ...seam.statements,
+  ]);
+  return seam;
+}
+
+describe("trial state lives on the rows, never in the audit log (0029_die_trial)", () => {
+  test("die_issue.trial is 1 for a copy issued on trial, 0 from the rack", async () => {
+    const p = await plant();
+    const t = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
+    const r = await p.manager.dieInstance.create({ sectionId: p.sectionId, status: "available" });
+    const i1 = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: t.id, pressLineId: p.lineId, pressRunId: await queuedRun(p, "die_trial") });
+    const i2 = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: r.id, pressLineId: p.lineId, pressRunId: await queuedRun(p, "die_trial") });
+    const [a] = await env.db.select().from(dieIssue).where(eq(dieIssue.id, i1.id));
+    const [b] = await env.db.select().from(dieIssue).where(eq(dieIssue.id, i2.id));
+    expect(a!.trial).toBe(1);
+    expect(b!.trial).toBe(0);
+  });
+
+  test("a trial issue comes back on trial even when its audit rows are gone", async () => {
+    const p = await plant();
+    const a = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
+    const issued = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: a.id, pressLineId: p.lineId, pressRunId: await queuedRun(p, "die_trial") });
+    await pruneAudit(a.id);
+    expect((await p.dieRoom.dieInstance.issues.return({ id: issued.id })).status).toBe("on_trial");
+    expect((await copyRow(a.id)).status).toBe("on_trial");
+
+    const again = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: a.id, pressLineId: p.lineId, pressRunId: await queuedRun(p, "die_trial") });
+    await pruneAudit(a.id);
+    expect((await p.dieRoom.dieInstance.issues.cancel({ id: again.id })).status).toBe("on_trial");
+  });
+
+  test("a plain issue goes back to the rack even with a forged trial audit row", async () => {
+    const p = await plant();
+    const a = await p.manager.dieInstance.create({ sectionId: p.sectionId, status: "available" });
+    const issued = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: a.id, pressLineId: p.lineId, pressRunId: await queuedRun(p, "production") });
+    await env.db
+      .update(auditLog)
+      .set({ meta: { issueId: issued.id, trial: 1 } })
+      .where(and(eq(auditLog.subjectId, a.id), eq(auditLog.action, "die_issue.issue")));
+    expect((await p.dieRoom.dieInstance.issues.return({ id: issued.id })).status).toBe("available");
+  });
+
+  test("die_maker_job.from_status is where the copy was; a cancel restores it without the send audit row", async () => {
+    const p = await plant();
+    const t = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
+    const r = await p.manager.dieInstance.create({ sectionId: p.sectionId, status: "available" });
+    const j1 = await p.dieRoom.dieInstance.maker.jobs.send({ dieInstanceId: t.id, dieMakerId: p.makerId, purpose: "correction" });
+    const j2 = await p.dieRoom.dieInstance.maker.jobs.send({ dieInstanceId: r.id, dieMakerId: p.makerId, purpose: "repair" });
+    const jobs = await env.db.select().from(dieMakerJob).where(eq(dieMakerJob.companyId, p.companyId));
+    expect(Object.fromEntries(jobs.map((j) => [j.id, j.fromStatus]))).toEqual({ [j1.id]: "on_trial", [j2.id]: "available" });
+    await pruneAudit(t.id);
+    await pruneAudit(r.id);
+    expect((await p.dieRoom.dieInstance.maker.jobs.cancel({ id: j1.id })).status).toBe("on_trial");
+    expect((await p.dieRoom.dieInstance.maker.jobs.cancel({ id: j2.id })).status).toBe("available");
+  });
+
+  test("a job from before 0029 (from_status '') cancels to the rack", async () => {
+    const p = await plant();
+    const a = await p.manager.dieInstance.create({ sectionId: p.sectionId, status: "available" });
+    const job = await p.dieRoom.dieInstance.maker.jobs.send({ dieInstanceId: a.id, dieMakerId: p.makerId, purpose: "repair" });
+    await env.db.update(dieMakerJob).set({ fromStatus: "" }).where(eq(dieMakerJob.id, job.id));
+    expect((await p.dieRoom.dieInstance.maker.jobs.cancel({ id: job.id })).status).toBe("available");
+  });
+});
+
+describe("a passed trial reaches the rack with a die_trial.pass row, in either order", () => {
+  test("close then return: the return batch moves the copy to the rack and writes die_trial.pass (via return)", async () => {
+    const p = await plant();
+    const a = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
+    const runId = await queuedRun(p, "die_trial");
+    const issued = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: a.id, pressLineId: p.lineId, pressRunId: runId });
+    // The close with the issue still open (die out, not yet taken back) only records the verdict.
+    await env.db.update(pressRun).set({ status: "logged", trialResult: "pass" }).where(eq(pressRun.id, runId));
+    expect((await p.dieRoom.dieInstance.issues.return({ id: issued.id })).status).toBe("available");
+    expect((await copyRow(a.id)).status).toBe("available");
+    const rows = await audits(a.id, "die_trial.");
+    expect(rows.map((r) => r.action)).toEqual(["die_trial.pass"]);
+    expect(rows[0]!.meta).toMatchObject({ pressRunId: runId, via: "return", to: "available" });
+  });
+
+  test("return then close: the copy waits on trial, and the close's seam passes it (via close)", async () => {
+    const p = await plant();
+    const a = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
+    const runId = await queuedRun(p, "die_trial");
+    const issued = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: a.id, pressLineId: p.lineId, pressRunId: runId });
+    // Pressed: die in and out, the run counting; the die room takes the die back before the close.
+    await env.db.update(pressRun).set({ status: "counting", dieInAt: new Date(Date.now() - 3_600_000), dieOutAt: new Date() }).where(eq(pressRun.id, runId));
+    expect((await p.dieRoom.dieInstance.issues.return({ id: issued.id })).status).toBe("on_trial");
+    const seam = await pressClose(p, runId, "pass");
+    expect(seam.copyTo).toBe("available");
+    expect((await copyRow(a.id)).status).toBe("available");
+    const rows = await audits(a.id, "die_trial.");
+    expect(rows.map((r) => r.action)).toEqual(["die_trial.pass"]);
+    expect(rows[0]!.meta).toMatchObject({ pressRunId: runId, via: "close", from: "on_trial", to: "available" });
+  });
+
+  test("the close with the issue still open returns it through the seam: pass to the rack, fail stays on trial", async () => {
+    const p = await plant();
+    const a = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
+    const passRun = await queuedRun(p, "die_trial");
+    const i1 = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: a.id, pressLineId: p.lineId, pressRunId: passRun });
+    const seam = await pressClose(p, passRun, "pass");
+    expect(seam).toMatchObject({ copyTo: "available", issueId: i1.id });
+    const [row] = await env.db.select().from(dieIssue).where(eq(dieIssue.id, i1.id));
+    expect(row!.status).toBe("returned");
+    expect((await copyRow(a.id)).status).toBe("available");
+    expect((await audits(a.id, "die_trial.")).map((r) => [r.action, (r.meta as { via?: string }).via])).toEqual([["die_trial.pass", "close"]]);
+    expect((await audits(a.id, "die_issue.return"))[0]!.meta).toMatchObject({ via: "close", copyTo: "available" });
+
+    const b = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
+    const failRun = await queuedRun(p, "die_trial");
+    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: b.id, pressLineId: p.lineId, pressRunId: failRun });
+    expect((await pressClose(p, failRun, "fail")).copyTo).toBe("on_trial");
+    expect((await copyRow(b.id)).status).toBe("on_trial");
+    expect(await audits(b.id, "die_trial.")).toEqual([]);
+  });
+
+  test("a rack copy on a closed run goes back to the rack with no trial row", async () => {
+    const p = await plant();
+    const a = await p.manager.dieInstance.create({ sectionId: p.sectionId, status: "available" });
+    const runId = await queuedRun(p, "production");
+    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: a.id, pressLineId: p.lineId, pressRunId: runId });
+    const [run] = await env.db.select().from(pressRun).where(eq(pressRun.id, runId));
+    const seq = 950_000 + runNo++;
+    const seam = await applyTrialVerdictOnReturn(p.closeCtx, {
+      run: { id: runId, number: run!.number, dieInstanceId: a.id },
+      verdict: null,
+      seq,
+      at: new Date(),
+      after: sql`exists (select 1 from press_run r where r.id = ${runId} and r.status = 'logged' and r.server_seq = ${seq})`,
+    });
+    await atomicBatch(env.db as never, [env.db.update(pressRun).set({ status: "logged", serverSeq: seq }).where(eq(pressRun.id, runId)), ...seam.statements]);
+    expect(seam.copyTo).toBe("available");
+    expect((await copyRow(a.id)).status).toBe("available");
+    expect(await audits(a.id, "die_trial.")).toEqual([]);
+  });
+
+  test("the seam waits on the close: if the run did not log, nothing moves", async () => {
+    const p = await plant();
+    const a = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
+    const runId = await queuedRun(p, "die_trial");
+    const issued = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: a.id, pressLineId: p.lineId, pressRunId: runId });
+    const [run] = await env.db.select().from(pressRun).where(eq(pressRun.id, runId));
+    const seam = await applyTrialVerdictOnReturn(p.closeCtx, {
+      run: { id: runId, number: run!.number, dieInstanceId: a.id },
+      verdict: "pass",
+      seq: 960_000,
+      at: new Date(),
+      after: sql`exists (select 1 from press_run r where r.id = ${runId} and r.status = 'logged' and r.server_seq = 960000)`,
+    });
+    await atomicBatch(env.db as never, seam.statements);
+    expect((await copyRow(a.id)).status).toBe("in_use");
+    const [row] = await env.db.select().from(dieIssue).where(eq(dieIssue.id, issued.id));
+    expect(row!.status).toBe("issued");
+    expect(await audits(a.id, "die_trial.")).toEqual([]);
+  });
+
+  test("a verdict reopened between the read and the return batch never sends the copy to the rack", async () => {
+    const p = await plant();
+    const a = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
+    const runId = await queuedRun(p, "die_trial");
+    const issued = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: a.id, pressLineId: p.lineId, pressRunId: runId });
+    await env.db.update(pressRun).set({ status: "logged", trialResult: "pass" }).where(eq(pressRun.id, runId));
+    // A press_reopen lands after the return read the pass, before its batch.
+    env.beforeNextBatch(() => env.db.update(pressRun).set({ status: "counting", trialResult: null }).where(eq(pressRun.id, runId)));
+    await expect(p.dieRoom.dieInstance.issues.return({ id: issued.id })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect((await copyRow(a.id)).status).toBe("in_use");
+    expect(await audits(a.id, "die_trial.")).toEqual([]);
+    // Taken back now, it goes on trial (the run is no longer a passed trial).
+    expect((await p.dieRoom.dieInstance.issues.return({ id: issued.id })).status).toBe("on_trial");
   });
 });
 

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3463 screen strings in 43 groups, 16 guides with 292 strings.
+Counts: 3469 screen strings in 43 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -2769,7 +2769,7 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (406)
+### dieRoom (412)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3027,6 +3027,8 @@ Please check, Lalubhai:
 | `board.trialSetting.saved` | Setting saved | सेटिंग सेव हुई |
 | `board.searchHint` | Search a section, a series or a copy like 12170-2 | सेक्शन, सीरीज़ या कॉपी खोजें, जैसे 12170-2 |
 | `board.slashHint` | A slash works too: 12170/2 finds 12170-2. | स्लैश भी चलता है: 12170/2 से 12170-2 मिलती है। |
+| `board.columns.copy` | Copy | कॉपी |
+| `board.columns.series` | Series | सीरीज़ |
 | `board.columns.shape` | Shape | आकार |
 | `board.columns.band` | Weight band | वज़न बैंड |
 | `board.columns.owner` | Owner | मालिक |
@@ -3038,6 +3040,10 @@ Please check, Lalubhai:
 | `board.makersLink` | Die makers | Die मेकर |
 | `board.loadFailed` | The dies didn't load. Check the connection and try again. | Die की सूची नहीं खुली। कनेक्शन देखकर फिर कोशिश करें। |
 | `board.noMatchBody` | Try a section code, a series or a copy code. | सेक्शन कोड, सीरीज़ या कॉपी कोड आज़माएं। |
+| `board.copiesNote` | These are the copies in this state. Each one opens its card. | ये इस स्थिति वाली कॉपी हैं। हर कॉपी अपना कार्ड खोलती है। |
+| `board.copiesLabel` | Copies in this state | इस स्थिति वाली कॉपी |
+| `board.noCopiesInState` | No copy is in this state | इस स्थिति में कोई कॉपी नहीं |
+| `board.noCopiesInStateBody` | Clear the tile to see every die. | सभी die देखने के लिए टाइल हटाएं। |
 | `section.copyAddedTrial` | {code} added, on trial | {code} जुड़ी, ट्रायल पर |
 | `section.startsOnTrial` | A new copy starts on trial until a trial passes or a manager releases it. | नई कॉपी ट्रायल से शुरू होती है, जब तक ट्रायल पास न हो या मैनेजर उसे छोड़ न दे। |
 | `section.useFirst` | Run {code} first: {kg} kg/12ft, in band. | पहले {code} चलाएं: {kg} kg/12ft, बैंड में। |

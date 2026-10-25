@@ -14,13 +14,13 @@ export type BoardKind = (typeof BOARD_KINDS)[number];
 export const BOARD_OWNERS = ["plant", "customer"] as const;
 export type BoardOwner = (typeof BOARD_OWNERS)[number];
 
-/** A tile: a copy status (sections that have a copy in it) or the sections that have no copies. */
+/** A tile: a copy status (the copies in it) or the sections that have no copies. */
 export type BoardTile = Exclude<CopyStatus, "retired"> | "none";
 export const BOARD_TILES: readonly BoardTile[] = ["on_trial", "available", "in_use", "at_nitriding", "at_maker", "none"];
 
 export type BoardFilters = {
   q: string;
-  /** The pressed tile: sections with a copy in that status, or sections with no live copies. */
+  /** The pressed tile: the copies in that status, or sections with no live copies. */
   tile?: BoardTile;
   kind?: BoardKind;
   owner?: BoardOwner;
@@ -49,6 +49,18 @@ export function boardListInput(f: BoardFilters, page: { limit: number; offset: n
     limit: page.limit,
     offset: page.offset,
   };
+}
+
+/**
+ * A copy-status tile counts copies, so pressing it lists those copies (`dieInstance.list`), not the
+ * sections that hold them: the list total is the tile's count. Null for no tile or "Dies without
+ * copies" (that tile counts sections; the board lists sections).
+ */
+export function copyListInput(f: BoardFilters, page: { limit: number; offset: number }): { status: CopyStatus; search?: string; limit: number; offset: number } | null {
+  if (!f.tile || f.tile === "none") return null;
+  // dieInstance.list takes a copy search of up to 40 characters.
+  const search = f.q.trim().slice(0, 40);
+  return { status: f.tile, ...(search ? { search } : {}), limit: page.limit, offset: page.offset };
 }
 
 /** A tile pressed again clears it. Returns the search patch (a tile resets the page). */

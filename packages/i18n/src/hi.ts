@@ -3289,6 +3289,8 @@ export const hi = {
       searchHint: "सेक्शन, सीरीज़ या कॉपी खोजें, जैसे 12170-2",
       slashHint: "स्लैश भी चलता है: 12170/2 से 12170-2 मिलती है।",
       columns: {
+        copy: "कॉपी",
+        series: "सीरीज़",
         shape: "आकार",
         band: "वज़न बैंड",
         owner: "मालिक",
@@ -3301,6 +3303,10 @@ export const hi = {
       makersLink: "Die मेकर",
       loadFailed: "Die की सूची नहीं खुली। कनेक्शन देखकर फिर कोशिश करें।",
       noMatchBody: "सेक्शन कोड, सीरीज़ या कॉपी कोड आज़माएं।",
+      copiesNote: "ये इस स्थिति वाली कॉपी हैं। हर कॉपी अपना कार्ड खोलती है।",
+      copiesLabel: "इस स्थिति वाली कॉपी",
+      noCopiesInState: "इस स्थिति में कोई कॉपी नहीं",
+      noCopiesInStateBody: "सभी die देखने के लिए टाइल हटाएं।",
     },
     section: {
       copyAddedTrial: "{code} जुड़ी, ट्रायल पर",
