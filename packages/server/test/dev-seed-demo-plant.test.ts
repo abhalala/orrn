@@ -164,6 +164,23 @@ describe("accounts and roles", () => {
     const approvals = await manager.approval.list({ status: "pending" });
     const kinds = (approvals.items ?? approvals).map((a: { kind: string }) => a.kind).sort();
     expect(kinds).toEqual(["die_rerank", "order_reallocate", "press_late_entry"]);
+    // M7 (final explore): the seeded move request says what moves (the review is not blind).
+    const items = approvals.items as { kind: string; meta: Record<string, unknown> }[];
+    const move = items.find((a) => a.kind === "order_reallocate")!.meta.move as { count: number; kgG: number; from: unknown[]; to: unknown; bundles: unknown[] };
+    expect(move).toMatchObject({
+      count: 2,
+      from: [{ customerName: "KD Extrusion", orderNumber: "SO-7", lineNo: 2 }],
+      to: { customerName: "Tejura & Sons", orderNumber: "SO-9", lineNo: 1 },
+    });
+    expect(move.bundles).toHaveLength(2);
+    expect(move.kgG).toBeGreaterThan(0);
+    // H1: the seeded late entry names its run, press, copy and the typed times.
+    const late = items.find((a) => a.kind === "press_late_entry")!.meta;
+    // (Read the times before toMatchObject: bun swaps matched values for the matchers.)
+    const [lateStart, lateStop] = [late.startedAt, late.stoppedAt];
+    expect(typeof lateStart).toBe("number");
+    expect(lateStop as number).toBeGreaterThan(lateStart as number);
+    expect(late).toMatchObject({ runNumber: "PR-9", pressLineCode: "P2", copyCode: "13090-2" });
   });
 });
 

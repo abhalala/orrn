@@ -126,9 +126,100 @@ export function moveFromText(from: readonly MoveEndView[], plant: string): strin
 const KG3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 export const moveKgText = (grams: number) => KG3.format(grams / 1000);
 
-export function approvalSubject(row: ApprovalForView, words: { plant: string } = { plant: "plant stock" }): ApprovalSubject {
+/** What a `press_late_entry` request asks to accept (H1): the run, its press and copy, the times typed. */
+export type LateEntryView = {
+  runId: string | null;
+  runNumber: string;
+  pressLineCode: string | null;
+  copyCode: string | null;
+  startedAt: number | null;
+  stoppedAt: number | null;
+  productionDay: string | null;
+  shiftSeq: number | null;
+};
+
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+const str = (v: unknown): string | null => (typeof v === "string" && v.length > 0 ? v : null);
+
+/** The late entry of a `press_late_entry` request (older requests carry only the run number). */
+export function lateEntryOf(row: Pick<ApprovalForView, "subjectId" | "meta">): LateEntryView {
+  const m = row.meta ?? {};
+  return {
+    runId: safeId(row.subjectId),
+    runNumber: text(m.runNumber),
+    pressLineCode: str(m.pressLineCode),
+    copyCode: str(m.copyCode),
+    startedAt: num(m.startedAt),
+    stoppedAt: num(m.stoppedAt),
+    productionDay: str(m.productionDay),
+    shiftSeq: num(m.shiftSeq),
+  };
+}
+
+function zonedParts(at: number, timeZone: string): { day: string; month: string; hour: string; minute: string } {
+  const fmt = (tz: string | undefined) =>
+    new Intl.DateTimeFormat("en-GB", { timeZone: tz, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(at));
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = fmt(timeZone);
+  } catch {
+    parts = fmt(undefined);
+  }
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  return { day: get("day"), month: get("month"), hour: get("hour"), minute: get("minute") };
+}
+
+/**
+ * "24 Oct 21:00" in the plant's time zone (not the device's), built from parts so the wording is
+ * the same on every ICU.
+ */
+export function plantTimeText(at: number, timeZone: string): string {
+  const p = zonedParts(at, timeZone);
+  return `${p.day} ${p.month} ${p.hour}:${p.minute}`;
+}
+
+/** "24 Oct 21:00 – 23:00", or both dates when the run crosses midnight. */
+export function lateWindowText(startedAt: number, stoppedAt: number, timeZone: string): string {
+  const a = zonedParts(startedAt, timeZone);
+  const b = zonedParts(stoppedAt, timeZone);
+  const sameDay = a.day === b.day && a.month === b.month;
+  return `${a.day} ${a.month} ${a.hour}:${a.minute} – ${sameDay ? "" : `${b.day} ${b.month} `}${b.hour}:${b.minute}`;
+}
+
+/** "2 h 05 min" between two instants. */
+export function durationText(fromMs: number, toMs: number): string {
+  const min = Math.max(0, Math.round((toMs - fromMs) / 60_000));
+  const h = Math.floor(min / 60);
+  const mm = min % 60;
+  return h > 0 ? `${h} h ${String(mm).padStart(2, "0")} min` : `${mm} min`;
+}
+
+/** Words the subject line borrows from the screen's language. */
+export type SubjectWords = { plant: string; mainBand?: string; otherBand?: string };
+
+/**
+ * One end of a band lift (M6): the band's label or kg range as the server wrote it, the main band
+ * for no band id, "another band" for an older request that only kept the id.
+ */
+function bandEnd(id: unknown, label: unknown, words: SubjectWords): string {
+  const named = str(label);
+  if (named) return named;
+  return id == null ? (words.mainBand ?? "main band") : (words.otherBand ?? "another band");
+}
+
+export function approvalSubject(row: ApprovalForView, words: SubjectWords = { plant: "plant stock" }): ApprovalSubject {
   const kindKey = `approvals.kind.${row.kind}` as MessageKey;
   const m = row.meta ?? {};
+  if (row.kind === "press_late_entry") {
+    const late = lateEntryOf(row);
+    const href = late.runId ? `/press/runs/${late.runId}` : null;
+    const openKey: MessageKey | null = href ? "approvals.openRun" : null;
+    if (late.runNumber && late.pressLineCode) {
+      return { kindKey, titleKey: "approvals.subject.lateEntry", vars: { number: late.runNumber, line: late.pressLineCode }, href, openKey };
+    }
+    if (late.runNumber) return { kindKey, titleKey: "approvals.subject.lateEntryNoLine", vars: { number: late.runNumber }, href, openKey };
+    return { kindKey, titleKey: "approvals.subject.generic", vars: { ref: "" }, href, openKey };
+  }
   if (row.kind === "order_reallocate") {
     const move = reallocateMoveOf(m);
     if (move) {
@@ -156,6 +247,14 @@ export function approvalSubject(row: ApprovalForView, words: { plant: string } =
     const to = typeof m.toRank === "number" ? m.toRank : text(m.toRank);
     const href = sectionId ? `/dies/${sectionId}` : null;
     const openKey: MessageKey | null = sectionId ? "approvals.openDie" : null;
+    // M6: a band lift names the bands ("main band to Heavy 2.600-2.800"), not "tier 2 to 2".
+    if (m.isLift === true) {
+      const vars = { code: text(m.code), from: bandEnd(m.fromBandId, m.fromBandText, words), to: bandEnd(m.toBandId, m.toBandText, words) };
+      if (typeof m.fromRank === "number" && typeof m.toRank === "number" && m.fromRank !== m.toRank) {
+        return { kindKey, titleKey: "approvals.subject.dieLiftRank", vars: { ...vars, fromRank: m.fromRank, toRank: m.toRank }, href, openKey };
+      }
+      return { kindKey, titleKey: "approvals.subject.dieLift", vars, href, openKey };
+    }
     // A copy with no tier yet gets "set tier", not "tier  to 1".
     if (typeof m.fromRank !== "number") {
       return { kindKey, titleKey: "approvals.subject.dieRerankNew", vars: { code: text(m.code), to }, href, openKey };

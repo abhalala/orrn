@@ -250,3 +250,79 @@ describe("canOpenSubject", () => {
     expect(canOpenSubject(me("die_room"), row({ kind: "die_rerank", meta: { code: "1-A", sectionId: "s-1", toRank: 1 } }))).toBe(true);
   });
 });
+
+describe("H1 (final explore): a late entry request says what is approved", () => {
+  const meta = {
+    reason: "Tablet was down on the night shift",
+    productionDay: "2026-10-24",
+    shiftSeq: 2,
+    runNumber: "PR-13",
+    pressLineCode: "P2",
+    copyCode: "14701-2",
+    // 21:00 and 23:05 IST on 24 Oct 2026.
+    startedAt: Date.UTC(2026, 9, 24, 15, 30),
+    stoppedAt: Date.UTC(2026, 9, 24, 17, 35),
+  };
+
+  test("title names the run and the press, and links to the run", async () => {
+    const { lateEntryOf } = await import("./approval-view");
+    const r = row({ kind: "press_late_entry", subjectId: "run-13", meta });
+    const subject = approvalSubject(r);
+    expect(subject).toMatchObject({ titleKey: "approvals.subject.lateEntry", vars: { number: "PR-13", line: "P2" }, href: "/press/runs/run-13", openKey: "approvals.openRun" });
+    expect(createI18n("en").t(subject.titleKey, subject.vars)).toBe("Run PR-13 on P2, entered late");
+    expect(createI18n("hi").t(subject.titleKey, subject.vars)).toBe("P2 पर रन PR-13, बाद में भरा गया");
+    expect(subjectCodes(subject)).toContain("PR-13");
+    expect(lateEntryOf(r)).toEqual({
+      runId: "run-13",
+      runNumber: "PR-13",
+      pressLineCode: "P2",
+      copyCode: "14701-2",
+      startedAt: meta.startedAt,
+      stoppedAt: meta.stoppedAt,
+      productionDay: "2026-10-24",
+      shiftSeq: 2,
+    });
+  });
+
+  test("an older request (run number only) still links to the run; no number falls back to the kind", async () => {
+    const old = approvalSubject(row({ kind: "press_late_entry", subjectId: "dev-run-13090-2-late", meta: { runNumber: "PR-9", productionDay: "2026-10-24", shiftSeq: 3 } }));
+    expect(old).toMatchObject({ titleKey: "approvals.subject.lateEntryNoLine", vars: { number: "PR-9" }, href: "/press/runs/dev-run-13090-2-late" });
+    const bare = approvalSubject(row({ kind: "press_late_entry", subjectId: "run-1", meta: {} }));
+    expect(bare.titleKey).toBe("approvals.subject.generic");
+    // A subject id that is not an id never becomes a link.
+    expect(approvalSubject(row({ kind: "press_late_entry", subjectId: "../x y", meta })).href).toBeNull();
+  });
+
+  test("times are the plant's clock, whatever the device's zone; a run past midnight names both days", async () => {
+    const { lateWindowText, durationText, plantTimeText } = await import("./approval-view");
+    expect(lateWindowText(meta.startedAt, meta.stoppedAt, "Asia/Kolkata")).toBe("24 Oct 21:00 – 23:05");
+    expect(durationText(meta.startedAt, meta.stoppedAt)).toBe("2 h 05 min");
+    expect(durationText(0, 40 * 60_000)).toBe("40 min");
+    expect(lateWindowText(Date.UTC(2026, 9, 24, 17, 30), Date.UTC(2026, 9, 24, 19, 0), "Asia/Kolkata")).toBe("24 Oct 23:00 – 25 Oct 00:30");
+    expect(plantTimeText(meta.startedAt, "Asia/Kolkata")).toBe("24 Oct 21:00");
+  });
+});
+
+describe("M6 (final explore): a band lift names the bands", () => {
+  const words = { plant: "plant stock", mainBand: "main band", otherBand: "another band" };
+  test("main band to the heavy band, not 'tier 2 to 2'", () => {
+    const subject = approvalSubject(
+      row({ kind: "die_rerank", meta: { code: "14701-2", sectionId: "die-7", fromRank: 2, toRank: 2, isLift: true, fromBandId: null, toBandId: "band-h", fromBandText: null, toBandText: "Heavy" } }),
+      words,
+    );
+    expect(subject).toMatchObject({ titleKey: "approvals.subject.dieLift", vars: { code: "14701-2", from: "main band", to: "Heavy" }, href: "/dies/die-7" });
+    expect(createI18n("en").t(subject.titleKey, subject.vars)).toBe("Copy 14701-2: main band to Heavy");
+  });
+
+  test("a lift that also changes the tier says both; an older lift with only ids says 'another band'", () => {
+    const both = approvalSubject(
+      row({ kind: "die_rerank", meta: { code: "14701-2", sectionId: "die-7", fromRank: 1, toRank: 2, isLift: true, fromBandId: null, toBandId: "band-h", toBandText: "6.200-6.600" } }),
+      words,
+    );
+    expect(createI18n("en").t(both.titleKey, both.vars)).toBe("Copy 14701-2, tier 1 to 2: main band to 6.200-6.600");
+    const old = approvalSubject(row({ kind: "die_rerank", meta: { code: "14701-2", sectionId: "die-7", fromRank: 2, toRank: 2, isLift: true, fromBandId: "band-h", toBandId: null } }), words);
+    expect(old.vars).toMatchObject({ from: "another band", to: "main band" });
+    // A plain rank change keeps its wording.
+    expect(approvalSubject(row({ kind: "die_rerank", meta: { code: "1-A", sectionId: "s-1", fromRank: 2, toRank: 1, isLift: false } }), words).titleKey).toBe("approvals.subject.dieRerank");
+  });
+});

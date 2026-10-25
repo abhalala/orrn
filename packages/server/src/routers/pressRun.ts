@@ -516,7 +516,6 @@ async function issueAtClose(ctx: Ctx, run: LoadedRun, trialResult: "pass" | "fai
 // Router
 // ---------------------------------------------------------------------------
 
-const runRef = z.object({ id: id.optional(), pressPlanDieId: id.optional() }).refine((v) => Boolean(v.id || v.pressPlanDieId), "Name the run");
 
 const billetRow = z.object({
   castId: id.optional(),
@@ -824,6 +823,9 @@ export const pressRunRouter = router({
       };
       let runId: string;
       let number: string;
+      // H1 (final explore): what the approver reads on the request, besides the live run.
+      let lineCode: string | null = null;
+      let copyCode: string | null = null;
       const statements: SqliteBatchItem[] = [];
       if (input.runId) {
         const run = await loadRun(ctx.db, ctx.companyId, input.runId);
@@ -832,9 +834,18 @@ export const pressRunRouter = router({
         if (!copyId) bad("Pick the die copy that was used");
         if (input.dieInstanceId && run.dieInstanceId && input.dieInstanceId !== run.dieInstanceId) bad(`${run.number} has another copy issued`);
         // I-1: the copy is checked as an issue would check it (status, open issue, owner).
-        await assertLateEntryCopy(ctx.db, ctx.companyId, { copyId: copyId!, run });
+        const copy = await assertLateEntryCopy(ctx.db, ctx.companyId, { copyId: copyId!, run });
         runId = run.id;
         number = run.number;
+        copyCode = copy.code;
+        if (run.pressLineId) {
+          const [line] = await ctx.db
+            .select({ code: pressLine.code })
+            .from(pressLine)
+            .where(and(eq(pressLine.id, run.pressLineId), eq(pressLine.companyId, ctx.companyId)))
+            .limit(1);
+          lineCode = line?.code ?? null;
+        }
         statements.push(
           ctx.db
             .update(pressRun)
@@ -853,6 +864,8 @@ export const pressRunRouter = router({
         runId = crypto.randomUUID();
         const doc = await nextDocNumber(ctx.db, ctx.companyId, "press_run", at, userId);
         number = doc.number;
+        lineCode = line.code;
+        copyCode = copy.code;
         statements.push(
           ctx.db.insert(pressRun).values({
             id: runId,
@@ -880,6 +893,10 @@ export const pressRunRouter = router({
           productionDay: shift.productionDay,
           shiftSeq: shift.shiftSeq,
           runNumber: number,
+          pressLineCode: lineCode,
+          copyCode,
+          startedAt: input.startedAt,
+          stoppedAt: input.stoppedAt,
           ...(input.clientMutationId ? { clientMutationId: input.clientMutationId } : {}),
         },
         guard: { from: pressRun, where: and(eq(pressRun.id, runId), eq(pressRun.serverSeq, seq)) },
@@ -914,10 +931,11 @@ export const pressRunRouter = router({
         tappedAt: z.number().int().positive().optional(),
         operatorId: id.optional(),
         supervisorId: id.optional(),
-      }),
+      })
+      // L2 (final explore): a start with no run is a 400 from the input, not a 500 from the handler.
+      .refine((v) => Boolean(v.id || v.pressPlanDieId), "Name the run"),
     )
     .mutation(async ({ ctx, input }) => {
-      runRef.parse(input);
       const run = await findRun(ctx.db, ctx.companyId, input);
       if (replayed(run, input.clientMutationId, ["running", "stopped", "counting", "logged"])) {
         return { id: run.id, status: run.status, timeUnconfirmed: run.timeUnconfirmed, approvalId: null, replayed: true };

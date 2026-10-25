@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { serverRefusal } from "@/features/shared/server-refusal";
 import { reasonLabel } from "@/features/press/reason-label";
 import { canAny, useMe } from "@/shared/lib/me";
+import { useCompanyTimeZone } from "@/features/dispatch/hooks";
 import { trpc } from "@/shared/utils/trpc";
 
 import { isStaleRefusal } from "../purchase/errors";
@@ -35,11 +36,15 @@ import {
   approvalSubject,
   canOpenSubject,
   decideState,
+  durationText,
+  lateEntryOf,
+  lateWindowText,
   moveEndText,
   moveKgText,
   reallocateMoveOf,
   subjectCodes,
   unbrokenCodes,
+  type LateEntryView,
   type ReallocateView,
 } from "./approval-view";
 
@@ -64,11 +69,17 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
   const open = item !== null;
   const current = item ?? shown;
   const state = current ? decideState(me, current) : "view";
-  const subject = current ? approvalSubject(current, { plant: t("approvals.move.plant") }) : null;
+  const subject = current ? approvalSubject(current, { plant: t("approvals.move.plant"), mainBand: t("approvals.band.main"), otherBand: t("approvals.band.other") }) : null;
   // BACKLOG 34: a move request shows what moves, from where to where, before anyone decides.
   const move = current?.kind === "order_reallocate" ? reallocateMoveOf(current.meta) : null;
   const readsFigures = canAny(me, PURCHASE_READERS);
   const isNote = current?.kind === "dc_note";
+  // H1: a late entry shows the run (press, copy, the typed start and stop, kg in and good) before anyone decides.
+  const late = current?.kind === "press_late_entry" ? lateEntryOf(current) : null;
+  const lateRun = useQuery({
+    ...trpc.press.runs.get.queryOptions({ id: late?.runId ?? "" }),
+    enabled: open && late !== null && late.runId !== null,
+  });
 
   const figures = useQuery({
     ...trpc.purchase.dcNotes.get.queryOptions({ id: current?.subjectId ?? "" }),
@@ -81,6 +92,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: trpc.approval.pathKey() }),
           queryClient.invalidateQueries({ queryKey: trpc.purchase.pathKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.press.pathKey() }),
         ]);
         toast.success(res.status === "approved" ? t("approvals.approved") : t("approvals.rejected"));
         onOpenChange(false);
@@ -106,7 +118,8 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
   const title = unbrokenCodes(t(subject.titleKey, subject.vars) || t(subject.kindKey), subjectCodes(subject));
   const rejectError = rejectTried && note.trim() === "" ? t("approvals.rejectNeedsNote") : undefined;
   // Nobody approves a D/C note without its figures on screen; Reject stays open (it needs a reason anyway).
-  const figuresMissing = isNote && readsFigures && !figures.data;
+  // Nor a late entry without its run on screen.
+  const figuresMissing = (isNote && readsFigures && !figures.data) || (late !== null && late.runId !== null && !lateRun.data);
   const canOpen = subject.href !== null && subject.openKey !== null && canOpenSubject(me, current);
 
   const footer =
@@ -153,6 +166,8 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         ) : null}
 
         {move ? <MoveFigures move={move} /> : null}
+
+        {late ? <LateEntryFigures late={late} run={lateRun.data} loading={lateRun.isLoading} error={showsQueryError(lateRun)} /> : null}
 
         {isNote ? (
           readsFigures ? (
@@ -246,6 +261,57 @@ function MoveFigures({ move }: { move: ReallocateView }) {
           ))}
         </ul>
       ) : null}
+    </Block>
+  );
+}
+
+type RunData = inferRouterOutputs<AppRouter>["press"]["runs"]["get"];
+
+const KG3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+
+/**
+ * H1 (final explore): what a late entry asks to accept. The typed times, press and copy come from the
+ * request (as asked); kg in and good come from the run now, because the supervisor counts them after
+ * asking. Times are in the plant's time zone.
+ */
+function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; run: RunData | undefined; loading: boolean; error: boolean }) {
+  const { t } = useT();
+  const tz = useCompanyTimeZone();
+  const startedAt = late.startedAt ?? (run?.run.startedAt ? new Date(run.run.startedAt).getTime() : null);
+  const stoppedAt = late.stoppedAt ?? (run?.run.stoppedAt ? new Date(run.run.stoppedAt).getTime() : null);
+  const lineCode = late.pressLineCode ?? run?.line?.code ?? null;
+  const copyCode = late.copyCode ?? run?.copy?.code ?? null;
+  const day = late.productionDay ?? run?.run.productionDay ?? null;
+  const shift = late.shiftSeq ?? run?.run.shiftSeq ?? null;
+  const figures = run?.figures;
+  const counted = figures !== undefined && figures.inputG > 0;
+  const kg = (g: number) => `${KG3.format(g / 1000)} kg`;
+  const pending = loading ? <Skeleton className="h-5 w-24" /> : "-";
+  const rows: [string, ReactNode, string][] = [
+    [t("approvals.late.run"), late.runNumber || run?.run.number || "-", "run"],
+    [t("approvals.late.line"), lineCode ?? "-", "line"],
+  ];
+  if (run?.run.sectionCode) rows.push([t("approvals.late.die"), `${run.run.sectionCode}${run.run.sectionName ? ` ${run.run.sectionName}` : ""}`, "die"]);
+  rows.push([t("approvals.late.copy"), copyCode ?? "-", "copy"]);
+  if (startedAt !== null && stoppedAt !== null) {
+    rows.push([t("approvals.late.times"), lateWindowText(startedAt, stoppedAt, tz), "times"]);
+    rows.push([t("approvals.late.duration"), durationText(startedAt, stoppedAt), "duration"]);
+  }
+  if (day) rows.push([t("approvals.late.shift"), shift !== null ? t("approvals.late.shiftValue", { day, shift }) : day, "shift"]);
+  rows.push([t("approvals.late.kgIn"), figures ? (counted ? kg(figures.inputG) : t("approvals.late.notCounted")) : pending, "kg-in"]);
+  rows.push([t("approvals.late.good"), figures ? (figures.goodG > 0 ? kg(figures.goodG) : t("approvals.late.notCounted")) : pending, "good"]);
+  if (figures && counted && figures.recoveryPct) rows.push([t("approvals.late.recovery"), `${figures.recoveryPct}%`, "recovery"]);
+  return (
+    <Block title={t("approvals.late.title")}>
+      <dl className="m-0 flex flex-col divide-y divide-border rounded-card border border-border px-4" data-testid="late-entry-summary">
+        {rows.map(([label, value, key]) => (
+          <div key={key} data-row={key} className="flex min-h-11 flex-wrap items-baseline justify-between gap-x-4 py-2 text-[15px]">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="m-0 min-w-0 text-right font-medium break-words">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {error ? <p className="m-0 text-[14px] text-destructive">{t("approvals.late.runError")}</p> : null}
     </Block>
   );
 }

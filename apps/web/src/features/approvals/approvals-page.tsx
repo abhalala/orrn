@@ -193,7 +193,7 @@ function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void 
   const { t, locale } = useT();
   const { data: me } = useMe();
   const view: ApprovalForView = item;
-  const subject = approvalSubject(view, { plant: t("approvals.move.plant") });
+  const subject = approvalSubject(view, { plant: t("approvals.move.plant"), mainBand: t("approvals.band.main"), otherBand: t("approvals.band.other") });
   const state = decideState(me, view);
   const title = t(subject.titleKey, subject.vars) || t(subject.kindKey);
   // Codes stay on one line: "LOT-" and "13" on two lines misreads.

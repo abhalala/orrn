@@ -632,6 +632,37 @@ for (const width of WIDTHS) {
       await shot(page, width, "station-late");
       await clean(page);
       await context.close();
+
+      // H1 (final explore): the approver sees what the late entry asks to accept before deciding:
+      // the run, the press, the copy, the typed start and stop, kg in and good, and a link to the run.
+      const ownerApi = await apiAs("owner");
+      const pending = await ownerApi.q<{ items: { id: string; subjectId: string; meta: Record<string, unknown> }[] }>("approval.list", { status: "pending", kind: "press_late_entry", limit: 200 });
+      await ownerApi.dispose();
+      const req = pending.items.find((i) => i.meta.pressLineCode === fx.lineCode);
+      expect(req, "the late entry's request names the test press").toBeTruthy();
+      const runNumber = String(req!.meta.runNumber);
+      expect(req!.meta.copyCode).toBe(fx.lateCopy.code);
+      const owner = await openAs(browser, "owner", width, "/approvals?kind=press_late_entry");
+      const card = owner.page.getByTestId("approval-card").filter({ hasText: `Run ${runNumber} on ${fx.lineCode}, entered late` });
+      await expect(card).toHaveCount(1);
+      await card.getByRole("button", { name: /^Review/ }).click();
+      const review = owner.page.getByRole("dialog");
+      const summary = review.getByTestId("late-entry-summary");
+      await expect(summary.locator('[data-row="run"]')).toContainText(runNumber);
+      await expect(summary.locator('[data-row="line"]')).toContainText(fx.lineCode);
+      await expect(summary.locator('[data-row="copy"]')).toContainText(fx.lateCopy.code);
+      // Typed 3 h ago to 2 h ago: one hour on the plant's clock.
+      await expect(summary.locator('[data-row="times"]')).toContainText("–");
+      await expect(summary.locator('[data-row="duration"]')).toContainText("1 h 00 min");
+      await expect(summary.locator('[data-row="kg-in"]')).toContainText("Not counted yet");
+      await expect(summary.locator('[data-row="good"]')).toContainText("Not counted yet");
+      await expect(review.getByRole("link", { name: "Open run" })).toHaveAttribute("href", `/press/runs/${req!.subjectId}`);
+      await expect(review.getByRole("button", { name: "Approve" })).toBeEnabled();
+      await expectNoHorizontalScroll(owner.page);
+      const box = await summary.boundingBox();
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      await shot(owner.page, width, "late-entry-review");
+      await owner.context.close();
     });
 
     if (width === 1280) {

@@ -273,6 +273,19 @@ describe("tier change and band lift (FP-DR-10)", () => {
     expect(await row(a.id)).toMatchObject({ bandId: null, tierRank: 2 });
   });
 
+  test("M6 (final explore): a lift request names its bands, not only the tiers", async () => {
+    const p = await plant();
+    const { heavy, a } = await lifted(p);
+    const { approvalId } = await p.dieRoom.dieInstance.proposeTier({ dieInstanceId: a.id, lift: true, toBandId: heavy, reason: "6.480 above band" });
+    const [req] = (await p.manager.approval.list({ status: "pending", kind: "die_rerank" })).items.filter((i) => i.id === approvalId);
+    expect(req!.meta).toMatchObject({ isLift: true, fromRank: 1, toRank: 1, fromBandId: null, fromBandText: null, toBandId: heavy, toBandText: "6.2-6.6" });
+    await p.manager.approval.decide({ id: approvalId, decision: "approved" });
+    // Back down: from the heavy band (named) to the main band (null).
+    const back = await p.dieRoom.dieInstance.proposeTier({ dieInstanceId: a.id, lift: true, toBandId: null, reason: "re-cut" });
+    const [down] = (await p.manager.approval.list({ status: "pending", kind: "die_rerank" })).items.filter((i) => i.id === back.approvalId);
+    expect(down!.meta).toMatchObject({ fromBandText: "6.2-6.6", toBandId: null, toBandText: null });
+  });
+
   test("reject leaves the copy on the old band at the old rank", async () => {
     const p = await plant();
     const { heavy, a } = await lifted(p);

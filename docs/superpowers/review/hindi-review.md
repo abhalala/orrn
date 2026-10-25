@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5635 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 5656 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -3668,7 +3668,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (75)
+### approvals (96)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3698,7 +3698,28 @@ Please check, Lalubhai:
 | `subject.dieRerank` | Copy {code}, tier {from} to {to} | कॉपी {code}, टियर {from} से {to} |
 | `subject.dieRerankNew` | Copy {code}, set tier {to} | कॉपी {code}, टियर {to} करें |
 | `subject.reallocate` | {count} {count:bundle\|bundles}, {kg} kg: {from} to {to} | {count} bundle, {kg} kg: {from} से {to} को |
+| `subject.dieLift` | Copy {code}: {from} to {to} | कॉपी {code}: {from} से {to} |
+| `subject.dieLiftRank` | Copy {code}, tier {fromRank} to {toRank}: {from} to {to} | कॉपी {code}, टियर {fromRank} से {toRank}: {from} से {to} |
+| `subject.lateEntry` | Run {number} on {line}, entered late | {line} पर रन {number}, बाद में भरा गया |
+| `subject.lateEntryNoLine` | Run {number}, entered late | रन {number}, बाद में भरा गया |
 | `subject.generic` | {ref} | {ref} |
+| `band.main` | main band | मुख्य बैंड |
+| `band.other` | another band | दूसरा बैंड |
+| `late.title` | The run | रन |
+| `late.run` | Run | रन |
+| `late.line` | Press | प्रेस |
+| `late.copy` | Die copy | Die कॉपी |
+| `late.die` | Die | Die |
+| `late.times` | Entered start and stop | भरा गया शुरू और बंद |
+| `late.duration` | Running time | चलने का समय |
+| `late.shift` | Production day | प्रोडक्शन का दिन |
+| `late.shiftValue` | {day}, shift {shift} | {day}, शिफ़्ट {shift} |
+| `late.kgIn` | Kg in | अंदर गया kg |
+| `late.good` | Good kg | अच्छा kg |
+| `late.recovery` | Recovery | रिकवरी |
+| `late.notCounted` | Not counted yet | अभी गिना नहीं |
+| `late.runError` | The run's figures didn't load. Open the run to check before deciding. | रन के आंकड़े लोड नहीं हुए। तय करने से पहले रन खोलकर देखें। |
+| `openRun` | Open run | रन खोलें |
 | `move.title` | What moves | क्या जा रहा है |
 | `move.bundles` | Bundles | Bundle |
 | `move.count` | {count} {count:bundle\|bundles}, {kg} kg | {count} bundle, {kg} kg |

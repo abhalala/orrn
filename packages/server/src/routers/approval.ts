@@ -6,7 +6,7 @@ import { z } from "zod";
 import { user } from "@orrn/db/schema/auth";
 import { approval, approvalKinds, approvalStatuses } from "@orrn/db/schema/approval";
 
-import { APPROVAL_APPLIERS, explainApplyAbort } from "../lib/approvalApply";
+import { APPROVAL_APPLIERS, APPROVAL_PREPARERS, explainApplyAbort } from "../lib/approvalApply";
 import { APPROVAL_KIND_MODULE, assertModule } from "../lib/moduleGate";
 import { atomicBatch } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
@@ -140,11 +140,9 @@ export const approvalRouter = router({
 
       // Kind-specific effect (e.g. die re-rank writes the tier), guarded to land only if this
       // decision did, in the same batch as the decision.
-      const apply = APPROVAL_APPLIERS[row.kind]?.(
-        { db: ctx.db, companyId: ctx.companyId, userId, seq: serverSeq, decidedAt },
-        { id: row.id, subjectId: row.subjectId },
-        input.decision,
-      ) ?? [];
+      const applyCtx = { db: ctx.db, companyId: ctx.companyId, userId, seq: serverSeq, decidedAt };
+      const prepared = await APPROVAL_PREPARERS[row.kind]?.(applyCtx, { id: row.id, subjectId: row.subjectId, meta: row.meta ?? null }, input.decision);
+      const apply = APPROVAL_APPLIERS[row.kind]?.(applyCtx, { id: row.id, subjectId: row.subjectId }, input.decision, prepared) ?? [];
 
       try {
         await atomicBatch(ctx.db, [
