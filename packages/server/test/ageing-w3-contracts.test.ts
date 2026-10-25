@@ -334,7 +334,7 @@ describe("OVEN_SIMULATOR seam", () => {
 });
 
 describe("pack's trolley draw on the real table", () => {
-  test("readAgeingRow and the draw statements work against migration 0038", async () => {
+  test("readAgeingRow and the draw statements work against migration 0038 (status checked inside the batch)", async () => {
     const p = await plant();
     const { readAgeingRow, drawAgeingRowStatements } = await import("../src/lib/pack");
     const { atomicBatch } = await import("../src/lib/atomic");
@@ -342,9 +342,28 @@ describe("pack's trolley draw on the real table", () => {
     await env.db.insert(ag.ageingBatch).values(b);
     const rowId = crypto.randomUUID();
     await env.db.insert(ag.ageingRow).values({ id: rowId, companyId: p.companyId, batchId: b.id, dieId: p.dieId, lengthMm: 3_658, pcs: 48, packedPcs: 5, status: "released" });
-    expect(await readAgeingRow(env.db, p.companyId, rowId)).toEqual({ id: rowId, dieId: p.dieId, lengthMm: 3_658, pcs: 48, remaining: 43 });
-    await atomicBatch(env.db, drawAgeingRowStatements(env.db, p.companyId, rowId, 43));
-    expect((await readAgeingRow(env.db, p.companyId, rowId)).remaining).toBe(0);
+    expect(await readAgeingRow(env.db, p.companyId, rowId)).toEqual({
+      id: rowId,
+      batchId: b.id,
+      dieId: p.dieId,
+      lengthMm: 3_658,
+      pcs: 48,
+      remaining: 43,
+      status: "released",
+      source: "press",
+      castId: null,
+    });
+    // Review I6: a row held between the read and the write fails the draw inside the batch.
+    await env.db.update(ag.ageingRow).set({ status: "held" }).where(eq(ag.ageingRow.id, rowId));
+    await expect(atomicBatch(env.db, drawAgeingRowStatements(env.db, p.companyId, rowId, 1))).rejects.toThrow();
+    expect((await readAgeingRow(env.db, p.companyId, rowId)).remaining).toBe(43);
+    await env.db.update(ag.ageingRow).set({ status: "released" }).where(eq(ag.ageingRow.id, rowId));
+    // The last pieces close the row and the batch (Q58: the trolley is free).
+    await atomicBatch(env.db, drawAgeingRowStatements(env.db, p.companyId, rowId, 43, { batchId: b.id, seq: 1, userId: null }));
+    const after = await readAgeingRow(env.db, p.companyId, rowId);
+    expect([after.remaining, after.status]).toEqual([0, "closed"]);
+    const [closed] = await env.db.select().from(ag.ageingBatch).where(eq(ag.ageingBatch.id, b.id));
+    expect(closed!.status).toBe("closed");
   });
 });
 

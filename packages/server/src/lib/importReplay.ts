@@ -35,7 +35,13 @@ export type ImportReplayKind =
   | "stock.move"
   // BACKLOG 47.
   | "dispatch.create"
-  | "die_reading.add";
+  | "die_reading.add"
+  // W3-AG-S: the oven phone (lib/requestReplay.ts ReplayKind).
+  | "ageing.load"
+  | "ageing.start"
+  | "ageing.out"
+  | "ageing.hardness"
+  | "ageing.release";
 
 const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 

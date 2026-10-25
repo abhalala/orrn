@@ -9,6 +9,7 @@ import { createDb } from "@orrn/db";
 import { env } from "@orrn/env/server";
 import { Hono } from "hono";
 
+import { AGEING_READINGS_PATH, handleAgeingReadingsRequest } from "@orrn/server/lib/ageingCollector";
 import { handlePressFramesRequest, handleSpectroIngestRequest, readCollectorBody } from "@orrn/server/lib/collectorNode";
 import { PRESS_FRAMES_PATH } from "@orrn/server/lib/pressCollector";
 import { handleSpectroUpload, SPECTRO_INGEST_PATH, SPECTRO_UPLOAD_PATH } from "@orrn/server/lib/spectroInbox";
@@ -38,6 +39,18 @@ collectorRoutes.post(SPECTRO_INGEST_PATH, async (c) => {
     masterKey: env.ORRN_MASTER_KEY,
     origin: new URL(c.req.url).origin,
     storageReady: !!bucket(),
+  });
+  return c.json(result.body, result.status);
+});
+
+// FP-AG-17 (W3-AG-S): oven temperature readings from a node, marked `telemetry`.
+collectorRoutes.post(AGEING_READINGS_PATH, async (c) => {
+  const read = await readCollectorBody(c.req.raw);
+  if (!read.ok) return c.json({ error: "Body too large" }, read.status);
+  const result = await handleAgeingReadingsRequest(createDb(), {
+    rawBody: read.body,
+    authorization: c.req.header("Authorization"),
+    masterKey: env.ORRN_MASTER_KEY,
   });
   return c.json(result.body, result.status);
 });

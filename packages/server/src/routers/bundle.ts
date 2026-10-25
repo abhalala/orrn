@@ -55,11 +55,15 @@ import {
   plantScrapStreamId,
   plantScrapStreamStatements,
   readAgeingRow,
+  assertAgeingDraw,
+  ageingDrawRaceRefusal,
   loadPackLabelVariablesMany,
   rejectReasons,
   scaleConfigured,
 } from "../lib/pack";
 import { packRows, restoreRows, voidRows, type PostingCtx } from "../lib/ledger";
+import { openBundleRows } from "../lib/ageing";
+import { ageingRefusal } from "../lib/ageingRefusals";
 import { releaseOnVoidStatements } from "../lib/orderHold";
 import { batchAbortUnless, isBatchAbort } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
@@ -123,7 +127,7 @@ const receiptInputSchema = z.object({
   approvalId: z.string().min(1).max(64).optional(),
   /** The cast the billets came from; required while `requireCastOnBundle` is in effect. */
   castId: z.string().min(1).max(64).optional(),
-  /** Trolley slice (Next): validated only once ageing tables exist. */
+  /** The released trolley row the pieces come from (W3-AG-S; `ageing.packSource` lists them). */
   ageingRowId: z.string().min(1).max(64).optional(),
   /** Label branding (FP-PK-05), snapshotted on every bundle; default on. */
   showLogo: z.boolean().optional(),
@@ -498,10 +502,12 @@ export const bundleRouter = router({
       }
       const rejects = input.rejects ?? [];
 
-      // Trolley seam (C32): server remaining, refuse an over-draw; die and length come from the row.
+      // Trolley draw (W3-AG-S): a released trolley row, server remaining, the bundle's cast; die and
+      // length come from the row. Checked again inside the batch (drawAgeingRowStatements).
       const ageingRow = input.ageingRowId ? await readAgeingRow(ctx.db, ctx.companyId, input.ageingRowId) : null;
       const drawPcs = input.rows.reduce((s, r) => s + r.quantity, 0) + rejects.reduce((s, r) => s + r.pcs, 0);
       if (ageingRow) {
+        assertAgeingDraw(ageingRow, drawPcs, input.castId ?? null);
         if (ageingRow.dieId !== input.dieId) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "That trolley row is of another section" });
         }
@@ -574,6 +580,16 @@ export const bundleRouter = router({
         .where(eq(company.id, ctx.companyId))
         .limit(1);
       const floor = readFloorSettings(co?.settings);
+      // Setting ageing.requireForPack (spec §6): a section with released pieces still on a trolley packs
+      // from that trolley row; a section with nothing released packs as before.
+      if (floor.ageing.requireForPack && !ageingRow) {
+        const [onTrolley] = await ctx.db.all<{ one: number }>(
+          sql`select 1 as one from ageing_row r join ageing_batch b on b.id = r.batch_id and b.company_id = r.company_id
+              where r.company_id = ${ctx.companyId} and r.die_id = ${input.dieId} and r.status = 'released' and r.source <> 'bundle'
+                and b.status = 'released' and r.pcs - r.packed_pcs - r.scrap_pcs - r.rework_pcs > 0 limit 1`,
+        );
+        if (onTrolley) throw ageingRefusal("ageing_row_required");
+      }
       const castId = await receiptCast(ctx.db, ctx.companyId, input.castId, floor.requireCastOnBundle);
 
       // FP-PK-02: a typed weight needs a reason while a scale is on the node.
@@ -765,7 +781,9 @@ export const bundleRouter = router({
           })),
         );
       }
-      if (ageingRow) statements.push(...drawAgeingRowStatements(ctx.db, ctx.companyId, ageingRow.id, drawPcs));
+      if (ageingRow) {
+        statements.push(...drawAgeingRowStatements(ctx.db, ctx.companyId, ageingRow.id, drawPcs, { batchId: ageingRow.batchId, seq, userId }));
+      }
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundleStatusEvent).values(rows), eventRows);
       // Pack = + bundle kg at its location, voucher = this receipt (spec §5).
       statements.push(
@@ -857,10 +875,8 @@ export const bundleRouter = router({
         }
         if (ageingRow && isPackAbort(e)) {
           const now2 = await readAgeingRow(ctx.db, ctx.companyId, ageingRow.id);
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: `Only ${now2.remaining} pieces left on this trolley row; this pack takes ${drawPcs}`,
-          });
+          // The row changed meanwhile: held, voided, or drawn by another pack.
+          if (now2.status !== "released" || now2.remaining < drawPcs) throw await ageingDrawRaceRefusal(ctx.db, ctx.companyId, ageingRow.id);
         }
         if (locationId && errorText(e).includes("FOREIGN KEY constraint failed")) {
           // Rolled back by the write-time yard guard: name the reason.
@@ -1311,7 +1327,12 @@ export const bundleRouter = router({
           ? voidRows(posting, { bundleId: existing.id, voucherId: eventId, reason: input.reason ?? null })
           : restoreRows(posting, { bundleId: existing.id, voucherId: eventId, reason: input.reason ?? null });
 
-      // D6: a bundle packed from a trolley row gives its pieces back on void (seam until ageing ships).
+      // A bundle in the oven or held in ageing is not voided from here: the trolley owns it (W3-AG-S).
+      if (input.toStatus === "void") {
+        const open = (await openBundleRows(ctx.db, ctx.companyId, [existing.id])).get(existing.id);
+        if (open && (open.status === "pending" || open.status === "held")) throw ageingRefusal(open.status === "held" ? "bundle_ageing_held" : "bundle_in_ageing", { serial: existing.serial, batch: open.batchNumber });
+      }
+      // D6: a bundle packed from a trolley row gives its pieces back on void (its own whole-bundle row never does).
       const ageingRestore =
         existing.ageingRowId && (await ageingTablesExist(ctx.db))
           ? restoreAgeingRowStatements(ctx.db, {
@@ -1320,6 +1341,7 @@ export const bundleRouter = router({
               ageingRowId: existing.ageingRowId,
               seq,
               to: input.toStatus === "void" ? "void" : "available",
+              userId: ctx.session.user.id,
             })
           : [];
 

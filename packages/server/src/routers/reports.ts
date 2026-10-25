@@ -13,7 +13,11 @@ import { bundle } from "@orrn/db/schema/inventory";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { company } from "@orrn/db/schema/tenant";
 
+import { readFloorSettings } from "@orrn/domain";
+
 import { anyActionProcedure, router } from "../index";
+import { ageingReportInput } from "../lib/ageingContracts";
+import { AGEING_REPORT_COLUMNS, ageingReport } from "../lib/ageingServer";
 import { companyTimezone, zonedMidnightMs, zonedYmd } from "../lib/dayWindow";
 
 /** Rows per register: a plant ships a few hundred loads a month; the cap keeps one call bounded. */
@@ -50,6 +54,46 @@ export const SALES_REGISTER_COLUMNS = [
 ] as const;
 
 export const reportsRouter = router({
+  /**
+   * W3-AG-S `reports.ageing` (spec §5): one row per trolley line whose batch went in between `from` and
+   * `to` (company days, both included), paginated; `format: "csv"` is the same query as a file page.
+   */
+  ageing: anyActionProcedure("reports.read")
+    .input(ageingReportInput)
+    .query(async ({ ctx, input }) => {
+      const [row] = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)).limit(1);
+      const settings = (row?.settings ?? {}) as Record<string, unknown>;
+      const tz = companyTimezone(settings);
+      const ymd = (d: string) => {
+        const [year, month, day] = d.split("-").map(Number) as [number, number, number];
+        return { year, month, day };
+      };
+      const to = ymd(input.to);
+      const { rows, total } = await ageingReport(
+        ctx.db,
+        ctx.companyId,
+        { ...input, fromMs: zonedMidnightMs(tz, ymd(input.from)), toMs: zonedMidnightMs(tz, { ...to, day: to.day + 1 }) },
+        readFloorSettings(settings).shifts,
+      );
+      if (input.format === "json") return { rows, total, csv: null as string | null, filename: null as string | null };
+      const lines = [AGEING_REPORT_COLUMNS.map(csvCell).join(",")];
+      const at = (v: number | null) => (v == null ? "" : new Date(v).toISOString());
+      const c = (v: number | null) => (v == null ? "" : (v / 10).toFixed(1));
+      for (const r of rows) {
+        lines.push(
+          [
+            r.batchNumber, r.ovenCode, r.trolleyCode, r.shiftName, at(r.inAt), at(r.outAt), r.soakMin, r.recipeSoakMin, c(r.setTempCX10), c(r.actualMinX10), c(r.actualMaxX10),
+            r.pressRunNumber, r.salesOrderNumber, r.customerName, r.customerPo, r.castCode, r.dieInstanceCode, r.sectionLabel, r.lengthMm, r.loadedPcs, r.takenByPackPcs,
+            r.onBundlesPcs, r.remainingPcs, r.held ? "held" : "", r.source === "manual" ? "typed" : r.source, r.hardnessMethod, r.sampleCount, c(r.medianX10),
+            r.pass == null ? "" : r.pass ? "pass" : "fail",
+          ]
+            .map((v) => csvCell(v as string | number | null))
+            .join(","),
+        );
+      }
+      return { rows, total, csv: `${lines.join("\r\n")}\r\n`, filename: `ageing-${input.from}-${input.to}-${input.offset / input.limit + 1}.csv` };
+    }),
+
   /**
    * Completed dispatches of one company calendar month (by completion time on the company clock),
    * one row each: date, PL no, Tally invoice no/date, customer + GSTIN, vehicle, transporter,

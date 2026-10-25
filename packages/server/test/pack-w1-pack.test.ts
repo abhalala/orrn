@@ -165,7 +165,7 @@ describe("createReceipt: trolley seam (ageing row)", () => {
     const rowId = await ageingRow(p.companyId, p.dieA, 25);
     await expect(
       p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [row(10, 20), row(5, 6)] }),
-    ).rejects.toThrow("Only 25 pieces left on this trolley row; this pack takes 26");
+    ).rejects.toThrow("Only 25 pieces are left on this trolley line to pack");
     await expect(
       p.owner.bundle.createReceipt({ dieId: p.dieB, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [row(10)] }),
     ).rejects.toThrow("That trolley row is of another section");
@@ -187,7 +187,7 @@ describe("createReceipt: trolley seam (ageing row)", () => {
     env.beforeNextBatch(() => env.db.run(sql`update ageing_row set packed_pcs = 15 where id = ${rowId}`));
     await expect(
       p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [row(10, 10)] }),
-    ).rejects.toThrow(/left on this trolley row/);
+    ).rejects.toThrow("Only 5 pieces are left on this trolley line to pack");
     expect(await packedPcs(rowId)).toBe(15);
     expect(await env.db.select().from(bundle).where(eq(bundle.companyId, p.companyId))).toHaveLength(0);
     expect(await env.db.select().from(stockLedger).where(eq(stockLedger.companyId, p.companyId))).toHaveLength(0);
