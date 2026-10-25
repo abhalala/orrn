@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5847 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 5848 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -4657,7 +4657,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (495)
+### press (496)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4754,6 +4754,7 @@ Please check, Lalubhai:
 | `console.downtime` | Downtime | रुकावट |
 | `console.downtimeStart` | Press stopped | प्रेस रुकी |
 | `console.downtimeStop` | Press running again | प्रेस फिर चालू |
+| `console.downtimeOffline` | You are offline. A downtime row needs a connection; tap again when it is back. | आप ऑफ़लाइन हैं। डाउनटाइम के लिए कनेक्शन चाहिए; कनेक्शन आने पर फिर दबाएं। |
 | `console.downtimeOpen` | Close the downtime first. | पहले रुकावट बंद करें। |
 | `console.lateEntry` | Entered late | बाद में भरा |
 | `console.lateEntryAsk` | Ask approval for a late entry | बाद में भरने की मंज़ूरी मांगें |
