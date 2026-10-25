@@ -177,7 +177,8 @@ function badSentences(src: string): string[] {
   return out;
 }
 
-function foundrySentences(): { file: string; text: string }[] {
+/** The foundry routers' sentences (W2-FD-S), checked against `FOUNDRY_REFUSALS` by refusal-foundry.test.ts. */
+export function foundrySentences(): { file: string; text: string }[] {
   const out: { file: string; text: string }[] = [];
   for (const f of FOUNDRY_FILES) {
     const src = SRC(f);
@@ -189,7 +190,7 @@ function foundrySentences(): { file: string; text: string }[] {
   for (const marker of ["export function castStateMessage", "if (!d.itemActive) return", "return `${d.locationCode"]) {
     for (const text of blockLiterals(kit, marker)) out.push({ file: "lib/foundryKit.ts", text });
   }
-  return out;
+  return out.filter((x) => isSentence(x.text));
 }
 
 /** A sentence that is only placeholders and punctuation is a composite the blocks above spell out. */
@@ -208,7 +209,6 @@ export function serverSentences(): { file: string; text: string }[] {
     }
   }
   for (const text of composedSentences()) out.push({ file: "composed", text });
-  for (const s of foundrySentences()) if (isSentence(s.text)) out.push(s);
   return out.flatMap((s) => realize(s.text).map((text) => ({ file: s.file, text })));
 }
 

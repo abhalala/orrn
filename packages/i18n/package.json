@@ -10,6 +10,7 @@
     "./hi": "./src/hi.ts",
     "./gu": "./src/gu.ts",
     "./refusal": "./src/refusal.ts",
+    "./refusal-foundry": "./src/refusal-foundry.ts",
     "./refusal-sentences": "./src/refusal-sentences.ts",
     "./guides": "./src/guides/index.ts"
   },
