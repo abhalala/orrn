@@ -29,6 +29,8 @@ export const DIE_COPY_EVENTS = [
   "trialRelease", // manager + reason: available without a trial
   "trialToMaker", // failed trial: back to the maker
   "trialRetire", // failed trial: retired
+  // W4-NEXTROWS (FP-DR-18): an in-house correction sends a rack copy back on trial.
+  "workCorrect",
 ] as const;
 export type DieCopyEvent = (typeof DIE_COPY_EVENTS)[number];
 
@@ -50,6 +52,7 @@ const COPY_MOVES: Record<DieCopyEvent, { from: DieCopyStatus; to: DieCopyStatus 
   trialRelease: { from: "on_trial", to: "available" },
   trialToMaker: { from: "on_trial", to: "at_maker" },
   trialRetire: { from: "on_trial", to: "retired" },
+  workCorrect: { from: "available", to: "on_trial" },
 };
 
 /**
@@ -274,4 +277,35 @@ export function canCancelIssue(input: {
  */
 export function issueAfterLog(input: { copyId: string; nextQueuedRunCopyId: string | null | undefined }): "return" | "carry_to_next" {
   return input.nextQueuedRunCopyId === input.copyId ? "carry_to_next" : "return";
+}
+
+/**
+ * FP-DR-18 die work log (W4-NEXTROWS): whether work may be logged on a copy, and what it does to the
+ * status. Work is done on the rack: an `available` or `on_trial` copy. A copy on a press, at the
+ * maker, out at nitriding or retired is refused. `setOnTrial` is for a correction (`correct`) only;
+ * on an available copy it moves it to `on_trial` (event `workCorrect`); a copy already on trial
+ * stays there. No stock moves.
+ */
+export type DieWorkRefusal = "copy_in_use" | "copy_at_maker" | "copy_at_nitriding" | "copy_retired" | "trial_needs_correct";
+
+export const DIE_WORK_STATUSES = ["available", "on_trial"] as const satisfies readonly DieCopyStatus[];
+
+export function dieWorkCheck(input: { status: DieCopyStatus; code: string; setOnTrial?: boolean }):
+  | { ok: true; nextStatus: DieCopyStatus; movesToTrial: boolean }
+  | { ok: false; refusal: DieWorkRefusal } {
+  switch (input.status) {
+    case "in_use":
+      return { ok: false, refusal: "copy_in_use" };
+    case "at_maker":
+      return { ok: false, refusal: "copy_at_maker" };
+    case "at_nitriding":
+      return { ok: false, refusal: "copy_at_nitriding" };
+    case "retired":
+      return { ok: false, refusal: "copy_retired" };
+    default:
+      break;
+  }
+  if (input.setOnTrial && input.code !== "correct") return { ok: false, refusal: "trial_needs_correct" };
+  const to = input.setOnTrial ? dieCopyNext(input.status, "workCorrect") : null;
+  return { ok: true, nextStatus: to ?? input.status, movesToTrial: to !== null };
 }

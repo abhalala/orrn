@@ -25,9 +25,11 @@ import {
   dieInstanceStatuses,
   dieTierChange,
   dieWeightReading,
+  dieWork,
   nitridingLog,
 } from "@orrn/db/schema/dies";
 import { dieIssue, pressRun } from "@orrn/db/schema/press";
+import { reasonCode } from "@orrn/db/schema/reasons";
 import {
   canEditDieCard,
   DIE_COPY_HAND_STATUSES,
@@ -72,6 +74,7 @@ import { isStoreDrawAbort, loadStoreItem, prepareStoreDraws } from "../lib/store
 import { dieFileRouter } from "./dieFile";
 import { dieIssueRouter } from "./dieIssue";
 import { dieMakerRouter } from "./dieMaker";
+import { dieWorkRouter } from "./dieWork";
 
 /** kg/12ft in thousandths of a kg (= grams per 12 ft). 500 kg per 12 ft is far beyond any section. */
 const kgPer12ftMilli = z.number().int().min(1).max(500_000);
@@ -328,7 +331,7 @@ export const dieInstanceRouter = router({
    */
   get: companyProcedure.input(z.object({ id: z.string().min(1) })).query(async ({ ctx, input }) => {
     const instance = await loadInstance(ctx, input.id);
-    const [sectionRows, readings, nitriding, tierChanges, files, bandRows, openIssue, openMakerJob, produced, driftBands] = await Promise.all([
+    const [sectionRows, readings, nitriding, tierChanges, files, bandRows, openIssue, openMakerJob, produced, driftBands, work] = await Promise.all([
       ctx.db
         .select({
           id: die.id,
@@ -395,6 +398,26 @@ export const dieInstanceRouter = router({
         .limit(1),
       producedGrams(ctx.db, ctx.companyId, instance.id),
       loadDriftBands(ctx.db, ctx.companyId),
+      // FP-DR-18 work log on the card's timeline, newest first.
+      ctx.db
+        .select({
+          id: dieWork.id,
+          reasonCodeId: dieWork.reasonCodeId,
+          kindCode: dieWork.kindCode,
+          label: reasonCode.label,
+          workedAt: dieWork.workedAt,
+          note: dieWork.note,
+          hardness: dieWork.hardness,
+          setOnTrial: dieWork.setOnTrial,
+          createdAt: dieWork.createdAt,
+          actorName: user.name,
+        })
+        .from(dieWork)
+        .leftJoin(reasonCode, and(eq(reasonCode.id, dieWork.reasonCodeId), eq(reasonCode.companyId, dieWork.companyId)))
+        .leftJoin(user, eq(user.id, dieWork.createdBy))
+        .where(and(eq(dieWork.companyId, ctx.companyId), eq(dieWork.dieInstanceId, instance.id)))
+        .orderBy(desc(dieWork.workedAt), desc(dieWork.createdAt))
+        .limit(30),
     ]);
     const sectionRow = sectionRows[0] ?? null;
     const section = sectionRow
@@ -444,6 +467,7 @@ export const dieInstanceRouter = router({
       readings: readingRows,
       nitriding,
       tierChanges,
+      work,
     };
   }),
 
@@ -1523,6 +1547,7 @@ export const dieInstanceRouter = router({
   issues: dieIssueRouter,
   maker: dieMakerRouter,
   files: dieFileRouter,
+  work: dieWorkRouter,
 });
 
 /** Shared by `drift` and `suggestFirst`. */

@@ -1392,6 +1392,7 @@ export const gu = {
       ageing_rework: "ફરી એજિંગ",
       ageing_scrap: "એજિંગ સ્ક્રેપ",
       reallocate: "બીજા ઓર્ડરમાં ફેરવવું",
+      die_work: "Die નું કામ",
     },
     downtime: {
       die_change: "Die બદલી",
@@ -1447,6 +1448,13 @@ export const gu = {
       length_mismatch: "અલગ કટ લંબાઈ",
       customer_request: "ગ્રાહકે કહ્યું",
       packed_wrong_order: "ખોટા ઓર્ડર પર પૅક થયું",
+      other: "અન્ય",
+    },
+    die_work: {
+      polish: "પોલિશ",
+      correct: "સુધારો",
+      inspect: "તપાસ",
+      clean: "સફાઈ",
       other: "અન્ય",
     },
   },

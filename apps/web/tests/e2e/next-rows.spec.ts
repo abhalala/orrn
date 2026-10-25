@@ -2,6 +2,7 @@ import { expect, request, test, type Page } from "@playwright/test";
 
 import { expectNoHorizontalScroll } from "../helpers/layout-guards";
 import { signInViaApi } from "./helpers/accounts";
+import { ownerApi } from "./helpers/owner-api";
 import { freshPlant, signInPlant, type FreshPlant } from "./helpers/fresh-plant";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 
@@ -77,6 +78,41 @@ test.describe("FP-PF-14 release notes on About", () => {
       const card = page.getByTestId("release-notes");
       await expect(card).toBeVisible();
       await expect(card.getByTestId("release-note").or(card.getByTestId("release-notes-none")).first()).toBeVisible();
+      await expectNoHorizontalScroll(page);
+    });
+  }
+});
+
+test.describe("FP-DR-18 die work log on the copy card", () => {
+  for (const width of WIDTHS) {
+    test(`log a correction that sends the copy back on trial at ${width}px`, async ({ page }) => {
+      // A copy of its own on a section no other spec reads (Angle 11262), on the rack.
+      const api = await ownerApi();
+      const made = await api.mutate<{ id: string; code: string }>("dieInstance.create", { sectionId: "dev-die-11262", status: "available" });
+      await api.dispose();
+
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await signInViaApi(page, "owner");
+      await page.goto(`/dies/copies/${made.id}?tab=work`);
+      const panel = page.getByTestId("work-panel");
+      await expect(panel).toBeVisible({ timeout: 30_000 });
+      await expectNoHorizontalScroll(page);
+
+      await panel.getByTestId("work-add").click();
+      const sheet = page.getByRole("dialog");
+      await sheet.getByTestId("work-kind").selectOption({ label: "Correction" });
+      await sheet.getByLabel("Hardness after (HV)").fill("960");
+      await sheet.getByTestId("work-note").fill("Bearing opened at the nose");
+      await sheet.getByLabel("Send the copy back on trial").check();
+      await sheet.getByTestId("work-save").click();
+      await expect(page.getByText(`Work logged on ${made.code}`)).toBeVisible();
+
+      const row = panel.getByTestId("work-row").first();
+      await expect(row).toContainText("Correction");
+      await expect(row).toContainText("960 HV");
+      await expect(row).toContainText("Sent on trial");
+      await expect(row).toContainText("Bearing opened at the nose");
       await expectNoHorizontalScroll(page);
     });
   }

@@ -382,3 +382,42 @@ export type DieBandRow = typeof dieBand.$inferSelect;
 export type DieFileRow = typeof dieFile.$inferSelect;
 export type DieMakerRow = typeof dieMaker.$inferSelect;
 export type DieMakerJobRow = typeof dieMakerJob.$inferSelect;
+
+/**
+ * FP-DR-18 die work log (W4-NEXTROWS, migration 0038): in-house work on a copy besides nitriding and
+ * maker trips: polish, correct, inspect, clean, other. The kind is a `reason_code` of kind
+ * `die_work` (an editable list under Masters; `kind_code` keeps the code as it was). `worked_at` is
+ * the day the work was done (paper is often filled later), `hardness` an optional HV after it.
+ * `set_on_trial`: a correction that sent the copy back on trial (`available -> on_trial`). Append
+ * only; no stock movement.
+ */
+export const dieWork = sqliteTable(
+  "die_work",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    serverSeq: integer("server_seq").notNull().default(0),
+    dieInstanceId: text("die_instance_id")
+      .notNull()
+      .references(() => dieInstance.id),
+    /** `reason_code.id` (kind `die_work`); validated in code. */
+    reasonCodeId: text("reason_code_id").notNull(),
+    /** The code at write time (`polish`, `correct`, ...). */
+    kindCode: text("kind_code").notNull(),
+    workedAt: integer("worked_at", { mode: "timestamp_ms" }).notNull(),
+    note: text("note"),
+    /** Surface hardness after the work (HV), when measured. */
+    hardness: integer("hardness"),
+    setOnTrial: integer("set_on_trial", { mode: "boolean" }).notNull().default(sql`0`),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+  },
+  (table) => [
+    index("die_work_instance_idx").on(table.companyId, table.dieInstanceId, table.workedAt),
+    index("die_work_company_server_seq_idx").on(table.companyId, table.serverSeq),
+  ],
+);
+
+export type DieWorkRow = typeof dieWork.$inferSelect;

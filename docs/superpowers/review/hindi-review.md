@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5106 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5133 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -3509,7 +3509,7 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (412)
+### dieRoom (433)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3704,9 +3704,30 @@ Please check, Lalubhai:
 | `tabs.readings` | Readings | रीडिंग |
 | `tabs.runs` | Runs | रन |
 | `tabs.nitriding` | Nitriding | नाइट्राइडिंग |
+| `tabs.work` | Work | काम |
 | `tabs.tier` | Tier | टियर |
 | `tabs.maker` | Maker | मेकर |
 | `tabs.files` | Files | फ़ाइलें |
+| `work.add` | Log work | काम दर्ज करें |
+| `work.title` | Log work on {code} | {code} पर काम दर्ज करें |
+| `work.body` | Polishing, correction, inspection or cleaning done in the die room. Nothing moves in stock. | Die room में किया गया पॉलिश, करेक्शन, जाँच या सफ़ाई। स्टॉक में कुछ नहीं बदलता। |
+| `work.kind` | What was done | क्या किया |
+| `work.day` | Day | दिन |
+| `work.hv` | Hardness after (HV) | बाद की हार्डनेस (HV) |
+| `work.note` | Note | नोट |
+| `work.noteRequired` | Say what was done in the note. | नोट में लिखें कि क्या किया। |
+| `work.backOnTrial` | Send the copy back on trial | Copy को फिर ट्रायल पर भेजें |
+| `work.backOnTrialHint` | After a correction the copy runs a die trial before production. | करेक्शन के बाद copy प्रोडक्शन से पहले die ट्रायल चलाती है। |
+| `work.save` | Save work | काम सेव करें |
+| `work.saved` | Work logged on {code} | {code} पर काम दर्ज हुआ |
+| `work.sentOnTrial` | Sent on trial | ट्रायल पर भेजी |
+| `work.hardness` | {hv} HV | {hv} HV |
+| `work.by` | by {name} | {name} ने |
+| `work.empty` | No work logged yet | अभी कोई काम दर्ज नहीं |
+| `work.emptyBody` | Polishing, corrections, inspections and cleaning show here, newest first. | पॉलिश, करेक्शन, जाँच और सफ़ाई यहाँ दिखते हैं, नए पहले। |
+| `work.offRack` | Work is logged on the rack. Return the copy first. | काम रैक पर दर्ज होता है। पहले copy वापस लाएँ। |
+| `work.hvInvalid` | Enter hardness as a whole number, for example 950. | हार्डनेस पूरी संख्या में डालें, जैसे 950। |
+| `work.dayInvalid` | Pick a day that is not in the future. | ऐसा दिन चुनें जो आगे का न हो। |
 | `trial.title` | On trial | ट्रायल पर |
 | `trial.body` | This copy goes only to a die trial run. It becomes available when a trial passes. | यह कॉपी सिर्फ़ die ट्रायल रन पर जाती है। ट्रायल पास होने पर यह उपलब्ध हो जाती है। |
 | `trial.issueToTrial` | Issue to a trial run | ट्रायल रन को दें |
@@ -4862,7 +4883,7 @@ Please check, Lalubhai:
 | `readings.empty` | No readings yet. | अभी कोई रीडिंग नहीं। |
 | `readings.outOfRange` | Outside {min} to {max}. | {min} से {max} के बाहर। |
 
-### reasons (48)
+### reasons (54)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4874,6 +4895,7 @@ Please check, Lalubhai:
 | `kinds.ageing_rework` | Age again | फिर से एजिंग |
 | `kinds.ageing_scrap` | Ageing scrap | एजिंग स्क्रैप |
 | `kinds.reallocate` | Move to another order | दूसरे ऑर्डर में डालना |
+| `kinds.die_work` | Die work | Die का काम |
 | `downtime.die_change` | Die change | Die बदली |
 | `downtime.billet_wait` | Waiting for billets | बिलेट का इंतज़ार |
 | `downtime.breakdown` | Breakdown | ब्रेकडाउन |
@@ -4914,6 +4936,11 @@ Please check, Lalubhai:
 | `reallocate.customer_request` | Customer asked | ग्राहक ने कहा |
 | `reallocate.packed_wrong_order` | Packed on the wrong order | गलत ऑर्डर पर पैक हुआ |
 | `reallocate.other` | Other | अन्य |
+| `die_work.polish` | Polish | पॉलिश |
+| `die_work.correct` | Correction | करेक्शन |
+| `die_work.inspect` | Inspection | जाँच |
+| `die_work.clean` | Cleaning | सफ़ाई |
+| `die_work.other` | Other | अन्य |
 
 ### plantSettings (50)
 
