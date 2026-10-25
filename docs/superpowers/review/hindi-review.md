@@ -1790,7 +1790,7 @@ Counts: 6234 screen strings in 49 groups, 35 guides with 646 strings.
 | `loadFailed` | Couldn't load printing. Check your connection and try again. | प्रिंटिंग लोड नहीं हुई। कनेक्शन देखकर फिर कोशिश करें। |
 | `computerBanner.neverTitle` | The print computer has never connected | प्रिंट कंप्यूटर अभी तक जुड़ा नहीं है |
 | `computerBanner.neverBody` | {waiting} {waiting:label is\|labels are} waiting. Nothing prints until the print computer is installed, switched on and online. Ask the orrn team for help. | {waiting} लेबल इंतज़ार में हैं और कुछ प्रिंट नहीं होगा। प्लांट में प्रिंट कंप्यूटर लगाएँ, चालू करें और इंटरनेट से जोड़ें, या orrn टीम से मदद लें। |
-| `computerBanner.offlineTitle` | The print computer is offline since {time} | प्रिंट कंप्यूटर {time} से बंद है |
+| `computerBanner.offlineTitle` | The print computer has been offline since {time} | प्रिंट कंप्यूटर {time} से बंद है |
 | `computerBanner.offlineBody` | {waiting} {waiting:label is\|labels are} waiting. Check that the print computer is switched on and online. They print once it reports in. | {waiting} लेबल इंतज़ार में हैं। देखें कि प्लांट का प्रिंट कंप्यूटर चालू है और इंटरनेट से जुड़ा है। जुड़ते ही लेबल अपने आप प्रिंट हो जाएँगे। |
 | `queueExtra.all` | All | सभी |
 | `queueExtra.emptyFiltered` | No jobs with this status. | इस स्टेटस का कोई जॉब नहीं है। |

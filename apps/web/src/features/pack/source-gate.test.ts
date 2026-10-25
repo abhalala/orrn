@@ -46,8 +46,9 @@ describe("source step gates", () => {
     expect(withCopy(c, undefined).dieInstanceId).toBeUndefined();
   });
 
-  test("copies that are retired, at the maker or out for nitriding are not offered (BACKLOG 99)", () => {
-    expect(packableCopy("at_nitriding")).toBe(false);
+  test("copies that are retired or at the maker are not offered (the server refuses them); one at nitriding is (Q63 A)", () => {
+    expect(packableCopy("at_nitriding")).toBe(true);
+    expect(packableCopy("on_trial")).toBe(true);
     expect(packableCopy("available")).toBe(true);
     expect(packableCopy("in_use")).toBe(true);
     expect(packableCopy("retired")).toBe(false);
@@ -99,7 +100,10 @@ describe("preselect the only source that applies (BACKLOG 99)", () => {
 
   test("the copy on the press is picked when only one copy is in use; a lone packable copy too", () => {
     expect(preselectSource(DEFAULT_SOURCE, [], [copy("a", "available"), copy("b", "in_use"), copy("c", "at_nitriding")]).dieInstanceId).toBe("b");
-    expect(preselectSource(DEFAULT_SOURCE, [], [copy("a", "available"), copy("c", "at_nitriding"), copy("d", "at_maker")]).dieInstanceId).toBe("a");
+    expect(preselectSource(DEFAULT_SOURCE, [], [copy("a", "available"), copy("d", "at_maker"), copy("e", "retired")]).dieInstanceId).toBe("a");
+    // Q63 A: a copy at nitriding counts as packable, so it is one of the choices and is never silently skipped.
+    expect(preselectSource(DEFAULT_SOURCE, [], [copy("a", "available"), copy("c", "at_nitriding")]).dieInstanceId).toBeUndefined();
+    expect(preselectSource(DEFAULT_SOURCE, [], [copy("c", "at_nitriding"), copy("d", "at_maker")]).dieInstanceId).toBe("c");
   });
 
   test("two copies and none or two on the press: the packer picks", () => {

@@ -48,9 +48,13 @@ export function castRequired(settings: unknown, liveCasts: number): boolean {
   return castRequiredOnBundle(readFloorSettings(settings as Record<string, unknown> | null | undefined), liveCasts > 0);
 }
 
-/** Copies that can still be packed from (retired copies, copies at the maker and copies out for nitriding are not offered). */
+/**
+ * Copies that can still be packed from: retired copies and copies at the maker are not offered, because the server
+ * refuses them (`bundle.ts`, m-13). A copy now at nitriding IS offered (Q63 A): it may have pressed the run that is packed
+ * hours later, so its current status does not matter; the picker shows the status as a chip. The phone does the same.
+ */
 export function packableCopy(status: string): boolean {
-  return status !== "retired" && status !== "at_maker" && status !== "at_nitriding";
+  return status !== "retired" && status !== "at_maker";
 }
 
 /** Choosing another order line may change who owns the material: a copy chosen before stays only if still valid. */

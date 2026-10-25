@@ -4,8 +4,13 @@
  */
 import type { NodeStatus } from "./model";
 
-/** A print computer reports in often; this long without a report and it is treated as offline. */
-export const PRINT_COMPUTER_STALE_MS = 15 * 60_000;
+/**
+ * The spool agent reports in every 60 s by default (`heartbeat_interval: 60s`, wt/SPOOL `internal/heartbeat`). Five minutes
+ * without a report is five missed beats in a row: a restart or a network blip is over by then, so what is left is a real stop.
+ */
+export const PRINT_COMPUTER_STALE_MS = 5 * 60_000;
+/** How often the Queue tab asks again, and re-reads the clock, while it stays open. */
+export const PRINT_COMPUTER_REFRESH_MS = 30_000;
 
 export type PrintComputerBanner = { kind: "never"; nodeName: string } | { kind: "offline"; nodeName: string; since: Date } | null;
 

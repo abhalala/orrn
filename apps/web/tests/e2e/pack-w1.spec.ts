@@ -478,7 +478,7 @@ test.describe("pack: a save whose reply is lost is sent again safely (BACKLOG 50
 });
 
 test.describe("pack: the one source that applies comes pre-picked (BACKLOG 99)", () => {
-  test("a single open order line and the copy on the press are chosen for the packer; a copy out for nitriding is not offered", async ({ page }) => {
+  test("a single open order line and the copy on the press are chosen for the packer; a copy out for nitriding is still offered with its status (Q63 A)", async ({ page }) => {
     const names = (url: string) => decodeURIComponent(new URL(url).pathname.split("/trpc/")[1] ?? "").split(",");
     await page.route("**/trpc/**", async (route) => {
       const procs = names(route.request().url());
@@ -514,7 +514,9 @@ test.describe("pack: the one source that applies comes pre-picked (BACKLOG 99)",
     await expect(orders.getByRole("radio", { name: /plant stock/i })).not.toBeChecked();
     const copies = page.locator("[data-slot='copy-picker']");
     await expect(copies.getByRole("radio", { name: "RUN-1" })).toBeChecked({ timeout: 15_000 });
-    await expect(copies.getByRole("radio", { name: "NIT-9" })).toHaveCount(0);
+    await expect(copies.getByRole("radio", { name: "NIT-9" })).not.toBeChecked();
+    await expect(copies.getByRole("radio", { name: "NIT-9" })).toHaveCount(1);
+    await expect(copies.getByText("At nitriding").first()).toBeVisible();
     await expect(copies.getByRole("radio", { name: "AVL-9" })).not.toBeChecked();
   });
 });

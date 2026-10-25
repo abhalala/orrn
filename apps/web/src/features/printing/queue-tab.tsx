@@ -10,6 +10,7 @@ import { PALETTE_CLASSES } from "@orrn/ui/components/badge";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import { Check, RotateCcw } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { useCompanyWhen } from "@/features/stock/use-company-when";
@@ -18,7 +19,7 @@ import { bundleDetailPath } from "@/shared/lib/paths";
 import { trpc } from "@/shared/utils/trpc";
 
 import { canRetry, PRINT_PAGE_SIZE, PRINT_STATUSES, printJobTone, queueSummary, type PrintStatus } from "./model";
-import { printComputerBanner } from "./print-computer";
+import { PRINT_COMPUTER_REFRESH_MS, printComputerBanner } from "./print-computer";
 
 type Job = inferRouterOutputs<AppRouter>["spool"]["queue"]["rows"][number];
 
@@ -69,8 +70,14 @@ export function QueueTab({
   const counts = queue.data?.counts;
   const summary = counts ? queueSummary(counts) : null;
   // BACKLOG 102: labels waiting while no print computer is reporting in.
-  const nodes = useQuery(trpc.edge.overview.queryOptions());
-  const banner = summary && nodes.data ? printComputerBanner(nodes.data.nodes, summary.waiting, Date.now()) : null;
+  // The query asks again and the clock ticks while the tab is open, so the banner appears when the print computer goes quiet and clears when it reports in.
+  const nodes = useQuery({ ...trpc.edge.overview.queryOptions(), refetchInterval: PRINT_COMPUTER_REFRESH_MS });
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), PRINT_COMPUTER_REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, []);
+  const banner = summary && nodes.data ? printComputerBanner(nodes.data.nodes, summary.waiting, now) : null;
 
   const columns: ResponsiveListColumn<Job>[] = [
     {

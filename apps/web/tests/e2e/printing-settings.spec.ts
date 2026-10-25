@@ -171,7 +171,7 @@ test.describe("printing", () => {
     await open(page, "/printing", { width: 1280 });
     const banner = page.getByTestId("print-computer-banner");
     await expect(banner).toHaveAttribute("data-kind", "offline");
-    await expect(banner).toContainText("The print computer is offline since");
+    await expect(banner).toContainText("The print computer has been offline since");
     await expect(banner).toContainText("switched on and online");
     await expectContained(page);
   });

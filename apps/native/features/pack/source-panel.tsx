@@ -68,6 +68,7 @@ export function SourcePanel({ choice, onChange, gate, showErrors }: { choice: So
         value: c.id,
         disabled: locked && c.id !== pinnedCopyId,
         label: c.code,
+        tag: c.status === "at_nitriding" ? <Chip tone="amber" label={t("dieRoom.status.at_nitriding")} /> : undefined,
         detail: [
           c.tierRank != null ? t("dieRoom.copies.tier", { rank: c.tierRank }) : null,
           t(`dieRoom.status.${c.status}`),

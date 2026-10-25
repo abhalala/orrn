@@ -1229,11 +1229,29 @@ test.describe("Godseye: app builds, backups, support, company", () => {
     // All ten modules are in the editor (the editor lists the bought modules of the plant).
     await expect(page.getByText("Scrap purchase").first()).toBeVisible();
     await rewrite<{ items: unknown[]; nextCursor: unknown }>(page, "platform.companiesAudit", (r) => {
-      r.items = AUDIT_ROWS;
+      r.items = [
+        ...AUDIT_ROWS,
+        {
+          id: "g9",
+          at: "2026-10-24T09:00:00.000Z",
+          action: "packingList.combine",
+          subjectType: "packing_list",
+          subjectId: "a7c0f15d-1111-4222-8333-444455556666",
+          subjectLabel: "PL/2026-27/5",
+          actorId: "u1",
+          actorName: "Office",
+          byStaff: false,
+          meta: {},
+        },
+      ];
       r.nextCursor = null;
     });
     await page.getByRole("tab", { name: "Audit" }).click();
     await expect(page.getByTestId("company-audit")).toContainText("company.settings.update");
+    // FINAL-FIXES-3 I3: the label reads as words, but it does not link into the staff member's own plant.
+    await expect(page.getByTestId("company-audit")).toContainText("PL/2026-27/5");
+    await expect(page.getByTestId("company-audit").locator("[data-audit-subject-link]")).toHaveCount(0);
+    await expect(page.getByTestId("company-audit").getByRole("link", { name: "PL/2026-27/5" })).toHaveCount(0);
     // Settled before the picture: no tab animation, nothing busy, nothing overlapping.
     await expect(page.getByTestId("company-audit")).not.toHaveAttribute("aria-busy", "true");
     await expect(page.getByText("Scrap purchase")).toHaveCount(0);

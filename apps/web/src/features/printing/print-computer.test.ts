@@ -23,6 +23,12 @@ describe("print computer banner (BACKLOG 102)", () => {
     expect(printComputerBanner([node({ status: "offline", lastHeartbeatAt: stored })], 1, NOW)).toEqual({ kind: "offline", nodeName: "Print PC", since: stored });
   });
 
+  test("the offline line is five minutes (five missed 60 s beats): four minutes is still reporting in", () => {
+    expect(PRINT_COMPUTER_STALE_MS).toBe(5 * 60_000);
+    expect(printComputerBanner([node({ status: "active", lastHeartbeatAt: ago(4 * 60_000) })], 1, NOW)).toBeNull();
+    expect(printComputerBanner([node({ status: "active", lastHeartbeatAt: ago(5 * 60_000 + 1) })], 1, NOW)?.kind).toBe("offline");
+  });
+
   test("one print computer reporting in is enough; nothing waiting, or no print computer at all, gives no banner", () => {
     expect(printComputerBanner([node({ status: "active", lastHeartbeatAt: ago(60_000) })], 5, NOW)).toBeNull();
     expect(printComputerBanner([node({ status: "active", lastHeartbeatAt: ago(60_000) }), node({ status: "offline", lastHeartbeatAt: ago(9e6) })], 5, NOW)).toBeNull();

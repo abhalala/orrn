@@ -60,6 +60,13 @@ async function seedCast(
       mime: "application/pdf",
       sizeBytes: 1,
       dataBase64: "AA==",
+      // As every real path writes it: `valuesPpm` is the source, the element columns derive from it (spectroCheck).
+      valuesPpm: {
+        si: spectro.si,
+        mg: spectro.mg,
+        ...(spectro.fe != null ? { fe: spectro.fe } : {}),
+        ...(spectro.al != null ? { al: spectro.al } : {}),
+      },
       siPpm: spectro.si,
       mgPpm: spectro.mg,
       fePpm: spectro.fe ?? null,
@@ -357,6 +364,40 @@ describe("test certificate", () => {
     expect(snap.chemistry.elements.find((e) => e.element === "si")?.minPpm).toBe(4_500);
     expect(snap.casts[0]).toMatchObject({ castNo: "K71", status: "tested", verdict: "pass" });
     expect(snap.casts[0]!.elements.find((e) => e.element === "mg")?.ppm).toBe(5_000);
+  }, SLOW);
+
+  test("the certificate and the melt share one rule: numbers = values_ppm keys, and a same-millisecond tie goes to the higher serverSeq (FINAL-FIXES-3 I1)", async () => {
+    setClock(NOON);
+    const p = await h.portalPlant();
+    const party = await h.partyLogin(p);
+    const castId = await seedCast(p.companyId, 72, { verdict: "pass", si: 4_500, mg: 5_000 });
+    const meltRow = (await env.db.select().from(melt).where(eq(melt.castId, castId)))[0]!;
+    const at = new Date(Date.now() - 3_600_000);
+    await env.db.update(spectroResult).set({ createdAt: at, serverSeq: 1 }).where(eq(spectroResult.castId, castId));
+    const base = {
+      companyId: p.companyId,
+      meltId: meltRow.id,
+      castId,
+      fileName: "s2.pdf",
+      mime: "application/pdf",
+      sizeBytes: 1,
+      dataBase64: "AA==",
+      limitsSnapshot: { alloyId: null, alloyCode: "6063", limits: [] },
+    };
+    // Same millisecond, higher serverSeq, numbers in values_ppm: it decides (a fail).
+    await env.db.insert(spectroResult).values({ ...base, id: crypto.randomUUID(), valuesPpm: { si: 9_000, mg: 5_000 }, siPpm: 9_000, mgPpm: 5_000, verdict: "fail", createdAt: at, serverSeq: 2 });
+    // Newer, but element columns only and empty values_ppm: not numbers by the shared rule, so it never decides.
+    await env.db.insert(spectroResult).values({ ...base, id: crypto.randomUUID(), siPpm: 1, verdict: "pass", createdAt: new Date(Date.now() - 60_000), serverSeq: 3 });
+    const serials = await p.pack(p.dieA, [{ kg: 10 }]);
+    await env.db.update(bundle).set({ castId }).where(and(eq(bundle.companyId, p.companyId), inArray(bundle.serial, serials)));
+    const d = await p.held(serials);
+    await p.owner.dispatch.complete({ id: d });
+    await p.as("office").portal.certificates.issue({ dispatchId: d });
+    const snap = (await party.api.portal.certificate.get({ dispatchId: d })).snapshot as {
+      chemistry: { verdict: string; elements: { element: string; maxPpm: number | null }[] };
+    };
+    expect(snap.chemistry.verdict).toBe("fail");
+    expect(snap.chemistry.elements.find((e) => e.element === "si")?.maxPpm).toBe(9_000);
   }, SLOW);
 
   test("issue / forDispatch: completed dispatch only; portal.manage or dispatch.complete holders; another plant Not found", async () => {

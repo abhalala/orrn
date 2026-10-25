@@ -2004,7 +2004,7 @@ export const en = {
     computerBanner: {
       neverTitle: "The print computer has never connected",
       neverBody: "{waiting} {waiting:label is|labels are} waiting. Nothing prints until the print computer is installed, switched on and online. Ask the orrn team for help.",
-      offlineTitle: "The print computer is offline since {time}",
+      offlineTitle: "The print computer has been offline since {time}",
       offlineBody: "{waiting} {waiting:label is|labels are} waiting. Check that the print computer is switched on and online. They print once it reports in.",
     },
     queueExtra: {

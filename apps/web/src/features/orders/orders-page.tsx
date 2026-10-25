@@ -110,7 +110,11 @@ export function OrdersPage({ search, onSearch }: { search: BookSearch; onSearch(
           <span className="max-w-[26ch] truncate" title={o.customerName}>
             {o.customerName}
           </span>
-          {o.city ? <span className="max-w-[26ch] truncate text-[13px] text-muted-foreground">{o.city}</span> : null}
+          {o.city ? (
+            <span className="max-w-[26ch] truncate text-[13px] text-muted-foreground" title={o.city}>
+              {o.city}
+            </span>
+          ) : null}
         </span>
       ),
     },

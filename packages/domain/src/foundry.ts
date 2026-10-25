@@ -121,15 +121,24 @@ export const FOUNDRY_REASON_MAX = 500;
 export const SPECTRO_FILE_MAX_BASE64 = 1_000_000;
 
 /**
+ * Does a spectro result carry numbers? The ONE rule every reader uses (cert chemistry, melt lock gate, web and phone
+ * models): its `values_ppm` map has at least one key. The per-element columns (`si_ppm`, ...) are derived from that map
+ * by `spectroCheck`, so they never count on their own. A photo of the printout is stored with `{}` (or null).
+ * The melt router applies the same rule in SQL (`values_ppm is not null and not in ('{}', '')`, `foundryMelt.ts`).
+ */
+export function spectroHasValues(values: unknown): boolean {
+  return typeof values === "object" && values !== null && Object.keys(values).length > 0;
+}
+
+/**
  * The spectro result that decides a melt: the latest live (not voided) result that carries numbers, else the
  * latest live one. A photo of the printout is stored with no values and judges `incomplete`; it is evidence, not a
  * reading, so it never replaces typed numbers that passed (W2-FD-N review m-4). `results` run oldest to newest, as
- * `casts.get` returns them. The server applies the same order in SQL (`foundryMelt.ts`).
+ * `casts.get` returns them (ties broken by `serverSeq`). The server applies the same order in SQL (`foundryMelt.ts`).
  */
 export function decidingSpectro<T extends { voidedAt?: unknown; values?: unknown }>(results: readonly T[]): T | null {
   const live = results.filter((r) => !r.voidedAt);
-  const hasValues = (r: T) => typeof r.values === "object" && r.values !== null && Object.keys(r.values).length > 0;
-  for (let i = live.length - 1; i >= 0; i--) if (hasValues(live[i]!)) return live[i]!;
+  for (let i = live.length - 1; i >= 0; i--) if (spectroHasValues(live[i]!.values)) return live[i]!;
   return live[live.length - 1] ?? null;
 }
 

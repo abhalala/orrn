@@ -25,7 +25,9 @@ export type AuditRow = {
 /**
  * The audit entries as a table (iPad up) or stacked rows (phone). Read only: nothing here edits or
  * removes an entry. `when` formats the time in the plant's zone; `onSubject` (the plant viewer)
- * turns the subject into a filter, and is left out where there is no filter to set.
+ * turns the subject into a filter, and is left out where there is no filter to set. `linkSubjects` (default on)
+ * links a subject to its screen in the viewer's own plant; Godseye's company tab turns it off, because those screens
+ * would open the staff member's plant, not the plant being audited.
  */
 export function AuditRows({
   rows,
@@ -33,6 +35,7 @@ export function AuditRows({
   empty,
   when,
   onSubject,
+  linkSubjects = true,
   label,
 }: {
   rows: AuditRow[];
@@ -40,6 +43,7 @@ export function AuditRows({
   empty: ReactNode;
   when: (at: string) => string;
   onSubject?: (subjectId: string) => void;
+  linkSubjects?: boolean;
   label: string;
 }) {
   const { t } = useT();
@@ -64,7 +68,7 @@ export function AuditRows({
         // BACKLOG 100: "Packing list PL/2026-27/5" with a link to it; the raw id only as the filter handle, small, under it.
         const typeKey = subjectTypeKey(r.subjectType);
         const typeWords = typeKey ? t(typeKey as MessageKey) : subjectTypeFallback(r.subjectType);
-        const path = subjectPath(r.subjectType, r.subjectId);
+        const path = linkSubjects ? subjectPath(r.subjectType, r.subjectId) : null;
         const name = r.subjectLabel ?? null;
         const head = name ? (
           path ? (
@@ -86,6 +90,7 @@ export function AuditRows({
                   onClick={() => onSubject(r.subjectId!)}
                   className="inline-flex min-h-11 min-w-0 items-center text-left font-mono text-[12px] break-all text-muted-foreground underline decoration-control underline-offset-4 hover:decoration-foreground"
                   title={r.subjectId}
+                  aria-label={name ? `${t("audit.onlyThis")}: ${name}` : undefined}
                 >
                   {name ? t("audit.onlyThis") : r.subjectId}
                 </button>

@@ -229,6 +229,7 @@ export async function buildCertificateSnapshot(
         .select({
           castId: spectroResult.castId,
           createdAt: spectroResult.createdAt,
+          serverSeq: spectroResult.serverSeq,
           valuesPpm: spectroResult.valuesPpm,
           verdict: spectroResult.verdict,
           limits: spectroResult.limitsSnapshot,
@@ -250,7 +251,7 @@ export async function buildCertificateSnapshot(
   ]);
   // The result that decides a cast is `decidingSpectro` (BACKLOG 79): the latest live result that carries numbers.
   // A photo of a printout has none and judges `incomplete`; it never replaces typed numbers that passed.
-  // A row has numbers when `values_ppm` has keys or any per-element column is filled (typed rows fill both).
+  // A row has numbers when its `values_ppm` has keys (`spectroHasValues`, the melt's rule too); the element columns derive from it.
   const byCast = new Map<string, (typeof results)[number][]>();
   for (const r of results) {
     if (!r.castId) continue;
@@ -258,12 +259,12 @@ export async function buildCertificateSnapshot(
     if (list) list.push(r);
     else byCast.set(r.castId, [r]);
   }
-  const hasNumbers = (r: (typeof results)[number]) =>
-    Object.keys(r.valuesPpm ?? {}).length > 0 || CERT_ELEMENTS.some((element) => r[element] != null);
   const latestByCast = new Map<string, (typeof results)[number]>();
   for (const [castId, list] of byCast) {
-    // oldest to newest, as `decidingSpectro` reads them (the query already dropped voided rows)
-    const oldestFirst = list.map((r) => ({ r, values: hasNumbers(r) ? { n: 1 } : {} })).sort((a, b) => a.r.createdAt.getTime() - b.r.createdAt.getTime());
+    // oldest to newest (ties by serverSeq, as the melt's `created_at desc, server_seq desc`), as `decidingSpectro` reads them; the query already dropped voided rows
+    const oldestFirst = list
+      .map((r) => ({ r, values: r.valuesPpm }))
+      .sort((a, b) => a.r.createdAt.getTime() - b.r.createdAt.getTime() || (a.r.serverSeq ?? 0) - (b.r.serverSeq ?? 0));
     const deciding = decidingSpectro(oldestFirst);
     if (deciding) latestByCast.set(castId, deciding.r);
   }
