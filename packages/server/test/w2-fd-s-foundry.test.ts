@@ -876,6 +876,60 @@ describe("r2 (m-a) a spectro result judged for another alloy does not count", ()
   });
 });
 
+describe("W2-FD-N review m-4: a photo of the printout never replaces the numbers that decide", () => {
+  const jpeg = Buffer.from("fake-jpeg-bytes").toString("base64");
+  const photo = (p: FoundryPlant, meltId: string) => p.as("foundry").foundry.spectro.attach({ meltId, fileName: "spectro-1.jpg", mime: "image/jpeg", base64: jpeg, values: {} });
+
+  test("typed pass, then a photo-only result: the photo is stored as incomplete, the pass still decides, Lock needs no reason", async () => {
+    const p = await foundryPlant();
+    const lot = await p.lot(8_000);
+    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, { chemicals: [] }));
+    await pass(p, d.id);
+    const photoRow = await photo(p, d.id);
+    expect(photoRow.verdict).toBe("incomplete");
+    const stored = await env.db.select().from(spectroResult).where(eq(spectroResult.meltId, d.id));
+    expect(stored.map((r) => r.verdict).sort()).toEqual(["incomplete", "pass"]);
+    // The photo is the newest row, yet the preview and the gates read the typed pass.
+    const view = await p.as("foundry").foundry.melts.preview({ meltId: d.id });
+    expect(view).toMatchObject({ spectroVerdict: "pass", spectroNeedsNewSample: false });
+    expect(view.gates).not.toContain("spectro_reason_missing");
+    expect(await p.as("foundry").foundry.melts.lock({ meltId: d.id })).toMatchObject({ status: "locked", spectroVerdict: "pass" });
+  });
+
+  test("a photo alone still never passes: with no numbers on the melt the photo is the result and Lock asks for a reason", async () => {
+    const p = await foundryPlant();
+    const lot = await p.lot(8_000);
+    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, { chemicals: [] }));
+    await photo(p, d.id);
+    const view = await p.as("foundry").foundry.melts.preview({ meltId: d.id });
+    expect(view.spectroVerdict).toBe("incomplete");
+    expect(view.gates).toContain("spectro_reason_missing");
+  });
+
+  test("numbers typed after the photo are newer and decide; a typed fail is not hidden by a later photo", async () => {
+    const p = await foundryPlant();
+    const lot = await p.lot(8_000);
+    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, { chemicals: [] }));
+    await photo(p, d.id);
+    await p.as("foundry").foundry.spectro.enter({ meltId: d.id, valuesPpm: { si: 4_500, fe: 4_100, cu: 100, mn: 100, mg: 5_200, zn: 100, ti: 100, cr: 100 }, entryReason: "Printer down" });
+    await photo(p, d.id);
+    expect(await p.as("foundry").foundry.melts.preview({ meltId: d.id })).toMatchObject({ spectroVerdict: "fail" });
+  });
+
+  test("the lock race guard reads the same deciding result: a photo attached after the lock read it does not stop the lock", async () => {
+    const p = await foundryPlant();
+    const lot = await p.lot(8_000);
+    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, { chemicals: [] }));
+    await pass(p, d.id);
+    env.beforeNextBatch(() => photo(p, d.id));
+    expect(await p.as("foundry").foundry.melts.lock({ meltId: d.id })).toMatchObject({ status: "locked", spectroVerdict: "pass" });
+  });
+});
+
 describe("ported from the satellite's reference branch (wt/W2-FD-S-omafranky @ddf3bd9c, fd-w2-lock.test.ts)", () => {
   // Port of "RACE: the passing result is voided after the lock read it — the lock refuses and the draft stays a draft".
   test("RACE: the passing result is voided after the lock read it — the lock refuses, nothing posts", async () => {

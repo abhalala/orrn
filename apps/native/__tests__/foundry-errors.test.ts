@@ -8,7 +8,7 @@ import { gu } from "@orrn/i18n/gu";
 import { hi } from "@orrn/i18n/hi";
 import { mapSentence } from "@orrn/i18n/refusal";
 
-import { foundryError, GATE_KEY, GATE_STEP, gateSentences, gateStep, isGate } from "../features/foundry/errors";
+import { foundryError, GATE_KEY, GATE_STEP, gateSentences, gateStep, isGate, isStaleMelt } from "../features/foundry/errors";
 import { RequestTimeoutError } from "../lib/request-timeout";
 
 /** The server's `MELT_GATE_TEXT`, read from its source (the router needs the Workers runtime). */
@@ -86,5 +86,23 @@ describe("a refused foundry write is said in the person's language", () => {
   test("an answer that never came is 'unsure', so nobody taps twice", () => {
     const t = createI18n("en").t as never;
     expect(foundryError(t, new RequestTimeoutError(60_000))).toBe(createI18n("en").t("native.saveUnsureBody"));
+  });
+});
+
+describe("a stale melt (review m-1)", () => {
+  test("the server's 'changed; open it again' refusal is told apart from every other one", () => {
+    expect(isStaleMelt(new Error("This melt changed; open it again"))).toBe(true);
+    expect(isStaleMelt({ message: "The melt changed; open it again" })).toBe(true);
+    expect(isStaleMelt(new Error("This melt is locked; ask for a correction to change it"))).toBe(false);
+    expect(isStaleMelt(new RequestTimeoutError(60_000))).toBe(false);
+    expect(isStaleMelt(null)).toBe(false);
+  });
+
+  test("the reload sentences exist in en, hi and gu", () => {
+    for (const [name, tree] of [["en", en], ["hi", hi], ["gu", gu]] as const) {
+      for (const key of ["foundry.melt.reload.button", "foundry.melt.reload.hint"]) {
+        expect({ name, key, text: typeof get(tree as unknown as Tree, key) }).toEqual({ name, key, text: "string" });
+      }
+    }
   });
 });

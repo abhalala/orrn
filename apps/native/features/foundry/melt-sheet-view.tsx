@@ -26,7 +26,7 @@ import { reasonOptions } from "@/features/press/reason-label";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { foundryError } from "./errors";
-import { bpText, lockedMeltTone, MELT_TONE, verdictTone, type MeltStatus } from "./foundry-model";
+import { bpText, latestVerdict, lockedMeltTone, MELT_TONE, verdictTone, type MeltStatus } from "./foundry-model";
 import { mmToFtText } from "./melt-form";
 import { MELT_TIME_KEYS } from "./melt-times";
 import { SpectroPanel } from "./spectro-panel";
@@ -73,8 +73,7 @@ export function MeltSheetView({ data, melt }: { data: CastData; melt: MeltRow })
   const status = melt.status as MeltStatus;
   const furnace = furnaces.data?.items.find((f) => f.id === melt.furnaceId);
   const alloy = alloys.data?.items.find((a) => a.id === (melt.alloyId ?? cast.alloyId)) ?? alloys.data?.items.find((a) => a.code === melt.alloy);
-  const live = melt.spectro.filter((s) => !s.voidedAt);
-  const verdict = (live[live.length - 1]?.verdict as SpectroVerdict | null | undefined) ?? null;
+  const verdict = latestVerdict(melt.spectro);
   const tone = status === "locked" ? lockedMeltTone({ verdict, lossBp: melt.lossBp, warnings: melt.warnings ?? [] }) : (MELT_TONE[status] ?? "neutral");
   const logs = melt.outputs.filter((o) => o.kind === "logs");
   const returns = melt.outputs.filter((o) => o.kind === "return_stream");
@@ -237,6 +236,7 @@ function AskSheet({ meltId, visible, onClose }: { meltId: string; visible: boole
       <Text accessibilityRole="header" className="font-display-bold text-lg text-ink">
         {t("foundry.melt.correction.reason")}
       </Text>
+      <ErrorLine error={reasons.error} />
       <View accessibilityRole="radiogroup" className="gap-2">
         {options.map((o) => {
           const selected = o.value === code;

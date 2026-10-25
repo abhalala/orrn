@@ -241,3 +241,17 @@ describe("formFromMelt", () => {
     expect(new Set([lineKey(), lineKey(), lineKey()]).size).toBe(3);
   });
 });
+
+describe("the phone's copies of the web's form and times files (review m-5)", () => {
+  // AGENTS.md says these are shared with the web; they are copies, so a change on one side must reach the other.
+  test("melt-form.ts and melt-times.ts are byte-identical to the web's", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const here = join(import.meta.dir, "..");
+    for (const f of ["melt-form.ts", "melt-times.ts"]) {
+      const phone = readFileSync(join(here, "features/foundry", f), "utf8");
+      const web = readFileSync(join(here, "..", "web/src/features/foundry", f), "utf8");
+      expect({ f, same: phone === web }).toEqual({ f, same: true });
+    }
+  });
+});

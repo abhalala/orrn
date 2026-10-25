@@ -11,6 +11,7 @@ import {
   closeFormIssue,
   countKey,
   furnaceInput,
+  latestVerdict,
   limitDraft,
   limitRows,
   limitText,
@@ -99,6 +100,25 @@ describe("search", () => {
     expect(traceQuery(" 26J1842 ")).toEqual({ kind: "bundle", serial: "26J1842" });
     expect(traceQuery("hello")).toBeNull();
     expect(traceQuery("")).toBeNull();
+  });
+});
+
+describe("latestVerdict: the result that decides a melt (W2-FD-N review m-4)", () => {
+  const typedPass = { verdict: "pass", voidedAt: null, values: { si: 0.45 } };
+  const photo = { verdict: "incomplete", voidedAt: null, values: {} };
+
+  test("typing the numbers and then attaching the printout photo keeps the pass: the photo has no numbers", () => {
+    expect(latestVerdict([typedPass, photo])).toBe("pass");
+  });
+
+  test("a photo alone is incomplete; a voided pass is gone; no result is none", () => {
+    expect(latestVerdict([photo])).toBe("incomplete");
+    expect(latestVerdict([{ ...typedPass, voidedAt: new Date() }, photo])).toBe("incomplete");
+    expect(latestVerdict([])).toBeNull();
+  });
+
+  test("a newer typed fail replaces an older pass, photo or not", () => {
+    expect(latestVerdict([typedPass, photo, { verdict: "fail", voidedAt: null, values: { fe: 0.41 } }, photo])).toBe("fail");
   });
 });
 

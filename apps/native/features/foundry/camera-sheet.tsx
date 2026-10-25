@@ -9,13 +9,16 @@ import { Sheet } from "@/components/ui/sheet";
 import { LoadingBlock } from "@/components/ui/state";
 import { useThemeColor } from "@/lib/theme";
 
-import { photoFits, PHOTO_QUALITIES } from "./foundry-model";
+import { photoFits, pickPictureSize, PHOTO_QUALITIES } from "./foundry-model";
 import { Note } from "./ui";
 
 /**
  * Take a photo of the spectro printout with the camera the scanner already uses (no extra native module).
- * The photo is a JPEG kept under the server's 1 MB cap: the best quality that fits is sent. Permission
- * states match the scanner: not asked, blocked (open the phone's settings), no camera.
+ * The photo is a JPEG kept under the server's 1 MB cap. The camera is set to a picture size of about 2 MP
+ * (never the sensor's full frame), ONE picture is taken, and it is re-encoded from that one capture at lower
+ * qualities until it fits: the person takes one photo, not one per step. Permission states match the
+ * scanner: not asked, blocked (open the phone's settings), no camera. Needs a check on a real Android phone
+ * and an iPhone (the size list and the re-encode are native).
  */
 export function CameraSheet({ visible, onClose, onCaptured }: { visible: boolean; onClose: () => void; onCaptured: (base64: string) => void }) {
   const { t } = useT();
@@ -23,6 +26,10 @@ export function CameraSheet({ visible, onClose, onCaptured }: { visible: boolean
   const [permission, requestPermission] = useCameraPermissions();
   const [available, setAvailable] = useState<boolean | null>(null);
   const [ready, setReady] = useState(false);
+  const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
+  // The shutter waits for the picture size to be chosen (success or not), so the photo is never a full-sensor frame by accident.
+  const [sizeKnown, setSizeKnown] = useState(false);
+  const sizeAsked = useRef(false);
   const [taking, setTaking] = useState(false);
   const [tooBig, setTooBig] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -38,14 +45,28 @@ export function CameraSheet({ visible, onClose, onCaptured }: { visible: boolean
     };
   }, []);
 
+  const cameraReady = () => {
+    setReady(true);
+    if (sizeAsked.current) return;
+    sizeAsked.current = true;
+    camera.current
+      ?.getAvailablePictureSizesAsync()
+      .then((sizes) => setPictureSize(pickPictureSize(sizes)))
+      .catch(() => undefined)
+      .finally(() => setSizeKnown(true));
+    if (!camera.current) setSizeKnown(true);
+  };
+
   const take = async () => {
     if (!camera.current || taking) return;
     setTaking(true);
     setTooBig(false);
     setFailed(false);
     try {
+      // One capture; the JPEG is then encoded again from it at each quality, best first.
+      const shot = await camera.current.takePictureAsync({ pictureRef: true, exif: false });
       for (const quality of PHOTO_QUALITIES) {
-        const picture = await camera.current.takePictureAsync({ quality, base64: true, exif: false });
+        const picture = await shot.savePictureAsync({ quality, base64: true });
         const base64 = (picture.base64 ?? "").replace(/^data:[^,]*,/, "");
         if (photoFits(base64)) {
           onCaptured(base64);
@@ -80,7 +101,7 @@ export function CameraSheet({ visible, onClose, onCaptured }: { visible: boolean
       {available !== false && permission?.granted ? (
         <View className="gap-3">
           <View accessible accessibilityLabel={t("native.scan.cameraView")} className="aspect-[4/3] w-full overflow-hidden rounded-block bg-surface-sunken">
-            {visible ? <CameraView ref={camera} style={{ flex: 1 }} facing="back" onCameraReady={() => setReady(true)} onMountError={() => setFailed(true)} /> : null}
+            {visible ? <CameraView ref={camera} style={{ flex: 1 }} facing="back" pictureSize={pictureSize} onCameraReady={cameraReady} onMountError={() => setFailed(true)} /> : null}
             {visible && !ready ? (
               <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
                 <Text className="font-sans-medium text-sm text-ink-muted">{t("scan.cameraStarting")}</Text>
@@ -89,7 +110,7 @@ export function CameraSheet({ visible, onClose, onCaptured }: { visible: boolean
           </View>
           {tooBig ? <Note tone="red">{t("foundry.spectro.fileTooBig")}</Note> : null}
           {failed ? <Note tone="red">{t("scan.cameraFailed")}</Note> : null}
-          <Button size="lg" label={t("foundry.spectro.attachFile")} loading={taking} disabled={!ready} icon={<Feather name="camera" size={20} color={ink} />} onPress={() => void take()} />
+          <Button size="lg" label={t("foundry.spectro.attachFile")} loading={taking} disabled={!ready || !sizeKnown} icon={<Feather name="camera" size={20} color={ink} />} onPress={() => void take()} />
         </View>
       ) : null}
     </Sheet>

@@ -22,7 +22,7 @@ import { reasonOptions } from "@/features/press/reason-label";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { foundryError } from "./errors";
-import { bpText, closeAdvice, closeFormIssue, countedBillets, countKey } from "./foundry-model";
+import { bpText, closeAdvice, closeFormIssue, closeReasonFields, countedBillets, countKey } from "./foundry-model";
 import type { CastData } from "./types";
 import { ErrorLine, Figure, kgOf, Note } from "./ui";
 
@@ -80,7 +80,7 @@ export function CloseSheet({ visible, onClose, cast }: { visible: boolean; onClo
     if (!count.ok || !p || issue || checking) return;
     setProblem(null);
     try {
-      const body = { castId: cast.cast.id, billetsOnHand: count.billetsOnHand, ...(row ? { reasonCodeId: row.id } : {}), ...(note.trim() ? { note: note.trim() } : {}) };
+      const body = { castId: cast.cast.id, billetsOnHand: count.billetsOnHand, ...closeReasonFields(advice?.reasonRequired ?? false, row?.id, note) };
       const next = replayKey(attempt.current, body, randomId);
       attempt.current = next.attempt;
       const res = await sendOnce((clientRequestId) => close.mutateAsync({ ...body, clientMutationId: clientRequestId }), next.id);
@@ -135,6 +135,7 @@ export function CloseSheet({ visible, onClose, cast }: { visible: boolean; onClo
 
       {advice?.reasonRequired ? (
         <View className="gap-3">
+          <ErrorLine error={reasons.error} />
           <Text accessibilityRole="header" className="font-display-bold text-lg text-ink">
             {t("foundry.cast.close.reason")}
           </Text>

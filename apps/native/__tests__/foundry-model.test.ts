@@ -21,7 +21,14 @@ import {
   spectroRows,
   tailChip,
   verdictTone,
+  BILLET_QUERY,
+  latestVerdict,
+  meltForScreen,
+  foundryTile,
+  closeReasonFields,
   billetCards,
+  pickPictureSize,
+  PHOTO_MAX_PIXELS,
   showsBillets,
   showsFoundryToday,
 } from "../features/foundry/foundry-model";
@@ -185,6 +192,23 @@ describe("billet stock cards", () => {
     expect(cards.totalG).toBe(1_500_000);
   });
 
+  test("review I-2: only casts with stock are asked for, up to the server's page ceiling, and the group count is the server's own", () => {
+    // includeZero:true with limit 100 filled the page with the year's oldest (0 kg) casts once the year had more than 100 casts.
+    expect(BILLET_QUERY).toEqual({ includeZero: false, limit: 500 });
+    const stock = {
+      casts: [
+        { castId: "a", number: "K31", alloy: "6063", status: "open", onHandG: 1_200_000, adjustedG: 0 },
+        { castId: "b", number: "K30", alloy: "6063", status: "open", onHandG: 700_000, adjustedG: 0 },
+      ],
+      byAlloy: [{ alloy: "6063", casts: 3, onHandG: 2_400_000 }],
+      totalG: 2_400_000,
+      adjustedG: 0,
+    };
+    const g = billetCards(stock).groups[0]!;
+    expect(g.count).toBe(3);
+    expect(g.casts.length).toBe(2);
+  });
+
   test("no stock yet is no cards", () => {
     expect(billetCards(undefined)).toEqual({ groups: [], finished: [], totalG: 0 });
   });
@@ -197,6 +221,78 @@ describe("spectro photo", () => {
     expect(photoFits("")).toBe(false);
     expect([...PHOTO_QUALITIES]).toEqual([...PHOTO_QUALITIES].sort((x, y) => y - x));
     expect(PHOTO_QUALITIES.length).toBe(3);
+  });
+});
+
+describe("spectro photo size (review I-4)", () => {
+  test("the largest size at or under about 2 MP is taken (a 12 to 50 MP sensor frame is not)", () => {
+    expect(PHOTO_MAX_PIXELS).toBe(2_200_000);
+    // an Android list: full sensor sizes first
+    expect(pickPictureSize(["4000x3000", "4032x1816", "3264x2448", "2592x1944", "1920x1080", "1600x1200", "1280x720", "640x480"])).toBe("1920x1080");
+    // the iOS list is fixed and mixes presets with sizes
+    expect(pickPictureSize(["3840x2160", "1920x1080", "1280x720", "640x480", "352x288", "Photo", "High", "Medium", "Low"])).toBe("1920x1080");
+    expect(pickPictureSize(["2000x1000", "1600x1200"])).toBe("2000x1000");
+  });
+
+  test("when every size is larger the smallest is used; no usable size leaves the camera's own choice", () => {
+    expect(pickPictureSize(["8000x6000", "4000x3000"])).toBe("4000x3000");
+    expect(pickPictureSize(["Photo", "High", "Low"])).toBeUndefined();
+    expect(pickPictureSize([])).toBeUndefined();
+    expect(pickPictureSize(["0x0", "axb"])).toBeUndefined();
+  });
+});
+
+describe("closeReasonFields (review m-7)", () => {
+  test("a reason and a note are sent when the count on screen needs a reason", () => {
+    expect(closeReasonFields(true, "r1", "  short on the rack ")).toEqual({ reasonCodeId: "r1", note: "short on the rack" });
+    expect(closeReasonFields(true, undefined, "")).toEqual({});
+  });
+  test("after a recount that needs none, nothing picked for the earlier count goes out", () => {
+    expect(closeReasonFields(false, "r1", "short on the rack")).toEqual({});
+  });
+});
+
+describe("foundryTile (review m-3)", () => {
+  test("nothing is a number until the server answers: no 0 open, 0 drafts while loading or after an error", () => {
+    expect(foundryTile(undefined)).toEqual({ openCasts: null, drafts: null });
+  });
+  test("the open count is the server's total; drafts add up over a complete list", () => {
+    expect(foundryTile({ items: [{ draftMelts: 1 }, { draftMelts: 2 }], total: 2 })).toEqual({ openCasts: 2, drafts: 3 });
+    expect(foundryTile({ items: [], total: 0 })).toEqual({ openCasts: 0, drafts: 0 });
+  });
+  test("a list that does not hold every open cast gives no drafts number (it would be a partial sum)", () => {
+    expect(foundryTile({ items: [{ draftMelts: 1 }], total: 60 })).toEqual({ openCasts: 60, drafts: null });
+  });
+});
+
+describe("meltForScreen (review m-2)", () => {
+  const melts = [{ id: "m1", status: "locked" }];
+  test("new is the editor of a new melt; a known id is that melt", () => {
+    expect(meltForScreen("new", "new", melts)).toBeNull();
+    expect(meltForScreen("m1", "m1", melts)).toEqual(melts[0]!);
+  });
+  test("after the first save the param is the new id, which the list may not hold yet: the editor stays; once listed (locked) the sheet takes over", () => {
+    expect(meltForScreen("m2", "new", melts)).toBeNull();
+    expect(meltForScreen("m2", "new", [...melts, { id: "m2", status: "locked" }])).toEqual({ id: "m2", status: "locked" });
+  });
+  test("a melt id that is not on the cast is not found", () => {
+    expect(meltForScreen("zzz", "zzz", melts)).toBeUndefined();
+  });
+});
+
+describe("latestVerdict: the result that decides a melt (review m-4)", () => {
+  const typedPass = { verdict: "pass", voidedAt: null, values: { si: 0.45 } };
+  const photo = { verdict: "incomplete", voidedAt: null, values: {} };
+
+  test("typing the numbers and then attaching the printout photo keeps the pass", () => {
+    expect(latestVerdict([typedPass, photo])).toBe("pass");
+  });
+
+  test("a photo alone is incomplete; a voided pass is gone; no result is none; a newer typed fail wins", () => {
+    expect(latestVerdict([photo])).toBe("incomplete");
+    expect(latestVerdict([{ ...typedPass, voidedAt: new Date() }, photo])).toBe("incomplete");
+    expect(latestVerdict([])).toBeNull();
+    expect(latestVerdict([typedPass, photo, { verdict: "fail", voidedAt: null, values: { fe: 0.41 } }, photo])).toBe("fail");
   });
 });
 

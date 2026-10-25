@@ -62,3 +62,9 @@ export const GATE_STEP: Record<MeltLockError, "times" | "charge" | "output" | "s
 export function gateStep(code: string): "times" | "charge" | "output" | "spectro" | null {
   return isGate(code) ? GATE_STEP[code] : null;
 }
+
+/** The server refused a save because the melt moved on since this sheet read it (a web edit, or a save of this phone that landed unseen). */
+export function isStaleMelt(error: unknown): boolean {
+  const message = (error as { message?: unknown } | null | undefined)?.message;
+  return typeof message === "string" && /^(?:The|This) melt changed; open it again$/.test(message);
+}

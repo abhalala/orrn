@@ -5,6 +5,7 @@ import {
   FURNACE_SEED,
   SpectroRefusal,
   castTail,
+  decidingSpectro,
   furnaceLoad,
   meltBalance,
   meltLockGates,
@@ -164,5 +165,30 @@ describe("furnace load and the lock gate", () => {
     const off = meltBalance({ lotsG: 1_000 * KG, streamsG: 0, logsG: 900 * KG, drossG: 0, feG: 0 });
     expect(meltLockGates({ ...base, inputsG: [1_000 * KG], logLinesG: [900 * KG], balance: off })).toEqual(["balance_reason_missing"]);
     expect(meltLockGates({ ...base, inputsG: [1_000 * KG], logLinesG: [900 * KG], balance: off, balanceReason: "spill at tap" })).toEqual([]);
+  });
+});
+
+describe("decidingSpectro (W2-FD-N review m-4)", () => {
+  const typedPass = { id: "t", verdict: "pass", voidedAt: null, values: { si: 0.45 } };
+  const photo = { id: "p", verdict: "incomplete", voidedAt: null, values: {} };
+
+  test("a photo-only result newer than a typed pass does not replace it", () => {
+    expect(decidingSpectro([typedPass, photo])?.id).toBe("t");
+    expect(decidingSpectro([typedPass, photo, { ...photo, id: "p2" }])?.id).toBe("t");
+  });
+
+  test("the newest result with numbers decides, photo or no photo", () => {
+    const typedFail = { id: "f", verdict: "fail", voidedAt: null, values: { fe: 0.41 } };
+    expect(decidingSpectro([typedPass, photo, typedFail, photo])?.id).toBe("f");
+  });
+
+  test("a voided result is out, and a voided typed pass leaves the photo as the only result", () => {
+    expect(decidingSpectro([{ ...typedPass, voidedAt: new Date() }, photo])?.id).toBe("p");
+    expect(decidingSpectro([{ ...typedPass, voidedAt: new Date() }])).toBeNull();
+  });
+
+  test("photos alone: the newest photo; nothing at all: null", () => {
+    expect(decidingSpectro([photo, { ...photo, id: "p2" }])?.id).toBe("p2");
+    expect(decidingSpectro([])).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import { type SpectroLimit, type SpectroVerdict } from "@orrn/domain";
+import { type SpectroLimit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -22,13 +22,14 @@ import { writeFailureKind } from "@/lib/request-timeout";
 import { useFormat } from "@/lib/use-format";
 import { queryClient, trpc } from "@/utils/trpc";
 
-import { foundryError, gateSentences, gateStep } from "./errors";
-import { lockState, verdictTone } from "./foundry-model";
+import { foundryError, gateSentences, gateStep, isStaleMelt } from "./errors";
+import { draftWithKey, firstSaveKey, type FirstSave } from "./first-save";
+import { latestVerdict, lockState, verdictTone } from "./foundry-model";
 import { blankForm, figuresOf, formFromMelt, sameForm, saveInputOf, type FormIssue, type MeltForm, type SavedMelt, type Step } from "./melt-form";
 import { todayIn } from "./melt-times";
 import { Accordion, Balance, ChargeSection, OutputSection, TimesSection, type AlloyOpt, type FurnaceOpt, type Lot, type Stream } from "./melt-sections";
 import { SpectroPanel } from "./spectro-panel";
-import type { CastData, DraftView, MeltRow } from "./types";
+import type { CastData, DraftView, MeltRow, MeltSaveBody, MeltSaveCall } from "./types";
 import { ErrorLine, Note, kgOf } from "./ui";
 
 type Part = "times" | "charge" | "output" | "spectro";
@@ -36,12 +37,6 @@ const VERDICT_KEY = { pass: "foundry.spectro.verdict.pass", fail: "foundry.spect
 
 /** A save step of the shared form maps to the part of the phone sheet that holds it (chemicals and LDO stay as saved). */
 const partOf = (step: Step): Part => (step === "chemicals" ? "charge" : step);
-
-/** The latest live spectro verdict of a melt. */
-function verdictOf(spectro: readonly { verdict: string | null; voidedAt: unknown }[]): SpectroVerdict | null {
-  const live = spectro.filter((s) => !s.voidedAt);
-  return (live[live.length - 1]?.verdict as SpectroVerdict | null | undefined) ?? null;
-}
 
 /**
  * The melt sheet on a phone: a draft that posts nothing until Lock. Four parts (times, charge, logs and
@@ -71,7 +66,8 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
   const meltIdRef = useRef<string | null>(melt?.id ?? null);
   const [savedMeltId, setSavedMeltId] = useState<string | null>(melt?.id ?? null);
   const seqRef = useRef<number | undefined>(melt?.serverSeq);
-  const firstAttempt = useRef<ReplayAttempt>(null);
+  // The id of the first save, kept until the server has answered (whatever is edited meanwhile), so a second draft is never opened.
+  const firstHeld = useRef<FirstSave>(null);
   const lockAttempt = useRef<ReplayAttempt>(null);
   const [issue, setIssue] = useState<FormIssue | null>(null);
   const [view, setView] = useState<DraftView | null>(null);
@@ -95,7 +91,7 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
   const capacityG = activeFurnaces.find((f) => f.id === form.furnaceId)?.capacityG ?? null;
   const fig = figuresOf(form, capacityG);
   const savedMelt = data.melts.find((m) => m.id === savedMeltId) ?? melt ?? null;
-  const verdict = savedMelt ? verdictOf(savedMelt.spectro) : null;
+  const verdict = savedMelt ? latestVerdict(savedMelt.spectro) : null;
   const seq = savedMelt?.seq;
 
   const patch = (next: Partial<MeltForm>) => {
@@ -117,15 +113,57 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
     announce(foundryError(t, error));
   };
 
-  /** After an answer that never came: read the melt again and take its sequence, so saving the same sheet again is not refused as stale. */
+  /**
+   * After an answer that never came: the melt is read again. If the server holds exactly what this sheet sent, the
+   * save landed and its sequence is taken (saving again is then not refused as stale). If it holds something else, a
+   * web edit may have come in between: the sequence is NOT taken, so the next save is refused as changed and the
+   * person chooses to load the saved melt, never silently overwriting it.
+   */
   const resync = async () => {
     const fresh = await queryClient.fetchQuery({ ...trpc.foundry.casts.get.queryOptions({ id: castId }), staleTime: 0 }).catch(() => null);
     const m = fresh?.melts.find((x) => x.id === meltIdRef.current);
-    if (m) seqRef.current = m.serverSeq;
+    if (!m || m.serverSeq === seqRef.current) return;
+    if (sameForm(formFromMelt(m as unknown as SavedMelt, timeZone, todayIn(timeZone)), form)) {
+      seqRef.current = m.serverSeq;
+      saved.current = form;
+    }
+  };
+
+  /** Replaces the sheet with the melt as the server holds it (after a stale refusal, or a save that may not have landed). */
+  const loadSaved = async () => {
+    const fresh = await queryClient.fetchQuery({ ...trpc.foundry.casts.get.queryOptions({ id: castId }), staleTime: 0 }).catch((error: unknown) => {
+      failed(error);
+      return null;
+    });
+    const m = fresh?.melts.find((x) => x.id === meltIdRef.current);
+    if (!m) return;
+    const next = formFromMelt(m as unknown as SavedMelt, timeZone, todayIn(timeZone));
+    saved.current = next;
+    seqRef.current = m.serverSeq;
+    setForm(next);
+    setIssue(null);
+    setProblem(null);
+    void queryClient.invalidateQueries({ queryKey: trpc.foundry.melts.pathKey() });
+  };
+
+  /**
+   * A first save whose answer never came may have made the draft. Before anything is sent again, the cast's melts
+   * are read and the one carrying that save's id is taken as the draft; nothing is opened a second time.
+   */
+  const adoptEarlierDraft = async () => {
+    if (meltIdRef.current !== null || firstHeld.current === null) return;
+    const fresh = await queryClient.fetchQuery({ ...trpc.foundry.casts.get.queryOptions({ id: castId }), staleTime: 0 }).catch(() => null);
+    const found = draftWithKey(fresh?.melts, firstHeld.current.id);
+    if (!found) return;
+    meltIdRef.current = found.id;
+    seqRef.current = found.serverSeq;
+    setSavedMeltId(found.id);
+    firstHeld.current = null;
   };
 
   /** Saves the form; null when something on it cannot be sent or the server refused. */
   const save = async (): Promise<DraftView | null> => {
+    await adoptEarlierDraft();
     const r = saveInputOf(form, {
       castId,
       ...(meltIdRef.current ? { meltId: meltIdRef.current } : {}),
@@ -140,31 +178,39 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
       return null;
     }
     setProblem(null);
+    let again = false;
+    const first = meltIdRef.current === null;
     try {
       let v: DraftView;
       if (meltIdRef.current === null) {
-        // The first save makes the draft: a resent one carries the same request id, so it never makes two.
-        const next = replayKey(firstAttempt.current, r.input, randomId);
-        firstAttempt.current = next.attempt;
-        v = await sendOnce((clientRequestId) => saveMut.mutateAsync({ ...r.input, clientRequestId } as never), next.id);
-        firstAttempt.current = null;
+        // The first save makes the draft. Its request id is kept until an answer comes, whatever is edited meanwhile:
+        // the server returns the draft it already made for that id, so a resent save never makes two.
+        const next = firstSaveKey(firstHeld.current, r.input, randomId);
+        firstHeld.current = next.held;
+        v = await sendOnce((clientRequestId) => saveMut.mutateAsync(({ ...r.input, clientRequestId } satisfies MeltSaveBody) as MeltSaveCall), next.id);
+        firstHeld.current = null;
+        // The answer may be the draft of an earlier, different send: then the sheet is still unsaved and goes out once more as an update.
+        again = !next.sameContent;
       } else {
         // Later saves send the sequence they were made from: a repeat of one that landed is refused as stale, not applied twice.
-        v = await saveMut.mutateAsync(r.input as never);
+        v = await saveMut.mutateAsync((r.input satisfies MeltSaveBody) as MeltSaveCall);
       }
-      saved.current = form;
+      if (!again) saved.current = form;
       seqRef.current = v.serverSeq;
       meltIdRef.current = v.id;
       setSavedMeltId(v.id);
       setView(v);
+      // The route now names the melt, so a lock that landed (even unanswered) turns this screen into the locked sheet.
+      if (first) router.setParams({ meltId: v.id });
       void queryClient.invalidateQueries({ queryKey: trpc.foundry.casts.pathKey() });
       void queryClient.invalidateQueries({ queryKey: trpc.foundry.melts.pathKey() });
-      return v;
+      if (!again) return v;
     } catch (error) {
       failed(error);
       if (meltIdRef.current !== null && writeFailureKind(error) === "unsure") await resync();
       return null;
     }
+    return save();
   };
 
   const lock = async () => {
@@ -255,6 +301,12 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
         </View>
 
         <ErrorLine error={problem} />
+        {savedMeltId !== null && problem !== null && (isStaleMelt(problem) || writeFailureKind(problem) === "unsure") ? (
+          <View className="gap-2">
+            <Note tone="amber">{t("foundry.melt.reload.hint")}</Note>
+            <Button variant="secondary" label={t("foundry.melt.reload.button")} onPress={() => void loadSaved()} />
+          </View>
+        ) : null}
         {issue ? <Note tone="red">{t(`foundry.melt.issue.${issue.code}`)}</Note> : null}
         {savedMeltId ? <Button variant="ghost" label={t("foundry.melt.discard.button")} onPress={() => setDiscarding(true)} /> : null}
       </Screen>

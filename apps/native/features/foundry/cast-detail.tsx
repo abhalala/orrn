@@ -16,7 +16,7 @@ import { useFormat } from "@/lib/use-format";
 import { trpc } from "@/utils/trpc";
 
 import { CloseSheet } from "./close-sheet";
-import { CAST_TONE, closeBlock, lockedMeltTone, MELT_TONE, tailChip, verdictTone, type CastStatus, type MeltStatus } from "./foundry-model";
+import { CAST_TONE, closeBlock, latestVerdict, lockedMeltTone, MELT_TONE, tailChip, verdictTone, type CastStatus, type MeltStatus } from "./foundry-model";
 import type { MeltRow } from "./types";
 import { Figure, kgOf, Note, Section } from "./ui";
 
@@ -37,12 +37,6 @@ const VERDICT_KEY: Record<SpectroVerdict, MessageKey> = {
   fail: "foundry.spectro.verdict.fail",
   incomplete: "foundry.spectro.verdict.incomplete",
 };
-
-/** The latest live spectro verdict of a melt (a voided result no longer counts). */
-function latestVerdict(spectro: MeltRow["spectro"]): SpectroVerdict | null {
-  const live = spectro.filter((s) => !s.voidedAt);
-  return (live[live.length - 1]?.verdict as SpectroVerdict | null | undefined) ?? null;
-}
 
 /**
  * One cast on the phone: number and alloy large, status chip, the tail chip (the server's close-out), the

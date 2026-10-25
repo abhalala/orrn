@@ -1,6 +1,7 @@
 import { useT } from "@orrn/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams } from "expo-router";
+import { useRef } from "react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { Screen } from "@/components/ui/screen";
@@ -8,6 +9,7 @@ import { ErrorBlock, LoadingBlock } from "@/components/ui/state";
 import { can, useMe } from "@/utils/me";
 import { trpc } from "@/utils/trpc";
 
+import { meltForScreen } from "./foundry-model";
 import { MeltEditor } from "./melt-editor";
 import { MeltSheetView } from "./melt-sheet-view";
 import { Note } from "./ui";
@@ -21,6 +23,8 @@ export function MeltScreen() {
   const { data: me } = useMe();
   const params = useLocalSearchParams<{ meltId?: string; castId?: string }>();
   const meltId = params.meltId ?? "new";
+  // The first save sets the route's melt id; the editor keeps its state (its key is what the screen opened on).
+  const opened = useRef(meltId);
   const castId = params.castId ?? "";
   const castQuery = useQuery({ ...trpc.foundry.casts.get.queryOptions({ id: castId }), enabled: castId !== "" });
   const data = castQuery.data;
@@ -51,7 +55,7 @@ export function MeltScreen() {
     );
   }
 
-  const melt = meltId === "new" ? null : (data.melts.find((m) => m.id === meltId) ?? undefined);
+  const melt = meltForScreen(meltId, opened.current, data.melts);
   if (melt === undefined) {
     return (
       <Screen>
@@ -72,7 +76,7 @@ export function MeltScreen() {
   return (
     <>
       {title}
-      {!editable && melt ? <MeltSheetView data={data} melt={melt} /> : <MeltEditor key={melt?.id ?? "new"} data={data} melt={melt ?? null} />}
+      {!editable && melt ? <MeltSheetView data={data} melt={melt} /> : <MeltEditor key={opened.current} data={data} melt={melt ?? null} />}
     </>
   );
 }

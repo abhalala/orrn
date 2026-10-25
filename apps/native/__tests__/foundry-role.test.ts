@@ -162,6 +162,20 @@ describe("the foundry writes from the phone", () => {
     expect(read(`${FOUNDRY}/errors.ts`)).toMatch(/import "@orrn\/i18n\/refusal-foundry"/);
   });
 
+  test("review m-1/m-8: a stale or unsure save offers 'Load the saved melt'; a failed reason list says so", () => {
+    const editor = read(`${FOUNDRY}/melt-editor.tsx`);
+    expect(editor).toMatch(/foundry\.melt\.reload\.button/);
+    expect(editor).toMatch(/isStaleMelt\(problem\)/);
+    expect(editor).toMatch(/adoptEarlierDraft\(\)/);
+    expect(read(`${FOUNDRY}/close-sheet.tsx`)).toMatch(/<ErrorLine error=\{reasons\.error\} \/>/);
+    expect(read(`${FOUNDRY}/melt-sheet-view.tsx`)).toMatch(/<ErrorLine error=\{reasons\.error\} \/>/);
+  });
+
+  test("review m-2: the first save names the melt in the route, so a landed lock turns the screen into the locked sheet", () => {
+    expect(read(`${FOUNDRY}/melt-editor.tsx`)).toMatch(/router\.setParams\(\{ meltId: v\.id \}\)/);
+    expect(read(`${FOUNDRY}/melt-view.tsx`)).toMatch(/meltForScreen\(/);
+  });
+
   test("an unsure answer is re-read, not blindly sent again by the screen", () => {
     for (const f of new Set([...w.values()].flat())) expect({ f, retryLoop: /retry:\s*(?:[1-9]|true)/.test(read(f)) }).toEqual({ f, retryLoop: false });
   });
@@ -183,6 +197,20 @@ describe("the build needs no new native module", () => {
     expect(deps["expo-camera"]).toBeDefined();
     expect(deps["expo-image-picker"]).toBeUndefined();
     expect(read(`${FOUNDRY}/camera-sheet.tsx`)).toMatch(/takePictureAsync/);
+  });
+
+  test("review I-4: the camera is set to about 2 MP and ONE picture is re-encoded at each quality, not a new photo per step", () => {
+    const src = read(`${FOUNDRY}/camera-sheet.tsx`);
+    expect(src).toMatch(/getAvailablePictureSizesAsync\(\)/);
+    expect(src).toMatch(/pictureSize=\{pictureSize\}/);
+    expect(src.match(/takePictureAsync\(/g)?.length).toBe(1);
+    expect(src).toMatch(/pictureRef: true/);
+    expect(src).toMatch(/savePictureAsync\(\{ quality, base64: true \}\)/);
+    // the capture sits before the quality loop, never inside it
+    expect(src.indexOf("takePictureAsync(")).toBeLessThan(src.indexOf("for (const quality of PHOTO_QUALITIES)"));
+  });
+
+  test("the declared native modules are all in package.json", () => {
     const imports = files.flatMap((f) => [...read(f).matchAll(/from "(expo-[a-z-]+|react-native-[a-z-]+)"/g)].map((m) => m[1]!));
     for (const mod of new Set(imports)) expect({ mod, declared: mod in deps || mod === "react-native" }).toEqual({ mod, declared: true });
   });
@@ -191,7 +219,8 @@ describe("the build needs no new native module", () => {
 describe("the surfaces are wired", () => {
   test("the Stock tab shows the billets from stock.billets for the people on the foundry floor", () => {
     expect(read("app/(tabs)/stock/index.tsx")).toMatch(/BilletStock/);
-    expect(read(`${FOUNDRY}/billet-stock.tsx`)).toMatch(/trpc\.foundry\.stock\.billets\.queryOptions/);
+    expect(read(`${FOUNDRY}/billet-stock.tsx`)).toMatch(/trpc\.foundry\.stock\.billets\.queryOptions\(BILLET_QUERY\)/);
+    expect(read(`${FOUNDRY}/billet-stock.tsx`)).toMatch(/casts: g\.count/);
   });
 
   test("Today shows the Foundry tile to cast.enter holders", () => {

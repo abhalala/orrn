@@ -7,6 +7,7 @@
  */
 import {
   bpPercent1,
+  decidingSpectro,
   percentToPpm,
   SPECTRO_ELEMENTS,
   SPECTRO_FILE_MAX_BASE64,
@@ -34,6 +35,14 @@ export function verdictTone(v: SpectroVerdict | null | undefined): StatusTone {
   return v === "pass" ? "green" : v === "fail" ? "red" : v === "incomplete" ? "amber" : "neutral";
 }
 
+/**
+ * The verdict that decides a melt: the latest live result that carries numbers (a photo of the printout is stored
+ * with none and judges `incomplete`; it never replaces typed numbers that passed). The server reads the same result.
+ */
+export function latestVerdict(spectro: readonly { verdict: string | null; voidedAt: unknown; values?: unknown }[]): SpectroVerdict | null {
+  return (decidingSpectro(spectro)?.verdict as SpectroVerdict | null | undefined) ?? null;
+}
+
 export function readingTone(r: SpectroReading): StatusTone {
   return r === "pass" ? "green" : r === "fail" ? "red" : "neutral";
 }
@@ -54,6 +63,28 @@ export function lockedMeltTone(m: { verdict: SpectroVerdict | null; lossBp: numb
 export function chooseCast(casts: readonly { id: string; status: string }[], selectedId: string | null | undefined): string | null {
   if (selectedId && casts.some((c) => c.id === selectedId)) return selectedId;
   return (casts.find((c) => c.status === "open") ?? casts[0])?.id ?? null;
+}
+
+/**
+ * Which melt the melt route shows. `param` is the route's melt id ("new" until the first save sets it), `opened` is
+ * what it was when the screen first opened. The melt the first save just made may not be in the cast's list yet:
+ * a screen that opened on "new" keeps its editor then (null) instead of flashing "not found". undefined = no such melt.
+ */
+export function meltForScreen<T extends { id: string }>(param: string, opened: string, melts: readonly T[]): T | null | undefined {
+  if (param === "new") return null;
+  const found = melts.find((m) => m.id === param);
+  if (found) return found;
+  return opened === "new" ? null : undefined;
+}
+
+/**
+ * The Foundry tile's numbers: null until the server has answered (never a 0 that is only "not loaded yet").
+ * Open casts are the server's total; drafts are summed over the casts listed, so they are shown only when the
+ * list holds every open cast (otherwise null: no partial number passed off as the whole).
+ */
+export function foundryTile(open: { items: readonly { draftMelts: number }[]; total: number } | undefined): { openCasts: number | null; drafts: number | null } {
+  if (!open) return { openCasts: null, drafts: null };
+  return { openCasts: open.total, drafts: open.items.length >= open.total ? open.items.reduce((s, c) => s + c.draftMelts, 0) : null };
 }
 
 // --- Cast close-out ------------------------------------------------------------------------------------
@@ -113,6 +144,15 @@ export function countedBillets(pcsText: string, kgText: string): { ok: true; bil
 /** A count as one comparable string, "" for no valid count: the sheet asks the server only for a count that has stopped changing. */
 export function countKey(c: ReturnType<typeof countedBillets>): string {
   return c.ok ? `${c.billetsOnHand.count}:${c.billetsOnHand.kgG}` : "";
+}
+
+/**
+ * The reason and note a close sends: only when the server's answer for the count on screen asks for a reason.
+ * A reason and note picked for an earlier count are not sent after a recount that needs none.
+ */
+export function closeReasonFields(reasonRequired: boolean, reasonCodeId: string | undefined, note: string): { reasonCodeId?: string; note?: string } {
+  if (!reasonRequired) return {};
+  return { ...(reasonCodeId ? { reasonCodeId } : {}), ...(note.trim() ? { note: note.trim() } : {}) };
 }
 
 /** The close form is complete: a reason when the tail needs one, and a note when the code asks for it. */
@@ -177,13 +217,20 @@ type BilletStock = {
 
 export type BilletCard = { castId: string; number: string; alloy: string; status: string; onHandG: number };
 
-/** One card per cast with kg on hand, grouped by alloy in the server's order; casts at 0 kg drop to "finished", they do not vanish. */
-export function billetCards(stock: BilletStock | undefined): { groups: { alloy: string; onHandG: number; casts: BilletCard[] }[]; finished: BilletCard[]; totalG: number } {
+/**
+ * What the Billets cards ask `stock.billets` for: only casts that hold stock (a cast at 0 kg is not asked for,
+ * so the page cannot fill with a year's oldest empty casts), up to the server's page ceiling. The totals and
+ * the per-alloy counts cover every cast whatever the page.
+ */
+export const BILLET_QUERY = { includeZero: false, limit: 500 } as const;
+
+/** One card per cast with kg on hand, grouped by alloy in the server's order; a cast at or below 0 kg drops to "finished". `count` is the server's number of casts of the alloy. */
+export function billetCards(stock: BilletStock | undefined): { groups: { alloy: string; onHandG: number; count: number; casts: BilletCard[] }[]; finished: BilletCard[]; totalG: number } {
   if (!stock) return { groups: [], finished: [], totalG: 0 };
   const card = (c: BilletStock["casts"][number]): BilletCard => ({ castId: c.castId, number: c.number ?? "?", alloy: c.alloy, status: c.status ?? "open", onHandG: c.onHandG });
   const live = stock.casts.filter((c) => c.onHandG > 0).map(card);
   const finished = stock.casts.filter((c) => c.onHandG <= 0).map(card);
-  const groups = stock.byAlloy.map((a) => ({ alloy: a.alloy, onHandG: a.onHandG, casts: live.filter((c) => c.alloy === a.alloy) })).filter((g) => g.casts.length > 0);
+  const groups = stock.byAlloy.map((a) => ({ alloy: a.alloy, onHandG: a.onHandG, count: a.casts, casts: live.filter((c) => c.alloy === a.alloy) })).filter((g) => g.casts.length > 0);
   return { groups, finished, totalG: stock.totalG };
 }
 
@@ -198,6 +245,27 @@ export const ppmPct = (ppm: number | null | undefined): string => (ppm === null 
 const PHOTO_MAX_BASE64 = SPECTRO_FILE_MAX_BASE64;
 /** JPEG qualities tried in turn: the first photo that fits is sent. */
 export const PHOTO_QUALITIES: readonly number[] = [0.5, 0.3, 0.15];
+/** About 2 MP: enough for a printout to be read, small enough that a JPEG sits well under the server's 1 MB cap. */
+export const PHOTO_MAX_PIXELS = 2_200_000;
+
+/**
+ * The picture size to set on the camera, from `getAvailablePictureSizesAsync()` ("4000x3000", and on iOS also
+ * presets such as "Photo"): the largest at or under about 2 MP, else the smallest there is, else undefined
+ * (the camera keeps its own choice). A sensor-resolution frame can be over the cap even at the lowest quality.
+ */
+export function pickPictureSize(sizes: readonly string[]): string | undefined {
+  const parsed = sizes
+    .map((size) => {
+      const m = /^(\d+)x(\d+)$/.exec(size);
+      return m ? { size, pixels: Number(m[1]) * Number(m[2]) } : null;
+    })
+    .filter((x): x is { size: string; pixels: number } => x !== null && x.pixels > 0);
+  if (parsed.length === 0) return undefined;
+  const fits = parsed.filter((x) => x.pixels <= PHOTO_MAX_PIXELS).sort((a, b) => b.pixels - a.pixels);
+  if (fits[0]) return fits[0].size;
+  return parsed.sort((a, b) => a.pixels - b.pixels)[0]!.size;
+}
+
 export const photoFits = (base64: string): boolean => base64.length > 0 && base64.length <= PHOTO_MAX_BASE64;
 
 export type SpectroRow = { element: SpectroElementKey; ppm: number | null; source: "measured" | "balance" | null; reading: SpectroReading; limit: SpectroLimit | undefined };

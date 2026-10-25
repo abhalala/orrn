@@ -21,7 +21,7 @@ import { PURCHASE_READERS } from "@/features/approvals/approval-view";
 import { trpc } from "@/shared/utils/trpc";
 
 import { CancelCastSheet, CloseCastSheet } from "./close-sheet";
-import { bpText, CAST_TONE, canCancelCast, castPeriodText, closeBlock, lockedMeltTone, MELT_TONE, tailChip, verdictTone, type MeltStatus } from "./model";
+import { bpText, CAST_TONE, canCancelCast, castPeriodText, closeBlock, latestVerdict, lockedMeltTone, MELT_TONE, tailChip, verdictTone, type MeltStatus } from "./model";
 import { TraceTree } from "./trace-tree";
 import { Figure, LoadFailed, Note, Panel, useTimeZone } from "./ui";
 import { clockText, dayText } from "./format";
@@ -224,11 +224,7 @@ export function MeltChip({ m }: { m: Pick<MeltRow, "status" | "lossBp" | "warnin
   return <Chip tone={tone} truncate={false}>{t(`foundry.melt.status.${m.status}`)}</Chip>;
 }
 
-export function latestVerdict(spectro: readonly { verdict: string | null; voidedAt: unknown }[]): "pass" | "fail" | "incomplete" | null {
-  const live = spectro.filter((s) => !s.voidedAt);
-  const last = live[live.length - 1];
-  return (last?.verdict as "pass" | "fail" | "incomplete" | null | undefined) ?? null;
-}
+export { latestVerdict };
 
 function SpectroChip({ m }: { m: MeltRow }) {
   const { t } = useT();

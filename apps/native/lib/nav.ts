@@ -82,7 +82,9 @@ export function visibleTabs(me: Me | null | undefined): TabName[] {
     if (!me?.company) return false;
     if (!set.includes(tab.name)) return false;
     if (tab.requires && !canAny(me, tab.requires)) return false;
-    if (tab.modules && modules.length > 0 && !tab.modules.some((m) => modules.includes(m))) return false;
+    // Stock is the bundle stock for the packer set; only the foundry role's Stock (billets) is on with the foundry module alone.
+    const tabModules = tab.name === "stock" && tabSetFor(me) !== "foundry" ? (["bundles"] as const) : tab.modules;
+    if (tabModules && modules.length > 0 && !tabModules.some((m) => modules.includes(m))) return false;
     return true;
   }).map((t) => t.name);
 }
@@ -92,9 +94,6 @@ const DIE_READERS = ["die.card", "die.reading", "masters.publish"] as const sati
 
 /** Who opens the Press screens from More when Press is not on their bar: the people who run or log presses. */
 const PRESS_READERS = ["press.run", "press.close"] as const satisfies readonly Action[];
-
-/** Who opens the Cast screens from More when Cast is not on their bar: the people who open casts and enter melts (the supervisor). */
-const CAST_ENTERERS = ["cast.enter", "melt.enter"] as const satisfies readonly Action[];
 
 /**
  * Tabs this person can open but that are not on their bar: the packer set's owner, manager and admin
@@ -111,8 +110,9 @@ export function extraTabs(me: Me | null | undefined): TabName[] {
   if (!onBar.has("orders") && moduleOn("orders") && canAny(me, ["order.manage", "order.plan"])) out.push("orders");
   // The people who run or log presses but have the packer bar (supervisor, manager, admin) read the lines from More.
   if (!onBar.has("press") && moduleOn("press") && canAny(me, PRESS_READERS)) out.push("press");
-  // The people who enter casts and melts but have the packer bar (supervisor) reach Cast from More.
-  if (!onBar.has("cast") && moduleOn("foundry") && canAny(me, CAST_ENTERERS)) out.push("cast");
+  // The people who enter casts, enter melts or close a cast but have the packer bar (supervisor, manager, admin) reach Cast from More:
+  // the Billets cards on Stock open a cast for everyone who sees them (cast.close included), and Close lives there.
+  if (!onBar.has("cast") && moduleOn("foundry") && canAny(me, CAST_PEOPLE)) out.push("cast");
   return out;
 }
 
