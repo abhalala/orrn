@@ -539,20 +539,6 @@ const downtimeRouter = router({
 });
 
 export const pressRouter = router({
-  /**
-   * The active reason codes of one kind for the station's pickers (downtime, rejects) and the void
-   * dialog. Any member; codes are never deleted, only retired, so a retired one simply drops out.
-   */
-  reasons: companyProcedure
-    .input(z.object({ kind: z.enum(["downtime", "qc_reject", "void"]) }))
-    .query(async ({ ctx, input }) => {
-      return ctx.db
-        .select({ id: reasonCode.id, code: reasonCode.code, label: reasonCode.label, requiresNote: reasonCode.requiresNote })
-        .from(reasonCode)
-        .where(and(eq(reasonCode.companyId, ctx.companyId), eq(reasonCode.kind, input.kind), eq(reasonCode.active, true)))
-        .orderBy(asc(reasonCode.sortOrder), asc(reasonCode.code));
-    }),
-
   lines: linesRouter,
   queue: queueRouter,
   runs: pressRunRouter,
