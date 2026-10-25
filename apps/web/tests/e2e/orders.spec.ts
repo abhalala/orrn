@@ -119,7 +119,9 @@ test.describe("orders list and detail", () => {
       // The PO is the document: the whole number shows.
       await expect(main.getByText("PO-4471", { exact: true })).toBeVisible();
       await expect(main.getByText("PO-118", { exact: true })).toBeVisible();
-      await expect(main.getByText("No PO yet")).toBeVisible();
+      // SO-3 has no PO yet. Other specs (pack-w1) book orders without a PO too, so read SO-3's own row.
+      const so3 = main.locator("li, tr").filter({ has: page.getByText("SO-3", { exact: true }) });
+      await expect(so3.getByText("No PO yet")).toBeVisible();
       // Only SO-1 is past 15 days.
       await expect(main.getByText(/Late, \d+ days/)).toHaveCount(1);
       // Other tests in this file book and confirm orders of their own, so these are "at least".
@@ -362,15 +364,24 @@ test.describe("press plan", () => {
 
   test("draft a plan from the open lines and release it: one queued run per die", async ({ page }) => {
     test.setTimeout(120_000);
-    await open(page, { role: "office", width: 1280, path: "/orders/plan" });
+    await open(page, { role: "office", width: 1280, path: "/orders" });
+    // The seeded SO-2 is an open line on the board; the plan is drafted from an order of this test's
+    // own, so SO-2's baki stays for the press spec's fixtures (they plan on dev-sol-2-1).
+    const own = await apiConfirmed(page, "dev-customer-royal", [{ sectionId: "dev-die-14701", pcs: 12 }]);
+    await page.goto("/orders/plan");
     await settled(page);
     await expect(page.getByRole("heading", { name: "Open lines", level: 3 })).toBeVisible();
-    const candidate = page.locator("[data-candidate='SO-2']");
+    const seeded = page.locator("[data-candidate='SO-2']");
+    await expect(seeded).toContainText("Royal Aluminium");
+    await expect(seeded).toContainText("PO-118");
+    await expect(seeded).toContainText(/kg to plan/);
+    await page.getByRole("textbox", { name: "Search open lines" }).fill(own.po);
+    const candidate = page.locator(`[data-candidate='${own.number}']`);
     await expect(candidate).toContainText("Royal Aluminium");
-    await expect(candidate).toContainText("PO-118");
+    await expect(candidate).toContainText(own.po);
     await expect(candidate).toContainText(/kg to plan/);
     await candidate.getByRole("button", { name: "Add" }).click();
-    await expect(page.locator("[data-candidate='SO-2']")).toHaveCount(0);
+    await expect(page.locator(`[data-candidate='${own.number}']`)).toHaveCount(0);
     await expect(page.locator("[data-draft-die]")).toHaveCount(1);
     // The seed has two presses since Wave 2 (P2 for die trials): the plan names its press.
     await expect(page.getByRole("button", { name: "Save draft plan" })).toBeDisabled();
