@@ -4,7 +4,7 @@
  * still waiting, so the order holds). `OutboxBanner` says "Offline — N changes waiting", sends the
  * list again when the connection is back, and shows each refused write with its own message.
  */
-import { useT, type MessageKey } from "@orrn/i18n";
+import { useT, type MessageKey, type Translate } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -16,31 +16,18 @@ import { trpc, trpcClient } from "@/shared/utils/trpc";
 import { clearDraft } from "./count-draft";
 import { isNetworkError } from "./errors";
 import { pressErrorText } from "./hooks";
-import { createOutboxStore, drop, enqueue, flushOutbox, outboxCounts, type OutboxItem, type OutboxKind, type OutboxStore } from "./outbox";
+import { drop, enqueue, flushOutbox, isBlocked, outboxCounts, queuedReason, type OutboxItem, type OutboxKind, type OutboxStore } from "./outbox";
+import { flushLease, storeFor } from "./outbox-session";
 
 /** How often a waiting list tries again while the page thinks it is online. */
 export const OUTBOX_RETRY_MS = 15_000;
 
-const stores = new Map<string, OutboxStore>();
-function storeFor(companyId: string): OutboxStore {
-  let s = stores.get(companyId);
-  if (!s) {
-    let storage: Storage | null = null;
-    try {
-      storage = typeof window === "undefined" ? null : window.localStorage;
-    } catch {
-      storage = null;
-    }
-    s = createOutboxStore(`orrn.press.outbox.${companyId}`, storage);
-    stores.set(companyId, s);
-  }
-  return s;
-}
-
 function useStore(): OutboxStore | null {
   const { data: me } = useMe();
   const companyId = me?.company?.id ?? null;
-  return companyId ? storeFor(companyId) : null;
+  const userId = me?.user?.id ?? null;
+  // One list per person per plant: the next person at this tablet never sees, let alone sends, this one.
+  return companyId && userId ? storeFor(companyId, userId) : null;
 }
 
 const EMPTY: readonly OutboxItem[] = [];
@@ -72,33 +59,39 @@ export function useOnline(): boolean {
 const isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
 
 /** The one call per kind; the input is exactly what the screen built (its key included). */
-export async function sendStationWrite(kind: OutboxKind, input: Record<string, unknown>): Promise<unknown> {
+export async function sendStationWrite(kind: OutboxKind, input: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+  const opts = signal ? { signal } : undefined;
   const runs = trpcClient.press.runs;
   switch (kind) {
     case "start":
-      return runs.start.mutate(input as never);
+      return runs.start.mutate(input as never, opts);
     case "stop":
-      return runs.stop.mutate(input as never);
+      return runs.stop.mutate(input as never, opts);
     case "count":
-      return runs.count.mutate(input as never);
+      return runs.count.mutate(input as never, opts);
     case "resume":
-      return runs.resume.mutate(input as never);
+      return runs.resume.mutate(input as never, opts);
     case "undoStart":
-      return runs.undoStart.mutate(input as never);
+      return runs.undoStart.mutate(input as never, opts);
     case "billets":
-      return runs.billets.mutate(input as never);
+      return runs.billets.mutate(input as never, opts);
     case "lines":
-      return runs.lines.mutate(input as never);
+      return runs.lines.mutate(input as never, opts);
     case "scrap":
-      return runs.scrap.mutate(input as never);
+      return runs.scrap.mutate(input as never, opts);
     case "qc":
-      return runs.qc.mutate(input as never);
+      return runs.qc.mutate(input as never, opts);
     case "close":
-      return runs.close.mutate(input as never);
+      return runs.close.mutate(input as never, opts);
   }
 }
 
-export type SendResult = { queued: false; out: unknown } | { queued: true };
+export type SendResult = { queued: false; out: unknown } | { queued: true; reason: "refused" | "saved" };
+
+/** What to tell the person about a write that was queued: offline/waiting its turn, or held behind a refused change. */
+export function queuedText(t: Translate, res: Extract<SendResult, { queued: true }>): string {
+  return t(res.reason === "refused" ? "press.console.outbox.behind" : "press.console.outbox.queued");
+}
 
 /**
  * Send a station write now, or queue it: when the tablet is offline, or behind earlier waiting
@@ -109,21 +102,25 @@ export function useStationSend(runId: string, runNumber: string | null) {
   return useCallback(
     async (kind: OutboxKind, input: Record<string, unknown>, id?: string): Promise<SendResult> => {
       const key = id ?? (typeof input.clientMutationId === "string" ? input.clientMutationId : crypto.randomUUID());
-      const queue = () => {
-        if (!store) return false;
+      const queue = (): SendResult | null => {
+        if (!store) return null;
+        const reason = queuedReason(store.get(), runId, isOffline());
         store.set(enqueue(store.get(), { id: key, runId, runNumber, kind, input, queuedAt: Date.now(), conflict: null }));
-        return true;
+        return { queued: true, reason };
       };
       if (store && (isOffline() || store.get().some((i) => i.runId === runId))) {
-        queue();
-        return { queued: true };
+        const q = queue();
+        if (q) return q;
       }
       try {
         return { queued: false, out: await sendStationWrite(kind, input) };
       } catch (e) {
         // Only a tablet that is offline queues. A request dropped while online keeps the screen's own
         // error and Try again (the same key), as before.
-        if (isNetworkError(e) && isOffline() && queue()) return { queued: true };
+        if (isNetworkError(e) && isOffline()) {
+          const q = queue();
+          if (q) return q;
+        }
         throw e;
       }
     },
@@ -141,27 +138,43 @@ export function OutboxBanner() {
   const online = useOnline();
   const [sending, setSending] = useState(false);
   const counts = outboxCounts(box);
+  const blocked = isBlocked(box);
   const tRef = useRef(t);
   tRef.current = t;
 
+  const { data: me } = useMe();
+  const companyId = me?.company?.id ?? null;
+  const userId = me?.user?.id ?? null;
+
   const flush = useCallback(async () => {
-    if (!store || flushing || outboxCounts(store.get()).waiting === 0) return;
+    if (!store || !companyId || !userId || flushing || outboxCounts(store.get()).waiting === 0) return;
+    // Only the signed-in person's list of the active plant goes, never during a sign-out or plant switch.
+    const lease = flushLease(companyId, userId);
+    if (!lease) return;
     flushing = true;
     setSending(true);
     try {
+      // The cookie may belong to someone else by now (another tab signed in): ask who it is before sending.
+      const who = await trpcClient.auth.me.query(undefined, { signal: lease.signal });
+      if (!lease.alive()) return;
+      if (who.user.id !== userId || who.company?.id !== companyId) {
+        void qc.invalidateQueries({ queryKey: trpc.auth.me.queryKey() });
+        return;
+      }
       const before = store.get();
       const out = await flushOutbox(
         before,
         async (item) => {
-          await sendStationWrite(item.kind, item.input);
+          await sendStationWrite(item.kind, item.input, lease.signal);
           if (item.kind === "close") clearDraft(item.runId);
         },
         isNetworkError,
         (e) => pressErrorText(tRef.current, e),
         (next) => store.set(mergeNew(store.get(), before, next)),
+        () => !lease.alive(),
       );
       store.set(mergeNew(store.get(), before, out.box));
-      if (out.sent > 0) {
+      if (out.sent > 0 && lease.alive()) {
         toast.success(tRef.current("press.console.outbox.sent", { count: out.sent }));
         await Promise.all([
           qc.invalidateQueries({ queryKey: trpc.press.runs.get.queryKey() }),
@@ -170,11 +183,13 @@ export function OutboxBanner() {
           qc.invalidateQueries({ queryKey: trpc.press.lines.list.queryKey() }),
         ]);
       }
+    } catch {
+      // The who-am-I check did not get through (offline, dropped, aborted): the list waits for the next try.
     } finally {
       flushing = false;
       setSending(false);
     }
-  }, [store, qc]);
+  }, [store, qc, companyId, userId]);
 
   useEffect(() => {
     if (online) void flush();
@@ -192,16 +207,22 @@ export function OutboxBanner() {
       {counts.waiting > 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="m-0 text-[17px] font-semibold" data-outbox-banner="">
-            {online && sending ? t("press.console.outbox.sending", { count: counts.waiting }) : !online ? t("press.console.outbox.offline", { count: counts.waiting }) : t("press.console.outbox.waiting", { count: counts.waiting })}
+            {online && sending
+              ? t("press.console.outbox.sending", { count: counts.waiting })
+              : !online
+                ? t("press.console.outbox.offline", { count: counts.waiting })
+                : blocked
+                  ? t("press.console.outbox.blocked", { count: counts.waiting })
+                  : t("press.console.outbox.waiting", { count: counts.waiting })}
           </p>
-          {online && !sending ? (
+          {online && !sending && !blocked ? (
             <Button variant="secondary" onClick={() => void flush()} data-outbox-retry="">
               {t("press.console.outbox.sendNow")}
             </Button>
           ) : null}
         </div>
       ) : null}
-      {counts.waiting > 0 ? <p className="m-0 text-[15px]">{t("press.console.outbox.keepOpen")}</p> : null}
+      {counts.waiting > 0 && !blocked ? <p className="m-0 text-[15px]">{t("press.console.outbox.keepOpen")}</p> : null}
       {conflicts.length > 0 ? (
         <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label={t("press.console.outbox.conflicts")}>
           {conflicts.map((i) => (

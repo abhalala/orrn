@@ -27,7 +27,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { ErrorLines } from "./error-lines";
 import { pressErrorText, pressErrorToast, roleCan, useActionKey, useCompanyTimeZone, useHolds } from "./hooks";
-import { OutboxBanner, useStationSend, type SendResult } from "./outbox-hooks";
+import { OutboxBanner, queuedText, useStationSend, type SendResult } from "./outbox-hooks";
 import { statusTone } from "./job-card";
 import { bannerOf, clockOf, elapsedText, kgFromG, pollIntervalFor, STATION_ACTION, stationActions, type Banner } from "./model";
 import { reasonLabel } from "./reason-label";
@@ -172,14 +172,14 @@ function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunD
   };
   // FP-PR-19: offline, a write waits in the outbox with its key; the banner above says so.
   const send = useStationSend(runId, data.run.number);
-  const queuedNote = () => toast.message(t("press.console.outbox.queued"));
+  const queuedNote = (res: Extract<SendResult, { queued: true }>) => toast.message(queuedText(t, res));
   type KeyedInput = { id: string; clientMutationId: string; tappedAt?: number };
   const start = useMutation({
     // Offline the call must still run (and land in the outbox), not pause in React Query.
     networkMode: "always",
     mutationFn: (input: KeyedInput) => send("start", input),
     onSuccess: async (res) => {
-      if (res.queued) return queuedNote();
+      if (res.queued) return queuedNote(res);
       skewNote(res.out as object);
       await done(startKey.reset)();
     },
@@ -189,7 +189,7 @@ function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunD
     networkMode: "always",
     mutationFn: (input: KeyedInput) => send("stop", input),
     onSuccess: async (res) => {
-      if (res.queued) return queuedNote();
+      if (res.queued) return queuedNote(res);
       skewNote(res.out as object);
       await done(stopKey.reset)();
     },
@@ -199,7 +199,7 @@ function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunD
     networkMode: "always" as const,
     mutationFn: (input: KeyedInput) => send(kind, input),
     onSuccess: async (res: SendResult) => {
-      if (res.queued) return queuedNote();
+      if (res.queued) return queuedNote(res);
       await done(reset)();
     },
     onError: (e: unknown) => setError(pressErrorText(t, e)),

@@ -6,8 +6,12 @@
  * the list as a conflict with its own message, and later writes of that run wait behind it until
  * the person drops it. The form is never cleared here: the counting draft keeps its own copy.
  *
- * The list logic is pure (tested); `createOutboxStore` keeps it in memory plus localStorage.
+ * The list logic is pure (tested); `createOutboxStore` keeps it in memory plus localStorage. A list belongs
+ * to one person in one plant (`outboxKey`): at a shared tablet the next person never sends it.
  */
+
+/** localStorage key of one person's list in one plant. */
+export const outboxKey = (companyId: string, userId: string) => `orrn.press.outbox.${companyId}.${userId}`;
 
 /** Station writes the outbox carries. The first five and `close` carry an idempotency key on the server; the count saves replace the run's rows whole, so sending one twice changes nothing. */
 export const OUTBOX_KINDS = ["start", "stop", "count", "resume", "undoStart", "billets", "lines", "scrap", "qc", "close"] as const;
@@ -57,6 +61,19 @@ export const afterSent = (box: Outbox, id: string): Outbox => box.filter((i) => 
 export const afterConflict = (box: Outbox, id: string, message: string): Outbox => box.map((i) => (i.id === id ? { ...i, conflict: message } : i));
 export const drop = (box: Outbox, id: string): Outbox => box.filter((i) => i.id !== id);
 
+/** Waiting writes exist but none can go: every run that has them is held behind a refused change. */
+export function isBlocked(box: Outbox): boolean {
+  return outboxCounts(box).waiting > 0 && nextToSend(box) === null;
+}
+
+/**
+ * Why a write is being queued, for the words shown: `refused` when the tablet is online and the run
+ * has a refused change in the list (this one waits behind it), else `saved` (offline, or waiting its turn).
+ */
+export function queuedReason(box: Outbox, runId: string, offline: boolean): "refused" | "saved" {
+  return !offline && box.some((i) => i.runId === runId && i.conflict !== null) ? "refused" : "saved";
+}
+
 export function outboxCounts(box: Outbox, runId?: string) {
   const mine = runId ? box.filter((i) => i.runId === runId) : box;
   return { waiting: mine.filter((i) => i.conflict === null).length, conflicts: mine.filter((i) => i.conflict !== null).length };
@@ -73,21 +90,24 @@ export async function flushOutbox(
   isOffline: (error: unknown) => boolean,
   conflictText: (error: unknown) => string,
   onChange: (box: Outbox) => void = () => {},
-): Promise<{ box: Outbox; sent: number; offline: boolean }> {
+  shouldStop: () => boolean = () => false,
+): Promise<{ box: Outbox; sent: number; offline: boolean; stopped: boolean }> {
   let cur = box;
   let sent = 0;
   for (let item = nextToSend(cur); item; item = nextToSend(cur)) {
+    if (shouldStop()) return { box: cur, sent, offline: false, stopped: true };
     try {
       await send(item);
       cur = afterSent(cur, item.id);
       sent += 1;
     } catch (e) {
-      if (isOffline(e)) return { box: cur, sent, offline: true };
+      if (shouldStop()) return { box: cur, sent, offline: false, stopped: true };
+      if (isOffline(e)) return { box: cur, sent, offline: true, stopped: false };
       cur = afterConflict(cur, item.id, conflictText(e));
     }
     onChange(cur);
   }
-  return { box: cur, sent, offline: false };
+  return { box: cur, sent, offline: false, stopped: false };
 }
 
 /** What localStorage held, read defensively: anything malformed is left out, never thrown. */
@@ -114,20 +134,31 @@ export function parseOutbox(raw: string | null): Outbox {
 export type OutboxStore = {
   get(): Outbox;
   set(box: Outbox): void;
+  /** Read the list again from storage (another tab of this tablet changed it); tells subscribers only when it differs. */
+  reload(): void;
   subscribe(fn: () => void): () => void;
 };
 
-/** One list per plant (the key names the company), shared by every station screen of the tab. */
+/** One list per person per plant (`outboxKey`), shared by every station screen of the tab. */
 export function createOutboxStore(storageKey: string, storage: Pick<Storage, "getItem" | "setItem" | "removeItem"> | null): OutboxStore {
   let box: Outbox = [];
-  try {
-    box = parseOutbox(storage?.getItem(storageKey) ?? null);
-  } catch {
-    box = [];
-  }
+  const read = () => {
+    try {
+      return storage?.getItem(storageKey) ?? null;
+    } catch {
+      return null;
+    }
+  };
+  box = parseOutbox(read());
   const subs = new Set<() => void>();
   return {
     get: () => box,
+    reload() {
+      const next = parseOutbox(read());
+      if (JSON.stringify(next) === JSON.stringify(box)) return;
+      box = next;
+      for (const fn of subs) fn();
+    },
     set(next) {
       box = next;
       try {

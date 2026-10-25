@@ -5,6 +5,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Eye } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
+import { OutboxSessionGuard } from "@/features/press/outbox-session-guard";
 import { useScan } from "@/features/scan/scan-context";
 import { ImpersonationBanner } from "@/shared/components/impersonation-banner";
 import { useMe } from "@/shared/lib/me";
@@ -80,6 +81,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
       )}
     >
       <SkipLink />
+      <OutboxSessionGuard />
 
       <SideNav
         variant={variant}

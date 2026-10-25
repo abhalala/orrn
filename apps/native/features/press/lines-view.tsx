@@ -46,7 +46,10 @@ export function PressLines() {
       ) : lines.isError && !lines.data ? (
         <ErrorBlock error={lines.error} onRetry={() => void lines.refetch()} retrying={lines.isRefetching} />
       ) : rows.length === 0 ? (
-        <EmptyState title={t("native.press.noLines")} />
+        <>
+          {plan ? <PlanPhone pollMs={BOARD_POLL_MS} /> : null}
+          <EmptyState title={t("native.press.noLines")} />
+        </>
       ) : (
         <>
           {plan ? <PlanPhone pollMs={BOARD_POLL_MS} /> : null}

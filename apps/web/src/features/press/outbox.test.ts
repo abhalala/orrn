@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { afterConflict, createOutboxStore, drop, enqueue, flushOutbox, nextToSend, outboxCounts, parseOutbox, type Outbox, type OutboxItem } from "./outbox";
+import { afterConflict, createOutboxStore, drop, enqueue, flushOutbox, isBlocked, nextToSend, outboxCounts, outboxKey, parseOutbox, queuedReason, type Outbox, type OutboxItem } from "./outbox";
 
 const item = (id: string, runId: string, kind: OutboxItem["kind"], input: Record<string, unknown> = {}): OutboxItem => ({ id, runId, runNumber: null, kind, input: { id: runId, ...input }, queuedAt: 1, conflict: null });
 
@@ -85,6 +85,80 @@ describe("press station outbox (FP-PR-19)", () => {
     const b = createOutboxStore("k", broken);
     b.set([item("k1", "r1", "start")]);
     expect(b.get()).toHaveLength(1);
+  });
+});
+
+describe("outbox per plant and per person (FP-PR-19 review I-1)", () => {
+  const memStorage = () => {
+    const mem = new Map<string, string>();
+    return { mem, storage: { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) } };
+  };
+
+  test("the key names the plant AND the person; B at the same tablet never sees A's list", () => {
+    expect(outboxKey("c1", "u1")).toBe("orrn.press.outbox.c1.u1");
+    const { storage } = memStorage();
+    const a = createOutboxStore(outboxKey("c1", "userA"), storage);
+    a.set([item("k1", "r1", "start", { clientMutationId: "k1" })]);
+    const b = createOutboxStore(outboxKey("c1", "userB"), storage);
+    expect(b.get()).toEqual([]);
+    expect(nextToSend(b.get())).toBeNull();
+    // Same person, another plant: also apart.
+    expect(createOutboxStore(outboxKey("c2", "userA"), storage).get()).toEqual([]);
+    // A signs back in: the list is there, key and all.
+    expect(createOutboxStore(outboxKey("c1", "userA"), storage).get().map((i) => i.id)).toEqual(["k1"]);
+  });
+
+  test("a flush told to stop sends nothing more; a send aborted in flight stays waiting, not a conflict", async () => {
+    const box: Outbox = [item("k1", "r1", "start"), item("k2", "r1", "stop")];
+    let stop = false;
+    const sent: string[] = [];
+    const out = await flushOutbox(
+      box,
+      async (i) => {
+        sent.push(i.id);
+        // The plant is switched while k1 is on the wire: the request is aborted.
+        stop = true;
+        throw new DOMException("aborted", "AbortError");
+      },
+      () => false,
+      () => "refused",
+      () => {},
+      () => stop,
+    );
+    expect(sent).toEqual(["k1"]);
+    expect(out).toMatchObject({ sent: 0, offline: false, stopped: true });
+    expect(out.box.map((i) => [i.id, i.conflict])).toEqual([["k1", null], ["k2", null]]);
+    // Told to stop before the first send: nothing leaves.
+    const none = await flushOutbox(box, async (i) => void sent.push(`never-${i.id}`), () => false, () => "x", () => {}, () => true);
+    expect(sent).toEqual(["k1"]);
+    expect(none).toMatchObject({ sent: 0, stopped: true });
+  });
+
+  test("a second tab's change is picked up (reload), and only when the text changed", () => {
+    const { storage } = memStorage();
+    const key = outboxKey("c1", "u1");
+    const tab1 = createOutboxStore(key, storage);
+    const tab2 = createOutboxStore(key, storage);
+    let calls = 0;
+    tab1.subscribe(() => (calls += 1));
+    tab2.set([item("k1", "r1", "start")]);
+    expect(tab1.get()).toEqual([]);
+    tab1.reload();
+    expect(tab1.get().map((i) => i.id)).toEqual(["k1"]);
+    expect(calls).toBe(1);
+    tab1.reload();
+    expect(calls).toBe(1);
+  });
+
+  test("why a write queued: offline, or behind a refused change of its own run", () => {
+    const refused = afterConflict([item("a1", "r1", "start"), item("a2", "r1", "stop")], "a1", "no");
+    expect(isBlocked(refused)).toBe(true);
+    expect(isBlocked([item("a2", "r1", "stop")])).toBe(false);
+    expect(isBlocked([])).toBe(false);
+    expect(queuedReason(refused, "r1", false)).toBe("refused");
+    expect(queuedReason(refused, "r2", false)).toBe("saved");
+    expect(queuedReason(refused, "r1", true)).toBe("saved");
+    expect(queuedReason([], "r1", true)).toBe("saved");
   });
 });
 

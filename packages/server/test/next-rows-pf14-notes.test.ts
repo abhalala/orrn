@@ -40,10 +40,18 @@ describe("release.notes (FP-PF-14 About)", () => {
     // An edge (spool) build is not the app's: written directly, it is never listed.
     await env.db.insert(appRelease).values({ id: crypto.randomUUID(), platform: "edge", channel: "production", version: "9.11.0", buildNumber: 5_011, notes: "Edge 11", publishedAt: new Date() });
 
+    // Wave 1's unused first channel names and a build with no notes never reach a plant (m-1).
+    await env.db.insert(appRelease).values([
+      { id: crypto.randomUUID(), platform: "android", channel: "beta", version: "9.12.0", buildNumber: 5_012, notes: "Beta 12", publishedAt: new Date(t0 + 12 * 60_000) },
+      { id: crypto.randomUUID(), platform: "ios", channel: "stable", version: "9.13.0", buildNumber: 5_013, notes: "Stable 13", publishedAt: new Date(t0 + 13 * 60_000) },
+      { id: crypto.randomUUID(), platform: "web", channel: "floor", version: "9.14.0", buildNumber: 5_014, notes: "   ", publishedAt: new Date(t0 + 14 * 60_000) },
+    ]);
+
     const { companyId } = await env.seedCompany();
     for (const role of ["owner", "packer", "viewer"] as const) {
       const got = await env.caller({ role, companyId }).release.notes();
       expect(got.items).toHaveLength(RELEASE_NOTES_SHOWN);
+      expect(got.items.every((r) => r.channel === "production" || r.channel === "floor")).toBe(true);
       expect(got.items.map((r) => r.notes)).toEqual([10, 9, 8, 7, 6, 5, 4, 3].map((i) => `Change ${i}`));
       expect(got.items[0]).toMatchObject({ platform: "android", version: "9.10.0", buildNumber: 5_010, channel: "production", mandatory: false });
       expect(typeof got.items[0]!.publishedAt).toBe("number");

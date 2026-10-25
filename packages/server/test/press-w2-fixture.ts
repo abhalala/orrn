@@ -19,7 +19,7 @@ export type PressPlant = OpPlant & {
   castWith(billetG: number): Promise<{ id: string; number: string }>;
   code(kind: string, code: string): Promise<string>;
   /** Section + copy (12.000 kg/12ft) + confirmed order (pcs) + released plan → its queued run. */
-  queuedRun(opts?: { pcs?: number; purpose?: "production" | "die_trial" | "sample" | "other"; sectionId?: string; urgent?: boolean }): Promise<{
+  queuedRun(opts?: { pcs?: number; purpose?: "production" | "die_trial" | "sample" | "other"; sectionId?: string; urgent?: boolean; window?: { start: number; end: number } }): Promise<{
     runId: string;
     planId: string;
     sectionId: string;
@@ -94,7 +94,7 @@ export function pressHelpers(getEnv: () => TestEnv) {
       } else {
         dies = [{ sectionId, urgent: o.urgent, lines: [] }];
       }
-      const plan = await p.as("office").plans.create({ windowStart: now, windowEnd: now + 8 * 3_600_000, pressLineId: p.pressLineId, purpose, dies });
+      const plan = await p.as("office").plans.create({ windowStart: o.window?.start ?? now, windowEnd: o.window?.end ?? now + 8 * 3_600_000, pressLineId: p.pressLineId, purpose, dies });
       const rel = await p.as("manager").plans.release({ id: plan.id });
       const got = await p.owner.plans.get({ id: plan.id });
       return { runId: rel.runs[0]!.id, planId: plan.id, sectionId, copyId, orderId, orderNumber, salesOrderLineIds, planLineIds: got.lines.map((l) => l.id) };

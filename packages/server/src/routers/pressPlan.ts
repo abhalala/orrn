@@ -962,7 +962,6 @@ export const pressPlanRouter = router({
       return { id: plan.id, status: "draft" as const, added: lineRows.length, removed: removeIds.length };
     }),
 
-  /** Active press lines, for the plan's press pick (a plant with two needs one before release). */
   /**
    * FP-OP-21 (W4-NEXTROWS): the press plan and the day's press summary on the owner's phone,
    * read-only. Released plans (or one `planId`) with per-die lengths, planned vs pressed pcs/kg and
@@ -974,7 +973,7 @@ export const pressPlanRouter = router({
       const nowMs = clockNow().getTime();
       const day = input.productionDay ?? productionDayWindow(await companySettings(ctx.db, ctx.companyId), nowMs).productionDay;
       const [plans, summary] = await Promise.all([
-        planPhoneView(ctx.db, ctx.companyId, input.planId ? { planId: input.planId } : {}),
+        planPhoneView(ctx.db, ctx.companyId, { ...(input.planId ? { planId: input.planId } : {}), nowMs }),
         pressDaySummary(ctx.db, ctx.companyId, day, nowMs),
       ]);
       return {
@@ -994,6 +993,7 @@ export const pressPlanRouter = router({
       };
     }),
 
+  /** Active press lines, for the plan's press pick (a plant with two needs one before release). */
   pressLines: companyProcedure.query(async ({ ctx }) => {
     return ctx.db
       .select({ id: pressLine.id, code: pressLine.code, name: pressLine.name })

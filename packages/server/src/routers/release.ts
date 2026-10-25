@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { session, user } from "@orrn/db/schema/auth";
-import { appRelease } from "@orrn/db/schema/platform";
+import { appRelease, appReleasePublishChannels } from "@orrn/db/schema/platform";
 import { device } from "@orrn/db/schema/sync";
 import { effectiveMinBuild, OFFLINE_GRACE_MS, RELEASE_CHANNELS, RELEASE_PLATFORMS, releaseGate } from "@orrn/domain";
 
@@ -100,7 +100,16 @@ export const releaseRouter = router({
         publishedAt: appRelease.publishedAt,
       })
       .from(appRelease)
-      .where(and(inArray(appRelease.platform, RELEASE_NOTE_PLATFORMS), isNotNull(appRelease.notes)))
+      // Only the channels that are ever published (production, floor), and only builds that have notes, so
+      // the plant gets eight usable rows and never a Wave 1 placeholder channel.
+      .where(
+        and(
+          inArray(appRelease.platform, RELEASE_NOTE_PLATFORMS),
+          inArray(appRelease.channel, appReleasePublishChannels),
+          isNotNull(appRelease.notes),
+          sql`trim(${appRelease.notes}) <> ''`,
+        ),
+      )
       .orderBy(desc(appRelease.publishedAt), desc(appRelease.buildNumber))
       .limit(RELEASE_NOTES_SHOWN);
     return { items: rows.map((r) => ({ ...r, publishedAt: r.publishedAt.getTime() })) };

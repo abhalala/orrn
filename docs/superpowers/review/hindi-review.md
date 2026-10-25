@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5176 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5180 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -4381,7 +4381,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (446)
+### press (450)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4665,6 +4665,10 @@ Please check, Lalubhai:
 | `console.outbox.sendNow` | Send now | अभी भेजें |
 | `console.outbox.keepOpen` | Saved on this tablet. They go to orrn in order when the connection is back. Keep this page open. | इस टैबलेट पर सेव है। कनेक्शन आते ही क्रम से orrn पर जाएँगे। यह पेज खुला रखें। |
 | `console.outbox.queued` | Offline. Saved on this tablet; it goes when the connection is back. | ऑफ़लाइन। इस टैबलेट पर सेव है; कनेक्शन आते ही जाएगा। |
+| `console.outbox.signOutLeft` | {count} {count:change\|changes} not sent yet. They stay saved on this tablet for you and go out when you sign in again. | {count} बदलाव अभी भेजे नहीं गए। वे इस टैबलेट पर आपके लिए सेव रहेंगे और दोबारा साइन इन करने पर जाएँगे। |
+| `console.outbox.plantLeft` | {count} {count:change\|changes} not sent yet. They stay saved on this tablet and go out when you are back in this plant. | {count} बदलाव अभी भेजे नहीं गए। वे इस टैबलेट पर सेव रहेंगे और इस प्लांट में लौटने पर जाएँगे। |
+| `console.outbox.behind` | Waiting behind a refused change. Saved on this tablet. | जिस बदलाव को orrn ने नहीं लिया, उसके पीछे इंतज़ार में। इस टैबलेट पर सेव है। |
+| `console.outbox.blocked` | Waiting behind a refused change ({count} {count:change\|changes}) | जिस बदलाव को orrn ने नहीं लिया, उसके पीछे इंतज़ार में ({count} बदलाव) |
 | `console.outbox.sent` | {count} {count:change\|changes} sent | {count} बदलाव भेजे गए |
 | `console.outbox.conflicts` | Changes orrn did not take | जो बदलाव orrn ने नहीं लिए |
 | `console.outbox.notTaken` | {what} on {run} was not taken | {run} पर {what} नहीं लिया गया |

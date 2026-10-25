@@ -22,7 +22,7 @@ import { clearDraft, emptyBillet, emptyCut, emptyQc, serverBase, textToLength, u
 import { ErrorLines } from "./error-lines";
 import { gatesOf, pressErrorText, pressErrorToast, useActionKey, useHolds } from "./hooks";
 import { outboxCounts, unsentNotes, type OutboxKind } from "./outbox";
-import { useOutbox, useStationSend } from "./outbox-hooks";
+import { queuedText, useOutbox, useStationSend, type SendResult } from "./outbox-hooks";
 import {
   billetRows,
   COUNT_STEPS,
@@ -148,10 +148,10 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
     setError(null);
     setNotice(null);
     const again = () => void next();
-    let queued = false;
+    const queued: { res: Extract<SendResult, { queued: true }> | null } = { res: null };
     const put = async (kind: OutboxKind, input: Record<string, unknown>) => {
       const r = await send(kind, input);
-      if (r.queued) queued = true;
+      if (r.queued) queued.res = r;
     };
     try {
       if (step === 0) {
@@ -179,8 +179,8 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
         if (r.rows.length === 0) return invalid("press.console.gates.no_qc");
         await put("qc", { id: runId, rows: r.rows });
       }
-      if (queued) {
-        setNotice(t("press.console.outbox.queued"));
+      if (queued.res) {
+        setNotice(queuedText(t, queued.res));
         return true;
       }
       await refresh();
@@ -259,7 +259,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
         ...(draft.trialResult ? { trialResult: draft.trialResult } : {}),
       });
       if (res.queued) {
-        setNotice(t("press.console.outbox.queued"));
+        setNotice(queuedText(t, res));
         return;
       }
       const out = res.out as { recoveryBp: number | null };

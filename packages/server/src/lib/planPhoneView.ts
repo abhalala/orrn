@@ -1,35 +1,83 @@
 /**
  * FP-OP-21 (W4-NEXTROWS): the press plan and the day's press summary for the owner's phone,
- * read-only. The released plans (newest window first, at most `PHONE_PLANS`), each die with its
- * cut lengths, planned vs pressed pcs/kg (`planDieView`: logged runs only) and a run-state chip; the
- * summary is FP-PR-18's own `pressDaySummary`. No 17-column grid, no rates.
+ * read-only. The released plans, grouped per press line: the plan whose window covers now comes
+ * first and is ALWAYS included, then the next `PHONE_UPCOMING` that start later (soonest first), then
+ * the last `PHONE_RECENT` that ended (latest first). Each die has its cut lengths, planned vs pressed
+ * pcs/kg (`planDieView`: logged runs only) and a run-state chip; the summary is FP-PR-18's own
+ * `pressDaySummary`. No 17-column grid, no rates.
  */
 import { planDieView, type PressRunStatus } from "@orrn/domain";
 import { die } from "@orrn/db/schema/catalog";
 import { pressLine, pressPlan, pressPlanDie, pressPlanLine, pressRun, pressRunLine } from "@orrn/db/schema/press";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lte } from "drizzle-orm";
 
 import { mapInChunks, type OrrnDb } from "./atomic";
 
-export const PHONE_PLANS = 3;
+/** Per press line, after the plan on the press now: this many upcoming, this many recent. */
+export const PHONE_UPCOMING = 2;
+export const PHONE_RECENT = 1;
+/** Rows read per side before the per-line cap (released plans are few; this only bounds the read). */
+const PHONE_READ = 40;
 
-export async function planPhoneView(db: OrrnDb, companyId: string, opts: { planId?: string } = {}) {
-  const plans = await db
-    .select({
-      id: pressPlan.id,
-      number: pressPlan.number,
-      status: pressPlan.status,
-      purpose: pressPlan.purpose,
-      windowStart: pressPlan.windowStart,
-      windowEnd: pressPlan.windowEnd,
-      pressLineCode: pressLine.code,
-      pressLineName: pressLine.name,
-    })
-    .from(pressPlan)
-    .leftJoin(pressLine, and(eq(pressLine.id, pressPlan.pressLineId), eq(pressLine.companyId, pressPlan.companyId)))
-    .where(and(eq(pressPlan.companyId, companyId), opts.planId ? eq(pressPlan.id, opts.planId) : eq(pressPlan.status, "released")))
-    .orderBy(desc(pressPlan.windowStart), desc(pressPlan.createdAt))
-    .limit(opts.planId ? 1 : PHONE_PLANS);
+export type PhonePhase = "now" | "next" | "recent";
+
+export function phonePhase(w: { windowStart: number; windowEnd: number }, nowMs: number): PhonePhase {
+  return w.windowStart <= nowMs && nowMs < w.windowEnd ? "now" : w.windowStart > nowMs ? "next" : "recent";
+}
+
+/**
+ * Which plans the phone shows and in what order: per press line (code order, no line last) the plans
+ * covering now (earliest start first, never cut), then up to `upcoming` later ones, soonest first, then up
+ * to `recent` ended ones, latest first.
+ */
+export function pickPhonePlans<T extends { windowStart: number; windowEnd: number; lineKey: string | null }>(
+  rows: readonly T[],
+  nowMs: number,
+  caps: { upcoming: number; recent: number } = { upcoming: PHONE_UPCOMING, recent: PHONE_RECENT },
+): (T & { phase: PhonePhase })[] {
+  const tagged = rows.map((r) => ({ ...r, phase: phonePhase(r, nowMs) }));
+  const keys = [...new Set(tagged.map((r) => r.lineKey))].sort((a, b) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : a.localeCompare(b)));
+  return keys.flatMap((k) => {
+    const mine = tagged.filter((r) => r.lineKey === k);
+    return [
+      ...mine.filter((r) => r.phase === "now").sort((a, b) => a.windowStart - b.windowStart),
+      ...mine.filter((r) => r.phase === "next").sort((a, b) => a.windowStart - b.windowStart).slice(0, caps.upcoming),
+      ...mine.filter((r) => r.phase === "recent").sort((a, b) => b.windowEnd - a.windowEnd).slice(0, caps.recent),
+    ];
+  });
+}
+
+export async function planPhoneView(db: OrrnDb, companyId: string, opts: { planId?: string; nowMs?: number } = {}) {
+  const nowMs = opts.nowMs ?? Date.now();
+  const nowDate = new Date(nowMs);
+  const base = () =>
+    db
+      .select({
+        id: pressPlan.id,
+        number: pressPlan.number,
+        status: pressPlan.status,
+        purpose: pressPlan.purpose,
+        windowStart: pressPlan.windowStart,
+        windowEnd: pressPlan.windowEnd,
+        pressLineCode: pressLine.code,
+        pressLineName: pressLine.name,
+      })
+      .from(pressPlan)
+      .leftJoin(pressLine, and(eq(pressLine.id, pressPlan.pressLineId), eq(pressLine.companyId, pressPlan.companyId)));
+  const released = and(eq(pressPlan.companyId, companyId), eq(pressPlan.status, "released"));
+  const found = opts.planId
+    ? await base().where(and(eq(pressPlan.companyId, companyId), eq(pressPlan.id, opts.planId))).limit(1)
+    : (
+        await Promise.all([
+          base().where(and(released, lte(pressPlan.windowStart, nowDate), gt(pressPlan.windowEnd, nowDate))).orderBy(asc(pressPlan.windowStart)).limit(PHONE_READ),
+          base().where(and(released, gt(pressPlan.windowStart, nowDate))).orderBy(asc(pressPlan.windowStart)).limit(PHONE_READ),
+          base().where(and(released, lte(pressPlan.windowEnd, nowDate))).orderBy(desc(pressPlan.windowEnd)).limit(PHONE_READ),
+        ])
+      ).flat();
+  const plans = pickPhonePlans(
+    found.map((p) => ({ ...p, windowStart: p.windowStart.getTime(), windowEnd: p.windowEnd.getTime(), lineKey: p.pressLineCode })),
+    nowMs,
+  );
   if (plans.length === 0) return [];
   const planIds = plans.map((p) => p.id);
 
@@ -85,8 +133,9 @@ export async function planPhoneView(db: OrrnDb, companyId: string, opts: { planI
       number: p.number,
       status: p.status,
       purpose: p.purpose,
-      windowStart: p.windowStart.getTime(),
-      windowEnd: p.windowEnd.getTime(),
+      phase: p.phase,
+      windowStart: p.windowStart,
+      windowEnd: p.windowEnd,
       pressLine: p.pressLineCode ? { code: p.pressLineCode, name: p.pressLineName } : null,
       dies: planDies,
       plannedG,

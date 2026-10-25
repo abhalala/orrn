@@ -14,6 +14,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Building2, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 
+import { beginSessionChange, cancelSessionChange, warnLeaving } from "@/features/press/outbox-session";
 import { useMe } from "@/shared/lib/me";
 import { dropTenantQueries } from "@/shared/lib/tenant-cache";
 import { queryClient, trpc } from "@/shared/utils/trpc";
@@ -23,7 +24,7 @@ import { switcherPlants } from "./plant-switcher-model";
 /**
  * FP-PF-17: the plant switcher in the header. Shown only with more than one plant and never while
  * impersonating (`switcherPlants`). Picking a plant calls `company.switch`, drops the old plant's
- * cached queries, reloads `auth.me` and lands on Today. Each plant keeps its own role.
+ * cached queries, reloads `auth.me` and lands on Today (it leaves the old page first, so nothing of the old plant is fetched under the new one). Each plant keeps its own role.
  *
  * `variant`: `header` (phone top bar: the plant name is the trigger), `rail` (side nav: name at
  * 1024px and up, a plant icon in the narrow rail).
@@ -38,11 +39,16 @@ export function PlantSwitcher({ variant }: { variant: "header" | "rail" }) {
   const sw = useMutation(
     trpc.company.switch.mutationOptions({
       onSuccess: async () => {
+        // Leave first: a page of the old plant (a dispatch id, a run) must not re-fetch under the new one and
+        // flash "Not found". Then forget the old plant's data and learn the new one.
+        await navigate({ to: "/today" as never });
         dropTenantQueries(queryClient);
         await queryClient.invalidateQueries({ queryKey: trpc.auth.me.queryKey() });
-        await navigate({ to: "/today" as never });
       },
-      onError: () => toast.error(t("nav.plantSwitch.failed")),
+      onError: () => {
+        cancelSessionChange();
+        toast.error(t("nav.plantSwitch.failed"));
+      },
     }),
   );
 
@@ -52,6 +58,9 @@ export function PlantSwitcher({ variant }: { variant: "header" | "rail" }) {
     if (companyId === current.companyId || sw.isPending) return;
     const target = plants.find((p) => p.companyId === companyId);
     if (target) toast.message(t("nav.plantSwitch.switching", { name: target.name }));
+    // Press changes waiting for this plant stay saved under it; they are not sent in the other plant.
+    warnLeaving("plant");
+    beginSessionChange();
     sw.mutate({ companyId });
   };
 
