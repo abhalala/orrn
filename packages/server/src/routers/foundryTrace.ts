@@ -48,6 +48,10 @@ const RUNS_MAX = 200;
 async function castChain(ctx: Ctx, castId: string) {
   const c = await loadCast(ctx, castId);
   const live = and(eq(melt.companyId, ctx.companyId), eq(melt.castId, c.id), eq(melt.status, "locked"), isNull(melt.cancelledAt));
+  // r2 (I-5): a run's billet rows may name several casts (same alloy). `mixed` = a row names a cast other
+  // than the run's own; this cast's kg on the run is Σ its own rows.
+  const mixedRun = sql`exists (select 1 from press_billet_use mu where mu.company_id = ${ctx.companyId} and mu.press_run_id = ${pressRun.id} and mu.cast_id <> ${pressRun.castId})`;
+  const castRowsG = sql`(select sum(cu.kg_g) from press_billet_use cu where cu.company_id = ${ctx.companyId} and cu.press_run_id = ${pressRun.id} and cu.cast_id = ${c.id})`;
   const [melts, lotsIn, spectro, billets, runs, bundles] = await Promise.all([
     ctx.db
       .select({
@@ -98,12 +102,22 @@ async function castChain(ctx: Ctx, castId: string) {
         productionDay: pressRun.productionDay,
         dieInstanceId: pressRun.dieInstanceId,
         dieCode: dieInstance.code,
-        billetG: sql<number>`coalesce(${pressRun.inputWeighedG}, ${pressRun.inputG}, 0)`,
+        // r2 (I-5): a run whose billet rows name several casts reports this cast's rows only.
+        billetG: sql<number>`case when ${mixedRun} then ${castRowsG} else coalesce(${pressRun.inputWeighedG}, ${pressRun.inputG}, ${castRowsG}, 0) end`,
+        mixed: sql<number>`${mixedRun}`,
+        mainCast: sql<number>`${pressRun.castId} = ${c.id}`,
         goodG: pressRun.goodG,
       })
       .from(pressRun)
       .leftJoin(dieInstance, and(eq(dieInstance.id, pressRun.dieInstanceId), eq(dieInstance.companyId, pressRun.companyId)))
-      .where(and(eq(pressRun.companyId, ctx.companyId), eq(pressRun.castId, c.id), ne(pressRun.status, "voided")))
+      .where(
+        and(
+          eq(pressRun.companyId, ctx.companyId),
+          ne(pressRun.status, "voided"),
+          // r2 (I-5): every run that took billets of this cast, not just the runs it is the main cast of.
+          sql`(${pressRun.castId} = ${c.id} or exists (select 1 from press_billet_use tu where tu.company_id = ${ctx.companyId} and tu.press_run_id = ${pressRun.id} and tu.cast_id = ${c.id}))`,
+        ),
+      )
       .orderBy(asc(pressRun.number))
       .limit(RUNS_MAX),
     ctx.db
@@ -154,7 +168,8 @@ async function castChain(ctx: Ctx, castId: string) {
       countedG: c.closeSummary?.countedG ?? null,
       countedCount: c.closeSummary?.countedCount ?? null,
     },
-    runs: runs.map((r) => ({ ...r, billetG: Number(r.billetG) })),
+    /** r2 (I-5): `mainCast` false = the run's bundles carry another cast (the run's own) though it took this cast's billets. */
+    runs: runs.map((r) => ({ ...r, billetG: Number(r.billetG), mixed: Boolean(r.mixed), mainCast: Boolean(r.mainCast) })),
     bundles: bundles.slice(0, BUNDLES_MAX).map(({ customerName: _n, ...b }) => ({
       ...b,
       runIds: runs.filter((r) => r.dieInstanceId && r.dieInstanceId === b.dieInstanceId).map((r) => r.id),
@@ -244,18 +259,28 @@ export const foundryStockRouter = router({
         .orderBy(desc(cast.year), asc(cast.number))
         .limit(input.limit);
       const casts = rows.map((r) => ({ ...r, onHandG: Number(r.onHandG), adjustedG: Number(r.adjustedG), alloy: r.alloy ?? "?" }));
-      const byAlloy = new Map<string, { alloy: string; casts: number; onHandG: number }>();
-      for (const r of casts) {
-        const a = byAlloy.get(r.alloy) ?? { alloy: r.alloy, casts: 0, onHandG: 0 };
-        a.casts += 1;
-        a.onHandG += r.onHandG;
-        byAlloy.set(r.alloy, a);
-      }
+      // r2 (ported rule, satellite @ddf3bd9c): the alloy totals and the totals cover EVERY cast, not
+      // just the page the limit returned. One grouped pass over the per-cast sums.
+      const perCast = ctx.db
+        .select({ alloy: sql<string | null>`${cast.alloy}`.as("pc_alloy"), onHandG: sql<number>`${g}`.as("pc_g"), adjustedG: sql<number>`${adj}`.as("pc_adj") })
+        .from(stockLedger)
+        .leftJoin(cast, and(eq(cast.id, stockLedger.itemRef), eq(cast.companyId, stockLedger.companyId)))
+        .where(and(eq(stockLedger.companyId, ctx.companyId), eq(stockLedger.itemKind, "billet")))
+        .groupBy(stockLedger.itemRef, cast.alloy)
+        .having(input.includeZero ? undefined : sql`${g} <> 0`)
+        .as("per_cast");
+      const totals = await ctx.db
+        .select({ alloy: perCast.alloy, casts: sql<number>`count(*)`, onHandG: sql<number>`coalesce(sum(${perCast.onHandG}), 0)`, adjustedG: sql<number>`coalesce(sum(${perCast.adjustedG}), 0)` })
+        .from(perCast)
+        .groupBy(sql`pc_alloy`);
+      const byAlloy = totals
+        .map((t) => ({ alloy: t.alloy ?? "?", casts: Number(t.casts), onHandG: Number(t.onHandG) }))
+        .sort((a, b) => a.alloy.localeCompare(b.alloy));
       return {
         casts,
-        byAlloy: [...byAlloy.values()].sort((a, b) => a.alloy.localeCompare(b.alloy)),
-        totalG: casts.reduce((s, r) => s + r.onHandG, 0),
-        adjustedG: casts.reduce((s, r) => s + r.adjustedG, 0),
+        byAlloy,
+        totalG: byAlloy.reduce((s, r) => s + r.onHandG, 0),
+        adjustedG: totals.reduce((s, r) => s + Number(r.adjustedG), 0),
       };
     }),
 });

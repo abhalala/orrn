@@ -192,6 +192,8 @@ export function foundrySentences(): { file: string; text: string }[] {
   }
   // lib/foundry.ts (W2-FD-S r1, I-3): a return stream charged past its balance.
   for (const text of blockLiterals(SRC("lib/foundry.ts"), "export function streamShortMessage")) out.push({ file: "lib/foundry.ts", text });
+  // lib/foundry.ts (W2-FD-S r2, m-d): a cast_close approval at a retired billet store.
+  for (const text of blockLiterals(SRC("lib/foundry.ts"), "export function billetStoreRetiredMessage")) out.push({ file: "lib/foundry.ts", text });
   return out.filter((x) => isSentence(x.text));
 }
 

@@ -57,6 +57,8 @@ export const FOUNDRY_REFUSALS: readonly RefusalEntry[] = [
   { id: "fd_maxValues", key: "foundry.refusal.maxValues", re: new RegExp(`^At most ${S} values$`), vars: (m) => ({ max: m[1]! }) },
   { id: "fd_fileOrValues", key: "foundry.refusal.fileOrValues", re: /^Attach the file or enter the values$/ },
   { id: "fd_spectroNoFile", key: "foundry.refusal.spectroNoFile", re: /^No file is attached; say why the numbers are typed$/ },
+  { id: "fd_spectroChanged", key: "foundry.refusal.spectroChanged", re: /^The spectro result changed; check it and lock again$/ },
+  { id: "fd_billetStoreRetired", key: "foundry.refusal.billetStoreRetired", re: new RegExp(`^The billet store ${S} is retired; reactivate it to post the count, or reject the close$`), vars: (m) => ({ code: m[1]! }) },
   { id: "fd_oneElement", key: "foundry.refusal.oneElement", re: /^Enter at least one element$/ },
   { id: "fd_resultVoid", key: "foundry.refusal.resultVoid", re: /^This result is already void$/ },
   { id: "fd_spectroLocked", key: "foundry.refusal.spectroLocked", re: /^The melt is locked; its spectro stays as it is$/ },

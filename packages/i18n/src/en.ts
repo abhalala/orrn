@@ -4969,6 +4969,7 @@ export const en = {
         lineHasRun: "{number} is still open on {line}. Finish or void it first.",
         hasStarted: "{number} has started, so this can no longer change.",
         castCancelled: "That cast is cancelled.",
+        billetAlloy: "Billets of {cast} are {alloy}; this run is {runAlloy}. Use billets of the run's alloy.",
         pickReason: "Pick a reason from the list.",
         timeSkew: "This tablet's clock differs from the server's by more than 2 minutes. A supervisor confirms the time.",
         copyOnTrial: "{code} is on trial. It goes only to a die trial run.",

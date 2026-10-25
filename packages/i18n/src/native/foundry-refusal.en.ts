@@ -80,4 +80,6 @@ export const foundryRefusalEn = {
   streamShort: "Only {kg} kg of {stream} is in stock.",
   openingExists: "{name} already has an opening balance.",
   spectroNoFile: "No file is attached. Write why the numbers are typed.",
+  spectroChanged: "The spectro result changed. Check it and lock again.",
+  billetStoreRetired: "The billet store {code} is retired. Reactivate it to post the count, or reject the close.",
 };

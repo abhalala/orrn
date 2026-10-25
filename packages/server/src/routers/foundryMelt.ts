@@ -30,7 +30,7 @@ import { and, asc, desc, eq, getTableColumns, inArray, isNull, sql, type SQL } f
 import { z } from "zod";
 
 import { approval } from "@orrn/db/schema/approval";
-import { alloy, cast, furnace, melt, meltChemical, meltInput, meltOutput, spectroResult, type MeltRow, type MeltWarning } from "@orrn/db/schema/foundry";
+import { alloy, cast, furnace, melt, meltChemical, meltInput, meltOutput, spectroResult, type MeltRow, type MeltWarning, type SpectroLimitsSnapshot } from "@orrn/db/schema/foundry";
 import { reasonCode } from "@orrn/db/schema/reasons";
 import { stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeUnits, type StoreItemRow } from "@orrn/db/schema/store";
@@ -226,14 +226,19 @@ function meltFigures(inputs: readonly Pick<InputRow, "kind" | "kgG">[], outputs:
 }
 
 /** The latest result on the melt that is not voided (its verdict gates the lock). */
-async function latestSpectro(ctx: Ctx, meltId: string): Promise<{ id: string; verdict: SpectroVerdict | null } | null> {
+async function latestSpectro(ctx: Ctx, meltId: string): Promise<{ id: string; verdict: SpectroVerdict | null; limitsSnapshot: SpectroLimitsSnapshot | null } | null> {
   const [row] = await ctx.db
-    .select({ id: spectroResult.id, verdict: spectroResult.verdict })
+    .select({ id: spectroResult.id, verdict: spectroResult.verdict, limitsSnapshot: spectroResult.limitsSnapshot })
     .from(spectroResult)
     .where(and(eq(spectroResult.companyId, ctx.companyId), eq(spectroResult.meltId, meltId), isNull(spectroResult.voidedAt)))
     .orderBy(desc(spectroResult.createdAt), desc(spectroResult.serverSeq))
     .limit(1);
   return row ?? null;
+}
+
+/** The id of the melt's latest live spectro result (same order as `latestSpectro`), as SQL. */
+function latestSpectroIdSql(companyId: string, meltId: string): SQL {
+  return sql`(select ls.id from ${spectroResult} ls where ls.company_id = ${companyId} and ls.melt_id = ${meltId} and ls.voided_at is null order by ls.created_at desc, ls.server_seq desc limit 1)`;
 }
 
 /** INSERT … SELECT a melt row from its cast (number = the cast's bumped melt count), every column in table order. */
@@ -387,6 +392,8 @@ type DraftView = {
   yieldBp: number | null;
   warnings: MeltWarning[];
   spectroVerdict: SpectroVerdict | null;
+  /** r2 (m-a): the latest result was judged for another alloy; its verdict is dropped (null) until a new sample. */
+  spectroNeedsNewSample: boolean;
   /** What still stops the lock (empty = ready). */
   gates: MeltLockError[];
 };
@@ -406,6 +413,11 @@ async function loadDraft(ctx: Ctx, meltId: string) {
   const figures = meltFigures(inputs, outputs, { start: m.ldoStartTenthIn, end: m.ldoEndTenthIn });
   const timesMs = [m.preheatStartAt, m.chargingStartAt, m.chargingEndAt, m.castingStartAt, m.castingEndAt].map((t) => (t ? t.getTime() : null));
   const alloyDiffers = (m.alloyId != null && c.alloyId != null && m.alloyId !== c.alloyId) || m.alloy !== c.alloy;
+  // r2 (m-a): a verdict judged against another alloy's limits (a correction copy, or a draft whose
+  // alloy changed after the sample) does not count: the melt needs a new sample, or a spectro reason.
+  const snap = spectro?.limitsSnapshot ?? null;
+  const spectroNeedsNewSample = snap != null && (snap.alloyId != null && m.alloyId != null ? snap.alloyId !== m.alloyId : snap.alloyCode !== m.alloy);
+  const spectroVerdict = spectroNeedsNewSample ? null : (spectro?.verdict ?? null);
   const gates = meltLockGates({
     status: m.cancelledAt || m.status === "corrected" ? "cancelled" : m.status,
     inputsG: inputs.map((i) => i.kgG),
@@ -415,13 +427,13 @@ async function loadDraft(ctx: Ctx, meltId: string) {
     capacityG: furnaceRow?.capacityG ?? null,
     balance: figures.balance,
     balanceReason: m.balanceNote,
-    spectroVerdict: spectro?.verdict ?? null,
+    spectroVerdict,
     spectroReason: m.spectroReason,
     alloyDiffersFromCast: alloyDiffers,
     alloyReason: m.alloyReason,
     timesMs,
   });
-  return { m, c, inputs, outputs, chemicals, spectro, furnaceRow, figures, timesMs, gates };
+  return { m, c, inputs, outputs, chemicals, spectro, spectroVerdict, spectroNeedsNewSample, furnaceRow, figures, timesMs, gates };
 }
 
 function draftView(d: Awaited<ReturnType<typeof loadDraft>>): DraftView {
@@ -438,7 +450,8 @@ function draftView(d: Awaited<ReturnType<typeof loadDraft>>): DraftView {
     balanceBp: d.figures.balance.balanceBp,
     yieldBp: d.figures.yieldBp,
     warnings: d.figures.warnings,
-    spectroVerdict: d.spectro?.verdict ?? null,
+    spectroVerdict: d.spectroVerdict,
+    spectroNeedsNewSample: d.spectroNeedsNewSample,
     gates: d.gates,
   };
 }
@@ -727,6 +740,9 @@ export const meltStepperProcedures = {
             ),
           ),
         foundryAbort(ctx.db, companyId, sql`not exists (select 1 from ${melt} lm where lm.id = ${m.id} and lm.company_id = ${companyId} and lm.server_seq = ${seq} and lm.status = 'locked')`),
+        // r2 (ported rule, satellite @ddf3bd9c): the spectro the gates read is still the melt's latest
+        // live result at write time (no void, no newer attach in between).
+        foundryAbort(ctx.db, companyId, sql`coalesce(${latestSpectroIdSql(companyId, m.id)}, '') <> ${d.spectro?.id ?? ""}`),
       ];
       // Each lot: still OK at the same place, and its remaining kg (this melt now counted) not below 0.
       for (const l of lotLines) {
@@ -797,7 +813,7 @@ export const meltStepperProcedures = {
         balanceBp: f.balance.balanceBp,
         yieldBp: f.yieldBp,
         warnings: f.warnings.map((w) => w.code),
-        spectroVerdict: d.spectro?.verdict ?? null,
+        spectroVerdict: d.spectroVerdict,
         mrsNumbers: prepared?.numbers ?? [],
       };
       statements.push(
@@ -826,6 +842,7 @@ export const meltStepperProcedures = {
           if (now?.status === "locked") bad(MELT_GATE_TEXT.not_draft);
           const castNow = await loadCast(ctx, c.id);
           if (castNow.status !== "open") bad(castStateMessage(castNow));
+          if ((await latestSpectro(ctx, m.id))?.id !== d.spectro?.id) bad("The spectro result changed; check it and lock again");
           if (lotLines.length > 0) {
             const lotsNow = await lotsForMelt(ctx, lotLines.map((l) => l.lotId!));
             for (const l of lotLines) {

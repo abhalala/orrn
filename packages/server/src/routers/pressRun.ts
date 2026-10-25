@@ -76,7 +76,7 @@ import { TRPCMetaError } from "../lib/errorMeta";
 import { resolveBilletStore, resolvePlantScrap } from "../lib/foundry";
 import { can, type CompanyRole } from "../lib/permissions";
 import {
-  billetOnHandSql,
+  billetUsableSql,
   billetPostedSql,
   closeLedgerStatements,
   companySettings,
@@ -403,7 +403,7 @@ async function runChildren(db: OrrnDb, companyId: string, runId: string) {
 async function castOnHand(db: OrrnDb, companyId: string, castId: string | null): Promise<{ number: string | null; onHandG: number | null }> {
   if (!castId) return { number: null, onHandG: null };
   const [row] = await db
-    .select({ number: cast.number, onHand: billetOnHandSql(companyId, castId) })
+    .select({ number: cast.number, onHand: billetUsableSql(companyId, castId) })
     .from(cast)
     .where(and(eq(cast.id, castId), eq(cast.companyId, companyId)))
     .limit(1);
@@ -1098,11 +1098,16 @@ export const pressRunRouter = router({
       requireStatus(run, ["counting"], "billets are entered while counting");
       const castIds = [...new Set([input.castId, ...input.rows.map((r) => r.castId ?? input.castId)])];
       const casts = await ctx.db
-        .select({ id: cast.id, status: cast.status })
+        .select({ id: cast.id, number: cast.number, alloy: cast.alloy, status: cast.status })
         .from(cast)
         .where(and(eq(cast.companyId, ctx.companyId), inArray(cast.id, castIds)));
       if (casts.length !== castIds.length) throw new TRPCError({ code: "NOT_FOUND", message: "Cast not found" });
       if (casts.some((c) => c.status === "cancelled")) bad("That cast is cancelled");
+      // W2-FD-S r2 (I-5): billets of another cast are taken only when they are the run's alloy (the
+      // run's cast decides it; a cast's alloy never changes, so this read is enough).
+      const runAlloy = casts.find((c) => c.id === input.castId)!.alloy;
+      const otherAlloy = casts.find((c) => c.alloy.trim().toUpperCase() !== runAlloy.trim().toUpperCase());
+      if (otherAlloy) bad(`Billets of ${otherAlloy.number} are ${otherAlloy.alloy}; this run is ${runAlloy}`);
       const at = clockNow();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const userId = ctx.session.user.id;

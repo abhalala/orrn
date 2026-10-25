@@ -80,4 +80,6 @@ export const foundryRefusalGu = {
   streamShort: "{stream} માં ફક્ત {kg} kg સ્ટોકમાં છે.",
   openingExists: "{name} નું ઓપનિંગ બેલેન્સ પહેલેથી છે.",
   spectroNoFile: "કોઈ ફાઇલ જોડી નથી. આંકડા હાથે કેમ લખ્યા તે લખો.",
+  spectroChanged: "સ્પેક્ટ્રો પરિણામ બદલાઈ ગયું. તે તપાસીને ફરી લૉક કરો.",
+  billetStoreRetired: "બિલેટ સ્ટોર {code} બંધ છે. ગણતરી નોંધવા તેને ફરી ચાલુ કરો, અથવા ક્લોઝ નામંજૂર કરો.",
 };

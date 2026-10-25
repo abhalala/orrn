@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 6145 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6148 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -4650,7 +4650,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (493)
+### press (494)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4804,6 +4804,7 @@ Please check, Lalubhai:
 | `console.errors.lineHasRun` | {number} is still open on {line}. Finish or void it first. | {number} अभी {line} पर खुला है। पहले उसे पूरा करें या रद्द करें। |
 | `console.errors.hasStarted` | {number} has started, so this can no longer change. | {number} शुरू हो चुका है, इसलिए अब यह नहीं बदल सकता। |
 | `console.errors.castCancelled` | That cast is cancelled. | वह cast रद्द है। |
+| `console.errors.billetAlloy` | Billets of {cast} are {alloy}; this run is {runAlloy}. Use billets of the run's alloy. | {cast} के बिलेट {alloy} के हैं; यह रन {runAlloy} का है। रन के अलॉय के बिलेट लें। |
 | `console.errors.pickReason` | Pick a reason from the list. | सूची से कारण चुनें। |
 | `console.errors.timeSkew` | This tablet's clock differs from the server's by more than 2 minutes. A supervisor confirms the time. | इस टैबलेट की घड़ी सर्वर की घड़ी से 2 मिनट से ज़्यादा अलग है। समय की पुष्टि सुपरवाइज़र करेगा। |
 | `console.errors.copyOnTrial` | {code} is on trial. It goes only to a die trial run. | {code} ट्रायल पर है। वह सिर्फ़ die ट्रायल रन में जाती है। |
@@ -5148,7 +5149,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (575)
+### foundry (577)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5232,6 +5233,8 @@ Please check, Lalubhai:
 | `refusal.streamShort` | Only {kg} kg of {stream} is in stock. | {stream} में सिर्फ़ {kg} kg स्टॉक में है। |
 | `refusal.openingExists` | {name} already has an opening balance. | {name} का ओपनिंग बैलेंस पहले से है। |
 | `refusal.spectroNoFile` | No file is attached. Write why the numbers are typed. | कोई फ़ाइल नहीं जोड़ी। लिखें कि आंकड़े हाथ से क्यों लिखे। |
+| `refusal.spectroChanged` | The spectro result changed. Check it and lock again. | स्पेक्ट्रो रिज़ल्ट बदल गया। उसे जाँचकर फिर से लॉक करें। |
+| `refusal.billetStoreRetired` | The billet store {code} is retired. Reactivate it to post the count, or reject the close. | बिलेट स्टोर {code} बंद है। गिनती दर्ज करने के लिए उसे फिर चालू करें, या क्लोज़ अस्वीकार करें। |
 | `inbox.columns.file` | File | फ़ाइल |
 | `inbox.columns.when` | When | कब |
 | `inbox.columns.status` | Status | स्थिति |
