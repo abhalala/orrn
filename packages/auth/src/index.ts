@@ -3,7 +3,9 @@ import { createDb } from "@orrn/db";
 import * as schema from "@orrn/db/schema/auth";
 import { env } from "@orrn/env/server";
 import { trustedOriginsFor } from "./origins";
-import { magicLinkSecondFactorGuard } from "./magic-link-guard";
+import { createAuthMiddleware } from "better-auth/api";
+import { magicLinkGuardBody } from "./magic-link-guard";
+import { limitPasswordReset, RESET_REQUEST_PATH } from "./reset-throttle";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins/two-factor";
@@ -128,7 +130,15 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
     // and the public `/sign-in/magic-link` request is refused outright (D14; no client asks for a
     // link, Godseye issues owner links server-side). Tested in
     // packages/server/test/platform-w1-auth.test.ts.
-    hooks: { before: magicLinkSecondFactorGuard(db) },
+    // BACKLOG 23: `/request-password-reset` is limited per address and per IP (reset-throttle.ts).
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === RESET_REQUEST_PATH) {
+          await limitPasswordReset(db, { email: (ctx.body as { email?: unknown } | undefined)?.email, headers: ctx.request?.headers ?? ctx.headers });
+        }
+        return magicLinkGuardBody(db, ctx);
+      }),
+    },
     emailAndPassword: {
       enabled: true,
       password: {

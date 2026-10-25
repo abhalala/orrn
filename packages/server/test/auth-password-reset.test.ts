@@ -188,3 +188,58 @@ describe("forgot password", () => {
     expect(((await login.json()) as { twoFactorRedirect?: boolean }).twoFactorRedirect).toBe(true);
   });
 });
+
+describe("rate limit on /request-password-reset (BACKLOG 23)", () => {
+  const withIp = (body: unknown, ip: string) =>
+    auth.handler(
+      new Request("https://api.test/api/auth/request-password-reset", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://app.test", "cf-connecting-ip": ip },
+        body: JSON.stringify(body),
+      }),
+    );
+  const ask = (email: string, ip?: string) =>
+    ip ? withIp({ email, redirectTo: "https://app.test/reset-password" }, ip) : request(email).then((r) => r.res);
+
+  test("the sixth request for one address in the window is a neutral 429, the same for an address with and without an account", async () => {
+    const real = await makeUser();
+    const ghost = `ghost.${crypto.randomUUID().slice(0, 8)}@test.orrn`;
+    for (const email of [real.email, ghost]) {
+      for (let i = 0; i < 5; i += 1) expect((await ask(email)).status).toBe(200);
+    }
+    const a = await ask(real.email);
+    const b = await ask(ghost);
+    expect(a.status).toBe(429);
+    expect(b.status).toBe(429);
+    expect(await a.json()).toEqual(await b.json());
+    // The limit is per address: a different one is not affected, and case does not dodge it.
+    expect((await ask(`other.${crypto.randomUUID().slice(0, 8)}@test.orrn`)).status).toBe(200);
+    expect((await ask(real.email.toUpperCase())).status).toBe(429);
+  });
+
+  test("a limited call sends no mail and makes no token", async () => {
+    const real = await makeUser();
+    for (let i = 0; i < 5; i += 1) await ask(real.email);
+    const before = (await resetTokens()).filter((t) => t.userId === real.id).length;
+    expect((await ask(real.email)).status).toBe(429);
+    expect((await resetTokens()).filter((t) => t.userId === real.id).length).toBe(before);
+  });
+
+  test("per IP: many addresses from one IP stop after five; another IP is fine", async () => {
+    const ip = `203.0.113.${Math.floor(Math.random() * 200) + 1}`;
+    for (let i = 0; i < 5; i += 1) expect((await ask(`a${i}.${crypto.randomUUID().slice(0, 6)}@test.orrn`, ip)).status).toBe(200);
+    expect((await ask(`z.${crypto.randomUUID().slice(0, 6)}@test.orrn`, ip)).status).toBe(429);
+    expect((await ask(`y.${crypto.randomUUID().slice(0, 6)}@test.orrn`, "198.51.100.7")).status).toBe(200);
+  });
+
+  test("the window ends: after 15 minutes the counter starts again", async () => {
+    const { throttleHit, RESET_LIMIT } = await import("../../auth/src/reset-throttle");
+    const { createDb } = await import("@orrn/db");
+    const db = createDb();
+    const key = `test:${crypto.randomUUID()}`;
+    const t0 = Date.parse("2026-10-24T06:00:00.000Z");
+    for (let i = 0; i < RESET_LIMIT.max; i += 1) expect(await throttleHit(db, key, t0 + i)).toBe(true);
+    expect(await throttleHit(db, key, t0 + 10)).toBe(false);
+    expect(await throttleHit(db, key, t0 + RESET_LIMIT.windowMs + 1)).toBe(true);
+  });
+});

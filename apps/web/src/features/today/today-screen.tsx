@@ -27,7 +27,6 @@ import {
   clockTime,
   companyClock,
   greetingKey,
-  inStock,
   needsStartHere,
   productionDayCaption,
   todaySections,
@@ -183,8 +182,6 @@ export function TodayScreen() {
     );
   }
 
-  const stock = inStock(data.stock);
-
   return (
     <>
       {header}
@@ -206,8 +203,9 @@ export function TodayScreen() {
                 date: data.date,
                 packedG: data.packedToday.weightG,
                 dispatchedG: data.dispatchedToday.weightG,
-                stockBundles: stock.bundles,
-                stockKg: stock.kg,
+                // m-1: the same server figures as the In stock KPI, never summed here.
+                stockBundles: data.kpis.inStockBundles,
+                stockKg: data.kpis.inStockG / 1000,
               }}
             />
           </Suspense>

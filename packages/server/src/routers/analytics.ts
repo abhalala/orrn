@@ -29,7 +29,7 @@ import { company } from "@orrn/db/schema/tenant";
 import type { OrrnDb } from "@orrn/db";
 import { actionProcedure, router } from "../index";
 import { now } from "../lib/clock";
-import { companyTimezone } from "../lib/dayWindow";
+import { companyTimezone, zonedWallMs } from "../lib/dayWindow";
 import { lineTotals } from "../lib/orders";
 import { productionDayWindowFor } from "../lib/productionDay";
 import { isIsoDate } from "../lib/purchase";
@@ -42,6 +42,8 @@ import {
   daysBetween,
   localDate,
   localMidnight,
+  offsetSegments,
+  productionDayKeyExpr,
   zonedRange,
   type BucketUnit,
 } from "../lib/zonedBuckets";
@@ -511,16 +513,23 @@ export const analyticsRouter = router({
     const companyId = ctx.companyId;
     const timezone = await timezoneOf(ctx.db, companyId);
     const at = now();
-    const calendarToday = localDate(timezone, at.getTime());
-    // FP-PF-05: Today's KPI blocks cover the production day; a night shift past midnight is still
-    // yesterday's production day, so the trend ends there too and its "so far" day is the blocks'.
-    const { productionDay } = await productionDayWindowFor(ctx.db, companyId, at);
-    const today = productionDay < calendarToday ? productionDay : calendarToday;
+    // BACKLOG 20 (FP-PF-05): Today's KPI blocks cover the production day (shift 1's start to the next),
+    // so each trend day is a production day too: day D runs from D at shift 1's start to D+1 at the same
+    // time, and the "so far" day is the blocks' (a night shift past midnight is still yesterday's).
+    // With no shifts saved the start is midnight and the days are calendar days, as before.
+    const { productionDay: today, startMin } = await productionDayWindowFor(ctx.db, companyId, at);
     const from = addDays(today, -(input.days - 1));
     const to = addDays(today, 1);
-    const { fromMs, toMs: endMs, segments } = zonedRange(timezone, from, to);
-    const packedKey = bucketKeyExpr(bundle.createdAt, segments, "day");
-    const shippedKey = bucketKeyExpr(dispatch.completedAt, segments, "day");
+    const dayStart = (date: string) => {
+      const [year, month, day] = date.split("-").map(Number) as [number, number, number];
+      return zonedWallMs(timezone, { year, month, day }, startMin);
+    };
+    const fromMs = dayStart(from);
+    const endMs = dayStart(to);
+    const segments = offsetSegments(timezone, fromMs, endMs);
+    // A timestamp belongs to the calendar date of (local time - shift 1 start).
+    const packedKey = productionDayKeyExpr(bundle.createdAt, segments, startMin);
+    const shippedKey = productionDayKeyExpr(dispatch.completedAt, segments, startMin);
 
     const [packed, shipped] = await Promise.all([
       ctx.db
