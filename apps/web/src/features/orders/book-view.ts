@@ -96,7 +96,10 @@ export function bookQueryInput(s: BookSearch) {
 
 export type Bar = {
   dispatchedG: number;
+  /** Available kg on the order's lines: the line strips' "in stock" (BACKLOG 52). */
   inStockG: number;
+  /** The part of it the bar draws (the server caps it so the segments add up to ordered). */
+  inStockBarG: number;
   /** On a truck being loaded, or held in the yard for the order (FP-OP-17). */
   heldG: number;
   pressedG: number;
@@ -114,11 +117,13 @@ export type BarSegment = {
   labelKey: MessageKey;
   /** The server's kg; the segment's CSS flex-grow, so the browser shares out the bar (no sums here). */
   grams: number;
+  /** The kg the legend names: the line strips' figure (in stock is not capped at the baki). */
+  labelG: number;
 };
 
-const SEGMENTS: readonly { key: BarKey; stage: BookStage; grams: keyof Bar; labelKey: MessageKey }[] = [
+const SEGMENTS: readonly { key: BarKey; stage: BookStage; grams: keyof Bar; label?: keyof Bar; labelKey: MessageKey }[] = [
   { key: "dispatched", stage: "dispatched", grams: "dispatchedG", labelKey: "orders.book.stage.dispatched" },
-  { key: "inStock", stage: "in_stock", grams: "inStockG", labelKey: "orders.book.stage.in_stock" },
+  { key: "inStock", stage: "in_stock", grams: "inStockBarG", label: "inStockG", labelKey: "orders.book.stage.in_stock" },
   { key: "held", stage: "held", grams: "heldG", labelKey: "orders.book.stage.held" },
   { key: "pressed", stage: "pressed", grams: "pressedG", labelKey: "orders.book.stage.pressed" },
   { key: "planned", stage: "planned", grams: "plannedG", labelKey: "orders.book.stage.planned" },
@@ -130,7 +135,7 @@ const SEGMENTS: readonly { key: BarKey; stage: BookStage; grams: keyof Bar; labe
  * `flex-grow: grams` fills the bar in proportion without the page dividing anything.
  */
 export function barSegments(bar: Bar): BarSegment[] {
-  return SEGMENTS.map((s) => ({ key: s.key, stage: s.stage, labelKey: s.labelKey, grams: bar[s.grams] as number }));
+  return SEGMENTS.map((s) => ({ key: s.key, stage: s.stage, labelKey: s.labelKey, grams: bar[s.grams] as number, labelG: bar[s.label ?? s.grams] as number }));
 }
 
 /** "0 planned, nothing else": the bar is all "not planned" (a grey bar plus its baki). */
@@ -156,6 +161,7 @@ export type BookTotals = {
   orderedG: number;
   dispatchedG: number;
   inStockG: number;
+  inStockBarG: number;
   inStockBundles: number;
   heldG: number;
   heldBundles: number;

@@ -29,11 +29,13 @@ import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, chunk, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
+import { productionDayWindow } from "../lib/dayWindow";
 import { allocateDocNumbers, nextDocNumber } from "../lib/docNumber";
 import { assertDieAllowed, checkDieAllowed } from "../lib/dieOwner";
 import { companyFloor } from "../lib/orderLines";
 import { batchAbortUnless, isBatchAbort, kgText, lineBalancePage, lineBalances, type LineBalance } from "../lib/orders";
 import { lineStrips, planOverPlannedSql, type LineStrip } from "../lib/orderStrip";
+import { companySettings } from "../lib/press";
 import { nextCompanySeq } from "../lib/sequence";
 
 const id = z.string().min(1).max(64);
@@ -959,6 +961,16 @@ export const pressPlanRouter = router({
     }),
 
   /** Active press lines, for the plan's press pick (a plant with two needs one before release). */
+  /**
+   * The plan form's default window (BACKLOG 51): the current production day in the company's time
+   * zone (shift 1's start to the next, or midnight with no shifts; specs §E7), on the server's
+   * clock. The form never takes the browser's clock or zone.
+   */
+  defaultWindow: companyProcedure.query(async ({ ctx }) => {
+    const w = productionDayWindow(await companySettings(ctx.db, ctx.companyId), clockNow().getTime());
+    return { productionDay: w.productionDay, startMs: w.startMs, endMs: w.endMs, timezone: w.timezone };
+  }),
+
   pressLines: companyProcedure.query(async ({ ctx }) => {
     return ctx.db
       .select({ id: pressLine.id, code: pressLine.code, name: pressLine.name })

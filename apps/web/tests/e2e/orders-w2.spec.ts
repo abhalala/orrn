@@ -93,6 +93,10 @@ test.describe("the order book at a glance", () => {
         expect(api.totals.dispatchedG).toBe(sum((i) => i.bar.dispatchedG!));
         expect(api.totals.inStockG).toBe(sum((i) => i.bar.inStockG!));
         expect(api.totals.bakiG).toBe(sum((i) => i.bakiG));
+        // BACKLOG 52: and the sum of the orders' line strips (in stock and over are the strip's figures).
+        const strips = (await Promise.all(w.ids.map(async (id) => (await q<{ lines: { strip: { inStockG: number; overG: number } }[] }>(page, "orders.balance", { orderId: id })).lines))).flat();
+        expect(api.totals.inStockG).toBe(strips.reduce((acc, l) => acc + l.strip.inStockG, 0));
+        expect(api.totals.overG).toBe(strips.reduce((acc, l) => acc + l.strip.overG, 0));
         const strip = main.locator("[data-book-strip]");
         await expect(strip.locator("[data-book-total='orders']")).toContainText("2");
         await expect(strip.locator("[data-book-total='ordered']")).toContainText(`${kg3(api.totals.orderedG!)} kg`);
@@ -108,7 +112,7 @@ test.describe("the order book at a glance", () => {
         const stockedApi = api.items.find((i) => i.id === w.stocked.id)!;
         await expect(bar.locator("[data-bar-label]")).toHaveText(/^\d+(\.\d)?% dispatched$/);
         await expect(bar.locator("[data-segment='dispatched']")).toHaveAttribute("data-kg", String(stockedApi.bar.dispatchedG));
-        await expect(bar.locator("[data-segment='inStock']")).toHaveAttribute("data-kg", String(stockedApi.bar.inStockG));
+        await expect(bar.locator("[data-segment='inStock']")).toHaveAttribute("data-kg", String(stockedApi.bar.inStockBarG));
         const shown = await bar.locator("[data-segment]").evaluateAll((els) => els.reduce((s, e) => s + Number(e.getAttribute("data-kg")), 0));
         expect(shown).toBe(stockedApi.orderedG);
         // An order with nothing in motion is a grey bar and its baki.

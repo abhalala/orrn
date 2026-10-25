@@ -386,3 +386,29 @@ export function lateEntryIssue(t: { startMs: number | null; stopMs: number | nul
   if (t.startMs < t.nowMs - LATE_ENTRY_DAYS * 86_400_000) return "tooOld";
   return null;
 }
+
+/**
+ * Copy states a late entry may name for a queued run (BACKLOG 50): copies on the rack; a die trial
+ * run also takes a copy on trial. The same rule as the server's `assertLateEntryCopy` and the die
+ * room's issue form.
+ */
+export function lateCopyStatuses(purpose: string | null | undefined): ("available" | "on_trial")[] {
+  return purpose === "die_trial" ? ["available", "on_trial"] : ["available"];
+}
+
+/**
+ * What `press.runs.open` gets for the sheet's choice, or why nothing can be sent yet. A queued run
+ * with its copy issued names only the run (the server uses the issued copy); a queued run with no
+ * copy names the copy that was used; a run not in the queue names the press and the copy.
+ */
+export function lateEntryPayload(o: {
+  mode: "queue" | "copy";
+  run: { id: string; dieInstanceId: string | null } | null;
+  copyId: string;
+  pressLineId: string;
+}): { runId: string; dieInstanceId?: string } | { pressLineId: string; dieInstanceId: string } | "pickRun" | "needCopy" | "pickCopy" {
+  if (o.mode === "copy") return o.copyId ? { pressLineId: o.pressLineId, dieInstanceId: o.copyId } : "pickCopy";
+  if (!o.run) return "pickRun";
+  if (o.run.dieInstanceId) return { runId: o.run.id };
+  return o.copyId ? { runId: o.run.id, dieInstanceId: o.copyId } : "needCopy";
+}

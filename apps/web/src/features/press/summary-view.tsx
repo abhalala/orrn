@@ -70,7 +70,16 @@ export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onS
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <StatusBlock tone="green" title={t("press.summary.pressedToday")} meta={t("press.summary.runs") + ": " + data.runs} value={gToKg(data.kgG)} unit={t("units.kg")} format={formatKgTotal} countUp={false} />
+          {/* BACKLOG 53b: pressed kg and recovery are production runs only; trial and sample kg is said apart. */}
+          <StatusBlock
+            tone="green"
+            title={t("press.summary.pressedToday")}
+            meta={[t("press.summary.runs") + ": " + data.runs, data.trialRuns > 0 ? t("press.summary.trials", { kg: kgFromG(data.trialKgG) }) : null].filter(Boolean).join(" · ")}
+            value={gToKg(data.kgG)}
+            unit={t("units.kg")}
+            format={formatKgTotal}
+            countUp={false}
+          />
           <StatusBlock tone="blue" title={t("press.summary.recovery")} meta={t("press.summary.pieces") + ": " + data.pcs} value={data.recoveryBp == null ? "—" : Number(percentOfBp(data.recoveryBp))} unit={data.recoveryBp == null ? undefined : "%"} format={(n) => n.toFixed(1)} countUp={false} />
           <StatusBlock tone="amber" title={t("press.summary.downtime")} meta={`${t("press.summary.scrap")}: ${kgFromG(data.scrapG)} ${t("units.kg")}`} value={data.downtimeMin} unit={t("units.min")} countUp={false} />
         </div>
@@ -87,6 +96,7 @@ export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onS
                 <span className="font-mono font-semibold">{l.code}</span>
                 <span className="tabular-nums text-muted-foreground">
                   {t("press.summary.shiftRow", { runs: l.runs, kg: kgFromG(l.kgG) })}
+                  {l.trialKgG > 0 ? ` · ${t("press.summary.trials", { kg: kgFromG(l.trialKgG) })}` : ""}
                   {l.recoveryBp != null ? ` · ${percentOfBp(l.recoveryBp)}%` : ""}
                 </span>
                 <span className="tabular-nums">{t("press.summary.minutes", { min: l.downtimeMin })}</span>
@@ -130,6 +140,7 @@ export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onS
                 <span className="font-medium">{s.shiftName ?? s.shiftSeq ?? ""}</span>
                 <span className="tabular-nums text-muted-foreground">
                   {t("press.summary.shiftRow", { runs: s.runs, kg: kgFromG(s.kgG) })}
+                  {s.trialKgG > 0 ? ` · ${t("press.summary.trials", { kg: kgFromG(s.trialKgG) })}` : ""}
                   {s.recoveryBp != null ? ` · ${percentOfBp(s.recoveryBp)}%` : ""}
                 </span>
                 {s.lateRuns > 0 ? <span className="tabular-nums">{t("press.summary.late")}: {s.lateRuns}</span> : null}
