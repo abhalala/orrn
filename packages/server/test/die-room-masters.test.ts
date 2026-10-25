@@ -415,7 +415,6 @@ describe("owner names and imports (FP-DR-12/14)", () => {
 
 describe("dev seed: die room demo (idempotent)", () => {
   test("bands, copies with readings (one amber, one red), an owned section and one open issue survive a re-seed", async () => {
-    const { user } = await import("@orrn/db/schema");
     await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {

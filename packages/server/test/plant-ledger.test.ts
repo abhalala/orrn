@@ -12,7 +12,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { kgPer12ft } from "@orrn/domain";
-import { auditLog, bundle, location, stockLedger, user } from "@orrn/db/schema";
+import { auditLog, bundle, location, stockLedger } from "@orrn/db/schema";
 import { asc, eq } from "drizzle-orm";
 
 import { can, type Action } from "../src/lib/permissions";

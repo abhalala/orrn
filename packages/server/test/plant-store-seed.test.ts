@@ -26,7 +26,6 @@ afterAll(async () => {
 
 describe("dev seed after store entries", () => {
   test("re-runs cleanly, puts the demo store back, and GRN numbers continue after the seeded ones", async () => {
-    const { user } = await import("@orrn/db/schema");
     await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {

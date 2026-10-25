@@ -5,7 +5,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
-import { approval, auditLog, customer, die, dispatchItem, salesOrder, user } from "@orrn/db/schema";
+import { approval, auditLog, customer, die, dispatchItem, salesOrder } from "@orrn/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";

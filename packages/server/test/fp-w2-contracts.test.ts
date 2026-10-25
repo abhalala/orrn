@@ -235,7 +235,6 @@ describe("settings (Wave 2)", () => {
 describe("dev seed: Wave 2 masters (idempotent)", () => {
   test("furnace F1, alloys 6063/6061 with limits, return streams, P1 + P2, a draft die-trial plan", async () => {
     const schema = await import("@orrn/db/schema");
-    const { user } = schema;
     await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
@@ -259,10 +258,13 @@ describe("dev seed: Wave 2 masters (idempotent)", () => {
       expect(plans.map((p) => [p.number, p.status, p.purpose]).sort()).toEqual([
         ["PP-1", "draft", "die_trial"],
         ["PP-2", "released", "die_trial"],
+        // W2-SEED: today's released production plans on Press 1 and Press 2.
+        ["PP-3", "released", "production"],
+        ["PP-4", "released", "production"],
       ]);
     }
-    // The plan book continues after PP-2.
+    // The plan book continues after PP-4.
     const next = await dn.nextDocNumber(env.db, companyId, "press_plan", new Date());
-    expect(next.number).toBe("PP-3");
+    expect(next.number).toBe("PP-5");
   });
 });

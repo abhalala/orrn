@@ -1032,7 +1032,6 @@ describe("fix round 1", () => {
 
 describe("dev seed: scrap purchase", () => {
   test("vendors with aliases, ten lots, one short lot with an approved D/C note; ledger = register; re-runnable", async () => {
-    const { user } = await import("@orrn/db/schema");
     await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {

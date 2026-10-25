@@ -242,7 +242,7 @@ describe("platform actions (Wave 1)", () => {
 
 describe("dev seed: Wave 1 masters (idempotent)", () => {
   test("shifts, standards, all modules, press line, transporter and reason codes survive a re-seed", async () => {
-    const { user, company, pressLine, reasonCode, transporter, dieInstance: copies, dieBand } = await import("@orrn/db/schema");
+    const { company, pressLine, reasonCode, transporter, dieInstance: copies, dieBand } = await import("@orrn/db/schema");
     const { defaultReasonCodeRows, COMPANY_MODULES, readFloorSettings } = await import("@orrn/domain");
     await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";

@@ -294,7 +294,7 @@ describe("revision diff and analytics over revisions (I-2, I-5)", () => {
 
 describe("dev seed: W1-PK-S rows (idempotent)", () => {
   test("transporter, a PL with two revisions, party numbers for two customers with different policies", async () => {
-    const { user, bundle, transporter } = await import("@orrn/db/schema");
+    const { bundle, transporter } = await import("@orrn/db/schema");
     await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
@@ -303,9 +303,11 @@ describe("dev seed: W1-PK-S rows (idempotent)", () => {
     const companyId = "dev-company-orrn";
     for (let run = 0; run < 2; run += 1) {
       expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
-      expect(await env.db.select().from(transporter).where(eq(transporter.companyId, companyId))).toHaveLength(1);
+      // Three transporters (one inactive) since W2-SEED.
+      expect(await env.db.select().from(transporter).where(eq(transporter.companyId, companyId))).toHaveLength(3);
       const lists = await env.db.select().from(packingList).where(eq(packingList.companyId, companyId));
-      expect(lists).toHaveLength(3);
+      // done-1 rev 1 and rev 2, done-2, done-3, done-4 and the combined Tejura list (W2-SEED).
+      expect(lists).toHaveLength(6);
       const rev2 = lists.find((l) => l.revision === 2)!;
       expect(lists.find((l) => l.id === rev2.supersedesId)).toMatchObject({ code: rev2.code, revision: 1 });
       expect(rev2.showBranding).toBe(false);

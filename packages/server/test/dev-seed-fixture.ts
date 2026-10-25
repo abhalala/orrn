@@ -41,9 +41,9 @@ export async function precreateDevSeedUsers(env: TestEnv): Promise<string[]> {
 }
 
 /** The seed function, imported by a variable path so the package's type check never follows it. */
-export async function loadDevSeed(): Promise<(db: TestEnv["db"], opts: { password: string }) => Promise<DevSeedResult>> {
+export async function loadDevSeed(): Promise<(db: TestEnv["db"], opts: { password: string; now?: number }) => Promise<DevSeedResult>> {
   const path = `${SEED_DIR}/dev-seed`;
-  const mod = (await import(path)) as { seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<DevSeedResult> };
+  const mod = (await import(path)) as { seedDevData: (db: TestEnv["db"], opts: { password: string; now?: number }) => Promise<DevSeedResult> };
   return mod.seedDevData;
 }
 

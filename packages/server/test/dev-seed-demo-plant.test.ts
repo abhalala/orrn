@@ -208,7 +208,7 @@ describe("masters", () => {
     const co = await env.d1.prepare("select settings from company where id = ?").bind(company).first<{ settings: string }>();
     const floor = readFloorSettings(JSON.parse(co!.settings));
     expect(floor.shifts.map((s) => s.name)).toEqual(["Day", "Night"]);
-    expect(floor.standards.solid.standard).toBe("IS 733");
+    expect(floor.standards.solid?.standard).toBe("IS 733");
     expect(await count("location", "company_id = ? and kind = 'yard'")).toBe(6);
     expect((await env.d1.prepare("select code from alloy where company_id = ? order by code").bind(company).all<{ code: string }>()).results.map((r) => r.code)).toEqual(["6061", "6063"]);
     expect(await count("transporter", "company_id = ? and active = 1")).toBe(2);
@@ -242,7 +242,7 @@ describe("the order book", () => {
       const order = await owner().orders.get({ id: `dev-so-${n}` });
       for (const detail of order.lineDetails) {
         const s = detail.strip;
-        expect(s.bakiG, `SO-${n} line ${detail.lineNo}`).toBe(Math.max(0, s.orderedG - s.dispatchedG));
+        expect(s.bakiG, `SO-${n}`).toBe(Math.max(0, s.orderedG - s.dispatchedG));
         expect(s.dispatchedG).toBeLessThanOrEqual(s.producedG);
         expect(s.overG).toBe(Math.max(0, s.producedG - s.orderedG));
       }
@@ -268,7 +268,8 @@ describe("the order book", () => {
     expect(meta).toMatchObject({ toLineId: "dev-sol-9-1", fromLineIds: ["dev-sol-7-2"] });
     // Bundles in a pending request stay where they are until a manager decides.
     for (const id of meta.bundleIds) {
-      expect(await env.d1.prepare("select sales_order_line_id l, status s from bundle where id = ?").bind(id).first()).toEqual({ l: "dev-sol-7-2", s: "available" });
+      const row = await env.d1.prepare("select sales_order_line_id l, status s from bundle where id = ?").bind(id).first<{ l: string; s: string }>();
+      expect(row).toEqual({ l: "dev-sol-7-2", s: "available" });
     }
   });
 });
