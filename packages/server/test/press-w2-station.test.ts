@@ -3,13 +3,17 @@
  * one running run per line, server time + skew → press_time, pause / undo start, count, void,
  * handover, downtime rows, remarks, drawing, idempotent replays, permissions.
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { approval, auditLog, dieInstance, dieIssue, dieRemark, pressDowntime, pressRemark, pressRun } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { pressHelpers } from "./press-w2-fixture";
+
+// Each test walks whole runs (release, issue, start, count, close) on Miniflare D1; 5 s is too
+// tight when other worktrees run their gates on the same machine (as plant-foundry.test.ts).
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 beforeAll(async () => {

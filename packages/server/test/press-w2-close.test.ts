@@ -4,13 +4,17 @@
  * on-hand guard with a short reason, issue return / hand-over (C43), reopen reversal, client
  * figures stripped, trial runs, late entry, pressed on the sales order.
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { approval, auditLog, dieInstance, dieIssue, pressBilletUse, pressDowntime, pressRun, pressRunLine, qcEntry, returnStream, stockLedger } from "@orrn/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { fillWorkedExample, kg, pressHelpers, type PressPlant } from "./press-w2-fixture";
+
+// Each test walks whole runs (release, issue, start, count, close) on Miniflare D1; 5 s is too
+// tight when other worktrees run their gates on the same machine (as plant-foundry.test.ts).
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 beforeAll(async () => {

@@ -3,13 +3,17 @@
  * (I-2), run lines count against the sales order (I-3, FP-PR-16), a reopened die trial takes its
  * new verdict through lib/dieTrial (I-4, BACKLOG 26), every gate code has a console key (en, hi, gu).
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { auditLog, customer, dieInstance, pressLine, pressRun, pressRunLine, stockLedger } from "@orrn/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { fillWorkedExample, kg, pressHelpers, type PressPlant } from "./press-w2-fixture";
+
+// Each test walks whole runs (release, issue, start, count, close) on Miniflare D1; 5 s is too
+// tight when other worktrees run their gates on the same machine (as plant-foundry.test.ts).
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 beforeAll(async () => {
