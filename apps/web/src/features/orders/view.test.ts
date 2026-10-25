@@ -7,9 +7,8 @@ import {
   blockerText,
   copyChoiceInput,
   blockersFromMessage,
-  defaultWindow,
   dieTitle,
-  fromLocalInput,
+  fromZonedInput,
   isMovable,
   lengthMismatches,
   movePlanDie,
@@ -25,7 +24,8 @@ import {
   statusActions,
   stripCells,
   timelineLabel,
-  toLocalInput,
+  toZonedInput,
+  windowWords,
   toggleUrgent,
   windowState,
   type DraftDie,
@@ -261,20 +261,33 @@ describe("plan window", () => {
     expect(windowState(10, 5)).toBe("order");
   });
 
-  test("the default window starts on the next whole hour and runs 24 hours", () => {
-    const now = Date.UTC(2026, 9, 24, 14, 20);
-    const w = defaultWindow(now);
-    expect(w.start).toBe(Date.UTC(2026, 9, 24, 15, 0));
-    expect(w.end - w.start).toBe(24 * 3_600_000);
-    expect(defaultWindow(Date.UTC(2026, 9, 24, 15, 0)).start).toBe(Date.UTC(2026, 9, 24, 15, 0));
+  // BACKLOG 51: the fields are the PLANT's wall clock (company zone), whatever zone the browser is in.
+  const ist = (iso: string) => new Date(`${iso}+05:30`).getTime();
+
+  test("datetime-local text is the plant's wall clock: Asia/Kolkata round-trips, whatever the browser zone", () => {
+    expect(toZonedInput(ist("2026-10-25T08:00:00"), "Asia/Kolkata")).toBe("2026-10-25T08:00");
+    expect(fromZonedInput("2026-10-25T08:00", "Asia/Kolkata")).toBe(ist("2026-10-25T08:00:00"));
+    expect(toZonedInput(ist("2026-10-26T01:30:00"), "Asia/Kolkata")).toBe("2026-10-26T01:30");
+    expect(fromZonedInput("2026-10-26T01:30", "Asia/Kolkata")).toBe(ist("2026-10-26T01:30:00"));
+    // Another zone (with summer time) round-trips too, on both sides of its change.
+    for (const iso of ["2026-03-29T00:30:00Z", "2026-03-29T03:30:00Z", "2026-10-25T12:00:00Z"]) {
+      const ms = new Date(iso).getTime();
+      expect(fromZonedInput(toZonedInput(ms, "Europe/London"), "Europe/London")).toBe(ms);
+    }
+    expect(fromZonedInput("", "Asia/Kolkata")).toBeNull();
+    expect(fromZonedInput("2026-10-25", "Asia/Kolkata")).toBeNull();
   });
 
-  test("datetime-local text round-trips", () => {
-    const ms = new Date(2026, 9, 24, 20, 0).getTime();
-    expect(toLocalInput(ms)).toBe("2026-10-24T20:00");
-    expect(fromLocalInput("2026-10-24T20:00")).toBe(ms);
-    expect(fromLocalInput("")).toBeNull();
-    expect(fromLocalInput("2026-10-24")).toBeNull();
+  test("the window in words, from the production day: today 08:00 to tomorrow 08:00", () => {
+    const day = "2026-10-25";
+    expect(windowWords(ist("2026-10-25T08:00:00"), ist("2026-10-26T08:00:00"), "Asia/Kolkata", day)).toEqual({
+      from: { day: "today", time: "08:00", date: "2026-10-25" },
+      to: { day: "tomorrow", time: "08:00", date: "2026-10-26" },
+    });
+    expect(windowWords(ist("2026-10-26T14:00:00"), ist("2026-10-27T02:00:00"), "Asia/Kolkata", day)).toEqual({
+      from: { day: "tomorrow", time: "14:00", date: "2026-10-26" },
+      to: { day: "other", time: "02:00", date: "2026-10-27" },
+    });
   });
 });
 

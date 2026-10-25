@@ -420,6 +420,48 @@ test.describe("press plan", () => {
     await shot(page, "plan-375");
   });
 
+  test("the window opens on the plant's production day, not the browser's clock or zone (BACKLOG 51)", async ({ browser }) => {
+    // A browser in New York whose clock reads three days ago at 03:17: the form must not use either.
+    const context = await browser.newContext({ baseURL: ORIGIN, timezoneId: "America/New_York", viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    const fake = new Date(Date.now() - 3 * 86_400_000);
+    fake.setUTCHours(7, 17, 0, 0); // 03:17 in New York
+    await page.clock.setFixedTime(fake);
+    await open(page, { role: "office", width: 1280, path: "/orders" });
+    const own = await apiConfirmed(page, "dev-customer-royal", [{ sectionId: "dev-die-14701", pcs: 6 }]);
+    await page.goto("/orders/plan");
+    await settled(page);
+    const w = await trpcQuery<{ productionDay: string; startMs: number; endMs: number; timezone: string }>(page, "plans.defaultWindow", {});
+    expect(w.timezone).toBe("Asia/Kolkata");
+    // The plant's wall clock of the server's window (the seed's shifts open the day at 08:00).
+    const wall = (ms: number) => {
+      const p = Object.fromEntries(
+        new Intl.DateTimeFormat("en-CA", { timeZone: w.timezone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+          .formatToParts(new Date(ms))
+          .map((x) => [x.type, x.value]),
+      );
+      return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+    };
+    expect(wall(w.startMs)).toBe(`${w.productionDay}T08:00`);
+    expect(w.endMs - w.startMs).toBe(24 * 3_600_000);
+    await expect(page.getByLabel("Window starts")).toHaveValue(wall(w.startMs));
+    await expect(page.getByLabel("Window ends")).toHaveValue(wall(w.endMs));
+    await expect(page.locator("[data-plan-window]")).toContainText("today 08:00 to tomorrow 08:00, plant time");
+    // The saved plan keeps exactly that window (the fields are read on the plant's clock too).
+    await page.getByRole("textbox", { name: "Search open lines" }).fill(own.po);
+    await page.locator(`[data-candidate='${own.number}']`).getByRole("button", { name: "Add" }).click();
+    await pickPress(page);
+    await page.getByRole("button", { name: "Save draft plan" }).click();
+    await expect(page).toHaveURL(/\/orders\/plan\/[^/]+$/);
+    const id = new URL(page.url()).pathname.split("/").pop()!;
+    const plan = await trpcQuery<{ plan: { windowStart: string | number; windowEnd: string | number } }>(page, "plans.get", { id });
+    expect(new Date(plan.plan.windowStart).getTime()).toBe(w.startMs);
+    expect(new Date(plan.plan.windowEnd).getTime()).toBe(w.endMs);
+    await trpcMutation(page, "plans.cancel", { id, reason: "e2e: window check only" });
+    await trpcMutation(page, "orders.close", { id: own.id, reason: "e2e: window check only" });
+    await context.close();
+  });
+
   test("draft a plan from the open lines and release it: one queued run per die", async ({ page }) => {
     test.setTimeout(120_000);
     await open(page, { role: "office", width: 1280, path: "/orders" });

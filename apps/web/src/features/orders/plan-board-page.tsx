@@ -19,31 +19,31 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowDown, ArrowUp } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { orderErrorLines } from "./errors";
-import { dayTimeText, orderKgText } from "./format";
+import { dayText, dayTimeText, orderKgText } from "./format";
 import { useCompanyTimeZone, useMinWidth } from "./hooks";
 import {
   addPlanLine,
   addPlanLines,
-  defaultWindow,
   dieTitle,
   draftCounts,
   draftGroups,
   draftOrderCount,
   PLAN_VIEWS,
-  fromLocalInput,
+  fromZonedInput,
   movePlanDie,
   removePlanLine,
   soLines,
   toggleUrgent,
-  toLocalInput,
+  toZonedInput,
   windowState,
+  windowWords,
   type DraftDie,
   type PlanView,
 } from "./view";
@@ -172,9 +172,19 @@ function PlanBuilder() {
   const { unit } = useLengthUnit();
   const candidates = useQuery(trpc.plans.candidates.queryOptions({ limit: 300 }));
 
-  const [initial] = useState(() => defaultWindow(Date.now()));
-  const [startText, setStartText] = useState(() => toLocalInput(initial.start));
-  const [endText, setEndText] = useState(() => toLocalInput(initial.end));
+  // BACKLOG 51: the window starts as the current production day on the plant's clock, from the
+  // server (never the browser's clock or zone); the fields are the plant's wall clock too.
+  const zone = useCompanyTimeZone();
+  const defaultWin = useQuery(trpc.plans.defaultWindow.queryOptions());
+  const [startText, setStartText] = useState("");
+  const [endText, setEndText] = useState("");
+  const [windowTouched, setWindowTouched] = useState(false);
+  useEffect(() => {
+    if (!defaultWin.data || windowTouched) return;
+    setStartText(toZonedInput(defaultWin.data.startMs, defaultWin.data.timezone));
+    setEndText(toZonedInput(defaultWin.data.endMs, defaultWin.data.timezone));
+  }, [defaultWin.data, windowTouched]);
+  const planZone = defaultWin.data?.timezone ?? zone;
   const [draft, setDraft] = useState<DraftDie[]>([]);
   const [query, setQuery] = useState("");
   const [customerId, setCustomerId] = useState("all");
@@ -185,8 +195,8 @@ function PlanBuilder() {
   const [pressLineId, setPressLineId] = useState("");
   const pressLines = useQuery(trpc.plans.pressLines.queryOptions());
 
-  const startMs = fromLocalInput(startText);
-  const endMs = fromLocalInput(endText);
+  const startMs = fromZonedInput(startText, planZone);
+  const endMs = fromZonedInput(endText, planZone);
   const win = startMs == null || endMs == null ? "order" : windowState(startMs, endMs);
 
   const dies = candidates.data?.dies ?? [];
@@ -339,9 +349,10 @@ function PlanBuilder() {
               type="datetime-local"
               value={startText}
               onChangeText={(v) => {
+                setWindowTouched(true);
                 setStartText(v);
-                const ms = fromLocalInput(v);
-                if (ms != null) setEndText(toLocalInput(ms + 24 * 3_600_000));
+                const ms = fromZonedInput(v, planZone);
+                if (ms != null) setEndText(toZonedInput(ms + 24 * 3_600_000, planZone));
               }}
             />
           </Field>
@@ -350,8 +361,29 @@ function PlanBuilder() {
             error={win === "long" ? t("orders.plan.windowLong") : win === "order" && endText ? t("orders.plan.windowOrder") : undefined}
             hint={t("orders.plan.windowHint")}
           >
-            <TextInput type="datetime-local" value={endText} onChangeText={setEndText} />
+            <TextInput
+              type="datetime-local"
+              value={endText}
+              onChangeText={(v) => {
+                setWindowTouched(true);
+                setEndText(v);
+              }}
+            />
           </Field>
+          {defaultWin.data && startMs != null && endMs != null && win === "ok" ? (
+            <p data-plan-window="" className="m-0 text-[14px] leading-6 text-muted-foreground md:col-span-2">
+              {(() => {
+                const w = windowWords(startMs, endMs, planZone, defaultWin.data.productionDay);
+                const at = (e: typeof w.from) =>
+                  e.day === "today"
+                    ? t("orders.plan.atToday", { time: e.time })
+                    : e.day === "tomorrow"
+                      ? t("orders.plan.atTomorrow", { time: e.time })
+                      : t("orders.plan.atOther", { date: dayText(e.date, locale), time: e.time });
+                return t("orders.plan.windowShown", { day: dayText(defaultWin.data.productionDay, locale), from: at(w.from), to: at(w.to) });
+              })()}
+            </p>
+          ) : null}
           {twoPresses ? (
             <Field label={t("orders.plan.pressLine")}>
               <NativeSelect value={pressLineId} onChange={(e) => setPressLineId(e.target.value)} aria-label={t("orders.plan.pressLine")}>

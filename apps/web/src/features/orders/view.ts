@@ -352,27 +352,61 @@ export function windowState(startMs: number, endMs: number): WindowState {
   return "ok";
 }
 
-/** Next whole hour, and 24 hours after it (the plan's longest window). */
-export function defaultWindow(nowMs: number): { start: number; end: number } {
-  const hour = 3_600_000;
-  const start = Math.ceil(nowMs / hour) * hour;
-  return { start, end: start + PLAN_MAX_WINDOW_MS };
-}
-
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** ms -> the value of a `datetime-local` input, in the browser's (the plant's) zone. */
-export function toLocalInput(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const WALL = new Map<string, Intl.DateTimeFormat>();
+/** The wall clock of `timeZone` at `ms`: year, month, day, hour, minute. */
+function wallOf(ms: number, timeZone: string): { y: number; m: number; d: number; h: number; mi: number } {
+  let f = WALL.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+    WALL.set(timeZone, f);
+  }
+  const p = Object.fromEntries(f.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+  return { y: Number(p.year), m: Number(p.month), d: Number(p.day), h: Number(p.hour) % 24, mi: Number(p.minute) };
 }
 
-/** The value of a `datetime-local` input -> ms, or null when it is not a full date and time. */
-export function fromLocalInput(text: string): number | null {
+/**
+ * ms -> the value of a `datetime-local` input on the PLANT's clock (`settings.timezone`; BACKLOG 51):
+ * the planner reads 08:00 for the plant's 08:00 whatever zone the browser is set to.
+ */
+export function toZonedInput(ms: number, timeZone: string): string {
+  const w = wallOf(ms, timeZone);
+  return `${w.y}-${pad(w.m)}-${pad(w.d)}T${pad(w.h)}:${pad(w.mi)}`;
+}
+
+/** The value of a `datetime-local` input, read as the plant's wall clock -> ms, or null when it is not a full date and time. */
+export function fromZonedInput(text: string, timeZone: string): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(text);
   if (!m) return null;
-  const ms = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5])).getTime();
-  return Number.isNaN(ms) ? null : ms;
+  const asUtc = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+  if (Number.isNaN(asUtc)) return null;
+  // The zone's offset at a guess, then once more at the answer (a summer-time change between them).
+  const offsetAt = (ms: number) => {
+    const w = wallOf(ms, timeZone);
+    return Date.UTC(w.y, w.m - 1, w.d, w.h, w.mi) - Math.floor(ms / 60_000) * 60_000;
+  };
+  let ms = asUtc - offsetAt(asUtc);
+  ms = asUtc - offsetAt(ms);
+  return ms;
+}
+
+export type WindowEnd = { day: "today" | "tomorrow" | "other"; time: string; date: string };
+
+/**
+ * The window in words on the plant's clock (BACKLOG 51): "today 08:00 to tomorrow 08:00", where
+ * today is the production day the server named (`plans.defaultWindow`), not the browser's date.
+ */
+export function windowWords(startMs: number, endMs: number, timeZone: string, productionDay: string): { from: WindowEnd; to: WindowEnd } {
+  const [y, mo, d] = productionDay.split("-").map(Number) as [number, number, number];
+  const next = new Date(Date.UTC(y, mo - 1, d + 1));
+  const tomorrow = `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}`;
+  const end = (ms: number): WindowEnd => {
+    const w = wallOf(ms, timeZone);
+    const date = `${w.y}-${pad(w.m)}-${pad(w.d)}`;
+    return { day: date === productionDay ? "today" : date === tomorrow ? "tomorrow" : "other", time: `${pad(w.h)}:${pad(w.mi)}`, date };
+  };
+  return { from: end(startMs), to: end(endMs) };
 }
 
 /** Every line of one sales order among the open lines, with its die (review I-6 "add all of this SO"). */
