@@ -14,6 +14,7 @@ import { and, eq } from "drizzle-orm";
 
 import { can, type Action } from "../src/lib/permissions";
 import { createTestEnv, type TestEnv } from "./harness";
+import { precreateDevSeedUsers } from "./dev-seed-fixture";
 
 let env: TestEnv;
 type DocNumbers = typeof import("../src/lib/docNumber");
@@ -241,11 +242,9 @@ describe("platform actions (Wave 1)", () => {
 
 describe("dev seed: Wave 1 masters (idempotent)", () => {
   test("shifts, standards, all modules, press line, transporter and reason codes survive a re-seed", async () => {
-    const { user, company, pressLine, reasonCode, transporter, dieInstance: copies, dieBand } = await import("@orrn/db/schema");
+    const { company, pressLine, reasonCode, transporter, dieInstance: copies, dieBand } = await import("@orrn/db/schema");
     const { defaultReasonCodeRows, COMPANY_MODULES, readFloorSettings } = await import("@orrn/domain");
-    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
-      await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
-    }
+    await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
       seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean }>;
@@ -269,12 +268,13 @@ describe("dev seed: Wave 1 masters (idempotent)", () => {
     expect(floor.standards).toEqual({ solid: { standard: "IS 733", cml: "" }, hollow: { standard: "IS 1285", cml: "" } });
     expect(co!.modules).toEqual([...COMPANY_MODULES]);
     expect((await env.db.select({ code: pressLine.code }).from(pressLine).where(eq(pressLine.companyId, companyId))).map((l) => l.code).sort()).toEqual(["P1", "P2"]);
-    expect(await env.db.select().from(transporter).where(eq(transporter.companyId, companyId))).toHaveLength(1);
+    expect(await env.db.select().from(transporter).where(eq(transporter.companyId, companyId))).toHaveLength(3);
     expect(await env.db.select().from(reasonCode).where(eq(reasonCode.companyId, companyId))).toHaveLength(defaultReasonCodeRows().length);
     // The app-made copy is gone; only the die room demo copies are back: five demo copies and the seven
-    // Tee copies the e2e mutates one per width (W1-DR-W), and nine Tee copies on trial (W2-DR2).
+    // Tee copies the e2e mutates one per width (W1-DR-W), nine Tee copies on trial (W2-DR2), and the
+    // thirteen copies of the other sections (W2-SEED: every section has one to three).
     const seeded = await env.db.select({ code: copies.code }).from(copies).where(eq(copies.companyId, companyId));
     expect(seeded.map((c) => c.code)).not.toContain("SEED-99");
-    expect(seeded).toHaveLength(21);
+    expect(seeded).toHaveLength(34);
   });
 });

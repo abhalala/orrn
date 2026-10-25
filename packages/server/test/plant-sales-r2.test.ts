@@ -5,10 +5,11 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
-import { approval, auditLog, customer, die, dispatchItem, salesOrder, user } from "@orrn/db/schema";
+import { approval, auditLog, customer, die, dispatchItem, salesOrder } from "@orrn/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
+import { precreateDevSeedUsers } from "./dev-seed-fixture";
 import { kg, NOON, salesHelpers, SLOW, saveOrder } from "./sales-fixture";
 
 let env: TestEnv;
@@ -213,9 +214,7 @@ describe("S-2 / correctness I-1: the order link is decided again when its premis
 
 describe("S-3 dev seed", () => {
   test("the dev seed can be re-run after an order was entered on the demo company", async () => {
-    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
-      await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
-    }
+    await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
       seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean }>;
@@ -230,8 +229,9 @@ describe("S-3 dev seed", () => {
     // The order made in the app is gone; only the seed's own demo orders (W1-OP-S, fixed ids) are back.
     const ids = (await env.db.select({ id: salesOrder.id }).from(salesOrder).where(eq(salesOrder.companyId, companyId))).map((r) => r.id);
     expect(ids).not.toContain(made.id);
-    // dev-so-4: KD Extrusion's portal booking (W3-PORTAL-S, dev-seed-portal.ts).
-    expect(ids.sort()).toEqual(["dev-so-1", "dev-so-2", "dev-so-3", "dev-so-4"]);
+    // dev-so-4: KD Extrusion's portal booking (W3-PORTAL-S); dev-so-5..10: the closed, cancelled, two
+    // dispatching, the open Tejura order and KD's order on its own die (W2-SEED, dev-seed-orders.ts).
+    expect(ids.sort()).toEqual(["dev-so-1", "dev-so-10", "dev-so-2", "dev-so-3", "dev-so-4", "dev-so-5", "dev-so-6", "dev-so-7", "dev-so-8", "dev-so-9"]);
   }, 120_000);
 });
 

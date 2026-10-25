@@ -11,27 +11,14 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
-import {
-  approval,
-  auditLog,
-  bundle,
-  bundleStatusEvent,
-  company,
-  countLine,
-  countLocation,
-  countSeen,
-  countSession,
-  countTally,
-  legacyBundleMap,
-  stockLedger,
-  user,
-} from "@orrn/db/schema";
-import { and, asc, eq } from "drizzle-orm";
+import { approval, auditLog, bundle, bundleStatusEvent, company, countLine, countLocation, countSeen, countSession, countTally, legacyBundleMap, stockLedger } from "@orrn/db/schema";
+import { and, asc, eq, ne } from "drizzle-orm";
 
 import { APPROVAL_APPLIERS } from "../src/lib/approvalApply";
 import { atomicBatch } from "../src/lib/atomic";
 import { can as canMe, type Action } from "../src/lib/permissions";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
+import { precreateDevSeedUsers } from "./dev-seed-fixture";
 
 // Fixtures make dozens of calls; a loaded machine (parallel agents) must not time them out.
 setDefaultTimeout(60_000);
@@ -2351,10 +2338,8 @@ describe("phantomSummary over an evening of yard counts (correctness r0 M-2)", (
 });
 
 describe("dev seed reset with counts (spec r0 I-2)", () => {
-  test("the demo reset clears the demo company's counts (RESTRICT keys to location), runs again, and numbering restarts at CNT-1", async () => {
-    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
-      await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
-    }
+  test("the demo reset clears the demo company's counts (RESTRICT keys to location), runs again, and numbering restarts after the seeded CNT-1", async () => {
+    await precreateDevSeedUsers(env);
     // Non-literal specifier: apps/server is not part of this package's TypeScript project.
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
@@ -2372,8 +2357,9 @@ describe("dev seed reset with counts (spec r0 I-2)", () => {
     const yard = first!.locationId!;
     const otherYard = (await owner.stock.locations.list()).items.find((l) => l.kind === "yard" && l.id !== yard)!.id;
     // A closed count with found and phantom lines and a waiting void request, plus an open count.
+    // The demo plant already has CNT-1 (closed two days ago, W2-SEED): the first count made here is CNT-2.
     const closed = await owner.count.start({ locationIds: [yard] });
-    expect(closed.number).toBe("CNT-1");
+    expect(closed.number).toBe("CNT-2");
     await owner.count.scan({ sessionId: closed.id, codes: [first!.serial, "NOT-A-BUNDLE"] });
     const report = await owner.count.close({ sessionId: closed.id, confirmUnscanned: true });
     if (report.phantom.length > 0) {
@@ -2383,10 +2369,13 @@ describe("dev seed reset with counts (spec r0 I-2)", () => {
     await owner.count.scan({ sessionId: open.id, codes: [first!.serial] });
 
     expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
-    for (const t of [countSession, countLocation, countSeen, countLine, countTally]) {
-      expect(await env.db.select().from(t).where(eq(t.companyId, companyId))).toHaveLength(0);
-    }
-    expect((await owner.count.start({ locationIds: [yard] })).number).toBe("CNT-1");
+    // Only the seed's own count (dev-count-1) is back; the two made here are gone, and numbering continues after CNT-1.
+    expect((await env.db.select({ id: countSession.id }).from(countSession).where(eq(countSession.companyId, companyId))).map((r) => r.id)).toEqual(["dev-count-1"]);
+    expect(await env.db.select().from(countLocation).where(and(eq(countLocation.companyId, companyId), ne(countLocation.sessionId, "dev-count-1")))).toHaveLength(0);
+    expect(await env.db.select().from(countSeen).where(and(eq(countSeen.companyId, companyId), ne(countSeen.sessionId, "dev-count-1")))).toHaveLength(0);
+    expect(await env.db.select().from(countLine).where(and(eq(countLine.companyId, companyId), ne(countLine.sessionId, "dev-count-1")))).toHaveLength(0);
+    expect(await env.db.select().from(countTally).where(and(eq(countTally.companyId, companyId), ne(countTally.sessionId, "dev-count-1")))).toHaveLength(0);
+    expect((await owner.count.start({ locationIds: [yard] })).number).toBe("CNT-2");
     await expectConsistent(owner, companyId, "dev seed rerun after counts");
   }, 180_000);
 });

@@ -12,6 +12,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { can as canMe, type Action } from "../src/lib/permissions";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
+import { precreateDevSeedUsers } from "./dev-seed-fixture";
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
@@ -1031,10 +1032,7 @@ describe("fix round 1", () => {
 
 describe("dev seed: scrap purchase", () => {
   test("vendors with aliases, ten lots, one short lot with an approved D/C note; ledger = register; re-runnable", async () => {
-    const { user } = await import("@orrn/db/schema");
-    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
-      await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` });
-    }
+    await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
       seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean }>;

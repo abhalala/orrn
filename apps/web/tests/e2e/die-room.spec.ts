@@ -480,8 +480,8 @@ test.describe("copy and customer pickers ask the server", () => {
     const panel = page.getByTestId("owner-check");
     const copy = panel.getByRole("combobox", { name: "Copy", exact: true });
     await copy.click();
-    // 21 copies (12, and nine on trial for die-room-w2), 10 on the first page.
-    await expect(panel.getByText(/Showing 10 of 2\d, type to find/).first()).toBeVisible();
+    // 34 copies (one to three per section, Tee has 20 with nine on trial for die-room-w2), 10 on the first page.
+    await expect(panel.getByText(/Showing 10 of 3\d, type to find/).first()).toBeVisible();
     await expect(page.getByRole("option")).toHaveCount(10);
     await settle(page);
     await shot(page, "pickers");

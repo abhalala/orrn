@@ -2,14 +2,16 @@
  * W2-PR-S dev seed (idempotent): P1 with a die_issued run (PR-1), the die room's queued and trial
  * runs (PR-2..PR-7, W2-DR2), a run logged today with its lines / billets / QC / closed downtime and
  * exact close ledger rows (PR-8, the worked example), a late entry waiting for press_late_entry
- * (PR-9), and a cast with billets on hand.
+ * (PR-9), and a cast with billets on hand. W2-SEED adds PR-10 running on Press 2, PR-11 (rejects)
+ * and PR-12 (a long stop) logged today, and PR-13 / PR-14 queued.
  */
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
-import { approval, pressBilletUse, pressDowntime, pressRun, pressRunLine, qcEntry, stockLedger, user } from "@orrn/db/schema";
+import { approval, pressBilletUse, pressDowntime, pressRun, pressRunLine, qcEntry, stockLedger } from "@orrn/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
+import { precreateDevSeedUsers } from "./dev-seed-fixture";
 
 // Each test walks whole runs (release, issue, start, count, close) on Miniflare D1; 5 s is too
 // tight when other worktrees run their gates on the same machine (as plant-foundry.test.ts).
@@ -27,9 +29,7 @@ const companyId = "dev-company-orrn";
 
 describe("dev seed: Wave 2 press demo (idempotent)", () => {
   test("PR-1 die_issued, PR-8 logged today with children + ledger, PR-9 late entry pending; the owner can decide it", async () => {
-    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
-      await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
-    }
+    await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
       seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean; counts: Record<string, number> }>;
@@ -37,8 +37,9 @@ describe("dev seed: Wave 2 press demo (idempotent)", () => {
     for (let i = 0; i < 2; i++) {
       const out = await seedDevData(env.db, { password: "dev-seed-test" });
       expect(out.ok).toBe(true);
-      expect(out.counts.pressRuns).toBe(9);
-      const runs = await env.db.select().from(pressRun).where(eq(pressRun.companyId, companyId)).orderBy(asc(pressRun.number));
+      expect(out.counts.pressRuns).toBe(14);
+      const byNumber = (r: { number: string }) => Number(r.number.slice(3));
+      const runs = (await env.db.select().from(pressRun).where(eq(pressRun.companyId, companyId))).sort((a, b) => byNumber(a) - byNumber(b));
       expect(runs.map((r) => [r.number, r.status, r.lateEntry])).toEqual([
         ["PR-1", "die_issued", false],
         ["PR-2", "queued", false],
@@ -49,6 +50,12 @@ describe("dev seed: Wave 2 press demo (idempotent)", () => {
         ["PR-7", "queued", false],
         ["PR-8", "logged", false],
         ["PR-9", "counting", true],
+        // W2-SEED: today's board, Press 2 running now, two more logged today, two queued behind.
+        ["PR-10", "running", false],
+        ["PR-11", "logged", false],
+        ["PR-12", "logged", false],
+        ["PR-13", "queued", false],
+        ["PR-14", "queued", false],
       ]);
       const logged = runs.find((r) => r.number === "PR-8")!;
       const late = runs.find((r) => r.number === "PR-9")!;
@@ -84,6 +91,6 @@ describe("dev seed: Wave 2 press demo (idempotent)", () => {
     expect(closed).toMatchObject({ status: "logged", inputG: 230_000 });
     // The next run number continues the book.
     const q = await owner.press.queue.list({ pressLineId: "dev-press-line-1" });
-    expect(q.cards.map((c) => c.number)).toEqual(["PR-1", "PR-2", "PR-3", "PR-4", "PR-5", "PR-6", "PR-7"]);
+    expect(q.cards.map((c) => c.number)).toEqual(["PR-1", "PR-2", "PR-3", "PR-4", "PR-5", "PR-6", "PR-7", "PR-14"]);
   }, 60_000);
 });

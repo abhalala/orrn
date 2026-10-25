@@ -18,6 +18,7 @@ import { approval, cast, dcNote, melt, returnStream, stockLedger } from "@orrn/d
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
+import { precreateDevSeedUsers } from "./dev-seed-fixture";
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
@@ -139,10 +140,7 @@ async function dcNoteLedger(companyId: string) {
 
 describe("dev seed: the reset knows the foundry tables", () => {
   test("a melt (with a store chemical and a spectro result) against a demo lot does not break a reseed; the cast series restarts cleanly", async () => {
-    const { user } = await import("@orrn/db/schema");
-    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
-      await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
-    }
+    await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
       seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean }>;
@@ -170,8 +168,8 @@ describe("dev seed: the reset knows the foundry tables", () => {
 
     // The reset must delete the foundry rows before the lots, locations and store items they point at.
     expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
-    // Only the seed's own cast (W2-PR-S press demo, billets on hand) comes back; the app-made one is gone.
-    expect((await env.db.select({ id: cast.id }).from(cast).where(eq(cast.companyId, companyId))).map((c) => c.id)).toEqual(["dev-press-cast-1"]);
+    // Only the seed's own casts (W2-PR-S press demo with billets on hand, and the older cast 2) come back; the app-made one is gone.
+    expect((await env.db.select({ id: cast.id }).from(cast).where(eq(cast.companyId, companyId))).map((c) => c.id).sort()).toEqual(["dev-press-cast-1", "dev-press-cast-2"]);
     expect(await env.db.select().from(melt).where(eq(melt.companyId, companyId))).toEqual([]);
     // Wave 2 contracts: the seed puts back the foundry sheet's 11 streams (fresh rows, none the app made).
     const streams = await env.db.select().from(returnStream).where(eq(returnStream.companyId, companyId));

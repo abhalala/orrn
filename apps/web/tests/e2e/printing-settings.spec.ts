@@ -8,9 +8,10 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
  * Printing (`/printing`) and Settings (`/settings`), plan Task 24, at the three
  * layouts (phone 375, iPad 820, laptop 1280): they render, carry their headings
  * and tabs, stay inside the screen, pass axe, and hide the gated actions from a
- * viewer. The seeded plant has no print jobs and no print computer, so the
- * queue and node cards are filled by rewriting the two read procedures' answers
- * in the browser; every other call is the real API.
+ * viewer. The demo plant has two labels waiting (newest bundles of the day), a label
+ * printer ("Packing bay") and one print computer that has not connected and reports no
+ * scale; failed jobs and extra print computers are filled in by rewriting the two read
+ * procedures' answers in the browser; every other call is the real API.
  */
 
 const WIDTHS = [375, 820, 1280] as const;
@@ -98,9 +99,13 @@ test.describe("printing", () => {
       const tabs = page.getByRole("tablist", { name: "Printing" });
       for (const name of ["Queue", "Printers", "Labels"]) await expect(tabs.getByRole("tab", { name })).toBeVisible();
       await expect(tabs.getByRole("tab", { name: "Queue" })).toHaveAttribute("aria-selected", "true");
-      // The seeded plant has nothing queued, so the page says so instead of showing a blank list.
-      await expect(page.getByText("Nothing waiting to print.")).toBeVisible();
-      await expect(page.getByTestId("queue-summary")).toHaveText("Nothing failed or waiting.");
+      // The demo plant has two labels waiting for the printer that has not connected yet.
+      await expect(page.getByTestId("queue-summary")).toHaveText("0 failed, 2 waiting");
+      const main = page.locator("main#main");
+      for (const serial of ["BG-000008-B013", "BG-000008-B014"]) await expect(main.getByRole("link", { name: serial })).toBeVisible();
+      await expect(main.getByText("Packing bay").first()).toBeVisible();
+      await expect(main.getByText("Waiting", { exact: true }).first()).toBeVisible();
+      await expect(page.getByText("Nothing waiting to print.")).toHaveCount(0);
       await expectContained(page);
     });
 
@@ -144,8 +149,14 @@ test.describe("printing", () => {
     await expect(page).toHaveURL(/status=failed/);
     await main.getByRole("tab", { name: "Printers" }).click();
     await expect(page).toHaveURL(/tab=printers/);
-    // No print computer and no label printer in the seed: one honest next step, no invented status.
-    await expect(main.getByText("Label printing isn't set up")).toBeVisible();
+    // One print computer that has not connected and reports no scale, and the label printer: nothing invented.
+    const node = main.getByTestId("print-node");
+    await expect(node).toHaveCount(1);
+    await expect(node).toContainText("Packing bay node");
+    await expect(node).toContainText("Has not reported in yet");
+    await expect(node).toContainText("No scale");
+    await expect(main.getByRole("heading", { name: "Packing bay", level: 4, exact: true })).toBeVisible();
+    await expect(main.getByText("Label printing isn't set up")).toHaveCount(0);
   });
 
   test("a print computer shows its last heartbeat, or that it has not reported in", async ({ page }) => {

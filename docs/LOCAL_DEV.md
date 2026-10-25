@@ -102,34 +102,40 @@ curl -XPOST localhost:3000/dev/seed      # in a worktree: localhost:$E2E_API_POR
 ```
 
 Only works against the local stack (see Test accounts). It creates one demo company,
-"Fourcubes Extrusions (Demo)", configured for inch lengths, `Asia/Kolkata`, all modules on:
+"Fourcubes Extrusions (Demo)", configured for inch lengths, `Asia/Kolkata`, all modules on. The whole plant
+is described in [DEMO_PLANT.md](DEMO_PLANT.md); in short:
 
 | Data | Amount |
 | --- | --- |
-| Dies (`Patti 1" × 1/8"` 14701, `Angle 1" × 1"` 11250, `Tee 1¼"` 13090, `Channel ¾"` 12212, …) | 12, with kg per 12 ft ranges |
-| Customers (KD Extrusion, Royal Aluminium, Tejura & Sons, Shivam Bhavnagar, Apex Fabricators, Mehta Windows) | 6, with GSTIN and addresses |
-| Packing sessions (bundle groups `BG-000001` to `BG-000008`), last 10 days, 2 today | 8 |
-| Bundles, 12 ft (3658 mm), 40 to 60 kg, 18 to 24 pcs | 120 |
-| Bundle status | 71 available, 10 reserved, 36 dispatched, 3 void |
-| Dispatches | 1 draft (6 bundles), 1 held/reserved (10), 2 completed with packing lists (one today) |
+| Logins (one per plant role, plus platform staff and the KD portal party) | 13 + 2 |
+| Sections (patti 14701, angle 11250, tee 13090, channel 12212, ...) with 34 copies and 6 heavier bands | 12 |
+| Customers (KD Extrusion, Royal Aluminium, Tejura & Sons, ...) | 6 |
+| Orders: booking, confirmed, late, portal, dispatching x2, closed, cancelled, KD's own die | 10 (17 lines) |
+| Press runs on 2 presses (queued, die issued, running, logged x3, late entry, trial) and 4 plans | 14 |
+| Packing sessions (`BG-000001` to `BG-000009`), 2 today; bundles, 12 ft (3658 mm) | 9; 129 |
+| Bundle status | 73+1 available, 10 reserved, 42 dispatched, 3 void |
+| Dispatches: 4 completed (6 packing lists: revisions, one combined), 1 building, 1 held | 6 |
+| Stock count CNT-1 (closed, with a variance), print jobs waiting, scrap lots, store items, backup run | 1; 2; 10; 5; 1 |
 
-Weights are stored in grams, lengths in mm. Bundle serials, company sequence, status events and packing list
-snapshots are created the same way the app creates them, so codes made later in the UI do not collide.
+Weights are stored in grams, lengths in mm. Bundle serials, company sequence, status events, party numbers
+and packing list snapshots are created the same way the app creates them, so codes made later in the UI do
+not collide. Everything that must read as "today" is placed inside the current production day (shift 1's
+start to the next), whatever hour you seed.
 
-The seed is idempotent: calling it again resets that demo company's dies, customers, bundles, dispatches and
-packing lists and recreates them. Anything you added to the demo company in the UI is discarded. Existing
-logins are kept.
+The seed is idempotent: calling it again resets that demo company's dies, customers, bundles, orders,
+dispatches, packing lists, press runs and counts and recreates them. Anything you added to the demo company
+in the UI is discarded. Existing logins are kept.
 
 ## Test accounts
 
-Users are created through Better Auth (real password hashes). Fixed emails:
+Users are created through Better Auth (real password hashes). Fixed emails, one per role, all `{key}@orrn.local`:
 
-| Role | Email |
+| Login | Role |
 | --- | --- |
-| Owner | `owner@orrn.local` |
-| Operator | `operator@orrn.local` |
-| Viewer | `viewer@orrn.local` |
-| ORRN staff (`super_admin`, Godseye) | `staff@orrn.local` |
+| `owner`, `admin`, `manager`, `office`, `accountant` | the same roles in the plant |
+| `supervisor`, `press`, `packer`, `operator`, `dieroom`, `storekeeper`, `foundry`, `viewer` | the floor and store roles (`dieroom` is `die_room`) |
+| `staff` | ORRN staff (`super_admin`, Godseye), not a plant member |
+| `party` | KD Extrusion's customer portal login, not a plant member |
 
 The shared password is `vars.ORRN_LOCAL_PASSWORD` in `apps/server/wrangler.local.jsonc` (local only, never
 deployed). `/dev/seed` refuses to run (404) unless that binding is set and the request host is
@@ -141,8 +147,8 @@ Tests and scripts read the accounts from `apps/server/.dev.local-account.local` 
 bun run --cwd apps/server scripts/write-local-accounts.ts
 ```
 
-It contains `ORRN_LOCAL_EMAIL_OWNER`, `ORRN_LOCAL_EMAIL_OPERATOR`, `ORRN_LOCAL_EMAIL_VIEWER`,
-`ORRN_LOCAL_EMAIL_STAFF` and `ORRN_LOCAL_PASSWORD`.
+It contains `ORRN_LOCAL_EMAIL_{KEY}` for every login above (`OWNER`, `OPERATOR`, ..., `STAFF`, `PARTY`) and
+`ORRN_LOCAL_PASSWORD`.
 
 ## Reset everything
 

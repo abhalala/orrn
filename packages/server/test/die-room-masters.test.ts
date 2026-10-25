@@ -10,6 +10,7 @@ import { and, eq } from "drizzle-orm";
 
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
+import { precreateDevSeedUsers } from "./dev-seed-fixture";
 
 let env: TestEnv;
 let files: typeof import("../src/lib/dieFiles");
@@ -414,10 +415,7 @@ describe("owner names and imports (FP-DR-12/14)", () => {
 
 describe("dev seed: die room demo (idempotent)", () => {
   test("bands, copies with readings (one amber, one red), an owned section and one open issue survive a re-seed", async () => {
-    const { user } = await import("@orrn/db/schema");
-    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
-      await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
-    }
+    await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
       seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean }>;
@@ -433,8 +431,10 @@ describe("dev seed: die room demo (idempotent)", () => {
     const first = await counts();
     expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
     expect(await counts()).toEqual(first);
-    // Five demo copies, plus 13090-4..10 that the e2e mutates one per width, plus 13090-11..19 on trial (W2-DR2).
-    expect(first).toEqual({ bands: 1, copies: 21, readings: 16, openIssues: 1 });
+    // Five demo copies, plus 13090-4..10 that the e2e mutates one per width, plus 13090-11..19 on trial (W2-DR2),
+    // plus thirteen copies of the other sections and five heavier bands (W2-SEED: every section has one to three
+    // copies); two open issues: PR-1 (14701-1) and PR-10 (11250-1, running on Press 2).
+    expect(first).toEqual({ bands: 6, copies: 34, readings: 36, openIssues: 2 });
 
     const { membership } = await import("@orrn/db/schema");
     const [m] = await env.db.select().from(membership).where(and(eq(membership.companyId, companyId), eq(membership.role, "owner")));
@@ -453,14 +453,20 @@ describe("dev seed: die room demo (idempotent)", () => {
     ]);
     const owned = (await caller.die.list({ search: "12230" })).items[0]!;
     expect(owned.ownerName).toBeString();
-    // D13: the open issue targets a run on P1 that was queued for the Patti section.
+    // D13: the open issue targets a run on P1 that was queued for the Patti section; W2-SEED adds 11250-1,
+    // running on Press 2 (PR-10).
     const issued = await caller.dieInstance.issues.list({ status: "issued" });
-    expect(issued.items.map((i) => [i.code, i.pressLineCode, i.pressRunStatus])).toEqual([["14701-1", "P1", "die_issued"]]);
+    const patti14701 = issued.items.filter((i) => i.code === "14701-1");
+    expect(issued.items.map((i) => [i.code, i.pressLineCode, i.pressRunStatus]).sort()).toEqual([
+      ["11250-1", "P2", "running"],
+      ["14701-1", "P1", "die_issued"],
+    ]);
     const runs = await env.db.select().from(pressRun).where(eq(pressRun.companyId, companyId));
     // PR-1 carries the open issue; PR-2, PR-3 and PR-4 are the Tee runs that wait for a die (the e2e issues one per
     // width); PR-5..PR-7 are die trial runs of plan PP-2 (a copy on trial goes only to those);
-    // W2-PR-S adds PR-8 (logged today) and PR-9 (late entry waiting for approval).
-    expect(runs.map((r) => [r.number, r.status]).sort()).toEqual([
+    // W2-PR-S adds PR-8 (logged today) and PR-9 (late entry waiting for approval); W2-SEED adds today's board:
+    // PR-10 running, PR-11 and PR-12 logged, PR-13 and PR-14 queued on released production plans.
+    expect(runs.map((r) => [r.number, r.status]).sort((a, b) => Number(a[0]!.slice(3)) - Number(b[0]!.slice(3)))).toEqual([
       ["PR-1", "die_issued"],
       ["PR-2", "queued"],
       ["PR-3", "queued"],
@@ -470,14 +476,24 @@ describe("dev seed: die room demo (idempotent)", () => {
       ["PR-7", "queued"],
       ["PR-8", "logged"],
       ["PR-9", "counting"],
+      ["PR-10", "running"],
+      ["PR-11", "logged"],
+      ["PR-12", "logged"],
+      ["PR-13", "queued"],
+      ["PR-14", "queued"],
     ]);
-    expect(await caller.dieInstance.issues.queuedRuns()).toMatchObject([
+    // queuedRuns orders by the run number as text, so PR-13 comes before PR-2 (reported by W2-SEED, not fixed there):
+    // compare in run order.
+    const queuedRuns = (await caller.dieInstance.issues.queuedRuns()).sort((a, b) => Number(a.number.slice(3)) - Number(b.number.slice(3)));
+    expect(queuedRuns).toMatchObject([
       { number: "PR-2", pressLineCode: "P1", sectionCode: "13090", purpose: "production" },
       { number: "PR-3", pressLineCode: "P1", sectionCode: "13090", purpose: "production" },
       { number: "PR-4", pressLineCode: "P1", sectionCode: "13090", purpose: "production" },
       { number: "PR-5", pressLineCode: "P1", sectionCode: "13090", purpose: "die_trial" },
       { number: "PR-6", pressLineCode: "P1", sectionCode: "13090", purpose: "die_trial" },
       { number: "PR-7", pressLineCode: "P1", sectionCode: "13090", purpose: "die_trial" },
+      { number: "PR-13", pressLineCode: "P2", sectionCode: "11262", purpose: "production" },
+      { number: "PR-14", pressLineCode: "P1", sectionCode: "14730", purpose: "production" },
     ]);
     // One approved exception: Tejura & Sons may pack on KD Extrusion's 12230-1 until a manager closes it.
     const channelCopy = (await caller.die.get({ id: owned.id })).copies[0]!;
@@ -486,12 +502,12 @@ describe("dev seed: die room demo (idempotent)", () => {
     const live = await caller.approval.list({ kind: "die_owner_override", status: "approved" });
     expect(live.items.map((a) => [a.subjectId, (a.meta as Record<string, unknown>).closedAt])).toEqual([[channelCopy.id, null]]);
     const pr1 = runs.filter((r) => r.number === "PR-1");
-    expect(pr1[0]).toMatchObject({ id: issued.items[0]!.pressRunId, status: "die_issued", dieInstanceId: "dev-copy-14701-1", pressLineId: "dev-press-line-1" });
+    expect(pr1[0]).toMatchObject({ id: patti14701[0]!.pressRunId, status: "die_issued", dieInstanceId: "dev-copy-14701-1", pressLineId: "dev-press-line-1" });
     const [patti] = await env.db.select().from(dieInstance).where(eq(dieInstance.id, "dev-copy-14701-1"));
     expect(pr1[0]!.sectionId).toBe(patti!.sectionId);
     // Cancel puts that run back in the queue, as plans.release would have left it.
     const dieRoomCaller = env.callerForUser(m!.userId);
-    await dieRoomCaller.dieInstance.issues.cancel({ id: issued.items[0]!.id });
+    await dieRoomCaller.dieInstance.issues.cancel({ id: patti14701[0]!.id });
     expect((await env.db.select().from(pressRun).where(eq(pressRun.id, pr1[0]!.id)))[0]).toMatchObject({ status: "queued", dieInstanceId: null });
   });
 });
