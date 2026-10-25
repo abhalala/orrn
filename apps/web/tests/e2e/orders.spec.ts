@@ -424,7 +424,7 @@ test.describe("press plan", () => {
     test.setTimeout(120_000);
     await open(page, { role: "office", width: 1280, path: "/orders" });
     // The seeded SO-2 is an open line on the board; the plan is drafted from an order of this test's
-    // own, so SO-2's baki stays for the press spec's fixtures (they plan on dev-sol-2-1).
+    // own (BACKLOG 42: no spec plans a seeded order line; press.spec plans orders of its own).
     const own = await apiConfirmed(page, "dev-customer-royal", [{ sectionId: "dev-die-14701", pcs: 12 }]);
     await page.goto("/orders/plan");
     await settled(page);
