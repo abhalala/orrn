@@ -190,6 +190,9 @@ describe("every transition and its refusals", () => {
     const press = p.as("press").press.runs;
     await press.start({ id: r.runId });
     await expect(press.handover({ id: r.runId, supervisorId: p.users.packer.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    // m-5: an office hand or a packer is not an operator.
+    await expect(press.handover({ id: r.runId, reliefOperatorId: p.users.office.id })).rejects.toMatchObject({ code: "BAD_REQUEST", message: "The operator must be someone who runs the press" });
+    await expect(press.handover({ id: r.runId, operatorId: p.users.packer.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await press.handover({ id: r.runId, reliefOperatorId: p.users.operator.id, supervisorId: p.users.supervisor.id });
     expect(await run(r.runId)).toMatchObject({ reliefOperatorId: p.users.operator.id, supervisorId: p.users.supervisor.id, operatorId: p.users.press.id });
     expect(await audits(r.runId)).toContain("press_run.handover");

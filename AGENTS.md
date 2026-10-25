@@ -452,8 +452,19 @@ bun run deploy
 - Close arithmetic and gates live in `@orrn/domain` (`closeGates`, `closeFigures`, `recoveryBp`,
   `balanceG`, `theoreticalHintG`, `skewUnconfirmed`, `bpPercent1`); the server never trusts a client
   figure. Ledger on close only: voucher `press_run` (−input_g `billet` item_ref = cast id at the
-  BILLET `billet_store`; +discard to stream DISCARD, +ends/+rejects to PLANT-SCRAP), reopen posts
+  BILLET `billet_store`; +discard to stream DISCARD, +ends/+rejects to PLANT-SCRAP, D23), reopen posts
   `press_run_reopen` reversals.
+- D22 (0030_press_fixes): `input_g` is the WEIGHED billet kg; recovery and balance use it. When the
+  cast's billets on hand are less, the close needs `billet_short_reason`, still debits the full kg
+  (BILLET may go negative), and writes `press_run.billet_short_g`; the cast shows Σ of its logged
+  runs as `billetsShortG` (`foundry.casts.list` / `get().closeout`). The billet row's write-time guard
+  is "on hand ≥ min(input, on hand as read)".
+- Run lines on a production run whose plan die has lines must each name a `pressPlanLineId`; a row
+  without one takes the plan's single line of that cut length, else "Pick the order line for N mm".
+  Rows with no order line only on trial / sample runs (or a run with no plan lines). A die trial's
+  verdict reaches the copy through `trialVerdictStatements` (lib/press.ts → lib/dieTrial); a reopen
+  puts a copy its pass racked back `on_trial` (`die_trial.reopen`). Late entry checks the copy with
+  `assertLateEntryCopy` (issue words, owner gate) and refuses retired lines and runs > 7 days old.
 - Foundry: `furnace`, `alloy`, `alloy_limit` (ppm min/max per element), cast `alloy_id` + cancel
   columns (status +`cancelled`), melt `status` draft|locked|cancelled (SQL default `locked`: the PL5
   create path posts on create), nullable times/dips for drafts, `furnace_id`, `alloy_id`, `yield_bp`,

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3436 screen strings in 43 groups, 16 guides with 292 strings.
+Counts: 3463 screen strings in 43 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -3275,7 +3275,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (133)
+### press (160)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3382,6 +3382,33 @@ Please check, Lalubhai:
 | `console.logRun` | Log run | रन दर्ज करें |
 | `console.supervisorOnly` | Only this run's supervisor can log it. | सिर्फ़ इस रन का सुपरवाइज़र इसे दर्ज कर सकता है। |
 | `console.queuePosition` | Number {n} in queue | कतार में नंबर {n} |
+| `console.startLocked` | Die not issued. Start is locked. | Die जारी नहीं हुई। शुरू करना बंद है। |
+| `console.billetsShortBy` | Billets short by {kg} kg | बिलेट {kg} kg कम |
+| `console.pickOrderLine` | Pick the order line for {mm} mm | {mm} mm के लिए ऑर्डर लाइन चुनें |
+| `console.gates.not_counting` | Only a run being counted can be logged | सिर्फ़ गिनती वाला रन ही दर्ज हो सकता है |
+| `console.gates.no_close_permission` | Only a supervisor or manager can log a run | रन सिर्फ़ सुपरवाइज़र या मैनेजर दर्ज कर सकता है |
+| `console.gates.not_supervisor` | Only the run's supervisor can log it | रन सिर्फ़ उसका सुपरवाइज़र दर्ज कर सकता है |
+| `console.gates.no_cast` | Pick the cast the billets came from | बिलेट जिस कास्ट के हैं, वह चुनें |
+| `console.gates.no_billets` | Enter the billets used | लगे हुए बिलेट भरें |
+| `console.gates.too_many_billets` | At most 10 billet rows on a run | एक रन में ज़्यादा से ज़्यादा 10 बिलेट लाइन |
+| `console.gates.billet_row_invalid` | Every billet row needs a count and its kg | हर बिलेट लाइन में गिनती और kg चाहिए |
+| `console.gates.billet_cast_mismatch` | Every billet row must be of the run's cast | हर बिलेट लाइन रन के कास्ट की होनी चाहिए |
+| `console.gates.no_input` | The billets weigh nothing; enter their kg | बिलेट का वज़न शून्य है; उनका kg भरें |
+| `console.gates.no_lines` | Enter the pieces by cut length | कट लंबाई के हिसाब से पीस भरें |
+| `console.gates.line_without_kg` | A cut length with pieces needs its kg | जिस कट लंबाई में पीस हैं, उसका kg भरें |
+| `console.gates.line_invalid` | A cut length row is not valid | एक कट लंबाई लाइन सही नहीं है |
+| `console.gates.no_good` | Enter the good pieces and their kg | अच्छे पीस और उनका kg भरें |
+| `console.gates.good_over_input` | Good kg is more than the billets that went in | अच्छा kg लगे हुए बिलेट से ज़्यादा है |
+| `console.gates.pieces_over_pressed_length` | The pieces are longer in total than the pressed length | पीस की कुल लंबाई प्रेस हुई लंबाई से ज़्यादा है |
+| `console.gates.no_qc` | Enter the rejects (0 when there were none) | रिजेक्ट भरें (न हों तो 0) |
+| `console.gates.qc_row_invalid` | A reject row is not valid | एक रिजेक्ट लाइन सही नहीं है |
+| `console.gates.qc_reason_missing` | Every reject needs a reason | हर रिजेक्ट का कारण चाहिए |
+| `console.gates.qc_note_missing` | A reject marked Other needs a note | अन्य वाले रिजेक्ट के लिए नोट चाहिए |
+| `console.gates.billet_short_reason_missing` | The billet store has less of this cast than entered; give the reason | बिलेट स्टोर में इस कास्ट के बिलेट भरे गए से कम हैं; कारण दें |
+| `console.gates.time_unconfirmed` | The start or stop time is waiting for a supervisor to confirm it | शुरू या बंद का समय सुपरवाइज़र की पुष्टि का इंतज़ार कर रहा है |
+| `console.gates.late_entry_unapproved` | This late entry is waiting for approval | बाद में भरा यह रन मंज़ूरी का इंतज़ार कर रहा है |
+| `console.gates.downtime_open` | Stop the open downtime first | पहले खुली रुकावट बंद करें |
+| `console.gates.trial_result_missing` | Say whether the die trial passed or failed | बताएं कि die ट्रायल पास हुआ या फेल |
 | `report.title` | Press report | प्रेस रिपोर्ट |
 | `report.runNo` | Run no | रन नंबर |
 | `report.productionDay` | Production day | उत्पादन दिन |

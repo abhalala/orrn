@@ -241,6 +241,12 @@ export const pressRun = sqliteTable(
       .default(nowMs)
       .$onUpdate(() => new Date())
       .notNull(),
+    /**
+     * D22 (0030_press_fixes): grams of the weighed billets the cast's store could not cover at the
+     * close (0 when it could; null until logged). The ledger still debits the full weighed kg; the
+     * cast shows Σ of its logged runs as "billets short by N kg" for the foundry close-out.
+     */
+    billetShortG: integer("billet_short_g"),
   },
   (table) => [
     uniqueIndex("press_run_company_number_unique").on(table.companyId, table.period, table.number),

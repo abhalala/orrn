@@ -1197,6 +1197,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       goodG: 234_200,
       recoveryBp: 7545,
       balanceG: 31_400,
+      billetShortG: 0,
       pressRemark: "Ram slow on the third billet",
       loggedAt: new Date(loggedAt),
       createdBy: ownerId,

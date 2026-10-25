@@ -146,7 +146,8 @@ describe("D1 limits and permissions on bulk rows", () => {
     const p = await pressPlant();
     const r = await p.countingRun();
     const press = p.as("press").press.runs;
-    const rows = Array.from({ length: 50 }, (_, i) => ({ cutLengthMm: 3_000 + i, pcs: 1, goodG: kg(1) }));
+    // I-3: every row of a production run names its plan line.
+    const rows = Array.from({ length: 50 }, (_, i) => ({ cutLengthMm: 3_000 + i, pcs: 1, goodG: kg(1), pressPlanLineId: r.planLineIds[0] }));
     env.resetPeakParams();
     await press.lines({ id: r.runId, rows });
     const before = await env.db.select().from(pressRunLine).where(eq(pressRunLine.pressRunId, r.runId));

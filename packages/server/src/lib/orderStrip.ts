@@ -88,10 +88,12 @@ function plannedExpr(excludePlanId?: string) {
 
 /**
  * Good kg pressed for the line (FP-PR-16): the run lines of LOGGED runs that name this order line
- * (Wave 2 station rows), plus, for logged runs with no run lines at all (Wave 1 data), the run's
- * good kg shared over the plan die's lines by their planned kg (floored).
+ * (Wave 2 station rows), plus the kg no row names, shared over the plan die's lines by their
+ * planned kg (floored): the whole good kg of a logged run with no run lines at all (Wave 1 data),
+ * or the unnamed rows of a run that has some (rows saved before every row had to name one, I-3).
  */
-const loggedExpr = sql<number>`((select coalesce(sum(rl.good_g), 0) from press_run_line rl join press_run rr on rr.id = rl.press_run_id and rr.company_id = rl.company_id where rl.company_id = ${LC} and rl.sales_order_line_id = ${LI} and rr.status = 'logged') + (select coalesce(sum((r.good_g * pl.kg_g) / (select sum(x.kg_g) from press_plan_line x where x.company_id = pl.company_id and x.press_plan_die_id = pl.press_plan_die_id)), 0) from press_plan_line pl join press_run r on r.company_id = pl.company_id and r.press_plan_die_id = pl.press_plan_die_id where pl.company_id = ${LC} and pl.sales_order_line_id = ${LI} and r.status = 'logged' and r.good_g is not null and not exists (select 1 from press_run_line q where q.company_id = r.company_id and q.press_run_id = r.id)))`;
+const unnamedG = sql`(case when exists (select 1 from press_run_line q where q.company_id = r.company_id and q.press_run_id = r.id) then (select coalesce(sum(q.good_g), 0) from press_run_line q where q.company_id = r.company_id and q.press_run_id = r.id and q.sales_order_line_id is null) else r.good_g end)`;
+const loggedExpr = sql<number>`((select coalesce(sum(rl.good_g), 0) from press_run_line rl join press_run rr on rr.id = rl.press_run_id and rr.company_id = rl.company_id where rl.company_id = ${LC} and rl.sales_order_line_id = ${LI} and rr.status = 'logged') + (select coalesce(sum((${unnamedG} * pl.kg_g) / (select sum(x.kg_g) from press_plan_line x where x.company_id = pl.company_id and x.press_plan_die_id = pl.press_plan_die_id)), 0) from press_plan_line pl join press_run r on r.company_id = pl.company_id and r.press_plan_die_id = pl.press_plan_die_id where pl.company_id = ${LC} and pl.sales_order_line_id = ${LI} and r.status = 'logged' and r.good_g is not null))`;
 
 const producedExpr = sql<number>`(select coalesce(sum(b.weight_g), 0) from bundle b where b.company_id = ${LC} and b.sales_order_line_id = ${LI} and b.status <> 'void')`;
 

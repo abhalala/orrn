@@ -7,8 +7,9 @@
  * needs `die_issued` AND an open die issue of the run's copy on the run's line naming this run; a
  * queued run answers "Die not issued. Start is locked." One running run per line (CONFLICT).
  *
- * Every figure is the server's: recovery, balance, input (Σ billet kg, capped at the cast's
- * billets on hand when short), good, rejects. A client never sends them (zod strips them).
+ * Every figure is the server's: recovery, balance, input (Σ billet kg as weighed, D22), good,
+ * rejects, the billets short of the store (`billet_short_g`). A client never sends them (zod
+ * strips them).
  * Times are the server's; a device tap more than 2 min away marks the run `time_unconfirmed`
  * and asks a `press_time` approval (the close waits for it).
  *
@@ -86,6 +87,9 @@ import {
   pressStreams,
   runLanded,
   shiftAt,
+  assertLateEntryCopy,
+  LATE_ENTRY_MAX_DAYS,
+  trialVerdictStatements,
   type LoadedRun,
 } from "../lib/press";
 import { nextCompanySeq } from "../lib/sequence";
@@ -114,7 +118,7 @@ const bad = (message: string): never => {
 
 const GATE_TEXT: Record<CloseGateError, string> = {
   not_counting: "Only a run being counted can be logged",
-  no_close_permission: "Only a supervisor can log a run",
+  no_close_permission: "Only a supervisor or manager can log a run",
   not_supervisor: "Only the run's supervisor can log it",
   no_cast: "Pick the cast the billets came from",
   no_billets: "Enter the billets used",
@@ -158,6 +162,9 @@ async function requireOperator(db: OrrnDb, companyId: string, userId: string | n
   if (!userId) return null;
   const role = await memberRole(db, companyId, userId);
   if (!role) bad("That person is not a member of this plant");
+  // m-5: an operator or relief is a floor hand (press.run, or the legacy `operator` role), or a
+  // supervisor standing in; office, accounts, packers and viewers are refused.
+  if (role !== "operator" && !canRole(role!, "press.run") && !canRole(role!, "press.close")) bad("The operator must be someone who runs the press");
   return userId;
 }
 
@@ -453,6 +460,7 @@ function figuresOut(f: ReturnType<typeof closeFigures>) {
     balanceG: f.balanceG,
     balanceWarn: f.balanceWarn,
     short: f.short,
+    billetShortG: f.billetShortG,
   };
 }
 
@@ -470,6 +478,8 @@ async function issueAtClose(ctx: Ctx, run: LoadedRun, trialResult: "pass" | "fai
   if (!issue || (issue.pressRunId && issue.pressRunId !== run.id)) return { issue: null, carryTo: null };
   // A die trial always goes back to the die room with its verdict.
   if (run.purpose === "die_trial" || trialResult || !run.pressLineId) return { issue, carryTo: null };
+  // m-6: the copy stays only on the press it was issued to.
+  if (issue.pressLineId !== run.pressLineId) return { issue, carryTo: null };
   const queue = await lineQueue(ctx.db, ctx.companyId, run.pressLineId, run.id);
   const next = queue[0];
   if (!next || next.status !== "queued" || next.dieInstanceId || next.sectionId !== run.sectionId || next.purpose === "die_trial") {
@@ -755,10 +765,17 @@ export const pressRunRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       if (input.clientMutationId) {
+        // m-4: later transitions overwrite the run's client_mutation_id, so the open's id is also
+        // kept in its press_late_entry approval meta; a retry finds the run by either.
         const [prior] = await ctx.db
           .select({ id: pressRun.id, number: pressRun.number })
           .from(pressRun)
-          .where(and(eq(pressRun.companyId, ctx.companyId), eq(pressRun.clientMutationId, input.clientMutationId)))
+          .where(
+            and(
+              eq(pressRun.companyId, ctx.companyId),
+              sql`(${pressRun.clientMutationId} = ${input.clientMutationId} or ${pressRun.id} in (select la.subject_id from approval la where la.company_id = ${ctx.companyId} and la.kind = 'press_late_entry' and json_extract(la.meta, '$.clientMutationId') = ${input.clientMutationId}))`,
+            ),
+          )
           .limit(1);
         if (prior) {
           const p = await pendingApproval(ctx.db, ctx.companyId, "press_late_entry", prior.id);
@@ -768,6 +785,7 @@ export const pressRunRouter = router({
       const at = clockNow();
       if (!(input.startedAt < input.stoppedAt)) bad("The run must stop after it starts");
       if (input.stoppedAt > at.getTime()) bad("A late entry is for a run that has already stopped");
+      if (input.startedAt < at.getTime() - LATE_ENTRY_MAX_DAYS * 86_400_000) bad(`A late entry must be within ${LATE_ENTRY_MAX_DAYS} days`);
       const operatorId = await requireOperator(ctx.db, ctx.companyId, input.operatorId);
       const reliefOperatorId = await requireOperator(ctx.db, ctx.companyId, input.reliefOperatorId);
       const settings = await companySettings(ctx.db, ctx.companyId);
@@ -801,14 +819,8 @@ export const pressRunRouter = router({
         const copyId = run.dieInstanceId ?? input.dieInstanceId ?? null;
         if (!copyId) bad("Pick the die copy that was used");
         if (input.dieInstanceId && run.dieInstanceId && input.dieInstanceId !== run.dieInstanceId) bad(`${run.number} has another copy issued`);
-        const [copy] = await ctx.db
-          .select({ sectionId: dieInstance.sectionId, status: dieInstance.status })
-          .from(dieInstance)
-          .where(and(eq(dieInstance.id, copyId!), eq(dieInstance.companyId, ctx.companyId)))
-          .limit(1);
-        if (!copy) throw new TRPCError({ code: "NOT_FOUND", message: "Die copy not found" });
-        if (copy.sectionId !== run.sectionId) bad(`That copy is not of the die ${run.number} needs`);
-        if (copy.status === "retired") bad("That copy is retired");
+        // I-1: the copy is checked as an issue would check it (status, open issue, owner).
+        await assertLateEntryCopy(ctx.db, ctx.companyId, { copyId: copyId!, run });
         runId = run.id;
         number = run.number;
         statements.push(
@@ -819,18 +831,13 @@ export const pressRunRouter = router({
         );
       } else {
         const [line] = await ctx.db
-          .select({ id: pressLine.id, status: pressLine.status })
+          .select({ id: pressLine.id, code: pressLine.code, status: pressLine.status })
           .from(pressLine)
           .where(and(eq(pressLine.id, input.pressLineId!), eq(pressLine.companyId, ctx.companyId)))
           .limit(1);
         if (!line) throw new TRPCError({ code: "NOT_FOUND", message: "Press line not found" });
-        const [copy] = await ctx.db
-          .select({ sectionId: dieInstance.sectionId, status: dieInstance.status })
-          .from(dieInstance)
-          .where(and(eq(dieInstance.id, input.dieInstanceId!), eq(dieInstance.companyId, ctx.companyId)))
-          .limit(1);
-        if (!copy) throw new TRPCError({ code: "NOT_FOUND", message: "Die copy not found" });
-        if (copy.status === "retired") bad("That copy is retired");
+        if (line.status !== "active") bad(`${line.code} is retired`);
+        const copy = await assertLateEntryCopy(ctx.db, ctx.companyId, { copyId: input.dieInstanceId!, run: null });
         runId = crypto.randomUUID();
         const doc = await nextDocNumber(ctx.db, ctx.companyId, "press_run", at, userId);
         number = doc.number;
@@ -856,7 +863,13 @@ export const pressRunRouter = router({
         subjectId: runId,
         serverSeq: seq,
         requestNote: input.reason,
-        meta: { reason: input.reason, productionDay: shift.productionDay, shiftSeq: shift.shiftSeq, runNumber: number },
+        meta: {
+          reason: input.reason,
+          productionDay: shift.productionDay,
+          shiftSeq: shift.shiftSeq,
+          runNumber: number,
+          ...(input.clientMutationId ? { clientMutationId: input.clientMutationId } : {}),
+        },
         guard: { from: pressRun, where: and(eq(pressRun.id, runId), eq(pressRun.serverSeq, seq)) },
       });
       statements.push(
@@ -1115,17 +1128,29 @@ export const pressRunRouter = router({
     .mutation(async ({ ctx, input }) => {
       const run = await loadRun(ctx.db, ctx.companyId, input.id);
       requireStatus(run, ["counting"], "pieces are entered while counting");
-      const planLineIds = [...new Set(input.rows.map((r) => r.pressPlanLineId).filter((x): x is string => Boolean(x)))];
-      const planLines = new Map<string, string>();
-      if (planLineIds.length > 0) {
-        if (run.purpose !== "production" || !run.pressPlanDieId) bad("A trial or sample run has no order lines");
-        const rows = await ctx.db
-          .select({ id: pressPlanLine.id, salesOrderLineId: pressPlanLine.salesOrderLineId })
-          .from(pressPlanLine)
-          .where(and(eq(pressPlanLine.companyId, ctx.companyId), eq(pressPlanLine.pressPlanDieId, run.pressPlanDieId!), inArray(pressPlanLine.id, planLineIds)));
-        for (const r of rows) planLines.set(r.id, r.salesOrderLineId);
-        if (planLines.size !== planLineIds.length) bad("An order line is not on this run's plan");
-      }
+      const named = input.rows.some((r) => r.pressPlanLineId);
+      if (named && (run.purpose !== "production" || !run.pressPlanDieId)) bad("A trial or sample run has no order lines");
+      // I-3 (FP-PR-16): on a production run whose plan die has order lines, every row counts
+      // against one. A row without one takes the plan's single line of that cut length; with none
+      // or several of that length the station must pick.
+      const planRows =
+        run.purpose === "production" && run.pressPlanDieId
+          ? await ctx.db
+              .select({ id: pressPlanLine.id, salesOrderLineId: pressPlanLine.salesOrderLineId, cutLengthMm: pressPlanLine.cutLengthMm })
+              .from(pressPlanLine)
+              .where(and(eq(pressPlanLine.companyId, ctx.companyId), eq(pressPlanLine.pressPlanDieId, run.pressPlanDieId)))
+          : [];
+      const planLines = new Map(planRows.map((r) => [r.id, r.salesOrderLineId]));
+      const mapped = input.rows.map((r) => {
+        if (r.pressPlanLineId) {
+          if (!planLines.has(r.pressPlanLineId)) bad("An order line is not on this run's plan");
+          return r;
+        }
+        if (planRows.length === 0) return r;
+        const same = planRows.filter((pl) => pl.cutLengthMm === r.cutLengthMm);
+        if (same.length !== 1) bad(`Pick the order line for ${r.cutLengthMm} mm`);
+        return { ...r, pressPlanLineId: same[0]!.id };
+      });
       const at = clockNow();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const userId = ctx.session.user.id;
@@ -1148,7 +1173,7 @@ export const pressRunRouter = router({
                 updatedAt: sql`excluded.updated_at`,
               },
             }),
-        input.rows.map((r, i) => ({
+        mapped.map((r, i) => ({
           id: crypto.randomUUID(),
           companyId: ctx.companyId,
           serverSeq: seq,
@@ -1321,7 +1346,7 @@ export const pressRunRouter = router({
     }),
 
   /** Signed link to the section's press drawing (FP-PR-14); `url` null when the section has none. */
-  drawing: companyProcedure.input(z.object({ id })).query(async ({ ctx, input }) => {
+  drawing: anyActionProcedure("press.run", "press.close", "die.issue").input(z.object({ id })).query(async ({ ctx, input }) => {
     const run = await loadRun(ctx.db, ctx.companyId, input.id);
     if (!run.drawingKey) return { url: null, expiresAt: null };
     return signDieFileUrl(ctx, ctx.companyId, run.drawingKey);
@@ -1375,7 +1400,20 @@ export const pressRunRouter = router({
       const firstLine = (await lastLedgerLine(ctx.db, ctx.companyId, run.id)) + 1;
       const trialResult = run.purpose === "die_trial" ? (input.trialResult ?? run.trialResult) : null;
       const handoff = await issueAtClose(ctx as Ctx, run, trialResult);
+      const trialCopy =
+        run.purpose === "die_trial" && run.dieInstanceId
+          ? ((
+              await ctx.db
+                .select({ id: dieInstance.id, code: dieInstance.code, status: dieInstance.status })
+                .from(dieInstance)
+                .where(and(eq(dieInstance.id, run.dieInstanceId), eq(dieInstance.companyId, ctx.companyId)))
+                .limit(1)
+            )[0] ?? null)
+          : null;
       const at = clockNow();
+      // D22: the full weighed kg is debited; the store must still hold what this read saw, so a
+      // shortfall never grows between the read and the write without being recorded.
+      const billetGuardG = Math.min(figures.inputG, castInfo.onHandG ?? 0);
       const shortReason = figures.short ? (input.billetShortReason ?? run.billetShortReason) : (input.billetShortReason ?? run.billetShortReason ?? null);
       const statements: SqliteBatchItem[] = [
         ctx.db
@@ -1390,6 +1428,7 @@ export const pressRunRouter = router({
             recoveryBp: figures.recoveryBp,
             balanceG: figures.balanceG,
             billetShortReason: shortReason,
+            billetShortG: figures.billetShortG,
             supervisorId: run.supervisorId ?? callerId,
             trialResult,
             ...(input.clientMutationId ? { clientMutationId: input.clientMutationId } : {}),
@@ -1424,6 +1463,7 @@ export const pressRunRouter = router({
         plantScrapLocationId: plantScrap?.id ?? null,
         streams,
         inputG: figures.inputG,
+        billetGuardG,
         discardG: run.discardG ?? 0,
         endsG: run.endsG ?? 0,
         rejectG: figures.rejectG,
@@ -1445,35 +1485,36 @@ export const pressRunRouter = router({
           pressAbortUnless(ctx.db, runLanded(handoff.carryTo.id, seq, "die_issued")),
         );
       } else if (handoff.issue) {
-        // die_trial: pass → available (trialPass), fail → on_trial (trialReturn); else available.
-        const copyTo = run.purpose === "die_trial" && trialResult === "fail" ? "on_trial" : "available";
         statements.push(
           ctx.db
             .update(dieIssue)
             .set({ status: "returned", returnedAt: at, returnedBy: callerId, serverSeq: seq })
             .where(and(eq(dieIssue.id, handoff.issue.id), eq(dieIssue.companyId, ctx.companyId), eq(dieIssue.status, "issued"), runLogged)),
-          ctx.db
-            .update(dieInstance)
-            .set({ status: copyTo, serverSeq: seq })
-            .where(
-              and(
-                eq(dieInstance.id, run.dieInstanceId!),
-                eq(dieInstance.companyId, ctx.companyId),
-                eq(dieInstance.status, "in_use"),
-                sql`exists (select 1 from die_issue ri where ri.id = ${handoff.issue.id} and ri.status = 'returned' and ri.server_seq = ${seq})`,
-              ),
-            ),
         );
-      } else if (run.purpose === "die_trial" && run.dieInstanceId) {
-        // A trial with no open issue (late entry): the verdict still moves an on_trial copy.
-        if (trialResult === "pass") {
+        if (trialCopy && trialResult) {
+          // die_trial: the copy goes back on trial, and a pass takes it to the rack (lib/dieTrial).
+          statements.push(
+            ...trialVerdictStatements(ctx, { run: { id: run.id, number: run.number }, copy: trialCopy, verdict: trialResult, seq, returnedIssueId: handoff.issue.id }),
+          );
+        } else {
           statements.push(
             ctx.db
               .update(dieInstance)
               .set({ status: "available", serverSeq: seq })
-              .where(and(eq(dieInstance.id, run.dieInstanceId), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.status, "on_trial"), runLogged)),
+              .where(
+                and(
+                  eq(dieInstance.id, run.dieInstanceId!),
+                  eq(dieInstance.companyId, ctx.companyId),
+                  eq(dieInstance.status, "in_use"),
+                  sql`exists (select 1 from die_issue ri where ri.id = ${handoff.issue.id} and ri.status = 'returned' and ri.server_seq = ${seq})`,
+                ),
+              ),
           );
         }
+      } else if (trialCopy && trialResult) {
+        // A trial with no open issue (late entry, or the close after a reopen): the verdict still
+        // moves the copy (pass: on_trial → available; fail: available → on_trial).
+        statements.push(...trialVerdictStatements(ctx, { run: { id: run.id, number: run.number }, copy: trialCopy, verdict: trialResult, seq, returnedIssueId: null }));
       }
       statements.push(
         auditInsertGuarded(
@@ -1505,7 +1546,7 @@ export const pressRunRouter = router({
           const now = await loadRun(ctx.db, ctx.companyId, run.id);
           if (now.status === "counting" && now.serverSeq === run.serverSeq && run.castId) {
             const onHand = await castOnHand(ctx.db, ctx.companyId, run.castId);
-            if ((onHand.onHandG ?? 0) < figures.inputG) {
+            if ((onHand.onHandG ?? 0) < billetGuardG) {
               throw new TRPCMetaError({
                 code: "CONFLICT",
                 message: `Only ${((onHand.onHandG ?? 0) / 1000).toFixed(3)} kg of cast ${onHand.number} is left in the billet store now. Check the billets and log again.`,

@@ -267,6 +267,17 @@ export function castBilletsOnHandSql(companyId: string, castId: SQL): SQL<number
   ), 0)`;
 }
 
+/**
+ * D22: billets the press weighed and logged beyond what the store held (Σ `press_run.billet_short_g`
+ * of the cast's logged runs). Above 0 the cast shows "billets short by N kg" for the close-out.
+ */
+export function castBilletsShortSql(companyId: string, castId: SQL): SQL<number> {
+  return sql<number>`coalesce((
+    select sum(sr.billet_short_g) from press_run sr
+    where sr.company_id = ${companyId} and sr.cast_id = ${castId} and sr.status = 'logged'
+  ), 0)`;
+}
+
 /** Bundles packed from the cast that still count (void bundles never existed; RP11). */
 export function castBundlesSql(companyId: string, castId: SQL): SQL<number> {
   return sql<number>`coalesce((
@@ -306,6 +317,8 @@ export type CastCloseout = CastTail & {
   bundlesG: number;
   pressReturnsG: number;
   billetsOnHandG: number;
+  /** D22: billets logged by the press beyond what the store held (0 when none). */
+  billetsShortG: number;
 };
 
 /** Live close-out figures of one cast (scoped to the company; zeros for an unknown id). */
@@ -321,6 +334,7 @@ export async function castCloseout(db: OrrnDb, companyId: string, castId: string
       bundlesG: castBundlesSql(companyId, id),
       pressReturnsG: castPressReturnsSql(companyId, id),
       billetsOnHandG: castBilletsOnHandSql(companyId, id),
+      billetsShortG: castBilletsShortSql(companyId, id),
     })
     .from(company)
     .where(eq(company.id, companyId))
@@ -335,7 +349,7 @@ export async function castCloseout(db: OrrnDb, companyId: string, castId: string
     pressReturnsG: n(row?.pressReturnsG),
     billetsOnHandG: n(row?.billetsOnHandG),
   };
-  return { ...parts, excessBurnG: n(row?.lossG) - parts.allowedBurnG, ...castTail(parts) };
+  return { ...parts, billetsShortG: n(row?.billetsShortG), excessBurnG: n(row?.lossG) - parts.allowedBurnG, ...castTail(parts) };
 }
 
 // ---------------------------------------------------------------------------

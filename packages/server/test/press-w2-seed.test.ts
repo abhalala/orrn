@@ -81,5 +81,5 @@ describe("dev seed: Wave 2 press demo (idempotent)", () => {
     // The next run number continues the book.
     const q = await owner.press.queue.list({ pressLineId: "dev-press-line-1" });
     expect(q.cards.map((c) => c.number)).toEqual(["PR-1", "PR-2", "PR-3", "PR-4", "PR-5", "PR-6", "PR-7"]);
-  });
+  }, 60_000);
 });

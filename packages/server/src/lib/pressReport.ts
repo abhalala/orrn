@@ -176,7 +176,7 @@ export async function pressReport(db: OrrnDb, companyId: string, filter: PressRe
     ids,
     (part) =>
       db
-        .select({ runId: pressDowntime.pressRunId, code: reasonCode.code, startedAt: pressDowntime.startedAt, stoppedAt: pressDowntime.stoppedAt })
+        .select({ runId: pressDowntime.pressRunId, code: reasonCode.code, label: reasonCode.label, startedAt: pressDowntime.startedAt, stoppedAt: pressDowntime.stoppedAt })
         .from(pressDowntime)
         .innerJoin(reasonCode, and(eq(reasonCode.id, pressDowntime.reasonCodeId), eq(reasonCode.companyId, pressDowntime.companyId)))
         .where(and(eq(pressDowntime.companyId, companyId), inArray(pressDowntime.pressRunId, part))),
@@ -191,12 +191,16 @@ export async function pressReport(db: OrrnDb, companyId: string, filter: PressRe
     if (l.orderNumber && !v.orders.includes(l.orderNumber)) v.orders.push(l.orderNumber);
     linesBy.set(l.runId, v);
   }
-  const downBy = new Map<string, { min: number; codes: string[] }>();
+  const downBy = new Map<string, { min: number; codes: string[]; labels: string[] }>();
   for (const d of downtime) {
     if (!d.runId) continue;
-    const v = downBy.get(d.runId) ?? { min: 0, codes: [] };
+    const v = downBy.get(d.runId) ?? { min: 0, codes: [], labels: [] };
     v.min += minutes(d.startedAt, d.stoppedAt, nowMs);
-    if (!v.codes.includes(d.code)) v.codes.push(d.code);
+    if (!v.codes.includes(d.code)) {
+      v.codes.push(d.code);
+      // m-9: the cell shows the reason's label (ORRN wording), the row keeps the codes.
+      v.labels.push(d.label);
+    }
     downBy.set(d.runId, v);
   }
 
@@ -204,7 +208,7 @@ export async function pressReport(db: OrrnDb, companyId: string, filter: PressRe
   const rows = page.map((r) => {
     const b = billetBy.get(r.id) ?? { count: 0, kgG: 0 };
     const l = linesBy.get(r.id) ?? { cuts: [], pcs: 0, orders: [] };
-    const d = downBy.get(r.id) ?? { min: 0, codes: [] };
+    const d = downBy.get(r.id) ?? { min: 0, codes: [], labels: [] };
     const spanMin = r.startedAt && r.stoppedAt ? Math.max(0, Math.round((r.stoppedAt.getTime() - r.startedAt.getTime()) / 60_000)) : 0;
     const scrapG = num(r.discardG) + num(r.endsG) + num(r.rejectG);
     const purpose = r.purpose ?? "production";
@@ -222,7 +226,7 @@ export async function pressReport(db: OrrnDb, companyId: string, filter: PressRe
       billets: `${b.count} / ${kg(b.kgG)}`,
       startedStopped: `${hhmm(timezone, r.startedAt)}–${hhmm(timezone, r.stoppedAt)}`,
       runningMin: String(Math.max(0, spanMin - d.min)),
-      downtimeMin: d.codes.length ? `${d.min} (${d.codes.join(", ")})` : String(d.min),
+      downtimeMin: d.labels.length ? `${d.min} (${d.labels.join(", ")})` : String(d.min),
       good: `${kg(num(r.goodG))} / ${l.pcs}`,
       scrap: kg(scrapG),
       recovery: r.recoveryBp == null ? "" : bpPercent1(r.recoveryBp),
@@ -271,6 +275,7 @@ export async function pressReport(db: OrrnDb, companyId: string, filter: PressRe
 
   const goodG = rows.reduce((s, r) => s + r.goodG, 0);
   const inputG = rows.reduce((s, r) => s + r.inputG, 0);
+  const prod = productionFigures(rows);
   const totals = {
     runs: rows.length,
     goodG,
@@ -278,11 +283,22 @@ export async function pressReport(db: OrrnDb, companyId: string, filter: PressRe
     pcs: rows.reduce((s, r) => s + r.pcs, 0),
     scrapG: rows.reduce((s, r) => s + r.scrapG, 0),
     downtimeMin: rows.reduce((s, r) => s + r.downtimeMin, 0),
-    recoveryBp: recoveryBp(goodG, inputG),
+    // m-10: recovery is the production KPI; trial, sample and other runs stay as their own rows.
+    recoveryBp: prod.recoveryBp,
+    productionGoodG: prod.goodG,
+    productionInputG: prod.inputG,
     lateRuns: rows.filter((r) => r.lateEntry).length,
     lateShareBp: rows.length ? Math.round((rows.filter((r) => r.lateEntry).length * 10_000) / rows.length) : 0,
   };
   return { columns: PRESS_REPORT_COLUMNS, rows, totals, lateShare: lateShareOf(rows), more };
+}
+
+/** Production runs only (m-10): trial, sample and other runs do not pull the recovery KPI down. */
+function productionFigures(rows: readonly { purpose: string; goodG: number; inputG: number }[]) {
+  const prod = rows.filter((r) => r.purpose === "production");
+  const goodG = prod.reduce((s, r) => s + r.goodG, 0);
+  const inputG = prod.reduce((s, r) => s + r.inputG, 0);
+  return { goodG, inputG, recoveryBp: recoveryBp(goodG, inputG) };
 }
 
 /** FP-PR-24: late entries per (shift, operator), share by runs. */
@@ -372,7 +388,7 @@ export async function pressDaySummary(db: OrrnDb, companyId: string, day: string
         kgG: goodG,
         inputG,
         pcs: rs.reduce((s, r) => s + r.pcs, 0),
-        recoveryBp: recoveryBp(goodG, inputG),
+        recoveryBp: productionFigures(rs).recoveryBp,
         downtimeMin: downByLine.get(l.id) ?? 0,
       };
     })
@@ -382,7 +398,7 @@ export async function pressDaySummary(db: OrrnDb, companyId: string, day: string
     const rs = report.rows.filter((r) => r.shiftSeq === seq);
     const goodG = rs.reduce((s, r) => s + r.goodG, 0);
     const inputG = rs.reduce((s, r) => s + r.inputG, 0);
-    return { shiftSeq: seq, shiftName: rs[0]?.shiftName ?? null, runs: rs.length, kgG: goodG, inputG, recoveryBp: recoveryBp(goodG, inputG), lateRuns: rs.filter((r) => r.lateEntry).length };
+    return { shiftSeq: seq, shiftName: rs[0]?.shiftName ?? null, runs: rs.length, kgG: goodG, inputG, recoveryBp: productionFigures(rs).recoveryBp, lateRuns: rs.filter((r) => r.lateEntry).length };
   });
   return {
     productionDay: day,

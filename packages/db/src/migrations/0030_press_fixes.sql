@@ -1,0 +1,1 @@
+ALTER TABLE `press_run` ADD `billet_short_g` integer;
