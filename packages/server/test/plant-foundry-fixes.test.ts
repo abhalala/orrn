@@ -172,7 +172,8 @@ describe("dev seed: the reset knows the foundry tables", () => {
     expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
     // Only the seed's own cast (W2-PR-S press demo, billets on hand) comes back; the app-made one is gone.
     expect((await env.db.select({ id: cast.id }).from(cast).where(eq(cast.companyId, companyId))).map((c) => c.id)).toEqual(["dev-press-cast-1"]);
-    expect(await env.db.select().from(melt).where(eq(melt.companyId, companyId))).toEqual([]);
+    // Only the seed's own melt (BACKLOG 46: the spectro inbox demo needs one to attach to) is left.
+    expect((await env.db.select({ id: melt.id }).from(melt).where(eq(melt.companyId, companyId))).map((m) => m.id)).toEqual(["dev-melt-1"]);
     // Wave 2 contracts: the seed puts back the foundry sheet's 11 streams (fresh rows, none the app made).
     const streams = await env.db.select().from(returnStream).where(eq(returnStream.companyId, companyId));
     expect(streams.map((r) => r.code).sort()).toEqual(
