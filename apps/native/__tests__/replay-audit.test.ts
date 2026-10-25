@@ -47,12 +47,13 @@ const KEYED: Record<string, Keyed> = {
   "bundle.createReceipt": { how: "replay-key", field: "clientRequestId", server: "bundle.ts", leaf: "createReceipt", sendsIn: "app/(tabs)/pack/new.tsx", model: "withRequestKey (session nonce + payload hash; pack-submit.test.ts)" },
   "dispatch.scan": { how: "replay-key", field: "clientRequestId", server: "dispatch.ts", leaf: "scan", sendsIn: "app/(tabs)/dispatch/[id].tsx", model: "replayKey + sendOnce" },
   "dispatch.addBundlesBySerial": { how: "replay-key", field: "clientRequestId", server: "dispatch.ts", leaf: "addBundlesBySerial", sendsIn: "features/bundle/add-to-dispatch-sheet.tsx", model: "replayKey (also features/scan/scan-view.tsx: replayKey + sendOnce)" },
+  "dispatch.create": { how: "replay-key", field: "clientRequestId", server: "dispatch.ts", leaf: "create", sendsIn: "app/(tabs)/dispatch/new.tsx", model: "replayKey + sendOnce (BACKLOG 47)" },
+  "dieInstance.addReading": { how: "replay-key", field: "clientRequestId", server: "dieInstance.ts", leaf: "addReading", sendsIn: "features/dies/reading-panel.tsx", model: "replayKey + sendOnce (BACKLOG 47)" },
   "orders.create": { how: "replay-key", field: "clientRequestId", server: "salesOrder.ts", leaf: "create", sendsIn: "features/orders/booking-screen.tsx", model: "bookingSubmit -> replayKey" },
 };
 
 /** Writes the server gives no replay key. Each says what stops a second send doing harm; the screens re-read after an unsure answer instead of resending. */
 const GUARDED: Record<string, Guarded> = {
-  "dispatch.create": { how: "guarded", server: "dispatch.ts", leaf: "create", guard: "NO KEY on the server (BACKLOG: add one). A lost reply may leave an empty draft dispatch; the screen says 'not sure it saved' and sends the person to the Dispatch list, never auto-resends." },
   "dispatch.reserve": { how: "guarded", server: "dispatch.ts", leaf: "reserve", guard: "state move draft to reserved: a second call is refused by the status guard" },
   "dispatch.unreserve": { how: "guarded", server: "dispatch.ts", leaf: "unreserve", guard: "state move: a second call is refused by the status guard" },
   "dispatch.complete": { how: "guarded", server: "dispatch.ts", leaf: "complete", guard: "state move to completed: a second call is refused by the status guard; stock postings are written once with the move" },
@@ -62,8 +63,7 @@ const GUARDED: Record<string, Guarded> = {
   "dispatch.setItemGroupLabel": { how: "guarded", server: "dispatch.ts", leaf: "setItemGroupLabel", guard: "sets an absolute label; the same value twice is the same state" },
   "packingList.regenerate": { how: "guarded", server: "packingList.ts", leaf: "regenerate", guard: "builds a new revision from the dispatch; a repeat makes the next revision of the same content (a revision trail, no stock effect)" },
   "bundle.transitionStatus": { how: "guarded", server: "bundle.ts", leaf: "transitionStatus", guard: "available <-> void move: a second call is refused by the status guard" },
-  "spool.printBundleLabel": { how: "guarded", server: "spool.ts", leaf: "printBundleLabel", guard: "a reprint is a new label by design; the button is disabled while a send is pending (bundle-screen.tsx isPending), so a double tap prints once" },
-  "dieInstance.addReading": { how: "guarded", server: "dieInstance.ts", leaf: "addReading", guard: "NO KEY on the server. An unsure answer says 'check the card first' (dieErrorText), the reading list on the card is the check; the keypad clears only after the server answers" },
+  "spool.printBundleLabel": { how: "guarded", server: "spool.ts", leaf: "printBundleLabel", guard: "BACKLOG 44: the spool job key (bundle:<serial>:label:v<version>:attempt:<n>) is built on the server; this button is an explicit reprint (reprint: true = attempt + 1) and is disabled while a send is pending, so a double tap prints once" },
   "dieInstance.nitridingOut": { how: "guarded", server: "dieInstance.ts", leaf: "nitridingOut", guard: "state move: a second call is refused 'is out at nitriding' (die_instance status guard)" },
   "dieInstance.nitridingBack": { how: "guarded", server: "dieInstance.ts", leaf: "nitridingBack", guard: "state move: a second call is refused 'is not out at nitriding'" },
   "dieInstance.issues.issue": { how: "guarded", server: "dieIssue.ts", leaf: "issue", guard: "one open issue per copy (partial unique index): a second call is refused 'is already issued to'" },

@@ -8,6 +8,29 @@
 
 import { signSpoolRequest } from "./spool-crypto";
 
+/** A non-2xx answer from the spool, with its status and the body text (for `job_key_conflict` and the like). */
+export class SpoolHttpError extends Error {
+  constructor(
+    readonly method: string,
+    readonly path: string,
+    readonly status: number,
+    readonly bodyText: string,
+  ) {
+    super(`Spool ${method} ${path} failed: ${status} ${bodyText}`);
+    this.name = "SpoolHttpError";
+  }
+
+  /** The `error` code of a JSON body (`job_key_conflict`, `invalid_job_key`), or null. */
+  get code(): string | null {
+    try {
+      const body = JSON.parse(this.bodyText) as { error?: unknown };
+      return typeof body.error === "string" ? body.error : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
 /** Spool API response types — mirrors the Go structs in orrn-spool. */
 
 export interface SpoolPrinter {
@@ -174,8 +197,13 @@ export class SpoolClient {
     variables: Record<string, string>;
     copies: number;
     priority?: number;
-  }): Promise<{ id: number }> {
-    return this.post<{ id: number }>("/api/jobs", job);
+    /**
+     * Exactly-once key (orrn-spool docs/print-exactly-once.md): a repeat of the same label answers
+     * `200 { duplicate: true }` with the FIRST job's id; other content under the key is `409 job_key_conflict`.
+     */
+    job_key?: string;
+  }): Promise<{ id: number; duplicate?: boolean }> {
+    return this.post<{ id: number; duplicate?: boolean }>("/api/jobs", job);
   }
 
   async getJobStatus(jobId: number): Promise<SpoolJobStatus> {
@@ -235,7 +263,7 @@ export class SpoolClient {
       body: bodyBytes,
     });
     if (!res.ok) {
-      throw new Error(`Spool POST ${path} failed: ${res.status} ${await res.text()}`);
+      throw new SpoolHttpError("POST", path, res.status, await res.text());
     }
     return res.json() as Promise<T>;
   }

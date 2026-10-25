@@ -95,7 +95,7 @@ export function BundleActions({
             <Button
               variant="secondary"
               loading={reprint.isPending}
-              onClick={() => reprint.mutate({ bundleId: bundle.id })}
+              onClick={() => reprint.mutate({ bundleId: bundle.id, reprint: true })}
             >
               {reprint.isPending ? null : <Printer aria-hidden="true" strokeWidth={2} />}
               {t("bundle.reprint")}

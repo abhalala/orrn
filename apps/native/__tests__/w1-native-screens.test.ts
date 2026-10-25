@@ -44,14 +44,15 @@ describe("die room procedures (shapes from the dieInstance routers)", () => {
 
   test("the phone never sends a derived number: a reading is only the typed weight", () => {
     const reading = read("features/dies/reading-panel.tsx");
-    expect(reading).toMatch(/add\.mutateAsync\(\{ dieInstanceId: copyId, kgPer12ftMilli: milli \}\)/);
+    expect(reading).toMatch(/const body = \{ dieInstanceId: copyId, kgPer12ftMilli: milli \}/);
+    expect(reading).toMatch(/add\.mutateAsync\(\{ \.\.\.body, clientRequestId \}\)/);
   });
 
   test("a failed save keeps what was typed: the keypad is cleared only after the server answered", () => {
     const reading = read("features/dies/reading-panel.tsx");
     const tryBlock = reading.slice(reading.indexOf("try {"), reading.indexOf("} catch"));
     const catchBlock = reading.slice(reading.indexOf("} catch"));
-    expect(tryBlock).toMatch(/await add\.mutateAsync[\s\S]*setText\(""\)/);
+    expect(tryBlock).toMatch(/await sendOnce[\s\S]*add\.mutateAsync[\s\S]*setText\(""\)/);
     expect(catchBlock).not.toMatch(/setText\(""\)/);
   });
 

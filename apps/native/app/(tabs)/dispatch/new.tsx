@@ -1,7 +1,7 @@
 import { useT } from "@orrn/i18n";
 import { useMutation } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Text, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Screen } from "@/components/ui/screen";
 import { announce } from "@/lib/a11y";
 import { zoneOf } from "@/lib/format";
 import { feedback } from "@/lib/feedback";
+import { randomId } from "@/lib/random-id";
+import { replayKey, sendOnce, type ReplayAttempt } from "@/lib/replay-key";
 import { saveErrorText } from "@/lib/save-error";
 import { useMe } from "@/utils/me";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -24,14 +26,16 @@ type ShipKind = ShipDateChoice["kind"];
 /**
  * New dispatch: pick the customer, say when it ships (no date, today,
  * tomorrow or a typed day) and add a note. Create opens the new dispatch to
- * build. `dispatch.create` takes no request id, so when a save is unsure the
- * person is told to look in the Dispatch list before trying again.
+ * build. BACKLOG 47: Create carries a `clientRequestId`; a lost reply is sent once more with the
+ * same key and the server answers the first dispatch, never a second one. A save that is still
+ * unsure after that tells the person to look in the Dispatch list (or tap Create again: same key).
  */
 export default function NewDispatchScreen() {
   const { t } = useT();
   const router = useRouter();
   const me = useMe();
   const create = useMutation(trpc.dispatch.create.mutationOptions());
+  const attempt = useRef<ReplayAttempt>(null);
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);
   const [kind, setKind] = useState<ShipKind>("none");
   const [typed, setTyped] = useState("");
@@ -49,7 +53,11 @@ export default function NewDispatchScreen() {
     setProblem(null);
     if (!customer || shipDate === undefined) return;
     try {
-      const created = await create.mutateAsync({ customerId: customer.id, shipDate, notes: notes.trim() || null });
+      const body = { customerId: customer.id, shipDate, notes: notes.trim() || null };
+      const next = replayKey(attempt.current, body, randomId);
+      attempt.current = next.attempt;
+      const created = await sendOnce((clientRequestId) => create.mutateAsync({ ...body, clientRequestId }), next.id);
+      attempt.current = null;
       feedback.success();
       announce(t("native.dispatch.createdNote"));
       void queryClient.invalidateQueries(trpc.dispatch.pathFilter());

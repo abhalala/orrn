@@ -215,7 +215,7 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
     vars: (m) => ({ order: m[1]!, n: m[2]!, asked: m[3]!, left: m[4]! }),
   },
   { id: "addOneLine", re: /^Add at least one (?:order line|die and order line)$/ },
-  { id: "trialNoLines", re: /^A trial or sample plan takes no order lines$/ },
+  { id: "trialNoLines", re: /^(?:A trial or sample plan takes no order lines|Only a production plan takes order lines)$/ },
   { id: "dieTwice", re: /^A die is on the plan twice; put its lines under one die$/ },
   { id: "lineTwicePlan", re: /^An order line is on the plan twice$/ },
   { id: "maxLines", re: /^At most (\d+) order lines on a plan$/, vars: (m) => ({ max: m[1]! }) },
