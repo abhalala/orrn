@@ -201,14 +201,6 @@ bun run --cwd apps/server dev:local
 curl -XPOST localhost:${E2E_API_PORT:-3000}/dev/seed
 ```
 
-Inspect the local database:
-
-```bash
-cd apps/server
-bunx wrangler d1 execute orrn-local --local -c wrangler.local.jsonc \
-  --command "select status, count(*) from bundle group by status"
-```
-
 ## Dev accounts
 
 > Pending merge: the full list below comes with `wt/W2-SEED` (MERGER-11). Until it is on this branch the seed creates only `owner`, `operator`, `viewer` and `staff`, and `docs/DEMO_PLANT.md` does not exist yet.
@@ -290,3 +282,12 @@ There is no Go on the Mac and the spool is not part of this repo. Its `go.mod` s
 unpacked into `/tmp` (`/tmp/fp-go124/go/bin/go`, with `GOPATH` and `GOCACHE` under `/tmp`), so nothing was installed:
 download `go1.24.x.darwin-arm64.tar.gz`, unpack it in a scratch directory, put its `bin` on `PATH` for the shell, and in
 the spool checkout run `go vet ./... && go build ./... && go test -race ./...`. For a real install use `brew install go`.
+
+## Inspect the local database
+
+```bash
+cd apps/server
+bunx wrangler d1 execute orrn-local --local -c wrangler.local.jsonc \
+  --command "select status, count(*) from bundle group by status"
+```
+
