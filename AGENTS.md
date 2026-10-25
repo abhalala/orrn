@@ -8,7 +8,7 @@ it, the test is named. When code and this file disagree, fix the file in the sam
 
 ## Project overview
 
-ORRN (domain: orrn.in) is built as a sellable multi-company ERP SaaS for manufactured inventory operations: dies, bundles, stock, label printing, dispatches, packing lists, customers, permissions, auditability, web app, and native iOS/iPadOS/Android apps. This is like a collection of ERP modules that can be setup with different tenants based on their needs. The first plant is FourCubes (aluminium extrusion): the flow is order, press plan, die issue, press, ageing, pack, dispatch, packing list, with the stock ledger balancing at every step. The foundry and ageing modules are PAUSED on a satellite machine (see Foundry and Ageing); everything else described here is built.
+ORRN (domain: orrn.in) is built as a sellable multi-company ERP SaaS for manufactured inventory operations: dies, bundles, stock, label printing, dispatches, packing lists, customers, permissions, auditability, web app, and native iOS/iPadOS/Android apps. This is like a collection of ERP modules that can be setup with different tenants based on their needs. The first plant is FourCubes (aluminium extrusion): the flow is order, press plan, die issue, press, ageing, pack, dispatch, packing list, with the stock ledger balancing at every step. The ageing module is PAUSED (see Ageing); the foundry (server and web) is built on the satellite lane and everything else described here is built.
 
 ## Stack
 
@@ -653,7 +653,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 
 ## Foundry (casts, melts, spectro, close-out)
 
-**The foundry web screens and the melt lock are PAUSED (D27): they were built on the omafranky satellite (`wt/W2-FD-S` @28a5a83, unpushed) and are not on this branch.** What main holds is the PL5 server (below), the pack cast picker and `receiptCast`, the press billet ledger, the portal certificate and the collector inbox. `/casts` and `/foundry/*` do not exist yet (the old `/preview/foundry*` URLs redirect to `/preview/coming-soon`; the fixture components stay in `features/preview` only for the lane); casts can be opened by API only. On resume the foundry migrations renumber after the current head.
+**Foundry web (W2-FD-W):** `/casts` (list, trace box), `/casts/new`, `/casts/$id` (tail panel, melts, trace tab, cost card for purchase readers, close and cancel), `/casts/$id/melt/$meltId` (the stepper; `$meltId` is a draft, a locked melt as a read-only sheet with the correction request, or `new`), `/casts/$id/certificate` (staff copy), `/casts/inbox`, `/foundry/stock`, `/masters/furnaces`, `/masters/alloys`, `/reports/foundry-yield`, the Today Foundry tile and the Foundry nav entry. Rules the tests hold: the screens import `@orrn/i18n/refusal-foundry` once, in `features/foundry/errors.ts` (every foundry screen reaches it through `foundryError` / `ErrorLine`; never show `error.message`), the lock gates come from the server's `melts.preview` of the SAVED draft (a spectro result or a save refreshes it) and are said through `GATE_KEY`, every figure stored (burn, yield, verdict, tail) is the server's (`melt-form.ts` only previews while typing and never sends one), selects inside a `Field` use `FieldSelect` (a bare `NativeSelect` has no accessible name), search parsers live in the no-import `features/foundry/search.ts`, and `foundry.*` is a lazy dictionary (the floor parts carry gu: `GU_FLOOR_NAMESPACES`; the certificate, masters and yield report read English in gu). `@orrn/domain` declares `sideEffects: false` so its foundry maths used by lazy screens does not enter the `/` closure. The `/preview/foundry*` URLs redirect to the real screens; the fixture components are gone.
 
 - Tables in `packages/db/src/schema/foundry.ts` (`return_stream`, `cast`, `melt`, `melt_input`,
   `melt_output`, `melt_chemical`, `spectro_result`); router `foundry` (`routers/foundry.ts`), shared
@@ -1209,8 +1209,8 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   `redirect` in `beforeLoad` to its real route (`apps/web/src/routes/_tenant/preview.*.tsx`, guarded by
   `tests/e2e/preview-redirects.spec.ts`). Keep those files so bookmarks keep working.
 - A module that is not built here yet gets `/preview/coming-soon?module=<slug>` (honest copy,
-  `comingSoon.*` in en and hi), never a fixture screen. `features/preview/{foundry,ageing}` and
-  `preview-frame.tsx` are kept only for the paused foundry and ageing lane; they have no route and no
+  `comingSoon.*` in en and hi), never a fixture screen. `features/preview/ageing` and
+  `preview-frame.tsx` are kept only for the paused ageing lane; they have no route and no
   nav entry. New work does not add to `features/preview` or `PREVIEW_MODULES`.
 - To promote a module, build the real route against tRPC, add it to `shell/nav-items.ts` with
   `requires`, and delete the fixtures it replaces; do not leave a demo copy beside it.

@@ -62,6 +62,7 @@ export function MeltSheet({ data, melt }: { data: CastData; melt: MeltRow }) {
         actions={<MeltChip m={melt} />}
       />
       {melt.status === "cancelled" ? <Note tone="red">{t("foundry.melt.cancelledNote")}</Note> : null}
+      {melt.status === "corrected" ? <Note testId="corrected-note">{t("foundry.melt.correctedNote")}</Note> : null}
       {melt.correctsMeltId ? (
         <Note testId="corrects-note">{t("foundry.melt.correctsNote", { n: data.melts.find((m) => m.id === melt.correctsMeltId)?.seq ?? "" })}</Note>
       ) : null}
@@ -126,7 +127,7 @@ export function MeltSheet({ data, melt }: { data: CastData; melt: MeltRow }) {
         ) : null}
       </Panel>
       <Panel id="melt-spectro" title={t("foundry.spectro.title")} actions={verdict ? <Chip tone={verdict === "pass" ? "green" : verdict === "fail" ? "red" : "amber"}>{t(`foundry.spectro.verdict.${verdict}`)}</Chip> : undefined}>
-        <SpectroPanel meltId={melt.status === "cancelled" ? null : melt.id} results={melt.spectro} limits={alloy?.limits ?? []} alloyCode={alloy?.code ?? melt.alloy} draft={false} />
+        <SpectroPanel meltId={melt.status === "cancelled" || melt.status === "corrected" ? null : melt.id} results={melt.spectro} limits={alloy?.limits ?? []} alloyCode={alloy?.code ?? melt.alloy} draft={false} />
       </Panel>
       {melt.status === "locked" && cast.status === "open" ? <Correction melt={melt} /> : null}
       <p className="sr-only">{locale}</p>

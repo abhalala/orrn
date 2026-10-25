@@ -270,13 +270,75 @@ for (const width of WIDTHS) {
 
       await page.getByTestId("close-cast").click();
       await expect(page.getByTestId("close-figures")).toContainText("100");
-      await expect(page.getByText("Every billet is accounted for.")).toBeVisible();
+      // The closer counts first: nothing is decided before the count is written.
+      await expect(page.getByText("Write the count to see the tail.")).toBeVisible();
+      await page.getByTestId("close-pcs").fill("4");
+      await page.getByTestId("close-kg").fill("100");
+      await expect(page.getByTestId("close-clean")).toBeVisible();
+      await expect(page.getByTestId("close-adjust")).toHaveText("No change to the ledger");
       await expect(page.getByTestId("close-reason")).toHaveCount(0);
       await page.getByTestId("close-confirm").click();
       await expect(page.getByText(`Cast ${cast.number} is closed`).first()).toBeVisible();
       await expect(page.getByTestId("cast-chips")).toContainText("Closed");
       await expect(page.getByTestId("close-cast")).toHaveCount(0);
       await expect(page.getByTestId("new-melt")).toHaveCount(0);
+    });
+
+    test("a count below the ledger needs a reason, moves the ledger to the count and closes", async ({ page }) => {
+      const api = await ownerApi();
+      const cast = await openOwnCast(api);
+      await lockOwnMelt(api, cast.id, { inKg: 120, logsKg: 100, drossKg: 4, feKg: 1 });
+      await api.dispose();
+      await open(page, `/casts/${cast.id}`, width, "supervisor");
+      await page.getByTestId("close-cast").click();
+      await page.getByTestId("close-pcs").fill("4");
+      await page.getByTestId("close-kg").fill("98");
+      await expect(page.getByTestId("close-tail")).toContainText("2");
+      await expect(page.getByTestId("close-adjust")).toContainText("-");
+      await expect(page.getByTestId("close-needs-approval")).toHaveCount(0);
+      await page.getByTestId("close-confirm").click();
+      await expect(page.getByText("Pick a reason.")).toBeVisible();
+      await page.getByTestId("close-reason").selectOption({ index: 2 });
+      await page.getByTestId("close-confirm").click();
+      await expect(page.getByText(`Cast ${cast.number} is closed`).first()).toBeVisible();
+      // The counted billets are what stays on hand.
+      await expect(page.getByTestId("fig-onhand")).toContainText("98");
+      await expect(page.getByTestId("fig-tail")).toContainText("0");
+    });
+
+    test("a count far below the ledger goes to a second person with the figures in front of them", async ({ page, browser }) => {
+      const api = await ownerApi();
+      const cast = await openOwnCast(api);
+      await lockOwnMelt(api, cast.id, { inKg: 120, logsKg: 100, drossKg: 4, feKg: 1 });
+      await api.dispose();
+      await open(page, `/casts/${cast.id}`, width, "supervisor");
+      await page.getByTestId("close-cast").click();
+      await page.getByTestId("close-pcs").fill("3");
+      await page.getByTestId("close-kg").fill("90");
+      await expect(page.getByTestId("close-needs-approval")).toBeVisible();
+      await page.getByTestId("close-reason").selectOption({ index: 2 });
+      await expect(page.getByTestId("close-confirm")).toHaveText("Send for approval");
+      await page.getByTestId("close-confirm").click();
+      await expect(page.getByText(`Close of cast ${cast.number} sent for approval`).first()).toBeVisible();
+      await expect(page.getByTestId("closing-note")).toBeVisible();
+      await expect(page.getByTestId("new-melt")).toHaveCount(0);
+
+      const ctx = await browser.newContext({ viewport: { width, height: 900 } });
+      const manager = await ctx.newPage();
+      await open(manager, "/approvals", width, "manager");
+      const item = manager.locator("main#main").locator("li, tr").filter({ hasText: `Close cast ${cast.number}` }).first();
+      await item.getByRole("button", { name: "Review" }).click();
+      const figures = manager.getByTestId("foundry-summary");
+      await expect(figures).toContainText("On hand by the ledger");
+      await expect(figures).toContainText("Counted by the closer");
+      await expect(figures).toContainText("90");
+      await expect(manager.getByRole("link", { name: "Open cast" })).toHaveAttribute("href", `/casts/${cast.id}`);
+      await manager.getByRole("button", { name: "Approve" }).click();
+      await expect(manager.getByText("Approved").first()).toBeVisible();
+      await ctx.close();
+      await page.reload();
+      await expect(page.getByTestId("cast-chips")).toContainText("Closed");
+      await expect(page.getByTestId("fig-onhand")).toContainText("90");
     });
 
     test("an empty cast can be cancelled by a supervisor, with a reason", async ({ page }) => {

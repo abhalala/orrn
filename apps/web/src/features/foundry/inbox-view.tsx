@@ -167,7 +167,7 @@ function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): voi
   });
   const castItems = (casts.data?.pages ?? []).flatMap((p) => p.items);
   const cast = useQuery({ ...trpc.foundry.casts.get.queryOptions({ id: castId }), enabled: file !== null && castId !== "", meta: INLINE_ERROR_META });
-  const melts = (cast.data?.melts ?? []).filter((m) => m.status !== "cancelled");
+  const melts = (cast.data?.melts ?? []).filter((m) => m.status !== "cancelled" && m.status !== "corrected");
   const picked = cast.data?.cast;
   const attach = useMutation(
     trpc.foundry.spectroInbox.attach.mutationOptions({

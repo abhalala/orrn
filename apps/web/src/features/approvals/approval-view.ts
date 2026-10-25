@@ -149,6 +149,10 @@ export function foundryFiguresOf(kind: ApprovalKind, meta: Record<string, unknow
   if (kind === "cast_close") {
     kg(num(m.producedG), "approvals.foundry.produced");
     kg(num(m.inputG), "approvals.foundry.metalIn");
+    kg(num(m.ledgerOnHandG), "approvals.foundry.ledgerOnHand");
+    kg(num(m.countedG), "approvals.foundry.counted");
+    const adjust = num(m.adjustG);
+    if (adjust !== null && adjust !== 0) rows.push({ labelKey: "approvals.foundry.adjust", value: `${adjust < 0 ? "-" : "+"}${moveKgText(Math.abs(adjust))} kg` });
     const tail = num(m.tailG);
     if (tail !== null) {
       const pct = bpPct(num(m.tailBp));

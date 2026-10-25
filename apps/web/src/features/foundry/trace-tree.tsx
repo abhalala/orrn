@@ -10,7 +10,7 @@ import { bundleDetailPath } from "@/shared/lib/paths";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { verdictTone } from "./model";
+import { MELT_TONE, verdictTone, type MeltStatus } from "./model";
 import { LoadFailed } from "./ui";
 
 /** One branch: a heading with a count, its rows below. */
@@ -57,12 +57,12 @@ export function TraceTree({ castId, highlight }: { castId: string; highlight?: s
           </ul>
         )}
       </Branch>
-      <Branch title={t("foundry.cast.trace.melts")} count={d.melts.filter((m) => m.status !== "cancelled").length} testId="trace-melts">
+      <Branch title={t("foundry.cast.trace.melts")} count={d.melts.filter((m) => m.status === "locked" || m.status === "draft").length} testId="trace-melts">
         <ul className={ROWS}>
           {d.melts.map((m) => (
             <li key={m.id} className={ROW}>
               <span className="font-semibold">{t("foundry.melt.number", { n: m.seq })}</span>
-              <Chip tone={m.status === "locked" ? "green" : m.status === "draft" ? "amber" : "red"}>{t(`foundry.melt.status.${m.status}`)}</Chip>
+              <Chip tone={MELT_TONE[m.status as MeltStatus] ?? "neutral"}>{t(`foundry.melt.status.${m.status}`)}</Chip>
               {m.furnaceCode ? <span className="font-mono">{m.furnaceCode}</span> : null}
               <span className="tabular-nums">{t("foundry.cast.trace.inLogs", { inKg: kgFromG(m.inputG), logs: kgFromG(m.logsG) })}</span>
               {m.status === "locked" ? (

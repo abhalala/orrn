@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 6089 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6107 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -3675,7 +3675,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (87)
+### approvals (90)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3716,6 +3716,9 @@ Please check, Lalubhai:
 | `foundry.logs` | Logs out | निकले लॉग |
 | `foundry.tail` | Tail | टेल |
 | `foundry.short` | Billets short | बिलेट कम |
+| `foundry.ledgerOnHand` | On hand by the ledger | खाते के हिसाब से हाथ में |
+| `foundry.counted` | Counted by the closer | बंद करने वाले ने गिने |
+| `foundry.adjust` | Ledger moves by | खाता इतना हिलेगा |
 | `openCast` | Open cast | कास्ट खोलें |
 | `openMelt` | Open melt | मेल्ट खोलें |
 | `move.title` | What moves | क्या जा रहा है |
@@ -5138,7 +5141,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (529)
+### foundry (544)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5352,7 +5355,21 @@ Please check, Lalubhai:
 | `cast.close.title` | Close cast {number} | कास्ट {number} बंद करें |
 | `cast.close.confirm` | Close cast | कास्ट बंद करें |
 | `cast.close.askButton` | Send for approval | मंज़ूरी के लिए भेजें |
-| `cast.close.clean` | Every billet is accounted for. | हर बिलेट का हिसाब पूरा है। |
+| `cast.close.clean` | The count matches the ledger. Every billet is accounted for. | गिनती खाते से मिलती है। हर बिलेट का हिसाब पूरा है। |
+| `cast.close.countTitle` | Count the billets left | बचे हुए बिलेट गिनें |
+| `cast.close.countHint` | Count the billets of this cast still in the yard and weigh them. The tail is worked out from your count. | इस कास्ट के जो बिलेट अभी यार्ड में हैं, गिनकर तौलें। टेल आपकी गिनती से निकलती है। |
+| `cast.close.pcs` | Billets counted (pieces) | गिने बिलेट (पीस) |
+| `cast.close.kg` | Billets counted (kg) | गिने बिलेट (kg) |
+| `cast.close.pcsInvalid` | Write the number of billets, 0 if none. | बिलेट की संख्या लिखें, न हों तो 0। |
+| `cast.close.kgInvalid` | Write the weight in kg, 0 if none. | वज़न kg में लिखें, न हो तो 0। |
+| `cast.close.together` | Pieces and kg go together: both zero or both above zero. | पीस और kg साथ चलते हैं: दोनों शून्य या दोनों शून्य से ऊपर। |
+| `cast.close.ledgerOnHand` | On hand by the ledger | खाते के हिसाब से हाथ में |
+| `cast.close.counted` | Counted | गिने |
+| `cast.close.adjust` | The ledger moves by {kg} kg to match the count | गिनती से मिलाने के लिए खाता {kg} kg हिलेगा |
+| `cast.close.adjustNone` | No change to the ledger | खाते में कोई बदलाव नहीं |
+| `cast.close.tailIs` | Tail {kg} kg | टेल {kg} kg |
+| `cast.close.countOver` | The count finds {kg} kg more billets than the ledger. | गिनती में खाते से {kg} kg बिलेट ज़्यादा निकले। |
+| `cast.close.waitingCount` | Write the count to see the tail. | टेल देखने के लिए गिनती लिखें। |
 | `cast.close.short` | The press used {kg} kg more billets than the store held. | प्रेस ने स्टोर में जितने थे उससे {kg} kg बिलेट ज़्यादा लिए। |
 | `cast.close.needsApproval` | A tail this size needs a second person to approve before the cast closes. | इतनी टेल पर कास्ट बंद करने से पहले दूसरे व्यक्ति की मंज़ूरी चाहिए। |
 | `cast.close.reason` | Why the billets do not add up | बिलेट का हिसाब क्यों नहीं मिला |
@@ -5517,6 +5534,7 @@ Please check, Lalubhai:
 | `melt.discard.confirm` | Discard draft | ड्राफ़्ट हटाएं |
 | `melt.discard.done` | Draft discarded | ड्राफ़्ट हटा दिया |
 | `melt.cancelledNote` | This melt is cancelled. Its kg were reversed. | यह मेल्ट रद्द है। इसके kg वापस कर दिए गए। |
+| `melt.correctedNote` | This melt was corrected. A newer melt took its place and its kg were reversed. | यह मेल्ट सुधारी गई थी। नई मेल्ट ने इसकी जगह ली और इसके kg वापस कर दिए गए। |
 | `melt.correctsNote` | This draft corrects melt {n}. | यह ड्राफ़्ट मेल्ट {n} को सुधारता है। |
 | `melt.sheet.figures` | Figures | आँकड़े |
 | `melt.sheet.balanceNote` | Balance note: {note} | हिसाब की टिप्पणी: {note} |

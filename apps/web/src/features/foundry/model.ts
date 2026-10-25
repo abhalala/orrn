@@ -18,10 +18,10 @@ import {
 export { CAST_STATUSES, type CastStatus } from "./search";
 import { type CastStatus } from "./search";
 
-export type MeltStatus = "draft" | "locked" | "cancelled";
+export type MeltStatus = "draft" | "locked" | "cancelled" | "corrected";
 
 export const CAST_TONE: Record<CastStatus, StatusTone> = { open: "blue", closing: "amber", closed: "neutral", cancelled: "red" };
-export const MELT_TONE: Record<MeltStatus, StatusTone> = { draft: "amber", locked: "green", cancelled: "red" };
+export const MELT_TONE: Record<MeltStatus, StatusTone> = { draft: "amber", locked: "green", cancelled: "red", corrected: "neutral" };
 
 export function verdictTone(v: SpectroVerdict | null | undefined): StatusTone {
   return v === "pass" ? "green" : v === "fail" ? "red" : v === "incomplete" ? "amber" : "neutral";

@@ -143,6 +143,14 @@ describe("approvalSubject", () => {
       { labelKey: "approvals.foundry.metalIn", value: "6,150.000 kg" },
       { labelKey: "approvals.foundry.tail", value: "250.000 kg (4.3%)" },
     ]);
+    // The close counts the billets left: ledger on hand, the count and what the ledger moves by.
+    expect(foundryFiguresOf("cast_close", { producedG: 5_860_000, ledgerOnHandG: 860_000, countedG: 840_000, adjustG: -20_000, tailG: 20_000, tailBp: 34 }).map((r) => [r.labelKey, r.value])).toEqual([
+      ["approvals.foundry.produced", "5,860.000 kg"],
+      ["approvals.foundry.ledgerOnHand", "860.000 kg"],
+      ["approvals.foundry.counted", "840.000 kg"],
+      ["approvals.foundry.adjust", "-20.000 kg"],
+      ["approvals.foundry.tail", "20.000 kg (0.3%)"],
+    ]);
     expect(foundryFiguresOf("cast_close", { producedG: 100_000, tailG: -5_000, shortG: 5_000 }).map((r) => r.labelKey)).toEqual(["approvals.foundry.produced", "approvals.foundry.tail", "approvals.foundry.short"]);
     expect(foundryFiguresOf("melt_correct", { inputG: 6_150_000, logsG: 5_860_000 })).toEqual([
       { labelKey: "approvals.foundry.metalIn", value: "6,150.000 kg" },

@@ -1,6 +1,6 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Field } from "@orrn/ui/components/field";
+import { Field, NumberInput } from "@orrn/ui/components/field";
 import { Sheet } from "@orrn/ui/components/sheet";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,7 +13,9 @@ import { kgFromG } from "@/features/press/model";
 import { reasonOptions } from "@/features/press/reason-label";
 import { trpc } from "@/shared/utils/trpc";
 
-import { bpText, closeFormIssue } from "./model";
+import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
+
+import { bpText, closeFormIssue, countedBillets } from "./model";
 import { ErrorLine, Note, FieldSelect } from "./ui";
 
 type CastData = inferRouterOutputs<AppRouter>["foundry"]["casts"]["get"];
@@ -28,8 +30,10 @@ function useRefreshCast() {
 }
 
 /**
- * Close a cast (FP-FD-14): the server's close-out figures, a `cast_tail` reason from the plant's own
- * list when the tail is not zero, and the plain statement that a large tail goes to a second person.
+ * Close a cast (FP-FD-14, Q59-A): the closer counts the billets of the cast still in the yard (pieces
+ * and kg). The server works the tail out from the ledger and the count (`closePreview`, then
+ * `close`); a tail needs a `cast_tail` reason from the plant's own list, a large one or billets short
+ * goes to a second person, and the ledger moves to the count when the close lands.
  */
 export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose(): void; cast: CastData }) {
   const { t, locale } = useT();
@@ -37,10 +41,19 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
   const co = cast.closeout;
   const reasons = useQuery({ ...trpc.press.reasons.queryOptions({ kind: "cast_tail" }), enabled: open });
   const options = reasonOptions(t, "cast_tail", reasons.data, locale);
+  const [pcs, setPcs] = useState("");
+  const [kg, setKg] = useState("");
   const [reasonCode, setReasonCode] = useState("");
   const [note, setNote] = useState("");
   const [tried, setTried] = useState(false);
   const requestId = useRef(crypto.randomUUID());
+  const count = countedBillets(pcs, kg);
+  const preview = useQuery({
+    ...trpc.foundry.casts.closePreview.queryOptions({ castId: cast.cast.id, billetsOnHand: count.ok ? count.billetsOnHand : { count: 0, kgG: 0 } }),
+    enabled: open && count.ok,
+    meta: INLINE_ERROR_META,
+  });
+  const p = count.ok ? preview.data : undefined;
   const close = useMutation(
     trpc.foundry.casts.close.mutationOptions({
       onSuccess: (res) => {
@@ -54,14 +67,17 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
     if (open) requestId.current = crypto.randomUUID();
   }, [open]);
   const done = () => {
+    setPcs("");
+    setKg("");
     setReasonCode("");
     setNote("");
     setTried(false);
     close.reset();
     onClose();
   };
-  const issue = closeFormIssue(co, { reasonCode, note }, reasons.data ?? []);
+  const issue = p ? closeFormIssue(p, { reasonCode, note }, reasons.data ?? []) : null;
   const row = reasons.data?.find((r) => r.code === reasonCode);
+  const countError = tried && !count.ok ? count.issue : null;
   return (
     <Sheet
       open={open}
@@ -78,11 +94,11 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
             data-testid="close-confirm"
             onClick={() => {
               setTried(true);
-              if (issue) return;
-              close.mutate({ castId: cast.cast.id, ...(row ? { reasonCodeId: row.id } : {}), ...(note.trim() ? { note: note.trim() } : {}), clientMutationId: requestId.current });
+              if (!count.ok || !p || issue) return;
+              close.mutate({ castId: cast.cast.id, billetsOnHand: count.billetsOnHand, ...(row ? { reasonCodeId: row.id } : {}), ...(note.trim() ? { note: note.trim() } : {}), clientMutationId: requestId.current });
             }}
           >
-            {co.needsApproval ? t("foundry.cast.close.askButton") : t("foundry.cast.close.confirm")}
+            {p?.needsApproval ? t("foundry.cast.close.askButton") : t("foundry.cast.close.confirm")}
           </Button>
         </>
       }
@@ -91,13 +107,38 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
         <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]" data-testid="close-figures">
           <Row label={t("foundry.cast.panel.produced")} value={`${kgFromG(co.producedG)} ${t("units.kg")}`} />
           <Row label={t("foundry.cast.panel.pressed")} value={`${kgFromG(co.creditedG)} ${t("units.kg")}`} />
-          <Row label={t("foundry.cast.panel.onHand")} value={`${kgFromG(co.billetsOnHandG)} ${t("units.kg")}`} />
-          <Row label={t("foundry.cast.panel.tail")} value={`${co.tailG < 0 ? "-" : ""}${kgFromG(Math.abs(co.tailG))} ${t("units.kg")}${co.tailBp !== null ? ` (${bpText(co.tailBp)}%)` : ""}`} strong />
+          <Row label={t("foundry.cast.close.ledgerOnHand")} value={`${kgFromG(co.billetsOnHandG)} ${t("units.kg")}`} testId="close-ledger" />
+          <Row
+            label={t("foundry.cast.panel.tail")}
+            value={p ? `${p.tailG < 0 ? "-" : ""}${kgFromG(Math.abs(p.tailG))} ${t("units.kg")}${p.tailBp !== null ? ` (${bpText(p.tailBp)}%)` : ""}` : "-"}
+            strong
+            testId="close-tail"
+          />
         </dl>
-        {co.shortG > 0 ? <Note tone="red">{t("foundry.cast.close.short", { kg: kgFromG(co.shortG) })}</Note> : null}
-        {!co.needsReason ? <Note tone="green">{t("foundry.cast.close.clean")}</Note> : null}
-        {co.needsApproval ? <Note tone="amber" testId="close-needs-approval">{t("foundry.cast.close.needsApproval")}</Note> : null}
-        {co.needsReason ? (
+        <section className="flex flex-col gap-3" aria-labelledby="close-count">
+          <h3 id="close-count" className="m-0 text-[16px] font-semibold">{t("foundry.cast.close.countTitle")}</h3>
+          <p className="m-0 text-[14px] text-muted-foreground">{t("foundry.cast.close.countHint")}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t("foundry.cast.close.pcs")} error={countError === "pcs" ? t("foundry.cast.close.pcsInvalid") : undefined}>
+              <NumberInput decimal={false} value={pcs} onValueChange={setPcs} data-testid="close-pcs" />
+            </Field>
+            <Field label={t("foundry.cast.close.kg")} error={countError === "kg" ? t("foundry.cast.close.kgInvalid") : undefined}>
+              <NumberInput value={kg} suffix={t("units.kg")} onValueChange={setKg} data-testid="close-kg" />
+            </Field>
+          </div>
+          {!count.ok && count.issue === "together" ? <Note tone="amber">{t("foundry.cast.close.together")}</Note> : null}
+        </section>
+        {!p && !(count.ok === false && count.issue === "together") ? <Note>{t("foundry.cast.close.waitingCount")}</Note> : null}
+        {p && p.shortG > 0 ? <Note tone="red">{t("foundry.cast.close.short", { kg: kgFromG(p.shortG) })}</Note> : null}
+        {p && p.tailG < 0 && p.shortG === 0 ? <Note tone="amber">{t("foundry.cast.close.countOver", { kg: kgFromG(-p.tailG) })}</Note> : null}
+        {p ? (
+          <p className="m-0 text-[14px] text-muted-foreground" data-testid="close-adjust">
+            {p.adjustG !== 0 ? t("foundry.cast.close.adjust", { kg: `${p.adjustG < 0 ? "-" : "+"}${kgFromG(Math.abs(p.adjustG))}` }) : t("foundry.cast.close.adjustNone")}
+          </p>
+        ) : null}
+        {p && !p.needsReason ? <Note tone="green" testId="close-clean">{t("foundry.cast.close.clean")}</Note> : null}
+        {p?.needsApproval ? <Note tone="amber" testId="close-needs-approval">{t("foundry.cast.close.needsApproval")}</Note> : null}
+        {p?.needsReason ? (
           <>
             <Field label={t("foundry.cast.close.reason")} error={tried && issue === "reason" ? t("foundry.cast.close.reasonRequired") : undefined}>
               <FieldSelect value={reasonCode} onChange={(e) => setReasonCode(e.currentTarget.value)} data-testid="close-reason">
@@ -114,15 +155,15 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
             </Field>
           </>
         ) : null}
-        <ErrorLine error={close.error} />
+        <ErrorLine error={close.error ?? (count.ok ? preview.error : null)} />
       </div>
     </Sheet>
   );
 }
 
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+function Row({ label, value, strong, testId }: { label: string; value: string; strong?: boolean; testId?: string }) {
   return (
-    <div className="min-w-0">
+    <div className="min-w-0" data-testid={testId}>
       <dt className="text-[13px] text-muted-foreground">{label}</dt>
       <dd className={`m-0 font-mono tabular-nums break-words ${strong ? "font-bold" : "font-semibold"}`}>{value}</dd>
     </div>
