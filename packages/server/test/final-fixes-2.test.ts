@@ -86,11 +86,11 @@ describe("BACKLOG 80: dispatch figures agree across the list, the detail and the
       expect(detail.totals.weightG, `${row.code} kg`).toBe(Number(row.totalWeightG));
       expect(detail.totals.bundles, `${row.code} bundles`).toBe(Number(row.itemCount));
       expect(detail.items.reduce((s, i) => s + Number(i.weightG), 0)).toBe(Number(row.totalWeightG));
-      // The rule: the day it left once completed, the planned day before.
-      if (row.status === "completed") {
-        expect(row.shipDay).toEqual({ ymd: ist(new Date(row.completedAt!).getTime()), kind: "dispatched" });
-      } else if (row.shipDate) {
+      // The rule: the entered ship date's day in the plant's calendar; the completion day when none was entered.
+      if (row.shipDate) {
         expect(row.shipDay).toEqual({ ymd: ist(new Date(row.shipDate).getTime()), kind: "ship" });
+      } else if (row.status === "completed") {
+        expect(row.shipDay).toEqual({ ymd: ist(new Date(row.completedAt!).getTime()), kind: "dispatched" });
       }
       const pl = await o.packingList.byDispatch({ dispatchId: row.id });
       if (row.status === "completed" && pl) {
@@ -113,7 +113,7 @@ describe("BACKLOG 80: dispatch figures agree across the list, the detail and the
     expect(held.shipDay!.ymd).not.toBe(utcDay);
     const done = byCode("DSP-000034");
     expect(Number(done.totalWeightG)).toBe(809_764);
-    expect(done.shipDay).toEqual({ ymd: ist(new Date(done.completedAt!).getTime()), kind: "dispatched" });
+    expect(done.shipDay!.ymd).toBe(ist(new Date(done.shipDate ?? done.completedAt!).getTime()));
   });
 });
 

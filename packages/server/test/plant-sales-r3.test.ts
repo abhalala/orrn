@@ -249,7 +249,8 @@ describe("m-5 ship date on the company clock", () => {
     // A v2 snapshot stored before the field existed falls back to the plant's clock (IST).
     expect(plShipDateText("2026-10-04T20:00:00.000Z")).toBe("05 Oct 2026");
     expect(plShipDateText(null)).toBeNull();
-    expect(snapFor(null, null as never).header.shipDate).toBeNull();
+    // BACKLOG 80: with no ship date entered, a completed load carries the day it left (the list and the detail say the same).
+    expect(snapFor(null, null as never).header.shipDate).toBe(new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10));
   });
 
   test("the completed PL prints the ship date of the company's day", async () => {

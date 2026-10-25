@@ -261,10 +261,13 @@ describe("dev seed: Wave 2 masters (idempotent)", () => {
         // W2-SEED: today's released production plans on Press 1 and Press 2.
         ["PP-3", "released", "production"],
         ["PP-4", "released", "production"],
+        // BACKLOG 88: the early plans holding the logged runs PR-11 and PR-12.
+        ["PP-5", "released", "production"],
+        ["PP-6", "released", "production"],
       ]);
     }
-    // The plan book continues after PP-4.
+    // The plan book continues after PP-6.
     const next = await dn.nextDocNumber(env.db, companyId, "press_plan", new Date());
-    expect(next.number).toBe("PP-5");
+    expect(next.number).toBe("PP-7");
   });
 });

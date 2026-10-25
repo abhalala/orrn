@@ -2,9 +2,9 @@
  * The two figures every dispatch screen shows, from ONE place (BACKLOG 80): the list (`listDispatches`),
  * the detail (`getDispatch`) and the packing list header all take them from here.
  *
- * - Ship day: the company calendar day (`settings.timezone`) the load LEFT once it is completed
- *   (`completedAt`, kind "dispatched"), else the day it is planned for (`shipDate`, kind "ship"), else none.
- *   Never read a day off the raw instant in UTC: a load completed at 02:00 IST is already the next day.
+ * - Ship day: the company calendar day (`settings.timezone`) of the ship date somebody entered (`shipDate`,
+ *   kind "ship"); with none, the day a completed load left (`completedAt`, kind "dispatched"); else none.
+ *   Never read a day off the raw instant in UTC: 20:30 UTC is already the next day in IST.
  * - Weight: the sum of the dispatch items' bundle weights (grams). A packing list's summary is the same sum
  *   taken when it was issued, so the current revision of a completed dispatch equals it.
  */
@@ -24,7 +24,7 @@ export function dispatchShipDay(
   settingsOrTimezone: Record<string, unknown> | string | null | undefined,
 ): { ymd: string; kind: ShipDayKind } | null {
   const tz = typeof settingsOrTimezone === "string" ? settingsOrTimezone : companyTimezone(settingsOrTimezone);
-  if (d.status === "completed" && d.completedAt) return { ymd: ymdOfInstant(tz, d.completedAt), kind: "dispatched" };
   if (d.shipDate) return { ymd: ymdOfInstant(tz, d.shipDate), kind: "ship" };
+  if (d.status === "completed" && d.completedAt) return { ymd: ymdOfInstant(tz, d.completedAt), kind: "dispatched" };
   return null;
 }

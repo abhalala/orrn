@@ -760,14 +760,14 @@ describe("trends, dispatch volume and stock ageing", () => {
     expect(vol.reduce((t, m) => t + m.kgG, 0)).toBe(kg(8));
   });
 
-  test("stock ageing: bucket edges by days since pack, available + reserved only, top sections", async () => {
+  test("stock ageing: bucket edges by days since pack, available only (BACKLOG 91: a held bundle is not in stock), top sections", async () => {
     const p = await plant();
     const nowAt = ist("2026-10-03T12:00:00");
     setClock(nowAt);
     const ago = (days: number, extraMs = 0) => new Date(nowAt.getTime() - days * 86_400_000 - extraMs);
     await seedStock(p.companyId, p.dieId, ago(0), kg(1));
     await seedStock(p.companyId, p.dieId, ago(15, 3_600_000), kg(2)); // 15 days 1 h → 0–15
-    await seedStock(p.companyId, p.dieId, ago(16), kg(3), "reserved"); // → 16–30
+    await seedStock(p.companyId, p.dieId, ago(16), kg(3), "reserved"); // held on a dispatch: not in stock, in no bucket
     await seedStock(p.companyId, p.dieId, ago(30, 60_000), kg(4)); // → 16–30
     await seedStock(p.companyId, p.dieId, ago(31), kg(5)); // → 31–60
     await seedStock(p.companyId, p.dieId, ago(60, 60_000), kg(6)); // → 31–60
@@ -778,14 +778,14 @@ describe("trends, dispatch volume and stock ageing", () => {
 
     const res = await p.owner.analytics.stockAgeing();
     expect(res.asOf).toBe(nowAt.toISOString());
-    expect(res.totals).toEqual({ bundles: 8, kgG: kg(36) });
+    expect(res.totals).toEqual({ bundles: 7, kgG: kg(33) });
     expect(res.buckets).toEqual([
       { key: "0-15", minDays: 0, maxDays: 15, bundles: 2, kgG: kg(3) },
-      { key: "16-30", minDays: 16, maxDays: 30, bundles: 2, kgG: kg(7) },
+      { key: "16-30", minDays: 16, maxDays: 30, bundles: 1, kgG: kg(4) },
       { key: "31-60", minDays: 31, maxDays: 60, bundles: 2, kgG: kg(11) },
       { key: "60+", minDays: 61, maxDays: null, bundles: 2, kgG: kg(15) },
     ]);
-    expect(res.topSections).toEqual([{ sectionId: p.dieId, label: "Domal 12170", kgG: kg(36), bundles: 8, sharePct: 100 }]);
+    expect(res.topSections).toEqual([{ sectionId: p.dieId, label: "Domal 12170", kgG: kg(33), bundles: 7, sharePct: 100 }]);
   });
 
   test("stock ageing counts company calendar days: 23:50 IST is the day it was packed", async () => {
