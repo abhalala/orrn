@@ -87,6 +87,10 @@ async function tidy(what: string, work: () => Promise<unknown>) {
  */
 async function dispatchWithCast(browser: Browser): Promise<{ dispatchId: string; castNo: string }> {
   return asOwner(browser, async (owner) => {
+    // The plant's cast rule is "automatic" in the seed: on once any melt is locked (FP-FD-16). This
+    // melt would turn it on for every spec packing without a cast after it (stock, scan, pack), so
+    // the rule is set Off explicitly first; this bundle names its cast anyway. The seed resets it.
+    await trpcMutate(owner, "company.updateSettings", { requireCastOnBundle: false });
     const cast = await trpcMutate<{ id: string; number: string }>(owner, "foundry.casts.open", { alloy: "6063" });
     const streams = await trpcQuery<{ items: { id: string; code: string }[] }>(owner, "foundry.returnStreams.list");
     const scrap = streams.items.find((x) => x.code === "PLANT-SCRAP")!;
