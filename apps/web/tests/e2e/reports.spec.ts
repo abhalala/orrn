@@ -86,7 +86,7 @@ const pct1 = (num: number, den: number) => {
   return `${Math.floor(tenths / 10)}.${tenths % 10}`;
 };
 
-type Recovery = { rows: { key: string; label: string; recoveryPct: string | null }[]; totals: { runs: number; inputG: number; goodG: number; recoveryPct: string | null } };
+type Recovery = { rows: { key: string; label: string; runs: number; inputG: number; goodG: number; recoveryPct: string | null }[]; totals: { runs: number; inputG: number; goodG: number; recoveryPct: string | null } };
 type DieLife = { items: { dieInstanceId: string; code: string; lifeG: number | null; producedG: number; usedPct: string | null; state: string }[] };
 type StockAge = {
   totals: { bundles: number; kgG: number };
@@ -127,18 +127,25 @@ for (const width of WIDTHS) {
       await expect(summary.getByTestId("recovery-totals")).toContainText(byDie.totals.recoveryPct!);
       await expect(summary.getByTestId("recovery-table").locator("tbody tr")).toHaveCount(byDie.rows.length);
 
-      // Seed figures, not the API's say-so (I-4): PR-8 is the one logged production run of the day,
-      // the worked example. Channel 1" 12230: 310.400 kg of billet in, 234.200 kg good, 44.800 kg
-      // butt, ends and rejects = 75.5 % (234,200 / 310,400 = 75.45 %, half up). The day's total is
-      // the same figures while that is the only logged run (nothing else logs a production run here).
+      // Seed figures, not the API's say-so (I-4): PR-8 is the one logged production run of the day on
+      // the seed's P1, the worked example. Channel 1" 12230: 310.400 kg of billet in, 234.200 kg good,
+      // 44.800 kg butt, ends and rejects = 75.5 % (234,200 / 310,400 = 75.45 %, half up).
       const chan = summary.getByTestId("recovery-table").locator("tbody tr").filter({ hasText: "12230" });
       await expect(chan).toHaveCount(1);
       const chanCells = (await chan.locator("th,td").allInnerTexts()).map((c) => c.trim());
       expect(chanCells.slice(1, 6)).toEqual(["1", "310.400", "234.200", "44.800", "75.5"]);
       expect(byDie.rows.find((r) => r.label === "12230")?.recoveryPct).toBe("75.5");
       expect(pct1(234_200, 310_400)).toBe("75.5");
-      expect(byDie.totals).toMatchObject({ runs: 1, inputG: 310_400, goodG: 234_200, recoveryPct: "75.5" });
-      await expect(summary.getByTestId("recovery-totals")).toContainText("75.5");
+      // P1's total is exactly PR-8. The day's total is not pinned: specs running alongside (press.spec,
+      // chain.spec) log production runs today on press lines of their own (MERGER-10). It must still be
+      // its rows summed, and the page shows it.
+      const p1 = await office.q<Recovery>("analytics.recovery", { from: day, to: day, groupBy: "die", pressLineId: "dev-press-line-1" });
+      expect(p1.totals).toMatchObject({ runs: 1, inputG: 310_400, goodG: 234_200, recoveryPct: "75.5" });
+      expect(p1.rows.map((r) => [r.label, r.runs, r.inputG, r.goodG, r.recoveryPct])).toEqual([["12230", 1, 310_400, 234_200, "75.5"]]);
+      const sumOf = (k: "runs" | "inputG" | "goodG") => byDie.rows.reduce((n, r) => n + r[k], 0);
+      expect({ runs: sumOf("runs"), inputG: sumOf("inputG"), goodG: sumOf("goodG") }).toEqual({ runs: byDie.totals.runs, inputG: byDie.totals.inputG, goodG: byDie.totals.goodG });
+      expect(byDie.totals.recoveryPct).toBe(pct1(byDie.totals.goodG, byDie.totals.inputG));
+      await expect(summary.getByTestId("recovery-totals")).toContainText(byDie.totals.recoveryPct!);
 
       // Group by press: one row per line, the same total.
       await summary.getByRole("radio", { name: "Press" }).click();
