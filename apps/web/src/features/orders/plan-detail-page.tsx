@@ -47,11 +47,12 @@ export function PlanDetailPage({ id }: { id: string }) {
   const plan = useQuery(trpc.plans.get.queryOptions({ id }));
   const pressLines = useQuery(trpc.plans.pressLines.queryOptions());
   const isDraft = plan.data?.plan.status === "draft";
+  const isProduction = (plan.data?.plan.purpose ?? "production") === "production";
   const dieIds = (plan.data?.dies ?? []).map((d) => d.sectionId);
   // FP-OP-15 / rank 30 on a draft: every other open line on its dies, added in one tap (plans.update).
   const others = useQuery({
     ...trpc.plans.openLinesForDies.queryOptions({ dieIds, planId: id }),
-    enabled: isDraft && dieIds.length > 0,
+    enabled: isDraft && isProduction && dieIds.length > 0,
   });
 
   const refresh = () =>
@@ -191,8 +192,19 @@ export function PlanDetailPage({ id }: { id: string }) {
           <Chip tone={PLAN_STATUS_TONE[p.status]} truncate={false} data-plan-status={p.status}>
             {t(`press.plan.status.${p.status}`)}
           </Chip>
+          {p.purpose !== "production" ? (
+            <Chip tone="blue" truncate={false} data-plan-purpose={p.purpose}>
+              {t(`press.plan.purpose.${p.purpose}`)}
+            </Chip>
+          ) : null}
           {draft ? <span className="text-[13px] text-muted-foreground">{t("orders.plan.windowHint")}</span> : null}
         </div>
+        {p.purpose !== "production" && p.note ? (
+          <p data-plan-note="" className="m-0 text-[14px] leading-6">
+            <span className="text-muted-foreground">{t("orders.plan.trial.note")}: </span>
+            <span className="font-mono tabular-nums">{p.note}</span>
+          </p>
+        ) : null}
 
         {errors.length > 0 && !cancelOpen ? (
           <div role="alert" data-plan-error="" className="flex flex-col gap-1 rounded-card border border-destructive/40 px-4 py-3">
@@ -274,7 +286,7 @@ export function PlanDetailPage({ id }: { id: string }) {
           })}
         </ul>
 
-        {draft ? (
+        {draft && isProduction ? (
           <OtherLines
             rows={others.data?.lines ?? []}
             loading={others.isPending}

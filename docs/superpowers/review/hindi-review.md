@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5621 screen strings in 49 groups, 16 guides with 292 strings.
+Counts: 5635 screen strings in 49 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -1930,7 +1930,7 @@ Counts: 5621 screen strings in 49 groups, 16 guides with 292 strings.
 | `team.removeFailed` | Couldn't remove this person. Try again. | इन्हें हटाया नहीं जा सका। फिर कोशिश करें। |
 | `team.removeConfirm` | Remove | हटाएं |
 | `team.portalTitle` | Party portal logins | पार्टी पोर्टल लॉगिन |
-| `team.portalBody` | Logins for your parties will be listed here once the party portal opens. | पार्टी पोर्टल खुलने पर आपकी पार्टियों के लॉगिन यहां दिखेंगे। |
+| `team.portalBody` | No party has a login yet. Parties with a login see their orders, dispatches and certificates at /portal. | अभी किसी पार्टी का लॉगिन नहीं है। लॉगिन वाली पार्टियां अपने ऑर्डर, डिस्पैच और सर्टिफ़िकेट /portal पर देखती हैं। |
 | `shifts.intro` | Shift 1 starts the production day. A bundle packed before that time counts for the day before. | शिफ्ट 1 से प्रोडक्शन का दिन शुरू होता है। उस समय से पहले पैक हुआ bundle पिछले दिन का गिना जाता है। |
 | `shifts.startsDay` | Shift 1, {name}, starts the production day at {time}. | शिफ्ट 1, {name}, {time} पर प्रोडक्शन का दिन शुरू करती है। |
 | `shifts.position` | Shift {seq} | शिफ्ट {seq} |
@@ -1990,7 +1990,7 @@ Counts: 5621 screen strings in 49 groups, 16 guides with 292 strings.
 | `modules.dieRequired` | Die required on order lines | ऑर्डर लाइन पर die ज़रूरी |
 | `modules.dieRequiredHint` | On: confirming an order needs a die copy or a tier. Off: it may go ahead on the section alone. | चालू: ऑर्डर पक्का करने के लिए die कॉपी या टियर चाहिए। बंद: सिर्फ़ सेक्शन पर भी आगे बढ़ सकता है। |
 | `modules.portalEnabled` | Party portal | पार्टी पोर्टल |
-| `modules.portalEnabledHint` | Lets your parties sign in to see their dies and orders. The portal opens in a later release. | आपकी पार्टियां साइन इन करके अपने die और ऑर्डर देख सकेंगी। पोर्टल अगले रिलीज़ में खुलेगा। |
+| `modules.portalEnabledHint` | Parties with a login see their orders, dispatches and certificates at /portal. | लॉगिन वाली पार्टियां अपने ऑर्डर, डिस्पैच और सर्टिफ़िकेट /portal पर देखती हैं। |
 | `modules.requireCast` | Cast number on bundles | Bundle पर कास्ट नंबर |
 | `modules.requireCastHint` | Automatic turns it on after the first locked melt. | ऑटोमैटिक में पहली लॉक हुई मेल्ट के बाद चालू हो जाता है। |
 | `modules.castAuto` | Automatic | ऑटोमैटिक |
@@ -4186,7 +4186,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (383)
+### orders (397)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4565,6 +4565,20 @@ Please check, Lalubhai:
 | `plan.pressLine` | Press | प्रेस |
 | `plan.pickPressLine` | Pick the press | प्रेस चुनें |
 | `plan.saveDraft` | Save draft plan | ड्राफ़्ट प्लान सेव करें |
+| `plan.trial.hint` | A trial or sample plan has no order lines. It makes one queued run per die. | ट्रायल या सैंपल प्लान में ऑर्डर लाइन नहीं होती। हर die की एक queued रन बनती है। |
+| `plan.trial.die` | Die | Die |
+| `plan.trial.diePlaceholder` | Search dies | Die खोजें |
+| `plan.trial.copy` | Die copy | Die कॉपी |
+| `plan.trial.copyPlaceholder` | Pick a copy (optional) | कॉपी चुनें (वैकल्पिक) |
+| `plan.trial.copyHintTrial` | Only copies on trial can go to a die trial. The die room issues the copy to the run. | Die ट्रायल पर सिर्फ़ ट्रायल वाली कॉपी जा सकती है। Die room कॉपी को रन पर जारी करता है। |
+| `plan.trial.copyHint` | The die room issues the copy to the run. | Die room कॉपी को रन पर जारी करता है। |
+| `plan.trial.kg` | Planned kg | प्लान किया kg |
+| `plan.trial.pcs` | Planned pieces | प्लान किए पीस |
+| `plan.trial.qtyHint` | Optional. Kept in the plan note for the die room and the press. | वैकल्पिक। Die room और प्रेस के लिए प्लान के नोट में रहता है। |
+| `plan.trial.note` | Note | नोट |
+| `plan.trial.needDie` | Pick the die. | Die चुनें। |
+| `plan.trial.badKg` | Enter a kg figure, or leave it blank. | kg की संख्या लिखें, या खाली छोड़ें। |
+| `plan.trial.badPcs` | Enter whole pieces, or leave it blank. | पूरे पीस लिखें, या खाली छोड़ें। |
 | `plan.released` | Plan released to the press | प्लान प्रेस को भेजा गया |
 | `plan.cancelled` | Plan cancelled | प्लान रद्द हुआ |
 | `plan.closed` | Plan closed | प्लान बंद हुआ |
