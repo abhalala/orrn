@@ -86,11 +86,15 @@ export const PL_COLUMN_HEADINGS = [
   "PO",
 ] as const;
 
-const kg3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+const kg2 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/** "25.500" — kg with Indian grouping, gram precision (rows add up to the total exactly). */
+/**
+ * "25.50": kg with Indian grouping, to the 10 g, the same as every dispatch screen prints (`dispatchKgText`),
+ * so a total reads the same on the screen, the PDF and the HTML (review round 1, m1). The Excel keeps the exact
+ * gram as a number (a sum stays a sum) and only displays it to the 10 g.
+ */
 export function formatPlKg(weightG: number): string {
-  return kg3.format(weightG / 1000);
+  return kg2.format(weightG / 1000);
 }
 
 /** One printed row as the 11 cell texts. */

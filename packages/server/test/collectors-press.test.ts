@@ -537,7 +537,7 @@ describe("alerts end after a 5-minute gap, on ingest and on read (I-3)", () => {
     expect(await lib.pressAlertsToday(env.db, p.companyId, T0)).toEqual({ open: 1, today: 1, simulated: true });
   });
 
-  test("a collector that stops sending does not leave the alert open overnight", async () => {
+  test("a collector that stops sending shows its alert as ended at the last frame, still open until somebody acknowledges it", async () => {
     const p = await plant("quiet-secret");
     await env.caller({ role: "owner", companyId: p.companyId }).press.collector.setThreshold({ pressLineId: null, metric: "pressure", min: null, max: 200 });
     const now = Date.now();

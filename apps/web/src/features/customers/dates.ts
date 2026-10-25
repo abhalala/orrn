@@ -38,3 +38,17 @@ export function formatInstantDay(at: string | number | Date, locale: string, tim
   const instant = at instanceof Date ? at : new Date(at);
   return formatDay(todayIn(timeZone, instant), locale, today);
 }
+
+/**
+ * The date of a row in a customer's dispatch list: the server's ONE ship day (`shipDay`: the day a completed
+ * load left, else the ship date entered), else the day the load was started. Never re-derived from `shipDate`
+ * or `completedAt` here, so this page cannot disagree with the dispatch list and detail.
+ */
+export function formatDispatchDay(
+  d: { shipDay?: { ymd: string } | null; createdAt: string | number | Date },
+  locale: string,
+  timeZone: string,
+  today: string,
+): string {
+  return d.shipDay?.ymd ? formatDay(d.shipDay.ymd, locale, today) : formatInstantDay(d.createdAt, locale, timeZone, today);
+}

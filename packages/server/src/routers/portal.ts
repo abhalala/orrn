@@ -35,6 +35,7 @@ import { actionProcedure, anyActionProcedure, portalProcedure, router, t } from 
 import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
+import { dispatchShipDay } from "../lib/dispatchFigures";
 import { nextDocNumber } from "../lib/docNumber";
 import { renderOrrnEmailHtml, sendEmail } from "../lib/email";
 import { assertModule } from "../lib/moduleGate";
@@ -851,6 +852,8 @@ export const portalRouter = router({
       return {
         items: (more ? rows.slice(0, limit) : rows).map((r) => ({
           ...r,
+          // The same ship day the office's list, detail and customer page show (lib/dispatchFigures).
+          shipDay: dispatchShipDay({ status: "completed", completedAt: r.completedAt, shipDate: r.shipDate }, ctx.portal.settings),
           bundles: Number(r.bundles),
           weightG: Number(r.weightG),
           pcs: Number(r.pcs),
@@ -887,6 +890,7 @@ export const portalRouter = router({
         code: d.code,
         completedAt: d.completedAt,
         shipDate: d.shipDate,
+        shipDay: dispatchShipDay({ status: "completed", completedAt: d.completedAt, shipDate: d.shipDate }, ctx.portal.settings),
         plNumber: d.plNumber,
         vehicleNo: d.vehicleNo,
         bundles,
@@ -952,7 +956,7 @@ export const portalRouter = router({
       );
     const baki = await lineTotals(ctx.db, ctx.portal.companyId, { customerId: ctx.portal.customerId, openOnly: true });
     const [last] = await ctx.db
-      .select({ id: dispatch.id, code: dispatch.code, completedAt: dispatch.completedAt })
+      .select({ id: dispatch.id, code: dispatch.code, completedAt: dispatch.completedAt, shipDate: dispatch.shipDate })
       .from(dispatch)
       .where(
         and(
@@ -969,7 +973,9 @@ export const portalRouter = router({
       customer: { name: ctx.portal.customerName },
       openOrders: open?.n ?? 0,
       bakiG: baki.bakiG,
-      lastDispatch: last ?? null,
+      lastDispatch: last
+        ? { id: last.id, code: last.code, completedAt: last.completedAt, shipDay: dispatchShipDay({ status: "completed", completedAt: last.completedAt, shipDate: last.shipDate }, ctx.portal.settings) }
+        : null,
       canOrder: sections.length > 0,
     };
   }),

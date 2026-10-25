@@ -11,6 +11,8 @@ export const pressEn = {
     atTablet: "Use the tablet at the press to start, stop or count this run.",
     gateUnknown: "Something else is missing before this run can be logged.",
     onPress: "On the press now",
+    onTheLine: "On the line",
+    toLog: "To log",
     urgent: "Urgent",
     jobCopy: "Copy {code}",
     jobNoCopy: "No die copy yet",

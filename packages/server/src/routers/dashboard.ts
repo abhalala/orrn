@@ -188,7 +188,7 @@ export const dashboardRouter = router({
     >;
     const anyBundleEver = stockRows.some((r) => num(r.n) > 0);
     for (const r of stockRows) {
-      // Viewers see "in stock" (available + reserved) only, not void or dispatched totals.
+      // Viewers see "in stock" (available) and "held" (reserved on a held load) only, not void or dispatched totals.
       if (kpisOnly && r.status !== STOCK_STATUS.inStock && r.status !== STOCK_STATUS.held) continue;
       stock[r.status] = { bundles: num(r.n), weightG: num(r.w) };
     }

@@ -89,7 +89,7 @@ describe("packing list v2 extras (FP-PK-13)", () => {
   test("party no and original SO columns, section subtotal, kinds, revision, combined dispatches", () => {
     const pl = parsePackingListSnapshot(v2());
     const html = buildPackingListHtml(pl, "PL/2026-27/7");
-    for (const text of ["Party no", "Original SO", "26J10", "SO-3/2", "Section 12170", "Hollow 3 bundles · 75.000 kg", "Solid 1 bundle · 10.000 kg", "Rev 2", "DSP-000006, DSP-000007", "Since 1994", "https://example.com/l.png", "Fourcubes Aluminium Pvt Ltd"]) {
+    for (const text of ["Party no", "Original SO", "26J10", "SO-3/2", "Section 12170", "Hollow 3 bundles · 75.00 kg", "Solid 1 bundle · 10.00 kg", "Rev 2", "DSP-000006, DSP-000007", "Since 1994", "https://example.com/l.png", "Fourcubes Aluminium Pvt Ltd"]) {
       expect(html).toContain(text);
     }
     // Only the section that spans two groups gets its own subtotal line.
@@ -127,7 +127,7 @@ describe("packing list v2 extras (FP-PK-13)", () => {
     expect(header.slice(-2)).toEqual(["Party no", "Original SO"]);
     const flat = grid.flat().map(String);
     expect(flat).toContain("Section 12170");
-    expect(flat).toContain("Hollow 3 bundles · 75.000 kg");
+    expect(flat).toContain("Hollow 3 bundles · 75.00 kg");
     expect(flat).toContain("PL/2026-27/7 (Rev 2)");
     const first = grid.find((r) => r[1] === "BG-1-B001")!;
     expect(first.slice(-2)).toEqual(["26J9", "SO-4/1"]);
@@ -135,10 +135,10 @@ describe("packing list v2 extras (FP-PK-13)", () => {
 
   test("one kind prints its summary line in both the print and the xlsx (m-7: one behaviour)", () => {
     const pl = parsePackingListSnapshot({ ...v2(), profileSummary: [{ kind: "hollow", bundles: 3, pcs: 30, weightG: 75_000 }] });
-    expect(buildPackingListHtml(pl, "PL/2026-27/7")).toContain("Hollow 3 bundles · 75.000 kg");
+    expect(buildPackingListHtml(pl, "PL/2026-27/7")).toContain("Hollow 3 bundles · 75.00 kg");
     const wb = XLSX.read(buildPackingListXlsxBuffer(pl, "PL/2026-27/7"), { type: "array" });
     const flat = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]!]!, { header: 1, raw: true }).flat().map(String);
-    expect(flat).toContain("Hollow 3 bundles · 75.000 kg");
+    expect(flat).toContain("Hollow 3 bundles · 75.00 kg");
   });
 
   test("FP-PK-13: the kg-per-piece column is off by default, then follows the plant's switch in print and xlsx", () => {
@@ -173,5 +173,23 @@ describe("kg/pc: one rounding rule (review m-6)", () => {
     expect(kgPerPieceG(100, 0)).toBeNull();
     expect(plKgPerPiece({ weightG: 2_501, pcs: 2 })).toBe("1.251");
     expect(plKgPerPiece({ weightG: 1_000, pcs: 0 })).toBe("");
+  });
+});
+
+describe("kg prints to the 10 g, like the screens (review round 1, m1)", () => {
+  test("formatPlKg and the HTML print 809.764 kg as 809.76; the xlsx keeps the gram and displays two decimals", async () => {
+    const { formatPlKg } = await import("./snapshot");
+    expect(formatPlKg(809_764)).toBe("809.76");
+    expect(formatPlKg(25_500)).toBe("25.50");
+    expect(formatPlKg(1_234_567)).toBe("1,234.57");
+    const pl = parsePackingListSnapshot({ ...v2(), profileSummary: [{ kind: "hollow", bundles: 3, pcs: 30, weightG: 75_555 }] });
+    const html = buildPackingListHtml(pl, "PL/2026-27/7");
+    expect(html).toContain("Hollow 3 bundles · 75.56 kg");
+    expect(html).not.toContain("75.555");
+    const ws = XLSX.read(buildPackingListXlsxBuffer(pl, "PL/2026-27/7"), { type: "array", cellNF: true }).Sheets["Packing list"]!;
+    const kgCells = Object.entries(ws).filter(([addr, c]) => /^E\d+$/.test(addr) && (c as { t?: string }).t === "n") as [string, { v: number; z?: string }][];
+    expect(kgCells.length).toBeGreaterThan(0);
+    for (const [, c] of kgCells) expect(c.z).toBe("#,##0.00");
+    expect(kgCells.map(([, c]) => c.v)).toContain(25);
   });
 });

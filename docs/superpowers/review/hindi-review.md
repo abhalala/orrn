@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5644 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 5646 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -3138,7 +3138,7 @@ Counts: 5644 screen strings in 49 groups, 35 guides with 646 strings.
 | `pickFileKind` | Pick a .{kind} file. | .{kind} फ़ाइल चुनें। |
 | `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 
-### native (257)
+### native (259)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3352,6 +3352,8 @@ Counts: 5644 screen strings in 49 groups, 35 guides with 646 strings.
 | `press.atTablet` | Use the tablet at the press to start, stop or count this run. | इस रन को शुरू, बंद या गिनने के लिए press के पास वाला टैबलेट इस्तेमाल करें। |
 | `press.gateUnknown` | Something else is missing before this run can be logged. | इस रन को लॉग करने से पहले कुछ और बाकी है। |
 | `press.onPress` | On the press now | अभी press पर |
+| `press.onTheLine` | On the line | लाइन पर |
+| `press.toLog` | To log | दर्ज होना बाकी |
 | `press.urgent` | Urgent | ज़रूरी |
 | `press.jobCopy` | Copy {code} | Copy {code} |
 | `press.jobNoCopy` | No die copy yet | अभी die copy नहीं |
@@ -4229,8 +4231,8 @@ Please check, Lalubhai:
 | `book.show.closed` | Closed | बंद |
 | `book.show.cancelled` | Cancelled | रद्द |
 | `book.stage.dispatched` | Dispatched | Dispatch हुआ |
-| `book.stage.in_stock` | In stock | स्टॉक में |
-| `book.stage.held` | Held (on a truck or for the order) | होल्ड (ट्रक पर या ऑर्डर के लिए) |
+| `book.stage.in_stock` | Allocated to orders | ऑर्डर को आवंटित |
+| `book.stage.held` | Held for orders | ऑर्डर के लिए होल्ड |
 | `book.stage.pressed` | Pressed, not packed | प्रेस हुआ, पैक नहीं |
 | `book.stage.planned` | Planned, not pressed | प्लान हुआ, प्रेस नहीं |
 | `book.stage.unplanned` | Not planned | प्लान नहीं हुआ |
@@ -4935,8 +4937,8 @@ Please check, Lalubhai:
 | `console.back` | Back | पीछे |
 | `board.subtitle` | Every press: what is running and what waits. | हर प्रेस: क्या चल रहा है और क्या इंतज़ार में है। |
 | `board.onLine` | On the line | लाइन पर |
-| `board.closing` | Closing: | बंद हो रहे: |
-| `board.closingChip` | Closing | बंद हो रहा है |
+| `board.closing` | To log: | दर्ज होना बाकी: |
+| `board.closingChip` | To log | दर्ज होना बाकी |
 | `board.nothingRunning` | Nothing running | कुछ नहीं चल रहा |
 | `board.waiting` | Waiting | इंतज़ार में |
 | `board.todayLogged` | Today, logged | आज दर्ज |
@@ -4950,7 +4952,7 @@ Please check, Lalubhai:
 | `queue.title` | {line} queue | {line} की कतार |
 | `queue.subtitle` | Jobs for this press, in the order they run. | इस प्रेस के काम, चलने के क्रम में। |
 | `queue.onLine` | On the line | लाइन पर |
-| `queue.closing` | Closing | बंद हो रहे |
+| `queue.closing` | To log | दर्ज होना बाकी |
 | `queue.waiting` | Waiting | इंतज़ार में |
 | `queue.empty` | Nothing released to this press. | इस प्रेस को कुछ नहीं भेजा गया। |
 | `queue.emptyBody` | Plans released from Orders and planning land here. | ऑर्डर और प्लानिंग से भेजे गए प्लान यहाँ आते हैं। |

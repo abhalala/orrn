@@ -87,8 +87,8 @@ export function foldKindTotals(
 
 /**
  * BACKLOG 91: the two stock words, ONE meaning each, on every screen (Today, Stock, the stock-age chart and
- * report, Top sections). "In stock" is a bundle with status `available`; "held" is a bundle `reserved` on a
- * held dispatch. Orders' "Held for orders" is a different, wider figure and says so (AGENTS.md, Stock words).
+ * report, Top sections). "In stock" is a bundle with status `available`; "held" is a bundle with status `reserved`
+ * (its load has been held; one still being built reserves nothing). Orders' "Held for orders" is a different, wider figure and says so (AGENTS.md, Stock words).
  */
 export const STOCK_STATUS = { inStock: "available", held: "reserved" } as const;
 

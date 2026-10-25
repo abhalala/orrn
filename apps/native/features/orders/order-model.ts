@@ -102,9 +102,11 @@ const CELLS: readonly { key: GramKey; pcs?: "orderedPcs" | "bakiPcs"; labelKey: 
 export type StripCell = { key: GramKey; labelKey: MessageKey; kg: string; pcs: string | null; open: boolean };
 
 /** Pressed and Packed read the line funnel (BACKLOG 88); the rest are the strip's own figure. */
-function stripGrams(strip: Strip, key: GramKey): number {
+export function stripGrams(strip: Strip, key: GramKey): number {
   if (key === "pressedG") return strip.pressedAllG ?? strip.pressedG;
   if (key === "packedG") return strip.packedAllG ?? strip.packedG;
+  // Aged is the server's real figure; an answer from before ageing has none, which reads as 0.
+  if (key === "agedG") return strip.agedG ?? 0;
   return strip[key];
 }
 

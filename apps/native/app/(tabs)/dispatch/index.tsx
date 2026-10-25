@@ -18,6 +18,7 @@ import { useFormat } from "@/lib/use-format";
 import { trpc } from "@/utils/trpc";
 
 import { kgTotal } from "@/features/dispatch/format";
+import { shipDayLine } from "@/features/dispatch/ship-date";
 import { DISPATCH_TABS, dispatchTab, type DispatchTab } from "@/features/dispatch/tabs";
 
 /**
@@ -63,14 +64,13 @@ export default function DispatchScreen() {
       ) : null}
 
       {items.map((d) => {
-        const shipDate = format.shipDay(d.shipDate);
         const totals = t("dispatch.build.groupTotal", { bundles: d.itemCount, kg: kgTotal(d.totalWeightG) });
         return (
           <ListRow
             key={d.id}
             title={d.customerName}
             code={d.code}
-            subtitle={[shipDate ? `${t("dispatch.columns.shipDate")} ${shipDate}` : t("native.dispatch.noShipDate"), totals].join(" · ")}
+            subtitle={[shipDayLine(d.shipDay, format.day, t), totals].join(" · ")}
             trailing={<Chip tone={dispatchTone(d.status)} label={t(`status.dispatch.${d.status}`)} />}
             onPress={() => router.push({ pathname: "/dispatch/[id]", params: { id: d.id } })}
           />

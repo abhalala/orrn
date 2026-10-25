@@ -17,6 +17,7 @@ import {
   STATUS_KEY,
   STATUS_TONE,
   stripCells,
+  stripGrams,
   timelineLabel,
 } from "../features/orders/order-model";
 import { RequestTimeoutError } from "../lib/request-timeout";
@@ -154,5 +155,29 @@ describe("timeline and titles", () => {
     expect(dieTitle({ sectionCode: "14701", name: "Patti 1" })).toBe("14701 Patti 1");
     expect(dieTitle({ sectionCode: "14701", name: null, series: "PATTI" })).toBe("14701 PATTI");
     expect(dieTitle({ sectionCode: "14701" })).toBe("14701");
+  });
+});
+
+describe("the strip's figures (review round 1, m11 and m5)", () => {
+  const base = { orderedG: 480_000, orderedPcs: 200, plannedG: 0, pressedG: 0, agedG: 0, packedG: 0, inStockG: 0, dispatchedG: 0, bakiG: 480_000, bakiPcs: 200, overG: 0 };
+
+  test("Pressed and Packed read the line funnel when the server sends it, else the strip's own figure (an older answer)", () => {
+    const funnel = { ...base, pressedG: 0, packedG: 0, dispatchedG: 603_659, pressedAllG: 700_000, packedAllG: 650_000 };
+    expect(stripGrams(funnel, "pressedG")).toBe(700_000);
+    expect(stripGrams(funnel, "packedG")).toBe(650_000);
+    expect(stripGrams(funnel, "dispatchedG")).toBe(603_659);
+    expect(stripGrams({ ...base, pressedG: 5_000, packedG: 7_000 }, "pressedG")).toBe(5_000);
+    expect(stripGrams({ ...base, pressedG: 5_000, packedG: 7_000 }, "packedG")).toBe(7_000);
+    // pressed >= packed >= dispatched holds in the cells the phone draws.
+    const cells = Object.fromEntries(stripCells(funnel).map((c) => [c.key, Number(c.kg.replace(/,/g, ""))]));
+    expect(cells.pressedG).toBeGreaterThanOrEqual(cells.packedG!);
+    expect(cells.packedG).toBeGreaterThanOrEqual(cells.dispatchedG!);
+  });
+
+  test("Aged shows the server's real aged kg and reads 0 when an answer has none", () => {
+    expect(stripCells({ ...base, agedG: 12_000 }).find((c) => c.key === "agedG")!.kg).toBe(orderKgText(12_000));
+    const old: Partial<typeof base> = { ...base };
+    delete old.agedG;
+    expect(stripGrams(old as typeof base, "agedG")).toBe(0);
   });
 });

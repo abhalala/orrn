@@ -644,8 +644,8 @@ describe("buildPlSnapshotV2 (pure)", () => {
   });
 
   test("[N09] one bundle reads '1 bundle'", () => {
-    expect(snapMod.buildPlSnapshotV2(base([item("26I1")] as never)).summary.text).toBe("1 bundle · 25.500 kg");
-    expect(snapMod.buildPlSnapshotV2(base([item("26I1"), item("26I2")] as never)).summary.text).toBe("2 bundles · 51.000 kg");
+    expect(snapMod.buildPlSnapshotV2(base([item("26I1")] as never)).summary.text).toBe("1 bundle · 25.50 kg");
+    expect(snapMod.buildPlSnapshotV2(base([item("26I1"), item("26I2")] as never)).summary.text).toBe("2 bundles · 51.00 kg");
   });
 
   test("[N10 N11 N12] without a ship-to the bill-to name, GSTIN and address are used", () => {
@@ -724,11 +724,11 @@ describe("@orrn/documents v2 content", () => {
     const head = rows.findIndex((r) => r[0] === "Sr");
     expect(rows[head]!.slice(0, 5)).toEqual(["Sr", "Bundle no", "Section", "Item", "Weight kg"]);
     const body = rows.slice(head + 1).filter((r) => typeof r[0] === "number");
-    expect(body.map((r) => r[4])).toEqual([25.5, 24.25, 40]); // kg as numbers (not grams), in printed order
+    expect(body.map((r) => r[4])).toEqual([25.5, 24.25, 40]); // kg as numbers (not grams), in printed order; displayed to the 10 g (a `#,##0.00` cell format)
     // One subtotal row per group (2) plus the grand total row (1), then the summary text.
     const countRows = rows.filter((r) => typeof r[1] === "string" && /^\d+ bundles?$/.test(r[1] as string));
     expect(countRows.map((r) => [Number.parseInt(r[1] as string, 10), r[4]])).toEqual([[2, 49.75], [1, 40], [3, 89.75]]);
-    expect(rows.some((r) => r[0] === null && r[1] === "3 bundles · 89.750 kg")).toBe(true);
+    expect(rows.some((r) => r[0] === null && r[1] === "3 bundles · 89.75 kg")).toBe(true);
   }, SLOW);
 });
 
@@ -1109,7 +1109,7 @@ describe("@orrn/documents helpers (pure)", () => {
   test("[E38] a row without kg/12ft prints dashes; one with it prints three decimals and one", async () => {
     const docs = await load();
     const row = { sr: 1, bundleNo: "26I1", section: "12170", item: "Domal", weightG: 25_500, cutFt: 12, cutIn: 0, pcs: 10, kgPer12ftMilli: 2_550, range12ft: 2.5, po: null };
-    expect(docs.plRowCells(row as never)).toEqual(["1", "26I1", "12170", "Domal", "25.500", "12", "0", "10", "2.550", "2.5", ""]);
+    expect(docs.plRowCells(row as never)).toEqual(["1", "26I1", "12170", "Domal", "25.50", "12", "0", "10", "2.550", "2.5", ""]);
     expect(docs.plRowCells({ ...row, kgPer12ftMilli: null, range12ft: null } as never).slice(8, 10)).toEqual(["—", "—"]);
   });
 

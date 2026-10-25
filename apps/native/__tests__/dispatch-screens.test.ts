@@ -6,7 +6,8 @@ import { overRaceAfterComplete } from "../features/dispatch/capacity";
 import { barActions, currentStep, nextStep, showsActionBar, stepPerms } from "../features/dispatch/next-step";
 import { plTable, toPlSnapshot } from "../features/dispatch/packing-list";
 import { resolvePasted } from "../features/dispatch/paste";
-import { shipDateFromChoice } from "../features/dispatch/ship-date";
+import { customerDispatchDay, shipDateFromChoice, shipDayLine } from "../features/dispatch/ship-date";
+import { formatDay as formatDayAt, monthNames } from "../lib/format";
 import type { ResolveHit } from "../features/scan/scan-flow";
 
 const item = (over: Record<string, unknown>) => ({
@@ -240,5 +241,23 @@ describe("complete refused because the load went over while the sheet was open (
     expect(overRaceAfterComplete(refused, false, null)).toBe(false);
     expect(overRaceAfterComplete({ data: { code: "BAD_REQUEST" } }, false, over)).toBe(false);
     expect(overRaceAfterComplete(new Error("Network request failed"), false, over)).toBe(false);
+  });
+});
+
+describe("ship day (review round 1, I1: one rule on the phone, the web and the packing list)", () => {
+  const months = monthNames("Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec");
+  const day = (v: string | number | Date) => formatDayAt(v, months, new Date("2026-10-30T06:00:00Z"), "Asia/Kolkata");
+  const t = (key: string, vars?: { date: string }) => (vars ? `${key}:${vars.date}` : key);
+
+  test("a load that left reads Dispatched <day it left>; one being built reads Ship <entered date>; none says so", () => {
+    expect(shipDayLine({ ymd: "2026-10-28", kind: "dispatched" }, day, t as never)).toBe("dispatch.detail.dispatchedOn:28 Oct");
+    expect(shipDayLine({ ymd: "2026-10-31", kind: "ship" }, day, t as never)).toBe("dispatch.detail.shipOn:31 Oct");
+    expect(shipDayLine(null, day, t as never)).toBe("native.dispatch.noShipDate");
+    expect(shipDayLine(undefined, day, t as never)).toBe("native.dispatch.noShipDate");
+  });
+
+  test("the customer's list reads the server's ship day, else the day the load was started on the company's clock", () => {
+    expect(customerDispatchDay({ shipDay: { ymd: "2026-10-28", kind: "dispatched" }, createdAt: "2026-10-20T05:00:00Z" }, day)).toBe("28 Oct");
+    expect(customerDispatchDay({ shipDay: null, createdAt: "2026-10-19T20:00:00Z" }, day)).toBe("20 Oct");
   });
 });

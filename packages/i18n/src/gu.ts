@@ -1008,6 +1008,8 @@ const guBase = {
       atTablet: "આ રન શરૂ, બંધ કે ગણવા માટે press પાસેનું ટેબલેટ વાપરો.",
       gateUnknown: "આ રન લોગ કરતા પહેલા બીજું કંઈક બાકી છે.",
       onPress: "હાલમાં press પર",
+      onTheLine: "લાઇન પર",
+      toLog: "નોંધવાનું બાકી",
       urgent: "તાત્કાલિક",
       jobCopy: "Copy {code}",
       jobNoCopy: "હજી die copy નથી",

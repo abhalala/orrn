@@ -381,3 +381,16 @@ describe("holdableItems (FP-OP-17)", () => {
     expect(holdableItems(items, "l1").map((i) => i.id)).toEqual(["a", "b"]);
   });
 });
+
+describe("the Aged cell (review round 1, m5)", () => {
+  const aged = (strip: Strip) => stripCells(strip).find((c) => c.key === "agedG")!;
+  test("shows the server's real aged kg, between Pressed and Packed, and reads 0 on an answer that has none", () => {
+    expect(aged({ ...strip, agedG: 12_000, pressedAllG: 700_000, packedAllG: 700_000 }).kg).toBe("12.000");
+    const keys = stripCells({ ...strip, agedG: 12_000 }).map((c) => c.key);
+    expect(keys.indexOf("agedG")).toBe(keys.indexOf("pressedG") + 1);
+    expect(keys.indexOf("packedG")).toBe(keys.indexOf("agedG") + 1);
+    const old = { ...strip } as Partial<Strip>;
+    delete old.agedG;
+    expect(aged(old as Strip).kg).toBe("0.000");
+  });
+});

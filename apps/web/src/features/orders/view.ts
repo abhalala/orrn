@@ -98,6 +98,8 @@ export type StripCell = {
 export function stripGrams(strip: Strip, key: StripGramKey): number {
   if (key === "pressedG") return strip.pressedAllG ?? strip.pressedG;
   if (key === "packedG") return strip.packedAllG ?? strip.packedG;
+  // Aged is the server's real figure; an answer from before ageing has none, which reads as 0.
+  if (key === "agedG") return strip.agedG ?? 0;
   return strip[key];
 }
 

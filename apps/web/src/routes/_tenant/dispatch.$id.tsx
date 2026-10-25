@@ -294,7 +294,7 @@ function DispatchDetail({ data }: { data: DetailData }) {
         <BackLink />
         <div className="flex shrink-0 items-center gap-1">
           <HowToButton slug={status === "draft" ? "build-dispatch" : "hold-and-dispatch"} />
-          <DispatchMenu dispatch={d} customerName={customerName} onChanged={() => void refresh()} />
+          <DispatchMenu dispatch={{ ...d, shipDay: data.shipDay }} customerName={customerName} onChanged={() => void refresh()} />
         </div>
       </div>
 

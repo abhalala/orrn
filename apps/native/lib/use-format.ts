@@ -19,8 +19,6 @@ export function useFormat() {
       zone,
       day: (value: Parameters<typeof formatDay>[0]) => formatDay(value, months, new Date(), zone),
       time: (value: Parameters<typeof formatTime>[0]) => formatTime(value, zone),
-      /** A ship date: the server keeps it as UTC midnight of the day, so it is read in UTC and never shifts. */
-      shipDay: (value: Parameters<typeof formatDay>[0]) => formatDay(value, months, new Date(), "UTC"),
     }),
     [months, zone],
   );
