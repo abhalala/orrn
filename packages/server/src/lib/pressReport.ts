@@ -301,6 +301,26 @@ function productionFigures(rows: readonly { purpose: string; goodG: number; inpu
   return { goodG, inputG, recoveryBp: recoveryBp(goodG, inputG) };
 }
 
+/**
+ * ONE rule for the summary and Today's tile (BACKLOG 53b, FP-PR-23): pressed kg, its input, pieces
+ * and recovery count PRODUCTION runs only, so "Pressed" and its recovery share one base; the good
+ * kg of die trial, sample and other runs is its own figure (`trialKgG`, `trialRuns`). Runs, scrap,
+ * downtime and the late share count every run.
+ */
+function dayFigures(rows: readonly { purpose: string; goodG: number; inputG: number; pcs: number }[]) {
+  const prod = productionFigures(rows);
+  const trial = rows.filter((r) => r.purpose !== "production");
+  return {
+    kgG: prod.goodG,
+    inputG: prod.inputG,
+    pcs: rows.filter((r) => r.purpose === "production").reduce((s, r) => s + r.pcs, 0),
+    recoveryBp: prod.recoveryBp,
+    productionRuns: rows.length - trial.length,
+    trialKgG: trial.reduce((s, r) => s + r.goodG, 0),
+    trialRuns: trial.length,
+  };
+}
+
 /** FP-PR-24: late entries per (shift, operator), share by runs. */
 export function lateShareOf(rows: readonly { shiftSeq: number | null; shiftName?: string; operatorId: string | null; operatorName: string | null; lateEntry: boolean; goodG: number }[]) {
   const groups = new Map<string, { shiftSeq: number | null; shiftName: string | null; operatorId: string | null; operatorName: string | null; runs: number; lateRuns: number; goodG: number; lateGoodG: number }>();
@@ -378,17 +398,17 @@ export async function pressDaySummary(db: OrrnDb, companyId: string, day: string
   const byLine = lines
     .map((l) => {
       const rs = report.rows.filter((r) => r.pressLineId === l.id);
-      const goodG = rs.reduce((s, r) => s + r.goodG, 0);
-      const inputG = rs.reduce((s, r) => s + r.inputG, 0);
+      const f = dayFigures(rs);
       return {
         pressLineId: l.id,
         code: l.code,
         name: l.name,
         runs: rs.length,
-        kgG: goodG,
-        inputG,
-        pcs: rs.reduce((s, r) => s + r.pcs, 0),
-        recoveryBp: productionFigures(rs).recoveryBp,
+        kgG: f.kgG,
+        trialKgG: f.trialKgG,
+        inputG: f.inputG,
+        pcs: f.pcs,
+        recoveryBp: f.recoveryBp,
         downtimeMin: downByLine.get(l.id) ?? 0,
       };
     })
@@ -396,20 +416,23 @@ export async function pressDaySummary(db: OrrnDb, companyId: string, day: string
   const shiftKeys = [...new Set(report.rows.map((r) => r.shiftSeq))];
   const byShift = shiftKeys.map((seq) => {
     const rs = report.rows.filter((r) => r.shiftSeq === seq);
-    const goodG = rs.reduce((s, r) => s + r.goodG, 0);
-    const inputG = rs.reduce((s, r) => s + r.inputG, 0);
-    return { shiftSeq: seq, shiftName: rs[0]?.shiftName ?? null, runs: rs.length, kgG: goodG, inputG, recoveryBp: productionFigures(rs).recoveryBp, lateRuns: rs.filter((r) => r.lateEntry).length };
+    const f = dayFigures(rs);
+    return { shiftSeq: seq, shiftName: rs[0]?.shiftName ?? null, runs: rs.length, kgG: f.kgG, trialKgG: f.trialKgG, inputG: f.inputG, recoveryBp: f.recoveryBp, lateRuns: rs.filter((r) => r.lateEntry).length };
   });
+  const day_ = dayFigures(report.rows);
   return {
     productionDay: day,
     startMs,
     endMs,
     runs: report.totals.runs,
-    kgG: report.totals.goodG,
-    inputG: report.totals.inputG,
-    pcs: report.totals.pcs,
+    productionRuns: day_.productionRuns,
+    kgG: day_.kgG,
+    inputG: day_.inputG,
+    pcs: day_.pcs,
+    trialKgG: day_.trialKgG,
+    trialRuns: day_.trialRuns,
     scrapG: report.totals.scrapG,
-    recoveryBp: report.totals.recoveryBp,
+    recoveryBp: day_.recoveryBp,
     downtimeMin,
     lateRuns: report.totals.lateRuns,
     lateShareBp: report.totals.lateShareBp,
@@ -425,11 +448,13 @@ export async function pressedToday(db: OrrnDb, companyId: string, day: string, n
   const s = await pressDaySummary(db, companyId, day, nowMs);
   return {
     kgG: s.kgG,
+    trialKgG: s.trialKgG,
     recoveryBp: s.recoveryBp,
     downtimeMin: s.downtimeMin,
     runs: s.runs,
+    trialRuns: s.trialRuns,
     lateRuns: s.lateRuns,
     lateShareBp: s.lateShareBp,
-    byLine: s.byLine.map((l) => ({ pressLineId: l.pressLineId, code: l.code, kgG: l.kgG, recoveryBp: l.recoveryBp, runs: l.runs, downtimeMin: l.downtimeMin })),
+    byLine: s.byLine.map((l) => ({ pressLineId: l.pressLineId, code: l.code, kgG: l.kgG, trialKgG: l.trialKgG, recoveryBp: l.recoveryBp, runs: l.runs, downtimeMin: l.downtimeMin })),
   };
 }

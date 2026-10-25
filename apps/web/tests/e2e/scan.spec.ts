@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi } from "./helpers/accounts";
-import { packPlantStock } from "./helpers/plant-stock";
+import { ownSection, packPlantStock } from "./helpers/plant-stock";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
@@ -66,9 +66,22 @@ async function newDraftDispatch(page: Page) {
   return trpcMutation<{ id: string; code: string }>(page, "dispatch.create", { customerId: customers.items[0]!.id });
 }
 
+/**
+ * This worker's own die section and copy (BACKLOG 49): made once, so the scan specs never pack on a
+ * die another spec gives an owner or empties while they run in parallel.
+ */
+let section: Promise<{ dieId: string; dieInstanceId: string }> | null = null;
+function scanSection(page: Page) {
+  section ??= ownSection(page, "SCN").catch((e) => {
+    section = null;
+    throw e;
+  });
+  return section;
+}
+
 async function serials(page: Page, status: "available" | "dispatched", count: number) {
-  // Available: fresh bundles packed as "Plant stock" (D20), which the floor scan adds; never shared with another test.
-  if (status === "available") return (await packPlantStock(page, count)).map((b) => b.serial);
+  // Available: fresh bundles packed as "Plant stock" (D20) on the spec's own section, which the floor scan adds; never shared with another test.
+  if (status === "available") return (await packPlantStock(page, count, await scanSection(page))).map((b) => b.serial);
   const list = await trpcQuery<{ items: { serial: string }[] }>(page, "bundle.listBundles", { status, limit: 100 });
   // Spread the picks so two tests running at once rarely pick the same bundle.
   const pool = list.items.map((b) => b.serial);

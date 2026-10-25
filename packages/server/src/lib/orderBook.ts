@@ -5,17 +5,25 @@
  *
  * Per order line, with O ordered, D dispatched, A available on the line (in stock: the D-3B rule,
  * the same as the detail strip's `inStockG`), V reserved on a dispatch, H held in the yard for the
- * line and not already on it (FP-OP-17), R pressed-not-packed and L planned (the strip's own
- * subqueries, `lib/orderStrip.ts`), the bar segments are taken in order and capped so they add up
- * to the ordered kg:
+ * line and not already on it (FP-OP-17), R pressed-not-packed, L planned and P produced (the
+ * strip's own subqueries, `lib/orderStrip.ts`), the bar segments are taken in order and capped so
+ * they add up to the ordered kg:
  *
  *   dispatched = min(D, O)
- *   in stock   = min(A, O - dispatched)
+ *   in stock   = min(A, O - dispatched)                               (`inStockBarG`, drawn only)
  *   held       = min(V + H, O - dispatched - in stock)                (on a truck, or held for it)
  *   pressed    = min(R, O - dispatched - in stock - held)
  *   planned    = min(L, O - dispatched - in stock - held - pressed)
  *   rest       = O - dispatched - in stock - held - pressed - planned (not planned)
- *   over       = max(0, D + A + V + H + R + L - O)                   (its own chip)
+ *
+ * The LABELLED figures are the line strip's, never a capped segment (BACKLOG 52, explorer M2: the
+ * header read "In stock 65.454 kg" and "229.056 kg over" while the line strip read 105.895 and
+ * 40.441):
+ *
+ *   inStockG   = Σ A                                                  (= Σ strip inStockG)
+ *   overG      = Σ max(0, P - O) per line                             (= Σ strip overG, its own chip)
+ *
+ * so header = Σ rows = Σ line strips for the same filter (tested).
  *
  * The bundle counts follow the same sets: `inStockBundles` counts A, `heldBundles` counts V + H
  * (review r1 I-5: "In stock X kg · N bundles" is one set).
@@ -64,14 +72,17 @@ export type BookFilter = {
 
 export type BookBar = {
   dispatchedG: number;
+  /** Available bundle kg on the order's lines (= Σ line strip `inStockG`; not capped at the baki). */
   inStockG: number;
+  /** The part of in stock the bar draws (capped so the segments add up to ordered). */
+  inStockBarG: number;
   /** Reserved on a dispatch, or held in the yard for the order (FP-OP-17). */
   heldG: number;
   pressedG: number;
   plannedG: number;
   /** Not planned yet. */
   restG: number;
-  /** Pipeline kg beyond ordered (the "over" chip). */
+  /** Produced beyond ordered, per line (= Σ line strip `overG`; the "over" chip). */
   overG: number;
   /** Dispatched ÷ ordered, basis points, rounded half up (0 when nothing is ordered). */
   dispatchedBp: number;
@@ -110,6 +121,7 @@ export type BookTotals = {
   orderedG: number;
   dispatchedG: number;
   inStockG: number;
+  inStockBarG: number;
   heldG: number;
   pressedG: number;
   plannedG: number;
@@ -196,9 +208,9 @@ function bookCte(companyId: string, f: BookFilter, opts: { rates?: boolean } = {
     s2 as (select *, min(r_g, o_g - ds - ss - hs) as ps from s1h),
     s3 as (select *, min(pl_g, o_g - ds - ss - hs - ps) as ls from s2),
     ord as (
-      select oid, count(*) as lines, sum(o_g) as ordered_g, sum(d_g) as raw_d_g, sum(ds) as dispatched_g, sum(ss) as in_stock_g,
+      select oid, count(*) as lines, sum(o_g) as ordered_g, sum(d_g) as raw_d_g, sum(ds) as dispatched_g, sum(a_g) as in_stock_g, sum(ss) as in_stock_bar_g,
         sum(hs) as held_g, sum(ps) as pressed_g, sum(ls) as planned_g, sum(o_g - ds - ss - hs - ps - ls) as rest_g,
-        sum(max(0, d_g + a_g + v_g + h_g + r_g + pl_g - o_g)) as over_g, sum(prod_g) as produced_g,
+        sum(max(0, prod_g - o_g)) as over_g, sum(prod_g) as produced_g,
         sum(max(o_g - d_g, 0)) as baki_g, sum(max(d_g - o_g, 0)) as excess_g, sum(in_n) as in_n, sum(held_n) as held_n
         ${
           opts.rates
@@ -240,6 +252,7 @@ type FoRow = {
   raw_d_g: number;
   dispatched_g: number;
   in_stock_g: number;
+  in_stock_bar_g: number;
   held_g: number;
   pressed_g: number;
   planned_g: number;
@@ -280,6 +293,7 @@ function rowOf(r: FoRow): BookRow {
     bar: {
       dispatchedG,
       inStockG: num(r.in_stock_g),
+      inStockBarG: num(r.in_stock_bar_g),
       heldG: num(r.held_g),
       pressedG: num(r.pressed_g),
       plannedG: num(r.planned_g),
@@ -312,7 +326,7 @@ export async function bookTotals(db: OrrnDb, companyId: string, filter: BookFilt
   const [r] = await db.all<Record<string, number>>(
     sql`${bookCte(companyId, filter)} select count(*) as orders, coalesce(sum(case when status in ${OPEN} then 1 else 0 end), 0) as open_orders,
       coalesce(sum(is_late), 0) as late_orders, coalesce(sum(lines), 0) as lines, coalesce(sum(ordered_g), 0) as ordered_g,
-      coalesce(sum(dispatched_g), 0) as dispatched_g, coalesce(sum(in_stock_g), 0) as in_stock_g, coalesce(sum(held_g), 0) as held_g, coalesce(sum(pressed_g), 0) as pressed_g,
+      coalesce(sum(dispatched_g), 0) as dispatched_g, coalesce(sum(in_stock_g), 0) as in_stock_g, coalesce(sum(in_stock_bar_g), 0) as in_stock_bar_g, coalesce(sum(held_g), 0) as held_g, coalesce(sum(pressed_g), 0) as pressed_g,
       coalesce(sum(planned_g), 0) as planned_g, coalesce(sum(rest_g), 0) as rest_g, coalesce(sum(over_g), 0) as over_g,
       coalesce(sum(baki_g), 0) as baki_g, coalesce(sum(in_n), 0) as in_n, coalesce(sum(held_n), 0) as held_n from fo`,
   );
@@ -326,6 +340,7 @@ export async function bookTotals(db: OrrnDb, companyId: string, filter: BookFilt
     orderedG,
     dispatchedG,
     inStockG: num(r?.in_stock_g),
+    inStockBarG: num(r?.in_stock_bar_g),
     heldG: num(r?.held_g),
     pressedG: num(r?.pressed_g),
     plannedG: num(r?.planned_g),

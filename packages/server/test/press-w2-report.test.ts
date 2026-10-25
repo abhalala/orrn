@@ -145,6 +145,35 @@ describe("summary and Today (FP-PR-18)", () => {
   });
 });
 
+describe("BACKLOG 53b: production kg and trial kg are two figures (one rule)", () => {
+  test("press.summary and pressedToday: kgG / inputG / pcs / recovery are production only; trial and sample runs are trialKgG", async () => {
+    const p = await pressPlant();
+    const c = await p.castWith(kg(5_000));
+    const prod = await loggedRun(p, c.id);
+    const trial = await p.countingRun({ purpose: "sample" });
+    await fillWorkedExample(p, trial.runId, c.id);
+    await p.as("supervisor").press.runs.close({ id: trial.runId });
+    const day = prod.row.productionDay!;
+
+    const s = await p.as("press").press.summary({ productionDay: day });
+    // Pressed = the production run only (234.2 kg of 310.4); the sample run's 234.2 kg is its own figure.
+    expect(s).toMatchObject({ kgG: 234_200, inputG: 310_400, pcs: 80, recoveryBp: 7545, trialKgG: 234_200, trialRuns: 1, productionRuns: 1, runs: 2 });
+    // Recovery is Σgood ÷ Σinput of the same production runs the kg counts (never a mixed base).
+    expect(s.recoveryBp).toBe(Math.round((s.kgG * 10_000) / s.inputG));
+    const line = s.byLine.find((l) => l.code === "P1")!;
+    expect(line).toMatchObject({ kgG: 234_200, trialKgG: 234_200, inputG: 310_400, runs: 2, recoveryBp: 7545 });
+    expect(s.byShift.reduce((acc, x) => acc + x.kgG, 0)).toBe(s.kgG);
+    expect(s.byShift.reduce((acc, x) => acc + x.trialKgG, 0)).toBe(s.trialKgG);
+
+    const today = await p.as("supervisor").dashboard.today();
+    expect(today.pressedToday).toMatchObject({ kgG: 234_200, trialKgG: 234_200, recoveryBp: 7545, runs: 2, trialRuns: 1 });
+    expect(today.pressedToday!.byLine).toEqual([expect.objectContaining({ code: "P1", kgG: 234_200, trialKgG: 234_200 })]);
+    // The report keeps every run as its own row; its production totals are the same figures.
+    const rep = await p.as("office").press.report({ from: day, to: day });
+    expect(rep.totals).toMatchObject({ productionGoodG: s.kgG, productionInputG: s.inputG, recoveryBp: s.recoveryBp });
+  });
+});
+
 describe("D1 limits and permissions on bulk rows", () => {
   test("50 run lines and 30 QC rows stay ≤ 100 bound params per statement; upsert keeps line ids", async () => {
     const p = await pressPlant();

@@ -44,3 +44,11 @@ export function dayTimeText(at: Date | number | string, locale: string, timeZone
     timeZone,
   }).format(d);
 }
+
+/** A `YYYY-MM-DD` day as "25 Oct" (a calendar day, no zone shift). */
+export function dayText(ymd: string, locale: string): string {
+  const [y, m, d] = ymd.split("-").map(Number) as [number, number, number];
+  const at = new Date(Date.UTC(y, m - 1, d));
+  if (Number.isNaN(at.getTime())) return ymd;
+  return new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-IN", { day: "numeric", month: "short", numberingSystem: "latn", timeZone: "UTC" }).format(at);
+}
