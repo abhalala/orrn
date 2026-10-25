@@ -50,6 +50,9 @@ export type Strip = {
   pressedG: number;
   agedG: number;
   packedG: number;
+  /** BACKLOG 88: the line funnel the strip reads (pressed >= packed incl. dispatched >= dispatched). Absent on an older server answer. */
+  pressedAllG?: number;
+  packedAllG?: number;
   inStockG: number;
   /** FP-OP-05: the bundles and pieces that make up "in stock" (absent on an older server answer). */
   inStockBundles?: number;
@@ -91,9 +94,18 @@ export type StripCell = {
   open: boolean;
 };
 
+/** The kg a strip cell shows: Pressed and Packed read the line funnel (BACKLOG 88), the rest are the strip's own figure. */
+export function stripGrams(strip: Strip, key: StripGramKey): number {
+  if (key === "pressedG") return strip.pressedAllG ?? strip.pressedG;
+  if (key === "packedG") return strip.packedAllG ?? strip.packedG;
+  // Aged is the server's real figure; an answer from before ageing has none, which reads as 0.
+  if (key === "agedG") return strip.agedG ?? 0;
+  return strip[key];
+}
+
 export function stripCells(strip: Strip): StripCell[] {
   return STRIP_CELLS.map((cell) => {
-    const grams = strip[cell.key];
+    const grams = stripGrams(strip, cell.key);
     const inStock = cell.key === "inStockG";
     const pcs = inStock ? (strip.inStockPcs ?? null) : cell.pcs ? strip[cell.pcs] : null;
     return {

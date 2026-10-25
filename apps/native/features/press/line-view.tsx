@@ -16,7 +16,7 @@ import { DowntimePanel } from "./downtime-panel";
 import { HandoverSheet } from "./handover-sheet";
 import { JobCardView } from "./job-card";
 import { BOARD_POLL_MS } from "./lines-view";
-import { canHandover, splitCards, type JobCard } from "./press-model";
+import { canHandover, splitQueue, type JobCard } from "./press-model";
 
 const isNotFound = (error: unknown) => (error as { data?: { code?: unknown } } | null)?.data?.code === "NOT_FOUND";
 
@@ -33,8 +33,8 @@ export function PressLineView() {
   const [handoverFor, setHandoverFor] = useState<string | null>(null);
 
   const cards = (queue.data?.cards ?? []) as JobCard[];
-  const { onPress, waiting } = splitCards(cards);
-  const handoverRun = onPress.find((c) => canHandover(c.status)) ?? waiting.find((c) => canHandover(c.status));
+  const { onLine, closing, waiting } = splitQueue(cards);
+  const handoverRun = [...onLine, ...closing, ...waiting].find((c) => canHandover(c.status));
   const open = (card: JobCard) => router.push({ pathname: "/press/run/[id]", params: { id: card.id } } as never);
 
   return (
@@ -61,12 +61,23 @@ export function PressLineView() {
               </Can>
             ) : null}
 
-            {onPress.length > 0 ? (
+            {onLine.length > 0 ? (
               <View className="gap-3">
                 <Text accessibilityRole="header" className="font-display-bold text-lg text-ink">
-                  {t("native.press.onPress")}
+                  {t("native.press.onTheLine")}
                 </Text>
-                {onPress.map((c) => (
+                {onLine.map((c) => (
+                  <JobCardView key={c.id} card={c} onOpen={() => open(c)} />
+                ))}
+              </View>
+            ) : null}
+
+            {closing.length > 0 ? (
+              <View className="gap-3">
+                <Text accessibilityRole="header" className="font-display-bold text-lg text-ink">
+                  {t("native.press.toLog")}
+                </Text>
+                {closing.map((c) => (
                   <JobCardView key={c.id} card={c} onOpen={() => open(c)} />
                 ))}
               </View>

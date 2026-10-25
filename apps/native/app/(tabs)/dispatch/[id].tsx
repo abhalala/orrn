@@ -37,6 +37,7 @@ import { LabelSheet } from "@/features/dispatch/label-sheet";
 import { nextStep, showsActionBar, stepPerms } from "@/features/dispatch/next-step";
 import { PackingListSection } from "@/features/dispatch/packing-list-section";
 import { PasteSheet } from "@/features/dispatch/paste-sheet";
+import { shipDayLine } from "@/features/dispatch/ship-date";
 import { DispatchStepper } from "@/features/dispatch/stepper";
 import { randomId } from "@/lib/random-id";
 import { replayKey, sendOnce, type ReplayAttempt } from "@/lib/replay-key";
@@ -162,7 +163,6 @@ export default function DispatchDetailScreen() {
   const groups = groupItems(items);
   const totals = dispatchTotals(items);
   const editable = (d.status === "draft" || d.status === "reserved") && can(me, "dispatch.addBundle");
-  const shipDate = format.shipDay(d.shipDate);
   const step = nextStep(d.status, live.length, stepPerms(me, d.status));
   const pl = plQuery.data ?? null;
   const capacity = capacityView(detail.data.capacity);
@@ -343,7 +343,7 @@ export default function DispatchDetailScreen() {
         <Screen onRefresh={() => void Promise.all([detail.refetch(), plQuery.refetch()])} refreshing={detail.isRefetching}>
           <PageHeader
             title={customerName}
-            subtitle={[d.code, shipDate ? `${t("dispatch.columns.shipDate")} ${shipDate}` : t("native.dispatch.noShipDate")].join(" · ")}
+            subtitle={[d.code, shipDayLine(detail.data.shipDay, format.day, t)].join(" · ")}
             right={<Chip tone={dispatchTone(d.status)} label={t(`status.dispatch.${d.status}`)} />}
           />
           {d.notes ? <Text className="font-sans text-[15px] leading-6 text-ink-muted">{d.notes}</Text> : null}

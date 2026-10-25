@@ -23,6 +23,31 @@ export function HoldNote({ customerName }: { customerName: string }) {
   );
 }
 
+/**
+ * A building or held dispatch has no packing list yet: it is issued when the dispatch completes
+ * (BACKLOG 85). Says so, and jumps to the bundles that are reserved (held) or on the load (building).
+ */
+export function PlPendingNote({ held }: { held: boolean }) {
+  const { t } = useT();
+  const jump = () => {
+    const heading = document.getElementById("dispatch-items");
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    heading?.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
+    heading?.focus({ preventScroll: true });
+  };
+  return (
+    <div
+      data-testid="pl-pending"
+      className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card border border-border bg-card px-4 py-3"
+    >
+      <p className="m-0 min-w-0 text-[15px] leading-6">{t("dispatch.detail.plWhenComplete")}</p>
+      <Button variant="ghost" onClick={jump} data-testid="pl-pending-link">
+        {held ? t("dispatch.detail.plSeeReserved") : t("dispatch.detail.plSeeBundles")}
+      </Button>
+    </div>
+  );
+}
+
 /** Release the held stock (back to Building), after a confirmation. */
 export function ReleaseButton({ dispatchId, onReleased, disabled }: { dispatchId: string; onReleased(): void; disabled?: boolean }) {
   const { t } = useT();

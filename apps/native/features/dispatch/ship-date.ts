@@ -50,3 +50,29 @@ export function shipDateChoice(shipDate: number | null | undefined, now: Date = 
   const d = new Date(shipDate);
   return { kind: "typed", text: `${two(d.getUTCDate())}-${two(d.getUTCMonth() + 1)}-${d.getUTCFullYear()}` };
 }
+
+/** The server's one ship day (lib/dispatchFigures): a completed load's departure day, else the entered ship date. */
+export type ShipDay = { ymd: string; kind: "dispatched" | "ship" } | null | undefined;
+
+/**
+ * What a dispatch row or header says about its day: "Dispatched 28 Oct" for a load that left, "Ship 26 Oct" for one
+ * still being built or held, "no ship date" otherwise. The day is the server's `shipDay`, never re-derived from
+ * `shipDate` (read in UTC) or `completedAt` here, so the phone cannot disagree with the web or the packing list.
+ */
+export function shipDayLine(
+  shipDay: ShipDay,
+  formatDay: (ymd: string) => string | null,
+  t: (key: "dispatch.detail.dispatchedOn" | "dispatch.detail.shipOn" | "native.dispatch.noShipDate", vars?: { date: string }) => string,
+): string {
+  const day = shipDay?.ymd ? formatDay(shipDay.ymd) : null;
+  if (!shipDay || !day) return t("native.dispatch.noShipDate");
+  return t(shipDay.kind === "dispatched" ? "dispatch.detail.dispatchedOn" : "dispatch.detail.shipOn", { date: day });
+}
+
+/** A customer's dispatch row date: the server's ship day, else the day the load was started. */
+export function customerDispatchDay(
+  d: { shipDay?: ShipDay; createdAt: string | number | Date },
+  formatDay: (value: string | number | Date) => string | null,
+): string | null {
+  return d.shipDay?.ymd ? formatDay(d.shipDay.ymd) : formatDay(d.createdAt);
+}

@@ -374,9 +374,9 @@ describe("press_alert evaluation", () => {
     await p.post([frame(4, 16, { ramSpeedMmS: 9 }), frame(5, 18, { billetTempC: 505 })]);
     expect(await env.db.select().from(pressAlert).where(eq(pressAlert.companyId, p.companyId))).toHaveLength(2);
 
-    // Today chip: one open, two today, simulated (read a minute after the last frame).
-    const today = await lib.pressAlertsToday(env.db, p.companyId, T0, T0 + 60_000);
-    expect(today).toEqual({ open: 1, today: 2, simulated: true });
+    // Today chip: open = not acknowledged yet (BACKLOG 81), so both are open; two started today, simulated.
+    const today = await lib.pressAlertsToday(env.db, p.companyId, T0);
+    expect(today).toEqual({ open: 2, today: 2, simulated: true });
   });
 
   test("a gap longer than 5 minutes ends the old alert at its last frame and opens a new one", async () => {
@@ -533,10 +533,11 @@ describe("alerts end after a 5-minute gap, on ingest and on read (I-3)", () => {
     expect(r.body).toMatchObject({ alertsEnded: 1 });
     const [a] = await env.db.select().from(pressAlert).where(eq(pressAlert.companyId, p.companyId));
     expect(a!.endedAt).toEqual(at(0));
-    expect(await lib.pressAlertsToday(env.db, p.companyId, T0, T0 + 400_000)).toEqual({ open: 0, today: 1, simulated: true });
+    // Ended, but nobody has acknowledged it: still open (BACKLOG 81).
+    expect(await lib.pressAlertsToday(env.db, p.companyId, T0)).toEqual({ open: 1, today: 1, simulated: true });
   });
 
-  test("a collector that stops sending does not leave the alert open overnight", async () => {
+  test("a collector that stops sending shows its alert as ended at the last frame, still open until somebody acknowledges it", async () => {
     const p = await plant("quiet-secret");
     await env.caller({ role: "owner", companyId: p.companyId }).press.collector.setThreshold({ pressLineId: null, metric: "pressure", min: null, max: 200 });
     const now = Date.now();
@@ -546,17 +547,25 @@ describe("alerts end after a 5-minute gap, on ingest and on read (I-3)", () => {
     const stored = await env.db.select().from(pressAlert).where(and(eq(pressAlert.companyId, p.companyId), isNull(pressAlert.endedAt)));
     expect(stored).toHaveLength(1);
     const viewer = env.caller({ role: "viewer", companyId: p.companyId });
-    expect(await viewer.press.collector.alerts({ openOnly: true, limit: 10 })).toEqual([]);
-    expect(await viewer.press.collector.openAlertCount()).toEqual({ open: 0, simulated: false });
+    // BACKLOG 81: open = not acknowledged. The quiet line reads as ended at its last frame but is still open.
+    const [quiet] = await viewer.press.collector.alerts({ openOnly: true, limit: 10 });
+    expect(quiet!.endedAt).toEqual(new Date(now - 6 * 60_000));
+    expect(await viewer.press.collector.openAlertCount()).toEqual({ open: 1, all: 1, simulated: true });
     const [listed] = await viewer.press.collector.alerts({ openOnly: false, limit: 10 });
     expect(listed!.endedAt).toEqual(new Date(now - 6 * 60_000));
-    expect(await lib.pressAlertsToday(env.db, p.companyId, now - 3_600_000, now)).toEqual({ open: 0, today: 1, simulated: true });
-    // A fresh one (a minute old) is open.
+    expect(await lib.pressAlertsToday(env.db, p.companyId, now - 3_600_000)).toEqual({ open: 1, today: 1, simulated: true });
+    // A fresh one (a minute old) is open too, and not ended.
     const line2 = crypto.randomUUID();
     await env.db.insert(pressLine).values({ id: line2, companyId: p.companyId, code: "P2", name: "Press 2" });
     await p.post([real(2, now - 60_000, { line: "P2", pressureBar: 240 })], { nowMs: now });
-    expect(await viewer.press.collector.openAlertCount()).toEqual({ open: 1, simulated: true });
+    expect(await viewer.press.collector.openAlertCount()).toEqual({ open: 2, all: 2, simulated: true });
+    const openNow = await viewer.press.collector.alerts({ openOnly: true, limit: 10 });
+    expect(openNow.map((x) => x.lineCode).sort()).toEqual(["P1", "P2"]);
+    expect(openNow.find((x) => x.lineCode === "P2")!.endedAt).toBeNull();
+    // Acknowledging the quiet one closes it: it leaves the open list and the count.
+    await env.caller({ role: "owner", companyId: p.companyId }).press.collector.acknowledgeAlert({ id: quiet!.id });
     expect((await viewer.press.collector.alerts({ openOnly: true, limit: 10 })).map((x) => x.lineCode)).toEqual(["P2"]);
+    expect(await viewer.press.collector.openAlertCount()).toEqual({ open: 1, all: 2, simulated: true });
   });
 
   test("changing a band ends the alerts opened under the old one (m-10)", async () => {

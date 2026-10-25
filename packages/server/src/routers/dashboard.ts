@@ -18,6 +18,7 @@ import { productionDayWindow } from "../lib/dayWindow";
 import { APPROVER_ROLES, can } from "../lib/permissions";
 import { pressedToday as pressedTodayOf } from "../lib/pressReport";
 import { pressAlertsToday } from "../lib/pressCollector";
+import { STOCK_STATUS } from "../lib/stockFilters";
 import { todayTileKeys, type TodayTileKey } from "../lib/todayTiles";
 
 const LIST_LIMIT = 10;
@@ -187,8 +188,8 @@ export const dashboardRouter = router({
     >;
     const anyBundleEver = stockRows.some((r) => num(r.n) > 0);
     for (const r of stockRows) {
-      // Viewers see "in stock" (available + reserved) only, not void or dispatched totals.
-      if (kpisOnly && r.status !== "available" && r.status !== "reserved") continue;
+      // Viewers see "in stock" (available) and "held" (reserved on a held load) only, not void or dispatched totals.
+      if (kpisOnly && r.status !== STOCK_STATUS.inStock && r.status !== STOCK_STATUS.held) continue;
       stock[r.status] = { bundles: num(r.n), weightG: num(r.w) };
     }
 
@@ -274,8 +275,8 @@ export const dashboardRouter = router({
         packedG: packedToday.weightG,
         packedBundles: packedToday.bundles,
         dispatchedG: dispatchedToday.weightG,
-        inStockG: stock.available.weightG,
-        inStockBundles: stock.available.bundles,
+        inStockG: stock[STOCK_STATUS.inStock].weightG,
+        inStockBundles: stock[STOCK_STATUS.inStock].bundles,
       },
       /** Rate slice: only with priceOnSalesOrder on and order.price held; null otherwise. */
       value: showValue

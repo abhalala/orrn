@@ -202,17 +202,23 @@ describe("queue", () => {
     { id: "w3", status: "queued" },
   ];
 
-  test("on the line and waiting never overlap (the QA 'queue 1, lists 2' contradiction)", () => {
-    const { onLine, waiting } = splitQueue(cards);
-    expect(onLine.map((c) => c.id)).toEqual(["r1", "r2"]);
+  test("BACKLOG 82: on the line is the one running run; counting runs are closing; none overlap (the seed's P2: PR-10 running, PR-9 counting)", () => {
+    const { onLine, closing, waiting } = splitQueue(cards);
+    expect(onLine.map((c) => c.id)).toEqual(["r1"]);
+    expect(closing.map((c) => c.id)).toEqual(["r2"]);
     expect(waiting.map((c) => c.id)).toEqual(["w1", "w2", "w3"]);
-    expect(onLine.length + waiting.length).toBe(cards.length);
+    expect(onLine.length + closing.length + waiting.length).toBe(cards.length);
+    // The header count, the /press card and the line board all read the same split.
+    expect(leadOnLine(onLine)?.id).toBe("r1");
+    expect(onLine.length).toBe(leadOnLine(onLine) ? 1 : 0);
   });
 
-  test("the line board leads with the running run, not the first card on the line", () => {
+  test("a stopped run is closing, not on the line; with nothing running the line shows no lead", () => {
+    const { onLine, closing } = splitQueue([{ id: "s", status: "stopped" }, { id: "c", status: "counting" }]);
+    expect(onLine).toEqual([]);
+    expect(closing.map((c) => c.id)).toEqual(["s", "c"]);
+    expect(leadOnLine(onLine)).toBeUndefined();
     expect(leadOnLine([{ status: "counting" }, { status: "running" }])?.status).toBe("running");
-    expect(leadOnLine([{ status: "stopped" }, { status: "counting" }])).toEqual({ status: "stopped" });
-    expect(leadOnLine([{ status: "counting" }, { status: "running" }, { status: "running" }])).toEqual({ status: "running" });
     expect(leadOnLine([])).toBeUndefined();
   });
 

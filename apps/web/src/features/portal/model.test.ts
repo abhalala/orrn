@@ -10,6 +10,7 @@ import {
   newPortalLine,
   portalLineProblems,
   portalErrorKey,
+  portalDispatchDay,
   portalLocale,
   portalOrderErrorKey,
   portalOrderBody,
@@ -176,5 +177,14 @@ describe("order errors in the party's words", () => {
     expect(portalOrderErrorKey({ message: "Failed to fetch" })).toBe("errors.network");
     expect(portalOrderErrorKey(err("INTERNAL_SERVER_ERROR", "boom"))).toBe("errors.generic");
     expect(portalErrorKey(err("NOT_FOUND", "x"))).toBe("portal.errors.notFound");
+  });
+});
+
+describe("dispatch day", () => {
+  test("the party reads the server's ship day as a calendar day, in English or Hindi digits-as-Latin", () => {
+    expect(portalDispatchDay({ shipDay: { ymd: "2026-10-28" } }, "en")).toBe("28 Oct 2026");
+    expect(portalDispatchDay({ shipDay: { ymd: "2026-10-28" } }, "hi")).toContain("28");
+    expect(portalDispatchDay({ shipDay: null }, "en")).toBe("");
+    expect(portalDispatchDay({}, "en")).toBe("");
   });
 });

@@ -82,6 +82,9 @@ describe("FP-OP-05/07: the scripted balance (ordered 8 t, packed 6.7 t, dispatch
       pressedG: 0,
       agedG: 0,
       packedG: kg(6_700),
+      // BACKLOG 88: the funnel the screens read: bundles with no logged run behind them still count as pressed.
+      pressedAllG: kg(8_000),
+      packedAllG: kg(8_000),
       inStockG: kg(6_700),
       inStockBundles: 5,
       inStockPcs: expect.any(Number),

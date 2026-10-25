@@ -31,7 +31,7 @@ function LineCard({ line, summary }: { line: LineRow; summary: SummaryOut | unde
     meta: INLINE_ERROR_META,
   });
   const cards = queue.data?.cards;
-  const { onLine, waiting } = splitQueue(cards ?? []);
+  const { onLine, closing, waiting } = splitQueue(cards ?? []);
   const current = leadOnLine(onLine);
   const today = summary?.byLine.find((l) => l.pressLineId === line.id);
 
@@ -51,6 +51,10 @@ function LineCard({ line, summary }: { line: LineRow; summary: SummaryOut | unde
           {current ? (
             <Chip tone={statusTone(current.status)} truncate={false}>
               {t(`press.console.status.${current.status}` as MessageKey)}
+            </Chip>
+          ) : closing.length > 0 ? (
+            <Chip tone="amber" truncate={false}>
+              {t("press.board.closingChip")}
             </Chip>
           ) : (
             <Chip tone="neutral" truncate={false}>
@@ -79,6 +83,19 @@ function LineCard({ line, summary }: { line: LineRow; summary: SummaryOut | unde
           </dd>
         </div>
       </dl>
+      {closing.length > 0 ? (
+        <p className="m-0 text-[14px] text-muted-foreground" data-testid="line-closing">
+          {t("press.board.closing")}{" "}
+          {closing.map((c, i) => (
+            <span key={c.id}>
+              {i > 0 ? ", " : ""}
+              <UiLink to={`/press/runs/${c.id}`} className="font-mono font-semibold text-foreground">
+                {c.number}
+              </UiLink>
+            </span>
+          ))}
+        </p>
+      ) : null}
       {current ? (
         <p className="m-0 text-[14px] text-muted-foreground">
           <UiLink to={`/press/runs/${current.id}`} className="font-mono font-semibold text-foreground">

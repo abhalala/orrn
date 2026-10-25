@@ -90,6 +90,24 @@ export function planableG(input: {
   );
 }
 
+/**
+ * The line funnel the screens read left to right (BACKLOG 88): pressed >= packed >= dispatched.
+ * `producedG` is every non-void bundle of the line (available + reserved + dispatched), so
+ * packed here INCLUDES what has already gone out. `loggedG` is the good kg of logged runs naming
+ * the line. Pressed is everything pressed for the line: the logged kg, or the bundles when
+ * bundles exist without a logged run behind them (legacy stock, stock moved onto a line), so a
+ * bundle is never shown without the pressing that made it. The remainder (pressed not yet packed)
+ * stays `pressedG` in the strip because planableG takes exactly that off the baki.
+ */
+export function lineFunnel(input: { loggedG: number; producedG: number; dispatchedG: number }): {
+  pressedAllG: number;
+  packedAllG: number;
+  dispatchedG: number;
+} {
+  const packedAllG = Math.max(input.producedG, input.dispatchedG);
+  return { pressedAllG: Math.max(input.loggedG, packedAllG), packedAllG, dispatchedG: input.dispatchedG };
+}
+
 /** Dispatching past ordered + tolerance (bp of ordered) needs `dispatch_overdraw`. Exact integer compare. */
 export function overDispatchBeyondTolerance(input: { orderedG: number; dispatchedAfterG: number; toleranceBp: number }): boolean {
   return (input.dispatchedAfterG - input.orderedG) * 10_000 > input.orderedG * input.toleranceBp;

@@ -6,7 +6,7 @@ import { capacityView, completeExtras, overCapacityLine, overReasonError } from 
 import { hasTransport, transportFacts } from "../features/dispatch/transport";
 import { shipDateChoice, shipDateFromChoice } from "../features/dispatch/ship-date";
 import { addOutcome, blockOf, resultOutcome, type AddBundlesReport, type CapacityReport, type ScanResultRow } from "../features/scan/outcome";
-import { canHandover, downtimeNoteMissing, gateTexts, handoverChanges, handoverChoices, isOpenRun, lineState, minutesBetween, queuedRunFor, recoveryText, runBanner, splitCards } from "../features/press/press-model";
+import { canHandover, downtimeNoteMissing, gateTexts, handoverChanges, handoverChoices, isOpenRun, lineState, minutesBetween, queuedRunFor, recoveryText, runBanner, splitQueue } from "../features/press/press-model";
 import { stockTotals, type SectionRow } from "../features/stock/sections";
 import { dayKeyIn, formatDay, formatTime, hourIn, monthNames, wallClock, zoneOf } from "../lib/format";
 import { isSpoken, speechLang, speechOn } from "../lib/speech";
@@ -168,11 +168,19 @@ describe("the press on a phone (spec E3 Native)", () => {
     expect(gateTexts(t as never, ["from_the_future"])).toEqual(["[native.press.gateUnknown]"]);
   });
 
-  test("cards: runs on the press come first, the rest wait in the server's order", () => {
-    const cards: { id: string; status: PressRunStatus }[] = [{ id: "a", status: "queued" }, { id: "b", status: "running" }, { id: "c", status: "die_issued" }, { id: "d", status: "counting" }];
-    const s = splitCards(cards);
-    expect(s.onPress.map((c) => c.id)).toEqual(["b", "d"]);
+  test("BACKLOG 82, one rule with the web: on the line is the running run, closing is stopped or counting, the rest wait in the server's order", () => {
+    const cards: { id: string; status: PressRunStatus }[] = [{ id: "a", status: "queued" }, { id: "b", status: "running" }, { id: "c", status: "die_issued" }, { id: "d", status: "counting" }, { id: "e", status: "stopped" }];
+    const s = splitQueue(cards);
+    expect(s.onLine.map((c) => c.id)).toEqual(["b"]);
+    expect(s.closing.map((c) => c.id)).toEqual(["d", "e"]);
     expect(s.waiting.map((c) => c.id)).toEqual(["a", "c"]);
+    expect(s.onLine.length + s.closing.length + s.waiting.length).toBe(cards.length);
+    // The seed's press 2: PR-10 running, PR-9 counting. Counting never makes the line busy twice.
+    const seed = splitQueue([{ id: "PR-10", status: "running" as const }, { id: "PR-9", status: "counting" as const }]);
+    expect(seed.onLine.map((c) => c.id)).toEqual(["PR-10"]);
+    expect(seed.closing.map((c) => c.id)).toEqual(["PR-9"]);
+    // With nothing running, a stopped run is closing and the line has no lead.
+    expect(splitQueue([{ id: "s", status: "stopped" as const }]).onLine).toEqual([]);
   });
 
   test("scanning a die copy opens its queued run: the one with the die issued first, else the first waiting; none = null; never started", () => {

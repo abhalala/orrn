@@ -202,7 +202,8 @@ const v2s = StyleSheet.create({
   footer: { position: "absolute", bottom: 16, left: 28, right: 28, flexDirection: "row", justifyContent: "space-between", fontSize: 7, color: MUTED },
 });
 
-const kg3 = (g: number) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(g / 1000);
+/** Kg to the 10 g, as the screens and the HTML print them (review round 1, m1). */
+const kgText = (g: number) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(g / 1000);
 
 type Col = { key: string; label: string; w: number; end?: boolean };
 
@@ -237,7 +238,7 @@ function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; co
     party: r.partyNo ?? "",
     section: r.section,
     item: r.item,
-    kg: kg3(r.weightG),
+    kg: kgText(r.weightG),
     ft: String(r.cutFt),
     in: String(r.cutIn),
     pcs: String(r.pcs),
@@ -252,7 +253,7 @@ function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; co
     <View style={style} wrap={false}>
       {cols.map((c) => (
         <Text key={c.key} style={[cell(c), bold ? { fontFamily: "Helvetica-Bold" } : {}]}>
-          {c.key === "bundle" ? bundlesText(n) : c.key === "item" ? label : c.key === "kg" ? kg3(weightG) : c.key === "pcs" ? String(pcs) : ""}
+          {c.key === "bundle" ? bundlesText(n) : c.key === "item" ? label : c.key === "kg" ? kgText(weightG) : c.key === "pcs" ? String(pcs) : ""}
         </Text>
       ))}
     </View>
@@ -307,10 +308,10 @@ function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; co
 
         <View style={v2s.headline}>
           <Text style={v2s.totals}>
-            {bundlesText(view.total.bundles)} · {kg3(view.total.weightG)} kg
+            {bundlesText(view.total.bundles)} · {kgText(view.total.weightG)} kg
           </Text>
           <Text style={v2s.profile}>
-            {view.profile.map((k) => `${kindWord[k.kind]} ${bundlesText(k.bundles)} · ${kg3(k.weightG)} kg`).join("    ")}
+            {view.profile.map((k) => `${kindWord[k.kind]} ${bundlesText(k.bundles)} · ${kgText(k.weightG)} kg`).join("    ")}
           </Text>
         </View>
 

@@ -803,6 +803,7 @@ describe("packing list v2: snapshot shape and number assigned once", () => {
       poNumbers: ["OLD-PO-9", "PO-778"],
       invoiceNumber: null,
       invoiceDate: null,
+      // Review round 1 (I1): the PL prints the ENTERED ship date only; none was entered, and it prints its own issue date.
       shipDate: null,
     });
     // Groups: section A's order line, then section A's unlinked bundles, then section B.
@@ -830,7 +831,7 @@ describe("packing list v2: snapshot shape and number assigned once", () => {
     expect(rows[2]).toMatchObject({ bundleNo: loose[0], item: "Domal", cutFt: 11, cutIn: 6, po: "OLD-PO-9" });
     // The order's PO wins over a bundle's own PO on linked bundles.
     expect(rows[3]).toMatchObject({ bundleNo: forB[0], item: "Slim", cutFt: 16, cutIn: 0, po: "PO-778", kgPer12ftMilli: 3_750, range12ft: 3.7 });
-    expect(snap.summary).toEqual({ bundles: 4, pcs: 40, weightG: kg(119.75), text: "4 bundles · 119.750 kg" });
+    expect(snap.summary).toEqual({ bundles: 4, pcs: 40, weightG: kg(119.75), text: "4 bundles · 119.75 kg" });
     // v1 keys are still there for older renderers.
     expect(snap.totals).toEqual({ totalBundles: 4, totalQuantity: 40, totalWeightKg: 119.75, totalLengthM: expect.any(Number) });
     expect(snap.items.map((i) => i.bundleSerial)).toEqual(rows.map((r) => r.bundleNo));
@@ -881,7 +882,7 @@ describe("packing list v2: snapshot shape and number assigned once", () => {
     const snap = (await plRow(d))!.snapshot as never;
     expect(docs.isPlSnapshotV2(snap)).toBe(true);
     const html = docs.buildPackingListHtml(snap, done.plNumber);
-    for (const text of [done.plNumber, "24AAACF1234A1Z5", "GJ05AB1234", "PO-778", "Range /12&#39;", "2 bundles · 49.750 kg", `${o.number} / 1`]) {
+    for (const text of [done.plNumber, "24AAACF1234A1Z5", "GJ05AB1234", "PO-778", "Range /12&#39;", "2 bundles · 49.75 kg", `${o.number} / 1`]) {
       expect(html.replace(/'/g, "&#39;")).toContain(text);
     }
     const printed = ["Sr", "Bundle no", "Section", "Item", "Weight kg", "Cut ft", "Cut in", "Pcs", "kg/12ft", "Range /12'", "PO"];

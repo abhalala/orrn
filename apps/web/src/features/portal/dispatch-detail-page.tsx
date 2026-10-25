@@ -16,8 +16,8 @@ import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { usePortalMe } from "./hooks";
-import { kgText, pcsText } from "./model";
-import { dateText, PortalError, PortalSkeleton } from "./ui";
+import { kgText, pcsText, portalDispatchDay } from "./model";
+import { PortalError, PortalSkeleton } from "./ui";
 
 /**
  * `/portal/dispatches/$id`: the packing list the party received, as the plant printed it, without
@@ -72,7 +72,7 @@ export function PortalDispatchDetailPage({ id }: { id: string }) {
       <PageHeader
         title={d.code}
         back={back}
-        subtitle={[dateText(d.completedAt, locale, zone), d.vehicleNo ? `${t("portal.dispatches.vehicle")}: ${d.vehicleNo}` : null].filter(Boolean).join(" · ")}
+        subtitle={[portalDispatchDay(d, locale), d.vehicleNo ? `${t("portal.dispatches.vehicle")}: ${d.vehicleNo}` : null].filter(Boolean).join(" · ")}
         actions={
           <div className="flex flex-wrap gap-2 print:hidden">
             {model ? (

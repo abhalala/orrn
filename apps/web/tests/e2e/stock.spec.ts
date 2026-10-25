@@ -178,7 +178,7 @@ test.describe("Sections", () => {
     await expect(page.getByTestId("chart-stock-age")).toBeVisible();
     await expect(page.getByTestId("chart-top-sections")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Stock age" })).toBeVisible();
-    await expect(page.getByTestId("chart-top-sections")).toContainText("kg in stock and held per section, top 8 and the rest");
+    await expect(page.getByTestId("chart-top-sections")).toContainText("kg in stock per section, top 8 and the rest");
 
     const operator = await browser.newPage();
     await open(operator, "/stock", { width: 1280, role: "operator" });

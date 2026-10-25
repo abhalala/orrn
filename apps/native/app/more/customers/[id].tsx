@@ -27,6 +27,7 @@ import {
   type Period,
 } from "@/features/customers/customer-view";
 import { PagedList } from "@/features/more/paged-list";
+import { customerDispatchDay } from "@/features/dispatch/ship-date";
 import { isNotFound } from "@/features/more/query-errors";
 import { useThemeColor } from "@/lib/theme";
 import { useFormat } from "@/lib/use-format";
@@ -282,8 +283,8 @@ function Recent({ customerId }: { customerId: string }) {
         }
         empty={<EmptyState title={t("customers.noDispatches")} />}
         renderRow={(d) => {
-          // A completed load reads the day it left; one still being built reads its ship date, else the day it was started.
-          const day = d.status === "completed" && d.completedAt ? format.day(d.completedAt) : d.shipDate ? format.shipDay(d.shipDate) : format.day(d.createdAt);
+          // The server's one ship day (the day a completed load left; a load being built: its entered ship date), else the day it was started.
+          const day = customerDispatchDay(d, format.day);
           const load = `${t("units.bundles", { count: d.itemCount })}, ${formatKgTotal(d.totalWeightG / 1000)} ${t("units.kg")}`;
           return (
             <ListRow

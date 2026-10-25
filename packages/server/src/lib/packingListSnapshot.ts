@@ -21,7 +21,7 @@ import {
 } from "@orrn/domain";
 import { z } from "zod";
 
-import { companyTimezone, zonedYmd } from "./dayWindow";
+import { enteredShipYmd } from "./dispatchFigures";
 
 /** The 11 printed columns, in order. */
 export const PL_COLUMNS = [
@@ -325,10 +325,6 @@ export type PlBuildInput = {
   items: readonly PlItemInput[];
 };
 
-function ymdText(d: { year: number; month: number; day: number }): string {
-  return `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
-}
-
 /** Company letterhead from `settings.letterhead` ({ legalName, gstin, address, phone }). */
 export function letterhead(settings: Record<string, unknown> | null): {
   legalName: string | null;
@@ -448,7 +444,7 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
   const totalWeightG = allRows.reduce((s, r) => s + r.weightG, 0);
   const totalPcs = allRows.reduce((s, r) => s + r.pcs, 0);
   const totalLengthMm = input.items.reduce((s, i) => s + i.lengthMm, 0);
-  const kg = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(
+  const kg = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
     totalWeightG / 1000,
   );
   const poNumbers = [...new Set(allRows.map((r) => r.po).filter((p): p is string => Boolean(p)))].sort((a, b) =>
@@ -494,7 +490,9 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
       poNumbers,
       invoiceNumber: input.dispatch.invoiceNumber,
       invoiceDate: input.dispatch.invoiceDate,
-      shipDate: input.dispatch.shipDate ? ymdText(zonedYmd(companyTimezone(input.company.settings), new Date(input.dispatch.shipDate).getTime())) : null,
+      // The ship date somebody ENTERED, as the company's day (lib/dispatchFigures); the PL prints its own issue date besides,
+      // so a load with no entered date prints none rather than the day it left (review round 1, I1).
+      shipDate: enteredShipYmd(input.dispatch.shipDate, input.company.settings),
     },
     columns: [...PL_COLUMNS],
     groups: outGroups,

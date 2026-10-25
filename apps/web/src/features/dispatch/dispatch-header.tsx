@@ -1,19 +1,18 @@
-import { dispatchTone, formatKgTotal, type DispatchStatus } from "@orrn/domain";
+import { dispatchTone, type DispatchStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { BigNumber } from "@orrn/ui/components/big-number";
 import { cn } from "@orrn/ui/lib/utils";
 
-import { formatDay, formatShipDate } from "./format";
+import { dispatchKgText, formatYmdDay } from "./format";
 
 export type DispatchHeaderProps = {
   code: string;
   status: DispatchStatus;
   customerName: string;
-  shipDate: string | Date | null;
-  completedAt: string | Date | null;
+  /** The server's one ship day (BACKLOG 80): the day it left once completed, else the planned day. */
+  shipDay: { ymd: string; kind: "dispatched" | "ship" } | null;
   bundles: number;
   weightG: number;
-  timeZone: string;
   /** Plays the dispatch-done moment (pop + one shimmer). Change the key to replay. */
   celebrate?: boolean;
 };
@@ -28,21 +27,18 @@ export function DispatchHeader({
   code,
   status,
   customerName,
-  shipDate,
-  completedAt,
+  shipDay,
   bundles,
   weightG,
-  timeZone,
   celebrate,
 }: DispatchHeaderProps) {
   const { t, locale } = useT();
-  const ship = formatShipDate(shipDate, { locale });
-  const done = status === "completed" ? formatDay(completedAt, { locale, timeZone }) : null;
-  const when = done
-    ? t("dispatch.detail.dispatchedOn", { date: done })
-    : ship
-      ? t("dispatch.detail.shipOn", { date: ship })
-      : t("dispatch.detail.noShipDate");
+  const day = formatYmdDay(shipDay?.ymd, { locale });
+  const when = day
+    ? shipDay?.kind === "dispatched"
+      ? t("dispatch.detail.dispatchedOn", { date: day })
+      : t("dispatch.detail.shipOn", { date: day })
+    : t("dispatch.detail.noShipDate");
 
   return (
     <section
@@ -84,7 +80,7 @@ export function DispatchHeader({
             <BigNumber
               data-testid="dispatch-kg"
               value={weightG / 1000}
-              format={formatKgTotal}
+              format={(kg) => dispatchKgText(Math.round(kg * 1000))}
               className="text-[40px] sm:text-[52px]"
             />
           </dd>

@@ -1,4 +1,4 @@
-import { formatKgTotal, vehicleGate, type DispatchStatus } from "@orrn/domain";
+import { vehicleGate, type DispatchStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field } from "@orrn/ui/components/field";
@@ -13,6 +13,7 @@ import { CapacityBanner } from "./capacity-banner";
 import { dispatchNow } from "./dispatch-now";
 import { dispatchErrorText } from "./errors";
 import { groupItems, type DispatchItem } from "./group-items";
+import { dispatchKgText } from "./format";
 
 type Props = {
   open: boolean;
@@ -57,7 +58,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
   }, [open]);
   const groups = groupItems(items);
   const weightG = items.reduce((s, i) => s + i.weightG, 0);
-  const kg = formatKgTotal(weightG / 1000);
+  const kg = dispatchKgText(weightG);
 
   const confirm = async () => {
     const gate = vehicleGate(dispatch.vehicleNo, vehicle);
@@ -125,7 +126,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
                 {g.labelled ? t("dispatch.build.groupNamed", { label: g.label }) : g.label}
               </span>
               <span className="shrink-0 text-[14px] text-muted-foreground tabular-nums">
-                {t("dispatch.build.groupTotal", { bundles: g.bundles.length, kg: formatKgTotal(g.weightG / 1000) })}
+                {t("dispatch.build.groupTotal", { bundles: g.bundles.length, kg: dispatchKgText(g.weightG) })}
               </span>
             </li>
           ))}

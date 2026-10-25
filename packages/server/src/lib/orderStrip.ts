@@ -23,7 +23,7 @@
  * Every subquery is scoped by the outer line's company (no parameter per subquery), and id lists
  * are chunked (≤ 80 ids per statement, D1's 100 bound parameters).
  */
-import { planableG as planableOf } from "@orrn/domain";
+import { lineFunnel, planableG as planableOf } from "@orrn/domain";
 import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 
 import { salesOrderLine } from "@orrn/db/schema/sales";
@@ -40,9 +40,15 @@ export type LineStrip = {
   bakiG: number;
   bakiPcs: number | null;
   plannedG: number;
+  /** Pressed and not yet packed (what planableG takes off); the screens read `pressedAllG`. */
   pressedG: number;
   agedG: number;
+  /** Packed on this line, on a truck included, dispatched not (planableG's term). */
   packedG: number;
+  /** BACKLOG 88, `lineFunnel`: everything pressed for the line; always >= packedAllG. */
+  pressedAllG: number;
+  /** BACKLOG 88: packed INCLUDING what has gone out; always >= dispatchedG. */
+  packedAllG: number;
   inStockG: number;
   /** FP-OP-05: how many bundles and pieces make up "in stock" (available only). */
   inStockBundles: number;
@@ -154,6 +160,7 @@ export function stripOf(r: {
   const open = Math.max(0, r.loggedG - r.producedG);
   const agedG = Math.min(open, Math.max(0, r.agedG ?? 0));
   const pressedG = open - agedG;
+  const funnel = lineFunnel({ loggedG: r.loggedG, producedG: r.producedG, dispatchedG: r.dispatchedG });
   return {
     orderedG: r.orderedG,
     orderedPcs: r.orderedPcs,
@@ -165,6 +172,8 @@ export function stripOf(r: {
     pressedG,
     agedG,
     packedG: r.packedG,
+    pressedAllG: funnel.pressedAllG,
+    packedAllG: funnel.packedAllG,
     inStockG: r.inStockG,
     inStockBundles: r.inStockBundles ?? 0,
     inStockPcs: r.inStockPcs ?? 0,

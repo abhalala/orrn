@@ -64,12 +64,15 @@ test.setTimeout(120_000);
 for (const width of WIDTHS) {
   const own = OWN[width];
   test.describe(`press alerts at ${width}`, () => {
-    test("opens on open alerts (none), All lists them, a supervisor acknowledges one", async ({ page }) => {
+    test("opens on the open alerts (not acknowledged yet, ended or not), All lists them, a supervisor acknowledges one", async ({ page }) => {
       await open(page, "/press/alerts", width);
       await expect(page.getByRole("heading", { level: 1, name: "Press alerts" })).toBeVisible();
-      // Every seeded alert has ended, so the default list is empty and says so.
-      await expect(page.getByText("No open alerts.")).toBeVisible();
-      await page.getByRole("radio", { name: "All" }).click();
+      // BACKLOG 81: open = not acknowledged. Every seeded alert has ended, but four were never acknowledged, so
+      // the default list holds them (this width's own alert among them) and the tab counts them.
+      await expect(page.getByRole("radio", { name: /^Open \(\d+\)/ })).toBeVisible();
+      await expect(page.getByText("No open alerts.")).toHaveCount(0);
+      await expect(rowWith(page, own.metric)).toBeVisible();
+      await page.getByRole("radio", { name: /^All \(\d+\)/ }).click();
       await expect(page).toHaveURL(/show=all/);
       await expect(rowWith(page, own.metric)).toBeVisible();
       await expect(page.getByText("From the simulator").first()).toBeVisible();
@@ -94,6 +97,19 @@ for (const width of WIDTHS) {
     });
 
     test("Today's press tile links its alert chip to the list", async ({ page }) => {
+      await open(page, "/today", width, "press");
+      // The open chip and the page's Open tab are one number (BACKLOG 81). Other widths acknowledge their own
+      // alert in parallel, so both are read again together until they settle on the same count.
+      await expect(async () => {
+        await page.goto("/today");
+        const openChip = page.getByTestId("today-press-alerts-open");
+        await expect(openChip).toBeVisible({ timeout: 3_000 });
+        const openCount = Number(/(\d+)\s*$/.exec((await openChip.innerText()).trim())?.[1]);
+        expect(openCount).toBeGreaterThan(0);
+        await openChip.click();
+        await expect(page).toHaveURL(/\/press\/alerts$/);
+        await expect(page.getByRole("radio", { name: new RegExp(`^Open \\(${openCount}\\)`) })).toBeVisible({ timeout: 3_000 });
+      }).toPass({ timeout: 20_000 });
       await open(page, "/today", width, "press");
       const chip = page.getByTestId("today-press-alerts-today");
       await expect(chip).toBeVisible();

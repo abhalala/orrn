@@ -161,7 +161,7 @@ test.describe("orders list and detail", () => {
       await expect(totals.locator("[data-total='produced']")).toContainText(/\d[\d,]*\.\d{3} kg/);
       // Eight figures on each line; the baki cell is the ordered kg while nothing is dispatched.
       const line1 = page.locator("[data-order-line='1']");
-      for (const label of ["Ordered", "Planned", "Pressed", "Aged", "Packed (incl. on a truck)", "In stock", "Dispatched", "Baki"]) {
+      for (const label of ["Ordered", "Planned", "Pressed", "Aged", "Packed (incl. dispatched)", "In stock", "Dispatched", "Baki"]) {
         await expect(line1.getByText(label, { exact: true })).toBeVisible();
       }
       await expect(line1.locator("[data-strip='orderedG']")).toContainText("480.000 kg");

@@ -84,13 +84,13 @@ held and baki always reconcile (a test checks `baki = max(0, ordered - dispatche
 | SO-9 | Tejura | confirmed | the reserved dispatch stands on lines 3 and 4; flat and angle stock packed; released plans cover lines 1, 2 and 5 |
 | SO-10 | KD | confirmed | channel **12230, the die KD owns**; 8 bundles (BG-000009) packed for it: any other customer's dispatch of them is refused |
 
-### Press (14 runs, 4 plans): today's board
+### Press (14 runs, 6 plans): today's board
 
 Production day = 08:00 to 08:00. **P1:** PR-8 logged (the spec's worked example: 310.4 kg in, 234.2 kg good,
 75.5 %), PR-11 logged (rejects: 38 kg to QC, 71.5 %, a die remark), PR-1 die issued, PR-2 and PR-14 queued
 behind released plan PP-3. **P2:** PR-12 logged (a 62 minute container-heater stop), **PR-10 running now**
 (angle 11250 on copy 11250-1), PR-13 queued (plan PP-4), **PR-9 a late entry waiting for approval**.
-PR-3, PR-4 (queued tee) and PR-5..PR-7 (die trial runs on PP-2) are the die room's. All billets come from
+PR-11 and PR-12 are the single runs of the early plans PP-5 (patti, Press 1) and PP-6 (flat, Press 2), 100 % pressed, so their kg show on the order lines and the phone plan view. PR-3, PR-4 (queued tee) and PR-5..PR-7 (die trial runs on PP-2) are the die room's. All billets come from
 cast `dev-press-cast-1`: its melt `dev-melt-1` charged 2,600 kg of LOT-6 and made 2,400 kg of logs (130 kg
 dross, 20 kg Fe, 50 kg burnt), spectro passed; its ledger rows are what `melts.lock` posts and the three
 logged runs' rows are what `press.runs.close` posts, so its close-out tail is 0. Cast 3

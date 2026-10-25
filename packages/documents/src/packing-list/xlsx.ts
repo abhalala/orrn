@@ -118,6 +118,11 @@ function buildWorkbookV2(pl: V2Snapshot, opts: PackingListModelOptions = {}) {
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(aoa);
+  // The weight column keeps the exact gram as a number and shows it to the 10 g, like the print (review round 1, m1).
+  for (let r = 0; r < aoa.length; r += 1) {
+    const cell = ws[XLSX.utils.encode_cell({ r, c: 4 })];
+    if (cell && cell.t === "n") cell.z = "#,##0.00";
+  }
   ws["!cols"] = [{ wch: 16 }, { wch: 22 }, { wch: 10 }, { wch: 22 }, { wch: 11 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, { wch: 9 }, { wch: 10 }, { wch: 16 }];
   XLSX.utils.book_append_sheet(wb, ws, "Packing list");
   return wb;

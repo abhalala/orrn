@@ -1,4 +1,4 @@
-import { DISPATCH_STATUSES, dispatchTone, formatKgTotal, type DispatchStatus } from "@orrn/domain";
+import { DISPATCH_STATUSES, dispatchTone, type DispatchStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -13,7 +13,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus, Search } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
-import { formatShipDate } from "@/features/dispatch/format";
+import { dispatchKgText, formatYmdDay } from "@/features/dispatch/format";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -44,7 +44,7 @@ type Row = {
   id: string;
   code: string;
   status: DispatchStatus;
-  shipDate: string | Date | null;
+  shipDay: { ymd: string; kind: "dispatched" | "ship" } | null;
   customerName: string;
   itemCount: number;
   totalWeightG: number;
@@ -98,7 +98,7 @@ function DispatchListPage() {
     {
       key: "ship",
       header: t("dispatch.columns.shipDate"),
-      cell: (r) => formatShipDate(r.shipDate, { locale }) ?? <span className="text-muted-foreground">-</span>,
+      cell: (r) => formatYmdDay(r.shipDay?.ymd, { locale }) ?? <span className="text-muted-foreground">-</span>,
     },
     {
       key: "bundles",
@@ -112,7 +112,7 @@ function DispatchListPage() {
       align: "end",
       cell: (r) => (
         <span data-no-truncate="" className="font-mono">
-          {formatKgTotal(Number(r.totalWeightG) / 1000)}
+          {dispatchKgText(Number(r.totalWeightG))}
         </span>
       ),
     },

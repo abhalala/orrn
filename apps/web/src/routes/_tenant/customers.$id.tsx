@@ -22,7 +22,7 @@ import { addressLines, addressToDraft, EMPTY_ADDRESS, sameDraft } from "@/featur
 import { ChartCardSkeleton } from "@/features/customers/chart-card-skeleton";
 import { BundleNumbersCard } from "@/features/customers/bundle-numbers-card";
 import { CustomerForm, type StoredCustomer } from "@/features/customers/customer-form";
-import { formatDay, formatInstantDay } from "@/features/customers/dates";
+import { formatDay, formatDispatchDay } from "@/features/customers/dates";
 import { KpiTile, KpiTileSkeleton } from "@/features/customers/kpi-tile";
 import { customerShare, formatSharePct } from "@/features/customers/leaderboard";
 import { customerFactsLine, type Period } from "@/features/customers/period";
@@ -535,6 +535,8 @@ type DispatchRow = {
   code: string;
   status: DispatchStatus;
   shipDate: string | Date | null;
+  /** The one ship day (lib/dispatchFigures): the day a completed load left, else the entered ship date. */
+  shipDay?: { ymd: string; kind: "dispatched" | "ship" } | null;
   createdAt: string | Date;
   completedAt: string | Date | null;
   itemCount: number;
@@ -576,13 +578,9 @@ function RecentDispatches({
     {
       key: "date",
       header: t("customers.detail.recent.date"),
-      // A completed load reads the day it left (what "Last dispatch N days ago" counts from);
-      // one still being built reads its ship date, else the day it was started.
-      cell: (d) => (
-        <span className="whitespace-nowrap">
-          {formatInstantDay(d.status === "completed" && d.completedAt ? d.completedAt : (d.shipDate ?? d.createdAt), locale, timeZone, today)}
-        </span>
-      ),
+      // The server's one ship day (a completed load: the day it left; one being built: its entered ship date),
+      // else the day it was started: the same date the dispatch list and detail show.
+      cell: (d) => <span className="whitespace-nowrap">{formatDispatchDay(d, locale, timeZone, today)}</span>,
     },
     {
       key: "status",

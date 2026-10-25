@@ -249,6 +249,7 @@ describe("m-5 ship date on the company clock", () => {
     // A v2 snapshot stored before the field existed falls back to the plant's clock (IST).
     expect(plShipDateText("2026-10-04T20:00:00.000Z")).toBe("05 Oct 2026");
     expect(plShipDateText(null)).toBeNull();
+    // Review round 1 (I1): with no ship date entered the PL prints none (it prints its own issue date); the day the load left is not a ship date.
     expect(snapFor(null, null as never).header.shipDate).toBeNull();
   });
 

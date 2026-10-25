@@ -6,6 +6,7 @@ import {
   bundleAllocation,
   confirmBlockers,
   inchExactMm,
+  lineFunnel,
   orderGrams,
   orderPieces,
   overDispatchBeyondTolerance,
@@ -142,5 +143,24 @@ describe("reallocation guard (D6: same die required; length mismatch warns and n
     expect(reallocationCheck({ bundle: { ...bundle, customerId: null }, target: { dieId: "d1", cutLengthMm: 3_658, customerId: "bhavesh" } }).ok).toBe(true);
     const r = reallocationCheck({ bundle: { ...bundle, customerId: null }, target: { dieId: "d1", cutLengthMm: 3_658, customerId: "bhavesh" } });
     expect(r.ok && r.needsApproval).toBe(false);
+  });
+});
+
+describe("lineFunnel (BACKLOG 88)", () => {
+  test("pressed >= packed (incl. dispatched) >= dispatched whatever the run log says", () => {
+    // SO-7 line 1 on the demo seed: 211.5 kg logged, 603.659 kg of bundles already dispatched.
+    const f = lineFunnel({ loggedG: 211_500, producedG: 700_000, dispatchedG: 603_659 });
+    expect(f.pressedAllG).toBe(700_000);
+    expect(f.packedAllG).toBe(700_000);
+    expect(f.pressedAllG).toBeGreaterThanOrEqual(f.packedAllG);
+    expect(f.packedAllG).toBeGreaterThanOrEqual(f.dispatchedG);
+  });
+
+  test("a run logged for more than was bundled stays pressed, not packed", () => {
+    expect(lineFunnel({ loggedG: 500_000, producedG: 200_000, dispatchedG: 50_000 })).toEqual({ pressedAllG: 500_000, packedAllG: 200_000, dispatchedG: 50_000 });
+  });
+
+  test("nothing yet reads zero all the way", () => {
+    expect(lineFunnel({ loggedG: 0, producedG: 0, dispatchedG: 0 })).toEqual({ pressedAllG: 0, packedAllG: 0, dispatchedG: 0 });
   });
 });

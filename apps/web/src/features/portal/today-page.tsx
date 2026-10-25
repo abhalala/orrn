@@ -12,8 +12,8 @@ import { RouterLink } from "@/shared/components/router-link";
 import { trpc } from "@/shared/utils/trpc";
 
 import { usePortalMe } from "./hooks";
-import { isPortalOrderStatus, kgText, PORTAL_STATUS_TONE } from "./model";
-import { bookDate, dateText, PortalError, PortalSkeleton } from "./ui";
+import { isPortalOrderStatus, kgText, PORTAL_STATUS_TONE, portalDispatchDay } from "./model";
+import { bookDate, PortalError, PortalSkeleton } from "./ui";
 
 /** `/portal`: what is open, how much is baki, the last dispatch, and the way to place an order. */
 export function PortalTodayPage() {
@@ -21,7 +21,6 @@ export function PortalTodayPage() {
   const me = usePortalMe();
   const today = useQuery({ ...trpc.portal.today.queryOptions(), retry: false });
   const open = useQuery({ ...trpc.portal.orders.list.queryOptions({ status: "open", limit: 5 }), retry: false });
-  const zone = me.data?.timeZone ?? "Asia/Kolkata";
 
   if (me.isError) return <PortalError error={me.error} onRetry={() => void me.refetch()} />;
   const d = today.data;
@@ -49,7 +48,7 @@ export function PortalTodayPage() {
               <StatusBlock
                 tone="green"
                 title={t("portal.today.lastDispatch")}
-                meta={dateText(d.lastDispatch.completedAt, locale, zone)}
+                meta={portalDispatchDay(d.lastDispatch, locale)}
                 value={d.lastDispatch.code}
                 href={`/portal/dispatches/${d.lastDispatch.id}`}
               />

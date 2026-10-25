@@ -22,9 +22,8 @@ import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
 import { CustomerPicker } from "./customer-picker";
-import { changedDetails, type DetailsFields as Fields } from "./edit-details";
+import { changedDetails, shipDatePrefill, type DetailsFields as Fields } from "./edit-details";
 import { dispatchErrorText } from "./errors";
-import { isoDayInput } from "./format";
 import { useCan } from "./hooks";
 import { capacityKgText, changedTransport, parseCapacityKg, type TransportFields } from "./transport";
 import { capacityErrorText, TransportFieldset } from "./transport-fields";
@@ -34,6 +33,8 @@ export type EditableDispatch = {
   code: string;
   status: DispatchStatus;
   shipDate: string | Date | null;
+  /** The server's one ship day; the form opens on it so it matches the page. */
+  shipDay?: { ymd: string; kind: "dispatched" | "ship" } | null;
   notes: string | null;
   customerId: string;
   transporterId?: string | null;
@@ -227,7 +228,7 @@ export function EditDetailsSheet({
   const { t } = useT();
   const fromDispatch = (): Fields => ({
     customer: { id: dispatch.customerId, name: customerName },
-    shipDate: dispatch.shipDate ? isoDayInput(dispatch.shipDate) : "",
+    shipDate: shipDatePrefill(dispatch),
     notes: dispatch.notes ?? "",
   });
   const [fields, setFields] = useState<Fields>(fromDispatch);

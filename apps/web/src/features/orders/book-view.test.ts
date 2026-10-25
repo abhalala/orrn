@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { bpPercent1 } from "@orrn/domain";
+import { createI18n } from "@orrn/i18n";
 
 import {
   activeBookFilters,
@@ -102,5 +103,18 @@ describe("the bar", () => {
     expect(lateRuleKey("expected_date")).toBe("orders.lateRule.expected_date");
     expect(lateRuleKey("order_date")).toBe("orders.lateRule.order_date");
     expect(lateRuleKey(null)).toBe("orders.lateRule.order_date");
+  });
+});
+
+describe("one word per figure (review round 1, m3)", () => {
+  test("the bar's legend and the stage filter say the same words as the book header strip (en and hi)", () => {
+    const segs = barSegments({ dispatchedG: 1, inStockG: 1, inStockBarG: 1, heldG: 1, pressedG: 1, plannedG: 1, restG: 1, overG: 0, dispatchedBp: 0 });
+    for (const lang of ["en", "hi"] as const) {
+      const t = createI18n(lang).t;
+      expect(t(segs.find((x) => x.key === "inStock")!.labelKey)).toBe(t("orders.book.strip.inStock"));
+      expect(t(segs.find((x) => x.key === "held")!.labelKey)).toBe(t("orders.book.strip.held"));
+    }
+    expect(createI18n("en").t("orders.book.strip.inStock")).toBe("Allocated to orders");
+    expect(createI18n("en").t("orders.book.strip.held")).toBe("Held for orders");
   });
 });

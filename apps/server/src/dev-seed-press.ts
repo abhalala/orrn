@@ -112,6 +112,9 @@ export function buildPressExtras(input: {
   const plans: PressExtras["plans"] = [
     { ...planFor("dev-plan-prod-1", planNo(0), "dev-press-line-1"), note: "Press 1 today: patti for KD, tee for Royal, flat for Tejura" },
     { ...planFor("dev-plan-prod-2", planNo(1), "dev-press-line-2"), note: "Press 2 today: angles for Tejura" },
+    // BACKLOG 88: the early plans whose single run is already logged (PR-11, PR-12): 100 % pressed, nothing planned.
+    { ...planFor("dev-plan-early-1", planNo(2), "dev-press-line-1"), note: "Press 1, first shift: patti for KD" },
+    { ...planFor("dev-plan-early-2", planNo(3), "dev-press-line-2"), note: "Press 2, first shift: flat for Tejura" },
   ];
   const planDie = (id: string, planId: string, key: string, order: number, urgent = false) => ({
     id,
@@ -129,6 +132,8 @@ export function buildPressExtras(input: {
     planDie("dev-plan-prod-1-die-flat", "dev-plan-prod-1", "flat2", 3),
     planDie("dev-plan-prod-2-die-angle", "dev-plan-prod-2", "angle1", 1),
     planDie("dev-plan-prod-2-die-angle125", "dev-plan-prod-2", "angle125", 2),
+    planDie("dev-plan-early-1-die-patti", "dev-plan-early-1", "patti1", 1),
+    planDie("dev-plan-early-2-die-flat", "dev-plan-early-2", "flat2", 1),
   ];
   const planLine = (id: string, planId: string, dieRowId: string, order: number, no: number, pcs: number): InsertRow<typeof pressPlanLine> => {
     const ol = input.orderLine(order, no);
@@ -152,6 +157,8 @@ export function buildPressExtras(input: {
     planLine("dev-plan-prod-1-line-flat", "dev-plan-prod-1", "dev-plan-prod-1-die-flat", 9, 2, 90),
     planLine("dev-plan-prod-2-line-angle", "dev-plan-prod-2", "dev-plan-prod-2-die-angle", 9, 1, 240),
     planLine("dev-plan-prod-2-line-angle125", "dev-plan-prod-2", "dev-plan-prod-2-die-angle125", 9, 5, 100),
+    planLine("dev-plan-early-1-line-patti", "dev-plan-early-1", "dev-plan-early-1-die-patti", 7, 1, 80),
+    planLine("dev-plan-early-2-line-flat", "dev-plan-early-2", "dev-plan-early-2-die-flat", 9, 2, 77),
   ];
   const attach: PressExtras["attach"] = new Map([
     ["dev-run-14701-1", { planId: "dev-plan-prod-1", pressPlanDieId: "dev-plan-prod-1-die-patti" }],
@@ -217,6 +224,10 @@ export function buildPressExtras(input: {
       updatedAt: new Date(t10.start),
     },
     logged(pr11, t11, {
+      // BACKLOG 88: PR-11 is the run of PP-5 (the first patti plan of the day), so the plan and the phone
+      // plan view count its 211.5 kg. A plan die has one run, so the next patti run (PR-1) sits on PP-3.
+      planId: "dev-plan-early-1",
+      pressPlanDieId: "dev-plan-early-1-die-patti",
       pressLineId: "dev-press-line-1",
       sectionId: input.sectionId("patti1"),
       dieInstanceId: input.copyId("14701-2"),
@@ -231,6 +242,9 @@ export function buildPressExtras(input: {
       pressRemark: "Surface lines on the first two billets; die choked at the second leg",
     }),
     logged(pr12, t12, {
+      // BACKLOG 88: PR-12 is the run of PP-6 (the first flat plan of the day on Press 2).
+      planId: "dev-plan-early-2",
+      pressPlanDieId: "dev-plan-early-2-die-flat",
       pressLineId: "dev-press-line-2",
       sectionId: input.sectionId("flat2"),
       dieInstanceId: input.copyId("14730-1"),

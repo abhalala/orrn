@@ -27,7 +27,7 @@ import { auditInsert } from "../lib/audit";
 import { atomicBatch } from "../lib/atomic";
 import { now } from "../lib/clock";
 import { createId } from "../lib/id";
-import { alertEndedAt, alertOpenSql, refreshRunCollector } from "../lib/pressCollector";
+import { alertEndedAt, alertOpenSql, pressAlertCounts, refreshRunCollector } from "../lib/pressCollector";
 
 const id = z.string().min(1).max(64);
 const bound = z.number().finite().min(-50).max(5000).nullable();
@@ -147,7 +147,7 @@ export const pressCollectorRouter = router({
         .from(pressAlert)
         .innerJoin(pressLine, eq(pressLine.id, pressAlert.pressLineId))
         .leftJoin(pressRun, eq(pressRun.id, pressAlert.pressRunId))
-        .where(and(eq(pressAlert.companyId, ctx.companyId), input.openOnly ? alertOpenSql(nowMs) : undefined))
+        .where(and(eq(pressAlert.companyId, ctx.companyId), input.openOnly ? alertOpenSql() : undefined))
         .orderBy(desc(pressAlert.startedAt))
         .limit(input.limit);
       return rows.map(({ limitX10, peakX10, ...r }) => ({ ...r, endedAt: alertEndedAt(r, nowMs), limit: limitX10 / 10, peak: peakX10 / 10 }));
@@ -210,12 +210,6 @@ export const pressCollectorRouter = router({
     };
   }),
 
-  /** Open alert count for a chip (any member). */
-  openAlertCount: companyProcedure.query(async ({ ctx }) => {
-    const [r] = await ctx.db
-      .select({ n: sql<number>`count(*)`, sim: sql<number>`coalesce(max(${pressAlert.simulated}), 0)` })
-      .from(pressAlert)
-      .where(and(eq(pressAlert.companyId, ctx.companyId), alertOpenSql(now().getTime())));
-    return { open: Number(r?.n ?? 0), simulated: Number(r?.sim ?? 0) > 0 };
-  }),
+  /** Open (unacknowledged) and all alert counts, for the chip and the page's tabs (any member). */
+  openAlertCount: companyProcedure.query(async ({ ctx }) => pressAlertCounts(ctx.db, ctx.companyId)),
 });

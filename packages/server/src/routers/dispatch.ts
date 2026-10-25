@@ -61,6 +61,7 @@ import {
 } from "../lib/orderHold";
 import { orderProgress, suggestBundlesFor, SUGGEST_MAX } from "../lib/dispatchOrder";
 import { companyFloor } from "../lib/orderLines";
+import { dispatchShipDay } from "../lib/dispatchFigures";
 import { can } from "../lib/permissions";
 import { bundlesPendingReallocation, pendingReallocationOf } from "../lib/reallocate";
 import {
@@ -1295,7 +1296,12 @@ export const dispatchRouter = router({
         .from(dispatch)
         .where(and(...conditions));
 
-      return { items, total: totalRow[0]?.count ?? 0 };
+      // BACKLOG 80: the ship day comes from ONE rule (lib/dispatchFigures), in the company's calendar.
+      const { timezone } = await companyFloor(ctx.db, ctx.companyId);
+      return {
+        items: items.map((it) => ({ ...it, shipDay: dispatchShipDay({ status: it.status, completedAt: it.completedAt, shipDate: it.shipDate }, timezone) })),
+        total: totalRow[0]?.count ?? 0,
+      };
     }),
 
   getDispatch: companyProcedure
@@ -1492,7 +1498,20 @@ export const dispatchRouter = router({
         }
       }
 
-      return { dispatch: row, customer: customerRow ?? null, items, events, overdraw, capacity, salesOrder: salesOrderInfo, truck: truck.length > 0 ? { id: row.truckId!, dispatches: truck } : null, value };
+      // BACKLOG 80: the same two figures the list shows (ship day rule, whole-load kg: not capped at the 500 rows read above).
+      const { timezone } = await companyFloor(ctx.db, ctx.companyId);
+      const [sums] = await ctx.db
+        .select({
+          bundles: sql<number>`count(${dispatchItem.id})`,
+          weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+        })
+        .from(dispatchItem)
+        .innerJoin(bundle, and(eq(bundle.id, dispatchItem.bundleId), eq(bundle.companyId, dispatchItem.companyId)))
+        .where(and(eq(dispatchItem.dispatchId, row.id), eq(dispatchItem.companyId, ctx.companyId)));
+      const totals = { bundles: Number(sums?.bundles ?? 0), weightG: Number(sums?.weightG ?? 0) };
+      const shipDay = dispatchShipDay({ status: row.status, completedAt: row.completedAt, shipDate: row.shipDate }, timezone);
+
+      return { dispatch: row, shipDay, totals, customer: customerRow ?? null, items, events, overdraw, capacity, salesOrder: salesOrderInfo, truck: truck.length > 0 ? { id: row.truckId!, dispatches: truck } : null, value };
     }),
 
   /**

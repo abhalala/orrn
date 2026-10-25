@@ -1,3 +1,5 @@
+import { formatKg } from "@orrn/domain";
+
 /** Day formatting for dispatch screens (spec §2: `d MMM`, plus the year when it isn't this year). */
 
 type DayOptions = { now?: Date; timeZone?: string; locale?: string };
@@ -51,4 +53,23 @@ export function isoDayInput(value: Date | string | number): string {
 /** A ship date for display ("4 Oct"). */
 export function formatShipDate(value: Date | string | number | null | undefined, opts: Omit<DayOptions, "timeZone"> = {}) {
   return formatDay(value, { ...opts, timeZone: "UTC" });
+}
+
+/**
+ * A dispatch's kg, everywhere a dispatch total is shown (list, detail header, action bar, hold and
+ * complete sheets): kg to the 10 g, the packing list's own precision, so 809.764 kg reads 809.76 on
+ * the list, the hero and the embedded packing list alike (BACKLOG 80).
+ */
+export function dispatchKgText(weightG: number): string {
+  return formatKg(weightG / 1000, 2);
+}
+
+/**
+ * A ship day from the server's `shipDay.ymd` ("2026-10-27", already the company's calendar day):
+ * "27 Oct". Read as a plain calendar day, so no timezone can move it.
+ */
+export function formatYmdDay(ymd: string | null | undefined, opts: Omit<DayOptions, "timeZone"> = {}): string | null {
+  if (!ymd) return null;
+  const ms = parseDayInput(ymd);
+  return ms === null ? null : formatDay(ms, { ...opts, timeZone: "UTC" });
 }

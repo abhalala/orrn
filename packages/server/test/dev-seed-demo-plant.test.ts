@@ -54,9 +54,9 @@ const TABLE_COUNTS: Record<string, number> = {
   die_maker_job: 2,
   nitriding_log: 2,
   press_line: 2,
-  press_plan: 4,
-  press_plan_die: 6,
-  press_plan_line: 5,
+  press_plan: 6,
+  press_plan_die: 8,
+  press_plan_line: 7,
   press_run: 14,
   press_run_line: 4,
   press_billet_use: 7,
@@ -437,6 +437,9 @@ describe("press and today", () => {
       ["PP-2", "released", "die_trial"],
       ["PP-3", "released", "production"],
       ["PP-4", "released", "production"],
+      // BACKLOG 88: the early plans whose single run (PR-11, PR-12) is already logged.
+      ["PP-5", "released", "production"],
+      ["PP-6", "released", "production"],
     ]);
     // Billets on hand: melt 1's 2.4 t of logs, less what the three logged runs took (the ledger is exact).
     const billet = await env.d1.prepare("select sum(qty_g) g from stock_ledger where company_id = ? and item_kind = 'billet'").bind(company).first<{ g: number }>();

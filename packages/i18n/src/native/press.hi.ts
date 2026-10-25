@@ -11,6 +11,8 @@ export const pressHi = {
     atTablet: "इस रन को शुरू, बंद या गिनने के लिए press के पास वाला टैबलेट इस्तेमाल करें।",
     gateUnknown: "इस रन को लॉग करने से पहले कुछ और बाकी है।",
     onPress: "अभी press पर",
+    onTheLine: "लाइन पर",
+    toLog: "दर्ज होना बाकी",
     urgent: "ज़रूरी",
     jobCopy: "Copy {code}",
     jobNoCopy: "अभी die copy नहीं",

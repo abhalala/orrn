@@ -147,10 +147,20 @@ export type JobCard = {
   totals: { pcs: number; kgG: number; pressedG: number };
 };
 
-/** The cards whose run is on the press now (running, stopped, counting) come first; the rest wait. */
-export function splitCards<T extends { status: PressRunStatus }>(cards: readonly T[]): { onPress: T[]; waiting: T[] } {
-  const live = new Set<PressRunStatus>(["running", "stopped", "counting"]);
-  return { onPress: cards.filter((c) => live.has(c.status)), waiting: cards.filter((c) => !live.has(c.status)) };
+/**
+ * ONE rule for "on the line" (BACKLOG 82), the same as the web queue, the /press card and the line board
+ * (`apps/web/src/features/press/model.ts` `splitQueue`): ON THE LINE is the run that is running; CLOSING is a run
+ * that has stopped or is being counted and is waiting to be logged; WAITING is queued or die issued, in the
+ * server's order. A counting run never makes the line busy a second time.
+ */
+export function splitQueue<T extends { status: PressRunStatus }>(cards: readonly T[]): { onLine: T[]; closing: T[]; waiting: T[] } {
+  const closing = new Set<PressRunStatus>(["stopped", "counting"]);
+  const waiting = new Set<PressRunStatus>(["queued", "die_issued"]);
+  return {
+    onLine: cards.filter((c) => c.status === "running"),
+    closing: cards.filter((c) => closing.has(c.status)),
+    waiting: cards.filter((c) => waiting.has(c.status)),
+  };
 }
 
 // ---------------------------------------------------------------------------

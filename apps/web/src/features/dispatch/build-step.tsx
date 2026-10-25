@@ -1,4 +1,3 @@
-import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -10,6 +9,7 @@ import { useRef, type ReactNode } from "react";
 import { Can } from "@/shared/components/can";
 
 import { BundleGroups, type BundleGroupsProps } from "./bundle-groups";
+import { dispatchKgText } from "./format";
 
 export type AddActionsProps = {
   onScan(): void;
@@ -109,7 +109,7 @@ export function ActionBar({
     >
       <div className="flex min-w-0 flex-col px-1.5 sm:px-0">
         <p data-no-truncate="" className="m-0 text-[15px] font-semibold tabular-nums">
-          {t("units.bundlesKg", { bundles, kg: formatKgTotal(weightG / 1000) })}
+          {t("units.bundlesKg", { bundles, kg: dispatchKgText(weightG) })}
         </p>
         {note ? (
           <p id="dispatch-action-note" className="m-0 text-[13px] text-muted-foreground">
