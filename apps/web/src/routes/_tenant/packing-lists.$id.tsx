@@ -1,41 +1,46 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { PageHeader } from "@orrn/ui/components/page-header";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { PackingListView } from "@/features/dispatch/packing-list-view";
 import { isNotFound } from "@/shared/lib/session-errors";
-import { trpcClient } from "@/shared/utils/trpc";
+import { trpc } from "@/shared/utils/trpc";
 
 /**
- * Old `/packing-lists/$id`: a packing list now lives on its dispatch, so this
- * forwards to `/dispatch/$dispatchId` (spec §3.2). Needs `packingList.get` to
- * learn which dispatch the list belongs to.
+ * `/packing-lists/$id`: one packing list by its own id, any revision. A sent revision, or a combined
+ * list (which no single dispatch page shows), is reached here; the dispatch page shows the current
+ * revision of its own list. Revisions and combine live in the view.
  */
 export const Route = createFileRoute("/_tenant/packing-lists/$id")({
-  loader: async ({ params, location }) => {
-    let dispatchId: string;
-    try {
-      // Plain client: a miss is this page's own message, not an error toast.
-      dispatchId = (await trpcClient.packingList.get.query({ id: params.id })).dispatchId;
-    } catch (error) {
-      if (!isNotFound(error)) throw error;
-      return null;
-    }
-    throw redirect({ href: `/dispatch/${encodeURIComponent(dispatchId)}${location.searchStr}`, replace: true });
-  },
-  component: PackingListNotFound,
+  component: PackingListPage,
 });
 
-function PackingListNotFound() {
+function PackingListPage() {
   const { t } = useT();
+  const { id } = Route.useParams();
+  const list = useQuery({ ...trpc.packingList.get.queryOptions({ id }), retry: (n, e) => !isNotFound(e) && n < 2 });
+  if (list.isError && isNotFound(list.error)) {
+    return (
+      <EmptyState
+        title={t("errors.notFoundInCompany")}
+        action={
+          <Button asChild variant="secondary">
+            <Link to="/dispatch">{t("dispatch.title")}</Link>
+          </Button>
+        }
+      />
+    );
+  }
   return (
-    <EmptyState
-      title={t("errors.notFoundInCompany")}
-      action={
-        <Button asChild variant="secondary">
-          <Link to="/dispatch">{t("dispatch.title")}</Link>
-        </Button>
-      }
-    />
+    <>
+      <PageHeader
+        title={list.data?.code ?? t("packingList.title")}
+        back={list.data ? { to: `/dispatch/${list.data.dispatchId}`, label: t("packingList.v2.backToDispatch") } : { to: "/dispatch", label: t("dispatch.title") }}
+      />
+      <PackingListView listId={id} />
+    </>
   );
 }

@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi } from "./helpers/accounts";
-import { toPlantStock } from "./helpers/plant-stock";
+import { packPlantStock } from "./helpers/plant-stock";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
@@ -67,14 +67,13 @@ async function newDraftDispatch(page: Page) {
 }
 
 async function serials(page: Page, status: "available" | "dispatched", count: number) {
+  // Available: fresh bundles packed as "Plant stock" (D20), which the floor scan adds; never shared with another test.
+  if (status === "available") return (await packPlantStock(page, count)).map((b) => b.serial);
   const list = await trpcQuery<{ items: { serial: string }[] }>(page, "bundle.listBundles", { status, limit: 100 });
   // Spread the picks so two tests running at once rarely pick the same bundle.
   const pool = list.items.map((b) => b.serial);
   const start = Math.floor(Math.random() * Math.max(1, pool.length - count));
-  const picked = pool.slice(start, start + count);
-  // Seeded stock is "not on a sales order" (D12), which the floor scan refuses: move these to plant stock.
-  if (status === "available") await toPlantStock(picked);
-  return picked;
+  return pool.slice(start, start + count);
 }
 
 async function openDispatchScan(page: Page, dispatch: { id: string; code: string }) {

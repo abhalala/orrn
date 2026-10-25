@@ -15,6 +15,8 @@ const text = z.string();
 const optionalText = z.string().nullish();
 
 const customerSchema = z.object({
+  /** The customer's id (v2 snapshots): the combine picker lists this customer's other lists. */
+  id: optionalText,
   name: text.default(""),
   phone: optionalText,
   email: optionalText,

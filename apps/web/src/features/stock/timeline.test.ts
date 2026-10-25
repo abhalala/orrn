@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildTimeline, rangeStatus, type StatusEvent } from "./timeline";
+import { buildTimeline, type StatusEvent } from "./timeline";
 
 const ev = (over: Partial<StatusEvent> & Pick<StatusEvent, "id" | "toStatus" | "at">): StatusEvent => ({
   fromStatus: null,
@@ -84,17 +84,16 @@ describe("buildTimeline", () => {
   });
 });
 
-describe("rangeStatus (kg/12ft against the die band)", () => {
-  test("in range, below, above, inclusive edges", () => {
-    expect(rangeStatus(2.5, 2_400, 2_600)).toBe("inRange");
-    expect(rangeStatus(2.4, 2_400, 2_600)).toBe("inRange");
-    expect(rangeStatus(2.6, 2_400, 2_600)).toBe("inRange");
-    expect(rangeStatus(2.38, 2_400, 2_600)).toBe("below");
-    expect(rangeStatus(2.75, 2_400, 2_600)).toBe("above");
-  });
-
-  test("no band or no kg/12ft: nothing to compare", () => {
-    expect(rangeStatus(2.5, 0, 0)).toBe("noRange");
-    expect(rangeStatus(null, 2_400, 2_600)).toBe("noRange");
+describe("history actor", () => {
+  test("each entry carries who did it, null when the server has no name", () => {
+    const events: StatusEvent[] = [
+      { id: "e2", fromStatus: "available", toStatus: "reserved", reason: "dispatch.addBundle", dispatchId: "d1", at: "2026-10-03T10:00:00.000Z", actorName: "Ramesh" },
+      { id: "e1", fromStatus: null, toStatus: "available", reason: "receipt", dispatchId: null, at: "2026-10-03T09:00:00.000Z" },
+    ];
+    const entries = buildTimeline(events, { createdAt: "2026-10-03T09:00:00.000Z" });
+    expect(entries.map((e) => [e.kind, e.actorName])).toEqual([
+      ["held", "Ramesh"],
+      ["packed", null],
+    ]);
   });
 });

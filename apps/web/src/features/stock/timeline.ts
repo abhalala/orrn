@@ -8,6 +8,8 @@ export type StatusEvent = {
   reason: string | null;
   dispatchId: string | null;
   at: string | number | Date;
+  /** Who did it (the user's name); null once that user is deleted. */
+  actorName?: string | null;
 };
 
 export type TimelineKind = "packed" | "imported" | "held" | "released" | "dispatched" | "voided" | "restored" | "changed";
@@ -21,6 +23,8 @@ export type TimelineEntry = {
   /** What a person typed (void or restore reason, cancel reason). System reasons are never notes. */
   note: string | null;
   dispatchId: string | null;
+  /** Who did it, when the server says. */
+  actorName: string | null;
 };
 
 /** Reasons the server writes itself (`receipt`, `legacy-import`, `dispatch.*`). */
@@ -57,26 +61,15 @@ export function buildTimeline(
       at: new Date(e.at),
       note: isSystemReason(e.reason) ? null : e.reason,
       dispatchId: e.dispatchId,
+      actorName: e.actorName ?? null,
     } satisfies TimelineEntry,
   }));
   if (!entries.some(({ entry }) => entry.kind === "packed" || entry.kind === "imported")) {
     entries.push({
       order: entries.length,
-      entry: { id: "packed", kind: "packed", status: "available", at: new Date(bundle.createdAt), note: null, dispatchId: null },
+      entry: { id: "packed", kind: "packed", status: "available", at: new Date(bundle.createdAt), note: null, dispatchId: null, actorName: null },
     });
   }
   // Newest first; the server's order (already newest first) breaks ties.
   return entries.sort((a, b) => b.entry.at.getTime() - a.entry.at.getTime() || a.order - b.order).map((x) => x.entry);
-}
-
-export type RangeStatus = "inRange" | "below" | "above" | "noRange";
-
-/** A bundle's kg/12ft against its die's band (grams per 12 ft, spec Q1). Edges count as in range. */
-export function rangeStatus(kgPer12ft: number | null, minG: number, maxG: number): RangeStatus {
-  if (kgPer12ft === null || !(maxG > 0)) return "noRange";
-  const g = kgPer12ft * 1000;
-  // Half a gram of slack: kg/12ft is a float from weight, pieces and length.
-  if (g < minG - 0.5) return "below";
-  if (g > maxG + 0.5) return "above";
-  return "inRange";
 }

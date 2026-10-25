@@ -17,6 +17,8 @@ import { storeItem } from "@orrn/db/schema/store";
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
+import { clientRequestIdSchema } from "../lib/importReplay";
+import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
 import type { Context } from "../context";
 import { atomicBatch, atomicBatchLast, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
@@ -34,6 +36,7 @@ import {
   type PostingCtx,
 } from "../lib/ledger";
 import { nextCompanySeq } from "../lib/sequence";
+import { foldKindTotals, stockFilterConditions, stockFilterShape, stockPosition } from "../lib/stockFilters";
 
 const locationCode = z
   .string()
@@ -236,6 +239,27 @@ async function resolveCodes(db: OrrnDb, companyId: string, codes: string[]) {
   return { ids, notFound, ambiguous };
 }
 
+/**
+ * BACKLOG 50: the first answer of a move sent again, from its record and its ledger rows (one + row
+ * per bundle it moved). Nothing is written.
+ */
+async function moveReplay(db: OrrnDb, companyId: string, replay: Replay) {
+  const first = (replay.prior?.replay ?? {}) as { toLocationCode?: string; requested?: number; unchanged?: number };
+  const voucherId = replay.priorSubjectId!;
+  const [row] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(stockLedger)
+    .where(and(eq(stockLedger.companyId, companyId), eq(stockLedger.voucherType, "move"), eq(stockLedger.voucherId, voucherId), sql`${stockLedger.qtyG} > 0`));
+  const moved = Number(row?.n ?? 0);
+  return {
+    voucherId,
+    moved,
+    unchanged: (first.unchanged ?? 0) + Math.max(0, (first.requested ?? moved) - moved),
+    toLocationCode: first.toLocationCode ?? "",
+    replayed: true,
+  };
+}
+
 export const stockRouter = router({
   locations: locationsRouter,
 
@@ -252,10 +276,19 @@ export const stockRouter = router({
           codes: z.array(z.string().trim().min(1).max(200)).max(200).optional(),
           toLocationId: z.string().min(1),
           reason: z.string().max(500).nullable().optional(),
+          /**
+           * BACKLOG 50: one key per move. Sent again after a lost reply it answers the first move with
+           * `replayed: true`; the same key with other bundles or another yard is a CONFLICT.
+           */
+          clientRequestId: clientRequestIdSchema.optional(),
         })
         .refine((v) => (v.bundleIds?.length ?? 0) + (v.codes?.length ?? 0) > 0, "Scan at least one bundle"),
     )
     .mutation(async ({ ctx, input }) => {
+      const { clientRequestId, ...content } = input;
+      let replay: Replay | null = clientRequestId ? await openReplay(ctx.db, ctx.companyId, "stock.move", clientRequestId, content) : null;
+      if (replay?.prior) return moveReplay(ctx.db, ctx.companyId, replay);
+
       const to = await ctx.db.query.location.findFirst({
         where: and(eq(location.id, input.toLocationId), eq(location.companyId, ctx.companyId)),
       });
@@ -302,7 +335,7 @@ export const stockRouter = router({
       const toMove = rows.filter((b) => b.locationId !== to.id);
       const unchanged = rows.length - toMove.length;
       if (toMove.length === 0) {
-        return { voucherId: null, moved: 0, unchanged, toLocationCode: to.code };
+        return { voucherId: null, moved: 0, unchanged, toLocationCode: to.code, replayed: false };
       }
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
@@ -325,10 +358,12 @@ export const stockRouter = router({
         auditInsertGuarded(
           auditCtx(ctx),
           {
+            ...(replay ? { id: replay.id } : {}),
             action: "stock.move",
             subjectType: "stock_move",
             subjectId: voucherId,
             meta: {
+              ...replayMeta(replay, clientRequestId, { toLocationCode: to.code, requested: toMove.length, unchanged }),
               toLocationId: to.id,
               toLocationCode: to.code,
               requested: toMove.length,
@@ -342,14 +377,29 @@ export const stockRouter = router({
       // What actually landed, counted inside the batch after the writes: bundles another request
       // changed meanwhile (moved, voided, dispatched) are skipped by the write-time predicate, and
       // this request's seq is unique. (A count after the batch could be skewed by a later request.)
-      const [landed] = await atomicBatchLast<{ n: number }>(ctx.db, [
-        ...statements,
-        ctx.db
-          .select({ n: sql<number>`count(*)` })
-          .from(bundle)
-          .where(and(eq(bundle.companyId, ctx.companyId), eq(bundle.serverSeq, seq), eq(bundle.locationId, to.id))),
-      ]);
+      let landed: { n: number } | undefined;
+      try {
+        [landed] = await atomicBatchLast<{ n: number }>(ctx.db, [
+          ...statements,
+          ctx.db
+            .select({ n: sql<number>`count(*)` })
+            .from(bundle)
+            .where(and(eq(bundle.companyId, ctx.companyId), eq(bundle.serverSeq, seq), eq(bundle.locationId, to.id))),
+        ]);
+      } catch (e) {
+        // An identical move landed first (the record's primary key): answer it.
+        if (lostReplayRace(e, replay)) {
+          replay = await readReplay(ctx.db, ctx.companyId, replay!);
+          if (replay.prior) return moveReplay(ctx.db, ctx.companyId, replay);
+        }
+        throw e;
+      }
       const moved = Number(landed?.n ?? 0);
+      if (moved === 0 && replay) {
+        // Nothing of ours landed: an identical move may have moved them first.
+        replay = await readReplay(ctx.db, ctx.companyId, replay);
+        if (replay.prior) return moveReplay(ctx.db, ctx.companyId, replay);
+      }
       if (moved === 0) {
         // Nothing landed: say so plainly if the target stopped being a usable yard meanwhile.
         const [now] = await ctx.db
@@ -361,9 +411,9 @@ export const stockRouter = router({
         if (now.kind !== "yard") {
           throw new TRPCError({ code: "BAD_REQUEST", message: `Bundles go to a yard location, not ${to.code}` });
         }
-        return { voucherId: null, moved: 0, unchanged: unchanged + toMove.length, toLocationCode: to.code };
+        return { voucherId: null, moved: 0, unchanged: unchanged + toMove.length, toLocationCode: to.code, replayed: false };
       }
-      return { voucherId, moved, unchanged: unchanged + (toMove.length - moved), toLocationCode: to.code };
+      return { voucherId, moved, unchanged: unchanged + (toMove.length - moved), toLocationCode: to.code, replayed: false };
     }),
 
   /**
@@ -377,7 +427,8 @@ export const stockRouter = router({
       z
         .object({
           dieId: z.string().min(1).optional(),
-          locationId: z.string().min(1).optional(),
+          // locationId, customerId, salesOrderId, plantStock, profileKind, packedFrom/To (lib/stockFilters.ts)
+          ...stockFilterShape,
           includeReserved: z.boolean().default(true),
           limit: z.number().int().min(1).max(500).default(200),
           offset: z.number().int().min(0).default(0),
@@ -386,12 +437,8 @@ export const stockRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const statuses = input.includeReserved ? [...IN_STOCK_STATUSES] : ["available" as const];
-      const where = and(
-        eq(bundle.companyId, ctx.companyId),
-        inArray(bundle.status, statuses),
-        input.dieId ? eq(bundle.dieId, input.dieId) : undefined,
-        input.locationId ? eq(bundle.locationId, input.locationId) : undefined,
-      );
+      const filters = [input.dieId ? eq(bundle.dieId, input.dieId) : undefined, ...(await stockFilterConditions(ctx.db, ctx.companyId, input))];
+      const where = and(eq(bundle.companyId, ctx.companyId), inArray(bundle.status, statuses), ...filters);
       const rows = await ctx.db
         .select({
           dieId: bundle.dieId,
@@ -425,6 +472,18 @@ export const stockRouter = router({
         })
         .from(bundle)
         .where(where);
+      // Hollow / solid / semi from the server over the same filter (BACKLOG 36).
+      const kindRows = await ctx.db
+        .select({
+          kind: die.profileKind,
+          bundles: sql<number>`count(*)`,
+          pcs: sql<number>`coalesce(sum(${bundle.quantity}), 0)`,
+          weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+        })
+        .from(bundle)
+        .innerJoin(die, and(eq(die.id, bundle.dieId), eq(die.companyId, bundle.companyId)))
+        .where(where)
+        .groupBy(die.profileKind);
       const more = rows.length > input.limit;
       const page = rows.slice(0, input.limit);
       const bands = await bundleBandTones(
@@ -448,7 +507,110 @@ export const stockRouter = router({
           oldestAt: new Date(Number(r.oldestAt)),
         })),
         totals: { bundles: Number(totals?.bundles ?? 0), pcs: Number(totals?.pcs ?? 0), weightG: Number(totals?.weightG ?? 0) },
+        kindTotals: foldKindTotals(kindRows),
+        // The one in-stock / held figure every stock tab shows (I-3, BACKLOG 16).
+        stock: await stockPosition(ctx.db, ctx.companyId, filters),
         nextOffset: more ? input.offset + input.limit : null,
+      };
+    }),
+
+  /**
+   * FP-PK-08 / explorer High 14: stock by yard (the Yards tab). In-stock bundles (available, or
+   * reserved = still in the yard) per yard location, plus a row for bundles with no yard
+   * (`locationId: null`, legacy stock). Same filters as the Lengths and Bundles tabs. Yards with no
+   * stock are listed too, so a packer sees every yard they can put a bundle in.
+   */
+  byYard: companyProcedure
+    .input(
+      z
+        .object({
+          dieId: z.string().min(1).optional(),
+          ...stockFilterShape,
+          includeReserved: z.boolean().default(true),
+        })
+        .default({ includeReserved: true }),
+    )
+    .query(async ({ ctx, input }) => {
+      const statuses = input.includeReserved ? [...IN_STOCK_STATUSES] : ["available" as const];
+      const { locationId: _yard, ...rest } = input;
+      const filters = [input.dieId ? eq(bundle.dieId, input.dieId) : undefined, ...(await stockFilterConditions(ctx.db, ctx.companyId, rest))];
+      const where = and(eq(bundle.companyId, ctx.companyId), inArray(bundle.status, statuses), ...filters);
+      const [perYard, locations, sections, totalRow, stock] = await Promise.all([
+        ctx.db
+          .select({
+            locationId: bundle.locationId,
+            bundles: sql<number>`count(*)`,
+            pcs: sql<number>`coalesce(sum(${bundle.quantity}), 0)`,
+            weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+            reserved: sql<number>`coalesce(sum(case when ${bundle.status} = 'reserved' then 1 else 0 end), 0)`,
+            sections: sql<number>`count(distinct ${bundle.dieId})`,
+            oldestAt: sql<number>`min(${bundle.createdAt})`,
+          })
+          .from(bundle)
+          .where(where)
+          .groupBy(bundle.locationId),
+        ctx.db
+          .select({ id: location.id, code: location.code, name: location.name, kind: location.kind, active: location.active })
+          .from(location)
+          .where(and(eq(location.companyId, ctx.companyId), eq(location.kind, "yard")))
+          .orderBy(asc(location.sortOrder), asc(location.code)),
+        // The biggest sections in each yard (a yard card shows its top three).
+        ctx.db
+          .select({
+            locationId: bundle.locationId,
+            dieId: bundle.dieId,
+            sectionCode: die.sectionCode,
+            series: die.series,
+            bundles: sql<number>`count(*)`,
+            weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+          })
+          .from(bundle)
+          .innerJoin(die, and(eq(die.id, bundle.dieId), eq(die.companyId, bundle.companyId)))
+          .where(where)
+          .groupBy(bundle.locationId, bundle.dieId, die.sectionCode, die.series)
+          .orderBy(desc(sql`sum(${bundle.weightG})`))
+          .limit(500),
+        // m-3: one SQL total over the same filter (bundles at a non-yard location count too).
+        ctx.db
+          .select({
+            bundles: sql<number>`count(*)`,
+            pcs: sql<number>`coalesce(sum(${bundle.quantity}), 0)`,
+            weightG: sql<number>`coalesce(sum(${bundle.weightG}), 0)`,
+          })
+          .from(bundle)
+          .where(where),
+        stockPosition(ctx.db, ctx.companyId, filters),
+      ]);
+      const stats = new Map(perYard.map((r) => [r.locationId ?? null, r]));
+      const top = (id: string | null) =>
+        sections
+          .filter((s) => (s.locationId ?? null) === id)
+          .slice(0, 3)
+          .map((s) => ({ dieId: s.dieId, sectionCode: s.sectionCode, series: s.series, bundles: Number(s.bundles), weightG: Number(s.weightG) }));
+      const row = (id: string | null) => {
+        const r = stats.get(id);
+        return {
+          bundles: Number(r?.bundles ?? 0),
+          pcs: Number(r?.pcs ?? 0),
+          weightG: Number(r?.weightG ?? 0),
+          reserved: Number(r?.reserved ?? 0),
+          sections: Number(r?.sections ?? 0),
+          oldestAt: r?.oldestAt == null ? null : new Date(Number(r.oldestAt)),
+          top: top(id),
+        };
+      };
+      const yards = locations.map((l) => ({ locationId: l.id as string | null, code: l.code, name: l.name, active: l.active, ...row(l.id) }));
+      const unplaced = row(null);
+      return {
+        // Retired yards still holding stock stay in the list; empty retired ones leave it.
+        yards: yards.filter((y) => y.active || y.bundles > 0),
+        unplaced: unplaced.bundles > 0 ? { locationId: null as string | null, code: null, name: null, active: true, ...unplaced } : null,
+        totals: {
+          bundles: Number(totalRow[0]?.bundles ?? 0),
+          pcs: Number(totalRow[0]?.pcs ?? 0),
+          weightG: Number(totalRow[0]?.weightG ?? 0),
+        },
+        stock,
       };
     }),
 

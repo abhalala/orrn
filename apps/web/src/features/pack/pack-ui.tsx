@@ -1,20 +1,9 @@
 import { formatKg, type LengthUnit } from "@orrn/domain";
-import { useT } from "@orrn/i18n";
-import { Chip } from "@orrn/ui/components/chip";
-import { Skeleton } from "@orrn/ui/components/skeleton";
+import { useToastLift } from "@orrn/ui/hooks/use-toast-lift";
 import { cn } from "@orrn/ui/lib/utils";
 import { useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 
-import { bundleKgPer12ft, rangeVerdict, type RangeVerdict } from "./pack-math";
-
 /** Small shared pieces of the Pack screens. */
-
-export type DieRange = { weightMinG: number; weightMaxG: number };
-
-/** kg/12ft as the floor reads it: two decimals, en-IN. */
-export function formatK12(k: number): string {
-  return formatKg(k, 2);
-}
 
 /** Range limits for copy ("2.4"): one decimal unless the die stores finer. */
 export function formatRangeKg(g: number): string {
@@ -22,76 +11,12 @@ export function formatRangeKg(g: number): string {
   return Number.isInteger(kg * 10) ? kg.toFixed(1) : formatKg(kg, 2);
 }
 
-/** kg/12ft and its verdict for one bundle against its die. */
-export function bundleRange(
-  b: { weightG: number; pieces: number; lengthMm: number },
-  die: DieRange | null | undefined,
-): { k: number | null; verdict: RangeVerdict | null } {
-  const k = bundleKgPer12ft(b);
-  return { k, verdict: k !== null && die ? rangeVerdict(k, die) : null };
-}
-
-const VERDICT_KEY = {
-  in: "status.range.inRange",
-  below: "status.range.below",
-  above: "status.range.above",
-} as const;
-
 /**
  * Whether the die's range is known: `loading` while `die.get` runs, `failed`
  * when it did not load. Until it is `ready` a bundle cannot be judged, so the
  * chips never claim "No range set" for a die that has one.
  */
 export type RangeState = "ready" | "loading" | "failed";
-
-/**
- * "In range" (green) or "Below range" / "Above range" (amber); "No range set"
- * when the die has none; a placeholder while the range loads and "Range not
- * loaded" when it failed.
- */
-export function RangeChip({
-  verdict,
-  state = "ready",
-  className,
-}: {
-  verdict: RangeVerdict | null;
-  state?: RangeState;
-  className?: string;
-}) {
-  const { t } = useT();
-  if (state === "loading") {
-    return <Skeleton aria-hidden="true" className={cn("inline-block h-6 w-20 rounded-full", className)} />;
-  }
-  if (state === "failed") {
-    return (
-      <Chip tone="neutral" className={className}>
-        {t("pack.new.rangeUnknown")}
-      </Chip>
-    );
-  }
-  if (!verdict) {
-    return (
-      <Chip tone="neutral" className={className}>
-        {t("status.range.noRange")}
-      </Chip>
-    );
-  }
-  return (
-    <Chip tone={verdict === "in" ? "green" : "amber"} className={className} data-verdict={verdict}>
-      {t(VERDICT_KEY[verdict])}
-    </Chip>
-  );
-}
-
-export function useVerdictWord() {
-  const { t } = useT();
-  return (verdict: RangeVerdict | null, state: RangeState = "ready") =>
-    state !== "ready"
-      ? t("pack.new.rangeUnknown")
-      : verdict
-        ? t(VERDICT_KEY[verdict])
-        : t("status.range.noRange");
-}
 
 /**
  * The sticky action bar of the pack flow: above the phone tab bar, pinned to
@@ -118,6 +43,8 @@ export function PackBar({
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   useFocusClearance(ref);
+  // "Session saved" and other toasts rise above the bar instead of covering Review / Save.
+  useToastLift(ref);
   return (
     <div
       ref={ref}

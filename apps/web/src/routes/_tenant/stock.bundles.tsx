@@ -9,10 +9,13 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { BundleList } from "@/features/stock/bundle-list";
+import { sectionLabel } from "@/features/stock/sections";
 import { PAGE_SIZE, offsetOf, pageWithinTotal, validateBundlesSearch } from "@/features/stock/bundle-search";
 import { failedWithoutData } from "@/features/stock/section-page";
-import { sectionLabel } from "@/features/stock/sections";
 import { StatusFilter, type StatusFilterValue } from "@/features/stock/status-filter";
+import { StockFilterBar } from "@/features/stock/stock-filter-bar";
+import { stockFilterInput, withoutFilters } from "@/features/stock/stock-filters";
+import { StockTotals } from "@/features/stock/stock-totals";
 import { StockViewSwitch } from "@/features/stock/stock-view-switch";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -60,8 +63,9 @@ function AllBundles() {
     ...trpc.bundle.listBundles.queryOptions({
       status: status === "all" ? undefined : status,
       search: search.q,
-      dieId: search.dieId,
       groupId: search.groupId,
+      // yard, customer, order, plant stock, kind, packed date and section (dieId), as the URL holds them
+      ...stockFilterInput(search),
       limit: PAGE_SIZE,
       offset: offsetOf(search.page),
     }),
@@ -99,6 +103,11 @@ function AllBundles() {
     <>
       <PageHeader title={t("stock.list.title")} />
       <StockViewSwitch current="bundles" />
+      <StockFilterBar
+        filter={search}
+        onChange={(patch) => void navigate({ search: (prev) => ({ ...prev, ...patch, page: undefined }) })}
+        onClear={() => void navigate({ search: (prev) => withoutFilters({ ...prev, page: undefined }) })}
+      />
 
       <div className="flex flex-col gap-3">
         <Field label={t("stock.list.search")} className="md:max-w-sm">
@@ -124,6 +133,13 @@ function AllBundles() {
           </div>
         ) : null}
       </div>
+
+      {/* "In stock" is available only, as on every tab; what the list shows (All, Held, …) is its own line. */}
+      <StockTotals
+        stock={bundles.data?.stock}
+        {...(status !== "available" && bundles.data ? { listed: bundles.data.totals, byStatus: bundles.data.byStatus } : {})}
+        loading={bundles.isPending}
+      />
 
       <BundleList
         rows={bundles.data?.items ?? []}

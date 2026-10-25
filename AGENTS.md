@@ -207,6 +207,24 @@ bun run deploy
   (legacy); there is no location 0 and no default location. `createReceipt` requires a yard
   `locationId` once the company has an active yard location.
 
+## Floor writes, void holders and the label contract (BACKLOG 50, 51, 54)
+
+- Replay-safe floor writes: `bundle.createReceipt`, `dispatch.scan` / `addBundlesBySerial` and
+  `stock.move` take an optional `clientRequestId` (`clientRequestIdSchema`). The write's own audit row
+  is the record (`lib/requestReplay.ts`): its id comes from (company, kind, key), its meta carries the
+  request fingerprint and the first answer. A repeat answers the first result with `replayed: true`
+  and writes nothing (no second serial, bundle, label, item or ledger row); the same key with other
+  content is a CONFLICT; two identical calls racing end on the audit primary key and both answer the
+  first result. Web pack keeps one key per session + payload in the draft (`receiptRequestKey`), the
+  dispatch scan / paste / search sheets send one key per call and resend it once on no reply
+  (`features/dispatch/request-key.ts`). A new floor write that can be retried follows the same rule.
+- `bundle.void` (and the legacy `bundle.transition`) = supervisor, manager, admin (and owner); the
+  floor operator does not void (Q29).
+- The label contract is frozen in `@orrn/domain` (`labelContract.ts` + its test): the QR holds the
+  bundle number only (`{origin}/b/{number}?c={slug}`; `{tenant}.orrn.in/b/{number}`, bare, month-only,
+  cuid and BG forms keep resolving), and template variables are exactly `LABEL_VARIABLES` (no `uuid`
+  or other id). Changing either needs a decision (Q31) and a plan for labels already in the yard.
+
 ## Die room (sections, die copies, tiers)
 
 - The `die` table is the SECTION catalogue (12170 Domal and its weight band per 12 ft); do not rename

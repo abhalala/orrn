@@ -22,13 +22,17 @@ const DispatchVolumeChart = lazy(() => import("@/features/dispatch/volume-chart"
 
 const PAGE = 25;
 
-type ListSearch = { status?: DispatchStatus; q?: string; page?: number };
+/** "open" (the default) = Building and Held together, Building first (BACKLOG 16). */
+type ListTab = DispatchStatus | "open";
+const OPEN_STATUSES: DispatchStatus[] = ["draft", "reserved"];
+
+type ListSearch = { status?: ListTab; q?: string; page?: number };
 
 export const Route = createFileRoute("/_tenant/dispatch/")({
   validateSearch: (raw: Record<string, unknown>): ListSearch => {
     const status = (DISPATCH_STATUSES as readonly string[]).includes(String(raw.status))
       ? (raw.status as DispatchStatus)
-      : undefined;
+      : undefined; // "open" is the default, so it never sits in the URL
     const q = typeof raw.q === "string" && raw.q.trim() ? raw.q : undefined;
     const page = Number(raw.page);
     return { status, q, page: Number.isInteger(page) && page > 1 ? page : undefined };
@@ -50,7 +54,7 @@ function DispatchListPage() {
   const { t, locale } = useT();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const status = search.status ?? "draft";
+  const status: ListTab = search.status ?? "open";
   const offset = ((search.page ?? 1) - 1) * PAGE;
   const [text, setText] = useState(search.q ?? "");
   // The last search this box put in the URL: any other change of `q` came from Back,
@@ -74,7 +78,12 @@ function DispatchListPage() {
   }, [text, search.q, navigate]);
 
   const list = useQuery({
-    ...trpc.dispatch.listDispatches.queryOptions({ status, search: search.q, limit: PAGE, offset }),
+    ...trpc.dispatch.listDispatches.queryOptions({
+      ...(status === "open" ? { statuses: OPEN_STATUSES } : { status }),
+      search: search.q,
+      limit: PAGE,
+      offset,
+    }),
     placeholderData: keepPreviousData,
   });
 
@@ -121,9 +130,9 @@ function DispatchListPage() {
   );
   const empty = search.q ? (
     <EmptyState title={t("dispatch.emptySearch", { query: search.q })} />
-  ) : status === "draft" ? (
+  ) : status === "draft" || status === "open" ? (
     <EmptyState
-      title={t("dispatch.emptyBuilding")}
+      title={t(status === "open" ? "dispatch.emptyOpen" : "dispatch.emptyBuilding")}
       action={
         <Can do="dispatch.create">
           <Button asChild>
@@ -165,8 +174,8 @@ function DispatchListPage() {
         <SegmentedControl
           label={t("dispatch.show")}
           value={status}
-          onChange={(next) => void navigate({ search: (prev) => ({ ...prev, status: next === "draft" ? undefined : next, page: undefined }) })}
-          options={DISPATCH_STATUSES.map((s) => ({ value: s, label: statusWord(s) }))}
+          onChange={(next) => void navigate({ search: (prev) => ({ ...prev, status: next === "open" ? undefined : next, page: undefined }) })}
+          options={[{ value: "open" as ListTab, label: t("dispatch.openTab") }, ...DISPATCH_STATUSES.map((s) => ({ value: s as ListTab, label: statusWord(s) }))]}
         />
         <div className="relative min-w-0 lg:w-[320px]">
           <Search

@@ -9,6 +9,7 @@ import {
   printJobTone,
   queueSummary,
   reprintTarget,
+  scaleRowOf,
 } from "./model";
 
 describe("printing model", () => {
@@ -49,5 +50,25 @@ describe("printing model", () => {
     expect(reprintTarget("  26I4086 ")).toBe("26I4086");
     expect(reprintTarget("   ")).toBeNull();
     expect(reprintTarget("x".repeat(65))).toBeNull();
+  });
+});
+
+describe("scale row of a print computer", () => {
+  const at = (ms: number) => new Date(1_700_000_000_000 + ms);
+  const node = (over: object) => ({ scaleConfigured: true, scaleSimulated: false, scaleLastFrameAt: at(0), scaleReportedAt: at(2_000), ...over });
+
+  test("never reported, or no scale", () => {
+    expect(scaleRowOf(node({ scaleConfigured: null, scaleReportedAt: null }))).toEqual({ kind: "unknown" });
+    expect(scaleRowOf(node({ scaleConfigured: false }))).toEqual({ kind: "none" });
+  });
+
+  test("a recent frame at the time of the report is connected; an old or missing one is idle", () => {
+    expect(scaleRowOf(node({}))).toMatchObject({ kind: "connected", simulated: false });
+    expect(scaleRowOf(node({ scaleLastFrameAt: at(-30_000) }))).toMatchObject({ kind: "idle" });
+    expect(scaleRowOf(node({ scaleLastFrameAt: null }))).toMatchObject({ kind: "idle" });
+  });
+
+  test("a simulated scale says so", () => {
+    expect(scaleRowOf(node({ scaleSimulated: true }))).toMatchObject({ kind: "connected", simulated: true });
   });
 });

@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { trpc } from "@/shared/utils/trpc";
 
-import { nodeTone } from "./model";
+import { nodeTone, scaleRowOf } from "./model";
 
 /**
  * Print computers (`edge.overview`) and the label printers set up for the
@@ -99,6 +99,7 @@ export function PrintersTab() {
                         {t("printing.nodes.version", { version: node.runtimeVersion })}
                       </p>
                     ) : null}
+                    <ScaleRow node={node} when={when} />
                     {node.lastErrorMessage ? (
                       <p className="m-0 text-[13px] break-words text-muted-foreground">
                         {t("printing.nodes.lastError", { message: node.lastErrorMessage })}
@@ -138,6 +139,44 @@ export function PrintersTab() {
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+/** The scale beside the printer (FP-PK-02): configured, simulated, connected, and when its last frame came. */
+function ScaleRow({
+  node,
+  when,
+}: {
+  node: Parameters<typeof scaleRowOf>[0];
+  when: (d: Date | string | number) => string;
+}) {
+  const { t } = useT();
+  const row = scaleRowOf(node);
+  return (
+    <div data-slot="scale-row" data-scale={row.kind} className="mt-2 flex min-w-0 flex-col gap-1 border-t border-border pt-2">
+      <p className="m-0 flex flex-wrap items-center gap-2 text-[15px] font-semibold">
+        {t("printing.scale.title")}
+        {row.kind === "connected" ? <Chip tone="green">{t("printing.scale.connected")}</Chip> : null}
+        {row.kind === "idle" ? <Chip tone="amber">{t("printing.scale.idle")}</Chip> : null}
+        {row.kind === "none" ? <Chip tone="neutral">{t("printing.scale.none")}</Chip> : null}
+        {row.kind === "unknown" ? <Chip tone="neutral">{t("printing.scale.unknown")}</Chip> : null}
+        {row.kind === "connected" || row.kind === "idle" ? (
+          <>
+            <Chip tone="neutral">{t("printing.scale.configured")}</Chip>
+            {row.simulated ? <Chip tone="blue">{t("printing.scale.simulated")}</Chip> : null}
+          </>
+        ) : null}
+      </p>
+      <p className="m-0 text-[13px] text-muted-foreground">
+        {row.kind === "connected"
+          ? t("printing.scale.lastFrame", { time: when(row.lastFrameAt) })
+          : row.kind === "idle"
+            ? t("printing.scale.noFrame", { time: when(row.reportedAt) })
+            : row.kind === "none"
+              ? t("printing.scale.noneHint")
+              : t("printing.scale.unknownHint")}
+      </p>
     </div>
   );
 }
