@@ -119,7 +119,7 @@ test.describe("orders list and detail", () => {
       // The PO is the document: the whole number shows.
       await expect(main.getByText("PO-4471", { exact: true })).toBeVisible();
       await expect(main.getByText("PO-118", { exact: true })).toBeVisible();
-      await expect(main.getByText("No PO yet")).toBeVisible();
+      await expect(main.getByText("No PO yet").first()).toBeVisible();
       // Only SO-1 is past 15 days.
       await expect(main.getByText(/Late, \d+ days/)).toHaveCount(1);
       // Other tests in this file book and confirm orders of their own, so these are "at least".

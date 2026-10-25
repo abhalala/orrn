@@ -131,6 +131,7 @@ test.describe("book and confirm", () => {
     await openPortal(page, 375, "/portal/orders/new");
     await expect(main(page).getByRole("heading", { level: 1 })).toHaveText("New order");
     // Only the dies opened for this party can be picked.
+    await expect(page.getByLabel("Die", { exact: true }).locator("option", { hasText: "14701" })).toHaveCount(1);
     const options = await page.getByLabel("Die", { exact: true }).locator("option").allTextContents();
     expect(options.join("|")).toContain("14701");
     expect(options.join("|")).not.toContain("11250");
