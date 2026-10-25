@@ -17,7 +17,7 @@ import { bundle, bundleStatusEvent } from "@orrn/db/schema/inventory";
 import { packingList } from "@orrn/db/schema/packing";
 import { openSalesOrderStatuses, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { company } from "@orrn/db/schema/tenant";
-import { bundleKgPer12ftMilli, capacityCheck, DISPATCH_TRANSITIONS, normalizeSerial, offLineBand } from "@orrn/domain";
+import { bundleKgPer12ftMilli, capacityCheck, DISPATCH_TRANSITIONS, dispatchValue, normalizeSerial, offLineBand } from "@orrn/domain";
 
 import type { Context } from "../context";
 import { actionProcedure, companyProcedure, router } from "../index";
@@ -1330,6 +1330,8 @@ export const dispatchRouter = router({
           salesOrderLineId: dispatchItem.salesOrderLineId,
           bundleMilli: bundle.kgPer12ftMilli,
           lineMilli: salesOrderLine.kgPer12ftMilli,
+          // FP-OP-14: read here, returned only through `value` (never per item) and only to order.price.
+          lineRatePaise: salesOrderLine.ratePaise,
           orderId: salesOrder.id,
           orderNumber: salesOrder.number,
           lineNo: salesOrderLine.lineNo,
@@ -1367,7 +1369,7 @@ export const dispatchRouter = router({
             )
           : new Map<string, string>();
       // Q36: each item's kg/12ft against its order line's (0.1 either way); the draft shows the off ones.
-      const items = itemRows.map(({ bundleMilli, lineMilli, ...it }) => {
+      const items = itemRows.map(({ bundleMilli, lineMilli, lineRatePaise: _rate, ...it }) => {
         const own = bundleMilli ?? bundleKgPer12ftMilli({ weightG: Number(it.weightG), pieces: Number(it.quantity), lengthMm: Number(it.lengthMm) });
         const band = offLineBand(own, lineMilli);
         return { ...it, heldBy: holders.get(it.bundleId) ?? null, kgPer12ftMilli: own, lineKgPer12ftMilli: lineMilli, offBand: band?.off === true, offBandDiffMilli: band?.diffMilli ?? null };
@@ -1474,7 +1476,18 @@ export const dispatchRouter = router({
             .orderBy(dispatch.createdAt)
         : [];
 
-      return { dispatch: row, customer: customerRow ?? null, items, events, overdraw, capacity, salesOrder: salesOrderInfo, truck: truck.length > 0 ? { id: row.truckId!, dispatches: truck } : null };
+      // FP-OP-14: the dispatch's value from its order lines' rates, only with priceOnSalesOrder on and
+      // order.price held (C23); null for everyone else. Weighed grams; missing rates are counted, not zeroed.
+      let value: (ReturnType<typeof dispatchValue> & { complete: boolean }) | null = null;
+      if (can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "order.price")) {
+        const floor = await companyFloor(ctx.db, ctx.companyId);
+        if (floor.floor.priceOnSalesOrder) {
+          const v = dispatchValue(itemRows.map((it) => ({ weightG: Number(it.weightG), ratePaise: it.lineRatePaise })));
+          value = { ...v, complete: v.rateMissing === 0 };
+        }
+      }
+
+      return { dispatch: row, customer: customerRow ?? null, items, events, overdraw, capacity, salesOrder: salesOrderInfo, truck: truck.length > 0 ? { id: row.truckId!, dispatches: truck } : null, value };
     }),
 
   /**

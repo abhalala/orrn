@@ -175,6 +175,16 @@ export const guSettings = {
       noChange: "હજી કોઈ બદલાવ નોંધાયો નથી.",
     },
     about: {
+      releaseNotes: "શું બદલાયું",
+      releaseNotesHint: "ઍપના છેલ્લા બિલ્ડ અને દરેકમાં શું બદલાયું. ઍપ અપડેટ માગે ત્યારે આ જ લખાણ બતાવે છે.",
+      releaseNotesNone: "હજી સુધી કોઈ ઍપ બિલ્ડ બહાર પડ્યું નથી.",
+      releaseBuild: "{platform} {version} (બિલ્ડ {build})",
+      releaseMandatory: "અપડેટ જરૂરી",
+      platformName: {
+        android: "Android",
+        ios: "iPhone",
+        web: "વેબ",
+      },
       app: "ઍપ",
       version: "વેબ ઍપનું વર્ઝન",
       plant: "પ્લાન્ટ",

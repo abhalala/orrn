@@ -27,6 +27,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { ErrorLines } from "./error-lines";
 import { pressErrorText, pressErrorToast, roleCan, useActionKey, useCompanyTimeZone, useHolds } from "./hooks";
+import { OutboxBanner, queuedText, useStationSend, type SendResult } from "./outbox-hooks";
 import { statusTone } from "./job-card";
 import { bannerOf, clockOf, elapsedText, kgFromG, pollIntervalFor, STATION_ACTION, stationActions, type Banner } from "./model";
 import { reasonLabel, type ReasonWording } from "./reason-label";
@@ -64,6 +65,7 @@ export function StationScreen({ runId }: { runId: string }) {
     return (
       <>
         {header}
+        <OutboxBanner />
         <div className="rounded-card border border-border bg-card">
           <EmptyState
             title={isNotFound(query.error) ? t("press.console.notFound") : t("press.console.loadFailed")}
@@ -94,6 +96,9 @@ export function StationScreen({ runId }: { runId: string }) {
   return (
     <>
       {header}
+      <div className="mb-4 empty:hidden">
+        <OutboxBanner />
+      </div>
       <StationBody data={data} unit={unit} tz={tz} />
     </>
   );
@@ -165,25 +170,43 @@ function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunD
   const skewNote = (out: object) => {
     if ("timeUnconfirmed" in out && out.timeUnconfirmed === true) toast.warning(t("press.console.errors.timeSkew"));
   };
+  // FP-PR-19: offline, a write waits in the outbox with its key; the banner above says so.
+  const send = useStationSend(runId, data.run.number);
+  const queuedNote = (res: Extract<SendResult, { queued: true }>) => toast.message(queuedText(t, res));
+  type KeyedInput = { id: string; clientMutationId: string; tappedAt?: number };
   const start = useMutation({
-    ...trpc.press.runs.start.mutationOptions(),
-    onSuccess: async (out) => {
-      skewNote(out);
+    // Offline the call must still run (and land in the outbox), not pause in React Query.
+    networkMode: "always",
+    mutationFn: (input: KeyedInput) => send("start", input),
+    onSuccess: async (res) => {
+      if (res.queued) return queuedNote(res);
+      skewNote(res.out as object);
       await done(startKey.reset)();
     },
     onError: (e) => setError(pressErrorText(t, e, "press.console.startFailed")),
   });
   const stop = useMutation({
-    ...trpc.press.runs.stop.mutationOptions(),
-    onSuccess: async (out) => {
-      skewNote(out);
+    networkMode: "always",
+    mutationFn: (input: KeyedInput) => send("stop", input),
+    onSuccess: async (res) => {
+      if (res.queued) return queuedNote(res);
+      skewNote(res.out as object);
       await done(stopKey.reset)();
     },
     onError: (e) => setError(pressErrorText(t, e, "press.console.stopFailed")),
   });
-  const count = useMutation({ ...trpc.press.runs.count.mutationOptions(), onSuccess: done(countKey.reset), onError: (e) => setError(pressErrorText(t, e)) });
-  const resume = useMutation({ ...trpc.press.runs.resume.mutationOptions(), onSuccess: done(resumeKey.reset), onError: (e) => setError(pressErrorText(t, e)) });
-  const undo = useMutation({ ...trpc.press.runs.undoStart.mutationOptions(), onSuccess: done(undoKey.reset), onError: (e) => setError(pressErrorText(t, e)) });
+  const keyed = (kind: "count" | "resume" | "undoStart", reset: () => void) => ({
+    networkMode: "always" as const,
+    mutationFn: (input: KeyedInput) => send(kind, input),
+    onSuccess: async (res: SendResult) => {
+      if (res.queued) return queuedNote(res);
+      await done(reset)();
+    },
+    onError: (e: unknown) => setError(pressErrorText(t, e)),
+  });
+  const count = useMutation(keyed("count", countKey.reset));
+  const resume = useMutation(keyed("resume", resumeKey.reset));
+  const undo = useMutation(keyed("undoStart", undoKey.reset));
   const busy = start.isPending || stop.isPending || count.isPending || resume.isPending || undo.isPending;
 
   const tone = banner === "running" || banner === "logged" ? "green" : banner === "locked" ? "amber" : "blue";

@@ -60,6 +60,13 @@ export const guShell = {
     viewer: "વ્યૂઅર",
   },
   nav: {
+    plantSwitch: {
+      label: "પ્લાન્ટ બદલો",
+      current: "પ્લાન્ટ: {name}",
+      heading: "તમારા પ્લાન્ટ",
+      switching: "{name} ખુલે છે",
+      failed: "તે પ્લાન્ટ ખૂલ્યો નહીં. ફરી પ્રયત્ન કરો.",
+    },
     main: "મુખ્ય",
     today: "આજે",
     pack: "પૅકિંગ",

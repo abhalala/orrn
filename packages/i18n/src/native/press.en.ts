@@ -37,6 +37,12 @@ export const pressEn = {
     nobody: "Nobody",
     scanOpened: "Opened run {number}",
     scanNoRun: "No run is waiting for this die copy. Its card is opening instead.",
+    planHeading: "Press plan",
+    planToday: "{kg} kg, {runs} {runs:run|runs}, {min} min stopped",
+    planNone: "No plan is released to the press.",
+    planKg: "{pressed} of {planned} kg",
+    planPcs: "{pressed} of {planned} pcs",
+    planNotStarted: "Not started",
     errors: {
       dieElsewhere: "The die issued is for another run or press. Ask the die room.",
       downtimeRunning: "This press already has downtime running. Stop it first.",

@@ -31,6 +31,7 @@ describe("reason codes (C39: one master with a kind)", () => {
       "ageing_rework",
       "ageing_scrap",
       "reallocate",
+      "die_work",
     ]);
     expect(isReasonCodeKind("downtime")).toBe(true);
     expect(isReasonCodeKind("threshold")).toBe(false);

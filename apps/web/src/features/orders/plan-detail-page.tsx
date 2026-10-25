@@ -22,6 +22,8 @@ import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { OtherLines } from "./components/other-lines";
+import { PlanPrintButtons } from "./components/print-buttons";
+import { PhonePlan } from "./components/phone-plan";
 import { ReasonSheet } from "./components/reason-sheet";
 import { orderErrorLines } from "./errors";
 import { dayTimeText, orderKgText } from "./format";
@@ -43,6 +45,7 @@ export function PlanDetailPage({ id }: { id: string }) {
   const [warnings, setWarnings] = useState<Warning[]>([]);
 
   const plan = useQuery(trpc.plans.get.queryOptions({ id }));
+  const pressLines = useQuery(trpc.plans.pressLines.queryOptions());
   const isDraft = plan.data?.plan.status === "draft";
   const dieIds = (plan.data?.dies ?? []).map((d) => d.sectionId);
   // FP-OP-15 / rank 30 on a draft: every other open line on its dies, added in one tap (plans.update).
@@ -122,7 +125,10 @@ export function PlanDetailPage({ id }: { id: string }) {
     return (
       <>
         <PageHeader title={t("press.plan.title")} back={back} />
-        <BiggerScreenNote />
+        <div className="flex min-w-0 flex-col gap-4">
+          <PhonePlan planId={id} />
+          <BiggerScreenNote />
+        </div>
       </>
     );
   }
@@ -146,6 +152,8 @@ export function PlanDetailPage({ id }: { id: string }) {
   }
 
   const { plan: p, dies, lines, runs } = plan.data;
+  const pl = (pressLines.data ?? []).find((x) => x.id === p.pressLineId);
+  const pressLineText = pl ? `${pl.code} ${pl.name}` : null;
   const label = (mm: number) => formatLengthMm(mm, unit);
   const draft = p.status === "draft";
 
@@ -176,6 +184,9 @@ export function PlanDetailPage({ id }: { id: string }) {
         }
       />
       <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <PlanPrintButtons data={plan.data} pressLine={pressLineText} />
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Chip tone={PLAN_STATUS_TONE[p.status]} truncate={false} data-plan-status={p.status}>
             {t(`press.plan.status.${p.status}`)}

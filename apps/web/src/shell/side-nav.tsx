@@ -9,6 +9,7 @@ import { useMe } from "@/shared/lib/me";
 import { usePalette, paletteShortcutLabel } from "./command-palette";
 import { AccountMenu, Avatar, type ShellVariant } from "./more-menu";
 import { isItemActive, type NavItem } from "./nav-items";
+import { PlantSwitcher } from "./plant-switcher";
 
 /**
  * From 768px: one ink panel that is an icon rail on iPad portrait (88px, icon
@@ -64,6 +65,12 @@ export function SideNav({
           </span>
         </Link>
       </div>
+
+      {variant === "tenant" ? (
+        <div className="flex shrink-0 px-3 pb-2 lg:px-3">
+          <PlantSwitcher variant="rail" />
+        </div>
+      ) : null}
 
       <nav aria-label={t("nav.main")} className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain">
         {palette.available ? (

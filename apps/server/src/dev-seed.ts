@@ -46,6 +46,7 @@ import {
   dieMaker,
   dieMakerJob,
   dieTierChange,
+  dieWork,
   dieWeightReading,
   nitridingLog,
 } from "@orrn/db/schema/dies";
@@ -1742,6 +1743,7 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     db.delete(nitridingLog).where(eq(nitridingLog.companyId, COMPANY_ID)),
     db.delete(dieWeightReading).where(eq(dieWeightReading.companyId, COMPANY_ID)),
     db.delete(dieTierChange).where(eq(dieTierChange.companyId, COMPANY_ID)),
+    db.delete(dieWork).where(eq(dieWork.companyId, COMPANY_ID)),
     db.delete(dieInstance).where(eq(dieInstance.companyId, COMPANY_ID)),
     db.delete(dieBand).where(eq(dieBand.companyId, COMPANY_ID)),
     db.delete(dieMaker).where(eq(dieMaker.companyId, COMPANY_ID)),

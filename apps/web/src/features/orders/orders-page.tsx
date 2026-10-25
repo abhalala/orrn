@@ -37,6 +37,7 @@ import {
   type BookShow,
 } from "./book-view";
 import { BookStrip } from "./components/book-strip";
+import { BookExportButton } from "./components/print-buttons";
 import { OrderBar } from "./components/order-bar";
 import { orderKgText } from "./format";
 import { useDebounced } from "./hooks";
@@ -170,6 +171,9 @@ export function OrdersPage({ search, onSearch }: { search: BookSearch; onSearch(
         subtitle={t("orders.subtitle")}
         actions={
           <>
+            <Can do="reports.read">
+              <BookExportButton input={bookQueryInput(search)} />
+            </Can>
             <Can do="order.plan">
               <Button variant="secondary" asChild>
                 <RouterLink to="/orders/plan">{t("press.plan.title")}</RouterLink>

@@ -20,6 +20,7 @@ export const reasonCodeKinds = [
   "ageing_rework",
   "ageing_scrap",
   "reallocate",
+  "die_work",
 ] as const;
 export type ReasonCodeKindColumn = (typeof reasonCodeKinds)[number];
 

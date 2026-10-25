@@ -4,6 +4,13 @@ import type { DeepPartial } from "../gu";
 /** Gujarati, W4-GU (dispatch). Needs a native-speaker review: .fp-build/reports/gu-review-list-web.md. */
 export const guDispatch = {
   dispatch: {
+    value: {
+      title: "કિંમત",
+      priced: "{kg} kg ઓર્ડરના ભાવે ગણ્યું",
+      missing: "{count} {count:bundle|bundles} માટે ઓર્ડર લાઇન પર ભાવ નથી ({kg} kg)",
+      complete: "દરેક bundle નો ભાવ છે",
+      note: "દરેક ઓર્ડર લાઇનના ભાવથી, તોલેલા kg પર. આ ટૅક્સ ઇન્વૉઇસ નથી.",
+    },
     scope: {
       one_so: "આ પ્લાન્ટ એક packing list માં એક સેલ્સ ઓર્ડર મોકલે છે.",
       one_customer: "આ પ્લાન્ટ એક packing list માં એક ગ્રાહક મોકલે છે.",

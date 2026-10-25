@@ -18,6 +18,7 @@ import { approval } from "@orrn/db/schema/approval";
 import { auditLog } from "@orrn/db/schema/audit";
 import { user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
+import { dieInstance } from "@orrn/db/schema/dies";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatch } from "@orrn/db/schema/dispatch";
 import { bundle } from "@orrn/db/schema/inventory";
@@ -1887,11 +1888,24 @@ export async function orderDetailExtras(
   const lines = await orderLines(db, companyId, order.id);
   const strips = await lineStrips(db, companyId, lines.map((l) => l.id));
   const blockers = order.status === "booking" ? await orderConfirmBlockers(db, companyId, order) : [];
+  // FP-OP-19: the pinned copy's code, so the order sheet prints it without a lookup per line.
+  const copyIds = [...new Set(lines.map((l) => l.dieInstanceId).filter((v): v is string => Boolean(v)))];
+  const copyCodes = new Map(
+    (
+      await mapInChunks(copyIds, (ids) =>
+        db
+          .select({ id: dieInstance.id, code: dieInstance.code })
+          .from(dieInstance)
+          .where(and(eq(dieInstance.companyId, companyId), inArray(dieInstance.id, ids))),
+      )
+    ).map((r) => [r.id, r.code] as const),
+  );
   return {
     confirmBlockers: blockers,
     lineDetails: lines.map((l) => ({
       lineId: l.id,
       dieInstanceId: l.dieInstanceId,
+      copyCode: l.dieInstanceId ? (copyCodes.get(l.dieInstanceId) ?? null) : null,
       tierRank: l.tierRank,
       qtyBasis: l.qtyBasis,
       impliedG: l.impliedG,

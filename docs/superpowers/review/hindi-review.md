@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5529 screen strings in 49 groups, 16 guides with 292 strings.
+Counts: 5621 screen strings in 49 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -171,7 +171,7 @@ Counts: 5529 screen strings in 49 groups, 16 guides with 292 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (47)
+### nav (52)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -207,6 +207,11 @@ Counts: 5529 screen strings in 49 groups, 16 guides with 292 strings.
 | `adminRequestsShort` | Requests | रिक्वेस्ट |
 | `adminStaff` | Staff | स्टाफ़ |
 | `openAccount` | Account and more | अकाउंट और बाकी पेज |
+| `plantSwitch.label` | Switch plant | प्लांट बदलें |
+| `plantSwitch.current` | Plant: {name} | प्लांट: {name} |
+| `plantSwitch.heading` | Your plants | आपके प्लांट |
+| `plantSwitch.switching` | Opening {name} | {name} खुल रहा है |
+| `plantSwitch.failed` | Could not open that plant. Try again. | वह प्लांट नहीं खुला। फिर से कोशिश करें। |
 | `home` | orrn home | orrn होम |
 | `godseye` | Godseye | Godseye |
 | `godseyeHome` | Godseye home | Godseye होम |
@@ -1060,7 +1065,7 @@ Counts: 5529 screen strings in 49 groups, 16 guides with 292 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (201)
+### dispatch (206)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1252,6 +1257,11 @@ Counts: 5529 screen strings in 49 groups, 16 guides with 292 strings.
 | `capacity.locked` | The capacity this load went against stays as it was. | जिस क्षमता पर यह लोड गया, वह वैसी ही रहती है। |
 | `capacity.overReasonHint` | Say why this truck goes over its capacity. It is kept with the dispatch. | बताएं कि यह ट्रक अपनी क्षमता से ज़्यादा क्यों जा रहा है। यह डिस्पैच के साथ सेव रहता है। |
 | `capacity.reasonRequired` | Say why before you dispatch. | डिस्पैच से पहले कारण लिखें। |
+| `value.title` | Value | मूल्य |
+| `value.priced` | {kg} kg priced at the order rate | {kg} kg ऑर्डर रेट पर |
+| `value.missing` | {count} {count:bundle has\|bundles have} no rate on the order line ({kg} kg) | {count} bundle की ऑर्डर लाइन पर रेट नहीं है ({kg} kg) |
+| `value.complete` | Every bundle has a rate | हर bundle पर रेट है |
+| `value.note` | From the rate on each order line, on weighed kg. Not a tax invoice. | हर ऑर्डर लाइन के रेट से, तौले गए kg पर। यह टैक्स इनवॉइस नहीं है। |
 | `transporter.label` | Transporter | ट्रांसपोर्टर |
 | `transporter.add` | Add transporter | ट्रांसपोर्टर जोड़ें |
 | `transporter.none` | No transporter | कोई ट्रांसपोर्टर नहीं |
@@ -1833,7 +1843,7 @@ Counts: 5529 screen strings in 49 groups, 16 guides with 292 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (205)
+### settings (213)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2007,6 +2017,14 @@ Counts: 5529 screen strings in 49 groups, 16 guides with 292 strings.
 | `about.supportSaveFailed` | Couldn't save the contact. Try again. | संपर्क सेव नहीं हुआ। फिर कोशिश करें। |
 | `about.help` | Open Help | मदद खोलें |
 | `about.guides` | Guides | गाइड |
+| `about.releaseNotes` | What changed | क्या बदला |
+| `about.releaseNotesHint` | The last app builds and what each one changed. The same text the app shows when it asks for an update. | ऐप के पिछले बिल्ड और हर एक में क्या बदला। यही लिखावट ऐप अपडेट माँगते समय दिखाता है। |
+| `about.releaseNotesNone` | No app builds have been published yet. | अभी तक कोई ऐप बिल्ड जारी नहीं हुआ। |
+| `about.releaseBuild` | {platform} {version} (build {build}) | {platform} {version} (बिल्ड {build}) |
+| `about.releaseMandatory` | Update required | अपडेट ज़रूरी |
+| `about.platformName.android` | Android | Android |
+| `about.platformName.ios` | iPhone | iPhone |
+| `about.platformName.web` | Web | वेब |
 | `printing.packingList.title` | What one packing list carries | एक packing list में क्या जाएगा |
 | `printing.packingList.hint` | How a dispatch is built. Changing it does not touch dispatches already started. | dispatch कैसे बनता है। बदलने से शुरू हो चुके dispatch पर असर नहीं पड़ता। |
 | `printing.packingList.failed` | Could not save the setting. Try again. | सेटिंग सेव नहीं हुई। फिर कोशिश करें। |
@@ -3117,7 +3135,7 @@ Counts: 5529 screen strings in 49 groups, 16 guides with 292 strings.
 | `pickFileKind` | Pick a .{kind} file. | .{kind} फ़ाइल चुनें। |
 | `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 
-### native (251)
+### native (257)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3357,6 +3375,12 @@ Counts: 5529 screen strings in 49 groups, 16 guides with 292 strings.
 | `press.nobody` | Nobody | कोई नहीं |
 | `press.scanOpened` | Opened run {number} | रन {number} खुला |
 | `press.scanNoRun` | No run is waiting for this die copy. Its card is opening instead. | इस die copy के लिए कोई रन इंतज़ार में नहीं है। इसके बजाय इसका card खुल रहा है। |
+| `press.planHeading` | Press plan | प्रेस प्लान |
+| `press.planToday` | {kg} kg, {runs} {runs:run\|runs}, {min} min stopped | {kg} kg, {runs} रन, {min} मिनट बंद |
+| `press.planNone` | No plan is released to the press. | प्रेस को कोई प्लान रिलीज़ नहीं हुआ। |
+| `press.planKg` | {pressed} of {planned} kg | {planned} में से {pressed} kg |
+| `press.planPcs` | {pressed} of {planned} pcs | {planned} में से {pressed} pcs |
+| `press.planNotStarted` | Not started | शुरू नहीं हुआ |
 | `press.errors.dieElsewhere` | The die issued is for another run or press. Ask the die room. | जो die दी गई है वह किसी दूसरे रन या press की है। die room से पूछें। |
 | `press.errors.downtimeRunning` | This press already has downtime running. Stop it first. | इस press पर डाउनटाइम पहले से चल रहा है। पहले उसे बंद करें। |
 | `press.errors.noteNeeded` | Add a note for Other. | Other के लिए नोट लिखें। |
@@ -3724,7 +3748,7 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (412)
+### dieRoom (433)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3919,9 +3943,30 @@ Please check, Lalubhai:
 | `tabs.readings` | Readings | रीडिंग |
 | `tabs.runs` | Runs | रन |
 | `tabs.nitriding` | Nitriding | नाइट्राइडिंग |
+| `tabs.work` | Work | काम |
 | `tabs.tier` | Tier | टियर |
 | `tabs.maker` | Maker | मेकर |
 | `tabs.files` | Files | फ़ाइलें |
+| `work.add` | Log work | काम दर्ज करें |
+| `work.title` | Log work on {code} | {code} पर काम दर्ज करें |
+| `work.body` | Polishing, correction, inspection or cleaning done in the die room. Nothing moves in stock. | Die room में किया गया पॉलिश, करेक्शन, जाँच या सफ़ाई। स्टॉक में कुछ नहीं बदलता। |
+| `work.kind` | What was done | क्या किया |
+| `work.day` | Day | दिन |
+| `work.hv` | Hardness after (HV) | बाद की हार्डनेस (HV) |
+| `work.note` | Note | नोट |
+| `work.noteRequired` | Say what was done in the note. | नोट में लिखें कि क्या किया। |
+| `work.backOnTrial` | Send the copy back on trial | Copy को फिर ट्रायल पर भेजें |
+| `work.backOnTrialHint` | After a correction the copy runs a die trial before production. | करेक्शन के बाद copy प्रोडक्शन से पहले die ट्रायल चलाती है। |
+| `work.save` | Save work | काम सेव करें |
+| `work.saved` | Work logged on {code} | {code} पर काम दर्ज हुआ |
+| `work.sentOnTrial` | Sent on trial | ट्रायल पर भेजी |
+| `work.hardness` | {hv} HV | {hv} HV |
+| `work.by` | by {name} | {name} ने |
+| `work.empty` | No work logged yet | अभी कोई काम दर्ज नहीं |
+| `work.emptyBody` | Polishing, corrections, inspections and cleaning show here, newest first. | पॉलिश, करेक्शन, जाँच और सफ़ाई यहाँ दिखते हैं, नए पहले। |
+| `work.offRack` | Work is logged on the rack. Return the copy first. | काम रैक पर दर्ज होता है। पहले copy वापस लाएँ। |
+| `work.hvInvalid` | Enter hardness as a whole number, for example 950. | हार्डनेस पूरी संख्या में डालें, जैसे 950। |
+| `work.dayInvalid` | Pick a day that is not in the future. | ऐसा दिन चुनें जो आगे का न हो। |
 | `trial.title` | On trial | ट्रायल पर |
 | `trial.body` | This copy goes only to a die trial run. It becomes available when a trial passes. | यह कॉपी सिर्फ़ die ट्रायल रन पर जाती है। ट्रायल पास होने पर यह उपलब्ध हो जाती है। |
 | `trial.issueToTrial` | Issue to a trial run | ट्रायल रन को दें |
@@ -4141,7 +4186,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (367)
+### orders (383)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4198,6 +4243,22 @@ Please check, Lalubhai:
 | `stockOn.pdf` | PDF | PDF |
 | `stockOn.excel` | Excel | Excel |
 | `stockOn.failed` | Could not make the file. Try again. | फ़ाइल नहीं बन पाई। फिर कोशिश करें। |
+| `phonePlan.none` | No released plan | कोई रिलीज़ प्लान नहीं |
+| `phonePlan.noneBody` | A plan shows here once it is released to the press. | प्रेस को रिलीज़ होने के बाद प्लान यहाँ दिखेगा। |
+| `phonePlan.planTotal` | {pressed} of {planned} kg pressed ({pct}%) | {planned} में से {pressed} kg प्रेस हुआ ({pct}%) |
+| `phonePlan.kgLine` | {pressed} of {planned} kg | {planned} में से {pressed} kg |
+| `phonePlan.pcsLine` | {pressed} of {planned} pcs | {planned} में से {pressed} pcs |
+| `phonePlan.notStarted` | Not started | शुरू नहीं हुआ |
+| `phonePlan.urgent` | Urgent | अर्जेंट |
+| `phonePlan.readOnly` | Read only. Make and change plans on a tablet or computer. | सिर्फ़ देखने के लिए। प्लान टैबलेट या कंप्यूटर पर बनाएँ और बदलें। |
+| `printOut.order` | Print order | ऑर्डर प्रिंट करें |
+| `printOut.orderExcel` | Order in Excel | ऑर्डर Excel में |
+| `printOut.plan` | Print shift list | शिफ्ट लिस्ट प्रिंट करें |
+| `printOut.planExcel` | Shift list in Excel | शिफ्ट लिस्ट Excel में |
+| `printOut.book` | Export to Excel | Excel में निकालें |
+| `printOut.bookBusy` | Exporting | निकाल रहे हैं |
+| `printOut.bookCut` | Only the first {count} orders went into the file. | फ़ाइल में सिर्फ़ पहले {count} ऑर्डर गए। |
+| `printOut.failed` | Could not make the file. Try again. | फ़ाइल नहीं बन पाई। फिर कोशिश करें। |
 | `title` | Orders | ऑर्डर |
 | `new` | New order | नया ऑर्डर |
 | `number` | Order | ऑर्डर |
@@ -4546,7 +4607,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (468)
+### press (493)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4823,6 +4884,31 @@ Please check, Lalubhai:
 | `console.busy` | Another run is running on this press. Stop it first. | इस प्रेस पर दूसरा रन चल रहा है। पहले उसे रोकें। |
 | `console.stoppedBannerChip` | Stopped | रुका हुआ |
 | `console.startFailed` | The run did not start. | रन शुरू नहीं हुआ। |
+| `console.outbox.notesNeedConnection` | Offline, the remarks and the die reading cannot be saved. Clear them or wait for the connection, then log the run. | ऑफ़लाइन में रिमार्क और डाई रीडिंग सेव नहीं हो सकते। उन्हें हटाएँ या कनेक्शन का इंतज़ार करें, फिर रन लॉग करें। |
+| `console.outbox.offline` | Offline: {count} {count:change\|changes} waiting | ऑफ़लाइन: {count} बदलाव बाकी |
+| `console.outbox.waiting` | {count} {count:change\|changes} waiting to send | {count} बदलाव भेजने बाकी |
+| `console.outbox.sending` | Sending {count} {count:change\|changes} | {count} बदलाव भेज रहे हैं |
+| `console.outbox.sendNow` | Send now | अभी भेजें |
+| `console.outbox.keepOpen` | Saved on this tablet. They go to orrn in order when the connection is back. Keep this page open. | इस टैबलेट पर सेव है। कनेक्शन आते ही क्रम से orrn पर जाएँगे। यह पेज खुला रखें। |
+| `console.outbox.queued` | Offline. Saved on this tablet; it goes when the connection is back. | ऑफ़लाइन। इस टैबलेट पर सेव है; कनेक्शन आते ही जाएगा। |
+| `console.outbox.signOutLeft` | {count} {count:change\|changes} not sent yet. They stay saved on this tablet for you and go out when you sign in again. | {count} बदलाव अभी भेजे नहीं गए। वे इस टैबलेट पर आपके लिए सेव रहेंगे और दोबारा साइन इन करने पर जाएँगे। |
+| `console.outbox.plantLeft` | {count} {count:change\|changes} not sent yet. They stay saved on this tablet and go out when you are back in this plant. | {count} बदलाव अभी भेजे नहीं गए। वे इस टैबलेट पर सेव रहेंगे और इस प्लांट में लौटने पर जाएँगे। |
+| `console.outbox.behind` | Waiting behind a refused change. Saved on this tablet. | जिस बदलाव को orrn ने नहीं लिया, उसके पीछे इंतज़ार में। इस टैबलेट पर सेव है। |
+| `console.outbox.blocked` | Waiting behind a refused change ({count} {count:change\|changes}) | जिस बदलाव को orrn ने नहीं लिया, उसके पीछे इंतज़ार में ({count} बदलाव) |
+| `console.outbox.sent` | {count} {count:change\|changes} sent | {count} बदलाव भेजे गए |
+| `console.outbox.conflicts` | Changes orrn did not take | जो बदलाव orrn ने नहीं लिए |
+| `console.outbox.notTaken` | {what} on {run} was not taken | {run} पर {what} नहीं लिया गया |
+| `console.outbox.drop` | Remove from the list | सूची से हटाएँ |
+| `console.outbox.kind.start` | Start | शुरू |
+| `console.outbox.kind.stop` | Stop | रोकें |
+| `console.outbox.kind.count` | Count | गिनती |
+| `console.outbox.kind.resume` | Resume | फिर चालू |
+| `console.outbox.kind.undoStart` | Undo start | शुरू वापस |
+| `console.outbox.kind.billets` | Billets | बिलेट |
+| `console.outbox.kind.lines` | Pieces and kg | पीस और kg |
+| `console.outbox.kind.scrap` | Butt and ends | बट और एंड |
+| `console.outbox.kind.qc` | Rejects | रिजेक्ट |
+| `console.outbox.kind.close` | Log run | रन लॉग |
 | `console.stopFailed` | The run did not stop. | रन रुका नहीं। |
 | `console.sections` | Sections | सेक्शन |
 | `console.dieCopy` | Die copy | Die कॉपी |
@@ -5157,7 +5243,7 @@ Please check, Lalubhai:
 | `readings.empty` | No readings yet. | अभी कोई रीडिंग नहीं। |
 | `readings.outOfRange` | Outside {min} to {max}. | {min} से {max} के बाहर। |
 
-### reasons (48)
+### reasons (54)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5169,6 +5255,7 @@ Please check, Lalubhai:
 | `kinds.ageing_rework` | Age again | फिर से एजिंग |
 | `kinds.ageing_scrap` | Ageing scrap | एजिंग स्क्रैप |
 | `kinds.reallocate` | Move to another order | दूसरे ऑर्डर में डालना |
+| `kinds.die_work` | Die work | Die का काम |
 | `downtime.die_change` | Die change | Die बदली |
 | `downtime.billet_wait` | Waiting for billets | बिलेट का इंतज़ार |
 | `downtime.breakdown` | Breakdown | ब्रेकडाउन |
@@ -5209,6 +5296,11 @@ Please check, Lalubhai:
 | `reallocate.customer_request` | Customer asked | ग्राहक ने कहा |
 | `reallocate.packed_wrong_order` | Packed on the wrong order | गलत ऑर्डर पर पैक हुआ |
 | `reallocate.other` | Other | अन्य |
+| `die_work.polish` | Polish | पॉलिश |
+| `die_work.correct` | Correction | करेक्शन |
+| `die_work.inspect` | Inspection | जाँच |
+| `die_work.clean` | Cleaning | सफ़ाई |
+| `die_work.other` | Other | अन्य |
 
 ### plantSettings (50)
 

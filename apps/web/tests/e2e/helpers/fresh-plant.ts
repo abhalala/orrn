@@ -12,9 +12,10 @@ import { API_URL, WEB_ORIGIN } from "./ports";
  * and the welcome step done over the API. Local stack only.
  */
 
-export type PlantRole = "owner" | "office";
+export type PlantRole = "owner" | "office" | "packer";
 type Member = { email: string; password: string };
-export type FreshPlant = { companyId: string; companyName: string; members: Record<PlantRole, Member> };
+/** Owner and office always; others (a packer) only after `addPlantMember`. */
+export type FreshPlant = { companyId: string; companyName: string; members: Record<"owner" | "office", Member> & Partial<Record<PlantRole, Member>> };
 
 const tag = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
@@ -57,9 +58,17 @@ export async function freshPlant(label: string): Promise<FreshPlant> {
   return { companyId: owner.companyId, companyName, members: { owner: owner.member, office: office.member } };
 }
 
+/** Adds a member of another role (a packer, for the specs that show a screen to one) to the plant. */
+export async function addPlantMember(plant: FreshPlant, role: Exclude<PlantRole, "owner" | "office">): Promise<void> {
+  const { member } = await join(role, plant.companyId, plant.companyName);
+  plant.members[role] = member;
+}
+
 /** Signs a browser context in as one of the plant's members (their only company). */
 export async function signInPlant(page: Page, plant: FreshPlant, role: PlantRole) {
-  const { email, password } = plant.members[role];
+  const member = plant.members[role];
+  if (!member) throw new Error(`the plant has no ${role}; call addPlantMember first`);
+  const { email, password } = member;
   const res = await page.context().request.post(`${API_URL}/api/auth/sign-in/email`, { headers: { origin: WEB_ORIGIN }, data: { email, password } });
   expect(res.ok(), `sign-in as the plant's ${role} returned ${res.status()}`).toBe(true);
 }

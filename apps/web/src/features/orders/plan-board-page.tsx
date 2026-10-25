@@ -48,6 +48,7 @@ import {
   type PlanView,
 } from "./view";
 import { OtherLines } from "./components/other-lines";
+import { PhonePlan } from "./components/phone-plan";
 import { parseKgG } from "./line-model";
 
 type DraftLineInfo = {
@@ -79,7 +80,10 @@ export function PlanBoardPage() {
           </Can>
         </div>
       ) : (
-        <BiggerScreenNote />
+        <div className="flex min-w-0 flex-col gap-4">
+          <PhonePlan />
+          <BiggerScreenNote />
+        </div>
       )}
     </>
   );

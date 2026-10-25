@@ -27,6 +27,7 @@ import { dispatchTotals, type DispatchItem, type ItemGroup } from "@/features/di
 import { HoldNote, ReleaseButton } from "@/features/dispatch/hold-step";
 import { useCan, useCompanyTimeZone, usePackingListScope } from "@/features/dispatch/hooks";
 import { OrderPanel } from "@/features/dispatch/order-panel";
+import { ValueCard } from "@/features/dispatch/value-card";
 import { TruckPanel } from "@/features/dispatch/truck-panel";
 import { PackingListView } from "@/features/dispatch/packing-list-view";
 import { IssueCertificate } from "@/features/portal/issue-certificate";
@@ -337,6 +338,8 @@ function DispatchDetail({ data }: { data: DetailData }) {
       {truckData ? <TruckPanel truck={truckData} currentId={d.id} canAdd={editable} /> : null}
 
       {data.salesOrder && status !== "cancelled" ? <OrderPanel order={data.salesOrder} items={items} editable={editable} /> : null}
+
+      {status !== "cancelled" ? <ValueCard value={data.value} /> : null}
 
       {status === "completed" ? (
         <>

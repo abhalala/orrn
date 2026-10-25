@@ -5,6 +5,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Eye } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
+import { OutboxSessionGuard } from "@/features/press/outbox-session-guard";
 import { useScan } from "@/features/scan/scan-context";
 import { ImpersonationBanner } from "@/shared/components/impersonation-banner";
 import { useMe } from "@/shared/lib/me";
@@ -12,6 +13,8 @@ import { useMe } from "@/shared/lib/me";
 import { CommandPaletteProvider } from "./command-palette";
 import { Avatar, MoreSheet, type ShellVariant } from "./more-menu";
 import { GODSEYE_MORE, GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, visibleItems } from "./nav-items";
+import { PlantSwitcher } from "./plant-switcher";
+import { switcherPlants } from "./plant-switcher-model";
 import { SideNav } from "./side-nav";
 import { SkipLink } from "./skip-link";
 import { TabBar } from "./tab-bar";
@@ -78,6 +81,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
       )}
     >
       <SkipLink />
+      <OutboxSessionGuard />
 
       <SideNav
         variant={variant}
@@ -108,12 +112,16 @@ function ShellFrame({ variant, children }: AppShellProps) {
                 {godseye ? <Eye className="size-3.5" strokeWidth={2} /> : null}
               </span>
             </Link>
-            <p
-              className="m-0 min-w-0 flex-1 truncate font-display text-[17px] font-bold tracking-[-0.02em]"
-              title={godseye ? t("nav.godseye") : me?.company?.name}
-            >
-              {godseye ? t("nav.godseye") : me?.company?.name}
-            </p>
+            {!godseye && switcherPlants(me) ? (
+              <PlantSwitcher variant="header" />
+            ) : (
+              <p
+                className="m-0 min-w-0 flex-1 truncate font-display text-[17px] font-bold tracking-[-0.02em]"
+                title={godseye ? t("nav.godseye") : me?.company?.name}
+              >
+                {godseye ? t("nav.godseye") : me?.company?.name}
+              </p>
+            )}
             <button
               type="button"
               onClick={() => setMoreOpen(true)}

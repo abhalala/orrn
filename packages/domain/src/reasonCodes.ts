@@ -14,6 +14,7 @@ export const REASON_CODE_KINDS = [
   "ageing_rework", // FP-AG-12
   "ageing_scrap", // FP-AG discard remaining
   "reallocate", // orders.reallocate with a different cut length (ledger D6)
+  "die_work", // FP-DR-18 die work log kinds (W4-NEXTROWS)
 ] as const;
 export type ReasonCodeKind = (typeof REASON_CODE_KINDS)[number];
 
@@ -60,6 +61,8 @@ export const DEFAULT_REASON_CODES: Record<ReasonCodeKind, readonly ReasonCodeSee
     seed("packed_wrong_order", "Packed on the wrong order"),
     other,
   ],
+  // FP-DR-18: in-house work on a die copy. `correct` may send the copy back on trial.
+  die_work: [seed("polish", "Polish"), seed("correct", "Correction"), seed("inspect", "Inspection"), seed("clean", "Cleaning"), other],
 };
 
 /** Longest note on any reason (FD/PR/PK caps: 1-500 characters). */

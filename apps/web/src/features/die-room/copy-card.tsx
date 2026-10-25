@@ -40,6 +40,7 @@ import {
 } from "./die-room-model";
 import { PrintCard, printCard } from "./print-card";
 import { TrialPanel } from "./trial-panel";
+import { WorkPanel } from "./card-work";
 import { ReadingPad } from "./reading-pad";
 import type { CardData } from "./types";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
@@ -266,6 +267,7 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
           {tab === "readings" ? <ReadingsPanel card={card} onAdd={() => setPadOpen(true)} /> : null}
           {tab === "runs" ? <RunsPanel copyId={copyId} /> : null}
           {tab === "nitriding" ? <NitridingPanel card={card} /> : null}
+          {tab === "work" ? <WorkPanel card={card} /> : null}
           {tab === "tier" ? <TierPanel card={card} /> : null}
           {tab === "maker" ? <MakerPanel card={card} /> : null}
           {tab === "files" ? <FilesPanel card={card} /> : null}

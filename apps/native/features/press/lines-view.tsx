@@ -12,6 +12,9 @@ import { useRefresh } from "@/features/stock/use-refresh";
 import { trpc } from "@/utils/trpc";
 
 import { lineState, type LineRow } from "./press-model";
+import { PlanPhone } from "./plan-phone";
+import { showsPhonePlan } from "./plan-phone-model";
+import { useMe } from "@/utils/me";
 
 /** How often the line board looks again while it is open: the press changes by the minute, not the second. */
 export const BOARD_POLL_MS = 15_000;
@@ -33,6 +36,8 @@ export function PressLines() {
   const lines = useQuery({ ...trpc.press.lines.list.queryOptions({ includeRetired: false }), refetchInterval: BOARD_POLL_MS });
   const { refreshing, onRefresh } = useRefresh([lines.refetch]);
   const rows = (lines.data ?? []) as LineRow[];
+  const { data: me } = useMe();
+  const plan = showsPhonePlan(me);
 
   return (
     <Screen onRefresh={onRefresh} refreshing={refreshing}>
@@ -41,9 +46,13 @@ export function PressLines() {
       ) : lines.isError && !lines.data ? (
         <ErrorBlock error={lines.error} onRetry={() => void lines.refetch()} retrying={lines.isRefetching} />
       ) : rows.length === 0 ? (
-        <EmptyState title={t("native.press.noLines")} />
+        <>
+          {plan ? <PlanPhone pollMs={BOARD_POLL_MS} /> : null}
+          <EmptyState title={t("native.press.noLines")} />
+        </>
       ) : (
         <>
+          {plan ? <PlanPhone pollMs={BOARD_POLL_MS} /> : null}
           <Text className="font-sans text-[15px] leading-6 text-ink-muted">{t("native.press.stationNote")}</Text>
           <View accessibilityLabel={t("native.press.linesHeading")} className="gap-3">
             {rows.map((line) => (
