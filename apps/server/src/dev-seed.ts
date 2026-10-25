@@ -64,7 +64,7 @@ import {
   qcEntry,
 } from "@orrn/db/schema/press";
 import { reasonCode } from "@orrn/db/schema/reasons";
-import { ALLOY_LIMIT_SEEDS, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
+import { ALLOY_LIMIT_SEEDS, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, productionDayStartMin, SUGGESTED_SHIFTS } from "@orrn/domain";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
@@ -1165,9 +1165,19 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     { id: `dev-press-series-cast-${castPeriod}`, companyId: COMPANY_ID, docType: "cast", period: castPeriod, value: 1, createdBy: ownerId },
   ];
   const billetOpeningG = 2_400_000;
-  const loggedStart = todayAt(0.15);
-  const loggedStop = todayAt(0.45);
-  const loggedAt = todayAt(0.5);
+  // PR-8 counts on Today's "pressed today", which reads the CURRENT production day (it starts at
+  // shift 1, 08:00 here). todayAt() starts at 06:00 IST, so between 08:00 and ~19:20 IST a run at
+  // todayAt(0.15) fell into the night shift of the day before. Place the run inside the current
+  // production day instead.
+  const pressDayStartMs = (() => {
+    const start = istMidnight(now, 0) + productionDayStartMin(DEMO_SETTINGS.shifts) * 60 * 1000;
+    return start > now ? start - DAY_MS : start;
+  })();
+  const pressDayElapsed = Math.max(now - pressDayStartMs, 1000);
+  const pressDayAt = (fraction: number) => pressDayStartMs + Math.floor(pressDayElapsed * fraction);
+  const loggedStart = pressDayAt(0.15);
+  const loggedStop = pressDayAt(0.45);
+  const loggedAt = pressDayAt(0.5);
   const loggedShift = shiftAt(DEMO_SETTINGS, loggedStart);
   const lateStart = pastAt(1, 22);
   const lateStop = pastAt(1, 23.5);
@@ -1269,8 +1279,9 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       pressLineId: "dev-press-line-1",
       pressRunId: "dev-run-12230-1",
       reasonCodeId: "dev-reason-downtime-billet_wait",
-      startedAt: new Date(todayAt(0.25)),
-      stoppedAt: new Date(todayAt(0.25) + 18 * 60 * 1000),
+      // Inside PR-8's run (and its production day); 18 min, or less right after the day starts.
+      startedAt: new Date(pressDayAt(0.25)),
+      stoppedAt: new Date(Math.min(pressDayAt(0.25) + 18 * 60 * 1000, pressDayAt(0.4))),
       startedBy: operatorId,
       stoppedBy: operatorId,
     },
