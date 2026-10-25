@@ -1089,6 +1089,9 @@ test.describe("Godseye: app builds, backups, support, company", () => {
 
   test("a company in Godseye has the modules editor and an Audit tab with that plant's trail", async ({ page }) => {
     await open(page, "/admin/companies", { role: "staff", width: 1280 });
+    // Search first: the local D1 keeps every e2e-made company, so the demo plant can be past page one.
+    await page.getByLabel("Search companies").fill("Fourcubes");
+    await expect(page).toHaveURL(/[?&]q=/);
     await page.getByRole("link", { name: /Fourcubes|Demo|orrn/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/companies\/.+/);
     await expect(page.getByRole("tab", { name: "Plan and modules" })).toBeVisible();
