@@ -522,6 +522,194 @@ describe("owner sign-in links (review T27 C-1, I-1)", () => {
   });
 });
 
+/**
+ * Owner's production hotfix `fix/waitlist-signin-details` (522cf837, 39e9d462), merged into wt/FP:
+ * (a) approval succeeds when the email send fails and hands Godseye copyable sign-in details;
+ * (b) a sign-in link survives link-preview fetches: the shared URL is the web `/continue` page,
+ * which spends nothing, and only the Continue tap (`/magic-link/verify`) spends the token, once.
+ * Both on top of the FP posture (audited server-side links, no public link requests).
+ */
+describe("hotfix fix/waitlist-signin-details on the merged behaviour", () => {
+  /** Resend switched on (production, key set) with `fetch` answering as `respond` does. */
+  function resendFails(respond: () => Promise<Response>) {
+    useEnv({ NODE_ENV: "production", RESEND_API_KEY: "re_test_key" });
+    return spyOn(globalThis, "fetch").mockImplementation((async (input: RequestInfo | URL) => {
+      expect(String(input instanceof Request ? input.url : input)).toBe("https://api.resend.com/emails");
+      return respond();
+    }) as typeof fetch);
+  }
+
+  for (const failure of [
+    { label: "Resend answers an error", respond: async () => new Response("rate limited", { status: 429 }), error: "Failed to send email" },
+    { label: "the network call throws", respond: async () => Promise.reject(new TypeError("fetch failed")), error: "fetch failed" },
+  ]) {
+    test(`(a) ${failure.label}: the approval stands and the details come back for copying`, async () => {
+      const { requestId, companyId, name } = await fileRequest();
+      const fetchSpy = resendFails(failure.respond);
+      const errors = spyOn(console, "error").mockImplementation(() => {});
+      let result: Awaited<ReturnType<ReturnType<TestEnv["caller"]>["platform"]["waitlistApprove"]>>;
+      try {
+        result = await env.caller({ platformRole: "super_admin" }).platform.waitlistApprove({ id: requestId });
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+        // No live link reaches the logs on the failure path.
+        const printed = errors.mock.calls.flat().map(String).join("\n");
+        expect(printed).not.toContain("/continue?token=");
+      } finally {
+        errors.mockRestore();
+        fetchSpy.mockRestore();
+      }
+
+      expect(result.success).toBe(true);
+      expect(result.signInRefused).toBeNull();
+      expect(result.signInError).toBeNull();
+      const signIn = result.signIn!;
+      expect(signIn.emailSent).toBe(false);
+      expect(signIn.emailError).toBe(failure.error);
+      const { owner, request } = await ownerOf(requestId);
+      expect(signIn.to).toBe(request.requesterEmail);
+      expect(signIn.companyName).toBe(name);
+      expect(signIn.subject).toBe(`Your ORRN workspace for ${name} is ready`);
+      expect(signIn.link).toStartWith("https://app.test/continue?token=");
+      // The copyable message carries the same link the staffer can paste into WhatsApp.
+      expect(signIn.text).toContain(signIn.link);
+      expect(signIn.text).toContain("expires in 3 days");
+
+      // Everything the approval writes is in place even though the email failed.
+      const { company, membership, waitlistRequest } = await import("@orrn/db/schema/tenant");
+      const { and, eq } = await import("drizzle-orm");
+      expect(request.status).toBe("approved");
+      expect((await env.db.select().from(company).where(eq(company.id, companyId)).get())?.status).toBe("active");
+      const owners = await env.db
+        .select()
+        .from(membership)
+        .where(and(eq(membership.companyId, companyId), eq(membership.userId, owner.id)))
+        .all();
+      expect(owners.map((m) => m.role)).toEqual(["owner"]);
+      const pending = await env.db.select().from(waitlistRequest).where(eq(waitlistRequest.status, "pending")).all();
+      expect(pending.map((r) => r.id)).not.toContain(requestId);
+      // The link is live and audited, and the owner stays under "Waiting to sign in".
+      expect((await linkRows(request.requesterEmail)).map((r) => r.identifier)).toEqual([tokenOf(signIn.link)]);
+      expect(await linkAudits(owner.id)).toHaveLength(1);
+      const awaiting = await env.caller({ platformRole: "super_admin" }).platform.waitlistAwaitingSignIn();
+      expect(awaiting.map((r) => r.id)).toContain(requestId);
+    });
+  }
+
+  test("(a) fresh details also come back for copying when the email fails", async () => {
+    const { requestId } = await fileRequest();
+    const staff = env.caller({ platformRole: "admin" });
+    await staff.platform.waitlistApprove({ id: requestId });
+    const fetchSpy = resendFails(async () => new Response("bad key", { status: 401 }));
+    const errors = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const fresh = await staff.platform.waitlistSignInDetails({ id: requestId });
+      expect(fresh.emailSent).toBe(false);
+      expect(fresh.emailError).toBe("Failed to send email");
+      expect(fresh.link).toStartWith("https://app.test/continue?token=");
+      expect(fresh.text).toContain(fresh.link);
+    } finally {
+      errors.mockRestore();
+      fetchSpy.mockRestore();
+    }
+  });
+
+  test("(b) previews spend nothing; the Continue tap spends the token once; the public request stays refused", async () => {
+    const authModule = await import("@orrn/auth");
+    authModule.resetAuthForTests();
+    const auth = authModule.createAuth();
+    const { session } = await import("@orrn/db/schema/auth");
+    const { eq } = await import("drizzle-orm");
+
+    const { requestId } = await fileRequest();
+    const result = await env.caller({ platformRole: "super_admin" }).platform.waitlistApprove({ id: requestId });
+    const link = new URL(result.signIn!.link);
+    const token = tokenOf(result.signIn!.link);
+    const { owner, request } = await ownerOf(requestId);
+    const sessions = async () => (await env.db.select().from(session).where(eq(session.userId, owner.id)).all()).length;
+
+    // The shared URL is the web page, never the one-time verify address.
+    expect(link.origin).toBe("https://app.test");
+    expect(link.pathname).toBe("/continue");
+    expect(result.signIn!.link).not.toContain("magic-link");
+
+    // A preview bot (WhatsApp, a mail scanner) fetches the shared URL with GET and HEAD. Even if
+    // that URL reached the API, nothing there spends the token or makes a session.
+    for (const method of ["GET", "HEAD"]) {
+      const res = await auth.handler(new Request(`https://api.test/api/auth${link.pathname}${link.search}`, { method }));
+      expect(res.status).not.toBe(200);
+    }
+    const attempts = async () => (await linkRows(request.requesterEmail)).map((r) => [r.identifier, (JSON.parse(r.value) as { attempt: number }).attempt]);
+    expect(await attempts()).toEqual([[token, 0]]);
+    expect(await sessions()).toBe(0);
+
+    // FP's guard refuses the public POST /sign-in/magic-link (D14); it does not touch the
+    // owner's link, which still works below.
+    const post = await auth.handler(
+      new Request("https://api.test/api/auth/sign-in/magic-link", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://app.test" },
+        body: JSON.stringify({ email: request.requesterEmail }),
+      }),
+    );
+    expect(post.status).toBe(403);
+    expect(await attempts()).toEqual([[token, 0]]);
+
+    // The owner taps Continue on /continue: the browser goes to verify, which signs in once.
+    const verify = () =>
+      auth.handler(
+        new Request(`https://api.test/api/auth/magic-link/verify?token=${encodeURIComponent(token)}`, {
+          method: "GET",
+          headers: { origin: "https://app.test" },
+        }),
+      );
+    const first = await verify();
+    expect(first.status).toBe(200);
+    expect(await sessions()).toBe(1);
+    // Spent: Better Auth allows one attempt per token (the row keeps `attempt: 1` until the next try).
+    expect(await attempts()).toEqual([[token, 1]]);
+
+    // A second tap (or a bot replaying the verify address) gets nothing, and the row is gone.
+    const second = await verify();
+    expect(second.status).not.toBe(200);
+    expect(await sessions()).toBe(1);
+    expect(await attempts()).toEqual([]);
+    authModule.resetAuthForTests();
+  });
+
+  test("(b) a link the hotfix issued in production (Better Auth row, 3 days) still signs in once after the merge", async () => {
+    const authModule = await import("@orrn/auth");
+    authModule.resetAuthForTests();
+    const auth = authModule.createAuth();
+    const { session, verification } = await import("@orrn/db/schema/auth");
+    const { eq } = await import("drizzle-orm");
+
+    const { requestId } = await fileRequest();
+    // Approved by support: no FP link is issued, as for an owner approved before the merge.
+    await env.caller({ platformRole: "support" }).platform.waitlistApprove({ id: requestId });
+    const { owner, request } = await ownerOf(requestId);
+    // The hotfix minted its token through Better Auth's own sign-in endpoint (plain storage,
+    // `{ email, name, attempt }`) and stretched the expiry to 3 days.
+    const token = `hotfix${crypto.randomUUID().replace(/-/g, "")}`;
+    await env.db.insert(verification).values({
+      id: crypto.randomUUID(),
+      identifier: token,
+      value: JSON.stringify({ email: request.requesterEmail, name: "", attempt: 0 }),
+      expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+    });
+    const verify = () =>
+      auth.handler(
+        new Request(`https://api.test/api/auth/magic-link/verify?token=${encodeURIComponent(token)}`, {
+          method: "GET",
+          headers: { origin: "https://app.test" },
+        }),
+      );
+    expect((await verify()).status).toBe(200);
+    expect((await verify()).status).not.toBe(200);
+    expect((await env.db.select().from(session).where(eq(session.userId, owner.id)).all()).length).toBe(1);
+    authModule.resetAuthForTests();
+  });
+});
+
 describe("printing status with several stations", () => {
   test("the newest station that is not turned off decides the company's printing status", async () => {
     const { companyId } = await env.seedCompany();
