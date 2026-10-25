@@ -533,7 +533,7 @@ for (const width of WIDTHS) {
 
     test("Today's ageing tile opens the board; the viewer has no ageing screens", async ({ browser }) => {
       const sup = await openAs(browser, "supervisor", width, "/today");
-      const tile = sup.page.getByTestId("today-ageing");
+      const tile = sup.page.getByTestId("today-oven");
       await expect(tile).toBeVisible({ timeout: 20_000 });
       await expect(tile).toContainText("In the oven");
       await tile.getByRole("link", { name: "Open the board" }).click();
@@ -541,7 +541,7 @@ for (const width of WIDTHS) {
       await sup.context.close();
 
       const viewer = await openAs(browser, "viewer", width, "/today");
-      await expect(viewer.page.getByTestId("today-ageing")).toHaveCount(0);
+      await expect(viewer.page.getByTestId("today-oven")).toHaveCount(0);
       await viewer.page.goto("/ageing");
       await expect(viewer.page.getByText("The ageing screen did not load.")).toBeVisible({ timeout: 15_000 });
       await viewer.context.close();

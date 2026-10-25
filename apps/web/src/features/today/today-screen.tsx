@@ -190,11 +190,11 @@ export function TodayScreen() {
       {header}
       <TodayKpis data={data} />
       {data.pressedToday && canAny(me, ["press.run", "press.close"]) ? <TodayPressTile data={data.pressedToday} alerts={data.pressAlerts} /> : null}
-      {data.ageing ? <TodayAgeingTile data={data.ageing} /> : null}
       <Can do="cast.enter">
         <TodaySpectroInbox />
       </Can>
       <TodayTiles tiles={data.tiles} startIndex={3} />
+      {data.ageing ? <TodayAgeingTile data={data.ageing} /> : null}
       <PrintProblems failed={data.failedPrintJobs} />
       {sections.dispatches || sections.sessions ? (
         <ListsGrid pair={sections.dispatches && sections.sessions}>

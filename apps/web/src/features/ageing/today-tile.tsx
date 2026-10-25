@@ -12,9 +12,9 @@ export type AgeingToday = { inOven: number; held: number; out: number } | null;
 export function TodayAgeingTile({ data }: { data: NonNullable<AgeingToday> }) {
   const { t } = useT();
   return (
-    <section aria-labelledby="today-ageing" data-testid="today-ageing" className="flex min-w-0 flex-col gap-3">
+    <section aria-labelledby="today-oven" data-testid="today-oven" className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="today-ageing" className="m-0 text-[17px] font-semibold">
+        <h2 id="today-oven" className="m-0 text-[17px] font-semibold">
           {t("today.oven.title")}
         </h2>
         <UiLink to="/ageing" className="text-[14px] font-semibold text-foreground underline underline-offset-4">
