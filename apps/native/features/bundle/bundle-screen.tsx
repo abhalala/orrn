@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Screen } from "@/components/ui/screen";
 import { ErrorBlock, LoadingBlock } from "@/components/ui/state";
 import { StatusBlock } from "@/components/ui/status-block";
+import { BundleAgeing } from "@/features/ageing/bundle-ageing";
 import { needsResolve } from "@/features/scan/scan-flow";
 import { useRefresh } from "@/features/stock/use-refresh";
 import { announce } from "@/lib/a11y";
@@ -210,6 +211,7 @@ function BundleDetail({
         packedAt={packedAt}
         extras={{ band: data.band, range12ft: data.range12ft, location: data.location, dieCopy: data.dieCopy, cast: data.cast, order: data.order, packedFor: data.packedFor }}
       />
+      <BundleAgeing bundleId={bundle.id} />
       <BundleTimeline entries={timeline} activeDispatch={activeDispatch} />
 
       <View className="flex-row flex-wrap gap-x-2">

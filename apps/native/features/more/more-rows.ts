@@ -2,15 +2,17 @@ import type { Me } from "@orrn/server/lib/permissions";
 
 import { extraTabs, visibleTabs } from "@/lib/nav";
 
-export type MoreRowKey = "dies" | "customers" | "guides" | "settings" | "orders" | "dieRoom" | "press" | "cast";
+import { showsAgeing } from "@/features/ageing/model";
+
+export type MoreRowKey = "dies" | "customers" | "guides" | "settings" | "orders" | "dieRoom" | "press" | "cast" | "ageing";
 
 export type MoreRow = {
   key: MoreRowKey;
   /** The More stack's own screens, or a tab screen reached from More (Orders, Dies). */
-  href: "/more/dies" | "/more/customers" | "/more/guides" | "/more/settings" | "/orders" | "/dies" | "/press" | "/cast";
-  labelKey: "nav.dies" | "nav.customers" | "nav.guides" | "nav.settings" | "nav.orders" | "native.tabs.press" | "foundry.casts.title";
+  href: "/more/dies" | "/more/customers" | "/more/guides" | "/more/settings" | "/orders" | "/dies" | "/press" | "/cast" | "/more/ageing";
+  labelKey: "nav.dies" | "nav.customers" | "nav.guides" | "nav.settings" | "nav.orders" | "native.tabs.press" | "foundry.casts.title" | "nav.ageing";
   /** A Feather glyph. */
-  icon: "layers" | "users" | "book-open" | "settings" | "file-text" | "disc" | "activity" | "droplet";
+  icon: "layers" | "users" | "book-open" | "settings" | "file-text" | "disc" | "activity" | "droplet" | "thermometer";
   /** Company modules (lower case) any one of which keeps the row. No entry: always shown. */
   modules?: readonly string[];
 };
@@ -26,6 +28,7 @@ const ROWS: readonly MoreRow[] = [
 const ORDERS_ROW: MoreRow = { key: "orders", href: "/orders", labelKey: "nav.orders", icon: "file-text" };
 const PRESS_ROW: MoreRow = { key: "press", href: "/press", labelKey: "native.tabs.press", icon: "activity" };
 const CAST_ROW: MoreRow = { key: "cast", href: "/cast", labelKey: "foundry.casts.title", icon: "droplet" };
+const AGEING_ROW: MoreRow = { key: "ageing", href: "/more/ageing", labelKey: "nav.ageing", icon: "thermometer" };
 const DIE_ROOM_ROW: MoreRow = { key: "dieRoom", href: "/dies", labelKey: "nav.dies", icon: "disc" };
 
 /**
@@ -47,12 +50,14 @@ export function moreRows(me: Pick<Me, "company"> | null | undefined): MoreRow[] 
   );
   const extra = me?.company ? extraTabs(me as Me) : [];
   const rows = extra.includes("dies") ? base.map((r) => (r.key === "dies" ? DIE_ROOM_ROW : r)) : base;
-  // Press (supervisor, manager, admin) sits first: it is the plant's live view.
+  // Press (supervisor, manager, admin) is the plant's live view; Ageing, added next, goes in front of it.
   const withPress = extra.includes("press") ? [PRESS_ROW, ...rows] : rows;
   // Cast (the supervisor): the foundry floor sits after Press, before the rest.
   const withCast = extra.includes("cast") ? (extra.includes("press") ? [withPress[0]!, CAST_ROW, ...withPress.slice(1)] : [CAST_ROW, ...withPress]) : withPress;
-  if (!extra.includes("orders")) return withCast;
+  // Ageing is the first item for anyone who works or reads the ovens (spec 5: under More, never a sixth tab).
+  const withAgeing = me?.company && showsAgeing(me as Me) ? [AGEING_ROW, ...withCast] : withCast;
+  if (!extra.includes("orders")) return withAgeing;
   // Orders sits right after Dies, before Customers.
-  const at = withCast.findIndex((r) => r.key === "dies" || r.key === "dieRoom");
-  return [...withCast.slice(0, at + 1), ORDERS_ROW, ...withCast.slice(at + 1)];
+  const at = withAgeing.findIndex((r) => r.key === "dies" || r.key === "dieRoom");
+  return [...withAgeing.slice(0, at + 1), ORDERS_ROW, ...withAgeing.slice(at + 1)];
 }

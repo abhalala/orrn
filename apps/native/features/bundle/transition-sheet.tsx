@@ -6,6 +6,8 @@ import { Text } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Sheet } from "@/components/ui/sheet";
+import { ageingRefusalText } from "@/features/ageing/errors";
+import { BundleVoidNote } from "@/features/ageing/bundle-ageing";
 import { renderScanMessage } from "@/features/scan/outcome";
 import { transitionError } from "@/features/stock/format";
 import { announce } from "@/lib/a11y";
@@ -78,7 +80,8 @@ export function TransitionSheet({
         },
         onError: (err) => {
           feedback.error();
-          const mapped = renderScanMessage(t, transitionError(err));
+          // A restore refused by the trolley line (no longer released, fewer pieces left) says why, not "changed elsewhere".
+          const mapped = ageingRefusalText(t, err) ?? renderScanMessage(t, transitionError(err));
           const code = (err as { data?: { code?: unknown } } | null)?.data?.code;
           if (writeFailureKind(err) === "unsure") {
             // It may have gone through: show where the bundle is now and let the person check.
@@ -103,6 +106,7 @@ export function TransitionSheet({
   return (
     <Sheet visible={visible} onClose={onClose} title={t(voiding ? "bundle.voidTitle" : "bundle.restoreTitle")}>
       <Text className="font-sans text-[15px] leading-6 text-ink-muted">{t(voiding ? "bundle.voidBody" : "bundle.restoreBody")}</Text>
+      {voiding ? <BundleVoidNote bundleId={bundleId} enabled={visible} /> : null}
       {failure ? (
         <Text accessibilityLiveRegion="polite" className="font-sans-medium text-[15px] leading-6 text-destructive">
           {failure}

@@ -85,6 +85,7 @@ export const guAgeingWeb = {
       noFreeTrolley: "કોઈ ખાલી ટ્રોલી નથી",
       noFreeTrolleyBody: "દરેક ટ્રોલી પર બેચ છે. એક બંધ કરો કે રદ કરો, અથવા માસ્ટર્સમાં ટ્રોલી ઉમેરો.",
       addTo: "{number} માં ઉમેરો",
+      openBatch: "{number} ખોલો",
       linesLabel: "નોંધાયેલી પ્રેસ લાઇનો",
       lineLength: "{mm} mm",
       lineLeft: "{pcs} પીસ, {kg} kg બાકી",

@@ -82,6 +82,7 @@ export const ageingWebHi = {
       noFreeTrolley: "कोई खाली ट्रॉली नहीं",
       noFreeTrolleyBody: "हर ट्रॉली पर बैच है। एक बंद करें या रद्द करें, या मास्टर्स में ट्रॉली जोड़ें।",
       addTo: "{number} में जोड़ें",
+      openBatch: "{number} खोलें",
       linesLabel: "दर्ज की गई प्रेस लाइनें",
       lineLength: "{mm} mm",
       lineLeft: "{pcs} पीस, {kg} kg बचे",
