@@ -404,7 +404,7 @@ Counts: 5398 screen strings in 49 groups, 16 guides with 292 strings.
 | `done.goOther` | Continue | आगे बढ़ें |
 | `done.opening` | Opening | खुल रहा है |
 
-### today (125)
+### today (128)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -512,6 +512,9 @@ Counts: 5398 screen strings in 49 groups, 16 guides with 292 strings.
 | `press.stops` | Stops, longest first | स्टॉपेज, सबसे लंबे पहले |
 | `press.late` | Entered late | देर से भरे |
 | `press.lateShare` | {pct}% of runs | {pct}% रन |
+| `press.alertsOpen` | Press alerts open: {count} | प्रेस अलर्ट खुले: {count} |
+| `press.alertsToday` | Press alerts today: {count} | आज के प्रेस अलर्ट: {count} |
+| `press.alertsSimulated` | From the simulator | नकली डेटा से |
 | `floor.heading` | Floor | फ़्लोर |
 | `floor.press` | Press | प्रेस |
 | `floor.pressHint` | {count} queued | {count} कतार में |
@@ -4513,7 +4516,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (434)
+### press (431)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4942,9 +4945,6 @@ Please check, Lalubhai:
 | `summary.shifts` | By shift | शिफ़्ट के हिसाब से |
 | `summary.late` | Entered late | देर से भरे |
 | `summary.lateShare` | {pct}% of runs | {pct}% रन |
-| `summary.alertsOpen` | Press alerts open: {count} | प्रेस अलर्ट खुले: {count} |
-| `summary.alertsToday` | Press alerts today: {count} | आज के प्रेस अलर्ट: {count} |
-| `summary.alertsSimulated` | From the simulator | नकली डेटा से |
 | `summary.open` | Open the press summary | प्रेस सारांश खोलें |
 | `summary.report` | Open the press report | प्रेस रिपोर्ट खोलें |
 | `summary.previous` | Earlier day | पिछला दिन |
