@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 4013 screen strings in 44 groups, 16 guides with 292 strings.
+Counts: 4015 screen strings in 44 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -1779,7 +1779,7 @@ Counts: 4013 screen strings in 44 groups, 16 guides with 292 strings.
 | `reason.weightRange` | {column} reads as {weight}, too heavy to be right. Check the unit in the column name. | {column} {weight} पढ़ा गया, जो सही होने के लिए बहुत ज़्यादा है। कॉलम के नाम में यूनिट जांचें। |
 | `reason.alreadyImported` | This row (same row number, same values) was already imported from an earlier copy of this file, so it is not added again. | यह लाइन (वही लाइन नंबर, वही वैल्यू) इस फ़ाइल की पहले की कॉपी से इम्पोर्ट हो चुकी है, इसलिए दोबारा नहीं जोड़ी गई। |
 
-### masters (207)
+### masters (209)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1961,6 +1961,8 @@ Counts: 4013 screen strings in 44 groups, 16 guides with 292 strings.
 | `dieCopies.status.available` | Ready | तैयार |
 | `dieCopies.status.in_use` | On the press | प्रेस पर |
 | `dieCopies.status.at_nitriding` | At nitriding | नाइट्राइडिंग में |
+| `dieCopies.status.at_maker` | At die maker | Die मेकर के पास |
+| `dieCopies.status.on_trial` | On trial | ट्रायल पर |
 | `dieCopies.status.retired` | Retired | बंद |
 | `dieCopies.openSection` | Open section {code} | सेक्शन {code} खोलें |
 | `dieCopies.form.addTitle` | Add die copy | Die कॉपी जोड़ें |

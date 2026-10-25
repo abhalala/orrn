@@ -2215,6 +2215,8 @@ export const hi = {
         available: "तैयार",
         in_use: "प्रेस पर",
         at_nitriding: "नाइट्राइडिंग में",
+        at_maker: "Die मेकर के पास",
+        on_trial: "ट्रायल पर",
         retired: "बंद",
       },
       openSection: "सेक्शन {code} खोलें",

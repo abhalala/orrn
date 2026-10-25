@@ -2222,6 +2222,8 @@ export const en = {
         available: "Ready",
         in_use: "On the press",
         at_nitriding: "At nitriding",
+        at_maker: "At die maker",
+        on_trial: "On trial",
         retired: "Retired",
       },
       openSection: "Open section {code}",

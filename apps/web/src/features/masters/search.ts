@@ -4,8 +4,8 @@
  * JS every first visit to `/` downloads (route budget). The pages import the same types from here.
  */
 
-export type DieCopyStatus = "in_use" | "available" | "at_nitriding" | "retired";
-export const DIE_COPY_STATUSES: readonly DieCopyStatus[] = ["available", "in_use", "at_nitriding", "retired"];
+export type DieCopyStatus = "in_use" | "available" | "at_nitriding" | "at_maker" | "on_trial" | "retired";
+export const DIE_COPY_STATUSES: readonly DieCopyStatus[] = ["available", "in_use", "at_nitriding", "at_maker", "on_trial", "retired"];
 
 export type ScrapTab = "items" | "grades" | "streams";
 export const SCRAP_TABS: readonly ScrapTab[] = ["items", "grades", "streams"];
@@ -25,7 +25,7 @@ function oneOf<T extends string>(raw: unknown, allowed: readonly T[]): T | undef
   return typeof raw === "string" && (allowed as readonly string[]).includes(raw) ? (raw as T) : undefined;
 }
 
-/** `?section=<section id>&status=available|in_use|at_nitriding|retired&offset=50`. */
+/** `?section=<section id>&status=available|in_use|at_nitriding|at_maker|on_trial|retired&offset=50`. */
 export function parseDieCopiesSearch(search: Record<string, unknown>): DieCopiesSearch {
   const out: DieCopiesSearch = {};
   if (typeof search.section === "string" && search.section) out.section = search.section;
