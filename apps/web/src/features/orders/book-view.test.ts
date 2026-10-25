@@ -58,7 +58,7 @@ describe("the URL filters", () => {
 });
 
 describe("the bar", () => {
-  const bar: Bar = { dispatchedG: 120_000, inStockG: 240_000, heldG: 0, pressedG: 0, plannedG: 240_000, restG: 1_200_000, overG: 0, dispatchedBp: 667 };
+  const bar: Bar = { dispatchedG: 120_000, inStockG: 240_000, inStockBarG: 240_000, heldG: 0, pressedG: 0, plannedG: 240_000, restG: 1_200_000, overG: 0, dispatchedBp: 667 };
 
   test("segments in bar order carry the server's kg (drawn as flex-grow, nothing divided here)", () => {
     const segs = barSegments({ ...bar, heldG: 60_000, restG: 1_140_000 });
@@ -71,6 +71,19 @@ describe("the bar", () => {
       ["rest", 1_140_000],
     ]);
     expect(segs.map((s) => s.stage)).toEqual(["dispatched", "in_stock", "held", "pressed", "planned", "unplanned"]);
+  });
+
+  test("BACKLOG 52: in stock past the baki is drawn capped but labelled whole (the line strip's figure)", () => {
+    // SO-5 line 3: ordered 250, dispatched 184.546, in stock 105.895 of which 65.454 fits the bar.
+    const segs = barSegments({ dispatchedG: 184_546, inStockG: 105_895, inStockBarG: 65_454, heldG: 0, pressedG: 0, plannedG: 0, restG: 0, overG: 40_441, dispatchedBp: 7382 });
+    const inStock = segs.find((s) => s.key === "inStock")!;
+    expect(inStock.grams).toBe(65_454);
+    expect(inStock.labelG).toBe(105_895);
+    expect(segs.reduce((acc, s) => acc + s.grams, 0)).toBe(250_000);
+    expect(segs.filter((s) => s.key !== "inStock").every((s) => s.labelG === s.grams)).toBe(true);
+    // Fully dispatched with stock left over: nothing drawn for it, but it is still named.
+    const full = barSegments({ dispatchedG: 250_000, inStockG: 50_000, inStockBarG: 0, heldG: 0, pressedG: 0, plannedG: 0, restG: 0, overG: 50_000, dispatchedBp: 10_000 });
+    expect(full.find((s) => s.key === "inStock")).toMatchObject({ grams: 0, labelG: 50_000 });
   });
 
   test("an idle bar is a plain grey one; held stock is not idle", () => {

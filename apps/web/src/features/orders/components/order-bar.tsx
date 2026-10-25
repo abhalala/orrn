@@ -15,13 +15,14 @@ import { BAR_TONE, barSegments, nothingPlanned, type Bar } from "../book-view";
 export function OrderBar({ number, bar, orderedG, bakiG, compact = false }: { number: string; bar: Bar; orderedG: number; bakiG: number; compact?: boolean }) {
   const { t } = useT();
   const segments = barSegments(bar);
-  const visible = segments.filter((s) => s.grams > 0);
+  // Drawn by the capped share; named by the line strips' figure (BACKLOG 52).
+  const visible = segments.filter((s) => s.labelG > 0);
   const idle = nothingPlanned(bar);
   const pct = bpPercent1(bar.dispatchedBp);
   const summary = [
     t("orders.book.bar.label", { number }),
     t("orders.book.bar.dispatchedPct", { pct }),
-    ...visible.map((s) => `${t(s.labelKey)} ${orderKgText(s.grams)} ${t("units.kg")}`),
+    ...visible.map((s) => `${t(s.labelKey)} ${orderKgText(s.labelG)} ${t("units.kg")}`),
     ...(bar.overG > 0 ? [t("orders.book.bar.over", { kg: orderKgText(bar.overG) })] : []),
   ].join(", ");
   return (
@@ -50,7 +51,7 @@ export function OrderBar({ number, bar, orderedG, bakiG, compact = false }: { nu
               <li key={s.key} className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <span aria-hidden="true" className={cn("size-2 rounded-sm", BAR_TONE[s.key])} />
                 <span>{t(s.labelKey)}</span>
-                <span className="font-mono tabular-nums text-foreground">{orderKgText(s.grams)}</span>
+                <span className="font-mono tabular-nums text-foreground">{orderKgText(s.labelG)}</span>
               </li>
             ))}
           {bar.overG > 0 ? (

@@ -69,6 +69,7 @@ describe("FP-OP-20: bar segments and the strip", () => {
     expect(by.get(a.id)!.bar).toEqual({
       dispatchedG: kg(120),
       inStockG: kg(240),
+      inStockBarG: kg(240),
       heldG: 0,
       pressedG: 0,
       plannedG: kg(240),
@@ -77,10 +78,12 @@ describe("FP-OP-20: bar segments and the strip", () => {
       dispatchedBp: 667, // 120 / 1,800 = 6.67 %
     });
     expect(by.get(a.id)!.orderedG).toBe(kg(1_800));
-    // B: ordered 120 kg, 200 kg in stock: the bar caps at ordered and the 80 kg is the over chip.
+    // B: ordered 120 kg, 200 kg in stock: the bar draws 120 (capped at ordered), the label says the
+    // 200 kg the line strip says (BACKLOG 52), and the 80 kg produced past ordered is the over chip.
     expect(by.get(b.id)!.bar).toEqual({
       dispatchedG: 0,
-      inStockG: kg(120),
+      inStockG: kg(200),
+      inStockBarG: kg(120),
       heldG: 0,
       pressedG: 0,
       plannedG: 0,
@@ -93,7 +96,7 @@ describe("FP-OP-20: bar segments and the strip", () => {
 
     for (const i of list.items) {
       const bar = i.bar;
-      expect(bar.dispatchedG + bar.inStockG + bar.heldG + bar.pressedG + bar.plannedG + bar.restG).toBe(i.orderedG);
+      expect(bar.dispatchedG + bar.inStockBarG + bar.heldG + bar.pressedG + bar.plannedG + bar.restG).toBe(i.orderedG);
     }
 
     // The strip equals the sum of the grid, from the list and from the dedicated query.
@@ -106,6 +109,7 @@ describe("FP-OP-20: bar segments and the strip", () => {
       orderedG: sum((i) => i.orderedG),
       dispatchedG: sum((i) => i.bar.dispatchedG),
       inStockG: sum((i) => i.bar.inStockG),
+      inStockBarG: sum((i) => i.bar.inStockBarG),
       heldG: sum((i) => i.bar.heldG),
       pressedG: sum((i) => i.bar.pressedG),
       plannedG: sum((i) => i.bar.plannedG),
@@ -164,7 +168,7 @@ describe("FP-OP-20: bar segments and the strip", () => {
     expect(await ids({ stage: "unplanned" })).toEqual(sorted(a, c));
     // The strip moves with the filter.
     const onlyB = await p.owner.orders.bookTotals({ customerId: p.otherCustomer });
-    expect(onlyB).toMatchObject({ orders: 1, orderedG: kg(120), inStockG: kg(120), overG: kg(80) });
+    expect(onlyB).toMatchObject({ orders: 1, orderedG: kg(120), inStockG: kg(200), inStockBarG: kg(120), overG: kg(80) });
     const empty = await p.owner.orders.bookTotals({ city: "Nowhere" });
     expect(empty).toMatchObject({ orders: 0, orderedG: 0, dispatchedBp: 0 });
     expect(await p.owner.orders.bookCities()).toEqual(["Ahmedabad", "Surat"]);
@@ -214,7 +218,7 @@ describe("review r1 I-5: in stock is available only, in kg and in count; held is
     expect(row.bar).toMatchObject({ inStockG: kg(240), heldG: kg(220), dispatchedG: 0 });
     expect(row.inStockBundles).toBe(2);
     expect(row.heldBundles).toBe(2);
-    expect(row.bar.dispatchedG + row.bar.inStockG + row.bar.heldG + row.bar.pressedG + row.bar.plannedG + row.bar.restG).toBe(row.orderedG);
+    expect(row.bar.dispatchedG + row.bar.inStockBarG + row.bar.heldG + row.bar.pressedG + row.bar.plannedG + row.bar.restG).toBe(row.orderedG);
     // The order detail says the same "in stock".
     const got = await p.owner.orders.get({ id: o.id });
     expect(got.lineDetails[0]!.strip).toMatchObject({ inStockG: kg(240), inStockBundles: 2 });
