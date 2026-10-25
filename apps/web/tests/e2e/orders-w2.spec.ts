@@ -494,7 +494,7 @@ test.describe("hold stock for an order line (FP-OP-17)", () => {
       // Another customer's dispatch: the scan refuses them, naming the order.
       const sent = await m<{ id: string }>(page, "dispatch.create", { customerId: other.id });
       dispatchId = sent.id;
-      const refused = await m<{ added: string[]; refused: { serial: string; code: string; reason: string }[] }>(page, "dispatch.addBundlesBySerial", {
+      const refused = await m<{ added: string[]; refused: { serial: string; code: string; reason: string }[] }>(page, "dispatch.scan", {
         id: sent.id,
         serials: [serials[0]!],
       });
@@ -510,7 +510,8 @@ test.describe("hold stock for an order line (FP-OP-17)", () => {
       await expect(list.getByText("Nothing is held for this line.")).toBeVisible();
       await list.getByRole("button", { name: "Done" }).click();
       await expect(page.locator("[data-held-chip='1']")).toHaveCount(0);
-      const after = await m<{ added: string[] }>(page, "dispatch.addBundlesBySerial", { id: sent.id, serials: [serials[0]!] });
+      const after = await m<{ added: string[]; refused: unknown[] }>(page, "dispatch.scan", { id: sent.id, serials: [serials[0]!] });
+      expect(after.refused).toEqual([]);
       expect(after.added).toEqual([serials[0]]);
     } finally {
       if (dispatchId) await m(page, "dispatch.cancel", { id: dispatchId }).catch(() => undefined);
