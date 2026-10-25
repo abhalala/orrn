@@ -31,7 +31,9 @@ describe("reasonCodes.list", () => {
     const p = await plant();
     const rows = await p.as("viewer").reasonCodes.list();
     const kinds = new Set(rows.map((r) => r.kind));
-    expect(kinds.size).toBe(8);
+    // 8 kinds from W1 + die_work (W4-NEXTROWS, FP-DR-18).
+    expect(kinds.size).toBe(9);
+    expect(kinds.has("die_work")).toBe(true);
     const downtime = rows.filter((r) => r.kind === "downtime");
     expect(downtime.at(-1)!.code).toBe("other");
     expect(downtime.map((r) => r.code)).toContain("die_change");
@@ -120,7 +122,7 @@ describe("reasonCodes.rename and setActive", () => {
     const p = await plant();
     const rows = await p.manager.reasonCodes.list();
     const others = rows.filter((r) => r.code === "other");
-    expect(others).toHaveLength(8);
+    expect(others).toHaveLength(9); // one per kind, die_work included
     for (const o of others) {
       await expect(p.manager.reasonCodes.rename({ id: o.id, label: "Misc" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
       await expect(p.manager.reasonCodes.setActive({ id: o.id, active: false })).rejects.toMatchObject({ code: "BAD_REQUEST" });
