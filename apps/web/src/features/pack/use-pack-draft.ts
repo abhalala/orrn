@@ -22,6 +22,22 @@ export type DraftBundle = {
   lengthMm?: number;
   /** Only when this bundle's PO differs from the session PO. */
   po?: string;
+  /** Where the weight came from. Left out = typed (the server's default). */
+  weightSource?: "scale" | "manual";
+  /** The steady scale grams on the screen when the weight was taken or typed over. */
+  scaleReadingG?: number;
+  /** Why the weight was typed while a scale is connected. */
+  weightOverrideReason?: string;
+};
+
+/** Pieces rejected at pack (FP-PK-14): they leave the trolley or the pile and are not a bundle. */
+export type DraftReject = {
+  pcs: number;
+  /** Weighed rejects post kg at plant scrap; left out when the pieces were not weighed. */
+  weightG?: number;
+  /** A `qc_reject` reason code. `other` needs a note. */
+  reasonCode: string;
+  note?: string;
 };
 
 export type PackStep = 0 | 1 | 2;
@@ -42,8 +58,34 @@ export type PackDraft = {
    * Session defaults. `lengthMm` 0 = not entered yet. `locationId` is the yard
    * the bundles go to (required by the server once the company has yards).
    */
-  defaults: { lengthMm: number; po?: string; locationId?: string };
+  defaults: PackDefaults;
   bundles: DraftBundle[];
+  /** Rejects of this session (FP-PK-14). */
+  rejects?: DraftReject[];
+  /**
+   * BACKLOG 50: this session's nonce for `clientRequestId`. A save sent again (the reply was lost on
+   * yard Wi-Fi, the packer tapped Save again, the page reloaded) carries the same key for the same
+   * bundles, so the server answers with the first result instead of packing them twice.
+   */
+  sessionKey?: string;
+};
+
+/**
+ * Session-wide choices of the Source step. `dieInstanceId` is the die copy that made the bundles,
+ * `castId` the cast they came from, `salesOrderLineId` the order line they are packed for (none =
+ * plant stock), `showLogo` the label branding (default on) and `approvalId` an approved owner override.
+ */
+export type PackDefaults = {
+  lengthMm: number;
+  po?: string;
+  locationId?: string;
+  dieInstanceId?: string;
+  castId?: string;
+  salesOrderLineId?: string;
+  showLogo?: boolean;
+  approvalId?: string;
+  /** The office packs on another copy than the order line pins (D15; audited on the server). */
+  overridePin?: boolean;
 };
 
 export function emptyDraft(companyId: string, userId?: string): PackDraft {
@@ -51,7 +93,13 @@ export function emptyDraft(companyId: string, userId?: string): PackDraft {
 }
 
 export function isDraftEmpty(d: PackDraft): boolean {
-  return d.dieId === null && d.bundles.length === 0 && !(d.defaults.lengthMm > 0) && !d.defaults.po;
+  return (
+    d.dieId === null &&
+    d.bundles.length === 0 &&
+    (d.rejects?.length ?? 0) === 0 &&
+    !(d.defaults.lengthMm > 0) &&
+    !d.defaults.po
+  );
 }
 
 const isPosInt = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n) && n > 0;
@@ -63,9 +111,28 @@ function isDraftBundle(b: unknown): b is DraftBundle {
     isPosInt(r.weightG) &&
     isPosInt(r.pieces) &&
     (r.lengthMm === undefined || isPosInt(r.lengthMm)) &&
-    (r.po === undefined || typeof r.po === "string")
+    (r.po === undefined || typeof r.po === "string") &&
+    (r.weightSource === undefined || r.weightSource === "scale" || r.weightSource === "manual") &&
+    (r.scaleReadingG === undefined || isPosInt(r.scaleReadingG)) &&
+    (r.weightOverrideReason === undefined || typeof r.weightOverrideReason === "string")
   );
 }
+
+const MAX_REJECTS = 50;
+
+function isDraftReject(x: unknown): x is DraftReject {
+  if (!x || typeof x !== "object") return false;
+  const r = x as Record<string, unknown>;
+  return (
+    isPosInt(r.pcs) &&
+    (r.weightG === undefined || isPosInt(r.weightG)) &&
+    typeof r.reasonCode === "string" &&
+    r.reasonCode !== "" &&
+    (r.note === undefined || typeof r.note === "string")
+  );
+}
+
+const optionalString = (v: unknown) => v === undefined || typeof v === "string";
 
 function parseDraft(raw: string): PackDraft | null {
   let data: unknown;
@@ -89,9 +156,17 @@ function parseDraft(raw: string): PackDraft | null {
     !(defaults.lengthMm >= 0) ||
     !(defaults.po === undefined || typeof defaults.po === "string") ||
     !(defaults.locationId === undefined || typeof defaults.locationId === "string") ||
+    !optionalString(defaults.dieInstanceId) ||
+    !optionalString(defaults.castId) ||
+    !optionalString(defaults.salesOrderLineId) ||
+    !optionalString(defaults.approvalId) ||
+    !(defaults.showLogo === undefined || typeof defaults.showLogo === "boolean") ||
+    !(defaults.overridePin === undefined || typeof defaults.overridePin === "boolean") ||
     !Array.isArray(d.bundles) ||
     d.bundles.length > MAX_BUNDLES ||
-    !d.bundles.every(isDraftBundle)
+    !d.bundles.every(isDraftBundle) ||
+    !(d.rejects === undefined || (Array.isArray(d.rejects) && d.rejects.length <= MAX_REJECTS && d.rejects.every(isDraftReject))) ||
+    !(d.sessionKey === undefined || (typeof d.sessionKey === "string" && /^[A-Za-z0-9_-]{8,40}$/.test(d.sessionKey)))
   ) {
     return null;
   }
@@ -164,13 +239,46 @@ export function removeBundle(d: PackDraft, index: number): PackDraft {
   return { ...d, bundles: d.bundles.filter((_, i) => i !== index) };
 }
 
+export function addReject(d: PackDraft, r: DraftReject): PackDraft {
+  const rejects = d.rejects ?? [];
+  if (rejects.length >= MAX_REJECTS) return d;
+  return { ...d, rejects: [...rejects, r] };
+}
+
+export function removeReject(d: PackDraft, index: number): PackDraft {
+  const rejects = d.rejects ?? [];
+  if (index < 0 || index >= rejects.length) return d;
+  const next = rejects.filter((_, i) => i !== index);
+  const { rejects: _drop, ...rest } = d;
+  return next.length > 0 ? { ...rest, rejects: next } : rest;
+}
+
+export type ReceiptRow = {
+  quantity: number;
+  weightG: number;
+  lengthMm: number;
+  poNumber: string | null;
+  weightSource?: "scale" | "manual";
+  scaleReadingG?: number;
+  weightOverrideReason?: string;
+};
+
 export type ReceiptInput = {
   dieId: string;
   unit: string;
   purchaseOrderRef: string | null;
   /** The yard; left out for companies without yard locations. */
   locationId?: string;
-  rows: { quantity: number; weightG: number; lengthMm: number; poNumber: string | null }[];
+  dieInstanceId?: string;
+  castId?: string;
+  salesOrderLineId?: string;
+  /** D20: `plant_stock` when no order line is chosen (the "Plant stock" choice). */
+  source: "order" | "plant_stock";
+  overridePin?: boolean;
+  showLogo?: boolean;
+  approvalId?: string;
+  rows: ReceiptRow[];
+  rejects?: { pcs: number; weightG?: number; reasonCode: string; note?: string }[];
 };
 
 const cleanPo = (po: string | undefined) => {
@@ -202,18 +310,64 @@ function sessionYard(d: PackDraft, yards: YardContext | undefined): string | und
 export function toReceiptInput(d: PackDraft, unit: LengthUnit, yards?: YardContext): ReceiptInput | null {
   if (!d.dieId || !(d.defaults.lengthMm > 0) || d.bundles.length === 0) return null;
   const locationId = sessionYard(d, yards);
+  const { dieInstanceId, castId, salesOrderLineId, showLogo, approvalId, overridePin } = d.defaults;
+  const rejects = d.rejects ?? [];
   return {
     dieId: d.dieId,
     unit,
     purchaseOrderRef: cleanPo(d.defaults.po),
     ...(locationId ? { locationId } : {}),
+    ...(dieInstanceId ? { dieInstanceId } : {}),
+    ...(castId ? { castId } : {}),
+    ...(salesOrderLineId ? { salesOrderLineId } : {}),
+    // D20: no order line is the deliberate "Plant stock" choice; the server writes it as plant stock.
+    source: salesOrderLineId ? "order" : "plant_stock",
+    ...(salesOrderLineId && dieInstanceId && overridePin ? { overridePin: true } : {}),
+    ...(showLogo === false ? { showLogo: false } : {}),
+    ...(approvalId ? { approvalId } : {}),
     rows: d.bundles.map((b) => ({
       quantity: b.pieces,
       weightG: b.weightG,
       lengthMm: b.lengthMm ?? d.defaults.lengthMm,
       poNumber: b.po === undefined ? null : cleanPo(b.po),
+      ...(b.weightSource ? { weightSource: b.weightSource } : {}),
+      ...(b.scaleReadingG ? { scaleReadingG: b.scaleReadingG } : {}),
+      ...(b.weightOverrideReason?.trim() ? { weightOverrideReason: b.weightOverrideReason.trim() } : {}),
     })),
+    ...(rejects.length > 0
+      ? {
+          rejects: rejects.map((r) => ({
+            pcs: r.pcs,
+            ...(r.weightG ? { weightG: r.weightG } : {}),
+            reasonCode: r.reasonCode,
+            ...(r.note?.trim() ? { note: r.note.trim() } : {}),
+          })),
+        }
+      : {}),
   };
+}
+
+/** A fresh session nonce (letters, digits and dashes; 36 characters). */
+export function newSessionKey(): string {
+  return crypto.randomUUID();
+}
+
+/** FNV-1a over the text, as 8 hex digits (a content tag, not a security hash). */
+function fnv1a(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+
+/**
+ * BACKLOG 50: the `clientRequestId` of a save. The same session and the same payload give the same
+ * key (a retry replays on the server); any change to the bundles, rejects or choices gives a new one.
+ */
+export function receiptRequestKey(sessionKey: string, input: ReceiptInput): string {
+  return `${sessionKey}-${fnv1a(JSON.stringify(input))}`;
 }
 
 /**

@@ -4,7 +4,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
-import { toPlantStock } from "./helpers/plant-stock";
+import { packPlantStock } from "./helpers/plant-stock";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 
 /**
@@ -476,8 +476,15 @@ test.describe("All bundles", () => {
     await expect(page.getByRole("button", { name: "Previous page" })).toBeEnabled();
 
     const s = await trpcQuery<Summary>(page, "bundle.stockSummary", { status: "available" });
-    await page.goto(`/stock/${s.items[0]!.dieId}?status=all&page=7`);
-    await expect(page).not.toHaveURL(/page=/);
+    // Earlier specs pack bundles on the first section, so its bundle count is not fixed: the page
+    // lands on the section's own last page (page 1 drops the parameter).
+    const dieId = s.items[0]!.dieId;
+    const ofDie = await trpcQuery<{ total: number }>(page, "bundle.listBundles", { dieId, limit: 1 });
+    const dieLast = Math.ceil(Number(ofDie.total) / 50);
+    expect(dieLast, "the section has fewer than 7 pages").toBeLessThan(7);
+    await page.goto(`/stock/${dieId}?status=all&page=7`);
+    if (dieLast <= 1) await expect(page).not.toHaveURL(/page=/);
+    else await expect(page).toHaveURL(new RegExp(`page=${dieLast}(&|$)`));
     await expect(page.getByRole("table", { name: /^Bundles of / }).locator("tbody tr").first()).toBeVisible();
   });
 
@@ -519,10 +526,8 @@ test.describe("Bundle page", () => {
 
   test("Add to dispatch lists the dispatches being built and adds with one tap", async ({ page }) => {
     await open(page, "/stock/bundles", { width: 390 });
-    const list = await trpcQuery<{ items: BundleRow[] }>(page, "bundle.listBundles", { status: "available", limit: 40 });
-    const target = list.items[list.items.length - 2]!;
-    // Stock for no order is refused by the scan (D12); plant stock is not.
-    await toPlantStock([target.serial]);
+    // Packed as "Plant stock" (D20): the add paths take it; stock for no order would be refused (D12).
+    const [target] = await packPlantStock(page, 1);
     let code: string | null = null;
     try {
       await page.goto(`/b/${target.serial}`);

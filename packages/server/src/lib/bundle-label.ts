@@ -4,13 +4,13 @@ import type { die } from "@orrn/db/schema/catalog";
 
 export type BundleLabelLayout = `x${number}`;
 
+/** Template variables; the full list (this plus `PackLabelVariables`) is frozen as `LABEL_VARIABLES` in @orrn/domain (BACKLOG 54: no `uuid`). */
 export type BundleLabelVariables = {
   length: string;
   poNumber: string;
   quantity: string;
   serialNumber: string;
   seriesName: string;
-  uuid: string;
   weight: string;
   weight12ft: string;
   weight_each: string;
@@ -114,7 +114,6 @@ export function buildBundleLabelVariables({
     quantity: String(quantity),
     serialNumber: bundleRow.serial,
     seriesName: dieRow?.series ?? "",
-    uuid: bundleRow.id,
     weight: formatUnit(weightKg, "kg"),
     weight12ft: formatUnit(weight12ft, "kg/12ft"),
     weight_each: formatUnit(weightEach, ""),

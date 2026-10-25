@@ -49,8 +49,8 @@ const MATRIX: Record<string, CompanyRole[]> = {
   // Digest: packer + supervisor. Ruling RP3: every role that already packs via bundle.create
   // keeps it, so packing can be guarded by bundle.pack without anyone losing it.
   "bundle.pack": ["packer", "supervisor", "manager", "admin", "operator"],
-  // RP4: operator holds bundle.transition (legacy void) → also bundle.void.
-  "bundle.void": ["supervisor", "manager", "admin", "operator"],
+  // BACKLOG 51: the operator no longer voids (nor holds the legacy bundle.transition).
+  "bundle.void": ["supervisor", "manager", "admin"],
   "stock.move": ["operator", "packer", "supervisor", "office"],
   "stock.count": ["operator", "packer", "supervisor", "office"],
   // RP4: manager/admin hold dispatch.addBundle → also dispatch.scan.
@@ -94,7 +94,7 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 
-/** The pre-PL-1 permission matrix for the five original roles; must not move. */
+/** The pre-PL-1 permission matrix for the five original roles; must not move (except BACKLOG 51 below). */
 const LEGACY_ACTIONS = [
   "customer.create", "customer.update", "customer.delete", "customer.import",
   "die.create", "die.update", "die.delete", "die.import",
@@ -116,8 +116,9 @@ const LEGACY: Record<"owner" | "admin" | "manager" | "operator" | "viewer", read
   owner: LEGACY_ACTIONS,
   admin: LEGACY_ACTIONS,
   manager: LEGACY_MANAGER,
+  // BACKLOG 51 (Q29): the one deliberate change: the operator's legacy void (bundle.transition) is gone.
   operator: [
-    "bundle.create", "bundle.update", "bundle.transition", "dispatch.addBundle",
+    "bundle.create", "bundle.update", "dispatch.addBundle",
     "spool.list_printers", "spool.create_jobs", "spool.view_queue",
   ],
   viewer: ["spool.list_printers", "spool.view_queue"],

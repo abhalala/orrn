@@ -9,6 +9,8 @@ import type { Context } from "../context";
 import type { OrrnDb } from "./atomic";
 
 export type AuditInput = {
+  /** A fixed id (BACKLOG 50: the replay record of a floor write, `lib/requestReplay.ts`); else a new one. */
+  id?: string;
   action: string;
   subjectType: string;
   subjectId?: string | null;
@@ -38,7 +40,7 @@ export function auditInsert(
   const impersonatorId = ctx.impersonation ? ctx.impersonation.actorUserId : null;
 
   return ctx.db.insert(auditLog).values({
-    id: createId(),
+    id: input.id ?? createId(),
     companyId: ctx.companyId,
     actorId,
     impersonatorId,
@@ -68,7 +70,7 @@ export function auditInsertGuarded(
   return ctx.db.insert(auditLog).select(
     ctx.db
       .select({
-        id: sql<string>`${createId()}`.as("id"),
+        id: sql<string>`${input.id ?? createId()}`.as("id"),
         companyId: sql<string | null>`${ctx.companyId}`.as("company_id"),
         actorId: sql<string | null>`${actorId}`.as("actor_id"),
         impersonatorId: sql<string | null>`${impersonatorId}`.as("impersonator_id"),
@@ -91,7 +93,7 @@ export async function writeAudit(
   input: AuditInput,
 ) {
   await ctx.db.insert(auditLog).values({
-    id: createId(),
+    id: input.id ?? createId(),
     companyId: ctx.companyId,
     actorId: ctx.session?.user.id ?? null,
     impersonatorId: ctx.impersonation ? ctx.impersonation.actorUserId : null,

@@ -13,6 +13,7 @@ import { z } from "zod";
 import { auditLog } from "@orrn/db/schema/audit";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
+import { dieInstance } from "@orrn/db/schema/dies";
 import {
   openSalesOrderStatuses,
   salesOrder,
@@ -910,6 +911,21 @@ export const salesOrderRouter = router({
         { customerId: input.customerId, dieIds: input.dieId ? [input.dieId] : undefined, openOnly: true, withBaki: true },
         { limit: 50 },
       );
-      return lines;
+      // D15: the die copy a line pins, so the pack screen preselects it (the server refuses another).
+      const pins = await mapInChunks(
+        lines.map((l) => l.lineId),
+        (ids) =>
+          ctx.db
+            .select({ lineId: salesOrderLine.id, copyId: dieInstance.id, copyCode: dieInstance.code })
+            .from(salesOrderLine)
+            .innerJoin(dieInstance, and(eq(dieInstance.id, salesOrderLine.dieInstanceId), eq(dieInstance.companyId, ctx.companyId)))
+            .where(and(eq(salesOrderLine.companyId, ctx.companyId), inArray(salesOrderLine.id, ids))),
+      );
+      const pinOf = new Map(pins.map((p) => [p.lineId, p]));
+      return lines.map((l) => ({
+        ...l,
+        pinnedCopyId: pinOf.get(l.lineId)?.copyId ?? null,
+        pinnedCopyCode: pinOf.get(l.lineId)?.copyCode ?? null,
+      }));
     }),
 });

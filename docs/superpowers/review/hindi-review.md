@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
+Counts: 4655 screen strings in 45 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -87,7 +87,7 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `waitingApproval` | Waiting for approval | मंज़ूरी का इंतज़ार |
 | `plant` | Plant | प्लांट |
 
-### units (14)
+### units (15)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -98,6 +98,7 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `mm` | mm | mm |
 | `inch` | in | in |
 | `ft` | ft | ft |
+| `min` | min | मिनट |
 | `bundles` | {count} {count:bundle\|bundles} | {count} bundle |
 | `pieces` | {count} {count:piece\|pieces} | {count} पीस |
 | `bundlesKg` | {bundles} {bundles:bundle\|bundles} · {kg} kg | {bundles} bundle · {kg} kg |
@@ -168,7 +169,7 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (46)
+### nav (47)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -218,6 +219,7 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `adminReleases` | App builds | ऐप बिल्ड |
 | `adminBackups` | Backups | बैकअप |
 | `adminSupport` | Support | सपोर्ट |
+| `press` | Press | प्रेस |
 
 ### auth (114)
 
@@ -518,7 +520,7 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `floor.approvalsHintNone` | Nothing waiting | कुछ इंतज़ार में नहीं |
 | `floor.approvalsHintAny` | Requests to decide | तय करने वाले अनुरोध |
 
-### pack (151)
+### pack (208)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -548,9 +550,9 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `empty` | No packing sessions yet. | अभी कोई पैकिंग सेशन नहीं है। |
 | `emptyAction` | Start a packing session | पैकिंग सेशन शुरू करें |
 | `new.title` | New packing session | नया पैकिंग सेशन |
-| `new.steps.die` | Die and defaults | Die और कट लंबाई |
+| `new.steps.die` | Source | स्रोत |
 | `new.steps.bundles` | Bundles | Bundle |
-| `new.steps.review` | Review and save | जांचें और सेव करें |
+| `new.steps.review` | Review | जांचें |
 | `new.dieSearch` | Search die code or section | Die कोड या सेक्शन से खोजें |
 | `new.recentDies` | Recent | हाल के |
 | `new.allDies` | All dies | सारे die |
@@ -612,7 +614,7 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `new.saveOnly` | Save session | सेशन सेव करें |
 | `new.saved` | Session saved | सेशन सेव हो गया |
 | `new.saveFailed` | The session didn't save. Your bundles are still here, so try again. | सेशन सेव नहीं हुआ। आपके bundle अभी भी यहां हैं, फिर से कोशिश करें। |
-| `new.saveUnsure` | We couldn't tell if the session saved. Look for it on the Pack page before you try again. | पता नहीं चला कि सेशन सेव हुआ या नहीं। फिर से कोशिश करने से पहले पैकिंग पेज पर उसे देखें। |
+| `new.saveUnsure` | orrn didn't confirm the save. Tap Save again: the same bundles are never packed twice. | orrn से सेव का जवाब नहीं आया। फिर से सेव दबाएं: वही bundle दो बार पैक नहीं होंगे। |
 | `new.openPack` | Open Pack | पैकिंग खोलें |
 | `new.rangeUnknown` | Range not loaded | रेंज लोड नहीं हुई |
 | `new.rangeFailed` | The die's range didn't load, so bundles can't be checked against it. | Die की रेंज लोड नहीं हुई, इसलिए bundle की जांच रेंज से नहीं हो सकती। |
@@ -625,6 +627,15 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `new.discardBody` | The {count} {count:bundle\|bundles} you entered will be cleared. This can't be undone. | आपके डाले {count} bundle हट जाएंगे। यह वापस नहीं होगा। |
 | `new.discard` | Discard | हटा दें |
 | `new.forbidden` | Your role can't pack bundles. Ask an admin if you need it. | आपका रोल bundle पैक नहीं कर सकता। ज़रूरत हो तो एडमिन से कहें। |
+| `new.liveBand` | Band {band} | बैंड {band} |
+| `new.liveBandCopy` | Copy band {band} | कॉपी का बैंड {band} |
+| `new.drift` | Drift {percent} | ड्रिफ्ट {percent} |
+| `new.driftBasis` | against the band start | बैंड की शुरुआत से |
+| `new.saveCast` | Pick the cast these bundles came from, then save again. | जिस कास्ट से ये bundle बने वह चुनें, फिर से सेव करें। |
+| `new.saveCopy` | Pick the die copy, then save again. | Die की कॉपी चुनें, फिर से सेव करें। |
+| `new.saveReason` | A typed weight needs a reason while the scale is connected. Add it on the bundle. | कांटा जुड़ा होने पर हाथ से डाले वज़न का कारण चाहिए। उसे bundle पर लिखें। |
+| `new.saveScale` | The scale is not connected now. Type the weights and say why. | अभी कांटा जुड़ा नहीं है। वज़न हाथ से डालें और कारण लिखें। |
+| `new.saveOrder` | That order is closed or is for another section. Pick the order again. | वह ऑर्डर बंद है या दूसरे सेक्शन का है। ऑर्डर फिर से चुनें। |
 | `detail.title` | Session {code} | सेशन {code} |
 | `detail.packedBy` | Packed by {name} | {name} ने पैक किया |
 | `detail.printAll` | Print all labels | सारे लेबल प्रिंट करें |
@@ -653,6 +664,9 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `print.errors.forbidden` | Your role can't print labels. | आपका रोल लेबल प्रिंट नहीं कर सकता। |
 | `print.errors.network` | No internet connection. Check it and try again. | इंटरनेट नहीं है। कनेक्शन जांचें और फिर से कोशिश करें। |
 | `print.errors.generic` | The label didn't print. Try again, or reprint it from the bundle's row. | लेबल प्रिंट नहीं हुआ। फिर से कोशिश करें, या bundle की लाइन से दोबारा प्रिंट करें। |
+| `print.noPrinterTitle` | No label printer is connected | कोई लेबल प्रिंटर जुड़ा नहीं है |
+| `print.noPrinterBody` | Print the labels on A4 stickers from this browser instead. Same QR, same figures. | इसी ब्राउज़र से A4 स्टिकर पर लेबल प्रिंट करें। वही QR, वही आंकड़े। |
+| `print.sheet` | Print label sheet | लेबल शीट प्रिंट करें |
 | `partyNo` | Party no. | पार्टी नंबर |
 | `forOrder` | For order | किस ऑर्डर के लिए |
 | `plantStock` | Plant stock | प्लांट स्टॉक |
@@ -668,13 +682,58 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `scale.useScale` | Use scale weight | कांटे का वज़न लें |
 | `scale.typed` | Typed | हाथ से लिखा |
 | `scale.typedReason` | Why type the weight | वज़न हाथ से क्यों लिखा |
+| `scale.fromScale` | From the scale | कांटे से |
+| `scale.reasonRequired` | Say why you typed the weight. | वज़न हाथ से क्यों डाला, यह लिखें। |
+| `scale.simulated` | (simulated) | (नकली) |
+| `scale.typedCount` | {count} {count:bundle was\|bundles were} typed, not weighed. The reasons are saved. | {count} bundle का वज़न हाथ से डाला गया, तौला नहीं गया। कारण सेव हैं। |
+| `scale.typedReasonHint` | For example: the scale was off, or the bundle was weighed elsewhere. | जैसे: कांटा बंद था, या bundle कहीं और तौला गया। |
 | `reject.title` | Rejects | रिजेक्ट |
 | `reject.add` | Add reject | रिजेक्ट जोड़ें |
 | `reject.pcs` | Pieces | पीस |
 | `reject.kg` | kg | kg |
 | `reject.saved` | {count} {count:piece\|pieces} rejected | {count} पीस रिजेक्ट |
+| `reject.hint` | Reject pieces leave the pile and are not a bundle. Kg, if you enter it, posts at plant scrap. | रिजेक्ट पीस ढेर से हट जाते हैं और bundle नहीं होते। kg डालें तो वह प्लांट स्क्रैप में जाता है। |
+| `reject.kgHint` | Leave blank if the pieces were not weighed. | पीस तौले नहीं गए हों तो खाली छोड़ें। |
+| `reject.reason` | Reason | कारण |
+| `reject.pickReason` | Pick a reason | कारण चुनें |
+| `reject.reasonRequired` | Pick why they were rejected. | रिजेक्ट का कारण चुनें। |
+| `reject.addLine` | Save reject | रिजेक्ट सेव करें |
+| `reject.remove` | Remove reject {n} | रिजेक्ट {n} हटाएं |
+| `reject.added` | Reject added: {count} {count:piece\|pieces} | रिजेक्ट जुड़ा: {count} पीस |
+| `reject.atScrap` | {kg} kg at plant scrap | प्लांट स्क्रैप में {kg} kg |
+| `reject.noWeight` | no weight, so no kg row | वज़न नहीं, इसलिए kg की एंट्री नहीं |
+| `reject.unit` | pcs rejected | पीस रिजेक्ट |
+| `reject.piecesLabel` | Reject pieces | रिजेक्ट पीस |
+| `dieOwnedOther` | This die belongs to another customer | यह die किसी दूसरे ग्राहक की है |
+| `partyNo1` | Party number {number} | पार्टी नंबर {number} |
+| `partyNos` | Party numbers {from} to {to} | पार्टी नंबर {from} से {to} |
+| `source.title` | Source | स्रोत |
+| `source.hand` | No trolley | ट्रॉली नहीं |
+| `source.handHint` | Packing by hand. Trolley rows come with ageing. | हाथ से पैकिंग। ट्रॉली की पंक्तियां एजिंग के साथ आएंगी। |
+| `source.forOrderHint` | Packing does not change baki. Dispatch does. | पैकिंग से बाकी नहीं बदलता। डिस्पैच से बदलता है। |
+| `source.plantStock` | Plant stock | प्लांट स्टॉक |
+| `source.plantStockHint` | Packed for no order. The office can send them on any customer's load. | किसी ऑर्डर के लिए नहीं। ऑफिस इन्हें किसी भी ग्राहक के लोड पर भेज सकता है। |
+| `source.pinned` | This line is for die copy {code}. | यह लाइन die कॉपी {code} के लिए है। |
+| `source.pinnedOverride` | Office: pack on another copy | ऑफिस: दूसरी कॉपी पर पैक करें |
+| `source.suggested` | Suggested | सुझाया गया |
+| `source.lineDetail` | {baki} kg baki of {ordered} kg ordered | {ordered} kg ऑर्डर में से {baki} kg बाकी |
+| `source.copy` | Die copy | Die कॉपी |
+| `source.copyHint` | The copy that made these bundles. Its band judges the weight. | जिस कॉपी से ये bundle बने। वज़न उसी के बैंड से जांचा जाएगा। |
+| `source.noCopy` | No copy named | कॉपी नहीं चुनी |
+| `source.noCopyHint` | The section's main band judges the weight. | वज़न सेक्शन के मुख्य बैंड से जांचा जाएगा। |
+| `source.copyRequired` | Pick the die copy. This die belongs to a customer. | Die की कॉपी चुनें। यह die किसी ग्राहक की है। |
+| `source.latest` | Latest {kg} | ताज़ा {kg} |
+| `source.cast` | Cast | कास्ट |
+| `source.castHint` | The cast these billets came from. It prints on the label. | जिस कास्ट के billet से ये बने। यह लेबल पर छपता है। |
+| `source.castRequiredHint` | Your plant asks for the cast on every bundle. | आपका प्लांट हर bundle पर कास्ट मांगता है। |
+| `source.castRequired` | Pick the cast. | कास्ट चुनें। |
+| `source.noCast` | No cast | कास्ट नहीं |
+| `source.noCopies` | This die belongs to a customer and has no copies yet. Ask the die room. | यह die किसी ग्राहक की है और इसकी अभी कोई कॉपी नहीं है। Die रूम से कहें। |
+| `source.ownedHint` | It can only be packed for that customer's order. | इसे सिर्फ उसी ग्राहक के ऑर्डर के लिए पैक किया जा सकता है। |
+| `source.logoHint` | Off hides the logo on the label. The company name still prints. | बंद करने पर लेबल से लोगो हट जाता है। कंपनी का नाम फिर भी छपता है। |
+| `source.cannotContinue` | Fix the points above before you go on. | आगे जाने से पहले ऊपर की बातें ठीक करें। |
 
-### scan (42)
+### scan (54)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -719,9 +778,21 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `continuous.dieOwned` | Die belongs to {name} | Die {name} की है |
 | `continuous.otherOrder` | On another customer's order | दूसरे ग्राहक के ऑर्डर पर |
 | `continuous.overCapacity` | {kg} kg over the truck's capacity | गाड़ी की क्षमता से {kg} kg ज़्यादा |
+| `continuous.unassigned` | Not on a sales order | किसी सेल्स ऑर्डर पर नहीं |
+| `continuous.wrongCustomer` | Packed for {name} | {name} के लिए पैक हुआ |
+| `continuous.wrongCustomerOther` | Packed for another customer | किसी दूसरे ग्राहक के लिए पैक हुआ |
+| `continuous.dieOwnedOther` | This die belongs to another customer | यह die किसी दूसरे ग्राहक की है |
+| `continuous.ambiguous` | More than one bundle has this number: {numbers} | इस नंबर के कई bundle हैं: {numbers} |
+| `continuous.ambiguousPlain` | More than one bundle has this number. Scan its label. | इस नंबर के कई bundle हैं। उसका लेबल स्कैन करें। |
+| `continuous.addAnyway` | Add anyway (not on a sales order) | फिर भी जोड़ें (सेल्स ऑर्डर पर नहीं) |
+| `continuous.addAnywayHint` | Office only. The bundle goes on this load with no order line. | सिर्फ ऑफिस के लिए। bundle बिना ऑर्डर लाइन के इस लोड में जाएगा। |
+| `continuous.addedNoOrder` | Added {serial}, no order | {serial} जुड़ा, ऑर्डर नहीं |
+| `continuous.noOrderTag` | No order | ऑर्डर नहीं |
+| `continuous.pickOne` | Pick the bundle | Bundle चुनें |
+| `continuous.speak` | Speak refusals aloud | मना करने की वजह बोलकर बताएं |
 | `continuous.heldForOrder` | Held for {order} ({customer}) | {order} ({customer}) के लिए होल्ड पर है |
 
-### stock (61)
+### stock (174)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -730,6 +801,7 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `bundles` | Bundles | Bundle |
 | `searchSections` | Search die or section | Die या सेक्शन खोजें |
 | `totals` | {bundles} {bundles:bundle\|bundles} · {kg} kg in stock | स्टॉक में {bundles} bundle · {kg} kg |
+| `listed` | {bundles} {bundles:bundle\|bundles} · {kg} kg listed | लिस्ट में {bundles} bundle · {kg} kg |
 | `heldChip` | {count} held | {count} होल्ड पर |
 | `heldKg` | {count} held, {kg} kg | {count} होल्ड पर, {kg} kg |
 | `empty` | No stock yet. Bundles show up here after packing. | अभी स्टॉक नहीं है। पैकिंग के बाद bundle यहां दिखेंगे। |
@@ -786,8 +858,120 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `columns.status` | Status | स्टेटस |
 | `columns.po` | PO | PO |
 | `columns.packed` | Packed | पैक हुआ |
+| `columns.yard` | Yard | यार्ड |
+| `columns.order` | Order | ऑर्डर |
+| `columns.held` | Held | होल्ड |
+| `columns.oldest` | Oldest | सबसे पुराना |
+| `lengths` | Lengths | लंबाई |
+| `yards` | Yards | यार्ड |
+| `lengthsLabel` | Stock by section and cut length | सेक्शन और कट लंबाई के हिसाब से स्टॉक |
+| `lengthsEmpty` | No stock matches these filters. | इन फ़िल्टर से कोई स्टॉक नहीं मिला। |
+| `yardsEmpty` | No yards to show. Yards are set up in Masters. | दिखाने के लिए कोई यार्ड नहीं। यार्ड मास्टर्स में बनते हैं। |
+| `noYard` | No yard | यार्ड नहीं |
+| `yardEmpty` | Empty | खाली |
+| `yardLine` | {bundles} {bundles:bundle\|bundles} · {sections} {sections:section\|sections} | {bundles} bundle · {sections} सेक्शन |
+| `yardTop` | Biggest sections in this yard | इस यार्ड के सबसे बड़े सेक्शन |
+| `filters.title` | Filters | फ़िल्टर |
+| `filters.titleCount` | Filters ({count}) | फ़िल्टर ({count}) |
+| `filters.clear` | Clear filters | फ़िल्टर हटाएं |
+| `filters.yard` | Yard | यार्ड |
+| `filters.allYards` | All yards | सारे यार्ड |
+| `filters.customer` | Customer | ग्राहक |
+| `filters.anyCustomer` | Any customer | कोई भी ग्राहक |
+| `filters.order` | Sales order | सेल्स ऑर्डर |
+| `filters.anyOrder` | Any order of this customer | इस ग्राहक का कोई भी ऑर्डर |
+| `filters.section` | Section | सेक्शन |
+| `filters.sectionSearch` | Search section code | सेक्शन कोड खोजें |
+| `filters.anySection` | Any section | कोई भी सेक्शन |
+| `filters.kind` | Profile | प्रोफाइल |
+| `filters.plant` | Plant stock only | सिर्फ प्लांट स्टॉक |
+| `filters.from` | Packed from | पैक होने की शुरुआत |
+| `filters.to` | Packed to | पैक होने की आखिरी तारीख |
+| `count.title` | Stock count | स्टॉक की गिनती |
+| `count.open` | Stock count | स्टॉक की गिनती |
+| `count.subtitle` | Walk the yards, scan every bundle, and see what is missing. | यार्ड में घूमें, हर bundle स्कैन करें, और देखें क्या कम है। |
+| `count.start` | Start a count | गिनती शुरू करें |
+| `count.startTitle` | Start a count | गिनती शुरू करें |
+| `count.yardsLegend` | Yards to count | गिनने के यार्ड |
+| `count.everyYardHint` | Every yard is counted, so bundles with no yard are expected too. | सारे यार्ड गिने जाएंगे, इसलिए बिना यार्ड वाले bundle भी गिनती में माने जाएंगे। |
+| `count.someYardsHint` | Only these yards are counted. Bundles with no yard are left out. | सिर्फ ये यार्ड गिने जाएंगे। बिना यार्ड वाले bundle छोड़ दिए जाते हैं। |
+| `count.noYards` | No yards are set up yet. | अभी कोई यार्ड नहीं बना है। |
+| `count.pickYards` | Pick the yards to count. | गिनने के यार्ड चुनें। |
+| `count.yardBusy` | One of these yards is already being counted. Open that count, or pick another yard. | इनमें से एक यार्ड की गिनती पहले से चल रही है। वह गिनती खोलें, या दूसरा यार्ड चुनें। |
+| `count.started` | {number} started | {number} शुरू हुई |
+| `count.openCounts` | Counts in progress | चल रही गिनतियां |
+| `count.noneOpen` | No count is in progress. | कोई गिनती नहीं चल रही। |
+| `count.pastCounts` | Earlier counts | पिछली गिनतियां |
+| `count.phantomTitle` | Missing bundles | गायब bundle |
+| `count.phantomOpen` | Still missing from closed counts | बंद गिनतियों से अब भी गायब |
+| `count.lastCount` | Last count {number} | पिछली गिनती {number} |
+| `count.lastShare` | {share} missing, {phantom} of {expected} | {share} गायब, {expected} में से {phantom} |
+| `count.status.open` | Open | चालू |
+| `count.status.closed` | Closed | बंद |
+| `count.status.cancelled` | Cancelled | रद्द |
+| `count.rowClosed` | {phantom} missing, {found} found, {expected} expected | {phantom} गायब, {found} मिले, {expected} होने चाहिए थे |
+| `count.rowOpen` | {seen} scanned so far | अब तक {seen} स्कैन |
+| `count.startedBy` | Started {when} by {name} | {when} को {name} ने शुरू की |
+| `count.closedAt` | closed {when} | {when} को बंद |
+| `count.cancelReasonLine` | cancelled: {reason} | रद्द: {reason} |
+| `count.expected` | Expected | होने चाहिए |
+| `count.seen` | Scanned | स्कैन हुए |
+| `count.counted` | Counted | गिने गए |
+| `count.phantom` | Missing | गायब |
+| `count.found` | Found | मिले |
+| `count.moved` | Moved | खिसके हुए |
+| `count.phantomShare` | Missing share | गायब का हिस्सा |
+| `count.variance` | Difference | फ़र्क |
+| `count.scanTitle` | Scan the yard | यार्ड स्कैन करें |
+| `count.yardNow` | Yard you are in | आप जिस यार्ड में हैं |
+| `count.pickYard` | Pick the yard you are in first. | पहले वह यार्ड चुनें जिसमें आप हैं। |
+| `count.scanLabel` | Scan a bundle or type its number | Bundle स्कैन करें या उसका नंबर लिखें |
+| `count.paste` | Paste codes | कोड पेस्ट करें |
+| `count.pasteLabel` | Codes | कोड |
+| `count.pasteHint` | One per line or separated by commas. Serials, party numbers and old numbers all work. | हर लाइन में एक, या कॉमा से अलग। सीरियल, पार्टी नंबर और पुराने नंबर सब चलते हैं। |
+| `count.pasteSend` | Count {count} {count:code\|codes} | {count} कोड गिनें |
+| `count.feed` | What the scans found | स्कैन से क्या मिला |
+| `count.duplicate` | scanned before | पहले स्कैन हुआ |
+| `count.scanTotal` | {count} {count:scan\|scans} in this count | इस गिनती में {count} स्कैन |
+| `count.scanFailed` | That didn't reach the count. Check the connection and scan again. | वह गिनती तक नहीं पहुंचा। कनेक्शन जांचें और फिर स्कैन करें। |
+| `count.match.here` | Here | यहीं है |
+| `count.match.moved` | Moved | खिसका हुआ |
+| `count.match.elsewhere` | Elsewhere | कहीं और |
+| `count.match.not_in_stock` | Not in stock | स्टॉक में नहीं |
+| `count.match.unknown` | Unknown code | पहचाना नहीं गया |
+| `count.match.ambiguous` | Several bundles | कई bundle |
+| `count.close` | Close count | गिनती बंद करें |
+| `count.closeTitle` | Close {number}? | {number} बंद करें? |
+| `count.closeBody` | Closing freezes the report. {count} {count:bundle is\|bundles are} missing so far. The stock is not changed. | बंद करने पर रिपोर्ट पक्की हो जाती है। अब तक {count} bundle गायब {count:है\|हैं}। स्टॉक नहीं बदलता। |
+| `count.closeAnyway` | Close anyway | फिर भी बंद करें |
+| `count.unscannedWarn` | A yard in this count has no scan at all, so closing reports all its bundles missing. Scan it, or close anyway. | इस गिनती के एक यार्ड में कोई स्कैन नहीं हुआ, इसलिए बंद करने पर उसके सारे bundle गायब गिने जाएंगे। उसे स्कैन करें, या फिर भी बंद करें। |
+| `count.closed` | {number} closed | {number} बंद हुई |
+| `count.cancel` | Cancel count | गिनती रद्द करें |
+| `count.cancelTitle` | Cancel {number}? | {number} रद्द करें? |
+| `count.cancelBody` | The scans are kept out of any report and the yards can be counted again. | स्कैन किसी रिपोर्ट में नहीं जाएंगे और यार्ड फिर से गिने जा सकेंगे। |
+| `count.cancelReason` | Why cancel it | रद्द क्यों कर रहे हैं |
+| `count.cancelReasonRequired` | Say why the count is cancelled. | गिनती रद्द करने का कारण लिखें। |
+| `count.cancelled` | {number} cancelled | {number} रद्द हुई |
+| `count.byYard` | By yard | यार्ड के हिसाब से |
+| `count.bySection` | By section | सेक्शन के हिसाब से |
+| `count.unknownCodes` | Unknown codes | अनजान कोड |
+| `count.phantomReport` | Missing bundles | गायब bundle |
+| `count.missingNow` | Missing so far | अब तक गायब |
+| `count.askVoid` | Ask to void {count} missing | {count} गायब को void करने को कहें |
+| `count.voidAsked` | A manager is asked to void them. | मैनेजर से void करने को कहा गया। |
+| `count.moveFound` | Move {count} to where they were seen | {count} को वहां ले जाएं जहां दिखे |
+| `count.movedDone` | Moved to where they were seen. | जहां दिखे वहां ले जाए गए। |
+| `count.resolution.void_requested` | Void asked | void मांगा गया |
+| `count.resolution.voided` | Voided | void हुआ |
+| `count.resolution.moved` | Moved | ले जाया गया |
+| `count.resolution.cleared` | Cleared | साफ़ हुआ |
+| `count.foundReason.unknown` | Unknown code | पहचाना नहीं गया |
+| `count.foundReason.ambiguous` | Several bundles | कई bundle |
+| `count.foundReason.not_in_stock` | Not in stock | स्टॉक में नहीं |
+| `count.foundReason.elsewhere` | Other yard | दूसरा यार्ड |
+| `count.notFound` | This count wasn't found. | यह गिनती नहीं मिली। |
 
-### bundle (54)
+### bundle (60)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -803,6 +987,11 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `facts.session` | Packing session | पैकिंग सेशन |
 | `facts.dieBand` | Die range /12' | Die रेंज /12' |
 | `facts.packed` | Packed | पैक हुआ |
+| `facts.copyBand` | Copy band /12' | कॉपी का बैंड /12' |
+| `facts.location` | Yard | यार्ड |
+| `facts.noLocation` | No yard recorded | यार्ड दर्ज नहीं |
+| `facts.packedFor` | Packed for | किसके लिए पैक हुआ |
+| `facts.typedWeight` | Why the weight was typed | वज़न हाथ से क्यों डाला |
 | `history` | History | इतिहास |
 | `historyPacked` | Packed | पैक हुआ |
 | `historyImported` | Imported | इम्पोर्ट हुआ |
@@ -845,8 +1034,9 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `publicSignIn` | Sign in to see stock details | स्टॉक की जानकारी देखने के लिए साइन इन करें |
 | `ambiguousTitle` | Which bundle? | कौन सा bundle? |
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
+| `byActor` | by {name} | {name} ने |
 
-### dispatch (137)
+### dispatch (155)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -864,7 +1054,9 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `emptyDispatched` | Nothing has been dispatched yet. | अभी तक कोई dispatch नहीं हुआ। |
 | `emptyCancelled` | No cancelled dispatches. | कोई कैंसल dispatch नहीं है। |
 | `emptySearch` | No dispatch matches "{query}". | "{query}" से कोई dispatch नहीं मिला। |
-| `showBuilding` | Show building | बन रहे दिखाएं |
+| `showBuilding` | Show open dispatches | चालू dispatch दिखाएं |
+| `openTab` | Open | चालू |
+| `emptyOpen` | No dispatch is being built or held. Start a new dispatch. | कोई dispatch न बन रहा है न होल्ड पर है। नया dispatch शुरू करें। |
 | `show` | Show | दिखाएं |
 | `search` | Search dispatches | Dispatch खोजें |
 | `searchHint` | Code or notes | कोड या नोट |
@@ -984,11 +1176,27 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `capacity.near` | Nearly full | लगभग भरी |
 | `capacity.over` | {kg} kg over capacity | क्षमता से {kg} kg ज़्यादा |
 | `capacity.overReason` | Why load over capacity | क्षमता से ज़्यादा क्यों लोड किया |
+| `capacity.hint` | Leave it blank for no warning. | चेतावनी न चाहिए तो खाली छोड़ें। |
+| `capacity.invalid` | Enter the capacity in kg, for example 9000. | क्षमता kg में डालें, जैसे 9000। |
+| `capacity.loaded` | {loaded} of {capacity} kg | {capacity} kg में से {loaded} kg |
+| `capacity.locked` | The capacity this load went against stays as it was. | जिस क्षमता पर यह लोड गया, वह वैसी ही रहती है। |
+| `capacity.overReasonHint` | Say why this truck goes over its capacity. It is kept with the dispatch. | बताएं कि यह ट्रक अपनी क्षमता से ज़्यादा क्यों जा रहा है। यह डिस्पैच के साथ सेव रहता है। |
+| `capacity.reasonRequired` | Say why before you dispatch. | डिस्पैच से पहले कारण लिखें। |
 | `transporter.label` | Transporter | ट्रांसपोर्टर |
 | `transporter.add` | Add transporter | ट्रांसपोर्टर जोड़ें |
 | `transporter.none` | No transporter | कोई ट्रांसपोर्टर नहीं |
+| `transporter.name` | Transporter name | ट्रांसपोर्टर का नाम |
+| `transporter.phone` | Phone | फोन |
+| `transporter.save` | Save transporter | ट्रांसपोर्टर सेव करें |
+| `transporter.added` | Added {name} | {name} जुड़ा |
+| `header.vehicleNo` | Vehicle number | गाड़ी नंबर |
+| `header.vehicleHint` | Letters and digits. Spaces and dashes are dropped. | सिर्फ अक्षर और अंक। खाली जगह और डैश हटा दिए जाते हैं। |
+| `header.driverName` | Driver | ड्राइवर |
+| `header.driverPhone` | Driver phone | ड्राइवर का फोन |
+| `header.invoiceNumber` | Tally invoice number | Tally इनवॉइस नंबर |
+| `header.invoiceDate` | Invoice date | इनवॉइस की तारीख |
 
-### packingList (50)
+### packingList (89)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1007,6 +1215,9 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `columns.pcs` | Pcs | पीस |
 | `columns.kgPer12ft` | kg/12ft | kg/12ft |
 | `columns.weightRange` | Weight range /12' | वज़न रेंज /12' |
+| `columns.section` | Section | सेक्शन |
+| `columns.po` | PO | PO |
+| `columns.originalSo` | Original order | मूल ऑर्डर |
 | `groupTotal` | Group total | ग्रुप का कुल |
 | `grandTotal` | Total | कुल |
 | `downloadPdf` | Download PDF | PDF डाउनलोड करें |
@@ -1042,6 +1253,42 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `v2.summary.hollow` | Hollow | हॉलो |
 | `v2.summary.solid` | Solid | सॉलिड |
 | `v2.summary.semi` | Semi hollow | सेमी हॉलो |
+| `v2.revisions` | Revisions | रिवीज़न |
+| `v2.revisionShort` | Rev {n} | रिव {n} |
+| `v2.current` | Current | मौजूदा |
+| `v2.superseded` | Sent earlier | पहले भेजा गया |
+| `v2.combinedChip` | Combined | मिलाया गया |
+| `v2.open` | Open | खोलें |
+| `v2.viewing` | Showing | यही दिख रहा है |
+| `v2.andMore` | and {count} more | और {count} |
+| `v2.byProfile` | By profile | प्रोफाइल के हिसाब से |
+| `v2.backToDispatch` | Dispatch | डिस्पैच |
+| `v2.editHeader` | Edit header | हेडर बदलें |
+| `v2.partyShort` | Party {number} | पार्टी {number} |
+| `v2.sectionTotal` | Total {section} | कुल {section} |
+| `v2.thisList` | This list | यह लिस्ट |
+| `v2.regenerateTitle` | Make a new revision? | नया रिवीज़न बनाएं? |
+| `v2.regenerateBody` | The revision already sent is kept. orrn builds the list again from the bundles as they are now and calls it revision {n}. The PL number {code} stays. | जो रिवीज़न भेजा जा चुका है वह रखा जाता है। orrn अभी के bundle से लिस्ट फिर बनाता है और उसे रिवीज़न {n} कहता है। PL नंबर {code} वही रहता है। |
+| `v2.regenerated` | Revision {n} made | रिवीज़न {n} बन गया |
+| `v2.brandingHint` | Off hides the logo and tagline. The legal company name still prints. | बंद करने पर लोगो और टैगलाइन हट जाते हैं। कंपनी का कानूनी नाम फिर भी छपता है। |
+| `v2.originalSoHint` | Shows the order each bundle was packed for. | हर bundle जिस ऑर्डर के लिए पैक हुआ, वह दिखाता है। |
+| `v2.combineTitle` | Combine packing lists | पैकिंग लिस्ट मिलाएं |
+| `v2.combineBody` | Pick the lists of {customer} to fold into one list. It takes a new PL number; the folded lists keep theirs. | {customer} की जो लिस्ट एक में मिलानी हैं, चुनें। नई लिस्ट को नया PL नंबर मिलता है; मिलाई गई लिस्ट अपना नंबर रखती हैं। |
+| `v2.combineNone` | No other packing list of this customer to combine. | इस ग्राहक की मिलाने लायक कोई और पैकिंग लिस्ट नहीं है। |
+| `v2.combineSubmit` | Combine {count} lists | {count} लिस्ट मिलाएं |
+| `v2.combined` | Combined into {code} | {code} में मिलाया |
+| `v2.field.weightG` | weight | वज़न |
+| `v2.field.pcs` | pieces | पीस |
+| `v2.field.lengthMm` | length | लंबाई |
+| `v2.field.partyNo` | party number | पार्टी नंबर |
+| `billTo` | Bill to | बिल किसे |
+| `shipTo` | Ship to | माल कहां |
+| `vehicle` | Vehicle | गाड़ी |
+| `driver` | Driver | ड्राइवर |
+| `transporter` | Transporter | ट्रांसपोर्टर |
+| `po` | PO | PO |
+| `invoice` | Invoice | इनवॉइस |
+| `print` | Print | प्रिंट |
 
 ### dies (67)
 
@@ -1115,7 +1362,7 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `form.ownerHint` | Blank means the plant owns this die. | खाली मतलब यह die प्लांट की है। |
 | `form.ownerClear` | Make plant-owned | प्लांट की करें |
 
-### customers (109)
+### customers (111)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1228,6 +1475,8 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `bundleNumbers.fy` | Each financial year, like 2026-27/12 | हर वित्त वर्ष, जैसे 2026-27/12 |
 | `bundleNumbers.lifelong` | Never reset, like 4086 | कभी शून्य नहीं, जैसे 4086 |
 | `bundleNumbers.changeHint` | Old bundles keep their numbers. | पुराने bundle के नंबर नहीं बदलते। |
+| `bundleNumbers.saved` | Bundle numbers changed | Bundle नंबर बदले गए |
+| `bundleNumbers.change` | Number bundles by | Bundle नंबर इस तरह दें |
 
 ### store (189)
 
@@ -1423,7 +1672,7 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `itemForm.restored` | {name} is back in use | {name} फिर से चालू है |
 | `itemForm.retireBlocked` | {qty} {unit} is still in the store. Issue it or cancel its entries before retiring the item. | स्टोर में अभी {qty} {unit} है। सामान बंद करने से पहले इसे दें या इसकी एंट्री रद्द करें। |
 
-### printing (57)
+### printing (68)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1484,8 +1733,19 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `designs.sent` | Sent {time} | {time} पर भेजा |
 | `designs.notSent` | Not sent to the print computer yet | प्रिंट कंप्यूटर को अभी नहीं भेजा |
 | `designs.pushFailed` | Couldn't send the label design. Check that the print computer is connected. | लेबल डिज़ाइन नहीं भेज सके। देखें कि प्रिंट कंप्यूटर जुड़ा है। |
+| `scale.title` | Scale | कांटा |
+| `scale.connected` | Sending weights | वज़न आ रहा है |
+| `scale.idle` | No weight coming in | वज़न नहीं आ रहा |
+| `scale.none` | No scale | कांटा नहीं |
+| `scale.unknown` | Not reported | बताया नहीं गया |
+| `scale.configured` | Set up | लगा हुआ |
+| `scale.simulated` | Simulated | नकली |
+| `scale.lastFrame` | Last weight read {time} | आखिरी वज़न {time} पर पढ़ा |
+| `scale.noFrame` | No recent reading when this computer last reported ({time}). | इस कंप्यूटर की आखिरी रिपोर्ट ({time}) पर कोई ताज़ा रीडिंग नहीं थी। |
+| `scale.noneHint` | This print computer has no scale connected. | इस प्रिंट कंप्यूटर पर कांटा नहीं जुड़ा है। |
+| `scale.unknownHint` | This print computer has not said whether a scale is connected yet. | इस प्रिंट कंप्यूटर ने अभी बताया नहीं कि कांटा जुड़ा है या नहीं। |
 
-### settings (172)
+### settings (195)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1594,6 +1854,29 @@ Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 | `standards.saved` | Standards saved | स्टैंडर्ड सेव हो गए |
 | `standards.saveFailed` | Couldn't save the standards. Try again. | स्टैंडर्ड सेव नहीं हुए। फिर कोशिश करें। |
 | `standards.readOnly` | Only owners and admins can change standards. | स्टैंडर्ड सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
+| `thresholds.title` | Thresholds | सीमाएं |
+| `thresholds.intro` | The limits the screens colour by. Type a percent. A change applies from the next request. | स्क्रीन इन सीमाओं से रंग तय करती हैं। प्रतिशत में लिखें। बदलाव अगले अनुरोध से लागू होता है। |
+| `thresholds.readOnly` | Only owners and admins can change thresholds. | सीमाएं सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
+| `thresholds.drift` | Die weight drift | Die वज़न का ड्रिफ्ट |
+| `thresholds.driftHint` | How far a bundle sits above its band start. Up to the green limit is green, up to the amber limit is amber, above that is red. | बंडल अपने बैंड की शुरुआत से कितना ऊपर है। हरी सीमा तक हरा, अंबर सीमा तक अंबर, उसके ऊपर लाल। |
+| `thresholds.driftGreen` | Green up to (%) | हरा यहां तक (%) |
+| `thresholds.driftAmber` | Amber up to (%) | अंबर यहां तक (%) |
+| `thresholds.recovery` | Press recovery | प्रेस रिकवरी |
+| `thresholds.recoveryHint` | Good kg as a share of billet kg on the press report. Leave both blank for no colour. | प्रेस रिपोर्ट में बिलेट kg का कितना हिस्सा अच्छा kg है। रंग न चाहिए तो दोनों खाली छोड़ें। |
+| `thresholds.recoveryGreen` | Green from (%) | हरा यहां से (%) |
+| `thresholds.recoveryAmber` | Amber from (%) | अंबर यहां से (%) |
+| `thresholds.recoveryNone` | No colour | कोई रंग नहीं |
+| `thresholds.recoveryValue` | green {green}, amber {amber} | हरा {green}, अंबर {amber} |
+| `thresholds.balance` | Press balance warning | प्रेस बैलेंस चेतावनी |
+| `thresholds.balanceHint` | A run whose unaccounted kg is above this share of its billet kg is flagged when it closes. | जिस रन का बिना हिसाब का kg उसके बिलेट kg के इस हिस्से से ऊपर हो, बंद होते समय उस पर निशान लगता है। |
+| `thresholds.balanceWarn` | Warn above (%) | इससे ऊपर चेतावनी (%) |
+| `thresholds.save` | Save thresholds | सीमाएं सेव करें |
+| `thresholds.saved` | Thresholds saved | सीमाएं सेव हो गईं |
+| `thresholds.saveFailed` | Couldn't save the thresholds. Try again. | सीमाएं सेव नहीं हुईं। फिर कोशिश करें। |
+| `thresholds.errors.number` | Enter a number from 0 to 100, with up to two decimals. | 0 से 100 के बीच संख्या लिखें, दशमलव के दो अंक तक। |
+| `thresholds.errors.driftOrder` | Green must be below amber. | हरी सीमा अंबर से नीचे होनी चाहिए। |
+| `thresholds.errors.recoveryOrder` | Amber must be below green. | अंबर सीमा हरी से नीचे होनी चाहिए। |
+| `thresholds.errors.recoveryBoth` | Fill both recovery limits, or leave both blank. | रिकवरी की दोनों सीमाएं भरें, या दोनों खाली छोड़ें। |
 | `modules.bought` | Bought modules | खरीदे हुए मॉड्यूल |
 | `modules.boughtHint` | orrn support turns modules on or off. Ask them to add or remove one. | मॉड्यूल orrn सपोर्ट चालू या बंद करता है। जोड़ने या हटाने के लिए उन्हें कहें। |
 | `modules.allOn` | Every module is on. | सभी मॉड्यूल चालू हैं। |
@@ -3789,7 +4072,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (160)
+### press (425)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3923,6 +4206,235 @@ Please check, Lalubhai:
 | `console.gates.late_entry_unapproved` | This late entry is waiting for approval | बाद में भरा यह रन मंज़ूरी का इंतज़ार कर रहा है |
 | `console.gates.downtime_open` | Stop the open downtime first | पहले खुली रुकावट बंद करें |
 | `console.gates.trial_result_missing` | Say whether the die trial passed or failed | बताएं कि die ट्रायल पास हुआ या फेल |
+| `console.errors.generic` | The server did not accept this. | सर्वर ने इसे स्वीकार नहीं किया। |
+| `console.errors.conflict` | This changed on the server while you were working. Reload and try again. | काम करते समय सर्वर पर यह बदल गया। पेज फिर से खोलकर दोबारा कोशिश करें। |
+| `console.errors.downtimeRunning` | A stoppage is already running on this press. Stop it first. | इस प्रेस पर एक स्टॉपेज पहले से चल रहा है। पहले उसे रोकें। |
+| `console.errors.lateWindow` | A late entry must be from the last {days} days. | देर से भरी एंट्री पिछले {days} दिनों की ही हो सकती है। |
+| `console.errors.lateStopped` | A late entry is for a run that has already stopped. | देर से भरी एंट्री उस रन की होती है जो रुक चुका है। |
+| `console.errors.stopAfterStart` | The stop time must be after the start time. | रुकने का समय शुरू के समय के बाद का होना चाहिए। |
+| `console.errors.dieElsewhere` | The die issued is for another run or press. Ask the die room. | जारी की गई die किसी और रन या प्रेस के लिए है। Die रूम से पूछें। |
+| `console.errors.stateNow` | {number} is {state} now, so this was not saved. Reload the page. | {number} अभी "{state}" है, इसलिए यह सेव नहीं हुआ। पेज फिर से खोलें। |
+| `console.errors.changedLogging` | {number} changed while it was being logged. Reload and log again. | {number} दर्ज होते समय बदल गया। पेज फिर से खोलकर दोबारा दर्ज करें। |
+| `console.errors.billetsLeft` | Only {kg} kg of this cast is left in the billet store now. Check the billets and log again. | बिलेट स्टोर में इस cast का अब सिर्फ़ {kg} kg बचा है। बिलेट जाँचें और दोबारा दर्ज करें। |
+| `console.errors.changedMeanwhile` | This changed while you were working. Reload and try again. | आपके काम करते समय यह बदल गया। पेज फिर से खोलकर दोबारा कोशिश करें। |
+| `console.errors.alreadySaved` | This was already saved. | यह पहले ही सेव हो चुका है। |
+| `console.errors.reopenWaiting` | {number} already waits for a reopen decision. | {number} को फिर खोलने का अनुरोध पहले से फ़ैसले के इंतज़ार में है। |
+| `console.errors.reopenBlocked` | It cannot be reopened now: "{reason}" | इसे अभी फिर नहीं खोला जा सकता: "{reason}" |
+| `console.errors.notMember` | That person is not a member of this plant. | यह व्यक्ति इस प्लांट का सदस्य नहीं है। |
+| `console.errors.operatorRole` | The operator must be someone who runs the press. | ऑपरेटर वही हो सकता है जो प्रेस चलाता है। |
+| `console.errors.supervisorRole` | The supervisor must be someone who can log runs. | सुपरवाइज़र वही हो सकता है जो रन दर्ज कर सकता है। |
+| `console.errors.lineHasRun` | {number} is still open on {line}. Finish or void it first. | {number} अभी {line} पर खुला है। पहले उसे पूरा करें या रद्द करें। |
+| `console.errors.hasStarted` | {number} has started, so this can no longer change. | {number} शुरू हो चुका है, इसलिए अब यह नहीं बदल सकता। |
+| `console.errors.castCancelled` | That cast is cancelled. | वह cast रद्द है। |
+| `console.errors.pickReason` | Pick a reason from the list. | सूची से कारण चुनें। |
+| `console.errors.timeSkew` | This tablet's clock differs from the server's by more than 2 minutes. A supervisor confirms the time. | इस टैबलेट की घड़ी सर्वर की घड़ी से 2 मिनट से ज़्यादा अलग है। समय की पुष्टि सुपरवाइज़र करेगा। |
+| `console.errors.copyOnTrial` | {code} is on trial. It goes only to a die trial run. | {code} ट्रायल पर है। वह सिर्फ़ die ट्रायल रन में जाती है। |
+| `console.errors.copyIssued` | {code} is already issued to {line}. | {code} पहले ही {line} को जारी है। |
+| `console.errors.copyElsewhere` | {code} is not available for this run right now. | {code} अभी इस रन के लिए उपलब्ध नहीं है। |
+| `console.errors.lineExists` | There is already a press {code}. | {code} नाम का प्रेस पहले से है। |
+| `console.errors.retired` | {code} is retired. | {code} बंद हो चुकी है। |
+| `console.kgInvalid` | Type the kg as a number, for example 12.5. | kg को संख्या में लिखें, जैसे 12.5। |
+| `console.ok` | OK | ठीक है |
+| `console.draftStale` | Another device saved newer figures for this run. These are the saved figures. | किसी दूसरे डिवाइस ने इस रन के नए आंकड़े सेव किए हैं। ये सेव किए हुए आंकड़े हैं। |
+| `console.lockedBody` | The die room issues the die. Start opens when it does. | Die रूम die जारी करता है। तब "शुरू करें" खुलेगा। |
+| `console.readyTitle` | Die issued. Ready to start. | Die जारी हो गई। शुरू करने के लिए तैयार। |
+| `console.readyBody` | Start records the time from the server clock. | "शुरू करें" सर्वर की घड़ी से समय दर्ज करता है। |
+| `console.startedAt` | Started {time} | शुरू {time} |
+| `console.stoppedAt` | Stopped {time} | बंद {time} |
+| `console.runningFor` | Running for {time} | {time} से चल रहा है |
+| `console.serverTimeNote` | Times come from the server clock, not this device. | समय सर्वर की घड़ी से आता है, इस डिवाइस से नहीं। |
+| `console.stoppedTitle` | Stopped | रुका हुआ |
+| `console.stoppedBody` | Count and check the run next. | अब रन की गिनती और जाँच करें। |
+| `console.countAndCheck` | Count & check | गिनती और जाँच |
+| `console.resumeBody` | Not finished? Start the press again. | काम पूरा नहीं हुआ? प्रेस फिर चालू करें। |
+| `console.countingTitle` | Counting | गिनती |
+| `console.countingBody` | Enter what came off the press. Figures below come from the server. | प्रेस से जो निकला वह दर्ज करें। नीचे के आँकड़े सर्वर के हैं। |
+| `console.loggedTitle` | Logged | दर्ज हो गया |
+| `console.loggedBody` | {good} kg good from {input} kg of billets. | {input} kg बिलेट से {good} kg अच्छा माल। |
+| `console.voidedTitle` | Voided | रद्द |
+| `console.voidedBody` | This run was voided and moved no stock. | यह रन रद्द हुआ और कोई स्टॉक नहीं हिला। |
+| `console.trialBanner` | Die trial. Say whether it passed or failed when you log it. | Die ट्रायल। दर्ज करते समय बताएँ कि पास हुआ या फेल। |
+| `console.sampleBanner` | Sample run. It goes against no order. | सैंपल रन। यह किसी ऑर्डर में नहीं जाता। |
+| `console.otherBanner` | Other run. It goes against no order. | अन्य रन। यह किसी ऑर्डर में नहीं जाता। |
+| `console.drawing` | Drawing | ड्रॉइंग |
+| `console.drawingNone` | No drawing on file for this section. | इस सेक्शन की ड्रॉइंग फ़ाइल में नहीं है। |
+| `console.handover` | Handover | हैंडओवर |
+| `console.handoverBody` | The press man changes. The run keeps its start time. | प्रेस वाला बदलता है। रन का शुरू का समय वही रहता है। |
+| `console.handoverRelief` | Takes over as relief | रिलीफ में कौन आया |
+| `console.handoverSupervisor` | Supervisor | सुपरवाइज़र |
+| `console.handoverNobody` | Nobody | कोई नहीं |
+| `console.handoverDone` | Saved. | सेव हो गया। |
+| `console.readingTitle` | Die weight | Die वज़न |
+| `console.readingLabel` | Kg per 12 ft | kg प्रति 12 ft |
+| `console.readingSave` | Save reading | रीडिंग सेव करें |
+| `console.readingSaved` | Reading saved. | रीडिंग सेव हो गई। |
+| `console.readingLast` | Last reading {kg} kg per 12 ft | पिछली रीडिंग {kg} kg प्रति 12 ft |
+| `console.readingNone` | No reading yet for this die. | इस die की अभी कोई रीडिंग नहीं है। |
+| `console.downtimeReason` | Why it stopped | क्यों रुका |
+| `console.downtimeNote` | Note | टिप्पणी |
+| `console.downtimeSince` | Stopped since {time} | {time} से बंद |
+| `console.downtimeMin` | {min} min | {min} मिनट |
+| `console.downtimeNone` | No stoppages yet. | अभी कोई स्टॉपेज नहीं। |
+| `console.downtimeOpenWord` | Open | चालू |
+| `console.steps.billets` | Billets | बिलेट |
+| `console.steps.pieces` | Pieces | पीस |
+| `console.steps.scrap` | Butt and ends | बट और एंड |
+| `console.steps.rejects` | Rejects | रिजेक्ट |
+| `console.steps.remark` | Remark and reading | टिप्पणी और रीडिंग |
+| `console.saveFailed` | Could not save. What you typed is still here. | सेव नहीं हुआ। जो आपने लिखा है वह यहीं है। |
+| `console.saveNext` | Save and next | सेव करें और आगे |
+| `console.castPick` | Cast the billets came from | बिलेट किस cast के हैं |
+| `console.castOnHand` | {kg} kg billet stock | {kg} kg बिलेट स्टॉक |
+| `console.castNone` | No cast has billets in stock. | किसी cast के बिलेट स्टॉक में नहीं हैं। |
+| `console.castClosedChip` | Closed | बंद |
+| `console.weighedKg` | Weighed kg | तौला हुआ kg |
+| `console.billetsOnce` | One cast on a run. A second cast is a new run. | एक रन पर एक cast। दूसरी cast नया रन है। |
+| `console.shortStock` | The billet stock shows {kg} kg for this cast. The run is logged with the weighed kg; the cast will show billets short by {short} kg. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} kg दिख रहा है। रन तोले हुए kg के साथ दर्ज होगा; cast पर बिलेट {short} kg कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
+| `console.shortStockNoFigure` | The billet stock shows {kg} kg for this cast. The run is logged with the weighed kg; the cast will show the billets short. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} kg दिख रहा है। रन तोले हुए kg के साथ दर्ज होगा; cast पर बिलेट कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
+| `console.pressedLength` | Pressed length | प्रेस की लंबाई |
+| `console.pressedLengthHint` | Optional. Pieces times cut length are checked only when this is set. | वैकल्पिक। भरने पर ही पीस गुणा कट लंबाई की जाँच होती है। |
+| `console.pcsOrdered` | Released {pcs} pcs | भेजे गए {pcs} पीस |
+| `console.forOrder` | For {order} | {order} के लिए |
+| `console.noOrderFor` | No order line | ऑर्डर लाइन नहीं |
+| `console.buttHint` | The butt cut off the billet end. | बिलेट के सिरे का बट। |
+| `console.endsHint` | Cut ends of the pieces. | पीस के कटे हुए सिरे। |
+| `console.rejectsHint` | Type 0 when there were none. A blank is not a check. | कोई नहीं था तो 0 लिखें। खाली जाँच नहीं है। |
+| `console.rejectPcs` | Reject pieces | रिजेक्ट पीस |
+| `console.checkedNone` | Checked, none | जाँचा, कोई नहीं |
+| `console.rejectNote` | Note | टिप्पणी |
+| `console.previewTitle` | Close preview | बंद करने का पूर्वावलोकन |
+| `console.orderLine` | Order line | ऑर्डर लाइन |
+| `console.pickOne` | Pick one | एक चुनें |
+| `console.bolster` | Bolster {no} | बोल्स्टर {no} |
+| `console.save` | Save | सेव करें |
+| `console.cancel` | Cancel | रद्द करें |
+| `console.remove` | Remove | हटाएँ |
+| `console.urgent` | Urgent | जल्दी |
+| `console.noteRequired` | Write a note when you pick Other. | अन्य चुनें तो टिप्पणी लिखें। |
+| `console.required` | Required | ज़रूरी |
+| `console.loading` | Loading | खुल रहा है |
+| `console.retry` | Try again | फिर कोशिश करें |
+| `console.reason` | Reason | कारण |
+| `console.voidWhy` | Why void this run? Nothing was pressed, so it moves no stock. | यह रन रद्द क्यों करना है? कुछ प्रेस नहीं हुआ, इसलिए कोई स्टॉक नहीं हिलेगा। |
+| `console.balanceLabel` | Balance | बैलेंस |
+| `console.addReject` | Add another reject | एक और रिजेक्ट जोड़ें |
+| `console.previewNote` | Not saved. These figures are the server's; they are saved when the run is logged. | सेव नहीं हुआ। ये आँकड़े सर्वर के हैं और रन दर्ज होने पर सेव होते हैं। |
+| `console.recoveryNow` | Recovery | रिकवरी |
+| `console.balanceOk` | Balance {kg} kg | बैलेंस {kg} kg |
+| `console.gatesTitle` | Before this run can be logged | रन दर्ज होने से पहले |
+| `console.readyToLog` | Ready to log. | दर्ज करने के लिए तैयार। |
+| `console.waitingSupervisor` | A supervisor logs this run. Everything is saved. | रन सुपरवाइज़र दर्ज करता है। सब कुछ सेव है। |
+| `console.logging` | Logging | दर्ज हो रहा है |
+| `console.logFailed` | The run was not logged. | रन दर्ज नहीं हुआ। |
+| `console.loggedDone` | Run logged. Recovery {pct}%. | रन दर्ज हो गया। रिकवरी {pct}%। |
+| `console.reopenAsk` | Request reopen | फिर खोलने का अनुरोध |
+| `console.reopenWhy` | Why does it need to reopen? | फिर क्यों खोलना है? |
+| `console.reopenSent` | Reopen requested. A manager decides. | अनुरोध भेजा गया। मैनेजर तय करेगा। |
+| `console.reopenPending` | Waiting for a manager to decide the reopen. | मैनेजर के फ़ैसले का इंतज़ार है। |
+| `console.timeAsk` | Ask a supervisor to confirm the times | सुपरवाइज़र से समय पक्का करने को कहें |
+| `console.timeAsked` | Asked. A supervisor will confirm the times. | कह दिया गया। सुपरवाइज़र समय पक्का करेगा। |
+| `console.lateWaiting` | This late entry waits for approval. | यह देर से भरी एंट्री मंज़ूरी का इंतज़ार कर रही है। |
+| `console.lateBadge` | Entered late | देर से भरा |
+| `console.people` | People | लोग |
+| `console.since` | Since {time} | {time} से |
+| `console.shiftLine` | {shift} shift, {day} | {shift} शिफ़्ट, {day} |
+| `console.castLabel` | Cast {number} | Cast {number} |
+| `console.dieNone` | Die not issued | Die जारी नहीं हुई |
+| `console.released` | Released | भेजा गया |
+| `console.pressedSoFar` | Pressed so far | अब तक प्रेस हुआ |
+| `console.orders` | Orders | ऑर्डर |
+| `console.totalLine` | Total {pcs} pcs, {kg} kg | कुल {pcs} पीस, {kg} kg |
+| `console.loadFailed` | This run did not load. Check the connection and try again. | यह रन नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
+| `console.notFound` | That run does not exist. | ऐसा कोई रन नहीं है। |
+| `console.busy` | Another run is running on this press. Stop it first. | इस प्रेस पर दूसरा रन चल रहा है। पहले उसे रोकें। |
+| `console.stoppedBannerChip` | Stopped | रुका हुआ |
+| `console.startFailed` | The run did not start. | रन शुरू नहीं हुआ। |
+| `console.stopFailed` | The run did not stop. | रन रुका नहीं। |
+| `console.sections` | Sections | सेक्शन |
+| `console.dieCopy` | Die copy | Die कॉपी |
+| `console.onTrial` | Die trial | Die ट्रायल |
+| `console.trialNeeded` | Say whether the die trial passed or failed. | बताएँ कि die ट्रायल पास हुआ या फेल। |
+| `console.next` | Next | आगे |
+| `console.back` | Back | पीछे |
+| `board.subtitle` | Every press: what is running and what waits. | हर प्रेस: क्या चल रहा है और क्या इंतज़ार में है। |
+| `board.onLine` | On the line | लाइन पर |
+| `board.nothingRunning` | Nothing running | कुछ नहीं चल रहा |
+| `board.waiting` | Waiting | इंतज़ार में |
+| `board.todayLogged` | Today, logged | आज दर्ज |
+| `board.openQueue` | Open the queue | कतार खोलें |
+| `board.pressStopped` | Press stopped | प्रेस रुका है |
+| `board.noLines` | No press lines yet. | अभी कोई प्रेस लाइन नहीं। |
+| `board.noLinesBody` | Add the presses on the Press lines page. | प्रेस लाइन पेज पर प्रेस जोड़ें। |
+| `board.manageLines` | Press lines | प्रेस लाइन |
+| `board.openStation` | Open the station | स्टेशन खोलें |
+| `board.loadFailed` | The press board did not load. Check the connection and try again. | प्रेस बोर्ड नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
+| `queue.title` | {line} queue | {line} की कतार |
+| `queue.subtitle` | Jobs for this press, in the order they run. | इस प्रेस के काम, चलने के क्रम में। |
+| `queue.onLine` | On the line | लाइन पर |
+| `queue.waiting` | Waiting | इंतज़ार में |
+| `queue.empty` | Nothing released to this press. | इस प्रेस को कुछ नहीं भेजा गया। |
+| `queue.emptyBody` | Plans released from Orders and planning land here. | ऑर्डर और प्लानिंग से भेजे गए प्लान यहाँ आते हैं। |
+| `queue.dieCopy` | Die copy | Die कॉपी |
+| `queue.dieNotIssued` | Die not issued | Die जारी नहीं हुई |
+| `queue.bolster` | Bolster {no} | बोल्स्टर {no} |
+| `queue.orders` | Orders | ऑर्डर |
+| `queue.released` | Released | भेजा गया |
+| `queue.total` | Total | कुल |
+| `queue.pressedSoFar` | Pressed so far {kg} kg | अब तक प्रेस हुआ {kg} kg |
+| `queue.noOrderLines` | No order line | ऑर्डर लाइन नहीं |
+| `queue.purposeNote` | Goes against no order. | किसी ऑर्डर में नहीं जाता। |
+| `queue.filterSection` | Section | सेक्शन |
+| `queue.filterOrder` | Order | ऑर्डर |
+| `queue.filterCopy` | Die copy | Die कॉपी |
+| `queue.filterAll` | All | सब |
+| `queue.urgent` | Urgent | जल्दी |
+| `queue.markUrgent` | Mark urgent | जल्दी का निशान लगाएँ |
+| `queue.clearUrgent` | Remove urgent | जल्दी हटाएँ |
+| `queue.moveFailed` | The queue did not change. Reload and try again. | कतार नहीं बदली। फिर लोड करके कोशिश करें। |
+| `queue.pullBackTitle` | Take this length back to planning? | यह लंबाई प्लानिंग में वापस लें? |
+| `queue.pullBackBody` | {order}, {length}, {pcs} pcs, {kg} kg become planable again. The run keeps its other lengths. | {order}, {length}, {pcs} पीस, {kg} kg फिर से प्लान हो सकेंगे। रन की बाकी लंबाइयाँ रहेंगी। |
+| `queue.pullBackReason` | Why (optional) | क्यों (वैकल्पिक) |
+| `queue.pullBackConfirm` | Take back | वापस लें |
+| `queue.pullBackFailed` | Could not take it back. | वापस नहीं ले सके। |
+| `queue.lateEntry` | Late entry | देर से एंट्री |
+| `queue.loadFailed` | The queue did not load. Check the connection and try again. | कतार नहीं खुली। कनेक्शन जाँचकर फिर कोशिश करें। |
+| `queue.noMatch` | No job matches these filters. | इन फ़िल्टर से कोई काम नहीं मिला। |
+| `late.title` | Run entered late | देर से भरा रन |
+| `late.body` | For a run that already stopped and was never entered on the tablet. A manager approves it before it can be logged. | ऐसे रन के लिए जो रुक चुका है और टैबलेट पर नहीं भरा गया। दर्ज होने से पहले मैनेजर मंज़ूर करता है। |
+| `late.window` | Only a run from the last {days} days can be entered late. Older runs are not accepted. | सिर्फ़ पिछले {days} दिनों का रन देर से भरा जा सकता है। इससे पुराने रन स्वीकार नहीं होते। |
+| `late.tooOld` | The start is more than {days} days ago. A late entry must be from the last {days} days. | शुरू का समय {days} दिन से ज़्यादा पुराना है। देर से भरी एंट्री पिछले {days} दिनों की ही हो सकती है। |
+| `late.line` | Press | प्रेस |
+| `late.source` | Which run | कौन सा रन |
+| `late.fromQueue` | A run from the queue | कतार का रन |
+| `late.notInQueue` | A run not in the queue | कतार से बाहर का रन |
+| `late.pickRun` | Queued run | कतार का रन |
+| `late.pickCopy` | Die copy | Die कॉपी |
+| `late.startedAt` | Started | शुरू |
+| `late.stoppedAt` | Stopped | बंद |
+| `late.operator` | Operator | ऑपरेटर |
+| `late.relief` | Relief operator | रिलीफ ऑपरेटर |
+| `late.reason` | Why it is entered late | देर से क्यों भरा |
+| `late.submit` | Enter the run | रन भरें |
+| `late.done` | {number} entered. It waits for approval. | {number} भर गया। मंज़ूरी का इंतज़ार है। |
+| `late.order` | Stop must be after start. | बंद का समय शुरू के बाद होना चाहिए। |
+| `late.futureStop` | A late entry is for a run that has already stopped. | देर से एंट्री उस रन की है जो रुक चुका है। |
+| `late.noQueued` | No queued run on this press. | इस प्रेस पर कतार में कोई रन नहीं। |
+| `late.pickOne` | Pick one | एक चुनें |
+| `linesPage.title` | Press lines | प्रेस लाइन |
+| `linesPage.subtitle` | The presses of the plant. | प्लांट के प्रेस। |
+| `linesPage.empty` | No press lines yet. | अभी कोई प्रेस लाइन नहीं। |
+| `linesPage.emptyBody` | Add the first press. | पहला प्रेस जोड़ें। |
+| `linesPage.edit` | Edit | बदलें |
+| `linesPage.restore` | Restore | फिर चालू करें |
+| `linesPage.retired` | Retired | बंद |
+| `linesPage.active` | Active | चालू |
+| `linesPage.showRetired` | Show retired | बंद वाले दिखाएँ |
+| `linesPage.codeHint` | A short code for the press | प्रेस का छोटा कोड |
+| `linesPage.tonnageHint` | Optional | वैकल्पिक |
+| `linesPage.saved` | Saved. | सेव हो गया। |
+| `linesPage.retireConfirmTitle` | Retire {code}? | {code} बंद करें? |
+| `linesPage.retireConfirmBody` | It stays in old reports. A press with an open run cannot be retired. | पुरानी रिपोर्ट में यह रहेगा। खुले रन वाला प्रेस बंद नहीं होता। |
+| `linesPage.back` | Press | प्रेस |
 | `report.title` | Press report | प्रेस रिपोर्ट |
 | `report.runNo` | Run no | रन नंबर |
 | `report.productionDay` | Production day | उत्पादन दिन |
@@ -3945,6 +4457,27 @@ Please check, Lalubhai:
 | `report.empty` | No logged runs in this period. | इस समय में कोई रन दर्ज नहीं। |
 | `report.lateShare` | Entered late: {pct}% | बाद में भरे: {pct}% |
 | `report.trial` | Trial | ट्रायल |
+| `report.subtitle` | Logged runs by production day. | उत्पादन दिन के हिसाब से दर्ज रन। |
+| `report.from` | From | से |
+| `report.to` | To | तक |
+| `report.shiftFilter` | Shift | शिफ़्ट |
+| `report.lineFilter` | Press line | प्रेस लाइन |
+| `report.planFilter` | Plan | प्लान |
+| `report.allShifts` | All shifts | सभी शिफ़्ट |
+| `report.allLines` | All presses | सभी प्रेस |
+| `report.allPlans` | All plans | सभी प्लान |
+| `report.planOption` | {number} | {number} |
+| `report.totals` | Totals | कुल |
+| `report.runsCount` | {count} {count:run\|runs} | {count} रन |
+| `report.more` | More runs than shown. Narrow the period. | दिखाए गए से ज़्यादा रन हैं। अवधि छोटी करें। |
+| `report.lateShareTitle` | Entered late, by shift and operator | देर से भरे, शिफ़्ट और ऑपरेटर के हिसाब से |
+| `report.lateShareRow` | {late} of {runs} runs entered late ({pct}%) | {runs} में से {late} रन देर से भरे ({pct}%) |
+| `report.noOperator` | No operator | ऑपरेटर नहीं |
+| `report.loadFailed` | The report did not load. Check the connection and try again. | रिपोर्ट नहीं खुली। कनेक्शन जाँचकर फिर कोशिश करें। |
+| `report.downloadFailed` | The file could not be made. Try again. | फ़ाइल नहीं बन सकी। फिर कोशिश करें। |
+| `report.late` | Late | देर से |
+| `report.openRun` | Open run {number} | रन {number} खोलें |
+| `report.csvName` | press-report | press-report |
 | `summary.title` | Daily press summary | रोज़ का प्रेस सारांश |
 | `summary.pressedToday` | Pressed today | आज प्रेस हुआ |
 | `summary.recovery` | Recovery | रिकवरी |
@@ -3953,6 +4486,21 @@ Please check, Lalubhai:
 | `summary.noRuns` | No runs logged today. | आज कोई रन दर्ज नहीं। |
 | `summary.kg` | {kg} kg | {kg} kg |
 | `summary.minutes` | {min} min | {min} मिनट |
+| `summary.day` | Production day | उत्पादन दिन |
+| `summary.dayHint` | The production day opens with the first shift, not at midnight. | उत्पादन दिन पहली शिफ़्ट से खुलता है, आधी रात से नहीं। |
+| `summary.runs` | Runs | रन |
+| `summary.pieces` | Pieces | पीस |
+| `summary.scrap` | Butt, ends and rejects | बट, एंड और रिजेक्ट |
+| `summary.stops` | Stops, longest first | स्टॉपेज, सबसे लंबे पहले |
+| `summary.stopsNone` | No stops today. | आज कोई स्टॉपेज नहीं। |
+| `summary.shifts` | By shift | शिफ़्ट के हिसाब से |
+| `summary.late` | Entered late | देर से भरे |
+| `summary.lateShare` | {pct}% of runs | {pct}% रन |
+| `summary.open` | Open the press summary | प्रेस सारांश खोलें |
+| `summary.report` | Open the press report | प्रेस रिपोर्ट खोलें |
+| `summary.previous` | Earlier day | पिछला दिन |
+| `summary.loadFailed` | The summary did not load. Check the connection and try again. | सारांश नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
+| `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 
 ### foundry (64)
 
@@ -4334,6 +4882,24 @@ Please check, Lalubhai:
 | `goToday` | Go to Today | आज का पेज खोलें |
 | `printFailed` | The label didn't print: {reason} | लेबल प्रिंट नहीं हुआ: {reason} |
 
+### labelSheet (13)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Label sheet | लेबल शीट |
+| `subtitle` | Stickers for the browser to print on A4, for when no label printer is connected. | ब्राउज़र से A4 पर छापने के स्टिकर, जब कोई लेबल प्रिंटर जुड़ा न हो। |
+| `print` | Print | प्रिंट करें |
+| `perPage` | Stickers per page | हर पन्ने पर स्टिकर |
+| `size10` | 10 per page | हर पन्ने पर 10 |
+| `size21` | 21 per page | हर पन्ने पर 21 |
+| `skip` | Stickers already used | पहले से इस्तेमाल हुए स्टिकर |
+| `skipHint` | Start after the stickers already taken from this sheet. | इस शीट से जो स्टिकर पहले निकल चुके हैं, उनके बाद से शुरू करें। |
+| `tip` | In the print window choose A4, scale 100%, and no headers or footers. | प्रिंट विंडो में A4, स्केल 100% चुनें और हेडर-फुटर बंद रखें। |
+| `none` | No labels to print. Void bundles get none. | छापने के लिए कोई लेबल नहीं। Void bundle के लेबल नहीं बनते। |
+| `page` | Page {n} of {total} | पन्ना {n} / {total} |
+| `party` | Party {number} | पार्टी {number} |
+| `cast` | Cast {cast} | कास्ट {cast} |
+
 ## Guides
 
 ### Pack a session and print labels (`pack-session`)
@@ -4642,25 +5208,25 @@ Please check, Lalubhai:
 | Part | English | हिंदी |
 |---|---|---|
 | Title | Count the stock | स्टॉक की गिनती करें |
-| When | Use this for the quarterly physical count, when every bundle in the yard is checked against what orrn holds. | तिमाही की असली गिनती के लिए, जब यार्ड का हर bundle orrn में दर्ज स्टॉक से मिलाया जाता है। |
+| When | Use this for a physical count: every bundle in the yard is checked against what orrn holds, yard by yard. | असली गिनती के लिए, जब यार्ड का हर bundle orrn में दर्ज स्टॉक से यार्ड-दर-यार्ड मिलाया जाता है। |
 | Step 1 | Stop packing and dispatch | पैकिंग और dispatch रोकें |
 | Step 1 text | Tell the packers and the dispatch team to stop before the count starts. A bundle packed or sent out during the count will show as a mistake. | गिनती शुरू होने से पहले पैकर और dispatch वालों को काम रोकने को कहें। गिनती के दौरान पैक हुआ या बाहर गया bundle गलती की तरह दिखेगा। |
-| Step 2 | Take a fresh stock list | ताज़ा स्टॉक लिस्ट लें |
-| Step 2 text | Ask the office to load today's stock list into the Stock Count tool on the office computer. orrn has no count screen yet, so the count runs in that tool and it never changes your stock. | ऑफ़िस से कहें कि आज की स्टॉक लिस्ट ऑफ़िस के कंप्यूटर पर Stock Count टूल में डाल दें। orrn में अभी गिनती की स्क्रीन नहीं है, इसलिए गिनती उसी टूल में होती है और वो आपका स्टॉक कभी नहीं बदलता। |
+| Step 2 | Start the count | गिनती शुरू करें |
+| Step 2 text | Open Stock, then "Stock count". Tick the yards you will count and press "Start a count". A count over every yard also checks bundles that have no yard. | Stock खोलें, फिर "स्टॉक की गिनती"। जो यार्ड गिनने हैं उन पर निशान लगाएं और "गिनती शुरू करें" दबाएं। सारे यार्ड की गिनती में बिना यार्ड वाले bundle भी जांचे जाते हैं। |
 | Step 3 | Scan every bundle | हर bundle स्कैन करें |
-| Step 3 text | Walk the yard location by location. Scan each bundle's QR label. You can also type the printed bundle number. The tool tells you the result with a colour and a beep. | यार्ड में एक-एक लोकेशन पर चलें। हर bundle का QR लेबल स्कैन करें। छपा हुआ bundle नंबर भी लिख सकते हैं। टूल रंग और बीप से नतीजा बताता है। |
-| Step 4 | Read the colours | रंग पढ़ें |
-| Step 4 text | Green means counted. Amber means you already scanned it. Red means the bundle is not in the stock list. Leave red and amber bundles where they are and note them. | हरा मतलब गिन लिया। पीला मतलब आप उसे पहले स्कैन कर चुके हैं। लाल मतलब bundle स्टॉक लिस्ट में नहीं है। लाल और पीले bundle को वहीं रहने दें और उनका नोट बनाएं। |
+| Step 3 text | Pick the yard you are standing in, then scan each bundle's QR label. You can also type the printed bundle number, or press "Paste codes" to count a whole list. orrn answers each code at once. | जिस यार्ड में खड़े हैं वह चुनें, फिर हर bundle का QR लेबल स्कैन करें। छपा हुआ bundle नंबर भी लिख सकते हैं, या पूरी लिस्ट गिनने के लिए "कोड पेस्ट करें" दबाएं। orrn हर कोड का जवाब तुरंत देता है। |
+| Step 4 | Read the answers | जवाब पढ़ें |
+| Step 4 text | Here means orrn agrees. Moved, Elsewhere and Not in stock mean orrn holds the bundle somewhere else or not at all. Unknown code means orrn has never seen that number. Leave those bundles where they are and note them. | यहीं है मतलब orrn सहमत है। खिसका हुआ, कहीं और और स्टॉक में नहीं का मतलब है कि orrn में bundle कहीं और है या है ही नहीं। पहचाना नहीं गया मतलब वह नंबर orrn ने कभी देखा नहीं। ऐसे bundle को वहीं रहने दें और नोट बनाएं। |
 | Step 5 | Chase what's missing | जो नहीं मिला उसे ढूंढें |
-| Step 5 text | When the yard is done, open the list of bundles not found yet. Look again in the nearby locations before you give up on a bundle. | यार्ड पूरा होने पर अभी तक न मिले bundle की लिस्ट खोलें। किसी bundle को छोड़ने से पहले आसपास की लोकेशन में दोबारा देखें। |
-| Step 6 | Save the result | नतीजा सेव करें |
-| Step 6 text | Export the result as a CSV file and give it to the manager. Fix the differences in orrn only after the manager has agreed them. Then restart packing and dispatch. | नतीजा CSV फ़ाइल में निकालें और मैनेजर को दें। फ़र्क orrn में तभी ठीक करें जब मैनेजर उन्हें मान ले। फिर पैकिंग और dispatch दोबारा शुरू करें। |
+| Step 5 text | Before you close, the missing list shows every bundle orrn has in your yards that nobody scanned. Look again in the nearby yards before you give up on a bundle. | बंद करने से पहले, गायब की लिस्ट में आपके यार्ड के वे सारे bundle दिखते हैं जो orrn में हैं पर किसी ने स्कैन नहीं किए। किसी bundle को छोड़ने से पहले आसपास के यार्ड में दोबारा देखें। |
+| Step 6 | Close and read the report | बंद करें और रिपोर्ट पढ़ें |
+| Step 6 text | Press "Close count". The report shows what is missing, what was found out of place, and the difference by yard and by section. Closing does not change the stock: a manager decides what to void. | "गिनती बंद करें" दबाएं। रिपोर्ट में दिखता है क्या गायब है, क्या गलत जगह मिला, और यार्ड व सेक्शन के हिसाब से फ़र्क। बंद करने से स्टॉक नहीं बदलता: क्या void करना है, यह मैनेजर तय करता है। |
 | Problem 1 | A bundle has no QR label | Bundle पर QR लेबल नहीं है |
 | Fix 1 | Type the bundle number printed on it. If the number is unreadable too, put the bundle aside and give it to the manager. | उस पर छपा bundle नंबर लिखें। नंबर भी पढ़ा न जाए तो bundle को अलग रखें और मैनेजर को दें। |
 | Problem 2 | Many bundles are not found | बहुत सारे bundle नहीं मिल रहे |
 | Fix 2 | Do not adjust anything yet. Check that the count did not start before the last dispatch was recorded. Most gaps come from the tail of a production run that was never marked as sent. | अभी कुछ न बदलें। देखें कि गिनती आखिरी dispatch दर्ज होने से पहले तो शुरू नहीं हो गई। ज़्यादातर कमी उस प्रोडक्शन रन की बची हुई पूंछ से आती है जिसे कभी भेजा हुआ दर्ज नहीं किया गया। |
 | Problem 3 | The count was interrupted | गिनती बीच में रुक गई |
-| Fix 3 | The tool keeps your scans on that computer for the same stock list. Open it again on the same browser and carry on. | टूल उसी स्टॉक लिस्ट के लिए आपके स्कैन उसी कंप्यूटर पर रखता है। उसी ब्राउज़र में दोबारा खोलें और आगे बढ़ें। |
+| Fix 3 | Your scans stay in the count. Open it again from the list of counts in progress and carry on. | आपके स्कैन गिनती में बने रहते हैं। चल रही गिनतियों की लिस्ट से उसे फिर खोलें और आगे बढ़ें। |
 
 ### Approve an access request (`approve-access-request`)
 

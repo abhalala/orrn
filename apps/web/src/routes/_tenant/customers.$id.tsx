@@ -20,6 +20,7 @@ import { toast } from "sonner";
 
 import { addressLines, addressToDraft, EMPTY_ADDRESS, sameDraft } from "@/features/customers/address";
 import { ChartCardSkeleton } from "@/features/customers/chart-card-skeleton";
+import { BundleNumbersCard } from "@/features/customers/bundle-numbers-card";
 import { CustomerForm, type StoredCustomer } from "@/features/customers/customer-form";
 import { formatDay, formatInstantDay } from "@/features/customers/dates";
 import { KpiTile, KpiTileSkeleton } from "@/features/customers/kpi-tile";
@@ -198,7 +199,10 @@ function CustomerDetail({ id }: { id: string }) {
 
       {/* Contact first in the DOM and on the left at laptop width, so keyboard order follows the page. */}
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
-        <ContactCard customer={customer} />
+        <div className="flex min-w-0 flex-col gap-4">
+          <ContactCard customer={customer} />
+          <BundleNumbersCard customer={customer} />
+        </div>
         <RecentDispatches customerId={customer.id} today={periodState.today} timeZone={periodState.timeZone} />
       </div>
 

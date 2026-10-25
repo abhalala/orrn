@@ -1,7 +1,8 @@
 import { useT } from "@orrn/i18n";
 import { Button, IconButton } from "@orrn/ui/components/button";
+import { UiLink } from "@orrn/ui/components/link";
 import { cn } from "@orrn/ui/lib/utils";
-import { AlertTriangle, CheckCircle2, Printer, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, Printer, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Can } from "@/shared/components/can";
@@ -123,5 +124,40 @@ export function PrintPanel({ state, onRetry }: { state: PrintState; onRetry(): v
         ) : null}
       </section>
     </>
+  );
+}
+
+/**
+ * Shown when the plant has no label printer connected (or this role cannot use it): says so plainly
+ * and offers the A4 sticker sheet the browser can print instead (explorer High 13).
+ */
+export function LabelFallback({ groupId, serial }: { groupId: string; serial?: string }) {
+  const { t } = useT();
+  return (
+    <section
+      aria-labelledby={`label-fallback-${groupId}`}
+      data-slot="label-fallback"
+      className="flex flex-col gap-3 rounded-card border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5"
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-full bg-tone-amber-tint text-tone-amber-ink">
+          <Printer className="size-5" strokeWidth={2} />
+        </span>
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 id={`label-fallback-${groupId}`} className="m-0 text-[15px] font-semibold">
+            {t("pack.print.noPrinterTitle")}
+          </h2>
+          <p className="m-0 text-[14px] leading-5 text-muted-foreground">{t("pack.print.noPrinterBody")}</p>
+        </div>
+      </div>
+      <Can do={["bundle.pack", "spool.create_jobs"]}>
+        <Button asChild variant="secondary" className="max-sm:w-full">
+          <UiLink to={`/pack/${encodeURIComponent(groupId)}/labels${serial ? `?serial=${encodeURIComponent(serial)}` : ""}`}>
+            <FileText aria-hidden="true" strokeWidth={2} />
+            {t("pack.print.sheet")}
+          </UiLink>
+        </Button>
+      </Can>
+    </section>
   );
 }

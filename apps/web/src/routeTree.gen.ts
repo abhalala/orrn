@@ -40,6 +40,7 @@ import { Route as TenantSpoolIndexRouteImport } from './routes/_tenant/spool.ind
 import { Route as TenantReceiptsIndexRouteImport } from './routes/_tenant/receipts.index'
 import { Route as TenantPurchaseIndexRouteImport } from './routes/_tenant/purchase.index'
 import { Route as TenantPreviewIndexRouteImport } from './routes/_tenant/preview.index'
+import { Route as TenantPressIndexRouteImport } from './routes/_tenant/press.index'
 import { Route as TenantPackIndexRouteImport } from './routes/_tenant/pack.index'
 import { Route as TenantOrdersIndexRouteImport } from './routes/_tenant/orders.index'
 import { Route as TenantMastersIndexRouteImport } from './routes/_tenant/masters.index'
@@ -54,6 +55,8 @@ import { Route as TenantVendorsIdRouteImport } from './routes/_tenant/vendors.$i
 import { Route as TenantStoreReceiveRouteImport } from './routes/_tenant/store.receive'
 import { Route as TenantStoreIssueRouteImport } from './routes/_tenant/store.issue'
 import { Route as TenantStoreExchangeRouteImport } from './routes/_tenant/store.exchange'
+import { Route as TenantStockYardsRouteImport } from './routes/_tenant/stock.yards'
+import { Route as TenantStockLengthsRouteImport } from './routes/_tenant/stock.lengths'
 import { Route as TenantStockBundlesRouteImport } from './routes/_tenant/stock.bundles'
 import { Route as TenantStockDieIdRouteImport } from './routes/_tenant/stock.$dieId'
 import { Route as TenantSettingsMembersRouteImport } from './routes/_tenant/settings.members'
@@ -61,6 +64,8 @@ import { Route as TenantReceiptsNewRouteImport } from './routes/_tenant/receipts
 import { Route as TenantReceiptsIdRouteImport } from './routes/_tenant/receipts.$id'
 import { Route as TenantPurchaseNewRouteImport } from './routes/_tenant/purchase.new'
 import { Route as TenantPurchaseIdRouteImport } from './routes/_tenant/purchase.$id'
+import { Route as TenantPressSummaryRouteImport } from './routes/_tenant/press.summary'
+import { Route as TenantPressReportRouteImport } from './routes/_tenant/press.report'
 import { Route as TenantPackingListsIdRouteImport } from './routes/_tenant/packing-lists.$id'
 import { Route as TenantPackNewRouteImport } from './routes/_tenant/pack.new'
 import { Route as TenantPackIdRouteImport } from './routes/_tenant/pack.$id'
@@ -87,6 +92,7 @@ import { Route as PlatformAdminRequestsRouteImport } from './routes/_platform/ad
 import { Route as PlatformAdminReleasesRouteImport } from './routes/_platform/admin.releases'
 import { Route as PlatformAdminBackupsRouteImport } from './routes/_platform/admin.backups'
 import { Route as TenantStoreItemsIndexRouteImport } from './routes/_tenant/store.items.index'
+import { Route as TenantStockCountIndexRouteImport } from './routes/_tenant/stock.count.index'
 import { Route as TenantPreviewPressIndexRouteImport } from './routes/_tenant/preview.press.index'
 import { Route as TenantPreviewPlatformIndexRouteImport } from './routes/_tenant/preview.platform.index'
 import { Route as TenantPreviewOrdersIndexRouteImport } from './routes/_tenant/preview.orders.index'
@@ -94,10 +100,12 @@ import { Route as TenantPreviewFoundryIndexRouteImport } from './routes/_tenant/
 import { Route as TenantPreviewFloorIndexRouteImport } from './routes/_tenant/preview.floor.index'
 import { Route as TenantPreviewDieRoomIndexRouteImport } from './routes/_tenant/preview.die-room.index'
 import { Route as TenantPreviewAgeingIndexRouteImport } from './routes/_tenant/preview.ageing.index'
+import { Route as TenantPressLinesIndexRouteImport } from './routes/_tenant/press.lines.index'
 import { Route as TenantOrdersPlanIndexRouteImport } from './routes/_tenant/orders.plan.index'
 import { Route as PlatformAdminSpoolIndexRouteImport } from './routes/_platform/admin.spool.index'
 import { Route as PlatformAdminCompaniesIndexRouteImport } from './routes/_platform/admin.companies.index'
 import { Route as TenantStoreItemsIdRouteImport } from './routes/_tenant/store.items.$id'
+import { Route as TenantStockCountIdRouteImport } from './routes/_tenant/stock.count.$id'
 import { Route as TenantPreviewPressSummaryRouteImport } from './routes/_tenant/preview.press.summary'
 import { Route as TenantPreviewPressReportRouteImport } from './routes/_tenant/preview.press.report'
 import { Route as TenantPreviewPressConsoleRouteImport } from './routes/_tenant/preview.press.console'
@@ -118,6 +126,9 @@ import { Route as TenantPreviewDieRoomLiftRouteImport } from './routes/_tenant/p
 import { Route as TenantPreviewDieRoomCardRouteImport } from './routes/_tenant/preview.die-room.card'
 import { Route as TenantPreviewAgeingReportRouteImport } from './routes/_tenant/preview.ageing.report'
 import { Route as TenantPreviewAgeingBatchRouteImport } from './routes/_tenant/preview.ageing.batch'
+import { Route as TenantPressRunsIdRouteImport } from './routes/_tenant/press.runs.$id'
+import { Route as TenantPressLinesIdRouteImport } from './routes/_tenant/press.lines.$id'
+import { Route as TenantPackIdLabelsRouteImport } from './routes/_tenant/pack_.$id_.labels'
 import { Route as TenantOrdersPlanIdRouteImport } from './routes/_tenant/orders.plan.$id'
 import { Route as PlatformAdminCompaniesIdRouteImport } from './routes/_platform/admin.companies.$id'
 import { Route as TenantDiesCopiesCopyIdIndexRouteImport } from './routes/_tenant/dies.copies.$copyId.index'
@@ -275,6 +286,11 @@ const TenantPreviewIndexRoute = TenantPreviewIndexRouteImport.update({
   path: '/preview/',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantPressIndexRoute = TenantPressIndexRouteImport.update({
+  id: '/press/',
+  path: '/press/',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantPackIndexRoute = TenantPackIndexRouteImport.update({
   id: '/pack/',
   path: '/pack/',
@@ -345,6 +361,16 @@ const TenantStoreExchangeRoute = TenantStoreExchangeRouteImport.update({
   path: '/store/exchange',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantStockYardsRoute = TenantStockYardsRouteImport.update({
+  id: '/stock/yards',
+  path: '/stock/yards',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantStockLengthsRoute = TenantStockLengthsRouteImport.update({
+  id: '/stock/lengths',
+  path: '/stock/lengths',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantStockBundlesRoute = TenantStockBundlesRouteImport.update({
   id: '/stock/bundles',
   path: '/stock/bundles',
@@ -378,6 +404,16 @@ const TenantPurchaseNewRoute = TenantPurchaseNewRouteImport.update({
 const TenantPurchaseIdRoute = TenantPurchaseIdRouteImport.update({
   id: '/purchase/$id',
   path: '/purchase/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPressSummaryRoute = TenantPressSummaryRouteImport.update({
+  id: '/press/summary',
+  path: '/press/summary',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPressReportRoute = TenantPressReportRouteImport.update({
+  id: '/press/report',
+  path: '/press/report',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantPackingListsIdRoute = TenantPackingListsIdRouteImport.update({
@@ -510,6 +546,11 @@ const TenantStoreItemsIndexRoute = TenantStoreItemsIndexRouteImport.update({
   path: '/store/items/',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantStockCountIndexRoute = TenantStockCountIndexRouteImport.update({
+  id: '/stock/count/',
+  path: '/stock/count/',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantPreviewPressIndexRoute = TenantPreviewPressIndexRouteImport.update({
   id: '/preview/press/',
   path: '/preview/press/',
@@ -550,6 +591,11 @@ const TenantPreviewAgeingIndexRoute =
     path: '/preview/ageing/',
     getParentRoute: () => TenantRoute,
   } as any)
+const TenantPressLinesIndexRoute = TenantPressLinesIndexRouteImport.update({
+  id: '/press/lines/',
+  path: '/press/lines/',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantOrdersPlanIndexRoute = TenantOrdersPlanIndexRouteImport.update({
   id: '/orders/plan/',
   path: '/orders/plan/',
@@ -569,6 +615,11 @@ const PlatformAdminCompaniesIndexRoute =
 const TenantStoreItemsIdRoute = TenantStoreItemsIdRouteImport.update({
   id: '/store/items/$id',
   path: '/store/items/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantStockCountIdRoute = TenantStockCountIdRouteImport.update({
+  id: '/stock/count/$id',
+  path: '/stock/count/$id',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantPreviewPressSummaryRoute =
@@ -686,6 +737,21 @@ const TenantPreviewAgeingBatchRoute =
     path: '/preview/ageing/batch',
     getParentRoute: () => TenantRoute,
   } as any)
+const TenantPressRunsIdRoute = TenantPressRunsIdRouteImport.update({
+  id: '/press/runs/$id',
+  path: '/press/runs/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPressLinesIdRoute = TenantPressLinesIdRouteImport.update({
+  id: '/press/lines/$id',
+  path: '/press/lines/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPackIdLabelsRoute = TenantPackIdLabelsRouteImport.update({
+  id: '/pack_/$id_/labels',
+  path: '/pack/$id/labels',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantOrdersPlanIdRoute = TenantOrdersPlanIdRouteImport.update({
   id: '/orders/plan/$id',
   path: '/orders/plan/$id',
@@ -761,6 +827,8 @@ export interface FileRoutesByFullPath {
   '/pack/$id': typeof TenantPackIdRoute
   '/pack/new': typeof TenantPackNewRoute
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/press/report': typeof TenantPressReportRoute
+  '/press/summary': typeof TenantPressSummaryRoute
   '/purchase/$id': typeof TenantPurchaseIdRoute
   '/purchase/new': typeof TenantPurchaseNewRoute
   '/receipts/$id': typeof TenantReceiptsIdRoute
@@ -768,6 +836,8 @@ export interface FileRoutesByFullPath {
   '/settings/members': typeof TenantSettingsMembersRoute
   '/stock/$dieId': typeof TenantStockDieIdRoute
   '/stock/bundles': typeof TenantStockBundlesRoute
+  '/stock/lengths': typeof TenantStockLengthsRoute
+  '/stock/yards': typeof TenantStockYardsRoute
   '/store/exchange': typeof TenantStoreExchangeRoute
   '/store/issue': typeof TenantStoreIssueRoute
   '/store/receive': typeof TenantStoreReceiveRoute
@@ -782,6 +852,7 @@ export interface FileRoutesByFullPath {
   '/masters/': typeof TenantMastersIndexRoute
   '/orders/': typeof TenantOrdersIndexRoute
   '/pack/': typeof TenantPackIndexRoute
+  '/press/': typeof TenantPressIndexRoute
   '/preview/': typeof TenantPreviewIndexRoute
   '/purchase/': typeof TenantPurchaseIndexRoute
   '/receipts/': typeof TenantReceiptsIndexRoute
@@ -791,6 +862,9 @@ export interface FileRoutesByFullPath {
   '/vendors/': typeof TenantVendorsIndexRoute
   '/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
   '/orders/plan/$id': typeof TenantOrdersPlanIdRoute
+  '/pack/$id/labels': typeof TenantPackIdLabelsRoute
+  '/press/lines/$id': typeof TenantPressLinesIdRoute
+  '/press/runs/$id': typeof TenantPressRunsIdRoute
   '/preview/ageing/batch': typeof TenantPreviewAgeingBatchRoute
   '/preview/ageing/report': typeof TenantPreviewAgeingReportRoute
   '/preview/die-room/card': typeof TenantPreviewDieRoomCardRoute
@@ -811,10 +885,12 @@ export interface FileRoutesByFullPath {
   '/preview/press/console': typeof TenantPreviewPressConsoleRoute
   '/preview/press/report': typeof TenantPreviewPressReportRoute
   '/preview/press/summary': typeof TenantPreviewPressSummaryRoute
+  '/stock/count/$id': typeof TenantStockCountIdRoute
   '/store/items/$id': typeof TenantStoreItemsIdRoute
   '/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
   '/admin/spool/': typeof PlatformAdminSpoolIndexRoute
   '/orders/plan/': typeof TenantOrdersPlanIndexRoute
+  '/press/lines/': typeof TenantPressLinesIndexRoute
   '/preview/ageing/': typeof TenantPreviewAgeingIndexRoute
   '/preview/die-room/': typeof TenantPreviewDieRoomIndexRoute
   '/preview/floor/': typeof TenantPreviewFloorIndexRoute
@@ -822,6 +898,7 @@ export interface FileRoutesByFullPath {
   '/preview/orders/': typeof TenantPreviewOrdersIndexRoute
   '/preview/platform/': typeof TenantPreviewPlatformIndexRoute
   '/preview/press/': typeof TenantPreviewPressIndexRoute
+  '/stock/count/': typeof TenantStockCountIndexRoute
   '/store/items/': typeof TenantStoreItemsIndexRoute
   '/dies/copies/$copyId/lift': typeof TenantDiesCopiesCopyIdLiftRoute
   '/dies/$id/bands/new': typeof TenantDiesIdBandsNewRoute
@@ -873,6 +950,8 @@ export interface FileRoutesByTo {
   '/pack/$id': typeof TenantPackIdRoute
   '/pack/new': typeof TenantPackNewRoute
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/press/report': typeof TenantPressReportRoute
+  '/press/summary': typeof TenantPressSummaryRoute
   '/purchase/$id': typeof TenantPurchaseIdRoute
   '/purchase/new': typeof TenantPurchaseNewRoute
   '/receipts/$id': typeof TenantReceiptsIdRoute
@@ -880,6 +959,8 @@ export interface FileRoutesByTo {
   '/settings/members': typeof TenantSettingsMembersRoute
   '/stock/$dieId': typeof TenantStockDieIdRoute
   '/stock/bundles': typeof TenantStockBundlesRoute
+  '/stock/lengths': typeof TenantStockLengthsRoute
+  '/stock/yards': typeof TenantStockYardsRoute
   '/store/exchange': typeof TenantStoreExchangeRoute
   '/store/issue': typeof TenantStoreIssueRoute
   '/store/receive': typeof TenantStoreReceiveRoute
@@ -894,6 +975,7 @@ export interface FileRoutesByTo {
   '/masters': typeof TenantMastersIndexRoute
   '/orders': typeof TenantOrdersIndexRoute
   '/pack': typeof TenantPackIndexRoute
+  '/press': typeof TenantPressIndexRoute
   '/preview': typeof TenantPreviewIndexRoute
   '/purchase': typeof TenantPurchaseIndexRoute
   '/receipts': typeof TenantReceiptsIndexRoute
@@ -903,6 +985,9 @@ export interface FileRoutesByTo {
   '/vendors': typeof TenantVendorsIndexRoute
   '/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
   '/orders/plan/$id': typeof TenantOrdersPlanIdRoute
+  '/pack/$id/labels': typeof TenantPackIdLabelsRoute
+  '/press/lines/$id': typeof TenantPressLinesIdRoute
+  '/press/runs/$id': typeof TenantPressRunsIdRoute
   '/preview/ageing/batch': typeof TenantPreviewAgeingBatchRoute
   '/preview/ageing/report': typeof TenantPreviewAgeingReportRoute
   '/preview/die-room/card': typeof TenantPreviewDieRoomCardRoute
@@ -923,10 +1008,12 @@ export interface FileRoutesByTo {
   '/preview/press/console': typeof TenantPreviewPressConsoleRoute
   '/preview/press/report': typeof TenantPreviewPressReportRoute
   '/preview/press/summary': typeof TenantPreviewPressSummaryRoute
+  '/stock/count/$id': typeof TenantStockCountIdRoute
   '/store/items/$id': typeof TenantStoreItemsIdRoute
   '/admin/companies': typeof PlatformAdminCompaniesIndexRoute
   '/admin/spool': typeof PlatformAdminSpoolIndexRoute
   '/orders/plan': typeof TenantOrdersPlanIndexRoute
+  '/press/lines': typeof TenantPressLinesIndexRoute
   '/preview/ageing': typeof TenantPreviewAgeingIndexRoute
   '/preview/die-room': typeof TenantPreviewDieRoomIndexRoute
   '/preview/floor': typeof TenantPreviewFloorIndexRoute
@@ -934,6 +1021,7 @@ export interface FileRoutesByTo {
   '/preview/orders': typeof TenantPreviewOrdersIndexRoute
   '/preview/platform': typeof TenantPreviewPlatformIndexRoute
   '/preview/press': typeof TenantPreviewPressIndexRoute
+  '/stock/count': typeof TenantStockCountIndexRoute
   '/store/items': typeof TenantStoreItemsIndexRoute
   '/dies/copies/$copyId/lift': typeof TenantDiesCopiesCopyIdLiftRoute
   '/dies/$id/bands/new': typeof TenantDiesIdBandsNewRoute
@@ -990,6 +1078,8 @@ export interface FileRoutesById {
   '/_tenant/pack/$id': typeof TenantPackIdRoute
   '/_tenant/pack/new': typeof TenantPackNewRoute
   '/_tenant/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/_tenant/press/report': typeof TenantPressReportRoute
+  '/_tenant/press/summary': typeof TenantPressSummaryRoute
   '/_tenant/purchase/$id': typeof TenantPurchaseIdRoute
   '/_tenant/purchase/new': typeof TenantPurchaseNewRoute
   '/_tenant/receipts/$id': typeof TenantReceiptsIdRoute
@@ -997,6 +1087,8 @@ export interface FileRoutesById {
   '/_tenant/settings/members': typeof TenantSettingsMembersRoute
   '/_tenant/stock/$dieId': typeof TenantStockDieIdRoute
   '/_tenant/stock/bundles': typeof TenantStockBundlesRoute
+  '/_tenant/stock/lengths': typeof TenantStockLengthsRoute
+  '/_tenant/stock/yards': typeof TenantStockYardsRoute
   '/_tenant/store/exchange': typeof TenantStoreExchangeRoute
   '/_tenant/store/issue': typeof TenantStoreIssueRoute
   '/_tenant/store/receive': typeof TenantStoreReceiveRoute
@@ -1011,6 +1103,7 @@ export interface FileRoutesById {
   '/_tenant/masters/': typeof TenantMastersIndexRoute
   '/_tenant/orders/': typeof TenantOrdersIndexRoute
   '/_tenant/pack/': typeof TenantPackIndexRoute
+  '/_tenant/press/': typeof TenantPressIndexRoute
   '/_tenant/preview/': typeof TenantPreviewIndexRoute
   '/_tenant/purchase/': typeof TenantPurchaseIndexRoute
   '/_tenant/receipts/': typeof TenantReceiptsIndexRoute
@@ -1020,6 +1113,9 @@ export interface FileRoutesById {
   '/_tenant/vendors/': typeof TenantVendorsIndexRoute
   '/_platform/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
   '/_tenant/orders/plan/$id': typeof TenantOrdersPlanIdRoute
+  '/_tenant/pack_/$id_/labels': typeof TenantPackIdLabelsRoute
+  '/_tenant/press/lines/$id': typeof TenantPressLinesIdRoute
+  '/_tenant/press/runs/$id': typeof TenantPressRunsIdRoute
   '/_tenant/preview/ageing/batch': typeof TenantPreviewAgeingBatchRoute
   '/_tenant/preview/ageing/report': typeof TenantPreviewAgeingReportRoute
   '/_tenant/preview/die-room/card': typeof TenantPreviewDieRoomCardRoute
@@ -1040,10 +1136,12 @@ export interface FileRoutesById {
   '/_tenant/preview/press/console': typeof TenantPreviewPressConsoleRoute
   '/_tenant/preview/press/report': typeof TenantPreviewPressReportRoute
   '/_tenant/preview/press/summary': typeof TenantPreviewPressSummaryRoute
+  '/_tenant/stock/count/$id': typeof TenantStockCountIdRoute
   '/_tenant/store/items/$id': typeof TenantStoreItemsIdRoute
   '/_platform/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
   '/_platform/admin/spool/': typeof PlatformAdminSpoolIndexRoute
   '/_tenant/orders/plan/': typeof TenantOrdersPlanIndexRoute
+  '/_tenant/press/lines/': typeof TenantPressLinesIndexRoute
   '/_tenant/preview/ageing/': typeof TenantPreviewAgeingIndexRoute
   '/_tenant/preview/die-room/': typeof TenantPreviewDieRoomIndexRoute
   '/_tenant/preview/floor/': typeof TenantPreviewFloorIndexRoute
@@ -1051,6 +1149,7 @@ export interface FileRoutesById {
   '/_tenant/preview/orders/': typeof TenantPreviewOrdersIndexRoute
   '/_tenant/preview/platform/': typeof TenantPreviewPlatformIndexRoute
   '/_tenant/preview/press/': typeof TenantPreviewPressIndexRoute
+  '/_tenant/stock/count/': typeof TenantStockCountIndexRoute
   '/_tenant/store/items/': typeof TenantStoreItemsIndexRoute
   '/_tenant/dies/copies/$copyId/lift': typeof TenantDiesCopiesCopyIdLiftRoute
   '/_tenant/dies_/$id/bands/new': typeof TenantDiesIdBandsNewRoute
@@ -1104,6 +1203,8 @@ export interface FileRouteTypes {
     | '/pack/$id'
     | '/pack/new'
     | '/packing-lists/$id'
+    | '/press/report'
+    | '/press/summary'
     | '/purchase/$id'
     | '/purchase/new'
     | '/receipts/$id'
@@ -1111,6 +1212,8 @@ export interface FileRouteTypes {
     | '/settings/members'
     | '/stock/$dieId'
     | '/stock/bundles'
+    | '/stock/lengths'
+    | '/stock/yards'
     | '/store/exchange'
     | '/store/issue'
     | '/store/receive'
@@ -1125,6 +1228,7 @@ export interface FileRouteTypes {
     | '/masters/'
     | '/orders/'
     | '/pack/'
+    | '/press/'
     | '/preview/'
     | '/purchase/'
     | '/receipts/'
@@ -1134,6 +1238,9 @@ export interface FileRouteTypes {
     | '/vendors/'
     | '/admin/companies/$id'
     | '/orders/plan/$id'
+    | '/pack/$id/labels'
+    | '/press/lines/$id'
+    | '/press/runs/$id'
     | '/preview/ageing/batch'
     | '/preview/ageing/report'
     | '/preview/die-room/card'
@@ -1154,10 +1261,12 @@ export interface FileRouteTypes {
     | '/preview/press/console'
     | '/preview/press/report'
     | '/preview/press/summary'
+    | '/stock/count/$id'
     | '/store/items/$id'
     | '/admin/companies/'
     | '/admin/spool/'
     | '/orders/plan/'
+    | '/press/lines/'
     | '/preview/ageing/'
     | '/preview/die-room/'
     | '/preview/floor/'
@@ -1165,6 +1274,7 @@ export interface FileRouteTypes {
     | '/preview/orders/'
     | '/preview/platform/'
     | '/preview/press/'
+    | '/stock/count/'
     | '/store/items/'
     | '/dies/copies/$copyId/lift'
     | '/dies/$id/bands/new'
@@ -1216,6 +1326,8 @@ export interface FileRouteTypes {
     | '/pack/$id'
     | '/pack/new'
     | '/packing-lists/$id'
+    | '/press/report'
+    | '/press/summary'
     | '/purchase/$id'
     | '/purchase/new'
     | '/receipts/$id'
@@ -1223,6 +1335,8 @@ export interface FileRouteTypes {
     | '/settings/members'
     | '/stock/$dieId'
     | '/stock/bundles'
+    | '/stock/lengths'
+    | '/stock/yards'
     | '/store/exchange'
     | '/store/issue'
     | '/store/receive'
@@ -1237,6 +1351,7 @@ export interface FileRouteTypes {
     | '/masters'
     | '/orders'
     | '/pack'
+    | '/press'
     | '/preview'
     | '/purchase'
     | '/receipts'
@@ -1246,6 +1361,9 @@ export interface FileRouteTypes {
     | '/vendors'
     | '/admin/companies/$id'
     | '/orders/plan/$id'
+    | '/pack/$id/labels'
+    | '/press/lines/$id'
+    | '/press/runs/$id'
     | '/preview/ageing/batch'
     | '/preview/ageing/report'
     | '/preview/die-room/card'
@@ -1266,10 +1384,12 @@ export interface FileRouteTypes {
     | '/preview/press/console'
     | '/preview/press/report'
     | '/preview/press/summary'
+    | '/stock/count/$id'
     | '/store/items/$id'
     | '/admin/companies'
     | '/admin/spool'
     | '/orders/plan'
+    | '/press/lines'
     | '/preview/ageing'
     | '/preview/die-room'
     | '/preview/floor'
@@ -1277,6 +1397,7 @@ export interface FileRouteTypes {
     | '/preview/orders'
     | '/preview/platform'
     | '/preview/press'
+    | '/stock/count'
     | '/store/items'
     | '/dies/copies/$copyId/lift'
     | '/dies/$id/bands/new'
@@ -1332,6 +1453,8 @@ export interface FileRouteTypes {
     | '/_tenant/pack/$id'
     | '/_tenant/pack/new'
     | '/_tenant/packing-lists/$id'
+    | '/_tenant/press/report'
+    | '/_tenant/press/summary'
     | '/_tenant/purchase/$id'
     | '/_tenant/purchase/new'
     | '/_tenant/receipts/$id'
@@ -1339,6 +1462,8 @@ export interface FileRouteTypes {
     | '/_tenant/settings/members'
     | '/_tenant/stock/$dieId'
     | '/_tenant/stock/bundles'
+    | '/_tenant/stock/lengths'
+    | '/_tenant/stock/yards'
     | '/_tenant/store/exchange'
     | '/_tenant/store/issue'
     | '/_tenant/store/receive'
@@ -1353,6 +1478,7 @@ export interface FileRouteTypes {
     | '/_tenant/masters/'
     | '/_tenant/orders/'
     | '/_tenant/pack/'
+    | '/_tenant/press/'
     | '/_tenant/preview/'
     | '/_tenant/purchase/'
     | '/_tenant/receipts/'
@@ -1362,6 +1488,9 @@ export interface FileRouteTypes {
     | '/_tenant/vendors/'
     | '/_platform/admin/companies/$id'
     | '/_tenant/orders/plan/$id'
+    | '/_tenant/pack_/$id_/labels'
+    | '/_tenant/press/lines/$id'
+    | '/_tenant/press/runs/$id'
     | '/_tenant/preview/ageing/batch'
     | '/_tenant/preview/ageing/report'
     | '/_tenant/preview/die-room/card'
@@ -1382,10 +1511,12 @@ export interface FileRouteTypes {
     | '/_tenant/preview/press/console'
     | '/_tenant/preview/press/report'
     | '/_tenant/preview/press/summary'
+    | '/_tenant/stock/count/$id'
     | '/_tenant/store/items/$id'
     | '/_platform/admin/companies/'
     | '/_platform/admin/spool/'
     | '/_tenant/orders/plan/'
+    | '/_tenant/press/lines/'
     | '/_tenant/preview/ageing/'
     | '/_tenant/preview/die-room/'
     | '/_tenant/preview/floor/'
@@ -1393,6 +1524,7 @@ export interface FileRouteTypes {
     | '/_tenant/preview/orders/'
     | '/_tenant/preview/platform/'
     | '/_tenant/preview/press/'
+    | '/_tenant/stock/count/'
     | '/_tenant/store/items/'
     | '/_tenant/dies/copies/$copyId/lift'
     | '/_tenant/dies_/$id/bands/new'
@@ -1627,6 +1759,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantPreviewIndexRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/press/': {
+      id: '/_tenant/press/'
+      path: '/press'
+      fullPath: '/press/'
+      preLoaderRoute: typeof TenantPressIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/pack/': {
       id: '/_tenant/pack/'
       path: '/pack'
@@ -1725,6 +1864,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantStoreExchangeRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/stock/yards': {
+      id: '/_tenant/stock/yards'
+      path: '/stock/yards'
+      fullPath: '/stock/yards'
+      preLoaderRoute: typeof TenantStockYardsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/stock/lengths': {
+      id: '/_tenant/stock/lengths'
+      path: '/stock/lengths'
+      fullPath: '/stock/lengths'
+      preLoaderRoute: typeof TenantStockLengthsRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/stock/bundles': {
       id: '/_tenant/stock/bundles'
       path: '/stock/bundles'
@@ -1772,6 +1925,20 @@ declare module '@tanstack/react-router' {
       path: '/purchase/$id'
       fullPath: '/purchase/$id'
       preLoaderRoute: typeof TenantPurchaseIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/press/summary': {
+      id: '/_tenant/press/summary'
+      path: '/press/summary'
+      fullPath: '/press/summary'
+      preLoaderRoute: typeof TenantPressSummaryRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/press/report': {
+      id: '/_tenant/press/report'
+      path: '/press/report'
+      fullPath: '/press/report'
+      preLoaderRoute: typeof TenantPressReportRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/packing-lists/$id': {
@@ -1956,6 +2123,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantStoreItemsIndexRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/stock/count/': {
+      id: '/_tenant/stock/count/'
+      path: '/stock/count'
+      fullPath: '/stock/count/'
+      preLoaderRoute: typeof TenantStockCountIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/preview/press/': {
       id: '/_tenant/preview/press/'
       path: '/preview/press'
@@ -2005,6 +2179,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantPreviewAgeingIndexRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/press/lines/': {
+      id: '/_tenant/press/lines/'
+      path: '/press/lines'
+      fullPath: '/press/lines/'
+      preLoaderRoute: typeof TenantPressLinesIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/orders/plan/': {
       id: '/_tenant/orders/plan/'
       path: '/orders/plan'
@@ -2031,6 +2212,13 @@ declare module '@tanstack/react-router' {
       path: '/store/items/$id'
       fullPath: '/store/items/$id'
       preLoaderRoute: typeof TenantStoreItemsIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/stock/count/$id': {
+      id: '/_tenant/stock/count/$id'
+      path: '/stock/count/$id'
+      fullPath: '/stock/count/$id'
+      preLoaderRoute: typeof TenantStockCountIdRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/preview/press/summary': {
@@ -2171,6 +2359,27 @@ declare module '@tanstack/react-router' {
       path: '/preview/ageing/batch'
       fullPath: '/preview/ageing/batch'
       preLoaderRoute: typeof TenantPreviewAgeingBatchRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/press/runs/$id': {
+      id: '/_tenant/press/runs/$id'
+      path: '/press/runs/$id'
+      fullPath: '/press/runs/$id'
+      preLoaderRoute: typeof TenantPressRunsIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/press/lines/$id': {
+      id: '/_tenant/press/lines/$id'
+      path: '/press/lines/$id'
+      fullPath: '/press/lines/$id'
+      preLoaderRoute: typeof TenantPressLinesIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/pack_/$id_/labels': {
+      id: '/_tenant/pack_/$id_/labels'
+      path: '/pack/$id/labels'
+      fullPath: '/pack/$id/labels'
+      preLoaderRoute: typeof TenantPackIdLabelsRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/orders/plan/$id': {
@@ -2322,12 +2531,16 @@ interface TenantRouteChildren {
   TenantPackIdRoute: typeof TenantPackIdRoute
   TenantPackNewRoute: typeof TenantPackNewRoute
   TenantPackingListsIdRoute: typeof TenantPackingListsIdRoute
+  TenantPressReportRoute: typeof TenantPressReportRoute
+  TenantPressSummaryRoute: typeof TenantPressSummaryRoute
   TenantPurchaseIdRoute: typeof TenantPurchaseIdRoute
   TenantPurchaseNewRoute: typeof TenantPurchaseNewRoute
   TenantReceiptsIdRoute: typeof TenantReceiptsIdRoute
   TenantReceiptsNewRoute: typeof TenantReceiptsNewRoute
   TenantStockDieIdRoute: typeof TenantStockDieIdRoute
   TenantStockBundlesRoute: typeof TenantStockBundlesRoute
+  TenantStockLengthsRoute: typeof TenantStockLengthsRoute
+  TenantStockYardsRoute: typeof TenantStockYardsRoute
   TenantStoreExchangeRoute: typeof TenantStoreExchangeRoute
   TenantStoreIssueRoute: typeof TenantStoreIssueRoute
   TenantStoreReceiveRoute: typeof TenantStoreReceiveRoute
@@ -2341,6 +2554,7 @@ interface TenantRouteChildren {
   TenantMastersIndexRoute: typeof TenantMastersIndexRoute
   TenantOrdersIndexRoute: typeof TenantOrdersIndexRoute
   TenantPackIndexRoute: typeof TenantPackIndexRoute
+  TenantPressIndexRoute: typeof TenantPressIndexRoute
   TenantPreviewIndexRoute: typeof TenantPreviewIndexRoute
   TenantPurchaseIndexRoute: typeof TenantPurchaseIndexRoute
   TenantReceiptsIndexRoute: typeof TenantReceiptsIndexRoute
@@ -2349,6 +2563,9 @@ interface TenantRouteChildren {
   TenantStoreIndexRoute: typeof TenantStoreIndexRoute
   TenantVendorsIndexRoute: typeof TenantVendorsIndexRoute
   TenantOrdersPlanIdRoute: typeof TenantOrdersPlanIdRoute
+  TenantPackIdLabelsRoute: typeof TenantPackIdLabelsRoute
+  TenantPressLinesIdRoute: typeof TenantPressLinesIdRoute
+  TenantPressRunsIdRoute: typeof TenantPressRunsIdRoute
   TenantPreviewAgeingBatchRoute: typeof TenantPreviewAgeingBatchRoute
   TenantPreviewAgeingReportRoute: typeof TenantPreviewAgeingReportRoute
   TenantPreviewDieRoomCardRoute: typeof TenantPreviewDieRoomCardRoute
@@ -2369,8 +2586,10 @@ interface TenantRouteChildren {
   TenantPreviewPressConsoleRoute: typeof TenantPreviewPressConsoleRoute
   TenantPreviewPressReportRoute: typeof TenantPreviewPressReportRoute
   TenantPreviewPressSummaryRoute: typeof TenantPreviewPressSummaryRoute
+  TenantStockCountIdRoute: typeof TenantStockCountIdRoute
   TenantStoreItemsIdRoute: typeof TenantStoreItemsIdRoute
   TenantOrdersPlanIndexRoute: typeof TenantOrdersPlanIndexRoute
+  TenantPressLinesIndexRoute: typeof TenantPressLinesIndexRoute
   TenantPreviewAgeingIndexRoute: typeof TenantPreviewAgeingIndexRoute
   TenantPreviewDieRoomIndexRoute: typeof TenantPreviewDieRoomIndexRoute
   TenantPreviewFloorIndexRoute: typeof TenantPreviewFloorIndexRoute
@@ -2378,6 +2597,7 @@ interface TenantRouteChildren {
   TenantPreviewOrdersIndexRoute: typeof TenantPreviewOrdersIndexRoute
   TenantPreviewPlatformIndexRoute: typeof TenantPreviewPlatformIndexRoute
   TenantPreviewPressIndexRoute: typeof TenantPreviewPressIndexRoute
+  TenantStockCountIndexRoute: typeof TenantStockCountIndexRoute
   TenantStoreItemsIndexRoute: typeof TenantStoreItemsIndexRoute
   TenantDiesCopiesCopyIdLiftRoute: typeof TenantDiesCopiesCopyIdLiftRoute
   TenantDiesIdBandsNewRoute: typeof TenantDiesIdBandsNewRoute
@@ -2409,12 +2629,16 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPackIdRoute: TenantPackIdRoute,
   TenantPackNewRoute: TenantPackNewRoute,
   TenantPackingListsIdRoute: TenantPackingListsIdRoute,
+  TenantPressReportRoute: TenantPressReportRoute,
+  TenantPressSummaryRoute: TenantPressSummaryRoute,
   TenantPurchaseIdRoute: TenantPurchaseIdRoute,
   TenantPurchaseNewRoute: TenantPurchaseNewRoute,
   TenantReceiptsIdRoute: TenantReceiptsIdRoute,
   TenantReceiptsNewRoute: TenantReceiptsNewRoute,
   TenantStockDieIdRoute: TenantStockDieIdRoute,
   TenantStockBundlesRoute: TenantStockBundlesRoute,
+  TenantStockLengthsRoute: TenantStockLengthsRoute,
+  TenantStockYardsRoute: TenantStockYardsRoute,
   TenantStoreExchangeRoute: TenantStoreExchangeRoute,
   TenantStoreIssueRoute: TenantStoreIssueRoute,
   TenantStoreReceiveRoute: TenantStoreReceiveRoute,
@@ -2428,6 +2652,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantMastersIndexRoute: TenantMastersIndexRoute,
   TenantOrdersIndexRoute: TenantOrdersIndexRoute,
   TenantPackIndexRoute: TenantPackIndexRoute,
+  TenantPressIndexRoute: TenantPressIndexRoute,
   TenantPreviewIndexRoute: TenantPreviewIndexRoute,
   TenantPurchaseIndexRoute: TenantPurchaseIndexRoute,
   TenantReceiptsIndexRoute: TenantReceiptsIndexRoute,
@@ -2436,6 +2661,9 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantStoreIndexRoute: TenantStoreIndexRoute,
   TenantVendorsIndexRoute: TenantVendorsIndexRoute,
   TenantOrdersPlanIdRoute: TenantOrdersPlanIdRoute,
+  TenantPackIdLabelsRoute: TenantPackIdLabelsRoute,
+  TenantPressLinesIdRoute: TenantPressLinesIdRoute,
+  TenantPressRunsIdRoute: TenantPressRunsIdRoute,
   TenantPreviewAgeingBatchRoute: TenantPreviewAgeingBatchRoute,
   TenantPreviewAgeingReportRoute: TenantPreviewAgeingReportRoute,
   TenantPreviewDieRoomCardRoute: TenantPreviewDieRoomCardRoute,
@@ -2456,8 +2684,10 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPreviewPressConsoleRoute: TenantPreviewPressConsoleRoute,
   TenantPreviewPressReportRoute: TenantPreviewPressReportRoute,
   TenantPreviewPressSummaryRoute: TenantPreviewPressSummaryRoute,
+  TenantStockCountIdRoute: TenantStockCountIdRoute,
   TenantStoreItemsIdRoute: TenantStoreItemsIdRoute,
   TenantOrdersPlanIndexRoute: TenantOrdersPlanIndexRoute,
+  TenantPressLinesIndexRoute: TenantPressLinesIndexRoute,
   TenantPreviewAgeingIndexRoute: TenantPreviewAgeingIndexRoute,
   TenantPreviewDieRoomIndexRoute: TenantPreviewDieRoomIndexRoute,
   TenantPreviewFloorIndexRoute: TenantPreviewFloorIndexRoute,
@@ -2465,6 +2695,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPreviewOrdersIndexRoute: TenantPreviewOrdersIndexRoute,
   TenantPreviewPlatformIndexRoute: TenantPreviewPlatformIndexRoute,
   TenantPreviewPressIndexRoute: TenantPreviewPressIndexRoute,
+  TenantStockCountIndexRoute: TenantStockCountIndexRoute,
   TenantStoreItemsIndexRoute: TenantStoreItemsIndexRoute,
   TenantDiesCopiesCopyIdLiftRoute: TenantDiesCopiesCopyIdLiftRoute,
   TenantDiesIdBandsNewRoute: TenantDiesIdBandsNewRoute,

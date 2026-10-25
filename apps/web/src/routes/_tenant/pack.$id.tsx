@@ -14,10 +14,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Printer } from "lucide-react";
 import { useMemo } from "react";
 
+import { VerdictChip } from "@/features/pack/bundles-step";
 import { packedWhen } from "@/features/pack/format";
-import { countOutsideRange } from "@/features/pack/pack-math";
-import { bundleRange, formatK12, lengthUnitOf, RangeChip, timezoneOf } from "@/features/pack/pack-ui";
-import { PrintPanel } from "@/features/pack/print-panel";
+import { kg12Text, type LineVerdict } from "@/features/pack/line-preview";
+import { lengthUnitOf, timezoneOf } from "@/features/pack/pack-ui";
+import { partyNoLabel } from "@/features/pack/party";
+import { LabelFallback, PrintPanel } from "@/features/pack/print-panel";
 import { useCanPrintLabels, usePrintQueue } from "@/features/pack/use-print-labels";
 import { useLocationCodes } from "@/features/pack/use-yards";
 import { Can } from "@/shared/components/can";
@@ -32,12 +34,16 @@ export const Route = createFileRoute("/_tenant/pack/$id")({
 type SessionBundle = {
   id: string;
   serial: string;
+  partyNo: string | null;
   status: BundleStatus;
   quantity: number;
   weightG: number;
   lengthMm: number;
   poNumber: string | null;
   locationId: string | null;
+  /** The server's band verdict (D15): the same one `/b/$serial` and the stock lists show. */
+  kgPer12ftMilli: number | null;
+  band: { position: LineVerdict["position"] };
 };
 
 const STATUS_ORDER: BundleStatus[] = ["available", "reserved", "dispatched", "void"];
@@ -51,7 +57,7 @@ function PackSession() {
   const unit = lengthUnitOf(me?.company?.settings);
   const timeZone = timezoneOf(me?.company?.settings);
   const session = useQuery(trpc.bundle.getGroup.queryOptions({ id }));
-  const { canPrint } = useCanPrintLabels();
+  const { canPrint, checking } = useCanPrintLabels();
   const queue = usePrintQueue(id);
   const locationCodes = useLocationCodes();
 
@@ -62,6 +68,8 @@ function PackSession() {
     [data?.bundles],
   );
   const die = data?.die ?? null;
+  // Party numbers show only when they differ from the plant serial (D12).
+  const hasParty = useMemo(() => bundles.some((b) => partyNoLabel(b) !== null), [bundles]);
 
   const printable = useMemo(
     () => bundles.filter((b) => b.status !== "void").map((b) => ({ bundleId: b.id, serial: b.serial })),
@@ -78,6 +86,15 @@ function PackSession() {
         header: t("stock.columns.serial"),
         cell: (b) => <span className="font-mono font-semibold whitespace-nowrap">{b.serial}</span>,
       },
+      ...(hasParty
+        ? [
+            {
+              key: "party",
+              header: t("pack.partyNo"),
+              cell: (b: SessionBundle) => <span className="font-mono whitespace-nowrap">{partyNoLabel(b) ?? ""}</span>,
+            },
+          ]
+        : []),
       {
         key: "status",
         header: t("stock.columns.status"),
@@ -110,19 +127,13 @@ function PackSession() {
         key: "k12",
         header: t("stock.columns.kgPer12ft"),
         align: "end",
-        cell: (b) => {
-          const { k } = bundleRange({ weightG: b.weightG, pieces: b.quantity, lengthMm: b.lengthMm }, die);
-          return <span className="font-mono tabular-nums">{k !== null ? formatK12(k) : ""}</span>;
-        },
+        cell: (b) => <span className="font-mono tabular-nums">{kg12Text(b.kgPer12ftMilli) ?? ""}</span>,
       },
       {
         // Shown on phones too: an amber bundle is what a floor check looks for.
         key: "range",
         header: t("pack.detail.rangeColumn"),
-        cell: (b) => {
-          const { verdict } = bundleRange({ weightG: b.weightG, pieces: b.quantity, lengthMm: b.lengthMm }, die);
-          return <RangeChip verdict={verdict} />;
-        },
+        cell: (b) => <VerdictChip verdict={b.band} />,
       },
     ];
     if (bundles.some((b) => b.poNumber)) {
@@ -154,7 +165,7 @@ function PackSession() {
       });
     }
     return cols;
-  }, [t, unit, die, bundles, mixedLength, canPrint, queue.run]);
+  }, [t, unit, bundles, mixedLength, hasParty, canPrint, queue.run]);
 
   // Only when there is nothing to show: a failed background refresh keeps the session on screen.
   if (session.isError && !data) {
@@ -188,7 +199,8 @@ function PackSession() {
   // Packed figures leave void bundles out (RP11); the status chips below still show them.
   const { bundles: totalBundles, pieces: totalPieces, weightG: totalWeightG } = data.totals;
   const lengths = new Set(bundles.map((b) => b.lengthMm));
-  const outsideRange = countOutsideRange(bundles, die);
+  // Out of the band, by the server's verdict; void bundles are not counted (RP11).
+  const outsideRange = bundles.filter((b) => b.status !== "void" && (b.band.position === "below" || b.band.position === "above")).length;
   // Where the bundles are now (packed into one yard; a later move can split them).
   const yards = new Set(bundles.flatMap((b) => (b.locationId ? [b.locationId] : [])));
   const when = packedWhen(group.createdAt, { timeZone, locale });
@@ -301,6 +313,7 @@ function PackSession() {
         </dl>
       </div>
 
+      {!canPrint && !checking && printable.length > 0 ? <LabelFallback groupId={group.id} /> : null}
       <PrintPanel state={queue} onRetry={() => void queue.retryFailed()} />
 
       <section aria-labelledby="pack-session-bundles" className="flex flex-col gap-2">

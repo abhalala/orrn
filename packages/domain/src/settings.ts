@@ -140,6 +140,39 @@ export const FLOOR_SETTINGS_DEFAULTS: FloorSettings = {
   castSeriesStart: null,
 };
 
+// ---------------------------------------------------------------------------
+// Thresholds (rank 31): drift bands, recovery bands, press balance warning
+// ---------------------------------------------------------------------------
+
+/** Why a thresholds edit is refused. Shared by the server and the settings form (one rule). */
+export type ThresholdError = "drift_range" | "drift_order" | "recovery_range" | "recovery_order" | "balance_range";
+
+const wholeBp = (v: number) => Number.isInteger(v) && v >= 0 && v <= 10_000;
+
+/**
+ * The rules for the thresholds a plant may set, in basis points (1 % = 100 bp, 0-100 % = 0-10,000):
+ * drift green limit < amber limit (E1: green up to 800 bp, amber up to 1000 bp, red above), recovery
+ * amber minimum < green minimum (E3: green at or above `greenMinBp`, amber at or above `amberMinBp`,
+ * red below), balance warning 0-100 %. Pass the values as they will be stored.
+ */
+export function validateThresholds(input: {
+  drift?: DriftBands;
+  recoveryBands?: RecoveryBands | null;
+  balanceWarnBp?: number;
+}): ThresholdError[] {
+  const out: ThresholdError[] = [];
+  if (input.drift) {
+    if (!wholeBp(input.drift.greenMaxBp) || !wholeBp(input.drift.amberMaxBp)) out.push("drift_range");
+    else if (input.drift.greenMaxBp >= input.drift.amberMaxBp) out.push("drift_order");
+  }
+  if (input.recoveryBands) {
+    if (!wholeBp(input.recoveryBands.greenMinBp) || !wholeBp(input.recoveryBands.amberMinBp)) out.push("recovery_range");
+    else if (input.recoveryBands.amberMinBp >= input.recoveryBands.greenMinBp) out.push("recovery_order");
+  }
+  if (input.balanceWarnBp !== undefined && !wholeBp(input.balanceWarnBp)) out.push("balance_range");
+  return out;
+}
+
 /** A valid `castSeriesStart` or null (month `YYYY-MM`, start 1 … 99,999). */
 export function readCastSeriesStart(v: unknown): CastSeriesStart | null {
   const o = obj(v);

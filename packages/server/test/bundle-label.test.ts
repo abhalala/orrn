@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildBundleLabelVariables } from "../src/lib/bundle-label";
+import { LABEL_VARIABLES } from "@orrn/domain";
+
+import { buildBundleLabelVariables, buildPackLabelVariables } from "../src/lib/bundle-label";
 
 type Args = Parameters<typeof buildBundleLabelVariables>[0];
 
@@ -34,7 +36,6 @@ describe("buildBundleLabelVariables", () => {
       quantity: "21",
       serialNumber: "BG-000001-B001",
       seriesName: "T",
-      uuid: "b1",
       weight: "52.4 kg",
       weight_each: "2.495",
       layout: "x1",
@@ -56,5 +57,19 @@ describe("cast placeholder", () => {
   test("is empty, never undefined, when there is no cast", () => {
     expect(buildBundleLabelVariables(args()).cast).toBe("");
     expect(buildBundleLabelVariables({ ...args(), castRow: null }).cast).toBe("");
+  });
+});
+
+describe("label contract (BACKLOG 54)", () => {
+  test("the variables a template gets are exactly @orrn/domain LABEL_VARIABLES, with no uuid", () => {
+    const base = buildBundleLabelVariables(args());
+    const pack = buildPackLabelVariables({
+      bundleRow: { serial: "26J4086", partyNo: null, bisStandard: null, cmlNo: null, showLogo: true },
+      qrUrl: "https://orrn.in/b/26J4086?c=fourcubes",
+    });
+    expect(Object.keys({ ...base, ...pack }).sort()).toEqual([...LABEL_VARIABLES].sort());
+    expect("uuid" in base).toBe(false);
+    // The QR names the number only, never the bundle's id.
+    expect(pack.qr).toBe("https://orrn.in/b/26J4086?c=fourcubes");
   });
 });

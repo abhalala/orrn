@@ -162,10 +162,10 @@ const LEGACY_ROLE_ACTIONS = {
   manager: LEGACY_ACTIONS.filter(
     (a) => !["member.invite", "member.updateRole", "member.remove", "settings.update"].includes(a),
   ),
+  // BACKLOG 51 (SAD §8.2, §O.6): the floor operator no longer voids (legacy `bundle.transition` dropped).
   operator: [
     "bundle.create",
     "bundle.update",
-    "bundle.transition",
     "dispatch.addBundle",
     "spool.list_printers",
     "spool.create_jobs",
@@ -188,8 +188,9 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   // Digest: packer + supervisor. Ruling RP3: also every legacy role that packs via
   // bundle.create (admin, manager, operator), so bundle.pack ≡ bundle.create for everyone.
   "bundle.pack": ["packer", "supervisor", "manager", "admin", "operator"],
-  // RP4: operator holds bundle.transition (legacy void) → also bundle.void.
-  "bundle.void": ["supervisor", "manager", "admin", "operator"],
+  // BACKLOG 51 (SAD §8.2, §O.6, Q29): a supervisor voids with a reason; the floor operator does not.
+  // The legacy void (bundle.transition) follows the same holders (RP4 pairs pinned in plant-roles.test.ts).
+  "bundle.void": ["supervisor", "manager", "admin"],
   "stock.move": ["operator", "packer", "supervisor", "office"],
   "stock.count": ["operator", "packer", "supervisor", "office"],
   // RP4: manager/admin hold dispatch.addBundle → also dispatch.scan.

@@ -11,9 +11,12 @@ import { Can } from "@/shared/components/can";
 
 import type { DieOption } from "./die-step";
 import { draftTotals } from "./pack-math";
-import { Measure, PackBar, RangeChip, bundleRange, formatK12, type RangeState } from "./pack-ui";
+import { kg12Text, type LineVerdict } from "./line-preview";
+import { Measure, PackBar, type RangeState } from "./pack-ui";
+import { VerdictChip } from "./bundles-step";
 import type { SaveErrorKind } from "./save-error";
 import type { PackDraft } from "./use-pack-draft";
+import { useCasts, useDieCopies, useLinesPreview, useOpenLines } from "./use-pack-server";
 
 type Props = {
   draft: PackDraft;
@@ -25,7 +28,7 @@ type Props = {
   yardCode: string | null;
   canPrint: boolean;
   saving: boolean;
-  saveError: SaveErrorKind | null;
+  saveError: { kind: SaveErrorKind; ownerName?: string | null } | null;
   /** The success moment: the totals block pops before the session page opens. */
   popped: boolean;
   onBack(): void;
@@ -45,15 +48,32 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
 ) {
   const { t } = useT();
   const totals = draftTotals(draft.bundles);
+  // The server's verdict for every bundle (one call): the same band rule the stock lists and /b use.
+  const lines = useMemo(
+    () => draft.bundles.map((b) => ({ lengthMm: b.lengthMm ?? draft.defaults.lengthMm, weightG: b.weightG, pcs: b.pieces })),
+    [draft.bundles, draft.defaults.lengthMm],
+  );
+  const preview = useLinesPreview(draft.dieId, draft.defaults.dieInstanceId, lines);
   const rows = useMemo(
     () =>
       draft.bundles.map((b, i) => {
         const lengthMm = b.lengthMm ?? draft.defaults.lengthMm;
-        return { n: i + 1, b, lengthMm, ...bundleRange({ ...b, lengthMm }, die) };
+        const verdict: LineVerdict | null = preview.verdicts[i] ?? null;
+        return { n: i + 1, b, lengthMm, k: verdict?.kgPer12ftMilli ?? null, verdict };
       }),
-    [draft.bundles, draft.defaults.lengthMm, die],
+    [draft.bundles, draft.defaults.lengthMm, preview.verdicts],
   );
-  const outside = rows.filter((r) => r.verdict === "below" || r.verdict === "above").length;
+  const outside = rows.filter((r) => r.verdict?.position === "below" || r.verdict?.position === "above").length;
+  const typedCount = draft.bundles.filter((b) => b.weightSource === "manual" && b.weightOverrideReason).length;
+  const rejectPcs = (draft.rejects ?? []).reduce((s, r) => s + r.pcs, 0);
+  const rejectG = (draft.rejects ?? []).reduce((s, r) => s + (r.weightG ?? 0), 0);
+  // Names for what the Source step chose (same cached queries as that step).
+  const copies = useDieCopies(draft.dieId);
+  const orderLines = useOpenLines(draft.dieId);
+  const casts = useCasts();
+  const copyCode = copies.data?.items.find((c) => c.id === draft.defaults.dieInstanceId)?.code ?? null;
+  const castNumber = casts.data?.items.find((c) => c.id === draft.defaults.castId)?.number ?? null;
+  const line = orderLines.data?.find((l) => l.lineId === draft.defaults.salesOrderLineId);
 
   return (
     <div ref={ref} className="flex flex-col gap-4">
@@ -107,7 +127,43 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
             <span className="font-semibold">{t("units.bundles", { count: totals.bundles })}</span>
           </Fact>
         )}
+        <Fact label={t("pack.forOrder")}>
+          {line ? (
+            <span className="font-mono font-semibold">{`${line.orderNumber}/${line.lineNo}`}</span>
+          ) : (
+            <span className="font-semibold">{t("pack.plantStock")}</span>
+          )}
+          {line ? <span className="ml-2 text-[13px] text-muted-foreground">{line.customerName}</span> : null}
+        </Fact>
+        {copyCode ? (
+          <Fact label={t("pack.source.copy")}>
+            <span className="font-mono font-semibold">{copyCode}</span>
+          </Fact>
+        ) : null}
+        {castNumber ? (
+          <Fact label={t("pack.source.cast")}>
+            <span className="font-mono font-semibold">{castNumber}</span>
+          </Fact>
+        ) : null}
+        <Fact label={t("pack.showLogo")}>
+          <span className="font-semibold">{draft.defaults.showLogo === false ? t("common.no") : t("common.yes")}</span>
+        </Fact>
       </dl>
+
+      {rejectPcs > 0 ? (
+        <p data-slot="review-rejects" className="m-0 rounded-card border border-border bg-card px-4 py-3 text-[15px] font-semibold">
+          {t("pack.reject.saved", { count: rejectPcs })}
+          <span className="font-normal text-muted-foreground">
+            {rejectG > 0 ? ` · ${t("pack.reject.atScrap", { kg: formatKgTotal(gToKg(rejectG)) })}` : ` · ${t("pack.reject.noWeight")}`}
+          </span>
+        </p>
+      ) : null}
+
+      {typedCount > 0 ? (
+        <p data-slot="review-typed" className="m-0 text-[13px] leading-5 text-muted-foreground">
+          {t("pack.scale.typedCount", { count: typedCount })}
+        </p>
+      ) : null}
 
       <section aria-labelledby="pack-review-list" className="flex flex-col gap-2">
         <h3 id="pack-review-list" className="m-0 text-[15px] font-semibold">
@@ -124,10 +180,10 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
                   <Measure value={String(r.b.pieces)} unit={t("units.pcs")} />
                   <span className="font-mono text-[14px] whitespace-nowrap">{formatLength(r.lengthMm, unit)}</span>
                   {r.k !== null ? (
-                    <Measure value={formatK12(r.k)} unit={t("units.kgPer12ft")} className="text-[14px]" />
+                    <Measure value={kg12Text(r.k) ?? ""} unit={t("units.kgPer12ft")} className="text-[14px]" />
                   ) : null}
                 </span>
-                <RangeChip verdict={r.verdict} state={rangeState} />
+                <VerdictChip verdict={r.verdict} />
               </li>
             ))}
           </ol>
@@ -168,9 +224,9 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
                   <td className="px-3 text-right font-mono tabular-nums">{r.b.pieces}</td>
                   <td className="px-3 font-mono whitespace-nowrap">{formatLength(r.lengthMm, unit)}</td>
                   <td className="px-3 font-mono break-all">{r.b.po ?? draft.defaults.po ?? ""}</td>
-                  <td className="px-3 text-right font-mono tabular-nums">{r.k !== null ? formatK12(r.k) : ""}</td>
+                  <td className="px-3 text-right font-mono tabular-nums">{r.k !== null ? (kg12Text(r.k) ?? "") : ""}</td>
                   <td className="pr-5 pl-3">
-                    <RangeChip verdict={r.verdict} state={rangeState} />
+                    <VerdictChip verdict={r.verdict} />
                   </td>
                 </tr>
               ))}
@@ -180,7 +236,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
       </section>
 
       {/* A failed save shows in the bar itself, right above Save: never under the bar or below a long list. */}
-      <PackBar notice={saveError ? <SaveErrorNotice kind={saveError} /> : null}>
+      <PackBar notice={saveError ? <SaveErrorNotice kind={saveError.kind} ownerName={saveError.ownerName ?? null} /> : null}>
         {/* Phones show "Back" so the bar stays one row; the name is still "Back to bundles". */}
         <Button
           variant="secondary"
@@ -203,7 +259,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
   );
 });
 
-function SaveErrorNotice({ kind }: { kind: SaveErrorKind }) {
+function SaveErrorNotice({ kind, ownerName }: { kind: SaveErrorKind; ownerName: string | null }) {
   const { t } = useT();
   const text =
     kind === "forbidden"
@@ -212,7 +268,21 @@ function SaveErrorNotice({ kind }: { kind: SaveErrorKind }) {
         ? t("pack.new.yardRequired")
         : kind === "unsure"
           ? t("pack.new.saveUnsure")
-          : t("pack.new.saveFailed");
+          : kind === "owned"
+            ? ownerName
+              ? t("pack.dieOwned", { name: ownerName })
+              : t("pack.dieOwnedOther")
+            : kind === "cast"
+              ? t("pack.new.saveCast")
+              : kind === "copy"
+                ? t("pack.new.saveCopy")
+                : kind === "reason"
+                  ? t("pack.new.saveReason")
+                  : kind === "scale"
+                    ? t("pack.new.saveScale")
+                    : kind === "order"
+                      ? t("pack.new.saveOrder")
+                      : t("pack.new.saveFailed");
   return (
     <div
       role="alert"

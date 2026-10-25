@@ -358,7 +358,8 @@ describe("bundle.getBySerial", () => {
     const byId = await caller.bundle.getBundle({ id: b!.id });
     expect(bySerial.bundle.id).toBe(b!.id);
     expect(bySerial).toEqual(byId);
-    expect(Object.keys(bySerial).sort()).toEqual(["activeDispatch", "band", "bundle", "die", "events", "group"]);
+    // The detail grew additively (location, copy, cast, order, packed-for, range) for /b (FP-PK-08, High 12).
+    expect(Object.keys(bySerial).sort()).toEqual(["activeDispatch", "band", "bundle", "cast", "die", "dieCopy", "events", "group", "location", "order", "packedFor", "range12ft"]);
   });
 
   test("other company's serial and unknown serials are NOT_FOUND", async () => {

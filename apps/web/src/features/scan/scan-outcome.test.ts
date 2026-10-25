@@ -1,7 +1,10 @@
 import { createI18n } from "@orrn/i18n";
 import { describe, expect, test } from "bun:test";
 
-import { addOutcome, blockMessage, rejectionMessage, renderScanMessage, scanErrorKey } from "./scan-outcome";
+import { SCAN_OUTCOMES } from "@orrn/server/lib/scan";
+import { SCAN_REFUSALS } from "@orrn/server/lib/scanRefusal";
+
+import { addOutcome, blockMessage, blockOf, blocksOf, rejectionMessage, renderScanMessage, resultOutcome, scanErrorKey, type ScanResultRow } from "./scan-outcome";
 
 const { t } = createI18n("en");
 const say = (reason: string) => renderScanMessage(t, rejectionMessage(reason));
@@ -68,7 +71,7 @@ describe("addOutcome", () => {
         { ...empty, unavailable: [{ serial: "A", reason: "x", code: "held", status: "reserved", heldBy: "D-0003" }] },
         "A",
       ),
-    ).toEqual({ kind: "rejected", serial: "A", message: { key: "scan.continuous.heldBy", vars: { code: "D-0003" } } });
+    ).toEqual({ kind: "rejected", serial: "A", message: { key: "scan.continuous.heldBy", vars: { code: "D-0003" } }, code: "held" });
   });
 });
 
@@ -83,5 +86,143 @@ describe("scanErrorKey", () => {
     expect(scanErrorKey({ data: { code: "FORBIDDEN" } }, "dispatch")).toBe("errors.forbidden");
     expect(scanErrorKey({ data: { code: "UNAUTHORIZED" } }, "lookup")).toBe("errors.sessionExpired");
     expect(scanErrorKey({ data: { code: "INTERNAL_SERVER_ERROR" } }, "lookup")).toBe("errors.generic");
+  });
+});
+
+describe("D12 refusals: every code in ORRN wording, in en and hi", () => {
+  const hi = createI18n("hi").t;
+  const sayBlock = (b: Parameters<typeof blockMessage>[0], tr = t) => renderScanMessage(tr, blockMessage(b));
+
+  test("unassigned, wrong customer and owned die name the customer or owner", () => {
+    expect(sayBlock({ reason: "x", code: "unassigned" })).toBe("Not on a sales order");
+    expect(sayBlock({ reason: "x", code: "wrong_customer", customerName: "Anshu Aluminium" })).toBe("Packed for Anshu Aluminium");
+    expect(sayBlock({ reason: "x", code: "wrong_customer", customerName: null })).toBe("Packed for another customer");
+    expect(sayBlock({ reason: "x", code: "owned_die", customerName: "KD Extrusion" })).toBe("Die belongs to KD Extrusion");
+    expect(sayBlock({ reason: "x", code: "owned_die" })).toBe("This die belongs to another customer");
+  });
+
+  test("ambiguous lists the numbers it could be", () => {
+    expect(sayBlock({ reason: "x", code: "ambiguous", candidates: ["26J1", "BG-000001-B001"] })).toBe(
+      "More than one bundle has this number: 26J1, BG-000001-B001",
+    );
+    expect(sayBlock({ reason: "x", code: "ambiguous" })).toBe("More than one bundle has this number. Scan its label.");
+  });
+
+  test("reallocation pending", () => {
+    expect(sayBlock({ reason: "x", code: "reallocation_pending" })).toBe("Waiting on a reallocation approval");
+  });
+
+  test("Hindi has words for every code (never the English sentence)", () => {
+    for (const code of ["unassigned", "wrong_customer", "owned_die", "ambiguous", "reallocation_pending", "held", "dispatched", "void"] as const) {
+      const said = sayBlock({ reason: "ENGLISH ONLY", code, customerName: "KD", candidates: ["A", "B"], heldBy: "D-1" }, hi);
+      expect(said).not.toBe("ENGLISH ONLY");
+      expect(said).toMatch(/[\u0900-\u097F]/);
+    }
+  });
+});
+
+describe("refusal details come from `refused`, which names the customer and the candidates", () => {
+  const empty = { added: [], alreadyInDispatch: [], notFound: [], unavailable: [] };
+  const refused = (over: object) => ({ serial: "26J4090", code: "wrong_customer" as const, reason: "Packed for Anshu", heldBy: null, customerName: "Anshu", candidates: [], ...over });
+
+  test("a refused row is merged into the unavailable one", () => {
+    const report = {
+      ...empty,
+      unavailable: [{ serial: "26J4090", reason: "Packed for Anshu", code: "wrong_customer" as const, status: "available" as const, heldBy: null }],
+      refused: [refused({})],
+    };
+    expect(blockOf(report, "26J4090")).toMatchObject({ code: "wrong_customer", customerName: "Anshu" });
+    expect(addOutcome(report, "26J4090")).toEqual({
+      kind: "rejected",
+      serial: "26J4090",
+      message: { key: "scan.continuous.wrongCustomer", vars: { name: "Anshu" } },
+      code: "wrong_customer",
+    });
+  });
+
+  test("an ambiguous code is reported as notFound for old clients but refused: show the candidates, not 'not found'", () => {
+    const report = {
+      ...empty,
+      notFound: ["26J1"],
+      refused: [{ serial: "26J1", code: "ambiguous" as const, reason: "Several", heldBy: null, customerName: null, candidates: ["26J1", "BG-000001-B001"] }],
+    };
+    const out = addOutcome(report, "26J1");
+    expect(out.kind).toBe("rejected");
+    expect(out).toMatchObject({ code: "ambiguous", candidates: ["26J1", "BG-000001-B001"] });
+  });
+
+  test("blocksOf lists each refused serial once", () => {
+    const report = {
+      ...empty,
+      unavailable: [{ serial: "A", reason: "r", code: "unassigned" as const, status: "available" as const, heldBy: null }],
+      refused: [refused({ serial: "A", code: "unassigned", customerName: null }), refused({ serial: "B", code: "owned_die", customerName: "KD" })],
+    };
+    expect(blocksOf(report).map((b) => [b.serial, b.code])).toEqual([
+      ["A", "unassigned"],
+      ["B", "owned_die"],
+    ]);
+  });
+});
+
+describe("every server scan outcome has a floor mapping (fails when the server adds an unmapped code)", () => {
+  const row = (outcome: ScanResultRow["outcome"]): ScanResultRow => ({
+    code: "BG-000001-B001",
+    outcome,
+    message: "ENGLISH ONLY",
+    bundleId: "b1",
+    serial: "BG-000001-B001",
+    heldBy: "D-0042",
+    customerName: "Anshu Aluminium",
+    orderNumber: "SO-12",
+    candidates: ["26J1", "26J2"],
+    note: null,
+  });
+
+  test("each SCAN_OUTCOMES code gives a kind, and every refusal a key in en, hi and gu", () => {
+    for (const outcome of SCAN_OUTCOMES) {
+      const out = resultOutcome(row(outcome));
+      if (outcome === "added") expect(out.kind).toBe("added");
+      else if (outcome === "already_on_dispatch") expect(out.kind).toBe("already");
+      else if (outcome === "not_found") expect(out.kind).toBe("notFound");
+      else {
+        expect(out.kind).toBe("rejected");
+        if (out.kind !== "rejected") continue;
+        // A key, never the server's English sentence.
+        expect("key" in out.message).toBe(true);
+        for (const lang of ["en", "hi", "gu"] as const) {
+          const said = renderScanMessage(createI18n(lang).t, out.message);
+          expect(said).not.toBe("ENGLISH ONLY");
+          if (lang === "hi") expect(said).toMatch(/[\u0900-\u097F]/);
+          if (lang === "gu") expect(said).toMatch(/[\u0A80-\u0AFF]/);
+        }
+      }
+    }
+  });
+
+  test("every SCAN_REFUSALS code is a scan outcome and maps through blockMessage", () => {
+    for (const code of SCAN_REFUSALS) {
+      expect((SCAN_OUTCOMES as readonly string[]).includes(code)).toBe(true);
+      const msg = blockMessage({ reason: "ENGLISH ONLY", code, customerName: "KD", candidates: ["A"], heldBy: "D-1", orderNumber: "SO-1" });
+      expect("key" in msg).toBe(true);
+    }
+  });
+
+  test("held_for_order from dispatch.scan names the order and customer in gu", () => {
+    const out = resultOutcome(row("held_for_order"));
+    expect(out.kind).toBe("rejected");
+    if (out.kind !== "rejected") return;
+    expect(renderScanMessage(t, out.message)).toBe("Held for SO-12 (Anshu Aluminium)");
+    expect(renderScanMessage(createI18n("gu").t, out.message)).toBe("SO-12 (Anshu Aluminium) માટે હોલ્ડ પર છે");
+  });
+
+  test("a refused held_for_order row carries its order number into the block", () => {
+    const report = {
+      added: [],
+      alreadyInDispatch: [],
+      notFound: [],
+      unavailable: [{ serial: "S1", reason: "Held for SO-12 (Anshu)" }],
+      refused: [{ serial: "S1", code: "held_for_order" as const, reason: "Held for SO-12 (Anshu)", heldBy: null, customerName: "Anshu", candidates: [], orderNumber: "SO-12" }],
+    };
+    expect(renderScanMessage(t, blockMessage(blockOf(report, "S1")!))).toBe("Held for SO-12 (Anshu)");
   });
 });

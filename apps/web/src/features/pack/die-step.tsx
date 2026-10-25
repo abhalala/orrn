@@ -18,6 +18,8 @@ import { dieListView, recentDieIds, type DieOption } from "./die-options";
 import { chooseYard, lengthToInput } from "./pack-math";
 import { PackBar, formatRangeKg } from "./pack-ui";
 import type { PackDraft } from "./use-pack-draft";
+import { DEFAULT_SOURCE, type SourceChoice } from "./source-gate";
+import { SourceExtras, useSourceGate } from "./source-extras";
 import { readLastYard, type YardState } from "./use-yards";
 import { YardPicker } from "./yard-picker";
 
@@ -47,12 +49,14 @@ export function DieStep({
   update,
   unit,
   yards,
+  settings,
   onNext,
 }: {
   draft: PackDraft;
   update(fn: (d: PackDraft) => PackDraft): void;
   unit: LengthUnit;
   yards: YardState;
+  settings: unknown;
   onNext(): void;
 }) {
   const { t } = useT();
@@ -77,7 +81,12 @@ export function DieStep({
 
   const choose = (die: DieOption) => {
     setPicked(die);
-    update((d) => ({ ...d, dieId: die.id }));
+    // Another section: the copy and order chosen for the last one do not apply.
+    update((d) => {
+      if (d.dieId === die.id) return d;
+      const { dieInstanceId: _copy, salesOrderLineId: _line, approvalId: _approval, ...defaults } = d.defaults;
+      return { ...d, dieId: die.id, defaults };
+    });
     setDieError(undefined);
     focusLengthNext.current = true;
     setPicking(false);
@@ -126,6 +135,7 @@ export function DieStep({
         draft={draft}
         unit={unit}
         yards={yards}
+        settings={settings}
         firstInputRef={firstLengthRef}
         onSubmit={(defaults) => {
           if (draft.dieId === null) {
@@ -450,6 +460,7 @@ function DefaultsForm({
   draft,
   unit,
   yards,
+  settings,
   firstInputRef,
   onSubmit,
 }: {
@@ -458,6 +469,7 @@ function DefaultsForm({
   draft: PackDraft;
   unit: LengthUnit;
   yards: YardState;
+  settings: unknown;
   firstInputRef: React.RefObject<HTMLInputElement | null>;
   onSubmit(defaults: PackDraft["defaults"]): boolean;
 }) {
@@ -472,6 +484,26 @@ function DefaultsForm({
   const [pickedYard, setPickedYard] = useState<string | undefined>();
   const [lastYard] = useState(() => readLastYard(draft.companyId));
   const [yardError, setYardError] = useState<string | undefined>();
+  // Source choices (order, copy, cast, logo): kept with the draft so a reload keeps them.
+  const [choice, setChoice] = useState<SourceChoice>(() => ({
+    ...DEFAULT_SOURCE,
+    ...(draft.defaults.salesOrderLineId ? { salesOrderLineId: draft.defaults.salesOrderLineId } : {}),
+    ...(draft.defaults.dieInstanceId ? { dieInstanceId: draft.defaults.dieInstanceId } : {}),
+    ...(draft.defaults.castId ? { castId: draft.defaults.castId } : {}),
+    ...(draft.defaults.overridePin ? { overridePin: true } : {}),
+    showLogo: draft.defaults.showLogo !== false,
+  }));
+  const [showSourceErrors, setShowSourceErrors] = useState(false);
+  const gate = useSourceGate(draft.dieId, choice, settings);
+  // A different section was picked: the order, copy and cast of the last one do not apply.
+  const lastDie = useRef(draft.dieId);
+  useEffect(() => {
+    if (lastDie.current === draft.dieId) return;
+    const was = lastDie.current;
+    lastDie.current = draft.dieId;
+    if (was !== null) setChoice((c) => ({ showLogo: c.showLogo }));
+    setShowSourceErrors(false);
+  }, [draft.dieId]);
   const yardRef = useRef<HTMLInputElement | null>(null);
   const inchesRef = useRef<HTMLInputElement | null>(null);
   const yardId = chooseYard({
@@ -518,8 +550,24 @@ function DefaultsForm({
       return;
     }
     setYardError(undefined);
+    // The plant's rules (cast) and an owned die stop the packer here, in plain words, not at Save.
+    if (gate.blockers.length > 0) {
+      setShowSourceErrors(true);
+      return;
+    }
     const trimmed = po.trim();
-    onSubmit({ lengthMm, ...(trimmed ? { po: trimmed } : {}), ...(yardId ? { locationId: yardId } : {}) });
+    onSubmit({
+      lengthMm,
+      ...(trimmed ? { po: trimmed } : {}),
+      ...(yardId ? { locationId: yardId } : {}),
+      ...(choice.dieInstanceId ? { dieInstanceId: choice.dieInstanceId } : {}),
+      ...(choice.castId ? { castId: choice.castId } : {}),
+      ...(choice.salesOrderLineId ? { salesOrderLineId: choice.salesOrderLineId } : {}),
+      ...(choice.salesOrderLineId && choice.overridePin ? { overridePin: true } : {}),
+      ...(choice.showLogo ? {} : { showLogo: false }),
+      // A grant the packer got earlier for this copy stays with the draft.
+      ...(draft.defaults.approvalId ? { approvalId: draft.defaults.approvalId } : {}),
+    });
   };
 
   const describedBy = [hintId, lengthError ? errorId : null].filter(Boolean).join(" ");
@@ -632,6 +680,25 @@ function DefaultsForm({
             className="h-12 font-mono text-[16px]"
           />
         </Field>
+
+        {draft.dieId ? (
+          <SourceExtras
+            choice={choice}
+            onChange={(next) => {
+              setChoice(next);
+              setShowSourceErrors(false);
+            }}
+            gate={gate}
+            showErrors={showSourceErrors}
+          />
+        ) : null}
+
+        {showSourceErrors && gate.blockers.length > 0 ? (
+          <p role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
+            <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
+            {t("pack.source.cannotContinue")}
+          </p>
+        ) : null}
 
         <p className="m-0 max-w-[60ch] text-[14px] leading-6 text-muted-foreground">{t("pack.new.defaultsHint")}</p>
       </div>

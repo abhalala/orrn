@@ -9,6 +9,7 @@ import {
   reachableStep,
   readDraft,
   readDraftFor,
+  receiptRequestKey,
   removeBundle,
   replaceBundle,
   toReceiptInput,
@@ -181,11 +182,25 @@ describe("toReceiptInput (bundle.createReceipt payload)", () => {
       dieId: "die-1",
       unit: "inch",
       purchaseOrderRef: "PO-9",
+      // D20: no order line = the deliberate "Plant stock" choice.
+      source: "plant_stock",
       rows: [
         { quantity: 21, weightG: 52_400, lengthMm: 3505, poNumber: null },
         { quantity: 20, weightG: 40_000, lengthMm: 3048, poNumber: "PO-ODD" },
       ],
     });
+  });
+
+  test("D20 / D15: an order line sends source order; overridePin only with a line and a copy", () => {
+    const base = { lengthMm: 3505, salesOrderLineId: "line-1", dieInstanceId: "copy-2" };
+    const withLine = addBundle(draftWith({ defaults: base }), { weightG: 1000, pieces: 1 });
+    expect(toReceiptInput(withLine, "inch")).toMatchObject({ source: "order", salesOrderLineId: "line-1", dieInstanceId: "copy-2" });
+    expect(toReceiptInput(withLine, "inch")).not.toHaveProperty("overridePin");
+    const overridden = addBundle(draftWith({ defaults: { ...base, overridePin: true } }), { weightG: 1000, pieces: 1 });
+    expect(toReceiptInput(overridden, "inch")?.overridePin).toBe(true);
+    const plant = addBundle(draftWith({ defaults: { lengthMm: 3505, dieInstanceId: "copy-2", overridePin: true } }), { weightG: 1000, pieces: 1 });
+    expect(toReceiptInput(plant, "inch")).toMatchObject({ source: "plant_stock" });
+    expect(toReceiptInput(plant, "inch")).not.toHaveProperty("overridePin");
   });
 
   test("blank PO is sent as null", () => {
@@ -252,5 +267,28 @@ describe("yard (location) for the session", () => {
     const d = addBundle(draftWith({ defaults: { lengthMm: 3505, locationId: "loc-y6" } }), { weightG: 1, pieces: 1 });
     expect(toReceiptInput(d, "inch", { yardIds: [] })).not.toHaveProperty("locationId");
     expect(toReceiptInput(d, "inch", { yardIds: ["loc-y6"] })?.locationId).toBe("loc-y6");
+  });
+});
+
+describe("clientRequestId of a save (BACKLOG 50)", () => {
+  const key = "0b6f0c1e-2f1a-4c55-9a64-3f1d2e7a9b10";
+  test("the same session and bundles give the same key; any change gives another", () => {
+    const d = addBundle(draftWith({ step: 2 }), { weightG: 52_400, pieces: 21 });
+    const input = toReceiptInput(d, "inch")!;
+    const first = receiptRequestKey(key, input);
+    expect(receiptRequestKey(key, toReceiptInput(d, "inch")!)).toBe(first);
+    expect(first).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
+    const more = toReceiptInput(addBundle(d, { weightG: 50_000, pieces: 20 }), "inch")!;
+    expect(receiptRequestKey(key, more)).not.toBe(first);
+    expect(receiptRequestKey("1c2d3e4f-0000-4000-8000-000000000000", input)).not.toBe(first);
+  });
+
+  test("the session key survives a reload, and a bad one drops the draft", () => {
+    const s = memoryStorage();
+    const d = { ...addBundle(draftWith(), { weightG: 52_400, pieces: 21 }), sessionKey: key };
+    writeDraft(s, d);
+    expect(readDraft(s, "co-1")?.sessionKey).toBe(key);
+    s.setItem(PACK_DRAFT_KEY, JSON.stringify({ ...d, sessionKey: "no spaces allowed" }));
+    expect(readDraft(s, "co-1")).toBeNull();
   });
 });

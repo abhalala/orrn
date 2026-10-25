@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { blockedCount } from "@/features/dispatch/blocked";
+import { CapacityBanner } from "@/features/dispatch/capacity-banner";
 import { ActionBar, AddActions, ItemsSection } from "@/features/dispatch/build-step";
 import { REMOVE_ATTR } from "@/features/dispatch/bundle-groups";
 import { CompleteSheet } from "@/features/dispatch/complete-sheet";
@@ -166,7 +167,12 @@ function DispatchDetail({ data }: { data: DetailData }) {
   // (another dispatch held it meanwhile).
   const undoRemove = async (item: DispatchItem) => {
     try {
-      const report = await trpcClient.dispatch.addBundlesBySerial.mutate({ id: d.id, serials: [item.serial] });
+      // Put back as it was: a bundle the office had added with no order goes back the same way (D12).
+      const report = await trpcClient.dispatch.addBundlesBySerial.mutate({
+        id: d.id,
+        serials: [item.serial],
+        ...(can("order.manage") ? { allowUnassigned: true } : {}),
+      });
       const outcome = addOutcome(report, item.serial);
       if (outcome.kind === "rejected") {
         toast.error(renderScanMessage(t, outcome.message), { description: item.serial });
@@ -314,8 +320,10 @@ function DispatchDetail({ data }: { data: DetailData }) {
         />
       ) : null}
 
+      {status !== "completed" ? <CapacityBanner capacity={data.capacity} /> : null}
+
       {status === "completed" ? (
-        <PackingListView dispatchId={d.id} focusTitle={celebrate > 0} />
+        <PackingListView dispatchId={d.id} dispatch={d} customerName={customerName} focusTitle={celebrate > 0} />
       ) : (
         <ItemsSection
           items={items}
@@ -388,6 +396,7 @@ function DispatchDetail({ data }: { data: DetailData }) {
             items={items}
             onRefresh={() => void refresh()}
             onDispatched={onDispatched}
+            capacity={data.capacity}
           />
         </Can>
       ) : null}

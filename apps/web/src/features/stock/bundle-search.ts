@@ -1,5 +1,7 @@
 import { BUNDLE_STATUSES, type BundleStatus } from "@orrn/domain";
 
+import { validateStockFilter, type StockFilter } from "./stock-filters";
+
 /** Bundles per page on every stock list (server `listBundles` allows up to 100). */
 export const PAGE_SIZE = 50;
 
@@ -7,11 +9,10 @@ const MAX_QUERY = 100;
 const MAX_ID = 64;
 
 /** `/stock/bundles` URL state. Old `/bundles?dieId=…&groupId=…` links keep their filter. */
-export type BundlesSearch = {
+export type BundlesSearch = StockFilter & {
   status?: BundleStatus;
   q?: string;
   page?: number;
-  dieId?: string;
   groupId?: string;
 };
 
@@ -48,10 +49,10 @@ function compact<T extends Record<string, unknown>>(o: T): T {
 
 export function validateBundlesSearch(raw: Record<string, unknown>): BundlesSearch {
   return compact({
+    ...validateStockFilter(raw),
     status: isStatus(raw.status) ? raw.status : undefined,
     q: query(raw.q),
     page: page(raw.page),
-    dieId: id(raw.dieId),
     groupId: id(raw.groupId),
   });
 }

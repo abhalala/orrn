@@ -55,6 +55,7 @@ import {
   type TimelineMove,
   type TransferRow,
 } from "../lib/reallocate";
+import { ensureDefaultReasonCodes } from "../lib/reasonCodes";
 import { nextCompanySeq } from "../lib/sequence";
 
 const id = z.string().min(1).max(64);
@@ -863,6 +864,7 @@ export const orderFlowProcedures = {
       // Reason: a reallocate reason code (required on a length mismatch) and/or text.
       let codeLabel: string | null = null;
       if (input.reasonCode) {
+        await ensureDefaultReasonCodes(ctx.db, ctx.companyId);
         const [code] = await ctx.db
           .select({ code: reasonCode.code, label: reasonCode.label, requiresNote: reasonCode.requiresNote })
           .from(reasonCode)

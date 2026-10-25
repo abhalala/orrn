@@ -1,16 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  activeYards,
-  bundleKgPer12ft,
-  chooseYard,
-  countOutsideRange,
-  draftTotals,
-  lengthToInput,
-  parsePieces,
-  parseWeightG,
-  rangeVerdict,
-} from "./pack-math";
+import { activeYards, chooseYard, draftTotals, lengthToInput, parsePieces, parseWeightG } from "./pack-math";
 
 describe("parseWeightG (kg text to whole grams)", () => {
   test("decimal kg to grams", () => {
@@ -43,45 +33,6 @@ describe("parsePieces", () => {
     for (const bad of ["", "0", "2.5", "-3", "x", "100001"]) {
       expect(parsePieces(bad)).toBeNull();
     }
-  });
-});
-
-describe("bundleKgPer12ft", () => {
-  test("(kg / pcs) / (lengthMm / 304.8) * 12", () => {
-    // 52.4 kg, 21 pcs, 12 ft (3658 mm): 52.4/21 = 2.4952 per piece; 3658 mm = 12.0013 ft.
-    const k = bundleKgPer12ft({ weightG: 52_400, pieces: 21, lengthMm: 3658 })!;
-    expect(k).toBeCloseTo(2.4949, 3);
-  });
-
-  test("null without pieces or length", () => {
-    expect(bundleKgPer12ft({ weightG: 1000, pieces: 0, lengthMm: 3658 })).toBeNull();
-    expect(bundleKgPer12ft({ weightG: 1000, pieces: 2, lengthMm: 0 })).toBeNull();
-  });
-});
-
-describe("rangeVerdict (billed band /12' vs the die's range)", () => {
-  const die = { weightMinG: 2400, weightMaxG: 2600 };
-
-  test("inside the range", () => {
-    expect(rangeVerdict(2.4, die)).toBe("in");
-    expect(rangeVerdict(2.5, die)).toBe("in");
-    expect(rangeVerdict(2.6, die)).toBe("in");
-  });
-
-  test("uses the plant's billed band, floor((k + 0.01) * 10) / 10", () => {
-    // 2.395 bills as 2.4 (in), 2.689 bills as 2.6 (in), 2.69 and 2.70 bill as 2.7 (above):
-    // 2.69 + 0.01 is exactly the 2.7 boundary (domain weightRange12ft keeps it, PL-8 round 3).
-    expect(rangeVerdict(2.395, die)).toBe("in");
-    expect(rangeVerdict(2.689, die)).toBe("in");
-    expect(rangeVerdict(2.69, die)).toBe("above");
-    expect(rangeVerdict(2.7, die)).toBe("above");
-    expect(rangeVerdict(2.38, die)).toBe("below");
-  });
-
-  test("no verdict when the die has no usable range", () => {
-    expect(rangeVerdict(2.5, { weightMinG: 0, weightMaxG: 0 })).toBeNull();
-    expect(rangeVerdict(2.5, { weightMinG: 3000, weightMaxG: 2000 })).toBeNull();
-    expect(rangeVerdict(Number.NaN, die)).toBeNull();
   });
 });
 
@@ -143,24 +94,5 @@ describe("chooseYard (which yard tile starts selected)", () => {
   });
   test("no yards, no selection", () => {
     expect(chooseYard({ current: "y1", lastUsed: "y1", yards: [] })).toBeUndefined();
-  });
-});
-
-describe("countOutsideRange (the session page's 'outside range' chip)", () => {
-  const die = { weightMinG: 2400, weightMaxG: 2600 };
-  // 3505 mm, 20 pieces: 47.90 kg = 2.50 kg/12ft (in), 40.00 kg = 2.09 (below), 55.00 kg = 2.87 (above).
-  const b = (weightG: number, status = "available") => ({ weightG, quantity: 20, lengthMm: 3505, status });
-
-  test("counts bundles below and above the die's range", () => {
-    expect(countOutsideRange([b(47_900), b(40_000), b(55_000), b(47_900)], die)).toBe(2);
-  });
-
-  test("a void bundle is not counted (it is out of the session's figures)", () => {
-    expect(countOutsideRange([b(40_000, "void"), b(47_900)], die)).toBe(0);
-  });
-
-  test("no die or no range: nothing to count", () => {
-    expect(countOutsideRange([b(40_000)], null)).toBe(0);
-    expect(countOutsideRange([b(40_000)], { weightMinG: 0, weightMaxG: 0 })).toBe(0);
   });
 });

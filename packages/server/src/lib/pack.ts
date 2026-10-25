@@ -12,10 +12,10 @@
  *   (+kg) at the plant-scrap location against the PLANT-SCRAP return stream (C10).
  */
 import { TRPCError } from "@trpc/server";
-import { and, eq, or, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-import { bundleQrUrl, DEFAULT_REASON_CODES } from "@orrn/domain";
+import { bundleQrUrl } from "@orrn/domain";
 import { cast as castTable, returnStream } from "@orrn/db/schema/foundry";
 import { bundle } from "@orrn/db/schema/inventory";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
@@ -23,11 +23,12 @@ import { reasonCode } from "@orrn/db/schema/reasons";
 import { stockLedger } from "@orrn/db/schema/stock";
 import { company } from "@orrn/db/schema/tenant";
 
-import type { OrrnDb, SqliteBatchItem } from "./atomic";
+import { mapInChunks, type OrrnDb, type SqliteBatchItem } from "./atomic";
 import { buildPackLabelVariables, type PackLabelVariables } from "./bundle-label";
 import { sqlUuid } from "./ledger";
 import { batchAbortUnless, isBatchAbort } from "./orders";
 import { nameKey } from "./purchase";
+import { ensureDefaultReasonCodes } from "./reasonCodes";
 import { webBaseUrl } from "./webUrl";
 
 export function errorText(e: unknown): string {
@@ -149,12 +150,13 @@ export type RejectInput = { pcs: number; weightG?: number | null; reasonCode: st
 /** The stored reason: the qc_reject code, with the note after it when one was given. */
 export async function rejectReasons(db: OrrnDb, companyId: string, rejects: readonly RejectInput[]): Promise<string[]> {
   if (rejects.length === 0) return [];
+  await ensureDefaultReasonCodes(db, companyId);
   const rows = await db
     .select({ code: reasonCode.code, requiresNote: reasonCode.requiresNote, active: reasonCode.active })
     .from(reasonCode)
     .where(and(eq(reasonCode.companyId, companyId), eq(reasonCode.kind, "qc_reject")));
   const known = new Map<string, { requiresNote: boolean; active: boolean }>(
-    (rows.length > 0 ? rows : DEFAULT_REASON_CODES.qc_reject.map((r) => ({ ...r, active: true }))).map((r) => [
+    rows.map((r) => [
       r.code,
       { requiresNote: Boolean(r.requiresNote), active: Boolean(r.active) },
     ]),
@@ -272,28 +274,45 @@ export async function loadPackLabelVariables(
   companyId: string,
   bundleRow: typeof bundle.$inferSelect,
 ): Promise<PackLabelVariables> {
+  return (await loadPackLabelVariablesMany(db, companyId, [bundleRow]))[0]!;
+}
+
+/**
+ * The label variables of many bundles in a few queries (company, casts, order lines; ids chunked),
+ * in the order of `rows`. The A4 sheet prints up to 200 at once (review m-4).
+ */
+export async function loadPackLabelVariablesMany(
+  db: OrrnDb,
+  companyId: string,
+  rows: readonly (typeof bundle.$inferSelect)[],
+): Promise<PackLabelVariables[]> {
+  if (rows.length === 0) return [];
   const [co] = await db.select({ slug: company.slug }).from(company).where(eq(company.id, companyId)).limit(1);
-  const [castRow] = bundleRow.castId
-    ? await db
-        .select({ number: castTable.number })
-        .from(castTable)
-        .where(and(eq(castTable.id, bundleRow.castId), eq(castTable.companyId, companyId)))
-        .limit(1)
-    : [];
-  const lineId = bundleRow.packedSalesOrderLineId ?? bundleRow.salesOrderLineId;
-  const [lineRow] = lineId
-    ? await db
-        .select({ number: salesOrder.number, lineNo: salesOrderLine.lineNo })
-        .from(salesOrderLine)
-        .innerJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, companyId)))
-        .where(and(eq(salesOrderLine.id, lineId), eq(salesOrderLine.companyId, companyId)))
-        .limit(1)
-    : [];
-  return buildPackLabelVariables({
-    bundleRow,
-    qrUrl: bundleQrUrl({ origin: webBaseUrl(), number: bundleRow.serial, companySlug: co?.slug ?? "" }),
-    castNumber: castRow?.number ?? null,
-    salesOrderCode: lineRow ? salesOrderLineCode(lineRow.number, Number(lineRow.lineNo)) : null,
+  const castIds = [...new Set(rows.flatMap((b) => (b.castId ? [b.castId] : [])))];
+  const lineIds = [...new Set(rows.flatMap((b) => { const l = b.packedSalesOrderLineId ?? b.salesOrderLineId; return l ? [l] : []; }))];
+  const casts = await mapInChunks(castIds, (ids) =>
+    db
+      .select({ id: castTable.id, number: castTable.number })
+      .from(castTable)
+      .where(and(eq(castTable.companyId, companyId), inArray(castTable.id, ids))),
+  );
+  const lines = await mapInChunks(lineIds, (ids) =>
+    db
+      .select({ id: salesOrderLine.id, number: salesOrder.number, lineNo: salesOrderLine.lineNo })
+      .from(salesOrderLine)
+      .innerJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, companyId)))
+      .where(and(eq(salesOrderLine.companyId, companyId), inArray(salesOrderLine.id, ids))),
+  );
+  const castById = new Map(casts.map((c) => [c.id, c.number]));
+  const lineById = new Map(lines.map((l) => [l.id, l]));
+  return rows.map((bundleRow) => {
+    const lineRow = lineById.get(bundleRow.packedSalesOrderLineId ?? bundleRow.salesOrderLineId ?? "");
+    return buildPackLabelVariables({
+      bundleRow,
+      qrUrl: bundleQrUrl({ origin: webBaseUrl(), number: bundleRow.serial, companySlug: co?.slug ?? "" }),
+      castNumber: bundleRow.castId ? (castById.get(bundleRow.castId) ?? null) : null,
+      salesOrderCode: lineRow ? salesOrderLineCode(lineRow.number, Number(lineRow.lineNo)) : null,
+    });
   });
 }
 

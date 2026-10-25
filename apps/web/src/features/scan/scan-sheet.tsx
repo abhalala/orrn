@@ -13,12 +13,26 @@ import { AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { toast } from "sonner";
 
+import { sendOnce } from "@/features/dispatch/request-key";
 import { trpcClient } from "@/shared/utils/trpc";
+
+import { CapacityBanner } from "@/features/dispatch/capacity-banner";
+import { Can } from "@/shared/components/can";
+import { can, useMe } from "@/shared/lib/me";
 
 import { CameraScanner } from "./camera-scanner";
 import { createDeduper } from "./dedupe";
-import { addOutcome, renderScanMessage, scanErrorKey, type AddBundlesReport } from "./scan-outcome";
-import { isStoredNumber, resolveScan, useResolveScan, type ScanCandidate } from "./use-resolve-scan";
+import {
+  addOutcome,
+  renderScanMessage,
+  resultOutcome,
+  scanErrorKey,
+  type AddBundlesReport,
+  type BundleBlockCode,
+  type CapacityReport,
+} from "./scan-outcome";
+import { isSpeechOn, speak, toggleSpeech } from "./speak";
+import { useResolveScan, type ScanCandidate } from "./use-resolve-scan";
 
 export type { AddBundlesReport } from "./scan-outcome";
 
@@ -306,7 +320,7 @@ function LookupPanel({ active, onDone }: { active: boolean; onDone(): void }) {
 
 type ResultKind = "added" | "already" | "rejected" | "notFound";
 
-type Recent = { id: number; serial: string; kind: ResultKind };
+type Recent = { id: number; serial: string; kind: ResultKind; code?: BundleBlockCode; note?: boolean };
 
 const RESULT_TONE: Record<ResultKind, StatusTone> = {
   added: "green",
@@ -318,7 +332,9 @@ const RESULT_TONE: Record<ResultKind, StatusTone> = {
 const RECENT_LIMIT = 8;
 
 function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "dispatch" }>; active: boolean }) {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const { data: me } = useMe();
+  const canAddAnyway = can(me, "order.manage");
   const coarse = useCoarsePointer();
   const fieldRef = useRef<HTMLInputElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
@@ -326,7 +342,11 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const [line, setLine] = useState<Line | null>(null);
   const [recent, setRecent] = useState<Recent[]>([]);
-  const [candidates, setCandidates] = useState<ScanCandidate[] | null>(null);
+  const [candidates, setCandidates] = useState<string[] | null>(null);
+  const [capacity, setCapacity] = useState<CapacityReport | null>(null);
+  // A bundle with no order line, refused: the office may add it anyway (D12).
+  const [unassigned, setUnassigned] = useState<string | null>(null);
+  const [speaking, setSpeaking] = useState(isSpeechOn);
   const seq = useRef(0);
   const countRef = useRef(0);
   const modeRef = useRef(mode);
@@ -335,52 +355,50 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
   // wedge burst never races itself on the server.
   const queue = useRef<Promise<void>>(Promise.resolve());
 
-  const remember = (serial: string, kind: ResultKind) =>
-    setRecent((list) => [{ id: ++seq.current, serial, kind }, ...list].slice(0, RECENT_LIMIT));
+  const remember = (serial: string, kind: ResultKind, extra: Pick<Recent, "code" | "note"> = {}) =>
+    setRecent((list) => [{ id: ++seq.current, serial, kind, ...extra }, ...list].slice(0, RECENT_LIMIT));
 
-  const process = async (raw: string) => {
+  const process = async (raw: string, opts: { allowUnassigned?: boolean } = {}) => {
     const id = ++seq.current;
     const parsed = parseScan(raw);
-    if (parsed.kind !== "serial") {
+    // A label link or a bare serial is cleaned up; anything else (a party number such as 2026-27/12) goes
+    // to the server as typed, which looks up the serial AND the party number (D15).
+    const code = parsed.kind === "serial" ? parsed.serial : raw.trim().slice(0, 200);
+    if (!code) {
       buzz([30, 50, 30]);
       setLine({ id, tone: "error", message: t("scan.unrecognised") });
       return;
     }
-    let serial = parsed.serial;
-    setLine({ id, tone: "progress", message: t("scan.continuous.adding", { serial }) });
+    setLine({ id, tone: "progress", message: t("scan.continuous.adding", { serial: code }) });
+    setUnassigned(null);
     let addedReport: AddBundlesReport | null = null;
     try {
-      // Old month-only numbers and legacy ids: find the bundle's own number first.
-      if (!isStoredNumber(serial)) {
-        const found = await resolveScan(serial);
-        if (!found.ok) {
-          if (found.reason === "ambiguous") {
-            setLine({ id, tone: "neutral", message: t("scan.ambiguous"), serial });
-            setCandidates(found.candidates);
-          } else {
-            buzz([30, 50, 30]);
-            setLine({ id, tone: "error", message: t("scan.notFound"), serial });
-            remember(serial, "notFound");
-          }
-          return;
-        }
-        serial = found.bundle.number;
-      }
-      const report = await trpcClient.dispatch.addBundlesBySerial.mutate({ id: modeRef.current.dispatchId, serials: [serial] });
-      const outcome = addOutcome(report, serial);
+      // The floor scan never lifts "not on a sales order" (D12): only the office add path does, and
+      // only for a person holding order.manage (the server checks again).
+      // BACKLOG 50: one key per scan; a lost reply is sent once more with it and never adds twice.
+      const dispatchId = modeRef.current.dispatchId;
+      const report = (await sendOnce((clientRequestId) =>
+        opts.allowUnassigned
+          ? trpcClient.dispatch.addBundlesBySerial.mutate({ id: dispatchId, serials: [code], allowUnassigned: true, clientRequestId })
+          : trpcClient.dispatch.scan.mutate({ id: dispatchId, serials: [code], clientRequestId }),
+      )) as AddBundlesReport;
+      if (report.capacity) setCapacity(report.capacity);
+      const result = report.results?.[0];
+      const outcome = result ? resultOutcome(result) : addOutcome(report, code);
       switch (outcome.kind) {
         case "added": {
           countRef.current += 1;
           setCount(countRef.current);
-          setLastAdded(serial);
+          setLastAdded(outcome.serial);
           buzz(25);
+          const noOrder = result?.note === "unassigned" || Boolean(opts.allowUnassigned);
           setLine({
             id,
             tone: "success",
-            message: t("scan.continuous.added", { serial }),
+            message: noOrder ? t("scan.continuous.addedNoOrder", { serial: outcome.serial }) : t("scan.continuous.added", { serial: outcome.serial }),
             extra: t("scan.continuous.count", { count: countRef.current }),
           });
-          remember(serial, "added");
+          remember(outcome.serial, "added", { note: noOrder });
           addedReport = report;
           break;
         }
@@ -388,33 +406,41 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
           // Calm: a second read of a bundle already on the list is not an error.
           // The status line announces it; the toast is visual only (hidden from
           // assistive tech) so it isn't said twice.
-          setLine({ id, tone: "neutral", message: t("scan.continuous.already"), serial });
+          setLine({ id, tone: "neutral", message: t("scan.continuous.already"), serial: outcome.serial });
           // At the top: a bottom toast would sit on the sheet's field and Done button.
           toast(<span aria-hidden="true">{t("scan.continuous.already")}</span>, {
-            description: <span aria-hidden="true">{serial}</span>,
-            id: `scan-already-${serial}`,
+            description: <span aria-hidden="true">{outcome.serial}</span>,
+            id: `scan-already-${outcome.serial}`,
             position: "top-center",
             duration: 2500,
           });
-          remember(serial, "already");
+          remember(outcome.serial, "already");
           break;
         }
         case "rejected": {
           buzz([30, 50, 30]);
-          setLine({ id, tone: "error", message: renderScanMessage(t, outcome.message), serial });
-          remember(serial, "rejected");
+          const said = renderScanMessage(t, outcome.message);
+          setLine({ id, tone: "error", message: said, serial: outcome.serial });
+          remember(outcome.serial, "rejected", { code: outcome.code });
+          // The wording is spoken as well as shown (in the screen's language).
+          speak(said, locale);
+          if (outcome.code === "ambiguous" && outcome.candidates?.length) setCandidates(outcome.candidates);
+          if (outcome.code === "unassigned") setUnassigned(outcome.serial);
           break;
         }
         case "notFound": {
           buzz([30, 50, 30]);
-          setLine({ id, tone: "error", message: t("scan.notFound"), serial });
-          remember(serial, "notFound");
+          setLine({ id, tone: "error", message: t("scan.notFound"), serial: outcome.serial });
+          remember(outcome.serial, "notFound");
+          speak(t("scan.notFound"), locale);
           break;
         }
       }
     } catch (error) {
       buzz([30, 50, 30]);
-      setLine({ id, tone: "error", message: t(scanErrorKey(error, "dispatch")), serial });
+      const said = t(scanErrorKey(error, "dispatch"));
+      setLine({ id, tone: "error", message: said, serial: code });
+      speak(said, locale);
     }
     // Outside the try: a problem in the screen behind must not read as a failed add.
     if (addedReport) {
@@ -426,11 +452,11 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
     }
   };
 
-  const onScan = (raw: string) => {
+  const onScan = (raw: string, opts?: { allowUnassigned?: boolean }) => {
     setCandidates(null);
     // One scan that throws must never stall the ones queued behind it.
     queue.current = queue.current
-      .then(() => process(raw))
+      .then(() => process(raw, opts))
       .catch((error: unknown) => console.error("scan: processing failed", error));
   };
 
@@ -471,29 +497,78 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
               ) : null}
             </div>
 
+            <CapacityBanner capacity={capacity} compact />
+
             <StatusLine ref={statusRef} line={line} />
 
+            {unassigned && canAddAnyway ? (
+              <Can do="order.manage">
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <Button variant="secondary" size="lg" onClick={() => onScan(unassigned, { allowUnassigned: true })} data-testid="add-anyway">
+                    {t("scan.continuous.addAnyway")}
+                  </Button>
+                  <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("scan.continuous.addAnywayHint")}</p>
+                </div>
+              </Can>
+            ) : null}
+
             {candidates ? (
-              <CandidateList
-                candidates={candidates}
-                onPick={(c) => {
-                  onScan(c.number);
-                  // Keep focus in the sheet; on a phone, not on the field (no keyboard over the camera).
-                  if (coarse) statusRef.current?.focus();
-                  else fieldRef.current?.focus();
-                }}
-              />
+              <ul aria-label={t("scan.continuous.pickOne")} className="m-0 flex list-none flex-col gap-2 p-0">
+                {candidates.map((c) => (
+                  <li key={c}>
+                    <Button
+                      variant="secondary"
+                      className="h-14 w-full justify-between px-5"
+                      onClick={() => {
+                        onScan(c);
+                        // Keep focus in the sheet; on a phone, not on the field (no keyboard over the camera).
+                        if (coarse) statusRef.current?.focus();
+                        else fieldRef.current?.focus();
+                      }}
+                    >
+                      <span className="font-mono text-[17px]">{c}</span>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
             ) : null}
           </>
         }
       />
 
+      <button
+        type="button"
+        role="switch"
+        aria-checked={speaking}
+        onClick={() => {
+          toggleSpeech(!speaking);
+          setSpeaking(!speaking);
+        }}
+        className="inline-flex min-h-11 items-center gap-3 self-start rounded-full text-left text-[14px] font-semibold"
+      >
+        <span
+          aria-hidden="true"
+          className={cn("relative h-6 w-10 shrink-0 rounded-full transition-colors duration-[var(--dur-fast)]", speaking ? "bg-foreground" : "bg-control/45")}
+        >
+          <span
+            className={cn(
+              "absolute top-1 left-1 size-4 rounded-full bg-background transition-transform duration-[var(--dur-fast)]",
+              speaking ? "translate-x-4" : "translate-x-0",
+            )}
+          />
+        </span>
+        {t("scan.continuous.speak")}
+      </button>
+
       {recent.length > 0 ? (
         <ul aria-label={t("scan.recent")} className="m-0 flex list-none flex-col divide-y divide-border p-0">
           {recent.map((r) => (
-            <li key={r.id} className="flex min-h-12 min-w-0 items-center justify-between gap-3 py-2">
+            <li key={r.id} className="flex min-h-12 min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2">
               <span className="min-w-0 font-mono text-[15px] [overflow-wrap:anywhere]">{r.serial}</span>
-              <Chip tone={RESULT_TONE[r.kind]}>{resultWord[r.kind]}</Chip>
+              <span className="flex items-center gap-2">
+                {r.note ? <span className="text-[13px] text-muted-foreground">{t("scan.continuous.noOrderTag")}</span> : null}
+                <Chip tone={RESULT_TONE[r.kind]}>{resultWord[r.kind]}</Chip>
+              </span>
             </li>
           ))}
         </ul>

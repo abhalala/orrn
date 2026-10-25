@@ -23,6 +23,8 @@ import type { Context } from "../context";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { requestApprovalInsert } from "../lib/approval";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
+import { clientRequestIdSchema } from "../lib/importReplay";
+import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
 import {
   atomicBatch,
   chunk,
@@ -264,6 +266,8 @@ export type AddBundlesReport = {
   }[];
   /** Added bundles that were linked to an open order line of this customer (the rest are unlinked). */
   linked: LinkedBundle[];
+  /** BACKLOG 50: true when this was a repeat of a call already applied (its first answer). */
+  replayed?: boolean;
 };
 
 /** `dispatch.scan`: the add report plus one result per code and the vehicle capacity after it. */
@@ -706,6 +710,11 @@ const scanInput = z.object({
   serials: z.array(z.string().min(1)).min(1).max(100),
   /** An approved `die_owner_override` the screen just got (purpose dispatch). */
   approvalId: z.string().min(1).max(64).optional(),
+  /**
+   * BACKLOG 50: one key per call. Sent again after a lost reply, the add answers its first report with
+   * `replayed: true`; the same key with other serials or another dispatch is a CONFLICT.
+   */
+  clientRequestId: clientRequestIdSchema.optional(),
 });
 
 /** The office add paths (D12): `allowUnassigned` lifts only the unassigned block, for `order.manage`. */
@@ -767,6 +776,27 @@ export function dispatchCapacity(loadedG: number, capacityG: number | null) {
 }
 
 /**
+ * BACKLOG 50: the first report of an add sent again, from its record. Nothing is written; the vehicle
+ * capacity is read now (the load may have changed since).
+ */
+async function addReplay(ctx: ScanCtx, dispatchId: string, prior: Record<string, unknown>): Promise<ScanReport> {
+  const first = prior.replay as { results: ScanResult[]; added: string[]; linked: LinkedBundle[] };
+  const [d] = await ctx.db
+    .select({ capacityG: dispatch.vehicleCapacityG })
+    .from(dispatch)
+    .where(and(eq(dispatch.id, dispatchId), eq(dispatch.companyId, ctx.companyId)))
+    .limit(1);
+  return {
+    ...reportLists(first.results),
+    results: first.results,
+    added: first.added,
+    linked: first.linked,
+    capacity: dispatchCapacity(await dispatchLoadG(ctx.db, ctx.companyId, dispatchId), d?.capacityG ?? null),
+    replayed: true,
+  };
+}
+
+/**
  * Shared by `addBundlesBySerial` (office build) and `dispatch.scan` (floor): one outcome per code in
  * the §E6 order with every block on (D12); the office alone may lift `unassigned` with
  * `allowUnassigned` (`order.manage`, audited `dispatch.add_unassigned`). The `added` ones go on in
@@ -785,7 +815,14 @@ async function addByCodes(
     throw new TRPCError({ code: "BAD_REQUEST", message: "No serials provided" });
   }
 
+  // BACKLOG 50: the record of this call (the add's audit row, keyed by the request id).
+  const replayContent = { path: opts.path, id: input.id, serials, approvalId: input.approvalId ?? null, allowUnassigned };
+  let replay: Replay | null = input.clientRequestId
+    ? await openReplay(ctx.db, ctx.companyId, "dispatch.add", input.clientRequestId, replayContent)
+    : null;
+
   const run = async (): Promise<ScanReport> => {
+    if (replay?.prior) return addReplay(ctx, input.id, replay.prior);
     const d = await ctx.db.query.dispatch.findFirst({
       where: and(eq(dispatch.id, input.id), eq(dispatch.companyId, ctx.companyId), isNull(dispatch.deletedAt)),
     });
@@ -879,6 +916,7 @@ async function addByCodes(
       auditInsert(
         { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
         {
+          ...(replay ? { id: replay.id } : {}),
           action: "dispatch.addBundle",
           subjectType: "dispatch",
           subjectId: d.id,
@@ -887,6 +925,12 @@ async function addByCodes(
             serials: toAdd.map((b) => b.serial),
             dispatchStatus: d.status,
             ...(opts.path === "scan" ? { scan: true } : {}),
+            // The first answer, for a repeat (links as suggested; capacity is read again then).
+            ...replayMeta(replay, input.clientRequestId, {
+              results,
+              added: toAdd.map((b) => b.serial),
+              linked: linkedReport(new Map(toAdd.map((b) => [b.id, b.serial])), picks),
+            }),
           },
         },
       ),
@@ -903,6 +947,12 @@ async function addByCodes(
   try {
     return await run();
   } catch (e) {
+    // An identical call landed first (on the record's primary key, or on an item it inserted first):
+    // answer its report.
+    if (replay && (lostReplayRace(e, replay) || isDuplicateItemError(e))) {
+      replay = await readReplay(ctx.db, ctx.companyId, replay!);
+      if (replay.prior) return run();
+    }
     // A concurrent scan inserted one of these first and the whole batch
     // rolled back; re-read once so it lands in alreadyInDispatch.
     // A hold that landed meanwhile (FP-OP-17): re-read once, it is refused by name.
@@ -967,6 +1017,8 @@ export const dispatchRouter = router({
       z.object({
         search: z.string().optional(),
         status: z.enum(dispatchStatuses).optional(),
+        /** Several statuses at once (BACKLOG 16: the list opens on Building + Held, Building first). */
+        statuses: z.array(z.enum(dispatchStatuses)).min(1).max(dispatchStatuses.length).optional(),
         customerId: z.string().optional(),
         limit: z.number().min(1).max(100).default(50),
         offset: z.number().default(0),
@@ -975,6 +1027,7 @@ export const dispatchRouter = router({
     .query(async ({ ctx, input }) => {
       const conditions = [eq(dispatch.companyId, ctx.companyId), isNull(dispatch.deletedAt)];
       if (input.status) conditions.push(eq(dispatch.status, input.status));
+      if (input.statuses) conditions.push(inArray(dispatch.status, input.statuses));
       if (input.customerId) conditions.push(eq(dispatch.customerId, input.customerId));
       if (input.search) {
         const pattern = `%${input.search}%`;
@@ -1026,7 +1079,13 @@ export const dispatchRouter = router({
         )
         .where(and(...conditions))
         .groupBy(dispatch.id, customer.name)
-        .orderBy(desc(dispatch.createdAt))
+        // In the order the statuses were asked for (Building before Held), newest first within each.
+        .orderBy(
+          ...(input.statuses && input.statuses.length > 1
+            ? [sql`case ${dispatch.status} ${sql.join(input.statuses.map((st, i) => sql`when ${st} then ${i}`), sql` `)} else ${input.statuses.length} end`]
+            : []),
+          desc(dispatch.createdAt),
+        )
         .limit(input.limit)
         .offset(input.offset);
 
@@ -1688,7 +1747,14 @@ export const dispatchRouter = router({
     .mutation(async ({ ctx, input }): Promise<AddBundlesReport> => {
       // The PL-8 report shape, unchanged for its clients: an ambiguous code is in `notFound`.
       const r = await addByCodes(ctx, input, { path: "office" });
-      return { added: r.added, alreadyInDispatch: r.alreadyInDispatch, notFound: r.notFound, unavailable: r.unavailable, linked: r.linked };
+      return {
+        added: r.added,
+        alreadyInDispatch: r.alreadyInDispatch,
+        notFound: r.notFound,
+        unavailable: r.unavailable,
+        linked: r.linked,
+        ...(r.replayed ? { replayed: true } : {}),
+      };
     }),
 
   /**

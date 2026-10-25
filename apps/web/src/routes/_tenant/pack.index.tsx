@@ -84,6 +84,8 @@ function PackList() {
     [me?.company, me?.user, canPack],
   );
 
+  const hasDraft = Boolean(draft && draft.bundles.length > 0);
+
   const when = (at: SessionRow["createdAt"]) => {
     const w = packedWhen(at instanceof Date ? at : new Date(at), { timeZone, locale });
     if (w.day === "today") return t("pack.whenToday", { time: w.time });
@@ -145,10 +147,11 @@ function PackList() {
 
       <Can do="bundle.pack">
         <div className="grid gap-3">
+          {/* An unsaved session in this tab turns the tile into "Continue session" (it opens the same screen). */}
           <ActionTile
             tone="blue"
-            title={t("pack.newSession")}
-            hint={t("pack.newSessionHint")}
+            title={hasDraft ? t("pack.draft.resume") : t("pack.newSession")}
+            hint={hasDraft ? t("pack.draft.body", { count: draft?.bundles.length ?? 0 }) : t("pack.newSessionHint")}
             icon={<Plus />}
             to="/pack/new"
             className="min-h-[152px] animate-rise"
