@@ -54,7 +54,11 @@ export function castRequired(settings: unknown, liveCasts: number): boolean {
   return castRequiredOnBundle(readFloorSettings(settings as Record<string, unknown> | null | undefined), liveCasts > 0);
 }
 
-/** Copies that can still be packed from (retired copies and copies at the maker are not offered). */
+/**
+ * Copies that can still be packed from: retired copies and copies at the maker are not offered, because the server
+ * refuses them (`bundle.ts`, m-13). A copy now at nitriding IS offered (Q63 A): it may have pressed the run that is packed
+ * hours later, so its current status does not matter; the picker shows the status as a chip. The phone does the same.
+ */
 export function packableCopy(status: string): boolean {
   return status !== "retired" && status !== "at_maker";
 }
@@ -105,4 +109,27 @@ export function withAgeingRow(choice: SourceChoice, rowId: string | undefined): 
 /** Whether the plant makes the packer name a trolley line (`ageing.requireForPack`) and one is waiting. */
 export function trolleyRequired(settings: unknown, linesWaiting: number): boolean {
   return readFloorSettings(settings as Record<string, unknown> | null | undefined).ageing.requireForPack && linesWaiting > 0;
+}
+
+/**
+ * BACKLOG 99: when only one source applies, it comes pre-picked. One open order line is the order; a line's pinned copy
+ * comes with it; with no pin, the one copy on the press (else the one packable copy) is the copy. Several lines, or several
+ * copies, stay the packer's choice, and plant stock is still one tap away. A choice already made is never touched.
+ */
+export function preselectSource(
+  choice: SourceChoice,
+  lines: readonly { lineId: string; pinnedCopyId?: string | null }[] | undefined,
+  copies: readonly { id: string; status: string }[] | undefined,
+): SourceChoice {
+  let next = choice;
+  if (!next.salesOrderLineId && lines && lines.length === 1) {
+    next = withPinnedLine(next, lines[0]!.lineId, lines[0]!.pinnedCopyId ?? null);
+  }
+  if (!next.dieInstanceId && copies) {
+    const packable = copies.filter((c) => packableCopy(c.status));
+    const onPress = packable.filter((c) => c.status === "in_use");
+    const only = onPress.length === 1 ? onPress[0] : packable.length === 1 ? packable[0] : undefined;
+    if (only) next = withCopy(next, only.id);
+  }
+  return next;
 }

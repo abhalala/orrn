@@ -103,7 +103,12 @@ export function SourceExtras({
       .map((c) => ({
         value: c.id,
         disabled: locked && c.id !== pinnedCopyId,
-        label: <span className="font-mono">{c.code}</span>,
+        label: (
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <span className="font-mono">{c.code}</span>
+            {c.status === "at_nitriding" ? <Chip tone="amber">{t("dieRoom.status.at_nitriding")}</Chip> : null}
+          </span>
+        ),
         ariaLabel: c.code,
         detail: [
           c.tierRank != null ? t("dieRoom.copies.tier", { rank: c.tierRank }) : null,

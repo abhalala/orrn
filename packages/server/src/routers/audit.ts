@@ -8,6 +8,7 @@ import { company } from "@orrn/db/schema/tenant";
 import { actionProcedure, router } from "../index";
 import type { OrrnDb } from "../lib/atomic";
 import { now } from "../lib/clock";
+import { withSubjectLabels } from "../lib/auditSubjects";
 import { canAny, type Action } from "../lib/permissions";
 
 /**
@@ -123,7 +124,7 @@ export async function listAudit(
   const page = rows.slice(0, input.limit) as Row[];
   const last = page[page.length - 1];
   return {
-    items: view(page, purchaseReader),
+    items: await withSubjectLabels(db, companyId, view(page, purchaseReader)),
     nextCursor: rows.length > input.limit && last ? { at: last.at.getTime(), id: last.id } : null,
     from,
   };
@@ -156,7 +157,7 @@ export const auditRouter = router({
         .limit(AUDIT_FOR_SUBJECT_CAP + 1);
       const purchaseReader = canAny({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, PURCHASE_READ_ACTIONS);
       return {
-        items: view(rows.slice(0, AUDIT_FOR_SUBJECT_CAP) as Row[], purchaseReader),
+        items: await withSubjectLabels(ctx.db, ctx.companyId, view(rows.slice(0, AUDIT_FOR_SUBJECT_CAP) as Row[], purchaseReader)),
         capped: rows.length > AUDIT_FOR_SUBJECT_CAP,
       };
     }),

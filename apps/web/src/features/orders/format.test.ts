@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { dayTimeText, kgFieldText, milliText, orderKgText, pcsText, rateText } from "./format";
+import { dayTimeText, kgFieldText, listKgText, milliText, orderKgText, pcsText, rateText } from "./format";
 
 describe("orders number text", () => {
   test("kg to three decimals with Indian grouping", () => {
@@ -8,6 +8,14 @@ describe("orders number text", () => {
     expect(orderKgText(1_280_000)).toBe("1,280.000");
     expect(orderKgText(12_345_678)).toBe("12,345.678");
     expect(orderKgText(0)).toBe("0.000");
+  });
+
+  test("list screens show kg to one decimal, the same everywhere (BACKLOG 93)", () => {
+    expect(listKgText(553_500)).toBe("553.5");
+    expect(listKgText(1_280_000)).toBe("1,280.0");
+    expect(listKgText(10_478_000)).toBe("10,478.0");
+    expect(listKgText(0)).toBe("0.0");
+    expect(listKgText(46_960)).toBe("47.0");
   });
 
   test("pieces are whole numbers", () => {

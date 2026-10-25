@@ -540,6 +540,26 @@ describe("melts.create stores what the foundry sheet recorded", () => {
 });
 
 describe("melts.create validation the first suite does not pin", () => {
+  test("every chemical unit the melt sheet offers is accepted, and the old g / l / ml / pcs are not (BACKLOG 78)", async () => {
+    // The sheet's own list, read from its source (the server package cannot import web code).
+    const sheet = await Bun.file(new URL("../../../apps/web/src/features/foundry/melt-form.ts", import.meta.url)).text();
+    const CHEMICAL_UNITS = [...sheet.match(/CHEMICAL_UNITS = \[([^\]]+)\]/)![1]!.matchAll(/"([a-z]+)"/g)].map((m) => m[1]!);
+    expect(CHEMICAL_UNITS.length).toBeGreaterThan(3);
+    const p = await plant();
+    const lot = await okLot(p, 40_000);
+    const c = await openCast(p);
+    const line = (unit: string, name: string) => ({ name, unit, openMilli: 5 * U, usedMilli: 2 * U, closeMilli: 3 * U });
+    const offered = CHEMICAL_UNITS.map((u) => line(u, `Chem ${u}`));
+    const r = await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, p, 1_000, 970, { chemicals: offered as MeltInput["chemicals"] }));
+    const stored = await env.db.select().from(meltChemical).where(eq(meltChemical.meltId, r.id));
+    expect(stored.map((x) => String(x.unit)).sort()).toEqual([...CHEMICAL_UNITS].sort());
+    for (const bad of ["g", "l", "ml", "pcs"]) {
+      await expect(
+        p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, p, 1_000, 970, { chemicals: [line(bad, "Cover flux")] as MeltInput["chemicals"] })),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    }
+  });
+
   test("[R71,R72,R73,R76] times: every adjacent pair is ordered, 10 minutes of clock slack, up to 3 days", async () => {
     const p = await plant();
     const lot = await okLot(p, 40_000);

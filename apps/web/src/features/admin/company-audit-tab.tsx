@@ -60,6 +60,7 @@ export function CompanyAuditTab({ companyId }: { companyId: string }) {
         rows={rows}
         loading={list.isPending}
         when={when}
+        linkSubjects={false}
         label={t("audit.listLabel")}
         empty={<EmptyState title={t("admin.company.auditEmpty")} />}
       />

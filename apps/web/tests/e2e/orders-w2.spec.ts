@@ -13,6 +13,7 @@ import {
   DIE_PATTI_15,
   FT12,
   FT18,
+  kg1,
   kg3,
   m,
   makeParty,
@@ -99,12 +100,12 @@ test.describe("the order book at a glance", () => {
         expect(api.totals.overG).toBe(strips.reduce((acc, l) => acc + l.strip.overG, 0));
         const strip = main.locator("[data-book-strip]");
         await expect(strip.locator("[data-book-total='orders']")).toContainText("2");
-        await expect(strip.locator("[data-book-total='ordered']")).toContainText(`${kg3(api.totals.orderedG!)} kg`);
-        await expect(strip.locator("[data-book-total='inStock']")).toContainText(`${kg3(api.totals.inStockG!)} kg`);
+        await expect(strip.locator("[data-book-total='ordered']")).toContainText(`${kg1(api.totals.orderedG!)} kg`);
+        await expect(strip.locator("[data-book-total='inStock']")).toContainText(`${kg1(api.totals.inStockG!)} kg`);
         await expect(strip.locator("[data-book-total='inStock']")).toContainText("2 bundles");
-        await expect(strip.locator("[data-book-total='dispatched']")).toContainText(`${kg3(api.totals.dispatchedG!)} kg`);
+        await expect(strip.locator("[data-book-total='dispatched']")).toContainText(`${kg1(api.totals.dispatchedG!)} kg`);
         await expect(strip.locator("[data-book-total='dispatched']")).toContainText(/\d+(\.\d)?% dispatched/);
-        await expect(strip.locator("[data-book-total='baki']")).toContainText(`${kg3(api.totals.bakiG!)} kg`);
+        await expect(strip.locator("[data-book-total='baki']")).toContainText(`${kg1(api.totals.bakiG!)} kg`);
         await expect(main.locator("[data-book-late]")).toContainText("Late: 1");
 
         // One bar per order: its segments are the server's kg, and the label says what the percent is.
@@ -119,7 +120,7 @@ test.describe("the order book at a glance", () => {
         const idle = main.locator(`[data-order-bar='${w.overdue.number}']`);
         await expect(idle.locator("[data-segment]")).toHaveCount(0);
         await expect(idle).toContainText("Nothing planned yet");
-        await expect(idle).toContainText(`Baki ${kg3(api.items.find((i) => i.id === w.overdue.id)!.bakiG)} kg`);
+        await expect(idle).toContainText(`Baki ${kg1(api.items.find((i) => i.id === w.overdue.id)!.bakiG)} kg`);
 
         // Late by the expected date, and the chip says which date.
         const lateChip = main.locator("[data-slot='chip']").filter({ hasText: /Late, \d+ days/ });
@@ -128,9 +129,16 @@ test.describe("the order book at a glance", () => {
 
         if (width === 1280) {
           // The Ordered kg column adds up to the strip.
+          // BACKLOG 93: one decimal on the list, so each cell is within 50 g of the server's figure.
           const cells = await main.locator("table tbody tr td:nth-child(7)").allTextContents();
-          const total = cells.reduce((s, c) => s + Number(c.replace(/,/g, "")), 0);
-          expect(Math.round(total * 1000)).toBe(api.totals.orderedG);
+          expect(cells).toHaveLength(api.items.length);
+          expect(cells.map((c) => c.trim()).sort()).toEqual(api.items.map((i) => kg1(i.orderedG)).sort());
+          // The PO is one line: no letter-by-letter wrapping, the whole number in the title.
+          for (const po of await main.locator("table tbody [data-po]").all()) {
+            const box = (await po.boundingBox())!;
+            expect(box.height).toBeLessThan(30);
+            expect((await po.getAttribute("title")) ?? "").not.toBe("");
+          }
         }
         await expectNoHorizontalScroll(page);
         await expectNoClippedText(page, "main#main");
@@ -143,7 +151,7 @@ test.describe("the order book at a glance", () => {
         await expect(main.locator(`[data-order-bar='${w.stocked.number}']`)).toBeVisible();
         await page.getByLabel("Stage", { exact: true }).selectOption("planned");
         await expect(main.getByText("No orders match")).toBeVisible();
-        await expect(strip.locator("[data-book-total='ordered']")).toContainText("0.000 kg");
+        await expect(strip.locator("[data-book-total='ordered']")).toContainText("0.0 kg");
         await page.getByRole("button", { name: "Clear filters" }).click();
         await expect(page).toHaveURL(/\/orders\/?$/);
         // The sent order moved to Dispatching with its first load.

@@ -6,7 +6,7 @@ import { cn } from "@orrn/ui/lib/utils";
 import { bpPercent1 } from "@orrn/domain";
 
 import { type BookTotals } from "../book-view";
-import { orderKgText } from "../format";
+import { listKgText } from "../format";
 
 /**
  * The header strip of the order book (FP-OP-20): open orders, ordered, in stock (available only),
@@ -20,26 +20,26 @@ export function BookStrip({ totals, loading }: { totals: BookTotals | undefined;
   }
   const cells: { key: string; label: string; value: string; sub?: string; open?: boolean }[] = [
     { key: "orders", label: t("orders.book.strip.orders"), value: String(totals.openOrders), sub: t("orders.book.strip.ofShown", { count: totals.orders }) },
-    { key: "ordered", label: t("orders.book.strip.ordered"), value: `${orderKgText(totals.orderedG)} ${t("units.kg")}` },
+    { key: "ordered", label: t("orders.book.strip.ordered"), value: `${listKgText(totals.orderedG)} ${t("units.kg")}` },
     {
       key: "inStock",
       label: t("orders.book.strip.inStock"),
-      value: `${orderKgText(totals.inStockG)} ${t("units.kg")}`,
+      value: `${listKgText(totals.inStockG)} ${t("units.kg")}`,
       sub: t("units.bundles", { count: totals.inStockBundles }),
     },
     {
       key: "held",
       label: t("orders.book.strip.held"),
-      value: `${orderKgText(totals.heldG)} ${t("units.kg")}`,
+      value: `${listKgText(totals.heldG)} ${t("units.kg")}`,
       sub: t("units.bundles", { count: totals.heldBundles }),
     },
     {
       key: "dispatched",
       label: t("orders.book.strip.dispatched"),
-      value: `${orderKgText(totals.dispatchedG)} ${t("units.kg")}`,
+      value: `${listKgText(totals.dispatchedG)} ${t("units.kg")}`,
       sub: t("orders.book.bar.dispatchedPct", { pct: bpPercent1(totals.dispatchedBp) }),
     },
-    { key: "baki", label: t("orders.book.strip.baki"), value: `${orderKgText(totals.bakiG)} ${t("units.kg")}`, open: totals.bakiG > 0 },
+    { key: "baki", label: t("orders.book.strip.baki"), value: `${listKgText(totals.bakiG)} ${t("units.kg")}`, open: totals.bakiG > 0 },
   ];
   return (
     <section aria-label={t("orders.book.strip.label")} className="flex min-w-0 flex-col gap-2">

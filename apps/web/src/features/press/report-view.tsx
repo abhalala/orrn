@@ -62,6 +62,12 @@ const COLUMN_KEYS = [
 
 const MONO = new Set(["runNo", "copy", "cast", "startedStopped"]);
 const RIGHT = new Set(["runningMin", "recovery"]);
+/**
+ * The columns that hold words or lists and may wrap. Everything else is a figure and stays on one line, so at
+ * 1280 the table fits beside the sidebar (good kg, recovery and the totals in view, BACKLOG 94); a narrower
+ * screen scrolls inside the framed region (focusable), never the page.
+ */
+const WRAP = new Set(["downtimeMin", "operator", "section", "copy", "orders", "cutLengths", "startedStopped"]);
 
 /**
  * `/press/report`: logged runs, 17 columns, landscape; the same columns as the CSV. `/reports/production`
@@ -201,12 +207,12 @@ export function ReportScreen({
             {from === to ? from : `${from} - ${to}`} · {t("press.report.runsCount", { count: data.totals.runs })}
           </p>
           <div className="press-report-scroll min-w-0 overflow-x-auto rounded-card border border-border bg-card" tabIndex={0} role="region" aria-label={t("press.report.title")}>
-            <table data-testid="press-report-table" className="press-report-table w-max min-w-full border-collapse text-left text-[12px] leading-5">
+            <table data-testid="press-report-table" className="press-report-table w-full border-collapse text-left text-[12px] leading-5">
               <caption className="sr-only">{t("press.report.title")}</caption>
               <thead>
                 <tr className="border-b border-border text-muted-foreground">
                   {COLUMN_KEYS.map(([id, key]) => (
-                    <th key={id} scope="col" className={`whitespace-nowrap px-2 py-2 font-medium ${RIGHT.has(id) ? "text-right" : ""}`}>
+                    <th key={id} scope="col" className={`px-1 py-2 align-bottom font-medium leading-4 ${RIGHT.has(id) ? "text-right" : ""}`}>
                       {t(key)}
                     </th>
                   ))}
@@ -222,7 +228,7 @@ export function ReportScreen({
                           ? `${row.downtimeMin} (${row.downtimeReasons.map((c) => reasonLabel(t, "downtime", c.code, c.label, c, locale)).join(", ")})`
                           : cell;
                       return (
-                        <td key={id} className={`px-2 py-2 tabular-nums ${id === "cutLengths" ? "min-w-[12rem]" : "whitespace-nowrap"} ${MONO.has(id) ? "font-mono" : ""} ${RIGHT.has(id) ? "text-right" : ""}`}>
+                        <td key={id} className={`px-1 py-2 align-top tabular-nums ${WRAP.has(id) ? "break-words" : "whitespace-nowrap"} ${MONO.has(id) ? "font-mono" : ""} ${RIGHT.has(id) ? "text-right" : ""}`}>
                           {content}
                           {id === "runNo" && row.lateEntry ? (
                             <span className="ml-1.5 align-middle">
@@ -246,15 +252,15 @@ export function ReportScreen({
               </tbody>
               <tfoot>
                 <tr className="border-t border-border font-semibold" data-testid="press-report-totals">
-                  <td className="px-2 py-2" colSpan={13}>
+                  <td className="px-1 py-2" colSpan={13}>
                     {t("press.report.totals")}
                   </td>
-                  <td className="px-2 py-2 tabular-nums">{data.totals.downtimeMin}</td>
-                  <td className="whitespace-nowrap px-2 py-2 tabular-nums">
+                  <td className="px-1 py-2 tabular-nums">{data.totals.downtimeMin}</td>
+                  <td className="whitespace-nowrap px-1 py-2 tabular-nums">
                     {kgFromG(data.totals.goodG)} / {data.totals.pcs}
                   </td>
-                  <td className="whitespace-nowrap px-2 py-2 tabular-nums">{kgFromG(data.totals.scrapG)}</td>
-                  <td className="px-2 py-2 text-right font-mono tabular-nums">{percentOfBp(data.totals.recoveryBp)}</td>
+                  <td className="whitespace-nowrap px-1 py-2 tabular-nums">{kgFromG(data.totals.scrapG)}</td>
+                  <td className="px-1 py-2 text-right font-mono tabular-nums">{percentOfBp(data.totals.recoveryBp)}</td>
                 </tr>
               </tfoot>
             </table>

@@ -8,6 +8,7 @@ import { FieldTextArea } from "@/features/catalog/field-text-area";
 import { kgFromG } from "@/features/press/model";
 
 import {
+  CHEMICAL_UNITS,
   figuresOf,
   kgToG,
   lineKey,
@@ -236,8 +237,6 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
 
 // --- 3. Chemicals and LDO ----------------------------------------------------------------------------------------
 
-const UNIT_CHOICES = ["kg", "g", "l", "ml", "pcs"] as const;
-
 export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { storeItems: StoreItem[] }) {
   const { t } = useT();
   const active = storeItems.filter((i) => i.active);
@@ -281,7 +280,7 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
                   </Field>
                   <Field label={t("foundry.melt.chem.unit")}>
                     <FieldSelect value={c.unit} onChange={(e) => set({ unit: e.currentTarget.value })}>
-                      {UNIT_CHOICES.map((u) => (
+                      {CHEMICAL_UNITS.map((u) => (
                         <option key={u} value={u}>
                           {u}
                         </option>

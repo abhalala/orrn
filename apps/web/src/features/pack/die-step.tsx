@@ -18,7 +18,7 @@ import { dieListView, recentDieIds, type DieOption } from "./die-options";
 import { chooseYard, lengthToInput } from "./pack-math";
 import { PackBar, formatRangeKg } from "./pack-ui";
 import type { PackDraft } from "./use-pack-draft";
-import { DEFAULT_SOURCE, type SourceChoice } from "./source-gate";
+import { DEFAULT_SOURCE, preselectSource, type SourceChoice } from "./source-gate";
 import { SourceExtras, useSourceGate } from "./source-extras";
 import { readLastYard, type YardState } from "./use-yards";
 import { YardPicker } from "./yard-picker";
@@ -497,7 +497,9 @@ function DefaultsForm({
   const [showSourceErrors, setShowSourceErrors] = useState(false);
   const gate = useSourceGate(draft.dieId, choice, settings);
   // A different section was picked: the order, copy and cast of the last one do not apply.
+  // BACKLOG 99: a draft that already carries a source choice keeps it; otherwise, once per section, the one source that applies is pre-picked.
   const lastDie = useRef(draft.dieId);
+  const preselectedFor = useRef<string | null>(draft.defaults.salesOrderLineId || draft.defaults.dieInstanceId || draft.defaults.castId ? draft.dieId : null);
   useEffect(() => {
     if (lastDie.current === draft.dieId) return;
     const was = lastDie.current;
@@ -505,6 +507,14 @@ function DefaultsForm({
     if (was !== null) setChoice((c) => ({ showLogo: c.showLogo }));
     setShowSourceErrors(false);
   }, [draft.dieId]);
+  const copiesData = gate.copies.data?.items;
+  const linesData = gate.lines.data;
+  useEffect(() => {
+    if (!draft.dieId || preselectedFor.current === draft.dieId || lastDie.current !== draft.dieId) return;
+    if (gate.copies.isPending || gate.lines.isPending) return;
+    preselectedFor.current = draft.dieId;
+    setChoice((c) => preselectSource(c, linesData, copiesData));
+  }, [draft.dieId, gate.copies.isPending, gate.lines.isPending, linesData, copiesData]);
   const yardRef = useRef<HTMLInputElement | null>(null);
   const inchesRef = useRef<HTMLInputElement | null>(null);
   const yardId = chooseYard({

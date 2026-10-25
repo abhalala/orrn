@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7004 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 7022 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -1788,7 +1788,7 @@ Counts: 7004 screen strings in 49 groups, 35 guides with 646 strings.
 | `itemForm.restored` | {name} is back in use | {name} फिर से चालू है |
 | `itemForm.retireBlocked` | {qty} {unit} is still in the store. Issue it or cancel its entries before retiring the item. | स्टोर में अभी {qty} {unit} है। सामान बंद करने से पहले इसे दें या इसकी एंट्री रद्द करें। |
 
-### printing (82)
+### printing (86)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1819,6 +1819,10 @@ Counts: 7004 screen strings in 49 groups, 35 guides with 646 strings.
 | `restricted` | You can see the queue. Ask a manager to change printers or labels. | आप कतार देख सकते हैं। प्रिंटर या लेबल बदलने के लिए मैनेजर से कहें। |
 | `subtitle` | Labels waiting to print, and the print computers at your plant. | प्रिंट होने के लिए रुके लेबल और आपके प्लांट के प्रिंट कंप्यूटर। |
 | `loadFailed` | Couldn't load printing. Check your connection and try again. | प्रिंटिंग लोड नहीं हुई। कनेक्शन देखकर फिर कोशिश करें। |
+| `computerBanner.neverTitle` | The print computer has never connected | प्रिंट कंप्यूटर अभी तक जुड़ा नहीं है |
+| `computerBanner.neverBody` | {waiting} {waiting:label is\|labels are} waiting. Nothing prints until the print computer is installed, switched on and online. Ask the orrn team for help. | {waiting} लेबल इंतज़ार में हैं और कुछ प्रिंट नहीं होगा। प्लांट में प्रिंट कंप्यूटर लगाएँ, चालू करें और इंटरनेट से जोड़ें, या orrn टीम से मदद लें। |
+| `computerBanner.offlineTitle` | The print computer has been offline since {time} | प्रिंट कंप्यूटर {time} से बंद है |
+| `computerBanner.offlineBody` | {waiting} {waiting:label is\|labels are} waiting. Check that the print computer is switched on and online. They print once it reports in. | {waiting} लेबल इंतज़ार में हैं। देखें कि प्लांट का प्रिंट कंप्यूटर चालू है और इंटरनेट से जुड़ा है। जुड़ते ही लेबल अपने आप प्रिंट हो जाएँगे। |
 | `queueExtra.all` | All | सभी |
 | `queueExtra.emptyFiltered` | No jobs with this status. | इस स्टेटस का कोई जॉब नहीं है। |
 | `queueExtra.noReason` | No reason was recorded. | कोई वजह दर्ज नहीं हुई। |
@@ -6638,7 +6642,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (272)
+### audit (286)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6650,7 +6654,7 @@ Please check, Lalubhai:
 | `kind` | Kind | प्रकार |
 | `anyKind` | Everything | सब कुछ |
 | `subject` | Subject | विषय |
-| `subjectHint` | The id in an entry's Subject column | एंट्री के विषय कॉलम की आईडी |
+| `subjectHint` | Tap Only this on an entry, or paste its id | किसी एंट्री पर 'सिर्फ़ यह' दबाएँ, या उसकी आईडी चिपकाएँ |
 | `from` | From | से |
 | `to` | To | तक |
 | `clear` | Clear filters | फ़िल्टर हटाएं |
@@ -6679,6 +6683,20 @@ Please check, Lalubhai:
 | `columns.who` | Who | किसने |
 | `columns.what` | What | क्या |
 | `columns.subject` | Subject | विषय |
+| `subjectTypes.sales_order` | Order | ऑर्डर |
+| `subjectTypes.dispatch` | Dispatch | Dispatch |
+| `subjectTypes.packing_list` | Packing list | पैकिंग लिस्ट |
+| `subjectTypes.press_run` | Press run | प्रेस रन |
+| `subjectTypes.press_plan` | Press plan | प्रेस प्लान |
+| `subjectTypes.die_instance` | Die copy | Die कॉपी |
+| `subjectTypes.die` | Die | Die |
+| `subjectTypes.customer` | Party | पार्टी |
+| `subjectTypes.vendor` | Vendor | विक्रेता |
+| `subjectTypes.bundle` | Bundle | बंडल |
+| `subjectTypes.cast` | Cast | कास्ट |
+| `subjectTypes.purchase_lot` | Purchase lot | खरीद का लॉट |
+| `subjectTypes.count_session` | Stock count | स्टॉक की गिनती |
+| `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |
 | `details` | Details | जानकारी |

@@ -5,7 +5,7 @@ import { expect, request as pwRequest, test, type Browser, type BrowserContext, 
 
 import { localPassword, signInViaApi, type LocalRole } from "./helpers/accounts";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
-import { expectNoHorizontalScroll } from "../helpers/layout-guards";
+import { expectNoHorizontalScroll, expectTableFitsFrame } from "../helpers/layout-guards";
 
 /**
  * Reports (W4-ANALYTICS): `/reports`, `/reports/production` (the press report + recovery by die /
@@ -121,6 +121,8 @@ for (const width of WIDTHS) {
       await expect(page.getByRole("heading", { name: "Production report", level: 1 })).toBeVisible();
       await page.goto(`/reports/production?from=${day}&to=${day}`);
       await expect(page.getByTestId("press-report-table").locator('tbody tr[data-run="PR-8"]')).toBeVisible();
+      // BACKLOG 94: the 17-column table fits the 1280 frame (key columns and totals in view); narrower widths scroll inside the frame.
+      if (width === 1280) await expectTableFitsFrame(page.getByTestId("press-report-table"));
       const byDie = await office.q<Recovery>("analytics.recovery", { from: day, to: day, groupBy: "die" });
       expect(byDie.totals.runs).toBeGreaterThan(0);
       const summary = page.getByTestId("recovery-summary");

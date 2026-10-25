@@ -8,7 +8,7 @@ import { cardBundle, asksReason, typedCount } from "../features/pack/pack-card";
 import { DEFAULT_SOURCE, receiptPayload, type DraftBundle } from "../features/pack/pack-math";
 import { PACK_REFUSALS, packSaveText, readReject, receiptRequestKey, saveErrorKind, validSessionKey, withRequestKey } from "../features/pack/pack-submit";
 import { partyNoLabel, partyRange } from "../features/pack/party";
-import { copyLocked, sourceBlockers, withPinnedLine, withPinOverride } from "../features/pack/source-gate";
+import { copyLocked, packableCopy, sourceBlockers, withPinnedLine, withPinOverride } from "../features/pack/source-gate";
 import { gramsToFieldText, scaleView, typedWeightNeedsReason, viewForReason, weightProvenance } from "../features/pack/scale-view";
 import { positionKey, previewReady } from "../features/pack/line-preview";
 import { replayKey, noReply, sendOnce } from "../lib/replay-key";
@@ -310,5 +310,16 @@ describe("party numbers after the save (FP-PK-07)", () => {
     expect(partyRange([{ serial: "26J10", partyNo: "4086" }, { serial: "26J11", partyNo: "4087" }])).toEqual({ from: "4086", to: "4087" });
     expect(partyNoLabel({ serial: "26J10", partyNo: "26J10" })).toBeNull();
     expect(partyNoLabel({ serial: "26J10", partyNo: "4086" })).toBe("4086");
+  });
+});
+
+describe("which die copies the pack source offers (FINAL-FIXES-3 I2, Q63 A)", () => {
+  test("retired and at-the-maker copies are refused by the server and not offered; one at nitriding is offered", () => {
+    expect(packableCopy("retired")).toBe(false);
+    expect(packableCopy("at_maker")).toBe(false);
+    expect(packableCopy("at_nitriding")).toBe(true);
+    expect(packableCopy("available")).toBe(true);
+    expect(packableCopy("in_use")).toBe(true);
+    expect(packableCopy("on_trial")).toBe(true);
   });
 });

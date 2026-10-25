@@ -11,6 +11,7 @@ import {
   meltLockGates,
   percentToPpm,
   spectroCheck,
+  spectroHasValues,
   spectroVerdict,
   type SpectroPpm,
 } from "./foundry";
@@ -165,6 +166,16 @@ describe("furnace load and the lock gate", () => {
     const off = meltBalance({ lotsG: 1_000 * KG, streamsG: 0, logsG: 900 * KG, drossG: 0, feG: 0 });
     expect(meltLockGates({ ...base, inputsG: [1_000 * KG], logLinesG: [900 * KG], balance: off })).toEqual(["balance_reason_missing"]);
     expect(meltLockGates({ ...base, inputsG: [1_000 * KG], logLinesG: [900 * KG], balance: off, balanceReason: "spill at tap" })).toEqual([]);
+  });
+});
+
+describe("spectroHasValues (FINAL-FIXES-3 review I1)", () => {
+  test("only a values map with keys counts; empty, null and non-objects do not", () => {
+    expect(spectroHasValues({ si: 450 })).toBe(true);
+    expect(spectroHasValues({})).toBe(false);
+    expect(spectroHasValues(null)).toBe(false);
+    expect(spectroHasValues(undefined)).toBe(false);
+    expect(spectroHasValues("")).toBe(false);
   });
 });
 

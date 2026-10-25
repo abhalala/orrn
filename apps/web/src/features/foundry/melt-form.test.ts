@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
+import { storeUnits } from "../../../../../packages/db/src/schema/store"; // @orrn/db is not a web dependency; read the schema source
+
 import {
+  CHEMICAL_UNITS,
   blankForm,
   figuresOf,
   formFromMelt,
@@ -163,6 +166,20 @@ describe("saveInputOf", () => {
     expect(r.ok && r.input.chemicals[0]).toEqual({ name: "Cover flux", unit: "kg", openMilli: 5000, usedMilli: 2000, closeMilli: 3000 });
     f.chemicals[0]!.unit = "";
     expect(saveInputOf(f, ctx)).toMatchObject({ ok: false, issue: { code: "chemical" } });
+  });
+
+  test("the units offered for a chemical are exactly the store's units; g, l, ml and pcs are refused up front (BACKLOG 78)", () => {
+    expect([...CHEMICAL_UNITS]).toEqual([...storeUnits]);
+    const f = filled();
+    for (const unit of CHEMICAL_UNITS) {
+      f.chemicals = [{ key: "q", storeItemId: "", name: "Cover flux", unit, openText: "5", usedText: "2", closeText: "" }];
+      const r = saveInputOf(f, ctx);
+      expect(r.ok && r.input.chemicals[0]!.unit).toBe(unit);
+    }
+    for (const unit of ["g", "l", "ml", "pcs"]) {
+      f.chemicals = [{ key: "q", storeItemId: "", name: "Cover flux", unit, openText: "5", usedText: "2", closeText: "" }];
+      expect(saveInputOf(f, ctx)).toMatchObject({ ok: false, issue: { code: "chemical" } });
+    }
   });
 
   test("a melt that crosses midnight lands on the next day", () => {

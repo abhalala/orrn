@@ -3,8 +3,11 @@ import { Chip } from "@orrn/ui/components/chip";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import type { ReactNode } from "react";
 
+import { RouterLink } from "@/shared/components/router-link";
+
 import { auditActionKey } from "./action-words";
 import { metaEntries } from "./model";
+import { subjectPath, subjectTypeFallback, subjectTypeKey } from "./subject-words";
 
 export type AuditRow = {
   id: string;
@@ -12,6 +15,8 @@ export type AuditRow = {
   action: string;
   subjectType: string;
   subjectId: string | null;
+  /** The number, code or name the subject goes by (the server, this plant only); null when it has none. */
+  subjectLabel?: string | null;
   actorId: string | null;
   actorName: string | null;
   byStaff: boolean;
@@ -21,7 +26,9 @@ export type AuditRow = {
 /**
  * The audit entries as a table (iPad up) or stacked rows (phone). Read only: nothing here edits or
  * removes an entry. `when` formats the time in the plant's zone; `onSubject` (the plant viewer)
- * turns the subject into a filter, and is left out where there is no filter to set.
+ * turns the subject into a filter, and is left out where there is no filter to set. `linkSubjects` (default on)
+ * links a subject to its screen in the viewer's own plant; Godseye's company tab turns it off, because those screens
+ * would open the staff member's plant, not the plant being audited.
  */
 export function AuditRows({
   rows,
@@ -29,6 +36,7 @@ export function AuditRows({
   empty,
   when,
   onSubject,
+  linkSubjects = true,
   label,
 }: {
   rows: AuditRow[];
@@ -36,6 +44,7 @@ export function AuditRows({
   empty: ReactNode;
   when: (at: string) => string;
   onSubject?: (subjectId: string) => void;
+  linkSubjects?: boolean;
   label: string;
 }) {
   const { t } = useT();
@@ -70,26 +79,43 @@ export function AuditRows({
     {
       key: "subject",
       header: t("audit.columns.subject"),
-      cell: (r) =>
-        r.subjectId ? (
-          onSubject ? (
-            <button
-              type="button"
-              onClick={() => onSubject(r.subjectId!)}
-              className="inline-flex min-h-11 min-w-0 flex-col items-start text-left font-mono text-[13px] break-all underline decoration-control underline-offset-4 hover:decoration-foreground"
-            >
-              <span className="text-muted-foreground no-underline">{r.subjectType}</span>
-              <span>{r.subjectId}</span>
-            </button>
+      cell: (r) => {
+        // BACKLOG 100: "Packing list PL/2026-27/5" with a link to it; the raw id only as the filter handle, small, under it.
+        const typeKey = subjectTypeKey(r.subjectType);
+        const typeWords = typeKey ? t(typeKey as MessageKey) : subjectTypeFallback(r.subjectType);
+        const path = linkSubjects ? subjectPath(r.subjectType, r.subjectId) : null;
+        const name = r.subjectLabel ?? null;
+        const head = name ? (
+          path ? (
+            <RouterLink to={path} className="font-semibold underline decoration-control underline-offset-4 hover:decoration-foreground break-words" data-audit-subject-link="">
+              {name}
+            </RouterLink>
           ) : (
-            <span className="flex min-w-0 flex-col font-mono text-[13px] break-all">
-              <span className="text-muted-foreground">{r.subjectType}</span>
-              <span>{r.subjectId}</span>
-            </span>
+            <span className="font-semibold break-words">{name}</span>
           )
-        ) : (
-          <span className="font-mono text-[13px] text-muted-foreground">{r.subjectType}</span>
-        ),
+        ) : null;
+        return (
+          <span className="flex min-w-0 flex-col gap-0.5 text-[13px]" data-audit-subject={r.subjectType}>
+            <span className="text-muted-foreground">{typeWords}</span>
+            {head}
+            {r.subjectId ? (
+              onSubject ? (
+                <button
+                  type="button"
+                  onClick={() => onSubject(r.subjectId!)}
+                  className="inline-flex min-h-11 min-w-0 items-center text-left font-mono text-[12px] break-all text-muted-foreground underline decoration-control underline-offset-4 hover:decoration-foreground"
+                  title={r.subjectId}
+                  aria-label={name ? `${t("audit.onlyThis")}: ${name}` : undefined}
+                >
+                  {name ? t("audit.onlyThis") : r.subjectId}
+                </button>
+              ) : name ? null : (
+                <span className="font-mono text-[12px] break-all text-muted-foreground">{r.subjectId}</span>
+              )
+            ) : null}
+          </span>
+        );
+      },
     },
     {
       key: "details",

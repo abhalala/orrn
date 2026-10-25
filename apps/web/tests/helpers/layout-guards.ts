@@ -185,3 +185,14 @@ export async function expectNoClippedText(page: Page, scope?: Locator | string) 
   const issues = await collectClippedTextIssues(page, scope);
   expect(issues, `Clipped text on ${page.url()}:\n${format(issues)}`).toEqual([]);
 }
+
+/**
+ * A wide table lives in its own focusable scroll region; at a width where it should fit (the 1280 desktop), the region
+ * must not need to scroll at all, so the key columns and the totals row are all in view (BACKLOG 94).
+ */
+export async function expectTableFitsFrame(table: Locator) {
+  const frame = table.locator("xpath=ancestor::*[@role='region'][1]");
+  await expect(frame).toHaveAttribute("tabindex", "0");
+  const { scrollWidth, clientWidth } = await frame.evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+  expect(scrollWidth, `the table needs ${scrollWidth}px in a ${clientWidth}px frame`).toBeLessThanOrEqual(clientWidth + 1);
+}

@@ -6,7 +6,7 @@ import { expect, request as pwRequest, test, type Browser, type BrowserContext, 
 
 import { signInViaApi, localPassword, type LocalRole } from "./helpers/accounts";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
-import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
+import { expectNoClippedText, expectNoHorizontalScroll, expectTableFitsFrame } from "../helpers/layout-guards";
 
 /**
  * Press (W2-PR-W): `/press`, `/press/lines`, `/press/lines/$id`, `/press/runs/$id`, `/press/report`,
@@ -732,6 +732,11 @@ for (const width of WIDTHS) {
         await expect(row).toContainText("75.5");
         await expect(row).toContainText("Waiting for billets");
         await expect(page.getByTestId("press-report-totals")).toContainText("75.5");
+        // BACKLOG 94: at 1280 all 17 columns, good kg, recovery and the totals row are in view without sideways scrolling.
+        await expectTableFitsFrame(table);
+        await expect(row.locator("td").nth(14)).toBeInViewport();
+        await expect(row.locator("td").nth(16)).toBeInViewport();
+        await expect(page.getByTestId("press-report-totals").locator("td").last()).toBeInViewport();
         // Without the plan filter the seeded PR-8 (logged today) is on the sheet too.
         await page.goto(`/press/report?from=${day}&to=${day}`);
         await expect(page.getByTestId("press-report-table").locator('tbody tr[data-run="PR-8"]')).toBeVisible();
