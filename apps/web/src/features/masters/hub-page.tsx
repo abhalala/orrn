@@ -5,7 +5,7 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { StatusBlock } from "@orrn/ui/components/status-block";
 import { UiLink } from "@orrn/ui/components/link";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Cylinder, Layers, MapPin, Recycle, Store, Truck, type LucideIcon } from "lucide-react";
+import { ChevronRight, Cylinder, Layers, ListChecks, MapPin, Recycle, Store, Truck, type LucideIcon } from "lucide-react";
 
 import { canAny } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
@@ -20,6 +20,7 @@ const ICONS: Record<MasterKey, LucideIcon> = {
   locations: MapPin,
   sections: Layers,
   dieCopies: Cylinder,
+  reasons: ListChecks,
 };
 
 const NOUNS: Record<MasterKey, MessageKey> = {
@@ -29,6 +30,7 @@ const NOUNS: Record<MasterKey, MessageKey> = {
   locations: "masters.hub.locationsNoun",
   sections: "masters.hub.sectionsNoun",
   dieCopies: "masters.hub.dieCopiesNoun",
+  reasons: "masters.hub.reasonsNoun",
 };
 
 /** How many entries each list holds (live ones), for the count beside it. Undefined while loading. */
@@ -43,6 +45,7 @@ function useCounts(enabled: { vendors: boolean; storeItems: boolean }) {
   const locations = useQuery(trpc.stock.locations.list.queryOptions({ includeInactive: false }));
   const sections = useQuery(trpc.die.list.queryOptions({ limit: 1, offset: 0 }));
   const copies = useQuery(trpc.dieInstance.list.queryOptions({ limit: 1, offset: 0 }));
+  const reasons = useQuery(trpc.reasonCodes.list.queryOptions());
   const counts: Partial<Record<MasterKey, number>> = {
     vendors: vendors.data?.total,
     scrap: scrap.data?.items.filter((i) => i.active).length,
@@ -50,6 +53,7 @@ function useCounts(enabled: { vendors: boolean; storeItems: boolean }) {
     locations: locations.data?.items.length,
     sections: sections.data === undefined ? undefined : Number(sections.data.total),
     dieCopies: copies.data?.total,
+    reasons: reasons.data?.filter((r) => r.active).length,
   };
   return { counts, drafts: drafts.data?.total ?? 0 };
 }

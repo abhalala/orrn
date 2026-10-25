@@ -15,7 +15,7 @@ type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : DeepPart
 
 /** Dotted namespaces gu must carry in full. */
 /** W1-PK-W r1 m-1: the dispatch scan, stock and the packing list are read at the bay too (D6). */
-export const GU_FLOOR_NAMESPACES = ["today", "pack", "scan", "press.console", "ageing.readings", "stock", "dispatch.capacity", "dispatch.detail", "dispatch.steps", "dispatch.build", "dispatch.paste", "dispatch.errors", "packingList", "status.bundle", "status.dispatch", "status.range", "native.refusal"] as const;
+export const GU_FLOOR_NAMESPACES = ["today", "pack", "scan", "press.console", "ageing.readings", "stock", "dispatch.capacity", "dispatch.detail", "dispatch.steps", "dispatch.build", "dispatch.paste", "dispatch.errors", "packingList", "status.bundle", "status.dispatch", "status.range", "native.refusal", "press.alerts", "foundry.inbox"] as const;
 
 /**
  * Reason labels the floor reads on the press console and at pack (downtime, rejects, void, reprint)
@@ -28,7 +28,8 @@ export type GuMessages = DeepPartial<Messages> &
   Pick<Messages, "today" | "pack" | "scan" | "stock" | "packingList"> & {
     dispatch: Pick<Messages["dispatch"], "capacity" | "detail" | "steps" | "build" | "paste" | "errors">;
     status: Pick<Messages["status"], "bundle" | "dispatch" | "range">;
-    press: { console: Messages["press"]["console"] };
+    press: { console: Messages["press"]["console"]; alerts: Messages["press"]["alerts"] };
+    foundry: { inbox: Messages["foundry"]["inbox"] };
     ageing: { readings: Messages["ageing"]["readings"] };
     reasons: Pick<Messages["reasons"], (typeof GU_REASON_FLOOR_KINDS)[number]>;
   };
@@ -544,6 +545,53 @@ export const gu = {
     },
   },
   press: {
+    alerts: {
+      title: "પ્રેસ એલર્ટ",
+      subtitle: "પ્રેસ માટે નક્કી કરેલી હદની બહાર ગયેલા રીડિંગ. પ્રેસ જુઓ, પછી એલર્ટ જોઈ લીધું તરીકે નિશાન કરો.",
+      show: "બતાવો",
+      showOpen: "ખુલ્લા",
+      showAll: "બધા",
+      empty: "હજી કોઈ એલર્ટ નથી.",
+      emptyOpen: "કોઈ એલર્ટ ખુલ્લું નથી.",
+      loadFailed: "એલર્ટ આવ્યા નથી. કનેક્શન તપાસીને ફરી પ્રયત્ન કરો.",
+      columns: {
+        line: "પ્રેસ",
+        metric: "રીડિંગ",
+        limit: "હદ",
+        peak: "સૌથી વધુ",
+        started: "શરૂ",
+        last: "છેલ્લું રીડિંગ",
+        status: "સ્થિતિ",
+        run: "રન",
+      },
+      metric: {
+        ram_speed: "રેમની ઝડપ",
+        billet_temp: "બિલેટનું તાપમાન",
+        exit_temp: "બહાર નીકળતી વખતનું તાપમાન",
+        container_temp: "કન્ટેનરનું તાપમાન",
+        pressure: "દબાણ",
+      },
+      unit: {
+        ram_speed: "mm/s",
+        billet_temp: "°C",
+        exit_temp: "°C",
+        container_temp: "°C",
+        pressure: "bar",
+      },
+      low: "{limit} {unit} થી ઓછું",
+      high: "{limit} {unit} થી વધુ",
+      status: {
+        open: "ખુલ્લું",
+        ended: "પૂરું",
+        acknowledged: "જોઈ લીધું",
+      },
+      simulated: "સિમ્યુલેટરમાંથી",
+      frames: "{count} {count:રીડિંગ|રીડિંગ}",
+      acknowledge: "જોઈ લીધું",
+      acknowledged: "એલર્ટ જોઈ લીધું",
+      ackFailed: "નિશાન થયું નથી. ફરી પ્રયત્ન કરો.",
+      ackedAt: "{time} એ જોયું",
+    },
     console: {
       title: "પ્રેસ કન્સોલ",
       queue: "કતાર",
@@ -1451,6 +1499,58 @@ export const gu = {
       customer_request: "ગ્રાહકે કહ્યું",
       packed_wrong_order: "ખોટા ઓર્ડર પર પૅક થયું",
       other: "અન્ય",
+    },
+  },
+  foundry: {
+    inbox: {
+      title: "સ્પેક્ટ્રો ઇનબોક્સ",
+      subtitle: "સ્પેક્ટ્રોમીટર કમ્પ્યુટરે મોકલેલી પરિણામ ફાઇલો. કંઈ જાતે જોડાતું નથી: દરેક ફાઇલ માટે મેલ્ટ જાતે પસંદ કરો.",
+      tabs: {
+        label: "ફાઇલો",
+        waiting: "રાહ જુએ છે",
+        arriving: "આવી રહી છે",
+        handled: "પતી ગઈ",
+      },
+      empty: "કોઈ ફાઇલ રાહ જોતી નથી.",
+      emptyArriving: "કંઈ આવી રહ્યું નથી.",
+      emptyHandled: "હજી કોઈ ફાઇલ પતી નથી.",
+      loadFailed: "ફાઇલો આવી નથી. કનેક્શન તપાસીને ફરી પ્રયત્ન કરો.",
+      size: "{kb} kB",
+      captured: "{time} એ લીધી",
+      sample: "સૅમ્પલ {ref}",
+      instrument: "મશીન {name}",
+      uploaded: "{time} એ મળી",
+      simulated: "સિમ્યુલેટર",
+      simulatedHint: "સિમ્યુલેટરનો ડેમો ડેટા. તેને ફક્ત હટાવી શકાય.",
+      status: {
+        uploading: "આવી રહી છે",
+        pending_review: "રાહ જુએ છે",
+        attached: "જોડાઈ",
+        dismissed: "હટાવી",
+      },
+      attach: "મેલ્ટ સાથે જોડો",
+      dismiss: "હટાવો",
+      attachSheet: {
+        title: "{file} જોડો",
+        cast: "કાસ્ટ",
+        castPick: "કાસ્ટ પસંદ કરો",
+        melt: "મેલ્ટ",
+        meltPick: "મેલ્ટ પસંદ કરો",
+        meltLabel: "મેલ્ટ {seq}",
+        noMelts: "આ કાસ્ટમાં હજી કોઈ મેલ્ટ નથી.",
+        confirm: "ફાઇલ જોડો",
+        attached: "ફાઇલ કાસ્ટ {cast} ની મેલ્ટ {seq} સાથે જોડાઈ",
+        values: "ફાઇલમાંથી વાંચેલી કિંમતો (ppm)",
+      },
+      dismissSheet: {
+        title: "{file} હટાવો",
+        reason: "આ ફાઇલ કેમ જોઈતી નથી?",
+        reasonRequired: "કારણ લખો.",
+        confirm: "ફાઇલ હટાવો",
+        dismissed: "ફાઇલ હટાવી દીધી",
+      },
+      failed: "સેવ થયું નથી. કનેક્શન તપાસીને ફરી પ્રયત્ન કરો.",
+      handledAt: "{time} એ પતી",
     },
   },
 } as const satisfies GuMessages;

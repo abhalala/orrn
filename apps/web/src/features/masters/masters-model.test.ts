@@ -194,14 +194,14 @@ describe("masterEntries (the Masters page)", () => {
 
   test("owner and manager see every master", () => {
     for (const role of ["owner", "manager", "admin"] as const) {
-      expect(keys(role)).toEqual(["vendors", "scrap", "storeItems", "locations", "sections", "dieCopies"]);
+      expect(keys(role)).toEqual(["vendors", "scrap", "storeItems", "locations", "sections", "dieCopies", "reasons"]);
     }
   });
 
   test("vendors only for purchase readers, store items only for the store's people", () => {
-    expect(keys("office")).toEqual(["vendors", "scrap", "locations", "sections", "dieCopies"]);
-    expect(keys("storekeeper")).toEqual(["vendors", "scrap", "storeItems", "locations", "sections", "dieCopies"]);
-    expect(keys("packer")).toEqual(["scrap", "locations", "sections", "dieCopies"]);
+    expect(keys("office")).toEqual(["vendors", "scrap", "locations", "sections", "dieCopies", "reasons"]);
+    expect(keys("storekeeper")).toEqual(["vendors", "scrap", "storeItems", "locations", "sections", "dieCopies", "reasons"]);
+    expect(keys("packer")).toEqual(["scrap", "locations", "sections", "dieCopies", "reasons"]);
   });
 
   test("every entry belongs to a group and points at a real path", () => {

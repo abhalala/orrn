@@ -74,6 +74,7 @@ import { Route as TenantPackIdRouteImport } from './routes/_tenant/pack.$id'
 import { Route as TenantOrdersNewRouteImport } from './routes/_tenant/orders.new'
 import { Route as TenantOrdersIdRouteImport } from './routes/_tenant/orders.$id'
 import { Route as TenantMastersScrapRouteImport } from './routes/_tenant/masters.scrap'
+import { Route as TenantMastersReasonsRouteImport } from './routes/_tenant/masters.reasons'
 import { Route as TenantMastersLocationsRouteImport } from './routes/_tenant/masters.locations'
 import { Route as TenantMastersDiesRouteImport } from './routes/_tenant/masters.dies'
 import { Route as TenantGuidesSlugRouteImport } from './routes/_tenant/guides.$slug'
@@ -462,6 +463,11 @@ const TenantOrdersIdRoute = TenantOrdersIdRouteImport.update({
 const TenantMastersScrapRoute = TenantMastersScrapRouteImport.update({
   id: '/masters/scrap',
   path: '/masters/scrap',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersReasonsRoute = TenantMastersReasonsRouteImport.update({
+  id: '/masters/reasons',
+  path: '/masters/reasons',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantMastersLocationsRoute = TenantMastersLocationsRouteImport.update({
@@ -878,6 +884,7 @@ export interface FileRoutesByFullPath {
   '/guides/$slug': typeof TenantGuidesSlugRoute
   '/masters/dies': typeof TenantMastersDiesRoute
   '/masters/locations': typeof TenantMastersLocationsRoute
+  '/masters/reasons': typeof TenantMastersReasonsRoute
   '/masters/scrap': typeof TenantMastersScrapRoute
   '/orders/$id': typeof TenantOrdersIdRoute
   '/orders/new': typeof TenantOrdersNewRoute
@@ -1009,6 +1016,7 @@ export interface FileRoutesByTo {
   '/guides/$slug': typeof TenantGuidesSlugRoute
   '/masters/dies': typeof TenantMastersDiesRoute
   '/masters/locations': typeof TenantMastersLocationsRoute
+  '/masters/reasons': typeof TenantMastersReasonsRoute
   '/masters/scrap': typeof TenantMastersScrapRoute
   '/orders/$id': typeof TenantOrdersIdRoute
   '/orders/new': typeof TenantOrdersNewRoute
@@ -1146,6 +1154,7 @@ export interface FileRoutesById {
   '/_tenant/guides/$slug': typeof TenantGuidesSlugRoute
   '/_tenant/masters/dies': typeof TenantMastersDiesRoute
   '/_tenant/masters/locations': typeof TenantMastersLocationsRoute
+  '/_tenant/masters/reasons': typeof TenantMastersReasonsRoute
   '/_tenant/masters/scrap': typeof TenantMastersScrapRoute
   '/_tenant/orders/$id': typeof TenantOrdersIdRoute
   '/_tenant/orders/new': typeof TenantOrdersNewRoute
@@ -1279,6 +1288,7 @@ export interface FileRouteTypes {
     | '/guides/$slug'
     | '/masters/dies'
     | '/masters/locations'
+    | '/masters/reasons'
     | '/masters/scrap'
     | '/orders/$id'
     | '/orders/new'
@@ -1410,6 +1420,7 @@ export interface FileRouteTypes {
     | '/guides/$slug'
     | '/masters/dies'
     | '/masters/locations'
+    | '/masters/reasons'
     | '/masters/scrap'
     | '/orders/$id'
     | '/orders/new'
@@ -1546,6 +1557,7 @@ export interface FileRouteTypes {
     | '/_tenant/guides/$slug'
     | '/_tenant/masters/dies'
     | '/_tenant/masters/locations'
+    | '/_tenant/masters/reasons'
     | '/_tenant/masters/scrap'
     | '/_tenant/orders/$id'
     | '/_tenant/orders/new'
@@ -2102,6 +2114,13 @@ declare module '@tanstack/react-router' {
       path: '/masters/scrap'
       fullPath: '/masters/scrap'
       preLoaderRoute: typeof TenantMastersScrapRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/reasons': {
+      id: '/_tenant/masters/reasons'
+      path: '/masters/reasons'
+      fullPath: '/masters/reasons'
+      preLoaderRoute: typeof TenantMastersReasonsRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/masters/locations': {
@@ -2721,6 +2740,7 @@ interface TenantRouteChildren {
   TenantGuidesSlugRoute: typeof TenantGuidesSlugRoute
   TenantMastersDiesRoute: typeof TenantMastersDiesRoute
   TenantMastersLocationsRoute: typeof TenantMastersLocationsRoute
+  TenantMastersReasonsRoute: typeof TenantMastersReasonsRoute
   TenantMastersScrapRoute: typeof TenantMastersScrapRoute
   TenantOrdersIdRoute: typeof TenantOrdersIdRoute
   TenantOrdersNewRoute: typeof TenantOrdersNewRoute
@@ -2819,6 +2839,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantGuidesSlugRoute: TenantGuidesSlugRoute,
   TenantMastersDiesRoute: TenantMastersDiesRoute,
   TenantMastersLocationsRoute: TenantMastersLocationsRoute,
+  TenantMastersReasonsRoute: TenantMastersReasonsRoute,
   TenantMastersScrapRoute: TenantMastersScrapRoute,
   TenantOrdersIdRoute: TenantOrdersIdRoute,
   TenantOrdersNewRoute: TenantOrdersNewRoute,

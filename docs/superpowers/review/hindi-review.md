@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5366 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -2155,10 +2155,36 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `reason.weightRange` | {column} reads as {weight}, too heavy to be right. Check the unit in the column name. | {column} {weight} पढ़ा गया, जो सही होने के लिए बहुत ज़्यादा है। कॉलम के नाम में यूनिट जांचें। |
 | `reason.alreadyImported` | This row (same row number, same values) was already imported from an earlier copy of this file, so it is not added again. | यह लाइन (वही लाइन नंबर, वही वैल्यू) इस फ़ाइल की पहले की कॉपी से इम्पोर्ट हो चुकी है, इसलिए दोबारा नहीं जोड़ी गई। |
 
-### masters (209)
+### masters (238)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `reasons.title` | Reason codes | कारण कोड |
+| `reasons.subtitle` | Why a press stopped, a bundle was voided or a label was printed again. These are the choices people pick from. | प्रेस क्यों रुका, बंडल क्यों रद्द हुआ या लेबल दोबारा क्यों छपा। लोग इन्हीं में से चुनते हैं। |
+| `reasons.kindsLabel` | Kind of reason | कारण का प्रकार |
+| `reasons.add` | Add reason | कारण जोड़ें |
+| `reasons.columns.label` | Reason | कारण |
+| `reasons.columns.key` | Key | कोड |
+| `reasons.columns.hindi` | Hindi | हिंदी |
+| `reasons.columns.gujarati` | Gujarati | गुजराती |
+| `reasons.columns.note` | Note | नोट |
+| `reasons.columns.status` | Status | स्थिति |
+| `reasons.noteYes` | Asks for a note | नोट मांगता है |
+| `reasons.noteNo` | No note | नोट नहीं |
+| `reasons.fixed` | Fixed | तय |
+| `reasons.fixedHint` | Other is always there, always asks for a note and always comes last. It cannot be changed. | 'अन्य' हमेशा रहता है, हमेशा नोट मांगता है और हमेशा आखिर में आता है। इसे बदला नहीं जा सकता। |
+| `reasons.empty` | No reasons of this kind | इस प्रकार का कोई कारण नहीं |
+| `reasons.form.addTitle` | Add a reason | कारण जोड़ें |
+| `reasons.form.editTitle` | Edit {name} | {name} बदलें |
+| `reasons.form.english` | English wording | अंग्रेज़ी शब्द |
+| `reasons.form.englishHint` | The key is made from this when the reason is added. Renaming never changes the key. | कारण जोड़ते समय इसी से कोड बनता है। नाम बदलने पर कोड नहीं बदलता। |
+| `reasons.form.hindi` | Hindi wording | हिंदी शब्द |
+| `reasons.form.gujarati` | Gujarati wording | गुजराती शब्द |
+| `reasons.form.translationHint` | Leave blank to use the built-in wording, or the English. | खाली छोड़ें तो बना-बनाया शब्द दिखेगा, या अंग्रेज़ी। |
+| `reasons.form.note` | Ask for a note when this reason is picked | यह कारण चुनने पर नोट मांगें |
+| `reasons.form.save` | Save reason | कारण सेव करें |
+| `reasons.form.retireHint` | A retired reason leaves the pickers but stays on old records. | बंद किया कारण चुनने की सूची से हट जाता है, पर पुराने रिकॉर्ड में रहता है। |
+| `reasons.form.labelRequired` | Give the wording. | शब्द लिखें। |
 | `hub.title` | Masters | मास्टर |
 | `hub.subtitle` | The lists every other screen picks from. | वे लिस्टें जिनसे बाकी सभी स्क्रीन चुनती हैं। |
 | `hub.buying` | Buying and melting | खरीद और भट्टी |
@@ -2183,6 +2209,9 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `hub.dieCopiesNoun` | {count:copy\|copies} | {count:कॉपी\|कॉपी} |
 | `hub.toConfirm` | Vendors to confirm | पक्की करने वाली पार्टियां |
 | `hub.toConfirmMeta` | Added at the kanta. Check each name, then confirm. | कांटे पर जोड़ी गईं। हर नाम जांचें, फिर पक्का करें। |
+| `hub.reasons` | Reason codes | कारण कोड |
+| `hub.reasonsHint` | Why a press stopped, a bundle was voided or a label was printed again | प्रेस क्यों रुका, बंडल क्यों रद्द हुआ या लेबल दोबारा क्यों छपा |
+| `hub.reasonsNoun` | {count:reason\|reasons} | {count:कारण\|कारण} |
 | `show` | Show | दिखाएं |
 | `showInUse` | In use | चालू |
 | `showRetired` | Retired | बंद |
@@ -2905,7 +2934,7 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
-### native (251)
+### native (386)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3091,6 +3120,141 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `orders.toReview` | Review the order | ऑर्डर की जांच करें |
 | `orders.changeDie` | Change die | डाई बदलें |
 | `orders.incomplete` | Not complete | अधूरी |
+| `refusal.notFoundDie` | That die was not found. Go back and open it again. | वह die नहीं मिली। वापस जाकर फिर खोलें। |
+| `refusal.notFoundIssue` | That die issue was not found. | वह die issue नहीं मिला। |
+| `refusal.notFoundRun` | That run was not found. | वह रन नहीं मिला। |
+| `refusal.notFoundPress` | That press was not found. | वह press नहीं मिला। |
+| `refusal.notFoundMaker` | That die maker was not found. | वह die मेकर नहीं मिला। |
+| `refusal.notFoundOrder` | That order was not found. Go back and open it again. | वह ऑर्डर नहीं मिला। वापस जाकर फिर खोलें। |
+| `refusal.notFoundBundle` | A bundle was not found. | एक bundle नहीं मिला। |
+| `refusal.notFoundPlan` | That press plan was not found. | वह press प्लान नहीं मिला। |
+| `refusal.notFoundCustomer` | That customer was not found. | वह कस्टमर नहीं मिला। |
+| `refusal.copyState` | {code} can't be used for this now. Status: {state}. | {code} अभी इसके लिए इस्तेमाल नहीं हो सकती। स्थिति: {state}। |
+| `refusal.retired` | {code} is retired. | {code} बंद की जा चुकी है। |
+| `refusal.retiredNoReadings` | {code} is retired. It takes no readings. | {code} बंद है। इसकी रीडिंग नहीं ली जाती। |
+| `refusal.sectionDeleted` | {code} belongs to a die that was deleted. It can't be issued. | {code} जिस die की है वह हटा दी गई है। इसे issue नहीं कर सकते। |
+| `refusal.alreadyIssued` | {code} is already issued to {line}. | {code} पहले से {line} को issue है। |
+| `refusal.copyOnTrialIssue` | {code} is on trial. It goes only to a trial run until the trial passes or a manager releases it. | {code} ट्रायल पर है। ट्रायल पास होने या मैनेजर के छोड़ने तक यह सिर्फ ट्रायल रन पर जाएगी। |
+| `refusal.runHasDie` | {run} already has a die or has started. Only a queued run takes a die. | {run} के पास पहले से die है या वह शुरू हो चुका है। सिर्फ कतार वाले रन को die मिलती है। |
+| `refusal.notCopyOfRunDie` | {code} is not a copy of the die {run} needs. | {code} उस die की कॉपी नहीं है जो {run} को चाहिए। |
+| `refusal.runOtherLine` | {run} is planned on another press. | {run} दूसरे press पर प्लान है। |
+| `refusal.changed` | This changed while you were working and nothing was saved. Open it again and check. | आपके काम करते समय यह बदल गया और कुछ सेव नहीं हुआ। इसे फिर खोलकर देखें। |
+| `refusal.dieOnPress` | {code} is in the press for {run}. Take the die out first. | {code} {run} के लिए press में है। पहले die बाहर निकालें। |
+| `refusal.issueClosed` | This die issue is already closed. | यह die issue पहले ही बंद हो चुका है। |
+| `refusal.runStartedReturn` | {run} has started. Return the die when it is out. | {run} शुरू हो चुका है। die बाहर आने पर उसे लौटाएं। |
+| `refusal.editIssued` | {code} is on a press. Return it before editing the card. | {code} press पर है। कार्ड बदलने से पहले उसे लौटाएं। |
+| `refusal.editAtMaker` | {code} is at the die maker. Receive it before editing the card. | {code} die मेकर के पास है। कार्ड बदलने से पहले उसे वापस लें। |
+| `refusal.nitridingStepOnly` | Send {code} to nitriding from the nitriding step of its card, not by editing its status. | {code} को नाइट्राइडिंग पर कार्ड के नाइट्राइडिंग स्टेप से भेजें, स्थिति बदलकर नहीं। |
+| `refusal.backFromNitridingFirst` | {code} is out at nitriding. Record it back from nitriding first. | {code} नाइट्राइडिंग पर बाहर है। पहले उसे नाइट्राइडिंग से वापस दर्ज करें। |
+| `refusal.onTrialRelease` | {code} is on trial. It becomes available when a trial passes, or a manager releases it. | {code} ट्रायल पर है। ट्रायल पास होने पर या मैनेजर के छोड़ने पर यह उपलब्ध होगी। |
+| `refusal.badStatusMove` | {code} can't be moved to that status from where it is. | {code} अभी जिस स्थिति में है वहां से उस स्थिति में नहीं जा सकती। |
+| `refusal.ownerSetManager` | Only a manager or admin can set who owns a die. | die का मालिक सिर्फ मैनेजर या एडमिन तय कर सकता है। |
+| `refusal.sectionOwned` | This die belongs to a customer. Its copies can't be given to someone else or made plant-owned. | यह die किसी कस्टमर की है। इसकी कॉपी किसी और को नहीं दी जा सकती और प्लांट की नहीं बनाई जा सकती। |
+| `refusal.pickMaker` | Pick an active die maker. | कोई चालू die मेकर चुनें। |
+| `refusal.sectionArchived` | This die is archived. No new copies can be added. | यह die आर्काइव है। नई कॉपी नहीं जोड़ी जा सकती। |
+| `refusal.newOnRack` | A new copy starts in the rack. Send it to nitriding from its card. | नई कॉपी रैक में शुरू होती है। उसे कार्ड से नाइट्राइडिंग पर भेजें। |
+| `refusal.newOnTrial` | A new copy starts on trial. A manager can release it once it has passed. | नई कॉपी ट्रायल पर शुरू होती है। पास होने पर मैनेजर उसे छोड़ सकता है। |
+| `refusal.pickBand` | Pick a band of this die. | इस die का कोई बैंड चुनें। |
+| `refusal.nitridingFuture` | The nitriding date can't be in the future. | नाइट्राइडिंग की तारीख आगे की नहीं हो सकती। |
+| `refusal.bandOnlyLift` | A band is only given with a lift. | बैंड सिर्फ लिफ्ट के साथ दिया जाता है। |
+| `refusal.pickTier` | Pick a tier first. | पहले टियर चुनें। |
+| `refusal.tierPending` | {code} already has a tier change waiting for approval. | {code} का टियर बदलाव पहले से मंज़ूरी के इंतज़ार में है। |
+| `refusal.alreadyTier` | {code} is already on that tier. | {code} पहले से उसी टियर पर है। |
+| `refusal.chemicalUnused` | Nothing was used of {name}. Leave its store item empty. | {name} कुछ इस्तेमाल नहीं हुआ। उसका स्टोर आइटम खाली छोड़ें। |
+| `refusal.itemNotKg` | {item} is counted in {unit}. Pick a store item counted in kg. | {item} {unit} में गिना जाता है। kg में गिना जाने वाला स्टोर आइटम चुनें। |
+| `refusal.notAtNitriding` | {code} is not out at nitriding. | {code} नाइट्राइडिंग पर बाहर नहीं है। |
+| `refusal.pickCopy` | Pick the die copy. | die की कॉपी चुनें। |
+| `refusal.sectionNoCopies` | This die has no copies. | इस die की कोई कॉपी नहीं है। |
+| `refusal.copyNotOfDie` | That copy is not of that die. | वह कॉपी इस die की नहीं है। |
+| `refusal.plantOwned` | {code} is plant-owned. No exception is needed. | {code} प्लांट की अपनी है। छूट की ज़रूरत नहीं। |
+| `refusal.ownerNoException` | {name} owns {code}. No exception is needed. | {code} का मालिक {name} है। छूट की ज़रूरत नहीं। |
+| `refusal.exceptionOpen` | {name} already has an open exception on {code}. | {name} की {code} पर छूट पहले से खुली है। |
+| `refusal.exceptionAsked` | {name} already asked for an exception on {code}. It is waiting for approval. | {name} ने {code} पर छूट पहले ही मांगी है। वह मंज़ूरी के इंतज़ार में है। |
+| `refusal.exceptionClosed` | This exception can't be closed now. Only an approved exception can be closed, once. | यह छूट अभी बंद नहीं हो सकती। सिर्फ मंज़ूर हुई छूट, एक बार बंद होती है। |
+| `refusal.notOnTrial` | {code} is not on trial. | {code} ट्रायल पर नहीं है। |
+| `refusal.releaseManagerOnly` | Only a manager can release a copy without a passed trial. | पास हुए ट्रायल के बिना कॉपी सिर्फ मैनेजर छोड़ सकता है। |
+| `refusal.releaseWhy` | Say why this copy is released without a trial. | बताएं कि यह कॉपी ट्रायल के बिना क्यों छोड़ी जा रही है। |
+| `refusal.stillOnPress` | {code} is still on the press. Take the die out and return it first. | {code} अभी press पर है। पहले die बाहर निकालकर लौटाएं। |
+| `refusal.retireRoleOnly` | Only the die room or a manager can retire a copy. | कॉपी सिर्फ die room या मैनेजर बंद कर सकता है। |
+| `refusal.pickCustomer` | Pick a customer of this plant. | इस प्लांट का कोई कस्टमर चुनें। |
+| `refusal.listStale` | This list is out of date. Pull down to reload it. | यह सूची पुरानी हो गई है। नीचे खींचकर फिर लोड करें। |
+| `refusal.makerNameTaken` | A die maker named {name} already exists. | {name} नाम का die मेकर पहले से है। |
+| `refusal.nameLetters` | The name needs letters or digits. | नाम में अक्षर या अंक होने चाहिए। |
+| `refusal.makerOpenJob` | {number} is still with {name}. | {number} अभी {name} के पास है। |
+| `refusal.makerArchived` | {name} is archived. | {name} आर्काइव है। |
+| `refusal.jobClosed` | {number} is already closed. | {number} पहले ही बंद हो चुका है। |
+| `refusal.notTrialRun` | {run} is not a die trial run. | {run} die ट्रायल रन नहीं है। |
+| `refusal.didNotPress` | {run} did not press {code}. | {run} ने {code} नहीं दबाई। |
+| `refusal.trialNotClosed` | {run} is not closed yet. Close the trial first. | {run} अभी बंद नहीं हुआ। पहले ट्रायल बंद करें। |
+| `refusal.trialResult` | {run} has no matching trial result. Check the run. | {run} का ट्रायल नतीजा मेल नहीं खाता। रन देखें। |
+| `refusal.owned` | This die belongs to {name}. | यह die {name} की है। |
+| `refusal.ownedOther` | This die belongs to another customer. | यह die किसी दूसरे कस्टमर की है। |
+| `refusal.poOther` | PO {po} is already on another order of this customer. | PO {po} इस कस्टमर के दूसरे ऑर्डर पर पहले से है। |
+| `refusal.copyNotLive` | That copy is not a live copy of {section}. | वह कॉपी {section} की चालू कॉपी नहीं है। |
+| `refusal.onlyBookingConfirm` | Only a booking can be confirmed. This order is {status}. | सिर्फ बुकिंग कन्फर्म हो सकती है। यह ऑर्डर {status} है। |
+| `refusal.cantClose` | A {status} order can't be closed. | {status} ऑर्डर बंद नहीं हो सकता। |
+| `refusal.bakiReason` | {kg} kg baki is left on this order. Give a reason to close it. | इस ऑर्डर पर {kg} kg बाकी है। बंद करने का कारण दें। |
+| `refusal.cantCancel` | A {status} order can't be cancelled. | {status} ऑर्डर रद्द नहीं हो सकता। |
+| `refusal.cancelCarried` | Bundles, a press plan or a dispatch already carry this order. Close it instead of cancelling. | इस ऑर्डर पर bundle, press प्लान या dispatch है। रद्द करने की जगह इसे बंद करें। |
+| `refusal.cantChange` | A {status} order can't be changed. | {status} ऑर्डर बदला नहीं जा सकता। |
+| `refusal.lineWeightLocked` | Line {n} is on a released press plan. Its weight can't change now. | लाइन {n} रिलीज़ हुए press प्लान पर है। उसका वज़न अब नहीं बदल सकता। |
+| `refusal.listedTwice` | A bundle is listed twice. | एक bundle दो बार लिखा है। |
+| `refusal.pickOpenOrder` | {order} is {status}. Pick an open order. | {order} {status} है। कोई खुला ऑर्डर चुनें। |
+| `refusal.pendingRealloc` | {serial} is waiting on a reallocation approval. | {serial} दोबारा बांटने की मंज़ूरी के इंतज़ार में है। |
+| `refusal.alreadyOnLine` | {serial} is already on {order} line {n}. | {serial} पहले से {order} की लाइन {n} पर है। |
+| `refusal.heldFor` | {serial} is held for {order} line {n}. Release the hold first. | {serial} {order} की लाइन {n} के लिए रुका है। पहले होल्ड हटाएं। |
+| `refusal.heldOther` | {serial} is already held for another order line. Release it first. | {serial} पहले से दूसरी ऑर्डर लाइन के लिए रुका है। पहले उसे हटाएं। |
+| `refusal.alreadyPlantStock` | {serial} is already plant stock. | {serial} पहले से प्लांट स्टॉक है। |
+| `refusal.bundleDispatched` | {serial} is already dispatched. | {serial} पहले ही dispatch हो चुका है। |
+| `refusal.bundleVoid` | {serial} is void. | {serial} रद्द (void) है। |
+| `refusal.onDispatchHeld` | {serial} is held on a dispatch. | {serial} एक dispatch पर रुका है। |
+| `refusal.onDispatch` | {serial} is on dispatch {code}. Take it off the dispatch first. | {serial} dispatch {code} पर है। पहले उसे dispatch से हटाएं। |
+| `refusal.diffDie` | {serial} is a different die from that line. | {serial} उस लाइन से अलग die का है। |
+| `refusal.pickReason` | Pick a reason from the list. | सूची में से कारण चुनें। |
+| `refusal.reasonNote` | Write a note for this reason. | इस कारण के लिए नोट लिखें। |
+| `refusal.moveWhy` | Say why the bundles move. | बताएं कि bundle क्यों बदले जा रहे हैं। |
+| `refusal.cutDiffers` | The cut length differs for {serials}. Pick a reason to move them. | {serials} की कट लंबाई अलग है। उन्हें बदलने के लिए कारण चुनें। |
+| `refusal.holdOrderClosed` | {order} is {status}. Hold stock for an open order. | {order} {status} है। होल्ड खुले ऑर्डर के लिए ही करें। |
+| `refusal.holdNotAvailable` | {serial} is not in the yard. Only bundles in the yard can be held. | {serial} यार्ड में नहीं है। सिर्फ यार्ड के bundle होल्ड हो सकते हैं। |
+| `refusal.onOtherOrder` | {serial} is on another order line. Move it with Reallocate instead. | {serial} दूसरी ऑर्डर लाइन पर है। उसे Reallocate से बदलें। |
+| `refusal.notHeldFor` | {serials} not held for {order} line {n}. | {serials} {order} की लाइन {n} के लिए रुके नहीं हैं। |
+| `refusal.savedAsBooking` | A new order is saved as a booking. Confirm it once it is complete. | नया ऑर्डर बुकिंग के रूप में सेव होता है। पूरा होने पर उसे कन्फर्म करें। |
+| `refusal.saveUsed` | This save was already used for another order, {code}. Reload the order and save again. | यह सेव पहले ही दूसरे ऑर्डर {code} के लिए इस्तेमाल हो चुका है। ऑर्डर फिर लोड करके सेव करें। |
+| `refusal.editMoveStatus` | An edit can't move the order from {from} to {to}. Use Confirm, Close or Cancel. | बदलाव से ऑर्डर {from} से {to} में नहीं जा सकता। Confirm, Close या Cancel इस्तेमाल करें। |
+| `refusal.customerLocked` | Bundles are linked to this order. The customer can't change. | इस ऑर्डर से bundle जुड़े हैं। कस्टमर नहीं बदल सकता। |
+| `refusal.lineTwice` | Line {n} is listed twice. | लाइन {n} दो बार लिखी है। |
+| `refusal.lineSectionLocked` | Line {n} has bundles. Its die can't change. | लाइन {n} पर bundle हैं। उसकी die नहीं बदल सकती। |
+| `refusal.lineHasWork` | Line {n} has bundles or dispatches. Change its kg instead of removing it. | लाइन {n} पर bundle या dispatch हैं। हटाने की जगह उसके kg बदलें। |
+| `refusal.lineOnPlan` | Line {n} is on a press plan. Change its kg instead of removing it. | लाइन {n} press प्लान पर है। हटाने की जगह उसके kg बदलें। |
+| `refusal.stillNeeds` | This order is {status}. It still needs: | यह ऑर्डर {status} है। इसमें अभी ये बाकी हैं: |
+| `refusal.enterPieces` | Enter the pieces. | पीस लिखें। |
+| `refusal.weightMore` | Weight must be more than 0. | वज़न 0 से ज़्यादा होना चाहिए। |
+| `refusal.ratesOff` | Rates on orders are turned off for this plant. | इस प्लांट में ऑर्डर पर रेट बंद हैं। |
+| `refusal.planWindow` | The plan must end after it starts and last at most 24 hours. | प्लान शुरू होने के बाद खत्म होना चाहिए और ज़्यादा से ज़्यादा 24 घंटे का हो। |
+| `refusal.thatPressRetired` | That press is retired. | वह press बंद है। |
+| `refusal.addPressFirst` | Add a press first. | पहले एक press जोड़ें। |
+| `refusal.pickPress` | Pick the press for this plan. | इस प्लान के लिए press चुनें। |
+| `refusal.noKg12` | Line {n} of {order} has no kg/12ft. Enter the kg. | {order} की लाइन {n} का kg/12ft नहीं है। kg लिखें। |
+| `refusal.nothingLeftToPlan` | Nothing is left to plan on {order} line {n}. | {order} की लाइन {n} पर प्लान करने को कुछ नहीं बचा। |
+| `refusal.askedMore` | {order} line {n}: {asked} kg asked, only {left} kg is left to plan. | {order} लाइन {n}: {asked} kg मांगा, प्लान के लिए सिर्फ {left} kg बचा है। |
+| `refusal.addOneLine` | Add at least one order line. | कम से कम एक ऑर्डर लाइन जोड़ें। |
+| `refusal.trialNoLines` | A trial or sample plan takes no order lines. | ट्रायल या सैंपल प्लान में ऑर्डर लाइन नहीं होती। |
+| `refusal.dieTwice` | A die is on the plan twice. Put its lines under one die. | एक die प्लान में दो बार है। उसकी लाइनें एक ही die के नीचे रखें। |
+| `refusal.lineTwicePlan` | An order line is on the plan twice. | एक ऑर्डर लाइन प्लान में दो बार है। |
+| `refusal.maxLines` | At most {max} order lines on a plan. | एक प्लान में ज़्यादा से ज़्यादा {max} ऑर्डर लाइन। |
+| `refusal.confirmFirst` | {order} is {status}. Confirm it before planning. | {order} {status} है। प्लान करने से पहले उसे कन्फर्म करें। |
+| `refusal.anotherDie` | {order} line {n} is another die. | {order} की लाइन {n} दूसरी die की है। |
+| `refusal.planDraftOnly` | Only a draft plan can be changed or released. This plan is {status}. | सिर्फ ड्राफ्ट प्लान बदला या रिलीज़ किया जा सकता है। यह प्लान {status} है। |
+| `refusal.cantGoToPress` | {order} is {status}. It can't go to the press. | {order} {status} है। वह press पर नहीं जा सकता। |
+| `refusal.planCancelStarted` | A run of this plan has its die issued or has started. It can't be cancelled. | इस प्लान के एक रन में die issue हो चुकी है या वह शुरू हो चुका है। प्लान रद्द नहीं हो सकता। |
+| `refusal.runsOpen` | Some runs of this plan are not logged or voided yet. | इस प्लान के कुछ रन अभी लॉग या void नहीं हुए। |
+| `refusal.planCantCancel` | A {status} plan can't be cancelled or closed. | {status} प्लान रद्द या बंद नहीं हो सकता। |
+| `refusal.nothingToChange` | Nothing to change. | बदलने को कुछ नहीं। |
+| `refusal.notOnPlan` | That order line is not on this plan. | वह ऑर्डर लाइन इस प्लान पर नहीं है। |
+| `refusal.alreadyOnPlan` | {order} line {n} is already on this plan. | {order} की लाइन {n} पहले से इस प्लान पर है। |
+| `refusal.planNeedsLine` | A plan needs at least one order line. Cancel the plan instead. | प्लान में कम से कम एक ऑर्डर लाइन चाहिए। उसकी जगह प्लान रद्द करें। |
+| `refusal.maxDies` | At most {max} dies on a plan. | एक प्लान में ज़्यादा से ज़्यादा {max} die। |
+| `refusal.unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 | `tabs.press` | Press | प्रेस |
 | `gate.checking` | Checking this version | यह वर्जन जांच रहे हैं |
 | `gate.blockedTitle` | orrn can't open on this phone | orrn इस फोन पर नहीं खुल सकता |
@@ -4334,7 +4498,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (428)
+### press (465)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4740,6 +4904,43 @@ Please check, Lalubhai:
 | `report.late` | Late | देर से |
 | `report.openRun` | Open run {number} | रन {number} खोलें |
 | `report.csvName` | press-report | press-report |
+| `alerts.title` | Press alerts | प्रेस अलर्ट |
+| `alerts.subtitle` | Readings that went outside the limits set for a press. Check the press, then acknowledge the alert. | प्रेस के लिए तय सीमा से बाहर गए रीडिंग। प्रेस देखें, फिर अलर्ट को देख लिया चिह्नित करें। |
+| `alerts.show` | Show | दिखाएं |
+| `alerts.showOpen` | Open | खुले |
+| `alerts.showAll` | All | सब |
+| `alerts.empty` | No alerts yet. | अभी कोई अलर्ट नहीं। |
+| `alerts.emptyOpen` | No open alerts. | कोई अलर्ट खुला नहीं। |
+| `alerts.loadFailed` | The alerts did not load. Check the connection and try again. | अलर्ट नहीं आए। कनेक्शन देखकर फिर कोशिश करें। |
+| `alerts.columns.line` | Press | प्रेस |
+| `alerts.columns.metric` | Reading | रीडिंग |
+| `alerts.columns.limit` | Limit | सीमा |
+| `alerts.columns.peak` | Worst | सबसे ज़्यादा |
+| `alerts.columns.started` | Started | शुरू |
+| `alerts.columns.last` | Last reading | आखिरी रीडिंग |
+| `alerts.columns.status` | Status | स्थिति |
+| `alerts.columns.run` | Run | रन |
+| `alerts.metric.ram_speed` | Ram speed | राम की रफ़्तार |
+| `alerts.metric.billet_temp` | Billet temperature | बिलेट का तापमान |
+| `alerts.metric.exit_temp` | Exit temperature | बाहर निकलते समय तापमान |
+| `alerts.metric.container_temp` | Container temperature | कंटेनर का तापमान |
+| `alerts.metric.pressure` | Pressure | दबाव |
+| `alerts.unit.ram_speed` | mm/s | mm/s |
+| `alerts.unit.billet_temp` | °C | °C |
+| `alerts.unit.exit_temp` | °C | °C |
+| `alerts.unit.container_temp` | °C | °C |
+| `alerts.unit.pressure` | bar | bar |
+| `alerts.low` | Below {limit} {unit} | {limit} {unit} से कम |
+| `alerts.high` | Above {limit} {unit} | {limit} {unit} से ज़्यादा |
+| `alerts.status.open` | Open | खुला |
+| `alerts.status.ended` | Ended | खत्म |
+| `alerts.status.acknowledged` | Acknowledged | देख लिया |
+| `alerts.simulated` | From the simulator | सिमुलेटर से |
+| `alerts.frames` | {count} {count:reading\|readings} | {count} {count:रीडिंग\|रीडिंग} |
+| `alerts.acknowledge` | Acknowledge | देख लिया |
+| `alerts.acknowledged` | Alert acknowledged | अलर्ट देख लिया गया |
+| `alerts.ackFailed` | Could not acknowledge. Try again. | चिह्नित नहीं हुआ। फिर कोशिश करें। |
+| `alerts.ackedAt` | Acknowledged {time} | {time} पर देखा गया |
 | `summary.title` | Daily press summary | रोज़ का प्रेस सारांश |
 | `summary.pressedToday` | Pressed today | आज प्रेस हुआ |
 | `summary.recovery` | Recovery | रिकवरी |
@@ -4767,10 +4968,50 @@ Please check, Lalubhai:
 | `summary.loadFailed` | The summary did not load. Check the connection and try again. | सारांश नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 
-### foundry (64)
+### foundry (104)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `inbox.title` | Spectro inbox | स्पेक्ट्रो इनबॉक्स |
+| `inbox.subtitle` | Result files the spectrometer computer sent. Nothing is attached by itself: pick the melt each file belongs to. | स्पेक्ट्रोमीटर कंप्यूटर से आई नतीजों की फ़ाइलें। कुछ अपने आप नहीं जुड़ता: हर फ़ाइल के लिए मेल्ट खुद चुनें। |
+| `inbox.tabs.label` | Files | फ़ाइलें |
+| `inbox.tabs.waiting` | Waiting | इंतज़ार में |
+| `inbox.tabs.arriving` | Arriving | आ रही हैं |
+| `inbox.tabs.handled` | Handled | निपटी |
+| `inbox.empty` | No files waiting. | कोई फ़ाइल इंतज़ार में नहीं। |
+| `inbox.emptyArriving` | Nothing is arriving. | कुछ भी आ नहीं रहा। |
+| `inbox.emptyHandled` | No handled files yet. | अभी कोई फ़ाइल निपटी नहीं। |
+| `inbox.loadFailed` | The files did not load. Check the connection and try again. | फ़ाइलें नहीं आईं। कनेक्शन देखकर फिर कोशिश करें। |
+| `inbox.size` | {kb} kB | {kb} kB |
+| `inbox.captured` | Captured {time} | {time} पर ली गई |
+| `inbox.sample` | Sample {ref} | सैंपल {ref} |
+| `inbox.instrument` | Instrument {name} | मशीन {name} |
+| `inbox.uploaded` | Received {time} | {time} पर मिली |
+| `inbox.simulated` | Simulated | सिमुलेटर |
+| `inbox.simulatedHint` | Demo data from the simulator. It can only be dismissed. | सिमुलेटर का डेमो डेटा। इसे सिर्फ़ हटाया जा सकता है। |
+| `inbox.status.uploading` | Arriving | आ रही है |
+| `inbox.status.pending_review` | Waiting | इंतज़ार में |
+| `inbox.status.attached` | Attached | जुड़ी |
+| `inbox.status.dismissed` | Dismissed | हटाई |
+| `inbox.attach` | Attach to a melt | मेल्ट से जोड़ें |
+| `inbox.dismiss` | Dismiss | हटाएं |
+| `inbox.attachSheet.title` | Attach {file} | {file} जोड़ें |
+| `inbox.attachSheet.cast` | Cast | कास्ट |
+| `inbox.attachSheet.castPick` | Pick a cast | कास्ट चुनें |
+| `inbox.attachSheet.melt` | Melt | मेल्ट |
+| `inbox.attachSheet.meltPick` | Pick a melt | मेल्ट चुनें |
+| `inbox.attachSheet.meltLabel` | Melt {seq} | मेल्ट {seq} |
+| `inbox.attachSheet.noMelts` | This cast has no melts yet. | इस कास्ट में अभी कोई मेल्ट नहीं। |
+| `inbox.attachSheet.confirm` | Attach file | फ़ाइल जोड़ें |
+| `inbox.attachSheet.attached` | File attached to melt {seq} of cast {cast} | फ़ाइल कास्ट {cast} की मेल्ट {seq} से जुड़ गई |
+| `inbox.attachSheet.values` | Values read from the file (ppm) | फ़ाइल से पढ़े गए मान (ppm) |
+| `inbox.dismissSheet.title` | Dismiss {file} | {file} हटाएं |
+| `inbox.dismissSheet.reason` | Why is this file not needed? | यह फ़ाइल क्यों नहीं चाहिए? |
+| `inbox.dismissSheet.reasonRequired` | Give a reason. | कारण लिखें। |
+| `inbox.dismissSheet.confirm` | Dismiss file | फ़ाइल हटाएं |
+| `inbox.dismissSheet.dismissed` | File dismissed | फ़ाइल हटा दी गई |
+| `inbox.failed` | Could not save. Check the connection and try again. | सेव नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें। |
+| `inbox.handledAt` | Handled {time} | {time} पर निपटी |
 | `title` | Foundry | फाउंड्री |
 | `casts.title` | Casts | Cast |
 | `casts.open` | Open cast | Cast खोलें |
@@ -4969,10 +5210,30 @@ Please check, Lalubhai:
 | `orders.priceOnSalesOrder` | Rates on orders | ऑर्डर पर रेट |
 | `orders.dieRequired` | Order lines need a die copy or tier | ऑर्डर लाइन पर die कॉपी या टियर ज़रूरी |
 
-### devices (42)
+### devices (62)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `collectors.title` | Collectors | कलेक्टर |
+| `collectors.intro` | The limits a press reading must stay inside. A reading outside them raises an alert on Today and on the press alerts list. | प्रेस की रीडिंग जिस सीमा के अंदर रहनी चाहिए। सीमा से बाहर जाने पर आज के पेज और प्रेस अलर्ट सूची में अलर्ट आता है। |
+| `collectors.line` | Press | प्रेस |
+| `collectors.allLines` | Every press | हर प्रेस |
+| `collectors.allLinesHint` | Used for a press that has no limits of its own. | उस प्रेस के लिए जिसकी अपनी सीमा नहीं है। |
+| `collectors.metric` | Reading | रीडिंग |
+| `collectors.min` | Lower limit | निचली सीमा |
+| `collectors.max` | Upper limit | ऊपरी सीमा |
+| `collectors.on` | On | चालू |
+| `collectors.save` | Save | सेव करें |
+| `collectors.saved` | Limits saved | सीमाएं सेव हुईं |
+| `collectors.saveFailed` | Could not save the limits. Check the connection and try again. | सीमाएं सेव नहीं हुईं। कनेक्शन देखकर फिर कोशिश करें। |
+| `collectors.invalid` | Give a lower or an upper limit, and keep the lower one below the upper. | निचली या ऊपरी सीमा लिखें, और निचली को ऊपरी से कम रखें। |
+| `collectors.unitHint` | Units: ram speed in mm/s, temperatures in °C, pressure in bar. | इकाइयां: राम की रफ़्तार mm/s में, तापमान °C में, दबाव bar में। |
+| `collectors.readOnly` | Only a manager or the admin can change these limits. | ये सीमाएं सिर्फ़ मैनेजर या एडमिन बदल सकते हैं। |
+| `collectors.alertsLink` | Open the press alerts | प्रेस अलर्ट खोलें |
+| `collectors.inboxLink` | Open the spectro inbox | स्पेक्ट्रो इनबॉक्स खोलें |
+| `collectors.inboxWaiting` | {count} waiting | {count} इंतज़ार में |
+| `collectors.loadFailed` | The limits did not load. Check the connection and try again. | सीमाएं नहीं आईं। कनेक्शन देखकर फिर कोशिश करें। |
+| `collectors.noLines` | No press line yet. Add one under Press first. | अभी कोई प्रेस लाइन नहीं। पहले प्रेस में एक जोड़ें। |
 | `title` | Devices | डिवाइस |
 | `label` | Name | नाम |
 | `lastSeen` | Last seen {time} | आखिरी बार {time} |

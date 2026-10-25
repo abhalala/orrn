@@ -1,8 +1,33 @@
-import type { MessageKey, Translate } from "@orrn/i18n";
+import type { Locale, MessageKey, Translate } from "@orrn/i18n";
+import { DEFAULT_REASON_CODES, type ReasonCodeKind } from "@orrn/domain";
 
-/** A reason code in the reader's language: `reasons.<kind>.<code>` for the seeded codes, the stored English label for a plant-added one. */
-export function reasonLabel(t: Translate, kind: "downtime" | "qc_reject" | "void", code: string, label: string): string {
-  const key = `reasons.${kind}.${code}` as MessageKey;
-  const text = t(key);
-  return text === key ? label : text;
+/** The wording a plant typed for a code in another language (null / missing = none typed). */
+export type ReasonWording = { labelHi?: string | null; labelGu?: string | null };
+
+/**
+ * A reason code in the reader's language. In order:
+ * 1. the Hindi / Gujarati wording the plant typed for this code (Masters, Reason codes), when the reader uses that language;
+ * 2. the built-in translation (`reasons.<kind>.<code>`) of a standard code that was not renamed;
+ * 3. the stored English label (a plant-added or renamed code).
+ */
+export function reasonLabel(
+  t: Translate,
+  kind: ReasonCodeKind,
+  code: string,
+  label: string,
+  wording?: ReasonWording,
+  locale?: Locale | string,
+): string {
+  const typed = locale === "hi" ? wording?.labelHi : locale === "gu" ? wording?.labelGu : null;
+  if (typed) return typed;
+  // A standard code that kept its standard English wording (or came with no wording at all) shows its
+  // built-in translation; a renamed or plant-added code shows its own English label.
+  const standard = DEFAULT_REASON_CODES[kind]?.find((c) => c.code === code);
+  const unchanged = !label || label === code || standard?.label === label;
+  if (unchanged) {
+    const key = `reasons.${kind}.${code}` as MessageKey;
+    const text = t(key);
+    if (text !== key) return text;
+  }
+  return label || code;
 }
