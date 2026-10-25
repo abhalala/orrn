@@ -260,6 +260,110 @@ test.describe("standards", () => {
   });
 });
 
+test.describe("thresholds (Standards tab)", () => {
+  for (const width of [375, 1280] as const) {
+    test(`owner ${width}: drift, recovery and balance warning show their values; Save waits for a change`, async ({ page }) => {
+      await open(page, "/settings?tab=standards", { width });
+      const card = page.getByTestId("settings-thresholds");
+      await expect(card.getByRole("heading", { name: "Thresholds" })).toBeVisible();
+      await expect(card.getByTestId("threshold-driftGreen")).toHaveValue(/^\d/);
+      await expect(card.getByTestId("threshold-driftAmber")).toHaveValue(/^\d/);
+      await expect(card.getByTestId("threshold-balanceWarn")).toHaveValue(/^\d/);
+      await expect(card.getByTestId("thresholds-save")).toBeDisabled();
+      await shot(page, "settings-thresholds", width);
+      await expectContained(page);
+    });
+
+    test(`owner ${width}: green at or above amber is refused in place, Save stays off`, async ({ page }) => {
+      const sent = await answer(page, "company.updateSettings", { settings: {} });
+      await open(page, "/settings?tab=standards", { width });
+      const card = page.getByTestId("settings-thresholds");
+      await card.getByTestId("threshold-driftGreen").fill("95");
+      await card.getByTestId("threshold-driftAmber").fill("90");
+      await expect(card.getByText("Green must be below amber.")).toBeVisible();
+      await expect(card.getByTestId("thresholds-save")).toBeDisabled();
+      await card.getByTestId("threshold-recoveryGreen").fill("80");
+      await expect(card.getByText("Fill both recovery limits, or leave both blank.")).toBeVisible();
+      await card.getByTestId("threshold-balanceWarn").fill("abc");
+      await expect(card.getByText("Enter a number from 0 to 100, with up to two decimals.")).toBeVisible();
+      await shot(page, "settings-thresholds-error", width);
+      await expectContained(page);
+      expect(sent).toHaveLength(0);
+    });
+  }
+
+  test("a valid edit sends only what changed, in basis points", async ({ page }) => {
+    const sent = await answer(page, "company.updateSettings", { settings: {} });
+    await open(page, "/settings?tab=standards", { width: 1280 });
+    const card = page.getByTestId("settings-thresholds");
+    await card.getByTestId("threshold-driftGreen").fill("7");
+    await card.getByTestId("threshold-driftAmber").fill("9,5");
+    await card.getByTestId("threshold-recoveryGreen").fill("80");
+    await card.getByTestId("threshold-recoveryAmber").fill("70");
+    await card.getByTestId("threshold-balanceWarn").fill("3");
+    await card.getByTestId("thresholds-save").click();
+    await expect.poll(() => sent.length).toBe(1);
+    expect(inputOf(sent[0]!)).toEqual({
+      driftGreenMaxBp: 700,
+      driftAmberMaxBp: 950,
+      recoveryBands: { greenMinBp: 8000, amberMinBp: 7000 },
+      pressBalanceWarnBp: 300,
+    });
+    await expect(page.getByText("Thresholds saved").first()).toBeVisible();
+  });
+
+  test("a refusal from the server shows its own words", async ({ page }) => {
+    await answer(page, "company.updateSettings", {
+      error: { code: "BAD_REQUEST", message: "The green drift limit must be below the amber limit", status: 400 },
+    });
+    await open(page, "/settings?tab=standards", { width: 375 });
+    const card = page.getByTestId("settings-thresholds");
+    await card.getByTestId("threshold-balanceWarn").fill("4");
+    await card.getByTestId("thresholds-save").click();
+    await expect(card.getByTestId("thresholds-refused")).toHaveText("The green drift limit must be below the amber limit");
+  });
+
+  test("under each group: who changed it last, when, and from what to what", async ({ page }) => {
+    await rewrite<{ items: unknown[]; nextCursor: unknown }>(page, "audit.list", (r) => {
+      r.items = [
+        {
+          id: "t1",
+          at: "2026-10-24T08:30:00.000Z",
+          action: "company.settings.update",
+          subjectType: "company",
+          subjectId: "c1",
+          actorId: "u1",
+          actorName: "Asha Patel",
+          byStaff: false,
+          meta: {
+            changed: { driftGreenMaxBp: 700, driftAmberMaxBp: 900, press: { balanceWarnBp: 300 } },
+            previous: { driftGreenMaxBp: null, driftAmberMaxBp: null, press: null },
+          },
+        },
+      ];
+      r.nextCursor = null;
+    });
+    await open(page, "/settings?tab=standards", { width: 375 });
+    await expect(page.getByTestId("audit-driftGreenMaxBp")).toContainText("Last change: Asha Patel");
+    await expect(page.getByTestId("audit-driftGreenMaxBp")).toContainText("From 8 % to 7 %");
+    await expect(page.getByTestId("audit-driftAmberMaxBp")).toContainText("From 10 % to 9 %");
+    await expect(page.getByTestId("audit-press")).toContainText("From 2 % to 3 %");
+    await expect(page.getByTestId("audit-recoveryBands")).toHaveText("No change recorded yet.");
+    await shot(page, "settings-thresholds-audit", 375);
+    await expectContained(page);
+  });
+
+  test("viewer: the values are read as text, no fields and no Save", async ({ page }) => {
+    await open(page, "/settings?tab=standards", { role: "viewer", width: 375 });
+    const card = page.getByTestId("settings-thresholds");
+    await expect(card.getByTestId("thresholds-read-only")).toBeVisible();
+    await expect(card.getByTestId("threshold-driftGreen")).toHaveCount(0);
+    await expect(card.getByTestId("thresholds-save")).toHaveCount(0);
+    await expect(card.getByText("Green up to (%)")).toBeVisible();
+    await expectContained(page);
+  });
+});
+
 test.describe("modules", () => {
   for (const width of WIDTHS) {
     test(`owner ${width}: bought modules are read only chips; the switches can be pressed`, async ({ page }) => {

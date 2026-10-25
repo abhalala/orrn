@@ -15,7 +15,7 @@ import { TRPCError } from "@trpc/server";
 import { and, eq, or, sql, type SQL } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-import { bundleQrUrl, DEFAULT_REASON_CODES } from "@orrn/domain";
+import { bundleQrUrl } from "@orrn/domain";
 import { cast as castTable, returnStream } from "@orrn/db/schema/foundry";
 import { bundle } from "@orrn/db/schema/inventory";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
@@ -28,6 +28,7 @@ import { buildPackLabelVariables, type PackLabelVariables } from "./bundle-label
 import { sqlUuid } from "./ledger";
 import { batchAbortUnless, isBatchAbort } from "./orders";
 import { nameKey } from "./purchase";
+import { ensureDefaultReasonCodes } from "./reasonCodes";
 import { webBaseUrl } from "./webUrl";
 
 export function errorText(e: unknown): string {
@@ -149,12 +150,13 @@ export type RejectInput = { pcs: number; weightG?: number | null; reasonCode: st
 /** The stored reason: the qc_reject code, with the note after it when one was given. */
 export async function rejectReasons(db: OrrnDb, companyId: string, rejects: readonly RejectInput[]): Promise<string[]> {
   if (rejects.length === 0) return [];
+  await ensureDefaultReasonCodes(db, companyId);
   const rows = await db
     .select({ code: reasonCode.code, requiresNote: reasonCode.requiresNote, active: reasonCode.active })
     .from(reasonCode)
     .where(and(eq(reasonCode.companyId, companyId), eq(reasonCode.kind, "qc_reject")));
   const known = new Map<string, { requiresNote: boolean; active: boolean }>(
-    (rows.length > 0 ? rows : DEFAULT_REASON_CODES.qc_reject.map((r) => ({ ...r, active: true }))).map((r) => [
+    rows.map((r) => [
       r.code,
       { requiresNote: Boolean(r.requiresNote), active: Boolean(r.active) },
     ]),

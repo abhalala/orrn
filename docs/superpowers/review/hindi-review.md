@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 4015 screen strings in 44 groups, 16 guides with 292 strings.
+Counts: 4038 screen strings in 44 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -1475,7 +1475,7 @@ Counts: 4015 screen strings in 44 groups, 16 guides with 292 strings.
 | `designs.notSent` | Not sent to the print computer yet | प्रिंट कंप्यूटर को अभी नहीं भेजा |
 | `designs.pushFailed` | Couldn't send the label design. Check that the print computer is connected. | लेबल डिज़ाइन नहीं भेज सके। देखें कि प्रिंट कंप्यूटर जुड़ा है। |
 
-### settings (172)
+### settings (195)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1584,6 +1584,29 @@ Counts: 4015 screen strings in 44 groups, 16 guides with 292 strings.
 | `standards.saved` | Standards saved | स्टैंडर्ड सेव हो गए |
 | `standards.saveFailed` | Couldn't save the standards. Try again. | स्टैंडर्ड सेव नहीं हुए। फिर कोशिश करें। |
 | `standards.readOnly` | Only owners and admins can change standards. | स्टैंडर्ड सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
+| `thresholds.title` | Thresholds | सीमाएं |
+| `thresholds.intro` | The limits the screens colour by. Type a percent. A change applies from the next request. | स्क्रीन इन सीमाओं से रंग तय करती हैं। प्रतिशत में लिखें। बदलाव अगले अनुरोध से लागू होता है। |
+| `thresholds.readOnly` | Only owners and admins can change thresholds. | सीमाएं सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
+| `thresholds.drift` | Die weight drift | Die वज़न का ड्रिफ्ट |
+| `thresholds.driftHint` | How far a bundle sits above its band start. Up to the green limit is green, up to the amber limit is amber, above that is red. | बंडल अपने बैंड की शुरुआत से कितना ऊपर है। हरी सीमा तक हरा, अंबर सीमा तक अंबर, उसके ऊपर लाल। |
+| `thresholds.driftGreen` | Green up to (%) | हरा यहां तक (%) |
+| `thresholds.driftAmber` | Amber up to (%) | अंबर यहां तक (%) |
+| `thresholds.recovery` | Press recovery | प्रेस रिकवरी |
+| `thresholds.recoveryHint` | Good kg as a share of billet kg on the press report. Leave both blank for no colour. | प्रेस रिपोर्ट में बिलेट kg का कितना हिस्सा अच्छा kg है। रंग न चाहिए तो दोनों खाली छोड़ें। |
+| `thresholds.recoveryGreen` | Green from (%) | हरा यहां से (%) |
+| `thresholds.recoveryAmber` | Amber from (%) | अंबर यहां से (%) |
+| `thresholds.recoveryNone` | No colour | कोई रंग नहीं |
+| `thresholds.recoveryValue` | green {green}, amber {amber} | हरा {green}, अंबर {amber} |
+| `thresholds.balance` | Press balance warning | प्रेस बैलेंस चेतावनी |
+| `thresholds.balanceHint` | A run whose unaccounted kg is above this share of its billet kg is flagged when it closes. | जिस रन का बिना हिसाब का kg उसके बिलेट kg के इस हिस्से से ऊपर हो, बंद होते समय उस पर निशान लगता है। |
+| `thresholds.balanceWarn` | Warn above (%) | इससे ऊपर चेतावनी (%) |
+| `thresholds.save` | Save thresholds | सीमाएं सेव करें |
+| `thresholds.saved` | Thresholds saved | सीमाएं सेव हो गईं |
+| `thresholds.saveFailed` | Couldn't save the thresholds. Try again. | सीमाएं सेव नहीं हुईं। फिर कोशिश करें। |
+| `thresholds.errors.number` | Enter a number from 0 to 100, with up to two decimals. | 0 से 100 के बीच संख्या लिखें, दशमलव के दो अंक तक। |
+| `thresholds.errors.driftOrder` | Green must be below amber. | हरी सीमा अंबर से नीचे होनी चाहिए। |
+| `thresholds.errors.recoveryOrder` | Amber must be below green. | अंबर सीमा हरी से नीचे होनी चाहिए। |
+| `thresholds.errors.recoveryBoth` | Fill both recovery limits, or leave both blank. | रिकवरी की दोनों सीमाएं भरें, या दोनों खाली छोड़ें। |
 | `modules.bought` | Bought modules | खरीदे हुए मॉड्यूल |
 | `modules.boughtHint` | orrn support turns modules on or off. Ask them to add or remove one. | मॉड्यूल orrn सपोर्ट चालू या बंद करता है। जोड़ने या हटाने के लिए उन्हें कहें। |
 | `modules.allOn` | Every module is on. | सभी मॉड्यूल चालू हैं। |
