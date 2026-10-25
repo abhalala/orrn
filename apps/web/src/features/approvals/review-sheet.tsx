@@ -15,7 +15,7 @@ import { UiLink } from "@orrn/ui/components/link";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import { AlertTriangle } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -27,6 +27,8 @@ import { reasonLabel } from "@/features/press/reason-label";
 import { canAny, useMe } from "@/shared/lib/me";
 import { useCompanyTimeZone } from "@/features/dispatch/hooks";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
+import { useOnceMutation } from "@/shared/lib/once-mutation";
+import { dayText } from "@/features/orders/format";
 import { trpc } from "@/shared/utils/trpc";
 
 import { isStaleRefusal } from "../purchase/errors";
@@ -123,7 +125,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
     enabled: open && isNote && readsFigures,
   });
 
-  const decide = useMutation(
+  const decide = useOnceMutation(
     trpc.approval.decide.mutationOptions({
       onSuccess: async (res) => {
         await Promise.all([
@@ -472,7 +474,7 @@ const KG3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFr
  * while the run loads, and a note says so when the request asked for other times. Times are in the plant's time zone.
  */
 function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; run: RunData | undefined; loading: boolean; error: boolean }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const tz = useCompanyTimeZone();
   const ms = (v: string | number | Date | null | undefined) => (v ? new Date(v).getTime() : null);
   const startedAt = ms(run?.run.startedAt) ?? late.startedAt;
@@ -497,7 +499,8 @@ function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; 
     rows.push([t("approvals.late.times"), lateWindowText(startedAt, stoppedAt, tz), "times"]);
     rows.push([t("approvals.late.duration"), durationText(startedAt, stoppedAt), "duration"]);
   }
-  if (day) rows.push([t("approvals.late.shift"), shift !== null ? t("approvals.late.shiftValue", { day, shift }) : day, "shift"]);
+  // L6: the day as a person says it ("25 Oct"), not the ISO date.
+  if (day) rows.push([t("approvals.late.shift"), shift !== null ? t("approvals.late.shiftValue", { day: dayText(day, locale), shift }) : dayText(day, locale), "shift"]);
   rows.push([t("approvals.late.kgIn"), figures ? (counted ? kg(figures.inputG) : t("approvals.late.notCounted")) : pending, "kg-in"]);
   rows.push([t("approvals.late.good"), figures ? (figures.goodG > 0 ? kg(figures.goodG) : t("approvals.late.notCounted")) : pending, "good"]);
   if (figures && counted && figures.recoveryPct) rows.push([t("approvals.late.recovery"), `${figures.recoveryPct}%`, "recovery"]);

@@ -24,6 +24,7 @@ import {
   MELT_TIME_KEYS,
   meltLockGates,
   meltBalance,
+  normalizeSpectroValues,
   PPM_TOTAL,
   reasonNoteMissing,
   SPECTRO_ELEMENTS,
@@ -68,6 +69,7 @@ import {
   activeLocation,
   castBilletsOnHandSql,
   castBilletsShortSql,
+  castSpectroFailedMeltsSql,
   castCloseout,
   castInputSql,
   castTailAdjustRow,
@@ -500,6 +502,7 @@ function castSummaryFields(companyId: string) {
     logsG: castLogsSql(companyId, OUTER_CAST_ID),
     billetsOnHandG: castBilletsOnHandSql(companyId, OUTER_CAST_ID),
     billetsShortG: castBilletsShortSql(companyId, OUTER_CAST_ID),
+    spectroFailedMelts: castSpectroFailedMeltsSql(companyId, OUTER_CAST_ID),
   };
 }
 
@@ -557,6 +560,7 @@ const castsRouter = router({
         logsG: Number(r.logsG),
         billetsOnHandG: Number(r.billetsOnHandG),
         billetsShortG: Number(r.billetsShortG),
+        spectroFailedMelts: Number(r.spectroFailedMelts),
       }));
       const total = Number(totalRow?.n ?? 0);
       const next = input.offset + items.length;
@@ -677,7 +681,7 @@ const castsRouter = router({
     const specs = group(
       spectro.map(({ valuesPpm, ...s }) => ({
         ...s,
-        values: Object.fromEntries(Object.entries(valuesPpm ?? {}).map(([k, v]) => [k, v / 10_000])),
+        values: Object.fromEntries(Object.entries(normalizeSpectroValues(valuesPpm)).map(([k, v]) => [k, v / 10_000])),
       })),
     );
     return {
@@ -1835,7 +1839,7 @@ const spectroRouter = router({
       // A result with no file is typed numbers: the same rule as spectro.enter (a reason, 1-500).
       if (size === 0 && !input.entryReason) bad("No file is attached; say why the numbers are typed");
       const m = await spectroMelt(ctx, input.meltId);
-      const valuesPpm = Object.fromEntries(entries.map(([k, val]) => [k, Math.round(val * 10_000)]));
+      const valuesPpm = normalizeSpectroValues(Object.fromEntries(entries.map(([k, val]) => [k, Math.round(val * 10_000)])));
       const judged = await spectroJudge(ctx.db, ctx.companyId, { alloyId: m.alloyId, alloyCode: m.alloy }, valuesPpm);
       const rowId = crypto.randomUUID();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);

@@ -73,6 +73,8 @@ export const foundryEn = {
       tail: "Tail {kg} kg",
       short: "Billets short {kg} kg",
       empty: "No melts yet",
+      pending: "Tail {kg} kg ({pct} %) waiting for approval",
+      pendingShort: "Billets short {kg} kg, waiting for approval",
     },
     panel: {
       title: "Billets",

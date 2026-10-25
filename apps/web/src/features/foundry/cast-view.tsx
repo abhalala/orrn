@@ -21,7 +21,7 @@ import { PURCHASE_READERS } from "@/features/approvals/approval-view";
 import { trpc } from "@/shared/utils/trpc";
 
 import { CancelCastSheet, CloseCastSheet } from "./close-sheet";
-import { bpText, CAST_TONE, canCancelCast, castPeriodText, closeBlock, latestVerdict, lockedMeltTone, MELT_TONE, tailChip, verdictTone, type MeltStatus } from "./model";
+import { bpText, CAST_TONE, canCancelCast, castPeriodText, closeBlock, closeoutView, latestVerdict, lockedMeltTone, MELT_TONE, tailChip, verdictTone, type MeltStatus } from "./model";
 import { TraceTree } from "./trace-tree";
 import { Figure, LoadFailed, Note, Panel, useTimeZone } from "./ui";
 import { clockText, dayText } from "./format";
@@ -66,8 +66,9 @@ export function CastScreen({ id, tab, bundle, onTab }: { id: string; tab: CastTa
     );
   }
   const c = data.cast;
-  const co = data.closeout;
-  const chip = tailChip(co);
+  // A close waiting for approval shows the tail it asked for, not the ledger's 0 (final fixes 5, M3).
+  const co = closeoutView(data.cast.status, data.closeout, data.cast);
+  const chip = tailChip(co, c.status);
   const block = closeBlock(c.status, co);
 
   return (
@@ -110,7 +111,11 @@ export function CastScreen({ id, tab, bundle, onTab }: { id: string; tab: CastTa
       <div className="flex flex-wrap items-center gap-2" data-testid="cast-chips">
         <Chip tone={CAST_TONE[c.status]} truncate={false}>{t(`foundry.casts.status.${c.status}`)}</Chip>
         <Chip tone={chip.tone} truncate={false} data-testid="tail-chip">
-          {chip.kind === "balanced"
+          {chip.kind === "pending"
+            ? co.tailG !== 0
+              ? t("foundry.cast.tailChip.pending", { kg: kgFromG(Math.abs(co.tailG)), pct: bpText(co.tailBp) })
+              : t("foundry.cast.tailChip.pendingShort", { kg: kgFromG(co.shortG) })
+            : chip.kind === "balanced"
             ? t("foundry.cast.tailChip.balanced")
             : chip.kind === "short"
               ? t("foundry.cast.tailChip.short", { kg: kgFromG(co.shortG) })

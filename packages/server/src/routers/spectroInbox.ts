@@ -5,6 +5,7 @@
  * names the melt. A simulated file is listed (marked `simulated`) but can only be dismissed.
  */
 import { TRPCError } from "@trpc/server";
+import { normalizeSpectroValues } from "@orrn/domain";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
@@ -101,7 +102,7 @@ export const spectroInboxRouter = router({
             sizeBytes: row.sizeBytes,
             dataBase64: "",
             fileKey: row.fileKey,
-            valuesPpm: row.valuesPpm ?? {},
+            valuesPpm: normalizeSpectroValues(row.valuesPpm),
             ...judged,
             source: "import",
             createdBy: ctx.session.user.id,

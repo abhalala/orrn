@@ -78,6 +78,8 @@ export const guFoundry = {
         tail: "Tail {kg} kg",
         short: "Billet ઓછા {kg} kg",
         empty: "હજી કોઈ melt નથી",
+        pending: "Tail {kg} kg ({pct} %), મંજૂરીની રાહ",
+        pendingShort: "Billet ઓછા {kg} kg, મંજૂરીની રાહ",
       },
       panel: {
         title: "Billet",

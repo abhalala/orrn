@@ -1181,10 +1181,10 @@ describe("spectro.attach (Stage 4): file ≤ 1 MB as base64 + parsed values in p
       meltId: m.id, fileName: "K31-1.png", mime: "image/png", base64: png, values: { Si: 0.45, Fe: 0.18, Mg: 0.52, Cu: 0.0012 },
     });
     const [row] = await env.db.select().from(spectroResult).where(eq(spectroResult.id, s.id));
-    expect(row).toMatchObject({ castId: c.id, meltId: m.id, sizeBytes: 14, valuesPpm: { Si: 4500, Fe: 1800, Mg: 5200, Cu: 12 } });
+    expect(row).toMatchObject({ castId: c.id, meltId: m.id, sizeBytes: 14, valuesPpm: { si: 4500, fe: 1800, mg: 5200, cu: 12 } });
     const got = await p.viewer.foundry.casts.get({ id: c.id });
     const listed = got.melts[0]!.spectro[0]!;
-    expect(listed).toMatchObject({ id: s.id, fileName: "K31-1.png", values: { Si: 0.45, Fe: 0.18, Mg: 0.52, Cu: 0.0012 } });
+    expect(listed).toMatchObject({ id: s.id, fileName: "K31-1.png", values: { si: 0.45, fe: 0.18, mg: 0.52, cu: 0.0012 } });
     expect(Object.keys(listed)).not.toContain("dataBase64");
     expect(await p.viewer.foundry.spectro.file({ id: s.id })).toMatchObject({ mime: "image/png", base64: png });
     expect(await auditActions(p.companyId)).toContain("spectro.attach");

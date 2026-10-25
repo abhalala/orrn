@@ -23,6 +23,13 @@ describe("audit subjects in words (BACKLOG 100)", () => {
       expect(typeof get(hi, key), `${key} hi`).toBe("string");
     }
     expect(subjectTypeKey("approval")).toBeNull();
+    // L15: words without a screen
+    for (const type of ["bundle_transfer", "sales_order_line"]) {
+      const key = subjectTypeKey(type)!;
+      expect(typeof get(en, key), `${key} en`).toBe("string");
+      expect(get(hi, key), `${key} hi`).not.toBe(get(en, key));
+      expect(subjectPath(type, "x")).toBeNull();
+    }
     expect(subjectTypeFallback("press_alert_threshold")).toBe("Press alert threshold");
   });
 });

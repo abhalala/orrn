@@ -140,7 +140,7 @@ export function CloseSheet({ visible, onClose, cast }: { visible: boolean; onClo
             {t("foundry.cast.close.reason")}
           </Text>
           <View accessibilityRole="radiogroup" className="gap-2">
-            {options.map((o) => {
+            {options.filter((o) => o.value !== "billets_short" || (p?.shortG ?? 0) > 0).map((o) => {
               const selected = o.value === reasonCode;
               return (
                 <ListRow
