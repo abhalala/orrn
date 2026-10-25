@@ -5,7 +5,7 @@
  * only purchase readers may call), and Approve / Reject. Reject asks for a
  * reason so the requester can fix it. Nobody decides their own request.
  */
-import { useT } from "@orrn/i18n";
+import { useT, type MessageKey } from "@orrn/i18n";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -33,8 +33,12 @@ import {
   approvalSubject,
   canOpenSubject,
   decideState,
+  moveEndText,
+  moveKgText,
+  reallocateMoveOf,
   subjectCodes,
   unbrokenCodes,
+  type ReallocateView,
 } from "./approval-view";
 
 export type ApprovalItem = inferRouterOutputs<AppRouter>["approval"]["list"]["items"][number];
@@ -58,7 +62,9 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
   const open = item !== null;
   const current = item ?? shown;
   const state = current ? decideState(me, current) : "view";
-  const subject = current ? approvalSubject(current) : null;
+  const subject = current ? approvalSubject(current, { plant: t("approvals.move.plant") }) : null;
+  // BACKLOG 34: a move request shows what moves, from where to where, before anyone decides.
+  const move = current?.kind === "order_reallocate" ? reallocateMoveOf(current.meta) : null;
   const readsFigures = canAny(me, PURCHASE_READERS);
   const isNote = current?.kind === "dc_note";
 
@@ -144,6 +150,8 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
           </Block>
         ) : null}
 
+        {move ? <MoveFigures move={move} /> : null}
+
         {isNote ? (
           readsFigures ? (
             <NoteFigures data={figures.data} loading={figures.isLoading} error={showsQueryError(figures)} />
@@ -201,6 +209,42 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
       <h3 className="m-0 text-[14px] font-semibold">{title}</h3>
       {children}
     </section>
+  );
+}
+
+/** The bundles of a move request: count and kg, from and to, each bundle's serial and kg, the reason code. */
+function MoveFigures({ move }: { move: ReallocateView }) {
+  const { t } = useT();
+  const plant = t("approvals.move.plant");
+  const endText = (end: ReallocateView["to"]) => (end ? t("approvals.move.line", { party: end.customerName, order: end.orderNumber, line: end.lineNo }) : plant);
+  const rows: [string, ReactNode][] = [
+    [t("approvals.move.bundles"), t("approvals.move.count", { count: move.count, kg: moveKgText(move.kgG) })],
+    [t("approvals.move.from"), move.from.map(endText).join(", ") || plant],
+    [t("approvals.move.to"), endText(move.to)],
+  ];
+  if (move.reasonCode) rows.push([t("approvals.move.reason"), t(`reasons.reallocate.${move.reasonCode}` as MessageKey) || move.reasonCode]);
+  return (
+    <Block title={t("approvals.move.title")}>
+      <dl className="m-0 flex flex-col divide-y divide-border rounded-card border border-border px-4" data-testid="move-summary">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex min-h-11 flex-wrap items-baseline justify-between gap-x-4 py-2 text-[15px]">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="m-0 min-w-0 text-right font-medium break-words">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {move.bundles.length > 0 ? (
+        <ul className="m-0 flex list-none flex-col gap-1 p-0" data-testid="move-bundles" aria-label={t("approvals.move.bundles")}>
+          {move.bundles.map((b) => (
+            <li key={b.serial} className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 text-[14px]">
+              <span className="font-mono font-semibold">{b.serial}</span>
+              <span className="min-w-0 flex-1 text-muted-foreground break-words">{moveEndText(b.from, plant)}</span>
+              <span className="font-mono">{moveKgText(b.weightG)} kg</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </Block>
   );
 }
 

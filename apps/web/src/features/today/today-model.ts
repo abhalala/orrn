@@ -8,9 +8,10 @@ import type { MessageKey } from "@orrn/i18n";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { can, type Me } from "@orrn/server/lib/permissions";
 import type { inferRouterOutputs } from "@trpc/server";
-import { BookOpen, PackagePlus, Truck, Warehouse } from "lucide-react";
+import { todayTileKeys, type TodayTileKey } from "@orrn/server/lib/todayTiles";
+import { BookOpen, Boxes, ClipboardList, Factory, PackagePlus, ShieldCheck, Truck, Warehouse, Wrench } from "lucide-react";
 
-import { visibleItems, type NavItem, type NavModule } from "@/shell/nav-items";
+import type { NavItem, NavModule } from "@/shell/nav-items";
 
 type Outputs = inferRouterOutputs<AppRouter>;
 export type TodayData = Outputs["dashboard"]["today"];
@@ -283,70 +284,63 @@ export function formatRupees(paise: number): string {
   return `\u20B9${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export type TodayTile = NavItem & { key: "pack" | "dispatch" | "stock" | "guides"; hintKey: MessageKey };
+export type TodayTile = NavItem & { key: TodayTileKey };
 
 /**
- * Action tiles in spec order. Pack needs `bundle.create`, Dispatch needs
- * `dispatch.create` or `dispatch.addBundle` (operators scan into one the
- * office started); Stock and Guides ride along with them. Company modules
- * hide tiles for areas the plant has switched off, as in the nav.
+ * Every tile Today can show, keyed by the server's tile keys (`lib/todayTiles.ts`). Which of them
+ * a person sees is the server's call (`dashboard.today.tiles`, by role and module), so the screen
+ * never offers a station the role does not work.
  */
-const TILES: readonly TodayTile[] = [
-  {
-    key: "pack",
-    to: "/pack/new",
-    labelKey: "today.tiles.pack",
-    hintKey: "today.tiles.packHint",
-    icon: PackagePlus,
-    requires: ["bundle.create"],
-    module: "bundles",
-  },
-  {
-    key: "dispatch",
-    to: "/dispatch",
-    labelKey: "today.tiles.dispatch",
-    hintKey: "today.tiles.dispatchHint",
-    icon: Truck,
-    requires: ["dispatch.create", "dispatch.addBundle"],
-    module: "dispatches",
-  },
-  {
-    key: "stock",
-    to: "/stock",
-    labelKey: "today.tiles.stock",
-    hintKey: "today.tiles.stockHint",
-    icon: Warehouse,
-    module: "bundles",
-  },
-  { key: "guides", to: "/guides", labelKey: "today.tiles.guides", hintKey: "today.tiles.guidesHint", icon: BookOpen },
-];
-
-const ACTION_TILES: ReadonlySet<TodayTile["key"]> = new Set(["pack", "dispatch"]);
+const TILE_DEFS: Readonly<Record<TodayTileKey, TodayTile>> = {
+  orders: { key: "orders", to: "/orders", labelKey: "today.floor.orders", icon: ClipboardList },
+  dieRoom: { key: "dieRoom", to: "/dies/issues", labelKey: "today.floor.dieRoom", icon: Wrench },
+  press: { key: "press", to: "/press", labelKey: "today.floor.press", icon: Factory },
+  pack: { key: "pack", to: "/pack/new", labelKey: "today.tiles.pack", icon: PackagePlus },
+  dispatch: { key: "dispatch", to: "/dispatch", labelKey: "today.tiles.dispatch", icon: Truck },
+  stock: { key: "stock", to: "/stock", labelKey: "today.tiles.stock", icon: Warehouse },
+  store: { key: "store", to: "/store", labelKey: "today.floor.store", icon: Boxes },
+  approvals: { key: "approvals", to: "/approvals", labelKey: "today.floor.approvals", icon: ShieldCheck },
+  guides: { key: "guides", to: "/guides", labelKey: "today.tiles.guides", icon: BookOpen },
+};
 
 /**
- * The tiles this person sees. Spec section 3 Today: "Viewers see no action
- * tiles, only numbers", so anyone left without a Pack or Dispatch tile
- * (viewer, accountant, foundry, or an area switched off) gets none at all;
- * the nav still reaches Stock and Guides.
+ * The tiles this person sees (BACKLOG 35, FP-PF-15 role tiles). With the server's answer, exactly
+ * its tiles in its order; before it (loading, or the numbers failed), the same role table the
+ * server uses, so nothing jumps. Viewers get none: "Viewers see no action tiles, only numbers".
  */
-export function todayTiles(me: Me | null | undefined): TodayTile[] {
-  const tiles = visibleItems(TILES, me) as TodayTile[];
-  return tiles.some((tile) => ACTION_TILES.has(tile.key)) ? tiles : [];
+export function todayTiles(me: Me | null | undefined, server?: readonly { key: string }[]): TodayTile[] {
+  const keys = server ? server.map((x) => x.key) : todayTileKeys(me?.company?.role, me?.company?.modules ?? []);
+  return keys.flatMap((key) => (key in TILE_DEFS ? [TILE_DEFS[key as TodayTileKey]] : []));
 }
 
 export type TileHint = { key: MessageKey; vars?: Record<string, string> };
 
+const COUNT_HINTS: Partial<Record<TodayTileKey, { some: MessageKey; none: MessageKey; any: MessageKey }>> = {
+  dispatch: { some: "today.tiles.dispatchHint", none: "today.tiles.dispatchHintNone", any: "today.tiles.dispatchHintAny" },
+  orders: { some: "today.floor.ordersHint", none: "today.floor.ordersHintNone", any: "today.floor.ordersHintAny" },
+  dieRoom: { some: "today.floor.dieRoomHint", none: "today.floor.dieRoomHintNone", any: "today.floor.dieRoomHintAny" },
+  press: { some: "today.floor.pressHint", none: "today.floor.pressHintNone", any: "today.floor.pressHintAny" },
+  approvals: { some: "today.floor.approvalsHint", none: "today.floor.approvalsHintNone", any: "today.floor.approvalsHintAny" },
+};
+
+const PLAIN_HINTS: Partial<Record<TodayTileKey, MessageKey>> = {
+  pack: "today.tiles.packHint",
+  stock: "today.tiles.stockHint",
+  store: "today.floor.storeHint",
+  guides: "today.tiles.guidesHint",
+};
+
 /**
- * The line under a tile's title. Dispatch says how many are open ("14 open",
- * "None open"); while that count is unknown (loading, or the numbers failed)
- * it reads a plain line instead of nothing, so every tile keeps two lines and
- * the titles in a row line up.
+ * The line under a tile's title. A counted tile says its count ("14 open", "2 to issue", "1
+ * waiting", or "None open" at zero); while the count is unknown (loading, or the numbers failed)
+ * it reads a plain line instead of nothing, so every tile keeps two lines and the titles line up.
  */
-export function tileHint(tile: TodayTile, openCount: number | undefined): TileHint {
-  if (tile.key !== "dispatch") return { key: tile.hintKey };
-  if (openCount === undefined) return { key: "today.tiles.dispatchHintAny" };
-  if (openCount > 0) return { key: "today.tiles.dispatchHint", vars: { count: formatCount(openCount) } };
-  return { key: "today.tiles.dispatchHintNone" };
+export function tileHint(tile: Pick<TodayTile, "key">, count: number | null | undefined): TileHint {
+  const counted = COUNT_HINTS[tile.key];
+  if (!counted) return { key: PLAIN_HINTS[tile.key] ?? "today.tiles.guidesHint" };
+  if (count === undefined || count === null) return { key: counted.any };
+  if (count > 0) return { key: counted.some, vars: { count: formatCount(count) } };
+  return { key: counted.none };
 }
 
 /**

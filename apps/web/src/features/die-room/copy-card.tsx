@@ -196,7 +196,7 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
           )}
           <div className="flex flex-wrap items-center gap-2">
             <span data-testid="current-chips" className="flex flex-wrap items-center gap-2">
-              <PercentChip tone={card.tone} pctTenth={card.pctTenth} />
+              <PercentChip tone={card.tone} pctTenth={card.pctTenth} position={card.position} />
               <BandPositionChip position={card.position} />
             </span>
             {band ? (

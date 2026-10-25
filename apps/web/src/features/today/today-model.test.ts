@@ -303,39 +303,64 @@ describe("tileLayout", () => {
   });
 });
 
-describe("todayTiles", () => {
+describe("todayTiles (BACKLOG 35: role tiles)", () => {
   const keys = (m: Me) => todayTiles(m).map((t) => t.key);
 
-  test("owner: Pack, Dispatch, Stock, Guides", () => {
-    expect(keys(me("owner"))).toEqual(["pack", "dispatch", "stock", "guides"]);
+  test("owner and manager: every station, in plant-flow order", () => {
+    const all = ["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides"];
+    expect(keys(me("owner"))).toEqual(all);
+    expect(keys(me("manager"))).toEqual(all);
   });
 
   test("viewer sees no action tiles at all, only numbers (spec section 3 Today)", () => {
     expect(keys(me("viewer"))).toEqual([]);
   });
 
-  test("people who can neither pack nor work a dispatch get no tiles either", () => {
+  test("people with no station tile get none either", () => {
     expect(keys(me("accountant"))).toEqual([]);
-    expect(keys(me("foundry"))).toEqual([]);
   });
 
-  test("office starts dispatches but does not pack: Dispatch, Stock, Guides", () => {
-    expect(keys(me("office"))).toEqual(["dispatch", "stock", "guides"]);
+  test("office: orders, dispatch, stock, approvals (four fill a row)", () => {
+    expect(keys(me("office"))).toEqual(["orders", "dispatch", "stock", "approvals"]);
   });
 
-  test("operator scans into dispatches, so keeps the Dispatch tile", () => {
-    expect(keys(me("operator"))).toEqual(["pack", "dispatch", "stock", "guides"]);
+  test("foundry approves cast close-outs; the storekeeper works the store; the supervisor keeps approvals", () => {
+    expect(keys(me("foundry"))).toEqual(["approvals"]);
+    expect(keys(me("storekeeper"))).toEqual(["store"]);
+    expect(keys(me("supervisor"))).toEqual(["press", "pack", "dispatch", "approvals"]);
+  });
+
+  test("operator packs and scans into dispatches; packer packs; die room and press get their station", () => {
+    expect(keys(me("operator"))).toEqual(["pack", "dispatch", "stock"]);
+    expect(keys(me("packer"))).toEqual(["pack", "stock"]);
+    expect(keys(me("die_room"))).toEqual(["dieRoom"]);
+    expect(keys(me("press"))).toEqual(["press"]);
   });
 
   test("company modules hide tiles for switched-off areas", () => {
-    // With bundles and dispatches switched off nothing is left to act on, so no tiles.
-    expect(keys(me("owner", ["customers", "dies"]))).toEqual([]);
-    expect(keys(me("owner", ["bundles"]))).toEqual(["pack", "stock", "guides"]);
+    expect(keys(me("owner", ["customers"]))).toEqual(["approvals", "guides"]);
+    expect(keys(me("owner", ["bundles"]))).toEqual(["pack", "stock", "approvals", "guides"]);
+    expect(keys(me("die_room", ["bundles"]))).toEqual([]);
   });
 
-  test("Pack starts a session; Dispatch opens the list", () => {
+  test("the server's tiles win: exactly its keys, in its order", () => {
+    expect(todayTiles(me("owner"), [{ key: "dispatch" }, { key: "orders" }, { key: "nope" }]).map((t) => t.key)).toEqual(["dispatch", "orders"]);
+    expect(todayTiles(me("owner"), [])).toEqual([]);
+  });
+
+  test("each tile opens its station", () => {
     const byKey = Object.fromEntries(todayTiles(me("owner")).map((t) => [t.key, t.to]));
-    expect(byKey).toEqual({ pack: "/pack/new", dispatch: "/dispatch", stock: "/stock", guides: "/guides" });
+    expect(byKey).toEqual({
+      orders: "/orders",
+      dieRoom: "/dies/issues",
+      press: "/press",
+      pack: "/pack/new",
+      dispatch: "/dispatch",
+      stock: "/stock",
+      store: "/store",
+      approvals: "/approvals",
+      guides: "/guides",
+    });
   });
 });
 
@@ -352,9 +377,19 @@ describe("tileHint", () => {
     expect(tileHint(tile("dispatch"), undefined)).toEqual({ key: "today.tiles.dispatchHintAny" });
   });
 
+  test("station tiles say their count, none, or a plain line while unknown", () => {
+    expect(tileHint(tile("dieRoom"), 2)).toEqual({ key: "today.floor.dieRoomHint", vars: { count: "2" } });
+    expect(tileHint(tile("dieRoom"), 0)).toEqual({ key: "today.floor.dieRoomHintNone" });
+    expect(tileHint(tile("press"), null)).toEqual({ key: "today.floor.pressHintAny" });
+    expect(tileHint(tile("orders"), 12)).toEqual({ key: "today.floor.ordersHint", vars: { count: "12" } });
+    expect(tileHint(tile("approvals"), 1)).toEqual({ key: "today.floor.approvalsHint", vars: { count: "1" } });
+    expect(tileHint(tile("approvals"), 0)).toEqual({ key: "today.floor.approvalsHintNone" });
+  });
+
   test("other tiles keep their own hint", () => {
     expect(tileHint(tile("pack"), 3)).toEqual({ key: "today.tiles.packHint" });
     expect(tileHint(tile("stock"), undefined)).toEqual({ key: "today.tiles.stockHint" });
+    expect(tileHint(tile("store"), null)).toEqual({ key: "today.floor.storeHint" });
     expect(tileHint(tile("guides"), 0)).toEqual({ key: "today.tiles.guidesHint" });
   });
 });

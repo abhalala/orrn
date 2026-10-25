@@ -220,8 +220,10 @@ export function blockMessage(block: BundleBlock): ScanMessage {
       }
       break;
     case "outside_order":
-      if (block.orderNumber) return { key: "scan.continuous.outsideOrder", vars: { order: block.orderNumber } };
-      break;
+      // Without the order number the floor still reads it in its own language (never the server's English).
+      return block.orderNumber
+        ? { key: "scan.continuous.outsideOrder", vars: { order: block.orderNumber } }
+        : { key: "scan.continuous.outsideOrderPlain" };
     case "status":
       if (block.status) return { key: "scan.continuous.wrongStatus", status: block.status };
       break;

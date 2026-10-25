@@ -157,7 +157,7 @@ test.describe("orders list and detail", () => {
       await expect(totals.locator("[data-total='produced']")).toContainText(/\d[\d,]*\.\d{3} kg/);
       // Eight figures on each line; the baki cell is the ordered kg while nothing is dispatched.
       const line1 = page.locator("[data-order-line='1']");
-      for (const label of ["Ordered", "Planned", "Pressed", "Aged", "Packed", "In stock", "Dispatched", "Baki"]) {
+      for (const label of ["Ordered", "Planned", "Pressed", "Aged", "Packed (incl. on a truck)", "In stock", "Dispatched", "Baki"]) {
         await expect(line1.getByText(label, { exact: true })).toBeVisible();
       }
       await expect(line1.locator("[data-strip='orderedG']")).toContainText("480.000 kg");
@@ -317,10 +317,17 @@ test.describe("reallocate", () => {
     await sheet.getByRole("button", { name: "Done" }).click();
     const plant = await trpcQuery<{ total: number }>(page, "orders.plantStock", { sectionId: "dev-die-14701" });
     expect(plant.total).toBeGreaterThanOrEqual(1);
-    await expect(page.locator("[data-timeline='order.reallocate']").first()).toContainText("moved");
+    // BACKLOG 34: the timeline says how many bundles, their kg and from -> to, with the server's figures.
+    const timeline = await trpcQuery<{ events: { action: string; move: { count: number; kgG: number } | null }[] }>(page, "orders.timeline", { id: "dev-so-1" });
+    const move = timeline.events.filter((e) => e.action === "order.reallocate").at(-1)!.move!;
+    expect(move.count).toBe(1);
+    expect(move.kgG).toBeGreaterThan(0);
+    await expect(
+      page.locator("[data-timeline='order.reallocate']").filter({ hasText: `1 bundle, ${kg3(move.kgG)} kg, moved from KD Extrusion to plant stock` }),
+    ).not.toHaveCount(0);
   });
 
-  test("SO-1 bundles to another customer wait for a manager, with a length warning", async ({ page }) => {
+  test("SO-1 bundles to another customer wait for a manager, with a length warning; the owner sees what moves and approves", async ({ page, browser }) => {
     test.setTimeout(90_000);
     await open(page, { role: "office", width: 1280, path: "/orders/dev-so-1" });
     // Another customer's order for the same die, cut to a different length.
@@ -356,6 +363,51 @@ test.describe("reallocate", () => {
     expect(list.items.length).toBeGreaterThanOrEqual(1);
     expect(list.items[0]).toMatchObject({ status: "pending", bundles: 1 });
     await shot(page, "detail-pending-1280");
+
+    // BACKLOG 34: the owner (not the requester) sees what moves before deciding: the bundle and its
+    // kg, from KD's SO-1 line 1 to the target line, and the reason.
+    const timeline = await trpcQuery<{ events: { action: string; meta: { status: string }; move: { count: number; kgG: number } | null }[] }>(
+      page,
+      "orders.timeline",
+      { id: target.id },
+    );
+    const asked = timeline.events.filter((e) => e.action === "order.reallocate" && e.meta.status === "pending").at(-1)!.move!;
+    const kg = kg3(asked.kgG);
+    // Review m-8: the approver decides on a phone (375 px), the narrowest width the sheet must fit.
+    const owner = await newPage(browser);
+    await owner.setViewportSize({ width: 375, height: 812 });
+    await signInViaApi(owner, "owner");
+    await owner.goto("/approvals?kind=order_reallocate");
+    const card = owner.getByTestId("approval-card").filter({ hasText: `Royal Aluminium ${target.number}` });
+    await expect(card).toHaveCount(1);
+    await expect(card).toContainText(`1 bundle, ${kg} kg: KD Extrusion to Royal Aluminium ${target.number}`);
+    await card.getByRole("button", { name: /^Review/ }).click();
+    const review = owner.getByRole("dialog");
+    const summary = review.getByTestId("move-summary");
+    await expect(summary).toContainText(`1 bundle, ${kg} kg`);
+    await expect(summary).toContainText("KD Extrusion, SO-1 line 1");
+    await expect(summary).toContainText(`Royal Aluminium, ${target.number} line 1`);
+    await expect(summary).toContainText("Reason");
+    await expect(review.getByTestId("move-bundles").locator("li")).toHaveCount(1);
+    await expect(review.getByTestId("move-bundles")).toContainText(`${kg} kg`);
+    await expectNoHorizontalScroll(owner);
+    const box = await summary.boundingBox();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+    await review.getByRole("button", { name: "Approve" }).click();
+    await expect(review).toHaveCount(0);
+
+    // The order timeline names what moved, not "0 bundles, 0.000 kg".
+    await page.goto(`/orders/${target.id}`);
+    await settled(page);
+    await expect(
+      page.locator("[data-timeline='order.reallocate']").filter({ hasText: new RegExp(`1 bundle, ${kg.replace(".", "\\.")} kg, (moved )?from KD Extrusion to Royal Aluminium ${target.number}`) }),
+    ).toHaveCount(2);
+    // The decision row says it moved; the request row says it was asked.
+    await expect(
+      page.locator("[data-timeline='order.reallocate']").filter({ hasText: `1 bundle, ${kg} kg, moved from KD Extrusion to Royal Aluminium ${target.number}` }),
+    ).toHaveCount(1);
+    await owner.context().close();
   });
 });
 
@@ -372,7 +424,7 @@ test.describe("press plan", () => {
     test.setTimeout(120_000);
     await open(page, { role: "office", width: 1280, path: "/orders" });
     // The seeded SO-2 is an open line on the board; the plan is drafted from an order of this test's
-    // own, so SO-2's baki stays for the press spec's fixtures (they plan on dev-sol-2-1).
+    // own (BACKLOG 42: no spec plans a seeded order line; press.spec plans orders of its own).
     const own = await apiConfirmed(page, "dev-customer-royal", [{ sectionId: "dev-die-14701", pcs: 12 }]);
     await page.goto("/orders/plan");
     await settled(page);

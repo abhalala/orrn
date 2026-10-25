@@ -154,7 +154,7 @@ export function LiftPage({ copyId }: { copyId: string }) {
             </div>
           </dl>
           <div className="flex flex-wrap gap-2">
-            <PercentChip tone={card.data.tone} pctTenth={card.data.pctTenth} />
+            <PercentChip tone={card.data.tone} pctTenth={card.data.pctTenth} position={card.data.position} />
             <BandPositionChip position={card.data.position} />
           </div>
           {mine && mine.offBandMilli ? (

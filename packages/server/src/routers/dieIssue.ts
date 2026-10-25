@@ -9,7 +9,7 @@
  * batch. `die.issue` is the die room's alone.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, lt, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { die } from "@orrn/db/schema/catalog";
@@ -90,6 +90,45 @@ async function runCustomers(db: OrrnDb, companyId: string, pressPlanDieId: strin
 }
 
 const ms = (d: Date | null | undefined) => (d ? d.getTime() : null);
+
+/** D29: the running run's copy plus one preheating for a later run; a third is refused. */
+const LINE_COPY_CAP = 2;
+
+type LineHolder = { code: string; runNumber: string | null; inPress: boolean };
+
+/**
+ * Copies other than `exceptCopyId` that hold `pressLineId` (BACKLOG 36 / D29): an open issue whose
+ * run is gone, or whose run has no die out and is not logged or voided. At most LINE_COPY_CAP rows,
+ * oldest issue first.
+ */
+async function lineHolders(db: OrrnDb, companyId: string, pressLineId: string, exceptCopyId: string): Promise<LineHolder[]> {
+  const rows = await db
+    .select({ code: dieInstance.code, runNumber: pressRun.number, dieInAt: pressRun.dieInAt })
+    .from(dieIssue)
+    .innerJoin(dieInstance, and(eq(dieInstance.id, dieIssue.dieInstanceId), eq(dieInstance.companyId, dieIssue.companyId)))
+    .leftJoin(pressRun, and(eq(pressRun.id, dieIssue.pressRunId), eq(pressRun.companyId, dieIssue.companyId)))
+    .where(
+      and(
+        eq(dieIssue.companyId, companyId),
+        eq(dieIssue.pressLineId, pressLineId),
+        eq(dieIssue.status, "issued"),
+        ne(dieIssue.dieInstanceId, exceptCopyId),
+        sql`(${pressRun.id} is null or (${pressRun.dieOutAt} is null and ${pressRun.status} not in ('logged', 'voided')))`,
+      ),
+    )
+    .orderBy(asc(dieIssue.issuedAt), asc(dieIssue.id))
+    .limit(LINE_COPY_CAP);
+  return rows.map((r) => ({ code: r.code, runNumber: r.runNumber, inPress: r.dieInAt != null }));
+}
+
+const holderList = (holders: LineHolder[]) => holders.map((h) => (h.runNumber ? `${h.code} (${h.runNumber})` : h.code)).join(" and ");
+
+/** "P1 already has A (PR-1) and B (PR-2). Take one back[, or record the die out of A,] before issuing C." */
+function lineFullMessage(lineCode: string, holders: LineHolder[], copyCode: string) {
+  const inPress = holders.find((h) => h.inPress);
+  const dieOut = inPress ? `, or record the die out of ${inPress.code},` : "";
+  return `${lineCode} already has ${holderList(holders)}. Take one back${dieOut} before issuing ${copyCode}.`;
+}
 
 export const dieIssueRouter = router({
   /**
@@ -267,6 +306,13 @@ export const dieIssueRouter = router({
             throw new TRPCError({ code: "BAD_REQUEST", message: `${run.number} is planned on another press line` });
         }
       }
+      // BACKLOG 36 / D29: a press line holds at most two issued copies, the running run's and one
+      // preheating in the die oven for a later run; a third is refused. A copy whose run has its die
+      // out no longer counts (C43: the run's log returns it, or carries it to the next run of that copy).
+      const holders = await lineHolders(ctx.db, ctx.companyId, line.id, copy.id);
+      if (holders.length >= LINE_COPY_CAP) {
+        throw new TRPCError({ code: "CONFLICT", message: lineFullMessage(line.code, holders, copy.code) });
+      }
       // Customer-owned die (FP-DR-12): every party this run presses for must be allowed on this copy.
       for (const customerId of await runCustomers(ctx.db, ctx.companyId, run.pressPlanDieId)) {
         await assertDieAllowed(ctx.db, ctx.companyId, { dieInstanceId: copy.id, customerId, purpose: "press" });
@@ -339,7 +385,8 @@ export const dieIssueRouter = router({
           ),
       );
       const landed = sql`exists (select 1 from die_instance i where i.id = ${copy.id} and i.status = 'in_use' and i.server_seq = ${seq})
-        and exists (select 1 from press_run r where r.id = ${run.id} and r.status = 'die_issued' and r.die_instance_id = ${copy.id} and r.press_line_id = ${line.id} and r.server_seq = ${seq})`;
+        and exists (select 1 from press_run r where r.id = ${run.id} and r.status = 'die_issued' and r.die_instance_id = ${copy.id} and r.press_line_id = ${line.id} and r.server_seq = ${seq})
+        and (select count(*) from die_issue x left join press_run xr on xr.id = x.press_run_id and xr.company_id = x.company_id where x.company_id = ${ctx.companyId} and x.press_line_id = ${line.id} and x.status = 'issued' and x.die_instance_id <> ${copy.id} and (xr.id is null or (xr.die_out_at is null and xr.status not in ('logged', 'voided')))) < ${LINE_COPY_CAP}`;
       statements.push(
         dieRoomAbortUnless(ctx.db, landed),
         auditInsertGuarded(
@@ -367,6 +414,14 @@ export const dieIssueRouter = router({
         await atomicBatch(ctx.db, statements);
       } catch (e) {
         if (isDieRoomAbort(e) || errorText(e).includes("die_issue.die_instance_id")) {
+          // Name the line when it is the line that filled up between the read and the write.
+          const now = await lineHolders(ctx.db, ctx.companyId, line.id, copy.id);
+          if (now.length >= LINE_COPY_CAP) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: `${line.code} took another copy meanwhile and now has ${holderList(now)}; nothing was issued`,
+            });
+          }
           throw new TRPCError({ code: "CONFLICT", message: `${copy.code} or ${run.number} changed meanwhile; nothing was issued` });
         }
         throw e;

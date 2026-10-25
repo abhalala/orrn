@@ -13,11 +13,14 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
  * `/press/summary` and Today's press tile against the local seed (PR-1 die_issued on P1, PR-8 logged
  * today, PR-9 a late entry waiting for approval on P2, queued and trial runs on P1).
  *
- * Each width gets its own press line, die copies and plan, created through the API in `beforeAll`
- * (the first run's one-running-per-press rule and the three widths running in parallel must not
- * meet), and removes them afterwards (`cleanup`: every open run is finished or voided, approvals it
- * left are decided, the press and the die copies are retired; it runs from afterAll, so a failed test
- * still cleans up, and it throws when something could not be undone). Roles: press (press.run),
+ * Each width gets its own press line, die copies, party, two orders and plan, created through the
+ * API in `beforeAll` (the first run's one-running-per-press rule and the three widths running in
+ * parallel must not meet; BACKLOG 42: no fixture plans a seeded order line, so orders.spec and the
+ * other describes never share a line's baki, and the dies are Tee 13090 and Patti 14701, which no
+ * spec gives an owner), and removes them afterwards (`cleanup`: every open run is finished or voided,
+ * approvals it left are decided, the orders are closed, the press and the die copies are retired; it
+ * runs from afterAll, so a failed test still cleans up, and it throws when something could not be
+ * undone). Roles: press (press.run),
  * supervisor (press.run + press.close + press.queue), office (press.queue and void), viewer (reads),
  * and a manager (press.close without press.run), made by re-roling the unused `operator` seed
  * member for the manager describe only and restored afterwards.
@@ -125,10 +128,31 @@ type Fixture = {
   queued: Run;
   readyCopy: { id: string; code: string };
   lateCopy: { id: string; code: string };
+  /** The party both orders are for. */
+  party: string;
+  /** The ready run's order (Tee 13090, 18 ft × 20 pcs) and the queued run's (Patti 14701, 12 ft × 10 pcs). */
+  readyOrder: string;
+  queuedOrder: string;
 };
 /** What a describe has created so far, filled as it goes so a half-built fixture is still cleaned. */
-type Created = { lines: string[]; copies: string[] };
-const newCreated = (): Created => ({ lines: [], copies: [] });
+type Created = { lines: string[]; copies: string[]; orders: string[] };
+const newCreated = (): Created => ({ lines: [], copies: [], orders: [] });
+
+/** An order number, exactly: "SO-4" never matches "SO-41". */
+const orderNo = (n: string) => new RegExp(`${n}(?!\\d)`);
+
+/** A confirmed order of one pcs line for `customerId`; returns its number and line id. */
+async function ownOrder(owner: Api, created: Created, customerId: string, line: { sectionId: string; cutLengthMm: number; pcs: number }) {
+  const made = await owner.m<{ id: string; number: string }>("orders.create", {
+    customerId,
+    poNumber: `PR-E2E-${Math.random().toString(36).slice(2, 8)}`,
+    lines: [{ ...line, qtyBasis: "pcs", tierRank: 1 }],
+  });
+  created.orders.push(made.id);
+  const got = await owner.q<{ order: { serverSeq: number }; lines: { lineId: string }[] }>("orders.get", { id: made.id });
+  await owner.m("orders.confirm", { id: made.id, serverSeq: got.order.serverSeq });
+  return { number: made.number, lineId: got.lines[0]!.lineId };
+}
 
 async function makeFixture(width: number, created: Created): Promise<Fixture> {
   const owner = await apiAs("owner");
@@ -141,20 +165,30 @@ async function makeFixture(width: number, created: Created): Promise<Fixture> {
     const lateCopy = await owner.m<{ id: string; code: string }>("dieInstance.create", { sectionId: "dev-die-14701", status: "available" });
     created.copies.push(lateCopy.id);
     await owner.m("dieInstance.addReading", { dieInstanceId: readyCopy.id, kgPer12ftMilli: 2700 });
+    // BACKLOG 42: the fixture's own party and orders, never a seeded order line.
+    const tag = Math.random().toString(36).slice(2, 7);
+    const party = `Press ${width} Traders ${tag}`;
+    const customer = await owner.m<{ id: string }>("customer.create", {
+      name: party,
+      phone: null,
+      billingAddress: { line1: "Plot 1", city: `Presspur ${tag}`, state: "Gujarat", postalCode: "380001", country: "India" },
+    });
+    const readyOrder = await ownOrder(owner, created, customer.id, { sectionId: "dev-die-13090", cutLengthMm: 5486, pcs: 20 });
+    const queuedOrder = await ownOrder(owner, created, customer.id, { sectionId: "dev-die-14701", cutLengthMm: 3658, pcs: 10 });
     const now = Date.now();
     const plan = await owner.m<{ id: string }>("plans.create", {
       windowStart: now,
       windowEnd: now + 8 * 3_600_000,
       pressLineId: line.id,
       dies: [
-        { sectionId: "dev-die-13090", lines: [{ salesOrderLineId: "dev-sol-2-1", pcs: 20 }] },
-        { sectionId: "dev-die-11250", lines: [{ salesOrderLineId: "dev-sol-1-2", pcs: 10 }] },
+        { sectionId: "dev-die-13090", lines: [{ salesOrderLineId: readyOrder.lineId, pcs: 20 }] },
+        { sectionId: "dev-die-14701", lines: [{ salesOrderLineId: queuedOrder.lineId, pcs: 10 }] },
       ],
     });
     const rel = await owner.m<{ runs: Run[] }>("plans.release", { id: plan.id });
     const [ready, queued] = rel.runs as [Run, Run];
     await owner.m("dieInstance.issues.issue", { dieInstanceId: readyCopy.id, pressLineId: line.id, pressRunId: ready.id });
-    return { lineId: line.id, lineCode, planId: plan.id, ready, queued, readyCopy, lateCopy };
+    return { lineId: line.id, lineCode, planId: plan.id, ready, queued, readyCopy, lateCopy, party, readyOrder: readyOrder.number, queuedOrder: queuedOrder.number };
   } finally {
     await owner.dispose();
   }
@@ -226,6 +260,7 @@ async function cleanup(created: Created) {
       await attempt(`retire line ${lineId}`, () => owner.m("press.lines.retire", { id: lineId }));
     }
     for (const copyId of created.copies) await attempt(`retire copy ${copyId}`, () => owner.m("dieInstance.update", { id: copyId, status: "retired" }));
+    for (const orderId of created.orders) await attempt(`close order ${orderId}`, () => owner.m("orders.close", { id: orderId, reason: "e2e cleanup" }));
   } finally {
     await owner.dispose();
   }
@@ -285,16 +320,16 @@ for (const width of WIDTHS) {
       await expect(page.getByTestId("queue-on-line-count")).toHaveText("0");
       const ready = page.locator(`[data-slot="job-card"][data-run="${fx.ready.number}"]`);
       const queued = page.locator(`[data-slot="job-card"][data-run="${fx.queued.number}"]`);
-      await expect(ready).toContainText("SO-2");
-      await expect(ready).toContainText("Royal Aluminium");
+      await expect(ready).toContainText(fx.readyOrder);
+      await expect(ready).toContainText(fx.party);
       await expect(ready).toContainText("18 ft × 20 pcs");
       await expect(ready).toContainText(fx.readyCopy.code);
       await expect(ready).toContainText("Total: 20 pcs");
-      await expect(queued).toContainText("SO-1");
+      await expect(queued).toContainText(fx.queuedOrder);
       await expect(queued).toContainText("12 ft × 10 pcs");
       await expect(queued).toContainText("Die not issued");
       // Filters narrow the list without renumbering it.
-      await pickOption(page, page.getByLabel("Order", { exact: true }), /SO-1/);
+      await pickOption(page, page.getByLabel("Order", { exact: true }), orderNo(fx.queuedOrder));
       await expect(cards).toHaveCount(1);
       await expect(page).toHaveURL(/order=/);
       await expect(queued).toContainText("Number 2 in queue");
@@ -309,7 +344,7 @@ for (const width of WIDTHS) {
       await expect(banner).toContainText("Die not issued. Start is locked.");
       await expect(page.getByRole("button", { name: "Start", exact: true })).toHaveCount(0);
       await expect(page.getByRole("heading", { name: fx.queued.number, level: 1 })).toBeVisible();
-      await expect(page.locator('[data-slot="released"]')).toContainText("SO-1");
+      await expect(page.locator('[data-slot="released"]')).toContainText(fx.queuedOrder);
       // The line rows say "pcs" like the total does (units.pcs), never the column label "Pcs".
       await expect(page.locator('[data-slot="released"] li').first()).toContainText(/× 10 pcs · /);
       await expect(page.locator('[data-slot="released"]')).not.toContainText("Pcs");
@@ -429,7 +464,7 @@ for (const width of WIDTHS) {
       await shot(page, width, "count-billets");
       await page.getByRole("button", { name: "Save and next" }).click();
       // Step 2: pieces by cut length, with the order the plan released.
-      await expect(page.locator('[data-slot="cut-row"]').first()).toContainText("SO-2");
+      await expect(page.locator('[data-slot="cut-row"]').first()).toContainText(fx.readyOrder);
       await page.getByLabel("Pcs", { exact: true }).fill("20");
       await page.getByLabel("Good kg", { exact: true }).fill("58.1");
       await shot(page, width, "count-pieces");
@@ -533,7 +568,7 @@ for (const width of WIDTHS) {
       expect(sent[1]).toBe(sent[0]);
       await page.unroute(/\/trpc\/press\.runs\.close/);
       await expect(page.getByTestId("logged-recovery")).toHaveText("75.5%");
-      await expect(page.locator('[data-slot="logged"]')).toContainText("SO-2");
+      await expect(page.locator('[data-slot="logged"]')).toContainText(fx.readyOrder);
       await expect(page.getByRole("button", { name: "Request reopen" })).toBeVisible();
       await shot(page, width, "station-logged");
       await clean(page);
@@ -598,7 +633,7 @@ for (const width of WIDTHS) {
         await expect(table.locator("thead th")).toHaveCount(17);
         await expect(table.locator("tbody tr")).toHaveCount(1);
         const row = table.locator(`tbody tr[data-run="${fx.ready.number}"]`);
-        await expect(row).toContainText("SO-2");
+        await expect(row).toContainText(fx.readyOrder);
         await expect(row).toContainText("75.5");
         await expect(row).toContainText("Waiting for billets");
         await expect(page.getByTestId("press-report-totals")).toContainText("75.5");

@@ -72,6 +72,7 @@ export const STRIP_CELLS: readonly { key: StripGramKey; pcs?: StripPcsKey; label
   { key: "plannedG", labelKey: "orders.strip.planned" },
   { key: "pressedG", labelKey: "orders.strip.pressed" },
   { key: "agedG", labelKey: "orders.strip.aged" },
+  // BACKLOG 39: packed counts bundles on a truck too (available + reserved), so it never reads as "In stock".
   { key: "packedG", labelKey: "orders.strip.packed" },
   { key: "inStockG", labelKey: "orders.strip.inStock" },
   { key: "dispatchedG", labelKey: "orders.strip.dispatched" },
@@ -204,16 +205,43 @@ export function reallocateProblem(input: {
 // Timeline wording
 // ---------------------------------------------------------------------------
 
-export type TimelineEvent = { id: string; at: Date | string; action: string; actorName: string | null; meta: unknown };
+/** One end of a move on the timeline: an order line of a customer, or null for plant stock. */
+export type TimelineMoveEnd = { customerName: string; orderNumber: string; lineNo: number } | null;
+
+/** The server's reading of an `order.reallocate` row (BACKLOG 34): count, kg, and the ends when known. */
+export type TimelineMove = { count: number; kgG: number; from: TimelineMoveEnd[] | null; to?: TimelineMoveEnd };
+
+export type TimelineEvent = {
+  id: string;
+  at: Date | string;
+  action: string;
+  actorName: string | null;
+  meta: unknown;
+  move?: TimelineMove | null;
+};
+
+/** "KD Extrusion" (or several, comma separated) for where a move comes from. */
+function fromText(from: readonly TimelineMoveEnd[], plant: string): string {
+  return [...new Set(from.map((e) => (e ? e.customerName : plant)))].join(", ");
+}
+
+/** "Royal Aluminium SO-5" for a line, the plant word for plant stock. */
+function toText(to: TimelineMoveEnd, plant: string): string {
+  return to ? `${to.customerName} ${to.orderNumber}` : plant;
+}
 
 function metaOf(meta: unknown): Record<string, unknown> {
   return meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {};
 }
 
-export function timelineLabel(ev: Pick<TimelineEvent, "action" | "meta">): { key: MessageKey; vars: Record<string, string | number> } {
+export function timelineLabel(
+  ev: Pick<TimelineEvent, "action" | "meta" | "move">,
+  words: { plant: string } = { plant: "plant stock" },
+): { key: MessageKey; vars: Record<string, string | number> } {
   const meta = metaOf(ev.meta);
   const str = (k: string) => (typeof meta[k] === "string" ? (meta[k] as string) : "");
   const num = (k: string) => (typeof meta[k] === "number" ? (meta[k] as number) : 0);
+  const listLength = (k: string) => (Array.isArray(meta[k]) ? (meta[k] as unknown[]).length : 0);
   switch (ev.action) {
     case "order.create":
       return { key: "orders.timeline.create", vars: {} };
@@ -231,11 +259,27 @@ export function timelineLabel(ev: Pick<TimelineEvent, "action" | "meta">): { key
       return { key: "orders.timeline.weightRefresh", vars: {} };
     case "order.reallocate": {
       const status = str("status");
-      const vars = { count: num("bundles"), kg: orderKgText(num("kgG")) };
+      const move = ev.move;
+      // BACKLOG 34: "3 bundles, 57.000 kg, from KD Extrusion to plant stock" (the server's figures).
+      if (move && move.from && move.from.length > 0 && move.to !== undefined) {
+        const vars = { count: move.count, kg: orderKgText(move.kgG), from: fromText(move.from, words.plant), to: toText(move.to, words.plant) };
+        if (status === "pending") return { key: "orders.timeline.movePending", vars };
+        if (status === "rejected") return { key: "orders.timeline.moveRejected", vars };
+        return { key: "orders.timeline.moveApplied", vars };
+      }
+      const vars = { count: move?.count ?? num("bundles"), kg: orderKgText(move?.kgG ?? num("kgG")) };
       if (status === "pending") return { key: "orders.timeline.reallocatePending", vars };
       if (status === "rejected") return { key: "orders.timeline.reallocateRejected", vars };
       return { key: "orders.timeline.reallocateApplied", vars };
     }
+    // Explorer W1 M5: holds read as words, not "order.hold" / "order.release".
+    case "order.hold":
+      return { key: "orders.timeline.hold", vars: { count: listLength("serials") || listLength("bundleIds"), kg: orderKgText(num("kgG")), line: num("lineNo") } };
+    case "order.release":
+      return {
+        key: str("reason") === "dispatched" ? "orders.timeline.releaseDispatched" : "orders.timeline.release",
+        vars: { count: listLength("serials") || listLength("bundleIds"), kg: orderKgText(num("kgG")), line: num("lineNo"), code: str("dispatchCode") },
+      };
     case "plan.create":
       return { key: "orders.timeline.planCreate", vars: { number: str("number") } };
     case "plan.release":

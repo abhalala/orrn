@@ -66,9 +66,81 @@ const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const text = (v: unknown): string => (typeof v === "string" || typeof v === "number" ? String(v) : "");
 const safeId = (v: unknown): string | null => (typeof v === "string" && SAFE_ID.test(v) ? v : null);
 
-export function approvalSubject(row: ApprovalForView): ApprovalSubject {
+/** One end of a move (BACKLOG 34): an order line of a customer, or null for plant stock. */
+export type MoveEndView = { customerName: string; orderNumber: string; lineNo: number } | null;
+
+/** What an `order_reallocate` request moves, read from its meta (server's `ReallocateMove`). */
+export type ReallocateView = {
+  count: number;
+  kgG: number;
+  from: MoveEndView[];
+  to: MoveEndView;
+  bundles: { serial: string; weightG: number; from: MoveEndView }[];
+  reasonCode: string | null;
+  /** The order the bundles are on now (the first one asked from), for "Open order". */
+  orderId: string | null;
+};
+
+function endOf(v: unknown): MoveEndView {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  if (typeof o.customerName !== "string" || typeof o.orderNumber !== "string" || typeof o.lineNo !== "number") return null;
+  return { customerName: o.customerName, orderNumber: o.orderNumber, lineNo: o.lineNo };
+}
+
+/** The move of an `order_reallocate` request, or null for a request made before the summary existed. */
+export function reallocateMoveOf(meta: Record<string, unknown> | null | undefined): ReallocateView | null {
+  const m = meta ?? {};
+  const move = m.move && typeof m.move === "object" ? (m.move as Record<string, unknown>) : null;
+  if (!move || typeof move.count !== "number" || typeof move.kgG !== "number") return null;
+  const bundles = Array.isArray(move.bundles)
+    ? (move.bundles as unknown[]).flatMap((b) => {
+        if (!b || typeof b !== "object") return [];
+        const o = b as Record<string, unknown>;
+        return typeof o.serial === "string" && typeof o.weightG === "number" ? [{ serial: o.serial, weightG: o.weightG, from: endOf(o.from) }] : [];
+      })
+    : [];
+  const orderIds = Array.isArray(m.orderIds) ? (m.orderIds as unknown[]).map(safeId).filter((x): x is string => x !== null) : [];
+  return {
+    count: move.count,
+    kgG: move.kgG,
+    from: Array.isArray(move.from) ? (move.from as unknown[]).map(endOf) : [],
+    to: endOf(move.to),
+    bundles,
+    reasonCode: typeof m.reasonCode === "string" ? m.reasonCode : null,
+    orderId: orderIds[0] ?? null,
+  };
+}
+
+/** "KD Extrusion SO-4" for a line, the plant word for plant stock. */
+export function moveEndText(end: MoveEndView, plant: string): string {
+  return end ? `${end.customerName} ${end.orderNumber}` : plant;
+}
+
+/** The distinct customers a move comes from ("KD Extrusion", "KD Extrusion, plant stock"). */
+export function moveFromText(from: readonly MoveEndView[], plant: string): string {
+  return [...new Set(from.map((e) => (e ? e.customerName : plant)))].join(", ");
+}
+
+/** Kilograms to the gram, as the order screens print them ("57.046"). */
+const KG3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+export const moveKgText = (grams: number) => KG3.format(grams / 1000);
+
+export function approvalSubject(row: ApprovalForView, words: { plant: string } = { plant: "plant stock" }): ApprovalSubject {
   const kindKey = `approvals.kind.${row.kind}` as MessageKey;
   const m = row.meta ?? {};
+  if (row.kind === "order_reallocate") {
+    const move = reallocateMoveOf(m);
+    if (move) {
+      return {
+        kindKey,
+        titleKey: "approvals.subject.reallocate",
+        vars: { count: move.count, kg: moveKgText(move.kgG), from: moveFromText(move.from, words.plant), to: moveEndText(move.to, words.plant) },
+        href: move.orderId ? `/orders/${move.orderId}` : null,
+        openKey: move.orderId ? "approvals.openOrder" : null,
+      };
+    }
+  }
   if (row.kind === "dc_note") {
     const lotId = safeId(m.lotId);
     return {
@@ -151,9 +223,12 @@ export function unbrokenCodes(title: string, codes: readonly string[]): string {
     .join("");
 }
 
-/** The codes an approval title can carry (note, lot and die copy numbers). */
+/** The codes an approval title can carry (note, lot and die copy numbers; an order number at the end of a move). */
 export function subjectCodes(subject: ApprovalSubject): string[] {
-  return ["number", "lot", "code", "ref"].map((k) => subject.vars[k]).filter((v): v is string => typeof v === "string");
+  const codes = ["number", "lot", "code", "ref"].map((k) => subject.vars[k]).filter((v): v is string => typeof v === "string");
+  const to = subject.vars.to;
+  const order = typeof to === "string" ? /\b[A-Z]{1,4}-\d+$/.exec(to)?.[0] : undefined;
+  return order ? [...codes, order] : codes;
 }
 
 /** The server's `purchaseReader`: who may read scrap purchase figures and lots. */

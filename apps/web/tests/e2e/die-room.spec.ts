@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
+import { ownPress, type OwnPress } from "./helpers/own-press";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
 /**
@@ -13,7 +14,8 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
  *
  * Tests run in parallel (fullyParallel), so every mutating test owns what it touches: each width has
  * its own copy for a tier proposal (13090-1/2/3), for a reading (13090-4/5/6) and for an issue
- * (13090-7/8/9, onto its own queued run PR-2/3/4); the 375 lift page has 13090-10; the section and
+ * (13090-7/8/9, onto a press and run of its own; at 1280 that press already holds two copies, so the
+ * third is refused until one is taken back, D29); the 375 lift page has 13090-10; the section and
  * band edits use sections nothing else reads (Angle 11250, Flat 14730). The seed is reset at the
  * start of each run, so two runs in a row meet the same plant.
  */
@@ -21,11 +23,11 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
 const WIDTHS = [375, 820, 1280] as const;
 type Width = (typeof WIDTHS)[number];
 
-/** Per width: the Tee copies it changes, the reading it adds (kg/12ft -> percent) and the run it issues to. */
-const PLAN: Record<Width, { tierCopy: string; readCopy: string; reading: string; pct: string; issueCopy: string; run: string }> = {
-  375: { tierCopy: "13090-1", readCopy: "13090-4", reading: "2.790", pct: "+3.3%", issueCopy: "13090-7", run: "PR-2" },
-  820: { tierCopy: "13090-2", readCopy: "13090-5", reading: "2.795", pct: "+3.5%", issueCopy: "13090-8", run: "PR-3" },
-  1280: { tierCopy: "13090-3", readCopy: "13090-6", reading: "2.800", pct: "+3.7%", issueCopy: "13090-9", run: "PR-4" },
+/** Per width: the Tee copies it changes, the reading it adds (kg/12ft -> percent) and the copy it issues. */
+const PLAN: Record<Width, { tierCopy: string; readCopy: string; reading: string; pct: string; issueCopy: string }> = {
+  375: { tierCopy: "13090-1", readCopy: "13090-4", reading: "2.790", pct: "+3.3%", issueCopy: "13090-7" },
+  820: { tierCopy: "13090-2", readCopy: "13090-5", reading: "2.795", pct: "+3.5%", issueCopy: "13090-8" },
+  1280: { tierCopy: "13090-3", readCopy: "13090-6", reading: "2.800", pct: "+3.7%", issueCopy: "13090-9" },
 };
 
 async function open(page: Page, path: string, opts: { role: LocalRole; width: number; locale?: "hi" }) {
@@ -125,10 +127,14 @@ for (const width of WIDTHS) {
       const heavy = page.locator("[data-testid^='band-']").filter({ hasText: "2.900–3.100" });
       await expect(heavy).toHaveCount(1);
       await expect(page.getByTestId("copy-13090-1")).toContainText("In band");
-      await expect(page.getByTestId("copy-13090-2")).toContainText("Near the edge");
+      // Explorer W1 M3: off its band, a copy's percent carries the number only and the position
+      // chip gives the one verdict ("+9.3%" and "Above band", never "Near the edge" next to it).
+      await expect(page.getByTestId("copy-13090-2")).toContainText("+9.3%");
       await expect(page.getByTestId("copy-13090-2")).toContainText("Above band");
+      await expect(page.getByTestId("copy-13090-2")).not.toContainText("Near the edge");
       await expect(heavy).toContainText("13090-3");
-      await expect(heavy.getByText("Over band").first()).toBeVisible();
+      await expect(heavy).toContainText("Above band");
+      await expect(heavy).not.toContainText("Over band");
       await expectClean(page);
     });
 
@@ -175,9 +181,21 @@ for (const width of WIDTHS) {
 }
 
 test.describe("issue to a press and take it back", () => {
+  let own: OwnPress | null = null;
+  test.afterEach(async () => {
+    await own?.cleanup();
+    own = null;
+  });
+
   for (const width of WIDTHS) {
     const plan = PLAN[width];
-    test(`${width}: ${plan.issueCopy} goes to run ${plan.run} on P1 and comes back`, async ({ page }) => {
+    // D29: a press holds the running run's copy and one more (preheating); a third is refused. One
+    // width shows the refusal: its own press starts with two copies issued through the API.
+    const full = width === 1280;
+    test(`${width}: ${plan.issueCopy} goes to a press of its own${full ? " once the press has room (a third copy is refused)" : ""} and comes back`, async ({ page }) => {
+      // This width's own press and queued run(s), parallel-safe; cleaned up after the test.
+      own = await ownPress({ sectionId: "dev-die-13090", purpose: "sample", tag: String(width), runs: full ? 3 : 1, issued: full ? 2 : 0 });
+      const mineRun = own.runs[0]!;
       await open(page, "/dies/issues", { role: "dieroom", width });
       // The seeded open issue: 14701-1 on P1 for run PR-1, with the die not yet in the press.
       const openIssues = page.getByTestId("open-issues");
@@ -186,18 +204,36 @@ test.describe("issue to a press and take it back", () => {
 
       const form = page.getByTestId("issue-form");
       await pickFromSearch(page, form, "Copy", plan.issueCopy);
-      // Three Tee runs wait on P1 (PR-2, PR-3, PR-4): each width takes its own.
+      // The run is named by the person: nothing is picked for them (no silent "oldest").
+      await expect(form.getByRole("combobox", { name: "Press run" })).toContainText("Pick a press run");
+      await form.getByRole("button", { name: "Issue", exact: true }).click();
+      await expect(form.getByRole("alert")).toContainText("Pick a press run");
+
       await form.getByRole("combobox", { name: "Press run" }).click();
-      await page.getByRole("option", { name: plan.run }).click();
-      await expect(form.getByRole("combobox", { name: "Press run" })).toContainText(plan.run);
-      // The run sets the line: P1, and the person cannot pick another.
-      await expect(form.getByRole("combobox", { name: "Press line" })).toContainText("P1");
+      // Exact run number: "PR-2" must never match "PR-2x".
+      await page.getByRole("option", { name: new RegExp(`^${mineRun.runNumber} `) }).click();
+      await expect(form.getByRole("combobox", { name: "Press run" })).toContainText(mineRun.runNumber);
+      // The run sets the line, and the person cannot pick another.
+      await expect(form.getByRole("combobox", { name: "Press line" })).toContainText(own.lineCode);
       await expect(form.getByRole("combobox", { name: "Press line" })).toBeDisabled();
+
+      if (full) {
+        // Two copies are already on this press: the third is refused, naming both, and nothing is issued.
+        const [a, b] = own.issued;
+        await form.getByRole("button", { name: "Issue", exact: true }).click();
+        await expect(form.getByRole("alert")).toContainText(
+          `${own.lineCode} already has ${a!.code} (${a!.runNumber}) and ${b!.code} (${b!.runNumber}). Take one back before issuing ${plan.issueCopy}.`,
+        );
+        await expect(openIssues.getByTestId(`issue-${plan.issueCopy}`)).toHaveCount(0);
+        // The die room takes one back; now there is room.
+        await openIssues.getByTestId(`issue-${a!.code}`).getByRole("button", { name: "Take back" }).click();
+        await expect(openIssues.getByTestId(`issue-${a!.code}`)).toHaveCount(0);
+      }
       await form.getByRole("button", { name: "Issue", exact: true }).click();
 
       const mine = openIssues.getByTestId(`issue-${plan.issueCopy}`);
-      await expect(mine).toContainText("Issued to P1");
-      await expect(mine).toContainText(plan.run);
+      await expect(mine).toContainText(`Issued to ${own.lineCode}`);
+      await expect(mine).toContainText(mineRun.runNumber);
       await expectClean(page);
 
       if (width === 820) {
