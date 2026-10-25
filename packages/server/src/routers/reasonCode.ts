@@ -31,6 +31,17 @@ const translation = z
   .transform((v) => (v ? v : null));
 
 const OTHER = "other";
+/** Two live reasons of one kind with the same words read as two identical choices (final explore L7). */
+const sameWords = (a: string, b: string) => a.trim().replace(/\s+/g, " ").toLowerCase() === b.trim().replace(/\s+/g, " ").toLowerCase();
+
+async function assertLabelFree(db: Parameters<typeof ensureDefaultReasonCodes>[0], companyId: string, kind: string, label: string, exceptId?: string) {
+  const rows = await db
+    .select({ id: reasonCode.id, label: reasonCode.label })
+    .from(reasonCode)
+    .where(and(eq(reasonCode.companyId, companyId), eq(reasonCode.kind, kind as (typeof REASON_CODE_KINDS)[number]), eq(reasonCode.active, true)));
+  if (rows.some((r) => r.id !== exceptId && sameWords(r.label, label))) bad(`"${label.trim()}" is already a reason here`);
+}
+
 const bad = (message: string): never => {
   throw new TRPCError({ code: "BAD_REQUEST", message });
 };
@@ -95,6 +106,7 @@ export const reasonCodeRouter = router({
       await ensureDefaultReasonCodes(ctx.db, ctx.companyId);
       const base = reasonCodeKey(input.label);
       if (base === OTHER) bad("Other already exists and is fixed");
+      await assertLabelFree(ctx.db, ctx.companyId, input.kind, input.label);
       const rows = await ctx.db
         .select({ id: reasonCode.id, code: reasonCode.code, sortOrder: reasonCode.sortOrder })
         .from(reasonCode)
@@ -157,6 +169,7 @@ export const reasonCodeRouter = router({
     .mutation(async ({ ctx, input }) => {
       const row = await load(ctx.db, ctx.companyId, input.id);
       if (row.code === OTHER) bad("Other is fixed; it cannot be changed");
+      await assertLabelFree(ctx.db, ctx.companyId, row.kind, input.label, row.id);
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const set = {
         label: input.label,
@@ -195,6 +208,7 @@ export const reasonCodeRouter = router({
       const row = await load(ctx.db, ctx.companyId, input.id);
       if (row.code === OTHER) bad("Other is fixed; it cannot be retired");
       if (row.active === input.active) return { id: row.id, changed: false };
+      if (input.active) await assertLabelFree(ctx.db, ctx.companyId, row.kind, row.label, row.id);
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       await atomicBatch(ctx.db, [
         ctx.db

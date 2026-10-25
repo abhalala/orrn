@@ -94,3 +94,10 @@ describe("castTail (Review Focus 4: an unexplained tail needs a reason)", () => 
     expect(castTail({ ...empty, bundlesG: 5 }).needsReason).toBe(true);
   });
 });
+
+describe("final explore L10: spectro values read as symbols", () => {
+  test("si, FE, mg → Si, Fe, Mg", () => {
+    const { elementSymbol } = require("./foundry") as typeof import("./foundry");
+    expect(["si", "FE", "mg", "al", ""].map(elementSymbol)).toEqual(["Si", "Fe", "Mg", "Al", ""]);
+  });
+});

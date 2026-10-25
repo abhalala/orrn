@@ -285,6 +285,14 @@ for (const width of WIDTHS) {
     });
 
     if (width === 820) {
+      test("L14 (final explore): the press role opening /press/report by URL is told it has no access, not to check the connection", async ({ browser }) => {
+        const { page, context } = await openAs(browser, "press", width, "/press/report");
+        const main = page.locator("main#main");
+        await expect(main.getByText("Your role can't open the press report. Ask an owner, admin or manager.")).toBeVisible({ timeout: 30_000 });
+        await expect(main.getByText("Check the connection", { exact: false })).toHaveCount(0);
+        await context.close();
+      });
+
       test("M5 (final explore): the press overview and a line board read Gujarati in gu", async ({ browser }) => {
         const { page, context } = await openAs(browser, "press", width, "/press", { locale: "gu" });
         const main = page.locator("main#main");

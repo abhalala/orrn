@@ -1,3 +1,4 @@
+import { elementSymbol } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -240,7 +241,7 @@ function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): voi
         {values.length > 0 ? (
           <div className="flex flex-col gap-1">
             <p className="m-0 text-[14px] font-semibold">{t("foundry.inbox.attachSheet.values")}</p>
-            <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">{values.map(([k, v]) => `${k} ${v}`).join(", ")}</p>
+            <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">{values.map(([k, v]) => `${elementSymbol(k)} ${v}`).join(", ")}</p>
           </div>
         ) : null}
         {attach.error ? (

@@ -133,7 +133,12 @@ describe("wave-2 M5: audit actions read as words", () => {
     };
     walk(root);
     const written = new Set<string>();
-    for (const file of files) for (const m of readFileSync(file, "utf8").matchAll(/action: ["'`]([a-zA-Z_]+\.[a-zA-Z_.]+)["'`]/g)) written.add(m[1]!);
+    // Every dotted literal in an `action:` expression, both arms of a ternary included.
+    for (const file of files) {
+      for (const m of readFileSync(file, "utf8").matchAll(/action: ([^,\n]+)/g)) {
+        for (const lit of m[1]!.matchAll(/["'`]([a-z][a-zA-Z_]*\.[a-zA-Z_.]+)["'`]/g)) written.add(lit[1]!);
+      }
+    }
     expect(written.size).toBeGreaterThan(100);
     expect([...written].filter((a) => !AUDIT_ACTION_WORDS.has(a))).toEqual([]);
     for (const action of AUDIT_ACTION_WORDS) {

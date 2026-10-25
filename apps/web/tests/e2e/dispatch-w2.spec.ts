@@ -119,6 +119,9 @@ test.describe("dispatch from a sales order", () => {
         const plantRows = sheet.locator("[data-suggest-group='plant'] [data-suggest-serial]");
         await expect(orderRows).toHaveCount(3);
         await expect(plantRows).toHaveCount(2);
+        // Final explore L9: plant stock says it goes on the line, not that it is on one already.
+        await expect(plantRows.first()).toContainText(/plant stock, goes on line \d+/);
+        await expect(orderRows.first()).not.toContainText("plant stock");
         expect(await orderRows.evaluateAll((els) => els.map((e) => e.getAttribute("data-suggest-serial")))).toEqual(s.own);
         expect((await plantRows.evaluateAll((els) => els.map((e) => e.getAttribute("data-suggest-serial")))).sort()).toEqual([...s.plant].sort());
         // Not offered: the party's other order, a bundle held for another line, another customer's.

@@ -12,7 +12,7 @@ import { Download, Printer } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { useMe } from "@/shared/lib/me";
-import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
+import { INLINE_ERROR_META, isForbiddenError, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { downloadCsv as saveCsvFile } from "../imports/templates";
@@ -183,7 +183,11 @@ export function ReportScreen({
 
       {showsQueryError(report) ? (
         <div className="rounded-card border border-border bg-card">
-          <EmptyState title={t("press.report.loadFailed")} action={<Button variant="secondary" onClick={() => void report.refetch()}>{t("common.retry")}</Button>} />
+          {isForbiddenError(report.error) ? (
+            <EmptyState title={t("press.report.noAccess")} />
+          ) : (
+            <EmptyState title={t("press.report.loadFailed")} action={<Button variant="secondary" onClick={() => void report.refetch()}>{t("common.retry")}</Button>} />
+          )}
         </div>
       ) : !data ? (
         <Skeleton className="h-48 rounded-card" />

@@ -67,3 +67,13 @@ describe("L2: press.runs.start without a run", () => {
     await expect(p.as("press").press.runs.start({})).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });
+
+describe("final explore L13: approval.decide refuses a role that approves nothing before reading its input", () => {
+  test("viewer, empty body: 403; owner, empty body: 400", async () => {
+    const { companyId } = await env.seedCompany();
+    const viewer = env.caller({ role: "viewer", companyId });
+    const owner = env.caller({ role: "owner", companyId });
+    await expect(viewer.approval.decide({} as never)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(owner.approval.decide({} as never)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+});

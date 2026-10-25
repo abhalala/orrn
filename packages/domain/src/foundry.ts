@@ -195,6 +195,12 @@ function castCloseTail(input: CastCloseTailInput): CastCloseTail {
 export const SPECTRO_REQUIRED = ["si", "fe", "cu", "mn", "mg", "zn", "ti", "cr"] as const;
 export const SPECTRO_ELEMENTS = [...SPECTRO_REQUIRED, "al"] as const;
 export type SpectroElementKey = (typeof SPECTRO_ELEMENTS)[number];
+
+/** A chemical symbol as printed ("si" → "Si", "FE" → "Fe"): final explore L10, spectro values read as symbols. */
+export function elementSymbol(key: string): string {
+  const k = key.trim();
+  return k ? k[0]!.toUpperCase() + k.slice(1).toLowerCase() : k;
+}
 export const PPM_TOTAL = 1_000_000;
 
 export type SpectroPpm = Partial<Record<SpectroElementKey, number | null>>;

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5834 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 5847 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -1068,7 +1068,7 @@ Counts: 5834 screen strings in 49 groups, 35 guides with 646 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (209)
+### dispatch (210)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1113,6 +1113,7 @@ Counts: 5834 screen strings in 49 groups, 35 guides with 646 strings.
 | `suggest.order` | This order's stock | इस ऑर्डर का स्टॉक |
 | `suggest.plant` | Plant stock, same die and length | प्लांट स्टॉक, वही die और लंबाई |
 | `suggest.forLine` | line {n} | लाइन {n} |
+| `suggest.forLinePlant` | plant stock, goes on line {n} | प्लांट स्टॉक, लाइन {n} पर जाएगा |
 | `suggest.held` | Held for this line | इस लाइन के लिए रोका हुआ |
 | `suggest.pastBaki` | Past the baki | बाकी से ज़्यादा |
 | `suggest.cut` | The list is cut. Add these and ask again. | सूची कटी हुई है। इन्हें जोड़कर फिर देखें। |
@@ -1365,7 +1366,7 @@ Counts: 5834 screen strings in 49 groups, 35 guides with 646 strings.
 | `v2.combineTitle` | Combine packing lists | पैकिंग लिस्ट मिलाएं |
 | `v2.combineBody` | Pick the lists of {customer} to fold into one list. It takes a new PL number; the folded lists keep theirs. | {customer} की जो लिस्ट एक में मिलानी हैं, चुनें। नई लिस्ट को नया PL नंबर मिलता है; मिलाई गई लिस्ट अपना नंबर रखती हैं। |
 | `v2.combineNone` | No other packing list of this customer to combine. | इस ग्राहक की मिलाने लायक कोई और पैकिंग लिस्ट नहीं है। |
-| `v2.combineSubmit` | Combine {count} lists | {count} लिस्ट मिलाएं |
+| `v2.combineSubmit` | Combine {count} {count:list\|lists} | {count} लिस्ट मिलाएं |
 | `v2.combined` | Combined into {code} | {code} में मिलाया |
 | `v2.field.weightG` | weight | वज़न |
 | `v2.field.pcs` | pieces | पीस |
@@ -4656,7 +4657,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (494)
+### press (495)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5090,6 +5091,7 @@ Please check, Lalubhai:
 | `report.noOperator` | No operator | ऑपरेटर नहीं |
 | `report.loadFailed` | The report did not load. Check the connection and try again. | रिपोर्ट नहीं खुली। कनेक्शन जाँचकर फिर कोशिश करें। |
 | `report.downloadFailed` | The file could not be made. Try again. | फ़ाइल नहीं बन सकी। फिर कोशिश करें। |
+| `report.noAccess` | Your role can't open the press report. Ask an owner, admin or manager. | आपकी भूमिका प्रेस रिपोर्ट नहीं खोल सकती। मालिक, एडमिन या मैनेजर से कहें। |
 | `report.late` | Late | देर से |
 | `report.openRun` | Open run {number} | रन {number} खोलें |
 | `report.csvName` | press-report | press-report |
@@ -5530,7 +5532,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (212)
+### audit (223)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5596,6 +5598,8 @@ Please check, Lalubhai:
 | `actions.bundle__receipt__create` | Bundles packed | बंडल पैक किए |
 | `actions.bundle__receipt__pin_override` | Packed on another copy than the order pins | ऑर्डर की तय कॉपी के बजाय दूसरी कॉपी पर पैक किया |
 | `actions.bundle__transition` | Bundle status changed | बंडल का स्टेटस बदला |
+| `actions.cast__close` | Cast closed | कास्ट बंद किया |
+| `actions.cast__close_request` | Cast close sent for approval | कास्ट बंद करने की मंज़ूरी मांगी |
 | `actions.cast__open` | Cast opened | कास्ट खोला |
 | `actions.company__settings__update` | Plant settings changed | प्लांट की सेटिंग्स बदलीं |
 | `actions.company__switch` | Switched plant | प्लांट बदला |
@@ -5624,16 +5628,20 @@ Please check, Lalubhai:
 | `actions.die_file__remove` | Die file removed | डाई फ़ाइल हटाई |
 | `actions.die_instance__create` | Die copy added | डाई कॉपी जोड़ी |
 | `actions.die_instance__update` | Die copy changed | डाई कॉपी बदली |
+| `actions.die_issue__cancel` | Die issue cancelled | डाई देना रद्द किया |
 | `actions.die_issue__issue` | Die issued to a press | डाई प्रेस को दी |
 | `actions.die_issue__return` | Die back from the press | डाई प्रेस से वापस आई |
 | `actions.die_maker__archive` | Die maker archived | डाई मेकर आर्काइव किया |
 | `actions.die_maker__create` | Die maker added | डाई मेकर जोड़ा |
 | `actions.die_maker__update` | Die maker changed | डाई मेकर बदला |
+| `actions.die_maker_job__cancel` | Die maker job cancelled | डाई मेकर का काम रद्द किया |
+| `actions.die_maker_job__receive` | Die back from the die maker | डाई, डाई मेकर से वापस आई |
 | `actions.die_maker_job__send` | Die sent to the die maker | डाई, डाई मेकर को भेजी |
 | `actions.die_owner__close` | Use of another customer's die closed | दूसरे ग्राहक की डाई की छूट बंद की |
 | `actions.die_owner__request` | Use of another customer's die asked | दूसरे ग्राहक की डाई चलाने को कहा |
 | `actions.die_owner__set` | Die owner set | डाई का मालिक तय किया |
 | `actions.die_reading__add` | Die weight reading added | डाई वज़न रीडिंग जोड़ी |
+| `actions.die_remark__add` | Die remark added | डाई टिप्पणी जोड़ी |
 | `actions.die_tier__propose` | Die tier change asked | डाई टियर बदलने को कहा |
 | `actions.die_trial__fail` | Die trial failed | डाई ट्रायल फेल |
 | `actions.die_trial__pass` | Die trial passed | डाई ट्रायल पास |
@@ -5704,6 +5712,7 @@ Please check, Lalubhai:
 | `actions.press_line__retire` | Press line retired | प्रेस लाइन बंद की |
 | `actions.press_line__update` | Press line changed | प्रेस लाइन बदली |
 | `actions.press_plan_line__pull_back` | Length taken back to planning | लंबाई वापस प्लानिंग में ली |
+| `actions.press_remark__add` | Press remark added | प्रेस टिप्पणी जोड़ी |
 | `actions.press_run__close` | Press run logged | प्रेस रन दर्ज किया |
 | `actions.press_run__open` | Press run entered late | प्रेस रन बाद में भरा |
 | `actions.press_run__queue_move` | Press queue order changed | प्रेस कतार का क्रम बदला |
@@ -5718,7 +5727,9 @@ Please check, Lalubhai:
 | `actions.purchase_lot__unload` | Scrap lot unloaded | स्क्रैप लॉट उतारा |
 | `actions.purchase_lot__update` | Scrap lot changed | स्क्रैप लॉट बदला |
 | `actions.reason_code__create` | Reason added | कारण जोड़ा |
+| `actions.reason_code__reactivate` | Reason back in use | कारण फिर चालू किया |
 | `actions.reason_code__rename` | Reason renamed | कारण का नाम बदला |
+| `actions.reason_code__retire` | Reason retired | कारण बंद किया |
 | `actions.return_stream__create` | Return stream added | रिटर्न स्ट्रीम जोड़ी |
 | `actions.return_stream__seed` | Default return streams added | डिफ़ॉल्ट रिटर्न स्ट्रीम जोड़ीं |
 | `actions.return_stream__update` | Return stream changed | रिटर्न स्ट्रीम बदली |
@@ -5737,7 +5748,9 @@ Please check, Lalubhai:
 | `actions.store__receive` | Store items received | स्टोर में सामान आया |
 | `actions.store_item__create` | Store item added | स्टोर आइटम जोड़ा |
 | `actions.store_item__update` | Store item changed | स्टोर आइटम बदला |
+| `actions.support_request__close` | Help request closed | मदद की रिक्वेस्ट बंद की |
 | `actions.support_request__create` | Help asked from orrn | orrn से मदद मांगी |
+| `actions.support_request__reply` | orrn replied to a help request | orrn ने मदद की रिक्वेस्ट का जवाब दिया |
 | `actions.transporter__create` | Transporter added | ट्रांसपोर्टर जोड़ा |
 | `actions.transporter__update` | Transporter changed | ट्रांसपोर्टर बदला |
 | `actions.vendor__alias__add` | Vendor's other name added | वेंडर का दूसरा नाम जोड़ा |

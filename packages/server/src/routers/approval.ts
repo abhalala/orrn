@@ -98,6 +98,14 @@ export const approvalRouter = router({
    * batch, guarded the same way.
    */
   decide: companyProcedure
+    // Final explore L13: a role that approves no kind at all is refused before its input is read
+    // (403, not 400 for a malformed body); the per-kind check below still runs.
+    .use(({ ctx, next }) => {
+      if (!approvalKinds.some((kind) => canApprove(ctx.role, kind))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
+      }
+      return next({ ctx });
+    })
     .input(
       z.object({
         id: z.string().min(1).max(64),

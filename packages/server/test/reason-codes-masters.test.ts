@@ -64,8 +64,17 @@ describe("reasonCodes.create", () => {
   test("a second code with the same wording gets its own key; other cannot be created again", async () => {
     const p = await plant();
     const a = await p.manager.reasonCodes.create({ kind: "void", label: "Wrong colour" });
+    // Final explore L7: a live reason with the same words is refused (two identical picker choices);
+    // once the first is retired, the wording is free again and gets its own key.
+    await expect(p.manager.reasonCodes.create({ kind: "void", label: " wrong  COLOUR " })).rejects.toMatchObject({ code: "BAD_REQUEST", message: '"wrong  COLOUR" is already a reason here' });
+    await p.manager.reasonCodes.setActive({ id: a.id, active: false });
     const b = await p.manager.reasonCodes.create({ kind: "void", label: "Wrong colour" });
     expect([a.code, b.code]).toEqual(["wrong_colour", "wrong_colour_2"]);
+    // Rename into a live reason's words is refused too; another kind may use the same words.
+    const c = await p.manager.reasonCodes.create({ kind: "void", label: "Bent end" });
+    await expect(p.manager.reasonCodes.rename({ id: c.id, label: "Wrong colour" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await p.manager.reasonCodes.rename({ id: c.id, label: "Bent end" });
+    await p.manager.reasonCodes.create({ kind: "reprint", label: "Wrong colour" });
     await expect(p.manager.reasonCodes.create({ kind: "void", label: "Other" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(p.manager.reasonCodes.create({ kind: "void", label: "   " })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     // A wording with no Latin letters still gets a usable key.
