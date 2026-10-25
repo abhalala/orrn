@@ -8,8 +8,9 @@ import { useQuery } from "@tanstack/react-query";
 import { CloudOff } from "lucide-react";
 import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 
+import { TodayPressTile } from "@/features/press/today-tile";
 import { Can } from "@/shared/components/can";
-import { useMe } from "@/shared/lib/me";
+import { canAny, useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, refreshFailed, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -183,6 +184,7 @@ export function TodayScreen() {
     <>
       {header}
       <TodayKpis data={data} />
+      {data.pressedToday && canAny(me, ["press.run", "press.close"]) ? <TodayPressTile data={data.pressedToday} /> : null}
       <TodayTiles openCount={data.openDispatchCount} startIndex={3} />
       <PrintProblems failed={data.failedPrintJobs} />
       {sections.dispatches || sections.sessions ? (

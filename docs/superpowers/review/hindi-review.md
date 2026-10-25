@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3101 screen strings in 43 groups, 16 guides with 292 strings.
+Counts: 3359 screen strings in 43 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -86,7 +86,7 @@ Counts: 3101 screen strings in 43 groups, 16 guides with 292 strings.
 | `waitingApproval` | Waiting for approval | मंज़ूरी का इंतज़ार |
 | `plant` | Plant | प्लांट |
 
-### units (12)
+### units (13)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -96,6 +96,7 @@ Counts: 3101 screen strings in 43 groups, 16 guides with 292 strings.
 | `mm` | mm | mm |
 | `inch` | in | in |
 | `ft` | ft | ft |
+| `min` | min | मिनट |
 | `bundles` | {count} {count:bundle\|bundles} | {count} bundle |
 | `pieces` | {count} {count:piece\|pieces} | {count} पीस |
 | `bundlesKg` | {bundles} {bundles:bundle\|bundles} · {kg} kg | {bundles} bundle · {kg} kg |
@@ -165,7 +166,7 @@ Counts: 3101 screen strings in 43 groups, 16 guides with 292 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (41)
+### nav (42)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -210,6 +211,7 @@ Counts: 3101 screen strings in 43 groups, 16 guides with 292 strings.
 | `paletteOpen` | Open | खोलें |
 | `purchase` | Purchase | खरीद |
 | `approvals` | Approvals | मंज़ूरी |
+| `press` | Press | प्रेस |
 
 ### auth (88)
 
@@ -2940,7 +2942,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (133)
+### press (389)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3047,6 +3049,226 @@ Please check, Lalubhai:
 | `console.logRun` | Log run | रन दर्ज करें |
 | `console.supervisorOnly` | Only this run's supervisor can log it. | सिर्फ़ इस रन का सुपरवाइज़र इसे दर्ज कर सकता है। |
 | `console.queuePosition` | Number {n} in queue | कतार में नंबर {n} |
+| `console.lockedTitle` | Die not issued. Start is locked. | Die जारी नहीं हुई। Start बंद है। |
+| `console.lockedBody` | The die room issues the die. Start opens when it does. | Die रूम die जारी करता है। तब Start खुलेगा। |
+| `console.readyTitle` | Die issued. Ready to start. | Die जारी हो गई। शुरू करने के लिए तैयार। |
+| `console.readyBody` | Start records the time from the server clock. | Start सर्वर की घड़ी से समय दर्ज करता है। |
+| `console.startedAt` | Started {time} | शुरू {time} |
+| `console.stoppedAt` | Stopped {time} | बंद {time} |
+| `console.runningFor` | Running for {time} | {time} से चल रहा है |
+| `console.serverTimeNote` | Times come from the server clock, not this device. | समय सर्वर की घड़ी से आता है, इस डिवाइस से नहीं। |
+| `console.stoppedTitle` | Stopped | रुका हुआ |
+| `console.stoppedBody` | Count and check the run next. | अब रन की गिनती और जाँच करें। |
+| `console.countAndCheck` | Count & check | गिनती और जाँच |
+| `console.resumeBody` | Not finished? Start the press again. | काम पूरा नहीं हुआ? प्रेस फिर चालू करें। |
+| `console.countingTitle` | Counting | गिनती |
+| `console.countingBody` | Enter what came off the press. Figures below come from the server. | प्रेस से जो निकला वह दर्ज करें। नीचे के आँकड़े सर्वर के हैं। |
+| `console.loggedTitle` | Logged | दर्ज हो गया |
+| `console.loggedBody` | {good} kg good from {input} kg of billets. | {input} kg बिलेट से {good} kg अच्छा माल। |
+| `console.voidedTitle` | Voided | रद्द |
+| `console.voidedBody` | This run was voided and moved no stock. | यह रन रद्द हुआ और कोई स्टॉक नहीं हिला। |
+| `console.trialBanner` | Die trial. Say whether it passed or failed when you log it. | Die ट्रायल। दर्ज करते समय बताएँ कि पास हुआ या फेल। |
+| `console.sampleBanner` | Sample run. It goes against no order. | सैंपल रन। यह किसी ऑर्डर में नहीं जाता। |
+| `console.otherBanner` | Other run. It goes against no order. | अन्य रन। यह किसी ऑर्डर में नहीं जाता। |
+| `console.drawing` | Drawing | ड्रॉइंग |
+| `console.drawingNone` | No drawing on file for this section. | इस सेक्शन की ड्रॉइंग फ़ाइल में नहीं है। |
+| `console.handover` | Handover | हैंडओवर |
+| `console.handoverBody` | The press man changes. The run keeps its start time. | प्रेस वाला बदलता है। रन का शुरू का समय वही रहता है। |
+| `console.handoverRelief` | Takes over as relief | रिलीफ में कौन आया |
+| `console.handoverSupervisor` | Supervisor | सुपरवाइज़र |
+| `console.handoverNobody` | Nobody | कोई नहीं |
+| `console.handoverDone` | Saved. | सेव हो गया। |
+| `console.readingTitle` | Die weight | Die वज़न |
+| `console.readingLabel` | Kg per 12 ft | kg प्रति 12 ft |
+| `console.readingSave` | Save reading | रीडिंग सेव करें |
+| `console.readingSaved` | Reading saved. | रीडिंग सेव हो गई। |
+| `console.readingLast` | Last reading {kg} kg per 12 ft | पिछली रीडिंग {kg} kg प्रति 12 ft |
+| `console.readingNone` | No reading yet for this die. | इस die की अभी कोई रीडिंग नहीं है। |
+| `console.downtimeReason` | Why it stopped | क्यों रुका |
+| `console.downtimeNote` | Note | टिप्पणी |
+| `console.downtimeSince` | Stopped since {time} | {time} से बंद |
+| `console.downtimeMin` | {min} min | {min} मिनट |
+| `console.downtimeNone` | No stoppages yet. | अभी कोई स्टॉपेज नहीं। |
+| `console.downtimeOpenWord` | Open | चालू |
+| `console.steps.billets` | Billets | बिलेट |
+| `console.steps.pieces` | Pieces | पीस |
+| `console.steps.scrap` | Butt and ends | बट और एंड |
+| `console.steps.rejects` | Rejects | रिजेक्ट |
+| `console.steps.remark` | Remark and reading | टिप्पणी और रीडिंग |
+| `console.saveFailed` | Could not save. What you typed is still here. | सेव नहीं हुआ। जो आपने लिखा है वह यहीं है। |
+| `console.saveNext` | Save and next | सेव करें और आगे |
+| `console.castPick` | Cast the billets came from | बिलेट किस cast के हैं |
+| `console.castOnHand` | {kg} kg billet stock | {kg} kg बिलेट स्टॉक |
+| `console.castNone` | No cast has billets in stock. | किसी cast के बिलेट स्टॉक में नहीं हैं। |
+| `console.castClosedChip` | Closed | बंद |
+| `console.weighedKg` | Weighed kg | तौला हुआ kg |
+| `console.billetsOnce` | One cast on a run. A second cast is a new run. | एक रन पर एक cast। दूसरी cast नया रन है। |
+| `console.shortStock` | The billet stock has {kg} kg. The close posts that, not the typed kg. | बिलेट स्टॉक में {kg} kg है। बंद करने पर वही दर्ज होगा, लिखा हुआ kg नहीं। |
+| `console.pressedLength` | Pressed length | प्रेस की लंबाई |
+| `console.pressedLengthHint` | Optional. Pieces times cut length are checked only when this is set. | वैकल्पिक। भरने पर ही पीस गुणा कट लंबाई की जाँच होती है। |
+| `console.pcsOrdered` | Released {pcs} pcs | भेजे गए {pcs} पीस |
+| `console.forOrder` | For {order} | {order} के लिए |
+| `console.noOrderFor` | No order line | ऑर्डर लाइन नहीं |
+| `console.buttHint` | The butt cut off the billet end. | बिलेट के सिरे का बट। |
+| `console.endsHint` | Cut ends of the pieces. | पीस के कटे हुए सिरे। |
+| `console.rejectsHint` | Type 0 when there were none. A blank is not a check. | कोई नहीं था तो 0 लिखें। खाली जाँच नहीं है। |
+| `console.rejectPcs` | Reject pieces | रिजेक्ट पीस |
+| `console.checkedNone` | Checked, none | जाँचा, कोई नहीं |
+| `console.rejectNote` | Note | टिप्पणी |
+| `console.previewTitle` | Close preview | बंद करने का पूर्वावलोकन |
+| `console.pickOne` | Pick one | एक चुनें |
+| `console.bolster` | Bolster {no} | बोल्स्टर {no} |
+| `console.save` | Save | सेव करें |
+| `console.cancel` | Cancel | रद्द करें |
+| `console.remove` | Remove | हटाएँ |
+| `console.urgent` | Urgent | जल्दी |
+| `console.noteRequired` | Write a note when you pick Other. | अन्य चुनें तो टिप्पणी लिखें। |
+| `console.required` | Required | ज़रूरी |
+| `console.loading` | Loading | खुल रहा है |
+| `console.retry` | Try again | फिर कोशिश करें |
+| `console.reason` | Reason | कारण |
+| `console.voidWhy` | Why void this run? Nothing was pressed, so it moves no stock. | यह रन रद्द क्यों करना है? कुछ प्रेस नहीं हुआ, इसलिए कोई स्टॉक नहीं हिलेगा। |
+| `console.balanceLabel` | Balance | बैलेंस |
+| `console.addReject` | Add another reject | एक और रिजेक्ट जोड़ें |
+| `console.previewNote` | Not saved. These figures are the server's; they are saved when the run is logged. | सेव नहीं हुआ। ये आँकड़े सर्वर के हैं और रन दर्ज होने पर सेव होते हैं। |
+| `console.recoveryNow` | Recovery | रिकवरी |
+| `console.balanceOk` | Balance {kg} kg | बैलेंस {kg} kg |
+| `console.gatesTitle` | Before this run can be logged | रन दर्ज होने से पहले |
+| `console.readyToLog` | Ready to log. | दर्ज करने के लिए तैयार। |
+| `console.waitingSupervisor` | A supervisor logs this run. Everything is saved. | रन सुपरवाइज़र दर्ज करता है। सब कुछ सेव है। |
+| `console.logging` | Logging | दर्ज हो रहा है |
+| `console.logFailed` | The run was not logged. | रन दर्ज नहीं हुआ। |
+| `console.loggedDone` | Run logged. Recovery {pct}%. | रन दर्ज हो गया। रिकवरी {pct}%। |
+| `console.reopenAsk` | Request reopen | फिर खोलने का अनुरोध |
+| `console.reopenWhy` | Why does it need to reopen? | फिर क्यों खोलना है? |
+| `console.reopenSent` | Reopen requested. A manager decides. | अनुरोध भेजा गया। मैनेजर तय करेगा। |
+| `console.reopenPending` | Waiting for a manager to decide the reopen. | मैनेजर के फ़ैसले का इंतज़ार है। |
+| `console.timeAsk` | Ask a supervisor to confirm the times | सुपरवाइज़र से समय पक्का करने को कहें |
+| `console.timeAsked` | Asked. A supervisor will confirm the times. | कह दिया गया। सुपरवाइज़र समय पक्का करेगा। |
+| `console.lateWaiting` | This late entry waits for approval. | यह देर से भरी एंट्री मंज़ूरी का इंतज़ार कर रही है। |
+| `console.lateBadge` | Entered late | देर से भरा |
+| `console.people` | People | लोग |
+| `console.since` | Since {time} | {time} से |
+| `console.shiftLine` | {shift} shift, {day} | {shift} शिफ़्ट, {day} |
+| `console.castLabel` | Cast {number} | Cast {number} |
+| `console.dieNone` | Die not issued | Die जारी नहीं हुई |
+| `console.released` | Released | भेजा गया |
+| `console.pressedSoFar` | Pressed so far | अब तक प्रेस हुआ |
+| `console.orders` | Orders | ऑर्डर |
+| `console.totalLine` | Total {pcs} pcs, {kg} kg | कुल {pcs} पीस, {kg} kg |
+| `console.loadFailed` | This run did not load. Check the connection and try again. | यह रन नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
+| `console.notFound` | That run does not exist. | ऐसा कोई रन नहीं है। |
+| `console.busy` | Another run is running on this press. Stop it first. | इस प्रेस पर दूसरा रन चल रहा है। पहले उसे रोकें। |
+| `console.stoppedBannerChip` | Stopped | रुका हुआ |
+| `console.startFailed` | The run did not start. | रन शुरू नहीं हुआ। |
+| `console.stopFailed` | The run did not stop. | रन रुका नहीं। |
+| `console.sections` | Sections | सेक्शन |
+| `console.dieCopy` | Die copy | Die कॉपी |
+| `console.onTrial` | Die trial | Die ट्रायल |
+| `console.trialNeeded` | Say whether the die trial passed or failed. | बताएँ कि die ट्रायल पास हुआ या फेल। |
+| `console.next` | Next | आगे |
+| `console.back` | Back | पीछे |
+| `console.gate.not_counting` | Only a run being counted can be logged. | सिर्फ़ गिनती में चल रहा रन दर्ज हो सकता है। |
+| `console.gate.no_close_permission` | Only a supervisor can log a run. | रन सिर्फ़ सुपरवाइज़र दर्ज कर सकता है। |
+| `console.gate.not_supervisor` | Only the run's supervisor can log it. | रन को सिर्फ़ उसका सुपरवाइज़र दर्ज कर सकता है। |
+| `console.gate.no_cast` | Pick the cast the billets came from. | वह cast चुनें जिससे बिलेट आए। |
+| `console.gate.no_billets` | Enter the billets used. | इस्तेमाल हुए बिलेट दर्ज करें। |
+| `console.gate.too_many_billets` | At most 10 billet rows on a run. | एक रन पर ज़्यादा से ज़्यादा 10 बिलेट लाइन। |
+| `console.gate.billet_row_invalid` | Every billet row needs a count and its kg. | हर बिलेट लाइन में गिनती और kg चाहिए। |
+| `console.gate.billet_cast_mismatch` | Every billet row must be of the run's cast. | हर बिलेट लाइन रन की cast की होनी चाहिए। |
+| `console.gate.no_input` | The billets weigh nothing. Enter their kg. | बिलेट का वज़न शून्य है। उनका kg लिखें। |
+| `console.gate.no_lines` | Enter the pieces by cut length. | कट लंबाई के हिसाब से पीस दर्ज करें। |
+| `console.gate.line_without_kg` | A cut length with pieces needs its kg. | पीस वाली कट लंबाई में kg चाहिए। |
+| `console.gate.line_invalid` | A cut length row is not valid. | कट लंबाई की एक लाइन सही नहीं है। |
+| `console.gate.no_good` | Enter the good pieces and their kg. | अच्छे पीस और उनका kg दर्ज करें। |
+| `console.gate.good_over_input` | Good kg is more than the billets that went in. | अच्छा kg अंदर गए बिलेट से ज़्यादा है। |
+| `console.gate.pieces_over_pressed_length` | The pieces are longer in total than the pressed length. | पीस की कुल लंबाई प्रेस की लंबाई से ज़्यादा है। |
+| `console.gate.no_qc` | Enter the rejects. Type 0 when there were none. | रिजेक्ट दर्ज करें। कोई नहीं था तो 0 लिखें। |
+| `console.gate.qc_row_invalid` | A reject row is not valid. | रिजेक्ट की एक लाइन सही नहीं है। |
+| `console.gate.qc_reason_missing` | Every reject needs a reason. | हर रिजेक्ट का कारण चाहिए। |
+| `console.gate.qc_note_missing` | A reject marked Other needs a note. | अन्य कारण पर टिप्पणी चाहिए। |
+| `console.gate.billet_short_reason_missing` | The billet stock is less than typed. Give the reason. | बिलेट स्टॉक लिखे से कम है। कारण बताएँ। |
+| `console.gate.time_unconfirmed` | The start or stop time waits for a supervisor to confirm it. | शुरू या बंद का समय सुपरवाइज़र की पुष्टि का इंतज़ार कर रहा है। |
+| `console.gate.late_entry_unapproved` | This late entry waits for approval. | यह देर से भरी एंट्री मंज़ूरी का इंतज़ार कर रही है। |
+| `console.gate.downtime_open` | Stop the open downtime first. | पहले चालू स्टॉपेज बंद करें। |
+| `console.gate.trial_result_missing` | Say whether the die trial passed or failed. | बताएँ कि die ट्रायल पास हुआ या फेल। |
+| `board.subtitle` | Every press: what is running and what waits. | हर प्रेस: क्या चल रहा है और क्या इंतज़ार में है। |
+| `board.onLine` | On the line | लाइन पर |
+| `board.nothingRunning` | Nothing running | कुछ नहीं चल रहा |
+| `board.waiting` | Waiting | इंतज़ार में |
+| `board.todayLogged` | Today, logged | आज दर्ज |
+| `board.openQueue` | Open the queue | कतार खोलें |
+| `board.pressStopped` | Press stopped | प्रेस रुका है |
+| `board.noLines` | No press lines yet. | अभी कोई प्रेस लाइन नहीं। |
+| `board.noLinesBody` | Add the presses on the Press lines page. | प्रेस लाइन पेज पर प्रेस जोड़ें। |
+| `board.manageLines` | Press lines | प्रेस लाइन |
+| `board.openStation` | Open the station | स्टेशन खोलें |
+| `board.loadFailed` | The press board did not load. Check the connection and try again. | प्रेस बोर्ड नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
+| `queue.title` | {line} queue | {line} की कतार |
+| `queue.subtitle` | Jobs for this press, in the order they run. | इस प्रेस के काम, चलने के क्रम में। |
+| `queue.onLine` | On the line | लाइन पर |
+| `queue.waiting` | Waiting | इंतज़ार में |
+| `queue.empty` | Nothing released to this press. | इस प्रेस को कुछ नहीं भेजा गया। |
+| `queue.emptyBody` | Plans released from Orders and planning land here. | ऑर्डर और प्लानिंग से भेजे गए प्लान यहाँ आते हैं। |
+| `queue.dieCopy` | Die copy | Die कॉपी |
+| `queue.dieNotIssued` | Die not issued | Die जारी नहीं हुई |
+| `queue.bolster` | Bolster {no} | बोल्स्टर {no} |
+| `queue.orders` | Orders | ऑर्डर |
+| `queue.released` | Released | भेजा गया |
+| `queue.total` | Total | कुल |
+| `queue.pressedSoFar` | Pressed so far {kg} kg | अब तक प्रेस हुआ {kg} kg |
+| `queue.noOrderLines` | No order line | ऑर्डर लाइन नहीं |
+| `queue.purposeNote` | Goes against no order. | किसी ऑर्डर में नहीं जाता। |
+| `queue.filterSection` | Section | सेक्शन |
+| `queue.filterOrder` | Order | ऑर्डर |
+| `queue.filterCopy` | Die copy | Die कॉपी |
+| `queue.filterAll` | All | सब |
+| `queue.urgent` | Urgent | जल्दी |
+| `queue.markUrgent` | Mark urgent | जल्दी का निशान लगाएँ |
+| `queue.clearUrgent` | Remove urgent | जल्दी हटाएँ |
+| `queue.moveFailed` | The queue did not change. Reload and try again. | कतार नहीं बदली। फिर लोड करके कोशिश करें। |
+| `queue.pullBackTitle` | Take this length back to planning? | यह लंबाई प्लानिंग में वापस लें? |
+| `queue.pullBackBody` | {order}, {length}, {pcs} pcs, {kg} kg become planable again. The run keeps its other lengths. | {order}, {length}, {pcs} पीस, {kg} kg फिर से प्लान हो सकेंगे। रन की बाकी लंबाइयाँ रहेंगी। |
+| `queue.pullBackReason` | Why (optional) | क्यों (वैकल्पिक) |
+| `queue.pullBackConfirm` | Take back | वापस लें |
+| `queue.pullBackFailed` | Could not take it back. | वापस नहीं ले सके। |
+| `queue.lateEntry` | Late entry | देर से एंट्री |
+| `queue.loadFailed` | The queue did not load. Check the connection and try again. | कतार नहीं खुली। कनेक्शन जाँचकर फिर कोशिश करें। |
+| `queue.noMatch` | No job matches these filters. | इन फ़िल्टर से कोई काम नहीं मिला। |
+| `late.title` | Run entered late | देर से भरा रन |
+| `late.body` | For a run that already stopped and was never entered on the tablet. A manager approves it before it can be logged. | ऐसे रन के लिए जो रुक चुका है और टैबलेट पर नहीं भरा गया। दर्ज होने से पहले मैनेजर मंज़ूर करता है। |
+| `late.line` | Press | प्रेस |
+| `late.source` | Which run | कौन सा रन |
+| `late.fromQueue` | A run from the queue | कतार का रन |
+| `late.notInQueue` | A run not in the queue | कतार से बाहर का रन |
+| `late.pickRun` | Queued run | कतार का रन |
+| `late.pickCopy` | Die copy | Die कॉपी |
+| `late.startedAt` | Started | शुरू |
+| `late.stoppedAt` | Stopped | बंद |
+| `late.operator` | Operator | ऑपरेटर |
+| `late.relief` | Relief operator | रिलीफ ऑपरेटर |
+| `late.reason` | Why it is entered late | देर से क्यों भरा |
+| `late.submit` | Enter the run | रन भरें |
+| `late.done` | {number} entered. It waits for approval. | {number} भर गया। मंज़ूरी का इंतज़ार है। |
+| `late.order` | Stop must be after start. | बंद का समय शुरू के बाद होना चाहिए। |
+| `late.futureStop` | A late entry is for a run that has already stopped. | देर से एंट्री उस रन की है जो रुक चुका है। |
+| `late.noQueued` | No queued run on this press. | इस प्रेस पर कतार में कोई रन नहीं। |
+| `late.pickOne` | Pick one | एक चुनें |
+| `linesPage.title` | Press lines | प्रेस लाइन |
+| `linesPage.subtitle` | The presses of the plant. | प्लांट के प्रेस। |
+| `linesPage.empty` | No press lines yet. | अभी कोई प्रेस लाइन नहीं। |
+| `linesPage.emptyBody` | Add the first press. | पहला प्रेस जोड़ें। |
+| `linesPage.edit` | Edit | बदलें |
+| `linesPage.restore` | Restore | फिर चालू करें |
+| `linesPage.retired` | Retired | बंद |
+| `linesPage.active` | Active | चालू |
+| `linesPage.showRetired` | Show retired | बंद वाले दिखाएँ |
+| `linesPage.codeHint` | A short code for the press | प्रेस का छोटा कोड |
+| `linesPage.tonnageHint` | Optional | वैकल्पिक |
+| `linesPage.saved` | Saved. | सेव हो गया। |
+| `linesPage.retireConfirmTitle` | Retire {code}? | {code} बंद करें? |
+| `linesPage.retireConfirmBody` | It stays in old reports. A press with an open run cannot be retired. | पुरानी रिपोर्ट में यह रहेगा। खुले रन वाला प्रेस बंद नहीं होता। |
+| `linesPage.back` | Press | प्रेस |
 | `report.title` | Press report | प्रेस रिपोर्ट |
 | `report.runNo` | Run no | रन नंबर |
 | `report.productionDay` | Production day | उत्पादन दिन |
@@ -3069,6 +3291,27 @@ Please check, Lalubhai:
 | `report.empty` | No logged runs in this period. | इस समय में कोई रन दर्ज नहीं। |
 | `report.lateShare` | Entered late: {pct}% | बाद में भरे: {pct}% |
 | `report.trial` | Trial | ट्रायल |
+| `report.subtitle` | Logged runs by production day. | उत्पादन दिन के हिसाब से दर्ज रन। |
+| `report.from` | From | से |
+| `report.to` | To | तक |
+| `report.shiftFilter` | Shift | शिफ़्ट |
+| `report.lineFilter` | Press line | प्रेस लाइन |
+| `report.planFilter` | Plan | प्लान |
+| `report.allShifts` | All shifts | सभी शिफ़्ट |
+| `report.allLines` | All presses | सभी प्रेस |
+| `report.allPlans` | All plans | सभी प्लान |
+| `report.planOption` | {number} | {number} |
+| `report.totals` | Totals | कुल |
+| `report.runsCount` | {count} {count:run\|runs} | {count} रन |
+| `report.more` | More runs than shown. Narrow the period. | दिखाए गए से ज़्यादा रन हैं। अवधि छोटी करें। |
+| `report.lateShareTitle` | Entered late, by shift and operator | देर से भरे, शिफ़्ट और ऑपरेटर के हिसाब से |
+| `report.lateShareRow` | {late} of {runs} runs entered late ({pct}%) | {runs} में से {late} रन देर से भरे ({pct}%) |
+| `report.noOperator` | No operator | ऑपरेटर नहीं |
+| `report.loadFailed` | The report did not load. Check the connection and try again. | रिपोर्ट नहीं खुली। कनेक्शन जाँचकर फिर कोशिश करें। |
+| `report.downloadFailed` | The file could not be made. Try again. | फ़ाइल नहीं बन सकी। फिर कोशिश करें। |
+| `report.late` | Late | देर से |
+| `report.openRun` | Open run {number} | रन {number} खोलें |
+| `report.csvName` | press-report | press-report |
 | `summary.title` | Daily press summary | रोज़ का प्रेस सारांश |
 | `summary.pressedToday` | Pressed today | आज प्रेस हुआ |
 | `summary.recovery` | Recovery | रिकवरी |
@@ -3077,6 +3320,21 @@ Please check, Lalubhai:
 | `summary.noRuns` | No runs logged today. | आज कोई रन दर्ज नहीं। |
 | `summary.kg` | {kg} kg | {kg} kg |
 | `summary.minutes` | {min} min | {min} मिनट |
+| `summary.day` | Production day | उत्पादन दिन |
+| `summary.dayHint` | The production day opens with the first shift, not at midnight. | उत्पादन दिन पहली शिफ़्ट से खुलता है, आधी रात से नहीं। |
+| `summary.runs` | Runs | रन |
+| `summary.pieces` | Pieces | पीस |
+| `summary.scrap` | Butt, ends and rejects | बट, एंड और रिजेक्ट |
+| `summary.stops` | Stops, longest first | स्टॉपेज, सबसे लंबे पहले |
+| `summary.stopsNone` | No stops today. | आज कोई स्टॉपेज नहीं। |
+| `summary.shifts` | By shift | शिफ़्ट के हिसाब से |
+| `summary.late` | Entered late | देर से भरे |
+| `summary.lateShare` | {pct}% of runs | {pct}% रन |
+| `summary.open` | Open the press summary | प्रेस सारांश खोलें |
+| `summary.report` | Open the press report | प्रेस रिपोर्ट खोलें |
+| `summary.previous` | Earlier day | पिछला दिन |
+| `summary.loadFailed` | The summary did not load. Check the connection and try again. | सारांश नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
+| `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 
 ### foundry (64)
 

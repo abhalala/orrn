@@ -412,6 +412,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     operator: await ensureUser(db, "operator", password),
     viewer: await ensureUser(db, "viewer", password),
     office: await ensureUser(db, "office", password),
+    supervisor: await ensureUser(db, "supervisor", password),
+    press: await ensureUser(db, "press", password),
     staff: await ensureUser(db, "staff", password),
   };
   const createdUsers = (Object.keys(users) as DevAccountKey[]).filter((key) => users[key].created);
@@ -425,7 +427,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     .from(membership)
     .where(
       and(
-        inArray(membership.userId, [ownerId, operatorId, users.viewer.id, officeId]),
+        inArray(membership.userId, [ownerId, operatorId, users.viewer.id, officeId, users.supervisor.id, users.press.id]),
         ne(membership.companyId, COMPANY_ID),
       ),
     );
@@ -1393,6 +1395,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       { id: "dev-membership-operator", userId: operatorId, companyId: COMPANY_ID, role: "operator" as const },
       { id: "dev-membership-viewer", userId: users.viewer.id, companyId: COMPANY_ID, role: "viewer" as const },
       { id: "dev-membership-office", userId: officeId, companyId: COMPANY_ID, role: "office" as const },
+      { id: "dev-membership-supervisor", userId: users.supervisor.id, companyId: COMPANY_ID, role: "supervisor" as const },
+      { id: "dev-membership-press", userId: users.press.id, companyId: COMPANY_ID, role: "press" as const },
     ]),
     db
       .insert(platformAdmin)
@@ -1578,6 +1582,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       operator: DEV_ACCOUNTS.operator.email,
       viewer: DEV_ACCOUNTS.viewer.email,
       office: DEV_ACCOUNTS.office.email,
+      supervisor: DEV_ACCOUNTS.supervisor.email,
+      press: DEV_ACCOUNTS.press.email,
       staff: DEV_ACCOUNTS.staff.email,
     },
     createdUsers,
