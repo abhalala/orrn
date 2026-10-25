@@ -38,6 +38,11 @@ export const AGEING_REFUSALS: Record<AgeingRefusalCode, (v: V) => Refusal> = {
   recipe_max_soak_below_soak: () => ({ code: "BAD_REQUEST", message: "The over-age limit must be longer than the soak" }),
   recipe_hardness_max_below_min: () => ({ code: "BAD_REQUEST", message: "The hardness warning must be above the minimum" }),
   code_taken: (v) => ({ code: "CONFLICT", message: `The code ${s(v, "code")} is already used` }),
+  code_invalid: () => ({ code: "BAD_REQUEST", message: "Use letters, digits and dashes for the code, at most 16" }),
+  recipe_active_locked: () => ({ code: "BAD_REQUEST", message: "An active recipe's numbers cannot change; save a new recipe and archive this one" }),
+  oven_in_use: (v) => ({ code: "CONFLICT", message: `Oven ${s(v, "oven")} has a batch in it; take it out before changing its status` }),
+  trolley_in_use: (v) => ({ code: "CONFLICT", message: `Trolley ${s(v, "code")} carries ${s(v, "batch")}; it stays in service until that batch closes` }),
+  reason_wrong_kind: () => ({ code: "BAD_REQUEST", message: "Pick a reason from this list" }),
   // load
   no_rows: () => ({ code: "BAD_REQUEST", message: "Load at least one line on the trolley" }),
   too_many_rows: (v) => ({ code: "BAD_REQUEST", message: `Load at most ${s(v, "n")} lines at a time` }),
@@ -63,12 +68,15 @@ export const AGEING_REFUSALS: Record<AgeingRefusalCode, (v: V) => Refusal> = {
   // release, override
   override_pending: (v) => ({ code: "CONFLICT", message: `${s(v, "batch")} already has an override waiting for approval` }),
   override_not_needed: (v) => ({ code: "BAD_REQUEST", message: `${s(v, "batch")} passed; it needs no override` }),
+  simulator_off: () => ({ code: "FORBIDDEN", message: "The oven simulator is off on this server" }),
   // hold, void, rework, discard, split
   already_held: () => ({ code: "CONFLICT", message: "This trolley line is already held" }),
+  not_held: () => ({ code: "BAD_REQUEST", message: "This trolley line has no hold to clear; a failed test clears with a retest or an approval" }),
   hold_after_pack: () => ({ code: "BAD_REQUEST", message: "Pieces were packed from this trolley; hold the lines that are still full" }),
   void_in_oven: (v) => ({ code: "BAD_REQUEST", message: `${s(v, "batch")} is in the oven; take it out first` }),
   void_after_pack: (v) => ({ code: "BAD_REQUEST", message: `Pieces were packed from ${s(v, "batch")}; it cannot be voided` }),
   void_reason_missing: () => ({ code: "BAD_REQUEST", message: "Say why this batch is voided" }),
+  void_after_rework: (v) => ({ code: "BAD_REQUEST", message: `Pieces of ${s(v, "batch")} were aged again or discarded; it cannot be voided` }),
   nothing_to_rework: () => ({ code: "BAD_REQUEST", message: "No held pieces are left to age again" }),
   discard_over: (v) => ({ code: "BAD_REQUEST", message: `Only ${s(v, "n")} pieces are left on this trolley line` }),
   split_off: () => ({ code: "FORBIDDEN", message: "Splitting lengths is off for this plant" }),
@@ -76,6 +84,10 @@ export const AGEING_REFUSALS: Record<AgeingRefusalCode, (v: V) => Refusal> = {
   split_length: () => ({ code: "BAD_REQUEST", message: "The cuts must add up to the loaded length" }),
   // pack and dispatch
   not_released: () => ({ code: "BAD_REQUEST", message: "This trolley line is not released; it is not on the pack list" }),
+  draw_over: (v) => ({ code: "BAD_REQUEST", message: `Only ${s(v, "n")} pieces are left on this trolley line to pack` }),
+  cast_mismatch: (v) => ({ code: "BAD_REQUEST", message: `This trolley line is from cast ${s(v, "cast")}; pick that cast for the bundle` }),
+  ageing_row_required: () => ({ code: "BAD_REQUEST", message: "This plant packs aged metal from a trolley; pick the trolley line" }),
+  row_void: () => ({ code: "BAD_REQUEST", message: "This trolley line is void" }),
   bundle_in_ageing: (v) => ({ code: "CONFLICT", message: `Bundle ${s(v, "serial")} is in ageing on ${s(v, "batch")}` }),
   bundle_ageing_held: (v) => ({ code: "CONFLICT", message: `Bundle ${s(v, "serial")} is held in ageing on ${s(v, "batch")}` }),
   bundle_not_aged: (v) => ({ code: "BAD_REQUEST", message: `Bundle ${s(v, "serial")} is not aged; this plant dispatches aged metal only` }),

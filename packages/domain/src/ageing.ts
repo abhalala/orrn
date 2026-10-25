@@ -72,6 +72,17 @@ export const AGEING_BACKDATE_MAX_MS = 12 * 3_600_000;
 export const AGEING_TEMP_AFTER_OUT_MS = 30 * 60_000;
 /** Minutes above the band a cycle may carry before it is over-aged (a burner overshoot is not a fail). */
 export const AGEING_OVER_TEMP_GRACE_MIN = 15;
+/**
+ * How long one reading stands for the oven (review I2): a reading holds until the next one or for
+ * this many minutes, whichever is sooner. Time past it is `unknownMin` (neither in nor out of the
+ * band). Equal to the over-temperature grace, so one stray 196 °C typed between hourly readings can
+ * never over-age a batch on its own, and one in-band reading cannot carry a 4 h soak. A log that
+ * should prove the soak needs a reading every 15 minutes: the simulator and a collector post that
+ * often; an operator typing by hand types that often, or the release goes to an override.
+ */
+export const AGEING_READING_HOLD_MAX_MIN = 15;
+/** A telemetry or simulator reading may sit this far ahead of ORRN's clock (a device clock running fast). */
+export const AGEING_FEED_FUTURE_SLACK_MS = 2 * 60_000;
 export const AGEING_SPLIT_TOLERANCE_MM = 25;
 export const AGEING_SPLIT_CUTS_MAX = 10;
 export const AGEING_LOAD_MAX_ROWS = 40;
@@ -97,6 +108,11 @@ export const AGEING_REFUSAL_CODES = [
   "recipe_max_soak_below_soak",
   "recipe_hardness_max_below_min",
   "code_taken",
+  "code_invalid",
+  "recipe_active_locked",
+  "oven_in_use",
+  "trolley_in_use",
+  "reason_wrong_kind",
   // load
   "no_rows",
   "too_many_rows",
@@ -122,12 +138,15 @@ export const AGEING_REFUSAL_CODES = [
   // release, override
   "override_pending",
   "override_not_needed",
+  "simulator_off",
   // hold, void, rework, discard, split
   "already_held",
+  "not_held",
   "hold_after_pack",
   "void_in_oven",
   "void_after_pack",
   "void_reason_missing",
+  "void_after_rework",
   "nothing_to_rework",
   "discard_over",
   "split_off",
@@ -135,6 +154,10 @@ export const AGEING_REFUSAL_CODES = [
   "split_length",
   // pack and dispatch
   "not_released",
+  "draw_over",
+  "cast_mismatch",
+  "ageing_row_required",
+  "row_void",
   "bundle_in_ageing",
   "bundle_ageing_held",
   "bundle_not_aged",
@@ -303,10 +326,12 @@ export type SoakCompliance = {
   verdict: AgeingSoakVerdict;
   /** The first in-band reading at or after in_at (the soak clock start), else null. */
   soakStartedAt: number | null;
-  /** Minutes inside the band (each reading holds until the next one, or the end). */
+  /** Minutes inside the band (each reading holds until the next one, at most AGEING_READING_HOLD_MAX_MIN). */
   inBandMin: number;
   aboveBandMin: number;
   belowBandMin: number;
+  /** Minutes no reading stands for (gaps past the hold cap, and in_at to the first reading after the ramp). */
+  unknownMin: number;
   /** end − soakStartedAt (the spec's wall-clock soak), 0 when the soak never started. */
   soakElapsedMin: number;
   minX10: number | null;
@@ -320,9 +345,11 @@ const MIN_MS = 60_000;
 
 /**
  * Recipe compliance from the log, between `inAt` and `end` (out_at, else now). Each reading holds
- * until the next one; readings outside that window are ignored. Verdict order: no readings → over-aged
- * (above the band past the grace, or longer at temperature than `maxSoakMin`) → under-aged (soak
- * never started, or less time in the band than `soakMin`) → ok. Over wins: a top-up cannot undo it.
+ * until the next one, or for `AGEING_READING_HOLD_MAX_MIN` (review I2), whichever is sooner; the
+ * rest of a longer gap is unknown time and counts for nothing. Readings outside the window are
+ * ignored. Verdict order: no readings → over-aged (above the band past the grace, or longer at
+ * temperature than `maxSoakMin`) → under-aged (soak never started, or less time in the band than
+ * `soakMin`) → ok. Over wins: a top-up cannot undo it.
  */
 export function soakCompliance(input: {
   readings: readonly AgeingReading[];
@@ -331,12 +358,15 @@ export function soakCompliance(input: {
   outAt: number | null;
   now: number;
   overTempGraceMin?: number;
+  holdMaxMin?: number;
 }): SoakCompliance {
   const end = input.outAt ?? input.now;
   const rs = input.readings.filter((r) => r.at >= input.inAt && r.at <= end).sort((a, b) => a.at - b.at);
+  const holdMs = (input.holdMaxMin ?? AGEING_READING_HOLD_MAX_MIN) * MIN_MS;
   let inMs = 0;
   let aboveMs = 0;
   let belowMs = 0;
+  let unknownMs = rs.length > 0 ? Math.max(0, rs[0]!.at - input.inAt) : Math.max(0, end - input.inAt);
   let soakStartedAt: number | null = null;
   let minX10: number | null = null;
   let maxX10: number | null = null;
@@ -344,7 +374,9 @@ export function soakCompliance(input: {
   for (let i = 0; i < rs.length; i++) {
     const r = rs[i]!;
     const until = i + 1 < rs.length ? rs[i + 1]!.at : end;
-    const span = Math.max(0, until - r.at);
+    const gap = Math.max(0, until - r.at);
+    const span = Math.min(gap, holdMs);
+    unknownMs += gap - span;
     minX10 = minX10 == null ? r.tempCX10 : Math.min(minX10, r.tempCX10);
     maxX10 = maxX10 == null ? r.tempCX10 : Math.max(maxX10, r.tempCX10);
     if (ageingInBand(r.tempCX10, input.snapshot)) {
@@ -356,6 +388,7 @@ export function soakCompliance(input: {
   const inBandMin = Math.floor(inMs / MIN_MS);
   const aboveBandMin = Math.floor(aboveMs / MIN_MS);
   const belowBandMin = Math.floor(belowMs / MIN_MS);
+  const unknownMin = Math.floor(unknownMs / MIN_MS);
   const soakElapsedMin = soakStartedAt == null ? 0 : Math.floor(Math.max(0, end - soakStartedAt) / MIN_MS);
   const grace = input.overTempGraceMin ?? AGEING_OVER_TEMP_GRACE_MIN;
   let verdict: AgeingSoakVerdict;
@@ -363,7 +396,7 @@ export function soakCompliance(input: {
   else if (aboveBandMin > grace || (input.snapshot.maxSoakMin != null && inBandMin > input.snapshot.maxSoakMin)) verdict = "over_aged";
   else if (soakStartedAt == null || inBandMin < input.snapshot.soakMin) verdict = "under_aged";
   else verdict = "ok";
-  return { verdict, soakStartedAt, inBandMin, aboveBandMin, belowBandMin, soakElapsedMin, minX10, maxX10, readingCount: rs.length, met: verdict === "ok" };
+  return { verdict, soakStartedAt, inBandMin, aboveBandMin, belowBandMin, unknownMin, soakElapsedMin, minX10, maxX10, readingCount: rs.length, met: verdict === "ok" };
 }
 
 // ---------------------------------------------------------------------------
@@ -480,6 +513,29 @@ export function ageingReleasePlan(input: {
   return { ok: true, batchStatus: anyReleased ? "released" : "held", qcVerdict, moves, overrideWouldHelp: anyFailed };
 }
 
+/**
+ * Clear a hand hold (review I5, AG-11: customer, surface, bend…). A QC reject (`ageing_reject`) is not
+ * cleared here: a passing retest or an approved override does that. While the batch is `out` the line
+ * goes back to `pending` for the release; after a release it is judged on the spot like `ageingReleasePlan`
+ * (override → released; soak not ok → held for the soak; hardness → released or held).
+ */
+export function ageingUnholdPlan(input: {
+  batchStatus: AgeingBatchStatus;
+  rowStatus: AgeingRowStatus;
+  holdKind: "ageing_hold" | "ageing_reject" | null;
+  soak: AgeingSoakVerdict;
+  overrideApproved: boolean;
+  hardness: AgeingReleaseRow["hardness"];
+}): { ok: false; code: AgeingRefusalCode } | { ok: true; to: "pending" | "released" | "held"; rejectCode: AgeingRejectCode | null } {
+  if (input.rowStatus !== "held" || input.holdKind === "ageing_reject") return { ok: false, code: "not_held" };
+  if (input.batchStatus === "out") return { ok: true, to: "pending", rejectCode: null };
+  if (input.batchStatus !== "released" && input.batchStatus !== "held") return { ok: false, code: "wrong_status" };
+  if (input.overrideApproved) return { ok: true, to: "released", rejectCode: null };
+  if (input.soak !== "ok") return { ok: true, to: "held", rejectCode: input.soak };
+  const reject = rejectOf(input.hardness);
+  return reject ? { ok: true, to: "held", rejectCode: reject } : { ok: true, to: "released", rejectCode: null };
+}
+
 /** A released batch closes when no non-void row has pieces left (or rework moved them all). */
 export function ageingBatchShouldClose(rows: readonly (AgeingRowCounts & { status: AgeingRowStatus })[]): boolean {
   const live = rows.filter((r) => r.status !== "void");
@@ -532,6 +588,26 @@ export function ageingRecipeMismatch(
   if (line.alloy && !sameToken(line.alloy, recipe.alloy)) return "alloy_mismatch";
   if (line.temper && !sameToken(line.temper, recipe.temper)) return "temper_mismatch";
   return null;
+}
+
+/**
+ * What a press line already gave to trolleys (review I4): over non-void rows on non-void batches,
+ * pieces are Σ(pcs − rework_pcs) (a reworked piece is counted once, on its successor row) and grams
+ * are Σ kg_g of the rows that are not a rework successor (a successor's grams were carved out of its
+ * original's). Feed these as `loadedPcs` / `loadedKgG` to `pressLineEligibility` and `ageingLoadKgG`.
+ */
+export function pressLineLoaded(rows: readonly { pcs: number; reworkPcs: number; kgG: number; status: AgeingRowStatus; isReworkSuccessor: boolean }[]): {
+  loadedPcs: number;
+  loadedKgG: number;
+} {
+  let loadedPcs = 0;
+  let loadedKgG = 0;
+  for (const r of rows) {
+    if (r.status === "void") continue;
+    loadedPcs += r.pcs - r.reworkPcs;
+    if (!r.isReworkSuccessor) loadedKgG += r.kgG;
+  }
+  return { loadedPcs, loadedKgG };
 }
 
 /**
@@ -641,13 +717,17 @@ export function ageingTakeOutGates(input: {
   return out;
 }
 
-/** A temperature reading: in the oven, or within 30 minutes after take-out; not before in_at; not in the future. */
+/**
+ * A temperature reading: in the oven, or within 30 minutes after take-out; not before in_at; not in
+ * the future (a telemetry or simulator reading may run AGEING_FEED_FUTURE_SLACK_MS ahead, review m3).
+ */
 export function ageingReadingGates(input: {
   batchStatus: AgeingBatchStatus;
   inAt: number | null;
   outAt: number | null;
   at: number;
   now: number;
+  source?: AgeingTempSource;
 }): AgeingRefusalCode[] {
   const out: AgeingRefusalCode[] = [];
   if (input.batchStatus === "in_oven") {
@@ -655,7 +735,8 @@ export function ageingReadingGates(input: {
   } else if (input.batchStatus === "out" && input.outAt != null) {
     if (input.now - input.outAt > AGEING_TEMP_AFTER_OUT_MS) out.push("reading_closed");
   } else out.push("wrong_status");
-  if (input.at > input.now) out.push("time_future");
+  const slack = input.source === "telemetry" || input.source === "simulator" ? AGEING_FEED_FUTURE_SLACK_MS : 0;
+  if (input.at > input.now + slack) out.push("time_future");
   if (input.inAt != null && input.at < input.inAt) out.push("reading_before_in");
   return out;
 }
@@ -687,15 +768,32 @@ export function ageingHoldGates(input: {
 }
 
 /**
- * Void (abort): from loading freely; from out or held only when nothing was packed, with an
- * `ageing_abort` reason; never in the oven (take it out first); never once released (hold it first).
+ * Pieces of trolley rows taken by pack (review I3: a whole-bundle row is not "packed" from the trolley;
+ * its `packed_pcs` is written only when release passes it).
+ */
+export function ageingAnyPacked(rows: readonly { status: AgeingRowStatus; packedPcs: number; source?: AgeingRowSource }[]): boolean {
+  return rows.some((r) => r.status !== "void" && r.source !== "bundle" && r.packedPcs > 0);
+}
+
+/** Pieces moved off a row by rework or discard (review I4: a void must not free them twice). */
+export function ageingAnyMoved(rows: readonly { status: AgeingRowStatus; scrapPcs: number; reworkPcs: number }[]): boolean {
+  return rows.some((r) => r.status !== "void" && r.scrapPcs + r.reworkPcs > 0);
+}
+
+/**
+ * Void (abort): from loading freely; from out or held only when nothing was packed, reworked or
+ * discarded, with an `ageing_abort` reason; never in the oven (take it out first); never once
+ * released (hold it first); never a rework successor (its pieces belong to the held batch it came from).
  */
 export function ageingVoidGates(input: {
   batchStatus: AgeingBatchStatus;
   anyPacked: boolean;
   reasonGiven: boolean;
+  /** Any row has scrap_pcs or rework_pcs (`ageingAnyMoved`), or the batch is a rework successor. */
+  anyMoved?: boolean;
 }): AgeingRefusalCode[] {
   if (input.batchStatus === "in_oven") return ["void_in_oven"];
+  if (input.anyMoved) return ["void_after_rework"];
   if (input.batchStatus === "loading") return [];
   if (input.batchStatus !== "out" && input.batchStatus !== "held") return ["wrong_status"];
   const out: AgeingRefusalCode[] = [];
@@ -704,10 +802,13 @@ export function ageingVoidGates(input: {
   return out;
 }
 
-/** Pieces pack may draw from a row (`drawAgeingRow`): released, and not more than remaining. */
-export function ageingDrawGate(input: { rowStatus: AgeingRowStatus; remainingPcs: number; pcs: number }): AgeingRefusalCode | null {
-  if (input.rowStatus !== "released") return "not_released";
-  if (!Number.isInteger(input.pcs) || input.pcs < 1 || input.pcs > input.remainingPcs) return "discard_over";
+/**
+ * Pieces pack may draw from a row (`drawAgeingRow`): a released trolley row (a whole-bundle row is
+ * already a bundle and is never on the pack list), and not more than remaining (`draw_over`).
+ */
+export function ageingDrawGate(input: { rowStatus: AgeingRowStatus; remainingPcs: number; pcs: number; source?: AgeingRowSource }): AgeingRefusalCode | null {
+  if (input.rowStatus !== "released" || input.source === "bundle") return "not_released";
+  if (!Number.isInteger(input.pcs) || input.pcs < 1 || input.pcs > input.remainingPcs) return "draw_over";
   return null;
 }
 
@@ -731,7 +832,9 @@ export function ageingReworkPlan(input: {
     .filter((r) => r.status === "held" && ageingRowRemaining(r) > 0)
     .map((r) => {
       const pcs = ageingRowRemaining(r);
-      return { rowId: r.id, pcs, kgG: r.pcs > 0 ? Math.floor((r.kgG * pcs) / r.pcs) : 0 };
+      // Review m7: the whole row's grams when every piece moves; else rounded, never above the row.
+      const kgG = r.pcs <= 0 ? 0 : pcs >= r.pcs ? r.kgG : Math.min(r.kgG, Math.round((r.kgG * pcs) / r.pcs));
+      return { rowId: r.id, pcs, kgG };
     });
   if (moves.length === 0) return { ok: false, code: "nothing_to_rework" };
   const after = input.rows.map((r) => {
@@ -748,12 +851,16 @@ export function ageingReworkPlan(input: {
  */
 export function ageingSplitPlan(input: {
   splitOn: boolean;
-  row: { pcs: number; lengthMm: number; kgG: number; packedPcs: number; status: AgeingRowStatus };
+  row: { pcs: number; lengthMm: number; kgG: number; packedPcs: number; scrapPcs?: number; reworkPcs?: number; status: AgeingRowStatus; source?: AgeingRowSource };
   cuts: readonly { lengthMm: number; pcs: number }[];
+  /** The row's batch (review m2: a closed or void batch is never split). */
+  batchStatus?: AgeingBatchStatus;
 }): { ok: false; code: AgeingRefusalCode } | { ok: true; parts: { lengthMm: number; pcs: number; kgG: number }[] } {
   if (!input.splitOn) return { ok: false, code: "split_off" };
-  if (input.row.packedPcs > 0) return { ok: false, code: "split_after_pack" };
+  if (input.row.packedPcs > 0 || (input.row.scrapPcs ?? 0) > 0 || (input.row.reworkPcs ?? 0) > 0) return { ok: false, code: "split_after_pack" };
   if (input.row.status !== "pending" && input.row.status !== "released") return { ok: false, code: "wrong_status" };
+  if (input.row.source === "bundle") return { ok: false, code: "wrong_status" };
+  if (input.batchStatus != null && !isOpenAgeingBatch(input.batchStatus)) return { ok: false, code: "wrong_status" };
   const bad = input.cuts.length < 2 || input.cuts.length > AGEING_SPLIT_CUTS_MAX || input.cuts.some((c) => !Number.isInteger(c.pcs) || c.pcs < 1 || c.lengthMm < 1);
   const total = input.cuts.reduce((a, c) => a + c.pcs * c.lengthMm, 0);
   if (bad || Math.abs(total - input.row.pcs * input.row.lengthMm) > AGEING_SPLIT_TOLERANCE_MM) return { ok: false, code: "split_length" };

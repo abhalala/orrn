@@ -13,6 +13,8 @@ import {
   AGEING_TEMP_AFTER_OUT_MS,
   BUNDLE_AGEING_STATES,
   BUNDLE_AGEING_TRANSITIONS,
+  ageingAnyMoved,
+  ageingAnyPacked,
   ageingBatchPhase,
   ageingBatchShouldClose,
   ageingBatchTotals,
@@ -36,6 +38,7 @@ import {
   ageingStartGates,
   ageingTakeOutGates,
   ageingTimeGate,
+  ageingUnholdPlan,
   ageingVoidGates,
   bundleAgeingState,
   bundleEligibility,
@@ -52,6 +55,7 @@ import {
   ovenSimulatedCurve,
   ovenSimulatedTempAt,
   pressLineEligibility,
+  pressLineLoaded,
   soakCompliance,
   type AgeingReleaseRow,
   type AgeingStartGateInput,
@@ -170,18 +174,22 @@ describe("pieces and kilograms (spec §8.2 fixture)", () => {
 });
 
 describe("soak compliance from the temperature log", () => {
-  // AG-38 shape (spec §8.2): 02:05 below the band, 02:20 185 (soak starts), 04:00 186, 06:00 184; out 06:10
-  // → 4 h 05 m. The spec's 176 °C first reading is inside 185 ± 10, so the fixture uses 170 °C.
+  /** A reading every `step` minutes from `from` to `to` (inclusive) at `temp`. */
+  const every = (from: number, to: number, step: number, temp: number) => {
+    const out: { at: number; tempCX10: number }[] = [];
+    for (let m = from; m <= to; m += step) out.push({ at: at(m), tempCX10: temp });
+    return out;
+  };
+  // AG-38 shape (spec §8.2) logged every 15 min: 02:05 below the band (170 °C), 02:20 185 (soak
+  // starts), held at 184–186 to 06:20; out 06:25 → 4 h 05 m at temperature.
   const log = [
     { at: at(15), tempCX10: 1700 },
-    { at: at(30), tempCX10: 1850 },
-    { at: at(130), tempCX10: 1860 },
-    { at: at(250), tempCX10: 1840 },
+    ...every(30, 270, 15, 1850).map((r, i) => ({ ...r, tempCX10: i === 5 ? 1860 : i === 12 ? 1840 : r.tempCX10 })),
   ];
 
   test("AG-38 meets 240 min: soak from the first in-band reading, min and max shown", () => {
     const c = soakCompliance({ readings: log, snapshot: T5, inAt: T0, outAt: at(275), now: at(300) });
-    expect(c).toMatchObject({ verdict: "ok", met: true, soakStartedAt: at(30), inBandMin: 245, soakElapsedMin: 245, minX10: 1700, maxX10: 1860, readingCount: 4 });
+    expect(c).toMatchObject({ verdict: "ok", met: true, soakStartedAt: at(30), inBandMin: 245, unknownMin: 15, soakElapsedMin: 245, minX10: 1700, maxX10: 1860, readingCount: 18 });
   });
 
   test("band edges are inside (175.0 and 195.0 for 185 ± 10)", () => {
@@ -201,8 +209,23 @@ describe("soak compliance from the temperature log", () => {
     expect(soakCompliance({ readings: log, snapshot: T5, inAt: T0, outAt: at(200), now: at(200) }).verdict).toBe("under_aged");
   });
 
+  test("review I2: one in-band reading cannot carry a 4 h soak; the gap is unknown time", () => {
+    const c = soakCompliance({ readings: [{ at: at(30), tempCX10: 1850 }], snapshot: T5, inAt: T0, outAt: at(275), now: at(300) });
+    expect(c).toMatchObject({ verdict: "under_aged", inBandMin: 15, unknownMin: 30 + 245 - 15 });
+    // Hourly typed readings hold 15 min each: 5 readings → 75 min proven, the rest unknown.
+    const hourly = soakCompliance({ readings: every(30, 270, 60, 1850), snapshot: T5, inAt: T0, outAt: at(275), now: at(300) });
+    expect(hourly).toMatchObject({ verdict: "under_aged", inBandMin: 5 + 4 * 15 });
+  });
+
+  test("review I2: one stray 196 °C typed between hourly readings never over-ages the batch", () => {
+    const typo = [...every(30, 270, 60, 1850), { at: at(120), tempCX10: 1960 }].sort((a, b) => a.at - b.at);
+    const c = soakCompliance({ readings: typo, snapshot: T5, inAt: T0, outAt: at(275), now: at(300) });
+    expect(c.aboveBandMin).toBe(15);
+    expect(c.verdict).not.toBe("over_aged");
+  });
+
   test("time out of band after the soak started does not count as soak", () => {
-    const dip = [...log.slice(0, 2), { at: at(100), tempCX10: 1600 }, { at: at(160), tempCX10: 1850 }];
+    const dip = [...every(30, 90, 15, 1850), ...every(100, 145, 15, 1600), ...every(160, 265, 15, 1850)];
     const c = soakCompliance({ readings: dip, snapshot: T5, inAt: T0, outAt: at(275), now: at(300) });
     expect(c.belowBandMin).toBe(60);
     expect(c.inBandMin).toBe(70 + 115);
@@ -211,9 +234,10 @@ describe("soak compliance from the temperature log", () => {
   });
 
   test("above the band past the 15 min grace → over-aged; a short overshoot is fine", () => {
-    const hot = [...log, { at: at(200), tempCX10: 2000 }, { at: at(220), tempCX10: 1850 }].sort((a, b) => a.at - b.at);
+    const base = log.filter((r) => r.at < at(196) || r.at > at(215));
+    const hot = [...base, { at: at(196), tempCX10: 2000 }, { at: at(206), tempCX10: 2000 }, { at: at(216), tempCX10: 1850 }].sort((a, b) => a.at - b.at);
     expect(soakCompliance({ readings: hot, snapshot: T5, inAt: T0, outAt: at(300), now: at(300) }).verdict).toBe("over_aged");
-    const blip = [...log, { at: at(200), tempCX10: 2000 }, { at: at(210), tempCX10: 1850 }].sort((a, b) => a.at - b.at);
+    const blip = [...base, { at: at(196), tempCX10: 2000 }, { at: at(206), tempCX10: 1850 }].sort((a, b) => a.at - b.at);
     expect(soakCompliance({ readings: blip, snapshot: T5, inAt: T0, outAt: at(300), now: at(300) }).verdict).toBe("ok");
   });
 
@@ -224,7 +248,7 @@ describe("soak compliance from the temperature log", () => {
 
   test("still in the oven: the window ends now; readings outside [in, end] are ignored", () => {
     const c = soakCompliance({ readings: [{ at: T0 - 10 * MIN, tempCX10: 1850 }, ...log], snapshot: T5, inAt: T0, outAt: null, now: at(100) });
-    expect(c.readingCount).toBe(2);
+    expect(c.readingCount).toBe(6);
     expect(c.inBandMin).toBe(70);
     expect(c.verdict).toBe("under_aged");
   });
@@ -445,11 +469,54 @@ describe("gates", () => {
     expect(ageingVoidGates({ batchStatus: "out", anyPacked: true, reasonGiven: false })).toEqual(["void_after_pack", "void_reason_missing"]);
     expect(ageingVoidGates({ batchStatus: "held", anyPacked: false, reasonGiven: true })).toEqual([]);
     expect(ageingVoidGates({ batchStatus: "released", anyPacked: false, reasonGiven: true })).toEqual(["wrong_status"]);
+    // Review I4: reworked or discarded pieces are never freed twice.
+    expect(ageingVoidGates({ batchStatus: "held", anyPacked: false, reasonGiven: true, anyMoved: true })).toEqual(["void_after_rework"]);
+    expect(ageingVoidGates({ batchStatus: "loading", anyPacked: false, reasonGiven: false, anyMoved: true })).toEqual(["void_after_rework"]);
+  });
+
+  test("review I3/I4: packed ignores whole-bundle rows; moved counts rework and discard", () => {
+    expect(ageingAnyPacked([{ status: "released", packedPcs: 10, source: "bundle" }])).toBe(false);
+    expect(ageingAnyPacked([{ status: "released", packedPcs: 1, source: "press" }])).toBe(true);
+    expect(ageingAnyPacked([{ status: "void", packedPcs: 1, source: "press" }])).toBe(false);
+    expect(ageingAnyMoved([{ status: "held", scrapPcs: 0, reworkPcs: 3 }])).toBe(true);
+    expect(ageingAnyMoved([{ status: "held", scrapPcs: 0, reworkPcs: 0 }])).toBe(false);
+  });
+
+  test("review I4: a press line's loaded pieces count a reworked piece once; grams skip the successor", () => {
+    const rows = [
+      { pcs: 20, reworkPcs: 8, kgG: 234_200, status: "held" as const, isReworkSuccessor: false },
+      { pcs: 8, reworkPcs: 0, kgG: 93_680, status: "pending" as const, isReworkSuccessor: true },
+      { pcs: 5, reworkPcs: 0, kgG: 50_000, status: "void" as const, isReworkSuccessor: false },
+    ];
+    expect(pressLineLoaded(rows)).toEqual({ loadedPcs: 20, loadedKgG: 234_200 });
+    expect(pressLineEligibility({ runStatus: "logged", linePcs: 20, loadedPcs: 20, takePcs: 1, alloy: null, temper: null })).toBe("over_line");
+  });
+
+  test("review I5: a hand hold clears to pending while out, else is judged; a QC reject is not a hand hold", () => {
+    const pass = { pass: true, reason: "ok" } as const;
+    const fail = { pass: false, reason: "below_min" } as const;
+    const base = { rowStatus: "held" as const, holdKind: "ageing_hold" as const, soak: "ok" as const, overrideApproved: false, hardness: pass };
+    expect(ageingUnholdPlan({ ...base, batchStatus: "out" })).toEqual({ ok: true, to: "pending", rejectCode: null });
+    expect(ageingUnholdPlan({ ...base, batchStatus: "released" })).toEqual({ ok: true, to: "released", rejectCode: null });
+    expect(ageingUnholdPlan({ ...base, batchStatus: "held", hardness: fail })).toEqual({ ok: true, to: "held", rejectCode: "hardness_low" });
+    expect(ageingUnholdPlan({ ...base, batchStatus: "released", soak: "under_aged" })).toEqual({ ok: true, to: "held", rejectCode: "under_aged" });
+    expect(ageingUnholdPlan({ ...base, batchStatus: "released", soak: "under_aged", overrideApproved: true })).toEqual({ ok: true, to: "released", rejectCode: null });
+    expect(ageingUnholdPlan({ ...base, batchStatus: "released", holdKind: "ageing_reject" })).toEqual({ ok: false, code: "not_held" });
+    expect(ageingUnholdPlan({ ...base, batchStatus: "released", rowStatus: "released" })).toEqual({ ok: false, code: "not_held" });
+    expect(ageingUnholdPlan({ ...base, batchStatus: "closed" })).toEqual({ ok: false, code: "wrong_status" });
+  });
+
+  test("review m3: a feed reading may run 2 min ahead; a typed one may not", () => {
+    expect(ageingReadingGates({ batchStatus: "in_oven", inAt: at(0), outAt: null, at: at(21), now: at(20), source: "telemetry" })).toEqual([]);
+    expect(ageingReadingGates({ batchStatus: "in_oven", inAt: at(0), outAt: null, at: at(23), now: at(20), source: "telemetry" })).toEqual(["time_future"]);
+    expect(ageingReadingGates({ batchStatus: "in_oven", inAt: at(0), outAt: null, at: at(21), now: at(20), source: "typed" })).toEqual(["time_future"]);
   });
 
   test("draw and discard: released rows only for pack; never above remaining", () => {
     expect(ageingDrawGate({ rowStatus: "released", remainingPcs: 43, pcs: 43 })).toBeNull();
-    expect(ageingDrawGate({ rowStatus: "released", remainingPcs: 43, pcs: 44 })).toBe("discard_over");
+    expect(ageingDrawGate({ rowStatus: "released", remainingPcs: 43, pcs: 44 })).toBe("draw_over");
+    // Review I3: a whole-bundle row is already a bundle; pack never draws from it.
+    expect(ageingDrawGate({ rowStatus: "released", remainingPcs: 10, pcs: 1, source: "bundle" })).toBe("not_released");
     expect(ageingDrawGate({ rowStatus: "held", remainingPcs: 36, pcs: 1 })).toBe("not_released");
     expect(ageingDiscardGate({ rowStatus: "held", remainingPcs: 36, pcs: 36 })).toBeNull();
     expect(ageingDiscardGate({ rowStatus: "closed", remainingPcs: 0, pcs: 1 })).toBe("wrong_status");
@@ -463,6 +530,9 @@ describe("rework and split", () => {
       { id: "c", status: "held" as const, pcs: 36, packedPcs: 0, scrapPcs: 0, reworkPcs: 0, kgG: 99_200 },
     ];
     expect(ageingReworkPlan({ batchStatus: "released", rows })).toEqual({ ok: true, moves: [{ rowId: "c", pcs: 36, kgG: 99_200 }], closesBatch: true });
+    // Review m7: part of a row moves at rounded grams (never floored away); a held bundle row (packed 0) moves whole (I3).
+    const part = [{ id: "d", status: "held" as const, pcs: 3, packedPcs: 1, scrapPcs: 0, reworkPcs: 0, kgG: 1_000 }];
+    expect(ageingReworkPlan({ batchStatus: "held", rows: part })).toMatchObject({ ok: true, moves: [{ rowId: "d", pcs: 2, kgG: 667 }] });
     expect(ageingReworkPlan({ batchStatus: "released", rows: rows.slice(0, 1) })).toEqual({ ok: false, code: "nothing_to_rework" });
     expect(ageingReworkPlan({ batchStatus: "out", rows })).toEqual({ ok: false, code: "wrong_status" });
   });
@@ -477,6 +547,11 @@ describe("rework and split", () => {
     expect(ageingSplitPlan({ splitOn: true, row: { ...row, packedPcs: 1 }, cuts })).toEqual({ ok: false, code: "split_after_pack" });
     expect(ageingSplitPlan({ splitOn: true, row, cuts: [{ lengthMm: 3_600, pcs: 20 }, { lengthMm: 3_600, pcs: 20 }] })).toEqual({ ok: false, code: "split_length" });
     expect(ageingSplitPlan({ splitOn: true, row, cuts: [{ lengthMm: 7_315, pcs: 20 }] })).toEqual({ ok: false, code: "split_length" });
+    // Review m2: nothing discarded or reworked, never a bundle row, never on a closed batch.
+    expect(ageingSplitPlan({ splitOn: true, row: { ...row, scrapPcs: 1 }, cuts })).toEqual({ ok: false, code: "split_after_pack" });
+    expect(ageingSplitPlan({ splitOn: true, row: { ...row, reworkPcs: 1 }, cuts })).toEqual({ ok: false, code: "split_after_pack" });
+    expect(ageingSplitPlan({ splitOn: true, row: { ...row, source: "bundle" }, cuts })).toEqual({ ok: false, code: "wrong_status" });
+    expect(ageingSplitPlan({ splitOn: true, row, cuts, batchStatus: "closed" })).toEqual({ ok: false, code: "wrong_status" });
   });
 });
 

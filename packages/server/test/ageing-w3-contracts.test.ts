@@ -66,19 +66,33 @@ const batch = (p: { companyId: string; trolleyId: string }, over: Partial<typeof
 });
 
 describe("migration 0038_ageing", () => {
-  test("is idx 38 after 0035 (0036/0037 belong to the foundry lane) and creates every ageing table", async () => {
+  test("0038 then 0039 (idx 38, 39), chained, after whatever lands before them; every ageing table exists", async () => {
     const journal = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/_journal.json"), "utf8")) as { entries: { idx: number; tag: string; when: number }[] };
-    const entry = journal.entries.find((e) => e.tag === "0038_ageing");
-    expect(entry).toMatchObject({ idx: 38, when: 1792914621777 });
-    const whens = journal.entries.map((e) => e.when);
-    expect([...whens].sort((a, b) => a - b)).toEqual(whens);
-    expect(readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql"))).toContain("0038_ageing.sql");
-    const snap = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/0038_snapshot.json"), "utf8")) as { prevId: string };
-    const prev = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/0035_snapshot.json"), "utf8")) as { id: string };
-    // Re-pointed by the merger when 0036/0037 land before it.
-    expect(snap.prevId).toBe(prev.id);
+    const e38 = journal.entries.find((e) => e.tag === "0038_ageing");
+    const e39 = journal.entries.find((e) => e.tag === "0039_ageing_2");
+    expect(e38?.idx).toBe(38);
+    expect(e39?.idx).toBe(39);
+    // Review I1: the foundry lane's 0036/0037 carry larger `when`s than this branch's 0038/0039. The merger
+    // re-points 0038's prevId to the last foundry snapshot and moves both `when`s past it; the pins here are
+    // the invariants that survive that: entries sorted by idx have strictly rising `when`s, and 0039 follows 0038.
+    const byIdx = [...journal.entries].sort((a, b) => a.idx - b.idx);
+    for (let i = 1; i < byIdx.length; i++) expect({ tag: byIdx[i]!.tag, rising: byIdx[i]!.when > byIdx[i - 1]!.when }).toEqual({ tag: byIdx[i]!.tag, rising: true });
+    expect(readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql"))).toEqual(expect.arrayContaining(["0038_ageing.sql", "0039_ageing_2.sql"]));
+    const snap38 = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/0038_snapshot.json"), "utf8")) as { id: string; prevId: string };
+    const snap39 = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/0039_snapshot.json"), "utf8")) as { id: string; prevId: string };
+    expect(snap39.prevId).toBe(snap38.id);
+    // 0038 chains off the migration right before it in idx order (0035 here; the last foundry one after the merge).
+    const before = byIdx[byIdx.findIndex((e) => e.tag === "0038_ageing") - 1]!;
+    const prev = JSON.parse(readFileSync(join(MIGRATIONS_DIR, `meta/${before.tag.slice(0, 4)}_snapshot.json`), "utf8")) as { id: string };
+    expect(snap38.prevId).toBe(prev.id);
     const names = new Set(((await env.db.all(sql`select name from sqlite_master where type = 'table'`)) as { name: string }[]).map((r) => r.name));
     for (const t of AGEING_TABLES) expect({ t, exists: names.has(t) }).toEqual({ t, exists: true });
+    // 0039: the telemetry device id and the review m5 indexes.
+    expect(await columnsOf("ageing_temp_log")).toContain("device_id");
+    const idx = new Set(((await env.db.all(sql`select name from sqlite_master where type = 'index'`)) as { name: string }[]).map((r) => r.name));
+    for (const i of ["ageing_batch_company_oven_in_idx", "ageing_batch_company_trolley_idx", "ageing_batch_company_rework_of_idx", "ageing_row_company_rework_row_idx", "ageing_temp_log_feed_device_unique"]) {
+      expect({ i, exists: idx.has(i) }).toEqual({ i, exists: true });
+    }
   });
 
   test("ageing_row carries the exact columns pack reads (lib/pack.ts)", async () => {
@@ -146,8 +160,12 @@ describe("migration 0038_ageing", () => {
     const reading = (source: "typed" | "simulator") => ({ id: crypto.randomUUID(), companyId: p.companyId, batchId: b.id, at, tempCX10: 1850, source });
     await env.db.insert(ag.ageingTempLog).values([reading("typed"), reading("typed"), reading("simulator")]);
     await expect(q(env.db.insert(ag.ageingTempLog).values(reading("simulator")))).rejects.toThrow();
+    // A second probe (device id) at the same millisecond is another reading; its replay is refused too.
+    const probe = { ...reading("simulator"), source: "telemetry" as const, deviceId: "probe-2" };
+    await env.db.insert(ag.ageingTempLog).values([{ ...probe, id: crypto.randomUUID(), deviceId: "probe-1" }, probe]);
+    await expect(q(env.db.insert(ag.ageingTempLog).values({ ...probe, id: crypto.randomUUID() }))).rejects.toThrow();
     const n = await env.db.select().from(ag.ageingTempLog).where(eq(ag.ageingTempLog.batchId, b.id));
-    expect(n).toHaveLength(3);
+    expect(n).toHaveLength(5);
   });
 
   test("schema enums equal the domain's", () => {

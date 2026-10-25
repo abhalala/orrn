@@ -21,15 +21,21 @@
  *   ageing.batches.hardness    → ageingHardnessInput            ageing.record
  *   ageing.batches.release     → idInput (batchId)              ageing.release
  *   ageing.batches.requestOverride → ageingOverrideRequestInput ageing.release (approval kind ageing_override)
- *   ageing.batches.hold        → ageingHoldInput                ageing.release
+ *   ageing.batches.hold        → ageingHoldInput                ageing.release (a QC hold is the supervisor's; review m8, decision kept)
+ *   ageing.batches.unhold      → ageingUnholdInput              ageing.release (clears a hand hold, AG-11)
  *   ageing.batches.rework      → ageingReworkInput              ageing.release
  *   ageing.batches.discardRemaining → ageingDiscardRemainingInput ageing.release (pack calls the lib helper inside its own batch)
  *   ageing.batches.split       → ageingSplitInput               ageing.release (setting ageing.split)
  *   ageing.batches.void        → ageingVoidInput                ageing.load while loading; ageing.release after take-out
  *   ageing.batches.simulate    → ageingSimulateInput            ageing.record, and only when OVEN_SIMULATOR=1 (lib/ageingSimulator.ts)
+ *   ageing.packSource          → ageingPackSourceInput          bundle.pack | ageing.view (released rows with pieces left)
+ *   ageing.bundleTrace         → ageingBundleTraceInput         any member (the batch, press run and cast behind a bundle, AG-13)
  *   ageing.forOrder            → ageingForOrderInput            order.manage | ageing.view | reports.read
  *   reports.ageing             → ageingReportInput              reports.read
- *   collector (later, FP-AG-17) → ageingTelemetryInput          the node's signed route, source `telemetry`
+ *   collector (FP-AG-17)       → ageingTelemetryInput          POST /collector/ageing/readings, node-signed, source `telemetry`
+ *
+ * Inserts of loads and feeds go through `pushChunkedInserts` with every column named (≤ 100 bound
+ * parameters; 40 rows × ~20 columns and 50 readings × 9 columns are both above it).
  */
 import { z } from "zod";
 
@@ -216,6 +222,8 @@ export const ageingTempInput = z.object({
 export const ageingTelemetryInput = z.object({
   batchId: id,
   source: z.enum(["telemetry", "simulator"]),
+  /** The collector's probe / channel (FP-AG-17); readings of two devices at the same ms are two rows. */
+  deviceId: z.string().trim().max(64).default(""),
   readings: z.array(z.object({ at: epochMs, tempCX10: ageingTempX10 })).min(1).max(AGEING_READINGS_MAX),
 });
 
@@ -237,6 +245,9 @@ export const ageingBatchIdInput = z.object({ batchId: id });
 
 export const ageingOverrideRequestInput = z.object({ batchId: id, reason: z.string().trim().min(1).max(AGEING_NOTE_MAX) });
 
+/** Clear a hand hold (AG-11, review I5). */
+export const ageingUnholdInput = z.object({ rowId: id, note: note.optional() });
+
 export const ageingHoldInput = z
   .object({ batchId: id.optional(), rowId: id.optional(), reasonCodeId: id, note: note.optional() })
   .refine((v) => (v.batchId ? 1 : 0) + (v.rowId ? 1 : 0) === 1, { message: "Hold a trolley or one line", path: ["rowId"] });
@@ -256,8 +267,11 @@ export const ageingVoidInput = z.object({ batchId: id, reasonCodeId: id.optional
 export const ageingSimulateInput = z.object({ batchId: id, profile: z.enum(OVEN_CURVE_PROFILES).default("normal") });
 
 export const ageingForOrderInput = z.object({ salesOrderId: id });
+export const ageingPackSourceInput = z.object({ dieId: id.optional(), salesOrderLineId: id.optional(), ...page });
+export const ageingBundleTraceInput = z.object({ bundleId: id });
 
-export const ageingReportInput = z.object({
+export const ageingReportInput = z
+  .object({
   from: day,
   to: day,
   shiftId: id.optional(),
@@ -268,7 +282,9 @@ export const ageingReportInput = z.object({
   status: ageingBatchStatus.optional(),
   format: z.enum(["json", "csv"]).default("json"),
   ...page,
-});
+  })
+  // Review m12.
+  .refine((v) => v.from <= v.to, { message: "From must be on or before to", path: ["to"] });
 
 /** `company.updateSettings` part for ageing (settings.update). */
 export const ageingSettingsInput = z.object({
@@ -357,6 +373,8 @@ export const ageingSoakView = z.object({
   inBandMin: z.number().int(),
   aboveBandMin: z.number().int(),
   belowBandMin: z.number().int(),
+  /** Minutes no reading stands for (a reading holds at most AGEING_READING_HOLD_MAX_MIN). */
+  unknownMin: z.number().int(),
   soakElapsedMin: z.number().int(),
   minX10: z.number().int().nullable(),
   maxX10: z.number().int().nullable(),
@@ -447,6 +465,12 @@ export const ageingPackSourceRow = z.object({
 /** `ageing.forOrder` per sales-order line: pieces and theoretical kg (FP-AG-15). */
 export const ageingForOrderLine = z.object({
   salesOrderLineId: z.string(),
+  /**
+   * Theoretical grams still on trolleys for the line (every live row's kg_g prorated by its remaining
+   * pieces: in the oven, out, held or released and not yet packed). The order strip's `agedG` is this
+   * figure, and `pressedG = max(0, logged − aged − produced)` (AG-15, review I7).
+   */
+  agedG: z.number().int(),
   loadedPcs: z.number().int(),
   loadedKgG: z.number().int(),
   inOvenPcs: z.number().int(),
@@ -514,4 +538,28 @@ export type AgeingBatchDetail = z.infer<typeof ageingBatchDetail>;
 export type AgeingAvailableLine = z.infer<typeof ageingAvailableLine>;
 export type AgeingPackSourceRow = z.infer<typeof ageingPackSourceRow>;
 export type AgeingForOrderLine = z.infer<typeof ageingForOrderLine>;
+
+/** AG-13: what stands behind a bundle (`ageing.bundleTrace`). Null fields when the bundle never met a trolley. */
+export const ageingBundleTrace = z.object({
+  bundleId: z.string(),
+  state: bundleAgeingState,
+  ageingRowId: z.string().nullable(),
+  batchId: z.string().nullable(),
+  batchNumber: z.string().nullable(),
+  trolleyCode: z.string().nullable(),
+  ovenCode: z.string().nullable(),
+  recipeLabel: z.string().nullable(),
+  inAt: ts,
+  outAt: ts,
+  releasedAt: ts,
+  qcVerdict: ageingQcVerdict.nullable(),
+  hardnessMethod: hardnessMethod.nullable(),
+  hardnessReadingX10: z.number().int().nullable(),
+  pressRunId: z.string().nullable(),
+  pressRunNumber: z.string().nullable(),
+  castId: z.string().nullable(),
+  castCode: z.string().nullable(),
+});
+export type AgeingBundleTrace = z.infer<typeof ageingBundleTrace>;
+export type AgeingUnholdInput = z.infer<typeof ageingUnholdInput>;
 export type AgeingReportRow = z.infer<typeof ageingReportRow>;

@@ -26,6 +26,18 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
  * - Remaining pieces are computed (`pcs − packed_pcs − scrap_pcs − rework_pcs`), never stored.
  *   Pack (lib/pack.ts) reads these exact column names (`die_id`, `length_mm`, `packed_pcs`, …).
  * - Bulk-inserted columns take SQL defaults (`default(sql\`0\`)`), never JS defaults (D1 100 params).
+ *   A load of 40 rows (~20 columns each) or a 50-reading feed (9 columns) is far over 100 bound
+ *   parameters: insert through `pushChunkedInserts` with every column named (review m10).
+ * - A whole-bundle row (`source = 'bundle'`) loads with packed_pcs = 0 like any row; release writes
+ *   packed_pcs = pcs on it, closes it and sets `bundle.ageing_row_id` (a batch of bundles then closes
+ *   at once and `openBundleRows` no longer sees it, so the bundle's own column carries "aged").
+ *   Pack never draws from it, and a void of that bundle never restores pieces to it (review I3).
+ * - Rework leaves the original row's pcs and kg_g alone (history) and moves its remaining pieces as
+ *   rework_pcs onto a successor row (`rework_row_id`); a press line's loaded pieces are
+ *   Σ(pcs − rework_pcs), its loaded grams skip successor rows (`pressLineLoaded`, review I4). A batch
+ *   with reworked or discarded pieces, or a rework successor, is never voided.
+ * - Rework onto the same trolley: the original batch's close UPDATE runs before the successor INSERT
+ *   in the same atomicBatch, so the open-trolley unique index sees one open batch (review m9).
  * - Statuses are the stored truth; the board phase (heating / soaking) is derived (`ageingBatchPhase`).
  */
 
@@ -262,6 +274,10 @@ export const ageingBatch = sqliteTable(
     index("ageing_batch_company_in_at_idx").on(table.companyId, table.inAt),
     index("ageing_batch_company_day_idx").on(table.companyId, table.productionDay),
     index("ageing_batch_company_server_seq_idx").on(table.companyId, table.serverSeq),
+    // 0039 (review m5): the oven's last gas end and its board, the trolley's batches, a rework's successor.
+    index("ageing_batch_company_oven_in_idx").on(table.companyId, table.ovenId, table.inAt),
+    index("ageing_batch_company_trolley_idx").on(table.companyId, table.trolleyId),
+    index("ageing_batch_company_rework_of_idx").on(table.companyId, table.reworkOfBatchId),
   ],
 );
 
@@ -308,7 +324,7 @@ export const ageingRow = sqliteTable(
     pcs: integer("pcs").notNull(),
     /** Theoretical grams, prorated from the press line (largest remainder). */
     kgG: integer("kg_g").notNull().default(sql`0`),
-    /** Pieces that left through pack (bundles and pack-time rejects). A bundle row starts at pcs. */
+    /** Pieces that left through pack (bundles and pack-time rejects); on a whole-bundle row, pcs once release passes it. */
     packedPcs: integer("packed_pcs").notNull().default(sql`0`),
     /** Written only by discard-remaining. */
     scrapPcs: integer("scrap_pcs").notNull().default(sql`0`),
@@ -340,6 +356,8 @@ export const ageingRow = sqliteTable(
     index("ageing_row_company_so_line_idx").on(table.companyId, table.salesOrderLineId),
     index("ageing_row_company_die_status_idx").on(table.companyId, table.dieId, table.status),
     index("ageing_row_company_server_seq_idx").on(table.companyId, table.serverSeq),
+    // 0039: "is this row a rework successor" (a press line's loaded grams skip successors, review I4).
+    index("ageing_row_company_rework_row_idx").on(table.companyId, table.reworkRowId),
   ],
 );
 
@@ -365,6 +383,12 @@ export const ageingTempLog = sqliteTable(
     at: integer("at", { mode: "timestamp_ms" }).notNull(),
     tempCX10: integer("temp_c_x10").notNull(),
     source: text("source", { enum: ageingTempSources }).notNull().default("typed"),
+    /**
+     * 0039 (FP-AG-17, review m3): the collector's device / channel for a telemetry reading ('' for
+     * typed and simulator readings), so two probes on one oven posting at the same millisecond are
+     * two rows while a replay of either is still one.
+     */
+    deviceId: text("device_id").notNull().default(""),
     note: text("note"),
     clientMutationId: text("client_mutation_id"),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
@@ -373,8 +397,8 @@ export const ageingTempLog = sqliteTable(
   (table) => [
     index("ageing_temp_log_batch_at_idx").on(table.companyId, table.batchId, table.at),
     // A collector or the simulator replaying the same sample changes nothing.
-    uniqueIndex("ageing_temp_log_feed_unique")
-      .on(table.batchId, table.source, table.at)
+    uniqueIndex("ageing_temp_log_feed_device_unique")
+      .on(table.batchId, table.source, table.deviceId, table.at)
       .where(sql`${table.source} <> 'typed'`),
     uniqueIndex("ageing_temp_log_client_mutation_unique")
       .on(table.companyId, table.clientMutationId)
