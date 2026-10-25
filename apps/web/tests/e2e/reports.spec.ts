@@ -127,7 +127,7 @@ for (const width of WIDTHS) {
       await expect(summary.getByTestId("recovery-totals")).toContainText(byDie.totals.recoveryPct!);
       await expect(summary.getByTestId("recovery-table").locator("tbody tr")).toHaveCount(byDie.rows.length);
 
-      // Seed figures, not the API's say-so (I-4): PR-8 is the one logged production run of the day on
+      // Seed figures, not the API's say-so (I-4): PR-8 is one of the two logged runs of the day on
       // the seed's P1, the worked example. Channel 1" 12230: 310.400 kg of billet in, 234.200 kg good,
       // 44.800 kg butt, ends and rejects = 75.5 % (234,200 / 310,400 = 75.45 %, half up).
       const chan = summary.getByTestId("recovery-table").locator("tbody tr").filter({ hasText: "12230" });
@@ -136,12 +136,18 @@ for (const width of WIDTHS) {
       expect(chanCells.slice(1, 6)).toEqual(["1", "310.400", "234.200", "44.800", "75.5"]);
       expect(byDie.rows.find((r) => r.label === "12230")?.recoveryPct).toBe("75.5");
       expect(pct1(234_200, 310_400)).toBe("75.5");
-      // P1's total is exactly PR-8. The day's total is not pinned: specs running alongside (press.spec,
-      // chain.spec) log production runs today on press lines of their own (MERGER-10). It must still be
-      // its rows summed, and the page shows it.
+      // P1's total is exactly the seed's two logged runs of the day there (docs/DEMO_PLANT.md): PR-8
+      // (12230, 75.5 %) and PR-11, the reject-heavy patti run on 14701 (296.000 kg in, 211.500 kg good =
+      // 71.45 %, 71.5 % half up). Together 606.400 kg in, 445.700 kg good = 73.50 %. The day's total is not
+      // pinned: specs running alongside (press.spec, chain.spec) log production runs today on press lines
+      // of their own (MERGER-10). It must still be its rows summed, and the page shows it.
       const p1 = await office.q<Recovery>("analytics.recovery", { from: day, to: day, groupBy: "die", pressLineId: "dev-press-line-1" });
-      expect(p1.totals).toMatchObject({ runs: 1, inputG: 310_400, goodG: 234_200, recoveryPct: "75.5" });
-      expect(p1.rows.map((r) => [r.label, r.runs, r.inputG, r.goodG, r.recoveryPct])).toEqual([["12230", 1, 310_400, 234_200, "75.5"]]);
+      expect(p1.totals).toMatchObject({ runs: 2, inputG: 606_400, goodG: 445_700, recoveryPct: "73.5" });
+      expect(pct1(445_700, 606_400)).toBe("73.5");
+      expect(p1.rows.map((r) => [r.label, r.runs, r.inputG, r.goodG, r.recoveryPct]).sort((a, b) => String(a[0]).localeCompare(String(b[0])))).toEqual([
+        ["12230", 1, 310_400, 234_200, "75.5"],
+        ["14701", 1, 296_000, 211_500, "71.5"],
+      ]);
       const sumOf = (k: "runs" | "inputG" | "goodG") => byDie.rows.reduce((n, r) => n + r[k], 0);
       expect({ runs: sumOf("runs"), inputG: sumOf("inputG"), goodG: sumOf("goodG") }).toEqual({ runs: byDie.totals.runs, inputG: byDie.totals.inputG, goodG: byDie.totals.goodG });
       expect(byDie.totals.recoveryPct).toBe(pct1(byDie.totals.goodG, byDie.totals.inputG));
