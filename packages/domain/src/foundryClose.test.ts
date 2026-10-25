@@ -59,6 +59,61 @@ describe("castCloseCheck (spec E4 tail + D22 billets short)", () => {
   });
 });
 
+describe("castCloseCheck with a physical count (Q59-A, W2-FD-S r1)", () => {
+  test("cast 1 of the demo: 1,493.6 kg on the ledger, 1,493.6 kg counted -> tail 0, no reason", () => {
+    expect(castCloseCheck({ producedG: 2_400 * KG, onHandG: 1_493_600, creditedG: 906_400, countedG: 1_493_600 })).toEqual({
+      tailG: 0,
+      tailBp: 0,
+      needsApproval: false,
+      needsReason: false,
+      shortG: 0,
+      adjustG: 0,
+    });
+  });
+
+  test("tail = ledger on hand − counted; the adjustment is its negative (counted − ledger)", () => {
+    // 10,000 kg produced, the press used 7,800, ledger says 2,200, the yard holds 2,000 -> 200 kg missing (2 %).
+    expect(castCloseCheck({ producedG: 10_000 * KG, onHandG: 2_200 * KG, creditedG: 7_800 * KG, countedG: 2_000 * KG })).toEqual({
+      tailG: 200 * KG,
+      tailBp: 200,
+      needsApproval: false,
+      needsReason: true,
+      shortG: 0,
+      adjustG: -200 * KG,
+    });
+    // More counted than the ledger holds: a negative tail, the adjustment adds the billets found.
+    expect(castCloseCheck({ producedG: 10_000 * KG, onHandG: 2_200 * KG, creditedG: 7_800 * KG, countedG: 2_250 * KG })).toMatchObject({
+      tailG: -50 * KG,
+      adjustG: 50 * KG,
+      needsReason: true,
+      needsApproval: false,
+    });
+  });
+
+  test("beyond 3 % of produced (either sign) needs a second person; exactly 3 % does not", () => {
+    const base = { producedG: 10_000 * KG, onHandG: 2_200 * KG, creditedG: 7_800 * KG };
+    expect(castCloseCheck({ ...base, countedG: 1_900 * KG })).toMatchObject({ tailG: 300 * KG, tailBp: 300, needsApproval: false });
+    expect(castCloseCheck({ ...base, countedG: 1_899 * KG })).toMatchObject({ tailG: 301 * KG, needsApproval: true });
+    expect(castCloseCheck({ ...base, countedG: 2_501 * KG })).toMatchObject({ tailG: -301 * KG, needsApproval: true });
+  });
+
+  test("billets short (ledger below zero) still needs a reason and an approval, whatever was counted", () => {
+    expect(castCloseCheck({ producedG: 2_400 * KG, onHandG: -100 * KG, creditedG: 2_500 * KG, countedG: 0 })).toEqual({
+      tailG: -100 * KG,
+      tailBp: -417,
+      needsApproval: true,
+      needsReason: true,
+      shortG: 100 * KG,
+      adjustG: 100 * KG,
+    });
+  });
+
+  test("a count must be whole grams, zero or more", () => {
+    expect(() => castCloseCheck({ producedG: 0, onHandG: 0, creditedG: 0, countedG: -1 })).toThrow(RangeError);
+    expect(() => castCloseCheck({ producedG: 0, onHandG: 0, creditedG: 0, countedG: 1.5 })).toThrow(RangeError);
+  });
+});
+
 describe("meltLockGates: the five times in order, and more out than in", () => {
   const balance = meltBalance({ lotsG: 5_500 * KG, streamsG: 300 * KG, logsG: 5_600 * KG, drossG: 30 * KG, feG: 10 * KG });
   const base = {

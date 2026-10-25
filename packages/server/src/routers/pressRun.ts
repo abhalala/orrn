@@ -27,6 +27,7 @@
  */
 import {
   bpPercent1,
+  billetInputByCast,
   closeFigures,
   closeGates,
   readFloorSettings,
@@ -126,7 +127,7 @@ const GATE_TEXT: Record<CloseGateError, string> = {
   no_billets: "Enter the billets used",
   too_many_billets: "At most 10 billet rows on a run",
   billet_row_invalid: "Every billet row needs a count and its kg",
-  billet_cast_mismatch: "Every billet row must be of the run's cast",
+  billet_cast_mismatch: "Add a billet row of the run's cast",
   no_input: "The billets weigh nothing; enter their kg",
   no_lines: "Enter the pieces by cut length",
   line_without_kg: "A cut length with pieces needs its kg",
@@ -409,12 +410,25 @@ async function castOnHand(db: OrrnDb, companyId: string, castId: string | null):
   return { number: row?.number ?? null, onHandG: row ? Number(row.onHand) : null };
 }
 
+/** Number and billets on hand of each cast (W2-FD-S r1: a run's billet rows may name several casts). */
+async function castsOnHand(db: OrrnDb, companyId: string, castIds: readonly string[]): Promise<Map<string, { number: string; onHandG: number }>> {
+  const out = new Map<string, { number: string; onHandG: number }>();
+  for (const castId of new Set(castIds)) {
+    const info = await castOnHand(db, companyId, castId);
+    if (info.number != null) out.set(castId, { number: info.number, onHandG: info.onHandG ?? 0 });
+  }
+  return out;
+}
+
 /** Gates + figures as the close would see them now (preview and close share it). */
 async function evaluateClose(ctx: Ctx, run: LoadedRun, input: { billetShortReason?: string | null; trialResult?: "pass" | "fail" | null }) {
   const children = await runChildren(ctx.db, ctx.companyId, run.id);
   const settings = await companySettings(ctx.db, ctx.companyId);
   const floor = readFloorSettings(settings);
   const castInfo = await castOnHand(ctx.db, ctx.companyId, run.castId);
+  // Each cast the billet rows name is charged its own kg and judged short on its own on hand.
+  const byCast = await castsOnHand(ctx.db, ctx.companyId, children.billets.map((b) => b.castId));
+  const billetOnHandByCastG = children.billets.length > 0 ? Object.fromEntries([...byCast].map(([k, v]) => [k, v.onHandG])) : null;
   const callerId = ctx.session.user.id;
   const errors = closeGates(
     {
@@ -435,7 +449,7 @@ async function evaluateClose(ctx: Ctx, run: LoadedRun, input: { billetShortReaso
     children.qc.map((q) => ({ pcs: q.pcs, kgG: q.kgG, reasonCode: q.reasonCode ?? null, reasonRequiresNote: Boolean(q.requiresNote), note: q.note })),
     children.downtime.map((d) => ({ stoppedAt: ms(d.stoppedAt) })),
     { balanceWarnBp: floor.press.balanceWarnBp },
-    { callerId, callerCanClose: canRole(ctx.role, "press.close"), billetOnHandG: castInfo.onHandG },
+    { callerId, callerCanClose: canRole(ctx.role, "press.close"), billetOnHandG: castInfo.onHandG, billetOnHandByCastG },
   );
   const figures = closeFigures({
     billets: children.billets,
@@ -444,9 +458,10 @@ async function evaluateClose(ctx: Ctx, run: LoadedRun, input: { billetShortReaso
     discardG: run.discardG,
     endsG: run.endsG,
     billetOnHandG: castInfo.onHandG,
+    billetOnHandByCastG,
     balanceWarnBp: floor.press.balanceWarnBp,
   });
-  return { children, errors, figures, castInfo, floor };
+  return { children, errors, figures, castInfo, byCast, floor };
 }
 
 /** The copy's latest kg/12ft reading (for the theoretical hint; never stored). */
@@ -1401,7 +1416,7 @@ export const pressRunRouter = router({
         return { id: run.id, status: run.status, recoveryBp: run.recoveryBp, balanceG: run.balanceG, replayed: true };
       }
       if (run.purpose !== "die_trial" && input.trialResult) bad("Only a die trial run takes a pass or fail");
-      const { errors, figures, castInfo, children } = await evaluateClose(ctx as Ctx, run, input);
+      const { errors, figures, byCast, children } = await evaluateClose(ctx as Ctx, run, input);
       if (errors.length > 0) gateError(errors);
       const billetStore = await resolveBilletStore(ctx.db, ctx.companyId);
       const scrapG = (run.discardG ?? 0) + (run.endsG ?? 0) + figures.rejectG;
@@ -1413,9 +1428,16 @@ export const pressRunRouter = router({
       const trialResult = run.purpose === "die_trial" ? (input.trialResult ?? run.trialResult) : null;
       const handoff = await issueAtClose(ctx as Ctx, run, trialResult);
       const at = clockNow();
-      // D22: the full weighed kg is debited; the store must still hold what this read saw, so a
-      // shortfall never grows between the read and the write without being recorded.
-      const billetGuardG = Math.min(figures.inputG, castInfo.onHandG ?? 0);
+      // D22: the full weighed kg is debited, per cast (W2-FD-S r1: each cast the rows name is
+      // charged its own kg); each cast's store must still hold what this read saw, so a shortfall
+      // never grows between the read and the write without being recorded. The run's cast first.
+      const inputByCast = billetInputByCast(children.billets);
+      const castOrder = [...inputByCast.keys()].sort((a, b) => Number(b === run.castId) - Number(a === run.castId));
+      const charges = castOrder.map((castId) => {
+        const kg = inputByCast.get(castId)!;
+        const info = byCast.get(castId);
+        return { castId, castNumber: info?.number ?? "", inputG: kg, guardG: Math.min(kg, info?.onHandG ?? 0) };
+      });
       const shortReason = figures.short ? (input.billetShortReason ?? run.billetShortReason) : (input.billetShortReason ?? run.billetShortReason ?? null);
       const statements: SqliteBatchItem[] = [
         ctx.db
@@ -1455,8 +1477,6 @@ export const pressRunRouter = router({
         companyId: ctx.companyId,
         runId: run.id,
         runNumber: run.number,
-        castId: run.castId!,
-        castNumber: castInfo.number ?? "",
         seq,
         userId: callerId,
         at,
@@ -1464,13 +1484,12 @@ export const pressRunRouter = router({
         billetStoreId: billetStore.id,
         plantScrapLocationId: plantScrap?.id ?? null,
         streams,
-        inputG: figures.inputG,
-        billetGuardG,
+        billets: charges,
         discardG: run.discardG ?? 0,
         endsG: run.endsG ?? 0,
         rejectG: figures.rejectG,
       });
-      statements.push(...ledger.statements, pressAbortUnless(ctx.db, billetPostedSql(ctx.companyId, run.id, ledger.billetLine, seq)));
+      statements.push(...ledger.statements, ...ledger.billetLines.map((l) => pressAbortUnless(ctx.db, billetPostedSql(ctx.companyId, run.id, l, seq))));
 
       // C43: the issue goes back to the rack, or stays open for the next queued run of the copy.
       const runLogged = runLanded(run.id, seq, "logged");
@@ -1529,13 +1548,15 @@ export const pressRunRouter = router({
         if (isPressAbort(e)) {
           const now = await loadRun(ctx.db, ctx.companyId, run.id);
           if (now.status === "counting" && now.serverSeq === run.serverSeq && run.castId) {
-            const onHand = await castOnHand(ctx.db, ctx.companyId, run.castId);
-            if ((onHand.onHandG ?? 0) < billetGuardG) {
-              throw new TRPCMetaError({
-                code: "CONFLICT",
-                message: `Only ${((onHand.onHandG ?? 0) / 1000).toFixed(3)} kg of cast ${onHand.number} is left in the billet store now. Check the billets and log again.`,
-                meta: { gates: ["billet_short_reason_missing"], billetsOnHandG: onHand.onHandG },
-              });
+            for (const ch of charges) {
+              const onHand = await castOnHand(ctx.db, ctx.companyId, ch.castId);
+              if ((onHand.onHandG ?? 0) < ch.guardG) {
+                throw new TRPCMetaError({
+                  code: "CONFLICT",
+                  message: `Only ${((onHand.onHandG ?? 0) / 1000).toFixed(3)} kg of cast ${onHand.number} is left in the billet store now. Check the billets and log again.`,
+                  meta: { gates: ["billet_short_reason_missing"], billetsOnHandG: onHand.onHandG },
+                });
+              }
             }
           }
           throw new TRPCError({ code: "CONFLICT", message: `${now.number} changed while it was being logged. Reload and log again.` });

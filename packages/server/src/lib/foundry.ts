@@ -230,6 +230,62 @@ export function lotHasNoLiveDraws(companyId: string, lotId: SQL): SQL {
 }
 
 // ---------------------------------------------------------------------------
+// Return stream balance (FP-FD-05: a stream cannot be charged below its ledger balance)
+// ---------------------------------------------------------------------------
+
+/** A return stream's kg at a location: Σ its ledger rows (grams). */
+export function streamBalanceSql(companyId: string, streamId: string, locationId: string): SQL<number> {
+  return sql<number>`coalesce((
+    select sum(sb.qty_g) from ${stockLedger} sb
+    where sb.company_id = ${companyId} and sb.item_kind = 'return_stream' and sb.item_ref = ${streamId} and sb.location_id = ${locationId}
+  ), 0)`;
+}
+
+export type StreamCharge = { streamId: string; locationId: string; netG: number };
+
+/**
+ * What a melt takes out of each return stream at each place, net of the metal it puts back into
+ * the same stream there (W2-FD-S r1, I-3). Only streams the melt takes from (net > 0) are listed.
+ */
+export function streamCharges(
+  inputs: readonly { streamId: string; locationId: string; kgG: number }[],
+  returns: readonly { streamId: string; locationId: string; kgG: number }[],
+): StreamCharge[] {
+  const net = new Map<string, StreamCharge>();
+  const add = (streamId: string, locationId: string, g: number) => {
+    const key = `${streamId}|${locationId}`;
+    const row = net.get(key) ?? { streamId, locationId, netG: 0 };
+    row.netG += g;
+    net.set(key, row);
+  };
+  for (const i of inputs) add(i.streamId, i.locationId, i.kgG);
+  for (const o of returns) if (net.has(`${o.streamId}|${o.locationId}`)) add(o.streamId, o.locationId, -o.kgG);
+  return [...net.values()].filter((c) => c.netG > 0);
+}
+
+/** The refusal for a stream charged beyond its balance. */
+export function streamShortMessage(name: string, balanceG: number): string {
+  return `Only ${fmtKg(Math.max(balanceG, 0))} kg of ${name} is in stock`;
+}
+
+/**
+ * Read-time check (the batch repeats it with `streamChargeAborts`): every stream the melt takes from
+ * holds its net kg. Refuses with "Only N kg of <stream> is in stock".
+ */
+export async function assertStreamsCover(db: OrrnDb, companyId: string, charges: readonly StreamCharge[], nameOf: (streamId: string) => string): Promise<void> {
+  for (const ch of charges) {
+    const [row] = await db.select({ g: streamBalanceSql(companyId, ch.streamId, ch.locationId) }).from(company).where(eq(company.id, companyId)).limit(1);
+    const balance = Number(row?.g ?? 0);
+    if (balance < ch.netG) throw new TRPCError({ code: "BAD_REQUEST", message: streamShortMessage(nameOf(ch.streamId), balance) });
+  }
+}
+
+/** Write-time twin: after the melt's ledger rows, any stream it took from below zero fails the batch. */
+export function streamChargeAborts(db: OrrnDb, companyId: string, charges: readonly StreamCharge[]): SqliteBatchItem[] {
+  return charges.map((ch) => foundryAbort(db, companyId, sql`${streamBalanceSql(companyId, ch.streamId, ch.locationId)} < 0`));
+}
+
+// ---------------------------------------------------------------------------
 // Cast close-out figures
 // ---------------------------------------------------------------------------
 
@@ -309,6 +365,47 @@ export function castPressReturnsSql(companyId: string, castId: SQL): SQL<number>
   ), 0)`;
 }
 
+/**
+ * Q59-A (W2-FD-S r1): the close's count adjustment, Σ `cast_tail` billet rows of the cast (grams;
+ * negative = billets the count did not find). Part of on hand, so after a close the identity
+ * produced − credited − on hand equals −adjusted = the recorded tail.
+ */
+export function castTailAdjustSql(companyId: string, castId: SQL): SQL<number> {
+  return sql<number>`coalesce((
+    select sum(ta.qty_g) from ${stockLedger} ta
+    where ta.company_id = ${companyId} and ta.item_kind = 'billet' and ta.item_ref = ${castId} and ta.voucher_type = 'cast_tail'
+  ), 0)`;
+}
+
+/**
+ * The close's count adjustment row (Q59-A): one `cast_tail` billet row of the cast (voucher = cast
+ * id, line 1, so a cast never takes two), as an INSERT … SELECT that lands only when `when` holds
+ * (the close or the approval landed). `qtyG` and `locationId` may be SQL (the approval reads them
+ * from the frozen close summary); a zero quantity inserts nothing.
+ */
+export function castTailAdjustRow(
+  db: OrrnDb,
+  o: {
+    companyId: string;
+    castId: string;
+    qtyG: number | SQL;
+    locationId: string | SQL;
+    seq: number;
+    at: Date;
+    userId: string | null;
+    reason: string | null;
+    when: SQL | undefined;
+  },
+): SqliteBatchItem {
+  const at = o.at.getTime();
+  const qty = typeof o.qtyG === "number" ? sql`${o.qtyG}` : o.qtyG;
+  const loc = typeof o.locationId === "string" ? sql`${o.locationId}` : o.locationId;
+  return db.insert(stockLedger).select(
+    sql`select ${crypto.randomUUID()}, ${o.companyId}, ${o.seq}, 'cast_tail', ${o.castId}, 1, 'billet', ${o.castId}, ${loc}, ${qty}, ${at}, null, ${o.reason}, ${o.userId}, ${at}
+      from ${company} where ${company.id} = ${o.companyId} and coalesce(${qty}, 0) <> 0 and ${o.when ?? sql`1`}` as never,
+  );
+}
+
 /** Tail = produced − on hand − credited (grams), as one SQL expression. */
 export function castTailSql(companyId: string, castId: SQL): SQL<number> {
   return sql<number>`(${castLogsSql(companyId, castId)} - ${castBilletsOnHandSql(companyId, castId)} - ${castPressReturnsSql(companyId, castId)})`;
@@ -330,6 +427,8 @@ export type CastCloseout = CastCloseCheck & {
   bundlesG: number;
   /** D22: Σ billets the press logged beyond what the store held, from the runs (0 when none). */
   billetsShortG: number;
+  /** Q59-A: the close's count adjustment posted so far (`cast_tail` rows; 0 before a close). */
+  adjustedG: number;
   liveMelts: number;
   draftMelts: number;
 };
@@ -347,6 +446,7 @@ export async function castCloseout(db: OrrnDb, companyId: string, castId: string
       creditedG: castPressReturnsSql(companyId, id),
       billetsOnHandG: castBilletsOnHandSql(companyId, id),
       billetsShortG: castBilletsShortSql(companyId, id),
+      adjustedG: castTailAdjustSql(companyId, id),
       liveMelts: castLiveMeltsSql(companyId, id),
       draftMelts: castDraftMeltsSql(companyId, id),
     })
@@ -369,6 +469,7 @@ export async function castCloseout(db: OrrnDb, companyId: string, castId: string
     burnG: n(row?.lossG),
     bundlesG: n(row?.bundlesG),
     billetsShortG: n(row?.billetsShortG),
+    adjustedG: n(row?.adjustedG),
     liveMelts: n(row?.liveMelts),
     draftMelts: n(row?.draftMelts),
   };

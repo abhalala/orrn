@@ -17,7 +17,7 @@
  *   refused if the item+grade at that store no longer holds what the lot put there.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gte, inArray, lte, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -33,6 +33,7 @@ import {
   vendor,
   type PurchaseLotRow,
 } from "@orrn/db/schema/purchase";
+import { melt, meltInput } from "@orrn/db/schema/foundry";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { company } from "@orrn/db/schema/tenant";
 
@@ -1390,13 +1391,26 @@ export const purchaseRouter = router({
         .limit(REGISTER_MAX_LOTS + 1);
       const truncated = lots.length > REGISTER_MAX_LOTS;
       const shown = truncated ? lots.slice(0, REGISTER_MAX_LOTS) : lots;
-      const [notes, settings] = await Promise.all([
+      const [notes, settings, melted] = await Promise.all([
         notesForLots(
           ctx,
           shown.map((l) => l.id),
         ),
         companySettings(ctx),
+        // W2-FD-S r1 (m-10): what live (locked) melts drew from each lot, so the register can say
+        // what is LEFT, not only what came in.
+        mapInChunks(
+          shown.map((l) => l.id),
+          (ids) =>
+            ctx.db
+              .select({ lotId: meltInput.lotId, g: sql<number>`sum(${meltInput.kgG})` })
+              .from(meltInput)
+              .innerJoin(melt, and(eq(melt.id, meltInput.meltId), eq(melt.companyId, meltInput.companyId)))
+              .where(and(eq(meltInput.companyId, ctx.companyId), inArray(meltInput.lotId, ids), eq(melt.status, "locked"), isNull(melt.cancelledAt)))
+              .groupBy(meltInput.lotId),
+        ),
       ]);
+      const meltedBy = new Map(melted.map((m) => [m.lotId, Number(m.g)]));
       const tolBp = dcToleranceBp(settings);
       const byLot = new Map<string, typeof notes>();
       for (const n of notes) {
@@ -1406,7 +1420,10 @@ export const purchaseRouter = router({
       }
       const rows = shown.map((lot) => {
         const lotNotes = byLot.get(lot.id) ?? [];
-        return { ...lot, notes: lotNotes, ...lotMath(lot, lotNotes, tolBp) };
+        const math = lotMath(lot, lotNotes, tolBp);
+        const meltedKgG = meltedBy.get(lot.id) ?? 0;
+        // `stockKgG` is what the lot put INTO scrap stock (fc − bori); `remainingKgG` is what is left after the melts.
+        return { ...lot, notes: lotNotes, ...math, meltedKgG, remainingKgG: math.stockKgG === null ? null : math.stockKgG - meltedKgG };
       });
       const totals = {
         lots: 0,
@@ -1418,6 +1435,8 @@ export const purchaseRouter = router({
         payableKgG: 0,
         amountPaise: 0,
         stockKgG: 0,
+        meltedKgG: 0,
+        remainingKgG: 0,
         shortWithoutNote: 0,
         notesPending: 0,
       };
@@ -1432,6 +1451,8 @@ export const purchaseRouter = router({
         totals.payableKgG += r.payableKgG;
         totals.amountPaise += r.amountPaise;
         totals.stockKgG += r.stockKgG ?? 0;
+        totals.meltedKgG += r.meltedKgG;
+        totals.remainingKgG += r.remainingKgG ?? 0;
         if (r.flag === "short_without_note") totals.shortWithoutNote += 1;
         totals.notesPending += r.notes.filter((n) => n.status === "pending").length;
       }

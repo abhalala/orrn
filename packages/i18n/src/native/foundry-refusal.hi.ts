@@ -75,4 +75,8 @@ export const foundryRefusalHi = {
   lineTooLarge: "एक लाइन 100 t से ऊपर है। kg जाँचें।",
   spectroOver: "आठों तत्व मिलकर 100 % से ज़्यादा हैं। मान जाँचें।",
   spectroPpm: "स्पेक्ट्रो मान 0 से 1,000,000 तक पूरे ppm में लिखें।",
+  castCountOver: "गिनती में {cast} के बिलेट लेजर से {kg} kg ज़्यादा मिले। कारण चुनें।",
+  countWithKg: "बिलेट गिनें और साथ में तौलें।",
+  streamShort: "{stream} में सिर्फ़ {kg} kg स्टॉक में है।",
+  spectroNoFile: "कोई फ़ाइल नहीं जोड़ी। लिखें कि आंकड़े हाथ से क्यों लिखे।",
 };

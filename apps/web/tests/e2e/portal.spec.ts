@@ -96,13 +96,16 @@ async function dispatchWithCast(browser: Browser): Promise<{ dispatchId: string;
     const scrap = streams.items.find((x) => x.code === "PLANT-SCRAP")!;
     const now = Date.now();
     const min = 60_000;
-    // The melt a bundle's cast must have (1 kg of plant scrap charged back; the balance warning is expected).
+    // The melt a bundle's cast must have: 1 kg of the seed's plant scrap (PR-8's ends and rejects)
+    // charged back, 0.98 kg of logs out. It is locked on create, so it passes the lock gates (W2-FD-S r1):
+    // logs out, a balance inside 3 %, and the reason there is no spectro result.
     await trpcMutate(owner, "foundry.melts.create", {
       castId: cast.id,
       timestamps: { preheatStart: now - 300 * min, chargingStart: now - 240 * min, chargingEnd: now - 200 * min, castingStart: now - 150 * min, castingEnd: now - 60 * min },
       ldoTenthIn: { start: 300, end: 250 },
+      spectroReason: "Certificate test melt; no sample",
       inputs: [{ kind: "return_stream", ref: scrap.id, kgG: 1000 }],
-      outputs: { logs: { pcs: 0, lengthMm: 0, kgG: 0 }, drossG: 0, feG: 0, returns: [] },
+      outputs: { logs: { pcs: 1, lengthMm: 600, kgG: 980 }, drossG: 0, feG: 0, returns: [] },
     });
     const dies = await trpcQuery<{ items: { id: string; sectionCode: string }[] }>(owner, "die.list", { search: "14701", limit: 5 });
     const die = dies.items.find((d) => d.sectionCode === "14701")!;

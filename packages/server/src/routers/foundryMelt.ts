@@ -53,6 +53,9 @@ import {
   lotRemainingSql,
   resolveBilletStore,
   resolvePlantScrap,
+  assertStreamsCover,
+  streamChargeAborts,
+  streamCharges,
 } from "../lib/foundry";
 import {
   activeStream,
@@ -404,7 +407,7 @@ async function loadDraft(ctx: Ctx, meltId: string) {
   const timesMs = [m.preheatStartAt, m.chargingStartAt, m.chargingEndAt, m.castingStartAt, m.castingEndAt].map((t) => (t ? t.getTime() : null));
   const alloyDiffers = (m.alloyId != null && c.alloyId != null && m.alloyId !== c.alloyId) || m.alloy !== c.alloy;
   const gates = meltLockGates({
-    status: m.cancelledAt ? "cancelled" : m.status,
+    status: m.cancelledAt || m.status === "corrected" ? "cancelled" : m.status,
     inputsG: inputs.map((i) => i.kgG),
     logLinesG: figures.logLinesG,
     chargingStartMs: timesMs[1] ?? null,
@@ -652,6 +655,13 @@ export const meltStepperProcedures = {
         const s = streams.get(sid);
         if (!s || !s.active) bad(`${s?.name ?? "A return stream"} is retired`);
       }
+      // FP-FD-05 (r1, I-3): a stream is never charged below its ledger balance (net of what this melt puts back).
+      const charges = streamCharges(
+        d.inputs.filter((i) => i.kind === "return_stream").map((i) => ({ streamId: i.returnStreamId!, locationId: i.locationId, kgG: i.kgG })),
+        d.outputs.filter((o) => o.returnStreamId).map((o) => ({ streamId: o.returnStreamId!, locationId: o.locationId, kgG: o.kgG })),
+      );
+      const streamName = (sid: string) => streams.get(sid)?.name ?? "a return stream";
+      await assertStreamsCover(ctx.db, companyId, charges, streamName);
       const draws = d.chemicals.filter((ch) => ch.storeItemId && ch.usedMilli > 0);
       const seq = await nextCompanySeq({ db: ctx.db }, companyId);
       const prepared: PreparedStoreDraws | null =
@@ -760,6 +770,7 @@ export const meltStepperProcedures = {
         else ledger.push(lrow(o.line, "return_stream", o.returnStreamId!, o.locationId, o.kgG, streams.get(o.returnStreamId!)?.code ?? (o.kind === "dross" ? DROSS_STREAM : FE_STREAM)));
       }
       pushChunkedInserts(statements, (rows) => ctx.db.insert(stockLedger).values(rows), ledger);
+      statements.push(...streamChargeAborts(ctx.db, companyId, charges));
       if (d.furnaceRow?.billetDiaMm) {
         statements.push(
           ctx.db
@@ -825,6 +836,7 @@ export const meltStepperProcedures = {
           }
           if (billetLocs.length > 0) await resolveBilletStore(ctx.db, companyId);
           if (scrapLocs.length > 0) await resolvePlantScrap(ctx.db, companyId);
+          await assertStreamsCover(ctx.db, companyId, charges, streamName);
           bad("This melt changed; open it again");
         }
         throw e;
@@ -926,6 +938,14 @@ export const meltStepperProcedures = {
       const txns = await liveMeltDraws(ctx, m.id);
       const blocked = storeReturnBlock(txns);
       if (blocked) bad(blocked);
+      // r1 (m-3): the copy keeps the spectro the melt was judged by (the latest live result), so a
+      // correction of a weight does not ask for a new sample or a reason.
+      const [spec] = await ctx.db
+        .select()
+        .from(spectroResult)
+        .where(and(eq(spectroResult.companyId, companyId), eq(spectroResult.meltId, m.id), isNull(spectroResult.voidedAt)))
+        .orderBy(desc(spectroResult.createdAt), desc(spectroResult.serverSeq))
+        .limit(1);
       const at = clockNow();
       const seq = await nextCompanySeq({ db: ctx.db }, companyId);
       const draftId = crypto.randomUUID();
@@ -938,7 +958,7 @@ export const meltStepperProcedures = {
           .where(and(eq(cast.id, c.id), eq(cast.companyId, companyId), eq(cast.status, "open"))),
         ctx.db
           .update(melt)
-          .set({ cancelledAt: at, cancelledBy: userId, cancelReason: reason, serverSeq: seq, updatedAt: at })
+          .set({ status: "corrected", cancelledAt: at, cancelledBy: userId, cancelReason: reason, serverSeq: seq, updatedAt: at })
           .where(
             and(
               eq(melt.id, m.id),
@@ -978,6 +998,11 @@ export const meltStepperProcedures = {
       pushChunkedInserts(statements, (rows) => ctx.db.insert(meltInput).values(rows), copy.inputs);
       pushChunkedInserts(statements, (rows) => ctx.db.insert(meltOutput).values(rows), copy.outputs);
       pushChunkedInserts(statements, (rows) => ctx.db.insert(meltChemical).values(rows), copy.chemicals);
+      if (spec) {
+        statements.push(
+          ctx.db.insert(spectroResult).values({ ...spec, id: crypto.randomUUID(), meltId: draftId, serverSeq: seq, clientRequestId: null, createdBy: userId, createdAt: at }),
+        );
+      }
       statements.push(
         ctx.db
           .update(approval)

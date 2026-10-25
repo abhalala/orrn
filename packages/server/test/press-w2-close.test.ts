@@ -133,7 +133,11 @@ describe("close gates (each)", () => {
     const other = await p.castWith(kg(500));
     const r = await p.countingRun();
     const press = p.as("press").press.runs;
+    // W2-FD-S r1 (I-1c): a run may use billets of two casts (each is charged its own); the gate now
+    // fires only when NO row is of the run's cast.
     await press.billets({ id: r.runId, castId: c.id, rows: [{ count: 2, kgG: kg(100) }, { castId: other.id, count: 1, kgG: kg(50) }] });
+    expect(await gatesOf(p, r.runId)).not.toContain("billet_cast_mismatch");
+    await press.billets({ id: r.runId, castId: c.id, rows: [{ castId: other.id, count: 2, kgG: kg(100) }] });
     expect(await gatesOf(p, r.runId)).toContain("billet_cast_mismatch");
     await press.billets({ id: r.runId, castId: c.id, rows: [{ count: 2, kgG: 0 }] });
     expect(await gatesOf(p, r.runId)).toEqual(expect.arrayContaining(["billet_row_invalid", "no_input"]));

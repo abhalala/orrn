@@ -30,7 +30,7 @@ import { stockLedger } from "@orrn/db/schema/stock";
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { atomicBatch, pushChunkedInserts } from "../lib/atomic";
-import { auditInsert } from "../lib/audit";
+import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { castCloseout } from "../lib/foundry";
 import { bad, loadCast, MELT_NOT_FOUND, type Ctx } from "../lib/foundryKit";
@@ -60,6 +60,7 @@ async function castChain(ctx: Ctx, castId: string) {
         logsPcs: melt.logsPcs,
         yieldBp: melt.yieldBp,
         castingEndAt: melt.castingEndAt,
+        lockedAt: melt.lockedAt,
         furnaceCode: furnace.code,
         correctsMeltId: melt.correctsMeltId,
       })
@@ -125,6 +126,10 @@ async function castChain(ctx: Ctx, castId: string) {
   ]);
   const latest = new Map<string, (typeof spectro)[number]>();
   for (const s of spectro) if (!latest.has(s.meltId)) latest.set(s.meltId, s);
+  // r1 (m-4): the verdict the melt was LOCKED with (latest live result at the lock), shown beside the
+  // latest, so a later pass never hides the fail it was locked on.
+  const atLock = (meltId: string, lockedAt: Date | null) =>
+    lockedAt ? (spectro.find((s) => s.meltId === meltId && s.createdAt.getTime() <= lockedAt.getTime())?.verdict ?? null) : null;
   const customers = new Map<string, { customerId: string; name: string; bundles: number; weightG: number }>();
   for (const b of bundles.slice(0, BUNDLES_MAX)) {
     if (!b.customerId) continue;
@@ -135,7 +140,7 @@ async function castChain(ctx: Ctx, castId: string) {
   }
   return {
     cast: { id: c.id, number: c.number, year: c.year, alloy: c.alloy, status: c.status, openedAt: c.openedAt, closedAt: c.closedAt },
-    melts: melts.map((m) => ({ ...m, spectroVerdict: latest.get(m.id)?.verdict ?? null })),
+    melts: melts.map((m) => ({ ...m, spectroVerdict: latest.get(m.id)?.verdict ?? null, lockSpectroVerdict: atLock(m.id, m.lockedAt) })),
     lotsIn: lotsIn.map((l) => ({ ...l, kgG: Number(l.kgG) })),
     billets: {
       producedG: billets.producedG,
@@ -143,6 +148,11 @@ async function castChain(ctx: Ctx, castId: string) {
       onHandG: billets.billetsOnHandG,
       shortG: billets.shortG,
       tailG: billets.tailG,
+      /** r1 (Q59-A): the close's count adjustment (`cast_tail` rows; − = billets the count did not find). */
+      adjustedG: billets.adjustedG,
+      /** r1: the billets counted at close (kg and pieces), null before a close. */
+      countedG: c.closeSummary?.countedG ?? null,
+      countedCount: c.closeSummary?.countedCount ?? null,
     },
     runs: runs.map((r) => ({ ...r, billetG: Number(r.billetG) })),
     bundles: bundles.slice(0, BUNDLES_MAX).map(({ customerName: _n, ...b }) => ({
@@ -222,8 +232,10 @@ export const foundryStockRouter = router({
     .input(z.object({ includeZero: z.boolean().default(false), limit: z.number().int().min(1).max(500).default(200) }).default({ includeZero: false, limit: 200 }))
     .query(async ({ ctx, input }) => {
       const g = sql<number>`sum(${stockLedger.qtyG})`;
+      // r1 (Q59-A): the count adjustment at close, part of on hand, shown on its own.
+      const adj = sql<number>`coalesce(sum(case when ${stockLedger.voucherType} = 'cast_tail' then ${stockLedger.qtyG} else 0 end), 0)`;
       const rows = await ctx.db
-        .select({ castId: stockLedger.itemRef, onHandG: g, number: cast.number, year: cast.year, alloy: cast.alloy, status: cast.status })
+        .select({ castId: stockLedger.itemRef, onHandG: g, adjustedG: adj, number: cast.number, year: cast.year, alloy: cast.alloy, status: cast.status })
         .from(stockLedger)
         .leftJoin(cast, and(eq(cast.id, stockLedger.itemRef), eq(cast.companyId, stockLedger.companyId)))
         .where(and(eq(stockLedger.companyId, ctx.companyId), eq(stockLedger.itemKind, "billet")))
@@ -231,7 +243,7 @@ export const foundryStockRouter = router({
         .having(input.includeZero ? undefined : sql`${g} <> 0`)
         .orderBy(desc(cast.year), asc(cast.number))
         .limit(input.limit);
-      const casts = rows.map((r) => ({ ...r, onHandG: Number(r.onHandG), alloy: r.alloy ?? "?" }));
+      const casts = rows.map((r) => ({ ...r, onHandG: Number(r.onHandG), adjustedG: Number(r.adjustedG), alloy: r.alloy ?? "?" }));
       const byAlloy = new Map<string, { alloy: string; casts: number; onHandG: number }>();
       for (const r of casts) {
         const a = byAlloy.get(r.alloy) ?? { alloy: r.alloy, casts: 0, onHandG: 0 };
@@ -239,7 +251,12 @@ export const foundryStockRouter = router({
         a.onHandG += r.onHandG;
         byAlloy.set(r.alloy, a);
       }
-      return { casts, byAlloy: [...byAlloy.values()].sort((a, b) => a.alloy.localeCompare(b.alloy)), totalG: casts.reduce((s, r) => s + r.onHandG, 0) };
+      return {
+        casts,
+        byAlloy: [...byAlloy.values()].sort((a, b) => a.alloy.localeCompare(b.alloy)),
+        totalG: casts.reduce((s, r) => s + r.onHandG, 0),
+        adjustedG: casts.reduce((s, r) => s + r.adjustedG, 0),
+      };
     }),
 });
 
@@ -273,12 +290,28 @@ export const foundryYieldProcedure = actionProcedure("reports.read")
       .where(and(eq(melt.companyId, ctx.companyId), eq(melt.status, "locked"), isNull(melt.cancelledAt), gte(melt.castingEndAt, new Date(start)), lt(melt.castingEndAt, new Date(end))))
       .orderBy(asc(melt.castingEndAt))
       .limit(5_000);
-    type Group = { key: string; melts: number; inputG: number; logsG: number; drossG: number; feG: number; returnsG: number; burnG: number; ldoTenthIn: number };
+    // r1 (Q59-A): the casts' count adjustments posted in the range (billets the close count did not
+    // find, or found extra), by the day they posted or the cast's alloy. A furnace cannot own one.
+    const tails = await ctx.db
+      .select({ postedAt: stockLedger.postedAt, alloy: cast.alloy, qtyG: stockLedger.qtyG })
+      .from(stockLedger)
+      .innerJoin(cast, and(eq(cast.id, stockLedger.voucherId), eq(cast.companyId, stockLedger.companyId)))
+      .where(and(eq(stockLedger.companyId, ctx.companyId), eq(stockLedger.voucherType, "cast_tail"), gte(stockLedger.postedAt, new Date(start)), lt(stockLedger.postedAt, new Date(end))))
+      .limit(5_000);
+    type Group = { key: string; melts: number; inputG: number; logsG: number; drossG: number; feG: number; returnsG: number; burnG: number; ldoTenthIn: number; tailAdjustG: number };
+    const empty = (key: string): Group => ({ key, melts: 0, inputG: 0, logsG: 0, drossG: 0, feG: 0, returnsG: 0, burnG: 0, ldoTenthIn: 0, tailAdjustG: 0 });
     const groups = new Map<string, Group>();
+    for (const t of tails) {
+      if (input.groupBy === "furnace") continue;
+      const key = input.groupBy === "day" ? shiftAt(settings, t.postedAt.getTime()).productionDay : t.alloy;
+      const g = groups.get(key) ?? empty(key);
+      g.tailAdjustG += t.qtyG;
+      groups.set(key, g);
+    }
     for (const r of rows) {
       const key =
         input.groupBy === "day" ? shiftAt(settings, r.castingEndAt!.getTime()).productionDay : input.groupBy === "alloy" ? r.alloy : (r.furnaceCode ?? "-");
-      const g = groups.get(key) ?? { key, melts: 0, inputG: 0, logsG: 0, drossG: 0, feG: 0, returnsG: 0, burnG: 0, ldoTenthIn: 0 };
+      const g = groups.get(key) ?? empty(key);
       g.melts += 1;
       g.inputG += r.inputG;
       g.logsG += r.logsG;
@@ -296,11 +329,28 @@ export const foundryYieldProcedure = actionProcedure("reports.read")
         ...g,
         yieldBp: bp(g.logsG, g.inputG),
         burnBp: bp(g.burnG, g.inputG),
-        /** LDO used per tonne charged, tenths of an inch. */
-        ldoPerTonneTenthIn: g.inputG > 0 ? Math.round((g.ldoTenthIn * 1_000_000) / g.inputG) : null,
+        /** LDO used per tonne of logs cast (FP-FD-19), tenths of an inch. r1 (m-9): was per tonne charged. */
+        ldoPerTonneTenthIn: g.logsG > 0 ? Math.round((g.ldoTenthIn * 1_000_000) / g.logsG) : null,
       }));
-    const total = out.reduce((t, g) => ({ melts: t.melts + g.melts, inputG: t.inputG + g.inputG, logsG: t.logsG + g.logsG, burnG: t.burnG + g.burnG }), { melts: 0, inputG: 0, logsG: 0, burnG: 0 });
-    return { groupBy: input.groupBy, from: input.from, to: input.to, rows: out, total: { ...total, yieldBp: bp(total.logsG, total.inputG) }, truncated: rows.length === 5_000 };
+    const total = out.reduce(
+      (t, g) => ({ melts: t.melts + g.melts, inputG: t.inputG + g.inputG, logsG: t.logsG + g.logsG, burnG: t.burnG + g.burnG }),
+      { melts: 0, inputG: 0, logsG: 0, burnG: 0 },
+    );
+    const tailAdjustG = tails.reduce((s, t) => s + t.qtyG, 0);
+    return {
+      groupBy: input.groupBy,
+      from: input.from,
+      to: input.to,
+      rows: out,
+      total: {
+        ...total,
+        yieldBp: bp(total.logsG, total.inputG),
+        /** r1: Σ count adjustments at close in the range, and the yield of the billets the counts found. */
+        tailAdjustG,
+        netYieldBp: bp(total.logsG + tailAdjustG, total.inputG),
+      },
+      truncated: rows.length === 5_000,
+    };
   });
 
 /** FOUNDRY_SIMULATOR seam: "1" / "true" turns on `readings.simulate` (never a device reading). */
@@ -360,9 +410,15 @@ export const foundryReadingsRouter = router({
           .insert(meltReading)
           .values({ id: rowId, companyId: ctx.companyId, serverSeq: seq, meltId: m.id, furnaceId: m.furnaceId, kind: "furnace_temp", valueX10: input.valueX10, readAt: new Date(readAt), source: "typed", createdBy: ctx.session.user.id })
           .onConflictDoNothing(),
-        auditInsert(ctx, { action: "foundry.reading.add", subjectType: "melt", subjectId: m.id, meta: { readingId: rowId, valueX10: input.valueX10, readAt } }),
+        // r1 (m-12): a repeated reading (same melt, instant, source) is dropped, and so is its audit.
+        auditInsertGuarded(
+          ctx,
+          { action: "foundry.reading.add", subjectType: "melt", subjectId: m.id, meta: { readingId: rowId, valueX10: input.valueX10, readAt } },
+          { from: meltReading, where: and(eq(meltReading.id, rowId), eq(meltReading.companyId, ctx.companyId)) },
+        ),
       ]);
-      return { id: rowId };
+      const [landed] = await ctx.db.select({ id: meltReading.id }).from(meltReading).where(and(eq(meltReading.id, rowId), eq(meltReading.companyId, ctx.companyId))).limit(1);
+      return { id: rowId, added: Boolean(landed) };
     }),
 
   /**

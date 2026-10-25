@@ -75,4 +75,8 @@ export const foundryRefusalEn = {
   lineTooLarge: "A line is above 100 t. Check the kg.",
   spectroOver: "The eight elements add up to more than 100 %. Check the values.",
   spectroPpm: "Spectro values must be whole ppm from 0 to 1,000,000.",
+  castCountOver: "The count finds {kg} kg more billets of {cast} than the ledger. Pick a reason.",
+  countWithKg: "Count the billets and weigh them together.",
+  streamShort: "Only {kg} kg of {stream} is in stock.",
+  spectroNoFile: "No file is attached. Write why the numbers are typed.",
 };

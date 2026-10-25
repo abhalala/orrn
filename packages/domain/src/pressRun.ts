@@ -223,7 +223,37 @@ export type CloseContext = {
   callerCanClose: boolean;
   /** BILLET ledger on hand for the run's cast, grams (read inside the write too). */
   billetOnHandG?: number | null;
+  /**
+   * W2-FD-S r1: BILLET ledger on hand per cast id, for every cast the billet rows name. When given,
+   * "short" is judged per cast (a run using casts A and B charges each its own kg) and wins over
+   * `billetOnHandG`.
+   */
+  billetOnHandByCastG?: Readonly<Record<string, number>> | null;
 };
+
+/** Σ billet kg per cast id, in first-seen order (the close posts one ledger row per cast). */
+export function billetInputByCast(billets: readonly { castId: string; kgG: number }[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const b of billets) out.set(b.castId, (out.get(b.castId) ?? 0) + (b.kgG > 0 ? b.kgG : 0));
+  return out;
+}
+
+/**
+ * Billets short per cast (D22): Σ over casts of the part of each cast's kg its own on hand cannot
+ * cover (on hand below zero counts as zero). `short` = any cast short.
+ */
+function billetShortByCast(billets: readonly { castId?: string; kgG: number }[], byCast: Readonly<Record<string, number>>): { short: boolean; shortG: number } {
+  let shortG = 0;
+  let short = false;
+  for (const [castId, kg] of billetInputByCast(billets.map((b) => ({ castId: b.castId ?? "", kgG: b.kgG })))) {
+    const onHand = byCast[castId] ?? 0;
+    if (onHand < kg) {
+      short = true;
+      shortG += kg - Math.max(0, onHand);
+    }
+  }
+  return { short, shortG };
+}
 
 export type CloseGateError =
   | "not_counting"
@@ -279,13 +309,15 @@ export function closeGates(
   }
   if (!run.castId) add("no_cast");
 
-  // Billets: 1 … 10 rows, each of the run's cast, count >= 1, kg > 0 (unweighed kg blocks, Q-PR5).
+  // Billets: 1 … 10 rows, count >= 1, kg > 0 (unweighed kg blocks, Q-PR5); one row at least of the run's cast.
   if (billets.length === 0) add("no_billets");
   if (billets.length > MAX_BILLET_ROWS) add("too_many_billets");
   for (const b of billets) {
     if (!Number.isInteger(b.count) || b.count < 1 || !Number.isInteger(b.kgG) || b.kgG <= 0) add("billet_row_invalid");
-    if (run.castId && b.castId !== run.castId) add("billet_cast_mismatch");
   }
+  // W2-FD-S r1: rows may name other casts (each is charged its own kg); the run's own cast (the one
+  // its bundles carry) must be among them.
+  if (run.castId && billets.length > 0 && !billets.some((b) => b.castId === run.castId)) add("billet_cast_mismatch");
   const inputG = billets.reduce((s, b) => s + (b.kgG > 0 ? b.kgG : 0), 0);
   if (!(inputG > 0)) add("no_input");
 
@@ -315,7 +347,10 @@ export function closeGates(
 
   // Billet balance: on hand must cover input, else a short reason (D22: the full weighed kg is still
   // debited and the shortfall is recorded on the run and shown on the cast).
-  if (ctx?.billetOnHandG != null && inputG > 0 && ctx.billetOnHandG < inputG && !validReason(run.billetShortReason)) {
+  const shortNow = ctx?.billetOnHandByCastG
+    ? billetShortByCast(billets, ctx.billetOnHandByCastG).short
+    : ctx?.billetOnHandG != null && ctx.billetOnHandG < inputG;
+  if (inputG > 0 && shortNow && !validReason(run.billetShortReason)) {
     add("billet_short_reason_missing");
   }
   if (run.timeUnconfirmed && !run.pressTimeApproved) add("time_unconfirmed");
@@ -333,12 +368,14 @@ export function closeGates(
  * kg and the run records the shortfall with its reason. `inputWeighedG` equals `inputG`.
  */
 export function closeFigures(input: {
-  billets: readonly { kgG: number }[];
+  billets: readonly { kgG: number; castId?: string }[];
   lines: readonly { goodG: number }[];
   qc: readonly { kgG: number }[];
   discardG?: number | null;
   endsG?: number | null;
   billetOnHandG?: number | null;
+  /** W2-FD-S r1: on hand per cast (wins over `billetOnHandG`); short is judged per cast. */
+  billetOnHandByCastG?: Readonly<Record<string, number>> | null;
   balanceWarnBp?: number;
 }): {
   inputG: number;
@@ -352,8 +389,9 @@ export function closeFigures(input: {
   billetShortG: number;
 } {
   const inputG = input.billets.reduce((s, b) => s + b.kgG, 0);
-  const short = input.billetOnHandG != null && input.billetOnHandG < inputG;
-  const billetShortG = short ? inputG - Math.max(0, input.billetOnHandG!) : 0;
+  const perCast = input.billetOnHandByCastG ? billetShortByCast(input.billets, input.billetOnHandByCastG) : null;
+  const short = perCast ? perCast.short : input.billetOnHandG != null && input.billetOnHandG < inputG;
+  const billetShortG = perCast ? perCast.shortG : short ? inputG - Math.max(0, input.billetOnHandG!) : 0;
   const goodG = input.lines.reduce((s, l) => s + l.goodG, 0);
   const rejectG = input.qc.reduce((s, q) => s + q.kgG, 0);
   const bal = balanceG({ inputG, goodG, discardG: input.discardG, endsG: input.endsG, rejectG, warnBp: input.balanceWarnBp });

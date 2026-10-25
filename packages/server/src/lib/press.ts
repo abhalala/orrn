@@ -187,12 +187,23 @@ export function billetOnHandSql(companyId: string, castId: string): SQL<number> 
   return sql<number>`coalesce((select sum(bl.qty_g) from stock_ledger bl where bl.company_id = ${companyId} and bl.item_kind = 'billet' and bl.item_ref = ${castId}), 0)`;
 }
 
+/** One cast's share of a run's billets (W2-FD-S r1: a run may use billets of several casts). */
+export type CloseBilletCharge = {
+  castId: string;
+  castNumber: string;
+  /** Σ this cast's billet rows, grams (the row posts −inputG). */
+  inputG: number;
+  /**
+   * D22: the cast's billets on hand the row needs at write time: min(input, on hand as read). Equal
+   * to `inputG` when the store covered it; less (even below zero) when the close records a shortfall.
+   */
+  guardG: number;
+};
+
 export type CloseLedgerInput = {
   companyId: string;
   runId: string;
   runNumber: string;
-  castId: string;
-  castNumber: string;
   seq: number;
   userId: string;
   at: Date;
@@ -200,59 +211,57 @@ export type CloseLedgerInput = {
   billetStoreId: string;
   plantScrapLocationId: string | null;
   streams: { discardId: string; plantScrapId: string } | null;
-  inputG: number;
-  /**
-   * D22: the billets on hand the row needs at write time: min(input, on hand as read). Equal to
-   * `inputG` when the store covered it; less (even below zero) when the close records a shortfall.
-   */
-  billetGuardG: number;
+  /** One entry per cast the billet rows name, the run's own cast first. */
+  billets: readonly CloseBilletCharge[];
   discardG: number;
   endsG: number;
   rejectG: number;
 };
 
 /**
- * The close's ledger rows. The billet row (−inputG, the weighed kg) is an INSERT … SELECT that
- * lands only while the run is `logged` by this request and the cast's billets on hand (read inside
- * the statement) are still at least `billetGuardG`; the caller adds a `pressAbortUnless` on it.
- * Scrap rows are plain values (they only add stock).
+ * The close's ledger rows. One billet row per cast (−that cast's weighed kg, item_ref = the cast),
+ * each an INSERT … SELECT that lands only while the run is `logged` by this request and THAT cast's
+ * billets on hand (read inside the statement) are still at least its `guardG`; the caller adds a
+ * `pressAbortUnless` per line (`billetLines`). Scrap rows are plain values (they only add stock).
  */
-export function closeLedgerStatements(db: OrrnDb, i: CloseLedgerInput): { statements: SqliteBatchItem[]; billetLine: number; lines: number } {
+export function closeLedgerStatements(
+  db: OrrnDb,
+  i: CloseLedgerInput,
+): { statements: SqliteBatchItem[]; billetLine: number; billetLines: number[]; lines: number } {
   const statements: SqliteBatchItem[] = [];
   const billetLine = i.firstLine;
   const at = i.at.getTime();
-  // Keys follow stock_ledger's column order (insert-select rule).
-  statements.push(
-    db.insert(stockLedger).select(
-      db
-        .select({
-          id: sql<string>`${crypto.randomUUID()}`.as("id"),
-          companyId: sql<string>`${i.companyId}`.as("company_id"),
-          serverSeq: sql<number>`${i.seq}`.as("server_seq"),
-          voucherType: sql<string>`'press_run'`.as("voucher_type"),
-          voucherId: sql<string>`${i.runId}`.as("voucher_id"),
-          line: sql<number>`${billetLine}`.as("line"),
-          itemKind: sql<string>`'billet'`.as("item_kind"),
-          itemRef: sql<string>`${i.castId}`.as("item_ref"),
-          locationId: sql<string>`${i.billetStoreId}`.as("location_id"),
-          qtyG: sql<number>`${-i.inputG}`.as("qty_g"),
-          postedAt: sql<number>`${at}`.as("posted_at"),
-          reversalOf: sql<string | null>`null`.as("reversal_of"),
-          reason: sql<string>`${`${i.runNumber} billets of ${i.castNumber}`}`.as("reason"),
-          createdBy: sql<string>`${i.userId}`.as("created_by"),
-          createdAt: sql<number>`${at}`.as("created_at"),
-        })
-        .from(company)
-        .where(
-          and(
-            eq(company.id, i.companyId),
-            runLanded(i.runId, i.seq, "logged"),
-            sql`${billetOnHandSql(i.companyId, i.castId)} >= ${i.billetGuardG}`,
-          ),
-        ),
-    ),
-  );
-  let line = billetLine;
+  const billetLines: number[] = [];
+  let line = billetLine - 1;
+  for (const b of i.billets) {
+    line += 1;
+    billetLines.push(line);
+    // Keys follow stock_ledger's column order (insert-select rule).
+    statements.push(
+      db.insert(stockLedger).select(
+        db
+          .select({
+            id: sql<string>`${crypto.randomUUID()}`.as("id"),
+            companyId: sql<string>`${i.companyId}`.as("company_id"),
+            serverSeq: sql<number>`${i.seq}`.as("server_seq"),
+            voucherType: sql<string>`'press_run'`.as("voucher_type"),
+            voucherId: sql<string>`${i.runId}`.as("voucher_id"),
+            line: sql<number>`${line}`.as("line"),
+            itemKind: sql<string>`'billet'`.as("item_kind"),
+            itemRef: sql<string>`${b.castId}`.as("item_ref"),
+            locationId: sql<string>`${i.billetStoreId}`.as("location_id"),
+            qtyG: sql<number>`${-b.inputG}`.as("qty_g"),
+            postedAt: sql<number>`${at}`.as("posted_at"),
+            reversalOf: sql<string | null>`null`.as("reversal_of"),
+            reason: sql<string>`${`${i.runNumber} billets of ${b.castNumber}`}`.as("reason"),
+            createdBy: sql<string>`${i.userId}`.as("created_by"),
+            createdAt: sql<number>`${at}`.as("created_at"),
+          })
+          .from(company)
+          .where(and(eq(company.id, i.companyId), runLanded(i.runId, i.seq, "logged"), sql`${billetOnHandSql(i.companyId, b.castId)} >= ${b.guardG}`)),
+      ),
+    );
+  }
   const scrap = (itemRef: string, qtyG: number, reason: string) => {
     line += 1;
     statements.push(
@@ -280,7 +289,7 @@ export function closeLedgerStatements(db: OrrnDb, i: CloseLedgerInput): { statem
     if (i.endsG > 0) scrap(i.streams.plantScrapId, i.endsG, `${i.runNumber} ends`);
     if (i.rejectG > 0) scrap(i.streams.plantScrapId, i.rejectG, `${i.runNumber} rejects`);
   }
-  return { statements, billetLine, lines: line - billetLine + 1 };
+  return { statements, billetLine, billetLines, lines: line - billetLine + 1 };
 }
 
 /** EXISTS: the close's billet row of this request landed. */

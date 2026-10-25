@@ -190,6 +190,8 @@ export function foundrySentences(): { file: string; text: string }[] {
   for (const marker of ["export function castStateMessage", "if (!d.itemActive) return", "return `${d.locationCode"]) {
     for (const text of blockLiterals(kit, marker)) out.push({ file: "lib/foundryKit.ts", text });
   }
+  // lib/foundry.ts (W2-FD-S r1, I-3): a return stream charged past its balance.
+  for (const text of blockLiterals(SRC("lib/foundry.ts"), "export function streamShortMessage")) out.push({ file: "lib/foundry.ts", text });
   return out.filter((x) => isSentence(x.text));
 }
 
