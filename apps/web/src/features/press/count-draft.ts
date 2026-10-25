@@ -10,6 +10,8 @@ import { gToKgText, type BilletDraft, type LineDraft, type QcDraft } from "./mod
 import type { RunDetail } from "./types";
 
 export type Draft = {
+  /** The saved rows this draft started against (`serverBase`); a different base means the server moved on. */
+  base: string;
   step: number;
   castId: string;
   billets: BilletDraft[];
@@ -43,6 +45,27 @@ export function textToLength(text: string, unit: LengthUnit): number | null {
   return unit === "inch" ? lengthFromInput({ unit, inches: text }) : lengthFromInput({ unit, mm: text });
 }
 
+/**
+ * A fingerprint of the entries the server holds for the run. A draft remembers the one it started
+ * against (and takes the new one after this tablet's own saves); when the server's differs at
+ * mount, another device saved in between and the server's rows win (review r1 m-6).
+ */
+export function serverBase(data: RunDetail): string {
+  return JSON.stringify([
+    data.run.castId ?? null,
+    data.billets.map((b) => [b.lengthMm, b.count, b.kgG]),
+    data.lines.map((l) => [l.pressPlanLineId ?? null, l.cutLengthMm, l.pcs, l.goodG]),
+    data.qc.map((q) => [q.pcs, q.kgG, q.reasonCodeId ?? null, q.note ?? null]),
+    data.run.pressedLengthMm ?? null,
+    data.run.discardG ?? null,
+    data.run.endsG ?? null,
+    data.run.pressRemark ?? null,
+    data.run.dieRemark ?? null,
+    data.run.billetShortReason ?? null,
+    data.run.trialResult ?? null,
+  ]);
+}
+
 export function initDraft(data: RunDetail, unit: LengthUnit): Draft {
   const savedLines = data.lines;
   const lines: LineDraft[] =
@@ -73,6 +96,7 @@ export function initDraft(data: RunDetail, unit: LengthUnit): Draft {
           }))
         : [emptyCut()];
   return {
+    base: serverBase(data),
     step: 0,
     castId: data.run.castId ?? "",
     billets:
@@ -124,11 +148,24 @@ export function clearDraft(runId: string) {
 }
 
 /**
+ * The draft a screen starts with: the stored one when it began against the rows the server holds
+ * now, otherwise the server's rows (`stale` says a stored draft was set aside). The step the person
+ * was on is kept either way.
+ */
+export function chooseDraft(stored: Draft | null, data: RunDetail, unit: LengthUnit): { draft: Draft; stale: boolean } {
+  if (!stored) return { draft: initDraft(data, unit), stale: false };
+  if (stored.base === serverBase(data)) return { draft: stored, stale: false };
+  return { draft: { ...initDraft(data, unit), step: stored.step }, stale: true };
+}
+
+/**
  * The draft of one counting run. Started once (from storage, else from the server's rows) and never
  * re-seeded by a refetch, so typing is not overwritten by a poll or a failed save.
  */
 export function useCountDraft(runId: string, data: RunDetail, unit: LengthUnit) {
-  const [draft, setDraft] = useState<Draft>(() => readStored(runId) ?? initDraft(data, unit));
+  const [start] = useState(() => chooseDraft(readStored(runId), data, unit));
+  const [draft, setDraft] = useState<Draft>(start.draft);
+  const [stale, setStale] = useState(start.stale);
   const first = useRef(true);
   useEffect(() => {
     if (first.current) {
@@ -142,5 +179,5 @@ export function useCountDraft(runId: string, data: RunDetail, unit: LengthUnit) 
     }
   }, [draft, runId]);
   const patch = useCallback((p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p })), []);
-  return { draft, setDraft, patch };
+  return { draft, setDraft, patch, stale, dismissStale: () => setStale(false) };
 }

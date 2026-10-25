@@ -11,15 +11,16 @@ import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Select } from "@orrn/ui/components/select";
 import { Stepper } from "@orrn/ui/components/stepper";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
 import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
-import { clearDraft, emptyBillet, emptyCut, emptyQc, textToLength, useCountDraft } from "./count-draft";
-import { gatesOf, pressErrorText, useActionKey } from "./hooks";
+import { clearDraft, emptyBillet, emptyCut, emptyQc, serverBase, textToLength, useCountDraft } from "./count-draft";
+import { ErrorLines } from "./error-lines";
+import { gatesOf, pressErrorText, pressErrorToast, useActionKey, useHolds } from "./hooks";
 import {
   billetRows,
   COUNT_STEPS,
@@ -28,8 +29,11 @@ import {
   kgFromG,
   kgTextToG,
   lineRows,
+  notesToSend,
   qcRows,
+  STATION_ACTION,
   stepOfGate,
+  type NoteAttempts,
 } from "./model";
 import { reasonLabel } from "./reason-label";
 import type { RunDetail } from "./types";
@@ -51,12 +55,18 @@ const unitSuffix = (unit: LengthUnit) => (unit === "inch" ? "in" : "mm");
  * (`press.runs.preview`, "not saved"); Log run is offered to press.close holders only. Nothing the
  * person typed is cleared when a save fails: the message says so and the same button tries again.
  */
-export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit: LengthUnit; canClose: boolean }) {
+export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUnit }) {
   const { t } = useT();
   const qc = useQueryClient();
   const { data: me } = useMe();
+  const holds = useHolds();
+  // A manager or admin (press.close without press.run) reads the figures and logs; the entries are
+  // read-only for them because the server refuses those writes (review r1 I-1).
+  const canRun = holds.run;
+  const canClose = holds.close;
   const runId = data.run.id;
-  const { draft, patch, setDraft } = useCountDraft(runId, data, unit);
+  const { draft, patch, setDraft, stale, dismissStale } = useCountDraft(runId, data, unit);
+  const attempts = useRef<NoteAttempts>({});
   const toMm = (text: string) => textToLength(text, unit);
   const closeKey = useActionKey();
   const [busy, setBusy] = useState(false);
@@ -96,6 +106,11 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
       qc.invalidateQueries({ queryKey: trpc.press.runs.get.queryKey({ id: runId }) }),
       qc.invalidateQueries({ queryKey: trpc.press.runs.preview.queryKey() }),
     ]);
+  };
+  /** After this tablet's own save the draft starts from what the server holds now (m-6). */
+  const syncBase = () => {
+    const fresh = qc.getQueryData(trpc.press.runs.get.queryKey({ id: runId }));
+    if (fresh) patch({ base: serverBase(fresh) });
   };
 
   const castOptions = useMemo(
@@ -142,7 +157,7 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
       } else if (step === 2) {
         const d = draft.discardText.trim() === "" ? null : kgTextToG(draft.discardText);
         const e = draft.endsText.trim() === "" ? null : kgTextToG(draft.endsText);
-        if ((draft.discardText.trim() !== "" && d === null) || (draft.endsText.trim() !== "" && e === null)) return invalid("press.console.gates.no_input");
+        if ((draft.discardText.trim() !== "" && d === null) || (draft.endsText.trim() !== "" && e === null)) return invalid("press.console.kgInvalid");
         await scrap.mutateAsync({ id: runId, discardG: d, endsG: e });
       } else if (step === 3) {
         const r = qcRows(draft.qc);
@@ -151,6 +166,7 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
         await qcMut.mutateAsync({ id: runId, rows: r.rows });
       }
       await refresh();
+      syncBase();
       return true;
     } catch (e) {
       return fail(e, again);
@@ -164,21 +180,31 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
     if (ok) patch({ step: Math.min(draft.step + 1, COUNT_STEPS.length - 1) });
   };
 
-  /** The last step's remark and reading. */
+  /**
+   * The last step's remark and reading. Neither write has an idempotency key on the server, so a
+   * retry first reads what the server holds now and sends only what is not there (m-3).
+   */
   const saveNotes = async (): Promise<boolean> => {
     setError(null);
+    if (!canRun) return true;
     try {
-      const press = draft.pressRemark.trim();
-      if (press && press !== (data.run.pressRemark ?? "")) await remark.mutateAsync({ id: runId, kind: "press", body: press });
-      const dieText = draft.dieRemark.trim();
-      if (dieText && data.copy && dieText !== (data.run.dieRemark ?? "")) await remark.mutateAsync({ id: runId, kind: "die", body: dieText });
-      if (draft.readingText.trim() !== "" && data.copy) {
-        const kg = parseDecimal(draft.readingText);
-        if (kg === null || kg <= 0) return invalid("press.console.gates.line_invalid");
-        await reading.mutateAsync({ dieInstanceId: data.copy.id, pressRunId: runId, kgPer12ftMilli: Math.round(kg * 1000) });
+      const typedReading = draft.readingText.trim() !== "" && data.copy ? parseDecimal(draft.readingText) : null;
+      if (draft.readingText.trim() !== "" && data.copy && (typedReading === null || typedReading <= 0)) return invalid("press.console.kgInvalid");
+      const fresh = await qc.fetchQuery({ ...trpc.press.runs.get.queryOptions({ id: runId }), staleTime: 0 });
+      const todo = notesToSend(
+        { pressRemark: draft.pressRemark, dieRemark: draft.dieRemark, readingMilli: typedReading === null ? null : Math.round(typedReading * 1000) },
+        { pressRemark: fresh.run.pressRemark ?? null, dieRemark: fresh.run.dieRemark ?? null, lastReadingMilli: fresh.copy?.kgPer12ftMilli ?? null },
+        Boolean(fresh.copy),
+        attempts.current,
+      );
+      if (todo.press) await remark.mutateAsync({ id: runId, kind: "press", body: todo.press });
+      if (todo.die) await remark.mutateAsync({ id: runId, kind: "die", body: todo.die });
+      if (todo.reading !== undefined && fresh.copy) {
+        attempts.current = { reading: todo.reading };
+        await reading.mutateAsync({ dieInstanceId: fresh.copy.id, pressRunId: runId, kgPer12ftMilli: todo.reading });
+        attempts.current = {};
         patch({ readingText: "" });
         setNotice(t("press.console.readingSaved"));
-        void qc.invalidateQueries({ queryKey: trpc.press.runs.get.queryKey({ id: runId }) });
       }
       return true;
     } catch (e) {
@@ -189,7 +215,10 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
     setBusy(true);
     const ok = await saveNotes();
     setBusy(false);
-    if (ok) await refresh();
+    if (ok) {
+      await refresh();
+      syncBase();
+    }
   };
 
   const logRun = async () => {
@@ -226,6 +255,9 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
   };
 
   const figures = preview.data?.figures;
+  // D22: the run is logged with the weighed kg whatever the store shows; the cast carries the shortfall.
+  const onHandKg = kgFromG(preview.data?.billetsOnHandG ?? 0);
+  const shortHint = figures?.billetShortG ? t("press.console.shortStock", { kg: onHandKg, short: kgFromG(figures.billetShortG) }) : t("press.console.shortStockNoFigure", { kg: onHandKg });
   const liveGates = (preview.data?.gates ?? []).filter((g) => canClose || (g !== "no_close_permission" && g !== "not_supervisor"));
   const shownGates = liveGates;
   const stepLabels = COUNT_STEPS.map((s) => t(`press.console.steps.${s}` as MessageKey));
@@ -238,7 +270,17 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
   return (
     <div className="flex min-w-0 flex-col gap-4" data-slot="counting" data-step={draft.step}>
       <Stepper steps={stepLabels} current={draft.step} />
+      {stale ? (
+        <div role="status" data-slot="draft-stale" className="flex flex-wrap items-center gap-2 rounded-card border border-border bg-card p-3 text-[14px] font-medium">
+          <span className="min-w-0 flex-1 basis-[12rem]">{t("press.console.draftStale")}</span>
+          <Button variant="ghost" size="xs" onClick={dismissStale}>
+            {t("press.console.ok")}
+          </Button>
+        </div>
+      ) : null}
 
+      {/* Entries are press.run writes: for a press.close holder without press.run the fieldset is read-only. */}
+      <fieldset disabled={!canRun} data-slot="entries" className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
       {draft.step === 0 ? (
         <Card className="gap-4">
           <Field label={t("press.console.castPick")}>
@@ -288,9 +330,15 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
 
       {draft.step === 1 ? (
         <Card className="gap-4">
-          {draft.lines.map((row, i) => {
-            const saved = data.lines.find((l) => l.pressPlanLineId === row.pressPlanLineId && row.pressPlanLineId);
-            const hint = saved?.theoreticalG ?? data.lines[i]?.theoreticalG ?? null;
+          {draft.lines.map((row) => {
+            // The weight hint is the saved line's own: the same order line, else (a typed cut) the same length.
+            const typedMm = row.cutLengthMm ?? toMm(row.cutText);
+            const saved = row.pressPlanLineId
+              ? data.lines.find((l) => l.pressPlanLineId === row.pressPlanLineId)
+              : typedMm !== null
+                ? data.lines.find((l) => !l.pressPlanLineId && l.cutLengthMm === typedMm)
+                : undefined;
+            const hint = saved?.theoreticalG ?? null;
             return (
               <div key={row.key} className="grid grid-cols-1 gap-3 rounded-card bg-surface-sunken p-3 sm:grid-cols-2" data-slot="cut-row">
                 <div className="min-w-0 sm:col-span-2">
@@ -462,6 +510,13 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
               </Field>
             </Can>
           ) : null}
+        </Card>
+      ) : null}
+      </fieldset>
+
+      {/* What goes with the close itself (press.close): outside the read-only entries. */}
+      {last && (data.run.purpose === "die_trial" || figures?.short || refusedShort) ? (
+        <Card className="gap-4">
           {data.run.purpose === "die_trial" ? (
             <div className="flex flex-col gap-2">
               <p className="m-0 text-[13px] font-medium text-muted-foreground">{t("press.console.trialResult")}</p>
@@ -477,7 +532,7 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
             </div>
           ) : null}
           {figures?.short || refusedShort ? (
-            <Field label={t("press.console.billetShortReason")} hint={`${t("press.console.shortStock", { kg: kgFromG(preview.data?.billetsOnHandG ?? 0) })}${figures?.billetShortG ? ` ${t("press.console.billetsShortBy", { kg: kgFromG(figures.billetShortG) })}.` : ""}`}>
+            <Field label={t("press.console.billetShortReason")} hint={shortHint}>
               <TextArea value={draft.billetShortReason} rows={2} maxLength={500} onChangeText={(billetShortReason) => patch({ billetShortReason })} />
             </Field>
           ) : null}
@@ -507,7 +562,7 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
             <Button
               variant="secondary"
               disabled={confirmTime.isPending}
-              onClick={() => confirmTime.mutate({ id: runId }, { onSuccess: () => void refresh(), onError: (e) => toast.error(pressErrorText(t, e)) })}
+              onClick={() => confirmTime.mutate({ id: runId }, { onSuccess: () => void refresh(), onError: (e) => toast.error(pressErrorToast(t, e)) })}
             >
               {t("press.console.timeAsk")}
             </Button>
@@ -517,8 +572,8 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
       {data.run.lateEntry && !data.run.lateEntryApproved ? <p className="m-0 text-[14px] font-medium">{t("press.console.lateWaiting")}</p> : null}
 
       {error ? (
-        <div role="alert" className="flex flex-col gap-2 rounded-card border border-border bg-card p-3" data-slot="save-error">
-          <p className="m-0 text-[15px] font-medium text-destructive">{error.message}</p>
+        <div className="flex flex-col gap-2 rounded-card border border-border bg-card p-3" data-slot="save-error">
+          <ErrorLines message={error.message} className="m-0 text-[15px] font-medium text-destructive" />
           {error.retry ? (
             <Button variant="secondary" onClick={error.retry} disabled={busy}>
               {t("press.console.retry")}
@@ -551,15 +606,26 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
           </Button>
         ) : null}
         {!last ? (
-          <Button size="lg" disabled={busy} aria-busy={busy} onClick={() => void next()}>
-            {t("press.console.saveNext")}
-          </Button>
+          <Can
+            do={STATION_ACTION.saveCount}
+            fallback={
+              <Button size="lg" onClick={() => patch({ step: Math.min(draft.step + 1, COUNT_STEPS.length - 1) })}>
+                {t("press.console.next")}
+              </Button>
+            }
+          >
+            <Button size="lg" disabled={busy} aria-busy={busy} onClick={() => void next()}>
+              {t("press.console.saveNext")}
+            </Button>
+          </Can>
         ) : (
           <>
-            <Button variant="secondary" size="lg" disabled={busy} onClick={() => void saveNotesClick()}>
-              {t("press.console.save")}
-            </Button>
-            <Can do="press.close">
+            <Can do={STATION_ACTION.saveCount}>
+              <Button variant="secondary" size="lg" disabled={busy} onClick={() => void saveNotesClick()}>
+                {t("press.console.save")}
+              </Button>
+            </Can>
+            <Can do={STATION_ACTION.logRun}>
               <Button size="lg" disabled={busy} aria-busy={busy} onClick={() => void logRun()}>
                 {t("press.console.logRun")}
               </Button>
@@ -567,7 +633,11 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
           </>
         )}
       </FormActions>
-      {last && !canClose ? <p className="m-0 text-[14px] text-muted-foreground">{t("press.console.waitingSupervisor")}</p> : null}
+      {last ? (
+        <Can do={STATION_ACTION.logRun} fallback={<p className="m-0 text-[14px] text-muted-foreground">{t("press.console.waitingSupervisor")}</p>}>
+          {null}
+        </Can>
+      ) : null}
     </div>
   );
 }

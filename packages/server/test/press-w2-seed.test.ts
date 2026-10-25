@@ -26,7 +26,7 @@ afterAll(async () => {
 const companyId = "dev-company-orrn";
 
 describe("dev seed: Wave 2 press demo (idempotent)", () => {
-  test("PR-1 die_issued, PR-2 logged today with children + ledger, PR-3 late entry pending; the owner can decide it", async () => {
+  test("PR-1 die_issued, PR-8 logged today with children + ledger, PR-9 late entry pending; the owner can decide it", async () => {
     for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
       await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
     }

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { can, type CompanyRole } from "@orrn/server/lib/permissions";
 import { en } from "@orrn/i18n/en";
 import { hi } from "@orrn/i18n/hi";
 import { gu } from "@orrn/i18n/gu";
@@ -15,13 +16,17 @@ import {
   gateSentences,
   isLastStep,
   kgTextToG,
+  LATE_ENTRY_DAYS,
+  lateEntryIssue,
   lineRows,
   movedOrder,
+  notesToSend,
   percentOfBp,
   pollIntervalFor,
   qcRows,
   reorderTarget,
   splitQueue,
+  STATION_ACTION,
   stationActions,
   stepOfGate,
   stepStates,
@@ -61,29 +66,59 @@ describe("station banner and actions", () => {
     expect(bannerOf("counting")).toBe("counting");
     expect(bannerOf("logged")).toBe("logged");
     expect(bannerOf("voided")).toBe("voided");
-    const press = { run: true, close: false };
-    expect(stationActions("queued", press).start).toBe(false);
-    expect(stationActions("die_issued", press).start).toBe(true);
-    expect(stationActions("running", press).stop).toBe(true);
-    expect(stationActions("running", press).start).toBe(false);
-    expect(stationActions("stopped", press).count).toBe(true);
+    expect(stationActions("queued").start).toBe(false);
+    expect(stationActions("die_issued").start).toBe(true);
+    expect(stationActions("running").stop).toBe(true);
+    expect(stationActions("running").start).toBe(false);
+    expect(stationActions("stopped").count).toBe(true);
   });
 
-  test("Log run and Request reopen are for press.close holders only; a viewer gets nothing", () => {
-    expect(stationActions("counting", { run: true, close: false }).logRun).toBe(false);
-    expect(stationActions("counting", { run: true, close: true }).logRun).toBe(true);
-    expect(stationActions("logged", { run: true, close: false }).requestReopen).toBe(false);
-    expect(stationActions("logged", { run: true, close: true }).requestReopen).toBe(true);
-    const none = stationActions("running", { run: false, close: false });
-    expect(Object.values(none).every((v) => v === false)).toBe(true);
+  test("what each state offers does not depend on who looks: the button's <Can> decides the rest", () => {
+    expect(stationActions("counting").logRun).toBe(true);
+    expect(stationActions("logged").requestReopen).toBe(true);
+    expect(stationActions("logged").logRun).toBe(false);
+    expect(stationActions("queued").void).toBe(true);
+    expect(stationActions("die_issued").void).toBe(true);
+    expect(stationActions("running").void).toBe(false);
+    expect(Object.values(stationActions("voided")).every((v) => v === false)).toBe(true);
+  });
+
+  test("every station button names the action it needs; the matrix is the server's (review r1 I-1, m-1, m-2)", () => {
+    const holds = (role: CompanyRole, button: keyof typeof STATION_ACTION) => {
+      const need = STATION_ACTION[button];
+      const me = { company: { role }, isPlatformAdmin: false, platformRole: null };
+      return (Array.isArray(need) ? need : [need]).some((a) => can(me as never, a));
+    };
+    // Manager and admin hold press.close but not press.run: they see the counting panel and Log run.
+    for (const role of ["manager", "admin"] as const) {
+      expect(holds(role, "countingPanel")).toBe(true);
+      expect(holds(role, "logRun")).toBe(true);
+      expect(holds(role, "requestReopen")).toBe(true);
+      expect(holds(role, "start")).toBe(false);
+      expect(holds(role, "saveCount")).toBe(false);
+    }
+    expect(holds("owner", "logRun")).toBe(true);
+    // The supervisor does both; the press man runs but never logs or reopens.
+    expect(holds("supervisor", "logRun")).toBe(true);
+    expect(holds("supervisor", "saveCount")).toBe(true);
+    expect(holds("press", "start")).toBe(true);
+    expect(holds("press", "countingPanel")).toBe(true);
+    expect(holds("press", "logRun")).toBe(false);
+    expect(holds("press", "requestReopen")).toBe(false);
+    expect(holds("press", "void")).toBe(false);
+    // Void: press.close holders and the planner (order.plan: office), as the server allows.
+    expect(holds("office", "void")).toBe(true);
+    expect(holds("manager", "void")).toBe(true);
+    expect(holds("supervisor", "void")).toBe(true);
+    // A viewer gets nothing.
+    for (const button of Object.keys(STATION_ACTION) as (keyof typeof STATION_ACTION)[]) expect({ button, viewer: holds("viewer", button) }).toEqual({ button, viewer: false });
   });
 
   test("downtime only while running or stopped; handover on an open run", () => {
-    const c = { run: true, close: false };
-    expect(stationActions("running", c).downtime).toBe(true);
-    expect(stationActions("counting", c).downtime).toBe(false);
-    expect(stationActions("counting", c).handover).toBe(true);
-    expect(stationActions("logged", c).handover).toBe(false);
+    expect(stationActions("running").downtime).toBe(true);
+    expect(stationActions("counting").downtime).toBe(false);
+    expect(stationActions("counting").handover).toBe(true);
+    expect(stationActions("logged").handover).toBe(false);
   });
 
   test("a running run polls every 10 s, nothing else polls", () => {
@@ -196,5 +231,47 @@ describe("formatting", () => {
     expect(elapsedText(125_000)).toBe("02:05");
     expect(percentOfBp(7545)).toBe("75.5");
     expect(percentOfBp(null)).toBe("");
+  });
+});
+
+describe("remark and die reading retries are idempotent (review r1 m-3)", () => {
+  const server = { pressRemark: "Ram slow", dieRemark: null, lastReadingMilli: 2700 };
+  const typed = { pressRemark: "Ram slow", dieRemark: "", readingMilli: null };
+
+  test("a remark the server already holds is not sent again, a changed one is", () => {
+    expect(notesToSend(typed, server, true, {})).toEqual({});
+    expect(notesToSend({ ...typed, pressRemark: "  Ram slow  " }, server, true, {})).toEqual({});
+    expect(notesToSend({ ...typed, pressRemark: "Ram slow again" }, server, true, {})).toEqual({ press: "Ram slow again" });
+    expect(notesToSend({ ...typed, pressRemark: "" }, server, true, {})).toEqual({});
+  });
+
+  test("a die remark needs a die copy", () => {
+    expect(notesToSend({ ...typed, dieRemark: "Bearing worn" }, server, true, {})).toEqual({ die: "Bearing worn" });
+    expect(notesToSend({ ...typed, dieRemark: "Bearing worn" }, server, false, {})).toEqual({});
+  });
+
+  test("a reading whose first send may have landed (same value now the latest) is skipped; a new measurement is sent", () => {
+    expect(notesToSend({ ...typed, readingMilli: 2700 }, server, true, {})).toEqual({ reading: 2700 });
+    expect(notesToSend({ ...typed, readingMilli: 2700 }, server, true, { reading: 2700 })).toEqual({});
+    expect(notesToSend({ ...typed, readingMilli: 2710 }, server, true, { reading: 2700 })).toEqual({ reading: 2710 });
+    expect(notesToSend({ ...typed, readingMilli: 2700 }, server, false, {})).toEqual({});
+  });
+});
+
+describe("late entry window (review r1 I-3)", () => {
+  const now = Date.UTC(2026, 9, 24, 12, 0);
+  const day = 86_400_000;
+
+  test("the rule is 7 days", () => {
+    expect(LATE_ENTRY_DAYS).toBe(7);
+  });
+
+  test("order, future stop and older than 7 days are each named; a good window passes", () => {
+    expect(lateEntryIssue({ startMs: now - 3_600_000, stopMs: now - 7_200_000, nowMs: now })).toBe("order");
+    expect(lateEntryIssue({ startMs: now - 7_200_000, stopMs: now + 60_000, nowMs: now })).toBe("future");
+    expect(lateEntryIssue({ startMs: now - 7 * day - 1, stopMs: now - 7 * day + 3_600_000, nowMs: now })).toBe("tooOld");
+    expect(lateEntryIssue({ startMs: now - 7 * day, stopMs: now - 7 * day + 3_600_000, nowMs: now })).toBeNull();
+    expect(lateEntryIssue({ startMs: now - 3 * 3_600_000, stopMs: now - 2 * 3_600_000, nowMs: now })).toBeNull();
+    expect(lateEntryIssue({ startMs: null, stopMs: now, nowMs: now })).toBe("order");
   });
 });

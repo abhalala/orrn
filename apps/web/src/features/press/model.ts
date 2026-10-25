@@ -7,6 +7,7 @@
  */
 import { bpPercent1, formatKg, formatKgTotal, gToKg, parseDecimal, PRESS_QUEUE_REORDERABLE, type CloseGateError, type PressRunStatus } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
+import type { Action } from "@/shared/lib/me";
 
 // ---------------------------------------------------------------------------
 // Close gates
@@ -81,8 +82,11 @@ export function bannerOf(status: PressRunStatus): Banner {
   }
 }
 
-export type StationCaps = { run: boolean; close: boolean };
-
+/**
+ * What a state offers, whoever looks. Who may press it is the button's `<Can>` (`STATION_ACTION`);
+ * nothing here reads a role, so a manager (press.close without press.run) is never hidden from
+ * a button by a hand-made boolean (review r1 I-1).
+ */
 export type StationActions = {
   /** Start is offered only when the die is issued; a queued run never has a Start button. */
   start: boolean;
@@ -90,26 +94,51 @@ export type StationActions = {
   /** Stopped → running again. */
   resume: boolean;
   count: boolean;
-  /** The counting stepper's "Log run" button (press.close holders only). */
+  /** The counting stepper's "Log run" button. */
   logRun: boolean;
   requestReopen: boolean;
   downtime: boolean;
   handover: boolean;
+  /** Void before the press started (queued or die issued). */
+  void: boolean;
 };
 
-export function stationActions(status: PressRunStatus, caps: StationCaps): StationActions {
+export function stationActions(status: PressRunStatus): StationActions {
   const open = status === "die_issued" || status === "running" || status === "stopped" || status === "counting";
   return {
-    start: caps.run && status === "die_issued",
-    stop: caps.run && status === "running",
-    resume: caps.run && status === "stopped",
-    count: caps.run && status === "stopped",
-    logRun: caps.close && status === "counting",
-    requestReopen: caps.close && status === "logged",
-    downtime: caps.run && (status === "running" || status === "stopped"),
-    handover: caps.run && open,
+    start: status === "die_issued",
+    stop: status === "running",
+    resume: status === "stopped",
+    count: status === "stopped",
+    logRun: status === "counting",
+    requestReopen: status === "logged",
+    downtime: status === "running" || status === "stopped",
+    handover: open,
+    void: status === "queued" || status === "die_issued",
   };
 }
+
+/**
+ * The permission each station button is wrapped in (`<Can do={STATION_ACTION.x}>`), as the server
+ * guards the procedure behind it. An array means any of them.
+ */
+export const STATION_ACTION = {
+  start: "press.run",
+  stop: "press.run",
+  resume: "press.run",
+  count: "press.run",
+  undoStart: "press.run",
+  handover: "press.run",
+  downtime: "press.run",
+  /** The stepper is shown to anyone who enters (press.run) or logs (press.close) the figures. */
+  countingPanel: ["press.run", "press.close"],
+  /** Save and next, Save: the entries themselves are press.run writes. */
+  saveCount: "press.run",
+  logRun: "press.close",
+  requestReopen: "press.close",
+  /** Server `press.runs.void` is press.close or order.plan (the planner voids a run before it starts). */
+  void: ["press.close", "order.plan"],
+} as const satisfies Record<string, Action | readonly Action[]>;
 
 /** The station re-reads a running run every 10 s (spec E3); other states only on focus. */
 export const RUNNING_POLL_MS = 10_000;
@@ -315,4 +344,45 @@ export function elapsedText(ms: number): string {
 /** Recovery in basis points as "78.4" (the server sends `recoveryPct` for a run; reports and Today send bp). */
 export function percentOfBp(bp: number | null | undefined): string {
   return bp === null || bp === undefined ? "" : bpPercent1(bp);
+}
+
+// ---------------------------------------------------------------------------
+// Remark and reading: send each once (review r1 m-3)
+// ---------------------------------------------------------------------------
+
+export type TypedNotes = { pressRemark: string; dieRemark: string; readingMilli: number | null };
+/** What the server holds now (read fresh, after a failed close). */
+export type ServerNotes = { pressRemark: string | null; dieRemark: string | null; lastReadingMilli: number | null };
+/** Values a send was started for and not confirmed (the response may have been lost). */
+export type NoteAttempts = { reading?: number };
+
+/**
+ * What of the last step still has to be sent. The remarks and the reading have no idempotency key
+ * on the server, so a retry must not repeat a write that landed: a remark equal to the server's
+ * latest is done; a reading is skipped only when a send of that very value was started and the
+ * server's latest reading already equals it (a genuinely repeated measurement is still sent).
+ */
+export function notesToSend(typed: TypedNotes, server: ServerNotes, hasCopy: boolean, attempts: NoteAttempts): { press?: string; die?: string; reading?: number } {
+  const out: { press?: string; die?: string; reading?: number } = {};
+  const press = typed.pressRemark.trim();
+  if (press && press !== (server.pressRemark ?? "")) out.press = press;
+  const die = typed.dieRemark.trim();
+  if (hasCopy && die && die !== (server.dieRemark ?? "")) out.die = die;
+  if (hasCopy && typed.readingMilli !== null && !(attempts.reading === typed.readingMilli && server.lastReadingMilli === typed.readingMilli)) out.reading = typed.readingMilli;
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Late entry window
+// ---------------------------------------------------------------------------
+
+/** A late entry may start at most this many days ago (server `LATE_ENTRY_MAX_DAYS`). */
+export const LATE_ENTRY_DAYS = 7;
+
+/** Why a late entry's times cannot go to the server, or null. */
+export function lateEntryIssue(t: { startMs: number | null; stopMs: number | null; nowMs: number }): "order" | "future" | "tooOld" | null {
+  if (t.startMs === null || t.stopMs === null || !(t.startMs < t.stopMs)) return "order";
+  if (t.stopMs > t.nowMs) return "future";
+  if (t.startMs < t.nowMs - LATE_ENTRY_DAYS * 86_400_000) return "tooOld";
+  return null;
 }

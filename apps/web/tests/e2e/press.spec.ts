@@ -15,8 +15,12 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
  *
  * Each width gets its own press line, die copies and plan, created through the API in `beforeAll`
  * (the first run's one-running-per-press rule and the three widths running in parallel must not
- * meet), and retires them afterwards. Roles: press (press.run), supervisor (press.run + press.close
- * + press.queue), office (press.queue only), viewer (reads).
+ * meet), and removes them afterwards (`cleanup`: every open run is finished or voided, approvals it
+ * left are decided, the press and the die copies are retired; it runs from afterAll, so a failed test
+ * still cleans up, and it throws when something could not be undone). Roles: press (press.run),
+ * supervisor (press.run + press.close + press.queue), office (press.queue and void), viewer (reads),
+ * and a manager (press.close without press.run), made by re-roling the unused `operator` seed
+ * member for the manager describe only and restored afterwards.
  */
 
 const API = API_URL;
@@ -122,14 +126,20 @@ type Fixture = {
   readyCopy: { id: string; code: string };
   lateCopy: { id: string; code: string };
 };
+/** What a describe has created so far, filled as it goes so a half-built fixture is still cleaned. */
+type Created = { lines: string[]; copies: string[] };
+const newCreated = (): Created => ({ lines: [], copies: [] });
 
-async function makeFixture(width: number): Promise<Fixture> {
+async function makeFixture(width: number, created: Created): Promise<Fixture> {
   const owner = await apiAs("owner");
   try {
     const lineCode = `E${width}${Math.random().toString(36).slice(2, 5)}`.toUpperCase();
     const line = await owner.m<{ id: string }>("press.lines.create", { code: lineCode, name: `E2E ${width}` });
+    created.lines.push(line.id);
     const readyCopy = await owner.m<{ id: string; code: string }>("dieInstance.create", { sectionId: "dev-die-13090", status: "available" });
+    created.copies.push(readyCopy.id);
     const lateCopy = await owner.m<{ id: string; code: string }>("dieInstance.create", { sectionId: "dev-die-14701", status: "available" });
+    created.copies.push(lateCopy.id);
     await owner.m("dieInstance.addReading", { dieInstanceId: readyCopy.id, kgPer12ftMilli: 2700 });
     const now = Date.now();
     const plan = await owner.m<{ id: string }>("plans.create", {
@@ -150,35 +160,89 @@ async function makeFixture(width: number): Promise<Fixture> {
   }
 }
 
-/** Void what is still open and retire the test press, so the plant is as it was. */
-async function cleanup(fx: Fixture | undefined) {
-  if (!fx) return;
-  const owner = await apiAs("owner");
-  try {
+type RunGet = {
+  run: { id: string; number: string; status: string; castId: string | null };
+  planLines: { id: string; cutLengthMm: number }[];
+  downtime: { id: string; stoppedAt: string | null }[];
+  approvals: { id: string; kind: string; status: string }[];
+  copy: { id: string } | null;
+};
+
+/** Bring one run to a final state through the API: void it before it starts, otherwise count and log it. */
+async function settleRun(owner: Api, runId: string): Promise<string[]> {
+  const notes: string[] = [];
+  const get = () => owner.q<RunGet>("press.runs.get", { id: runId });
+  let got = await get();
+  if (got.run.status === "logged" || got.run.status === "voided") {
+    // A reopen the test asked for stays a request: reject it so the run stays logged.
+    for (const a of got.approvals.filter((x) => x.kind === "press_reopen" && x.status === "pending")) await owner.m("approval.decide", { id: a.id, decision: "rejected", note: "e2e cleanup" });
+    return notes;
+  }
+  if (got.run.status === "queued" || got.run.status === "die_issued") {
     const reasons = await owner.q<{ id: string; code: string }[]>("press.reasons", { kind: "void" });
-    const reasonCodeId = reasons.find((r) => r.code === "other")?.id ?? reasons[0]!.id;
-    const runs = await owner.q<{ items: { id: string; status: string }[] }>("press.runs.list", { pressLineId: fx.lineId, limit: 100 });
-    for (const r of runs.items) {
-      if (r.status === "logged" || r.status === "voided") continue;
-      if (r.status === "counting" || r.status === "running" || r.status === "stopped") continue;
-      await owner.m("press.runs.void", { id: r.id, reasonCodeId, note: "e2e cleanup" }).catch(() => {});
+    await owner.m("press.runs.void", { id: runId, reasonCodeId: (reasons.find((r) => r.code === "other") ?? reasons[0]!).id, note: "e2e cleanup" });
+    return notes;
+  }
+  if (got.run.status === "running") await owner.m("press.runs.stop", { id: runId });
+  got = await get();
+  if (got.run.status === "stopped") await owner.m("press.runs.count", { id: runId });
+  got = await get();
+  for (const d of got.downtime.filter((x) => !x.stoppedAt)) await owner.m("press.downtime.stop", { id: d.id });
+  for (const a of got.approvals.filter((x) => x.status === "pending" && (x.kind === "press_late_entry" || x.kind === "press_time"))) {
+    await owner.m("approval.decide", { id: a.id, decision: "approved", note: "e2e cleanup" });
+  }
+  // Whoever opened the run (a late entry's supervisor) is its supervisor and the only one who may log it.
+  await owner.m("press.runs.handover", { id: runId, supervisorId: null });
+  // The smallest honest entries: one billet of the cast with most stock, one piece per released line.
+  const casts = await owner.q<{ items: { id: string; billetsOnHandG: number }[] }>("foundry.casts.list", { limit: 200 });
+  const cast = [...casts.items].sort((a, b) => b.billetsOnHandG - a.billetsOnHandG)[0]!;
+  await owner.m("press.runs.billets", { id: runId, castId: got.run.castId ?? cast.id, rows: [{ lengthMm: 600, count: 1, kgG: 10_000 }] });
+  const rows = got.planLines.length > 0 ? got.planLines.map((p) => ({ cutLengthMm: p.cutLengthMm, pcs: 1, goodG: 1000, pressPlanLineId: p.id })) : [{ cutLengthMm: 3658, pcs: 1, goodG: 1000 }];
+  await owner.m("press.runs.lines", { id: runId, rows });
+  await owner.m("press.runs.qc", { id: runId, rows: [{ pcs: 0, kgG: 0, reasonCodeId: null, note: null, runLine: null }] });
+  await owner.m("press.runs.close", { id: runId });
+  notes.push(`${got.run.number} finished`);
+  return notes;
+}
+
+/**
+ * Leave the plant as it was: finish or void every run on the lines this describe made, retire the
+ * lines and the die copies. Collects what fails and throws it, so a leftover is never silent.
+ */
+async function cleanup(created: Created) {
+  const owner = await apiAs("owner");
+  const problems: string[] = [];
+  const attempt = async (what: string, fn: () => Promise<unknown>) => {
+    try {
+      await fn();
+    } catch (e) {
+      problems.push(`${what}: ${e instanceof Error ? e.message : String(e)}`);
     }
-    await owner.m("press.lines.retire", { id: fx.lineId }).catch(() => {});
+  };
+  try {
+    for (const lineId of created.lines) {
+      const runs = await owner.q<{ items: { id: string; number: string }[] }>("press.runs.list", { pressLineId: lineId, limit: 100 });
+      for (const r of runs.items) await attempt(`settle ${r.number}`, () => settleRun(owner, r.id));
+      await attempt(`retire line ${lineId}`, () => owner.m("press.lines.retire", { id: lineId }));
+    }
+    for (const copyId of created.copies) await attempt(`retire copy ${copyId}`, () => owner.m("dieInstance.update", { id: copyId, status: "retired" }));
   } finally {
     await owner.dispose();
   }
+  if (problems.length > 0) throw new Error(`e2e cleanup left things behind:\n${problems.join("\n")}`);
 }
 
 for (const width of WIDTHS) {
   test.describe(`press at ${width}`, () => {
     test.describe.configure({ mode: "serial" });
     let fx: Fixture;
+    const created = newCreated();
 
     test.beforeAll(async () => {
-      fx = await makeFixture(width);
+      fx = await makeFixture(width, created);
     });
     test.afterAll(async () => {
-      await cleanup(fx);
+      await cleanup(created);
     });
 
     test("line board shows P1, P2 and the test press with running and waiting counts", async ({ browser }) => {
@@ -239,9 +303,22 @@ for (const width of WIDTHS) {
       await expect(page.getByRole("button", { name: "Start", exact: true })).toHaveCount(0);
       await expect(page.getByRole("heading", { name: fx.queued.number, level: 1 })).toBeVisible();
       await expect(page.locator('[data-slot="released"]')).toContainText("SO-1");
+      // The line rows say "pcs" like the total does (units.pcs), never the column label "Pcs".
+      await expect(page.locator('[data-slot="released"] li').first()).toContainText(/× 10 pcs · /);
+      await expect(page.locator('[data-slot="released"]')).not.toContainText("Pcs");
+      await expect(page.getByRole("button", { name: "Void run" })).toBeVisible();
       await shot(page, width, "station-locked");
       await clean(page);
       await context.close();
+
+      // Void is offered to the office too (order.plan, as the server allows), not to the press man.
+      const office = await openAs(browser, "office", width, `/press/runs/${fx.queued.id}`);
+      await expect(office.page.getByRole("button", { name: "Void run" })).toBeVisible();
+      await office.context.close();
+      const pressMan = await openAs(browser, "press", width, `/press/runs/${fx.queued.id}`);
+      await expect(pressMan.page.locator('[data-banner="locked"]')).toBeVisible();
+      await expect(pressMan.page.getByRole("button", { name: "Void run" })).toHaveCount(0);
+      await pressMan.context.close();
 
       const viewer = await openAs(browser, "viewer", width, `/press/runs/${fx.ready.id}`);
       await expect(viewer.page.locator('[data-banner="ready"]')).toBeVisible();
@@ -309,6 +386,10 @@ for (const width of WIDTHS) {
       const row = page.locator('[data-slot="downtime"] li[data-open="true"]');
       await expect(row).toContainText("Waiting for billets");
       await expect(row).toContainText(/Stopped since \d{2}:\d{2}/);
+      // The shift fact keeps its date on one line ("2026-10-24" never breaks at a hyphen).
+      const day = page.locator('[data-slot="run-card"] dd span.whitespace-nowrap').first();
+      await expect(day).toHaveText(/^\d{4}-\d{2}-\d{2}$/);
+      expect((await day.boundingBox())!.height).toBeLessThan(30);
       await shot(page, width, "station-running");
       await page.getByRole("button", { name: "Press running again" }).click();
       await expect(page.locator('[data-slot="downtime"] li[data-open="false"]')).toContainText(/\d+ min/);
@@ -350,7 +431,7 @@ for (const width of WIDTHS) {
       await page.getByLabel("Butt kg", { exact: true }).fill("6");
       await page.getByLabel("Ends kg", { exact: true }).fill("3");
       await page.getByRole("button", { name: "Save and next" }).click();
-      // Step 4: rejects, 3 pieces and 7 kg for a bend.
+      // Step 4: rejects, 3 pieces weighing 1.7 kg for a bend.
       await page.getByLabel("Reject kg", { exact: true }).fill("1.7");
       await page.getByLabel("Reject pieces", { exact: true }).fill("3");
       await pickOption(page, page.getByLabel("Reject reason", { exact: true }), "Bend");
@@ -360,9 +441,17 @@ for (const width of WIDTHS) {
       await page.getByRole("button", { name: "Save", exact: true }).click();
       await expect.poll(async () => (await owner.q<{ run: { pressRemark: string | null } }>("press.runs.get", { id: fx.ready.id })).run.pressRemark).toBe("Ram slow on the third billet");
 
-      // The same entries survive a reload (they are on the server, and the typed draft is kept).
+      // The same entries survive a reload: the typed draft is kept on this tablet (same step, same text)
+      // and what was saved is on the server.
       await page.reload();
       await expect(page.locator('[data-banner="counting"]')).toBeVisible();
+      await expect(page.locator('[data-slot="counting"]')).toHaveAttribute("data-step", "4");
+      await expect(page.getByLabel("Press remark", { exact: true })).toHaveValue("Ram slow on the third billet");
+      for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Back" }).click();
+      await expect(page.getByLabel("Weighed kg", { exact: true })).toHaveValue("77");
+      await expect(page.getByLabel("Billets", { exact: true })).toHaveValue("4");
+      // Nothing says another device changed the figures: this tablet saved them itself.
+      await expect(page.locator('[data-slot="draft-stale"]')).toHaveCount(0);
 
       const preview = await owner.q<{ saved: boolean; figures: { recoveryPct: string | null; inputG: number; goodG: number; rejectG: number; balanceG: number }; gates: string[] }>("press.runs.preview", { id: fx.ready.id });
       expect(preview.saved).toBe(false);
@@ -414,8 +503,28 @@ for (const width of WIDTHS) {
       await expect(page.getByTestId("preview-recovery")).toHaveText("75.5%");
       await expect(page.getByTestId("preview-balance")).toHaveText("8.2 kg");
       await shot(page, width, "count-last-supervisor");
+      // The connection drops on the first Log run: what was typed stays, and Try again sends the SAME
+      // clientMutationId (a replay, never a second log).
+      const sent: string[] = [];
+      let drop = true;
+      await page.route(/\/trpc\/press\.runs\.close/, async (route) => {
+        sent.push(/"clientMutationId":"([^"]+)"/.exec(route.request().postData() ?? "")?.[1] ?? "");
+        if (drop) {
+          drop = false;
+          return route.abort("failed");
+        }
+        return route.continue();
+      });
       await page.getByRole("button", { name: "Log run" }).click();
+      await expect(page.locator('[data-slot="save-error"]')).toContainText("Could not save. What you typed is still here.");
+      await expect(page.getByLabel("Press remark", { exact: true })).toHaveValue("Ram slow on the third billet");
+      await expect(page.getByTestId("preview-recovery")).toHaveText("75.5%");
+      await page.getByRole("button", { name: "Try again" }).click();
       await expect(page.locator('[data-banner="logged"]')).toBeVisible();
+      expect(sent).toHaveLength(2);
+      expect(sent[0]).toMatch(/\S{8,}/);
+      expect(sent[1]).toBe(sent[0]);
+      await page.unroute(/\/trpc\/press\.runs\.close/);
       await expect(page.getByTestId("logged-recovery")).toHaveText("75.5%");
       await expect(page.locator('[data-slot="logged"]')).toContainText("SO-2");
       await expect(page.getByRole("button", { name: "Request reopen" })).toBeVisible();
@@ -441,16 +550,26 @@ for (const width of WIDTHS) {
       const { page, context } = await openAs(browser, "supervisor", width, `/press/lines/${fx.lineId}`);
       await page.getByRole("button", { name: "Late entry" }).click();
       const sheet = page.getByRole("dialog");
+      // The 7-day rule is stated before anything is typed, and the pickers stop at its edges.
+      await expect(sheet.locator('[data-slot="late-window"]')).toContainText("last 7 days");
+      const minStart = await sheet.getByLabel("Started", { exact: true }).getAttribute("min");
+      expect(Number(new Date(minStart!))).toBeGreaterThan(Date.now() - 7.1 * 86_400_000);
+      expect(Number(new Date(minStart!))).toBeLessThan(Date.now() - 6.9 * 86_400_000);
       await sheet.getByRole("radio", { name: "A run not in the queue" }).click();
       await pickOption(page, sheet.getByLabel("Die copy"), new RegExp(`^${fx.lateCopy.code}`));
       const now = Date.now();
       await sheet.getByLabel("Started", { exact: true }).fill(localInput(now - 3 * 3_600_000));
       await sheet.getByLabel("Stopped", { exact: true }).fill(localInput(now - 2 * 3_600_000));
-      // A stop before the start is refused in words, nothing is sent.
+      // A stop before the start, and a start older than 7 days, are refused in words; nothing is sent.
       await sheet.getByLabel("Stopped", { exact: true }).fill(localInput(now - 4 * 3_600_000));
       await sheet.getByLabel("Why it is entered late").fill("Tablet was down on the night shift");
       await sheet.getByRole("button", { name: "Enter the run" }).click();
       await expect(sheet.getByRole("alert")).toContainText("Stop must be after start.");
+      await sheet.getByLabel("Started", { exact: true }).fill(localInput(now - 8 * 86_400_000));
+      await sheet.getByLabel("Stopped", { exact: true }).fill(localInput(now - 8 * 86_400_000 + 3_600_000));
+      await sheet.getByRole("button", { name: "Enter the run" }).click();
+      await expect(sheet.getByRole("alert")).toContainText("more than 7 days ago");
+      await sheet.getByLabel("Started", { exact: true }).fill(localInput(now - 3 * 3_600_000));
       await sheet.getByLabel("Stopped", { exact: true }).fill(localInput(now - 2 * 3_600_000));
       await shot(page, width, "late-entry-sheet");
       await sheet.getByRole("button", { name: "Enter the run" }).click();
@@ -537,19 +656,25 @@ for (const width of WIDTHS) {
 test.describe("press in Hindi and Gujarati at 375", () => {
   test.describe.configure({ mode: "serial" });
   let fx: Fixture;
+  const created = newCreated();
   test.beforeAll(async () => {
-    fx = await makeFixture(375);
+    fx = await makeFixture(375, created);
   });
   test.afterAll(async () => {
-    await cleanup(fx);
+    await cleanup(created);
   });
 
-  test("hi: the lock banner, the start button and the counting words are Hindi; no sideways scroll", async ({ browser }) => {
+  test("hi: the lock banner, the ready banner and the Start button are Hindi, and the banners name the button by its Hindi word", async ({ browser }) => {
     const { page, context } = await openAs(browser, "press", 375, `/press/runs/${fx.queued.id}`, { locale: "hi" });
     await expect(page.locator('[data-banner="locked"]')).toContainText("Die जारी नहीं हुई। शुरू करना बंद है।");
+    // The body names the button as the button reads ("शुरू करें"), not the Latin word.
+    await expect(page.locator('[data-banner="locked"]')).toContainText("शुरू करें");
+    await expect(page.locator('[data-banner="locked"]')).not.toContainText("Start");
     await clean(page);
     await page.goto(`/press/runs/${fx.ready.id}`);
     await expect(page.locator('[data-banner="ready"]')).toContainText("Die जारी हो गई");
+    await expect(page.locator('[data-banner="ready"]')).toContainText("शुरू करें");
+    await expect(page.locator('[data-banner="ready"]')).not.toContainText("Start");
     await expect(page.getByRole("button", { name: "शुरू करें", exact: true })).toBeVisible();
     await shot(page, 375, "station-hi");
     await clean(page);
@@ -560,6 +685,8 @@ test.describe("press in Hindi and Gujarati at 375", () => {
     test.setTimeout(90_000);
     const { page, context } = await openAs(browser, "press", 375, `/press/runs/${fx.ready.id}`, { locale: "gu" });
     await expect(page.locator('[data-banner="ready"]')).toContainText("Die જારી થઈ ગઈ");
+    await expect(page.locator('[data-banner="ready"]')).toContainText("શરૂ કરો");
+    await expect(page.locator('[data-banner="ready"]')).not.toContainText("Start");
     await shot(page, 375, "station-gu-ready");
     await clean(page);
     await page.getByRole("button", { name: "શરૂ કરો", exact: true }).click();
@@ -570,10 +697,115 @@ test.describe("press in Hindi and Gujarati at 375", () => {
     await page.getByRole("button", { name: "રોકો", exact: true }).click();
     await page.getByRole("button", { name: "ગણતરી અને તપાસ" }).click();
     await expect(page.locator('[data-banner="counting"]')).toBeVisible();
-    await expect(page.getByLabel("કાસ્ટ", { exact: false }).first()).toBeVisible({ timeout: 10_000 }).catch(() => {});
+    // The first counting step in Gujarati: the cast picker and the step names are the screen's words.
+    await expect(page.getByLabel("બિલેટ કઈ cast ના છે")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('[data-slot="counting"]')).toContainText("બિલેટ");
     // Gujarati falls back to English per key; a raw key (`nav.today`, `press.queue.title`) must never show.
     await expect(page.locator("body")).not.toContainText(/\b(nav|ui|press|common|units)\.[a-zA-Z]+/);
     await shot(page, 375, "station-gu-count");
+    await clean(page);
+    await context.close();
+  });
+
+  test("hi: the counting stepper and a refused close read Hindi; no server English reaches the screen", async ({ browser }) => {
+    test.setTimeout(90_000);
+    // The figures are in (as the press man would have saved them); one stoppage is left open.
+    const owner = await apiAs("owner");
+    try {
+      const casts = await owner.q<{ items: { id: string; billetsOnHandG: number }[] }>("foundry.casts.list", { limit: 200 });
+      const cast = [...casts.items].sort((a, b) => b.billetsOnHandG - a.billetsOnHandG)[0]!;
+      const got = await owner.q<RunGet>("press.runs.get", { id: fx.ready.id });
+      await owner.m("press.runs.billets", { id: fx.ready.id, castId: cast.id, rows: [{ lengthMm: 600, count: 1, kgG: 10_000 }] });
+      await owner.m("press.runs.lines", { id: fx.ready.id, rows: got.planLines.map((p) => ({ cutLengthMm: p.cutLengthMm, pcs: 1, goodG: 1000, pressPlanLineId: p.id })) });
+      await owner.m("press.runs.qc", { id: fx.ready.id, rows: [{ pcs: 0, kgG: 0, reasonCodeId: null, note: null, runLine: null }] });
+      const reasons = await owner.q<{ id: string; code: string }[]>("press.reasons", { kind: "downtime" });
+      await owner.m("press.downtime.start", { pressLineId: fx.lineId, pressRunId: fx.ready.id, reasonCodeId: reasons.find((r) => r.code !== "other")!.id });
+    } finally {
+      await owner.dispose();
+    }
+    const { page, context } = await openAs(browser, "supervisor", 375, `/press/runs/${fx.ready.id}`, { locale: "hi" });
+    await expect(page.locator('[data-banner="counting"]')).toBeVisible();
+    await toLastStep(page, { next: "सेव करें और आगे", remark: "प्रेस टिप्पणी" });
+    // The press was left with a stoppage open, so the close is refused; the sentences are Hindi.
+    await page.getByRole("button", { name: "रन दर्ज करें" }).click();
+    const refused = page.locator('[data-slot="close-refused"]');
+    await expect(refused).toContainText("रन दर्ज नहीं हुआ।");
+    await expect(refused).toContainText("पहले खुली रुकावट बंद करें");
+    await expect(refused.locator('[data-slot="error-detail"]')).toHaveCount(0);
+    await expect(page.locator('[data-slot="counting"]')).not.toContainText(/Stop the open downtime|The run was not logged|Only a supervisor/);
+    await shot(page, 375, "close-refused-hi");
+    await clean(page);
+    await context.close();
+  });
+});
+
+test.describe("press as a manager (press.close without press.run) at 820", () => {
+  test.describe.configure({ mode: "serial" });
+  const MEMBERSHIP = "dev-membership-operator";
+  let fx: Fixture;
+  const created = newCreated();
+  const setRole = async (role: "manager" | "operator") => {
+    const owner = await apiAs("owner");
+    try {
+      await owner.m("company.membersUpdateRole", { membershipId: MEMBERSHIP, role });
+    } finally {
+      await owner.dispose();
+    }
+  };
+
+  test.beforeAll(async () => {
+    // The seed has no manager: re-role the unused `operator` member until afterAll puts it back.
+    await setRole("manager");
+    fx = await makeFixture(820, created);
+    // The press man runs the press and enters every figure; the manager only reads and logs.
+    const press = await apiAs("press");
+    try {
+      await press.m("press.runs.start", { id: fx.ready.id });
+      await press.m("press.runs.stop", { id: fx.ready.id });
+      await press.m("press.runs.count", { id: fx.ready.id });
+      const casts = await press.q<{ items: { id: string; billetsOnHandG: number }[] }>("foundry.casts.list", { limit: 200 });
+      const cast = [...casts.items].sort((a, b) => b.billetsOnHandG - a.billetsOnHandG)[0]!;
+      const got = await press.q<RunGet>("press.runs.get", { id: fx.ready.id });
+      await press.m("press.runs.billets", { id: fx.ready.id, castId: cast.id, rows: [{ lengthMm: 600, count: 4, kgG: 77_000 }] });
+      await press.m("press.runs.lines", { id: fx.ready.id, rows: got.planLines.map((p) => ({ cutLengthMm: p.cutLengthMm, pcs: 20, goodG: 58_100, pressPlanLineId: p.id })) });
+      await press.m("press.runs.scrap", { id: fx.ready.id, discardG: 6000, endsG: 3000 });
+      await press.m("press.runs.qc", { id: fx.ready.id, rows: [{ pcs: 0, kgG: 0, reasonCodeId: null, note: null, runLine: null }] });
+    } finally {
+      await press.dispose();
+    }
+  });
+  test.afterAll(async () => {
+    try {
+      await cleanup(created);
+    } finally {
+      await setRole("operator");
+    }
+  });
+
+  test("a manager sees the counting panel read-only, can Log run, and has no Start, Save or Handover", async ({ browser }) => {
+    test.setTimeout(90_000);
+    const { page, context } = await openAs(browser, "operator", 820, `/press/runs/${fx.ready.id}`);
+    await expect(page.locator('[data-banner="counting"]')).toBeVisible();
+    const counting = page.locator('[data-slot="counting"]');
+    await expect(counting).toBeVisible();
+    // Read-only: the figures the press man saved are there, but cannot be edited by this role.
+    await expect(page.getByLabel("Weighed kg", { exact: true })).toHaveValue("77");
+    await expect(page.getByLabel("Weighed kg", { exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Save and next" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Handover" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Start", exact: true })).toHaveCount(0);
+    await toLastStep(page, { next: "Next", remark: "Press remark" });
+    await expect(page.getByLabel("Press remark", { exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+    await expect(page.getByText("A supervisor logs this run.")).toHaveCount(0);
+    await expect(page.getByTestId("preview-recovery")).toHaveText("75.5%");
+    await expect(page.getByText("Ready to log.")).toBeVisible();
+    await shot(page, 820, "count-last-manager");
+    await clean(page);
+    await page.getByRole("button", { name: "Log run" }).click();
+    await expect(page.locator('[data-banner="logged"]')).toBeVisible();
+    await expect(page.getByTestId("logged-recovery")).toHaveText("75.5%");
+    await expect(page.getByRole("button", { name: "Request reopen" })).toBeVisible();
     await clean(page);
     await context.close();
   });

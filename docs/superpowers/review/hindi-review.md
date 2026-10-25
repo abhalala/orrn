@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3703 screen strings in 43 groups, 16 guides with 292 strings.
+Counts: 3736 screen strings in 43 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -3283,7 +3283,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (392)
+### press (425)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3417,9 +3417,39 @@ Please check, Lalubhai:
 | `console.gates.late_entry_unapproved` | This late entry is waiting for approval | बाद में भरा यह रन मंज़ूरी का इंतज़ार कर रहा है |
 | `console.gates.downtime_open` | Stop the open downtime first | पहले खुली रुकावट बंद करें |
 | `console.gates.trial_result_missing` | Say whether the die trial passed or failed | बताएं कि die ट्रायल पास हुआ या फेल |
-| `console.lockedBody` | The die room issues the die. Start opens when it does. | Die रूम die जारी करता है। तब Start खुलेगा। |
+| `console.errors.generic` | The server did not accept this. | सर्वर ने इसे स्वीकार नहीं किया। |
+| `console.errors.conflict` | This changed on the server while you were working. Reload and try again. | काम करते समय सर्वर पर यह बदल गया। पेज फिर से खोलकर दोबारा कोशिश करें। |
+| `console.errors.downtimeRunning` | A stoppage is already running on this press. Stop it first. | इस प्रेस पर एक स्टॉपेज पहले से चल रहा है। पहले उसे रोकें। |
+| `console.errors.lateWindow` | A late entry must be from the last {days} days. | देर से भरी एंट्री पिछले {days} दिनों की ही हो सकती है। |
+| `console.errors.lateStopped` | A late entry is for a run that has already stopped. | देर से भरी एंट्री उस रन की होती है जो रुक चुका है। |
+| `console.errors.stopAfterStart` | The stop time must be after the start time. | रुकने का समय शुरू के समय के बाद का होना चाहिए। |
+| `console.errors.dieElsewhere` | The die issued is for another run or press. Ask the die room. | जारी की गई die किसी और रन या प्रेस के लिए है। Die रूम से पूछें। |
+| `console.errors.stateNow` | {number} is {state} now, so this was not saved. Reload the page. | {number} अभी "{state}" है, इसलिए यह सेव नहीं हुआ। पेज फिर से खोलें। |
+| `console.errors.changedLogging` | {number} changed while it was being logged. Reload and log again. | {number} दर्ज होते समय बदल गया। पेज फिर से खोलकर दोबारा दर्ज करें। |
+| `console.errors.billetsLeft` | Only {kg} kg of this cast is left in the billet store now. Check the billets and log again. | बिलेट स्टोर में इस cast का अब सिर्फ़ {kg} kg बचा है। बिलेट जाँचें और दोबारा दर्ज करें। |
+| `console.errors.changedMeanwhile` | This changed while you were working. Reload and try again. | आपके काम करते समय यह बदल गया। पेज फिर से खोलकर दोबारा कोशिश करें। |
+| `console.errors.alreadySaved` | This was already saved. | यह पहले ही सेव हो चुका है। |
+| `console.errors.reopenWaiting` | {number} already waits for a reopen decision. | {number} को फिर खोलने का अनुरोध पहले से फ़ैसले के इंतज़ार में है। |
+| `console.errors.reopenBlocked` | It cannot be reopened now: "{reason}" | इसे अभी फिर नहीं खोला जा सकता: "{reason}" |
+| `console.errors.notMember` | That person is not a member of this plant. | यह व्यक्ति इस प्लांट का सदस्य नहीं है। |
+| `console.errors.operatorRole` | The operator must be someone who runs the press. | ऑपरेटर वही हो सकता है जो प्रेस चलाता है। |
+| `console.errors.supervisorRole` | The supervisor must be someone who can log runs. | सुपरवाइज़र वही हो सकता है जो रन दर्ज कर सकता है। |
+| `console.errors.lineHasRun` | {number} is still open on {line}. Finish or void it first. | {number} अभी {line} पर खुला है। पहले उसे पूरा करें या रद्द करें। |
+| `console.errors.hasStarted` | {number} has started, so this can no longer change. | {number} शुरू हो चुका है, इसलिए अब यह नहीं बदल सकता। |
+| `console.errors.castCancelled` | That cast is cancelled. | वह cast रद्द है। |
+| `console.errors.pickReason` | Pick a reason from the list. | सूची से कारण चुनें। |
+| `console.errors.timeSkew` | This tablet's clock differs from the server's by more than 2 minutes. A supervisor confirms the time. | इस टैबलेट की घड़ी सर्वर की घड़ी से 2 मिनट से ज़्यादा अलग है। समय की पुष्टि सुपरवाइज़र करेगा। |
+| `console.errors.copyOnTrial` | {code} is on trial. It goes only to a die trial run. | {code} ट्रायल पर है। वह सिर्फ़ die ट्रायल रन में जाती है। |
+| `console.errors.copyIssued` | {code} is already issued to {line}. | {code} पहले ही {line} को जारी है। |
+| `console.errors.copyElsewhere` | {code} is not available for this run right now. | {code} अभी इस रन के लिए उपलब्ध नहीं है। |
+| `console.errors.lineExists` | There is already a press {code}. | {code} नाम का प्रेस पहले से है। |
+| `console.errors.retired` | {code} is retired. | {code} बंद हो चुकी है। |
+| `console.kgInvalid` | Type the kg as a number, for example 12.5. | kg को संख्या में लिखें, जैसे 12.5। |
+| `console.ok` | OK | ठीक है |
+| `console.draftStale` | Another device saved newer figures for this run. These are the saved figures. | किसी दूसरे डिवाइस ने इस रन के नए आंकड़े सेव किए हैं। ये सेव किए हुए आंकड़े हैं। |
+| `console.lockedBody` | The die room issues the die. Start opens when it does. | Die रूम die जारी करता है। तब "शुरू करें" खुलेगा। |
 | `console.readyTitle` | Die issued. Ready to start. | Die जारी हो गई। शुरू करने के लिए तैयार। |
-| `console.readyBody` | Start records the time from the server clock. | Start सर्वर की घड़ी से समय दर्ज करता है। |
+| `console.readyBody` | Start records the time from the server clock. | "शुरू करें" सर्वर की घड़ी से समय दर्ज करता है। |
 | `console.startedAt` | Started {time} | शुरू {time} |
 | `console.stoppedAt` | Stopped {time} | बंद {time} |
 | `console.runningFor` | Running for {time} | {time} से चल रहा है |
@@ -3470,7 +3500,8 @@ Please check, Lalubhai:
 | `console.castClosedChip` | Closed | बंद |
 | `console.weighedKg` | Weighed kg | तौला हुआ kg |
 | `console.billetsOnce` | One cast on a run. A second cast is a new run. | एक रन पर एक cast। दूसरी cast नया रन है। |
-| `console.shortStock` | The billet stock has {kg} kg. The close posts that, not the typed kg. | बिलेट स्टॉक में {kg} kg है। बंद करने पर वही दर्ज होगा, लिखा हुआ kg नहीं। |
+| `console.shortStock` | The billet stock shows {kg} kg for this cast. The run is logged with the weighed kg; the cast will show billets short by {short} kg. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} kg दिख रहा है। रन तोले हुए kg के साथ दर्ज होगा; cast पर बिलेट {short} kg कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
+| `console.shortStockNoFigure` | The billet stock shows {kg} kg for this cast. The run is logged with the weighed kg; the cast will show the billets short. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} kg दिख रहा है। रन तोले हुए kg के साथ दर्ज होगा; cast पर बिलेट कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
 | `console.pressedLength` | Pressed length | प्रेस की लंबाई |
 | `console.pressedLengthHint` | Optional. Pieces times cut length are checked only when this is set. | वैकल्पिक। भरने पर ही पीस गुणा कट लंबाई की जाँच होती है। |
 | `console.pcsOrdered` | Released {pcs} pcs | भेजे गए {pcs} पीस |
@@ -3581,6 +3612,8 @@ Please check, Lalubhai:
 | `queue.noMatch` | No job matches these filters. | इन फ़िल्टर से कोई काम नहीं मिला। |
 | `late.title` | Run entered late | देर से भरा रन |
 | `late.body` | For a run that already stopped and was never entered on the tablet. A manager approves it before it can be logged. | ऐसे रन के लिए जो रुक चुका है और टैबलेट पर नहीं भरा गया। दर्ज होने से पहले मैनेजर मंज़ूर करता है। |
+| `late.window` | Only a run from the last {days} days can be entered late. Older runs are not accepted. | सिर्फ़ पिछले {days} दिनों का रन देर से भरा जा सकता है। इससे पुराने रन स्वीकार नहीं होते। |
+| `late.tooOld` | The start is more than {days} days ago. A late entry must be from the last {days} days. | शुरू का समय {days} दिन से ज़्यादा पुराना है। देर से भरी एंट्री पिछले {days} दिनों की ही हो सकती है। |
 | `late.line` | Press | प्रेस |
 | `late.source` | Which run | कौन सा रन |
 | `late.fromQueue` | A run from the queue | कतार का रन |

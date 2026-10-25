@@ -12,7 +12,9 @@ import { toast } from "sonner";
 
 import { trpc } from "@/shared/utils/trpc";
 
+import { ErrorLines } from "./error-lines";
 import { pressErrorText, roleCan, useActionKey } from "./hooks";
+import { LATE_ENTRY_DAYS, lateEntryIssue } from "./model";
 import type { QueueCard } from "./types";
 
 const NONE = "__none";
@@ -22,6 +24,13 @@ export function localToMs(text: string): number | null {
   if (!text) return null;
   const ms = new Date(text).getTime();
   return Number.isFinite(ms) ? ms : null;
+}
+
+/** `datetime-local` text for an instant, in the browser's zone. */
+export function msToLocal(ms: number): string {
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 /**
@@ -59,6 +68,13 @@ export function LateEntrySheet({
     if (open) setMode(queued.length > 0 ? "queue" : "copy");
   }, [open, queued.length]);
 
+  // The 7-day rule up front: the pickers stop at the window's edges (the server checks it again).
+  const bounds = useMemo(() => {
+    const now = Date.now();
+    return { min: msToLocal(now - LATE_ENTRY_DAYS * 86_400_000), max: msToLocal(now) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const copies = useQuery({ ...trpc.dieInstance.list.queryOptions({ limit: 200 }), enabled: open });
   const members = useQuery({ ...trpc.company.membersList.queryOptions(), enabled: open });
   const copyOptions = useMemo(
@@ -94,8 +110,11 @@ export function LateEntrySheet({
     setError(null);
     const start = localToMs(startedAt);
     const stop = localToMs(stoppedAt);
-    if (start === null || stop === null || !(start < stop)) return setError(t("press.late.order"));
-    if (stop > Date.now()) return setError(t("press.late.futureStop"));
+    const issue = lateEntryIssue({ startMs: start, stopMs: stop, nowMs: Date.now() });
+    if (issue === "order") return setError(t("press.late.order"));
+    if (issue === "future") return setError(t("press.late.futureStop"));
+    if (issue === "tooOld") return setError(t("press.late.tooOld", { days: LATE_ENTRY_DAYS }));
+    if (start === null || stop === null) return setError(t("press.late.order"));
     if (!reason.trim()) return setError(t("common.noteRequired"));
     if (mode === "queue" && !runId) return setError(t("press.late.pickOne"));
     if (mode === "copy" && !copyId) return setError(t("press.late.pickOne"));
@@ -131,6 +150,9 @@ export function LateEntrySheet({
       }
     >
       <div className="flex flex-col gap-4">
+        <p data-slot="late-window" className="m-0 rounded-card bg-surface-sunken p-3 text-[14px] font-medium leading-6">
+          {t("press.late.window", { days: LATE_ENTRY_DAYS })}
+        </p>
         {queued.length > 0 ? (
           <SegmentedControl
             label={t("press.late.source")}
@@ -157,10 +179,10 @@ export function LateEntrySheet({
           </Field>
         )}
         <Field label={t("press.late.startedAt")}>
-          <TextInput type="datetime-local" value={startedAt} onChange={(e) => setStartedAt(e.currentTarget.value)} />
+          <TextInput type="datetime-local" value={startedAt} min={bounds.min} max={bounds.max} onChange={(e) => setStartedAt(e.currentTarget.value)} />
         </Field>
         <Field label={t("press.late.stoppedAt")}>
-          <TextInput type="datetime-local" value={stoppedAt} onChange={(e) => setStoppedAt(e.currentTarget.value)} />
+          <TextInput type="datetime-local" value={stoppedAt} min={bounds.min} max={bounds.max} onChange={(e) => setStoppedAt(e.currentTarget.value)} />
         </Field>
         <Field label={t("press.late.operator")}>
           <Select value={operatorId} onValueChange={setOperatorId} options={personOptions} />
@@ -171,11 +193,7 @@ export function LateEntrySheet({
         <Field label={t("press.late.reason")}>
           <TextArea value={reason} onChangeText={setReason} rows={3} maxLength={500} />
         </Field>
-        {error ? (
-          <p role="alert" className="m-0 text-[14px] font-medium text-destructive">
-            {error}
-          </p>
-        ) : null}
+        {error ? <ErrorLines message={error} className="m-0 text-[14px] font-medium text-destructive" /> : null}
       </div>
     </Sheet>
   );

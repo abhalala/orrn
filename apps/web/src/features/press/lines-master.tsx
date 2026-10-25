@@ -17,7 +17,8 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { pressErrorText, useHolds } from "./hooks";
+import { ErrorLines } from "./error-lines";
+import { pressErrorText, pressErrorToast, useHolds } from "./hooks";
 import { wholeText } from "./model";
 import type { LineRow } from "./types";
 
@@ -48,7 +49,7 @@ export function LinesMaster() {
   const create = useMutation({ ...trpc.press.lines.create.mutationOptions(), onSuccess: () => done(t("press.linesPage.saved")), onError: (e) => setError(pressErrorText(t, e)) });
   const update = useMutation({ ...trpc.press.lines.update.mutationOptions(), onSuccess: () => done(t("press.linesPage.saved")), onError: (e) => setError(pressErrorText(t, e)) });
   const retire = useMutation({ ...trpc.press.lines.retire.mutationOptions(), onSuccess: () => done(t("press.linesPage.saved")), onError: (e) => setError(pressErrorText(t, e)) });
-  const restore = useMutation({ ...trpc.press.lines.restore.mutationOptions(), onSuccess: () => done(t("press.linesPage.saved")), onError: (e) => toast.error(pressErrorText(t, e)) });
+  const restore = useMutation({ ...trpc.press.lines.restore.mutationOptions(), onSuccess: () => done(t("press.linesPage.saved")), onError: (e) => toast.error(pressErrorToast(t, e)) });
 
   const open = (next: Editing) => {
     setError(null);
@@ -168,7 +169,7 @@ export function LinesMaster() {
           <Field label={t("press.lines.tonnage")} hint={t("press.linesPage.tonnageHint")}>
             <NumberInput value={tonnage} onValueChange={setTonnage} decimal={false} />
           </Field>
-          {error ? <p role="alert" className="m-0 text-[14px] font-medium text-destructive">{error}</p> : null}
+          {error ? <ErrorLines message={error} className="m-0 text-[14px] font-medium text-destructive" /> : null}
         </div>
       </Sheet>
 
@@ -190,7 +191,7 @@ export function LinesMaster() {
           </>
         }
       >
-        {error ? <p role="alert" className="m-0 text-[14px] font-medium text-destructive">{error}</p> : null}
+        {error ? <ErrorLines message={error} className="m-0 text-[14px] font-medium text-destructive" /> : null}
       </Dialog>
     </>
   );

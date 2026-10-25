@@ -15,7 +15,7 @@ import { Sheet } from "@orrn/ui/components/sheet";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileImage } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
@@ -25,9 +25,10 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { pressErrorText, roleCan, useActionKey, useCompanyTimeZone, useHolds } from "./hooks";
+import { ErrorLines } from "./error-lines";
+import { pressErrorText, pressErrorToast, roleCan, useActionKey, useCompanyTimeZone, useHolds } from "./hooks";
 import { statusTone } from "./job-card";
-import { bannerOf, clockOf, elapsedText, kgFromG, pollIntervalFor, stationActions, type Banner } from "./model";
+import { bannerOf, clockOf, elapsedText, kgFromG, pollIntervalFor, STATION_ACTION, stationActions, type Banner } from "./model";
 import { reasonLabel } from "./reason-label";
 import { CountingPanel } from "./station-count";
 import type { RunDetail } from "./types";
@@ -41,7 +42,6 @@ const NONE = "__none";
  */
 export function StationScreen({ runId }: { runId: string }) {
   const { t } = useT();
-  const holds = useHolds();
   const { unit } = useLengthUnit();
   const tz = useCompanyTimeZone();
   const query = useQuery({
@@ -94,32 +94,35 @@ export function StationScreen({ runId }: { runId: string }) {
   return (
     <>
       {header}
-      <StationBody data={data} unit={unit} tz={tz} caps={{ run: holds.run, close: holds.close }} />
+      <StationBody data={data} unit={unit} tz={tz} />
     </>
   );
 }
 
-function StationBody({ data, unit, tz, caps }: { data: RunDetail; unit: LengthUnit; tz: string; caps: { run: boolean; close: boolean } }) {
+function StationBody({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: string }) {
   const { t } = useT();
   const status = data.run.status;
   const banner = bannerOf(status);
-  const actions = stationActions(status, caps);
+  const actions = stationActions(status);
   // Remount the stepper per run so its draft belongs to that run only.
   const counting = banner === "counting";
   const downtime =
     banner === "running" || banner === "stopped" || (counting && data.downtime.length > 0) ? (
-      <DowntimeCard data={data} tz={tz} canRun={caps.run} canStart={!counting} />
+      <DowntimeCard data={data} tz={tz} canStart={!counting} />
     ) : null;
   return (
     <div className="flex min-w-0 flex-col gap-4 text-[17px] leading-7" data-slot="station" data-status={status}>
-      <BannerBlock banner={banner} data={data} tz={tz} actions={actions} canClose={caps.close} />
-      {/* While counting, the stepper comes first: it is what the person is here to do. */}
-      {counting && caps.run ? <CountingPanel key={data.run.id} data={data} unit={unit} canClose={caps.close} /> : null}
-      {counting && !caps.run ? <p className="m-0 text-[15px] text-muted-foreground">{t("press.console.countingBody")}</p> : null}
+      <BannerBlock banner={banner} data={data} tz={tz} actions={actions} />
+      {/* While counting, the stepper comes first: it is what the person is here to do. A manager or admin (press.close without press.run) sees it read-only and can log. */}
+      {counting ? (
+        <Can do={STATION_ACTION.countingPanel} fallback={<p className="m-0 text-[15px] text-muted-foreground">{t("press.console.countingBody")}</p>}>
+          <CountingPanel key={data.run.id} data={data} unit={unit} />
+        </Can>
+      ) : null}
       {counting ? downtime : null}
       <RunCard data={data} unit={unit} tz={tz} />
       {!counting ? downtime : null}
-      {banner === "logged" ? <LoggedPanel data={data} unit={unit} canClose={caps.close} /> : null}
+      {banner === "logged" ? <LoggedPanel data={data} unit={unit} /> : null}
     </div>
   );
 }
@@ -140,7 +143,7 @@ function useRunWrite(runId: string) {
   };
 }
 
-function BannerBlock({ banner, data, tz, actions, canClose }: { banner: Banner; data: RunDetail; tz: string; actions: ReturnType<typeof stationActions>; canClose: boolean }) {
+function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunDetail; tz: string; actions: ReturnType<typeof stationActions> }) {
   const { t } = useT();
   const runId = data.run.id;
   const refresh = useRunWrite(runId);
@@ -158,8 +161,26 @@ function BannerBlock({ banner, data, tz, actions, canClose }: { banner: Banner; 
     setError(null);
     await refresh();
   };
-  const start = useMutation({ ...trpc.press.runs.start.mutationOptions(), onSuccess: done(startKey.reset), onError: (e) => setError(pressErrorText(t, e, "press.console.startFailed")) });
-  const stop = useMutation({ ...trpc.press.runs.stop.mutationOptions(), onSuccess: done(stopKey.reset), onError: (e) => setError(pressErrorText(t, e, "press.console.stopFailed")) });
+  /** The tablet's clock disagreed with the server's: the time is the server's, a supervisor confirms it. */
+  const skewNote = (out: object) => {
+    if ("timeUnconfirmed" in out && out.timeUnconfirmed === true) toast.warning(t("press.console.errors.timeSkew"));
+  };
+  const start = useMutation({
+    ...trpc.press.runs.start.mutationOptions(),
+    onSuccess: async (out) => {
+      skewNote(out);
+      await done(startKey.reset)();
+    },
+    onError: (e) => setError(pressErrorText(t, e, "press.console.startFailed")),
+  });
+  const stop = useMutation({
+    ...trpc.press.runs.stop.mutationOptions(),
+    onSuccess: async (out) => {
+      skewNote(out);
+      await done(stopKey.reset)();
+    },
+    onError: (e) => setError(pressErrorText(t, e, "press.console.stopFailed")),
+  });
   const count = useMutation({ ...trpc.press.runs.count.mutationOptions(), onSuccess: done(countKey.reset), onError: (e) => setError(pressErrorText(t, e)) });
   const resume = useMutation({ ...trpc.press.runs.resume.mutationOptions(), onSuccess: done(resumeKey.reset), onError: (e) => setError(pressErrorText(t, e)) });
   const undo = useMutation({ ...trpc.press.runs.undoStart.mutationOptions(), onSuccess: done(undoKey.reset), onError: (e) => setError(pressErrorText(t, e)) });
@@ -203,45 +224,57 @@ function BannerBlock({ banner, data, tz, actions, canClose }: { banner: Banner; 
       {data.run.purpose === "sample" ? <p className="m-0 text-[15px] font-medium">{t("press.console.sampleBanner")}</p> : null}
       {data.run.purpose === "other" ? <p className="m-0 text-[15px] font-medium">{t("press.console.otherBanner")}</p> : null}
       {error ? (
-        <p role="alert" className="m-0 text-[15px] font-medium text-destructive">
-          {error}
-        </p>
+        <ErrorLines message={error} className="m-0 text-[15px] font-medium text-destructive" />
       ) : null}
       <FormActions sticky={false} className="max-sm:flex-col max-sm:[&>*]:flex-none sm:justify-start">
         {actions.start ? (
-          <Button size="lg" disabled={busy} aria-busy={start.isPending} onClick={() => start.mutate({ id: runId, clientMutationId: startKey.get(), tappedAt: Date.now() })}>
-            {t("press.console.start")}
-          </Button>
+          <Can do={STATION_ACTION.start}>
+            <Button size="lg" disabled={busy} aria-busy={start.isPending} onClick={() => start.mutate({ id: runId, clientMutationId: startKey.get(), tappedAt: Date.now() })}>
+              {t("press.console.start")}
+            </Button>
+          </Can>
         ) : null}
         {actions.stop ? (
-          <Button size="lg" disabled={busy} aria-busy={stop.isPending} onClick={() => stop.mutate({ id: runId, clientMutationId: stopKey.get(), tappedAt: Date.now() })}>
-            {t("press.console.stop")}
-          </Button>
+          <Can do={STATION_ACTION.stop}>
+            <Button size="lg" disabled={busy} aria-busy={stop.isPending} onClick={() => stop.mutate({ id: runId, clientMutationId: stopKey.get(), tappedAt: Date.now() })}>
+              {t("press.console.stop")}
+            </Button>
+          </Can>
         ) : null}
         {actions.count ? (
-          <Button size="lg" disabled={busy} aria-busy={count.isPending} onClick={() => count.mutate({ id: runId, clientMutationId: countKey.get() })}>
-            {t("press.console.countAndCheck")}
-          </Button>
+          <Can do={STATION_ACTION.count}>
+            <Button size="lg" disabled={busy} aria-busy={count.isPending} onClick={() => count.mutate({ id: runId, clientMutationId: countKey.get() })}>
+              {t("press.console.countAndCheck")}
+            </Button>
+          </Can>
         ) : null}
         {actions.resume ? (
-          <Button variant="secondary" size="lg" disabled={busy} onClick={() => resume.mutate({ id: runId, clientMutationId: resumeKey.get() })}>
-            {t("press.console.resume")}
-          </Button>
+          <Can do={STATION_ACTION.resume}>
+            <Button variant="secondary" size="lg" disabled={busy} onClick={() => resume.mutate({ id: runId, clientMutationId: resumeKey.get() })}>
+              {t("press.console.resume")}
+            </Button>
+          </Can>
         ) : null}
-        {banner === "running" && actions.stop ? (
-          <Button variant="ghost" size="lg" disabled={busy} onClick={() => undo.mutate({ id: runId, clientMutationId: undoKey.get() })}>
-            {t("press.console.undoStart")}
-          </Button>
+        {actions.stop ? (
+          <Can do={STATION_ACTION.undoStart}>
+            <Button variant="ghost" size="lg" disabled={busy} onClick={() => undo.mutate({ id: runId, clientMutationId: undoKey.get() })}>
+              {t("press.console.undoStart")}
+            </Button>
+          </Can>
         ) : null}
         {actions.handover ? (
-          <Button variant="secondary" size="lg" onClick={() => setHandover(true)}>
-            {t("press.console.handover")}
-          </Button>
+          <Can do={STATION_ACTION.handover}>
+            <Button variant="secondary" size="lg" onClick={() => setHandover(true)}>
+              {t("press.console.handover")}
+            </Button>
+          </Can>
         ) : null}
-        {canClose && (banner === "locked" || banner === "ready") ? (
-          <Button variant="ghost" size="lg" onClick={() => setVoiding(true)}>
-            {t("press.console.voidRun")}
-          </Button>
+        {actions.void ? (
+          <Can do={STATION_ACTION.void}>
+            <Button variant="ghost" size="lg" onClick={() => setVoiding(true)}>
+              {t("press.console.voidRun")}
+            </Button>
+          </Can>
         ) : null}
       </FormActions>
       {handover ? <HandoverDialog data={data} onClose={() => setHandover(false)} onSaved={refresh} /> : null}
@@ -293,7 +326,7 @@ function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: st
       if (out.url) window.open(out.url, "_blank", "noopener");
       else setDrawingNote(t("press.console.drawingNone"));
     } catch (e) {
-      setDrawingNote(pressErrorText(t, e));
+      setDrawingNote(pressErrorToast(t, e));
     } finally {
       setOpening(false);
     }
@@ -346,7 +379,7 @@ function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: st
         <Fact label={t("press.console.operator")} value={run.operatorName} />
         <Fact label={t("press.console.relief")} value={run.reliefOperatorName} />
         <Fact label={t("press.console.supervisor")} value={run.supervisorName} />
-        {run.productionDay ? <Fact label={t("press.console.shift")} value={shiftName ? t("press.console.shiftLine", { shift: shiftName, day: run.productionDay }) : run.productionDay} /> : null}
+        {run.productionDay ? <Fact label={t("press.console.shift")} value={shiftName ? keepTogether(t("press.console.shiftLine", { shift: shiftName, day: run.productionDay }), run.productionDay) : keepTogether(run.productionDay, run.productionDay)} /> : null}
         {run.castNumber ? <Fact label={t("press.console.cast")} value={run.castNumber} mono /> : null}
         {run.startedAt ? <Fact label={t("press.console.startedAt", { time: "" }).trim()} value={clockOf(run.startedAt, tz)} mono /> : null}
       </dl>
@@ -361,7 +394,7 @@ function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: st
                   <span className="font-mono font-semibold">{l.orderNumber}</span> <span className="text-muted-foreground">{l.customerName}</span>
                 </span>
                 <span className="whitespace-nowrap tabular-nums">
-                  {formatLength(l.cutLengthMm, unit)} × {l.pcs} {t("press.console.pcs")} · {kgFromG(l.kgG)} {t("units.kg")}
+                  {formatLength(l.cutLengthMm, unit)} × {l.pcs} {t("units.pcs")} · {kgFromG(l.kgG)} {t("units.kg")}
                 </span>
               </li>
             ))}
@@ -407,8 +440,21 @@ function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: st
   );
 }
 
-function Fact({ label, value, mono }: { label: string; value: string | null | undefined; mono?: boolean }) {
-  if (!value) return null;
+/** `text` with `token` (a date) kept on one line, so "2026-10-24" never breaks at its hyphens. */
+function keepTogether(text: string, token: string): ReactNode {
+  const at = text.indexOf(token);
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      <span className="whitespace-nowrap">{token}</span>
+      {text.slice(at + token.length)}
+    </>
+  );
+}
+
+function Fact({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
+  if (value === null || value === undefined || value === "") return null;
   return (
     <div className="min-w-0">
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
@@ -471,11 +517,7 @@ function VoidDialog({ data, onClose, onSaved }: { data: RunDetail; onClose: () =
         <Field label={t("press.console.downtimeNote")}>
           <TextArea value={note} onChangeText={setNote} rows={2} maxLength={500} />
         </Field>
-        {error ? (
-          <p role="alert" className="m-0 text-[14px] font-medium text-destructive">
-            {error}
-          </p>
-        ) : null}
+        {error ? <ErrorLines message={error} className="m-0 text-[14px] font-medium text-destructive" /> : null}
       </div>
     </Dialog>
   );
@@ -543,22 +585,18 @@ function HandoverDialog({ data, onClose, onSaved }: { data: RunDetail; onClose: 
         <Field label={t("press.console.handoverRelief")}>
           <Select value={reliefId} onValueChange={setReliefId} options={crew} />
         </Field>
-        {holds.close ? (
+        <Can do="press.close">
           <Field label={t("press.console.handoverSupervisor")}>
             <Select value={supervisorId} onValueChange={setSupervisorId} options={bosses} />
           </Field>
-        ) : null}
-        {error ? (
-          <p role="alert" className="m-0 text-[14px] font-medium text-destructive">
-            {error}
-          </p>
-        ) : null}
+        </Can>
+        {error ? <ErrorLines message={error} className="m-0 text-[14px] font-medium text-destructive" /> : null}
       </div>
     </Dialog>
   );
 }
 
-function DowntimeCard({ data, tz, canRun, canStart }: { data: RunDetail; tz: string; canRun: boolean; canStart: boolean }) {
+function DowntimeCard({ data, tz, canStart }: { data: RunDetail; tz: string; canStart: boolean }) {
   const { t } = useT();
   const qc = useQueryClient();
   const refresh = useRunWrite(data.run.id);
@@ -597,8 +635,8 @@ function DowntimeCard({ data, tz, canRun, canStart }: { data: RunDetail; tz: str
     <Card className="gap-3" data-slot="downtime">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="m-0 text-[17px] font-semibold">{t("press.console.downtime")}</h2>
-        {canRun ? (
-          openRow ? (
+        <Can do={STATION_ACTION.downtime}>
+          {openRow ? (
             <Button variant="secondary" size="md" disabled={stop.isPending} onClick={() => stop.mutate({ id: openRow.id })}>
               {t("press.console.downtimeStop")}
             </Button>
@@ -606,8 +644,8 @@ function DowntimeCard({ data, tz, canRun, canStart }: { data: RunDetail; tz: str
             <Button variant="secondary" size="md" onClick={() => { setError(null); setOpen(true); }}>
               {t("press.console.downtimeStart")}
             </Button>
-          ) : null
-        ) : null}
+          ) : null}
+        </Can>
       </div>
       {rows.length === 0 ? (
         <p className="m-0 text-[15px] text-muted-foreground">{t("press.console.downtimeNone")}</p>
@@ -624,11 +662,7 @@ function DowntimeCard({ data, tz, canRun, canStart }: { data: RunDetail; tz: str
           ))}
         </ul>
       )}
-      {error && !open ? (
-        <p role="alert" className="m-0 text-[14px] font-medium text-destructive">
-          {error}
-        </p>
-      ) : null}
+      {error && !open ? <ErrorLines message={error} className="m-0 text-[14px] font-medium text-destructive" /> : null}
       <Sheet
         open={open}
         onOpenChange={(o) => {
@@ -666,11 +700,7 @@ function DowntimeCard({ data, tz, canRun, canStart }: { data: RunDetail; tz: str
           <Field label={t("press.console.downtimeNote")} hint={pick && (pick.requiresNote || pick.code === "other") ? t("press.console.noteRequired") : undefined}>
             <TextArea value={note} onChangeText={setNote} rows={3} maxLength={500} />
           </Field>
-          {error ? (
-            <p role="alert" className="m-0 text-[14px] font-medium text-destructive">
-              {error}
-            </p>
-          ) : null}
+          {error ? <ErrorLines message={error} className="m-0 text-[14px] font-medium text-destructive" /> : null}
         </div>
       </Sheet>
     </Card>
@@ -681,7 +711,7 @@ function DowntimeCard({ data, tz, canRun, canStart }: { data: RunDetail; tz: str
 // Logged
 // ---------------------------------------------------------------------------
 
-function LoggedPanel({ data, unit, canClose }: { data: RunDetail; unit: LengthUnit; canClose: boolean }) {
+function LoggedPanel({ data, unit }: { data: RunDetail; unit: LengthUnit }) {
   const { t } = useT();
   const refresh = useRunWrite(data.run.id);
   const [open, setOpen] = useState(false);
@@ -695,7 +725,8 @@ function LoggedPanel({ data, unit, canClose }: { data: RunDetail; unit: LengthUn
       toast.success(t("press.console.reopenSent"));
       await refresh();
     },
-    onError: (e) => setError(pressErrorText(t, e)),
+    // A refusal worth reading is the reason the server worked out (an ageing row points at the run): quoted.
+    onError: (e) => setError(pressErrorText(t, e, undefined, { conflictReason: true })),
   });
   const s = data.run.stored;
   const pending = data.approvals.some((a) => a.kind === "press_reopen" && a.status === "pending");
@@ -725,7 +756,7 @@ function LoggedPanel({ data, unit, canClose }: { data: RunDetail; unit: LengthUn
                   {l.customerName ? <span className="text-muted-foreground"> {l.customerName}</span> : null}
                 </span>
                 <span className="whitespace-nowrap tabular-nums">
-                  {formatLength(l.cutLengthMm, unit)} × {l.pcs} {t("press.console.pcs")} · {kgFromG(l.goodG)} {t("units.kg")}
+                  {formatLength(l.cutLengthMm, unit)} × {l.pcs} {t("units.pcs")} · {kgFromG(l.goodG)} {t("units.kg")}
                 </span>
               </li>
             ))}
@@ -742,13 +773,15 @@ function LoggedPanel({ data, unit, canClose }: { data: RunDetail; unit: LengthUn
         <p role="status" className="m-0 text-[15px] font-medium">
           {t("press.console.reopenPending")}
         </p>
-      ) : canClose ? (
-        <div>
-          <Button variant="secondary" size="lg" onClick={() => { setError(null); setOpen(true); }}>
-            {t("press.console.reopenAsk")}
-          </Button>
-        </div>
-      ) : null}
+      ) : (
+        <Can do={STATION_ACTION.requestReopen}>
+          <div>
+            <Button variant="secondary" size="lg" onClick={() => { setError(null); setOpen(true); }}>
+              {t("press.console.reopenAsk")}
+            </Button>
+          </div>
+        </Can>
+      )}
       <Dialog
         open={open}
         onOpenChange={(o) => {
@@ -772,9 +805,12 @@ function LoggedPanel({ data, unit, canClose }: { data: RunDetail; unit: LengthUn
           </>
         }
       >
-        <Field label={t("press.console.reopenWhy")} error={error ?? undefined}>
-          <TextArea value={reason} onChangeText={setReason} rows={3} maxLength={500} />
-        </Field>
+        <div className="flex flex-col gap-3">
+          <Field label={t("press.console.reopenWhy")}>
+            <TextArea value={reason} onChangeText={setReason} rows={3} maxLength={500} />
+          </Field>
+          {error ? <ErrorLines message={error} className="m-0 text-[14px] font-medium text-destructive" /> : null}
+        </div>
       </Dialog>
     </>
   );

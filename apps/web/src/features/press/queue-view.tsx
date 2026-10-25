@@ -19,7 +19,8 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { pressErrorText } from "./hooks";
+import { ErrorLines } from "./error-lines";
+import { pressErrorText, pressErrorToast } from "./hooks";
 import { JobCard } from "./job-card";
 import { LateEntrySheet } from "./late-entry-sheet";
 import { kgFromG, reorderTarget, splitQueue } from "./model";
@@ -55,7 +56,7 @@ export function QueueScreen({ lineId, search, onSearch }: { lineId: string; sear
     ...trpc.press.queue.move.mutationOptions(),
     onSuccess: refresh,
     onError: (e) => {
-      toast.error(pressErrorText(t, e, "press.queue.moveFailed"));
+      toast.error(pressErrorToast(t, e, "press.queue.moveFailed"));
       refresh();
     },
   });
@@ -63,7 +64,7 @@ export function QueueScreen({ lineId, search, onSearch }: { lineId: string; sear
     ...trpc.press.queue.urgent.mutationOptions(),
     onSuccess: refresh,
     onError: (e) => {
-      toast.error(pressErrorText(t, e, "press.queue.moveFailed"));
+      toast.error(pressErrorToast(t, e, "press.queue.moveFailed"));
       refresh();
     },
   });
@@ -112,11 +113,14 @@ export function QueueScreen({ lineId, search, onSearch }: { lineId: string; sear
       subtitle={data ? data.line.name : undefined}
       back={{ to: "/press", label: t("press.title") }}
       actions={
-        <Can do="press.close">
-          <Button variant="secondary" onClick={() => setLateOpen(true)}>
-            {t("press.queue.lateEntry")}
-          </Button>
-        </Can>
+        <>
+          {data && data.line.status !== "active" ? <Chip tone="neutral">{t("press.linesPage.retired")}</Chip> : null}
+          <Can do="press.close">
+            <Button variant="secondary" onClick={() => setLateOpen(true)}>
+              {t("press.queue.lateEntry")}
+            </Button>
+          </Can>
+        </>
       }
     />
   );
@@ -292,11 +296,13 @@ export function QueueScreen({ lineId, search, onSearch }: { lineId: string; sear
           </>
         }
       >
-        <Field label={t("press.queue.pullBackReason")} error={pullError ?? undefined}>
-          <TextArea value={pullReason} onChangeText={setPullReason} rows={2} maxLength={500} />
-        </Field>
+        <div className="flex flex-col gap-3">
+          <Field label={t("press.queue.pullBackReason")}>
+            <TextArea value={pullReason} onChangeText={setPullReason} rows={2} maxLength={500} />
+          </Field>
+          {pullError ? <ErrorLines message={pullError} className="m-0 text-[14px] font-medium text-destructive" /> : null}
+        </div>
       </Dialog>
-      {data.line.status !== "active" ? <Chip tone="neutral">{t("press.linesPage.retired")}</Chip> : null}
     </>
   );
 }

@@ -1,42 +1,26 @@
 import type { MessageKey, Translate } from "@orrn/i18n";
 import { useCallback, useRef } from "react";
 
-import { actionErrorText } from "@/features/dispatch/errors";
 import { can, useMe, type Action, type Me } from "@/shared/lib/me";
+
+import { joinErrorView, pressErrorView, type PressErrorOpts } from "./errors";
 
 export { useCan, useCompanyTimeZone } from "@/features/dispatch/hooks";
 
-type TrpcLike = { message?: unknown; data?: { code?: unknown; meta?: { gates?: unknown; ownerName?: unknown; billetsOnHandG?: unknown } } | null };
-const asTrpc = (error: unknown): TrpcLike => (error && typeof error === "object" ? (error as TrpcLike) : {});
-
-/** The gate codes a refused `press.runs.close` carries (server `TRPCMetaError`), or null. */
-export function gatesOf(error: unknown): string[] | null {
-  const gates = asTrpc(error).data?.meta?.gates;
-  return Array.isArray(gates) && gates.every((g) => typeof g === "string") ? (gates as string[]) : null;
-}
-
-/** True when the request never reached the server (offline, dropped): keep the form, offer Try again. */
-export function isNetworkError(error: unknown): boolean {
-  return asTrpc(error).data?.code === undefined;
-}
+export { billetsOnHandOf, gatesOf, isNetworkError } from "./errors";
 
 /**
- * What to tell the person when a press write failed. The server's press sentences are plain and
- * specific ("Another run is running on this press; stop it first"), so a BAD_REQUEST / CONFLICT
- * shows them; a dropped connection says the entries are still here.
+ * What to tell the person when a press write failed, as one string: the sentence in their language,
+ * then (only for a refusal this build does not know) the server's text after a line break. Render
+ * it with `<ErrorLines>`; a toast takes `pressErrorToast`.
  */
-export function pressErrorText(t: Translate, error: unknown, fallback?: MessageKey): string {
-  const e = asTrpc(error);
-  const code = e.data?.code;
-  const message = typeof e.message === "string" ? e.message : "";
-  if (code === undefined) return t("press.console.saveFailed");
-  const pick = /^Pick the order line for (\d+(?:\.\d+)?) mm$/.exec(message);
-  if (pick) return t("press.console.pickOrderLine", { mm: pick[1]! });
-  const owner = asTrpc(error).data?.meta?.ownerName;
-  if (code === "FORBIDDEN" && typeof owner === "string" && owner) return t("scan.continuous.dieOwned", { name: owner });
-  if ((code === "BAD_REQUEST" || code === "CONFLICT") && message && !message.startsWith("[") && message.length < 240) return message;
-  if (fallback && code !== "FORBIDDEN" && code !== "UNAUTHORIZED") return t(fallback);
-  return actionErrorText(t, error);
+export function pressErrorText(t: Translate, error: unknown, fallback?: MessageKey, opts: Omit<PressErrorOpts, "fallback"> = {}): string {
+  return joinErrorView(pressErrorView(t, error, { ...opts, ...(fallback ? { fallback } : {}) }));
+}
+
+/** The same as one line for a toast. */
+export function pressErrorToast(t: Translate, error: unknown, fallback?: MessageKey): string {
+  return pressErrorText(t, error, fallback).replace("\n", " ");
 }
 
 /**
@@ -61,10 +45,4 @@ export function useHolds(): { run: boolean; close: boolean; queue: boolean; publ
 /** Whether a plant role holds an action (to list the people who can be named on a run). */
 export function roleCan(role: string, action: Action): boolean {
   return can({ company: { role }, isPlatformAdmin: false, platformRole: null } as unknown as Me, action);
-}
-
-/** What a refused billets save says about the store (server `meta.billetsOnHandG`), when it does. */
-export function billetsOnHandOf(error: unknown): number | null {
-  const g = asTrpc(error).data?.meta?.billetsOnHandG;
-  return typeof g === "number" ? g : null;
 }
