@@ -180,10 +180,11 @@ describe("POST /collector/spectro/ingest + signed PUT", () => {
 });
 
 describe("foundry.spectroInbox", () => {
-  async function received(p: Awaited<ReturnType<typeof plant>>, n: number) {
+  /** A received (pending_review) file; real unless `simulated` (a simulated file cannot be attached, I-4). */
+  async function received(p: Awaited<ReturnType<typeof plant>>, n: number, simulated = false) {
     const bucket = fakeBucket();
     const file = csv(n);
-    const b = (await p.ingest(file)).body as { id: string; uploadUrl: string };
+    const b = (await p.ingest(file, { simulated, instrument: simulated ? "sim-oes" : "oes" })).body as { id: string; uploadUrl: string };
     await put(bucket, b.uploadUrl, file);
     return b.id;
   }
@@ -224,5 +225,59 @@ describe("foundry.spectroInbox", () => {
     const q = await plant("q");
     const other = await received(q, 13);
     await expect(env.caller({ role: "foundry", companyId: q.companyId }).foundry.spectroInbox.attach({ id: other, meltId: p.meltId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  test("a simulated file is listed, marked simulated, and cannot be attached to a melt (I-4)", async () => {
+    const p = await plant();
+    const id = await received(p, 20, true);
+    const foundry = env.caller({ role: "foundry", companyId: p.companyId });
+    expect(await foundry.foundry.spectroInbox.list()).toEqual([expect.objectContaining({ id, simulated: true, status: "pending_review" })]);
+    await expect(foundry.foundry.spectroInbox.attach({ id, meltId: p.meltId })).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Simulated file — demo only" });
+    expect(await env.db.select().from(spectroResult).where(eq(spectroResult.meltId, p.meltId))).toHaveLength(0);
+    expect(await env.db.select().from(spectroInbox).where(eq(spectroInbox.id, id)).get()).toMatchObject({ status: "pending_review", meltId: null });
+    // Dismissing it is fine.
+    await foundry.foundry.spectroInbox.dismiss({ id, reason: "Demo file from the simulator" });
+    expect(await env.db.select().from(spectroInbox).where(eq(spectroInbox.id, id)).get()).toMatchObject({ status: "dismissed" });
+  });
+});
+
+describe("review round 1: spectro values sanity and bounded upload", () => {
+  test("values that add up to more than 10 % of alloying elements are dropped as a suggestion (m-5)", async () => {
+    const p = await plant();
+    // A ppm export read as percent: Ti 50 ppm became 50 %.
+    const b = (await p.ingest(csv(30), { valuesPct: { Si: 45, Ti: 50, Mg: 55 } })).body as { id: string };
+    expect((await env.db.select().from(spectroInbox).where(eq(spectroInbox.id, b.id)).get())!.valuesPpm).toBeNull();
+    // An aluminium figure alongside is not counted.
+    const c = (await p.ingest(csv(31), { valuesPct: { Al: 98.2, Si: 0.45, Mg: 0.55 } })).body as { id: string };
+    expect((await env.db.select().from(spectroInbox).where(eq(spectroInbox.id, c.id)).get())!.valuesPpm).toEqual({ Al: 982_000, Si: 4500, Mg: 5500 });
+  });
+
+  test("the PUT needs a Content-Length and a node body is refused past the limit before it is read (m-8)", async () => {
+    const p = await plant();
+    const bucket = fakeBucket();
+    const file = csv(32);
+    const b = (await p.ingest(file)).body as { id: string; uploadUrl: string };
+    const stream = new ReadableStream({
+      start(c) {
+        c.enqueue(file);
+        c.close();
+      },
+    });
+    const res = await lib.handleSpectroUpload(env.db, new Request(b.uploadUrl, { method: "PUT", body: stream, duplex: "half" } as RequestInit), { bucket, masterKey: DEV_MASTER_KEY });
+    expect(res.status).toBe(411);
+    expect(bucket.objects.size).toBe(0);
+
+    const big = new Uint8Array(node.COLLECTOR_MAX_BODY_BYTES + 1);
+    expect(await node.readCollectorBody(new Request("https://api.test/x", { method: "POST", body: big, headers: { "content-length": String(big.byteLength) } }))).toEqual({ ok: false, status: 413 });
+    const chunked = new ReadableStream({
+      start(c) {
+        c.enqueue(big.subarray(0, 200_000));
+        c.enqueue(big.subarray(200_000));
+        c.close();
+      },
+    });
+    expect(await node.readCollectorBody(new Request("https://api.test/x", { method: "POST", body: chunked, duplex: "half" } as RequestInit))).toEqual({ ok: false, status: 413 });
+    const ok = await node.readCollectorBody(new Request("https://api.test/x", { method: "POST", body: "{}" }));
+    expect(ok.ok && new TextDecoder().decode(ok.body)).toBe("{}");
   });
 });

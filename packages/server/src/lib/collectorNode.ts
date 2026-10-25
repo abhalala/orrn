@@ -12,7 +12,7 @@ import type { OrrnDb } from "@orrn/db";
 import { spoolDeployment } from "@orrn/db/schema/spool";
 import { unwrapSecret } from "@orrn/crypto";
 
-import { ingestPressFrames, PRESS_FRAMES_PATH, pressFramesBodySchema } from "./pressCollector";
+import { ingestPressFrames, parseFrames, PRESS_FRAMES_PATH, pressFramesBodySchema } from "./pressCollector";
 import { ingestSpectroFile, SPECTRO_INGEST_PATH, spectroIngestSchema } from "./spectroInbox";
 import { SPOOL_TOKEN_MAX_SKEW_MS, verifySpoolToken } from "./spool-crypto";
 
@@ -24,6 +24,40 @@ export type NodeAuthResult =
 
 /** Largest JSON body a collector may post (100 frames is ~40 KB; a spectro begin is < 4 KB). */
 export const COLLECTOR_MAX_BODY_BYTES = 256 * 1024;
+
+/**
+ * Read a node's POST body without ever holding more than `max` bytes (m-8): a declared
+ * Content-Length over the limit is refused before reading, and a body without one is read as a
+ * stream and abandoned as soon as it passes the limit.
+ */
+export async function readCollectorBody(
+  request: Request,
+  max: number = COLLECTOR_MAX_BODY_BYTES,
+): Promise<{ ok: true; body: Uint8Array } | { ok: false; status: 413 }> {
+  const declared = request.headers.get("content-length");
+  if (declared !== null && /^\d+$/.test(declared) && Number(declared) > max) return { ok: false, status: 413 };
+  if (!request.body) return { ok: true, body: new Uint8Array() };
+  const reader = request.body.getReader();
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel().catch(() => {});
+      return { ok: false, status: 413 };
+    }
+    parts.push(value);
+  }
+  const body = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) {
+    body.set(p, at);
+    at += p.byteLength;
+  }
+  return { ok: true, body };
+}
 
 export async function authenticateCollectorNode(
   db: OrrnDb,
@@ -79,7 +113,8 @@ export async function handlePressFramesRequest(
   if (!auth.ok) return { status: auth.status, body: auth.body };
   const parsed = pressFramesBodySchema.safeParse(auth.json);
   if (!parsed.success) return { status: 400, body: { error: "Invalid frames", issues: parsed.error.issues.slice(0, 5) } };
-  return { status: 200, body: await ingestPressFrames(db, auth.node, parsed.data.frames, input.nowMs) };
+  const { frames, rejected } = parseFrames(parsed.data.frames);
+  return { status: 200, body: await ingestPressFrames(db, auth.node, frames, input.nowMs, rejected) };
 }
 
 /** `POST /collector/spectro/ingest` (`foundry.spectro.ingest`): node auth, body check, record + upload link. */

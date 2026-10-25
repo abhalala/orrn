@@ -45,6 +45,21 @@ export const spectroIngestSchema = z.object({
 });
 export type SpectroIngestInput = z.infer<typeof spectroIngestSchema>;
 
+/** Alloying elements together above this share mean the units were misread (a ppm export read as %). */
+export const SPECTRO_ALLOYING_MAX_PCT = 10;
+
+/**
+ * The watcher's parsed values as ppm, or null when they cannot be percent (m-5): the export's units
+ * are owner-only, and 6xxx alloying elements (everything but Al) add up to a few percent. The values
+ * stay a suggestion either way; the file itself is what a person attaches.
+ */
+export function plausibleValues(valuesPct: Record<string, number> | undefined): Record<string, number> | null {
+  if (!valuesPct) return null;
+  const alloying = Object.entries(valuesPct).reduce((sum, [k, v]) => (k.toLowerCase() === "al" ? sum : sum + v), 0);
+  if (alloying > SPECTRO_ALLOYING_MAX_PCT) return null;
+  return Object.fromEntries(Object.entries(valuesPct).map(([k, v]) => [k, Math.round(v * 10_000)]));
+}
+
 export type SpectroIngestResult =
   | { status: "duplicate"; id: string; inboxStatus: string }
   | { status: "upload"; id: string; uploadUrl: string; expiresAt: number };
@@ -113,9 +128,7 @@ export async function ingestSpectroFile(
   if (row && row.status !== "uploading") return { status: "duplicate", id: row.id, inboxStatus: row.status };
   if (!row) {
     const id = createId(nowMs);
-    const valuesPpm = input.valuesPct
-      ? Object.fromEntries(Object.entries(input.valuesPct).map(([k, v]) => [k, Math.round(v * 10_000)]))
-      : null;
+    const valuesPpm = plausibleValues(input.valuesPct);
     await db
       .insert(spectroInbox)
       .values({
@@ -168,8 +181,11 @@ export async function handleSpectroUpload(
   if (!opts.bucket) return json({ error: "File storage is not set up" }, 503);
   const ticket = await readSpectroTicket(new URL(request.url).searchParams.get("u") ?? "", opts.masterKey, opts.nowMs);
   if (!ticket) return json({ error: "Link expired or not valid" }, 403);
+  // m-8: the size is known up front (the ticket carries it), so a PUT without Content-Length is
+  // refused rather than read unbounded.
   const declared = request.headers.get("content-length");
-  if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) !== ticket.size)) return json({ error: "The file size does not match" }, 400);
+  if (declared === null) return json({ error: "Content-Length required" }, 411);
+  if (!/^\d+$/.test(declared) || Number(declared) !== ticket.size) return json({ error: "The file size does not match" }, 400);
   const row = await db
     .select({ id: spectroInbox.id, status: spectroInbox.status, fileKey: spectroInbox.fileKey })
     .from(spectroInbox)

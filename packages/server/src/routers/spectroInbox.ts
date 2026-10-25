@@ -2,7 +2,7 @@
  * `foundry.spectroInbox.*` (FP-FD-12): files the plant's spectro watcher uploaded, waiting for a
  * person. Files arrive only through the node-signed `POST /collector/spectro/ingest` + signed PUT
  * (lib/spectroInbox.ts). Nothing here attaches automatically: `attach` is a cast.enter action that
- * names the melt.
+ * names the melt. A simulated file is listed (marked `simulated`) but can only be dismissed.
  */
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -63,6 +63,9 @@ export const spectroInboxRouter = router({
       if (row.status !== "pending_review") {
         throw new TRPCError({ code: "CONFLICT", message: row.status === "uploading" ? "The file has not arrived yet" : "This file is already handled" });
       }
+      // I-4: a spectro result has no simulated mark, so a simulator's file never becomes one. It
+      // stays in the inbox, marked simulated, until someone dismisses it.
+      if (row.simulated) throw new TRPCError({ code: "BAD_REQUEST", message: "Simulated file — demo only" });
       const m = await ctx.db
         .select({ id: melt.id, castId: melt.castId, cancelledAt: melt.cancelledAt })
         .from(melt)

@@ -5,27 +5,29 @@
  *
  * - thresholds / setThreshold (masters.publish): the band per metric, per line or for every line.
  * - alerts (any member) / acknowledgeAlert (press.close): alert rows; no notification beyond the
- *   Today chip (`dashboard.today.pressAlerts`).
+ *   Today chip (`dashboard.today.pressAlerts`). "Open" is read as of now: an alert whose last
+ *   out-of-band frame is over 5 minutes old reads as ended there (I-3).
  * - runSummary (any member): the run's annotation (frames, ram speed, temperatures, billets
- *   counted, Q-09 variance). Ram speed stays off the press report until a real collector exists.
+ *   counted, Q-09 variance), computed at read time from the frames in the run's window (I-1).
+ *   Ram speed stays off the press report until a real collector exists.
  */
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import {
   pressAlert,
   pressAlertMetrics,
   pressAlertThreshold,
-  pressRunCollector,
 } from "@orrn/db/schema/collector";
 import { pressLine, pressRun } from "@orrn/db/schema/press";
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch } from "../lib/atomic";
+import { now } from "../lib/clock";
 import { createId } from "../lib/id";
-import { refreshRunCollector } from "../lib/pressCollector";
+import { alertEndedAt, alertOpenSql, refreshRunCollector } from "../lib/pressCollector";
 
 const id = z.string().min(1).max(64);
 const bound = z.number().finite().min(-50).max(5000).nullable();
@@ -88,7 +90,25 @@ export const pressCollectorRouter = router({
         .get();
       const values = { minX10: x10(input.min), maxX10: x10(input.max), active: input.active, updatedBy: ctx.session.user.id };
       const rowId = existing?.id ?? createId();
+      // m-10: alerts opened under the old band end at their last frame; the next out-of-band frame
+      // opens a new one under the new band. An all-lines band covers lines without their own.
+      const ownBands = ctx.db
+        .select({ id: pressAlertThreshold.pressLineId })
+        .from(pressAlertThreshold)
+        .where(and(eq(pressAlertThreshold.companyId, ctx.companyId), eq(pressAlertThreshold.metric, input.metric), isNotNull(pressAlertThreshold.pressLineId)));
+      const endOpen = ctx.db
+        .update(pressAlert)
+        .set({ endedAt: sql`${pressAlert.lastAt}` })
+        .where(
+          and(
+            eq(pressAlert.companyId, ctx.companyId),
+            eq(pressAlert.metric, input.metric),
+            isNull(pressAlert.endedAt),
+            input.pressLineId ? eq(pressAlert.pressLineId, input.pressLineId) : notInArray(pressAlert.pressLineId, ownBands),
+          ),
+        );
       await atomicBatch(ctx.db, [
+        endOpen,
         existing
           ? ctx.db.update(pressAlertThreshold).set(values).where(eq(pressAlertThreshold.id, rowId))
           : ctx.db.insert(pressAlertThreshold).values({ id: rowId, companyId: ctx.companyId, pressLineId: input.pressLineId, metric: input.metric, ...values }),
@@ -105,6 +125,7 @@ export const pressCollectorRouter = router({
   alerts: companyProcedure
     .input(z.object({ openOnly: z.boolean().default(false), limit: z.number().int().min(1).max(200).default(50) }).default({ openOnly: false, limit: 50 }))
     .query(async ({ ctx, input }) => {
+      const nowMs = now().getTime();
       const rows = await ctx.db
         .select({
           id: pressAlert.id,
@@ -126,10 +147,10 @@ export const pressCollectorRouter = router({
         .from(pressAlert)
         .innerJoin(pressLine, eq(pressLine.id, pressAlert.pressLineId))
         .leftJoin(pressRun, eq(pressRun.id, pressAlert.pressRunId))
-        .where(and(eq(pressAlert.companyId, ctx.companyId), input.openOnly ? isNull(pressAlert.endedAt) : undefined))
+        .where(and(eq(pressAlert.companyId, ctx.companyId), input.openOnly ? alertOpenSql(nowMs) : undefined))
         .orderBy(desc(pressAlert.startedAt))
         .limit(input.limit);
-      return rows.map(({ limitX10, peakX10, ...r }) => ({ ...r, limit: limitX10 / 10, peak: peakX10 / 10 }));
+      return rows.map(({ limitX10, peakX10, ...r }) => ({ ...r, endedAt: alertEndedAt(r, nowMs), limit: limitX10 / 10, peak: peakX10 / 10 }));
     }),
 
   acknowledgeAlert: actionProcedure("press.close")
@@ -153,26 +174,20 @@ export const pressCollectorRouter = router({
     }),
 
   /**
-   * The collector's annotation of one run (null when no frame was bound to it). A run logged after
-   * its last frame is re-evaluated here so the Q-09 variance appears even when the line went quiet.
+   * The collector's annotation of one run (null when its window holds no frame). Computed here, at
+   * read time, from the frames on the run's line inside its window (I-1): a run entered late,
+   * re-timed, logged or voided after its frames arrived is right on the next read. The stored row
+   * is the cache it refreshes.
    */
   runSummary: companyProcedure.input(z.object({ runId: id })).query(async ({ ctx, input }) => {
     const run = await ctx.db
-      .select({ id: pressRun.id, status: pressRun.status, updatedAt: pressRun.updatedAt })
+      .select({ id: pressRun.id })
       .from(pressRun)
       .where(and(eq(pressRun.id, input.runId), eq(pressRun.companyId, ctx.companyId)))
       .get();
     if (!run) throw new TRPCError({ code: "NOT_FOUND", message: "Run not found" });
-    let row = await ctx.db
-      .select()
-      .from(pressRunCollector)
-      .where(and(eq(pressRunCollector.pressRunId, run.id), eq(pressRunCollector.companyId, ctx.companyId)))
-      .get();
-    if (row && run.status === "logged" && run.updatedAt.getTime() > row.evaluatedAt.getTime()) {
-      await refreshRunCollector(ctx.db, ctx.companyId, run.id);
-      row = await ctx.db.select().from(pressRunCollector).where(eq(pressRunCollector.pressRunId, run.id)).get();
-    }
-    if (!row) return null;
+    const row = await refreshRunCollector(ctx.db, ctx.companyId, run.id);
+    if (!row || row.frames === 0) return null;
     return {
       runId: row.pressRunId,
       frames: row.frames,
@@ -200,7 +215,7 @@ export const pressCollectorRouter = router({
     const [r] = await ctx.db
       .select({ n: sql<number>`count(*)`, sim: sql<number>`coalesce(max(${pressAlert.simulated}), 0)` })
       .from(pressAlert)
-      .where(and(eq(pressAlert.companyId, ctx.companyId), isNull(pressAlert.endedAt)));
+      .where(and(eq(pressAlert.companyId, ctx.companyId), alertOpenSql(now().getTime())));
     return { open: Number(r?.n ?? 0), simulated: Number(r?.sim ?? 0) > 0 };
   }),
 });

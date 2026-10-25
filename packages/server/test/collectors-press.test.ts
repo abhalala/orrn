@@ -3,17 +3,18 @@
  * (node, seq), run binding by time window, the Q-09 2 % variance annotation (the run is never
  * written), threshold alerts, heartbeat presence and permissions (node HMAC only).
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { wrapSecret } from "@orrn/crypto";
 import { pressAlert, pressCollectorFrame, pressRunCollector } from "@orrn/db/schema/collector";
 import { pressBilletUse, pressLine, pressRun } from "@orrn/db/schema/press";
 import { cast } from "@orrn/db/schema/foundry";
 import { spoolDeployment } from "@orrn/db/schema/spool";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { DEV_MASTER_KEY } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
+import { pressHelpers } from "./press-w2-fixture";
 
 let env: TestEnv;
 let lib: typeof import("../src/lib/pressCollector");
@@ -33,10 +34,38 @@ afterAll(async () => {
   await env.dispose();
 });
 
+// The late-entry case walks a whole W2 plant (orders, plans, copies) on Miniflare D1.
+setDefaultTimeout(30_000);
+const { pressPlant } = pressHelpers(() => env);
+
 const T0 = Date.parse("2026-10-24T06:00:00.000Z");
 const at = (sec: number) => new Date(T0 + sec * 1000);
 const iso = (sec: number) => at(sec).toISOString();
 const enc = (v: unknown) => new TextEncoder().encode(JSON.stringify(v));
+
+/** A spool node (deployment) of `companyId` and a signed POST of frames from it. */
+async function collectorNode(companyId: string, secret: string) {
+  const nodeId = crypto.randomUUID();
+  const instanceId = crypto.randomUUID();
+  await env.db.insert(spoolDeployment).values({
+    id: nodeId,
+    companyId,
+    instanceId,
+    status: "active",
+    subdomain: `pc-${nodeId.slice(0, 8)}`,
+    nodeDomain: `pc-${nodeId.slice(0, 8)}.spool.orrn.in`,
+    cfTunnelTokenWrapped: await wrapSecret("tunnel", DEV_MASTER_KEY),
+    sharedSecretHash: "hash",
+    sharedSecretWrapped: await wrapSecret(secret, DEV_MASTER_KEY),
+  });
+  const post = async (frames: unknown[], opts: { nowMs?: number } = {}) => {
+    const rawBody = enc({ instance_id: instanceId, frames });
+    const nowMs = opts.nowMs ?? Date.now();
+    const token = await crypto_.signSpoolRequest("POST", lib.PRESS_FRAMES_PATH, rawBody, secret, nowMs);
+    return node.handlePressFramesRequest(env.db, { rawBody, authorization: `Bearer ${token}`, masterKey: DEV_MASTER_KEY, nowMs });
+  };
+  return { nodeId, instanceId, post };
+}
 
 async function plant(secret = "press-secret") {
   const { companyId } = await env.seedCompany();
@@ -57,7 +86,7 @@ async function plant(secret = "press-secret") {
   await env.db.insert(pressLine).values({ id: lineId, companyId, code: "P1", name: "Press 1" });
   const sectionId = await env.seedDie(companyId);
   let n = 0;
-  const run = async (o: { startSec: number; stopSec?: number | null; status?: "running" | "stopped" | "logged" | "queued"; inputG?: number | null; lineId?: string }) => {
+  const run = async (o: { startSec: number; stopSec?: number | null; status?: "running" | "stopped" | "logged" | "queued" | "counting" | "voided"; inputG?: number | null; lineId?: string }) => {
     const id = crypto.randomUUID();
     n += 1;
     await env.db.insert(pressRun).values({
@@ -276,7 +305,8 @@ describe("POST /collector/press/frames", () => {
     }
     await env.caller({ role: "manager", companyId: p.companyId }).press.collector.setThreshold({ pressLineId: null, metric: "ram_speed", min: 2, max: 12 });
     await p.post([frame(1, 10, { ramSpeedMmS: 15 })]);
-    const [a] = await env.caller({ role: "viewer", companyId: p.companyId }).press.collector.alerts({ openOnly: true, limit: 10 });
+    // The frame is hours older than the real clock, so the alert reads as ended (I-3); it is still listed.
+    const [a] = await env.caller({ role: "viewer", companyId: p.companyId }).press.collector.alerts({ openOnly: false, limit: 10 });
     expect(a).toBeDefined();
     await expect(env.caller({ role: "press", companyId: p.companyId }).press.collector.acknowledgeAlert({ id: a!.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(await env.caller({ role: "supervisor", companyId: p.companyId }).press.collector.acknowledgeAlert({ id: a!.id })).toMatchObject({ already: false });
@@ -344,8 +374,8 @@ describe("press_alert evaluation", () => {
     await p.post([frame(4, 16, { ramSpeedMmS: 9 }), frame(5, 18, { billetTempC: 505 })]);
     expect(await env.db.select().from(pressAlert).where(eq(pressAlert.companyId, p.companyId))).toHaveLength(2);
 
-    // Today chip: one open, two today, simulated.
-    const today = await lib.pressAlertsToday(env.db, p.companyId, T0);
+    // Today chip: one open, two today, simulated (read a minute after the last frame).
+    const today = await lib.pressAlertsToday(env.db, p.companyId, T0, T0 + 60_000);
     expect(today).toEqual({ open: 1, today: 2, simulated: true });
   });
 
@@ -403,5 +433,241 @@ describe("heartbeat carries collector presence", () => {
     expect(row!.collectorsReportedAt?.getTime()).toBe(now);
     const o = await env.caller({ role: "viewer", companyId: p.companyId }).edge.overview();
     expect(o.current).toMatchObject({ collectors: row!.collectors });
+  });
+});
+
+describe("run binding is computed by line + time window, the frame link is only a cache (I-1)", () => {
+  const summary = (companyId: string, runId: string) => env.caller({ role: "viewer", companyId }).press.collector.runSummary({ runId });
+  const cached = async (nodeId: string) =>
+    new Map((await env.db.select().from(pressCollectorFrame).where(eq(pressCollectorFrame.nodeId, nodeId))).map((r) => [r.seq, r.pressRunId]));
+
+  test("frames first, then press.runs.open late over them: the late run gets its frames", async () => {
+    const p = await pressPlant();
+    const n = await collectorNode(p.companyId, "late-secret");
+    const now = Date.now();
+    const startedAt = now - 5 * 3_600_000;
+    const stoppedAt = now - 3 * 3_600_000;
+    const real = (seq: number, ms: number, over: Record<string, unknown> = {}) => ({ ...frame(seq, 0, over), at: new Date(ms).toISOString() });
+    const first = await n.post([real(1, startedAt + 60_000, { billetGTotal: 0 }), real(2, startedAt + 3_600_000, { billetGTotal: 150_000 }), real(3, stoppedAt - 60_000, { billetGTotal: 300_000 })]);
+    expect(first.body).toMatchObject({ accepted: 3, bound: 0, unbound: 3 });
+
+    const sectionId = await p.section();
+    const copyId = await p.copy(sectionId, { milli: 12_000 });
+    const late = await p.as("supervisor").press.runs.open({ pressLineId: p.pressLineId, dieInstanceId: copyId, startedAt, stoppedAt, reason: "Tablet was down on the night shift" });
+
+    // The next post for the line (an idle frame, bound to nothing) sweeps the late run and
+    // refreshes the cached links.
+    const res = await n.post([real(4, now - 30_000, { state: "idle" })]);
+    expect((res.body as { runsEvaluated: string[] }).runsEvaluated).toContain(late.id);
+    const links = await cached(n.nodeId);
+    expect([links.get(1), links.get(2), links.get(3), links.get(4)]).toEqual([late.id, late.id, late.id, null]);
+    expect(await summary(p.companyId, late.id)).toMatchObject({ frames: 3, collectorInputG: 300_000, typedInputG: null, simulated: true });
+
+    // Read time alone is enough too: a second late run with no post after it.
+    const copy2 = await p.copy(sectionId, { milli: 12_000 });
+    await n.post([real(5, now - 2 * 3_600_000 + 60_000), real(6, now - 2 * 3_600_000 + 120_000)]);
+    const late2 = await p.as("supervisor").press.runs.open({ pressLineId: p.pressLineId, dieInstanceId: copy2, startedAt: now - 2 * 3_600_000, stoppedAt: now - 3_600_000, reason: "Tablet was down again" });
+    expect(await summary(p.companyId, late2.id)).toMatchObject({ frames: 2 });
+  });
+
+  test("a run whose times are edited re-binds; a voided run has none", async () => {
+    const p = await plant("edit-secret");
+    const runId = await p.run({ startSec: 0, stopSec: 600, status: "logged", inputG: 300_000 });
+    await p.post([frame(1, 10, { billetGTotal: 0 }), frame(2, 200, { billetGTotal: 150_000 }), frame(3, 400, { billetGTotal: 300_000 }), frame(4, 590, { billetGTotal: 300_000 })]);
+    expect(await summary(p.companyId, runId)).toMatchObject({ frames: 4, collectorInputG: 300_000, varianceBp: 0 });
+
+    // The supervisor corrects the stop: the frames after it are no longer this run's.
+    await env.db.update(pressRun).set({ stoppedAt: at(250) }).where(eq(pressRun.id, runId));
+    expect(await summary(p.companyId, runId)).toMatchObject({ frames: 2, collectorInputG: 150_000, varianceBp: 5000, collectorVariance: true });
+    let links = await cached(p.nodeId);
+    expect([links.get(1), links.get(2), links.get(3), links.get(4)]).toEqual([runId, runId, null, null]);
+
+    // And the start moves later: the first frame drops out too.
+    await env.db.update(pressRun).set({ startedAt: at(100), stoppedAt: at(600) }).where(eq(pressRun.id, runId));
+    expect(await summary(p.companyId, runId)).toMatchObject({ frames: 3 });
+    links = await cached(p.nodeId);
+    expect([links.get(1), links.get(2), links.get(3), links.get(4)]).toEqual([null, runId, runId, runId]);
+
+    await env.db.update(pressRun).set({ status: "voided" }).where(eq(pressRun.id, runId));
+    expect(await summary(p.companyId, runId)).toBeNull();
+    links = await cached(p.nodeId);
+    expect([...links.values()].every((v) => v == null)).toBe(true);
+  });
+
+  test("two runs on one line split the frames; the later-started run wins where they overlap", async () => {
+    const p = await plant("split-secret");
+    const a = await p.run({ startSec: 0, stopSec: 500, status: "logged" });
+    await p.post([frame(1, 10), frame(2, 150), frame(3, 250), frame(4, 350), frame(5, 450)]);
+    expect(await summary(p.companyId, a)).toMatchObject({ frames: 5 });
+    // A second run is entered late inside A's window (A's stop was typed wrong).
+    const b = await p.run({ startSec: 200, stopSec: 400, status: "counting" });
+    expect(await summary(p.companyId, a)).toMatchObject({ frames: 3 });
+    expect(await summary(p.companyId, b)).toMatchObject({ frames: 2 });
+    const links = await cached(p.nodeId);
+    expect([links.get(1), links.get(2), links.get(3), links.get(4), links.get(5)]).toEqual([a, a, b, b, a]);
+    // Back to back: a frame on the boundary belongs to the run that starts there.
+    const c = await p.run({ startSec: 1000, stopSec: 1100, status: "stopped" });
+    const d = await p.run({ startSec: 1100, status: "running" });
+    await p.post([frame(6, 1050), frame(7, 1100), frame(8, 1150)]);
+    expect(await summary(p.companyId, c)).toMatchObject({ frames: 1 });
+    expect(await summary(p.companyId, d)).toMatchObject({ frames: 2 });
+  });
+
+  test("bindRun breaks a start-time tie the same way the window query does", () => {
+    const runs = [
+      { id: "b", pressLineId: "L", startedAt: at(0), stoppedAt: at(100), status: "logged" },
+      { id: "a", pressLineId: "L", startedAt: at(0), stoppedAt: at(100), status: "logged" },
+    ];
+    expect(lib.bindRun(runs, "L", T0 + 50_000)).toBe("b");
+    expect(lib.bindRun([...runs].reverse(), "L", T0 + 50_000)).toBe("b");
+  });
+});
+
+describe("alerts end after a 5-minute gap, on ingest and on read (I-3)", () => {
+  test("an out-of-band frame followed only by idle frames for 6 minutes is ended", async () => {
+    const p = await plant("idle-secret");
+    await env.caller({ role: "owner", companyId: p.companyId }).press.collector.setThreshold({ pressLineId: null, metric: "ram_speed", min: 2, max: 12 });
+    await p.post([frame(1, 0, { ramSpeedMmS: 15 })]);
+    const idle = Array.from({ length: 12 }, (_, i) => frame(2 + i, 30 * (i + 1), { state: "idle", ramSpeedMmS: 0 }));
+    const r = await p.post(idle);
+    expect(r.body).toMatchObject({ alertsEnded: 1 });
+    const [a] = await env.db.select().from(pressAlert).where(eq(pressAlert.companyId, p.companyId));
+    expect(a!.endedAt).toEqual(at(0));
+    expect(await lib.pressAlertsToday(env.db, p.companyId, T0, T0 + 400_000)).toEqual({ open: 0, today: 1, simulated: true });
+  });
+
+  test("a collector that stops sending does not leave the alert open overnight", async () => {
+    const p = await plant("quiet-secret");
+    await env.caller({ role: "owner", companyId: p.companyId }).press.collector.setThreshold({ pressLineId: null, metric: "pressure", min: null, max: 200 });
+    const now = Date.now();
+    const real = (seq: number, ms: number, over: Record<string, unknown>) => ({ ...frame(seq, 0, over), at: new Date(ms).toISOString() });
+    // Line P1 went quiet 6 minutes ago with the alert still open in the table.
+    await p.post([real(1, now - 6 * 60_000, { pressureBar: 230 })], { nowMs: now });
+    const stored = await env.db.select().from(pressAlert).where(and(eq(pressAlert.companyId, p.companyId), isNull(pressAlert.endedAt)));
+    expect(stored).toHaveLength(1);
+    const viewer = env.caller({ role: "viewer", companyId: p.companyId });
+    expect(await viewer.press.collector.alerts({ openOnly: true, limit: 10 })).toEqual([]);
+    expect(await viewer.press.collector.openAlertCount()).toEqual({ open: 0, simulated: false });
+    const [listed] = await viewer.press.collector.alerts({ openOnly: false, limit: 10 });
+    expect(listed!.endedAt).toEqual(new Date(now - 6 * 60_000));
+    expect(await lib.pressAlertsToday(env.db, p.companyId, now - 3_600_000, now)).toEqual({ open: 0, today: 1, simulated: true });
+    // A fresh one (a minute old) is open.
+    const line2 = crypto.randomUUID();
+    await env.db.insert(pressLine).values({ id: line2, companyId: p.companyId, code: "P2", name: "Press 2" });
+    await p.post([real(2, now - 60_000, { line: "P2", pressureBar: 240 })], { nowMs: now });
+    expect(await viewer.press.collector.openAlertCount()).toEqual({ open: 1, simulated: true });
+    expect((await viewer.press.collector.alerts({ openOnly: true, limit: 10 })).map((x) => x.lineCode)).toEqual(["P2"]);
+  });
+
+  test("changing a band ends the alerts opened under the old one (m-10)", async () => {
+    const p = await plant("band-secret");
+    const owner = env.caller({ role: "owner", companyId: p.companyId });
+    await owner.press.collector.setThreshold({ pressLineId: p.lineId, metric: "billet_temp", min: 470, max: 500 });
+    await p.post([frame(1, 0, { billetTempC: 505 }), frame(2, 2, { billetTempC: 507 })]);
+    await owner.press.collector.setThreshold({ pressLineId: p.lineId, metric: "billet_temp", min: 470, max: 510 });
+    const [a] = await env.db.select().from(pressAlert).where(eq(pressAlert.companyId, p.companyId));
+    expect(a!.endedAt).toEqual(at(2));
+    // The next out-of-band frame opens a new alert under the new band.
+    await p.post([frame(3, 4, { billetTempC: 515 })]);
+    const rows = await env.db.select().from(pressAlert).where(eq(pressAlert.companyId, p.companyId));
+    expect(rows.filter((r) => r.endedAt == null)).toEqual([expect.objectContaining({ limitX10: 5100, peakX10: 5150 })]);
+  });
+});
+
+describe("review round 1: D1 limits, per-frame refusal, retention, Q-09 both bases", () => {
+  test("150 line codes in one ingest stay under 100 bound parameters per statement (m-1)", async () => {
+    const { companyId } = await env.seedCompany();
+    const n = await collectorNode(companyId, "many-lines");
+    const lineIds: string[] = [];
+    for (let i = 0; i < 150; i += 1) {
+      const id = crypto.randomUUID();
+      lineIds.push(id);
+      await env.db.insert(pressLine).values({ id, companyId, code: `L${i}`, name: `Line ${i}` });
+    }
+    const sectionId = await env.seedDie(companyId);
+    for (let i = 0; i < 150; i += 1) {
+      await env.db.insert(pressRun).values({ id: crypto.randomUUID(), companyId, number: `PR-M${i}`, period: "2026-27", status: "running", sectionId, pressLineId: lineIds[i]!, startedAt: at(0), productionDay: "2026-10-24", shiftSeq: 1 });
+    }
+    await env.caller({ role: "owner", companyId }).press.collector.setThreshold({ pressLineId: null, metric: "ram_speed", min: 2, max: 12 });
+    const frames = lineIds.map((_, i) => lib.pressFrameSchema.parse(frame(i + 1, 10, { line: `L${i}`, ramSpeedMmS: i % 2 ? 15 : 8 })));
+    const nodeRow = { id: n.nodeId, companyId, instanceId: n.instanceId };
+    const r = await lib.ingestPressFrames(env.db, nodeRow, frames, T0 + 60_000);
+    expect(r).toMatchObject({ accepted: 150, bound: 150, rejected: [], alertsOpened: 75 });
+    // The next page (all 150 lines again) reads the open alerts and stale runs in chunks too.
+    const again = await lib.ingestPressFrames(env.db, nodeRow, frames.map((f) => ({ ...f, seq: f.seq + 1000, at: iso(12) })), T0 + 60_000);
+    expect(again).toMatchObject({ accepted: 150, alertsOpened: 0 });
+  });
+
+  test("one out-of-range reading refuses that frame, not the page (m-2)", async () => {
+    const p = await plant("range-secret");
+    const r = await p.post([frame(1, 0), frame(2, 2, { ramSpeedMmS: 5000 }), frame(3, 4), { seq: "x" }]);
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ accepted: 2, rejected: [{ seq: 2, reason: "invalid" }, { seq: -1, reason: "invalid" }] });
+  });
+
+  test("a tampered body under a valid token is refused (m-12)", async () => {
+    const p = await plant("tamper-secret");
+    const rawBody = enc({ instance_id: p.instanceId, frames: [frame(1, 10)] });
+    const nowMs = T0 + 3600_000;
+    const token = await crypto_.signSpoolRequest("POST", lib.PRESS_FRAMES_PATH, rawBody, "tamper-secret", nowMs);
+    const tampered = enc({ instance_id: p.instanceId, frames: [frame(1, 10, { ramSpeedMmS: 99 })] });
+    const res = await node.handlePressFramesRequest(env.db, { rawBody: tampered, authorization: `Bearer ${token}`, masterKey: DEV_MASTER_KEY, nowMs });
+    expect(res.status).toBe(403);
+    expect(await env.db.select().from(pressCollectorFrame).where(eq(pressCollectorFrame.nodeId, p.nodeId))).toHaveLength(0);
+  });
+
+  test("the daily job purges simulated frames after 24 h and real frames after 90 days; summaries stay (m-6)", async () => {
+    const p = await plant("purge-secret");
+    const runId = await p.run({ startSec: 0, stopSec: 600, status: "logged" });
+    const day = 86_400_000;
+    await p.post([frame(1, 10), frame(2, 20), frame(3, 30, { simulated: false }), frame(4, 40, { simulated: false })]);
+    expect(await lib.refreshRunCollector(env.db, p.companyId, runId)).toMatchObject({ frames: 4 });
+    // A day and a bit later: the simulated frames go, the real ones stay. (The purge is for every
+    // company, so other tests' frames in this database count too.)
+    let out = await lib.purgeCollectorFrames(env.db, T0 + day + 60_000);
+    expect(out.simulated).toBeGreaterThanOrEqual(2);
+    let left = await env.db.select().from(pressCollectorFrame).where(eq(pressCollectorFrame.nodeId, p.nodeId));
+    expect(left.map((f) => f.seq).sort()).toEqual([3, 4]);
+    // 91 days later the real frames go too; the run's summary is kept as the record.
+    out = await lib.purgeCollectorFrames(env.db, T0 + 91 * day);
+    expect(out.real).toBeGreaterThanOrEqual(2);
+    left = await env.db.select().from(pressCollectorFrame).where(eq(pressCollectorFrame.nodeId, p.nodeId));
+    expect(left).toHaveLength(0);
+    expect(await env.caller({ role: "viewer", companyId: p.companyId }).press.collector.runSummary({ runId })).toMatchObject({ frames: 4 });
+    expect(lib.COLLECTOR_FRAME_RETENTION).toEqual({ simulatedMs: day, realMs: 90 * day });
+  });
+
+  test("Q-09 checks weight and count: either beyond 2 % flags the run (m-9)", async () => {
+    const p = await plant("both-secret");
+    const runId = await p.run({ startSec: 0, stopSec: 600, status: "logged", inputG: 400_000 });
+    const castId = crypto.randomUUID();
+    await env.db.insert(cast).values({ id: castId, companyId: p.companyId, number: "K77", period: "2026-10", year: 2026, month: 10, seq: 77, alloy: "6063", openedAt: at(0) });
+    await env.db.insert(pressBilletUse).values({ id: crypto.randomUUID(), companyId: p.companyId, pressRunId: runId, line: 1, castId, count: 10, kgG: 400_000 });
+    // Weight agrees (401 kg, 0.25 %), but the counter saw 11 billets for 10 typed (10 %).
+    await p.post([frame(1, 10, { billetGTotal: 0, billetsTotal: 0 }), frame(2, 300, { billetGTotal: 200_000, billetsTotal: 6 }), frame(3, 590, { billetGTotal: 401_000, billetsTotal: 11 })]);
+    const s = await env.db.select().from(pressRunCollector).where(eq(pressRunCollector.pressRunId, runId)).get();
+    expect(s).toMatchObject({ varianceBasis: "count", varianceBp: 1000, collectorVariance: true, billetsCounted: 11 });
+  });
+});
+
+describe("heartbeat: optional collector telemetry never breaks presence (I-2)", () => {
+  test("a 5 KB lastError is truncated; a malformed entry is dropped; the beat is accepted", async () => {
+    const p = await plant("hb-long");
+    const collectors = [
+      { kind: "press", line: "P1", source: "sim", configured: true, simulated: true, connected: false, lastFrameAt: null, lastError: "x".repeat(5 * 1024) },
+      { kind: "laser", source: "?", configured: true, simulated: false },
+      { kind: "spectro", source: "watch_dir_with_a_very_long_name_indeed", configured: true, simulated: false, connected: true, lastFrameAt: null },
+    ];
+    const body = enc({ instance_id: p.instanceId, version: "1.2.3", collectors });
+    const now = Date.parse("2026-10-24T06:30:00Z");
+    const token = await crypto_.signSpoolRequest("POST", "/webhooks/spool/activate", body, "hb-long", now);
+    const res = await hb.handleNodeHeartbeat(env.db, { rawBody: body, authorization: `Bearer ${token}`, masterKey: DEV_MASTER_KEY, nowMs: now });
+    expect(res.status).toBe(200);
+    const row = await env.db.select().from(spoolDeployment).where(eq(spoolDeployment.id, p.nodeId)).get();
+    expect(row!.lastHeartbeatAt?.getTime()).toBe(now);
+    expect(row!.runtimeVersion).toBe("1.2.3");
+    expect(row!.collectors).toHaveLength(2);
+    expect(row!.collectors![0]!.lastError).toBe("x".repeat(200));
+    expect(row!.collectors![1]).toMatchObject({ kind: "spectro", source: "watch_dir_with_a_very_long_name_" });
   });
 });

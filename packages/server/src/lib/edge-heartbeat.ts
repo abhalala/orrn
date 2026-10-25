@@ -32,23 +32,42 @@ const heartbeatSchema = z.object({
       lastFrameAt: z.string().datetime({ offset: true }).nullable().optional(),
     })
     .optional(),
-  collectors: z
-    .array(
-      z.object({
-        kind: z.enum(["press", "spectro"]),
-        line: z.string().max(32).nullable().optional(),
-        source: z.string().min(1).max(32),
-        configured: z.boolean(),
-        simulated: z.boolean(),
-        connected: z.boolean().optional(),
-        lastFrameAt: z.string().datetime({ offset: true }).nullable().optional(),
-        backlog: z.number().int().min(0).max(10_000_000).optional(),
-        lastError: z.string().max(200).nullable().optional(),
-      }),
-    )
-    .max(8)
-    .optional(),
+  // Optional telemetry: checked entry by entry below, never a reason to refuse the beat (I-2).
+  collectors: z.unknown().optional(),
 });
+
+/** Collector entries kept per beat; longer text is cut, not refused (I-2). */
+export const HEARTBEAT_MAX_COLLECTORS = 8;
+export const COLLECTOR_LAST_ERROR_MAX = 200;
+const cut = (n: number) => (s: string) => s.slice(0, n);
+
+const collectorEntrySchema = z.object({
+  kind: z.enum(["press", "spectro"]),
+  line: z.string().max(32).nullable().optional(),
+  source: z.string().min(1).transform(cut(32)),
+  configured: z.boolean(),
+  simulated: z.boolean(),
+  connected: z.boolean().optional(),
+  lastFrameAt: z.string().datetime({ offset: true }).nullable().optional(),
+  backlog: z.number().int().min(0).max(10_000_000).optional(),
+  lastError: z.string().transform(cut(COLLECTOR_LAST_ERROR_MAX)).nullable().optional(),
+});
+
+/**
+ * The heartbeat's `collectors`, entry by entry: a malformed entry is dropped and long text is
+ * truncated, so a node with a 5 KB Windows error still shows as present (I-2). Null when the beat
+ * carried no list.
+ */
+export function parseCollectorPresence(raw: unknown): z.infer<typeof collectorEntrySchema>[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: z.infer<typeof collectorEntrySchema>[] = [];
+  for (const entry of raw) {
+    const p = collectorEntrySchema.safeParse(entry);
+    if (p.success) out.push(p.data);
+    if (out.length >= HEARTBEAT_MAX_COLLECTORS) break;
+  }
+  return out;
+}
 
 export type HeartbeatResult = { status: 200 | 400 | 403; body: Record<string, unknown> };
 
@@ -99,10 +118,11 @@ export async function handleNodeHeartbeat(
         }
       : {};
 
+  const presence = signed ? parseCollectorPresence(body.collectors) : null;
   const collectors: { collectors?: CollectorPresence[]; collectorsReportedAt?: Date } =
-    signed && body.collectors
+    presence
       ? {
-          collectors: body.collectors.map((c) => ({
+          collectors: presence.map((c) => ({
             kind: c.kind,
             line: c.line ?? null,
             source: c.source,

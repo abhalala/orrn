@@ -4,20 +4,28 @@
  *
  * Rules (never bent):
  * - Read-only towards the press: the collector never writes the PLC, and this file never writes a
- *   press run's figures. It stores frames, binds each to the run that was on the line when it was
- *   sampled (started_at ≤ sampled_at ≤ stopped_at; a running run is open-ended), keeps one
- *   annotation row per run (`press_run_collector`) and opens / extends / ends alerts.
+ *   press run's figures. It stores frames, keeps one annotation row per run (`press_run_collector`)
+ *   and opens / extends / ends alerts.
+ * - Run binding is a rule, not a stored fact: a frame belongs to the run that was on its line when
+ *   it was sampled (started_at ≤ sampled_at ≤ stopped_at; a running run is open-ended; where two
+ *   windows overlap the later-started run wins). The rule is applied when a run is evaluated
+ *   (`refreshRunCollector`: on ingest, by the sweep of changed runs, and on every `runSummary`
+ *   read), so a run entered late, re-timed or voided after its frames arrived is still right.
+ *   `press_collector_frame.press_run_id` is only a cache of that rule, re-stamped on evaluation.
+ * - Retention (m-6): simulated frames are kept 24 h and real frames 90 days
+ *   ({@link COLLECTOR_FRAME_RETENTION}), purged by the daily cron (`purgeCollectorFrames`). A run's
+ *   annotation outlives its frames.
  * - Idempotent on (node, seq): a replayed frame is a duplicate and changes nothing.
  * - Q-09: collector-derived billet kg within 2 % of the run's typed input kg is accepted; beyond
  *   2 % the annotation says `collector_variance`. The run itself is untouched.
  * - Every row carries `simulated` as the node said it; nothing upgrades a simulator to a device.
  */
-import { and, asc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, lt, lte, ne, not, or, sql, type SQL } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import { z } from "zod";
 
 import type { OrrnDb } from "@orrn/db";
-import { chunk, IN_LIST_CHUNK } from "@orrn/db/chunk";
+import { chunk, IN_LIST_CHUNK, mapInChunks } from "@orrn/db/chunk";
 import {
   pressAlert,
   pressAlertThreshold,
@@ -42,8 +50,15 @@ export const FRAME_CLOCK_AHEAD_MS = 5 * 60_000;
 export const COLLECTOR_VARIANCE_ACCEPT_BP = 200;
 /** An open alert with no out-of-band frame for this long is ended at its last frame. */
 export const ALERT_GAP_MS = 5 * 60_000;
-/** Run states a frame may bind to (a queued or die-issued run has not started). */
+/** Run states a frame may bind to (a queued or die-issued run has not started; a voided one never ran). */
 const BINDABLE_RUN_STATUSES = ["running", "stopped", "counting", "logged"] as const;
+/** The sweep on ingest re-evaluates runs changed within this long (older ones are evaluated on read). */
+const SWEEP_CHANGED_WITHIN_MS = 7 * 86_400_000;
+/**
+ * Frame retention (m-6; the real period is owner-only, this is the documented default). Simulated
+ * frames are demo data and go after a day; real frames after 90 days. Run annotations stay.
+ */
+export const COLLECTOR_FRAME_RETENTION = { simulatedMs: 86_400_000, realMs: 90 * 86_400_000 } as const;
 
 const num = (min: number, max: number) => z.number().finite().min(min).max(max).nullable().optional();
 
@@ -66,14 +81,34 @@ export const pressFrameSchema = z.object({
 });
 export type PressFrameInput = z.infer<typeof pressFrameSchema>;
 
+/** The page is checked as a whole only for its shape; each frame is checked on its own (m-2). */
 export const pressFramesBodySchema = z.object({
   instance_id: z.string().min(1).max(128),
-  frames: z.array(pressFrameSchema).min(1).max(PRESS_FRAMES_MAX),
+  frames: z.array(z.unknown()).min(1).max(PRESS_FRAMES_MAX),
 });
+
+/**
+ * Check each frame on its own: one out-of-range reading (an unscaled register, say) refuses that
+ * frame as `invalid`, not the page, so the node's other 99 frames are kept.
+ */
+export function parseFrames(raw: readonly unknown[]): { frames: PressFrameInput[]; rejected: FrameRejection[] } {
+  const frames: PressFrameInput[] = [];
+  const rejected: FrameRejection[] = [];
+  for (const r of raw) {
+    const p = pressFrameSchema.safeParse(r);
+    if (p.success) {
+      frames.push(p.data);
+      continue;
+    }
+    const seq = (r as { seq?: unknown } | null)?.seq;
+    rejected.push({ seq: typeof seq === "number" && Number.isSafeInteger(seq) && seq >= 0 ? seq : -1, reason: "invalid" });
+  }
+  return { frames, rejected };
+}
 
 const x10 = (v: number | null | undefined) => (v == null ? null : Math.round(v * 10));
 
-export type FrameRejection = { seq: number; reason: "unknown_line" | "clock_ahead" | "duplicate_in_batch" };
+export type FrameRejection = { seq: number; reason: "invalid" | "unknown_line" | "clock_ahead" | "duplicate_in_batch" };
 
 export type IngestResult = {
   accepted: number;
@@ -97,7 +132,10 @@ type FrameRow = typeof pressCollectorFrame.$inferInsert & {
 
 type CandidateRun = { id: string; pressLineId: string; startedAt: Date; stoppedAt: Date | null; status: string };
 
-/** The run a frame sampled at `atMs` on a line belongs to: the latest-started run whose window covers it. */
+/**
+ * The run a frame sampled at `atMs` on a line belongs to: the latest-started run whose window covers
+ * it (a start-time tie goes to the larger id, as in {@link frameInRunWindow}).
+ */
 export function bindRun(runs: readonly CandidateRun[], lineId: string, atMs: number): string | null {
   let best: CandidateRun | null = null;
   for (const r of runs) {
@@ -109,7 +147,7 @@ export function bindRun(runs: readonly CandidateRun[], lineId: string, atMs: num
     } else if (r.status !== "running") {
       continue; // a stopped run with no stop time has no window
     }
-    if (!best || start > best.startedAt.getTime()) best = r;
+    if (!best || start > best.startedAt.getTime() || (start === best.startedAt.getTime() && r.id > best.id)) best = r;
   }
   return best?.id ?? null;
 }
@@ -149,16 +187,19 @@ export async function ingestPressFrames(
   node: CollectorNode,
   frames: readonly PressFrameInput[],
   nowMs: number = Date.now(),
+  invalid: readonly FrameRejection[] = [],
 ): Promise<IngestResult> {
   const companyId = node.companyId;
-  const rejected: FrameRejection[] = [];
+  const rejected: FrameRejection[] = [...invalid];
 
-  // 1. Line codes -> ids (this company only).
+  // 1. Line codes -> ids (this company only). Every IN-list here is chunked (m-1: ≤ 100 params).
   const codes = [...new Set(frames.map((f) => f.line))];
-  const lines = await db
-    .select({ id: pressLine.id, code: pressLine.code })
-    .from(pressLine)
-    .where(and(eq(pressLine.companyId, companyId), inArray(pressLine.code, codes)));
+  const lines = await mapInChunks(codes, (part) =>
+    db
+      .select({ id: pressLine.id, code: pressLine.code })
+      .from(pressLine)
+      .where(and(eq(pressLine.companyId, companyId), inArray(pressLine.code, part))),
+  );
   const lineByCode = new Map(lines.map((l) => [l.code, l.id]));
 
   // 2. Shape rows; drop bad lines, clocks ahead, duplicate seqs inside the batch.
@@ -237,24 +278,26 @@ export async function ingestPressFrames(
   // 4. Bind to runs by window.
   const minAt = fresh[0]!.sampledAt;
   const maxAt = fresh[fresh.length - 1]!.sampledAt;
-  const runs = (await db
-    .select({
-      id: pressRun.id,
-      pressLineId: pressRun.pressLineId,
-      startedAt: pressRun.startedAt,
-      stoppedAt: pressRun.stoppedAt,
-      status: pressRun.status,
-    })
-    .from(pressRun)
-    .where(
-      and(
-        eq(pressRun.companyId, companyId),
-        inArray(pressRun.pressLineId, lineIds),
-        inArray(pressRun.status, [...BINDABLE_RUN_STATUSES]),
-        lte(pressRun.startedAt, maxAt),
-        or(isNull(pressRun.stoppedAt), gte(pressRun.stoppedAt, minAt)),
+  const runs = (await mapInChunks(lineIds, (part) =>
+    db
+      .select({
+        id: pressRun.id,
+        pressLineId: pressRun.pressLineId,
+        startedAt: pressRun.startedAt,
+        stoppedAt: pressRun.stoppedAt,
+        status: pressRun.status,
+      })
+      .from(pressRun)
+      .where(
+        and(
+          eq(pressRun.companyId, companyId),
+          inArray(pressRun.pressLineId, part),
+          inArray(pressRun.status, [...BINDABLE_RUN_STATUSES]),
+          lte(pressRun.startedAt, maxAt),
+          or(isNull(pressRun.stoppedAt), gte(pressRun.stoppedAt, minAt)),
+        ),
       ),
-    )) as CandidateRun[];
+  )) as CandidateRun[];
   for (const f of fresh) {
     f.pressRunId = bindRun(runs, f.pressLineId, f.sampledAt.getTime());
     if (f.pressRunId) result.bound += 1;
@@ -278,70 +321,177 @@ export async function ingestPressFrames(
   return result;
 }
 
-/** Recompute the touched runs and any logged run on `lineIds` whose annotation is older than the run. */
+/** At most this many changed runs are swept per post (the rest on the next post or on read). */
+const SWEEP_LIMIT = 20;
+
+/**
+ * Recompute the touched runs, plus runs on `lineIds` changed since they were last evaluated (or
+ * never evaluated): a run entered late, re-timed, logged or voided after its frames arrived (I-1).
+ * Changed means `press_run.updated_at` (real clock) is newer than the annotation's `evaluated_at`.
+ */
 async function refreshStaleRuns(db: OrrnDb, companyId: string, lineIds: string[], touched: string[]): Promise<string[]> {
   const ids = new Set(touched);
-  if (lineIds.length > 0) {
+  const changedSince = new Date(Date.now() - SWEEP_CHANGED_WITHIN_MS);
+  for (const part of chunk(lineIds, IN_LIST_CHUNK)) {
+    if (ids.size >= touched.length + SWEEP_LIMIT) break;
     const stale = await db
       .select({ id: pressRun.id })
       .from(pressRun)
-      .innerJoin(pressRunCollector, eq(pressRunCollector.pressRunId, pressRun.id))
+      .leftJoin(pressRunCollector, eq(pressRunCollector.pressRunId, pressRun.id))
       .where(
         and(
           eq(pressRun.companyId, companyId),
-          inArray(pressRun.pressLineId, lineIds),
-          eq(pressRun.status, "logged"),
-          sql`${pressRun.updatedAt} > ${pressRunCollector.evaluatedAt}`,
+          inArray(pressRun.pressLineId, part),
+          gte(pressRun.updatedAt, changedSince),
+          or(
+            and(isNull(pressRunCollector.pressRunId), inArray(pressRun.status, [...BINDABLE_RUN_STATUSES])),
+            and(isNotNull(pressRunCollector.pressRunId), sql`${pressRun.updatedAt} > ${pressRunCollector.evaluatedAt}`),
+          ),
         ),
       )
-      .limit(20);
+      .orderBy(sql`${pressRun.updatedAt} desc`)
+      .limit(SWEEP_LIMIT);
     for (const r of stale) ids.add(r.id);
   }
   for (const id of ids) await refreshRunCollector(db, companyId, id);
   return [...ids];
 }
 
+type WindowRun = { id: string; pressLineId: string; status: string; startedAt: Date | null; stoppedAt: Date | null };
+
+/** The run's window, or null when no frame can belong to it (not started, voided, no stop time). */
+function runWindow(run: WindowRun): { start: Date; stop: Date | null } | null {
+  if (!run.startedAt || !(BINDABLE_RUN_STATUSES as readonly string[]).includes(run.status)) return null;
+  if (!run.stoppedAt && run.status !== "running") return null;
+  return { start: run.startedAt, stop: run.stoppedAt };
+}
+
 /**
- * Recompute one run's annotation from its frames. Billet counters are cumulative on the node: the
- * run's count is the sum of positive steps from the last frame before the run (baseline) through its
- * last frame; a step down is a counter reset and counts the new value.
+ * The binding rule as SQL over `press_collector_frame` (I-1): on the run's line, inside its window,
+ * and not inside the window of a later-started bindable run on the same line (a start-time tie goes
+ * to the larger id, as in {@link bindRun}). ~10 bound parameters.
+ */
+function frameInRunWindow(companyId: string, run: WindowRun, w: { start: Date; stop: Date | null }): SQL {
+  const f = pressCollectorFrame;
+  const startMs = w.start.getTime();
+  return and(
+    eq(f.companyId, companyId),
+    eq(f.pressLineId, run.pressLineId),
+    gte(f.sampledAt, w.start),
+    w.stop ? lte(f.sampledAt, w.stop) : undefined,
+    sql`not exists (select 1 from press_run r2 where r2.company_id = ${companyId} and r2.press_line_id = ${run.pressLineId} and r2.id <> ${run.id}
+      and r2.status in ('running', 'stopped', 'counting', 'logged')
+      and (r2.started_at > ${startMs} or (r2.started_at = ${startMs} and r2.id > ${run.id}))
+      and r2.started_at <= ${f.sampledAt}
+      and ((r2.stopped_at is not null and r2.stopped_at >= ${f.sampledAt}) or (r2.stopped_at is null and r2.status = 'running')))`,
+  )!;
+}
+
+/**
+ * Recompute one run's annotation from the frames its window holds now (the binding rule, I-1), and
+ * re-stamp the cached `press_run_id` of those frames (a frame-only write; the run is never written).
+ * Billet counters are cumulative on the node: the run's count is the sum of positive steps from the
+ * last frame before the run (baseline) through its last frame; a step down is a counter reset and
+ * counts the new value. Q-09 is checked on weight and on count; either beyond 2 % flags (m-9).
+ *
+ * A run with no frames gets a `frames = 0` row (so the sweep does not pick it again); `runSummary`
+ * shows null for it. Once the retention purge has removed a run's frames the stored annotation is
+ * the record and is returned unchanged.
  */
 export async function refreshRunCollector(db: OrrnDb, companyId: string, runId: string) {
   const run = await db
-    .select({ id: pressRun.id, pressLineId: pressRun.pressLineId, status: pressRun.status, inputG: pressRun.inputG, startedAt: pressRun.startedAt })
+    .select({
+      id: pressRun.id,
+      pressLineId: pressRun.pressLineId,
+      status: pressRun.status,
+      inputG: pressRun.inputG,
+      startedAt: pressRun.startedAt,
+      stoppedAt: pressRun.stoppedAt,
+    })
     .from(pressRun)
     .where(and(eq(pressRun.id, runId), eq(pressRun.companyId, companyId)))
     .get();
   if (!run || !run.pressLineId) return null;
+  const lineId = run.pressLineId;
+  const f = pressCollectorFrame;
 
-  const [agg] = await db
-    .select({
-      frames: sql<number>`count(*)`,
-      simulated: sql<number>`coalesce(max(${pressCollectorFrame.simulated}), 0)`,
-      firstAt: sql<number | null>`min(${pressCollectorFrame.sampledAt})`,
-      lastAt: sql<number | null>`max(${pressCollectorFrame.sampledAt})`,
-      extruding: sql<number>`coalesce(sum(case when ${pressCollectorFrame.state} = 'extruding' then 1 else 0 end), 0)`,
-      ramAvg: sql<number | null>`avg(case when ${pressCollectorFrame.state} = 'extruding' then ${pressCollectorFrame.ramSpeedX10} end)`,
-      ramMax: sql<number | null>`max(case when ${pressCollectorFrame.state} = 'extruding' then ${pressCollectorFrame.ramSpeedX10} end)`,
-      billetTempAvg: sql<number | null>`avg(case when ${pressCollectorFrame.state} = 'extruding' then ${pressCollectorFrame.billetTempX10} end)`,
-      exitTempMax: sql<number | null>`max(${pressCollectorFrame.exitTempX10})`,
-      pressureMax: sql<number | null>`max(${pressCollectorFrame.pressureX10})`,
-    })
-    .from(pressCollectorFrame)
-    .where(and(eq(pressCollectorFrame.companyId, companyId), eq(pressCollectorFrame.pressRunId, runId)));
+  const existing = await db.select().from(pressRunCollector).where(eq(pressRunCollector.pressRunId, runId)).get();
+  if (existing && existing.frames > 0 && existing.firstFrameAt) {
+    // Purged: the oldest frame of its kind left on the line is newer than the run's first frame.
+    const [o] = await db
+      .select({ oldest: sql<number | null>`min(${f.sampledAt})` })
+      .from(f)
+      .where(and(eq(f.companyId, companyId), eq(f.pressLineId, lineId), eq(f.simulated, existing.simulated)));
+    const oldest = o?.oldest == null ? null : Number(o.oldest);
+    if (oldest == null || oldest > existing.firstFrameAt.getTime()) return existing;
+  }
+
+  const wr: WindowRun = { ...run, pressLineId: lineId };
+  const w = runWindow(wr);
+  const inWindow = w ? frameInRunWindow(companyId, wr, w) : null;
+  const release = db
+    .update(f)
+    .set({ pressRunId: null })
+    .where(and(eq(f.companyId, companyId), eq(f.pressRunId, runId), inWindow ? not(inWindow) : undefined));
+
+  const [agg] = inWindow
+    ? await db
+        .select({
+          frames: sql<number>`count(*)`,
+          simulated: sql<number>`coalesce(max(${f.simulated}), 0)`,
+          firstAt: sql<number | null>`min(${f.sampledAt})`,
+          lastAt: sql<number | null>`max(${f.sampledAt})`,
+          extruding: sql<number>`coalesce(sum(case when ${f.state} = 'extruding' then 1 else 0 end), 0)`,
+          ramAvg: sql<number | null>`avg(case when ${f.state} = 'extruding' then ${f.ramSpeedX10} end)`,
+          ramMax: sql<number | null>`max(case when ${f.state} = 'extruding' then ${f.ramSpeedX10} end)`,
+          billetTempAvg: sql<number | null>`avg(case when ${f.state} = 'extruding' then ${f.billetTempX10} end)`,
+          exitTempMax: sql<number | null>`max(${f.exitTempX10})`,
+          pressureMax: sql<number | null>`max(${f.pressureX10})`,
+        })
+        .from(f)
+        .where(inWindow)
+    : [];
   const frames = Number(agg?.frames ?? 0);
-  if (frames === 0) return null;
+  // Real clock: compared with press_run.updated_at, which drizzle stamps with the real clock.
+  const evaluatedAt = new Date();
+  if (!inWindow || frames === 0) {
+    const empty = {
+      pressRunId: runId,
+      companyId,
+      pressLineId: lineId,
+      frames: 0,
+      simulated: false,
+      firstFrameAt: null,
+      lastFrameAt: null,
+      extrudingFrames: 0,
+      ramSpeedAvgX10: null,
+      ramSpeedMaxX10: null,
+      billetTempAvgX10: null,
+      exitTempMaxX10: null,
+      pressureMaxX10: null,
+      billetsCounted: null,
+      collectorInputG: null,
+      typedInputG: null,
+      varianceBasis: null,
+      varianceBp: null,
+      collectorVariance: false,
+      evaluatedAt,
+    };
+    const { pressRunId: _pk, ...set } = empty;
+    await atomicBatch(db, [release, db.insert(pressRunCollector).values(empty).onConflictDoUpdate({ target: pressRunCollector.pressRunId, set })]);
+    return null;
+  }
   const firstAt = Number(agg!.firstAt);
 
   const counted = async (col: "billets_total" | "billet_g_total") => {
     const rows = await db.all<{ total: number | null; n: number }>(sql`
       with f as (
         select sampled_at, seq, ${sql.raw(col)} as v from press_collector_frame
-        where company_id = ${companyId} and press_run_id = ${runId} and ${sql.raw(col)} is not null
+        where ${inWindow} and ${sql.raw(col)} is not null
         union all
         select * from (
           select sampled_at, seq, ${sql.raw(col)} as v from press_collector_frame
-          where company_id = ${companyId} and press_line_id = ${run.pressLineId} and sampled_at < ${firstAt}
+          where company_id = ${companyId} and press_line_id = ${lineId} and sampled_at < ${firstAt}
             and ${sql.raw(col)} is not null
           order by sampled_at desc, seq desc limit 1
         )
@@ -355,30 +505,30 @@ export async function refreshRunCollector(db: OrrnDb, companyId: string, runId: 
   const billetsCounted = await counted("billets_total");
   const billetGrams = await counted("billet_g_total");
 
-  // Typed side: only a logged run has an input kg.
+  // Typed side: only a logged run has an input kg. Q-09 on both bases (m-9).
   const typedInputG = run.status === "logged" && run.inputG != null ? run.inputG : null;
-  let basis: "weight" | "count" | null = null;
-  let collectorInputG: number | null = null;
-  if (billetGrams != null && billetGrams > 0) {
-    basis = "weight";
-    collectorInputG = billetGrams;
-  } else if (billetsCounted != null && billetsCounted > 0 && typedInputG != null) {
+  const checks: { basis: "weight" | "count"; collectorG: number; v: ReturnType<typeof collectorVariance> }[] = [];
+  if (billetGrams != null && billetGrams > 0) checks.push({ basis: "weight", collectorG: billetGrams, v: collectorVariance(billetGrams, typedInputG) });
+  if (billetsCounted != null && billetsCounted > 0 && typedInputG != null) {
     const [typed] = await db
       .select({ n: sql<number>`coalesce(sum(${pressBilletUse.count}), 0)` })
       .from(pressBilletUse)
       .where(and(eq(pressBilletUse.companyId, companyId), eq(pressBilletUse.pressRunId, runId)));
     const typedCount = Number(typed?.n ?? 0);
     if (typedCount > 0) {
-      basis = "count";
-      collectorInputG = Math.round((billetsCounted * typedInputG) / typedCount);
+      const collectorG = Math.round((billetsCounted * typedInputG) / typedCount);
+      checks.push({ basis: "count", collectorG, v: collectorVariance(collectorG, typedInputG) });
     }
   }
-  const v = collectorVariance(collectorInputG, typedInputG);
+  // Report the worse basis (weight first on a tie); flag when either is beyond 2 %.
+  const judgedChecks = checks.filter((c) => c.v);
+  const worst = judgedChecks.reduce<(typeof checks)[number] | null>((a, c) => (!a || c.v!.varianceBp > a.v!.varianceBp ? c : a), null);
+  const shown = worst ?? checks[0] ?? null;
   const round = (n: number | null | undefined) => (n == null ? null : Math.round(Number(n)));
   const values = {
     pressRunId: runId,
     companyId,
-    pressLineId: run.pressLineId,
+    pressLineId: lineId,
     frames,
     simulated: Number(agg!.simulated) > 0,
     firstFrameAt: new Date(firstAt),
@@ -390,24 +540,30 @@ export async function refreshRunCollector(db: OrrnDb, companyId: string, runId: 
     exitTempMaxX10: round(agg!.exitTempMax),
     pressureMaxX10: round(agg!.pressureMax),
     billetsCounted,
-    collectorInputG: basis ? collectorInputG : null,
+    collectorInputG: shown?.collectorG ?? null,
     typedInputG,
-    varianceBasis: v ? basis : null,
-    varianceBp: v?.varianceBp ?? null,
-    collectorVariance: v?.flagged ?? false,
-    // Real clock: compared with press_run.updated_at, which drizzle stamps with the real clock.
-    evaluatedAt: new Date(),
+    varianceBasis: worst ? worst.basis : null,
+    varianceBp: worst?.v?.varianceBp ?? null,
+    collectorVariance: judgedChecks.some((c) => c.v!.flagged),
+    evaluatedAt,
   };
   const { pressRunId: _pk, ...update } = values;
-  await db.insert(pressRunCollector).values(values).onConflictDoUpdate({ target: pressRunCollector.pressRunId, set: update });
+  await atomicBatch(db, [
+    release,
+    db
+      .update(f)
+      .set({ pressRunId: runId })
+      .where(and(inWindow, or(isNull(f.pressRunId), ne(f.pressRunId, runId)))),
+    db.insert(pressRunCollector).values(values).onConflictDoUpdate({ target: pressRunCollector.pressRunId, set: update }),
+  ]);
   return values;
 }
 
 /**
  * Threshold evaluation for fresh frames (in time order). Per (line, metric): an out-of-band frame
- * opens an alert or extends the open one; an in-band frame ends it; a gap over ALERT_GAP_MS ends
- * the old one at its last frame before a new one opens. Returns the statements to run in the same
- * batch as the frame insert.
+ * opens an alert or extends the open one; an in-band frame ends it; any frame on the line (idle
+ * ones included, I-3) more than ALERT_GAP_MS after an open alert's last out-of-band frame ends it
+ * at that frame. Returns the statements to run in the same batch as the frame insert.
  */
 async function evaluateAlerts(db: OrrnDb, companyId: string, nodeId: string, fresh: readonly FrameRow[]) {
   const statements: BatchItem<"sqlite">[] = [];
@@ -416,7 +572,6 @@ async function evaluateAlerts(db: OrrnDb, companyId: string, nodeId: string, fre
     .select()
     .from(pressAlertThreshold)
     .where(and(eq(pressAlertThreshold.companyId, companyId), eq(pressAlertThreshold.active, true)));
-  if (thresholds.length === 0) return out;
   const band = (lineId: string, metric: PressAlertMetric): Band | null => {
     const own = thresholds.find((t) => t.pressLineId === lineId && t.metric === metric);
     const all = thresholds.find((t) => t.pressLineId == null && t.metric === metric);
@@ -424,11 +579,14 @@ async function evaluateAlerts(db: OrrnDb, companyId: string, nodeId: string, fre
     return t && (t.minX10 != null || t.maxX10 != null) ? { minX10: t.minX10, maxX10: t.maxX10 } : null;
   };
   const lineIds = [...new Set(fresh.map((f) => f.pressLineId))];
-  const openRows = await db
-    .select()
-    .from(pressAlert)
-    .where(and(eq(pressAlert.companyId, companyId), inArray(pressAlert.pressLineId, lineIds), isNull(pressAlert.endedAt)))
-    .orderBy(asc(pressAlert.startedAt));
+  const openRows = await mapInChunks(lineIds, (part) =>
+    db
+      .select()
+      .from(pressAlert)
+      .where(and(eq(pressAlert.companyId, companyId), inArray(pressAlert.pressLineId, part), isNull(pressAlert.endedAt))),
+  );
+  if (thresholds.length === 0 && openRows.length === 0) return out;
+  const metrics = Object.keys(METRIC_FIELD) as PressAlertMetric[];
 
   type Open = PressAlertRow & { isNew: boolean; dirty: boolean };
   const open = new Map<string, Open>();
@@ -443,18 +601,20 @@ async function evaluateAlerts(db: OrrnDb, companyId: string, nodeId: string, fre
   };
 
   for (const f of fresh) {
+    // The gap rule first, on every frame of the line whatever the press is doing.
+    for (const metric of metrics) {
+      const key = `${f.pressLineId}|${metric}`;
+      const current = open.get(key);
+      if (current && f.sampledAt.getTime() - current.lastAt.getTime() > ALERT_GAP_MS) end(key, current, current.lastAt);
+    }
     if (!judged(f.state)) continue;
-    for (const metric of Object.keys(METRIC_FIELD) as PressAlertMetric[]) {
+    for (const metric of metrics) {
       const value = f[METRIC_FIELD[metric]] as number | null | undefined;
       if (value == null) continue;
       const b = band(f.pressLineId, metric);
       const key = `${f.pressLineId}|${metric}`;
-      let current = open.get(key);
+      const current = open.get(key);
       if (current && f.sampledAt.getTime() < current.lastAt.getTime()) continue; // older than what we know
-      if (current && f.sampledAt.getTime() - current.lastAt.getTime() > ALERT_GAP_MS) {
-        end(key, current, current.lastAt);
-        current = undefined;
-      }
       const o = b ? outOfBand(value, b) : null;
       if (o) {
         if (current && current.direction === o.direction) {
@@ -514,21 +674,65 @@ async function evaluateAlerts(db: OrrnDb, companyId: string, nodeId: string, fre
 }
 
 /**
- * Today's chip (`dashboard.today.pressAlerts`): alerts still open, alerts that started since the
- * production day began, and whether any of them came from a simulator. Null when there are none,
- * so a plant without a collector sees nothing.
+ * Whether an alert is open as of `nowMs` (I-3): not ended, and its last out-of-band frame is within
+ * ALERT_GAP_MS. An alert whose collector went quiet reads as ended at its last frame, even before a
+ * later frame (or nothing at all) closes it in the table.
  */
-export async function pressAlertsToday(db: OrrnDb, companyId: string, sinceMs: number) {
+export function alertOpenSql(nowMs: number): SQL {
+  return and(isNull(pressAlert.endedAt), gte(pressAlert.lastAt, new Date(nowMs - ALERT_GAP_MS)))!;
+}
+
+/** The end shown for an alert as of `nowMs`: the stored end, or its last frame once the gap passed. */
+export function alertEndedAt(row: { endedAt: Date | null; lastAt: Date }, nowMs: number): Date | null {
+  if (row.endedAt) return row.endedAt;
+  return row.lastAt.getTime() < nowMs - ALERT_GAP_MS ? row.lastAt : null;
+}
+
+/**
+ * Today's chip (`dashboard.today.pressAlerts`): alerts open now (see {@link alertOpenSql}), alerts
+ * that started since the production day began, and whether any of them came from a simulator. Null
+ * when there are none, so a plant without a collector sees nothing.
+ */
+export async function pressAlertsToday(db: OrrnDb, companyId: string, sinceMs: number, nowMs: number = Date.now()) {
   const [r] = await db
     .select({
-      open: sql<number>`coalesce(sum(case when ${pressAlert.endedAt} is null then 1 else 0 end), 0)`,
+      open: sql<number>`coalesce(sum(case when ${alertOpenSql(nowMs)} then 1 else 0 end), 0)`,
       today: sql<number>`coalesce(sum(case when ${pressAlert.startedAt} >= ${sinceMs} then 1 else 0 end), 0)`,
       simulated: sql<number>`coalesce(max(${pressAlert.simulated}), 0)`,
     })
     .from(pressAlert)
-    .where(and(eq(pressAlert.companyId, companyId), or(isNull(pressAlert.endedAt), gte(pressAlert.startedAt, new Date(sinceMs)))));
+    .where(and(eq(pressAlert.companyId, companyId), or(alertOpenSql(nowMs), gte(pressAlert.startedAt, new Date(sinceMs)))));
   const open = Number(r?.open ?? 0);
   const today = Number(r?.today ?? 0);
   if (open === 0 && today === 0) return null;
   return { open, today, simulated: Number(r?.simulated ?? 0) > 0 };
+}
+
+/** Rows deleted per statement by the purge (keeps each D1 statement short). */
+const PURGE_BATCH = 2_000;
+
+/**
+ * Daily retention purge (m-6), run from the backup cron: simulated frames older than 24 h and real
+ * frames older than 90 days ({@link COLLECTOR_FRAME_RETENTION}), every company. Run annotations and
+ * alerts stay. Returns how many frames of each kind were deleted.
+ */
+export async function purgeCollectorFrames(db: OrrnDb, nowMs: number = Date.now()) {
+  const out = { simulated: 0, real: 0 };
+  const passes = [
+    { key: "simulated" as const, simulated: true, before: new Date(nowMs - COLLECTOR_FRAME_RETENTION.simulatedMs) },
+    { key: "real" as const, simulated: false, before: new Date(nowMs - COLLECTOR_FRAME_RETENTION.realMs) },
+  ];
+  for (const p of passes) {
+    for (;;) {
+      const victims = db
+        .select({ id: pressCollectorFrame.id })
+        .from(pressCollectorFrame)
+        .where(and(eq(pressCollectorFrame.simulated, p.simulated), lt(pressCollectorFrame.sampledAt, p.before)))
+        .limit(PURGE_BATCH);
+      const gone = await db.delete(pressCollectorFrame).where(inArray(pressCollectorFrame.id, victims)).returning({ id: pressCollectorFrame.id });
+      out[p.key] += gone.length;
+      if (gone.length < PURGE_BATCH) break;
+    }
+  }
+  return out;
 }
