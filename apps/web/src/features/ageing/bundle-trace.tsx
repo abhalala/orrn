@@ -8,7 +8,7 @@ import { can, useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { mapSentence } from "@orrn/i18n/refusal";
+import { mapSentence } from "@/features/shared/server-refusal";
 import type { Translate } from "@orrn/i18n";
 
 import "./hooks";

@@ -7,7 +7,7 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import { Flame, History, PackagePlus } from "lucide-react";
+import { Flame, PackagePlus } from "lucide-react";
 
 import { kgFromG } from "@/features/press/model";
 import { Can } from "@/shared/components/can";
@@ -41,7 +41,6 @@ export function BoardScreen() {
         <>
           <Button asChild variant="secondary">
             <UiLink to="/ageing/history" className="no-underline">
-              <History aria-hidden="true" className="size-4" />
               {t("ageing.history.title")}
             </UiLink>
           </Button>
