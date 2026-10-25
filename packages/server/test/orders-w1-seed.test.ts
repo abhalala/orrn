@@ -19,7 +19,7 @@ afterAll(async () => {
 });
 
 test("dev seed: SO-1 late with bundles packed, SO-2 confirmed on band start, SO-3 booking; re-running gives the same rows", async () => {
-  for (const key of ["owner", "operator", "viewer", "office", "dieroom", "staff"]) {
+  for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
     await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
   }
   const seedPath = "../../../apps/server/src/dev-seed";

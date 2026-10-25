@@ -243,7 +243,7 @@ describe("dev seed: Wave 1 masters (idempotent)", () => {
   test("shifts, standards, all modules, press line, transporter and reason codes survive a re-seed", async () => {
     const { user, company, pressLine, reasonCode, transporter, dieInstance: copies, dieBand } = await import("@orrn/db/schema");
     const { defaultReasonCodeRows, COMPANY_MODULES, readFloorSettings } = await import("@orrn/domain");
-    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "staff"]) {
+    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
       await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
     }
     const seedPath = "../../../apps/server/src/dev-seed";

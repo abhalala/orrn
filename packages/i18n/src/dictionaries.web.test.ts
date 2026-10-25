@@ -23,4 +23,11 @@ describe("dictionaries.web (the web build's on-demand dictionaries)", () => {
     expect(DICTIONARIES.en).toBe(en);
     await loadMessages("en");
   });
+
+  test("Gujarati is partial, so loading it brings the full English with it (no raw keys on a gu screen)", async () => {
+    // English is already complete from the test above; the contract is that gu waits for it.
+    await loadMessages("gu");
+    expect(hasMessages("gu")).toBe(true);
+    expect(hasMessages("en")).toBe(true);
+  });
 });

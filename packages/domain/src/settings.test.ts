@@ -12,6 +12,7 @@ import {
   FLOOR_SETTINGS_DEFAULTS,
   castRequiredOnBundle,
   isModuleOn,
+  validateThresholds,
   normalizeModules,
   readFloorSettings,
   resolveStandard,
@@ -139,5 +140,29 @@ describe("readFloorSettings", () => {
     expect(castRequiredOnBundle({ requireCastOnBundle: null }, false)).toBe(false);
     expect(castRequiredOnBundle({ requireCastOnBundle: null }, true)).toBe(true);
     expect(castRequiredOnBundle({ requireCastOnBundle: false }, true)).toBe(false);
+  });
+});
+
+describe("validateThresholds (rank 31)", () => {
+  test("the defaults are valid: drift 800/1000 bp, balance 200 bp; no recovery bands is valid", () => {
+    expect(validateThresholds({ drift: FLOOR_SETTINGS_DEFAULTS.drift, balanceWarnBp: FLOOR_SETTINGS_DEFAULTS.press.balanceWarnBp })).toEqual([]);
+    expect(validateThresholds({ recoveryBands: null })).toEqual([]);
+  });
+
+  test("green must be strictly below amber; amber minimum strictly below green minimum; each 0 to 10,000 bp", () => {
+    expect(validateThresholds({ drift: { greenMaxBp: 1000, amberMaxBp: 1000 } })).toEqual(["drift_order"]);
+    expect(validateThresholds({ drift: { greenMaxBp: 0, amberMaxBp: 10_000 } })).toEqual([]);
+    expect(validateThresholds({ drift: { greenMaxBp: 800, amberMaxBp: 10_001 } })).toEqual(["drift_range"]);
+    expect(validateThresholds({ recoveryBands: { greenMinBp: 8000, amberMinBp: 8000 } })).toEqual(["recovery_order"]);
+    expect(validateThresholds({ recoveryBands: { greenMinBp: 8000, amberMinBp: -1 } })).toEqual(["recovery_range"]);
+    expect(validateThresholds({ balanceWarnBp: 10_001 })).toEqual(["balance_range"]);
+    expect(validateThresholds({ balanceWarnBp: 0.5 })).toEqual(["balance_range"]);
+  });
+
+  test("what readFloorSettings reads back is what was stored", () => {
+    const read = readFloorSettings({ driftGreenMaxBp: 700, driftAmberMaxBp: 900, recoveryBands: { greenMinBp: 8000, amberMinBp: 7000 }, press: { balanceWarnBp: 300 } });
+    expect(read.drift).toEqual({ greenMaxBp: 700, amberMaxBp: 900 });
+    expect(read.recoveryBands).toEqual({ greenMinBp: 8000, amberMinBp: 7000 });
+    expect(read.press.balanceWarnBp).toBe(300);
   });
 });

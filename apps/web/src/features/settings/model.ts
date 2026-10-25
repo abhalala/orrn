@@ -9,6 +9,7 @@ import {
   MINUTES_PER_DAY,
   minuteText,
   validateShifts,
+  validateThresholds,
   type CompanyModule,
   type Shift,
   type ShiftError,
@@ -230,3 +231,97 @@ export function supportPatch(draft: SupportDraft, saved: SupportDraft): Partial<
 
 /** What an unset commercial switch means (the server's defaults), for "was … now …" lines. */
 export const SWITCH_DEFAULTS = { dieBands: true, priceOnSalesOrder: false, dieRequiredOnSalesOrder: true, portalEnabled: false } as const;
+
+// ---------------------------------------------------------------------------
+// Thresholds (rank 31): drift bands, recovery bands, balance warning
+// ---------------------------------------------------------------------------
+
+/** The form's fields as typed, in percent (the server stores basis points: 8 % = 800 bp). */
+export type ThresholdsDraft = { driftGreen: string; driftAmber: string; recoveryGreen: string; recoveryAmber: string; balanceWarn: string };
+
+/** The stored thresholds the screen starts from (`company.getSettings`). */
+export type ThresholdsSaved = {
+  drift: { greenMaxBp: number; amberMaxBp: number };
+  recoveryBands: { greenMinBp: number; amberMinBp: number } | null;
+  press: { balanceWarnBp: number };
+};
+
+/** Basis points as a percent text without trailing zeros: 800 -> "8", 1250 -> "12.5". */
+export function bpToPercentText(bp: number): string {
+  const text = (bp / 100).toFixed(2).replace(/\.?0+$/, "");
+  return text === "" ? "0" : text;
+}
+
+/** A typed percent (comma or dot, up to two decimals, 0 to 100) as basis points, else null. */
+export function percentTextToBp(value: string): number | null {
+  const v = value.trim().replace(",", ".");
+  if (!/^\d{1,3}(\.\d{1,2})?$/.test(v)) return null;
+  const bp = Math.round(Number(v) * 100);
+  return bp >= 0 && bp <= 10_000 ? bp : null;
+}
+
+export function thresholdsDraft(saved: ThresholdsSaved): ThresholdsDraft {
+  return {
+    driftGreen: bpToPercentText(saved.drift.greenMaxBp),
+    driftAmber: bpToPercentText(saved.drift.amberMaxBp),
+    recoveryGreen: saved.recoveryBands ? bpToPercentText(saved.recoveryBands.greenMinBp) : "",
+    recoveryAmber: saved.recoveryBands ? bpToPercentText(saved.recoveryBands.amberMinBp) : "",
+    balanceWarn: bpToPercentText(saved.press.balanceWarnBp),
+  };
+}
+
+export type ThresholdsField = keyof ThresholdsDraft;
+/** An error per field, as an i18n key suffix under `settings.thresholds.errors`. */
+export type ThresholdsErrors = Partial<Record<ThresholdsField, "number" | "driftOrder" | "recoveryOrder" | "recoveryBoth">>;
+
+/** The same rules the server applies (`validateThresholds`), on what was typed. */
+export function thresholdsErrors(draft: ThresholdsDraft): ThresholdsErrors {
+  const errors: ThresholdsErrors = {};
+  const dg = percentTextToBp(draft.driftGreen);
+  const da = percentTextToBp(draft.driftAmber);
+  const rgText = draft.recoveryGreen.trim();
+  const raText = draft.recoveryAmber.trim();
+  const rg = percentTextToBp(draft.recoveryGreen);
+  const ra = percentTextToBp(draft.recoveryAmber);
+  const bw = percentTextToBp(draft.balanceWarn);
+  if (dg === null) errors.driftGreen = "number";
+  if (da === null) errors.driftAmber = "number";
+  if (dg !== null && da !== null && validateThresholds({ drift: { greenMaxBp: dg, amberMaxBp: da } }).length > 0) errors.driftAmber = "driftOrder";
+  if (bw === null) errors.balanceWarn = "number";
+  if ((rgText === "") !== (raText === "")) {
+    errors[rgText === "" ? "recoveryGreen" : "recoveryAmber"] = "recoveryBoth";
+  } else if (rgText !== "") {
+    if (rg === null) errors.recoveryGreen = "number";
+    if (ra === null) errors.recoveryAmber = "number";
+    if (rg !== null && ra !== null && validateThresholds({ recoveryBands: { greenMinBp: rg, amberMinBp: ra } }).length > 0) errors.recoveryAmber = "recoveryOrder";
+  }
+  return errors;
+}
+
+export type ThresholdsPatch = {
+  driftGreenMaxBp?: number;
+  driftAmberMaxBp?: number;
+  recoveryBands?: { greenMinBp: number; amberMinBp: number } | null;
+  pressBalanceWarnBp?: number;
+};
+
+/** Only what changed, in basis points. Call it when `thresholdsErrors` is empty. Both drift limits go together. */
+export function thresholdsPatch(draft: ThresholdsDraft, saved: ThresholdsSaved): ThresholdsPatch {
+  const patch: ThresholdsPatch = {};
+  const dg = percentTextToBp(draft.driftGreen);
+  const da = percentTextToBp(draft.driftAmber);
+  if (dg !== null && da !== null && (dg !== saved.drift.greenMaxBp || da !== saved.drift.amberMaxBp)) {
+    patch.driftGreenMaxBp = dg;
+    patch.driftAmberMaxBp = da;
+  }
+  const rg = percentTextToBp(draft.recoveryGreen);
+  const ra = percentTextToBp(draft.recoveryAmber);
+  if (draft.recoveryGreen.trim() === "" && draft.recoveryAmber.trim() === "") {
+    if (saved.recoveryBands !== null) patch.recoveryBands = null;
+  } else if (rg !== null && ra !== null && (rg !== saved.recoveryBands?.greenMinBp || ra !== saved.recoveryBands?.amberMinBp)) {
+    patch.recoveryBands = { greenMinBp: rg, amberMinBp: ra };
+  }
+  const bw = percentTextToBp(draft.balanceWarn);
+  if (bw !== null && bw !== saved.press.balanceWarnBp) patch.pressBalanceWarnBp = bw;
+  return patch;
+}

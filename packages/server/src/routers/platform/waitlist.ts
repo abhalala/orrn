@@ -8,6 +8,7 @@ import { auditLog } from "@orrn/db/schema/audit";
 import type { createDb } from "@orrn/db";
 
 import { atomicBatch, type SqliteBatchItem } from "../../lib/atomic";
+import { defaultReasonCodeStatements } from "../../lib/reasonCodes";
 import { renderOrrnEmailHtml, sendEmail } from "../../lib/email";
 import { can, type PlatformStaffRole } from "../../lib/permissions";
 import { webBaseUrl } from "../../lib/webUrl";
@@ -267,6 +268,9 @@ export const waitlistProcedures = {
           }),
         );
       }
+      // The plant starts with the standard reason codes (rank 30); a company that waited as
+      // pending gets them now and an existing one is left as it is (insert-or-ignore).
+      batchStatements.push(...defaultReasonCodeStatements(ctx.db, companyId, ctx.session.user.id));
 
       if (!existingUser) {
         batchStatements.push(

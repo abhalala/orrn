@@ -26,6 +26,7 @@ describe("visibleItems", () => {
       "stock",
       "dispatch",
       "orders",
+      "press",
       "purchase",
       "approvals",
       "dies",
@@ -46,6 +47,19 @@ describe("visibleItems", () => {
     expect(visible).not.toContain("settings");
     expect(visible).toContain("stock");
     expect(visible).toContain("printing");
+  });
+
+  test("Press shows for the roles that run, log or read it, and for no one else (FP-PR)", () => {
+    const has = (role: CompanyRole, modules?: string[]) => keys(visibleItems(TENANT_MORE, me(role, modules))).includes("press");
+    for (const role of ["press", "supervisor", "manager", "admin", "office", "accountant", "viewer", "owner"] as const) {
+      expect({ role, press: has(role) }).toEqual({ role, press: true });
+    }
+    for (const role of ["operator", "packer", "storekeeper", "foundry"] as const) {
+      expect({ role, press: has(role) }).toEqual({ role, press: false });
+    }
+    // The press module switched off hides it for everyone.
+    expect(has("owner", ["dies", "customers"])).toBe(false);
+    expect(has("owner", ["press"])).toBe(true);
   });
 
   test("operator packs but doesn't see Settings (R24)", () => {

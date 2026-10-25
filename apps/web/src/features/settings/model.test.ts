@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { COMPANY_ROLES } from "@orrn/i18n";
 
 import {
+  bpToPercentText,
   draftFromShifts,
   gstinValid,
   invitableRoles,
@@ -13,6 +14,7 @@ import {
   minuteToTime,
   moduleStates,
   newShiftDraft,
+  percentTextToBp,
   shiftDraftErrors,
   shiftsDirty,
   shiftsPayload,
@@ -22,6 +24,9 @@ import {
   supportContactOf,
   supportDraft,
   supportPatch,
+  thresholdsDraft,
+  thresholdsErrors,
+  thresholdsPatch,
   timeToMinute,
   timezoneOf,
   timezoneOptions,
@@ -176,5 +181,49 @@ describe("modules, letterhead, devices, support contact", () => {
       email: null,
       hours: "9 to 6",
     });
+  });
+});
+
+describe("thresholds form (rank 31)", () => {
+  const saved = { drift: { greenMaxBp: 800, amberMaxBp: 1000 }, recoveryBands: null, press: { balanceWarnBp: 200 } };
+
+  test("basis points and typed percent convert both ways; comma, two decimals, 0 to 100 only", () => {
+    expect(bpToPercentText(800)).toBe("8");
+    expect(bpToPercentText(1250)).toBe("12.5");
+    expect(bpToPercentText(0)).toBe("0");
+    expect(bpToPercentText(10_000)).toBe("100");
+    expect(percentTextToBp("8")).toBe(800);
+    expect(percentTextToBp(" 12,5 ")).toBe(1250);
+    expect(percentTextToBp("0.05")).toBe(5);
+    expect(percentTextToBp("100")).toBe(10_000);
+    for (const bad of ["", "abc", "100.5", "101", "-1", "1.234", "8%"]) expect(percentTextToBp(bad)).toBeNull();
+  });
+
+  test("the defaults round-trip and are not dirty (the specs 800/1000 bp, 2 % balance)", () => {
+    const draft = thresholdsDraft(saved);
+    expect(draft).toEqual({ driftGreen: "8", driftAmber: "10", recoveryGreen: "", recoveryAmber: "", balanceWarn: "2" });
+    expect(thresholdsErrors(draft)).toEqual({});
+    expect(thresholdsPatch(draft, saved)).toEqual({});
+  });
+
+  test("green at or above amber is refused on the amber field; recovery amber at or above green too", () => {
+    const base = thresholdsDraft(saved);
+    expect(thresholdsErrors({ ...base, driftGreen: "10" })).toEqual({ driftAmber: "driftOrder" });
+    expect(thresholdsErrors({ ...base, driftGreen: "12" })).toEqual({ driftAmber: "driftOrder" });
+    expect(thresholdsErrors({ ...base, recoveryGreen: "70", recoveryAmber: "75" })).toEqual({ recoveryAmber: "recoveryOrder" });
+    expect(thresholdsErrors({ ...base, recoveryGreen: "80", recoveryAmber: "" })).toEqual({ recoveryAmber: "recoveryBoth" });
+    expect(thresholdsErrors({ ...base, recoveryGreen: "", recoveryAmber: "70" })).toEqual({ recoveryGreen: "recoveryBoth" });
+    expect(thresholdsErrors({ ...base, driftAmber: "101" })).toEqual({ driftAmber: "number" });
+    expect(thresholdsErrors({ ...base, balanceWarn: "x" })).toEqual({ balanceWarn: "number" });
+  });
+
+  test("the patch has only what changed, in basis points; blank recovery clears stored bands", () => {
+    const base = thresholdsDraft(saved);
+    expect(thresholdsPatch({ ...base, driftGreen: "7" }, saved)).toEqual({ driftGreenMaxBp: 700, driftAmberMaxBp: 1000 });
+    expect(thresholdsPatch({ ...base, recoveryGreen: "80", recoveryAmber: "70" }, saved)).toEqual({ recoveryBands: { greenMinBp: 8000, amberMinBp: 7000 } });
+    expect(thresholdsPatch({ ...base, balanceWarn: "3.5" }, saved)).toEqual({ pressBalanceWarnBp: 350 });
+    const withBands = { ...saved, recoveryBands: { greenMinBp: 8000, amberMinBp: 7000 } };
+    expect(thresholdsPatch({ ...thresholdsDraft(withBands), recoveryGreen: "", recoveryAmber: "" }, withBands)).toEqual({ recoveryBands: null });
+    expect(thresholdsPatch(thresholdsDraft(withBands), withBands)).toEqual({});
   });
 });

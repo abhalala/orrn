@@ -476,8 +476,15 @@ test.describe("All bundles", () => {
     await expect(page.getByRole("button", { name: "Previous page" })).toBeEnabled();
 
     const s = await trpcQuery<Summary>(page, "bundle.stockSummary", { status: "available" });
-    await page.goto(`/stock/${s.items[0]!.dieId}?status=all&page=7`);
-    await expect(page).not.toHaveURL(/page=/);
+    // Earlier specs pack bundles on the first section, so its bundle count is not fixed: the page
+    // lands on the section's own last page (page 1 drops the parameter).
+    const dieId = s.items[0]!.dieId;
+    const ofDie = await trpcQuery<{ total: number }>(page, "bundle.listBundles", { dieId, limit: 1 });
+    const dieLast = Math.ceil(Number(ofDie.total) / 50);
+    expect(dieLast, "the section has fewer than 7 pages").toBeLessThan(7);
+    await page.goto(`/stock/${dieId}?status=all&page=7`);
+    if (dieLast <= 1) await expect(page).not.toHaveURL(/page=/);
+    else await expect(page).toHaveURL(new RegExp(`page=${dieLast}(&|$)`));
     await expect(page.getByRole("table", { name: /^Bundles of / }).locator("tbody tr").first()).toBeVisible();
   });
 
