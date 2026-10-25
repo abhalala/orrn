@@ -65,7 +65,9 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
       setShown(item);
       setNote("");
       setRejectTried(false);
+      decide.reset();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item]);
 
   const open = item !== null;
@@ -193,6 +195,13 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
           >
             {t(subject.openKey!)}
           </UiLink>
+        ) : null}
+
+        {decide.error ? (
+          // A refusal stays on the sheet (a retired billet store on a cast close, say) so the approver can read it and reject instead.
+          <p role="alert" data-testid="decide-error" className="m-0 rounded-input bg-tone-red-tint px-3 py-2 text-[14px] font-semibold text-tone-red-ink break-words">
+            {serverRefusal(t, decide.error)}
+          </p>
         ) : null}
 
         {current.status !== "pending" ? (

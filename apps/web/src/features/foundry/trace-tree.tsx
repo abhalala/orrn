@@ -99,6 +99,8 @@ export function TraceTree({ castId, highlight }: { castId: string; highlight?: s
                 </UiLink>
                 {r.dieCode ? <span className="font-mono text-muted-foreground">{r.dieCode}</span> : null}
                 <span className="tabular-nums">{kgFromG(r.billetG)} {t("units.kg")}</span>
+                {r.mixed ? <Chip tone="amber">{t("foundry.cast.trace.mixed")}</Chip> : null}
+                {!r.mainCast ? <span className="text-[13px] text-muted-foreground" data-testid="trace-run-other-cast">{t("foundry.cast.trace.otherCast")}</span> : null}
                 <span className="text-muted-foreground">{r.productionDay}</span>
               </li>
             ))}

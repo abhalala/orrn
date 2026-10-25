@@ -49,14 +49,19 @@ export function FoundryStockScreen() {
           <p className="m-0 text-[15px] font-semibold tabular-nums" data-testid="stock-total">
             {t("foundry.stock.total", { kg: kgFromG(d.totalG) })}
           </p>
+          {d.adjustedG !== 0 ? (
+            <p className="m-0 text-[13px] text-muted-foreground tabular-nums" data-testid="stock-adjusted">
+              {t("foundry.stock.adjusted", { kg: `${d.adjustedG < 0 ? "-" : "+"}${kgFromG(Math.abs(d.adjustedG))}` })}
+            </p>
+          ) : null}
           {d.byAlloy.map((a) => {
             const casts = live.filter((c) => c.alloy === a.alloy);
-            if (casts.length === 0) return null;
+            if (casts.length === 0 && a.onHandG === 0) return null;
             return (
               <section key={a.alloy} aria-labelledby={`alloy-${a.alloy}`} className="flex min-w-0 flex-col gap-3" data-alloy={a.alloy}>
                 <h2 id={`alloy-${a.alloy}`} className="m-0 flex flex-wrap items-baseline gap-3 text-[17px] font-semibold">
                   <span className="font-mono">{a.alloy}</span>
-                  <span className="text-[14px] font-normal tabular-nums text-muted-foreground">{t("foundry.stock.alloyLine", { kg: kgFromG(casts.reduce((s, c) => s + c.onHandG, 0)), casts: casts.length })}</span>
+                  <span className="text-[14px] font-normal tabular-nums text-muted-foreground">{t("foundry.stock.alloyLine", { kg: kgFromG(a.onHandG), casts: a.casts })}</span>
                 </h2>
                 <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
                   {casts.map((c) => (

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 6148 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6152 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -5149,7 +5149,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (577)
+### foundry (581)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5408,6 +5408,8 @@ Please check, Lalubhai:
 | `cast.trace.melts` | Melts | मेल्ट |
 | `cast.trace.inLogs` | in {inKg} kg, logs {logs} kg | डाला {inKg} kg, लॉग {logs} kg |
 | `cast.trace.lockedWith` | locked with spectro {verdict} | स्पेक्ट्रो {verdict} के साथ लॉक हुई |
+| `cast.trace.mixed` | Mixed run | मिली-जुली रन |
+| `cast.trace.otherCast` | this cast's billets only; the run's bundles carry the run's own cast | सिर्फ़ इस कास्ट के बिलेट; रन के बंडल रन की अपनी कास्ट के हैं |
 | `cast.trace.adjusted` | count at close moved the ledger by {kg} kg | बंद करते समय की गिनती से खाता {kg} kg हिला |
 | `cast.trace.billets` | Billets | बिलेट |
 | `cast.trace.billetsLine` | made {produced} kg, used {pressed} kg, on hand {onHand} kg | बने {produced} kg, प्रेस ने लिए {pressed} kg, हाथ में {onHand} kg |
@@ -5551,6 +5553,7 @@ Please check, Lalubhai:
 | `melt.discard.confirm` | Discard draft | ड्राफ़्ट हटाएं |
 | `melt.discard.done` | Draft discarded | ड्राफ़्ट हटा दिया |
 | `melt.cancelledNote` | This melt is cancelled. Its kg were reversed. | यह मेल्ट रद्द है। इसके kg वापस कर दिए गए। |
+| `melt.spectroNeedsSample` | The alloy changed. A new sample is needed for {alloy}, or write why it is not. | अलॉय बदल गया। {alloy} के लिए नया सैंपल चाहिए, या लिखें कि क्यों नहीं। |
 | `melt.cancel.title` | Cancel this melt | यह मेल्ट रद्द करें |
 | `melt.cancel.body` | Use this for a melt locked by mistake, when nobody needs it corrected. The kg and the store draws are reversed and the melt keeps its number as cancelled. It is refused once the press has used its billets. | गलती से लॉक हुई मेल्ट के लिए, जब सुधार की ज़रूरत न हो। kg और स्टोर की निकासी वापस हो जाती है और मेल्ट अपने नंबर के साथ रद्द दिखती है। प्रेस ने इसके बिलेट काम में ले लिए हों तो यह नहीं होगा। |
 | `melt.cancel.button` | Cancel melt | मेल्ट रद्द करें |
@@ -5639,6 +5642,7 @@ Please check, Lalubhai:
 | `stock.finished` | Finished casts | पूरी हो चुकी कास्ट |
 | `stock.empty` | No billets in stock. | स्टॉक में कोई बिलेट नहीं। |
 | `stock.total` | {kg} kg of billets in stock | स्टॉक में {kg} kg बिलेट |
+| `stock.adjusted` | includes {kg} kg from the counts at close | इसमें बंद करते समय की गिनती से {kg} kg शामिल |
 | `stock.alloyLine` | {kg} kg in {casts} {casts:cast\|casts} | {casts} कास्ट में {kg} kg |
 | `stock.onHand` | On hand | हाथ में |
 | `stock.loadFailed` | The billet stock did not load. Check the connection and try again. | बिलेट स्टॉक नहीं आया। कनेक्शन देखकर फिर कोशिश करें। |

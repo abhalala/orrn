@@ -133,6 +133,9 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
   });
   // Every code the server returns holds the lock, even one this build has no sentence for (it shows the generic line).
   const gates: readonly string[] = (preview.data ?? view)?.gates ?? [];
+  // The latest sample was judged for another alloy (a correction copy moved to a new one): the stored
+  // verdict is not this melt's, so Lock waits for a new sample or a written reason.
+  const needsNewSample = (preview.data ?? view)?.spectroNeedsNewSample ?? false;
 
   const castAlloy = data.cast.alloy;
   const alloyList = (alloys.data?.items ?? []).filter((a) => a.status === "active");
@@ -257,7 +260,8 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
               alloyCode={meltAlloy?.code ?? castAlloy}
               draft
             />
-            {verdict !== "pass" ? (
+            {needsNewSample ? <Note tone="amber" testId="spectro-new-sample">{t("foundry.melt.spectroNeedsSample", { alloy: meltAlloy?.code ?? castAlloy })}</Note> : null}
+            {verdict !== "pass" || needsNewSample ? (
               <Field label={t("foundry.melt.spectroReason")} hint={t("foundry.melt.spectroReasonHint")}>
                 <FieldTextArea value={form.spectroReason} maxLength={500} onChange={(e) => patch({ spectroReason: e.currentTarget.value })} data-testid="melt-spectro-reason" />
               </Field>
@@ -290,7 +294,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
           </Button>
         ) : (
           <Can do="melt.enter">
-            <Button size="lg" loading={saveMut.isPending || lockMut.isPending} disabled={gates.length > 0 && !dirty} onClick={() => void lock()} data-testid="melt-lock">
+            <Button size="lg" loading={saveMut.isPending || lockMut.isPending} disabled={(gates.length > 0 && !dirty) || (needsNewSample && form.spectroReason.trim() === "")} onClick={() => void lock()} data-testid="melt-lock">
               {t("foundry.melt.lock")}
             </Button>
           </Can>
