@@ -82,6 +82,7 @@ export const ageingWebEn = {
       noFreeTrolley: "No free trolley",
       noFreeTrolleyBody: "Every trolley is carrying a batch. Close or void one, or add a trolley under Masters.",
       addTo: "Add to {number}",
+      openBatch: "Open {number}",
       linesLabel: "Logged press lines",
       lineLength: "{mm} mm",
       lineLeft: "{pcs} pcs, {kg} kg left",

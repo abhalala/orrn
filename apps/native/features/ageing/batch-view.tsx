@@ -167,7 +167,7 @@ function BatchBody({ batch, refreshing, onRefresh }: { batch: Batch; refreshing:
         row={holdRow}
         onDone={setNotice}
       />
-      <UnholdSheet row={unholdRow} onClose={() => setUnholdRow(null)} onDone={setNotice} />
+      <UnholdSheet batch={batch} row={unholdRow} onClose={() => setUnholdRow(null)} onDone={setNotice} />
     </View>
   );
 }

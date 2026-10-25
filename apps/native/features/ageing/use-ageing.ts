@@ -5,9 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { feedback } from "@/lib/feedback";
 import { randomId } from "@/lib/random-id";
-import { replayKey, sendOnce, type ReplayAttempt } from "@/lib/replay-key";
+import { sendOnce } from "@/lib/replay-key";
 import { writeFailureKind } from "@/lib/request-timeout";
 import { trpc } from "@/utils/trpc";
+
+import { createAttempt } from "./attempt";
 
 type Outputs = inferRouterOutputs<AppRouter>;
 export type Batch = Outputs["ageing"]["batches"]["get"];
@@ -45,10 +47,11 @@ export type WriteState = { pending: boolean; error: unknown; unsure: boolean };
  * `sendOnce` resends once with it when no reply came at all, so the server answers the repeat with the first
  * result and never writes twice. A saved write ends the attempt. After an unsure answer the board and batch are
  * read again (`onUnsure`), so the person sees what the server has before anything else is sent. Nothing
- * is queued for later; a write that did not answer stays on screen for the person.
+ * is queued for later; a write that did not answer stays on screen for the person. The button stays off until
+ * that read is back. A key belongs to one opening of a sheet: `forget()` when it opens.
  */
 export function useKeyedWrite(onUnsure: () => Promise<unknown>) {
-  const attempt = useRef<ReplayAttempt>(null);
+  const attempt = useRef(createAttempt(randomId)).current;
   const [state, setState] = useState<WriteState>({ pending: false, error: null, unsure: false });
   const mounted = useRef(true);
   useEffect(() => {
@@ -66,19 +69,21 @@ export function useKeyedWrite(onUnsure: () => Promise<unknown>) {
     async <R,>(body: unknown, call: (clientMutationId: string) => Promise<R>): Promise<R | undefined> => {
       set({ pending: true, error: null, unsure: false });
       try {
-        const next = replayKey(attempt.current, body, randomId);
-        attempt.current = next.attempt;
-        const res = await sendOnce((clientRequestId) => call(clientRequestId), next.id);
-        attempt.current = null;
+        const id = attempt.key(body);
+        const res = await sendOnce((clientRequestId) => call(clientRequestId), id);
+        attempt.saved();
         feedback.success();
         set({ pending: false, error: null, unsure: false });
         return res;
       } catch (error) {
         feedback.error();
         const unsure = writeFailureKind(error) === "unsure";
-        set({ pending: false, error, unsure });
-        // An unsure answer may have landed: read again before anyone taps again.
-        if (unsure) await onUnsure().catch(() => undefined);
+        // An unsure answer may have landed: keep the button busy and read again before anyone taps again.
+        set({ pending: unsure, error, unsure });
+        if (unsure) {
+          await onUnsure().catch(() => undefined);
+          set({ pending: false, error, unsure });
+        }
         return undefined;
       }
     },
@@ -86,7 +91,9 @@ export function useKeyedWrite(onUnsure: () => Promise<unknown>) {
     [onUnsure],
   );
   const reset = useCallback(() => set({ pending: false, error: null, unsure: false }), []);
-  return { ...state, run, reset };
+  /** A new opening of a sheet starts a new key (the web does the same): a later reading with the same value is not the replay of an unsure earlier one. */
+  const forget = useCallback(() => attempt.forget(), [attempt]);
+  return { ...state, run, reset, forget };
 }
 
 /**

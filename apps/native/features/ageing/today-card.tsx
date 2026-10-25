@@ -17,13 +17,13 @@ const TILE = {
 
 /**
  * Today's Ageing tile: batches in the oven, out and waiting for the test, and held, from the server's own
- * `dashboard.today().ageing` (null for a person without ageing.view or a plant without the module, so no tile).
+ * `dashboard.today().ageing` (null for a person without ageing.view; a plant without the module is left out here, since the server sends 0/0/0 to it).
  * Held turns it red. Tapping it opens the board under More.
  */
-export function AgeingToday({ ageing }: { ageing: { inOven: number; held: number; out: number } | null | undefined }) {
+export function AgeingToday({ ageing, me }: { ageing: { inOven: number; held: number; out: number } | null | undefined; me: Parameters<typeof ageingTile>[1] }) {
   const { t } = useT();
   const router = useRouter();
-  const tile = ageingTile(ageing);
+  const tile = ageingTile(ageing, me);
   if (!tile) return null;
   const c = TILE[tile.tone];
   return (

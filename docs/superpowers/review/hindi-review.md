@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 6120 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6121 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -5272,7 +5272,7 @@ Please check, Lalubhai:
 | `masters.max` | Max % | ज़्यादा से ज़्यादा % |
 | `masters.noLimit` | No limit | कोई सीमा नहीं |
 
-### ageing (452)
+### ageing (453)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5554,6 +5554,7 @@ Please check, Lalubhai:
 | `load.noFreeTrolley` | No free trolley | कोई खाली ट्रॉली नहीं |
 | `load.noFreeTrolleyBody` | Every trolley is carrying a batch. Close or void one, or add a trolley under Masters. | हर ट्रॉली पर बैच है। एक बंद करें या रद्द करें, या मास्टर्स में ट्रॉली जोड़ें। |
 | `load.addTo` | Add to {number} | {number} में जोड़ें |
+| `load.openBatch` | Open {number} | {number} खोलें |
 | `load.linesLabel` | Logged press lines | दर्ज की गई प्रेस लाइनें |
 | `load.lineLength` | {mm} mm | {mm} mm |
 | `load.lineLeft` | {pcs} pcs, {kg} kg left | {pcs} पीस, {kg} kg बचे |

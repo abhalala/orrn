@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { useT, type Translate } from "@orrn/i18n";
 import { cn } from "@orrn/ui/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
@@ -20,10 +20,13 @@ import { trpc } from "@/utils/trpc";
 import {
   gasFromText,
   gasText,
+  hardnessNoteTone,
   hardnessReadings,
+  holdLanded,
   previewMedianX10,
   rowsToTest,
   startDefaults,
+  unholdLanded,
   x10FromText,
   x10Text,
 } from "./model";
@@ -113,6 +116,7 @@ export function StartSheet({ visible, onClose, batch, onDone }: SheetProps) {
     setReset(false);
     setTried(false);
     write.reset();
+    write.forget();
     // Only when the sheet opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -215,6 +219,7 @@ export function TakeOutSheet({ visible, onClose, batch, onDone }: SheetProps) {
       setGas("");
       setTried(false);
       write.reset();
+      write.forget();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -263,6 +268,7 @@ export function TempSheet({ visible, onClose, batch, onDone }: SheetProps) {
       setNote("");
       setTried(false);
       write.reset();
+      write.forget();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -321,6 +327,7 @@ export function HardnessSheet({ visible, onClose, batch, onDone, rowId }: SheetP
     setTried(false);
     setLast(null);
     write.reset();
+    write.forget();
     // Only when the sheet opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -358,7 +365,7 @@ export function HardnessSheet({ visible, onClose, batch, onDone, rowId }: SheetP
     <Sheet visible={visible} onClose={onClose} title={t("ageing.hardness.title", { number: batch.number })}>
       {snap ? <Text className="font-sans text-sm text-ink-muted">{t("ageing.hardness.rule", { min: x10Text(snap.hardnessMinX10), method: t(`ageing.method.${snap.hardnessMethod}`), samples })}</Text> : null}
       {last ? (
-        <Note tone={last.pass === false ? "red" : "green"}>
+        <Note tone={hardnessNoteTone(last.pass)}>
           {t("ageing.hardness.saved", { section: last.section, median: x10Text(last.median), result: last.pass === null ? "-" : last.pass ? t("ageing.readings.pass") : t("ageing.readings.fail") })}
         </Note>
       ) : null}
@@ -410,20 +417,32 @@ export function HoldSheet({ visible, onClose, batch, row, onDone }: SheetProps &
   const [tried, setTried] = useState(false);
   const hold = useMutation(trpc.ageing.batches.hold.mutationOptions());
   const write = useGuardedWrite(refresh);
+  const sent = useRef(false);
   useEffect(() => {
     if (visible) {
       setReasonCode("");
       setNote("");
       setTried(false);
+      sent.current = false;
       write.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
+  // An unsure answer that landed: the re-read shows the hold, so the sheet closes instead of inviting a second tap (a red "already held").
+  useEffect(() => {
+    if (visible && sent.current && write.unsure && !write.pending && holdLanded(batch, row ? row.id : null)) {
+      announce(t("ageing.hold.done"));
+      onDone({ tone: "amber", text: t("ageing.hold.done") });
+      onClose();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, write.unsure, write.pending, batch, row]);
   const chosen = (reasons.data ?? []).find((r) => r.code === reasonCode);
   const needsNote = Boolean(chosen && (chosen.requiresNote || chosen.code === "other"));
   const submit = async () => {
     setTried(true);
     if (!chosen || (needsNote && !note.trim())) return;
+    sent.current = true;
     const res = await write.run(() => hold.mutateAsync({ ...(row ? { rowId: row.id } : { batchId: batch.id }), reasonCodeId: chosen.id, ...(note.trim() ? { note: note.trim() } : {}) }));
     if (!res) return;
     announce(t("ageing.hold.done"));
@@ -458,17 +477,31 @@ export function HoldSheet({ visible, onClose, batch, row, onDone }: SheetProps &
 }
 
 /** Clear a hand hold on a line (ageing.release). A failed test clears with a retest or an approval, not here. */
-export function UnholdSheet({ row, onClose, onDone }: { row: BatchRow | null; onClose: () => void; onDone: (notice: Notice) => void }) {
+export function UnholdSheet({ batch, row, onClose, onDone }: { batch: Batch; row: BatchRow | null; onClose: () => void; onDone: (notice: Notice) => void }) {
   const { t } = useT();
   const refresh = useAgeingRefresh();
   const unhold = useMutation(trpc.ageing.batches.unhold.mutationOptions());
   const write = useGuardedWrite(refresh);
+  const sent = useRef(false);
   useEffect(() => {
-    if (row) write.reset();
+    if (row) {
+      sent.current = false;
+      write.reset();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row?.id]);
+  // An unsure answer that landed: the re-read shows the line cleared, so the sheet closes instead of showing a red "not held".
+  useEffect(() => {
+    if (row && sent.current && write.unsure && !write.pending && unholdLanded(batch, row.id)) {
+      announce(t("ageing.unhold.done"));
+      onDone({ tone: "green", text: t("ageing.unhold.done") });
+      onClose();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [write.unsure, write.pending, batch, row]);
   const submit = async () => {
     if (!row) return;
+    sent.current = true;
     const res = await write.run(() => unhold.mutateAsync({ rowId: row.id }));
     if (!res) return;
     announce(t("ageing.unhold.done"));

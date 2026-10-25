@@ -131,7 +131,7 @@ export default function TodayScreen() {
             </View>
           ) : null}
 
-          <AgeingToday ageing={data.ageing} />
+          <AgeingToday ageing={data.ageing} me={me.data} />
 
           {showStartHere(data.stock) ? (
             <View className="gap-3 rounded-card border border-hairline bg-surface p-4">

@@ -25,7 +25,7 @@ import { useThemeColor } from "@/lib/theme";
 import { can, useMe } from "@/utils/me";
 import { trpc } from "@/utils/trpc";
 
-import { canLoad, capacityTone, loadTotals, pickOf, pressRowsOf, type PickState } from "./model";
+import { canLoad, capacityTone, loadBody, loadTotals, pickOf, type PickState } from "./model";
 import { ErrorLine, Note } from "./ui";
 import { useAgeingRefresh, useKeyedWrite, type AvailableBundle, type AvailableLine } from "./use-ageing";
 
@@ -51,7 +51,8 @@ export function LoadView() {
   const [trolleyId, setTrolleyId] = useState<string | null>(asked);
   const [source, setSource] = useState<Source>("press");
   const [picks, setPicks] = useState<PickState>({});
-  const [bundleIds, setBundleIds] = useState<Record<string, true>>({});
+  // The picked bundles themselves, not their ids: a pick stays when the search changes and its row leaves the results.
+  const [bundlePicks, setBundlePicks] = useState<Record<string, AvailableBundle>>({});
   const [bundleSearch, setBundleSearch] = useState("");
   const [tried, setTried] = useState(false);
   const load = useMutation(trpc.ageing.batches.load.mutationOptions());
@@ -72,7 +73,7 @@ export function LoadView() {
   const bundles = useQuery({ ...trpc.ageing.batches.availableBundles.queryOptions({ limit: 100, ...(search ? { search } : {}) }), enabled: source === "bundles" && can(me, "ageing.load") });
 
   const lineItems = lines.data?.items ?? [];
-  const pickedBundles = (bundles.data?.items ?? []).filter((b) => bundleIds[b.bundleId]);
+  const pickedBundles = Object.values(bundlePicks);
   const totals = loadTotals(lineItems, picks, pickedBundles.map((b) => ({ pcs: b.pcs, weightG: b.weightG })));
   const capacity = ageingCapacity(totals.kgG, trolley?.capacityG ?? null);
   const tooMany = totals.lines > AGEING_LOAD_MAX_ROWS;
@@ -81,13 +82,8 @@ export function LoadView() {
   const submit = async () => {
     setTried(true);
     if (!ready || write.pending || !trolleyId) return;
-    const body = {
-      trolleyId,
-      ...(trolley?.openBatchId ? { batchId: trolley.openBatchId } : {}),
-      rows: pressRowsOf(lineItems, picks),
-      bundles: pickedBundles.map((b) => ({ bundleId: b.bundleId })),
-      manual: [] as never[],
-    };
+    // The body carries no batch id: the server adds to the trolley's loading batch itself, and the key must not change when the re-read after an unsure answer gives the trolley an open batch.
+    const body = loadBody(trolleyId, lineItems, picks, pickedBundles);
     const res = await write.run(body, (clientMutationId) => load.mutateAsync({ ...body, clientMutationId }));
     if (!res) return;
     announce(t("ageing.load.loaded", { number: res.number }));
@@ -132,13 +128,20 @@ export function LoadView() {
         <PageHeader title={t("ageing.load.title")} subtitle={t("ageing.load.subtitle")} />
         <TrolleyPicker trolleys={free} value={trolleyId} onChange={setTrolleyId} error={tried && !trolleyId ? t("ageing.load.pickTrolley") : null} />
         <SegmentedControl label={t("ageing.load.source")} options={sourceOptions} value={source} onChange={setSource} />
-        {source === "press" ? <PressLines query={lines} items={lineItems} picks={picks} onPicks={setPicks} /> : <Bundles query={bundles} search={bundleSearch} onSearch={setBundleSearch} picked={bundleIds} onPicked={setBundleIds} />}
+        {source === "press" ? <PressLines query={lines} items={lineItems} picks={picks} onPicks={setPicks} /> : <Bundles query={bundles} search={bundleSearch} onSearch={setBundleSearch} picked={bundlePicks} onPicked={setBundlePicks} />}
         {tooMany ? <Note tone="red">{t("ageing.refusal.tooManyRows", { n: AGEING_LOAD_MAX_ROWS })}</Note> : null}
         {tried && totals.lines === 0 ? <Note tone="red">{t("ageing.refusal.noRows")}</Note> : null}
         <View className="h-28" />
       </Screen>
       <View style={{ paddingBottom: Math.max(insets.bottom, 12) }} className="gap-2 border-t border-hairline bg-canvas px-4 pt-3">
         <ErrorLine error={write.error} />
+        {write.unsure && trolley?.openBatchId && trolley.openBatchNumber ? (
+          <Button
+            variant="secondary"
+            label={t("ageing.load.openBatch", { number: trolley.openBatchNumber })}
+            onPress={() => router.push({ pathname: "/more/ageing/[id]", params: { id: trolley.openBatchId! } })}
+          />
+        ) : null}
         <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1">
           <Text accessibilityLiveRegion="polite" className="font-sans-semibold text-sm text-ink">
             {t("ageing.load.summary", { lines: totals.lines, pcs: totals.pcs, kg: kgText(totals.kgG) })}
@@ -280,11 +283,13 @@ function Bundles({
   query: { isPending: boolean; isError: boolean; error: unknown; data: { items: AvailableBundle[] } | undefined; refetch: () => unknown; isRefetching: boolean };
   search: string;
   onSearch: (v: string) => void;
-  picked: Record<string, true>;
-  onPicked: (next: Record<string, true>) => void;
+  picked: Record<string, AvailableBundle>;
+  onPicked: (next: Record<string, AvailableBundle>) => void;
 }) {
   const { t } = useT();
-  const items = query.data?.items ?? [];
+  const found = query.data?.items ?? [];
+  // Picked bundles that the current search does not list stay on screen, so they can still be un-ticked.
+  const items = [...Object.values(picked).filter((p) => !found.some((b) => b.bundleId === p.bundleId)), ...found];
   return (
     <View className="gap-3">
       <Field label={t("ageing.load.bundleSearch")} hint={t("ageing.load.bundlesHint")} value={search} onChangeText={onSearch} maxLength={40} autoCapitalize="characters" autoCorrect={false} mono />
@@ -305,7 +310,7 @@ function Bundles({
               onToggle={() => {
                 const next = { ...picked };
                 if (checked) delete next[b.bundleId];
-                else next[b.bundleId] = true;
+                else next[b.bundleId] = b;
                 onPicked(next);
               }}
             >

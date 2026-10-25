@@ -49,7 +49,7 @@ export function moreRows(me: Pick<Me, "company"> | null | undefined): MoreRow[] 
   );
   const extra = me?.company ? extraTabs(me as Me) : [];
   const rows = extra.includes("dies") ? base.map((r) => (r.key === "dies" ? DIE_ROOM_ROW : r)) : base;
-  // Press (supervisor, manager, admin) sits first: it is the plant's live view.
+  // Press (supervisor, manager, admin) is the plant's live view; Ageing, added next, goes in front of it.
   const withPress = extra.includes("press") ? [PRESS_ROW, ...rows] : rows;
   // Ageing is the first item for anyone who works or reads the ovens (spec 5: under More, never a sixth tab).
   const withAgeing = me?.company && showsAgeing(me as Me) ? [AGEING_ROW, ...withPress] : withPress;

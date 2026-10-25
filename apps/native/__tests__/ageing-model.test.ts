@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Me } from "@orrn/server/lib/permissions";
@@ -18,8 +19,11 @@ import {
   canUnholdRow,
   gasFromText,
   gasText,
+  hardnessNoteTone,
   hardnessReadings,
   hardnessTone,
+  holdLanded,
+  loadBody,
   loadTotals,
   nextAction,
   nextActionPermission,
@@ -34,13 +38,16 @@ import {
   sparkline,
   stageIndex,
   startDefaults,
+  unholdLanded,
   voidPermission,
   webOnlyActions,
   wholeFromText,
   x10FromText,
   x10Text,
 } from "../features/ageing/model";
+import { createAttempt } from "../features/ageing/attempt";
 import { moreRows } from "../features/more/more-rows";
+import { replayKey } from "../lib/replay-key";
 
 /**
  * FP-AG-16 (W3-AG-N): the pure rules of the ageing station on the phone. The functions the web also has are the
@@ -264,15 +271,24 @@ describe("who sees Ageing", () => {
 });
 
 describe("Today's tile", () => {
-  test("no tile without the server's figures (no ageing.view, or the module off)", () => {
-    expect(ageingTile(null)).toBeNull();
-    expect(ageingTile(undefined)).toBeNull();
+  test("no tile without the server's figures (no ageing.view)", () => {
+    expect(ageingTile(null, me("owner"))).toBeNull();
+    expect(ageingTile(undefined, me("owner"))).toBeNull();
+  });
+  test("no tile when the plant's module list leaves ageing out (the server sends 0/0/0 then)", () => {
+    const zero = { inOven: 0, out: 0, held: 0 };
+    expect(ageingTile(zero, me("owner", ["bundles"]))).toBeNull();
+    expect(ageingTile(zero, me("owner", ["Ageing"]))?.tone).toBe("neutral");
+    expect(ageingTile(zero, me("owner", []))?.tone).toBe("neutral");
+    // No profile yet is an unknown module list, which reads as "all on" (ageingModuleOn); the tile still needs the server's figures.
+    expect(ageingTile(zero, null)?.tone).toBe("neutral");
+    expect(ageingTile(null, null)).toBeNull();
   });
   test("held turns it red, pieces waiting for the test blue, a cycle running amber", () => {
-    expect(ageingTile({ inOven: 2, out: 1, held: 1 })?.tone).toBe("red");
-    expect(ageingTile({ inOven: 2, out: 1, held: 0 })?.tone).toBe("blue");
-    expect(ageingTile({ inOven: 2, out: 0, held: 0 })?.tone).toBe("amber");
-    expect(ageingTile({ inOven: 0, out: 0, held: 0 })?.tone).toBe("neutral");
+    expect(ageingTile({ inOven: 2, out: 1, held: 1 }, me("owner"))?.tone).toBe("red");
+    expect(ageingTile({ inOven: 2, out: 1, held: 0 }, me("owner"))?.tone).toBe("blue");
+    expect(ageingTile({ inOven: 2, out: 0, held: 0 }, me("owner"))?.tone).toBe("amber");
+    expect(ageingTile({ inOven: 0, out: 0, held: 0 }, me("owner"))?.tone).toBe("neutral");
   });
 });
 
@@ -320,5 +336,131 @@ describe("the web's own arithmetic is the phone's", () => {
     }
     expect(native.STAGES).toEqual(web.STAGES as never);
     expect(native.STAGE_KEYS).toEqual(web.STAGE_KEYS as never);
+  });
+});
+
+describe("review round 1: the load key (I-1)", () => {
+  const lines = [
+    { pressRunLineId: "l1", pcsLeft: 40, kgLeftG: 80_000 },
+    { pressRunLineId: "l2", pcsLeft: 10, kgLeftG: 30_000 },
+  ];
+  const b = [{ bundleId: "b1" }];
+
+  test("the body never carries a batchId: the server adds to the trolley's loading batch", () => {
+    const body = loadBody("t1", lines, { l1: "20" }, b);
+    expect(body).toEqual({ trolleyId: "t1", rows: [{ pressRunLineId: "l1", pcs: 20 }], bundles: [{ bundleId: "b1" }], manual: [] });
+    expect("batchId" in body).toBe(false);
+  });
+
+  test("unsure, then the re-read gives the trolley an open batch: the second tap reuses the SAME key (no double load)", () => {
+    let n = 0;
+    const fresh = () => `k${(n += 1)}`;
+    const attempt = createAttempt(fresh);
+    // First tap: a partial pick on a free trolley.
+    const first = attempt.key(loadBody("t1", lines, { l1: "20" }, []));
+    // The reply is lost. The re-read refreshes the trolley list (openBatchId appears) and the line (still 20 left of 40): the pick is still valid.
+    const second = attempt.key(loadBody("t1", lines, { l1: "20" }, []));
+    expect(second).toBe(first);
+    expect(n).toBe(1);
+  });
+
+  test("an edited pick is another write with another key; putting it back sends the first key again", () => {
+    let n = 0;
+    const attempt = createAttempt(() => `k${(n += 1)}`);
+    const a = attempt.key(loadBody("t1", lines, { l1: "20" }, []));
+    const other = attempt.key(loadBody("t1", lines, { l1: "10" }, []));
+    expect(other).not.toBe(a);
+    expect(attempt.key(loadBody("t1", lines, { l1: "20" }, []))).toBe(a);
+  });
+
+  test("a saved load ends the attempt: the next load is a new key", () => {
+    let n = 0;
+    const attempt = createAttempt(() => `k${(n += 1)}`);
+    const a = attempt.key(loadBody("t1", lines, { l1: "20" }, []));
+    attempt.saved();
+    expect(attempt.key(loadBody("t1", lines, { l1: "20" }, []))).not.toBe(a);
+  });
+
+  test("the load screen sends loadBody and nothing of its own", () => {
+    const src = readFileSync(join(import.meta.dir, "..", "features", "ageing", "load-view.tsx"), "utf8");
+    expect(src).toContain("loadBody(trolleyId, lineItems, picks, pickedBundles)");
+    expect(src).not.toMatch(/batchId:/);
+    expect(src).not.toMatch(/openBatchId \? \{ batchId/);
+  });
+});
+
+describe("review round 1: a key belongs to one opening of a sheet (I-2)", () => {
+  test("replayKey alone would swallow the next same-value reading after an unsure one; forget() makes it a new reading", () => {
+    // The old behaviour, shown on replayKey itself: an unsure attempt stays, the same content gets the same id.
+    const body = { batchId: "b1", tempCX10: 1850 };
+    const kept = replayKey(null, body, () => "k1");
+    expect(replayKey(kept.attempt, body, () => "k2").id).toBe("k1");
+    // The fix: the sheet forgets the attempt when it opens.
+    let n = 0;
+    const attempt = createAttempt(() => `k${(n += 1)}`);
+    const first = attempt.key(body);
+    attempt.forget();
+    expect(attempt.key(body)).not.toBe(first);
+  });
+
+  test("an unsure send, with no forget, keeps its key for the second tap of the SAME opening", () => {
+    let n = 0;
+    const attempt = createAttempt(() => `k${(n += 1)}`);
+    const body = { batchId: "b1", tempCX10: 1850 };
+    expect(attempt.key(body)).toBe(attempt.key(body));
+  });
+
+  test("a same-value reading after a saved one is a new reading", () => {
+    let n = 0;
+    const attempt = createAttempt(() => `k${(n += 1)}`);
+    const body = { batchId: "b1", tempCX10: 1850 };
+    const first = attempt.key(body);
+    attempt.saved();
+    expect(attempt.key(body)).not.toBe(first);
+  });
+
+  test("every sheet forgets its key in the effect that runs when it opens; the hook offers forget()", () => {
+    const dir = join(import.meta.dir, "..", "features", "ageing");
+    const hook = readFileSync(join(dir, "use-ageing.ts"), "utf8");
+    expect(hook).toMatch(/const forget = useCallback\(\(\) => attempt\.forget\(\), \[attempt\]\)/);
+    expect(hook).toMatch(/return \{ \.\.\.state, run, reset, forget \}/);
+    const sheets = readFileSync(join(dir, "sheets.tsx"), "utf8");
+    // Start, Take out, Temperature, Hardness: each has a keyed write and each resets it on open.
+    expect((sheets.match(/useKeyedWrite\(refresh\)/g) ?? []).length).toBe(4);
+    expect((sheets.match(/write\.forget\(\);/g) ?? []).length).toBe(4);
+    for (const name of ["StartSheet", "TakeOutSheet", "TempSheet", "HardnessSheet"]) {
+      const from = sheets.indexOf(`export function ${name}`);
+      const next = sheets.indexOf("\nexport function ", from + 10);
+      const body = sheets.slice(from, next === -1 ? undefined : next);
+      expect({ name, forgets: /write\.forget\(\);/.test(body) && /write\.reset\(\);/.test(body) }).toEqual({ name, forgets: true });
+    }
+  });
+});
+
+describe("review round 1: the sheets that closed on a landed answer (m-2)", () => {
+  const rows = (...statuses: string[]) => statuses.map((status, i) => row({ id: `r${i + 1}`, status: status as never }));
+  test("a line hold landed when the line reads held; not before", () => {
+    expect(holdLanded({ rows: rows("pending", "held") }, "r2")).toBe(true);
+    expect(holdLanded({ rows: rows("pending", "held") }, "r1")).toBe(false);
+    expect(holdLanded({ rows: rows("pending") }, "gone")).toBe(false);
+  });
+  test("a whole-trolley hold landed when no live line is left unheld (void and closed lines do not count)", () => {
+    expect(holdLanded({ rows: rows("held", "held", "void") }, null)).toBe(true);
+    expect(holdLanded({ rows: rows("held", "pending") }, null)).toBe(false);
+    expect(holdLanded({ rows: rows("held", "released") }, null)).toBe(false);
+    expect(holdLanded({ rows: rows("void", "closed") }, null)).toBe(false);
+  });
+  test("a clear landed when the line no longer reads held (or is gone)", () => {
+    expect(unholdLanded({ rows: rows("pending") }, "r1")).toBe(true);
+    expect(unholdLanded({ rows: rows("held") }, "r1")).toBe(false);
+    expect(unholdLanded({ rows: rows("held") }, "gone")).toBe(true);
+  });
+});
+
+describe("review round 1: small things", () => {
+  test("the hardness note is neutral for a sample of the other method (pass null), never green", () => {
+    expect(hardnessNoteTone(null)).toBe("neutral");
+    expect(hardnessNoteTone(true)).toBe("green");
+    expect(hardnessNoteTone(false)).toBe("red");
   });
 });

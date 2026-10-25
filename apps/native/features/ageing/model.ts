@@ -103,6 +103,11 @@ export function hardnessTone(pass: boolean | null): StatusTone {
   return pass === null ? "neutral" : pass ? "green" : "red";
 }
 
+/** The "saved" note after a hardness save: neutral for a sample of the other method (`pass` null), never green. */
+export function hardnessNoteTone(pass: boolean | null): "green" | "red" | "neutral" {
+  return pass === null ? "neutral" : pass ? "green" : "red";
+}
+
 /** The five stages of one cycle, in order (labels `ageing.stage.*`). */
 export const STAGES = ["load", "oven", "out", "test", "release"] as const;
 export type Stage = (typeof STAGES)[number];
@@ -310,6 +315,20 @@ export function canLoad(totals: LoadTotals, trolleyId: string | null): boolean {
   return Boolean(trolleyId) && totals.lines > 0 && totals.problems === 0;
 }
 
+/**
+ * The load request's body (without its key). It has NO `batchId`: a trolley that already carries a loading batch
+ * gets the pieces added to it by the server. A batch id here would change the body after an unsure answer (the
+ * re-read gives the trolley its open batch), make a new key, and load the same pieces twice.
+ */
+export function loadBody(
+  trolleyId: string,
+  lines: readonly (LoadLine & { salesOrderLineId?: string | null })[],
+  picks: PickState,
+  bundles: readonly { bundleId: string }[],
+): { trolleyId: string; rows: { pressRunLineId: string; pcs: number }[]; bundles: { bundleId: string }[]; manual: never[] } {
+  return { trolleyId, rows: pressRowsOf(lines, picks), bundles: bundles.map((b) => ({ bundleId: b.bundleId })), manual: [] };
+}
+
 /** The request body rows for the picked press lines (all-pieces picks send the pieces, never a kg). */
 export function pressRowsOf(lines: readonly (LoadLine & { salesOrderLineId?: string | null })[], picks: PickState): { pressRunLineId: string; pcs: number }[] {
   const out: { pressRunLineId: string; pcs: number }[] = [];
@@ -405,11 +424,15 @@ export function showsAgeing(me: Me | null | undefined): boolean {
 }
 
 /**
- * Today's Ageing tile from `dashboard.today().ageing` (null when the person lacks `ageing.view` or the module is
- * off, so no tile). Held turns it red; pieces waiting for a test are blue; otherwise amber.
+ * Today's Ageing tile from `dashboard.today().ageing`. Null (no tile) when the server sent none (no `ageing.view`)
+ * or when the plant's module list leaves ageing out: the server gates only on the permission and sends 0/0/0 to a
+ * plant without the module. Held turns it red; pieces waiting for a test are blue; otherwise amber.
  */
-export function ageingTile(ageing: { inOven: number; held: number; out: number } | null | undefined): { inOven: number; held: number; out: number; tone: StatusTone } | null {
-  if (!ageing) return null;
+export function ageingTile(
+  ageing: { inOven: number; held: number; out: number } | null | undefined,
+  me: Pick<Me, "company"> | null | undefined,
+): { inOven: number; held: number; out: number; tone: StatusTone } | null {
+  if (!ageing || !ageingModuleOn(me)) return null;
   const tone: StatusTone = ageing.held > 0 ? "red" : ageing.out > 0 ? "blue" : ageing.inOven > 0 ? "amber" : "neutral";
   return { inOven: ageing.inOven, held: ageing.held, out: ageing.out, tone };
 }
@@ -468,4 +491,20 @@ export function startDefaults(input: {
 /** A typed reading is open while the batch is in the oven and for 30 minutes after it came out (the server refuses later ones). */
 export function canAddReading(batch: Pick<AgeingBatchDetail, "status" | "outAt">, now: number): boolean {
   return batch.status === "in_oven" || (batch.status === "out" && batch.outAt !== null && now - batch.outAt < 30 * 60_000);
+}
+
+/**
+ * After an unsure hold: did it land? A line hold landed when that line reads held. A whole-trolley hold landed
+ * when some live line is held and none is left pending or released (the server holds them all together). The
+ * sheet then closes, so a second tap never shows a red "already held".
+ */
+export function holdLanded(batch: Pick<BatchView, "rows">, rowId: string | null): boolean {
+  if (rowId !== null) return batch.rows.find((r) => r.id === rowId)?.status === "held";
+  const live = batch.rows.filter((r) => r.status === "pending" || r.status === "released" || r.status === "held");
+  return live.some((r) => r.status === "held") && live.every((r) => r.status === "held");
+}
+
+/** After an unsure clear: did it land? The line no longer reads held (or is gone). */
+export function unholdLanded(batch: Pick<BatchView, "rows">, rowId: string): boolean {
+  return batch.rows.find((r) => r.id === rowId)?.status !== "held";
 }

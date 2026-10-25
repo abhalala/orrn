@@ -47,7 +47,7 @@ describe("routes", () => {
 
   test("Today shows the tile from the server's own dashboard figures (no extra read)", () => {
     const today = read("app/(tabs)/today/index.tsx");
-    expect(today).toContain("<AgeingToday ageing={data.ageing} />");
+    expect(today).toContain("<AgeingToday ageing={data.ageing} me={me.data} />");
     expect(read("features/ageing/today-card.tsx")).not.toMatch(/useQuery|trpc\./);
   });
 
@@ -75,8 +75,10 @@ describe("writes", () => {
 
   test("a keyed write sends through useKeyedWrite with the key in the call; the hook is replayKey + sendOnce", () => {
     const hook = read("features/ageing/use-ageing.ts");
-    expect(hook).toMatch(/replayKey\(attempt\.current, body, randomId\)/);
-    expect(hook).toMatch(/sendOnce\(\(clientRequestId\) => call\(clientRequestId\), next\.id\)/);
+    expect(hook).toMatch(/attempt\.key\(body\)/);
+    expect(hook).toMatch(/useRef\(createAttempt\(randomId\)\)\.current/);
+    expect(read("features/ageing/attempt.ts")).toMatch(/replayKey\(current, body, fresh\)/);
+    expect(hook).toMatch(/sendOnce\(\(clientRequestId\) => call\(clientRequestId\), id\)/);
     let keyed = 0;
     for (const f of ["sheets.tsx", "load-view.tsx", "batch-view.tsx"]) {
       const src = read(`features/ageing/${f}`);
@@ -94,7 +96,10 @@ describe("writes", () => {
     const hook = read("features/ageing/use-ageing.ts");
     expect(hook).toMatch(/writeFailureKind\(error\) === "unsure"/);
     expect(hook.match(/await onUnsure\(\)/g)?.length).toBe(2);
-    expect(hook).toMatch(/set\(\{ pending: unsure, error, unsure \}\)/);
+    // Both hooks keep the button busy through the re-read (m-1): pending stays on while the board and batch are read again.
+    expect(hook.match(/set\(\{ pending: unsure, error, unsure \}\)/g)?.length).toBe(2);
+    expect(hook.match(/set\(\{ pending: false, error, unsure \}\)/g)?.length).toBe(2);
+    expect(hook).not.toMatch(/set\(\{ pending: false, error, unsure \}\);\s*\/\/ An unsure answer may have landed/);
     for (const f of FILES) {
       const src = read(`features/ageing/${f}`);
       expect(src).not.toMatch(/outbox|AsyncStorage|SecureStore|retry:\s*(?:[1-9]|true)/i);
@@ -180,6 +185,32 @@ describe("words", () => {
   test("a sample of the other method (pass null) never shows a failing chip", () => {
     const view = read("features/ageing/batch-view.tsx");
     expect(view).toMatch(/r\.hardnessPass === null \? null : <Chip tone=\{hardnessTone\(r\.hardnessPass\)\}/);
+  });
+
+  test("the hardness note after a save is neutral when the sample did not decide", () => {
+    expect(read("features/ageing/sheets.tsx")).toContain("<Note tone={hardnessNoteTone(last.pass)}>");
+  });
+
+  test("Hold and Clear hold close when the re-read after an unsure answer shows the new state (the person never sees a red already held)", () => {
+    const sheets = read("features/ageing/sheets.tsx");
+    expect(sheets).toMatch(/write\.unsure && !write\.pending && holdLanded\(batch, row \? row\.id : null\)/);
+    expect(sheets).toMatch(/write\.unsure && !write\.pending && unholdLanded\(batch, row\.id\)/);
+    expect(read("features/ageing/batch-view.tsx")).toMatch(/<UnholdSheet batch=\{batch\} row=\{unholdRow\}/);
+  });
+
+  test("the load screen keeps the picked bundles in state, and points to the batch an unsure load may have made", () => {
+    const load = read("features/ageing/load-view.tsx");
+    expect(load).toMatch(/useState<Record<string, AvailableBundle>>\(\{\}\)/);
+    expect(load).not.toMatch(/\(bundles\.data\?\.items \?\? \[\]\)\.filter\(\(b\) => bundle/);
+    expect(load).toContain('t("ageing.load.openBatch"');
+    for (const dict of [en, hi, gu] as unknown as Tree[]) expect(flatten(dict).has("ageing.load.openBatch")).toBe(true);
+  });
+
+  test("the native reason kinds hold every kind the web's do (ageing_abort included)", () => {
+    const kinds = (src: string) => [...(/export type ReasonCodeKind =([^;]+);/.exec(src)?.[1] ?? "").matchAll(/"([a-z_]+)"/g)].map((m) => m[1]!).sort();
+    const web = readFileSync(join(NATIVE, "..", "web", "src", "features", "press", "reason-label.ts"), "utf8");
+    expect(kinds(read("features/press/reason-label.ts"))).toEqual(kinds(web));
+    expect(kinds(read("features/press/reason-label.ts"))).toContain("ageing_abort");
   });
 
   test("telemetry readings are shown read-only with their source", () => {
