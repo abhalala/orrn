@@ -45,6 +45,7 @@ import {
   dieInstance,
   dieMaker,
   dieMakerJob,
+  dieShare,
   dieTierChange,
   dieWork,
   dieWeightReading,
@@ -1739,6 +1740,7 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     db.delete(salesOrder).where(eq(salesOrder.companyId, COMPANY_ID)),
     // Die room rows hold keys to the section (and copies to bands and makers): children first.
     db.delete(dieMakerJob).where(eq(dieMakerJob.companyId, COMPANY_ID)),
+    db.delete(dieShare).where(eq(dieShare.companyId, COMPANY_ID)),
     db.delete(dieFile).where(eq(dieFile.companyId, COMPANY_ID)),
     db.delete(nitridingLog).where(eq(nitridingLog.companyId, COMPANY_ID)),
     db.delete(dieWeightReading).where(eq(dieWeightReading.companyId, COMPANY_ID)),

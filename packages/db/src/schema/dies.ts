@@ -297,6 +297,36 @@ export const dieFile = sqliteTable(
   ],
 );
 
+/**
+ * A share link for ONE section (FP-DR-20): a read-only, expiring, revocable page for a party. Only a
+ * SHA-256 of the token is stored (`token_hash`); the token itself is shown once, at create. `party`
+ * is the customer the link is for: the page shows the owner only when the section's owner is that
+ * party. `view_count` / `last_viewed_at` are the only writes a public view makes.
+ */
+export const dieShare = sqliteTable(
+  "die_share",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    sectionId: text("section_id")
+      .notNull()
+      .references(() => die.id),
+    customerId: text("customer_id").references(() => customer.id),
+    tokenHash: text("token_hash").notNull().unique(),
+    note: text("note"),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+    revokedBy: text("revoked_by").references(() => user.id, { onDelete: "set null" }),
+    viewCount: integer("view_count").notNull().default(0),
+    lastViewedAt: integer("last_viewed_at", { mode: "timestamp_ms" }),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+  },
+  (table) => [index("die_share_company_section_idx").on(table.companyId, table.sectionId, table.createdAt)],
+);
+
 export const dieMakerStatuses = ["active", "archived"] as const;
 
 /** Die maker master (not `vendor`). `name_key` = lower-case letters and digits, unique among live rows. */

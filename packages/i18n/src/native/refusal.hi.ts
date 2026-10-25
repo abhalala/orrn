@@ -154,6 +154,8 @@ export const refusalHi = {
     drawingOfSection: "प्रेस ड्रॉइंग die की होती है, किसी एक कॉपी की नहीं।",
     uploadExpired: "यह अपलोड पुराना हो गया। फ़ाइल फिर से चुनें।",
     fileNotFound: "वह फ़ाइल नहीं मिली।",
+    shareNoDrawing: "इस die की प्रेस ड्रॉइंग अभी नहीं है, इसलिए भेजने को कुछ नहीं। पहले Files टैब में जोड़ें।",
+    shareNotFound: "वह शेयर लिंक नहीं मिला।",
     fileSaved: "यह फ़ाइल पहले से सेव है।",
     fileNotArrived: "फ़ाइल पहुंची नहीं। फिर से अपलोड करें।",
     fileNotWhole: "फ़ाइल पूरी नहीं पहुंची। फिर से अपलोड करें।",

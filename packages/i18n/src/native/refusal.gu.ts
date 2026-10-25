@@ -157,6 +157,8 @@ export const refusalGu = {
     drawingOfSection: "Press ડ્રૉઇંગ die ની હોય છે, કોઈ એક copy ની નહીં.",
     uploadExpired: "આ અપલોડ જૂનું થઈ ગયું. ફાઇલ ફરી પસંદ કરો.",
     fileNotFound: "તે ફાઇલ મળી નહીં.",
+    shareNoDrawing: "આ die નું press ડ્રૉઇંગ હજી નથી, તેથી મોકલવા માટે કંઈ નથી. પહેલાં Files ટૅબમાં ઉમેરો.",
+    shareNotFound: "તે શેર લિંક મળી નહીં.",
     fileSaved: "આ ફાઇલ પહેલેથી સેવ છે.",
     fileNotArrived: "ફાઇલ પહોંચી નથી. ફરી અપલોડ કરો.",
     fileNotWhole: "ફાઇલ પૂરી પહોંચી નથી. ફરી અપલોડ કરો.",

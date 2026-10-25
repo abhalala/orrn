@@ -171,6 +171,8 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   { id: "drawingOfSection", re: /^The press drawing belongs to the section, not one copy$/ },
   { id: "uploadExpired", re: /^This upload has expired; pick the file again$/ },
   { id: "fileNotFound", re: /^(?:Upload|File) not found$/ },
+  { id: "shareNoDrawing", re: /^This section has no press drawing to share$/ },
+  { id: "shareNotFound", re: /^Share link not found$/ },
   { id: "fileSaved", re: /^This file is already saved$/ },
   { id: "fileNotArrived", re: /^The file has not arrived; upload it again$/ },
   { id: "fileNotWhole", re: /^The file did not arrive whole; upload it again$/ },

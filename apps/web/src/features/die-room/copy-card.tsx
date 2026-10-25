@@ -10,7 +10,7 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { Tabs } from "@orrn/ui/components/tabs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import { Pencil, Plus, Printer, Share2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -39,6 +39,7 @@ import {
   type CardTab,
 } from "./die-room-model";
 import { PrintCard, printCard } from "./print-card";
+import { ShareSheet } from "./share-sheet";
 import { TrialPanel } from "./trial-panel";
 import { WorkPanel } from "./card-work";
 import { ReadingPad } from "./reading-pad";
@@ -58,6 +59,7 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
   const [padOpen, setPadOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [retiring, setRetiring] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
 
@@ -139,6 +141,12 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
     },
     ...(can(me, "die.card") || can(me, "masters.publish")
       ? [
+          {
+            key: "share",
+            label: t("dieRoom.share.button"),
+            icon: <Share2 aria-hidden="true" strokeWidth={2} />,
+            onSelect: () => setSharing(true),
+          },
           {
             key: "edit",
             label: t("dieRoom.card.edit"),
@@ -284,6 +292,7 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
           />
         </Can>
         <EditCardSheet open={editing} onOpenChange={setEditing} card={card} />
+        <ShareSheet open={sharing} onOpenChange={setSharing} sectionId={instance.sectionId} />
       </div>
       <PrintCard card={card} />
       <Dialog

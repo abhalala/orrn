@@ -26,6 +26,8 @@ import { IssuePanel } from "./issue-panel";
 import { MakerPanel } from "./maker-panel";
 import { NitridingPanel } from "./nitriding-panel";
 import { ReadingPanel } from "./reading-panel";
+import { canShareDrawing } from "./share-model";
+import { SharePanel } from "./share-panel";
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
@@ -184,6 +186,10 @@ export function CopyCard({ id }: { id: string }) {
         job={data.openMakerJob}
         trialMilli={copy.trialKgPer12ftMilli}
       />
+
+      {section && canShareDrawing((action) => can(me, action), section) ? (
+        <SharePanel sectionId={section.id} section={[section.series, section.sectionCode].filter(Boolean).join(" ")} ownerCustomerId={section.ownerCustomerId} />
+      ) : null}
 
       <Section title={t("dieRoom.card.cardTitle")}>
         {engineering.length > 0 ? (

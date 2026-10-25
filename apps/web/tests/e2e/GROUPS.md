@@ -1,13 +1,13 @@
 # e2e groups A / B / C
 
-The full e2e suite (40 spec files) is too long and too heavy for one Playwright run on a
+The full e2e suite (41 spec files) is too long and too heavy for one Playwright run on a
 shared machine, so the mergers ran it in three groups, split by spec file name (alphabetical thirds, each about 10
 minutes at `E2E_WORKERS=2`). Each group boots the same API + web pair, seeds once through `e2e-setup`, and runs its
 files in parallel; the groups are run one after another, never together on one port pair.
 
 | Group | Spec files | Tests listed | Passed in the MERGER-11 run (wt/FP after TESTSWEEP) |
 |---|---|---|---|
-| A | catalog, charts, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports | 316 | 306 (+10 screenshot skips) |
+| A | catalog, charts, die-room-share, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports | 316 + 9 (die-room-share, FP-DR-20) | 306 (+10 screenshot skips) at MERGER-11; die-room-share 9/9 on wt/DR-20 |
 | B | die-room-flows, layout-guards, marketing, masters, orders-w2, orders, pack-w1, pack, platform, portal, press, printing-settings, reports | 355 | 355 |
 | C | chain, collectors, next-rows, orders-plan-purpose, preview-redirects, purchase, redirects, scan, session, shell, stock-w1, stock, store, today, ui-kit | 457 | 443 (+14 skips: screenshots, chain ageing step) |
 
