@@ -175,6 +175,8 @@ function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunD
   const queuedNote = () => toast.message(t("press.console.outbox.queued"));
   type KeyedInput = { id: string; clientMutationId: string; tappedAt?: number };
   const start = useMutation({
+    // Offline the call must still run (and land in the outbox), not pause in React Query.
+    networkMode: "always",
     mutationFn: (input: KeyedInput) => send("start", input),
     onSuccess: async (res) => {
       if (res.queued) return queuedNote();
@@ -184,6 +186,7 @@ function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunD
     onError: (e) => setError(pressErrorText(t, e, "press.console.startFailed")),
   });
   const stop = useMutation({
+    networkMode: "always",
     mutationFn: (input: KeyedInput) => send("stop", input),
     onSuccess: async (res) => {
       if (res.queued) return queuedNote();
@@ -193,6 +196,7 @@ function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunD
     onError: (e) => setError(pressErrorText(t, e, "press.console.stopFailed")),
   });
   const keyed = (kind: "count" | "resume" | "undoStart", reset: () => void) => ({
+    networkMode: "always" as const,
     mutationFn: (input: KeyedInput) => send(kind, input),
     onSuccess: async (res: SendResult) => {
       if (res.queued) return queuedNote();
