@@ -387,19 +387,19 @@ async function cleanup(created: Created) {
         if (got.bundle.status === "available") await owner.m("bundle.transitionStatus", { id: b.id, toStatus: "void", reason: "e2e cleanup" });
       });
     }
-    // A batch the chain left unfinished is voided (a closed one stays: it is the record). Voiding the held
-    // bundle above gave its 6 pieces back to the released trolley line: those are written off as scrap,
-    // which closes the line and the batch. Then the trolley and the oven go out of service.
+    // Q60-A (review C1): a closed batch is the record and stays closed. Voiding the held bundle above (packed
+    // from the chain's trolley line after its batch closed) wrote its pieces off as loose aged stock: the
+    // bundle's own ledger void and an `ageing.writeOff` audit row; nothing went back on the trolley, so
+    // nothing is discarded here. A batch the chain left before release is voided; one left released or
+    // held (the chain broke before pack, or a void reopened it) is reported, never tidied away.
+    // Then the trolley and the oven go out of service.
     if (created.ageing.batches.length > 0) {
       const abort = (await owner.q<{ id: string; code: string }[]>("press.reasons", { kind: "ageing_abort" }))[0]!.id;
-      const scrap = (await owner.q<{ id: string; code: string }[]>("press.reasons", { kind: "ageing_scrap" }))[0]!.id;
       for (const id of created.ageing.batches) {
         await attempt(`finish ageing batch ${id}`, async () => {
-          const b = await owner.q<{ status: string; rows: { id: string; status: string; remainingPcs: number }[] }>("ageing.batches.get", { id });
+          const b = await owner.q<{ number: string; status: string; totals: { remainingPcs: number } }>("ageing.batches.get", { id });
           if (b.status === "released" || b.status === "held") {
-            for (const r of b.rows.filter((x) => (x.status === "released" || x.status === "held") && x.remainingPcs > 0)) {
-              await owner.m("ageing.batches.discardRemaining", { rowId: r.id, pcs: r.remainingPcs, reasonCodeId: scrap, note: "e2e cleanup" });
-            }
+            problems.push(`${b.number} left ${b.status} with ${b.totals.remainingPcs} pieces on its trolley`);
             return;
           }
           if (b.status === "in_oven") await owner.m("ageing.batches.out", { batchId: id, gasEndMilli: 1 });
