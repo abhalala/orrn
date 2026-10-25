@@ -1049,8 +1049,11 @@ describe("dev seed: scrap purchase", () => {
       const short = reg.lots.filter((l) => l.shortBeyondTolerance);
       expect(short).toHaveLength(1);
       expect(short[0]!.notes.map((n) => n.status)).toEqual(["approved"]);
-      // Scrap ledger = what the register says is in stock.
-      expect(await scrapBalance(companyId)).toBe(reg.totals.stockKgG);
+      // Scrap ledger = what the register says came into stock, less what the foundry melted
+      // (W2-FD-S: the seed's dev-melt-1 charged 2,600 kg of LOT-6; the register is the purchase side).
+      const melted = (await ledgerFor(companyId)).filter((r) => r.voucherType === "melt").reduce((s, r) => s - r.qtyG, 0);
+      expect(melted).toBe(2_600 * KG);
+      expect(await scrapBalance(companyId)).toBe(reg.totals.stockKgG - melted);
       expect(reg.totals.stockKgG).toBeGreaterThan(0);
     }
     // The app continues the seeded books.
