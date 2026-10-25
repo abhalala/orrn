@@ -67,7 +67,9 @@ const RIGHT = new Set(["runningMin", "recovery"]);
  * 1280 the table fits beside the sidebar (good kg, recovery and the totals in view, BACKLOG 94); a narrower
  * screen scrolls inside the framed region (focusable), never the page.
  */
-const WRAP = new Set(["downtimeMin", "operator", "section", "copy", "orders", "cutLengths", "startedStopped"]);
+// "8 / 310.400" and "234.200 / 80" may break after the slash (MERGER-12: with late-entry and trial chips under the
+// run number, the merged plant still fits 1280 with a busy press log).
+const WRAP = new Set(["downtimeMin", "operator", "section", "copy", "orders", "cutLengths", "startedStopped", "billets", "good"]);
 
 /**
  * `/press/report`: logged runs, 17 columns, landscape; the same columns as the CSV. `/reports/production`
@@ -231,15 +233,15 @@ export function ReportScreen({
                         <td key={id} className={`px-1 py-2 align-top tabular-nums ${WRAP.has(id) ? "break-words" : "whitespace-nowrap"} ${MONO.has(id) ? "font-mono" : ""} ${RIGHT.has(id) ? "text-right" : ""}`}>
                           {content}
                           {id === "runNo" && row.lateEntry ? (
-                            <span className="ml-1.5 align-middle">
-                              <Chip tone="amber" truncate={false}>
+                            <span className="mt-1 block">
+                              <Chip tone="amber" truncate={false} className="gap-1 px-2">
                                 {t("press.report.late")}
                               </Chip>
                             </span>
                           ) : null}
                           {id === "runNo" && row.trial ? (
-                            <span className="ml-1.5 align-middle">
-                              <Chip tone="neutral" truncate={false}>
+                            <span className="mt-1 block">
+                              <Chip tone="neutral" truncate={false} className="gap-1 px-2">
                                 {t("press.report.trial")}
                               </Chip>
                             </span>
@@ -256,7 +258,7 @@ export function ReportScreen({
                     {t("press.report.totals")}
                   </td>
                   <td className="px-1 py-2 tabular-nums">{data.totals.downtimeMin}</td>
-                  <td className="whitespace-nowrap px-1 py-2 tabular-nums">
+                  <td className="px-1 py-2 tabular-nums">
                     {kgFromG(data.totals.goodG)} / {data.totals.pcs}
                   </td>
                   <td className="whitespace-nowrap px-1 py-2 tabular-nums">{kgFromG(data.totals.scrapG)}</td>
