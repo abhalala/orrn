@@ -28,6 +28,7 @@ type TodayPayload = {
   failedPrintJobs: number;
   setup: { dies: boolean; customers: boolean; bundles: boolean; printers: boolean };
   tiles: { key: string; count: number | null }[];
+  ageing?: { inOven: number; held: number; out: number } | null;
 };
 
 const kgText = (grams: number) =>
@@ -661,8 +662,18 @@ test.describe("accessibility", () => {
       order.push(await focused());
     }
     titles.forEach((title, i) => expect(order[i]).toContain(title));
+    // W3-AG-W: the oven tile sits after the action tiles: its board link, then its three blocks.
+    if (today.ageing) {
+      expect(order.at(-1)).toBe("Open the board");
+      for (let i = 0; i < 3; i++) {
+        await page.keyboard.press("Tab");
+        expect(await page.evaluate(() => !!document.activeElement?.closest("[data-testid='today-oven']"))).toBe(true);
+      }
+      await page.keyboard.press("Tab");
+      order.push(await focused());
+    }
     if (today.failedPrintJobs > 0) {
-      expect(order[titles.length]).toBe("Open printing");
+      expect(order.at(-1)).toBe("Open printing");
       await page.keyboard.press("Tab");
       order.push(await focused());
     }

@@ -266,7 +266,8 @@ test.describe("pack: a booking order is offered last and marked (wave-2 M9)", ()
     await owner.dispose();
     await page.reload();
     await page.getByLabel("Search die code or section").fill(DIE);
-    await page.locator("button[data-die]").first().click();
+    // The searched die, not whatever row is first while the list still shows recent dies.
+    await page.locator("button[data-die]").filter({ hasText: DIE }).first().click();
     const orders = page.locator("[data-slot='order-picker']");
     const ours = orders.locator("label").filter({ hasText: name });
     await expect(ours).toBeVisible({ timeout: 15_000 });
