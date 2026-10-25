@@ -233,8 +233,12 @@ describe("one order per packing list and the weight warning (Q36, Q37)", () => {
     expect(renderScanMessage(t, blockMessage(block))).toBe("This packing list is for SO-14 only");
     expect(renderScanMessage(createI18n("hi").t, blockMessage(block))).toBe("यह packing list सिर्फ़ SO-14 की है");
     expect(renderScanMessage(createI18n("gu").t, blockMessage(block))).toBe("આ packing list ફક્ત SO-14 ની છે");
-    // Without the order number the server's sentence is shown as it is.
-    expect(renderScanMessage(t, blockMessage({ reason: "This packing list is for one sales order only", code: "outside_order" }))).toBe("This packing list is for one sales order only");
+    // Without the order number the plain key is shown, translated (never the server's English).
+    const plain = { reason: "server wording", code: "outside_order" as const };
+    expect(blockMessage(plain)).toEqual({ key: "scan.continuous.outsideOrderPlain" });
+    expect(renderScanMessage(t, blockMessage(plain))).toBe("This packing list is for one sales order only");
+    expect(renderScanMessage(createI18n("hi").t, blockMessage(plain))).toBe("यह packing list सिर्फ़ एक sales order की है");
+    expect(renderScanMessage(createI18n("gu").t, blockMessage(plain))).toBe("આ packing list ફક્ત એક sales order ની છે");
   });
 
   test("an added bundle off its line's weight carries a warning with both figures; others carry none", () => {
