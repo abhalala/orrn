@@ -17,7 +17,9 @@ export async function packPlantStock(page: Page, count: number): Promise<{ id: s
     expect(res.ok(), `${path} returned ${res.status()}: ${res.ok() ? "" : await res.text()}`).toBe(true);
     return (await res.json()).result.data as T;
   };
-  const dies = await call<{ items: { id: string }[] }>("get", "die.list", { limit: 1 });
+  // The newest active plant die: another spec may have just made a section owned by a customer (die-room's
+  // owner block), which plant stock may never use without a copy and a grant ("This section has no copies").
+  const dies = await call<{ items: { id: string }[] }>("get", "die.list", { owner: "plant", status: "active", limit: 1 });
   const locations = await call<{ items: { id: string; kind: string }[] }>("get", "stock.locations.list", {});
   const yard = locations.items.find((l) => l.kind === "yard");
   const rows = Array.from({ length: count }, (_, i) => ({ quantity: 20 + (i % 3), weightG: 50_000 + i * 137, lengthMm: 3658 }));
