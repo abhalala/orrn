@@ -238,7 +238,6 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   | `press_reopen` | owner, admin, manager | reopens a logged run with reversal postings |
   | `press_late_entry` | owner, supervisor, manager | approved: the run's `late_entry_approval_id` names it and the close gate passes (billets still debit the cast); rejected: the late run is voided and a copy it held goes back to the rack |
   | `ageing_override` | owner, admin, manager | no applier (the ageing lane is paused; the operator re-releases) |
-
 - A hook runs in the decision's own batch, scopes its statements by company and guards them with `decisionLanded`. A hook that can refuse adds its own batch abort and an explanation in `explainApplyAbort`, which `approval.decide` calls when the batch fails. A kind with an effect adds its hook to `APPROVAL_APPLIERS`; a kind without one says so in this table.
 - `approval.list` is readable by every role, so `meta` carries ids, numbers, bundles, kg and from/to only: never money (a `dc_note`'s rate is amount over kg), never weights of a note. `approval.list` also strips other keys and the request note for callers without purchase read access; approvers read figures from the document itself. The approval sheet must show what is being decided (an `order_reallocate` shows serials, kg and from/to, a `dispatch_overdraw` the per-line kg).
 - Rejecting or withdrawing is a decision too: a pending `dispatch_overdraw` is never rewritten, a request for new figures withdraws the old one with the note "Withdrawn: ..." (see Dispatch).
@@ -372,12 +371,10 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   order (fingerprint of customer, PO, date, status, note and lines in the `order.create` audit meta)
   is a CONFLICT. `orders.update` REQUIRES `serverSeq` (from `orders.get`): a save over a newer
   version answers CONFLICT, read and write time (review round 3).
-
 - **Order status.** booking → confirmed (`orders.confirm`) → dispatching (set by the first completed dispatch) → closed (`orders.close`); booking / confirmed → cancelled (`orders.cancel`). There is no reopen. These moves are the ONLY status moves (D11): `orders.create` makes a booking (a `status` other than booking is refused) and `orders.update` refuses any `status` other than the current one; an edit of a confirmed / dispatching order must still pass the confirm blockers and the owner check (purpose `plan`) on a changed pin.
   - `orders.confirm` is the checked move (`confirmBlockers`): PO number present, at least one line, each line complete (pieces or kg, cut length, alloy, temper, a copy or a tier when `dieRequired` is on), owner check on a pinned copy. PO is unique per company + customer among non-cancelled orders (`assertPoFree` at read time, `poRepeatGuard` in the write).
   - `close` needs a reason while baki is left and is guarded by the order's `server_seq` (a kg raise meanwhile fails it); `cancel` needs a reason and nothing packed, planned or dispatched (also in the UPDATE's WHERE).
   - A line that has bundles or dispatch items cannot be removed or change section, and the order's customer cannot change once any line has links; these checks also sit in the UPDATE / DELETE WHERE with a `batchAbortUnless`, so an edit that loses a race fails whole (CONFLICT), never half-applies.
-
 - `dispatch_item.sales_order_line_id` and `bundle.sales_order_line_id` have no foreign key (SQLite
   cannot add one to an existing table): every writer checks company + open order + same section +
   same customer at write time (`dispatch.linkItem`, `bundle.createReceipt`, `addBundles*`).
@@ -390,16 +387,13 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   need `order.plan`. Reads (`get`, `balance`, `quote`, `timeline`, `lineBundles`, `plantStock`,
   `matchStock`, `late`, `suggestLine`, `plans.get|list|candidates`) are open to members; no prices
   in them (`orders.get` adds `ratePaise` only for `order.price` holders with `priceOnSalesOrder`).
-
 - Line maths only on the server (`lib/orderLines.ts`): a line with `qtyBasis` takes the W1 path:
   basis = the pinned copy's latest reading, else the copy `suggestFirstCopy` picks, else band start
   (`die.weight_min_g`) with `basis_note`; `pcs` -> kg via `orderGrams`, kg -> pcs via `orderPieces`
   (`implied_g`), on the company's `lengthUnit` (inch companies use quarter-inch lengths, so 18 ft
   is exactly 18 ft). Without `qtyBasis` PL-8 figures are stored as typed. Alloy / temper default
   from the die, else `defaultAlloy` / `defaultTemper`.
-
 - Line edits (`orders.update`, `lib/orderLines.ts resolveLineEdits`): a W1 line keeps the basis it was locked with and recomputes the uncommitted side from it (typed kg on a pieces line is ignored); a section, pin or basis-choice change re-bases it like `repriceWeight` and writes `order.weight.refresh` (`via: "order.update"`). kg / pcs / length / section of a line on a released plan are refused (read time and in the line UPDATE's WHERE); a W1 line can't go below its dispatched kg. A line on any press plan can't be removed.
-
 - Price: `ratePaise` exists only on lines whose caller holds `order.price` and only while `priceOnSalesOrder` is on. Rates reach no other surface: not the portal, not the order book unless `withRates`, not the packing list. Accounts stay outside ORRN (O1): a rate is operational data, never a tax invoice.
 
 ## Balance strip, hold and reallocation
@@ -415,9 +409,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   gives `inStockBundles` / `inStockPcs` (FP-OP-05).
   Correlated subqueries name the outer line as `"sales_order_line"."company_id"` explicitly (a bare
   column in a single-table select would bind to the inner table).
-
 - **Hold for an order line (FP-OP-17, D17).** `lib/orderHold.ts`: `orders.hold` / `orders.release` / `orders.holds` / `orders.matchStock` (`order.manage`) set `bundle.held_for_line_id`; the bundle stays available and stays where it is. Dispatch refuses a bundle held for another customer's open line (`held_for_order`, "Held for SO-n (customer)"); held for this customer it goes on linked to that line and the hold ends when the dispatch completes. Closing or cancelling the order, or voiding the bundle (D17), releases the hold, all audited. Known gap: a count's `phantom_void` does not release a hold (BACKLOG 24). UI: `/orders/$id` per line "Hold stock" (`orders.matchStock` → bundles on no line or this line, not held, at most 100 → `orders.hold`, length warnings shown from the answer), a "Held" chip (`strip.heldBundles`, `heldG`) and "Held bundles" with Release selected / all. Hold refusals are mapped with every other orders refusal (see i18n).
-
 - Reallocation (`lib/reallocate.ts`): same customer / plant / unassigned -> applied in one batch
   (bundle UPDATE per from-line, append-only `bundle_transfer` rows, a count abort); another
   customer's bundles -> pending `order_reallocate` (subject = batch id, meta bundle + line ids and
@@ -432,7 +424,6 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   (`code: "reallocation_pending"`), `addBundle` refuses, `dispatch.complete` refuses (read time and
   in the completing UPDATE). `orders.reallocations.list` / `get` (members) read the requests
   (pending / applied / rejected) with serials, kg, from / to order, PO and customer names.
-
 - `orders.timeline` also lists `bundle.receipt.create` of bundles packed for the order's lines and
   `dispatch.complete` / `dispatch.overdraw.request` of dispatches carrying them.
 
@@ -456,7 +447,6 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   Queued runs are inserted with `pressRunInserts` (every bound column explicit: drizzle binds a JS
   default such as `time_unconfirmed` / `source` when a row leaves it out, which broke the 100-param
   chunking at 7 dies).
-
 - An owned die is never planned for another party: `plans.create` / `update` / `release` run the owner gate (purpose `plan`) on every line, and a line whose die belongs to someone else shows `ownerBlocked` + `ownerName` in `plans.openLinesForDies`. `plans.update` also respects `plan.purpose` (BACKLOG 41: order lines on a die_trial plan are refused; trial and sample plans carry no order line).
 - A plan's window defaults from `plans.defaultWindow` in the company time zone and production day (`productionDayWindow`), never the browser's zone (BACKLOG 51). The plan board is desktop and 11-inch only.
 
@@ -471,14 +461,12 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   (party, `city` = the customer's billing address city, status, `late`, order-date range, `stage`,
   search) narrows rows and strip together. The strip is the sum of the grid by construction; a test
   holds it. Never sum bars on a client. `orders.bookCities` lists the city options.
-
 - Book labels = line strip figures (BACKLOG 52): `bar.inStockG` / `totals.inStockG` = Σ AVAILABLE
   bundle kg on the order's lines (= Σ strip `inStockG`, never capped at the baki); `overG` = Σ
   max(0, produced − ordered) per line (= Σ strip `overG`; planned, pressed or held kg never make an
   order "over"). The drawn in-stock segment is `inStockBarG` (capped so the segments add up to
   ordered); the web draws widths from it and names kg from `inStockG`. Header = Σ rows = Σ line
   strips for the same filter (`orders-w4-book-strip.test.ts`).
-
 - Late (FP-OP-18, Q7 A): confirmed / dispatching, baki left, and the expected date passed; with no
   expected date, ordered more than 15 days ago (`lateOf` in `lib/orderStrip.ts`, the same rule in
   SQL in `orderBook.ts` and `LineFilter.late`). `lateRule` says which date fired. `expectedDate`
@@ -487,14 +475,12 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   fallback for an order with NO expected date stays a fixed 15 days (`LATE_AFTER_DAYS`); it is not
   tied to `orderLeadDays` (a plant that changes its lead days changes only the form's prefill).
   `orderLeadDays` has no settings screen yet (set with `company.updateSettings`).
-
 - No client arithmetic on kg / pcs / % (review r1 I-1): the new-order form's row quotes, die-block
   and order totals and each row's share (`shareBp`, shown with `bpPercent1`) come from
   `orders.quoteMany` (a read sent as POST because a long order's rows do not fit a GET URL);
   `orders.get` returns `dieTotals` and, for `lineFilter` (die, cut length, stage, has baki), `shown`
   = the kept `lineIds` with their ordered kg / pieces (`pcsMissing` counts lines with no pieces).
   Bars are drawn with `flex-grow: grams`, never a computed width.
-
 - `orders.stockOn` (FP-OP-19) is the in-yard bundles of an order by line from
   `bundle.sales_order_line_id`; the print, PDF and Excel are made on the client from it
   (`@orrn/documents/stock-on-order`). No rate in it.
@@ -510,32 +496,27 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   `die_remark` (bound to run AND copy; `press_run.press_remark/die_remark` stay as the latest-text
   snapshot). Run shift = `production_day` + `shift_seq` + `shift_id` (never letters; there is no
   separate shift_date). Tap times = `tapped_start_at` / `tapped_stop_at`.
-
 - `press_run` adds `late_entry` + `late_entry_approval_id` (FP-PR-24, approval `press_late_entry`:
   owner, supervisor, manager; never the requester), `client_mutation_id` (unique per company),
   `queue_pos` (FP-PR-25; action `press.queue` = supervisor, office, manager), `trial_result`
   (pass|fail). `press_plan.purpose` production|die_trial|sample|other (FP-PR-23; non-production
   needs no order line, never moves baki).
-
 - Close arithmetic and gates live in `@orrn/domain` (`closeGates`, `closeFigures`, `recoveryBp`,
   `balanceG`, `theoreticalHintG`, `skewUnconfirmed`, `bpPercent1`); the server never trusts a client
   figure. Ledger on close only: voucher `press_run` (−input_g `billet` item_ref = cast id at the
   BILLET `billet_store`; +discard to stream DISCARD, +ends/+rejects to PLANT-SCRAP, D23), reopen posts
   `press_run_reopen` reversals.
-
 - D22 (0030_press_fixes): `input_g` is the WEIGHED billet kg; recovery and balance use it. When the
   cast's billets on hand are less, the close needs `billet_short_reason`, still debits the full kg
   (BILLET may go negative), and writes `press_run.billet_short_g`; the cast shows Σ of its logged
   runs as `billetsShortG` (`foundry.casts.list` / `get().closeout`). The billet row's write-time guard
   is "on hand ≥ min(input, on hand as read)".
-
 - Run lines on a production run whose plan die has lines must each name a `pressPlanLineId`; a row
   without one takes the plan's single line of that cut length, else "Pick the order line for N mm".
   Rows with no order line only on trial / sample runs (or a run with no plan lines). A die trial's
   verdict (and the issue return) reaches the copy through lib/dieTrial `applyTrialVerdictOnReturn`
   (skipped when C43 carries the issue on); a reopen puts a copy its pass racked back `on_trial`
   (`die_trial.reopen`).
-
 - Reopen blockers: `lib/press/reopenBlockers.ts` `registerReopenBlocker((db, companyId, runId) =>
   Promise<string | null>)`; `press.runs.reopen` calls `reopenBlockers` and refuses with CONFLICT and
   the first reason. The ageing lane registers its check there (a non-void `ageing_row` pointing at
@@ -543,9 +524,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   `assertLateEntryCopy` (issue words, owner gate) and refuses retired lines and runs > 7 days old.
   The late-entry sheet's queued-run path names the copy when the run has none issued (BACKLOG 50):
   a searchable picker of the run's die only, `available` copies (+ `on_trial` for a die trial run).
-
-- **Trial, sample and other runs.** `press_plan.purpose` is production | die_trial | sample | other. A non-production run needs no order line and never moves baki (Q12 A: its good pieces are packed as plant stock). The trial verdict (`trial_result` pass | fail) reaches the die copy through `applyTrialVerdictOnReturn` (see Die room). Trial, sample and other runs are counted apart in the day summary (`trialKgG`, `trialRuns`).
-
+- **Trial, sample and other runs.** `press_plan.purpose` is production | die_trial | sample | other. A non-production run needs no order line and never moves baki (Q12 A: its good pieces are packed as plant stock). The trial verdict (`trial_result` pass | fail) reaches the die copy through `applyTrialVerdictOnReturn` (see Die room). Trial, sample and other runs are counted apart in the day summary (`trialKgG`, `trialRuns`). KNOWN GAP: no screen creates a non-production plan (the plan board's `plans.create` call sends no `purpose`; only the API and the e2e helper `ownPress` do), so on a real plant a die trial run is set up through the API until a plan-purpose picker exists.
 - Press summary and Today's tile, ONE rule (BACKLOG 53b; `lib/pressReport.ts` `dayFigures`):
   `press.summary` / `dashboard.today.pressedToday` `kgG`, `inputG`, `pcs` and `recoveryBp` count
   PRODUCTION runs only (pressed kg and its recovery share one base); die trial, sample and other runs
@@ -743,11 +722,9 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   (lock shape `{lotsG, streamsG, logsG, drossG, feG}`), `castTail({producedG, onHandG, creditedG})`
   (3 %), `spectroCheck` / `spectroVerdict`, `meltLockGates`, `furnaceLoad`, `ALLOY_LIMIT_SEEDS`.
   The PL5 shapes of `meltBalance` / `castTail` still answer as before until W2-FD-S moves to lock.
-
 - A draft melt must not count against a lot or post anything: readers that sum melt lines filter
   `melt.status = 'locked'` (W2-FD-S). 0028 rebuilds `melt` and refuses to run (NOT NULL failure on
   `__w2_melt_guard`) when melts already exist, rather than cascading their lines away.
-
 - Cast numbers: `castSeriesStart` {period, start} now feeds `allocateDocNumbers` for type `cast`
   (the month's first seq); `castNumberParts`, `parseCastCode`, `isSeriesCastCode` in `@orrn/domain`.
 
@@ -765,35 +742,27 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   from `driftTone` with the plant's `drift` settings. `bundle.previewLine`, `bundle.getBySerial`
   (`/b/$serial`), the pack session and the stock views all call it; never compute a tone elsewhere.
   Drift limits are the plant's (Settings > Standards > Thresholds), default green 800 bp, amber 1000.
-
 - **Weight.** Server derives kg per 12 ft; a typed weight needs a reason whenever the plant's edge
   node reports a scale (`weightNeedsReason`); `weight_source` is `scale` or `manual`, and `scale` with
   no scale on the node is refused. Pack rejects take a `qc_reject` reason code (`rejectReasons`).
-
 - **Numbers.** Company serial: plant style (`26I4086`, monthly `bundle` series) or legacy
   `BG-000001-B001` by `bundleNumbering`. Party number (C25): a customer with a bundle-number policy
   (`monthly` `26J12`, `fy` `2026-27/12`, `lifelong` `4086`) gets its own `party_bundle` series per
   customer (`allocatePartyBundleNumbers`); without a policy the party number is the serial. The PL
   shows the party column only when a party number differs from the serial.
-
 - **Plant stock (D20).** `createReceipt` with source Plant stock writes a `bundle_transfer` to plant
   and no ledger row, so the floor can scan it onto any load under D12's office rule. Imported legacy
   bundles stay unassigned until the office acts.
-
 - **Pinned copy and cast.** An order line that pins a die copy packs on that copy (D15); another copy
   is refused unless an `order.manage` holder sends `overridePin` (audited `bundle.receipt.pin_override`).
   `receiptCast` accepts only a cast with a locked melt (a draft melt has made no billets).
-
 - **Pack cast and ageing.** `createReceipt` takes the die copy, the cast (`receiptCast`, locked melts only), the source (order line, Plant stock) and the rejects with `qc_reject` reason codes. Pack today is the hand path: the trolley slice waits for the ageing lane (see Ageing). `requireCastOnBundle` turns on automatically after the first locked melt (`castAuto`); a plant with no foundry module keeps it off.
-
 - **Void holders (Q29).** `bundle.void` (and the legacy `bundle.transition`) = supervisor, manager,
   admin (and owner); the floor operator does not void.
-
 - **Label contract (Q31, BACKLOG 54).** Frozen in `@orrn/domain` (`labelContract.ts` + its test): the
   QR holds the bundle number only (`{origin}/b/{number}?c={slug}`; `{tenant}.orrn.in/b/{number}`, bare,
   month-only, cuid and BG forms keep resolving), and template variables are exactly `LABEL_VARIABLES`
   (no `uuid` or other id). Changing either needs a decision and a plan for labels already in the yard.
-
 - **Labels and printing.** No printer node configured: the saved session shows the A4 sticker-sheet fallback with an honest message instead of a dead print button (BACKLOG 13). Print attempts are always logged, success or failure (`print_log`). The label template variables are `LABEL_VARIABLES`; a cast label variable exists in `lib/bundle-label.ts`.
 
 ## Replay-safe floor writes (BACKLOG 50, 47)
@@ -813,7 +782,6 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   imports use `lib/importReplay.ts` (row ids derive from the request id; same id with other rows is a
   CONFLICT); the store and stock count sessions have their own request ids. A new floor write that can
   be retried follows the same rule.
-
 - The press station has its own key, `client_mutation_id` on `press_run` (unique per company), and the outbox reuses it (see Press).
 
 ## Dispatch (FP-PK-10..17)
@@ -828,7 +796,6 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   stock has no order line; the scan path never lifts it. `wrong_customer` always blocks: moving a
   bundle to another customer is `orders.reallocate`, not a dispatch add. Refusals reach clients as
   `ScanRefusal` (`lib/scanRefusal.ts`) with a code the web maps to its own words.
-
 - Scanning a bundle onto a dispatch links it (`lib/orders.ts suggestLines`): the line it was packed
   for if that line is open for this customer and section, else the oldest open line of this customer
   and section with baki left after what is already on this dispatch, else the NEWEST open line of that
@@ -836,7 +803,6 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   section) unlinked. The add reports return `linked[]`. Unlinking (`linkItem` null) a bundle whose
   section has an open line of the dispatch's customer needs `order.manage` (read and write time):
   the floor cannot take kg off the order to skip the override (ruling PL8-R15).
-
 - The link is decided again where its premise changes (fix round 2, spec S-2): a customer change in
   `dispatch.update` clears every unlink mark and re-suggests every item for the new customer in the
   same batch; `dispatch.complete` re-suggests every item left unlinked by nobody before the overdraw
@@ -848,7 +814,6 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   no-op unlink of a never-linked item and any floor unlink leave the mark as it was, so completion
   still relinks it (review round 3 I-1). A link clears it. `dispatch.relink` audit rows list only the
   links that landed (read back after the batch).
-
 - Review Focus 5: `dispatch.complete` refuses (PRECONDITION_FAILED) when a linked line's dispatched
   total would pass ordered + tolerance (`customer.kg_tolerance_bp`, else `settings.orderToleranceBp`,
   else 500 bp = 5 %) and opens one `dispatch_overdraw` approval (meta = per-line kg, no money);
@@ -859,19 +824,15 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   `batchAbortUnless`, so a concurrent completion or a late link cannot slip through. A request left
   open becomes `rejected` with note "Withdrawn: …" when the dispatch completes within limits, is
   cancelled or is deleted (ruling PL8-R6).
-
 - Dispatch header: `vehicleNo` (normalised GJ05AB1234), `driverName`, `driverPhone`, `transporter`
   via `dispatch.update` until cancelled (after completion only `dispatch.complete` holders, and the
   stored v2 PL header follows with `json_set`, same number and rows); `invoiceNumber`, `invoiceDate`
   (Tally, P12) need `invoice.link`. `dispatch.update` answers CONFLICT when its write lost a race.
-
 - **Capacity override.** `dispatch.create|update` store `vehicleCapacityG` (warn only while loading,
   `capacityCheck`). `dispatch.complete` over capacity needs `capacityOverrideReason` (audit
   `dispatch.capacity_override`); the completing UPDATE re-checks capacity in SQL, so a capacity
   lowered after the read cannot slip through without a reason.
-
 - **Dispatch header and ship-to.** Vehicle, driver, transporter and capacity are entered on the dispatch detail ("Edit details"); `dispatch.complete` does not require a vehicle number yet (BACKLOG 62, open), and the vehicle number and driver print on the packing list when set. A ship-to address per dispatch ("Same as bill-to" or a second address) is not built (BACKLOG 63); the PL prints the customer's billing address.
-
 - Dispatch from a sales order (FP-PK-17, migration 0031 `dispatch.sales_order_id` + `truck_id`):
   `dispatch.create({ salesOrderId })` takes the order's customer (a different `customerId` is
   refused; the order must be open); `dispatch.update` cannot move such a dispatch to another
@@ -886,7 +847,6 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   legacy stock on no line) of the same die and cut length; every candidate passes the scan's own
   classifier, bundles held for another order's line are left out, and `fits` marks what stays
   within the baki in the order listed.
-
 - Packing list scope (Q37, `settings.packingList.scope`, `company.updateSettings` only):
   `one_customer` (default) one customer's lines from several of their orders; `one_so` a dispatch
   must start from a sales order and carries that order only: the classifier refuses
@@ -900,17 +860,14 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   write-time `batchAbortUnless`; `update` cannot switch a sibling to a customer already on the
   truck); capacity counts the whole truck (`truckDispatchIds`); each customer gets its own PL
   number.
-
 - Q36 (warning, never a block): add / scan reports `warnings[]` (`{ serial, orderNumber, lineNo,
   bundleMilli, lineMilli, diffMilli }`, domain `offLineBand`) for a
   bundle whose kg/12ft is more than 0.100 (100 milli, exclusive) off its order line's
   `kg_per_12ft_milli`; `getDispatch` items carry `offBand`, `lineKgPer12ftMilli`,
   `offBandDiffMilli`. A bundle with no line has nothing to compare with. Pack's D15 band is
   separate and untouched.
-
 - "Add all that fit" sends ≤ 100 serials per call, one call after another, with progress
   (`addInChunks`); a failed call stops the run and says how many went on.
-
 - The off-band chip and the capacity fill are computed by the server on every read (`getDispatch`); the web draws them and sums nothing.
 
 ## Packing list v2 (C24, FP-PK-13)
@@ -923,7 +880,6 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   customer over completed dispatches into a new PL number; each folded list keeps its own number and
   gets `combined_into_id`. A combined list cannot be regenerated by its parts. Snapshots come only from
   `buildPlSnapshotV2`; the client never sends figures.
-
 - `dispatch.pl_number` is taken from the PL book series (`settings.plSeries`) at completion, once;
   `packingList.regenerate` and a manual `packingList.create` reuse it. The snapshot is v2
   (`lib/packingListSnapshot.ts`, zod `plSnapshotV2Schema`): `header` (letterhead from
@@ -939,15 +895,12 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   and xlsx carry the dispatch notes and ship date; "1 bundle" everywhere (`bundlesText`). The overdraw
   approval meta names each line's `orderPeriod`; a repeat Complete with the same figures leaves the
   request alone and writes a `dispatch.overdraw.request` audit row (`repeat: true`, with its note).
-
 - Packing list: `settings.packingList.kgPerPiece` (default off, `company.updateSettings`,
   `settings.update`) adds a "kg/pc" column to the screen, the PDF, the v2 print and the Excel
   sheet (render-time option `kgPerPiece`; stored snapshots do not change). One rounding rule:
   grams per piece half up (`kgPerPieceG`).
-
 - `reports.salesRegisterCsv({ month })` (reports.read or export.accounts): one CSV row per completed
   dispatch in the company calendar month, cells guarded against spreadsheet formulas.
-
 - Not built (BACKLOG 61, 63-66, 68-70, still open; 67, the refusal wording, is partly done): amber "over tolerance" at scan time with an early `dispatch_overdraw` request, the `dispatch_off_band` approval kind (Q36 is a warning today), per-dispatch ship-to, PL footer / signature lines / "Page x of y", dispatch labels (Q38), the rejected-scan log, the weak-link device scan queue (Q41), and the "scan to verify" QR. Late PL entry for line-down hours (Q30, BACKLOG 52) is not built either: until it is, a paper PL is entered afterwards by an `order.manage` holder at the time of entry.
 
 ## Stock count (phantom report)
@@ -1093,14 +1046,12 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   kind goes in `APPROVAL_KIND_MODULE`; it is typed over every kind, so it will not compile until
   you add it. When a mutation writes another module's rows, also call `assertModule(ctx, module)`
   inside it. Godseye `platform.updatePlanAndModules` refuses unknown keys and writes the audit row.
-
 - **Shifts and the production day (FP-PF-05).** Shifts live in `company.settings.shifts` (1 to 4
   of them, they cover 24 h with no gap or overlap, and ids stay the same on rename). Never compute
   "today" for the floor by calendar date. Use `productionDayWindowFor(db, companyId, at?)`
   (`lib/productionDay.ts`): before shift 1 starts, the time belongs to the previous day. It reads
   the settings fresh and never rewrites past rows (`press_run.shift_id` keeps its old id; you
   cannot delete a shift that a press run cites).
-
 - **Releases and devices (FP-PF-11, D8).** `release.check` is public and returns no company data,
   only the gate, the latest version and the APK url. Lookups by install use `device_install_idx`.
   A build is Blocked below the effective `minBuild` (mandatory floors raise it) or when every plant
@@ -1109,13 +1060,11 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   (`device.auth_session_id`). `device.revoke` ends that session (and only that one), a revoked
   install's register is refused and ends the session that asked, and restore lets it register
   again. Dev seed floors are `minBuild: 1` because apps/native sets no versionCode or buildNumber. The native gate reads the build from `expo-application` (`nativeBuildVersion`; an unreadable build is blocked, `UNREADABLE_BUILD`), re-checks on a 30 s tick and on foreground, and a revoked device gets the `device_revoked` meta code.
-
 - **Magic links (FP-PF-08, D14).** `disableSignUp: true`. Accounts come only from an approved
   access request or an invite. The public `POST /sign-in/magic-link` is refused. Godseye writes
   owner links straight into `verification`. A link never signs in an account that has a password
   or 2FA (`packages/auth/src/magic-link-guard.ts`). The guard finds tokens stored plain or hashed;
   never configure a custom token hasher.
-
 - **Backups (FP-PF-12).** Every table that has `company_id` is exported unless it is in
   `EXCLUDED_TABLES`, and any column matching `isSecretColumn` is dropped (`lib/backup.ts`). Give a
   new credential column a name ending `*_wrapped` or `*_hash`, or one containing token, secret or
@@ -1125,7 +1074,6 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   (`30 21 * * *` UTC) exports each active plant once per IST day, then removes drill scratch
   companies older than `DRILL_SCRATCH_KEEP_DAYS` (7), children first, and logs
   `backup.drill.discard`. Runbook: `docs/RESTORE_DRILL.md`.
-
 - **Settings tabs, Today, audit, forgot password (W1-PF-W).** `/settings` tabs live in
   `features/settings/sections.tsx` (`requires` hides a tab from roles without the action; the
   server still judges). Shifts, standards, letterhead and the commercial switches all save through
@@ -1138,7 +1086,6 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   link to `errorCallbackURL?error=ACCOUNT_USES_PASSWORD` when that URL is on a trusted origin
   (/continue shows the password message), else it answers 403. `gu` loads English with it, so a
   key gu lacks falls back to English instead of printing the key.
-
 - **Reason codes and thresholds (W2-PF2).** `reason_code` rows are ensured, never migrated: a
   company approved from the waiting list gets `defaultReasonCodeRows()`; `ensureDefaultReasonCodes`
   (`lib/reasonCodes.ts`) adds only the missing (kind, code) pairs on the first `press.reasons` read,
@@ -1147,15 +1094,11 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   bands, recovery bands and `press.balanceWarnBp` are set in Settings > Standards > Thresholds through
   `company.updateSettings` (`driftGreenMaxBp`, `driftAmberMaxBp`, `recoveryBands`, `pressBalanceWarnBp`;
   basis points, green below amber, 0 to 100 %; `validateThresholds` is shared with the form).
-
 - **Support (FP-PF-14).** Status goes Open → Answered → Closed, or Open → Closed. A staff reply or
   close lands only if the request is unchanged since it was read; otherwise it is a CONFLICT and no
   audit row is written.
-
 - **Sign-in facts (T17 rulings, BACKLOG 6).** `auth.me.user.hasPassword` (the account has a credential) and `twoFactorEnabled` are what the welcome steps and the sign-in guard read; every first-setup owner, approved or invited, must finish two-factor setup (Q2 A). `POST /dev/invite` and `POST /dev/magic-link` (`apps/server/src/index.ts`) hand an invite token or a magic link to front-door e2e that otherwise only leave the server by email; they sit behind the same gate as `/dev/seed` (404 unless the local-only `ORRN_LOCAL_PASSWORD` binding is set and the host is loopback). Links are logged only on a development stack.
-
 - **Today and its tiles (FP-PF-15, `lib/todayTiles.ts`).** `dashboard.today` sends the role's KPIs (four, on the production day) and role tiles: owner, admin and manager see every tile; office orders, dispatch, stock, approvals; supervisor press, pack, dispatch, approvals; operator pack, dispatch, stock; packer pack, stock; die_room the die room; press the press; storekeeper the store; foundry approvals; viewer and accountant none (a viewer gets the four KPIs only, `scope: "kpis"`). A tile of a module the plant switched off is left out. `ROLE_TILES` is pure, so the web reads the same list for its loading shape; add a tile to `TODAY_TILE_KEYS`, `ROLE_TILES` and `TILE_MODULE` together. "In stock" on Today is AVAILABLE bundles only (held and reserved are shown apart), and every figure and the trend chart come from the server (the chart buckets by production day, not by calendar day, and its stock sum is the KPI's, never summed on the client). Press tile strings are `today.press.*` (a Gujarati floor namespace), never `press.summary.*`.
-
 - **Audit.** `writeAudit` records the acting user, `impersonatorId` when impersonating, and the subject. Known gap (BACKLOG 55): floor writes do not yet record a `deviceId` / app version.
 
 # 13. Customer portal
@@ -1172,7 +1115,6 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
 - Packing list: `stripForParty` drops every key naming a cast (Q39), rate-like keys, `notes` and author ids. The TEST CERTIFICATE is different: `stripCertificateForParty` keeps cast numbers and per-cast chemistry (the certificate cites them, D28/C30) and drops only author and rate-like keys. Certificates are staff-issued (re-issue = next revision, same number); untested chemistry is marked pending, never invented.
 - Logins: `portal.users.grant` makes an `invite` row of `kind: "portal"` (7 days; an older pending one is revoked) + the portal row `invited`, and returns `inviteUrl` for the office to copy (email is unreliable). `/invite/{token}` → `invite.acceptByToken` turns the row `active` without creating a membership. Re-granting a revoked login that already has an account goes straight back to `active` (`inviteUrl: null`). One email is never staff and party in the same plant (grant, accept and `portalProcedure` all refuse it). Member invites list/revoke never touch `kind: "portal"`.
 - Web: party routes live under `apps/web/src/routes/_portal*`. tRPC header rule (`shared/lib/trpc-links.ts` + `portal-plant.ts`): party procedures travel in their own batch carrying `x-orrn-company` (the chosen plant, `orrn.portalPlant`); every other call travels in a batch that never carries it. A new party procedure MUST be added to `PARTY_PROCEDURE` in `portal-plant.ts`, or it loses the plant choice.
-
 - Staff screens: the customer page's "Portal access" card (logins, dies the party sees), the dispatch page's "Issue test certificate" and Settings > modules "Party portal" switch. The portal opens only for a plant whose `portalEnabled` is on. The switch's hint text still says "The portal opens in a later release" (stale copy, `settings.modules.portalEnabledHint`; reword when the dictionaries are next touched).
 
 # 14. i18n
@@ -1214,7 +1156,6 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   flips it once the native-speaker review (`.fp-build/reports/gu-review-list-web.md`) is done, and a
   plant with no chosen language and a Gujarat GSTIN (24...) then opens in Gujarati
   (`shell/plant-locale.tsx`).
-
 - Every new key needs en and hi in the same change (`parity.test.ts`: same keys, same `{vars}`), and gu where its namespace is in `GU_FLOOR_NAMESPACES`. Copy rules the tests enforce on dictionaries AND guides: no em dash, en dash, arrow or curly quote; never the words "spool", "receipt", "tenant", "mutation"; no ALL-CAPS word outside the allow-list in `parity.test.ts` (PO, PDF, QR, PL, HV, CDR, DWG, MB and the like); at most one middle dot per string. Use ORRN's own wording, never a competitor's screen names.
 - Review lists: `bun run --cwd packages/i18n export-review` rewrites `docs/superpowers/review/hindi-review.md` (every string and every guide); `review-sync.test.ts` fails when it is stale, so run it after any change to `en.ts`, `hi.ts` or a guide. The Gujarati words await a native reader (`.fp-build/reports/gu-review-list*.md`, Q48).
 
@@ -1234,7 +1175,6 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   the page into every first load: `/purchase` once put `/` at 306.8 kB) and never use a zod
   schema there (zod is ~18 kB gzip: `/login` parses `?next` with a plain function). The same holds
   for anything the entry imports (`@orrn/env/web` validates with a Standard Schema check, no zod).
-
 - `bun run --cwd apps/web build` runs `scripts/check-route-budget.ts`: the marketing `/` closure stays under 250 kB gzip (about 222 kB at the end of the FP build) and fails if Hindi, the full English or guide text reaches it. A heavy new library or dictionary goes behind a dynamic import (`report-charts.tsx`, the order-sheet builders and the PDF code load on click only).
 
 ## No fixture-only routes in production nav
@@ -1272,9 +1212,7 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
 ## Native app
 
 - Read `apps/native/README.md` first (run, checks, Maestro, Gujarati). The phone shows server figures and never works out a weight, drift or baki. Roles get their tab set from `lib/nav.ts` (press has its own); every action button is wrapped in `<Can>` and every screen sits behind the shared session and release gates.
-
 - Native local mirrors are tenant-local only. Sync endpoints derive company scope from the session and device registration, never from client input. The server is authoritative for bundle and dispatch state transitions; content fields may use last-write-wins by server timestamp. No offline mirror exists yet: floor writes are online, and the intended floor-worker subset (dies read, customers read, bundles read / create / transitions, dispatches read / add bundle, print queue) is still the scope when one is built.
-
 - **Replay keys everywhere a write can be sent twice.** `lib/replay-key.ts`: `replayKey(attempt, content, fresh)` reuses the id when the same content is sent again after an unsure answer and remembers earlier unsaved sends (an unsure send may have landed, so reverting an edit sends the FIRST id again); a saved write ends the attempt. `sendOnce(call, key)` repeats once with the SAME key when no reply came back (`noReply`). The server answers a repeat with the first result (`replayed: true`) and another payload under the same key is a CONFLICT. `__tests__/replay-audit.test.ts` reads every `trpc.<proc>.mutationOptions` in the app and the server routers: a new write, or a server that learns a key, fails it until the write is keyed or listed as guarded some other way.
 - **Press on the phone.** The press role has its own tab set (`tabSetFor` in `lib/nav.ts`). Its screens are read only (line queue and run); the only press writes from the phone are downtime start / stop and handover. The station (counting, close, late entry) is the web tablet's. `__tests__/press-role.test.ts` pins the tab bar, the routes behind it and what the permissions allow.
 - **Refusals in the user's language.** `lib/server-refusal.ts` turns a server sentence into a `native.refusal.*` key (en, hi, gu) from the shared table `packages/i18n/src/refusal.ts`; the app never shows or speaks the server's English. A new `message:` sentence in the routers listed in `refusal-sentences.ts` fails `server-refusal.test.ts` until it has a pattern and keys. Voice reads the same text the screen shows.
@@ -1298,7 +1236,6 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
 - Deliverables are platform-specific archives (zip/tar.gz) with pre-embedded config.yaml containing secrets.
 - The `@orrn/server/lib/cloudflare.ts` client provisions CF Tunnels and DNS CNAMEs for `<subdomain>.spool.orrn.in`.
 - The `@orrn/server/lib/spool-client.ts` SpoolClient class wraps all spool API calls with auto-signing.
-
 - **Print exactly once.** `print_log.id` and `job_key = bundle:<serial>:label:v<template version>:attempt:<n>` identify a label job. The spool stores UNIQUE(job key) and a repeat POST answers the first job (`docs/print-exactly-once.md` in orrn-spool); a 200 `duplicate: true` is success, a 409 `job_key_conflict` is logged as a bug and refused. `attempt` rises only for `reprint: true` on a bundle whose latest attempt really went out; a transport retry, a double tap or a reprint that never reached the spool reuses it.
 - **Scale.** `scale.reading` (`bundle.pack`) polls the node's `/scale/reading` through the signed client; a typed weight needs a reason whenever the node reports a scale (D12, `weightNeedsReason`). `SCALE_SIMULATOR=1` in `apps/server/.dev.vars` (never in production) lets `scale.reading` answer from a deterministic cycle; the Go spool has `--scale-sim`. The real indicator make, frame and baud are owner-only (Q5).
 - **Collectors** (press frames, spectro files) use the same node token; see Press. Hardware is never faked as done: a simulator says `simulated: true`, a PLC is never written, and bring-up items stay in `TODO.md` under hardware.
@@ -1321,3 +1258,40 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
 - Do not add an audit pruning Worker cron unless explicitly requested.
 - Never push, deploy or merge to `main`/`prod` from a task worktree; promotion is `docs/DEPLOY_PROMOTION.md`, run by the owner.
 - Accounts stay outside ORRN (O1): no accounting, GST e-invoice / e-way bill, Tally export or invoicing inside the app. Prices on orders and dispatch value are optional operational data.
+
+# 20. Pending merge
+
+These branches are built and in review but are NOT on this branch yet. Their conventions are written here so they are not lost; when a branch merges, fold each bullet into the section named in brackets and delete it from here. Until then do not rely on them.
+
+## `wt/W4-NEXTROWS` @f37f7b17 (MERGER-11): die work log, owner-phone plan, plant switcher, dispatch value, order sheet and Excel exports, release notes, press station outbox
+
+- [Order flow: procedures, line maths, edits (FP-OP)] Dispatch value (`dispatch.getDispatch.value`, FP-OP-14) sums `round(weightG x ratePaise / 1000)` over items whose order line has a rate (unrated items counted in `rateMissing`), only with `order.price` and the switch; the web dispatch detail shows it as a value card, not a tax invoice.
+- [Press plans (FP-OP-10..13, 15, 16)] Under 820 px the plan is a read-only phone view (`plans.phone`, FP-OP-21; `reports.read` or `order.plan`): released plans with per-die cut lengths, planned vs pressed from logged runs only (`planDieView` in `@orrn/domain`), a run-state chip and the day summary. No rates, no 17-column grid.
+- [Order book (FP-OP-18..20)] Print and Excel (FP-OP-19, `@orrn/documents` order-sheet): the order sheet (rate column only when the server sent rates), the plan's shift die list (never a rate) and the order book export (up to 2,000 orders, current filter) are built on the client from server rows and load on click only. Documents are never generated in the Worker.
+- [The press station on the web (FP-PR-02..15, W2-PR-W)] Offline outbox (FP-PR-19): while the tablet reports offline, a station write (start, stop, count, resume, undo start, billets, pieces and kg, butt and ends, rejects, log run) waits in a per-plant outbox in localStorage and is sent in order with the same `clientMutationId` when the link is back; later writes of a run queue behind earlier ones; a refused write stays as a conflict with its own message and other runs carry on. Station mutations use `networkMode: "always"` so an offline tap reaches the outbox instead of pausing in React Query. Remarks and the die reading carry no key and are not queued (an offline Log run asks to clear them first). The queue is keyed by plant: one user's writes are never sent as another's.
+- [Modules, shifts, thresholds, releases, backups, reason codes] **Plant switcher (FP-PF-17).** Shown when `auth.me.memberships` has more than one plant and never while impersonating; it calls `company.switch`, drops the old plant's cached queries, reloads `auth.me` and lands on /today. Phone: the plant name in the top bar is the trigger; side nav: name at lg, icon in the rail.
+- [Modules, shifts, thresholds, releases, backups, reason codes] **Release notes (FP-PF-14).** `release.notes` (any member) returns the last eight published native builds with their notes, newest first (the update gate's own text); edge builds are left out. Settings > About shows them under "What changed".
+
+## `wt/W4-MASTERS` @29261376 (fix round open): reason-code masters, collector screens, replay keys on dispatch.create and addReading, spool job key, derived nitriding close, die-file purge, password-reset limit, Today trend and motion
+
+- [Die room rules that live elsewhere] Nitriding close is server-derived: the client sends `openG` and `usedG` and the server derives `closeG = open - used` (a `closeG` still sent must equal it; used above open is refused).
+- [Die room rules that live elsewhere] The daily cron purges orphan die-file objects (`lib/dieFilesPurge.ts`, lifecycle note in `docs/R2_BUCKETS.md`).
+- [Collectors: press frames, alerts, spectro inbox (FP-PR-21, 22, FP-FD-12, W4-COLLECTORS)] Screens: `/press/alerts` (list + acknowledge, `press.close`), Settings > Devices "Collectors" card (limits per press and reading, `masters.publish`; needs users.manage to reach, managers use the API) and `/casts/inbox` (attach / dismiss, `cast.enter`). The Today alerts chip links to the list.
+- [Replay-safe floor writes (BACKLOG 50, 47)] `dispatch.create` and `dieInstance.addReading` take the same `clientRequestId` (the write's own audit row id derives from the key, `meta` holds the fingerprint; a repeat answers the first result with `replayed: true`, other content is CONFLICT); the web sends them from `dispatch/request-key.ts` `requestIdFor` (the same content keeps the key, a landed write clears it). A new floor write that can be retried follows the same rule, and `apps/native/__tests__/replay-audit.test.ts` fails until the phone's side of it is listed.
+- [Modules, shifts, thresholds, releases, backups, reason codes] **Reason-code masters (BACKLOG 40).** `reasonCodes.list` (any member, all kinds, retired included), `create`, `rename`, `setActive` (`masters.publish`, audit `reason_code.create|rename|retire|reactivate`). A code's key is made once from its English wording and never changes; `other` is fixed in every kind (cannot be renamed or retired, always last, always asks for a note). Hindi and Gujarati wording is typed per code (`reason_code.label_hi/label_gu`); pickers (`press.reasons`) carry it and `features/press/reason-label.ts` picks typed wording, then the built-in translation of an unrenamed standard code, then the English label. Page: `/masters/reasons?kind=`. Kinds: downtime, qc_reject, void, reprint, reallocate, ageing_* (and `die_work` once the die work log lands).
+- [Modules, shifts, thresholds, releases, backups, reason codes] **Password reset limit.** `/request-password-reset` is limited to 5 calls per 15 minutes per address (hash) and per IP (`auth_throttle`, `packages/auth/src/reset-throttle.ts`); the 429 body is the same for known and unknown addresses.
+- [Modules, shifts, thresholds, releases, backups, reason codes] **Motion.** The route cross-fade starts no view transition under `prefers-reduced-motion`.
+
+## `wt/W4-TESTSWEEP`: per-file server runner, e2e groups A/B/C, ICU-pinned tests
+
+- [Machine load: rules 12 and 13 of the FP build] The full e2e suite (about 1,000 tests in 34 spec files) is run in three groups, A, B and C, one after another on one port pair, never together: `bun run e2e:group A|B|C` (`apps/web/scripts/e2e-group.sh`, membership in `apps/web/tests/e2e/GROUPS.md`; a spec in no group is warned about). A new spec is added to a group in both places.
+- [Machine load: rules 12 and 13 of the FP build] One bun process runs about 100 Miniflare D1 files back to back; on a loaded machine (or Linux) one stuck file leaves a poisoned stub and the failure cascades as timeouts into every later file. For a trustworthy full run use the per-file runner: `bun run test:server:files` (`packages/server/scripts/test-per-file.sh`; `JOBS`, `RETRY=1`, a name filter, per-file logs). Heavy files set their own `setDefaultTimeout`; `--timeout 60000` rescues a single slow test.
+
+## `wt/W2-SEED`: the consolidated demo plant, its logins and its tour
+
+- [Gates and how to run them] The demo seed is a fixture: seed-dependent tests create the same users with `precreateDevSeedUsers(env)` from `test/dev-seed-fixture.ts`; a figure a spec asserts on comes from the seed's own rows (`docs/DEMO_PLANT.md`), and the seed is pinned by `dev-seed-demo-plant.test.ts`.
+- [Demo plant seed (W2-SEED)] `POST /dev/seed` (`apps/server/src/dev-seed.ts` plus one `dev-seed-{area}.ts` per module) builds one coherent plant; `docs/DEMO_PLANT.md` is the tour (logins, orders, press board, stock, dispatches).
+- [Demo plant seed (W2-SEED)] A new demo login goes in `dev-accounts.ts` (`DEV_ACCOUNTS`, and `DEV_MEMBER_ROLES` when it is a plant member). Tests create the same users with `precreateDevSeedUsers(env)` from `test/dev-seed-fixture.ts` (never a hand-written key list); the e2e helper type `LocalRole` and `write-local-accounts.ts` follow.
+- [Demo plant seed (W2-SEED)] Idempotent: fixed ids (`dev-*`), children before parents in the reset, doc_series counters written past every seeded number, at most 100 bound parameters per statement (`insertChunks`). Add a table to the reset in the same change that seeds it (a new table with a RESTRICT FK to a demo row, location, bundle or lot must be added to the reset too). Never seed a secret (the spool node holds placeholder text).
+- [Demo plant seed (W2-SEED)] Time: nothing is a fixed date. `seedClock` (`dev-seed-kit.ts`) gives `pastAt(days, hour)` and `dayAt(fraction)`, the current production day; anything that must read as "today" uses `dayAt`. `seedDevData(db, { password, now? })` takes `now` for the test that seeds at seven moments.
+- [Demo plant seed (W2-SEED)] Quantities of an order line that stands on bundles are derived from those bundles, so baki reconciles by construction. SO-1..SO-4 keep the quantities older specs read; keep the ids that specs name. The plant in numbers is pinned by `dev-seed-demo-plant.test.ts`; change the seed, that file and `docs/DEMO_PLANT.md` together.

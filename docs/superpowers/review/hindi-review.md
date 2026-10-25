@@ -6096,7 +6096,7 @@ Please check, Lalubhai:
 | Step 2 | Choose where they go | कहां जाएंगे, चुनें |
 | Step 2 text | Under "Move to" pick the other order line. Pick "Plant stock" if the bundles are free again. Only bundles of the same die can go to an order line. | "कहां डालें" में दूसरी ऑर्डर लाइन चुनें। bundle फिर खुले हो जाएं तो "प्लांट स्टॉक" चुनें। ऑर्डर लाइन पर सिर्फ उसी die के bundle जा सकते हैं। |
 | Step 3 | Pick the bundles | Bundle चुनें |
-| Step 3 text | Tick the bundles to move, or tap "Select all". Only available bundles can move. A bundle on a truck or void is greyed out and says why. | जो bundle डालने हैं उन पर निशान लगाएं, या "सब चुनें" दबाएं। सिर्फ available bundle मूव होते हैं। ट्रक पर लगा या रद्द bundle फीका दिखता है और वजह लिखी होती है। |
+| Step 3 text | Tick the bundles to move, or tap "Select all". Only available bundles can move. A bundle on a truck or void is listed with the reason it cannot move. | जो bundle डालने हैं उन पर निशान लगाएं, या "सब चुनें" दबाएं। सिर्फ available bundle मूव होते हैं। ट्रक पर लगा या रद्द bundle वजह के साथ दिखता है कि वो क्यों नहीं जा सकता। |
 | Step 4 | Give a reason if the length differs | लंबाई अलग हो तो कारण दें |
 | Step 4 text | If the cut length is not the one on the new line, orrn warns you and asks for a "Reason". Pick one from the list or write a note. | कट लंबाई नई लाइन वाली न हो तो orrn चेतावनी देता है और "कारण" मांगता है। लिस्ट से चुनें या नोट लिखें। |
 | Step 5 | Move | डालें |
@@ -6254,26 +6254,26 @@ Please check, Lalubhai:
 | Problem 3 | No press run is waiting for this section | इस सेक्शन के लिए कोई प्रेस रन इंतज़ार में नहीं है |
 | Fix 3 | Ask the office to release the plan first. A die cannot be issued without a queued run. | ऑफिस से कहें कि पहले प्लान रिलीज़ करे। कतार वाले रन के बिना die नहीं दी जा सकती। |
 
-### Try a new die copy and release it (`die-trial`)
+### Release a die copy that is on trial (`die-trial`)
 
 | Part | English | हिंदी |
 |---|---|---|
-| Title | Try a new die copy and release it | नई die कॉपी को आज़माएं और छोड़ें |
-| When | Use this when a new copy, or a copy back from the die maker, is on trial and has to prove itself before it is used for orders. | जब नई कॉपी, या die मेकर से लौटी कॉपी, ट्रायल पर हो और ऑर्डर के काम आने से पहले उसे खुद को साबित करना हो। |
+| Title | Release a die copy that is on trial | ट्रायल पर रखी die कॉपी को छोड़ें |
+| When | Use this when a new copy, or a copy back from the die maker, is on trial and has to be proved or released before it is used for orders. | जब नई कॉपी, या die मेकर से लौटी कॉपी, ट्रायल पर हो और ऑर्डर के काम आने से पहले उसे साबित करना या छोड़ना हो। |
 | Step 1 | Know why it is on trial | समझें कि ट्रायल पर क्यों है |
 | Step 1 text | A new copy and a copy back from the die maker start "On trial". It goes only to a die trial run, never to a customer order. | नई कॉपी और die मेकर से लौटी कॉपी "ट्रायल पर" शुरू होती है। वो सिर्फ die ट्रायल रन पर जाती है, ग्राहक के ऑर्डर पर कभी नहीं। |
-| Step 2 | Get a trial run | ट्रायल रन लें |
-| Step 2 text | Ask the office to release a plan with the purpose "Die trial". A trial run needs no order line. | ऑफिस से कहें कि "Die ट्रायल" उद्देश्य वाला प्लान रिलीज़ करे। ट्रायल रन के लिए ऑर्डर लाइन नहीं चाहिए। |
-| Step 3 | Issue the copy | कॉपी दें |
-| Step 3 text | On the copy tap "Issue to a trial run", or use "Issue and return" and pick the trial run. | कॉपी पर "ट्रायल रन को दें" दबाएं, या "प्रेस को दें और वापस लें" से ट्रायल रन चुनें। |
-| Step 4 | Press and decide | प्रेस करें और तय करें |
-| Step 4 text | The supervisor logs the run and says "Trial passed" or "Trial failed". If it passed, the copy becomes available when it comes back to the rack. If it failed, it stays on trial. | सुपरवाइज़र रन दर्ज करता है और "ट्रायल पास" या "ट्रायल फेल" बताता है। पास हुआ तो कॉपी रैक में लौटते ही available हो जाती है। फेल हुआ तो ट्रायल पर ही रहती है। |
+| Step 2 | See what is waiting | देखें क्या इंतज़ार में है |
+| Step 2 text | Open "Dies". Copies on trial have their own tile on the board. Open a copy to see its trial panel. | "Die" खोलें। ट्रायल वाली कॉपियों का बोर्ड पर अपना टाइल होता है। कॉपी खोलकर उसका ट्रायल पैनल देखें। |
+| Step 3 | Use a trial run if there is one | ट्रायल रन हो तो उसे इस्तेमाल करें |
+| Step 3 text | If a die trial run is waiting for this section, tap "Issue to a trial run", or use "Issue and return" and pick the trial run. The supervisor logs the run and says "Trial passed" or "Trial failed". | इस सेक्शन के लिए die ट्रायल रन इंतज़ार में हो तो "ट्रायल रन को दें" दबाएं, या "प्रेस को दें और वापस लें" से ट्रायल रन चुनें। सुपरवाइज़र रन दर्ज करता है और "ट्रायल पास" या "ट्रायल फेल" बताता है। |
+| Step 4 | After the trial | ट्रायल के बाद |
+| Step 4 text | A copy that passed becomes available when it comes back to the rack. A copy that failed stays on trial. | पास हुई कॉपी रैक में लौटते ही available हो जाती है। फेल हुई कॉपी ट्रायल पर ही रहती है। |
 | Step 5 | Or release it with a reason | या कारण लिखकर छोड़ें |
 | Step 5 text | A manager can tap "Release without a trial" and write why. The reason is kept in the audit trail. | मैनेजर "ट्रायल के बिना छोड़ें" दबाकर वजह लिख सकता है। वजह ऑडिट में रहती है। |
 | Problem 1 | The copy is still On trial after a good run | अच्छे रन के बाद भी कॉपी ट्रायल पर है |
 | Fix 1 | The run's trial result must be set to passed when it is logged. A reopened run puts the copy back on trial. | रन दर्ज करते समय ट्रायल का नतीजा पास भरा होना चाहिए। फिर से खोला गया रन कॉपी को वापस ट्रायल पर डाल देता है। |
 | Problem 2 | There is no trial run for this section | इस सेक्शन के लिए कोई ट्रायल रन नहीं है |
-| Fix 2 | A copy on trial cannot go on a production run. Ask the office to release a die trial plan for the section. | ट्रायल वाली कॉपी प्रोडक्शन रन पर नहीं जा सकती। ऑफिस से कहें कि सेक्शन के लिए die ट्रायल प्लान रिलीज़ करे। |
+| Fix 2 | orrn has no planning screen for a die trial yet, so a trial run is set up by orrn support. Until then a manager can use "Release without a trial" and write why. | die ट्रायल की प्लानिंग का अभी कोई स्क्रीन नहीं है, इसलिए ट्रायल रन orrn सपोर्ट लगाता है। तब तक मैनेजर "ट्रायल के बिना छोड़ें" से वजह लिखकर छोड़ सकता है। |
 | Problem 3 | I do not want new copies on trial | मुझे नई कॉपी ट्रायल पर नहीं चाहिए |
 | Fix 3 | The owner or the plant admin can switch "New copies start on trial" off on the die board. Do this only if the plant agrees. | मालिक या प्लांट एडमिन die बोर्ड पर "नई कॉपी ट्रायल से शुरू हो" बंद कर सकता है। ये तभी करें जब प्लांट राज़ी हो। |
 

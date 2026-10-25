@@ -130,17 +130,15 @@ Rules that come from sharing one machine (COMMON rules 12 and 13):
   argument oddly and the whole suite runs. Use `cd apps/web && bunx playwright test --project=e2e tests/e2e/<spec>.spec.ts`
   after sourcing the ports. A spec at one width: add `-g` with the title; the visual projects (`desktop-dark` ...) are a separate suite.
 - **Server tests per file.** One `bun test` process runs about 100 Miniflare files back to back; on a loaded machine or on Linux a
-  single stuck file leaves a poisoned stub and every later file times out. Run `bun run test:server:files` (one bun process per
-  file, `JOBS=2` for two at a time, `RETRY=1` reruns a failed file once alone, a name filter such as
-  `bun run test:server:files -- press-w2 plant-store`, logs per file) or one file by hand: `cd packages/server && bun test test/<name>.test.ts`
-  (`--timeout 60000` for a slow one). The Miniflare files need no ports.
-- **e2e groups A, B, C.** The full suite (about 1,000 tests in 34 spec files) is too long for one run on a shared machine, so the mergers
-  ran it in three groups, one after another on one port pair, never together: `bun run e2e:group A` (then `B`, `C`; extra
-  Playwright flags pass through: `bun run e2e:group B --retries=1`). Membership is in `apps/web/tests/e2e/GROUPS.md` and
-  `apps/web/scripts/e2e-group.sh` (A: catalog, charts, die-room, die-room-w2, dispatch, dispatch-w1, dispatch-w2, front-door, godseye, gu-w4, guides,
-  imports; B: layout-guards, marketing, masters, orders, orders-w2, pack, pack-w1, platform, portal, press, printing-settings, reports;
-  C: preview-redirects, purchase, redirects, scan, session, shell, stock, stock-w1, store, today, ui-kit). A new spec is added to a group in both places; the script warns about a spec that is in none. Specs create what
-  they change and assert only on their own rows, so a group runs in any order.
+  single stuck file leaves a poisoned stub and every later file times out. Run the files one by one, stopping at the first failure:
+  `cd packages/server && for f in test/*.test.ts; do bun test "$f" --timeout 60000 || break; done`, or one file by hand
+  (`bun test test/<name>.test.ts`). The Miniflare files need no ports. `wt/W4-TESTSWEEP` adds a runner for this
+  (`bun run test:server:files`: one bun process per file, `JOBS=2`, `RETRY=1`, a name filter, per-file logs); it lands with MERGER-11.
+- **e2e groups A, B, C.** The full suite (about 1,000 tests) is too long for one run on a shared machine, so the mergers ran it in
+  three groups, alphabetical thirds of the spec files in `apps/web/tests/e2e`, one after another on one port pair, never together
+  (about ten minutes each at `E2E_WORKERS=2`): `bunx playwright test --project=e2e <the group's spec files>` after sourcing the ports.
+  Specs create what they change and assert only on their own rows, so a group runs in any order. `wt/W4-TESTSWEEP` adds
+  `bun run e2e:group A|B|C` and the membership file `apps/web/tests/e2e/GROUPS.md`; it lands with MERGER-11.
 
 ## Seed realistic data
 
@@ -210,6 +208,34 @@ cd apps/server
 bunx wrangler d1 execute orrn-local --local -c wrangler.local.jsonc \
   --command "select status, count(*) from bundle group by status"
 ```
+
+## Dev accounts
+
+> Pending merge: the full list below comes with `wt/W2-SEED` (MERGER-11). Until it is on this branch the seed creates only `owner`, `operator`, `viewer` and `staff`, and `docs/DEMO_PLANT.md` does not exist yet.
+
+One shared local password (`vars.ORRN_LOCAL_PASSWORD` in `apps/server/wrangler.local.jsonc`), one login per plant role, all
+`{key}@orrn.local`, created by `POST /dev/seed` (`apps/server/src/dev-accounts.ts`). The plant they work in is the demo
+company; what to click is in [DEMO_PLANT.md](DEMO_PLANT.md). Write the list for tests and scripts with
+`bun run --cwd apps/server scripts/write-local-accounts.ts` (it writes `ORRN_LOCAL_EMAIL_{KEY}` for every login and the password
+into the gitignored `apps/server/.dev.local-account.local`); the e2e helper `signInViaApi(page, role)` reads it.
+
+| Login | Plant role | What it is for |
+| --- | --- | --- |
+| `owner` | owner | everything; the plant admin's account in practice (Q32) |
+| `admin` | admin | everything but the owner-only company actions; team, settings, approvals |
+| `manager` | manager | approvals (reallocate, tier, late entry, overdraw), order planning, close, masters |
+| `office` | office | orders, planning, dispatch, packing lists, D/C notes |
+| `accountant` | accountant | prices on orders, purchase book, reports |
+| `supervisor` | supervisor | press runs (log, queue), pack, dispatch, press approvals |
+| `press` | press | starts, stops and counts a run; cannot log it |
+| `dieroom` | die_room | readings, die card, issue, maker, tier proposals |
+| `packer` | packer | packs, scans, builds dispatches |
+| `operator` | operator | floor operator: pack, scan, stock, dispatch |
+| `storekeeper` | storekeeper | GRN and MRS in the store |
+| `foundry` | foundry | casts and melts, cast close approval |
+| `viewer` | viewer | read only; every write answers 403 |
+| `staff` | none (ORRN `super_admin`) | Godseye: access requests, plants, releases, backups, support |
+| `party` | none (portal login) | KD Extrusion's party login: its dies, orders, dispatches, certificates |
 
 ## Migrations: numbering map
 

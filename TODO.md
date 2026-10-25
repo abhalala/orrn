@@ -51,6 +51,7 @@ Open work only. History (milestones M0 to M9, the plant waves W0 to W4) is in gi
 
 | Item | Detail | Rank |
 |---|---|---|
+| Plan screen for trial and sample runs | `plans.create` takes `purpose` (production, die_trial, sample, other) but the plan board sends none: only the API and the e2e helper `ownPress` create a non-production plan, so the die room's trial flow has no trial run to pick on a real plant. Add a purpose picker to the plan board (no order lines for a trial or sample), then the die-trial guide can drop its "orrn support sets it up" line. | re-pass 41, 42 |
 | Late PL entry for line-down hours | `occurredAt` (at most 72 h back, never future) + reason + `late_entry` flag + second-person approval; dispatch timestamp and ledger `posted_at` use it; guide "When the internet is down" in en, hi, gu. Until then a paper PL is entered later at the time of entry (Q30). | arch 52 |
 | Tolerance at scan | Amber "Over +5% on line n" when an add passes the line limit; the scan sheet raises `dispatch_overdraw` then, not only at complete; the web complete sheet passes `overdrawNote`. | pl-flow 61 |
 | Dispatch header entry | Vehicle, driver, transporter, capacity entry exists ("Edit details"); missing: complete refuses without a vehicle number, a confirm check "Vehicle and ship-to are correct", native entry. | pl-flow 62 |

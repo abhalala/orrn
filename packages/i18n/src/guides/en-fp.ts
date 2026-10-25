@@ -131,7 +131,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "Pick the bundles",
-        body: "Tick the bundles to move, or tap \"Select all\". Only available bundles can move. A bundle on a truck or void is greyed out and says why.",
+        body: "Tick the bundles to move, or tap \"Select all\". Only available bundles can move. A bundle on a truck or void is listed with the reason it cannot move.",
       },
       {
         title: "Give a reason if the length differs",
@@ -435,24 +435,24 @@ export const guidesEnFp: GuideBookFp = {
   "die-trial": {
     slug: "die-trial",
     roles: TRIAL,
-    title: "Try a new die copy and release it",
-    when: "Use this when a new copy, or a copy back from the die maker, is on trial and has to prove itself before it is used for orders.",
+    title: "Release a die copy that is on trial",
+    when: "Use this when a new copy, or a copy back from the die maker, is on trial and has to be proved or released before it is used for orders.",
     steps: [
       {
         title: "Know why it is on trial",
         body: "A new copy and a copy back from the die maker start \"On trial\". It goes only to a die trial run, never to a customer order.",
       },
       {
-        title: "Get a trial run",
-        body: "Ask the office to release a plan with the purpose \"Die trial\". A trial run needs no order line.",
+        title: "See what is waiting",
+        body: "Open \"Dies\". Copies on trial have their own tile on the board. Open a copy to see its trial panel.",
       },
       {
-        title: "Issue the copy",
-        body: "On the copy tap \"Issue to a trial run\", or use \"Issue and return\" and pick the trial run.",
+        title: "Use a trial run if there is one",
+        body: "If a die trial run is waiting for this section, tap \"Issue to a trial run\", or use \"Issue and return\" and pick the trial run. The supervisor logs the run and says \"Trial passed\" or \"Trial failed\".",
       },
       {
-        title: "Press and decide",
-        body: "The supervisor logs the run and says \"Trial passed\" or \"Trial failed\". If it passed, the copy becomes available when it comes back to the rack. If it failed, it stays on trial.",
+        title: "After the trial",
+        body: "A copy that passed becomes available when it comes back to the rack. A copy that failed stays on trial.",
       },
       {
         title: "Or release it with a reason",
@@ -466,7 +466,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "There is no trial run for this section",
-        fix: "A copy on trial cannot go on a production run. Ask the office to release a die trial plan for the section.",
+        fix: "orrn has no planning screen for a die trial yet, so a trial run is set up by orrn support. Until then a manager can use \"Release without a trial\" and write why.",
       },
       {
         title: "I do not want new copies on trial",

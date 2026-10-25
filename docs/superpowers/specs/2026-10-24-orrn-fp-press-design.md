@@ -88,7 +88,7 @@ Rows added by the competitive re-pass (2026-10-24, `.fp-build/inputs/competitive
 
 | ID | Feature | User story | Priority | Depends on | Status (2026-10-25) |
 |---|---|---|---|---|---|
-| FP-PR-23 | Trial and sample runs | As the planner, I put a new or corrected die copy on the press as a trial, or run a sample, with no sales order. The output goes to plant stock or scrap, and the reading still lands on the copy. | Next | FP-OP-11, FP-OP-09, FP-DR-17 | **Built.** press_plan.purpose; trial verdict (applyTrialVerdictOnReturn); plan form (the review fixes of W2-FIXES-A are merged) |
+| FP-PR-23 | Trial and sample runs | As the planner, I put a new or corrected die copy on the press as a trial, or run a sample, with no sales order. The output goes to plant stock or scrap, and the reading still lands on the copy. | Next | FP-OP-11, FP-OP-09, FP-DR-17 | **Partial.** server: `press_plan.purpose`, trial verdict through `applyTrialVerdictOnReturn`, trial and sample runs counted apart; no screen sends a purpose yet (the plan board creates production plans only; a trial plan is made through the API) |
 | FP-PR-24 | Run entered after the fact | As a supervisor, I enter a press run that was written on paper while the tablet was down, using the times on the sheet. | Next | FP-PR-05, FP-PR-20, FP-PF-10 | **Built.** pressRun.open late entry + press_late_entry; late-entry-sheet |
 | FP-PR-25 | Change the queue after release | As the supervisor, I move a queued job up or down, mark it urgent, pull one cut length back, and filter a long queue, without voiding the whole die. | Next | FP-PR-02, FP-OP-12, BACKLOG 3 (pause, live refresh) | **Built.** queue.move/urgent/pullBack; action press.queue; queue-view |
 
