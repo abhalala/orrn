@@ -30,6 +30,7 @@ import { sqlUuid } from "./ledger";
 import { batchAbortUnless, isBatchAbort } from "./orders";
 import { nameKey } from "./purchase";
 import { ensureDefaultReasonCodes } from "./reasonCodes";
+import { auditInsert, auditInsertGuarded } from "./audit";
 import { webBaseUrl } from "./webUrl";
 
 export function errorText(e: unknown): string {
@@ -160,7 +161,7 @@ export function drawAgeingRowStatements(
   companyId: string,
   rowId: string,
   pcs: number,
-  opts: { batchId?: string; seq?: number; userId?: string | null } = {},
+  opts: { batchId?: string; seq?: number; userId?: string | null; audit?: AgeingAuditCtx; groupId?: string | null } = {},
 ): SqliteBatchItem[] {
   const out: SqliteBatchItem[] = [
     db
@@ -175,79 +176,114 @@ export function drawAgeingRowStatements(
     ),
   ];
   if (opts.batchId) out.push(...closeEmptyStatements(db, companyId, opts.batchId, opts.userId ?? null, opts.seq ?? 0));
+  // Review m3: the draw is audited (`ageing.draw`) in the receipt's own batch, so it lands with it or not at all.
+  if (opts.audit) out.push(auditInsert(opts.audit, { action: "ageing.draw", subjectType: "ageing_row", subjectId: rowId, meta: { kind: "pack", pcs, batchId: opts.batchId ?? null, groupId: opts.groupId ?? null } }));
   return out;
 }
 
+/** Who writes the audit rows of a draw, a give-back or a write-off (`auditInsertGuarded`). */
+export type AgeingAuditCtx = Parameters<typeof auditInsertGuarded>[0];
+
+/** The batch an open trolley row belongs to is still open for pack: released or held (Q58/Q60). */
+const OPEN_FOR_PACK = sql.raw(`('released', 'held')`);
+
 /**
- * D6 `restoreAgeingRow`: a bundle packed from a trolley row gives its pieces back when voided and
- * takes them again when restored, in the status change's own batch. Lands only when the bundle
- * write beside it landed (`server_seq = seq` and the new status). A whole-bundle row (`source =
- * 'bundle'`, the bundle's own row) never moves (review I3). Pieces given back reopen a closed row and
- * its closed batch (`closed → released`); restoring past what the row has left fails the batch
- * (`packAbort`), and a row emptied again closes again.
+ * D6 `restoreAgeingRow`, decided by Q60-A (review C1). A bundle packed from a trolley row:
+ *
+ * - **void while the row's batch is still open** (`released`/`held`): the pieces go back on the row
+ *   (`packed_pcs −= quantity`), a row closed by that draw reopens; the batch was never closed, so no
+ *   reopen and no trolley clash. Audited `ageing.restore` on the bundle.
+ * - **void once the batch is closed**: the batch and the row stay as they are (a closed batch is a
+ *   record; its trolley may already carry a new load). The pieces leave as loose aged stock written
+ *   off: the bundle's own ledger void (`voidRows`, with the void's reason) takes its kg out, and the
+ *   write-off is audited `ageing.writeOff` on the bundle (row, batch, pieces, reason).
+ * - **restore of a bundle whose last void was a write-off**: the pieces come back from loose stock
+ *   into the bundle (its ledger restore); the row is not drawn again. Audited `ageing.writeOffUndo`.
+ * - **restore after a give-back**: the row is drawn again (`packed_pcs += quantity`); over-drawing
+ *   fails the batch (`packAbort` → `isPackAbort`), a row emptied again closes, and its batch with it.
+ *   Audited `ageing.draw`.
+ *
+ * Every choice is made at write time inside the status change's own batch (the batch status and
+ * the bundle's last `ageing.restore`/`ageing.writeOff` audit row are read in SQL), and lands only when
+ * the bundle write beside it landed (`server_seq = seq` and the new status). A whole-bundle row
+ * (`source = 'bundle'`, the bundle's own row) never moves (review I3).
  */
 export function restoreAgeingRowStatements(
   db: OrrnDb,
-  input: { companyId: string; bundleId: string; ageingRowId: string; seq: number; to: "void" | "available"; userId?: string | null },
+  input: {
+    companyId: string;
+    bundleId: string;
+    ageingRowId: string;
+    seq: number;
+    to: "void" | "available";
+    userId?: string | null;
+    /** The audit rows (m3); without it nothing is audited (callers outside a session). */
+    audit?: AgeingAuditCtx;
+    reason?: string | null;
+  },
 ): SqliteBatchItem[] {
-  const sign = input.to === "void" ? sql`-` : sql`+`;
-  const landed = sql`exists (select 1 from ${bundle} b where b.id = ${input.bundleId} and b.company_id = ${input.companyId}
-            and b.server_seq = ${input.seq} and b.status = ${input.to})`;
-  const rowWhere = and(eq(ageingRow.id, input.ageingRowId), eq(ageingRow.companyId, input.companyId), ne(ageingRow.source, "bundle"));
-  const batchOfRow = sql`(select r.batch_id from ageing_row r where r.id = ${input.ageingRowId} and r.company_id = ${input.companyId})`;
-  const out: SqliteBatchItem[] = [
+  const { companyId, bundleId, ageingRowId, seq } = input;
+  const landed = sql`exists (select 1 from ${bundle} b where b.id = ${bundleId} and b.company_id = ${companyId}
+            and b.server_seq = ${seq} and b.status = ${input.to})`;
+  const qty = sql`(select b.quantity from ${bundle} b where b.id = ${bundleId} and b.company_id = ${companyId} and b.server_seq = ${seq} and b.status = ${input.to})`;
+  const rowWhere = and(eq(ageingRow.id, ageingRowId), eq(ageingRow.companyId, companyId), ne(ageingRow.source, "bundle"));
+  const batchOfRow = sql`(select r.batch_id from ageing_row r where r.id = ${ageingRowId} and r.company_id = ${companyId})`;
+  const batchOpen = sql`exists (select 1 from ageing_batch ab where ab.company_id = ${companyId} and ab.id = ${batchOfRow} and ab.status in ${OPEN_FOR_PACK})`;
+  const pieceRow = sql`exists (select 1 from ageing_row r where r.id = ${ageingRowId} and r.company_id = ${companyId} and r.source <> 'bundle' and r.status <> 'void')`;
+  const lastVoid = sql`(select a.action from audit_log a where a.company_id = ${companyId} and a.subject_type = 'bundle' and a.subject_id = ${bundleId}
+            and a.action in ('ageing.restore', 'ageing.writeOff') order by a.rowid desc limit 1)`;
+  const meta = { rowId: ageingRowId, reason: input.reason ?? null };
+  const audited = (action: string, extra: Record<string, unknown>, when: SQL): SqliteBatchItem[] =>
+    input.audit
+      ? [auditInsertGuarded(input.audit, { action, subjectType: "bundle", subjectId: bundleId, meta: { ...meta, ...extra } }, { from: company, where: and(eq(company.id, companyId), sql`${landed}`, sql`${pieceRow}`, when) })]
+      : [];
+
+  if (input.to === "void") {
+    // Audit first: it reads the batch status before the give-back below can change anything.
+    return [
+      ...audited("ageing.restore", { kind: "give_back" }, batchOpen),
+      ...audited("ageing.writeOff", { kind: "loose_aged" }, sql`not ${batchOpen}`),
+      db
+        .update(ageingRow)
+        .set({ packedPcs: sql`${ageingRow.packedPcs} - ${qty}`, serverSeq: seq })
+        .where(and(rowWhere, ne(ageingRow.status, "void"), sql`${landed}`, sql`${batchOpen}`)),
+      db
+        .update(ageingRow)
+        .set({ status: "released", serverSeq: seq })
+        .where(and(rowWhere, eq(ageingRow.status, "closed"), sql`${remainingOf("ageing_row")} > 0`, sql`${landed}`, sql`${batchOpen}`)),
+    ];
+  }
+
+  // Restore: undo a write-off (row untouched) or draw the given-back pieces again.
+  const wasWrittenOff = sql`coalesce(${lastVoid} = 'ageing.writeOff', 0)`;
+  return [
+    ...audited("ageing.writeOffUndo", { kind: "loose_aged" }, wasWrittenOff),
+    ...audited("ageing.draw", { kind: "restore" }, sql`not ${wasWrittenOff}`),
     db
       .update(ageingRow)
-      .set({
-        packedPcs: sql`${ageingRow.packedPcs} ${sign} (select b.quantity from ${bundle} b
-          where b.id = ${input.bundleId} and b.company_id = ${input.companyId} and b.server_seq = ${input.seq} and b.status = ${input.to})`,
-        serverSeq: input.seq,
-      })
-      .where(and(rowWhere, ne(ageingRow.status, "void"), landed)),
-  ];
-  if (input.to === "void") {
-    out.push(
-      db
-        .update(ageingRow)
-        .set({ status: "released", serverSeq: input.seq })
-        .where(and(rowWhere, eq(ageingRow.status, "closed"), sql`${remainingOf("ageing_row")} > 0`, landed)),
-      db
-        .update(ageingBatch)
-        .set({ status: "released", closedBy: null, serverSeq: input.seq })
-        .where(
-          and(
-            eq(ageingBatch.companyId, input.companyId),
-            sql`${ageingBatch.id} = ${batchOfRow}`,
-            eq(ageingBatch.status, "closed"),
-            sql`exists (select 1 from ageing_row r where r.company_id = ${input.companyId} and r.batch_id = ${ageingBatch.id} and r.status = 'released' and ${remainingOf("r")} > 0)`,
-          ),
+      .set({ packedPcs: sql`${ageingRow.packedPcs} + ${qty}`, serverSeq: seq })
+      .where(and(rowWhere, ne(ageingRow.status, "void"), sql`${landed}`, sql`not ${wasWrittenOff}`)),
+    packAbort(
+      db,
+      sql`exists (select 1 from ageing_row ar where ar.id = ${ageingRowId} and ar.company_id = ${companyId}
+            and ar.packed_pcs + ar.scrap_pcs + ar.rework_pcs > ar.pcs)`,
+    ),
+    db
+      .update(ageingRow)
+      .set({ status: "closed", serverSeq: seq })
+      .where(and(rowWhere, eq(ageingRow.status, "released"), sql`${remainingOf("ageing_row")} <= 0`, sql`${landed}`)),
+    db
+      .update(ageingBatch)
+      .set({ status: "closed", closedBy: input.userId ?? null, serverSeq: seq })
+      .where(
+        and(
+          eq(ageingBatch.companyId, companyId),
+          sql`${ageingBatch.id} = ${batchOfRow}`,
+          inArray(ageingBatch.status, ["released", "held"]),
+          sql`not exists (select 1 from ageing_row r where r.company_id = ${companyId} and r.batch_id = ${ageingBatch.id} and r.status <> 'void' and ${remainingOf("r")} > 0)`,
         ),
-    );
-  } else {
-    out.push(
-      packAbort(
-        db,
-        sql`exists (select 1 from ageing_row ar where ar.id = ${input.ageingRowId} and ar.company_id = ${input.companyId}
-              and ar.packed_pcs + ar.scrap_pcs + ar.rework_pcs > ar.pcs)`,
       ),
-      db
-        .update(ageingRow)
-        .set({ status: "closed", serverSeq: input.seq })
-        .where(and(rowWhere, eq(ageingRow.status, "released"), sql`${remainingOf("ageing_row")} <= 0`, landed)),
-      db
-        .update(ageingBatch)
-        .set({ status: "closed", closedBy: input.userId ?? null, serverSeq: input.seq })
-        .where(
-          and(
-            eq(ageingBatch.companyId, input.companyId),
-            sql`${ageingBatch.id} = ${batchOfRow}`,
-            eq(ageingBatch.status, "released"),
-            sql`not exists (select 1 from ageing_row r where r.company_id = ${input.companyId} and r.batch_id = ${ageingBatch.id} and r.status <> 'void' and ${remainingOf("r")} > 0)`,
-          ),
-        ),
-    );
-  }
-  return out;
+  ];
 }
 
 // ---------------------------------------------------------------------------

@@ -64,7 +64,7 @@ import {
 } from "@orrn/domain";
 
 import { actionProcedure, anyActionProcedure, companyProcedure, router } from "../index";
-import { ageingAbortUnless, ageingReopenBlocker, closeEmptyStatements, isAgeingAbort, isUniqueOn, openBundleRows, pressLinesLoaded, pressLinesNotOverloadedSql, remainingOf } from "../lib/ageing";
+import { ageingAbortUnless, ageingReopenBlocker, closeEmptyStatements, isAgeingAbort, isUniqueOn, lineLoadedPcsSql, openBundleRows, pressLinesLoaded, pressLinesNotOverloadedSql, remainingOf } from "../lib/ageing";
 import {
   ageingAvailableBundlesInput,
   ageingAvailableLinesInput,
@@ -265,12 +265,21 @@ const ovensRouter = router({
       sortOrder: input.sortOrder ?? prev?.sortOrder ?? 0,
       serverSeq: seq,
     };
-    await atomicBatch(ctx.db, [
-      prev
-        ? ctx.db.update(ageingOven).set(values).where(and(eq(ageingOven.companyId, ctx.companyId), eq(ageingOven.id, id)))
-        : ctx.db.insert(ageingOven).values({ id, companyId: ctx.companyId, createdBy: userOf(ctx), ...values }),
-      auditInsert(audit(ctx), { action: prev ? "ageing.oven.update" : "ageing.oven.create", subjectType: "ageing_oven", subjectId: id, meta: { code, status: input.status, from: prev?.status ?? null } }),
-    ]);
+    try {
+      await atomicBatch(ctx.db, [
+        prev
+          ? ctx.db.update(ageingOven).set(values).where(and(eq(ageingOven.companyId, ctx.companyId), eq(ageingOven.id, id)))
+          : ctx.db.insert(ageingOven).values({ id, companyId: ctx.companyId, createdBy: userOf(ctx), ...values }),
+        // Review m6: a start that put a batch in this oven after the read fails the status change whole.
+        ...(prev && input.status !== "active"
+          ? [ageingAbortUnless(ctx.db, sql`not exists (select 1 from ageing_batch b where b.company_id = ${ctx.companyId} and b.oven_id = ${prev.id} and b.status = 'in_oven')`)]
+          : []),
+        auditInsert(audit(ctx), { action: prev ? "ageing.oven.update" : "ageing.oven.create", subjectType: "ageing_oven", subjectId: id, meta: { code, status: input.status, from: prev?.status ?? null } }),
+      ]);
+    } catch (e) {
+      if (prev && isAgeingAbort(e)) throw ageingRefusal("oven_in_use", { oven: prev.code });
+      throw e;
+    }
     return { id, code, status: input.status };
   }),
 });
@@ -325,12 +334,29 @@ const trolleysRouter = router({
     const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
     const id = prev?.id ?? crypto.randomUUID();
     const values = { code, capacityG: input.capacityG ?? null, status: input.status, note: input.note ?? null, sortOrder: input.sortOrder ?? prev?.sortOrder ?? 0, serverSeq: seq };
-    await atomicBatch(ctx.db, [
-      prev
-        ? ctx.db.update(trolley).set(values).where(and(eq(trolley.companyId, ctx.companyId), eq(trolley.id, id)))
-        : ctx.db.insert(trolley).values({ id, companyId: ctx.companyId, createdBy: userOf(ctx), ...values }),
-      auditInsert(audit(ctx), { action: prev ? "ageing.trolley.update" : "ageing.trolley.create", subjectType: "trolley", subjectId: id, meta: { code, status: input.status, from: prev?.status ?? null } }),
-    ]);
+    try {
+      await atomicBatch(ctx.db, [
+        prev
+          ? ctx.db.update(trolley).set(values).where(and(eq(trolley.companyId, ctx.companyId), eq(trolley.id, id)))
+          : ctx.db.insert(trolley).values({ id, companyId: ctx.companyId, createdBy: userOf(ctx), ...values }),
+        // Review m6: a load that opened a batch on this trolley after the read fails the status change whole.
+        ...(prev && input.status !== "active"
+          ? [
+              ageingAbortUnless(
+                ctx.db,
+                sql`not exists (select 1 from ageing_batch b where b.company_id = ${ctx.companyId} and b.trolley_id = ${prev.id} and b.status in ('loading','in_oven','out','released','held'))`,
+              ),
+            ]
+          : []),
+        auditInsert(audit(ctx), { action: prev ? "ageing.trolley.update" : "ageing.trolley.create", subjectType: "trolley", subjectId: id, meta: { code, status: input.status, from: prev?.status ?? null } }),
+      ]);
+    } catch (e) {
+      if (prev && isAgeingAbort(e)) {
+        const [open] = await ctx.db.select({ number: ageingBatch.number }).from(ageingBatch).where(and(eq(ageingBatch.companyId, ctx.companyId), eq(ageingBatch.trolleyId, prev.id), inArray(ageingBatch.status, [...AGEING_OPEN_BATCH_STATUSES]))).limit(1);
+        throw ageingRefusal("trolley_in_use", { code: prev.code, batch: open?.number ?? "" });
+      }
+      throw e;
+    }
     return { id, code, status: input.status };
   }),
 });
@@ -677,6 +703,8 @@ const loadProcedure = actionProcedure("ageing.load")
       statements.push(ageingAbortUnless(ctx.db, sql`exists (select 1 from ageing_batch b where b.company_id = ${ctx.companyId} and b.id = ${batch.id} and b.status = 'loading')`));
     }
     pushChunkedInserts(statements, (part) => ctx.db.insert(ageingRow).values(part), rows);
+    // Review m6: the trolley is still in service at write time (an out-of-service save after the read fails the load).
+    statements.push(ageingAbortUnless(ctx.db, sql`exists (select 1 from trolley t where t.company_id = ${ctx.companyId} and t.id = ${t.id} and t.status = 'active')`));
     const lineIds = [...new Set(input.rows.map((r) => r.pressRunLineId))];
     for (const part of chunk(lineIds, IN_LIST_CHUNK - 5)) statements.push(ageingAbortUnless(ctx.db, pressLinesNotOverloadedSql(ctx.companyId, part)));
     for (const part of chunk(bundleIds, IN_LIST_CHUNK - 5)) {
@@ -687,6 +715,11 @@ const loadProcedure = actionProcedure("ageing.load")
             where r.company_id = ${ctx.companyId} and r.source = 'bundle' and r.status <> 'void' and b.status in ('loading','in_oven','out','released','held')
               and r.bundle_id in (${sql.join(part.map((i) => sql`${i}`), sql`, `)})
             group by r.bundle_id having count(*) > 1)`,
+        ),
+        // Review m6: still in stock at write time (a dispatch that reserved one after the read fails the load).
+        ageingAbortUnless(
+          ctx.db,
+          sql`not exists (select 1 from bundle b where b.company_id = ${ctx.companyId} and b.id in (${sql.join(part.map((i) => sql`${i}`), sql`, `)}) and b.status <> 'available')`,
         ),
       );
     }
@@ -708,9 +741,15 @@ const loadProcedure = actionProcedure("ageing.load")
         throw ageingRefusal("trolley_busy", { code: t.code, batch: now?.number ?? "" });
       }
       if (isAgeingAbort(e)) {
+        const [tNow] = await ctx.db.select({ status: trolley.status }).from(trolley).where(and(eq(trolley.companyId, ctx.companyId), eq(trolley.id, t.id))).limit(1);
+        if (tNow?.status !== "active") throw ageingRefusal("trolley_not_active", { code: t.code });
         if (batch) {
           const b = await readBatch(ctx.db, ctx.companyId, batch.id);
           if (b.status !== "loading") throw ageingRefusal("wrong_status", { batch: b.number, status: b.status });
+        }
+        for (const ids of chunk(bundleIds, IN_LIST_CHUNK)) {
+          const gone = await ctx.db.select({ serial: bundle.serial }).from(bundle).where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids), ne(bundle.status, "available"))).limit(1);
+          if (gone[0]) throw ageingRefusal("bundle_not_available", { serial: gone[0].serial });
         }
         if (bundleIds.length > 0) {
           const now = await openBundleRows(ctx.db, ctx.companyId, bundleIds);
@@ -824,6 +863,12 @@ const startProcedure = actionProcedure("ageing.load")
         })
         .where(and(eq(ageingBatch.companyId, ctx.companyId), eq(ageingBatch.id, b.id), eq(ageingBatch.status, "loading"))),
       ageingAbortUnless(ctx.db, batchLanded(ctx.companyId, b.id, seq, ["in_oven"])),
+      // Review m6: the oven and the trolley are still in service at write time.
+      ageingAbortUnless(
+        ctx.db,
+        sql`exists (select 1 from ageing_oven o where o.company_id = ${ctx.companyId} and o.id = ${oven!.id} and o.status = 'active')
+          and exists (select 1 from trolley t where t.company_id = ${ctx.companyId} and t.id = ${b.trolleyId} and t.status = 'active')`,
+      ),
       // Readings typed before a backdated start count from in_at (none exist yet; kept for symmetry).
       soakStartStatement(ctx.db, ctx.companyId, b.id, seq),
       auditInsert(audit(ctx), {
@@ -835,7 +880,13 @@ const startProcedure = actionProcedure("ageing.load")
       }),
     ];
     try {
-      const replayed = await runWrite(ctx, statements, replay, async (id) => ({ batch: await detail(ctx, id), warning: null, replayed: true }), () => statusRace(ctx, b.id));
+      const replayed = await runWrite(ctx, statements, replay, async (id) => ({ batch: await detail(ctx, id), warning: null, replayed: true }), async () => {
+        const [o] = await ctx.db.select({ status: ageingOven.status }).from(ageingOven).where(and(eq(ageingOven.companyId, ctx.companyId), eq(ageingOven.id, oven!.id))).limit(1);
+        if (o?.status !== "active") throw ageingRefusal("oven_not_active", { oven: oven!.code });
+        const [tr] = await ctx.db.select({ status: trolley.status, code: trolley.code }).from(trolley).where(and(eq(trolley.companyId, ctx.companyId), eq(trolley.id, b.trolleyId))).limit(1);
+        if (tr && tr.status !== "active") throw ageingRefusal("trolley_not_active", { code: tr.code });
+        return statusRace(ctx, b.id);
+      });
       if (replayed) return replayed;
     } catch (e) {
       if (isUniqueOn(e, "oven_id")) throw ageingRefusal("oven_busy", { oven: oven!.code });
@@ -877,6 +928,8 @@ const tempProcedure = actionProcedure("ageing.record")
           createdBy: userOf(ctx),
         }),
         soakStartStatement(ctx.db, ctx.companyId, b.id, seq),
+        // Review m3: a typed reading is audited (a replay fails on the reading's unique key, audit row and all).
+        auditInsert(audit(ctx), { action: "ageing.temp", subjectType: "ageing_batch", subjectId: b.id, meta: { number: b.number, readingId: id, tempCX10: input.tempCX10, at, note: input.note ?? null } }),
       ]);
     } catch (e) {
       if (input.clientMutationId && isUniqueOn(e, "client_mutation_id")) {
@@ -945,7 +998,8 @@ function rowMoveStatements(
       .set({
         status: m.to,
         holdReasonCodeId: m.to === "held" ? (rejectIds.get(m.rejectCode ?? "other") ?? rejectIds.get("other") ?? null) : null,
-        holdNote: m.to === "held" ? null : null,
+        // Review m8: a line held again keeps the supervisor's note; a line that leaves the hold clears it.
+        ...(m.to === "held" ? {} : { holdNote: null }),
         serverSeq: seq,
       })
       .where(and(eq(ageingRow.companyId, ctx.companyId), eq(ageingRow.id, m.id), eq(ageingRow.status, m.from as never))),
@@ -985,8 +1039,8 @@ const hardnessProcedure = actionProcedure("ageing.record")
         rowId: row.id,
         method: s.method,
         readingX10: s.readingX10,
-        // Review m6: a sample of the other method is stored as not deciding (false); the line summary never counts it.
-        pass: hardnessSamplePass(s, rule),
+        // Review m4 (0040): a sample of the other method is not deciding, stored as null; the line summary never counts it.
+        pass: s.method === rule.method ? hardnessSamplePass(s, rule) : null,
         testedBy: userId,
       })),
     );
@@ -1223,6 +1277,8 @@ const unholdProcedure = actionProcedure("ageing.release")
     const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
     const userId = userOf(ctx);
     const statements: SqliteBatchItem[] = [
+      // Review m7: the batch is still where the plan read it (a release, void or rework meanwhile fails this whole).
+      ageingAbortUnless(ctx.db, sql`exists (select 1 from ageing_batch b where b.company_id = ${ctx.companyId} and b.id = ${b.id} and b.status = ${b.status})`),
       ...rowMoveStatements(ctx, [{ id: row.id, from: "held", to: plan.to, rejectCode: plan.rejectCode }], rejectIds, seq),
       ageingAbortUnless(ctx.db, sql`exists (select 1 from ageing_row r where r.company_id = ${ctx.companyId} and r.id = ${row.id} and r.server_seq = ${seq})`),
     ];
@@ -1239,7 +1295,9 @@ const unholdProcedure = actionProcedure("ageing.release")
       auditInsert(audit(ctx), { action: "ageing.unhold", subjectType: "ageing_batch", subjectId: b.id, meta: { number: b.number, rowId: row.id, to: plan.to, reject: plan.rejectCode, note: input.note ?? null } }),
     );
     await runWrite(ctx, statements, null, async () => null, async () => {
-      throw ageingRefusal("not_held");
+      const [now] = await ctx.db.select({ status: ageingRow.status }).from(ageingRow).where(and(eq(ageingRow.companyId, ctx.companyId), eq(ageingRow.id, row.id))).limit(1);
+      if (now?.status !== "held") throw ageingRefusal("not_held");
+      return statusRace(ctx, b.id);
     });
     return detail(ctx, b.id);
   });
@@ -1447,13 +1505,16 @@ const splitProcedure = actionProcedure("ageing.release")
 
 const voidProcedure = companyProcedure.input(ageingVoidInput).mutation(async ({ ctx, input }) => {
   const b = await readBatch(ctx.db, ctx.companyId, input.batchId);
+  // Review m5: a rework successor still loading (nothing aged, packed or moved on it) can be voided; that
+  // undoes the rework (a supervisor's decision, so ageing.release): its pieces go back on the original lines.
+  const undoRework = b.reworkOfBatchId != null && b.status === "loading";
   // ageing.load voids a batch still loading; after take-out it is the QC verdict's (ageing.release).
-  if (!can(meOf(ctx), b.status === "loading" ? "ageing.load" : "ageing.release")) forbid();
+  if (!can(meOf(ctx), b.status === "loading" && !undoRework ? "ageing.load" : "ageing.release")) forbid();
   const rows = await readRows(ctx.db, ctx.companyId, [b.id]);
   const reason = input.reasonCodeId ? await reasonOfKind(ctx.db, ctx.companyId, input.reasonCodeId, "ageing_abort") : null;
   const reasonText = input.reason?.trim() || null;
   refuse(
-    ageingVoidGates({ batchStatus: b.status, anyPacked: ageingAnyPacked(rows), reasonGiven: reason != null, anyMoved: ageingAnyMoved(rows) || b.reworkOfBatchId != null }),
+    ageingVoidGates({ batchStatus: b.status, anyPacked: ageingAnyPacked(rows), reasonGiven: reason != null, anyMoved: ageingAnyMoved(rows) || (b.reworkOfBatchId != null && !undoRework) }),
     { batch: b.number, status: b.status },
   );
   if (reason?.requiresNote && !reasonText) throw ageingRefusal("void_reason_missing");
@@ -1477,16 +1538,82 @@ const voidProcedure = companyProcedure.input(ageingVoidInput).mutation(async ({ 
       .update(bundle)
       .set({ ageingRowId: null, serverSeq: seq })
       .where(and(eq(bundle.companyId, ctx.companyId), sql`${bundle.ageingRowId} in (select r.id from ageing_row r where r.company_id = ${ctx.companyId} and r.batch_id = ${b.id})`)),
-    auditInsert(audit(ctx), { action: "ageing.void", subjectType: "ageing_batch", subjectId: b.id, meta: { number: b.number, from: b.status, reason: reason?.code ?? null, note: reasonText } }),
+    auditInsert(audit(ctx), { action: "ageing.void", subjectType: "ageing_batch", subjectId: b.id, meta: { number: b.number, from: b.status, reason: reason?.code ?? null, note: reasonText, undoRework } }),
   ];
-  await runWrite(ctx, statements, null, async () => null, async () => {
-    const again = await readRows(ctx.db, ctx.companyId, [b.id]);
-    if (ageingAnyMoved(again)) throw ageingRefusal("void_after_rework", { batch: b.number });
-    if (ageingAnyPacked(again)) throw ageingRefusal("void_after_pack", { batch: b.number });
-    return statusRace(ctx, b.id);
-  });
+  if (undoRework) statements.push(...undoReworkStatements(ctx, b.id, b.reworkOfBatchId!, rows.filter((r) => r.status !== "void"), seq));
+  let original: { trolleyId: string; number: string } | null = null;
+  if (undoRework) {
+    const o = await readBatch(ctx.db, ctx.companyId, b.reworkOfBatchId!);
+    original = { trolleyId: o.trolleyId, number: o.number };
+  }
+  try {
+    await runWrite(ctx, statements, null, async () => null, async () => {
+      const again = await readRows(ctx.db, ctx.companyId, [b.id]);
+      if (ageingAnyMoved(again) || undoRework) {
+        const now = await readBatch(ctx.db, ctx.companyId, b.id);
+        if (now.status !== b.status) return statusRace(ctx, b.id);
+        throw ageingRefusal("void_after_rework", { batch: b.number });
+      }
+      if (ageingAnyPacked(again)) throw ageingRefusal("void_after_pack", { batch: b.number });
+      return statusRace(ctx, b.id);
+    });
+  } catch (e) {
+    // The original trolley took another load meanwhile: it cannot carry the original lines again.
+    if (original && isUniqueOn(e, "trolley_id")) {
+      const [busy] = await ctx.db.select({ number: ageingBatch.number }).from(ageingBatch).where(and(eq(ageingBatch.companyId, ctx.companyId), eq(ageingBatch.trolleyId, original.trolleyId), inArray(ageingBatch.status, [...AGEING_OPEN_BATCH_STATUSES]))).limit(1);
+      const [t] = await ctx.db.select({ code: trolley.code }).from(trolley).where(and(eq(trolley.companyId, ctx.companyId), eq(trolley.id, original.trolleyId))).limit(1);
+      throw ageingRefusal("trolley_busy", { code: t?.code ?? "", batch: busy?.number ?? original.number });
+    }
+    throw e;
+  }
   return detail(ctx, b.id);
 });
+
+/**
+ * Review m5: voiding a rework successor that is still loading puts its pieces back where the rework took
+ * them: each original line (the one whose `rework_row_id` names the successor line) gets its rework
+ * pieces back and is held again (its hold reason never left it); an original batch the rework closed is
+ * held again (its trolley must be free: the successor on it is voided first, in this same batch). Lands
+ * only when the successor's void landed, and every original line must move (else the batch fails whole).
+ */
+function undoReworkStatements(ctx: Ctx, successorId: string, originalId: string, successorRows: readonly RowRead[], seq: number): SqliteBatchItem[] {
+  const out: SqliteBatchItem[] = [];
+  const landed = batchLanded(ctx.companyId, successorId, seq, ["void"]);
+  for (const r of successorRows) {
+    out.push(
+      ctx.db
+        .update(ageingRow)
+        .set({ reworkPcs: sql`${ageingRow.reworkPcs} - ${r.pcs}`, reworkRowId: null, status: "held", serverSeq: seq })
+        .where(
+          and(
+            eq(ageingRow.companyId, ctx.companyId),
+            eq(ageingRow.batchId, originalId),
+            eq(ageingRow.reworkRowId, r.id),
+            eq(ageingRow.status, "closed"),
+            sql`${ageingRow.reworkPcs} >= ${r.pcs}`,
+            sql`${landed}`,
+          ),
+        ),
+    );
+  }
+  out.push(
+    ageingAbortUnless(
+      ctx.db,
+      sql`(select count(*) from ageing_row r where r.company_id = ${ctx.companyId} and r.batch_id = ${originalId} and r.server_seq = ${seq}) = ${successorRows.length}`,
+    ),
+    ctx.db
+      .update(ageingBatch)
+      .set({
+        status: sql`case when ${ageingBatch.status} = 'closed' then 'held' else ${ageingBatch.status} end`,
+        disposition: sql`case when exists (select 1 from ageing_row r where r.company_id = ${ctx.companyId} and r.batch_id = ${originalId} and r.status <> 'void' and r.rework_pcs > 0) then ${ageingBatch.disposition} else null end`,
+        closedBy: sql`case when ${ageingBatch.status} = 'closed' then null else ${ageingBatch.closedBy} end`,
+        serverSeq: seq,
+      })
+      .where(and(eq(ageingBatch.companyId, ctx.companyId), eq(ageingBatch.id, originalId), sql`${landed}`)),
+    auditInsert(audit(ctx), { action: "ageing.rework.undo", subjectType: "ageing_batch", subjectId: originalId, meta: { successorId, lines: successorRows.map((r) => ({ rowId: r.id, pcs: r.pcs })) } }),
+  );
+  return out;
+}
 
 const simulateProcedure = actionProcedure("ageing.record")
   .input(ageingSimulateInput)
@@ -1550,8 +1677,8 @@ const availableLinesProcedure = actionProcedure("ageing.load")
     const conds: SQL[] = [sql`r.status = 'logged'`];
     if (input.dieId) conds.push(sql`r.section_id = ${input.dieId}`);
     if (input.castId) conds.push(sql`r.cast_id = ${input.castId}`);
-    conds.push(sql`l.pcs > (select coalesce(sum(ar.pcs - ar.rework_pcs), 0) from ageing_row ar join ageing_batch ab on ab.id = ar.batch_id and ab.company_id = ar.company_id
-      where ar.company_id = l.company_id and ar.press_run_line_id = l.id and ar.status <> 'void' and ab.status <> 'void')`);
+    // Review I1: pieces in the line's own cut-length units (a split row carries other lengths).
+    conds.push(sql`l.pcs > ${lineLoadedPcsSql("l")}`);
     if (recipe) conds.push(sql`(c.alloy is null or upper(c.alloy) = upper(${recipe.alloy}))`, sql`(coalesce(sol.temper, d.temper) is null or upper(coalesce(sol.temper, d.temper)) = upper(${recipe.temper}))`);
     const rows = await ctx.db.all<LineRead>(sql`${lineSelect(ctx.companyId, sql.join(conds, sql` and `))} order by r.number desc, l.line limit ${input.limit} offset ${input.offset}`);
     const loaded = await pressLinesLoaded(ctx.db, ctx.companyId, rows.map((r) => r.id));

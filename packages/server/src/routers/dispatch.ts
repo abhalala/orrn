@@ -22,7 +22,7 @@ import { bundleKgPer12ftMilli, capacityCheck, DISPATCH_TRANSITIONS, dispatchValu
 import type { Context } from "../context";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { requestApprovalInsert } from "../lib/approval";
-import { assertDispatchAgeing } from "../lib/ageing";
+import { assertDispatchAgeing, dispatchAgeingGuardStatements, isAgeingAbort } from "../lib/ageing";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { clientRequestIdSchema } from "../lib/importReplay";
 import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
@@ -1015,6 +1015,8 @@ async function addByCodes(
         },
       ),
       ...addUnassignedAudits(ctx, d.id, toAdd.filter((b) => unassignedIds.has(b.id))),
+      // Review m6: none went onto a trolley since the read (else re-read: refused by name).
+      ...dispatchAgeingGuardStatements(ctx.db, ctx.companyId, toAdd.map((b) => b.id)),
     );
 
     await atomicBatch(ctx.db, statements);
@@ -1037,7 +1039,7 @@ async function addByCodes(
     // A concurrent scan inserted one of these first and the whole batch
     // rolled back; re-read once so it lands in alreadyInDispatch.
     // A hold that landed meanwhile (FP-OP-17): re-read once, it is refused by name.
-    if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line")) return run();
+    if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line") || isAgeingAbort(e)) return run();
     throw e;
   }
 }
@@ -2075,6 +2077,8 @@ export const dispatchRouter = router({
             },
           ),
           ...addUnassignedAudits(ctx, d.id, verdict.note === "unassigned" ? [b] : []),
+          // Review m6: not put on a trolley since the read (else re-read: refused by name).
+          ...dispatchAgeingGuardStatements(ctx.db, ctx.companyId, [b.id]),
         );
 
         await atomicBatch(ctx.db, statements);
@@ -2093,7 +2097,7 @@ export const dispatchRouter = router({
         // A concurrent scan of the same bundle inserted first; the batch rolled
         // back, so re-read: this time it reports "already in this dispatch".
         // A hold that landed meanwhile (FP-OP-17): re-read, this time it is refused by name.
-        if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line")) return run();
+        if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line") || isAgeingAbort(e)) return run();
         throw e;
       }
     }),
@@ -2378,8 +2382,15 @@ export const dispatchRouter = router({
             meta: { itemCount: items.length },
           },
         ),
+        // Review m6: none went onto a trolley since the read.
+        ...dispatchAgeingGuardStatements(ctx.db, ctx.companyId, bundleIds),
       );
-      await atomicBatch(ctx.db, statements);
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (e) {
+        if (isAgeingAbort(e)) await assertDispatchAgeing(ctx.db, ctx.companyId, bundleIds);
+        throw e;
+      }
       return { success: true };
     }),
 

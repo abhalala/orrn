@@ -423,8 +423,11 @@ export const ageingHardness = sqliteTable(
       .references(() => ageingRow.id, { onDelete: "cascade" }),
     method: text("method", { enum: hardnessMethods }).notNull(),
     readingX10: integer("reading_x10").notNull(),
-    /** Against the batch snapshot at insert; a later recipe edit never rewrites it. */
-    pass: integer("pass", { mode: "boolean" }).notNull(),
+    /**
+     * Against the batch snapshot at insert; a later recipe edit never rewrites it. Null for a sample of
+     * the other method (not deciding, review m4 / 0040): the line summary never counts it.
+     */
+    pass: integer("pass", { mode: "boolean" }),
     testedBy: text("tested_by").references(() => user.id, { onDelete: "set null" }),
     testedAt: integer("tested_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
   },

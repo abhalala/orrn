@@ -79,6 +79,15 @@ for (const [what, signatures] of lazyText) {
   }
 }
 
+// Module refusal tables (W3-AG-S review I3): each registers from its own module, imported by that
+// module's screens (`@orrn/i18n/refusal-ageing`); the `/` closure carries none of them.
+const moduleRefusals: [string, RegExp][] = [["the ageing refusal table (@orrn/i18n/refusal-ageing)", /ageing\.refusal\.|already has a batch in it/]];
+for (const [what, re] of moduleRefusals) {
+  for (const f of result.files) {
+    if (re.test(readFileSync(join(dist, f.file), "utf8"))) problems.push(`${f.file} carries ${what}: import it from the ageing screens, never from code on the / path`);
+  }
+}
+
 const table = result.files.map((f) => `  ${kb(f.gzip).padStart(9)}  ${f.file}`).join("\n");
 if (problems.length > 0) {
   console.error(`check-route-budget: FAILED\n${problems.map((p) => `  - ${p}`).join("\n")}\n${table}`);

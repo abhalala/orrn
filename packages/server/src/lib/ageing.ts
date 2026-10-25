@@ -127,31 +127,42 @@ export function closeEmptyStatements(db: OrrnDb, companyId: string, batchId: str
 export const isReworkSuccessorSql = (r: string) =>
   sql.raw(`exists (select 1 from ageing_row o where o.company_id = ${r}.company_id and o.rework_row_id = ${r}.id)`);
 
-/** Loaded pieces and grams per press line over live rows (chunked IN lists). */
+/**
+ * SQL: pieces of the press line alias `l` on live trolley rows, in the LINE's cut-length units (review
+ * I1): a split row keeps `press_run_line_id` but carries other lengths, so pieces count as
+ * round(Σ (pcs − rework_pcs) × length_mm / cut_length_mm), in integers (half rounds up). 40 pcs @3658
+ * split into 40 @1829 + 20 @3658 is still 40 of the line's pieces.
+ */
+export const lineLoadedPcsSql = (l: string) =>
+  sql.raw(`((select coalesce(sum((ar.pcs - ar.rework_pcs) * ar.length_mm), 0) from ageing_row ar
+      join ageing_batch ab on ab.id = ar.batch_id and ab.company_id = ar.company_id
+      where ar.company_id = ${l}.company_id and ar.press_run_line_id = ${l}.id and ar.status <> 'void' and ab.status <> 'void')
+    + ${l}.cut_length_mm / 2) / max(${l}.cut_length_mm, 1)`);
+
+/** Loaded pieces (in the line's own cut-length units, review I1) and grams per press line over live rows (chunked IN lists). */
 export async function pressLinesLoaded(db: OrrnDb, companyId: string, lineIds: readonly string[]): Promise<Map<string, { pcs: number; kgG: number }>> {
   const out = new Map<string, { pcs: number; kgG: number }>();
   for (const ids of chunk([...new Set(lineIds)], IN_LIST_CHUNK)) {
     const rows = await db.all<{ line_id: string; pcs: number; kg: number }>(
-      sql`select r.press_run_line_id as line_id, coalesce(sum(r.pcs - r.rework_pcs), 0) as pcs,
-            coalesce(sum(case when ${isReworkSuccessorSql("r")} then 0 else r.kg_g end), 0) as kg
-          from ageing_row r join ageing_batch b on b.id = r.batch_id and b.company_id = r.company_id
-          where r.company_id = ${companyId} and r.status <> 'void' and b.status <> 'void'
-            and r.press_run_line_id in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})
-          group by r.press_run_line_id`,
+      sql`select l.id as line_id, ${lineLoadedPcsSql("l")} as pcs,
+            (select coalesce(sum(case when ${isReworkSuccessorSql("r")} then 0 else r.kg_g end), 0)
+              from ageing_row r join ageing_batch b on b.id = r.batch_id and b.company_id = r.company_id
+              where r.company_id = l.company_id and r.press_run_line_id = l.id and r.status <> 'void' and b.status <> 'void') as kg
+          from press_run_line l
+          where l.company_id = ${companyId} and l.id in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})`,
     );
-    for (const r of rows) out.set(r.line_id, { pcs: Number(r.pcs), kgG: Number(r.kg) });
+    for (const r of rows) if (Number(r.pcs) > 0 || Number(r.kg) > 0) out.set(r.line_id, { pcs: Number(r.pcs), kgG: Number(r.kg) });
   }
   return out;
 }
 
 /**
  * Write-time guard for a load: no press line among `lineIds` has more pieces on live rows than it
- * made (a concurrent load of the same line fails this batch whole).
+ * made, counted in its own cut-length units (a concurrent load of the same line fails this batch whole).
  */
 export function pressLinesNotOverloadedSql(companyId: string, lineIds: readonly string[]): SQL {
   return sql`not exists (select 1 from press_run_line l where l.company_id = ${companyId} and l.id in (${sql.join(lineIds.map((i) => sql`${i}`), sql`, `)})
-    and l.pcs < (select coalesce(sum(r.pcs - r.rework_pcs), 0) from ageing_row r join ageing_batch b on b.id = r.batch_id and b.company_id = r.company_id
-      where r.company_id = l.company_id and r.press_run_line_id = l.id and r.status <> 'void' and b.status <> 'void'))`;
+    and l.pcs < ${lineLoadedPcsSql("l")})`;
 }
 
 // ---------------------------------------------------------------------------
@@ -199,6 +210,24 @@ export async function assertDispatchAgeing(db: OrrnDb, companyId: string, bundle
       if (code) throw ageingRefusal(code, { serial: b.serial, batch: openRow?.batchNumber ?? "" });
     }
   }
+}
+
+/**
+ * Review m6: the write-time half of `assertDispatchAgeing` for a dispatch write: none of these bundles
+ * sits on an unfinished batch in the oven or held there (its own row pending or held). A load that
+ * landed between the dispatch's read and its write fails the dispatch batch whole (`isAgeingAbort`);
+ * the caller reads again and refuses by name.
+ */
+export function dispatchAgeingGuardStatements(db: OrrnDb, companyId: string, bundleIds: readonly string[]): SqliteBatchItem[] {
+  return chunk([...new Set(bundleIds)], IN_LIST_CHUNK - 5).map((ids) =>
+    ageingAbortUnless(
+      db,
+      sql`not exists (select 1 from ageing_row r join ageing_batch b on b.id = r.batch_id and b.company_id = r.company_id
+        where r.company_id = ${companyId} and r.source = 'bundle' and r.status in ('pending', 'held')
+          and b.status in ('loading', 'in_oven', 'out', 'released', 'held')
+          and r.bundle_id in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)}))`,
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------

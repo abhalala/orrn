@@ -972,15 +972,16 @@ const suggest = (alloy: string, temper: string, kind: AgeingRecipeKind, c: numbe
 
 /**
  * Spec §3 suggested drafts (Q1, Q12): saved as drafts only, never published by the system. Not a claim
- * that FourCubes signed these numbers.
+ * that FourCubes signed these numbers. The calls are marked pure (W3-AG-S review I3) so a web chunk that
+ * imports `@orrn/domain` without this list (the `/` entry) drops it.
  */
 export const AGEING_RECIPE_SUGGESTIONS: readonly AgeingRecipeSuggestion[] = [
-  suggest("6063", "T5", "full", 185, 240, 8),
-  suggest("6063", "T6", "full", 185, 360, 10),
-  suggest("6061", "T6", "full", 175, 480, 15),
-  suggest("6063", "T5", "top_up", 185, 60, 8),
-  suggest("6063", "T6", "top_up", 185, 60, 10),
-  suggest("6061", "T6", "top_up", 175, 60, 15),
+  /* @__PURE__ */ suggest("6063", "T5", "full", 185, 240, 8),
+  /* @__PURE__ */ suggest("6063", "T6", "full", 185, 360, 10),
+  /* @__PURE__ */ suggest("6061", "T6", "full", 175, 480, 15),
+  /* @__PURE__ */ suggest("6063", "T5", "top_up", 185, 60, 8),
+  /* @__PURE__ */ suggest("6063", "T6", "top_up", 185, 60, 10),
+  /* @__PURE__ */ suggest("6061", "T6", "top_up", 175, 60, 15),
 ];
 
 /** Dev seed: one oven (active), no trolley in use, two recipes (6063 T5 / T6 full, active). */

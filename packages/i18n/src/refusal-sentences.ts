@@ -154,9 +154,20 @@ export const FILES = [
   "lib/dieRoom.ts",
   "lib/dieTrial.ts",
   "lib/orderLines.ts",
-  // W3-AG-C: every ageing refusal (the router calls ageingRefusal(code), never its own message)
-  "lib/ageingRefusals.ts",
 ];
+
+/**
+ * W3-AG-S (review I3): every ageing refusal (the router calls ageingRefusal(code), never its own
+ * message). Not in FILES: the ageing table is not in the shared one but in `@orrn/i18n/refusal-ageing`,
+ * registered when an ageing screen loads; refusal-ageing.test.ts checks these against it.
+ */
+export const AGEING_FILE = "lib/ageingRefusals.ts";
+
+export function ageingSentences(): { file: string; text: string }[] {
+  return messageSentences(SRC(AGEING_FILE))
+    .filter(isSentence)
+    .flatMap((text) => realize(text).map((t) => ({ file: AGEING_FILE, text: t })));
+}
 
 /** A sentence that is only placeholders and punctuation is a composite the blocks above spell out. */
 const isSentence = (s: string) => /\s/.test(s.trim()) && s.replace(new RegExp(PLACEHOLDER, "g"), "").replace(/[\s.,;:()]/g, "") !== "";
