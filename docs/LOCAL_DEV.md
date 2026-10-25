@@ -137,8 +137,8 @@ Rules that come from sharing one machine (COMMON rules 12 and 13):
 - **e2e groups A, B, C.** The full suite (about 1,000 tests in 40 spec files) is too long for one run on a shared machine, so the mergers
   ran it in three groups, one after another on one port pair, never together: `bun run e2e:group A` (then `B`, `C`; extra
   Playwright flags pass through: `bun run e2e:group B --retries=1`). Membership is in `apps/web/tests/e2e/GROUPS.md` and
-  `apps/web/scripts/e2e-group.sh` (A: catalog, charts, die-room, die-room-flows, die-room-w2, dispatch, dispatch-w1, dispatch-w2, front-door, godseye, gu-w4, guides,
-  imports; B: layout-guards, marketing, masters, orders, orders-w2, pack, pack-w1, platform, portal, press, printing-settings, reports;
+  `apps/web/scripts/e2e-group.sh` (A: catalog, charts, die-room, die-room-w2, dispatch, dispatch-w1, dispatch-w2, front-door, godseye, gu-w4, guides,
+  imports; B: die-room-flows, layout-guards, marketing, masters, orders, orders-w2, pack, pack-w1, platform, portal, press, printing-settings, reports;
   C: chain, collectors, next-rows, orders-plan-purpose, preview-redirects, purchase, redirects, scan, session, shell, stock, stock-w1, store, today, ui-kit). A new spec is added to a group in both places; the script warns about a spec that is in none. Specs create what
   they change and assert only on their own rows, so a group runs in any order.
 - **Linux / ICU.** The web unit tests that assert date wording (`formatDay`, `formatInstantDay`, `instantDateText`,

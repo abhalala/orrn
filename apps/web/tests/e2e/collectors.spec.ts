@@ -165,7 +165,9 @@ for (const width of WIDTHS) {
       await expect(sheet).toBeVisible();
       // The melt picker waits for a cast.
       await expect(sheet.getByTestId("inbox-melt")).toBeDisabled();
-      await sheet.getByTestId("inbox-cast").selectOption({ index: 1 });
+      // The seed's cast with the locked melt dev-melt-1 (dev-seed.ts), never "the newest cast": chain.spec opens a
+      // cast of its own and pins its certificate to "Chemistry pending" (MERGER-11 found the two colliding).
+      await sheet.getByTestId("inbox-cast").selectOption("dev-press-cast-1");
       await expect(sheet.getByTestId("inbox-melt")).toBeEnabled();
       await sheet.getByTestId("inbox-melt").selectOption({ label: "Melt 1" });
       await expect(sheet.getByText("si 4500, fe 2000, mg 5200")).toBeVisible();

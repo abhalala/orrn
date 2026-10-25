@@ -7,14 +7,18 @@ files in parallel; the groups are run one after another, never together on one p
 
 | Group | Spec files | Tests listed | Passed in the W2-SEED merger run |
 |---|---|---|---|
-| A | catalog, charts, die-room-flows, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports | 311 | 291 (+10 screenshot skips) |
-| B | layout-guards, marketing, masters, orders-w2, orders, pack-w1, pack, platform, portal, press, printing-settings, reports | 324 | 322 |
+| A | catalog, charts, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports | 311 | 291 (+10 screenshot skips) |
+| B | die-room-flows, layout-guards, marketing, masters, orders-w2, orders, pack-w1, pack, platform, portal, press, printing-settings, reports | 324 | 322 |
 | C | chain, collectors, next-rows, orders-plan-purpose, preview-redirects, purchase, redirects, scan, session, shell, stock-w1, stock, store, today, ui-kit | 367 | 297 (+11 screenshot skips) |
 
 A new spec file must be added to a group here AND in `apps/web/scripts/e2e-group.sh` (the script warns when a spec
 file is in no group). Specs build what they change (own customer, orders, press line, bundles; see `helpers/own-press.ts`,
 `helpers/owner-api.ts`, `helpers/fresh-plant.ts`) and assert only on their own rows when they read a shared list, so
 the files inside a group can run in any order on any worker count.
+
+One known exception: `die-room-flows` makes copies of its own and cannot retire the ones it leaves on trial, while
+`die-room.spec.ts` (copy picker, "Showing 10 of 3x") counts every live copy of the seed. Keep the two in different
+groups until the picker test reads its total from the server (MERGER-11 moved `die-room-flows` to B).
 
 ## Running a group
 
