@@ -4974,6 +4974,11 @@ export const hi = {
       futureStop: "देर से एंट्री उस रन की है जो रुक चुका है।",
       noQueued: "इस प्रेस पर कतार में कोई रन नहीं।",
       pickOne: "एक चुनें",
+      needCopy: "जो Die कॉपी लगी थी, वह चुनें।",
+      findCopy: "कॉपी कोड लिखें",
+      copyIssued: "Die कॉपी {code} इस रन को दी गई है।",
+      copyHint: "{section} की रैक पर रखी कॉपी।",
+      copyHintTrial: "{section} की रैक पर रखी या ट्रायल वाली कॉपी (die ट्रायल रन)।",
     },
     linesPage: {
       title: "प्रेस लाइन",

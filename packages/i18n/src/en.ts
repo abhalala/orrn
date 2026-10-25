@@ -4987,6 +4987,11 @@ export const en = {
       futureStop: "A late entry is for a run that has already stopped.",
       noQueued: "No queued run on this press.",
       pickOne: "Pick one",
+      needCopy: "Pick the die copy that was used.",
+      findCopy: "Type the copy code",
+      copyIssued: "Die copy {code} is issued to this run.",
+      copyHint: "Copies of {section} on the rack.",
+      copyHintTrial: "Copies of {section} on the rack or on trial (a die trial run).",
     },
     linesPage: {
       title: "Press lines",

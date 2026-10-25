@@ -17,7 +17,9 @@ import {
   isLastStep,
   kgTextToG,
   LATE_ENTRY_DAYS,
+  lateCopyStatuses,
   lateEntryIssue,
+  lateEntryPayload,
   lineRows,
   movedOrder,
   notesToSend,
@@ -273,5 +275,31 @@ describe("late entry window (review r1 I-3)", () => {
     expect(lateEntryIssue({ startMs: now - 7 * day, stopMs: now - 7 * day + 3_600_000, nowMs: now })).toBeNull();
     expect(lateEntryIssue({ startMs: now - 3 * 3_600_000, stopMs: now - 2 * 3_600_000, nowMs: now })).toBeNull();
     expect(lateEntryIssue({ startMs: null, stopMs: now, nowMs: now })).toBe("order");
+  });
+});
+
+describe("late entry for a queued run (BACKLOG 50): the copy picker", () => {
+  const run = (o: { dieInstanceId?: string | null; purpose?: string }) => ({ id: "r1", sectionId: "s1", dieInstanceId: o.dieInstanceId ?? null, purpose: o.purpose ?? "production" });
+
+  test("copies on the rack only; a die trial run also takes copies on trial (the server's rule)", () => {
+    expect(lateCopyStatuses("production")).toEqual(["available"]);
+    expect(lateCopyStatuses("sample")).toEqual(["available"]);
+    expect(lateCopyStatuses("die_trial")).toEqual(["available", "on_trial"]);
+  });
+
+  test("a queued run with no copy sends the picked copy; with no pick it is named, nothing is sent", () => {
+    expect(lateEntryPayload({ mode: "queue", run: run({}), copyId: "c9", pressLineId: "p1" })).toEqual({ runId: "r1", dieInstanceId: "c9" });
+    expect(lateEntryPayload({ mode: "queue", run: run({}), copyId: "", pressLineId: "p1" })).toBe("needCopy");
+    expect(lateEntryPayload({ mode: "queue", run: null, copyId: "c9", pressLineId: "p1" })).toBe("pickRun");
+  });
+
+  test("a queued run whose copy is issued sends the run only (the copy is the issued one)", () => {
+    expect(lateEntryPayload({ mode: "queue", run: run({ dieInstanceId: "c1" }), copyId: "", pressLineId: "p1" })).toEqual({ runId: "r1" });
+    expect(lateEntryPayload({ mode: "queue", run: run({ dieInstanceId: "c1" }), copyId: "c9", pressLineId: "p1" })).toEqual({ runId: "r1" });
+  });
+
+  test("a run not in the queue sends the press and the copy", () => {
+    expect(lateEntryPayload({ mode: "copy", run: null, copyId: "c9", pressLineId: "p1" })).toEqual({ pressLineId: "p1", dieInstanceId: "c9" });
+    expect(lateEntryPayload({ mode: "copy", run: null, copyId: "", pressLineId: "p1" })).toBe("pickCopy");
   });
 });

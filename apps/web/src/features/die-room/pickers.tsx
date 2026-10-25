@@ -32,6 +32,7 @@ export function CopyPicker({
   valueLabel,
   onChange,
   statuses,
+  sectionId,
   placeholder,
 }: {
   label: string;
@@ -40,12 +41,14 @@ export function CopyPicker({
   onChange(copy: PickedCopy): void;
   /** Only copies in these states (the issue form takes copies on the rack and copies on trial). */
   statuses?: CopyStatus[];
+  /** Only copies of this die (a late entry for a queued run names a copy of the run's die). */
+  sectionId?: string;
   placeholder: string;
 }) {
   const { t } = useT();
   const seen = useRef(new Map<string, PickedCopy>());
   const first = useQuery({
-    ...trpc.dieInstance.list.queryOptions({ ...(statuses ? { statuses } : {}), limit: PAGE }),
+    ...trpc.dieInstance.list.queryOptions({ ...(statuses ? { statuses } : {}), ...(sectionId ? { sectionId } : {}), limit: PAGE }),
     meta: INLINE_ERROR_META,
   });
   const toOption = (c: CopyListItem): ComboboxOption<string> => {
@@ -76,6 +79,7 @@ export function CopyPicker({
         search={async (q) => {
           const res = await trpcClient.dieInstance.list.query({
             ...(statuses ? { statuses } : {}),
+            ...(sectionId ? { sectionId } : {}),
             search: copyCodeQuery(q),
             limit: PAGE,
           });

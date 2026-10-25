@@ -10,11 +10,12 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { CopyPicker, type PickedCopy } from "@/features/die-room/pickers";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ErrorLines } from "./error-lines";
 import { pressErrorText, roleCan, useActionKey } from "./hooks";
-import { LATE_ENTRY_DAYS, lateEntryIssue } from "./model";
+import { LATE_ENTRY_DAYS, lateCopyStatuses, lateEntryIssue, lateEntryPayload } from "./model";
 import type { QueueCard } from "./types";
 
 const NONE = "__none";
@@ -57,6 +58,8 @@ export function LateEntrySheet({
   const [mode, setMode] = useState<"queue" | "copy">("copy");
   const [runId, setRunId] = useState("");
   const [copyId, setCopyId] = useState("");
+  // BACKLOG 50: a queued run with no copy issued names the copy that was used (searchable, its die only).
+  const [runCopy, setRunCopy] = useState<PickedCopy | null>(null);
   const [startedAt, setStartedAt] = useState("");
   const [stoppedAt, setStoppedAt] = useState("");
   const [operatorId, setOperatorId] = useState(NONE);
@@ -106,6 +109,8 @@ export function LateEntrySheet({
     onError: (e) => setError(pressErrorText(t, e)),
   });
 
+  const chosenRun = queued.find((c) => c.id === runId) ?? null;
+
   const submit = () => {
     setError(null);
     const start = localToMs(startedAt);
@@ -116,11 +121,12 @@ export function LateEntrySheet({
     if (issue === "tooOld") return setError(t("press.late.tooOld", { days: LATE_ENTRY_DAYS }));
     if (start === null || stop === null) return setError(t("press.late.order"));
     if (!reason.trim()) return setError(t("common.noteRequired"));
-    if (mode === "queue" && !runId) return setError(t("press.late.pickOne"));
-    if (mode === "copy" && !copyId) return setError(t("press.late.pickOne"));
+    const target = lateEntryPayload({ mode, run: chosenRun, copyId: mode === "queue" ? (runCopy?.id ?? "") : copyId, pressLineId });
+    if (target === "needCopy") return setError(t("press.late.needCopy"));
+    if (typeof target === "string") return setError(t("press.late.pickOne"));
     open_.mutate({
       clientMutationId: key.get(),
-      ...(mode === "queue" ? { runId } : { pressLineId, dieInstanceId: copyId }),
+      ...target,
       startedAt: start,
       stoppedAt: stop,
       ...(operatorId !== NONE ? { operatorId } : {}),
@@ -168,7 +174,11 @@ export function LateEntrySheet({
           <Field label={t("press.late.pickRun")}>
             <Select
               value={runId}
-              onValueChange={setRunId}
+              onValueChange={(v) => {
+                setRunId(v);
+                setRunCopy(null);
+                setError(null);
+              }}
               placeholder={t("press.late.pickOne")}
               options={queued.map((c) => ({ value: c.id, label: `${c.number} · ${c.sectionCode}` }))}
             />
@@ -178,6 +188,32 @@ export function LateEntrySheet({
             <Select value={copyId} onValueChange={setCopyId} placeholder={t("press.late.pickOne")} options={copyOptions} />
           </Field>
         )}
+        {mode === "queue" && chosenRun ? (
+          chosenRun.dieInstanceId ? (
+            <p data-slot="late-copy-issued" className="m-0 text-[14px] leading-6 text-muted-foreground">
+              {t("press.late.copyIssued", { code: chosenRun.copyCode ?? "" })}
+            </p>
+          ) : (
+            <div data-slot="late-copy" className="flex flex-col gap-1">
+              <CopyPicker
+                key={chosenRun.id}
+                label={t("press.late.pickCopy")}
+                value={runCopy?.id ?? null}
+                valueLabel={runCopy?.code}
+                sectionId={chosenRun.sectionId}
+                statuses={lateCopyStatuses(chosenRun.purpose)}
+                placeholder={t("press.late.findCopy")}
+                onChange={(c) => {
+                  setRunCopy(c);
+                  setError(null);
+                }}
+              />
+              <p className="m-0 text-[13px] leading-5 text-muted-foreground">
+                {t(chosenRun.purpose === "die_trial" ? "press.late.copyHintTrial" : "press.late.copyHint", { section: chosenRun.sectionCode })}
+              </p>
+            </div>
+          )
+        ) : null}
         <Field label={t("press.late.startedAt")}>
           <TextInput type="datetime-local" value={startedAt} min={bounds.min} max={bounds.max} onChange={(e) => setStartedAt(e.currentTarget.value)} />
         </Field>

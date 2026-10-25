@@ -128,6 +128,8 @@ type Fixture = {
   queued: Run;
   readyCopy: { id: string; code: string };
   lateCopy: { id: string; code: string };
+  /** A second copy of the queued run's die (Patti 14701): the one a late entry of that run names (BACKLOG 50). */
+  queueCopy: { id: string; code: string };
   /** The party both orders are for. */
   party: string;
   /** The ready run's order (Tee 13090, 18 ft × 20 pcs) and the queued run's (Patti 14701, 12 ft × 10 pcs). */
@@ -164,6 +166,8 @@ async function makeFixture(width: number, created: Created): Promise<Fixture> {
     created.copies.push(readyCopy.id);
     const lateCopy = await owner.m<{ id: string; code: string }>("dieInstance.create", { sectionId: "dev-die-14701", status: "available" });
     created.copies.push(lateCopy.id);
+    const queueCopy = await owner.m<{ id: string; code: string }>("dieInstance.create", { sectionId: "dev-die-14701", status: "available" });
+    created.copies.push(queueCopy.id);
     await owner.m("dieInstance.addReading", { dieInstanceId: readyCopy.id, kgPer12ftMilli: 2700 });
     // BACKLOG 42: the fixture's own party and orders, never a seeded order line.
     const tag = Math.random().toString(36).slice(2, 7);
@@ -188,7 +192,7 @@ async function makeFixture(width: number, created: Created): Promise<Fixture> {
     const rel = await owner.m<{ runs: Run[] }>("plans.release", { id: plan.id });
     const [ready, queued] = rel.runs as [Run, Run];
     await owner.m("dieInstance.issues.issue", { dieInstanceId: readyCopy.id, pressLineId: line.id, pressRunId: ready.id });
-    return { lineId: line.id, lineCode, planId: plan.id, ready, queued, readyCopy, lateCopy, party, readyOrder: readyOrder.number, queuedOrder: queuedOrder.number };
+    return { lineId: line.id, lineCode, planId: plan.id, ready, queued, readyCopy, lateCopy, queueCopy, party, readyOrder: readyOrder.number, queuedOrder: queuedOrder.number };
   } finally {
     await owner.dispose();
   }
@@ -668,6 +672,47 @@ for (const width of WIDTHS) {
         await sup.dispose();
       });
     }
+
+    test("late entry of a queued run whose die was never issued: pick the copy of its die, then counting (BACKLOG 50)", async ({ browser }) => {
+      test.setTimeout(90_000);
+      const { page, context } = await openAs(browser, "supervisor", width, `/press/lines/${fx.lineId}`);
+      await page.getByRole("button", { name: "Late entry" }).click();
+      const sheet = page.getByRole("dialog");
+      await sheet.getByRole("radio", { name: "A run from the queue" }).click();
+      await pickOption(page, sheet.getByLabel("Queued run"), new RegExp(`^${fx.queued.number} `));
+      // The run has no copy issued: the sheet asks for one (searchable), and only copies of its die.
+      const copy = sheet.getByRole("combobox", { name: "Die copy", exact: true });
+      await expect(copy).toBeVisible();
+      await expect(sheet.locator('[data-slot="late-copy"]')).toContainText("Copies of 14701 on the rack.");
+      const now = Date.now();
+      await sheet.getByLabel("Started", { exact: true }).fill(localInput(now - 5 * 3_600_000));
+      await sheet.getByLabel("Stopped", { exact: true }).fill(localInput(now - 4 * 3_600_000));
+      await sheet.getByLabel("Why it is entered late").fill("Run pressed while the tablet was off");
+      // Without a copy nothing is sent, and the sheet says what is missing (no server error).
+      await sheet.getByRole("button", { name: "Enter the run" }).click();
+      await expect(sheet.getByRole("alert")).toContainText("Pick the die copy that was used.");
+      // A copy of another die (Tee 13090) is not offered.
+      await copy.click();
+      await copy.fill(fx.readyCopy.code);
+      await expect(page.getByText(`Nothing matches "${fx.readyCopy.code}"`).first()).toBeAttached();
+      await copy.fill(fx.queueCopy.code);
+      await page.getByRole("option", { name: fx.queueCopy.code, exact: true }).click();
+      await expect(copy).toHaveValue(fx.queueCopy.code);
+      await shot(page, width, "late-entry-queued");
+      await sheet.getByRole("button", { name: "Enter the run" }).click();
+      await expect(page).toHaveURL(new RegExp(`/press/runs/${fx.queued.id}$`), { timeout: 20_000 });
+      await expect(page.locator('[data-banner="counting"]')).toBeVisible({ timeout: 20_000 });
+      await expect(page.locator('[data-slot="run-card"]')).toContainText("Entered late");
+      await expect(page.locator('[data-slot="run-card"]')).toContainText(fx.queueCopy.code);
+      const owner = await apiAs("owner");
+      const got = await owner.q<RunGet>("press.runs.get", { id: fx.queued.id });
+      await owner.dispose();
+      expect(got.run.status).toBe("counting");
+      expect(got.copy?.id).toBe(fx.queueCopy.id);
+      expect(got.approvals.some((a) => a.kind === "press_late_entry" && a.status === "pending")).toBe(true);
+      await clean(page);
+      await context.close();
+    });
 
     test("report and summary fit the screen (no sideways page scroll)", async ({ browser }) => {
       const sup = await apiAs("supervisor");
