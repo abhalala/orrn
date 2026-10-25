@@ -67,6 +67,16 @@ export function traceQuery(text: string): TraceQuery | null {
   return null;
 }
 
+/**
+ * An old paper code (FP-FD-02): what an imported cast carried in the plant's paper book, such as `K31/b` or
+ * `OLD 17`. Up to 20 letters, digits, spaces and `- / . _`; upper case with single spaces, as the server stores
+ * it. A series code or a bundle number is NOT one (those go through `traceQuery`). Null when it cannot be one.
+ */
+export function legacyQuery(text: string): string | null {
+  const s = text.trim().replace(/\s+/g, " ").toUpperCase();
+  return /^[A-Z0-9][A-Z0-9 ./_-]{0,19}$/.test(s) && !traceQuery(s) ? s : null;
+}
+
 // --- Cast ------------------------------------------------------------------------------------------
 
 /** The server's close-out figures (`casts.get().closeout`), the ones the screen reads. */

@@ -29,6 +29,7 @@ import { foundryError } from "./errors";
 import { bpText, latestVerdict, lockedMeltTone, MELT_TONE, verdictTone, type MeltStatus } from "./foundry-model";
 import { mmToFtText } from "./melt-form";
 import { MELT_TIME_KEYS } from "./melt-times";
+import { meltWebPath } from "@/lib/web-link";
 import { SpectroPanel } from "./spectro-panel";
 import type { CastData, MeltRow } from "./types";
 import { ErrorLine, Figure, kgOf, Note, Section } from "./ui";
@@ -131,7 +132,7 @@ export function MeltSheetView({ data, melt }: { data: CastData; melt: MeltRow })
 
       <Section title={t("foundry.spectro.title")}>
         {verdict ? <Chip tone={verdictTone(verdict)} label={t(VERDICT_KEY[verdict])} /> : null}
-        <SpectroPanel meltId={null} results={melt.spectro} limits={(alloy?.limits ?? []) as SpectroLimit[]} alloyCode={alloy?.code ?? melt.alloy} draft={false} readOnly />
+        <SpectroPanel meltId={null} results={melt.spectro} limits={(alloy?.limits ?? []) as SpectroLimit[]} alloyCode={alloy?.code ?? melt.alloy} draft={false} readOnly webPath={meltWebPath(cast.id, melt.id)} />
       </Section>
 
       {status === "locked" && cast.status === "open" ? <Correction melt={melt} /> : null}

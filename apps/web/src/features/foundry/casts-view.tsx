@@ -18,7 +18,7 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { CAST_STATUSES, CAST_TONE, castPeriodText, parseCastsSearch, traceQuery, type CastsSearch, type CastStatus } from "./model";
+import { CAST_STATUSES, CAST_TONE, castPeriodText, legacyQuery, parseCastsSearch, traceQuery, type CastsSearch, type CastStatus } from "./model";
 import { ErrorLine, LoadFailed, Note } from "./ui";
 
 type CastRow = inferRouterOutputs<AppRouter>["foundry"]["casts"]["list"]["items"][number];
@@ -37,7 +37,8 @@ export function CastsScreen({ search, onSearch }: { search: CastsSearch; onSearc
   const query = useQuery({
     ...trpc.foundry.casts.list.queryOptions({
       ...(search.status ? { status: search.status } : {}),
-      ...(search.q && traceQuery(search.q)?.kind === "cast" ? { number: search.q } : {}),
+      // A series code (K31) or an old paper code: the server matches both. A bundle number is traced, not listed.
+      ...(search.q && (traceQuery(search.q)?.kind === "cast" || legacyQuery(search.q)) ? { number: search.q } : {}),
       limit: CASTS_PAGE,
       offset,
     }),
@@ -77,6 +78,11 @@ export function CastsScreen({ search, onSearch }: { search: CastsSearch; onSearc
             {c.number}
           </span>
           <span className="text-[13px] text-muted-foreground">{castPeriodText(c.year, c.month)}</span>
+          {c.legacyCode ? (
+            <span className="font-mono text-[13px] text-muted-foreground break-all" data-testid="cast-legacy-code">
+              {t("foundry.casts.legacyChip", { code: c.legacyCode })}
+            </span>
+          ) : null}
         </span>
       ),
     },
@@ -154,16 +160,18 @@ function TraceBox({ search, onSearch }: { search: CastsSearch; onSearch(next: Ca
   const bundle = useMutation({ mutationFn: (serial: string) => trpcClient.foundry.casts.traceBundle.query({ serial }) });
   const submit = () => {
     const q = traceQuery(text);
+    const old = q ? null : legacyQuery(text);
     bundle.reset();
-    if (!q) {
+    if (!q && !old) {
       setProblem("code");
       return;
     }
     setProblem(null);
-    if (q.kind === "cast") onSearch({ ...search, q: q.number });
+    if (old) onSearch({ ...search, q: old });
+    else if (q?.kind === "cast") onSearch({ ...search, q: q.number });
     else {
       onSearch({ status: search.status });
-      bundle.mutate(q.serial);
+      bundle.mutate(q!.serial);
     }
   };
   const result = bundle.data;

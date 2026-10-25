@@ -77,6 +77,7 @@ export function CastDetail({ id }: { id: string }) {
         </Text>
         <View className="flex-row flex-wrap items-center gap-2">
           <Chip tone="neutral" label={t("foundry.cast.alloyIs", { alloy: c.alloy })} />
+          {c.legacyCode ? <Chip tone="neutral" label={t("foundry.casts.legacyChip", { code: c.legacyCode })} /> : null}
           <Chip tone={CAST_TONE[status] ?? "neutral"} label={t(CAST_STATUS_KEY[status] ?? CAST_STATUS_KEY.open)} />
           <Chip tone={chip.tone} label={chipLabel} />
           {co.draftMelts > 0 ? <Chip tone="amber" label={t("foundry.casts.drafts", { count: co.draftMelts })} /> : null}

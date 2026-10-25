@@ -748,6 +748,12 @@ for (const width of WIDTHS) {
       await expect(line1.locator("[data-strip='agedG']")).toContainText(`${kg3(PRESS.goodG)} kg`);
       await expect(line1.locator("[data-strip='agedG']")).toContainText("Aged");
       await expect(line1.locator("[data-strip='pressedG']")).toContainText(`${kg3(PRESS.goodG)} kg`);
+      // FP-AG-15: beneath the strip the line says where its pieces are: all of them loaded, all released and waiting to pack.
+      const aged = line1.getByTestId("order-line-aged");
+      await expect(aged).toBeVisible();
+      await expect(aged.locator("[data-aged-part='loaded']")).toContainText(`${PRESS.pcs} pcs`);
+      await expect(aged.locator("[data-aged-part='released']")).toContainText(`Released, to pack ${PRESS.pcs} pcs`);
+      await expect(aged.locator("[data-aged-part='packed']")).toHaveCount(0);
       await context.close();
     });
 

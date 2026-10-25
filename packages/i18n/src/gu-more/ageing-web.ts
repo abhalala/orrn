@@ -301,6 +301,17 @@ export const guAgeingWeb = {
       none: "આ બંડલ ઓવનમાંથી પસાર થયું નથી.",
       released: "છોડ્યું",
     },
+    forOrder: {
+      title: "ટ્રોલી પર",
+      loaded: "લોડ કર્યા",
+      inOven: "ઓવનમાં",
+      outUntested: "બહાર, ચકાસણી બાકી",
+      held: "હોલ્ડ",
+      released: "છોડ્યા, પૅક કરવાના",
+      packed: "પૅક થયા",
+      pcs: "{pcs} પીસ",
+      note: "આ લાઇનના જે પીસ એજિંગ ઓવનમાંથી પસાર થયા, હમણાં તે ક્યાં છે.",
+    },
   },
   approvals: {
     ageing: {

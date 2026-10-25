@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 import { Text, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { ListRow } from "@/components/ui/list-row";
 import { PageHeader } from "@/components/ui/page-header";
 import { Screen } from "@/components/ui/screen";
@@ -37,6 +38,7 @@ export function NewCastView() {
   const furnaces = useQuery(trpc.foundry.furnaces.list.queryOptions());
   const open = useMutation(trpc.foundry.casts.open.mutationOptions());
   const [alloyId, setAlloyId] = useState<string | null>(null);
+  const [legacyCode, setLegacyCode] = useState("");
   const [problem, setProblem] = useState<unknown>(null);
   const attempt = useRef<ReplayAttempt>(null);
 
@@ -56,7 +58,7 @@ export function NewCastView() {
     if (!picked) return;
     setProblem(null);
     try {
-      const body = { alloyId: picked };
+      const body = { alloyId: picked, ...(legacyCode.trim() ? { legacyCode: legacyCode.trim() } : {}) };
       const next = replayKey(attempt.current, body, randomId);
       attempt.current = next.attempt;
       const res = await sendOnce((clientRequestId) => open.mutateAsync({ ...body, clientRequestId }), next.id);
@@ -110,6 +112,20 @@ export function NewCastView() {
         <Note tone="amber">
           {t("foundry.newCast.noFurnace")} {t("foundry.newCast.noFurnaceAsk")}
         </Note>
+      ) : null}
+
+      {list.length > 0 ? (
+        <Field
+          label={t("foundry.newCast.legacy")}
+          hint={t("foundry.newCast.legacyHint")}
+          placeholder={t("foundry.newCast.legacyPlaceholder")}
+          value={legacyCode}
+          onChangeText={setLegacyCode}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={20}
+          mono
+        />
       ) : null}
 
       <ErrorLine error={problem} />

@@ -28,6 +28,7 @@ import { latestVerdict, lockState, verdictTone } from "./foundry-model";
 import { blankForm, figuresOf, formFromMelt, sameForm, saveInputOf, type FormIssue, type MeltForm, type SavedMelt, type Step } from "./melt-form";
 import { todayIn } from "./melt-times";
 import { Accordion, Balance, ChargeSection, OutputSection, TimesSection, type AlloyOpt, type FurnaceOpt, type Lot, type Stream } from "./melt-sections";
+import { meltWebPath } from "@/lib/web-link";
 import { SpectroPanel } from "./spectro-panel";
 import type { CastData, DraftView, MeltRow, MeltSaveBody, MeltSaveCall } from "./types";
 import { ErrorLine, Note, kgOf } from "./ui";
@@ -267,7 +268,7 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
           <OutputSection {...common} streams={(streams.data?.items ?? []) as Stream[]} capacityG={capacityG} />
         </Accordion>
         <Accordion title={t("foundry.spectro.title")} summary={verdict ? t(VERDICT_KEY[verdict]) : undefined} open={openParts.has("spectro")} onToggle={() => toggle("spectro")}>
-          <SpectroPanel meltId={savedMeltId} results={savedMelt?.spectro ?? []} limits={(meltAlloy?.limits ?? []) as SpectroLimit[]} alloyCode={meltAlloy?.code ?? castAlloy} draft />
+          <SpectroPanel meltId={savedMeltId} results={savedMelt?.spectro ?? []} limits={(meltAlloy?.limits ?? []) as SpectroLimit[]} alloyCode={meltAlloy?.code ?? castAlloy} draft webPath={savedMeltId ? meltWebPath(castId, savedMeltId) : undefined} />
           {needsNewSample ? <Note tone="amber">{t("foundry.melt.spectroNeedsSample", { alloy: meltAlloy?.code ?? castAlloy })}</Note> : null}
           {verdict !== "pass" || needsNewSample ? (
             <Field label={t("foundry.melt.spectroReason")} hint={t("foundry.melt.spectroReasonHint")} value={form.spectroReason} onChangeText={(v) => patch({ spectroReason: v })} maxLength={500} multiline />

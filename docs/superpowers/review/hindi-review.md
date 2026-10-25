@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7022 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 7060 screen strings in 48 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -1879,7 +1879,7 @@ Counts: 7022 screen strings in 49 groups, 35 guides with 646 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (230)
+### settings (244)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2005,6 +2005,20 @@ Counts: 7022 screen strings in 49 groups, 35 guides with 646 strings.
 | `standards.saved` | Standards saved | स्टैंडर्ड सेव हो गए |
 | `standards.saveFailed` | Couldn't save the standards. Try again. | स्टैंडर्ड सेव नहीं हुए। फिर कोशिश करें। |
 | `standards.readOnly` | Only owners and admins can change standards. | स्टैंडर्ड सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
+| `castBook.title` | Cast numbers | कास्ट नंबर |
+| `castBook.intro` | Continue the numbers of your paper cast book. The first cast of the month you pick takes the number you enter, then the numbers count on. Set it before that month's first cast. | अपनी कागज़ी कास्ट बही के नंबर आगे बढ़ाएं। चुने हुए महीने की पहली कास्ट आपका लिखा नंबर लेती है, फिर नंबर आगे गिनते हैं। उस महीने की पहली कास्ट से पहले लगाएं। |
+| `castBook.month` | Month | महीना |
+| `castBook.start` | Cast number series starts at | कास्ट नंबर सीरीज़ यहां से शुरू |
+| `castBook.startHint` | The number the first cast of that month gets. The cast code is the month letter and this number. | उस महीने की पहली कास्ट को यह नंबर मिलता है। कास्ट कोड महीने का अक्षर और यह नंबर होता है। |
+| `castBook.current` | The first cast of {month} will be number {number}. | {month} की पहली कास्ट का नंबर {number} होगा। |
+| `castBook.none` | Cast numbers start at 1 every month. | कास्ट नंबर हर महीने 1 से शुरू होते हैं। |
+| `castBook.save` | Save cast numbers | कास्ट नंबर सेव करें |
+| `castBook.saved` | Cast numbers saved | कास्ट नंबर सेव हो गए |
+| `castBook.clear` | Start at 1 again | फिर 1 से शुरू करें |
+| `castBook.cleared` | Cast numbers start at 1 again | कास्ट नंबर फिर 1 से शुरू होंगे |
+| `castBook.invalid` | Pick a month and a number from 1 to 99999. | महीना और 1 से 99999 के बीच का नंबर चुनें। |
+| `castBook.saveFailed` | Could not save the cast numbers. If that month already has a cast, the book can no longer move there. | कास्ट नंबर सेव नहीं हुए। उस महीने में कास्ट बन चुकी हो तो बही वहां आगे नहीं खिसक सकती। |
+| `castBook.readOnly` | Only a manager or the admin can change the cast numbers. | कास्ट नंबर सिर्फ़ मैनेजर या एडमिन बदल सकते हैं। |
 | `thresholds.title` | Thresholds | सीमाएं |
 | `thresholds.intro` | The limits the screens colour by. Type a percent. A change applies from the next request. | स्क्रीन इन सीमाओं से रंग तय करती हैं। प्रतिशत में लिखें। बदलाव अगले अनुरोध से लागू होता है। |
 | `thresholds.readOnly` | Only owners and admins can change thresholds. | सीमाएं सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
@@ -3480,14 +3494,6 @@ Counts: 7022 screen strings in 49 groups, 35 guides with 646 strings.
 | `recent` | Recent | हाल के |
 | `pages` | Pages | पेज |
 | `pageRangeOpen` | {from}-{to} | {from}-{to} |
-
-### comingSoon (3)
-
-| Key | English | हिंदी |
-|---|---|---|
-| `ageing` | Ageing | एजिंग |
-| `title` | This module is being built on another machine | यह मॉड्यूल दूसरी मशीन पर बन रहा है |
-| `body` | It is not ready in this app yet. Nothing here is saved. | यह अभी इस ऐप में तैयार नहीं है। यहाँ कुछ भी सेव नहीं होता। |
 
 ### charts (28)
 
@@ -5333,7 +5339,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (583)
+### foundry (600)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5419,6 +5425,9 @@ Please check, Lalubhai:
 | `refusal.spectroNoFile` | No file is attached. Write why the numbers are typed. | कोई फ़ाइल नहीं जोड़ी। लिखें कि आंकड़े हाथ से क्यों लिखे। |
 | `refusal.spectroChanged` | The spectro result changed. Check it and lock again. | स्पेक्ट्रो रिज़ल्ट बदल गया। उसे जाँचकर फिर से लॉक करें। |
 | `refusal.billetStoreRetired` | The billet store {code} is retired. Reactivate it to post the count, or reject the close. | बिलेट स्टोर {code} बंद है। गिनती दर्ज करने के लिए उसे फिर चालू करें, या क्लोज़ अस्वीकार करें। |
+| `refusal.legacyShape` | A legacy code is up to 20 letters, digits, spaces or - / . _ | पुराना कोड 20 अक्षर तक का होता है: अक्षर, अंक, खाली जगह या - / . _ |
+| `refusal.legacyTaken` | The legacy code {code} is already on cast {cast}. | पुराना कोड {code} कास्ट {cast} पर पहले से लगा है। |
+| `refusal.castBookMonthUsed` | That month already has a cast. The book can only be continued before the first cast. | उस महीने में कास्ट बन चुकी है। बही सिर्फ़ पहली कास्ट से पहले आगे बढ़ाई जा सकती है। |
 | `inbox.columns.file` | File | फ़ाइल |
 | `inbox.columns.when` | When | कब |
 | `inbox.columns.status` | Status | स्थिति |
@@ -5494,11 +5503,12 @@ Please check, Lalubhai:
 | `casts.empty` | No casts yet. | अभी कोई कास्ट नहीं। |
 | `casts.emptyHint` | Open the first cast to start a melt. | मेल्ट शुरू करने के लिए पहली कास्ट खोलें। |
 | `casts.emptyFiltered` | No cast matches. | कोई कास्ट नहीं मिली। |
+| `casts.legacyChip` | Old code {code} | पुराना कोड {code} |
 | `casts.loadFailed` | The casts did not load. Check the connection and try again. | कास्ट नहीं आईं। कनेक्शन देखकर फिर कोशिश करें। |
 | `casts.trace.label` | Find a cast or bundle | कास्ट या बंडल खोजें |
 | `casts.trace.placeholder` | k31 or 26J1842 | k31 या 26J1842 |
 | `casts.trace.go` | Trace | ट्रेस |
-| `casts.trace.notCode` | Type a cast code like k31 or a bundle number like 26J1842. | k31 जैसा कास्ट कोड या 26J1842 जैसा बंडल नंबर लिखें। |
+| `casts.trace.notCode` | Type a cast code like k31, an old paper code, or a bundle number like 26J1842. | k31 जैसा कास्ट कोड, पुराना कागज़ी कोड या 26J1842 जैसा बंडल नंबर लिखें। |
 | `casts.trace.bundleFrom` | Bundle {serial} came from cast {number}. | बंडल {serial} कास्ट {number} से आया। |
 | `casts.trace.openTrace` | Open the trace | ट्रेस खोलें |
 | `casts.trace.noCast` | Bundle {serial} has no cast on it. | बंडल {serial} पर कास्ट नहीं लिखी। |
@@ -5515,6 +5525,9 @@ Please check, Lalubhai:
 | `newCast.addFurnace` | Add a furnace | फर्नेस जोड़ें |
 | `newCast.loadFailed` | The alloys did not load. Check the connection and try again. | अलॉय नहीं आए। कनेक्शन देखकर फिर कोशिश करें। |
 | `newCast.opened` | Cast {number} is open | कास्ट {number} खुल गई |
+| `newCast.legacy` | Legacy code | पुराना कोड |
+| `newCast.legacyHint` | Optional. The code an old cast has in the paper book, so it can be found by it later. Each code is used once. | वैकल्पिक। पुरानी कास्ट का कागज़ी बही वाला कोड, ताकि बाद में उसी से मिल सके। हर कोड एक ही बार लगता है। |
+| `newCast.legacyPlaceholder` | for example old-17 | जैसे old-17 |
 | `cast.heading` | Cast {number} | कास्ट {number} |
 | `cast.alloyIs` | Alloy {alloy} | अलॉय {alloy} |
 | `cast.back` | Cast | कास्ट |
@@ -5797,6 +5810,9 @@ Please check, Lalubhai:
 | `spectro.saveFirst` | Save the draft first. A spectro result goes on a saved melt. | पहले ड्राफ़्ट सेव करें। स्पेक्ट्रो नतीजा सेव की हुई मेल्ट पर जुड़ता है। |
 | `spectro.fromInbox` | Attach from inbox | इनबॉक्स से जोड़ें |
 | `spectro.attachFile` | Attach a file or photo | फ़ाइल या फ़ोटो जोड़ें |
+| `spectro.viewFile` | View file | फ़ाइल देखें |
+| `spectro.viewFileOf` | View file {name} | फ़ाइल {name} देखें |
+| `spectro.openOnWeb` | Open the file on the web | फ़ाइल वेब पर खोलें |
 | `spectro.type` | Type the numbers | आँकड़े लिखें |
 | `spectro.attached` | Spectro added | स्पेक्ट्रो जुड़ गया |
 | `spectro.fileTooBig` | That file is too big. Use one under 700 kB. | फ़ाइल बहुत बड़ी है। 700 kB से छोटी लें। |
@@ -5916,12 +5932,19 @@ Please check, Lalubhai:
 | `yield.burn` | Burn % | बर्न % |
 | `yield.yield` | Yield % | यील्ड % |
 | `yield.ldo` | LDO in per tonne of logs | प्रति टन लॉग LDO |
+| `yield.bySource` | Metal in by source | स्रोत के हिसाब से डाला धातु |
+| `yield.source` | Source | स्रोत |
+| `yield.lots` | Scrap lots | स्क्रैप लॉट |
+| `yield.share` | Share of metal in % | डाले धातु में हिस्सा % |
+| `yield.fromLots` | From lots kg | लॉट से kg |
+| `yield.fromStreams` | From return streams kg | रिटर्न स्ट्रीम से kg |
+| `yield.bySourceNote` | Kg charged into the locked melts of these days: scrap lots, and each return stream (plant scrap, ingot, dross and the rest). | इन दिनों के लॉक मेल्ट में डाले गए kg: स्क्रैप लॉट और हर रिटर्न स्ट्रीम (प्लांट स्क्रैप, इंगट, ड्रॉस वगैरह)। |
 | `yield.empty` | No locked melts in these days. | इन दिनों में कोई लॉक मेल्ट नहीं। |
 | `yield.note` | LDO is inches of tank dip per tonne of logs made, not litres. | LDO प्रति टन बने लॉग पर टंकी की डिप के इंच हैं, लीटर नहीं। |
 | `yield.tailAdjust` | Billet count adjustments at cast close in these days: {kg} kg. Net yield after them: {pct}%. | इन दिनों कास्ट बंद करते समय बिलेट गिनती से हुए बदलाव: {kg} kg। उनके बाद नेट यील्ड: {pct}%। |
 | `yield.csvName` | foundry-yield | foundry-yield |
 
-### ageing (454)
+### ageing (463)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6379,6 +6402,15 @@ Please check, Lalubhai:
 | `trace.title` | Ageing | एजिंग |
 | `trace.none` | This bundle has not been through the oven. | यह बंडल ओवन से नहीं गुज़रा। |
 | `trace.released` | Released | छोड़ा गया |
+| `forOrder.title` | On the trolleys | ट्रॉली पर |
+| `forOrder.loaded` | Loaded | लोड किए |
+| `forOrder.inOven` | In the oven | ओवन में |
+| `forOrder.outUntested` | Out, not tested | बाहर, जांच बाकी |
+| `forOrder.held` | Held | होल्ड |
+| `forOrder.released` | Released, to pack | छोड़े, पैक होने हैं |
+| `forOrder.packed` | Packed | पैक हुए |
+| `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
+| `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
 ### reasons (79)
 
@@ -6642,7 +6674,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (286)
+### audit (287)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6819,6 +6851,7 @@ Please check, Lalubhai:
 | `actions.foundry__alloy__limits` | Alloy limits changed | अलॉय की सीमाएं बदलीं |
 | `actions.foundry__alloy__update` | Alloy changed | अलॉय बदला |
 | `actions.foundry__cast__cancel` | Cast cancelled | कास्ट रद्द किया |
+| `actions.foundry__castSeries__set` | Cast number series moved | कास्ट नंबर सीरीज़ बदली |
 | `actions.foundry__furnace__create` | Furnace added | फर्नेस जोड़ी |
 | `actions.foundry__furnace__update` | Furnace changed | फर्नेस बदली |
 | `actions.foundry__melt__correct` | Melt corrected | मेल्ट सुधारा |

@@ -227,3 +227,25 @@ describe("thresholds form (rank 31)", () => {
     expect(thresholdsPatch(thresholdsDraft(withBands), withBands)).toEqual({});
   });
 });
+
+describe("cast book start (FP-FD-02)", () => {
+  test("months run from this one for a year, and keep a stored one outside", async () => {
+    const { castBookMonths } = await import("./model");
+    const list = castBookMonths("2026-10-25");
+    expect(list).toHaveLength(13);
+    expect(list[0]).toBe("2026-10");
+    expect(list[3]).toBe("2027-01");
+    expect(list.at(-1)).toBe("2027-10");
+    expect(castBookMonths("2026-10-25", "2026-08")[0]).toBe("2026-08");
+    expect(castBookMonths("2026-10-25", "2026-12")).toHaveLength(13);
+    expect(castBookMonths("nope", null)).toEqual([]);
+  });
+  test("the number is a whole number 1 to 99999", async () => {
+    const { castBookStart } = await import("./model");
+    expect(castBookStart(" 120 ")).toBe(120);
+    expect(castBookStart("0")).toBeNull();
+    expect(castBookStart("100000")).toBeNull();
+    expect(castBookStart("12.5")).toBeNull();
+    expect(castBookStart("")).toBeNull();
+  });
+});

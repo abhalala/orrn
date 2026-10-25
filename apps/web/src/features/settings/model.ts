@@ -325,3 +325,33 @@ export function thresholdsPatch(draft: ThresholdsDraft, saved: ThresholdsSaved):
   if (bw !== null && bw !== saved.press.balanceWarnBp) patch.pressBalanceWarnBp = bw;
   return patch;
 }
+
+// ---------------------------------------------------------------------------
+// Cast number series (FP-FD-02): where the paper cast book continues
+// ---------------------------------------------------------------------------
+
+/** Month `YYYY-MM` choices for the cast book: this month and the next 12, plus a stored one that is outside them. */
+export function castBookMonths(today: string, stored?: string | null): string[] {
+  const m = /^(\d{4})-(\d{2})/.exec(today);
+  if (!m) return stored ? [stored] : [];
+  const out: string[] = [];
+  let year = Number(m[1]);
+  let month = Number(m[2]);
+  for (let i = 0; i < 13; i += 1) {
+    out.push(`${year}-${String(month).padStart(2, "0")}`);
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return stored && !out.includes(stored) ? [stored, ...out].sort() : out;
+}
+
+/** The typed number as an integer 1 to 99,999, or null (the server's range). */
+export function castBookStart(text: string): number | null {
+  const s = text.trim();
+  if (!/^\d{1,5}$/.test(s)) return null;
+  const n = Number(s);
+  return n >= 1 && n <= 99_999 ? n : null;
+}

@@ -81,5 +81,8 @@ export const foundryRefusalGu = {
   openingExists: "{name} નું ઓપનિંગ બેલેન્સ પહેલેથી છે.",
   spectroNoFile: "કોઈ ફાઇલ જોડી નથી. આંકડા હાથે કેમ લખ્યા તે લખો.",
   spectroChanged: "સ્પેક્ટ્રો પરિણામ બદલાઈ ગયું. તે તપાસીને ફરી લૉક કરો.",
+  legacyShape: "જૂનો કોડ 20 અક્ષર સુધીનો હોય: અક્ષર, અંક, ખાલી જગ્યા કે - / . _",
+  legacyTaken: "જૂનો કોડ {code} cast {cast} પર પહેલેથી છે.",
+  castBookMonthUsed: "તે મહિનામાં cast બની ગયો છે. બહી પહેલા cast પહેલાં જ આગળ ચલાવી શકાય.",
   billetStoreRetired: "બિલેટ સ્ટોર {code} બંધ છે. ગણતરી નોંધવા તેને ફરી ચાલુ કરો, અથવા ક્લોઝ નામંજૂર કરો.",
 };

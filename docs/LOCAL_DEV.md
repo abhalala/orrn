@@ -269,6 +269,8 @@ migration are renumbered consecutively at merge (decision D30) and their snapsho
 | 0036-0037 | foundry on resume | paused lane |
 | 0038 | ageing (ovens, trolleys, recipes, batches, rows, readings, hardness) | ageing (W3-AG-C) |
 | 0039 | ageing 2 (telemetry device id, oven/trolley/rework indexes) | ageing (W3-AG-S); merger re-points 0038 prevId and both `when`s past the foundry 0036/0037 |
+| 0040-0041 | ageing 2 and 3 (indexes, `ageing_hardness.pass` nullable) | ageing (as merged: the foundry is 0036, ageing 0039-0041) |
+| 0042 | `cast.legacy_code` (FP-FD-02: the paper code of an imported cast, unique per plant) | FINAL-FIXES-4 |
 
 If you need a number before then, take the next one after the highest merged and tell whoever is merging.
 
