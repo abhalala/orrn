@@ -11,6 +11,7 @@ import { bundle, customer, die, dispatchItem, docSeries, packingList, packingLis
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
+import { precreateDevSeedUsers } from "./dev-seed-fixture";
 import { kg, NOON, salesHelpers, SLOW, type SalesPlant } from "./sales-fixture";
 
 let env: TestEnv;
@@ -294,9 +295,7 @@ describe("revision diff and analytics over revisions (I-2, I-5)", () => {
 describe("dev seed: W1-PK-S rows (idempotent)", () => {
   test("transporter, a PL with two revisions, party numbers for two customers with different policies", async () => {
     const { user, bundle, transporter } = await import("@orrn/db/schema");
-    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
-      await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
-    }
+    await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
       seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean }>;

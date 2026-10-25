@@ -18,6 +18,7 @@ import { approval, cast, dcNote, melt, returnStream, stockLedger } from "@orrn/d
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
+import { precreateDevSeedUsers } from "./dev-seed-fixture";
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
@@ -140,9 +141,7 @@ async function dcNoteLedger(companyId: string) {
 describe("dev seed: the reset knows the foundry tables", () => {
   test("a melt (with a store chemical and a spectro result) against a demo lot does not break a reseed; the cast series restarts cleanly", async () => {
     const { user } = await import("@orrn/db/schema");
-    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
-      await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
-    }
+    await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
       seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean }>;

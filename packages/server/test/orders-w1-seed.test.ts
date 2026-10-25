@@ -1,6 +1,6 @@
 /**
- * W1-OP-S: the dev seed's demo orders (three orders, lines in different states, one late) are
- * idempotent and readable through the real procedures.
+ * W1-OP-S: the dev seed's demo order book (ten orders in every state, one late) is idempotent and
+ * readable through the real procedures; W2-SEED: the figures on every line add up.
  */
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
@@ -8,6 +8,7 @@ import { salesOrder, salesOrderLine, user } from "@orrn/db/schema";
 import { asc, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
+import { precreateDevSeedUsers } from "./dev-seed-fixture";
 
 let env: TestEnv;
 
@@ -18,21 +19,20 @@ afterAll(async () => {
   await env.dispose();
 });
 
-test("dev seed: SO-1 late with bundles packed, SO-2 confirmed on band start, SO-3 booking; re-running gives the same rows", async () => {
-  for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
-    await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
-  }
+test("dev seed: ten orders in every state, SO-1 late with bundles packed; re-running gives the same rows", async () => {
+  await precreateDevSeedUsers(env);
   const seedPath = "../../../apps/server/src/dev-seed";
   const { seedDevData } = (await import(seedPath)) as {
     seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean }>;
   };
   const companyId = "dev-company-orrn";
   const snapshot = async () => ({
-    orders: await env.db
-      .select({ id: salesOrder.id, number: salesOrder.number, status: salesOrder.status, po: salesOrder.poNumber })
-      .from(salesOrder)
-      .where(eq(salesOrder.companyId, companyId))
-      .orderBy(asc(salesOrder.id)),
+    orders: (
+      await env.db
+        .select({ id: salesOrder.id, number: salesOrder.number, status: salesOrder.status, po: salesOrder.poNumber })
+        .from(salesOrder)
+        .where(eq(salesOrder.companyId, companyId))
+    ).sort((a, b) => Number(a.number.slice(3)) - Number(b.number.slice(3))),
     lines: await env.db
       .select({ id: salesOrderLine.id, kgG: salesOrderLine.kgG, pcs: salesOrderLine.pcs, basis: salesOrderLine.weightBasis })
       .from(salesOrderLine)
@@ -45,10 +45,18 @@ test("dev seed: SO-1 late with bundles packed, SO-2 confirmed on band start, SO-
     { id: "dev-so-1", number: "SO-1", status: "confirmed", po: "PO-4471" },
     { id: "dev-so-2", number: "SO-2", status: "confirmed", po: "PO-118" },
     { id: "dev-so-3", number: "SO-3", status: "booking", po: null },
-    // W3-PORTAL-S: KD Extrusion's booking from the party portal (dev-seed-portal.ts).
+    // W3-PORTAL-S: KD Extrusion's booking from the party portal (placed by party@orrn.local).
     { id: "dev-so-4", number: "SO-4", status: "booking", po: null },
+    // W2-SEED: closed (two Tejura trucks), cancelled, two dispatching, one confirmed with a reserved dispatch.
+    { id: "dev-so-5", number: "SO-5", status: "closed", po: "PO-T-77" },
+    { id: "dev-so-6", number: "SO-6", status: "cancelled", po: "PO-2288" },
+    { id: "dev-so-7", number: "SO-7", status: "dispatching", po: "PO-4502" },
+    { id: "dev-so-8", number: "SO-8", status: "dispatching", po: "PO-2291" },
+    { id: "dev-so-9", number: "SO-9", status: "confirmed", po: "PO-T-81" },
+    // KD's own die 12230 (the owned-die refusal is reachable): 8 bundles packed for it.
+    { id: "dev-so-10", number: "SO-10", status: "confirmed", po: "PO-4533" },
   ]);
-  expect(first.lines).toHaveLength(5);
+  expect(first.lines).toHaveLength(17);
 
   const owner = env.caller({ role: "owner", companyId });
   const late = await owner.orders.late({});
@@ -62,8 +70,8 @@ test("dev seed: SO-1 late with bundles packed, SO-2 confirmed on band start, SO-
 
   expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
   expect(await snapshot()).toEqual(first);
-  // The SO series continues after the seeded book (SO-4 is the portal booking, W3-PORTAL-S).
+  // The SO series continues after the seeded book (SO-1..SO-10).
   const c = so1.order.customerId;
   const made = await owner.orders.create({ customerId: c, lines: [{ sectionId: so1.lines[0]!.sectionId, cutLengthMm: 3_658, kgG: 1_000 }] });
-  expect(made.number).toBe("SO-5");
+  expect(made.number).toBe("SO-11");
 }, 120_000);

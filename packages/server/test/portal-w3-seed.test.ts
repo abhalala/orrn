@@ -10,6 +10,7 @@ import { customerPortalSection, customerPortalUser, membership, salesOrder, test
 import { asc, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
+import { precreateDevSeedUsers } from "./dev-seed-fixture";
 import { portalHelpers } from "./portal-w3-fixture";
 
 let env: TestEnv;
@@ -24,9 +25,7 @@ afterAll(async () => {
 const h = portalHelpers(() => env);
 
 test("dev seed: KD's party login, two grants + owned 12230, SO-4 booking, a pending certificate; idempotent", async () => {
-  for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
-    await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
-  }
+  await precreateDevSeedUsers(env);
   const seedPath = "../../../apps/server/src/dev-seed";
   const { seedDevData } = (await import(seedPath)) as {
     seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean; accounts?: Record<string, string> }>;
@@ -86,12 +85,12 @@ test("dev seed: KD's party login, two grants + owned 12230, SO-4 booking, a pend
   expect((await api.portal.orders.list()).items.map((o) => o.number)).toContain("SO-4");
   const office = env.caller({ role: "office", companyId });
   expect((await office.portal.users.list()).map((u) => u.email)).toEqual(["party@orrn.local"]);
-  // The office's next order continues after the portal booking.
+  // The office's next order continues after the seeded book (SO-1..SO-10).
   const next = await env.caller({ role: "owner", companyId }).orders.create({
     customerId: "dev-customer-royal",
     lines: [{ sectionId: "dev-die-14701", cutLengthMm: 3658, kgG: 100_000 }],
   });
-  expect(next.number).toBe("SO-5");
+  expect(next.number).toBe("SO-11");
 
   expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
   expect(await snapshot()).toEqual(a);

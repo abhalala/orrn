@@ -7,7 +7,7 @@ import { expect, type Page } from "@playwright/test";
 import { API_URL, WEB_ORIGIN } from "./ports";
 
 /**
- * Local seed accounts (owner/operator/viewer/office/staff @orrn.local). The shared
+ * Local seed accounts (one per plant role, plus staff and party, `{role}@orrn.local`; see docs/DEMO_PLANT.md). The shared
  * password comes from ORRN_LOCAL_PASSWORD or, by default, from
  * `apps/server/.dev.local-account.local` (written by
  * `bun apps/server/scripts/write-local-accounts.ts`). Local D1 only.
@@ -22,7 +22,22 @@ export function localPassword(): string {
   return line.slice("ORRN_LOCAL_PASSWORD=".length).trim();
 }
 
-export type LocalRole = "owner" | "operator" | "viewer" | "office" | "dieroom" | "supervisor" | "press" | "staff" | "party";
+export type LocalRole =
+  | "owner"
+  | "operator"
+  | "viewer"
+  | "office"
+  | "admin"
+  | "manager"
+  | "packer"
+  | "storekeeper"
+  | "foundry"
+  | "accountant"
+  | "dieroom"
+  | "supervisor"
+  | "press"
+  | "staff"
+  | "party";
 
 /**
  * Fill and submit the real sign-in form on the current /login page. Labels

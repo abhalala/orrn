@@ -15,6 +15,7 @@ import { eq, sql } from "drizzle-orm";
 
 import { APPROVER_ROLES, can, canApprove, type Action } from "../src/lib/permissions";
 import { createTestEnv, type TestEnv } from "./harness";
+import { precreateDevSeedUsers } from "./dev-seed-fixture";
 
 let env: TestEnv;
 type DocNumbers = typeof import("../src/lib/docNumber");
@@ -235,9 +236,7 @@ describe("dev seed: Wave 2 masters (idempotent)", () => {
   test("furnace F1, alloys 6063/6061 with limits, return streams, P1 + P2, a draft die-trial plan", async () => {
     const schema = await import("@orrn/db/schema");
     const { user } = schema;
-    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
-      await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
-    }
+    await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
       seedDevData: (db: TestEnv["db"], opts: { password: string }) => Promise<{ ok: boolean }>;

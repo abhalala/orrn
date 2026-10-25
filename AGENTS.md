@@ -1011,6 +1011,25 @@ bun run deploy
 - Bundle serials are unique per company.
 - Bundles are never deleted; use status transitions including `void`.
 
+## Demo plant seed (W2-SEED)
+
+- `POST /dev/seed` (`apps/server/src/dev-seed.ts` plus one `dev-seed-{area}.ts` per module) builds one
+  coherent plant; `docs/DEMO_PLANT.md` is the tour (logins, orders, press board, stock, dispatches).
+- A new demo login goes in `dev-accounts.ts` (`DEV_ACCOUNTS`, and `DEV_MEMBER_ROLES` when it is a plant
+  member). Tests create the same users with `precreateDevSeedUsers(env)` from `test/dev-seed-fixture.ts`
+  (never a hand-written key list), the e2e helper type `LocalRole` and `write-local-accounts.ts` follow.
+- Idempotent: fixed ids (`dev-*`), children before parents in the reset, doc_series counters written past
+  every seeded number, at most 100 bound parameters per statement (`insertChunks`). Add a table to the
+  reset in the same change that seeds it. Never seed a secret (the spool node holds placeholder text).
+- Time: nothing is a fixed date. `seedClock` (`dev-seed-kit.ts`) gives `pastAt(days, hour)` and `dayAt(fraction)`,
+  the current production day (shift 1's start to the next, as `productionDayWindow` reads it); anything that
+  must read as "today" uses `dayAt`. `seedDevData(db, { password, now? })` takes `now` for the test that seeds at
+  seven moments (before the shift, after it, across a month and a financial year).
+- Quantities of an order line that stands on bundles are derived from those bundles (`dev-seed-orders.ts`), so
+  baki reconciles by construction. SO-1..SO-4 keep the quantities older specs read; keep the ids that specs name.
+- The plant in numbers is pinned by `packages/server/test/dev-seed-demo-plant.test.ts`; change the seed and
+  that file and `docs/DEMO_PLANT.md` together.
+
 ## Orchestration notes
 
 - Keep root `TODO.md` updated when changing milestone scope or status.

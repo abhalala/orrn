@@ -1,5 +1,5 @@
 import { atomicBatch, type createDb } from "@orrn/db";
-import { appRelease, supportRequest } from "@orrn/db/schema/platform";
+import { appRelease, backupRun, supportRequest } from "@orrn/db/schema/platform";
 import { device } from "@orrn/db/schema/sync";
 
 type Db = ReturnType<typeof createDb>;
@@ -73,6 +73,27 @@ export async function seedPlatformRows(
       .onConflictDoUpdate({
         target: device.id,
         set: { revokedAt: null, revokedBy: null, lastSeenAt: new Date(opts.now - 15 * 60 * 1000), label: "Pack tablet 1" },
+      }),
+    // The nightly export of two days ago succeeded (metadata only: never the bytes, no secrets).
+    db
+      .insert(backupRun)
+      .values({
+        id: "dev-backup-run-1",
+        companyId: opts.companyId,
+        kind: "scheduled",
+        status: "succeeded",
+        purpose: "export",
+        r2Key: "backups/dev-company-orrn/dev-backup-run-1.json",
+        bytes: 1_843_200,
+        rowCount: 4_120,
+        detail: { bundle: 130, dispatch: 6, sales_order: 10, press_run: 14 },
+        startedAt: new Date(opts.now - 2 * 24 * 60 * 60 * 1000),
+        finishedAt: new Date(opts.now - 2 * 24 * 60 * 60 * 1000 + 42_000),
+        startedBy: opts.staffId,
+      })
+      .onConflictDoUpdate({
+        target: backupRun.id,
+        set: { status: "succeeded", error: null, startedAt: new Date(opts.now - 2 * 24 * 60 * 60 * 1000), finishedAt: new Date(opts.now - 2 * 24 * 60 * 60 * 1000 + 42_000) },
       }),
     db
       .insert(supportRequest)

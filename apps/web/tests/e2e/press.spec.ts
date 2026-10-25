@@ -253,13 +253,20 @@ for (const width of WIDTHS) {
       const mine = page.locator(`[data-slot="press-line"][data-line="${fx.lineCode}"]`);
       await expect(p1).toBeVisible();
       await expect(p2).toBeVisible();
-      // P1 waits with the seeded queued runs (the count is the server's); P2: PR-9 is being counted (late entry).
+      // P1 and P2 wait with the seeded queued runs (the counts are the server's); P2 has PR-10 running now
+      // (PR-9, a late entry, is being counted behind it).
       const owner = await apiAs("owner");
-      const p1Queue = await owner.q<{ cards: { status: string }[] }>("press.queue.list", { pressLineId: "dev-press-line-1" });
+      const cardsOf = async (pressLineId: string) =>
+        (await owner.q<{ cards: { number: string; status: string }[] }>("press.queue.list", { pressLineId })).cards;
+      const p1Cards = await cardsOf("dev-press-line-1");
+      const p2Cards = await cardsOf("dev-press-line-2");
       await owner.dispose();
-      await expect(p1.getByTestId("line-waiting")).toHaveText(String(p1Queue.cards.filter((c) => c.status === "queued" || c.status === "die_issued").length));
-      await expect(p2.getByTestId("line-on-line")).toHaveText("PR-9");
-      await expect(p2.getByTestId("line-waiting")).toHaveText("0");
+      const waiting = (cards: { status: string }[]) => cards.filter((c) => c.status === "queued" || c.status === "die_issued").length;
+      await expect(p1.getByTestId("line-waiting")).toHaveText(String(waiting(p1Cards)));
+      // The board shows the first card that is on the press, in the server's order (PR-9 is being counted, PR-10 is running).
+      expect(p2Cards.map((c) => c.number)).toEqual(expect.arrayContaining(["PR-9", "PR-10"]));
+      await expect(p2.getByTestId("line-on-line")).toHaveText(p2Cards.find((c) => c.status !== "queued" && c.status !== "die_issued")!.number);
+      await expect(p2.getByTestId("line-waiting")).toHaveText(String(waiting(p2Cards)));
       await expect(mine.getByTestId("line-waiting")).toHaveText("2");
       await expect(mine.getByTestId("line-on-line")).toHaveText("Nothing running");
       // None of the demo furniture of the preview.

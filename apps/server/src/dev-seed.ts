@@ -1,5 +1,5 @@
 import { createAuth } from "@orrn/auth";
-import { atomicBatch, type createDb } from "@orrn/db";
+import { atomicBatch } from "@orrn/db";
 import { user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
@@ -9,7 +9,6 @@ import {
   bundleGroup,
   bundleStatusEvent,
   packReject,
-  type BundleStatus,
 } from "@orrn/db/schema/inventory";
 import { packingList, packingListDispatch, packingListLine } from "@orrn/db/schema/packing";
 import { auditLog } from "@orrn/db/schema/audit";
@@ -64,7 +63,9 @@ import {
   qcEntry,
 } from "@orrn/db/schema/press";
 import { reasonCode } from "@orrn/db/schema/reasons";
-import { ALLOY_LIMIT_SEEDS, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, productionDayStartMin, SUGGESTED_SHIFTS } from "@orrn/domain";
+import { labelTemplate, printLog, printerProfile } from "@orrn/db/schema/printing";
+import { edgeNodeDeployment } from "@orrn/db/schema/spool";
+import { ALLOY_LIMIT_SEEDS, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
@@ -86,26 +87,34 @@ import {
   nameKey,
   scrapItemRef,
 } from "@orrn/server/lib/purchase";
-import { and, eq, getTableColumns, inArray, ne } from "drizzle-orm";
-import type { BatchItem } from "drizzle-orm/batch";
-import type { SQLiteTable } from "drizzle-orm/sqlite-core";
+import { and, eq, inArray, ne } from "drizzle-orm";
 
-import { DEV_ACCOUNTS, type DevAccountKey } from "./dev-accounts";
+import {
+  COMPANY_ID,
+  DAY_MS,
+  HOUR_MS,
+  IST_OFFSET_MS,
+  LENGTH_12FT_MM,
+  devLocationId,
+  insertChunks,
+  istDay,
+  mulberry32,
+  pick,
+  seedClock,
+  type Db,
+  type SeedBundle,
+  type Statement,
+} from "./dev-seed-kit";
+import { DEV_ACCOUNTS, DEV_MEMBER_ROLES, type DevAccountKey, type DevMemberKey } from "./dev-accounts";
 import { demoOrderSeed } from "./dev-seed-orders";
 import { seedPlatformRows } from "./dev-seed-platform";
-import { seedPortalRows } from "./dev-seed-portal";
+import { ensurePartyUser, seedPortalRows } from "./dev-seed-portal";
+import { buildCount } from "./dev-seed-count";
+import { SESSION_COPY, buildDieExtras, sectionExtras } from "./dev-seed-dies";
+import { buildPressExtras, pressCloseLedger } from "./dev-seed-press";
+import { buildPrinting } from "./dev-seed-printing";
+import { buildStore } from "./dev-seed-store";
 import { customerPortalSection, customerPortalUser, testCertificate } from "@orrn/db/schema/portal";
-
-type Db = ReturnType<typeof createDb>;
-type Statement = BatchItem<"sqlite">;
-
-/** D1 rejects statements with more than 100 bound parameters. */
-const MAX_PARAMS = 100;
-const COMPANY_ID = "dev-company-orrn";
-const LENGTH_12FT_MM = 3658;
-const IST_OFFSET_MS = 330 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
-const HOUR_MS = 60 * 60 * 1000;
 
 /**
  * Demo plant numbers new bundles like the real plant (26I4086); seeded history keeps its BG serials.
@@ -256,7 +265,7 @@ type SessionDef = {
   note: string;
 };
 
-/** 8 packing sessions, 120 bundles, 2 of them today. */
+/** 9 packing sessions: eight runs (the last two today) and KD's own channel 12230 packed two days ago. */
 const SESSIONS: SessionDef[] = [
   { dieKey: "patti1", count: 14, daysAgo: 9, hour: 10.5, note: "Press 1, day shift" },
   { dieKey: "angle1", count: 16, daysAgo: 8, hour: 14.25, note: "Press 2, day shift" },
@@ -266,6 +275,8 @@ const SESSIONS: SessionDef[] = [
   { dieKey: "angle125", count: 15, daysAgo: 2, hour: 16.0, note: "Press 2, evening shift" },
   { dieKey: "flat2", count: 16, daysAgo: 0, hour: 0, todayFraction: 0.3, note: "Press 1, morning run" },
   { dieKey: "angle1", count: 14, daysAgo: 0, hour: 0, todayFraction: 0.55, note: "Press 2, second run" },
+  // KD's own die 12230 (BG-000009): packed two days ago for SO-10 (a calendar day back would fall inside today's production day when seeded before 08:00), the one order that may take it.
+  { dieKey: "chan1", count: 8, daysAgo: 2, hour: 15.25, note: "Press 1, day shift: KD's 12230" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -323,44 +334,6 @@ const LOTS: LotDef[] = [
 // ---------------------------------------------------------------------------
 // Small helpers
 // ---------------------------------------------------------------------------
-/** Deterministic PRNG so every seed run produces the same plant. */
-function mulberry32(seed: number) {
-  let a = seed;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** Epoch ms of 00:00 Asia/Kolkata, `daysAgo` days before the IST day containing `now`. */
-function istMidnight(now: number, daysAgo: number) {
-  const istDayStart = Math.floor((now + IST_OFFSET_MS) / DAY_MS) * DAY_MS;
-  return istDayStart - daysAgo * DAY_MS - IST_OFFSET_MS;
-}
-
-function insertChunks<T extends SQLiteTable>(db: Db, table: T, rows: T["$inferInsert"][]): Statement[] {
-  if (rows.length === 0) return [];
-  const columns = Object.keys(getTableColumns(table)).length;
-  const perStatement = Math.max(1, Math.floor(MAX_PARAMS / columns));
-  const out: Statement[] = [];
-  for (let i = 0; i < rows.length; i += perStatement) {
-    out.push(db.insert(table).values(rows.slice(i, i + perStatement)) as unknown as Statement);
-  }
-  return out;
-}
-
-function devLocationId(code: string) {
-  return `dev-loc-${code}`;
-}
-
-function pick<T>(items: readonly T[], index: number, label: string): T {
-  const item = items[index];
-  if (item === undefined) throw new Error(`dev-seed: missing ${label} at ${index}`);
-  return item;
-}
-
 async function ensureUser(db: Db, key: DevAccountKey, password: string) {
   const { email, name } = DEV_ACCOUNTS[key];
   const existing = await db.query.user.findFirst({ where: (fields, { eq: equals }) => equals(fields.email, email) });
@@ -380,21 +353,6 @@ async function ensureUser(db: Db, key: DevAccountKey, password: string) {
 // ---------------------------------------------------------------------------
 // Seed
 // ---------------------------------------------------------------------------
-type SeedBundle = {
-  id: string;
-  sessionIdx: number;
-  serial: string;
-  dieKey: string;
-  quantity: number;
-  weightG: number;
-  createdAt: number;
-  status: BundleStatus;
-  currentDispatchId: string | null;
-  serverSeq: number;
-  /** Chronological status history after receipt. */
-  events: { from: BundleStatus; to: BundleStatus; reason: string; at: number; dispatchId: string | null }[];
-};
-
 export type SeedResult =
   | {
       ok: true;
@@ -408,27 +366,27 @@ export type SeedResult =
     }
   | { ok: false; status: 500; message: string };
 
-export async function seedDevData(db: Db, opts: { password: string }): Promise<SeedResult> {
-  const now = Date.now();
+/**
+ * `now` is for tests only: the seed builds every time from it (the production day, days back), so a test can seed
+ * at any hour, across a month or a financial year. The route never passes it.
+ */
+export async function seedDevData(db: Db, opts: { password: string; now?: number }): Promise<SeedResult> {
+  const now = opts.now ?? Date.now();
   const password = opts.password;
   if (!password) throw new Error("dev-seed: refusing to run without ORRN_LOCAL_PASSWORD");
 
-  // 1. Users go through Better Auth so password hashes are real.
-  const users = {
-    owner: await ensureUser(db, "owner", password),
-    operator: await ensureUser(db, "operator", password),
-    viewer: await ensureUser(db, "viewer", password),
-    office: await ensureUser(db, "office", password),
-    supervisor: await ensureUser(db, "supervisor", password),
-    press: await ensureUser(db, "press", password),
-    dieroom: await ensureUser(db, "dieroom", password),
-    staff: await ensureUser(db, "staff", password),
-  };
-  // The party login (portal) is made by dev-seed-portal.ts, outside Better Auth; it is never a member.
+  // 1. Users go through Better Auth so password hashes are real. Every plant role has a login
+  //    (DEV_MEMBER_ROLES), plus the platform staff account; the party login is made below by the
+  //    portal seed, outside Better Auth, and is never a member.
+  const memberKeys = Object.keys(DEV_MEMBER_ROLES) as DevMemberKey[];
+  const users = {} as Record<DevMemberKey | "staff", { id: string; created: boolean }>;
+  for (const key of [...memberKeys, "staff" as const]) users[key] = await ensureUser(db, key, password);
   const createdUsers = (Object.keys(users) as (keyof typeof users)[]).filter((key) => users[key].created) as DevAccountKey[];
   const ownerId = users.owner.id;
   const operatorId = users.operator.id;
   const officeId = users.office.id;
+  // KD's portal login placed SO-4; it must exist before the order book is built.
+  const partyUserId = await ensurePartyUser(db, DEV_ACCOUNTS.party, password);
 
   // A user can belong to one company only; never silently move someone out of another tenant.
   const elsewhere = await db
@@ -436,7 +394,10 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     .from(membership)
     .where(
       and(
-        inArray(membership.userId, [ownerId, operatorId, users.viewer.id, officeId, users.supervisor.id, users.press.id, users.dieroom.id]),
+        inArray(
+          membership.userId,
+          memberKeys.map((key) => users[key].id),
+        ),
         ne(membership.companyId, COMPANY_ID),
       ),
     );
@@ -451,12 +412,14 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
   let seq = 0;
   const nextSeq = () => ++seq;
 
-  const todayStart = istMidnight(now, 0);
-  // "Today" work happens between 06:00 IST and now (or from midnight when seeding before 07:00).
-  const todayWindowStart = now - todayStart > 7 * HOUR_MS ? todayStart + 6 * HOUR_MS : todayStart;
+  // One clock for the whole seed: calendar days back (`pastAt`) and the CURRENT PRODUCTION DAY
+  // (`todayAt`, 08:00 to 08:00 for the demo shifts), so "today" data is always inside the window the
+  // dashboard, pack and the press report read, whatever the hour the seed runs at (7f172a70).
+  const clock = seedClock(now, DEMO_SETTINGS);
+  const todayAt = clock.dayAt;
+  const pastAt = clock.pastAt;
+  const todayWindowStart = clock.day.startMs;
   const elapsedToday = Math.max(now - todayWindowStart, 1000);
-  const todayAt = (fraction: number) => todayWindowStart + Math.floor(elapsedToday * fraction);
-  const pastAt = (daysAgo: number, hour: number) => istMidnight(now, daysAgo) + Math.round(hour * HOUR_MS);
 
   const dieIds = new Map<string, string>();
   for (const def of DIES) dieIds.set(def.key, `dev-die-${def.code}`);
@@ -499,6 +462,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       serverSeq: groupSeq,
       code: groupCode,
       dieId: dieId(session.dieKey),
+      dieInstanceId: `dev-copy-${SESSION_COPY[sessionIdx]}`,
       unit: "pcs",
       purchaseOrderRef: null,
       notes: session.note,
@@ -570,11 +534,23 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     weightMinG: Math.round(def.minKg * 1000),
     weightMaxG: Math.round(def.maxKg * 1000),
     status: "active" as const,
+    ...sectionExtras(def.code),
     createdAt: new Date(pastAt(10, 10)),
     updatedAt: new Date(pastAt(10, 10)),
   }));
 
   // Dispatches.
+  type DispatchHeader = {
+    vehicleNo: string;
+    driverName: string;
+    driverPhone: string;
+    transporter: string | null;
+    transporterId?: string;
+    transporterName?: string;
+    vehicleCapacityG?: number;
+    invoiceNumber?: string;
+    invoiceDate?: string;
+  };
   type DispatchPlan = {
     id: string;
     code: string;
@@ -587,6 +563,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     notes: string;
     members: SeedBundle[];
     labelled: boolean;
+    /** Vehicle, driver, transporter and the Tally invoice the office linked (the gate and the office fill these). */
+    header?: DispatchHeader;
   };
   const dispatches: DispatchPlan[] = [];
 
@@ -619,6 +597,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     notes: "Held for tomorrow morning loading. Gate pass to be raised.",
     members: [...bundlesOf(4, 0, 5), ...bundlesOf(2, 8, 13)],
     labelled: true,
+    header: { vehicleNo: "GJ03BV5530", driverName: "Dinesh Solanki", driverPhone: "9825033333", transporter: null },
   };
   dispatches.push(held);
 
@@ -637,6 +616,18 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     notes: "Vehicle GJ-01 BT 4471. LR handed to driver.",
     members: [...bundlesOf(0, 0, 12), ...bundlesOf(1, 0, 8)],
     labelled: true,
+    // FP-PK-12: the first truck went with the transporter master and a 9 t capacity; the office linked Tally invoice 271 (SO-7).
+    header: {
+      vehicleNo: "GJ05AB1234",
+      driverName: "Ramesh Patel",
+      driverPhone: "9825011111",
+      transporter: "Shree Logistics",
+      transporterId: "dev-transporter-1",
+      transporterName: "Shree Logistics",
+      vehicleCapacityG: 9_000_000,
+      invoiceNumber: "271/26-27",
+      invoiceDate: istDay(now, 4),
+    },
   };
   dispatches.push(c1);
 
@@ -655,8 +646,42 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     notes: "Vehicle GJ-03 AX 8120. Mixed tee and channel.",
     members: [...bundlesOf(2, 0, 8), ...bundlesOf(3, 0, 8)],
     labelled: true,
+    // Opened from SO-8 (its baki on the scan screen); a 12 t truck, invoice not linked yet.
+    header: {
+      vehicleNo: "GJ05CK7781",
+      driverName: "Suresh Yadav",
+      driverPhone: "9898022222",
+      transporter: "Balaji Roadways",
+      transporterId: "dev-transporter-2",
+      transporterName: "Balaji Roadways",
+      vehicleCapacityG: 12_000_000,
+    },
   };
   dispatches.push(c2);
+
+  // Two Tejura trucks for SO-5 (patti 1½"), the same afternoon: their packing lists are combined into one.
+  const truck = (n: 3 | 4, members: SeedBundle[], completedHour: number, vehicleNo: string, driverName: string, driverPhone: string, invoiceNumber: string): DispatchPlan => {
+    const seqA = nextSeq();
+    nextSeq(); // reserve step
+    const seqDone = nextSeq();
+    return {
+      id: `dev-dispatch-done-${n}`,
+      code: formatDispatchCode(seqA),
+      seq: seqDone,
+      customerKey: "tejura",
+      status: "completed",
+      createdAt: pastAt(2, completedHour - 2),
+      completedAt: pastAt(2, completedHour),
+      shipDate: pastAt(2, completedHour),
+      notes: `Truck ${n - 2} of 2 for SO-5. Collected from the gate.`,
+      members,
+      labelled: true,
+      header: { vehicleNo, driverName, driverPhone, transporter: null, invoiceNumber, invoiceDate: istDay(now, 2) },
+    };
+  };
+  const c3 = truck(3, bundlesOf(4, 5, 8), 12.5, "GJ03BV5520", "Karsan Bhai", "9879044444", "268/26-27");
+  const c4 = truck(4, bundlesOf(4, 8, 11), 15.25, "GJ03BV5521", "Mahesh Parmar", "9879055555", "269/26-27");
+  dispatches.push(c3, c4);
 
   // Apply dispatch state to bundles, with one status event per transition.
   const reserveAt = (plan: DispatchPlan, offsetMin: number) => plan.createdAt + offsetMin * 60_000;
@@ -666,7 +691,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     member.serverSeq = heldReserveSeq;
     member.events.push({ from: "available", to: "reserved", reason: "dispatch.reserve", at: reserveAt(held, 30), dispatchId: held.id });
   }
-  for (const plan of [c1, c2]) {
+  for (const plan of [c1, c2, c3, c4]) {
     for (const member of plan.members) {
       member.status = "dispatched";
       member.currentDispatchId = plan.id;
@@ -697,6 +722,30 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     });
   }
 
+  // Demo order book (FP-OP, BACKLOG 38): seven orders in every state, built from the bundles above.
+  const copyIdOf = (code: string) => `dev-copy-${code}`;
+  const orderSeed = demoOrderSeed({
+    companyId: COMPANY_ID,
+    now,
+    clock,
+    ownerId,
+    officeId,
+    managerId: users.manager.id,
+    partyUserId,
+    nextSeq,
+    customerId,
+    die: (key) => ({ id: dieId(key), weightMinG: Math.round(dieDef(key).minKg * 1000) }),
+    copyId: copyIdOf,
+    sessionBundles,
+    dispatches: dispatches.map((plan) => ({
+      id: plan.id,
+      customerKey: plan.customerKey,
+      status: plan.status,
+      completedAt: plan.completedAt,
+      members: plan.members,
+    })),
+  });
+
   // 3. Write everything. Reset first so reseeding is idempotent.
   const dispatchRows: (typeof dispatch.$inferInsert)[] = dispatches.map((plan) => ({
     id: plan.id,
@@ -707,6 +756,16 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     status: plan.status,
     shipDate: plan.shipDate === null ? null : new Date(plan.shipDate),
     notes: plan.notes,
+    vehicleNo: plan.header?.vehicleNo ?? null,
+    driverName: plan.header?.driverName ?? null,
+    driverPhone: plan.header?.driverPhone ?? null,
+    transporter: plan.header?.transporter ?? null,
+    transporterId: plan.header?.transporterId ?? null,
+    transporterName: plan.header?.transporterName ?? null,
+    vehicleCapacityG: plan.header?.vehicleCapacityG ?? null,
+    invoiceNumber: plan.header?.invoiceNumber ?? null,
+    invoiceDate: plan.header?.invoiceDate ?? null,
+    salesOrderId: orderSeed.dispatchOrders.get(plan.id) ?? null,
     createdBy: operatorId,
     completedBy: plan.completedAt === null ? null : ownerId,
     completedAt: plan.completedAt === null ? null : new Date(plan.completedAt),
@@ -729,6 +788,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         dispatchId: plan.id,
         bundleId: member.id,
         groupLabel,
+        salesOrderLineId: orderSeed.itemLines.get(`${plan.id}|${member.id}`) ?? null,
         addedAt: new Date(plan.createdAt + (index + 1) * 20_000),
       });
     });
@@ -758,6 +818,11 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       locationId: yardIds[Math.floor(yardRand() * yardIds.length)]!,
       kgPer12ftMilli: kgPer12ftMilli({ weightG: member.weightG, quantity: member.quantity, lengthMm: LENGTH_12FT_MM }),
       numberStyle: "legacy",
+      // The copy the run was pressed on, and the cast: sessions 5-7 from dev-press-cast-1 (billets still on hand), 2-4 from cast 2;
+      // the two oldest sessions (KD's first truck) predate cast numbers on the bundle: the certificate says so.
+      dieInstanceId: copyIdOf(SESSION_COPY[member.sessionIdx]!),
+      castId: member.sessionIdx >= 5 ? "dev-press-cast-1" : member.sessionIdx >= 2 ? "dev-press-cast-2" : null,
+      ...orderSeed.bundlePatches.get(member.id),
       createdBy: operatorId,
       createdAt: new Date(member.createdAt),
       updatedAt: new Date(lastAt),
@@ -788,22 +853,32 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     });
   }
 
-  // Demo sales orders (W1-OP-S, FP-OP): three orders in different states, one late; a few in-stock
-  // bundles are packed for SO-1 line 1.
-  const orderSeed = demoOrderSeed({
+  // CNT-1 (PL-10): yards Y1 and Y2 counted two days ago, closed with a variance; and the printing set-up
+  // with two labels waiting for the newest bundles.
+  const locationOfBundle = new Map(bundleRows.map((r) => [r.id!, r.locationId ?? null]));
+  const dieOfBundle = new Map(bundleRows.map((r) => [r.id!, r.dieId]));
+  const countSeed = buildCount({
     companyId: COMPANY_ID,
-    now,
-    ownerId,
-    officeId,
-    customers: customerRows,
-    dies: dieRows,
-    bundles: bundleRows,
+    clock,
+    countedBy: users.packer.id,
+    closedBy: users.supervisor.id,
     nextSeq,
+    bundles,
+    yardOf: (id) => locationOfBundle.get(id) ?? null,
+    dieOf: (id) => dieOfBundle.get(id)!,
+    excluded: new Set([...orderSeed.ids.pendingBundleIds, ...orderSeed.ids.heldBundleIds]),
   });
-  for (const row of bundleRows) {
-    const lineId = row.id ? orderSeed.bundleLines.get(row.id) : undefined;
-    if (lineId) row.salesOrderLineId = lineId;
-  }
+  const newest = pick(sessionBundles, 7, "session"); // the second packing run of today
+  const printing = buildPrinting({
+    companyId: COMPANY_ID,
+    clock,
+    requestedBy: users.packer.id,
+    nextSeq,
+    waiting: newest.slice(-2),
+  });
+
+  // The store (PL-W6): five items with a GRN each and three issues.
+  const storeSeed = buildStore({ companyId: COMPANY_ID, clock, storekeeperId: users.storekeeper.id, nextSeq });
 
   // Scrap purchase: masters, vendors, lots, the approved D/C note and the OK lots' scrap postings.
   const grams = (kgValue: number) => Math.round(kgValue * 1000);
@@ -1062,6 +1137,22 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       createdBy: ownerId,
     })),
   );
+  // The rest of the die room: the other sections' copies, bands, nitriding, makers and the
+  // proposals waiting for a manager (dev-seed-dies.ts).
+  const dieExtras = buildDieExtras({
+    companyId: COMPANY_ID,
+    clock,
+    ownerId,
+    dieroomId: users.dieroom.id,
+    nextSeq,
+    section: (key) => ({ id: dieId(key), weightMinG: Math.round(dieDef(key).minKg * 1000), weightMaxG: Math.round(dieDef(key).maxKg * 1000) }),
+    copyId: devCopyId,
+    customerId,
+  });
+  dieBandRows.push(...dieExtras.bands);
+  copyRows.push(...dieExtras.copies);
+  copyTierRows.push(...dieExtras.tierChanges);
+  readingRows.push(...dieExtras.readings);
   const pressRunPeriod = docPeriod("press_run", new Date(now), DEMO_SETTINGS.timezone);
   const pressRunRows: (typeof pressRun.$inferInsert)[] = [
     {
@@ -1167,21 +1258,34 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       closedBy: ownerId,
       createdBy: ownerId,
     },
+    // The cast the older packing sessions came from (no billets left on hand, no melt rows: the foundry
+    // lane is paused). It gives KD's and Royal's older bundles a cast number for labels and certificates.
+    {
+      id: "dev-press-cast-2",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number: formatCastCode(castMonth, 2),
+      period: castPeriod,
+      year: Number(castPeriod.slice(0, 4)),
+      month: castMonth,
+      seq: 2,
+      alloy: "6063",
+      alloyId: "dev-alloy-6063",
+      status: "closed",
+      notes: "Billets all pressed (paper sheet)",
+      openedAt: new Date(pastAt(11, 8)),
+      closedAt: new Date(pastAt(3, 18)),
+      closedBy: ownerId,
+      createdBy: ownerId,
+    },
   ];
   const castSeriesRows: (typeof docSeries.$inferInsert)[] = [
-    { id: `dev-press-series-cast-${castPeriod}`, companyId: COMPANY_ID, docType: "cast", period: castPeriod, value: 1, createdBy: ownerId },
+    { id: `dev-press-series-cast-${castPeriod}`, companyId: COMPANY_ID, docType: "cast", period: castPeriod, value: castRows.length, createdBy: ownerId },
   ];
   const billetOpeningG = 2_400_000;
-  // PR-8 counts on Today's "pressed today", which reads the CURRENT production day (it starts at
-  // shift 1, 08:00 here). todayAt() starts at 06:00 IST, so between 08:00 and ~19:20 IST a run at
-  // todayAt(0.15) fell into the night shift of the day before. Place the run inside the current
-  // production day instead.
-  const pressDayStartMs = (() => {
-    const start = istMidnight(now, 0) + productionDayStartMin(DEMO_SETTINGS.shifts) * 60 * 1000;
-    return start > now ? start - DAY_MS : start;
-  })();
-  const pressDayElapsed = Math.max(now - pressDayStartMs, 1000);
-  const pressDayAt = (fraction: number) => pressDayStartMs + Math.floor(pressDayElapsed * fraction);
+  // PR-8 counts on Today's "pressed today", which reads the CURRENT production day: its run and
+  // downtime sit inside it (7f172a70).
+  const pressDayAt = clock.dayAt;
   const loggedStart = pressDayAt(0.15);
   const loggedStop = pressDayAt(0.45);
   const loggedAt = pressDayAt(0.5);
@@ -1345,8 +1449,43 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
   const trialPlanDieRows: (typeof pressPlanDie.$inferInsert)[] = [
     { id: "dev-plan-trial-1-die-1", companyId: COMPANY_ID, serverSeq: nextSeq(), pressPlanId: "dev-plan-trial-1", sectionId: dieId("patti1"), sortOrder: 1, createdBy: ownerId },
   ];
+  // Today's board (dev-seed-press.ts): two released production plans on order lines, a run on Press 2
+  // right now, two more logged runs (rejects, a long stop) and queued runs behind them.
+  const pressExtras = buildPressExtras({
+    companyId: COMPANY_ID,
+    clock,
+    settings: DEMO_SETTINGS,
+    runPeriod: pressRunPeriod,
+    planPeriod: pressPlanPeriod,
+    firstRunNo: pressRunRows.length + 1,
+    firstPlanNo: trialPlanRows.length + 1,
+    ownerId,
+    supervisorId: users.supervisor.id,
+    pressUserId: users.press.id,
+    operatorId,
+    nextSeq,
+    sectionId: dieId,
+    copyId: devCopyId,
+    orderLine: (order, no) => {
+      const row = orderSeed.lines.find((l) => l.id === `dev-sol-${order}-${no}`);
+      if (!row) throw new Error(`dev-seed: no order line ${order}/${no}`);
+      return row;
+    },
+  });
+  for (const run of pressRunRows) {
+    const joined = pressExtras.attach.get(run.id!);
+    if (joined) Object.assign(run, joined);
+  }
+  pressRunRows.push(...pressExtras.runs);
+  dieIssueRows.push(...pressExtras.issues);
+  pressRunLineRows.push(...pressExtras.runLines);
+  pressBilletRows.push(...pressExtras.billets);
+  qcRows.push(...pressExtras.qc);
+  downtimeRows.push(...pressExtras.downtimes);
+  readingRows.push(...pressExtras.readings);
+  approvalRows.push(...orderSeed.approvals, ...dieExtras.approvals);
   const pressPlanSeriesRows: (typeof docSeries.$inferInsert)[] = [
-    { id: `dev-series-press_plan-${pressPlanPeriod}`, companyId: COMPANY_ID, docType: "press_plan", period: pressPlanPeriod, value: trialPlanRows.length, createdBy: ownerId },
+    { id: `dev-series-press_plan-${pressPlanPeriod}`, companyId: COMPANY_ID, docType: "press_plan", period: pressPlanPeriod, value: trialPlanRows.length + pressExtras.plans.length, createdBy: ownerId },
   ];
   // Foundry masters (FP-FD-01/09; Q-FD-1, Q-FD-8): F1 6 t 127 mm; 6063 and 6061 with the spec's limits.
   const furnaceRows: (typeof furnace.$inferInsert)[] = [
@@ -1429,6 +1568,11 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     db.delete(pressPlan).where(eq(pressPlan.companyId, COMPANY_ID)),
     db.delete(pressLine).where(eq(pressLine.companyId, COMPANY_ID)),
     db.delete(reasonCode).where(eq(reasonCode.companyId, COMPANY_ID)),
+    // Printing: jobs hold keys to profiles and templates (RESTRICT); the edge node goes with them.
+    db.delete(printLog).where(eq(printLog.companyId, COMPANY_ID)),
+    db.delete(printerProfile).where(eq(printerProfile.companyId, COMPANY_ID)),
+    db.delete(labelTemplate).where(eq(labelTemplate.companyId, COMPANY_ID)),
+    db.delete(edgeNodeDeployment).where(eq(edgeNodeDeployment.companyId, COMPANY_ID)),
     db.delete(bundleTransfer).where(eq(bundleTransfer.companyId, COMPANY_ID)),
     db.delete(packReject).where(eq(packReject.companyId, COMPANY_ID)),
     db.delete(dispatchItem).where(eq(dispatchItem.companyId, COMPANY_ID)),
@@ -1513,15 +1657,14 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         },
       }),
     db.delete(membership).where(eq(membership.companyId, COMPANY_ID)),
-    db.insert(membership).values([
-      { id: "dev-membership-owner", userId: ownerId, companyId: COMPANY_ID, role: "owner" as const },
-      { id: "dev-membership-operator", userId: operatorId, companyId: COMPANY_ID, role: "operator" as const },
-      { id: "dev-membership-viewer", userId: users.viewer.id, companyId: COMPANY_ID, role: "viewer" as const },
-      { id: "dev-membership-office", userId: officeId, companyId: COMPANY_ID, role: "office" as const },
-      { id: "dev-membership-supervisor", userId: users.supervisor.id, companyId: COMPANY_ID, role: "supervisor" as const },
-      { id: "dev-membership-press", userId: users.press.id, companyId: COMPANY_ID, role: "press" as const },
-      { id: "dev-membership-dieroom", userId: users.dieroom.id, companyId: COMPANY_ID, role: "die_room" as const },
-    ]),
+    db.insert(membership).values(
+      memberKeys.map((key) => ({
+        id: `dev-membership-${key}`,
+        userId: users[key].id,
+        companyId: COMPANY_ID,
+        role: DEV_MEMBER_ROLES[key],
+      })),
+    ),
     db
       .insert(platformAdmin)
       .values({ userId: users.staff.id, role: "super_admin" as const, createdBy: users.staff.id })
@@ -1532,12 +1675,33 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       .onConflictDoUpdate({ target: companySequence.companyId, set: { value: sequenceAfterData } }),
     ...insertChunks(db, customer, customerRows),
     ...insertChunks(db, die, dieRows),
+    // Die room demo: sections, makers, bands and copies, then readings (order lines pin copies and readings).
+    db.update(die).set({ ownerCustomerId: ownedBy }).where(and(eq(die.id, ownedSectionId), eq(die.companyId, COMPANY_ID))),
+    ...insertChunks(db, dieBand, dieBandRows),
+    ...insertChunks(db, dieMaker, dieExtras.makers),
+    ...insertChunks(db, dieInstance, copyRows),
+    ...insertChunks(db, dieMakerJob, dieExtras.makerJobs),
+    ...insertChunks(db, nitridingLog, dieExtras.nitriding),
+    ...insertChunks(db, dieTierChange, copyTierRows),
+    ...insertChunks(db, dieWeightReading, readingRows),
     ...insertChunks(db, salesOrder, orderSeed.orders),
     ...insertChunks(db, salesOrderLine, orderSeed.lines),
     ...defaultLocationStatements(db, COMPANY_ID, { userId: ownerId, idFor: devLocationId }),
     ...insertChunks(db, bundleGroup, groups),
     ...insertChunks(db, bundle, bundleRows),
     ...insertChunks(db, bundleStatusEvent, eventRows),
+    // Plant stock moves (append-only) and the stock count that closed two days ago.
+    ...insertChunks(db, bundleTransfer, orderSeed.transfers),
+    ...insertChunks(db, countSession, [countSeed.session]),
+    ...insertChunks(db, countLocation, countSeed.locations),
+    ...insertChunks(db, countSeen, countSeed.seen),
+    ...insertChunks(db, countLine, countSeed.lines),
+    ...insertChunks(db, countTally, countSeed.tally),
+    ...insertChunks(db, transporter, [
+      { id: "dev-transporter-1", companyId: COMPANY_ID, name: "Shree Logistics", phone: "+91 98250 70011", createdBy: ownerId },
+      { id: "dev-transporter-2", companyId: COMPANY_ID, name: "Balaji Roadways", phone: "+91 98240 60022", createdBy: ownerId },
+      { id: "dev-transporter-3", companyId: COMPANY_ID, name: "Maruti Freight Carriers", phone: null, active: false, createdBy: ownerId },
+    ]),
     ...insertChunks(db, dispatch, dispatchRows),
     ...insertChunks(db, dispatchItem, itemRows),
     ...insertChunks(db, scrapGrade, gradeRows),
@@ -1550,7 +1714,17 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     ...insertChunks(db, stockLedger, scrapLedgerRows),
     ...insertChunks(db, docSeries, purchaseSeriesRows),
     ...insertChunks(db, docSeries, orderSeed.series),
-    ...insertChunks(db, auditLog, orderSeed.audits),
+    ...insertChunks(db, auditLog, [...orderSeed.audits, ...dieExtras.audits, ...pressExtras.audits, ...countSeed.audits]),
+    ...insertChunks(db, docSeries, [...dieExtras.series, ...countSeed.series]),
+    // Printing: one template and printer, two labels waiting, a plant node that has not connected.
+    ...insertChunks(db, labelTemplate, [printing.template]),
+    ...insertChunks(db, printerProfile, [printing.profile]),
+    ...insertChunks(db, printLog, printing.jobs),
+    ...insertChunks(db, edgeNodeDeployment, [printing.node]),
+    ...insertChunks(db, storeItem, storeSeed.items),
+    ...insertChunks(db, storeTxn, storeSeed.txns),
+    ...insertChunks(db, stockLedger, storeSeed.ledger),
+    ...insertChunks(db, docSeries, storeSeed.series),
     // FP Wave 1 masters: one press (tonnage left for the plant), the demo transporter, every
     // default reason code.
     ...insertChunks(db, pressLine, [
@@ -1563,9 +1737,6 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     ...insertChunks(db, alloy, alloyRows),
     ...insertChunks(db, alloyLimit, alloyLimitRows),
     ...(defaultReturnStreamStatements(db as never, COMPANY_ID, { userId: ownerId, seq: 0 }) as Statement[]),
-    ...insertChunks(db, transporter, [
-      { id: "dev-transporter-1", companyId: COMPANY_ID, name: "Shree Logistics", createdBy: ownerId },
-    ]),
     ...insertChunks(
       db,
       reasonCode,
@@ -1576,16 +1747,12 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         createdBy: ownerId,
       })),
     ),
-    // Die room demo (after the sections and the press line it points at).
-    db.update(die).set({ ownerCustomerId: ownedBy }).where(and(eq(die.id, ownedSectionId), eq(die.companyId, COMPANY_ID))),
-    ...insertChunks(db, dieBand, dieBandRows),
-    ...insertChunks(db, dieInstance, copyRows),
-    ...insertChunks(db, dieTierChange, copyTierRows),
-    ...insertChunks(db, dieWeightReading, readingRows),
     ...insertChunks(db, cast, castRows),
     ...insertChunks(db, docSeries, castSeriesRows),
     // Plans before the runs that point at them (PP-2 holds the die trial runs).
-    ...insertChunks(db, pressPlan, trialPlanRows),
+    ...insertChunks(db, pressPlan, [...trialPlanRows, ...pressExtras.plans]),
+    ...insertChunks(db, pressPlanDie, [...trialPlanDieRows, ...pressExtras.planDies]),
+    ...insertChunks(db, pressPlanLine, pressExtras.planLines),
     ...insertChunks(db, pressRun, pressRunRows),
     ...insertChunks(db, docSeries, pressRunSeriesRows.map((r) => ({ ...r, value: pressRunRows.length }))),
     ...insertChunks(db, dieIssue, dieIssueRows),
@@ -1593,7 +1760,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     ...insertChunks(db, pressBilletUse, pressBilletRows),
     ...insertChunks(db, qcEntry, qcRows),
     ...insertChunks(db, pressDowntime, downtimeRows),
-    ...insertChunks(db, pressPlanDie, trialPlanDieRows),
+    ...insertChunks(db, pressRemark, pressExtras.pressRemarks),
+    ...insertChunks(db, dieRemark, pressExtras.dieRemarks),
     ...insertChunks(db, docSeries, pressPlanSeriesRows),
   ];
   await atomicBatch(db, statements);
@@ -1647,18 +1815,28 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       pressLedger(3, "return_stream", streamOf("PLANT-SCRAP"), "PLANT-SCRAP", 12_800, "PR-8 ends"),
       pressLedger(4, "return_stream", streamOf("PLANT-SCRAP"), "PLANT-SCRAP", 7_000, "PR-8 rejects"),
     ]),
+    // The other runs logged today (PR-11, PR-12): the same four rows each.
+    ...insertChunks(
+      db,
+      stockLedger,
+      pressExtras.loggedLedger.flatMap((run) =>
+        pressCloseLedger(run, { companyId: COMPANY_ID, ownerId, streamId: streamOf, location: devLocationId, castId: "dev-press-cast-1" }),
+      ),
+    ),
   ] as Statement[]);
 
   // 4. Packing lists for completed dispatches, built by the router's own writer so the
   //    snapshot shape matches production. Then backdate them to the completion time.
-  const demoHeaders = [
-    { vehicleNo: "GJ05AB1234", driverName: "Ramesh Patel", driverPhone: "9825011111", transporter: "Shree Logistics" },
-    { vehicleNo: "GJ05CK7781", driverName: "Suresh Yadav", driverPhone: "9898022222", transporter: null },
-  ];
-  for (const [i, plan] of [c1, c2].entries()) {
+  //    done-1 (KD): rev 1 and a rev 2 (branding off). done-2 (Royal, opened from SO-8): one list.
+  //    done-3 + done-4 (Tejura, SO-5): one list each, then folded into one combined list.
+  const completed = [c1, c2, c3, c4];
+  const sessionUser = { user: { id: ownerId } } as never;
+  const plByDispatch = new Map<string, { plId: string; plNumber: string; plAt: Date; row: typeof dispatch.$inferSelect }>();
+  for (const plan of completed) {
     const found = await db.query.dispatch.findFirst({ where: eq(dispatch.id, plan.id) });
     if (!found) throw new Error(`dev-seed: dispatch ${plan.id} missing after insert`);
-    // FP-PK-07: party numbers from the customer's own series, as pack allocates them.
+    // FP-PK-07: party numbers from the customer's own series, as pack allocates them (the dispatched
+    // bundles first, then the ones packed for the customer's open orders).
     const policy = PARTY_POLICIES[plan.customerKey];
     if (policy) {
       const members = [...plan.members].sort((a, b) => a.serial.localeCompare(b.serial, "en", { numeric: true }));
@@ -1675,6 +1853,24 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         db,
         members.map((m, k) => db.update(bundle).set({ partyNo: numbers[k]! }).where(eq(bundle.id, m.id))),
       );
+      const stocked = (orderSeed.partyBundles.find((p) => p.customerKey === plan.customerKey)?.bundles ?? []).sort((a, b) =>
+        a.serial.localeCompare(b.serial, "en", { numeric: true }),
+      );
+      if (stocked.length > 0) {
+        const more = await allocatePartyBundleNumbers(
+          db,
+          COMPANY_ID,
+          customerId(plan.customerKey),
+          policy,
+          new Date(Math.min(...stocked.map((m) => m.createdAt))),
+          stocked.length,
+          ownerId,
+        );
+        await atomicBatch(
+          db,
+          stocked.map((m, k) => db.update(bundle).set({ partyNo: more.numbers[k]! }).where(eq(bundle.id, m.id))),
+        );
+      }
       // D15: kd's monthly party number reads like a plant serial. Keep the real collision in the
       // demo: one plant-stock bundle whose plant number is kd's first party number, so a scan of
       // that code is `ambiguous` (never a silent pick of either bundle).
@@ -1682,7 +1878,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         const source = bundleRows.find((r) => r.status === "available" && !r.currentDispatchId);
         if (source) {
           const clashId = "dev-bundle-party-clash";
-          // The plant series must be past the party numbers (26J1..26J20): the first bundle packed in the
+          // The plant series must be past the party numbers (26J1..26J36): the first bundle packed in the
           // month would otherwise be given "26J1" and collide with the clash bundle, and every bundle after
           // it with a party number of the monthly customer. The demo plant is at about 4,000 a month.
           const clashPeriod = docPeriod("bundle", new Date(source.createdAt as Date), DEMO_SETTINGS.timezone);
@@ -1717,18 +1913,13 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     }
     // PL numbers come from the PL book series, as dispatch.complete assigns them (PL-8).
     const { number: plNumber } = await nextDocNumber(db, COMPANY_ID, "pl", new Date(plan.completedAt ?? now), ownerId);
-    const header = {
-      ...(demoHeaders[i] ?? demoHeaders[0]!),
-      // FP-PK-12: the first one went with the transporter master and a 9 t truck.
-      ...(i === 0 ? { transporterId: "dev-transporter-1", transporterName: "Shree Logistics", vehicleCapacityG: 9_000_000 } : {}),
-    };
-    await db.update(dispatch).set({ plNumber, ...header }).where(eq(dispatch.id, plan.id));
-    const dispatchRow = { ...found, plNumber, ...header };
+    await db.update(dispatch).set({ plNumber }).where(eq(dispatch.id, plan.id));
+    const dispatchRow = { ...found, plNumber };
     const { plId, statements: plStatements } = await packingListWriteBatch(db, {
       companyId: COMPANY_ID,
       dispatchRow,
       plNumber,
-      session: { user: { id: ownerId } } as never,
+      session: sessionUser,
     });
     await atomicBatch(db, plStatements);
 
@@ -1740,15 +1931,16 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
         .set({ createdAt: plAt, snapshot: { ...plRow.snapshot, generatedAt: plAt.toISOString() } })
         .where(eq(packingList.id, plId));
     }
+    plByDispatch.set(plan.id, { plId, plNumber, plAt, row: dispatchRow });
 
     // FP-PK-13: the first list was regenerated once (branding off): rev 2 under the same number,
     // rev 1 kept as sent.
-    if (i === 0) {
+    if (plan.id === c1.id) {
       const { plId: rev2Id, statements: rev2Statements } = await packingListWriteBatch(db, {
         companyId: COMPANY_ID,
         dispatchRow,
         plNumber,
-        session: { user: { id: ownerId } } as never,
+        session: sessionUser,
         revision: 2,
         supersedesId: plId,
         showBranding: false,
@@ -1764,6 +1956,41 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
           .set({ createdAt: rev2At, snapshot: { ...rev2Row.snapshot, generatedAt: rev2At.toISOString() } })
           .where(eq(packingList.id, rev2Id));
       }
+    }
+  }
+
+  // FP-PK-13: Tejura's two trucks (done-3, done-4) are folded into one combined list with a number of
+  // its own, exactly as packingList.combine writes it; each folded list keeps its number and points at it.
+  {
+    const first = plByDispatch.get(c3.id)!;
+    const second = plByDispatch.get(c4.id)!;
+    const combinedNumber = (await nextDocNumber(db, COMPANY_ID, "pl", new Date(c4.completedAt ?? now), ownerId)).number;
+    const combinedId = "dev-pl-combined-1";
+    const { statements: combineStatements } = await packingListWriteBatch(db, {
+      companyId: COMPANY_ID,
+      dispatchRow: first.row,
+      extraDispatches: [second.row],
+      plNumber: combinedNumber,
+      session: sessionUser,
+      plId: combinedId,
+      auditAction: "packingList.combine",
+      auditMeta: {
+        code: combinedNumber,
+        from: [first, second].map((p) => ({ id: p.plId, code: p.plNumber })),
+        dispatchIds: [c3.id, c4.id],
+      },
+    });
+    await atomicBatch(db, [
+      ...combineStatements,
+      db.update(packingList).set({ combinedIntoId: combinedId }).where(inArray(packingList.id, [first.plId, second.plId])),
+    ]);
+    const combinedAt = new Date(second.plAt.getTime() + 2 * 60_000);
+    const combinedRow = await db.query.packingList.findFirst({ where: eq(packingList.id, combinedId) });
+    if (combinedRow) {
+      await db
+        .update(packingList)
+        .set({ createdAt: combinedAt, snapshot: { ...combinedRow.snapshot, generatedAt: combinedAt.toISOString() } })
+        .where(eq(packingList.id, combinedId));
     }
   }
 
@@ -1783,7 +2010,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
   // 7. Customer portal (Wave 3): KD's party login, two granted sections, a portal booking, a certificate.
   await seedPortalRows(db, {
     companyId: COMPANY_ID,
-    party: DEV_ACCOUNTS.party,
+    partyUserId,
     password,
     officeId,
     now,
@@ -1797,31 +2024,43 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     status: 200,
     message: "Seeded Fourcubes demo company (reset and re-created)",
     companyId: COMPANY_ID,
-    accounts: {
-      owner: DEV_ACCOUNTS.owner.email,
-      operator: DEV_ACCOUNTS.operator.email,
-      viewer: DEV_ACCOUNTS.viewer.email,
-      office: DEV_ACCOUNTS.office.email,
-      supervisor: DEV_ACCOUNTS.supervisor.email,
-      press: DEV_ACCOUNTS.press.email,
-      dieroom: DEV_ACCOUNTS.dieroom.email,
-      staff: DEV_ACCOUNTS.staff.email,
-      party: DEV_ACCOUNTS.party.email,
-    },
+    accounts: Object.fromEntries(
+      (Object.keys(DEV_ACCOUNTS) as DevAccountKey[]).map((key) => [key, DEV_ACCOUNTS[key].email]),
+    ) as Record<DevAccountKey, string>,
     createdUsers,
     counts: {
+      users: memberKeys.length + 2,
+      members: memberKeys.length,
       customers: customerRows.length,
       dies: dieRows.length,
-      dieCopies: copyRows.length,
       dieBands: dieBandRows.length,
+      dieCopies: copyRows.length,
       dieReadings: readingRows.length,
+      dieTierChanges: copyTierRows.length,
       dieIssues: dieIssueRows.length,
+      dieMakers: dieExtras.makers.length,
+      dieMakerJobs: dieExtras.makerJobs.length,
+      nitridingLogs: dieExtras.nitriding.length,
+      salesOrders: orderSeed.orders.length,
+      salesOrderLines: orderSeed.lines.length,
+      bundleTransfers: orderSeed.transfers.length,
+      pressPlans: trialPlanRows.length + pressExtras.plans.length,
       pressRuns: pressRunRows.length,
+      casts: castRows.length,
       packingSessions: groups.length,
-      bundles: bundleRows.length,
+      // + the one plant-stock bundle whose number clashes with KD's first party number.
+      bundles: bundleRows.length + 1,
       dispatches: dispatchRows.length,
-      packingLists: 3,
+      // 6 rows: done-1 (rev 1, rev 2), done-2, done-3, done-4 and the combined list.
+      packingLists: 6,
+      transporters: 3,
+      storeItems: storeSeed.items.length,
+      storeEntries: storeSeed.txns.length,
       locations: DEFAULT_LOCATIONS.length,
+      countSessions: 1,
+      countSeen: countSeed.seen.length,
+      printJobs: printing.jobs.length,
+      approvals: approvalRows.length,
       vendors: vendorRows.length,
       vendorAliases: vendorAliasRows.length,
       scrapItems: scrapItemRows.length,
