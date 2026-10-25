@@ -101,8 +101,8 @@ export type TestCertificateChemistry = (typeof testCertificateChemistry)[number]
 /**
  * Party test certificate (FP-PF-04, C30): a frozen snapshot per completed dispatch. Number `TC/{FY}/n`
  * from `doc_series` type `cert`; a re-issue keeps the number and adds a revision (old rows kept).
- * The snapshot carries no rate, no party-vs-FC kg and no cast numbers (Q39 extended; see
- * routers/portal.ts). Not a tax document.
+ * The snapshot carries no rate and no party-vs-FC kg; it DOES cite cast numbers with per-cast
+ * chemistry (D28, C30: Q39's "no casts" applies to the customer PL only). Not a tax document.
  */
 export const testCertificate = sqliteTable(
   "test_certificate",
@@ -131,7 +131,8 @@ export const testCertificate = sqliteTable(
   },
   (table) => [
     uniqueIndex("test_certificate_company_number_revision_unique").on(table.companyId, table.number, table.revision),
-    index("test_certificate_company_dispatch_idx").on(table.companyId, table.dispatchId, table.revision),
+    // One row per (dispatch, revision): two concurrent first issues cannot both land (the loser hits CONFLICT).
+    uniqueIndex("test_certificate_company_dispatch_revision_unique").on(table.companyId, table.dispatchId, table.revision),
     index("test_certificate_company_customer_idx").on(table.companyId, table.customerId),
   ],
 );

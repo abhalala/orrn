@@ -16,6 +16,7 @@
  * the row `active` without creating a membership. Later sign-ins are email + password; no TOTP is
  * asked of a party (PF §9-2).
  */
+import { readFloorSettings } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -30,7 +31,7 @@ import { customerPortalSection, customerPortalUser, testCertificate } from "@orr
 import { openSalesOrderStatuses, salesOrder, salesOrderStatuses, type SalesOrderStatus } from "@orrn/db/schema/sales";
 import { company, invite, membership } from "@orrn/db/schema/tenant";
 
-import { actionProcedure, anyActionProcedure, companyProcedure, portalProcedure, router, t } from "../index";
+import { actionProcedure, anyActionProcedure, portalProcedure, router, t } from "../index";
 import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
@@ -42,6 +43,7 @@ import {
   assertSectionsVisible,
   listPortalAccess,
   portalNotFound,
+  stripCertificateForParty,
   stripForParty,
   visibleSections,
   type PortalAccess,
@@ -69,37 +71,43 @@ async function sha256Hex(value: string): Promise<string> {
 // Portal order input (C29): section, cut length, pieces OR kg. Never a copy, tier or rate.
 // ---------------------------------------------------------------------------
 
-/** Keys a party may never send; present = BAD_REQUEST (not silently dropped). */
-const RATE_KEYS = ["rate", "ratePaise", "ratePerKg", "price", "pricePaise"] as const;
-const PLANT_ONLY_KEYS = ["dieInstanceId", "copyId", "tierRank", "weightBasis", "kgPer12ftMilli", "customerId", "status", "source"] as const;
+/**
+ * The input is a closed list (`strictObject`): any other key is BAD_REQUEST, never silently dropped
+ * (§E7 "never a rate (BAD_REQUEST if sent)", PF §6). A rate-like key gets the rate message; anything
+ * else (copy, tier, basis, status, customer, alloy, finish, dates, ...) is the plant's to pick.
+ */
+export const PORTAL_RATE_REFUSAL = "The plant sets the rate. Send the order without a rate.";
+const RATE_LIKE_KEY = /rate|price|paise/i;
 
-const portalLineInput = z
-  .object({
+function unknownKeyError(where: string) {
+  return (iss: { code?: string; keys?: string[] }) => {
+    if (iss.code !== "unrecognized_keys") return undefined;
+    const keys = iss.keys ?? [];
+    if (keys.some((k) => RATE_LIKE_KEY.test(k))) return PORTAL_RATE_REFUSAL;
+    return `${where}: the plant picks this (${keys.join(", ")}). Leave it out.`;
+  };
+}
+
+const portalLineInput = z.strictObject(
+  {
     sectionId: id,
     cutLengthMm: z.number().int().min(1).max(30_000),
     pcs: z.number().int().min(1).max(10_000_000).optional(),
     kgG: z.number().int().min(1).max(1_000_000_000).optional(),
     note: text(500).optional(),
-  })
-  .passthrough();
+  },
+  { error: unknownKeyError("Line") },
+);
 
-const portalOrderInput = z
-  .object({
+const portalOrderInput = z.strictObject(
+  {
     poNumber: text(100).optional(),
     note: text(1000).optional(),
     lines: z.array(portalLineInput).min(1, "Add at least one line").max(MAX_PORTAL_LINES, `At most ${MAX_PORTAL_LINES} lines`),
     clientRequestId: z.string().trim().min(1).max(64).optional(),
-  })
-  .passthrough();
-
-function refuseForbiddenKeys(obj: Record<string, unknown>, where: string) {
-  for (const k of RATE_KEYS) {
-    if (k in obj) throw new TRPCError({ code: "BAD_REQUEST", message: "The plant sets the rate. Send the order without a rate." });
-  }
-  for (const k of PLANT_ONLY_KEYS) {
-    if (k in obj) throw new TRPCError({ code: "BAD_REQUEST", message: `${where}: the plant picks this (${k}). Leave it out.` });
-  }
-}
+  },
+  { error: unknownKeyError("Order") },
+);
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -107,7 +115,12 @@ function refuseForbiddenKeys(obj: Record<string, unknown>, where: string) {
 
 type PortalCtx = { db: Parameters<typeof visibleSections>[0]; portal: PortalAccess };
 
-/** A party's order header with totals (no rate, no copy, no tier). */
+/** Only a portal booking's notes are the party's own words; an office order's notes stay in the plant. */
+function partyAuthored(source: string | null | undefined) {
+  return source === "portal";
+}
+
+/** A party's order header with totals (no rate, no copy, no tier, no office note). */
 async function orderHeaders(ctx: PortalCtx, where: ReturnType<typeof and>, page: { limit: number; offset: number }) {
   const rows = await ctx.db
     .select({
@@ -135,6 +148,8 @@ async function orderHeaders(ctx: PortalCtx, where: ReturnType<typeof and>, page:
       const tt = totals.get(o.id);
       return {
         ...o,
+        // Office free text never reaches the party (it can carry rates or internal remarks).
+        note: partyAuthored(o.source) ? o.note : null,
         totals: {
           lines: tt?.lines ?? 0,
           orderedG: tt?.orderedG ?? 0,
@@ -248,7 +263,8 @@ const usersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const email = input.email.toLowerCase();
       const [co] = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)).limit(1);
-      if (!(co?.settings as Record<string, unknown> | undefined)?.portalEnabled) {
+      // Same reading as portalProcedure.
+      if (!readFloorSettings((co?.settings ?? {}) as Record<string, unknown>).portalEnabled) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Turn on the party portal in Settings first" });
       }
       const [cust] = await ctx.db
@@ -306,8 +322,9 @@ const usersRouter = router({
       const userId = ctx.session.user.id;
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const statements: SqliteBatchItem[] = [];
-      // Revoked login that has its account: straight back to active (state machine Revoked -> Active).
-      if (row && row.status === "revoked" && row.userId) {
+      // Revoked login that has its account, for the SAME party: straight back to active (Revoked ->
+      // Active, D28). A login moving to a different party always takes a fresh invite.
+      if (row && row.status === "revoked" && row.userId && row.customerId === input.customerId) {
         statements.push(
           ctx.db
             .update(customerPortalUser)
@@ -359,6 +376,8 @@ const usersRouter = router({
             .set({
               status: "invited",
               customerId: input.customerId,
+              // Another party now: the old account link and acceptance go; the invite decides who signs in.
+              ...(row.customerId !== input.customerId ? { userId: null, acceptedAt: null } : {}),
               inviteId,
               invitedAt: at,
               invitedBy: userId,
@@ -408,7 +427,8 @@ const usersRouter = router({
       try {
         await sendEmail({
           to: email,
-          subject: `${cust.name}: your ORRN party login`,
+          // No party name in the subject: a run without an email provider logs the subject.
+          subject: "Your ORRN party login",
           html: renderOrrnEmailHtml({
             title: "Party portal invitation",
             description: `You can now see your dies, orders and dispatches for ${cust.name}. Open the link to set your password and sign in.`,
@@ -657,7 +677,7 @@ const certificatesRouter = router({
     }),
 
   /** Latest certificate of a dispatch for the staff screen (null when none yet). */
-  forDispatch: companyProcedure.input(z.object({ dispatchId: id })).query(async ({ ctx, input }) => {
+  forDispatch: anyActionProcedure("portal.manage", "dispatch.complete").input(z.object({ dispatchId: id })).query(async ({ ctx, input }) => {
     const row = await latestCertificate(ctx.db, ctx.companyId, input.dispatchId);
     return row
       ? { id: row.id, number: row.number, revision: row.revision, chemistry: row.chemistry, createdAt: row.createdAt, snapshot: row.snapshot }
@@ -740,7 +760,7 @@ export const portalRouter = router({
           sectionName: l.sectionName,
           cutLengthMm: l.cutLengthMm,
           finish: l.finish,
-          note: l.note,
+          note: partyAuthored(order.source) ? l.note : null,
           orderedG: l.orderedG,
           orderedPcs: l.orderedPcs,
           dispatchedG: l.dispatchedG,
@@ -758,8 +778,6 @@ export const portalRouter = router({
      * shapes a party's order). The office confirms (`orders.confirm`) or rejects (`orders.cancel`).
      */
     create: portalProcedure.input(portalOrderInput).mutation(async ({ ctx, input }) => {
-      refuseForbiddenKeys(input as Record<string, unknown>, "Order");
-      input.lines.forEach((l, i) => refuseForbiddenKeys(l as Record<string, unknown>, `Line ${i + 1}`));
       await assertModule({ db: ctx.db, companyId: ctx.portal.companyId }, "orders");
       await assertSectionsVisible(ctx.db, ctx.portal, input.lines.map((l) => l.sectionId));
       const lines = input.lines.map((l, i) => {
@@ -882,7 +900,10 @@ export const portalRouter = router({
   }),
 
   packingList: router({
-    /** The current packing list snapshot of this party's completed dispatch; no cast numbers (Q39), no author id. */
+    /**
+     * The current packing list snapshot of this party's completed dispatch: no cast numbers (Q39), no
+     * author id, no rate, no office notes or internal grouping ids.
+     */
     get: portalProcedure.input(z.object({ dispatchId: id })).query(async ({ ctx, input }) => {
       const d = await partyDispatch(ctx, input.dispatchId);
       const pl = await currentPackingList(ctx.db, ctx.portal.companyId, d);
@@ -909,7 +930,8 @@ export const portalRouter = router({
         revision: cert.revision,
         chemistry: cert.chemistry,
         createdAt: cert.createdAt,
-        snapshot: stripForParty(cert.snapshot) as Record<string, unknown>,
+        // Casts and per-cast chemistry stay (D28); only the author id and rate-like keys go.
+        snapshot: stripCertificateForParty(cert.snapshot) as Record<string, unknown>,
       };
     }),
   }),

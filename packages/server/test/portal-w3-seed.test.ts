@@ -1,6 +1,6 @@
 /**
  * W3-PORTAL-S dev seed: KD Extrusion's party login (party@orrn.local) is active, sees its two granted
- * sections plus the 12230 it owns, has the portal booking SO-4 and a certificate (chemistry pending)
+ * sections plus the 12230 it owns, has the portal booking SO-4 and a certificate (chemistry pending, casts cited)
  * on its completed dispatch, and never Royal Aluminium's dispatch. Running the seed twice gives the
  * same rows.
  */
@@ -77,7 +77,12 @@ test("dev seed: KD's party login, two grants + owned 12230, SO-4 booking, a pend
   expect(dispatches.items.map((d) => d.id)).toEqual(["dev-dispatch-done-1"]);
   expect(dispatches.items[0]).toMatchObject({ hasPackingList: true, hasCertificate: true });
   const cert = await api.portal.certificate.get({ dispatchId: "dev-dispatch-done-1" });
-  expect(JSON.stringify(cert)).not.toMatch(/cast/i);
+  // D28: the certificate lists the casts behind the bundles (pending until the foundry tests them).
+  const certSnap = cert.snapshot as { casts: { castNo: string; status: string }[]; chemistry: { status: string } };
+  expect(Array.isArray(certSnap.casts)).toBe(true);
+  expect(certSnap.chemistry.status).toBe("pending");
+  for (const c of certSnap.casts) expect(c.status).toBe("pending");
+  expect(JSON.stringify(cert)).not.toMatch(/generatedBy|rate|paise/i);
   expect((await api.portal.orders.list()).items.map((o) => o.number)).toContain("SO-4");
   const office = env.caller({ role: "office", companyId });
   expect((await office.portal.users.list()).map((u) => u.email)).toEqual(["party@orrn.local"]);

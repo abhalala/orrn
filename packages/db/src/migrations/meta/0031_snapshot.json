@@ -9272,14 +9272,14 @@
           ],
           "isUnique": true
         },
-        "test_certificate_company_dispatch_idx": {
-          "name": "test_certificate_company_dispatch_idx",
+        "test_certificate_company_dispatch_revision_unique": {
+          "name": "test_certificate_company_dispatch_revision_unique",
           "columns": [
             "company_id",
             "dispatch_id",
             "revision"
           ],
-          "isUnique": false
+          "isUnique": true
         },
         "test_certificate_company_customer_idx": {
           "name": "test_certificate_company_customer_idx",
