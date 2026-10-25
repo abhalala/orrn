@@ -9,7 +9,7 @@ import { UiLink } from "@orrn/ui/components/link";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
@@ -58,6 +58,7 @@ export function CollectorsCard() {
   const open = useQuery({ ...trpc.press.collector.openAlertCount.queryOptions(), meta: INLINE_ERROR_META });
   const inbox = useQuery({ ...trpc.foundry.spectroInbox.list.queryOptions(), meta: INLINE_ERROR_META });
   const [lineId, setLineId] = useState<string>("");
+  const lineFieldId = `collectors-line-${useId().replace(/:/g, "")}`;
 
   const saved = (metric: CollectorMetric, forLine: string): Threshold | undefined =>
     thresholds.data?.find((r) => r.metric === metric && (forLine ? r.pressLineId === forLine : r.pressLineId === null));
@@ -97,8 +98,8 @@ export function CollectorsCard() {
           {(lines.data ?? []).length === 0 ? (
             <Note>{t("devices.collectors.noLines")}</Note>
           ) : null}
-          <Field label={t("devices.collectors.line")} hint={lineId === "" ? t("devices.collectors.allLinesHint") : undefined}>
-            <NativeSelect value={lineId} onChange={(e) => setLineId(e.currentTarget.value)} data-testid="collectors-line">
+          <Field label={t("devices.collectors.line")} id={lineFieldId} hint={lineId === "" ? t("devices.collectors.allLinesHint") : undefined}>
+            <NativeSelect id={lineFieldId} value={lineId} onChange={(e) => setLineId(e.currentTarget.value)} data-testid="collectors-line">
               <option value="">{t("devices.collectors.allLines")}</option>
               {(lines.data ?? []).map((l) => (
                 <option key={l.id} value={l.id}>
