@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { bpPercent1 } from "@orrn/domain";
+import { createI18n } from "@orrn/i18n";
 
 import {
   applyPadKey,
@@ -18,12 +19,12 @@ import {
   parseHardness,
   parseKgToMilli,
   pctTenthText,
-  refusalText,
   runsForSection,
   statusTone,
   toneToChip,
   type PadKey,
 } from "../features/dies/copy-model";
+import { dieErrorText } from "../features/dies/errors";
 
 const keys = (seq: string[]) => seq.reduce((text, k) => applyPadKey(text, k as PadKey), "");
 
@@ -186,24 +187,26 @@ describe("scanning a copy label (scan a copy code opens its card)", () => {
   });
 });
 
-describe("refusal wording", () => {
-  const fb = { forbidden: "no", generic: "oops", network: "offline" };
-  const err = (code: string | undefined, message: string) => ({ data: code ? { code } : undefined, message });
+describe("refusal wording (BACKLOG 29: never the server's English)", () => {
+  const en = createI18n("en").t;
+  const hi = createI18n("hi").t;
+  const err = (code: string | undefined, message: string, meta?: Record<string, unknown>) => ({ data: code ? { code, httpStatus: code === "INTERNAL_SERVER_ERROR" ? 500 : 400, ...(meta ? { meta } : {}) } : undefined, message });
 
-  test("the server's plain sentences name the copy and pass through", () => {
-    expect(refusalText(err("BAD_REQUEST", "12170-2 is retired; it takes no readings"), fb)).toBe("12170-2 is retired; it takes no readings");
-    expect(refusalText(err("CONFLICT", "12170-2 or PR-4 changed meanwhile; nothing was issued"), fb)).toContain("changed meanwhile");
+  test("the server's sentences name the copy and are said from the dictionary", () => {
+    expect(dieErrorText(en, err("BAD_REQUEST", "12170-2 is retired; it takes no readings"))).toBe("12170-2 is retired. It takes no readings.");
+    expect(dieErrorText(en, err("CONFLICT", "12170-2 or PR-4 changed meanwhile; nothing was issued"))).toBe(en("native.refusal.changed"));
+    expect(dieErrorText(hi, err("CONFLICT", "12170-2 or PR-4 changed meanwhile; nothing was issued"))).toBe(hi("native.refusal.changed"));
   });
 
-  test("an owned die keeps its sentence; any other FORBIDDEN is the role wording", () => {
-    expect(refusalText(err("FORBIDDEN", "This die belongs to KD Extrusion"), fb)).toBe("This die belongs to KD Extrusion");
-    expect(refusalText(err("FORBIDDEN", "Missing permission die.issue"), fb)).toBe("no");
+  test("an owned die names its owner; any other FORBIDDEN is the role wording", () => {
+    expect(dieErrorText(en, err("FORBIDDEN", "This die belongs to KD Extrusion", { ownerName: "KD Extrusion" }))).toBe("This die belongs to KD Extrusion.");
+    expect(dieErrorText(en, err("FORBIDDEN", "Missing permission die.issue"))).toBe(en("errors.forbidden"));
   });
 
   test("a validation failure (JSON text) and unexpected errors are never shown raw", () => {
-    expect(refusalText(err("BAD_REQUEST", '[{"code":"too_small"}]'), fb)).toBe("oops");
-    expect(refusalText(err("INTERNAL_SERVER_ERROR", "boom"), fb)).toBe("oops");
-    expect(refusalText(new Error("Network request failed"), fb)).toBe("offline");
+    expect(dieErrorText(en, err("BAD_REQUEST", '[{"code":"too_small"}]'))).toBe(en("native.refusal.unknown"));
+    expect(dieErrorText(en, err("INTERNAL_SERVER_ERROR", "boom"))).toBe(en("native.saveUnsureBody"));
+    expect(dieErrorText(en, new Error("Network request failed"))).toBe(en("native.saveUnsureBody"));
   });
 });
 

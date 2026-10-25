@@ -18,6 +18,7 @@ import { dispatchEn } from "./native/dispatch.en";
 import { moreEn } from "./native/more.en";
 import { diesEn } from "./native/dies.en";
 import { ordersEn } from "./native/orders.en";
+import { refusalEn } from "./native/refusal.en";
 import { platformEn } from "./native/platform.en";
 import { pressEn } from "./native/press.en";
 import { stockEn } from "./native/stock.en";
@@ -3263,6 +3264,7 @@ export const en = {
     ...moreEn,
     ...diesEn,
     ...ordersEn,
+    ...refusalEn,
     ...platformEn,
     ...pressEn,
     ...stockEn,

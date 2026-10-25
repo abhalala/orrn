@@ -155,25 +155,6 @@ export function runsForSection(runs: readonly QueuedRun[], sectionId: string): Q
   return runs.filter((r) => r.sectionId === sectionId);
 }
 
-type MetaCarrier = { data?: { code?: string } | null; message?: string };
-
-/**
- * The words for a failed die-room call. The server's refusals are plain ORRN sentences that name
- * the copy ("12170-2 is retired; it takes no readings"), so BAD_REQUEST / CONFLICT / NOT_FOUND pass
- * through; a role refusal and anything unexpected use the shared wording.
- */
-export function refusalText(error: unknown, fallbacks: { forbidden: string; generic: string; network: string }): string {
-  const code = (error as MetaCarrier | null)?.data?.code;
-  const message = (error as MetaCarrier | null)?.message;
-  if (code === "FORBIDDEN") return message && message.startsWith("This die belongs") ? message : fallbacks.forbidden;
-  if (code === "BAD_REQUEST" || code === "CONFLICT" || code === "NOT_FOUND") {
-    // A zod failure arrives as a JSON array of issues: never show that to a person.
-    if (message && !message.trimStart().startsWith("[")) return message;
-  }
-  if (code === undefined) return fallbacks.network;
-  return fallbacks.generic;
-}
-
 /** "12170-2": what the floor writes. A typed slash finds the same copy. */
 export function copyCodeQuery(raw: string): string {
   return raw.trim().replace(/\//g, "-");
