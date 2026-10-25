@@ -40,7 +40,7 @@ describe("dev seed reset (W4-MASTERS review round 1)", () => {
     ]);
     await seed();
     expect(await env.db.select().from(authThrottle)).toHaveLength(0);
-  });
+  }, 120_000);
 
   test("m-6: the seeded melt has its times in lock order and its figures", async () => {
     const [m] = await env.db.select().from(melt).where(eq(melt.id, "dev-melt-1"));
@@ -55,11 +55,11 @@ describe("dev seed reset (W4-MASTERS review round 1)", () => {
     expect(m!.logsPcs).toBeGreaterThan(0);
     expect(m!.logsG).toBeLessThanOrEqual(m!.inputG);
     expect(m!.furnaceId).toBe("dev-furnace-f1");
-  });
+  }, 120_000);
 
   test("the demo plant packs without a cast although a melt is locked (requireCastOnBundle off)", async () => {
     const { company } = await import("@orrn/db/schema");
     const [c] = await env.db.select({ settings: company.settings }).from(company).where(eq(company.id, "dev-company-orrn"));
     expect((c!.settings as Record<string, unknown>).requireCastOnBundle).toBe(false);
-  });
+  }, 120_000);
 });

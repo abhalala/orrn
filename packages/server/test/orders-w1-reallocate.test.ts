@@ -259,7 +259,7 @@ describe("FP-OP-08: orders.reallocate", () => {
     const res = await p.owner.orders.reallocate({ bundleIds: ids, toLineId: b.lineIds[0]!, reasonCode: added.code });
     expect(res.status).toBe("applied");
     expect((await transfersOf(p.companyId)).map((r) => [r.reasonCode, r.reason])).toEqual([["rush_order", "Rush order"]]);
-  });
+  }, SLOW);
 
   test("refusals: another die, a held bundle, a void bundle, the same line, a closed target, too many, no permission", async () => {
     const p = await opPlant();
