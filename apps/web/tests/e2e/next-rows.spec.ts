@@ -67,3 +67,17 @@ test.describe("FP-PF-17 plant switcher", () => {
     });
   }
 });
+
+test.describe("FP-PF-14 release notes on About", () => {
+  for (const width of WIDTHS) {
+    test(`About lists what changed (or says none yet) at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await signInViaApi(page, "office");
+      await page.goto("/settings?tab=about");
+      const card = page.getByTestId("release-notes");
+      await expect(card).toBeVisible();
+      await expect(card.getByTestId("release-note").or(card.getByTestId("release-notes-none")).first()).toBeVisible();
+      await expectNoHorizontalScroll(page);
+    });
+  }
+});

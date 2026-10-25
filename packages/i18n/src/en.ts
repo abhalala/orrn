@@ -2222,6 +2222,16 @@ export const en = {
       supportSaveFailed: "Couldn't save the contact. Try again.",
       help: "Open Help",
       guides: "Guides",
+      releaseNotes: "What changed",
+      releaseNotesHint: "The last app builds and what each one changed. The same text the app shows when it asks for an update.",
+      releaseNotesNone: "No app builds have been published yet.",
+      releaseBuild: "{platform} {version} (build {build})",
+      releaseMandatory: "Update required",
+      platformName: {
+        android: "Android",
+        ios: "iPhone",
+        web: "Web",
+      },
     },
     printing: {
       packingList: {

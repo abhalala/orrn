@@ -2215,6 +2215,16 @@ export const hi = {
       supportSaveFailed: "संपर्क सेव नहीं हुआ। फिर कोशिश करें।",
       help: "मदद खोलें",
       guides: "गाइड",
+      releaseNotes: "क्या बदला",
+      releaseNotesHint: "ऐप के पिछले बिल्ड और हर एक में क्या बदला। यही लिखावट ऐप अपडेट माँगते समय दिखाता है।",
+      releaseNotesNone: "अभी तक कोई ऐप बिल्ड जारी नहीं हुआ।",
+      releaseBuild: "{platform} {version} (बिल्ड {build})",
+      releaseMandatory: "अपडेट ज़रूरी",
+      platformName: {
+        android: "Android",
+        ios: "iPhone",
+        web: "वेब",
+      },
     },
     printing: {
       packingList: {

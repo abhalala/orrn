@@ -3,7 +3,7 @@ import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { FormActions } from "@orrn/ui/components/form-actions";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ import { WEB_BUILD } from "@/shared/lib/build-info";
 import { trpc } from "@/shared/utils/trpc";
 
 import { supportContactOf, supportDraft, supportPatch, type SupportDraft } from "./model";
+import { releaseNoteRows } from "./release-notes";
 
 function Fact({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
   return (
@@ -27,7 +28,8 @@ function Fact({ label, value, mono }: { label: string; value: ReactNode; mono?: 
 /**
  * About: the web app's version and build day, who is signed in to which plant, and the plant's
  * support contact (`settings.support`, read as stored). With no contact set it points to Help.
- * People with `settings.update` edit the contact here (name, phone, hours; FP-PF-14).
+ * People with `settings.update` edit the contact here (name, phone, hours; FP-PF-14). Below it, the
+ * last eight app builds and what each changed (`release.notes`, FP-PF-14).
  */
 export function AboutTab() {
   const { t } = useT();
@@ -83,7 +85,54 @@ export function AboutTab() {
           </div>
         </CardContent>
       </Card>
+
+      <ReleaseNotesCard />
     </div>
+  );
+}
+
+/** FP-PF-14: what changed in the last app builds (the update gate's own notes), newest first. */
+function ReleaseNotesCard() {
+  const { t, locale } = useT();
+  const notes = useQuery(trpc.release.notes.queryOptions());
+  const rows = releaseNoteRows(notes.data?.items, { locale });
+  return (
+    <Card data-testid="release-notes">
+      <CardHeader>
+        <CardTitle>{t("settings.about.releaseNotes")}</CardTitle>
+        <CardDescription>{t("settings.about.releaseNotesHint")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {notes.isPending ? null : rows.length === 0 ? (
+          <p className="m-0 text-[15px] leading-6 text-muted-foreground" data-testid="release-notes-none">
+            {t("settings.about.releaseNotesNone")}
+          </p>
+        ) : (
+          <ol className="m-0 flex list-none flex-col gap-3 p-0">
+            {rows.map((r) => (
+              <li key={r.id} className="flex min-w-0 flex-col gap-1 border-b border-border pb-3 last:border-b-0 last:pb-0" data-testid="release-note">
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="font-semibold">
+                    {t("settings.about.releaseBuild", {
+                      platform: t(`settings.about.platformName.${r.platform}`),
+                      version: r.version,
+                      build: r.build,
+                    })}
+                  </span>
+                  <span className="text-[13px] text-muted-foreground">{r.day}</span>
+                  {r.mandatory ? (
+                    <span className="rounded-full bg-tone-amber-tint px-2 py-0.5 text-[12px] font-semibold text-tone-amber-ink">
+                      {t("settings.about.releaseMandatory")}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="m-0 text-[15px] leading-6 break-words whitespace-pre-line">{r.notes}</p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

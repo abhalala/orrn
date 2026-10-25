@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { session, user } from "@orrn/db/schema/auth";
@@ -19,6 +19,10 @@ import { createId } from "../lib/id";
  * `release.check` is public and carries no company data. The native app calls it before the tab
  * bar; on no network it applies `offlineGate` (@orrn/domain) to the last answer for 24 h.
  */
+/** About shows this many release notes (platform spec §5 About). */
+export const RELEASE_NOTES_SHOWN = 8;
+const RELEASE_NOTE_PLATFORMS = ["android", "ios", "web"] as const;
+
 export const releaseRouter = router({
   check: publicProcedure
     .input(
@@ -78,6 +82,29 @@ export const releaseRouter = router({
         graceMs: OFFLINE_GRACE_MS,
       };
     }),
+  /**
+   * FP-PF-14 About: what changed lately, from the same `app_release.notes` the update gate shows.
+   * The last eight published native and web builds, newest first (edge builds are spool's own).
+   * Platform-global rows with no plant data, so any member may read them.
+   */
+  notes: companyProcedure.query(async ({ ctx }) => {
+    const rows = await ctx.db
+      .select({
+        id: appRelease.id,
+        platform: appRelease.platform,
+        channel: appRelease.channel,
+        version: appRelease.version,
+        buildNumber: appRelease.buildNumber,
+        mandatory: appRelease.mandatory,
+        notes: appRelease.notes,
+        publishedAt: appRelease.publishedAt,
+      })
+      .from(appRelease)
+      .where(and(inArray(appRelease.platform, RELEASE_NOTE_PLATFORMS), isNotNull(appRelease.notes)))
+      .orderBy(desc(appRelease.publishedAt), desc(appRelease.buildNumber))
+      .limit(RELEASE_NOTES_SHOWN);
+    return { items: rows.map((r) => ({ ...r, publishedAt: r.publishedAt.getTime() })) };
+  }),
 });
 
 const DEVICE_PLATFORMS = ["android", "ios", "web"] as const;

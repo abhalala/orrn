@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5098 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5106 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -1814,7 +1814,7 @@ Counts: 5098 screen strings in 46 groups, 16 guides with 292 strings.
 | `scale.noneHint` | This print computer has no scale connected. | इस प्रिंट कंप्यूटर पर कांटा नहीं जुड़ा है। |
 | `scale.unknownHint` | This print computer has not said whether a scale is connected yet. | इस प्रिंट कंप्यूटर ने अभी बताया नहीं कि कांटा जुड़ा है या नहीं। |
 
-### settings (205)
+### settings (213)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1988,6 +1988,14 @@ Counts: 5098 screen strings in 46 groups, 16 guides with 292 strings.
 | `about.supportSaveFailed` | Couldn't save the contact. Try again. | संपर्क सेव नहीं हुआ। फिर कोशिश करें। |
 | `about.help` | Open Help | मदद खोलें |
 | `about.guides` | Guides | गाइड |
+| `about.releaseNotes` | What changed | क्या बदला |
+| `about.releaseNotesHint` | The last app builds and what each one changed. The same text the app shows when it asks for an update. | ऐप के पिछले बिल्ड और हर एक में क्या बदला। यही लिखावट ऐप अपडेट माँगते समय दिखाता है। |
+| `about.releaseNotesNone` | No app builds have been published yet. | अभी तक कोई ऐप बिल्ड जारी नहीं हुआ। |
+| `about.releaseBuild` | {platform} {version} (build {build}) | {platform} {version} (बिल्ड {build}) |
+| `about.releaseMandatory` | Update required | अपडेट ज़रूरी |
+| `about.platformName.android` | Android | Android |
+| `about.platformName.ios` | iPhone | iPhone |
+| `about.platformName.web` | Web | वेब |
 | `printing.packingList.title` | What one packing list carries | एक packing list में क्या जाएगा |
 | `printing.packingList.hint` | How a dispatch is built. Changing it does not touch dispatches already started. | dispatch कैसे बनता है। बदलने से शुरू हो चुके dispatch पर असर नहीं पड़ता। |
 | `printing.packingList.failed` | Could not save the setting. Try again. | सेटिंग सेव नहीं हुई। फिर कोशिश करें। |
