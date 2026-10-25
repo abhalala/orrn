@@ -4918,6 +4918,7 @@ export const en = {
       downtime: "Downtime",
       downtimeStart: "Press stopped",
       downtimeStop: "Press running again",
+      downtimeOffline: "You are offline. A downtime row needs a connection; tap again when it is back.",
       downtimeOpen: "Close the downtime first.",
       lateEntry: "Entered late",
       lateEntryAsk: "Ask approval for a late entry",

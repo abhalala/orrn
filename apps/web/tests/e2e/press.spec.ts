@@ -58,8 +58,19 @@ async function apiAs(role: LocalRole): Promise<Api> {
 }
 
 /** A fresh browser context signed in as `role`, at `width`. */
-async function openAs(browser: Browser, role: LocalRole, width: number, path: string, opts: { locale?: "hi" | "gu" } = {}): Promise<{ page: Page; context: BrowserContext }> {
-  const context = await browser.newContext({ viewport: { width, height: width < 600 ? 800 : 900 }, colorScheme: "light", reducedMotion: "reduce" });
+async function openAs(
+  browser: Browser,
+  role: LocalRole,
+  width: number,
+  path: string,
+  opts: { locale?: "hi" | "gu"; timezoneId?: string } = {},
+): Promise<{ page: Page; context: BrowserContext }> {
+  const context = await browser.newContext({
+    viewport: { width, height: width < 600 ? 800 : 900 },
+    colorScheme: "light",
+    reducedMotion: "reduce",
+    ...(opts.timezoneId ? { timezoneId: opts.timezoneId } : {}),
+  });
   const page = await context.newPage();
   if (opts.locale) await page.addInitScript((l) => localStorage.setItem("orrn.locale", l), opts.locale);
   await signInViaApi(page, role);
@@ -95,10 +106,14 @@ async function shot(page: Page, width: number, name: string) {
 }
 
 const kg1 = (g: number) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(g / 1000);
+/** A `datetime-local` value on the PLANT's clock (the seed plant is Asia/Kolkata): final explore L4. */
 const localInput = (ms: number) => {
-  const d = new Date(ms);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+      .formatToParts(new Date(ms))
+      .map((x) => [x.type, x.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 };
 
 /** Walk the stepper with "Save and next" until the last step (Log run / Save) shows. */
@@ -626,14 +641,17 @@ for (const width of WIDTHS) {
 
     test("supervisor enters a run late: sheet, then a counting run flagged and waiting for approval", async ({ browser }) => {
       test.setTimeout(90_000);
-      const { page, context } = await openAs(browser, "supervisor", width, `/press/lines/${fx.lineId}`);
+      // Final explore L4: a laptop set to another zone (Phoenix, 12 h 30 min behind) still types the
+      // plant's clock; before, the plant's 3 h ago read as a time in the future there.
+      const { page, context } = await openAs(browser, "supervisor", width, `/press/lines/${fx.lineId}`, { timezoneId: "America/Phoenix" });
       await page.getByRole("button", { name: "Late entry" }).click();
       const sheet = page.getByRole("dialog");
       // The 7-day rule is stated before anything is typed, and the pickers stop at its edges.
       await expect(sheet.locator('[data-slot="late-window"]')).toContainText("last 7 days");
       const minStart = await sheet.getByLabel("Started", { exact: true }).getAttribute("min");
-      expect(Number(new Date(minStart!))).toBeGreaterThan(Date.now() - 7.1 * 86_400_000);
-      expect(Number(new Date(minStart!))).toBeLessThan(Date.now() - 6.9 * 86_400_000);
+      // The bounds are on the plant clock (IST) too.
+      expect(Number(new Date(`${minStart}:00+05:30`))).toBeGreaterThan(Date.now() - 7.1 * 86_400_000);
+      expect(Number(new Date(`${minStart}:00+05:30`))).toBeLessThan(Date.now() - 6.9 * 86_400_000);
       await sheet.getByRole("radio", { name: "A run not in the queue" }).click();
       await pickOption(page, sheet.getByLabel("Die copy"), new RegExp(`^${fx.lateCopy.code}`));
       const now = Date.now();

@@ -741,6 +741,7 @@ const guBase = {
       downtime: "બંધ સમય",
       downtimeStart: "પ્રેસ બંધ થયું",
       downtimeStop: "પ્રેસ ફરી ચાલુ",
+      downtimeOffline: "તમે ઑફલાઇન છો. ડાઉનટાઇમ માટે કનેક્શન જોઈએ; કનેક્શન આવે ત્યારે ફરી દબાવો.",
       downtimeOpen: "પહેલાં બંધ સમય પૂરો કરો.",
       lateEntry: "પછીથી ભર્યું",
       lateEntryAsk: "પછીથી ભરવાની મંજૂરી માંગો",

@@ -4904,6 +4904,7 @@ export const hi = {
       downtime: "रुकावट",
       downtimeStart: "प्रेस रुकी",
       downtimeStop: "प्रेस फिर चालू",
+      downtimeOffline: "आप ऑफ़लाइन हैं। डाउनटाइम के लिए कनेक्शन चाहिए; कनेक्शन आने पर फिर दबाएं।",
       downtimeOpen: "पहले रुकावट बंद करें।",
       lateEntry: "बाद में भरा",
       lateEntryAsk: "बाद में भरने की मंज़ूरी मांगें",
