@@ -29,6 +29,7 @@ import { useCan, useCompanyTimeZone, usePackingListScope } from "@/features/disp
 import { OrderPanel } from "@/features/dispatch/order-panel";
 import { TruckPanel } from "@/features/dispatch/truck-panel";
 import { PackingListView } from "@/features/dispatch/packing-list-view";
+import { IssueCertificate } from "@/features/portal/issue-certificate";
 import { PasteSerialsSheet } from "@/features/dispatch/paste-serials-sheet";
 import { SearchAddSheet } from "@/features/dispatch/search-add-sheet";
 import { SuggestSheet } from "@/features/dispatch/suggest-sheet";
@@ -338,7 +339,10 @@ function DispatchDetail({ data }: { data: DetailData }) {
       {data.salesOrder && status !== "cancelled" ? <OrderPanel order={data.salesOrder} items={items} editable={editable} /> : null}
 
       {status === "completed" ? (
-        <PackingListView dispatchId={d.id} dispatch={d} customerName={customerName} focusTitle={celebrate > 0} />
+        <>
+          <PackingListView dispatchId={d.id} dispatch={d} customerName={customerName} focusTitle={celebrate > 0} />
+          <IssueCertificate dispatchId={d.id} />
+        </>
       ) : (
         <ItemsSection
           items={items}

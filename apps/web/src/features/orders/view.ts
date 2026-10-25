@@ -217,6 +217,8 @@ export function timelineLabel(ev: Pick<TimelineEvent, "action" | "meta">): { key
   switch (ev.action) {
     case "order.create":
       return { key: "orders.timeline.create", vars: {} };
+    case "portal.order.create":
+      return { key: "orders.timeline.portalCreate", vars: {} };
     case "order.update":
       return { key: "orders.timeline.update", vars: {} };
     case "order.confirm":

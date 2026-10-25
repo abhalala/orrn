@@ -1,12 +1,13 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Link, createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, isRedirect, redirect, useNavigate } from "@tanstack/react-router";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
 
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { homeTarget } from "@/shared/lib/home";
 import { signOutAndReset } from "@/shared/lib/sign-out";
+import { trpc } from "@/shared/utils/trpc";
 
 /**
  * Signed in, but in no company (and not platform staff). Explains it, shows
@@ -14,9 +15,16 @@ import { signOutAndReset } from "@/shared/lib/sign-out";
  * clean way to switch accounts. Anyone with a home elsewhere goes there.
  */
 export const Route = createFileRoute("/_authed/no-access")({
-  beforeLoad: ({ context }) => {
+  beforeLoad: async ({ context }) => {
     const home = homeTarget(context.me);
     if (home !== "/no-access") throw redirect({ to: home, replace: true });
+    // A party (a login in the customer portal, no plant membership) belongs on the portal.
+    try {
+      const plants = await context.queryClient.fetchQuery({ ...trpc.portal.access.queryOptions(), staleTime: 30_000, retry: false });
+      if (plants.length > 0) throw redirect({ to: "/portal" as never, replace: true });
+    } catch (error) {
+      if (isRedirect(error)) throw error;
+    }
   },
   component: NoAccessPage,
 });

@@ -16,6 +16,7 @@ import { UserPlus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { PortalLoginsSection } from "@/features/portal/staff-logins";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
 import { useMe } from "@/shared/lib/me";
@@ -31,7 +32,7 @@ type Invite = Outputs["invite"]["list"][number];
  * Team: members with their role, pending invites, the invite sheet
  * (`invite.create`, `member.invite`), and per member a role change
  * (`member.updateRole`) and removal (`member.remove`). Only an owner may touch an owner row, and
- * nobody changes or removes their own row. Party portal logins arrive with the portal (Wave 3).
+ * nobody changes or removes their own row. Party logins (portal.manage) are listed below the invites.
  */
 export function TeamTab() {
   const { t } = useT();
@@ -139,14 +140,7 @@ export function TeamTab() {
         />
       </section>
 
-      <section aria-labelledby="portal-logins" className="flex min-w-0 flex-col gap-3" data-testid="team-portal">
-        <h2 id="portal-logins" className="m-0 text-[17px] font-semibold">
-          {t("settings.team.portalTitle")}
-        </h2>
-        <div className="rounded-card border border-border bg-card">
-          <EmptyState title={t("settings.team.portalBody")} />
-        </div>
-      </section>
+      <PortalLoginsSection />
 
       <Can do="member.invite">
         <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} />

@@ -45,8 +45,10 @@ test("dev seed: SO-1 late with bundles packed, SO-2 confirmed on band start, SO-
     { id: "dev-so-1", number: "SO-1", status: "confirmed", po: "PO-4471" },
     { id: "dev-so-2", number: "SO-2", status: "confirmed", po: "PO-118" },
     { id: "dev-so-3", number: "SO-3", status: "booking", po: null },
+    // W3-PORTAL-S: KD Extrusion's booking from the party portal (dev-seed-portal.ts).
+    { id: "dev-so-4", number: "SO-4", status: "booking", po: null },
   ]);
-  expect(first.lines).toHaveLength(4);
+  expect(first.lines).toHaveLength(5);
 
   const owner = env.caller({ role: "owner", companyId });
   const late = await owner.orders.late({});
@@ -60,8 +62,8 @@ test("dev seed: SO-1 late with bundles packed, SO-2 confirmed on band start, SO-
 
   expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
   expect(await snapshot()).toEqual(first);
-  // The SO series continues after the seeded book.
+  // The SO series continues after the seeded book (SO-4 is the portal booking, W3-PORTAL-S).
   const c = so1.order.customerId;
   const made = await owner.orders.create({ customerId: c, lines: [{ sectionId: so1.lines[0]!.sectionId, cutLengthMm: 3_658, kgG: 1_000 }] });
-  expect(made.number).toBe("SO-4");
+  expect(made.number).toBe("SO-5");
 }, 120_000);

@@ -447,7 +447,7 @@ test.describe("modules", () => {
 
 test.describe("team", () => {
   for (const width of WIDTHS) {
-    test(`owner ${width}: other members have Change role and Remove, my own row has neither; portal logins say they are coming`, async ({ page }) => {
+    test(`owner ${width}: other members have Change role and Remove, my own row has neither; party logins are listed`, async ({ page }) => {
       await open(page, "/settings?tab=team", { width });
       const team = page.getByTestId("settings-team");
       await expect(team.getByText("owner@orrn.local")).toBeVisible();
@@ -457,7 +457,7 @@ test.describe("team", () => {
       const members = await team.getByRole("row").count();
       const rows = members > 0 ? members - 1 : await team.locator("li").count();
       expect(await change.count()).toBeLessThan(rows);
-      await expect(team.getByTestId("team-portal")).toContainText("party portal opens");
+      await expect(team.getByTestId("team-portal")).toContainText("party@orrn.local");
       await shot(page, "settings-team", width);
       await expectContained(page);
     });

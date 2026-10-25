@@ -13,6 +13,8 @@ export const DEV_ACCOUNTS = {
   dieroom: { email: "dieroom@orrn.local", name: "Local Die Room" },
   /** ORRN platform staff (super_admin), not a tenant member. Used by Godseye tests. */
   staff: { email: "staff@orrn.local", name: "Local Staff" },
+  /** KD Extrusion's party login (customer portal, Wave 3): a portal user, never a plant member. */
+  party: { email: "party@orrn.local", name: "KD Extrusion (party)" },
 } as const;
 
 export type DevAccountKey = keyof typeof DEV_ACCOUNTS;

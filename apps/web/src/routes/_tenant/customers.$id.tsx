@@ -28,6 +28,7 @@ import { customerShare, formatSharePct } from "@/features/customers/leaderboard"
 import { customerFactsLine, type Period } from "@/features/customers/period";
 import { PeriodRow } from "@/features/customers/period-row";
 import { periodSearch, rememberPeriod, usePeriod, type PeriodState } from "@/features/customers/use-period";
+import { CustomerPortalCard } from "@/features/portal/customer-portal-card";
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { isNotFound } from "@/shared/lib/session-errors";
@@ -205,6 +206,10 @@ function CustomerDetail({ id }: { id: string }) {
         </div>
         <RecentDispatches customerId={customer.id} today={periodState.today} timeZone={periodState.timeZone} />
       </div>
+
+      <Can do="portal.manage">
+        <CustomerPortalCard customerId={customer.id} customerName={customer.name} />
+      </Can>
 
       <Sheet
         open={editing}
