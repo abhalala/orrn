@@ -740,13 +740,14 @@ for (const width of WIDTHS) {
         expect(source.items).toEqual([expect.objectContaining({ ageingRowId: batch.rowId, remainingPcs: PRESS.pcs })]);
       });
 
-      // W3-AG-W: the order's strip shows the trolley's kg in its own "Aged" cell, and the press cell is empty.
+      // W3-AG-W: the order's strip shows the trolley's kg in its own "Aged" cell. FINAL-FIXES-2 (BACKLOG 88): the
+      // Pressed cell is the line's whole pressed kg (pressedAllG, never below what moved on), so it reads the run too.
       const { page, context } = await openAs(browser, "office", width, `/orders/${fx.order!.id}`);
       await settled(page);
       const line1 = page.locator("[data-order-line='1']");
       await expect(line1.locator("[data-strip='agedG']")).toContainText(`${kg3(PRESS.goodG)} kg`);
       await expect(line1.locator("[data-strip='agedG']")).toContainText("Aged");
-      await expect(line1.locator("[data-strip='pressedG']")).toContainText("0.000 kg");
+      await expect(line1.locator("[data-strip='pressedG']")).toContainText(`${kg3(PRESS.goodG)} kg`);
       await context.close();
     });
 

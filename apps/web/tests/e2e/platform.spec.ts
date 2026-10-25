@@ -135,6 +135,9 @@ test.describe("settings tabs", () => {
       const sent = await answer(page, "company.updateSettings", { settings: {} });
       await open(page, "/settings", { width });
       const form = page.getByTestId("settings-letterhead");
+      // The demo plant has a letterhead (FINAL-POLISH, BACKLOG 86): wait for it to load into the form before typing over it.
+      await expect(form.getByTestId("letterhead-legal-name")).toHaveValue(/\S/);
+      await form.getByTestId("letterhead-phone").fill("");
       await form.getByTestId("letterhead-legal-name").fill("  Fourcubes Extrusions Pvt Ltd ");
       await form.getByTestId("letterhead-gstin").fill("24abcde1234f1z");
       await form.getByTestId("letterhead-save").click();
@@ -212,15 +215,18 @@ test.describe("shifts", () => {
 
 test.describe("standards", () => {
   for (const width of WIDTHS) {
-    test(`owner ${width}: one pair per profile kind; semi hollow says it uses the solid pair`, async ({ page }) => {
+    test(`owner ${width}: one pair per profile kind; semi hollow left blank says it uses the solid pair`, async ({ page }) => {
       await open(page, "/settings?tab=standards", { width });
       const standards = page.getByTestId("settings-standards");
       for (const kind of ["solid", "hollow", "semi"]) await expect(standards.getByTestId(`standard-${kind}`)).toBeVisible();
       await expect(standards.getByTestId("standard-solid-designation")).toHaveValue(/\S/);
-      await expect(standards.getByTestId("standard-semi").getByText(/solid designation/)).toBeVisible();
+      // The demo plant now seeds the semi hollow pair (IS 1285, FINAL-POLISH); blank, it falls back to the solid pair.
+      await expect(standards.getByTestId("standard-semi-designation")).toHaveValue("IS 1285");
       await expect(standards.getByTestId("standards-save")).toBeDisabled();
       await shot(page, "settings-standards", width);
       await expectContained(page);
+      await standards.getByTestId("standard-semi-designation").fill("");
+      await expect(standards.getByTestId("standard-semi").getByText(/solid designation/)).toBeVisible();
     });
   }
 
@@ -824,7 +830,8 @@ test.describe("Today", () => {
     await expect(page.getByTestId("production-day-caption")).toContainText("प्रोडक्शन का दिन");
     await expect(page.getByTestId("production-day-caption")).toContainText(/\d{2}:\d{2}/);
     await expect(page.getByTestId("kpi-packed")).toContainText("पैक हुआ kg");
-    await expect(page.getByTestId("kpi-stock")).toContainText("स्टॉक में");
+    // FINAL-FIXES-2 (BACKLOG 91): the stock tile reads "In stock, whole plant".
+    await expect(page.getByTestId("kpi-stock")).toContainText("पूरे प्लांट का स्टॉक");
     await shot(page, "today-hi", 375);
     await expectContained(page);
   });
@@ -835,7 +842,7 @@ test.describe("Today", () => {
     await expect(page.getByTestId("production-day-caption")).toContainText("પ્રોડક્શન દિવસ");
     await expect(page.getByTestId("production-day-caption")).toContainText(/\d{2}:\d{2}/);
     await expect(page.getByTestId("kpi-packed")).toContainText("પૅક થયું kg");
-    await expect(page.getByTestId("kpi-stock")).toContainText("સ્ટોકમાં");
+    await expect(page.getByTestId("kpi-stock")).toContainText("આખા પ્લાન્ટનો સ્ટોક");
     // The header date is in Gujarati too (it was English), and chips on the lists never show a raw key.
     await expect(page.locator("main#main")).toContainText(/[\u0A80-\u0AFF]+, \d{1,2} [\u0A80-\u0AFF]+/);
     await expect(page.locator("main#main")).not.toContainText(/Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday/);
