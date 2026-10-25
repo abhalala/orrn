@@ -53,8 +53,16 @@ export function InviteLink({ url: rawUrl }: { url: string }) {
   );
 }
 
-/** Settings > Team: the party logins of this plant, behind `portal.manage`. */
+/** Settings > Team: the party logins of this plant, behind `portal.manage`. Without it nothing is asked of the server. */
 export function PortalLoginsSection() {
+  return (
+    <Can do="portal.manage" fallback={null}>
+      <PortalLoginsBody />
+    </Can>
+  );
+}
+
+function PortalLoginsBody() {
   const { t } = useT();
   const when = useCompanyWhen();
   const queryClient = useQueryClient();
@@ -144,7 +152,7 @@ export function PortalLoginsSection() {
   ];
 
   return (
-    <Can do="portal.manage" fallback={null}>
+    <>
       <section aria-labelledby="portal-logins" className="flex min-w-0 flex-col gap-3" data-testid="team-portal">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <h2 id="portal-logins" className="m-0 text-[17px] font-semibold">
@@ -181,7 +189,7 @@ export function PortalLoginsSection() {
           {link ? <InviteLink url={link.url} /> : null}
         </Dialog>
       </section>
-    </Can>
+    </>
   );
 }
 

@@ -5,7 +5,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { readStoredLocaleOrNull } from "./locale";
 import { loadMe, toLogin } from "./guards";
 import { needsPassword } from "./home";
-import { pickPortalPlant, readPortalPlant, storePortalPlant } from "./portal-plant";
+import { pickPortalPlant, portalAccessUnreachable, readPortalPlant, storePortalPlant } from "./portal-plant";
 import { trpc } from "../utils/trpc";
 
 type GuardArgs = { context: { queryClient: QueryClient }; location: { href: string } };
@@ -24,7 +24,9 @@ export async function requirePortal({ context, location }: GuardArgs) {
   let plants: { companyId: string; companyName: string; customerName: string; portalEnabled: boolean }[] = [];
   try {
     plants = await context.queryClient.fetchQuery({ ...trpc.portal.access.queryOptions(), staleTime: 30_000, retry: false });
-  } catch {
+  } catch (error) {
+    // Offline or a server error is not an answer: show "try again" (the layout's error screen).
+    if (portalAccessUnreachable(error)) throw error;
     plants = [];
   }
   if (plants.length === 0) {

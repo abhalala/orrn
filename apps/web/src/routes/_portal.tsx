@@ -1,5 +1,6 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 
+import { PortalLoadFailed } from "@/features/portal/portal-load-failed";
 import { PortalNotFound } from "@/features/portal/portal-not-found";
 import { PortalShell } from "@/features/portal/portal-shell";
 import { requirePortal } from "@/shared/lib/portal-guard";
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/_portal")({
   beforeLoad: requirePortal,
   component: PortalLayout,
   notFoundComponent: PortalNotFound,
+  errorComponent: PortalLoadFailed,
 });
 
 function PortalLayout() {

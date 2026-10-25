@@ -73,15 +73,44 @@ export function sectionMarker(s: Pick<PortalSection, "granted" | "owned">): "own
 
 export type CertChemistryStatus = "pending" | "partial" | "ready";
 
-export function chemistryNote(chem: { status: CertChemistryStatus; testedBundles: number; untestedBundles: number }): {
-  key: "portal.certificate.chemistryPending" | "portal.certificate.chemistryPartial" | "portal.certificate.chemistryReady";
-  vars: Record<string, number>;
-} {
-  if (chem.status === "pending") return { key: "portal.certificate.chemistryPending", vars: {} };
-  if (chem.status === "partial") {
-    return { key: "portal.certificate.chemistryPartial", vars: { tested: chem.testedBundles, total: chem.testedBundles + chem.untestedBundles } };
+export type ChemistryNoteKey =
+  | "portal.certificate.chemistryPending"
+  | "portal.certificate.chemistryPartial"
+  | "portal.certificate.chemistryReady"
+  | "portal.certificate.noCastBundles"
+  | "portal.certificate.noCastBundlesOne"
+  | "portal.certificate.castsFailed"
+  | "portal.certificate.castsFailedOne";
+
+export type ChemistryNote = { key: ChemistryNoteKey; vars: Record<string, number> };
+
+/**
+ * What the certificate says about chemistry, in plain words and in this order: how far testing got
+ * (only for bundles that name a cast), then casts that failed, then bundles with no cast number.
+ * Bundles with no cast are never called "not tested yet": their real reason is the missing cast
+ * (review W3-PORTAL-W I-2). A version 1 snapshot has no counts and reads as the status alone.
+ */
+export function chemistryNotes(snap: {
+  chemistry: { status: CertChemistryStatus; testedBundles: number; untestedBundles: number; noCastBundles?: number; failedCasts?: number };
+  castCount: number;
+}): ChemistryNote[] {
+  const { chemistry: chem, castCount } = snap;
+  const noCast = Math.max(0, chem.noCastBundles ?? 0);
+  const failed = Math.max(0, chem.failedCasts ?? 0);
+  const untestedWithCast = Math.max(0, chem.untestedBundles - noCast);
+  const out: ChemistryNote[] = [];
+
+  if (chem.testedBundles === 0) {
+    // Nothing tested. When no bundle names a cast, the missing cast is the whole story.
+    if (!(castCount === 0 && noCast > 0)) out.push({ key: "portal.certificate.chemistryPending", vars: {} });
+  } else if (untestedWithCast > 0) {
+    out.push({ key: "portal.certificate.chemistryPartial", vars: { tested: chem.testedBundles, total: chem.testedBundles + untestedWithCast } });
+  } else if (failed === 0) {
+    out.push({ key: "portal.certificate.chemistryReady", vars: {} });
   }
-  return { key: "portal.certificate.chemistryReady", vars: {} };
+  if (failed > 0) out.push(failed === 1 ? { key: "portal.certificate.castsFailedOne", vars: {} } : { key: "portal.certificate.castsFailed", vars: { n: failed } });
+  if (noCast > 0) out.push(noCast === 1 ? { key: "portal.certificate.noCastBundlesOne", vars: {} } : { key: "portal.certificate.noCastBundles", vars: { n: noCast } });
+  return out;
 }
 
 /** What a cast block says: its chemistry, "failed" plainly, or pending when it has no figures. */
@@ -262,4 +291,41 @@ export function portalErrorKey(error: unknown): PortalErrorKey {
   }
   if (/fetch|network/i.test(message)) return "errors.network";
   return "errors.generic";
+}
+
+export type PortalOrderErrorKey =
+  | PortalErrorKey
+  | "portal.orders.errors.dieClosed"
+  | "portal.orders.errors.qty"
+  | "portal.orders.errors.noLines"
+  | "portal.orders.errors.tooManyLines"
+  | "portal.orders.errors.plantPicks"
+  | "portal.orders.errors.range"
+  | "portal.orders.errors.poUsed"
+  | "portal.orders.errors.reload"
+  | "portal.orders.errors.ordersOff";
+
+/**
+ * Why a booking was refused, in the party's language. The server's strict input (`portal.orders.create`)
+ * answers in English sentences or codes; each one maps to a key. A die that is no longer open for the
+ * party answers NOT_FOUND (a hidden die is never named). Anything unknown falls back to `portalErrorKey`.
+ */
+export function portalOrderErrorKey(error: unknown): PortalOrderErrorKey {
+  const e = error as { message?: unknown; data?: { code?: unknown } } | null;
+  const code = e?.data?.code;
+  const message = typeof e?.message === "string" ? e.message : "";
+  if (code === "NOT_FOUND") return "portal.orders.errors.dieClosed";
+  if (code === "FORBIDDEN" && /module is not on/i.test(message)) return "portal.orders.errors.ordersOff";
+  if (code === "CONFLICT") {
+    if (/already on another order/i.test(message)) return "portal.orders.errors.poUsed";
+    if (/already used for another order/i.test(message)) return "portal.orders.errors.reload";
+  }
+  if (code === "BAD_REQUEST") {
+    if (/enter pieces or kg/i.test(message)) return "portal.orders.errors.qty";
+    if (/add at least one line/i.test(message)) return "portal.orders.errors.noLines";
+    if (/at most \d+ lines/i.test(message)) return "portal.orders.errors.tooManyLines";
+    if (/the plant picks this|the plant sets the rate/i.test(message)) return "portal.orders.errors.plantPicks";
+    if (/too_big|too_small|too big|too small|invalid_type|expected number/i.test(message)) return "portal.orders.errors.range";
+  }
+  return portalErrorKey(error);
 }

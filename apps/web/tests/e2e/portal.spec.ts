@@ -48,6 +48,85 @@ async function trpcQuery<T>(page: Page, path: string, input?: unknown): Promise<
   return (await res.json()).result.data as T;
 }
 
+async function trpcMutate<T>(page: Page, path: string, input: unknown): Promise<T> {
+  const res = await page.context().request.post(`${API}/trpc/${path}`, { headers: { origin: ORIGIN, "content-type": "application/json" }, data: input });
+  expect(res.ok(), `${path} returned ${res.status()}: ${await res.text()}`).toBe(true);
+  return (await res.json()).result.data as T;
+}
+
+/** A call that is expected to be refused: the status and the server's sentence. */
+async function trpcRefused(page: Page, path: string, input: unknown): Promise<{ status: number; message: string }> {
+  const res = await page.context().request.post(`${API}/trpc/${path}`, { headers: { origin: ORIGIN, "content-type": "application/json" }, data: input });
+  const body = (await res.json()) as { error?: { message?: string } };
+  return { status: res.status(), message: body.error?.message ?? "" };
+}
+
+/** Runs `work` as the plant owner in a context of its own, then closes it (cleanup that must not depend on the test's pages). */
+async function asOwner<T>(browser: Browser, work: (owner: Page) => Promise<T>): Promise<T> {
+  const owner = await newPage(browser);
+  try {
+    await signInViaApi(owner, "owner");
+    return await work(owner);
+  } finally {
+    await owner.context().close();
+  }
+}
+
+/** Cleanup never fails a test: it reports and moves on. */
+async function tidy(what: string, work: () => Promise<unknown>) {
+  try {
+    await work();
+  } catch (error) {
+    console.warn(`portal.spec cleanup (${what}) did not finish:`, error instanceof Error ? error.message : error);
+  }
+}
+
+/**
+ * A completed dispatch to KD Extrusion whose one bundle names a real cast (a new open cast with a
+ * melt, no spectro result), and its issued test certificate. The seed's own dispatch has no casts.
+ */
+async function dispatchWithCast(browser: Browser): Promise<{ dispatchId: string; castNo: string }> {
+  return asOwner(browser, async (owner) => {
+    const cast = await trpcMutate<{ id: string; number: string }>(owner, "foundry.casts.open", { alloy: "6063" });
+    const streams = await trpcQuery<{ items: { id: string; code: string }[] }>(owner, "foundry.returnStreams.list");
+    const scrap = streams.items.find((x) => x.code === "PLANT-SCRAP")!;
+    const now = Date.now();
+    const min = 60_000;
+    // The melt a bundle's cast must have (1 kg of plant scrap charged back; the balance warning is expected).
+    await trpcMutate(owner, "foundry.melts.create", {
+      castId: cast.id,
+      timestamps: { preheatStart: now - 300 * min, chargingStart: now - 240 * min, chargingEnd: now - 200 * min, castingStart: now - 150 * min, castingEnd: now - 60 * min },
+      ldoTenthIn: { start: 300, end: 250 },
+      inputs: [{ kind: "return_stream", ref: scrap.id, kgG: 1000 }],
+      outputs: { logs: { pcs: 0, lengthMm: 0, kgG: 0 }, drossG: 0, feG: 0, returns: [] },
+    });
+    const dies = await trpcQuery<{ items: { id: string; sectionCode: string }[] }>(owner, "die.list", { search: "14701", limit: 5 });
+    const die = dies.items.find((d) => d.sectionCode === "14701")!;
+    const places = await trpcQuery<{ items: { id: string; code: string }[] }>(owner, "stock.locations.list", {});
+    const customers = await trpcQuery<{ items: { id: string; name: string }[] }>(owner, "customer.list", { search: "KD", limit: 5 });
+    const kd = customers.items.find((c) => /^KD/.test(c.name))!;
+    const receipt = await trpcMutate<{ bundles: { serial: string }[] }>(owner, "bundle.createReceipt", {
+      dieId: die.id,
+      unit: "inch",
+      castId: cast.id,
+      locationId: places.items.find((l) => l.code === "Y1")!.id,
+      rows: [{ quantity: 10, weightG: 30_000, lengthMm: 3658 }],
+    });
+    const made = await trpcMutate<{ id: string }>(owner, "dispatch.create", { customerId: kd.id });
+    await trpcMutate(owner, "dispatch.addBundlesBySerial", { id: made.id, serials: receipt.bundles.map((b) => b.serial), allowUnassigned: true });
+    await trpcMutate(owner, "dispatch.reserve", { id: made.id });
+    await trpcMutate(owner, "dispatch.complete", { id: made.id });
+    await trpcMutate(owner, "portal.certificates.issue", { dispatchId: made.id });
+    return { dispatchId: made.id, castNo: cast.number };
+  });
+}
+
+/** Closes the grant of a die to a customer when it is open (idempotent), so a failed run never leaves it behind. */
+async function closeGrant(page: Page, customerId: string, sectionCode: string) {
+  const grants = await trpcQuery<{ id: string; sectionCode: string }[]>(page, "portal.sections.list", { customerId });
+  for (const g of grants.filter((x) => x.sectionCode === sectionCode)) await trpcMutate(page, "portal.sections.revoke", { id: g.id });
+}
+
 async function blockingAxeViolations(page: Page) {
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -128,6 +207,18 @@ test.describe("book and confirm", () => {
 
   test("a booking reaches the office as a booking; once confirmed the party sees it confirmed", async ({ page, browser }) => {
     test.setTimeout(150_000);
+    // The booking lives in the shared plant: the office cancels it when the test is over, pass or fail.
+    let bookedId: string | null = null;
+    try {
+      await bookAndConfirm();
+    } finally {
+      if (bookedId) {
+        const id = bookedId;
+        await tidy("booked order", () => asOwner(browser, (owner) => trpcMutate(owner, "orders.cancel", { id, reason: "e2e cleanup" })));
+      }
+    }
+
+    async function bookAndConfirm() {
     await openPortal(page, 375, "/portal/orders/new");
     await expect(main(page).getByRole("heading", { level: 1 })).toHaveText("New order");
     // Only the dies opened for this party can be picked.
@@ -160,6 +251,7 @@ test.describe("book and confirm", () => {
     await shot(page, "booked-375");
     const viewHref = await booked.getByRole("link", { name: "View order" }).getAttribute("href");
     const id = viewHref!.split("/").pop()!;
+    bookedId = id;
     await booked.getByRole("link", { name: "View order" }).click();
     await expect(main(page).getByRole("heading", { level: 1 })).toContainText(/SO-\d+/);
     await expect(main(page).getByText("Booking", { exact: true })).toBeVisible();
@@ -193,10 +285,13 @@ test.describe("book and confirm", () => {
     await expect(main(page).getByText("Confirmed", { exact: true })).toBeVisible();
     await page.goto("/portal/orders");
     await expect(main(page).getByRole("link", { name: /SO-\d+/ }).first()).toBeVisible();
+    // "Baki" is explained once on the orders screens.
+    await expect(page.getByTestId("portal-baki-hint")).toContainText("Baki = still to deliver");
     await clean(page, "orders-375");
+    }
   });
 
-  test("a party cannot read another party's order, and sends no rate", async ({ page, browser }) => {
+  test("a party cannot read another party's order, and a rate is refused", async ({ page, browser }) => {
     const office = await newPage(browser);
     await signInViaApi(office, "owner");
     const others = await trpcQuery<{ items: { id: string; customerName: string }[] }>(office, "orders.list", { limit: 50 });
@@ -205,12 +300,18 @@ test.describe("book and confirm", () => {
     await office.context().close();
     await openPortal(page, 820, `/portal/orders/${foreign!.id}`);
     await expect(page.getByRole("alert")).toContainText("Not found");
+
+    // A rate sent by hand is refused by the server, and nothing is booked.
+    const dies = await trpcQuery<{ id: string }[]>(page, "portal.sections.visible");
+    const refused = await trpcRefused(page, "portal.orders.create", { lines: [{ sectionId: dies[0]!.id, cutLengthMm: 3658, pcs: 1, ratePaise: 100 }] });
+    expect(refused.status).toBe(400);
+    expect(refused.message).toContain("The plant sets the rate");
   });
 });
 
 test.describe("dispatches, packing list and certificate", () => {
   for (const width of WIDTHS) {
-    test(`only this party's dispatches; the packing list has no cast; the certificate says chemistry pending at ${width}`, async ({ page, browser }) => {
+    test(`only this party's dispatches; the packing list has no cast; the certificate says which bundles have no cast number at ${width}`, async ({ page, browser }) => {
       test.setTimeout(90_000);
       const office = await newPage(browser);
       await signInViaApi(office, "owner");
@@ -241,15 +342,39 @@ test.describe("dispatches, packing list and certificate", () => {
       await page.goto(`/portal/dispatches/${foreign!.id}`);
       await expect(page.getByRole("alert")).toContainText("Not found");
 
-      // The certificate: chemistry pending, nothing invented, not a tax document.
+      // The certificate: the seed's bundles name no cast, and it says that (never "not tested yet"); not a tax document.
       await page.goto("/portal/dispatches/dev-dispatch-done-1");
       await main(page).getByRole("link", { name: "Test certificate" }).click();
       await expect(main(page).getByRole("heading", { level: 1 })).toHaveText("Test certificate");
-      await expect(page.getByTestId("cert-chemistry-note")).toContainText("Chemistry pending");
+      await expect(page.getByTestId("cert-chemistry-note")).toContainText(/\d+ bundles have no cast number/);
+      await expect(page.getByTestId("cert-chemistry-note")).not.toContainText("not tested yet");
+      await expect(page.getByTestId("cert-casts")).toHaveCount(0);
       await expect(page.getByTestId("portal-certificate")).toContainText("Quality document. Not a tax invoice.");
       await expect(page.getByTestId("portal-certificate")).toContainText(/TC\/\d{4}-\d{2}\/\d+/);
       await expect(main(page)).not.toContainText(/₹|rate/i);
       await clean(page, `certificate-${width}`);
+    });
+  }
+});
+
+test.describe("certificate with a cast", () => {
+  for (const width of [375, 1280] as const) {
+    test(`a bundle with a cast puts that cast on the certificate, pending until the lab result, at ${width}`, async ({ page, browser }) => {
+      test.setTimeout(120_000);
+      const { dispatchId, castNo } = await dispatchWithCast(browser);
+      await openPortal(page, width, `/portal/dispatches/${dispatchId}`);
+      await main(page).getByRole("link", { name: "Test certificate" }).click();
+      await expect(main(page).getByRole("heading", { level: 1 })).toHaveText("Test certificate");
+      const block = page.getByTestId("cert-casts").locator(`[data-cast='${castNo}']`);
+      await expect(block).toBeVisible();
+      await expect(block).toHaveAttribute("data-cast-state", "pending");
+      await expect(block).toContainText("Chemistry pending");
+      await expect(block).toContainText("14701");
+      // The bundle names a cast, so the note is about testing, not about a missing cast number.
+      const note = page.getByTestId("cert-chemistry-note");
+      await expect(note).toContainText("Chemistry pending");
+      await expect(note).not.toContainText("no cast number");
+      await clean(page, `certificate-cast-${width}`);
     });
   }
 });
@@ -297,6 +422,19 @@ test.describe("plant side: logins, grants and certificates", () => {
   test("Team: give a party a login, copy the link, the party signs up and lands on the portal, then the office turns it off", async ({ page, browser }) => {
     test.setTimeout(150_000);
     const email = `royal-${Date.now()}@orrn.local`;
+    // The login lives in the shared plant: it is turned off at the end of the test even when an assertion fails.
+    try {
+      await giveAndUse();
+    } finally {
+      await tidy("royal login", () =>
+        asOwner(browser, async (owner) => {
+          const logins = await trpcQuery<{ id: string; email: string; status: string }[]>(owner, "portal.users.list", {});
+          for (const l of logins.filter((x) => x.email === email && x.status !== "revoked")) await trpcMutate(owner, "portal.users.revoke", { id: l.id });
+        }),
+      );
+    }
+
+    async function giveAndUse() {
     await openAs(page, { role: "owner", width: 1280, path: "/settings?tab=team" });
     const portal = page.getByTestId("team-portal");
     await expect(portal).toBeVisible();
@@ -340,12 +478,22 @@ test.describe("plant side: logins, grants and certificates", () => {
     await expect(party).toHaveURL(/\/no-access/);
     await expect(party.locator("[data-slot='portal-shell']")).toHaveCount(0);
     await party.context().close();
+    }
   });
 
   test("Customer page: open a die, and a die another party owns is flagged", async ({ page }) => {
     await openAs(page, { role: "owner", width: 820, path: "/customers" });
     const customers = await trpcQuery<{ items: { id: string; name: string }[] }>(page, "customer.list", { search: "Tejura", limit: 5 });
     const id = customers.items[0]!.id;
+    // A grant left by an earlier failed run would answer "already open": close it first, and again at the end.
+    await closeGrant(page, id, "12230");
+    try {
+      await openAndFlag(id);
+    } finally {
+      await tidy("12230 grant", () => closeGrant(page, id, "12230"));
+    }
+
+    async function openAndFlag(id: string) {
     await page.goto(`/customers/${id}`);
     const card = page.getByTestId("customer-portal-card");
     await expect(card).toBeVisible();
@@ -358,6 +506,7 @@ test.describe("plant side: logins, grants and certificates", () => {
     await shot(page, "customer-card-820");
     await card.getByRole("button", { name: "Close: 12230" }).click();
     await expect(card.locator("[data-grant='12230']")).toHaveCount(0);
+    }
   });
 
   test("Dispatch page: the office issues the party's certificate again as the next revision", async ({ page }) => {

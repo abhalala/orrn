@@ -5,7 +5,8 @@ import { SearchX } from "lucide-react";
 
 /**
  * `/portal*` for someone who has no party login here (a plant member, a platform admin). The same
- * plain "Not found" a party gets for a record that is not theirs: nothing says what exists.
+ * plain "Not found" a party gets for a record that is not theirs: nothing says what exists. The way out is the
+ * portal's own Today (a party has no plant screens).
  */
 export function PortalNotFound() {
   const { t } = useT();
@@ -19,7 +20,7 @@ export function PortalNotFound() {
         <p className="m-0 text-[15px] leading-6 text-muted-foreground">{t("portal.errors.notFoundBody")}</p>
       </div>
       <Button asChild variant="outline">
-        <Link to="/today">{t("portal.errors.backToPlant")}</Link>
+        <Link to="/portal">{t("portal.errors.backToPlant")}</Link>
       </Button>
     </main>
   );

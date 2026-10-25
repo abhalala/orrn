@@ -19,7 +19,7 @@ import { usePortalMe } from "./hooks";
 import {
   newPortalLine,
   PORTAL_MAX_LINES,
-  portalErrorKey,
+  portalOrderErrorKey,
   portalLineProblems,
   portalOrderBody,
   requestIdFor,
@@ -56,7 +56,7 @@ export function PortalNewOrderPage() {
       await queryClient.invalidateQueries({ queryKey: trpc.portal.orders.list.queryKey() });
       await queryClient.invalidateQueries({ queryKey: trpc.portal.today.queryKey() });
     },
-    onError: (e) => setError(t(portalErrorKey(e))),
+    onError: (e) => setError(t(portalOrderErrorKey(e))),
   });
 
   const back = { to: "/portal/orders", label: t("portal.orders.title") };

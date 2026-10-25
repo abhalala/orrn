@@ -4,12 +4,14 @@ import {
   bandPosition,
   castState,
   certCasts,
-  chemistryNote,
+  chemistryNotes,
   kgPer12ftText,
   kgText,
   newPortalLine,
   portalLineProblems,
+  portalErrorKey,
   portalLocale,
+  portalOrderErrorKey,
   portalOrderBody,
   ppmPercentText,
   requestIdFor,
@@ -49,13 +51,48 @@ describe("dies", () => {
 });
 
 describe("certificate", () => {
-  test("chemistry note by status", () => {
-    expect(chemistryNote({ status: "pending", testedBundles: 0, untestedBundles: 2 }).key).toBe("portal.certificate.chemistryPending");
-    expect(chemistryNote({ status: "partial", testedBundles: 1, untestedBundles: 1 })).toEqual({
-      key: "portal.certificate.chemistryPartial",
-      vars: { tested: 1, total: 2 },
-    });
-    expect(chemistryNote({ status: "ready", testedBundles: 2, untestedBundles: 0 }).key).toBe("portal.certificate.chemistryReady");
+  const chem = (p: Partial<Parameters<typeof chemistryNotes>[0]["chemistry"]>, casts: number) => ({
+    chemistry: { status: "pending" as const, testedBundles: 0, untestedBundles: 0, noCastBundles: 0, failedCasts: 0, ...p },
+    castCount: casts,
+  });
+  const keys = (notes: ReturnType<typeof chemistryNotes>) => notes.map((n) => n.key);
+
+  test("casts named but none tested: chemistry pending", () => {
+    expect(keys(chemistryNotes(chem({ status: "pending", untestedBundles: 2 }, 1)))).toEqual(["portal.certificate.chemistryPending"]);
+  });
+  test("no bundle names a cast: only the missing cast number is said, never 'not tested yet'", () => {
+    const notes = chemistryNotes(chem({ status: "pending", untestedBundles: 4, noCastBundles: 4 }, 0));
+    expect(notes).toEqual([{ key: "portal.certificate.noCastBundles", vars: { n: 4 } }]);
+    expect(chemistryNotes(chem({ status: "pending", untestedBundles: 1, noCastBundles: 1 }, 0))).toEqual([{ key: "portal.certificate.noCastBundlesOne", vars: {} }]);
+  });
+  test("some tested, some with a cast not yet tested: partial counts only bundles that name a cast", () => {
+    expect(chemistryNotes(chem({ status: "partial", testedBundles: 2, untestedBundles: 1 }, 2))).toEqual([
+      { key: "portal.certificate.chemistryPartial", vars: { tested: 2, total: 3 } },
+    ]);
+    // 1 tested, 3 untested of which 2 name no cast: total is the 2 bundles that name a cast.
+    expect(chemistryNotes(chem({ status: "partial", testedBundles: 1, untestedBundles: 3, noCastBundles: 2 }, 1))).toEqual([
+      { key: "portal.certificate.chemistryPartial", vars: { tested: 1, total: 2 } },
+      { key: "portal.certificate.noCastBundles", vars: { n: 2 } },
+    ]);
+  });
+  test("every cast tested: the ready note; bundles without a cast are still counted after it", () => {
+    expect(keys(chemistryNotes(chem({ status: "ready", testedBundles: 2 }, 1)))).toEqual(["portal.certificate.chemistryReady"]);
+    expect(keys(chemistryNotes(chem({ status: "partial", testedBundles: 2, untestedBundles: 1, noCastBundles: 1 }, 1)))).toEqual([
+      "portal.certificate.chemistryReady",
+      "portal.certificate.noCastBundlesOne",
+    ]);
+  });
+  test("failed casts are counted in plain words and replace the ready note", () => {
+    expect(chemistryNotes(chem({ status: "ready", testedBundles: 3, failedCasts: 2 }, 2))).toEqual([{ key: "portal.certificate.castsFailed", vars: { n: 2 } }]);
+    expect(chemistryNotes(chem({ status: "ready", testedBundles: 3, failedCasts: 1 }, 2))).toEqual([{ key: "portal.certificate.castsFailedOne", vars: {} }]);
+    expect(keys(chemistryNotes(chem({ status: "partial", testedBundles: 1, untestedBundles: 1, failedCasts: 1 }, 2)))).toEqual([
+      "portal.certificate.chemistryPartial",
+      "portal.certificate.castsFailedOne",
+    ]);
+  });
+  test("an old (version 1) snapshot without the counts reads as before", () => {
+    expect(keys(chemistryNotes({ chemistry: { status: "pending", testedBundles: 0, untestedBundles: 2 }, castCount: 0 }))).toEqual(["portal.certificate.chemistryPending"]);
+    expect(keys(chemistryNotes({ chemistry: { status: "ready", testedBundles: 2, untestedBundles: 0 }, castCount: 0 }))).toEqual(["portal.certificate.chemistryReady"]);
   });
   test("a version 1 snapshot has no casts", () => {
     expect(certCasts({})).toEqual([]);
@@ -113,5 +150,31 @@ describe("new order", () => {
     const first = requestIdFor(null, { a: 1 }, make);
     expect(requestIdFor(first, { a: 1 }, make)).toBe(first);
     expect(requestIdFor(first, { a: 2 }, make).id).toBe("id-2");
+  });
+});
+
+describe("order errors in the party's words", () => {
+  const err = (code: string, message: string) => ({ message, data: { code } });
+  test("a die closed while the form was open is said plainly", () => {
+    expect(portalOrderErrorKey(err("NOT_FOUND", "Not found"))).toBe("portal.orders.errors.dieClosed");
+  });
+  test("the server's strict-input sentences map to the party's language", () => {
+    expect(portalOrderErrorKey(err("BAD_REQUEST", "Line 2: enter pieces or kg"))).toBe("portal.orders.errors.qty");
+    expect(portalOrderErrorKey(err("BAD_REQUEST", JSON.stringify([{ message: "Add at least one line" }])))).toBe("portal.orders.errors.noLines");
+    expect(portalOrderErrorKey(err("BAD_REQUEST", JSON.stringify([{ message: "At most 20 lines" }])))).toBe("portal.orders.errors.tooManyLines");
+    expect(portalOrderErrorKey(err("BAD_REQUEST", "Line: the plant picks this (copy). Leave it out."))).toBe("portal.orders.errors.plantPicks");
+    expect(portalOrderErrorKey(err("BAD_REQUEST", "The plant sets the rate. Send the order without a rate."))).toBe("portal.orders.errors.plantPicks");
+    expect(portalOrderErrorKey(err("BAD_REQUEST", JSON.stringify([{ code: "too_big", path: ["lines", 0, "cutLengthMm"], message: "Too big" }])))).toBe("portal.orders.errors.range");
+  });
+  test("a PO already on another order and a reused save", () => {
+    expect(portalOrderErrorKey(err("CONFLICT", "PO 77 is already on another order of this customer"))).toBe("portal.orders.errors.poUsed");
+    expect(portalOrderErrorKey(err("CONFLICT", "This save was already used for another order (SO-9). Reload the order screen and save again."))).toBe("portal.orders.errors.reload");
+  });
+  test("the module being off, a network failure and anything else keep the general words", () => {
+    expect(portalOrderErrorKey(err("FORBIDDEN", "That module is not on for this plant"))).toBe("portal.orders.errors.ordersOff");
+    expect(portalOrderErrorKey(err("FORBIDDEN", "The party portal is off for this plant"))).toBe("portal.errors.disabled");
+    expect(portalOrderErrorKey({ message: "Failed to fetch" })).toBe("errors.network");
+    expect(portalOrderErrorKey(err("INTERNAL_SERVER_ERROR", "boom"))).toBe("errors.generic");
+    expect(portalErrorKey(err("NOT_FOUND", "x"))).toBe("portal.errors.notFound");
   });
 });

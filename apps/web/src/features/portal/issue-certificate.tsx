@@ -19,6 +19,14 @@ const CHEM_TONE = { pending: "amber", partial: "amber", ready: "green" } as cons
  * is shown as pending, never invented.
  */
 export function IssueCertificate({ dispatchId }: { dispatchId: string }) {
+  return (
+    <Can do={["portal.manage", "dispatch.complete"]}>
+      <IssueCertificateBox dispatchId={dispatchId} />
+    </Can>
+  );
+}
+
+function IssueCertificateBox({ dispatchId }: { dispatchId: string }) {
   const { t } = useT();
   const queryClient = useQueryClient();
   const current = useQuery({ ...trpc.portal.certificates.forDispatch.queryOptions({ dispatchId }), meta: INLINE_ERROR_META });
@@ -34,7 +42,7 @@ export function IssueCertificate({ dispatchId }: { dispatchId: string }) {
   const cert = current.data;
   const chemistry = cert && (cert.chemistry === "pending" || cert.chemistry === "partial" || cert.chemistry === "ready") ? cert.chemistry : null;
   return (
-    <Can do={["portal.manage", "dispatch.complete"]}>
+    <>
       <section aria-label={t("portal.certificate.title")} className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-card p-4" data-testid="issue-certificate">
         <div className="min-w-0">
           <p className="m-0 text-[15px] font-semibold">{t("portal.certificate.title")}</p>
@@ -59,6 +67,6 @@ export function IssueCertificate({ dispatchId }: { dispatchId: string }) {
           {cert ? t("portal.staff.reissueCertificate") : t("portal.staff.issueCertificate")}
         </Button>
       </section>
-    </Can>
+    </>
   );
 }

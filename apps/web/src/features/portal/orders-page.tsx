@@ -79,6 +79,9 @@ export function PortalOrdersPage() {
           { value: "all", label: t("portal.orders.filterAll") },
         ]}
       />
+      <p className="m-0 text-[13px] leading-5 text-muted-foreground" data-testid="portal-baki-hint">
+        {t("portal.orders.bakiHint")}
+      </p>
       {list.isError && !list.data ? (
         <PortalError error={list.error} onRetry={() => void list.refetch()} />
       ) : (

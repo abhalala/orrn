@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 4238 screen strings in 45 groups, 16 guides with 292 strings.
+Counts: 4253 screen strings in 45 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -4287,7 +4287,7 @@ Please check, Lalubhai:
 | `listLabel` | Audit entries | ऑडिट एंट्री |
 | `noAccess` | Your role can't read the audit log. Ask an owner, admin or manager. | आपकी भूमिका ऑडिट लॉग नहीं पढ़ सकती। मालिक, एडमिन या मैनेजर से कहें। |
 
-### portal (170)
+### portal (185)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4360,6 +4360,7 @@ Please check, Lalubhai:
 | `orders.ordered` | Ordered | ऑर्डर |
 | `orders.dispatched` | Dispatched | भेजा गया |
 | `orders.baki` | Baki | बाकी |
+| `orders.bakiHint` | Baki = still to deliver | बाकी = अभी भेजना बाकी |
 | `orders.statusLabel` | Status | स्थिति |
 | `orders.filterLabel` | Show orders | ऑर्डर दिखाएं |
 | `orders.filterOpen` | Open | खुले |
@@ -4373,6 +4374,14 @@ Please check, Lalubhai:
 | `orders.errors.section` | Pick a die. | Die चुनें। |
 | `orders.errors.length` | Enter the cut length. | कट लंबाई भरें। |
 | `orders.errors.qty` | Enter a whole number of pieces, or the kg. | पीस की पूरी संख्या या kg भरें। |
+| `orders.errors.dieClosed` | That die is no longer open for you. Go back and pick another die. | यह Die अब आपके लिए खुला नहीं है। वापस जाकर दूसरा Die चुनें। |
+| `orders.errors.noLines` | Add at least one line. | कम से कम एक लाइन जोड़ें। |
+| `orders.errors.tooManyLines` | An order can have at most 20 lines. Place the rest as a second order. | एक ऑर्डर में ज़्यादा से ज़्यादा 20 लाइन हो सकती हैं। बाकी दूसरे ऑर्डर में दें। |
+| `orders.errors.plantPicks` | The plant picks the die copy and sets the rate. Leave those out. | Die की कॉपी और रेट प्लांट तय करता है। इन्हें न भेजें। |
+| `orders.errors.range` | A length or quantity is outside what the plant can take. Check the numbers. | कोई लंबाई या मात्रा प्लांट की सीमा से बाहर है। संख्याएं जांचें। |
+| `orders.errors.poUsed` | This PO number is already on another order of yours. Use a new PO number. | यह PO नंबर आपके दूसरे ऑर्डर पर पहले से है। नया PO नंबर डालें। |
+| `orders.errors.reload` | This order was already saved. Open Orders to see it. | यह ऑर्डर पहले ही सेव हो चुका है। ऑर्डर खोलकर देखें। |
+| `orders.errors.ordersOff` | The plant has not turned on orders for the portal. | प्लांट ने पोर्टल पर ऑर्डर चालू नहीं किए हैं। |
 | `dispatches.title` | Dispatches | डिस्पैच |
 | `dispatches.subtitle` | What the plant has sent you, with the packing list and test certificate. | प्लांट ने आपको जो भेजा, पैकिंग लिस्ट और टेस्ट सर्टिफिकेट के साथ। |
 | `dispatches.empty` | No dispatch yet | अभी कोई डिस्पैच नहीं |
@@ -4401,7 +4410,11 @@ Please check, Lalubhai:
 | `certificate.verdict.fail` | Failed | फ़ेल |
 | `certificate.verdict.incomplete` | Incomplete | अधूरा |
 | `certificate.chemistryPending` | Chemistry pending: the plant has not tested these casts yet. | केमिस्ट्री बाकी: प्लांट ने इन कास्ट की जांच अभी नहीं की है। |
-| `certificate.chemistryPartial` | Chemistry for {tested} of {total} bundles. The rest are not tested yet. | {total} में से {tested} बंडल की केमिस्ट्री। बाकी की जांच अभी नहीं हुई। |
+| `certificate.chemistryPartial` | Chemistry for {tested} of {total} bundles that name a cast. The rest are not tested yet. | कास्ट वाले {total} बंडल में से {tested} की केमिस्ट्री। बाकी की जांच अभी नहीं हुई। |
+| `certificate.noCastBundles` | {n} bundles have no cast number | {n} बंडल पर कास्ट नंबर नहीं है |
+| `certificate.noCastBundlesOne` | 1 bundle has no cast number | 1 बंडल पर कास्ट नंबर नहीं है |
+| `certificate.castsFailed` | {n} casts failed chemistry | {n} कास्ट केमिस्ट्री में फ़ेल हुए |
+| `certificate.castsFailedOne` | 1 cast failed chemistry | 1 कास्ट केमिस्ट्री में फ़ेल हुआ |
 | `certificate.chemistryReady` | Chemistry of each cast behind this dispatch, in percent. | इस डिस्पैच के हर कास्ट की केमिस्ट्री, प्रतिशत में। |
 | `certificate.standard` | Standard | स्टैंडर्ड |
 | `certificate.licence` | CM/L | CM/L |
@@ -4410,9 +4423,11 @@ Please check, Lalubhai:
 | `certificate.alBalance` | Al is the balance of the other eight, not measured. | Al बाकी आठ का शेष है, मापा नहीं गया। |
 | `certificate.notTaxDocument` | Quality document. Not a tax invoice. | क्वालिटी दस्तावेज़। टैक्स इनवॉइस नहीं। |
 | `errors.notFound` | Not found | नहीं मिला |
-| `errors.notFoundBody` | There is nothing here for you. Check the link, or go back to your plant screens. | यहां आपके लिए कुछ नहीं है। लिंक जांचें, या प्लांट की स्क्रीन पर लौटें। |
+| `errors.notFoundBody` | There is nothing here for you. Check the link. | यहां आपके लिए कुछ नहीं है। लिंक जांचें। |
 | `errors.backToPlant` | Back to Today | आज पर लौटें |
 | `errors.revoked` | Your login was turned off by the plant. Ask them to turn it on again. | प्लांट ने आपका लॉगिन बंद कर दिया है। उनसे दोबारा चालू करने को कहें। |
+| `errors.loadFailed` | Could not load your portal | आपका पोर्टल लोड नहीं हो सका |
+| `errors.loadFailedBody` | Check your connection and try again. | अपना कनेक्शन जांचें और फिर कोशिश करें। |
 | `errors.disabled` | The plant has turned the party portal off. | प्लांट ने पार्टी पोर्टल बंद कर रखा है। |
 | `errors.noAccess` | This login has no party portal. | इस लॉगिन के लिए कोई पार्टी पोर्टल नहीं है। |
 | `errors.wrongPlant` | You do not have a login in that plant. | उस प्लांट में आपका लॉगिन नहीं है। |

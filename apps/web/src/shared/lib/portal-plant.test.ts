@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { isPartyProcedure, isPartyRequest, pickPortalPlant } from "./portal-plant";
+import { isPartyProcedure, pickPortalPlant, portalAccessUnreachable } from "./portal-plant";
 
 describe("x-orrn-company for the portal", () => {
   test("only party procedures carry the header", () => {
@@ -12,17 +12,18 @@ describe("x-orrn-company for the portal", () => {
       expect(isPartyProcedure(name)).toBe(false);
     }
   });
-  test("a batched URL gets the header only when every procedure is a party procedure", () => {
-    expect(isPartyRequest("http://x/trpc/portal.me,portal.today?batch=1&input=%7B%7D")).toBe(true);
-    expect(isPartyRequest("http://x/trpc/portal.me,auth.me?batch=1")).toBe(false);
-    expect(isPartyRequest("http://x/trpc/portal.users.list?batch=1")).toBe(false);
-    expect(isPartyRequest("http://x/api/auth/get-session")).toBe(false);
-  });
   test("the stored plant wins while the party still has a login there, else the first", () => {
     const plants = [{ companyId: "a" }, { companyId: "b" }];
     expect(pickPortalPlant(plants, "b")?.companyId).toBe("b");
     expect(pickPortalPlant(plants, "gone")?.companyId).toBe("a");
     expect(pickPortalPlant(plants, null)?.companyId).toBe("a");
     expect(pickPortalPlant([], "a")).toBeNull();
+  });
+  test("a network or server failure of portal.access is 'try again', a real refusal is 'no plants'", () => {
+    expect(portalAccessUnreachable(new TypeError("Failed to fetch"))).toBe(true);
+    expect(portalAccessUnreachable({ message: "boom", data: { code: "INTERNAL_SERVER_ERROR", httpStatus: 500 } })).toBe(true);
+    expect(portalAccessUnreachable({ message: "x", data: { code: "BAD_GATEWAY", httpStatus: 502 } })).toBe(true);
+    expect(portalAccessUnreachable({ message: "Authentication required", data: { code: "UNAUTHORIZED", httpStatus: 401 } })).toBe(false);
+    expect(portalAccessUnreachable({ message: "x", data: { code: "FORBIDDEN", httpStatus: 403 } })).toBe(false);
   });
 });

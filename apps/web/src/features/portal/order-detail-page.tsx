@@ -58,7 +58,7 @@ export function PortalOrderDetailPage({ id }: { id: string }) {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <StatusBlock tone="neutral" title={t("portal.orders.ordered")} value={o.totals.orderedG / 1000} unit={t("units.kg")} format={(n) => kgText(Math.round(n * 1000))} countUp={false} />
         <StatusBlock tone="blue" title={t("portal.orders.dispatched")} value={o.totals.dispatchedG / 1000} unit={t("units.kg")} format={(n) => kgText(Math.round(n * 1000))} countUp={false} />
-        <StatusBlock tone="amber" title={t("portal.orders.baki")} value={o.totals.bakiG / 1000} unit={t("units.kg")} format={(n) => kgText(Math.round(n * 1000))} countUp={false} />
+        <StatusBlock tone="amber" title={t("portal.orders.baki")} meta={t("portal.orders.bakiHint")} value={o.totals.bakiG / 1000} unit={t("units.kg")} format={(n) => kgText(Math.round(n * 1000))} countUp={false} />
       </div>
       {o.note ? <p className="m-0 text-[15px] break-words text-muted-foreground">{o.note}</p> : null}
       <section aria-labelledby="portal-lines" className="flex min-w-0 flex-col gap-3">

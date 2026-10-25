@@ -6,19 +6,24 @@
  */
 export const PORTAL_PLANT_KEY = "orrn.portalPlant";
 
-/** Party procedures that honour `x-orrn-company` (portalProcedure). Staff `portal.users.*` etc. never do. */
+/**
+ * Party procedures that honour `x-orrn-company` (portalProcedure). Staff `portal.users.*` etc. never do.
+ * Add a new party procedure here (the link in trpc-links.ts sends these in their own batch).
+ */
 const PARTY_PROCEDURE = /^portal\.(me|today|sections\.visible|orders\.(list|get|create)|dispatches\.(list|get)|packingList\.get|certificate\.get)$/;
 
 export function isPartyProcedure(name: string): boolean {
   return PARTY_PROCEDURE.test(name);
 }
 
-/** True when every procedure in a batched tRPC URL is a party procedure (a mixed batch gets no header). */
-export function isPartyRequest(url: string): boolean {
-  const match = /\/trpc\/([^?#]+)/.exec(url);
-  if (!match) return false;
-  const names = decodeURIComponent(match[1]!).split(",");
-  return names.length > 0 && names.every(isPartyProcedure);
+/**
+ * True when `portal.access` did not answer (offline, 5xx): the guard shows "try again", it does not
+ * treat the party as having no plants (a member would see Not found, a party the no-access page).
+ * A 4xx is an answer.
+ */
+export function portalAccessUnreachable(error: unknown): boolean {
+  const status = (error as { data?: { httpStatus?: unknown } } | null)?.data?.httpStatus;
+  return !(typeof status === "number" && status >= 400 && status < 500);
 }
 
 export function readPortalPlant(): string | null {

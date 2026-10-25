@@ -1,12 +1,13 @@
 import type { AppRouter } from "@orrn/server/routers/index";
 import { env } from "@orrn/env/web";
 import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
-import { createTRPCClient, httpBatchLink } from "@trpc/client";
+import { createTRPCClient } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 
 import { clearImpersonation, getImpersonation, hasStoredImpersonation } from "../lib/impersonation";
-import { isPartyRequest, readPortalPlant } from "../lib/portal-plant";
+import { readPortalPlant } from "../lib/portal-plant";
+import { buildTrpcLink } from "../lib/trpc-links";
 import {
   isImpersonationForbidden,
   isUnauthorized,
@@ -90,23 +91,11 @@ export const queryClient: QueryClient = new QueryClient({
 
 export const trpcClient = createTRPCClient<AppRouter>({
   links: [
-    httpBatchLink({
+    buildTrpcLink<AppRouter>({
       url: `${env.VITE_SERVER_URL}/trpc`,
-      fetch(url, options) {
-        const headers = new Headers(options?.headers);
-        const impersonation = getImpersonation();
-        if (impersonation) {
-          headers.set("x-orrn-impersonate-company", impersonation.companyId);
-        }
-        // A party with logins in several plants names the one they read (portal procedures only).
-        const plant = readPortalPlant();
-        if (plant && isPartyRequest(String(url))) headers.set("x-orrn-company", plant);
-        return fetch(url, {
-          ...options,
-          headers,
-          credentials: "include",
-        });
-      },
+      getImpersonation: () => getImpersonation()?.companyId ?? null,
+      // A party with logins in several plants names the one they read (party procedures only).
+      getPlant: readPortalPlant,
     }),
   ],
 });

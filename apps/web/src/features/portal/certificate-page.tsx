@@ -10,7 +10,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { usePortalMe } from "./hooks";
 import { bookDate, PortalError, PortalSkeleton } from "./ui";
-import { castState, certCasts, chemistryNote, kgText, pcsText, type CertCast, type CertSnapshot } from "./model";
+import { castState, certCasts, chemistryNotes, kgText, pcsText, type CertCast, type CertSnapshot } from "./model";
 
 /**
  * `/portal/certificate/$dispatchId`: the test certificate of a dispatch, a frozen snapshot. It cites
@@ -41,7 +41,7 @@ export function PortalCertificatePage({ dispatchId }: { dispatchId: string }) {
   }
   const snap = q.data.snapshot as unknown as CertSnapshot;
   const casts = certCasts(snap);
-  const note = chemistryNote(snap.chemistry);
+  const notes = chemistryNotes({ chemistry: snap.chemistry, castCount: casts.length });
   const heading = snap.company.legalName || snap.company.name;
 
   return (
@@ -115,9 +115,13 @@ export function PortalCertificatePage({ dispatchId }: { dispatchId: string }) {
           <h2 id="cert-chem" className="m-0 text-[17px] font-semibold">
             {t("portal.certificate.chemistry")}
           </h2>
-          <p role="status" data-testid="cert-chemistry-note" className="m-0 text-[15px] font-medium">
-            {t(note.key, note.vars)}
-          </p>
+          <div role="status" data-testid="cert-chemistry-note" className="flex flex-col gap-1">
+            {notes.map((n) => (
+              <p key={n.key} data-note={n.key.split(".").pop()} className="m-0 text-[15px] font-medium">
+                {t(n.key, n.vars)}
+              </p>
+            ))}
+          </div>
           {casts.length > 0 ? (
             <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 md:grid-cols-2" data-testid="cert-casts">
               {casts.map((c) => (
