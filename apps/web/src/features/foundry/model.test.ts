@@ -7,6 +7,7 @@ import {
   canCancelCast,
   castPeriodText,
   closeBlock,
+  countedBillets,
   closeFormIssue,
   furnaceInput,
   limitDraft,
@@ -45,6 +46,22 @@ describe("tone and chips", () => {
     expect(bpText(286)).toBe("2.9");
     expect(bpText(null)).toBe("");
     expect(castPeriodText(2026, 10)).toBe("Oct 2026");
+  });
+});
+
+describe("the closer's count", () => {
+  test("pieces and kg become a count; zero and zero is a real count", () => {
+    expect(countedBillets("48", "5860")).toEqual({ ok: true, billetsOnHand: { count: 48, kgG: 5_860_000 } });
+    expect(countedBillets(" 6 ", "860.5")).toEqual({ ok: true, billetsOnHand: { count: 6, kgG: 860_500 } });
+    expect(countedBillets("0", "0")).toEqual({ ok: true, billetsOnHand: { count: 0, kgG: 0 } });
+  });
+  test("a blank, a word or a half count is named", () => {
+    expect(countedBillets("", "10")).toEqual({ ok: false, issue: "pcs" });
+    expect(countedBillets("4.5", "10")).toEqual({ ok: false, issue: "pcs" });
+    expect(countedBillets("4", "")).toEqual({ ok: false, issue: "kg" });
+    expect(countedBillets("4", "10.5555")).toEqual({ ok: false, issue: "kg" });
+    expect(countedBillets("0", "12")).toEqual({ ok: false, issue: "together" });
+    expect(countedBillets("5", "0")).toEqual({ ok: false, issue: "together" });
   });
 });
 

@@ -198,6 +198,23 @@ for (const width of WIDTHS) {
       }
     });
 
+    test("a draft melt is discarded: it keeps its number as cancelled and nothing is posted", async ({ page }) => {
+      const api = await ownerApi();
+      const cast = await openOwnCast(api);
+      await api.mutate("foundry.melts.save", { castId: cast.id, times: {} });
+      await api.dispose();
+      await open(page, `/casts/${cast.id}`, width, "foundry");
+      await expect(page.getByTestId("tail-chip")).toHaveText("No melts yet");
+      await main(page).getByRole("link", { name: /Melt 1/ }).first().click();
+      await expect(page.getByTestId("melt-step-times")).toBeVisible();
+      await page.getByTestId("discard-draft").click();
+      await page.getByTestId("discard-confirm").click();
+      await expect(page).toHaveURL(new RegExp(`/casts/${cast.id}$`));
+      await expect(page.getByText("Draft discarded").first()).toBeVisible();
+      await expect(main(page).locator("tr, li").filter({ hasText: "Melt 1" }).first()).toContainText("Cancelled");
+      await expect(page.getByTestId("fig-produced")).toContainText("0");
+    });
+
     test("the casts list filters by status, opens a cast and traces a cast code and a bundle", async ({ page }) => {
       const api = await ownerApi();
       const cast = await openOwnCast(api);

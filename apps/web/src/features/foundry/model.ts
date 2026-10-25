@@ -93,6 +93,25 @@ export function closeBlock(status: string, c: Pick<Closeout, "draftMelts">): Clo
   return c.draftMelts > 0 ? "draft_melts" : null;
 }
 
+export type CountIssue = "pcs" | "kg" | "together";
+
+/**
+ * The closer's physical count (Q59-A): pieces and kg of this cast's billets still in the yard, typed
+ * as text. Both are required (zero and zero is a real count: nothing left); one without the other is
+ * not. The server works the tail out from this and the ledger; nothing here is a figure.
+ */
+export function countedBillets(pcsText: string, kgText: string): { ok: true; billetsOnHand: { count: number; kgG: number } } | { ok: false; issue: CountIssue } {
+  const pcsRaw = pcsText.trim().replace(/,/g, "");
+  const kgRaw = kgText.trim().replace(/,/g, "");
+  if (!/^\d{1,7}$/.test(pcsRaw)) return { ok: false, issue: "pcs" };
+  if (!/^\d+(\.\d{1,3})?$/.test(kgRaw)) return { ok: false, issue: "kg" };
+  const count = Number(pcsRaw);
+  const kgG = Math.round(Number(kgRaw) * 1000);
+  if (count > 1_000_000 || kgG > 100_000_000) return { ok: false, issue: "kg" };
+  if ((count === 0) !== (kgG === 0)) return { ok: false, issue: "together" };
+  return { ok: true, billetsOnHand: { count, kgG } };
+}
+
 /** The close sheet's form is complete: a reason when the tail needs one, and a note when the code asks for it. */
 export function closeFormIssue(
   c: Pick<Closeout, "needsReason">,
