@@ -1,5 +1,7 @@
 # Orders and planning — design spec
 
+> Preview retired on 2026-10-25; real route: `/orders`, `/orders/new`, `/orders/$id`, `/orders/plan`.
+
 Date: 2026-10-24 · Module: OP · Preview slug: `orders` · Builds on: `2026-10-03-orrn-plant-modules-design.md` (P13, §4), plan PL-8 / PL-11, digest Stage 15 and §8.1. Evidence cites are to the 2026-10-24 competitive call (`T:L`, `S:`, `shots_A`, `shots_B`, report §4 and §6). This spec uses ORRN words only. "Die" is the section catalogue row (`die`). "Die copy" is the physical oblique (`die_instance`). "Customer PO" is the party's purchase order. It is never an internal press document.
 
 PL-8 is the implementation task. Where this spec and PL-8 differ, this spec wins. The differences are listed in Merge notes.

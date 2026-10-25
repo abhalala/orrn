@@ -1,26 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { LanguageToggle } from "@/features/preview/platform/chrome";
-import { DevicesScreen } from "@/features/preview/platform/devices-screen";
-import { PreviewFrame } from "@/features/preview/preview-frame";
-import { previewModule } from "@/features/preview/registry";
-
-const mod = previewModule("platform")!;
-
+/** Retired fixture demo (2026-10-25). The real screen lives at the redirect target. */
 export const Route = createFileRoute("/_tenant/preview/platform/devices")({
-  component: DevicesPreview,
+  beforeLoad: () => {
+    throw redirect({ to: "/settings", search: { tab: "devices" } });
+  },
 });
-
-function DevicesPreview() {
-  return (
-    <PreviewFrame
-      title="Devices"
-      summary="Phones and tablets on in.orrn.app, and the update gate."
-      featureIds={["FP-PF-11", "FP-PF-13"]}
-      specPath={mod.specPath}
-      actions={<LanguageToggle />}
-    >
-      <DevicesScreen />
-    </PreviewFrame>
-  );
-}

@@ -1,20 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { PressScreen } from "@/features/preview/press/components/chrome";
-import { LineBoard } from "@/features/preview/press/components/line-board";
-
+/** Retired fixture demo (2026-10-25). The real screen lives at the redirect target. */
 export const Route = createFileRoute("/_tenant/preview/press/")({
-  component: PressLinesPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/press" });
+  },
 });
-
-function PressLinesPage() {
-  return (
-    <PressScreen
-      title="Press lines"
-      summary="Today's line, and the jobs released to it."
-      featureIds={["FP-PR-01", "FP-PR-02", "FP-PR-04", "FP-PR-05", "FP-PR-13", "FP-PR-18"]}
-    >
-      <LineBoard />
-    </PressScreen>
-  );
-}

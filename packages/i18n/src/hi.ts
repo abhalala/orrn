@@ -197,7 +197,6 @@ export const hi = {
     masters: "मास्टर",
     guides: "गाइड",
     settings: "सेटिंग्स",
-    preview: "प्रीव्यू",
     account: "अकाउंट",
     signOut: "साइन आउट",
     skipToContent: "मुख्य हिस्से पर जाएं",
@@ -3267,8 +3266,14 @@ export const hi = {
     recent: "हाल के",
     pages: "पेज",
     pageRangeOpen: "{from}-{to}",
-    stubTitle: "यह स्क्रीन फिर से बन रही है",
-    stubBody: "यह जल्द ही यहाँ वापस आएगी।",
+  },
+
+  /** Placeholder for the two modules still being built elsewhere (`/preview/coming-soon`). */
+  comingSoon: {
+    foundry: "फाउंड्री",
+    ageing: "एजिंग",
+    title: "यह मॉड्यूल दूसरी मशीन पर बन रहा है",
+    body: "यह अभी इस ऐप में तैयार नहीं है। यहाँ कुछ भी सेव नहीं होता।",
   },
 
   charts: {

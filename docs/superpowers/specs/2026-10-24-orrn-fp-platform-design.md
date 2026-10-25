@@ -1,5 +1,7 @@
 # ORRN platform — design spec
 
+> Preview retired on 2026-10-25; real route: `/today`, `/settings` (Devices tab: `/settings?tab=devices`), `/portal`.
+
 Date: 2026-10-24 · Module: PF · Preview slug: `platform` · IDs: `FP-PF-nn`
 
 Builds on: `2026-10-03-orrn-c2-redesign-design.md` (shell, `/today`, `/settings`, guides) and `2026-10-03-orrn-plant-modules-design.md` (P9 roles, P10 plant switch, P11 deferred PIN, P19 7 am summary, `company.settings` keys). Plant facts: `docs/superpowers/review/2026-10-03-architecture-digest.md`. Vocabulary: `AGENTS.md` and `packages/i18n/src/en.ts`.

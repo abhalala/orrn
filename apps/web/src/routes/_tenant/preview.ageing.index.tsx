@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { AgeingBoard } from "@/features/preview/ageing/board";
-
+/** Retired fixture demo (2026-10-25). The real screen lives at the redirect target. */
 export const Route = createFileRoute("/_tenant/preview/ageing/")({
-  component: AgeingBoard,
+  beforeLoad: () => {
+    throw redirect({ to: "/preview/coming-soon", search: { module: "ageing" } });
+  },
 });

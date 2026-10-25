@@ -1,5 +1,7 @@
 # Foundry (FP-FD) — casts, melts, billets, chemistry
 
+> Preview retired on 2026-10-25; real route: none yet; `/preview/*` now redirects to `/preview/coming-soon?module=foundry` (built on another machine).
+
 **Date:** 2026-10-24
 **Module:** FD · **Preview slug:** `foundry`
 **Status:** design. No schema or screen exists yet. This spec is the contract for PL-5 and the foundry screens.
