@@ -215,6 +215,13 @@ export const hi = {
     adminRequestsShort: "रिक्वेस्ट",
     adminStaff: "स्टाफ़",
     openAccount: "अकाउंट और बाकी पेज",
+    plantSwitch: {
+      label: "प्लांट बदलें",
+      current: "प्लांट: {name}",
+      heading: "आपके प्लांट",
+      switching: "{name} खुल रहा है",
+      failed: "वह प्लांट नहीं खुला। फिर से कोशिश करें।",
+    },
     home: "orrn होम",
     godseye: "Godseye",
     godseyeHome: "Godseye होम",

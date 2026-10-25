@@ -12,6 +12,8 @@ import { useMe } from "@/shared/lib/me";
 import { CommandPaletteProvider } from "./command-palette";
 import { Avatar, MoreSheet, type ShellVariant } from "./more-menu";
 import { GODSEYE_MORE, GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, visibleItems } from "./nav-items";
+import { PlantSwitcher } from "./plant-switcher";
+import { switcherPlants } from "./plant-switcher-model";
 import { SideNav } from "./side-nav";
 import { SkipLink } from "./skip-link";
 import { TabBar } from "./tab-bar";
@@ -108,12 +110,16 @@ function ShellFrame({ variant, children }: AppShellProps) {
                 {godseye ? <Eye className="size-3.5" strokeWidth={2} /> : null}
               </span>
             </Link>
-            <p
-              className="m-0 min-w-0 flex-1 truncate font-display text-[17px] font-bold tracking-[-0.02em]"
-              title={godseye ? t("nav.godseye") : me?.company?.name}
-            >
-              {godseye ? t("nav.godseye") : me?.company?.name}
-            </p>
+            {!godseye && switcherPlants(me) ? (
+              <PlantSwitcher variant="header" />
+            ) : (
+              <p
+                className="m-0 min-w-0 flex-1 truncate font-display text-[17px] font-bold tracking-[-0.02em]"
+                title={godseye ? t("nav.godseye") : me?.company?.name}
+              >
+                {godseye ? t("nav.godseye") : me?.company?.name}
+              </p>
+            )}
             <button
               type="button"
               onClick={() => setMoreOpen(true)}

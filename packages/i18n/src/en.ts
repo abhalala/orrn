@@ -222,6 +222,13 @@ export const en = {
     adminRequestsShort: "Requests",
     adminStaff: "Staff",
     openAccount: "Account and more",
+    plantSwitch: {
+      label: "Switch plant",
+      current: "Plant: {name}",
+      heading: "Your plants",
+      switching: "Opening {name}",
+      failed: "Could not open that plant. Try again.",
+    },
     home: "orrn home",
     godseye: "Godseye",
     godseyeHome: "Godseye home",

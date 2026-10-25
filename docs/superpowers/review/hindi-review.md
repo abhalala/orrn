@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5093 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5098 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -170,7 +170,7 @@ Counts: 5093 screen strings in 46 groups, 16 guides with 292 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (47)
+### nav (52)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -207,6 +207,11 @@ Counts: 5093 screen strings in 46 groups, 16 guides with 292 strings.
 | `adminRequestsShort` | Requests | रिक्वेस्ट |
 | `adminStaff` | Staff | स्टाफ़ |
 | `openAccount` | Account and more | अकाउंट और बाकी पेज |
+| `plantSwitch.label` | Switch plant | प्लांट बदलें |
+| `plantSwitch.current` | Plant: {name} | प्लांट: {name} |
+| `plantSwitch.heading` | Your plants | आपके प्लांट |
+| `plantSwitch.switching` | Opening {name} | {name} खुल रहा है |
+| `plantSwitch.failed` | Could not open that plant. Try again. | वह प्लांट नहीं खुला। फिर से कोशिश करें। |
 | `home` | orrn home | orrn होम |
 | `godseye` | Godseye | Godseye |
 | `godseyeHome` | Godseye home | Godseye होम |
