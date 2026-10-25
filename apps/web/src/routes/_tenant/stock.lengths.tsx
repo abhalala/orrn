@@ -89,7 +89,8 @@ function StockLengths() {
         onChange={(patch) => void navigate({ search: (prev) => ({ ...prev, ...patch, page: undefined }) })}
         onClear={() => void navigate({ search: (prev) => withoutFilters({ ...prev, page: undefined }) })}
       />
-      <StockTotals totals={q.data?.totals} kinds={q.data?.kindTotals} loading={q.isPending} />
+      {/* In stock = available only; the held bundles in these rows are the Held chip (BACKLOG 16). */}
+      <StockTotals stock={q.data?.stock} loading={q.isPending} />
       <ResponsiveList
         rows={items}
         columns={columns}

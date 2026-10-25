@@ -20,7 +20,7 @@ import { partyRange } from "@/features/pack/party";
 import { labelRun } from "@/features/pack/print-labels";
 import { ReviewStep } from "@/features/pack/review-step";
 import { ownerNameOf, saveErrorKind, type SaveErrorKind } from "@/features/pack/save-error";
-import { reachableStep, toReceiptInput, usePackDraft, type PackStep } from "@/features/pack/use-pack-draft";
+import { newSessionKey, reachableStep, receiptRequestKey, toReceiptInput, usePackDraft, type PackStep } from "@/features/pack/use-pack-draft";
 import { sessionPrintQueue, useCanPrintLabels } from "@/features/pack/use-print-labels";
 import { useYards, writeLastYard } from "@/features/pack/use-yards";
 import { can, useMe } from "@/shared/lib/me";
@@ -131,8 +131,12 @@ function PackFlow({ companyId, userId, settings }: { companyId: string; userId: 
     const input = toReceiptInput(draft, unit, { yardIds: yards.yardIds });
     if (!input || create.isPending) return;
     setSaveError(null);
+    // BACKLOG 50: one key per save of these bundles, kept in the draft so a retry (or a reload after a
+    // lost reply) replays the first save on the server instead of packing the bundles twice.
+    const sessionKey = draft.sessionKey ?? newSessionKey();
+    if (!draft.sessionKey) update((d) => ({ ...d, sessionKey }));
     try {
-      const res = await create.mutateAsync(input);
+      const res = await create.mutateAsync({ ...input, clientRequestId: receiptRequestKey(sessionKey, input) });
       finish();
       if (input.locationId) writeLastYard(companyId, input.locationId);
       setPopped(true);

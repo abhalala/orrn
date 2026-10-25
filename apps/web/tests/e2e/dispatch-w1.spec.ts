@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
-import { dieId, makePlantStock, newCustomer, newOrder, ownerApi, packBundles, type OwnerApi } from "./helpers/owner-api";
+import { dieId, newCustomer, newOrder, ownerApi, packBundles, type OwnerApi } from "./helpers/owner-api";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
 /**
@@ -17,7 +17,7 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
 
 const WIDTHS = [375, 820, 1280] as const;
 /** The dispatch page's own button (the tab bar's Scan is another button); Gujarati reads English here. */
-const scanWord = { hi: "Bundle स्कैन करें", gu: "Scan bundles" } as const;
+const scanWord = { hi: "Bundle स्कैन करें", gu: "Bundle સ્કૅન કરો" } as const;
 const DIE = "14701";
 
 test.describe.configure({ timeout: 180_000 });
@@ -65,8 +65,7 @@ async function gate(api: OwnerApi, tag: string) {
   const row = (kgG: number) => ({ quantity: 20, weightG: kgG });
   const wrong = (await packBundles(api, die, [row(50_000)], { salesOrderLineId: order.lineId })).bundles[0]!;
   const loose = (await packBundles(api, die, [row(51_000)])).bundles[0]!;
-  const plant = (await packBundles(api, die, [row(52_000)])).bundles[0]!;
-  await makePlantStock(api, [plant.id]);
+  const plant = (await packBundles(api, die, [row(52_000)], { plantStock: true })).bundles[0]!;
   const d = await api.mutate<{ id: string; code: string }>("dispatch.create", { customerId: a.id });
   return { a, b, wrong, loose, plant, d, die };
 }
@@ -234,8 +233,7 @@ test.describe("dispatch: truck capacity, transporter, completing over capacity",
       const tag = `${width}-${Date.now() % 100_000}`;
       const cust = await newCustomer(api, `Cap ${tag}`);
       const die = await dieId(api, DIE);
-      const packed = await packBundles(api, die, Array.from({ length: 7 }, () => ({ quantity: 20, weightG: 50_000 })));
-      await makePlantStock(api, packed.bundles.map((b) => b.id));
+      const packed = await packBundles(api, die, Array.from({ length: 7 }, () => ({ quantity: 20, weightG: 50_000 })), { plantStock: true });
       await start(page, "owner", width);
       await visit(page, "/dispatch/new");
       await page.getByRole("combobox", { name: "Customer" }).fill(cust.name.slice(0, 8));
@@ -302,9 +300,8 @@ test.describe("packing list v2: header, revisions, branding, combine, by-id view
       const tag = `${width}-${Date.now() % 100_000}`;
       const cust = await newCustomer(api, `PL ${tag}`, "lifelong");
       const die = await dieId(api, DIE);
-      const one = await packBundles(api, die, [{ quantity: 20, weightG: 47_900 }, { quantity: 20, weightG: 48_100 }]);
-      const two = await packBundles(api, die, [{ quantity: 20, weightG: 47_700 }]);
-      await makePlantStock(api, [...one.bundles, ...two.bundles].map((b) => b.id));
+      const one = await packBundles(api, die, [{ quantity: 20, weightG: 47_900 }, { quantity: 20, weightG: 48_100 }], { plantStock: true });
+      const two = await packBundles(api, die, [{ quantity: 20, weightG: 47_700 }], { plantStock: true });
       const d1 = await completed(api, cust.id, one.bundles.map((b) => b.serial));
       const d2 = await completed(api, cust.id, two.bundles.map((b) => b.serial));
 
@@ -315,7 +312,8 @@ test.describe("packing list v2: header, revisions, branding, combine, by-id view
       await expect(header.getByTestId("packing-list-totals")).toHaveText("2 bundles · 96.00 kg");
       // The customer's own numbers show as a column (they differ from the serials), and the rows add up.
       await expect(page.getByTestId("packing-list-row")).toHaveCount(2);
-      await expect(page.getByTestId("pl-group-total").first()).toBeVisible().catch(() => undefined);
+      // The group subtotal: a table row on a wide screen, the group's own line on a phone.
+      await expect(page.getByTestId("pl-group-total").or(page.getByTestId("pl-group-subtotal")).first()).toContainText("96.00");
 
       // Edit header: vehicle, driver, transporter, invoice (owner holds invoice.link).
       await page.getByTestId("edit-header").click();
@@ -382,8 +380,7 @@ test.describe("packing list v2: header, revisions, branding, combine, by-id view
     const api = await ownerApi();
     const cust = await newCustomer(api, `PL floor ${Date.now() % 100_000}`);
     const die = await dieId(api, DIE);
-    const r = await packBundles(api, die, [{ quantity: 20, weightG: 47_900 }]);
-    await makePlantStock(api, r.bundles.map((b) => b.id));
+    const r = await packBundles(api, die, [{ quantity: 20, weightG: 47_900 }], { plantStock: true });
     const d = await completed(api, cust.id, r.bundles.map((b) => b.serial));
     await api.dispose();
     await start(page, "operator", 1280);

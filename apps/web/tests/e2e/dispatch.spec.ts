@@ -4,7 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
-import { toPlantStock } from "./helpers/plant-stock";
+import { packPlantStock } from "./helpers/plant-stock";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
@@ -48,24 +48,8 @@ async function start(page: Page, role: LocalRole, opts: { width?: number; height
 
 /** Packs `count` new bundles through the API (owner), so this test alone owns them. */
 async function packFresh(page: Page, count: number) {
-  const dies = await trpcQuery<{ items: { id: string }[] }>(page, "die.list", { limit: 1 });
-  const locations = await trpcQuery<{ items: { id: string; kind: string }[] }>(page, "stock.locations.list", {});
-  const yard = locations.items.find((l) => l.kind === "yard");
-  const rows = Array.from({ length: count }, (_, i) => ({ quantity: 20 + (i % 3), weightG: 50_000 + i * 137, lengthMm: 3658 }));
-  const receipt = await trpcMutation<{ groupId: string }>(page, "bundle.createReceipt", {
-    dieId: dies.items[0]!.id,
-    unit: "inch",
-    ...(yard ? { locationId: yard.id } : {}),
-    rows,
-  });
-  const list = await trpcQuery<{ items: { serial: string; weightG: number }[] }>(page, "bundle.listBundles", {
-    groupId: receipt.groupId,
-    limit: 100,
-  });
-  expect(list.items).toHaveLength(count);
-  // Bundles packed for no order are "not on a sales order" (D12): the floor scan refuses them, so they go to plant stock first.
-  await toPlantStock(list.items.map((b) => b.serial));
-  return list.items;
+  // D20: packed as "Plant stock", which the floor scan adds to any customer's load with no office step.
+  return packPlantStock(page, count);
 }
 
 /**
@@ -532,7 +516,20 @@ test.describe("dispatch: list", () => {
   test("status tabs filter the list and keep the choice in the URL", async ({ page }) => {
     await start(page, "owner");
     await visit(page, "/dispatch");
-    await expect(page.getByRole("radio", { name: "Building" })).toHaveAttribute("aria-checked", "true");
+    // BACKLOG 16: it opens on every open load (Building and Held), Building first.
+    await expect(page.getByRole("radio", { name: "Open" })).toHaveAttribute("aria-checked", "true");
+    const table = page.getByRole("table", { name: "Dispatches" });
+    await expect(table.getByRole("link", { name: /DSP-/ }).first()).toBeVisible({ timeout: 20_000 });
+    // Every row is open (Building or Held), and every Building row comes before the first Held one.
+    await expect
+      .poll(async () => {
+        const statuses = await table.locator("tbody tr").evaluateAll((rows) =>
+          rows.map((r) => ((r.textContent ?? "").includes("Held") ? "held" : (r.textContent ?? "").includes("Building") ? "building" : "other")),
+        );
+        const ordered = statuses.indexOf("held") === -1 || statuses.lastIndexOf("building") < statuses.indexOf("held");
+        return statuses.length > 0 && !statuses.includes("other") && ordered;
+      })
+      .toBe(true);
     await page.getByRole("radio", { name: "Dispatched" }).click();
     await expect(page).toHaveURL(/status=completed/);
     await expect(page.getByRole("table", { name: "Dispatches" }).getByText("Dispatched").first()).toBeVisible();

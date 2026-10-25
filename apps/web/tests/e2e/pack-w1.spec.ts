@@ -1,8 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, request, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { localPassword, signInViaApi, type LocalRole } from "./helpers/accounts";
+import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { mockScale, silent, steady, type MockReading } from "./helpers/mock-scale";
+import { ownerApi } from "./helpers/owner-api";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
@@ -270,10 +271,23 @@ test.describe("pack: party number after save, one tone everywhere, labels with n
       await expect(sticker).toContainText("47.90");
       // 10 up by default, 21 up on request, and a part-used sheet starts later.
       await expect(sheet.locator("[data-slot='label-page']").first().locator("> div > *")).toHaveCount(10);
+      // C-1: the QR sits in its own column; it never covers the company name, the serial or the weight,
+      // on screen and as printed, and the printed QR reads back as this bundle's /b link.
+      await expectStickerFits(sticker);
+      await page.emulateMedia({ media: "print", colorScheme: "light", reducedMotion: "reduce" });
+      await expectStickerFits(sticker);
+      expect(await decodeStickerQr(sticker)).toBe(b.serial);
+      await page.emulateMedia({ media: "screen", colorScheme: "light", reducedMotion: "reduce" });
       await page.getByRole("radio", { name: "21 per page" }).click();
       await expect(sheet.locator("[data-slot='label-page']").first().locator("> div > *")).toHaveCount(21);
+      await expectStickerFits(sticker);
+      await page.emulateMedia({ media: "print", colorScheme: "light", reducedMotion: "reduce" });
+      await expectStickerFits(sticker);
+      await page.emulateMedia({ media: "screen", colorScheme: "light", reducedMotion: "reduce" });
       await page.getByLabel("Stickers already used").fill("2");
       await expect(sheet.locator("[data-slot='label-page']").first().locator("> div > *").nth(2)).toHaveAttribute("data-serial", b.serial);
+      // Back from print media: let the 0.01 ms reduced-motion transitions finish before measuring the page.
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
       await expectNoHorizontalScroll(page);
       expect(await axeSerious(page)).toEqual([]);
 
@@ -291,30 +305,195 @@ test.describe("pack: party number after save, one tone everywhere, labels with n
       // History shows who did it.
       await expect(page.getByTestId("bundle-timeline").locator("[data-slot='actor']").first()).toContainText("by ");
 
-      // Reprint with no printer set up says so, in words that stay on the page.
-      await page.getByRole("button", { name: "Reprint label" }).click().catch(() => undefined);
-      await expect(page.getByTestId("reprint-failed")).toContainText("No label printer is set up", { timeout: 10_000 }).catch(async () => {
-        // Operators cannot reprint; the sheet link is the way out for them.
-        await expect(page.getByRole("link", { name: "Print label sheet" })).toBeVisible();
-      });
+      // Reprint with no printer set up says so, in words that stay on the page, with the sheet as the way out.
+      // (The operator holds spool.create_jobs, so the button is there.)
+      await page.getByRole("button", { name: "Reprint label" }).click();
+      const failed = page.getByTestId("reprint-failed");
+      await expect(failed).toContainText("No label printer is set up", { timeout: 10_000 });
+      await expect(failed.getByRole("link", { name: "Print label sheet" })).toBeVisible();
     });
   }
 });
 
-/** The owner's API (customers, orders, party numbers need masters.publish and order.manage). */
-async function ownerApi() {
-  const api = await request.newContext({ extraHTTPHeaders: { origin: ORIGIN } });
-  const signIn = await api.post(`${API}/api/auth/sign-in/email`, { data: { email: "owner@orrn.local", password: localPassword() } });
-  expect(signIn.ok(), `owner sign-in returned ${signIn.status()}`).toBe(true);
-  return {
-    async mutate<T>(path: string, input: unknown): Promise<T> {
-      const res = await api.post(`${API}/trpc/${path}`, { data: input });
-      expect(res.ok(), `${path} returned ${res.status()}: ${await res.text()}`).toBe(true);
-      return (await res.json()).result.data as T;
-    },
-    dispose: () => api.dispose(),
-  };
+type Box = { x: number; y: number; width: number; height: number };
+const overlaps = (a: Box, b: Box) => a.x < b.x + b.width - 0.5 && b.x < a.x + a.width - 0.5 && a.y < b.y + b.height - 0.5 && b.y < a.y + a.height - 0.5;
+const inside = (inner: Box, outer: Box) =>
+  inner.x >= outer.x - 0.5 && inner.y >= outer.y - 0.5 && inner.x + inner.width <= outer.x + outer.width + 0.5 && inner.y + inner.height <= outer.y + outer.height + 0.5;
+
+/**
+ * C-1: the QR box never intersects the company name, serial or weight, and all of them sit inside the sticker.
+ * Every box is read in one pass in the page, so a reflow above the sheet between reads cannot skew them.
+ */
+async function expectStickerFits(sticker: ReturnType<Page["locator"]>) {
+  await expect(sticker.locator("img[data-slot='sticker-qr']")).toBeVisible({ timeout: 15_000 });
+  // Under reduced motion every property change is a 0.01 ms transition (globals.css), so a box read in
+  // the same frame as a density or media switch still has its old size: wait two frames first.
+  const boxes = await sticker.evaluate(async (el) => {
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+    const box = (e: Element | null) => {
+      if (!e) return null;
+      const r = e.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    };
+    const slot = (name: string) => box(el.querySelector(`[data-slot='${name}']`));
+    const weight = el.querySelector("[data-slot='sticker-weight']");
+    return {
+      outer: box(el)!,
+      qr: slot("sticker-qr"),
+      parts: { "sticker-company": slot("sticker-company"), "sticker-serial": slot("sticker-serial"), "sticker-weight": slot("sticker-weight") },
+      weightClipped: weight ? weight.scrollWidth > weight.clientWidth + 1 : true,
+    };
+  });
+  const qr = boxes.qr;
+  expect(qr, "sticker-qr has a box").not.toBeNull();
+  expect(qr!.width).toBeGreaterThan(20);
+  expect(inside(qr!, boxes.outer), `QR inside the sticker ${JSON.stringify(boxes)}`).toBe(true);
+  for (const [slot, b] of Object.entries(boxes.parts)) {
+    expect(b, `${slot} has a box`).not.toBeNull();
+    expect(overlaps(qr!, b!), `QR covers ${slot}`).toBe(false);
+    expect(inside(b!, boxes.outer), `${slot} inside the sticker ${JSON.stringify(boxes)}`).toBe(true);
+  }
+  // The weight is not clipped by the text column either.
+  expect(boxes.weightClipped).toBe(false);
 }
+
+/** Decode the sticker's QR as rendered and return the bundle number its /b link names. */
+async function decodeStickerQr(sticker: ReturnType<Page["locator"]>): Promise<string> {
+  // The exact PNG the sticker prints (a phone-width screenshot of a 55 px QR reads only some of the time).
+  const src = (await sticker.locator("img[data-slot='sticker-qr']").getAttribute("src")) ?? "";
+  expect(src).toMatch(/^data:image\/png;base64,/);
+  const png = Buffer.from(src.slice(src.indexOf(",") + 1), "base64");
+  const { readBarcodes } = await import("zxing-wasm/reader");
+  const found = await readBarcodes(new Uint8Array(png), { formats: ["QRCode"], tryHarder: true });
+  expect(found.length, "the printed QR reads").toBeGreaterThan(0);
+  const url = new URL(found[0]!.text);
+  const m = /^\/b\/([^/]+)$/.exec(url.pathname);
+  expect(m, `QR is a /b link: ${found[0]!.text}`).not.toBeNull();
+  return decodeURIComponent(m![1]!);
+}
+
+test.describe("pack: a save whose reply is lost is sent again safely (BACKLOG 50)", () => {
+  test("the first save lands but its reply is cut; Save again replays it: one bundle set, the same serials", async ({ page }) => {
+    await open(page, "/pack/new", { width: 820 });
+    await source(page);
+    await bundle(page, "47.90", "20");
+    await bundle(page, "48.10", "20");
+    await expect(savedRows(page)).toHaveCount(2);
+    await page.getByRole("button", { name: "Review", exact: true }).click();
+
+    // The first request reaches orrn and packs; the browser never hears back (yard Wi-Fi drops).
+    const sent: { key: string; body: string }[] = [];
+    let cut = true;
+    await page.route("**/trpc/bundle.createReceipt*", async (route) => {
+      const posted = route.request().postData() ?? "";
+      const response = await route.fetch();
+      sent.push({ key: /"clientRequestId":"([^"]+)"/.exec(posted)?.[1] ?? "", body: await response.text() });
+      if (cut) {
+        cut = false;
+        await route.abort("connectionreset");
+        return;
+      }
+      await route.fulfill({ response });
+    });
+    await page.getByRole("button", { name: "Save session" }).click();
+    await expect(page.locator("[data-slot='pack-save-error']")).toContainText("Tap Save again", { timeout: 15_000 });
+    await page.getByRole("button", { name: "Save session" }).click();
+    await page.waitForURL((url) => /^\/pack\/[^/]+$/.test(url.pathname) && url.pathname !== "/pack/new", { timeout: 20_000 });
+    await page.unroute("**/trpc/bundle.createReceipt*");
+
+    expect(sent).toHaveLength(2);
+    expect(sent[0]!.key).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
+    expect(sent[1]!.key).toBe(sent[0]!.key);
+    const groupOf = (body: string) => /"groupId":"([^"]+)"/.exec(body)?.[1];
+    expect(sent[0]!.body).toContain('"replayed":false');
+    expect(sent[1]!.body).toContain('"replayed":true');
+    expect(groupOf(sent[1]!.body)).toBe(groupOf(sent[0]!.body));
+    // One bundle set: the session page is the first save's group, with its two bundles and no others.
+    const groupId = new URL(page.url()).pathname.split("/").pop()!;
+    expect(groupId).toBe(groupOf(sent[0]!.body));
+    const group = await trpcQuery<{ bundles: { serial: string }[] }>(page, "bundle.getGroup", { id: groupId });
+    expect(group.bundles).toHaveLength(2);
+    const serials = group.bundles.map((b) => b.serial);
+    for (const serial of serials) {
+      const hits = await trpcQuery<{ items: { serial: string }[] }>(page, "bundle.listBundles", { search: serial, limit: 5 });
+      expect(hits.items.filter((h) => h.serial === serial)).toHaveLength(1);
+    }
+  });
+});
+
+test.describe("pack: an order line that pins a die copy (D15)", () => {
+  test("the screen preselects the pinned copy and locks the others; the pack line is judged on that copy's band; the server refuses another copy", async ({ page }) => {
+    const owner = await ownerApi();
+    const name = `Pin E2E ${Date.now() % 100_000}`;
+    const created = await owner.mutate<{ id: string }>("customer.create", { name });
+    const tee = await owner.query<{ items: { id: string }[] }>("die.list", { search: "13090", limit: 5 });
+    const sectionId = tee.items[0]!.id;
+    const copies = await owner.query<{ items: { id: string; code: string }[] }>("dieInstance.list", { sectionId, limit: 50, offset: 0 });
+    const pin = copies.items.find((c) => c.code === "13090-3")!;
+    const other = copies.items.find((c) => c.code === "13090-1")!;
+    await owner.mutate("orders.create", {
+      customerId: created.id,
+      poNumber: null,
+      lines: [{ sectionId, cutLengthMm: 3505, kgG: 500_000, pcs: null, finish: null, dieInstanceId: pin.id }],
+    });
+    // A weight the pinned copy's band and the section's own band judge differently.
+    const kgG = 59_410;
+    const onPin = await owner.query<{ position: string | null }>("bundle.previewLine", { dieId: sectionId, dieInstanceId: pin.id, lengthMm: 3505, weightG: kgG, pcs: 20 });
+    const onSection = await owner.query<{ position: string | null }>("bundle.previewLine", { dieId: sectionId, lengthMm: 3505, weightG: kgG, pcs: 20 });
+    expect(onPin.position).not.toBe(onSection.position);
+
+    await open(page, "/pack/new", { width: 820 });
+    await page.getByLabel("Search die code or section").fill("13090");
+    await expect(page.locator("button[data-die]")).toHaveCount(1);
+    await page.locator("button[data-die]").first().click();
+    const orders = page.locator("[data-slot='order-picker']");
+    await expect(orders.getByRole("radio", { name: new RegExp(name) })).toBeAttached({ timeout: 15_000 });
+    await orders.getByRole("radio", { name: new RegExp(name) }).check({ force: true });
+    const copiesPicker = page.locator("[data-slot='copy-picker']");
+    await expect(copiesPicker.getByRole("radio", { name: "13090-3", exact: true })).toBeChecked();
+    await expect(copiesPicker.getByRole("radio", { name: "13090-1", exact: true })).toBeDisabled();
+    await expect(copiesPicker).toContainText("This line is for die copy 13090-3.");
+    // The operator holds no order.manage: no override.
+    await expect(page.locator("[data-slot='pin-override']")).toHaveCount(0);
+
+    await page.getByLabel("Feet", { exact: true }).fill("11");
+    await page.getByLabel("Inches", { exact: true }).fill("6");
+    await pickYard(page, "Y2");
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Bundles" })).toBeVisible();
+    await weight(page).fill("59.41");
+    await pieces(page).fill("20");
+    // The pack line's chip is the copy's band verdict (the same helper the saved bundle and /b use).
+    await expect(live(page)).toHaveAttribute("data-verdict", onPin.position ?? "none", { timeout: 15_000 });
+
+    // The server refuses another copy for this line, in words.
+    const lines = await owner.query<{ lineId: string; customerId: string; pinnedCopyId: string | null }[]>("orders.openLines", { dieId: sectionId });
+    const line = lines.find((l) => l.customerId === created.id)!;
+    expect(line.pinnedCopyId).toBe(pin.id);
+    const yards = await owner.query<{ items: { id: string; code: string }[] }>("stock.locations.list", {});
+    const yardId = yards.items.find((y) => y.code === "Y2")!.id;
+    const refused = await page.context().request.post(`${API}/trpc/bundle.createReceipt`, {
+      headers: { origin: ORIGIN },
+      data: { dieId: sectionId, unit: "inch", locationId: yardId, source: "order", salesOrderLineId: line.lineId, dieInstanceId: other.id, rows: [{ quantity: 20, weightG: kgG, lengthMm: 3505 }] },
+    });
+    expect(refused.status()).toBe(400);
+    expect(await refused.text()).toContain("This line is pinned to 13090-3");
+    await owner.dispose();
+
+    // The office (order.manage) sees the override; turning it on frees the other copies.
+    await page.context().clearCookies();
+    await page.evaluate(() => localStorage.clear());
+    await open(page, "/pack/new", { width: 820, role: "owner" });
+    await page.getByLabel("Search die code or section").fill("13090");
+    await expect(page.locator("button[data-die]")).toHaveCount(1);
+    await page.locator("button[data-die]").first().click();
+    await expect(orders.getByRole("radio", { name: new RegExp(name) })).toBeAttached({ timeout: 15_000 });
+    await orders.getByRole("radio", { name: new RegExp(name) }).check({ force: true });
+    await expect(copiesPicker.getByRole("radio", { name: "13090-1", exact: true })).toBeDisabled();
+    await page.locator("[data-slot='pin-override'] input").check();
+    await expect(copiesPicker.getByRole("radio", { name: "13090-1", exact: true })).toBeEnabled();
+  });
+});
 
 test.describe("pack: Hindi and Gujarati at 375, readable, no sideways scroll, axe clean", () => {
   for (const locale of ["hi", "gu"] as const) {

@@ -1,7 +1,10 @@
 import { createI18n } from "@orrn/i18n";
 import { describe, expect, test } from "bun:test";
 
-import { addOutcome, blockMessage, blockOf, blocksOf, rejectionMessage, renderScanMessage, scanErrorKey } from "./scan-outcome";
+import { SCAN_OUTCOMES } from "@orrn/server/lib/scan";
+import { SCAN_REFUSALS } from "@orrn/server/lib/scanRefusal";
+
+import { addOutcome, blockMessage, blockOf, blocksOf, rejectionMessage, renderScanMessage, resultOutcome, scanErrorKey, type ScanResultRow } from "./scan-outcome";
 
 const { t } = createI18n("en");
 const say = (reason: string) => renderScanMessage(t, rejectionMessage(reason));
@@ -158,5 +161,68 @@ describe("refusal details come from `refused`, which names the customer and the 
       ["A", "unassigned"],
       ["B", "owned_die"],
     ]);
+  });
+});
+
+describe("every server scan outcome has a floor mapping (fails when the server adds an unmapped code)", () => {
+  const row = (outcome: ScanResultRow["outcome"]): ScanResultRow => ({
+    code: "BG-000001-B001",
+    outcome,
+    message: "ENGLISH ONLY",
+    bundleId: "b1",
+    serial: "BG-000001-B001",
+    heldBy: "D-0042",
+    customerName: "Anshu Aluminium",
+    orderNumber: "SO-12",
+    candidates: ["26J1", "26J2"],
+    note: null,
+  });
+
+  test("each SCAN_OUTCOMES code gives a kind, and every refusal a key in en, hi and gu", () => {
+    for (const outcome of SCAN_OUTCOMES) {
+      const out = resultOutcome(row(outcome));
+      if (outcome === "added") expect(out.kind).toBe("added");
+      else if (outcome === "already_on_dispatch") expect(out.kind).toBe("already");
+      else if (outcome === "not_found") expect(out.kind).toBe("notFound");
+      else {
+        expect(out.kind).toBe("rejected");
+        if (out.kind !== "rejected") continue;
+        // A key, never the server's English sentence.
+        expect("key" in out.message).toBe(true);
+        for (const lang of ["en", "hi", "gu"] as const) {
+          const said = renderScanMessage(createI18n(lang).t, out.message);
+          expect(said).not.toBe("ENGLISH ONLY");
+          if (lang === "hi") expect(said).toMatch(/[\u0900-\u097F]/);
+          if (lang === "gu") expect(said).toMatch(/[\u0A80-\u0AFF]/);
+        }
+      }
+    }
+  });
+
+  test("every SCAN_REFUSALS code is a scan outcome and maps through blockMessage", () => {
+    for (const code of SCAN_REFUSALS) {
+      expect((SCAN_OUTCOMES as readonly string[]).includes(code)).toBe(true);
+      const msg = blockMessage({ reason: "ENGLISH ONLY", code, customerName: "KD", candidates: ["A"], heldBy: "D-1", orderNumber: "SO-1" });
+      expect("key" in msg).toBe(true);
+    }
+  });
+
+  test("held_for_order from dispatch.scan names the order and customer in gu", () => {
+    const out = resultOutcome(row("held_for_order"));
+    expect(out.kind).toBe("rejected");
+    if (out.kind !== "rejected") return;
+    expect(renderScanMessage(t, out.message)).toBe("Held for SO-12 (Anshu Aluminium)");
+    expect(renderScanMessage(createI18n("gu").t, out.message)).toBe("SO-12 (Anshu Aluminium) માટે હોલ્ડ પર છે");
+  });
+
+  test("a refused held_for_order row carries its order number into the block", () => {
+    const report = {
+      added: [],
+      alreadyInDispatch: [],
+      notFound: [],
+      unavailable: [{ serial: "S1", reason: "Held for SO-12 (Anshu)" }],
+      refused: [{ serial: "S1", code: "held_for_order" as const, reason: "Held for SO-12 (Anshu)", heldBy: null, customerName: "Anshu", candidates: [], orderNumber: "SO-12" }],
+    };
+    expect(renderScanMessage(t, blockMessage(blockOf(report, "S1")!))).toBe("Held for SO-12 (Anshu)");
   });
 });

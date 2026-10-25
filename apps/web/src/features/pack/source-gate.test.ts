@@ -1,6 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
-import { DEFAULT_SOURCE, castRequired, packableCopy, sourceBlockers, withCast, withCopy, withLine } from "./source-gate";
+import {
+  DEFAULT_SOURCE,
+  castRequired,
+  copyLocked,
+  packableCopy,
+  sourceBlockers,
+  withCast,
+  withCopy,
+  withLine,
+  withPinOverride,
+  withPinnedLine,
+} from "./source-gate";
 
 describe("source step gates", () => {
   test("cast is asked for when the setting says so, or once a melt exists and the setting is unset", () => {
@@ -39,5 +50,32 @@ describe("source step gates", () => {
     expect(packableCopy("in_use")).toBe(true);
     expect(packableCopy("retired")).toBe(false);
     expect(packableCopy("at_maker")).toBe(false);
+  });
+});
+
+describe("D15: a line that pins a die copy", () => {
+  test("picking a pinned line preselects its copy; an unpinned line keeps the free choice", () => {
+    const start = { showLogo: true, dieInstanceId: "copy-free" };
+    expect(withPinnedLine(start, "line-1", "copy-pin")).toEqual({ showLogo: true, salesOrderLineId: "line-1", dieInstanceId: "copy-pin" });
+    expect(withPinnedLine(start, "line-2", null)).toEqual({ showLogo: true, salesOrderLineId: "line-2", dieInstanceId: "copy-free" });
+    // Plant stock (no line): the copy stays free, any override is dropped.
+    expect(withPinnedLine({ ...start, overridePin: true }, undefined, null)).toEqual({ showLogo: true, dieInstanceId: "copy-free" });
+  });
+
+  test("the copy radios are locked to the pin unless the office overrides", () => {
+    expect(copyLocked({ showLogo: true, salesOrderLineId: "l", dieInstanceId: "p" }, "p")).toBe(true);
+    expect(copyLocked({ showLogo: true, salesOrderLineId: "l", dieInstanceId: "p", overridePin: true }, "p")).toBe(false);
+    expect(copyLocked({ showLogo: true, salesOrderLineId: "l" }, null)).toBe(false);
+  });
+
+  test("turning the override off puts the pin back", () => {
+    const c = { showLogo: true, salesOrderLineId: "l", dieInstanceId: "other", overridePin: true };
+    expect(withPinOverride(c, false, "p")).toEqual({ showLogo: true, salesOrderLineId: "l", dieInstanceId: "p" });
+    expect(withPinOverride({ showLogo: true, salesOrderLineId: "l", dieInstanceId: "p" }, true, "p")).toEqual({
+      showLogo: true,
+      salesOrderLineId: "l",
+      dieInstanceId: "p",
+      overridePin: true,
+    });
   });
 });

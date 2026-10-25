@@ -8,6 +8,7 @@ import { Sheet } from "@orrn/ui/components/sheet";
 import type { StatusTone } from "@orrn/domain";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
+import { sendOnce } from "./request-key";
 import { blockMessage, blocksOf, renderScanMessage, scanErrorKey, type AddBundlesReport } from "@/features/scan/scan-outcome";
 import { Can } from "@/shared/components/can";
 import { trpcClient } from "@/shared/utils/trpc";
@@ -54,7 +55,7 @@ export function PasteSerialsSheet({ open, onOpenChange, dispatchId, onAdded }: P
     const total = serials.length;
     const result = await addInChunks(
       serials,
-      (chunk) => trpcClient.dispatch.scan.mutate({ id: dispatchId, serials: chunk }) as Promise<AddBundlesReport>,
+      (chunk) => sendOnce((clientRequestId) => trpcClient.dispatch.scan.mutate({ id: dispatchId, serials: chunk, clientRequestId })) as Promise<AddBundlesReport>,
       (done) => setPhase({ kind: "sending", done, total }),
     );
     if (result.report.added.length > 0) onAdded(result.report);
@@ -68,7 +69,9 @@ export function PasteSerialsSheet({ open, onOpenChange, dispatchId, onAdded }: P
     if (phase.kind !== "report" || serials.length === 0) return;
     setAddingAnyway(true);
     try {
-      const r = (await trpcClient.dispatch.addBundlesBySerial.mutate({ id: dispatchId, serials, allowUnassigned: true })) as AddBundlesReport;
+      const r = (await sendOnce((clientRequestId) =>
+        trpcClient.dispatch.addBundlesBySerial.mutate({ id: dispatchId, serials, allowUnassigned: true, clientRequestId }),
+      )) as AddBundlesReport;
       const done = new Set(r.added);
       const next: AddBundlesReport = {
         ...phase.result.report,

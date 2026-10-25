@@ -134,9 +134,10 @@ function AllBundles() {
         ) : null}
       </div>
 
+      {/* "In stock" is available only, as on every tab; what the list shows (All, Held, …) is its own line. */}
       <StockTotals
-        totals={bundles.data ? { bundles: Number(bundles.data.total), weightG: sumKinds(bundles.data.kindTotals) } : undefined}
-        kinds={bundles.data?.kindTotals}
+        stock={bundles.data?.stock}
+        {...(status !== "available" && bundles.data ? { listed: bundles.data.totals, byStatus: bundles.data.byStatus } : {})}
         loading={bundles.isPending}
       />
 
@@ -172,9 +173,4 @@ function AllBundles() {
       />
     </>
   );
-}
-
-/** Σ kg over the four kind buckets (the server counted them over the whole filter). */
-function sumKinds(k: Record<"hollow" | "solid" | "semi" | "none", { weightG: number }>): number {
-  return k.hollow.weightG + k.solid.weightG + k.semi.weightG + k.none.weightG;
 }

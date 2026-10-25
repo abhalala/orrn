@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
-import { dieId, makePlantStock, newCustomer, newOrder, ownerApi, packBundles } from "./helpers/owner-api";
+import { dieId, newCustomer, newOrder, ownerApi, packBundles } from "./helpers/owner-api";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
 /**
@@ -116,6 +116,36 @@ test.describe("stock: Yards tab, filters in the URL, same totals on every tab", 
     });
   }
 
+  test("in stock means available only: Sections, Lengths, Yards and Bundles show the same in-stock kg, held apart", async ({ page }) => {
+    const s = await stocked(`same-${Date.now() % 100_000}`, 4, "Y5");
+    // One held on a load, one dispatched; two stay in stock.
+    const held = await s.api.mutate<{ id: string }>("dispatch.create", { customerId: s.cust.id });
+    await s.api.mutate("dispatch.addBundlesBySerial", { id: held.id, serials: [s.serials[0]] });
+    await s.api.mutate("dispatch.reserve", { id: held.id });
+    const gone = await s.api.mutate<{ id: string }>("dispatch.create", { customerId: s.cust.id });
+    await s.api.mutate("dispatch.addBundlesBySerial", { id: gone.id, serials: [s.serials[1]] });
+    await s.api.mutate("dispatch.reserve", { id: gone.id });
+    await s.api.mutate("dispatch.complete", { id: gone.id });
+    await start(page, "office", 820);
+
+    const seen: Record<string, string | null> = {};
+    for (const tab of ["/stock", "/stock/lengths", "/stock/yards", "/stock/bundles"]) {
+      await visit(page, `${tab}?customer=${s.cust.id}`);
+      const line = page.getByTestId("stock-totals-line");
+      await expect(line).toContainText("2 bundles", { timeout: 20_000 });
+      await expect(line).toContainText("96.0 kg in stock");
+      await expect(page.getByTestId("stock-held")).toContainText("1 held, 48.0 kg");
+      seen[tab] = await line.getAttribute("data-in-stock-g");
+    }
+    expect(new Set(Object.values(seen))).toEqual(new Set(["96000"]));
+    // Bundles "All" lists every status apart from the in-stock figure.
+    await expect(page.getByTestId("stock-listed")).toContainText("4 bundles");
+    await expect(page.getByTestId("stock-listed")).toContainText("In stock 2");
+    await expect(page.getByTestId("stock-listed")).toContainText("Held 1");
+    await expect(page.getByTestId("stock-listed")).toContainText("Dispatched 1");
+    await s.api.dispose();
+  });
+
   test("plant stock, hollow/solid/semi and packed date narrow the Bundles tab with server totals", async ({ page }) => {
     const s = await stocked(`filters-${Date.now() % 100_000}`, 2, "Y3");
     // One of the two goes to plant stock.
@@ -166,6 +196,8 @@ test.describe("/b and the section page: yard, who did it, the same tone", () => 
     await expect(facts.locator("[data-fact='order'] dd")).toContainText(s.cust.name);
     await expect(page.getByTestId("band-chip")).toHaveAttribute("data-verdict", "in");
     await expect(page.getByTestId("bundle-timeline").locator("[data-slot='actor']").first()).toContainText("by ");
+    // BACKLOG 51: the floor operator does not void (a supervisor does, with a reason).
+    await expect(page.getByRole("button", { name: "Void bundle" })).toHaveCount(0);
     // The bundle list row carries the yard and the same band.
     await page.goto(`/stock/bundles?customer=${s.cust.id}&yard=${s.yardId}`);
     await expect(page.locator(`[data-serial='${s.serials[0]}']`).first()).toBeVisible({ timeout: 20_000 });
@@ -181,7 +213,9 @@ test.describe("stock count: open, scan, close, variance, phantom, cancel", () =>
       const s = await stocked(`count-${width}-${Date.now() % 100_000}`, 3, "Y6");
       await start(page, "office", width);
       await visit(page, "/stock/count");
-      await expect(page.getByTestId("phantom-summary").or(page.getByTestId("open-counts")).or(page.getByRole("heading", { level: 2 }).first()).first()).toBeVisible();
+      // The missing-bundles summary and the open-counts heading are always there for the office.
+      await expect(page.getByTestId("phantom-summary")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 2, name: "Counts in progress" })).toBeVisible();
       await tickYard(page, "Y6");
       await page.getByTestId("start-count").click();
       await expect(page).toHaveURL(/\/stock\/count\/(?!$)[^/]+$/, { timeout: 20_000 });
@@ -274,4 +308,3 @@ test.describe("stock in Hindi and Gujarati at 375: readable, no sideways scroll,
   }
 });
 
-void makePlantStock;

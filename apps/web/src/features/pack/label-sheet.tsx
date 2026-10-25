@@ -196,6 +196,16 @@ export function LabelSheet({ groupId, only }: { groupId: string; only?: string }
   );
 }
 
+/**
+ * Sticker sizes per density, in container units of the A4 page (100cqw = 210 mm). The QR has its own
+ * column, sized to fit the sticker's height, so text never runs under it (review C-1): 10-up cells are
+ * about 45 × 25cqw inside, 21-up about 30 × 18cqw.
+ */
+const STICKER = {
+  10: { pad: "p-[1.6cqw]", gap: "gap-x-[1.6cqw]", qr: "size-[16cqw]", head: "text-[2cqw]", serial: "text-[2.9cqw]", body: "text-[2.1cqw]", small: "text-[1.7cqw]" },
+  21: { pad: "p-[1.1cqw]", gap: "gap-x-[1.1cqw]", qr: "size-[10cqw]", head: "text-[1.45cqw]", serial: "text-[1.95cqw]", body: "text-[1.5cqw]", small: "text-[1.25cqw]" },
+} as const;
+
 function Sticker({
   label: l,
   company,
@@ -213,54 +223,42 @@ function Sticker({
   const party = stickerPartyNo(l);
   const std = standardLine(l);
   const k12 = kg12Text(l.kgPer12ftMilli);
-  const pad = dense ? "p-[1.1cqw]" : "p-[1.6cqw]";
+  const z = STICKER[dense ? 21 : 10];
+  const extra = [l.cast ? t("labelSheet.cast", { cast: l.cast }) : null, l.salesOrder, std].filter(Boolean).join(" · ");
   return (
     <div
       data-slot="sticker"
       data-serial={l.serial}
-      className={cn("flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-[0.6cqw] border border-black/40", pad)}
+      className={cn("grid min-h-0 min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start overflow-hidden rounded-[0.6cqw] border border-black/40", z.pad, z.gap)}
     >
-      <div className="flex min-w-0 items-center justify-between gap-[1cqw]">
-        <span className={cn("min-w-0 truncate font-bold tracking-tight", dense ? "text-[1.7cqw]" : "text-[2.2cqw]")}>
-          {l.showLogo ? company : ""}
-        </span>
-        <span className={cn("shrink-0 font-semibold", dense ? "text-[1.5cqw]" : "text-[1.9cqw]")}>
-          {l.sectionCode} {l.series}
-        </span>
-      </div>
-      <div className="flex min-h-0 min-w-0 items-center gap-[1.4cqw]">
-        {qr ? (
-          <img src={qr} alt="" className={cn("shrink-0", dense ? "size-[10cqw]" : "size-[15cqw]")} />
-        ) : (
-          <div aria-hidden="true" className={cn("shrink-0 border border-black/20", dense ? "size-[10cqw]" : "size-[15cqw]")} />
-        )}
-        <div className="flex min-w-0 flex-col">
-          <span className={cn("font-mono font-bold leading-none break-all", dense ? "text-[2.9cqw]" : "text-[4.2cqw]")}>{l.serial}</span>
-          {party ? (
-            <span className={cn("font-mono font-semibold leading-tight", dense ? "text-[1.7cqw]" : "text-[2.4cqw]")}>
-              {t("labelSheet.party", { number: party })}
-            </span>
-          ) : null}
-        </div>
-      </div>
-      <div className={cn("grid min-w-0 grid-cols-3 gap-x-[1cqw] leading-tight", dense ? "text-[1.6cqw]" : "text-[2.1cqw]")}>
-        <span className="font-mono font-semibold tabular-nums">
-          {formatKg(gToKg(l.weightG))} {t("units.kg")}
-        </span>
-        <span className="font-mono tabular-nums">
-          {l.pieces} {t("units.pcs")}
-        </span>
-        <span className="font-mono whitespace-nowrap tabular-nums">{formatLength(l.lengthMm, unit)}</span>
-        {k12 ? (
-          <span className="col-span-3 font-mono tabular-nums">
-            {k12} {t("units.kgPer12ft")}
+      {qr ? (
+        <img src={qr} alt="" data-slot="sticker-qr" data-qr={l.qr} className={cn("block shrink-0", z.qr)} />
+      ) : (
+        <div aria-hidden="true" data-slot="sticker-qr" className={cn("shrink-0 border border-black/20", z.qr)} />
+      )}
+      <div className="flex min-h-0 min-w-0 flex-col gap-[0.3cqw] overflow-hidden leading-tight">
+        {l.showLogo && company ? (
+          <span data-slot="sticker-company" className={cn("min-w-0 truncate font-bold tracking-tight", z.head)}>
+            {company}
           </span>
         ) : null}
-      </div>
-      <div className={cn("flex min-w-0 flex-wrap gap-x-[1.4cqw] leading-tight", dense ? "text-[1.4cqw]" : "text-[1.8cqw]")}>
-        {l.cast ? <span>{t("labelSheet.cast", { cast: l.cast })}</span> : null}
-        {l.salesOrder ? <span className="font-mono">{l.salesOrder}</span> : null}
-        {std ? <span>{std}</span> : null}
+        <span className={cn("min-w-0 truncate font-semibold", z.head)}>
+          {l.sectionCode} {l.series}
+        </span>
+        <span data-slot="sticker-serial" className={cn("min-w-0 font-mono font-bold leading-none break-all", z.serial)}>
+          {l.serial}
+        </span>
+        {party ? (
+          <span className={cn("min-w-0 truncate font-mono font-semibold", z.small)}>{t("labelSheet.party", { number: party })}</span>
+        ) : null}
+        <span data-slot="sticker-weight" className={cn("min-w-0 font-mono font-bold tabular-nums", z.body)}>
+          {formatKg(gToKg(l.weightG))} {t("units.kg")}
+        </span>
+        <span className={cn("min-w-0 font-mono tabular-nums [overflow-wrap:anywhere]", z.small)}>
+          {l.pieces} {t("units.pcs")} · {formatLength(l.lengthMm, unit)}
+          {k12 ? ` · ${k12} ${t("units.kgPer12ft")}` : ""}
+        </span>
+        {extra ? <span className={cn("min-w-0 truncate", z.small)}>{extra}</span> : null}
       </div>
     </div>
   );

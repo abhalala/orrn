@@ -20,6 +20,7 @@ import { useCompanyTimeZone } from "./hooks";
 import { LegacyBody } from "./packing-list-v1";
 import { PlV2Body } from "./packing-list-v2";
 import { CombineSheet, RegenerateDialog, RevisionsPanel } from "./packing-list-revisions";
+import { regenerateState } from "./pl-regenerate";
 import { plViewOf } from "./pl-model";
 
 /**
@@ -89,14 +90,24 @@ export function PackingListView({
   const revision = data?.revision ?? 1;
   // Only the current, not combined revision can be regenerated or combined (the server checks too).
   const folded = Boolean(data?.combinedIntoId);
+  // m-5: an older revision opened by id is not the current one; the next number follows the newest.
+  const revisions = useQuery({ ...trpc.packingList.revisions.queryOptions({ id: data?.id ?? "" }), enabled: Boolean(data?.id) });
+  const regen = data ? regenerateState({ id: data.id, revision, combinedIntoId: data.combinedIntoId ?? null }, revisions.data) : null;
   const regenButton = data ? (
     <Can do="packingList.regenerate">
-      <Button variant="ghost" onClick={() => setDialog("regenerate")} aria-haspopup="dialog" disabled={folded} data-testid="regenerate">
+      <Button variant="ghost" onClick={() => setDialog("regenerate")} aria-haspopup="dialog" disabled={!regen?.enabled} data-testid="regenerate">
         <RefreshCw aria-hidden="true" strokeWidth={2} />
         {t("packingList.v2.regenerate")}
       </Button>
     </Can>
   ) : null;
+
+  const editHeaderButton = (
+    <Button variant="ghost" onClick={() => setDialog("header")} aria-haspopup="dialog" data-testid="edit-header">
+      <Pencil aria-hidden="true" strokeWidth={2} />
+      {t("packingList.v2.editHeader")}
+    </Button>
+  );
 
   let body;
   if (pl.isPending && (dispatchId || listId)) {
@@ -205,11 +216,9 @@ export function PackingListView({
                 </Can>
               ) : null}
               {dispatch && dispatchId ? (
-                <Can do="dispatch.complete">
-                  <Button variant="ghost" onClick={() => setDialog("header")} aria-haspopup="dialog" data-testid="edit-header">
-                    <Pencil aria-hidden="true" strokeWidth={2} />
-                    {t("packingList.v2.editHeader")}
-                  </Button>
+                // m-6: the sheet calls dispatch.update; on a completed dispatch the header also needs dispatch.complete.
+                <Can do="dispatch.update">
+                  {dispatch.status === "completed" ? <Can do="dispatch.complete">{editHeaderButton}</Can> : editHeaderButton}
                 </Can>
               ) : null}
             </div>
@@ -222,7 +231,7 @@ export function PackingListView({
           open={dialog === "regenerate"}
           onOpenChange={(o) => setDialog(o ? "regenerate" : null)}
           list={{ id: data.id, code: data.code, showBranding: data.showBranding, showOriginalSo: data.showOriginalSo }}
-          next={revision + 1}
+          next={regen?.next ?? revision + 1}
           onDone={(newId) => {
             refresh();
             // A list opened by id moves to the new revision; on the dispatch page the current one shows itself.

@@ -490,6 +490,7 @@ function DefaultsForm({
     ...(draft.defaults.salesOrderLineId ? { salesOrderLineId: draft.defaults.salesOrderLineId } : {}),
     ...(draft.defaults.dieInstanceId ? { dieInstanceId: draft.defaults.dieInstanceId } : {}),
     ...(draft.defaults.castId ? { castId: draft.defaults.castId } : {}),
+    ...(draft.defaults.overridePin ? { overridePin: true } : {}),
     showLogo: draft.defaults.showLogo !== false,
   }));
   const [showSourceErrors, setShowSourceErrors] = useState(false);
@@ -562,6 +563,7 @@ function DefaultsForm({
       ...(choice.dieInstanceId ? { dieInstanceId: choice.dieInstanceId } : {}),
       ...(choice.castId ? { castId: choice.castId } : {}),
       ...(choice.salesOrderLineId ? { salesOrderLineId: choice.salesOrderLineId } : {}),
+      ...(choice.salesOrderLineId && choice.overridePin ? { overridePin: true } : {}),
       ...(choice.showLogo ? {} : { showLogo: false }),
       // A grant the packer got earlier for this copy stays with the draft.
       ...(draft.defaults.approvalId ? { approvalId: draft.defaults.approvalId } : {}),

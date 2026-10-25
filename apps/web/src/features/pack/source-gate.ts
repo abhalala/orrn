@@ -11,6 +11,8 @@ export type SourceChoice = {
   castId?: string;
   /** Label branding, default on. */
   showLogo: boolean;
+  /** D15: the office packs on another copy than the line's pin (the server checks order.manage and audits). */
+  overridePin?: boolean;
 };
 
 export const DEFAULT_SOURCE: SourceChoice = { showLogo: true };
@@ -65,4 +67,25 @@ export function withCopy(choice: SourceChoice, copyId: string | undefined): Sour
 export function withCast(choice: SourceChoice, castId: string | undefined): SourceChoice {
   const { castId: _drop, ...rest } = choice;
   return castId ? { ...rest, castId } : rest;
+}
+
+/**
+ * D15: choosing an order line that pins a die copy chooses that copy (the server refuses another
+ * one unless the office overrides). An unpinned line, or plant stock, keeps the copy as it was.
+ */
+export function withPinnedLine(choice: SourceChoice, lineId: string | undefined, pinnedCopyId: string | null): SourceChoice {
+  const { overridePin: _off, ...rest } = withLine(choice, lineId);
+  return pinnedCopyId ? { ...rest, dieInstanceId: pinnedCopyId } : rest;
+}
+
+/** The copy radios follow the pin unless the office chose to override it. */
+export function copyLocked(choice: SourceChoice, pinnedCopyId: string | null): boolean {
+  return Boolean(pinnedCopyId) && !choice.overridePin;
+}
+
+/** The office's override switch: off puts the pinned copy back. */
+export function withPinOverride(choice: SourceChoice, on: boolean, pinnedCopyId: string | null): SourceChoice {
+  const { overridePin: _drop, ...rest } = choice;
+  if (on) return { ...rest, overridePin: true };
+  return pinnedCopyId ? { ...rest, dieInstanceId: pinnedCopyId } : rest;
 }

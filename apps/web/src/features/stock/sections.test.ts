@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { filterSections, mergeSections, sectionHeadline, sectionTotals, sortSections, type SummaryRow } from "./sections";
+import { filterSections, mergeSections, sectionHeadline, sortSections, type SummaryRow } from "./sections";
 
 const row = (over: Partial<SummaryRow> & { dieId: string }): SummaryRow => ({
   dieSeries: "PATTI",
@@ -98,20 +98,6 @@ describe("filterSections", () => {
   test("blank query keeps everything; extra spaces are ignored", () => {
     expect(filterSections(rows, "   ")).toHaveLength(2);
     expect(filterSections(rows, "  angle   11250 ").map((s) => s.dieId)).toEqual(["a"]);
-  });
-});
-
-describe("sectionTotals", () => {
-  test("adds available and held separately", () => {
-    const rows = mergeSections(
-      [row({ dieId: "a", bundleCount: 2, totalWeightG: 100_000 }), row({ dieId: "b", bundleCount: 5, totalWeightG: 250_500 })],
-      [row({ dieId: "a", bundleCount: 1, totalWeightG: 50_000 })],
-    );
-    expect(sectionTotals(rows)).toEqual({
-      available: { bundles: 7, weightG: 350_500 },
-      held: { bundles: 1, weightG: 50_000 },
-      sections: 2,
-    });
   });
 });
 

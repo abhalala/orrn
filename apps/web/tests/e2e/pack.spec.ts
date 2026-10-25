@@ -428,7 +428,7 @@ test.describe("pack", () => {
     await expect(page.locator("[data-slot='pack-totals']")).toBeVisible();
     await page.route("**/trpc/bundle.createReceipt*", (route) => route.abort("failed"));
     await page.getByRole("button", { name: "Save session" }).click();
-    const alert = page.getByRole("alert").filter({ hasText: "couldn't tell if the session saved" });
+    const alert = page.getByRole("alert").filter({ hasText: "didn't confirm the save" });
     await expect(alert).toBeInViewport({ ratio: 1 });
     const bar = page.locator("[data-slot='pack-bar']");
     const [a, b] = [await alert.boundingBox(), await bar.boundingBox()];

@@ -62,6 +62,12 @@ export type PackDraft = {
   bundles: DraftBundle[];
   /** Rejects of this session (FP-PK-14). */
   rejects?: DraftReject[];
+  /**
+   * BACKLOG 50: this session's nonce for `clientRequestId`. A save sent again (the reply was lost on
+   * yard Wi-Fi, the packer tapped Save again, the page reloaded) carries the same key for the same
+   * bundles, so the server answers with the first result instead of packing them twice.
+   */
+  sessionKey?: string;
 };
 
 /**
@@ -78,6 +84,8 @@ export type PackDefaults = {
   salesOrderLineId?: string;
   showLogo?: boolean;
   approvalId?: string;
+  /** The office packs on another copy than the order line pins (D15; audited on the server). */
+  overridePin?: boolean;
 };
 
 export function emptyDraft(companyId: string, userId?: string): PackDraft {
@@ -153,10 +161,12 @@ function parseDraft(raw: string): PackDraft | null {
     !optionalString(defaults.salesOrderLineId) ||
     !optionalString(defaults.approvalId) ||
     !(defaults.showLogo === undefined || typeof defaults.showLogo === "boolean") ||
+    !(defaults.overridePin === undefined || typeof defaults.overridePin === "boolean") ||
     !Array.isArray(d.bundles) ||
     d.bundles.length > MAX_BUNDLES ||
     !d.bundles.every(isDraftBundle) ||
-    !(d.rejects === undefined || (Array.isArray(d.rejects) && d.rejects.length <= MAX_REJECTS && d.rejects.every(isDraftReject)))
+    !(d.rejects === undefined || (Array.isArray(d.rejects) && d.rejects.length <= MAX_REJECTS && d.rejects.every(isDraftReject))) ||
+    !(d.sessionKey === undefined || (typeof d.sessionKey === "string" && /^[A-Za-z0-9_-]{8,40}$/.test(d.sessionKey)))
   ) {
     return null;
   }
@@ -262,6 +272,9 @@ export type ReceiptInput = {
   dieInstanceId?: string;
   castId?: string;
   salesOrderLineId?: string;
+  /** D20: `plant_stock` when no order line is chosen (the "Plant stock" choice). */
+  source: "order" | "plant_stock";
+  overridePin?: boolean;
   showLogo?: boolean;
   approvalId?: string;
   rows: ReceiptRow[];
@@ -297,7 +310,7 @@ function sessionYard(d: PackDraft, yards: YardContext | undefined): string | und
 export function toReceiptInput(d: PackDraft, unit: LengthUnit, yards?: YardContext): ReceiptInput | null {
   if (!d.dieId || !(d.defaults.lengthMm > 0) || d.bundles.length === 0) return null;
   const locationId = sessionYard(d, yards);
-  const { dieInstanceId, castId, salesOrderLineId, showLogo, approvalId } = d.defaults;
+  const { dieInstanceId, castId, salesOrderLineId, showLogo, approvalId, overridePin } = d.defaults;
   const rejects = d.rejects ?? [];
   return {
     dieId: d.dieId,
@@ -307,6 +320,9 @@ export function toReceiptInput(d: PackDraft, unit: LengthUnit, yards?: YardConte
     ...(dieInstanceId ? { dieInstanceId } : {}),
     ...(castId ? { castId } : {}),
     ...(salesOrderLineId ? { salesOrderLineId } : {}),
+    // D20: no order line is the deliberate "Plant stock" choice; the server writes it as plant stock.
+    source: salesOrderLineId ? "order" : "plant_stock",
+    ...(salesOrderLineId && dieInstanceId && overridePin ? { overridePin: true } : {}),
     ...(showLogo === false ? { showLogo: false } : {}),
     ...(approvalId ? { approvalId } : {}),
     rows: d.bundles.map((b) => ({
@@ -329,6 +345,29 @@ export function toReceiptInput(d: PackDraft, unit: LengthUnit, yards?: YardConte
         }
       : {}),
   };
+}
+
+/** A fresh session nonce (letters, digits and dashes; 36 characters). */
+export function newSessionKey(): string {
+  return crypto.randomUUID();
+}
+
+/** FNV-1a over the text, as 8 hex digits (a content tag, not a security hash). */
+function fnv1a(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+
+/**
+ * BACKLOG 50: the `clientRequestId` of a save. The same session and the same payload give the same
+ * key (a retry replays on the server); any change to the bundles, rejects or choices gives a new one.
+ */
+export function receiptRequestKey(sessionKey: string, input: ReceiptInput): string {
+  return `${sessionKey}-${fnv1a(JSON.stringify(input))}`;
 }
 
 /**

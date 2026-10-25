@@ -10,6 +10,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { sendOnce } from "./request-key";
 import { addOutcome, renderScanMessage, resultOutcome, scanErrorKey, type AddBundlesReport } from "@/features/scan/scan-outcome";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
@@ -45,7 +46,7 @@ export function SearchAddSheet({ open, onOpenChange, dispatchId, inDispatch, onA
   const add = async (serial: string) => {
     setBusy(serial);
     try {
-      const report = (await trpcClient.dispatch.scan.mutate({ id: dispatchId, serials: [serial] })) as AddBundlesReport;
+      const report = (await sendOnce((clientRequestId) => trpcClient.dispatch.scan.mutate({ id: dispatchId, serials: [serial], clientRequestId }))) as AddBundlesReport;
       const outcome = report.results?.[0] ? resultOutcome(report.results[0]) : addOutcome(report, normalizeSerial(serial));
       if (outcome.kind === "added") {
         setMessage(t("dispatch.build.added", { serial }));
@@ -76,7 +77,9 @@ export function SearchAddSheet({ open, onOpenChange, dispatchId, inDispatch, onA
   const canAddAnyway = can(me, "order.manage");
   const addAnyway = async (bundleSerial: string) => {
     try {
-      const r = (await trpcClient.dispatch.addBundlesBySerial.mutate({ id: dispatchId, serials: [bundleSerial], allowUnassigned: true })) as AddBundlesReport;
+      const r = (await sendOnce((clientRequestId) =>
+        trpcClient.dispatch.addBundlesBySerial.mutate({ id: dispatchId, serials: [bundleSerial], allowUnassigned: true, clientRequestId }),
+      )) as AddBundlesReport;
       if (r.added.length > 0) {
         setMessage(t("scan.continuous.addedNoOrder", { serial: bundleSerial }));
         onAdded(r);

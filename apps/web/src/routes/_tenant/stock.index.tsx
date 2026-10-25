@@ -1,7 +1,5 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { PageHeader } from "@orrn/ui/components/page-header";
@@ -14,16 +12,10 @@ import { Suspense, lazy, useCallback, useMemo, useState } from "react";
 import { ChartsBoundary } from "@/features/stock/charts-boundary";
 import { SectionGrid, SectionGridSkeleton } from "@/features/stock/section-blocks";
 import { failedWithoutData } from "@/features/stock/section-page";
-import {
-  filterSections,
-  mergeSections,
-  sectionLabel,
-  sectionTotals,
-  sortSections,
-  type SectionSort,
-} from "@/features/stock/sections";
+import { filterSections, mergeSections, sectionLabel, sortSections, type SectionSort } from "@/features/stock/sections";
 import { StockFilterBar } from "@/features/stock/stock-filter-bar";
 import { stockFilterInput, validateStockFilter, withoutFilters } from "@/features/stock/stock-filters";
+import { StockTotals } from "@/features/stock/stock-totals";
 import { StockViewSwitch } from "@/features/stock/stock-view-switch";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
@@ -82,7 +74,6 @@ function StockSections() {
     [available.data, reserved.data],
   );
   const shown = useMemo(() => sortSections(filterSections(sections, query), sort), [sections, query, sort]);
-  const totals = useMemo(() => sectionTotals(sections), [sections]);
   const labels = useMemo(() => new Map(sections.map((s) => [s.dieId, sectionLabel(s)])), [sections]);
   const labelFor = useCallback((dieId: string) => labels.get(dieId), [labels]);
 
@@ -98,29 +89,8 @@ function StockSections() {
   return (
     <>
       <PageHeader title={t("stock.title")} />
-      <div className="-mt-2 flex min-h-6 flex-wrap items-center gap-x-3 gap-y-2" data-testid="stock-totals">
-        {loading ? (
-          <Skeleton className="h-5 w-56" />
-        ) : hasStock ? (
-          <>
-            <p className="m-0 text-[15px] leading-6 text-muted-foreground tabular-nums">
-              {t("stock.totals", {
-                bundles: totals.available.bundles.toLocaleString("en-IN"),
-                kg: formatKgTotal(gToKg(totals.available.weightG)),
-              })}
-            </p>
-            {totals.held.bundles > 0 ? (
-              // Held kg beside the count: in stock + held is what the charts count, so the two reconcile.
-              <Chip tone="blue">
-                {t("stock.heldKg", {
-                  count: totals.held.bundles.toLocaleString("en-IN"),
-                  kg: formatKgTotal(gToKg(totals.held.weightG)),
-                })}
-              </Chip>
-            ) : null}
-          </>
-        ) : null}
-      </div>
+      {/* In stock (available), held and hollow / solid / semi: the server's figures, the same as every tab (I-3). */}
+      {failed ? null : <StockTotals stock={available.data?.stock} loading={loading} />}
 
       <StockViewSwitch current="sections" />
       <StockFilterBar

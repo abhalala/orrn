@@ -73,7 +73,8 @@ function StockYards() {
         onChange={(patch) => void navigate({ search: (prev) => ({ ...prev, ...patch }) })}
         onClear={() => void navigate({ search: (prev) => withoutFilters(prev) })}
       />
-      <StockTotals totals={q.data?.totals} loading={q.isPending} />
+      {/* In stock = available only; held bundles are still in the yard and are the Held chip (BACKLOG 16). */}
+      <StockTotals stock={q.data?.stock} loading={q.isPending} />
       {q.isError && !q.data ? (
         <div className="rounded-card border border-border bg-card">
           <EmptyState

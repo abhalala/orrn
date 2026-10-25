@@ -637,6 +637,7 @@ function LiveReadout({
       <div
         data-slot="live-k12"
         data-tone={tone}
+        data-verdict={verdict ? (verdict.position ?? "none") : undefined}
         data-loading={loading || undefined}
         className={cn(
           "flex min-h-16 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-input px-4 py-2 transition-colors duration-[var(--dur-base)]",

@@ -46,12 +46,15 @@ export async function newOrder(api: OwnerApi, customerId: string, dieId: string,
   return { id: res.id, number: res.number, lineId: got.lines[0]!.lineId };
 }
 
-/** Packs `rows` as one receipt (owner), returns the new bundles. Yard Y1 when the company has yards. */
+/**
+ * Packs `rows` as one receipt (owner), returns the new bundles. Yard Y1 when the company has yards. No line
+ * and no `plantStock` = an unassigned bundle (what legacy stock looks like, D12).
+ */
 export async function packBundles(
   api: OwnerApi,
   dieId: string,
   rows: { quantity: number; weightG: number; lengthMm?: number }[],
-  opts: { salesOrderLineId?: string; dieInstanceId?: string; yardCode?: string } = {},
+  opts: { salesOrderLineId?: string; dieInstanceId?: string; yardCode?: string; plantStock?: boolean; overridePin?: boolean } = {},
 ) {
   const locations = await api.query<{ items: { id: string; kind: string; code: string }[] }>("stock.locations.list", {});
   const yard = locations.items.find((l) => l.kind === "yard" && l.code === (opts.yardCode ?? "Y1")) ?? locations.items.find((l) => l.kind === "yard");
@@ -61,14 +64,12 @@ export async function packBundles(
     ...(yard ? { locationId: yard.id } : {}),
     ...(opts.salesOrderLineId ? { salesOrderLineId: opts.salesOrderLineId } : {}),
     ...(opts.dieInstanceId ? { dieInstanceId: opts.dieInstanceId } : {}),
+    // D20: the "Plant stock" choice; the server writes the bundles as plant stock (the floor scan takes them).
+    ...(opts.plantStock ? { source: "plant_stock" } : {}),
+    ...(opts.overridePin ? { overridePin: true } : {}),
     rows: rows.map((r) => ({ quantity: r.quantity, weightG: r.weightG, lengthMm: r.lengthMm ?? 3505 })),
   });
   return receipt;
-}
-
-/** Moves bundles to plant stock (so the floor scan accepts them for any customer's load). */
-export async function makePlantStock(api: OwnerApi, bundleIds: string[]) {
-  await api.mutate("orders.reallocate", { bundleIds, toLineId: null, reason: "Plant stock for the e2e load" });
 }
 
 export async function dieId(api: OwnerApi, code: string) {

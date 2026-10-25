@@ -13,6 +13,7 @@ import { AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { toast } from "sonner";
 
+import { sendOnce } from "@/features/dispatch/request-key";
 import { trpcClient } from "@/shared/utils/trpc";
 
 import { CapacityBanner } from "@/features/dispatch/capacity-banner";
@@ -374,9 +375,13 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
     try {
       // The floor scan never lifts "not on a sales order" (D12): only the office add path does, and
       // only for a person holding order.manage (the server checks again).
-      const report = (opts.allowUnassigned
-        ? await trpcClient.dispatch.addBundlesBySerial.mutate({ id: modeRef.current.dispatchId, serials: [code], allowUnassigned: true })
-        : await trpcClient.dispatch.scan.mutate({ id: modeRef.current.dispatchId, serials: [code] })) as AddBundlesReport;
+      // BACKLOG 50: one key per scan; a lost reply is sent once more with it and never adds twice.
+      const dispatchId = modeRef.current.dispatchId;
+      const report = (await sendOnce((clientRequestId) =>
+        opts.allowUnassigned
+          ? trpcClient.dispatch.addBundlesBySerial.mutate({ id: dispatchId, serials: [code], allowUnassigned: true, clientRequestId })
+          : trpcClient.dispatch.scan.mutate({ id: dispatchId, serials: [code], clientRequestId }),
+      )) as AddBundlesReport;
       if (report.capacity) setCapacity(report.capacity);
       const result = report.results?.[0];
       const outcome = result ? resultOutcome(result) : addOutcome(report, code);

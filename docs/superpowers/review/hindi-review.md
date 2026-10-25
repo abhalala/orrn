@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3635 screen strings in 44 groups, 16 guides with 292 strings.
+Counts: 3640 screen strings in 44 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -462,7 +462,7 @@ Counts: 3635 screen strings in 44 groups, 16 guides with 292 strings.
 | `floor.ageing` | Ageing | एजिंग |
 | `floor.ageingHint` | {count} in the oven | {count} ओवन में |
 
-### pack (206)
+### pack (208)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -556,7 +556,7 @@ Counts: 3635 screen strings in 44 groups, 16 guides with 292 strings.
 | `new.saveOnly` | Save session | सेशन सेव करें |
 | `new.saved` | Session saved | सेशन सेव हो गया |
 | `new.saveFailed` | The session didn't save. Your bundles are still here, so try again. | सेशन सेव नहीं हुआ। आपके bundle अभी भी यहां हैं, फिर से कोशिश करें। |
-| `new.saveUnsure` | We couldn't tell if the session saved. Look for it on the Pack page before you try again. | पता नहीं चला कि सेशन सेव हुआ या नहीं। फिर से कोशिश करने से पहले पैकिंग पेज पर उसे देखें। |
+| `new.saveUnsure` | orrn didn't confirm the save. Tap Save again: the same bundles are never packed twice. | orrn से सेव का जवाब नहीं आया। फिर से सेव दबाएं: वही bundle दो बार पैक नहीं होंगे। |
 | `new.openPack` | Open Pack | पैकिंग खोलें |
 | `new.rangeUnknown` | Range not loaded | रेंज लोड नहीं हुई |
 | `new.rangeFailed` | The die's range didn't load, so bundles can't be checked against it. | Die की रेंज लोड नहीं हुई, इसलिए bundle की जांच रेंज से नहीं हो सकती। |
@@ -653,8 +653,10 @@ Counts: 3635 screen strings in 44 groups, 16 guides with 292 strings.
 | `source.hand` | No trolley | ट्रॉली नहीं |
 | `source.handHint` | Packing by hand. Trolley rows come with ageing. | हाथ से पैकिंग। ट्रॉली की पंक्तियां एजिंग के साथ आएंगी। |
 | `source.forOrderHint` | Packing does not change baki. Dispatch does. | पैकिंग से बाकी नहीं बदलता। डिस्पैच से बदलता है। |
-| `source.noOrder` | Not for an order | किसी ऑर्डर के लिए नहीं |
-| `source.noOrderHint` | These bundles are not packed against an order. | ये bundle किसी ऑर्डर के नाम पैक नहीं हो रहे। |
+| `source.plantStock` | Plant stock | प्लांट स्टॉक |
+| `source.plantStockHint` | Packed for no order. The office can send them on any customer's load. | किसी ऑर्डर के लिए नहीं। ऑफिस इन्हें किसी भी ग्राहक के लोड पर भेज सकता है। |
+| `source.pinned` | This line is for die copy {code}. | यह लाइन die कॉपी {code} के लिए है। |
+| `source.pinnedOverride` | Office: pack on another copy | ऑफिस: दूसरी कॉपी पर पैक करें |
 | `source.suggested` | Suggested | सुझाया गया |
 | `source.lineDetail` | {baki} kg baki of {ordered} kg ordered | {ordered} kg ऑर्डर में से {baki} kg बाकी |
 | `source.copy` | Die copy | Die कॉपी |
@@ -732,7 +734,7 @@ Counts: 3635 screen strings in 44 groups, 16 guides with 292 strings.
 | `continuous.speak` | Speak refusals aloud | मना करने की वजह बोलकर बताएं |
 | `continuous.heldForOrder` | Held for {order} ({customer}) | {order} ({customer}) के लिए होल्ड पर है |
 
-### stock (173)
+### stock (174)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -741,6 +743,7 @@ Counts: 3635 screen strings in 44 groups, 16 guides with 292 strings.
 | `bundles` | Bundles | Bundle |
 | `searchSections` | Search die or section | Die या सेक्शन खोजें |
 | `totals` | {bundles} {bundles:bundle\|bundles} · {kg} kg in stock | स्टॉक में {bundles} bundle · {kg} kg |
+| `listed` | {bundles} {bundles:bundle\|bundles} · {kg} kg listed | लिस्ट में {bundles} bundle · {kg} kg |
 | `heldChip` | {count} held | {count} होल्ड पर |
 | `heldKg` | {count} held, {kg} kg | {count} होल्ड पर, {kg} kg |
 | `empty` | No stock yet. Bundles show up here after packing. | अभी स्टॉक नहीं है। पैकिंग के बाद bundle यहां दिखेंगे। |
@@ -975,7 +978,7 @@ Counts: 3635 screen strings in 44 groups, 16 guides with 292 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (153)
+### dispatch (155)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -993,7 +996,9 @@ Counts: 3635 screen strings in 44 groups, 16 guides with 292 strings.
 | `emptyDispatched` | Nothing has been dispatched yet. | अभी तक कोई dispatch नहीं हुआ। |
 | `emptyCancelled` | No cancelled dispatches. | कोई कैंसल dispatch नहीं है। |
 | `emptySearch` | No dispatch matches "{query}". | "{query}" से कोई dispatch नहीं मिला। |
-| `showBuilding` | Show building | बन रहे दिखाएं |
+| `showBuilding` | Show open dispatches | चालू dispatch दिखाएं |
+| `openTab` | Open | चालू |
+| `emptyOpen` | No dispatch is being built or held. Start a new dispatch. | कोई dispatch न बन रहा है न होल्ड पर है। नया dispatch शुरू करें। |
 | `show` | Show | दिखाएं |
 | `search` | Search dispatches | Dispatch खोजें |
 | `searchHint` | Code or notes | कोड या नोट |

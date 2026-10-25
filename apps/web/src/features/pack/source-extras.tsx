@@ -3,16 +3,20 @@ import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+
+import { Can } from "@/shared/components/can";
 
 import { ChoiceRadios, type Choice } from "./choice-radios";
 import {
   castRequired,
+  copyLocked,
   packableCopy,
   sourceBlockers,
   withCast,
   withCopy,
-  withLine,
+  withPinOverride,
+  withPinnedLine,
   type SourceBlocker,
   type SourceChoice,
 } from "./source-gate";
@@ -56,9 +60,19 @@ export function SourceExtras({
   const { t } = useT();
   const blockers = gate.blockers;
   const has = (k: SourceBlocker["kind"]) => blockers.find((b) => b.kind === k);
+  // D15: the copy the chosen line pins (the server refuses another unless the office overrides).
+  const pinOf = (lineId: string | undefined) => (lineId ? (gate.lines.data?.find((l) => l.lineId === lineId)?.pinnedCopyId ?? null) : null);
+  const pinnedCopyId = gate.line?.pinnedCopyId ?? null;
+  const pinnedCode = gate.line?.pinnedCopyCode ?? null;
+  const locked = copyLocked(choice, pinnedCopyId);
+  // A draft restored before the pin was known, or a line picked before the copies loaded: follow the pin.
+  useEffect(() => {
+    if (pinnedCopyId && !choice.overridePin && choice.dieInstanceId !== pinnedCopyId) onChange(withCopy(choice, pinnedCopyId));
+  }, [pinnedCopyId, choice, onChange]);
 
   const lineChoices: Choice[] = [
-    { value: NONE, label: t("pack.source.noOrder"), detail: t("pack.source.noOrderHint") },
+    // D20: a deliberate choice; the server writes these bundles as plant stock.
+    { value: NONE, label: t("pack.source.plantStock"), detail: t("pack.source.plantStockHint") },
     ...(gate.lines.data ?? []).map((l, i) => ({
       value: l.lineId,
       label: (
@@ -74,11 +88,12 @@ export function SourceExtras({
   ];
 
   const copyChoices: Choice[] = [
-    ...(has("copy") || has("owned") ? [] : [{ value: NONE, label: t("pack.source.noCopy"), detail: t("pack.source.noCopyHint") }]),
+    ...(has("copy") || has("owned") || pinnedCopyId ? [] : [{ value: NONE, label: t("pack.source.noCopy"), detail: t("pack.source.noCopyHint") }]),
     ...(gate.copies.data?.items ?? [])
       .filter((c) => packableCopy(c.status))
       .map((c) => ({
         value: c.id,
+        disabled: locked && c.id !== pinnedCopyId,
         label: <span className="font-mono">{c.code}</span>,
         ariaLabel: c.code,
         detail: [
@@ -121,20 +136,34 @@ export function SourceExtras({
           hint={t("pack.source.forOrderHint")}
           choices={lineChoices}
           value={choice.salesOrderLineId ?? NONE}
-          onChange={(v) => onChange(withLine(choice, v || undefined))}
+          onChange={(v) => onChange(withPinnedLine(choice, v || undefined, pinOf(v || undefined)))}
         />
       )}
 
-      {copyChoices.length > (has("copy") || has("owned") ? 0 : 1) ? (
+      {copyChoices.length > (has("copy") || has("owned") || pinnedCopyId ? 0 : 1) ? (
         <ChoiceRadios
           slot="copy-picker"
           legend={t("pack.source.copy")}
-          hint={t("pack.source.copyHint")}
+          hint={pinnedCode ? `${t("pack.source.pinned", { code: pinnedCode })} ${t("pack.source.copyHint")}` : t("pack.source.copyHint")}
           error={showErrors && copyOwnerNeedsPick ? t("pack.source.copyRequired") : undefined}
           choices={copyChoices}
           value={choice.dieInstanceId ?? NONE}
           onChange={(v) => onChange(withCopy(choice, v || undefined))}
         />
+      ) : null}
+
+      {pinnedCopyId ? (
+        <Can do="order.manage">
+          <label data-slot="pin-override" className="inline-flex min-h-11 items-center gap-3 self-start text-[15px] font-semibold">
+            <input
+              type="checkbox"
+              checked={Boolean(choice.overridePin)}
+              onChange={(e) => onChange(withPinOverride(choice, e.currentTarget.checked, pinnedCopyId))}
+              className="size-5 accent-[var(--color-primary)]"
+            />
+            {t("pack.source.pinnedOverride")}
+          </label>
+        </Can>
       ) : null}
 
       {castChoices.length > (gate.castRequired ? 0 : 1) ? (

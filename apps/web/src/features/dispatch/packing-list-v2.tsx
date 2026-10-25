@@ -256,7 +256,9 @@ function PlStack({ view }: { view: PlView }) {
         <section key={g.key} aria-label={g.title} className="min-w-0 overflow-hidden rounded-card border border-border bg-card">
           <div className="flex min-w-0 flex-col gap-0.5 border-b border-border px-4 py-3">
             <h3 className="m-0 text-[15px] font-semibold break-words">{g.title}</h3>
-            <p className="m-0 text-[13px] text-muted-foreground tabular-nums">{groupTotals(t, g.subtotal)}</p>
+            <p data-testid="pl-group-subtotal" className="m-0 text-[13px] text-muted-foreground tabular-nums">
+              {groupTotals(t, g.subtotal)}
+            </p>
           </div>
           <ul aria-label={t("packingList.rowsLabel")} className="m-0 list-none divide-y divide-border p-0">
             {g.rows.map((r) => (
