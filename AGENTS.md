@@ -472,8 +472,13 @@ bun run deploy
 - Run lines on a production run whose plan die has lines must each name a `pressPlanLineId`; a row
   without one takes the plan's single line of that cut length, else "Pick the order line for N mm".
   Rows with no order line only on trial / sample runs (or a run with no plan lines). A die trial's
-  verdict reaches the copy through `trialVerdictStatements` (lib/press.ts → lib/dieTrial); a reopen
-  puts a copy its pass racked back `on_trial` (`die_trial.reopen`). Late entry checks the copy with
+  verdict (and the issue return) reaches the copy through lib/dieTrial `applyTrialVerdictOnReturn`
+  (skipped when C43 carries the issue on); a reopen puts a copy its pass racked back `on_trial`
+  (`die_trial.reopen`).
+- Reopen blockers: `lib/press/reopenBlockers.ts` `registerReopenBlocker((db, companyId, runId) =>
+  Promise<string | null>)`; `press.runs.reopen` calls `reopenBlockers` and refuses with CONFLICT and
+  the first reason. The ageing lane registers its check there (a non-void `ageing_row` pointing at
+  the run); register at module load of the ageing router so every worker has it. Late entry checks the copy with
   `assertLateEntryCopy` (issue words, owner gate) and refuses retired lines and runs > 7 days old.
 - Foundry: `furnace`, `alloy`, `alloy_limit` (ppm min/max per element), cast `alloy_id` + cancel
   columns (status +`cancelled`), melt `status` draft|locked|cancelled (SQL default `locked`: the PL5

@@ -68,7 +68,8 @@ import { atomicBatch, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } fr
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { signDieFileUrl } from "../lib/dieFiles";
-import { checkDieAllowed, assertDieAllowed } from "../lib/dieOwner";
+import { assertDieAllowed, checkDieAllowed } from "../lib/dieOwner";
+import { applyTrialVerdictOnReturn } from "../lib/dieTrial";
 import { nextDocNumber } from "../lib/docNumber";
 import { TRPCMetaError } from "../lib/errorMeta";
 import { resolveBilletStore, resolvePlantScrap } from "../lib/foundry";
@@ -89,9 +90,9 @@ import {
   shiftAt,
   assertLateEntryCopy,
   LATE_ENTRY_MAX_DAYS,
-  trialVerdictStatements,
   type LoadedRun,
 } from "../lib/press";
+import { reopenBlockers } from "../lib/press/reopenBlockers";
 import { nextCompanySeq } from "../lib/sequence";
 
 const id = z.string().min(1).max(64);
@@ -1400,16 +1401,6 @@ export const pressRunRouter = router({
       const firstLine = (await lastLedgerLine(ctx.db, ctx.companyId, run.id)) + 1;
       const trialResult = run.purpose === "die_trial" ? (input.trialResult ?? run.trialResult) : null;
       const handoff = await issueAtClose(ctx as Ctx, run, trialResult);
-      const trialCopy =
-        run.purpose === "die_trial" && run.dieInstanceId
-          ? ((
-              await ctx.db
-                .select({ id: dieInstance.id, code: dieInstance.code, status: dieInstance.status })
-                .from(dieInstance)
-                .where(and(eq(dieInstance.id, run.dieInstanceId), eq(dieInstance.companyId, ctx.companyId)))
-                .limit(1)
-            )[0] ?? null)
-          : null;
       const at = clockNow();
       // D22: the full weighed kg is debited; the store must still hold what this read saw, so a
       // shortfall never grows between the read and the write without being recorded.
@@ -1484,37 +1475,19 @@ export const pressRunRouter = router({
             .where(and(eq(pressRun.id, handoff.carryTo.id), eq(pressRun.companyId, ctx.companyId), eq(pressRun.status, "queued"), isNull(pressRun.dieInstanceId), runLogged)),
           pressAbortUnless(ctx.db, runLanded(handoff.carryTo.id, seq, "die_issued")),
         );
-      } else if (handoff.issue) {
-        statements.push(
-          ctx.db
-            .update(dieIssue)
-            .set({ status: "returned", returnedAt: at, returnedBy: callerId, serverSeq: seq })
-            .where(and(eq(dieIssue.id, handoff.issue.id), eq(dieIssue.companyId, ctx.companyId), eq(dieIssue.status, "issued"), runLogged)),
-        );
-        if (trialCopy && trialResult) {
-          // die_trial: the copy goes back on trial, and a pass takes it to the rack (lib/dieTrial).
-          statements.push(
-            ...trialVerdictStatements(ctx, { run: { id: run.id, number: run.number }, copy: trialCopy, verdict: trialResult, seq, returnedIssueId: handoff.issue.id }),
-          );
-        } else {
-          statements.push(
-            ctx.db
-              .update(dieInstance)
-              .set({ status: "available", serverSeq: seq })
-              .where(
-                and(
-                  eq(dieInstance.id, run.dieInstanceId!),
-                  eq(dieInstance.companyId, ctx.companyId),
-                  eq(dieInstance.status, "in_use"),
-                  sql`exists (select 1 from die_issue ri where ri.id = ${handoff.issue.id} and ri.status = 'returned' and ri.server_seq = ${seq})`,
-                ),
-              ),
-          );
-        }
-      } else if (trialCopy && trialResult) {
-        // A trial with no open issue (late entry, or the close after a reopen): the verdict still
-        // moves the copy (pass: on_trial → available; fail: available → on_trial).
-        statements.push(...trialVerdictStatements(ctx, { run: { id: run.id, number: run.number }, copy: trialCopy, verdict: trialResult, seq, returnedIssueId: null }));
+      } else {
+        // The issue goes back with the close, and a die trial's verdict reaches the copy, through
+        // the die room's one seam (lib/dieTrial, BACKLOG 26): rack issue → available; trial issue →
+        // available on pass, on_trial otherwise; no open issue and the copy back on trial → a pass
+        // moves it to the rack. A fail never retires or re-sends the copy.
+        const seam = await applyTrialVerdictOnReturn(ctx, {
+          run: { id: run.id, number: run.number, dieInstanceId: run.dieInstanceId },
+          verdict: trialResult,
+          seq,
+          at,
+          after: runLogged,
+        });
+        statements.push(...seam.statements);
       }
       statements.push(
         auditInsertGuarded(
@@ -1623,6 +1596,9 @@ export const pressRunRouter = router({
       requireStatus(run, ["logged"], "only a logged run can be reopened");
       const pending = await pendingApproval(ctx.db, ctx.companyId, "press_reopen", run.id);
       if (pending) throw new TRPCError({ code: "CONFLICT", message: `${run.number} already waits for a reopen decision` });
+      // Other modules may hold the run (Wave 3 ageing: a non-void ageing_row of its pieces).
+      const blocked = await reopenBlockers(ctx.db, ctx.companyId, run.id);
+      if (blocked) throw new TRPCError({ code: "CONFLICT", message: blocked });
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const req = requestApprovalInsert(ctx, {
         kind: "press_reopen",

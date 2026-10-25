@@ -308,11 +308,28 @@ describe("die trial verdict through lib/dieTrial (I-4, BACKLOG 26)", () => {
     expect(await run(r.runId)).toMatchObject({ status: "counting", trialResult: null });
     await p.as("supervisor").press.runs.close({ id: r.runId, trialResult: "fail" });
     expect((await copyRow(r.copyId)).status).toBe("on_trial");
+    // A fail never retires or re-sends the copy by itself (lib/dieTrial contract 5).
     expect(await trialAudits(r.copyId)).toEqual([
       ["die_trial.pass", r.runId],
       ["die_trial.reopen", r.runId],
-      ["die_trial.fail", r.runId],
     ]);
+  });
+
+  test("fail: copy back on trial, issue returned; a rack copy on a trial plan goes back to the rack", async () => {
+    const p = await pressPlant();
+    const c = await p.castWith(kg(500));
+    const r = await trialRun(p, c.id);
+    await p.as("supervisor").press.runs.close({ id: r.runId, trialResult: "fail" });
+    expect((await copyRow(r.copyId)).status).toBe("on_trial");
+    expect(await trialAudits(r.copyId)).toEqual([]);
+    // A copy that was on the rack when issued (not on trial) goes back to the rack whatever the verdict.
+    const rack = await p.countingRun({ purpose: "die_trial" });
+    const press = p.as("press").press.runs;
+    await press.billets({ id: rack.runId, castId: c.id, rows: [{ count: 1, kgG: kg(60) }] });
+    await press.lines({ id: rack.runId, rows: [{ cutLengthMm: 3_658, pcs: 4, goodG: kg(40) }] });
+    await press.qc({ id: rack.runId, rows: [{ pcs: 0, kgG: 0 }] });
+    await p.as("supervisor").press.runs.close({ id: rack.runId, trialResult: "fail" });
+    expect((await copyRow(rack.copyId)).status).toBe("available");
   });
 
   test("fail → reopen → pass puts the copy on the rack", async () => {
@@ -336,6 +353,44 @@ describe("die trial verdict through lib/dieTrial (I-4, BACKLOG 26)", () => {
     await p.issue(next.runId, r.copyId);
     await reopen(p, r.runId);
     expect((await copyRow(r.copyId)).status).toBe("in_use");
+  });
+});
+
+describe("reopen blockers (hook for the ageing lane)", () => {
+  test("a registered blocker refuses the reopen with CONFLICT and its reason; removed, the reopen goes through", async () => {
+    const { registerReopenBlocker } = await import("../src/lib/press/reopenBlockers");
+    const p = await pressPlant();
+    const c = await p.castWith(kg(500));
+    const r = await p.countingRun();
+    await fillWorkedExample(p, r.runId, c.id, { planLineId: r.planLineIds[0] });
+    await p.as("supervisor").press.runs.close({ id: r.runId });
+    const seen: string[] = [];
+    const remove = registerReopenBlocker(async (_db, companyId, runId) => {
+      seen.push(`${companyId}:${runId}`);
+      return runId === r.runId ? "Pieces of this run are in an ageing basket" : null;
+    });
+    try {
+      await expect(p.as("supervisor").press.runs.reopen({ id: r.runId, reason: "Good kg typed wrong" })).rejects.toMatchObject({
+        code: "CONFLICT",
+        message: "Pieces of this run are in an ageing basket",
+      });
+      expect(seen).toEqual([`${p.companyId}:${r.runId}`]);
+    } finally {
+      remove();
+    }
+    const { approvalId } = await p.as("supervisor").press.runs.reopen({ id: r.runId, reason: "Good kg typed wrong" });
+    expect(approvalId).toBeString();
+  });
+
+  test("with no blockers registered, reopen works", async () => {
+    const p = await pressPlant();
+    const c = await p.castWith(kg(500));
+    const r = await p.countingRun();
+    await fillWorkedExample(p, r.runId, c.id, { planLineId: r.planLineIds[0] });
+    await p.as("supervisor").press.runs.close({ id: r.runId });
+    const { approvalId } = await p.as("supervisor").press.runs.reopen({ id: r.runId, reason: "Billets typed wrong" });
+    await p.as("manager").approval.decide({ id: approvalId, decision: "approved" });
+    expect((await run(r.runId)).status).toBe("counting");
   });
 });
 

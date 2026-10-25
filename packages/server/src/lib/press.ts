@@ -34,10 +34,7 @@ import { and, eq, getTableColumns, inArray, sql, type SQL } from "drizzle-orm";
 
 import type { ApplyCtx, ApprovalApplier } from "./approvalApply";
 import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "./atomic";
-import { auditInsertGuarded } from "./audit";
 import { assertDieAllowed } from "./dieOwner";
-import { auditCtx, type DieRoomCtx } from "./dieRoom";
-import { trialPassStatements } from "./dieTrial";
 import { createId } from "./id";
 import { defaultReturnStreamStatements } from "./foundry";
 import { sqlUuid } from "./ledger";
@@ -428,10 +425,10 @@ export const pressLateEntryDecision: ApprovalApplier = (ctx, row, decision) => {
  * `press_run_reopen`, same line, `reversal_of`). The figures written at log are cleared (the next
  * close computes them again); the rows under the run stay for editing. Rejected: nothing.
  * There are no ageing rows yet (Wave 3), so nothing can have loaded the run's pieces.
- * A die trial whose pass put the copy on the rack (the copy's latest trial row is this run's
- * `die_trial.pass`, and the copy is still `available`) puts the copy back `on_trial` with audit
- * `die_trial.reopen`; the next close applies the new verdict (I-4). A copy issued again since
- * stays where it is.
+ * A die trial whose pass put the copy on the rack (the copy is still `available` and its latest
+ * issue is this run's trial issue; for a late entry with no issue, its latest trial audit is this
+ * run's `die_trial.pass`) puts the copy back `on_trial` with audit `die_trial.reopen`; the next
+ * close applies the new verdict through lib/dieTrial (I-4). A copy issued again since stays.
  */
 export const pressReopenDecision: ApprovalApplier = (ctx, row, decision) => {
   if (decision === "rejected") return [];
@@ -465,9 +462,15 @@ export const pressReopenDecision: ApprovalApplier = (ctx, row, decision) => {
           eq(dieInstance.companyId, companyId),
           eq(dieInstance.status, "available"),
           sql`${dieInstance.id} = (select tr.die_instance_id from press_run tr where tr.id = ${row.subjectId} and tr.company_id = ${companyId})`,
-          sql`(select la.action || ':' || coalesce(json_extract(la.meta, '$.pressRunId'), '') from audit_log la
+          sql`(
+            (select li.press_run_id || ':' || li.trial || ':' || li.status from die_issue li
+              where li.company_id = ${companyId} and li.die_instance_id = ${dieInstance.id}
+              order by li.issued_at desc, li.rowid desc limit 1) = ${`${row.subjectId}:1:returned`}
+            or (not exists (select 1 from die_issue ni where ni.company_id = ${companyId} and ni.die_instance_id = ${dieInstance.id} and ni.press_run_id = ${row.subjectId})
+              and (select la.action || ':' || coalesce(json_extract(la.meta, '$.pressRunId'), '') from audit_log la
                 where la.company_id = ${companyId} and la.subject_type = 'die_instance' and la.subject_id = ${dieInstance.id} and la.action like 'die_trial.%'
-                order by la.at desc, la.rowid desc limit 1) = ${`die_trial.pass:${row.subjectId}`}`,
+                order by la.at desc, la.rowid desc limit 1) = ${`die_trial.pass:${row.subjectId}`})
+          )`,
           reopened,
         ),
       ),
@@ -492,79 +495,6 @@ export const pressReopenDecision: ApprovalApplier = (ctx, row, decision) => {
     applierAudit(ctx, "press_run.reopen", row.subjectId, { approvalId: row.id }, reopened),
   ];
 };
-
-// ---------------------------------------------------------------------------
-// Die trial verdict at close (FP-PR-23 / FP-DR-17, BACKLOG 26): the one seam to lib/dieTrial
-// ---------------------------------------------------------------------------
-
-export type TrialVerdictInput = {
-  run: { id: string; number: string };
-  copy: { id: string; code: string; status: DieCopyStatus };
-  verdict: "pass" | "fail";
-  /** This close's sequence (the run is `logged` with it when the batch lands). */
-  seq: number;
-  /** The issue this close returns in the same batch (the copy is `in_use` until then), or null. */
-  returnedIssueId: string | null;
-};
-
-/**
- * Statements that put a die trial's verdict on the copy, for the close's batch (after the run
- * update, its abort and, when `returnedIssueId` is set, the issue return):
- * - issue returned here: the copy goes `in_use → on_trial` (trialReturn), then a pass moves it
- *   `on_trial → available` through `trialPassStatements` (audit `die_trial.pass`, naming the run);
- * - no open issue (late entry, or the close after a reopen): a pass moves an `on_trial` copy the
- *   same way; a fail puts an `available` copy back `on_trial`;
- * - a fail always writes audit `die_trial.fail` naming the run (subject the copy).
- * The die room's own return of a logged passed trial (`statusAfterReturn`) never sees these runs:
- * the close returns their issue itself.
- */
-export function trialVerdictStatements(ctx: DieRoomCtx, i: TrialVerdictInput): SqliteBatchItem[] {
-  const { db, companyId } = ctx;
-  const out: SqliteBatchItem[] = [];
-  const runLogged = runLanded(i.run.id, i.seq, "logged");
-  let status = i.copy.status;
-  if (i.returnedIssueId) {
-    out.push(
-      db
-        .update(dieInstance)
-        .set({ status: "on_trial", serverSeq: i.seq })
-        .where(
-          and(
-            eq(dieInstance.id, i.copy.id),
-            eq(dieInstance.companyId, companyId),
-            eq(dieInstance.status, "in_use"),
-            sql`exists (select 1 from die_issue ri where ri.id = ${i.returnedIssueId} and ri.status = 'returned' and ri.server_seq = ${i.seq})`,
-          ),
-        ),
-    );
-    status = "on_trial";
-  }
-  if (i.verdict === "pass") {
-    if (status === "on_trial") out.push(...trialPassStatements(ctx, { copy: { ...i.copy, status: "on_trial" }, seq: i.seq, run: i.run }));
-    return out;
-  }
-  if (status === "available") {
-    out.push(
-      db
-        .update(dieInstance)
-        .set({ status: "on_trial", serverSeq: i.seq })
-        .where(and(eq(dieInstance.id, i.copy.id), eq(dieInstance.companyId, companyId), eq(dieInstance.status, "available"), runLogged)),
-    );
-  }
-  out.push(
-    auditInsertGuarded(
-      auditCtx(ctx),
-      {
-        action: "die_trial.fail",
-        subjectType: "die_instance",
-        subjectId: i.copy.id,
-        meta: { code: i.copy.code, pressRunId: i.run.id, pressRunNumber: i.run.number },
-      },
-      { from: pressRun, where: and(eq(pressRun.id, i.run.id), eq(pressRun.serverSeq, i.seq), eq(pressRun.status, "logged")) },
-    ),
-  );
-  return out;
-}
 
 // ---------------------------------------------------------------------------
 // Late entry: the copy is checked like an issue (I-1)

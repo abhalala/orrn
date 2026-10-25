@@ -349,7 +349,18 @@ describe("trial and sample runs (FP-PR-23)", () => {
   test("die_trial plan: no order line; close needs pass / fail; fail → copy on_trial, pass → available; billets still debit", async () => {
     const p = await pressPlant();
     const c = await p.castWith(kg(1000));
-    const fail = await p.countingRun({ purpose: "die_trial" });
+    // Copies on trial (FP-DR-17): the issue carries `trial`, so the close's verdict moves the copy.
+    const onTrial = async () => {
+      const r = await p.queuedRun({ purpose: "die_trial" });
+      await env.db.update(dieInstance).set({ status: "on_trial" }).where(eq(dieInstance.id, r.copyId));
+      await p.issue(r.runId, r.copyId);
+      const s = p.as("press").press.runs;
+      await s.start({ id: r.runId });
+      await s.stop({ id: r.runId });
+      await s.count({ id: r.runId });
+      return r;
+    };
+    const fail = await onTrial();
     expect(fail.planLineIds).toEqual([]);
     const press = p.as("press").press.runs;
     await press.billets({ id: fail.runId, castId: c.id, rows: [{ count: 1, kgG: kg(60) }] });
@@ -363,7 +374,7 @@ describe("trial and sample runs (FP-PR-23)", () => {
     expect(failed!.status).toBe("on_trial");
     expect((await ledger(p.companyId, fail.runId)).find((x) => x.itemKind === "billet")!.qtyG).toBe(-60_000);
 
-    const pass = await p.countingRun({ purpose: "die_trial" });
+    const pass = await onTrial();
     await press.billets({ id: pass.runId, castId: c.id, rows: [{ count: 1, kgG: kg(60) }] });
     await press.lines({ id: pass.runId, rows: [{ cutLengthMm: 3_658, pcs: 4, goodG: kg(40) }] });
     await press.qc({ id: pass.runId, rows: [{ pcs: 0, kgG: 0 }] });
