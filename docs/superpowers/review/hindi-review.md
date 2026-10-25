@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 6965 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6990 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -6624,7 +6624,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (247)
+### audit (272)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6677,6 +6677,31 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load the audit log. Try again. | ऑडिट लॉग लोड नहीं हुआ। फिर कोशिश करें। |
 | `listLabel` | Audit entries | ऑडिट एंट्री |
 | `noAccess` | Your role can't read the audit log. Ask an owner, admin or manager. | आपकी भूमिका ऑडिट लॉग नहीं पढ़ सकती। मालिक, एडमिन या मैनेजर से कहें। |
+| `actions.ageing__discard` | Rest of the batch scrapped | बैच का बाकी माल स्क्रैप किया |
+| `actions.ageing__draw` | Aged pieces taken for packing | पैकिंग के लिए एज्ड पीस लिए |
+| `actions.ageing__hardness` | Hardness recorded | कठोरता दर्ज की |
+| `actions.ageing__hold` | Ageing batch held | एजिंग बैच होल्ड किया |
+| `actions.ageing__load` | Loaded on a trolley | ट्रॉली पर लोड किया |
+| `actions.ageing__out` | Trolley taken out of the oven | ट्रॉली ओवन से निकाली |
+| `actions.ageing__oven__create` | Oven added | ओवन जोड़ा |
+| `actions.ageing__oven__update` | Oven changed | ओवन बदला |
+| `actions.ageing__override__request` | Ageing release sent for approval | एजिंग रिलीज़ की मंज़ूरी मांगी |
+| `actions.ageing__readings` | Oven readings received | ओवन की रीडिंग आईं |
+| `actions.ageing__recipe__create` | Cycle recipe added | साइकल रेसिपी जोड़ी |
+| `actions.ageing__recipe__update` | Cycle recipe changed | साइकल रेसिपी बदली |
+| `actions.ageing__release` | Ageing batch released | एजिंग बैच रिलीज़ किया |
+| `actions.ageing__restore` | Aged pieces given back to the trolley | एज्ड पीस ट्रॉली पर वापस दिए |
+| `actions.ageing__rework` | Pieces sent for rework | पीस रीवर्क में भेजे |
+| `actions.ageing__rework__undo` | Rework undone | रीवर्क वापस लिया |
+| `actions.ageing__split` | Ageing batch split | एजिंग बैच बांटा |
+| `actions.ageing__start` | Ageing cycle started | एजिंग साइकल शुरू की |
+| `actions.ageing__temp` | Oven temperature added | ओवन का तापमान जोड़ा |
+| `actions.ageing__trolley__create` | Trolley added | ट्रॉली जोड़ी |
+| `actions.ageing__trolley__update` | Trolley changed | ट्रॉली बदली |
+| `actions.ageing__unhold` | Ageing hold lifted | एजिंग होल्ड हटाया |
+| `actions.ageing__void` | Ageing batch voided | एजिंग बैच रद्द किया |
+| `actions.ageing__writeOff` | Aged pieces written off as loose stock | एज्ड पीस खुले स्टॉक में लिखे |
+| `actions.ageing__writeOffUndo` | Loose aged write-off undone | खुले एज्ड स्टॉक की एंट्री वापस ली |
 | `actions.app_release__publish` | App build published | ऐप बिल्ड जारी किया |
 | `actions.app_release__update` | App build changed | ऐप बिल्ड बदला |
 | `actions.approval__approved` | Request approved | रिक्वेस्ट मंज़ूर की |
