@@ -213,13 +213,17 @@ describe("bookingSubmit: a retry must not make a second order (I-3)", () => {
     expect(bookingSubmit(first.attempt, input({ ...draft(), customer: { id: "c2", name: "Mehta" } }), fresh).id).toBe("req-3");
   });
 
-  test("editing and then reverting to the same booking reuses the first attempt's id only while that attempt is the last one", () => {
+  test("editing and then reverting to the same booking reuses the first attempt's id (it may have landed)", () => {
     n = 0;
     const first = bookingSubmit(null, input(draft()), fresh);
     const edited = bookingSubmit(first.attempt, input(draft({ pcsText: "31" })), fresh);
-    // The last attempt is now the edited one: reverting is a new send with a new id (the server never saw the edited one succeed, and the original may have).
+    expect(edited.id).toBe("req-2");
     const reverted = bookingSubmit(edited.attempt, input(draft()), fresh);
-    expect(reverted.id).toBe("req-3");
+    expect(reverted.id).toBe("req-1");
+    // and the edit is still remembered too
+    expect(bookingSubmit(reverted.attempt, input(draft({ pcsText: "31" })), fresh).id).toBe("req-2");
+    // a booking never seen before is new
+    expect(bookingSubmit(reverted.attempt, input(draft({ pcsText: "32" })), fresh).id).toBe("req-3");
   });
 
   test("after the order was saved the attempt is over, so the next order gets its own id", () => {

@@ -9,11 +9,13 @@ import type { Messages } from "./en";
  * Any task that adds keys to a floor namespace (today, pack, scan, press.console,
  * ageing.readings, reasons.{kinds,downtime,qc_reject,void,reprint}) adds them here too.
  */
+import { refusalGu } from "./native/refusal.gu";
+
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : DeepPartial<T[K]> };
 
 /** Dotted namespaces gu must carry in full. */
 /** W1-PK-W r1 m-1: the dispatch scan, stock and the packing list are read at the bay too (D6). */
-export const GU_FLOOR_NAMESPACES = ["today", "pack", "scan", "press.console", "ageing.readings", "stock", "dispatch.capacity", "dispatch.detail", "dispatch.steps", "dispatch.build", "dispatch.paste", "dispatch.errors", "packingList", "status.bundle", "status.dispatch", "status.range"] as const;
+export const GU_FLOOR_NAMESPACES = ["today", "pack", "scan", "press.console", "ageing.readings", "stock", "dispatch.capacity", "dispatch.detail", "dispatch.steps", "dispatch.build", "dispatch.paste", "dispatch.errors", "packingList", "status.bundle", "status.dispatch", "status.range", "native.refusal"] as const;
 
 /**
  * Reason labels the floor reads on the press console and at pack (downtime, rejects, void, reprint)
@@ -806,6 +808,7 @@ export const gu = {
     },
   },
   native: {
+    ...refusalGu,
     checkAgain: "ફરી તપાસો",
     gate: {
       checking: "આ વર્ઝન તપાસીએ છીએ",

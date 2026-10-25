@@ -5,6 +5,7 @@ import { dispatchHi } from "./native/dispatch.hi";
 import { moreHi } from "./native/more.hi";
 import { diesHi } from "./native/dies.hi";
 import { ordersHi } from "./native/orders.hi";
+import { refusalHi } from "./native/refusal.hi";
 import { platformHi } from "./native/platform.hi";
 import { pressHi } from "./native/press.hi";
 import { stockHi } from "./native/stock.hi";
@@ -3282,6 +3283,7 @@ export const hi = {
     ...moreHi,
     ...diesHi,
     ...ordersHi,
+    ...refusalHi,
     ...platformHi,
     ...pressHi,
     ...stockHi,

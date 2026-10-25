@@ -1,8 +1,7 @@
 import type { StatusTone } from "@orrn/domain";
 import type { MessageKey, Translate } from "@orrn/i18n";
 
-import { saveErrorText } from "@/lib/save-error";
-import { writeFailureKind } from "@/lib/request-timeout";
+import { serverRefusalLines } from "@/lib/server-refusal";
 
 /**
  * What the Orders screens show and offer, as pure functions (mirrors apps/web/src/features/orders/{view,format,errors}.ts).
@@ -146,7 +145,7 @@ export function blockerText(code: string, t: Translate): string {
     case "line":
       return t("orders.blockers.line", { n: b.n, problem: t(`orders.blockers.${b.problem}`) });
     default:
-      return t("orders.serverSaid", { message: b.code });
+      return t("native.refusal.unknown");
   }
 }
 
@@ -170,28 +169,13 @@ export function poRepeatFromMessage(message: string | undefined | null): { po: s
   return m ? { po: m[1]!, code: m[2]! } : null;
 }
 
-type TrpcLike = { message?: unknown; data?: { code?: unknown } | null };
-
 /**
- * What to tell someone when an orders write was refused, as lines: confirm blockers in their language,
- * a repeated PO, the server's own plain sentence where it names the thing ("This die belongs to X"), and
- * the shared wording otherwise. An answer that never came ("unsure") says to check the order before trying again.
+ * What to tell someone when an orders write was refused, as lines: confirm blockers in their language, and
+ * every other sentence the orders routers raise from the app's own dictionary (`serverRefusal`; BACKLOG 43).
+ * The server's English is never shown. An answer that never came ("unsure") says to check the order before trying again.
  */
 export function orderErrorLines(t: Translate, error: unknown): string[] {
-  if (writeFailureKind(error) === "unsure") return [saveErrorText(t, error).body];
-  const e = (error && typeof error === "object" ? error : {}) as TrpcLike;
-  const code = typeof e.data?.code === "string" ? e.data.code : undefined;
-  const message = typeof e.message === "string" ? e.message : "";
-  const blockers = blockersFromMessage(message);
-  if (blockers.length > 0) return blockers.map((b) => blockerText(b, t));
-  const repeat = poRepeatFromMessage(message);
-  if (repeat) return [t("orders.poRepeat", { po: repeat.po, code: repeat.code })];
-  if ((code === "BAD_REQUEST" || code === "CONFLICT" || code === "FORBIDDEN" || code === "NOT_FOUND") && message && !message.startsWith("[")) {
-    const owned = /^This die belongs to (.+)$/.exec(message);
-    if (owned) return [t("orders.ownedBy", { name: owned[1]! })];
-    return [t("orders.serverSaid", { message })];
-  }
-  return [saveErrorText(t, error).body];
+  return serverRefusalLines(error, t, (code) => blockerText(code, t));
 }
 
 // ---------------------------------------------------------------------------
