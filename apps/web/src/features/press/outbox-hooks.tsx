@@ -69,6 +69,8 @@ export function useOnline(): boolean {
   return online;
 }
 
+const isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
+
 /** The one call per kind; the input is exactly what the screen built (its key included). */
 export async function sendStationWrite(kind: OutboxKind, input: Record<string, unknown>): Promise<unknown> {
   const runs = trpcClient.press.runs;
@@ -99,8 +101,8 @@ export async function sendStationWrite(kind: OutboxKind, input: Record<string, u
 export type SendResult = { queued: false; out: unknown } | { queued: true };
 
 /**
- * Send a station write now, or queue it: offline (the request never reached the server) or behind
- * earlier waiting writes of the same run. A refusal from the server is thrown to the caller as before.
+ * Send a station write now, or queue it: when the tablet is offline, or behind earlier waiting
+ * writes of the same run. A refusal from the server is thrown to the caller as before.
  */
 export function useStationSend(runId: string, runNumber: string | null) {
   const { store } = useOutbox();
@@ -112,14 +114,16 @@ export function useStationSend(runId: string, runNumber: string | null) {
         store.set(enqueue(store.get(), { id: key, runId, runNumber, kind, input, queuedAt: Date.now(), conflict: null }));
         return true;
       };
-      if (store && store.get().some((i) => i.runId === runId)) {
+      if (store && (isOffline() || store.get().some((i) => i.runId === runId))) {
         queue();
         return { queued: true };
       }
       try {
         return { queued: false, out: await sendStationWrite(kind, input) };
       } catch (e) {
-        if (isNetworkError(e) && queue()) return { queued: true };
+        // Only a tablet that is offline queues. A request dropped while online keeps the screen's own
+        // error and Try again (the same key), as before.
+        if (isNetworkError(e) && isOffline() && queue()) return { queued: true };
         throw e;
       }
     },
