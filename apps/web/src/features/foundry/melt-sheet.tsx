@@ -37,7 +37,7 @@ const at = (v: unknown): number | null => (v === null || v === undefined ? null 
  * a draft copy.
  */
 export function MeltSheet({ data, melt }: { data: CastData; melt: MeltRow }) {
-  const { t, locale } = useT();
+  const { t } = useT();
   const tz = useTimeZone();
   const alloys = useQuery({ ...trpc.foundry.alloys.list.queryOptions(), meta: INLINE_ERROR_META });
   const furnaces = useQuery({ ...trpc.foundry.furnaces.list.queryOptions(), meta: INLINE_ERROR_META });
@@ -129,9 +129,85 @@ export function MeltSheet({ data, melt }: { data: CastData; melt: MeltRow }) {
       <Panel id="melt-spectro" title={t("foundry.spectro.title")} actions={verdict ? <Chip tone={verdict === "pass" ? "green" : verdict === "fail" ? "red" : "amber"}>{t(`foundry.spectro.verdict.${verdict}`)}</Chip> : undefined}>
         <SpectroPanel meltId={melt.status === "cancelled" || melt.status === "corrected" ? null : melt.id} results={melt.spectro} limits={alloy?.limits ?? []} alloyCode={alloy?.code ?? melt.alloy} draft={false} />
       </Panel>
-      {melt.status === "locked" && cast.status === "open" ? <Correction melt={melt} /> : null}
-      <p className="sr-only">{locale}</p>
+      {melt.status === "locked" && cast.status === "open" ? (
+        <>
+          <Correction melt={melt} />
+          <CancelMelt melt={melt} castNumber={cast.number} />
+        </>
+      ) : null}
     </>
+  );
+}
+
+/**
+ * Cancel a locked melt of an open cast (cast.close; the supervisor's own door, no approver needed):
+ * the kg and the store draws are reversed and the melt keeps its number as cancelled. The server
+ * refuses once the press used the cast's billets, and the sentence says so.
+ */
+function CancelMelt({ melt, castNumber }: { melt: MeltRow; castNumber: string }) {
+  const { t } = useT();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [asking, setAsking] = useState(false);
+  const [reason, setReason] = useState("");
+  const [tried, setTried] = useState(false);
+  const cancel = useMutation(
+    trpc.foundry.melts.cancel.mutationOptions({
+      onSuccess: () => {
+        toast.success(t("foundry.melt.cancel.done", { n: melt.seq, number: castNumber }));
+        void queryClient.invalidateQueries({ queryKey: trpc.foundry.pathKey() });
+        void queryClient.invalidateQueries({ queryKey: trpc.approval.pathKey() });
+        done();
+        void navigate({ to: "/casts/$id", params: { id: melt.castId } });
+      },
+    }),
+  );
+  const done = () => {
+    setAsking(false);
+    setReason("");
+    setTried(false);
+    cancel.reset();
+  };
+  return (
+    <Can do="cast.close">
+      <Panel id="melt-cancel" title={t("foundry.melt.cancel.title")} testId="melt-cancel">
+        <p className="m-0 text-[14px] text-muted-foreground">{t("foundry.melt.cancel.body")}</p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="ghost" onClick={() => setAsking(true)} data-testid="cancel-melt">
+            {t("foundry.melt.cancel.button")}
+          </Button>
+        </div>
+        <Sheet
+          open={asking}
+          onOpenChange={(o) => (o ? undefined : done())}
+          title={t("foundry.melt.cancel.sheetTitle", { n: melt.seq, number: castNumber })}
+          footer={
+            <>
+              <Button variant="secondary" size="lg" onClick={done}>{t("common.cancel")}</Button>
+              <Button
+                size="lg"
+                variant="danger"
+                loading={cancel.isPending}
+                data-testid="cancel-melt-confirm"
+                onClick={() => {
+                  setTried(true);
+                  if (reason.trim() !== "") cancel.mutate({ meltId: melt.id, reason: reason.trim() });
+                }}
+              >
+                {t("foundry.melt.cancel.confirm")}
+              </Button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-4 pt-1">
+            <Field label={t("foundry.melt.cancel.reason")} error={tried && reason.trim() === "" ? t("foundry.melt.cancel.reasonRequired") : undefined}>
+              <FieldTextArea value={reason} maxLength={500} onChange={(e) => setReason(e.currentTarget.value)} data-testid="cancel-melt-reason" />
+            </Field>
+            <ErrorLine error={cancel.error} />
+          </div>
+        </Sheet>
+      </Panel>
+    </Can>
   );
 }
 
@@ -141,8 +217,9 @@ function Correction({ melt }: { melt: MeltRow }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [asking, setAsking] = useState(false);
-  const list = useQuery({ ...trpc.approval.list.queryOptions({ kind: "melt_correct", limit: 100, offset: 0 }), meta: INLINE_ERROR_META });
-  const mine = (list.data?.items ?? []).filter((a) => a.subjectId === melt.id);
+  // This melt's own requests, newest first (not the plant's newest hundred, which would drop an old pending one).
+  const list = useQuery({ ...trpc.approval.list.queryOptions({ kind: "melt_correct", subjectId: melt.id, limit: 20, offset: 0 }), meta: INLINE_ERROR_META });
+  const mine = list.data?.items ?? [];
   const open = mine.find((a) => a.status === "pending" || (a.status === "approved" && (a.meta as { usedAt?: unknown } | null)?.usedAt == null));
   const requestId = useRef(crypto.randomUUID());
   const correct = useMutation(
@@ -167,7 +244,7 @@ function Correction({ melt }: { melt: MeltRow }) {
             <Button loading={correct.isPending} onClick={() => correct.mutate({ meltId: melt.id, clientMutationId: requestId.current })} data-testid="correct-now">
               {t("foundry.melt.correction.now")}
             </Button>
-          ) : !open ? (
+          ) : !open && !list.isPending ? (
             <Button variant="secondary" onClick={() => setAsking(true)} data-testid="ask-correction">
               {t("foundry.melt.correction.ask")}
             </Button>

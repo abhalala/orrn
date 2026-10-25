@@ -3,7 +3,7 @@ import { Button } from "@orrn/ui/components/button";
 import { Field, NumberInput } from "@orrn/ui/components/field";
 import { Sheet } from "@orrn/ui/components/sheet";
 import type { AppRouter } from "@orrn/server/routers/index";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -15,7 +15,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 
-import { bpText, closeFormIssue, countedBillets } from "./model";
+import { bpText, closeFormIssue, countedBillets, countKey } from "./model";
 import { ErrorLine, Note, FieldSelect } from "./ui";
 
 type CastData = inferRouterOutputs<AppRouter>["foundry"]["casts"]["get"];
@@ -48,12 +48,25 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
   const [tried, setTried] = useState(false);
   const requestId = useRef(crypto.randomUUID());
   const count = countedBillets(pcs, kg);
+  // The server is asked once the count stops changing (300 ms), not on every keystroke; the figures
+  // shown stay until the new answer lands, and Confirm waits for an answer to the count on screen.
+  const key = countKey(count);
+  const [settled, setSettled] = useState({ key: "", billetsOnHand: { count: 0, kgG: 0 } });
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled({ key, billetsOnHand: count.ok ? count.billetsOnHand : { count: 0, kgG: 0 } }), key === "" ? 0 : 300);
+    return () => clearTimeout(timer);
+    // `count` is a function of `key`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
   const preview = useQuery({
-    ...trpc.foundry.casts.closePreview.queryOptions({ castId: cast.cast.id, billetsOnHand: count.ok ? count.billetsOnHand : { count: 0, kgG: 0 } }),
-    enabled: open && count.ok,
+    ...trpc.foundry.casts.closePreview.queryOptions({ castId: cast.cast.id, billetsOnHand: settled.billetsOnHand }),
+    enabled: open && settled.key !== "",
+    placeholderData: keepPreviousData,
     meta: INLINE_ERROR_META,
   });
   const p = count.ok ? preview.data : undefined;
+  // The answer in `p` is for the count on screen only when it settled, finished loading, and is the same count.
+  const checking = count.ok && (settled.key !== key || preview.isFetching || preview.isPlaceholderData);
   const close = useMutation(
     trpc.foundry.casts.close.mutationOptions({
       onSuccess: (res) => {
@@ -72,6 +85,7 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
     setReasonCode("");
     setNote("");
     setTried(false);
+    setSettled({ key: "", billetsOnHand: { count: 0, kgG: 0 } });
     close.reset();
     onClose();
   };
@@ -90,11 +104,11 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
           </Button>
           <Button
             size="lg"
-            loading={close.isPending}
+            loading={close.isPending || checking}
             data-testid="close-confirm"
             onClick={() => {
               setTried(true);
-              if (!count.ok || !p || issue) return;
+              if (!count.ok || !p || issue || checking) return;
               close.mutate({ castId: cast.cast.id, billetsOnHand: count.billetsOnHand, ...(row ? { reasonCodeId: row.id } : {}), ...(note.trim() ? { note: note.trim() } : {}), clientMutationId: requestId.current });
             }}
           >
@@ -104,7 +118,7 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
       }
     >
       <div className="flex flex-col gap-4 pt-1">
-        <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]" data-testid="close-figures">
+        <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]" data-testid="close-figures" aria-busy={checking}>
           <Row label={t("foundry.cast.panel.produced")} value={`${kgFromG(co.producedG)} ${t("units.kg")}`} />
           <Row label={t("foundry.cast.panel.pressed")} value={`${kgFromG(co.creditedG)} ${t("units.kg")}`} />
           <Row label={t("foundry.cast.close.ledgerOnHand")} value={`${kgFromG(co.billetsOnHandG)} ${t("units.kg")}`} testId="close-ledger" />

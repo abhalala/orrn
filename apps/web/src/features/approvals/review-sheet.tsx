@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { serverRefusal } from "@/features/shared/server-refusal";
 import { reasonLabel } from "@/features/press/reason-label";
 import { canAny, useMe } from "@/shared/lib/me";
+import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { isStaleRefusal } from "../purchase/errors";
@@ -42,7 +43,11 @@ import {
   subjectCodes,
   unbrokenCodes,
   type ReallocateView,
+  foundryCastIdOf,
   foundryFiguresOf,
+  foundryLiveOf,
+  type FoundryLiveNote,
+  type FoundryFigure,
 } from "./approval-view";
 
 export type ApprovalItem = inferRouterOutputs<AppRouter>["approval"]["list"]["items"][number];
@@ -72,6 +77,15 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
   const foundry = current ? foundryFiguresOf(current.kind, current.meta) : [];
   const readsFigures = canAny(me, PURCHASE_READERS);
   const isNote = current?.kind === "dc_note";
+  // A foundry decision is made on today's ledger, not only on the request's frozen figures (review I1).
+  const foundryCastId = current ? foundryCastIdOf(current.kind, current.subjectId, current.meta) : null;
+  const isFoundryLive = foundryCastId !== null;
+  const liveCast = useQuery({
+    ...trpc.foundry.casts.get.queryOptions({ id: foundryCastId ?? "" }),
+    enabled: open && isFoundryLive,
+    meta: INLINE_ERROR_META,
+  });
+  const live = current && liveCast.data ? foundryLiveOf(current.kind, current.subjectId, current.meta, liveCast.data) : null;
 
   const figures = useQuery({
     ...trpc.purchase.dcNotes.get.queryOptions({ id: current?.subjectId ?? "" }),
@@ -109,7 +123,8 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
   const title = unbrokenCodes(t(subject.titleKey, subject.vars) || t(subject.kindKey), subjectCodes(subject));
   const rejectError = rejectTried && note.trim() === "" ? t("approvals.rejectNeedsNote") : undefined;
   // Nobody approves a D/C note without its figures on screen; Reject stays open (it needs a reason anyway).
-  const figuresMissing = isNote && readsFigures && !figures.data;
+  // Nor a cast close or a melt correction without today's figures: Approve waits until they load.
+  const figuresMissing = (isNote && readsFigures && !figures.data) || (isFoundryLive && !live);
   const canOpen = subject.href !== null && subject.openKey !== null && canOpenSubject(me, current);
 
   const footer =
@@ -157,7 +172,11 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
 
         {move ? <MoveFigures move={move} /> : null}
 
-        {foundry.length > 0 ? <FoundryFigures rows={foundry} /> : null}
+        {isFoundryLive ? (
+          <FoundryLive live={live} loading={liveCast.isLoading} error={showsQueryError(liveCast) || (liveCast.isSuccess && !live)} />
+        ) : null}
+
+        {foundry.length > 0 ? <FoundryFigures rows={foundry} title={isFoundryLive ? t("approvals.foundry.atRequest") : undefined} /> : null}
 
         {isNote ? (
           readsFigures ? (
@@ -220,11 +239,11 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /** The cast or melt figures of a foundry request (`cast_close`, `melt_correct`). */
-function FoundryFigures({ rows }: { rows: { labelKey: MessageKey; value: string }[] }) {
+function FoundryFigures({ rows, title, testId = "foundry-summary" }: { rows: FoundryFigure[]; title?: string; testId?: string }) {
   const { t } = useT();
   return (
-    <Block title={t("approvals.foundry.title")}>
-      <dl className="m-0 flex flex-col divide-y divide-border rounded-card border border-border px-4" data-testid="foundry-summary">
+    <Block title={title ?? t("approvals.foundry.title")}>
+      <dl className="m-0 flex flex-col divide-y divide-border rounded-card border border-border px-4" data-testid={testId}>
         {rows.map((r) => (
           <div key={r.labelKey} className="flex min-h-11 flex-wrap items-baseline justify-between gap-x-4 py-2 text-[15px]">
             <dt className="text-muted-foreground">{t(r.labelKey)}</dt>
@@ -233,6 +252,34 @@ function FoundryFigures({ rows }: { rows: { labelKey: MessageKey; value: string 
         ))}
       </dl>
     </Block>
+  );
+}
+
+/** Today's cast or melt figures, read when the sheet opens; the request's own figures come second. */
+function FoundryLive({ live, loading, error }: { live: ReturnType<typeof foundryLiveOf>; loading: boolean; error: boolean }) {
+  const { t } = useT();
+  if (loading) {
+    return (
+      <Block title={t("approvals.foundry.now")}>
+        <div aria-busy="true" className="flex flex-col gap-2">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} className="h-5 w-full" />
+          ))}
+        </div>
+        <p role="status" className="m-0 text-[14px] text-muted-foreground">{t("approvals.foundry.wait")}</p>
+      </Block>
+    );
+  }
+  if (error || !live) return <p role="alert" className="m-0 text-[14px] text-destructive">{t("approvals.foundry.loadError")}</p>;
+  return (
+    <>
+      <FoundryFigures rows={live.rows} title={t("approvals.foundry.now")} testId="foundry-live" />
+      {live.notes.map((n: FoundryLiveNote) => (
+        <p key={n.key} data-testid="foundry-live-note" className="m-0 rounded-input bg-tone-amber-tint px-3 py-2 text-[14px] font-semibold text-tone-amber-ink">
+          {t(n.key, n.kg ? { kg: n.kg } : undefined)}
+        </p>
+      ))}
+    </>
   );
 }
 

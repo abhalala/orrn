@@ -69,6 +69,15 @@ for (const width of [375, 1280]) {
       }
     });
 
+    test("a stale coming-soon link for the built foundry lands on the casts, and a bare one says Ageing", async ({ page }) => {
+      await signInViaApi(page, "owner");
+      await page.goto("/preview/coming-soon?module=foundry");
+      await expect(page).toHaveURL(/\/casts$/);
+      await expect(page.getByText("This module is being built on another machine")).toHaveCount(0);
+      await page.goto("/preview/coming-soon");
+      await expect(page.locator("main#main h1").first()).toHaveText("Ageing");
+    });
+
     test("no navigation item says Preview", async ({ page }) => {
       await signInViaApi(page, "owner");
       await page.goto("/today");

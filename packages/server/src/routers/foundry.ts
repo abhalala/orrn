@@ -213,6 +213,12 @@ const returnStreamsRouter = router({
       where rl.company_id = ${ctx.companyId} and rl.item_kind = 'return_stream'
         and rl.item_ref = ${sql.identifier("return_stream")}.${sql.identifier("id")}
     ), 0)`;
+    // The one opening a stream may have (voucher = the stream): the screen stops offering it once posted.
+    const hasOpening = sql<number>`exists (
+      select 1 from ${stockLedger} ol
+      where ol.company_id = ${ctx.companyId} and ol.voucher_type = 'opening' and ol.item_kind = 'return_stream'
+        and ol.item_ref = ${sql.identifier("return_stream")}.${sql.identifier("id")}
+    )`;
     const items = await ctx.db
       .select({
         id: returnStream.id,
@@ -222,11 +228,12 @@ const returnStreamsRouter = router({
         active: returnStream.active,
         sortOrder: returnStream.sortOrder,
         balanceG: balance,
+        hasOpening,
       })
       .from(returnStream)
       .where(eq(returnStream.companyId, ctx.companyId))
       .orderBy(asc(returnStream.sortOrder), asc(returnStream.code));
-    return { items: items.map((s) => ({ ...s, balanceG: Number(s.balanceG) })) };
+    return { items: items.map((s) => ({ ...s, balanceG: Number(s.balanceG), hasOpening: Number(s.hasOpening) === 1 })) };
   }),
 
   /** Add the foundry sheet's streams a company is missing. Opening a cast does this too. */

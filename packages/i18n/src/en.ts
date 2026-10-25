@@ -3398,7 +3398,6 @@ export const en = {
 
   /** Placeholder for the two modules still being built elsewhere (`/preview/coming-soon`). */
   comingSoon: {
-    foundry: "Foundry",
     ageing: "Ageing",
     title: "This module is being built on another machine",
     body: "It is not ready in this app yet. Nothing here is saved.",
@@ -3725,6 +3724,14 @@ export const en = {
       ledgerOnHand: "On hand by the ledger",
       counted: "Counted by the closer",
       adjust: "Ledger moves by",
+      now: "Now",
+      atRequest: "When it was asked",
+      usedSince: "The press used {kg} kg of the billets since the request.",
+      addedSince: "{kg} kg more billets are on hand than at the request.",
+      castMoved: "This cast is no longer waiting to close.",
+      meltMoved: "This melt is no longer locked.",
+      wait: "Approve waits until the figures load. Reject is open.",
+      loadError: "The live figures didn't load, so Approve is off. Reject is open. Check the connection and try again.",
     },
     openCast: "Open cast",
     openMelt: "Open melt",

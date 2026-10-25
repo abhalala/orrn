@@ -8,7 +8,7 @@ import { gu } from "@orrn/i18n/gu";
 import { hi } from "@orrn/i18n/hi";
 import { mapSentence } from "@orrn/i18n/refusal";
 
-import { GATE_KEY, gateSentences, isGate } from "./errors";
+import { GATE_KEY, GATE_STEP, gateSentences, gateStep, isGate } from "./errors";
 
 /** The server's `MELT_GATE_TEXT`, read from its source (the router needs the Workers runtime). */
 const source = readFileSync(join(import.meta.dir, "../../../../../packages/server/src/routers/foundryMelt.ts"), "utf8");
@@ -41,5 +41,8 @@ describe("melt lock gates", () => {
     expect(gateSentences(t, ["no_input", "mystery"])).toEqual(["foundry.refusal.addInput", "refusal.unknown"]);
     expect(isGate("no_logs")).toBe(true);
     expect(isGate("mystery")).toBe(false);
+    // A code this build does not know still counts as a gate (Lock waits) but has no step to jump to.
+    expect(gateStep("no_logs")).toBe(GATE_STEP.no_logs);
+    expect(gateStep("mystery")).toBeNull();
   });
 });

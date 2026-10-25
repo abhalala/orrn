@@ -57,3 +57,8 @@ export const GATE_STEP: Record<MeltLockError, "times" | "charge" | "output" | "s
   line_too_large: "output",
   spectro_reason_missing: "spectro",
 };
+
+/** The step that puts a gate right; `null` for a code this build does not know. */
+export function gateStep(code: string): "times" | "charge" | "output" | "spectro" | null {
+  return isGate(code) ? GATE_STEP[code] : null;
+}

@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { createI18n } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 
-import { APPROVAL_TONE, approvalSubject, decideState, foundryFiguresOf, reallocateMoveOf, subjectCodes, type ApprovalForView } from "./approval-view";
+import { APPROVAL_TONE, approvalSubject, decideState, foundryCastIdOf, foundryLiveOf, foundryFiguresOf, reallocateMoveOf, subjectCodes, type ApprovalForView } from "./approval-view";
 
 function me(role: string, id = "u-manager"): Me {
   return {
@@ -158,6 +158,68 @@ describe("approvalSubject", () => {
     ]);
     expect(foundryFiguresOf("cast_close", {})).toEqual([]);
     expect(foundryFiguresOf("dc_note", { inputG: 1 })).toEqual([]);
+  });
+
+  test("foundryCastIdOf: the cast to load for a request (the subject of a close, the meta of a correction)", () => {
+    expect(foundryCastIdOf("cast_close", "cast-1", {})).toBe("cast-1");
+    expect(foundryCastIdOf("melt_correct", "melt-1", { castId: "cast-2" })).toBe("cast-2");
+    expect(foundryCastIdOf("melt_correct", "melt-1", {})).toBeNull();
+    expect(foundryCastIdOf("melt_correct", "melt-1", { castId: "a/../b" })).toBeNull();
+    expect(foundryCastIdOf("dc_note", "lot-1", { castId: "cast-2" })).toBeNull();
+  });
+
+  test("foundryLiveOf: today's cast figures first, what changed since the request, and a cast that moved on", () => {
+    const live = {
+      cast: { status: "closing" },
+      closeout: { producedG: 5_860_000, inputG: 6_150_000, billetsOnHandG: 860_000 },
+      melts: [{ id: "m-1", status: "locked", inputG: 6_150_000, logsG: 5_860_000 }],
+    };
+    const meta = { producedG: 5_860_000, ledgerOnHandG: 860_000, countedG: 840_000 };
+    // Nothing moved: the three live figures and no extra line.
+    expect(foundryLiveOf("cast_close", "c-1", meta, live)).toEqual({
+      rows: [
+        { labelKey: "approvals.foundry.produced", value: "5,860.000 kg" },
+        { labelKey: "approvals.foundry.metalIn", value: "6,150.000 kg" },
+        { labelKey: "approvals.foundry.ledgerOnHand", value: "860.000 kg" },
+      ],
+      notes: [],
+    });
+    // The press used 100 kg of the cast's billets after the request was made.
+    const used = foundryLiveOf("cast_close", "c-1", meta, { ...live, closeout: { ...live.closeout, billetsOnHandG: 760_000 } });
+    expect(used?.rows[2]).toEqual({ labelKey: "approvals.foundry.ledgerOnHand", value: "760.000 kg" });
+    expect(used?.notes).toEqual([{ key: "approvals.foundry.usedSince", kg: "100.000" }]);
+    // More on hand than at the request (a press run was reopened).
+    expect(foundryLiveOf("cast_close", "c-1", meta, { ...live, closeout: { ...live.closeout, billetsOnHandG: 880_000 } })?.notes).toEqual([
+      { key: "approvals.foundry.addedSince", kg: "20.000" },
+    ]);
+    // A request with no ledger figure in its meta cannot say what changed.
+    expect(foundryLiveOf("cast_close", "c-1", {}, { ...live, closeout: { ...live.closeout, billetsOnHandG: 1 } })?.notes).toEqual([]);
+    // The cast is no longer waiting to close: the server will refuse, so say so.
+    expect(foundryLiveOf("cast_close", "c-1", meta, { ...live, cast: { status: "closed" } })?.notes).toEqual([{ key: "approvals.foundry.castMoved" }]);
+    expect(foundryLiveOf("cast_close", "c-1", meta, { ...live, cast: { status: "open" } })?.notes).toEqual([{ key: "approvals.foundry.castMoved" }]);
+  });
+
+  test("foundryLiveOf: a melt correction shows the melt as it is now", () => {
+    const live = {
+      cast: { status: "open" },
+      closeout: { producedG: 0, inputG: 0, billetsOnHandG: 0 },
+      melts: [
+        { id: "m-1", status: "locked", inputG: 6_200_000, logsG: 5_900_000 },
+        { id: "m-2", status: "locked", inputG: 1, logsG: 1 },
+      ],
+    };
+    expect(foundryLiveOf("melt_correct", "m-1", { inputG: 6_150_000, logsG: 5_860_000 }, live)).toEqual({
+      rows: [
+        { labelKey: "approvals.foundry.metalIn", value: "6,200.000 kg" },
+        { labelKey: "approvals.foundry.logs", value: "5,900.000 kg" },
+      ],
+      notes: [],
+    });
+    expect(foundryLiveOf("melt_correct", "m-1", {}, { ...live, melts: [{ ...live.melts[0]!, status: "cancelled" }] })?.notes).toEqual([{ key: "approvals.foundry.meltMoved" }]);
+    expect(foundryLiveOf("melt_correct", "m-1", {}, { ...live, cast: { status: "closed" } })?.notes).toEqual([{ key: "approvals.foundry.meltMoved" }]);
+    // The melt is not on the cast the request names: nothing live to show, and the sheet keeps Approve off.
+    expect(foundryLiveOf("melt_correct", "m-9", {}, live)).toBeNull();
+    expect(foundryLiveOf("dc_note", "x", {}, live)).toBeNull();
   });
 
   test("kinds without a screen yet fall back to a code or number from meta, no link", () => {

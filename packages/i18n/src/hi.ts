@@ -3387,7 +3387,6 @@ export const hi = {
 
   /** Placeholder for the two modules still being built elsewhere (`/preview/coming-soon`). */
   comingSoon: {
-    foundry: "फाउंड्री",
     ageing: "एजिंग",
     title: "यह मॉड्यूल दूसरी मशीन पर बन रहा है",
     body: "यह अभी इस ऐप में तैयार नहीं है। यहाँ कुछ भी सेव नहीं होता।",
@@ -3711,6 +3710,14 @@ export const hi = {
       ledgerOnHand: "खाते के हिसाब से हाथ में",
       counted: "बंद करने वाले ने गिने",
       adjust: "खाता इतना हिलेगा",
+      now: "अभी",
+      atRequest: "माँगते समय",
+      usedSince: "माँग के बाद प्रेस ने {kg} kg बिलेट काम में लिए।",
+      addedSince: "माँग के समय से {kg} kg बिलेट ज़्यादा हाथ में हैं।",
+      castMoved: "यह कास्ट अब बंद होने के इंतज़ार में नहीं है।",
+      meltMoved: "यह मेल्ट अब लॉक नहीं है।",
+      wait: "आँकड़े आने तक मंज़ूर बंद है। नामंज़ूर खुला है।",
+      loadError: "ताज़ा आँकड़े नहीं आए, इसलिए मंज़ूर बंद है। नामंज़ूर खुला है। कनेक्शन देखकर फिर कोशिश करें।",
     },
     openCast: "कास्ट खोलें",
     openMelt: "मेल्ट खोलें",

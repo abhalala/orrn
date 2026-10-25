@@ -354,6 +354,9 @@ describe("FD-13 no edit after lock: a reason-coded correction through approval m
     const code = (await p.as("viewer").reasonCodes.list({ kind: "melt_correct" })).find((r) => r.code === "wrong_weight")!.id;
     const { approvalId } = await p.as("foundry").foundry.melts.requestCorrection({ meltId: d.id, reasonCodeId: code, note: "Logs were 5,105 kg" });
     await expect(p.as("foundry").foundry.melts.requestCorrection({ meltId: d.id, reasonCodeId: code })).rejects.toMatchObject({ message: expect.stringContaining("waiting") });
+    // The melt page asks for this melt's requests alone (W2-FD-W review m4), however many others the plant has.
+    expect((await p.as("foundry").approval.list({ kind: "melt_correct", subjectId: d.id })).items.map((r) => r.id)).toEqual([approvalId]);
+    expect((await p.as("foundry").approval.list({ kind: "melt_correct", subjectId: "no-such-melt" })).items).toEqual([]);
     await expect(p.as("foundry").approval.decide({ id: approvalId, decision: "approved" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await p.as("manager").approval.decide({ id: approvalId, decision: "approved" });
     const out = await p.as("foundry").foundry.melts.correct({ meltId: d.id, clientMutationId: "correct-0001" });

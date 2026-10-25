@@ -30,10 +30,15 @@ describe("foundry.returnStreams.opening", () => {
     const streams = (await m.foundry.returnStreams.list()).items;
     const scrap = streams.find((s) => s.code === "PLANT-SCRAP")!;
     expect(scrap.balanceG).toBe(0);
+    expect(scrap.hasOpening).toBe(false);
 
     const res = await m.foundry.returnStreams.opening({ streamId: scrap.id, kgG: kg(2_000), note: "Count on go-live day" });
     expect(res).toMatchObject({ code: "PLANT-SCRAP", kgG: kg(2_000) });
-    expect((await m.foundry.returnStreams.list()).items.find((s) => s.id === scrap.id)!.balanceG).toBe(kg(2_000));
+    const after = (await m.foundry.returnStreams.list()).items;
+    expect(after.find((s) => s.id === scrap.id)!.balanceG).toBe(kg(2_000));
+    // The list says which streams have their one opening, so the screen stops offering it.
+    expect(after.find((s) => s.id === scrap.id)!.hasOpening).toBe(true);
+    expect(after.filter((s) => s.id !== scrap.id).every((s) => s.hasOpening === false)).toBe(true);
 
     const rows = await env.db.select().from(stockLedger).where(and(eq(stockLedger.companyId, p.companyId), eq(stockLedger.itemRef, scrap.id)));
     expect(rows).toHaveLength(1);

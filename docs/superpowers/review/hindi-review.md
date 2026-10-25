@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 6127 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6145 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -3416,11 +3416,10 @@ Counts: 6127 screen strings in 49 groups, 35 guides with 646 strings.
 | `pages` | Pages | पेज |
 | `pageRangeOpen` | {from}-{to} | {from}-{to} |
 
-### comingSoon (4)
+### comingSoon (3)
 
 | Key | English | हिंदी |
 |---|---|---|
-| `foundry` | Foundry | फाउंड्री |
 | `ageing` | Ageing | एजिंग |
 | `title` | This module is being built on another machine | यह मॉड्यूल दूसरी मशीन पर बन रहा है |
 | `body` | It is not ready in this app yet. Nothing here is saved. | यह अभी इस ऐप में तैयार नहीं है। यहाँ कुछ भी सेव नहीं होता। |
@@ -3675,7 +3674,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (90)
+### approvals (98)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3719,6 +3718,14 @@ Please check, Lalubhai:
 | `foundry.ledgerOnHand` | On hand by the ledger | खाते के हिसाब से हाथ में |
 | `foundry.counted` | Counted by the closer | बंद करने वाले ने गिने |
 | `foundry.adjust` | Ledger moves by | खाता इतना हिलेगा |
+| `foundry.now` | Now | अभी |
+| `foundry.atRequest` | When it was asked | माँगते समय |
+| `foundry.usedSince` | The press used {kg} kg of the billets since the request. | माँग के बाद प्रेस ने {kg} kg बिलेट काम में लिए। |
+| `foundry.addedSince` | {kg} kg more billets are on hand than at the request. | माँग के समय से {kg} kg बिलेट ज़्यादा हाथ में हैं। |
+| `foundry.castMoved` | This cast is no longer waiting to close. | यह कास्ट अब बंद होने के इंतज़ार में नहीं है। |
+| `foundry.meltMoved` | This melt is no longer locked. | यह मेल्ट अब लॉक नहीं है। |
+| `foundry.wait` | Approve waits until the figures load. Reject is open. | आँकड़े आने तक मंज़ूर बंद है। नामंज़ूर खुला है। |
+| `foundry.loadError` | The live figures didn't load, so Approve is off. Reject is open. Check the connection and try again. | ताज़ा आँकड़े नहीं आए, इसलिए मंज़ूर बंद है। नामंज़ूर खुला है। कनेक्शन देखकर फिर कोशिश करें। |
 | `openCast` | Open cast | कास्ट खोलें |
 | `openMelt` | Open melt | मेल्ट खोलें |
 | `move.title` | What moves | क्या जा रहा है |
@@ -5141,7 +5148,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (564)
+### foundry (575)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5541,6 +5548,14 @@ Please check, Lalubhai:
 | `melt.discard.confirm` | Discard draft | ड्राफ़्ट हटाएं |
 | `melt.discard.done` | Draft discarded | ड्राफ़्ट हटा दिया |
 | `melt.cancelledNote` | This melt is cancelled. Its kg were reversed. | यह मेल्ट रद्द है। इसके kg वापस कर दिए गए। |
+| `melt.cancel.title` | Cancel this melt | यह मेल्ट रद्द करें |
+| `melt.cancel.body` | Use this for a melt locked by mistake, when nobody needs it corrected. The kg and the store draws are reversed and the melt keeps its number as cancelled. It is refused once the press has used its billets. | गलती से लॉक हुई मेल्ट के लिए, जब सुधार की ज़रूरत न हो। kg और स्टोर की निकासी वापस हो जाती है और मेल्ट अपने नंबर के साथ रद्द दिखती है। प्रेस ने इसके बिलेट काम में ले लिए हों तो यह नहीं होगा। |
+| `melt.cancel.button` | Cancel melt | मेल्ट रद्द करें |
+| `melt.cancel.sheetTitle` | Cancel melt {n} of {number} | {number} की मेल्ट {n} रद्द करें |
+| `melt.cancel.reason` | Why is it cancelled? | रद्द क्यों की? |
+| `melt.cancel.reasonRequired` | Give a reason. | कारण लिखें। |
+| `melt.cancel.confirm` | Cancel melt | मेल्ट रद्द करें |
+| `melt.cancel.done` | Melt {n} of {number} is cancelled | {number} की मेल्ट {n} रद्द हो गई |
 | `melt.correctedNote` | This melt was corrected. A newer melt took its place and its kg were reversed. | यह मेल्ट सुधारी गई थी। नई मेल्ट ने इसकी जगह ली और इसके kg वापस कर दिए गए। |
 | `melt.correctsNote` | This draft corrects melt {n}. | यह ड्राफ़्ट मेल्ट {n} को सुधारता है। |
 | `melt.sheet.figures` | Figures | आँकड़े |
@@ -5635,6 +5650,9 @@ Please check, Lalubhai:
 | `stock.streams.once` | This is posted once for each stream. Later stock moves through melts and the press. | यह हर स्ट्रीम के लिए एक बार डलता है। इसके बाद स्टॉक मेल्ट और प्रेस से हिलता है। |
 | `stock.streams.save` | Post opening balance | ओपनिंग बैलेंस डालें |
 | `stock.streams.saved` | Opening balance posted | ओपनिंग बैलेंस डल गया |
+| `stock.streams.posted` | Opening balance posted | ओपनिंग बैलेंस डल चुका |
+| `stock.streams.confirm` | Post {kg} kg as the opening balance of {name}? It cannot be changed later. | {name} का ओपनिंग बैलेंस {kg} kg डालें? बाद में इसे बदला नहीं जा सकता। |
+| `stock.streams.confirmSave` | Yes, post it | हाँ, डालें |
 | `stock.streams.retired` | Retired | बंद |
 | `cert.title` | Test certificate | टेस्ट सर्टिफ़िकेट |
 | `cert.staffCopy` | Staff copy. Not a tax invoice. | स्टाफ़ कॉपी। टैक्स इनवॉइस नहीं। |

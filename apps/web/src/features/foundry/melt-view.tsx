@@ -24,7 +24,7 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { latestVerdict } from "./cast-view";
-import { GATE_STEP, gateSentences, isGate } from "./errors";
+import { gateSentences, gateStep } from "./errors";
 import { blankForm, formFromMelt, saveInputOf, sameForm, STEPS, type FormIssue, type MeltForm, type SavedMelt, type Step } from "./melt-form";
 import { todayIn } from "./melt-times";
 import { Balance, ChargeStep, ChemicalsStep, OutputStep, TimesStep } from "./melt-steps";
@@ -131,7 +131,8 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
     enabled: savedMeltId !== null,
     meta: INLINE_ERROR_META,
   });
-  const gates = ((preview.data ?? view)?.gates ?? []).filter(isGate);
+  // Every code the server returns holds the lock, even one this build has no sentence for (it shows the generic line).
+  const gates: readonly string[] = (preview.data ?? view)?.gates ?? [];
 
   const castAlloy = data.cast.alloy;
   const alloyList = (alloys.data?.items ?? []).filter((a) => a.status === "active");
@@ -301,7 +302,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
 }
 
 /** What still stops the lock, each in the person's language with a jump to the step that fixes it. */
-function GateList({ gates, dirty, pending, onGo }: { gates: readonly import("@orrn/domain").MeltLockError[]; dirty: boolean; pending: boolean; onGo(step: Step): void }) {
+function GateList({ gates, dirty, pending, onGo }: { gates: readonly string[]; dirty: boolean; pending: boolean; onGo(step: Step): void }) {
   const { t } = useT();
   if (dirty) return <Note>{t("foundry.melt.gates.unsaved")}</Note>;
   if (pending) return <Note>{t("common.loading")}</Note>;
@@ -314,9 +315,11 @@ function GateList({ gates, dirty, pending, onGo }: { gates: readonly import("@or
         {gates.map((g, i) => (
           <li key={g} className="flex flex-wrap items-center justify-between gap-2 rounded-card bg-tone-amber-tint px-4 py-2 text-[14px] text-tone-amber-ink" data-gate={g}>
             <span className="min-w-0 break-words">{sentences[i]}</span>
-            <Button type="button" variant="secondary" size="sm" onClick={() => onGo(GATE_STEP[g])}>
-              {t("foundry.melt.gates.fix")}
-            </Button>
+            {gateStep(g) ? (
+              <Button type="button" variant="secondary" size="sm" onClick={() => onGo(gateStep(g)!)}>
+                {t("foundry.melt.gates.fix")}
+              </Button>
+            ) : null}
           </li>
         ))}
       </ul>

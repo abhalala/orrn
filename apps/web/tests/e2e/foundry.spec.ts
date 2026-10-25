@@ -32,6 +32,8 @@ async function expectClean(page: Page) {
   expect(axe.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
 }
 
+/** The value of a cast figure only (its label sits in the same test id), so "0.0 kg" is not satisfied by "2.0 kg". */
+const fig = (page: Page, id: string) => page.getByTestId(id).locator("dd > span").first();
 const h1 = (page: Page) => page.locator("main#main h1").first();
 const main = (page: Page) => page.locator("main#main");
 
@@ -63,7 +65,7 @@ for (const width of WIDTHS) {
       const castUrl = page.url();
       // Nothing is made yet: an empty cast says so and has its tail chip neutral.
       await expect(page.getByTestId("tail-chip")).toHaveText("No melts yet");
-      await expect(page.getByTestId("fig-produced")).toContainText("0");
+      await expect(fig(page, "fig-produced")).toHaveText("0.0 kg");
       await expectClean(page);
 
       await page.getByTestId("new-melt").click();
@@ -131,10 +133,10 @@ for (const width of WIDTHS) {
       await page.getByTestId("melt-lock").click();
       await expect(page).toHaveURL(castUrl);
       await expect(page.getByText(`Melt 1 of ${number} is locked`).first()).toBeVisible();
-      await expect(page.getByTestId("fig-produced")).toContainText("95");
-      await expect(page.getByTestId("fig-in")).toContainText("100");
-      await expect(page.getByTestId("fig-burn")).toContainText("1");
-      await expect(page.getByTestId("fig-tail")).toContainText("0");
+      await expect(fig(page, "fig-produced")).toHaveText("95.0 kg");
+      await expect(fig(page, "fig-in")).toHaveText("100.0 kg");
+      await expect(fig(page, "fig-burn")).toHaveText("1.0 kg");
+      await expect(fig(page, "fig-tail")).toHaveText("0.0 kg");
       await expect(page.getByTestId("tail-chip")).toHaveText("Every billet accounted for");
       await expectClean(page);
 
@@ -212,7 +214,7 @@ for (const width of WIDTHS) {
       await expect(page).toHaveURL(new RegExp(`/casts/${cast.id}$`));
       await expect(page.getByText("Draft discarded").first()).toBeVisible();
       await expect(main(page).locator("tr, li").filter({ hasText: "Melt 1" }).first()).toContainText("Cancelled");
-      await expect(page.getByTestId("fig-produced")).toContainText("0");
+      await expect(fig(page, "fig-produced")).toHaveText("0.0 kg");
     });
 
     test("the casts list filters by status, opens a cast and traces a cast code and a bundle", async ({ page }) => {
@@ -251,12 +253,12 @@ for (const width of WIDTHS) {
 
       await open(page, `/casts/${cast.id}`, width, "supervisor");
       await expect(h1(page)).toHaveText(`Cast ${cast.number}`);
-      await expect(page.getByTestId("fig-produced")).toContainText("100");
-      await expect(page.getByTestId("fig-onhand")).toContainText("100");
-      await expect(page.getByTestId("fig-pressed")).toContainText("0");
-      await expect(page.getByTestId("fig-tail")).toContainText("0");
+      await expect(fig(page, "fig-produced")).toHaveText("100.0 kg");
+      await expect(fig(page, "fig-onhand")).toHaveText("100.0 kg");
+      await expect(fig(page, "fig-pressed")).toHaveText("0.0 kg");
+      await expect(fig(page, "fig-tail")).toHaveText("0.0 kg");
       // Burn and bundles are shown beside the tail, never in it.
-      await expect(page.getByTestId("fig-burn")).toContainText("15");
+      await expect(fig(page, "fig-burn")).toHaveText("15.0 kg");
       await expect(page.getByTestId("fig-bundles")).toBeVisible();
       await page.getByRole("tab", { name: "Trace" }).click();
       await expect(page).toHaveURL(/tab=trace/);
@@ -269,7 +271,7 @@ for (const width of WIDTHS) {
       await page.getByRole("tab", { name: "Melts" }).click();
 
       await page.getByTestId("close-cast").click();
-      await expect(page.getByTestId("close-figures")).toContainText("100");
+      await expect(page.getByTestId("close-ledger").locator("dd")).toHaveText("100.0 kg");
       // The closer counts first: nothing is decided before the count is written.
       await expect(page.getByText("Write the count to see the tail.")).toBeVisible();
       await page.getByTestId("close-pcs").fill("4");
@@ -293,7 +295,7 @@ for (const width of WIDTHS) {
       await page.getByTestId("close-cast").click();
       await page.getByTestId("close-pcs").fill("4");
       await page.getByTestId("close-kg").fill("98");
-      await expect(page.getByTestId("close-tail")).toContainText("2");
+      await expect(page.getByTestId("close-tail").locator("dd")).toHaveText("2.0 kg (2.0%)");
       await expect(page.getByTestId("close-adjust")).toContainText("-");
       await expect(page.getByTestId("close-needs-approval")).toHaveCount(0);
       await page.getByTestId("close-confirm").click();
@@ -302,8 +304,9 @@ for (const width of WIDTHS) {
       await page.getByTestId("close-confirm").click();
       await expect(page.getByText(`Cast ${cast.number} is closed`).first()).toBeVisible();
       // The counted billets are what stays on hand.
-      await expect(page.getByTestId("fig-onhand")).toContainText("98");
-      await expect(page.getByTestId("fig-tail")).toContainText("0");
+      await expect(fig(page, "fig-onhand")).toHaveText("98.0 kg");
+      // The tail stays as recorded at the close (ledger less count), not zeroed by the adjustment.
+      await expect(fig(page, "fig-tail")).toHaveText("2.0 kg");
     });
 
     test("a count far below the ledger goes to a second person with the figures in front of them", async ({ page, browser }) => {
@@ -331,7 +334,11 @@ for (const width of WIDTHS) {
       const figures = manager.getByTestId("foundry-summary");
       await expect(figures).toContainText("On hand by the ledger");
       await expect(figures).toContainText("Counted by the closer");
-      await expect(figures).toContainText("90");
+      await expect(figures).toContainText("90.000 kg");
+      // Today's ledger comes first: the cast as it stands now (100 made, 100 on hand), the request's count second.
+      const now = manager.getByTestId("foundry-live");
+      await expect(now).toContainText("100.000 kg");
+      await expect(manager.getByTestId("foundry-live-note")).toHaveCount(0);
       await expect(manager.getByRole("link", { name: "Open cast" })).toHaveAttribute("href", `/casts/${cast.id}`);
       await manager.getByRole("button", { name: "Approve" }).click();
       // The request leaves the Waiting list once it is decided.
@@ -339,7 +346,7 @@ for (const width of WIDTHS) {
       await ctx.close();
       await page.reload();
       await expect(page.getByTestId("cast-chips")).toContainText("Closed");
-      await expect(page.getByTestId("fig-onhand")).toContainText("90");
+      await expect(fig(page, "fig-onhand")).toHaveText("90.0 kg");
     });
 
     test("an empty cast can be cancelled by a supervisor, with a reason", async ({ page }) => {
@@ -390,7 +397,7 @@ for (const width of WIDTHS) {
       await expect(h1(page)).toHaveText("Billet stock");
       const card = page.locator(`[data-cast='${cast.number}']`).first();
       await expect(card).toBeVisible();
-      await expect(card).toContainText("90");
+      await expect(card).toContainText("90.0 kg");
       await expect(page.locator("[data-alloy='6063']").first()).toBeVisible();
       await expectClean(page);
       await card.click();

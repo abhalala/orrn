@@ -19,7 +19,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { CAST_TONE, type CastStatus } from "./model";
 import { kgToG } from "./melt-form";
-import { ErrorLine, LoadFailed, Panel } from "./ui";
+import { ErrorLine, LoadFailed, Note, Panel } from "./ui";
 
 /**
  * `/foundry/stock` (FP-FD-15): billets in the store by alloy, then cast. The kg is the ledger
@@ -126,9 +126,13 @@ function Streams() {
             <span className="flex items-center gap-3">
               <span className="font-mono text-[15px] font-semibold tabular-nums" data-testid="stream-balance">{t("foundry.stock.streams.balance", { kg: kgFromG(s.balanceG) })}</span>
               <Can do="masters.publish">
-                <Button size="sm" variant="secondary" onClick={() => setPicked({ id: s.id, name: s.name })} data-testid="stream-opening">
-                  {t("foundry.stock.streams.open")}
-                </Button>
+                {s.hasOpening ? (
+                  <span className="text-[13px] text-muted-foreground" data-testid="stream-opened">{t("foundry.stock.streams.posted")}</span>
+                ) : (
+                  <Button size="sm" variant="secondary" onClick={() => setPicked({ id: s.id, name: s.name })} data-testid="stream-opening">
+                    {t("foundry.stock.streams.open")}
+                  </Button>
+                )}
               </Can>
             </span>
           </li>
@@ -145,6 +149,8 @@ function OpeningSheet({ stream, onClose }: { stream: { id: string; name: string 
   const [kg, setKg] = useState("");
   const [note, setNote] = useState("");
   const [tried, setTried] = useState(false);
+  // The opening cannot be undone (the ledger is append-only), so the first press asks once more.
+  const [confirming, setConfirming] = useState(false);
   const post = useMutation(
     trpc.foundry.returnStreams.opening.mutationOptions({
       onSuccess: () => {
@@ -158,6 +164,7 @@ function OpeningSheet({ stream, onClose }: { stream: { id: string; name: string 
     setKg("");
     setNote("");
     setTried(false);
+    setConfirming(false);
     post.reset();
     onClose();
   };
@@ -176,10 +183,15 @@ function OpeningSheet({ stream, onClose }: { stream: { id: string; name: string 
             data-testid="opening-save"
             onClick={() => {
               setTried(true);
-              if (stream && g !== null && g > 0) post.mutate({ streamId: stream.id, kgG: g, ...(note.trim() ? { note: note.trim() } : {}) });
+              if (!stream || g === null || g <= 0) return;
+              if (!confirming) {
+                setConfirming(true);
+                return;
+              }
+              post.mutate({ streamId: stream.id, kgG: g, ...(note.trim() ? { note: note.trim() } : {}) });
             }}
           >
-            {t("foundry.stock.streams.save")}
+            {confirming ? t("foundry.stock.streams.confirmSave") : t("foundry.stock.streams.save")}
           </Button>
         </>
       }
@@ -187,11 +199,14 @@ function OpeningSheet({ stream, onClose }: { stream: { id: string; name: string 
       <div className="flex flex-col gap-4 pt-1">
         <p className="m-0 text-[14px] text-muted-foreground">{t("foundry.stock.streams.once")}</p>
         <Field label={t("foundry.stock.streams.kg")} error={tried && (g === null || g <= 0) ? t("foundry.stock.streams.kgInvalid") : undefined}>
-          <NumberInput value={kg} suffix={t("units.kg")} onValueChange={setKg} data-testid="opening-kg" />
+          <NumberInput value={kg} suffix={t("units.kg")} onValueChange={(v) => { setKg(v); setConfirming(false); }} data-testid="opening-kg" />
         </Field>
         <Field label={t("foundry.stock.streams.note")}>
           <TextInput value={note} maxLength={200} onChange={(e) => setNote(e.currentTarget.value)} />
         </Field>
+        {confirming && g !== null ? (
+          <Note tone="amber" testId="opening-confirm">{t("foundry.stock.streams.confirm", { kg: kgFromG(g), name: stream?.name ?? "" })}</Note>
+        ) : null}
         <ErrorLine error={post.error} />
       </div>
     </Sheet>

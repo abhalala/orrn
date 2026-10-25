@@ -9,6 +9,7 @@ import {
   closeBlock,
   countedBillets,
   closeFormIssue,
+  countKey,
   furnaceInput,
   limitDraft,
   limitRows,
@@ -175,14 +176,25 @@ describe("furnace form", () => {
 });
 
 describe("Today tile", () => {
-  test("open casts, drafts on them and waiting files", () => {
+  test("open casts come from the server's own count of status open (the link filters the same), drafts from those casts, and waiting files", () => {
     const casts = [
       { status: "open", draftMelts: 1 },
-      { status: "open", draftMelts: 0 },
-      { status: "closing", draftMelts: 0 },
-      { status: "closed", draftMelts: 0 },
+      { status: "open", draftMelts: 2 },
     ];
-    expect(todayCounts(casts, 3)).toEqual({ openCasts: 3, meltsInProgress: 1, spectroPending: 3 });
-    expect(todayCounts([], 0)).toEqual({ openCasts: 0, meltsInProgress: 0, spectroPending: 0 });
+    // More open casts than the page holds: the number is the server's total, not the length of the page.
+    expect(todayCounts({ items: casts, total: 230 }, 3)).toEqual({ openCasts: 230, meltsInProgress: 3, spectroPending: 3 });
+    expect(todayCounts({ items: [], total: 0 }, 0)).toEqual({ openCasts: 0, meltsInProgress: 0, spectroPending: 0 });
+    // Still loading: zeros, not a crash.
+    expect(todayCounts(undefined, 0)).toEqual({ openCasts: 0, meltsInProgress: 0, spectroPending: 0 });
+  });
+});
+
+describe("countKey", () => {
+  test("one key per valid count, empty for a count that is not valid yet", () => {
+    expect(countKey(countedBillets("4", "98"))).toBe("4:98000");
+    expect(countKey(countedBillets("4", "98.0"))).toBe(countKey(countedBillets("4", "98")));
+    expect(countKey(countedBillets("4", "98.5"))).not.toBe(countKey(countedBillets("4", "98")));
+    expect(countKey(countedBillets("", "98"))).toBe("");
+    expect(countKey(countedBillets("0", "5"))).toBe("");
   });
 });

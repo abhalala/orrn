@@ -112,6 +112,11 @@ export function countedBillets(pcsText: string, kgText: string): { ok: true; bil
   return { ok: true, billetsOnHand: { count, kgG } };
 }
 
+/** A count as one comparable string, "" for no valid count: the sheet asks the server only for a count that has stopped changing. */
+export function countKey(c: ReturnType<typeof countedBillets>): string {
+  return c.ok ? `${c.billetsOnHand.count}:${c.billetsOnHand.kgG}` : "";
+}
+
 /** The close sheet's form is complete: a reason when the tail needs one, and a note when the code asks for it. */
 export function closeFormIssue(
   c: Pick<Closeout, "needsReason">,
@@ -243,8 +248,13 @@ export function furnaceInput(f: { code: string; name: string; capacityKg: string
 
 // --- Today ---------------------------------------------------------------------------------------------------
 
-/** The Foundry tile's three numbers: open casts, melts in progress (drafts) and spectro files waiting. */
-export function todayCounts(casts: readonly { status: string; draftMelts: number }[], inboxWaiting: number): { openCasts: number; meltsInProgress: number; spectroPending: number } {
-  const open = casts.filter((c) => c.status === "open" || c.status === "closing");
-  return { openCasts: open.length, meltsInProgress: open.reduce((s, c) => s + c.draftMelts, 0), spectroPending: inboxWaiting };
+/**
+ * The Foundry tile's three numbers: open casts (the server's count of status `open`, the same
+ * filter the tile links to), melts in progress (drafts on those casts) and spectro files waiting.
+ */
+export function todayCounts(
+  open: { items: readonly { draftMelts: number }[]; total: number } | undefined,
+  inboxWaiting: number,
+): { openCasts: number; meltsInProgress: number; spectroPending: number } {
+  return { openCasts: open?.total ?? 0, meltsInProgress: (open?.items ?? []).reduce((s, c) => s + c.draftMelts, 0), spectroPending: inboxWaiting };
 }

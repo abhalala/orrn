@@ -128,20 +128,23 @@ for (const width of WIDTHS) {
       await open(page, "/foundry/stock", width, "manager");
       const row = page.locator(`[data-stream='${code}']`);
       await expect(row).toBeVisible();
-      await expect(row.getByTestId("stream-balance")).toContainText("0");
+      await expect(row.getByTestId("stream-balance")).toHaveText("0.0 kg");
       await row.getByTestId("stream-opening").click();
       await page.getByTestId("opening-save").click();
       await expect(page.getByText("Write the kg as a number above zero.")).toBeVisible();
       await page.getByTestId("opening-kg").fill("1250");
+      // It cannot be undone, so the first press asks once more and posts nothing.
+      await page.getByTestId("opening-save").click();
+      await expect(page.getByTestId("opening-confirm")).toContainText("1,250.0 kg");
+      await expect(page.getByTestId("opening-confirm")).toContainText("It cannot be changed later.");
+      await expect(row.getByTestId("stream-balance")).toHaveText("0.0 kg");
       await page.getByTestId("opening-save").click();
       await expect(page.getByText("Opening balance posted").first()).toBeVisible();
-      await expect(row.getByTestId("stream-balance")).toContainText("1,250");
+      await expect(row.getByTestId("stream-balance")).toHaveText("1,250.0 kg");
+      // Once posted the stream stops offering it (the server would refuse a second one).
+      await expect(row.getByTestId("stream-opening")).toHaveCount(0);
+      await expect(row.getByTestId("stream-opened")).toHaveText("Opening balance posted");
       await expectClean(page);
-      // A second post for the same stream is refused in words.
-      await row.getByTestId("stream-opening").click();
-      await page.getByTestId("opening-kg").fill("5");
-      await page.getByTestId("opening-save").click();
-      await expect(page.getByTestId("foundry-error")).toContainText("already has an opening balance");
     });
 
     test("a foundry hand sees the streams but has no opening button", async ({ page }) => {
@@ -200,8 +203,14 @@ for (const width of WIDTHS) {
       await item.getByRole("button", { name: "Review" }).click();
       const figures = manager.getByTestId("foundry-summary");
       await expect(figures).toContainText("Metal in");
-      await expect(figures).toContainText("100");
-      await expect(figures).toContainText("95");
+      await expect(figures).toContainText("100.000 kg");
+      await expect(figures).toContainText("95.000 kg");
+      // Today's melt comes first, from the server now; the request's own figures are the second block.
+      const now = manager.getByTestId("foundry-live");
+      await expect(now).toContainText("Metal in");
+      await expect(now).toContainText("100.000 kg");
+      await expect(now).toContainText("95.000 kg");
+      await expect(manager.getByTestId("foundry-live-note")).toHaveCount(0);
       await expect(manager.getByRole("link", { name: "Open melt" })).toHaveAttribute("href", `/casts/${cast.id}/melt/${melt.meltId}`);
       await manager.getByRole("button", { name: "Approve" }).click();
       await expect(manager.getByText("Approved").first()).toBeVisible();
@@ -214,6 +223,37 @@ for (const width of WIDTHS) {
       await expect(page).toHaveURL(new RegExp(`/casts/${cast.id}/melt/(?!${melt.meltId})[^/?]+`));
       await expect(page.getByTestId("corrects-note")).toHaveText("This draft corrects melt 1.");
       await expect(page.getByTestId("melt-step-times")).toBeVisible();
+    });
+
+    test("a supervisor cancels a locked melt of an open cast with a reason; a foundry hand is not offered it", async ({ page }) => {
+      const api = await ownerApi();
+      const cast = await openOwnCast(api);
+      const melt = await lockOwnMelt(api, cast.id, { inKg: 100, logsKg: 95, drossKg: 3, feKg: 1 });
+      await api.dispose();
+
+      await open(page, `/casts/${cast.id}/melt/${melt.meltId}`, width, "foundry");
+      await expect(page.getByTestId("melt-sheet")).toBeVisible();
+      await expect(page.getByTestId("cancel-melt")).toHaveCount(0);
+    });
+
+    test("cancelling a locked melt asks for a reason, reverses it and keeps its number as cancelled", async ({ page }) => {
+      const api = await ownerApi();
+      const cast = await openOwnCast(api);
+      const melt = await lockOwnMelt(api, cast.id, { inKg: 100, logsKg: 95, drossKg: 3, feKg: 1 });
+      await api.dispose();
+
+      await open(page, `/casts/${cast.id}/melt/${melt.meltId}`, width, "supervisor");
+      await page.getByTestId("cancel-melt").click();
+      await page.getByTestId("cancel-melt-confirm").click();
+      await expect(page.getByText("Give a reason.").first()).toBeVisible();
+      await page.getByTestId("cancel-melt-reason").fill("Locked on the wrong cast");
+      await page.getByTestId("cancel-melt-confirm").click();
+      await expect(page).toHaveURL(new RegExp(`/casts/${cast.id}$`));
+      await expect(page.getByText(`Melt 1 of ${cast.number} is cancelled`).first()).toBeVisible();
+      await expect(page.getByTestId("fig-produced").locator("dd > span").first()).toHaveText("0.0 kg");
+      await page.goto(`/casts/${cast.id}/melt/${melt.meltId}`);
+      await expect(page.getByText("This melt is cancelled. Its kg were reversed.")).toBeVisible();
+      await expect(page.getByTestId("cancel-melt")).toHaveCount(0);
     });
   });
 }
