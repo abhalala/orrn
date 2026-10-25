@@ -136,6 +136,7 @@ drill into a scratch plant (`docs/RESTORE_DRILL.md`).
 | `ORRN_MASTER_KEY` | GitHub environment secret | Signs die-file URLs, spectro upload tickets and wraps spool secrets. |
 | `RESEND_API_KEY`, `WEBHOOK_BASE_URL` | GitHub environment | Invite, reset and sign-in emails; spool webhooks. |
 | `SCALE_SIMULATOR` | local `.dev.vars` only | Never set on dev or production; the simulator refuses `NODE_ENV=production`. |
+| `OVEN_SIMULATOR`, `OVEN_SIMULATOR_PROFILE` | local `.dev.vars` only | Ageing oven curve (W3-AG-C). Never set on dev or production; refused when `NODE_ENV=production`. |
 
 Nothing else in the FP build needs a new Cloudflare resource: no queue, no extra database, no Durable Object.
 

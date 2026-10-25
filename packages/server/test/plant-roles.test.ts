@@ -86,7 +86,7 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "order.price": ["office", "manager", "accountant"],
   "order.reallocate": ["supervisor", "office", "manager", "admin"],
   "press.close": ["supervisor", "manager", "admin"],
-  "ageing.view": ["press", "supervisor", "office", "manager", "admin"],
+  "ageing.view": ["press", "supervisor", "office", "manager", "admin", "operator"],
   "packingList.combine": ["supervisor", "office", "manager", "admin"],
   "portal.manage": ["office", "manager", "admin"],
   "audit.read": ["admin", "manager"],
@@ -95,6 +95,10 @@ const MATRIX: Record<string, CompanyRole[]> = {
   // W2-FD-S: the melt stepper and its correction request.
   "melt.enter": ["foundry", "supervisor"],
   "melt.correct": ["foundry", "supervisor"],
+  // Wave 3 ageing contracts (W3-AG-C).
+  "ageing.load": ["press", "supervisor", "operator"],
+  "ageing.record": ["press", "supervisor", "operator"],
+  "ageing.release": ["supervisor", "manager"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 

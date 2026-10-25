@@ -39,7 +39,13 @@ export type ImportReplayKind =
   // W2-FD-S: foundry close, lock and correction.
   | "cast.close"
   | "melt.lock"
-  | "melt.correct";
+  | "melt.correct"
+  // W3-AG-S: the oven phone (lib/requestReplay.ts ReplayKind).
+  | "ageing.load"
+  | "ageing.start"
+  | "ageing.out"
+  | "ageing.hardness"
+  | "ageing.release";
 
 const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 

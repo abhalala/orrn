@@ -137,7 +137,11 @@ export type FloorSettings = {
    */
   requireCastOnBundle: boolean | null;
   press: { balanceWarnBp: number };
-  ageing: { manualLoad: boolean; split: boolean; requireForPack: boolean };
+  /**
+   * Ageing (FP-AG). `requireAgeing` (W3-AG-C, default off): dispatch refuses a bundle that was never
+   * aged; bundles packed before `requireAgeingSince` (company day `YYYY-MM-DD`) are exempt.
+   */
+  ageing: { manualLoad: boolean; split: boolean; requireForPack: boolean; requireAgeing: boolean; requireAgeingSince: string | null };
   letterhead: Letterhead;
   /** Wave 2 (FP-DR-17): new copies and copies back from the maker start `on_trial` (default on). */
   dieRoom: { newCopyOnTrial: boolean };
@@ -178,7 +182,7 @@ export const FLOOR_SETTINGS_DEFAULTS: FloorSettings = {
   defaultTemper: "T6",
   requireCastOnBundle: null,
   press: { balanceWarnBp: PRESS_BALANCE_WARN_BP },
-  ageing: { manualLoad: true, split: false, requireForPack: false },
+  ageing: { manualLoad: true, split: false, requireForPack: false, requireAgeing: false, requireAgeingSince: null },
   letterhead: { legalName: null, gstin: null, address: null, phone: null },
   dieRoom: { newCopyOnTrial: true },
   castSeriesStart: null,
@@ -299,6 +303,9 @@ export function readFloorSettings(raw: Record<string, unknown> | null | undefine
       manualLoad: bool(ageing.manualLoad, d.ageing.manualLoad),
       split: bool(ageing.split, d.ageing.split),
       requireForPack: bool(ageing.requireForPack, d.ageing.requireForPack),
+      requireAgeing: bool(ageing.requireAgeing, d.ageing.requireAgeing),
+      requireAgeingSince:
+        typeof ageing.requireAgeingSince === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ageing.requireAgeingSince) ? ageing.requireAgeingSince : null,
     },
     letterhead: { legalName: nstr(lh.legalName), gstin: nstr(lh.gstin), address: nstr(lh.address), phone: nstr(lh.phone) },
     dieRoom: { newCopyOnTrial: bool(obj(s.dieRoom).newCopyOnTrial, d.dieRoom.newCopyOnTrial) },

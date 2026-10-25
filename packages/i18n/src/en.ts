@@ -24,6 +24,7 @@ import { pressEn } from "./native/press.en";
 import { stockEn } from "./native/stock.en";
 import { foundryRefusalEn } from "./native/foundry-refusal.en";
 import { foundryEn } from "./foundry/en";
+import { ageingEn } from "./ageing/ageing.en";
 
 export const en = {
   common: {
@@ -5545,30 +5546,7 @@ export const en = {
     ...foundryEn,
   },
 
-  ageing: {
-    title: "Ageing",
-    board: "Ageing board",
-    readings: {
-      title: "Readings",
-      batch: "Batch {number}",
-      oven: "Oven",
-      temperature: "Temperature (°C)",
-      soak: "Soak time",
-      start: "Start",
-      end: "End",
-      hardness: "Hardness",
-      addReading: "Add reading",
-      saved: "Reading saved",
-      pass: "Pass",
-      fail: "Fail",
-      hold: "Hold",
-      release: "Release",
-      rework: "Age again",
-      scrap: "Scrap",
-      empty: "No readings yet.",
-      outOfRange: "Outside {min} to {max}.",
-    },
-  },
+  ageing: ageingEn.ageing,
 
   reasons: {
     kinds: {
@@ -5579,6 +5557,8 @@ export const en = {
       ageing_hold: "Ageing hold",
       ageing_rework: "Age again",
       ageing_scrap: "Ageing scrap",
+      ageing_abort: "Ageing aborted",
+      ageing_reject: "Ageing rejected",
       reallocate: "Move to another order",
       die_work: "Die work",
       melt_correct: "Correct a locked melt",
@@ -5632,6 +5612,21 @@ export const en = {
       bend: "Bend",
       surface: "Surface",
       short_length: "Short length",
+      other: "Other",
+    },
+    ageing_abort: {
+      wrong_load: "Wrong load",
+      burner_fault: "Burner fault",
+      power_cut: "Power cut",
+      wrong_recipe: "Wrong recipe",
+      other: "Other",
+    },
+    ageing_reject: {
+      under_aged: "Under-aged",
+      over_aged: "Over-aged",
+      no_readings: "No temperature readings",
+      hardness_low: "Hardness low",
+      too_few_samples: "Too few hardness samples",
       other: "Other",
     },
     reallocate: {

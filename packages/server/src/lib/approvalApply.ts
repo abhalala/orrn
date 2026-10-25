@@ -13,6 +13,7 @@ import type { OrrnDb, SqliteBatchItem } from "./atomic";
 import { stillPhantomOfLine } from "./count";
 import { billetStoreRetiredMessage, boriMeltedMessage, castTailAdjustRow, dcNoteOverdrawAbort, foundryAbort, isFoundryAbort, lotRemaining } from "./foundry";
 import { dcNoteDeductionRows, phantomVoidRows, sqlUuid } from "./ledger";
+import { ageingOverrideDecision } from "./ageing";
 import { pressLateEntryDecision, pressReopenDecision, pressTimeDecision } from "./press";
 import { reallocateDecision, reallocatePrepare } from "./reallocate";
 
@@ -330,6 +331,8 @@ export const APPROVAL_APPLIERS: Partial<Record<ApprovalKind, ApprovalApplier>> =
   press_time: pressTimeDecision,
   press_reopen: pressReopenDecision,
   press_late_entry: pressLateEntryDecision,
+  // FP-AG-14 (W3-AG-S): the approved override goes on the batch; the supervisor releases after it.
+  ageing_override: ageingOverrideDecision,
 };
 
 /**

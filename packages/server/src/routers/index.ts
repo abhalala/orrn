@@ -26,6 +26,7 @@ import { reportsRouter } from "./reports";
 import { salesOrderRouter } from "./salesOrder";
 import { pressPlanRouter } from "./pressPlan";
 import { pressRouter } from "./press";
+import { ageingRouter } from "./ageing";
 import { reasonCodeRouter } from "./reasonCode";
 import { vendorRouter } from "./vendor";
 import { auditRouter } from "./audit";
@@ -71,6 +72,7 @@ export const appRouter = router({
   orders: salesOrderRouter,
   plans: pressPlanRouter,
   press: pressRouter,
+  ageing: ageingRouter,
   reasonCodes: reasonCodeRouter,
   reports: reportsRouter,
   foundry: foundryRouter,

@@ -198,6 +198,19 @@ export function foundrySentences(): { file: string; text: string }[] {
   return out.filter((x) => isSentence(x.text));
 }
 
+/**
+ * W3-AG-S (review I3): every ageing refusal (the router calls ageingRefusal(code), never its own
+ * message). Not in FILES: the ageing table is not in the shared one but in `@orrn/i18n/refusal-ageing`,
+ * registered when an ageing screen loads; refusal-ageing.test.ts checks these against it.
+ */
+export const AGEING_FILE = "lib/ageingRefusals.ts";
+
+export function ageingSentences(): { file: string; text: string }[] {
+  return messageSentences(SRC(AGEING_FILE))
+    .filter(isSentence)
+    .flatMap((text) => realize(text).map((t) => ({ file: AGEING_FILE, text: t })));
+}
+
 /** A sentence that is only placeholders and punctuation is a composite the blocks above spell out. */
 const isSentence = (s: string) => /\s/.test(s.trim()) && s.replace(new RegExp(PLACEHOLDER, "g"), "").replace(/[\s.,;:()]/g, "") !== "";
 
@@ -223,6 +236,7 @@ const REALIZE: [RegExp, string[]][] = [
   [/^7 is 7; it cannot be set to 7 from there$/, ["7 is in use; it cannot be set to available from there", "7 is at nitriding; it cannot be set to on trial from there"]],
   [/^7 is already 7$/, ["7 is already received", "7 is already cancelled"]],
   [/^7 7 not held for 7 line 7$/, ["7 is not held for 7 line 7", "7, 7 are not held for 7 line 7"]],
+  [/^7 is 7; that step is not open now$/, ["7 is in the oven; that step is not open now", "7 is out of the oven; that step is not open now", "7 is closed; that step is not open now"]],
 ];
 const realize = (text: string): string[] => REALIZE.find(([re]) => re.test(text))?.[1] ?? [text];
 

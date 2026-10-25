@@ -12,6 +12,7 @@ import {
 } from "@orrn/db/schema/inventory";
 import { packingList, packingListDispatch, packingListLine } from "@orrn/db/schema/packing";
 import { auditLog } from "@orrn/db/schema/audit";
+import { ageingBatch, ageingHardness, ageingOven, ageingRecipe, ageingRow, ageingTempLog, trolley } from "@orrn/db/schema/ageing";
 import { approval } from "@orrn/db/schema/approval";
 import { pressAlert, pressAlertThreshold, pressCollectorFrame, pressRunCollector, spectroInbox } from "@orrn/db/schema/collector";
 import { countLine, countLocation, countSeen, countSession, countTally } from "@orrn/db/schema/count";
@@ -69,7 +70,7 @@ import {
 import { reasonCode } from "@orrn/db/schema/reasons";
 import { labelTemplate, printLog, printerProfile } from "@orrn/db/schema/printing";
 import { edgeNodeDeployment } from "@orrn/db/schema/spool";
-import { ALLOY_LIMIT_SEEDS, castCloseCheck, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
+import { AGEING_OVEN_SEED, AGEING_RECIPE_SUGGESTIONS, ALLOY_LIMIT_SEEDS, castCloseCheck, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
@@ -109,6 +110,7 @@ import {
   type SeedBundle,
   type Statement,
 } from "./dev-seed-kit";
+import { buildAgeingDemo } from "./dev-seed-ageing";
 import { DEV_ACCOUNTS, DEV_MEMBER_ROLES, type DevAccountKey, type DevMemberKey } from "./dev-accounts";
 import { demoOrderSeed } from "./dev-seed-orders";
 import { seedPlatformRows } from "./dev-seed-platform";
@@ -1519,6 +1521,27 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
   downtimeRows.push(...pressExtras.downtimes);
   readingRows.push(...pressExtras.readings);
   approvalRows.push(...orderSeed.approvals, ...dieExtras.approvals);
+  // Ageing (W3-AG-S): PR-8's line on two trolleys, AG-1 released, AG-2 in the oven now.
+  const ageingDemo = buildAgeingDemo({
+    companyId: COMPANY_ID,
+    clock,
+    ownerId,
+    supervisorId: users.supervisor.id,
+    pressUserId: users.press.id,
+    nextSeq,
+    shiftAt: (ms) => shiftAt(DEMO_SETTINGS, ms),
+    period: docPeriod("ageing", new Date(now), DEMO_SETTINGS.timezone),
+    sectionId: dieId("chan1"),
+    copyId: devCopyId("12230-1"),
+    castId: "dev-press-cast-1",
+    pressRunId: "dev-run-12230-1",
+    pressRunLineId: "dev-run-12230-1-line-1",
+    lineGoodG: 234_200,
+    linePcs: 80,
+    ovenId: "dev-ageing-oven-1",
+    recipeId: (alloy, temper) => `dev-ageing-recipe-${alloy}-${temper.toLowerCase()}`,
+  });
+  approvalRows.push(...ageingDemo.approvals);
   const pressPlanSeriesRows: (typeof docSeries.$inferInsert)[] = [
     { id: `dev-series-press_plan-${pressPlanPeriod}`, companyId: COMPANY_ID, docType: "press_plan", period: pressPlanPeriod, value: trialPlanRows.length + pressExtras.plans.length, createdBy: ownerId },
   ];
@@ -1746,6 +1769,15 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     db.delete(pressPlanDie).where(eq(pressPlanDie.companyId, COMPANY_ID)),
     db.delete(pressPlan).where(eq(pressPlan.companyId, COMPANY_ID)),
     db.delete(pressLine).where(eq(pressLine.companyId, COMPANY_ID)),
+    // Ageing (W3-AG-C): what the app loaded since the last seed, children first (rows point at dies,
+    // batches at trolleys / ovens / recipes with RESTRICT), then the masters.
+    db.delete(ageingHardness).where(eq(ageingHardness.companyId, COMPANY_ID)),
+    db.delete(ageingTempLog).where(eq(ageingTempLog.companyId, COMPANY_ID)),
+    db.delete(ageingRow).where(eq(ageingRow.companyId, COMPANY_ID)),
+    db.delete(ageingBatch).where(eq(ageingBatch.companyId, COMPANY_ID)),
+    db.delete(ageingRecipe).where(eq(ageingRecipe.companyId, COMPANY_ID)),
+    db.delete(trolley).where(eq(trolley.companyId, COMPANY_ID)),
+    db.delete(ageingOven).where(eq(ageingOven.companyId, COMPANY_ID)),
     db.delete(reasonCode).where(eq(reasonCode.companyId, COMPANY_ID)),
     // Printing: jobs hold keys to profiles and templates (RESTRICT); the edge node goes with them.
     db.delete(printLog).where(eq(printLog.companyId, COMPANY_ID)),
@@ -1920,6 +1952,34 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     ...insertChunks(db, furnace, furnaceRows),
     ...insertChunks(db, alloy, alloyRows),
     ...insertChunks(db, alloyLimit, alloyLimitRows),
+    // Ageing masters (W3-AG-C): one active oven, trolley T-1, the two 6063 full-cycle recipes
+    // (T5, T6) published; W3-AG-S loads PR-8 onto T-1 / T-2 below. The other suggestions stay unsaved (Q1: a manager publishes).
+    ...insertChunks(db, ageingOven, [
+      { id: "dev-ageing-oven-1", companyId: COMPANY_ID, serverSeq: nextSeq(), ...AGEING_OVEN_SEED, status: "active", sortOrder: 1, createdBy: ownerId },
+    ]),
+    ...insertChunks(db, trolley, [
+      { id: "dev-trolley-1", companyId: COMPANY_ID, serverSeq: nextSeq(), code: "T-1", capacityG: 2_000_000, status: "active", sortOrder: 1, createdBy: ownerId },
+    ]),
+    ...insertChunks(
+      db,
+      ageingRecipe,
+      AGEING_RECIPE_SUGGESTIONS.filter((r) => r.alloy === "6063" && r.kind === "full").map((r) => ({
+        id: `dev-ageing-recipe-${r.alloy}-${r.temper.toLowerCase()}`,
+        companyId: COMPANY_ID,
+        serverSeq: nextSeq(),
+        ...r,
+        status: "active" as const,
+        note: "Suggested figures (spec Q1); the plant confirms them.",
+        createdBy: ownerId,
+      })),
+    ),
+    // W3-AG-S: a second trolley and the two demo batches (after their masters).
+    ...insertChunks(db, trolley, ageingDemo.trolleys),
+    ...insertChunks(db, ageingBatch, ageingDemo.batches),
+    ...insertChunks(db, ageingRow, ageingDemo.rows),
+    ...insertChunks(db, ageingTempLog, ageingDemo.readings),
+    ...insertChunks(db, ageingHardness, ageingDemo.hardness),
+    ...insertChunks(db, docSeries, ageingDemo.series),
     ...(defaultReturnStreamStatements(db as never, COMPANY_ID, { userId: ownerId, seq: 0 }) as Statement[]),
     ...insertChunks(
       db,

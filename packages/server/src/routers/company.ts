@@ -21,7 +21,8 @@ import {
 import { atomicBatch, type OrrnDb } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { now } from "../lib/clock";
-import { DEFAULT_TIMEZONE, isValidTimezone, monthStartMs, productionDayWindow } from "../lib/dayWindow";
+import { companyTimezone, DEFAULT_TIMEZONE, isValidTimezone, monthStartMs, productionDayWindow, zonedYmd } from "../lib/dayWindow";
+import { ageingSettingsInput } from "../lib/ageingContracts";
 import { companyStandards, shiftErrorMessage, shiftGapMinutes } from "../lib/companySettings";
 import { listActiveMemberships } from "../lib/tenantContext";
 import { actionProcedure, authedProcedure, companyProcedure, router } from "../index";
@@ -162,6 +163,8 @@ export const companyRouter = router({
         requireCastOnBundle: z.boolean().nullable().optional(),
         /** Die room (FP-DR-17): new copies and copies back from the maker start on trial. */
         dieRoom: z.object({ newCopyOnTrial: z.boolean() }).optional(),
+        /** W3-AG-S: ageing switches (manualLoad, split, requireForPack, requireAgeing, requireAgeingSince). */
+        ageing: ageingSettingsInput.optional(),
         /** Days from the order date to a new order's expected date (FP-OP-01, Q8). */
         orderLeadDays: z.number().int().min(0).max(120).optional(),
         /** The packing list's optional kg-per-piece column (FP-PK-13): off by default. */
@@ -270,6 +273,17 @@ export const companyRouter = router({
         patch.dieRoom = { ...((row.settings?.dieRoom ?? {}) as Record<string, unknown>), newCopyOnTrial: input.dieRoom.newCopyOnTrial };
       }
       if (input.orderLeadDays !== undefined) patch.orderLeadDays = input.orderLeadDays;
+      if (input.ageing !== undefined) {
+        const was = readFloorSettings(row.settings).ageing;
+        const next = { ...was, ...Object.fromEntries(Object.entries(input.ageing).filter(([, v]) => v !== undefined)) };
+        // Review m4: turning requireAgeing on with no day would strand every bundle in the yard; the day
+        // defaults to today on the plant clock, so bundles packed before it still dispatch.
+        if (next.requireAgeing && !next.requireAgeingSince) {
+          const ymd = zonedYmd(companyTimezone(row.settings ?? {}), now().getTime());
+          next.requireAgeingSince = `${ymd.year}-${String(ymd.month).padStart(2, "0")}-${String(ymd.day).padStart(2, "0")}`;
+        }
+        patch.ageing = { ...((row.settings?.ageing ?? {}) as Record<string, unknown>), ...next };
+      }
       if (input.packingList !== undefined) {
         patch.packingList = {
           ...((row.settings?.packingList ?? {}) as Record<string, unknown>),

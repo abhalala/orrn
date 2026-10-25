@@ -31,10 +31,11 @@ describe("reasonCodes.list", () => {
     const p = await plant();
     const rows = await p.as("viewer").reasonCodes.list();
     const kinds = new Set(rows.map((r) => r.kind));
-    // 8 kinds from W1 + die_work (W4-NEXTROWS, FP-DR-18) + melt_correct and cast_tail (W2-FD-S).
-    expect(kinds.size).toBe(11);
+    // 8 kinds from W1 + die_work (W4-NEXTROWS, FP-DR-18) + melt_correct and cast_tail (W2-FD-S) + ageing_abort and ageing_reject (W3-AG-C).
+    expect(kinds.size).toBe(13);
     expect(kinds.has("die_work")).toBe(true);
     expect(kinds.has("melt_correct") && kinds.has("cast_tail")).toBe(true);
+    expect(kinds.has("ageing_abort") && kinds.has("ageing_reject")).toBe(true);
     const downtime = rows.filter((r) => r.kind === "downtime");
     expect(downtime.at(-1)!.code).toBe("other");
     expect(downtime.map((r) => r.code)).toContain("die_change");
@@ -155,7 +156,7 @@ describe("reasonCodes.rename and setActive", () => {
     const p = await plant();
     const rows = await p.manager.reasonCodes.list();
     const others = rows.filter((r) => r.code === "other");
-    expect(others).toHaveLength(11); // one per kind, die_work, melt_correct and cast_tail included
+    expect(others).toHaveLength(13); // one per kind, die_work, melt_correct, cast_tail and the W3-AG-C ageing kinds included
     for (const o of others) {
       await expect(p.manager.reasonCodes.rename({ id: o.id, label: "Misc" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
       await expect(p.manager.reasonCodes.setActive({ id: o.id, active: false })).rejects.toMatchObject({ code: "BAD_REQUEST" });

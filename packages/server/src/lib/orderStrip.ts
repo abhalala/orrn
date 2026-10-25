@@ -28,6 +28,7 @@ import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 
 import { salesOrderLine } from "@orrn/db/schema/sales";
 
+import { agedExpr } from "./ageing";
 import { chunk, type OrrnDb } from "./atomic";
 import { lineBalancePage, type LineBalance, type LineFilter } from "./orders";
 
@@ -147,9 +148,12 @@ export function stripOf(r: {
   heldPcs?: number;
   heldBundles?: number;
   heldYardG?: number;
+  /** Theoretical grams still on trolleys (`agedExpr`, AG-15); never more than logged − produced. */
+  agedG?: number;
 }): LineStrip {
-  const agedG = 0;
-  const pressedG = Math.max(0, r.loggedG - agedG - r.producedG);
+  const open = Math.max(0, r.loggedG - r.producedG);
+  const agedG = Math.min(open, Math.max(0, r.agedG ?? 0));
+  const pressedG = open - agedG;
   return {
     orderedG: r.orderedG,
     orderedPcs: r.orderedPcs,
@@ -202,6 +206,7 @@ export async function lineStrips(
         dispatchedPcs: dispatchedExpr("pcs"),
         plannedG: plannedExpr(opts.excludePlanId),
         loggedG: loggedExpr,
+        agedG: agedExpr,
         packedG: bundleSum(["available", "reserved"]),
         inStockG: bundleSum(["available"]),
         inStockBundles: availableCount("n"),
@@ -224,6 +229,7 @@ export async function lineStrips(
           dispatchedPcs: num(r.dispatchedPcs),
           plannedG: num(r.plannedG),
           loggedG: num(r.loggedG),
+          agedG: num(r.agedG),
           packedG: num(r.packedG),
           inStockG: num(r.inStockG),
           inStockBundles: num(r.inStockBundles),

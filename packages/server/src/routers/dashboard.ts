@@ -232,6 +232,17 @@ export const dashboardRouter = router({
     const pressedToday = kpisOnly ? null : await pressedTodayOf(ctx.db, companyId, day.productionDay, nowMs);
     // W4-COLLECTORS (FP-PR-22): press alerts from a collector; null when none (no collector, no chip).
     const pressAlerts = kpisOnly ? null : await pressAlertsToday(ctx.db, companyId, day.startMs);
+    // W3-AG-S Today tile `ageing`: batches in the oven and held (pieces waiting on QC), for ageing.view.
+    let ageing: { inOven: number; held: number; out: number } | null = null;
+    if (!kpisOnly && can(me, "ageing.view")) {
+      const [a] = await ctx.db.all<{ in_oven: number; held: number; out: number }>(
+        sql`select coalesce(sum(case when status = 'in_oven' then 1 else 0 end), 0) as in_oven,
+              coalesce(sum(case when status = 'held' then 1 else 0 end), 0) as held,
+              coalesce(sum(case when status = 'out' then 1 else 0 end), 0) as out
+            from ageing_batch where company_id = ${companyId} and status in ('in_oven', 'held', 'out')`,
+      );
+      ageing = { inOven: num(a?.in_oven), held: num(a?.held), out: num(a?.out) };
+    }
 
     // FP-PF-15 role tiles (explorer W1 H6): each role's station shortcuts with the count it acts on.
     const tileKeys = kpisOnly ? [] : todayTileKeys(ctx.role, companyRow?.modules);
@@ -300,6 +311,8 @@ export const dashboardRouter = router({
       pressedToday,
       /** `{ open, today, simulated }` press alerts (FP-PR-22) for the Today chip; null when none / viewer. */
       pressAlerts,
+      /** W3-AG-S: `{ inOven, held, out }` ageing batches for the Today tile; null without ageing.view. */
+      ageing,
       /**
        * First steps for an empty plant (Today's "Start here"): a live die, a live customer, any
        * bundle ever packed (void included: the step was done) and a live label printer.

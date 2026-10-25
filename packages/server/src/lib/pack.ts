@@ -4,18 +4,17 @@
  * - `scaleConfigured`: a typed weight needs a reason while the plant's edge node reports a scale
  *   (`spool_deployment.scale_configured`, added by W1-SPOOL). Until that column exists the answer is
  *   false, so packing keeps working on a branch without it.
- * - Ageing seam (C32: the trolley slice is Next): `ageingRowId` is accepted and validated only when
- *   an `ageing_row` table exists (columns `id, company_id, die_id, length_mm, pcs, packed_pcs,
- *   scrap_pcs, rework_pcs`). Remaining = pcs − packed − scrap − rework, read before the batch and
- *   enforced again inside it (`drawAgeingRowStatements` + `packAbort`), so an over-draw never lands.
+ * - Trolley draw (W3-AG-S): `ageingRowId` names a released trolley row (`ageing_row`, 0038). Remaining
+ *   = pcs − packed − scrap − rework, read before the batch (`assertAgeingDraw`) and enforced again
+ *   inside it with the row's status and source (`drawAgeingRowStatements` + `packAbort`), so an
+ *   over-draw or a draw from a row held meanwhile never lands.
  * - Rejects at pack (`pack_reject`): one row per reject line; a weighed one posts `pack_reject`
  *   (+kg) at the plant-scrap location against the PLANT-SCRAP return stream (C10).
  */
 import { TRPCError } from "@trpc/server";
-import { and, eq, inArray, or, sql, type SQL } from "drizzle-orm";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-
-import { bundleQrUrl } from "@orrn/domain";
+import { and, eq, inArray, ne, or, sql, type SQL } from "drizzle-orm";
+import { ageingDrawGate, ageingRowRemaining, bundleQrUrl } from "@orrn/domain";
+import { ageingBatch, ageingRow, type AgeingRowSource, type AgeingRowStatus } from "@orrn/db/schema/ageing";
 import { cast as castTable, returnStream } from "@orrn/db/schema/foundry";
 import { bundle } from "@orrn/db/schema/inventory";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
@@ -23,12 +22,15 @@ import { reasonCode } from "@orrn/db/schema/reasons";
 import { stockLedger } from "@orrn/db/schema/stock";
 import { company } from "@orrn/db/schema/tenant";
 
+import { closeEmptyStatements, remainingOf } from "./ageing";
+import { ageingRefusal } from "./ageingRefusals";
 import { mapInChunks, type OrrnDb, type SqliteBatchItem } from "./atomic";
 import { buildPackLabelVariables, type PackLabelVariables } from "./bundle-label";
 import { sqlUuid } from "./ledger";
 import { batchAbortUnless, isBatchAbort } from "./orders";
 import { nameKey } from "./purchase";
 import { ensureDefaultReasonCodes } from "./reasonCodes";
+import { auditInsert, auditInsertGuarded } from "./audit";
 import { webBaseUrl } from "./webUrl";
 
 export function errorText(e: unknown): string {
@@ -70,24 +72,12 @@ function packAbort(db: OrrnDb, failWhen: SQL): SqliteBatchItem {
   return batchAbortUnless(db, "pack_reject", sql`not (${failWhen})`);
 }
 
-/**
- * The trolley row as the ageing slice will ship it (C32), declared here only so the draw can be a
- * query builder statement inside a D1 batch. Not in the schema and not migrated: every use is
- * behind `ageingTablesExist`.
- */
-const ageingRowSeam = sqliteTable("ageing_row", {
-  id: text("id").primaryKey(),
-  companyId: text("company_id").notNull(),
-  pcs: integer("pcs").notNull(),
-  packedPcs: integer("packed_pcs").notNull(),
-});
-
 export function isPackAbort(e: unknown): boolean {
   return isBatchAbort(e, "pack_reject");
 }
 
 // ---------------------------------------------------------------------------
-// Ageing seam (Next: trolley slice)
+// Trolley draw (W3-AG-S; ageing tables ship in 0038)
 // ---------------------------------------------------------------------------
 
 export async function ageingTablesExist(db: OrrnDb): Promise<boolean> {
@@ -95,49 +85,208 @@ export async function ageingTablesExist(db: OrrnDb): Promise<boolean> {
   return rows.length > 0;
 }
 
-export type AgeingRowRead = { id: string; dieId: string; lengthMm: number; pcs: number; remaining: number };
+export type AgeingRowRead = {
+  id: string;
+  batchId: string;
+  dieId: string;
+  lengthMm: number;
+  pcs: number;
+  remaining: number;
+  status: AgeingRowStatus;
+  source: AgeingRowSource;
+  castId: string | null;
+};
 
-/** The trolley row a receipt draws from, with its server remaining pieces. */
+/** The trolley row a receipt draws from, with its server remaining pieces, status and source. */
 export async function readAgeingRow(db: OrrnDb, companyId: string, id: string): Promise<AgeingRowRead> {
-  if (!(await ageingTablesExist(db))) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Packing from a trolley is not on yet; pack by hand" });
-  }
-  const [row] = await db.all<{
-    id: string;
-    die_id: string;
-    length_mm: number;
-    pcs: number;
-    packed_pcs: number;
-    scrap_pcs: number;
-    rework_pcs: number;
-  }>(
-    sql`select id, die_id, length_mm, pcs, coalesce(packed_pcs, 0) as packed_pcs, coalesce(scrap_pcs, 0) as scrap_pcs,
-          coalesce(rework_pcs, 0) as rework_pcs
-        from ageing_row where id = ${id} and company_id = ${companyId} limit 1`,
-  );
+  const [row] = await db
+    .select({
+      id: ageingRow.id,
+      batchId: ageingRow.batchId,
+      dieId: ageingRow.dieId,
+      lengthMm: ageingRow.lengthMm,
+      pcs: ageingRow.pcs,
+      packedPcs: ageingRow.packedPcs,
+      scrapPcs: ageingRow.scrapPcs,
+      reworkPcs: ageingRow.reworkPcs,
+      status: ageingRow.status,
+      source: ageingRow.source,
+      castId: ageingRow.castId,
+    })
+    .from(ageingRow)
+    .where(and(eq(ageingRow.id, id), eq(ageingRow.companyId, companyId)))
+    .limit(1);
   if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Trolley row not found" });
-  const pcs = Number(row.pcs);
   return {
     id: row.id,
-    dieId: row.die_id,
-    lengthMm: Number(row.length_mm),
-    pcs,
-    remaining: pcs - Number(row.packed_pcs) - Number(row.scrap_pcs) - Number(row.rework_pcs),
+    batchId: row.batchId,
+    dieId: row.dieId,
+    lengthMm: Number(row.lengthMm),
+    pcs: Number(row.pcs),
+    remaining: ageingRowRemaining({ pcs: Number(row.pcs), packedPcs: Number(row.packedPcs), scrapPcs: Number(row.scrapPcs), reworkPcs: Number(row.reworkPcs) }),
+    status: row.status,
+    source: row.source,
+    castId: row.castId,
   };
 }
 
-/** Every piece leaving the trolley through pack (good and rejected) counts as packed (C11). */
-export function drawAgeingRowStatements(db: OrrnDb, companyId: string, rowId: string, pcs: number): SqliteBatchItem[] {
-  return [
+/**
+ * Refuse a draw before the batch (spec §4): a void row (`row_void`); a row that is not released or is
+ * a whole-bundle row (`not_released`); more pieces than remain (`draw_over`); a bundle cast other than
+ * the row's (`cast_mismatch`).
+ */
+export function assertAgeingDraw(row: AgeingRowRead, drawPcs: number, castId: string | null): void {
+  if (row.status === "void") throw ageingRefusal("row_void");
+  const gate = ageingDrawGate({ rowStatus: row.status, remainingPcs: row.remaining, pcs: drawPcs, source: row.source });
+  if (gate) throw ageingRefusal(gate, { n: row.remaining });
+  if (row.castId && castId && row.castId !== castId) throw ageingRefusal("cast_mismatch", { cast: row.castId });
+}
+
+/** The refusal for a draw the batch rolled back (the row changed between the read and the write). */
+export async function ageingDrawRaceRefusal(db: OrrnDb, companyId: string, rowId: string): Promise<TRPCError> {
+  const now = await readAgeingRow(db, companyId, rowId);
+  if (now.status === "void") return ageingRefusal("row_void");
+  if (now.status !== "released" || now.source === "bundle") return ageingRefusal("not_released");
+  return ageingRefusal("draw_over", { n: now.remaining });
+}
+
+/**
+ * Every piece leaving the trolley through pack (good and rejected) counts as packed (C11). The row
+ * must still be a released trolley row INSIDE the batch (review I6): the abort checks status and
+ * source after the write, so a hold, void or rework between the read and the write fails the receipt
+ * whole. A row with nothing left then closes, and its batch with it (Q58: the trolley is free).
+ */
+export function drawAgeingRowStatements(
+  db: OrrnDb,
+  companyId: string,
+  rowId: string,
+  pcs: number,
+  opts: { batchId?: string; seq?: number; userId?: string | null; audit?: AgeingAuditCtx; groupId?: string | null } = {},
+): SqliteBatchItem[] {
+  const out: SqliteBatchItem[] = [
     db
-      .update(ageingRowSeam)
-      .set({ packedPcs: sql`coalesce(${ageingRowSeam.packedPcs}, 0) + ${pcs}` })
-      .where(and(eq(ageingRowSeam.id, rowId), eq(ageingRowSeam.companyId, companyId))),
+      .update(ageingRow)
+      .set({ packedPcs: sql`${ageingRow.packedPcs} + ${pcs}` })
+      .where(and(eq(ageingRow.id, rowId), eq(ageingRow.companyId, companyId), eq(ageingRow.status, "released"), ne(ageingRow.source, "bundle"))),
     packAbort(
       db,
       sql`not exists (select 1 from ageing_row ar where ar.id = ${rowId} and ar.company_id = ${companyId}
-            and coalesce(ar.packed_pcs, 0) + coalesce(ar.scrap_pcs, 0) + coalesce(ar.rework_pcs, 0) <= ar.pcs)`,
+            and ar.status = 'released' and ar.source <> 'bundle'
+            and ar.packed_pcs + ar.scrap_pcs + ar.rework_pcs <= ar.pcs)`,
     ),
+  ];
+  if (opts.batchId) out.push(...closeEmptyStatements(db, companyId, opts.batchId, opts.userId ?? null, opts.seq ?? 0));
+  // Review m3: the draw is audited (`ageing.draw`) in the receipt's own batch, so it lands with it or not at all.
+  if (opts.audit) out.push(auditInsert(opts.audit, { action: "ageing.draw", subjectType: "ageing_row", subjectId: rowId, meta: { kind: "pack", pcs, batchId: opts.batchId ?? null, groupId: opts.groupId ?? null } }));
+  return out;
+}
+
+/** Who writes the audit rows of a draw, a give-back or a write-off (`auditInsertGuarded`). */
+export type AgeingAuditCtx = Parameters<typeof auditInsertGuarded>[0];
+
+/** The batch an open trolley row belongs to is still open for pack: released or held (Q58/Q60). */
+const OPEN_FOR_PACK = sql.raw(`('released', 'held')`);
+
+/**
+ * D6 `restoreAgeingRow`, decided by Q60-A (review C1). A bundle packed from a trolley row:
+ *
+ * - **void while the row's batch is still open** (`released`/`held`): the pieces go back on the row
+ *   (`packed_pcs −= quantity`), a row closed by that draw reopens; the batch was never closed, so no
+ *   reopen and no trolley clash. Audited `ageing.restore` on the bundle.
+ * - **void once the batch is closed**: the batch and the row stay as they are (a closed batch is a
+ *   record; its trolley may already carry a new load). The pieces leave as loose aged stock written
+ *   off: the bundle's own ledger void (`voidRows`, with the void's reason) takes its kg out, and the
+ *   write-off is audited `ageing.writeOff` on the bundle (row, batch, pieces, reason).
+ * - **restore of a bundle whose last void was a write-off** (or had no ageing audit at all, as a
+ *   phantom-count void): the pieces come back from loose stock into the bundle (its ledger restore);
+ *   the row is not drawn again. Audited `ageing.writeOffUndo`.
+ * - **restore after a give-back**: the row is drawn again (`packed_pcs += quantity`); over-drawing, or
+ *   a row that is held or void since (QC), fails the batch (`packAbort` → `isPackAbort`), a row emptied
+ *   again closes, and its batch with it. Audited `ageing.draw`.
+ *
+ * Every choice is made at write time inside the status change's own batch (the batch status and
+ * the bundle's last `ageing.restore`/`ageing.writeOff` audit row are read in SQL), and lands only when
+ * the bundle write beside it landed (`server_seq = seq` and the new status). A whole-bundle row
+ * (`source = 'bundle'`, the bundle's own row) never moves (review I3).
+ */
+export function restoreAgeingRowStatements(
+  db: OrrnDb,
+  input: {
+    companyId: string;
+    bundleId: string;
+    ageingRowId: string;
+    seq: number;
+    to: "void" | "available";
+    userId?: string | null;
+    /** The audit rows (m3); without it nothing is audited (callers outside a session). */
+    audit?: AgeingAuditCtx;
+    reason?: string | null;
+  },
+): SqliteBatchItem[] {
+  const { companyId, bundleId, ageingRowId, seq } = input;
+  const landed = sql`exists (select 1 from ${bundle} b where b.id = ${bundleId} and b.company_id = ${companyId}
+            and b.server_seq = ${seq} and b.status = ${input.to})`;
+  const qty = sql`(select b.quantity from ${bundle} b where b.id = ${bundleId} and b.company_id = ${companyId} and b.server_seq = ${seq} and b.status = ${input.to})`;
+  const rowWhere = and(eq(ageingRow.id, ageingRowId), eq(ageingRow.companyId, companyId), ne(ageingRow.source, "bundle"));
+  const batchOfRow = sql`(select r.batch_id from ageing_row r where r.id = ${ageingRowId} and r.company_id = ${companyId})`;
+  const batchOpen = sql`exists (select 1 from ageing_batch ab where ab.company_id = ${companyId} and ab.id = ${batchOfRow} and ab.status in ${OPEN_FOR_PACK})`;
+  const pieceRow = sql`exists (select 1 from ageing_row r where r.id = ${ageingRowId} and r.company_id = ${companyId} and r.source <> 'bundle' and r.status <> 'void')`;
+  const lastVoid = sql`(select a.action from audit_log a where a.company_id = ${companyId} and a.subject_type = 'bundle' and a.subject_id = ${bundleId}
+            and a.action in ('ageing.restore', 'ageing.writeOff') order by a.rowid desc limit 1)`;
+  const meta = { rowId: ageingRowId, reason: input.reason ?? null };
+  const audited = (action: string, extra: Record<string, unknown>, when: SQL): SqliteBatchItem[] =>
+    input.audit
+      ? [auditInsertGuarded(input.audit, { action, subjectType: "bundle", subjectId: bundleId, meta: { ...meta, ...extra } }, { from: company, where: and(eq(company.id, companyId), sql`${landed}`, sql`${pieceRow}`, when) })]
+      : [];
+
+  if (input.to === "void") {
+    // Audit first: it reads the batch status before the give-back below can change anything.
+    return [
+      ...audited("ageing.restore", { kind: "give_back" }, batchOpen),
+      ...audited("ageing.writeOff", { kind: "loose_aged" }, sql`not ${batchOpen}`),
+      db
+        .update(ageingRow)
+        .set({ packedPcs: sql`${ageingRow.packedPcs} - ${qty}`, serverSeq: seq })
+        .where(and(rowWhere, ne(ageingRow.status, "void"), sql`${landed}`, sql`${batchOpen}`)),
+      db
+        .update(ageingRow)
+        .set({ status: "released", serverSeq: seq })
+        .where(and(rowWhere, eq(ageingRow.status, "closed"), sql`${remainingOf("ageing_row")} > 0`, sql`${landed}`, sql`${batchOpen}`)),
+    ];
+  }
+
+  // Restore: undo a write-off (row untouched) or draw the given-back pieces again.
+  // Only a give-back (always audited `ageing.restore`) draws the row again. A void with no ageing audit at
+  // all (a phantom-count void leaves the row alone, review r2 n1) restores without touching the row.
+  const wasWrittenOff = sql`(coalesce(${lastVoid}, 'ageing.writeOff') = 'ageing.writeOff')`;
+  return [
+    ...audited("ageing.writeOffUndo", { kind: "loose_aged" }, wasWrittenOff),
+    ...audited("ageing.draw", { kind: "restore" }, sql`not ${wasWrittenOff}`),
+    db
+      .update(ageingRow)
+      .set({ packedPcs: sql`${ageingRow.packedPcs} + ${qty}`, serverSeq: seq })
+      .where(and(rowWhere, ne(ageingRow.status, "void"), sql`${landed}`, sql`not ${wasWrittenOff}`)),
+    packAbort(
+      db,
+      sql`exists (select 1 from ageing_row ar where ar.id = ${ageingRowId} and ar.company_id = ${companyId}
+            and (ar.packed_pcs + ar.scrap_pcs + ar.rework_pcs > ar.pcs
+              or (not ${wasWrittenOff} and ar.status not in ('released', 'closed'))))`,
+    ),
+    db
+      .update(ageingRow)
+      .set({ status: "closed", serverSeq: seq })
+      .where(and(rowWhere, eq(ageingRow.status, "released"), sql`${remainingOf("ageing_row")} <= 0`, sql`${landed}`)),
+    db
+      .update(ageingBatch)
+      .set({ status: "closed", closedBy: input.userId ?? null, serverSeq: seq })
+      .where(
+        and(
+          eq(ageingBatch.companyId, companyId),
+          sql`${ageingBatch.id} = ${batchOfRow}`,
+          inArray(ageingBatch.status, ["released", "held"]),
+          sql`not exists (select 1 from ageing_row r where r.company_id = ${companyId} and r.batch_id = ${ageingBatch.id} and r.status <> 'void' and ${remainingOf("r")} > 0)`,
+        ),
+      ),
   ];
 }
 
@@ -319,43 +468,4 @@ export async function loadPackLabelVariablesMany(
 /** `SO-12/1`: an order line as the label and the packing list print it. */
 export function salesOrderLineCode(orderNumber: string, lineNo: number): string {
   return `${orderNumber}/${lineNo}`;
-}
-
-/**
- * D6 `restoreAgeingRow`: a bundle packed from a trolley row gives its pieces back when voided and
- * takes them again when restored, in the status change's own batch. Lands only when the bundle
- * write beside it landed (`server_seq = seq` and the new status). Restoring past what the row has
- * left fails the batch (`packAbort`). No-op until ageing tables exist (the caller checks).
- */
-export function restoreAgeingRowStatements(
-  db: OrrnDb,
-  input: { companyId: string; bundleId: string; ageingRowId: string; seq: number; to: "void" | "available" },
-): SqliteBatchItem[] {
-  const sign = input.to === "void" ? sql`-` : sql`+`;
-  const out: SqliteBatchItem[] = [
-    db
-      .update(ageingRowSeam)
-      .set({
-        packedPcs: sql`coalesce(${ageingRowSeam.packedPcs}, 0) ${sign} (select b.quantity from ${bundle} b
-          where b.id = ${input.bundleId} and b.company_id = ${input.companyId} and b.server_seq = ${input.seq} and b.status = ${input.to})`,
-      })
-      .where(
-        and(
-          eq(ageingRowSeam.id, input.ageingRowId),
-          eq(ageingRowSeam.companyId, input.companyId),
-          sql`exists (select 1 from ${bundle} b where b.id = ${input.bundleId} and b.company_id = ${input.companyId}
-            and b.server_seq = ${input.seq} and b.status = ${input.to})`,
-        ),
-      ),
-  ];
-  if (input.to === "available") {
-    out.push(
-      packAbort(
-        db,
-        sql`exists (select 1 from ageing_row ar where ar.id = ${input.ageingRowId} and ar.company_id = ${input.companyId}
-              and coalesce(ar.packed_pcs, 0) + coalesce(ar.scrap_pcs, 0) + coalesce(ar.rework_pcs, 0) > ar.pcs)`,
-      ),
-    );
-  }
-  return out;
 }

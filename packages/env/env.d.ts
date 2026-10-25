@@ -29,6 +29,10 @@ export interface CloudflareEnv {
   SCALE_SIMULATOR?: string;
   /** Local / demo only: "1" lets `foundry.readings.simulate` write a furnace temperature curve (W2-FD-S; real PLC bring-up is owner-only, Q46). */
   FOUNDRY_SIMULATOR?: string;
+  /** Local dev only: "1" lets ageing.batches.simulate post a simulated oven curve (W3-AG-C; never in production). */
+  OVEN_SIMULATOR?: string;
+  /** Local dev only: normal | under | over | dip (default normal). */
+  OVEN_SIMULATOR_PROFILE?: string;
   /** Daily per-company exports and restore drills (FP-PF-12). Optional: no binding = backups report failed. */
   BACKUPS?: R2Bucket;
 }

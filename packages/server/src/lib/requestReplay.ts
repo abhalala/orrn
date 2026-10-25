@@ -35,7 +35,13 @@ export type ReplayKind =
   // W2-FD-S: the foundry's two irreversible steps and the correction that redoes a melt.
   | "cast.close"
   | "melt.lock"
-  | "melt.correct";
+  | "melt.correct"
+  // W3-AG-S: the oven phone's floor writes (`clientMutationId`).
+  | "ageing.load"
+  | "ageing.start"
+  | "ageing.out"
+  | "ageing.hardness"
+  | "ageing.release";
 
 export type Replay = {
   /** The audit row id this request writes (and a repeat finds). */

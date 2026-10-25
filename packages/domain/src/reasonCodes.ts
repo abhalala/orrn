@@ -13,6 +13,8 @@ export const REASON_CODE_KINDS = [
   "ageing_hold", // FP-AG-11
   "ageing_rework", // FP-AG-12
   "ageing_scrap", // FP-AG discard remaining
+  "ageing_abort", // FP-AG void / abort a batch (W3-AG-C)
+  "ageing_reject", // FP-AG failed QC verdict written by release (W3-AG-C; codes = AGEING_REJECT_CODES + other)
   "reallocate", // orders.reallocate with a different cut length (ledger D6)
   "die_work", // FP-DR-18 die work log kinds (W4-NEXTROWS)
   "melt_correct", // FP-FD-13 correction of a locked melt (approval melt_correct, W2-FD-S)
@@ -57,6 +59,21 @@ export const DEFAULT_REASON_CODES: Record<ReasonCodeKind, readonly ReasonCodeSee
   ],
   ageing_rework: [seed("hardness_low", "Hardness low"), seed("under_soak", "Under soak"), other],
   ageing_scrap: [seed("bend", "Bend"), seed("surface", "Surface"), seed("short_length", "Short length"), other],
+  ageing_abort: [
+    seed("wrong_load", "Wrong load"),
+    seed("burner_fault", "Burner fault"),
+    seed("power_cut", "Power cut"),
+    seed("wrong_recipe", "Wrong recipe"),
+    other,
+  ],
+  ageing_reject: [
+    seed("under_aged", "Under-aged"),
+    seed("over_aged", "Over-aged"),
+    seed("no_readings", "No temperature readings"),
+    seed("hardness_low", "Hardness low"),
+    seed("too_few_samples", "Too few hardness samples"),
+    other,
+  ],
   reallocate: [
     seed("length_mismatch", "Different cut length"),
     seed("customer_request", "Customer asked"),

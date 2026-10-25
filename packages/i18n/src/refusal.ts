@@ -313,7 +313,8 @@ export type Hit = { key: MessageKey; vars: TranslateVars };
 
 /**
  * W2-FD-S: a module's own refusals, kept out of the `/` entry. The module that holds them registers
- * them when it loads (`@orrn/i18n/refusal-foundry`); `mapSentence` reads them after the shared table.
+ * them when it loads (`@orrn/i18n/refusal-foundry`, `@orrn/i18n/refusal-ageing`); `mapSentence` reads them
+ * after the shared table. One registry for every module (MERGER-12 kept the foundry copy).
  */
 const EXTRA_REFUSALS: RefusalEntry[] = [];
 

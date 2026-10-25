@@ -30,6 +30,8 @@ describe("reason codes (C39: one master with a kind)", () => {
       "ageing_hold",
       "ageing_rework",
       "ageing_scrap",
+      "ageing_abort",
+      "ageing_reject",
       "reallocate",
       "die_work",
       "melt_correct",
@@ -134,7 +136,7 @@ describe("readFloorSettings", () => {
     expect(s.recoveryBands).toEqual({ greenMinBp: 7500, amberMinBp: 7000 });
     expect(s.standards).toEqual({ hollow: { standard: "IS 1285", cml: "x" } });
     expect(s.press.balanceWarnBp).toBe(300);
-    expect(s.ageing).toEqual({ manualLoad: true, split: true, requireForPack: false });
+    expect(s.ageing).toEqual({ manualLoad: true, split: true, requireForPack: false, requireAgeing: false, requireAgeingSince: null });
     expect(s.letterhead).toEqual({ legalName: "Fourcubes Extrusions", gstin: "24AAAAA0000A1Z5", address: null, phone: null });
     expect(s.requireCastOnBundle).toBe(false);
   });

@@ -1,7 +1,7 @@
 /**
  * W1-PK-S: the hand pack path (FP-PK-01/02/03/05/10/14) on `bundle.createReceipt`, `bundle.previewLine`,
  * the stock views (FP-PK-08) and the ledger rows pack writes. The trolley (ageing) draw is a seam:
- * the `ageing_row` table is created here by hand, the way the ageing slice will ship it.
+ * the `ageing_row` table ships with migration 0038 (W3-AG-C); rows are inserted here by hand until the ageing router lands.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
@@ -25,18 +25,21 @@ afterAll(async () => {
 
 const { plant, ledgerOf } = salesHelpers(() => env);
 
-async function ensureAgeingTable() {
-  await env.db.run(
-    sql`create table if not exists ageing_row (id text primary key, company_id text not null, die_id text not null,
-      length_mm integer not null, pcs integer not null, packed_pcs integer not null default 0,
-      scrap_pcs integer not null default 0, rework_pcs integer not null default 0)`,
-  );
-}
-
+/**
+ * A released trolley row as migration 0038 (W3-AG-C) ships it: a trolley, a released batch on it, one row.
+ * Before 0038 this test created a seam table by hand; the columns pack reads are unchanged.
+ */
 async function ageingRow(companyId: string, dieId: string, pcs: number, lengthMm = 3_658) {
-  await ensureAgeingTable();
   const id = crypto.randomUUID();
-  await env.db.run(sql`insert into ageing_row (id, company_id, die_id, length_mm, pcs) values (${id}, ${companyId}, ${dieId}, ${lengthMm}, ${pcs})`);
+  const trolleyId = crypto.randomUUID();
+  const batchId = crypto.randomUUID();
+  await env.db.run(sql`insert into trolley (id, company_id, code, status) values (${trolleyId}, ${companyId}, ${`T-${trolleyId.slice(0, 6)}`}, 'active')`);
+  await env.db.run(
+    sql`insert into ageing_batch (id, company_id, number, status, trolley_id) values (${batchId}, ${companyId}, ${`AG-${batchId.slice(0, 6)}`}, 'released', ${trolleyId})`,
+  );
+  await env.db.run(
+    sql`insert into ageing_row (id, company_id, batch_id, die_id, length_mm, pcs, status) values (${id}, ${companyId}, ${batchId}, ${dieId}, ${lengthMm}, ${pcs}, 'released')`,
+  );
   return id;
 }
 
@@ -162,7 +165,7 @@ describe("createReceipt: trolley seam (ageing row)", () => {
     const rowId = await ageingRow(p.companyId, p.dieA, 25);
     await expect(
       p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [row(10, 20), row(5, 6)] }),
-    ).rejects.toThrow("Only 25 pieces left on this trolley row; this pack takes 26");
+    ).rejects.toThrow("Only 25 pieces are left on this trolley line to pack");
     await expect(
       p.owner.bundle.createReceipt({ dieId: p.dieB, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [row(10)] }),
     ).rejects.toThrow("That trolley row is of another section");
@@ -184,7 +187,7 @@ describe("createReceipt: trolley seam (ageing row)", () => {
     env.beforeNextBatch(() => env.db.run(sql`update ageing_row set packed_pcs = 15 where id = ${rowId}`));
     await expect(
       p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [row(10, 10)] }),
-    ).rejects.toThrow(/left on this trolley row/);
+    ).rejects.toThrow("Only 5 pieces are left on this trolley line to pack");
     expect(await packedPcs(rowId)).toBe(15);
     expect(await env.db.select().from(bundle).where(eq(bundle.companyId, p.companyId))).toHaveLength(0);
     expect(await env.db.select().from(stockLedger).where(eq(stockLedger.companyId, p.companyId))).toHaveLength(0);

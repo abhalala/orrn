@@ -22,6 +22,7 @@ import { bundleKgPer12ftMilli, capacityCheck, DISPATCH_TRANSITIONS, dispatchValu
 import type { Context } from "../context";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { requestApprovalInsert } from "../lib/approval";
+import { assertDispatchAgeing, dispatchAgeingGuardStatements, isAgeingAbort } from "../lib/ageing";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { clientRequestIdSchema } from "../lib/importReplay";
 import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
@@ -923,6 +924,8 @@ async function addByCodes(
             bundles: classified.toAdd.map((b) => ({ id: b.id, dieId: b.dieId, lengthMm: b.lengthMm, weightG: b.weightG, salesOrderLineId: linkLineFor(b, holds, d.customerId) })),
           });
     const toAdd = refuseOutsideOrder(classified, new Set(picks.keys()));
+    // W3-AG-S: a bundle in the oven or held in ageing (or never aged, under requireAgeing) does not load.
+    await assertDispatchAgeing(ctx.db, ctx.companyId, toAdd.map((b) => b.id));
     const report: ScanReport = {
       added: [],
       linked: [],
@@ -1012,6 +1015,8 @@ async function addByCodes(
         },
       ),
       ...addUnassignedAudits(ctx, d.id, toAdd.filter((b) => unassignedIds.has(b.id))),
+      // Review m6: none went onto a trolley since the read (else re-read: refused by name).
+      ...dispatchAgeingGuardStatements(ctx.db, ctx.companyId, toAdd.map((b) => b.id)),
     );
 
     await atomicBatch(ctx.db, statements);
@@ -1034,7 +1039,7 @@ async function addByCodes(
     // A concurrent scan inserted one of these first and the whole batch
     // rolled back; re-read once so it lands in alreadyInDispatch.
     // A hold that landed meanwhile (FP-OP-17): re-read once, it is refused by name.
-    if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line")) return run();
+    if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line") || isAgeingAbort(e)) return run();
     throw e;
   }
 }
@@ -1982,6 +1987,7 @@ export const dispatchRouter = router({
         if (existingItem) {
           return { success: true, added: [] as string[], alreadyInDispatch: [b.serial], linked: [] as LinkedBundle[] };
         }
+        await assertDispatchAgeing(ctx.db, ctx.companyId, [b.id]);
 
         // The §E6 order, same as a scan: void, dispatched, held, held for an order, unassigned, wrong customer, owned die.
         const classified = await classifyBundles(
@@ -2071,6 +2077,8 @@ export const dispatchRouter = router({
             },
           ),
           ...addUnassignedAudits(ctx, d.id, verdict.note === "unassigned" ? [b] : []),
+          // Review m6: not put on a trolley since the read (else re-read: refused by name).
+          ...dispatchAgeingGuardStatements(ctx.db, ctx.companyId, [b.id]),
         );
 
         await atomicBatch(ctx.db, statements);
@@ -2089,7 +2097,7 @@ export const dispatchRouter = router({
         // A concurrent scan of the same bundle inserted first; the batch rolled
         // back, so re-read: this time it reports "already in this dispatch".
         // A hold that landed meanwhile (FP-OP-17): re-read, this time it is refused by name.
-        if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line")) return run();
+        if (isDuplicateItemError(e) || isBatchAbort(e, "sales_order_line") || isAgeingAbort(e)) return run();
         throw e;
       }
     }),
@@ -2313,6 +2321,7 @@ export const dispatchRouter = router({
           .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids))),
       );
 
+      await assertDispatchAgeing(ctx.db, ctx.companyId, bundleIds);
       const notAvailable = bundles.filter((b) => b.status !== "available");
       if (notAvailable.length > 0) {
         throw new TRPCError({
@@ -2373,8 +2382,15 @@ export const dispatchRouter = router({
             meta: { itemCount: items.length },
           },
         ),
+        // Review m6: none went onto a trolley since the read.
+        ...dispatchAgeingGuardStatements(ctx.db, ctx.companyId, bundleIds),
       );
-      await atomicBatch(ctx.db, statements);
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (e) {
+        if (isAgeingAbort(e)) await assertDispatchAgeing(ctx.db, ctx.companyId, bundleIds);
+        throw e;
+      }
       return { success: true };
     }),
 
@@ -2475,6 +2491,7 @@ export const dispatchRouter = router({
           message: "Cannot complete: one or more bundles are no longer reserved for this dispatch",
         });
       }
+      await assertDispatchAgeing(ctx.db, ctx.companyId, bundleIds);
       // A bundle that went into a reallocation request after it was scanned can't leave until the
       // request is decided (read here, and in the completing UPDATE below).
       const pendingHere = await bundlesPendingReallocation(ctx.db, ctx.companyId, bundleIds);

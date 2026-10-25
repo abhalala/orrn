@@ -19,6 +19,8 @@ export const reasonCodeKinds = [
   "ageing_hold",
   "ageing_rework",
   "ageing_scrap",
+  "ageing_abort",
+  "ageing_reject",
   "reallocate",
   "die_work",
   "melt_correct",
