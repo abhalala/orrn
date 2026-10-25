@@ -7,6 +7,7 @@ import { AlertCircle } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { BundleVoidNote, ageingRefusalText } from "@/features/ageing/bundle-trace";
 import { renderScanMessage } from "@/features/scan/scan-outcome";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -94,6 +95,12 @@ export function TransitionDialog({
           onDone();
         },
         onError: (err) => {
+          // A restore that cannot draw its trolley line again says so and stays open.
+          const ageing = ageingRefusalText(t, err);
+          if (ageing) {
+            setFailure(ageing);
+            return;
+          }
           if (err.data?.code === "BAD_REQUEST") {
             // The bundle changed since the page loaded: say how, close, and show where it is now.
             toast.error(renderScanMessage(t, transitionError(err)));
@@ -135,6 +142,7 @@ export function TransitionDialog({
             <span>{failure}</span>
           </p>
         ) : null}
+        {voiding ? <BundleVoidNote bundleId={bundleId} enabled={open} /> : null}
         <Field
           label={voiding ? t("bundle.reason") : `${t("bundle.reason")} (${t("common.optional")})`}
           hint={t("bundle.reasonHint")}

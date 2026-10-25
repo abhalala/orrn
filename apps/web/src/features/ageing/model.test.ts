@@ -127,6 +127,8 @@ describe("what a person may do to a line or a batch", () => {
 
   test("void is the loader's while loading and the supervisor's after take-out", () => {
     expect(voidPermission({ status: "loading" })).toBe("ageing.load");
+    // Undoing a rework (a successor still loading) is the supervisor's.
+    expect(voidPermission({ status: "loading", reworkOfBatchId: "b0" })).toBe("ageing.release");
     expect(voidPermission({ status: "out" })).toBe("ageing.release");
     expect(voidPermission({ status: "in_oven" })).toBeNull();
     expect(voidPermission({ status: "closed" })).toBeNull();

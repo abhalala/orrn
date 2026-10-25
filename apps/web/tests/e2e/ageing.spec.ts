@@ -140,16 +140,10 @@ async function cleanup(fx: Fx) {
         if (b.status === "closed" || b.status === "void") return;
         if (b.status === "in_oven") await owner.m("ageing.batches.out", { batchId: id, gasEndMilli: 9_999_999 });
         const now = await owner.q<{ status: string; reworkOfBatchId: string | null; rows: { id: string; status: string; remainingPcs: number }[] }>("ageing.batches.get", { id });
-        if (now.status === "loading" && now.reworkOfBatchId === null) {
+        if (now.status === "loading") {
+          // A loading batch is voided; for a rework successor that undoes the rework (r1).
           await owner.m("ageing.batches.void", { batchId: id, reason: "e2e cleanup" });
           return;
-        }
-        if (now.status === "loading") {
-          // An aged-again batch is never voided: it goes through the oven and its pieces are discarded.
-          await owner.m("ageing.batches.start", { batchId: id, ovenId: fx.oven.id, recipeId: fx.recipeId, shiftId: fx.shiftId, gasStartMilli: 1 });
-          await owner.m("ageing.batches.temp", { batchId: id, tempCX10: 1850 });
-          await owner.m("ageing.batches.out", { batchId: id, gasEndMilli: 2 });
-          await owner.m("ageing.batches.release", { batchId: id });
         }
         const judged = await owner.q<{ rows: { id: string; status: string; remainingPcs: number }[] }>("ageing.batches.get", { id });
         now.rows = judged.rows;
@@ -447,6 +441,67 @@ for (const width of WIDTHS) {
         expect(rack.items.find((r) => r.id === fx.trolleys[3]!.id)!.openBatchId).toBeNull();
       } finally {
         await o.dispose();
+      }
+    });
+
+    test("a bundle packed from the released line says Aged and links to its batch; voiding says where the pieces go, before and after the batch closes", async ({ browser }) => {
+      test.setTimeout(120_000);
+      expect(main, "the released batch of the first tests").toBeTruthy();
+      const owner = await apiAs("owner");
+      const bundles: { serial: string }[] = [];
+      try {
+        const batch = await owner.q<{ rows: { id: string; dieId: string; dieInstanceId: string | null; castId: string | null }[] }>("ageing.batches.get", { id: main!.id });
+        const row = batch.rows[0]!;
+        const yards = await owner.q<{ items: { id: string; kind: string }[] }>("stock.locations.list", {});
+        const yard = yards.items.find((l) => l.kind === "yard");
+        const pack = async (n: number) => {
+          const res = await owner.m<{ bundles: { serial: string }[] }>("bundle.createReceipt", {
+            dieId: row.dieId,
+            ...(row.dieInstanceId ? { dieInstanceId: row.dieInstanceId } : {}),
+            ...(row.castId ? { castId: row.castId } : {}),
+            unit: "inch",
+            ...(yard ? { locationId: yard.id } : {}),
+            source: "plant_stock",
+            ageingRowId: row.id,
+            clientRequestId: `e2e-age-${fx.tag}-${n}-${Math.random().toString(36).slice(2, 10)}`,
+            rows: [{ quantity: 2, weightG: 6000, lengthMm: 3658 }],
+          });
+          bundles.push(res.bundles[0]!);
+        };
+        await pack(1);
+        const { page, context } = await openAs(browser, "supervisor", width, `/b/${bundles[0]!.serial}`);
+        const trace = page.getByTestId("bundle-ageing");
+        await expect(trace).toHaveAttribute("data-state", "aged", { timeout: 15_000 });
+        await expect(page.getByTestId("aged-badge")).toHaveText("Aged");
+        await expect(page.getByTestId("aged-batch-link")).toHaveText(main!.number);
+        await clean(page);
+        await shot(page, width, "bundle-aged");
+        // The batch is still open: the pieces would go back to its line.
+        await page.getByTestId("bundle-actions").getByRole("button", { name: /^Void/ }).first().click();
+        await expect(page.getByTestId("void-ageing-note")).toHaveAttribute("data-outcome", "returns", { timeout: 15_000 });
+        await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+        await context.close();
+
+        // The second bundle takes the line's last pieces: the row and the batch close (Q58). Now a void writes off.
+        await pack(2);
+        const after = await owner.q<{ status: string }>("ageing.batches.get", { id: main!.id });
+        expect(after.status).toBe("closed");
+        const second = await openAs(browser, "supervisor", width, `/b/${bundles[1]!.serial}`);
+        await second.page.getByTestId("bundle-actions").getByRole("button", { name: /^Void/ }).first().click();
+        await expect(second.page.getByTestId("void-ageing-note")).toHaveAttribute("data-outcome", "write_off", { timeout: 15_000 });
+        await expect(second.page.getByTestId("void-ageing-note")).toContainText("loose aged stock");
+        await second.page.getByRole("dialog").getByLabel(/Reason/).fill("e2e write-off");
+        await second.page.getByRole("dialog").getByRole("button", { name: /^Void/ }).click();
+        await expect(second.page.locator("[data-sonner-toast]").first()).toBeVisible({ timeout: 15_000 });
+        await shot(second.page, width, "bundle-void-writeoff");
+        await second.context.close();
+      } finally {
+        // Leave no bundle of ours in stock (the first one is voided too: the batch is closed, so it writes off).
+        for (const b of bundles) {
+          const got = await owner.q<{ bundle: { id: string; status: string } }>("bundle.getBySerial", { serial: b.serial }).catch(() => null);
+          if (got && got.bundle.status === "available") await owner.m("bundle.transitionStatus", { id: got.bundle.id, toStatus: "void", reason: "e2e cleanup" }).catch(() => undefined);
+        }
+        await owner.dispose();
       }
     });
 

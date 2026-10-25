@@ -211,6 +211,7 @@ export const ageingWebEn = {
       title: "Void {number}",
       bodyLoading: "Nothing went in the oven. The pieces go back to their press lines.",
       bodyAfter: "Say why this batch is voided. A batch with pieces already moved or packed cannot be voided.",
+      bodyRework: "This undoes the rework. The pieces go back to the first batch, held again.",
       done: "{number} voided.",
     },
     batch: {
@@ -304,6 +305,8 @@ export const ageingWebEn = {
       suggestFailed: "The suggested recipes could not be saved.",
     },
     trace: {
+      voidReturns: "Voiding this bundle returns its pieces to the trolley line of {batch}.",
+      voidWritesOff: "Batch {batch} is closed. Voiding this bundle writes its pieces off as loose aged stock. Nothing goes back to the trolley.",
       title: "Ageing",
       none: "This bundle has not been through the oven.",
       released: "Released",

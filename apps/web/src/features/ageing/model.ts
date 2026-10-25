@@ -389,9 +389,12 @@ export function canRequestOverride(batch: Pick<BatchView, "status" | "overrideAp
   return (batch.status === "held" || batch.status === "out") && hasHeldLine && !batch.overrideApprovalId && !batch.pendingOverrideId;
 }
 
-/** Void is open while loading (ageing.load) or after take-out and before any piece moved (ageing.release). */
-export function voidPermission(batch: Pick<BatchView, "status">): "ageing.load" | "ageing.release" | null {
-  if (batch.status === "loading") return "ageing.load";
+/**
+ * Void is open while loading (ageing.load; a rework successor still loading is the supervisor's: voiding it undoes
+ * the rework, r1) or after take-out and before any piece moved (ageing.release).
+ */
+export function voidPermission(batch: Pick<BatchView, "status"> & Partial<Pick<BatchView, "reworkOfBatchId">>): "ageing.load" | "ageing.release" | null {
+  if (batch.status === "loading") return batch.reworkOfBatchId ? "ageing.release" : "ageing.load";
   if (batch.status === "out" || batch.status === "held" || batch.status === "released") return "ageing.release";
   return null;
 }

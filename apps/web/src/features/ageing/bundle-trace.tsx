@@ -8,6 +8,10 @@ import { can, useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
+import { mapSentence } from "@orrn/i18n/refusal";
+import type { Translate } from "@orrn/i18n";
+
+import "./hooks";
 import { x10Text } from "./model";
 
 const TONE = { aged: "green", in_ageing: "amber", held: "red", not_aged: "neutral" } as const;
@@ -70,4 +74,35 @@ export function BundleAgeing({ bundleId }: { bundleId: string }) {
       ) : null}
     </section>
   );
+}
+
+/**
+ * What voiding a bundle packed from a trolley line does (Q60-A): while the line's batch is open the pieces go
+ * back to the line; once the batch is closed they are written off as loose aged stock and nothing goes back.
+ * Says nothing for a bundle that never came off a trolley line (or the reader cannot see the batch).
+ */
+export function BundleVoidNote({ bundleId, enabled }: { bundleId: string; enabled: boolean }) {
+  const { t } = useT();
+  const trace = useQuery({ ...trpc.ageing.bundleTrace.queryOptions({ bundleId }), enabled, staleTime: 15_000, meta: INLINE_ERROR_META });
+  const batchId = trace.data?.batchId ?? null;
+  const batch = useQuery({ ...trpc.ageing.batches.get.queryOptions({ id: batchId ?? "" }), enabled: enabled && batchId !== null, staleTime: 15_000, meta: INLINE_ERROR_META });
+  const rowId = trace.data?.ageingRowId ?? null;
+  const row = batch.data?.rows.find((r) => r.id === rowId);
+  // A whole-bundle row is the bundle itself: nothing is drawn from it and nothing goes back.
+  if (!batch.data || !row || row.source === "bundle") return null;
+  const closed = batch.data.status === "closed";
+  if (!closed && batch.data.status !== "released" && batch.data.status !== "held") return null;
+  return (
+    <p data-testid="void-ageing-note" data-outcome={closed ? "write_off" : "returns"} className="m-0 rounded-card bg-tone-amber-tint px-3.5 py-3 text-[14px] leading-5 font-medium text-tone-amber-ink">
+      {closed ? t("ageing.trace.voidWritesOff", { batch: batch.data.number }) : t("ageing.trace.voidReturns", { batch: batch.data.number })}
+    </p>
+  );
+}
+
+/** An ageing refusal of a restore (the line is no longer released, fewer pieces left) said in the person's language, or null for anything else. */
+export function ageingRefusalText(t: Translate, error: unknown): string | null {
+  const message = error && typeof error === "object" ? (error as { message?: unknown }).message : null;
+  if (typeof message !== "string") return null;
+  const hit = mapSentence(message, t);
+  return hit && String(hit.key).startsWith("ageing.refusal.") ? t(hit.key, hit.vars) : null;
 }

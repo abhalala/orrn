@@ -12,9 +12,10 @@ import { isConnectionError } from "./print-labels";
  * - `reason`: a typed weight with a scale connected needs a reason; `scale`: no scale is connected any
  *   more, so a scale weight is refused.
  * - `order`: the order line was closed or is of another section.
+ * - `trolley` (W3-AG-W): the trolley line the pieces come from was refused (not released, fewer pieces left, a different cast, or one is required).
  * - `failed`: orrn refused it; nothing was saved.
  */
-export type SaveErrorKind = "forbidden" | "yard" | "unsure" | "owned" | "cast" | "copy" | "reason" | "scale" | "order" | "failed";
+export type SaveErrorKind = "forbidden" | "yard" | "unsure" | "owned" | "cast" | "copy" | "reason" | "scale" | "order" | "trolley" | "failed";
 
 export function saveErrorKind(error: unknown): SaveErrorKind {
   if (isConnectionError(error)) return "unsure";
@@ -32,6 +33,7 @@ export function saveErrorKind(error: unknown): SaveErrorKind {
     if (/^Pick the die copy|^This section has no copies/i.test(message)) return "copy";
     if (/say why the weight was typed/i.test(message)) return "reason";
     if (/no scale is connected|a scale weight must be/i.test(message)) return "scale";
+    if (/trolley line|packs aged metal from a trolley/i.test(message)) return "trolley";
     if (/pick an open order|another section|Order line not found/i.test(message)) return "order";
   }
   if ((code === "BAD_REQUEST" || code === "NOT_FOUND") && /\b(yard|location)/i.test(message)) return "yard";

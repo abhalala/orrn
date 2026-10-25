@@ -28,7 +28,7 @@ type Props = {
   yardCode: string | null;
   canPrint: boolean;
   saving: boolean;
-  saveError: { kind: SaveErrorKind; ownerName?: string | null } | null;
+  saveError: { kind: SaveErrorKind; ownerName?: string | null; text?: string } | null;
   /** The success moment: the totals block pops before the session page opens. */
   popped: boolean;
   onBack(): void;
@@ -243,7 +243,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
       </section>
 
       {/* A failed save shows in the bar itself, right above Save: never under the bar or below a long list. */}
-      <PackBar notice={saveError ? <SaveErrorNotice kind={saveError.kind} ownerName={saveError.ownerName ?? null} /> : null}>
+      <PackBar notice={saveError ? <SaveErrorNotice kind={saveError.kind} ownerName={saveError.ownerName ?? null} text={saveError.text ?? null} /> : null}>
         {/* Phones show "Back" so the bar stays one row; the name is still "Back to bundles". */}
         <Button
           variant="secondary"
@@ -266,7 +266,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
   );
 });
 
-function SaveErrorNotice({ kind, ownerName }: { kind: SaveErrorKind; ownerName: string | null }) {
+function SaveErrorNotice({ kind, ownerName, text: said }: { kind: SaveErrorKind; ownerName: string | null; text: string | null }) {
   const { t } = useT();
   const text =
     kind === "forbidden"
@@ -289,7 +289,9 @@ function SaveErrorNotice({ kind, ownerName }: { kind: SaveErrorKind; ownerName: 
                     ? t("pack.new.saveScale")
                     : kind === "order"
                       ? t("pack.new.saveOrder")
-                      : t("pack.new.saveFailed");
+                      : kind === "trolley" && said
+                        ? said
+                        : t("pack.new.saveFailed");
   return (
     <div
       role="alert"

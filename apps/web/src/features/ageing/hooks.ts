@@ -1,3 +1,4 @@
+import "@orrn/i18n/refusal-ageing";
 import { useT } from "@orrn/i18n";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { useQuery, useQueryClient } from "@tanstack/react-query";

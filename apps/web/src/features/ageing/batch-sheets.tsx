@@ -791,7 +791,7 @@ export function VoidSheet({ open, onOpenChange, batch }: SheetProps) {
       open={open}
       onOpenChange={onOpenChange}
       title={t("ageing.void.title", { number: batch.number })}
-      description={t(needsReason ? "ageing.void.bodyAfter" : "ageing.void.bodyLoading")}
+      description={t(batch.reworkOfBatchId && batch.status === "loading" ? "ageing.void.bodyRework" : needsReason ? "ageing.void.bodyAfter" : "ageing.void.bodyLoading")}
       busy={voidIt.isPending}
       error={voidIt.error}
       submitLabel={t("ageing.action.void")}

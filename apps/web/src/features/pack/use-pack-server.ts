@@ -1,3 +1,4 @@
+import "@orrn/i18n/refusal-ageing";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";

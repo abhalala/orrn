@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 6117 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6120 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -5272,7 +5272,7 @@ Please check, Lalubhai:
 | `masters.max` | Max % | ज़्यादा से ज़्यादा % |
 | `masters.noLimit` | No limit | कोई सीमा नहीं |
 
-### ageing (449)
+### ageing (452)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5645,6 +5645,7 @@ Please check, Lalubhai:
 | `void.title` | Void {number} | {number} रद्द करें |
 | `void.bodyLoading` | Nothing went in the oven. The pieces go back to their press lines. | ओवन में कुछ नहीं गया। पीस अपनी प्रेस लाइन पर लौट जाते हैं। |
 | `void.bodyAfter` | Say why this batch is voided. A batch with pieces already moved or packed cannot be voided. | बताएं यह बैच क्यों रद्द हो रहा है। जिस बैच से पीस हट चुके या पैक हो चुके हों वह रद्द नहीं होता। |
+| `void.bodyRework` | This undoes the rework. The pieces go back to the first batch, held again. | इससे दोबारा एजिंग रद्द होती है। पीस पहले बैच में लौटते हैं, फिर से होल्ड पर। |
 | `void.done` | {number} voided. | {number} रद्द हुआ। |
 | `batch.title` | Ageing batch | एजिंग बैच |
 | `batch.lines` | Lines | लाइनें |
@@ -5722,6 +5723,8 @@ Please check, Lalubhai:
 | `masters.activeLocked` | An active recipe's numbers cannot change. Copy it as a draft, then activate the copy. | चालू रेसिपी के आंकड़े नहीं बदलते। उसकी ड्राफ़्ट कॉपी बनाएं, फिर कॉपी चालू करें। |
 | `masters.copyAsDraft` | Copy as a new draft | नई ड्राफ़्ट कॉपी बनाएं |
 | `masters.suggestFailed` | The suggested recipes could not be saved. | सुझाई हुई रेसिपी सेव नहीं हो सकीं। |
+| `trace.voidReturns` | Voiding this bundle returns its pieces to the trolley line of {batch}. | इस बंडल को रद्द करने पर इसके पीस {batch} की ट्रॉली लाइन में लौट जाएंगे। |
+| `trace.voidWritesOff` | Batch {batch} is closed. Voiding this bundle writes its pieces off as loose aged stock. Nothing goes back to the trolley. | बैच {batch} बंद है। इस बंडल को रद्द करने पर इसके पीस खुले एजिंग स्टॉक के रूप में बट्टे खाते जाते हैं। ट्रॉली पर कुछ वापस नहीं जाता। |
 | `trace.title` | Ageing | एजिंग |
 | `trace.none` | This bundle has not been through the oven. | यह बंडल ओवन से नहीं गुज़रा। |
 | `trace.released` | Released | छोड़ा गया |
