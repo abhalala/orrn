@@ -78,7 +78,8 @@ export function StartSheet({ open, onOpenChange, batch }: SheetProps) {
     if (!open) return;
     if (!ovenId || !freeOvens.some((o) => o.id === ovenId)) setOvenId(freeOvens[0]?.id ?? "");
     if (!shiftId || !shifts.some((s) => s.id === shiftId)) setShiftId(defaults?.productionDay?.shift?.id ?? shifts[0]?.id ?? "");
-    if (!recipeId || !activeRecipes.some((r) => r.id === recipeId)) {
+    // The plant's default alloy and temper pick the recipe, so wait until the settings are in.
+    if (defaults && (!recipeId || !activeRecipes.some((r) => r.id === recipeId))) {
       const kind = wantTopUp ? "top_up" : "full";
       const pick = activeRecipes.find((r) => r.kind === kind && r.alloy === defaults?.defaultAlloy && r.temper === defaults?.defaultTemper) ?? activeRecipes.find((r) => r.kind === kind) ?? activeRecipes[0];
       setRecipeId(pick?.id ?? "");

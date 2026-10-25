@@ -134,7 +134,8 @@ async function cleanup(fx: Fx) {
     // Open override requests of these batches are decided first (a rejected one changes nothing).
     const pending = await owner.q<{ items: { id: string; kind: string; subjectId: string; status: string }[] }>("approval.list", { status: "pending", kind: "ageing_override", limit: 100, offset: 0 });
     for (const a of pending.items.filter((x) => fx.batches.includes(x.subjectId))) await attempt(`reject ${a.id}`, () => owner.m("approval.decide", { id: a.id, decision: "rejected", note: "e2e cleanup" }));
-    for (const id of fx.batches) {
+    // Newest first: voiding an aged-again successor puts its pieces back on the first batch, which is then finished.
+    for (const id of [...fx.batches].reverse()) {
       await attempt(`finish batch ${id}`, async () => {
         const b = await owner.q<{ status: string; rows: { id: string; status: string; remainingPcs: number }[]; successorBatchId: string | null }>("ageing.batches.get", { id });
         if (b.status === "closed" || b.status === "void") return;
@@ -510,7 +511,8 @@ for (const width of WIDTHS) {
       const { page, context } = await openAs(browser, "supervisor", width, "/ageing/history");
       await expect(page.getByRole("heading", { level: 1, name: "Ageing history" })).toBeVisible();
       await expect(page.getByTestId("history-batch").filter({ hasText: main!.number })).toBeVisible({ timeout: 15_000 });
-      await page.getByTestId("history-status").selectOption("released");
+      // By now the first test's batch is closed (its last pieces were packed).
+      await page.getByTestId("history-status").selectOption("closed");
       await expect(page.getByTestId("history-batch").filter({ hasText: main!.number })).toBeVisible();
       await clean(page);
       await shot(page, width, "history");
