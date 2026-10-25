@@ -29,6 +29,19 @@ async function run(id: string) {
   const [row] = await env.db.select().from(pressRun).where(eq(pressRun.id, id));
   return row!;
 }
+/**
+ * BACKLOG 36: the die room can no longer put a second copy on a press while the first is there
+ * (dieInstance.issues.issue refuses it). The run-level guard below is defence in depth for rows
+ * that reach that state anyway (legacy data, a race), so the second issue is made with the first
+ * one briefly hidden, then the first is put back.
+ */
+async function issueBeside(p: { issue(runId: string, copyId: string): Promise<string> }, first: { copyId: string }, second: { runId: string; copyId: string }) {
+  const hide = and(eq(dieIssue.dieInstanceId, first.copyId), eq(dieIssue.status, "issued"));
+  const [held] = await env.db.select({ id: dieIssue.id }).from(dieIssue).where(hide);
+  await env.db.update(dieIssue).set({ status: "returned" }).where(eq(dieIssue.id, held!.id));
+  await p.issue(second.runId, second.copyId);
+  await env.db.update(dieIssue).set({ status: "issued" }).where(eq(dieIssue.id, held!.id));
+}
 async function audits(subjectId: string) {
   return (await env.db.select({ a: auditLog.action }).from(auditLog).where(eq(auditLog.subjectId, subjectId))).map((r) => r.a);
 }
@@ -103,7 +116,7 @@ describe("one running run per line", () => {
     const a = await p.queuedRun();
     const b = await p.queuedRun();
     await p.issue(a.runId, a.copyId);
-    await p.issue(b.runId, b.copyId);
+    await issueBeside(p, a, b);
     await p.as("press").press.runs.start({ id: a.runId });
     await expect(p.as("press").press.runs.start({ id: b.runId })).rejects.toMatchObject({ code: "CONFLICT" });
     expect((await run(b.runId)).status).toBe("die_issued");
@@ -119,7 +132,7 @@ describe("one running run per line", () => {
     const a = await p.queuedRun();
     const b = await p.queuedRun();
     await p.issue(a.runId, a.copyId);
-    await p.issue(b.runId, b.copyId);
+    await issueBeside(p, a, b);
     const press = p.as("press").press.runs;
     await press.start({ id: a.runId });
     await press.stop({ id: a.runId });

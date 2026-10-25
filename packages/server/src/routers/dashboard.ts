@@ -1,20 +1,23 @@
 import { and, desc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 
+import { approval } from "@orrn/db/schema/approval";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
 import { bundle, bundleGroup, bundleStatuses, type BundleStatus } from "@orrn/db/schema/inventory";
 import { printLog, printerProfile } from "@orrn/db/schema/printing";
-import { salesOrderLine } from "@orrn/db/schema/sales";
-import { company } from "@orrn/db/schema/tenant";
+import { pressRun } from "@orrn/db/schema/press";
+import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
+import { company, type CompanyRole } from "@orrn/db/schema/tenant";
 import { readFloorSettings } from "@orrn/domain";
 
 import { companyProcedure, router } from "../index";
-import { mapInChunks } from "../lib/atomic";
+import { mapInChunks, type OrrnDb } from "../lib/atomic";
 import { now } from "../lib/clock";
 import { productionDayWindow } from "../lib/dayWindow";
-import { can } from "../lib/permissions";
+import { APPROVER_ROLES, can } from "../lib/permissions";
 import { pressedToday as pressedTodayOf } from "../lib/pressReport";
+import { todayTileKeys, type TodayTileKey } from "../lib/todayTiles";
 
 const LIST_LIMIT = 10;
 
@@ -28,6 +31,7 @@ export const dashboardRouter = router({
     const [companyRow] = await ctx.db
       .select({
         settings: company.settings,
+        modules: company.modules,
         hasDie: sql<number>`exists(select 1 from ${die} where ${die.companyId} = ${companyId} and ${die.deletedAt} is null)`,
         hasCustomer: sql<number>`exists(select 1 from ${customer} where ${customer.companyId} = ${companyId} and ${customer.deletedAt} is null)`,
         hasPrinter: sql<number>`exists(select 1 from ${printerProfile} where ${printerProfile.companyId} = ${companyId} and ${printerProfile.deletedAt} is null)`,
@@ -226,6 +230,10 @@ export const dashboardRouter = router({
     // FP-PR-18: the press tile (logged runs of this production day; downtime of the day's rows).
     const pressedToday = kpisOnly ? null : await pressedTodayOf(ctx.db, companyId, day.productionDay, nowMs);
 
+    // FP-PF-15 role tiles (explorer W1 H6): each role's station shortcuts with the count it acts on.
+    const tileKeys = kpisOnly ? [] : todayTileKeys(ctx.role, companyRow?.modules);
+    const tiles = await roleTiles(ctx, tileKeys, num(openCountRows[0]?.n));
+
     const none = { bundles: 0, weightG: 0 };
     const packedToday = { bundles: num(packedRows[0]?.n), weightG: num(packedRows[0]?.w) };
     const dispatchedToday = { dispatches: num(dispatchedRows[0]?.dispatches), weightG: num(dispatchedRows[0]?.w) };
@@ -278,6 +286,13 @@ export const dashboardRouter = router({
         createdAt: r.createdAt.toISOString(),
       })),
       failedPrintJobs: num(failedRows[0]?.n),
+      /**
+       * The role's tiles in plant-flow order (`lib/todayTiles.ts`), each with the count it acts
+       * on: orders open, runs waiting for a die (die room), runs queued or with their die (press),
+       * open dispatches, approvals waiting (an approver: requests this role decides, not its own;
+       * anyone else: its own requests still waiting). Empty for viewers (four KPIs only).
+       */
+      tiles,
       /** FP-PR-18 `{ kgG, recoveryBp, downtimeMin, byLine[] }` (+ runs, late share); null for viewers. */
       pressedToday,
       /**
@@ -293,3 +308,58 @@ export const dashboardRouter = router({
     };
   }),
 });
+
+type TileCtx = { db: OrrnDb; companyId: string; role: CompanyRole; session: { user: { id: string } } };
+
+/** One tile of Today: its key and the count shown under its title (null = no count). */
+export type TodayTileOut = { key: TodayTileKey; count: number | null };
+
+async function roleTiles(ctx: TileCtx, keys: readonly TodayTileKey[], openDispatches: number): Promise<TodayTileOut[]> {
+  if (keys.length === 0) return [];
+  const has = (k: TodayTileKey) => keys.includes(k);
+  const companyId = ctx.companyId;
+  const zero = Promise.resolve([{ n: 0 }]);
+  const approverKinds = (Object.keys(APPROVER_ROLES) as (keyof typeof APPROVER_ROLES)[]).filter((k) => APPROVER_ROLES[k].includes(ctx.role));
+  const [orders, toIssue, pressQueue, approvals] = await Promise.all([
+    has("orders")
+      ? ctx.db
+          .select({ n: sql<number>`count(*)` })
+          .from(salesOrder)
+          .where(and(eq(salesOrder.companyId, companyId), inArray(salesOrder.status, ["booking", "confirmed", "dispatching"])))
+      : zero,
+    has("dieRoom")
+      ? ctx.db
+          .select({ n: sql<number>`count(*)` })
+          .from(pressRun)
+          .where(and(eq(pressRun.companyId, companyId), eq(pressRun.status, "queued"), isNull(pressRun.dieInstanceId)))
+      : zero,
+    has("press")
+      ? ctx.db
+          .select({ n: sql<number>`count(*)` })
+          .from(pressRun)
+          .where(and(eq(pressRun.companyId, companyId), inArray(pressRun.status, ["queued", "die_issued"])))
+      : zero,
+    has("approvals")
+      ? ctx.db
+          .select({ n: sql<number>`count(*)` })
+          .from(approval)
+          .where(
+            and(
+              eq(approval.companyId, companyId),
+              eq(approval.status, "pending"),
+              approverKinds.length > 0
+                ? and(inArray(approval.kind, approverKinds), sql`coalesce(${approval.requestedBy}, '') <> ${ctx.session.user.id}`)
+                : eq(approval.requestedBy, ctx.session.user.id),
+            ),
+          )
+      : zero,
+  ]);
+  const counts: Partial<Record<TodayTileKey, number>> = {
+    orders: num(orders[0]?.n),
+    dieRoom: num(toIssue[0]?.n),
+    press: num(pressQueue[0]?.n),
+    approvals: num(approvals[0]?.n),
+    dispatch: openDispatches,
+  };
+  return keys.map((key) => ({ key, count: counts[key] ?? null }));
+}

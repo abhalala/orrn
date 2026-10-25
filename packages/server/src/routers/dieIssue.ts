@@ -267,6 +267,23 @@ export const dieIssueRouter = router({
             throw new TRPCError({ code: "BAD_REQUEST", message: `${run.number} is planned on another press line` });
         }
       }
+      // BACKLOG 36: two copies cannot sit on one press line. Another copy's open issue on this line
+      // blocks the issue until that copy is taken back, or its run has its die out (C43: the run's
+      // log then returns that copy, or carries it to the next run of the same copy, by itself).
+      const lineHoldsCopy = sql`(${pressRun.id} is null or (${pressRun.dieOutAt} is null and ${pressRun.status} not in ('logged', 'voided')))`;
+      const [onLine] = await ctx.db
+        .select({ code: dieInstance.code, runNumber: pressRun.number })
+        .from(dieIssue)
+        .innerJoin(dieInstance, and(eq(dieInstance.id, dieIssue.dieInstanceId), eq(dieInstance.companyId, dieIssue.companyId)))
+        .leftJoin(pressRun, and(eq(pressRun.id, dieIssue.pressRunId), eq(pressRun.companyId, dieIssue.companyId)))
+        .where(and(eq(dieIssue.companyId, ctx.companyId), eq(dieIssue.pressLineId, line.id), eq(dieIssue.status, "issued"), lineHoldsCopy))
+        .limit(1);
+      if (onLine) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `${line.code} already has ${onLine.code}${onLine.runNumber ? ` for ${onLine.runNumber}` : ""}. Take it back, or record its die out, before issuing ${copy.code}.`,
+        });
+      }
       // Customer-owned die (FP-DR-12): every party this run presses for must be allowed on this copy.
       for (const customerId of await runCustomers(ctx.db, ctx.companyId, run.pressPlanDieId)) {
         await assertDieAllowed(ctx.db, ctx.companyId, { dieInstanceId: copy.id, customerId, purpose: "press" });
@@ -339,7 +356,8 @@ export const dieIssueRouter = router({
           ),
       );
       const landed = sql`exists (select 1 from die_instance i where i.id = ${copy.id} and i.status = 'in_use' and i.server_seq = ${seq})
-        and exists (select 1 from press_run r where r.id = ${run.id} and r.status = 'die_issued' and r.die_instance_id = ${copy.id} and r.press_line_id = ${line.id} and r.server_seq = ${seq})`;
+        and exists (select 1 from press_run r where r.id = ${run.id} and r.status = 'die_issued' and r.die_instance_id = ${copy.id} and r.press_line_id = ${line.id} and r.server_seq = ${seq})
+        and not exists (select 1 from die_issue x left join press_run xr on xr.id = x.press_run_id and xr.company_id = x.company_id where x.company_id = ${ctx.companyId} and x.press_line_id = ${line.id} and x.status = 'issued' and x.die_instance_id <> ${copy.id} and (xr.id is null or (xr.die_out_at is null and xr.status not in ('logged', 'voided'))))`;
       statements.push(
         dieRoomAbortUnless(ctx.db, landed),
         auditInsertGuarded(

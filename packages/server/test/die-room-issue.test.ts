@@ -69,6 +69,13 @@ async function queuedRun(p: Plant, over: Partial<typeof pressRun.$inferInsert> =
   return id;
 }
 
+/** Another press line of the plant (BACKLOG 36: one copy per line, so a second open issue needs its own line). */
+async function anotherLine(p: Plant, code: string) {
+  const id = crypto.randomUUID();
+  await env.db.insert(pressLine).values({ id, companyId: p.companyId, code, name: `Press ${code}` });
+  return id;
+}
+
 async function runRow(id: string) {
   const [row] = await env.db.select().from(pressRun).where(eq(pressRun.id, id));
   return row!;
@@ -153,7 +160,9 @@ describe("issue", () => {
     const ids: string[] = [];
     for (let i = 0; i < 3; i += 1) {
       const c = await copy(p);
-      ids.push((await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: await queuedRun(p) })).id);
+      // One open issue per press line (BACKLOG 36): each copy on its own line.
+      const lineId = i === 0 ? p.lineId : await anotherLine(p, `P${i + 1}`);
+      ids.push((await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: lineId, pressRunId: await queuedRun(p, { pressLineId: lineId }) })).id);
     }
     const first = await p.owner.dieInstance.issues.list({ limit: 2 });
     expect(first.items).toHaveLength(2);
@@ -296,8 +305,10 @@ describe("return", () => {
     const d = await copy(p);
     await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: d.id, pressLineId: p.lineId, pressRunId: runId });
     expect(await runRow(runId)).toMatchObject({ status: "die_issued", dieInstanceId: d.id });
-    const other = await queuedRun(p);
-    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: other });
+    // d sits on P1 now (BACKLOG 36), so c goes to a run on another line.
+    const p2 = await anotherLine(p, "P2");
+    const other = await queuedRun(p, { pressLineId: p2 });
+    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p2, pressRunId: other });
     expect(await runRow(other)).toMatchObject({ status: "die_issued", dieInstanceId: c.id });
   });
 
@@ -338,7 +349,9 @@ describe("cancel", () => {
     expect(await runRow(runId)).toMatchObject({ status: "running", dieInstanceId: c.id });
 
     const d = await copy(p);
-    const plain = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: d.id, pressLineId: p.lineId, pressRunId: await queuedRun(p) });
+    // c is in the press on P1 (BACKLOG 36: one copy per line), so d goes to P2.
+    const p2 = await anotherLine(p, "P2");
+    const plain = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: d.id, pressLineId: p2, pressRunId: await queuedRun(p, { pressLineId: p2 }) });
     await p.dieRoom.dieInstance.issues.cancel({ id: plain.id });
     await expect(p.dieRoom.dieInstance.issues.cancel({ id: plain.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(p.dieRoom.dieInstance.issues.return({ id: plain.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });

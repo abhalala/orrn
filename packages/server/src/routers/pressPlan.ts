@@ -790,6 +790,10 @@ export const pressPlanRouter = router({
       if (input.add.length === 0 && input.remove.length === 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Nothing to change" });
       }
+      // FP-PR-23 (BACKLOG 41): a trial or sample plan carries dies only, never order lines.
+      if (plan.purpose !== "production" && input.add.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A trial or sample plan takes no order lines" });
+      }
       const parts = await planParts(ctx.db, ctx.companyId, plan.id);
       const onPlan = new Set(parts.lines.map((l) => l.salesOrderLineId));
       const addIds = input.add.map((a) => a.salesOrderLineId);
