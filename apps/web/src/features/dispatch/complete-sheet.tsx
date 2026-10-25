@@ -1,8 +1,8 @@
-import { formatKgTotal, type DispatchStatus } from "@orrn/domain";
+import { formatKgTotal, vehicleGate, type DispatchStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field } from "@orrn/ui/components/field";
-import { TextArea } from "@orrn/ui/components/input";
+import { Input, TextArea } from "@orrn/ui/components/input";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { useEffect, useRef, useState } from "react";
 
@@ -17,7 +17,7 @@ import { groupItems, type DispatchItem } from "./group-items";
 type Props = {
   open: boolean;
   onOpenChange(open: boolean): void;
-  dispatch: { id: string; code: string; status: DispatchStatus };
+  dispatch: { id: string; code: string; status: DispatchStatus; vehicleNo?: string | null };
   customerName: string;
   items: DispatchItem[];
   onDispatched(): void;
@@ -38,6 +38,10 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
   const [error, setError] = useState<string | undefined>();
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState(false);
+  // BACKLOG 62: no vehicle in the header, so the sheet asks for it and saves it first.
+  const [vehicle, setVehicle] = useState("");
+  const [vehicleError, setVehicleError] = useState<"missing" | "invalid" | null>(null);
+  const needsVehicle = !dispatch.vehicleNo?.trim();
   const over = capacity?.state === "over";
   // Held by this sheet a moment ago: a retry after a failed complete must not hold twice
   // (the refreshed status may not be back yet).
@@ -47,6 +51,8 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
       heldHere.current = { held: false };
       setReason("");
       setReasonError(false);
+      setVehicle("");
+      setVehicleError(null);
     }
   }, [open]);
   const groups = groupItems(items);
@@ -54,6 +60,12 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
   const kg = formatKgTotal(weightG / 1000);
 
   const confirm = async () => {
+    const gate = vehicleGate(dispatch.vehicleNo, vehicle);
+    if (gate.kind === "missing" || gate.kind === "invalid") {
+      setVehicleError(gate.kind);
+      document.getElementById("dispatch-vehicle")?.focus();
+      return;
+    }
     // Over the truck's capacity needs a reason; the server refuses without it and audits it.
     if (over && !reason.trim()) {
       setReasonError(true);
@@ -62,6 +74,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
     setBusy(true);
     setError(undefined);
     try {
+      if (gate.kind === "save") await trpcClient.dispatch.update.mutate({ id: dispatch.id, vehicleNo: gate.vehicleNo });
       await dispatchNow(dispatch.status, heldHere.current, {
         reserve: () => trpcClient.dispatch.reserve.mutate({ id: dispatch.id }),
         complete: () =>
@@ -117,6 +130,32 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
             </li>
           ))}
         </ul>
+        {needsVehicle ? (
+          <Field
+            id="dispatch-vehicle"
+            label={t("dispatch.header.vehicleNo")}
+            hint={t("dispatch.vehicleNeeded")}
+            error={vehicleError === "missing" ? t("dispatch.vehicleMissing") : vehicleError === "invalid" ? t("dispatch.header.vehicleHint") : undefined}
+          >
+            <Input
+              id="dispatch-vehicle"
+              value={vehicle}
+              onChangeText={(v) => {
+                setVehicle(v);
+                setVehicleError(null);
+              }}
+              autoCapitalize="characters"
+              autoComplete="off"
+              maxLength={30}
+              aria-invalid={vehicleError ? true : undefined}
+              data-testid="dispatch-vehicle"
+            />
+          </Field>
+        ) : (
+          <p className="m-0 text-[15px] text-muted-foreground" data-testid="dispatch-vehicle-ready">
+            {t("dispatch.vehicleOn", { vehicle: dispatch.vehicleNo! })}
+          </p>
+        )}
         <CapacityBanner capacity={capacity} />
         {over ? (
           <Field

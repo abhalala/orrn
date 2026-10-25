@@ -77,6 +77,7 @@ import {
   castDraftMeltsSql,
   castTailSql,
   defaultReturnStreamStatements,
+  defaultReturnStreamsPresent,
   DROSS_STREAM,
   FE_STREAM,
   fmtKg,
@@ -247,6 +248,9 @@ const returnStreamsRouter = router({
             .where(eq(returnStream.companyId, ctx.companyId))
         )[0]?.n ?? 0,
       );
+    // Wave-2 M11: when every default stream is there (by code or name) nothing is written and no
+    // number is taken from the shared company counter.
+    if (await defaultReturnStreamsPresent(ctx.db, ctx.companyId)) return { added: 0 };
     const before = await count();
     const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
     await atomicBatch(ctx.db, [

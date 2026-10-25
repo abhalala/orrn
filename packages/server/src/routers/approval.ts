@@ -6,7 +6,8 @@ import { z } from "zod";
 import { user } from "@orrn/db/schema/auth";
 import { approval, approvalKinds, approvalStatuses } from "@orrn/db/schema/approval";
 
-import { APPROVAL_APPLIERS, explainApplyAbort } from "../lib/approvalApply";
+import { loadApprovalFacts } from "../lib/approvalFacts";
+import { APPROVAL_APPLIERS, APPROVAL_PREPARERS, explainApplyAbort } from "../lib/approvalApply";
 import { APPROVAL_KIND_MODULE, assertModule } from "../lib/moduleGate";
 import { atomicBatch } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
@@ -93,6 +94,22 @@ export const approvalRouter = router({
     }),
 
   /**
+   * The live facts behind one request (owner tour, BACKLOG 89): for a bundle move, where each bundle is
+   * now and whether the decision would move it; for a die tier change, the copy's tier, band and last
+   * reading now. Open to every role like `list` (ids, names, kg and numbers; never money). Null for
+   * kinds whose meta already says everything.
+   */
+  facts: companyProcedure.input(z.object({ id: z.string().min(1).max(64) })).query(async ({ ctx, input }) => {
+    const [row] = await ctx.db
+      .select({ kind: approval.kind, subjectId: approval.subjectId, meta: approval.meta })
+      .from(approval)
+      .where(and(eq(approval.id, input.id), eq(approval.companyId, ctx.companyId)))
+      .limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+    return loadApprovalFacts(ctx.db, ctx.companyId, row);
+  }),
+
+  /**
    * Approve or reject a pending request. Only the approver roles for its kind
    * may decide, never the requester; a decided request is BAD_REQUEST. The
    * UPDATE is conditional on `pending`, and the audit row is written only if
@@ -101,6 +118,14 @@ export const approvalRouter = router({
    * batch, guarded the same way.
    */
   decide: companyProcedure
+    // Final explore L13: a role that approves no kind at all is refused before its input is read
+    // (403, not 400 for a malformed body); the per-kind check below still runs.
+    .use(({ ctx, next }) => {
+      if (!approvalKinds.some((kind) => canApprove(ctx.role, kind))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do that" });
+      }
+      return next({ ctx });
+    })
     .input(
       z.object({
         id: z.string().min(1).max(64),
@@ -143,11 +168,9 @@ export const approvalRouter = router({
 
       // Kind-specific effect (e.g. die re-rank writes the tier), guarded to land only if this
       // decision did, in the same batch as the decision.
-      const apply = APPROVAL_APPLIERS[row.kind]?.(
-        { db: ctx.db, companyId: ctx.companyId, userId, seq: serverSeq, decidedAt },
-        { id: row.id, subjectId: row.subjectId },
-        input.decision,
-      ) ?? [];
+      const applyCtx = { db: ctx.db, companyId: ctx.companyId, userId, seq: serverSeq, decidedAt };
+      const prepared = await APPROVAL_PREPARERS[row.kind]?.(applyCtx, { id: row.id, subjectId: row.subjectId, meta: row.meta ?? null }, input.decision);
+      const apply = APPROVAL_APPLIERS[row.kind]?.(applyCtx, { id: row.id, subjectId: row.subjectId }, input.decision, prepared) ?? [];
 
       try {
         await atomicBatch(ctx.db, [

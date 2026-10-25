@@ -27,6 +27,7 @@ import { resolveCode } from "../lib/codeResolver";
 import { canAny } from "../lib/permissions";
 import type { CompanyRole } from "@orrn/db/schema/tenant";
 import {
+  DEFAULT_LOCATIONS,
   defaultLocationStatements,
   IN_STOCK_STATUSES,
   ledgerScope,
@@ -215,6 +216,13 @@ const locationsRouter = router({
         .where(eq(location.companyId, ctx.companyId));
       return Number(row?.n ?? 0);
     };
+    // Wave-2 M11: nothing missing writes nothing; a no-op must not take a number from the shared
+    // company counter (dispatch codes and bundle group numbers come from it).
+    const have = await ctx.db
+      .select({ code: location.code })
+      .from(location)
+      .where(and(eq(location.companyId, ctx.companyId), inArray(location.code, DEFAULT_LOCATIONS.map((l) => l.code))));
+    if (new Set(have.map((r) => r.code)).size >= DEFAULT_LOCATIONS.length) return { created: 0 };
     const before = await countRows();
     const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
     await atomicBatch(ctx.db, [

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { AUDIT_ACTION_WORDS, auditActionKey } from "./action-words";
 import { AUDIT_KINDS, AUDIT_KIND_ACTIONS, auditInput, filtersActive, kindOf, lastChangeOf, metaEntries, parseAuditSearch, zonedDayEndMs, zonedDayStartMs } from "./model";
 
 const WORDS = { yes: "Yes", no: "No", none: "none", change: (from: string, to: string) => `${from} to ${to}` };
@@ -100,5 +101,59 @@ describe("audit filters", () => {
     expect(lastChangeOf(rows, "portalEnabled")).toMatchObject({ at: "2026-10-23T10:00:00Z", actorName: "Asha", from: null, to: true });
     expect(lastChangeOf(rows, "dieBands")).toBeNull();
     expect(lastChangeOf([], "dieBands")).toBeNull();
+  });
+});
+
+describe("wave-2 M5: audit actions read as words", () => {
+  const { en } = require("@orrn/i18n/en") as typeof import("@orrn/i18n/en");
+  const { hi } = require("@orrn/i18n/hi") as typeof import("@orrn/i18n/hi");
+  const lookup = (dict: unknown, key: string) =>
+    key.split(".").reduce<unknown>((node, part) => (node && typeof node === "object" ? (node as Record<string, unknown>)[part] : undefined), dict);
+
+  test("the explorer's raw codes have words in English and Hindi", () => {
+    for (const action of ["packingList.combine", "order.hold", "count.start", "company.switch", "spectro.inbox.dismiss", "press.alert.ack", "company.settings.update", "dispatch.capacity_override", "packingList.regenerate"]) {
+      const key = auditActionKey(action);
+      expect({ action, key: key !== null }).toEqual({ action, key: true });
+      expect(typeof lookup(en, key!)).toBe("string");
+      expect(typeof lookup(hi, key!)).toBe("string");
+    }
+    expect(lookup(en, auditActionKey("order.hold")!)).toBe("Stock held for an order line");
+  });
+
+  test("every action the server writes as a literal has words; every listed one exists in en and hi", () => {
+    const { readdirSync, readFileSync, statSync } = require("node:fs") as typeof import("node:fs");
+    const { join } = require("node:path") as typeof import("node:path");
+    const root = join(import.meta.dir, "../../../../../packages/server/src");
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) walk(path);
+        else if (path.endsWith(".ts") && !path.endsWith(".test.ts")) files.push(path);
+      }
+    };
+    walk(root);
+    const written = new Set<string>();
+    // Every dotted literal in an `action:` or `audit:` expression (both arms of a ternary included; `audit:` is
+    // the option `moveRun` takes), and the positional action of `applierAudit(ctx, "x.y", ...)`.
+    const dotted = /["'`]([a-z][a-zA-Z_]*\.[a-zA-Z_.]+)["'`]/g;
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      for (const m of source.matchAll(/\b(?:action|audit):\s*([^,\n]+)/g)) {
+        for (const lit of m[1]!.matchAll(dotted)) written.add(lit[1]!);
+      }
+      for (const m of source.matchAll(/applierAudit\(\s*ctx,\s*["'`]([^"'`]+)["'`]/g)) written.add(m[1]!);
+    }
+    // The review's seven: the most frequent actions on the plant.
+    for (const action of ["press_run.start", "press_run.stop", "press_run.resume", "press_run.undo_start", "press_run.count", "press_run.handover", "die_trial.reopen"]) {
+      expect({ action, scanned: written.has(action) }).toEqual({ action, scanned: true });
+    }
+    expect(written.size).toBeGreaterThan(100);
+    expect([...written].filter((a) => !AUDIT_ACTION_WORDS.has(a))).toEqual([]);
+    for (const action of AUDIT_ACTION_WORDS) {
+      const key = auditActionKey(action)!;
+      expect({ action, en: typeof lookup(en, key), hi: typeof lookup(hi, key) }).toEqual({ action, en: "string", hi: "string" });
+    }
+    expect(auditActionKey("something.new")).toBeNull();
   });
 });

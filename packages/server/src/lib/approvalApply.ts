@@ -14,7 +14,7 @@ import { stillPhantomOfLine } from "./count";
 import { billetStoreRetiredMessage, boriMeltedMessage, castTailAdjustRow, dcNoteOverdrawAbort, foundryAbort, isFoundryAbort, lotRemaining } from "./foundry";
 import { dcNoteDeductionRows, phantomVoidRows, sqlUuid } from "./ledger";
 import { pressLateEntryDecision, pressReopenDecision, pressTimeDecision } from "./press";
-import { reallocateDecision } from "./reallocate";
+import { reallocateDecision, reallocatePrepare } from "./reallocate";
 
 /** What an approval's apply hook sees: this request, and the decision that is being written. */
 export type ApplyCtx = {
@@ -31,7 +31,20 @@ export type ApprovalApplier = (
   ctx: ApplyCtx,
   row: { id: string; subjectId: string },
   decision: "approved" | "rejected",
+  /** What the kind's `APPROVAL_PREPARERS` entry read or allocated before the batch, if it has one. */
+  prepared?: unknown,
 ) => SqliteBatchItem[];
+
+/**
+ * Async work a kind needs before its decision batch (numbers to allocate, rows to read). The
+ * result is handed to its applier. Order reallocation allocates the target customer's party
+ * numbers here (M4, final explore).
+ */
+export const APPROVAL_PREPARERS: Partial<
+  Record<ApprovalKind, (ctx: ApplyCtx, row: { id: string; subjectId: string; meta: Record<string, unknown> | null }, decision: "approved" | "rejected") => Promise<unknown>>
+> = {
+  order_reallocate: (ctx, row, decision) => (decision === "approved" ? reallocatePrepare(ctx.db, ctx.companyId, row, ctx.decidedAt, ctx.userId) : Promise.resolve([])),
+};
 
 /**
  * EXISTS: this request's decision landed on the approval row. Statements of an apply hook are

@@ -1,8 +1,9 @@
-import { useT } from "@orrn/i18n";
+import { useT, type MessageKey } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import type { ReactNode } from "react";
 
+import { auditActionKey } from "./action-words";
 import { metaEntries } from "./model";
 
 export type AuditRow = {
@@ -51,7 +52,21 @@ export function AuditRows({
         </span>
       ),
     },
-    { key: "what", header: t("audit.columns.what"), cell: (r) => <code className="font-mono text-[13px] break-all">{r.action}</code> },
+    {
+      key: "what",
+      header: t("audit.columns.what"),
+      // Wave-2 M5: the action in words; the code under it, small, for support and the Kind filter.
+      cell: (r) => {
+        const words = auditActionKey(r.action);
+        if (!words) return <code className="font-mono text-[13px] break-all">{r.action}</code>;
+        return (
+          <span className="flex min-w-0 flex-col" data-audit-action={r.action}>
+            <span className="break-words">{t(words as MessageKey)}</span>
+            <code className="font-mono text-[12px] text-muted-foreground break-all">{r.action}</code>
+          </span>
+        );
+      },
+    },
     {
       key: "subject",
       header: t("audit.columns.subject"),

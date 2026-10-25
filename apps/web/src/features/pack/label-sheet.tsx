@@ -7,7 +7,7 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Printer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -87,6 +87,13 @@ export function LabelSheet({ groupId, only }: { groupId: string; only?: string }
   const { data: me } = useMe();
   const unit: LengthUnit = lengthUnitOf(me?.company?.settings);
   const sheet = useQuery(trpc.bundle.labelSheet.queryOptions({ groupId }));
+  const queryClient = useQueryClient();
+  // Final explore round 1 (I3): once the stickers are printed, "Sticker needs reprint" clears. Nothing here
+  // is worth an error; the flag only stays a little longer.
+  const printed = useMutation({
+    ...trpc.bundle.labelsPrinted.mutationOptions(),
+    onSettled: () => void queryClient.invalidateQueries(),
+  });
   const [size, setSizeState] = useState<SheetSize>(readSize);
   const [skip, setSkip] = useState("0");
   const labels = useMemo(
@@ -125,7 +132,14 @@ export function LabelSheet({ groupId, only }: { groupId: string; only?: string }
           subtitle={t("labelSheet.subtitle")}
           back={{ to: `/pack/${groupId}`, label: t("pack.title") }}
           actions={
-            <Button onClick={() => window.print()} disabled={labels.length === 0} data-testid="print-sheet">
+            <Button
+              onClick={() => {
+                window.print();
+                if (labels.length > 0) printed.mutate({ bundleIds: labels.slice(0, 200).map((l) => l.bundleId) });
+              }}
+              disabled={labels.length === 0}
+              data-testid="print-sheet"
+            >
               <Printer aria-hidden="true" strokeWidth={2} />
               {t("labelSheet.print")}
             </Button>

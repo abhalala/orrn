@@ -140,7 +140,8 @@ export function SuggestSheet({
                         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                           <span className="font-mono text-[15px] font-semibold [overflow-wrap:anywhere]">{b.serial}</span>
                           <span className="text-[13px] text-muted-foreground break-words">
-                            {b.sectionCode} {b.sectionName ?? b.series} · {formatLengthMm(b.lengthMm, unit)} · {t("dispatch.suggest.forLine", { n: b.lineNo })}
+                            {b.sectionCode} {b.sectionName ?? b.series} · {formatLengthMm(b.lengthMm, unit)} · {/* Final explore L9: plant stock is not on a line yet; it goes on this one. */}
+                            {t(key === "plant" ? "dispatch.suggest.forLinePlant" : "dispatch.suggest.forLine", { n: b.lineNo })}
                             <span className="font-mono">
                               {" "}
                               {pcsText(b.pcs)} {t("units.pcs")} · {orderKgText(b.weightG)} {t("units.kg")}

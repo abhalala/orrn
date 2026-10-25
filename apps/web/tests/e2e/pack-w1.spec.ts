@@ -255,6 +255,33 @@ test.describe("pack: reject reasons come from Masters (W4-MASTERS review I-3)", 
   });
 });
 
+test.describe("pack: a booking order is offered last and marked (wave-2 M9)", () => {
+  test("a booking line carries 'Booking, not confirmed', sits after confirmed lines and is never Suggested", async ({ page }) => {
+    await open(page, "/pack/new", { width: 820 });
+    const name = `Booking E2E ${Date.now() % 100_000}`;
+    const owner = await ownerApi();
+    const created = await owner.mutate<{ id: string }>("customer.create", { name });
+    const dies = await trpcQuery<{ items: { id: string }[] }>(page, "die.list", { search: DIE, limit: 5 });
+    await owner.mutate("orders.create", { customerId: created.id, poNumber: null, lines: [{ sectionId: dies.items[0]!.id, cutLengthMm: 3505, kgG: 500_000, pcs: null, finish: null }] });
+    await owner.dispose();
+    await page.reload();
+    await page.getByLabel("Search die code or section").fill(DIE);
+    await page.locator("button[data-die]").first().click();
+    const orders = page.locator("[data-slot='order-picker']");
+    const ours = orders.locator("label").filter({ hasText: name });
+    await expect(ours).toBeVisible({ timeout: 15_000 });
+    await expect(ours).toContainText("Booking, not confirmed");
+    await expect(ours).not.toContainText("Suggested");
+    // Every line after the first booking one is a booking too: confirmed lines come first.
+    const marks = await orders.locator("label").evaluateAll((els) => els.map((el) => (el.textContent ?? "").includes("Booking, not confirmed")));
+    const firstBooking = marks.indexOf(true);
+    expect(firstBooking).toBeGreaterThan(0);
+    expect(marks.slice(firstBooking).every(Boolean)).toBe(true);
+    const suggested = orders.locator("label").filter({ hasText: "Suggested" });
+    if ((await suggested.count()) > 0) await expect(suggested.first()).not.toContainText("Booking, not confirmed");
+  });
+});
+
 test.describe("pack: party number after save, one tone everywhere, labels with no printer", () => {
   for (const width of WIDTHS) {
     test(`a customer's own number shows after save; the pack line, the session and /b agree; the label sheet works, at ${width}`, async ({ page }) => {

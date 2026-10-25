@@ -87,3 +87,11 @@ describe("guides", () => {
     expect(listGuides("en", "owner", true)).toHaveLength(GUIDE_SLUGS.length);
   });
 });
+
+describe("final explore L8: combine button plural", () => {
+  test("Combine 1 list / Combine 2 lists", () => {
+    const { en } = require("./en") as typeof import("./en");
+    expect(interpolate(en.packingList.v2.combineSubmit, { count: 1 })).toBe("Combine 1 list");
+    expect(interpolate(en.packingList.v2.combineSubmit, { count: 2 })).toBe("Combine 2 lists");
+  });
+});

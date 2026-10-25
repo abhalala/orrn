@@ -50,7 +50,12 @@ import {
   moveForAudit,
   moveStatements,
   pendingReallocationOf,
+  partyRenumberStatements,
+  partyRenumbersFor,
+  partyRenumbersToPlant,
+  REALLOCATE_READ_CHUNK,
   reallocateMove,
+  renumbersForAudit,
   timelineMoveOf,
   type ReallocateMeta,
   type TimelineMove,
@@ -800,10 +805,13 @@ export const orderFlowProcedures = {
       const fromLine = alias(salesOrderLine, "from_line");
       const fromOrder = alias(salesOrder, "from_order");
       const fromCustomer = alias(customer, "from_customer");
-      const rows = await ctx.db
+      // M1 (final explore): the read is chunked; with its scoped sub-selects one statement of 92+ ids
+      // passed D1's 100 bound values.
+      const rows = await mapInChunks(ids, (part) => ctx.db
         .select({
           id: bundle.id,
           serial: bundle.serial,
+          partyNo: bundle.partyNo,
           fromOrderNumber: fromOrder.number,
           fromLineNo: fromLine.lineNo,
           fromCustomerName: fromCustomer.name,
@@ -828,7 +836,7 @@ export const orderFlowProcedures = {
         .leftJoin(fromOrder, and(eq(fromOrder.id, fromLine.salesOrderId), eq(fromOrder.companyId, ctx.companyId)))
         .leftJoin(fromCustomer, and(eq(fromCustomer.id, fromOrder.customerId), eq(fromCustomer.companyId, ctx.companyId)))
         .leftJoin(dispatch, and(eq(dispatch.id, bundle.currentDispatchId), eq(dispatch.companyId, ctx.companyId)))
-        .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids)));
+        .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, part))), REALLOCATE_READ_CHUNK);
       if (rows.length !== ids.length) throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
 
       let target: {
@@ -1012,7 +1020,8 @@ export const orderFlowProcedures = {
         });
         // Write time: none of the bundles went onto a dispatch or into another pending request
         // after the read (a pending bundle can't be dispatched, and is asked for once).
-        const guards = chunk(ids, 80).map((part) => {
+        // Each id is bound three times below: 25 per statement keeps it under D1's 100 (M1).
+        const guards = chunk(ids, 25).map((part) => {
           const list = sql.join(part.map((x) => sql`${x}`), sql`, `);
           return batchAbortUnless(
             ctx.db,
@@ -1052,6 +1061,13 @@ export const orderFlowProcedures = {
         return { status: "pending" as const, batchId, approvalId: req.id, moved: 0, kgG, warnings };
       }
 
+      // M4 (final explore): a bundle that lands on another customer's line (legacy stock, plant stock
+      // with no origin) takes that customer's party number; the audit keeps the old one. I3 (round 1):
+      // a bundle that goes to plant stock takes its serial back, so no customer's number travels with it.
+      const partyInfo = rows.map((b) => ({ id: b.id, serial: b.serial, partyNo: b.partyNo, customerId: b.lineCustomerId ?? (b.lineId ? null : (b.originCustomerId ?? null)) }));
+      const renumbers = target
+        ? await partyRenumbersFor(ctx.db, ctx.companyId, partyInfo, target.customerId, at, userId)
+        : partyRenumbersToPlant(partyInfo);
       const statements: SqliteBatchItem[] = [
         ...moveStatements(ctx.db, {
           companyId: ctx.companyId,
@@ -1070,11 +1086,18 @@ export const orderFlowProcedures = {
           "sales_order_line",
           sql`(select count(*) from bundle b where b.company_id = ${ctx.companyId} and b.server_seq = ${seq} and b.status = 'available' and ${target ? sql`b.sales_order_line_id = ${target.lineId} and (b.held_for_line_id is null or b.held_for_line_id = ${target.lineId})` : sql`b.sales_order_line_id is null and b.held_for_line_id is null`} and b.id in (select t.bundle_id from bundle_transfer t where t.company_id = ${ctx.companyId} and t.batch_id = ${batchId})) = ${ids.length}`,
         ),
+        ...partyRenumberStatements(
+          ctx.db,
+          ctx.companyId,
+          renumbers,
+          target ? sql`${bundle.serverSeq} = ${seq} and ${bundle.salesOrderLineId} = ${target.lineId}` : sql`${bundle.serverSeq} = ${seq} and ${bundle.salesOrderLineId} is null`,
+        ),
         auditInsert(ctx, {
           action: "order.reallocate",
           subjectType: "bundle_transfer",
           subjectId: batchId,
           meta: {
+            ...(renumbers.length > 0 ? { partyNos: renumbersForAudit(renumbers) } : {}),
             status: "applied",
             batchId,
             toLineId: target?.lineId ?? null,

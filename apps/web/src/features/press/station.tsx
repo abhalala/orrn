@@ -24,6 +24,7 @@ import { useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
+import { browserOnline } from "@/shared/lib/sign-out-core";
 
 import { ErrorLines } from "./error-lines";
 import { pressErrorText, pressErrorToast, roleCan, useActionKey, useCompanyTimeZone, useHolds } from "./hooks";
@@ -660,7 +661,19 @@ function DowntimeCard({ data, tz, canStart }: { data: RunDetail; tz: string; can
         <h2 className="m-0 text-[17px] font-semibold">{t("press.console.downtime")}</h2>
         <Can do={STATION_ACTION.downtime}>
           {openRow ? (
-            <Button variant="secondary" size="md" disabled={stop.isPending} onClick={() => stop.mutate({ id: openRow.id })}>
+            <Button
+              variant="secondary"
+              size="md"
+              disabled={stop.isPending}
+              onClick={() => {
+                // Final explore L3: offline the call would wait forever behind a spinner; say so instead.
+                if (!browserOnline()) {
+                  setError(t("press.console.downtimeOffline"));
+                  return;
+                }
+                stop.mutate({ id: openRow.id });
+              }}
+            >
               {t("press.console.downtimeStop")}
             </Button>
           ) : canStart ? (
@@ -703,6 +716,7 @@ function DowntimeCard({ data, tz, canStart }: { data: RunDetail; tz: string; can
               onClick={() => {
                 if (!reasonId) return setError(t("press.console.pickOne"));
                 if (pick && (pick.requiresNote || pick.code === "other") && !note.trim()) return setError(t("press.console.noteRequired"));
+                if (!browserOnline()) return setError(t("press.console.downtimeOffline"));
                 start.mutate({ pressLineId: data.run.pressLineId!, pressRunId: data.run.id, reasonCodeId: reasonId, ...(note.trim() ? { note: note.trim() } : {}) });
               }}
             >

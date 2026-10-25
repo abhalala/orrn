@@ -11,6 +11,7 @@ import type { Messages } from "./en";
  */
 import { refusalGu } from "./native/refusal.gu";
 import { guApprovals } from "./gu-more/approvals";
+import { guPressBoard } from "./gu-more/press-board";
 import { guAuth } from "./gu-more/auth";
 import { guBundle } from "./gu-more/bundle";
 import { guCustomers } from "./gu-more/customers";
@@ -31,7 +32,7 @@ export type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : D
  * Dotted namespaces (or single keys) gu must carry in full; gu.test.ts fails on any en key under one that is missing.
  * W4-GU (BACKLOG 43; PF §9-8 first ship): the floor screens plus the chrome around them are complete, so a new
  * key in any of these namespaces needs its Gujarati in the same change. Left to fall back to English on purpose:
- * the office-only namespaces (admin, masters, purchase, store, imports, vendors, press.report/plan/queue/summary,
+ * the office-only namespaces (admin, masters, purchase, store, imports, vendors, press.report/plan/summary (their titles are floor links),
  * orders.form/plan/book/hold/detail except the lines below, customers.form/detail except the lines below, the
  * party portal and marketing pages) and the guide texts.
  */
@@ -70,6 +71,9 @@ export const GU_FLOOR_NAMESPACES = [
   "foundry.title", "foundry.common", "foundry.today", "foundry.casts", "foundry.newCast", "foundry.cast", "foundry.melt", "foundry.spectro", "foundry.stock",
   // W2-FD-S: a refused foundry write reaches the furnace floor
   "foundry.refusal",
+  // Final explore M5: the press overview and a press's line board (its queue) are where the press role
+  // lands; Today's stock-age tile and the chart table toggle are on the owner's floor Today
+  "press.title", "press.board", "press.queue", "press.summary.title", "press.report.title", "reports.todayTile", "charts",
 ] as const;
 
 /**
@@ -489,6 +493,8 @@ const guBase = {
       sheet: "લેબલ શીટ પ્રિન્ટ કરો",
     },
     partyNo: "પાર્ટી નંબર",
+    stickerStale: "સ્ટિકર ફરી પ્રિન્ટ કરવું છે",
+    stickerStaleHint: "સ્ટિકર છપાયા પછી પાર્ટી નંબર બદલાયો. લેબલ ફરી પ્રિન્ટ કરો.",
     forOrder: "કયા ઓર્ડર માટે",
     plantStock: "પ્લાન્ટ સ્ટોક",
     ageingRow: "એજિંગમાંથી",
@@ -542,6 +548,7 @@ const guBase = {
       pinned: "આ લાઇન die કૉપી {code} માટે છે.",
       pinnedOverride: "ઑફિસ: બીજી કૉપી પર પૅક કરો",
       suggested: "સૂચવેલું",
+      booking: "બુકિંગ, કન્ફર્મ નથી",
       lineDetail: "{ordered} kg ઓર્ડરમાંથી {baki} kg બાકી",
       copy: "Die કૉપી",
       copyHint: "જે કૉપીથી આ bundle બન્યા. વજન તેના બૅન્ડથી તપાસાશે.",
@@ -743,6 +750,7 @@ const guBase = {
       downtime: "બંધ સમય",
       downtimeStart: "પ્રેસ બંધ થયું",
       downtimeStop: "પ્રેસ ફરી ચાલુ",
+      downtimeOffline: "તમે ઑફલાઇન છો. ડાઉનટાઇમ માટે કનેક્શન જોઈએ; કનેક્શન આવે ત્યારે ફરી દબાવો.",
       downtimeOpen: "પહેલાં બંધ સમય પૂરો કરો.",
       lateEntry: "પછીથી ભર્યું",
       lateEntryAsk: "પછીથી ભરવાની મંજૂરી માંગો",
@@ -877,6 +885,7 @@ const guBase = {
         keepOpen: "આ ટેબલેટ પર સેવ છે. કનેક્શન આવતા જ ક્રમમાં orrn પર જશે. આ પેજ ખુલ્લું રાખો.",
         queued: "ઑફલાઇન. આ ટેબલેટ પર સેવ છે; કનેક્શન આવતા જ જશે.",
         signOutLeft: "{count} ફેરફાર હજી મોકલાયા નથી. તે આ ટેબલેટ પર તમારા માટે સેવ રહેશે અને ફરી સાઇન ઇન કરતા જ જશે.",
+        offlineLeft: "{count} ફેરફાર હજી મોકલાયા નથી. તે આ ટેબલેટ પર સેવ રહેશે અને કનેક્શન આવતા જ જશે.",
         plantLeft: "{count} ફેરફાર હજી મોકલાયા નથી. તે આ ટેબલેટ પર સેવ રહેશે અને આ પ્લાન્ટમાં પાછા આવતા જ જશે.",
         behind: "જે ફેરફાર orrn એ લીધો નથી તેની પાછળ રાહ જોઈ રહ્યા છે. આ ટેબલેટ પર સેવ છે.",
         blocked: "જે ફેરફાર orrn એ લીધો નથી તેની પાછળ રાહ ({count} ફેરફાર)",
@@ -1435,6 +1444,9 @@ const guBase = {
     dispatchAction: "Dispatch કરો",
     confirmTitle: "{code} dispatch કરવો છે?",
     confirmBody: "{customer} માટે {bundles} bundle · {kg} kg. આ પછી bundle ઉમેરી કે કાઢી નહીં શકાય.",
+    vehicleNeeded: "પેકિંગ લિસ્ટ અને ઈ-વે બિલમાં ગાડીનો નંબર આવે છે. તે dispatch પર સેવ થશે.",
+    vehicleMissing: "Dispatch પહેલાં ગાડીનો નંબર નાખો.",
+    vehicleOn: "ગાડી {vehicle} પર",
     confirm: "Dispatch કરો",
     dispatched: "Dispatch થયો",
     holdHint: "હોલ્ડ કરવાથી આ bundle {customer} માટે રહે છે. કોઈ તેને બીજા dispatch માં ઉમેરી નહીં શકે.",
@@ -1758,6 +1770,7 @@ export const gu = mergeGu(
   guOrders,
   guSettings,
   guShell,
+  guPressBoard,
 ) as typeof guBase &
   typeof guApprovals &
   typeof guAuth &
@@ -1771,4 +1784,5 @@ export const gu = mergeGu(
   typeof guNative &
   typeof guOrders &
   typeof guSettings &
-  typeof guShell satisfies GuMessages;
+  typeof guShell &
+  typeof guPressBoard satisfies GuMessages;

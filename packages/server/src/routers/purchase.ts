@@ -1318,6 +1318,17 @@ export const purchaseRouter = router({
       })
       .from(company)
       .where(eq(company.id, ctx.companyId));
+    // Wave-2 M11: every default grade (by code) and item (by name) there already: write nothing,
+    // take no number from the shared company counter.
+    const [gradeRows, itemRows] = await Promise.all([
+      ctx.db.select({ code: scrapGrade.code }).from(scrapGrade).where(eq(scrapGrade.companyId, ctx.companyId)),
+      ctx.db.select({ nameKey: scrapItem.nameKey }).from(scrapItem).where(eq(scrapItem.companyId, ctx.companyId)),
+    ]);
+    const gradeCodes = new Set(gradeRows.map((r) => r.code));
+    const itemKeys = new Set(itemRows.map((r) => r.nameKey));
+    if (DEFAULT_SCRAP_GRADES.every((g) => gradeCodes.has(g.code)) && DEFAULT_SCRAP_ITEMS.every((n) => itemKeys.has(nameKey(n)))) {
+      return { grades: 0, items: 0 };
+    }
     const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
     const userId = ctx.session.user.id;
     const statements: SqliteBatchItem[] = [];

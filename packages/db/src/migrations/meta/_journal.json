@@ -267,6 +267,13 @@
       "when": 1792934840644,
       "tag": "0037_die_share",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1792934841644,
+      "tag": "0038_label_stale",
+      "breakpoints": true
     }
   ]
 }

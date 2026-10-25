@@ -1430,7 +1430,17 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     subjectId: "dev-run-13090-2-late",
     status: "pending",
     requestNote: "Tablet was down on the night shift",
-    meta: { reason: "Tablet was down on the night shift", productionDay: lateShift.productionDay, shiftSeq: lateShift.shiftSeq, runNumber: "PR-9" },
+    // H1 (final explore): the request carries what the approver reads, as press.runs.open writes it.
+    meta: {
+      reason: "Tablet was down on the night shift",
+      productionDay: lateShift.productionDay,
+      shiftSeq: lateShift.shiftSeq,
+      runNumber: "PR-9",
+      pressLineCode: "P2",
+      copyCode: "13090-2",
+      startedAt: lateStart,
+      stoppedAt: lateStop,
+    },
     requestedBy: operatorId,
     createdAt: new Date(todayAt(0.3)),
   });

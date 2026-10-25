@@ -26,7 +26,9 @@ export function OutboxSessionGuard() {
   useEffect(
     () =>
       registerLeaveWarning((count, why) => {
-        toast.warning(tRef.current(why === "signOut" ? "press.console.outbox.signOutLeft" : "press.console.outbox.plantLeft", { count }), { duration: 12_000 });
+        const key =
+          why === "signOut" ? "press.console.outbox.signOutLeft" : why === "offline" ? "press.console.outbox.offlineLeft" : "press.console.outbox.plantLeft";
+        toast.warning(tRef.current(key, { count }), { duration: 12_000 });
       }),
     [],
   );

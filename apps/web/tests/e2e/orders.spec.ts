@@ -408,7 +408,7 @@ test.describe("reallocate", () => {
     // Review m-8: the approver decides on a phone (375 px), the narrowest width the sheet must fit.
     const owner = await newPage(browser);
     await owner.setViewportSize({ width: 375, height: 812 });
-    await signInViaApi(owner, "owner");
+    await signInViaApi(owner, "manager");
     await owner.goto("/approvals?kind=order_reallocate");
     const card = owner.getByTestId("approval-card").filter({ hasText: `Royal Aluminium ${target.number}` });
     await expect(card).toHaveCount(1);
@@ -420,6 +420,9 @@ test.describe("reallocate", () => {
     await expect(summary).toContainText("KD Extrusion, SO-1 line 1");
     await expect(summary).toContainText(`Royal Aluminium, ${target.number} line 1`);
     await expect(summary).toContainText("Reason");
+    // BACKLOG 89: the live facts come first: where the bundle is now and that the decision would move it.
+    await expect(review.getByTestId("live-move-count")).toContainText("1 of 1 would move");
+    await expect(review.getByTestId("live-move-bundles").locator("li[data-will-move='yes']")).toHaveCount(1);
     await expect(review.getByTestId("move-bundles").locator("li")).toHaveCount(1);
     await expect(review.getByTestId("move-bundles")).toContainText(`${kg} kg`);
     await expectNoHorizontalScroll(owner);

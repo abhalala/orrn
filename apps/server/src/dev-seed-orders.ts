@@ -26,6 +26,7 @@ import type { salesOrder, salesOrderLine, bundleTransfer } from "@orrn/db/schema
 import type { docSeries } from "@orrn/db/schema/series";
 import { orderGrams, orderPieces } from "@orrn/domain";
 import { docPeriod } from "@orrn/server/lib/docNumber";
+import { moveForAudit, reallocateMove } from "@orrn/server/lib/reallocate";
 
 import { HOUR_MS, LENGTH_12FT_MM, LENGTH_18FT_MM, istDay, type SeedBundle, type SeedClock } from "./dev-seed-kit";
 
@@ -377,6 +378,13 @@ export function demoOrderSeed(input: DemoOrderInput): DemoOrderSeed {
   const pendingFrom = lineId(KD_DISPATCHING, 2);
   const pendingTo = lineId(TEJURA_OPEN, 1);
   const pendingNote = "Tejura asked for these two angles; KD can wait for the next run";
+  // M7 (final explore): the request says what moves, as orders.reallocate writes it (BACKLOG 34).
+  const pendingFromEnd = { customerName: "KD Extrusion", orderNumber: `SO-${KD_DISPATCHING}`, lineNo: 2 };
+  const pendingToEnd = { customerName: "Tejura & Sons", orderNumber: `SO-${TEJURA_OPEN}`, lineNo: 1 };
+  const pendingMove = reallocateMove(
+    kdPending.map((b) => ({ serial: b.serial, weightG: b.weightG, from: pendingFromEnd })),
+    pendingToEnd,
+  );
   const approvals: (typeof approval.$inferInsert)[] = [
     {
       id: pendingId,
@@ -397,6 +405,7 @@ export function demoOrderSeed(input: DemoOrderInput): DemoOrderSeed {
         lengthMismatchBundleIds: [],
         orderIds: [soId(KD_DISPATCHING), soId(TEJURA_OPEN)],
         dieOwnerApprovalId: null,
+        move: pendingMove,
       },
       requestedBy: officeId,
       createdAt: new Date(clock.todayAt(0.2)),
@@ -453,7 +462,7 @@ export function demoOrderSeed(input: DemoOrderInput): DemoOrderSeed {
     "order.reallocate",
     "bundle_transfer",
     pendingBatch,
-    { status: "pending", approvalId: pendingId, batchId: pendingBatch, toLineId: pendingTo, orderIds: [soId(KD_DISPATCHING), soId(TEJURA_OPEN)], bundles: kdPending.length, kgG: pendingKg, reasonCode: "customer_request" },
+    { status: "pending", approvalId: pendingId, batchId: pendingBatch, toLineId: pendingTo, orderIds: [soId(KD_DISPATCHING), soId(TEJURA_OPEN)], bundles: kdPending.length, kgG: pendingKg, reasonCode: "customer_request", move: moveForAudit(pendingMove) },
     new Date(clock.todayAt(0.2)),
   );
 

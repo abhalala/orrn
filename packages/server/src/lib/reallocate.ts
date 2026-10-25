@@ -15,11 +15,13 @@ import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 
 import { approval } from "@orrn/db/schema/approval";
 import { auditLog } from "@orrn/db/schema/audit";
+import { customer } from "@orrn/db/schema/customers";
 import { bundle } from "@orrn/db/schema/inventory";
-import { bundleTransfer } from "@orrn/db/schema/sales";
+import { bundleTransfer, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 
 import type { ApprovalApplier } from "./approvalApply";
-import { chunk, type OrrnDb, type SqliteBatchItem } from "./atomic";
+import { chunk, mapInChunks, type OrrnDb, type SqliteBatchItem } from "./atomic";
+import { allocatePartyBundleNumbers } from "./docNumber";
 import { createId } from "./id";
 import { sqlUuid } from "./ledger";
 
@@ -232,13 +234,165 @@ export type ReallocateMeta = {
 };
 
 /**
+ * M4 (final explore): a bundle that goes to another customer takes that customer's party number
+ * (its own series under a bundle-number policy, else the serial), so the new customer's packing
+ * list never prints the first customer's number. The old number is kept in the move's audit row.
+ */
+export type PartyRenumber = { bundleId: string; serial: string; from: string | null; to: string };
+
+/** Bundle ids per party-number UPDATE: a CASE pair and an IN entry each (3 bound values) + scope. */
+const RENUMBER_CHUNK = 25;
+
+/** Bundles per read of `bundlePartyInfo` (the select carries ~8 scoped sub-selects besides the ids). */
+export const REALLOCATE_READ_CHUNK = 60;
+
+/** Each bundle's party number and the customer it belongs to now (its line's, else plant stock's origin). */
+export async function bundlePartyInfo(
+  db: OrrnDb,
+  companyId: string,
+  bundleIds: readonly string[],
+): Promise<{ id: string; serial: string; partyNo: string | null; customerId: string | null; status: string; lineId: string | null; dieId: string }[]> {
+  const rows = await mapInChunks(
+    [...new Set(bundleIds)],
+    (part) =>
+      db
+        .select({
+          id: bundle.id,
+          serial: bundle.serial,
+          partyNo: bundle.partyNo,
+          lineCustomerId: salesOrder.customerId,
+          originCustomerId: sql<string | null>`${plantOriginCustomerSql(companyId, sql`${bundle.id}`)}`,
+          lineId: bundle.salesOrderLineId,
+          status: bundle.status,
+          dieId: bundle.dieId,
+        })
+        .from(bundle)
+        .leftJoin(salesOrderLine, and(eq(salesOrderLine.id, bundle.salesOrderLineId), eq(salesOrderLine.companyId, companyId)))
+        .leftJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, companyId)))
+        .where(and(eq(bundle.companyId, companyId), inArray(bundle.id, part))),
+    REALLOCATE_READ_CHUNK,
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    serial: r.serial,
+    partyNo: r.partyNo,
+    customerId: r.lineCustomerId ?? (r.lineId ? null : r.originCustomerId),
+    status: r.status,
+    lineId: r.lineId,
+    dieId: r.dieId,
+  }));
+}
+
+/**
+ * The party numbers bundles take when they go to `targetCustomerId`. A bundle whose number is
+ * already that customer's keeps it. A customer with a policy gets a block of its own series
+ * (allocated now, in serial order); one without uses the serial.
+ */
+export async function partyRenumbersFor(
+  db: OrrnDb,
+  companyId: string,
+  bundles: readonly { id: string; serial: string; partyNo: string | null; customerId: string | null }[],
+  targetCustomerId: string,
+  at: Date,
+  userId: string | null,
+): Promise<PartyRenumber[]> {
+  const moving = bundles.filter((b) => b.customerId !== targetCustomerId).sort((a, b) => a.serial.localeCompare(b.serial, "en", { numeric: true }));
+  if (moving.length === 0) return [];
+  const [target] = await db
+    .select({ policy: customer.bundleNumberPolicy })
+    .from(customer)
+    .where(and(eq(customer.id, targetCustomerId), eq(customer.companyId, companyId)))
+    .limit(1);
+  const policy = target?.policy ?? null;
+  // A customer without a policy: the serial (no allocation, nothing to burn).
+  const plain = moving.map((b) => ({ bundleId: b.id, serial: b.serial, from: b.partyNo, to: b.serial }));
+  if (!policy) return plain.filter((r) => r.to !== (r.from ?? r.serial));
+  const block = await allocatePartyBundleNumbers(db, companyId, targetCustomerId, policy, at, moving.length, userId);
+  return moving.map((b, i) => ({ bundleId: b.id, serial: b.serial, from: b.partyNo, to: block.numbers[i]! }));
+}
+
+/**
+ * I3 (final explore round 1): bundles that go to plant stock take their serial back as the party number.
+ * A customer's own number must not travel into plant stock: a later scan onto another customer's load
+ * would print it on that customer's packing list. A bundle already numbered by its serial is left alone.
+ */
+export function partyRenumbersToPlant(bundles: readonly { id: string; serial: string; partyNo: string | null }[]): PartyRenumber[] {
+  return bundles
+    .filter((b) => b.partyNo !== null && b.partyNo !== b.serial)
+    .map((b) => ({ bundleId: b.id, serial: b.serial, from: b.partyNo, to: b.serial }))
+    .sort((a, b) => a.serial.localeCompare(b.serial, "en", { numeric: true }));
+}
+
+/**
+ * UPDATEs that write the new party numbers, each guarded by `landed` (an SQL condition on the
+ * `bundle` row: it moved in this batch). Chunked under D1's 100 bound values. Each renumbered bundle's
+ * printed sticker is now out of date, so it is flagged (`sticker_stale`) until its label is printed again.
+ */
+export function partyRenumberStatements(db: OrrnDb, companyId: string, renumbers: readonly PartyRenumber[], landed: SQL): SqliteBatchItem[] {
+  return chunk([...renumbers], RENUMBER_CHUNK).map((part) =>
+    db
+      .update(bundle)
+      .set({
+        partyNo: sql`case ${bundle.id} ${sql.join(
+          part.map((r) => sql`when ${r.bundleId} then ${r.to}`),
+          sql` `,
+        )} else ${bundle.partyNo} end`,
+        stickerStale: true,
+      })
+      .where(and(eq(bundle.companyId, companyId), inArray(bundle.id, part.map((r) => r.bundleId)), landed)),
+  );
+}
+
+/** What the audit row keeps of a renumbering: serial, old and new number. */
+export const renumbersForAudit = (renumbers: readonly PartyRenumber[]) => renumbers.map((r) => ({ bundleId: r.bundleId, serial: r.serial, from: r.from, to: r.to }));
+
+/**
+ * Before an `order_reallocate` decision batch (approved only): the party numbers the asked bundles
+ * take on the target customer. Numbers are allocated here; bundles that do not move keep theirs.
+ */
+export async function reallocatePrepare(
+  db: OrrnDb,
+  companyId: string,
+  row: { meta: Record<string, unknown> | null },
+  at: Date,
+  userId: string | null,
+): Promise<PartyRenumber[]> {
+  const meta = row.meta ?? {};
+  const ids = Array.isArray(meta.bundleIds) ? (meta.bundleIds as unknown[]).filter((x): x is string => typeof x === "string") : [];
+  const toLineId = typeof meta.toLineId === "string" ? meta.toLineId : null;
+  if (ids.length === 0 || !toLineId) return [];
+  const [target] = await db
+    .select({ customerId: salesOrder.customerId, dieId: salesOrderLine.dieId, status: salesOrder.status })
+    .from(salesOrderLine)
+    .innerJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, companyId)))
+    .where(and(eq(salesOrderLine.id, toLineId), eq(salesOrderLine.companyId, companyId)))
+    .limit(1);
+  // Nothing lands on a closed order: no number is spent.
+  if (!target || !["booking", "confirmed", "dispatching"].includes(target.status)) return [];
+  // m3: numbers only for the bundles the decision will really move (the same tests as the applier's
+  // insert: still available, still on the line they were asked from, the target line's die), so a bundle
+  // that changed meanwhile leaves no gap in the customer's own series.
+  const askedFrom = new Map<string, string | null>();
+  if (Array.isArray(meta.items)) {
+    for (const it of meta.items as { bundleId?: unknown; fromLineId?: unknown }[]) {
+      if (it && typeof it.bundleId === "string") askedFrom.set(it.bundleId, typeof it.fromLineId === "string" ? it.fromLineId : null);
+    }
+  }
+  const info = (await bundlePartyInfo(db, companyId, ids)).filter(
+    (b) => b.status === "available" && b.dieId === target.dieId && (askedFrom.has(b.id) ? (askedFrom.get(b.id) ?? null) === b.lineId : true),
+  );
+  return partyRenumbersFor(db, companyId, info, target.customerId, at, userId);
+}
+
+/**
  * `order_reallocate` decision (cross-customer move). Approved: each bundle still `available` and
  * still on the line it was asked from moves to the target line (if that order is still open); a
  * transfer row records it with this approval. Rejected: nothing moves. Both write an
  * `order.reallocate` audit row naming the orders, so the order timelines show the outcome. Every
  * statement is scoped to the company and guarded by "this decision landed".
  */
-export const reallocateDecision: ApprovalApplier = (ctx, row, decision) => {
+export const reallocateDecision: ApprovalApplier = (ctx, row, decision, prepared) => {
+  const renumbers = decision === "approved" && Array.isArray(prepared) ? (prepared as PartyRenumber[]) : [];
   const { db, companyId, seq } = ctx;
   const landed = sql`exists (select 1 from approval a where a.id = ${row.id} and a.company_id = ${companyId} and a.server_seq = ${seq} and a.status = ${decision})`;
   const meta = sql`(select a.meta from approval a where a.id = ${row.id} and a.company_id = ${companyId})`;
@@ -300,8 +454,18 @@ export const reallocateDecision: ApprovalApplier = (ctx, row, decision) => {
             sql`exists (select 1 from bundle_transfer t where t.company_id = ${companyId} and t.approval_id = ${row.id} and t.bundle_id = ${B("id")} and t.server_seq = ${seq})`,
           ),
         ),
+      // M4: the moved bundles take the new customer's party numbers (allocated by reallocatePrepare).
+      ...partyRenumberStatements(
+        db,
+        companyId,
+        renumbers,
+        sql`exists (select 1 from bundle_transfer t where t.company_id = ${companyId} and t.approval_id = ${row.id} and t.bundle_id = ${B("id")} and t.server_seq = ${seq})`,
+      ),
     );
   }
+  // M4: the audit row keeps the old and new party numbers of the bundles that really moved.
+  const partyNosJson = JSON.stringify(renumbersForAudit(renumbers));
+  const partyNos = sql`(select json_group_array(json(j.value)) from json_each(${partyNosJson}) j where exists (select 1 from bundle_transfer t where t.company_id = ${companyId} and t.approval_id = ${row.id} and t.bundle_id = json_extract(j.value, '$.bundleId')))`;
   // BACKLOG 34 / explorer H5: the decision's timeline row says what moved (approved: the bundles
   // that really moved and their kg; rejected: what was asked), never "0 bundles, 0.000 kg".
   const movedCount = sql`(select count(*) from bundle_transfer t where t.company_id = ${companyId} and t.approval_id = ${row.id})`;
@@ -320,7 +484,7 @@ export const reallocateDecision: ApprovalApplier = (ctx, row, decision) => {
           action: sql<string>`'order.reallocate'`.as("action"),
           subjectType: sql<string>`'bundle_transfer'`.as("subject_type"),
           subjectId: sql<string>`${row.subjectId}`.as("subject_id"),
-          meta: sql<string>`json_object('status', ${decision === "approved" ? "applied" : "rejected"}, 'approvalId', ${row.id}, 'batchId', ${row.subjectId}, 'toLineId', ${toLine}, 'orderIds', json(coalesce(json_extract(${meta}, '$.orderIds'), '[]')), 'moved', ${movedCount}, 'asked', json_array_length(${meta}, '$.bundleIds'), 'bundles', ${shownCount}, 'kgG', ${shownKg}, 'move', json_object('count', ${shownCount}, 'kgG', ${shownKg}, 'from', json(coalesce(json_extract(${meta}, '$.move.from'), '[]')), 'to', json(json_extract(${meta}, '$.move.to'))))`.as(
+          meta: sql<string>`json_object('status', ${decision === "approved" ? "applied" : "rejected"}, 'approvalId', ${row.id}, 'batchId', ${row.subjectId}, 'toLineId', ${toLine}, 'orderIds', json(coalesce(json_extract(${meta}, '$.orderIds'), '[]')), 'moved', ${movedCount}, 'asked', json_array_length(${meta}, '$.bundleIds'), 'bundles', ${shownCount}, 'kgG', ${shownKg}, 'move', json_object('count', ${shownCount}, 'kgG', ${shownKg}, 'from', json(coalesce(json_extract(${meta}, '$.move.from'), '[]')), 'to', json(json_extract(${meta}, '$.move.to'))), 'partyNos', json(${partyNos}))`.as(
             "meta",
           ),
           at: sql<number>`${ctx.decidedAt.getTime()}`.as("at"),

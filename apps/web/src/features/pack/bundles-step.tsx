@@ -30,6 +30,7 @@ import {
   type ScaleView,
 } from "./scale-view";
 import { useLinePreview, useLinesPreview, useScale } from "./use-pack-server";
+import { focusSelected, stillMayFocus } from "./focus-weight";
 import {
   MAX_BUNDLES,
   addBundle,
@@ -108,9 +109,12 @@ export function BundlesStep({
   const defaultLength = draft.defaults.lengthMm;
   const full = editIndex === null && draft.bundles.length >= MAX_BUNDLES;
 
-  /** Focus Weight without the browser's own scroll, which can leave it under the sticky bar. */
+  /**
+   * Focus Weight without the browser's own scroll (it can leave it under the sticky bar), its text
+   * selected so the first keystroke replaces it and never lands in front of it (BACKLOG 64).
+   */
   const focusWeight = () => {
-    weightRef.current?.focus({ preventScroll: true });
+    focusSelected(weightRef.current);
     setRevealTick((n) => n + 1);
   };
 
@@ -285,7 +289,11 @@ export function BundlesStep({
     setFilledFrom(b.weightSource === "scale" ? (b.scaleReadingG ?? null) : null);
     setReason(b.weightOverrideReason ?? "");
     setReasonError(false);
-    requestAnimationFrame(focusWeight);
+    // After React has written the bundle's values; skipped if the person moved on in that frame.
+    const before = typeof document === "undefined" ? null : document.activeElement;
+    requestAnimationFrame(() => {
+      if (stillMayFocus(before, document.activeElement, document.body)) focusWeight();
+    });
   };
 
   const remove = () => {

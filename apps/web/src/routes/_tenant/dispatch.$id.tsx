@@ -416,7 +416,7 @@ function DispatchDetail({ data }: { data: DetailData }) {
           <CompleteSheet
             open={sheet === "complete"}
             onOpenChange={(open) => setSheet(open ? "complete" : null)}
-            dispatch={{ id: d.id, code: d.code, status }}
+            dispatch={{ id: d.id, code: d.code, status, vehicleNo: d.vehicleNo }}
             customerName={customerName}
             items={items}
             onRefresh={() => void refresh()}

@@ -19,7 +19,8 @@ let storageOverride: Storage_ | null | undefined;
 let active: (Session & { key: string }) | null = null;
 let locked = false;
 let controller = new AbortController();
-export type LeaveWhy = "signOut" | "plant";
+/** `offline`: a sign-out refused for want of a connection (the person stays signed in). */
+export type LeaveWhy = "signOut" | "plant" | "offline";
 let warner: ((count: number, why: LeaveWhy) => void) | null = null;
 let listening = false;
 

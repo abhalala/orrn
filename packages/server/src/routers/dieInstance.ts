@@ -999,6 +999,19 @@ export const dieInstanceRouter = router({
         }
       }
       const plan = planned.plan;
+      // M6 (final explore): a lift names its bands on the request, so the approver reads
+      // "main band to Heavy" and not "tier 2 to 2". Null = the die's main band.
+      const bandIds = [plan.fromBandId, plan.toBandId].filter((x): x is string => Boolean(x));
+      const bands = bandIds.length
+        ? await ctx.db
+            .select({ id: dieBand.id, label: dieBand.label, weightMinG: dieBand.weightMinG, weightMaxG: dieBand.weightMaxG })
+            .from(dieBand)
+            .where(and(eq(dieBand.companyId, ctx.companyId), inArray(dieBand.id, bandIds)))
+        : [];
+      const bandWord = (bandId: string | null) => {
+        const b = bandId ? bands.find((x) => x.id === bandId) : undefined;
+        return b ? bandText(b) : null;
+      };
 
       const tierChangeId = crypto.randomUUID();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
@@ -1016,6 +1029,7 @@ export const dieInstanceRouter = router({
           isLift: plan.isLift,
           fromBandId: plan.fromBandId,
           toBandId: plan.toBandId,
+          ...(plan.isLift ? { fromBandText: bandWord(plan.fromBandId), toBandText: bandWord(plan.toBandId) } : {}),
         },
       });
       try {

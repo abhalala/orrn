@@ -27,3 +27,12 @@ export function showsQueryError(query: QueryState): boolean {
 export function refreshFailed(query: QueryState): boolean {
   return query.isError && query.data !== undefined;
 }
+
+/**
+ * The server said this role may not read it (403), so "check the connection and try again" would be
+ * wrong: final explore L14 (press role opening /press/report by URL).
+ */
+export function isForbiddenError(error: unknown): boolean {
+  const data = (error as { data?: { code?: string; httpStatus?: number } } | null | undefined)?.data;
+  return data?.code === "FORBIDDEN" || data?.httpStatus === 403;
+}

@@ -1086,6 +1086,7 @@ export const bundleRouter = router({
           id: bundle.id,
           serial: bundle.serial,
           partyNo: bundle.partyNo,
+          stickerStale: bundle.stickerStale,
           status: bundle.status,
           quantity: bundle.quantity,
           weightG: bundle.weightG,
@@ -1249,6 +1250,26 @@ export const bundleRouter = router({
         };
       });
       return { company: { name: letterhead.legalName || co?.name || "" }, labels };
+    }),
+
+  /**
+   * The stickers were printed (the label sheet's Print): their "needs reprint" flag clears (final explore
+   * round 1, I3). Only the caller's plant, only bundles that carried the flag. The label printer path
+   * clears it itself when the job is accepted.
+   */
+  labelsPrinted: actionProcedure("bundle.pack")
+    .input(z.object({ bundleIds: z.array(z.string().min(1).max(64)).min(1).max(200) }))
+    .mutation(async ({ ctx, input }) => {
+      let cleared = 0;
+      for (let i = 0; i < input.bundleIds.length; i += 80) {
+        const done = await ctx.db
+          .update(bundle)
+          .set({ stickerStale: false })
+          .where(and(eq(bundle.companyId, ctx.companyId), eq(bundle.stickerStale, true), inArray(bundle.id, input.bundleIds.slice(i, i + 80))))
+          .returning({ id: bundle.id });
+        cleared += done.length;
+      }
+      return { cleared };
     }),
 
   getBundle: companyProcedure

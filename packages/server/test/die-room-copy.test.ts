@@ -273,6 +273,39 @@ describe("tier change and band lift (FP-DR-10)", () => {
     expect(await row(a.id)).toMatchObject({ bandId: null, tierRank: 2 });
   });
 
+  test("M6 (final explore): a lift request names its bands, not only the tiers", async () => {
+    const p = await plant();
+    const { heavy, a } = await lifted(p);
+    const { approvalId } = await p.dieRoom.dieInstance.proposeTier({ dieInstanceId: a.id, lift: true, toBandId: heavy, reason: "6.480 above band" });
+    const [req] = (await p.manager.approval.list({ status: "pending", kind: "die_rerank" })).items.filter((i) => i.id === approvalId);
+    expect(req!.meta).toMatchObject({ isLift: true, fromRank: 1, toRank: 1, fromBandId: null, fromBandText: null, toBandId: heavy, toBandText: "6.2-6.6" });
+    await p.manager.approval.decide({ id: approvalId, decision: "approved" });
+    // Back down: from the heavy band (named) to the main band (null).
+    const back = await p.dieRoom.dieInstance.proposeTier({ dieInstanceId: a.id, lift: true, toBandId: null, reason: "re-cut" });
+    const [down] = (await p.manager.approval.list({ status: "pending", kind: "die_rerank" })).items.filter((i) => i.id === back.approvalId);
+    expect(down!.meta).toMatchObject({ fromBandText: "6.2-6.6", toBandId: null, toBandText: null });
+  });
+
+  test("BACKLOG 89: a request that changes nothing is refused (never 'tier 2 to 2'); the facts show the copy as it is now", async () => {
+    const p = await plant();
+    const { heavy, a } = await lifted(p);
+    await expect(p.dieRoom.dieInstance.proposeTier({ dieInstanceId: a.id, rank: 1, reason: "same" })).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("already tier 1") });
+    await expect(p.dieRoom.dieInstance.proposeTier({ dieInstanceId: a.id, lift: true, toBandId: null, reason: "same band" })).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("already on that band") });
+    const { approvalId } = await p.dieRoom.dieInstance.proposeTier({ dieInstanceId: a.id, lift: true, toBandId: heavy, rank: 2, reason: "6.480 above band" });
+    const facts = await p.manager.approval.facts({ id: approvalId });
+    expect(facts).toMatchObject({
+      kind: "die_rerank",
+      copy: { code: a.code, tierRank: 1, band: { main: true, minG: 5_900, maxG: 6_200 } },
+      request: { fromRank: 1, toRank: 2, isLift: true, fromBandText: null, toBandText: "6.2-6.6", status: "pending" },
+      changedSince: false,
+      reading: null,
+    });
+    // The copy changed after the request was made: the sheet says so.
+    await env.db.update(dieInstance).set({ tierRank: 3 }).where(eq(dieInstance.id, a.id));
+    expect(await p.manager.approval.facts({ id: approvalId })).toMatchObject({ changedSince: true, copy: { tierRank: 3 } });
+    await expect(p.manager.approval.facts({ id: "nope" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
   test("reject leaves the copy on the old band at the old rank", async () => {
     const p = await plant();
     const { heavy, a } = await lifted(p);

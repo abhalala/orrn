@@ -85,6 +85,8 @@ export const guShell = {
     settings: "સેટિંગ",
     account: "અકાઉન્ટ",
     signOut: "સાઇન આઉટ",
+    signOutOffline: "તમે ઑફલાઇન છો; સાઇન આઉટ માટે કનેક્શન જોઈએ. તમે હજી સાઇન ઇન છો.",
+    signOutFailed: "સાઇન આઉટ ન થયું. કનેક્શન તપાસીને ફરી પ્રયાસ કરો. તમે હજી સાઇન ઇન છો.",
     skipToContent: "મુખ્ય ભાગ પર જાઓ",
     scanOrSearch: "સ્કૅન કરો કે શોધો",
     paletteHint: "Serial, dispatch કોડ, die કે ગ્રાહક લખો",

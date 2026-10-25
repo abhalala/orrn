@@ -43,3 +43,14 @@ describe("showsQueryError / refreshFailed", () => {
     expect(refreshFailed({ isError: true, data: [] })).toBe(true);
   });
 });
+
+describe("final explore L14: a 403 is not a connection problem", () => {
+  test("FORBIDDEN by code or status; other errors are not", () => {
+    const { isForbiddenError } = require("./query-errors") as typeof import("./query-errors");
+    expect(isForbiddenError({ message: "x", data: { code: "FORBIDDEN", httpStatus: 403 } })).toBe(true);
+    expect(isForbiddenError({ data: { httpStatus: 403 } })).toBe(true);
+    expect(isForbiddenError({ data: { code: "INTERNAL_SERVER_ERROR", httpStatus: 500 } })).toBe(false);
+    expect(isForbiddenError(new TypeError("Failed to fetch"))).toBe(false);
+    expect(isForbiddenError(null)).toBe(false);
+  });
+});

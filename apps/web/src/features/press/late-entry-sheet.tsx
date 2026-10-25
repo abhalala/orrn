@@ -11,6 +11,8 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { CopyPicker, type PickedCopy } from "@/features/die-room/pickers";
+import { useCompanyTimeZone } from "@/features/dispatch/hooks";
+import { fromZonedInput, toZonedInput } from "@/features/orders/view";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ErrorLines } from "./error-lines";
@@ -20,18 +22,17 @@ import type { QueueCard } from "./types";
 
 const NONE = "__none";
 
-/** `datetime-local` text → epoch ms in the browser's zone, or null. */
-export function localToMs(text: string): number | null {
-  if (!text) return null;
-  const ms = new Date(text).getTime();
-  return Number.isFinite(ms) ? ms : null;
+/**
+ * Final explore L4: the times are typed on the PLANT's clock (`settings.timezone`), whatever zone the
+ * browser is in: a supervisor on a laptop set to another zone types the plant's 09:00 and gets it.
+ */
+export function localToMs(text: string, timeZone: string): number | null {
+  return fromZonedInput(text, timeZone);
 }
 
-/** `datetime-local` text for an instant, in the browser's zone. */
-export function msToLocal(ms: number): string {
-  const d = new Date(ms);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+/** `datetime-local` text for an instant, on the plant's clock. */
+export function msToLocal(ms: number, timeZone: string): string {
+  return toZonedInput(ms, timeZone);
 }
 
 /**
@@ -52,6 +53,7 @@ export function LateEntrySheet({
   queued: readonly QueueCard[];
 }) {
   const { t } = useT();
+  const zone = useCompanyTimeZone();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const key = useActionKey();
@@ -74,9 +76,9 @@ export function LateEntrySheet({
   // The 7-day rule up front: the pickers stop at the window's edges (the server checks it again).
   const bounds = useMemo(() => {
     const now = Date.now();
-    return { min: msToLocal(now - LATE_ENTRY_DAYS * 86_400_000), max: msToLocal(now) };
+    return { min: msToLocal(now - LATE_ENTRY_DAYS * 86_400_000, zone), max: msToLocal(now, zone) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, zone]);
 
   const copies = useQuery({ ...trpc.dieInstance.list.queryOptions({ limit: 200 }), enabled: open });
   const members = useQuery({ ...trpc.company.membersList.queryOptions(), enabled: open });
@@ -113,8 +115,8 @@ export function LateEntrySheet({
 
   const submit = () => {
     setError(null);
-    const start = localToMs(startedAt);
-    const stop = localToMs(stoppedAt);
+    const start = localToMs(startedAt, zone);
+    const stop = localToMs(stoppedAt, zone);
     const issue = lateEntryIssue({ startMs: start, stopMs: stop, nowMs: Date.now() });
     if (issue === "order") return setError(t("press.late.order"));
     if (issue === "future") return setError(t("press.late.futureStop"));

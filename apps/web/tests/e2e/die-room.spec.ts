@@ -176,6 +176,22 @@ for (const width of WIDTHS) {
       // One proposal at a time.
       await expect(page.getByRole("button", { name: "Change tier" })).toBeDisabled();
       await expectClean(page);
+
+      // BACKLOG 89: the manager's sheet shows the copy as it is now and what is asked (never "tier 3 to 3");
+      // Approve is open once those facts have loaded.
+      await signInViaApi(page, "manager");
+      await page.goto("/approvals?kind=die_rerank");
+      const card = page.getByTestId("approval-card").filter({ hasText: plan.tierCopy });
+      await expect(card).toHaveCount(1);
+      await expect(card).not.toContainText("tier 3 to 3");
+      await card.getByRole("button", { name: /^Review/ }).click();
+      const review = page.getByRole("dialog");
+      const live = review.getByTestId("live-tier");
+      await expect(live).toContainText(plan.tierCopy);
+      await expect(live).toContainText("to 3");
+      await expect(live).toContainText("Band");
+      await expect(review.getByRole("button", { name: "Approve" })).toBeEnabled();
+      await expectNoHorizontalScroll(page);
     });
   });
 }

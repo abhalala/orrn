@@ -61,6 +61,8 @@ const publicStrings = new Set(Object.values(enPublic).flatMap(function all(v: un
 const lazyText: [string, string[]][] = [
   ["the Hindi dictionary (hi.ts)", dictionarySignatures(hi)],
   ["the full English dictionary (en.ts)", dictionarySignatures(en, publicStrings)],
+  // Final explore I2: the audit action words are for the audit rows only (scripts/route-imports.test.ts checks the imports).
+  ["the audit action words (features/audit/action-words.ts)", ["die_maker_job.receive", "spectro.inbox.dismiss", "press_run.undo_start"]],
   [
     "the guide books",
     dictionarySignatures(

@@ -58,8 +58,19 @@ async function apiAs(role: LocalRole): Promise<Api> {
 }
 
 /** A fresh browser context signed in as `role`, at `width`. */
-async function openAs(browser: Browser, role: LocalRole, width: number, path: string, opts: { locale?: "hi" | "gu" } = {}): Promise<{ page: Page; context: BrowserContext }> {
-  const context = await browser.newContext({ viewport: { width, height: width < 600 ? 800 : 900 }, colorScheme: "light", reducedMotion: "reduce" });
+async function openAs(
+  browser: Browser,
+  role: LocalRole,
+  width: number,
+  path: string,
+  opts: { locale?: "hi" | "gu"; timezoneId?: string } = {},
+): Promise<{ page: Page; context: BrowserContext }> {
+  const context = await browser.newContext({
+    viewport: { width, height: width < 600 ? 800 : 900 },
+    colorScheme: "light",
+    reducedMotion: "reduce",
+    ...(opts.timezoneId ? { timezoneId: opts.timezoneId } : {}),
+  });
   const page = await context.newPage();
   if (opts.locale) await page.addInitScript((l) => localStorage.setItem("orrn.locale", l), opts.locale);
   await signInViaApi(page, role);
@@ -95,10 +106,14 @@ async function shot(page: Page, width: number, name: string) {
 }
 
 const kg1 = (g: number) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(g / 1000);
+/** A `datetime-local` value on the PLANT's clock (the seed plant is Asia/Kolkata): final explore L4. */
 const localInput = (ms: number) => {
-  const d = new Date(ms);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+      .formatToParts(new Date(ms))
+      .map((x) => [x.type, x.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 };
 
 /** Walk the stepper with "Save and next" until the last step (Log run / Save) shows. */
@@ -283,6 +298,32 @@ for (const width of WIDTHS) {
     test.afterAll(async () => {
       await cleanup(created);
     });
+
+    if (width === 820) {
+      test("L14 (final explore): the press role opening /press/report by URL is told it has no access, not to check the connection", async ({ browser }) => {
+        const { page, context } = await openAs(browser, "press", width, "/press/report");
+        const main = page.locator("main#main");
+        await expect(main.getByText("Your role can't open the press report. Ask an owner, admin or manager.")).toBeVisible({ timeout: 30_000 });
+        await expect(main.getByText("Check the connection", { exact: false })).toHaveCount(0);
+        await context.close();
+      });
+
+      test("M5 (final explore): the press overview and a line board read Gujarati in gu", async ({ browser }) => {
+        const { page, context } = await openAs(browser, "press", width, "/press", { locale: "gu" });
+        const main = page.locator("main#main");
+        await expect(main).toContainText("દરેક પ્રેસ: શું ચાલે છે અને શું રાહ જુએ છે.");
+        await expect(main).toContainText("રોજનો પ્રેસ સારાંશ");
+        for (const english of ["Every press: what is running and what waits", "Nothing running", "On the line", "Today, logged", "Open the queue", "Open the station", "Daily press summary"]) {
+          await expect(main.getByText(english, { exact: false })).toHaveCount(0);
+        }
+        await page.goto(`/press/lines/${fx.lineId}`);
+        await expect(main).toContainText(`${fx.lineCode} ની કતાર`, { timeout: 20_000 });
+        for (const english of ["Goes against", "Jobs for this press", "Waiting"]) {
+          await expect(main.getByText(english, { exact: false })).toHaveCount(0);
+        }
+        await context.close();
+      });
+    }
 
     test("line board shows P1, P2 and the test press with running and waiting counts", async ({ browser }) => {
       const { page, context } = await openAs(browser, "supervisor", width, "/press");
@@ -600,14 +641,17 @@ for (const width of WIDTHS) {
 
     test("supervisor enters a run late: sheet, then a counting run flagged and waiting for approval", async ({ browser }) => {
       test.setTimeout(90_000);
-      const { page, context } = await openAs(browser, "supervisor", width, `/press/lines/${fx.lineId}`);
+      // Final explore L4: a laptop set to another zone (Phoenix, 12 h 30 min behind) still types the
+      // plant's clock; before, the plant's 3 h ago read as a time in the future there.
+      const { page, context } = await openAs(browser, "supervisor", width, `/press/lines/${fx.lineId}`, { timezoneId: "America/Phoenix" });
       await page.getByRole("button", { name: "Late entry" }).click();
       const sheet = page.getByRole("dialog");
       // The 7-day rule is stated before anything is typed, and the pickers stop at its edges.
       await expect(sheet.locator('[data-slot="late-window"]')).toContainText("last 7 days");
       const minStart = await sheet.getByLabel("Started", { exact: true }).getAttribute("min");
-      expect(Number(new Date(minStart!))).toBeGreaterThan(Date.now() - 7.1 * 86_400_000);
-      expect(Number(new Date(minStart!))).toBeLessThan(Date.now() - 6.9 * 86_400_000);
+      // The bounds are on the plant clock (IST) too.
+      expect(Number(new Date(`${minStart}:00+05:30`))).toBeGreaterThan(Date.now() - 7.1 * 86_400_000);
+      expect(Number(new Date(`${minStart}:00+05:30`))).toBeLessThan(Date.now() - 6.9 * 86_400_000);
       await sheet.getByRole("radio", { name: "A run not in the queue" }).click();
       await pickOption(page, sheet.getByLabel("Die copy"), new RegExp(`^${fx.lateCopy.code}`));
       const now = Date.now();
@@ -632,6 +676,37 @@ for (const width of WIDTHS) {
       await shot(page, width, "station-late");
       await clean(page);
       await context.close();
+
+      // H1 (final explore): the approver sees what the late entry asks to accept before deciding:
+      // the run, the press, the copy, the typed start and stop, kg in and good, and a link to the run.
+      const ownerApi = await apiAs("owner");
+      const pending = await ownerApi.q<{ items: { id: string; subjectId: string; meta: Record<string, unknown> }[] }>("approval.list", { status: "pending", kind: "press_late_entry", limit: 200 });
+      await ownerApi.dispose();
+      const req = pending.items.find((i) => i.meta.pressLineCode === fx.lineCode);
+      expect(req, "the late entry's request names the test press").toBeTruthy();
+      const runNumber = String(req!.meta.runNumber);
+      expect(req!.meta.copyCode).toBe(fx.lateCopy.code);
+      const owner = await openAs(browser, "owner", width, "/approvals?kind=press_late_entry");
+      const card = owner.page.getByTestId("approval-card").filter({ hasText: `Run ${runNumber} on ${fx.lineCode}, entered late` });
+      await expect(card).toHaveCount(1);
+      await card.getByRole("button", { name: /^Review/ }).click();
+      const review = owner.page.getByRole("dialog");
+      const summary = review.getByTestId("late-entry-summary");
+      await expect(summary.locator('[data-row="run"]')).toContainText(runNumber);
+      await expect(summary.locator('[data-row="line"]')).toContainText(fx.lineCode);
+      await expect(summary.locator('[data-row="copy"]')).toContainText(fx.lateCopy.code);
+      // Typed 3 h ago to 2 h ago: one hour on the plant's clock.
+      await expect(summary.locator('[data-row="times"]')).toContainText(" to ");
+      await expect(summary.locator('[data-row="duration"]')).toContainText("1 h 00 min");
+      await expect(summary.locator('[data-row="kg-in"]')).toContainText("Not counted yet");
+      await expect(summary.locator('[data-row="good"]')).toContainText("Not counted yet");
+      await expect(review.getByRole("link", { name: "Open run" })).toHaveAttribute("href", `/press/runs/${req!.subjectId}`);
+      await expect(review.getByRole("button", { name: "Approve" })).toBeEnabled();
+      await expectNoHorizontalScroll(owner.page);
+      const box = await summary.boundingBox();
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      await shot(owner.page, width, "late-entry-review");
+      await owner.context.close();
     });
 
     if (width === 1280) {

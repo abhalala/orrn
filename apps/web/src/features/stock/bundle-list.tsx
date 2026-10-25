@@ -27,6 +27,8 @@ export type BundleListItem = {
   createdAt: string | number | Date;
   /** The customer's own bundle number (FP-PK-07); shown only when it differs from the serial. */
   partyNo?: string | null;
+  /** The printed sticker carries an old party number (a move renumbered the bundle). */
+  stickerStale?: boolean;
   /** Where it is stacked: the yard code, null when no yard is recorded (legacy stock). */
   locationCode?: string | null;
   /** The order line it sits on now (`SO-12/1`); plant stock has none. */
@@ -81,6 +83,7 @@ export function BundleList({
               {partyNoLabel({ serial: r.serial, partyNo: r.partyNo ?? null }) ? (
                 <span className="font-mono text-[12px] text-muted-foreground">{t("packingList.v2.partyShort", { number: r.partyNo! })}</span>
               ) : null}
+              {r.stickerStale ? <Chip tone="amber" data-testid="sticker-stale">{t("pack.stickerStale")}</Chip> : null}
             </span>
           ),
         }
@@ -91,6 +94,7 @@ export function BundleList({
             <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="font-mono whitespace-nowrap" data-serial={r.serial}>{r.serial}</span>
               {chip(r)}
+              {r.stickerStale ? <Chip tone="amber" data-testid="sticker-stale">{t("pack.stickerStale")}</Chip> : null}
             </span>
           ),
         },
