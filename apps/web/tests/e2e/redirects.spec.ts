@@ -76,12 +76,16 @@ test.describe("old URLs redirect", () => {
     await expect(page.getByText("Not found in this company")).toBeVisible();
   });
 
-  test("/packing-lists/$id resolves to its dispatch", async ({ page }) => {
-    const { items } = await trpcGet<{ items: { id: string; dispatchId: string }[] }>(page, "packingList.list", { limit: 1 });
+  // W1-PK-W: /packing-lists/$id is the packing list's own page (any revision, combined lists), no
+  // longer a redirect; it names the list and links back to its dispatch.
+  test("/packing-lists/$id shows the list and links to its dispatch", async ({ page }) => {
+    const { items } = await trpcGet<{ items: { id: string; code: string; dispatchId: string }[] }>(page, "packingList.list", { limit: 1 });
     const first = items[0];
     test.skip(!first, "the seed has no packing list");
     await page.goto(`/packing-lists/${first!.id}`);
-    await expect(page).toHaveURL(new RegExp(`/dispatch/${first!.dispatchId}$`));
+    await expect(page).toHaveURL(new RegExp(`/packing-lists/${first!.id}$`));
+    await expect(page.getByRole("heading", { level: 1, name: first!.code })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("link", { name: "Dispatch", exact: true }).first()).toHaveAttribute("href", `/dispatch/${first!.dispatchId}`);
   });
 
   test("/packing-lists/$id for an unknown id says not found", async ({ page }) => {
