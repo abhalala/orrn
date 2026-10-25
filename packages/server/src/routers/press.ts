@@ -563,6 +563,8 @@ export const pressRouter = router({
           kind: reasonCode.kind,
           code: reasonCode.code,
           label: reasonCode.label,
+          labelHi: reasonCode.labelHi,
+          labelGu: reasonCode.labelGu,
           requiresNote: reasonCode.requiresNote,
           active: reasonCode.active,
           sortOrder: reasonCode.sortOrder,
