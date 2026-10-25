@@ -881,6 +881,9 @@ test.describe("audit viewer", () => {
       await open(page, "/audit", { width });
       await expect(page.getByRole("heading", { level: 1, name: "Audit log" })).toBeVisible();
       const list = page.getByTestId("audit-list");
+      // Wave-2 M5: the action reads as words; its code stays under it, small.
+      await expect(list).toContainText("Plant settings changed");
+      await expect(list).toContainText("Device shut out");
       await expect(list).toContainText("company.settings.update");
       await expect(list).toContainText("device.revoke");
       await expect(list).toContainText("orrn support");

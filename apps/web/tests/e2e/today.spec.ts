@@ -676,6 +676,22 @@ test.describe("accessibility", () => {
     expect(outline, "focused row shows a ring").not.toBe("none");
   });
 
+  test("M5 (final explore): Gujarati Today has no English stock-age tile or chart toggle", async ({ page }) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem("orrn.locale", "gu");
+      } catch {
+        /* storage blocked */
+      }
+    });
+    await open(page, { width: 820 });
+    await expect(page.locator("html")).toHaveAttribute("lang", "gu");
+    const main = page.locator("main#main");
+    await expect(main.getByText("90 દિવસથી જૂનો સ્ટોક")).toBeVisible({ timeout: 20_000 });
+    await expect(main.getByText("ટેબલ બતાવો").first()).toBeVisible();
+    for (const english of ["Stock older than", "Show table"]) await expect(main.getByText(english, { exact: false })).toHaveCount(0);
+  });
+
   test("Hindi: the screen reads in Devanagari and keeps Latin digits", async ({ page }) => {
     await page.addInitScript(() => {
       try {

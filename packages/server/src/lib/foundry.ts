@@ -52,6 +52,17 @@ export const DEFAULT_RETURN_STREAMS: readonly { code: string; name: string; kind
 export const DROSS_STREAM = "DROSS";
 export const FE_STREAM = "FE";
 
+/** True when the company already has every default stream (by code or by name), so seeding would add nothing. */
+export async function defaultReturnStreamsPresent(db: OrrnDb, companyId: string): Promise<boolean> {
+  const rows = await db
+    .select({ code: returnStream.code, nameKey: returnStream.nameKey })
+    .from(returnStream)
+    .where(eq(returnStream.companyId, companyId));
+  const codes = new Set(rows.map((r) => r.code));
+  const names = new Set(rows.map((r) => r.nameKey));
+  return DEFAULT_RETURN_STREAMS.every((s) => codes.has(s.code) || names.has(nameKey(s.name)));
+}
+
 /** Insert the default streams a company is missing (by code or name); existing rows are untouched. */
 export function defaultReturnStreamStatements(
   db: OrrnDb,

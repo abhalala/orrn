@@ -11,7 +11,10 @@ import { auditLog, bundle, customer } from "@orrn/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { kg, NOON, salesHelpers, SLOW, type SalesPlant } from "./sales-fixture";
+import { NOON, salesHelpers, SLOW, type SalesPlant } from "./sales-fixture";
+
+/** @orrn/documents is a client package (it imports this one): load it by path, outside this package's type check. */
+const DOCS_PATH = "../../documents/src/packing-list/index";
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
@@ -128,7 +131,7 @@ describe("M4: the new customer's party number after a reallocation", () => {
     await p.owner.dispatch.complete({ id: d });
     const snap = plSchema.parse((await plRow(d))!.snapshot) as Snap;
     expect(serials.map((s) => snap.rowInfo![s]!.partyNo)).toEqual(["2026-27/2", "2026-27/3"]);
-    const html = ((await import("../../documents/src/packing-list/index")) as { buildPackingListHtml(pl: never, code: string): string }).buildPackingListHtml(
+    const html = ((await import(DOCS_PATH)) as { buildPackingListHtml(pl: never, code: string): string }).buildPackingListHtml(
       snap as never,
       snap.header.plNumber,
     );

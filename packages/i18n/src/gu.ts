@@ -11,6 +11,7 @@ import type { Messages } from "./en";
  */
 import { refusalGu } from "./native/refusal.gu";
 import { guApprovals } from "./gu-more/approvals";
+import { guPressBoard } from "./gu-more/press-board";
 import { guAuth } from "./gu-more/auth";
 import { guBundle } from "./gu-more/bundle";
 import { guCustomers } from "./gu-more/customers";
@@ -29,7 +30,7 @@ export type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : D
  * Dotted namespaces (or single keys) gu must carry in full; gu.test.ts fails on any en key under one that is missing.
  * W4-GU (BACKLOG 43; PF §9-8 first ship): the floor screens plus the chrome around them are complete, so a new
  * key in any of these namespaces needs its Gujarati in the same change. Left to fall back to English on purpose:
- * the office-only namespaces (admin, masters, purchase, store, imports, vendors, press.report/plan/queue/summary,
+ * the office-only namespaces (admin, masters, purchase, store, imports, vendors, press.report/plan/summary (their titles are floor links),
  * orders.form/plan/book/hold/detail except the lines below, customers.form/detail except the lines below, the
  * party portal and marketing pages) and the guide texts.
  */
@@ -64,6 +65,9 @@ export const GU_FLOOR_NAMESPACES = [
   "customers.detail.recent.title", "customers.detail.openOrders",
   // W4-MASTERS: the press alerts list and the spectro inbox are floor screens
   "press.alerts", "foundry.inbox",
+  // Final explore M5: the press overview and a press's line board (its queue) are where the press role
+  // lands; Today's stock-age tile and the chart table toggle are on the owner's floor Today
+  "press.title", "press.board", "press.queue", "press.summary.title", "press.report.title", "reports.todayTile", "charts",
 ] as const;
 
 /**
@@ -535,6 +539,7 @@ const guBase = {
       pinned: "આ લાઇન die કૉપી {code} માટે છે.",
       pinnedOverride: "ઑફિસ: બીજી કૉપી પર પૅક કરો",
       suggested: "સૂચવેલું",
+      booking: "બુકિંગ, કન્ફર્મ નથી",
       lineDetail: "{ordered} kg ઓર્ડરમાંથી {baki} kg બાકી",
       copy: "Die કૉપી",
       copyHint: "જે કૉપીથી આ bundle બન્યા. વજન તેના બૅન્ડથી તપાસાશે.",
@@ -1733,6 +1738,7 @@ export const gu = mergeGu(
   guOrders,
   guSettings,
   guShell,
+  guPressBoard,
 ) as typeof guBase &
   typeof guApprovals &
   typeof guAuth &
@@ -1745,4 +1751,5 @@ export const gu = mergeGu(
   typeof guNative &
   typeof guOrders &
   typeof guSettings &
-  typeof guShell satisfies GuMessages;
+  typeof guShell &
+  typeof guPressBoard satisfies GuMessages;

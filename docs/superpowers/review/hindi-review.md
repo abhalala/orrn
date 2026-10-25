@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5667 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 5831 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -545,7 +545,7 @@ Counts: 5667 screen strings in 49 groups, 35 guides with 646 strings.
 | `floor.store` | Store | स्टोर |
 | `floor.storeHint` | Chemicals, fuel and spares | केमिकल, ईंधन और स्पेयर |
 
-### pack (208)
+### pack (209)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -741,6 +741,7 @@ Counts: 5667 screen strings in 49 groups, 35 guides with 646 strings.
 | `source.pinned` | This line is for die copy {code}. | यह लाइन die कॉपी {code} के लिए है। |
 | `source.pinnedOverride` | Office: pack on another copy | ऑफिस: दूसरी कॉपी पर पैक करें |
 | `source.suggested` | Suggested | सुझाया गया |
+| `source.booking` | Booking, not confirmed | बुकिंग, कन्फ़र्म नहीं |
 | `source.lineDetail` | {baki} kg baki of {ordered} kg ordered | {ordered} kg ऑर्डर में से {baki} kg बाकी |
 | `source.copy` | Die copy | Die कॉपी |
 | `source.copyHint` | The copy that made these bundles. Its band judges the weight. | जिस कॉपी से ये bundle बने। वज़न उसी के बैंड से जांचा जाएगा। |
@@ -5526,7 +5527,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (49)
+### audit (212)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5579,6 +5580,169 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load the audit log. Try again. | ऑडिट लॉग लोड नहीं हुआ। फिर कोशिश करें। |
 | `listLabel` | Audit entries | ऑडिट एंट्री |
 | `noAccess` | Your role can't read the audit log. Ask an owner, admin or manager. | आपकी भूमिका ऑडिट लॉग नहीं पढ़ सकती। मालिक, एडमिन या मैनेजर से कहें। |
+| `actions.app_release__publish` | App build published | ऐप बिल्ड जारी किया |
+| `actions.app_release__update` | App build changed | ऐप बिल्ड बदला |
+| `actions.approval__approved` | Request approved | रिक्वेस्ट मंज़ूर की |
+| `actions.approval__rejected` | Request rejected | रिक्वेस्ट नामंज़ूर की |
+| `actions.auth__password_force_change` | Password change asked for | पासवर्ड बदलने को कहा |
+| `actions.auth__password_set` | Password set | पासवर्ड सेट किया |
+| `actions.backup__drill` | Backup drill run | बैकअप ड्रिल चलाई |
+| `actions.backup__drill__discard` | Backup drill thrown away | बैकअप ड्रिल हटाई |
+| `actions.backup__export` | Backup downloaded | बैकअप डाउनलोड किया |
+| `actions.bundle__import` | Bundles imported | बंडल इंपोर्ट किए |
+| `actions.bundle__receipt__create` | Bundles packed | बंडल पैक किए |
+| `actions.bundle__receipt__pin_override` | Packed on another copy than the order pins | ऑर्डर की तय कॉपी के बजाय दूसरी कॉपी पर पैक किया |
+| `actions.bundle__transition` | Bundle status changed | बंडल का स्टेटस बदला |
+| `actions.cast__open` | Cast opened | कास्ट खोला |
+| `actions.company__settings__update` | Plant settings changed | प्लांट की सेटिंग्स बदलीं |
+| `actions.company__switch` | Switched plant | प्लांट बदला |
+| `actions.count__cancel` | Stock count cancelled | स्टॉक गिनती रद्द की |
+| `actions.count__close` | Stock count closed | स्टॉक गिनती बंद की |
+| `actions.count__moveFound` | Found bundle moved to its yard | मिला बंडल उसके यार्ड में रखा |
+| `actions.count__removeScans` | Scans taken off a count | गिनती से स्कैन हटाए |
+| `actions.count__start` | Stock count started | स्टॉक गिनती शुरू की |
+| `actions.count__voidRequested` | Void of missing bundles asked | गायब बंडल void करने को कहा |
+| `actions.customer__create` | Customer added | ग्राहक जोड़ा |
+| `actions.customer__delete` | Customer removed | ग्राहक हटाया |
+| `actions.customer__import` | Customers imported | ग्राहक इंपोर्ट किए |
+| `actions.customer__update` | Customer changed | ग्राहक बदला |
+| `actions.dc_note__create` | Debit or credit note raised | डेबिट या क्रेडिट नोट बनाया |
+| `actions.device__rename` | Device renamed | डिवाइस का नाम बदला |
+| `actions.device__restore` | Device let back in | डिवाइस फिर चालू किया |
+| `actions.device__revoke` | Device shut out | डिवाइस बंद किया |
+| `actions.die__create` | Die added | डाई जोड़ी |
+| `actions.die__delete` | Die removed | डाई हटाई |
+| `actions.die__import` | Dies imported | डाई इंपोर्ट कीं |
+| `actions.die__update` | Die changed | डाई बदली |
+| `actions.die_band__create` | Die band added | डाई बैंड जोड़ा |
+| `actions.die_band__retire` | Die band retired | डाई बैंड बंद किया |
+| `actions.die_band__update` | Die band changed | डाई बैंड बदला |
+| `actions.die_file__add` | Die file added | डाई फ़ाइल जोड़ी |
+| `actions.die_file__remove` | Die file removed | डाई फ़ाइल हटाई |
+| `actions.die_instance__create` | Die copy added | डाई कॉपी जोड़ी |
+| `actions.die_instance__update` | Die copy changed | डाई कॉपी बदली |
+| `actions.die_issue__issue` | Die issued to a press | डाई प्रेस को दी |
+| `actions.die_issue__return` | Die back from the press | डाई प्रेस से वापस आई |
+| `actions.die_maker__archive` | Die maker archived | डाई मेकर आर्काइव किया |
+| `actions.die_maker__create` | Die maker added | डाई मेकर जोड़ा |
+| `actions.die_maker__update` | Die maker changed | डाई मेकर बदला |
+| `actions.die_maker_job__send` | Die sent to the die maker | डाई, डाई मेकर को भेजी |
+| `actions.die_owner__close` | Use of another customer's die closed | दूसरे ग्राहक की डाई की छूट बंद की |
+| `actions.die_owner__request` | Use of another customer's die asked | दूसरे ग्राहक की डाई चलाने को कहा |
+| `actions.die_owner__set` | Die owner set | डाई का मालिक तय किया |
+| `actions.die_reading__add` | Die weight reading added | डाई वज़न रीडिंग जोड़ी |
+| `actions.die_tier__propose` | Die tier change asked | डाई टियर बदलने को कहा |
+| `actions.die_trial__fail` | Die trial failed | डाई ट्रायल फेल |
+| `actions.die_trial__pass` | Die trial passed | डाई ट्रायल पास |
+| `actions.die_trial__release` | Die released from trial | डाई ट्रायल से छोड़ी |
+| `actions.die_work__add` | Die work logged | डाई का काम दर्ज किया |
+| `actions.die_work__trial` | Die put on trial | डाई ट्रायल पर रखी |
+| `actions.dispatch__addBundle` | Bundle added to a dispatch | बंडल dispatch में जोड़ा |
+| `actions.dispatch__add_unassigned` | Plant stock added to a dispatch | प्लांट स्टॉक dispatch में जोड़ा |
+| `actions.dispatch__cancel` | Dispatch cancelled | Dispatch रद्द किया |
+| `actions.dispatch__capacity_override` | Dispatch over the vehicle capacity | गाड़ी की क्षमता से ज़्यादा dispatch |
+| `actions.dispatch__complete` | Dispatch completed | Dispatch पूरा किया |
+| `actions.dispatch__create` | Dispatch created | Dispatch बनाया |
+| `actions.dispatch__delete` | Dispatch deleted | Dispatch हटाया |
+| `actions.dispatch__linkItem` | Dispatch bundle put on an order line | Dispatch का बंडल ऑर्डर लाइन पर रखा |
+| `actions.dispatch__overdraw__request` | Dispatch over the order asked | ऑर्डर से ज़्यादा dispatch के लिए कहा |
+| `actions.dispatch__relink` | Dispatch bundles moved to another line | Dispatch के बंडल दूसरी लाइन पर रखे |
+| `actions.dispatch__removeBundle` | Bundle taken off a dispatch | बंडल dispatch से हटाया |
+| `actions.dispatch__reserve` | Dispatch reserved | Dispatch रिज़र्व किया |
+| `actions.dispatch__setPackingGroup` | Packing list group set | पैकिंग लिस्ट ग्रुप तय किया |
+| `actions.dispatch__unreserve` | Dispatch back to draft | Dispatch फिर ड्राफ़्ट में |
+| `actions.dispatch__update` | Dispatch details changed | Dispatch की जानकारी बदली |
+| `actions.location__create` | Yard added | यार्ड जोड़ा |
+| `actions.location__seedDefaults` | Default yards added | डिफ़ॉल्ट यार्ड जोड़े |
+| `actions.location__update` | Yard changed | यार्ड बदला |
+| `actions.melt__cancel` | Melt cancelled | मेल्ट रद्द किया |
+| `actions.melt__create` | Melt started | मेल्ट शुरू किया |
+| `actions.member__invite` | Team member invited | टीम मेंबर को इनवाइट किया |
+| `actions.member__invite__accept` | Invite accepted | इनवाइट स्वीकार किया |
+| `actions.member__invite__revoke` | Invite cancelled | इनवाइट रद्द किया |
+| `actions.member__remove` | Team member removed | टीम मेंबर हटाया |
+| `actions.member__updateRole` | Team member's role changed | टीम मेंबर का रोल बदला |
+| `actions.nitriding__add` | Nitriding logged | नाइट्राइडिंग दर्ज की |
+| `actions.nitriding__back` | Die back from nitriding | डाई नाइट्राइडिंग से वापस |
+| `actions.nitriding__out` | Die sent for nitriding | डाई नाइट्राइडिंग को भेजी |
+| `actions.order__cancel` | Order cancelled | ऑर्डर रद्द किया |
+| `actions.order__close` | Order closed | ऑर्डर बंद किया |
+| `actions.order__confirm` | Order confirmed | ऑर्डर कन्फ़र्म किया |
+| `actions.order__create` | Order created | ऑर्डर बनाया |
+| `actions.order__hold` | Stock held for an order line | ऑर्डर लाइन के लिए स्टॉक रोका |
+| `actions.order__reallocate` | Bundles moved to another order | बंडल दूसरे ऑर्डर पर भेजे |
+| `actions.order__release` | Hold on an order line ended | ऑर्डर लाइन की रोक हटाई |
+| `actions.order__update` | Order changed | ऑर्डर बदला |
+| `actions.order__weight__refresh` | Order weights refreshed | ऑर्डर का वज़न फिर से निकाला |
+| `actions.packingList__combine` | Packing lists combined | पैकिंग लिस्ट जोड़ीं |
+| `actions.packingList__create` | Packing list issued | पैकिंग लिस्ट बनाई |
+| `actions.packingList__regenerate` | Packing list revised | पैकिंग लिस्ट फिर से बनाई |
+| `actions.plan__cancel` | Press plan cancelled | प्रेस प्लान रद्द किया |
+| `actions.plan__close` | Press plan closed | प्रेस प्लान बंद किया |
+| `actions.plan__create` | Press plan created | प्रेस प्लान बनाया |
+| `actions.plan__release` | Press plan released to the press | प्रेस प्लान प्रेस को भेजा |
+| `actions.plan__update` | Press plan changed | प्रेस प्लान बदला |
+| `actions.platform__company__modules__update` | Plant modules changed by orrn support | orrn सपोर्ट ने प्लांट के मॉड्यूल बदले |
+| `actions.platform__waitlist__signInLink` | Owner sign-in link made | मालिक का साइन-इन लिंक बनाया |
+| `actions.portal__certificate__issue` | Test certificate issued to the party | पार्टी को टेस्ट सर्टिफ़िकेट दिया |
+| `actions.portal__order__create` | Order placed from the party portal | पार्टी पोर्टल से ऑर्डर आया |
+| `actions.portal__section__grant` | Section shown to the party | पार्टी को सेक्शन दिखाया |
+| `actions.portal__section__revoke` | Section hidden from the party | पार्टी से सेक्शन छिपाया |
+| `actions.portal__user__accept` | Party login accepted | पार्टी लॉगिन स्वीकार हुआ |
+| `actions.portal__user__grant` | Party login given | पार्टी को लॉगिन दिया |
+| `actions.portal__user__revoke` | Party login turned off | पार्टी लॉगिन बंद किया |
+| `actions.press__alert__ack` | Press alert acknowledged | प्रेस अलर्ट देखा |
+| `actions.press__alert__threshold` | Press alert limits changed | प्रेस अलर्ट की सीमा बदली |
+| `actions.press__run__close` | Press run logged | प्रेस रन दर्ज किया |
+| `actions.press_downtime__start` | Press stopped (downtime) | प्रेस रुका (डाउनटाइम) |
+| `actions.press_downtime__stop` | Press running again | प्रेस फिर चालू |
+| `actions.press_line__create` | Press line added | प्रेस लाइन जोड़ी |
+| `actions.press_line__restore` | Press line back in use | प्रेस लाइन फिर चालू |
+| `actions.press_line__retire` | Press line retired | प्रेस लाइन बंद की |
+| `actions.press_line__update` | Press line changed | प्रेस लाइन बदली |
+| `actions.press_plan_line__pull_back` | Length taken back to planning | लंबाई वापस प्लानिंग में ली |
+| `actions.press_run__close` | Press run logged | प्रेस रन दर्ज किया |
+| `actions.press_run__open` | Press run entered late | प्रेस रन बाद में भरा |
+| `actions.press_run__queue_move` | Press queue order changed | प्रेस कतार का क्रम बदला |
+| `actions.press_run__reopen` | Press run reopened | प्रेस रन फिर खोला |
+| `actions.press_run__reopen_request` | Press run reopen asked | प्रेस रन फिर खोलने को कहा |
+| `actions.press_run__time_request` | Press run times sent for a check | प्रेस रन का समय जांच को भेजा |
+| `actions.press_run__urgent` | Press run urgency changed | प्रेस रन की जल्दी बदली |
+| `actions.press_run__void` | Press run voided | प्रेस रन void किया |
+| `actions.purchase_lot__cancel` | Scrap lot cancelled | स्क्रैप लॉट रद्द किया |
+| `actions.purchase_lot__create` | Scrap lot received | स्क्रैप लॉट आया |
+| `actions.purchase_lot__ok` | Scrap lot marked OK | स्क्रैप लॉट OK किया |
+| `actions.purchase_lot__unload` | Scrap lot unloaded | स्क्रैप लॉट उतारा |
+| `actions.purchase_lot__update` | Scrap lot changed | स्क्रैप लॉट बदला |
+| `actions.reason_code__create` | Reason added | कारण जोड़ा |
+| `actions.reason_code__rename` | Reason renamed | कारण का नाम बदला |
+| `actions.return_stream__create` | Return stream added | रिटर्न स्ट्रीम जोड़ी |
+| `actions.return_stream__seed` | Default return streams added | डिफ़ॉल्ट रिटर्न स्ट्रीम जोड़ीं |
+| `actions.return_stream__update` | Return stream changed | रिटर्न स्ट्रीम बदली |
+| `actions.scrap_grade__create` | Scrap grade added | स्क्रैप ग्रेड जोड़ा |
+| `actions.scrap_grade__update` | Scrap grade changed | स्क्रैप ग्रेड बदला |
+| `actions.scrap_item__create` | Scrap item added | स्क्रैप आइटम जोड़ा |
+| `actions.scrap_item__update` | Scrap item changed | स्क्रैप आइटम बदला |
+| `actions.settings__update` | Settings changed | सेटिंग्स बदलीं |
+| `actions.spectro__attach` | Spectro reading put on a melt | स्पेक्ट्रो रीडिंग मेल्ट पर लगाई |
+| `actions.spectro__inbox__dismiss` | Spectro file set aside | स्पेक्ट्रो फ़ाइल अलग रखी |
+| `actions.stock__move` | Bundles moved between yards | बंडल यार्ड बदले |
+| `actions.stock__openingBalance` | Opening stock entered | शुरुआती स्टॉक भरा |
+| `actions.store__cancel` | Store entry cancelled | स्टोर एंट्री रद्द की |
+| `actions.store__exchange` | Store items exchanged | स्टोर आइटम बदले |
+| `actions.store__issue` | Store items issued | स्टोर से सामान दिया |
+| `actions.store__receive` | Store items received | स्टोर में सामान आया |
+| `actions.store_item__create` | Store item added | स्टोर आइटम जोड़ा |
+| `actions.store_item__update` | Store item changed | स्टोर आइटम बदला |
+| `actions.support_request__create` | Help asked from orrn | orrn से मदद मांगी |
+| `actions.transporter__create` | Transporter added | ट्रांसपोर्टर जोड़ा |
+| `actions.transporter__update` | Transporter changed | ट्रांसपोर्टर बदला |
+| `actions.vendor__alias__add` | Vendor's other name added | वेंडर का दूसरा नाम जोड़ा |
+| `actions.vendor__alias__remove` | Vendor's other name removed | वेंडर का दूसरा नाम हटाया |
+| `actions.vendor__confirm` | Vendor confirmed | वेंडर कन्फ़र्म किया |
+| `actions.vendor__create` | Vendor added | वेंडर जोड़ा |
+| `actions.vendor__merge` | Vendors merged | वेंडर मिलाए |
+| `actions.vendor__update` | Vendor changed | वेंडर बदला |
 
 ### portal (185)
 

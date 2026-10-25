@@ -284,6 +284,24 @@ for (const width of WIDTHS) {
       await cleanup(created);
     });
 
+    if (width === 820) {
+      test("M5 (final explore): the press overview and a line board read Gujarati in gu", async ({ browser }) => {
+        const { page, context } = await openAs(browser, "press", width, "/press", { locale: "gu" });
+        const main = page.locator("main#main");
+        await expect(main).toContainText("દરેક પ્રેસ: શું ચાલે છે અને શું રાહ જુએ છે.");
+        await expect(main).toContainText("રોજનો પ્રેસ સારાંશ");
+        for (const english of ["Every press: what is running and what waits", "Nothing running", "On the line", "Today, logged", "Open the queue", "Open the station", "Daily press summary"]) {
+          await expect(main.getByText(english, { exact: false })).toHaveCount(0);
+        }
+        await page.goto(`/press/lines/${fx.lineId}`);
+        await expect(main).toContainText(`${fx.lineCode} ની કતાર`, { timeout: 20_000 });
+        for (const english of ["Goes against", "Jobs for this press", "Waiting"]) {
+          await expect(main.getByText(english, { exact: false })).toHaveCount(0);
+        }
+        await context.close();
+      });
+    }
+
     test("line board shows P1, P2 and the test press with running and waiting counts", async ({ browser }) => {
       const { page, context } = await openAs(browser, "supervisor", width, "/press");
       await expect(page.getByRole("heading", { name: "Press", level: 1 })).toBeVisible();

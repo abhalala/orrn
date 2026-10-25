@@ -20,6 +20,7 @@ import {
   type SourceBlocker,
   type SourceChoice,
 } from "./source-gate";
+import { packLineChoices } from "./pack-lines";
 import { useCasts, useDieCopies, useOpenLines, useOwnerCheck } from "./use-pack-server";
 import { kg12Text } from "./line-preview";
 
@@ -73,13 +74,15 @@ export function SourceExtras({
   const lineChoices: Choice[] = [
     // D20: a deliberate choice; the server writes these bundles as plant stock.
     { value: NONE, label: t("pack.source.plantStock"), detail: t("pack.source.plantStockHint") },
-    ...(gate.lines.data ?? []).map((l, i) => ({
+    // Wave-2 M9: confirmed lines first, the suggestion among them; bookings last, marked.
+    ...packLineChoices(gate.lines.data ?? []).map(({ line: l, suggested, booking }) => ({
       value: l.lineId,
       label: (
         <span className="flex flex-wrap items-baseline gap-x-2">
           <span className="font-mono">{`${l.orderNumber}/${l.lineNo}`}</span>
           <span className="font-medium text-muted-foreground">{l.customerName}</span>
-          {i === 0 ? <Chip tone="blue">{t("pack.source.suggested")}</Chip> : null}
+          {suggested ? <Chip tone="blue">{t("pack.source.suggested")}</Chip> : null}
+          {booking ? <Chip tone="amber">{t("pack.source.booking")}</Chip> : null}
         </span>
       ),
       ariaLabel: `${l.orderNumber}/${l.lineNo} ${l.customerName}`,
