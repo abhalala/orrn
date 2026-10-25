@@ -1,5 +1,7 @@
 # Pack, stock and dispatch — design spec
 
+> Preview retired on 2026-10-25; real route: `/pack/new`, `/pack`, `/dispatch/$id`, `/stock`.
+
 Date: 2026-10-24 · Branch: `wt/FP` (off `redesign/c2`) · Module: FP-PK · Status: draft for owner review
 
 This spec covers packing a bundle, yard stock, and dispatch through the packing list. It uses orrn words only: die (the section), die copy, drift reading, cast, ageing batch, pack, bundle, sales order, baki, packing list (PL), dispatch, scale. The scrap weighbridge stays **kanta**. The device at the packing bay is a **scale**, not a kanta. New words, marked where they appear: **party bundle number**, **plant stock**, **unassigned**, **re-cut**.

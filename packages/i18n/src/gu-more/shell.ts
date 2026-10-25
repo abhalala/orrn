@@ -75,7 +75,6 @@ export const guShell = {
     masters: "માસ્ટર",
     guides: "ગાઇડ",
     settings: "સેટિંગ",
-    preview: "પ્રીવ્યૂ",
     account: "અકાઉન્ટ",
     signOut: "સાઇન આઉટ",
     skipToContent: "મુખ્ય ભાગ પર જાઓ",
@@ -116,8 +115,6 @@ export const guShell = {
     recent: "હમણાંના",
     pages: "પેજ",
     pageRangeOpen: "{from}-{to}",
-    stubTitle: "આ સ્ક્રીન ફરી બની રહી છે",
-    stubBody: "તે જલદી જ અહીં પાછી આવશે.",
   },
   errors: {
     generic: "કંઈક ગડબડ થઈ. ફરી પ્રયત્ન કરો.",

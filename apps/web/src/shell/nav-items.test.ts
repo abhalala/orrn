@@ -37,7 +37,6 @@ describe("visibleItems", () => {
       "guides",
       "settings",
       "audit",
-      "preview",
     ]);
   });
 
@@ -64,7 +63,7 @@ describe("visibleItems", () => {
 
   test("operator packs but doesn't see Settings (R24)", () => {
     expect(keys(visibleItems(TENANT_PRIMARY, me("operator")))).toContain("pack");
-    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["purchase", "dies", "customers", "printing", "guides", "preview"]);
+    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["purchase", "dies", "customers", "printing", "guides"]);
   });
 
   test("Store shows for the storekeeper and the roles that may read balances (store.txn | masters.publish)", () => {
@@ -79,7 +78,7 @@ describe("visibleItems", () => {
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Plant screens (Store) are gated by role, not by the legacy SaaS modules.
-    expect(visible).toEqual(["today", "orders", "purchase", "approvals", "customers", "store", "printing", "masters", "guides", "settings", "audit", "preview"]);
+    expect(visible).toEqual(["today", "orders", "purchase", "approvals", "customers", "store", "printing", "masters", "guides", "settings", "audit"]);
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length);
   });
 

@@ -66,6 +66,7 @@ import { Route as TenantReceiptsNewRouteImport } from './routes/_tenant/receipts
 import { Route as TenantReceiptsIdRouteImport } from './routes/_tenant/receipts.$id'
 import { Route as TenantPurchaseNewRouteImport } from './routes/_tenant/purchase.new'
 import { Route as TenantPurchaseIdRouteImport } from './routes/_tenant/purchase.$id'
+import { Route as TenantPreviewComingSoonRouteImport } from './routes/_tenant/preview.coming-soon'
 import { Route as TenantPressSummaryRouteImport } from './routes/_tenant/press.summary'
 import { Route as TenantPressReportRouteImport } from './routes/_tenant/press.report'
 import { Route as TenantPackingListsIdRouteImport } from './routes/_tenant/packing-lists.$id'
@@ -422,6 +423,11 @@ const TenantPurchaseNewRoute = TenantPurchaseNewRouteImport.update({
 const TenantPurchaseIdRoute = TenantPurchaseIdRouteImport.update({
   id: '/purchase/$id',
   path: '/purchase/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPreviewComingSoonRoute = TenantPreviewComingSoonRouteImport.update({
+  id: '/preview/coming-soon',
+  path: '/preview/coming-soon',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantPressSummaryRoute = TenantPressSummaryRouteImport.update({
@@ -886,6 +892,7 @@ export interface FileRoutesByFullPath {
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
   '/press/report': typeof TenantPressReportRoute
   '/press/summary': typeof TenantPressSummaryRoute
+  '/preview/coming-soon': typeof TenantPreviewComingSoonRoute
   '/purchase/$id': typeof TenantPurchaseIdRoute
   '/purchase/new': typeof TenantPurchaseNewRoute
   '/receipts/$id': typeof TenantReceiptsIdRoute
@@ -1017,6 +1024,7 @@ export interface FileRoutesByTo {
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
   '/press/report': typeof TenantPressReportRoute
   '/press/summary': typeof TenantPressSummaryRoute
+  '/preview/coming-soon': typeof TenantPreviewComingSoonRoute
   '/purchase/$id': typeof TenantPurchaseIdRoute
   '/purchase/new': typeof TenantPurchaseNewRoute
   '/receipts/$id': typeof TenantReceiptsIdRoute
@@ -1154,6 +1162,7 @@ export interface FileRoutesById {
   '/_tenant/packing-lists/$id': typeof TenantPackingListsIdRoute
   '/_tenant/press/report': typeof TenantPressReportRoute
   '/_tenant/press/summary': typeof TenantPressSummaryRoute
+  '/_tenant/preview/coming-soon': typeof TenantPreviewComingSoonRoute
   '/_tenant/purchase/$id': typeof TenantPurchaseIdRoute
   '/_tenant/purchase/new': typeof TenantPurchaseNewRoute
   '/_tenant/receipts/$id': typeof TenantReceiptsIdRoute
@@ -1287,6 +1296,7 @@ export interface FileRouteTypes {
     | '/packing-lists/$id'
     | '/press/report'
     | '/press/summary'
+    | '/preview/coming-soon'
     | '/purchase/$id'
     | '/purchase/new'
     | '/receipts/$id'
@@ -1418,6 +1428,7 @@ export interface FileRouteTypes {
     | '/packing-lists/$id'
     | '/press/report'
     | '/press/summary'
+    | '/preview/coming-soon'
     | '/purchase/$id'
     | '/purchase/new'
     | '/receipts/$id'
@@ -1554,6 +1565,7 @@ export interface FileRouteTypes {
     | '/_tenant/packing-lists/$id'
     | '/_tenant/press/report'
     | '/_tenant/press/summary'
+    | '/_tenant/preview/coming-soon'
     | '/_tenant/purchase/$id'
     | '/_tenant/purchase/new'
     | '/_tenant/receipts/$id'
@@ -2046,6 +2058,13 @@ declare module '@tanstack/react-router' {
       path: '/purchase/$id'
       fullPath: '/purchase/$id'
       preLoaderRoute: typeof TenantPurchaseIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/coming-soon': {
+      id: '/_tenant/preview/coming-soon'
+      path: '/preview/coming-soon'
+      fullPath: '/preview/coming-soon'
+      preLoaderRoute: typeof TenantPreviewComingSoonRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/press/summary': {
@@ -2729,6 +2748,7 @@ interface TenantRouteChildren {
   TenantPackingListsIdRoute: typeof TenantPackingListsIdRoute
   TenantPressReportRoute: typeof TenantPressReportRoute
   TenantPressSummaryRoute: typeof TenantPressSummaryRoute
+  TenantPreviewComingSoonRoute: typeof TenantPreviewComingSoonRoute
   TenantPurchaseIdRoute: typeof TenantPurchaseIdRoute
   TenantPurchaseNewRoute: typeof TenantPurchaseNewRoute
   TenantReceiptsIdRoute: typeof TenantReceiptsIdRoute
@@ -2827,6 +2847,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPackingListsIdRoute: TenantPackingListsIdRoute,
   TenantPressReportRoute: TenantPressReportRoute,
   TenantPressSummaryRoute: TenantPressSummaryRoute,
+  TenantPreviewComingSoonRoute: TenantPreviewComingSoonRoute,
   TenantPurchaseIdRoute: TenantPurchaseIdRoute,
   TenantPurchaseNewRoute: TenantPurchaseNewRoute,
   TenantReceiptsIdRoute: TenantReceiptsIdRoute,

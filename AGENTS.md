@@ -1012,6 +1012,19 @@ bun run deploy
   schema there (zod is ~18 kB gzip: `/login` parses `?next` with a plain function). The same holds
   for anything the entry imports (`@orrn/env/web` validates with a Standard Schema check, no zod).
 
+## No fixture-only routes in production nav
+
+- A screen that runs on fixtures or client-only demo state never ships in the nav, the More sheet, the
+  command palette or a gallery. The `/preview/*` demos were retired on 2026-10-25: each old URL is a
+  `redirect` in `beforeLoad` to its real route (`apps/web/src/routes/_tenant/preview.*.tsx`, guarded by
+  `tests/e2e/preview-redirects.spec.ts`). Keep those files so bookmarks keep working.
+- A module that is not built here yet gets `/preview/coming-soon?module=<slug>` (honest copy,
+  `comingSoon.*` in en and hi), never a fixture screen. `features/preview/{foundry,ageing}` and
+  `preview-frame.tsx` are kept only for the paused foundry and ageing lane; they have no route and no
+  nav entry. New work does not add to `features/preview` or `PREVIEW_MODULES`.
+- To promote a module, build the real route against tRPC, add it to `shell/nav-items.ts` with
+  `requires`, and delete the fixtures it replaces; do not leave a demo copy beside it.
+
 ## Spool integration (orrn-spool)
 
 - Each tenant gets a `spool_deployment` row in D1 with a shared secret (HMAC-SHA256), Cloudflare Tunnel token, and subdomain.

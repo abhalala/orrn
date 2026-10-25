@@ -1,5 +1,7 @@
 # orrn press — design spec
 
+> Preview retired on 2026-10-25; real route: `/press`, `/press/lines/$id`, `/press/runs/$id`, `/press/report`, `/press/summary`.
+
 Date: 2026-10-24 · Module: PR · Preview slug: `press` · Worktree: `wt/FP` (branch `wt/FP` off `redesign/c2`).
 
 Builds on `2026-10-03-orrn-plant-modules-design.md` (P2, P16, P19, §5 ledger), plan tasks PL-9 and PL-11, and digest Stage 8–9. Orders handoff is FP-OP (`press_plan`, `press_plan_die`, `press_plan_line`, `plans.release`). Die-room handoff is FP-DR (`die_issue`, `die.drawing_key`). Billet stock is FP-FD (`item_kind` `billet`, `item_ref` = cast id, location `BILLET`). Shifts are `company.settings.shifts` as agreed with the platform spec. Ageing (FP-AG) reads logged `press_run_line` rows and does not mutate them.

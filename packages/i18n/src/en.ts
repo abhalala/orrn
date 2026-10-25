@@ -205,7 +205,6 @@ export const en = {
     masters: "Masters",
     guides: "Guides",
     settings: "Settings",
-    preview: "Preview",
     account: "Account",
     signOut: "Sign out",
     skipToContent: "Skip to content",
@@ -3308,8 +3307,14 @@ export const en = {
     recent: "Recent",
     pages: "Pages",
     pageRangeOpen: "{from}-{to}",
-    stubTitle: "This screen is being rebuilt",
-    stubBody: "It will be back here soon.",
+  },
+
+  /** Placeholder for the two modules still being built elsewhere (`/preview/coming-soon`). */
+  comingSoon: {
+    foundry: "Foundry",
+    ageing: "Ageing",
+    title: "This module is being built on another machine",
+    body: "It is not ready in this app yet. Nothing here is saved.",
   },
 
   /** Chart kit chrome (@orrn/ui/charts). Legend and series labels come from the screen. */

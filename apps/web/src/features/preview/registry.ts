@@ -1,4 +1,7 @@
-/** Fixture-backed demo modules. Page agents read this; do not invent a second list. */
+/**
+ * Fixture-backed components kept for the paused foundry and ageing lanes. Their routes are
+ * redirects to `/preview/coming-soon`; nothing here is in the nav. Do not add new modules.
+ */
 export type PreviewModule = {
   slug: string;
   title: string;
@@ -10,27 +13,6 @@ export type PreviewModule = {
 };
 
 export const PREVIEW_MODULES: readonly PreviewModule[] = [
-  {
-    slug: "die-room",
-    title: "Die room",
-    summary: "Section catalogue, die copies, drift readings and tier changes.",
-    specPath: "docs/superpowers/specs/2026-10-24-orrn-fp-die-room-design.md",
-    featurePrefix: "FP-DR",
-  },
-  {
-    slug: "orders",
-    title: "Orders & planning",
-    summary: "Sales orders, baki and what the press should run next.",
-    specPath: "docs/superpowers/specs/2026-10-24-orrn-fp-orders-planning-design.md",
-    featurePrefix: "FP-OP",
-  },
-  {
-    slug: "press",
-    title: "Press",
-    summary: "Press runs, downtime and what came off the press.",
-    specPath: "docs/superpowers/specs/2026-10-24-orrn-fp-press-design.md",
-    featurePrefix: "FP-PR",
-  },
   {
     slug: "foundry",
     title: "Foundry",
@@ -44,20 +26,6 @@ export const PREVIEW_MODULES: readonly PreviewModule[] = [
     summary: "Ageing batches from the oven to the rack.",
     specPath: "docs/superpowers/specs/2026-10-24-orrn-fp-ageing-design.md",
     featurePrefix: "FP-AG",
-  },
-  {
-    slug: "floor",
-    title: "Pack, stock & dispatch",
-    summary: "Pack, bundles, stock, packing lists and dispatch.",
-    specPath: "docs/superpowers/specs/2026-10-24-orrn-fp-pack-dispatch-design.md",
-    featurePrefix: "FP-PK",
-  },
-  {
-    slug: "platform",
-    title: "Platform",
-    summary: "Customer portal, settings, devices, backups and languages.",
-    specPath: "docs/superpowers/specs/2026-10-24-orrn-fp-platform-design.md",
-    featurePrefix: "FP-PF",
   },
 ] as const;
 

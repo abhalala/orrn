@@ -1,5 +1,7 @@
 # Die room (FP-DR)
 
+> Preview retired on 2026-10-25; real route: `/dies`, `/dies/$id`, `/dies/copies/$copyId`, `/dies/makers`, `/dies/issues`.
+
 **Date:** 2026-10-24
 **Module:** DR · preview slug `die-room`
 **Status:** design, not built

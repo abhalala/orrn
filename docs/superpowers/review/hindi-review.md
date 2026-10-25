@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5257 screen strings in 47 groups, 16 guides with 292 strings.
+Counts: 5258 screen strings in 48 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -170,7 +170,7 @@ Counts: 5257 screen strings in 47 groups, 16 guides with 292 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (47)
+### nav (46)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -189,7 +189,6 @@ Counts: 5257 screen strings in 47 groups, 16 guides with 292 strings.
 | `masters` | Masters | मास्टर |
 | `guides` | Guides | गाइड |
 | `settings` | Settings | सेटिंग्स |
-| `preview` | Preview | प्रीव्यू |
 | `account` | Account | अकाउंट |
 | `signOut` | Sign out | साइन आउट |
 | `skipToContent` | Skip to content | मुख्य हिस्से पर जाएं |
@@ -3329,7 +3328,7 @@ Counts: 5257 screen strings in 47 groups, 16 guides with 292 strings.
 | `stock.yard` | Yard | यार्ड |
 | `stock.allYards` | All yards | सभी यार्ड |
 
-### ui (9)
+### ui (7)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3340,8 +3339,15 @@ Counts: 5257 screen strings in 47 groups, 16 guides with 292 strings.
 | `recent` | Recent | हाल के |
 | `pages` | Pages | पेज |
 | `pageRangeOpen` | {from}-{to} | {from}-{to} |
-| `stubTitle` | This screen is being rebuilt | यह स्क्रीन फिर से बन रही है |
-| `stubBody` | It will be back here soon. | यह जल्द ही यहाँ वापस आएगी। |
+
+### comingSoon (4)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `foundry` | Foundry | फाउंड्री |
+| `ageing` | Ageing | एजिंग |
+| `title` | This module is being built on another machine | यह मॉड्यूल दूसरी मशीन पर बन रहा है |
+| `body` | It is not ready in this app yet. Nothing here is saved. | यह अभी इस ऐप में तैयार नहीं है। यहाँ कुछ भी सेव नहीं होता। |
 
 ### charts (28)
 
