@@ -55,6 +55,7 @@ describe("dispatch mode outcome per scanned serial", () => {
     expect(addOutcome(blocked, "S1")).toEqual({
       kind: "rejected",
       serial: "S1",
+      code: "held",
       message: { key: "scan.continuous.heldBy", vars: { code: "D-0007" } },
     });
     const voided = report({ unavailable: [{ serial: "S1", reason: "x", code: "void" } as never] });
@@ -67,9 +68,9 @@ describe("dispatch mode outcome per scanned serial", () => {
     expect(addOutcome(held, "S3")).toMatchObject({
       message: { key: "scan.continuous.heldForOrder", vars: { order: "SO-7", customer: "Shreeji" } },
     });
-    // Without the order number the English sentence is shown as sent.
+    // Without the order number a plain floor sentence is said, in the person's language (never the server's English).
     const bare = report({ unavailable: [{ serial: "S4", reason: "Held for SO-7 (Shreeji)", code: "held_for_order" }] });
-    expect(addOutcome(bare, "S4")).toMatchObject({ message: { text: "Held for SO-7 (Shreeji)" } });
+    expect(addOutcome(bare, "S4")).toMatchObject({ message: { key: "scan.continuous.heldForOrderPlain" } });
   });
 
   test("older servers: the English reason is mapped to floor wording", () => {

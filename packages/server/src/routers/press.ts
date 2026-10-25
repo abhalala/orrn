@@ -8,6 +8,7 @@
  * - `press.downtime.*` downtime rows with reason codes (FP-PR-12): server start / stop, one open
  *                      per line.
  * - `press.report`     17 columns + CSV (FP-PR-17), `press.summary` (FP-PR-18).
+ * - `press.reasons`    active reason codes of a kind for the station pickers (W2-PR-W).
  * Audit: press_line.create / update / retire / restore, press_run.queue_move, press_run.urgent,
  * press_plan_line.pull_back, press_downtime.start / stop.
  */
@@ -537,6 +538,20 @@ const downtimeRouter = router({
 });
 
 export const pressRouter = router({
+  /**
+   * The active reason codes of one kind for the station's pickers (downtime, rejects) and the void
+   * dialog. Any member; codes are never deleted, only retired, so a retired one simply drops out.
+   */
+  reasons: companyProcedure
+    .input(z.object({ kind: z.enum(["downtime", "qc_reject", "void"]) }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db
+        .select({ id: reasonCode.id, code: reasonCode.code, label: reasonCode.label, requiresNote: reasonCode.requiresNote })
+        .from(reasonCode)
+        .where(and(eq(reasonCode.companyId, ctx.companyId), eq(reasonCode.kind, input.kind), eq(reasonCode.active, true)))
+        .orderBy(asc(reasonCode.sortOrder), asc(reasonCode.code));
+    }),
+
   lines: linesRouter,
   queue: queueRouter,
   runs: pressRunRouter,

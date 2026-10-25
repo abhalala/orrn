@@ -17,6 +17,7 @@ import { failedWithoutData } from "./section-page";
 import { sectionLabel } from "./sections";
 import { StatusFilter } from "./status-filter";
 import { useRefresh } from "./use-refresh";
+import { YardFilter } from "./yard-filter";
 
 const SEARCH_DEBOUNCE_MS = 250;
 
@@ -35,6 +36,7 @@ function BundlesList({ initial }: { initial: BundlesParams }) {
   const [q, setQ] = useState(initial.q);
   const [dieId, setDieId] = useState(initial.dieId);
   const [groupId, setGroupId] = useState(initial.groupId);
+  const [yard, setYard] = useState<string | undefined>(undefined);
   const [pageNo, setPageNo] = useState(1);
 
   // Typing waits a moment before it searches and keeps the last page on screen meanwhile.
@@ -54,6 +56,7 @@ function BundlesList({ initial }: { initial: BundlesParams }) {
       search: q,
       dieId,
       groupId,
+      ...(yard ? { locationId: yard } : {}),
       limit: PAGE_SIZE,
       offset: offsetOf(pageNo),
     }),
@@ -96,6 +99,13 @@ function BundlesList({ initial }: { initial: BundlesParams }) {
         value={status}
         onChange={(next) => {
           setStatus(next);
+          setPageNo(1);
+        }}
+      />
+      <YardFilter
+        value={yard}
+        onChange={(next) => {
+          setYard(next);
           setPageNo(1);
         }}
       />

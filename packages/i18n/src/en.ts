@@ -19,6 +19,8 @@ import { moreEn } from "./native/more.en";
 import { diesEn } from "./native/dies.en";
 import { ordersEn } from "./native/orders.en";
 import { platformEn } from "./native/platform.en";
+import { pressEn } from "./native/press.en";
+import { stockEn } from "./native/stock.en";
 
 export const en = {
   common: {
@@ -849,6 +851,7 @@ export const en = {
       pickOne: "Pick the bundle",
       speak: "Speak refusals aloud",
       heldForOrder: "Held for {order} ({customer})",
+      heldForOrderPlain: "Held for a sales order",
     },
   },
 
@@ -3143,6 +3146,8 @@ export const en = {
     ...diesEn,
     ...ordersEn,
     ...platformEn,
+    ...pressEn,
+    ...stockEn,
   },
 
   /** Component library chrome (@orrn/ui): screen-reader and helper text. */

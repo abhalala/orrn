@@ -17,19 +17,27 @@ import { announce } from "@/lib/a11y";
 import { toEntering } from "@/lib/entering";
 import { feedback } from "@/lib/feedback";
 import { popEntering } from "@/lib/motion";
+import { randomId } from "@/lib/random-id";
+import { replayKey, sendOnce, type ReplayAttempt } from "@/lib/replay-key";
+import { isSpeechOn, setSpeechOn, speakResult } from "@/lib/speak";
+import type { ScanResultKind } from "@/lib/speech";
 import { AnimatedView } from "@/lib/nativewind-interop";
 import { useReduceMotion } from "@/lib/reduced-motion";
 import { writeFailureKind } from "@/lib/request-timeout";
 import { saveErrorText } from "@/lib/save-error";
 import { useThemeColor } from "@/lib/theme";
-import { reachableTabs } from "@/lib/nav";
-import { useMe } from "@/utils/me";
+import { reachableTabs, tabSetFor } from "@/lib/nav";
+import { can, useMe } from "@/utils/me";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { copyCodeQuery, copyIdFromLink, looksLikeCopyCode } from "@/features/dies/copy-model";
+import { queuedRunFor } from "@/features/press/press-model";
+
+import { CapacityBanner } from "@/features/dispatch/capacity-banner";
+import { overCapacityLine } from "@/features/dispatch/capacity";
 
 import { createDeduper } from "./dedupe";
-import { addOutcome, renderScanMessage, scanErrorKey } from "./outcome";
+import { addOutcome, renderScanMessage, scanErrorKey, type AddBundlesReport, type CapacityReport } from "./outcome";
 import {
   dedupeKey,
   lookupTarget,
@@ -64,7 +72,7 @@ const LOG_TONE = { added: "green", already: "neutral", rejected: "red", notFound
  * feed one handler; the camera is paused whenever the tab is not in front.
  */
 export function ScanView() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const router = useRouter();
   const params = useLocalSearchParams<{ dispatchId?: string; code?: string }>();
   const mode = useMemo(() => scanMode(params), [params]);
@@ -80,6 +88,11 @@ export function ScanView() {
   const [count, setCount] = useState(0);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
+  const [capacity, setCapacity] = useState<CapacityReport | null>(null);
+  // A bundle with no order line, refused: the office may add it anyway (D12). The floor scan never lifts it.
+  const [unassigned, setUnassigned] = useState<string | null>(null);
+  const [speaking, setSpeaking] = useState(isSpeechOn);
+  const attempt = useRef<ReplayAttempt>(null);
 
   const dedupe = useMemo(() => createDeduper(), []);
   const seq = useRef(0);
@@ -90,12 +103,22 @@ export function ScanView() {
   const { data: me } = useMe();
   const diesRef = useRef(false);
   diesRef.current = reachableTabs(me).includes("dies");
+  // The press role's die label opens that copy's queued run, never the card: the phone does not start runs.
+  const pressRef = useRef(false);
+  pressRef.current = tabSetFor(me) === "press" && reachableTabs(me).includes("press");
   // Reads are handled one after another, in the order they were made, so a quick burst never races itself on the server.
   const queue = useRef<Promise<void>>(Promise.resolve());
 
-  const add = useMutation(trpc.dispatch.addBundlesBySerial.mutationOptions());
-  const addRef = useRef(add);
-  addRef.current = add;
+  // The floor scan (`dispatch.scan`) never lifts "not on a sales order"; the office's add path does, on request.
+  const scan = useMutation(trpc.dispatch.scan.mutationOptions());
+  const scanRef = useRef(scan);
+  scanRef.current = scan;
+  const addOffice = useMutation(trpc.dispatch.addBundlesBySerial.mutationOptions());
+  const addOfficeRef = useRef(addOffice);
+  addOfficeRef.current = addOffice;
+  const canAddAnyway = can(me, "order.manage");
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
 
   // Leaving the tab: torch off, and the same label may be read again when the person comes back.
   useEffect(() => {
@@ -114,20 +137,22 @@ export function ScanView() {
     setLine(null);
     setCandidates(null);
     setLog([]);
+    setCapacity(null);
+    setUnassigned(null);
+    attempt.current = null;
   }, [modeKey]);
 
   const remember = useCallback((serial: string, kind: ScanLogKind) => {
     setLog((list) => pushScanLog(list, scanLogEntry({ serial, kind }, ++seq.current)));
   }, []);
 
-  const fail = useCallback(
-    (id: number, message: string, serial?: string) => {
-      feedback.error();
-      announce(serial ? `${message}. ${serial}` : message, { shownInLiveRegion: true });
-      setLine({ id, tone: "error", message, serial });
-    },
-    [],
-  );
+  const fail = useCallback((id: number, message: string, serial?: string, kind: ScanResultKind = "error") => {
+    feedback.error();
+    announce(serial ? `${message}. ${serial}` : message, { shownInLiveRegion: true });
+    setLine({ id, tone: "error", message, serial });
+    // A refusal is said aloud in the app language, so a clerk watching the truck hears it.
+    speakResult(kind, message, localeRef.current);
+  }, []);
 
   const resolveCode = useCallback(
     (code: string) => queryClient.fetchQuery({ ...trpc.resolve.byCode.queryOptions({ code }), staleTime: 0 }) as Promise<ResolveHit>,
@@ -167,9 +192,10 @@ export function ScanView() {
   );
 
   const addToDispatch = useCallback(
-    async (id: number, scanned: string, dispatchId: string) => {
+    async (id: number, scanned: string, dispatchId: string, opts: { allowUnassigned?: boolean } = {}) => {
       let serial = scanned;
       setLine({ id, tone: "progress", message: t("scan.continuous.adding", { serial }) });
+      setUnassigned(null);
       try {
         // Old month-only numbers and legacy ids: find the bundle's own number first.
         if (needsResolve(serial)) {
@@ -182,46 +208,65 @@ export function ScanView() {
           }
           if (hit.kind === "not_found") {
             remember(serial, "notFound");
-            fail(id, t("scan.notFound"), serial);
+            fail(id, t("scan.notFound"), serial, "notFound");
             return;
           }
           serial = hit.number;
         }
-        const report = await addRef.current.mutateAsync({ id: dispatchId, serials: [serial] });
+        // BACKLOG 50: one key per scanned code. A lost reply is sent once more with it and never adds twice.
+        const next = replayKey(attempt.current, { dispatchId, serial, allowUnassigned: !!opts.allowUnassigned }, randomId);
+        attempt.current = next.attempt;
+        const report = (await sendOnce(
+          (clientRequestId) =>
+            opts.allowUnassigned
+              ? addOfficeRef.current.mutateAsync({ id: dispatchId, serials: [serial], allowUnassigned: true, clientRequestId })
+              : scanRef.current.mutateAsync({ id: dispatchId, serials: [serial], clientRequestId }),
+          next.id,
+        )) as AddBundlesReport;
+        attempt.current = null;
+        if (report.capacity) setCapacity(report.capacity);
         const outcome = addOutcome(report, serial);
         switch (outcome.kind) {
           case "added": {
             countRef.current += 1;
             setCount(countRef.current);
-            setLastAdded(serial);
+            setLastAdded(outcome.serial);
             feedback.success();
-            const said = `${t("scan.continuous.added", { serial })}. ${t("scan.continuous.count", { count: countRef.current })}`;
-            announce(said, { shownInLiveRegion: true });
-            setLine({ id, tone: "success", message: t("scan.continuous.added", { serial }), serial });
-            remember(serial, "added");
+            const noOrder = outcome.noOrder || !!opts.allowUnassigned;
+            const added = noOrder ? t("scan.continuous.addedNoOrder", { serial: outcome.serial }) : t("scan.continuous.added", { serial: outcome.serial });
+            announce(`${added}. ${t("scan.continuous.count", { count: countRef.current })}`, { shownInLiveRegion: true });
+            setLine({ id, tone: "success", message: added, serial: outcome.serial });
+            remember(outcome.serial, "added");
+            // A scan that tips the truck over its capacity says so, aloud too.
+            const over = overCapacityLine(report.capacity);
+            if (over) speakResult("rejected", t(over.key, over.vars), localeRef.current);
             refreshDispatches();
             break;
           }
           case "already":
             // Calm: a second read of a bundle already on the list is not an error.
             announce(t("scan.continuous.already"), { shownInLiveRegion: true });
-            setLine({ id, tone: "neutral", message: t("scan.continuous.already"), serial });
-            remember(serial, "already");
+            setLine({ id, tone: "neutral", message: t("scan.continuous.already"), serial: outcome.serial });
+            remember(outcome.serial, "already");
             break;
           case "rejected":
-            remember(serial, "rejected");
-            fail(id, renderScanMessage(t, outcome.message), serial);
+            remember(outcome.serial, "rejected");
+            fail(id, renderScanMessage(t, outcome.message), outcome.serial, "rejected");
+            if (outcome.code === "ambiguous" && outcome.candidates?.length) {
+              setCandidates(outcome.candidates.map((number) => ({ bundleId: number, number, year: 0 })));
+            }
+            if (outcome.code === "unassigned") setUnassigned(outcome.serial);
             break;
           case "notFound":
-            remember(serial, "notFound");
-            fail(id, t("scan.notFound"), serial);
+            remember(outcome.serial, "notFound");
+            fail(id, t("scan.notFound"), outcome.serial, "notFound");
             break;
         }
       } catch (error) {
         remember(serial, "error");
         // A save that did not answer may have gone through: say so, never retry on the person's behalf.
         const message = writeFailureKind(error) === "unsure" ? saveErrorText(t, error).body : t(scanErrorKey(error, "dispatch"));
-        fail(id, message, serial);
+        fail(id, message, serial, "error");
         if (writeFailureKind(error) === "unsure") refreshDispatches();
       }
     },
@@ -234,16 +279,39 @@ export function ScanView() {
    */
   const openDieCopy = useCallback(
     async (id: number, raw: string): Promise<boolean> => {
-      const open = (copyId: string, code: string) => {
+      const open = async (copyId: string, code: string) => {
+        if (pressRef.current) {
+          // Press role: the copy's queued run (or the one with its die issued). Nothing here starts it.
+          try {
+            const runs = await queryClient.fetchQuery({
+              ...trpc.press.runs.list.queryOptions({ dieInstanceId: copyId, status: ["queued", "die_issued"], limit: 10 }),
+              staleTime: 0,
+            });
+            const run = queuedRunFor(runs.items);
+            if (run) {
+              feedback.success();
+              announce(t("native.press.scanOpened", { number: run.number }), { shownInLiveRegion: false });
+              remember(code, "opened");
+              setLine(null);
+              router.push({ pathname: "/press/run/[id]", params: { id: run.id } } as never);
+              return;
+            }
+            // No run waits for this copy: say so, then show the card (read only) rather than nothing.
+            announce(t("native.press.scanNoRun"), { shownInLiveRegion: true });
+            setLine({ id, tone: "neutral", message: t("native.press.scanNoRun"), serial: code });
+          } catch {
+            // The run lookup failed: the card below still opens.
+          }
+        }
         feedback.success();
         announce(t("dieRoom.card.title"), { shownInLiveRegion: false });
         remember(code, "opened");
-        setLine(null);
+        if (!pressRef.current) setLine(null);
         router.push({ pathname: "/dies/[id]", params: { id: copyId } });
       };
       const linked = copyIdFromLink(raw);
       if (linked) {
-        open(linked, linked);
+        await open(linked, linked);
         return true;
       }
       const code = copyCodeQuery(raw).toUpperCase();
@@ -253,7 +321,7 @@ export function ScanView() {
         const hit = res.items.find((c) => c.code.toUpperCase() === code);
         if (!hit) return false;
         setLine({ id, tone: "progress", message: t("ui.searching") });
-        open(hit.id, hit.code);
+        await open(hit.id, hit.code);
         return true;
       } catch {
         // The copy lookup failed: the bundle lookup below reports the network problem if there is one.
@@ -307,6 +375,15 @@ export function ScanView() {
     onScan(value);
   };
 
+  const addAnyway = () => {
+    const serial = unassigned;
+    const current = modeRef.current;
+    if (!serial || current.kind !== "dispatch") return;
+    setUnassigned(null);
+    const id = ++seq.current;
+    queue.current = queue.current.then(() => addToDispatch(id, serial, current.dispatchId, { allowUnassigned: true })).catch(() => undefined);
+  };
+
   const pick = (c: Candidate) => {
     setCandidates(null);
     if (mode.kind === "dispatch") onScan(c.number);
@@ -350,6 +427,8 @@ export function ScanView() {
             </AnimatedView>
           ) : null}
 
+          {mode.kind === "dispatch" ? <CapacityBanner capacity={capacity} /> : null}
+
           <CameraPanel focused={focused} cameraOn={cameraOn} torch={torch} onDetect={onDetect} onToggleCamera={() => setCameraOn((v) => !v)} onToggleTorch={() => setTorch((v) => !v)} ink={ink} />
 
           <View accessibilityLiveRegion="polite" className="min-h-6">
@@ -364,18 +443,35 @@ export function ScanView() {
             ) : null}
           </View>
 
+          {unassigned && canAddAnyway ? (
+            <View className="gap-2">
+              <Button variant="secondary" size="lg" label={t("scan.continuous.addAnyway")} onPress={addAnyway} />
+              <Text className="font-sans text-sm text-ink-muted">{t("scan.continuous.addAnywayHint")}</Text>
+            </View>
+          ) : null}
+
           {candidates ? (
             <View accessibilityLabel={t("scan.ambiguous")} className="gap-2">
               {candidates.map((c) => (
                 <Button
                   key={c.bundleId}
                   variant="secondary"
-                  label={`${c.number}, ${t("scan.madeIn", { year: c.year })}`}
+                  label={c.year > 0 ? `${c.number}, ${t("scan.madeIn", { year: c.year })}` : c.number}
                   onPress={() => pick(c)}
                 />
               ))}
             </View>
           ) : null}
+
+          <Button
+            variant="ghost"
+            label={t("scan.continuous.speak")}
+            icon={<Feather name={speaking ? "volume-2" : "volume-x"} size={18} color={ink} />}
+            onPress={() => {
+              setSpeechOn(!speaking);
+              setSpeaking(!speaking);
+            }}
+          />
 
           <View className="gap-2">
             <Field

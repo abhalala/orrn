@@ -185,3 +185,25 @@ export function rowTotals(rows: readonly SectionRow[]): { bundles: number; weigh
     { bundles: 0, weightG: 0, held: 0, heldWeightG: 0 },
   );
 }
+
+/** The server's stock position (`stockSummary.stock`): in stock = available, held apart, with the same filters as the list. */
+export type StockPosition = { inStock: { bundles: number; pcs: number; weightG: number }; held: { bundles: number; pcs: number; weightG: number } };
+
+/**
+ * The totals line. The server counts them over the same filter as the sections (one in-stock figure on every
+ * tab); the sum of the loaded rows is only the fallback for a server that does not send them.
+ */
+export function stockTotals(
+  position: StockPosition | null | undefined,
+  rows: readonly SectionRow[],
+): { bundles: number; weightG: number; held: number; heldWeightG: number } {
+  if (position) {
+    return {
+      bundles: Number(position.inStock.bundles) || 0,
+      weightG: Number(position.inStock.weightG) || 0,
+      held: Number(position.held.bundles) || 0,
+      heldWeightG: Number(position.held.weightG) || 0,
+    };
+  }
+  return rowTotals(rows);
+}

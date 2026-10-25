@@ -16,7 +16,8 @@ import { useThemeColor } from "@/lib/theme";
 import { trpc } from "@/utils/trpc";
 
 import { dieCode, hasRange, kgText, type PickedDie } from "./pack-form";
-import type { LengthFields, YardOption } from "./pack-math";
+import type { LengthFields, PackSource, YardOption } from "./pack-math";
+import { SourcePanel, type SourceGate } from "./source-panel";
 import { recentDieIds } from "./recent-dies";
 
 type DieRow = { id: string; series: string; sectionCode: string; name: string | null; weightMinG: number; weightMaxG: number };
@@ -109,9 +110,14 @@ export type DieStepProps = {
   yardError: boolean;
   canNext: boolean;
   onNext: () => void;
+  /** What the bundles are for (D20): an order line or Plant stock, the die copy, the cast, the logo. */
+  source: PackSource;
+  onSource: (next: PackSource) => void;
+  gate: SourceGate;
+  sourceError: boolean;
 };
 
-/** Step 1: which die, the session's cut length and PO, and the yard when the company has yards. */
+/** Step 1, Source: which die, what the bundles are for, the session's cut length and PO, and the yard when the company has yards. */
 export function DieStep(p: DieStepProps) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
@@ -160,6 +166,8 @@ export function DieStep(p: DieStepProps) {
         </View>
       )}
 
+      {p.die ? <SourcePanel choice={p.source} onChange={p.onSource} gate={p.gate} showErrors={p.sourceError} /> : null}
+
       <Field label={t("pack.new.po")} value={p.po} onChangeText={p.onPo} autoCapitalize="characters" autoCorrect={false} hint={t("pack.new.defaultsHint")} />
 
       {p.yards.length > 0 ? (
@@ -185,6 +193,7 @@ export function DieStep(p: DieStepProps) {
         </View>
       ) : null}
 
+      {p.sourceError && p.gate.blockers.length > 0 ? <Text accessibilityLiveRegion="polite" className="font-sans text-sm text-destructive">{t("pack.source.cannotContinue")}</Text> : null}
       <Button size="lg" label={t("common.next")} disabled={!p.canNext} onPress={p.onNext} />
 
       <DieSheet

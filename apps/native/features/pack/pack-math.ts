@@ -79,7 +79,36 @@ export type DraftBundle = {
   pieces: number;
   lengthMm: number | null;
   po: string | null;
+  /** Where the weight came from (FP-PK-02). Left out = typed (the server's default). */
+  weightSource?: "scale" | "manual";
+  /** The steady scale grams on the screen when the weight was taken or typed over. */
+  scaleReadingG?: number;
+  /** Why the weight was typed while a scale is connected. */
+  weightOverrideReason?: string;
 };
+
+/** Pieces rejected at pack (FP-PK-14): they leave the pile and are not a bundle. */
+export type DraftReject = {
+  pcs: number;
+  /** Weighed rejects post kg at plant scrap; left out when the pieces were not weighed. */
+  weightG?: number;
+  /** A `qc_reject` reason code. `other` needs a note. */
+  reasonCode: string;
+  note?: string;
+};
+
+/** What the Source step chose (FP-PK-01/04/10, D20): the order line (none = Plant stock), die copy, cast and label logo. */
+export type PackSource = {
+  salesOrderLineId?: string;
+  dieInstanceId?: string;
+  castId?: string;
+  /** Label branding, default on. */
+  showLogo: boolean;
+  /** D15: the office packs on another copy than the line's pin (the server checks `order.manage` and audits). */
+  overridePin?: boolean;
+};
+
+export const DEFAULT_SOURCE: PackSource = { showLogo: true };
 
 export type Totals = { bundles: number; pieces: number; weightG: number };
 
@@ -100,24 +129,65 @@ export function effectiveBundle(b: DraftBundle, defaults: { lengthMm: number; po
   return { lengthMm: b.lengthMm ?? defaults.lengthMm, po: blankToNull(b.po) ?? blankToNull(defaults.po) };
 }
 
-/** `bundle.createReceipt` input. Weights in grams, lengths in mm. */
+const MAX_REJECTS = 50;
+
+/**
+ * `bundle.createReceipt` input. Weights in grams, lengths in mm. With `source` (the Source step) it also
+ * carries what the bundles are packed for: `plant_stock` unless an order line was chosen (D20), the die copy,
+ * the cast, the pin override and the label logo; with `rejects` the pieces taken out of the pile. Without
+ * them the payload is the plain one older callers sent.
+ */
 export function receiptPayload(input: {
   dieId: string;
   unit: LengthUnit;
   defaults: { lengthMm: number; po: string | null };
   locationId: string | undefined;
   bundles: readonly DraftBundle[];
+  source?: PackSource;
+  rejects?: readonly DraftReject[];
 }) {
   const purchaseOrderRef = blankToNull(input.defaults.po);
+  const src = input.source;
+  const { salesOrderLineId, dieInstanceId, castId, overridePin } = src ?? {};
+  const rejects = (input.rejects ?? []).slice(0, MAX_REJECTS);
   return {
     dieId: input.dieId,
     unit: input.unit,
     purchaseOrderRef,
     ...(input.locationId ? { locationId: input.locationId } : {}),
+    ...(src
+      ? {
+          // D20: no order line is the deliberate "Plant stock" choice; the server writes it as plant stock.
+          source: salesOrderLineId ? ("order" as const) : ("plant_stock" as const),
+          ...(salesOrderLineId ? { salesOrderLineId } : {}),
+          ...(dieInstanceId ? { dieInstanceId } : {}),
+          ...(castId ? { castId } : {}),
+          ...(salesOrderLineId && dieInstanceId && overridePin ? { overridePin: true as const } : {}),
+          ...(src.showLogo === false ? { showLogo: false as const } : {}),
+        }
+      : {}),
     rows: input.bundles.map((b) => {
       const e = effectiveBundle(b, input.defaults);
-      return { quantity: b.pieces, weightG: b.weightG, lengthMm: e.lengthMm, poNumber: e.po };
+      return {
+        quantity: b.pieces,
+        weightG: b.weightG,
+        lengthMm: e.lengthMm,
+        poNumber: e.po,
+        ...(b.weightSource ? { weightSource: b.weightSource } : {}),
+        ...(b.scaleReadingG ? { scaleReadingG: b.scaleReadingG } : {}),
+        ...(b.weightOverrideReason?.trim() ? { weightOverrideReason: b.weightOverrideReason.trim() } : {}),
+      };
     }),
+    ...(rejects.length > 0
+      ? {
+          rejects: rejects.map((r) => ({
+            pcs: r.pcs,
+            ...(r.weightG ? { weightG: r.weightG } : {}),
+            reasonCode: r.reasonCode,
+            ...(r.note?.trim() ? { note: r.note.trim() } : {}),
+          })),
+        }
+      : {}),
   };
 }
 

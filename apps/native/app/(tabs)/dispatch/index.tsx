@@ -63,7 +63,7 @@ export default function DispatchScreen() {
       ) : null}
 
       {items.map((d) => {
-        const shipDate = format.day(d.shipDate);
+        const shipDate = format.shipDay(d.shipDate);
         const totals = t("dispatch.build.groupTotal", { bundles: d.itemCount, kg: kgTotal(d.totalWeightG) });
         return (
           <ListRow

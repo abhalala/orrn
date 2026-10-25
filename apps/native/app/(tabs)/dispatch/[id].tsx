@@ -8,6 +8,7 @@ import { Text, View } from "react-native";
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
+import { Field } from "@/components/ui/field";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Screen } from "@/components/ui/screen";
@@ -24,6 +25,9 @@ import { can, useMe } from "@/utils/me";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { ActionBar } from "@/features/dispatch/action-bar";
+import { CapacityBanner } from "@/features/dispatch/capacity-banner";
+import { capacityView, completeExtras, overReasonError } from "@/features/dispatch/capacity";
+import { hasTransport, transportFacts } from "@/features/dispatch/transport";
 import { ConfirmSheet } from "@/features/dispatch/confirm-sheet";
 import { dispatchNow } from "@/features/dispatch/dispatch-now";
 import { kgTotal } from "@/features/dispatch/format";
@@ -34,6 +38,8 @@ import { nextStep, showsActionBar, stepPerms } from "@/features/dispatch/next-st
 import { PackingListSection } from "@/features/dispatch/packing-list-section";
 import { PasteSheet } from "@/features/dispatch/paste-sheet";
 import { DispatchStepper } from "@/features/dispatch/stepper";
+import { randomId } from "@/lib/random-id";
+import { replayKey, sendOnce, type ReplayAttempt } from "@/lib/replay-key";
 import type { AddBundlesReport } from "@/features/scan/outcome";
 import type { ResolveHit } from "@/features/scan/scan-flow";
 
@@ -72,12 +78,16 @@ export default function DispatchDetailScreen() {
   const softDelete = useMutation(trpc.dispatch.softDelete.mutationOptions());
   const removeBundle = useMutation(trpc.dispatch.removeBundle.mutationOptions());
   const setLabel = useMutation(trpc.dispatch.setItemGroupLabel.mutationOptions());
-  const addBySerial = useMutation(trpc.dispatch.addBundlesBySerial.mutationOptions());
+  const scanSerials = useMutation(trpc.dispatch.scan.mutationOptions());
+  const pasteAttempt = useRef<ReplayAttempt>(null);
   const regenerate = useMutation(trpc.packingList.regenerate.mutationOptions());
 
   const [sheet, setSheet] = useState<Sheet>(null);
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Why the load goes over the truck's capacity: asked at Dispatch, kept with the dispatch (FP-PK-12).
+  const [overReason, setOverReason] = useState("");
+  const [overTried, setOverTried] = useState(false);
   const [banner, setBanner] = useState<{ title: string; body: string } | null>(null);
   const [justDispatched, setJustDispatched] = useState(false);
   // Remembers that the hold went through, so a retry after a failed complete does not hold twice (ruling T22).
@@ -92,6 +102,10 @@ export default function DispatchDetailScreen() {
 
   const openSheet = (next: Sheet) => {
     setSheetError(null);
+    if (next === "dispatch") {
+      setOverReason("");
+      setOverTried(false);
+    }
     setSheet(next);
   };
   const closeSheet = () => {
@@ -142,9 +156,11 @@ export default function DispatchDetailScreen() {
   const groups = groupItems(items);
   const totals = dispatchTotals(items);
   const editable = (d.status === "draft" || d.status === "reserved") && can(me, "dispatch.addBundle");
-  const shipDate = format.day(d.shipDate);
+  const shipDate = format.shipDay(d.shipDate);
   const step = nextStep(d.status, live.length, stepPerms(me, d.status));
   const pl = plQuery.data ?? null;
+  const capacity = capacityView(detail.data.capacity);
+  const transport = transportFacts(d);
 
   const scan = () => router.navigate({ pathname: "/scan", params: { dispatchId: d.id, code: d.code } });
 
@@ -175,12 +191,17 @@ export default function DispatchDetailScreen() {
   };
 
   const dispatchIt = async () => {
+    // Over the truck's capacity needs a reason; the server refuses without it and audits it.
+    if (overReasonError(capacity, overReason)) {
+      setOverTried(true);
+      return;
+    }
     setBusy(true);
     setSheetError(null);
     try {
       await dispatchNow(d.status, held.current, {
         reserve: () => reserve.mutateAsync({ id: d.id }),
-        complete: () => complete.mutateAsync({ id: d.id }),
+        complete: () => complete.mutateAsync({ id: d.id, ...completeExtras(capacity, overReason) }),
       });
       setJustDispatched(true);
       closeSheet();
@@ -280,7 +301,15 @@ export default function DispatchDetailScreen() {
     }
   };
 
-  const send = (serials: string[]): Promise<AddBundlesReport> => addBySerial.mutateAsync({ id: d.id, serials });
+  // The floor add (`dispatch.scan`), one request id per pasted chunk: a lost reply is sent once more with the same id.
+  const send = (serials: string[]): Promise<AddBundlesReport> => {
+    const next = replayKey(pasteAttempt.current, { id: d.id, serials }, randomId);
+    pasteAttempt.current = next.attempt;
+    return sendOnce((clientRequestId) => scanSerials.mutateAsync({ id: d.id, serials, clientRequestId }), next.id).then((report) => {
+      pasteAttempt.current = null;
+      return report as AddBundlesReport;
+    });
+  };
   const resolve = (code: string) => queryClient.fetchQuery({ ...trpc.resolve.byCode.queryOptions({ code }), staleTime: 0 }) as Promise<ResolveHit>;
 
   const kg = kgTotal(totals.weightG);
@@ -300,6 +329,14 @@ export default function DispatchDetailScreen() {
           {d.notes ? <Text className="font-sans text-[15px] leading-6 text-ink-muted">{d.notes}</Text> : null}
           <DispatchStepper status={d.status} />
           {d.status === "reserved" ? <Text className="font-sans text-[15px] text-ink-muted">{t("dispatch.heldNote")}</Text> : null}
+          {hasTransport(transport) ? (
+            <View accessible accessibilityLabel={[transport.transporter, transport.vehicleNo, transport.driver].filter(Boolean).join(", ")} className="gap-1 rounded-card border border-hairline bg-surface px-4 py-3">
+              {transport.transporter ? <Text className="font-sans-semibold text-[15px] text-ink">{`${t("dispatch.transporter.label")}: ${transport.transporter}`}</Text> : null}
+              {transport.vehicleNo ? <Text className="font-mono-semibold text-[15px] text-ink">{`${t("dispatch.header.vehicleNo")}: ${transport.vehicleNo}`}</Text> : null}
+              {transport.driver ? <Text className="font-sans text-[15px] text-ink-muted">{`${t("dispatch.header.driverName")}: ${transport.driver}`}</Text> : null}
+            </View>
+          ) : null}
+          {d.status !== "completed" ? <CapacityBanner capacity={detail.data.capacity} /> : null}
 
           {banner ? (
             <View accessibilityLiveRegion="polite" className="gap-1 rounded-card bg-tone-red-tint p-4">
@@ -422,7 +459,20 @@ export default function DispatchDetailScreen() {
         error={sheetError}
         onConfirm={() => void dispatchIt()}
         onClose={closeSheet}
-      />
+      >
+        <CapacityBanner capacity={detail.data.capacity} />
+        {capacity?.needsReason ? (
+          <Field
+            label={t("dispatch.capacity.overReason")}
+            hint={t("dispatch.capacity.overReasonHint")}
+            error={overTried && overReasonError(capacity, overReason) ? t("dispatch.capacity.reasonRequired") : null}
+            value={overReason}
+            onChangeText={setOverReason}
+            multiline
+            maxLength={500}
+          />
+        ) : null}
+      </ConfirmSheet>
       <ConfirmSheet
         visible={sheet === "cancel"}
         title={t("dispatch.cancelTitle")}

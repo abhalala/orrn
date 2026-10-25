@@ -11,6 +11,8 @@ import { useLengthUnit } from "@/utils/length";
 
 import { pageWindow } from "./bundle-search";
 import { sectionLabel } from "./sections";
+import { kg12Text, positionKey, positionTone, type ServerPosition } from "../pack/line-preview";
+import { partyNoLabel } from "../pack/party";
 
 /** One `bundle.listBundles` item (dates arrive as ISO strings). */
 export type BundleListItem = {
@@ -24,6 +26,17 @@ export type BundleListItem = {
   dieSeries: string;
   dieSectionCode: string;
   createdAt: string | number | Date;
+  /** The customer's own number (FP-PK-07); shown only when it differs from the serial. */
+  partyNo?: string | null;
+  /** The yard it is stacked in (explorer High 14); null = none recorded. */
+  locationCode?: string | null;
+  /** The order line it sits on now, as printed (`SO-12/1`). */
+  orderCode?: string | null;
+  plantStock?: boolean;
+  /** kg per 12 ft in thousandths, as the server works it out. */
+  kgPer12ftMilli?: number | null;
+  /** The server's band verdict (D15): the same one the bundle page and the pack session show. */
+  band?: { position: ServerPosition } | null;
 };
 
 /** Bundles as tappable rows: serial and status, then kg, pieces by cut length, kg/12ft and PO. Each opens the bundle page. */
@@ -35,28 +48,40 @@ export function BundleRows({ rows, showSection = true }: { rows: readonly Bundle
   return (
     <View className="gap-2">
       {rows.map((r) => {
-        const perFoot = kgPer12ft({ weightG: r.weightG, pieces: r.quantity, lengthMm: r.lengthMm });
+        // kg/12 ft and the band chip are the server's (D15); the phone only works them out for an older server.
+        const perFoot = r.kgPer12ftMilli != null ? r.kgPer12ftMilli / 1000 : kgPer12ft({ weightG: r.weightG, pieces: r.quantity, lengthMm: r.lengthMm });
         const status = t(`status.bundle.${r.status}`);
+        const bandKey = positionKey(r.band?.position ?? null);
+        const party = partyNoLabel({ serial: r.serial, partyNo: r.partyNo ?? null });
         const facts = [
           showSection ? sectionLabel({ series: r.dieSeries, sectionCode: r.dieSectionCode }) : null,
           `${formatKg(gToKg(r.weightG))} kg`,
           `${r.quantity} × ${lu.formatLength(r.lengthMm)}`,
-          perFoot === null ? null : `${formatKg(perFoot)} ${t("units.kgPer12ft")}`,
+          perFoot === null ? null : `${r.kgPer12ftMilli != null ? (kg12Text(r.kgPer12ftMilli) ?? "") : formatKg(perFoot)} ${t("units.kgPer12ft")}`,
         ].filter(Boolean);
-        const more = [r.poNumber ? `${t("stock.columns.po")} ${r.poNumber}` : null, fmt.day(r.createdAt) ? `${t("stock.columns.packed")} ${fmt.day(r.createdAt)}` : null]
+        const more = [
+          r.locationCode ? `${t("native.stock.yard")} ${r.locationCode}` : null,
+          party ? `${t("pack.partyNo")} ${party}` : null,
+          r.plantStock ? t("pack.plantStock") : r.orderCode ? `${t("pack.forOrder")} ${r.orderCode}` : null,
+          r.poNumber ? `${t("stock.columns.po")} ${r.poNumber}` : null,
+          fmt.day(r.createdAt) ? `${t("stock.columns.packed")} ${fmt.day(r.createdAt)}` : null,
+        ]
           .filter(Boolean)
           .join(" · ");
         return (
           <PressableScale
             key={r.id}
             accessibilityRole="button"
-            accessibilityLabel={[r.serial, status, ...facts, more].filter(Boolean).join(", ")}
+            accessibilityLabel={[r.serial, status, bandKey ? t(bandKey) : null, ...facts, more].filter(Boolean).join(", ")}
             onPress={() => router.push(`/b/${encodeURIComponent(r.serial)}`)}
             className="min-h-14 gap-1.5 rounded-card border border-hairline bg-surface px-4 py-3"
           >
             <View className="flex-row flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <Text className="font-mono-semibold text-base text-ink">{r.serial}</Text>
-              <Chip tone={bundleTone(r.status)} label={status} />
+              <View className="flex-row flex-wrap items-center gap-2">
+                {bandKey ? <Chip tone={positionTone(r.band?.position ?? null)} label={t(bandKey)} /> : null}
+                <Chip tone={bundleTone(r.status)} label={status} />
+              </View>
             </View>
             <Text className="font-sans text-sm text-ink">{facts.join(" · ")}</Text>
             {more ? <Text className="font-sans text-sm text-ink-muted">{more}</Text> : null}

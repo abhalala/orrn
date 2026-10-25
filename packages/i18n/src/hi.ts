@@ -6,6 +6,8 @@ import { moreHi } from "./native/more.hi";
 import { diesHi } from "./native/dies.hi";
 import { ordersHi } from "./native/orders.hi";
 import { platformHi } from "./native/platform.hi";
+import { pressHi } from "./native/press.hi";
+import { stockHi } from "./native/stock.hi";
 
 /**
  * Hindi messages. Conversational Devanagari, matching the plant's own Hindi SOP.
@@ -842,6 +844,7 @@ export const hi = {
       pickOne: "Bundle चुनें",
       speak: "मना करने की वजह बोलकर बताएं",
       heldForOrder: "{order} ({customer}) के लिए होल्ड पर है",
+      heldForOrderPlain: "एक sales order के लिए होल्ड पर है",
     },
   },
 
@@ -3134,6 +3137,8 @@ export const hi = {
     ...diesHi,
     ...ordersHi,
     ...platformHi,
+    ...pressHi,
+    ...stockHi,
   },
 
   ui: {
