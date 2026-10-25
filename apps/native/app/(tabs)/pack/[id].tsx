@@ -81,11 +81,12 @@ export default function PackSessionScreen() {
                     subtitle={`${formatKg(b.weightG / 1000)} ${t("units.kg")}, ${t("units.pieces", { count: b.quantity })}, ${length.formatLength(b.lengthMm)}`}
                     trailing={
                       <View className="items-end gap-1">
+                        {b.stickerStale ? <Chip tone="amber" label={t("pack.stickerStale")} /> : null}
                         <Chip tone={bundleTone(b.status)} label={t(STATUS_KEY[b.status])} />
                         {bandKey ? <Chip tone={positionTone(b.band?.position ?? null)} label={t(bandKey)} /> : null}
                       </View>
                     }
-                    accessibilityLabel={`${t("pack.detail.viewBundle", { serial: b.serial })}${party ? `, ${t("pack.partyNo")} ${party}` : ""}${bandKey ? `, ${t(bandKey)}` : ""}`}
+                    accessibilityLabel={`${t("pack.detail.viewBundle", { serial: b.serial })}${party ? `, ${t("pack.partyNo")} ${party}` : ""}${b.stickerStale ? `, ${t("pack.stickerStale")}` : ""}${bandKey ? `, ${t(bandKey)}` : ""}`}
                     onPress={() => router.push({ pathname: "/b/[serial]", params: { serial: b.serial } } as never)}
                   />
                 );

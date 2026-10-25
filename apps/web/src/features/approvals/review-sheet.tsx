@@ -37,12 +37,16 @@ import {
   canOpenSubject,
   decideState,
   durationText,
+  hasLiveFacts,
   lateEntryOf,
   lateWindowText,
+  plantTimeText,
   moveEndText,
+  moveFactsView,
   moveKgText,
   reallocateMoveOf,
   subjectCodes,
+  tierFactsView,
   unbrokenCodes,
   type LateEntryView,
   type ReallocateView,
@@ -79,6 +83,13 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
   const lateRun = useQuery({
     ...trpc.press.runs.get.queryOptions({ id: late?.runId ?? "" }),
     enabled: open && late !== null && late.runId !== null,
+  });
+
+  // BACKLOG 89: a move and a tier change read what is true now before Approve opens.
+  const liveKind = current !== null && hasLiveFacts(current.kind);
+  const facts = useQuery({
+    ...trpc.approval.facts.queryOptions({ id: current?.id ?? "" }),
+    enabled: open && liveKind,
   });
 
   const figures = useQuery({
@@ -119,7 +130,8 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
   const rejectError = rejectTried && note.trim() === "" ? t("approvals.rejectNeedsNote") : undefined;
   // Nobody approves a D/C note without its figures on screen; Reject stays open (it needs a reason anyway).
   // Nor a late entry without its run on screen.
-  const figuresMissing = (isNote && readsFigures && !figures.data) || (late !== null && late.runId !== null && !lateRun.data);
+  const figuresMissing =
+    (isNote && readsFigures && !figures.data) || (late !== null && late.runId !== null && !lateRun.data) || (liveKind && facts.data === undefined);
   const canOpen = subject.href !== null && subject.openKey !== null && canOpenSubject(me, current);
 
   const footer =
@@ -164,6 +176,8 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
             <p className="m-0 rounded-input bg-surface-sunken px-3 py-2 text-[15px] break-words">{current.requestNote}</p>
           </Block>
         ) : null}
+
+        {liveKind ? <LiveFacts data={facts.data} loading={facts.isLoading} error={showsQueryError(facts)} /> : null}
 
         {move ? <MoveFigures move={move} /> : null}
 
@@ -265,30 +279,126 @@ function MoveFigures({ move }: { move: ReallocateView }) {
   );
 }
 
+type FactsData = inferRouterOutputs<AppRouter>["approval"]["facts"];
+
+function Rows({ rows, testId }: { rows: [string, ReactNode][]; testId: string }) {
+  return (
+    <dl className="m-0 flex flex-col divide-y divide-border rounded-card border border-border px-4" data-testid={testId}>
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex min-h-11 flex-wrap items-baseline justify-between gap-x-4 py-2 text-[15px]">
+          <dt className="text-muted-foreground">{label}</dt>
+          <dd className="m-0 min-w-0 text-right font-medium break-words">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/**
+ * Owner tour (BACKLOG 89): the live facts first, the request's own copy below. A move shows where each bundle
+ * is now, who would move and who takes a new party number; a tier change shows the copy now, the ask and the
+ * last reading against the band. Approve waits for this (the sheet disables it until the facts load).
+ */
+function LiveFacts({ data, loading, error }: { data: FactsData | undefined; loading: boolean; error: boolean }) {
+  const { t } = useT();
+  const tz = useCompanyTimeZone();
+  if (loading || data === undefined) {
+    return error ? (
+      <p className="m-0 text-[14px] text-destructive">{t("approvals.facts.error")}</p>
+    ) : (
+      <div aria-busy="true" className="flex flex-col gap-2">
+        {Array.from({ length: 3 }, (_, i) => (
+          <Skeleton key={i} className="h-5 w-full" />
+        ))}
+      </div>
+    );
+  }
+  if (data === null) return null;
+  if (data.kind === "order_reallocate") {
+    const v = moveFactsView(data);
+    return (
+      <Block title={t("approvals.facts.moveTitle")}>
+        <p className="m-0 text-[15px] font-medium" data-testid="live-move-count">
+          {t("approvals.facts.moveCount", { count: v.moving, total: v.total, kg: moveKgText(data.willMove.kgG) })}
+        </p>
+        {v.closed ? <p className="m-0 text-[14px] text-destructive">{t("approvals.facts.closed")}</p> : null}
+        {v.skipped > 0 && !v.closed ? <p className="m-0 text-[14px] text-destructive">{t("approvals.facts.skipped", { count: v.skipped })}</p> : null}
+        {v.moving > 0 ? (
+          <p className="m-0 text-[14px] text-muted-foreground">
+            {t(v.partyRule === "series" ? "approvals.facts.partySeries" : "approvals.facts.partySerial", { customer: v.customer })}
+          </p>
+        ) : null}
+        <ul className="m-0 flex list-none flex-col gap-1 p-0" data-testid="live-move-bundles" aria-label={t("approvals.move.bundles")}>
+          {v.rows.map((b) => (
+            <li key={b.serial} data-will-move={b.willMove ? "yes" : "no"} className={cn("flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 text-[14px]", !b.willMove && "text-muted-foreground")}>
+              <span className="font-mono font-semibold">{b.serial}</span>
+              <span className="min-w-0 flex-1 break-words text-muted-foreground">{t("approvals.facts.partyNow", { number: b.partyNo })}</span>
+              {b.newNumber ? <Chip tone="amber">{t("approvals.facts.newNumber")}</Chip> : null}
+              {!b.willMove ? <Chip tone="red">{t("approvals.facts.stays")}</Chip> : null}
+              <span className="font-mono">{moveKgText(b.weightG)} kg</span>
+            </li>
+          ))}
+        </ul>
+      </Block>
+    );
+  }
+  const v = tierFactsView(data, { mainBand: t("approvals.band.main") });
+  const rows: [string, ReactNode][] = [[t("approvals.facts.copy"), v.code]];
+  rows.push([
+    t("approvals.facts.tier"),
+    v.tierChanges
+      ? t("approvals.facts.tierValue", { from: v.askedFromTier ?? t("approvals.facts.tierNone"), to: v.askedToTier })
+      : (v.nowTier ?? t("approvals.facts.tierNone")),
+  ]);
+  rows.push([
+    t("approvals.facts.band"),
+    v.bandChange ? t("approvals.facts.bandValue", { from: v.bandChange.from, to: v.bandChange.to }) : t("approvals.facts.bandNow", { band: v.nowBand }),
+  ]);
+  rows.push([
+    t("approvals.facts.reading"),
+    v.readingKg === null || v.readAt === null
+      ? t("approvals.facts.readingNone")
+      : `${t("approvals.facts.readingValue", { kg: v.readingKg, when: plantTimeText(v.readAt, tz) })}${v.position ? `, ${t(`approvals.facts.${v.position}`)}` : ""}`,
+  ]);
+  return (
+    <Block title={t("approvals.facts.tierTitle")}>
+      <Rows rows={rows} testId="live-tier" />
+      {v.changedSince ? (
+        <p className="m-0 text-[14px] text-destructive" data-testid="tier-changed-since">
+          {t("approvals.facts.changedSince", { tier: v.nowTier ?? t("approvals.facts.tierNone"), band: v.nowBand })}
+        </p>
+      ) : null}
+    </Block>
+  );
+}
+
 type RunData = inferRouterOutputs<AppRouter>["press"]["runs"]["get"];
 
 const KG3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 /**
- * H1 (final explore): what a late entry asks to accept. The typed times, press and copy come from the
- * request (as asked); kg in and good come from the run now, because the supervisor counts them after
- * asking. Times are in the plant's time zone.
+ * H1 (final explore): what a late entry asks to accept. Round 1 (m1): the live run comes first (that is what
+ * Approve accepts: times, press, copy, day and shift, kg in and good); the request's own copy fills in only
+ * while the run loads, and a note says so when the request asked for other times. Times are in the plant's time zone.
  */
 function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; run: RunData | undefined; loading: boolean; error: boolean }) {
   const { t } = useT();
   const tz = useCompanyTimeZone();
-  const startedAt = late.startedAt ?? (run?.run.startedAt ? new Date(run.run.startedAt).getTime() : null);
-  const stoppedAt = late.stoppedAt ?? (run?.run.stoppedAt ? new Date(run.run.stoppedAt).getTime() : null);
-  const lineCode = late.pressLineCode ?? run?.line?.code ?? null;
-  const copyCode = late.copyCode ?? run?.copy?.code ?? null;
-  const day = late.productionDay ?? run?.run.productionDay ?? null;
-  const shift = late.shiftSeq ?? run?.run.shiftSeq ?? null;
+  const ms = (v: string | number | Date | null | undefined) => (v ? new Date(v).getTime() : null);
+  const startedAt = ms(run?.run.startedAt) ?? late.startedAt;
+  const stoppedAt = ms(run?.run.stoppedAt) ?? late.stoppedAt;
+  const lineCode = run?.line?.code ?? late.pressLineCode ?? null;
+  const copyCode = run?.copy?.code ?? late.copyCode ?? null;
+  const day = run?.run.productionDay ?? late.productionDay ?? null;
+  const shift = run?.run.productionDay ? (run.run.shiftSeq ?? null) : late.shiftSeq;
+  const askedDiffers =
+    run !== undefined && late.startedAt !== null && late.stoppedAt !== null && (late.startedAt !== ms(run.run.startedAt) || late.stoppedAt !== ms(run.run.stoppedAt));
   const figures = run?.figures;
   const counted = figures !== undefined && figures.inputG > 0;
   const kg = (g: number) => `${KG3.format(g / 1000)} kg`;
   const pending = loading ? <Skeleton className="h-5 w-24" /> : "-";
   const rows: [string, ReactNode, string][] = [
-    [t("approvals.late.run"), late.runNumber || run?.run.number || "-", "run"],
+    [t("approvals.late.run"), run?.run.number || late.runNumber || "-", "run"],
     [t("approvals.late.line"), lineCode ?? "-", "line"],
   ];
   if (run?.run.sectionCode) rows.push([t("approvals.late.die"), `${run.run.sectionCode}${run.run.sectionName ? ` ${run.run.sectionName}` : ""}`, "die"]);
@@ -311,6 +421,11 @@ function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; 
           </div>
         ))}
       </dl>
+      {askedDiffers ? (
+        <p className="m-0 text-[14px] text-muted-foreground" data-testid="late-entry-differs">
+          {t("approvals.late.changed", { times: lateWindowText(late.startedAt!, late.stoppedAt!, tz) })}
+        </p>
+      ) : null}
       {error ? <p className="m-0 text-[14px] text-destructive">{t("approvals.late.runError")}</p> : null}
     </Block>
   );

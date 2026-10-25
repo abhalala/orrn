@@ -463,6 +463,11 @@ export const spoolRouter = router({
           .update(printLog)
           .set({ spoolJobId: String(result.id), status: "sent" })
           .where(eq(printLog.id, printLogId));
+        // The spool took the label with the bundle's current party number: no "needs reprint" now (I3).
+        await ctx.db
+          .update(bundle)
+          .set({ stickerStale: false })
+          .where(and(eq(bundle.id, bundleRow.id), eq(bundle.companyId, ctx.companyId!), eq(bundle.stickerStale, true)));
 
         return { id: printLogId, spoolJobId: result.id, variables };
       } catch (err) {

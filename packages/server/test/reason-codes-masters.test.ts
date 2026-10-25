@@ -82,6 +82,29 @@ describe("reasonCodes.create", () => {
     expect(hi.code).toMatch(/^code_[a-z0-9]+$/);
   });
 
+  test("round 1 m5: the live-words rule is in the statement too: two concurrent creates land once, and a direct insert is refused", async () => {
+    const p = await plant();
+    const results = await Promise.allSettled([
+      p.manager.reasonCodes.create({ kind: "void", label: "Rack fell" }),
+      p.manager.reasonCodes.create({ kind: "void", label: "rack FELL" }),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const lost = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(["BAD_REQUEST", "CONFLICT"]).toContain((lost.reason as { code: string }).code);
+    const live = (await env.db.select().from(reasonCode).where(and(eq(reasonCode.companyId, p.companyId), eq(reasonCode.kind, "void"), eq(reasonCode.active, true)))).filter(
+      (r) => r.label.toLowerCase() === "rack fell",
+    );
+    expect(live).toHaveLength(1);
+    // The index itself: a second live row with the same words, written behind the router's back, fails.
+    await expect(
+      (async () => {
+        await env.db.insert(reasonCode).values({ id: crypto.randomUUID(), companyId: p.companyId, kind: "void", code: "rack_fell_x", label: " Rack Fell ", active: true, sortOrder: 99 });
+      })(),
+    ).rejects.toThrow();
+    // A retired row with the same words is fine (history).
+    await env.db.insert(reasonCode).values({ id: crypto.randomUUID(), companyId: p.companyId, kind: "void", code: "rack_fell_old", label: "Rack fell", active: false, sortOrder: 98 });
+  });
+
   test("masters.publish only: office, supervisor and press cannot add", async () => {
     const p = await plant();
     for (const role of ["office", "supervisor", "press", "viewer"] as const) {

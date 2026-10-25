@@ -56,6 +56,8 @@ export function BundleFacts({
     dieId: string;
     serial?: string;
     partyNo?: string | null;
+    /** The printed sticker carries an old party number (a move renumbered the bundle). */
+    stickerStale?: boolean;
     kgPer12ftMilli?: number | null;
     weightSource?: string | null;
     weightOverrideReason?: string | null;
@@ -107,6 +109,7 @@ export function BundleFacts({
     { key: "range", label: t("bundle.facts.weightRange"), value: extras?.range12ft != null ? formatKg(extras.range12ft, 1) : "-" },
     ...(band ? [{ key: "band", label: serverBand?.source === "copy" ? t("bundle.facts.copyBand") : t("bundle.facts.dieBand"), value: band }] : []),
     ...(party ? [{ key: "party", label: t("pack.partyNo"), value: party }] : []),
+    ...(bundle.stickerStale ? [{ key: "sticker", label: t("pack.stickerStaleHint"), value: <Chip tone="amber" label={t("pack.stickerStale")} /> }] : []),
     { key: "section", label: t("bundle.facts.section"), value: section ? link(section, false, `/stock/${encodeURIComponent(bundle.dieId)}`) : "-" },
     ...(die?.name ? [{ key: "die", label: t("bundle.facts.die"), value: die.name }] : []),
     ...(extras?.dieCopy ? [{ key: "copy", label: t("pack.source.copy"), value: extras.dieCopy.code }] : []),

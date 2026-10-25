@@ -35,6 +35,7 @@ type SessionBundle = {
   id: string;
   serial: string;
   partyNo: string | null;
+  stickerStale?: boolean;
   status: BundleStatus;
   quantity: number;
   weightG: number;
@@ -69,7 +70,7 @@ function PackSession() {
   );
   const die = data?.die ?? null;
   // Party numbers show only when they differ from the plant serial (D12).
-  const hasParty = useMemo(() => bundles.some((b) => partyNoLabel(b) !== null), [bundles]);
+  const hasParty = useMemo(() => bundles.some((b) => partyNoLabel(b) !== null || b.stickerStale), [bundles]);
 
   const printable = useMemo(
     () => bundles.filter((b) => b.status !== "void").map((b) => ({ bundleId: b.id, serial: b.serial })),
@@ -91,7 +92,12 @@ function PackSession() {
             {
               key: "party",
               header: t("pack.partyNo"),
-              cell: (b: SessionBundle) => <span className="font-mono whitespace-nowrap">{partyNoLabel(b) ?? ""}</span>,
+              cell: (b: SessionBundle) => (
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="font-mono whitespace-nowrap">{partyNoLabel(b) ?? ""}</span>
+                  {b.stickerStale ? <Chip tone="amber" data-testid="sticker-stale">{t("pack.stickerStale")}</Chip> : null}
+                </span>
+              ),
             },
           ]
         : []),

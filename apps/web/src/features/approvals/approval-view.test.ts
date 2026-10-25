@@ -295,10 +295,10 @@ describe("H1 (final explore): a late entry request says what is approved", () =>
 
   test("times are the plant's clock, whatever the device's zone; a run past midnight names both days", async () => {
     const { lateWindowText, durationText, plantTimeText } = await import("./approval-view");
-    expect(lateWindowText(meta.startedAt, meta.stoppedAt, "Asia/Kolkata")).toBe("24 Oct 21:00 – 23:05");
+    expect(lateWindowText(meta.startedAt, meta.stoppedAt, "Asia/Kolkata")).toBe("24 Oct 21:00 to 23:05");
     expect(durationText(meta.startedAt, meta.stoppedAt)).toBe("2 h 05 min");
     expect(durationText(0, 40 * 60_000)).toBe("40 min");
-    expect(lateWindowText(Date.UTC(2026, 9, 24, 17, 30), Date.UTC(2026, 9, 24, 19, 0), "Asia/Kolkata")).toBe("24 Oct 23:00 – 25 Oct 00:30");
+    expect(lateWindowText(Date.UTC(2026, 9, 24, 17, 30), Date.UTC(2026, 9, 24, 19, 0), "Asia/Kolkata")).toBe("24 Oct 23:00 to 25 Oct 00:30");
     expect(plantTimeText(meta.startedAt, "Asia/Kolkata")).toBe("24 Oct 21:00");
   });
 });
@@ -324,5 +324,68 @@ describe("M6 (final explore): a band lift names the bands", () => {
     expect(old.vars).toMatchObject({ from: "another band", to: "main band" });
     // A plain rank change keeps its wording.
     expect(approvalSubject(row({ kind: "die_rerank", meta: { code: "1-A", sectionId: "s-1", fromRank: 2, toRank: 1, isLift: false } }), words).titleKey).toBe("approvals.subject.dieRerank");
+  });
+});
+
+describe("BACKLOG 89: the sheet reads live facts for a move and for a tier change", () => {
+  const moveFacts = {
+    kind: "order_reallocate" as const,
+    target: { customerName: "Royal Aluminium", orderNumber: "SO-9", lineNo: 1, orderOpen: true, partyRule: "series" as const },
+    bundles: [
+      { id: "b1", serial: "26J1", weightG: 10_000, status: "available", partyNo: "26J1", willMove: true, renumbers: true },
+      { id: "b2", serial: "26J2", weightG: 11_000, status: "void", partyNo: "26J2", willMove: false, renumbers: true },
+      { id: "b3", serial: "26J3", weightG: 9_000, status: "available", partyNo: "26J3", willMove: true, renumbers: false },
+    ],
+    willMove: { count: 2, kgG: 19_000 },
+  };
+
+  test("only move and tier requests read live facts", async () => {
+    const { hasLiveFacts } = await import("./approval-view");
+    expect(hasLiveFacts("order_reallocate")).toBe(true);
+    expect(hasLiveFacts("die_rerank")).toBe(true);
+    for (const kind of ["dc_note", "cast_close", "press_late_entry", "dispatch_overdraw"]) expect(hasLiveFacts(kind)).toBe(false);
+  });
+
+  test("move: counts what would move, names who takes a new number, marks the ones that changed", async () => {
+    const { moveFactsView } = await import("./approval-view");
+    const v = moveFactsView(moveFacts);
+    expect(v).toMatchObject({ total: 3, moving: 2, kgG: 19_000, skipped: 1, nothingMoves: false, closed: false, partyRule: "series", customer: "Royal Aluminium" });
+    expect(v.rows.map((r) => [r.serial, r.willMove, r.newNumber])).toEqual([
+      ["26J1", true, true],
+      ["26J2", false, false],
+      ["26J3", true, false],
+    ]);
+    const gone = moveFactsView({ ...moveFacts, target: { ...moveFacts.target, orderOpen: false }, bundles: moveFacts.bundles.map((b) => ({ ...b, willMove: false })), willMove: { count: 0, kgG: 0 } });
+    expect(gone).toMatchObject({ nothingMoves: true, closed: true });
+    expect(moveFactsView({ ...moveFacts, target: null }).closed).toBe(true);
+  });
+
+  const tierFacts = {
+    kind: "die_rerank" as const,
+    copy: { code: "14701-2", status: "available", tierRank: 2, band: { text: "5.900-6.200", minG: 5_900, maxG: 6_200, main: true } },
+    request: { fromRank: 2, toRank: 1, isLift: false, fromBandText: null, toBandText: null, status: "pending" },
+    changedSince: false,
+    reading: { kgPer12ftMilli: 6_480, readAt: 1_700_000_000_000 },
+  };
+
+  test("tier: now against asked, the last reading against the live band", async () => {
+    const { tierFactsView } = await import("./approval-view");
+    const words = { mainBand: "main band" };
+    expect(tierFactsView(tierFacts, words)).toMatchObject({ code: "14701-2", nowTier: "2", askedFromTier: "2", askedToTier: "1", tierChanges: true, nowBand: "main band 5.900-6.200", bandChange: null, readingKg: "6.480", position: "above", changedSince: false });
+    expect(tierFactsView({ ...tierFacts, reading: { kgPer12ftMilli: 6_000, readAt: 1 } }, words).position).toBe("inside");
+    expect(tierFactsView({ ...tierFacts, reading: { kgPer12ftMilli: 5_800, readAt: 1 } }, words).position).toBe("below");
+    expect(tierFactsView({ ...tierFacts, reading: null }, words)).toMatchObject({ readingKg: null, position: null });
+  });
+
+  test("tier: a lift names both bands (never 'tier 2 to 2'); a copy changed since the ask is flagged", async () => {
+    const { tierFactsView } = await import("./approval-view");
+    const words = { mainBand: "main band" };
+    const lift = tierFactsView(
+      { ...tierFacts, request: { fromRank: 2, toRank: 2, isLift: true, fromBandText: null, toBandText: "6.2-6.6", status: "pending" }, changedSince: true },
+      words,
+    );
+    expect(lift).toMatchObject({ tierChanges: false, bandChange: { from: "main band", to: "6.2-6.6" }, changedSince: true });
+    const none = tierFactsView({ ...tierFacts, copy: { ...tierFacts.copy, tierRank: null }, request: { ...tierFacts.request, fromRank: null } }, words);
+    expect(none).toMatchObject({ nowTier: null, askedFromTier: null, askedToTier: "1" });
   });
 });

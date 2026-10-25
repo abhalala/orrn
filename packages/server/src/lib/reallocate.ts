@@ -251,7 +251,7 @@ export async function bundlePartyInfo(
   db: OrrnDb,
   companyId: string,
   bundleIds: readonly string[],
-): Promise<{ id: string; serial: string; partyNo: string | null; customerId: string | null }[]> {
+): Promise<{ id: string; serial: string; partyNo: string | null; customerId: string | null; status: string; lineId: string | null; dieId: string }[]> {
   const rows = await mapInChunks(
     [...new Set(bundleIds)],
     (part) =>
@@ -263,6 +263,8 @@ export async function bundlePartyInfo(
           lineCustomerId: salesOrder.customerId,
           originCustomerId: sql<string | null>`${plantOriginCustomerSql(companyId, sql`${bundle.id}`)}`,
           lineId: bundle.salesOrderLineId,
+          status: bundle.status,
+          dieId: bundle.dieId,
         })
         .from(bundle)
         .leftJoin(salesOrderLine, and(eq(salesOrderLine.id, bundle.salesOrderLineId), eq(salesOrderLine.companyId, companyId)))
@@ -270,7 +272,15 @@ export async function bundlePartyInfo(
         .where(and(eq(bundle.companyId, companyId), inArray(bundle.id, part))),
     REALLOCATE_READ_CHUNK,
   );
-  return rows.map((r) => ({ id: r.id, serial: r.serial, partyNo: r.partyNo, customerId: r.lineCustomerId ?? (r.lineId ? null : r.originCustomerId) }));
+  return rows.map((r) => ({
+    id: r.id,
+    serial: r.serial,
+    partyNo: r.partyNo,
+    customerId: r.lineCustomerId ?? (r.lineId ? null : r.originCustomerId),
+    status: r.status,
+    lineId: r.lineId,
+    dieId: r.dieId,
+  }));
 }
 
 /**
@@ -302,8 +312,21 @@ export async function partyRenumbersFor(
 }
 
 /**
+ * I3 (final explore round 1): bundles that go to plant stock take their serial back as the party number.
+ * A customer's own number must not travel into plant stock: a later scan onto another customer's load
+ * would print it on that customer's packing list. A bundle already numbered by its serial is left alone.
+ */
+export function partyRenumbersToPlant(bundles: readonly { id: string; serial: string; partyNo: string | null }[]): PartyRenumber[] {
+  return bundles
+    .filter((b) => b.partyNo !== null && b.partyNo !== b.serial)
+    .map((b) => ({ bundleId: b.id, serial: b.serial, from: b.partyNo, to: b.serial }))
+    .sort((a, b) => a.serial.localeCompare(b.serial, "en", { numeric: true }));
+}
+
+/**
  * UPDATEs that write the new party numbers, each guarded by `landed` (an SQL condition on the
- * `bundle` row: it moved in this batch). Chunked under D1's 100 bound values.
+ * `bundle` row: it moved in this batch). Chunked under D1's 100 bound values. Each renumbered bundle's
+ * printed sticker is now out of date, so it is flagged (`sticker_stale`) until its label is printed again.
  */
 export function partyRenumberStatements(db: OrrnDb, companyId: string, renumbers: readonly PartyRenumber[], landed: SQL): SqliteBatchItem[] {
   return chunk([...renumbers], RENUMBER_CHUNK).map((part) =>
@@ -314,6 +337,7 @@ export function partyRenumberStatements(db: OrrnDb, companyId: string, renumbers
           part.map((r) => sql`when ${r.bundleId} then ${r.to}`),
           sql` `,
         )} else ${bundle.partyNo} end`,
+        stickerStale: true,
       })
       .where(and(eq(bundle.companyId, companyId), inArray(bundle.id, part.map((r) => r.bundleId)), landed)),
   );
@@ -338,13 +362,26 @@ export async function reallocatePrepare(
   const toLineId = typeof meta.toLineId === "string" ? meta.toLineId : null;
   if (ids.length === 0 || !toLineId) return [];
   const [target] = await db
-    .select({ customerId: salesOrder.customerId })
+    .select({ customerId: salesOrder.customerId, dieId: salesOrderLine.dieId, status: salesOrder.status })
     .from(salesOrderLine)
     .innerJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, companyId)))
     .where(and(eq(salesOrderLine.id, toLineId), eq(salesOrderLine.companyId, companyId)))
     .limit(1);
-  if (!target) return [];
-  return partyRenumbersFor(db, companyId, await bundlePartyInfo(db, companyId, ids), target.customerId, at, userId);
+  // Nothing lands on a closed order: no number is spent.
+  if (!target || !["booking", "confirmed", "dispatching"].includes(target.status)) return [];
+  // m3: numbers only for the bundles the decision will really move (the same tests as the applier's
+  // insert: still available, still on the line they were asked from, the target line's die), so a bundle
+  // that changed meanwhile leaves no gap in the customer's own series.
+  const askedFrom = new Map<string, string | null>();
+  if (Array.isArray(meta.items)) {
+    for (const it of meta.items as { bundleId?: unknown; fromLineId?: unknown }[]) {
+      if (it && typeof it.bundleId === "string") askedFrom.set(it.bundleId, typeof it.fromLineId === "string" ? it.fromLineId : null);
+    }
+  }
+  const info = (await bundlePartyInfo(db, companyId, ids)).filter(
+    (b) => b.status === "available" && b.dieId === target.dieId && (askedFrom.has(b.id) ? (askedFrom.get(b.id) ?? null) === b.lineId : true),
+  );
+  return partyRenumbersFor(db, companyId, info, target.customerId, at, userId);
 }
 
 /**

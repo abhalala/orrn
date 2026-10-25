@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { AUDIT_ACTION_WORDS, AUDIT_KINDS, AUDIT_KIND_ACTIONS, auditActionKey, auditInput, filtersActive, kindOf, lastChangeOf, metaEntries, parseAuditSearch, zonedDayEndMs, zonedDayStartMs } from "./model";
+import { AUDIT_ACTION_WORDS, auditActionKey } from "./action-words";
+import { AUDIT_KINDS, AUDIT_KIND_ACTIONS, auditInput, filtersActive, kindOf, lastChangeOf, metaEntries, parseAuditSearch, zonedDayEndMs, zonedDayStartMs } from "./model";
 
 const WORDS = { yes: "Yes", no: "No", none: "none", change: (from: string, to: string) => `${from} to ${to}` };
 
@@ -133,11 +134,19 @@ describe("wave-2 M5: audit actions read as words", () => {
     };
     walk(root);
     const written = new Set<string>();
-    // Every dotted literal in an `action:` expression, both arms of a ternary included.
+    // Every dotted literal in an `action:` or `audit:` expression (both arms of a ternary included; `audit:` is
+    // the option `moveRun` takes), and the positional action of `applierAudit(ctx, "x.y", ...)`.
+    const dotted = /["'`]([a-z][a-zA-Z_]*\.[a-zA-Z_.]+)["'`]/g;
     for (const file of files) {
-      for (const m of readFileSync(file, "utf8").matchAll(/action: ([^,\n]+)/g)) {
-        for (const lit of m[1]!.matchAll(/["'`]([a-z][a-zA-Z_]*\.[a-zA-Z_.]+)["'`]/g)) written.add(lit[1]!);
+      const source = readFileSync(file, "utf8");
+      for (const m of source.matchAll(/\b(?:action|audit):\s*([^,\n]+)/g)) {
+        for (const lit of m[1]!.matchAll(dotted)) written.add(lit[1]!);
       }
+      for (const m of source.matchAll(/applierAudit\(\s*ctx,\s*["'`]([^"'`]+)["'`]/g)) written.add(m[1]!);
+    }
+    // The review's seven: the most frequent actions on the plant.
+    for (const action of ["press_run.start", "press_run.stop", "press_run.resume", "press_run.undo_start", "press_run.count", "press_run.handover", "die_trial.reopen"]) {
+      expect({ action, scanned: written.has(action) }).toEqual({ action, scanned: true });
     }
     expect(written.size).toBeGreaterThan(100);
     expect([...written].filter((a) => !AUDIT_ACTION_WORDS.has(a))).toEqual([]);

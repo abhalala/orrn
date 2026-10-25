@@ -7,35 +7,12 @@
  */
 import type { StatusTone } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
+import type { MoveFacts, TierFacts } from "@orrn/server/lib/approvalFacts";
 import { canAny, canApprove, type Action, type ApprovalKind, type Me } from "@orrn/server/lib/permissions";
 
-export type ApprovalStatus = "pending" | "approved" | "rejected";
+import type { ApprovalStatus } from "./approval-filter";
 
-/** The approval kinds (mirror of `approvalKinds` in @orrn/db/schema/approval; the db package stays out of the web bundle). */
-export const APPROVAL_KINDS = [
-  "dc_note",
-  "cast_close",
-  "die_rerank",
-  "dispatch_overdraw",
-  "phantom_void",
-  // FP Wave 1: generic subject until their module adds one.
-  "die_owner_override",
-  "order_reallocate",
-  "press_time",
-  "press_reopen",
-  "ageing_override",
-  // FP Wave 2.
-  "press_late_entry",
-] as const satisfies readonly ApprovalKind[];
-
-// Compile-time: every server kind is listed (a new kind fails check-types here until it is added).
-type MissingKind = Exclude<ApprovalKind, (typeof APPROVAL_KINDS)[number]>;
-const everyKindListed: [MissingKind] extends [never] ? true : never = true;
-void everyKindListed;
-
-export function isApprovalKind(v: unknown): v is ApprovalKind {
-  return typeof v === "string" && (APPROVAL_KINDS as readonly string[]).includes(v);
-}
+export { APPROVAL_KINDS, isApprovalKind, type ApprovalStatus } from "./approval-filter";
 
 export const APPROVAL_TONE: Record<ApprovalStatus, StatusTone> = {
   pending: "amber",
@@ -178,12 +155,12 @@ export function plantTimeText(at: number, timeZone: string): string {
   return `${p.day} ${p.month} ${p.hour}:${p.minute}`;
 }
 
-/** "24 Oct 21:00 – 23:00", or both dates when the run crosses midnight. */
+/** "24 Oct 21:00 to 23:00", or both dates when the run crosses midnight. */
 export function lateWindowText(startedAt: number, stoppedAt: number, timeZone: string): string {
   const a = zonedParts(startedAt, timeZone);
   const b = zonedParts(stoppedAt, timeZone);
   const sameDay = a.day === b.day && a.month === b.month;
-  return `${a.day} ${a.month} ${a.hour}:${a.minute} – ${sameDay ? "" : `${b.day} ${b.month} `}${b.hour}:${b.minute}`;
+  return `${a.day} ${a.month} ${a.hour}:${a.minute} to ${sameDay ? "" : `${b.day} ${b.month} `}${b.hour}:${b.minute}`;
 }
 
 /** "2 h 05 min" between two instants. */
@@ -353,4 +330,56 @@ export function approvalsPageInput(filter: { status: ApprovalStatus; kind: Appro
 /** The next page's offset from the server's `nextOffset` (undefined ends "Show more"). */
 export function nextApprovalsOffset(last: { nextOffset: number | null }): number | undefined {
   return last.nextOffset ?? undefined;
+}
+
+/** Kinds whose sheet reads live facts (`approval.facts`) before Approve opens (BACKLOG 89). */
+export const FACT_KINDS = ["order_reallocate", "die_rerank"] as const satisfies readonly ApprovalKind[];
+export function hasLiveFacts(kind: string): boolean {
+  return (FACT_KINDS as readonly string[]).includes(kind);
+}
+
+/** A move request as it stands now: who would move, who gets a new party number, what is skipped. */
+export function moveFactsView(f: MoveFacts) {
+  const total = f.bundles.length;
+  const moving = f.willMove.count;
+  return {
+    total,
+    moving,
+    kgG: f.willMove.kgG,
+    skipped: total - moving,
+    nothingMoves: moving === 0,
+    closed: f.target === null || !f.target.orderOpen,
+    partyRule: f.target?.partyRule ?? ("serial" as const),
+    customer: f.target?.customerName ?? "",
+    rows: f.bundles.map((b) => ({
+      serial: b.serial,
+      partyNo: b.partyNo,
+      weightG: b.weightG,
+      willMove: b.willMove,
+      /** Moves AND takes a new number. */
+      newNumber: b.willMove && b.renumbers,
+    })),
+  };
+}
+
+/** A tier change as it stands now: the copy now, what is asked, the last reading against the band. */
+export function tierFactsView(f: TierFacts, words: { mainBand: string }) {
+  const r = f.reading;
+  const position: "above" | "below" | "inside" | null = r ? (r.kgPer12ftMilli > f.copy.band.maxG ? "above" : r.kgPer12ftMilli < f.copy.band.minG ? "below" : "inside") : null;
+  const rank = (n: number | null) => (n === null ? null : String(n));
+  return {
+    code: f.copy.code,
+    nowTier: rank(f.copy.tierRank),
+    askedFromTier: rank(f.request.fromRank),
+    askedToTier: String(f.request.toRank),
+    tierChanges: f.request.fromRank !== f.request.toRank,
+    nowBand: f.copy.band.main ? `${words.mainBand} ${f.copy.band.text}` : f.copy.band.text,
+    bandChange: f.request.isLift
+      ? { from: f.request.fromBandText ?? words.mainBand, to: f.request.toBandText ?? words.mainBand }
+      : null,
+    readingKg: r ? (r.kgPer12ftMilli / 1000).toFixed(3) : null,
+    readAt: r ? r.readAt : null,
+    position,
+    changedSince: f.changedSince,
+  };
 }

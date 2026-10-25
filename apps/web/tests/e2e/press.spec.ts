@@ -696,7 +696,7 @@ for (const width of WIDTHS) {
       await expect(summary.locator('[data-row="line"]')).toContainText(fx.lineCode);
       await expect(summary.locator('[data-row="copy"]')).toContainText(fx.lateCopy.code);
       // Typed 3 h ago to 2 h ago: one hour on the plant's clock.
-      await expect(summary.locator('[data-row="times"]')).toContainText("–");
+      await expect(summary.locator('[data-row="times"]')).toContainText(" to ");
       await expect(summary.locator('[data-row="duration"]')).toContainText("1 h 00 min");
       await expect(summary.locator('[data-row="kg-in"]')).toContainText("Not counted yet");
       await expect(summary.locator('[data-row="good"]')).toContainText("Not counted yet");

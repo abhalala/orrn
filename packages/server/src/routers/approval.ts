@@ -6,6 +6,7 @@ import { z } from "zod";
 import { user } from "@orrn/db/schema/auth";
 import { approval, approvalKinds, approvalStatuses } from "@orrn/db/schema/approval";
 
+import { loadApprovalFacts } from "../lib/approvalFacts";
 import { APPROVAL_APPLIERS, APPROVAL_PREPARERS, explainApplyAbort } from "../lib/approvalApply";
 import { APPROVAL_KIND_MODULE, assertModule } from "../lib/moduleGate";
 import { atomicBatch } from "../lib/atomic";
@@ -88,6 +89,22 @@ export const approvalRouter = router({
       const next = input.offset + items.length;
       return { items: visible, total, limit: input.limit, offset: input.offset, nextOffset: next < total ? next : null };
     }),
+
+  /**
+   * The live facts behind one request (owner tour, BACKLOG 89): for a bundle move, where each bundle is
+   * now and whether the decision would move it; for a die tier change, the copy's tier, band and last
+   * reading now. Open to every role like `list` (ids, names, kg and numbers; never money). Null for
+   * kinds whose meta already says everything.
+   */
+  facts: companyProcedure.input(z.object({ id: z.string().min(1).max(64) })).query(async ({ ctx, input }) => {
+    const [row] = await ctx.db
+      .select({ kind: approval.kind, subjectId: approval.subjectId, meta: approval.meta })
+      .from(approval)
+      .where(and(eq(approval.id, input.id), eq(approval.companyId, ctx.companyId)))
+      .limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+    return loadApprovalFacts(ctx.db, ctx.companyId, row);
+  }),
 
   /**
    * Approve or reject a pending request. Only the approver roles for its kind

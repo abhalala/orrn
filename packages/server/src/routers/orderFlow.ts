@@ -52,6 +52,7 @@ import {
   pendingReallocationOf,
   partyRenumberStatements,
   partyRenumbersFor,
+  partyRenumbersToPlant,
   REALLOCATE_READ_CHUNK,
   reallocateMove,
   renumbersForAudit,
@@ -1061,17 +1062,12 @@ export const orderFlowProcedures = {
       }
 
       // M4 (final explore): a bundle that lands on another customer's line (legacy stock, plant stock
-      // with no origin) takes that customer's party number; the audit keeps the old one.
+      // with no origin) takes that customer's party number; the audit keeps the old one. I3 (round 1):
+      // a bundle that goes to plant stock takes its serial back, so no customer's number travels with it.
+      const partyInfo = rows.map((b) => ({ id: b.id, serial: b.serial, partyNo: b.partyNo, customerId: b.lineCustomerId ?? (b.lineId ? null : (b.originCustomerId ?? null)) }));
       const renumbers = target
-        ? await partyRenumbersFor(
-            ctx.db,
-            ctx.companyId,
-            rows.map((b) => ({ id: b.id, serial: b.serial, partyNo: b.partyNo, customerId: b.lineCustomerId ?? (b.lineId ? null : (b.originCustomerId ?? null)) })),
-            target.customerId,
-            at,
-            userId,
-          )
-        : [];
+        ? await partyRenumbersFor(ctx.db, ctx.companyId, partyInfo, target.customerId, at, userId)
+        : partyRenumbersToPlant(partyInfo);
       const statements: SqliteBatchItem[] = [
         ...moveStatements(ctx.db, {
           companyId: ctx.companyId,
@@ -1090,9 +1086,12 @@ export const orderFlowProcedures = {
           "sales_order_line",
           sql`(select count(*) from bundle b where b.company_id = ${ctx.companyId} and b.server_seq = ${seq} and b.status = 'available' and ${target ? sql`b.sales_order_line_id = ${target.lineId} and (b.held_for_line_id is null or b.held_for_line_id = ${target.lineId})` : sql`b.sales_order_line_id is null and b.held_for_line_id is null`} and b.id in (select t.bundle_id from bundle_transfer t where t.company_id = ${ctx.companyId} and t.batch_id = ${batchId})) = ${ids.length}`,
         ),
-        ...(target
-          ? partyRenumberStatements(ctx.db, ctx.companyId, renumbers, sql`${bundle.serverSeq} = ${seq} and ${bundle.salesOrderLineId} = ${target.lineId}`)
-          : []),
+        ...partyRenumberStatements(
+          ctx.db,
+          ctx.companyId,
+          renumbers,
+          target ? sql`${bundle.serverSeq} = ${seq} and ${bundle.salesOrderLineId} = ${target.lineId}` : sql`${bundle.serverSeq} = ${seq} and ${bundle.salesOrderLineId} is null`,
+        ),
         auditInsert(ctx, {
           action: "order.reallocate",
           subjectType: "bundle_transfer",

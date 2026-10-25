@@ -3,7 +3,8 @@ import { Chip } from "@orrn/ui/components/chip";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import type { ReactNode } from "react";
 
-import { auditActionKey, metaEntries } from "./model";
+import { auditActionKey } from "./action-words";
+import { metaEntries } from "./model";
 
 export type AuditRow = {
   id: string;

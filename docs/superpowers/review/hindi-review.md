@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5848 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 5883 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -545,7 +545,7 @@ Counts: 5848 screen strings in 49 groups, 35 guides with 646 strings.
 | `floor.store` | Store | स्टोर |
 | `floor.storeHint` | Chemicals, fuel and spares | केमिकल, ईंधन और स्पेयर |
 
-### pack (209)
+### pack (211)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -693,6 +693,8 @@ Counts: 5848 screen strings in 49 groups, 35 guides with 646 strings.
 | `print.noPrinterBody` | Print the labels on A4 stickers from this browser instead. Same QR, same figures. | इसी ब्राउज़र से A4 स्टिकर पर लेबल प्रिंट करें। वही QR, वही आंकड़े। |
 | `print.sheet` | Print label sheet | लेबल शीट प्रिंट करें |
 | `partyNo` | Party no. | पार्टी नंबर |
+| `stickerStale` | Sticker needs reprint | स्टिकर फिर छापना है |
+| `stickerStaleHint` | The party number changed after this sticker was printed. Print the label again. | स्टिकर छपने के बाद पार्टी नंबर बदल गया। लेबल फिर छापें। |
 | `forOrder` | For order | किस ऑर्डर के लिए |
 | `plantStock` | Plant stock | प्लांट स्टॉक |
 | `ageingRow` | From ageing | एजिंग से |
@@ -3683,7 +3685,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (96)
+### approvals (122)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3733,8 +3735,34 @@ Please check, Lalubhai:
 | `late.good` | Good kg | अच्छा kg |
 | `late.recovery` | Recovery | रिकवरी |
 | `late.notCounted` | Not counted yet | अभी गिना नहीं |
-| `late.runError` | The run's figures didn't load. Open the run to check before deciding. | रन के आंकड़े लोड नहीं हुए। तय करने से पहले रन खोलकर देखें। |
+| `late.runError` | The run's figures didn't load. Approve waits until the run loads; Reject is open. | रन के आंकड़े लोड नहीं हुए। रन लोड होने तक मंज़ूर बंद है; नामंज़ूर खुला है। |
+| `late.changed` | The request asked for {times}. The run above is what you approve. | अनुरोध में {times} मांगा था। ऊपर का रन ही मंज़ूर होगा। |
 | `openRun` | Open run | रन खोलें |
+| `facts.error` | The current figures didn't load. Approve waits until they load; Reject is open. | अभी के आंकड़े लोड नहीं हुए। लोड होने तक मंज़ूर बंद है; नामंज़ूर खुला है। |
+| `facts.moveTitle` | Where the bundles are now | बंडल अभी कहां हैं |
+| `facts.moveCount` | {count} of {total} would move ({kg} kg) | {total} में से {count} जाएंगे ({kg} kg) |
+| `facts.skipped` | {count} changed since the request and stay where they are. | {count} अनुरोध के बाद बदल गए और जहां हैं वहीं रहेंगे। |
+| `facts.closed` | That order is closed. Nothing will move. | वह ऑर्डर बंद है। कुछ नहीं जाएगा। |
+| `facts.partySeries` | Moved bundles take {customer}'s next party numbers. | जाने वाले बंडलों को {customer} के अगले पार्टी नंबर मिलेंगे। |
+| `facts.partySerial` | {customer} has no number series. Moved bundles use their plant serial. | {customer} की कोई नंबर सीरीज़ नहीं है। जाने वाले बंडल अपना प्लांट सीरियल रखेंगे। |
+| `facts.partyNow` | Party no. {number} | पार्टी नं. {number} |
+| `facts.stays` | stays | रहेगा |
+| `facts.newNumber` | new number | नया नंबर |
+| `facts.tierTitle` | The copy now | कॉपी अभी |
+| `facts.copy` | Copy | कॉपी |
+| `facts.tier` | Tier | टियर |
+| `facts.tierValue` | {from} to {to} | {from} से {to} |
+| `facts.tierNone` | not set | तय नहीं |
+| `facts.band` | Band | बैंड |
+| `facts.bandValue` | {from} to {to} | {from} से {to} |
+| `facts.bandNow` | {band} (now) | {band} (अभी) |
+| `facts.reading` | Last reading | आखिरी रीडिंग |
+| `facts.readingValue` | {kg} kg per 12 ft, {when} | {kg} kg प्रति 12 ft, {when} |
+| `facts.readingNone` | No reading yet | अभी कोई रीडिंग नहीं |
+| `facts.above` | above the band | बैंड से ऊपर |
+| `facts.below` | below the band | बैंड से नीचे |
+| `facts.inside` | inside the band | बैंड के अंदर |
+| `facts.changedSince` | The copy changed after this was asked: it is now tier {tier} on {band}. Check before you approve. | यह मांगने के बाद कॉपी बदल गई: अब {band} पर टियर {tier} है। मंज़ूर करने से पहले देख लें। |
 | `move.title` | What moves | क्या जा रहा है |
 | `move.bundles` | Bundles | Bundle |
 | `move.count` | {count} {count:bundle\|bundles}, {kg} kg | {count} bundle, {kg} kg |
@@ -5533,7 +5561,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (223)
+### audit (230)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5647,6 +5675,7 @@ Please check, Lalubhai:
 | `actions.die_trial__fail` | Die trial failed | डाई ट्रायल फेल |
 | `actions.die_trial__pass` | Die trial passed | डाई ट्रायल पास |
 | `actions.die_trial__release` | Die released from trial | डाई ट्रायल से छोड़ी |
+| `actions.die_trial__reopen` | Die put back on trial | डाई फिर ट्रायल पर रखी |
 | `actions.die_work__add` | Die work logged | डाई का काम दर्ज किया |
 | `actions.die_work__trial` | Die put on trial | डाई ट्रायल पर रखी |
 | `actions.dispatch__addBundle` | Bundle added to a dispatch | बंडल dispatch में जोड़ा |
@@ -5715,11 +5744,17 @@ Please check, Lalubhai:
 | `actions.press_plan_line__pull_back` | Length taken back to planning | लंबाई वापस प्लानिंग में ली |
 | `actions.press_remark__add` | Press remark added | प्रेस टिप्पणी जोड़ी |
 | `actions.press_run__close` | Press run logged | प्रेस रन दर्ज किया |
+| `actions.press_run__count` | Press run sent to counting | प्रेस रन गिनती में भेजा |
+| `actions.press_run__handover` | Press run handed to another person | प्रेस रन दूसरे को सौंपा |
 | `actions.press_run__open` | Press run entered late | प्रेस रन बाद में भरा |
 | `actions.press_run__queue_move` | Press queue order changed | प्रेस कतार का क्रम बदला |
 | `actions.press_run__reopen` | Press run reopened | प्रेस रन फिर खोला |
 | `actions.press_run__reopen_request` | Press run reopen asked | प्रेस रन फिर खोलने को कहा |
+| `actions.press_run__resume` | Press run running again | प्रेस रन फिर चालू |
+| `actions.press_run__start` | Press run started | प्रेस रन शुरू किया |
+| `actions.press_run__stop` | Press run stopped | प्रेस रन रोका |
 | `actions.press_run__time_request` | Press run times sent for a check | प्रेस रन का समय जांच को भेजा |
+| `actions.press_run__undo_start` | Press run start undone | प्रेस रन की शुरुआत वापस ली |
 | `actions.press_run__urgent` | Press run urgency changed | प्रेस रन की जल्दी बदली |
 | `actions.press_run__void` | Press run voided | प्रेस रन void किया |
 | `actions.purchase_lot__cancel` | Scrap lot cancelled | स्क्रैप लॉट रद्द किया |

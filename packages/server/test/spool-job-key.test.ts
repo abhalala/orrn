@@ -138,6 +138,18 @@ describe("spool.printBundleLabel job key", () => {
     expect(logs[1]!.spoolJobId).toBe(String(firstId));
   });
 
+  test("round 1 I3: a bundle flagged \"sticker needs reprint\" is cleared when the spool takes the label, and stays flagged when it does not", async () => {
+    const p = await plant();
+    await env.db.update(bundle).set({ stickerStale: true }).where(eq(bundle.id, p.bundleId));
+    mode = "down";
+    await expect(p.packer.spool.printBundleLabel({ bundleId: p.bundleId, reprint: true })).rejects.toMatchObject({ code: "BAD_GATEWAY" });
+    mode = "normal";
+    const flag = async () => (await env.db.select({ s: bundle.stickerStale }).from(bundle).where(eq(bundle.id, p.bundleId)))[0]!.s;
+    expect(await flag()).toBe(true);
+    await p.packer.spool.printBundleLabel({ bundleId: p.bundleId, reprint: true });
+    expect(await flag()).toBe(false);
+  });
+
   test("a plain second print of an already printed bundle is the same intent: no second label, attempt stays 1", async () => {
     const p = await plant();
     await p.packer.spool.printBundleLabel({ bundleId: p.bundleId });

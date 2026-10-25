@@ -53,6 +53,11 @@ export const reasonCode = sqliteTable(
   },
   (table) => [
     uniqueIndex("reason_code_company_kind_code_unique").on(table.companyId, table.kind, table.code),
+    // Final explore round 1 (m5): two live reasons of a kind never read the same. The guard is in the
+    // statement itself, so two concurrent creates cannot both land (the router checks first for the words).
+    uniqueIndex("reason_code_live_label_unique")
+      .on(table.companyId, table.kind, sql`lower(trim(${table.label}))`)
+      .where(sql`${table.active} = 1`),
     index("reason_code_company_kind_idx").on(table.companyId, table.kind, table.active),
     index("reason_code_company_server_seq_idx").on(table.companyId, table.serverSeq),
   ],

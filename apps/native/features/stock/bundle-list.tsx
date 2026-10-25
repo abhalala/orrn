@@ -28,6 +28,8 @@ export type BundleListItem = {
   createdAt: string | number | Date;
   /** The customer's own number (FP-PK-07); shown only when it differs from the serial. */
   partyNo?: string | null;
+  /** The printed sticker carries an old party number (a move renumbered the bundle). */
+  stickerStale?: boolean;
   /** The yard it is stacked in (explorer High 14); null = none recorded. */
   locationCode?: string | null;
   /** The order line it sits on now, as printed (`SO-12/1`). */
@@ -72,13 +74,14 @@ export function BundleRows({ rows, showSection = true }: { rows: readonly Bundle
           <PressableScale
             key={r.id}
             accessibilityRole="button"
-            accessibilityLabel={[r.serial, status, bandKey ? t(bandKey) : null, ...facts, more].filter(Boolean).join(", ")}
+            accessibilityLabel={[r.serial, status, r.stickerStale ? t("pack.stickerStale") : null, bandKey ? t(bandKey) : null, ...facts, more].filter(Boolean).join(", ")}
             onPress={() => router.push(`/b/${encodeURIComponent(r.serial)}`)}
             className="min-h-14 gap-1.5 rounded-card border border-hairline bg-surface px-4 py-3"
           >
             <View className="flex-row flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <Text className="font-mono-semibold text-base text-ink">{r.serial}</Text>
               <View className="flex-row flex-wrap items-center gap-2">
+                {r.stickerStale ? <Chip tone="amber" label={t("pack.stickerStale")} /> : null}
                 {bandKey ? <Chip tone={positionTone(r.band?.position ?? null)} label={t(bandKey)} /> : null}
                 <Chip tone={bundleTone(r.status)} label={status} />
               </View>

@@ -88,6 +88,12 @@ export const bundle = sqliteTable(
     ageingRowId: text("ageing_row_id"),
     packedSalesOrderLineId: text("packed_sales_order_line_id"),
     partyNo: text("party_no"),
+    /**
+     * The printed sticker carries an old party number: set when a move renumbers the bundle (to another
+     * customer, or back to plant stock), cleared when its label is printed again (the label printer, or
+     * the label sheet's Print). A hint for the floor, not a lock (final explore round 1, I3).
+     */
+    stickerStale: integer("sticker_stale", { mode: "boolean" }).notNull().default(sql`0`),
     /** Cut shorter than the ageing row's length with the same pieces (C12). */
     // SQL defaults (not JS) on bulk-inserted rows: a JS default is bound as a parameter that
     // pushChunkedInserts does not count (D1's 100-parameter limit).

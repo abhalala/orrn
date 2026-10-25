@@ -48,6 +48,8 @@ export function BundleFacts({
     dieId: string;
     serial: string;
     partyNo: string | null;
+    /** The printed sticker carries an old party number (a move renumbered the bundle). */
+    stickerStale?: boolean;
     kgPer12ftMilli: number | null;
     weightSource?: string | null;
     weightOverrideReason?: string | null;
@@ -119,6 +121,20 @@ export function BundleFacts({
         ]
       : []),
     ...(party ? [{ key: "party", label: t("pack.partyNo"), value: party, mono: true }] : []),
+    ...(bundle.stickerStale
+      ? [
+          {
+            key: "sticker",
+            label: t("pack.stickerStale"),
+            value: (
+              <span className="flex flex-col gap-1.5" data-testid="sticker-stale">
+                <Chip tone="amber">{t("pack.stickerStale")}</Chip>
+                <span className="text-[14px] font-medium text-muted-foreground">{t("pack.stickerStaleHint")}</span>
+              </span>
+            ),
+          },
+        ]
+      : []),
     {
       key: "section",
       label: t("bundle.facts.section"),
