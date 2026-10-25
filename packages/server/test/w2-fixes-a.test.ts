@@ -4,7 +4,7 @@
  *   approver, and the order timeline says "n bundles, kg, from -> to" for every move, including
  *   the approval's decision (never "0 bundles, 0.000 kg").
  * - 35: `dashboard.today` sends each role its own tiles, with the count each acts on.
- * - 36: two copies cannot sit on one press line (die issue).
+ * - 36 / D29: a press line holds at most two issued copies (the running run's and one preheating); a third is refused.
  * - 41: `plans.update` refuses order lines on a die trial / sample plan.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -16,6 +16,7 @@ import { ROLE_TILES, todayTileKeys } from "../src/lib/todayTiles";
 import { timelineMoveOf } from "../src/lib/reallocate";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 import { opHelpers, type OpPlant } from "./orders-w1-fixture";
+import { fillWorkedExample, pressHelpers } from "./press-w2-fixture";
 import { kg, SLOW } from "./sales-fixture";
 
 let env: TestEnv;
@@ -132,20 +133,38 @@ describe("BACKLOG 34: a move says what moves, from where to where", () => {
     // An approval's decision written before the summary: only `moved`; the transfers fill kg.
     expect(timelineMoveOf({ status: "applied", moved: 1 }, { count: 1, kgG: 57_046 })).toEqual({ count: 1, kgG: 57_046, from: null, to: undefined });
     expect(timelineMoveOf(null, undefined)).toEqual({ count: 0, kgG: 0, from: null, to: undefined });
+    // An old refusal carries only moved 0 and asked n: it says what was asked (kg unknown), never "0 bundles".
+    expect(timelineMoveOf({ status: "rejected", moved: 0, asked: 3 }, undefined)).toMatchObject({ count: 3 });
+    // An old applied decision where nothing could move still says 0: `asked` is never shown as moved.
+    expect(timelineMoveOf({ status: "applied", moved: 0, asked: 3 }, undefined)).toMatchObject({ count: 0 });
   });
 });
 
+/** Copies with an open issue on a press line, sorted. */
+async function openOn(lineId: string) {
+  const rows = await env.db.select().from(dieIssue).where(and(eq(dieIssue.pressLineId, lineId), eq(dieIssue.status, "issued")));
+  return rows.map((i) => i.dieInstanceId).sort();
+}
+
 describe("BACKLOG 35: Today's tiles follow the role", () => {
-  test("the role table: owner/manager everything, office orders/dispatch/approvals, packer pack/stock, die room, press, viewer none", () => {
-    expect(todayTileKeys("owner", [])).toEqual(["orders", "dieRoom", "press", "pack", "dispatch", "stock", "approvals", "guides"]);
+  test("the role table: owner/manager everything, office orders/dispatch/stock/approvals, packer pack/stock, die room, press, foundry approvals, storekeeper store, viewer none", () => {
+    expect(todayTileKeys("owner", [])).toEqual(["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides"]);
     expect(todayTileKeys("manager", [])).toEqual(todayTileKeys("owner", []));
-    expect(todayTileKeys("office", [])).toEqual(["orders", "dispatch", "approvals"]);
+    expect(todayTileKeys("admin", [])).toEqual(todayTileKeys("owner", []));
+    expect(todayTileKeys("office", [])).toEqual(["orders", "dispatch", "stock", "approvals"]);
+    expect(todayTileKeys("supervisor", [])).toEqual(["press", "pack", "dispatch", "approvals"]);
+    // Foundry approves cast_close; the storekeeper works the store.
+    expect(todayTileKeys("foundry", [])).toEqual(["approvals"]);
+    expect(todayTileKeys("storekeeper", [])).toEqual(["store"]);
+    expect(todayTileKeys("storekeeper", ["bundles"])).toEqual([]);
+    expect(todayTileKeys("accountant", [])).toEqual([]);
     expect(todayTileKeys("packer", [])).toEqual(["pack", "stock"]);
     expect(todayTileKeys("die_room", [])).toEqual(["dieRoom"]);
     expect(todayTileKeys("press", [])).toEqual(["press"]);
     expect(todayTileKeys("viewer", [])).toEqual([]);
     // A module switched off takes its tiles away.
     expect(todayTileKeys("owner", ["bundles", "dispatches"])).toEqual(["pack", "dispatch", "stock", "approvals", "guides"]);
+    expect(todayTileKeys("owner", ["store"])).toEqual(["store", "approvals", "guides"]);
     expect(Object.keys(ROLE_TILES)).toHaveLength(13);
   });
 
@@ -174,6 +193,7 @@ describe("BACKLOG 35: Today's tiles follow the role", () => {
       { key: "pack", count: null },
       { key: "dispatch", count: 0 },
       { key: "stock", count: null },
+      { key: "store", count: null },
       { key: "approvals", count: 1 },
       { key: "guides", count: null },
     ]);
@@ -181,8 +201,12 @@ describe("BACKLOG 35: Today's tiles follow the role", () => {
     expect(await tilesOf("office")).toEqual([
       { key: "orders", count: 2 },
       { key: "dispatch", count: 0 },
+      { key: "stock", count: null },
       { key: "approvals", count: 1 },
     ]);
+    // Foundry approves cast close-outs only: the move is not theirs, so nothing waits for them.
+    expect(await tilesOf("foundry")).toEqual([{ key: "approvals", count: 0 }]);
+    expect(await tilesOf("storekeeper")).toEqual([{ key: "store", count: null }]);
     expect(await tilesOf("die_room")).toEqual([{ key: "dieRoom", count: 1 }]);
     expect(await tilesOf("press")).toEqual([{ key: "press", count: 1 }]);
     expect(await tilesOf("packer")).toEqual([
@@ -195,7 +219,7 @@ describe("BACKLOG 35: Today's tiles follow the role", () => {
   }, SLOW);
 });
 
-describe("BACKLOG 36: two copies cannot sit on one press line", () => {
+describe("BACKLOG 36 / D29: a press line holds the running copy and one more (preheating); a third is refused", () => {
   async function plant() {
     const { companyId } = await env.seedCompany({ settings: { dieRoom: { newCopyOnTrial: false } } });
     const sectionId = await env.seedDie(companyId, { series: "Domal", sectionCode: "12170", weightMinG: 5_900, weightMaxG: 6_200 });
@@ -211,75 +235,157 @@ describe("BACKLOG 36: two copies cannot sit on one press line", () => {
         .values({ id, companyId, number: `PR-${n}`, period: "2026-27", status: "queued", sectionId, pressLineId: lineId });
       return id;
     }
-    return { companyId, sectionId, lineId, dieRoom, run };
+    const issue = (dieInstanceId: string, pressRunId: string) => dieRoom.dieInstance.issues.issue({ dieInstanceId, pressLineId: lineId, pressRunId });
+    return { companyId, sectionId, lineId, dieRoom, run, issue };
   }
 
-  test("a second copy on the same line is CONFLICT and nothing changes; after the first is taken back it goes", async () => {
+  test("two copies go to one line before either run starts; the third is CONFLICT naming both, and nothing changes", async () => {
     const p = await plant();
-    const c1 = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
-    const c2 = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
-    const r1 = await p.run();
-    const r2 = await p.run();
-    const first = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c1.id, pressLineId: p.lineId, pressRunId: r1 });
-    await expect(p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c2.id, pressLineId: p.lineId, pressRunId: r2 })).rejects.toMatchObject({
+    const [c1, c2, c3] = [
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+    ];
+    const [r1, r2, r3] = [await p.run(), await p.run(), await p.run()];
+    const first = await p.issue(c1!.id, r1);
+    await p.issue(c2!.id, r2);
+    expect(await openOn(p.lineId)).toEqual([c1!.id, c2!.id].sort());
+    await expect(p.issue(c3!.id, r3)).rejects.toMatchObject({
       code: "CONFLICT",
-      message: `P1 already has ${c1.code} for PR-1. Take it back, or record its die out, before issuing ${c2.code}.`,
+      message: `P1 already has ${c1!.code} (PR-1) and ${c2!.code} (PR-2). Take one back before issuing ${c3!.code}.`,
     });
-    const [copy2] = await env.db.select().from(dieInstance).where(eq(dieInstance.id, c2.id));
-    expect(copy2!.status).toBe("available");
-    const [run2] = await env.db.select().from(pressRun).where(eq(pressRun.id, r2));
-    expect(run2).toMatchObject({ status: "queued", dieInstanceId: null });
-    expect(await env.db.select().from(dieIssue).where(eq(dieIssue.dieInstanceId, c2.id))).toEqual([]);
+    const [copy3] = await env.db.select().from(dieInstance).where(eq(dieInstance.id, c3!.id));
+    expect(copy3!.status).toBe("available");
+    const [run3] = await env.db.select().from(pressRun).where(eq(pressRun.id, r3));
+    expect(run3).toMatchObject({ status: "queued", dieInstanceId: null });
+    expect(await env.db.select().from(dieIssue).where(eq(dieIssue.dieInstanceId, c3!.id))).toEqual([]);
 
+    // Taking one back frees the slot.
     await p.dieRoom.dieInstance.issues.cancel({ id: first.id });
-    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c2.id, pressLineId: p.lineId, pressRunId: r2 });
-    const open = await env.db.select().from(dieIssue).where(and(eq(dieIssue.pressLineId, p.lineId), eq(dieIssue.status, "issued")));
-    expect(open.map((i) => i.dieInstanceId)).toEqual([c2.id]);
+    await p.issue(c3!.id, r3);
+    expect(await openOn(p.lineId)).toEqual([c2!.id, c3!.id].sort());
   });
 
-  test("C43: once the first run's die is out, the next copy may go to the line (the run's log returns the first)", async () => {
+  test("with one copy in the press, the refusal also offers its die out", async () => {
     const p = await plant();
-    const c1 = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
-    const c2 = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
-    const r1 = await p.run();
-    const r2 = await p.run();
-    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c1.id, pressLineId: p.lineId, pressRunId: r1 });
+    const [c1, c2, c3] = [
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+    ];
+    const [r1, r2, r3] = [await p.run(), await p.run(), await p.run()];
+    await p.issue(c1!.id, r1);
+    await env.db.update(pressRun).set({ status: "running", dieInAt: new Date() }).where(eq(pressRun.id, r1));
+    await p.issue(c2!.id, r2);
+    await expect(p.issue(c3!.id, r3)).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: `P1 already has ${c1!.code} (PR-1) and ${c2!.code} (PR-2). Take one back, or record the die out of ${c1!.code}, before issuing ${c3!.code}.`,
+    });
+  });
+
+  test("a copy whose run has its die out no longer counts toward the two (its log returns or carries it)", async () => {
+    const p = await plant();
+    const [c1, c2, c3] = [
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+    ];
+    const [r1, r2, r3] = [await p.run(), await p.run(), await p.run()];
+    await p.issue(c1!.id, r1);
+    await p.issue(c2!.id, r2);
     const t = Date.now();
     await env.db.update(pressRun).set({ status: "counting", dieInAt: new Date(t - 3_600_000), dieOutAt: new Date(t) }).where(eq(pressRun.id, r1));
-    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c2.id, pressLineId: p.lineId, pressRunId: r2 });
-    const [run2] = await env.db.select().from(pressRun).where(eq(pressRun.id, r2));
-    expect(run2).toMatchObject({ status: "die_issued", dieInstanceId: c2.id });
+    await p.issue(c3!.id, r3);
+    const [run3] = await env.db.select().from(pressRun).where(eq(pressRun.id, r3));
+    expect(run3).toMatchObject({ status: "die_issued", dieInstanceId: c3!.id });
+  });
+
+  test("race: two issues for the last slot; the one that lands second aborts and names the line", async () => {
+    const p = await plant();
+    const [c1, c2, c3] = [
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+    ];
+    const [r1, r2, r3] = [await p.run(), await p.run(), await p.run()];
+    await p.issue(c1!.id, r1);
+    // c2's issue lands between c3's read (one copy there) and c3's write.
+    env.beforeNextBatch(() => p.issue(c2!.id, r2));
+    await expect(p.issue(c3!.id, r3)).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: `P1 took another copy meanwhile and now has ${c1!.code} (PR-1) and ${c2!.code} (PR-2); nothing was issued`,
+    });
+    expect(await openOn(p.lineId)).toEqual([c1!.id, c2!.id].sort());
+    const [run3] = await env.db.select().from(pressRun).where(eq(pressRun.id, r3));
+    expect(run3).toMatchObject({ status: "queued", dieInstanceId: null });
+    const [copy3] = await env.db.select().from(dieInstance).where(eq(dieInstance.id, c3!.id));
+    expect(copy3!.status).toBe("available");
   });
 
   test("another line is not affected", async () => {
     const p = await plant();
     const other = crypto.randomUUID();
     await env.db.insert(pressLine).values({ id: other, companyId: p.companyId, code: "P2", name: "Press 2" });
-    const c1 = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
-    const c2 = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
-    const r1 = await p.run();
-    const r2 = crypto.randomUUID();
+    const [c1, c2, c3] = [
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+      await p.dieRoom.dieInstance.create({ sectionId: p.sectionId }),
+    ];
+    await p.issue(c1!.id, await p.run());
+    await p.issue(c2!.id, await p.run());
+    const r3 = crypto.randomUUID();
     await env.db
       .insert(pressRun)
-      .values({ id: r2, companyId: p.companyId, number: "PR-X", period: "2026-27", status: "queued", sectionId: p.sectionId, pressLineId: other });
-    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c1.id, pressLineId: p.lineId, pressRunId: r1 });
-    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c2.id, pressLineId: other, pressRunId: r2 });
+      .values({ id: r3, companyId: p.companyId, number: "PR-X", period: "2026-27", status: "queued", sectionId: p.sectionId, pressLineId: other });
+    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c3!.id, pressLineId: other, pressRunId: r3 });
   });
 });
 
+describe("D29 with real runs: running copy + preheating copy, and the C43 carry", () => {
+  const { pressPlant } = pressHelpers(() => env);
+
+  test("running run's copy + one for a later run go; a third is refused; at close the copy still carries to the next run of its die", async () => {
+    const p = await pressPlant();
+    const cast = await p.castWith(kg(500));
+    const sectionId = await p.section();
+    const a = await p.queuedRun({ sectionId });
+    const b = await p.queuedRun({ sectionId }); // next run of a's die: C43 carries a's copy here
+    const c = await p.queuedRun(); // another die, preheating while a runs
+    const d = await p.queuedRun();
+    const press = p.as("press").press.runs;
+    await p.issue(a.runId, a.copyId);
+    await press.start({ id: a.runId });
+    await p.issue(c.runId, c.copyId);
+    await expect(p.issue(d.runId, d.copyId)).rejects.toMatchObject({ code: "CONFLICT", message: expect.stringContaining("Take one back, or record the die out of") });
+
+    await press.stop({ id: a.runId });
+    await press.count({ id: a.runId });
+    await fillWorkedExample(p, a.runId, cast.id);
+    expect(await p.as("supervisor").press.runs.close({ id: a.runId })).toMatchObject({ issue: "carried", carriedTo: { id: b.runId } });
+    const [runB] = await env.db.select().from(pressRun).where(eq(pressRun.id, b.runId));
+    expect(runB).toMatchObject({ status: "die_issued", dieInstanceId: a.copyId });
+    // The line holds exactly two: the carried copy (for b) and the preheating one (for c).
+    expect(await openOn(p.pressLineId)).toEqual([a.copyId, c.copyId].sort());
+    await expect(p.issue(d.runId, d.copyId)).rejects.toMatchObject({ code: "CONFLICT" });
+  }, SLOW);
+});
+
 describe("BACKLOG 41: a trial or sample plan takes no order lines", () => {
-  test("plans.update refuses adding an order line to a die_trial plan, with a sentence", async () => {
+  test("plans.update and plans.create refuse order lines on a die_trial, sample or other plan, with one sentence", async () => {
     const p = await opPlant();
     const s = await p.section();
     await p.copy(s, { milli: 12_000 });
     const o = await p.confirmedOrder([{ sectionId: s, kgG: kg(500) }]);
     const t = Date.now();
-    for (const purpose of ["die_trial", "sample"] as const) {
+    for (const purpose of ["die_trial", "sample", "other"] as const) {
       const plan = await p.owner.plans.create({ windowStart: t, windowEnd: t + 3_600_000, purpose, dies: [{ sectionId: s, lines: [] }] });
       await expect(p.owner.plans.update({ id: plan.id, add: [{ salesOrderLineId: o.lineIds[0]!, kgG: kg(100) }] })).rejects.toMatchObject({
         code: "BAD_REQUEST",
-        message: "A trial or sample plan takes no order lines",
+        message: "Only a production plan takes order lines",
       });
+      await expect(
+        p.owner.plans.create({ windowStart: t, windowEnd: t + 3_600_000, purpose, dies: [{ sectionId: s, lines: [{ salesOrderLineId: o.lineIds[0]!, kgG: kg(100) }] }] }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Only a production plan takes order lines" });
       const got = await p.owner.plans.get({ id: plan.id });
       expect(got.lines ?? []).toEqual([]);
     }

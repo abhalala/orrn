@@ -62,6 +62,15 @@ export function percentWord(tone: DriftTone, position: BandPosition | null | und
   return tone;
 }
 
+/**
+ * The percent chip's colour (review W2-FIXES-A m-5): the server's tone while the chip carries its
+ * word; neutral when it carries the number only (off its band), so colour is never the only signal.
+ * The position chip next to it carries the verdict and its colour.
+ */
+export function percentChipTone(tone: DriftTone, position: BandPosition | null | undefined): StatusTone {
+  return percentWord(tone, position) ? toneToChip(tone) : "neutral";
+}
+
 export function positionTone(position: BandPosition): StatusTone {
   switch (position) {
     case "in":

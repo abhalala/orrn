@@ -174,14 +174,15 @@ for (const width of [390, 1280]) {
       // BACKLOG 35: the owner gets every station tile, in the server's order, each with the count
       // it acts on; Dispatch carries the uncapped open count.
       const links = tiles(page).getByRole("link");
-      expect(today.tiles.map((x) => x.key)).toEqual(["orders", "dieRoom", "press", "pack", "dispatch", "stock", "approvals", "guides"]);
-      await expect(links).toHaveCount(8);
+      expect(today.tiles.map((x) => x.key)).toEqual(["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides"]);
+      await expect(links).toHaveCount(9);
       const count = (key: string) => today.tiles.find((x) => x.key === key)!.count!;
       await expect(links.nth(0)).toContainText("Orders");
       await expect(links.nth(0)).toContainText(count("orders") > 0 ? `${count("orders")} open` : "No open orders");
       await expect(links.nth(1)).toContainText("Die room");
       await expect(links.nth(1)).toHaveAttribute("href", "/dies/issues");
       await expect(links.nth(2)).toContainText("Press");
+      await expect(links.nth(2)).toHaveAttribute("href", "/press");
       await expect(links.nth(3)).toContainText("Pack");
       await expect(links.nth(3)).toHaveAttribute("href", "/pack/new");
       await expect(links.nth(4)).toContainText("Dispatch");
@@ -189,8 +190,10 @@ for (const width of [390, 1280]) {
         today.openDispatchCount > 0 ? `${today.openDispatchCount} open` : "None open",
       );
       await expect(links.nth(5)).toContainText("Stock");
-      await expect(links.nth(6)).toContainText("Approvals");
-      await expect(links.nth(7)).toContainText("Guides");
+      await expect(links.nth(6)).toContainText("Store");
+      await expect(links.nth(6)).toHaveAttribute("href", "/store");
+      await expect(links.nth(7)).toContainText("Approvals");
+      await expect(links.nth(8)).toContainText("Guides");
       // Hints wrap on a phone; titles in a row still line up (4 per row from iPad up, 2 on a phone).
       const tops = await tileTitleTops(page);
       const perRow = width >= 768 ? 4 : 2;
@@ -273,22 +276,39 @@ test.describe("roles", () => {
     expect(analytics, "the floor never calls analytics").toEqual([]);
   });
 
-  test("office gets three tiles in one row (orders, dispatch, approvals), with no empty fourth column", async ({ page }) => {
+  test("office gets four tiles in one row (orders, dispatch, stock, approvals), with no empty column", async ({ page }) => {
     await open(page, { role: "office", width: 1280 });
     const links = tiles(page).getByRole("link");
-    await expect(links).toHaveCount(3);
+    await expect(links).toHaveCount(4);
     await expect(links.nth(0)).toContainText("Orders");
     await expect(links.nth(1)).toContainText("Dispatch");
-    await expect(links.nth(2)).toContainText("Approvals");
+    await expect(links.nth(2)).toContainText("Stock");
+    await expect(links.nth(3)).toContainText("Approvals");
     const boxes = await links.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON() as DOMRect));
     const row = await tiles(page).locator("ul").evaluate((el) => el.getBoundingClientRect().width);
-    // Three equal columns fill the row: the last tile ends at the row's right edge.
-    expect(Math.abs(boxes[2]!.right - boxes[0]!.left - row)).toBeLessThan(2);
+    // Four equal columns fill the row: one row, and the last tile ends at the row's right edge.
+    expect(new Set(boxes.map((b) => Math.round(b.top))).size).toBe(1);
+    expect(Math.abs(boxes[3]!.right - boxes[0]!.left - row)).toBeLessThan(2);
+  });
+
+  test("the Press and Store tiles open their screens (/press, /store)", async ({ page }) => {
+    await open(page, { width: 1280 });
+    const press = tiles(page).locator("li[data-tile='press']").getByRole("link");
+    await expect(press).toHaveAttribute("href", "/press");
+    await press.click();
+    await expect(page).toHaveURL(/\/press$/);
+    await expect(page.locator("main#main h1")).toHaveText("Press");
+    await page.goBack();
+    const store = tiles(page).locator("li[data-tile='store']").getByRole("link");
+    await expect(store).toHaveAttribute("href", "/store");
+    await store.click();
+    await expect(page).toHaveURL(/\/store$/);
+    await expect(page.locator("main#main h1")).toHaveText("Store");
   });
 
   test("BACKLOG 35: each role gets its own station tiles, as dashboard.today sends them", async ({ browser }) => {
     const sets: Record<string, string[]> = {};
-    for (const role of ["owner", "office", "operator", "dieroom", "viewer"] as const) {
+    for (const role of ["owner", "office", "operator", "dieroom", "supervisor", "press", "viewer"] as const) {
       const context = await browser.newContext();
       const page = await context.newPage();
       const seen = await watchToday(page);
@@ -307,10 +327,12 @@ test.describe("roles", () => {
       await context.close();
     }
     expect(sets).toEqual({
-      owner: ["orders", "dieRoom", "press", "pack", "dispatch", "stock", "approvals", "guides"],
-      office: ["orders", "dispatch", "approvals"],
+      owner: ["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides"],
+      office: ["orders", "dispatch", "stock", "approvals"],
       operator: ["pack", "dispatch", "stock"],
       dieroom: ["dieRoom"],
+      supervisor: ["press", "pack", "dispatch", "approvals"],
+      press: ["press"],
       viewer: [],
     });
   });
@@ -633,14 +655,14 @@ test.describe("accessibility", () => {
     expect(tileRing.width).toBeGreaterThanOrEqual(2);
     const focused = () => page.evaluate(() => document.activeElement?.textContent?.trim() ?? "");
     const order: string[] = [await focused()];
-    for (let i = 0; i < 8; i++) {
+    const titles = ["Orders", "Die room", "Press", "Pack", "Dispatch", "Stock", "Store", "Approvals", "Guides"];
+    for (let i = 0; i < titles.length; i++) {
       await page.keyboard.press("Tab");
       order.push(await focused());
     }
-    const titles = ["Orders", "Die room", "Press", "Pack", "Dispatch", "Stock", "Approvals", "Guides"];
     titles.forEach((title, i) => expect(order[i]).toContain(title));
     if (today.failedPrintJobs > 0) {
-      expect(order[8]).toBe("Open printing");
+      expect(order[titles.length]).toBe("Open printing");
       await page.keyboard.press("Tab");
       order.push(await focused());
     }

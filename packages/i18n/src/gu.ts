@@ -238,7 +238,9 @@ export const gu = {
       approvals: "મંજૂરી",
       approvalsHint: "{count} રાહ જુએ છે",
       approvalsHintNone: "કંઈ રાહમાં નથી",
-      approvalsHintAny: "નક્કી કરવાની વિનંતીઓ",
+      approvalsHintAny: "રાહમાં વિનંતીઓ",
+      store: "સ્ટોર",
+      storeHint: "કેમિકલ, બળતણ અને સ્પેર",
     },
   },
   pack: {

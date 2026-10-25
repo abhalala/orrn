@@ -70,7 +70,7 @@ async function plan(p: Plant, purpose: "production" | "die_trial" | "sample" | "
 }
 
 /** A queued run of the section under a plan of `purpose`. */
-async function queuedRun(p: Plant, purpose: "production" | "die_trial" | "sample" | "other" = "production", lineId = p.lineId) {
+async function queuedRun(p: Plant, purpose: "production" | "die_trial" | "sample" | "other" = "production") {
   const planId = await plan(p, purpose);
   const id = crypto.randomUUID();
   runNo += 1;
@@ -81,7 +81,7 @@ async function queuedRun(p: Plant, purpose: "production" | "die_trial" | "sample
     period: "2026-27",
     status: "queued",
     sectionId: p.sectionId,
-    pressLineId: lineId,
+    pressLineId: p.lineId,
     planId,
   });
   return id;
@@ -380,10 +380,7 @@ describe("trial state lives on the rows, never in the audit log (0029_die_trial)
     const t = await p.dieRoom.dieInstance.create({ sectionId: p.sectionId });
     const r = await p.manager.dieInstance.create({ sectionId: p.sectionId, status: "available" });
     const i1 = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: t.id, pressLineId: p.lineId, pressRunId: await queuedRun(p, "die_trial") });
-    // One open issue per press line (BACKLOG 36): the second copy goes to P2.
-    const p2 = crypto.randomUUID();
-    await env.db.insert(pressLine).values({ id: p2, companyId: p.companyId, code: "P2", name: "Press 2" });
-    const i2 = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: r.id, pressLineId: p2, pressRunId: await queuedRun(p, "die_trial", p2) });
+    const i2 = await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: r.id, pressLineId: p.lineId, pressRunId: await queuedRun(p, "die_trial") });
     const [a] = await env.db.select().from(dieIssue).where(eq(dieIssue.id, i1.id));
     const [b] = await env.db.select().from(dieIssue).where(eq(dieIssue.id, i2.id));
     expect(a!.trial).toBe(1);

@@ -149,7 +149,7 @@ test.describe("orders list and detail", () => {
       await expect(totals.locator("[data-total='produced']")).toContainText(/\d[\d,]*\.\d{3} kg/);
       // Eight figures on each line; the baki cell is the ordered kg while nothing is dispatched.
       const line1 = page.locator("[data-order-line='1']");
-      for (const label of ["Ordered", "Planned", "Pressed", "Aged", "Packed (incl. held)", "In stock", "Dispatched", "Baki"]) {
+      for (const label of ["Ordered", "Planned", "Pressed", "Aged", "Packed (incl. on a truck)", "In stock", "Dispatched", "Baki"]) {
         await expect(line1.getByText(label, { exact: true })).toBeVisible();
       }
       await expect(line1.locator("[data-strip='orderedG']")).toContainText("480.000 kg");
@@ -315,7 +315,7 @@ test.describe("reallocate", () => {
     expect(move.count).toBe(1);
     expect(move.kgG).toBeGreaterThan(0);
     await expect(
-      page.locator("[data-timeline='order.reallocate']").filter({ hasText: `1 bundle, ${kg3(move.kgG)} kg, from KD Extrusion to plant stock` }),
+      page.locator("[data-timeline='order.reallocate']").filter({ hasText: `1 bundle, ${kg3(move.kgG)} kg, moved from KD Extrusion to plant stock` }),
     ).not.toHaveCount(0);
   });
 
@@ -365,8 +365,9 @@ test.describe("reallocate", () => {
     );
     const asked = timeline.events.filter((e) => e.action === "order.reallocate" && e.meta.status === "pending").at(-1)!.move!;
     const kg = kg3(asked.kgG);
+    // Review m-8: the approver decides on a phone (375 px), the narrowest width the sheet must fit.
     const owner = await newPage(browser);
-    await owner.setViewportSize({ width: 1280, height: 900 });
+    await owner.setViewportSize({ width: 375, height: 812 });
     await signInViaApi(owner, "owner");
     await owner.goto("/approvals?kind=order_reallocate");
     const card = owner.getByTestId("approval-card").filter({ hasText: `Royal Aluminium ${target.number}` });
@@ -381,6 +382,10 @@ test.describe("reallocate", () => {
     await expect(summary).toContainText("Reason");
     await expect(review.getByTestId("move-bundles").locator("li")).toHaveCount(1);
     await expect(review.getByTestId("move-bundles")).toContainText(`${kg} kg`);
+    await expectNoHorizontalScroll(owner);
+    const box = await summary.boundingBox();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375);
     await review.getByRole("button", { name: "Approve" }).click();
     await expect(review).toHaveCount(0);
 
@@ -388,8 +393,12 @@ test.describe("reallocate", () => {
     await page.goto(`/orders/${target.id}`);
     await settled(page);
     await expect(
-      page.locator("[data-timeline='order.reallocate']").filter({ hasText: `1 bundle, ${kg} kg, from KD Extrusion to Royal Aluminium ${target.number}` }),
+      page.locator("[data-timeline='order.reallocate']").filter({ hasText: new RegExp(`1 bundle, ${kg.replace(".", "\\.")} kg, (moved )?from KD Extrusion to Royal Aluminium ${target.number}`) }),
     ).toHaveCount(2);
+    // The decision row says it moved; the request row says it was asked.
+    await expect(
+      page.locator("[data-timeline='order.reallocate']").filter({ hasText: `1 bundle, ${kg} kg, moved from KD Extrusion to Royal Aluminium ${target.number}` }),
+    ).toHaveCount(1);
     await owner.context().close();
   });
 });

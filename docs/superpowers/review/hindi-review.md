@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 4655 screen strings in 45 groups, 16 guides with 292 strings.
+Counts: 4657 screen strings in 45 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -403,7 +403,7 @@ Counts: 4655 screen strings in 45 groups, 16 guides with 292 strings.
 | `done.goOther` | Continue | आगे बढ़ें |
 | `done.opening` | Opening | खुल रहा है |
 
-### today (112)
+### today (114)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -518,7 +518,9 @@ Counts: 4655 screen strings in 45 groups, 16 guides with 292 strings.
 | `floor.approvals` | Approvals | मंज़ूरी |
 | `floor.approvalsHint` | {count} waiting | {count} इंतज़ार में |
 | `floor.approvalsHintNone` | Nothing waiting | कुछ इंतज़ार में नहीं |
-| `floor.approvalsHintAny` | Requests to decide | तय करने वाले अनुरोध |
+| `floor.approvalsHintAny` | Requests waiting | इंतज़ार में अनुरोध |
+| `floor.store` | Store | स्टोर |
+| `floor.storeHint` | Chemicals, fuel and spares | केमिकल, ईंधन और स्पेयर |
 
 ### pack (208)
 
@@ -3307,7 +3309,7 @@ Please check, Lalubhai:
 | `move.bundles` | Bundles | Bundle |
 | `move.count` | {count} {count:bundle\|bundles}, {kg} kg | {count} bundle, {kg} kg |
 | `move.from` | From | कहां से |
-| `move.to` | To | कहां |
+| `move.to` | To | कहां को |
 | `move.reason` | Reason | कारण |
 | `move.plant` | plant stock | प्लांट स्टॉक |
 | `move.line` | {party}, {order} line {line} | {party}, {order} लाइन {line} |
@@ -3875,7 +3877,7 @@ Please check, Lalubhai:
 | `strip.planned` | Planned | प्लान |
 | `strip.pressed` | Pressed | प्रेस हुआ |
 | `strip.aged` | Aged | एजिंग |
-| `strip.packed` | Packed (incl. held) | पैक (होल्ड सहित) |
+| `strip.packed` | Packed (incl. on a truck) | पैक (गाड़ी पर रखे सहित) |
 | `strip.inStock` | In stock | स्टॉक में |
 | `strip.dispatched` | Dispatched | Dispatch हुआ |
 | `strip.baki` | Baki | बाकी |
@@ -3974,7 +3976,7 @@ Please check, Lalubhai:
 | `timeline.reallocatePending` | {count} {count:bundle\|bundles}, {kg} kg, asked to move. Waiting for a manager. | {count} bundle, {kg} kg डालने की मांग। मैनेजर का इंतज़ार। |
 | `timeline.reallocateApplied` | {count} {count:bundle\|bundles}, {kg} kg, moved | {count} bundle, {kg} kg डाले गए |
 | `timeline.reallocateRejected` | The move of {count} {count:bundle\|bundles} was refused | {count} bundle डालना मना किया गया |
-| `timeline.moveApplied` | {count} {count:bundle\|bundles}, {kg} kg, from {from} to {to} | {count} bundle, {kg} kg, {from} से {to} को |
+| `timeline.moveApplied` | {count} {count:bundle\|bundles}, {kg} kg, moved from {from} to {to} | {count} bundle, {kg} kg, {from} से {to} को ले जाए गए |
 | `timeline.movePending` | {count} {count:bundle\|bundles}, {kg} kg, from {from} to {to}, asked. Waiting for a manager. | {count} bundle, {kg} kg, {from} से {to} को, मांगा गया। मैनेजर का इंतज़ार। |
 | `timeline.moveRejected` | The move of {count} {count:bundle\|bundles}, {kg} kg, from {from} to {to} was refused | {count} bundle, {kg} kg, {from} से {to} को ले जाना मना किया गया |
 | `timeline.plantStock` | plant stock | प्लांट स्टॉक |

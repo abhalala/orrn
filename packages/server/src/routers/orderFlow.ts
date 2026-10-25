@@ -643,13 +643,14 @@ export const orderFlowProcedures = {
       const more = rows.length > input.limit;
       const page = more ? rows.slice(0, input.limit) : rows;
       // BACKLOG 34 / explorer H5: a move says how many bundles, their kg and from -> to. Rows from
-      // before the move summary get count and kg from their batch's transfers.
+      // before the move summary get count and kg from their batch's transfers (applied rows only: a
+      // pending or refused request moved nothing, whatever the batch did later).
       const metaOf = (m: unknown) => (m && typeof m === "object" && !Array.isArray(m) ? (m as Record<string, unknown>) : {});
       const legacyBatches = [
         ...new Set(
           page.flatMap((r) => {
             const m = metaOf(r.meta);
-            return r.action === "order.reallocate" && !m.move && typeof m.batchId === "string" ? [m.batchId] : [];
+            return r.action === "order.reallocate" && !m.move && m.status === "applied" && typeof m.batchId === "string" ? [m.batchId] : [];
           }),
         ),
       ];

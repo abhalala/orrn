@@ -52,7 +52,7 @@ describe("stripCells", () => {
     expect(cells[7]).toMatchObject({ kg: "480.000", pcs: "200", open: true });
   });
 
-  test("BACKLOG 39: Packed says it counts held bundles, so it never reads as the In stock figure (en and hi)", () => {
+  test("BACKLOG 39: Packed says it counts bundles on a truck, so it never reads as the In stock figure (en and hi)", () => {
     const cells = stripCells(strip);
     const packed = cells.find((c) => c.key === "packedG")!;
     const inStock = cells.find((c) => c.key === "inStockG")!;
@@ -60,9 +60,9 @@ describe("stripCells", () => {
       const t = createI18n(lang).t;
       expect(t(packed.labelKey)).not.toBe(t(inStock.labelKey));
     }
-    expect(createI18n("en").t(packed.labelKey)).toBe("Packed (incl. held)");
+    expect(createI18n("en").t(packed.labelKey)).toBe("Packed (incl. on a truck)");
     expect(createI18n("en").t(inStock.labelKey)).toBe("In stock");
-    expect(createI18n("hi").t(packed.labelKey)).toBe("पैक (होल्ड सहित)");
+    expect(createI18n("hi").t(packed.labelKey)).toBe("पैक (गाड़ी पर रखे सहित)");
   });
 
   test("a settled baki is not flagged open", () => {
@@ -164,13 +164,13 @@ describe("timelineLabel", () => {
     const toPlant = timelineLabel({ action: "order.reallocate", meta: { status: "applied" }, move: { count: 3, kgG: 57_000, from: [kd], to: null } });
     expect(toPlant).toEqual({ key: "orders.timeline.moveApplied", vars: { count: 3, kg: "57.000", from: "KD Extrusion", to: "plant stock" } });
     const en = createI18n("en").t;
-    expect(en(toPlant.key, toPlant.vars)).toBe("3 bundles, 57.000 kg, from KD Extrusion to plant stock");
+    expect(en(toPlant.key, toPlant.vars)).toBe("3 bundles, 57.000 kg, moved from KD Extrusion to plant stock");
     const hi = createI18n("hi").t;
     const hiLabel = timelineLabel(
       { action: "order.reallocate", meta: { status: "applied" }, move: { count: 3, kgG: 57_000, from: [kd], to: null } },
       { plant: hi("orders.timeline.plantStock") },
     );
-    expect(hi(hiLabel.key, hiLabel.vars)).toBe("3 bundle, 57.000 kg, KD Extrusion से प्लांट स्टॉक को");
+    expect(hi(hiLabel.key, hiLabel.vars)).toBe("3 bundle, 57.000 kg, KD Extrusion से प्लांट स्टॉक को ले जाए गए");
     const royal = { customerName: "Royal Aluminium", orderNumber: "SO-4", lineNo: 1 };
     const asked = timelineLabel({ action: "order.reallocate", meta: { status: "pending" }, move: { count: 1, kgG: 57_046, from: [kd], to: royal } });
     expect(en(asked.key, asked.vars)).toBe("1 bundle, 57.046 kg, from KD Extrusion to Royal Aluminium SO-4, asked. Waiting for a manager.");

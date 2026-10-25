@@ -9,7 +9,7 @@ import type { AppRouter } from "@orrn/server/routers/index";
 import { can, type Me } from "@orrn/server/lib/permissions";
 import type { inferRouterOutputs } from "@trpc/server";
 import { todayTileKeys, type TodayTileKey } from "@orrn/server/lib/todayTiles";
-import { BookOpen, ClipboardList, Factory, PackagePlus, ShieldCheck, Truck, Warehouse, Wrench } from "lucide-react";
+import { BookOpen, Boxes, ClipboardList, Factory, PackagePlus, ShieldCheck, Truck, Warehouse, Wrench } from "lucide-react";
 
 import type { NavItem, NavModule } from "@/shell/nav-items";
 
@@ -298,6 +298,7 @@ const TILE_DEFS: Readonly<Record<TodayTileKey, TodayTile>> = {
   pack: { key: "pack", to: "/pack/new", labelKey: "today.tiles.pack", icon: PackagePlus },
   dispatch: { key: "dispatch", to: "/dispatch", labelKey: "today.tiles.dispatch", icon: Truck },
   stock: { key: "stock", to: "/stock", labelKey: "today.tiles.stock", icon: Warehouse },
+  store: { key: "store", to: "/store", labelKey: "today.floor.store", icon: Boxes },
   approvals: { key: "approvals", to: "/approvals", labelKey: "today.floor.approvals", icon: ShieldCheck },
   guides: { key: "guides", to: "/guides", labelKey: "today.tiles.guides", icon: BookOpen },
 };
@@ -325,6 +326,7 @@ const COUNT_HINTS: Partial<Record<TodayTileKey, { some: MessageKey; none: Messag
 const PLAIN_HINTS: Partial<Record<TodayTileKey, MessageKey>> = {
   pack: "today.tiles.packHint",
   stock: "today.tiles.stockHint",
+  store: "today.floor.storeHint",
   guides: "today.tiles.guidesHint",
 };
 

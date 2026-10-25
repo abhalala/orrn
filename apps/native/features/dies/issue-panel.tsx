@@ -11,7 +11,7 @@ import { feedback } from "@/lib/feedback";
 import { trpc } from "@/utils/trpc";
 
 import { ChoiceRow } from "./choice-row";
-import { issueActions, issueLine, runsForSection } from "./copy-model";
+import { issueActions, issueTarget, runsForSection } from "./copy-model";
 import { dieErrorText } from "./errors";
 import { useRefreshDieRoom } from "./use-die-write";
 
@@ -55,8 +55,7 @@ export function IssuePanel({
   const current = open.data?.items[0] ?? null;
   const runs = runsForSection(queued.data ?? [], sectionId);
   // BACKLOG 36: the die room names the run; nothing is picked for them (no silent "oldest").
-  const chosen = runs.find((r) => r.id === runId) ?? null;
-  const resolvedLine = chosen ? (lineId ?? issueLine(chosen, lines.data ?? [])) : null;
+  const { run: chosen, lineId: resolvedLine } = issueTarget(runs, runId, lineId, lines.data ?? []);
   const actions = current
     ? issueActions({
         status: current.pressRunStatus ?? "die_issued",

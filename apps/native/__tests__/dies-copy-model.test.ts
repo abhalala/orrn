@@ -12,6 +12,7 @@ import {
   copyIdFromLink,
   issueActions,
   issueLine,
+  issueTarget,
   kgGroupedText,
   looksLikeCopyCode,
   milliKgText,
@@ -160,6 +161,18 @@ describe("issuing to a queued run (D13)", () => {
     expect(issueLine(runs[1]!, [{ id: "p9", code: "P9" }])).toBe("p9");
     expect(issueLine(runs[1]!, [{ id: "p1", code: "P1" }, { id: "p2", code: "P2" }])).toBeNull();
     expect(issueLine(runs[1]!, [])).toBeNull();
+  });
+
+  test("review m-8: nothing is picked for the person, even with one run waiting; Issue waits for a named run", () => {
+    const lines = [{ id: "p1", code: "P1" }];
+    expect(issueTarget([runs[0]!], null, null, lines)).toEqual({ run: null, lineId: null });
+    expect(issueTarget(runs, "r1", null, lines)).toEqual({ run: runs[0], lineId: "p1" });
+    // A run with no line and two presses: the person picks the line too.
+    const two = [...lines, { id: "p2", code: "P2" }];
+    expect(issueTarget(runs, "r3", null, two)).toEqual({ run: runs[2], lineId: null });
+    expect(issueTarget(runs, "r3", "p2", two)).toEqual({ run: runs[2], lineId: "p2" });
+    // A run id that left the queue picks nothing.
+    expect(issueTarget(runs, "gone", null, lines)).toEqual({ run: null, lineId: null });
   });
 });
 

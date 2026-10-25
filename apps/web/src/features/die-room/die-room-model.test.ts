@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  percentChipTone,
   percentWord,
   bandRangeText,
   bandTitle,
@@ -135,6 +136,14 @@ describe("tones and tabs", () => {
     expect(percentWord("amber", "in")).toBe("amber");
     expect(percentWord("amber", null)).toBe("amber");
     expect(percentWord("none", "in")).toBeNull();
+  });
+
+  test("review m-5: a percent chip with no word is neutral; with its word it keeps the server's tone", () => {
+    expect(percentChipTone("amber", "above")).toBe("neutral");
+    expect(percentChipTone("red", "above")).toBe("neutral");
+    expect(percentChipTone("under", "below")).toBe("neutral");
+    expect(percentChipTone("amber", "in")).toBe("amber");
+    expect(percentChipTone("green", null)).toBe("green");
   });
 
   test("status tones", () => {

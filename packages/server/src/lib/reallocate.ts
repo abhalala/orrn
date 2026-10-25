@@ -196,7 +196,8 @@ export type TimelineMove = { count: number; kgG: number; from: MoveEnd[] | null;
 /**
  * Read an `order.reallocate` audit row's move (BACKLOG 34). Rows written since carry `move`; older
  * rows carry `bundles`/`kgG` (request and applied-at-once) or only `moved` (an approval's
- * decision), so `fallback` (the batch's transfers) fills count and kg there.
+ * decision; `asked` too on a refusal), so `fallback` (an applied batch's transfers) fills count
+ * and kg there.
  */
 export function timelineMoveOf(meta: unknown, fallback: { count: number; kgG: number } | undefined): TimelineMove {
   const m = meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {};
@@ -204,7 +205,9 @@ export function timelineMoveOf(meta: unknown, fallback: { count: number; kgG: nu
   const move = m.move && typeof m.move === "object" ? (m.move as Record<string, unknown>) : null;
   const from = move && Array.isArray(move.from) ? (move.from as unknown[]).map((e) => (isEnd(e) ? e : null)) : null;
   const to = move ? (isEnd(move.to) ? move.to : move.to === null ? null : undefined) : undefined;
-  const count = n(move?.count) ?? n(m.bundles) ?? fallback?.count ?? n(m.moved) ?? 0;
+  // An old refusal has only `moved` (0) and `asked`: it says what was asked.
+  const asked = m.status === "rejected" ? n(m.asked) : null;
+  const count = n(move?.count) ?? n(m.bundles) ?? fallback?.count ?? asked ?? n(m.moved) ?? 0;
   const kgG = n(move?.kgG) ?? n(m.kgG) ?? fallback?.kgG ?? 0;
   return { count, kgG, from, to };
 }

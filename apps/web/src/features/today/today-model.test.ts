@@ -307,7 +307,7 @@ describe("todayTiles (BACKLOG 35: role tiles)", () => {
   const keys = (m: Me) => todayTiles(m).map((t) => t.key);
 
   test("owner and manager: every station, in plant-flow order", () => {
-    const all = ["orders", "dieRoom", "press", "pack", "dispatch", "stock", "approvals", "guides"];
+    const all = ["orders", "dieRoom", "press", "pack", "dispatch", "stock", "store", "approvals", "guides"];
     expect(keys(me("owner"))).toEqual(all);
     expect(keys(me("manager"))).toEqual(all);
   });
@@ -318,11 +318,16 @@ describe("todayTiles (BACKLOG 35: role tiles)", () => {
 
   test("people with no station tile get none either", () => {
     expect(keys(me("accountant"))).toEqual([]);
-    expect(keys(me("foundry"))).toEqual([]);
   });
 
-  test("office: orders, dispatch, approvals", () => {
-    expect(keys(me("office"))).toEqual(["orders", "dispatch", "approvals"]);
+  test("office: orders, dispatch, stock, approvals (four fill a row)", () => {
+    expect(keys(me("office"))).toEqual(["orders", "dispatch", "stock", "approvals"]);
+  });
+
+  test("foundry approves cast close-outs; the storekeeper works the store; the supervisor keeps approvals", () => {
+    expect(keys(me("foundry"))).toEqual(["approvals"]);
+    expect(keys(me("storekeeper"))).toEqual(["store"]);
+    expect(keys(me("supervisor"))).toEqual(["press", "pack", "dispatch", "approvals"]);
   });
 
   test("operator packs and scans into dispatches; packer packs; die room and press get their station", () => {
@@ -352,6 +357,7 @@ describe("todayTiles (BACKLOG 35: role tiles)", () => {
       pack: "/pack/new",
       dispatch: "/dispatch",
       stock: "/stock",
+      store: "/store",
       approvals: "/approvals",
       guides: "/guides",
     });
@@ -383,6 +389,7 @@ describe("tileHint", () => {
   test("other tiles keep their own hint", () => {
     expect(tileHint(tile("pack"), 3)).toEqual({ key: "today.tiles.packHint" });
     expect(tileHint(tile("stock"), undefined)).toEqual({ key: "today.tiles.stockHint" });
+    expect(tileHint(tile("store"), null)).toEqual({ key: "today.floor.storeHint" });
     expect(tileHint(tile("guides"), 0)).toEqual({ key: "today.tiles.guidesHint" });
   });
 });

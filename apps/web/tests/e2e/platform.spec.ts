@@ -734,7 +734,7 @@ test.describe("Today", () => {
       for (const id of ["kpi-packed", "kpi-bundles", "kpi-dispatched", "kpi-stock"]) await expect(numbers.getByTestId(id)).toBeVisible();
       await expect(numbers.getByTestId("kpi-packed")).toContainText("kg packed");
       await expect(numbers.getByTestId("kpi-bundles")).toContainText("Bundles");
-      await expect(page.getByTestId("today-tiles").getByRole("link")).toHaveCount(8); // BACKLOG 35: the owner gets every station tile
+      await expect(page.getByTestId("today-tiles").getByRole("link")).toHaveCount(9); // BACKLOG 35: the owner gets every station tile
       await shot(page, "today-owner", width);
       await expectContained(page);
     });

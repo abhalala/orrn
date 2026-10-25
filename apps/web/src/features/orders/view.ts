@@ -65,7 +65,7 @@ export const STRIP_CELLS: readonly { key: StripGramKey; pcs?: StripPcsKey; label
   { key: "plannedG", labelKey: "orders.strip.planned" },
   { key: "pressedG", labelKey: "orders.strip.pressed" },
   { key: "agedG", labelKey: "orders.strip.aged" },
-  // BACKLOG 39: packed counts held bundles too (available + reserved), so it never reads as "In stock".
+  // BACKLOG 39: packed counts bundles on a truck too (available + reserved), so it never reads as "In stock".
   { key: "packedG", labelKey: "orders.strip.packed" },
   { key: "inStockG", labelKey: "orders.strip.inStock" },
   { key: "dispatchedG", labelKey: "orders.strip.dispatched" },
