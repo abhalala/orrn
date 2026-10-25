@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
+import { ownPressRun } from "./helpers/own-press";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
@@ -12,7 +13,7 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
  *
  * Tests run in parallel (fullyParallel), so each width owns what it changes. The seed gives Tee 13090
  * nine copies on trial (13090-11..19) and three die trial runs (PR-5..7 on plan PP-2):
- *   A  issued to the width's own trial run and taken back      11 / 12 / 13
+ *   A  issued to a die trial run on a press of its own and taken back (BACKLOG 36)   11 / 12 / 13
  *   B  released by the owner with a reason                     14 / 15 / 16
  *   C  maker numbers and a bulk file; the Hindi and viewer reads (stays on trial)   17 / 18 / 19
  * and three sections no other spec reads for the bulk run (Round Tube 15204, Square Tube 15310,
@@ -201,7 +202,9 @@ for (const width of WIDTHS) {
   });
 
   test.describe(`copy on trial at ${width}`, () => {
-    test(`${plan.a}: a production run refuses it; the die room issues it to ${plan.run} and takes it back on trial`, async ({ page }) => {
+    test(`${plan.a}: a production run refuses it; the die room issues it to a die trial run and takes it back on trial`, async ({ page }) => {
+      // BACKLOG 36: one copy per press line, and P1 holds 14701-1, so this width's trial run is on a press of its own.
+      const own = await ownPressRun(page, { sectionId: "dev-die-13090", purpose: "die_trial", tag: `W${width}` });
       await open(page, `/dies/copies/${copyId(plan.a)}`, { role: "dieroom", width });
       await expect(page.locator("main#main h1")).toHaveText(plan.a);
       const panel = page.getByTestId("trial-panel");
@@ -230,17 +233,18 @@ for (const width of WIDTHS) {
       // Only die trial runs are offered. The other widths issue their own trial runs in parallel (an
       // issued run leaves the queue), so the count moves; this width's run and the purpose do not.
       await expect(page.getByRole("option", { name: new RegExp(`${plan.run} .* Die trial`) })).toBeVisible();
+      await expect(page.getByRole("option", { name: new RegExp(`${own.runNumber} .* Die trial`) })).toBeVisible();
       const offered = await page.getByRole("option").allTextContents();
       expect(offered.length).toBeGreaterThan(0);
       for (const text of offered) expect(text).toMatch(/Die trial/);
-      await expect(page.getByRole("option", { name: /PR-2/ })).toHaveCount(0);
-      await page.getByRole("option", { name: new RegExp(plan.run) }).click();
+      await expect(page.getByRole("option", { name: /PR-2 / })).toHaveCount(0);
+      await page.getByRole("option", { name: new RegExp(`${own.runNumber} `) }).click();
       await expectClean(page, `${plan.a}_issue_form`);
       await form.getByRole("button", { name: "Issue", exact: true }).click();
 
       const mine = page.getByTestId("open-issues").getByTestId(`issue-${plan.a}`);
-      await expect(mine).toContainText("Issued to P1");
-      await expect(mine).toContainText(plan.run);
+      await expect(mine).toContainText(`Issued to ${own.lineCode}`);
+      await expect(mine).toContainText(own.runNumber);
 
       // Back from the press it is on trial again, not in the rack.
       await mine.getByRole("button", { name: "Take back" }).click();
