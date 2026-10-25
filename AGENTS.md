@@ -8,7 +8,7 @@ it, the test is named. When code and this file disagree, fix the file in the sam
 
 ## Project overview
 
-ORRN (domain: orrn.in) is built as a sellable multi-company ERP SaaS for manufactured inventory operations: dies, bundles, stock, label printing, dispatches, packing lists, customers, permissions, auditability, web app, and native iOS/iPadOS/Android apps. This is like a collection of ERP modules that can be setup with different tenants based on their needs. The first plant is FourCubes (aluminium extrusion): the flow is order, press plan, die issue, press, ageing, pack, dispatch, packing list, with the stock ledger balancing at every step. The foundry and ageing modules came back to the hub (D31): ageing has its contracts (schema, rules, permissions, i18n) and waits for its server and screens (see Ageing); everything else described here is built.
+ORRN (domain: orrn.in) is built as a sellable multi-company ERP SaaS for manufactured inventory operations: dies, bundles, stock, label printing, dispatches, packing lists, customers, permissions, auditability, web app, and native iOS/iPadOS/Android apps. This is like a collection of ERP modules that can be setup with different tenants based on their needs. The first plant is FourCubes (aluminium extrusion): the flow is order, press plan, die issue, press, ageing, pack, dispatch, packing list, with the stock ledger balancing at every step. The foundry and ageing modules came back to the hub (D31): ageing has its contracts and its server (router, pack/dispatch/strip hooks, collector route, dev seed) and waits for its screens (see Ageing); everything else described here is built.
 
 ## Stack
 
@@ -237,7 +237,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   | `press_time` | owner, supervisor, manager | clears `time_unconfirmed` on the run (tablet clock skewed more than 2 minutes) |
   | `press_reopen` | owner, admin, manager | reopens a logged run with reversal postings |
   | `press_late_entry` | owner, supervisor, manager | approved: the run's `late_entry_approval_id` names it and the close gate passes (billets still debit the cast); rejected: the late run is voided and a copy it held goes back to the rack |
-  | `ageing_override` | owner, admin, manager | no applier (the ageing lane is paused; the operator re-releases) |
+  | `ageing_override` | owner, admin, manager | approved: stamps `ageing_batch.override_approval_id` (batch still held, guarded on status held/released); the supervisor's next `ageing.batches.release` then releases the soak/hardness rejects. Approving never releases by itself |
 - A hook runs in the decision's own batch, scopes its statements by company and guards them with `decisionLanded`. A hook that can refuse adds its own batch abort and an explanation in `explainApplyAbort`, which `approval.decide` calls when the batch fails. A kind with an effect adds its hook to `APPROVAL_APPLIERS`; a kind without one says so in this table.
 - `approval.list` is readable by every role, so `meta` carries ids, numbers, bundles, kg and from/to only: never money (a `dc_note`'s rate is amount over kg), never weights of a note. `approval.list` also strips other keys and the request note for callers without purchase read access; approvers read figures from the document itself. The approval sheet must show what is being decided (an `order_reallocate` shows serials, kg and from/to, a `dispatch_overdraw` the per-line kg).
 - Rejecting or withdrawing is a decision too: a pending `dispatch_overdraw` is never rewritten, a request for new figures withdraws the old one with the note "Withdrawn: ..." (see Dispatch).
@@ -404,8 +404,9 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - Balance strip (`lib/orderStrip.ts`, `orders.balance` and `orders.get` -> `strip` per line):
   planned = draft plans + released plans whose run is still live (queued ... counting); logged = good kg of LOGGED runs'
   `press_run_line` rows naming the order line (a run logged without lines shares its good kg over the plan die's lines
-  by kg); pressed = max(0, logged − aged − produced) (the press log never reduces baki); aged = 0 until the ageing lane
-  returns (`ageing.forOrder`); packed = linked bundles available + reserved; inStock = available only; held = bundles
+  by kg); pressed = max(0, logged − aged − produced) (the press log never reduces baki); aged = theoretical kg still on
+  live trolley rows of the line (`agedExpr`, bundle rows excluded), capped at logged − produced (`ageing.forOrder` gives
+  the same `agedG`); packed = linked bundles available + reserved; inStock = available only; held = bundles
   held for the line in the yard (`heldG`, `heldBundles`); over = max(0, produced − ordered) per line; planable =
   max(0, ordered − dispatched − packed − held-in-yard − planned − pressed − aged) (`@orrn/domain` `planableG`), the held
   term counting only held bundles on no line so a held bundle on this line is never taken off twice. The strip also
@@ -735,9 +736,9 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - Cast numbers: `castSeriesStart` {period, start} now feeds `allocateDocNumbers` for type `cast`
   (the month's first seq); `castNumberParts`, `parseCastCode`, `isSeriesCastCode` in `@orrn/domain`.
 
-## Ageing (contracts on the hub, W3-AG-C; server and screens to come)
+## Ageing (contracts W3-AG-C, server W3-AG-S; screens to come)
 
-D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d never landed; this branch's contracts supersede it. Cheat-sheet for the server, web and native lanes: `.fp-build/reports/W3-AG-C-cheatsheet.md`.
+D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d never landed; this branch's contracts supersede it. Cheat-sheets: `.fp-build/reports/W3-AG-C-cheatsheet.md` (contracts) and `.fp-build/reports/W3-AG-S-cheatsheet.md` (procedures, inputs, outputs, permissions, refusals for the web and native lanes).
 
 - Flow (spec `2026-10-24-orrn-fp-ageing-design.md`): press log → trolley (`ageing_row` from a logged press-run line, a typed line, or a whole packed bundle) → oven cycle on a recipe → readings → hardness → release → pack draws pieces from released rows (`bundle.ageing_row_id`). No stock-ledger row anywhere in ageing; the oven is not a location; trolley kg are theoretical.
 - Tables (`schema/ageing.ts`, migration `0038_ageing`, idx 38): `ageing_oven`, `trolley`, `ageing_recipe` (one active per alloy + temper + kind), `ageing_batch` (`AG-n`, one unfinished per trolley, one `in_oven` per oven, recipe snapshot copied at start), `ageing_row` (pack reads `die_id`, `length_mm`, `pcs`, `packed_pcs`, `scrap_pcs`, `rework_pcs`), `ageing_temp_log` (typed / telemetry / simulator; feed rows unique on batch + source + at), `ageing_hardness`. ×10 integers for °C and hardness.
@@ -746,8 +747,9 @@ D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d neve
 - Actions: `ageing.load` / `ageing.record` (press, supervisor, operator), `ageing.release` (supervisor, manager), `ageing.view` (+ operator). `ageing.enter` stays as the station umbrella key. Override: approval `ageing_override` (owner, admin, manager); the requester never approves.
 - Reason kinds: `ageing_hold`, `ageing_rework`, `ageing_scrap`, `ageing_abort` (void / abort), `ageing_reject` (the QC verdict release writes on a failed line: under_aged, over_aged, no_readings, hardness_low, too_few_samples).
 - Refusals: the router throws `ageingRefusal(code, vars)` (`lib/ageingRefusals.ts`, in `refusal-sentences.ts` FILES); every sentence maps to `ageing.refusal.*` in en, hi and gu. `ageing` is a whole floor namespace in `GU_FLOOR_NAMESPACES`.
-- `OVEN_SIMULATOR=1` (+ optional `OVEN_SIMULATOR_PROFILE=normal|under|over|dip`) in `apps/server/.dev.vars` lets the server post a simulated curve (`lib/ageingSimulator.ts`), local only, refused in production, labelled simulated.
-- Still to build (W3-AG-S/W): `routers/ageing.ts` (register `ageingReopenBlocker` from `lib/ageing.ts` at module load), the pack draw status check (`ageingDrawGate`: released rows only), dispatch's ageing refusal, `ageing.forOrder` into `agedG`, `reports.ageing`, the screens and the chain step (still skipped).
+- `OVEN_SIMULATOR=1` (+ optional `OVEN_SIMULATOR_PROFILE=normal|under|over|dip`) (set in `apps/server/wrangler.local.jsonc` vars for local dev and e2e) lets `ageing.batches.simulate` post a simulated curve (`lib/ageingSimulator.ts`), local only, refused in production, labelled simulated.
+- Server (W3-AG-S): `routers/ageing.ts` (masters, batches load → start → temp → out → hardness → release / hold / unhold / requestOverride / rework / discardRemaining / split / void / simulate, `packSource`, `bundleTrace`, `forOrder`), `reports.ageing`, `POST /collector/ageing/readings` (`lib/ageingCollector.ts`, node-signed, per `device_id`), pack's draw guarded inside its batch (`drawAgeingRowStatements`: released, non-bundle rows only; a bundle void restores the row and reopens a closed batch), dispatch's `assertDispatchAgeing` (scan, add, reserve, complete), `agedG` on the strip, Today's `ageing` tile (`inOven`, `held`, `out`) for `ageing.view`, `settings.ageing` via `company.updateSettings` (`requireAgeing` with no day starts today). Whole-bundle rows load with packed 0, are marked aged at release (`bundle.ageing_row_id` = its own row, row closed) and never feed pack. Rework moves held pieces once (press-line loaded = Σ(pcs − rework_pcs)); a batch with rework or discard, or a rework successor, is never voided. Migration `0039_ageing_2` (indexes, `ageing_temp_log.device_id`). Dev seed: PR-8's line on AG-1 (T-1, released on an approved override) and AG-2 (T-2, in OV-1, simulator curve); 10 pcs left to load.
+- Still to build (W3-AG-W): the screens; the pack screen's trolley-line picker (the chain e2e injects `ageingRowId` into the receipt until then).
 
 # 10. Pack, stock and dispatch
 
@@ -773,7 +775,7 @@ D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d neve
 - **Pinned copy and cast.** An order line that pins a die copy packs on that copy (D15); another copy
   is refused unless an `order.manage` holder sends `overridePin` (audited `bundle.receipt.pin_override`).
   `receiptCast` accepts only a cast with a locked melt (a draft melt has made no billets).
-- **Pack cast and ageing.** `createReceipt` takes the die copy, the cast (`receiptCast`, locked melts only), the source (order line, Plant stock) and the rejects with `qc_reject` reason codes. Pack today is the hand path: the trolley slice waits for the ageing lane (see Ageing). `requireCastOnBundle` turns on automatically after the first locked melt (`castAuto`); a plant with no foundry module keeps it off.
+- **Pack cast and ageing.** `createReceipt` takes the die copy, the cast (`receiptCast`, locked melts only), the source (order line, Plant stock) and the rejects with `qc_reject` reason codes. Pack takes an optional `ageingRowId` (a released trolley line): its pieces and rejects are drawn from the row inside the receipt's batch; `settings.ageing.requireForPack` refuses a hand pack of a section that has released trolley pieces (see Ageing). `requireCastOnBundle` turns on automatically after the first locked melt (`castAuto`); a plant with no foundry module keeps it off.
 - **Void holders (Q29).** `bundle.void` (and the legacy `bundle.transition`) = supervisor, manager,
   admin (and owner); the floor operator does not void.
 - **Label contract (Q31, BACKLOG 54).** Frozen in `@orrn/domain` (`labelContract.ts` + its test): the
