@@ -17,7 +17,7 @@ import { REASON_CODE_KINDS } from "@orrn/domain";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { atomicBatch } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
-import { ensureDefaultReasonCodes } from "../lib/reasonCodes";
+import { ensureDefaultReasonCodes, hasStandardWording } from "../lib/reasonCodes";
 import { nextCompanySeq } from "../lib/sequence";
 
 const kind = z.enum(REASON_CODE_KINDS);
@@ -78,7 +78,7 @@ export const reasonCodeRouter = router({
       .from(reasonCode)
       .where(and(eq(reasonCode.companyId, ctx.companyId), input?.kind ? eq(reasonCode.kind, input.kind) : undefined))
       .orderBy(asc(reasonCode.kind), asc(reasonCode.sortOrder), asc(reasonCode.code));
-    return rows;
+    return rows.map((r) => ({ ...r, standard: hasStandardWording(r.kind, r.code, r.label) }));
   }),
 
   create: actionProcedure("masters.publish")

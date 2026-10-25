@@ -29,7 +29,7 @@ import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { productionDayWindow } from "../lib/dayWindow";
 import { companySettings, isPressAbort, LIVE_RUN_STATUSES, lineQueue, pressAbortUnless, pressErrorText } from "../lib/press";
-import { ensureDefaultReasonCodes } from "../lib/reasonCodes";
+import { ensureDefaultReasonCodes, hasStandardWording } from "../lib/reasonCodes";
 import { pressDaySummary, pressReport, pressReportCsv } from "../lib/pressReport";
 import { nextCompanySeq } from "../lib/sequence";
 import { pressRunRouter } from "./pressRun";
@@ -557,7 +557,7 @@ export const pressRouter = router({
     .input(z.object({ kind: z.enum(REASON_CODE_KINDS), includeInactive: z.boolean().default(false) }))
     .query(async ({ ctx, input }) => {
       await ensureDefaultReasonCodes(ctx.db, ctx.companyId);
-      return ctx.db
+      const rows = await ctx.db
         .select({
           id: reasonCode.id,
           kind: reasonCode.kind,
@@ -572,6 +572,7 @@ export const pressRouter = router({
         .from(reasonCode)
         .where(and(eq(reasonCode.companyId, ctx.companyId), eq(reasonCode.kind, input.kind), input.includeInactive ? undefined : eq(reasonCode.active, true)))
         .orderBy(asc(reasonCode.sortOrder), asc(reasonCode.code));
+      return rows.map((r) => ({ ...r, standard: hasStandardWording(r.kind, r.code, r.label) }));
     }),
 
   /** Press report (FP-PR-17): 17 columns, logged runs by production day; `csv` when asked. */

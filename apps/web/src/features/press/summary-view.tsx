@@ -105,7 +105,7 @@ export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onS
             {data.downtimeByReason.map((r) => (
               <li key={r.code} className="min-w-0" data-reason={r.code}>
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                  <span className="text-[15px] font-medium">{reasonLabel(t, "downtime", r.code, r.label)}</span>
+                  <span className="text-[15px] font-medium">{reasonLabel(t, "downtime", r.code, r.label, r)}</span>
                   <span className="tabular-nums">{t("press.summary.minutes", { min: r.min })}</span>
                 </div>
                 <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-sunken">

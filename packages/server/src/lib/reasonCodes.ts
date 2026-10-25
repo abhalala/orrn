@@ -6,7 +6,7 @@
  * keeps its row (unique on company + kind + code), so it is never created again.
  */
 import { reasonCode } from "@orrn/db/schema/reasons";
-import { defaultReasonCodeRows } from "@orrn/domain";
+import { DEFAULT_REASON_CODES, defaultReasonCodeRows, type ReasonCodeKind } from "@orrn/domain";
 import { eq } from "drizzle-orm";
 
 import { atomicBatch, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "./atomic";
@@ -54,4 +54,13 @@ export async function ensureDefaultReasonCodes(db: OrrnDb, companyId: string): P
   pushChunkedInserts(statements, (part) => db.insert(reasonCode).values(part).onConflictDoNothing(), rows);
   await atomicBatch(db, statements);
   return rows.length;
+}
+
+/**
+ * True when a code is one of the standard ones and still carries its standard English wording (not
+ * renamed): the screens then show the built-in translation. Computed here so the web bundle never
+ * imports the default list (the `/` route budget).
+ */
+export function hasStandardWording(kind: string, code: string, label: string): boolean {
+  return DEFAULT_REASON_CODES[kind as ReasonCodeKind]?.some((c) => c.code === code && c.label === label) ?? false;
 }

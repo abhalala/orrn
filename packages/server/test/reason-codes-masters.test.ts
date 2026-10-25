@@ -90,7 +90,10 @@ describe("reasonCodes.rename and setActive", () => {
     expect(await audits(p.companyId, "reason_code.rename")).toHaveLength(1);
     // A seeded code can be renamed too; the key stays.
     const seeded = (await p.manager.reasonCodes.list({ kind: "downtime" })).find((r) => r.code === "power")!;
+    expect(seeded.standard).toBe(true);
     await p.manager.reasonCodes.rename({ id: seeded.id, label: "Mains power cut" });
+    // A renamed standard code shows its own wording, so it is no longer "standard" (the pickers carry the flag too).
+    expect((await p.as("press").press.reasons({ kind: "downtime" })).find((r) => r.id === seeded.id)).toMatchObject({ standard: false });
     expect((await p.manager.reasonCodes.list({ kind: "downtime" })).find((r) => r.id === seeded.id)).toMatchObject({ code: "power", label: "Mains power cut" });
   });
 

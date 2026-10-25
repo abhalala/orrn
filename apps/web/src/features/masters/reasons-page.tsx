@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 
-import { reasonLabel } from "@/features/press/reason-label";
+import { reasonLabel, type ReasonCodeKind } from "@/features/press/reason-label";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 

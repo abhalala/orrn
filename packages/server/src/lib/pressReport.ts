@@ -5,6 +5,7 @@
  * the rows shown (never an average of percents). Late share (FP-PR-24): runs entered late over
  * runs logged, per shift and operator.
  */
+import { hasStandardWording } from "./reasonCodes";
 import { bpPercent1, productionDayStartMin, readFloorSettings, recoveryBp } from "@orrn/domain";
 import { user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
@@ -415,7 +416,7 @@ export async function pressDaySummary(db: OrrnDb, companyId: string, day: string
     lateShareBp: report.totals.lateShareBp,
     byLine,
     byShift,
-    downtimeByReason: [...downByReason.values()].sort((a, b) => b.min - a.min),
+    downtimeByReason: [...downByReason.values()].sort((a, b) => b.min - a.min).map((r) => ({ ...r, standard: hasStandardWording("downtime", r.code, r.label) })),
     lateShare: report.lateShare,
   };
 }
