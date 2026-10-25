@@ -116,6 +116,10 @@ export const PLANT_ACTIONS = [
   "support.request", // ask platform support for help
   // Wave 2 (FP). FP-PR-25 change the press queue after release (Q15 default: supervisor + planner).
   "press.queue", // reorder queued / die_issued runs, pull a cut length back to planable
+  // Wave 3 ageing (W3-AG-C). `ageing.enter` stays as the station umbrella key; procedures use these.
+  "ageing.load", // put press lines / bundles on a trolley, start a cycle, take it out, void a loading batch
+  "ageing.record", // temperature readings and hardness samples
+  "ageing.release", // QC verdict: release, hold, rework, discard the rest, void after take-out, ask for an override
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -224,12 +228,17 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "order.price": ["office", "manager", "accountant"],
   "order.reallocate": ["supervisor", "office", "manager", "admin"],
   "press.close": ["supervisor", "manager", "admin"],
-  "ageing.view": ["press", "supervisor", "office", "manager", "admin"],
+  "ageing.view": ["press", "supervisor", "office", "manager", "admin", "operator"],
   "packingList.combine": ["supervisor", "office", "manager", "admin"],
   "portal.manage": ["office", "manager", "admin"],
   "audit.read": ["admin", "manager"],
   // Wave 2 (FP-PR-25, Q15 A): the supervisor and the planner (order.plan holders).
   "press.queue": ["supervisor", "office", "manager"],
+  // Wave 3 ageing (W3-AG-C): the station (press role, the floor operator) loads and records; the QC
+  // verdict is a supervisor's or manager's. Approving an override is APPROVER_ROLES.ageing_override.
+  "ageing.load": ["press", "supervisor", "operator"],
+  "ageing.record": ["press", "supervisor", "operator"],
+  "ageing.release": ["supervisor", "manager"],
   "support.request": [
     "admin",
     "manager",

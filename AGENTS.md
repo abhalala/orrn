@@ -8,7 +8,7 @@ it, the test is named. When code and this file disagree, fix the file in the sam
 
 ## Project overview
 
-ORRN (domain: orrn.in) is built as a sellable multi-company ERP SaaS for manufactured inventory operations: dies, bundles, stock, label printing, dispatches, packing lists, customers, permissions, auditability, web app, and native iOS/iPadOS/Android apps. This is like a collection of ERP modules that can be setup with different tenants based on their needs. The first plant is FourCubes (aluminium extrusion): the flow is order, press plan, die issue, press, ageing, pack, dispatch, packing list, with the stock ledger balancing at every step. The foundry and ageing modules are PAUSED on a satellite machine (see Foundry and Ageing); everything else described here is built.
+ORRN (domain: orrn.in) is built as a sellable multi-company ERP SaaS for manufactured inventory operations: dies, bundles, stock, label printing, dispatches, packing lists, customers, permissions, auditability, web app, and native iOS/iPadOS/Android apps. This is like a collection of ERP modules that can be setup with different tenants based on their needs. The first plant is FourCubes (aluminium extrusion): the flow is order, press plan, die issue, press, ageing, pack, dispatch, packing list, with the stock ledger balancing at every step. The foundry and ageing modules came back to the hub (D31): ageing has its contracts (schema, rules, permissions, i18n) and waits for its server and screens (see Ageing); everything else described here is built.
 
 ## Stack
 
@@ -735,9 +735,19 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - Cast numbers: `castSeriesStart` {period, start} now feeds `allocateDocNumbers` for type `cast`
   (the month's first seq); `castNumberParts`, `parseCastCode`, `isSeriesCastCode` in `@orrn/domain`.
 
-## Ageing (paused)
+## Ageing (contracts on the hub, W3-AG-C; server and screens to come)
 
-The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per batch, the `ageing_override` applier, `bundle.ageing_row_id`, pack from a trolley) was built only as contracts on the satellite (`wt/W3-AG-C` @1ebdd0d) and is not on this branch. What main holds: reason kinds `ageing_hold` / `ageing_rework` / `ageing_scrap` (en, hi, gu), actions `ageing.view` / `ageing.enter` (no procedure uses them), the `ageing_override` kind (no applier), the `reopenBlockers` registry in `lib/press`, and `ageing` in `ROUTER_MODULE` with no router. `createReceipt` refuses `bundle.ageing_row_id`, pack is a hand path, `agedG` on the order strip is 0, and the chain test skips the ageing step. When the lane resumes its migrations take the next free numbers and it registers its reopen check in `registerReopenBlocker` at module load of its router.
+D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d never landed; this branch's contracts supersede it. Cheat-sheet for the server, web and native lanes: `.fp-build/reports/W3-AG-C-cheatsheet.md`.
+
+- Flow (spec `2026-10-24-orrn-fp-ageing-design.md`): press log → trolley (`ageing_row` from a logged press-run line, a typed line, or a whole packed bundle) → oven cycle on a recipe → readings → hardness → release → pack draws pieces from released rows (`bundle.ageing_row_id`). No stock-ledger row anywhere in ageing; the oven is not a location; trolley kg are theoretical.
+- Tables (`schema/ageing.ts`, migration `0038_ageing`, idx 38): `ageing_oven`, `trolley`, `ageing_recipe` (one active per alloy + temper + kind), `ageing_batch` (`AG-n`, one unfinished per trolley, one `in_oven` per oven, recipe snapshot copied at start), `ageing_row` (pack reads `die_id`, `length_mm`, `pcs`, `packed_pcs`, `scrap_pcs`, `rework_pcs`), `ageing_temp_log` (typed / telemetry / simulator; feed rows unique on batch + source + at), `ageing_hardness`. ×10 integers for °C and hardness.
+- Statuses: batch `loading → in_oven → out → released | held → closed`, `void`; the board phase splits `in_oven` into heating / soaking (derived). Row `pending | held | released | closed | void`. Rules are pure in `@orrn/domain` `ageing.ts` (`soakCompliance`, `hardnessSummary`, `ageingReleasePlan`, gates, `bundleAgeingState`, `dispatchAgeingRefusal`).
+- `bundle.status` keeps its four values. A bundle's ageing state is derived (`not_aged | in_ageing | held | aged`); dispatch refuses `in_ageing` and `held` always and `not_aged` only with `settings.ageing.requireAgeing` (default off; bundles packed before `requireAgeingSince` stay dispatchable).
+- Actions: `ageing.load` / `ageing.record` (press, supervisor, operator), `ageing.release` (supervisor, manager), `ageing.view` (+ operator). `ageing.enter` stays as the station umbrella key. Override: approval `ageing_override` (owner, admin, manager); the requester never approves.
+- Reason kinds: `ageing_hold`, `ageing_rework`, `ageing_scrap`, `ageing_abort` (void / abort), `ageing_reject` (the QC verdict release writes on a failed line: under_aged, over_aged, no_readings, hardness_low, too_few_samples).
+- Refusals: the router throws `ageingRefusal(code, vars)` (`lib/ageingRefusals.ts`, in `refusal-sentences.ts` FILES); every sentence maps to `ageing.refusal.*` in en, hi and gu. `ageing` is a whole floor namespace in `GU_FLOOR_NAMESPACES`.
+- `OVEN_SIMULATOR=1` (+ optional `OVEN_SIMULATOR_PROFILE=normal|under|over|dip`) in `apps/server/.dev.vars` lets the server post a simulated curve (`lib/ageingSimulator.ts`), local only, refused in production, labelled simulated.
+- Still to build (W3-AG-S/W): `routers/ageing.ts` (register `ageingReopenBlocker` from `lib/ageing.ts` at module load), the pack draw status check (`ageingDrawGate`: released rows only), dispatch's ageing refusal, `ageing.forOrder` into `agedG`, `reports.ageing`, the screens and the chain step (still skipped).
 
 # 10. Pack, stock and dispatch
 

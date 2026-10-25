@@ -278,6 +278,9 @@ No hardware is needed for any flow; every device has a simulator and says so on 
 - **Scale (web pack).** `SCALE_SIMULATOR=1` in `apps/server/.dev.vars` (gitignored; wrangler reads it next to
   `wrangler.local.jsonc`), then restart `dev:local`: `scale.reading` answers a deterministic 14 s cycle with `simulated: true`.
   It is refused when `NODE_ENV=production`. The tests: `packages/server/test/scale-reading.test.ts`.
+- **Ageing oven (W3-AG-C).** `OVEN_SIMULATOR=1` (optional `OVEN_SIMULATOR_PROFILE=normal|under|over|dip`) in
+  `apps/server/.dev.vars`: the ageing server posts a deterministic oven curve for a batch (`lib/ageingSimulator.ts`, readings
+  marked `simulator`). Refused when `NODE_ENV=production`. The tests: `packages/server/test/ageing-w3-contracts.test.ts`.
 - **Spool simulators (Go, orrn-spool).** `go run ./cmd/spool --scale-sim` (also `SPOOL_SCALE_SIMULATE=true`) serves simulated
   frames; `--press-sim` (needs `press_collector.line`) sends an 8-minute die change, then billets of 78 s to
   `POST /collector/press/frames`; `--spectro-sim` writes `SIM-n.csv` into `spectro.sim_dir` and uploads it. The node needs

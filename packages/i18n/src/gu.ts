@@ -10,6 +10,7 @@ import type { Messages } from "./en";
  * ageing.readings, reasons.{kinds,downtime,qc_reject,void,reprint}) adds them here too.
  */
 import { refusalGu } from "./native/refusal.gu";
+import { guAgeing } from "./gu-more/ageing";
 import { guApprovals } from "./gu-more/approvals";
 import { guAuth } from "./gu-more/auth";
 import { guBundle } from "./gu-more/bundle";
@@ -35,7 +36,7 @@ export type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : D
  */
 export const GU_FLOOR_NAMESPACES = [
   // The floor (W1, D6)
-  "today", "pack", "scan", "press.console", "ageing.readings", "stock", "packingList", "labelSheet",
+  "today", "pack", "scan", "press.console", "ageing", "stock", "packingList", "labelSheet",
   "dispatch", "bundle",
   // Chrome and shared words
   "common", "units", "nav", "errors", "roles", "ui", "status", "refusal",
@@ -71,7 +72,11 @@ export const GU_FLOOR_NAMESPACES = [
  * plus the kind names: complete in gu. The office-only kinds (ageing, reallocate) are translated
  * too but may fall back to English.
  */
-export const GU_REASON_FLOOR_KINDS = ["kinds", "downtime", "qc_reject", "void", "reprint"] as const;
+export const GU_REASON_FLOOR_KINDS = [
+  "kinds", "downtime", "qc_reject", "void", "reprint",
+  // W3-AG-C: the ageing station is a floor screen
+  "ageing_hold", "ageing_rework", "ageing_scrap", "ageing_abort", "ageing_reject",
+] as const;
 
 /** What the finished Gujarati must carry in full (the types check this; gu.test.ts checks every key). */
 export type GuMessages = GuBaseMessages &
@@ -1563,6 +1568,8 @@ const guBase = {
       ageing_hold: "એજિંગ હોલ્ડ",
       ageing_rework: "ફરી એજિંગ",
       ageing_scrap: "એજિંગ સ્ક્રેપ",
+      ageing_abort: "એજિંગ રદ",
+      ageing_reject: "એજિંગ નામંજૂર",
       reallocate: "બીજા ઓર્ડરમાં ફેરવવું",
       die_work: "Die નું કામ",
     },
@@ -1614,6 +1621,21 @@ const guBase = {
       bend: "વળેલું",
       surface: "સપાટી",
       short_length: "ટૂંકી લંબાઈ",
+      other: "અન્ય",
+    },
+    ageing_abort: {
+      wrong_load: "ખોટો લોડ",
+      burner_fault: "બર્નરમાં ખામી",
+      power_cut: "વીજળી ગઈ",
+      wrong_recipe: "ખોટી રેસિપી",
+      other: "અન્ય",
+    },
+    ageing_reject: {
+      under_aged: "ઓછું એજિંગ",
+      over_aged: "વધુ એજિંગ",
+      no_readings: "તાપમાનની કોઈ રીડિંગ નથી",
+      hardness_low: "હાર્ડનેસ ઓછી",
+      too_few_samples: "હાર્ડનેસના સેમ્પલ ઓછા",
       other: "અન્ય",
     },
     reallocate: {
@@ -1720,6 +1742,7 @@ function mergeGu(...parts: readonly object[]): Record<string, unknown> {
  */
 export const gu = mergeGu(
   guBase,
+  guAgeing,
   guApprovals,
   guAuth,
   guBundle,

@@ -85,12 +85,16 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "order.price": ["office", "manager", "accountant"],
   "order.reallocate": ["supervisor", "office", "manager", "admin"],
   "press.close": ["supervisor", "manager", "admin"],
-  "ageing.view": ["press", "supervisor", "office", "manager", "admin"],
+  "ageing.view": ["press", "supervisor", "office", "manager", "admin", "operator"],
   "packingList.combine": ["supervisor", "office", "manager", "admin"],
   "portal.manage": ["office", "manager", "admin"],
   "audit.read": ["admin", "manager"],
   // Wave 2 contracts (FP-PR-25, Q15 A).
   "press.queue": ["supervisor", "office", "manager"],
+  // Wave 3 ageing contracts (W3-AG-C).
+  "ageing.load": ["press", "supervisor", "operator"],
+  "ageing.record": ["press", "supervisor", "operator"],
+  "ageing.release": ["supervisor", "manager"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 

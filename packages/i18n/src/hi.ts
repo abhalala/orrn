@@ -8,6 +8,7 @@ import { ordersHi } from "./native/orders.hi";
 import { refusalHi } from "./native/refusal.hi";
 import { platformHi } from "./native/platform.hi";
 import { pressHi } from "./native/press.hi";
+import { ageingHi } from "./ageing/ageing.hi";
 import { stockHi } from "./native/stock.hi";
 
 /**
@@ -5436,30 +5437,7 @@ export const hi = {
     },
   },
 
-  ageing: {
-    title: "एजिंग",
-    board: "एजिंग बोर्ड",
-    readings: {
-      title: "रीडिंग",
-      batch: "बैच {number}",
-      oven: "ओवन",
-      temperature: "तापमान (°C)",
-      soak: "सोक समय",
-      start: "शुरू",
-      end: "खत्म",
-      hardness: "हार्डनेस",
-      addReading: "रीडिंग जोड़ें",
-      saved: "रीडिंग सेव हुई",
-      pass: "पास",
-      fail: "फ़ेल",
-      hold: "होल्ड",
-      release: "छोड़ें",
-      rework: "फिर से एजिंग",
-      scrap: "स्क्रैप",
-      empty: "अभी कोई रीडिंग नहीं।",
-      outOfRange: "{min} से {max} के बाहर।",
-    },
-  },
+  ageing: ageingHi.ageing,
 
   reasons: {
     kinds: {
@@ -5470,6 +5448,8 @@ export const hi = {
       ageing_hold: "एजिंग होल्ड",
       ageing_rework: "फिर से एजिंग",
       ageing_scrap: "एजिंग स्क्रैप",
+      ageing_abort: "एजिंग रद्द",
+      ageing_reject: "एजिंग नामंज़ूर",
       reallocate: "दूसरे ऑर्डर में डालना",
       die_work: "Die का काम",
     },
@@ -5521,6 +5501,21 @@ export const hi = {
       bend: "टेढ़ा",
       surface: "सतह",
       short_length: "छोटी लंबाई",
+      other: "अन्य",
+    },
+    ageing_abort: {
+      wrong_load: "गलत लोड",
+      burner_fault: "बर्नर खराब",
+      power_cut: "बिजली गई",
+      wrong_recipe: "गलत रेसिपी",
+      other: "अन्य",
+    },
+    ageing_reject: {
+      under_aged: "कम एजिंग",
+      over_aged: "ज़्यादा एजिंग",
+      no_readings: "तापमान की कोई रीडिंग नहीं",
+      hardness_low: "हार्डनेस कम",
+      too_few_samples: "हार्डनेस के सैंपल कम",
       other: "अन्य",
     },
     reallocate: {

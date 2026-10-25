@@ -626,7 +626,7 @@ for (const width of WIDTHS) {
     });
 
     test("ageing: the trolley is loaded, aged and released", async () => {
-      test.skip(true, "ageing lane paused on the satellite");
+      test.skip(true, "ageing server and screens (W3-AG-S/W) not landed; contracts in place (W3-AG-C)");
     });
 
     test("packer packs 3 bundles on the order line: live kg/12 ft, a reject, a lost reply sent again without a duplicate, party numbers", async ({ browser }) => {
