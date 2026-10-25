@@ -6,6 +6,8 @@
  */
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
+import { pressAlert, spectroInbox } from "@orrn/db/schema/collector";
+import { melt } from "@orrn/db/schema/foundry";
 import { approval, pressBilletUse, pressDowntime, pressRun, pressRunLine, qcEntry, stockLedger, user } from "@orrn/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 
@@ -38,6 +40,15 @@ describe("dev seed: Wave 2 press demo (idempotent)", () => {
       const out = await seedDevData(env.db, { password: "dev-seed-test" });
       expect(out.ok).toBe(true);
       expect(out.counts.pressRuns).toBe(9);
+      // BACKLOG 46: the collector UIs have alerts (all ended, three unacknowledged), files and a melt to work on.
+      const alerts = await env.db.select().from(pressAlert).where(eq(pressAlert.companyId, companyId));
+      expect(alerts).toHaveLength(5);
+      expect(alerts.every((a) => a.endedAt !== null)).toBe(true);
+      expect(alerts.filter((a) => a.acknowledgedAt === null && !a.simulated)).toHaveLength(3);
+      const files = await env.db.select().from(spectroInbox).where(eq(spectroInbox.companyId, companyId));
+      expect(files).toHaveLength(7);
+      expect(files.filter((f) => f.simulated)).toHaveLength(1);
+      expect(await env.db.select().from(melt).where(eq(melt.companyId, companyId))).toHaveLength(1);
       const runs = await env.db.select().from(pressRun).where(eq(pressRun.companyId, companyId)).orderBy(asc(pressRun.number));
       expect(runs.map((r) => [r.number, r.status, r.lateEntry])).toEqual([
         ["PR-1", "die_issued", false],
