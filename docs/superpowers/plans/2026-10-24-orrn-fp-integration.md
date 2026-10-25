@@ -1,6 +1,6 @@
 # ORRN floor parity — integration plan
 
-Date: 2026-10-24. Status: plan. Worktree `wt/FP` at `08a3ead` (branch `wt/FP`, off `redesign/c2`). Do not cut over prod from this branch.
+Date: 2026-10-24. Status (2026-10-25): executed as waves W0 to W4 on `wt/FP`; what is built, partial, missing or paused is the Status column of each FP spec and `TODO.md` (open work); foundry and ageing are paused on the satellite (D27); promotion is `docs/DEPLOY_PROMOTION.md`. Original status: plan. Worktree `wt/FP` at `08a3ead` (branch `wt/FP`, off `redesign/c2`). Do not cut over prod from this branch.
 
 Master list: `docs/superpowers/specs/2026-10-24-orrn-fp-feature-list.md` (128 FP IDs). Module contracts: the seven `2026-10-24-orrn-fp-*-design.md` specs. Existing work: `docs/superpowers/plans/2026-10-03-orrn-plant-modules.md` (PL-n, all checkboxes still open) and `docs/superpowers/plans/2026-10-03-orrn-c2-redesign.md` (Tasks 20–22 and 29 are the cutover gate; they are not done).
 
