@@ -45,8 +45,8 @@ type CopyRow = {
   id: string;
   code: string;
   sectionSeries: string;
-  sectionWeightMinG: number;
-  sectionWeightMaxG: number;
+  /** The copy's own band as the server writes it (`2.700-2.900`, or the band's label). */
+  bandText: string;
 };
 
 type Row = {
@@ -182,8 +182,8 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
       align: "end",
       phoneWide: true,
       cell: (c) => (
-        <span data-no-truncate="" className="font-mono whitespace-nowrap tabular-nums">
-          {formatBand(c.sectionWeightMinG, c.sectionWeightMaxG, t("units.kgPer12ft"))}
+        <span data-no-truncate="" data-testid="copy-band" className="font-mono whitespace-nowrap tabular-nums">
+          {/^\d/.test(c.bandText) ? `${c.bandText} ${t("units.kgPer12ft")}` : c.bandText}
         </span>
       ),
     },

@@ -163,6 +163,9 @@ for (const width of WIDTHS) {
       const firstCopy = page.getByRole("link", { name: /13090-1\d/ }).first();
       await expect(firstCopy).toBeVisible();
       await expect(firstCopy).toHaveAttribute("href", /\/dies\/copies\/dev-copy-13090-1\d/);
+      // Each copy shows its own band (Tee 13090: 2.700-2.900), never an empty or broken number.
+      await expect(page.getByTestId("copy-band").first()).toHaveText(/^\d\.\d{3}-\d\.\d{3} kg\/12ft$/);
+      await expect(page.locator("main#main")).not.toContainText("NaN");
       // Channel 12230 has no copy on trial.
       await expect(page.getByText("12230")).toHaveCount(0);
       await expectClean(page, "board_trial_tile");
