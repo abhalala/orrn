@@ -168,6 +168,36 @@ for (const width of WIDTHS) {
       await expectNoHorizontalScroll(page);
     });
 
+    test("the floor screens read in Gujarati: the list, the cast, the stepper and the lock gates, no raw key", async ({ page }) => {
+      const api = await ownerApi();
+      const cast = await openOwnCast(api);
+      await lockOwnMelt(api, cast.id);
+      await api.mutate("foundry.melts.save", { castId: cast.id, times: {} });
+      const got = await api.query<{ melts: { id: string; status: string }[] }>("foundry.casts.get", { id: cast.id });
+      const draftId = got.melts.find((m) => m.status === "draft")!.id;
+      await api.dispose();
+      const noRawKey = async () => {
+        const text = await main(page).innerText();
+        expect(text.match(/\b(?:foundry|approvals|units|common)\.[A-Za-z_]+(?:\.[A-Za-z_0-9]+)*\b/)?.[0] ?? null, "a raw dictionary key is on screen").toBeNull();
+        await expect(page.locator("html")).toHaveAttribute("lang", "gu");
+        await expectNoHorizontalScroll(page);
+      };
+      await open(page, "/casts", width, "foundry", "gu");
+      await expect(h1(page)).toHaveText("Cast");
+      await noRawKey();
+      await page.goto(`/casts/${cast.id}`);
+      await expect(page.getByTestId("tail-panel")).toContainText("Billet");
+      await noRawKey();
+      await page.goto(`/casts/${cast.id}/melt/${draftId}?step=spectro`);
+      await expect(page.getByTestId("gates")).toContainText("લખો");
+      await noRawKey();
+      for (const step of ["times", "charge", "chemicals", "output"]) {
+        await page.goto(`/casts/${cast.id}/melt/${draftId}?step=${step}`);
+        await expect(page.getByTestId(`melt-step-${step}`)).toBeVisible();
+        await noRawKey();
+      }
+    });
+
     test("the casts list filters by status, opens a cast and traces a cast code and a bundle", async ({ page }) => {
       const api = await ownerApi();
       const cast = await openOwnCast(api);
