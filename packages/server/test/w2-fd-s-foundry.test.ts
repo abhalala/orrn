@@ -1023,3 +1023,99 @@ describe("ported from the satellite's reference branch (wt/W2-FD-S-omafranky @dd
     await expect(p.as("manager").purchase.lots.cancel({ id: locked.id, reason: "x" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });
+
+// ---------------------------------------------------------------------------
+// FINAL-FIXES-4: FD-02 (book number + legacy code), FD-19 (kg in by stream)
+// ---------------------------------------------------------------------------
+
+describe("FINAL-FIXES-4 FD-02: a legacy code on an imported cast, and the cast book's start number", () => {
+  test("open takes an optional legacy code: stored upper-case, unique per plant, shown by list/get/trace, found by the trace search", async () => {
+    const p = await foundryPlant();
+    const a = await p.as("foundry").foundry.casts.open({ alloy: "6063", legacyCode: " old-17/b " });
+    const plain = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const listed = await p.as("viewer").foundry.casts.list({});
+    expect(listed.items.find((x) => x.id === a.id)).toMatchObject({ legacyCode: "OLD-17/B" });
+    expect(listed.items.find((x) => x.id === plain.id)).toMatchObject({ legacyCode: null });
+    expect((await p.as("viewer").foundry.casts.get({ id: a.id })).cast.legacyCode).toBe("OLD-17/B");
+    expect((await p.as("viewer").foundry.casts.trace({ castId: a.id })).cast.legacyCode).toBe("OLD-17/B");
+    // The same box that finds K31 finds the paper code, any case.
+    const found = await p.as("viewer").foundry.casts.list({ number: "old-17/b" });
+    expect(found.items.map((x) => x.id)).toEqual([a.id]);
+    expect((await p.as("viewer").foundry.casts.list({ number: a.number })).items.map((x) => x.id)).toContain(a.id);
+    // A second cast cannot take the same paper code; the refusal names it.
+    await expect(p.as("foundry").foundry.casts.open({ alloy: "6063", legacyCode: "OLD-17/B" })).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("OLD-17/B") });
+    // Characters outside letters, digits, space and - / . _ are refused.
+    await expect(p.as("foundry").foundry.casts.open({ alloy: "6063", legacyCode: "<b>" })).rejects.toThrow();
+    // A double tap with the same request id returns the first cast (the code is not a second cast).
+    const r1 = await p.as("foundry").foundry.casts.open({ alloy: "6063", legacyCode: "OLD-18", clientRequestId: "fd02-0001" });
+    const r2 = await p.as("foundry").foundry.casts.open({ alloy: "6063", legacyCode: "OLD-18", clientRequestId: "fd02-0001" });
+    expect(r2.id).toBe(r1.id);
+    // The code is the plant's own: another plant may use the same paper code.
+    const q = await foundryPlant();
+    await expect(q.as("foundry").foundry.casts.open({ alloy: "6063", legacyCode: "OLD-17/B" })).resolves.toBeTruthy();
+    // Opening wrote the code into the audit meta.
+    const rows = await env.db.select({ meta: auditLog.meta }).from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "cast.open")));
+    expect(JSON.stringify(rows.map((r) => r.meta))).toContain("OLD-17/B");
+  });
+
+  test("setSeriesStart (masters.publish) continues the book in a month with no cast yet, audited, and refuses a month that has one", async () => {
+    const p = await foundryPlant();
+    const next = new Date(Date.now() + 70 * 86_400_000);
+    const period = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}`;
+    await expect(p.as("foundry").foundry.casts.setSeriesStart({ start: { period, start: 120 } })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(p.as("manager").foundry.casts.setSeriesStart({ start: { period, start: 120 } })).resolves.toMatchObject({ start: { period, start: 120 } });
+    expect((await p.owner.company.getSettings()).castSeriesStart).toEqual({ period, start: 120 });
+    expect(await audits(p.companyId)).toContain("foundry.castSeries.set");
+    // A cast opened in that month takes the book's number.
+    setClock(new Date(`${period}-10T06:00:00Z`));
+    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    expect(c.number).toMatch(/^[A-L]120$/);
+    // That month now has a cast: the book can no longer be moved there.
+    await expect(p.as("manager").foundry.casts.setSeriesStart({ start: { period, start: 5 } })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    // Clear it again for a month with no cast.
+    await expect(p.as("manager").foundry.casts.setSeriesStart({ start: null })).resolves.toMatchObject({ start: null });
+    expect((await p.owner.company.getSettings()).castSeriesStart).toBeNull();
+    await expect(p.as("manager").foundry.casts.setSeriesStart({ start: { period: "2026-13", start: 1 } })).rejects.toThrow();
+  });
+});
+
+describe("FINAL-FIXES-4 FD-11: an attached spectro file can be found again from the trace", () => {
+  test("casts.trace melts name the newest live file (id, name); spectro.file returns it to any member; a voided or file-less result names none", async () => {
+    const p = await foundryPlant();
+    const lot = await p.lot(8_000);
+    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, { chemicals: [] }));
+    expect((await p.as("viewer").foundry.casts.trace({ castId: c.id })).melts[0]!.spectroFile).toBeNull();
+    await pass(p, d.id);
+    expect((await p.as("viewer").foundry.casts.trace({ castId: c.id })).melts[0]!.spectroFile).toBeNull();
+    const jpeg = Buffer.from("not-really-a-jpeg").toString("base64");
+    const file = await p.as("foundry").foundry.spectro.attach({ meltId: d.id, fileName: "K-1.jpg", mime: "image/jpeg", base64: jpeg, values: {} });
+    const m = (await p.as("viewer").foundry.casts.trace({ castId: c.id })).melts[0]!;
+    expect(m.spectroFile).toEqual({ id: file.id, fileName: "K-1.jpg" });
+    const listed = (await p.as("viewer").foundry.casts.get({ id: c.id })).melts[0]!.spectro;
+    expect(listed.map((r) => [r.id === file.id, r.hasFile]).sort()).toEqual([[false, false], [true, true]]);
+    expect(await p.as("viewer").foundry.spectro.file({ id: file.id })).toMatchObject({ id: file.id, fileName: "K-1.jpg", mime: "image/jpeg", base64: jpeg });
+    await p.as("supervisor").foundry.spectro.void({ id: file.id, reason: "Wrong sample" });
+    expect((await p.as("viewer").foundry.casts.trace({ castId: c.id })).melts[0]!.spectroFile).toBeNull();
+  });
+});
+
+describe("FINAL-FIXES-4 FD-19: yield report kg in by return stream", () => {
+  test("foundryYield returns byStream (kg charged from each return stream) and per-group lots / streams kg in", async () => {
+    const p = await foundryPlant();
+    const lot = await p.lot(8_000);
+    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, { spectroReason: "Lab" }));
+    await p.as("foundry").foundry.melts.lock({ meltId: d.id });
+    const today = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const from = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+    const y = await p.as("manager").analytics.foundryYield({ from, to: today, groupBy: "alloy" });
+    expect(y.byStream).toEqual([expect.objectContaining({ returnStreamId: p.stream("PLANT-SCRAP"), code: "PLANT-SCRAP", kgG: kg(300) })]);
+    expect(y.rows[0]).toMatchObject({ key: "6063", lotsG: kg(5_000), streamsG: kg(300) });
+    expect(y.total).toMatchObject({ lotsG: kg(5_000), streamsG: kg(300), inputG: kg(5_300) });
+    // A day with no melts has none.
+    const none = await p.as("manager").analytics.foundryYield({ from: "2020-01-01", to: "2020-01-02" });
+    expect(none.byStream).toEqual([]);
+    expect(none.total).toMatchObject({ lotsG: 0, streamsG: 0 });
+  });
+});

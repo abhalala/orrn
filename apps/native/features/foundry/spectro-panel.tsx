@@ -2,7 +2,7 @@ import { SPECTRO_ELEMENTS, spectroCheck, type SpectroElementKey, type SpectroLim
 import { useT, type MessageKey } from "@orrn/i18n";
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { Linking, Text, View } from "react-native";
 
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { announce } from "@/lib/a11y";
 import { feedback } from "@/lib/feedback";
 import { randomId } from "@/lib/random-id";
+import { webUrl } from "@/lib/web-url";
 import { replayKey, sendOnce, type ReplayAttempt } from "@/lib/replay-key";
 import { writeFailureKind } from "@/lib/request-timeout";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -78,7 +79,7 @@ function ResultTable({ result, limits }: { result: Pick<SpectroResult, "values" 
   );
 }
 
-function ResultCard({ result, limits }: { result: SpectroResult; limits: readonly SpectroLimit[] }) {
+function ResultCard({ result, limits, webPath }: { result: SpectroResult; limits: readonly SpectroLimit[]; webPath?: string }) {
   const { t } = useT();
   const voided = result.voidedAt != null;
   return (
@@ -89,6 +90,10 @@ function ResultCard({ result, limits }: { result: SpectroResult; limits: readonl
         {voided ? <Chip tone="red" label={t("foundry.spectro.void")} /> : null}
       </View>
       {result.fileName ? <Text className="font-mono text-[13px] text-ink-muted">{result.fileName}</Text> : null}
+      {/* FP-FD-11: the stored file opens on the web (the phone does not render PDFs or keep the bytes). */}
+      {result.hasFile && webPath ? (
+        <Button variant="secondary" label={t("foundry.spectro.openOnWeb")} onPress={() => void Linking.openURL(webUrl(webPath)).catch(() => {})} />
+      ) : null}
       {result.entryReason ? <Text className="font-sans text-sm text-ink-muted">{t("foundry.spectro.typedBecause", { reason: result.entryReason })}</Text> : null}
       {Object.keys(result.values ?? {}).length > 0 ? <ResultTable result={result} limits={limits} /> : null}
     </View>
@@ -100,7 +105,7 @@ function ResultCard({ result, limits }: { result: SpectroResult; limits: readonl
  * printout (camera) or the numbers typed with the reason. Both need the saved draft. A repeated photo is
  * guarded by the button waiting for the answer; typed numbers carry a replay key.
  */
-export function SpectroPanel({ meltId, results, limits, alloyCode, draft, readOnly = false }: { meltId: string | null; results: readonly SpectroResult[]; limits: readonly SpectroLimit[]; alloyCode: string; draft: boolean; readOnly?: boolean }) {
+export function SpectroPanel({ meltId, results, limits, alloyCode, draft, readOnly = false, webPath }: { meltId: string | null; results: readonly SpectroResult[]; limits: readonly SpectroLimit[]; alloyCode: string; draft: boolean; readOnly?: boolean; webPath?: string }) {
   const { t } = useT();
   const attach = useMutation(trpc.foundry.spectro.attach.mutationOptions());
   const [camera, setCamera] = useState(false);
@@ -145,7 +150,7 @@ export function SpectroPanel({ meltId, results, limits, alloyCode, draft, readOn
       <ErrorLine error={problem} />
       {results.length === 0 ? <Text className="font-sans-medium text-[15px] text-ink">{t("foundry.spectro.noneYet")}</Text> : null}
       {[...results].reverse().map((r) => (
-        <ResultCard key={r.id} result={r} limits={limits} />
+        <ResultCard key={r.id} result={r} limits={limits} webPath={webPath} />
       ))}
       {live.length === 0 && results.length > 0 ? <Note tone="amber">{t("foundry.spectro.allVoid")}</Note> : null}
       {added ? <Text accessibilityLiveRegion="polite" className="font-sans-medium text-sm text-tone-green-ink">{t("foundry.spectro.attached")}</Text> : null}

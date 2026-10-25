@@ -56,6 +56,7 @@ import {
 import { purchaseLot, scrapGrade, scrapItem } from "@orrn/db/schema/purchase";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn, storeUnits, type StoreItemRow } from "@orrn/db/schema/store";
+import { company } from "@orrn/db/schema/tenant";
 
 import { actionProcedure, anyActionProcedure, companyProcedure, router } from "../index";
 import { requestApprovalInsert } from "../lib/approval";
@@ -169,6 +170,18 @@ const optText = (max: number) =>
     .max(max)
     .optional()
     .transform((s) => (s ? s : null));
+/**
+ * FINAL-FIXES-4 (FP-FD-02): the code an old cast carried on paper, free text of letters, digits, space and
+ * `- / . _` (a hand-written book has `K31/b`, `OLD 17`). Stored upper case with single spaces, unique per plant.
+ */
+const LEGACY_CODE = /^[A-Z0-9][A-Z0-9 ./_-]{0,19}$/;
+const normalLegacy = (s: string) => s.trim().replace(/\s+/g, " ").toUpperCase();
+const legacyCodeInput = z
+  .string()
+  .max(40)
+  .optional()
+  .transform((s) => (s === undefined || s.trim() === "" ? null : normalLegacy(s)))
+  .refine((s) => s === null || LEGACY_CODE.test(s), { message: "A legacy code is up to 20 letters, digits, spaces or - / . _" });
 /** The physical billet count at close (Q59-A): pieces and grams, both zero or both above zero. */
 const billetCount = z
   .object({
@@ -512,7 +525,8 @@ const castsRouter = router({
       z
         .object({
           status: z.enum(castStatuses).optional(),
-          number: z.string().trim().max(12).optional(),
+          /** A series code (`K31`) or, FINAL-FIXES-4, the paper code of an imported cast. */
+          number: z.string().trim().max(20).optional(),
           limit: z.number().int().min(1).max(200).default(50),
           offset: z.number().int().min(0).default(0),
         })
@@ -522,7 +536,7 @@ const castsRouter = router({
       const where = and(
         eq(cast.companyId, ctx.companyId),
         input.status ? eq(cast.status, input.status) : undefined,
-        input.number ? eq(cast.number, input.number.toUpperCase()) : undefined,
+        input.number ? or(eq(cast.number, input.number.toUpperCase()), eq(cast.legacyCode, normalLegacy(input.number))) : undefined,
       );
       const [rows, [totalRow]] = await Promise.all([
         ctx.db
@@ -533,6 +547,7 @@ const castsRouter = router({
             month: cast.month,
             alloy: cast.alloy,
             grade: cast.grade,
+            legacyCode: cast.legacyCode,
             status: cast.status,
             openedAt: cast.openedAt,
             closedAt: cast.closedAt,
@@ -636,6 +651,8 @@ const castsRouter = router({
           fileName: spectroResult.fileName,
           mime: spectroResult.mime,
           sizeBytes: spectroResult.sizeBytes,
+          /** FINAL-FIXES-4: the bytes are stored here (a typed result and a watcher file kept at the instrument have none). */
+          hasFile: sql<number>`(length(${spectroResult.dataBase64}) > 0)`,
           valuesPpm: spectroResult.valuesPpm,
           verdict: spectroResult.verdict,
           source: spectroResult.source,
@@ -675,8 +692,9 @@ const castsRouter = router({
     const outs = group(outputs);
     const chems = group(chemicals);
     const specs = group(
-      spectro.map(({ valuesPpm, ...s }) => ({
+      spectro.map(({ valuesPpm, hasFile, ...s }) => ({
         ...s,
+        hasFile: Number(hasFile) === 1,
         values: Object.fromEntries(Object.entries(valuesPpm ?? {}).map(([k, v]) => [k, v / 10_000])),
       })),
     );
@@ -704,6 +722,8 @@ const castsRouter = router({
           alloyId: id.optional(),
           grade: optText(20),
           notes: optText(500),
+          /** FINAL-FIXES-4: the code an imported old cast has in the paper book; found later by the trace box. */
+          legacyCode: legacyCodeInput,
           clientRequestId,
         })
         .refine((v) => v.alloy !== undefined || v.alloyId !== undefined, { message: "Pick the alloy" }),
@@ -742,6 +762,19 @@ const castsRouter = router({
       };
       const before = await prior();
       if (before) return shape(before);
+      // A paper code names one cast of the plant. Checked before a series number is taken; the unique index decides a race.
+      const legacyTaken = async () =>
+        input.legacyCode
+          ? (
+              await ctx.db
+                .select({ number: cast.number })
+                .from(cast)
+                .where(and(eq(cast.companyId, ctx.companyId), eq(cast.legacyCode, input.legacyCode)))
+                .limit(1)
+            )[0]
+          : undefined;
+      const taken = await legacyTaken();
+      if (taken) bad(`The legacy code ${input.legacyCode} is already on cast ${taken.number}`);
 
       const userId = ctx.session.user.id;
       const at = clockNow();
@@ -760,6 +793,7 @@ const castsRouter = router({
         alloy: input.alloy,
         alloyId,
         grade: input.grade,
+        legacyCode: input.legacyCode,
         status: "open" as const,
         notes: input.notes,
         openedAt: at,
@@ -775,7 +809,7 @@ const castsRouter = router({
             action: "cast.open",
             subjectType: "cast",
             subjectId: castId,
-            meta: { number: doc.number, period: doc.period, alloy: input.alloy, grade: input.grade },
+            meta: { number: doc.number, period: doc.period, alloy: input.alloy, grade: input.grade, legacyCode: input.legacyCode },
           }),
         ]);
       } catch (e) {
@@ -783,9 +817,56 @@ const castsRouter = router({
           const won = await prior();
           if (won) return shape(won);
         }
+        if (isUniqueViolation(e, "cast.company_id, cast.legacy_code")) {
+          const won = await legacyTaken();
+          bad(`The legacy code ${input.legacyCode} is already on cast ${won?.number ?? "another cast"}`);
+        }
         throw e;
       }
       return { id: castId, number: doc.number, period: doc.period, alloy: input.alloy, status: "open" as const };
+    }),
+
+  /**
+   * Where the cast book continues (FP-FD-02, masters.publish): "the paper book is at 120, the first cast of
+   * this month is C120". `start: { period: "YYYY-MM", start }` sets it, `start: null` clears it. Only for a
+   * month with no cast yet (the UPDATE itself says so, so a cast opened a moment ago wins). Audited.
+   */
+  setSeriesStart: actionProcedure("masters.publish")
+    .input(
+      z.object({
+        start: z
+          .object({
+            period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Month is YYYY-MM"),
+            start: z.number().int().min(1).max(99_999),
+          })
+          .nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [row] = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)).limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+      const previous = (row.settings as Record<string, unknown> | null)?.castSeriesStart ?? null;
+      let noCastThatMonth = sql`1 = 1`;
+      if (input.start) {
+        const [year, month] = input.start.period.split("-").map(Number) as [number, number];
+        noCastThatMonth = sql`not exists (select 1 from ${cast} c0 where c0.company_id = ${ctx.companyId} and c0.year = ${year} and c0.month = ${month})`;
+      }
+      const settings = { ...(row.settings ?? {}), castSeriesStart: input.start };
+      const landed = and(eq(company.id, ctx.companyId), noCastThatMonth);
+      await atomicBatch(ctx.db, [
+        ctx.db.update(company).set({ settings }).where(landed),
+        auditInsertGuarded(
+          auditCtx(ctx),
+          { action: "foundry.castSeries.set", subjectType: "company", subjectId: ctx.companyId, meta: { castSeriesStart: input.start, previous } },
+          { from: company, where: landed },
+        ),
+      ]);
+      if (input.start) {
+        const [year, month] = input.start.period.split("-").map(Number) as [number, number];
+        const [used] = await ctx.db.select({ id: cast.id }).from(cast).where(and(eq(cast.companyId, ctx.companyId), eq(cast.year, year), eq(cast.month, month))).limit(1);
+        if (used) bad("That month already has a cast; the book can only be continued before the first cast");
+      }
+      return { start: input.start };
     }),
 
   /**

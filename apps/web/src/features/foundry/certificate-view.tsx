@@ -20,6 +20,7 @@ import { latestVerdict } from "./cast-view";
 import { clockText, dayText } from "./format";
 import { mmToFtText } from "./melt-form";
 import { castPeriodText, ELEMENT_LABEL, verdictTone } from "./model";
+import { SpectroFileLink } from "./spectro-file-link";
 import { SpectroTable } from "./spectro-panel";
 import { LoadFailed, Note, useTimeZone } from "./ui";
 
@@ -121,6 +122,7 @@ export function CertificateScreen({ id }: { id: string }) {
         <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
           {[
             { k: t("foundry.casts.columns.cast"), v: c.number, mono: true },
+            ...(c.legacyCode ? [{ k: t("foundry.newCast.legacy"), v: c.legacyCode, mono: true }] : []),
             { k: t("foundry.casts.columns.alloy"), v: c.alloy, mono: true },
             { k: t("foundry.melt.furnace"), v: furnaceCodes.join(", ") || "-", mono: true },
             { k: t("foundry.cert.period"), v: castPeriodText(c.year, c.month) },
@@ -134,6 +136,8 @@ export function CertificateScreen({ id }: { id: string }) {
 
         {live.map((m) => {
           const result = [...m.spectro].reverse().find((s) => !s.voidedAt);
+          // FP-FD-11: the newest live result that has its file, opened on screen only (never on the printed copy).
+          const filed = [...m.spectro].reverse().find((s) => !s.voidedAt && s.hasFile);
           const logs = m.outputs.filter((o) => o.kind === "logs");
           return (
             <section key={m.id} aria-label={t("foundry.melt.number", { n: m.seq })} className="flex min-w-0 flex-col gap-2 border-t border-border pt-4" data-melt={m.seq}>
@@ -149,6 +153,11 @@ export function CertificateScreen({ id }: { id: string }) {
               {result ? (
                 <>
                   <SpectroTable result={result} limits={limits} />
+                  {filed ? (
+                    <div className="print:hidden">
+                      <SpectroFileLink id={filed.id} fileName={filed.fileName} />
+                    </div>
+                  ) : null}
                   <p className="m-0 text-[12px] text-muted-foreground">{t("foundry.cert.limitsNote")}</p>
                 </>
               ) : (

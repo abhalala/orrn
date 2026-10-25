@@ -115,6 +115,7 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "foundry.alloy.limits",
   "foundry.alloy.update",
   "foundry.cast.cancel",
+  "foundry.castSeries.set",
   "foundry.furnace.create",
   "foundry.furnace.update",
   "foundry.melt.correct",

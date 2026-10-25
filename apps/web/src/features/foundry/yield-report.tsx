@@ -4,7 +4,9 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import type { AppRouter } from "@orrn/server/routers/index";
 import { useQuery } from "@tanstack/react-query";
+import type { inferRouterOutputs } from "@trpc/server";
 
 import { kgFromG } from "@/features/press/model";
 import { csvFileName, toCsv } from "@/features/reports/model";
@@ -42,8 +44,8 @@ export function FoundryYieldReport({ search, onSearch }: { search: YieldSearch; 
       ? {
           name: csvFileName(t("foundry.yield.csvName"), from, to),
           text: toCsv(
-            [t(`foundry.yield.group.${group}`), t("foundry.yield.melts"), t("foundry.yield.in"), t("foundry.yield.logs"), t("foundry.yield.dross"), t("foundry.yield.fe"), t("foundry.yield.burn"), t("foundry.yield.yield"), t("foundry.yield.ldo")],
-            d.rows.map((r) => [r.key, r.melts, (r.inputG / 1000).toFixed(3), (r.logsG / 1000).toFixed(3), (r.drossG / 1000).toFixed(3), (r.feG / 1000).toFixed(3), r.burnBp === null ? "" : bpText(r.burnBp), r.yieldBp === null ? "" : bpText(r.yieldBp), r.ldoPerTonneTenthIn === null ? "" : ldoText(r.ldoPerTonneTenthIn)]),
+            [t(`foundry.yield.group.${group}`), t("foundry.yield.melts"), t("foundry.yield.in"), t("foundry.yield.fromLots"), t("foundry.yield.fromStreams"), t("foundry.yield.logs"), t("foundry.yield.dross"), t("foundry.yield.fe"), t("foundry.yield.burn"), t("foundry.yield.yield"), t("foundry.yield.ldo")],
+            d.rows.map((r) => [r.key, r.melts, (r.inputG / 1000).toFixed(3), (r.lotsG / 1000).toFixed(3), (r.streamsG / 1000).toFixed(3), (r.logsG / 1000).toFixed(3), (r.drossG / 1000).toFixed(3), (r.feG / 1000).toFixed(3), r.burnBp === null ? "" : bpText(r.burnBp), r.yieldBp === null ? "" : bpText(r.yieldBp), r.ldoPerTonneTenthIn === null ? "" : ldoText(r.ldoPerTonneTenthIn)]),
           ),
         }
       : null;
@@ -125,6 +127,7 @@ export function FoundryYieldReport({ search, onSearch }: { search: YieldSearch; 
           </table>
         </ReportTableFrame>
       )}
+      {d && d.rows.length > 0 && d.total.inputG > 0 ? <BySource d={d} /> : null}
       {d && d.total.tailAdjustG !== 0 ? (
         <p className="m-0 text-[13px] text-muted-foreground" data-testid="yield-tail-adjust">
           {t("foundry.yield.tailAdjust", { kg: `${d.total.tailAdjustG < 0 ? "-" : "+"}${kgFromG(Math.abs(d.total.tailAdjustG))}`, pct: d.total.netYieldBp === null ? "-" : bpText(d.total.netYieldBp) })}
@@ -132,5 +135,47 @@ export function FoundryYieldReport({ search, onSearch }: { search: YieldSearch; 
       ) : null}
       <p className="m-0 text-[13px] text-muted-foreground">{t("foundry.yield.note")}</p>
     </ReportsGate>
+  );
+}
+
+type YieldData = inferRouterOutputs<AppRouter>["analytics"]["foundryYield"];
+
+/**
+ * Metal in by source (BACKLOG 75): the scrap lots, then each return stream, as kg and a share of all the
+ * metal charged into the locked melts of the range. The server sums them; nothing is added up here.
+ */
+function BySource({ d }: { d: YieldData }) {
+  const { t } = useT();
+  const share = (g: number) => (d.total.inputG > 0 ? bpText(Math.round((g * 10_000) / d.total.inputG)) : "-");
+  const rows = [
+    { key: "lots", label: t("foundry.yield.lots"), kgG: d.total.lotsG },
+    ...d.byStream.map((s) => ({ key: s.returnStreamId, label: s.name || s.code, kgG: s.kgG })),
+  ];
+  return (
+    <section className="flex min-w-0 flex-col gap-2" aria-label={t("foundry.yield.bySource")} data-testid="yield-by-source">
+      <h2 className="m-0 text-[16px] font-semibold">{t("foundry.yield.bySource")}</h2>
+      <ReportTableFrame label={t("foundry.yield.bySource")}>
+        <table className="report-table w-full border-collapse text-left text-[13px] leading-5">
+          <caption className="sr-only">{t("foundry.yield.bySource")}</caption>
+          <thead>
+            <tr className="border-b border-border text-muted-foreground">
+              <th scope="col" className={TH}>{t("foundry.yield.source")}</th>
+              <th scope="col" className={`${TH} text-right`}>{t("foundry.yield.in")}</th>
+              <th scope="col" className={`${TH} text-right`}>{t("foundry.yield.share")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key} className="border-b border-border last:border-0" data-source={r.key}>
+                <th scope="row" className={`${TD} font-medium`}>{r.label}</th>
+                <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgFromG(r.kgG)}</td>
+                <td className={`${TD} ${NUM}`}>{share(r.kgG)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ReportTableFrame>
+      <p className="m-0 text-[13px] text-muted-foreground">{t("foundry.yield.bySourceNote")}</p>
+    </section>
   );
 }

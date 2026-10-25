@@ -18,6 +18,7 @@ import { Boxes, FileText, RefreshCw, Truck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { OrderLineAged } from "@/features/ageing/order-aged";
 import { bookDateText } from "@/features/purchase/format";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
@@ -404,6 +405,8 @@ export function OrderDetailPage({ id }: { id: string }) {
                   </p>
                 ) : null}
                 {strip ? <BakiStrip strip={strip} label={`${order.number} ${t("orders.detail.lineShort", { n: line.lineNo })}`} /> : null}
+                {/* FP-AG-15: the line's pieces on the ageing side, beneath the Aged cell. */}
+                <OrderLineAged salesOrderId={order.id} lineId={line.lineId} />
                 {(() => {
                   const target: HoldTarget = {
                     lineId: line.lineId,

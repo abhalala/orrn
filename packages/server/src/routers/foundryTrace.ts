@@ -21,7 +21,7 @@ import { z } from "zod";
 import { customer } from "@orrn/db/schema/customers";
 import { dieInstance } from "@orrn/db/schema/dies";
 import { dispatch } from "@orrn/db/schema/dispatch";
-import { alloy, cast, furnace, melt, meltInput, meltReading, spectroResult } from "@orrn/db/schema/foundry";
+import { alloy, cast, furnace, melt, meltInput, meltReading, returnStream, spectroResult } from "@orrn/db/schema/foundry";
 import { bundle } from "@orrn/db/schema/inventory";
 import { pressRun } from "@orrn/db/schema/press";
 import { purchaseLot, scrapGrade, scrapItem } from "@orrn/db/schema/purchase";
@@ -89,7 +89,7 @@ async function castChain(ctx: Ctx, castId: string) {
       .groupBy(purchaseLot.id, purchaseLot.number, scrapItem.name, scrapGrade.code)
       .orderBy(asc(purchaseLot.number)),
     ctx.db
-      .select({ id: spectroResult.id, meltId: spectroResult.meltId, verdict: spectroResult.verdict, source: spectroResult.source, createdAt: spectroResult.createdAt })
+      .select({ id: spectroResult.id, meltId: spectroResult.meltId, verdict: spectroResult.verdict, source: spectroResult.source, createdAt: spectroResult.createdAt, fileName: spectroResult.fileName, hasFile: sql<number>`(length(${spectroResult.dataBase64}) > 0)` })
       .from(spectroResult)
       .where(and(eq(spectroResult.companyId, ctx.companyId), eq(spectroResult.castId, c.id), isNull(spectroResult.voidedAt)))
       .orderBy(desc(spectroResult.createdAt)),
@@ -153,8 +153,12 @@ async function castChain(ctx: Ctx, castId: string) {
     customers.set(b.customerId, row);
   }
   return {
-    cast: { id: c.id, number: c.number, year: c.year, alloy: c.alloy, status: c.status, openedAt: c.openedAt, closedAt: c.closedAt },
-    melts: melts.map((m) => ({ ...m, spectroVerdict: latest.get(m.id)?.verdict ?? null, lockSpectroVerdict: atLock(m.id, m.lockedAt) })),
+    cast: { id: c.id, number: c.number, legacyCode: c.legacyCode, year: c.year, alloy: c.alloy, status: c.status, openedAt: c.openedAt, closedAt: c.closedAt },
+    melts: melts.map((m) => {
+      // FINAL-FIXES-4 (FP-FD-11): the newest live result that has a file, so the trace can open it (`spectro.file`).
+      const filed = spectro.find((s) => s.meltId === m.id && Number(s.hasFile) === 1);
+      return { ...m, spectroVerdict: latest.get(m.id)?.verdict ?? null, lockSpectroVerdict: atLock(m.id, m.lockedAt), spectroFile: filed ? { id: filed.id, fileName: filed.fileName! } : null };
+    }),
     lotsIn: lotsIn.map((l) => ({ ...l, kgG: Number(l.kgG) })),
     billets: {
       producedG: billets.producedG,
@@ -296,6 +300,7 @@ export const foundryYieldProcedure = actionProcedure("reports.read")
     if (end - start > 93 * 86_400_000) bad("Pick at most 92 days");
     const rows = await ctx.db
       .select({
+        id: melt.id,
         castingEndAt: melt.castingEndAt,
         alloy: melt.alloy,
         alloyName: alloy.name,
@@ -323,8 +328,40 @@ export const foundryYieldProcedure = actionProcedure("reports.read")
       .innerJoin(cast, and(eq(cast.id, stockLedger.voucherId), eq(cast.companyId, stockLedger.companyId)))
       .where(and(eq(stockLedger.companyId, ctx.companyId), eq(stockLedger.voucherType, "cast_tail"), gte(stockLedger.postedAt, new Date(start)), lt(stockLedger.postedAt, new Date(end))))
       .limit(5_000);
-    type Group = { key: string; melts: number; inputG: number; logsG: number; drossG: number; feG: number; returnsG: number; burnG: number; ldoTenthIn: number; tailAdjustG: number };
-    const empty = (key: string): Group => ({ key, melts: 0, inputG: 0, logsG: 0, drossG: 0, feG: 0, returnsG: 0, burnG: 0, ldoTenthIn: 0, tailAdjustG: 0 });
+    // FINAL-FIXES-4 (BACKLOG 75): kg IN split into lots and each return stream, for the same locked melts. One
+    // aggregate per (melt, kind, stream) with the same melt filter; never an id list bound into a statement.
+    const ins = await ctx.db
+      .select({
+        meltId: meltInput.meltId,
+        kind: meltInput.kind,
+        streamId: meltInput.returnStreamId,
+        code: returnStream.code,
+        name: returnStream.name,
+        kgG: sql<number>`sum(${meltInput.kgG})`,
+      })
+      .from(meltInput)
+      .innerJoin(melt, and(eq(melt.id, meltInput.meltId), eq(melt.companyId, meltInput.companyId)))
+      .leftJoin(returnStream, and(eq(returnStream.id, meltInput.returnStreamId), eq(returnStream.companyId, meltInput.companyId)))
+      .where(and(eq(meltInput.companyId, ctx.companyId), eq(melt.status, "locked"), isNull(melt.cancelledAt), gte(melt.castingEndAt, new Date(start)), lt(melt.castingEndAt, new Date(end))))
+      .groupBy(meltInput.meltId, meltInput.kind, meltInput.returnStreamId, returnStream.code, returnStream.name)
+      .limit(20_000);
+    const inByMelt = new Map<string, { lotsG: number; streamsG: number }>();
+    const streamTotals = new Map<string, { returnStreamId: string; code: string; name: string; kgG: number }>();
+    for (const i of ins) {
+      const m = inByMelt.get(i.meltId) ?? { lotsG: 0, streamsG: 0 };
+      const kgG = Number(i.kgG);
+      if (i.kind === "lot") m.lotsG += kgG;
+      else {
+        m.streamsG += kgG;
+        const id = i.streamId ?? "";
+        const t = streamTotals.get(id) ?? { returnStreamId: id, code: i.code ?? "?", name: i.name ?? "", kgG: 0 };
+        t.kgG += kgG;
+        streamTotals.set(id, t);
+      }
+      inByMelt.set(i.meltId, m);
+    }
+    type Group = { key: string; melts: number; inputG: number; lotsG: number; streamsG: number; logsG: number; drossG: number; feG: number; returnsG: number; burnG: number; ldoTenthIn: number; tailAdjustG: number };
+    const empty = (key: string): Group => ({ key, melts: 0, inputG: 0, lotsG: 0, streamsG: 0, logsG: 0, drossG: 0, feG: 0, returnsG: 0, burnG: 0, ldoTenthIn: 0, tailAdjustG: 0 });
     const groups = new Map<string, Group>();
     for (const t of tails) {
       if (input.groupBy === "furnace") continue;
@@ -339,6 +376,8 @@ export const foundryYieldProcedure = actionProcedure("reports.read")
       const g = groups.get(key) ?? empty(key);
       g.melts += 1;
       g.inputG += r.inputG;
+      g.lotsG += inByMelt.get(r.id)?.lotsG ?? 0;
+      g.streamsG += inByMelt.get(r.id)?.streamsG ?? 0;
       g.logsG += r.logsG;
       g.drossG += r.drossG;
       g.feG += r.feG;
@@ -358,8 +397,8 @@ export const foundryYieldProcedure = actionProcedure("reports.read")
         ldoPerTonneTenthIn: g.logsG > 0 ? Math.round((g.ldoTenthIn * 1_000_000) / g.logsG) : null,
       }));
     const total = out.reduce(
-      (t, g) => ({ melts: t.melts + g.melts, inputG: t.inputG + g.inputG, logsG: t.logsG + g.logsG, burnG: t.burnG + g.burnG }),
-      { melts: 0, inputG: 0, logsG: 0, burnG: 0 },
+      (t, g) => ({ melts: t.melts + g.melts, inputG: t.inputG + g.inputG, lotsG: t.lotsG + g.lotsG, streamsG: t.streamsG + g.streamsG, logsG: t.logsG + g.logsG, burnG: t.burnG + g.burnG }),
+      { melts: 0, inputG: 0, lotsG: 0, streamsG: 0, logsG: 0, burnG: 0 },
     );
     const tailAdjustG = tails.reduce((s, t) => s + t.qtyG, 0);
     return {
@@ -367,6 +406,8 @@ export const foundryYieldProcedure = actionProcedure("reports.read")
       from: input.from,
       to: input.to,
       rows: out,
+      /** kg charged from each return stream across the range (biggest first); lots are `total.lotsG`. */
+      byStream: [...streamTotals.values()].sort((a, b) => b.kgG - a.kgG || a.code.localeCompare(b.code)),
       total: {
         ...total,
         yieldBp: bp(total.logsG, total.inputG),

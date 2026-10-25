@@ -243,12 +243,17 @@ export const cast = sqliteTable(
       .notNull(),
     /** W2-FD-S (0036): the `reason_code` (kind `cast_tail`) the closer named for a tail or a shortfall. App-enforced id. */
     tailReasonCodeId: text("tail_reason_code_id"),
+    /** FINAL-FIXES-4 (0042, FP-FD-02): the code an old cast carried on paper (upper case, free text), unique per plant. */
+    legacyCode: text("legacy_code"),
   },
   (table) => [
     uniqueIndex("cast_company_period_seq_unique").on(table.companyId, table.period, table.seq),
     uniqueIndex("cast_company_request_unique")
       .on(table.companyId, table.clientRequestId)
       .where(sql`${table.clientRequestId} is not null`),
+    uniqueIndex("cast_company_legacy_unique")
+      .on(table.companyId, table.legacyCode)
+      .where(sql`${table.legacyCode} is not null`),
     index("cast_company_number_idx").on(table.companyId, table.number),
     index("cast_company_status_idx").on(table.companyId, table.status, table.openedAt),
     index("cast_company_opened_idx").on(table.companyId, table.openedAt),

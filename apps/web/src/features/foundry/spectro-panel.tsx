@@ -15,6 +15,7 @@ import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ELEMENT_LABEL, limitText, ppmPct, readingTone, spectroInput, spectroRows, verdictTone } from "./model";
+import { SpectroFileLink } from "./spectro-file-link";
 import { ErrorLine, Note, FieldSelect } from "./ui";
 
 type CastData = inferRouterOutputs<AppRouter>["foundry"]["casts"]["get"];
@@ -81,6 +82,7 @@ export function ResultCard({ result, limits, canVoid }: { result: SpectroResult;
         <Chip tone="neutral" truncate={false}>{t(`foundry.spectro.source.${result.source}`)}</Chip>
         {voided ? <Chip tone="red" truncate={false}>{t("foundry.spectro.void")}</Chip> : null}
         {result.fileName ? <span className="break-all font-mono text-[13px] text-muted-foreground">{result.fileName}</span> : null}
+        {result.hasFile ? <SpectroFileLink id={result.id} fileName={result.fileName} /> : null}
         {canVoid && !voided ? (
           <Button type="button" variant="ghost" size="sm" className="ml-auto" onClick={() => setVoiding(true)} data-testid="spectro-void">
             {t("foundry.spectro.voidButton")}

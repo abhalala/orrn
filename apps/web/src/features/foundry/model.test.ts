@@ -22,6 +22,7 @@ import {
   spectroRows,
   tailChip,
   todayCounts,
+  legacyQuery,
   traceQuery,
   verdictTone,
 } from "./model";
@@ -100,6 +101,15 @@ describe("search", () => {
     expect(traceQuery(" 26J1842 ")).toEqual({ kind: "bundle", serial: "26J1842" });
     expect(traceQuery("hello")).toBeNull();
     expect(traceQuery("")).toBeNull();
+  });
+  test("an old paper code is anything short and plain that is not a cast or bundle code (FP-FD-02)", () => {
+    expect(legacyQuery(" old  17/b ")).toBe("OLD 17/B");
+    expect(legacyQuery("hello")).toBe("HELLO");
+    expect(legacyQuery("k31")).toBeNull();
+    expect(legacyQuery("26J1842")).toBeNull();
+    expect(legacyQuery("")).toBeNull();
+    expect(legacyQuery("<b>")).toBeNull();
+    expect(legacyQuery("x".repeat(21))).toBeNull();
   });
 });
 

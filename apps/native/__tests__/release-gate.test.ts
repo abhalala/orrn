@@ -24,7 +24,7 @@ import {
   type StoredCheck,
 } from "../lib/release-gate";
 import { hexId } from "../lib/hex-id";
-import { FORGOT_PASSWORD_PATH, joinWebUrl, settingsTabPath, webLinkRows } from "../lib/web-link";
+import { FORGOT_PASSWORD_PATH, joinWebUrl, meltWebPath, settingsTabPath, webLinkRows } from "../lib/web-link";
 
 const ROOT = join(import.meta.dir, "..");
 const read = (f: string) => readFileSync(join(ROOT, f), "utf8");
@@ -290,6 +290,8 @@ describe("device.register on launch", () => {
 describe("Open on the web, forgot password", () => {
   test("urls join without doubled slashes", () => {
     expect(joinWebUrl("https://orrn.in/", "/settings?tab=team")).toBe("https://orrn.in/settings?tab=team");
+    // FP-FD-11: an attached spectro file opens on the melt's web page.
+    expect(joinWebUrl("https://orrn.in", meltWebPath("c1", "m 2"))).toBe("https://orrn.in/casts/c1/melt/m%202");
     expect(joinWebUrl("http://localhost:3001", "forgot-password")).toBe("http://localhost:3001/forgot-password");
   });
 

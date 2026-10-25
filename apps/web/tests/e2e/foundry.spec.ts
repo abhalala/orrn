@@ -235,9 +235,10 @@ for (const width of WIDTHS) {
       await expect(main(page).getByTestId("cast-number").filter({ hasText: new RegExp(`^${cast.number}$`) })).toHaveCount(0);
       await page.getByRole("radio", { name: "Open", exact: true }).click();
       await expect(main(page).getByTestId("cast-number").filter({ hasText: new RegExp(`^${cast.number}$`) }).first()).toBeVisible();
-      await page.getByTestId("trace-input").fill("hello");
+      // FINAL-FIXES-4: plain short text is an old paper code now; only something that cannot be one is refused.
+      await page.getByTestId("trace-input").fill("###");
       await page.getByTestId("trace-go").click();
-      await expect(page.getByText("Type a cast code like k31 or a bundle number like 26J1842.")).toBeVisible();
+      await expect(page.getByText("Type a cast code like k31, an old paper code, or a bundle number like 26J1842.")).toBeVisible();
       await expect(page.getByTestId("open-cast")).toBeVisible();
       await expect(page.getByRole("link", { name: "Spectro inbox" })).toBeVisible();
       await expectClean(page);
@@ -434,6 +435,78 @@ for (const width of WIDTHS) {
       await expectClean(page);
     });
 
+    test("an imported cast is opened with its legacy code, shown beside the number and found by that code; the same code twice is refused (FP-FD-02)", async ({ page }) => {
+      const code = `OLD-${Math.random().toString(36).slice(2, 7).toUpperCase()}/${width}`;
+      await open(page, "/casts/new", width, "foundry");
+      await expect(page.getByLabel("Legacy code")).toBeVisible();
+      const alloyValue = await page.getByTestId("alloy-pick").locator("option", { hasText: "6063" }).first().getAttribute("value");
+      await page.getByTestId("alloy-pick").selectOption(alloyValue!);
+      await page.getByTestId("legacy-code").fill(code.toLowerCase());
+      await page.getByTestId("open-cast-submit").click();
+      await expect(page).toHaveURL(/\/casts\/[^/]+$/);
+      await expect(h1(page)).toHaveText(/^Cast [A-L]\d+$/);
+      const number = (await h1(page).innerText()).replace("Cast ", "").trim();
+      const castUrl = page.url();
+      // Stored upper case, said beside the series number in the header.
+      await expect(main(page)).toContainText(`Old code ${code}`);
+
+      // The trace box finds it by the paper code, in any case, and the list shows both codes.
+      await page.goto("/casts");
+      await page.getByTestId("trace-input").fill(code.toLowerCase());
+      await page.getByTestId("trace-go").click();
+      await expect(page).toHaveURL(/q=/);
+      const row = main(page).locator("tr, li").filter({ hasText: number }).first();
+      await expect(row).toBeVisible();
+      await expect(row.getByTestId("cast-legacy-code")).toHaveText(`Old code ${code}`);
+      await expectClean(page);
+
+      // A second cast cannot take the same paper code: the screen says which cast has it.
+      await page.goto("/casts/new");
+      await page.getByTestId("alloy-pick").selectOption(alloyValue!);
+      await page.getByTestId("legacy-code").fill(code);
+      await page.getByTestId("open-cast-submit").click();
+      await expect(page.getByTestId("foundry-error")).toContainText(`The legacy code ${code} is already on cast ${number}`);
+      await expect(page).toHaveURL(/\/casts\/new$/);
+      expect(castUrl).toContain("/casts/");
+    });
+
+    test("an attached spectro file opens again: View file on the locked melt, the trace tab and the certificate (screen only) (FP-FD-11)", async ({ page }) => {
+      const api = await ownerApi();
+      const cast = await openOwnCast(api);
+      const melt = await lockOwnMelt(api, cast.id);
+      await api.mutate("foundry.spectro.attach", {
+        meltId: melt.meltId,
+        fileName: "printout.txt",
+        mime: "text/plain",
+        base64: Buffer.from("Si 0.42 Fe 0.18 Mg 0.52 (e2e printout)").toString("base64"),
+        values: { si: 0.42, fe: 0.18, cu: 0.02, mn: 0.03, mg: 0.52, zn: 0.01, ti: 0.02, cr: 0.01 },
+      });
+      await api.dispose();
+
+      // The locked melt's sheet: the result carries the link and it opens the stored bytes in a new tab.
+      await open(page, `/casts/${cast.id}/melt/${melt.meltId}`, width, "manager");
+      await expect(page.getByTestId("melt-sheet")).toBeVisible();
+      const link = page.getByTestId("spectro-view-file").first();
+      await expect(link).toHaveText("View file");
+      const [popup] = await Promise.all([page.waitForEvent("popup"), link.click()]);
+      await popup.waitForURL(/^blob:/);
+      await expect(popup.locator("body")).toContainText("(e2e printout)");
+      await popup.close();
+
+      // The cast's trace tab names the file beside the melt's verdict.
+      await page.goto(`/casts/${cast.id}?tab=trace`);
+      await expect(page.getByTestId("trace-melts").getByTestId("spectro-view-file")).toBeVisible();
+
+      // The certificate shows it on screen and never on the printed copy.
+      await page.goto(`/casts/${cast.id}/certificate`);
+      const certLink = page.getByTestId("cast-certificate").getByTestId("spectro-view-file");
+      await expect(certLink).toBeVisible();
+      await page.emulateMedia({ media: "print" });
+      await expect(certLink).toBeHidden();
+      await page.emulateMedia({ media: "screen" });
+      await expectClean(page);
+    });
+
     test("the cost card is for purchase readers: a manager sees it, a foundry hand does not", async ({ page }) => {
       const api = await ownerApi();
       const cast = await openOwnCast(api);
@@ -449,3 +522,39 @@ for (const width of WIDTHS) {
     });
   });
 }
+
+test.describe("the cast book starts where the paper book is (FP-FD-02)", () => {
+  test("a manager sets the number a future month starts at, the card says the first cast code, and clears it; a foundry hand cannot", async ({ page }) => {
+    await open(page, "/settings?tab=standards", 1280, "manager");
+    const card = page.getByTestId("settings-cast-book");
+    await expect(card).toBeVisible();
+    try {
+      // The last month offered is a year out: no cast can exist there, so the server accepts it.
+      await card.getByTestId("cast-book-month").selectOption({ index: 12 });
+      const period = await card.getByTestId("cast-book-month").inputValue();
+      const letter = "ABCDEFGHIJKL"[Number(period.slice(5, 7)) - 1]!;
+      await expect(card.getByTestId("cast-book-save")).toBeDisabled();
+      await card.getByTestId("cast-book-start").fill("0");
+      await expect(card.getByText("Pick a month and a number from 1 to 99999.")).toBeVisible();
+      await card.getByTestId("cast-book-start").fill("587");
+      await card.getByTestId("cast-book-save").click();
+      await expect(page.getByText("Cast numbers saved").first()).toBeVisible();
+      await expect(card.getByTestId("cast-book-current")).toContainText(`number ${letter}587`);
+      await expect(card.getByTestId("cast-book-clear")).toBeVisible();
+      await expectClean(page);
+
+      // A foundry hand reads the same page without the form.
+      await open(page, "/settings?tab=standards", 1280, "foundry");
+      await expect(page.getByTestId("settings-cast-book")).toBeVisible();
+      await expect(page.getByTestId("settings-cast-book").getByTestId("cast-book-start")).toHaveCount(0);
+      await expect(page.getByTestId("cast-book-read-only")).toBeVisible();
+    } finally {
+      const api = await ownerApi();
+      await api.mutate("foundry.casts.setSeriesStart", { start: null });
+      await api.dispose();
+    }
+    await open(page, "/settings?tab=standards", 1280, "manager");
+    await expect(page.getByTestId("cast-book-current")).toContainText("start at 1 every month");
+  });
+});
+

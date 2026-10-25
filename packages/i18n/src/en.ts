@@ -2249,6 +2249,22 @@ export const en = {
       saveFailed: "Couldn't save the standards. Try again.",
       readOnly: "Only owners and admins can change standards.",
     },
+    castBook: {
+      title: "Cast numbers",
+      intro: "Continue the numbers of your paper cast book. The first cast of the month you pick takes the number you enter, then the numbers count on. Set it before that month's first cast.",
+      month: "Month",
+      start: "Cast number series starts at",
+      startHint: "The number the first cast of that month gets. The cast code is the month letter and this number.",
+      current: "The first cast of {month} will be number {number}.",
+      none: "Cast numbers start at 1 every month.",
+      save: "Save cast numbers",
+      saved: "Cast numbers saved",
+      clear: "Start at 1 again",
+      cleared: "Cast numbers start at 1 again",
+      invalid: "Pick a month and a number from 1 to 99999.",
+      saveFailed: "Could not save the cast numbers. If that month already has a cast, the book can no longer move there.",
+      readOnly: "Only a manager or the admin can change the cast numbers.",
+    },
     thresholds: {
       title: "Thresholds",
       intro: "The limits the screens colour by. Type a percent. A change applies from the next request.",
@@ -3464,13 +3480,6 @@ export const en = {
     recent: "Recent",
     pages: "Pages",
     pageRangeOpen: "{from}-{to}",
-  },
-
-  /** Placeholder for the two modules still being built elsewhere (`/preview/coming-soon`). */
-  comingSoon: {
-    ageing: "Ageing",
-    title: "This module is being built on another machine",
-    body: "It is not ready in this app yet. Nothing here is saved.",
   },
 
   /** Chart kit chrome (@orrn/ui/charts). Legend and series labels come from the screen. */
@@ -6097,6 +6106,7 @@ export const en = {
       foundry__alloy__limits: "Alloy limits changed",
       foundry__alloy__update: "Alloy changed",
       foundry__cast__cancel: "Cast cancelled",
+      foundry__castSeries__set: "Cast number series moved",
       foundry__furnace__create: "Furnace added",
       foundry__furnace__update: "Furnace changed",
       foundry__melt__correct: "Melt corrected",

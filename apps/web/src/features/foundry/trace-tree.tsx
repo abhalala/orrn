@@ -11,6 +11,7 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { MELT_TONE, verdictTone, type MeltStatus } from "./model";
+import { SpectroFileLink } from "./spectro-file-link";
 import { LoadFailed } from "./ui";
 
 /** One branch: a heading with a count, its rows below. */
@@ -72,6 +73,7 @@ export function TraceTree({ castId, highlight }: { castId: string; highlight?: s
                   <Chip tone="neutral">{t("foundry.spectro.none")}</Chip>
                 )
               ) : null}
+              {m.spectroFile ? <SpectroFileLink id={m.spectroFile.id} fileName={m.spectroFile.fileName} /> : null}
               {m.status === "locked" && m.lockSpectroVerdict && m.lockSpectroVerdict !== m.spectroVerdict ? (
                 <span className="text-[13px] text-muted-foreground" data-testid="trace-locked-with">
                   {t("foundry.cast.trace.lockedWith", { verdict: t(`foundry.spectro.verdict.${m.lockSpectroVerdict}`) })}

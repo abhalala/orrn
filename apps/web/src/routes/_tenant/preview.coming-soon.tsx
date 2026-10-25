@@ -1,29 +1,13 @@
-import { useT } from "@orrn/i18n";
-import { EmptyState } from "@orrn/ui/components/empty-state";
-import { PageHeader } from "@orrn/ui/components/page-header";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 /**
- * Honest placeholder for the module still being built elsewhere (ageing). No fixture screens.
- * Foundry is built: `?module=foundry`, or a missing module, no longer says it is coming and goes
- * to the real casts screen.
+ * Old bookmark of the "module being built elsewhere" page (retired 2026-10-25). Every module is built, so
+ * this only forwards: `?module=ageing` to the ageing board, `?module=foundry` to the casts, anything else
+ * to Today. It renders nothing. Kept so a saved link still lands somewhere real.
  */
 export const Route = createFileRoute("/_tenant/preview/coming-soon")({
-  validateSearch: (search: Record<string, unknown>): { module?: "ageing" | "foundry" } => ({
-    module: search.module === "ageing" ? "ageing" : search.module === "foundry" ? "foundry" : undefined,
-  }),
   beforeLoad: ({ search }) => {
-    if (search.module === "foundry") throw redirect({ to: "/casts", replace: true });
+    const module = (search as Record<string, unknown>).module;
+    throw redirect({ to: module === "foundry" ? "/casts" : module === "ageing" ? "/ageing" : "/today" });
   },
-  component: ComingSoon,
 });
-
-function ComingSoon() {
-  const { t } = useT();
-  return (
-    <>
-      <PageHeader title={t("comingSoon.ageing")} />
-      <EmptyState title={t("comingSoon.title")} body={t("comingSoon.body")} />
-    </>
-  );
-}

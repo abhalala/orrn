@@ -163,6 +163,11 @@ for (const width of WIDTHS) {
       const table = page.getByTestId("yield-table");
       await expect(table).toBeVisible();
       await expect(page.getByTestId("yield-totals")).toBeVisible();
+      // FP-FD-19: kg in by source, the scrap lots first, with their share of the metal in.
+      const bySource = page.getByTestId("yield-by-source");
+      await expect(bySource).toBeVisible();
+      await expect(bySource.locator("[data-source='lots']")).toContainText("Scrap lots");
+      await expect(bySource.locator("[data-source='lots']")).toContainText(/\d/);
       await page.getByRole("radio", { name: "Alloy" }).click();
       await expect(page).toHaveURL(/group=alloy/);
       await expect(table.locator("[data-key='6063']")).toBeVisible();

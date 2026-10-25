@@ -74,7 +74,7 @@ export function CastScreen({ id, tab, bundle, onTab }: { id: string; tab: CastTa
     <>
       <PageHeader
         title={t("foundry.cast.heading", { number: c.number })}
-        subtitle={`${castPeriodText(c.year, c.month)} · ${t("foundry.cast.alloyIs", { alloy: c.alloy })}`}
+        subtitle={[castPeriodText(c.year, c.month), t("foundry.cast.alloyIs", { alloy: c.alloy }), ...(c.legacyCode ? [t("foundry.casts.legacyChip", { code: c.legacyCode })] : [])].join(" · ")}
         back={back}
         actions={
           <div className="flex flex-wrap gap-2">

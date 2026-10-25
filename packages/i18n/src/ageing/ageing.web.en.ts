@@ -312,5 +312,16 @@ export const ageingWebEn = {
       none: "This bundle has not been through the oven.",
       released: "Released",
     },
+    forOrder: {
+      title: "On the trolleys",
+      loaded: "Loaded",
+      inOven: "In the oven",
+      outUntested: "Out, not tested",
+      held: "Held",
+      released: "Released, to pack",
+      packed: "Packed",
+      pcs: "{pcs} pcs",
+      note: "Pieces of this line that went through the ageing oven, by where they are now.",
+    },
   },
 };

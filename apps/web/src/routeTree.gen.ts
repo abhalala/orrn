@@ -153,8 +153,7 @@ import { Route as TenantPreviewFloorDispatchRouteImport } from './routes/_tenant
 import { Route as TenantPreviewDieRoomMakerRouteImport } from './routes/_tenant/preview.die-room.maker'
 import { Route as TenantPreviewDieRoomLiftRouteImport } from './routes/_tenant/preview.die-room.lift'
 import { Route as TenantPreviewDieRoomCardRouteImport } from './routes/_tenant/preview.die-room.card'
-import { Route as TenantPreviewAgeingReportRouteImport } from './routes/_tenant/preview.ageing.report'
-import { Route as TenantPreviewAgeingBatchRouteImport } from './routes/_tenant/preview.ageing.batch'
+import { Route as TenantPreviewAgeingPageRouteImport } from './routes/_tenant/preview.ageing.$page'
 import { Route as TenantPressRunsIdRouteImport } from './routes/_tenant/press.runs.$id'
 import { Route as TenantPressLinesIdRouteImport } from './routes/_tenant/press.lines.$id'
 import { Route as TenantPackIdLabelsRouteImport } from './routes/_tenant/pack_.$id_.labels'
@@ -907,18 +906,11 @@ const TenantPreviewDieRoomCardRoute =
     path: '/preview/die-room/card',
     getParentRoute: () => TenantRoute,
   } as any)
-const TenantPreviewAgeingReportRoute =
-  TenantPreviewAgeingReportRouteImport.update({
-    id: '/preview/ageing/report',
-    path: '/preview/ageing/report',
-    getParentRoute: () => TenantRoute,
-  } as any)
-const TenantPreviewAgeingBatchRoute =
-  TenantPreviewAgeingBatchRouteImport.update({
-    id: '/preview/ageing/batch',
-    path: '/preview/ageing/batch',
-    getParentRoute: () => TenantRoute,
-  } as any)
+const TenantPreviewAgeingPageRoute = TenantPreviewAgeingPageRouteImport.update({
+  id: '/preview/ageing/$page',
+  path: '/preview/ageing/$page',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantPressRunsIdRoute = TenantPressRunsIdRouteImport.update({
   id: '/press/runs/$id',
   path: '/press/runs/$id',
@@ -1116,8 +1108,7 @@ export interface FileRoutesByFullPath {
   '/pack/$id/labels': typeof TenantPackIdLabelsRoute
   '/press/lines/$id': typeof TenantPressLinesIdRoute
   '/press/runs/$id': typeof TenantPressRunsIdRoute
-  '/preview/ageing/batch': typeof TenantPreviewAgeingBatchRoute
-  '/preview/ageing/report': typeof TenantPreviewAgeingReportRoute
+  '/preview/ageing/$page': typeof TenantPreviewAgeingPageRoute
   '/preview/die-room/card': typeof TenantPreviewDieRoomCardRoute
   '/preview/die-room/lift': typeof TenantPreviewDieRoomLiftRoute
   '/preview/die-room/maker': typeof TenantPreviewDieRoomMakerRoute
@@ -1274,8 +1265,7 @@ export interface FileRoutesByTo {
   '/pack/$id/labels': typeof TenantPackIdLabelsRoute
   '/press/lines/$id': typeof TenantPressLinesIdRoute
   '/press/runs/$id': typeof TenantPressRunsIdRoute
-  '/preview/ageing/batch': typeof TenantPreviewAgeingBatchRoute
-  '/preview/ageing/report': typeof TenantPreviewAgeingReportRoute
+  '/preview/ageing/$page': typeof TenantPreviewAgeingPageRoute
   '/preview/die-room/card': typeof TenantPreviewDieRoomCardRoute
   '/preview/die-room/lift': typeof TenantPreviewDieRoomLiftRoute
   '/preview/die-room/maker': typeof TenantPreviewDieRoomMakerRoute
@@ -1438,8 +1428,7 @@ export interface FileRoutesById {
   '/_tenant/pack_/$id_/labels': typeof TenantPackIdLabelsRoute
   '/_tenant/press/lines/$id': typeof TenantPressLinesIdRoute
   '/_tenant/press/runs/$id': typeof TenantPressRunsIdRoute
-  '/_tenant/preview/ageing/batch': typeof TenantPreviewAgeingBatchRoute
-  '/_tenant/preview/ageing/report': typeof TenantPreviewAgeingReportRoute
+  '/_tenant/preview/ageing/$page': typeof TenantPreviewAgeingPageRoute
   '/_tenant/preview/die-room/card': typeof TenantPreviewDieRoomCardRoute
   '/_tenant/preview/die-room/lift': typeof TenantPreviewDieRoomLiftRoute
   '/_tenant/preview/die-room/maker': typeof TenantPreviewDieRoomMakerRoute
@@ -1598,8 +1587,7 @@ export interface FileRouteTypes {
     | '/pack/$id/labels'
     | '/press/lines/$id'
     | '/press/runs/$id'
-    | '/preview/ageing/batch'
-    | '/preview/ageing/report'
+    | '/preview/ageing/$page'
     | '/preview/die-room/card'
     | '/preview/die-room/lift'
     | '/preview/die-room/maker'
@@ -1756,8 +1744,7 @@ export interface FileRouteTypes {
     | '/pack/$id/labels'
     | '/press/lines/$id'
     | '/press/runs/$id'
-    | '/preview/ageing/batch'
-    | '/preview/ageing/report'
+    | '/preview/ageing/$page'
     | '/preview/die-room/card'
     | '/preview/die-room/lift'
     | '/preview/die-room/maker'
@@ -1919,8 +1906,7 @@ export interface FileRouteTypes {
     | '/_tenant/pack_/$id_/labels'
     | '/_tenant/press/lines/$id'
     | '/_tenant/press/runs/$id'
-    | '/_tenant/preview/ageing/batch'
-    | '/_tenant/preview/ageing/report'
+    | '/_tenant/preview/ageing/$page'
     | '/_tenant/preview/die-room/card'
     | '/_tenant/preview/die-room/lift'
     | '/_tenant/preview/die-room/maker'
@@ -2984,18 +2970,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantPreviewDieRoomCardRouteImport
       parentRoute: typeof TenantRoute
     }
-    '/_tenant/preview/ageing/report': {
-      id: '/_tenant/preview/ageing/report'
-      path: '/preview/ageing/report'
-      fullPath: '/preview/ageing/report'
-      preLoaderRoute: typeof TenantPreviewAgeingReportRouteImport
-      parentRoute: typeof TenantRoute
-    }
-    '/_tenant/preview/ageing/batch': {
-      id: '/_tenant/preview/ageing/batch'
-      path: '/preview/ageing/batch'
-      fullPath: '/preview/ageing/batch'
-      preLoaderRoute: typeof TenantPreviewAgeingBatchRouteImport
+    '/_tenant/preview/ageing/$page': {
+      id: '/_tenant/preview/ageing/$page'
+      path: '/preview/ageing/$page'
+      fullPath: '/preview/ageing/$page'
+      preLoaderRoute: typeof TenantPreviewAgeingPageRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/press/runs/$id': {
@@ -3302,8 +3281,7 @@ interface TenantRouteChildren {
   TenantPackIdLabelsRoute: typeof TenantPackIdLabelsRoute
   TenantPressLinesIdRoute: typeof TenantPressLinesIdRoute
   TenantPressRunsIdRoute: typeof TenantPressRunsIdRoute
-  TenantPreviewAgeingBatchRoute: typeof TenantPreviewAgeingBatchRoute
-  TenantPreviewAgeingReportRoute: typeof TenantPreviewAgeingReportRoute
+  TenantPreviewAgeingPageRoute: typeof TenantPreviewAgeingPageRoute
   TenantPreviewDieRoomCardRoute: typeof TenantPreviewDieRoomCardRoute
   TenantPreviewDieRoomLiftRoute: typeof TenantPreviewDieRoomLiftRoute
   TenantPreviewDieRoomMakerRoute: typeof TenantPreviewDieRoomMakerRoute
@@ -3426,8 +3404,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPackIdLabelsRoute: TenantPackIdLabelsRoute,
   TenantPressLinesIdRoute: TenantPressLinesIdRoute,
   TenantPressRunsIdRoute: TenantPressRunsIdRoute,
-  TenantPreviewAgeingBatchRoute: TenantPreviewAgeingBatchRoute,
-  TenantPreviewAgeingReportRoute: TenantPreviewAgeingReportRoute,
+  TenantPreviewAgeingPageRoute: TenantPreviewAgeingPageRoute,
   TenantPreviewDieRoomCardRoute: TenantPreviewDieRoomCardRoute,
   TenantPreviewDieRoomLiftRoute: TenantPreviewDieRoomLiftRoute,
   TenantPreviewDieRoomMakerRoute: TenantPreviewDieRoomMakerRoute,

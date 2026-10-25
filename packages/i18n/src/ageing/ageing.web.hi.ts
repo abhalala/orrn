@@ -312,5 +312,16 @@ export const ageingWebHi = {
       none: "यह बंडल ओवन से नहीं गुज़रा।",
       released: "छोड़ा गया",
     },
+    forOrder: {
+      title: "ट्रॉली पर",
+      loaded: "लोड किए",
+      inOven: "ओवन में",
+      outUntested: "बाहर, जांच बाकी",
+      held: "होल्ड",
+      released: "छोड़े, पैक होने हैं",
+      packed: "पैक हुए",
+      pcs: "{pcs} पीस",
+      note: "इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं।",
+    },
   },
 };

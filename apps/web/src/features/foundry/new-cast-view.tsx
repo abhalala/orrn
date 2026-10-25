@@ -1,7 +1,7 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
-import { Field } from "@orrn/ui/components/field";
+import { Field, TextInput } from "@orrn/ui/components/field";
 import { UiLink } from "@orrn/ui/components/link";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Skeleton } from "@orrn/ui/components/skeleton";
@@ -29,6 +29,7 @@ export function NewCastScreen() {
   const alloys = useQuery({ ...trpc.foundry.alloys.list.queryOptions(), meta: INLINE_ERROR_META });
   const furnaces = useQuery({ ...trpc.foundry.furnaces.list.queryOptions(), meta: INLINE_ERROR_META });
   const [alloyId, setAlloyId] = useState("");
+  const [legacyCode, setLegacyCode] = useState("");
   // One id per screen visit: a double tap or a retried request opens one cast.
   const requestId = useRef(crypto.randomUUID());
   const open = useMutation(
@@ -53,7 +54,7 @@ export function NewCastScreen() {
         className="flex max-w-xl flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (alloyId) open.mutate({ alloyId, clientRequestId: requestId.current });
+          if (alloyId) open.mutate({ alloyId, ...(legacyCode.trim() ? { legacyCode: legacyCode.trim() } : {}), clientRequestId: requestId.current });
         }}
       >
         {activeAlloys.length === 0 ? (
@@ -82,6 +83,21 @@ export function NewCastScreen() {
             </FieldSelect>
           </Field>
         )}
+        <Field label={t("foundry.newCast.legacy")} hint={t("foundry.newCast.legacyHint")}>
+          <TextInput
+            value={legacyCode}
+            maxLength={20}
+            autoComplete="off"
+            autoCapitalize="characters"
+            className="font-mono"
+            placeholder={t("foundry.newCast.legacyPlaceholder")}
+            data-testid="legacy-code"
+            onChange={(e) => {
+              requestId.current = crypto.randomUUID();
+              setLegacyCode(e.currentTarget.value);
+            }}
+          />
+        </Field>
         <div className="flex min-w-0 flex-col gap-2" data-testid="furnace-line">
           <span className="text-[14px] font-medium">{t("foundry.newCast.furnace")}</span>
           {activeFurnaces.length > 0 ? (

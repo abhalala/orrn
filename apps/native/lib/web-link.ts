@@ -14,6 +14,11 @@ export function settingsTabPath(tab: "team" | "shifts" | "standards" | "backup")
   return `/settings?tab=${tab}`;
 }
 
+/** A melt on the web (its stepper, or its read-only sheet once locked): where an attached spectro file opens (FP-FD-11). */
+export function meltWebPath(castId: string, meltId: string): string {
+  return `/casts/${encodeURIComponent(castId)}/melt/${encodeURIComponent(meltId)}`;
+}
+
 export const FORGOT_PASSWORD_PATH = "/forgot-password";
 
 export type WebLinkKey = "team" | "shifts" | "standards" | "backup";
