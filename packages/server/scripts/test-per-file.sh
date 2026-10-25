@@ -43,7 +43,9 @@ done
 [ "${#files[@]}" -gt 0 ] || { echo "no test files match" >&2; exit 2; }
 
 run_one() {
-  local f="$1" log="$LOG_DIR/$(basename "$f").log" start end
+  # Two statements: in one `local`, "$f" in the log path would expand before f is set (empty under xargs -P).
+  local f="$1"
+  local log="$LOG_DIR/$(basename "$f").log" start end
   local flags=""
   [ -n "${TIMEOUT_MS:-}" ] && flags="--timeout $TIMEOUT_MS"
   start=$(date +%s)
