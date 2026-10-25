@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5109 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -404,7 +404,7 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `done.goOther` | Continue | आगे बढ़ें |
 | `done.opening` | Opening | खुल रहा है |
 
-### today (114)
+### today (125)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -501,6 +501,17 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `kpi.stockMeta` | {count} {count:bundle\|bundles} now | अभी {count} bundle |
 | `kpi.value` | Dispatched value | Dispatch की कीमत |
 | `kpi.valueMeta` | {count} {count:bundle\|bundles} with a rate | {count} bundle पर रेट है |
+| `press.title` | Press | प्रेस |
+| `press.open` | Open the press summary | प्रेस सारांश खोलें |
+| `press.pressed` | Pressed today | आज प्रेस हुआ |
+| `press.runs` | Runs: {count} | रन: {count} |
+| `press.trials` | trials {kg} kg | ट्रायल {kg} kg |
+| `press.recovery` | Recovery | रिकवरी |
+| `press.recoveryMeta` | Production runs only | सिर्फ़ प्रोडक्शन रन |
+| `press.downtime` | Downtime | रुकावट |
+| `press.stops` | Stops, longest first | स्टॉपेज, सबसे लंबे पहले |
+| `press.late` | Entered late | देर से भरे |
+| `press.lateShare` | {pct}% of runs | {pct}% रन |
 | `floor.heading` | Floor | फ़्लोर |
 | `floor.press` | Press | प्रेस |
 | `floor.pressHint` | {count} queued | {count} कतार में |
@@ -3908,7 +3919,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (374)
+### orders (378)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4249,6 +4260,10 @@ Please check, Lalubhai:
 | `plan.windowHint` | A window is at most 24 hours. | एक प्लान का समय ज़्यादा से ज़्यादा 24 घंटे। |
 | `plan.windowLong` | The window is longer than 24 hours. | समय 24 घंटे से ज़्यादा है। |
 | `plan.windowOrder` | The window must end after it starts. | खत्म होने का समय शुरू के बाद होना चाहिए। |
+| `plan.windowShown` | Production day {day}: {from} to {to}, plant time | प्रोडक्शन दिन {day}: {from} से {to} तक, प्लांट का समय |
+| `plan.atToday` | today {time} | आज {time} |
+| `plan.atTomorrow` | tomorrow {time} | अगले दिन {time} |
+| `plan.atOther` | {date} {time} | {date} {time} |
 | `plan.openLines` | Open lines | खुली लाइनें |
 | `plan.searchPlaceholder` | Die, customer or PO | Die, ग्राहक या PO |
 | `plan.searchLabel` | Search open lines | खुली लाइनें खोजें |
@@ -4320,7 +4335,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (425)
+### press (431)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4668,6 +4683,11 @@ Please check, Lalubhai:
 | `late.futureStop` | A late entry is for a run that has already stopped. | देर से एंट्री उस रन की है जो रुक चुका है। |
 | `late.noQueued` | No queued run on this press. | इस प्रेस पर कतार में कोई रन नहीं। |
 | `late.pickOne` | Pick one | एक चुनें |
+| `late.needCopy` | Pick the die copy that was used. | जो Die कॉपी लगी थी, वह चुनें। |
+| `late.findCopy` | Type the copy code | कॉपी कोड लिखें |
+| `late.copyIssued` | Die copy {code} is issued to this run. | Die कॉपी {code} इस रन को दी गई है। |
+| `late.copyHint` | Copies of {section} on the rack. | {section} की रैक पर रखी कॉपी। |
+| `late.copyHintTrial` | Copies of {section} on the rack or on trial (a die trial run). | {section} की रैक पर रखी या ट्रायल वाली कॉपी (die ट्रायल रन)। |
 | `linesPage.title` | Press lines | प्रेस लाइन |
 | `linesPage.subtitle` | The presses of the plant. | प्लांट के प्रेस। |
 | `linesPage.empty` | No press lines yet. | अभी कोई प्रेस लाइन नहीं। |
@@ -4749,6 +4769,7 @@ Please check, Lalubhai:
 | `summary.previous` | Earlier day | पिछला दिन |
 | `summary.loadFailed` | The summary did not load. Check the connection and try again. | सारांश नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
+| `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
 ### foundry (64)
 

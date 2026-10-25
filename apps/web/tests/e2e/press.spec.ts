@@ -787,6 +787,18 @@ test.describe("press in Hindi and Gujarati at 375", () => {
     await context.close();
   });
 
+  test("gu: Today's press tile is Gujarati, not the English fallback (BACKLOG 54)", async ({ browser }) => {
+    const { page, context } = await openAs(browser, "supervisor", 375, "/today", { locale: "gu" });
+    const tile = page.getByTestId("today-press");
+    await expect(tile).toBeVisible();
+    for (const gu of ["પ્રેસ", "પ્રેસનો સારાંશ ખોલો", "આજે પ્રેસ થયું", "રિકવરી", "બંધ સમય", "પછીથી ભરેલા"]) await expect(tile).toContainText(gu);
+    for (const en of ["Open the press summary", "Pressed today", "Downtime", "Entered late", "Recovery"]) await expect(tile).not.toContainText(en);
+    await expect(tile).not.toContainText(/\b(today|press|units)\.[a-zA-Z]+/);
+    await shot(page, 375, "today-press-gu");
+    await clean(page);
+    await context.close();
+  });
+
   test("hi: the counting stepper and a refused close read Hindi; no server English reaches the screen", async ({ browser }) => {
     test.setTimeout(90_000);
     // The figures are in (as the press man would have saved them); one stoppage is left open.

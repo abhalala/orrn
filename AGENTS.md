@@ -480,6 +480,15 @@ bun run deploy
   the first reason. The ageing lane registers its check there (a non-void `ageing_row` pointing at
   the run); register at module load of the ageing router so every worker has it. Late entry checks the copy with
   `assertLateEntryCopy` (issue words, owner gate) and refuses retired lines and runs > 7 days old.
+  The late-entry sheet's queued-run path names the copy when the run has none issued (BACKLOG 50):
+  a searchable picker of the run's die only, `available` copies (+ `on_trial` for a die trial run).
+- Press summary and Today's tile, ONE rule (BACKLOG 53b; `lib/pressReport.ts` `dayFigures`):
+  `press.summary` / `dashboard.today.pressedToday` `kgG`, `inputG`, `pcs` and `recoveryBp` count
+  PRODUCTION runs only (pressed kg and its recovery share one base); die trial, sample and other runs
+  are `trialKgG` / `trialRuns` and the screens say them apart ("Pressed 710.4 kg · trials 13.8 kg").
+  `runs`, scrap, downtime and the late share count every run. The press report keeps every run as a
+  row and its `totals.productionGoodG` / `productionInputG` are the same production figures. Today's
+  tile reads `today.press.*` (a gu floor namespace, BACKLOG 54), never `press.summary.*`.
 - Foundry: `furnace`, `alloy`, `alloy_limit` (ppm min/max per element), cast `alloy_id` + cancel
   columns (status +`cancelled`), melt `status` draft|locked|cancelled (SQL default `locked`: the PL5
   create path posts on create), nullable times/dips for drafts, `furnace_id`, `alloy_id`, `yield_bp`,

@@ -66,6 +66,16 @@ describe("Gujarati: partial, floor namespaces complete", () => {
     expect(all.filter((s) => (s.match(/·/g) ?? []).length > 1)).toEqual([]);
   });
 
+  test("BACKLOG 54: Today's press tile (press, supervisor, manager) reads Gujarati, not the English fallback", () => {
+    const tile = ["title", "open", "pressed", "runs", "trials", "recovery", "recoveryMeta", "downtime", "stops", "late", "lateShare"].map((k) => `today.press.${k}`);
+    for (const key of tile) {
+      expect({ key, en: enFlat.has(key), gu: guFlat.has(key) }).toEqual({ key, en: true, gu: true });
+      expect({ key, same: guFlat.get(key) === enFlat.get(key) }).toEqual({ key, same: false });
+    }
+    const { t } = createI18n("gu");
+    expect(t("today.press.pressed")).not.toBe(en.today.press.pressed);
+  });
+
   test("a missing gu key falls back to English", () => {
     const { t } = createI18n("gu");
     expect(t("pack.title")).toBe("પૅકિંગ");

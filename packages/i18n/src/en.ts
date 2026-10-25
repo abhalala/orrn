@@ -553,6 +553,20 @@ export const en = {
       value: "Dispatched value",
       valueMeta: "{count} {count:bundle|bundles} with a rate",
     },
+    /** Today's press tile (press, supervisor, manager); floor namespace, so gu carries it (BACKLOG 54). */
+    press: {
+      title: "Press",
+      open: "Open the press summary",
+      pressed: "Pressed today",
+      runs: "Runs: {count}",
+      trials: "trials {kg} kg",
+      recovery: "Recovery",
+      recoveryMeta: "Production runs only",
+      downtime: "Downtime",
+      stops: "Stops, longest first",
+      late: "Entered late",
+      lateShare: "{pct}% of runs",
+    },
     floor: {
       heading: "Floor",
       press: "Press",
@@ -5083,6 +5097,7 @@ export const en = {
       previous: "Earlier day",
       loadFailed: "The summary did not load. Check the connection and try again.",
       shiftRow: "{runs} {runs:run|runs}, {kg} kg",
+      trials: "trials {kg} kg",
     },
   },
 

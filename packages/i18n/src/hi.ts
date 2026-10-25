@@ -546,6 +546,19 @@ export const hi = {
       value: "Dispatch की कीमत",
       valueMeta: "{count} bundle पर रेट है",
     },
+    press: {
+      title: "प्रेस",
+      open: "प्रेस सारांश खोलें",
+      pressed: "आज प्रेस हुआ",
+      runs: "रन: {count}",
+      trials: "ट्रायल {kg} kg",
+      recovery: "रिकवरी",
+      recoveryMeta: "सिर्फ़ प्रोडक्शन रन",
+      downtime: "रुकावट",
+      stops: "स्टॉपेज, सबसे लंबे पहले",
+      late: "देर से भरे",
+      lateShare: "{pct}% रन",
+    },
     floor: {
       heading: "फ़्लोर",
       press: "प्रेस",
@@ -5070,6 +5083,7 @@ export const hi = {
       previous: "पिछला दिन",
       loadFailed: "सारांश नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें।",
       shiftRow: "{runs} रन, {kg} kg",
+      trials: "ट्रायल {kg} kg",
     },
   },
 
